@@ -1,275 +1,127 @@
-# UnityTestRepository 협업 가이드
+# Unity 프로젝트 컨벤션
 
-이 문서는 프로젝트 참여자가 같은 Git 및 Unity 작업 규칙을 따르기 위한 안내서입니다. 게임 기획 내용은 포함하지 않습니다.
+이 문서는 프로젝트 코드와 Unity 에셋을 같은 기준으로 작성하기 위한 아키텍처 규칙만 다룹니다.
 
-## 기술 환경
+## 개발 환경
 
 - Unity `6000.3.22f1`
-- Universal 3D / Universal Render Pipeline(URP)
-- Photon Cloud 기반 멀티플레이
-- Steam 연동 예정
-- ScriptableObject Architecture Pattern(SOAP)
+- Universal Render Pipeline(URP)
+- Photon Cloud
+- VContainer `1.19.0`
+- R3 `1.3.1`
+- UniTask `2.5.11`
 
-Unity 버전과 렌더 파이프라인이 다르면 씬, 프리팹, 머티리얼과 `ProjectSettings`에서 불필요한 변경이 생길 수 있으므로 반드시 같은 환경을 사용합니다.
+Unity 버전과 렌더 파이프라인을 맞추지 않으면 씬, 프리팹, 머티리얼과 `ProjectSettings`에 불필요한 변경이 생길 수 있습니다.
 
-## 저장소 받기
+R3의 코어 DLL은 NuGetForUnity가 `Assets/Packages`에 복원합니다. DLL이 없다면 Unity 메뉴에서 `NuGet > Restore Packages`를 실행합니다. `Assets/Packages`는 생성 결과이므로 직접 수정하지 않습니다.
 
-```bash
-git clone https://github.com/hantawon123/UnityTestRepository.git
-cd UnityTestRepository
-```
-
-Unity Hub에서 clone한 저장소 폴더를 프로젝트로 엽니다. 처음 열 때 생성되는 `Library`, `Temp`, `Logs`, `UserSettings`, `.csproj`, `.slnx` 파일은 Git에 올리지 않습니다.
-
-## 브랜치 구조
+## 기본 구조
 
 ```text
-main
-├─ develop/client
-│  └─ 유형/#이슈번호-작업내용
-└─ develop/server
-   └─ 유형/#이슈번호-작업내용
+Assets/_Game/
+├─ Bootstrap/  앱 전체 조립과 루트 LifetimeScope
+├─ Core/       공통 게임 규칙과 순수 타입
+├─ Client/     입력, UI, 카메라, 애니메이션과 로컬 표현
+├─ Server/     Photon 연결, 권한, 상태 동기화와 경기 진행
+├─ SOAP/       정적 Definition과 Config
+├─ Content/    씬, 프리팹, 오디오와 ScriptableObject 에셋
+└─ Tests/      EditMode와 PlayMode 테스트
 ```
 
-| 브랜치 | 용도 |
-|---|---|
-| `main` | 검토가 끝난 통합 버전. 직접 push하지 않고 Pull Request로만 병합 |
-| `develop/client` | 입력, 캐릭터, 카메라, UI와 클라이언트 표현 작업 통합 |
-| `develop/server` | Photon 연결, 방, 권한, 상태 동기화와 경기 진행 작업 통합 |
-| `유형/#이슈번호-작업내용` | 이슈 단위의 개별 작업 |
-
-`main`에는 다음 보호 규칙이 적용되어 있습니다.
-
-- Pull Request 필수
-- 승인 1명 필수
-- 관리자도 직접 push할 수 없음
-- 새 커밋이 추가되면 기존 승인 취소
-- 대화가 해결되어야 병합 가능
-- 강제 push와 브랜치 삭제 금지
-
-## 이슈 및 커밋 유형
-
-이슈 제목, 커밋 메시지와 Pull Request 제목 맨 앞에 작업 유형을 표시합니다.
-
-| 유형 | 설명 |
-|---|---|
-| `[FEAT]` | 새로운 기능 구현 |
-| `[MOD]` | 코드 및 내부 파일 수정 |
-| `[ADD]` | 부수적인 코드, 라이브러리 또는 새로운 파일 추가 |
-| `[CHORE]` | 버전, 패키지 구조, 타입과 변수명 등의 작은 작업 |
-| `[DEL]` | 불필요한 코드나 파일 삭제 |
-| `[UI]` | UI 작업 |
-| `[FIX]` | 버그 및 오류 해결 |
-| `[HOTFIX]` | Issue 또는 QA에서 발견된 긴급 버그 해결 |
-| `[MERGE]` | 브랜치 병합 |
-| `[MOVE]` | 프로젝트 내 파일 또는 코드 이동 |
-| `[RENAME]` | 파일 이름 변경 |
-| `[REFACTOR]` | 코드 전면 수정 |
-| `[DOCS]` | README 또는 Wiki 등의 문서 개정 |
-
-커밋 메시지는 다음 형식을 사용합니다.
+asmdef 의존 방향은 다음과 같습니다.
 
 ```text
-[유형] 작업 내용
-
-[FEAT] 입력 처리 추가
-[FIX] 카메라 회전 오류 수정
-[DOCS] 협업 가이드 수정
+Bootstrap -> Client, Server
+Client    -> Core, SOAP
+Server    -> Core, SOAP
+SOAP      -> Core
+Core      -> 외부 게임 계층에 의존하지 않음
 ```
 
-한 커밋에는 가능한 한 하나의 목적만 포함합니다. 관계없는 씬, 프리팹, 설정 파일을 함께 커밋하지 않습니다.
+`Client`와 `Server`는 서로 직접 참조하지 않습니다. 두 영역이 함께 사용하는 규칙과 타입은 `Core`로 이동합니다. 이 프로젝트에서 `Server`는 별도 Spring 서버가 아니라 Unity 안의 Photon 네트워크 영역을 뜻합니다.
 
-## 이슈 컨벤션
+## VContainer 의존성 주입
 
-기능 구현이나 수정 전에 이슈를 먼저 생성하고 Assignees에 본인을 등록합니다.
+- 앱 전체에서 하나만 존재하는 서비스는 `ProjectLifetimeScope`에 Singleton으로 등록합니다.
+- 경기나 씬에서만 필요한 객체는 해당 씬의 자식 LifetimeScope에 Scoped로 등록합니다.
+- 일반 C# 클래스는 생성자 주입을 사용합니다.
+- `MonoBehaviour`는 VContainer의 메서드 주입을 사용합니다.
+- 코드 곳곳에서 컨테이너의 `Resolve`를 직접 호출하는 Service Locator 방식은 사용하지 않습니다.
+- View, Presenter, 네트워크 서비스의 생성과 연결은 LifetimeScope의 `Configure`에서만 조립합니다.
 
-이슈 제목:
+`VContainerSettings.asset`이 `ProjectLifetimeScope.prefab`을 Preloaded Asset으로 로드하므로 어떤 씬부터 실행해도 앱 공통 의존성을 사용할 수 있어야 합니다.
+
+## R3 상태와 이벤트
+
+- 런타임 상태와 로컬 이벤트 흐름은 R3로 표현합니다.
+- 변경 가능한 `ReactiveProperty<T>`는 소유 클래스의 `private` 필드로 둡니다.
+- 외부에는 `ReadOnlyReactiveProperty<T>` 또는 `Observable<T>`만 공개합니다.
+- 구독은 소유 객체의 수명에 맞춰 `CompositeDisposable`, `AddTo` 또는 명시적 `Dispose`로 반드시 해제합니다.
+- 여러 시스템이 아무 제한 없이 값을 변경할 수 있는 public setter를 만들지 않습니다.
+- 한 번 호출하고 끝나는 비동기 작업은 R3가 아니라 UniTask로 작성합니다.
+
+## UI와 로직 분리
+
+UI는 MVP 구조를 기본으로 사용합니다.
+
+- View(`MonoBehaviour`)는 화면 출력과 사용자 입력 전달만 담당합니다.
+- Presenter(일반 C# 클래스)는 상태를 구독하고 View 갱신을 지시합니다.
+- View에서 점수 계산, 경기 판정, Photon 호출과 데이터 저장을 하지 않습니다.
+- Presenter는 View의 구체 구현보다 필요한 인터페이스에 의존합니다.
+- UI 상태의 원본은 View 컴포넌트가 아니라 Model 또는 런타임 상태 객체입니다.
+
+## UniTask 비동기 규칙
+
+- 비동기 메서드는 `UniTask` 또는 `UniTask<T>`를 반환합니다.
+- `async void`는 사용하지 않습니다. Unity 이벤트에서 기다릴 수 없을 때만 예외 처리를 갖춘 `Forget()` 진입점을 사용합니다.
+- `CancellationToken`은 마지막 매개변수에 두고 MonoBehaviour나 LifetimeScope의 수명과 연결합니다.
+- 씬 로드, 리소스 로드, 팝업 연출과 서버 요청을 `async/await`로 통일합니다.
+- 경기 제한 시간의 원본은 클라이언트의 `Delay`나 Coroutine이 아니라 Photon의 서버 시간 기준으로 계산합니다.
+
+## Photon 상태 규칙
+
+- 방 참가자 모두에게 영향을 주는 결과는 권한을 가진 네트워크 영역에서 확정합니다.
+- 클라이언트는 입력 의도를 보내고, 확정된 상태를 받아 화면에 표현합니다.
+- 경기 페이즈, 남은 시간, 점수, 아이템 소유와 발견 여부를 ScriptableObject에 저장하지 않습니다.
+- 네트워크로 확정된 상태를 로컬 R3 상태에 반영한 뒤 UI, 사운드와 이펙트가 이를 구독하게 합니다.
 
 ```text
-[유형] 작업 내용
-
-[UI] 로그인 화면 구현
+사용자 입력
+  -> Photon 요청 및 권한 검증
+  -> 네트워크 상태 확정/동기화
+  -> 로컬 R3 상태 갱신
+  -> Presenter
+  -> View
 ```
 
-이슈 내용:
+## ScriptableObject 사용 범위
 
-```markdown
-## What is this issue? 🛠
-이슈 설명
+SOAP 폴더에는 런타임 변수 에셋과 이벤트 채널을 만들지 않습니다.
 
-## Progress 🏃‍♀️
-- [ ] 할 일1
-- [ ] 할 일2
-```
+- `Definitions`: 아이템, 맵 등 변경되지 않는 데이터 정의
+- `Config`: 경기 시간, 인원 제한 등 조정 가능한 정적 설정
 
-## 브랜치 컨벤션
+플레이 중 변하는 상태는 일반 C# 객체와 R3가 소유합니다. 방 정보와 네트워크 상태는 Photon 영역이 원본을 소유합니다. ScriptableObject 에셋은 런타임 종료 후 값이 남지 않도록 상태 저장소로 사용하지 않습니다.
 
-앞서 만든 이슈 번호를 사용해 담당 develop 브랜치에서 작업 브랜치를 생성합니다. 유형은 소문자로 작성하고 작업 내용은 영문 `snake_case`를 사용합니다.
+## 씬 독립 실행
 
-```text
-유형/#이슈번호-작업내용
+- 작업 중인 씬을 Bootstrap 또는 Title 씬을 거치지 않고 직접 Play해도 오류 없이 실행되어야 합니다.
+- 앱 공통 서비스는 `ProjectLifetimeScope`가 제공합니다.
+- 씬 전용 의존성이 생기면 씬 안에 자식 LifetimeScope를 추가합니다.
+- 씬에 필요한 참조가 없을 때 조용히 실패하지 말고 초기화 단계에서 명확한 오류를 냅니다.
 
-ui/#1-login_view
-feat/#12-network_room
-```
+## Unity 에셋 규칙
 
-클라이언트 작업:
-
-```bash
-git switch develop/client
-git pull origin develop/client
-git switch -c ui/#1-login_view
-```
-
-Photon 및 네트워크 작업:
-
-```bash
-git switch develop/server
-git pull origin develop/server
-git switch -c feat/#12-network_room
-```
-
-작업 후:
-
-```bash
-git status
-git add 변경한_파일
-git commit -m "[유형] 작업 내용"
-git push -u origin 현재_브랜치명
-```
-
-## Pull Request 컨벤션
-
-- Assignees에 본인을 등록합니다.
-- Reviewers에 리뷰할 팀원을 등록합니다.
-- 대상 브랜치가 `develop/client` 또는 `develop/server` 중 올바른 브랜치인지 확인합니다.
-
-PR 제목:
-
-```text
-[유형/#이슈번호] 작업 내용
-
-[UI/#1] 1주차 화면 구현
-```
-
-PR 내용:
-
-```markdown
-## Related issue 🛠
-- closed #이슈번호
-
-## Work Description ✏️
-- 작업 내용
-
-## Screenshot 📸
-<img src="" width="360"/>
-or
-<video src="" width="360"/>
-
-## Uncompleted Tasks 😅
-- [ ] Task1
-
-## To Reviewers 📢
-```
-
-병합 흐름:
-
-```text
-유형/#이슈번호-작업내용 -> develop/client 또는 develop/server
-develop/client          -> main
-develop/server          -> main
-```
-
-두 develop 브랜치가 같은 파일을 수정했다면 한쪽을 먼저 병합한 후 다른 브랜치에 `main`의 최신 변경을 반영합니다. 장기간 분리된 상태로 두지 않습니다.
-
-## Merge 컨벤션
-
-Pull Request를 병합할 때 Merge 제목을 다음과 같이 수정합니다.
-
-```text
-[MERGE] #이슈번호 -> 대상 브랜치
-
-[MERGE] #1 -> develop/client
-[MERGE] #12 -> develop/server
-```
-
-## 프로젝트 폴더 구조
-
-```text
-Assets/
-└─ _Game/
-   ├─ Core/
-   ├─ Client/
-   ├─ Server/
-   ├─ SOAP/
-   └─ Content/
-```
-
-### `Core`
-
-클라이언트와 서버가 함께 사용하는 게임 규칙, 공통 타입과 상수를 둡니다. Photon, Steam, UI에 직접 의존하지 않습니다.
-
-### `Client`
-
-입력, 캐릭터 이동, 카메라, UI, 애니메이션과 로컬 표현을 둡니다. 서버가 복제한 상태를 표현하며 중요한 결과를 클라이언트 단독으로 확정하지 않습니다.
-
-### `Server`
-
-Photon 연결, 방과 로비, 네트워크 권한, 상태 동기화와 경기 진행을 둡니다. 여기서 Server는 별도 Spring Boot 서버가 아니라 Unity 안의 Photon 네트워크 영역을 의미합니다.
-
-### `SOAP`
-
-ScriptableObject Architecture Pattern의 공통 타입을 둡니다.
-
-- `Definitions`: 정적 데이터 정의
-- `Config`: 조정 가능한 프로젝트 설정
-- `Events`: UI, 사운드 등 로컬 시스템에 전달하는 이벤트 채널
-
-ScriptableObject에는 정적 설정과 로컬 이벤트를 둡니다. 현재 플레이어 상태, 방 정보, 점수, 네트워크 오브젝트 상태와 세션 데이터는 저장하지 않습니다.
-
-Photon 네트워크 상태는 `NetworkBehaviour`와 `[Networked]` 프로퍼티를 원본으로 관리하고, 상태가 변경된 뒤 SOAP 이벤트를 통해 UI와 사운드에 알립니다.
-
-```text
-입력
-  -> Photon RPC / State Authority
-  -> [Networked] 상태 변경
-  -> 다른 참가자에게 복제
-  -> 로컬 SOAP 이벤트
-  -> UI / 사운드 / 이펙트 갱신
-```
-
-### `Content`
-
-팀이 관리하는 씬, 프리팹, 오디오와 ScriptableObject `.asset` 파일을 둡니다. 구매한 원본 에셋은 별도 폴더에 보존하고, 프로젝트에서 수정할 프리팹 Variant를 `Content`에 둡니다.
-
-## Unity와 Git 규칙
-
-- `Assets`, `Packages`, `ProjectSettings`를 커밋합니다.
-- 모든 Unity 에셋은 대응하는 `.meta` 파일과 함께 이동하고 커밋합니다.
-- `Library`, `Temp`, `Logs`, `UserSettings`, `.csproj`, `.slnx`는 커밋하지 않습니다.
-- Unity의 Version Control Mode는 `Visible Meta Files`를 사용합니다.
-- Asset Serialization Mode는 `Force Text`를 사용합니다.
 - 외부 패키지와 구매 에셋의 원본 파일은 직접 수정하지 않습니다.
-- 대용량 바이너리 에셋은 팀 합의 후 Git LFS로 관리합니다.
+- 프로젝트용 수정은 `Content` 아래 Prefab Variant나 별도 에셋으로 만듭니다.
+- 모든 Unity 에셋은 대응하는 `.meta` 파일과 함께 관리합니다.
+- 메인 씬과 같은 프리팹을 여러 명이 동시에 수정하지 않습니다.
+- Unity가 생성하는 `Library`, `Temp`, `Logs`, `UserSettings`, IDE 프로젝트 파일은 프로젝트 소스로 취급하지 않습니다.
+- Scene, Prefab과 ScriptableObject는 Force Text 직렬화를 유지합니다.
 
-## 씬과 프리팹 충돌 방지
+## 테스트 기준
 
-Unity 씬과 프리팹은 Git에서 자동 병합하기 어렵습니다.
-
-- 메인 씬은 한 명의 담당자만 수정합니다.
-- 다른 작업자는 개별 프리팹이나 Prefab Variant로 작업합니다.
-- 같은 프리팹을 동시에 수정하기 전에 팀에 알립니다.
-- Unity를 닫거나 저장한 후 `git status`로 의도하지 않은 변경을 확인합니다.
-- `ProjectSettings` 변경은 Pull Request 설명에 이유를 기록합니다.
-
-## Pull Request 확인 항목
-
-- [ ] 올바른 develop 브랜치에서 작업을 시작했는가?
-- [ ] 대상 브랜치가 올바른가?
-- [ ] 관련 없는 파일이 포함되지 않았는가?
-- [ ] `.meta` 파일이 빠지지 않았는가?
-- [ ] 씬이나 프리팹 충돌 가능성을 확인했는가?
-- [ ] Photon 네트워크 상태를 ScriptableObject에 저장하지 않았는가?
-- [ ] Unity에서 실행 또는 필요한 멀티플레이 테스트를 완료했는가?
-
-세부 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md)와 `Assets/_Game` 아래 각 폴더의 README도 확인합니다.
+- 상태 전환, 점수 계산과 권한 판정 같은 순수 로직은 EditMode 테스트를 작성합니다.
+- 씬 조립, View 연결과 네트워크 객체 수명은 PlayMode 테스트 또는 실제 멀티플레이 실행으로 검증합니다.
+- 새 asmdef를 추가할 때 의존 방향이 역전되거나 `Client`와 `Server`가 직접 연결되지 않았는지 확인합니다.
+- 기능 완료 전 Unity Console의 컴파일 오류가 없어야 하며, 관련 테스트를 실행합니다.
