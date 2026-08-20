@@ -4,6 +4,7 @@
     "references": [
         "Game.Bootstrap",
         "Game.Core",
+        "Game.Server",
         "Game.SOAP",
         "R3.Unity",
         "UniTask",
