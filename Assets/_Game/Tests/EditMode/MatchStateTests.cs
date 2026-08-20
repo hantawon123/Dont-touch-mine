@@ -37,5 +37,18 @@ namespace Game.Tests.EditMode
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => state.EnterPhase(MatchPhase.Hiding, deadline));
         }
+
+        [Test]
+        public void Snapshot_CopiesAuthoritativeStateToReplica()
+        {
+            using var authority = new MatchState();
+            using var replica = new MatchState();
+            authority.EnterPhase(MatchPhase.Searching, 120d);
+
+            replica.ApplySnapshot(authority.CaptureSnapshot());
+
+            Assert.That(replica.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Searching));
+            Assert.That(replica.PhaseEndsAt.CurrentValue, Is.EqualTo(120d));
+        }
     }
 }

@@ -12,6 +12,16 @@ namespace Game.Server.Match
         public ReadOnlyReactiveProperty<MatchPhase> CurrentPhase => currentPhase;
         public ReadOnlyReactiveProperty<double> PhaseEndsAt => phaseEndsAt;
 
+        internal MatchStateSnapshot CaptureSnapshot()
+        {
+            return new MatchStateSnapshot(currentPhase.Value, phaseEndsAt.Value);
+        }
+
+        internal void ApplySnapshot(MatchStateSnapshot snapshot)
+        {
+            EnterPhase(snapshot.Phase, snapshot.PhaseEndsAt);
+        }
+
         internal void EnterPhase(MatchPhase phase, double endsAt)
         {
             if (double.IsNaN(endsAt) || double.IsInfinity(endsAt) || endsAt < 0d)
