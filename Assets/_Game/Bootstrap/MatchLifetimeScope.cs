@@ -1,4 +1,6 @@
 using System;
+using Game.Client.Match;
+using Game.Core.Match;
 using Game.Server.Match;
 using Game.SOAP.Config;
 using UnityEngine;
@@ -12,6 +14,9 @@ namespace Game.Bootstrap
         [SerializeField]
         private MatchRulesSO matchRules;
 
+        [SerializeField]
+        private MatchPhaseView matchPhaseView;
+
         protected override void Configure(IContainerBuilder builder)
         {
             if (matchRules == null)
@@ -19,9 +24,16 @@ namespace Game.Bootstrap
                 throw new InvalidOperationException("MatchRulesSO must be assigned.");
             }
 
+            if (matchPhaseView == null)
+            {
+                throw new InvalidOperationException("MatchPhaseView must be assigned.");
+            }
+
             builder.RegisterInstance(matchRules);
-            builder.Register<MatchState>(Lifetime.Scoped);
+            builder.Register<MatchState>(Lifetime.Scoped).AsSelf().As<IMatchState>();
             builder.Register<MatchFlow>(Lifetime.Scoped);
+            builder.RegisterComponent(matchPhaseView).As<IMatchPhaseView>();
+            builder.RegisterEntryPoint<MatchPhasePresenter>();
         }
     }
 }

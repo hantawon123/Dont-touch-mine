@@ -18,7 +18,7 @@ namespace Game.Tests.EditMode
             {
                 var builder = new ContainerBuilder();
                 builder.RegisterInstance(rules);
-                builder.Register<MatchState>(Lifetime.Scoped);
+                builder.Register<MatchState>(Lifetime.Scoped).AsSelf().As<IMatchState>();
                 builder.Register<MatchFlow>(Lifetime.Scoped);
 
                 using var container = builder.Build();

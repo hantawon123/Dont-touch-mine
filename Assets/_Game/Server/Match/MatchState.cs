@@ -4,7 +4,7 @@ using R3;
 
 namespace Game.Server.Match
 {
-    public sealed class MatchState : IDisposable
+    public sealed class MatchState : IMatchState, IDisposable
     {
         private readonly ReactiveProperty<MatchPhase> currentPhase = new(MatchPhase.Waiting);
         private readonly ReactiveProperty<double> phaseEndsAt = new(0d);

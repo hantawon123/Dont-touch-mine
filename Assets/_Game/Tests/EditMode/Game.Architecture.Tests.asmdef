@@ -3,6 +3,7 @@
     "rootNamespace": "Game.Architecture.Tests",
     "references": [
         "Game.Bootstrap",
+        "Game.Client",
         "Game.Core",
         "Game.Server",
         "Game.SOAP",

@@ -6,6 +6,7 @@
         "Game.SOAP",
         "R3.Unity",
         "UniTask",
+        "Unity.TextMeshPro",
         "VContainer"
     ],
     "includePlatforms": [],
