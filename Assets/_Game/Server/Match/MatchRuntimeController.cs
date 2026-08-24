@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
+using Game.Core.Match;
 using UnityEngine;
 using VContainer.Unity;
 
 namespace Game.Server.Match
 {
-    public interface IMatchRuntimeContext
+    public interface IMatchRuntimeContext : IMatchClock
     {
-        double ServerTime { get; }
         IReadOnlyList<Vector3> PlayerPositions { get; }
     }
 
