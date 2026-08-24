@@ -102,6 +102,19 @@ namespace Game.Server.Match
             return true;
         }
 
+        public bool CompleteSearchingEarly(double now)
+        {
+            ValidateTime(now);
+            if (state.CurrentPhase.CurrentValue != MatchPhase.Searching ||
+                now >= state.PhaseEndsAt.CurrentValue)
+            {
+                return false;
+            }
+
+            EnterPhase(MatchPhase.Highlight, now);
+            return true;
+        }
+
         private void EnterPhase(MatchPhase phase, double startedAt)
         {
             var duration = rules.GetDurationSeconds(phase);
