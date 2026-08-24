@@ -7,6 +7,7 @@ namespace Game.SOAP.Config
     public sealed class MatchRulesSO : ScriptableObject
     {
         public const int PlayerCount = 6;
+        public const int MaxHighlightCount = 3;
 
         [SerializeField, Min(1f)]
         private float hidingTurnDurationSeconds = 30f;
@@ -37,6 +38,8 @@ namespace Game.SOAP.Config
         public float SearchingDurationSeconds => searchingDurationSeconds;
         public float FinalWarningSeconds => finalWarningSeconds;
         public float HighlightMaxDurationSeconds => highlightMaxDurationSeconds;
+        public float HighlightClipDurationSeconds =>
+            highlightMaxDurationSeconds / MaxHighlightCount;
         public int DestructionUsesPerPlayer => destructionUsesPerPlayer;
         public int HitsRequiredToStun => hitsRequiredToStun;
         public float StunDurationSeconds => stunDurationSeconds;
