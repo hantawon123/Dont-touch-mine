@@ -41,6 +41,7 @@ namespace Game.Server.Match
         private readonly MatchState state;
         private readonly MatchFlow flow;
         private readonly PlayerInteractionSystem interactions;
+        private readonly IPlacementValidator placementValidator;
         private readonly ItemPlacementSystem placements;
         private readonly WorldObjectStateSystem worldObjects;
         private readonly MatchOutcomeSystem outcome;
@@ -59,6 +60,7 @@ namespace Game.Server.Match
             MatchState state,
             MatchFlow flow,
             PlayerInteractionSystem interactions,
+            IPlacementValidator placementValidator,
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
             IReadOnlyList<WorldObjectState> initialWorldObjects = null)
@@ -68,6 +70,8 @@ namespace Game.Server.Match
             this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
             this.interactions = interactions ??
                 throw new ArgumentNullException(nameof(interactions));
+            this.placementValidator = placementValidator ??
+                throw new ArgumentNullException(nameof(placementValidator));
 
             var assignments = ItemAssignmentSystem.Assign(
                 itemDefinitions,
@@ -128,7 +132,8 @@ namespace Game.Server.Match
         {
             if (flow.GetCurrentHidingTurnIndex(now) != playerIndex ||
                 flow.GetHidingTurnRemainingSeconds(now) <= 0d ||
-                completedHidingTurns[playerIndex])
+                completedHidingTurns[playerIndex] ||
+                !placementValidator.IsValid(Assignments[playerIndex].Item.ItemId, pose))
             {
                 return false;
             }
@@ -155,7 +160,9 @@ namespace Game.Server.Match
                 return false;
             }
 
-            return worldObjects.TrySetPose(objectId, pose);
+            return worldObjects.TryGetState(objectId, out var worldObject) &&
+                   placementValidator.IsValid(worldObject.ObjectId, pose) &&
+                   worldObjects.TrySetPose(worldObject.ObjectId, pose);
         }
 
         public bool TryGetWorldObjectState(string objectId, out WorldObjectState worldObjectState)

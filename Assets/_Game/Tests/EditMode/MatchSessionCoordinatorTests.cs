@@ -28,6 +28,7 @@ namespace Game.Tests.EditMode
                 state,
                 flow,
                 interactions,
+                new TestPlacementValidator(),
                 CreateItemDefinitions(),
                 new System.Random(1234),
                 new[]
@@ -116,6 +117,27 @@ namespace Game.Tests.EditMode
                 Is.True);
             Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
             Assert.That(state.Pose.position, Is.EqualTo(secondPose.position));
+        }
+
+        [Test]
+        public void PlacementValidator_RejectsInvalidPlayerAndMapObjectPoses()
+        {
+            session.Start(10d);
+            var invalidPose = new Pose(new Vector3(-1f, 0f, 0f), Quaternion.identity);
+            var validPose = new Pose(new Vector3(1f, 0f, 0f), Quaternion.identity);
+
+            Assert.That(session.TryRecordItemPlacement(0, invalidPose, 20d), Is.False);
+            Assert.That(session.TryGetItemPlacement(0, out _), Is.False);
+            Assert.That(
+                session.TryRecordWorldObjectPose(0, "shelf", invalidPose, 20d),
+                Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
+            Assert.That(state.Pose.position, Is.EqualTo(Vector3.zero));
+
+            Assert.That(session.TryRecordItemPlacement(0, validPose, 20d), Is.True);
+            Assert.That(
+                session.TryRecordWorldObjectPose(0, "shelf", validPose, 20d),
+                Is.True);
         }
 
         [Test]
@@ -308,6 +330,14 @@ namespace Game.Tests.EditMode
                 new ItemDefinition("cup", "kitchen"),
                 new ItemDefinition("plate", "kitchen")
             };
+        }
+
+        private sealed class TestPlacementValidator : IPlacementValidator
+        {
+            public bool IsValid(string objectId, Pose pose)
+            {
+                return pose.position.x >= 0f;
+            }
         }
     }
 }
