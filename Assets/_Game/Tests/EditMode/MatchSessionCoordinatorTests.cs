@@ -74,6 +74,33 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void RuntimeController_AdvancesOnlyAfterAuthoritativeStart()
+        {
+            var context = new TestRuntimeContext
+            {
+                ServerTime = 10d,
+                PlayerPositions = lastKnownPositions
+            };
+            var controller = new MatchRuntimeController(session, context);
+
+            controller.Tick();
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Waiting));
+
+            Assert.That(controller.StartMatch(), Is.True);
+            Assert.That(controller.StartMatch(), Is.False);
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Hiding));
+
+            context.ServerTime = 40d;
+            controller.Tick();
+            Assert.That(session.TryGetItemPlacement(0, out var placement), Is.True);
+            Assert.That(placement.Pose.position, Is.EqualTo(lastKnownPositions[0]));
+
+            context.ServerTime = 190d;
+            controller.Tick();
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Searching));
+        }
+
+        [Test]
         public void FinalWarning_RaisesOnceWhenSearchingEntersLastThirtySeconds()
         {
             session.Start(10d);
@@ -457,6 +484,12 @@ namespace Game.Tests.EditMode
             {
                 return pose.position.x >= 0f;
             }
+        }
+
+        private sealed class TestRuntimeContext : IMatchRuntimeContext
+        {
+            public double ServerTime { get; set; }
+            public IReadOnlyList<Vector3> PlayerPositions { get; set; }
         }
     }
 }
