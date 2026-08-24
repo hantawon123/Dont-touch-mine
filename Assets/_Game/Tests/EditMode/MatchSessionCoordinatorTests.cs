@@ -175,6 +175,44 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void ThirdHit_DropsHeldItemAndBlocksStunnedPlayerActions()
+        {
+            StartSearching();
+            var heldItem = session.Assignments[1].Item.ItemId;
+            var otherItem = session.Assignments[2].Item.ItemId;
+            var dropPosition = new Vector3(7f, 0f, 8f);
+
+            Assert.That(session.TryHoldItem(1, heldItem, 200d), Is.True);
+            Assert.That(
+                session.RegisterHit(0, 1, dropPosition, 200d),
+                Is.EqualTo(HitResult.Registered));
+            Assert.That(
+                session.RegisterHit(0, 1, dropPosition, 200.1d),
+                Is.EqualTo(HitResult.Registered));
+            Assert.That(
+                session.RegisterHit(0, 1, dropPosition, 200.2d),
+                Is.EqualTo(HitResult.Stunned));
+
+            Assert.That(session.IsPlayerStunned(1, 200.3d), Is.True);
+            Assert.That(session.TryHoldItem(1, otherItem, 200.3d), Is.False);
+            Assert.That(session.TryDestroyPlayerItem(1, otherItem, 200.3d), Is.False);
+            Assert.That(
+                session.TryUseShredderOnMapObject(1, "shelf", Pose.identity, 200.3d),
+                Is.False);
+            Assert.That(session.GetRemainingDestructionUses(1), Is.EqualTo(5));
+            Assert.That(
+                session.RegisterHit(1, 2, Vector3.zero, 200.3d),
+                Is.EqualTo(HitResult.Ignored));
+
+            Assert.That(session.TryGetItemPlacement(1, out var placement), Is.True);
+            Assert.That(placement.Pose.position, Is.EqualTo(dropPosition));
+            Assert.That(session.TryHoldItem(2, heldItem, 200.3d), Is.True);
+
+            Assert.That(session.IsPlayerStunned(1, 202.2d), Is.False);
+            Assert.That(session.TryHoldItem(1, otherItem, 202.2d), Is.True);
+        }
+
+        [Test]
         public void LateAdvanceTime_CapturesScheduledSearchEnd()
         {
             session.Start(10d);

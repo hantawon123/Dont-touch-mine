@@ -166,12 +166,12 @@ namespace Game.Server.Match
 
         public bool TryHoldItem(int playerIndex, string itemId, double now)
         {
-            return IsSearchingAt(now) && outcome.TryHoldItem(playerIndex, itemId);
+            return CanInteract(playerIndex, now) && outcome.TryHoldItem(playerIndex, itemId);
         }
 
         public bool TryReleaseHeldItem(int playerIndex, double now)
         {
-            return IsSearchingAt(now) && outcome.ReleaseHeldItem(playerIndex);
+            return CanInteract(playerIndex, now) && outcome.ReleaseHeldItem(playerIndex);
         }
 
         public bool TryUseShredderOnMapObject(
@@ -180,7 +180,7 @@ namespace Game.Server.Match
             Pose ejectionPose,
             double now)
         {
-            if (!IsSearchingAt(now) ||
+            if (!CanInteract(playerIndex, now) ||
                 interactions.GetRemainingDestructionUses(playerIndex) == 0 ||
                 !worldObjects.TryGetState(objectId, out var worldObject) ||
                 pendingMapObjectEjections.ContainsKey(worldObject.ObjectId))
@@ -199,7 +199,7 @@ namespace Game.Server.Match
 
         public bool TryDestroyPlayerItem(int playerIndex, string itemId, double now)
         {
-            if (!IsSearchingAt(now) ||
+            if (!CanInteract(playerIndex, now) ||
                 interactions.GetRemainingDestructionUses(playerIndex) == 0 ||
                 !outcome.DestroyItem(itemId))
             {
@@ -216,11 +216,39 @@ namespace Game.Server.Match
             return true;
         }
 
-        public HitResult RegisterHit(int playerIndex, double now)
+        public HitResult RegisterHit(
+            int attackerPlayerIndex,
+            int targetPlayerIndex,
+            Vector3 targetPosition,
+            double now)
         {
-            return IsSearchingAt(now)
-                ? interactions.RegisterHit(playerIndex, now)
-                : HitResult.Ignored;
+            if (!CanInteract(attackerPlayerIndex, now) ||
+                attackerPlayerIndex == targetPlayerIndex)
+            {
+                return HitResult.Ignored;
+            }
+
+            var hitResult = interactions.RegisterHit(targetPlayerIndex, now);
+            if (hitResult != HitResult.Stunned)
+            {
+                return hitResult;
+            }
+
+            var heldItemOwner = outcome.GetHeldItemOwner(targetPlayerIndex);
+            if (heldItemOwner >= 0)
+            {
+                outcome.ReleaseHeldItem(targetPlayerIndex);
+                placements.RecordPlacement(
+                    heldItemOwner,
+                    new Pose(targetPosition, Quaternion.identity));
+            }
+
+            return hitResult;
+        }
+
+        public bool IsPlayerStunned(int playerIndex, double now)
+        {
+            return interactions.IsStunned(playerIndex, now);
         }
 
         public int GetRemainingDestructionUses(int playerIndex)
@@ -288,6 +316,11 @@ namespace Game.Server.Match
         {
             return state.CurrentPhase.CurrentValue == MatchPhase.Searching &&
                    flow.GetRemainingSeconds(now) > 0d;
+        }
+
+        private bool CanInteract(int playerIndex, double now)
+        {
+            return IsSearchingAt(now) && !interactions.IsStunned(playerIndex, now);
         }
 
         private bool TryGetExpiredSearchingEnd(double now, out double searchingEndedAt)
