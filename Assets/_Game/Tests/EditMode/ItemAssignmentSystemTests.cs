@@ -1,0 +1,83 @@
+using System;
+using System.Collections.Generic;
+using Game.Core.Items;
+using NUnit.Framework;
+
+namespace Game.Tests.EditMode
+{
+    public sealed class ItemAssignmentSystemTests
+    {
+        private static readonly ItemDefinition[] Definitions =
+        {
+            new("bear", "toy"),
+            new("ball", "toy"),
+            new("apple", "food"),
+            new("bread", "food"),
+            new("hammer", "tool"),
+            new("wrench", "tool"),
+            new("cup", "kitchen"),
+            new("plate", "kitchen")
+        };
+
+        [Test]
+        public void Assign_GivesSixPlayersUniqueItems()
+        {
+            var assignments = ItemAssignmentSystem.Assign(
+                Definitions,
+                6,
+                new Random(1234));
+            var assignedItemIds = new HashSet<string>();
+
+            Assert.That(assignments, Has.Length.EqualTo(6));
+            for (var playerIndex = 0; playerIndex < assignments.Length; playerIndex++)
+            {
+                Assert.That(assignments[playerIndex].PlayerIndex, Is.EqualTo(playerIndex));
+                Assert.That(assignedItemIds.Add(assignments[playerIndex].Item.ItemId), Is.True);
+                Assert.That(assignments[playerIndex].Item.Category, Is.Not.Empty);
+            }
+        }
+
+        [Test]
+        public void Assign_WithSameSeedReturnsSameAssignments()
+        {
+            var first = ItemAssignmentSystem.Assign(Definitions, 6, new Random(42));
+            var second = ItemAssignmentSystem.Assign(Definitions, 6, new Random(42));
+
+            for (var playerIndex = 0; playerIndex < first.Length; playerIndex++)
+            {
+                Assert.That(
+                    first[playerIndex].Item.ItemId,
+                    Is.EqualTo(second[playerIndex].Item.ItemId));
+            }
+        }
+
+        [Test]
+        public void Assign_RejectsInsufficientItems()
+        {
+            var definitions = new[]
+            {
+                new ItemDefinition("bear", "toy")
+            };
+
+            Assert.Throws<InvalidOperationException>(
+                () => ItemAssignmentSystem.Assign(definitions, 6, new Random(1)));
+        }
+
+        [Test]
+        public void Assign_RejectsDuplicateItemIds()
+        {
+            var definitions = new[]
+            {
+                new ItemDefinition("bear", "toy"),
+                new ItemDefinition("bear", "decoration"),
+                new ItemDefinition("apple", "food"),
+                new ItemDefinition("bread", "food"),
+                new ItemDefinition("hammer", "tool"),
+                new ItemDefinition("wrench", "tool")
+            };
+
+            Assert.Throws<ArgumentException>(
+                () => ItemAssignmentSystem.Assign(definitions, 6, new Random(1)));
+        }
+    }
+}
