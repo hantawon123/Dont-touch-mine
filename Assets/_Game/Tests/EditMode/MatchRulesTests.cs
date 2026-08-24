@@ -25,5 +25,22 @@ namespace Game.Tests.EditMode
                 Object.DestroyImmediate(rules);
             }
         }
+
+        [Test]
+        public void HidingDuration_IsSixThirtySecondTurns()
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+
+            try
+            {
+                Assert.That(MatchRulesSO.PlayerCount, Is.EqualTo(6));
+                Assert.That(rules.HidingTurnDurationSeconds, Is.EqualTo(30f));
+                Assert.That(rules.HidingDurationSeconds, Is.EqualTo(180f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rules);
+            }
+        }
     }
 }

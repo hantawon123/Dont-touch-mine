@@ -45,6 +45,38 @@ namespace Game.Tests.EditMode
             Assert.That(flow.Start(20d), Is.False);
         }
 
+        [TestCase(10d, 0, 30d)]
+        [TestCase(39d, 0, 1d)]
+        [TestCase(40d, 1, 30d)]
+        [TestCase(160d, 5, 30d)]
+        [TestCase(189d, 5, 1d)]
+        [TestCase(190d, 5, 0d)]
+        public void HidingTurn_UsesThirtySecondsPerPlayer(
+            double now,
+            int expectedTurnIndex,
+            double expectedRemainingSeconds)
+        {
+            flow.Start(10d);
+
+            Assert.That(flow.GetCurrentHidingTurnIndex(now), Is.EqualTo(expectedTurnIndex));
+            Assert.That(
+                flow.GetHidingTurnRemainingSeconds(now),
+                Is.EqualTo(expectedRemainingSeconds));
+        }
+
+        [Test]
+        public void HidingTurn_ReturnsInactiveOutsideHidingPhase()
+        {
+            Assert.That(flow.GetCurrentHidingTurnIndex(0d), Is.EqualTo(-1));
+            Assert.That(flow.GetHidingTurnRemainingSeconds(0d), Is.Zero);
+
+            flow.Start(10d);
+            flow.AdvanceIfExpired(190d);
+
+            Assert.That(flow.GetCurrentHidingTurnIndex(190d), Is.EqualTo(-1));
+            Assert.That(flow.GetHidingTurnRemainingSeconds(190d), Is.Zero);
+        }
+
         [Test]
         public void AdvanceIfExpired_AdvancesAtDeadline()
         {
