@@ -9,6 +9,30 @@ using UnityEngine;
 
 namespace Game.Server.Match
 {
+    public enum MatchEndReason
+    {
+        TimeExpired,
+        AllPlayerItemsDestroyed
+    }
+
+    public readonly struct MatchResult
+    {
+        public MatchResult(
+            MatchEndReason endReason,
+            double endedAt,
+            int[] winnerPlayerIndices)
+        {
+            EndReason = endReason;
+            EndedAt = endedAt;
+            WinnerPlayerIndices = Array.AsReadOnly(
+                winnerPlayerIndices ?? throw new ArgumentNullException(nameof(winnerPlayerIndices)));
+        }
+
+        public MatchEndReason EndReason { get; }
+        public double EndedAt { get; }
+        public IReadOnlyList<int> WinnerPlayerIndices { get; }
+    }
+
     public sealed class MatchSessionCoordinator
     {
         private readonly MatchRulesSO rules;
@@ -20,6 +44,7 @@ namespace Game.Server.Match
         private readonly MatchOutcomeSystem outcome;
         private readonly bool[] completedHidingTurns = new bool[MatchRulesSO.PlayerCount];
         private HighlightSequence highlights;
+        private MatchResult? result;
 
         public MatchSessionCoordinator(
             MatchRulesSO rules,
@@ -67,6 +92,11 @@ namespace Game.Server.Match
                 throw new ArgumentException(
                     $"Exactly {MatchRulesSO.PlayerCount} player positions are required.",
                     nameof(lastKnownPlayerPositions));
+            }
+
+            if (TryGetExpiredSearchingEnd(now, out var searchingEndedAt))
+            {
+                CaptureResult(MatchEndReason.TimeExpired, searchingEndedAt);
             }
 
             if (state.CurrentPhase.CurrentValue == MatchPhase.Hiding)
@@ -162,6 +192,7 @@ namespace Game.Server.Match
             interactions.TryUseDestruction(playerIndex);
             if (outcome.AllPlayerItemsDestroyed)
             {
+                CaptureResult(MatchEndReason.AllPlayerItemsDestroyed, now);
                 flow.CompleteSearchingEarly(now);
             }
 
@@ -183,6 +214,18 @@ namespace Game.Server.Match
         public int[] GetWinnerPlayerIndices()
         {
             return outcome.GetWinnerPlayerIndices();
+        }
+
+        public bool TryGetResult(out MatchResult matchResult)
+        {
+            if (result.HasValue)
+            {
+                matchResult = result.Value;
+                return true;
+            }
+
+            matchResult = default;
+            return false;
         }
 
         public bool SetHighlightCandidates(IReadOnlyList<string> candidateIds)
@@ -228,6 +271,34 @@ namespace Game.Server.Match
         {
             return state.CurrentPhase.CurrentValue == MatchPhase.Searching &&
                    flow.GetRemainingSeconds(now) > 0d;
+        }
+
+        private bool TryGetExpiredSearchingEnd(double now, out double searchingEndedAt)
+        {
+            switch (state.CurrentPhase.CurrentValue)
+            {
+                case MatchPhase.Hiding:
+                    searchingEndedAt =
+                        state.PhaseEndsAt.CurrentValue + rules.SearchingDurationSeconds;
+                    return now >= searchingEndedAt;
+                case MatchPhase.Searching:
+                    searchingEndedAt = state.PhaseEndsAt.CurrentValue;
+                    return now >= searchingEndedAt;
+                default:
+                    searchingEndedAt = 0d;
+                    return false;
+            }
+        }
+
+        private void CaptureResult(MatchEndReason endReason, double endedAt)
+        {
+            if (!result.HasValue)
+            {
+                result = new MatchResult(
+                    endReason,
+                    endedAt,
+                    outcome.GetWinnerPlayerIndices());
+            }
         }
 
         private void CompleteExpiredHidingTurns(

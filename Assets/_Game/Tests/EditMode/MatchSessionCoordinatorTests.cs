@@ -89,6 +89,10 @@ namespace Game.Tests.EditMode
             Assert.That(session.AllPlayerItemsDestroyed, Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
             Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(230d));
+            Assert.That(session.TryGetResult(out var result), Is.True);
+            Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.AllPlayerItemsDestroyed));
+            Assert.That(result.EndedAt, Is.EqualTo(200d));
+            Assert.That(result.WinnerPlayerIndices, Is.Empty);
         }
 
         [Test]
@@ -146,11 +150,27 @@ namespace Game.Tests.EditMode
 
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
             Assert.That(session.GetWinnerPlayerIndices(), Is.EqualTo(new[] { 0, 5 }));
+            Assert.That(session.TryGetResult(out var result), Is.True);
+            Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.TimeExpired));
+            Assert.That(result.EndedAt, Is.EqualTo(550d));
+            Assert.That(result.WinnerPlayerIndices, Is.EqualTo(new[] { 0, 5 }));
             Assert.That(session.TryGetCurrentHighlight(out var highlightId), Is.True);
             Assert.That(highlightId, Is.EqualTo("first"));
             Assert.That(session.CompleteCurrentHighlight(), Is.True);
             Assert.That(session.CompleteCurrentHighlight(), Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Result));
+        }
+
+        [Test]
+        public void LateAdvanceTime_CapturesScheduledSearchEnd()
+        {
+            session.Start(10d);
+
+            session.AdvanceTime(600d, lastKnownPositions);
+
+            Assert.That(session.TryGetResult(out var result), Is.True);
+            Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.TimeExpired));
+            Assert.That(result.EndedAt, Is.EqualTo(550d));
         }
 
         private void StartSearching()
