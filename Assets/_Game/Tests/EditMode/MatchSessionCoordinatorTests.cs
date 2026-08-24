@@ -98,6 +98,35 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void HudStateQueries_ReturnCurrentPublicMatchState()
+        {
+            session.Start(10d);
+
+            Assert.That(session.GetRemainingSeconds(10d), Is.EqualTo(180d));
+            Assert.That(session.GetCurrentHidingTurnIndex(40d), Is.EqualTo(1));
+
+            session.AdvanceTime(190d, lastKnownPositions);
+            Assert.That(session.GetRemainingSeconds(190d), Is.EqualTo(360d));
+            Assert.That(session.IsFinalPeriod(519d), Is.False);
+            Assert.That(session.IsFinalPeriod(520d), Is.True);
+
+            Assert.That(
+                session.RegisterHit(0, 1, Vector3.zero, 200d),
+                Is.EqualTo(HitResult.Registered));
+            Assert.That(session.GetHitCount(1), Is.EqualTo(1));
+            Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(5));
+
+            var destroyedItemId = session.Assignments[1].Item.ItemId;
+            Assert.That(session.TryHoldObject(0, destroyedItemId, 200d), Is.True);
+            Assert.That(session.TryDestroyHeldPlayerItem(0, 200d), Is.True);
+
+            Assert.That(session.DestroyedPlayerItemCount, Is.EqualTo(1));
+            Assert.That(
+                session.CaptureDestroyedPlayerItemIds(),
+                Is.EqualTo(new[] { destroyedItemId }));
+        }
+
+        [Test]
         public void SpawnPoses_AreUniqueForHidingAndSearching()
         {
             session.Start(10d);
