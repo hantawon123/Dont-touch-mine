@@ -50,6 +50,18 @@ namespace Game.Server.Match
         public double DestroyedAt { get; }
     }
 
+    public readonly struct FinalWarningStartedEvent
+    {
+        public FinalWarningStartedEvent(double startedAt, double endsAt)
+        {
+            StartedAt = startedAt;
+            EndsAt = endsAt;
+        }
+
+        public double StartedAt { get; }
+        public double EndsAt { get; }
+    }
+
     public sealed class MatchSessionCoordinator
     {
         private const double MapObjectEjectionDelaySeconds = 0.5d;
@@ -73,6 +85,7 @@ namespace Game.Server.Match
             new(StringComparer.Ordinal);
         private HighlightSequence highlights;
         private MatchResult? result;
+        private bool finalWarningStarted;
 
         public MatchSessionCoordinator(
             MatchRulesSO rules,
@@ -114,6 +127,7 @@ namespace Game.Server.Match
         public bool AllPlayerItemsDestroyed => outcome.AllPlayerItemsDestroyed;
 
         public event Action<PlayerItemDestroyedEvent> PlayerItemDestroyed;
+        public event Action<FinalWarningStartedEvent> FinalWarningStarted;
 
         public bool Start(double now)
         {
@@ -170,6 +184,7 @@ namespace Game.Server.Match
             CompleteMapObjectEjections(now);
 
             var changed = flow.AdvanceIfExpired(now);
+            RaiseFinalWarningIfNeeded(now);
             if (state.CurrentPhase.CurrentValue == MatchPhase.Highlight && highlights.IsComplete)
             {
                 changed |= flow.CompleteHighlight();
@@ -417,6 +432,21 @@ namespace Game.Server.Match
             }
 
             return true;
+        }
+
+        private void RaiseFinalWarningIfNeeded(double now)
+        {
+            if (finalWarningStarted || !flow.IsFinalPeriod(now))
+            {
+                return;
+            }
+
+            finalWarningStarted = true;
+            var endsAt = state.PhaseEndsAt.CurrentValue;
+            FinalWarningStarted?.Invoke(
+                new FinalWarningStartedEvent(
+                    endsAt - rules.FinalWarningSeconds,
+                    endsAt));
         }
 
         private bool IsSearchingAt(double now)
