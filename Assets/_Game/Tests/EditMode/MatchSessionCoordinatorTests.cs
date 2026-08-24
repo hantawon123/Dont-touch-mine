@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Bootstrap;
 using Game.Core.Items;
 using Game.Core.Match;
 using Game.Server.Items;
@@ -171,6 +172,88 @@ namespace Game.Tests.EditMode
             Assert.That(clips[0].Frames.Count, Is.EqualTo(1));
             Assert.That(clips[0].Frames[0].PlayerPoses[0].position, Is.EqualTo(Vector3.zero));
             Assert.That(clips[0].Frames[0].WorldObjects[0].ObjectId, Is.EqualTo("shelf"));
+        }
+
+        [Test]
+        public void HighlightPlaybackController_PlaysAllCandidatesAndEntersResult()
+        {
+            StartSearching();
+            var playerPoses = CreatePlayerPoses(lastKnownPositions);
+            var itemId = session.Assignments[0].Item.ItemId;
+            var replayObject = new GameObject("Replay Item");
+            var replayPlayers = new GameObject[MatchRulesSO.PlayerCount];
+            var camera = new GameObject("Highlight Camera");
+            var fallback = new GameObject("Fallback Camera");
+
+            try
+            {
+                var playerTargets = new Transform[replayPlayers.Length];
+                for (var index = 0; index < replayPlayers.Length; index++)
+                {
+                    replayPlayers[index] = new GameObject($"Replay Player {index}");
+                    playerTargets[index] = replayPlayers[index].transform;
+                }
+
+                var objectTargets = new[]
+                {
+                    new SceneWorldObjectReference(itemId, replayObject.transform)
+                };
+                Assert.That(
+                    session.TryRecordReplayFrame(
+                        540d,
+                        playerPoses,
+                        new[] { new WorldObjectState(itemId, Pose.identity) }),
+                    Is.True);
+                Assert.That(
+                    session.TryRecordReplayFrame(
+                        550d,
+                        playerPoses,
+                        new[] { new WorldObjectState(itemId, Pose.identity) }),
+                    Is.True);
+                Assert.That(session.SetHighlightCandidates(new[]
+                {
+                    new HighlightCandidate(HighlightType.FirstBlood, 540d, 545d, itemId),
+                    new HighlightCandidate(HighlightType.FinalMoment, 545d, 550d, itemId)
+                }), Is.True);
+                session.AdvanceTime(550d, lastKnownPositions);
+
+                var replayPlayer = new HighlightReplayPlayer(playerTargets, objectTargets);
+                var cameraDirector = new HighlightCameraDirector(
+                    camera.transform,
+                    fallback.transform,
+                    playerTargets,
+                    objectTargets);
+                var controller = new HighlightPlaybackController(
+                    session,
+                    replayPlayer,
+                    cameraDirector);
+
+                controller.Tick(0f);
+                Assert.That(controller.IsPlaying, Is.True);
+                Assert.That(session.TryGetCurrentHighlight(out var first), Is.True);
+                Assert.That(first.Type, Is.EqualTo(HighlightType.FirstBlood));
+
+                controller.Tick(5f);
+                Assert.That(session.TryGetCurrentHighlight(out var second), Is.True);
+                Assert.That(second.Type, Is.EqualTo(HighlightType.FinalMoment));
+
+                controller.Tick(5f);
+                Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Result));
+                Assert.That(controller.IsPlaying, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(replayObject);
+                Object.DestroyImmediate(camera);
+                Object.DestroyImmediate(fallback);
+                foreach (var replayPlayer in replayPlayers)
+                {
+                    if (replayPlayer != null)
+                    {
+                        Object.DestroyImmediate(replayPlayer);
+                    }
+                }
+            }
         }
 
         [Test]
