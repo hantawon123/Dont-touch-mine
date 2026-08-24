@@ -16,6 +16,7 @@ namespace Game.Server.Match
         private readonly MatchFlow flow;
         private readonly PlayerInteractionSystem interactions;
         private readonly ItemPlacementSystem placements;
+        private readonly WorldObjectStateSystem worldObjects;
         private readonly MatchOutcomeSystem outcome;
         private readonly bool[] completedHidingTurns = new bool[MatchRulesSO.PlayerCount];
         private HighlightSequence highlights;
@@ -26,7 +27,8 @@ namespace Game.Server.Match
             MatchFlow flow,
             PlayerInteractionSystem interactions,
             IReadOnlyList<ItemDefinition> itemDefinitions,
-            System.Random random)
+            System.Random random,
+            IReadOnlyList<WorldObjectState> initialWorldObjects = null)
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             this.state = state ?? throw new ArgumentNullException(nameof(state));
@@ -40,6 +42,8 @@ namespace Game.Server.Match
                 random);
             Assignments = assignments;
             placements = new ItemPlacementSystem(assignments);
+            worldObjects = new WorldObjectStateSystem(
+                initialWorldObjects ?? Array.Empty<WorldObjectState>());
             outcome = new MatchOutcomeSystem(assignments);
             highlights = new HighlightSequence(Array.Empty<string>(), rules);
         }
@@ -97,6 +101,32 @@ namespace Game.Server.Match
             return placements.TryGetPlacement(playerIndex, out placement);
         }
 
+        public bool TryRecordWorldObjectPose(
+            int playerIndex,
+            string objectId,
+            Pose pose,
+            double now)
+        {
+            if (flow.GetCurrentHidingTurnIndex(now) != playerIndex ||
+                flow.GetHidingTurnRemainingSeconds(now) <= 0d ||
+                completedHidingTurns[playerIndex])
+            {
+                return false;
+            }
+
+            return worldObjects.TrySetPose(objectId, pose);
+        }
+
+        public bool TryGetWorldObjectState(string objectId, out WorldObjectState worldObjectState)
+        {
+            return worldObjects.TryGetState(objectId, out worldObjectState);
+        }
+
+        public WorldObjectState[] CaptureWorldObjectSnapshot()
+        {
+            return worldObjects.CaptureSnapshot();
+        }
+
         public bool TryHoldItem(int playerIndex, string itemId, double now)
         {
             return IsSearchingAt(now) && outcome.TryHoldItem(playerIndex, itemId);
@@ -107,9 +137,17 @@ namespace Game.Server.Match
             return IsSearchingAt(now) && outcome.ReleaseHeldItem(playerIndex);
         }
 
-        public bool TryDestroyMapObject(int playerIndex, double now)
+        public bool TryDestroyMapObject(int playerIndex, string objectId, double now)
         {
-            return IsSearchingAt(now) && interactions.TryUseDestruction(playerIndex);
+            if (!IsSearchingAt(now) ||
+                interactions.GetRemainingDestructionUses(playerIndex) == 0 ||
+                !worldObjects.TryDestroy(objectId))
+            {
+                return false;
+            }
+
+            interactions.TryUseDestruction(playerIndex);
+            return true;
         }
 
         public bool TryDestroyPlayerItem(int playerIndex, string itemId, double now)
