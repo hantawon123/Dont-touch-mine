@@ -52,8 +52,6 @@ namespace Game.Server.Items
             }
         }
 
-        public int Count => states.Count;
-
         public bool TrySetPose(string objectId, Pose pose)
         {
             if (!TryGetState(objectId, out var state))
