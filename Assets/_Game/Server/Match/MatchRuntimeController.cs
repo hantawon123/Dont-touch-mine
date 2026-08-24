@@ -15,6 +15,7 @@ namespace Game.Server.Match
     {
         private readonly MatchSessionCoordinator session;
         private readonly IMatchRuntimeContext context;
+        private bool isStarted;
 
         public MatchRuntimeController(
             MatchSessionCoordinator session,
@@ -24,22 +25,20 @@ namespace Game.Server.Match
             this.context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
-        public bool IsStarted { get; private set; }
-
         public bool StartMatch()
         {
-            if (IsStarted || !session.Start(context.ServerTime))
+            if (isStarted || !session.Start(context.ServerTime))
             {
                 return false;
             }
 
-            IsStarted = true;
+            isStarted = true;
             return true;
         }
 
         public void Tick()
         {
-            if (IsStarted)
+            if (isStarted)
             {
                 session.AdvanceTime(context.ServerTime, context.PlayerPositions);
             }
