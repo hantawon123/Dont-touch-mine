@@ -35,6 +35,8 @@ namespace Game.Server.Match
 
     public sealed class MatchSessionCoordinator
     {
+        private const double MapObjectEjectionDelaySeconds = 0.5d;
+
         private readonly MatchRulesSO rules;
         private readonly MatchState state;
         private readonly MatchFlow flow;
@@ -43,6 +45,9 @@ namespace Game.Server.Match
         private readonly WorldObjectStateSystem worldObjects;
         private readonly MatchOutcomeSystem outcome;
         private readonly bool[] completedHidingTurns = new bool[MatchRulesSO.PlayerCount];
+        private readonly Dictionary<string, PendingMapObjectEjection> pendingMapObjectEjections =
+            new(StringComparer.Ordinal);
+        private readonly List<string> completedMapObjectEjections = new();
         private HighlightSequence highlights;
         private MatchResult? result;
 
@@ -103,6 +108,8 @@ namespace Game.Server.Match
             {
                 CompleteExpiredHidingTurns(now, lastKnownPlayerPositions);
             }
+
+            CompleteMapObjectEjections(now);
 
             var changed = flow.AdvanceIfExpired(now);
             if (state.CurrentPhase.CurrentValue == MatchPhase.Highlight && highlights.IsComplete)
@@ -167,16 +174,26 @@ namespace Game.Server.Match
             return IsSearchingAt(now) && outcome.ReleaseHeldItem(playerIndex);
         }
 
-        public bool TryDestroyMapObject(int playerIndex, string objectId, double now)
+        public bool TryUseShredderOnMapObject(
+            int playerIndex,
+            string objectId,
+            Pose ejectionPose,
+            double now)
         {
             if (!IsSearchingAt(now) ||
                 interactions.GetRemainingDestructionUses(playerIndex) == 0 ||
-                !worldObjects.TryDestroy(objectId))
+                !worldObjects.TryGetState(objectId, out var worldObject) ||
+                pendingMapObjectEjections.ContainsKey(worldObject.ObjectId))
             {
                 return false;
             }
 
             interactions.TryUseDestruction(playerIndex);
+            pendingMapObjectEjections.Add(
+                worldObject.ObjectId,
+                new PendingMapObjectEjection(
+                    now + MapObjectEjectionDelaySeconds,
+                    ejectionPose));
             return true;
         }
 
@@ -322,6 +339,38 @@ namespace Game.Server.Match
                 placements.CompleteTurn(playerIndex, lastKnownPlayerPositions[playerIndex]);
                 completedHidingTurns[playerIndex] = true;
             }
+        }
+
+        private void CompleteMapObjectEjections(double now)
+        {
+            completedMapObjectEjections.Clear();
+            foreach (var pair in pendingMapObjectEjections)
+            {
+                if (now < pair.Value.EjectsAt)
+                {
+                    continue;
+                }
+
+                worldObjects.TrySetPose(pair.Key, pair.Value.Pose);
+                completedMapObjectEjections.Add(pair.Key);
+            }
+
+            foreach (var objectId in completedMapObjectEjections)
+            {
+                pendingMapObjectEjections.Remove(objectId);
+            }
+        }
+
+        private readonly struct PendingMapObjectEjection
+        {
+            public PendingMapObjectEjection(double ejectsAt, Pose pose)
+            {
+                EjectsAt = ejectsAt;
+                Pose = pose;
+            }
+
+            public double EjectsAt { get; }
+            public Pose Pose { get; }
         }
     }
 }

@@ -119,17 +119,30 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void DestroyMapObject_ConsumesUseOnlyForExistingObject()
+        public void Shredder_EjectsMapObjectAfterHalfSecondWithoutDestroyingIt()
         {
             StartSearching();
+            var ejectionPose = new Pose(new Vector3(3f, 0f, 4f), Quaternion.identity);
 
-            Assert.That(session.TryDestroyMapObject(0, "unknown", 200d), Is.False);
+            Assert.That(
+                session.TryUseShredderOnMapObject(0, "unknown", ejectionPose, 200d),
+                Is.False);
             Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(5));
-            Assert.That(session.TryDestroyMapObject(0, "shelf", 200d), Is.True);
+            Assert.That(
+                session.TryUseShredderOnMapObject(0, "shelf", ejectionPose, 200d),
+                Is.True);
             Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(4));
+            Assert.That(
+                session.TryUseShredderOnMapObject(0, "shelf", ejectionPose, 200.25d),
+                Is.False);
+
+            session.AdvanceTime(200.49d, lastKnownPositions);
             Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
-            Assert.That(state.IsDestroyed, Is.True);
-            Assert.That(session.TryDestroyMapObject(0, "shelf", 200d), Is.False);
+            Assert.That(state.Pose.position, Is.EqualTo(Vector3.zero));
+
+            session.AdvanceTime(200.5d, lastKnownPositions);
+            Assert.That(session.TryGetWorldObjectState("shelf", out state), Is.True);
+            Assert.That(state.Pose.position, Is.EqualTo(ejectionPose.position));
             Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(4));
         }
 
