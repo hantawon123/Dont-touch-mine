@@ -1,5 +1,6 @@
 using Game.Core.Items;
 using Game.Core.Match;
+using Game.Server.Items;
 using Game.Server.Match;
 using Game.Server.Players;
 using Game.SOAP.Config;
@@ -28,7 +29,11 @@ namespace Game.Tests.EditMode
                 flow,
                 interactions,
                 CreateItemDefinitions(),
-                new System.Random(1234));
+                new System.Random(1234),
+                new[]
+                {
+                    new WorldObjectState("shelf", new Pose(Vector3.zero, Quaternion.identity))
+                });
             lastKnownPositions = new Vector3[MatchRulesSO.PlayerCount];
             for (var playerIndex = 0; playerIndex < lastKnownPositions.Length; playerIndex++)
             {
@@ -84,6 +89,44 @@ namespace Game.Tests.EditMode
             Assert.That(session.AllPlayerItemsDestroyed, Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
             Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(230d));
+        }
+
+        [Test]
+        public void WorldObjectPose_PersistsBetweenHidingTurns()
+        {
+            session.Start(10d);
+            var firstPose = new Pose(new Vector3(1f, 2f, 3f), Quaternion.identity);
+            var secondPose = new Pose(new Vector3(4f, 5f, 6f), Quaternion.identity);
+
+            Assert.That(
+                session.TryRecordWorldObjectPose(1, "shelf", firstPose, 20d),
+                Is.False);
+            Assert.That(
+                session.TryRecordWorldObjectPose(0, "shelf", firstPose, 20d),
+                Is.True);
+
+            session.AdvanceTime(40d, lastKnownPositions);
+
+            Assert.That(
+                session.TryRecordWorldObjectPose(1, "shelf", secondPose, 45d),
+                Is.True);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
+            Assert.That(state.Pose.position, Is.EqualTo(secondPose.position));
+        }
+
+        [Test]
+        public void DestroyMapObject_ConsumesUseOnlyForExistingObject()
+        {
+            StartSearching();
+
+            Assert.That(session.TryDestroyMapObject(0, "unknown", 200d), Is.False);
+            Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(5));
+            Assert.That(session.TryDestroyMapObject(0, "shelf", 200d), Is.True);
+            Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(4));
+            Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
+            Assert.That(state.IsDestroyed, Is.True);
+            Assert.That(session.TryDestroyMapObject(0, "shelf", 200d), Is.False);
+            Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(4));
         }
 
         [Test]
