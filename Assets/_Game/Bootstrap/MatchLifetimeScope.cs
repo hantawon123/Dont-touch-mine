@@ -18,6 +18,9 @@ namespace Game.Bootstrap
         [SerializeField]
         private MatchPhaseView matchPhaseView;
 
+        [SerializeField]
+        private MatchRuntimeContext matchRuntimeContext;
+
         protected override void Configure(IContainerBuilder builder)
         {
             if (matchRules == null)
@@ -30,10 +33,18 @@ namespace Game.Bootstrap
                 throw new InvalidOperationException("MatchPhaseView must be assigned.");
             }
 
+            if (matchRuntimeContext == null)
+            {
+                throw new InvalidOperationException("MatchRuntimeContext must be assigned.");
+            }
+
             builder.RegisterInstance(matchRules);
             builder.Register<MatchState>(Lifetime.Scoped).AsSelf().As<IMatchState>();
             builder.Register<MatchFlow>(Lifetime.Scoped);
             builder.Register<PlayerInteractionSystem>(Lifetime.Scoped);
+            builder.RegisterComponent(matchRuntimeContext)
+                .As<IMatchRuntimeContext>()
+                .As<IMatchClock>();
             builder.RegisterComponent(matchPhaseView).As<IMatchPhaseView>();
             builder.RegisterEntryPoint<MatchPhasePresenter>();
         }
