@@ -75,15 +75,15 @@ namespace Game.Tests.EditMode
         {
             StartSearching();
 
-            Assert.That(session.TryDestroyPlayerItem(0, "unknown", 200d), Is.False);
+            Assert.That(session.TryDestroyHeldPlayerItem(0, 200d), Is.False);
             Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(5));
 
-            for (var playerIndex = 0; playerIndex < MatchRulesSO.PlayerCount; playerIndex++)
+            for (var itemOwner = 0; itemOwner < MatchRulesSO.PlayerCount; itemOwner++)
             {
-                var itemId = session.Assignments[playerIndex].Item.ItemId;
-                Assert.That(
-                    session.TryDestroyPlayerItem(playerIndex, itemId, 200d),
-                    Is.True);
+                var destroyer = (itemOwner + 1) % MatchRulesSO.PlayerCount;
+                var itemId = session.Assignments[itemOwner].Item.ItemId;
+                Assert.That(session.TryHoldItem(destroyer, itemId, 200d), Is.True);
+                Assert.That(session.TryDestroyHeldPlayerItem(destroyer, 200d), Is.True);
             }
 
             Assert.That(session.AllPlayerItemsDestroyed, Is.True);
@@ -195,7 +195,7 @@ namespace Game.Tests.EditMode
 
             Assert.That(session.IsPlayerStunned(1, 200.3d), Is.True);
             Assert.That(session.TryHoldItem(1, otherItem, 200.3d), Is.False);
-            Assert.That(session.TryDestroyPlayerItem(1, otherItem, 200.3d), Is.False);
+            Assert.That(session.TryDestroyHeldPlayerItem(1, 200.3d), Is.False);
             Assert.That(
                 session.TryUseShredderOnMapObject(1, "shelf", Pose.identity, 200.3d),
                 Is.False);
@@ -210,6 +210,23 @@ namespace Game.Tests.EditMode
 
             Assert.That(session.IsPlayerStunned(1, 202.2d), Is.False);
             Assert.That(session.TryHoldItem(1, otherItem, 202.2d), Is.True);
+        }
+
+        [Test]
+        public void DestroyHeldPlayerItem_RequiresAnOpponentItem()
+        {
+            StartSearching();
+            var ownItem = session.Assignments[0].Item.ItemId;
+            var opponentItem = session.Assignments[1].Item.ItemId;
+
+            Assert.That(session.TryHoldItem(0, ownItem, 200d), Is.True);
+            Assert.That(session.TryDestroyHeldPlayerItem(0, 200d), Is.False);
+            Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(5));
+
+            Assert.That(session.TryHoldItem(0, opponentItem, 200d), Is.True);
+            Assert.That(session.TryDestroyHeldPlayerItem(0, 200d), Is.True);
+            Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(4));
+            Assert.That(session.TryHoldItem(2, opponentItem, 200d), Is.False);
         }
 
         [Test]

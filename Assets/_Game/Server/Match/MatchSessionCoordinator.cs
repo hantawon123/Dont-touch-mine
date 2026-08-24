@@ -197,11 +197,18 @@ namespace Game.Server.Match
             return true;
         }
 
-        public bool TryDestroyPlayerItem(int playerIndex, string itemId, double now)
+        public bool TryDestroyHeldPlayerItem(int playerIndex, double now)
         {
             if (!CanInteract(playerIndex, now) ||
-                interactions.GetRemainingDestructionUses(playerIndex) == 0 ||
-                !outcome.DestroyItem(itemId))
+                interactions.GetRemainingDestructionUses(playerIndex) == 0)
+            {
+                return false;
+            }
+
+            var heldItemOwner = outcome.GetHeldItemOwner(playerIndex);
+            if (heldItemOwner < 0 ||
+                heldItemOwner == playerIndex ||
+                !outcome.DestroyItem(Assignments[heldItemOwner].Item.ItemId))
             {
                 return false;
             }
