@@ -33,6 +33,23 @@ namespace Game.Server.Match
         public IReadOnlyList<int> WinnerPlayerIndices { get; }
     }
 
+    public readonly struct PlayerItemDestroyedEvent
+    {
+        public PlayerItemDestroyedEvent(
+            int destroyerPlayerIndex,
+            string itemId,
+            double destroyedAt)
+        {
+            DestroyerPlayerIndex = destroyerPlayerIndex;
+            ItemId = itemId ?? throw new ArgumentNullException(nameof(itemId));
+            DestroyedAt = destroyedAt;
+        }
+
+        public int DestroyerPlayerIndex { get; }
+        public string ItemId { get; }
+        public double DestroyedAt { get; }
+    }
+
     public sealed class MatchSessionCoordinator
     {
         private const double MapObjectEjectionDelaySeconds = 0.5d;
@@ -95,6 +112,8 @@ namespace Game.Server.Match
         public IReadOnlyList<PlayerItemAssignment> Assignments { get; }
         public bool AllItemsPlaced => placements.AllPlaced;
         public bool AllPlayerItemsDestroyed => outcome.AllPlayerItemsDestroyed;
+
+        public event Action<PlayerItemDestroyedEvent> PlayerItemDestroyed;
 
         public bool Start(double now)
         {
@@ -284,14 +303,22 @@ namespace Game.Server.Match
             }
 
             var heldItemOwner = outcome.GetHeldItemOwner(playerIndex);
+            var heldItemId = heldItemOwner >= 0
+                ? Assignments[heldItemOwner].Item.ItemId
+                : null;
             if (heldItemOwner < 0 ||
                 heldItemOwner == playerIndex ||
-                !outcome.DestroyItem(Assignments[heldItemOwner].Item.ItemId))
+                !outcome.DestroyItem(heldItemId))
             {
                 return false;
             }
 
             interactions.TryUseDestruction(playerIndex);
+            PlayerItemDestroyed?.Invoke(
+                new PlayerItemDestroyedEvent(
+                    playerIndex,
+                    heldItemId,
+                    now));
             if (outcome.AllPlayerItemsDestroyed)
             {
                 CaptureResult(MatchEndReason.AllPlayerItemsDestroyed, now);
