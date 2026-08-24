@@ -20,11 +20,27 @@ namespace Game.SOAP.Config
         [SerializeField, Min(1f)]
         private float highlightMaxDurationSeconds = 30f;
 
+        [SerializeField, Min(1)]
+        private int destructionUsesPerPlayer = 5;
+
+        [SerializeField, Min(1)]
+        private int hitsRequiredToStun = 3;
+
+        [SerializeField, Min(0f)]
+        private float stunDurationSeconds = 2f;
+
+        [SerializeField, Min(0f)]
+        private float invulnerabilityDurationSeconds;
+
         public float HidingTurnDurationSeconds => hidingTurnDurationSeconds;
         public float HidingDurationSeconds => hidingTurnDurationSeconds * PlayerCount;
         public float SearchingDurationSeconds => searchingDurationSeconds;
         public float FinalWarningSeconds => finalWarningSeconds;
         public float HighlightMaxDurationSeconds => highlightMaxDurationSeconds;
+        public int DestructionUsesPerPlayer => destructionUsesPerPlayer;
+        public int HitsRequiredToStun => hitsRequiredToStun;
+        public float StunDurationSeconds => stunDurationSeconds;
+        public float InvulnerabilityDurationSeconds => invulnerabilityDurationSeconds;
 
         public float GetDurationSeconds(MatchPhase phase)
         {

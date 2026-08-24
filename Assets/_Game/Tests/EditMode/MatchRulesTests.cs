@@ -42,5 +42,23 @@ namespace Game.Tests.EditMode
                 Object.DestroyImmediate(rules);
             }
         }
+
+        [Test]
+        public void PlayerInteractionRules_HaveMvpDefaults()
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+
+            try
+            {
+                Assert.That(rules.DestructionUsesPerPlayer, Is.EqualTo(5));
+                Assert.That(rules.HitsRequiredToStun, Is.EqualTo(3));
+                Assert.That(rules.StunDurationSeconds, Is.EqualTo(2f));
+                Assert.That(rules.InvulnerabilityDurationSeconds, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rules);
+            }
+        }
     }
 }
