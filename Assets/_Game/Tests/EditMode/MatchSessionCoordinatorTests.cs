@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Core.Items;
 using Game.Core.Match;
 using Game.Server.Items;
@@ -29,6 +30,7 @@ namespace Game.Tests.EditMode
                 flow,
                 interactions,
                 new TestPlacementValidator(),
+                CreateSpawnPoints(),
                 CreateItemDefinitions(),
                 new System.Random(1234),
                 new[]
@@ -69,6 +71,31 @@ namespace Game.Tests.EditMode
             Assert.That(session.TryGetItemPlacement(1, out var secondPlacement), Is.True);
             Assert.That(secondPlacement.Pose.position, Is.EqualTo(lastKnownPositions[1]));
             Assert.That(secondPlacement.WasAutoPlaced, Is.True);
+        }
+
+        [Test]
+        public void SpawnPoses_AreUniqueForHidingAndSearching()
+        {
+            session.Start(10d);
+            var hidingPositions = new HashSet<Vector3>();
+            var searchingPositions = new HashSet<Vector3>();
+
+            for (var playerIndex = 0; playerIndex < MatchRulesSO.PlayerCount; playerIndex++)
+            {
+                var turnStartedAt = 10d + (playerIndex * rules.HidingTurnDurationSeconds);
+                Assert.That(
+                    session.TryGetCurrentHidingSpawnPose(
+                        playerIndex,
+                        turnStartedAt,
+                        out var hidingSpawnPose),
+                    Is.True);
+                Assert.That(hidingPositions.Add(hidingSpawnPose.position), Is.True);
+
+                var searchingSpawnPose = session.GetSearchingSpawnPose(playerIndex);
+                Assert.That(searchingPositions.Add(searchingSpawnPose.position), Is.True);
+            }
+
+            Assert.That(session.TryGetCurrentHidingSpawnPose(1, 10d, out _), Is.False);
         }
 
         [Test]
@@ -330,6 +357,19 @@ namespace Game.Tests.EditMode
                 new ItemDefinition("cup", "kitchen"),
                 new ItemDefinition("plate", "kitchen")
             };
+        }
+
+        private static Pose[] CreateSpawnPoints()
+        {
+            var spawnPoints = new Pose[8];
+            for (var index = 0; index < spawnPoints.Length; index++)
+            {
+                spawnPoints[index] = new Pose(
+                    new Vector3(index * 2f, 0f, index),
+                    Quaternion.identity);
+            }
+
+            return spawnPoints;
         }
 
         private sealed class TestPlacementValidator : IPlacementValidator
