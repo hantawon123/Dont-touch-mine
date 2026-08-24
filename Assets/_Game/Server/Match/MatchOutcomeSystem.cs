@@ -7,6 +7,7 @@ namespace Game.Server.Match
     public sealed class MatchOutcomeSystem
     {
         private readonly Dictionary<string, int> itemOwnerById;
+        private readonly string[] itemIdByOwner;
         private readonly int[] heldItemOwnerByPlayer;
         private readonly int[] holderByItemOwner;
         private readonly bool[] destroyedItems;
@@ -24,6 +25,7 @@ namespace Game.Server.Match
             }
 
             itemOwnerById = new Dictionary<string, int>(assignments.Count, StringComparer.Ordinal);
+            itemIdByOwner = new string[assignments.Count];
             heldItemOwnerByPlayer = new int[assignments.Count];
             holderByItemOwner = new int[assignments.Count];
             destroyedItems = new bool[assignments.Count];
@@ -41,6 +43,8 @@ namespace Game.Server.Match
                         "Assignments must be unique and ordered by player index.",
                         nameof(assignments));
                 }
+
+                itemIdByOwner[playerIndex] = assignment.Item.ItemId;
             }
         }
 
@@ -121,6 +125,21 @@ namespace Game.Server.Match
             }
 
             return winners.ToArray();
+        }
+
+        public string[] CaptureDestroyedItemIds()
+        {
+            var itemIds = new string[DestroyedItemCount];
+            var resultIndex = 0;
+            for (var itemOwner = 0; itemOwner < destroyedItems.Length; itemOwner++)
+            {
+                if (destroyedItems[itemOwner])
+                {
+                    itemIds[resultIndex++] = itemIdByOwner[itemOwner];
+                }
+            }
+
+            return itemIds;
         }
 
         private void ValidatePlayerIndex(int playerIndex)

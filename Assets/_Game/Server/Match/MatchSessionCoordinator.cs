@@ -124,6 +124,7 @@ namespace Game.Server.Match
 
         public IReadOnlyList<PlayerItemAssignment> Assignments { get; }
         public bool AllItemsPlaced => placements.AllPlaced;
+        public int DestroyedPlayerItemCount => outcome.DestroyedItemCount;
         public bool AllPlayerItemsDestroyed => outcome.AllPlayerItemsDestroyed;
 
         public event Action<PlayerItemDestroyedEvent> PlayerItemDestroyed;
@@ -132,6 +133,21 @@ namespace Game.Server.Match
         public bool Start(double now)
         {
             return flow.Start(now);
+        }
+
+        public double GetRemainingSeconds(double now)
+        {
+            return flow.GetRemainingSeconds(now);
+        }
+
+        public int GetCurrentHidingTurnIndex(double now)
+        {
+            return flow.GetCurrentHidingTurnIndex(now);
+        }
+
+        public bool IsFinalPeriod(double now)
+        {
+            return flow.IsFinalPeriod(now);
         }
 
         public bool TryGetCurrentHidingSpawnPose(
@@ -376,6 +392,16 @@ namespace Game.Server.Match
         public int GetRemainingDestructionUses(int playerIndex)
         {
             return interactions.GetRemainingDestructionUses(playerIndex);
+        }
+
+        public int GetHitCount(int playerIndex)
+        {
+            return interactions.GetHitCount(playerIndex);
+        }
+
+        public string[] CaptureDestroyedPlayerItemIds()
+        {
+            return outcome.CaptureDestroyedItemIds();
         }
 
         public int[] GetWinnerPlayerIndices()
