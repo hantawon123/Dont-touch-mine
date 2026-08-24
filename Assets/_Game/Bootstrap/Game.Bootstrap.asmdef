@@ -1,0 +1,22 @@
+{
+    "name": "Game.Bootstrap",
+    "rootNamespace": "Game.Bootstrap",
+    "references": [
+        "Game.Client",
+        "Game.Core",
+        "Game.Server",
+        "Game.SOAP",
+        "R3.Unity",
+        "UniTask",
+        "VContainer"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
