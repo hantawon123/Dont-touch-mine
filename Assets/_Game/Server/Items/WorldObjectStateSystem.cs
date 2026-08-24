@@ -6,7 +6,7 @@ namespace Game.Server.Items
 {
     public readonly struct WorldObjectState
     {
-        public WorldObjectState(string objectId, Pose pose, bool isDestroyed = false)
+        public WorldObjectState(string objectId, Pose pose)
         {
             if (string.IsNullOrWhiteSpace(objectId))
             {
@@ -15,12 +15,10 @@ namespace Game.Server.Items
 
             ObjectId = objectId.Trim();
             Pose = pose;
-            IsDestroyed = isDestroyed;
         }
 
         public string ObjectId { get; }
         public Pose Pose { get; }
-        public bool IsDestroyed { get; }
     }
 
     public sealed class WorldObjectStateSystem
@@ -58,23 +56,12 @@ namespace Game.Server.Items
 
         public bool TrySetPose(string objectId, Pose pose)
         {
-            if (!TryGetActiveState(objectId, out var state))
+            if (!TryGetState(objectId, out var state))
             {
                 return false;
             }
 
             states[state.ObjectId] = new WorldObjectState(state.ObjectId, pose);
-            return true;
-        }
-
-        public bool TryDestroy(string objectId)
-        {
-            if (!TryGetActiveState(objectId, out var state))
-            {
-                return false;
-            }
-
-            states[state.ObjectId] = new WorldObjectState(state.ObjectId, state.Pose, true);
             return true;
         }
 
@@ -98,11 +85,6 @@ namespace Game.Server.Items
             }
 
             return snapshot;
-        }
-
-        private bool TryGetActiveState(string objectId, out WorldObjectState state)
-        {
-            return TryGetState(objectId, out state) && !state.IsDestroyed;
         }
     }
 }

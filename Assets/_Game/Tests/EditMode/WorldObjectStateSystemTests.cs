@@ -24,17 +24,16 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void DestroyedObject_CannotMoveAgain()
+        public void UnknownObject_CannotMove()
         {
             var system = new WorldObjectStateSystem(new[]
             {
                 new WorldObjectState("box", new Pose(Vector3.zero, Quaternion.identity))
             });
 
-            Assert.That(system.TryDestroy("box"), Is.True);
-            Assert.That(system.TrySetPose("box", new Pose(Vector3.one, Quaternion.identity)), Is.False);
-            Assert.That(system.TryGetState("box", out var state), Is.True);
-            Assert.That(state.IsDestroyed, Is.True);
+            Assert.That(
+                system.TrySetPose("unknown", new Pose(Vector3.one, Quaternion.identity)),
+                Is.False);
         }
     }
 }
