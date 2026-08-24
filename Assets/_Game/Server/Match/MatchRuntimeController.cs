@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Match;
+using Game.Server.Items;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -9,6 +10,8 @@ namespace Game.Server.Match
     public interface IMatchRuntimeContext : IMatchClock
     {
         IReadOnlyList<Vector3> PlayerPositions { get; }
+        IReadOnlyList<Pose> PlayerPoses { get; }
+        IReadOnlyList<WorldObjectState> ReplayObjects { get; }
     }
 
     public sealed class MatchRuntimeController : ITickable
@@ -40,6 +43,10 @@ namespace Game.Server.Match
         {
             if (isStarted)
             {
+                session.TryRecordReplayFrame(
+                    context.ServerTime,
+                    context.PlayerPoses,
+                    context.ReplayObjects);
                 session.AdvanceTime(context.ServerTime, context.PlayerPositions);
             }
         }

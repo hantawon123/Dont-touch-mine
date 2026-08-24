@@ -79,7 +79,9 @@ namespace Game.Tests.EditMode
             var context = new TestRuntimeContext
             {
                 ServerTime = 10d,
-                PlayerPositions = lastKnownPositions
+                PlayerPositions = lastKnownPositions,
+                PlayerPoses = CreatePlayerPoses(lastKnownPositions),
+                ReplayObjects = new WorldObjectState[0]
             };
             var controller = new MatchRuntimeController(session, context);
 
@@ -122,6 +124,53 @@ namespace Game.Tests.EditMode
             Assert.That(warningEvent.HasValue, Is.True);
             Assert.That(warningEvent.Value.StartedAt, Is.EqualTo(520d));
             Assert.That(warningEvent.Value.EndsAt, Is.EqualTo(550d));
+        }
+
+        [Test]
+        public void RuntimeController_RecordsSearchingFramesForCurrentHighlightSegments()
+        {
+            var context = new TestRuntimeContext
+            {
+                ServerTime = 10d,
+                PlayerPositions = lastKnownPositions,
+                PlayerPoses = CreatePlayerPoses(lastKnownPositions),
+                ReplayObjects = new[]
+                {
+                    new WorldObjectState("shelf", Pose.identity)
+                }
+            };
+            var controller = new MatchRuntimeController(session, context);
+            Assert.That(controller.StartMatch(), Is.True);
+            context.ServerTime = 190d;
+            controller.Tick();
+            context.ServerTime = 200d;
+            controller.Tick();
+            var itemId = session.Assignments[1].Item.ItemId;
+            Assert.That(session.TryHoldObject(0, itemId, 200d), Is.True);
+            Assert.That(session.TryDestroyHeldPlayerItem(0, 200d), Is.True);
+            Assert.That(session.SetHighlightCandidates(new[]
+            {
+                new HighlightCandidate(HighlightType.FirstBlood, 193d, 200d, itemId)
+            }), Is.True);
+
+            for (var owner = 0; owner < MatchRulesSO.PlayerCount; owner++)
+            {
+                if (owner == 1)
+                {
+                    continue;
+                }
+
+                var destroyer = (owner + 1) % MatchRulesSO.PlayerCount;
+                var remainingItemId = session.Assignments[owner].Item.ItemId;
+                Assert.That(session.TryHoldObject(destroyer, remainingItemId, 201d), Is.True);
+                Assert.That(session.TryDestroyHeldPlayerItem(destroyer, 201d), Is.True);
+            }
+
+            Assert.That(session.TryCaptureCurrentHighlightReplay(out var clips), Is.True);
+            Assert.That(clips, Has.Length.EqualTo(1));
+            Assert.That(clips[0].Frames.Count, Is.EqualTo(1));
+            Assert.That(clips[0].Frames[0].PlayerPoses[0].position, Is.EqualTo(Vector3.zero));
+            Assert.That(clips[0].Frames[0].WorldObjects[0].ObjectId, Is.EqualTo("shelf"));
         }
 
         [Test]
@@ -503,6 +552,17 @@ namespace Game.Tests.EditMode
             return spawnPoints;
         }
 
+        private static Pose[] CreatePlayerPoses(IReadOnlyList<Vector3> positions)
+        {
+            var poses = new Pose[positions.Count];
+            for (var index = 0; index < positions.Count; index++)
+            {
+                poses[index] = new Pose(positions[index], Quaternion.identity);
+            }
+
+            return poses;
+        }
+
         private sealed class TestPlacementValidator : IPlacementValidator
         {
             public bool IsValid(string objectId, Pose pose)
@@ -515,6 +575,8 @@ namespace Game.Tests.EditMode
         {
             public double ServerTime { get; set; }
             public IReadOnlyList<Vector3> PlayerPositions { get; set; }
+            public IReadOnlyList<Pose> PlayerPoses { get; set; }
+            public IReadOnlyList<WorldObjectState> ReplayObjects { get; set; }
         }
     }
 }
