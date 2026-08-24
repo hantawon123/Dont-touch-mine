@@ -133,5 +133,17 @@ namespace Game.Tests.EditMode
             Assert.That(state.PhaseEndsAt.CurrentValue, Is.Zero);
             Assert.That(flow.CompleteHighlight(), Is.False);
         }
+
+        [Test]
+        public void CompleteSearchingEarly_EntersHighlightFromCurrentTime()
+        {
+            flow.Start(10d);
+            flow.AdvanceIfExpired(190d);
+
+            Assert.That(flow.CompleteSearchingEarly(300d), Is.True);
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(330d));
+            Assert.That(flow.CompleteSearchingEarly(301d), Is.False);
+        }
     }
 }
