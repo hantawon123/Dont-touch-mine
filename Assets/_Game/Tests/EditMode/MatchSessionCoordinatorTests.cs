@@ -305,6 +305,13 @@ namespace Game.Tests.EditMode
             var heldItem = session.Assignments[1].Item.ItemId;
             var otherItem = session.Assignments[2].Item.ItemId;
             var dropPosition = new Vector3(7f, 0f, 8f);
+            PlayerStunnedEvent? stunnedEvent = null;
+            var eventCount = 0;
+            session.PlayerStunned += value =>
+            {
+                stunnedEvent = value;
+                eventCount++;
+            };
 
             Assert.That(session.TryHoldObject(1, heldItem, 200d), Is.True);
             Assert.That(
@@ -313,10 +320,18 @@ namespace Game.Tests.EditMode
             Assert.That(
                 session.RegisterHit(0, 1, dropPosition, 200.1d),
                 Is.EqualTo(HitResult.Registered));
+            Assert.That(stunnedEvent.HasValue, Is.False);
             Assert.That(
                 session.RegisterHit(0, 1, dropPosition, 200.2d),
                 Is.EqualTo(HitResult.Stunned));
 
+            Assert.That(eventCount, Is.EqualTo(1));
+            Assert.That(stunnedEvent.HasValue, Is.True);
+            Assert.That(stunnedEvent.Value.AttackerPlayerIndex, Is.Zero);
+            Assert.That(stunnedEvent.Value.TargetPlayerIndex, Is.EqualTo(1));
+            Assert.That(stunnedEvent.Value.DroppedObjectId, Is.EqualTo(heldItem));
+            Assert.That(stunnedEvent.Value.StunnedAt, Is.EqualTo(200.2d));
+            Assert.That(stunnedEvent.Value.StunEndsAt, Is.EqualTo(202.2d));
             Assert.That(session.IsPlayerStunned(1, 200.3d), Is.True);
             Assert.That(session.TryHoldObject(1, otherItem, 200.3d), Is.False);
             Assert.That(session.TryDestroyHeldPlayerItem(1, 200.3d), Is.False);
@@ -341,6 +356,8 @@ namespace Game.Tests.EditMode
         {
             StartSearching();
             var dropPosition = new Vector3(4f, 0f, 6f);
+            PlayerStunnedEvent? stunnedEvent = null;
+            session.PlayerStunned += value => stunnedEvent = value;
 
             Assert.That(session.TryHoldObject(1, "shelf", 200d), Is.True);
             Assert.That(
@@ -354,6 +371,8 @@ namespace Game.Tests.EditMode
                 Is.EqualTo(HitResult.Stunned));
 
             Assert.That(session.TryGetHeldObjectId(1, out _), Is.False);
+            Assert.That(stunnedEvent.HasValue, Is.True);
+            Assert.That(stunnedEvent.Value.DroppedObjectId, Is.EqualTo("shelf"));
             Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
             Assert.That(state.Pose.position, Is.EqualTo(dropPosition));
             Assert.That(session.TryHoldObject(2, "shelf", 200.3d), Is.True);

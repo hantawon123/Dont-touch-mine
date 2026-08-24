@@ -62,6 +62,29 @@ namespace Game.Server.Match
         public double EndsAt { get; }
     }
 
+    public readonly struct PlayerStunnedEvent
+    {
+        public PlayerStunnedEvent(
+            int attackerPlayerIndex,
+            int targetPlayerIndex,
+            string droppedObjectId,
+            double stunnedAt,
+            double stunEndsAt)
+        {
+            AttackerPlayerIndex = attackerPlayerIndex;
+            TargetPlayerIndex = targetPlayerIndex;
+            DroppedObjectId = droppedObjectId;
+            StunnedAt = stunnedAt;
+            StunEndsAt = stunEndsAt;
+        }
+
+        public int AttackerPlayerIndex { get; }
+        public int TargetPlayerIndex { get; }
+        public string DroppedObjectId { get; }
+        public double StunnedAt { get; }
+        public double StunEndsAt { get; }
+    }
+
     public sealed class MatchSessionCoordinator
     {
         private const double MapObjectEjectionDelaySeconds = 0.5d;
@@ -129,6 +152,7 @@ namespace Game.Server.Match
 
         public event Action<PlayerItemDestroyedEvent> PlayerItemDestroyed;
         public event Action<FinalWarningStartedEvent> FinalWarningStarted;
+        public event Action<PlayerStunnedEvent> PlayerStunned;
 
         public bool Start(double now)
         {
@@ -377,9 +401,17 @@ namespace Game.Server.Match
                 return hitResult;
             }
 
+            TryGetHeldObjectId(targetPlayerIndex, out var droppedObjectId);
             ReleaseHeldObjectAt(
                 targetPlayerIndex,
                 new Pose(targetPosition, Quaternion.identity));
+            PlayerStunned?.Invoke(
+                new PlayerStunnedEvent(
+                    attackerPlayerIndex,
+                    targetPlayerIndex,
+                    droppedObjectId,
+                    now,
+                    now + rules.StunDurationSeconds));
 
             return hitResult;
         }
