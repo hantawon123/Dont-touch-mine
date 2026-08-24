@@ -74,6 +74,30 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void FinalWarning_RaisesOnceWhenSearchingEntersLastThirtySeconds()
+        {
+            session.Start(10d);
+            FinalWarningStartedEvent? warningEvent = null;
+            var eventCount = 0;
+            session.FinalWarningStarted += value =>
+            {
+                warningEvent = value;
+                eventCount++;
+            };
+
+            session.AdvanceTime(519d, lastKnownPositions);
+            Assert.That(warningEvent.HasValue, Is.False);
+
+            session.AdvanceTime(520d, lastKnownPositions);
+            session.AdvanceTime(530d, lastKnownPositions);
+
+            Assert.That(eventCount, Is.EqualTo(1));
+            Assert.That(warningEvent.HasValue, Is.True);
+            Assert.That(warningEvent.Value.StartedAt, Is.EqualTo(520d));
+            Assert.That(warningEvent.Value.EndsAt, Is.EqualTo(550d));
+        }
+
+        [Test]
         public void SpawnPoses_AreUniqueForHidingAndSearching()
         {
             session.Start(10d);
