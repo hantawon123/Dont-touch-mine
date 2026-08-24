@@ -4,6 +4,8 @@
     "references": [
         "Game.Core",
         "Game.SOAP",
+        "Fusion.Unity",
+        "Photon.Realtime",
         "R3.Unity",
         "VContainer"
     ],
