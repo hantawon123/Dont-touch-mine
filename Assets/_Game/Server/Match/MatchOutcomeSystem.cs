@@ -58,12 +58,11 @@ namespace Game.Server.Match
             }
 
             var currentHolder = holderByItemOwner[itemOwner];
-            if (currentHolder >= 0 && currentHolder != playerIndex)
+            if (heldItemOwnerByPlayer[playerIndex] >= 0 || currentHolder >= 0)
             {
                 return false;
             }
 
-            ReleaseHeldItem(playerIndex);
             heldItemOwnerByPlayer[playerIndex] = itemOwner;
             holderByItemOwner[itemOwner] = playerIndex;
             return true;

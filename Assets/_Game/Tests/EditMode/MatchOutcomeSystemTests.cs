@@ -44,6 +44,17 @@ namespace Game.Tests.EditMode
             Assert.That(system.TryHoldItem(2, "item-1"), Is.False);
         }
 
+        [Test]
+        public void TryHoldItem_RequiresReleasingCurrentItemFirst()
+        {
+            var system = new MatchOutcomeSystem(CreateAssignments());
+
+            Assert.That(system.TryHoldItem(0, "item-0"), Is.True);
+            Assert.That(system.TryHoldItem(0, "item-1"), Is.False);
+            Assert.That(system.ReleaseHeldItem(0), Is.True);
+            Assert.That(system.TryHoldItem(0, "item-1"), Is.True);
+        }
+
         private static PlayerItemAssignment[] CreateAssignments()
         {
             var assignments = new PlayerItemAssignment[6];

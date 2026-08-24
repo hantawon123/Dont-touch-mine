@@ -82,7 +82,7 @@ namespace Game.Tests.EditMode
             {
                 var destroyer = (itemOwner + 1) % MatchRulesSO.PlayerCount;
                 var itemId = session.Assignments[itemOwner].Item.ItemId;
-                Assert.That(session.TryHoldItem(destroyer, itemId, 200d), Is.True);
+                Assert.That(session.TryHoldObject(destroyer, itemId, 200d), Is.True);
                 Assert.That(session.TryDestroyHeldPlayerItem(destroyer, 200d), Is.True);
             }
 
@@ -125,15 +125,16 @@ namespace Game.Tests.EditMode
             var ejectionPose = new Pose(new Vector3(3f, 0f, 4f), Quaternion.identity);
 
             Assert.That(
-                session.TryUseShredderOnMapObject(0, "unknown", ejectionPose, 200d),
+                session.TryUseShredderOnHeldMapObject(0, ejectionPose, 200d),
                 Is.False);
             Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(5));
+            Assert.That(session.TryHoldObject(0, "shelf", 200d), Is.True);
             Assert.That(
-                session.TryUseShredderOnMapObject(0, "shelf", ejectionPose, 200d),
+                session.TryUseShredderOnHeldMapObject(0, ejectionPose, 200d),
                 Is.True);
             Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(4));
             Assert.That(
-                session.TryUseShredderOnMapObject(0, "shelf", ejectionPose, 200.25d),
+                session.TryUseShredderOnHeldMapObject(0, ejectionPose, 200.25d),
                 Is.False);
 
             session.AdvanceTime(200.49d, lastKnownPositions);
@@ -144,6 +145,27 @@ namespace Game.Tests.EditMode
             Assert.That(session.TryGetWorldObjectState("shelf", out state), Is.True);
             Assert.That(state.Pose.position, Is.EqualTo(ejectionPose.position));
             Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(4));
+            Assert.That(session.TryHoldObject(1, "shelf", 200.5d), Is.True);
+        }
+
+        [Test]
+        public void PlayerAndMapObjects_ShareOneHeldObjectSlot()
+        {
+            StartSearching();
+            var playerItem = session.Assignments[0].Item.ItemId;
+            var releasedPose = new Pose(new Vector3(2f, 0f, 3f), Quaternion.identity);
+
+            Assert.That(session.TryHoldObject(0, "shelf", 200d), Is.True);
+            Assert.That(session.TryGetHeldObjectId(0, out var heldObjectId), Is.True);
+            Assert.That(heldObjectId, Is.EqualTo("shelf"));
+            Assert.That(session.TryHoldObject(0, playerItem, 200d), Is.False);
+            Assert.That(session.TryHoldObject(1, "shelf", 200d), Is.False);
+
+            Assert.That(session.TryReleaseHeldObject(0, releasedPose, 200d), Is.True);
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
+            Assert.That(state.Pose.position, Is.EqualTo(releasedPose.position));
+            Assert.That(session.TryHoldObject(0, playerItem, 200d), Is.True);
         }
 
         [Test]
@@ -154,9 +176,9 @@ namespace Game.Tests.EditMode
             var playerTwoItem = session.Assignments[2].Item.ItemId;
             var playerFiveItem = session.Assignments[5].Item.ItemId;
 
-            Assert.That(session.TryHoldItem(0, playerZeroItem, 200d), Is.True);
-            Assert.That(session.TryHoldItem(1, playerTwoItem, 200d), Is.True);
-            Assert.That(session.TryHoldItem(5, playerFiveItem, 200d), Is.True);
+            Assert.That(session.TryHoldObject(0, playerZeroItem, 200d), Is.True);
+            Assert.That(session.TryHoldObject(1, playerTwoItem, 200d), Is.True);
+            Assert.That(session.TryHoldObject(5, playerFiveItem, 200d), Is.True);
             Assert.That(session.SetHighlightCandidates(new[] { "first", "second" }), Is.True);
 
             session.AdvanceTime(550d, lastKnownPositions);
@@ -182,7 +204,7 @@ namespace Game.Tests.EditMode
             var otherItem = session.Assignments[2].Item.ItemId;
             var dropPosition = new Vector3(7f, 0f, 8f);
 
-            Assert.That(session.TryHoldItem(1, heldItem, 200d), Is.True);
+            Assert.That(session.TryHoldObject(1, heldItem, 200d), Is.True);
             Assert.That(
                 session.RegisterHit(0, 1, dropPosition, 200d),
                 Is.EqualTo(HitResult.Registered));
@@ -194,10 +216,10 @@ namespace Game.Tests.EditMode
                 Is.EqualTo(HitResult.Stunned));
 
             Assert.That(session.IsPlayerStunned(1, 200.3d), Is.True);
-            Assert.That(session.TryHoldItem(1, otherItem, 200.3d), Is.False);
+            Assert.That(session.TryHoldObject(1, otherItem, 200.3d), Is.False);
             Assert.That(session.TryDestroyHeldPlayerItem(1, 200.3d), Is.False);
             Assert.That(
-                session.TryUseShredderOnMapObject(1, "shelf", Pose.identity, 200.3d),
+                session.TryUseShredderOnHeldMapObject(1, Pose.identity, 200.3d),
                 Is.False);
             Assert.That(session.GetRemainingDestructionUses(1), Is.EqualTo(5));
             Assert.That(
@@ -206,10 +228,33 @@ namespace Game.Tests.EditMode
 
             Assert.That(session.TryGetItemPlacement(1, out var placement), Is.True);
             Assert.That(placement.Pose.position, Is.EqualTo(dropPosition));
-            Assert.That(session.TryHoldItem(2, heldItem, 200.3d), Is.True);
+            Assert.That(session.TryHoldObject(2, heldItem, 200.3d), Is.True);
 
             Assert.That(session.IsPlayerStunned(1, 202.2d), Is.False);
-            Assert.That(session.TryHoldItem(1, otherItem, 202.2d), Is.True);
+            Assert.That(session.TryHoldObject(1, otherItem, 202.2d), Is.True);
+        }
+
+        [Test]
+        public void ThirdHit_DropsHeldMapObject()
+        {
+            StartSearching();
+            var dropPosition = new Vector3(4f, 0f, 6f);
+
+            Assert.That(session.TryHoldObject(1, "shelf", 200d), Is.True);
+            Assert.That(
+                session.RegisterHit(0, 1, dropPosition, 200d),
+                Is.EqualTo(HitResult.Registered));
+            Assert.That(
+                session.RegisterHit(0, 1, dropPosition, 200.1d),
+                Is.EqualTo(HitResult.Registered));
+            Assert.That(
+                session.RegisterHit(0, 1, dropPosition, 200.2d),
+                Is.EqualTo(HitResult.Stunned));
+
+            Assert.That(session.TryGetHeldObjectId(1, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
+            Assert.That(state.Pose.position, Is.EqualTo(dropPosition));
+            Assert.That(session.TryHoldObject(2, "shelf", 200.3d), Is.True);
         }
 
         [Test]
@@ -219,14 +264,17 @@ namespace Game.Tests.EditMode
             var ownItem = session.Assignments[0].Item.ItemId;
             var opponentItem = session.Assignments[1].Item.ItemId;
 
-            Assert.That(session.TryHoldItem(0, ownItem, 200d), Is.True);
+            Assert.That(session.TryHoldObject(0, ownItem, 200d), Is.True);
             Assert.That(session.TryDestroyHeldPlayerItem(0, 200d), Is.False);
             Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(5));
 
-            Assert.That(session.TryHoldItem(0, opponentItem, 200d), Is.True);
+            Assert.That(
+                session.TryReleaseHeldObject(0, new Pose(Vector3.zero, Quaternion.identity), 200d),
+                Is.True);
+            Assert.That(session.TryHoldObject(0, opponentItem, 200d), Is.True);
             Assert.That(session.TryDestroyHeldPlayerItem(0, 200d), Is.True);
             Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(4));
-            Assert.That(session.TryHoldItem(2, opponentItem, 200d), Is.False);
+            Assert.That(session.TryHoldObject(2, opponentItem, 200d), Is.False);
         }
 
         [Test]

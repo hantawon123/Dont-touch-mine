@@ -48,6 +48,9 @@ namespace Game.Server.Match
         private readonly Dictionary<string, PendingMapObjectEjection> pendingMapObjectEjections =
             new(StringComparer.Ordinal);
         private readonly List<string> completedMapObjectEjections = new();
+        private readonly string[] heldMapObjectIdsByPlayer = new string[MatchRulesSO.PlayerCount];
+        private readonly Dictionary<string, int> mapObjectHolderById =
+            new(StringComparer.Ordinal);
         private HighlightSequence highlights;
         private MatchResult? result;
 
@@ -72,9 +75,10 @@ namespace Game.Server.Match
                 random);
             Assignments = assignments;
             placements = new ItemPlacementSystem(assignments);
-            worldObjects = new WorldObjectStateSystem(
-                initialWorldObjects ?? Array.Empty<WorldObjectState>());
+            var worldObjectStates = initialWorldObjects ?? Array.Empty<WorldObjectState>();
+            worldObjects = new WorldObjectStateSystem(worldObjectStates);
             outcome = new MatchOutcomeSystem(assignments);
+            ValidateUniqueObjectIds(assignments, worldObjectStates);
             highlights = new HighlightSequence(Array.Empty<string>(), rules);
         }
 
@@ -164,33 +168,69 @@ namespace Game.Server.Match
             return worldObjects.CaptureSnapshot();
         }
 
-        public bool TryHoldItem(int playerIndex, string itemId, double now)
-        {
-            return CanInteract(playerIndex, now) && outcome.TryHoldItem(playerIndex, itemId);
-        }
-
-        public bool TryReleaseHeldItem(int playerIndex, double now)
-        {
-            return CanInteract(playerIndex, now) && outcome.ReleaseHeldItem(playerIndex);
-        }
-
-        public bool TryUseShredderOnMapObject(
-            int playerIndex,
-            string objectId,
-            Pose ejectionPose,
-            double now)
+        public bool TryHoldObject(int playerIndex, string objectId, double now)
         {
             if (!CanInteract(playerIndex, now) ||
-                interactions.GetRemainingDestructionUses(playerIndex) == 0 ||
-                !worldObjects.TryGetState(objectId, out var worldObject) ||
-                pendingMapObjectEjections.ContainsKey(worldObject.ObjectId))
+                outcome.GetHeldItemOwner(playerIndex) >= 0 ||
+                heldMapObjectIdsByPlayer[playerIndex] != null)
             {
                 return false;
             }
 
+            if (outcome.TryHoldItem(playerIndex, objectId))
+            {
+                return true;
+            }
+
+            if (!worldObjects.TryGetState(objectId, out var worldObject) ||
+                pendingMapObjectEjections.ContainsKey(worldObject.ObjectId) ||
+                mapObjectHolderById.ContainsKey(worldObject.ObjectId))
+            {
+                return false;
+            }
+
+            heldMapObjectIdsByPlayer[playerIndex] = worldObject.ObjectId;
+            mapObjectHolderById.Add(worldObject.ObjectId, playerIndex);
+            return true;
+        }
+
+        public bool TryReleaseHeldObject(int playerIndex, Pose pose, double now)
+        {
+            return CanInteract(playerIndex, now) && ReleaseHeldObjectAt(playerIndex, pose);
+        }
+
+        public bool TryGetHeldObjectId(int playerIndex, out string objectId)
+        {
+            var heldItemOwner = outcome.GetHeldItemOwner(playerIndex);
+            if (heldItemOwner >= 0)
+            {
+                objectId = Assignments[heldItemOwner].Item.ItemId;
+                return true;
+            }
+
+            objectId = heldMapObjectIdsByPlayer[playerIndex];
+            return objectId != null;
+        }
+
+        public bool TryUseShredderOnHeldMapObject(
+            int playerIndex,
+            Pose ejectionPose,
+            double now)
+        {
+            var objectId = heldMapObjectIdsByPlayer[playerIndex];
+            if (!CanInteract(playerIndex, now) ||
+                interactions.GetRemainingDestructionUses(playerIndex) == 0 ||
+                objectId == null ||
+                pendingMapObjectEjections.ContainsKey(objectId))
+            {
+                return false;
+            }
+
+            heldMapObjectIdsByPlayer[playerIndex] = null;
+            mapObjectHolderById.Remove(objectId);
             interactions.TryUseDestruction(playerIndex);
             pendingMapObjectEjections.Add(
-                worldObject.ObjectId,
+                objectId,
                 new PendingMapObjectEjection(
                     now + MapObjectEjectionDelaySeconds,
                     ejectionPose));
@@ -241,14 +281,9 @@ namespace Game.Server.Match
                 return hitResult;
             }
 
-            var heldItemOwner = outcome.GetHeldItemOwner(targetPlayerIndex);
-            if (heldItemOwner >= 0)
-            {
-                outcome.ReleaseHeldItem(targetPlayerIndex);
-                placements.RecordPlacement(
-                    heldItemOwner,
-                    new Pose(targetPosition, Quaternion.identity));
-            }
+            ReleaseHeldObjectAt(
+                targetPlayerIndex,
+                new Pose(targetPosition, Quaternion.identity));
 
             return hitResult;
         }
@@ -328,6 +363,50 @@ namespace Game.Server.Match
         private bool CanInteract(int playerIndex, double now)
         {
             return IsSearchingAt(now) && !interactions.IsStunned(playerIndex, now);
+        }
+
+        private bool ReleaseHeldObjectAt(int playerIndex, Pose pose)
+        {
+            var heldItemOwner = outcome.GetHeldItemOwner(playerIndex);
+            if (heldItemOwner >= 0)
+            {
+                outcome.ReleaseHeldItem(playerIndex);
+                placements.RecordPlacement(heldItemOwner, pose);
+                return true;
+            }
+
+            var objectId = heldMapObjectIdsByPlayer[playerIndex];
+            if (objectId == null)
+            {
+                return false;
+            }
+
+            heldMapObjectIdsByPlayer[playerIndex] = null;
+            mapObjectHolderById.Remove(objectId);
+            worldObjects.TrySetPose(objectId, pose);
+            return true;
+        }
+
+        private static void ValidateUniqueObjectIds(
+            IReadOnlyList<PlayerItemAssignment> assignments,
+            IReadOnlyList<WorldObjectState> worldObjectStates)
+        {
+            var objectIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var assignment in assignments)
+            {
+                objectIds.Add(assignment.Item.ItemId);
+            }
+
+            foreach (var worldObjectState in worldObjectStates)
+            {
+                if (!objectIds.Add(worldObjectState.ObjectId))
+                {
+                    throw new ArgumentException(
+                        $"Object id must be unique across player and map objects: " +
+                        worldObjectState.ObjectId,
+                        nameof(worldObjectStates));
+                }
+            }
         }
 
         private bool TryGetExpiredSearchingEnd(double now, out double searchingEndedAt)
