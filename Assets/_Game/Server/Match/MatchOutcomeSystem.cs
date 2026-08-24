@@ -83,6 +83,12 @@ namespace Game.Server.Match
             return true;
         }
 
+        internal int GetHeldItemOwner(int playerIndex)
+        {
+            ValidatePlayerIndex(playerIndex);
+            return heldItemOwnerByPlayer[playerIndex];
+        }
+
         public bool DestroyItem(string itemId)
         {
             if (string.IsNullOrWhiteSpace(itemId) ||
