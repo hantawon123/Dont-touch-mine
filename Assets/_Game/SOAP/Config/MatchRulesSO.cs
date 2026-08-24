@@ -10,10 +10,18 @@ namespace Game.SOAP.Config
         private float hidingDurationSeconds = 180f;
 
         [SerializeField, Min(1f)]
-        private float searchingDurationSeconds = 300f;
+        private float searchingDurationSeconds = 360f;
+
+        [SerializeField, Min(1f)]
+        private float finalWarningSeconds = 30f;
+
+        [SerializeField, Min(1f)]
+        private float highlightMaxDurationSeconds = 30f;
 
         public float HidingDurationSeconds => hidingDurationSeconds;
         public float SearchingDurationSeconds => searchingDurationSeconds;
+        public float FinalWarningSeconds => finalWarningSeconds;
+        public float HighlightMaxDurationSeconds => highlightMaxDurationSeconds;
 
         public float GetDurationSeconds(MatchPhase phase)
         {
@@ -21,6 +29,7 @@ namespace Game.SOAP.Config
             {
                 MatchPhase.Hiding => hidingDurationSeconds,
                 MatchPhase.Searching => searchingDurationSeconds,
+                MatchPhase.Highlight => highlightMaxDurationSeconds,
                 _ => 0f
             };
         }

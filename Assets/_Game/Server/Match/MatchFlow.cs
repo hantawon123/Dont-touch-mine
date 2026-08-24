@@ -51,6 +51,26 @@ namespace Game.Server.Match
             return Math.Max(0d, state.PhaseEndsAt.CurrentValue - now);
         }
 
+        public bool IsFinalPeriod(double now)
+        {
+            ValidateTime(now);
+            var remainingSeconds = state.PhaseEndsAt.CurrentValue - now;
+            return state.CurrentPhase.CurrentValue == MatchPhase.Searching &&
+                   remainingSeconds > 0d &&
+                   remainingSeconds <= rules.FinalWarningSeconds;
+        }
+
+        public bool CompleteHighlight()
+        {
+            if (state.CurrentPhase.CurrentValue != MatchPhase.Highlight)
+            {
+                return false;
+            }
+
+            state.EnterPhase(MatchPhase.Result, 0d);
+            return true;
+        }
+
         private void EnterPhase(MatchPhase phase, double startedAt)
         {
             var duration = rules.GetDurationSeconds(phase);

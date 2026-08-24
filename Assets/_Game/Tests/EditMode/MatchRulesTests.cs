@@ -9,7 +9,8 @@ namespace Game.Tests.EditMode
     {
         [TestCase(MatchPhase.Waiting, 0f)]
         [TestCase(MatchPhase.Hiding, 180f)]
-        [TestCase(MatchPhase.Searching, 300f)]
+        [TestCase(MatchPhase.Searching, 360f)]
+        [TestCase(MatchPhase.Highlight, 30f)]
         [TestCase(MatchPhase.Result, 0f)]
         public void GetDurationSeconds_ReturnsDurationForPhase(MatchPhase phase, float expected)
         {

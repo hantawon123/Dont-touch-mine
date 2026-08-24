@@ -53,7 +53,7 @@ namespace Game.Tests.EditMode
             Assert.That(flow.AdvanceIfExpired(189d), Is.False);
             Assert.That(flow.AdvanceIfExpired(190d), Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Searching));
-            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(490d));
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(550d));
         }
 
         [Test]
@@ -74,6 +74,32 @@ namespace Game.Tests.EditMode
 
             Assert.That(flow.GetRemainingSeconds(100d), Is.EqualTo(90d));
             Assert.That(flow.GetRemainingSeconds(1000d), Is.Zero);
+        }
+
+        [Test]
+        public void IsFinalPeriod_ReturnsTrueOnlyForLastThirtySecondsOfSearching()
+        {
+            flow.Start(10d);
+            flow.AdvanceIfExpired(190d);
+
+            Assert.That(flow.IsFinalPeriod(519d), Is.False);
+            Assert.That(flow.IsFinalPeriod(520d), Is.True);
+            Assert.That(flow.IsFinalPeriod(549d), Is.True);
+            Assert.That(flow.IsFinalPeriod(550d), Is.False);
+        }
+
+        [Test]
+        public void CompleteHighlight_EndsHighlightBeforeMaximumDuration()
+        {
+            flow.Start(10d);
+            flow.AdvanceIfExpired(550d);
+
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(580d));
+            Assert.That(flow.CompleteHighlight(), Is.True);
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Result));
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.Zero);
+            Assert.That(flow.CompleteHighlight(), Is.False);
         }
     }
 }
