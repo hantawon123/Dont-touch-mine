@@ -197,6 +197,8 @@ namespace Game.Tests.EditMode
             Assert.That(session.AllPlayerItemsDestroyed, Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
             Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(230d));
+            Assert.That(session.TryGetCurrentHighlight(out var highlight), Is.True);
+            Assert.That(highlight.Type, Is.EqualTo(HighlightType.FirstBlood));
             Assert.That(session.TryGetResult(out var result), Is.True);
             Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.AllPlayerItemsDestroyed));
             Assert.That(result.EndedAt, Is.EqualTo(200d));
@@ -315,7 +317,11 @@ namespace Game.Tests.EditMode
             Assert.That(session.TryHoldObject(0, playerZeroItem, 200d), Is.True);
             Assert.That(session.TryHoldObject(1, playerTwoItem, 200d), Is.True);
             Assert.That(session.TryHoldObject(5, playerFiveItem, 200d), Is.True);
-            Assert.That(session.SetHighlightCandidates(new[] { "first", "second" }), Is.True);
+            Assert.That(session.SetHighlightCandidates(new[]
+            {
+                Candidate(HighlightType.FirstBlood, "first"),
+                Candidate(HighlightType.FinalMoment, "second")
+            }), Is.True);
 
             session.AdvanceTime(550d, lastKnownPositions);
 
@@ -332,8 +338,8 @@ namespace Game.Tests.EditMode
             Assert.That(endedEvent.Value.WinnerPlayerIndices, Is.EqualTo(new[] { 0, 5 }));
             session.AdvanceTime(551d, lastKnownPositions);
             Assert.That(eventCount, Is.EqualTo(1));
-            Assert.That(session.TryGetCurrentHighlight(out var highlightId), Is.True);
-            Assert.That(highlightId, Is.EqualTo("first"));
+            Assert.That(session.TryGetCurrentHighlight(out var highlight), Is.True);
+            Assert.That(highlight.TargetId, Is.EqualTo("first"));
             Assert.That(session.CompleteCurrentHighlight(), Is.True);
             Assert.That(session.CompleteCurrentHighlight(), Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Result));
@@ -477,6 +483,11 @@ namespace Game.Tests.EditMode
                 new ItemDefinition("cup", "kitchen"),
                 new ItemDefinition("plate", "kitchen")
             };
+        }
+
+        private static HighlightCandidate Candidate(HighlightType type, string targetId)
+        {
+            return new HighlightCandidate(type, 0d, 10d, targetId);
         }
 
         private static Pose[] CreateSpawnPoints()

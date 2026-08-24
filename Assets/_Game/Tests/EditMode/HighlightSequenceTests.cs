@@ -25,25 +25,37 @@ namespace Game.Tests.EditMode
         public void Constructor_SelectsAtMostThreeUniqueHighlights()
         {
             var sequence = new HighlightSequence(
-                new[] { "first", "first", " ", "second", "third", "fourth" },
+                new[]
+                {
+                    Candidate(HighlightType.MostStunned),
+                    Candidate(HighlightType.FirstBlood),
+                    Candidate(HighlightType.LongestHidden),
+                    Candidate(HighlightType.FinalMoment)
+                },
                 rules);
 
             Assert.That(sequence.Count, Is.EqualTo(3));
             Assert.That(sequence.TotalDurationSeconds, Is.EqualTo(30f));
             Assert.That(sequence.TryGetCurrent(out var current), Is.True);
-            Assert.That(current, Is.EqualTo("first"));
+            Assert.That(current.Type, Is.EqualTo(HighlightType.FirstBlood));
         }
 
         [Test]
         public void CompleteCurrent_EndsAfterAvailableHighlights()
         {
-            var sequence = new HighlightSequence(new[] { "first", "second" }, rules);
+            var sequence = new HighlightSequence(
+                new[]
+                {
+                    Candidate(HighlightType.FirstBlood),
+                    Candidate(HighlightType.FinalMoment)
+                },
+                rules);
 
             Assert.That(sequence.TotalDurationSeconds, Is.EqualTo(20f));
             Assert.That(sequence.CompleteCurrent(), Is.True);
             Assert.That(sequence.CurrentIndex, Is.EqualTo(1));
             Assert.That(sequence.TryGetCurrent(out var current), Is.True);
-            Assert.That(current, Is.EqualTo("second"));
+            Assert.That(current.Type, Is.EqualTo(HighlightType.FinalMoment));
             Assert.That(sequence.CompleteCurrent(), Is.True);
             Assert.That(sequence.IsComplete, Is.True);
             Assert.That(sequence.CompleteCurrent(), Is.False);
@@ -52,11 +64,16 @@ namespace Game.Tests.EditMode
         [Test]
         public void EmptyCandidates_CompleteImmediately()
         {
-            var sequence = new HighlightSequence(new string[0], rules);
+            var sequence = new HighlightSequence(new HighlightCandidate[0], rules);
 
             Assert.That(sequence.TotalDurationSeconds, Is.Zero);
             Assert.That(sequence.IsComplete, Is.True);
             Assert.That(sequence.TryGetCurrent(out _), Is.False);
+        }
+
+        private static HighlightCandidate Candidate(HighlightType type)
+        {
+            return new HighlightCandidate(type, 0d, 10d, type.ToString());
         }
     }
 }

@@ -97,6 +97,7 @@ namespace Game.Server.Match
         private readonly ItemPlacementSystem placements;
         private readonly WorldObjectStateSystem worldObjects;
         private readonly MatchOutcomeSystem outcome;
+        private readonly HighlightEventRecorder highlightRecorder;
         private readonly Pose[] hidingSpawnPoses;
         private readonly Pose[] searchingSpawnPoses;
         private readonly bool[] completedHidingTurns = new bool[MatchRulesSO.PlayerCount];
@@ -109,6 +110,7 @@ namespace Game.Server.Match
         private HighlightSequence highlights;
         private MatchResult? result;
         private bool finalWarningStarted;
+        private bool hasExplicitHighlightCandidates;
 
         public MatchSessionCoordinator(
             MatchRulesSO rules,
@@ -141,8 +143,9 @@ namespace Game.Server.Match
             var worldObjectStates = initialWorldObjects ?? Array.Empty<WorldObjectState>();
             worldObjects = new WorldObjectStateSystem(worldObjectStates);
             outcome = new MatchOutcomeSystem(assignments);
+            highlightRecorder = new HighlightEventRecorder(rules, assignments);
             ValidateUniqueObjectIds(assignments, worldObjectStates);
-            highlights = new HighlightSequence(Array.Empty<string>(), rules);
+            highlights = new HighlightSequence(Array.Empty<HighlightCandidate>(), rules);
         }
 
         public IReadOnlyList<PlayerItemAssignment> Assignments { get; }
@@ -212,6 +215,7 @@ namespace Game.Server.Match
                     nameof(lastKnownPlayerPositions));
             }
 
+            StartHighlightRecordingIfNeeded(now);
             if (TryGetExpiredSearchingEnd(now, out var searchingEndedAt))
             {
                 CaptureResult(MatchEndReason.TimeExpired, searchingEndedAt);
@@ -292,6 +296,7 @@ namespace Game.Server.Match
 
             if (outcome.TryHoldItem(playerIndex, objectId))
             {
+                highlightRecorder.RecordItemInteraction(playerIndex, objectId, now);
                 return true;
             }
 
@@ -309,7 +314,15 @@ namespace Game.Server.Match
 
         public bool TryReleaseHeldObject(int playerIndex, Pose pose, double now)
         {
-            return CanInteract(playerIndex, now) && ReleaseHeldObjectAt(playerIndex, pose);
+            if (!CanInteract(playerIndex, now) ||
+                !TryGetHeldObjectId(playerIndex, out var objectId) ||
+                !ReleaseHeldObjectAt(playerIndex, pose))
+            {
+                return false;
+            }
+
+            highlightRecorder.RecordItemInteraction(playerIndex, objectId, now);
+            return true;
         }
 
         public bool TryGetHeldObjectId(int playerIndex, out string objectId)
@@ -370,6 +383,7 @@ namespace Game.Server.Match
             }
 
             interactions.TryUseDestruction(playerIndex);
+            highlightRecorder.RecordItemDestroyed(playerIndex, heldItemId, now);
             PlayerItemDestroyed?.Invoke(
                 new PlayerItemDestroyedEvent(
                     playerIndex,
@@ -406,6 +420,15 @@ namespace Game.Server.Match
             ReleaseHeldObjectAt(
                 targetPlayerIndex,
                 new Pose(targetPosition, Quaternion.identity));
+            if (droppedObjectId != null)
+            {
+                highlightRecorder.RecordItemInteraction(
+                    targetPlayerIndex,
+                    droppedObjectId,
+                    now);
+            }
+
+            highlightRecorder.RecordPlayerStunned(targetPlayerIndex, now);
             PlayerStunned?.Invoke(
                 new PlayerStunnedEvent(
                     attackerPlayerIndex,
@@ -454,7 +477,7 @@ namespace Game.Server.Match
             return false;
         }
 
-        public bool SetHighlightCandidates(IReadOnlyList<string> candidateIds)
+        public bool SetHighlightCandidates(IReadOnlyList<HighlightCandidate> candidates)
         {
             var phase = state.CurrentPhase.CurrentValue;
             if (phase == MatchPhase.Highlight || phase == MatchPhase.Result)
@@ -462,19 +485,20 @@ namespace Game.Server.Match
                 return false;
             }
 
-            highlights = new HighlightSequence(candidateIds, rules);
+            highlights = new HighlightSequence(candidates, rules);
+            hasExplicitHighlightCandidates = true;
             return true;
         }
 
-        public bool TryGetCurrentHighlight(out string highlightId)
+        public bool TryGetCurrentHighlight(out HighlightCandidate highlight)
         {
             if (state.CurrentPhase.CurrentValue != MatchPhase.Highlight)
             {
-                highlightId = null;
+                highlight = default;
                 return false;
             }
 
-            return highlights.TryGetCurrent(out highlightId);
+            return highlights.TryGetCurrent(out highlight);
         }
 
         public bool CompleteCurrentHighlight()
@@ -638,8 +662,28 @@ namespace Game.Server.Match
                 endReason,
                 endedAt,
                 outcome.GetWinnerPlayerIndices());
+            if (!hasExplicitHighlightCandidates)
+            {
+                highlights = new HighlightSequence(
+                    highlightRecorder.CaptureCandidates(endedAt),
+                    rules);
+            }
             result = capturedResult;
             MatchEnded?.Invoke(capturedResult);
+        }
+
+        private void StartHighlightRecordingIfNeeded(double now)
+        {
+            switch (state.CurrentPhase.CurrentValue)
+            {
+                case MatchPhase.Hiding when now >= state.PhaseEndsAt.CurrentValue:
+                    highlightRecorder.StartSearching(state.PhaseEndsAt.CurrentValue);
+                    break;
+                case MatchPhase.Searching:
+                    highlightRecorder.StartSearching(
+                        state.PhaseEndsAt.CurrentValue - rules.SearchingDurationSeconds);
+                    break;
+            }
         }
 
         private void CompleteExpiredHidingTurns(
