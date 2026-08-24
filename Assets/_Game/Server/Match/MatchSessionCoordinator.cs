@@ -88,6 +88,7 @@ namespace Game.Server.Match
     public sealed class MatchSessionCoordinator
     {
         private const double MapObjectEjectionDelaySeconds = 0.5d;
+        private const double HighlightReplaySampleIntervalSeconds = 0.1d;
 
         private readonly MatchRulesSO rules;
         private readonly MatchState state;
@@ -98,6 +99,7 @@ namespace Game.Server.Match
         private readonly WorldObjectStateSystem worldObjects;
         private readonly MatchOutcomeSystem outcome;
         private readonly HighlightEventRecorder highlightRecorder;
+        private readonly HighlightReplayBuffer highlightReplayBuffer;
         private readonly Pose[] hidingSpawnPoses;
         private readonly Pose[] searchingSpawnPoses;
         private readonly bool[] completedHidingTurns = new bool[MatchRulesSO.PlayerCount];
@@ -144,6 +146,9 @@ namespace Game.Server.Match
             worldObjects = new WorldObjectStateSystem(worldObjectStates);
             outcome = new MatchOutcomeSystem(assignments);
             highlightRecorder = new HighlightEventRecorder(rules, assignments);
+            highlightReplayBuffer = new HighlightReplayBuffer(
+                HighlightReplaySampleIntervalSeconds,
+                rules.SearchingDurationSeconds);
             ValidateUniqueObjectIds(assignments, worldObjectStates);
             highlights = new HighlightSequence(Array.Empty<HighlightCandidate>(), rules);
         }
@@ -499,6 +504,46 @@ namespace Game.Server.Match
             }
 
             return highlights.TryGetCurrent(out highlight);
+        }
+
+        public bool TryRecordReplayFrame(
+            double now,
+            IReadOnlyList<Pose> playerPoses,
+            IReadOnlyList<WorldObjectState> replayObjects)
+        {
+            if (state.CurrentPhase.CurrentValue != MatchPhase.Searching)
+            {
+                return false;
+            }
+
+            if (playerPoses == null || playerPoses.Count != MatchRulesSO.PlayerCount)
+            {
+                throw new ArgumentException(
+                    $"Exactly {MatchRulesSO.PlayerCount} player poses are required.",
+                    nameof(playerPoses));
+            }
+
+            return highlightReplayBuffer.TryRecord(now, playerPoses, replayObjects);
+        }
+
+        public bool TryCaptureCurrentHighlightReplay(out HighlightReplayClip[] clips)
+        {
+            if (!TryGetCurrentHighlight(out var highlight))
+            {
+                clips = Array.Empty<HighlightReplayClip>();
+                return false;
+            }
+
+            clips = new HighlightReplayClip[highlight.Segments.Count];
+            for (var index = 0; index < highlight.Segments.Count; index++)
+            {
+                var segment = highlight.Segments[index];
+                clips[index] = new HighlightReplayClip(
+                    segment,
+                    highlightReplayBuffer.Capture(segment.StartedAt, segment.EndedAt));
+            }
+
+            return true;
         }
 
         public bool CompleteCurrentHighlight()

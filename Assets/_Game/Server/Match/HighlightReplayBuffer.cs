@@ -5,6 +5,20 @@ using UnityEngine;
 
 namespace Game.Server.Match
 {
+    public readonly struct HighlightReplayClip
+    {
+        public HighlightReplayClip(
+            HighlightSegment segment,
+            IReadOnlyList<HighlightReplayFrame> frames)
+        {
+            Segment = segment;
+            Frames = frames ?? throw new ArgumentNullException(nameof(frames));
+        }
+
+        public HighlightSegment Segment { get; }
+        public IReadOnlyList<HighlightReplayFrame> Frames { get; }
+    }
+
     public readonly struct HighlightReplayFrame
     {
         public HighlightReplayFrame(
