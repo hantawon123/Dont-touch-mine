@@ -153,6 +153,7 @@ namespace Game.Server.Match
         public event Action<PlayerItemDestroyedEvent> PlayerItemDestroyed;
         public event Action<FinalWarningStartedEvent> FinalWarningStarted;
         public event Action<PlayerStunnedEvent> PlayerStunned;
+        public event Action<MatchResult> MatchEnded;
 
         public bool Start(double now)
         {
@@ -628,13 +629,17 @@ namespace Game.Server.Match
 
         private void CaptureResult(MatchEndReason endReason, double endedAt)
         {
-            if (!result.HasValue)
+            if (result.HasValue)
             {
-                result = new MatchResult(
-                    endReason,
-                    endedAt,
-                    outcome.GetWinnerPlayerIndices());
+                return;
             }
+
+            var capturedResult = new MatchResult(
+                endReason,
+                endedAt,
+                outcome.GetWinnerPlayerIndices());
+            result = capturedResult;
+            MatchEnded?.Invoke(capturedResult);
         }
 
         private void CompleteExpiredHidingTurns(

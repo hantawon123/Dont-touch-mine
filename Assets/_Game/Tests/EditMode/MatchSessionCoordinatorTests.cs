@@ -304,6 +304,13 @@ namespace Game.Tests.EditMode
             var playerZeroItem = session.Assignments[0].Item.ItemId;
             var playerTwoItem = session.Assignments[2].Item.ItemId;
             var playerFiveItem = session.Assignments[5].Item.ItemId;
+            MatchResult? endedEvent = null;
+            var eventCount = 0;
+            session.MatchEnded += value =>
+            {
+                endedEvent = value;
+                eventCount++;
+            };
 
             Assert.That(session.TryHoldObject(0, playerZeroItem, 200d), Is.True);
             Assert.That(session.TryHoldObject(1, playerTwoItem, 200d), Is.True);
@@ -318,6 +325,13 @@ namespace Game.Tests.EditMode
             Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.TimeExpired));
             Assert.That(result.EndedAt, Is.EqualTo(550d));
             Assert.That(result.WinnerPlayerIndices, Is.EqualTo(new[] { 0, 5 }));
+            Assert.That(eventCount, Is.EqualTo(1));
+            Assert.That(endedEvent.HasValue, Is.True);
+            Assert.That(endedEvent.Value.EndReason, Is.EqualTo(MatchEndReason.TimeExpired));
+            Assert.That(endedEvent.Value.EndedAt, Is.EqualTo(550d));
+            Assert.That(endedEvent.Value.WinnerPlayerIndices, Is.EqualTo(new[] { 0, 5 }));
+            session.AdvanceTime(551d, lastKnownPositions);
+            Assert.That(eventCount, Is.EqualTo(1));
             Assert.That(session.TryGetCurrentHighlight(out var highlightId), Is.True);
             Assert.That(highlightId, Is.EqualTo("first"));
             Assert.That(session.CompleteCurrentHighlight(), Is.True);
