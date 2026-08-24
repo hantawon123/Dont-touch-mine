@@ -5,6 +5,11 @@ using UnityEngine;
 
 namespace Game.Server.Items
 {
+    public interface IPlacementValidator
+    {
+        bool IsValid(string objectId, Pose pose);
+    }
+
     public readonly struct ItemPlacement
     {
         public ItemPlacement(
