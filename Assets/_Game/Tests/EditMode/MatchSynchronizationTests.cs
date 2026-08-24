@@ -26,9 +26,13 @@ namespace Game.Tests.EditMode
 
                 flow.AdvanceIfExpired(190d);
                 Synchronize(states);
-                AssertSynchronized(states, MatchPhase.Searching, 490d);
+                AssertSynchronized(states, MatchPhase.Searching, 550d);
 
-                flow.AdvanceIfExpired(490d);
+                flow.AdvanceIfExpired(550d);
+                Synchronize(states);
+                AssertSynchronized(states, MatchPhase.Highlight, 580d);
+
+                flow.AdvanceIfExpired(580d);
                 Synchronize(states);
                 AssertSynchronized(states, MatchPhase.Result, 0d);
             }

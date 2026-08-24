@@ -5,6 +5,7 @@ namespace Game.Core.Match
         Waiting,
         Hiding,
         Searching,
+        Highlight,
         Result
     }
 
@@ -21,6 +22,9 @@ namespace Game.Core.Match
                     next = MatchPhase.Searching;
                     return true;
                 case MatchPhase.Searching:
+                    next = MatchPhase.Highlight;
+                    return true;
+                case MatchPhase.Highlight:
                     next = MatchPhase.Result;
                     return true;
                 default:

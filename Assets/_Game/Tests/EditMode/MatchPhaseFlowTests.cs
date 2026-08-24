@@ -7,7 +7,8 @@ namespace Game.Tests.EditMode
     {
         [TestCase(MatchPhase.Waiting, MatchPhase.Hiding)]
         [TestCase(MatchPhase.Hiding, MatchPhase.Searching)]
-        [TestCase(MatchPhase.Searching, MatchPhase.Result)]
+        [TestCase(MatchPhase.Searching, MatchPhase.Highlight)]
+        [TestCase(MatchPhase.Highlight, MatchPhase.Result)]
         public void TryGetNext_ReturnsDefinedNextPhase(MatchPhase current, MatchPhase expected)
         {
             var hasNext = MatchPhaseFlow.TryGetNext(current, out var next);

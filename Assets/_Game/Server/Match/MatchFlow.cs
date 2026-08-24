@@ -51,6 +51,57 @@ namespace Game.Server.Match
             return Math.Max(0d, state.PhaseEndsAt.CurrentValue - now);
         }
 
+        public bool IsFinalPeriod(double now)
+        {
+            ValidateTime(now);
+            var remainingSeconds = state.PhaseEndsAt.CurrentValue - now;
+            return state.CurrentPhase.CurrentValue == MatchPhase.Searching &&
+                   remainingSeconds > 0d &&
+                   remainingSeconds <= rules.FinalWarningSeconds;
+        }
+
+        public int GetCurrentHidingTurnIndex(double now)
+        {
+            ValidateTime(now);
+            if (state.CurrentPhase.CurrentValue != MatchPhase.Hiding)
+            {
+                return -1;
+            }
+
+            var hidingStartedAt = state.PhaseEndsAt.CurrentValue - rules.HidingDurationSeconds;
+            var elapsedSeconds = Math.Max(0d, now - hidingStartedAt);
+            return Math.Min(
+                (int)(elapsedSeconds / rules.HidingTurnDurationSeconds),
+                MatchRulesSO.PlayerCount - 1);
+        }
+
+        public double GetHidingTurnRemainingSeconds(double now)
+        {
+            var turnIndex = GetCurrentHidingTurnIndex(now);
+            if (turnIndex < 0)
+            {
+                return 0d;
+            }
+
+            var hidingStartedAt = state.PhaseEndsAt.CurrentValue - rules.HidingDurationSeconds;
+            var turnEndsAt = hidingStartedAt +
+                             ((turnIndex + 1) * rules.HidingTurnDurationSeconds);
+            return Math.Min(
+                rules.HidingTurnDurationSeconds,
+                Math.Max(0d, turnEndsAt - now));
+        }
+
+        public bool CompleteHighlight()
+        {
+            if (state.CurrentPhase.CurrentValue != MatchPhase.Highlight)
+            {
+                return false;
+            }
+
+            state.EnterPhase(MatchPhase.Result, 0d);
+            return true;
+        }
+
         private void EnterPhase(MatchPhase phase, double startedAt)
         {
             var duration = rules.GetDurationSeconds(phase);

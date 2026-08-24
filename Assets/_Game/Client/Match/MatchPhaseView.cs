@@ -16,6 +16,7 @@ namespace Game.Client.Match
                 MatchPhase.Waiting => "대기 중",
                 MatchPhase.Hiding => "숨기는 중",
                 MatchPhase.Searching => "찾는 중",
+                MatchPhase.Highlight => "하이라이트",
                 MatchPhase.Result => "결과",
                 _ => phase.ToString()
             };

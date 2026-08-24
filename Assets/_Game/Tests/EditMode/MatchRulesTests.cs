@@ -9,7 +9,8 @@ namespace Game.Tests.EditMode
     {
         [TestCase(MatchPhase.Waiting, 0f)]
         [TestCase(MatchPhase.Hiding, 180f)]
-        [TestCase(MatchPhase.Searching, 300f)]
+        [TestCase(MatchPhase.Searching, 360f)]
+        [TestCase(MatchPhase.Highlight, 30f)]
         [TestCase(MatchPhase.Result, 0f)]
         public void GetDurationSeconds_ReturnsDurationForPhase(MatchPhase phase, float expected)
         {
@@ -18,6 +19,23 @@ namespace Game.Tests.EditMode
             try
             {
                 Assert.That(rules.GetDurationSeconds(phase), Is.EqualTo(expected));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void HidingDuration_IsSixThirtySecondTurns()
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+
+            try
+            {
+                Assert.That(MatchRulesSO.PlayerCount, Is.EqualTo(6));
+                Assert.That(rules.HidingTurnDurationSeconds, Is.EqualTo(30f));
+                Assert.That(rules.HidingDurationSeconds, Is.EqualTo(180f));
             }
             finally
             {
