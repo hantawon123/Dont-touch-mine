@@ -6,16 +6,16 @@ namespace Game.Server.Match
 {
     public sealed class HighlightSequence
     {
-        private readonly string[] highlightIds;
+        private readonly HighlightCandidate[] highlights;
         private int currentIndex;
 
         public HighlightSequence(
-            IReadOnlyList<string> candidateIds,
+            IReadOnlyList<HighlightCandidate> candidates,
             MatchRulesSO rules)
         {
-            if (candidateIds == null)
+            if (candidates == null)
             {
-                throw new ArgumentNullException(nameof(candidateIds));
+                throw new ArgumentNullException(nameof(candidates));
             }
 
             if (rules == null)
@@ -23,46 +23,30 @@ namespace Game.Server.Match
                 throw new ArgumentNullException(nameof(rules));
             }
 
-            var selectedIds = new List<string>(MatchRulesSO.MaxHighlightCount);
-            var uniqueIds = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var candidateId in candidateIds)
+            highlights = HighlightCandidateSelector.Select(candidates);
+            var totalDurationSeconds = 0f;
+            foreach (var highlight in highlights)
             {
-                if (string.IsNullOrWhiteSpace(candidateId))
-                {
-                    continue;
-                }
-
-                var normalizedId = candidateId.Trim();
-                if (!uniqueIds.Add(normalizedId))
-                {
-                    continue;
-                }
-
-                selectedIds.Add(normalizedId);
-                if (selectedIds.Count == MatchRulesSO.MaxHighlightCount)
-                {
-                    break;
-                }
+                totalDurationSeconds += (float)highlight.PlaybackDurationSeconds;
             }
 
-            highlightIds = selectedIds.ToArray();
-            TotalDurationSeconds = highlightIds.Length * rules.HighlightClipDurationSeconds;
+            TotalDurationSeconds = totalDurationSeconds;
         }
 
-        public int Count => highlightIds.Length;
+        public int Count => highlights.Length;
         public int CurrentIndex => currentIndex;
-        public bool IsComplete => currentIndex >= highlightIds.Length;
+        public bool IsComplete => currentIndex >= highlights.Length;
         public float TotalDurationSeconds { get; }
 
-        public bool TryGetCurrent(out string highlightId)
+        public bool TryGetCurrent(out HighlightCandidate highlight)
         {
             if (IsComplete)
             {
-                highlightId = null;
+                highlight = default;
                 return false;
             }
 
-            highlightId = highlightIds[currentIndex];
+            highlight = highlights[currentIndex];
             return true;
         }
 
