@@ -2,6 +2,7 @@ using System;
 using Game.Client.Match;
 using Game.Core.Match;
 using Game.Server.Match;
+using Game.Server.Players;
 using Game.SOAP.Config;
 using UnityEngine;
 using VContainer;
@@ -32,6 +33,7 @@ namespace Game.Bootstrap
             builder.RegisterInstance(matchRules);
             builder.Register<MatchState>(Lifetime.Scoped).AsSelf().As<IMatchState>();
             builder.Register<MatchFlow>(Lifetime.Scoped);
+            builder.Register<PlayerInteractionSystem>(Lifetime.Scoped);
             builder.RegisterComponent(matchPhaseView).As<IMatchPhaseView>();
             builder.RegisterEntryPoint<MatchPhasePresenter>();
         }
