@@ -45,6 +45,8 @@ namespace Game.Server.Match
         private readonly ItemPlacementSystem placements;
         private readonly WorldObjectStateSystem worldObjects;
         private readonly MatchOutcomeSystem outcome;
+        private readonly Pose[] hidingSpawnPoses;
+        private readonly Pose[] searchingSpawnPoses;
         private readonly bool[] completedHidingTurns = new bool[MatchRulesSO.PlayerCount];
         private readonly Dictionary<string, PendingMapObjectEjection> pendingMapObjectEjections =
             new(StringComparer.Ordinal);
@@ -61,6 +63,7 @@ namespace Game.Server.Match
             MatchFlow flow,
             PlayerInteractionSystem interactions,
             IPlacementValidator placementValidator,
+            IReadOnlyList<Pose> spawnPoints,
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
             IReadOnlyList<WorldObjectState> initialWorldObjects = null)
@@ -78,6 +81,9 @@ namespace Game.Server.Match
                 MatchRulesSO.PlayerCount,
                 random);
             Assignments = assignments;
+            var validatedSpawnPoints = ValidateSpawnPoints(spawnPoints);
+            hidingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, random);
+            searchingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, random);
             placements = new ItemPlacementSystem(assignments);
             var worldObjectStates = initialWorldObjects ?? Array.Empty<WorldObjectState>();
             worldObjects = new WorldObjectStateSystem(worldObjectStates);
@@ -93,6 +99,31 @@ namespace Game.Server.Match
         public bool Start(double now)
         {
             return flow.Start(now);
+        }
+
+        public bool TryGetCurrentHidingSpawnPose(
+            int playerIndex,
+            double now,
+            out Pose spawnPose)
+        {
+            if (flow.GetCurrentHidingTurnIndex(now) != playerIndex)
+            {
+                spawnPose = default;
+                return false;
+            }
+
+            spawnPose = hidingSpawnPoses[playerIndex];
+            return true;
+        }
+
+        public Pose GetSearchingSpawnPose(int playerIndex)
+        {
+            if (playerIndex < 0 || playerIndex >= searchingSpawnPoses.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(playerIndex));
+            }
+
+            return searchingSpawnPoses[playerIndex];
         }
 
         public bool AdvanceTime(double now, IReadOnlyList<Vector3> lastKnownPlayerPositions)
@@ -414,6 +445,53 @@ namespace Game.Server.Match
                         nameof(worldObjectStates));
                 }
             }
+        }
+
+        private static Pose[] ValidateSpawnPoints(IReadOnlyList<Pose> spawnPoints)
+        {
+            if (spawnPoints == null)
+            {
+                throw new ArgumentNullException(nameof(spawnPoints));
+            }
+
+            if (spawnPoints.Count < MatchRulesSO.PlayerCount)
+            {
+                throw new ArgumentException(
+                    $"At least {MatchRulesSO.PlayerCount} spawn points are required.",
+                    nameof(spawnPoints));
+            }
+
+            var uniquePositions = new HashSet<Vector3>();
+            var validatedSpawnPoints = new Pose[spawnPoints.Count];
+            for (var index = 0; index < spawnPoints.Count; index++)
+            {
+                var spawnPoint = spawnPoints[index];
+                if (!uniquePositions.Add(spawnPoint.position))
+                {
+                    throw new ArgumentException(
+                        $"Spawn point positions must be unique: {spawnPoint.position}",
+                        nameof(spawnPoints));
+                }
+
+                validatedSpawnPoints[index] = spawnPoint;
+            }
+
+            return validatedSpawnPoints;
+        }
+
+        private static Pose[] SelectSpawnPoses(Pose[] spawnPoints, System.Random random)
+        {
+            var candidates = (Pose[])spawnPoints.Clone();
+            for (var index = 0; index < MatchRulesSO.PlayerCount; index++)
+            {
+                var selectedIndex = random.Next(index, candidates.Length);
+                (candidates[index], candidates[selectedIndex]) =
+                    (candidates[selectedIndex], candidates[index]);
+            }
+
+            var selectedSpawnPoses = new Pose[MatchRulesSO.PlayerCount];
+            Array.Copy(candidates, selectedSpawnPoses, MatchRulesSO.PlayerCount);
+            return selectedSpawnPoses;
         }
 
         private bool TryGetExpiredSearchingEnd(double now, out double searchingEndedAt)
