@@ -5,7 +5,6 @@
         "Game.Core",
         "Game.SOAP",
         "R3.Unity",
-        "UniTask",
         "VContainer"
     ],
     "includePlatforms": [],

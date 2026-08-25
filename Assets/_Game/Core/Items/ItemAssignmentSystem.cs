@@ -1,0 +1,121 @@
+using System;
+using System.Collections.Generic;
+
+namespace Game.Core.Items
+{
+    public readonly struct ItemDefinition
+    {
+        public ItemDefinition(string itemId, string category)
+        {
+            if (string.IsNullOrWhiteSpace(itemId))
+            {
+                throw new ArgumentException("Item id is required.", nameof(itemId));
+            }
+
+            if (string.IsNullOrWhiteSpace(category))
+            {
+                throw new ArgumentException("Category is required.", nameof(category));
+            }
+
+            ItemId = itemId.Trim();
+            Category = category.Trim();
+        }
+
+        public string ItemId { get; }
+        public string Category { get; }
+    }
+
+    public readonly struct PlayerItemAssignment
+    {
+        public PlayerItemAssignment(int playerIndex, ItemDefinition item)
+        {
+            PlayerIndex = playerIndex;
+            Item = item;
+        }
+
+        public int PlayerIndex { get; }
+        public ItemDefinition Item { get; }
+    }
+
+    public static class ItemAssignmentSystem
+    {
+        public static PlayerItemAssignment[] Assign(
+            IReadOnlyList<ItemDefinition> definitions,
+            int playerCount,
+            Random random)
+        {
+            if (definitions == null)
+            {
+                throw new ArgumentNullException(nameof(definitions));
+            }
+
+            if (random == null)
+            {
+                throw new ArgumentNullException(nameof(random));
+            }
+
+            if (playerCount <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(playerCount));
+            }
+
+            var itemIds = new HashSet<string>(StringComparer.Ordinal);
+            var itemsByCategory = new Dictionary<string, List<ItemDefinition>>(
+                StringComparer.Ordinal);
+            var categories = new List<string>();
+
+            foreach (var definition in definitions)
+            {
+                if (string.IsNullOrWhiteSpace(definition.ItemId) ||
+                    string.IsNullOrWhiteSpace(definition.Category))
+                {
+                    throw new ArgumentException(
+                        "Every item requires an id and category.",
+                        nameof(definitions));
+                }
+
+                if (!itemIds.Add(definition.ItemId))
+                {
+                    throw new ArgumentException(
+                        $"Duplicate item id: {definition.ItemId}",
+                        nameof(definitions));
+                }
+
+                if (!itemsByCategory.TryGetValue(definition.Category, out var categoryItems))
+                {
+                    categoryItems = new List<ItemDefinition>();
+                    itemsByCategory.Add(definition.Category, categoryItems);
+                    categories.Add(definition.Category);
+                }
+
+                categoryItems.Add(definition);
+            }
+
+            if (itemIds.Count < playerCount)
+            {
+                throw new InvalidOperationException(
+                    $"At least {playerCount} unique items are required.");
+            }
+
+            var assignments = new PlayerItemAssignment[playerCount];
+            for (var playerIndex = 0; playerIndex < playerCount; playerIndex++)
+            {
+                var categoryIndex = random.Next(categories.Count);
+                var category = categories[categoryIndex];
+                var categoryItems = itemsByCategory[category];
+                var itemIndex = random.Next(categoryItems.Count);
+                var item = categoryItems[itemIndex];
+
+                assignments[playerIndex] = new PlayerItemAssignment(playerIndex, item);
+                categoryItems.RemoveAt(itemIndex);
+
+                if (categoryItems.Count == 0)
+                {
+                    categories.RemoveAt(categoryIndex);
+                }
+            }
+
+            return assignments;
+        }
+    }
+}
