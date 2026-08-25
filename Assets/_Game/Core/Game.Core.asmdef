@@ -1,7 +1,9 @@
 {
     "name": "Game.Core",
     "rootNamespace": "Game.Core",
-    "references": [],
+    "references": [
+        "UniTask"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

@@ -88,23 +88,5 @@ namespace Game.Server.Network
             return new SessionRequest(
                 GameMode.Client, roomCode, null, null, 0, password, false);
         }
-
-        /// <summary>
-        /// Temporary connectivity check: the first instance becomes the host and
-        /// the rest join it, so two builds can verify a connection without any
-        /// lobby UI. Replaced by <see cref="Create"/> and <see cref="Join"/> once
-        /// the lobby exists.
-        /// </summary>
-        /// <remarks>
-        /// The display name is a separate argument on purpose. Reusing the code
-        /// as the name would publish it in the room list, and knowing a code is
-        /// exactly what lets someone into a locked room.
-        /// </remarks>
-        public static SessionRequest AutoConnect(
-            string roomCode, string displayName, int maxPlayers)
-        {
-            return new SessionRequest(
-                GameMode.AutoHostOrClient, roomCode, displayName, null, maxPlayers, null, true);
-        }
     }
 }

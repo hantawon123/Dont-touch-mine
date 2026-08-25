@@ -1,4 +1,5 @@
 using Game.Core.Ports;
+using Game.Server.Lobby;
 using Game.Server.Network;
 using VContainer;
 using VContainer.Unity;
@@ -19,6 +20,9 @@ namespace Game.Bootstrap
             // One network session exists per application and it has to survive
             // scene loads, so it belongs to the root scope rather than a scene.
             builder.Register<NetworkRunnerService>(Lifetime.Singleton);
+
+            builder.Register<RoomCodeGenerator>(Lifetime.Singleton);
+            builder.Register<IRoomBrowser, RoomBrowser>(Lifetime.Singleton);
         }
     }
 }

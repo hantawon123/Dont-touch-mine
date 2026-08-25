@@ -167,8 +167,10 @@ MonoBehaviour:
     TypeName: 
   autoRun: 1
   autoInjectGameObjects: []
-  _roomCode: TESTROOM
+  _mode: 2
+  _displayName: hoons rooms
   _maxPlayers: 6
+  _roomCode: TDK5CW
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0

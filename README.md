@@ -35,8 +35,10 @@ Bootstrap -> Client, Server
 Client    -> Core, SOAP
 Server    -> Core, SOAP
 SOAP      -> Core
-Core      -> 외부 게임 계층에 의존하지 않음
+Core      -> 외부 게임 계층에 의존하지 않음 (허용: UniTask)
 ```
+
+`Core`가 참조할 수 있는 것은 `UniTask` 하나뿐입니다. `Core`의 포트 인터페이스가 서버 요청을 표현하려면 비동기 반환 타입이 필요하고, 아래 비동기 규칙이 `UniTask` 반환을 요구하기 때문입니다. R3, Fusion, VContainer, UI 계열과 `Client`·`Server`·`SOAP`는 참조하지 않습니다.
 
 `Client`와 `Server`는 서로 직접 참조하지 않습니다. 두 영역이 함께 사용하는 규칙과 타입은 `Core`로 이동합니다. 이 프로젝트에서 `Server`는 별도 Spring 서버가 아니라 Unity 안의 Photon 네트워크 영역을 뜻합니다.
 
