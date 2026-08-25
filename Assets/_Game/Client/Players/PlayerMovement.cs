@@ -1,3 +1,4 @@
+using Game.SOAP.Config;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,20 +10,8 @@ namespace Game.Client.Players
         [SerializeField]
         private InputActionAsset inputActions;
 
-        [SerializeField, Min(0f)]
-        private float walkSpeed = 4f;
-
-        [SerializeField, Min(0f)]
-        private float sprintSpeed = 7f;
-
-        [SerializeField, Min(0f)]
-        private float rotationSpeedDegrees = 720f;
-
-        [SerializeField, Min(0f)]
-        private float jumpHeight = 1.1f;
-
-        [SerializeField, Min(0.1f)]
-        private float gravityMultiplier = 2f;
+        [SerializeField]
+        private MovementConfigSO movementConfig;
 
         // 접지 상태를 안정시키기 위해 바닥에 있을 때 아래로 살짝 눌러주는 속도.
         private const float GroundedStickVelocity = -2f;
@@ -42,6 +31,13 @@ namespace Game.Client.Players
             if (inputActions == null)
             {
                 Debug.LogError("PlayerMovement: InputActionAsset이 연결되지 않았습니다. Inspector에서 InputSystem_Actions를 연결하세요.", this);
+                enabled = false;
+                return;
+            }
+
+            if (movementConfig == null)
+            {
+                Debug.LogError("PlayerMovement: MovementConfigSO가 연결되지 않았습니다. Inspector에서 MovementConfig 에셋을 연결하세요.", this);
                 enabled = false;
                 return;
             }
@@ -66,7 +62,7 @@ namespace Game.Client.Players
         {
             var input = moveAction.ReadValue<Vector2>();
             var direction = ToCameraRelativeDirection(input);
-            var gravity = -Physics.gravity.y * gravityMultiplier;
+            var gravity = -Physics.gravity.y * movementConfig.GravityMultiplier;
 
             if (controller.isGrounded)
             {
@@ -74,14 +70,14 @@ namespace Game.Client.Players
 
                 if (jumpAction.WasPressedThisFrame())
                 {
-                    // 목표 높이(jumpHeight)에 도달하는 초기 속도: v = sqrt(2gh)
-                    verticalVelocity = Mathf.Sqrt(2f * gravity * jumpHeight);
+                    // 목표 높이(JumpHeight)에 도달하는 초기 속도: v = sqrt(2gh)
+                    verticalVelocity = Mathf.Sqrt(2f * gravity * movementConfig.JumpHeight);
                 }
             }
 
             verticalVelocity -= gravity * Time.deltaTime;
 
-            var moveSpeed = sprintAction.IsPressed() ? sprintSpeed : walkSpeed;
+            var moveSpeed = sprintAction.IsPressed() ? movementConfig.SprintSpeed : movementConfig.WalkSpeed;
             var velocity = direction * moveSpeed;
             velocity.y = verticalVelocity;
             controller.Move(velocity * Time.deltaTime);
@@ -90,7 +86,7 @@ namespace Game.Client.Players
             {
                 var targetRotation = Quaternion.LookRotation(direction);
                 transform.rotation = Quaternion.RotateTowards(
-                    transform.rotation, targetRotation, rotationSpeedDegrees * Time.deltaTime);
+                    transform.rotation, targetRotation, movementConfig.RotationSpeedDegrees * Time.deltaTime);
             }
         }
 

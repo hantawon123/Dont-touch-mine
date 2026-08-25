@@ -72,8 +72,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Players.PlayerMovement
   inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-  walkSpeed: 4
-  rotationSpeedDegrees: 720
+  movementConfig: {fileID: 11400000, guid: 16673619417e54b41a615139ee00d38f, type: 2}
 --- !u!1 &4967552230462791768
 GameObject:
   m_ObjectHideFlags: 0
