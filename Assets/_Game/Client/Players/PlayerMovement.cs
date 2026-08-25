@@ -13,6 +13,9 @@ namespace Game.Client.Players
         private float walkSpeed = 4f;
 
         [SerializeField, Min(0f)]
+        private float sprintSpeed = 7f;
+
+        [SerializeField, Min(0f)]
         private float rotationSpeedDegrees = 720f;
 
         [SerializeField, Min(0f)]
@@ -28,6 +31,7 @@ namespace Game.Client.Players
         private InputActionMap playerMap;
         private InputAction moveAction;
         private InputAction jumpAction;
+        private InputAction sprintAction;
         private Transform cameraTransform;
         private float verticalVelocity;
 
@@ -45,6 +49,7 @@ namespace Game.Client.Players
             playerMap = inputActions.FindActionMap("Player", throwIfNotFound: true);
             moveAction = playerMap.FindAction("Move", throwIfNotFound: true);
             jumpAction = playerMap.FindAction("Jump", throwIfNotFound: true);
+            sprintAction = playerMap.FindAction("Sprint", throwIfNotFound: true);
         }
 
         private void OnEnable()
@@ -76,7 +81,8 @@ namespace Game.Client.Players
 
             verticalVelocity -= gravity * Time.deltaTime;
 
-            var velocity = direction * walkSpeed;
+            var moveSpeed = sprintAction.IsPressed() ? sprintSpeed : walkSpeed;
+            var velocity = direction * moveSpeed;
             velocity.y = verticalVelocity;
             controller.Move(velocity * Time.deltaTime);
 
