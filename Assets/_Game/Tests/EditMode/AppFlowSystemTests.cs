@@ -20,7 +20,8 @@ namespace Game.Tests.EditMode
             Assert.That(flow.TryTransitionTo(AppFlowState.Result), Is.False);
             Assert.That(flow.TryTransitionTo(AppFlowState.Highlight), Is.True);
             Assert.That(flow.TryTransitionTo(AppFlowState.Result), Is.True);
-            Assert.That(flow.TryTransitionTo(AppFlowState.Home), Is.True);
+            Assert.That(flow.TryTransitionTo(AppFlowState.Home), Is.False);
+            Assert.That(flow.TryTransitionTo(AppFlowState.Lobby), Is.True);
             Assert.That(changedStates, Is.EqualTo(new[]
             {
                 AppFlowState.RoomBrowser,
@@ -28,7 +29,7 @@ namespace Game.Tests.EditMode
                 AppFlowState.InGame,
                 AppFlowState.Highlight,
                 AppFlowState.Result,
-                AppFlowState.Home
+                AppFlowState.Lobby
             }));
         }
 
