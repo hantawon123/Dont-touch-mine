@@ -17,7 +17,7 @@ namespace Game.Server.Match
 
     public sealed class MatchRuntimeController : ITickable
     {
-        private readonly MatchSessionCoordinator session;
+        private MatchSessionCoordinator session;
         private readonly IMatchRuntimeContext context;
         private readonly AppFlowSystem appFlow;
         private bool isStarted;
@@ -40,6 +40,25 @@ namespace Game.Server.Match
             }
 
             isStarted = true;
+            return true;
+        }
+
+        public bool TryPrepareRematch(MatchSessionCoordinator nextSession)
+        {
+            if (nextSession == null)
+            {
+                throw new ArgumentNullException(nameof(nextSession));
+            }
+
+            if (!isStarted ||
+                session.CurrentPhase != MatchPhase.Result ||
+                nextSession.CurrentPhase != MatchPhase.Waiting)
+            {
+                return false;
+            }
+
+            session = nextSession;
+            isStarted = false;
             return true;
         }
 

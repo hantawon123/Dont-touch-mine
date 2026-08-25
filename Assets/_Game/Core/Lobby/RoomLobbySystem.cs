@@ -79,5 +79,16 @@ namespace Game.Core.Lobby
             Started?.Invoke(Settings);
             return RoomStartResult.Started;
         }
+
+        public bool TryPrepareRematch()
+        {
+            if (!IsStarted)
+            {
+                return false;
+            }
+
+            IsStarted = false;
+            return true;
+        }
     }
 }
