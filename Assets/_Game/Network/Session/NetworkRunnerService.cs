@@ -8,6 +8,7 @@ using Fusion.Sockets;
 using Game.Core.Ports;
 using Game.Core.Rooms;
 using Game.Network.Lobby;
+using Game.Network.Players;
 using UnityEngine;
 
 namespace Game.Network.Session
@@ -29,6 +30,14 @@ namespace Game.Network.Session
 
         private readonly IRoomListSink _roomListSink;
         private readonly IRoomSessionSink _sessionSink;
+
+        /// <summary>
+        /// Told when players arrive and leave. The runner is passed in on each
+        /// call rather than held by the spawner, so there is only ever one
+        /// answer to which runner is current.
+        /// </summary>
+        private readonly PlayerSpawner _spawner;
+
         private readonly List<RoomSummary> _roomBuffer = new List<RoomSummary>();
 
         private NetworkRunner _runner;
@@ -54,10 +63,14 @@ namespace Game.Network.Session
 
         private bool _disposed;
 
-        public NetworkRunnerService(IRoomListSink roomListSink, IRoomSessionSink sessionSink)
+        public NetworkRunnerService(
+            IRoomListSink roomListSink,
+            IRoomSessionSink sessionSink,
+            PlayerSpawner spawner)
         {
             _roomListSink = roomListSink;
             _sessionSink = sessionSink;
+            _spawner = spawner;
         }
 
         public bool IsRunning => _runner != null && _runner.IsRunning;
@@ -300,6 +313,11 @@ namespace Game.Network.Session
             _runnerObject = null;
             _expectedPassword = null;
             _browsingLobby = false;
+
+            // The characters go with the session, but the seating does not clear
+            // itself. Left behind, the next room would start numbering from
+            // wherever the last one stopped.
+            _spawner?.Clear();
         }
 
         private bool IsCurrentRunner(NetworkRunner runner) =>
@@ -451,6 +469,7 @@ namespace Game.Network.Session
             }
 
             Debug.Log($"[Network] Player joined: {player}.");
+            _spawner?.Spawn(runner, player);
             ReportPlayerCount();
         }
 
@@ -462,6 +481,7 @@ namespace Game.Network.Session
             }
 
             Debug.Log($"[Network] Player left: {player}.");
+            _spawner?.Despawn(runner, player);
             ReportPlayerCount();
         }
 

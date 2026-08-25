@@ -48,3 +48,4 @@ MonoBehaviour:
     TypeName: 
   autoRun: 1
   autoInjectGameObjects: []
+  _networkPrefabs: {fileID: 11400000, guid: 2450c63f1603a3d4dba80fb89b09e87c, type: 2}
