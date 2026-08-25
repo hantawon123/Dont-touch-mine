@@ -167,6 +167,7 @@ namespace Game.Server.Match
 
         public IReadOnlyList<PlayerItemAssignment> Assignments { get; }
         public MatchPlayerRoster Players { get; }
+        public MatchPhase CurrentPhase => state.CurrentPhase.CurrentValue;
         public bool AllItemsPlaced => placements.AllPlaced;
         public int DestroyedPlayerItemCount => outcome.DestroyedItemCount;
         public bool AllPlayerItemsDestroyed => outcome.AllPlayerItemsDestroyed;
