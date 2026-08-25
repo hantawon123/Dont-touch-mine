@@ -73,7 +73,7 @@ namespace Game.Bootstrap
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterInstance(new SessionStartPlan(
-                _mode,
+                ResolveMode(),
                 new RoomCreateRequest(
                     _displayName,
                     !string.IsNullOrEmpty(_password),
@@ -84,6 +84,34 @@ namespace Game.Bootstrap
                 _password));
 
             builder.RegisterEntryPoint<SessionAutoConnect>();
+        }
+
+        /// <summary>
+        /// Lets a Multiplayer Play Mode tag override the inspector, so one scene
+        /// can drive a host and a client at the same time.
+        /// </summary>
+        /// <remarks>
+        /// Only the mode is taken from the tag. Room name, map, size and password
+        /// still come from the inspector, so both instances agree on what the
+        /// room is without anything being duplicated per player.
+        /// </remarks>
+        private SessionStartMode ResolveMode()
+        {
+            var role = SessionRoles.Current;
+
+            switch (role)
+            {
+                case SessionRole.Host:
+                    Debug.Log($"[Bootstrap] {SessionRoles.Describe()}: opening the room.");
+                    return SessionStartMode.CreateRoom;
+
+                case SessionRole.Client:
+                    Debug.Log($"[Bootstrap] {SessionRoles.Describe()}: entering the room.");
+                    return SessionStartMode.EnterFirstListed;
+
+                default:
+                    return _mode;
+            }
         }
     }
 
