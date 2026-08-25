@@ -10,6 +10,25 @@
   - 예시: `feature/client/login`, `feature/client/room-lobby`, `feature/server/match-sync`
 - `hotfix/*`: 배포 후 긴급 수정 브랜치. `main`에서 분기하고 `main`과 `develop` 양쪽에 병합합니다.
 
+### 작업 순서
+
+```bash
+# 1. develop 최신화 후 feature 브랜치 생성
+git checkout develop
+git pull
+git checkout -b feature/client/login
+
+# 2. 작업 후 커밋 컨벤션에 맞춰 커밋
+git add .
+git commit -m "S15P21D205-91 [CL] feat: 로그인 기능 구현"
+
+# 3. push 후 GitLab에서 develop 대상 Merge Request 생성
+git push origin feature/client/login
+```
+
+- 리뷰 승인 후 병합하고, 병합된 feature 브랜치는 삭제합니다.
+- 로컬은 주기적으로 `git fetch --prune`으로 삭제된 원격 브랜치 참조를 정리합니다.
+
 ## 2. 커밋 컨벤션
 
 - **포맷**: `이슈번호 [파트] 태그: 제목` (예: `S15P21D205-91 [SV] feat: 로그인 기능 구현`)
