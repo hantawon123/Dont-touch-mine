@@ -1,6 +1,6 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using Game.Core.Ports;
+using Game.Core.Lobby;
 using Game.Core.Rooms;
 using Game.Network.Session;
 using UnityEngine;
@@ -116,22 +116,19 @@ namespace Game.Bootstrap
         private const int ListPollIntervalMs = 200;
         private const int ListPollAttempts = 50;
 
-        private readonly IRoomBrowser _browser;
-        private readonly DebugRoomListSink _rooms;
-        private readonly DebugRoomSessionSink _session;
+        private readonly RoomUiCommands _commands;
+        private readonly RoomBrowserSystem _state;
         private readonly NetworkRunnerService _network;
         private readonly SessionStartPlan _plan;
 
         public SessionAutoConnect(
-            IRoomBrowser browser,
-            DebugRoomListSink rooms,
-            DebugRoomSessionSink session,
+            RoomUiCommands commands,
+            RoomBrowserSystem state,
             NetworkRunnerService network,
             SessionStartPlan plan)
         {
-            _browser = browser;
-            _rooms = rooms;
-            _session = session;
+            _commands = commands;
+            _state = state;
             _network = network;
             _plan = plan;
         }
@@ -140,20 +137,20 @@ namespace Game.Bootstrap
         {
             // A built player has no visible console, so session state has to be
             // on screen for anyone testing with two instances.
-            SessionDebugOverlay.Attach(_network, _browser, _session);
+            SessionDebugOverlay.Attach(_network, _commands, _state);
 
             switch (_plan.Mode)
             {
                 case SessionStartMode.BrowseLobby:
-                    await _browser.RefreshAsync(cancellation);
+                    await _commands.RefreshAsync(cancellation);
                     break;
 
                 case SessionStartMode.CreateRoom:
-                    Report(await _browser.CreateAsync(_plan.CreateRequest, cancellation));
+                    Report(await _commands.CreateAsync(_plan.CreateRequest, cancellation));
                     break;
 
                 case SessionStartMode.EnterByCode:
-                    Report(await _browser.EnterByCodeAsync(
+                    Report(await _commands.EnterByCodeAsync(
                         _plan.RoomCode, _plan.Password, cancellation));
                     break;
 
@@ -170,25 +167,32 @@ namespace Game.Bootstrap
         /// </summary>
         private async UniTask EnterFirstListed(CancellationToken cancellation)
         {
-            await _browser.RefreshAsync(cancellation);
+            var failure = await _commands.RefreshAsync(cancellation);
+            if (failure != RoomEntryFailure.None)
+            {
+                Debug.LogError($"[Bootstrap] Room refresh failed: {failure}");
+                return;
+            }
 
-            for (var i = 0; i < ListPollAttempts && _rooms.Rooms.Count == 0; i++)
+            var rooms = _state.Rooms;
+
+            for (var i = 0; i < ListPollAttempts && rooms.CurrentValue.Count == 0; i++)
             {
                 await UniTask.Delay(ListPollIntervalMs, cancellationToken: cancellation);
             }
 
-            if (_rooms.Rooms.Count == 0)
+            if (rooms.CurrentValue.Count == 0)
             {
                 Debug.LogError("[Bootstrap] No rooms are listed.");
                 return;
             }
 
-            var target = _rooms.Rooms[0];
+            var target = rooms.CurrentValue[0];
             Debug.Log(
                 $"[Bootstrap] Entering listed room '{target.DisplayName}' " +
                 $"(locked={target.IsLocked}).");
 
-            Report(await _browser.EnterAsync(target.Id, _plan.Password, cancellation));
+            Report(await _commands.EnterAsync(target.Id, _plan.Password, cancellation));
         }
 
         private void Report(RoomEntryResult result)

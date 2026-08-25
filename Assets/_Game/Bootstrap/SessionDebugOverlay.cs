@@ -1,6 +1,6 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using Game.Core.Ports;
+using Game.Core.Lobby;
 using Game.Network.Session;
 using UnityEngine;
 
@@ -36,8 +36,8 @@ namespace Game.Bootstrap
         private static SessionDebugOverlay _instance;
 
         private NetworkRunnerService _network;
-        private IRoomBrowser _browser;
-        private DebugRoomSessionSink _session;
+        private RoomUiCommands _commands;
+        private RoomBrowserSystem _state;
         private GUIStyle _boxStyle;
         private bool _leaving;
 
@@ -46,7 +46,7 @@ namespace Game.Bootstrap
         /// does nothing, so a scene reload cannot stack duplicates.
         /// </summary>
         public static void Attach(
-            NetworkRunnerService network, IRoomBrowser browser, DebugRoomSessionSink session)
+            NetworkRunnerService network, RoomUiCommands commands, RoomBrowserSystem state)
         {
             if (_instance != null)
             {
@@ -58,8 +58,8 @@ namespace Game.Bootstrap
 
             _instance = host.AddComponent<SessionDebugOverlay>();
             _instance._network = network;
-            _instance._browser = browser;
-            _instance._session = session;
+            _instance._commands = commands;
+            _instance._state = state;
         }
 
         private void OnDestroy()
@@ -118,7 +118,7 @@ namespace Game.Bootstrap
             _leaving = true;
             try
             {
-                await _browser.LeaveAsync(CancellationToken.None);
+                await _commands.LeaveAsync(CancellationToken.None);
             }
             catch (System.Exception error)
             {
@@ -134,7 +134,7 @@ namespace Game.Bootstrap
         {
             if (!_network.IsRunning)
             {
-                var exit = _session?.LastExit;
+                var exit = _state?.LastExit.CurrentValue;
                 return exit.HasValue
                     ? $"Not connected\nLast exit  {exit.Value}"
                     : "Not connected";
