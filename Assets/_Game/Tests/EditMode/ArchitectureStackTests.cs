@@ -1,5 +1,11 @@
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using Game.Bootstrap;
+using Game.Core.Flow;
+using Game.Core.Home;
+using Game.Core.Lobby;
+using Game.Core.Ports;
+using Game.Network.Session;
 using NUnit.Framework;
 using R3;
 using VContainer;
@@ -24,6 +30,25 @@ namespace Game.Architecture.Tests
             resolvedState.Value = 6;
 
             Assert.That(observedValue, Is.EqualTo(6));
+        }
+
+        [Test]
+        public void ProjectServices_ResolveAsOneRuntimeGraph()
+        {
+            var builder = new ContainerBuilder();
+            ProjectLifetimeScope.RegisterServices(builder);
+
+            using var container = builder.Build();
+            var roomState = container.Resolve<RoomBrowserSystem>();
+
+            Assert.That(container.Resolve<IRoomListSink>(), Is.SameAs(roomState));
+            Assert.That(container.Resolve<IRoomSessionSink>(), Is.SameAs(roomState));
+            Assert.That(container.Resolve<RoomUiCommands>(), Is.Not.Null);
+            Assert.That(container.Resolve<NetworkRunnerService>(), Is.Not.Null);
+            Assert.That(container.Resolve<AppFlowSystem>(), Is.Not.Null);
+            Assert.That(container.Resolve<HomeMenuSystem>(), Is.Not.Null);
+            Assert.That(container.Resolve<FriendListSystem>(), Is.Not.Null);
+            Assert.That(container.Resolve<PlayerProfile>(), Is.Not.Null);
         }
     }
 }

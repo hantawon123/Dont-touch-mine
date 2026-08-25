@@ -1,3 +1,6 @@
+using Game.Core.Flow;
+using Game.Core.Home;
+using Game.Core.Lobby;
 using Game.Core.Ports;
 using Game.Network.Lobby;
 using Game.Network.Session;
@@ -10,27 +13,27 @@ namespace Game.Bootstrap
     {
         protected override void Configure(IContainerBuilder builder)
         {
-            // Register services that must live for the entire application here.
+            RegisterServices(builder);
+        }
 
-            // The room list has a single owner per application, and the network
-            // service depends on it, so it is registered here rather than in a
-            // scene scope. Swapped for the client's reactive store later.
-            // Also resolvable by its own type so the temporary scene harness can
-            // read back the last list it received.
-            builder.Register<DebugRoomListSink>(Lifetime.Singleton)
-                .AsSelf()
-                .As<IRoomListSink>();
+        public static void RegisterServices(IContainerBuilder builder)
+        {
+            builder.Register<AppFlowSystem>(Lifetime.Singleton);
+            builder.Register<HomeMenuSystem>(Lifetime.Singleton);
+            builder.Register<FriendListSystem>(Lifetime.Singleton);
 
-            builder.Register<DebugRoomSessionSink>(Lifetime.Singleton)
+            // Replaced by the saved Steam/backend profile when that adapter is connected.
+            builder.RegisterInstance(new PlayerProfile("Player", 1));
+
+            builder.Register<RoomBrowserSystem>(Lifetime.Singleton)
                 .AsSelf()
+                .As<IRoomListSink>()
                 .As<IRoomSessionSink>();
 
-            // One network session exists per application and it has to survive
-            // scene loads, so it belongs to the root scope rather than a scene.
             builder.Register<NetworkRunnerService>(Lifetime.Singleton);
-
             builder.Register<RoomCodeGenerator>(Lifetime.Singleton);
             builder.Register<IRoomBrowser, RoomBrowser>(Lifetime.Singleton);
+            builder.Register<RoomUiCommands>(Lifetime.Singleton);
         }
     }
 }
