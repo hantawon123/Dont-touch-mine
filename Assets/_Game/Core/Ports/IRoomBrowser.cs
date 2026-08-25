@@ -54,5 +54,15 @@ namespace Game.Core.Ports
         /// </param>
         UniTask<RoomEntryResult> EnterByCodeAsync(
             string roomCode, string password, CancellationToken cancellation);
+
+        /// <summary>
+        /// Leaves the current room. Does nothing when not in one.
+        /// </summary>
+        /// <remarks>
+        /// Completing this only means the request went through. The room ending
+        /// is reported through <see cref="IRoomSessionSink.RoomClosed"/> like any
+        /// other exit, so presentation handles every departure in one place.
+        /// </remarks>
+        UniTask LeaveAsync(CancellationToken cancellation);
     }
 }

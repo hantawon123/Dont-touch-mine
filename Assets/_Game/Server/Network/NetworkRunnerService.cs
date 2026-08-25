@@ -28,6 +28,7 @@ namespace Game.Server.Network
         private const string RunnerObjectName = "[NetworkRunner]";
 
         private readonly IRoomListSink _roomListSink;
+        private readonly IRoomSessionSink _sessionSink;
         private readonly List<RoomSummary> _roomBuffer = new List<RoomSummary>();
 
         private NetworkRunner _runner;
@@ -45,11 +46,18 @@ namespace Game.Server.Network
         /// </summary>
         private bool _browsingLobby;
 
+        /// <summary>
+        /// Guards against reporting the same departure twice. Fusion can raise
+        /// both a disconnect and a shutdown for one exit.
+        /// </summary>
+        private bool _exitReported;
+
         private bool _disposed;
 
-        public NetworkRunnerService(IRoomListSink roomListSink)
+        public NetworkRunnerService(IRoomListSink roomListSink, IRoomSessionSink sessionSink)
         {
             _roomListSink = roomListSink;
+            _sessionSink = sessionSink;
         }
 
         public bool IsRunning => _runner != null && _runner.IsRunning;
@@ -203,9 +211,12 @@ namespace Game.Server.Network
                 return SessionStartResult.Failed(failure, result.ErrorMessage);
             }
 
+            _exitReported = false;
+
             Debug.Log(
                 $"[Network] Session '{RoomCode}' started as {request.Mode}. IsServer={IsServer}");
 
+            ReportPlayerCount();
             return SessionStartResult.Success();
         }
 
@@ -314,6 +325,92 @@ namespace Game.Server.Network
             return properties;
         }
 
+        /// <summary>
+        /// Counts the runner's live players rather than reading the session
+        /// listing, which lags a tick behind a player leaving.
+        /// </summary>
+        private void ReportPlayerCount()
+        {
+            if (_runner == null || _browsingLobby)
+            {
+                return;
+            }
+
+            var count = 0;
+            foreach (var _ in _runner.ActivePlayers)
+            {
+                count++;
+            }
+
+            _sessionSink?.PlayerCountChanged(count, MaxPlayers);
+        }
+
+        /// <summary>
+        /// Reports the departure once. Fusion can raise a disconnect and a
+        /// shutdown for the same exit, and presentation should react once.
+        /// </summary>
+        private void ReportExit(RoomExitReason reason)
+        {
+            if (_exitReported || _browsingLobby)
+            {
+                return;
+            }
+
+            _exitReported = true;
+            Debug.Log($"[Network] Left the room: {reason}");
+            _sessionSink?.RoomClosed(reason);
+        }
+
+        private static RoomExitReason Translate(ShutdownReason reason)
+        {
+            switch (reason)
+            {
+                case ShutdownReason.Ok:
+                case ShutdownReason.OperationCanceled:
+                    // The only way this peer stops cleanly is by asking to.
+                    return RoomExitReason.Left;
+
+                case ShutdownReason.GameClosed:
+                case ShutdownReason.ServerInRoom:
+                case ShutdownReason.HostMigration:
+                // Observed when the authority leaves: Fusion reports
+                // DisconnectReason=ServerLogic, "Server has disconnected".
+                case ShutdownReason.DisconnectedByPluginLogic:
+                    return RoomExitReason.HostClosed;
+
+                case ShutdownReason.ConnectionTimeout:
+                case ShutdownReason.ConnectionRefused:
+                case ShutdownReason.PhotonCloudTimeout:
+                case ShutdownReason.OperationTimeout:
+                    return RoomExitReason.Disconnected;
+
+                default:
+                    return RoomExitReason.Unknown;
+            }
+        }
+
+        private static RoomExitReason Translate(NetDisconnectReason reason)
+        {
+            switch (reason)
+            {
+                case NetDisconnectReason.Requested:
+                    return RoomExitReason.Left;
+
+                case NetDisconnectReason.ByRemote:
+                    // The authority closed the connection from its side.
+                    return RoomExitReason.HostClosed;
+
+                case NetDisconnectReason.Timeout:
+                case NetDisconnectReason.SendWindowFull:
+                case NetDisconnectReason.ProtocolError:
+                case NetDisconnectReason.SequenceOutOfBounds:
+                    return RoomExitReason.Disconnected;
+
+                default:
+                    return RoomExitReason.Unknown;
+            }
+        }
+
         private static byte[] EncodeToken(string password)
         {
             return string.IsNullOrEmpty(password)
@@ -340,12 +437,14 @@ namespace Game.Server.Network
 
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
-            Debug.Log($"[Network] Player joined: {player}. Total={PlayerCount}");
+            Debug.Log($"[Network] Player joined: {player}.");
+            ReportPlayerCount();
         }
 
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
-            Debug.Log($"[Network] Player left: {player}. Total={PlayerCount}");
+            Debug.Log($"[Network] Player left: {player}.");
+            ReportPlayerCount();
         }
 
         public void OnConnectedToServer(NetworkRunner runner)
@@ -356,6 +455,7 @@ namespace Game.Server.Network
         public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
         {
             Debug.LogWarning($"[Network] Disconnected: {reason}");
+            ReportExit(Translate(reason));
         }
 
         public void OnConnectFailed(
@@ -396,6 +496,7 @@ namespace Game.Server.Network
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
         {
             Debug.Log($"[Network] Shutdown: {shutdownReason}");
+            ReportExit(Translate(shutdownReason));
         }
 
         /// <summary>

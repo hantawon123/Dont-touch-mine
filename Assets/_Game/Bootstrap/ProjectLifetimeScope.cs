@@ -21,6 +21,10 @@ namespace Game.Bootstrap
                 .AsSelf()
                 .As<IRoomListSink>();
 
+            builder.Register<DebugRoomSessionSink>(Lifetime.Singleton)
+                .AsSelf()
+                .As<IRoomSessionSink>();
+
             // One network session exists per application and it has to survive
             // scene loads, so it belongs to the root scope rather than a scene.
             builder.Register<NetworkRunnerService>(Lifetime.Singleton);

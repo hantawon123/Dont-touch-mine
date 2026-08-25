@@ -109,17 +109,20 @@ namespace Game.Bootstrap
 
         private readonly IRoomBrowser _browser;
         private readonly DebugRoomListSink _rooms;
+        private readonly DebugRoomSessionSink _session;
         private readonly NetworkRunnerService _network;
         private readonly SessionStartPlan _plan;
 
         public SessionAutoConnect(
             IRoomBrowser browser,
             DebugRoomListSink rooms,
+            DebugRoomSessionSink session,
             NetworkRunnerService network,
             SessionStartPlan plan)
         {
             _browser = browser;
             _rooms = rooms;
+            _session = session;
             _network = network;
             _plan = plan;
         }
@@ -128,7 +131,7 @@ namespace Game.Bootstrap
         {
             // A built player has no visible console, so session state has to be
             // on screen for anyone testing with two instances.
-            SessionDebugOverlay.Attach(_network);
+            SessionDebugOverlay.Attach(_network, _browser, _session);
 
             switch (_plan.Mode)
             {

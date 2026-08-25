@@ -116,6 +116,17 @@ namespace Game.Server.Lobby
                 : result;
         }
 
+        /// <summary>
+        /// Leaves the room. The departure itself is reported through
+        /// <see cref="IRoomSessionSink.RoomClosed"/> by the shutdown callback, so
+        /// presentation sees a voluntary exit the same way as any other.
+        /// </summary>
+        public UniTask LeaveAsync(CancellationToken cancellation)
+        {
+            _network.Shutdown();
+            return UniTask.CompletedTask;
+        }
+
         private async UniTask<RoomEntryResult> Enter(
             string roomCode, string password, CancellationToken cancellation)
         {
