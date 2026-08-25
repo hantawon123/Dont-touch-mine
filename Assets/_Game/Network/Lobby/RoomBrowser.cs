@@ -2,10 +2,10 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Ports;
 using Game.Core.Rooms;
-using Game.Server.Network;
+using Game.Network.Session;
 using UnityEngine;
 
-namespace Game.Server.Lobby
+namespace Game.Network.Lobby
 {
     /// <summary>
     /// Opens and enters rooms through Photon matchmaking.

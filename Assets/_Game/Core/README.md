@@ -7,12 +7,15 @@
 
 ## 참조 규칙
 
-`Game.Core.asmdef`가 참조할 수 있는 것은 `UniTask` 하나뿐입니다.
+`Game.Core.asmdef`가 참조할 수 있는 것은 `UniTask`와 `R3` 둘뿐입니다.
 
 - **허용**: `UniTask` — 포트 인터페이스가 서버 요청을 `UniTask<T>`로 표현하기 위해서입니다.
-- **금지**: R3, Fusion, VContainer, UI 계열, 그리고 `Client`·`Server`·`SOAP`.
+- **허용**: `R3.Unity` — `IMatchState`가 경기 상태를 `ReadOnlyReactiveProperty<T>`로
+  노출하기 때문입니다. 읽기 전용 타입만 쓰고, `ReactiveProperty`를 만들어 값을 쓰는 쪽은
+  `Server`와 `Client`입니다.
+- **금지**: Fusion, VContainer, UI 계열, 그리고 `Client`·`Server`·`SOAP`·`Network`.
 
-R3를 넣지 않는 이유는 런타임 상태의 소유가 `Client`이기 때문입니다. 서버가 확정한
-값은 `Core`의 포트를 통해 전달되고, `ReactiveProperty`로 바꾸는 것은 `Client`가 합니다.
+Fusion을 넣지 않는 이유는 네트워크 타입이 `Network` 계층 밖으로 나가지 않아야 하기
+때문입니다. 세션과 플레이어는 `Core`의 중립 타입으로 전달됩니다.
 
 새 참조를 추가하려면 이 목록을 먼저 고치고 팀에 알립니다.

@@ -1,14 +1,12 @@
 {
-    "name": "Game.Bootstrap",
-    "rootNamespace": "Game.Bootstrap",
+    "name": "Game.Network",
+    "rootNamespace": "Game.Network",
     "references": [
-        "Game.Client",
         "Game.Core",
-        "Game.Network",
         "Game.Server",
-        "Game.SOAP",
-        "UniTask",
-        "VContainer"
+        "Fusion.Unity",
+        "Photon.Realtime",
+        "UniTask"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

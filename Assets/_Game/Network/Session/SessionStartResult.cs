@@ -1,6 +1,6 @@
 using Fusion;
 
-namespace Game.Server.Network
+namespace Game.Network.Session
 {
     /// <summary>
     /// Why a session failed to start, in terms the lobby UI can show directly.

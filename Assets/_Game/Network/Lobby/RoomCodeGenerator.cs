@@ -1,7 +1,7 @@
 using System;
 using System.Text;
 
-namespace Game.Server.Lobby
+namespace Game.Network.Lobby
 {
     /// <summary>
     /// Draws short room codes that players read aloud and type by hand.

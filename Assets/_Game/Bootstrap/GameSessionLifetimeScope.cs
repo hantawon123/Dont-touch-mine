@@ -2,7 +2,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Ports;
 using Game.Core.Rooms;
-using Game.Server.Network;
+using Game.Network.Session;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;

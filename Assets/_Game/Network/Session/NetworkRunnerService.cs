@@ -7,10 +7,10 @@ using Fusion;
 using Fusion.Sockets;
 using Game.Core.Ports;
 using Game.Core.Rooms;
-using Game.Server.Lobby;
+using Game.Network.Lobby;
 using UnityEngine;
 
-namespace Game.Server.Network
+namespace Game.Network.Session
 {
     /// <summary>
     /// Owns every touch point with Fusion: creating the runner, starting and

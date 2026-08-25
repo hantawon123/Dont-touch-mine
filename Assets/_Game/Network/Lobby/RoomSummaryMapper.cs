@@ -1,8 +1,8 @@
 using Fusion;
 using Game.Core.Rooms;
-using Game.Server.Network;
+using Game.Network.Session;
 
-namespace Game.Server.Lobby
+namespace Game.Network.Lobby
 {
     /// <summary>
     /// Turns Photon session listings into the engine-neutral summaries that

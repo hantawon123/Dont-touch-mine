@@ -2,6 +2,7 @@
     "name": "Game.Core",
     "rootNamespace": "Game.Core",
     "references": [
+        "R3.Unity",
         "UniTask"
     ],
     "includePlatforms": [],

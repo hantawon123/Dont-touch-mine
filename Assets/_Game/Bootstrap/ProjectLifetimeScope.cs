@@ -1,6 +1,6 @@
 using Game.Core.Ports;
-using Game.Server.Lobby;
-using Game.Server.Network;
+using Game.Network.Lobby;
+using Game.Network.Session;
 using VContainer;
 using VContainer.Unity;
 

@@ -1,7 +1,7 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Ports;
-using Game.Server.Network;
+using Game.Network.Session;
 using UnityEngine;
 
 namespace Game.Bootstrap

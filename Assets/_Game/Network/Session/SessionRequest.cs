@@ -1,6 +1,6 @@
 using Fusion;
 
-namespace Game.Server.Network
+namespace Game.Network.Session
 {
     /// <summary>
     /// Keys used for Photon session properties. These are visible to every
