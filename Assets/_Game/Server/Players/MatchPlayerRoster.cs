@@ -6,14 +6,16 @@ namespace Game.Server.Players
 {
     public readonly struct MatchPlayerState
     {
-        internal MatchPlayerState(int playerIndex, string playerId)
+        internal MatchPlayerState(int playerIndex, string playerId, bool isActive)
         {
             PlayerIndex = playerIndex;
             PlayerId = playerId;
+            IsActive = isActive;
         }
 
         public int PlayerIndex { get; }
         public string PlayerId { get; }
+        public bool IsActive { get; }
     }
 
     public sealed class MatchPlayerRoster
@@ -59,13 +61,15 @@ namespace Game.Server.Players
                         nameof(participantIds));
                 }
 
-                players[playerIndex] = new MatchPlayerState(playerIndex, playerId);
+                players[playerIndex] = new MatchPlayerState(playerIndex, playerId, true);
             }
 
             Players = Array.AsReadOnly(players);
+            ActivePlayerCount = players.Length;
         }
 
         public IReadOnlyList<MatchPlayerState> Players { get; }
+        public int ActivePlayerCount { get; private set; }
 
         public MatchPlayerState GetPlayer(int playerIndex)
         {
@@ -75,6 +79,27 @@ namespace Game.Server.Players
             }
 
             return players[playerIndex];
+        }
+
+        public bool IsActive(int playerIndex)
+        {
+            return GetPlayer(playerIndex).IsActive;
+        }
+
+        public bool TryDeactivate(int playerIndex)
+        {
+            var player = GetPlayer(playerIndex);
+            if (!player.IsActive)
+            {
+                return false;
+            }
+
+            players[playerIndex] = new MatchPlayerState(
+                player.PlayerIndex,
+                player.PlayerId,
+                false);
+            ActivePlayerCount--;
+            return true;
         }
 
         public bool TryGetPlayerIndex(string playerId, out int playerIndex)

@@ -37,6 +37,21 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void TryDeactivate_PreservesPlayerIndexAndUpdatesActiveCountOnce()
+        {
+            var roster = new MatchPlayerRoster(new[] { "player-0", "player-1" });
+
+            Assert.That(roster.ActivePlayerCount, Is.EqualTo(2));
+            Assert.That(roster.TryDeactivate(1), Is.True);
+            Assert.That(roster.TryDeactivate(1), Is.False);
+            Assert.That(roster.ActivePlayerCount, Is.EqualTo(1));
+            Assert.That(roster.GetPlayer(1).PlayerIndex, Is.EqualTo(1));
+            Assert.That(roster.GetPlayer(1).PlayerId, Is.EqualTo("player-1"));
+            Assert.That(roster.GetPlayer(1).IsActive, Is.False);
+            Assert.That(roster.IsActive(0), Is.True);
+        }
+
+        [Test]
         public void Constructor_RejectsInvalidParticipantList()
         {
             Assert.That(
