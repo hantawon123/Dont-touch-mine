@@ -39,10 +39,37 @@ namespace Game.Tests.EditMode
             Assert.That(error, Is.EqualTo(RoomSettingsError.PasswordRequired));
         }
 
-        [Test]
-        public void CreateSettings_RequiresCurrentMatchPlayerCount()
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(4)]
+        [TestCase(5)]
+        [TestCase(6)]
+        public void CreateSettings_AllowsTwoToSixPlayers(int maxPlayers)
         {
-            var request = new RoomCreateRequest("4인방", false, null, 4, "market-01");
+            var request = new RoomCreateRequest(
+                "인원 설정방",
+                false,
+                null,
+                maxPlayers,
+                "market-01");
+
+            Assert.That(
+                request.TryCreateSettings(6, out var settings, out var error),
+                Is.True);
+            Assert.That(error, Is.EqualTo(RoomSettingsError.None));
+            Assert.That(settings.MaxPlayers, Is.EqualTo(maxPlayers));
+        }
+
+        [TestCase(1)]
+        [TestCase(7)]
+        public void CreateSettings_RejectsPlayerCountOutsideRange(int maxPlayers)
+        {
+            var request = new RoomCreateRequest(
+                "잘못된 인원방",
+                false,
+                null,
+                maxPlayers,
+                "market-01");
 
             Assert.That(
                 request.TryCreateSettings(6, out _, out var error),
@@ -165,9 +192,9 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void TryStart_AllowsOnlyHostWhenRoomIsFull()
+        public void TryStart_AllowsOnlyHostWithAtLeastTwoPlayers()
         {
-            var lobby = new RoomLobbySystem(CreateSettings(), "host", 6);
+            var lobby = new RoomLobbySystem(CreateSettings(), "host", 2);
             var eventCount = 0;
             lobby.Started += _ => eventCount++;
 
@@ -179,13 +206,15 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void TryStart_RejectsHostUntilRoomIsFull()
+        public void TryStart_RejectsHostUntilTwoPlayersArePresent()
         {
-            var lobby = new RoomLobbySystem(CreateSettings(), "host", 5);
+            var lobby = new RoomLobbySystem(CreateSettings(), "host", 1);
 
-            Assert.That(lobby.TryStart("host"), Is.EqualTo(RoomStartResult.RoomNotFull));
+            Assert.That(
+                lobby.TryStart("host"),
+                Is.EqualTo(RoomStartResult.NotEnoughPlayers));
 
-            lobby.UpdatePlayerCount(6);
+            lobby.UpdatePlayerCount(2);
 
             Assert.That(lobby.TryStart("host"), Is.EqualTo(RoomStartResult.Started));
         }

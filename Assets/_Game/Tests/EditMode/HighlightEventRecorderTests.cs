@@ -113,6 +113,14 @@ namespace Game.Tests.EditMode
             Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(10d).Within(0.001d));
         }
 
+        [Test]
+        public void RecordPlayerStunned_RejectsIndexOutsideActivePlayers()
+        {
+            Assert.That(
+                () => recorder.RecordPlayerStunned(4, 101d),
+                Throws.TypeOf<System.ArgumentOutOfRangeException>());
+        }
+
         private HighlightCandidate Candidate(HighlightType type, double endedAt)
         {
             return recorder.CaptureCandidates(endedAt).Single(candidate => candidate.Type == type);

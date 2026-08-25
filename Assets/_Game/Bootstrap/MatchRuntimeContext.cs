@@ -55,10 +55,13 @@ namespace Game.Bootstrap
             ref Vector3[] positions,
             ref Pose[] poses)
         {
-            if (playerTransforms == null || playerTransforms.Count != MatchRulesSO.PlayerCount)
+            if (playerTransforms == null ||
+                playerTransforms.Count < MatchRulesSO.MinPlayerCount ||
+                playerTransforms.Count > MatchRulesSO.MaxPlayerCount)
             {
                 throw new InvalidOperationException(
-                    $"Exactly {MatchRulesSO.PlayerCount} player Transforms are required.");
+                    $"Between {MatchRulesSO.MinPlayerCount} and " +
+                    $"{MatchRulesSO.MaxPlayerCount} player Transforms are required.");
             }
 
             if (positions == null || positions.Length != playerTransforms.Count)

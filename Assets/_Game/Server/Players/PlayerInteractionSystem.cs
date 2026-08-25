@@ -1,5 +1,6 @@
 using System;
 using Game.SOAP.Config;
+using VContainer;
 
 namespace Game.Server.Players
 {
@@ -13,20 +14,33 @@ namespace Game.Server.Players
     public sealed class PlayerInteractionSystem
     {
         private readonly MatchRulesSO rules;
-        private readonly int[] hitCounts = new int[MatchRulesSO.PlayerCount];
-        private readonly int[] remainingDestructionUses = new int[MatchRulesSO.PlayerCount];
-        private readonly double[] stunnedUntil = new double[MatchRulesSO.PlayerCount];
-        private readonly double[] invulnerableUntil = new double[MatchRulesSO.PlayerCount];
+        private readonly int[] hitCounts;
+        private readonly int[] remainingDestructionUses;
+        private readonly double[] stunnedUntil;
+        private readonly double[] invulnerableUntil;
 
+        [Inject]
         public PlayerInteractionSystem(MatchRulesSO rules)
+            : this(rules, MatchRulesSO.MaxPlayerCount)
+        {
+        }
+
+        public PlayerInteractionSystem(MatchRulesSO rules, int playerCount)
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
+            MatchRulesSO.ValidatePlayerCount(playerCount);
+            hitCounts = new int[playerCount];
+            remainingDestructionUses = new int[playerCount];
+            stunnedUntil = new double[playerCount];
+            invulnerableUntil = new double[playerCount];
 
             for (var playerIndex = 0; playerIndex < remainingDestructionUses.Length; playerIndex++)
             {
                 remainingDestructionUses[playerIndex] = rules.DestructionUsesPerPlayer;
             }
         }
+
+        public int PlayerCount => hitCounts.Length;
 
         public int GetHitCount(int playerIndex)
         {
@@ -89,9 +103,9 @@ namespace Game.Server.Players
             return now >= stunnedUntil[playerIndex] && now < invulnerableUntil[playerIndex];
         }
 
-        private static void ValidatePlayerIndex(int playerIndex)
+        private void ValidatePlayerIndex(int playerIndex)
         {
-            if (playerIndex < 0 || playerIndex >= MatchRulesSO.PlayerCount)
+            if (playerIndex < 0 || playerIndex >= hitCounts.Length)
             {
                 throw new ArgumentOutOfRangeException(nameof(playerIndex));
             }

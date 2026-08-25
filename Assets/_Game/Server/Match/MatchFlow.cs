@@ -1,6 +1,7 @@
 using System;
 using Game.Core.Match;
 using Game.SOAP.Config;
+using VContainer;
 
 namespace Game.Server.Match
 {
@@ -8,12 +9,24 @@ namespace Game.Server.Match
     {
         private readonly MatchRulesSO rules;
         private readonly MatchState state;
+        private readonly int playerCount;
 
+        [Inject]
         public MatchFlow(MatchRulesSO rules, MatchState state)
+            : this(rules, state, MatchRulesSO.MaxPlayerCount)
+        {
+        }
+
+        public MatchFlow(MatchRulesSO rules, MatchState state, int playerCount)
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             this.state = state ?? throw new ArgumentNullException(nameof(state));
+            MatchRulesSO.ValidatePlayerCount(playerCount);
+            this.playerCount = playerCount;
         }
+
+        public int PlayerCount => playerCount;
+        public float HidingDurationSeconds => rules.GetHidingDurationSeconds(playerCount);
 
         public bool Start(double now)
         {
@@ -68,11 +81,11 @@ namespace Game.Server.Match
                 return -1;
             }
 
-            var hidingStartedAt = state.PhaseEndsAt.CurrentValue - rules.HidingDurationSeconds;
+            var hidingStartedAt = state.PhaseEndsAt.CurrentValue - HidingDurationSeconds;
             var elapsedSeconds = Math.Max(0d, now - hidingStartedAt);
             return Math.Min(
                 (int)(elapsedSeconds / rules.HidingTurnDurationSeconds),
-                MatchRulesSO.PlayerCount - 1);
+                playerCount - 1);
         }
 
         public double GetHidingTurnRemainingSeconds(double now)
@@ -83,7 +96,7 @@ namespace Game.Server.Match
                 return 0d;
             }
 
-            var hidingStartedAt = state.PhaseEndsAt.CurrentValue - rules.HidingDurationSeconds;
+            var hidingStartedAt = state.PhaseEndsAt.CurrentValue - HidingDurationSeconds;
             var turnEndsAt = hidingStartedAt +
                              ((turnIndex + 1) * rules.HidingTurnDurationSeconds);
             return Math.Min(
@@ -117,7 +130,7 @@ namespace Game.Server.Match
 
         private void EnterPhase(MatchPhase phase, double startedAt)
         {
-            var duration = rules.GetDurationSeconds(phase);
+            var duration = rules.GetDurationSeconds(phase, playerCount);
             state.EnterPhase(phase, duration > 0f ? startedAt + duration : 0d);
         }
 
