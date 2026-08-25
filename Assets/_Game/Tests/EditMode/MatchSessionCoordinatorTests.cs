@@ -25,13 +25,15 @@ namespace Game.Tests.EditMode
         {
             rules = ScriptableObject.CreateInstance<MatchRulesSO>();
             state = new MatchState();
-            var flow = new MatchFlow(rules, state);
-            var interactions = new PlayerInteractionSystem(rules);
+            var playerIds = CreatePlayerIds();
+            var flow = new MatchFlow(rules, state, playerIds.Length);
+            var interactions = new PlayerInteractionSystem(rules, playerIds.Length);
             session = new MatchSessionCoordinator(
                 rules,
                 state,
                 flow,
                 interactions,
+                playerIds,
                 new TestPlacementValidator(),
                 CreateSpawnPoints(),
                 CreateItemDefinitions(),
@@ -74,6 +76,66 @@ namespace Game.Tests.EditMode
             Assert.That(session.TryGetItemPlacement(1, out var secondPlacement), Is.True);
             Assert.That(secondPlacement.Pose.position, Is.EqualTo(lastKnownPositions[1]));
             Assert.That(secondPlacement.WasAutoPlaced, Is.True);
+        }
+
+        [Test]
+        public void Session_PreservesLobbyParticipantOrder()
+        {
+            for (var playerIndex = 0; playerIndex < MatchRulesSO.PlayerCount; playerIndex++)
+            {
+                var player = session.Players.GetPlayer(playerIndex);
+
+                Assert.That(player.PlayerIndex, Is.EqualTo(playerIndex));
+                Assert.That(player.PlayerId, Is.EqualTo($"player-{playerIndex}"));
+                Assert.That(
+                    session.Assignments[playerIndex].PlayerIndex,
+                    Is.EqualTo(player.PlayerIndex));
+            }
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(4)]
+        [TestCase(5)]
+        [TestCase(6)]
+        public void VariablePlayerSession_UsesConfiguredPlayerCount(int playerCount)
+        {
+            var playerIds = CreatePlayerIds(playerCount);
+            var matchState = new MatchState();
+
+            try
+            {
+                var matchSession = new MatchSessionCoordinator(
+                    rules,
+                    matchState,
+                    new MatchFlow(rules, matchState, playerIds.Length),
+                    new PlayerInteractionSystem(rules, playerIds.Length),
+                    playerIds,
+                    new TestPlacementValidator(),
+                    CreateSpawnPoints(),
+                    CreateItemDefinitions(),
+                    new System.Random(1234));
+                var positions = new Vector3[playerCount];
+
+                Assert.That(matchSession.Assignments.Count, Is.EqualTo(playerCount));
+                Assert.That(matchSession.Start(10d), Is.True);
+                var hidingEndsAt = 10d + (playerCount * rules.HidingTurnDurationSeconds);
+                Assert.That(matchState.PhaseEndsAt.CurrentValue, Is.EqualTo(hidingEndsAt));
+
+                matchSession.AdvanceTime(hidingEndsAt, positions);
+
+                Assert.That(matchSession.AllItemsPlaced, Is.True);
+                Assert.That(
+                    matchState.CurrentPhase.CurrentValue,
+                    Is.EqualTo(MatchPhase.Searching));
+                Assert.That(
+                    () => matchSession.GetHitCount(playerCount),
+                    Throws.TypeOf<System.ArgumentOutOfRangeException>());
+            }
+            finally
+            {
+                matchState.Dispose();
+            }
         }
 
         [Test]
@@ -692,6 +754,18 @@ namespace Game.Tests.EditMode
                 new ItemDefinition("cup", "kitchen"),
                 new ItemDefinition("plate", "kitchen")
             };
+        }
+
+        private static string[] CreatePlayerIds(
+            int playerCount = MatchRulesSO.MaxPlayerCount)
+        {
+            var playerIds = new string[playerCount];
+            for (var playerIndex = 0; playerIndex < playerIds.Length; playerIndex++)
+            {
+                playerIds[playerIndex] = $"player-{playerIndex}";
+            }
+
+            return playerIds;
         }
 
         private static HighlightCandidate Candidate(HighlightType type, string targetId)

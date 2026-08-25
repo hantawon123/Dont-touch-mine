@@ -79,7 +79,7 @@ namespace Game.Core.Lobby
         public string MapId { get; }
 
         public bool TryCreateSettings(
-            int requiredPlayerCount,
+            int maxSupportedPlayerCount,
             out RoomSettings settings,
             out RoomSettingsError error)
         {
@@ -97,7 +97,9 @@ namespace Game.Core.Lobby
                 return false;
             }
 
-            if (requiredPlayerCount <= 0 || MaxPlayers != requiredPlayerCount)
+            if (maxSupportedPlayerCount < RoomSettings.MinPlayerCount ||
+                MaxPlayers < RoomSettings.MinPlayerCount ||
+                MaxPlayers > Math.Min(RoomSettings.MaxPlayerCount, maxSupportedPlayerCount))
             {
                 settings = default;
                 error = RoomSettingsError.InvalidPlayerCount;
@@ -123,6 +125,9 @@ namespace Game.Core.Lobby
 
     public readonly struct RoomSettings
     {
+        public const int MinPlayerCount = 2;
+        public const int MaxPlayerCount = 6;
+
         internal RoomSettings(string title, bool isLocked, int maxPlayers, string mapId)
         {
             Title = title;
@@ -138,7 +143,8 @@ namespace Game.Core.Lobby
 
         internal bool IsValid =>
             !string.IsNullOrWhiteSpace(Title) &&
-            MaxPlayers > 0 &&
+            MaxPlayers >= MinPlayerCount &&
+            MaxPlayers <= MaxPlayerCount &&
             !string.IsNullOrWhiteSpace(MapId);
     }
 

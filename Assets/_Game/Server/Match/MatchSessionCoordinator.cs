@@ -102,11 +102,11 @@ namespace Game.Server.Match
         private readonly HighlightReplayBuffer highlightReplayBuffer;
         private readonly Pose[] hidingSpawnPoses;
         private readonly Pose[] searchingSpawnPoses;
-        private readonly bool[] completedHidingTurns = new bool[MatchRulesSO.PlayerCount];
+        private readonly bool[] completedHidingTurns;
         private readonly Dictionary<string, PendingMapObjectEjection> pendingMapObjectEjections =
             new(StringComparer.Ordinal);
         private readonly List<string> completedMapObjectEjections = new();
-        private readonly string[] heldMapObjectIdsByPlayer = new string[MatchRulesSO.PlayerCount];
+        private readonly string[] heldMapObjectIdsByPlayer;
         private readonly Dictionary<string, int> mapObjectHolderById =
             new(StringComparer.Ordinal);
         private HighlightSequence highlights;
@@ -119,6 +119,7 @@ namespace Game.Server.Match
             MatchState state,
             MatchFlow flow,
             PlayerInteractionSystem interactions,
+            IReadOnlyList<string> participantIds,
             IPlacementValidator placementValidator,
             IReadOnlyList<Pose> spawnPoints,
             IReadOnlyList<ItemDefinition> itemDefinitions,
@@ -130,17 +131,28 @@ namespace Game.Server.Match
             this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
             this.interactions = interactions ??
                 throw new ArgumentNullException(nameof(interactions));
+            Players = new MatchPlayerRoster(participantIds);
+            var playerCount = Players.Players.Count;
+            if (flow.PlayerCount != playerCount || interactions.PlayerCount != playerCount)
+            {
+                throw new ArgumentException(
+                    "Match systems and participant count must match.",
+                    nameof(participantIds));
+            }
+
+            completedHidingTurns = new bool[playerCount];
+            heldMapObjectIdsByPlayer = new string[playerCount];
             this.placementValidator = placementValidator ??
                 throw new ArgumentNullException(nameof(placementValidator));
 
             var assignments = ItemAssignmentSystem.Assign(
                 itemDefinitions,
-                MatchRulesSO.PlayerCount,
+                playerCount,
                 random);
             Assignments = assignments;
-            var validatedSpawnPoints = ValidateSpawnPoints(spawnPoints);
-            hidingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, random);
-            searchingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, random);
+            var validatedSpawnPoints = ValidateSpawnPoints(spawnPoints, playerCount);
+            hidingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, playerCount, random);
+            searchingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, playerCount, random);
             placements = new ItemPlacementSystem(assignments);
             var worldObjectStates = initialWorldObjects ?? Array.Empty<WorldObjectState>();
             worldObjects = new WorldObjectStateSystem(worldObjectStates);
@@ -154,6 +166,7 @@ namespace Game.Server.Match
         }
 
         public IReadOnlyList<PlayerItemAssignment> Assignments { get; }
+        public MatchPlayerRoster Players { get; }
         public bool AllItemsPlaced => placements.AllPlaced;
         public int DestroyedPlayerItemCount => outcome.DestroyedItemCount;
         public bool AllPlayerItemsDestroyed => outcome.AllPlayerItemsDestroyed;
@@ -213,10 +226,10 @@ namespace Game.Server.Match
             flow.GetRemainingSeconds(now);
 
             if (lastKnownPlayerPositions == null ||
-                lastKnownPlayerPositions.Count != MatchRulesSO.PlayerCount)
+                lastKnownPlayerPositions.Count != Players.Players.Count)
             {
                 throw new ArgumentException(
-                    $"Exactly {MatchRulesSO.PlayerCount} player positions are required.",
+                    $"Exactly {Players.Players.Count} player positions are required.",
                     nameof(lastKnownPlayerPositions));
             }
 
@@ -516,10 +529,10 @@ namespace Game.Server.Match
                 return false;
             }
 
-            if (playerPoses == null || playerPoses.Count != MatchRulesSO.PlayerCount)
+            if (playerPoses == null || playerPoses.Count != Players.Players.Count)
             {
                 throw new ArgumentException(
-                    $"Exactly {MatchRulesSO.PlayerCount} player poses are required.",
+                    $"Exactly {Players.Players.Count} player poses are required.",
                     nameof(playerPoses));
             }
 
@@ -632,17 +645,19 @@ namespace Game.Server.Match
             }
         }
 
-        private static Pose[] ValidateSpawnPoints(IReadOnlyList<Pose> spawnPoints)
+        private static Pose[] ValidateSpawnPoints(
+            IReadOnlyList<Pose> spawnPoints,
+            int playerCount)
         {
             if (spawnPoints == null)
             {
                 throw new ArgumentNullException(nameof(spawnPoints));
             }
 
-            if (spawnPoints.Count < MatchRulesSO.PlayerCount)
+            if (spawnPoints.Count < playerCount)
             {
                 throw new ArgumentException(
-                    $"At least {MatchRulesSO.PlayerCount} spawn points are required.",
+                    $"At least {playerCount} spawn points are required.",
                     nameof(spawnPoints));
             }
 
@@ -664,18 +679,21 @@ namespace Game.Server.Match
             return validatedSpawnPoints;
         }
 
-        private static Pose[] SelectSpawnPoses(Pose[] spawnPoints, System.Random random)
+        private static Pose[] SelectSpawnPoses(
+            Pose[] spawnPoints,
+            int playerCount,
+            System.Random random)
         {
             var candidates = (Pose[])spawnPoints.Clone();
-            for (var index = 0; index < MatchRulesSO.PlayerCount; index++)
+            for (var index = 0; index < playerCount; index++)
             {
                 var selectedIndex = random.Next(index, candidates.Length);
                 (candidates[index], candidates[selectedIndex]) =
                     (candidates[selectedIndex], candidates[index]);
             }
 
-            var selectedSpawnPoses = new Pose[MatchRulesSO.PlayerCount];
-            Array.Copy(candidates, selectedSpawnPoses, MatchRulesSO.PlayerCount);
+            var selectedSpawnPoses = new Pose[playerCount];
+            Array.Copy(candidates, selectedSpawnPoses, playerCount);
             return selectedSpawnPoses;
         }
 
@@ -736,10 +754,10 @@ namespace Game.Server.Match
             IReadOnlyList<Vector3> lastKnownPlayerPositions)
         {
             var hidingStartedAt =
-                state.PhaseEndsAt.CurrentValue - rules.HidingDurationSeconds;
+                state.PhaseEndsAt.CurrentValue - flow.HidingDurationSeconds;
             var elapsedSeconds = Math.Max(0d, now - hidingStartedAt);
             var expiredTurnCount = Math.Min(
-                MatchRulesSO.PlayerCount,
+                Players.Players.Count,
                 (int)(elapsedSeconds / rules.HidingTurnDurationSeconds));
 
             for (var playerIndex = 0; playerIndex < expiredTurnCount; playerIndex++)

@@ -67,7 +67,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void CapturePlayers_RequiresExactlySixAssignedTransforms()
+        public void CapturePlayers_RequiresTwoToSixAssignedTransforms()
         {
             Vector3[] positions = null;
             Pose[] poses = null;
@@ -78,6 +78,18 @@ namespace Game.Tests.EditMode
                     ref positions,
                     ref poses),
                 Throws.TypeOf<InvalidOperationException>());
+
+            var players = new Transform[2];
+            players[0] = CreateGameObject("Player 0", Vector3.zero).transform;
+            players[1] = CreateGameObject("Player 1", Vector3.one).transform;
+
+            Assert.That(
+                () => MatchRuntimeContext.CapturePlayers(
+                    players,
+                    ref positions,
+                    ref poses),
+                Throws.Nothing);
+            Assert.That(positions.Length, Is.EqualTo(2));
         }
 
         private GameObject CreateGameObject(string name, Vector3 position)

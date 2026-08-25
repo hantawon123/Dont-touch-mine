@@ -11,7 +11,7 @@ namespace Game.Server.Match
         private readonly MatchRulesSO rules;
         private readonly Dictionary<string, ItemRecord> items =
             new(StringComparer.Ordinal);
-        private readonly List<double>[] stunnedAtByPlayer = CreateStunRecords();
+        private readonly List<double>[] stunnedAtByPlayer;
         private GameEvent? firstDestroyedEvent;
         private GameEvent? lastGameEvent;
         private double searchingStartedAt = -1d;
@@ -26,6 +26,8 @@ namespace Game.Server.Match
                 throw new ArgumentNullException(nameof(assignments));
             }
 
+            MatchRulesSO.ValidatePlayerCount(assignments.Count);
+            stunnedAtByPlayer = CreateStunRecords(assignments.Count);
             foreach (var assignment in assignments)
             {
                 if (!items.TryAdd(
@@ -290,9 +292,9 @@ namespace Game.Server.Match
             return segments;
         }
 
-        private static List<double>[] CreateStunRecords()
+        private static List<double>[] CreateStunRecords(int playerCount)
         {
-            var records = new List<double>[MatchRulesSO.PlayerCount];
+            var records = new List<double>[playerCount];
             for (var index = 0; index < records.Length; index++)
             {
                 records[index] = new List<double>();
@@ -301,9 +303,9 @@ namespace Game.Server.Match
             return records;
         }
 
-        private static void ValidatePlayerIndex(int playerIndex)
+        private void ValidatePlayerIndex(int playerIndex)
         {
-            if (playerIndex < 0 || playerIndex >= MatchRulesSO.PlayerCount)
+            if (playerIndex < 0 || playerIndex >= stunnedAtByPlayer.Length)
             {
                 throw new ArgumentOutOfRangeException(nameof(playerIndex));
             }

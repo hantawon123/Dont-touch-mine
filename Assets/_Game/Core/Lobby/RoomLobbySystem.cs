@@ -6,7 +6,7 @@ namespace Game.Core.Lobby
     {
         Started,
         NotHost,
-        RoomNotFull,
+        NotEnoughPlayers,
         AlreadyStarted
     }
 
@@ -70,9 +70,9 @@ namespace Game.Core.Lobby
                 return RoomStartResult.NotHost;
             }
 
-            if (CurrentPlayerCount != Settings.MaxPlayers)
+            if (CurrentPlayerCount < RoomSettings.MinPlayerCount)
             {
-                return RoomStartResult.RoomNotFull;
+                return RoomStartResult.NotEnoughPlayers;
             }
 
             IsStarted = true;
