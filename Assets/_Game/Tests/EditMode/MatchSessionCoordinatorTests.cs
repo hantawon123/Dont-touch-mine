@@ -369,6 +369,99 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Rematch_ReplacesCompletedSessionAndStartsAgainInSameLobby()
+        {
+            var lobby = CreateFullLobby();
+            var appFlow = new AppFlowSystem();
+            Assert.That(appFlow.TryTransitionTo(AppFlowState.Lobby), Is.True);
+            var context = new TestRuntimeContext
+            {
+                ServerTime = 10d,
+                PlayerPositions = lastKnownPositions,
+                PlayerPoses = CreatePlayerPoses(lastKnownPositions),
+                ReplayObjects = new WorldObjectState[0]
+            };
+            var matchRuntime = new MatchRuntimeController(session, context, appFlow);
+            var startCoordinator = new LobbyMatchStartCoordinator(
+                lobby,
+                matchRuntime,
+                appFlow);
+
+            Assert.That(
+                startCoordinator.TryStart("host"),
+                Is.EqualTo(RoomStartResult.Started));
+            Assert.That(
+                session.SetHighlightCandidates(new HighlightCandidate[0]),
+                Is.True);
+            context.ServerTime = 550d;
+            matchRuntime.Tick();
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Result));
+
+            var nextState = new MatchState();
+            try
+            {
+                var nextSession = CreateSession(nextState, 5678);
+
+                Assert.That(startCoordinator.TryPrepareRematch(nextSession), Is.True);
+                Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Lobby));
+                Assert.That(lobby.IsStarted, Is.False);
+                Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Result));
+                Assert.That(nextSession.CurrentPhase, Is.EqualTo(MatchPhase.Waiting));
+
+                context.ServerTime = 600d;
+                Assert.That(
+                    startCoordinator.TryStart("host"),
+                    Is.EqualTo(RoomStartResult.Started));
+                Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.InGame));
+                Assert.That(lobby.IsStarted, Is.True);
+                Assert.That(nextSession.CurrentPhase, Is.EqualTo(MatchPhase.Hiding));
+            }
+            finally
+            {
+                nextState.Dispose();
+            }
+        }
+
+        [Test]
+        public void Rematch_IsRejectedBeforeCompletedResult()
+        {
+            var lobby = CreateFullLobby();
+            var appFlow = new AppFlowSystem();
+            Assert.That(appFlow.TryTransitionTo(AppFlowState.Lobby), Is.True);
+            var context = new TestRuntimeContext
+            {
+                ServerTime = 10d,
+                PlayerPositions = lastKnownPositions,
+                PlayerPoses = CreatePlayerPoses(lastKnownPositions),
+                ReplayObjects = new WorldObjectState[0]
+            };
+            var matchRuntime = new MatchRuntimeController(session, context, appFlow);
+            var startCoordinator = new LobbyMatchStartCoordinator(
+                lobby,
+                matchRuntime,
+                appFlow);
+            var nextState = new MatchState();
+
+            try
+            {
+                var nextSession = CreateSession(nextState, 5678);
+
+                Assert.That(startCoordinator.TryPrepareRematch(nextSession), Is.False);
+                Assert.That(
+                    startCoordinator.TryStart("host"),
+                    Is.EqualTo(RoomStartResult.Started));
+                Assert.That(startCoordinator.TryPrepareRematch(nextSession), Is.False);
+                Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.InGame));
+                Assert.That(lobby.IsStarted, Is.True);
+                Assert.That(nextSession.CurrentPhase, Is.EqualTo(MatchPhase.Waiting));
+            }
+            finally
+            {
+                nextState.Dispose();
+            }
+        }
+
+        [Test]
         public void FinalWarning_RaisesOnceWhenSearchingEntersLastThirtySeconds()
         {
             session.Start(10d);
@@ -939,6 +1032,25 @@ namespace Game.Tests.EditMode
         {
             session.Start(10d);
             session.AdvanceTime(190d, lastKnownPositions);
+        }
+
+        private MatchSessionCoordinator CreateSession(MatchState matchState, int randomSeed)
+        {
+            var playerIds = CreatePlayerIds();
+            return new MatchSessionCoordinator(
+                rules,
+                matchState,
+                new MatchFlow(rules, matchState, playerIds.Length),
+                new PlayerInteractionSystem(rules, playerIds.Length),
+                playerIds,
+                new TestPlacementValidator(),
+                CreateSpawnPoints(),
+                CreateItemDefinitions(),
+                new System.Random(randomSeed),
+                new[]
+                {
+                    new WorldObjectState("shelf", new Pose(Vector3.zero, Quaternion.identity))
+                });
         }
 
         private static RoomLobbySystem CreateFullLobby()

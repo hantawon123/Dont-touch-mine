@@ -312,6 +312,20 @@ namespace Game.Tests.EditMode
             Assert.That(lobby.TryStart("new-host"), Is.EqualTo(RoomStartResult.Started));
         }
 
+        [Test]
+        public void TryPrepareRematch_PreservesRoomAndAllowsHostToStartAgain()
+        {
+            var lobby = new RoomLobbySystem(CreateSettings(), "host", 2);
+
+            Assert.That(lobby.TryPrepareRematch(), Is.False);
+            Assert.That(lobby.TryStart("host"), Is.EqualTo(RoomStartResult.Started));
+            Assert.That(lobby.TryPrepareRematch(), Is.True);
+            Assert.That(lobby.TryPrepareRematch(), Is.False);
+            Assert.That(lobby.Settings.Title, Is.EqualTo("테스트방"));
+            Assert.That(lobby.CurrentPlayerCount, Is.EqualTo(2));
+            Assert.That(lobby.TryStart("host"), Is.EqualTo(RoomStartResult.Started));
+        }
+
         private static RoomSettings CreateSettings()
         {
             var request = new RoomCreateRequest(

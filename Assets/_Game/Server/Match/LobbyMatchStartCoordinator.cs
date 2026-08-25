@@ -49,5 +49,24 @@ namespace Game.Server.Match
 
             return RoomStartResult.Started;
         }
+
+        public bool TryPrepareRematch(MatchSessionCoordinator nextSession)
+        {
+            if (appFlow.CurrentState != AppFlowState.Result ||
+                !lobby.IsStarted ||
+                !matchRuntime.TryPrepareRematch(nextSession))
+            {
+                return false;
+            }
+
+            if (!lobby.TryPrepareRematch() ||
+                !appFlow.TryTransitionTo(AppFlowState.Lobby))
+            {
+                throw new InvalidOperationException(
+                    "The completed match could not return to the lobby.");
+            }
+
+            return true;
+        }
     }
 }
