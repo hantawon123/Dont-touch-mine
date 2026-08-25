@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Game.Core.Lobby;
+using Game.Core.Ports;
 using Game.Core.Rooms;
 using NUnit.Framework;
+using R3;
 
 namespace Game.Tests.EditMode
 {
@@ -130,8 +134,8 @@ namespace Game.Tests.EditMode
         [Test]
         public void RoomBrowser_FindsRoomByExactCodeIgnoringCaseAndWhitespace()
         {
-            var browser = new RoomBrowserSystem();
-            browser.ReplaceRooms(new[]
+            using var browser = new RoomBrowserSystem();
+            browser.SetRooms(new[]
             {
                 new RoomSummary("ROOM-A1", CreateSettings(), 1, true),
                 new RoomSummary("ROOM-A10", CreateSettings(), 2, true)
@@ -144,41 +148,75 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void RoomBrowser_RefreshRequestReplacesVisibleRoomList()
+        public void RoomBrowser_PublishesRoomListAndSessionState()
         {
-            var browser = new RoomBrowserSystem();
-            var requestCount = 0;
-            var changedCount = 0;
+            using var browser = new RoomBrowserSystem();
             IReadOnlyList<RoomSummary> visibleRooms = null;
-            browser.ReplaceRooms(new[]
+            using var subscription = browser.Rooms.Subscribe(rooms => visibleRooms = rooms);
+
+            browser.SetRooms(new[]
             {
-                new RoomSummary("OLD-ROOM", CreateSettings(), 1, true)
+                new RoomSummary("NEW-ROOM", CreateSettings(), 3, true)
             });
-            browser.RefreshRequested += () =>
-            {
-                requestCount++;
-                browser.ReplaceRooms(new[]
-                {
-                    new RoomSummary("NEW-ROOM", CreateSettings(), 3, true)
-                });
-            };
-            browser.RoomsChanged += rooms =>
-            {
-                changedCount++;
-                visibleRooms = rooms;
-            };
+            browser.PlayerCountChanged(2, 6);
 
-            browser.RequestRefresh();
-
-            Assert.That(requestCount, Is.EqualTo(1));
-            Assert.That(changedCount, Is.EqualTo(1));
-            Assert.That(visibleRooms, Is.SameAs(browser.Rooms));
             Assert.That(visibleRooms.Count, Is.EqualTo(1));
             Assert.That(visibleRooms[0].RoomId, Is.EqualTo("NEW-ROOM"));
             Assert.That(visibleRooms[0].CurrentPlayerCount, Is.EqualTo(3));
+            Assert.That(browser.PlayerCount.CurrentValue, Is.EqualTo(2));
+            Assert.That(browser.MaxPlayers.CurrentValue, Is.EqualTo(6));
+
+            browser.RoomClosed(RoomExitReason.HostClosed);
+
+            Assert.That(browser.PlayerCount.CurrentValue, Is.Zero);
+            Assert.That(browser.MaxPlayers.CurrentValue, Is.Zero);
+            Assert.That(browser.LastExit.CurrentValue, Is.EqualTo(RoomExitReason.HostClosed));
             Assert.That(
-                () => browser.ReplaceRooms(null),
+                () => browser.SetRooms(null),
                 Throws.TypeOf<ArgumentNullException>());
+        }
+
+        [Test]
+        public void RoomUiCommands_ForwardsRequestsAndPublishesResults()
+        {
+            using var state = new RoomBrowserSystem();
+            var browser = new FakeRoomBrowser();
+            var commands = new RoomUiCommands(browser, state);
+            var busyWhileCallingAdapter = false;
+            browser.BeforeRequest = () =>
+                busyWhileCallingAdapter |= state.IsBusy.CurrentValue;
+
+            var refreshFailure = commands.RefreshAsync(CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+
+            Assert.That(refreshFailure, Is.EqualTo(RoomEntryFailure.None));
+            Assert.That(browser.RefreshCount, Is.EqualTo(1));
+            Assert.That(busyWhileCallingAdapter, Is.True);
+            Assert.That(state.IsBusy.CurrentValue, Is.False);
+
+            browser.NextEntryResult = RoomEntryResult.Opened("ROOM-123");
+            var createResult = commands.CreateAsync(
+                    new RoomCreateRequest("방", false, null, 6, "market-01"),
+                    CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+
+            Assert.That(createResult.Ok, Is.True);
+            Assert.That(state.RoomCode.CurrentValue, Is.EqualTo("ROOM-123"));
+
+            browser.NextEntryResult = RoomEntryResult.Failed(RoomEntryFailure.WrongPassword);
+            var enterResult = commands.EnterAsync(
+                    new RoomId("ROOM-123"),
+                    "wrong",
+                    CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+
+            Assert.That(enterResult.Ok, Is.False);
+            Assert.That(state.LastFailure.CurrentValue, Is.EqualTo(RoomEntryFailure.WrongPassword));
+            Assert.That(browser.CreateCount, Is.EqualTo(1));
+            Assert.That(browser.EnterCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -241,6 +279,57 @@ namespace Game.Tests.EditMode
                 "market-01");
             request.TryCreateSettings(6, out var settings, out _);
             return settings;
+        }
+
+        private sealed class FakeRoomBrowser : IRoomBrowser
+        {
+            public Action BeforeRequest;
+            public RoomEntryFailure RefreshResult = RoomEntryFailure.None;
+            public RoomEntryResult NextEntryResult = RoomEntryResult.Entered();
+            public int RefreshCount;
+            public int CreateCount;
+            public int EnterCount;
+
+            public UniTask<RoomEntryFailure> RefreshAsync(CancellationToken cancellation)
+            {
+                RefreshCount++;
+                BeforeRequest?.Invoke();
+                return UniTask.FromResult(RefreshResult);
+            }
+
+            public UniTask<RoomEntryResult> CreateAsync(
+                RoomCreateRequest request,
+                CancellationToken cancellation)
+            {
+                CreateCount++;
+                BeforeRequest?.Invoke();
+                return UniTask.FromResult(NextEntryResult);
+            }
+
+            public UniTask<RoomEntryResult> EnterAsync(
+                RoomId room,
+                string password,
+                CancellationToken cancellation)
+            {
+                EnterCount++;
+                BeforeRequest?.Invoke();
+                return UniTask.FromResult(NextEntryResult);
+            }
+
+            public UniTask<RoomEntryResult> EnterByCodeAsync(
+                string roomCode,
+                string password,
+                CancellationToken cancellation)
+            {
+                BeforeRequest?.Invoke();
+                return UniTask.FromResult(NextEntryResult);
+            }
+
+            public UniTask LeaveAsync(CancellationToken cancellation)
+            {
+                BeforeRequest?.Invoke();
+                return UniTask.CompletedTask;
+            }
         }
     }
 }

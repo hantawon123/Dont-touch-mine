@@ -28,7 +28,7 @@ namespace Game.Core.Ports
         /// refresh control can show progress and report failure. Updated rooms
         /// arrive through <see cref="IRoomListSink"/>.
         /// </summary>
-        UniTask RefreshAsync(CancellationToken cancellation);
+        UniTask<RoomEntryFailure> RefreshAsync(CancellationToken cancellation);
 
         /// <summary>
         /// Opens a new room and enters it as its authority. The issued code is
