@@ -1,12 +1,14 @@
 # 협업 규칙
 
-## 1. 브랜치
+## 1. 브랜치 전략 (Gitflow)
 
-- `main`: 배포 브랜치. 배포 단계에서만 `dev`를 병합합니다. 직접 push하지 않습니다.
-- `dev`: 클라이언트와 서버 작업을 합치는 통합 브랜치. Merge Request로만 병합합니다.
-- `develop/client`: 캐릭터, 입력, 카메라, UI와 클라이언트 표현 작업을 통합합니다.
-- `develop/server`: Photon 방, 권한, 동기화와 경기 상태 작업을 통합합니다.
-- 실제 작업은 `feature/client-*` 또는 `feature/server-*` 브랜치에서 시작하고 해당 develop 브랜치로 Merge Request를 보냅니다.
+- `main`: 배포 브랜치. 배포 시점에만 `release`를 병합합니다. 직접 push하지 않습니다.
+- `release`: 배포 준비 브랜치. `develop`에서 완성된 내용을 모아 검증한 뒤 `main`으로 보냅니다.
+- `develop`: 통합 브랜치. 모든 작업이 모이는 기본 브랜치이며, Merge Request로만 병합합니다.
+- `feature/*`: 실제 작업 브랜치. `develop`에서 분기해서 작업하고 `develop`으로 Merge Request를 보냅니다.
+  - **이름 규칙**: `feature/파트/작업내용` (파트는 `client` 또는 `server` 소문자)
+  - 예시: `feature/client/login`, `feature/client/room-lobby`, `feature/server/match-sync`
+- `hotfix/*`: 배포 후 긴급 수정 브랜치. `main`에서 분기하고 `main`과 `develop` 양쪽에 병합합니다.
 
 ## 2. 커밋 컨벤션
 
@@ -43,6 +45,7 @@ S15P21D205-112 [CL] docs: 협업 규칙 문서 추가
 
 ## 3. Merge Request
 
+- 작업은 `feature/*` 브랜치에서 하고 `develop`으로 Merge Request를 보냅니다.
 - 제목은 커밋 컨벤션과 동일한 포맷으로 작성합니다.
 - 설명란에 작업 내용과 `Closes 이슈번호`를 함께 작성합니다.
 - 최소 1명의 리뷰 승인 후 병합합니다.
@@ -59,7 +62,6 @@ S15P21D205-112 [CL] docs: 협업 규칙 문서 추가
 ## 5. 병합 흐름
 
 ```text
-feature/client-* -> develop/client --\
-                                     -> dev -> main (배포 단계에서만)
-feature/server-* -> develop/server --/
+feature/* -> develop -> release -> main
+hotfix/*  -> main (develop에도 함께 병합)
 ```
