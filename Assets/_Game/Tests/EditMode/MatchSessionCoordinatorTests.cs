@@ -148,7 +148,10 @@ namespace Game.Tests.EditMode
                 PlayerPoses = CreatePlayerPoses(lastKnownPositions),
                 ReplayObjects = new WorldObjectState[0]
             };
-            var controller = new MatchRuntimeController(session, context);
+            var controller = new MatchRuntimeController(
+                session,
+                context,
+                CreateInGameAppFlow());
 
             controller.Tick();
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Waiting));
@@ -168,6 +171,74 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void RuntimeController_EntersResultAfterLastHighlight()
+        {
+            var appFlow = CreateInGameAppFlow();
+            var context = new TestRuntimeContext
+            {
+                ServerTime = 10d,
+                PlayerPositions = lastKnownPositions,
+                PlayerPoses = CreatePlayerPoses(lastKnownPositions),
+                ReplayObjects = new WorldObjectState[0]
+            };
+            var controller = new MatchRuntimeController(session, context, appFlow);
+            Assert.That(controller.StartMatch(), Is.True);
+            context.ServerTime = 190d;
+            controller.Tick();
+            Assert.That(
+                session.SetHighlightCandidates(new[]
+                {
+                    Candidate(HighlightType.FirstBlood, "first")
+                }),
+                Is.True);
+
+            context.ServerTime = 550d;
+            controller.Tick();
+
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Highlight));
+            Assert.That(session.CompleteCurrentHighlight(), Is.True);
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Result));
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Highlight));
+
+            context.ServerTime = 551d;
+            controller.Tick();
+
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Result));
+        }
+
+        [Test]
+        public void RuntimeController_PreservesAppFlowOrderWhenHighlightsAreEmpty()
+        {
+            var appFlow = CreateInGameAppFlow();
+            var changedStates = new List<AppFlowState>();
+            appFlow.StateChanged += changedStates.Add;
+            var context = new TestRuntimeContext
+            {
+                ServerTime = 10d,
+                PlayerPositions = lastKnownPositions,
+                PlayerPoses = CreatePlayerPoses(lastKnownPositions),
+                ReplayObjects = new WorldObjectState[0]
+            };
+            var controller = new MatchRuntimeController(session, context, appFlow);
+            Assert.That(controller.StartMatch(), Is.True);
+            context.ServerTime = 190d;
+            controller.Tick();
+            Assert.That(
+                session.SetHighlightCandidates(new HighlightCandidate[0]),
+                Is.True);
+
+            context.ServerTime = 550d;
+            controller.Tick();
+
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Result));
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Result));
+            Assert.That(
+                changedStates,
+                Is.EqualTo(new[] { AppFlowState.Highlight, AppFlowState.Result }));
+        }
+
+        [Test]
         public void LobbyMatchStart_StartsSessionAndEntersInGameOnlyForHost()
         {
             var lobby = CreateFullLobby();
@@ -180,7 +251,7 @@ namespace Game.Tests.EditMode
                 PlayerPoses = CreatePlayerPoses(lastKnownPositions),
                 ReplayObjects = new WorldObjectState[0]
             };
-            var matchRuntime = new MatchRuntimeController(session, context);
+            var matchRuntime = new MatchRuntimeController(session, context, appFlow);
             var startCoordinator = new LobbyMatchStartCoordinator(
                 lobby,
                 matchRuntime,
@@ -214,7 +285,7 @@ namespace Game.Tests.EditMode
                 PlayerPoses = CreatePlayerPoses(lastKnownPositions),
                 ReplayObjects = new WorldObjectState[0]
             };
-            var matchRuntime = new MatchRuntimeController(session, context);
+            var matchRuntime = new MatchRuntimeController(session, context, appFlow);
             var startCoordinator = new LobbyMatchStartCoordinator(
                 lobby,
                 matchRuntime,
@@ -264,7 +335,10 @@ namespace Game.Tests.EditMode
                     new WorldObjectState("shelf", Pose.identity)
                 }
             };
-            var controller = new MatchRuntimeController(session, context);
+            var controller = new MatchRuntimeController(
+                session,
+                context,
+                CreateInGameAppFlow());
             Assert.That(controller.StartMatch(), Is.True);
             context.ServerTime = 190d;
             controller.Tick();
@@ -739,6 +813,14 @@ namespace Game.Tests.EditMode
                 out var settings,
                 out _);
             return new RoomLobbySystem(settings, "host", MatchRulesSO.PlayerCount);
+        }
+
+        private static AppFlowSystem CreateInGameAppFlow()
+        {
+            var appFlow = new AppFlowSystem();
+            appFlow.TryTransitionTo(AppFlowState.Lobby);
+            appFlow.TryTransitionTo(AppFlowState.InGame);
+            return appFlow;
         }
 
         private static ItemDefinition[] CreateItemDefinitions()

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Core.Flow;
 using Game.Core.Match;
 using Game.Server.Items;
 using UnityEngine;
@@ -18,14 +19,17 @@ namespace Game.Server.Match
     {
         private readonly MatchSessionCoordinator session;
         private readonly IMatchRuntimeContext context;
+        private readonly AppFlowSystem appFlow;
         private bool isStarted;
 
         public MatchRuntimeController(
             MatchSessionCoordinator session,
-            IMatchRuntimeContext context)
+            IMatchRuntimeContext context,
+            AppFlowSystem appFlow)
         {
             this.session = session ?? throw new ArgumentNullException(nameof(session));
             this.context = context ?? throw new ArgumentNullException(nameof(context));
+            this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
         }
 
         public bool StartMatch()
@@ -48,6 +52,37 @@ namespace Game.Server.Match
                     context.PlayerPoses,
                     context.ReplayObjects);
                 session.AdvanceTime(context.ServerTime, context.PlayerPositions);
+                SyncAppFlow();
+            }
+        }
+
+        private void SyncAppFlow()
+        {
+            if (session.CurrentPhase == MatchPhase.Highlight)
+            {
+                TransitionTo(AppFlowState.Highlight);
+                return;
+            }
+
+            if (session.CurrentPhase != MatchPhase.Result)
+            {
+                return;
+            }
+
+            if (appFlow.CurrentState == AppFlowState.InGame)
+            {
+                TransitionTo(AppFlowState.Highlight);
+            }
+
+            TransitionTo(AppFlowState.Result);
+        }
+
+        private void TransitionTo(AppFlowState state)
+        {
+            if (appFlow.CurrentState != state && !appFlow.TryTransitionTo(state))
+            {
+                throw new InvalidOperationException(
+                    $"Application flow cannot enter {state} from {appFlow.CurrentState}.");
             }
         }
     }
