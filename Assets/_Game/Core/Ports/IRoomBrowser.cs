@@ -17,6 +17,8 @@ namespace Game.Core.Ports
     /// <para>
     /// No method takes or returns a matchmaking address. Rooms are picked by the
     /// opaque <see cref="RoomId"/> from the list, or by a code the player typed.
+    /// A code identifies a room but grants nothing: entering a locked room needs
+    /// its password either way, so a leaked code cannot be used to walk in.
     /// </para>
     /// </remarks>
     public interface IRoomBrowser
@@ -42,10 +44,15 @@ namespace Game.Core.Ports
             RoomId room, string password, CancellationToken cancellation);
 
         /// <summary>
-        /// Enters a room by the code its host shared. Knowing the code stands in
-        /// for the password, so none is asked for.
+        /// Enters a room by the code its host shared. A code only says which
+        /// room to enter, so a locked room still needs its password.
         /// </summary>
+        /// <param name="password">
+        /// May be empty on a first attempt: an open room lets it through, and a
+        /// locked one answers <see cref="RoomEntryFailure.WrongPassword"/>, which
+        /// is the cue to ask the player for it.
+        /// </param>
         UniTask<RoomEntryResult> EnterByCodeAsync(
-            string roomCode, CancellationToken cancellation);
+            string roomCode, string password, CancellationToken cancellation);
     }
 }

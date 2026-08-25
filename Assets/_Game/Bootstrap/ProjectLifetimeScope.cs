@@ -15,7 +15,11 @@ namespace Game.Bootstrap
             // The room list has a single owner per application, and the network
             // service depends on it, so it is registered here rather than in a
             // scene scope. Swapped for the client's reactive store later.
-            builder.Register<IRoomListSink, DebugRoomListSink>(Lifetime.Singleton);
+            // Also resolvable by its own type so the temporary scene harness can
+            // read back the last list it received.
+            builder.Register<DebugRoomListSink>(Lifetime.Singleton)
+                .AsSelf()
+                .As<IRoomListSink>();
 
             // One network session exists per application and it has to survive
             // scene loads, so it belongs to the root scope rather than a scene.

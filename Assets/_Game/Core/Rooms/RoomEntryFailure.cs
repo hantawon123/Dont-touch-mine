@@ -8,6 +8,9 @@ namespace Game.Core.Rooms
     {
         None = 0,
 
+        /// <summary>The entered code cannot be a room code at all.</summary>
+        InvalidCode,
+
         /// <summary>No room exists for the entered code.</summary>
         NotFound,
 

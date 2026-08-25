@@ -34,8 +34,8 @@ namespace Game.Server.Network
         private GameObject _runnerObject;
 
         /// <summary>
-        /// Password the authority expects from joining clients. A plain field,
-        /// never a networked property, so it is not replicated to anyone.
+        /// Password this peer requires from joiners while it is the authority. A
+        /// plain field, never a networked property, so it is never replicated.
         /// </summary>
         private string _expectedPassword;
 
@@ -88,6 +88,20 @@ namespace Game.Server.Network
 
                 var info = _runner.SessionInfo;
                 return info.IsValid ? info.PlayerCount : 0;
+            }
+        }
+
+        public int MaxPlayers
+        {
+            get
+            {
+                if (_runner == null)
+                {
+                    return 0;
+                }
+
+                var info = _runner.SessionInfo;
+                return info.IsValid ? info.MaxPlayers : 0;
             }
         }
 
@@ -307,6 +321,19 @@ namespace Game.Server.Network
                 : Encoding.UTF8.GetBytes(password);
         }
 
+        private static string DecodeToken(byte[] token)
+        {
+            return token == null || token.Length == 0
+                ? string.Empty
+                : Encoding.UTF8.GetString(token);
+        }
+
+        private static bool Matches(string presented, string expected)
+        {
+            return !string.IsNullOrEmpty(expected)
+                   && string.Equals(presented, expected, StringComparison.Ordinal);
+        }
+
         // ---- INetworkRunnerCallbacks ------------------------------------------
         // Only the connection lifecycle is handled here. Gameplay callbacks are
         // filled in by later steps.
@@ -345,9 +372,25 @@ namespace Game.Server.Network
         public void OnConnectRequest(
             NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token)
         {
-            // Verifying token against _expectedPassword comes with the lobby.
-            // There is nothing to check yet, so every request is accepted.
-            request.Accept();
+            if (string.IsNullOrEmpty(_expectedPassword))
+            {
+                request.Accept();
+                return;
+            }
+
+            var presented = DecodeToken(token);
+
+            // Only the password admits anyone. The room code says which room to
+            // reach and grants nothing, so a code read off the browser listing
+            // is useless without the password.
+            if (Matches(presented, _expectedPassword))
+            {
+                request.Accept();
+                return;
+            }
+
+            Debug.Log("[Network] Refused a join: wrong password.");
+            request.Refuse();
         }
 
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)

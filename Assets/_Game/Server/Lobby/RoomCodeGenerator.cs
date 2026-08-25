@@ -45,5 +45,28 @@ namespace Game.Server.Lobby
                 ? string.Empty
                 : roomCode.Trim().ToUpperInvariant();
         }
+
+        /// <summary>
+        /// Whether a normalized string could have been issued as a code. Lets a
+        /// typo be reported as a malformed code rather than as a room that does
+        /// not exist, which are very different things to tell a player.
+        /// </summary>
+        public static bool IsWellFormed(string normalizedCode)
+        {
+            if (normalizedCode == null || normalizedCode.Length != CodeLength)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < normalizedCode.Length; i++)
+            {
+                if (Alphabet.IndexOf(normalizedCode[i]) < 0)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 }

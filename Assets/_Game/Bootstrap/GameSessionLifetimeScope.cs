@@ -2,6 +2,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Ports;
 using Game.Core.Rooms;
+using Game.Server.Network;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -19,8 +20,13 @@ namespace Game.Bootstrap
         /// <summary>Open a new room and take authority over it.</summary>
         CreateRoom = 1,
 
-        /// <summary>Enter an existing room using the code below.</summary>
+        /// <summary>
+        /// Enter an existing room using the code below, presenting the password.
+        /// </summary>
         EnterByCode = 2,
+
+        /// <summary>Enter the first listed room, presenting the password below.</summary>
+        EnterFirstListed = 3,
     }
 
     /// <summary>
@@ -51,6 +57,10 @@ namespace Game.Bootstrap
         [Tooltip("Maximum players allowed in the room.")]
         private int _maxPlayers = 6;
 
+        [SerializeField]
+        [Tooltip("Leave empty to open the room to anyone.")]
+        private string _password = string.Empty;
+
         [Header("Enter by code")]
         [SerializeField]
         [Tooltip("Code issued by the instance that opened the room.")]
@@ -60,8 +70,9 @@ namespace Game.Bootstrap
         {
             builder.RegisterInstance(new SessionStartPlan(
                 _mode,
-                new RoomCreateRequest(_displayName, null, _maxPlayers, null),
-                _roomCode));
+                new RoomCreateRequest(_displayName, null, _maxPlayers, _password),
+                _roomCode,
+                _password));
 
             builder.RegisterEntryPoint<SessionAutoConnect>();
         }
@@ -73,13 +84,18 @@ namespace Game.Bootstrap
         public readonly SessionStartMode Mode;
         public readonly RoomCreateRequest CreateRequest;
         public readonly string RoomCode;
+        public readonly string Password;
 
         public SessionStartPlan(
-            SessionStartMode mode, RoomCreateRequest createRequest, string roomCode)
+            SessionStartMode mode,
+            RoomCreateRequest createRequest,
+            string roomCode,
+            string password)
         {
             Mode = mode;
             CreateRequest = createRequest;
             RoomCode = roomCode;
+            Password = password;
         }
     }
 
@@ -88,17 +104,32 @@ namespace Game.Bootstrap
     /// </summary>
     public sealed class SessionAutoConnect : IAsyncStartable
     {
+        private const int ListPollIntervalMs = 200;
+        private const int ListPollAttempts = 50;
+
         private readonly IRoomBrowser _browser;
+        private readonly DebugRoomListSink _rooms;
+        private readonly NetworkRunnerService _network;
         private readonly SessionStartPlan _plan;
 
-        public SessionAutoConnect(IRoomBrowser browser, SessionStartPlan plan)
+        public SessionAutoConnect(
+            IRoomBrowser browser,
+            DebugRoomListSink rooms,
+            NetworkRunnerService network,
+            SessionStartPlan plan)
         {
             _browser = browser;
+            _rooms = rooms;
+            _network = network;
             _plan = plan;
         }
 
         public async UniTask StartAsync(CancellationToken cancellation)
         {
+            // A built player has no visible console, so session state has to be
+            // on screen for anyone testing with two instances.
+            SessionDebugOverlay.Attach(_network);
+
             switch (_plan.Mode)
             {
                 case SessionStartMode.BrowseLobby:
@@ -110,9 +141,42 @@ namespace Game.Bootstrap
                     break;
 
                 case SessionStartMode.EnterByCode:
-                    Report(await _browser.EnterByCodeAsync(_plan.RoomCode, cancellation));
+                    Report(await _browser.EnterByCodeAsync(
+                        _plan.RoomCode, _plan.Password, cancellation));
+                    break;
+
+                case SessionStartMode.EnterFirstListed:
+                    await EnterFirstListed(cancellation);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Stands in for a player picking a room out of the browser: waits for a
+        /// list to arrive, then enters the first room with whatever password the
+        /// inspector holds.
+        /// </summary>
+        private async UniTask EnterFirstListed(CancellationToken cancellation)
+        {
+            await _browser.RefreshAsync(cancellation);
+
+            for (var i = 0; i < ListPollAttempts && _rooms.Rooms.Count == 0; i++)
+            {
+                await UniTask.Delay(ListPollIntervalMs, cancellationToken: cancellation);
+            }
+
+            if (_rooms.Rooms.Count == 0)
+            {
+                Debug.LogError("[Bootstrap] No rooms are listed.");
+                return;
+            }
+
+            var target = _rooms.Rooms[0];
+            Debug.Log(
+                $"[Bootstrap] Entering listed room '{target.DisplayName}' " +
+                $"(locked={target.IsLocked}).");
+
+            Report(await _browser.EnterAsync(target.Id, _plan.Password, cancellation));
         }
 
         private void Report(RoomEntryResult result)
@@ -123,10 +187,13 @@ namespace Game.Bootstrap
                 return;
             }
 
-            if (!string.IsNullOrEmpty(result.RoomCode))
+            if (string.IsNullOrEmpty(result.RoomCode))
             {
-                Debug.Log($"[Bootstrap] {_plan.Mode} succeeded. Room code: {result.RoomCode}");
+                Debug.Log($"[Bootstrap] {_plan.Mode} succeeded.");
+                return;
             }
+
+            Debug.Log($"[Bootstrap] {_plan.Mode} succeeded. Room code: {result.RoomCode}");
         }
     }
 }

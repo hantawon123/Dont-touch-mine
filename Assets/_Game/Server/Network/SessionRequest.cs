@@ -40,8 +40,9 @@ namespace Game.Server.Network
         public readonly int MaxPlayers;
 
         /// <summary>
-        /// Sent to the host as a connection token and verified there. Empty
-        /// means the room is open.
+        /// The room's password. Opening a room, it is what the room will require
+        /// of joiners; entering one, it is what this peer presents. Empty leaves
+        /// a new room open to anyone.
         /// </summary>
         public readonly string Password;
 

@@ -99,18 +99,18 @@ namespace Game.Server.Lobby
         }
 
         public async UniTask<RoomEntryResult> EnterByCodeAsync(
-            string roomCode, CancellationToken cancellation)
+            string roomCode, string password, CancellationToken cancellation)
         {
             var code = RoomCodeGenerator.Normalize(roomCode);
 
-            if (code.Length != RoomCodeGenerator.CodeLength)
+            if (!RoomCodeGenerator.IsWellFormed(code))
             {
-                return RoomEntryResult.Failed(RoomEntryFailure.NotFound);
+                return RoomEntryResult.Failed(RoomEntryFailure.InvalidCode);
             }
 
-            // No password: the design treats knowing the code as standing in for
-            // one.
-            var result = await Enter(code, null, cancellation);
+            // The code only says which room. A locked room still checks the
+            // password, so learning a code off the browser grants nothing.
+            var result = await Enter(code, password, cancellation);
             return result.Ok
                 ? RoomEntryResult.Opened(code)
                 : result;
