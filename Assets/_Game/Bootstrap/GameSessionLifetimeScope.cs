@@ -54,6 +54,10 @@ namespace Game.Bootstrap
         private string _displayName = "Test room";
 
         [SerializeField]
+        [Tooltip("Map id published in the room list.")]
+        private string _mapId = "market-01";
+
+        [SerializeField]
         [Tooltip("Maximum players allowed in the room.")]
         private int _maxPlayers = 6;
 
@@ -70,7 +74,12 @@ namespace Game.Bootstrap
         {
             builder.RegisterInstance(new SessionStartPlan(
                 _mode,
-                new RoomCreateRequest(_displayName, null, _maxPlayers, _password),
+                new RoomCreateRequest(
+                    _displayName,
+                    !string.IsNullOrEmpty(_password),
+                    _password,
+                    _maxPlayers,
+                    _mapId),
                 _roomCode,
                 _password));
 

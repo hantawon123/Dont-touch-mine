@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Lobby;
+using Game.Core.Rooms;
 using NUnit.Framework;
 
 namespace Game.Tests.EditMode

@@ -11,6 +11,9 @@ namespace Game.Core.Rooms
         /// <summary>The entered code cannot be a room code at all.</summary>
         InvalidCode,
 
+        /// <summary>The requested room settings are invalid.</summary>
+        InvalidRequest,
+
         /// <summary>No room exists for the entered code.</summary>
         NotFound,
 
