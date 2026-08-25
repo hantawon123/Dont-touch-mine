@@ -94,6 +94,75 @@ namespace Game.Tests.EditMode
             }
         }
 
+        [Test]
+        public void SixPlayerScenario_CompletesAllMatchPhases()
+        {
+            const double startedAt = 10d;
+            Assert.That(session.Start(startedAt), Is.True);
+
+            for (var playerIndex = 0; playerIndex < MatchRulesSO.PlayerCount - 1; playerIndex++)
+            {
+                var turnTime = startedAt +
+                               (playerIndex * rules.HidingTurnDurationSeconds) +
+                               1d;
+                var placementPose = new Pose(
+                    new Vector3(10f + playerIndex, 0f, playerIndex),
+                    Quaternion.identity);
+
+                Assert.That(session.GetCurrentHidingTurnIndex(turnTime), Is.EqualTo(playerIndex));
+                Assert.That(
+                    session.TryRecordItemPlacement(playerIndex, placementPose, turnTime),
+                    Is.True);
+            }
+
+            session.AdvanceTime(190d, lastKnownPositions);
+
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
+            Assert.That(session.AllItemsPlaced, Is.True);
+            for (var playerIndex = 0; playerIndex < MatchRulesSO.PlayerCount; playerIndex++)
+            {
+                Assert.That(session.TryGetItemPlacement(playerIndex, out var placement), Is.True);
+                Assert.That(
+                    placement.WasAutoPlaced,
+                    Is.EqualTo(playerIndex == MatchRulesSO.PlayerCount - 1));
+            }
+
+            var survivingItemId = session.Assignments[0].Item.ItemId;
+            var destroyedItemId = session.Assignments[2].Item.ItemId;
+            Assert.That(session.TryHoldObject(0, survivingItemId, 200d), Is.True);
+            Assert.That(session.TryHoldObject(1, destroyedItemId, 201d), Is.True);
+            Assert.That(session.TryDestroyHeldPlayerItem(1, 201d), Is.True);
+            Assert.That(session.DestroyedPlayerItemCount, Is.EqualTo(1));
+            Assert.That(session.SetHighlightCandidates(new[]
+            {
+                Candidate(HighlightType.FirstBlood, "first"),
+                Candidate(HighlightType.TteTanMulgun, "popular"),
+                Candidate(HighlightType.FinalMoment, "final")
+            }), Is.True);
+
+            session.AdvanceTime(520d, lastKnownPositions);
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
+            Assert.That(session.IsFinalPeriod(520d), Is.True);
+
+            session.AdvanceTime(550d, lastKnownPositions);
+
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Highlight));
+            Assert.That(session.TryGetResult(out var result), Is.True);
+            Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.TimeExpired));
+            Assert.That(result.WinnerPlayerIndices, Is.EqualTo(new[] { 0 }));
+            Assert.That(session.CaptureDestroyedPlayerItemIds(), Is.EqualTo(new[] { destroyedItemId }));
+
+            foreach (var targetId in new[] { "first", "popular", "final" })
+            {
+                Assert.That(session.TryGetCurrentHighlight(out var highlight), Is.True);
+                Assert.That(highlight.TargetId, Is.EqualTo(targetId));
+                Assert.That(session.CompleteCurrentHighlight(), Is.True);
+            }
+
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Result));
+            Assert.That(session.CompleteCurrentHighlight(), Is.False);
+        }
+
         [TestCase(2)]
         [TestCase(3)]
         [TestCase(4)]
