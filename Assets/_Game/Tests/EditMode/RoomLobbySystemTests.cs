@@ -220,6 +220,49 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void RoomUiApi_ConnectsCommandsAdapterAndObservableState()
+        {
+            using var state = new RoomBrowserSystem();
+            var browser = new FakeRoomBrowser
+            {
+                RoomListSink = state,
+                SessionSink = state,
+                RefreshedRooms = new[]
+                {
+                    new RoomSummary("ROOM-API", CreateSettings(), 2, true)
+                }
+            };
+            var commands = new RoomUiCommands(browser, state);
+
+            Assert.That(
+                commands.RefreshAsync(CancellationToken.None).GetAwaiter().GetResult(),
+                Is.EqualTo(RoomEntryFailure.None));
+            Assert.That(state.Rooms.CurrentValue.Count, Is.EqualTo(1));
+            Assert.That(state.Rooms.CurrentValue[0].RoomId, Is.EqualTo("ROOM-API"));
+
+            browser.NextEntryResult = RoomEntryResult.Opened("ROOM-NEW");
+            Assert.That(
+                commands.CreateAsync(
+                        new RoomCreateRequest("새 방", false, null, 6, "market-01"),
+                        CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult()
+                    .Ok,
+                Is.True);
+            Assert.That(state.RoomCode.CurrentValue, Is.EqualTo("ROOM-NEW"));
+            Assert.That(state.PlayerCount.CurrentValue, Is.EqualTo(1));
+            Assert.That(state.MaxPlayers.CurrentValue, Is.EqualTo(6));
+
+            commands.LeaveAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(state.RoomCode.CurrentValue, Is.Null);
+            Assert.That(state.PlayerCount.CurrentValue, Is.Zero);
+            Assert.That(state.MaxPlayers.CurrentValue, Is.Zero);
+            Assert.That(state.LastExit.CurrentValue, Is.EqualTo(RoomExitReason.Left));
+            Assert.That(state.IsBusy.CurrentValue, Is.False);
+        }
+
+        [Test]
         public void LobbyAndSummary_RejectDefaultSettings()
         {
             Assert.That(
@@ -284,6 +327,9 @@ namespace Game.Tests.EditMode
         private sealed class FakeRoomBrowser : IRoomBrowser
         {
             public Action BeforeRequest;
+            public IRoomListSink RoomListSink;
+            public IRoomSessionSink SessionSink;
+            public IReadOnlyList<RoomSummary> RefreshedRooms = Array.Empty<RoomSummary>();
             public RoomEntryFailure RefreshResult = RoomEntryFailure.None;
             public RoomEntryResult NextEntryResult = RoomEntryResult.Entered();
             public int RefreshCount;
@@ -294,6 +340,7 @@ namespace Game.Tests.EditMode
             {
                 RefreshCount++;
                 BeforeRequest?.Invoke();
+                RoomListSink?.SetRooms(RefreshedRooms);
                 return UniTask.FromResult(RefreshResult);
             }
 
@@ -303,6 +350,11 @@ namespace Game.Tests.EditMode
             {
                 CreateCount++;
                 BeforeRequest?.Invoke();
+                if (NextEntryResult.Ok)
+                {
+                    SessionSink?.PlayerCountChanged(1, request.MaxPlayers);
+                }
+
                 return UniTask.FromResult(NextEntryResult);
             }
 
@@ -328,6 +380,7 @@ namespace Game.Tests.EditMode
             public UniTask LeaveAsync(CancellationToken cancellation)
             {
                 BeforeRequest?.Invoke();
+                SessionSink?.RoomClosed(RoomExitReason.Left);
                 return UniTask.CompletedTask;
             }
         }
