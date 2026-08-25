@@ -1,7 +1,10 @@
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
+using Game.Network.Players;
 using Game.Network.Session;
 using UnityEngine;
 using VContainer;
@@ -70,6 +73,12 @@ namespace Game.Bootstrap
         [Tooltip("Code issued by the instance that opened the room.")]
         private string _roomCode = string.Empty;
 
+        [Header("Spawning")]
+        [SerializeField]
+        [Tooltip("Marks where characters appear. Leave empty and they are " +
+                 "placed in a ring around the origin instead.")]
+        private MatchSceneConfiguration _sceneConfiguration;
+
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterInstance(new SessionStartPlan(
@@ -81,9 +90,39 @@ namespace Game.Bootstrap
                     _maxPlayers,
                     _mapId),
                 _roomCode,
-                _password));
+                _password,
+                CaptureSpawnPoses()));
 
             builder.RegisterEntryPoint<SessionAutoConnect>();
+        }
+
+        /// <summary>
+        /// Reads the scene's spawn points, or returns none.
+        /// </summary>
+        /// <remarks>
+        /// The failure is swallowed on purpose. A scene laid out for testing
+        /// often has fewer points than a match needs, and refusing to connect
+        /// over that would make the session untestable until the map is done.
+        /// </remarks>
+        private Pose[] CaptureSpawnPoses()
+        {
+            if (_sceneConfiguration == null)
+            {
+                return Array.Empty<Pose>();
+            }
+
+            try
+            {
+                return _sceneConfiguration.CaptureSpawnPoses();
+            }
+            catch (InvalidOperationException exception)
+            {
+                Debug.LogWarning(
+                    $"[Bootstrap] Ignoring the scene's spawn points: {exception.Message}",
+                    this);
+
+                return Array.Empty<Pose>();
+            }
         }
 
         /// <summary>
@@ -123,16 +162,21 @@ namespace Game.Bootstrap
         public readonly string RoomCode;
         public readonly string Password;
 
+        /// <summary>Where characters appear. Empty if the scene marked none.</summary>
+        public readonly IReadOnlyList<Pose> SpawnPoses;
+
         public SessionStartPlan(
             SessionStartMode mode,
             RoomCreateRequest createRequest,
             string roomCode,
-            string password)
+            string password,
+            IReadOnlyList<Pose> spawnPoses)
         {
             Mode = mode;
             CreateRequest = createRequest;
             RoomCode = roomCode;
             Password = password;
+            SpawnPoses = spawnPoses;
         }
     }
 
@@ -147,17 +191,20 @@ namespace Game.Bootstrap
         private readonly RoomUiCommands _commands;
         private readonly RoomBrowserSystem _state;
         private readonly NetworkRunnerService _network;
+        private readonly PlayerSpawner _spawner;
         private readonly SessionStartPlan _plan;
 
         public SessionAutoConnect(
             RoomUiCommands commands,
             RoomBrowserSystem state,
             NetworkRunnerService network,
+            PlayerSpawner spawner,
             SessionStartPlan plan)
         {
             _commands = commands;
             _state = state;
             _network = network;
+            _spawner = spawner;
             _plan = plan;
         }
 
@@ -166,6 +213,11 @@ namespace Game.Bootstrap
             // A built player has no visible console, so session state has to be
             // on screen for anyone testing with two instances.
             SessionDebugOverlay.Attach(_network, _commands, _state);
+
+            // Handed over before connecting: the host spawns the moment the
+            // session starts, and a character placed before this arrives would
+            // sit at the fallback position for the rest of the match.
+            _spawner.UseSpawnPoses(_plan.SpawnPoses);
 
             switch (_plan.Mode)
             {

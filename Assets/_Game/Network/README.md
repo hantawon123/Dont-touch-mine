@@ -15,6 +15,20 @@ Photon Fusion과 맞닿는 코드만 둡니다. 러너 생성, 세션 시작과 
 Fusion을 같은 어셈블리에 두면 그 테스트에 Photon이 딸려 들어옵니다.
 전송 계층만 떼어내면 양쪽 모두 원래 목적대로 남습니다.
 
+## NetworkBehaviour를 새 어셈블리에 만들 때
+
+Fusion은 `NetworkBehaviour`가 든 어셈블리를 IL 후처리(weaving)해야 동작합니다.
+대상 목록은 `Assets/Photon/Fusion/Resources/NetworkProjectConfig.fusion`의
+`AssembliesToWeave`이고, 기본값에는 `Assembly-CSharp` 계열만 들어 있습니다.
+
+`Game.Network`는 등록해 뒀습니다. 앞으로 다른 어셈블리에 `NetworkBehaviour`를
+만들면 그 이름도 여기에 넣어야 합니다. 빠뜨리면 컴파일은 통과하고 실행 시점에만
+이렇게 실패합니다.
+
+```text
+[Fusion] Type ... has not been weaved. Has the assembly ... been added to
+```
+
 ## 두 인스턴스로 테스트하기
 
 빌드를 만들지 않고 에디터 안에서 호스트와 클라이언트를 동시에 띄웁니다.
