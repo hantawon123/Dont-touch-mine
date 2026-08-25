@@ -15,10 +15,21 @@ namespace Game.Client.Players
         [SerializeField, Min(0f)]
         private float rotationSpeedDegrees = 720f;
 
+        [SerializeField, Min(0f)]
+        private float jumpHeight = 1.1f;
+
+        [SerializeField, Min(0.1f)]
+        private float gravityMultiplier = 2f;
+
+        // 접지 상태를 안정시키기 위해 바닥에 있을 때 아래로 살짝 눌러주는 속도.
+        private const float GroundedStickVelocity = -2f;
+
         private CharacterController controller;
         private InputActionMap playerMap;
         private InputAction moveAction;
+        private InputAction jumpAction;
         private Transform cameraTransform;
+        private float verticalVelocity;
 
         private void Awake()
         {
@@ -33,6 +44,7 @@ namespace Game.Client.Players
 
             playerMap = inputActions.FindActionMap("Player", throwIfNotFound: true);
             moveAction = playerMap.FindAction("Move", throwIfNotFound: true);
+            jumpAction = playerMap.FindAction("Jump", throwIfNotFound: true);
         }
 
         private void OnEnable()
@@ -49,9 +61,24 @@ namespace Game.Client.Players
         {
             var input = moveAction.ReadValue<Vector2>();
             var direction = ToCameraRelativeDirection(input);
+            var gravity = -Physics.gravity.y * gravityMultiplier;
 
-            // SimpleMove는 중력을 내장 적용한다. 점프 구현 시 Move + 수동 중력으로 교체 예정.
-            controller.SimpleMove(direction * walkSpeed);
+            if (controller.isGrounded)
+            {
+                verticalVelocity = GroundedStickVelocity;
+
+                if (jumpAction.WasPressedThisFrame())
+                {
+                    // 목표 높이(jumpHeight)에 도달하는 초기 속도: v = sqrt(2gh)
+                    verticalVelocity = Mathf.Sqrt(2f * gravity * jumpHeight);
+                }
+            }
+
+            verticalVelocity -= gravity * Time.deltaTime;
+
+            var velocity = direction * walkSpeed;
+            velocity.y = verticalVelocity;
+            controller.Move(velocity * Time.deltaTime);
 
             if (direction.sqrMagnitude > 0.0001f)
             {
