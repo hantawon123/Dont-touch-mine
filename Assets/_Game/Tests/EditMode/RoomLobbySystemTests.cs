@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Game.Core.Lobby;
 using NUnit.Framework;
 
@@ -95,6 +97,60 @@ namespace Game.Tests.EditMode
                 new RoomJoinRequest(" room-1 ", "secret").TryValidate(true, out var error),
                 Is.True);
             Assert.That(error, Is.EqualTo(RoomJoinRequestError.None));
+        }
+
+        [Test]
+        public void RoomBrowser_FindsRoomByExactCodeIgnoringCaseAndWhitespace()
+        {
+            var browser = new RoomBrowserSystem();
+            browser.ReplaceRooms(new[]
+            {
+                new RoomSummary("ROOM-A1", CreateSettings(), 1, true),
+                new RoomSummary("ROOM-A10", CreateSettings(), 2, true)
+            });
+
+            Assert.That(browser.TryFindByCode(" room-a1 ", out var room), Is.True);
+            Assert.That(room.RoomId, Is.EqualTo("ROOM-A1"));
+            Assert.That(browser.TryFindByCode("ROOM-A", out _), Is.False);
+            Assert.That(browser.TryFindByCode(" ", out _), Is.False);
+        }
+
+        [Test]
+        public void RoomBrowser_RefreshRequestReplacesVisibleRoomList()
+        {
+            var browser = new RoomBrowserSystem();
+            var requestCount = 0;
+            var changedCount = 0;
+            IReadOnlyList<RoomSummary> visibleRooms = null;
+            browser.ReplaceRooms(new[]
+            {
+                new RoomSummary("OLD-ROOM", CreateSettings(), 1, true)
+            });
+            browser.RefreshRequested += () =>
+            {
+                requestCount++;
+                browser.ReplaceRooms(new[]
+                {
+                    new RoomSummary("NEW-ROOM", CreateSettings(), 3, true)
+                });
+            };
+            browser.RoomsChanged += rooms =>
+            {
+                changedCount++;
+                visibleRooms = rooms;
+            };
+
+            browser.RequestRefresh();
+
+            Assert.That(requestCount, Is.EqualTo(1));
+            Assert.That(changedCount, Is.EqualTo(1));
+            Assert.That(visibleRooms, Is.SameAs(browser.Rooms));
+            Assert.That(visibleRooms.Count, Is.EqualTo(1));
+            Assert.That(visibleRooms[0].RoomId, Is.EqualTo("NEW-ROOM"));
+            Assert.That(visibleRooms[0].CurrentPlayerCount, Is.EqualTo(3));
+            Assert.That(
+                () => browser.ReplaceRooms(null),
+                Throws.TypeOf<ArgumentNullException>());
         }
 
         [Test]
