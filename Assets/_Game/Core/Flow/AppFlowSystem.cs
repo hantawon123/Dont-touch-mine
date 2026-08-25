@@ -48,7 +48,7 @@ namespace Game.Core.Flow
                 case AppFlowState.Highlight:
                     return nextState == AppFlowState.Result;
                 case AppFlowState.Result:
-                    return nextState == AppFlowState.Home;
+                    return nextState == AppFlowState.Lobby;
                 default:
                     return false;
             }
