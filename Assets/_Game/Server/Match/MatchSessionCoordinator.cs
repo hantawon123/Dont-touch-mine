@@ -202,7 +202,8 @@ namespace Game.Server.Match
             double now,
             out Pose spawnPose)
         {
-            if (flow.GetCurrentHidingTurnIndex(now) != playerIndex)
+            if (!Players.IsActive(playerIndex) ||
+                flow.GetCurrentHidingTurnIndex(now) != playerIndex)
             {
                 spawnPose = default;
                 return false;
@@ -259,7 +260,8 @@ namespace Game.Server.Match
 
         public bool TryRecordItemPlacement(int playerIndex, Pose pose, double now)
         {
-            if (flow.GetCurrentHidingTurnIndex(now) != playerIndex ||
+            if (!Players.IsActive(playerIndex) ||
+                flow.GetCurrentHidingTurnIndex(now) != playerIndex ||
                 flow.GetHidingTurnRemainingSeconds(now) <= 0d ||
                 completedHidingTurns[playerIndex] ||
                 !placementValidator.IsValid(Assignments[playerIndex].Item.ItemId, pose))
@@ -282,7 +284,8 @@ namespace Game.Server.Match
             Pose pose,
             double now)
         {
-            if (flow.GetCurrentHidingTurnIndex(now) != playerIndex ||
+            if (!Players.IsActive(playerIndex) ||
+                flow.GetCurrentHidingTurnIndex(now) != playerIndex ||
                 flow.GetHidingTurnRemainingSeconds(now) <= 0d ||
                 completedHidingTurns[playerIndex])
             {
@@ -424,6 +427,7 @@ namespace Game.Server.Match
             double now)
         {
             if (!CanInteract(attackerPlayerIndex, now) ||
+                !Players.IsActive(targetPlayerIndex) ||
                 attackerPlayerIndex == targetPlayerIndex)
             {
                 return HitResult.Ignored;
@@ -481,7 +485,41 @@ namespace Game.Server.Match
 
         public int[] GetWinnerPlayerIndices()
         {
-            return outcome.GetWinnerPlayerIndices();
+            var candidates = outcome.GetWinnerPlayerIndices();
+            var winners = new List<int>(candidates.Length);
+            foreach (var playerIndex in candidates)
+            {
+                if (Players.IsActive(playerIndex))
+                {
+                    winners.Add(playerIndex);
+                }
+            }
+
+            return winners.ToArray();
+        }
+
+        public bool TryHandlePlayerLeft(int playerIndex, Pose lastKnownPose, double now)
+        {
+            flow.GetRemainingSeconds(now);
+            var phase = state.CurrentPhase.CurrentValue;
+            if (phase != MatchPhase.Hiding && phase != MatchPhase.Searching)
+            {
+                return false;
+            }
+
+            if (!Players.TryDeactivate(playerIndex))
+            {
+                return false;
+            }
+
+            if (phase == MatchPhase.Hiding && !completedHidingTurns[playerIndex])
+            {
+                placements.CompleteTurn(playerIndex, lastKnownPose.position);
+                completedHidingTurns[playerIndex] = true;
+            }
+
+            ReleaseHeldObjectAt(playerIndex, lastKnownPose);
+            return true;
         }
 
         public bool TryGetResult(out MatchResult matchResult)
@@ -599,7 +637,9 @@ namespace Game.Server.Match
 
         private bool CanInteract(int playerIndex, double now)
         {
-            return IsSearchingAt(now) && !interactions.IsStunned(playerIndex, now);
+            return Players.IsActive(playerIndex) &&
+                   IsSearchingAt(now) &&
+                   !interactions.IsStunned(playerIndex, now);
         }
 
         private bool ReleaseHeldObjectAt(int playerIndex, Pose pose)
@@ -725,7 +765,7 @@ namespace Game.Server.Match
             var capturedResult = new MatchResult(
                 endReason,
                 endedAt,
-                outcome.GetWinnerPlayerIndices());
+                GetWinnerPlayerIndices());
             if (!hasExplicitHighlightCandidates)
             {
                 highlights = new HighlightSequence(

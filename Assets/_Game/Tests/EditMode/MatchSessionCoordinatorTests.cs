@@ -853,6 +853,77 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void PlayerLeavingDuringHiding_AutoPlacesItemAndBlocksTurnActions()
+        {
+            session.Start(10d);
+            var lastPose = new Pose(new Vector3(8f, 0f, 3f), Quaternion.identity);
+
+            Assert.That(session.TryHandlePlayerLeft(0, lastPose, 20d), Is.True);
+            Assert.That(session.TryHandlePlayerLeft(0, lastPose, 20d), Is.False);
+            Assert.That(session.Players.GetPlayer(0).IsActive, Is.False);
+            Assert.That(session.Players.ActivePlayerCount, Is.EqualTo(5));
+            Assert.That(session.TryGetItemPlacement(0, out var placement), Is.True);
+            Assert.That(placement.Pose.position, Is.EqualTo(lastPose.position));
+            Assert.That(placement.WasAutoPlaced, Is.True);
+            Assert.That(session.TryRecordItemPlacement(0, Pose.identity, 21d), Is.False);
+            Assert.That(
+                session.TryRecordWorldObjectPose(0, "shelf", Pose.identity, 21d),
+                Is.False);
+            Assert.That(session.TryGetCurrentHidingSpawnPose(0, 21d, out _), Is.False);
+        }
+
+        [Test]
+        public void PlayerLeavingDuringSearching_DropsItemAndCannotWinOrInteract()
+        {
+            StartSearching();
+            var ownItem = session.Assignments[1].Item.ItemId;
+            var otherItem = session.Assignments[2].Item.ItemId;
+            var lastPose = new Pose(new Vector3(6f, 0f, 4f), Quaternion.identity);
+
+            Assert.That(session.TryHoldObject(1, ownItem, 200d), Is.True);
+            Assert.That(session.TryHandlePlayerLeft(1, lastPose, 201d), Is.True);
+
+            Assert.That(session.TryGetHeldObjectId(1, out _), Is.False);
+            Assert.That(session.TryGetItemPlacement(1, out var placement), Is.True);
+            Assert.That(placement.Pose.position, Is.EqualTo(lastPose.position));
+            Assert.That(session.TryHoldObject(1, otherItem, 202d), Is.False);
+            Assert.That(
+                session.RegisterHit(1, 2, Vector3.zero, 202d),
+                Is.EqualTo(HitResult.Ignored));
+            Assert.That(
+                session.RegisterHit(0, 1, Vector3.zero, 202d),
+                Is.EqualTo(HitResult.Ignored));
+
+            session.AdvanceTime(550d, lastKnownPositions);
+
+            Assert.That(session.GetWinnerPlayerIndices(), Is.Empty);
+            Assert.That(session.TryGetResult(out var result), Is.True);
+            Assert.That(result.WinnerPlayerIndices, Is.Empty);
+        }
+
+        [Test]
+        public void PlayerLeavingDuringSearching_DropsHeldMapObject()
+        {
+            StartSearching();
+            var lastPose = new Pose(new Vector3(3f, 0f, 7f), Quaternion.identity);
+
+            Assert.That(session.TryHoldObject(2, "shelf", 200d), Is.True);
+            Assert.That(session.TryHandlePlayerLeft(2, lastPose, 201d), Is.True);
+
+            Assert.That(session.TryGetHeldObjectId(2, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(lastPose.position));
+            Assert.That(session.TryHoldObject(3, "shelf", 202d), Is.True);
+        }
+
+        [Test]
+        public void PlayerLeaving_IsIgnoredOutsideActiveMatchPhases()
+        {
+            Assert.That(session.TryHandlePlayerLeft(0, Pose.identity, 0d), Is.False);
+            Assert.That(session.Players.GetPlayer(0).IsActive, Is.True);
+        }
+
+        [Test]
         public void LateAdvanceTime_CapturesScheduledSearchEnd()
         {
             session.Start(10d);
