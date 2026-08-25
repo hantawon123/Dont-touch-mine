@@ -1,5 +1,6 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Core.Lobby;
 using Game.Core.Ports;
 using Game.Core.Rooms;
 using Game.Network.Session;
@@ -51,6 +52,15 @@ namespace Game.Network.Lobby
         public async UniTask<RoomEntryResult> CreateAsync(
             RoomCreateRequest request, CancellationToken cancellation)
         {
+            if (!request.TryCreateSettings(
+                    RoomSettings.MaxPlayerCount,
+                    out var settings,
+                    out var error))
+            {
+                Debug.LogWarning($"[Rooms] Invalid room settings: {error}");
+                return RoomEntryResult.Failed(RoomEntryFailure.InvalidRequest);
+            }
+
             for (var attempt = 0; attempt < CodeAttempts; attempt++)
             {
                 var code = _codes.Next();
@@ -58,9 +68,9 @@ namespace Game.Network.Lobby
                 var result = await _network.StartAsync(
                     SessionRequest.Create(
                         code,
-                        request.DisplayName,
-                        request.MapId,
-                        request.MaxPlayers,
+                        settings.Title,
+                        settings.MapId,
+                        settings.MaxPlayers,
                         request.Password),
                     cancellation);
 

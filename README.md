@@ -22,7 +22,8 @@ Assets/_Game/
 ├─ Bootstrap/  앱 전체 조립과 루트 LifetimeScope
 ├─ Core/       공통 게임 규칙과 순수 타입
 ├─ Client/     입력, UI, 카메라, 애니메이션과 로컬 표현
-├─ Server/     Photon 연결, 권한, 상태 동기화와 경기 진행
+├─ Server/     권한 판정과 경기 규칙 진행
+├─ Network/    Photon Fusion 연결, 세션과 상태 동기화
 ├─ SOAP/       정적 Definition과 Config
 ├─ Content/    씬, 프리팹, 오디오와 ScriptableObject 에셋
 └─ Tests/      EditMode와 PlayMode 테스트
@@ -31,16 +32,17 @@ Assets/_Game/
 asmdef 의존 방향은 다음과 같습니다.
 
 ```text
-Bootstrap -> Client, Server
+Bootstrap -> Client, Server, Network
 Client    -> Core, SOAP
 Server    -> Core, SOAP
+Network   -> Core, Server
 SOAP      -> Core
-Core      -> 외부 게임 계층에 의존하지 않음 (허용: UniTask)
+Core      -> 외부 게임 계층에 의존하지 않음 (허용: UniTask, R3)
 ```
 
-`Core`가 참조할 수 있는 것은 `UniTask` 하나뿐입니다. `Core`의 포트 인터페이스가 서버 요청을 표현하려면 비동기 반환 타입이 필요하고, 아래 비동기 규칙이 `UniTask` 반환을 요구하기 때문입니다. R3, Fusion, VContainer, UI 계열과 `Client`·`Server`·`SOAP`는 참조하지 않습니다.
+`Core`가 참조할 수 있는 것은 `UniTask`와 `R3`뿐입니다. 포트의 비동기 반환에는 `UniTask`를, 읽기 전용 런타임 상태 노출에는 R3를 사용합니다. Fusion, VContainer, UI 계열과 `Client`·`Server`·`SOAP`·`Network`는 참조하지 않습니다.
 
-`Client`와 `Server`는 서로 직접 참조하지 않습니다. 두 영역이 함께 사용하는 규칙과 타입은 `Core`로 이동합니다. 이 프로젝트에서 `Server`는 별도 Spring 서버가 아니라 Unity 안의 Photon 네트워크 영역을 뜻합니다.
+`Client`와 `Server`는 서로 직접 참조하지 않습니다. 두 영역이 함께 사용하는 규칙과 타입은 `Core`로 이동합니다. `Server`는 순수 게임 규칙과 권한 판정을 담당하고 Photon Fusion 타입은 `Network`에만 둡니다. 이 프로젝트의 `Server`는 별도 Spring 서버를 뜻하지 않습니다.
 
 ## VContainer 의존성 주입
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Core.Rooms;
 
 namespace Game.Core.Lobby
 {

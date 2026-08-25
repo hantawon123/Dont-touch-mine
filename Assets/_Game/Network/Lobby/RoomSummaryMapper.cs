@@ -1,4 +1,5 @@
 using Fusion;
+using Game.Core.Lobby;
 using Game.Core.Rooms;
 using Game.Network.Session;
 
@@ -12,16 +13,31 @@ namespace Game.Network.Lobby
     {
         private const string UnnamedRoom = "Unnamed room";
 
-        public static RoomSummary ToSummary(SessionInfo info)
+        public static bool TryToSummary(SessionInfo info, out RoomSummary summary)
         {
-            return new RoomSummary(
+            var displayName = ReadString(info, SessionPropertyKeys.DisplayName, UnnamedRoom);
+            var mapId = ReadString(info, SessionPropertyKeys.MapId, null);
+
+            if (string.IsNullOrWhiteSpace(info.Name)
+                || string.IsNullOrWhiteSpace(mapId)
+                || info.MaxPlayers < RoomSettings.MinPlayerCount
+                || info.MaxPlayers > RoomSettings.MaxPlayerCount
+                || info.PlayerCount < 0
+                || info.PlayerCount > info.MaxPlayers)
+            {
+                summary = default;
+                return false;
+            }
+
+            summary = new RoomSummary(
                 new RoomId(info.Name),
-                ReadString(info, SessionPropertyKeys.DisplayName, UnnamedRoom),
-                ReadString(info, SessionPropertyKeys.MapId, null),
+                displayName,
+                mapId,
                 info.PlayerCount,
                 info.MaxPlayers,
                 ReadBool(info, SessionPropertyKeys.Locked),
                 info.IsOpen);
+            return true;
         }
 
         /// <summary>

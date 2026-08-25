@@ -227,6 +227,15 @@ namespace Game.Network.Session
         public void Shutdown()
         {
             var runner = _runner;
+
+            // A voluntary room exit must be reported before references are
+            // cleared. Lobby runners and runners that never started a session
+            // do not represent a room departure.
+            if (runner != null && runner.IsRunning && !_browsingLobby)
+            {
+                ReportExit(RoomExitReason.Left);
+            }
+
             ReleaseRunner();
 
             // Unity's equality covers already destroyed instances.
@@ -263,10 +272,6 @@ namespace Game.Network.Session
         /// Builds the runner object. Fusion needs a scene manager on the same
         /// object to drive networked scene loading, so it is added here.
         /// </summary>
-        /// <summary>
-        /// Builds the runner object. Fusion needs a scene manager on the same
-        /// object to drive networked scene loading, so it is added here.
-        /// </summary>
         /// <param name="provideInput">
         /// False for a dedicated server, which has no local player and therefore
         /// no input to contribute.
@@ -296,6 +301,9 @@ namespace Game.Network.Session
             _expectedPassword = null;
             _browsingLobby = false;
         }
+
+        private bool IsCurrentRunner(NetworkRunner runner) =>
+            ReferenceEquals(runner, _runner);
 
         /// <summary>
         /// Session properties are readable by anyone browsing the lobby, so only
@@ -437,23 +445,43 @@ namespace Game.Network.Session
 
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
+            if (!IsCurrentRunner(runner))
+            {
+                return;
+            }
+
             Debug.Log($"[Network] Player joined: {player}.");
             ReportPlayerCount();
         }
 
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
+            if (!IsCurrentRunner(runner))
+            {
+                return;
+            }
+
             Debug.Log($"[Network] Player left: {player}.");
             ReportPlayerCount();
         }
 
         public void OnConnectedToServer(NetworkRunner runner)
         {
+            if (!IsCurrentRunner(runner))
+            {
+                return;
+            }
+
             Debug.Log($"[Network] Connected to session '{RoomCode}'.");
         }
 
         public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
         {
+            if (!IsCurrentRunner(runner))
+            {
+                return;
+            }
+
             Debug.LogWarning($"[Network] Disconnected: {reason}");
             ReportExit(Translate(reason));
         }
@@ -472,6 +500,12 @@ namespace Game.Network.Session
         public void OnConnectRequest(
             NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token)
         {
+            if (!IsCurrentRunner(runner))
+            {
+                request.Refuse();
+                return;
+            }
+
             if (string.IsNullOrEmpty(_expectedPassword))
             {
                 request.Accept();
@@ -495,8 +529,14 @@ namespace Game.Network.Session
 
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
         {
+            if (!IsCurrentRunner(runner))
+            {
+                return;
+            }
+
             Debug.Log($"[Network] Shutdown: {shutdownReason}");
             ReportExit(Translate(shutdownReason));
+            ReleaseRunner();
         }
 
         /// <summary>
@@ -505,13 +545,26 @@ namespace Game.Network.Session
         /// </summary>
         public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
         {
+            if (!IsCurrentRunner(runner))
+            {
+                return;
+            }
+
             _roomBuffer.Clear();
 
             if (sessionList != null)
             {
                 for (var i = 0; i < sessionList.Count; i++)
                 {
-                    _roomBuffer.Add(RoomSummaryMapper.ToSummary(sessionList[i]));
+                    if (RoomSummaryMapper.TryToSummary(sessionList[i], out var room))
+                    {
+                        _roomBuffer.Add(room);
+                    }
+                    else
+                    {
+                        Debug.LogWarning(
+                            $"[Network] Ignored invalid room listing '{sessionList[i].Name}'.");
+                    }
                 }
             }
 
