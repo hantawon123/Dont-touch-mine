@@ -1,0 +1,20 @@
+{
+    "name": "Game.Network",
+    "rootNamespace": "Game.Network",
+    "references": [
+        "Game.Core",
+        "Game.Server",
+        "Fusion.Unity",
+        "Photon.Realtime",
+        "UniTask"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

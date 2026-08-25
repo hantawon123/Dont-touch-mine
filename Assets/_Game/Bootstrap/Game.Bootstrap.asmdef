@@ -4,8 +4,10 @@
     "references": [
         "Game.Client",
         "Game.Core",
+        "Game.Network",
         "Game.Server",
         "Game.SOAP",
+        "UniTask",
         "VContainer"
     ],
     "includePlatforms": [],

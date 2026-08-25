@@ -1,3 +1,6 @@
+using Game.Core.Ports;
+using Game.Network.Lobby;
+using Game.Network.Session;
 using VContainer;
 using VContainer.Unity;
 
@@ -8,6 +11,26 @@ namespace Game.Bootstrap
         protected override void Configure(IContainerBuilder builder)
         {
             // Register services that must live for the entire application here.
+
+            // The room list has a single owner per application, and the network
+            // service depends on it, so it is registered here rather than in a
+            // scene scope. Swapped for the client's reactive store later.
+            // Also resolvable by its own type so the temporary scene harness can
+            // read back the last list it received.
+            builder.Register<DebugRoomListSink>(Lifetime.Singleton)
+                .AsSelf()
+                .As<IRoomListSink>();
+
+            builder.Register<DebugRoomSessionSink>(Lifetime.Singleton)
+                .AsSelf()
+                .As<IRoomSessionSink>();
+
+            // One network session exists per application and it has to survive
+            // scene loads, so it belongs to the root scope rather than a scene.
+            builder.Register<NetworkRunnerService>(Lifetime.Singleton);
+
+            builder.Register<RoomCodeGenerator>(Lifetime.Singleton);
+            builder.Register<IRoomBrowser, RoomBrowser>(Lifetime.Singleton);
         }
     }
 }

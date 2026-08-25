@@ -114,3 +114,11 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Photon Fusion App Id (개인별 설정)
+# 각 팀원이 Unity의 Tools > Fusion > Fusion Hub 에서 직접 입력합니다.
+# .meta도 함께 제외합니다. .asset 없이 .meta만 커밋되면 clone한 팀원 쪽에서
+# Fusion Hub가 새 GUID로 .asset을 만들어 meta 충돌이 반복됩니다.
+# Fusion은 이 파일을 Resources.Load(이름 기준)로 읽으므로 GUID 참조가 없어 안전합니다.
+/[Aa]ssets/Photon/Fusion/Resources/PhotonAppSettings.asset
+/[Aa]ssets/Photon/Fusion/Resources/PhotonAppSettings.asset.meta
