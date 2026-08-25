@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Game.Bootstrap;
+using Game.Core.Flow;
 using Game.Core.Items;
+using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Server.Items;
 using Game.Server.Match;
@@ -101,6 +103,66 @@ namespace Game.Tests.EditMode
             context.ServerTime = 190d;
             controller.Tick();
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Searching));
+        }
+
+        [Test]
+        public void LobbyMatchStart_StartsSessionAndEntersInGameOnlyForHost()
+        {
+            var lobby = CreateFullLobby();
+            var appFlow = new AppFlowSystem();
+            Assert.That(appFlow.TryTransitionTo(AppFlowState.Lobby), Is.True);
+            var context = new TestRuntimeContext
+            {
+                ServerTime = 10d,
+                PlayerPositions = lastKnownPositions,
+                PlayerPoses = CreatePlayerPoses(lastKnownPositions),
+                ReplayObjects = new WorldObjectState[0]
+            };
+            var matchRuntime = new MatchRuntimeController(session, context);
+            var startCoordinator = new LobbyMatchStartCoordinator(
+                lobby,
+                matchRuntime,
+                appFlow);
+
+            Assert.That(
+                startCoordinator.TryStart("guest"),
+                Is.EqualTo(RoomStartResult.NotHost));
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Waiting));
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Lobby));
+
+            Assert.That(
+                startCoordinator.TryStart("host"),
+                Is.EqualTo(RoomStartResult.Started));
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Hiding));
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.InGame));
+            Assert.That(
+                startCoordinator.TryStart("host"),
+                Is.EqualTo(RoomStartResult.AlreadyStarted));
+        }
+
+        [Test]
+        public void LobbyMatchStart_RejectsStartOutsideLobby()
+        {
+            var lobby = CreateFullLobby();
+            var appFlow = new AppFlowSystem();
+            var context = new TestRuntimeContext
+            {
+                ServerTime = 10d,
+                PlayerPositions = lastKnownPositions,
+                PlayerPoses = CreatePlayerPoses(lastKnownPositions),
+                ReplayObjects = new WorldObjectState[0]
+            };
+            var matchRuntime = new MatchRuntimeController(session, context);
+            var startCoordinator = new LobbyMatchStartCoordinator(
+                lobby,
+                matchRuntime,
+                appFlow);
+
+            Assert.That(
+                () => startCoordinator.TryStart("host"),
+                Throws.InvalidOperationException);
+            Assert.That(lobby.IsStarted, Is.False);
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Waiting));
         }
 
         [Test]
@@ -600,6 +662,21 @@ namespace Game.Tests.EditMode
         {
             session.Start(10d);
             session.AdvanceTime(190d, lastKnownPositions);
+        }
+
+        private static RoomLobbySystem CreateFullLobby()
+        {
+            var request = new RoomCreateRequest(
+                "테스트방",
+                false,
+                null,
+                MatchRulesSO.PlayerCount,
+                "market-01");
+            request.TryCreateSettings(
+                MatchRulesSO.PlayerCount,
+                out var settings,
+                out _);
+            return new RoomLobbySystem(settings, "host", MatchRulesSO.PlayerCount);
         }
 
         private static ItemDefinition[] CreateItemDefinitions()
