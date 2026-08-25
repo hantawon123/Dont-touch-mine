@@ -6,7 +6,8 @@
 - `release`: 배포 준비 브랜치. `develop`에서 완성된 내용을 모아 검증한 뒤 `main`으로 보냅니다.
 - `develop`: 통합 브랜치. 모든 작업이 모이는 기본 브랜치이며, Merge Request로만 병합합니다.
 - `feature/*`: 실제 작업 브랜치. `develop`에서 분기해서 작업하고 `develop`으로 Merge Request를 보냅니다.
-  - 예시: `feature/room-lobby-system`, `feature/highlight-replay`
+  - **이름 규칙**: `feature/파트-작업내용` (파트는 `client` 또는 `server` 소문자)
+  - 예시: `feature/client-login`, `feature/client-room-lobby`, `feature/server-match-sync`
 - `hotfix/*`: 배포 후 긴급 수정 브랜치. `main`에서 분기하고 `main`과 `develop` 양쪽에 병합합니다.
 
 ## 2. 커밋 컨벤션
