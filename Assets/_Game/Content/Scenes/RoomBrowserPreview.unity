@@ -416,6 +416,7 @@ GameObject:
   - component: {fileID: 230002}
   - component: {fileID: 230003}
   - component: {fileID: 230004}
+  - component: {fileID: 230005}
   m_Layer: 5
   m_Name: RoomBrowserPanel
   m_TagString: Untagged
@@ -500,6 +501,23 @@ MonoBehaviour:
   backButton: {fileID: 220004}
   listContent: {fileID: 282001}
   listItemPrefab: {fileID: 100005, guid: aa07dae427ca4d13b9971597b318fe13, type: 3}
+--- !u!114 &230005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 230000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c2e9a14b5d64f38a0c8e1d4f6b39275, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Bootstrap::Game.Bootstrap.RoomBrowserLifetimeScope
+  parentReference:
+    TypeName: Game.Bootstrap.ProjectLifetimeScope
+  autoRun: 1
+  autoInjectGameObjects: []
+  roomBrowserView: {fileID: 230004}
 --- !u!1 &240000
 GameObject:
   m_ObjectHideFlags: 0

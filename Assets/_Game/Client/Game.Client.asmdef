@@ -5,10 +5,10 @@
         "Game.Core",
         "Game.SOAP",
         "R3.Unity",
-        "Unity.TextMeshPro",
         "Unity.InputSystem",
-        "Unity.Cinemachine",
+        "Unity.TextMeshPro",
         "UnityEngine.UI",
+        "Unity.Cinemachine",
         "VContainer"
     ],
     "includePlatforms": [],
