@@ -23,6 +23,9 @@ namespace Game.Client.Home
         private static readonly Color FriendSeparatorColor = new Color(0.75f, 0.75f, 0.75f, 1f);
         private static readonly Color PanelShadowColor = new Color(0.1f, 0.1f, 0.1f, 0.38f);
         private static readonly Color ItemShadowColor = new Color(0.12f, 0.12f, 0.12f, 0.32f);
+        private static readonly Color SearchBarColor = new Color(0.88f, 0.88f, 0.88f, 1f);
+        private static readonly Color SearchButtonColor = new Color(0.22f, 0.22f, 0.22f, 1f);
+        private const float HeaderActionSize = 28f;
 
         [SerializeField]
         private string title = "로고 or 이름 두둥";
@@ -43,17 +46,34 @@ namespace Game.Client.Home
         private readonly List<Button> menuButtons = new List<Button>();
         private readonly List<FriendRow> onlineRows = new List<FriendRow>();
         private readonly List<FriendRow> offlineRows = new List<FriendRow>();
+        private readonly List<SearchRow> searchRows = new List<SearchRow>();
         private TMP_FontAsset koreanFont;
         private GameObject friendListRoot;
+        private GameObject friendListBody;
+        private GameObject friendSearchBody;
+        private GameObject addFriendButton;
+        private GameObject closeSearchButton;
+        private TMP_Text panelHeaderText;
         private TMP_Text onlineSectionText;
         private TMP_Text offlineSectionText;
         private RectTransform onlineItemsRoot;
         private RectTransform offlineItemsRoot;
+        private RectTransform searchItemsRoot;
+        private TMP_InputField friendSearchInput;
+        private TMP_Text searchEmptyText;
         private Button dismissButton;
 
         public event Action<HomeMenuAction> ActionClicked;
 
         public event Action FriendListDismissed;
+
+        public event Action FriendSearchOpened;
+
+        public event Action FriendSearchClosed;
+
+        public event Action<string> FriendSearchRequested;
+
+        public event Action<string> FriendRequestClicked;
 
         private void Awake()
         {
@@ -68,17 +88,23 @@ namespace Game.Client.Home
 
         private void OnDestroy()
         {
-            for (var index = 0; index < menuButtons.Count; index++)
+            ClearButtons(menuButtons);
+            for (var index = 0; index < searchRows.Count; index++)
             {
-                if (menuButtons[index] != null)
+                if (searchRows[index].RequestButton != null)
                 {
-                    menuButtons[index].onClick.RemoveAllListeners();
+                    searchRows[index].RequestButton.onClick.RemoveAllListeners();
                 }
             }
 
             if (dismissButton != null)
             {
                 dismissButton.onClick.RemoveAllListeners();
+            }
+
+            if (friendSearchInput != null)
+            {
+                friendSearchInput.onSubmit.RemoveAllListeners();
             }
         }
 
@@ -100,10 +126,13 @@ namespace Game.Client.Home
 
         public void SetFriendListVisible(bool visible)
         {
-            if (friendListRoot != null)
+            if (friendListRoot == null)
             {
-                friendListRoot.SetActive(visible);
+                return;
             }
+
+            SetFriendSearchVisible(false);
+            friendListRoot.SetActive(visible);
         }
 
         public void SetFriends(
@@ -129,6 +158,74 @@ namespace Game.Client.Home
             offlineSectionText.text = $"오프라인 {offlineFriends.Count}";
             BindRows(onlineRows, onlineItemsRoot, onlineFriends);
             BindRows(offlineRows, offlineItemsRoot, offlineFriends);
+        }
+
+        public void SetFriendSearchVisible(bool visible)
+        {
+            if (friendListBody == null || friendSearchBody == null)
+            {
+                return;
+            }
+
+            friendListBody.SetActive(!visible);
+            friendSearchBody.SetActive(visible);
+            if (panelHeaderText != null)
+            {
+                panelHeaderText.text = visible ? "친구 검색" : "친구";
+            }
+
+            if (addFriendButton != null)
+            {
+                addFriendButton.SetActive(!visible);
+            }
+
+            if (closeSearchButton != null)
+            {
+                closeSearchButton.SetActive(visible);
+            }
+
+            if (visible && friendSearchInput != null)
+            {
+                friendSearchInput.text = string.Empty;
+            }
+
+            if (visible)
+            {
+                UpdateSearchEmptyHint(Array.Empty<FriendSearchHit>());
+            }
+        }
+
+        public void SetFriendSearchResults(IReadOnlyList<FriendSearchHit> results)
+        {
+            if (results == null)
+            {
+                throw new ArgumentNullException(nameof(results));
+            }
+
+            if (searchItemsRoot == null)
+            {
+                return;
+            }
+
+            BindSearchRows(results);
+            UpdateSearchEmptyHint(results);
+        }
+
+        private void UpdateSearchEmptyHint(IReadOnlyList<FriendSearchHit> results)
+        {
+            if (searchEmptyText == null)
+            {
+                return;
+            }
+
+            var hasQuery = friendSearchInput != null && !string.IsNullOrWhiteSpace(friendSearchInput.text);
+            searchEmptyText.gameObject.SetActive(results.Count == 0);
+            if (results.Count > 0)
+            {
+                return;
+            }
+
+            searchEmptyText.text = hasQuery ? "검색 결과가 없습니다" : "아이디를 검색해 보세요";
         }
 
         private void EnsureEventSystem()
@@ -332,6 +429,7 @@ namespace Game.Client.Home
         private void CreateFriendListRoot(RectTransform canvas)
         {
             var root = CreateRect("FriendListRoot", canvas);
+            root.gameObject.SetActive(false);
             SetAnchor(root, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
             root.offsetMin = Vector2.zero;
             root.offsetMax = Vector2.zero;
@@ -349,7 +447,6 @@ namespace Game.Client.Home
 
             CreateFriendListPanel(root);
             friendListRoot = root.gameObject;
-            friendListRoot.SetActive(false);
         }
 
         private void CreateFriendListPanel(RectTransform parent)
@@ -372,16 +469,17 @@ namespace Game.Client.Home
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
-            var header = CreateRect("Header", panel);
-            var headerLayout = header.gameObject.AddComponent<LayoutElement>();
-            headerLayout.preferredHeight = 36f;
-            headerLayout.minHeight = 36f;
-            AddText(header, "친구", 24f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+            CreatePanelHeader(panel);
 
-            var scroll = CreateRect("Scroll", panel);
-            var scrollLayout = scroll.gameObject.AddComponent<LayoutElement>();
-            scrollLayout.flexibleHeight = 1f;
-            scrollLayout.minHeight = 80f;
+            var bodyHost = CreateRect("Body", panel);
+            var bodyHostLayout = bodyHost.gameObject.AddComponent<LayoutElement>();
+            bodyHostLayout.flexibleHeight = 1f;
+            bodyHostLayout.minHeight = 80f;
+
+            var scroll = CreateRect("Scroll", bodyHost);
+            SetAnchor(scroll, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            scroll.offsetMin = Vector2.zero;
+            scroll.offsetMax = Vector2.zero;
 
             var scrollRect = scroll.gameObject.AddComponent<ScrollRect>();
             scrollRect.horizontal = false;
@@ -394,8 +492,7 @@ namespace Game.Client.Home
             viewport.offsetMin = Vector2.zero;
             viewport.offsetMax = Vector2.zero;
             viewport.gameObject.AddComponent<RectMask2D>();
-            var viewportImage = AddImage(viewport, Color.clear, raycastTarget: true);
-            viewportImage.color = Color.clear;
+            AddImage(viewport, Color.clear, raycastTarget: true);
 
             var content = CreateRect("Content", viewport);
             SetAnchor(content, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
@@ -420,6 +517,278 @@ namespace Game.Client.Home
             CreateSeparator(content);
             offlineSectionText = CreateSectionTitle(content, "오프라인 0");
             offlineItemsRoot = CreateItemGroup(content, "OfflineItems");
+            friendListBody = scroll.gameObject;
+            CreateFriendSearchBody(bodyHost);
+        }
+
+        private void CreatePanelHeader(RectTransform panel)
+        {
+            var header = CreateRect("Header", panel);
+            var headerLayout = header.gameObject.AddComponent<LayoutElement>();
+            headerLayout.preferredHeight = 36f;
+            headerLayout.minHeight = 36f;
+            AddHeaderRow(header);
+
+            var titleRect = CreateRect("Title", header);
+            var titleLayout = titleRect.gameObject.AddComponent<LayoutElement>();
+            titleLayout.preferredWidth = 0f;
+            titleLayout.flexibleWidth = 1f;
+            titleLayout.minWidth = 80f;
+            titleLayout.preferredHeight = 36f;
+            panelHeaderText = AddText(titleRect, "친구", 24f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+
+            addFriendButton = CreateHeaderActionButton(header, "Add", "+", OnAddFriendClicked);
+            closeSearchButton = CreateHeaderActionButton(header, "Close", "X", OnCloseSearchClicked);
+            closeSearchButton.SetActive(false);
+        }
+
+        private void OnAddFriendClicked()
+        {
+            SetFriendSearchVisible(true);
+            FriendSearchOpened?.Invoke();
+        }
+
+        private void OnCloseSearchClicked()
+        {
+            SetFriendSearchVisible(false);
+            FriendSearchClosed?.Invoke();
+        }
+
+        private void CreateFriendSearchBody(RectTransform parent)
+        {
+            var body = CreateRect("SearchBody", parent);
+            SetAnchor(body, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            body.offsetMin = Vector2.zero;
+            body.offsetMax = Vector2.zero;
+            friendSearchBody = body.gameObject;
+
+            var layout = body.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 12f;
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            CreateSearchBar(body);
+            searchItemsRoot = CreateSearchResults(body);
+            friendSearchBody.SetActive(false);
+        }
+
+        private static void AddHeaderRow(RectTransform header)
+        {
+            var row = header.gameObject.AddComponent<HorizontalLayoutGroup>();
+            row.childAlignment = TextAnchor.MiddleLeft;
+            row.childControlWidth = true;
+            row.childControlHeight = false;
+            row.childForceExpandWidth = false;
+            row.childForceExpandHeight = false;
+            row.spacing = 8f;
+        }
+
+        private GameObject CreateHeaderActionButton(RectTransform parent, string name, string label, Action onClicked)
+        {
+            var buttonRect = CreateRect(name, parent);
+            buttonRect.sizeDelta = new Vector2(HeaderActionSize, HeaderActionSize);
+            var layout = buttonRect.gameObject.AddComponent<LayoutElement>();
+            layout.preferredWidth = HeaderActionSize;
+            layout.preferredHeight = HeaderActionSize;
+            layout.minWidth = HeaderActionSize;
+            layout.minHeight = HeaderActionSize;
+            layout.flexibleWidth = 0f;
+            layout.flexibleHeight = 0f;
+            var background = AddImage(
+                buttonRect,
+                Color.white,
+                HomeUiFonts.RoundedSprite,
+                raycastTarget: true);
+            background.type = Image.Type.Sliced;
+            var labelRect = CreateRect("Label", buttonRect);
+            SetAnchor(labelRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+            AddText(
+                labelRect,
+                label,
+                22f,
+                FontStyles.Bold,
+                TextAlignmentOptions.Center);
+            var button = buttonRect.gameObject.AddComponent<Button>();
+            button.targetGraphic = background;
+            button.transition = Selectable.Transition.ColorTint;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(0.92f, 0.92f, 0.92f, 1f);
+            colors.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+            colors.selectedColor = Color.white;
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+            button.onClick.AddListener(() => onClicked?.Invoke());
+            menuButtons.Add(button);
+            return buttonRect.gameObject;
+        }
+
+        private void CreateSearchBar(RectTransform parent)
+        {
+            var bar = CreateRect("SearchBar", parent);
+            var barLayout = bar.gameObject.AddComponent<LayoutElement>();
+            barLayout.preferredHeight = 48f;
+            barLayout.minHeight = 48f;
+            barLayout.flexibleHeight = 0f;
+            barLayout.flexibleWidth = 1f;
+            var barImage = AddImage(bar, SearchBarColor, HomeUiFonts.RoundedSprite, raycastTarget: true);
+            barImage.type = Image.Type.Sliced;
+            barImage.pixelsPerUnitMultiplier = 1.2f;
+
+            var row = bar.gameObject.AddComponent<HorizontalLayoutGroup>();
+            row.padding = new RectOffset(14, 8, 8, 8);
+            row.spacing = 8f;
+            row.childAlignment = TextAnchor.MiddleLeft;
+            row.childControlWidth = true;
+            row.childControlHeight = true;
+            row.childForceExpandWidth = true;
+            row.childForceExpandHeight = true;
+
+            friendSearchInput = CreateSearchInput(bar);
+
+            var searchRect = CreateRect("SearchButton", bar);
+            var searchLayout = searchRect.gameObject.AddComponent<LayoutElement>();
+            searchLayout.preferredWidth = 72f;
+            searchLayout.minWidth = 72f;
+            searchLayout.preferredHeight = 32f;
+            searchLayout.minHeight = 32f;
+            searchLayout.flexibleWidth = 0f;
+            searchLayout.flexibleHeight = 0f;
+            var searchImage = AddImage(searchRect, SearchButtonColor, HomeUiFonts.RoundedSprite, raycastTarget: true);
+            searchImage.type = Image.Type.Sliced;
+            searchImage.pixelsPerUnitMultiplier = 1.6f;
+            var searchLabelRect = CreateRect("Label", searchRect);
+            SetAnchor(searchLabelRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            searchLabelRect.offsetMin = Vector2.zero;
+            searchLabelRect.offsetMax = Vector2.zero;
+            var searchLabel = AddText(
+                searchLabelRect,
+                "검색",
+                16f,
+                FontStyles.Bold,
+                TextAlignmentOptions.Center);
+            searchLabel.color = Color.white;
+            var searchButton = searchRect.gameObject.AddComponent<Button>();
+            searchButton.targetGraphic = searchImage;
+            searchButton.transition = Selectable.Transition.ColorTint;
+            searchButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            searchButton.onClick.AddListener(OnSearchClicked);
+            menuButtons.Add(searchButton);
+        }
+
+        private TMP_InputField CreateSearchInput(RectTransform parent)
+        {
+            var fieldRect = CreateRect("Input", parent);
+            var fieldLayout = fieldRect.gameObject.AddComponent<LayoutElement>();
+            fieldLayout.flexibleWidth = 1f;
+            fieldLayout.minWidth = 80f;
+            fieldLayout.preferredHeight = 32f;
+            fieldLayout.flexibleHeight = 1f;
+            AddImage(fieldRect, Color.clear, raycastTarget: true);
+
+            var textArea = CreateRect("TextArea", fieldRect);
+            SetAnchor(textArea, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            textArea.offsetMin = new Vector2(4f, 2f);
+            textArea.offsetMax = new Vector2(-4f, -2f);
+            textArea.gameObject.AddComponent<RectMask2D>();
+
+            var placeholderRect = CreateRect("Placeholder", textArea);
+            SetAnchor(placeholderRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            placeholderRect.offsetMin = Vector2.zero;
+            placeholderRect.offsetMax = Vector2.zero;
+            var placeholder = AddText(
+                placeholderRect,
+                "아이디로 검색",
+                16f,
+                FontStyles.Italic,
+                TextAlignmentOptions.MidlineLeft);
+            placeholder.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+
+            var textRect = CreateRect("Text", textArea);
+            SetAnchor(textRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            var text = AddText(
+                textRect,
+                string.Empty,
+                16f,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineLeft,
+                raycastTarget: true);
+
+            fieldRect.gameObject.SetActive(false);
+            var input = fieldRect.gameObject.AddComponent<TMP_InputField>();
+            input.textViewport = textArea;
+            input.textComponent = text;
+            input.placeholder = placeholder;
+            input.fontAsset = koreanFont;
+            input.pointSize = 16f;
+            input.lineType = TMP_InputField.LineType.SingleLine;
+            input.characterLimit = 32;
+            input.onSubmit.AddListener(_ => OnSearchClicked());
+            fieldRect.gameObject.SetActive(true);
+            return input;
+        }
+
+        private RectTransform CreateSearchResults(RectTransform parent)
+        {
+            var scroll = CreateRect("Results", parent);
+            var scrollLayout = scroll.gameObject.AddComponent<LayoutElement>();
+            scrollLayout.flexibleHeight = 1f;
+            scrollLayout.minHeight = 80f;
+
+            var scrollRect = scroll.gameObject.AddComponent<ScrollRect>();
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
+            scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            scrollRect.scrollSensitivity = 24f;
+
+            var viewport = CreateRect("Viewport", scroll);
+            SetAnchor(viewport, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            viewport.offsetMin = Vector2.zero;
+            viewport.offsetMax = Vector2.zero;
+            viewport.gameObject.AddComponent<RectMask2D>();
+            AddImage(viewport, Color.clear, raycastTarget: true);
+
+            var content = CreateRect("Content", viewport);
+            SetAnchor(content, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+            var contentLayout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+            contentLayout.spacing = 12f;
+            contentLayout.childAlignment = TextAnchor.UpperLeft;
+            contentLayout.childControlWidth = true;
+            contentLayout.childControlHeight = true;
+            contentLayout.childForceExpandWidth = true;
+            contentLayout.childForceExpandHeight = false;
+            var contentFitter = content.gameObject.AddComponent<ContentSizeFitter>();
+            contentFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scrollRect.viewport = viewport;
+            scrollRect.content = content;
+            var items = CreateItemGroup(content, "SearchItems");
+
+            var emptyRect = CreateRect("EmptyHint", content);
+            var emptyLayout = emptyRect.gameObject.AddComponent<LayoutElement>();
+            emptyLayout.preferredHeight = 48f;
+            emptyLayout.minHeight = 48f;
+            searchEmptyText = AddText(
+                emptyRect,
+                "아이디를 검색해 보세요",
+                16f,
+                FontStyles.Normal,
+                TextAlignmentOptions.Center);
+            searchEmptyText.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+            searchEmptyText.textWrappingMode = TextWrappingModes.Normal;
+            return items;
         }
 
         private TMP_Text CreateSectionTitle(RectTransform parent, string label)
@@ -480,6 +849,121 @@ namespace Game.Client.Home
                 row.Nickname.text = friend.Nickname;
                 row.Status.text = friend.Presence == FriendPresence.InGame ? "게임중" : string.Empty;
             }
+        }
+
+        private void BindSearchRows(IReadOnlyList<FriendSearchHit> results)
+        {
+            while (searchRows.Count < results.Count)
+            {
+                searchRows.Add(CreateSearchRow(searchItemsRoot));
+            }
+
+            for (var index = 0; index < searchRows.Count; index++)
+            {
+                var row = searchRows[index];
+                var isVisible = index < results.Count;
+                row.Root.SetActive(isVisible);
+                if (!isVisible)
+                {
+                    continue;
+                }
+
+                var hit = results[index];
+                row.PlayerId = hit.PlayerId;
+                row.Nickname.text = hit.Nickname;
+                row.RequestLabel.text = hit.IsPending ? "요청 중" : "친구요청";
+                row.RequestButton.interactable = !hit.IsPending;
+            }
+        }
+
+        private SearchRow CreateSearchRow(RectTransform parent)
+        {
+            var rowRect = CreateRect("SearchRow", parent);
+            var rowLayout = rowRect.gameObject.AddComponent<LayoutElement>();
+            rowLayout.preferredHeight = 52f;
+            rowLayout.minHeight = 52f;
+            var rowImage = AddImage(rowRect, FriendRowColor, HomeUiFonts.RoundedSprite);
+            rowImage.type = Image.Type.Sliced;
+            rowImage.pixelsPerUnitMultiplier = 1.4f;
+            AddDropShadow(rowRect.gameObject, ItemShadowColor, new Vector2(2f, -3f));
+            AddDropShadow(rowRect.gameObject, new Color(0.12f, 0.12f, 0.12f, 0.16f), new Vector2(4f, -6f));
+
+            var layout = rowRect.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(10, 10, 8, 8);
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            var avatar = CreateRect("Avatar", rowRect);
+            var avatarLayout = avatar.gameObject.AddComponent<LayoutElement>();
+            avatarLayout.preferredWidth = 36f;
+            avatarLayout.preferredHeight = 36f;
+            avatarLayout.minWidth = 36f;
+            avatarLayout.minHeight = 36f;
+            var avatarImage = AddImage(avatar, AvatarColor, HomeUiFonts.CircleSprite);
+            avatarImage.preserveAspect = true;
+
+            var nicknameRect = CreateRect("Nickname", rowRect);
+            var nicknameLayout = nicknameRect.gameObject.AddComponent<LayoutElement>();
+            nicknameLayout.flexibleWidth = 1f;
+            nicknameLayout.minWidth = 40f;
+            var nickname = AddText(
+                nicknameRect,
+                string.Empty,
+                18f,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineLeft);
+            nickname.overflowMode = TextOverflowModes.Ellipsis;
+
+            var requestRect = CreateRect("Request", rowRect);
+            var requestLayout = requestRect.gameObject.AddComponent<LayoutElement>();
+            requestLayout.preferredWidth = 88f;
+            requestLayout.minWidth = 88f;
+            requestLayout.preferredHeight = 32f;
+            var requestLabel = AddText(
+                requestRect,
+                "친구요청",
+                16f,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineRight,
+                raycastTarget: true);
+
+            var row = new SearchRow
+            {
+                Root = rowRect.gameObject,
+                Nickname = nickname,
+                RequestLabel = requestLabel
+            };
+            var requestButton = requestRect.gameObject.AddComponent<Button>();
+            requestButton.targetGraphic = requestLabel;
+            requestButton.transition = Selectable.Transition.ColorTint;
+            requestButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.black;
+            colors.highlightedColor = TextHover;
+            colors.pressedColor = TextPressed;
+            colors.selectedColor = Color.black;
+            colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 1f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            requestButton.colors = colors;
+            requestButton.onClick.AddListener(() =>
+            {
+                if (!string.IsNullOrEmpty(row.PlayerId))
+                {
+                    FriendRequestClicked?.Invoke(row.PlayerId);
+                }
+            });
+            row.RequestButton = requestButton;
+            return row;
+        }
+
+        private void OnSearchClicked()
+        {
+            FriendSearchRequested?.Invoke(friendSearchInput != null ? friendSearchInput.text : string.Empty);
         }
 
         private FriendRow CreateFriendRow(RectTransform parent)
@@ -593,6 +1077,17 @@ namespace Game.Client.Home
             return buttonRect;
         }
 
+        private static void ClearButtons(List<Button> buttons)
+        {
+            for (var index = 0; index < buttons.Count; index++)
+            {
+                if (buttons[index] != null)
+                {
+                    buttons[index].onClick.RemoveAllListeners();
+                }
+            }
+        }
+
         private static void AddVerticalLayout(RectTransform parent, TextAnchor alignment)
         {
             var layout = parent.gameObject.AddComponent<VerticalLayoutGroup>();
@@ -661,6 +1156,15 @@ namespace Game.Client.Home
             public GameObject Root;
             public TMP_Text Nickname;
             public TMP_Text Status;
+        }
+
+        private sealed class SearchRow
+        {
+            public GameObject Root;
+            public string PlayerId;
+            public TMP_Text Nickname;
+            public TMP_Text RequestLabel;
+            public Button RequestButton;
         }
 
         private static RectTransform CreateRect(string name, Transform parent)

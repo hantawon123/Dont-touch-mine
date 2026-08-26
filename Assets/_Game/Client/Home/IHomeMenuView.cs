@@ -10,6 +10,14 @@ namespace Game.Client.Home
 
         event Action FriendListDismissed;
 
+        event Action FriendSearchOpened;
+
+        event Action FriendSearchClosed;
+
+        event Action<string> FriendSearchRequested;
+
+        event Action<string> FriendRequestClicked;
+
         void SetNickname(string nickname);
 
         void SetLevel(int level);
@@ -19,5 +27,9 @@ namespace Game.Client.Home
         void SetFriends(
             IReadOnlyList<FriendSummary> onlineFriends,
             IReadOnlyList<FriendSummary> offlineFriends);
+
+        void SetFriendSearchVisible(bool visible);
+
+        void SetFriendSearchResults(IReadOnlyList<FriendSearchHit> results);
     }
 }
