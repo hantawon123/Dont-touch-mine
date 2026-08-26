@@ -66,6 +66,17 @@ namespace Game.Client.Interactions
             IsCarried = false;
         }
 
+        /// <summary>
+        /// 던지기: 놓기와 같지만 조준 방향으로 초기 속도를 준다.
+        /// 기획서 규칙 — 던진 물건은 플레이어를 맞혀도 피해가 없다(난장판용).
+        /// 전투 시스템은 IsThrown 여부와 무관하게 물건 충돌을 피해로 취급하지 않는다.
+        /// </summary>
+        public void OnThrown(Vector3 initialVelocity)
+        {
+            OnDropped();
+            body.linearVelocity = initialVelocity;
+        }
+
         /// <summary>조준 하이라이트: 밝기를 살짝 올려 조준 중임을 표시한다.</summary>
         public void SetAimed(bool aimed, float intensity)
         {
