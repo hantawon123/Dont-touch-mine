@@ -94,7 +94,14 @@ namespace Game.Client.Interactions
 
         private void DropCarried()
         {
-            // 내려놓기 구현 예정
+            if (CarriedItem == null)
+            {
+                return;
+            }
+
+            var dropped = CarriedItem;
+            CarriedItem = null;
+            dropped.OnDropped();
         }
 
         private void UpdateAim()
