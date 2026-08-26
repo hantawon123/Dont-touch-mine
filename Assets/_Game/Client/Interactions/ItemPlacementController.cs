@@ -300,14 +300,11 @@ namespace Game.Client.Interactions
 
         private void ConfirmPlacement()
         {
-            var item = interactor.ReleaseCarriedItem();
-            if (item == null)
+            if (!interactor.TryPlaceCarried(previewPosition, previewRotation))
             {
-                ExitPlacementMode();
                 return;
             }
 
-            item.OnPlaced(previewPosition, previewRotation);
             ExitPlacementMode();
         }
 

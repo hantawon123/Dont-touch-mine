@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Bootstrap;
 using Game.Core.Flow;
 using Game.Core.Items;
+using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Match;
 using Game.Server.Items;
@@ -27,6 +28,7 @@ namespace Game.Architecture.Tests
                     ["host"] = Pose.identity,
                     ["client"] = new Pose(Vector3.right, Quaternion.identity),
                 });
+                using var roomState = new RoomBrowserSystem();
                 var coordinator = new NetworkMatchRuntimeCoordinator(
                     network,
                     new MatchRuntimeFactory(rules),
@@ -37,7 +39,8 @@ namespace Game.Architecture.Tests
                         CreateSpawnPoints(),
                         CreateItems(),
                         Array.Empty<WorldObjectState>(),
-                        new Pose(Vector3.forward, Quaternion.identity)));
+                        new Pose(Vector3.forward, Quaternion.identity)),
+                    roomState);
 
                 coordinator.Start();
                 network.PublishLineUp(new[]

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Core.Flow;
 using Game.Core.Items;
+using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Match;
 using Game.Server.Items;
@@ -49,6 +50,7 @@ namespace Game.Bootstrap
         private readonly IMatchRuntimeContext sceneContext;
         private readonly AppFlowSystem appFlow;
         private readonly NetworkMatchRuntimeConfiguration configuration;
+        private readonly RoomBrowserSystem roomState;
 
         private MatchSessionComposition composition;
         private MatchRuntimeController runtime;
@@ -62,7 +64,8 @@ namespace Game.Bootstrap
             MatchRuntimeFactory factory,
             IMatchRuntimeContext sceneContext,
             AppFlowSystem appFlow,
-            NetworkMatchRuntimeConfiguration configuration)
+            NetworkMatchRuntimeConfiguration configuration,
+            RoomBrowserSystem roomState)
         {
             this.network = network ?? throw new ArgumentNullException(nameof(network));
             this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
@@ -71,6 +74,7 @@ namespace Game.Bootstrap
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
             this.configuration = configuration ??
                 throw new ArgumentNullException(nameof(configuration));
+            this.roomState = roomState ?? throw new ArgumentNullException(nameof(roomState));
         }
 
         public void Start()
@@ -83,6 +87,12 @@ namespace Game.Bootstrap
             started = true;
             network.LineUpReceived += OnLineUpReceived;
             network.SimulationTick += OnSimulationTick;
+
+            var currentLineUp = roomState.MatchParticipants.CurrentValue;
+            if (currentLineUp.Count > 0)
+            {
+                OnLineUpReceived(currentLineUp);
+            }
         }
 
         public void Dispose()

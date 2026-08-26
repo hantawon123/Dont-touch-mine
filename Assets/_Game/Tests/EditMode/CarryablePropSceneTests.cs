@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Bootstrap;
 using Game.Client.Interactions;
 using Game.Core.Items;
 using NUnit.Framework;
@@ -79,6 +80,41 @@ namespace Game.Architecture.Tests
                         Is.True,
                         $"{definition.ItemId}: Playground에 대응하는 CarryableItem이 없습니다.");
                 }
+            }
+            finally
+            {
+                if (openedForTest)
+                {
+                    EditorSceneManager.CloseScene(scene, removeScene: true);
+                }
+            }
+        }
+
+        [Test]
+        public void Playground_CapturesNetworkMatchConfiguration()
+        {
+            var scene = SceneManager.GetSceneByPath(PlaygroundScenePath);
+            var openedForTest = !scene.isLoaded;
+
+            if (openedForTest)
+            {
+                scene = EditorSceneManager.OpenScene(PlaygroundScenePath, OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                PlaygroundMatchScene captured = null;
+                Assert.DoesNotThrow(() => captured = PlaygroundMatchScene.Capture(scene));
+
+                var carryableCount = CollectCarryableItems(scene).Count;
+                Assert.That(
+                    captured.NetworkConfiguration.InitialWorldObjects.Count +
+                    ItemCatalog.Definitions.Count,
+                    Is.EqualTo(carryableCount),
+                    "모든 CarryableItem이 배정 물건 또는 일반 맵 물건으로 등록되어야 합니다.");
+                Assert.That(
+                    captured.RuntimeContext.ReplayObjects.Count,
+                    Is.LessThanOrEqualTo(Game.Network.Match.MatchSessionState.MaxReplicatedObjects));
             }
             finally
             {
