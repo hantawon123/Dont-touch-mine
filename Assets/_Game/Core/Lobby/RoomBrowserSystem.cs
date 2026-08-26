@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Core.Match;
 using Game.Core.Ports;
 using Game.Core.Rooms;
 using R3;
@@ -12,7 +13,8 @@ namespace Game.Core.Lobby
     /// UI-facing room state. Network events update it through the sink ports,
     /// while presentation can only observe its R3 properties.
     /// </summary>
-    public sealed class RoomBrowserSystem : IRoomListSink, IRoomSessionSink, IDisposable
+    public sealed class RoomBrowserSystem :
+        IRoomListSink, IRoomSessionSink, IRoomParticipantSink, IMatchStartSink, IDisposable
     {
         private readonly ReactiveProperty<IReadOnlyList<RoomSummary>> rooms =
             new(Array.Empty<RoomSummary>());
@@ -23,6 +25,12 @@ namespace Game.Core.Lobby
         private readonly ReactiveProperty<int> playerCount = new(0);
         private readonly ReactiveProperty<int> maxPlayers = new(0);
         private readonly ReactiveProperty<RoomExitReason?> lastExit = new(null);
+        private readonly ReactiveProperty<IReadOnlyList<RoomParticipant>> participants =
+            new(Array.Empty<RoomParticipant>());
+        private readonly ReactiveProperty<string> localPlayerId = new(null);
+        private readonly ReactiveProperty<IReadOnlyList<MatchParticipant>> matchParticipants =
+            new(Array.Empty<MatchParticipant>());
+        private readonly ReactiveProperty<RoomStartResult?> lastStartRefusal = new(null);
 
         private int activeOperations;
 
@@ -33,6 +41,104 @@ namespace Game.Core.Lobby
         public ReadOnlyReactiveProperty<int> PlayerCount => playerCount;
         public ReadOnlyReactiveProperty<int> MaxPlayers => maxPlayers;
         public ReadOnlyReactiveProperty<RoomExitReason?> LastExit => lastExit;
+
+        /// <summary>Everyone in the room, ordered by seat.</summary>
+        public ReadOnlyReactiveProperty<IReadOnlyList<RoomParticipant>> Participants => participants;
+
+        /// <summary>
+        /// The id of the person at this screen. Compare it against a
+        /// participant's id to find yourself; the room itself does not say,
+        /// because the answer differs per screen.
+        /// </summary>
+        public ReadOnlyReactiveProperty<string> LocalPlayerId => localPlayerId;
+
+        /// <summary>
+        /// The confirmed line-up once a match has started, in play order. Empty
+        /// while the room is still waiting.
+        /// </summary>
+        public ReadOnlyReactiveProperty<IReadOnlyList<MatchParticipant>> MatchParticipants =>
+            matchParticipants;
+
+        /// <summary>True once the authority has confirmed a match.</summary>
+        public bool IsMatchStarted => matchParticipants.CurrentValue.Count > 0;
+
+        /// <summary>
+        /// Why the last start request from this peer was turned down. Null when
+        /// none was refused.
+        /// </summary>
+        public ReadOnlyReactiveProperty<RoomStartResult?> LastStartRefusal => lastStartRefusal;
+
+        /// <summary>
+        /// Where the local player sits in the confirmed line-up, or -1 before a
+        /// match starts. This is the index the match rules use, not a seat.
+        /// </summary>
+        public int LocalPlayerIndex
+        {
+            get
+            {
+                var id = localPlayerId.CurrentValue;
+                var playing = matchParticipants.CurrentValue;
+
+                for (var index = 0; index < playing.Count; index++)
+                {
+                    if (string.Equals(playing[index].PlayerId, id, StringComparison.Ordinal))
+                    {
+                        return index;
+                    }
+                }
+
+                return -1;
+            }
+        }
+
+        public void MatchStarted(IReadOnlyList<MatchParticipant> participants)
+        {
+            if (participants == null)
+            {
+                throw new ArgumentNullException(nameof(participants));
+            }
+
+            // Copied because the caller reuses its buffer.
+            var snapshot = new MatchParticipant[participants.Count];
+            for (var index = 0; index < participants.Count; index++)
+            {
+                snapshot[index] = participants[index];
+            }
+
+            matchParticipants.Value = snapshot;
+
+            if (snapshot.Length > 0)
+            {
+                lastStartRefusal.Value = null;
+            }
+        }
+
+        public void MatchStartRefused(RoomStartResult reason)
+        {
+            lastStartRefusal.Value = reason;
+        }
+
+        public void SetParticipants(IReadOnlyList<RoomParticipant> refreshed)
+        {
+            if (refreshed == null)
+            {
+                throw new ArgumentNullException(nameof(refreshed));
+            }
+
+            // Copied because the caller reuses its buffer between rebuilds.
+            var snapshot = new RoomParticipant[refreshed.Count];
+            for (var index = 0; index < refreshed.Count; index++)
+            {
+                snapshot[index] = refreshed[index];
+            }
+
+            participants.Value = snapshot;
+        }
+
+        public void SetLocalPlayer(string playerId)
+        {
+            localPlayerId.Value = playerId;
+        }
 
         public void SetRooms(IReadOnlyList<RoomSummary> refreshedRooms)
         {
@@ -130,6 +236,10 @@ namespace Game.Core.Lobby
             playerCount.Dispose();
             maxPlayers.Dispose();
             lastExit.Dispose();
+            participants.Dispose();
+            localPlayerId.Dispose();
+            matchParticipants.Dispose();
+            lastStartRefusal.Dispose();
         }
     }
 
