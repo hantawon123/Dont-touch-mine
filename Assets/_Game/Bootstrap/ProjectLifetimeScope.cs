@@ -41,7 +41,8 @@ namespace Game.Bootstrap
             builder.Register<RoomBrowserSystem>(Lifetime.Singleton)
                 .AsSelf()
                 .As<IRoomListSink>()
-                .As<IRoomSessionSink>();
+                .As<IRoomSessionSink>()
+                .As<IRoomParticipantSink>();
 
             builder.Register<PlayerRegistry>(Lifetime.Singleton);
 

@@ -5,9 +5,9 @@ using UnityEngine;
 namespace Game.Network.Players
 {
     /// <summary>
-    /// The networked half of a spawned character. Owns nothing on its own yet;
-    /// it exists so the spawner has something to spawn and later steps have a
-    /// place to hang movement, nicknames and interaction.
+    /// The networked half of a spawned character. Carries the few facts about
+    /// its owner that every peer has to agree on, and turns off whatever must
+    /// only run for the person who owns it.
     /// </summary>
     /// <remarks>
     /// The owning player is not stored. Fusion already records it as the
@@ -23,6 +23,22 @@ namespace Game.Network.Players
         [Tooltip("Behaviours that read local input or drive a local camera. " +
                  "They must not run on a copy of someone else's character.")]
         private UnityEngine.Behaviour[] _ownerOnly = Array.Empty<UnityEngine.Behaviour>();
+
+        /// <summary>
+        /// Seat number, handed out by the spawner in join order. Replicated
+        /// because presentation on every peer orders the room by it, and only
+        /// the authority knows who arrived when.
+        /// </summary>
+        [Networked]
+        public int Seat { get; set; }
+
+        /// <summary>
+        /// Whether the owner holds authority over the room. Replicated rather
+        /// than derived: a peer can tell whether it is itself the host, but not
+        /// which of the others is.
+        /// </summary>
+        [Networked]
+        public bool IsHost { get; set; }
 
         /// <summary>
         /// The player this character belongs to. Comes from the spawner and is
@@ -42,6 +58,24 @@ namespace Game.Network.Players
             // input pipeline turns these on for the owner once movement is
             // simulated on the host instead.
             SetOwnerOnlyEnabled(false);
+
+            RosterOf(Runner)?.Add(this);
+        }
+
+        public override void Despawned(NetworkRunner runner, bool hasState)
+        {
+            // The runner arrives as an argument here because this object is on
+            // its way out and Runner may already be gone.
+            RosterOf(runner)?.Remove(this, runner);
+        }
+
+        /// <summary>
+        /// The roster sits on the runner object, which is the one place a
+        /// Fusion-spawned object can reach without being injected.
+        /// </summary>
+        private static PlayerRoster RosterOf(NetworkRunner runner)
+        {
+            return runner == null ? null : runner.GetComponent<PlayerRoster>();
         }
 
         private void SetOwnerOnlyEnabled(bool enabled)

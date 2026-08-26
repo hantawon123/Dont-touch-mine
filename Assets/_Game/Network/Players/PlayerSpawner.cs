@@ -78,7 +78,21 @@ namespace Game.Network.Players
             var seat = _players.Add(player);
             var pose = PoseFor(seat);
 
-            var avatar = runner.Spawn(prefab, pose.position, pose.rotation, player);
+            // In host mode the authority is also a player, so the room's owner
+            // is whoever the server is playing as. A dedicated server plays as
+            // nobody and LocalPlayer is none, which correctly leaves the flag
+            // off everyone until a separate owner is tracked.
+            var isHost = player == runner.LocalPlayer;
+
+            // Networked values are set here, not after Spawn returns. Fusion
+            // replicates the object as it is created, and a value written
+            // afterwards would reach clients a tick late behind its default.
+            var avatar = runner.Spawn(
+                prefab,
+                pose.position,
+                pose.rotation,
+                player,
+                (_, spawned) => Describe(spawned, seat, isHost));
 
             if (avatar == null)
             {
@@ -124,6 +138,22 @@ namespace Game.Network.Players
         {
             _players.Clear();
             _spawnPoses = Array.Empty<Pose>();
+        }
+
+        private static void Describe(NetworkObject spawned, int seat, bool isHost)
+        {
+            var avatar = spawned.GetComponent<PlayerAvatar>();
+
+            if (avatar == null)
+            {
+                Debug.LogError(
+                    $"[Spawn] '{spawned.name}' has no PlayerAvatar, so it cannot " +
+                    "carry a seat and will be missing from the room list.");
+                return;
+            }
+
+            avatar.Seat = seat;
+            avatar.IsHost = isHost;
         }
 
         private Pose PoseFor(int seat)

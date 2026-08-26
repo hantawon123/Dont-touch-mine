@@ -1,3 +1,4 @@
+using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Lobby;
@@ -29,7 +30,13 @@ namespace Game.Bootstrap
     {
         private const string HostObjectName = "[SessionDebugOverlay]";
         private const int Width = 260;
-        private const int Height = 116;
+
+        /// <summary>Room code, player count, authority and the leave button.</summary>
+        private const int BaseHeight = 116;
+
+        /// <summary>Added per participant so the list is never clipped.</summary>
+        private const int LineHeight = 16;
+
         private const int Margin = 12;
         private const int ButtonHeight = 26;
 
@@ -40,6 +47,7 @@ namespace Game.Bootstrap
         private RoomBrowserSystem _state;
         private GUIStyle _boxStyle;
         private bool _leaving;
+        private readonly StringBuilder _text = new StringBuilder();
 
         /// <summary>
         /// Puts the overlay on screen for the rest of the run. Calling it again
@@ -89,7 +97,9 @@ namespace Game.Bootstrap
                 };
             }
 
-            GUI.Box(new Rect(Margin, Margin, Width, Height), Describe(), _boxStyle);
+            var height = BaseHeight + ParticipantCount * LineHeight;
+
+            GUI.Box(new Rect(Margin, Margin, Width, height), Describe(), _boxStyle);
 
             if (!InRoom())
             {
@@ -98,7 +108,7 @@ namespace Game.Bootstrap
 
             var button = new Rect(
                 Margin + 10,
-                Margin + Height - ButtonHeight - 10,
+                Margin + height - ButtonHeight - 10,
                 Width - 20,
                 ButtonHeight);
 
@@ -112,6 +122,9 @@ namespace Game.Bootstrap
         }
 
         private bool InRoom() => _network.IsRunning && !_network.IsBrowsingLobby;
+
+        private int ParticipantCount =>
+            _state == null ? 0 : _state.Participants.CurrentValue.Count;
 
         private async UniTaskVoid Leave()
         {
@@ -145,9 +158,53 @@ namespace Game.Bootstrap
                 return "Browsing the room list";
             }
 
-            return $"Room      {_network.RoomCode}\n" +
-                   $"Players   {_network.PlayerCount}/{_network.MaxPlayers}\n" +
-                   $"Authority {(_network.IsServer ? "host" : "client")}";
+            _text.Clear();
+            _text.Append("Room      ").Append(_network.RoomCode).Append('\n')
+                 .Append("Players   ").Append(_network.PlayerCount)
+                 .Append('/').Append(_network.MaxPlayers).Append('\n')
+                 .Append("Authority ").Append(_network.IsServer ? "host" : "client");
+
+            AppendParticipants();
+            return _text.ToString();
+        }
+
+        /// <summary>
+        /// Lists the room by seat. Shows that every peer agrees on the seats and
+        /// on who the host is, which is the whole point of replicating them.
+        /// </summary>
+        /// <remarks>
+        /// Being the local player is worked out here rather than read off the
+        /// participant, because the answer differs per screen. This is the same
+        /// comparison the lobby screen will make.
+        /// </remarks>
+        private void AppendParticipants()
+        {
+            if (_state == null)
+            {
+                return;
+            }
+
+            var participants = _state.Participants.CurrentValue;
+            var localId = _state.LocalPlayerId.CurrentValue;
+
+            for (var index = 0; index < participants.Count; index++)
+            {
+                var participant = participants[index];
+
+                _text.Append('\n')
+                     .Append(participant.Seat).Append("  ")
+                     .Append(participant.PlayerId);
+
+                if (participant.IsHost)
+                {
+                    _text.Append("  host");
+                }
+
+                if (participant.PlayerId == localId)
+                {
+                    _text.Append("  <- you");
+                }
+            }
         }
     }
 }

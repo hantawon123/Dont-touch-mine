@@ -38,6 +38,9 @@ namespace Game.Network.Session
         /// </summary>
         private readonly PlayerSpawner _spawner;
 
+        /// <summary>Where the room's roster is reported.</summary>
+        private readonly IRoomParticipantSink _participantSink;
+
         private readonly List<RoomSummary> _roomBuffer = new List<RoomSummary>();
 
         private NetworkRunner _runner;
@@ -66,10 +69,12 @@ namespace Game.Network.Session
         public NetworkRunnerService(
             IRoomListSink roomListSink,
             IRoomSessionSink sessionSink,
+            IRoomParticipantSink participantSink,
             PlayerSpawner spawner)
         {
             _roomListSink = roomListSink;
             _sessionSink = sessionSink;
+            _participantSink = participantSink;
             _spawner = spawner;
         }
 
@@ -300,6 +305,10 @@ namespace Game.Network.Session
             _runner.ProvideInput = provideInput;
             _runner.AddCallbacks(this);
 
+            // Sits on the runner so that characters, which Fusion spawns and the
+            // container therefore cannot inject, can still reach it.
+            _runnerObject.AddComponent<PlayerRoster>().Bind(_participantSink);
+
             return sceneManager;
         }
 
@@ -309,6 +318,14 @@ namespace Game.Network.Session
         /// </summary>
         private void ReleaseRunner()
         {
+            // Emptied while the runner object still exists. It is destroyed with
+            // the session, and presentation would otherwise keep showing the
+            // people who were in the room we just left.
+            if (_runnerObject != null)
+            {
+                _runnerObject.GetComponent<PlayerRoster>()?.Clear();
+            }
+
             _runner = null;
             _runnerObject = null;
             _expectedPassword = null;

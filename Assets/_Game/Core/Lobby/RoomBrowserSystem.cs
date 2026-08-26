@@ -12,7 +12,8 @@ namespace Game.Core.Lobby
     /// UI-facing room state. Network events update it through the sink ports,
     /// while presentation can only observe its R3 properties.
     /// </summary>
-    public sealed class RoomBrowserSystem : IRoomListSink, IRoomSessionSink, IDisposable
+    public sealed class RoomBrowserSystem :
+        IRoomListSink, IRoomSessionSink, IRoomParticipantSink, IDisposable
     {
         private readonly ReactiveProperty<IReadOnlyList<RoomSummary>> rooms =
             new(Array.Empty<RoomSummary>());
@@ -23,6 +24,9 @@ namespace Game.Core.Lobby
         private readonly ReactiveProperty<int> playerCount = new(0);
         private readonly ReactiveProperty<int> maxPlayers = new(0);
         private readonly ReactiveProperty<RoomExitReason?> lastExit = new(null);
+        private readonly ReactiveProperty<IReadOnlyList<RoomParticipant>> participants =
+            new(Array.Empty<RoomParticipant>());
+        private readonly ReactiveProperty<string> localPlayerId = new(null);
 
         private int activeOperations;
 
@@ -33,6 +37,38 @@ namespace Game.Core.Lobby
         public ReadOnlyReactiveProperty<int> PlayerCount => playerCount;
         public ReadOnlyReactiveProperty<int> MaxPlayers => maxPlayers;
         public ReadOnlyReactiveProperty<RoomExitReason?> LastExit => lastExit;
+
+        /// <summary>Everyone in the room, ordered by seat.</summary>
+        public ReadOnlyReactiveProperty<IReadOnlyList<RoomParticipant>> Participants => participants;
+
+        /// <summary>
+        /// The id of the person at this screen. Compare it against a
+        /// participant's id to find yourself; the room itself does not say,
+        /// because the answer differs per screen.
+        /// </summary>
+        public ReadOnlyReactiveProperty<string> LocalPlayerId => localPlayerId;
+
+        public void SetParticipants(IReadOnlyList<RoomParticipant> refreshed)
+        {
+            if (refreshed == null)
+            {
+                throw new ArgumentNullException(nameof(refreshed));
+            }
+
+            // Copied because the caller reuses its buffer between rebuilds.
+            var snapshot = new RoomParticipant[refreshed.Count];
+            for (var index = 0; index < refreshed.Count; index++)
+            {
+                snapshot[index] = refreshed[index];
+            }
+
+            participants.Value = snapshot;
+        }
+
+        public void SetLocalPlayer(string playerId)
+        {
+            localPlayerId.Value = playerId;
+        }
 
         public void SetRooms(IReadOnlyList<RoomSummary> refreshedRooms)
         {
@@ -130,6 +166,8 @@ namespace Game.Core.Lobby
             playerCount.Dispose();
             maxPlayers.Dispose();
             lastExit.Dispose();
+            participants.Dispose();
+            localPlayerId.Dispose();
         }
     }
 
