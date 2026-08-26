@@ -887,7 +887,9 @@ namespace Fusion {
     public override FusionGlobalScriptableObjectLoadResult Load(Type type) {
 
       var attribute = type.GetCustomAttribute<FusionGlobalScriptableObjectAttribute>();
-      Assert.Check(attribute != null);
+      if (attribute == null) {
+        return default;
+      }
 
       var resourcePath = GetResourcePath(type, attribute);
       if (resourcePath == null) {
@@ -908,7 +910,9 @@ namespace Fusion {
     /// </summary>
     public override System.Threading.Tasks.Task<FusionGlobalScriptableObjectLoadResult> LoadAsync(Type type) {
       var attribute = type.GetCustomAttribute<FusionGlobalScriptableObjectAttribute>();
-      Assert.Check(attribute != null);
+      if (attribute == null) {
+        return System.Threading.Tasks.Task.FromResult(default(FusionGlobalScriptableObjectLoadResult));
+      }
 
       var tcs = new TaskCompletionSource<FusionGlobalScriptableObjectLoadResult>();
 
