@@ -4,6 +4,7 @@ using Game.Client.Players;
 using Game.Core.Match;
 using Game.Core.Players;
 using Game.Network.Match;
+using Game.Network;
 using Game.Network.Players;
 using Game.Server.Match;
 using NUnit.Framework;
@@ -180,6 +181,7 @@ namespace Game.Architecture.Tests
                 "RPC_RequestThrow",
                 "RPC_RequestHit",
                 "RPC_RequestShredder",
+                "RPC_RequestReturnToLobby",
             };
 
             foreach (var name in names)
@@ -209,6 +211,18 @@ namespace Game.Architecture.Tests
                     Is.False,
                     name);
             }
+        }
+
+        [Test]
+        public void NetworkScenes_ContainsBuildListedMatchAndLobbyScenes()
+        {
+            var scenes = AssetDatabase.LoadAssetAtPath<NetworkScenes>(
+                "Assets/_Game/Content/Settings/NetworkScenes.asset");
+
+            Assert.That(scenes, Is.Not.Null);
+            Assert.That(scenes.MatchScene.IsValid, Is.True);
+            Assert.That(scenes.LobbyScene.IsValid, Is.True);
+            Assert.That(scenes.MatchScene, Is.Not.EqualTo(scenes.LobbyScene));
         }
 
         [Test]

@@ -24,5 +24,10 @@ namespace Game.Network.Match
         /// replicates the change to the others.
         /// </summary>
         void EnterMatchScene(NetworkRunner runner);
+
+        /// <summary>
+        /// Returns everyone to the waiting room without leaving the network session.
+        /// </summary>
+        void EnterLobbyScene(NetworkRunner runner);
     }
 }

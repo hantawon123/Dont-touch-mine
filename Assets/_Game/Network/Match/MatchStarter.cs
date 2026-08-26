@@ -52,6 +52,7 @@ namespace Game.Network.Match
         private MatchSessionCoordinator _session;
         private Pose _shredderEjectionPose;
         private bool _hasShredderEjectionPose;
+        private bool _returningToLobby;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<string> ItemAssignmentReceived;
@@ -298,6 +299,7 @@ namespace Game.Network.Match
             }
 
             UnbindSession();
+            _returningToLobby = false;
             _session = session;
             _session.PlayerItemDestroyed += OnPlayerItemDestroyed;
             _session.PlayerStunned += OnPlayerStunned;
@@ -388,6 +390,17 @@ namespace Game.Network.Match
             }
 
             _state.RPC_RequestShredder();
+            return true;
+        }
+
+        public bool RequestReturnToLobby()
+        {
+            if (_state == null || _returningToLobby)
+            {
+                return false;
+            }
+
+            _state.RPC_RequestReturnToLobby();
             return true;
         }
 
@@ -571,6 +584,29 @@ namespace Game.Network.Match
             return true;
         }
 
+        public bool TryReturnToLobby(PlayerRef source)
+        {
+            if (!TryGetPlayerIndex(source, out _))
+            {
+                return false;
+            }
+
+            return ReturnToLobby();
+        }
+
+        private bool ReturnToLobby()
+        {
+            if (_returningToLobby || _sceneDirector == null || _state == null ||
+                _session == null || _session.CurrentPhase != MatchPhase.Result)
+            {
+                return false;
+            }
+
+            _returningToLobby = true;
+            _sceneDirector.EnterLobbyScene(_state.Runner);
+            return true;
+        }
+
         private double ServerTime => _state.Runner.SimulationTime;
 
         private void OnPlayerItemDestroyed(PlayerItemDestroyedEvent confirmedEvent)
@@ -630,7 +666,11 @@ namespace Game.Network.Match
 
         private void OnMatchEnded(MatchResult result)
         {
-            _state?.TrySetResult(result);
+            if (_state?.TrySetResult(result) == true &&
+                result.EndReason == MatchEndReason.LastPlayerStanding)
+            {
+                ReturnToLobby();
+            }
         }
 
         private void PublishRemainingDestructionUses(int playerIndex)
@@ -740,6 +780,7 @@ namespace Game.Network.Match
             _state = null;
             UnbindSession();
             _hasShredderEjectionPose = false;
+            _returningToLobby = false;
             _playing.Clear();
             _room.Clear();
             _sink?.MatchStarted(_playing);

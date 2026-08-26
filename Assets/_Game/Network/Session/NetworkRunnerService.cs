@@ -427,6 +427,11 @@ namespace Game.Network.Session
             _runnerObject.GetComponent<MatchStarter>()?.RequestStart(_runner);
         }
 
+        public bool RequestReturnToLobby() =>
+            IsRunning && !_browsingLobby &&
+            _matchStarter != null &&
+            _matchStarter.RequestReturnToLobby();
+
         public bool TryPublishMatchState(MatchStateSnapshot snapshot)
         {
             return IsServer && _matchStarter != null &&
@@ -660,6 +665,31 @@ namespace Game.Network.Session
             // geometry inside it.
             runner.LoadScene(scene, LoadSceneMode.Single);
             Debug.Log("[Session] Loading the match scene for everyone.");
+        }
+
+        public void EnterLobbyScene(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsRunning || !runner.IsServer)
+            {
+                return;
+            }
+
+            if (_scenes == null)
+            {
+                Debug.LogError(
+                    "[Session] No NetworkScenes asset is assigned, so the room " +
+                    "cannot return to the lobby. Set it on ProjectLifetimeScope.");
+                return;
+            }
+
+            var scene = _scenes.LobbyScene;
+            if (!scene.IsValid)
+            {
+                return;
+            }
+
+            runner.LoadScene(scene, LoadSceneMode.Single);
+            Debug.Log("[Session] Returning everyone to the lobby scene.");
         }
 
         /// <summary>

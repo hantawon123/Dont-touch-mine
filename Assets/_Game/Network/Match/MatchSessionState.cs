@@ -574,6 +574,12 @@ namespace Game.Network.Match
             StarterOf(Runner)?.TryUseShredder(info.Source);
         }
 
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestReturnToLobby(RpcInfo info = default)
+        {
+            StarterOf(Runner)?.TryReturnToLobby(info.Source);
+        }
+
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
         public void RPC_NotifyItemDestroyed(
             int destroyerPlayerIndex,
