@@ -68,7 +68,10 @@ namespace Game.Server.Items
         public int PlacedCount { get; private set; }
         public bool AllPlaced => PlacedCount == placements.Length;
 
-        public void RecordPlacement(int playerIndex, Pose pose)
+        public void RecordPlacement(
+            int playerIndex,
+            Pose pose,
+            bool wasAutoPlaced = false)
         {
             ValidatePlayerIndex(playerIndex);
 
@@ -81,7 +84,7 @@ namespace Game.Server.Items
                 playerIndex,
                 itemIds[playerIndex],
                 pose,
-                false);
+                wasAutoPlaced);
         }
 
         public ItemPlacement CompleteTurn(int playerIndex, Vector3 lastPlayerPosition)

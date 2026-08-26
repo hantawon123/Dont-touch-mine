@@ -261,13 +261,15 @@ namespace Game.Server.Match
 
         public bool TryRecordItemPlacement(int playerIndex, Pose pose, double now)
         {
-            if (!Players.IsActive(playerIndex) ||
-                flow.GetCurrentHidingTurnIndex(now) != playerIndex ||
-                flow.GetHidingTurnRemainingSeconds(now) <= 0d ||
-                completedHidingTurns[playerIndex] ||
+            if (!CanActDuringHidingTurn(playerIndex, now) ||
                 !placementValidator.IsValid(Assignments[playerIndex].Item.ItemId, pose))
             {
                 return false;
+            }
+
+            if (outcome.GetHeldItemOwner(playerIndex) == playerIndex)
+            {
+                outcome.ReleaseHeldItem(playerIndex);
             }
 
             placements.RecordPlacement(playerIndex, pose);
@@ -285,10 +287,7 @@ namespace Game.Server.Match
             Pose pose,
             double now)
         {
-            if (!Players.IsActive(playerIndex) ||
-                flow.GetCurrentHidingTurnIndex(now) != playerIndex ||
-                flow.GetHidingTurnRemainingSeconds(now) <= 0d ||
-                completedHidingTurns[playerIndex])
+            if (!CanActDuringHidingTurn(playerIndex, now))
             {
                 return false;
             }
@@ -310,7 +309,8 @@ namespace Game.Server.Match
 
         public bool TryHoldObject(int playerIndex, string objectId, double now)
         {
-            if (!CanInteract(playerIndex, now) ||
+            var isSearching = CanInteract(playerIndex, now);
+            if ((!CanActDuringHidingTurn(playerIndex, now) && !isSearching) ||
                 outcome.GetHeldItemOwner(playerIndex) >= 0 ||
                 heldMapObjectIdsByPlayer[playerIndex] != null)
             {
@@ -319,7 +319,11 @@ namespace Game.Server.Match
 
             if (outcome.TryHoldItem(playerIndex, objectId))
             {
-                highlightRecorder.RecordItemInteraction(playerIndex, objectId, now);
+                if (isSearching)
+                {
+                    highlightRecorder.RecordItemInteraction(playerIndex, objectId, now);
+                }
+
                 return true;
             }
 
@@ -337,14 +341,20 @@ namespace Game.Server.Match
 
         public bool TryReleaseHeldObject(int playerIndex, Pose pose, double now)
         {
-            if (!CanInteract(playerIndex, now) ||
+            var isHiding = CanActDuringHidingTurn(playerIndex, now);
+            if ((!isHiding && !CanInteract(playerIndex, now)) ||
                 !TryGetHeldObjectId(playerIndex, out var objectId) ||
+                (isHiding && !placementValidator.IsValid(objectId, pose)) ||
                 !ReleaseHeldObjectAt(playerIndex, pose))
             {
                 return false;
             }
 
-            highlightRecorder.RecordItemInteraction(playerIndex, objectId, now);
+            if (!isHiding)
+            {
+                highlightRecorder.RecordItemInteraction(playerIndex, objectId, now);
+            }
+
             return true;
         }
 
@@ -515,11 +525,12 @@ namespace Game.Server.Match
 
             if (phase == MatchPhase.Hiding && !completedHidingTurns[playerIndex])
             {
-                placements.CompleteTurn(playerIndex, lastKnownPose.position);
-                completedHidingTurns[playerIndex] = true;
+                CompleteHidingTurn(playerIndex, lastKnownPose.position);
             }
-
-            ReleaseHeldObjectAt(playerIndex, lastKnownPose);
+            else
+            {
+                ReleaseHeldObjectAt(playerIndex, lastKnownPose, true);
+            }
             if (Players.ActivePlayerCount == 1)
             {
                 var winnerPlayerIndex = GetSoleActivePlayerIndex();
@@ -658,13 +669,35 @@ namespace Game.Server.Match
                    !interactions.IsStunned(playerIndex, now);
         }
 
-        private bool ReleaseHeldObjectAt(int playerIndex, Pose pose)
+        private bool CanActDuringHidingTurn(int playerIndex, double now)
+        {
+            return Players.IsActive(playerIndex) &&
+                   state.CurrentPhase.CurrentValue == MatchPhase.Hiding &&
+                   flow.GetCurrentHidingTurnIndex(now) == playerIndex &&
+                   flow.GetHidingTurnRemainingSeconds(now) > 0d &&
+                   !completedHidingTurns[playerIndex];
+        }
+
+        private void CompleteHidingTurn(int playerIndex, Vector3 lastPlayerPosition)
+        {
+            ReleaseHeldObjectAt(
+                playerIndex,
+                new Pose(lastPlayerPosition, Quaternion.identity),
+                true);
+            placements.CompleteTurn(playerIndex, lastPlayerPosition);
+            completedHidingTurns[playerIndex] = true;
+        }
+
+        private bool ReleaseHeldObjectAt(
+            int playerIndex,
+            Pose pose,
+            bool wasAutoPlaced = false)
         {
             var heldItemOwner = outcome.GetHeldItemOwner(playerIndex);
             if (heldItemOwner >= 0)
             {
                 outcome.ReleaseHeldItem(playerIndex);
-                placements.RecordPlacement(heldItemOwner, pose);
+                placements.RecordPlacement(heldItemOwner, pose, wasAutoPlaced);
                 return true;
             }
 
@@ -841,8 +874,7 @@ namespace Game.Server.Match
                     continue;
                 }
 
-                placements.CompleteTurn(playerIndex, lastKnownPlayerPositions[playerIndex]);
-                completedHidingTurns[playerIndex] = true;
+                CompleteHidingTurn(playerIndex, lastKnownPlayerPositions[playerIndex]);
             }
         }
 

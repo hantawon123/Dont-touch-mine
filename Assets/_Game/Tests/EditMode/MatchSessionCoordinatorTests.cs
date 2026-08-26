@@ -80,6 +80,93 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void HidingPlayer_CanMovePlayerItemsAndMapObjects()
+        {
+            session.Start(10d);
+            var itemId = session.Assignments[0].Item.ItemId;
+            var otherItemId = session.Assignments[1].Item.ItemId;
+            var firstPose = new Pose(new Vector3(2f, 0f, 1f), Quaternion.identity);
+            var invalidPose = new Pose(new Vector3(-1f, 0f, 0f), Quaternion.identity);
+            var replacedPose = new Pose(new Vector3(5f, 0f, 3f), Quaternion.identity);
+
+            Assert.That(session.TryRecordItemPlacement(0, firstPose, 20d), Is.True);
+            Assert.That(session.TryHoldObject(0, itemId, 20d), Is.True);
+            Assert.That(session.TryGetItemPlacement(0, out var previousPlacement), Is.True);
+            Assert.That(previousPlacement.Pose.position, Is.EqualTo(firstPose.position));
+            Assert.That(session.TryHoldObject(1, itemId, 20d), Is.False);
+            Assert.That(session.TryReleaseHeldObject(0, invalidPose, 20d), Is.False);
+            Assert.That(session.TryGetHeldObjectId(0, out var heldItemId), Is.True);
+            Assert.That(heldItemId, Is.EqualTo(itemId));
+
+            Assert.That(session.TryReleaseHeldObject(0, replacedPose, 20d), Is.True);
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
+            Assert.That(session.TryGetItemPlacement(0, out var placement), Is.True);
+            Assert.That(placement.Pose.position, Is.EqualTo(replacedPose.position));
+            Assert.That(placement.WasAutoPlaced, Is.False);
+
+            Assert.That(session.TryHoldObject(0, otherItemId, 20d), Is.True);
+            Assert.That(session.TryReleaseHeldObject(0, firstPose, 20d), Is.True);
+            Assert.That(session.TryGetItemPlacement(1, out placement), Is.True);
+            Assert.That(placement.Pose.position, Is.EqualTo(firstPose.position));
+
+            Assert.That(session.TryHoldObject(0, "shelf", 20d), Is.True);
+            Assert.That(session.TryReleaseHeldObject(0, replacedPose, 20d), Is.True);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(replacedPose.position));
+        }
+
+        [Test]
+        public void HidingTurnTimeout_DropsRepickedItemAtLastPlayerPosition()
+        {
+            session.Start(10d);
+            var itemId = session.Assignments[0].Item.ItemId;
+            var firstPose = new Pose(new Vector3(2f, 0f, 1f), Quaternion.identity);
+            lastKnownPositions[0] = new Vector3(8f, 0f, 4f);
+
+            Assert.That(session.TryRecordItemPlacement(0, firstPose, 20d), Is.True);
+            Assert.That(session.TryHoldObject(0, itemId, 25d), Is.True);
+
+            session.AdvanceTime(40d, lastKnownPositions);
+
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
+            Assert.That(session.TryGetItemPlacement(0, out var placement), Is.True);
+            Assert.That(placement.Pose.position, Is.EqualTo(lastKnownPositions[0]));
+            Assert.That(placement.WasAutoPlaced, Is.True);
+        }
+
+        [Test]
+        public void PlayerLeavingDuringHiding_DropsHeldOpponentItem()
+        {
+            session.Start(10d);
+            var otherItemId = session.Assignments[1].Item.ItemId;
+            var lastPose = new Pose(new Vector3(7f, 0f, 6f), Quaternion.identity);
+
+            Assert.That(session.TryHoldObject(0, otherItemId, 20d), Is.True);
+            Assert.That(session.TryHandlePlayerLeft(0, lastPose, 20d), Is.True);
+
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
+            Assert.That(session.TryGetItemPlacement(1, out var droppedItem), Is.True);
+            Assert.That(droppedItem.Pose.position, Is.EqualTo(lastPose.position));
+            Assert.That(droppedItem.WasAutoPlaced, Is.True);
+            Assert.That(session.TryGetItemPlacement(0, out var ownItem), Is.True);
+            Assert.That(ownItem.Pose.position, Is.EqualTo(lastPose.position));
+        }
+
+        [Test]
+        public void PlayerLeavingDuringHiding_DropsHeldMapObject()
+        {
+            session.Start(10d);
+            var lastPose = new Pose(new Vector3(4f, 0f, 9f), Quaternion.identity);
+
+            Assert.That(session.TryHoldObject(0, "shelf", 20d), Is.True);
+            Assert.That(session.TryHandlePlayerLeft(0, lastPose, 20d), Is.True);
+
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(lastPose.position));
+        }
+
+        [Test]
         public void Session_PreservesLobbyParticipantOrder()
         {
             for (var playerIndex = 0; playerIndex < MatchRulesSO.PlayerCount; playerIndex++)
