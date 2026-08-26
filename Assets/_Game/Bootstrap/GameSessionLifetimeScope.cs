@@ -8,6 +8,7 @@ using Game.Core.Maps;
 using Game.Core.Rooms;
 using Game.Network.Players;
 using Game.Network.Session;
+using R3;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -183,8 +184,11 @@ namespace Game.Bootstrap
     /// </summary>
     public sealed class SessionAutoConnect : IAsyncStartable
     {
-        private const int ListPollIntervalMs = 200;
-        private const int ListPollAttempts = 50;
+        /// <summary>
+        /// How long to wait for a room listing before giving up. A timer, not a
+        /// frame count, so it holds even if the player loop stalls.
+        /// </summary>
+        private const int ListWaitMs = 10_000;
 
         private readonly RoomUiCommands _commands;
         private readonly RoomBrowserSystem _state;
@@ -262,24 +266,27 @@ namespace Game.Bootstrap
             }
 
             var rooms = _state.Rooms;
-            Debug.Log($"[Bootstrap] Waiting for a room listing. Have {rooms.CurrentValue.Count}.");
 
-            var waited = 0;
-
-            for (var i = 0; i < ListPollAttempts && rooms.CurrentValue.Count == 0; i++)
-            {
-                await UniTask.Delay(ListPollIntervalMs, cancellationToken: cancellation);
-                waited = i + 1;
-            }
-
-            Debug.Log(
-                $"[Bootstrap] Done waiting after {waited} attempts. " +
-                $"Have {rooms.CurrentValue.Count} room(s).");
-
+            // Waited for by subscription rather than by polling. Polling asked
+            // "is it here yet" on a player-loop delay, and in a virtual player
+            // that delay was seen not to resume: the listing arrived and nothing
+            // ever looked again. Waiting on the value itself continues the moment
+            // it is published, and the timeout below runs on a timer rather than
+            // on the player loop, so neither half depends on that.
             if (rooms.CurrentValue.Count == 0)
             {
-                Debug.LogError("[Bootstrap] No rooms are listed.");
-                return;
+                using var wait = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+                wait.CancelAfter(ListWaitMs);
+
+                try
+                {
+                    await rooms.Where(listing => listing.Count > 0).FirstAsync(wait.Token);
+                }
+                catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
+                {
+                    Debug.LogError("[Bootstrap] No rooms are listed.");
+                    return;
+                }
             }
 
             var target = rooms.CurrentValue[0];
