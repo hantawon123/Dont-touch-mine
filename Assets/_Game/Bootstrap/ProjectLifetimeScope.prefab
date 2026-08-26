@@ -48,3 +48,4 @@ MonoBehaviour:
     TypeName: 
   autoRun: 1
   autoInjectGameObjects: []
+  koreanSourceFont: {fileID: 12800000, guid: 73b2673d3c72cfe468a734f6cf00c3cc, type: 3}

@@ -6,6 +6,7 @@
         "Game.Core",
         "Game.Server",
         "Game.SOAP",
+        "Unity.TextMeshPro",
         "VContainer"
     ],
     "includePlatforms": [],
