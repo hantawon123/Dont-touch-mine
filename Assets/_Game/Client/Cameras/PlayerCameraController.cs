@@ -34,9 +34,14 @@ namespace Game.Client.Cameras
         [SerializeField, Range(0f, 89f)]
         private float maxPitch = 75f;
 
+        [SerializeField, Min(0.1f)]
+        private float eyeHeightLerpSpeed = 8f;
+
         private InputActionMap playerMap;
         private InputAction lookAction;
         private InputAction toggleViewAction;
+        private PlayerMovement followMovement;
+        private float currentEyeHeight;
         private float yaw;
         private float pitch;
         private bool isFirstPerson;
@@ -62,6 +67,9 @@ namespace Game.Client.Cameras
 
                 followTarget = player.transform;
             }
+
+            followMovement = followTarget.GetComponent<PlayerMovement>();
+            currentEyeHeight = followMovement != null ? followMovement.CurrentEyeHeight : headOffset.y;
 
             playerMap = inputActions.FindActionMap("Player", throwIfNotFound: true);
             lookAction = playerMap.FindAction("Look", throwIfNotFound: true);
@@ -112,8 +120,14 @@ namespace Game.Client.Cameras
 
         private void LateUpdate()
         {
+            // 자세(서기/앉기/엎드리기)에 따라 눈높이를 부드럽게 따라간다.
+            var targetEyeHeight = followMovement != null ? followMovement.CurrentEyeHeight : headOffset.y;
+            currentEyeHeight = Mathf.Lerp(
+                currentEyeHeight, targetEyeHeight, eyeHeightLerpSpeed * Time.deltaTime);
+
+            var offset = new Vector3(headOffset.x, currentEyeHeight, headOffset.z);
             transform.SetPositionAndRotation(
-                followTarget.position + headOffset,
+                followTarget.position + offset,
                 Quaternion.Euler(pitch, yaw, 0f));
         }
 

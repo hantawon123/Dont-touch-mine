@@ -4,6 +4,13 @@ using UnityEngine.InputSystem;
 
 namespace Game.Client.Players
 {
+    public enum PlayerPosture
+    {
+        Standing,
+        Crouching,
+        Prone
+    }
+
     [RequireComponent(typeof(CharacterController))]
     public sealed class PlayerMovement : MonoBehaviour
     {
@@ -13,6 +20,18 @@ namespace Game.Client.Players
         [SerializeField]
         private MovementConfigSO movementConfig;
 
+        [SerializeField]
+        private Transform visualRoot;
+
+        public PlayerPosture Posture { get; private set; } = PlayerPosture.Standing;
+
+        public float CurrentEyeHeight => Posture switch
+        {
+            PlayerPosture.Crouching => movementConfig.CrouchEyeHeight,
+            PlayerPosture.Prone => movementConfig.ProneEyeHeight,
+            _ => movementConfig.StandEyeHeight
+        };
+
         // 접지 상태를 안정시키기 위해 바닥에 있을 때 아래로 살짝 눌러주는 속도.
         private const float GroundedStickVelocity = -2f;
 
@@ -21,6 +40,8 @@ namespace Game.Client.Players
         private InputAction moveAction;
         private InputAction jumpAction;
         private InputAction sprintAction;
+        private InputAction crouchAction;
+        private InputAction proneAction;
         private Transform cameraTransform;
         private float verticalVelocity;
 
@@ -46,6 +67,17 @@ namespace Game.Client.Players
             moveAction = playerMap.FindAction("Move", throwIfNotFound: true);
             jumpAction = playerMap.FindAction("Jump", throwIfNotFound: true);
             sprintAction = playerMap.FindAction("Sprint", throwIfNotFound: true);
+            crouchAction = playerMap.FindAction("Crouch", throwIfNotFound: true);
+            proneAction = playerMap.FindAction("Prone", throwIfNotFound: true);
+
+            if (visualRoot == null)
+            {
+                visualRoot = transform.Find("Visual");
+                if (visualRoot == null)
+                {
+                    Debug.LogWarning("PlayerMovement: visualRoot가 없어 자세 변경 시 겉모습이 그대로 유지됩니다.", this);
+                }
+            }
         }
 
         private void OnEnable()
@@ -64,11 +96,13 @@ namespace Game.Client.Players
             var direction = ToCameraRelativeDirection(input);
             var gravity = -Physics.gravity.y * movementConfig.GravityMultiplier;
 
+            HandlePostureInput();
+
             if (controller.isGrounded)
             {
                 verticalVelocity = GroundedStickVelocity;
 
-                if (jumpAction.WasPressedThisFrame())
+                if (jumpAction.WasPressedThisFrame() && Posture == PlayerPosture.Standing)
                 {
                     // 목표 높이(JumpHeight)에 도달하는 초기 속도: v = sqrt(2gh)
                     verticalVelocity = Mathf.Sqrt(2f * gravity * movementConfig.JumpHeight);
@@ -77,7 +111,7 @@ namespace Game.Client.Players
 
             verticalVelocity -= gravity * Time.deltaTime;
 
-            var moveSpeed = sprintAction.IsPressed() ? movementConfig.SprintSpeed : movementConfig.WalkSpeed;
+            var moveSpeed = GetMoveSpeed();
             var velocity = direction * moveSpeed;
             velocity.y = verticalVelocity;
             controller.Move(velocity * Time.deltaTime);
@@ -87,6 +121,119 @@ namespace Game.Client.Players
                 var targetRotation = Quaternion.LookRotation(direction);
                 transform.rotation = Quaternion.RotateTowards(
                     transform.rotation, targetRotation, movementConfig.RotationSpeedDegrees * Time.deltaTime);
+            }
+        }
+
+        private void HandlePostureInput()
+        {
+            // 공중에서는 자세를 바꿀 수 없다.
+            if (!controller.isGrounded)
+            {
+                return;
+            }
+
+            if (crouchAction.WasPressedThisFrame())
+            {
+                SetPosture(Posture == PlayerPosture.Crouching
+                    ? PlayerPosture.Standing
+                    : PlayerPosture.Crouching);
+            }
+
+            if (proneAction.WasPressedThisFrame())
+            {
+                SetPosture(Posture == PlayerPosture.Prone
+                    ? PlayerPosture.Standing
+                    : PlayerPosture.Prone);
+            }
+
+            // 앉기/엎드리기 중 점프 키는 일어서기로 동작한다.
+            if (jumpAction.WasPressedThisFrame() && Posture != PlayerPosture.Standing)
+            {
+                SetPosture(PlayerPosture.Standing);
+            }
+        }
+
+        private void SetPosture(PlayerPosture posture)
+        {
+            if (Posture == posture)
+            {
+                return;
+            }
+
+            var targetHeight = GetPostureHeight(posture);
+            if (!HasHeadroom(targetHeight))
+            {
+                return;
+            }
+
+            Posture = posture;
+            ApplyPostureShape(posture, targetHeight);
+        }
+
+        // 몸을 세울 때 머리 위 공간이 있는지 검사한다. (책상 밑 등에서는 일어설 수 없다)
+        private bool HasHeadroom(float targetHeight)
+        {
+            if (targetHeight <= controller.height)
+            {
+                return true;
+            }
+
+            var radius = controller.radius * 0.95f;
+            var topSphereCenter = transform.position + controller.center
+                + Vector3.up * (controller.height * 0.5f - controller.radius);
+            var castDistance = targetHeight - controller.height;
+
+            // 자기 자신과 겹친 상태에서 시작하는 캐스트는 자기 콜라이더를 무시한다.
+            return !Physics.SphereCast(
+                topSphereCenter, radius, Vector3.up, out _,
+                castDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        }
+
+        private float GetPostureHeight(PlayerPosture posture)
+        {
+            return posture switch
+            {
+                PlayerPosture.Crouching => movementConfig.CrouchHeight,
+                PlayerPosture.Prone => movementConfig.ProneHeight,
+                _ => movementConfig.StandHeight
+            };
+        }
+
+        private float GetMoveSpeed()
+        {
+            return Posture switch
+            {
+                PlayerPosture.Crouching => movementConfig.CrouchSpeed,
+                PlayerPosture.Prone => movementConfig.ProneSpeed,
+                _ => sprintAction.IsPressed() ? movementConfig.SprintSpeed : movementConfig.WalkSpeed
+            };
+        }
+
+        private void ApplyPostureShape(PlayerPosture posture, float height)
+        {
+            controller.height = height;
+            controller.center = new Vector3(0f, height * 0.5f, 0f);
+
+            if (visualRoot == null)
+            {
+                return;
+            }
+
+            // 임시 캡슐 비주얼: 자세를 스케일과 회전으로 표현한다. (기본 캡슐 높이 2m 기준)
+            var scale = visualRoot.localScale;
+            if (posture == PlayerPosture.Prone)
+            {
+                // 몸 길이는 서 있을 때 키를 유지한 채 앞으로 눕힌다.
+                var bodyRadius = height * 0.5f;
+                visualRoot.localScale = new Vector3(scale.x, movementConfig.StandHeight * 0.5f, scale.z);
+                visualRoot.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                visualRoot.localPosition = new Vector3(0f, bodyRadius, 0f);
+            }
+            else
+            {
+                visualRoot.localScale = new Vector3(scale.x, height * 0.5f, scale.z);
+                visualRoot.localRotation = Quaternion.identity;
+                visualRoot.localPosition = new Vector3(0f, height * 0.5f, 0f);
             }
         }
 
