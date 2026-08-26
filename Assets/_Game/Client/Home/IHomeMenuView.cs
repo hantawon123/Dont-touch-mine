@@ -10,6 +10,12 @@ namespace Game.Client.Home
 
         event Action FriendListDismissed;
 
+        event Action ProfileSettingsDismissed;
+
+        event Action<string> NicknameChangeRequested;
+
+        event Action<string> NicknameEdited;
+
         event Action FriendSearchOpened;
 
         event Action FriendSearchClosed;
@@ -21,6 +27,10 @@ namespace Game.Client.Home
         void SetNickname(string nickname);
 
         void SetLevel(int level);
+
+        void SetProfileSettingsVisible(bool visible);
+
+        void SetNicknameAppliedFeedbackVisible(bool visible);
 
         void SetFriendListVisible(bool visible);
 

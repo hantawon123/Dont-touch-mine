@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 61083888703512790}
   - component: {fileID: 9066822341622078758}
   - component: {fileID: 1754785993224845459}
+  - component: {fileID: 9079316150982572114}
   m_Layer: 0
   m_Name: PlayerCharacter
   m_TagString: Player
@@ -107,6 +108,23 @@ MonoBehaviour:
   interactionConfig: {fileID: 11400000, guid: e026359dfb4a0154e8cad2eb84545595, type: 2}
   ghostValidMaterial: {fileID: 2100000, guid: 81ba4846bfb629042a6f08da9c6e12ac, type: 2}
   ghostInvalidMaterial: {fileID: 2100000, guid: f7ebd28e96fde9f45a20bb93a940844c, type: 2}
+--- !u!114 &9079316150982572114
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2282384052253138322}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 522bad07de0c19741ba2d0d10edf74bd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Combat.PlayerCombatant
+  inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  combatConfig: {fileID: 11400000, guid: 63b982960b53eee4eb3e1be0e46c2ed8, type: 2}
+  playerIndex: 0
+  isAttacker: 1
+  visualRoot: {fileID: 0}
 --- !u!1 &4967552230462791768
 GameObject:
   m_ObjectHideFlags: 0

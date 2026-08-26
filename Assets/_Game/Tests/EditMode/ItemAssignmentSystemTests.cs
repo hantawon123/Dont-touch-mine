@@ -37,6 +37,26 @@ namespace Game.Tests.EditMode
             }
         }
 
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(4)]
+        [TestCase(5)]
+        [TestCase(6)]
+        public void Assign_FromMvpCatalogMatchesPlayerCount(int playerCount)
+        {
+            var assignments = ItemAssignmentSystem.Assign(
+                playerCount,
+                new Random(1200 + playerCount));
+            var assignedItemIds = new HashSet<string>();
+
+            Assert.That(assignments, Has.Length.EqualTo(playerCount));
+            foreach (var assignment in assignments)
+            {
+                Assert.That(assignedItemIds.Add(assignment.Item.ItemId), Is.True);
+                Assert.That(ItemCatalog.Definitions, Does.Contain(assignment.Item));
+            }
+        }
+
         [Test]
         public void Assign_WithSameSeedReturnsSameAssignments()
         {

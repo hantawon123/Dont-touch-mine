@@ -4,6 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Home;
 using Game.Core.Lobby;
+using Game.Core.Maps;
 using Game.Core.Rooms;
 using Game.Network.Players;
 using Game.Network.Session;
@@ -58,10 +59,6 @@ namespace Game.Bootstrap
         private string _displayName = "Test room";
 
         [SerializeField]
-        [Tooltip("Map id published in the room list.")]
-        private string _mapId = "market-01";
-
-        [SerializeField]
         [Tooltip("Maximum players allowed in the room.")]
         private int _maxPlayers = 6;
 
@@ -89,7 +86,7 @@ namespace Game.Bootstrap
                     !string.IsNullOrEmpty(_password),
                     _password,
                     _maxPlayers,
-                    _mapId),
+                    MapCatalog.DefaultMapId),
                 _roomCode,
                 _password,
                 CaptureSpawnPoses()));

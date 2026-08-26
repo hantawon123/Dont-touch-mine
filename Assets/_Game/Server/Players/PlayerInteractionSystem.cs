@@ -1,17 +1,11 @@
 using System;
+using Game.Core.Players;
 using Game.SOAP.Config;
 using VContainer;
 
 namespace Game.Server.Players
 {
-    public enum HitResult
-    {
-        Ignored,
-        Registered,
-        Stunned
-    }
-
-    public sealed class PlayerInteractionSystem
+    public sealed class PlayerInteractionSystem : IPlayerCombatRules
     {
         private readonly MatchRulesSO rules;
         private readonly int[] hitCounts;
