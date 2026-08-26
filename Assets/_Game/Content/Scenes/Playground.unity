@@ -6586,6 +6586,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 456411865}
+  - component: {fileID: 456411866}
   m_Layer: 0
   m_Name: SpawnPoints
   m_TagString: Untagged
@@ -6614,6 +6615,26 @@ Transform:
   - {fileID: 305458211}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &456411866
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 456411864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8bd33ed1e3a646da8485a9295e910e4f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Bootstrap::Game.Bootstrap.MatchSceneConfiguration
+  spawnPoints:
+  - {fileID: 1960857109}
+  - {fileID: 2089919632}
+  - {fileID: 1240532080}
+  - {fileID: 1890247209}
+  - {fileID: 1641886870}
+  - {fileID: 305458211}
+  worldObjects: []
 --- !u!4 &456893478 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4716768421664081566, guid: 7ce6c7106895e51498834a38c6d6ca71, type: 3}

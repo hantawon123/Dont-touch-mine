@@ -5,6 +5,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Fusion;
 using Fusion.Sockets;
+using Game.Core.Home;
 using Game.Core.Ports;
 using Game.Core.Rooms;
 using Game.Core.Match;
@@ -14,6 +15,7 @@ using Game.Network.Match;
 using Game.Network.Players;
 using Game.Server.Match;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Game.Network.Session
 {
@@ -30,6 +32,7 @@ namespace Game.Network.Session
     /// </remarks>
     public sealed class NetworkRunnerService :
         INetworkRunnerCallbacks,
+        IMatchSceneDirector,
         INetworkMatchRuntimeSource,
         INetworkMatchAuthority,
         INetworkMatchEvents,
@@ -50,8 +53,36 @@ namespace Game.Network.Session
         /// <summary>Where the room's roster is reported.</summary>
         private readonly IRoomParticipantSink _participantSink;
 
+        /// <summary>
+        /// This peer's own name, sent to the room so the others can show it.
+        /// </summary>
+        /// <remarks>
+        /// Read at the moment a session starts rather than held as a string, so
+        /// a name changed between two rooms is the name the second room sees.
+        /// </remarks>
+        private readonly PlayerProfile _profile;
+
         /// <summary>Where the authority's decision about starting is reported.</summary>
         private readonly IMatchStartSink _matchStartSink;
+
+        /// <summary>
+        /// Which scenes this layer may load. Optional so tests and scenes
+        /// without a map can still open a session; a match then reports that it
+        /// has nowhere to go rather than failing to construct.
+        /// </summary>
+        private readonly NetworkScenes _scenes;
+
+        /// <summary>
+        /// Raised on every peer once a networked scene has finished loading.
+        /// </summary>
+        /// <remarks>
+        /// Exists because the scene's own contents are not this layer's business.
+        /// Spawn points are marked by a component in <c>Game.Bootstrap</c>, which
+        /// this assembly cannot reference, so Bootstrap listens here and hands
+        /// the points over. No Fusion type is passed, so a listener does not need
+        /// to reference Fusion either.
+        /// </remarks>
+        public event Action SceneLoaded;
 
         private readonly List<RoomSummary> _roomBuffer = new List<RoomSummary>();
 
@@ -99,13 +130,78 @@ namespace Game.Network.Session
             IRoomSessionSink sessionSink,
             IRoomParticipantSink participantSink,
             IMatchStartSink matchStartSink,
-            PlayerSpawner spawner)
+            PlayerSpawner spawner,
+            PlayerProfile profile,
+            NetworkScenes scenes = null)
         {
             _roomListSink = roomListSink;
             _sessionSink = sessionSink;
             _participantSink = participantSink;
             _matchStartSink = matchStartSink;
             _spawner = spawner;
+            _profile = profile;
+            _scenes = scenes;
+        }
+
+        /// <summary>
+        /// Longest nickname the network carries. Matches the
+        /// <c>NetworkString&lt;_32&gt;</c> the character replicates, so a name
+        /// that survives this survives the trip intact.
+        /// </summary>
+        private const int NicknameLimit = 32;
+
+        /// <summary>
+        /// The name to show for a player, taken from what they presented when
+        /// they joined.
+        /// </summary>
+        /// <remarks>
+        /// The authority's own name comes from its profile: it never connected to
+        /// itself, so it presented no token.
+        /// </remarks>
+        private string NicknameOf(NetworkRunner runner, PlayerRef player)
+        {
+            if (player == runner.LocalPlayer)
+            {
+                return SanitiseNickname(_profile?.Nickname);
+            }
+
+            DecodeToken(runner.GetPlayerConnectionToken(player), out _, out var presented);
+            return SanitiseNickname(presented);
+        }
+
+        /// <summary>
+        /// Makes a name presented by another peer safe to show.
+        /// </summary>
+        /// <remarks>
+        /// The bytes came from someone else, so this is untrusted text. Control
+        /// characters are dropped because they can hide or reorder what a reader
+        /// sees, and the length is capped so one player cannot push the others
+        /// out of a list. An empty result is left empty rather than replaced with
+        /// a placeholder: only presentation knows what to show instead.
+        /// </remarks>
+        internal static string SanitiseNickname(string presented)
+        {
+            if (string.IsNullOrWhiteSpace(presented))
+            {
+                return string.Empty;
+            }
+
+            var builder = new StringBuilder(presented.Length);
+
+            foreach (var character in presented)
+            {
+                if (!char.IsControl(character))
+                {
+                    builder.Append(character);
+                }
+
+                if (builder.Length >= NicknameLimit)
+                {
+                    break;
+                }
+            }
+
+            return builder.ToString().Trim();
         }
 
         public bool IsRunning => _runner != null && _runner.IsRunning;
@@ -246,15 +342,28 @@ namespace Game.Network.Session
 
             var sceneManager = CreateRunner(request.Mode != GameMode.Server);
 
+            // Fusion is handed a linked token rather than the caller's own.
+            // It registers a callback that shuts the runner down when the token
+            // fires, and the token we are given belongs to whichever scene asked
+            // to connect. That is right while connecting and wrong afterwards:
+            // the session is a project-wide singleton, and loading a networked
+            // scene destroys the scene that asked, which would otherwise cancel
+            // the token and take the running session down with it. Cutting the
+            // link once StartGame returns keeps cancellation working during the
+            // attempt without letting a scene outlive its authority over it.
+            var startCancellation =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+
             var args = new StartGameArgs
             {
                 GameMode = request.Mode,
                 SessionName = request.RoomCode,
-                SessionProperties = BuildProperties(request),
-                ConnectionToken = EncodeToken(request.Password),
+                SessionProperties = BuildProperties(request, _profile?.Nickname),
+                ConnectionToken = EncodeToken(request.Password, _profile?.Nickname),
                 EnableClientSessionCreation = request.AllowCreate,
                 SceneManager = sceneManager,
-                StartGameCancellationToken = cancellation,
+                Scene = CaptureCurrentScene(),
+                StartGameCancellationToken = startCancellation.Token,
             };
 
             if (request.MaxPlayers > 0)
@@ -271,6 +380,13 @@ namespace Game.Network.Session
             {
                 Shutdown();
                 throw;
+            }
+            finally
+            {
+                // Disposing releases the callback Fusion registered, so the token
+                // can never fire again. This one line is what stops a match scene
+                // load from ending the session.
+                startCancellation.Dispose();
             }
 
             if (!result.Ok)
@@ -431,7 +547,11 @@ namespace Game.Network.Session
             _roster = _runnerObject.AddComponent<PlayerRoster>();
             _roster.Bind(_participantSink);
             _matchStarter = _runnerObject.AddComponent<MatchStarter>();
-            _matchStarter.Bind(_matchStartSink, _roster);
+
+            // This service is the scene director: it already owns the runner's
+            // scene manager, the initial scene and the scene callbacks, so the
+            // starter can confirm a line-up without learning what a scene is.
+            _matchStarter.Bind(_matchStartSink, _roster, this);
             _matchStarter.MatchStateReceived += OnMatchStateReceived;
             _matchStarter.ItemAssignmentReceived += OnItemAssignmentReceived;
             _matchStarter.ObjectStatesReceived += OnObjectStatesReceived;
@@ -447,6 +567,77 @@ namespace Game.Network.Session
             _matchStarter.SimulationTick += OnSimulationTick;
 
             return sceneManager;
+        }
+
+        /// <summary>
+        /// The scene the session opens in, so that Fusion has something to
+        /// replicate as the current scene from the start.
+        /// </summary>
+        /// <remarks>
+        /// Without this the runner reports <c>started with no scene</c> and scene
+        /// synchronisation never engages, which makes a later
+        /// <see cref="EnterMatchScene"/> a no-op. The scene has to be in the
+        /// build list to have an index Fusion can send, and one that is not is
+        /// left empty rather than guessed at: a wrong index would load a
+        /// different scene on the clients than the host is in.
+        /// </remarks>
+        private static NetworkSceneInfo CaptureCurrentScene()
+        {
+            var info = new NetworkSceneInfo();
+            var active = SceneManager.GetActiveScene();
+
+            if (active.buildIndex < 0 ||
+                active.buildIndex >= SceneManager.sceneCountInBuildSettings)
+            {
+                Debug.LogWarning(
+                    $"[Session] '{active.name}' is not in the build scene list, " +
+                    "so the session starts without a synchronised scene. Add it " +
+                    "under File > Build Profiles.");
+
+                return info;
+            }
+
+            // Additive, not Single. This only tells Fusion which scene the
+            // session begins in; the scene is already loaded. Declaring it as
+            // Single invites the scene manager to reload it while the peer is
+            // still connecting, which would destroy the scope that is driving
+            // the connection. Replacing the scene is what EnterMatchScene does.
+            info.AddSceneRef(SceneRef.FromIndex(active.buildIndex), LoadSceneMode.Additive);
+            return info;
+        }
+
+        /// <summary>
+        /// Takes the room into the map. Only the authority may change the
+        /// networked scene; Fusion carries the change to everyone else.
+        /// </summary>
+        public void EnterMatchScene(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsRunning || !runner.IsServer)
+            {
+                return;
+            }
+
+            if (_scenes == null)
+            {
+                Debug.LogError(
+                    "[Session] No NetworkScenes asset is assigned, so the match " +
+                    "cannot move into a map. Set it on ProjectLifetimeScope.");
+                return;
+            }
+
+            var scene = _scenes.MatchScene;
+
+            if (!scene.IsValid)
+            {
+                // NetworkScenes has already said which of the two reasons it is.
+                return;
+            }
+
+            // Single, not Additive: the lobby scene would otherwise stay loaded
+            // behind the map, leaving two cameras rendering and the lobby's
+            // geometry inside it.
+            runner.LoadScene(scene, LoadSceneMode.Single);
+            Debug.Log("[Session] Loading the match scene for everyone.");
         }
 
         /// <summary>
@@ -563,7 +754,8 @@ namespace Game.Network.Session
         /// Session properties are readable by anyone browsing the lobby, so only
         /// the peer opening the room writes them and no secret goes in.
         /// </summary>
-        private static Dictionary<string, SessionProperty> BuildProperties(in SessionRequest request)
+        private static Dictionary<string, SessionProperty> BuildProperties(
+            in SessionRequest request, string nickname)
         {
             if (request.Mode == GameMode.Client)
             {
@@ -580,6 +772,13 @@ namespace Game.Network.Session
             if (!string.IsNullOrEmpty(request.MapId))
             {
                 properties[SessionPropertyKeys.MapId] = request.MapId;
+            }
+
+            var hostNickname = SanitiseNickname(nickname);
+
+            if (hostNickname.Length > 0)
+            {
+                properties[SessionPropertyKeys.HostNickname] = hostNickname;
             }
 
             properties[SessionPropertyKeys.Locked] = !string.IsNullOrEmpty(request.Password);
@@ -673,18 +872,82 @@ namespace Game.Network.Session
             }
         }
 
-        private static byte[] EncodeToken(string password)
+        /// <summary>Marks the layout below, so a change can be recognised.</summary>
+        private const byte TokenVersion = 1;
+
+        /// <summary>Version byte plus the two bytes holding the password length.</summary>
+        private const int TokenHeaderSize = 3;
+
+        /// <summary>
+        /// Packs what a joiner hands the host before it is let in: the password it
+        /// presents, and the name it asks to be shown as.
+        /// </summary>
+        /// <remarks>
+        /// The password is length-prefixed rather than separated by a character.
+        /// A password may contain anything, so any separator could occur inside
+        /// one and split it in the wrong place, refusing a correct password.
+        /// <para>
+        /// The nickname travels here because the alternative is an RPC from the
+        /// client, and RPCs do not work from this assembly. It arrives before the
+        /// character is spawned, which is exactly when the authority needs it.
+        /// </para>
+        /// </remarks>
+        internal static byte[] EncodeToken(string password, string nickname)
         {
-            return string.IsNullOrEmpty(password)
-                ? null
-                : Encoding.UTF8.GetBytes(password);
+            var passwordBytes = Encoding.UTF8.GetBytes(password ?? string.Empty);
+            var nicknameBytes = Encoding.UTF8.GetBytes(nickname ?? string.Empty);
+
+            if (passwordBytes.Length == 0 && nicknameBytes.Length == 0)
+            {
+                return null;
+            }
+
+            if (passwordBytes.Length > ushort.MaxValue)
+            {
+                // Unreachable with any real password, and silently truncating one
+                // would refuse a join for a reason nobody could see.
+                Debug.LogError("[Network] The password is too long to send.");
+                return null;
+            }
+
+            var token = new byte[TokenHeaderSize + passwordBytes.Length + nicknameBytes.Length];
+            token[0] = TokenVersion;
+            token[1] = (byte)(passwordBytes.Length >> 8);
+            token[2] = (byte)(passwordBytes.Length & 0xFF);
+
+            passwordBytes.CopyTo(token, TokenHeaderSize);
+            nicknameBytes.CopyTo(token, TokenHeaderSize + passwordBytes.Length);
+
+            return token;
         }
 
-        private static string DecodeToken(byte[] token)
+        /// <summary>
+        /// Reads a token back. Anything unreadable yields empty values rather
+        /// than an exception: the bytes come from another peer, so a malformed
+        /// token is a thing that happens and not a bug to crash on.
+        /// </summary>
+        internal static void DecodeToken(byte[] token, out string password, out string nickname)
         {
-            return token == null || token.Length == 0
-                ? string.Empty
-                : Encoding.UTF8.GetString(token);
+            password = string.Empty;
+            nickname = string.Empty;
+
+            if (token == null || token.Length < TokenHeaderSize || token[0] != TokenVersion)
+            {
+                return;
+            }
+
+            var passwordLength = (token[1] << 8) | token[2];
+
+            if (TokenHeaderSize + passwordLength > token.Length)
+            {
+                return;
+            }
+
+            password = Encoding.UTF8.GetString(token, TokenHeaderSize, passwordLength);
+
+            var nicknameStart = TokenHeaderSize + passwordLength;
+            nickname = Encoding.UTF8.GetString(
+                token, nicknameStart, token.Length - nicknameStart);
         }
 
         private static bool Matches(string presented, string expected)
@@ -705,7 +968,7 @@ namespace Game.Network.Session
             }
 
             Debug.Log($"[Network] Player joined: {player}.");
-            _spawner?.Spawn(runner, player);
+            _spawner?.Spawn(runner, player, NicknameOf(runner, player));
             ReportPlayerCount();
         }
 
@@ -773,11 +1036,12 @@ namespace Game.Network.Session
                 return;
             }
 
-            var presented = DecodeToken(token);
+            DecodeToken(token, out var presented, out _);
 
             // Only the password admits anyone. The room code says which room to
             // reach and grants nothing, so a code read off the browser listing
-            // is useless without the password.
+            // is useless without the password. The nickname in the same token
+            // grants nothing either and is not read here.
             if (Matches(presented, _expectedPassword))
             {
                 request.Accept();
@@ -841,7 +1105,24 @@ namespace Game.Network.Session
 
         public void OnSceneLoadStart(NetworkRunner runner) { }
 
-        public void OnSceneLoadDone(NetworkRunner runner) { }
+        /// <summary>
+        /// Re-seats everyone on the newly loaded scene's spawn points.
+        /// </summary>
+        /// <remarks>
+        /// Order matters. Listeners run first so that the scene's spawn points
+        /// have reached the spawner, and only then are the characters moved;
+        /// moving first would place them on the points of the scene that has
+        /// just been unloaded.
+        /// </remarks>
+        public void OnSceneLoadDone(NetworkRunner runner)
+        {
+            Debug.Log(
+                $"[Session] Scene load done: '{SceneManager.GetActiveScene().name}', " +
+                $"IsServer={runner != null && runner.IsServer}.");
+
+            SceneLoaded?.Invoke();
+            _spawner?.RepositionSeated(runner);
+        }
 
         public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
 
