@@ -473,7 +473,6 @@ namespace Game.Server.Match
                 ? Assignments[heldItemOwner].Item.ItemId
                 : null;
             if (heldItemOwner < 0 ||
-                heldItemOwner == playerIndex ||
                 !outcome.DestroyItem(heldItemId))
             {
                 return false;
