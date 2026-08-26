@@ -100,7 +100,9 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<LobbyHostChromePresenter>();
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
             builder.RegisterEntryPoint<LobbyChatPresenter>();
-            builder.RegisterEntryPoint<LobbyExitPresenter>();
+            // AsSelf so the bridge below can take the leave request off it.
+            builder.RegisterEntryPoint<LobbyExitPresenter>().AsSelf();
+            builder.RegisterEntryPoint<NetworkLobbyExitBridge>();
         }
 
         /// <summary>
