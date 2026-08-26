@@ -88,6 +88,13 @@ namespace Game.Server.Match
                 return;
             }
 
+            if (session.TryGetResult(out var result) &&
+                result.EndReason == MatchEndReason.LastPlayerStanding)
+            {
+                TransitionTo(AppFlowState.Lobby);
+                return;
+            }
+
             if (appFlow.CurrentState == AppFlowState.InGame)
             {
                 TransitionTo(AppFlowState.Highlight);

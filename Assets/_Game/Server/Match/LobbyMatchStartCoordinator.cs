@@ -52,7 +52,8 @@ namespace Game.Server.Match
 
         public bool TryPrepareRematch(MatchSessionCoordinator nextSession)
         {
-            if (appFlow.CurrentState != AppFlowState.Result ||
+            var isAlreadyInLobby = appFlow.CurrentState == AppFlowState.Lobby;
+            if ((!isAlreadyInLobby && appFlow.CurrentState != AppFlowState.Result) ||
                 !lobby.IsStarted ||
                 !matchRuntime.TryPrepareRematch(nextSession))
             {
@@ -60,7 +61,7 @@ namespace Game.Server.Match
             }
 
             if (!lobby.TryPrepareRematch() ||
-                !appFlow.TryTransitionTo(AppFlowState.Lobby))
+                (!isAlreadyInLobby && !appFlow.TryTransitionTo(AppFlowState.Lobby)))
             {
                 throw new InvalidOperationException(
                     "The completed match could not return to the lobby.");
