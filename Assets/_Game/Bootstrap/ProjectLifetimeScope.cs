@@ -1,3 +1,4 @@
+using Game.Client.Audio;
 using Game.Core.Flow;
 using Game.Core.Home;
 using Game.Core.Lobby;
@@ -35,6 +36,13 @@ namespace Game.Bootstrap
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
             builder.Register<FriendListSystem>(Lifetime.Singleton);
             builder.Register<FriendSearchSystem>(Lifetime.Singleton);
+            builder.Register<PlayerPrefsAudioSettingsStore>(Lifetime.Singleton)
+                .As<IAudioSettingsStore>();
+            builder.Register<UnityAudioSettingsApplier>(Lifetime.Singleton)
+                .As<IAudioSettingsApplier>();
+            builder.Register<AudioSettingsService>(Lifetime.Singleton)
+                .As<IAudioSettings>();
+            builder.RegisterBuildCallback(container => container.Resolve<IAudioSettings>());
 
             // Replaced by the saved Steam/backend profile when that adapter is connected.
             builder.RegisterInstance(new PlayerProfile("Player", 1));
