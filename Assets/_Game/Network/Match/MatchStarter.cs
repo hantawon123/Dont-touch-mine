@@ -46,6 +46,7 @@ namespace Game.Network.Match
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<string> ItemAssignmentReceived;
+        public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
 
         public void Bind(IMatchStartSink sink, PlayerRoster roster)
         {
@@ -187,6 +188,11 @@ namespace Game.Network.Match
             ItemAssignmentReceived?.Invoke(itemId);
         }
 
+        public void PublishObjectStates(IReadOnlyList<MatchObjectStateSnapshot> states)
+        {
+            ObjectStatesReceived?.Invoke(states);
+        }
+
         public void BindSession(
             MatchSessionCoordinator session,
             Pose shredderEjectionPose)
@@ -253,14 +259,27 @@ namespace Game.Network.Match
 
         public bool TryHoldObject(PlayerRef source, string objectId)
         {
-            return TryGetPlayerIndex(source, out var playerIndex) &&
-                   _session.TryHoldObject(playerIndex, objectId, ServerTime);
+            if (!TryGetPlayerIndex(source, out var playerIndex) ||
+                !_state.CanTrackObject(objectId) ||
+                !_session.TryHoldObject(playerIndex, objectId, ServerTime))
+            {
+                return false;
+            }
+
+            return _state.TrySetObjectHeld(objectId, playerIndex);
         }
 
         public bool TryReleaseHeldObject(PlayerRef source, Pose pose)
         {
-            return TryGetPlayerIndex(source, out var playerIndex) &&
-                   _session.TryReleaseHeldObject(playerIndex, pose, ServerTime);
+            if (!TryGetPlayerIndex(source, out var playerIndex) ||
+                !_session.TryGetHeldObjectId(playerIndex, out var objectId) ||
+                !_state.CanTrackObject(objectId) ||
+                !_session.TryReleaseHeldObject(playerIndex, pose, ServerTime))
+            {
+                return false;
+            }
+
+            return _state.TrySetObjectReleased(objectId, pose);
         }
 
         public bool TryThrowHeldObject(
@@ -268,12 +287,19 @@ namespace Game.Network.Match
             Pose pose,
             Vector3 initialVelocity)
         {
-            return TryGetPlayerIndex(source, out var playerIndex) &&
-                   _session.TryThrowHeldObject(
-                       playerIndex,
-                       pose,
-                       initialVelocity,
-                       ServerTime);
+            if (!TryGetPlayerIndex(source, out var playerIndex) ||
+                !_session.TryGetHeldObjectId(playerIndex, out var objectId) ||
+                !_state.CanTrackObject(objectId) ||
+                !_session.TryThrowHeldObject(
+                    playerIndex,
+                    pose,
+                    initialVelocity,
+                    ServerTime))
+            {
+                return false;
+            }
+
+            return _state.TrySetObjectReleased(objectId, pose, initialVelocity);
         }
 
         public bool TryHitPlayer(PlayerRef source, int targetPlayerIndex)
@@ -291,11 +317,25 @@ namespace Game.Network.Match
                 return false;
             }
 
-            return _session.RegisterHit(
-                       attackerPlayerIndex,
-                       targetPlayerIndex,
-                       pose.position,
-                       ServerTime) != Game.Core.Players.HitResult.Ignored;
+            _session.TryGetHeldObjectId(targetPlayerIndex, out var droppedObjectId);
+            if (droppedObjectId != null && !_state.CanTrackObject(droppedObjectId))
+            {
+                return false;
+            }
+
+            var result = _session.RegisterHit(
+                attackerPlayerIndex,
+                targetPlayerIndex,
+                pose.position,
+                ServerTime);
+            if (result == Game.Core.Players.HitResult.Stunned && droppedObjectId != null)
+            {
+                _state.TrySetObjectReleased(
+                    droppedObjectId,
+                    new Pose(pose.position, Quaternion.identity));
+            }
+
+            return result != Game.Core.Players.HitResult.Ignored;
         }
 
         public bool TryUseShredder(PlayerRef source)
@@ -307,11 +347,26 @@ namespace Game.Network.Match
             }
 
             var now = ServerTime;
-            return _session.TryDestroyHeldPlayerItem(playerIndex, now) ||
-                   _session.TryUseShredderOnHeldMapObject(
+            if (!_session.TryGetHeldObjectId(playerIndex, out var objectId))
+            {
+                return false;
+            }
+
+            if (!_state.CanTrackObject(objectId))
+            {
+                return false;
+            }
+
+            if (_session.TryDestroyHeldPlayerItem(playerIndex, now))
+            {
+                return _state.TrySetObjectDestroyed(objectId);
+            }
+
+            return _session.TryUseShredderOnHeldMapObject(
                        playerIndex,
                        _shredderEjectionPose,
-                       now);
+                       now) &&
+                   _state.TrySetObjectReleased(objectId, _shredderEjectionPose);
         }
 
         private double ServerTime => _state.Runner.SimulationTime;

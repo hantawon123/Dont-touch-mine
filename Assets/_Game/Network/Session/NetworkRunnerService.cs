@@ -60,6 +60,7 @@ namespace Game.Network.Session
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<string> ItemAssignmentReceived;
+        public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
 
         /// <summary>
         /// Password this peer requires from joiners while it is the authority. A
@@ -415,6 +416,7 @@ namespace Game.Network.Session
             _matchStarter.Bind(_matchStartSink, _roster);
             _matchStarter.MatchStateReceived += OnMatchStateReceived;
             _matchStarter.ItemAssignmentReceived += OnItemAssignmentReceived;
+            _matchStarter.ObjectStatesReceived += OnObjectStatesReceived;
 
             return sceneManager;
         }
@@ -438,6 +440,7 @@ namespace Game.Network.Session
             {
                 _matchStarter.MatchStateReceived -= OnMatchStateReceived;
                 _matchStarter.ItemAssignmentReceived -= OnItemAssignmentReceived;
+                _matchStarter.ObjectStatesReceived -= OnObjectStatesReceived;
             }
 
             _runner = null;
@@ -461,6 +464,12 @@ namespace Game.Network.Session
         private void OnItemAssignmentReceived(string itemId)
         {
             ItemAssignmentReceived?.Invoke(itemId);
+        }
+
+        private void OnObjectStatesReceived(
+            IReadOnlyList<MatchObjectStateSnapshot> states)
+        {
+            ObjectStatesReceived?.Invoke(states);
         }
 
         private bool IsCurrentRunner(NetworkRunner runner) =>

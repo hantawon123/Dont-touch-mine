@@ -153,5 +153,26 @@ namespace Game.Architecture.Tests
                     name);
             }
         }
+
+        [Test]
+        public void ObjectStateSnapshot_PreservesPhysicsAndVisibilityState()
+        {
+            var pose = new Pose(new Vector3(1f, 2f, 3f), Quaternion.Euler(0f, 45f, 0f));
+            var velocity = new Vector3(4f, 5f, 6f);
+            var snapshot = new MatchObjectStateSnapshot(
+                "Soda_01",
+                2,
+                pose,
+                velocity,
+                true,
+                7);
+
+            Assert.That(snapshot.ObjectId, Is.EqualTo("Soda_01"));
+            Assert.That(snapshot.HolderPlayerIndex, Is.EqualTo(2));
+            Assert.That(snapshot.Pose, Is.EqualTo(pose));
+            Assert.That(snapshot.InitialVelocity, Is.EqualTo(velocity));
+            Assert.That(snapshot.IsDestroyed, Is.True);
+            Assert.That(snapshot.Version, Is.EqualTo(7));
+        }
     }
 }
