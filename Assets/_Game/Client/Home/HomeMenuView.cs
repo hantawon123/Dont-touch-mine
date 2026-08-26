@@ -18,6 +18,8 @@ namespace Game.Client.Home
         private static readonly Color ExperienceFillColor = new Color(0.31f, 0.62f, 0.91f, 1f);
         private static readonly Color TextHover = new Color(0.35f, 0.35f, 0.35f, 1f);
         private static readonly Color TextPressed = new Color(0.15f, 0.15f, 0.15f, 1f);
+        private static readonly Color MenuHover = new Color(0.18f, 0.47f, 0.98f, 1f);
+        private static readonly Color MenuPressed = new Color(0.10f, 0.32f, 0.78f, 1f);
         private static readonly Color FriendRowColor = new Color(0.86f, 0.86f, 0.86f, 1f);
         private static readonly Color FriendStatusColor = new Color(0.78f, 0.78f, 0.78f, 1f);
         private static readonly Color FriendSeparatorColor = new Color(0.75f, 0.75f, 0.75f, 1f);
@@ -1060,13 +1062,14 @@ namespace Game.Client.Home
             layoutElement.minHeight = 56f;
 
             var text = AddText(buttonRect, label, 28f, FontStyles.Normal, alignment, raycastTarget: true);
+            text.color = Color.white;
             var button = buttonRect.gameObject.AddComponent<Button>();
             button.targetGraphic = text;
             button.transition = Selectable.Transition.ColorTint;
             var colors = ColorBlock.defaultColorBlock;
             colors.normalColor = Color.black;
-            colors.highlightedColor = TextHover;
-            colors.pressedColor = TextPressed;
+            colors.highlightedColor = MenuHover;
+            colors.pressedColor = MenuPressed;
             colors.selectedColor = Color.black;
             colors.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
             colors.colorMultiplier = 1f;
