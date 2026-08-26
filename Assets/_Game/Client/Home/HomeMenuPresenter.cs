@@ -14,12 +14,15 @@ namespace Game.Client.Home
         void OpenHome();
 
         void OpenRoomBrowser();
+
+        void OpenSettings();
     }
 
     public sealed class UnityHomeApplicationHost : IHomeApplicationHost
     {
         public const string HomeSceneName = "Home";
         public const string RoomBrowserSceneName = "Room";
+        public const string SettingsSceneName = "Settings";
 
         public void Quit()
         {
@@ -38,6 +41,11 @@ namespace Game.Client.Home
         public void OpenRoomBrowser()
         {
             SceneManager.LoadScene(RoomBrowserSceneName);
+        }
+
+        public void OpenSettings()
+        {
+            SceneManager.LoadScene(SettingsSceneName);
         }
     }
 
@@ -128,6 +136,15 @@ namespace Game.Client.Home
             {
                 HideFriendList();
                 ShowProfileSettings();
+                return;
+            }
+
+            if (action == HomeMenuAction.Settings &&
+                appFlow.TryTransitionTo(AppFlowState.Settings))
+            {
+                HideFriendList();
+                HideProfileSettings();
+                applicationHost.OpenSettings();
                 return;
             }
 

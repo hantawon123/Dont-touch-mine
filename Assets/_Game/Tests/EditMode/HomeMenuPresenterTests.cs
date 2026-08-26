@@ -151,6 +151,22 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_Settings_OpensSettingsScene()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out var host, out var appFlow, out _, out _);
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+
+            view.Raise(HomeMenuAction.Settings);
+
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Settings));
+            Assert.That(host.SettingsOpenCount, Is.EqualTo(1));
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+            Assert.That(host.HomeOpenCount, Is.Zero);
+        }
+
+        [Test]
         public void Presenter_ProfileSettings_ShowsOverlayAndBackHidesIt()
         {
             using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
@@ -523,6 +539,8 @@ namespace Game.Tests.EditMode
 
             public int RoomBrowserOpenCount { get; private set; }
 
+            public int SettingsOpenCount { get; private set; }
+
             public void Quit()
             {
                 QuitCount++;
@@ -536,6 +554,11 @@ namespace Game.Tests.EditMode
             public void OpenRoomBrowser()
             {
                 RoomBrowserOpenCount++;
+            }
+
+            public void OpenSettings()
+            {
+                SettingsOpenCount++;
             }
         }
     }

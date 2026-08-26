@@ -96,6 +96,10 @@ namespace Game.Tests.EditMode
             {
                 RoomBrowserOpenCount++;
             }
+
+            public void OpenSettings()
+            {
+            }
         }
     }
 }
