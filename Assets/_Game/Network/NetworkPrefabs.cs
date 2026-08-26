@@ -22,7 +22,15 @@ namespace Game.Network
                  "NetworkTransform and PlayerAvatar.")]
         private NetworkObject _player;
 
+        [SerializeField]
+        [Tooltip("One per room, holding whether the match started and who is " +
+                 "playing. Needs NetworkObject and MatchSessionState. Nothing " +
+                 "is drawn, so it has no visual parts.")]
+        private NetworkObject _matchSession;
+
         public NetworkObject Player => _player;
+
+        public NetworkObject MatchSession => _matchSession;
 
 #if UNITY_EDITOR
         /// <summary>
@@ -45,6 +53,15 @@ namespace Game.Network
                     $"[Network] '{_player.name}' has no NetworkTransform. Spawn " +
                     "positions will not replicate and every character will appear " +
                     "at the origin on remote peers.",
+                    this);
+            }
+
+            if (_matchSession != null &&
+                _matchSession.GetComponentInChildren<Match.MatchSessionState>() == null)
+            {
+                Debug.LogWarning(
+                    $"[Network] '{_matchSession.name}' has no MatchSessionState, " +
+                    "so starting a match would confirm nothing.",
                     this);
             }
         }

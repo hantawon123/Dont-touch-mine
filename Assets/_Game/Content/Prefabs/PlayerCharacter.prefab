@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 7563371311393477283}
   - component: {fileID: 61083888703512790}
   - component: {fileID: 9066822341622078758}
+  - component: {fileID: 1754785993224845459}
   m_Layer: 0
   m_Name: PlayerCharacter
   m_TagString: Player
@@ -90,6 +91,22 @@ MonoBehaviour:
   inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   interactionConfig: {fileID: 11400000, guid: e026359dfb4a0154e8cad2eb84545595, type: 2}
   holdPoint: {fileID: 0}
+--- !u!114 &1754785993224845459
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2282384052253138322}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba03eb9d0023dec4cb75f9296cc9d1d3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.ItemPlacementController
+  inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  interactionConfig: {fileID: 11400000, guid: e026359dfb4a0154e8cad2eb84545595, type: 2}
+  ghostValidMaterial: {fileID: 2100000, guid: 81ba4846bfb629042a6f08da9c6e12ac, type: 2}
+  ghostInvalidMaterial: {fileID: 2100000, guid: f7ebd28e96fde9f45a20bb93a940844c, type: 2}
 --- !u!1 &4967552230462791768
 GameObject:
   m_ObjectHideFlags: 0

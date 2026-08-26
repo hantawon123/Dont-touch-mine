@@ -58,6 +58,38 @@ namespace Game.Network.Players
             }
         }
 
+        /// <summary>
+        /// Creates the objects that belong to the room rather than to a player.
+        /// Called once when the session starts.
+        /// </summary>
+        /// <remarks>
+        /// Only the authority creates them; everyone else receives them through
+        /// replication. Spawned before anyone can ask to start a match, because
+        /// the request travels through the object itself.
+        /// </remarks>
+        public void SpawnRoomObjects(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsServer)
+            {
+                return;
+            }
+
+            var prefab = _prefabs == null ? null : _prefabs.MatchSession;
+
+            if (prefab == null)
+            {
+                Debug.LogError(
+                    "[Spawn] No match session prefab is assigned, so no match can " +
+                    "be started. Set it on the NetworkPrefabs asset.");
+                return;
+            }
+
+            if (runner.Spawn(prefab) == null)
+            {
+                Debug.LogError("[Spawn] Could not spawn the match session object.");
+            }
+        }
+
         public void Spawn(NetworkRunner runner, PlayerRef player)
         {
             if (runner == null || !runner.IsServer)
@@ -78,7 +110,21 @@ namespace Game.Network.Players
             var seat = _players.Add(player);
             var pose = PoseFor(seat);
 
-            var avatar = runner.Spawn(prefab, pose.position, pose.rotation, player);
+            // In host mode the authority is also a player, so the room's owner
+            // is whoever the server is playing as. A dedicated server plays as
+            // nobody and LocalPlayer is none, which correctly leaves the flag
+            // off everyone until a separate owner is tracked.
+            var isHost = player == runner.LocalPlayer;
+
+            // Networked values are set here, not after Spawn returns. Fusion
+            // replicates the object as it is created, and a value written
+            // afterwards would reach clients a tick late behind its default.
+            var avatar = runner.Spawn(
+                prefab,
+                pose.position,
+                pose.rotation,
+                player,
+                (_, spawned) => Describe(spawned, seat, isHost));
 
             if (avatar == null)
             {
@@ -124,6 +170,22 @@ namespace Game.Network.Players
         {
             _players.Clear();
             _spawnPoses = Array.Empty<Pose>();
+        }
+
+        private static void Describe(NetworkObject spawned, int seat, bool isHost)
+        {
+            var avatar = spawned.GetComponent<PlayerAvatar>();
+
+            if (avatar == null)
+            {
+                Debug.LogError(
+                    $"[Spawn] '{spawned.name}' has no PlayerAvatar, so it cannot " +
+                    "carry a seat and will be missing from the room list.");
+                return;
+            }
+
+            avatar.Seat = seat;
+            avatar.IsHost = isHost;
         }
 
         private Pose PoseFor(int seat)

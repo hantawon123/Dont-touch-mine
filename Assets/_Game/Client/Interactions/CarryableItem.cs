@@ -27,6 +27,10 @@ namespace Game.Client.Interactions
         private void Awake()
         {
             body = GetComponent<Rigidbody>();
+
+            // 빠르게 던져진 작은 물체가 얇은 벽을 프레임 사이에 통과(터널링)하지 않도록
+            // 이동 경로 전체를 검사하는 연속 충돌 감지를 사용한다.
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             colliders = GetComponentsInChildren<Collider>();
             renderers = GetComponentsInChildren<Renderer>();
             propertyBlock = new MaterialPropertyBlock();
@@ -59,6 +63,21 @@ namespace Game.Client.Interactions
         public void OnDropped()
         {
             transform.SetParent(null, worldPositionStays: true);
+
+            SetCollidersEnabled(true);
+            body.isKinematic = false;
+
+            IsCarried = false;
+        }
+
+        /// <summary>
+        /// 정밀 배치 확정: 미리보기 위치·회전으로 옮긴 뒤 물리를 되살린다.
+        /// 놓인 뒤에는 일반 물리 규칙을 따른다. (불안정한 자리면 자연스럽게 굴러떨어진다)
+        /// </summary>
+        public void OnPlaced(Vector3 position, Quaternion rotation)
+        {
+            transform.SetParent(null, worldPositionStays: true);
+            transform.SetPositionAndRotation(position, rotation);
 
             SetCollidersEnabled(true);
             body.isKinematic = false;
