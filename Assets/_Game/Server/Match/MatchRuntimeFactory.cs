@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Core.Flow;
 using Game.Core.Items;
 using Game.Core.Lobby;
+using Game.Core.Match;
 using Game.Server.Items;
 using Game.Server.Players;
 using Game.SOAP.Config;
@@ -19,6 +20,29 @@ namespace Game.Server.Match
         public MatchRuntimeFactory(MatchRulesSO rules)
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
+        }
+
+        public MatchRuntimeComposition CreateFromParticipants(
+            RoomLobbySystem lobby,
+            IMatchRuntimeContext runtimeContext,
+            AppFlowSystem appFlow,
+            IReadOnlyList<MatchParticipant> participants,
+            IPlacementValidator placementValidator,
+            IReadOnlyList<Pose> spawnPoints,
+            IReadOnlyList<ItemDefinition> itemDefinitions,
+            System.Random random,
+            IReadOnlyList<WorldObjectState> initialWorldObjects = null)
+        {
+            return Create(
+                lobby,
+                runtimeContext,
+                appFlow,
+                CaptureParticipantIds(participants),
+                placementValidator,
+                spawnPoints,
+                itemDefinitions,
+                random,
+                initialWorldObjects);
         }
 
         public MatchRuntimeComposition Create(
@@ -123,6 +147,63 @@ namespace Game.Server.Match
                 state.Dispose();
                 throw;
             }
+        }
+
+        public MatchSessionComposition CreateSessionFromParticipants(
+            IReadOnlyList<MatchParticipant> participants,
+            IPlacementValidator placementValidator,
+            IReadOnlyList<Pose> spawnPoints,
+            IReadOnlyList<ItemDefinition> itemDefinitions,
+            System.Random random,
+            IReadOnlyList<WorldObjectState> initialWorldObjects = null)
+        {
+            return CreateSession(
+                CaptureParticipantIds(participants),
+                placementValidator,
+                spawnPoints,
+                itemDefinitions,
+                random,
+                initialWorldObjects);
+        }
+
+        private static string[] CaptureParticipantIds(
+            IReadOnlyList<MatchParticipant> participants)
+        {
+            if (participants == null)
+            {
+                throw new ArgumentNullException(nameof(participants));
+            }
+
+            MatchRulesSO.ValidatePlayerCount(participants.Count);
+            var ordered = new MatchParticipant[participants.Count];
+            var playerIds = new HashSet<string>(StringComparer.Ordinal);
+            var seats = new HashSet<int>();
+
+            for (var index = 0; index < participants.Count; index++)
+            {
+                var participant = participants[index];
+                if (string.IsNullOrWhiteSpace(participant.PlayerId) ||
+                    participant.Seat < 0 ||
+                    participant.Seat >= MatchRulesSO.MaxPlayerCount ||
+                    !playerIds.Add(participant.PlayerId) ||
+                    !seats.Add(participant.Seat))
+                {
+                    throw new ArgumentException(
+                        "Participants require unique player ids and seats from 0 to 5.",
+                        nameof(participants));
+                }
+
+                ordered[index] = participant;
+            }
+
+            Array.Sort(ordered, (left, right) => left.Seat.CompareTo(right.Seat));
+            var orderedPlayerIds = new string[ordered.Length];
+            for (var index = 0; index < ordered.Length; index++)
+            {
+                orderedPlayerIds[index] = ordered[index].PlayerId;
+            }
+
+            return orderedPlayerIds;
         }
     }
 
