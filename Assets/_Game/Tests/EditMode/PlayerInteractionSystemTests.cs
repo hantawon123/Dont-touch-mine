@@ -1,3 +1,4 @@
+using Game.Core.Players;
 using Game.Server.Players;
 using Game.SOAP.Config;
 using NUnit.Framework;
