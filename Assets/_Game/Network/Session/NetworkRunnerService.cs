@@ -12,6 +12,7 @@ using Game.Core.Items;
 using Game.Network.Lobby;
 using Game.Network.Match;
 using Game.Network.Players;
+using Game.Server.Match;
 using UnityEngine;
 
 namespace Game.Network.Session
@@ -309,6 +310,35 @@ namespace Game.Network.Session
             return IsServer && _matchStarter != null &&
                    _matchStarter.TryPublishItemAssignments(assignments);
         }
+
+        public bool BindMatchSession(
+            MatchSessionCoordinator session,
+            Pose shredderEjectionPose)
+        {
+            if (!IsServer || _matchStarter == null || session == null)
+            {
+                return false;
+            }
+
+            _matchStarter.BindSession(session, shredderEjectionPose);
+            return true;
+        }
+
+        public bool RequestHoldObject(string objectId) =>
+            _matchStarter != null && _matchStarter.RequestHoldObject(objectId);
+
+        public bool RequestReleaseHeldObject(Pose pose) =>
+            _matchStarter != null && _matchStarter.RequestReleaseHeldObject(pose);
+
+        public bool RequestThrowHeldObject(Pose pose, Vector3 initialVelocity) =>
+            _matchStarter != null &&
+            _matchStarter.RequestThrowHeldObject(pose, initialVelocity);
+
+        public bool RequestHitPlayer(int targetPlayerIndex) =>
+            _matchStarter != null && _matchStarter.RequestHitPlayer(targetPlayerIndex);
+
+        public bool RequestUseShredder() =>
+            _matchStarter != null && _matchStarter.RequestUseShredder();
 
         /// <summary>
         /// Leaves the current session. Fusion tears the runner down itself, so

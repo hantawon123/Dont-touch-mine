@@ -133,6 +133,48 @@ namespace Game.Network.Match
             StarterOf(Runner)?.PublishItemAssignment(itemId);
         }
 
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestHold(string objectId, RpcInfo info = default)
+        {
+            StarterOf(Runner)?.TryHoldObject(info.Source, objectId);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestRelease(
+            Vector3 position,
+            Quaternion rotation,
+            RpcInfo info = default)
+        {
+            StarterOf(Runner)?.TryReleaseHeldObject(
+                info.Source,
+                new Pose(position, rotation));
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestThrow(
+            Vector3 position,
+            Quaternion rotation,
+            Vector3 initialVelocity,
+            RpcInfo info = default)
+        {
+            StarterOf(Runner)?.TryThrowHeldObject(
+                info.Source,
+                new Pose(position, rotation),
+                initialVelocity);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestHit(int targetPlayerIndex, RpcInfo info = default)
+        {
+            StarterOf(Runner)?.TryHitPlayer(info.Source, targetPlayerIndex);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestShredder(RpcInfo info = default)
+        {
+            StarterOf(Runner)?.TryUseShredder(info.Source);
+        }
+
         /// <summary>
         /// Reports the room's answer to whoever is listening on this peer.
         /// </summary>

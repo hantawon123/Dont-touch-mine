@@ -112,5 +112,46 @@ namespace Game.Architecture.Tests
                 UnityEngine.Object.DestroyImmediate(gameObject);
             }
         }
+
+        [Test]
+        public void ActionRequestRpcs_DeriveRequesterFromRpcInfo()
+        {
+            var names = new[]
+            {
+                "RPC_RequestHold",
+                "RPC_RequestRelease",
+                "RPC_RequestThrow",
+                "RPC_RequestHit",
+                "RPC_RequestShredder",
+            };
+
+            foreach (var name in names)
+            {
+                var rpc = typeof(MatchSessionState).GetMethod(name);
+
+                Assert.That(rpc, Is.Not.Null, name);
+                var attribute = (Fusion.RpcAttribute)Attribute.GetCustomAttribute(
+                    rpc,
+                    typeof(Fusion.RpcAttribute));
+                Assert.That(attribute, Is.Not.Null, name);
+                Assert.That(attribute.Sources, Is.EqualTo(Fusion.RpcSources.All), name);
+                Assert.That(
+                    attribute.Targets,
+                    Is.EqualTo(Fusion.RpcTargets.StateAuthority),
+                    name);
+                Assert.That(
+                    Array.Exists(
+                        rpc.GetParameters(),
+                        parameter => parameter.ParameterType == typeof(Fusion.RpcInfo)),
+                    Is.True,
+                    name);
+                Assert.That(
+                    Array.Exists(
+                        rpc.GetParameters(),
+                        parameter => parameter.Name == "playerIndex"),
+                    Is.False,
+                    name);
+            }
+        }
     }
 }

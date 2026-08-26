@@ -7,6 +7,7 @@ using Game.Core.Match;
 using Game.Core.Ports;
 using Game.Core.Rooms;
 using Game.Network.Players;
+using Game.Server.Match;
 using UnityEngine;
 
 namespace Game.Network.Match
@@ -39,6 +40,9 @@ namespace Game.Network.Match
         /// it can carry the request.
         /// </summary>
         private MatchSessionState _state;
+        private MatchSessionCoordinator _session;
+        private Pose _shredderEjectionPose;
+        private bool _hasShredderEjectionPose;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<string> ItemAssignmentReceived;
@@ -183,6 +187,155 @@ namespace Game.Network.Match
             ItemAssignmentReceived?.Invoke(itemId);
         }
 
+        public void BindSession(
+            MatchSessionCoordinator session,
+            Pose shredderEjectionPose)
+        {
+            _session = session ?? throw new ArgumentNullException(nameof(session));
+            _shredderEjectionPose = shredderEjectionPose;
+            _hasShredderEjectionPose = true;
+        }
+
+        public bool RequestHoldObject(string objectId)
+        {
+            if (_state == null || string.IsNullOrWhiteSpace(objectId))
+            {
+                return false;
+            }
+
+            _state.RPC_RequestHold(objectId.Trim());
+            return true;
+        }
+
+        public bool RequestReleaseHeldObject(Pose pose)
+        {
+            if (_state == null)
+            {
+                return false;
+            }
+
+            _state.RPC_RequestRelease(pose.position, pose.rotation);
+            return true;
+        }
+
+        public bool RequestThrowHeldObject(Pose pose, Vector3 initialVelocity)
+        {
+            if (_state == null)
+            {
+                return false;
+            }
+
+            _state.RPC_RequestThrow(pose.position, pose.rotation, initialVelocity);
+            return true;
+        }
+
+        public bool RequestHitPlayer(int targetPlayerIndex)
+        {
+            if (_state == null)
+            {
+                return false;
+            }
+
+            _state.RPC_RequestHit(targetPlayerIndex);
+            return true;
+        }
+
+        public bool RequestUseShredder()
+        {
+            if (_state == null)
+            {
+                return false;
+            }
+
+            _state.RPC_RequestShredder();
+            return true;
+        }
+
+        public bool TryHoldObject(PlayerRef source, string objectId)
+        {
+            return TryGetPlayerIndex(source, out var playerIndex) &&
+                   _session.TryHoldObject(playerIndex, objectId, ServerTime);
+        }
+
+        public bool TryReleaseHeldObject(PlayerRef source, Pose pose)
+        {
+            return TryGetPlayerIndex(source, out var playerIndex) &&
+                   _session.TryReleaseHeldObject(playerIndex, pose, ServerTime);
+        }
+
+        public bool TryThrowHeldObject(
+            PlayerRef source,
+            Pose pose,
+            Vector3 initialVelocity)
+        {
+            return TryGetPlayerIndex(source, out var playerIndex) &&
+                   _session.TryThrowHeldObject(
+                       playerIndex,
+                       pose,
+                       initialVelocity,
+                       ServerTime);
+        }
+
+        public bool TryHitPlayer(PlayerRef source, int targetPlayerIndex)
+        {
+            if (!TryGetPlayerIndex(source, out var attackerPlayerIndex) ||
+                targetPlayerIndex < 0 ||
+                targetPlayerIndex >= _session.Players.Players.Count)
+            {
+                return false;
+            }
+
+            var target = _session.Players.GetPlayer(targetPlayerIndex);
+            if (_roster == null || !_roster.TryGetPose(target.PlayerId, out var pose))
+            {
+                return false;
+            }
+
+            return _session.RegisterHit(
+                       attackerPlayerIndex,
+                       targetPlayerIndex,
+                       pose.position,
+                       ServerTime) != Game.Core.Players.HitResult.Ignored;
+        }
+
+        public bool TryUseShredder(PlayerRef source)
+        {
+            if (!_hasShredderEjectionPose ||
+                !TryGetPlayerIndex(source, out var playerIndex))
+            {
+                return false;
+            }
+
+            var now = ServerTime;
+            return _session.TryDestroyHeldPlayerItem(playerIndex, now) ||
+                   _session.TryUseShredderOnHeldMapObject(
+                       playerIndex,
+                       _shredderEjectionPose,
+                       now);
+        }
+
+        private double ServerTime => _state.Runner.SimulationTime;
+
+        private bool TryGetPlayerIndex(PlayerRef source, out int playerIndex)
+        {
+            if (_session == null || _state == null || _state.Runner == null)
+            {
+                playerIndex = -1;
+                return false;
+            }
+
+            if (!source.IsRealPlayer && _state.Runner.IsServer)
+            {
+                source = _state.Runner.LocalPlayer;
+            }
+
+            playerIndex = -1;
+            return source.IsRealPlayer &&
+                   _session.Players.TryGetPlayerIndex(
+                       PlayerRegistry.IdOf(source),
+                       out playerIndex);
+        }
+
         /// <summary>Reports a refusal on the peer that asked.</summary>
         public void Refused(RoomStartResult reason)
         {
@@ -193,6 +346,8 @@ namespace Game.Network.Match
         public void Clear()
         {
             _state = null;
+            _session = null;
+            _hasShredderEjectionPose = false;
             _playing.Clear();
             _room.Clear();
             _sink?.MatchStarted(_playing);
