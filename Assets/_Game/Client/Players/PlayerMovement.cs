@@ -126,6 +126,12 @@ namespace Game.Client.Players
 
         private void HandlePostureInput()
         {
+            // 공중에서는 자세를 바꿀 수 없다.
+            if (!controller.isGrounded)
+            {
+                return;
+            }
+
             if (crouchAction.WasPressedThisFrame())
             {
                 SetPosture(Posture == PlayerPosture.Crouching
@@ -154,8 +160,33 @@ namespace Game.Client.Players
                 return;
             }
 
+            var targetHeight = GetPostureHeight(posture);
+            if (!HasHeadroom(targetHeight))
+            {
+                return;
+            }
+
             Posture = posture;
-            ApplyPostureShape(GetPostureHeight(posture));
+            ApplyPostureShape(targetHeight);
+        }
+
+        // 몸을 세울 때 머리 위 공간이 있는지 검사한다. (책상 밑 등에서는 일어설 수 없다)
+        private bool HasHeadroom(float targetHeight)
+        {
+            if (targetHeight <= controller.height)
+            {
+                return true;
+            }
+
+            var radius = controller.radius * 0.95f;
+            var topSphereCenter = transform.position + controller.center
+                + Vector3.up * (controller.height * 0.5f - controller.radius);
+            var castDistance = targetHeight - controller.height;
+
+            // 자기 자신과 겹친 상태에서 시작하는 캐스트는 자기 콜라이더를 무시한다.
+            return !Physics.SphereCast(
+                topSphereCenter, radius, Vector3.up, out _,
+                castDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
         }
 
         private float GetPostureHeight(PlayerPosture posture)
