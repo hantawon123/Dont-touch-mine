@@ -7,7 +7,8 @@ namespace Game.Client.Players
     public enum PlayerPosture
     {
         Standing,
-        Crouching
+        Crouching,
+        Prone
     }
 
     [RequireComponent(typeof(CharacterController))]
@@ -27,6 +28,7 @@ namespace Game.Client.Players
         public float CurrentEyeHeight => Posture switch
         {
             PlayerPosture.Crouching => movementConfig.CrouchEyeHeight,
+            PlayerPosture.Prone => movementConfig.ProneEyeHeight,
             _ => movementConfig.StandEyeHeight
         };
 
@@ -39,6 +41,7 @@ namespace Game.Client.Players
         private InputAction jumpAction;
         private InputAction sprintAction;
         private InputAction crouchAction;
+        private InputAction proneAction;
         private Transform cameraTransform;
         private float verticalVelocity;
 
@@ -65,6 +68,7 @@ namespace Game.Client.Players
             jumpAction = playerMap.FindAction("Jump", throwIfNotFound: true);
             sprintAction = playerMap.FindAction("Sprint", throwIfNotFound: true);
             crouchAction = playerMap.FindAction("Crouch", throwIfNotFound: true);
+            proneAction = playerMap.FindAction("Prone", throwIfNotFound: true);
 
             if (visualRoot == null)
             {
@@ -129,6 +133,13 @@ namespace Game.Client.Players
                     : PlayerPosture.Crouching);
             }
 
+            if (proneAction.WasPressedThisFrame())
+            {
+                SetPosture(Posture == PlayerPosture.Prone
+                    ? PlayerPosture.Standing
+                    : PlayerPosture.Prone);
+            }
+
             // 앉기/엎드리기 중 점프 키는 일어서기로 동작한다.
             if (jumpAction.WasPressedThisFrame() && Posture != PlayerPosture.Standing)
             {
@@ -152,6 +163,7 @@ namespace Game.Client.Players
             return posture switch
             {
                 PlayerPosture.Crouching => movementConfig.CrouchHeight,
+                PlayerPosture.Prone => movementConfig.ProneHeight,
                 _ => movementConfig.StandHeight
             };
         }
@@ -161,6 +173,7 @@ namespace Game.Client.Players
             return Posture switch
             {
                 PlayerPosture.Crouching => movementConfig.CrouchSpeed,
+                PlayerPosture.Prone => movementConfig.ProneSpeed,
                 _ => sprintAction.IsPressed() ? movementConfig.SprintSpeed : movementConfig.WalkSpeed
             };
         }
