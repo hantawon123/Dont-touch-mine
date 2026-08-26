@@ -35,5 +35,24 @@ namespace Game.Tests.EditMode
                 system.TrySetPose("unknown", new Pose(Vector3.one, Quaternion.identity)),
                 Is.False);
         }
+
+        [Test]
+        public void ResetToInitial_RestoresCapturedPose()
+        {
+            var initialPose = new Pose(Vector3.right, Quaternion.identity);
+            var system = new WorldObjectStateSystem(new[]
+            {
+                new WorldObjectState("box", initialPose)
+            });
+
+            system.TrySetPose(
+                "box",
+                new Pose(Vector3.up, Quaternion.Euler(0f, 90f, 0f)));
+            system.ResetToInitial();
+
+            Assert.That(system.TryGetState("box", out var state), Is.True);
+            Assert.That(state.Pose.position, Is.EqualTo(initialPose.position));
+            Assert.That(state.Pose.rotation, Is.EqualTo(initialPose.rotation));
+        }
     }
 }

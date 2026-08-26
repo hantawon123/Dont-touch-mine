@@ -303,6 +303,7 @@ namespace Game.Network.Match
             _session.PlayerStunned += OnPlayerStunned;
             _session.ObjectThrown += OnObjectThrown;
             _session.ObjectAutoReleased += OnObjectAutoReleased;
+            _session.WorldObjectsReset += OnWorldObjectsReset;
             _session.FinalWarningStarted += OnFinalWarningStarted;
             _session.MatchEnded += OnMatchEnded;
             _shredderEjectionPose = shredderEjectionPose;
@@ -611,6 +612,15 @@ namespace Game.Network.Match
                 confirmedEvent.Pose);
         }
 
+        private void OnWorldObjectsReset(IReadOnlyList<Game.Server.Items.WorldObjectState> states)
+        {
+            if (_state == null || !_state.TryResetWorldObjects(states))
+            {
+                throw new InvalidOperationException(
+                    "The authority could not reset the world objects.");
+            }
+        }
+
         private void OnFinalWarningStarted(FinalWarningStartedEvent confirmedEvent)
         {
             _state?.RPC_NotifyFinalWarning(
@@ -641,6 +651,7 @@ namespace Game.Network.Match
             _session.PlayerStunned -= OnPlayerStunned;
             _session.ObjectThrown -= OnObjectThrown;
             _session.ObjectAutoReleased -= OnObjectAutoReleased;
+            _session.WorldObjectsReset -= OnWorldObjectsReset;
             _session.FinalWarningStarted -= OnFinalWarningStarted;
             _session.MatchEnded -= OnMatchEnded;
             _session = null;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Fusion;
 using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Server.Items;
 using Game.Server.Match;
 using UnityEngine;
 
@@ -485,6 +486,44 @@ namespace Game.Network.Match
             state.IsDestroyed = true;
             state.IsPhysicsActive = false;
             return WriteObjectState(key, state);
+        }
+
+        public bool TryResetWorldObjects(IReadOnlyList<WorldObjectState> states)
+        {
+            if (Object == null || !Object.HasStateAuthority || states == null)
+            {
+                return false;
+            }
+
+            var newObjectCount = 0;
+            foreach (var worldObject in states)
+            {
+                NetworkString<_64> key = worldObject.ObjectId;
+                if (!ObjectStates.ContainsKey(key))
+                {
+                    newObjectCount++;
+                }
+            }
+
+            if (ObjectStates.Count + newObjectCount > MaxReplicatedObjects)
+            {
+                return false;
+            }
+
+            foreach (var worldObject in states)
+            {
+                NetworkString<_64> key = worldObject.ObjectId;
+                ObjectStates.TryGet(key, out var state);
+                state.HolderPlayerIndex = -1;
+                state.Position = worldObject.Pose.position;
+                state.Rotation = worldObject.Pose.rotation;
+                state.InitialVelocity = default;
+                state.IsDestroyed = false;
+                state.IsPhysicsActive = false;
+                WriteObjectState(key, state);
+            }
+
+            return true;
         }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
