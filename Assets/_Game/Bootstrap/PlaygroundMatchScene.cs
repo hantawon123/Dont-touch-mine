@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Game.Client.Interactions;
 using Game.Core.Items;
-using Game.Network.Match;
 using Game.Server.Items;
 using Game.Server.Match;
 using UnityEngine;
@@ -15,6 +14,11 @@ namespace Game.Bootstrap
 {
     internal sealed class PlaygroundMatchScene
     {
+        // Replay frames are sampled ten times per second. Keeping this smaller
+        // than the live state capacity prevents a larger map from multiplying
+        // highlight memory and reliable-transfer bandwidth.
+        internal const int MaxReplayObjectCount = 64;
+
         private PlaygroundMatchScene(
             IMatchRuntimeContext runtimeContext,
             NetworkMatchRuntimeConfiguration networkConfiguration)
@@ -62,7 +66,7 @@ namespace Game.Bootstrap
             }
 
             var volumes = new List<PlacementVolume>();
-            var replayItems = new List<CarryableItem>(MatchSessionState.MaxReplicatedObjects);
+            var replayItems = new List<CarryableItem>(MaxReplayObjectCount);
             foreach (var definition in ItemCatalog.Definitions)
             {
                 var item = items[definition.ItemId];
@@ -73,7 +77,7 @@ namespace Game.Bootstrap
             foreach (var item in worldItems)
             {
                 volumes.Add(CaptureVolume(item));
-                if (replayItems.Count < MatchSessionState.MaxReplicatedObjects)
+                if (replayItems.Count < MaxReplayObjectCount)
                 {
                     replayItems.Add(item);
                 }

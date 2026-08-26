@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Fusion;
+using Game.Core.Lobby;
 
 namespace Game.Network.Players
 {
@@ -56,6 +57,38 @@ namespace Game.Network.Players
 
             _seatByPlayer[player] = seat;
             return seat;
+        }
+
+        /// <summary>
+        /// Restores the exact seat recorded in a host-migration snapshot.
+        /// Unlike <see cref="Add"/>, this never chooses a different free seat.
+        /// </summary>
+        public bool Restore(PlayerRef player, int seat)
+        {
+            if (!player.IsRealPlayer ||
+                seat < 0 || seat >= RoomSettings.MaxPlayerCount)
+            {
+                return false;
+            }
+
+            if (_seatByPlayer.TryGetValue(player, out var currentSeat))
+            {
+                return currentSeat == seat;
+            }
+
+            while (_seats.Count <= seat)
+            {
+                _seats.Add(PlayerRef.None);
+            }
+
+            if (_seats[seat] != PlayerRef.None)
+            {
+                return false;
+            }
+
+            _seats[seat] = player;
+            _seatByPlayer.Add(player, seat);
+            return true;
         }
 
         /// <summary>Frees a player's seat. False if they held none.</summary>

@@ -129,6 +129,7 @@ namespace Game.Network.Session
         /// </summary>
         private bool _exitReported;
         private int _highlightTransferSequence;
+        private bool _hostMigrationInProgress;
 
         private bool _disposed;
 
@@ -740,7 +741,7 @@ namespace Game.Network.Session
         /// Drops our references to the runner without touching it, so the caller
         /// can decide how to tear it down.
         /// </summary>
-        private void ReleaseRunner()
+        private void ReleaseRunner(bool preserveMigrationState = false)
         {
             // Emptied while the runner object still exists. It is destroyed with
             // the session, and presentation would otherwise keep showing the
@@ -772,13 +773,19 @@ namespace Game.Network.Session
             _runnerObject = null;
             _roster = null;
             _matchStarter = null;
-            _expectedPassword = null;
+            if (!preserveMigrationState)
+            {
+                _expectedPassword = null;
+            }
             _browsingLobby = false;
 
             // The characters go with the session, but the seating does not clear
             // itself. Left behind, the next room would start numbering from
             // wherever the last one stopped.
-            _spawner?.Clear();
+            if (!preserveMigrationState)
+            {
+                _spawner?.Clear();
+            }
         }
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
@@ -1100,6 +1107,11 @@ namespace Game.Network.Session
             }
 
             Debug.LogWarning($"[Network] Disconnected: {reason}");
+            if (_hostMigrationInProgress)
+            {
+                return;
+            }
+
             ReportExit(Translate(reason));
         }
 
@@ -1153,6 +1165,13 @@ namespace Game.Network.Session
             }
 
             Debug.Log($"[Network] Shutdown: {shutdownReason}");
+            if (_hostMigrationInProgress &&
+                shutdownReason == ShutdownReason.HostMigration)
+            {
+                ReleaseRunner(preserveMigrationState: true);
+                return;
+            }
+
             ReportExit(Translate(shutdownReason));
             ReleaseRunner();
         }
@@ -1210,7 +1229,132 @@ namespace Game.Network.Session
             input.Set(default(NetworkPlayerInput));
         }
 
-        public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
+        public async void OnHostMigration(
+            NetworkRunner runner,
+            HostMigrationToken hostMigrationToken)
+        {
+            if (!IsCurrentRunner(runner) || hostMigrationToken == null ||
+                _hostMigrationInProgress)
+            {
+                return;
+            }
+
+            _hostMigrationInProgress = true;
+            Debug.Log("[Network] Host migration started.");
+
+            try
+            {
+                await runner.Shutdown(shutdownReason: ShutdownReason.HostMigration);
+
+                var sceneManager = CreateRunner(
+                    hostMigrationToken.GameMode != GameMode.Server);
+                var result = await _runner.StartGame(new StartGameArgs
+                {
+                    GameMode = hostMigrationToken.GameMode,
+                    HostMigrationToken = hostMigrationToken,
+                    HostMigrationResume = ResumeHostMigration,
+                    ConnectionToken = EncodeToken(
+                        _expectedPassword,
+                        _profile?.Nickname),
+                    SceneManager = sceneManager,
+                    Scene = CaptureCurrentScene(),
+                });
+
+                if (!result.Ok)
+                {
+                    throw new InvalidOperationException(
+                        $"Fusion could not resume the room: " +
+                        $"{result.ShutdownReason} {result.ErrorMessage}");
+                }
+
+                _hostMigrationInProgress = false;
+                _exitReported = false;
+                ReportPlayerCount();
+
+                try
+                {
+                    if (!await _runner.PushHostMigrationSnapshot())
+                    {
+                        Debug.LogWarning(
+                            "[Network] The migrated room resumed, but its first " +
+                            "replacement snapshot could not be pushed.");
+                    }
+                }
+                catch (Exception exception)
+                {
+                    // The room already resumed. A failed follow-up snapshot
+                    // reduces the next migration's freshness but must not close
+                    // this healthy session.
+                    Debug.LogWarning(
+                        $"[Network] Could not push the replacement host " +
+                        $"snapshot: {exception.Message}");
+                }
+
+                Debug.Log(
+                    $"[Network] Host migration completed. IsServer={IsServer}.");
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[Network] Host migration failed: {exception.Message}");
+                _hostMigrationInProgress = false;
+                ReportExit(RoomExitReason.HostClosed);
+                Shutdown();
+            }
+        }
+
+        private void ResumeHostMigration(NetworkRunner resumedRunner)
+        {
+            var playerByObject = new Dictionary<NetworkId, PlayerRef>();
+            foreach (var pair in
+                     resumedRunner.GetResumeSnapshotNetworkObjectPlayerObjects())
+            {
+                playerByObject[pair.Value] = pair.Key;
+            }
+
+            foreach (var snapshotObject in
+                     resumedRunner.GetResumeSnapshotNetworkObjects())
+            {
+                var hasTransform = snapshotObject.TryGetBehaviour<NetworkTRSP>(
+                    out var networkTransform);
+                var position = hasTransform
+                    ? networkTransform.Data.Position
+                    : Vector3.zero;
+                var rotation = hasTransform
+                    ? networkTransform.Data.Rotation
+                    : Quaternion.identity;
+                var player = playerByObject.TryGetValue(
+                    snapshotObject.Id,
+                    out var mappedPlayer)
+                    ? mappedPlayer
+                    : PlayerRef.None;
+
+                var restoredObject = resumedRunner.Spawn(
+                    snapshotObject,
+                    position,
+                    rotation,
+                    player,
+                    (_, spawned) => spawned.CopyStateFrom(snapshotObject));
+                if (restoredObject == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Could not restore network object '{snapshotObject.Id}'.");
+                }
+
+                resumedRunner.MakeDontDestroyOnLoad(restoredObject.gameObject);
+                if (player.IsRealPlayer &&
+                    !(_spawner?.Restore(resumedRunner, player, restoredObject) ?? false))
+                {
+                    throw new InvalidOperationException(
+                        $"Could not restore the character owned by {player}.");
+                }
+            }
+
+            foreach (var sceneObject in
+                     resumedRunner.GetResumeSnapshotNetworkSceneObjects())
+            {
+                sceneObject.Item1.CopyStateFrom(sceneObject.Item2);
+            }
+        }
 
         public void OnSceneLoadStart(NetworkRunner runner) { }
 
@@ -1280,6 +1424,7 @@ namespace Game.Network.Session
         private const int MaxSegmentsPerHighlight = 8;
         private const int MaxFramesPerClip = 1024;
         private const int MaxIdLength = 64;
+        private const int MaxWorldObjectsPerFrame = 64;
 
         public static byte[] Serialize(IReadOnlyList<HighlightReplayData> replay)
         {
@@ -1437,7 +1582,7 @@ namespace Game.Network.Session
         private static void WriteFrame(BinaryWriter writer, HighlightReplayFrame frame)
         {
             if (frame.PlayerPoses.Count > RoomSettings.MaxPlayerCount ||
-                frame.WorldObjects.Count > MatchSessionState.MaxReplicatedObjects)
+                frame.WorldObjects.Count > MaxWorldObjectsPerFrame)
             {
                 throw new ArgumentException("Highlight frame capacity was exceeded.");
             }
@@ -1473,7 +1618,7 @@ namespace Game.Network.Session
             }
 
             var objectCount = reader.ReadByte();
-            if (objectCount > MatchSessionState.MaxReplicatedObjects)
+            if (objectCount > MaxWorldObjectsPerFrame)
             {
                 throw new InvalidDataException("Highlight object count is invalid.");
             }

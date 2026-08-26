@@ -113,8 +113,18 @@ namespace Game.Architecture.Tests
                     Is.EqualTo(carryableCount),
                     "모든 CarryableItem이 배정 물건 또는 일반 맵 물건으로 등록되어야 합니다.");
                 Assert.That(
+                    carryableCount,
+                    Is.GreaterThan(64),
+                    "64개 초과 동기화 경로를 실제 맵 구성으로 검증해야 합니다.");
+                Assert.That(
+                    carryableCount,
+                    Is.LessThanOrEqualTo(
+                        Game.Network.Match.MatchSessionState.MaxReplicatedObjects),
+                    "Playground의 모든 CarryableItem이 네트워크 상태 용량 안에 들어야 합니다.");
+                Assert.That(
                     captured.RuntimeContext.ReplayObjects.Count,
-                    Is.LessThanOrEqualTo(Game.Network.Match.MatchSessionState.MaxReplicatedObjects));
+                    Is.LessThanOrEqualTo(PlaygroundMatchScene.MaxReplayObjectCount),
+                    "하이라이트 샘플 수는 라이브 동기화 용량과 별도로 제한해야 합니다.");
             }
             finally
             {

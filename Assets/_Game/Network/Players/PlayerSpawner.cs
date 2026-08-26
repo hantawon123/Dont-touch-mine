@@ -180,6 +180,28 @@ namespace Game.Network.Players
         }
 
         /// <summary>
+        /// Reconnects Fusion's restored player object to the authoritative seat
+        /// table after a host migration.
+        /// </summary>
+        public bool Restore(
+            NetworkRunner runner,
+            PlayerRef player,
+            NetworkObject restoredObject)
+        {
+            if (runner == null || !runner.IsServer ||
+                !player.IsRealPlayer || restoredObject == null ||
+                !restoredObject.TryGetBehaviour<PlayerAvatar>(out var avatar) ||
+                !_players.Restore(player, avatar.Seat))
+            {
+                return false;
+            }
+
+            runner.SetPlayerObject(player, restoredObject);
+            runner.MakeDontDestroyOnLoad(restoredObject.gameObject);
+            return true;
+        }
+
+        /// <summary>
         /// Puts every seated character back onto a spawn point. Called after a
         /// networked scene load, because the points the characters were placed
         /// on belonged to the scene that has just gone away.
