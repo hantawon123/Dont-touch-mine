@@ -1,5 +1,6 @@
 using Fusion;
 using Game.Core.Lobby;
+using Game.Core.Match;
 using UnityEngine;
 
 namespace Game.Network.Match
@@ -49,12 +50,21 @@ namespace Game.Network.Match
         [Networked, Capacity(MaxParticipants)]
         public NetworkArray<NetworkString<_16>> Participants => default;
 
+        [Networked]
+        public MatchPhase Phase { get; set; }
+
+        [Networked]
+        public double PhaseEndsAt { get; set; }
+
         private bool _publishedStarted;
         private int _publishedCount = -1;
+        private MatchPhase _publishedPhase = (MatchPhase)(-1);
+        private double _publishedPhaseEndsAt = -1d;
 
         public override void Spawned()
         {
-            Publish();
+            PublishLineUp();
+            PublishSnapshot();
         }
 
         /// <summary>
@@ -65,12 +75,15 @@ namespace Game.Network.Match
         /// </summary>
         public override void Render()
         {
-            if (_publishedStarted == IsStarted && _publishedCount == ParticipantCount)
+            if (_publishedStarted != IsStarted || _publishedCount != ParticipantCount)
             {
-                return;
+                PublishLineUp();
             }
 
-            Publish();
+            if (_publishedPhase != Phase || _publishedPhaseEndsAt != PhaseEndsAt)
+            {
+                PublishSnapshot();
+            }
         }
 
         /// <summary>
@@ -90,15 +103,35 @@ namespace Game.Network.Match
             IsStarted = true;
         }
 
+        public bool TrySetSnapshot(MatchStateSnapshot snapshot)
+        {
+            if (Object == null || !Object.HasStateAuthority)
+            {
+                return false;
+            }
+
+            Phase = snapshot.Phase;
+            PhaseEndsAt = snapshot.PhaseEndsAt;
+            return true;
+        }
+
         /// <summary>
         /// Reports the room's answer to whoever is listening on this peer.
         /// </summary>
-        private void Publish()
+        private void PublishLineUp()
         {
             _publishedStarted = IsStarted;
             _publishedCount = ParticipantCount;
 
             StarterOf(Runner)?.Publish(this);
+        }
+
+        private void PublishSnapshot()
+        {
+            _publishedPhase = Phase;
+            _publishedPhaseEndsAt = PhaseEndsAt;
+
+            StarterOf(Runner)?.PublishSnapshot(new MatchStateSnapshot(Phase, PhaseEndsAt));
         }
 
         /// <summary>

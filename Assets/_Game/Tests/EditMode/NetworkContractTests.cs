@@ -1,7 +1,9 @@
 using System;
 using Game.Core.Match;
 using Game.Core.Players;
+using Game.Network.Match;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Architecture.Tests
 {
@@ -48,6 +50,36 @@ namespace Game.Architecture.Tests
                 new MatchStateSnapshot((MatchPhase)99, 1d));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new MatchStateSnapshot(MatchPhase.Hiding, double.NaN));
+        }
+
+        [Test]
+        public void MatchStarter_ForwardsReplicatedPhaseSnapshot()
+        {
+            var gameObject = new GameObject("MatchStarterTest");
+
+            try
+            {
+                var starter = gameObject.AddComponent<MatchStarter>();
+                var expected = new MatchStateSnapshot(MatchPhase.Searching, 120d);
+                var received = new MatchStateSnapshot();
+                var wasReceived = false;
+
+                starter.MatchStateReceived += snapshot =>
+                {
+                    received = snapshot;
+                    wasReceived = true;
+                };
+
+                starter.PublishSnapshot(expected);
+
+                Assert.That(wasReceived, Is.True);
+                Assert.That(received.Phase, Is.EqualTo(MatchPhase.Searching));
+                Assert.That(received.PhaseEndsAt, Is.EqualTo(120d));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
         }
     }
 }

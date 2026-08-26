@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Fusion;
 using Game.Core.Lobby;
@@ -37,6 +38,8 @@ namespace Game.Network.Match
         /// it can carry the request.
         /// </summary>
         private MatchSessionState _state;
+
+        public event Action<MatchStateSnapshot> MatchStateReceived;
 
         public void Bind(IMatchStartSink sink, PlayerRoster roster)
         {
@@ -128,6 +131,16 @@ namespace Game.Network.Match
             }
 
             _sink.MatchStarted(_playing);
+        }
+
+        public bool TryPublishSnapshot(MatchStateSnapshot snapshot)
+        {
+            return _state != null && _state.TrySetSnapshot(snapshot);
+        }
+
+        public void PublishSnapshot(MatchStateSnapshot snapshot)
+        {
+            MatchStateReceived?.Invoke(snapshot);
         }
 
         /// <summary>Reports a refusal on the peer that asked.</summary>

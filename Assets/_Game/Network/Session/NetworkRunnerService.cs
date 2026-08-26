@@ -7,6 +7,7 @@ using Fusion;
 using Fusion.Sockets;
 using Game.Core.Ports;
 using Game.Core.Rooms;
+using Game.Core.Match;
 using Game.Network.Lobby;
 using Game.Network.Match;
 using Game.Network.Players;
@@ -53,6 +54,9 @@ namespace Game.Network.Session
         private NetworkRunner _runner;
         private GameObject _runnerObject;
         private PlayerRoster _roster;
+        private MatchStarter _matchStarter;
+
+        public event Action<MatchStateSnapshot> MatchStateReceived;
 
         /// <summary>
         /// Password this peer requires from joiners while it is the authority. A
@@ -291,6 +295,12 @@ namespace Game.Network.Session
             _runnerObject.GetComponent<MatchStarter>()?.RequestStart(_runner);
         }
 
+        public bool TryPublishMatchState(MatchStateSnapshot snapshot)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryPublishSnapshot(snapshot);
+        }
+
         /// <summary>
         /// Leaves the current session. Fusion tears the runner down itself, so
         /// this does not await anything.
@@ -362,7 +372,9 @@ namespace Game.Network.Session
             // container therefore cannot inject, can still reach it.
             _roster = _runnerObject.AddComponent<PlayerRoster>();
             _roster.Bind(_participantSink);
-            _runnerObject.AddComponent<MatchStarter>().Bind(_matchStartSink, _roster);
+            _matchStarter = _runnerObject.AddComponent<MatchStarter>();
+            _matchStarter.Bind(_matchStartSink, _roster);
+            _matchStarter.MatchStateReceived += OnMatchStateReceived;
 
             return sceneManager;
         }
@@ -379,12 +391,18 @@ namespace Game.Network.Session
             if (_runnerObject != null)
             {
                 _runnerObject.GetComponent<PlayerRoster>()?.Clear();
-                _runnerObject.GetComponent<MatchStarter>()?.Clear();
+                _matchStarter?.Clear();
+            }
+
+            if (_matchStarter != null)
+            {
+                _matchStarter.MatchStateReceived -= OnMatchStateReceived;
             }
 
             _runner = null;
             _runnerObject = null;
             _roster = null;
+            _matchStarter = null;
             _expectedPassword = null;
             _browsingLobby = false;
 
@@ -392,6 +410,11 @@ namespace Game.Network.Session
             // itself. Left behind, the next room would start numbering from
             // wherever the last one stopped.
             _spawner?.Clear();
+        }
+
+        private void OnMatchStateReceived(MatchStateSnapshot snapshot)
+        {
+            MatchStateReceived?.Invoke(snapshot);
         }
 
         private bool IsCurrentRunner(NetworkRunner runner) =>
