@@ -81,7 +81,15 @@ namespace Game.Client.Interactions
 
         public bool TryPickUp(CarryableItem item)
         {
-            return false; // 들기 구현 예정
+            if (CarriedItem != null || item == null || item.IsCarried)
+            {
+                return false;
+            }
+
+            // 로컬 즉시 확정. Photon 도입 시 서버 확정 응답을 받은 뒤 반영하도록 바뀐다.
+            CarriedItem = item;
+            item.OnPickedUp(holdPoint);
+            return true;
         }
 
         private void DropCarried()
