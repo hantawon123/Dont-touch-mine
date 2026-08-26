@@ -19,6 +19,54 @@ namespace Game.Server.Match
         public IReadOnlyList<HighlightReplayFrame> Frames { get; }
     }
 
+    public sealed class HighlightReplayData
+    {
+        public HighlightReplayData(
+            HighlightCandidate candidate,
+            IReadOnlyList<HighlightReplayClip> clips)
+        {
+            if (candidate.Segments == null)
+            {
+                throw new ArgumentException("A valid highlight is required.", nameof(candidate));
+            }
+
+            if (clips == null)
+            {
+                throw new ArgumentNullException(nameof(clips));
+            }
+
+            if (clips.Count != candidate.Segments.Count)
+            {
+                throw new ArgumentException(
+                    "Replay clips must match the highlight segments.",
+                    nameof(clips));
+            }
+
+            var copiedClips = new HighlightReplayClip[clips.Count];
+            for (var index = 0; index < clips.Count; index++)
+            {
+                var expected = candidate.Segments[index];
+                var actual = clips[index].Segment;
+                if (actual.StartedAt != expected.StartedAt ||
+                    actual.EndedAt != expected.EndedAt ||
+                    actual.PlaybackSpeed != expected.PlaybackSpeed)
+                {
+                    throw new ArgumentException(
+                        "Replay clip order must match the highlight segments.",
+                        nameof(clips));
+                }
+
+                copiedClips[index] = clips[index];
+            }
+
+            Candidate = candidate;
+            Clips = Array.AsReadOnly(copiedClips);
+        }
+
+        public HighlightCandidate Candidate { get; }
+        public IReadOnlyList<HighlightReplayClip> Clips { get; }
+    }
+
     public readonly struct HighlightReplayFrame
     {
         public HighlightReplayFrame(

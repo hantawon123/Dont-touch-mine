@@ -60,5 +60,12 @@ namespace Game.Server.Match
             currentIndex++;
             return true;
         }
+
+        public HighlightCandidate[] Capture()
+        {
+            var snapshot = new HighlightCandidate[highlights.Length];
+            Array.Copy(highlights, snapshot, highlights.Length);
+            return snapshot;
+        }
     }
 }

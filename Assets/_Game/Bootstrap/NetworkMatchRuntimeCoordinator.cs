@@ -61,6 +61,7 @@ namespace Game.Bootstrap
         private int synchronizedHidingTurn = -1;
         private bool hasSynchronizedPlayers;
         private bool hasPublishedSnapshot;
+        private bool hasPublishedHighlightReplay;
         private bool started;
 
         public NetworkMatchRuntimeCoordinator(
@@ -282,6 +283,19 @@ namespace Game.Bootstrap
                 return;
             }
 
+            if (snapshot.Phase == MatchPhase.Highlight &&
+                !hasPublishedHighlightReplay)
+            {
+                if (!composition.Session.TryCaptureHighlightReplay(out var replay) ||
+                    !network.TryPublishHighlightReplay(replay))
+                {
+                    throw new InvalidOperationException(
+                        "The authority could not publish the highlight replay.");
+                }
+
+                hasPublishedHighlightReplay = true;
+            }
+
             if (!network.TryPublishMatchState(snapshot))
             {
                 throw new InvalidOperationException(
@@ -308,6 +322,7 @@ namespace Game.Bootstrap
             synchronizedHidingTurn = -1;
             hasSynchronizedPlayers = false;
             hasPublishedSnapshot = false;
+            hasPublishedHighlightReplay = false;
         }
     }
 }
