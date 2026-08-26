@@ -394,6 +394,7 @@ namespace Game.Network.Match
         {
             if (!TryGetPlayerIndex(source, out var playerIndex) ||
                 !TryGetPlayerPose(playerIndex, out var playerPose) ||
+                !_state.CanHoldObject(objectId) ||
                 !IsObjectWithinReach(playerIndex, objectId, playerPose.position) ||
                 !_state.CanTrackObject(objectId) ||
                 !_session.TryHoldObject(playerIndex, objectId, ServerTime))
@@ -442,6 +443,27 @@ namespace Game.Network.Match
             }
 
             return _state.TrySetObjectReleased(objectId, pose, initialVelocity);
+        }
+
+        public bool TryConfirmObjectSettled(
+            string objectId,
+            Pose pose,
+            int expectedVersion)
+        {
+            if (_state == null || _session == null ||
+                !_session.TryGetObjectPose(objectId, out _) ||
+                !_state.TrySetObjectSettled(objectId, pose, expectedVersion))
+            {
+                return false;
+            }
+
+            if (!_session.TryConfirmReleasedObjectPose(objectId, pose))
+            {
+                throw new InvalidOperationException(
+                    $"The settled pose could not be stored for '{objectId}'.");
+            }
+
+            return true;
         }
 
         public bool TryHitPlayer(PlayerRef source, int targetPlayerIndex)

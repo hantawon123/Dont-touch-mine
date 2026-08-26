@@ -121,7 +121,42 @@ namespace Game.Client.Interactions
         public void OnReleased(Pose pose, Vector3 initialVelocity)
         {
             OnPlaced(pose.position, pose.rotation);
+            body.angularVelocity = default;
             body.linearVelocity = initialVelocity;
+            body.WakeUp();
+        }
+
+        public void OnSettled(Pose pose, bool keepDynamic)
+        {
+            transform.SetParent(null, worldPositionStays: true);
+            transform.SetPositionAndRotation(pose.position, pose.rotation);
+
+            SetCollidersEnabled(true);
+            body.isKinematic = false;
+            body.linearVelocity = default;
+            body.angularVelocity = default;
+            IsCarried = false;
+
+            if (keepDynamic)
+            {
+                body.Sleep();
+            }
+            else
+            {
+                body.isKinematic = true;
+            }
+        }
+
+        public bool TryGetSettledPose(out Pose pose)
+        {
+            if (!IsCarried && !body.isKinematic && body.IsSleeping())
+            {
+                pose = new Pose(transform.position, transform.rotation);
+                return true;
+            }
+
+            pose = default;
+            return false;
         }
 
         public void AssignToPlayer(int playerIndex)

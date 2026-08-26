@@ -332,7 +332,8 @@ namespace Game.Architecture.Tests
                 pose,
                 velocity,
                 true,
-                7);
+                7,
+                true);
 
             Assert.That(snapshot.ObjectId, Is.EqualTo("Soda_01"));
             Assert.That(snapshot.HolderPlayerIndex, Is.EqualTo(2));
@@ -340,6 +341,7 @@ namespace Game.Architecture.Tests
             Assert.That(snapshot.InitialVelocity, Is.EqualTo(velocity));
             Assert.That(snapshot.IsDestroyed, Is.True);
             Assert.That(snapshot.Version, Is.EqualTo(7));
+            Assert.That(snapshot.IsPhysicsActive, Is.True);
         }
     }
 }

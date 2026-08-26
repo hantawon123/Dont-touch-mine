@@ -43,7 +43,8 @@ namespace Game.Network.Match
             Pose pose,
             Vector3 initialVelocity,
             bool isDestroyed,
-            int version)
+            int version,
+            bool isPhysicsActive = false)
         {
             if (string.IsNullOrWhiteSpace(objectId))
             {
@@ -61,6 +62,7 @@ namespace Game.Network.Match
             InitialVelocity = initialVelocity;
             IsDestroyed = isDestroyed;
             Version = version;
+            IsPhysicsActive = isPhysicsActive;
         }
 
         public string ObjectId { get; }
@@ -69,6 +71,7 @@ namespace Game.Network.Match
         public Vector3 InitialVelocity { get; }
         public bool IsDestroyed { get; }
         public int Version { get; }
+        public bool IsPhysicsActive { get; }
     }
 
     internal struct ReplicatedObjectState : INetworkStruct
@@ -78,6 +81,7 @@ namespace Game.Network.Match
         public Quaternion Rotation;
         public Vector3 InitialVelocity;
         public NetworkBool IsDestroyed;
+        public NetworkBool IsPhysicsActive;
         public int Version;
     }
 
@@ -395,6 +399,7 @@ namespace Game.Network.Match
 
             state.HolderPlayerIndex = holderPlayerIndex;
             state.InitialVelocity = default;
+            state.IsPhysicsActive = false;
             return WriteObjectState(key, state);
         }
 
@@ -411,6 +416,21 @@ namespace Game.Network.Match
                    ObjectStates.Count < MaxReplicatedObjects;
         }
 
+        public bool CanHoldObject(string objectId)
+        {
+            if (Object == null || !Object.HasStateAuthority ||
+                string.IsNullOrWhiteSpace(objectId))
+            {
+                return false;
+            }
+
+            NetworkString<_64> key = objectId.Trim();
+            return !ObjectStates.TryGet(key, out var state) ||
+                   state.HolderPlayerIndex < 0 &&
+                   !state.IsDestroyed &&
+                   !state.IsPhysicsActive;
+        }
+
         public bool TrySetObjectReleased(
             string objectId,
             Pose pose,
@@ -425,6 +445,31 @@ namespace Game.Network.Match
             state.Position = pose.position;
             state.Rotation = pose.rotation;
             state.InitialVelocity = initialVelocity;
+            state.IsPhysicsActive = true;
+            return WriteObjectState(key, state);
+        }
+
+        public bool TrySetObjectSettled(
+            string objectId,
+            Pose pose,
+            int expectedVersion)
+        {
+            if (expectedVersion < 0 ||
+                !IsFinite(pose.position) ||
+                !IsFinite(pose.rotation) ||
+                !TryGetWritableState(objectId, out var key, out var state) ||
+                state.Version != expectedVersion ||
+                state.HolderPlayerIndex >= 0 ||
+                state.IsDestroyed ||
+                !state.IsPhysicsActive)
+            {
+                return false;
+            }
+
+            state.Position = pose.position;
+            state.Rotation = pose.rotation;
+            state.InitialVelocity = default;
+            state.IsPhysicsActive = false;
             return WriteObjectState(key, state);
         }
 
@@ -438,6 +483,7 @@ namespace Game.Network.Match
             state.HolderPlayerIndex = -1;
             state.InitialVelocity = default;
             state.IsDestroyed = true;
+            state.IsPhysicsActive = false;
             return WriteObjectState(key, state);
         }
 
@@ -579,7 +625,8 @@ namespace Game.Network.Match
                     new Pose(state.Position, state.Rotation),
                     state.InitialVelocity,
                     state.IsDestroyed,
-                    state.Version);
+                    state.Version,
+                    state.IsPhysicsActive);
             }
 
             StarterOf(Runner)?.PublishObjectStates(snapshots);
@@ -663,6 +710,17 @@ namespace Game.Network.Match
                    playerIndex >= 0 &&
                    playerIndex < ParticipantCount;
         }
+
+        private static bool IsFinite(Vector3 value) =>
+            float.IsFinite(value.x) &&
+            float.IsFinite(value.y) &&
+            float.IsFinite(value.z);
+
+        private static bool IsFinite(Quaternion value) =>
+            float.IsFinite(value.x) &&
+            float.IsFinite(value.y) &&
+            float.IsFinite(value.z) &&
+            float.IsFinite(value.w);
 
         private bool WriteObjectState(
             NetworkString<_64> key,

@@ -376,6 +376,43 @@ namespace Game.Server.Match
             return false;
         }
 
+        public bool TryConfirmReleasedObjectPose(string objectId, Pose pose)
+        {
+            if (string.IsNullOrWhiteSpace(objectId) ||
+                !IsFinite(pose.position) ||
+                !IsFinite(pose.rotation))
+            {
+                return false;
+            }
+
+            var normalizedId = objectId.Trim();
+            for (var playerIndex = 0;
+                 playerIndex < Assignments.Count;
+                 playerIndex++)
+            {
+                if (!string.Equals(
+                        Assignments[playerIndex].Item.ItemId,
+                        normalizedId,
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!placements.TryGetPlacement(playerIndex, out var placement))
+                {
+                    return false;
+                }
+
+                placements.RecordPlacement(
+                    playerIndex,
+                    pose,
+                    placement.WasAutoPlaced);
+                return true;
+            }
+
+            return worldObjects.TrySetPose(normalizedId, pose);
+        }
+
         public WorldObjectState[] CaptureWorldObjectSnapshot()
         {
             return worldObjects.CaptureSnapshot();
