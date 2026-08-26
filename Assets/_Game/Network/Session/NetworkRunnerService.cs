@@ -25,7 +25,10 @@ namespace Game.Network.Session
     /// to a dedicated server is therefore a change at the call site, not a
     /// rewrite of the gameplay layer.
     /// </remarks>
-    public sealed class NetworkRunnerService : INetworkRunnerCallbacks, IDisposable
+    public sealed class NetworkRunnerService :
+        INetworkRunnerCallbacks,
+        INetworkMatchRuntimeSource,
+        IDisposable
     {
         private const string RunnerObjectName = "[NetworkRunner]";
 
@@ -49,6 +52,7 @@ namespace Game.Network.Session
 
         private NetworkRunner _runner;
         private GameObject _runnerObject;
+        private PlayerRoster _roster;
 
         /// <summary>
         /// Password this peer requires from joiners while it is the authority. A
@@ -94,6 +98,31 @@ namespace Game.Network.Session
         /// and a dedicated server, so gameplay never asks which one it is.
         /// </summary>
         public bool IsServer => _runner != null && _runner.IsServer;
+
+        public double ServerTime
+        {
+            get
+            {
+                if (!IsRunning)
+                {
+                    throw new InvalidOperationException(
+                        "Network time is unavailable before the runner starts.");
+                }
+
+                return _runner.SimulationTime;
+            }
+        }
+
+        public bool TryGetPlayerPose(string playerId, out Pose pose)
+        {
+            if (_roster != null)
+            {
+                return _roster.TryGetPose(playerId, out pose);
+            }
+
+            pose = default;
+            return false;
+        }
 
         public string RoomCode
         {
@@ -331,9 +360,9 @@ namespace Game.Network.Session
 
             // Sits on the runner so that characters, which Fusion spawns and the
             // container therefore cannot inject, can still reach it.
-            var roster = _runnerObject.AddComponent<PlayerRoster>();
-            roster.Bind(_participantSink);
-            _runnerObject.AddComponent<MatchStarter>().Bind(_matchStartSink, roster);
+            _roster = _runnerObject.AddComponent<PlayerRoster>();
+            _roster.Bind(_participantSink);
+            _runnerObject.AddComponent<MatchStarter>().Bind(_matchStartSink, _roster);
 
             return sceneManager;
         }
@@ -355,6 +384,7 @@ namespace Game.Network.Session
 
             _runner = null;
             _runnerObject = null;
+            _roster = null;
             _expectedPassword = null;
             _browsingLobby = false;
 

@@ -98,6 +98,29 @@ namespace Game.Network.Players
             into.Sort(CompareBySeat);
         }
 
+        public bool TryGetPose(string playerId, out Pose pose)
+        {
+            if (!string.IsNullOrWhiteSpace(playerId))
+            {
+                for (var index = 0; index < _avatars.Count; index++)
+                {
+                    var avatar = _avatars[index];
+                    if (avatar != null &&
+                        string.Equals(
+                            PlayerRegistry.IdOf(avatar.Owner),
+                            playerId,
+                            System.StringComparison.Ordinal))
+                    {
+                        pose = new Pose(avatar.transform.position, avatar.transform.rotation);
+                        return true;
+                    }
+                }
+            }
+
+            pose = default;
+            return false;
+        }
+
         private void Publish(NetworkRunner runner)
         {
             if (_sink == null)

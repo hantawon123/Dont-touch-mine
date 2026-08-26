@@ -4,6 +4,7 @@ using Game.Core.Lobby;
 using Game.Core.Ports;
 using Game.Network;
 using Game.Network.Lobby;
+using Game.Network.Match;
 using Game.Network.Players;
 using Game.Network.Session;
 using UnityEngine;
@@ -55,7 +56,9 @@ namespace Game.Bootstrap
                 c => new PlayerSpawner(networkPrefabs, c.Resolve<PlayerRegistry>()),
                 Lifetime.Singleton);
 
-            builder.Register<NetworkRunnerService>(Lifetime.Singleton);
+            builder.Register<NetworkRunnerService>(Lifetime.Singleton)
+                .AsSelf()
+                .As<INetworkMatchRuntimeSource>();
             builder.Register<RoomCodeGenerator>(Lifetime.Singleton);
             builder.Register<IRoomBrowser, RoomBrowser>(Lifetime.Singleton);
             builder.Register<RoomUiCommands>(Lifetime.Singleton);
