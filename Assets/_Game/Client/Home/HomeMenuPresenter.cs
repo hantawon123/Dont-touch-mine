@@ -51,6 +51,7 @@ namespace Game.Client.Home
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
         private bool isFriendListVisible;
+        private bool isProfileSettingsVisible;
 
         public HomeMenuPresenter(
             PlayerProfile profile,
@@ -75,6 +76,9 @@ namespace Game.Client.Home
         {
             view.ActionClicked += OnActionClicked;
             view.FriendListDismissed += HideFriendList;
+            view.ProfileSettingsDismissed += HideProfileSettings;
+            view.NicknameChangeRequested += OnNicknameChangeRequested;
+            view.NicknameEdited += OnNicknameEdited;
             view.FriendSearchOpened += OnFriendSearchOpened;
             view.FriendSearchClosed += OnFriendSearchClosed;
             view.FriendSearchRequested += OnFriendSearchRequested;
@@ -85,12 +89,16 @@ namespace Game.Client.Home
             BindProfile(profile);
             BindFriends();
             HideFriendList();
+            HideProfileSettings();
         }
 
         public void Dispose()
         {
             view.ActionClicked -= OnActionClicked;
             view.FriendListDismissed -= HideFriendList;
+            view.ProfileSettingsDismissed -= HideProfileSettings;
+            view.NicknameChangeRequested -= OnNicknameChangeRequested;
+            view.NicknameEdited -= OnNicknameEdited;
             view.FriendSearchOpened -= OnFriendSearchOpened;
             view.FriendSearchClosed -= OnFriendSearchClosed;
             view.FriendSearchRequested -= OnFriendSearchRequested;
@@ -111,7 +119,15 @@ namespace Game.Client.Home
 
             if (action == HomeMenuAction.Friends)
             {
+                HideProfileSettings();
                 ShowFriendList();
+                return;
+            }
+
+            if (action == HomeMenuAction.ProfileSettings)
+            {
+                HideFriendList();
+                ShowProfileSettings();
                 return;
             }
 
@@ -119,7 +135,34 @@ namespace Game.Client.Home
                 appFlow.TryTransitionTo(AppFlowState.RoomBrowser))
             {
                 HideFriendList();
+                HideProfileSettings();
                 applicationHost.OpenRoomBrowser();
+            }
+        }
+
+        private void OnNicknameChangeRequested(string nickname)
+        {
+            if (!isProfileSettingsVisible)
+            {
+                return;
+            }
+
+            if (profile.TryChangeNickname(nickname, out _))
+            {
+                view.SetNicknameAppliedFeedbackVisible(true);
+            }
+        }
+
+        private void OnNicknameEdited(string nickname)
+        {
+            if (!isProfileSettingsVisible)
+            {
+                return;
+            }
+
+            if (!string.Equals(nickname, profile.Nickname, StringComparison.Ordinal))
+            {
+                view.SetNicknameAppliedFeedbackVisible(false);
             }
         }
 
@@ -162,6 +205,28 @@ namespace Game.Client.Home
             HideFriendSearch();
             isFriendListVisible = false;
             view.SetFriendListVisible(false);
+        }
+
+        private void ShowProfileSettings()
+        {
+            if (isProfileSettingsVisible)
+            {
+                return;
+            }
+
+            isProfileSettingsVisible = true;
+            view.SetNickname(profile.Nickname);
+            view.SetLevel(profile.Level);
+            view.SetNicknameAppliedFeedbackVisible(false);
+            view.SetProfileSettingsVisible(true);
+        }
+
+        private void HideProfileSettings()
+        {
+            isProfileSettingsVisible = false;
+            view.SetNickname(profile.Nickname);
+            view.SetNicknameAppliedFeedbackVisible(false);
+            view.SetProfileSettingsVisible(false);
         }
 
         private void HideFriendSearch()

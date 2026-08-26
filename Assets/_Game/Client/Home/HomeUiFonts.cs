@@ -10,6 +10,7 @@ namespace Game.Client.Home
         private static Sprite circleSprite;
         private static Sprite whiteSprite;
         private static Sprite roundedSprite;
+        private static Sprite pillSprite;
 
         public static Sprite WhiteSprite
         {
@@ -78,6 +79,47 @@ namespace Game.Client.Home
                     new Vector4(radius, radius, radius, radius));
                 roundedSprite.hideFlags = HideFlags.HideAndDontSave;
                 return roundedSprite;
+            }
+        }
+
+        public static Sprite PillSprite
+        {
+            get
+            {
+                if (pillSprite != null)
+                {
+                    return pillSprite;
+                }
+
+                const int size = 64;
+                const int radius = 30;
+                var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    filterMode = FilterMode.Bilinear
+                };
+
+                for (var y = 0; y < size; y++)
+                {
+                    for (var x = 0; x < size; x++)
+                    {
+                        texture.SetPixel(x, y, IsInsideRoundedRect(x, y, size, radius)
+                            ? Color.white
+                            : Color.clear);
+                    }
+                }
+
+                texture.Apply(false, false);
+                pillSprite = Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, size, size),
+                    new Vector2(0.5f, 0.5f),
+                    100f,
+                    0,
+                    SpriteMeshType.FullRect,
+                    new Vector4(radius, radius, radius, radius));
+                pillSprite.hideFlags = HideFlags.HideAndDontSave;
+                return pillSprite;
             }
         }
 

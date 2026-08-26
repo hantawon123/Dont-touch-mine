@@ -146,7 +146,138 @@ namespace Game.Tests.EditMode
 
             Assert.That(view.FriendListVisible, Is.False);
             Assert.That(view.FriendSearchVisible, Is.False);
+            Assert.That(view.ProfileSettingsVisible, Is.False);
             Assert.That(host.RoomBrowserOpenCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Presenter_ProfileSettings_ShowsOverlayAndBackHidesIt()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
+
+            view.Raise(HomeMenuAction.ProfileSettings);
+            Assert.That(view.ProfileSettingsVisible, Is.True);
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
+
+            view.Raise(HomeMenuAction.ProfileSettings);
+            Assert.That(view.ProfileSettingsVisible, Is.True);
+
+            view.RaiseProfileSettingsDismissed();
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
+        }
+
+        [Test]
+        public void Presenter_FriendsAndProfileSettings_ReplaceEachOther()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+
+            view.Raise(HomeMenuAction.ProfileSettings);
+            Assert.That(view.ProfileSettingsVisible, Is.True);
+            Assert.That(view.FriendListVisible, Is.False);
+
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+        }
+
+        [Test]
+        public void Presenter_FindRoom_HidesOpenProfileSettings()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out var host, out _, out _, out _);
+            view.Raise(HomeMenuAction.ProfileSettings);
+            Assert.That(view.ProfileSettingsVisible, Is.True);
+
+            view.Raise(HomeMenuAction.FindRoom);
+
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
+            Assert.That(host.RoomBrowserOpenCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Presenter_ChangeNickname_ShowsAppliedFeedbackUntilTextDiffers()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+            view.Raise(HomeMenuAction.ProfileSettings);
+
+            view.RaiseNicknameChangeRequested("새닉네임");
+            Assert.That(view.Nickname, Is.EqualTo("새닉네임"));
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.True);
+
+            view.RaiseNicknameEdited("새닉네임");
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.True);
+
+            view.RaiseNicknameEdited("새닉네임 ");
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
+
+            view.RaiseNicknameChangeRequested("새닉네임");
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.True);
+
+            view.RaiseNicknameEdited("새닉네임!");
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
+            Assert.That(view.Nickname, Is.EqualTo("새닉네임"));
+        }
+
+        [Test]
+        public void Presenter_EmptyNickname_DoesNotShowAppliedFeedback()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+            view.Raise(HomeMenuAction.ProfileSettings);
+
+            view.RaiseNicknameChangeRequested(" ");
+            Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
+        }
+
+        [Test]
+        public void Presenter_CannotChangeNicknameUntilProfileSettingsIsOpen()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+
+            view.RaiseNicknameChangeRequested("해킹닉네임");
+
+            Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+        }
+
+        [Test]
+        public void Presenter_ReopeningProfileSettings_HidesPreviousAppliedFeedback()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+            view.Raise(HomeMenuAction.ProfileSettings);
+            view.RaiseNicknameChangeRequested("새닉네임");
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.True);
+
+            view.RaiseProfileSettingsDismissed();
+            view.Raise(HomeMenuAction.ProfileSettings);
+
+            Assert.That(view.ProfileSettingsVisible, Is.True);
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
+            Assert.That(view.Nickname, Is.EqualTo("새닉네임"));
+        }
+
+        [Test]
+        public void Presenter_ChangeNicknameAgain_ShowsAppliedFeedback()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+            view.Raise(HomeMenuAction.ProfileSettings);
+            view.RaiseNicknameChangeRequested("새닉네임");
+            view.RaiseNicknameEdited("다른닉");
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
+
+            view.RaiseNicknameChangeRequested("다른닉");
+            Assert.That(view.Nickname, Is.EqualTo("다른닉"));
+            Assert.That(view.NicknameAppliedFeedbackVisible, Is.True);
         }
 
         [Test]
@@ -264,9 +395,19 @@ namespace Game.Tests.EditMode
             public IReadOnlyList<FriendSearchHit> SearchResults { get; private set; } =
                 Array.Empty<FriendSearchHit>();
 
+            public bool ProfileSettingsVisible { get; private set; }
+
+            public bool NicknameAppliedFeedbackVisible { get; private set; }
+
             public event Action<HomeMenuAction> ActionClicked;
 
             public event Action FriendListDismissed;
+
+            public event Action ProfileSettingsDismissed;
+
+            public event Action<string> NicknameChangeRequested;
+
+            public event Action<string> NicknameEdited;
 
             public event Action FriendSearchOpened;
 
@@ -284,6 +425,16 @@ namespace Game.Tests.EditMode
             public void SetLevel(int level)
             {
                 Level = level;
+            }
+
+            public void SetProfileSettingsVisible(bool visible)
+            {
+                ProfileSettingsVisible = visible;
+            }
+
+            public void SetNicknameAppliedFeedbackVisible(bool visible)
+            {
+                NicknameAppliedFeedbackVisible = visible;
             }
 
             public void SetFriendListVisible(bool visible)
@@ -326,6 +477,21 @@ namespace Game.Tests.EditMode
             public void RaiseFriendListDismissed()
             {
                 FriendListDismissed?.Invoke();
+            }
+
+            public void RaiseProfileSettingsDismissed()
+            {
+                ProfileSettingsDismissed?.Invoke();
+            }
+
+            public void RaiseNicknameChangeRequested(string nickname)
+            {
+                NicknameChangeRequested?.Invoke(nickname);
+            }
+
+            public void RaiseNicknameEdited(string nickname)
+            {
+                NicknameEdited?.Invoke(nickname);
             }
 
             public void RaiseFriendSearchOpened()
