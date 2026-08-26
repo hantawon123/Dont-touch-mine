@@ -52,7 +52,7 @@ namespace Game.Client.Interactions
         private InputAction interactAction;
         private InputAction attackAction;
         private Transform cameraTransform;
-        private CarryableItem aimedItem;
+        private Component aimedTarget;
         private PlayerMovement playerMovement;
         private bool wasCursorLocked;
         private bool isAimingThrow;
@@ -120,14 +120,24 @@ namespace Game.Client.Interactions
 
             if (interactAction.WasPressedThisFrame())
             {
+                var aimedInteractable = aimedTarget as IInteractable;
                 if (CarriedItem != null)
                 {
                     CancelThrowAim();
-                    DropCarried();
+                    if (aimedTarget != null &&
+                        !(aimedTarget is CarryableItem) &&
+                        aimedInteractable.CanInteract(this))
+                    {
+                        aimedInteractable.Interact(this);
+                    }
+                    else
+                    {
+                        DropCarried();
+                    }
                 }
-                else if (aimedItem != null && aimedItem.CanInteract(this))
+                else if (aimedInteractable != null && aimedInteractable.CanInteract(this))
                 {
-                    aimedItem.Interact(this);
+                    aimedInteractable.Interact(this);
                 }
             }
 
@@ -223,32 +233,32 @@ namespace Game.Client.Interactions
         private void OnGUI()
         {
             var center = new Rect(Screen.width * 0.5f - 4f, Screen.height * 0.5f - 12f, 20f, 20f);
-            GUI.Label(center, aimedItem != null ? "<color=yellow><b>+</b></color>" : "+",
+            GUI.Label(center, aimedTarget != null ? "<color=yellow><b>+</b></color>" : "+",
                 new GUIStyle(GUI.skin.label) { fontSize = 20, richText = true });
         }
 
         private void UpdateAim()
         {
-            var newAimedItem = FindAimedItem();
-            if (newAimedItem == aimedItem)
+            var newAimedTarget = FindAimedTarget();
+            if (newAimedTarget == aimedTarget)
             {
                 return;
             }
 
-            if (aimedItem != null)
+            if (aimedTarget is CarryableItem previousItem)
             {
-                aimedItem.SetAimed(false, 1f);
+                previousItem.SetAimed(false, 1f);
             }
 
-            aimedItem = newAimedItem;
+            aimedTarget = newAimedTarget;
 
-            if (aimedItem != null)
+            if (aimedTarget is CarryableItem currentItem)
             {
-                aimedItem.SetAimed(true, interactionConfig.AimedHighlightIntensity);
+                currentItem.SetAimed(true, interactionConfig.AimedHighlightIntensity);
             }
         }
 
-        private CarryableItem FindAimedItem()
+        private Component FindAimedTarget()
         {
             if (cameraTransform == null)
             {
@@ -270,7 +280,7 @@ namespace Game.Client.Interactions
             var hitCount = Physics.RaycastNonAlloc(
                 ray, aimHits, maxDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
-            CarryableItem nearestItem = null;
+            Component nearestTarget = null;
             var nearestDistance = float.MaxValue;
 
             for (var i = 0; i < hitCount; i++)
@@ -290,14 +300,14 @@ namespace Game.Client.Interactions
 
                 // 물건이 아닌 벽/가구가 더 가까이 있으면 그 뒤의 물건은 조준할 수 없다.
                 nearestDistance = hit.distance;
-                var item = hit.collider.GetComponentInParent<CarryableItem>();
+                var target = hit.collider.GetComponentInParent(typeof(IInteractable));
 
-                var withinReach = item != null
+                var withinReach = target != null
                     && Vector3.Distance(hit.point, transform.position) <= interactionConfig.InteractionDistance;
-                nearestItem = withinReach ? item : null;
+                nearestTarget = withinReach ? target : null;
             }
 
-            return nearestItem;
+            return nearestTarget;
         }
     }
 }

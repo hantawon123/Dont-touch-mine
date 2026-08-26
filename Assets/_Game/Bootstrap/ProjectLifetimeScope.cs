@@ -34,6 +34,7 @@ namespace Game.Bootstrap
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
             builder.Register<FriendListSystem>(Lifetime.Singleton);
+            builder.Register<FriendSearchSystem>(Lifetime.Singleton);
 
             // Replaced by the saved Steam/backend profile when that adapter is connected.
             builder.RegisterInstance(new PlayerProfile("Player", 1));

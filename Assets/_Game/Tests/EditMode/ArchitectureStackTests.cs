@@ -48,6 +48,7 @@ namespace Game.Architecture.Tests
             Assert.That(container.Resolve<AppFlowSystem>(), Is.Not.Null);
             Assert.That(container.Resolve<HomeMenuSystem>(), Is.Not.Null);
             Assert.That(container.Resolve<FriendListSystem>(), Is.Not.Null);
+            Assert.That(container.Resolve<FriendSearchSystem>(), Is.Not.Null);
             Assert.That(container.Resolve<PlayerProfile>(), Is.Not.Null);
         }
     }

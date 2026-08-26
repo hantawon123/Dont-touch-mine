@@ -79,6 +79,10 @@ namespace Game.Client.Rooms
             {
                 var item = spawnedItems[index];
                 var isVisible = index < rooms.Count;
+
+                // Keeps the rendered order equal to the list order even when
+                // the content holds children this pool did not create.
+                item.transform.SetSiblingIndex(index);
                 item.gameObject.SetActive(isVisible);
 
                 if (isVisible)

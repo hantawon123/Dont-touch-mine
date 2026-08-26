@@ -9,6 +9,8 @@ namespace Game.Client.Home
         private static TMP_FontAsset koreanFont;
         private static Sprite circleSprite;
         private static Sprite whiteSprite;
+        private static Sprite roundedSprite;
+        private static Sprite pillSprite;
 
         public static Sprite WhiteSprite
         {
@@ -36,6 +38,88 @@ namespace Game.Client.Home
                 whiteSprite = Sprite.Create(texture, new Rect(0f, 0f, 4f, 4f), new Vector2(0.5f, 0.5f), 4f);
                 whiteSprite.hideFlags = HideFlags.HideAndDontSave;
                 return whiteSprite;
+            }
+        }
+
+        public static Sprite RoundedSprite
+        {
+            get
+            {
+                if (roundedSprite != null)
+                {
+                    return roundedSprite;
+                }
+
+                const int size = 64;
+                const int radius = 16;
+                var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    filterMode = FilterMode.Bilinear
+                };
+
+                for (var y = 0; y < size; y++)
+                {
+                    for (var x = 0; x < size; x++)
+                    {
+                        texture.SetPixel(x, y, IsInsideRoundedRect(x, y, size, radius)
+                            ? Color.white
+                            : Color.clear);
+                    }
+                }
+
+                texture.Apply(false, false);
+                roundedSprite = Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, size, size),
+                    new Vector2(0.5f, 0.5f),
+                    100f,
+                    0,
+                    SpriteMeshType.FullRect,
+                    new Vector4(radius, radius, radius, radius));
+                roundedSprite.hideFlags = HideFlags.HideAndDontSave;
+                return roundedSprite;
+            }
+        }
+
+        public static Sprite PillSprite
+        {
+            get
+            {
+                if (pillSprite != null)
+                {
+                    return pillSprite;
+                }
+
+                const int size = 64;
+                const int radius = 30;
+                var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    filterMode = FilterMode.Bilinear
+                };
+
+                for (var y = 0; y < size; y++)
+                {
+                    for (var x = 0; x < size; x++)
+                    {
+                        texture.SetPixel(x, y, IsInsideRoundedRect(x, y, size, radius)
+                            ? Color.white
+                            : Color.clear);
+                    }
+                }
+
+                texture.Apply(false, false);
+                pillSprite = Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, size, size),
+                    new Vector2(0.5f, 0.5f),
+                    100f,
+                    0,
+                    SpriteMeshType.FullRect,
+                    new Vector4(radius, radius, radius, radius));
+                pillSprite.hideFlags = HideFlags.HideAndDontSave;
+                return pillSprite;
             }
         }
 
@@ -96,6 +180,27 @@ namespace Game.Client.Home
             }
 
             return koreanFont;
+        }
+
+        private static bool IsInsideRoundedRect(int x, int y, int size, int radius)
+        {
+            var innerMin = radius;
+            var innerMax = size - radius;
+            if (x >= innerMin && x < innerMax)
+            {
+                return true;
+            }
+
+            if (y >= innerMin && y < innerMax)
+            {
+                return true;
+            }
+
+            var cornerX = x < innerMin ? innerMin : innerMax;
+            var cornerY = y < innerMin ? innerMin : innerMax;
+            var dx = x - cornerX;
+            var dy = y - cornerY;
+            return (dx * dx) + (dy * dy) <= radius * radius;
         }
     }
 }

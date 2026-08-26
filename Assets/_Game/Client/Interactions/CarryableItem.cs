@@ -12,9 +12,19 @@ namespace Game.Client.Interactions
         [SerializeField]
         private string displayName = "물건";
 
+        [SerializeField]
+        private bool isPlayerItem;
+
+        [SerializeField]
+        private int ownerPlayerIndex = -1;
+
         public bool IsCarried { get; private set; }
 
         public string DisplayName => displayName;
+
+        public bool IsPlayerItem => isPlayerItem;
+
+        public int OwnerPlayerIndex => isPlayerItem ? ownerPlayerIndex : -1;
 
         public string InteractionPrompt => $"{displayName} 들기 [F]";
 
