@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using Game.Network.Players;
@@ -194,25 +195,34 @@ namespace Game.Bootstrap
         private readonly PlayerSpawner _spawner;
         private readonly SessionStartPlan _plan;
 
+        /// <summary>
+        /// Handed to the overlay so a tester can rename themselves. The profile
+        /// screen has no way into it yet, and without a rename the network only
+        /// ever carries the first-run default.
+        /// </summary>
+        private readonly PlayerProfile _profile;
+
         public SessionAutoConnect(
             RoomUiCommands commands,
             RoomBrowserSystem state,
             NetworkRunnerService network,
             PlayerSpawner spawner,
-            SessionStartPlan plan)
+            SessionStartPlan plan,
+            PlayerProfile profile)
         {
             _commands = commands;
             _state = state;
             _network = network;
             _spawner = spawner;
             _plan = plan;
+            _profile = profile;
         }
 
         public async UniTask StartAsync(CancellationToken cancellation)
         {
             // A built player has no visible console, so session state has to be
             // on screen for anyone testing with two instances.
-            SessionDebugOverlay.Attach(_network, _commands, _state);
+            SessionDebugOverlay.Attach(_network, _commands, _state, _profile);
 
             // Handed over before connecting: the host spawns the moment the
             // session starts, and a character placed before this arrives would

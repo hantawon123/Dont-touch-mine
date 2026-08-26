@@ -1,6 +1,7 @@
 using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Network.Session;
 using UnityEngine;
@@ -40,13 +41,30 @@ namespace Game.Bootstrap
         private const int Margin = 12;
         private const int ButtonHeight = 26;
 
+        /// <summary>Label, field and the apply button for the nickname row.</summary>
+        private const int NicknameHeight = ButtonHeight + LineHeight + 6;
+
+        /// <summary>
+        /// What the nickname row takes up, or nothing when there is no profile to
+        /// edit. Used by both the box height and the button placement, so the two
+        /// cannot disagree and overlap.
+        /// </summary>
+        private int NicknameRowHeight => _profile == null ? 0 : NicknameHeight;
+
         private static SessionDebugOverlay _instance;
 
         private NetworkRunnerService _network;
         private RoomUiCommands _commands;
         private RoomBrowserSystem _state;
+        private PlayerProfile _profile;
         private GUIStyle _boxStyle;
         private bool _leaving;
+
+        /// <summary>
+        /// What is typed in the nickname field, kept apart from the profile so a
+        /// half-typed name is not saved on every keystroke.
+        /// </summary>
+        private string _typedNickname;
         private readonly StringBuilder _text = new StringBuilder();
 
         /// <summary>
@@ -54,7 +72,10 @@ namespace Game.Bootstrap
         /// does nothing, so a scene reload cannot stack duplicates.
         /// </summary>
         public static void Attach(
-            NetworkRunnerService network, RoomUiCommands commands, RoomBrowserSystem state)
+            NetworkRunnerService network,
+            RoomUiCommands commands,
+            RoomBrowserSystem state,
+            PlayerProfile profile)
         {
             if (_instance != null)
             {
@@ -68,6 +89,8 @@ namespace Game.Bootstrap
             _instance._network = network;
             _instance._commands = commands;
             _instance._state = state;
+            _instance._profile = profile;
+            _instance._typedNickname = profile == null ? string.Empty : profile.Nickname;
         }
 
         private void OnDestroy()
@@ -100,18 +123,23 @@ namespace Game.Bootstrap
             var height = BaseHeight
                          + ParticipantCount * LineHeight
                          + MatchLineCount * LineHeight
-                         + (CanRequestStart ? ButtonHeight + 4 : 0);
+                         + (CanRequestStart ? ButtonHeight + 4 : 0)
+                         + NicknameRowHeight;
 
             GUI.Box(new Rect(Margin, Margin, Width, height), Describe(), _boxStyle);
+
+            DrawNicknameField(height);
 
             if (!InRoom())
             {
                 return;
             }
 
+            // The nickname row owns the bottom of the box, so the buttons sit
+            // above it rather than on top of it.
             var button = new Rect(
                 Margin + 10,
-                Margin + height - ButtonHeight - 10,
+                Margin + height - ButtonHeight - 10 - NicknameRowHeight,
                 Width - 20,
                 ButtonHeight);
 
@@ -124,6 +152,53 @@ namespace Game.Bootstrap
             GUI.enabled = true;
 
             DrawStartButton(button);
+        }
+
+        /// <summary>
+        /// Lets this machine rename itself. Stands in for the profile screen,
+        /// which has no navigation into it yet.
+        /// </summary>
+        /// <remarks>
+        /// Offered only outside a room. A character's name is written when it
+        /// spawns, so renaming mid-session would save the new name while the room
+        /// went on showing the old one, which reads as a bug rather than as the
+        /// rule it is.
+        /// </remarks>
+        private void DrawNicknameField(int boxHeight)
+        {
+            if (_profile == null)
+            {
+                return;
+            }
+
+            var top = Margin + boxHeight - NicknameHeight - 6;
+            var label = new Rect(Margin + 10, top, Width - 20, LineHeight);
+
+            GUI.Label(label, InRoom() ? "Nickname (방 밖에서만 변경)" : "Nickname");
+
+            var fieldWidth = Width - 20 - 56;
+            var field = new Rect(Margin + 10, top + LineHeight, fieldWidth, ButtonHeight - 4);
+            var apply = new Rect(
+                Margin + 10 + fieldWidth + 4, top + LineHeight, 52, ButtonHeight - 4);
+
+            GUI.enabled = !InRoom();
+            _typedNickname = GUI.TextField(field, _typedNickname ?? string.Empty, 32);
+
+            if (GUI.Button(apply, "적용"))
+            {
+                if (_profile.TryChangeNickname(_typedNickname, out var error))
+                {
+                    Debug.Log($"[Profile] Nickname is now '{_profile.Nickname}'.");
+                }
+                else
+                {
+                    // Reported rather than swallowed: a name refused in silence
+                    // looks like a save that did not happen.
+                    Debug.LogWarning($"[Profile] Nickname refused: {error}.");
+                }
+            }
+
+            GUI.enabled = true;
         }
 
         /// <summary>
