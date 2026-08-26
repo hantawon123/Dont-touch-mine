@@ -25,6 +25,18 @@ namespace Game.Client.Interactions
 
         public Transform HoldPoint => holdPoint;
 
+        /// <summary>배치 모드 등 좌클릭을 다른 용도로 쓰는 동안 던지기를 막는다.</summary>
+        public bool IsThrowSuppressed { get; set; }
+
+        /// <summary>배치 확정 등 외부 시스템이 소지 물건을 가져갈 때 사용한다.</summary>
+        public CarryableItem ReleaseCarriedItem()
+        {
+            var released = CarriedItem;
+            CarriedItem = null;
+            CancelThrowAim();
+            return released;
+        }
+
         private InputActionMap playerMap;
         private InputAction interactAction;
         private InputAction attackAction;
@@ -102,7 +114,7 @@ namespace Game.Client.Interactions
         // 빈손 좌클릭(공격)은 전투 시스템에서 처리한다.
         private void HandleThrowInput()
         {
-            if (CarriedItem == null)
+            if (CarriedItem == null || IsThrowSuppressed)
             {
                 isAimingThrow = false;
                 return;

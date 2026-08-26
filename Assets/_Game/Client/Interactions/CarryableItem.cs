@@ -67,6 +67,21 @@ namespace Game.Client.Interactions
         }
 
         /// <summary>
+        /// 정밀 배치 확정: 미리보기 위치·회전으로 옮긴 뒤 물리를 되살린다.
+        /// 놓인 뒤에는 일반 물리 규칙을 따른다. (불안정한 자리면 자연스럽게 굴러떨어진다)
+        /// </summary>
+        public void OnPlaced(Vector3 position, Quaternion rotation)
+        {
+            transform.SetParent(null, worldPositionStays: true);
+            transform.SetPositionAndRotation(position, rotation);
+
+            SetCollidersEnabled(true);
+            body.isKinematic = false;
+
+            IsCarried = false;
+        }
+
+        /// <summary>
         /// 던지기: 놓기와 같지만 조준 방향으로 초기 속도를 준다.
         /// 기획서 규칙 — 던진 물건은 플레이어를 맞혀도 피해가 없다(난장판용).
         /// 전투 시스템은 IsThrown 여부와 무관하게 물건 충돌을 피해로 취급하지 않는다.
