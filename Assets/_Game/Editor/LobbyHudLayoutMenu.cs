@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Bootstrap;
 using Game.Client.Lobby;
 using UnityEditor;
@@ -59,8 +60,8 @@ namespace Game.Editor
             Place(start, Anchor.TopCenter, new Vector2(0f, -24f), new Vector2(220f, 72f));
             Place(leave, Anchor.TopRight, new Vector2(-24f, -24f), new Vector2(180f, 72f));
             Place(keyGuide, Anchor.MiddleLeft, new Vector2(24f, 40f), new Vector2(180f, 96f));
-            Place(playerList, Anchor.TopRight, new Vector2(-24f, -120f), new Vector2(240f, 420f));
-            Place(chat, Anchor.BottomLeft, new Vector2(24f, 24f), new Vector2(420f, 220f));
+            Place(playerList, Anchor.TopRight, new Vector2(-24f, -120f), new Vector2(300f, 420f));
+            Place(chat, Anchor.BottomLeft, new Vector2(24f, 24f), new Vector2(720f, 240f));
             Place(voice, Anchor.BottomRight, new Vector2(-24f, 24f), new Vector2(72f, 72f));
 
             SetLabel(settings, "설정");
@@ -69,9 +70,10 @@ namespace Game.Editor
             SetLabel(leave, "게임 나가기");
             SetLabel(keyGuide, "키 세팅 가이드");
             SetLabel(playerList, string.Empty);
-            SetLabel(chat, "채팅");
+            SetLabel(chat, string.Empty);
             SetLabel(voice, "MIC");
             EnsurePlayerListContent(playerList);
+            EnsureChatContent(chat);
 
             EnsureButton(keyGuide.gameObject);
             EnsureButton(playSettings.gameObject);
@@ -89,6 +91,12 @@ namespace Game.Editor
                 playerListView = Undo.AddComponent<LobbyPlayerListView>(playerList.gameObject);
             }
 
+            var chatView = chat.GetComponent<LobbyChatView>();
+            if (chatView == null)
+            {
+                chatView = Undo.AddComponent<LobbyChatView>(chat.gameObject);
+            }
+
             var keyGuidePanel = EnsureKeyGuidePanel(root);
             var keyGuideClose = keyGuidePanel.Find("CloseButton") as RectTransform;
             var keyGuideBody = keyGuidePanel.Find("BodyText");
@@ -103,6 +111,7 @@ namespace Game.Editor
                 root,
                 "HostTransferConfirmPanel",
                 "방장 위임 확인");
+            var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
 
             var hudSo = new SerializedObject(hud);
             hudSo.FindProperty("settingsButton").objectReferenceValue = settings;
@@ -139,6 +148,25 @@ namespace Game.Editor
                 ApplyText(title, "참가자 목록", 22, TextAnchor.UpperCenter);
             }
 
+            var chatSo = new SerializedObject(chatView);
+            chatSo.FindProperty("messageRoot").objectReferenceValue =
+                chat.Find("HistoryViewport/HistoryContent");
+            chatSo.FindProperty("inputField").objectReferenceValue =
+                chat.Find("InputField")?.GetComponent<InputField>();
+            chatSo.FindProperty("sendButton").objectReferenceValue =
+                chat.Find("SendButton")?.GetComponent<Button>();
+            chatSo.FindProperty("scrollRect").objectReferenceValue =
+                chat.Find("HistoryViewport")?.GetComponent<ScrollRect>();
+            chatSo.FindProperty("uiFont").objectReferenceValue = ResolveLobbyFont();
+            chatSo.ApplyModifiedPropertiesWithoutUndo();
+
+            var chatInput = chat.Find("InputField")?.GetComponent<InputField>();
+            if (chatInput != null)
+            {
+                chatInput.characterLimit = 80;
+                chatInput.lineType = InputField.LineType.SingleLine;
+            }
+
             var scopeSo = new SerializedObject(scope);
             scopeSo.FindProperty("hudView").objectReferenceValue = hud;
             scopeSo.FindProperty("keyGuideView").objectReferenceValue = keyGuideView;
@@ -146,6 +174,8 @@ namespace Game.Editor
             scopeSo.FindProperty("playSettingsView").objectReferenceValue = playSettingsView;
             scopeSo.FindProperty("kickConfirmView").objectReferenceValue = kickConfirm;
             scopeSo.FindProperty("transferConfirmView").objectReferenceValue = transferConfirm;
+            scopeSo.FindProperty("chatView").objectReferenceValue = chatView;
+            scopeSo.FindProperty("chatBubbleView").objectReferenceValue = chatBubbleView;
             scopeSo.ApplyModifiedPropertiesWithoutUndo();
 
             keyGuidePanel.gameObject.SetActive(false);
@@ -154,7 +184,7 @@ namespace Game.Editor
             Selection.activeGameObject = hud.gameObject;
             EditorUtility.DisplayDialog(
                 "Lobby HUD",
-                "HUD·키 가이드·참가자 목록·방장 UI를 배치·연결했습니다.\n씬을 저장하세요 (Ctrl+S).",
+                "HUD·키 가이드·참가자 목록·방장 UI·채팅/말풍선을 배치·연결했습니다.\n씬을 저장하세요 (Ctrl+S).",
                 "OK");
         }
 
@@ -736,6 +766,226 @@ namespace Game.Editor
 
             var go = CreateTextChild(parent, name, value, 18, alignment);
             Place(go.GetComponent<RectTransform>(), Anchor.Center, anchoredPosition, size);
+        }
+
+        private static void EnsureChatContent(RectTransform chat)
+        {
+            var leftoverLabel = chat.Find("Label");
+            if (leftoverLabel != null)
+            {
+                leftoverLabel.gameObject.SetActive(false);
+            }
+
+            var title = chat.Find("Title");
+            if (title == null)
+            {
+                var titleGo = CreateTextChild(chat, "Title", "채팅", 20, TextAnchor.MiddleLeft);
+                var titleRect = titleGo.GetComponent<RectTransform>();
+                titleRect.anchorMin = new Vector2(0f, 1f);
+                titleRect.anchorMax = new Vector2(1f, 1f);
+                titleRect.pivot = new Vector2(0f, 1f);
+                titleRect.sizeDelta = new Vector2(-16f, 28f);
+                titleRect.anchoredPosition = new Vector2(12f, -8f);
+            }
+            else
+            {
+                ApplyText(title.GetComponent<Text>(), "채팅", 20, TextAnchor.MiddleLeft);
+            }
+
+            var viewport = chat.Find("HistoryViewport") as RectTransform;
+            if (viewport == null)
+            {
+                var vpGo = new GameObject(
+                    "HistoryViewport",
+                    typeof(RectTransform),
+                    typeof(Image),
+                    typeof(Mask),
+                    typeof(ScrollRect));
+                Undo.RegisterCreatedObjectUndo(vpGo, "Create HistoryViewport");
+                vpGo.transform.SetParent(chat, false);
+                viewport = vpGo.GetComponent<RectTransform>();
+                vpGo.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.2f);
+                vpGo.GetComponent<Mask>().showMaskGraphic = false;
+            }
+
+            viewport.anchorMin = new Vector2(0f, 0f);
+            viewport.anchorMax = new Vector2(1f, 1f);
+            viewport.offsetMin = new Vector2(10f, 52f);
+            viewport.offsetMax = new Vector2(-10f, -40f);
+
+            var history = viewport.Find("HistoryText") as RectTransform;
+            if (history != null)
+            {
+                history.gameObject.SetActive(false);
+            }
+
+            var content = viewport.Find("HistoryContent") as RectTransform;
+            if (content == null)
+            {
+                var contentGo = new GameObject(
+                    "HistoryContent",
+                    typeof(RectTransform),
+                    typeof(VerticalLayoutGroup),
+                    typeof(ContentSizeFitter));
+                Undo.RegisterCreatedObjectUndo(contentGo, "Create HistoryContent");
+                contentGo.transform.SetParent(viewport, false);
+                content = contentGo.GetComponent<RectTransform>();
+            }
+
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = new Vector2(0f, 160f);
+
+            var vertical = content.GetComponent<VerticalLayoutGroup>();
+            vertical.childAlignment = TextAnchor.UpperLeft;
+            vertical.childControlWidth = true;
+            vertical.childControlHeight = true;
+            vertical.childForceExpandWidth = true;
+            vertical.childForceExpandHeight = false;
+            vertical.spacing = 2f;
+            vertical.padding = new RectOffset(8, 8, 8, 8);
+
+            var contentFitter = content.GetComponent<ContentSizeFitter>();
+            contentFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var scroll = viewport.GetComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.content = content;
+            scroll.viewport = viewport;
+
+            EnsureInputField(chat, "InputField", new Vector2(-40f, 22f), new Vector2(600f, 36f));
+            var input = chat.Find("InputField") as RectTransform;
+            if (input != null)
+            {
+                Place(input, Anchor.BottomLeft, new Vector2(12f, 10f), new Vector2(600f, 36f));
+            }
+
+            EnsureTextButton(chat, "SendButton", "전송", new Vector2(0f, 0f), new Vector2(80f, 36f));
+            var send = chat.Find("SendButton") as RectTransform;
+            if (send != null)
+            {
+                Place(send, Anchor.BottomRight, new Vector2(-12f, 10f), new Vector2(80f, 36f));
+            }
+        }
+
+        private static LobbyChatBubbleView EnsureChatBubbleWorld(Transform parent)
+        {
+            var root = parent.Find("ChatBubbleWorld");
+            GameObject rootGo;
+            if (root == null)
+            {
+                rootGo = new GameObject("ChatBubbleWorld");
+                Undo.RegisterCreatedObjectUndo(rootGo, "Create ChatBubbleWorld");
+                rootGo.transform.SetParent(parent, false);
+            }
+            else
+            {
+                rootGo = root.gameObject;
+            }
+
+            var view = rootGo.GetComponent<LobbyChatBubbleView>();
+            if (view == null)
+            {
+                view = Undo.AddComponent<LobbyChatBubbleView>(rootGo);
+            }
+
+            var samples = new[]
+            {
+                ("host-1", new Vector3(-1.5f, 1.6f, 2f)),
+                ("player-2", new Vector3(0f, 1.6f, 2f)),
+                ("player-3", new Vector3(1.5f, 1.6f, 2f)),
+            };
+
+            var anchors = new List<LobbyChatBubbleAnchor>();
+            for (var i = 0; i < samples.Length; i++)
+            {
+                var (playerId, position) = samples[i];
+                var head = rootGo.transform.Find($"Head_{playerId}");
+                if (head == null)
+                {
+                    var headGo = new GameObject($"Head_{playerId}");
+                    Undo.RegisterCreatedObjectUndo(headGo, $"Create Head_{playerId}");
+                    headGo.transform.SetParent(rootGo.transform, false);
+                    head = headGo.transform;
+                }
+
+                head.position = position;
+
+                var canvas = head.Find("BubbleCanvas") as RectTransform;
+                if (canvas == null)
+                {
+                    var canvasGo = new GameObject(
+                        "BubbleCanvas",
+                        typeof(RectTransform),
+                        typeof(Canvas),
+                        typeof(CanvasScaler),
+                        typeof(GraphicRaycaster));
+                    Undo.RegisterCreatedObjectUndo(canvasGo, "Create BubbleCanvas");
+                    canvasGo.transform.SetParent(head, false);
+                    canvas = canvasGo.GetComponent<RectTransform>();
+                    var worldCanvas = canvasGo.GetComponent<Canvas>();
+                    worldCanvas.renderMode = RenderMode.WorldSpace;
+                    worldCanvas.worldCamera = Camera.main;
+                    canvas.sizeDelta = new Vector2(440f, 240f);
+                    canvas.localScale = Vector3.one * 0.01f;
+                }
+                else
+                {
+                    canvas.sizeDelta = new Vector2(440f, 240f);
+                }
+
+                var bubble = canvas.Find("Bubble") as RectTransform;
+                if (bubble == null)
+                {
+                    bubble = GetOrCreateSlot(canvas, "Bubble", new Color(0.1f, 0.1f, 0.12f, 0.92f));
+                    SetLabel(bubble, string.Empty);
+                }
+
+                Place(bubble, Anchor.Center, Vector2.zero, new Vector2(220f, 72f));
+                var label = bubble.Find("Label")?.GetComponent<Text>();
+                if (label != null)
+                {
+                    ApplyText(label, string.Empty, 18, TextAnchor.MiddleCenter);
+                    label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    label.verticalOverflow = VerticalWrapMode.Overflow;
+                    var labelRect = label.rectTransform;
+                    labelRect.anchorMin = Vector2.zero;
+                    labelRect.anchorMax = Vector2.one;
+                    labelRect.offsetMin = new Vector2(12f, 10f);
+                    labelRect.offsetMax = new Vector2(-12f, -10f);
+                }
+
+                bubble.gameObject.SetActive(false);
+                anchors.Add(new LobbyChatBubbleAnchor
+                {
+                    playerId = playerId,
+                    headAnchor = head,
+                    bubbleRoot = bubble,
+                    bubbleText = label,
+                });
+            }
+
+            var so = new SerializedObject(view);
+            so.FindProperty("visibleSeconds").floatValue = 3.5f;
+            so.FindProperty("uiFont").objectReferenceValue = ResolveLobbyFont();
+            var anchorsProp = so.FindProperty("anchors");
+            anchorsProp.arraySize = anchors.Count;
+            for (var i = 0; i < anchors.Count; i++)
+            {
+                var element = anchorsProp.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("playerId").stringValue = anchors[i].playerId;
+                element.FindPropertyRelative("headAnchor").objectReferenceValue = anchors[i].headAnchor;
+                element.FindPropertyRelative("bubbleRoot").objectReferenceValue = anchors[i].bubbleRoot;
+                element.FindPropertyRelative("bubbleText").objectReferenceValue = anchors[i].bubbleText;
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return view;
         }
 
         private static void EnsurePlayerListContent(RectTransform playerList)
