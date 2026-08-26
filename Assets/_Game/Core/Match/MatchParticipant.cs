@@ -21,6 +21,15 @@ namespace Game.Core.Match
         }
 
         public string PlayerId { get; }
+
+        /// <summary>
+        /// Stable zero-based index used by match arrays and network state.
+        /// </summary>
+        public int PlayerIndex => Seat;
+
+        /// <summary>
+        /// Lobby name for <see cref="PlayerIndex"/>. Kept for existing callers.
+        /// </summary>
         public int Seat { get; }
     }
 }

@@ -1,0 +1,53 @@
+using System;
+using Game.Core.Match;
+using Game.Core.Players;
+using NUnit.Framework;
+
+namespace Game.Architecture.Tests
+{
+    public sealed class NetworkContractTests
+    {
+        [Test]
+        public void Participant_UsesSeatAsStablePlayerIndex()
+        {
+            var participant = new MatchParticipant("player", 3);
+
+            Assert.That(participant.PlayerIndex, Is.EqualTo(3));
+            Assert.That(participant.Seat, Is.EqualTo(participant.PlayerIndex));
+        }
+
+        [Test]
+        public void InputIntent_NormalizesMovementYawAndButtons()
+        {
+            var input = new PlayerInputIntent(
+                3f,
+                4f,
+                -90f,
+                PlayerInputButtons.Jump | PlayerInputButtons.Sprint);
+
+            Assert.That(input.MoveX, Is.EqualTo(0.6f).Within(0.0001f));
+            Assert.That(input.MoveY, Is.EqualTo(0.8f).Within(0.0001f));
+            Assert.That(input.LookYawDegrees, Is.EqualTo(270f));
+            Assert.That(input.IsPressed(PlayerInputButtons.Jump), Is.True);
+            Assert.That(input.IsPressed(PlayerInputButtons.Prone), Is.False);
+        }
+
+        [Test]
+        public void InputIntent_RejectsInvalidNetworkValues()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new PlayerInputIntent(float.NaN, 0f, 0f, PlayerInputButtons.None));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new PlayerInputIntent(0f, 0f, 0f, (PlayerInputButtons)128));
+        }
+
+        [Test]
+        public void MatchStateSnapshot_RejectsInvalidReplicatedState()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new MatchStateSnapshot((MatchPhase)99, 1d));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new MatchStateSnapshot(MatchPhase.Hiding, double.NaN));
+        }
+    }
+}
