@@ -6,6 +6,19 @@ using UnityEngine.InputSystem;
 namespace Game.Client.Interactions
 {
     /// <summary>
+    /// Sends local interaction intent to the authority. A null implementation
+    /// means the standalone scene keeps using its existing local behaviour.
+    /// </summary>
+    public interface IPlayerInteractionCommands
+    {
+        bool RequestHold(string objectId);
+        bool RequestRelease(Pose pose);
+        bool RequestThrow(Pose pose, Vector3 initialVelocity);
+        bool RequestHit(int targetPlayerIndex);
+        bool RequestUseShredder();
+    }
+
+    /// <summary>
     /// 플레이어의 상호작용 담당: 카메라 중앙(크로스헤어)으로 조준한 대상을 감지하고
     /// F키 입력을 대상에 전달한다. 입력 의도만 다루며, 상태 확정은 각 대상이 수행한다.
     /// </summary>
@@ -25,6 +38,8 @@ namespace Game.Client.Interactions
         public CarryableItem CarriedItem { get; private set; }
 
         public Transform HoldPoint => holdPoint;
+
+        public bool UsesAuthoritativeCommands => commands != null;
 
         /// <summary>배치 모드 등 좌클릭을 다른 용도로 쓰는 동안 던지기를 막는다.</summary>
         public bool IsThrowSuppressed { get; set; }
@@ -56,7 +71,13 @@ namespace Game.Client.Interactions
         private PlayerMovement playerMovement;
         private bool wasCursorLocked;
         private bool isAimingThrow;
+        private IPlayerInteractionCommands commands;
         private readonly RaycastHit[] aimHits = new RaycastHit[MaxAimHits];
+
+        public void BindCommands(IPlayerInteractionCommands interactionCommands)
+        {
+            commands = interactionCommands;
+        }
 
         private void Awake()
         {
@@ -185,9 +206,19 @@ namespace Game.Client.Interactions
             }
 
             var thrown = CarriedItem;
-            CarriedItem = null;
             EnsureSafeReleasePosition(thrown);
-            thrown.OnThrown(GetThrowVelocity());
+            var velocity = GetThrowVelocity();
+
+            if (commands != null)
+            {
+                commands.RequestThrow(
+                    new Pose(thrown.transform.position, thrown.transform.rotation),
+                    velocity);
+                return;
+            }
+
+            CarriedItem = null;
+            thrown.OnThrown(velocity);
         }
 
         public bool TryPickUp(CarryableItem item)
@@ -197,10 +228,85 @@ namespace Game.Client.Interactions
                 return false;
             }
 
-            // 로컬 즉시 확정. Photon 도입 시 서버 확정 응답을 받은 뒤 반영하도록 바뀐다.
+            if (commands != null)
+            {
+                return commands.RequestHold(item.ObjectId);
+            }
+
             CarriedItem = item;
             item.OnPickedUp(holdPoint);
             return true;
+        }
+
+        public bool TryPlaceCarried(Vector3 position, Quaternion rotation)
+        {
+            if (CarriedItem == null)
+            {
+                return false;
+            }
+
+            if (commands != null)
+            {
+                return commands.RequestRelease(new Pose(position, rotation));
+            }
+
+            var item = ReleaseCarriedItem();
+            item.OnPlaced(position, rotation);
+            return true;
+        }
+
+        public bool TryRequestHit(int targetPlayerIndex)
+        {
+            return commands != null && commands.RequestHit(targetPlayerIndex);
+        }
+
+        public bool TryUseAuthoritativeShredder()
+        {
+            if (commands == null)
+            {
+                return false;
+            }
+
+            commands.RequestUseShredder();
+            return true;
+        }
+
+        public bool ApplyConfirmedPickup(CarryableItem item)
+        {
+            if (item == null || (CarriedItem != null && CarriedItem != item))
+            {
+                return false;
+            }
+
+            CarriedItem = item;
+            item.OnPickedUp(holdPoint);
+            return true;
+        }
+
+        public void ApplyConfirmedRelease(
+            CarryableItem item,
+            Pose pose,
+            Vector3 initialVelocity)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            if (CarriedItem == item)
+            {
+                CarriedItem = null;
+            }
+
+            item.OnReleased(pose, initialVelocity);
+        }
+
+        public void ForgetConfirmedItem(CarryableItem item)
+        {
+            if (CarriedItem == item)
+            {
+                CarriedItem = null;
+            }
         }
 
         private void DropCarried()
@@ -211,8 +317,16 @@ namespace Game.Client.Interactions
             }
 
             var dropped = CarriedItem;
-            CarriedItem = null;
             EnsureSafeReleasePosition(dropped);
+
+            if (commands != null)
+            {
+                commands.RequestRelease(
+                    new Pose(dropped.transform.position, dropped.transform.rotation));
+                return;
+            }
+
+            CarriedItem = null;
             dropped.OnDropped();
         }
 

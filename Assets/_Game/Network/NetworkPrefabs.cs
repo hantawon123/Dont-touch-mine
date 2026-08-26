@@ -19,7 +19,7 @@ namespace Game.Network
     {
         [SerializeField]
         [Tooltip("Character spawned for each player. Needs NetworkObject, " +
-                 "NetworkTransform and PlayerAvatar.")]
+                 "NetworkTransform, PlayerAvatar and NetworkPlayerMotor.")]
         private NetworkObject _player;
 
         [SerializeField]
@@ -53,6 +53,14 @@ namespace Game.Network
                     $"[Network] '{_player.name}' has no NetworkTransform. Spawn " +
                     "positions will not replicate and every character will appear " +
                     "at the origin on remote peers.",
+                    this);
+            }
+
+            if (_player.GetComponentInChildren<Players.NetworkPlayerMotor>() == null)
+            {
+                Debug.LogWarning(
+                    $"[Network] '{_player.name}' has no NetworkPlayerMotor. " +
+                    "It can spawn but cannot consume authoritative movement input.",
                     this);
             }
 

@@ -56,6 +56,11 @@ namespace Game.Bootstrap
                 return;
             }
 
+            if (interactor.TryUseAuthoritativeShredder())
+            {
+                return;
+            }
+
             var item = interactor.CarriedItem;
             if (session != null)
             {

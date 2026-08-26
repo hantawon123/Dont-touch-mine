@@ -1,3 +1,5 @@
+using System;
+using Game.Core.Items;
 using UnityEngine;
 
 namespace Game.Client.Interactions
@@ -13,6 +15,10 @@ namespace Game.Client.Interactions
         private string displayName = "물건";
 
         [SerializeField]
+        [Tooltip("네트워크에서 사용하는 고유 ID. 비우면 씬 계층에서 안정적으로 생성합니다.")]
+        private string objectId;
+
+        [SerializeField]
         private bool isPlayerItem;
 
         [SerializeField]
@@ -21,6 +27,10 @@ namespace Game.Client.Interactions
         public bool IsCarried { get; private set; }
 
         public string DisplayName => displayName;
+
+        public string ObjectId => resolvedObjectId ??= ResolveObjectId();
+
+        public bool HasExplicitObjectId => !string.IsNullOrWhiteSpace(objectId);
 
         public bool IsPlayerItem => isPlayerItem;
 
@@ -32,10 +42,12 @@ namespace Game.Client.Interactions
         private Collider[] colliders;
         private Renderer[] renderers;
         private MaterialPropertyBlock propertyBlock;
+        private string resolvedObjectId;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         private void Awake()
         {
+            _ = ObjectId;
             body = GetComponent<Rigidbody>();
 
             // 빠르게 던져진 작은 물체가 얇은 벽을 프레임 사이에 통과(터널링)하지 않도록
@@ -106,6 +118,27 @@ namespace Game.Client.Interactions
             body.linearVelocity = initialVelocity;
         }
 
+        public void OnReleased(Pose pose, Vector3 initialVelocity)
+        {
+            OnPlaced(pose.position, pose.rotation);
+            body.linearVelocity = initialVelocity;
+        }
+
+        public void AssignToPlayer(int playerIndex)
+        {
+            isPlayerItem = true;
+            ownerPlayerIndex = playerIndex;
+        }
+
+        /// <summary>
+        /// 같은 카탈로그 물건이 씬에 여러 개 있을 때 추가 인스턴스에
+        /// 씬 계층 기반의 결정적인 ID를 부여한다.
+        /// </summary>
+        public void UseSceneInstanceObjectId()
+        {
+            resolvedObjectId = ResolveSceneInstanceObjectId();
+        }
+
         /// <summary>조준 하이라이트: 밝기를 살짝 올려 조준 중임을 표시한다.</summary>
         public void SetAimed(bool aimed, float intensity)
         {
@@ -133,6 +166,49 @@ namespace Game.Client.Interactions
             foreach (var itemCollider in colliders)
             {
                 itemCollider.enabled = isEnabled;
+            }
+        }
+
+        private string ResolveObjectId()
+        {
+            if (!string.IsNullOrWhiteSpace(objectId))
+            {
+                return objectId.Trim();
+            }
+
+            foreach (var definition in ItemCatalog.Definitions)
+            {
+                if (name.StartsWith(definition.ItemId, StringComparison.Ordinal))
+                {
+                    return definition.ItemId;
+                }
+            }
+
+            return ResolveSceneInstanceObjectId();
+        }
+
+        private string ResolveSceneInstanceObjectId()
+        {
+            // Scene hierarchy is identical on every peer. Hashing it keeps the
+            // replicated id below Fusion's 64-character NetworkString limit.
+            var hash = 2166136261u;
+            var current = transform;
+            while (current != null)
+            {
+                Hash(current.name, ref hash);
+                hash = (hash ^ (uint)current.GetSiblingIndex()) * 16777619u;
+                current = current.parent;
+            }
+
+            var baseName = name.Length > 48 ? name.Substring(0, 48) : name;
+            return $"{baseName}#{hash:X8}";
+        }
+
+        private static void Hash(string value, ref uint hash)
+        {
+            for (var index = 0; index < value.Length; index++)
+            {
+                hash = (hash ^ value[index]) * 16777619u;
             }
         }
     }

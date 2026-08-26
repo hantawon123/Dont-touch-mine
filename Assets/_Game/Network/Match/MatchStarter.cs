@@ -208,6 +208,35 @@ namespace Game.Network.Match
             return true;
         }
 
+        public bool TrySetPlayerControls(int playerIndex, bool enabled)
+        {
+            if (!TryGetPlayingAvatar(playerIndex, out var avatar))
+            {
+                return false;
+            }
+
+            var motor = avatar.GetComponent<NetworkPlayerMotor>();
+            return motor != null && motor.TrySetControlsEnabled(enabled);
+        }
+
+        public bool TryTeleportPlayer(int playerIndex, Pose pose)
+        {
+            if (!TryGetPlayingAvatar(playerIndex, out var avatar))
+            {
+                return false;
+            }
+
+            var networkTransform = avatar.GetComponent<NetworkTransform>();
+            if (networkTransform == null)
+            {
+                return false;
+            }
+
+            networkTransform.Teleport(pose.position, pose.rotation);
+            avatar.GetComponent<NetworkPlayerMotor>()?.ResetMotion();
+            return true;
+        }
+
         public void PublishItemAssignment(string itemId)
         {
             ItemAssignmentReceived?.Invoke(itemId);
@@ -273,6 +302,7 @@ namespace Game.Network.Match
             _session.PlayerItemDestroyed += OnPlayerItemDestroyed;
             _session.PlayerStunned += OnPlayerStunned;
             _session.ObjectThrown += OnObjectThrown;
+            _session.ObjectAutoReleased += OnObjectAutoReleased;
             _session.FinalWarningStarted += OnFinalWarningStarted;
             _session.MatchEnded += OnMatchEnded;
             _shredderEjectionPose = shredderEjectionPose;
@@ -509,51 +539,12 @@ namespace Game.Network.Match
                     $"[Match] No last pose was found for leaving player {playerId}.");
             }
 
-            _session.TryGetHeldObjectId(playerIndex, out var heldObjectId);
             if (!_session.TryHandlePlayerLeft(playerIndex, lastKnownPose, ServerTime))
             {
                 return false;
             }
 
             _state.TrySetParticipantInactive(playerIndex);
-
-            if (heldObjectId != null)
-            {
-                var releasedPose = lastKnownPose;
-                var foundPose = false;
-                foreach (var assignment in _session.Assignments)
-                {
-                    if (string.Equals(
-                            assignment.Item.ItemId,
-                            heldObjectId,
-                            StringComparison.Ordinal) &&
-                        _session.TryGetItemPlacement(
-                            assignment.PlayerIndex,
-                            out var placement))
-                    {
-                        releasedPose = placement.Pose;
-                        foundPose = true;
-                        break;
-                    }
-                }
-
-                if (!foundPose &&
-                    _session.TryGetWorldObjectState(heldObjectId, out var worldObject))
-                {
-                    releasedPose = worldObject.Pose;
-                }
-
-                _state.TrySetObjectReleased(heldObjectId, releasedPose);
-            }
-
-            var ownItemId = _session.Assignments[playerIndex].Item.ItemId;
-            if (!string.Equals(ownItemId, heldObjectId, StringComparison.Ordinal) &&
-                _session.TryGetItemPlacement(playerIndex, out var ownPlacement) &&
-                ownPlacement.WasAutoPlaced)
-            {
-                _state.TrySetObjectReleased(ownItemId, ownPlacement.Pose);
-            }
-
             return true;
         }
 
@@ -591,6 +582,13 @@ namespace Game.Network.Match
                 confirmedEvent.ThrownAt);
         }
 
+        private void OnObjectAutoReleased(ObjectAutoReleasedEvent confirmedEvent)
+        {
+            _state?.TrySetObjectReleased(
+                confirmedEvent.ObjectId,
+                confirmedEvent.Pose);
+        }
+
         private void OnFinalWarningStarted(FinalWarningStartedEvent confirmedEvent)
         {
             _state?.RPC_NotifyFinalWarning(
@@ -620,6 +618,7 @@ namespace Game.Network.Match
             _session.PlayerItemDestroyed -= OnPlayerItemDestroyed;
             _session.PlayerStunned -= OnPlayerStunned;
             _session.ObjectThrown -= OnObjectThrown;
+            _session.ObjectAutoReleased -= OnObjectAutoReleased;
             _session.FinalWarningStarted -= OnFinalWarningStarted;
             _session.MatchEnded -= OnMatchEnded;
             _session = null;
@@ -658,6 +657,19 @@ namespace Game.Network.Match
 
             pose = default;
             return false;
+        }
+
+        private bool TryGetPlayingAvatar(int playerIndex, out PlayerAvatar avatar)
+        {
+            if (_state == null || _state.Object == null ||
+                !_state.Object.HasStateAuthority || _roster == null ||
+                playerIndex < 0 || playerIndex >= _playing.Count)
+            {
+                avatar = null;
+                return false;
+            }
+
+            return _roster.TryGetAvatar(_playing[playerIndex].PlayerId, out avatar);
         }
 
         private bool IsObjectWithinReach(

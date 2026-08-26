@@ -32,5 +32,7 @@ namespace Game.Network.Match
         bool UnbindMatchSession(MatchSessionCoordinator session);
         bool TryPublishMatchState(MatchStateSnapshot snapshot);
         bool TryPublishItemAssignments(IReadOnlyList<PlayerItemAssignment> assignments);
+        bool TrySetPlayerControls(int playerIndex, bool enabled);
+        bool TryTeleportPlayer(int playerIndex, Pose pose);
     }
 }

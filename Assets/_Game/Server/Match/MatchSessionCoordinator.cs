@@ -110,6 +110,18 @@ namespace Game.Server.Match
         public double ThrownAt { get; }
     }
 
+    public readonly struct ObjectAutoReleasedEvent
+    {
+        public ObjectAutoReleasedEvent(string objectId, Pose pose)
+        {
+            ObjectId = objectId ?? throw new ArgumentNullException(nameof(objectId));
+            Pose = pose;
+        }
+
+        public string ObjectId { get; }
+        public Pose Pose { get; }
+    }
+
     public sealed class MatchSessionCoordinator
     {
         private const double MapObjectEjectionDelaySeconds = 0.5d;
@@ -201,6 +213,7 @@ namespace Game.Server.Match
         public event Action<FinalWarningStartedEvent> FinalWarningStarted;
         public event Action<PlayerStunnedEvent> PlayerStunned;
         public event Action<ObjectThrownEvent> ObjectThrown;
+        public event Action<ObjectAutoReleasedEvent> ObjectAutoReleased;
         public event Action<MatchResult> MatchEnded;
 
         public MatchStateSnapshot CaptureStateSnapshot()
@@ -780,11 +793,17 @@ namespace Game.Server.Match
 
         private void CompleteHidingTurn(int playerIndex, Vector3 lastPlayerPosition)
         {
-            ReleaseHeldObjectAt(
-                playerIndex,
-                new Pose(lastPlayerPosition, Quaternion.identity),
-                true);
-            placements.CompleteTurn(playerIndex, lastPlayerPosition);
+            var pose = new Pose(lastPlayerPosition, Quaternion.identity);
+            ReleaseHeldObjectAt(playerIndex, pose, true);
+
+            var wasPlaced = placements.TryGetPlacement(playerIndex, out _);
+            var placement = placements.CompleteTurn(playerIndex, lastPlayerPosition);
+            if (!wasPlaced)
+            {
+                ObjectAutoReleased?.Invoke(
+                    new ObjectAutoReleasedEvent(placement.ItemId, placement.Pose));
+            }
+
             completedHidingTurns[playerIndex] = true;
         }
 
@@ -796,8 +815,15 @@ namespace Game.Server.Match
             var heldItemOwner = outcome.GetHeldItemOwner(playerIndex);
             if (heldItemOwner >= 0)
             {
+                var heldObjectId = Assignments[heldItemOwner].Item.ItemId;
                 outcome.ReleaseHeldItem(playerIndex);
                 placements.RecordPlacement(heldItemOwner, pose, wasAutoPlaced);
+                if (wasAutoPlaced)
+                {
+                    ObjectAutoReleased?.Invoke(
+                        new ObjectAutoReleasedEvent(heldObjectId, pose));
+                }
+
                 return true;
             }
 
@@ -810,6 +836,12 @@ namespace Game.Server.Match
             heldMapObjectIdsByPlayer[playerIndex] = null;
             mapObjectHolderById.Remove(objectId);
             worldObjects.TrySetPose(objectId, pose);
+            if (wasAutoPlaced)
+            {
+                ObjectAutoReleased?.Invoke(
+                    new ObjectAutoReleasedEvent(objectId, pose));
+            }
+
             return true;
         }
 

@@ -1,5 +1,7 @@
 using System;
+using Game.Core.Match;
 using Game.Core.Players;
+using Game.Server.Match;
 using Game.Server.Players;
 using Game.SOAP.Config;
 using UnityEngine;
@@ -28,6 +30,14 @@ namespace Game.Bootstrap
             builder.Register<PlayerInteractionSystem>(Lifetime.Scoped)
                 .AsSelf()
                 .As<IPlayerCombatRules>();
+
+            var matchScene = PlaygroundMatchScene.Capture(gameObject.scene);
+            builder.RegisterInstance(matchScene.RuntimeContext)
+                .As<IMatchRuntimeContext>();
+            builder.RegisterInstance(matchScene.NetworkConfiguration);
+            builder.Register<MatchRuntimeFactory>(Lifetime.Scoped);
+            builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
+            builder.RegisterEntryPoint<NetworkInteractionSceneBridge>();
         }
     }
 }

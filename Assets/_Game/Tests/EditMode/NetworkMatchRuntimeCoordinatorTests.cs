@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using Game.Bootstrap;
 using Game.Core.Flow;
 using Game.Core.Items;
+using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Core.Players;
 using Game.Network.Match;
 using Game.Server.Items;
 using Game.Server.Match;
@@ -27,6 +29,7 @@ namespace Game.Architecture.Tests
                     ["host"] = Pose.identity,
                     ["client"] = new Pose(Vector3.right, Quaternion.identity),
                 });
+                using var roomState = new RoomBrowserSystem();
                 var coordinator = new NetworkMatchRuntimeCoordinator(
                     network,
                     new MatchRuntimeFactory(rules),
@@ -37,7 +40,8 @@ namespace Game.Architecture.Tests
                         CreateSpawnPoints(),
                         CreateItems(),
                         Array.Empty<WorldObjectState>(),
-                        new Pose(Vector3.forward, Quaternion.identity)));
+                        new Pose(Vector3.forward, Quaternion.identity)),
+                    roomState);
 
                 coordinator.Start();
                 network.PublishLineUp(new[]
@@ -51,12 +55,52 @@ namespace Game.Architecture.Tests
                 Assert.That(network.Assignments.Count, Is.EqualTo(2));
                 Assert.That(network.Snapshots, Has.Count.EqualTo(1));
                 Assert.That(network.Snapshots[0].Phase, Is.EqualTo(MatchPhase.Hiding));
+                Assert.That(network.Controls[0], Is.True);
+                Assert.That(network.Controls[1], Is.False);
+                Assert.That(network.TeleportedPlayers, Is.EqualTo(new[] { 0 }));
+
+                network.ServerTime = 10d + rules.HidingTurnDurationSeconds;
+                network.PublishSimulationTick();
+
+                Assert.That(network.Controls[0], Is.False);
+                Assert.That(network.Controls[1], Is.True);
+                Assert.That(network.TeleportedPlayers, Is.EqualTo(new[] { 0, 1 }));
 
                 network.ServerTime = network.Snapshots[0].PhaseEndsAt;
                 network.PublishSimulationTick();
 
                 Assert.That(network.Snapshots, Has.Count.EqualTo(2));
                 Assert.That(network.Snapshots[1].Phase, Is.EqualTo(MatchPhase.Searching));
+                Assert.That(network.Controls[0], Is.True);
+                Assert.That(network.Controls[1], Is.True);
+                Assert.That(
+                    network.TeleportedPlayers,
+                    Is.EqualTo(new[] { 0, 1, 0, 1 }));
+
+                var searchingStartedAt = network.Snapshots[0].PhaseEndsAt;
+                Assert.That(
+                    network.BoundSession.RegisterHit(
+                        0, 1, Vector3.right, searchingStartedAt),
+                    Is.EqualTo(HitResult.Registered));
+                Assert.That(
+                    network.BoundSession.RegisterHit(
+                        0, 1, Vector3.right, searchingStartedAt),
+                    Is.EqualTo(HitResult.Registered));
+                Assert.That(
+                    network.BoundSession.RegisterHit(
+                        0, 1, Vector3.right, searchingStartedAt),
+                    Is.EqualTo(HitResult.Stunned));
+                network.ServerTime = searchingStartedAt;
+                network.PublishSimulationTick();
+
+                Assert.That(network.Controls[0], Is.True);
+                Assert.That(network.Controls[1], Is.False);
+
+                network.ServerTime = searchingStartedAt +
+                                     rules.StunDurationSeconds + 1d;
+                network.PublishSimulationTick();
+
+                Assert.That(network.Controls[1], Is.True);
 
                 coordinator.Dispose();
 
@@ -120,6 +164,8 @@ namespace Game.Architecture.Tests
             public MatchSessionCoordinator BoundSession { get; private set; }
             public IReadOnlyList<PlayerItemAssignment> Assignments { get; private set; }
             public List<MatchStateSnapshot> Snapshots { get; } = new();
+            public Dictionary<int, bool> Controls { get; } = new();
+            public List<int> TeleportedPlayers { get; } = new();
             public int UnbindCount { get; private set; }
 
             public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
@@ -158,6 +204,18 @@ namespace Game.Architecture.Tests
                 IReadOnlyList<PlayerItemAssignment> assignments)
             {
                 Assignments = assignments;
+                return true;
+            }
+
+            public bool TrySetPlayerControls(int playerIndex, bool enabled)
+            {
+                Controls[playerIndex] = enabled;
+                return true;
+            }
+
+            public bool TryTeleportPlayer(int playerIndex, Pose pose)
+            {
+                TeleportedPlayers.Add(playerIndex);
                 return true;
             }
 

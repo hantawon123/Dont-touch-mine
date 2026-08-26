@@ -49,9 +49,15 @@ namespace Game.Client.Combat
         private float nextAttackTime;
         private float hitFlashUntil;
         private bool wasTintApplied;
+        private bool usesNetworkState;
+        private bool networkStunned;
 
         public bool IsStunned =>
-            combatRules != null && combatRules.IsStunned(playerIndex, Time.timeAsDouble);
+            usesNetworkState
+                ? networkStunned
+                : combatRules != null && combatRules.IsStunned(playerIndex, Time.timeAsDouble);
+
+        public int PlayerIndex => playerIndex;
 
         [Inject]
         public void Construct(IPlayerCombatRules rules)
@@ -97,7 +103,7 @@ namespace Game.Client.Combat
 
         private void Start()
         {
-            if (combatRules == null)
+            if (combatRules == null && !usesNetworkState)
             {
                 Debug.LogError(
                     "PlayerCombatant: IPlayerCombatRules가 주입되지 않았습니다. " +
@@ -105,6 +111,29 @@ namespace Game.Client.Combat
                     this);
                 enabled = false;
             }
+        }
+
+        public void ConfigureNetworkPlayer(int index, bool acceptsLocalInput)
+        {
+            playerIndex = index;
+            usesNetworkState = true;
+            isAttacker = acceptsLocalInput;
+            enabled = true;
+
+            if (acceptsLocalInput)
+            {
+                playerMap?.Enable();
+            }
+            else
+            {
+                playerMap?.Disable();
+            }
+        }
+
+        public void SetNetworkStunned(bool stunned)
+        {
+            usesNetworkState = true;
+            networkStunned = stunned;
         }
 
         private void OnEnable()
@@ -167,6 +196,13 @@ namespace Game.Client.Combat
 
                 var direction = target.transform.position - transform.position;
                 direction.y = 0f;
+
+                if (interactor != null && interactor.UsesAuthoritativeCommands)
+                {
+                    interactor.TryRequestHit(target.PlayerIndex);
+                    continue;
+                }
+
                 target.ReceiveHit(direction.normalized);
             }
         }
