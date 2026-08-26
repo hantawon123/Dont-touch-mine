@@ -489,7 +489,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Client::Game.Client.Home.HomeMenuView
   title: "\uB85C\uACE0 or \uC774\uB984 \uB450\uB465"
   experienceRatio: 0.4
-  sourceFont: {fileID: 12800000, guid: 73b2673d3c72cfe468a734f6cf00c3cc, type: 3}
+  fontAsset: {fileID: 11400000, guid: c7ce9e8dfd18f3241bd2fe123ff1ec14, type: 2}
   nicknameText: {fileID: 0}
   levelText: {fileID: 0}
 --- !u!1660057539 &9223372036854775807

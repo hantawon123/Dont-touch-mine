@@ -27,7 +27,7 @@ namespace Game.Client.Home
         private float experienceRatio = 0.4f;
 
         [SerializeField]
-        private Font sourceFont;
+        private TMP_FontAsset fontAsset;
 
         [SerializeField]
         private TMP_Text nicknameText;
@@ -91,7 +91,7 @@ namespace Game.Client.Home
 
         private void BuildLayout()
         {
-            koreanFont = HomeUiFonts.Apply(sourceFont);
+            koreanFont = HomeUiFonts.Apply(fontAsset);
             var canvas = CreateCanvas();
             CreateTitle(canvas);
             CreateProfile(canvas);

@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.TextCore.LowLevel;
 
 namespace Game.Client.Home
 {
@@ -82,45 +80,19 @@ namespace Game.Client.Home
             }
         }
 
-        public static TMP_FontAsset Apply(Font sourceFont)
+        public static TMP_FontAsset Apply(TMP_FontAsset fontAsset = null)
         {
             if (koreanFont != null)
             {
                 return koreanFont;
             }
 
-            if (sourceFont == null)
-            {
-                throw new InvalidOperationException(
-                    "Cafe24 Ssurround font must be assigned. Expected at Assets/_Game/Content/Fonts/Cafe24Ssurround-v2.0.ttf.");
-            }
-
-            koreanFont = TMP_FontAsset.CreateFontAsset(
-                sourceFont,
-                90,
-                9,
-                GlyphRenderMode.SDFAA,
-                1024,
-                1024,
-                AtlasPopulationMode.Dynamic,
-                true);
+            koreanFont = fontAsset != null ? fontAsset : TMP_Settings.defaultFontAsset;
             if (koreanFont == null)
             {
                 throw new InvalidOperationException(
-                    "Failed to create TMP font from Cafe24 Ssurround. Enable Include Font Data on the font importer.");
-            }
-
-            koreanFont.hideFlags = HideFlags.HideAndDontSave;
-            koreanFont.name = "Cafe24Ssurround SDF";
-            TMP_Settings.defaultFontAsset = koreanFont;
-            var fallbacks = TMP_Settings.fallbackFontAssets;
-            if (fallbacks == null)
-            {
-                TMP_Settings.fallbackFontAssets = new List<TMP_FontAsset> { koreanFont };
-            }
-            else if (!fallbacks.Contains(koreanFont))
-            {
-                fallbacks.Insert(0, koreanFont);
+                    "Korean TMP font is missing. Assign Cafe24Ssurround SDF " +
+                    "or set it as TMP Settings default font.");
             }
 
             return koreanFont;
