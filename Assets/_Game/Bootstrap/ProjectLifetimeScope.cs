@@ -1,5 +1,3 @@
-using System;
-using Game.Client.Home;
 using Game.Core.Flow;
 using Game.Core.Home;
 using Game.Core.Lobby;
@@ -17,21 +15,11 @@ namespace Game.Bootstrap
     public sealed class ProjectLifetimeScope : LifetimeScope
     {
         [SerializeField]
-        private Font koreanSourceFont;
-
-        [SerializeField]
         [Tooltip("Prefabs this application spawns over the network.")]
         private NetworkPrefabs _networkPrefabs;
 
         protected override void Configure(IContainerBuilder builder)
         {
-            if (koreanSourceFont == null)
-            {
-                throw new InvalidOperationException(
-                    "Korean source font must be assigned on ProjectLifetimeScope.");
-            }
-
-            HomeUiFonts.Apply(koreanSourceFont);
             RegisterServices(builder, _networkPrefabs);
         }
 

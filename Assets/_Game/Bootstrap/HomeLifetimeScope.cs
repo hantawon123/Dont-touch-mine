@@ -1,4 +1,3 @@
-using System;
 using Game.Client.Home;
 using Game.Core.Home;
 using UnityEngine;
@@ -22,21 +21,14 @@ namespace Game.Bootstrap
         {
             if (homeMenuView == null)
             {
-                throw new InvalidOperationException("HomeMenuView must be assigned.");
+                Debug.LogError("HomeMenuView must be assigned on HomeLifetimeScope.", this);
+                return;
             }
 
-            if (string.IsNullOrWhiteSpace(defaultNickname))
-            {
-                throw new InvalidOperationException("Default nickname must be assigned.");
-            }
+            var nickname = string.IsNullOrWhiteSpace(defaultNickname) ? "Player" : defaultNickname;
+            var level = defaultLevel < 1 ? 1 : defaultLevel;
 
-            if (defaultLevel < 1)
-            {
-                throw new InvalidOperationException("Default level must be 1 or greater.");
-            }
-
-            builder.RegisterInstance(new PlayerProfile(defaultNickname, defaultLevel));
-            builder.Register<HomeMenuSystem>(Lifetime.Scoped);
+            builder.RegisterInstance(new PlayerProfile(nickname, level));
             builder.Register<UnityHomeApplicationHost>(Lifetime.Scoped).As<IHomeApplicationHost>();
             builder.RegisterComponent(homeMenuView).As<IHomeMenuView>();
             builder.RegisterEntryPoint<HomeMenuPresenter>();

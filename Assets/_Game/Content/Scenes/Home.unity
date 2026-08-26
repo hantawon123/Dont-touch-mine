@@ -469,7 +469,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Bootstrap::Game.Bootstrap.HomeLifetimeScope
   parentReference:
-    TypeName: 
+    TypeName: Game.Bootstrap.ProjectLifetimeScope
   autoRun: 1
   autoInjectGameObjects: []
   homeMenuView: {fileID: 1501000004}

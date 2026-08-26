@@ -7,7 +7,6 @@
         "Game.Network",
         "Game.Server",
         "Game.SOAP",
-        "Unity.TextMeshPro",
         "UniTask",
         "VContainer"
     ],
