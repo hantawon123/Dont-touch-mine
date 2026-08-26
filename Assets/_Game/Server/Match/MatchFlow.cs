@@ -128,6 +128,18 @@ namespace Game.Server.Match
             return true;
         }
 
+        public bool CompleteMatchEarly()
+        {
+            var phase = state.CurrentPhase.CurrentValue;
+            if (phase != MatchPhase.Hiding && phase != MatchPhase.Searching)
+            {
+                return false;
+            }
+
+            state.EnterPhase(MatchPhase.Result, 0d);
+            return true;
+        }
+
         private void EnterPhase(MatchPhase phase, double startedAt)
         {
             var duration = rules.GetDurationSeconds(phase, playerCount);

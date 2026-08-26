@@ -44,7 +44,8 @@ namespace Game.Core.Flow
                     return nextState == AppFlowState.RoomBrowser ||
                            nextState == AppFlowState.InGame;
                 case AppFlowState.InGame:
-                    return nextState == AppFlowState.Highlight;
+                    return nextState == AppFlowState.Highlight ||
+                           nextState == AppFlowState.Lobby;
                 case AppFlowState.Highlight:
                     return nextState == AppFlowState.Result;
                 case AppFlowState.Result:

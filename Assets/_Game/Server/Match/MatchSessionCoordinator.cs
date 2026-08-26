@@ -12,7 +12,8 @@ namespace Game.Server.Match
     public enum MatchEndReason
     {
         TimeExpired,
-        AllPlayerItemsDestroyed
+        AllPlayerItemsDestroyed,
+        LastPlayerStanding
     }
 
     public readonly struct MatchResult
@@ -519,6 +520,21 @@ namespace Game.Server.Match
             }
 
             ReleaseHeldObjectAt(playerIndex, lastKnownPose);
+            if (Players.ActivePlayerCount == 1)
+            {
+                var winnerPlayerIndex = GetSoleActivePlayerIndex();
+                if (!flow.CompleteMatchEarly())
+                {
+                    throw new InvalidOperationException("The match could not end early.");
+                }
+
+                CaptureResult(
+                    MatchEndReason.LastPlayerStanding,
+                    now,
+                    new[] { winnerPlayerIndex },
+                    false);
+            }
+
             return true;
         }
 
@@ -755,7 +771,11 @@ namespace Game.Server.Match
             }
         }
 
-        private void CaptureResult(MatchEndReason endReason, double endedAt)
+        private void CaptureResult(
+            MatchEndReason endReason,
+            double endedAt,
+            int[] winnerPlayerIndices = null,
+            bool captureHighlights = true)
         {
             if (result.HasValue)
             {
@@ -765,8 +785,8 @@ namespace Game.Server.Match
             var capturedResult = new MatchResult(
                 endReason,
                 endedAt,
-                GetWinnerPlayerIndices());
-            if (!hasExplicitHighlightCandidates)
+                winnerPlayerIndices ?? GetWinnerPlayerIndices());
+            if (captureHighlights && !hasExplicitHighlightCandidates)
             {
                 highlights = new HighlightSequence(
                     highlightRecorder.CaptureCandidates(endedAt),
@@ -774,6 +794,19 @@ namespace Game.Server.Match
             }
             result = capturedResult;
             MatchEnded?.Invoke(capturedResult);
+        }
+
+        private int GetSoleActivePlayerIndex()
+        {
+            foreach (var player in Players.Players)
+            {
+                if (player.IsActive)
+                {
+                    return player.PlayerIndex;
+                }
+            }
+
+            throw new InvalidOperationException("No active player remains.");
         }
 
         private void StartHighlightRecordingIfNeeded(double now)
