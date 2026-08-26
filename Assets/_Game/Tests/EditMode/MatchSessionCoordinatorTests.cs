@@ -810,6 +810,22 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void ObjectPose_UsesConfirmedItemAndWorldObjectPositions()
+        {
+            session.Start(10d);
+            var itemId = session.Assignments[0].Item.ItemId;
+            var itemPose = new Pose(new Vector3(2f, 1f, 3f), Quaternion.identity);
+
+            Assert.That(session.TryGetObjectPose(itemId, out _), Is.False);
+            Assert.That(session.TryRecordItemPlacement(0, itemPose, 20d), Is.True);
+            Assert.That(session.TryGetObjectPose(itemId, out var placedItem), Is.True);
+            Assert.That(placedItem.position, Is.EqualTo(itemPose.position));
+            Assert.That(session.TryGetObjectPose("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.position, Is.EqualTo(Vector3.zero));
+            Assert.That(session.TryGetObjectPose("unknown", out _), Is.False);
+        }
+
+        [Test]
         public void PlacementValidator_RejectsInvalidPlayerAndMapObjectPoses()
         {
             session.Start(10d);

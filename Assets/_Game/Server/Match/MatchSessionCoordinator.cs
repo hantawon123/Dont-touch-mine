@@ -332,6 +332,37 @@ namespace Game.Server.Match
             return worldObjects.TryGetState(objectId, out worldObjectState);
         }
 
+        public bool TryGetObjectPose(string objectId, out Pose pose)
+        {
+            if (!string.IsNullOrWhiteSpace(objectId))
+            {
+                var normalizedId = objectId.Trim();
+                for (var playerIndex = 0;
+                     playerIndex < Assignments.Count;
+                     playerIndex++)
+                {
+                    if (string.Equals(
+                            Assignments[playerIndex].Item.ItemId,
+                            normalizedId,
+                            StringComparison.Ordinal) &&
+                        placements.TryGetPlacement(playerIndex, out var placement))
+                    {
+                        pose = placement.Pose;
+                        return true;
+                    }
+                }
+
+                if (worldObjects.TryGetState(normalizedId, out var worldObject))
+                {
+                    pose = worldObject.Pose;
+                    return true;
+                }
+            }
+
+            pose = default;
+            return false;
+        }
+
         public WorldObjectState[] CaptureWorldObjectSnapshot()
         {
             return worldObjects.CaptureSnapshot();

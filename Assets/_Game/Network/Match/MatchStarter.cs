@@ -30,6 +30,8 @@ namespace Game.Network.Match
     {
         private readonly List<RoomParticipant> _room = new List<RoomParticipant>();
         private readonly List<MatchParticipant> _playing = new List<MatchParticipant>();
+        private readonly InteractionAuthorityRules _interactionRules =
+            new InteractionAuthorityRules();
 
         private IMatchStartSink _sink;
         private PlayerRoster _roster;
@@ -322,6 +324,8 @@ namespace Game.Network.Match
         public bool TryHoldObject(PlayerRef source, string objectId)
         {
             if (!TryGetPlayerIndex(source, out var playerIndex) ||
+                !TryGetPlayerPose(playerIndex, out var playerPose) ||
+                !IsObjectWithinReach(playerIndex, objectId, playerPose.position) ||
                 !_state.CanTrackObject(objectId) ||
                 !_session.TryHoldObject(playerIndex, objectId, ServerTime))
             {
@@ -334,6 +338,8 @@ namespace Game.Network.Match
         public bool TryReleaseHeldObject(PlayerRef source, Pose pose)
         {
             if (!TryGetPlayerIndex(source, out var playerIndex) ||
+                !TryGetPlayerPose(playerIndex, out var playerPose) ||
+                !_interactionRules.IsValidRelease(playerPose, pose) ||
                 !_session.TryGetHeldObjectId(playerIndex, out var objectId) ||
                 !_state.CanTrackObject(objectId) ||
                 !_session.TryReleaseHeldObject(playerIndex, pose, ServerTime))
@@ -350,6 +356,11 @@ namespace Game.Network.Match
             Vector3 initialVelocity)
         {
             if (!TryGetPlayerIndex(source, out var playerIndex) ||
+                !TryGetPlayerPose(playerIndex, out var playerPose) ||
+                !_interactionRules.IsValidThrow(
+                    playerPose,
+                    pose,
+                    initialVelocity) ||
                 !_session.TryGetHeldObjectId(playerIndex, out var objectId) ||
                 !_state.CanTrackObject(objectId) ||
                 !_session.TryThrowHeldObject(
@@ -373,8 +384,11 @@ namespace Game.Network.Match
                 return false;
             }
 
-            var target = _session.Players.GetPlayer(targetPlayerIndex);
-            if (_roster == null || !_roster.TryGetPose(target.PlayerId, out var pose))
+            if (!TryGetPlayerPose(attackerPlayerIndex, out var attackerPose) ||
+                !TryGetPlayerPose(targetPlayerIndex, out var targetPose) ||
+                !_interactionRules.IsWithinInteractionDistance(
+                    attackerPose.position,
+                    targetPose.position))
             {
                 return false;
             }
@@ -388,13 +402,13 @@ namespace Game.Network.Match
             var result = _session.RegisterHit(
                 attackerPlayerIndex,
                 targetPlayerIndex,
-                pose.position,
+                targetPose.position,
                 ServerTime);
             if (result == Game.Core.Players.HitResult.Stunned && droppedObjectId != null)
             {
                 _state.TrySetObjectReleased(
                     droppedObjectId,
-                    new Pose(pose.position, Quaternion.identity));
+                    new Pose(targetPose.position, Quaternion.identity));
             }
 
             return result != Game.Core.Players.HitResult.Ignored;
@@ -403,7 +417,11 @@ namespace Game.Network.Match
         public bool TryUseShredder(PlayerRef source)
         {
             if (!_hasShredderEjectionPose ||
-                !TryGetPlayerIndex(source, out var playerIndex))
+                !TryGetPlayerIndex(source, out var playerIndex) ||
+                !TryGetPlayerPose(playerIndex, out var playerPose) ||
+                !_interactionRules.IsWithinInteractionDistance(
+                    playerPose.position,
+                    _shredderEjectionPose.position))
             {
                 return false;
             }
@@ -570,6 +588,44 @@ namespace Game.Network.Match
                    _session.Players.TryGetPlayerIndex(
                        PlayerRegistry.IdOf(source),
                        out playerIndex);
+        }
+
+        private bool TryGetPlayerPose(int playerIndex, out Pose pose)
+        {
+            if (_session != null &&
+                _roster != null &&
+                playerIndex >= 0 &&
+                playerIndex < _session.Players.Players.Count)
+            {
+                var player = _session.Players.GetPlayer(playerIndex);
+                return _roster.TryGetPose(player.PlayerId, out pose);
+            }
+
+            pose = default;
+            return false;
+        }
+
+        private bool IsObjectWithinReach(
+            int playerIndex,
+            string objectId,
+            Vector3 playerPosition)
+        {
+            if (_session.TryGetObjectPose(objectId, out var objectPose))
+            {
+                return _interactionRules.IsWithinInteractionDistance(
+                    playerPosition,
+                    objectPose.position);
+            }
+
+            // Before its hiding turn placement, the assigned item is treated as
+            // already being in its owner's hand.
+            return playerIndex >= 0 &&
+                   playerIndex < _session.Assignments.Count &&
+                   string.Equals(
+                       _session.Assignments[playerIndex].Item.ItemId,
+                       objectId,
+                       StringComparison.Ordinal) &&
+                   !_session.TryGetItemPlacement(playerIndex, out _);
         }
 
         /// <summary>Reports a refusal on the peer that asked.</summary>
