@@ -34,8 +34,17 @@ namespace Game.Tests.EditMode
             try
             {
                 Assert.That(MatchRulesSO.PlayerCount, Is.EqualTo(6));
+                Assert.That(MatchRulesSO.MinPlayerCount, Is.EqualTo(2));
+                Assert.That(MatchRulesSO.MaxPlayerCount, Is.EqualTo(6));
                 Assert.That(rules.HidingTurnDurationSeconds, Is.EqualTo(30f));
                 Assert.That(rules.HidingDurationSeconds, Is.EqualTo(180f));
+                Assert.That(rules.GetHidingDurationSeconds(2), Is.EqualTo(60f));
+                Assert.That(
+                    () => rules.GetHidingDurationSeconds(1),
+                    Throws.TypeOf<System.ArgumentOutOfRangeException>());
+                Assert.That(
+                    () => rules.GetHidingDurationSeconds(7),
+                    Throws.TypeOf<System.ArgumentOutOfRangeException>());
             }
             finally
             {

@@ -6,7 +6,9 @@ namespace Game.SOAP.Config
     [CreateAssetMenu(fileName = "MatchRules", menuName = "Game/Match Rules")]
     public sealed class MatchRulesSO : ScriptableObject
     {
-        public const int PlayerCount = 6;
+        public const int MinPlayerCount = 2;
+        public const int MaxPlayerCount = 6;
+        public const int PlayerCount = MaxPlayerCount;
         public const int MaxHighlightCount = 3;
 
         [SerializeField, Min(1f)]
@@ -34,7 +36,8 @@ namespace Game.SOAP.Config
         private float invulnerabilityDurationSeconds;
 
         public float HidingTurnDurationSeconds => hidingTurnDurationSeconds;
-        public float HidingDurationSeconds => hidingTurnDurationSeconds * PlayerCount;
+        public float HidingDurationSeconds =>
+            hidingTurnDurationSeconds * MaxPlayerCount;
         public float SearchingDurationSeconds => searchingDurationSeconds;
         public float FinalWarningSeconds => finalWarningSeconds;
         public float HighlightMaxDurationSeconds => highlightMaxDurationSeconds;
@@ -47,13 +50,33 @@ namespace Game.SOAP.Config
 
         public float GetDurationSeconds(MatchPhase phase)
         {
+            return GetDurationSeconds(phase, MaxPlayerCount);
+        }
+
+        public float GetDurationSeconds(MatchPhase phase, int playerCount)
+        {
+            ValidatePlayerCount(playerCount);
             return phase switch
             {
-                MatchPhase.Hiding => HidingDurationSeconds,
+                MatchPhase.Hiding => GetHidingDurationSeconds(playerCount),
                 MatchPhase.Searching => searchingDurationSeconds,
                 MatchPhase.Highlight => highlightMaxDurationSeconds,
                 _ => 0f
             };
+        }
+
+        public float GetHidingDurationSeconds(int playerCount)
+        {
+            ValidatePlayerCount(playerCount);
+            return hidingTurnDurationSeconds * playerCount;
+        }
+
+        public static void ValidatePlayerCount(int playerCount)
+        {
+            if (playerCount < MinPlayerCount || playerCount > MaxPlayerCount)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(playerCount));
+            }
         }
     }
 }

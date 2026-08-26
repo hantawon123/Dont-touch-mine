@@ -5,6 +5,7 @@
         "Game.Bootstrap",
         "Game.Client",
         "Game.Core",
+        "Game.Network",
         "Game.Server",
         "Game.SOAP",
         "R3.Unity",

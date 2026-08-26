@@ -1,0 +1,21 @@
+{
+    "name": "Game.Architecture.PlayModeTests",
+    "rootNamespace": "Game.Tests.PlayMode",
+    "references": [
+        "Game.Core",
+        "Game.Server",
+        "Game.SOAP",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

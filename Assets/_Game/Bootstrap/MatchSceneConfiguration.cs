@@ -47,10 +47,10 @@ namespace Game.Bootstrap
 
         public static Pose[] CaptureSpawnPoses(IReadOnlyList<Transform> transforms)
         {
-            if (transforms == null || transforms.Count < MatchRulesSO.PlayerCount)
+            if (transforms == null || transforms.Count < MatchRulesSO.MaxPlayerCount)
             {
                 throw new InvalidOperationException(
-                    $"At least {MatchRulesSO.PlayerCount} spawn points are required.");
+                    $"At least {MatchRulesSO.MaxPlayerCount} spawn points are required.");
             }
 
             var positions = new HashSet<Vector3>();

@@ -12,7 +12,8 @@ namespace Game.Server.Match
     public enum MatchEndReason
     {
         TimeExpired,
-        AllPlayerItemsDestroyed
+        AllPlayerItemsDestroyed,
+        LastPlayerStanding
     }
 
     public readonly struct MatchResult
@@ -102,11 +103,11 @@ namespace Game.Server.Match
         private readonly HighlightReplayBuffer highlightReplayBuffer;
         private readonly Pose[] hidingSpawnPoses;
         private readonly Pose[] searchingSpawnPoses;
-        private readonly bool[] completedHidingTurns = new bool[MatchRulesSO.PlayerCount];
+        private readonly bool[] completedHidingTurns;
         private readonly Dictionary<string, PendingMapObjectEjection> pendingMapObjectEjections =
             new(StringComparer.Ordinal);
         private readonly List<string> completedMapObjectEjections = new();
-        private readonly string[] heldMapObjectIdsByPlayer = new string[MatchRulesSO.PlayerCount];
+        private readonly string[] heldMapObjectIdsByPlayer;
         private readonly Dictionary<string, int> mapObjectHolderById =
             new(StringComparer.Ordinal);
         private HighlightSequence highlights;
@@ -119,6 +120,7 @@ namespace Game.Server.Match
             MatchState state,
             MatchFlow flow,
             PlayerInteractionSystem interactions,
+            IReadOnlyList<string> participantIds,
             IPlacementValidator placementValidator,
             IReadOnlyList<Pose> spawnPoints,
             IReadOnlyList<ItemDefinition> itemDefinitions,
@@ -130,17 +132,28 @@ namespace Game.Server.Match
             this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
             this.interactions = interactions ??
                 throw new ArgumentNullException(nameof(interactions));
+            Players = new MatchPlayerRoster(participantIds);
+            var playerCount = Players.Players.Count;
+            if (flow.PlayerCount != playerCount || interactions.PlayerCount != playerCount)
+            {
+                throw new ArgumentException(
+                    "Match systems and participant count must match.",
+                    nameof(participantIds));
+            }
+
+            completedHidingTurns = new bool[playerCount];
+            heldMapObjectIdsByPlayer = new string[playerCount];
             this.placementValidator = placementValidator ??
                 throw new ArgumentNullException(nameof(placementValidator));
 
             var assignments = ItemAssignmentSystem.Assign(
                 itemDefinitions,
-                MatchRulesSO.PlayerCount,
+                playerCount,
                 random);
             Assignments = assignments;
-            var validatedSpawnPoints = ValidateSpawnPoints(spawnPoints);
-            hidingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, random);
-            searchingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, random);
+            var validatedSpawnPoints = ValidateSpawnPoints(spawnPoints, playerCount);
+            hidingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, playerCount, random);
+            searchingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, playerCount, random);
             placements = new ItemPlacementSystem(assignments);
             var worldObjectStates = initialWorldObjects ?? Array.Empty<WorldObjectState>();
             worldObjects = new WorldObjectStateSystem(worldObjectStates);
@@ -154,6 +167,8 @@ namespace Game.Server.Match
         }
 
         public IReadOnlyList<PlayerItemAssignment> Assignments { get; }
+        public MatchPlayerRoster Players { get; }
+        public MatchPhase CurrentPhase => state.CurrentPhase.CurrentValue;
         public bool AllItemsPlaced => placements.AllPlaced;
         public int DestroyedPlayerItemCount => outcome.DestroyedItemCount;
         public bool AllPlayerItemsDestroyed => outcome.AllPlayerItemsDestroyed;
@@ -188,7 +203,8 @@ namespace Game.Server.Match
             double now,
             out Pose spawnPose)
         {
-            if (flow.GetCurrentHidingTurnIndex(now) != playerIndex)
+            if (!Players.IsActive(playerIndex) ||
+                flow.GetCurrentHidingTurnIndex(now) != playerIndex)
             {
                 spawnPose = default;
                 return false;
@@ -213,10 +229,10 @@ namespace Game.Server.Match
             flow.GetRemainingSeconds(now);
 
             if (lastKnownPlayerPositions == null ||
-                lastKnownPlayerPositions.Count != MatchRulesSO.PlayerCount)
+                lastKnownPlayerPositions.Count != Players.Players.Count)
             {
                 throw new ArgumentException(
-                    $"Exactly {MatchRulesSO.PlayerCount} player positions are required.",
+                    $"Exactly {Players.Players.Count} player positions are required.",
                     nameof(lastKnownPlayerPositions));
             }
 
@@ -245,7 +261,8 @@ namespace Game.Server.Match
 
         public bool TryRecordItemPlacement(int playerIndex, Pose pose, double now)
         {
-            if (flow.GetCurrentHidingTurnIndex(now) != playerIndex ||
+            if (!Players.IsActive(playerIndex) ||
+                flow.GetCurrentHidingTurnIndex(now) != playerIndex ||
                 flow.GetHidingTurnRemainingSeconds(now) <= 0d ||
                 completedHidingTurns[playerIndex] ||
                 !placementValidator.IsValid(Assignments[playerIndex].Item.ItemId, pose))
@@ -268,7 +285,8 @@ namespace Game.Server.Match
             Pose pose,
             double now)
         {
-            if (flow.GetCurrentHidingTurnIndex(now) != playerIndex ||
+            if (!Players.IsActive(playerIndex) ||
+                flow.GetCurrentHidingTurnIndex(now) != playerIndex ||
                 flow.GetHidingTurnRemainingSeconds(now) <= 0d ||
                 completedHidingTurns[playerIndex])
             {
@@ -410,6 +428,7 @@ namespace Game.Server.Match
             double now)
         {
             if (!CanInteract(attackerPlayerIndex, now) ||
+                !Players.IsActive(targetPlayerIndex) ||
                 attackerPlayerIndex == targetPlayerIndex)
             {
                 return HitResult.Ignored;
@@ -467,7 +486,56 @@ namespace Game.Server.Match
 
         public int[] GetWinnerPlayerIndices()
         {
-            return outcome.GetWinnerPlayerIndices();
+            var candidates = outcome.GetWinnerPlayerIndices();
+            var winners = new List<int>(candidates.Length);
+            foreach (var playerIndex in candidates)
+            {
+                if (Players.IsActive(playerIndex))
+                {
+                    winners.Add(playerIndex);
+                }
+            }
+
+            return winners.ToArray();
+        }
+
+        public bool TryHandlePlayerLeft(int playerIndex, Pose lastKnownPose, double now)
+        {
+            flow.GetRemainingSeconds(now);
+            var phase = state.CurrentPhase.CurrentValue;
+            if (phase != MatchPhase.Hiding && phase != MatchPhase.Searching)
+            {
+                return false;
+            }
+
+            if (!Players.TryDeactivate(playerIndex))
+            {
+                return false;
+            }
+
+            if (phase == MatchPhase.Hiding && !completedHidingTurns[playerIndex])
+            {
+                placements.CompleteTurn(playerIndex, lastKnownPose.position);
+                completedHidingTurns[playerIndex] = true;
+            }
+
+            ReleaseHeldObjectAt(playerIndex, lastKnownPose);
+            if (Players.ActivePlayerCount == 1)
+            {
+                var winnerPlayerIndex = GetSoleActivePlayerIndex();
+                if (!flow.CompleteMatchEarly())
+                {
+                    throw new InvalidOperationException("The match could not end early.");
+                }
+
+                CaptureResult(
+                    MatchEndReason.LastPlayerStanding,
+                    now,
+                    new[] { winnerPlayerIndex },
+                    false);
+            }
+
+            return true;
         }
 
         public bool TryGetResult(out MatchResult matchResult)
@@ -516,10 +584,10 @@ namespace Game.Server.Match
                 return false;
             }
 
-            if (playerPoses == null || playerPoses.Count != MatchRulesSO.PlayerCount)
+            if (playerPoses == null || playerPoses.Count != Players.Players.Count)
             {
                 throw new ArgumentException(
-                    $"Exactly {MatchRulesSO.PlayerCount} player poses are required.",
+                    $"Exactly {Players.Players.Count} player poses are required.",
                     nameof(playerPoses));
             }
 
@@ -585,7 +653,9 @@ namespace Game.Server.Match
 
         private bool CanInteract(int playerIndex, double now)
         {
-            return IsSearchingAt(now) && !interactions.IsStunned(playerIndex, now);
+            return Players.IsActive(playerIndex) &&
+                   IsSearchingAt(now) &&
+                   !interactions.IsStunned(playerIndex, now);
         }
 
         private bool ReleaseHeldObjectAt(int playerIndex, Pose pose)
@@ -632,17 +702,19 @@ namespace Game.Server.Match
             }
         }
 
-        private static Pose[] ValidateSpawnPoints(IReadOnlyList<Pose> spawnPoints)
+        private static Pose[] ValidateSpawnPoints(
+            IReadOnlyList<Pose> spawnPoints,
+            int playerCount)
         {
             if (spawnPoints == null)
             {
                 throw new ArgumentNullException(nameof(spawnPoints));
             }
 
-            if (spawnPoints.Count < MatchRulesSO.PlayerCount)
+            if (spawnPoints.Count < playerCount)
             {
                 throw new ArgumentException(
-                    $"At least {MatchRulesSO.PlayerCount} spawn points are required.",
+                    $"At least {playerCount} spawn points are required.",
                     nameof(spawnPoints));
             }
 
@@ -664,18 +736,21 @@ namespace Game.Server.Match
             return validatedSpawnPoints;
         }
 
-        private static Pose[] SelectSpawnPoses(Pose[] spawnPoints, System.Random random)
+        private static Pose[] SelectSpawnPoses(
+            Pose[] spawnPoints,
+            int playerCount,
+            System.Random random)
         {
             var candidates = (Pose[])spawnPoints.Clone();
-            for (var index = 0; index < MatchRulesSO.PlayerCount; index++)
+            for (var index = 0; index < playerCount; index++)
             {
                 var selectedIndex = random.Next(index, candidates.Length);
                 (candidates[index], candidates[selectedIndex]) =
                     (candidates[selectedIndex], candidates[index]);
             }
 
-            var selectedSpawnPoses = new Pose[MatchRulesSO.PlayerCount];
-            Array.Copy(candidates, selectedSpawnPoses, MatchRulesSO.PlayerCount);
+            var selectedSpawnPoses = new Pose[playerCount];
+            Array.Copy(candidates, selectedSpawnPoses, playerCount);
             return selectedSpawnPoses;
         }
 
@@ -696,7 +771,11 @@ namespace Game.Server.Match
             }
         }
 
-        private void CaptureResult(MatchEndReason endReason, double endedAt)
+        private void CaptureResult(
+            MatchEndReason endReason,
+            double endedAt,
+            int[] winnerPlayerIndices = null,
+            bool captureHighlights = true)
         {
             if (result.HasValue)
             {
@@ -706,8 +785,8 @@ namespace Game.Server.Match
             var capturedResult = new MatchResult(
                 endReason,
                 endedAt,
-                outcome.GetWinnerPlayerIndices());
-            if (!hasExplicitHighlightCandidates)
+                winnerPlayerIndices ?? GetWinnerPlayerIndices());
+            if (captureHighlights && !hasExplicitHighlightCandidates)
             {
                 highlights = new HighlightSequence(
                     highlightRecorder.CaptureCandidates(endedAt),
@@ -715,6 +794,19 @@ namespace Game.Server.Match
             }
             result = capturedResult;
             MatchEnded?.Invoke(capturedResult);
+        }
+
+        private int GetSoleActivePlayerIndex()
+        {
+            foreach (var player in Players.Players)
+            {
+                if (player.IsActive)
+                {
+                    return player.PlayerIndex;
+                }
+            }
+
+            throw new InvalidOperationException("No active player remains.");
         }
 
         private void StartHighlightRecordingIfNeeded(double now)
@@ -736,10 +828,10 @@ namespace Game.Server.Match
             IReadOnlyList<Vector3> lastKnownPlayerPositions)
         {
             var hidingStartedAt =
-                state.PhaseEndsAt.CurrentValue - rules.HidingDurationSeconds;
+                state.PhaseEndsAt.CurrentValue - flow.HidingDurationSeconds;
             var elapsedSeconds = Math.Max(0d, now - hidingStartedAt);
             var expiredTurnCount = Math.Min(
-                MatchRulesSO.PlayerCount,
+                Players.Players.Count,
                 (int)(elapsedSeconds / rules.HidingTurnDurationSeconds));
 
             for (var playerIndex = 0; playerIndex < expiredTurnCount; playerIndex++)

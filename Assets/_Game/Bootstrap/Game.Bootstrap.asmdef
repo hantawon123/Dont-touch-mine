@@ -4,9 +4,11 @@
     "references": [
         "Game.Client",
         "Game.Core",
+        "Game.Network",
         "Game.Server",
         "Game.SOAP",
         "Unity.TextMeshPro",
+        "UniTask",
         "VContainer"
     ],
     "includePlatforms": [],
