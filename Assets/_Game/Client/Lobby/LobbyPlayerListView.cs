@@ -118,14 +118,19 @@ namespace Game.Client.Lobby
             string localPlayerId)
         {
             var row = CreateRowRoot($"Row_{participant.Id}");
+            var canManage = localIsHost &&
+                !string.Equals(participant.Id, localPlayerId, StringComparison.Ordinal);
+
             var label = participant.IsHost
                 ? $"★ {participant.DisplayName}"
                 : participant.DisplayName;
-            var nameText = CreateText(row, "Name", label, TextAnchor.MiddleLeft, 18);
-            Stretch(nameText.rectTransform, 8f, 0f, -120f, 0f);
 
-            var canManage = localIsHost &&
-                !string.Equals(participant.Id, localPlayerId, StringComparison.Ordinal);
+            // Reserve a fixed right column for actions; nickname clips instead of overlapping.
+            var nameRight = canManage ? -120f : -8f;
+            var nameSlot = CreateNameSlot(row, nameRight);
+            var nameText = CreateText(nameSlot, "Name", label, TextAnchor.MiddleLeft, 18);
+            Stretch(nameText.rectTransform, 0f, 0f, 0f, 0f);
+
             if (!canManage)
             {
                 return;
@@ -137,6 +142,15 @@ namespace Game.Client.Lobby
             var displayName = participant.DisplayName;
             kick.onClick.AddListener(() => KickClicked?.Invoke(playerId, displayName));
             transfer.onClick.AddListener(() => TransferClicked?.Invoke(playerId, displayName));
+        }
+
+        private static RectTransform CreateNameSlot(RectTransform parent, float rightInset)
+        {
+            var go = new GameObject("NameSlot", typeof(RectTransform), typeof(RectMask2D));
+            go.transform.SetParent(parent, false);
+            var rect = go.GetComponent<RectTransform>();
+            Stretch(rect, 8f, 2f, rightInset, -2f);
+            return rect;
         }
 
         private RectTransform CreateRowRoot(string name)
