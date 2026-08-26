@@ -146,6 +146,56 @@ namespace Game.Tests.EditMode
 
             Assert.That(view.FriendListVisible, Is.False);
             Assert.That(view.FriendSearchVisible, Is.False);
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+            Assert.That(host.RoomBrowserOpenCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Presenter_ProfileSettings_ShowsOverlayAndBackHidesIt()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+
+            view.Raise(HomeMenuAction.ProfileSettings);
+            Assert.That(view.ProfileSettingsVisible, Is.True);
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
+
+            view.Raise(HomeMenuAction.ProfileSettings);
+            Assert.That(view.ProfileSettingsVisible, Is.True);
+
+            view.RaiseProfileSettingsDismissed();
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+        }
+
+        [Test]
+        public void Presenter_FriendsAndProfileSettings_ReplaceEachOther()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+
+            view.Raise(HomeMenuAction.ProfileSettings);
+            Assert.That(view.ProfileSettingsVisible, Is.True);
+            Assert.That(view.FriendListVisible, Is.False);
+
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+        }
+
+        [Test]
+        public void Presenter_FindRoom_HidesOpenProfileSettings()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out var host, out _, out _, out _);
+            view.Raise(HomeMenuAction.ProfileSettings);
+            Assert.That(view.ProfileSettingsVisible, Is.True);
+
+            view.Raise(HomeMenuAction.FindRoom);
+
+            Assert.That(view.ProfileSettingsVisible, Is.False);
             Assert.That(host.RoomBrowserOpenCount, Is.EqualTo(1));
         }
 
@@ -264,9 +314,13 @@ namespace Game.Tests.EditMode
             public IReadOnlyList<FriendSearchHit> SearchResults { get; private set; } =
                 Array.Empty<FriendSearchHit>();
 
+            public bool ProfileSettingsVisible { get; private set; }
+
             public event Action<HomeMenuAction> ActionClicked;
 
             public event Action FriendListDismissed;
+
+            public event Action ProfileSettingsDismissed;
 
             public event Action FriendSearchOpened;
 
@@ -284,6 +338,11 @@ namespace Game.Tests.EditMode
             public void SetLevel(int level)
             {
                 Level = level;
+            }
+
+            public void SetProfileSettingsVisible(bool visible)
+            {
+                ProfileSettingsVisible = visible;
             }
 
             public void SetFriendListVisible(bool visible)
@@ -326,6 +385,11 @@ namespace Game.Tests.EditMode
             public void RaiseFriendListDismissed()
             {
                 FriendListDismissed?.Invoke();
+            }
+
+            public void RaiseProfileSettingsDismissed()
+            {
+                ProfileSettingsDismissed?.Invoke();
             }
 
             public void RaiseFriendSearchOpened()

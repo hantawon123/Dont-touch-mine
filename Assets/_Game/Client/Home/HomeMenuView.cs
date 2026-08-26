@@ -64,10 +64,15 @@ namespace Game.Client.Home
         private TMP_InputField friendSearchInput;
         private TMP_Text searchEmptyText;
         private Button dismissButton;
+        private GameObject profileSettingsRoot;
+        private TMP_InputField profileNicknameInput;
+        private TMP_Text profileLevelText;
 
         public event Action<HomeMenuAction> ActionClicked;
 
         public event Action FriendListDismissed;
+
+        public event Action ProfileSettingsDismissed;
 
         public event Action FriendSearchOpened;
 
@@ -86,6 +91,7 @@ namespace Game.Client.Home
             }
 
             SetFriendListVisible(false);
+            SetProfileSettingsVisible(false);
         }
 
         private void OnDestroy()
@@ -116,14 +122,35 @@ namespace Game.Client.Home
             {
                 nicknameText.text = nickname;
             }
+
+            if (profileNicknameInput != null && profileNicknameInput.text != nickname)
+            {
+                profileNicknameInput.text = nickname;
+            }
         }
 
         public void SetLevel(int level)
         {
+            var label = $"Lv.{level}";
             if (levelText != null)
             {
-                levelText.text = $"Lv.{level}";
+                levelText.text = label;
             }
+
+            if (profileLevelText != null)
+            {
+                profileLevelText.text = label;
+            }
+        }
+
+        public void SetProfileSettingsVisible(bool visible)
+        {
+            if (profileSettingsRoot == null)
+            {
+                return;
+            }
+
+            profileSettingsRoot.SetActive(visible);
         }
 
         public void SetFriendListVisible(bool visible)
@@ -254,6 +281,7 @@ namespace Game.Client.Home
             CreateQuitButton(canvas);
             CreateBottomRightButtons(canvas);
             CreateFriendListRoot(canvas);
+            CreateProfileSettingsRoot(canvas);
         }
 
         private RectTransform CreateCanvas()
@@ -449,6 +477,253 @@ namespace Game.Client.Home
 
             CreateFriendListPanel(root);
             friendListRoot = root.gameObject;
+        }
+
+        private void CreateProfileSettingsRoot(RectTransform canvas)
+        {
+            var root = CreateRect("ProfileSettingsRoot", canvas);
+            root.gameObject.SetActive(false);
+            SetAnchor(root, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            root.offsetMin = Vector2.zero;
+            root.offsetMax = Vector2.zero;
+            AddImage(root, Color.white, raycastTarget: true);
+
+            CreateProfileSettingsHeader(root);
+            CreateProfileSettingsBody(root);
+            profileSettingsRoot = root.gameObject;
+        }
+
+        private void CreateProfileSettingsHeader(RectTransform parent)
+        {
+            var header = CreateRect("Header", parent);
+            SetAnchor(header, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
+            header.anchoredPosition = Vector2.zero;
+            header.sizeDelta = new Vector2(0f, 96f);
+
+            var layout = header.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(40, 40, 24, 12);
+            layout.spacing = 16f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            CreateSimpleTextButton(header, "Back", "<", 36f, FontStyles.Bold, TextAlignmentOptions.Center, () =>
+            {
+                ProfileSettingsDismissed?.Invoke();
+            }, 48f, 56f);
+
+            var titleRect = CreateRect("Title", header);
+            var titleLayout = titleRect.gameObject.AddComponent<LayoutElement>();
+            titleLayout.preferredWidth = 280f;
+            titleLayout.minWidth = 200f;
+            titleLayout.preferredHeight = 56f;
+            titleLayout.flexibleWidth = 1f;
+            AddText(titleRect, "프로필 설정", 36f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+        }
+
+        private void CreateProfileSettingsBody(RectTransform parent)
+        {
+            var body = CreateRect("Body", parent);
+            SetAnchor(body, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            body.offsetMin = new Vector2(80f, 100f);
+            body.offsetMax = new Vector2(-80f, -96f);
+
+            var layout = body.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 96f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            CreateProfileCharacter(body);
+            CreateProfileInfo(body);
+        }
+
+        private void CreateProfileCharacter(RectTransform parent)
+        {
+            var character = CreateRect("Character", parent);
+            character.sizeDelta = new Vector2(440f, 600f);
+            var characterLayout = character.gameObject.AddComponent<LayoutElement>();
+            characterLayout.preferredWidth = 440f;
+            characterLayout.preferredHeight = 600f;
+            characterLayout.minWidth = 440f;
+            characterLayout.minHeight = 600f;
+            AddImage(character, CharacterColor);
+
+            var label = CreateRect("Label", character);
+            SetAnchor(label, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            label.offsetMin = Vector2.zero;
+            label.offsetMax = Vector2.zero;
+            AddText(label, "캐릭터", 36f, FontStyles.Bold, TextAlignmentOptions.Center);
+        }
+
+        private void CreateProfileInfo(RectTransform parent)
+        {
+            var info = CreateRect("Info", parent);
+            info.sizeDelta = new Vector2(400f, 420f);
+            var infoLayout = info.gameObject.AddComponent<LayoutElement>();
+            infoLayout.preferredWidth = 400f;
+            infoLayout.minWidth = 400f;
+            infoLayout.preferredHeight = 420f;
+
+            var layout = info.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 20f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            var avatar = CreateRect("Avatar", info);
+            avatar.sizeDelta = new Vector2(120f, 120f);
+            var avatarLayout = avatar.gameObject.AddComponent<LayoutElement>();
+            avatarLayout.preferredWidth = 120f;
+            avatarLayout.preferredHeight = 120f;
+            avatarLayout.minWidth = 120f;
+            avatarLayout.minHeight = 120f;
+            var avatarImage = AddImage(avatar, CharacterColor, HomeUiFonts.CircleSprite);
+            avatarImage.preserveAspect = true;
+
+            CreateProfileLevelRow(info);
+            CreateProfileNicknameField(info);
+            CreateSimpleTextButton(
+                info,
+                "ChangeNickname",
+                "변경하기",
+                24f,
+                FontStyles.Normal,
+                TextAlignmentOptions.Center,
+                null,
+                160f,
+                48f);
+        }
+
+        private void CreateProfileLevelRow(RectTransform parent)
+        {
+            var levelRow = CreateRect("LevelRow", parent);
+            levelRow.sizeDelta = new Vector2(280f, 22f);
+            var rowLayout = levelRow.gameObject.AddComponent<LayoutElement>();
+            rowLayout.preferredHeight = 22f;
+            rowLayout.minHeight = 22f;
+            rowLayout.preferredWidth = 280f;
+            var levelLayout = levelRow.gameObject.AddComponent<HorizontalLayoutGroup>();
+            levelLayout.spacing = 10f;
+            levelLayout.childAlignment = TextAnchor.MiddleCenter;
+            levelLayout.childControlWidth = false;
+            levelLayout.childControlHeight = true;
+            levelLayout.childForceExpandWidth = false;
+            levelLayout.childForceExpandHeight = true;
+
+            var levelRect = CreateRect("Level", levelRow);
+            levelRect.sizeDelta = new Vector2(56f, 22f);
+            profileLevelText = AddText(
+                levelRect,
+                "Lv.1",
+                18f,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineLeft);
+
+            var experienceTrack = CreateRect("ExperienceTrack", levelRow);
+            experienceTrack.sizeDelta = new Vector2(180f, 14f);
+            AddImage(experienceTrack, ExperienceBackground);
+
+            var experienceFill = CreateRect("ExperienceFill", experienceTrack);
+            SetAnchor(experienceFill, Vector2.zero, Vector2.one, new Vector2(0f, 0.5f));
+            experienceFill.offsetMin = Vector2.zero;
+            experienceFill.offsetMax = Vector2.zero;
+            var fillImage = AddImage(experienceFill, ExperienceFillColor);
+            fillImage.type = Image.Type.Filled;
+            fillImage.fillMethod = Image.FillMethod.Horizontal;
+            fillImage.fillOrigin = (int)Image.OriginHorizontal.Left;
+            fillImage.fillAmount = experienceRatio;
+        }
+
+        private void CreateProfileNicknameField(RectTransform parent)
+        {
+            var fieldRect = CreateRect("NicknameField", parent);
+            fieldRect.sizeDelta = new Vector2(400f, 56f);
+            var fieldLayout = fieldRect.gameObject.AddComponent<LayoutElement>();
+            fieldLayout.preferredWidth = 400f;
+            fieldLayout.preferredHeight = 56f;
+            fieldLayout.minWidth = 400f;
+            fieldLayout.minHeight = 56f;
+            var fieldImage = AddImage(fieldRect, CharacterColor, HomeUiFonts.PillSprite, raycastTarget: true);
+            fieldImage.type = Image.Type.Sliced;
+            fieldImage.pixelsPerUnitMultiplier = 1f;
+
+            var textArea = CreateRect("TextArea", fieldRect);
+            SetAnchor(textArea, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            textArea.offsetMin = new Vector2(28f, 8f);
+            textArea.offsetMax = new Vector2(-28f, -8f);
+            textArea.gameObject.AddComponent<RectMask2D>();
+
+            var textRect = CreateRect("Text", textArea);
+            SetAnchor(textRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            var text = AddText(
+                textRect,
+                "사용자닉네임",
+                24f,
+                FontStyles.Bold,
+                TextAlignmentOptions.Center,
+                raycastTarget: true);
+
+            fieldRect.gameObject.SetActive(false);
+            var input = fieldRect.gameObject.AddComponent<TMP_InputField>();
+            input.textViewport = textArea;
+            input.textComponent = text;
+            input.fontAsset = koreanFont;
+            input.pointSize = 24f;
+            input.lineType = TMP_InputField.LineType.SingleLine;
+            input.characterLimit = 32;
+            input.text = "사용자닉네임";
+            fieldRect.gameObject.SetActive(true);
+            profileNicknameInput = input;
+        }
+
+        private RectTransform CreateSimpleTextButton(
+            RectTransform parent,
+            string name,
+            string label,
+            float fontSize,
+            FontStyles style,
+            TextAlignmentOptions alignment,
+            Action onClicked,
+            float preferredWidth,
+            float preferredHeight)
+        {
+            var buttonRect = CreateRect(name, parent);
+            buttonRect.sizeDelta = new Vector2(preferredWidth, preferredHeight);
+            var layoutElement = buttonRect.gameObject.AddComponent<LayoutElement>();
+            layoutElement.preferredWidth = preferredWidth;
+            layoutElement.minWidth = preferredWidth;
+            layoutElement.preferredHeight = preferredHeight;
+            layoutElement.minHeight = preferredHeight;
+            layoutElement.flexibleWidth = 0f;
+            layoutElement.flexibleHeight = 0f;
+
+            var text = AddText(buttonRect, label, fontSize, style, alignment, raycastTarget: true);
+            text.color = Color.white;
+            var button = buttonRect.gameObject.AddComponent<Button>();
+            button.targetGraphic = text;
+            button.transition = Selectable.Transition.ColorTint;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.black;
+            colors.highlightedColor = MenuHover;
+            colors.pressedColor = MenuPressed;
+            colors.selectedColor = Color.black;
+            colors.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+            button.onClick.AddListener(() => onClicked?.Invoke());
+            menuButtons.Add(button);
+            return buttonRect;
         }
 
         private void CreateFriendListPanel(RectTransform parent)
