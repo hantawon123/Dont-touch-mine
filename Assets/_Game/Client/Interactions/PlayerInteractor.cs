@@ -9,7 +9,7 @@ namespace Game.Client.Interactions
     /// 플레이어의 상호작용 담당: 카메라 중앙(크로스헤어)으로 조준한 대상을 감지하고
     /// F키 입력을 대상에 전달한다. 입력 의도만 다루며, 상태 확정은 각 대상이 수행한다.
     /// </summary>
-    public sealed class PlayerInteractor : MonoBehaviour
+    public sealed class PlayerInteractor : MonoBehaviour, ICarriedItemDropper
     {
         private const int MaxAimHits = 8;
 
@@ -28,6 +28,16 @@ namespace Game.Client.Interactions
 
         /// <summary>배치 모드 등 좌클릭을 다른 용도로 쓰는 동안 던지기를 막는다.</summary>
         public bool IsThrowSuppressed { get; set; }
+
+        /// <summary>기절 등 외부에서 상호작용 입력을 잠글 때 사용한다.</summary>
+        public bool IsInputLocked { get; set; }
+
+        /// <summary>기절 등 외부 요인으로 들고 있던 물건을 강제로 떨어뜨린다.</summary>
+        public void DropCarriedItem()
+        {
+            CancelThrowAim();
+            DropCarried();
+        }
 
         /// <summary>배치 확정 등 외부 시스템이 소지 물건을 가져갈 때 사용한다.</summary>
         public CarryableItem ReleaseCarriedItem()
@@ -99,7 +109,7 @@ namespace Game.Client.Interactions
             // 커서가 풀린 상태(메뉴 조작 등)의 클릭은 게임 입력으로 취급하지 않는다.
             // 재잠금 클릭과 같은 프레임에 던져지지 않도록, 직전 프레임부터 잠겨 있던 경우만 허용한다.
             var isCursorLocked = Cursor.lockState == CursorLockMode.Locked;
-            var acceptInput = isCursorLocked && wasCursorLocked;
+            var acceptInput = isCursorLocked && wasCursorLocked && !IsInputLocked;
             wasCursorLocked = isCursorLocked;
 
             if (!acceptInput)

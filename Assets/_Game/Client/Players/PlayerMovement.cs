@@ -44,6 +44,16 @@ namespace Game.Client.Players
         private InputAction proneAction;
         private Transform cameraTransform;
         private float verticalVelocity;
+        private Vector3 externalVelocity;
+
+        /// <summary>기절 등 외부에서 이동 입력을 잠글 때 사용한다.</summary>
+        public bool IsMovementLocked { get; set; }
+
+        /// <summary>넉백 등 외부 충격을 가한다. 시간이 지나며 자연히 줄어든다.</summary>
+        public void AddImpulse(Vector3 impulse)
+        {
+            externalVelocity += impulse;
+        }
 
         private void Awake()
         {
@@ -92,17 +102,20 @@ namespace Game.Client.Players
 
         private void Update()
         {
-            var input = moveAction.ReadValue<Vector2>();
+            var input = IsMovementLocked ? Vector2.zero : moveAction.ReadValue<Vector2>();
             var direction = ToCameraRelativeDirection(input);
             var gravity = -Physics.gravity.y * movementConfig.GravityMultiplier;
 
-            HandlePostureInput();
+            if (!IsMovementLocked)
+            {
+                HandlePostureInput();
+            }
 
             if (controller.isGrounded)
             {
                 verticalVelocity = GroundedStickVelocity;
 
-                if (jumpAction.WasPressedThisFrame() && Posture == PlayerPosture.Standing)
+                if (!IsMovementLocked && jumpAction.WasPressedThisFrame() && Posture == PlayerPosture.Standing)
                 {
                     // 목표 높이(JumpHeight)에 도달하는 초기 속도: v = sqrt(2gh)
                     verticalVelocity = Mathf.Sqrt(2f * gravity * movementConfig.JumpHeight);
@@ -111,8 +124,11 @@ namespace Game.Client.Players
 
             verticalVelocity -= gravity * Time.deltaTime;
 
+            // 넉백 등 외부 충격은 시간이 지나며 감쇠한다.
+            externalVelocity = Vector3.MoveTowards(externalVelocity, Vector3.zero, 12f * Time.deltaTime);
+
             var moveSpeed = GetMoveSpeed();
-            var velocity = direction * moveSpeed;
+            var velocity = direction * moveSpeed + externalVelocity;
             velocity.y = verticalVelocity;
             controller.Move(velocity * Time.deltaTime);
 
