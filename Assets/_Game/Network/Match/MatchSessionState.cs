@@ -102,6 +102,12 @@ namespace Game.Network.Match
         [Networked, Capacity(MaxParticipants)]
         public NetworkArray<NetworkString<_16>> Participants => default;
 
+        [Networked, Capacity(MaxParticipants)]
+        public NetworkArray<NetworkBool> ParticipantActive => default;
+
+        [Networked]
+        public int ParticipantActivityRevision { get; set; }
+
         [Networked]
         public MatchPhase Phase { get; set; }
 
@@ -115,17 +121,36 @@ namespace Game.Network.Match
         [Networked]
         public int ObjectStateRevision { get; set; }
 
+        [Networked]
+        public NetworkBool HasResult { get; set; }
+
+        [Networked]
+        public MatchEndReason ResultEndReason { get; set; }
+
+        [Networked]
+        public double ResultEndedAt { get; set; }
+
+        [Networked]
+        public int WinnerCount { get; set; }
+
+        [Networked, Capacity(MaxParticipants)]
+        public NetworkArray<int> WinnerPlayerIndices => default;
+
         private bool _publishedStarted;
         private int _publishedCount = -1;
         private MatchPhase _publishedPhase = (MatchPhase)(-1);
         private double _publishedPhaseEndsAt = -1d;
         private int _publishedObjectStateRevision = -1;
+        private int _publishedParticipantActivityRevision = -1;
+        private bool _publishedHasResult;
 
         public override void Spawned()
         {
             PublishLineUp();
             PublishSnapshot();
             PublishObjectStates();
+            PublishParticipantActivity();
+            PublishResult();
         }
 
         /// <summary>
@@ -150,6 +175,16 @@ namespace Game.Network.Match
             {
                 PublishObjectStates();
             }
+
+            if (_publishedParticipantActivityRevision != ParticipantActivityRevision)
+            {
+                PublishParticipantActivity();
+            }
+
+            if (_publishedHasResult != HasResult)
+            {
+                PublishResult();
+            }
         }
 
         /// <summary>
@@ -163,10 +198,52 @@ namespace Game.Network.Match
             for (var index = 0; index < count; index++)
             {
                 Participants.Set(index, participantIds[index]);
+                ParticipantActive.Set(index, true);
             }
 
             ParticipantCount = count;
+            ParticipantActivityRevision++;
             IsStarted = true;
+        }
+
+        public bool TrySetParticipantInactive(int playerIndex)
+        {
+            if (Object == null || !Object.HasStateAuthority ||
+                playerIndex < 0 || playerIndex >= ParticipantCount ||
+                !ParticipantActive.Get(playerIndex))
+            {
+                return false;
+            }
+
+            ParticipantActive.Set(playerIndex, false);
+            ParticipantActivityRevision++;
+            return true;
+        }
+
+        public bool TrySetResult(MatchResult result)
+        {
+            if (Object == null || !Object.HasStateAuthority || HasResult ||
+                result.WinnerPlayerIndices.Count > MaxParticipants)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < result.WinnerPlayerIndices.Count; index++)
+            {
+                var winnerPlayerIndex = result.WinnerPlayerIndices[index];
+                if (winnerPlayerIndex < 0 || winnerPlayerIndex >= ParticipantCount)
+                {
+                    return false;
+                }
+
+                WinnerPlayerIndices.Set(index, winnerPlayerIndex);
+            }
+
+            ResultEndReason = result.EndReason;
+            ResultEndedAt = result.EndedAt;
+            WinnerCount = result.WinnerPlayerIndices.Count;
+            HasResult = true;
+            return true;
         }
 
         public bool TrySetSnapshot(MatchStateSnapshot snapshot)
@@ -390,6 +467,38 @@ namespace Game.Network.Match
             }
 
             StarterOf(Runner)?.PublishObjectStates(snapshots);
+        }
+
+        private void PublishParticipantActivity()
+        {
+            _publishedParticipantActivityRevision = ParticipantActivityRevision;
+            var count = Mathf.Min(ParticipantCount, MaxParticipants);
+            var active = new bool[count];
+            for (var playerIndex = 0; playerIndex < count; playerIndex++)
+            {
+                active[playerIndex] = ParticipantActive.Get(playerIndex);
+            }
+
+            StarterOf(Runner)?.PublishParticipantActivity(active);
+        }
+
+        private void PublishResult()
+        {
+            _publishedHasResult = HasResult;
+            if (!HasResult)
+            {
+                return;
+            }
+
+            var count = Mathf.Min(WinnerCount, MaxParticipants);
+            var winners = new int[count];
+            for (var index = 0; index < count; index++)
+            {
+                winners[index] = WinnerPlayerIndices.Get(index);
+            }
+
+            StarterOf(Runner)?.PublishMatchResult(
+                new MatchResult(ResultEndReason, ResultEndedAt, winners));
         }
 
         private bool TryGetWritableState(

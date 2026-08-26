@@ -22,6 +22,7 @@ namespace Game.Network.Match
 
         private Vector3[] positions;
         private Pose[] poses;
+        private bool[] hasPose;
 
         public NetworkMatchRuntimeContext(
             INetworkMatchRuntimeSource source,
@@ -46,6 +47,7 @@ namespace Game.Network.Match
             participantsByIndex = OrderByPlayerIndex(participants);
             positions = new Vector3[participantsByIndex.Length];
             poses = new Pose[participantsByIndex.Length];
+            hasPose = new bool[participantsByIndex.Length];
         }
 
         public double ServerTime => source.ServerTime;
@@ -79,12 +81,18 @@ namespace Game.Network.Match
                 var playerId = participantsByIndex[playerIndex].PlayerId;
                 if (!source.TryGetPlayerPose(playerId, out var pose))
                 {
-                    throw new InvalidOperationException(
-                        $"No spawned avatar exists for player '{playerId}'.");
+                    if (!hasPose[playerIndex])
+                    {
+                        throw new InvalidOperationException(
+                            $"No spawned avatar exists for player '{playerId}'.");
+                    }
+
+                    continue;
                 }
 
                 poses[playerIndex] = pose;
                 positions[playerIndex] = pose.position;
+                hasPose[playerIndex] = true;
             }
         }
 

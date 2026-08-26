@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using Game.Core.Match;
 using Game.Core.Players;
 using Game.Network.Match;
+using Game.Server.Match;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -194,6 +196,40 @@ namespace Game.Architecture.Tests
                         StringComparison.OrdinalIgnoreCase) >= 0),
                 Is.False,
                 "Destroyed item notifications must not reveal its owner.");
+        }
+
+        [Test]
+        public void MatchStarter_ForwardsReplicatedActivityAndResult()
+        {
+            var gameObject = new GameObject("MatchStarterTest");
+
+            try
+            {
+                var starter = gameObject.AddComponent<MatchStarter>();
+                IReadOnlyList<bool> receivedActivity = null;
+                MatchResult? receivedResult = null;
+                starter.ParticipantActivityReceived += value =>
+                    receivedActivity = value;
+                starter.MatchResultReceived += value => receivedResult = value;
+
+                starter.PublishParticipantActivity(new[] { true, false });
+                starter.PublishMatchResult(new MatchResult(
+                    MatchEndReason.LastPlayerStanding,
+                    300d,
+                    new[] { 0 }));
+
+                Assert.That(receivedActivity, Is.EqualTo(new[] { true, false }));
+                Assert.That(receivedResult.HasValue, Is.True);
+                Assert.That(
+                    receivedResult.Value.EndReason,
+                    Is.EqualTo(MatchEndReason.LastPlayerStanding));
+                Assert.That(receivedResult.Value.EndedAt, Is.EqualTo(300d));
+                Assert.That(receivedResult.Value.WinnerPlayerIndices, Is.EqualTo(new[] { 0 }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
         }
 
         [Test]

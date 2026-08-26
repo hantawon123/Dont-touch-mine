@@ -51,6 +51,8 @@ namespace Game.Network.Match
         public event Action<PlayerStunnedEvent> PlayerStunnedReceived;
         public event Action<ObjectThrownEvent> ObjectThrownReceived;
         public event Action<FinalWarningStartedEvent> FinalWarningReceived;
+        public event Action<IReadOnlyList<bool>> ParticipantActivityReceived;
+        public event Action<MatchResult> MatchResultReceived;
 
         public void Bind(IMatchStartSink sink, PlayerRoster roster)
         {
@@ -217,6 +219,16 @@ namespace Game.Network.Match
             FinalWarningReceived?.Invoke(confirmedEvent);
         }
 
+        public void PublishParticipantActivity(IReadOnlyList<bool> active)
+        {
+            ParticipantActivityReceived?.Invoke(active);
+        }
+
+        public void PublishMatchResult(MatchResult result)
+        {
+            MatchResultReceived?.Invoke(result);
+        }
+
         public void BindSession(
             MatchSessionCoordinator session,
             Pose shredderEjectionPose)
@@ -232,6 +244,7 @@ namespace Game.Network.Match
             _session.PlayerStunned += OnPlayerStunned;
             _session.ObjectThrown += OnObjectThrown;
             _session.FinalWarningStarted += OnFinalWarningStarted;
+            _session.MatchEnded += OnMatchEnded;
             _shredderEjectionPose = shredderEjectionPose;
             _hasShredderEjectionPose = true;
         }
@@ -403,6 +416,69 @@ namespace Game.Network.Match
                    _state.TrySetObjectReleased(objectId, _shredderEjectionPose);
         }
 
+        public bool TryHandlePlayerLeft(PlayerRef player)
+        {
+            if (!TryGetPlayerIndex(player, out var playerIndex))
+            {
+                return false;
+            }
+
+            var playerId = PlayerRegistry.IdOf(player);
+            var lastKnownPose = Pose.identity;
+            if (_roster == null || !_roster.TryGetPose(playerId, out lastKnownPose))
+            {
+                Debug.LogWarning(
+                    $"[Match] No last pose was found for leaving player {playerId}.");
+            }
+
+            _session.TryGetHeldObjectId(playerIndex, out var heldObjectId);
+            if (!_session.TryHandlePlayerLeft(playerIndex, lastKnownPose, ServerTime))
+            {
+                return false;
+            }
+
+            _state.TrySetParticipantInactive(playerIndex);
+
+            if (heldObjectId != null)
+            {
+                var releasedPose = lastKnownPose;
+                var foundPose = false;
+                foreach (var assignment in _session.Assignments)
+                {
+                    if (string.Equals(
+                            assignment.Item.ItemId,
+                            heldObjectId,
+                            StringComparison.Ordinal) &&
+                        _session.TryGetItemPlacement(
+                            assignment.PlayerIndex,
+                            out var placement))
+                    {
+                        releasedPose = placement.Pose;
+                        foundPose = true;
+                        break;
+                    }
+                }
+
+                if (!foundPose &&
+                    _session.TryGetWorldObjectState(heldObjectId, out var worldObject))
+                {
+                    releasedPose = worldObject.Pose;
+                }
+
+                _state.TrySetObjectReleased(heldObjectId, releasedPose);
+            }
+
+            var ownItemId = _session.Assignments[playerIndex].Item.ItemId;
+            if (!string.Equals(ownItemId, heldObjectId, StringComparison.Ordinal) &&
+                _session.TryGetItemPlacement(playerIndex, out var ownPlacement) &&
+                ownPlacement.WasAutoPlaced)
+            {
+                _state.TrySetObjectReleased(ownItemId, ownPlacement.Pose);
+            }
+
+            return true;
+        }
+
         private double ServerTime => _state.Runner.SimulationTime;
 
         private void OnPlayerItemDestroyed(PlayerItemDestroyedEvent confirmedEvent)
@@ -441,6 +517,11 @@ namespace Game.Network.Match
                 confirmedEvent.EndsAt);
         }
 
+        private void OnMatchEnded(MatchResult result)
+        {
+            _state?.TrySetResult(result);
+        }
+
         private void UnbindSession()
         {
             if (_session == null)
@@ -452,6 +533,7 @@ namespace Game.Network.Match
             _session.PlayerStunned -= OnPlayerStunned;
             _session.ObjectThrown -= OnObjectThrown;
             _session.FinalWarningStarted -= OnFinalWarningStarted;
+            _session.MatchEnded -= OnMatchEnded;
             _session = null;
         }
 

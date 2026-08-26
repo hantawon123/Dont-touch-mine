@@ -65,6 +65,8 @@ namespace Game.Network.Session
         public event Action<PlayerStunnedEvent> PlayerStunnedReceived;
         public event Action<ObjectThrownEvent> ObjectThrownReceived;
         public event Action<FinalWarningStartedEvent> FinalWarningReceived;
+        public event Action<IReadOnlyList<bool>> ParticipantActivityReceived;
+        public event Action<MatchResult> MatchResultReceived;
 
         /// <summary>
         /// Password this peer requires from joiners while it is the authority. A
@@ -425,6 +427,8 @@ namespace Game.Network.Session
             _matchStarter.PlayerStunnedReceived += OnPlayerStunnedReceived;
             _matchStarter.ObjectThrownReceived += OnObjectThrownReceived;
             _matchStarter.FinalWarningReceived += OnFinalWarningReceived;
+            _matchStarter.ParticipantActivityReceived += OnParticipantActivityReceived;
+            _matchStarter.MatchResultReceived += OnMatchResultReceived;
 
             return sceneManager;
         }
@@ -453,6 +457,8 @@ namespace Game.Network.Session
                 _matchStarter.PlayerStunnedReceived -= OnPlayerStunnedReceived;
                 _matchStarter.ObjectThrownReceived -= OnObjectThrownReceived;
                 _matchStarter.FinalWarningReceived -= OnFinalWarningReceived;
+                _matchStarter.ParticipantActivityReceived -= OnParticipantActivityReceived;
+                _matchStarter.MatchResultReceived -= OnMatchResultReceived;
             }
 
             _runner = null;
@@ -502,6 +508,16 @@ namespace Game.Network.Session
         private void OnFinalWarningReceived(FinalWarningStartedEvent confirmedEvent)
         {
             FinalWarningReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnParticipantActivityReceived(IReadOnlyList<bool> active)
+        {
+            ParticipantActivityReceived?.Invoke(active);
+        }
+
+        private void OnMatchResultReceived(MatchResult result)
+        {
+            MatchResultReceived?.Invoke(result);
         }
 
         private bool IsCurrentRunner(NetworkRunner runner) =>
@@ -665,6 +681,11 @@ namespace Game.Network.Session
             }
 
             Debug.Log($"[Network] Player left: {player}.");
+            if (runner.IsServer)
+            {
+                _matchStarter?.TryHandlePlayerLeft(player);
+            }
+
             _spawner?.Despawn(runner, player);
             ReportPlayerCount();
         }

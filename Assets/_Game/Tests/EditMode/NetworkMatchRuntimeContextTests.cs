@@ -65,13 +65,39 @@ namespace Game.Architecture.Tests
             Assert.Throws<InvalidOperationException>(() => _ = context.PlayerPositions);
         }
 
+        [Test]
+        public void Context_KeepsLastPoseAfterSpawnedPlayerLeaves()
+        {
+            var lastPose = new Pose(new Vector3(3f, 0f, 7f), Quaternion.identity);
+            var source = new FakeNetworkSource(10d, new Dictionary<string, Pose>
+            {
+                ["player-0"] = Pose.identity,
+                ["player-1"] = lastPose,
+            });
+            var context = new NetworkMatchRuntimeContext(
+                source,
+                new FakeSceneContext(),
+                new[]
+                {
+                    new MatchParticipant("player-0", 0),
+                    new MatchParticipant("player-1", 1),
+                });
+
+            Assert.That(context.PlayerPoses[1], Is.EqualTo(lastPose));
+
+            source.Remove("player-1");
+
+            Assert.That(context.PlayerPoses[1], Is.EqualTo(lastPose));
+            Assert.That(context.PlayerPositions[1], Is.EqualTo(lastPose.position));
+        }
+
         private sealed class FakeNetworkSource : INetworkMatchRuntimeSource
         {
-            private readonly IReadOnlyDictionary<string, Pose> poses;
+            private readonly IDictionary<string, Pose> poses;
 
             public FakeNetworkSource(
                 double serverTime,
-                IReadOnlyDictionary<string, Pose> poses)
+                IDictionary<string, Pose> poses)
             {
                 ServerTime = serverTime;
                 this.poses = poses;
@@ -81,6 +107,11 @@ namespace Game.Architecture.Tests
 
             public bool TryGetPlayerPose(string playerId, out Pose pose) =>
                 poses.TryGetValue(playerId, out pose);
+
+            public void Remove(string playerId)
+            {
+                poses.Remove(playerId);
+            }
         }
 
         private sealed class FakeSceneContext : IMatchRuntimeContext
