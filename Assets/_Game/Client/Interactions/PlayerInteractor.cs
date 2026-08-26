@@ -27,8 +27,11 @@ namespace Game.Client.Interactions
 
         private InputActionMap playerMap;
         private InputAction interactAction;
+        private InputAction attackAction;
         private Transform cameraTransform;
         private CarryableItem aimedItem;
+        private bool wasCursorLocked;
+        private bool isAimingThrow;
         private readonly RaycastHit[] aimHits = new RaycastHit[MaxAimHits];
 
         private void Awake()
@@ -42,6 +45,7 @@ namespace Game.Client.Interactions
 
             playerMap = inputActions.FindActionMap("Player", throwIfNotFound: true);
             interactAction = playerMap.FindAction("Interact", throwIfNotFound: true);
+            attackAction = playerMap.FindAction("Attack", throwIfNotFound: true);
 
             if (holdPoint == null)
             {
@@ -66,10 +70,23 @@ namespace Game.Client.Interactions
         {
             UpdateAim();
 
+            // 커서가 풀린 상태(메뉴 조작 등)의 클릭은 게임 입력으로 취급하지 않는다.
+            // 재잠금 클릭과 같은 프레임에 던져지지 않도록, 직전 프레임부터 잠겨 있던 경우만 허용한다.
+            var isCursorLocked = Cursor.lockState == CursorLockMode.Locked;
+            var acceptInput = isCursorLocked && wasCursorLocked;
+            wasCursorLocked = isCursorLocked;
+
+            if (!acceptInput)
+            {
+                CancelThrowAim();
+                return;
+            }
+
             if (interactAction.WasPressedThisFrame())
             {
                 if (CarriedItem != null)
                 {
+                    CancelThrowAim();
                     DropCarried();
                 }
                 else if (aimedItem != null && aimedItem.CanInteract(this))
@@ -77,6 +94,53 @@ namespace Game.Client.Interactions
                     aimedItem.Interact(this);
                 }
             }
+
+            HandleThrowInput();
+        }
+
+        // 좌클릭을 누르고 있다가 놓는 순간 던진다. (누르는 동안 조준을 다듬을 수 있다)
+        // 빈손 좌클릭(공격)은 전투 시스템에서 처리한다.
+        private void HandleThrowInput()
+        {
+            if (CarriedItem == null)
+            {
+                isAimingThrow = false;
+                return;
+            }
+
+            if (attackAction.WasPressedThisFrame())
+            {
+                isAimingThrow = true;
+            }
+
+            if (isAimingThrow && attackAction.WasReleasedThisFrame())
+            {
+                isAimingThrow = false;
+                ThrowCarried();
+            }
+        }
+
+        private void CancelThrowAim()
+        {
+            isAimingThrow = false;
+        }
+
+        private Vector3 GetThrowVelocity()
+        {
+            var direction = (cameraTransform.forward + Vector3.up * interactionConfig.ThrowUpwardBias).normalized;
+            return direction * interactionConfig.ThrowSpeed;
+        }
+
+        private void ThrowCarried()
+        {
+            if (CarriedItem == null || cameraTransform == null)
+            {
+                return;
+            }
+
+            var thrown = CarriedItem;
+            CarriedItem = null;
+            thrown.OnThrown(GetThrowVelocity());
         }
 
         public bool TryPickUp(CarryableItem item)
