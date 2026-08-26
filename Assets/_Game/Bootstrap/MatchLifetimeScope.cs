@@ -42,6 +42,7 @@ namespace Game.Bootstrap
             builder.Register<MatchState>(Lifetime.Scoped).AsSelf().As<IMatchState>();
             builder.Register<MatchFlow>(Lifetime.Scoped);
             builder.Register<PlayerInteractionSystem>(Lifetime.Scoped);
+            builder.Register<MatchRuntimeFactory>(Lifetime.Scoped);
             builder.RegisterComponent(matchRuntimeContext)
                 .As<IMatchRuntimeContext>()
                 .As<IMatchClock>();
