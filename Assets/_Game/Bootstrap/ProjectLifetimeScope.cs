@@ -80,6 +80,7 @@ namespace Game.Bootstrap
                     c.Resolve<IRoomParticipantSink>(),
                     c.Resolve<IMatchStartSink>(),
                     c.Resolve<PlayerSpawner>(),
+                    c.Resolve<PlayerProfile>(),
                     networkScenes),
                 Lifetime.Singleton);
             builder.Register<RoomCodeGenerator>(Lifetime.Singleton);

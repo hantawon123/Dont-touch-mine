@@ -100,7 +100,7 @@ namespace Game.Network.Players
             runner.MakeDontDestroyOnLoad(session.gameObject);
         }
 
-        public void Spawn(NetworkRunner runner, PlayerRef player)
+        public void Spawn(NetworkRunner runner, PlayerRef player, string nickname = null)
         {
             if (runner == null || !runner.IsServer)
             {
@@ -134,7 +134,7 @@ namespace Game.Network.Players
                 pose.position,
                 pose.rotation,
                 player,
-                (_, spawned) => Describe(spawned, seat, isHost));
+                (_, spawned) => Describe(spawned, seat, isHost, nickname));
 
             if (avatar == null)
             {
@@ -269,7 +269,8 @@ namespace Game.Network.Players
             _spawnPoses = Array.Empty<Pose>();
         }
 
-        private static void Describe(NetworkObject spawned, int seat, bool isHost)
+        private static void Describe(
+            NetworkObject spawned, int seat, bool isHost, string nickname)
         {
             var avatar = spawned.GetComponent<PlayerAvatar>();
 
@@ -283,6 +284,7 @@ namespace Game.Network.Players
 
             avatar.Seat = seat;
             avatar.IsHost = isHost;
+            avatar.Nickname = nickname ?? string.Empty;
         }
 
         private Pose PoseFor(int seat)

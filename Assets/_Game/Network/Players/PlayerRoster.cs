@@ -89,7 +89,8 @@ namespace Game.Network.Players
                 into.Add(new RoomParticipant(
                     PlayerRegistry.IdOf(avatar.Owner),
                     avatar.Seat,
-                    avatar.IsHost));
+                    avatar.IsHost,
+                    avatar.Nickname.ToString()));
             }
 
             // Seat order, not arrival order. Characters replicate in whatever

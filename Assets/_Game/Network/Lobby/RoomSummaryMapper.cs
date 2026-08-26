@@ -17,6 +17,7 @@ namespace Game.Network.Lobby
         {
             var displayName = ReadString(info, SessionPropertyKeys.DisplayName, UnnamedRoom);
             var mapId = ReadString(info, SessionPropertyKeys.MapId, null);
+            var hostNickname = ReadString(info, SessionPropertyKeys.HostNickname, null);
 
             if (string.IsNullOrWhiteSpace(info.Name)
                 || string.IsNullOrWhiteSpace(mapId)
@@ -36,7 +37,9 @@ namespace Game.Network.Lobby
                 info.PlayerCount,
                 info.MaxPlayers,
                 ReadBool(info, SessionPropertyKeys.Locked),
-                info.IsOpen);
+                info.IsOpen,
+                RoomStatus.Waiting,
+                hostNickname);
             return true;
         }
 

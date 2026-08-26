@@ -14,6 +14,12 @@ namespace Game.Network.Session
         /// <summary>Identifier of the selected map.</summary>
         public const string MapId = "map";
 
+        /// <summary>
+        /// Name of whoever opened the room, for the listing to credit. Display
+        /// only: it is not unique and nothing looks anyone up by it.
+        /// </summary>
+        public const string HostNickname = "host";
+
         /// <summary>Whether the room requires a password.</summary>
         public const string Locked = "locked";
     }

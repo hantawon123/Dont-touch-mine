@@ -5,6 +5,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Fusion;
 using Fusion.Sockets;
+using Game.Core.Home;
 using Game.Core.Ports;
 using Game.Core.Rooms;
 using Game.Network.Lobby;
@@ -43,6 +44,15 @@ namespace Game.Network.Session
 
         /// <summary>Where the room's roster is reported.</summary>
         private readonly IRoomParticipantSink _participantSink;
+
+        /// <summary>
+        /// This peer's own name, sent to the room so the others can show it.
+        /// </summary>
+        /// <remarks>
+        /// Read at the moment a session starts rather than held as a string, so
+        /// a name changed between two rooms is the name the second room sees.
+        /// </remarks>
+        private readonly PlayerProfile _profile;
 
         /// <summary>Where the authority's decision about starting is reported.</summary>
         private readonly IMatchStartSink _matchStartSink;
@@ -97,6 +107,7 @@ namespace Game.Network.Session
             IRoomParticipantSink participantSink,
             IMatchStartSink matchStartSink,
             PlayerSpawner spawner,
+            PlayerProfile profile,
             NetworkScenes scenes = null)
         {
             _roomListSink = roomListSink;
@@ -104,7 +115,69 @@ namespace Game.Network.Session
             _participantSink = participantSink;
             _matchStartSink = matchStartSink;
             _spawner = spawner;
+            _profile = profile;
             _scenes = scenes;
+        }
+
+        /// <summary>
+        /// Longest nickname the network carries. Matches the
+        /// <c>NetworkString&lt;_32&gt;</c> the character replicates, so a name
+        /// that survives this survives the trip intact.
+        /// </summary>
+        private const int NicknameLimit = 32;
+
+        /// <summary>
+        /// The name to show for a player, taken from what they presented when
+        /// they joined.
+        /// </summary>
+        /// <remarks>
+        /// The authority's own name comes from its profile: it never connected to
+        /// itself, so it presented no token.
+        /// </remarks>
+        private string NicknameOf(NetworkRunner runner, PlayerRef player)
+        {
+            if (player == runner.LocalPlayer)
+            {
+                return SanitiseNickname(_profile?.Nickname);
+            }
+
+            DecodeToken(runner.GetPlayerConnectionToken(player), out _, out var presented);
+            return SanitiseNickname(presented);
+        }
+
+        /// <summary>
+        /// Makes a name presented by another peer safe to show.
+        /// </summary>
+        /// <remarks>
+        /// The bytes came from someone else, so this is untrusted text. Control
+        /// characters are dropped because they can hide or reorder what a reader
+        /// sees, and the length is capped so one player cannot push the others
+        /// out of a list. An empty result is left empty rather than replaced with
+        /// a placeholder: only presentation knows what to show instead.
+        /// </remarks>
+        private static string SanitiseNickname(string presented)
+        {
+            if (string.IsNullOrWhiteSpace(presented))
+            {
+                return string.Empty;
+            }
+
+            var builder = new StringBuilder(presented.Length);
+
+            foreach (var character in presented)
+            {
+                if (!char.IsControl(character))
+                {
+                    builder.Append(character);
+                }
+
+                if (builder.Length >= NicknameLimit)
+                {
+                    break;
+                }
+            }
+
+            return builder.ToString().Trim();
         }
 
         public bool IsRunning => _runner != null && _runner.IsRunning;
@@ -236,8 +309,8 @@ namespace Game.Network.Session
             {
                 GameMode = request.Mode,
                 SessionName = request.RoomCode,
-                SessionProperties = BuildProperties(request),
-                ConnectionToken = EncodeToken(request.Password),
+                SessionProperties = BuildProperties(request, _profile?.Nickname),
+                ConnectionToken = EncodeToken(request.Password, _profile?.Nickname),
                 EnableClientSessionCreation = request.AllowCreate,
                 SceneManager = sceneManager,
                 Scene = CaptureCurrentScene(),
@@ -486,7 +559,8 @@ namespace Game.Network.Session
         /// Session properties are readable by anyone browsing the lobby, so only
         /// the peer opening the room writes them and no secret goes in.
         /// </summary>
-        private static Dictionary<string, SessionProperty> BuildProperties(in SessionRequest request)
+        private static Dictionary<string, SessionProperty> BuildProperties(
+            in SessionRequest request, string nickname)
         {
             if (request.Mode == GameMode.Client)
             {
@@ -503,6 +577,13 @@ namespace Game.Network.Session
             if (!string.IsNullOrEmpty(request.MapId))
             {
                 properties[SessionPropertyKeys.MapId] = request.MapId;
+            }
+
+            var hostNickname = SanitiseNickname(nickname);
+
+            if (hostNickname.Length > 0)
+            {
+                properties[SessionPropertyKeys.HostNickname] = hostNickname;
             }
 
             properties[SessionPropertyKeys.Locked] = !string.IsNullOrEmpty(request.Password);
@@ -596,18 +677,82 @@ namespace Game.Network.Session
             }
         }
 
-        private static byte[] EncodeToken(string password)
+        /// <summary>Marks the layout below, so a change can be recognised.</summary>
+        private const byte TokenVersion = 1;
+
+        /// <summary>Version byte plus the two bytes holding the password length.</summary>
+        private const int TokenHeaderSize = 3;
+
+        /// <summary>
+        /// Packs what a joiner hands the host before it is let in: the password it
+        /// presents, and the name it asks to be shown as.
+        /// </summary>
+        /// <remarks>
+        /// The password is length-prefixed rather than separated by a character.
+        /// A password may contain anything, so any separator could occur inside
+        /// one and split it in the wrong place, refusing a correct password.
+        /// <para>
+        /// The nickname travels here because the alternative is an RPC from the
+        /// client, and RPCs do not work from this assembly. It arrives before the
+        /// character is spawned, which is exactly when the authority needs it.
+        /// </para>
+        /// </remarks>
+        private static byte[] EncodeToken(string password, string nickname)
         {
-            return string.IsNullOrEmpty(password)
-                ? null
-                : Encoding.UTF8.GetBytes(password);
+            var passwordBytes = Encoding.UTF8.GetBytes(password ?? string.Empty);
+            var nicknameBytes = Encoding.UTF8.GetBytes(nickname ?? string.Empty);
+
+            if (passwordBytes.Length == 0 && nicknameBytes.Length == 0)
+            {
+                return null;
+            }
+
+            if (passwordBytes.Length > ushort.MaxValue)
+            {
+                // Unreachable with any real password, and silently truncating one
+                // would refuse a join for a reason nobody could see.
+                Debug.LogError("[Network] The password is too long to send.");
+                return null;
+            }
+
+            var token = new byte[TokenHeaderSize + passwordBytes.Length + nicknameBytes.Length];
+            token[0] = TokenVersion;
+            token[1] = (byte)(passwordBytes.Length >> 8);
+            token[2] = (byte)(passwordBytes.Length & 0xFF);
+
+            passwordBytes.CopyTo(token, TokenHeaderSize);
+            nicknameBytes.CopyTo(token, TokenHeaderSize + passwordBytes.Length);
+
+            return token;
         }
 
-        private static string DecodeToken(byte[] token)
+        /// <summary>
+        /// Reads a token back. Anything unreadable yields empty values rather
+        /// than an exception: the bytes come from another peer, so a malformed
+        /// token is a thing that happens and not a bug to crash on.
+        /// </summary>
+        private static void DecodeToken(byte[] token, out string password, out string nickname)
         {
-            return token == null || token.Length == 0
-                ? string.Empty
-                : Encoding.UTF8.GetString(token);
+            password = string.Empty;
+            nickname = string.Empty;
+
+            if (token == null || token.Length < TokenHeaderSize || token[0] != TokenVersion)
+            {
+                return;
+            }
+
+            var passwordLength = (token[1] << 8) | token[2];
+
+            if (TokenHeaderSize + passwordLength > token.Length)
+            {
+                return;
+            }
+
+            password = Encoding.UTF8.GetString(token, TokenHeaderSize, passwordLength);
+
+            var nicknameStart = TokenHeaderSize + passwordLength;
+            nickname = Encoding.UTF8.GetString(
+                token, nicknameStart, token.Length - nicknameStart);
         }
 
         private static bool Matches(string presented, string expected)
@@ -628,7 +773,7 @@ namespace Game.Network.Session
             }
 
             Debug.Log($"[Network] Player joined: {player}.");
-            _spawner?.Spawn(runner, player);
+            _spawner?.Spawn(runner, player, NicknameOf(runner, player));
             ReportPlayerCount();
         }
 
@@ -691,11 +836,12 @@ namespace Game.Network.Session
                 return;
             }
 
-            var presented = DecodeToken(token);
+            DecodeToken(token, out var presented, out _);
 
             // Only the password admits anyone. The room code says which room to
             // reach and grants nothing, so a code read off the browser listing
-            // is useless without the password.
+            // is useless without the password. The nickname in the same token
+            // grants nothing either and is not read here.
             if (Matches(presented, _expectedPassword))
             {
                 request.Accept();

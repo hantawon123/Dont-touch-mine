@@ -275,6 +275,16 @@ namespace Game.Bootstrap
                      .Append(participant.Seat).Append("  ")
                      .Append(participant.PlayerId);
 
+                // Both are shown, not one or the other. The id is what code
+                // matches on and the name is what a person reads, and while
+                // nicknames are being wired up the useful thing is seeing
+                // whether they agree. An empty name is shown as a dash rather
+                // than nothing, so "no name yet" cannot be mistaken for a
+                // rendering gap.
+                _text.Append("  \"")
+                     .Append(participant.Nickname.Length == 0 ? "-" : participant.Nickname)
+                     .Append('"');
+
                 if (participant.IsHost)
                 {
                     _text.Append("  host");
