@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 140694730116804973}
   - component: {fileID: 7563371311393477283}
   - component: {fileID: 61083888703512790}
+  - component: {fileID: 9066822341622078758}
   m_Layer: 0
   m_Name: PlayerCharacter
   m_TagString: Player
@@ -73,6 +74,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Client::Game.Client.Players.PlayerMovement
   inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   movementConfig: {fileID: 11400000, guid: 16673619417e54b41a615139ee00d38f, type: 2}
+  visualRoot: {fileID: 0}
+--- !u!114 &9066822341622078758
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2282384052253138322}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4eb92b1a4c63ac24ebe3a6651628b15a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.PlayerInteractor
+  inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  interactionConfig: {fileID: 11400000, guid: e026359dfb4a0154e8cad2eb84545595, type: 2}
+  holdPoint: {fileID: 0}
 --- !u!1 &4967552230462791768
 GameObject:
   m_ObjectHideFlags: 0
