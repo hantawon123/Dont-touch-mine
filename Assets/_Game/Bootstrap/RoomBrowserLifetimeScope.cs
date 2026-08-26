@@ -29,6 +29,17 @@ namespace Game.Bootstrap
             if (roomScreenPresenter != null)
             {
                 builder.RegisterComponent(roomScreenPresenter);
+
+                // Registered with the screen because it is the screen's requests
+                // it carries; without the screen there is nothing to carry.
+                builder.RegisterEntryPoint<NetworkRoomScreenBridge>();
+            }
+            else
+            {
+                Debug.LogError(
+                    "RoomScreenPresenter must be assigned on RoomBrowserLifetimeScope, " +
+                    "otherwise the screen never reaches Photon.",
+                    this);
             }
         }
     }
