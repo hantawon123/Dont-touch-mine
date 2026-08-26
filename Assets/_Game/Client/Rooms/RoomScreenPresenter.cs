@@ -3,17 +3,20 @@ using System.Collections.Generic;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using UnityEngine;
+using VContainer;
 
 namespace Game.Client.Rooms
 {
     /// <summary>
-    /// Drives the room browser screen: the room list and the create-room modal.
+    /// Drives room creation on the browser screen, and stands in for the room
+    /// source until the network supplies one.
     /// </summary>
     /// <remarks>
-    /// Keeps the list in memory until a network layer supplies it, so a room
-    /// created here lasts for the session only. The filled-in request also
-    /// leaves through <see cref="RoomCreateRequested"/> for the layer that will
-    /// open the room for real and move the host into its lobby.
+    /// Publishes through <see cref="RoomBrowserSystem"/> rather than straight to
+    /// the view, so <see cref="RoomBrowserPresenter"/> stays the only thing that
+    /// renders the list. The filled-in request also leaves through
+    /// <see cref="RoomCreateRequested"/> for the layer that will open the room
+    /// for real and move the host into its lobby.
     /// </remarks>
     [DisallowMultipleComponent]
     public sealed class RoomScreenPresenter : MonoBehaviour
@@ -32,9 +35,6 @@ namespace Game.Client.Rooms
             public bool isLocked = false;
             public bool isPlaying = false;
         }
-
-        [SerializeField]
-        private RoomBrowserView browserView;
 
         [SerializeField]
         private RoomCreateModalView modalPrefab;
@@ -57,13 +57,20 @@ namespace Game.Client.Rooms
 
         private readonly List<RoomSummary> rooms = new List<RoomSummary>();
 
+        private IRoomBrowserView browserView;
+        private RoomBrowserSystem roomBrowser;
         private RoomCreateModalView modal;
         private int issuedRoomCount;
 
         public event Action<RoomCreateRequest> RoomCreateRequested;
 
-        private void Awake()
+        [Inject]
+        public void Construct(IRoomBrowserView view, RoomBrowserSystem browserSystem)
         {
+            browserView = view ?? throw new ArgumentNullException(nameof(view));
+            roomBrowser = browserSystem
+                ?? throw new ArgumentNullException(nameof(browserSystem));
+
             modal = Instantiate(modalPrefab, modalParent);
             modal.Close();
             modal.SetMapOptions(mapIds);
@@ -77,12 +84,26 @@ namespace Game.Client.Rooms
                 rooms.Add(ToSummary(placeholder));
             }
 
-            browserView.SetRooms(rooms);
+            PublishRooms();
+        }
+
+        private void Start()
+        {
+            if (roomBrowser == null)
+            {
+                Debug.LogError(
+                    "RoomScreenPresenter was never injected. Assign it on " +
+                    "RoomBrowserLifetimeScope so the create-room modal works.",
+                    this);
+            }
         }
 
         private void OnDestroy()
         {
-            browserView.CreateRoomRequested -= OnCreateRoomRequested;
+            if (browserView != null)
+            {
+                browserView.CreateRoomRequested -= OnCreateRoomRequested;
+            }
 
             if (modal != null)
             {
@@ -101,10 +122,20 @@ namespace Game.Client.Rooms
 
             if (TryAddRoom(request))
             {
-                browserView.SetRooms(rooms);
+                PublishRooms();
             }
 
             RoomCreateRequested?.Invoke(request);
+        }
+
+        /// <summary>
+        /// Hands the list to the one property the browser renders from. The
+        /// property replays its current value on subscribe, so it does not
+        /// matter whether this runs before or after the browser subscribes.
+        /// </summary>
+        private void PublishRooms()
+        {
+            roomBrowser.SetRooms(rooms);
         }
 
         private bool TryAddRoom(RoomCreateRequest request)

@@ -677,6 +677,7 @@ MonoBehaviour:
   autoRun: 1
   autoInjectGameObjects: []
   roomBrowserView: {fileID: 230004}
+  roomScreenPresenter: {fileID: 300002}
 --- !u!1 &240000
 GameObject:
   m_ObjectHideFlags: 0
@@ -2302,7 +2303,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f1fbfa7b7b954ae7b898545f1fe3ebbe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  browserView: {fileID: 230004}
   modalPrefab: {fileID: 100004, guid: a89d6289273e4371b18e040f021873bc, type: 3}
   modalParent: {fileID: 210001}
   hostNickname: "나"
