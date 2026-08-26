@@ -31,6 +31,7 @@ namespace Game.Network.Session
     public sealed class NetworkRunnerService :
         INetworkRunnerCallbacks,
         INetworkMatchRuntimeSource,
+        INetworkMatchEvents,
         IDisposable
     {
         private const string RunnerObjectName = "[NetworkRunner]";

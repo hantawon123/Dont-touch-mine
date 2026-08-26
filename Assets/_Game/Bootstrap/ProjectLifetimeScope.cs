@@ -58,7 +58,9 @@ namespace Game.Bootstrap
 
             builder.Register<NetworkRunnerService>(Lifetime.Singleton)
                 .AsSelf()
-                .As<INetworkMatchRuntimeSource>();
+                .As<INetworkMatchRuntimeSource>()
+                .As<INetworkMatchEvents>();
+            builder.RegisterEntryPoint<NetworkMatchFlowSynchronizer>();
             builder.Register<RoomCodeGenerator>(Lifetime.Singleton);
             builder.Register<IRoomBrowser, RoomBrowser>(Lifetime.Singleton);
             builder.Register<RoomUiCommands>(Lifetime.Singleton);
