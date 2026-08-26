@@ -1,3 +1,4 @@
+using Game.Client.Players;
 using Game.SOAP.Config;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -25,11 +26,24 @@ namespace Game.Client.Interactions
 
         public Transform HoldPoint => holdPoint;
 
+        /// <summary>배치 모드 등 좌클릭을 다른 용도로 쓰는 동안 던지기를 막는다.</summary>
+        public bool IsThrowSuppressed { get; set; }
+
+        /// <summary>배치 확정 등 외부 시스템이 소지 물건을 가져갈 때 사용한다.</summary>
+        public CarryableItem ReleaseCarriedItem()
+        {
+            var released = CarriedItem;
+            CarriedItem = null;
+            CancelThrowAim();
+            return released;
+        }
+
         private InputActionMap playerMap;
         private InputAction interactAction;
         private InputAction attackAction;
         private Transform cameraTransform;
         private CarryableItem aimedItem;
+        private PlayerMovement playerMovement;
         private bool wasCursorLocked;
         private bool isAimingThrow;
         private readonly RaycastHit[] aimHits = new RaycastHit[MaxAimHits];
@@ -53,6 +67,18 @@ namespace Game.Client.Interactions
                 holdPoint = holdPointObject.transform;
                 holdPoint.SetParent(transform, false);
                 holdPoint.localPosition = new Vector3(0f, 1.3f, 0.7f);
+            }
+
+            playerMovement = GetComponent<PlayerMovement>();
+        }
+
+        private void LateUpdate()
+        {
+            // 손 위치가 자세(서기/앉기/엎드리기)의 눈높이를 따라가게 한다.
+            if (playerMovement != null)
+            {
+                var target = new Vector3(0f, Mathf.Max(0.2f, playerMovement.CurrentEyeHeight - 0.25f), 0.7f);
+                holdPoint.localPosition = Vector3.Lerp(holdPoint.localPosition, target, 10f * Time.deltaTime);
             }
         }
 
@@ -102,7 +128,7 @@ namespace Game.Client.Interactions
         // 빈손 좌클릭(공격)은 전투 시스템에서 처리한다.
         private void HandleThrowInput()
         {
-            if (CarriedItem == null)
+            if (CarriedItem == null || IsThrowSuppressed)
             {
                 isAimingThrow = false;
                 return;
@@ -140,6 +166,7 @@ namespace Game.Client.Interactions
 
             var thrown = CarriedItem;
             CarriedItem = null;
+            EnsureSafeReleasePosition(thrown);
             thrown.OnThrown(GetThrowVelocity());
         }
 
@@ -165,7 +192,21 @@ namespace Game.Client.Interactions
 
             var dropped = CarriedItem;
             CarriedItem = null;
+            EnsureSafeReleasePosition(dropped);
             dropped.OnDropped();
+        }
+
+        // 벽에 붙어 놓거나 던질 때 손 위치가 벽 너머라면 시작점을 벽 앞으로 당긴다.
+        private void EnsureSafeReleasePosition(CarryableItem item)
+        {
+            var chest = transform.position + Vector3.up * 1.3f;
+            var toHold = item.transform.position - chest;
+            if (toHold.sqrMagnitude > 0.0001f
+                && Physics.Raycast(chest, toHold.normalized, out var blocked, toHold.magnitude,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            {
+                item.transform.position = blocked.point - toHold.normalized * 0.15f;
+            }
         }
 
         // 임시 크로스헤어: HUD 파트에서 정식 크로스헤어가 나오기 전까지 화면 중앙을 표시한다.
