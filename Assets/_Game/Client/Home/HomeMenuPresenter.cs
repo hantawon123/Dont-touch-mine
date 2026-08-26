@@ -45,16 +45,19 @@ namespace Game.Client.Home
     {
         private readonly PlayerProfile profile;
         private readonly HomeMenuSystem menu;
+        private readonly FriendListSystem friends;
         private readonly IHomeMenuView view;
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
+        private bool isFriendListVisible;
 
         public HomeMenuPresenter(
             PlayerProfile profile,
             HomeMenuSystem menu,
             IHomeMenuView view,
             IHomeApplicationHost applicationHost,
-            AppFlowSystem appFlow)
+            AppFlowSystem appFlow,
+            FriendListSystem friends)
         {
             this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
             this.menu = menu ?? throw new ArgumentNullException(nameof(menu));
@@ -62,19 +65,24 @@ namespace Game.Client.Home
             this.applicationHost = applicationHost
                 ?? throw new ArgumentNullException(nameof(applicationHost));
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
+            this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
         }
 
         public void Start()
         {
             view.ActionClicked += OnActionClicked;
             profile.Changed += OnProfileChanged;
+            friends.FriendsChanged += BindFriends;
             BindProfile(profile);
+            BindFriends();
+            view.SetFriendListVisible(false);
         }
 
         public void Dispose()
         {
             view.ActionClicked -= OnActionClicked;
             profile.Changed -= OnProfileChanged;
+            friends.FriendsChanged -= BindFriends;
         }
 
         private void OnActionClicked(HomeMenuAction action)
@@ -86,11 +94,35 @@ namespace Game.Client.Home
                 return;
             }
 
+            if (action == HomeMenuAction.Friends)
+            {
+                isFriendListVisible = !isFriendListVisible;
+                view.SetFriendListVisible(isFriendListVisible);
+                return;
+            }
+
             if (action == HomeMenuAction.FindRoom &&
                 appFlow.TryTransitionTo(AppFlowState.RoomBrowser))
             {
+                HideFriendList();
                 applicationHost.OpenRoomBrowser();
             }
+        }
+
+        private void HideFriendList()
+        {
+            if (!isFriendListVisible)
+            {
+                return;
+            }
+
+            isFriendListVisible = false;
+            view.SetFriendListVisible(false);
+        }
+
+        private void BindFriends()
+        {
+            view.SetFriends(friends.OnlineFriends, friends.OfflineFriends);
         }
 
         private void OnProfileChanged(PlayerProfile changed)

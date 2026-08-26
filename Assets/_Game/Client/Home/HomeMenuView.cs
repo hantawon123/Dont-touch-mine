@@ -18,6 +18,12 @@ namespace Game.Client.Home
         private static readonly Color ExperienceFillColor = new Color(0.31f, 0.62f, 0.91f, 1f);
         private static readonly Color TextHover = new Color(0.35f, 0.35f, 0.35f, 1f);
         private static readonly Color TextPressed = new Color(0.15f, 0.15f, 0.15f, 1f);
+        private static readonly Color FriendRowColor = new Color(0.86f, 0.86f, 0.86f, 1f);
+        private static readonly Color FriendStatusColor = new Color(0.78f, 0.78f, 0.78f, 1f);
+        private static readonly Color FriendSeparatorColor = new Color(0.75f, 0.75f, 0.75f, 1f);
+        private static readonly Color PanelShadowColor = new Color(0.1f, 0.1f, 0.1f, 0.38f);
+        private static readonly Color ItemShadowColor = new Color(0.12f, 0.12f, 0.12f, 0.32f);
+        private const float AddFriendIconSize = 28f;
 
         [SerializeField]
         private string title = "로고 or 이름 두둥";
@@ -36,7 +42,14 @@ namespace Game.Client.Home
         private TMP_Text levelText;
 
         private readonly List<Button> menuButtons = new List<Button>();
+        private readonly List<FriendRow> onlineRows = new List<FriendRow>();
+        private readonly List<FriendRow> offlineRows = new List<FriendRow>();
         private TMP_FontAsset koreanFont;
+        private GameObject friendListPanel;
+        private TMP_Text onlineSectionText;
+        private TMP_Text offlineSectionText;
+        private RectTransform onlineItemsRoot;
+        private RectTransform offlineItemsRoot;
 
         public event Action<HomeMenuAction> ActionClicked;
 
@@ -74,6 +87,39 @@ namespace Game.Client.Home
             {
                 levelText.text = $"Lv.{level}";
             }
+        }
+
+        public void SetFriendListVisible(bool visible)
+        {
+            if (friendListPanel != null)
+            {
+                friendListPanel.SetActive(visible);
+            }
+        }
+
+        public void SetFriends(
+            IReadOnlyList<FriendSummary> onlineFriends,
+            IReadOnlyList<FriendSummary> offlineFriends)
+        {
+            if (onlineFriends == null)
+            {
+                throw new ArgumentNullException(nameof(onlineFriends));
+            }
+
+            if (offlineFriends == null)
+            {
+                throw new ArgumentNullException(nameof(offlineFriends));
+            }
+
+            if (onlineSectionText == null || offlineSectionText == null)
+            {
+                return;
+            }
+
+            onlineSectionText.text = $"온라인 {onlineFriends.Count}";
+            offlineSectionText.text = $"오프라인 {offlineFriends.Count}";
+            BindRows(onlineRows, onlineItemsRoot, onlineFriends);
+            BindRows(offlineRows, offlineItemsRoot, offlineFriends);
         }
 
         private void EnsureEventSystem()
@@ -241,7 +287,287 @@ namespace Game.Client.Home
             CreateTextButton(left, "방 찾기", HomeMenuAction.FindRoom, TextAlignmentOptions.MidlineLeft);
             CreateSpacer(left, 18f);
             CreateTextButton(left, "프로필 설정", HomeMenuAction.ProfileSettings, TextAlignmentOptions.MidlineLeft);
-            CreateTextButton(left, "친구 목록", HomeMenuAction.Friends, TextAlignmentOptions.MidlineLeft);
+            var friendsButton = CreateTextButton(
+                left,
+                "친구 목록",
+                HomeMenuAction.Friends,
+                TextAlignmentOptions.MidlineLeft);
+            CreateFriendListPanel(friendsButton);
+        }
+
+        private void CreateFriendListPanel(RectTransform friendsButton)
+        {
+            var panel = CreateRect("FriendListPanel", friendsButton);
+            var ignoreLayout = panel.gameObject.AddComponent<LayoutElement>();
+            ignoreLayout.ignoreLayout = true;
+            SetAnchor(panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0f));
+            panel.anchoredPosition = new Vector2(0f, 16f);
+            panel.sizeDelta = new Vector2(320f, 460f);
+            var panelImage = AddImage(panel, Color.white, HomeUiFonts.RoundedSprite, raycastTarget: true);
+            panelImage.type = Image.Type.Sliced;
+
+            var nestedCanvas = panel.gameObject.AddComponent<Canvas>();
+            nestedCanvas.overrideSorting = true;
+            nestedCanvas.sortingOrder = 110;
+            nestedCanvas.additionalShaderChannels =
+                AdditionalCanvasShaderChannels.TexCoord1
+                | AdditionalCanvasShaderChannels.Normal
+                | AdditionalCanvasShaderChannels.Tangent;
+            panel.gameObject.AddComponent<GraphicRaycaster>();
+
+            var consumeClicks = panel.gameObject.AddComponent<Button>();
+            consumeClicks.transition = Selectable.Transition.None;
+            consumeClicks.targetGraphic = panelImage;
+            consumeClicks.navigation = new Navigation { mode = Navigation.Mode.None };
+            AddDropShadow(panel.gameObject, PanelShadowColor, new Vector2(4f, -5f));
+            AddDropShadow(panel.gameObject, new Color(0.1f, 0.1f, 0.1f, 0.18f), new Vector2(8f, -10f));
+
+            var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(18, 18, 16, 16);
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            CreateFriendListHeader(panel);
+            CreateFriendListBody(panel);
+            friendListPanel = panel.gameObject;
+            friendListPanel.SetActive(false);
+        }
+
+        private void CreateFriendListHeader(RectTransform panel)
+        {
+            var header = CreateRect("Header", panel);
+            var headerLayout = header.gameObject.AddComponent<LayoutElement>();
+            headerLayout.preferredHeight = 36f;
+            headerLayout.minHeight = 36f;
+
+            var row = header.gameObject.AddComponent<HorizontalLayoutGroup>();
+            row.childAlignment = TextAnchor.MiddleLeft;
+            row.childControlWidth = true;
+            row.childControlHeight = false;
+            row.childForceExpandWidth = false;
+            row.childForceExpandHeight = false;
+            row.spacing = 8f;
+
+            var titleRect = CreateRect("Title", header);
+            var titleLayout = titleRect.gameObject.AddComponent<LayoutElement>();
+            titleLayout.preferredWidth = 0f;
+            titleLayout.flexibleWidth = 1f;
+            titleLayout.minWidth = 80f;
+            titleLayout.preferredHeight = 36f;
+            AddText(titleRect, "친구", 24f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+
+            var addFriend = CreateRect("AddFriend", header);
+            addFriend.sizeDelta = new Vector2(AddFriendIconSize, AddFriendIconSize);
+            var addFriendLayout = addFriend.gameObject.AddComponent<LayoutElement>();
+            addFriendLayout.preferredWidth = AddFriendIconSize;
+            addFriendLayout.preferredHeight = AddFriendIconSize;
+            addFriendLayout.minWidth = AddFriendIconSize;
+            addFriendLayout.minHeight = AddFriendIconSize;
+            addFriendLayout.flexibleWidth = 0f;
+            addFriendLayout.flexibleHeight = 0f;
+            var addFriendAspect = addFriend.gameObject.AddComponent<AspectRatioFitter>();
+            addFriendAspect.aspectMode = AspectRatioFitter.AspectMode.WidthControlsHeight;
+            addFriendAspect.aspectRatio = 1f;
+            AddEmptyBox(addFriend, Color.black, 2f);
+        }
+
+        private void CreateFriendListBody(RectTransform panel)
+        {
+            var scroll = CreateRect("Scroll", panel);
+            var scrollLayout = scroll.gameObject.AddComponent<LayoutElement>();
+            scrollLayout.flexibleHeight = 1f;
+            scrollLayout.minHeight = 80f;
+
+            var scrollRect = scroll.gameObject.AddComponent<ScrollRect>();
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
+            scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            scrollRect.scrollSensitivity = 24f;
+
+            var viewport = CreateRect("Viewport", scroll);
+            SetAnchor(viewport, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            viewport.offsetMin = Vector2.zero;
+            viewport.offsetMax = Vector2.zero;
+            viewport.gameObject.AddComponent<RectMask2D>();
+            var viewportImage = AddImage(viewport, Color.clear, raycastTarget: true);
+            viewportImage.color = Color.clear;
+
+            var content = CreateRect("Content", viewport);
+            SetAnchor(content, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+            var contentLayout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+            contentLayout.spacing = 10f;
+            contentLayout.childAlignment = TextAnchor.UpperLeft;
+            contentLayout.childControlWidth = true;
+            contentLayout.childControlHeight = true;
+            contentLayout.childForceExpandWidth = true;
+            contentLayout.childForceExpandHeight = false;
+            var contentFitter = content.gameObject.AddComponent<ContentSizeFitter>();
+            contentFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scrollRect.viewport = viewport;
+            scrollRect.content = content;
+
+            onlineSectionText = CreateSectionTitle(content, "온라인 0");
+            onlineItemsRoot = CreateItemGroup(content, "OnlineItems");
+            CreateSeparator(content);
+            offlineSectionText = CreateSectionTitle(content, "오프라인 0");
+            offlineItemsRoot = CreateItemGroup(content, "OfflineItems");
+        }
+
+        private TMP_Text CreateSectionTitle(RectTransform parent, string label)
+        {
+            var titleRect = CreateRect("SectionTitle", parent);
+            var layout = titleRect.gameObject.AddComponent<LayoutElement>();
+            layout.preferredHeight = 28f;
+            layout.minHeight = 28f;
+            return AddText(titleRect, label, 18f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft);
+        }
+
+        private static RectTransform CreateItemGroup(RectTransform parent, string name)
+        {
+            var group = CreateRect(name, parent);
+            var layout = group.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 12f;
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            var fitter = group.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            return group;
+        }
+
+        private static void CreateSeparator(RectTransform parent)
+        {
+            var separator = CreateRect("Separator", parent);
+            var layout = separator.gameObject.AddComponent<LayoutElement>();
+            layout.preferredHeight = 2f;
+            layout.minHeight = 2f;
+            AddImage(separator, FriendSeparatorColor);
+        }
+
+        private void BindRows(
+            List<FriendRow> pool,
+            RectTransform parent,
+            IReadOnlyList<FriendSummary> friends)
+        {
+            while (pool.Count < friends.Count)
+            {
+                pool.Add(CreateFriendRow(parent));
+            }
+
+            for (var index = 0; index < pool.Count; index++)
+            {
+                var row = pool[index];
+                var isVisible = index < friends.Count;
+                row.Root.SetActive(isVisible);
+                if (!isVisible)
+                {
+                    continue;
+                }
+
+                var friend = friends[index];
+                row.Nickname.text = friend.Nickname;
+                row.Status.text = friend.Presence == FriendPresence.InGame ? "게임중" : string.Empty;
+            }
+        }
+
+        private FriendRow CreateFriendRow(RectTransform parent)
+        {
+            var row = CreateRect("FriendRow", parent);
+            var rowLayout = row.gameObject.AddComponent<LayoutElement>();
+            rowLayout.preferredHeight = 52f;
+            rowLayout.minHeight = 52f;
+            var rowImage = AddImage(row, FriendRowColor, HomeUiFonts.RoundedSprite);
+            rowImage.type = Image.Type.Sliced;
+            rowImage.pixelsPerUnitMultiplier = 1.4f;
+            AddDropShadow(row.gameObject, ItemShadowColor, new Vector2(2f, -3f));
+            AddDropShadow(row.gameObject, new Color(0.12f, 0.12f, 0.12f, 0.16f), new Vector2(4f, -6f));
+
+            var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(10, 10, 8, 8);
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            var avatar = CreateRect("Avatar", row);
+            var avatarLayout = avatar.gameObject.AddComponent<LayoutElement>();
+            avatarLayout.preferredWidth = 36f;
+            avatarLayout.preferredHeight = 36f;
+            avatarLayout.minWidth = 36f;
+            avatarLayout.minHeight = 36f;
+            var avatarImage = AddImage(avatar, AvatarColor, HomeUiFonts.CircleSprite);
+            avatarImage.preserveAspect = true;
+
+            var nicknameRect = CreateRect("Nickname", row);
+            var nicknameLayout = nicknameRect.gameObject.AddComponent<LayoutElement>();
+            nicknameLayout.flexibleWidth = 1f;
+            nicknameLayout.minWidth = 40f;
+            var nickname = AddText(
+                nicknameRect,
+                string.Empty,
+                18f,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineLeft);
+            nickname.overflowMode = TextOverflowModes.Ellipsis;
+
+            var statusRect = CreateRect("Status", row);
+            var statusLayout = statusRect.gameObject.AddComponent<LayoutElement>();
+            statusLayout.preferredWidth = 76f;
+            statusLayout.minWidth = 76f;
+            statusLayout.preferredHeight = 28f;
+            var statusImage = AddImage(statusRect, FriendStatusColor, HomeUiFonts.RoundedSprite);
+            statusImage.type = Image.Type.Sliced;
+            statusImage.pixelsPerUnitMultiplier = 1.8f;
+
+            var statusLabelRect = CreateRect("Label", statusRect);
+            SetAnchor(statusLabelRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            statusLabelRect.offsetMin = Vector2.zero;
+            statusLabelRect.offsetMax = Vector2.zero;
+            var status = AddText(
+                statusLabelRect,
+                string.Empty,
+                14f,
+                FontStyles.Normal,
+                TextAlignmentOptions.Center);
+
+            return new FriendRow
+            {
+                Root = row.gameObject,
+                Nickname = nickname,
+                Status = status
+            };
+        }
+
+        private static void AddEmptyBox(RectTransform rect, Color color, float thickness)
+        {
+            AddImage(rect, color);
+            var inner = CreateRect("Inner", rect);
+            SetAnchor(inner, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            inner.offsetMin = new Vector2(thickness, thickness);
+            inner.offsetMax = new Vector2(-thickness, -thickness);
+            AddImage(inner, Color.white);
+        }
+
+        private static void AddDropShadow(GameObject target, Color color, Vector2 distance)
+        {
+            var shadow = target.AddComponent<Shadow>();
+            shadow.effectColor = color;
+            shadow.effectDistance = distance;
+            shadow.useGraphicAlpha = true;
         }
 
         private void CreateSystemButtons(RectTransform canvas)
@@ -256,7 +582,7 @@ namespace Game.Client.Home
             CreateTextButton(right, "게임 종료", HomeMenuAction.Quit, TextAlignmentOptions.MidlineRight);
         }
 
-        private void CreateTextButton(
+        private RectTransform CreateTextButton(
             RectTransform parent,
             string label,
             HomeMenuAction action,
@@ -283,6 +609,7 @@ namespace Game.Client.Home
             button.colors = colors;
             button.onClick.AddListener(() => ActionClicked?.Invoke(action));
             menuButtons.Add(button);
+            return buttonRect;
         }
 
         private static void AddVerticalLayout(RectTransform parent, TextAnchor alignment)
@@ -334,14 +661,25 @@ namespace Game.Client.Home
             return tmp;
         }
 
-        private static Image AddImage(RectTransform rect, Color color, Sprite sprite = null)
+        private static Image AddImage(
+            RectTransform rect,
+            Color color,
+            Sprite sprite = null,
+            bool raycastTarget = false)
         {
             var image = rect.gameObject.AddComponent<Image>();
             image.sprite = sprite != null ? sprite : HomeUiFonts.WhiteSprite;
             image.type = Image.Type.Simple;
             image.color = color;
-            image.raycastTarget = false;
+            image.raycastTarget = raycastTarget;
             return image;
+        }
+
+        private sealed class FriendRow
+        {
+            public GameObject Root;
+            public TMP_Text Nickname;
+            public TMP_Text Status;
         }
 
         private static RectTransform CreateRect(string name, Transform parent)

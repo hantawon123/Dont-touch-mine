@@ -17,10 +17,11 @@ namespace Game.Tests.EditMode
             var view = new FakeHomeMenuView();
             var host = new FakeHomeApplicationHost();
             var appFlow = new AppFlowSystem();
+            var friends = new FriendListSystem();
             var requestedActions = new List<HomeMenuAction>();
             menu.ActionRequested += requestedActions.Add;
 
-            using (var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow))
+            using (var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow, friends))
             {
                 presenter.Start();
                 Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
@@ -58,8 +59,9 @@ namespace Game.Tests.EditMode
             var view = new FakeHomeMenuView();
             var host = new FakeHomeApplicationHost();
             var appFlow = new AppFlowSystem();
+            var friends = new FriendListSystem();
 
-            using var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow);
+            using var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow, friends);
             presenter.Start();
             view.Raise(HomeMenuAction.FindRoom);
 
@@ -70,6 +72,88 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_FriendsAction_TogglesFriendListPanel()
+        {
+            var profile = new PlayerProfile("사용자닉네임", 1);
+            var menu = new HomeMenuSystem();
+            var view = new FakeHomeMenuView();
+            var host = new FakeHomeApplicationHost();
+            var appFlow = new AppFlowSystem();
+            var friends = new FriendListSystem();
+
+            using var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow, friends);
+            presenter.Start();
+
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.OnlineFriends, Is.Empty);
+            Assert.That(view.OfflineFriends, Is.Empty);
+
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.False);
+        }
+
+        [Test]
+        public void Presenter_BindsFriendListAndUpdatesWhenFriendsChange()
+        {
+            var profile = new PlayerProfile("사용자닉네임", 1);
+            var menu = new HomeMenuSystem();
+            var view = new FakeHomeMenuView();
+            var host = new FakeHomeApplicationHost();
+            var appFlow = new AppFlowSystem();
+            var friends = new FriendListSystem();
+
+            using var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow, friends);
+            presenter.Start();
+
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("player-1", "친구1", FriendPresence.InGame),
+                new FriendSummary("player-2", "친구2", FriendPresence.Online),
+                new FriendSummary("player-3", "친구3", FriendPresence.Offline)
+            });
+
+            Assert.That(view.OnlineFriends.Count, Is.EqualTo(2));
+            Assert.That(view.OnlineFriends[0].Nickname, Is.EqualTo("친구1"));
+            Assert.That(view.OnlineFriends[0].Presence, Is.EqualTo(FriendPresence.InGame));
+            Assert.That(view.OnlineFriends[1].Nickname, Is.EqualTo("친구2"));
+            Assert.That(view.OfflineFriends.Count, Is.EqualTo(1));
+            Assert.That(view.OfflineFriends[0].Nickname, Is.EqualTo("친구3"));
+
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("player-4", "친구4", FriendPresence.Offline)
+            });
+
+            Assert.That(view.OnlineFriends, Is.Empty);
+            Assert.That(view.OfflineFriends.Count, Is.EqualTo(1));
+            Assert.That(view.OfflineFriends[0].Nickname, Is.EqualTo("친구4"));
+        }
+
+        [Test]
+        public void Presenter_FindRoom_HidesOpenFriendList()
+        {
+            var profile = new PlayerProfile("사용자닉네임", 1);
+            var menu = new HomeMenuSystem();
+            var view = new FakeHomeMenuView();
+            var host = new FakeHomeApplicationHost();
+            var appFlow = new AppFlowSystem();
+            var friends = new FriendListSystem();
+
+            using var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow, friends);
+            presenter.Start();
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+
+            view.Raise(HomeMenuAction.FindRoom);
+
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(host.RoomBrowserOpenCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void Presenter_RequiresDependencies()
         {
             var profile = new PlayerProfile("사용자닉네임", 1);
@@ -77,21 +161,25 @@ namespace Game.Tests.EditMode
             var view = new FakeHomeMenuView();
             var host = new FakeHomeApplicationHost();
             var appFlow = new AppFlowSystem();
+            var friends = new FriendListSystem();
 
             Assert.That(
-                () => new HomeMenuPresenter(null, menu, view, host, appFlow),
+                () => new HomeMenuPresenter(null, menu, view, host, appFlow, friends),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, null, view, host, appFlow),
+                () => new HomeMenuPresenter(profile, null, view, host, appFlow, friends),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, null, host, appFlow),
+                () => new HomeMenuPresenter(profile, menu, null, host, appFlow, friends),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, null, appFlow),
+                () => new HomeMenuPresenter(profile, menu, view, null, appFlow, friends),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, null),
+                () => new HomeMenuPresenter(profile, menu, view, host, null, friends),
+                Throws.TypeOf<ArgumentNullException>());
+            Assert.That(
+                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, null),
                 Throws.TypeOf<ArgumentNullException>());
         }
 
@@ -100,6 +188,14 @@ namespace Game.Tests.EditMode
             public string Nickname { get; private set; }
 
             public int Level { get; private set; }
+
+            public bool FriendListVisible { get; private set; }
+
+            public IReadOnlyList<FriendSummary> OnlineFriends { get; private set; } =
+                Array.Empty<FriendSummary>();
+
+            public IReadOnlyList<FriendSummary> OfflineFriends { get; private set; } =
+                Array.Empty<FriendSummary>();
 
             public event Action<HomeMenuAction> ActionClicked;
 
@@ -111,6 +207,19 @@ namespace Game.Tests.EditMode
             public void SetLevel(int level)
             {
                 Level = level;
+            }
+
+            public void SetFriendListVisible(bool visible)
+            {
+                FriendListVisible = visible;
+            }
+
+            public void SetFriends(
+                IReadOnlyList<FriendSummary> onlineFriends,
+                IReadOnlyList<FriendSummary> offlineFriends)
+            {
+                OnlineFriends = onlineFriends;
+                OfflineFriends = offlineFriends;
             }
 
             public void Raise(HomeMenuAction action)

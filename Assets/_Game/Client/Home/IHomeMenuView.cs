@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Core.Home;
 
 namespace Game.Client.Home
@@ -10,5 +11,11 @@ namespace Game.Client.Home
         void SetNickname(string nickname);
 
         void SetLevel(int level);
+
+        void SetFriendListVisible(bool visible);
+
+        void SetFriends(
+            IReadOnlyList<FriendSummary> onlineFriends,
+            IReadOnlyList<FriendSummary> offlineFriends);
     }
 }
