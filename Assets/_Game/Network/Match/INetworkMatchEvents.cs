@@ -17,6 +17,7 @@ namespace Game.Network.Match
         event Action<MatchStateSnapshot> MatchStateReceived;
         event Action<IReadOnlyList<PlayerInteractionStateSnapshot>>
             PlayerInteractionStatesReceived;
+        event Action<IReadOnlyList<HighlightReplayData>> HighlightReplayReceived;
         event Action<MatchResult> MatchResultReceived;
     }
 
@@ -32,6 +33,7 @@ namespace Game.Network.Match
         bool UnbindMatchSession(MatchSessionCoordinator session);
         bool TryPublishMatchState(MatchStateSnapshot snapshot);
         bool TryPublishItemAssignments(IReadOnlyList<PlayerItemAssignment> assignments);
+        bool TryPublishHighlightReplay(IReadOnlyList<HighlightReplayData> replay);
         bool TrySetPlayerControls(int playerIndex, bool enabled);
         bool TryTeleportPlayer(int playerIndex, Pose pose);
     }

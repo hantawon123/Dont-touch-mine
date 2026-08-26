@@ -765,13 +765,25 @@ namespace Game.Server.Match
                 return false;
             }
 
-            clips = new HighlightReplayClip[highlight.Segments.Count];
-            for (var index = 0; index < highlight.Segments.Count; index++)
+            clips = CaptureReplay(highlight);
+            return true;
+        }
+
+        public bool TryCaptureHighlightReplay(out HighlightReplayData[] replay)
+        {
+            if (!result.HasValue)
             {
-                var segment = highlight.Segments[index];
-                clips[index] = new HighlightReplayClip(
-                    segment,
-                    highlightReplayBuffer.Capture(segment.StartedAt, segment.EndedAt));
+                replay = Array.Empty<HighlightReplayData>();
+                return false;
+            }
+
+            var selected = highlights.Capture();
+            replay = new HighlightReplayData[selected.Length];
+            for (var index = 0; index < selected.Length; index++)
+            {
+                replay[index] = new HighlightReplayData(
+                    selected[index],
+                    CaptureReplay(selected[index]));
             }
 
             return true;
@@ -806,6 +818,20 @@ namespace Game.Server.Match
                 new FinalWarningStartedEvent(
                     endsAt - rules.FinalWarningSeconds,
                     endsAt));
+        }
+
+        private HighlightReplayClip[] CaptureReplay(HighlightCandidate highlight)
+        {
+            var clips = new HighlightReplayClip[highlight.Segments.Count];
+            for (var index = 0; index < highlight.Segments.Count; index++)
+            {
+                var segment = highlight.Segments[index];
+                clips[index] = new HighlightReplayClip(
+                    segment,
+                    highlightReplayBuffer.Capture(segment.StartedAt, segment.EndedAt));
+            }
+
+            return clips;
         }
 
         private bool IsSearchingAt(double now)

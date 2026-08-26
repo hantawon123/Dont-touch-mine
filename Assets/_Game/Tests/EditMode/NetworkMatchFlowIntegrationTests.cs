@@ -135,6 +135,8 @@ namespace Game.Architecture.Tests
             public event Action<MatchStateSnapshot> MatchStateReceived;
             public event Action<System.Collections.Generic.IReadOnlyList<
                 PlayerInteractionStateSnapshot>> PlayerInteractionStatesReceived;
+            public event Action<System.Collections.Generic.IReadOnlyList<
+                HighlightReplayData>> HighlightReplayReceived;
             public event Action<MatchResult> MatchResultReceived;
 
             public void Publish(MatchStateSnapshot snapshot)

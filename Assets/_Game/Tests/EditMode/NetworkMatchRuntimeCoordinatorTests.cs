@@ -30,11 +30,14 @@ namespace Game.Architecture.Tests
                     ["client"] = new Pose(Vector3.right, Quaternion.identity),
                 });
                 using var roomState = new RoomBrowserSystem();
+                var appFlow = new AppFlowSystem();
+                Assert.That(appFlow.TryTransitionTo(AppFlowState.Lobby), Is.True);
+                Assert.That(appFlow.TryTransitionTo(AppFlowState.InGame), Is.True);
                 var coordinator = new NetworkMatchRuntimeCoordinator(
                     network,
                     new MatchRuntimeFactory(rules),
                     new FakeSceneContext(),
-                    new AppFlowSystem(),
+                    appFlow,
                     new NetworkMatchRuntimeConfiguration(
                         new AcceptAllPlacements(),
                         CreateSpawnPoints(),
@@ -102,6 +105,35 @@ namespace Game.Architecture.Tests
 
                 Assert.That(network.Controls[1], Is.True);
 
+                Assert.That(
+                    network.BoundSession.SetHighlightCandidates(new[]
+                    {
+                        new HighlightCandidate(
+                            HighlightType.FirstBlood,
+                            searchingStartedAt,
+                            searchingStartedAt + 4d,
+                            "client"),
+                    }),
+                    Is.True);
+                network.ServerTime = network.Snapshots[1].PhaseEndsAt;
+                network.PublishSimulationTick();
+
+                Assert.That(network.Snapshots, Has.Count.EqualTo(3));
+                Assert.That(network.Snapshots[2].Phase, Is.EqualTo(MatchPhase.Highlight));
+                Assert.That(network.HighlightReplay.Count, Is.EqualTo(1));
+                Assert.That(
+                    network.HighlightReplay[0].Candidate.Type,
+                    Is.EqualTo(HighlightType.FirstBlood));
+                Assert.That(
+                    network.HighlightReplay[0].Clips[0].Frames,
+                    Is.Not.Empty);
+
+                network.ServerTime = network.Snapshots[2].PhaseEndsAt;
+                network.PublishSimulationTick();
+
+                Assert.That(network.Snapshots, Has.Count.EqualTo(4));
+                Assert.That(network.Snapshots[3].Phase, Is.EqualTo(MatchPhase.Result));
+
                 coordinator.Dispose();
 
                 Assert.That(network.BoundSession, Is.Null);
@@ -163,6 +195,7 @@ namespace Game.Architecture.Tests
             public double ServerTime { get; set; }
             public MatchSessionCoordinator BoundSession { get; private set; }
             public IReadOnlyList<PlayerItemAssignment> Assignments { get; private set; }
+            public IReadOnlyList<HighlightReplayData> HighlightReplay { get; private set; }
             public List<MatchStateSnapshot> Snapshots { get; } = new();
             public Dictionary<int, bool> Controls { get; } = new();
             public List<int> TeleportedPlayers { get; } = new();
@@ -204,6 +237,13 @@ namespace Game.Architecture.Tests
                 IReadOnlyList<PlayerItemAssignment> assignments)
             {
                 Assignments = assignments;
+                return true;
+            }
+
+            public bool TryPublishHighlightReplay(
+                IReadOnlyList<HighlightReplayData> replay)
+            {
+                HighlightReplay = replay;
                 return true;
             }
 

@@ -6,6 +6,8 @@ using Game.Core.Players;
 using Game.Network.Match;
 using Game.Network;
 using Game.Network.Players;
+using Game.Network.Session;
+using Game.Server.Items;
 using Game.Server.Match;
 using NUnit.Framework;
 using UnityEditor;
@@ -356,6 +358,48 @@ namespace Game.Architecture.Tests
             Assert.That(snapshot.IsDestroyed, Is.True);
             Assert.That(snapshot.Version, Is.EqualTo(7));
             Assert.That(snapshot.IsPhysicsActive, Is.True);
+        }
+
+        [Test]
+        public void HighlightReplaySerializer_RoundTripsOrderTimingAndFrames()
+        {
+            var segment = new HighlightSegment(10d, 12d, 2d);
+            var candidate = new HighlightCandidate(
+                HighlightType.FirstBlood,
+                new[] { segment },
+                "player-1");
+            var frame = new HighlightReplayFrame(
+                11d,
+                new[]
+                {
+                    new Pose(Vector3.one, Quaternion.Euler(0f, 45f, 0f)),
+                },
+                new[]
+                {
+                    new WorldObjectState(
+                        "Soda_01",
+                        new Pose(Vector3.right, Quaternion.identity)),
+                });
+            var source = new[]
+            {
+                new HighlightReplayData(
+                    candidate,
+                    new[] { new HighlightReplayClip(segment, new[] { frame }) }),
+            };
+
+            var payload = HighlightReplaySerializer.Serialize(source);
+
+            Assert.That(
+                HighlightReplaySerializer.TryDeserialize(payload, out var restored),
+                Is.True);
+            Assert.That(restored, Has.Length.EqualTo(1));
+            Assert.That(restored[0].Candidate.Type, Is.EqualTo(HighlightType.FirstBlood));
+            Assert.That(restored[0].Candidate.TargetId, Is.EqualTo("player-1"));
+            Assert.That(restored[0].Clips[0].Segment.PlaybackSpeed, Is.EqualTo(2d));
+            Assert.That(restored[0].Clips[0].Frames[0].RecordedAt, Is.EqualTo(11d));
+            Assert.That(
+                restored[0].Clips[0].Frames[0].WorldObjects[0].ObjectId,
+                Is.EqualTo("Soda_01"));
         }
     }
 }
