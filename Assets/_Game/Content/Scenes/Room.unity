@@ -2542,6 +2542,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   modalPrefab: {fileID: 100004, guid: a89d6289273e4371b18e040f021873bc, type: 3}
   passwordModalPrefab: {fileID: 100004, guid: e166a86f55e146dd837f4bdd27f610f9, type: 3}
+  codeModalPrefab: {fileID: 100004, guid: 149c3fb3e0134a62acec8f046b152987, type: 3}
   modalParent: {fileID: 210001}
   mapIds:
   - "\uB9F51"
@@ -2555,6 +2556,7 @@ MonoBehaviour:
     isLocked: 1
     isPlaying: 1
     password: 
+    roomCode: AAA111
   - title: "\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984"
     hostNickname: "\uAE40\uC601\uD558"
     mapId: "\uB9F51"
@@ -2563,6 +2565,7 @@ MonoBehaviour:
     isLocked: 0
     isPlaying: 0
     password: 
+    roomCode: BBB222
   - title: "\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984"
     hostNickname: "\uC774\uCCA0\uC218"
     mapId: "\uB9F51"
@@ -2571,6 +2574,7 @@ MonoBehaviour:
     isLocked: 0
     isPlaying: 0
     password: 
+    roomCode: CCC333
   - title: "\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984"
     hostNickname: "\uBC15\uBBFC\uC9C0"
     mapId: "\uB9F51"
@@ -2579,6 +2583,7 @@ MonoBehaviour:
     isLocked: 0
     isPlaying: 0
     password: 
+    roomCode: DDD444
   - title: "\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984"
     hostNickname: "\uCD5C\uC9C0\uC6B0"
     mapId: "\uB9F51"
@@ -2587,6 +2592,7 @@ MonoBehaviour:
     isLocked: 0
     isPlaying: 0
     password: 
+    roomCode: EEE555
   - title: "\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984"
     hostNickname: "\uC544\uBB34\uAC1C"
     mapId: "\uB9F51"
@@ -2594,7 +2600,8 @@ MonoBehaviour:
     maxPlayers: 6
     isLocked: 1
     isPlaying: 0
-    password: 
+    password: 1234
+    roomCode: FFF666
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

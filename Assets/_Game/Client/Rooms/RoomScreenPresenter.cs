@@ -41,6 +41,12 @@ namespace Game.Client.Rooms
 
             /// <summary>Read only when <see cref="isLocked"/> is set.</summary>
             public string password = string.Empty;
+
+            /// <summary>
+            /// What the host would have shared. Left empty for a room nobody
+            /// is meant to reach by code.
+            /// </summary>
+            public string roomCode = string.Empty;
         }
 
         [SerializeField]
@@ -48,6 +54,9 @@ namespace Game.Client.Rooms
 
         [SerializeField]
         private RoomPasswordModalView passwordModalPrefab;
+
+        [SerializeField]
+        private RoomCodeModalView codeModalPrefab;
 
         [SerializeField]
         private Transform modalParent;
@@ -72,12 +81,20 @@ namespace Game.Client.Rooms
         private readonly Dictionary<string, string> roomPasswords =
             new Dictionary<string, string>(StringComparer.Ordinal);
 
+        /// <summary>
+        /// Which room each shared code reaches, in the form codes are issued
+        /// in. Stands in for the lookup matchmaking will answer.
+        /// </summary>
+        private readonly Dictionary<string, string> roomsByCode =
+            new Dictionary<string, string>(StringComparer.Ordinal);
+
         private IRoomBrowserView browserView;
         private RoomBrowserSystem roomBrowser;
         private IHomeApplicationHost applicationHost;
         private AppFlowSystem appFlow;
         private RoomCreateModalView modal;
         private RoomPasswordModalView passwordModal;
+        private RoomCodeModalView codeModal;
         private int issuedRoomCount;
 
         /// <summary>
@@ -113,6 +130,7 @@ namespace Game.Client.Rooms
 
             browserView.CreateRoomRequested += OnCreateRoomRequested;
             browserView.RoomSelected += OnRoomSelected;
+            browserView.RoomCodeSearchRequested += OnRoomCodeSearchRequested;
             modal.CloseRequested += OnModalCloseRequested;
             modal.CreateRequested += OnModalCreateRequested;
 
@@ -130,6 +148,24 @@ namespace Game.Client.Rooms
                 Debug.LogError(
                     "RoomScreenPresenter has no password modal prefab. Assign " +
                     "it so locked rooms can be entered.",
+                    this);
+            }
+
+            if (codeModalPrefab != null)
+            {
+                codeModal = Instantiate(codeModalPrefab, modalParent);
+                codeModal.Close();
+                codeModal.CloseRequested += OnCodeModalCloseRequested;
+                codeModal.CodeCompleted += OnCodeCompleted;
+                codeModal.CodeCleared += OnCodeCleared;
+                codeModal.CodeEditRequested += OnCodeCleared;
+                codeModal.EnterRequested += OnCodeEnterRequested;
+            }
+            else
+            {
+                Debug.LogError(
+                    "RoomScreenPresenter has no room code modal prefab. Assign " +
+                    "it so rooms can be entered by code.",
                     this);
             }
 
@@ -158,6 +194,7 @@ namespace Game.Client.Rooms
             {
                 browserView.CreateRoomRequested -= OnCreateRoomRequested;
                 browserView.RoomSelected -= OnRoomSelected;
+                browserView.RoomCodeSearchRequested -= OnRoomCodeSearchRequested;
             }
 
             if (modal != null)
@@ -170,6 +207,15 @@ namespace Game.Client.Rooms
             {
                 passwordModal.CloseRequested -= OnPasswordModalCloseRequested;
                 passwordModal.SubmitRequested -= OnPasswordSubmitted;
+            }
+
+            if (codeModal != null)
+            {
+                codeModal.CloseRequested -= OnCodeModalCloseRequested;
+                codeModal.CodeCompleted -= OnCodeCompleted;
+                codeModal.CodeCleared -= OnCodeCleared;
+                codeModal.CodeEditRequested -= OnCodeCleared;
+                codeModal.EnterRequested -= OnCodeEnterRequested;
             }
         }
 
@@ -271,6 +317,95 @@ namespace Game.Client.Rooms
             applicationHost.OpenLobby();
         }
 
+        private void OnRoomCodeSearchRequested()
+        {
+            if (codeModal != null)
+            {
+                codeModal.Open();
+            }
+        }
+
+        private void OnCodeModalCloseRequested() => codeModal.Close();
+
+        /// <summary>Nothing is known about a room until a full code is typed.</summary>
+        private void OnCodeCleared() => codeModal.ShowCodeEntry();
+
+        /// <summary>
+        /// Answers what the typed code reaches. A room that cannot be entered
+        /// sends the modal back to typing, so an enter button never survives
+        /// for a room the answer just ruled out.
+        /// </summary>
+        private void OnCodeCompleted(string code)
+        {
+            if (!TryFindRoomByCode(code, out var room))
+            {
+                RefuseCode(RoomEntryFailure.NotFound);
+                return;
+            }
+
+            if (!room.CanJoin)
+            {
+                RefuseCode(room.IsFull ? RoomEntryFailure.Full : RoomEntryFailure.Closed);
+                return;
+            }
+
+            if (room.IsLocked)
+            {
+                codeModal.ShowLockedRoom();
+                return;
+            }
+
+            codeModal.ShowOpenRoom();
+        }
+
+        private void OnCodeEnterRequested(string code, string password)
+        {
+            if (!TryFindRoomByCode(code, out var room))
+            {
+                RefuseCode(RoomEntryFailure.NotFound);
+                return;
+            }
+
+            if (!room.CanJoin)
+            {
+                RefuseCode(room.IsFull ? RoomEntryFailure.Full : RoomEntryFailure.Closed);
+                return;
+            }
+
+            if (room.IsLocked &&
+                (!roomPasswords.TryGetValue(room.RoomId, out var expected) ||
+                 !string.Equals(password, expected, StringComparison.Ordinal)))
+            {
+                // The code stays shortened: only the password was wrong.
+                codeModal.ShowFailure(RoomEntryFailure.WrongPassword);
+                return;
+            }
+
+            codeModal.Close();
+            RoomJoinRequested?.Invoke(room.Id, room.IsLocked ? password : null);
+            OpenLobby();
+        }
+
+        private void RefuseCode(RoomEntryFailure failure)
+        {
+            codeModal.ShowCodeEntry();
+            codeModal.ShowFailure(failure);
+        }
+
+        private bool TryFindRoomByCode(string typedCode, out RoomSummary room)
+        {
+            var normalized = RoomCodeFormat.Normalize(typedCode);
+
+            if (RoomCodeFormat.IsWellFormed(normalized) &&
+                roomsByCode.TryGetValue(normalized, out var roomId))
+            {
+                return TryFindRoom(roomId, out room);
+            }
+
+            room = default;
+            return false;
+        }
+
         private bool TryFindRoom(string searchedRoomId, out RoomSummary room)
         {
             if (!string.IsNullOrEmpty(searchedRoomId))
@@ -334,6 +469,7 @@ namespace Game.Client.Rooms
 
             var roomId = NextRoomId();
             RememberPassword(roomId, placeholder.isLocked, placeholder.password);
+            RememberCode(roomId, placeholder.roomCode);
 
             return new RoomSummary(
                 new RoomId(roomId),
@@ -345,6 +481,21 @@ namespace Game.Client.Rooms
                 isOpen: true,
                 placeholder.isPlaying ? RoomStatus.Playing : RoomStatus.Waiting,
                 placeholder.hostNickname);
+        }
+
+        /// <summary>
+        /// Files a stand-in room under the code its host would have shared.
+        /// Rooms opened on this screen get none: a code is issued by the layer
+        /// that opens a room for real and comes back with the entry result.
+        /// </summary>
+        private void RememberCode(string roomId, string roomCode)
+        {
+            var normalized = RoomCodeFormat.Normalize(roomCode);
+
+            if (RoomCodeFormat.IsWellFormed(normalized))
+            {
+                roomsByCode[normalized] = roomId;
+            }
         }
 
         private void RememberPassword(string roomId, bool isLocked, string password)
