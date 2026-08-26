@@ -32,9 +32,16 @@ namespace Game.Client.Lobby
 
         public event Action PlaySettingsClicked;
         public event Action StartClicked;
+        public event Action LeaveClicked;
 
         private Button playSettingsUiButton;
         private Button startUiButton;
+
+        /// <summary>
+        /// Taken from the slot rather than serialized on its own, so the HUD
+        /// layout builder keeps assigning one field per slot.
+        /// </summary>
+        private Button leaveUiButton;
 
         private void OnEnable()
         {
@@ -43,6 +50,9 @@ namespace Game.Client.Lobby
                 : null;
             startUiButton = startButton != null
                 ? startButton.GetComponent<Button>()
+                : null;
+            leaveUiButton = leaveButton != null
+                ? leaveButton.GetComponent<Button>()
                 : null;
 
             if (playSettingsUiButton != null)
@@ -53,6 +63,18 @@ namespace Game.Client.Lobby
             if (startUiButton != null)
             {
                 startUiButton.onClick.AddListener(HandleStartClicked);
+            }
+
+            if (leaveUiButton != null)
+            {
+                leaveUiButton.onClick.AddListener(HandleLeaveClicked);
+            }
+            else
+            {
+                Debug.LogError(
+                    "LeaveButton has no Button component. Run " +
+                    "Game > Lobby > Build HUD Layout on the Lobby scene.",
+                    this);
             }
         }
 
@@ -66,6 +88,11 @@ namespace Game.Client.Lobby
             if (startUiButton != null)
             {
                 startUiButton.onClick.RemoveListener(HandleStartClicked);
+            }
+
+            if (leaveUiButton != null)
+            {
+                leaveUiButton.onClick.RemoveListener(HandleLeaveClicked);
             }
         }
 
@@ -85,5 +112,7 @@ namespace Game.Client.Lobby
         private void HandlePlaySettingsClicked() => PlaySettingsClicked?.Invoke();
 
         private void HandleStartClicked() => StartClicked?.Invoke();
+
+        private void HandleLeaveClicked() => LeaveClicked?.Invoke();
     }
 }
