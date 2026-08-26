@@ -7,12 +7,15 @@ namespace Game.Client.Interactions
     /// <summary>
     /// 정밀 배치 모드(러스트식 홀로그램):
     /// 물건을 든 채 우클릭으로 켜고 끄며, 반투명 고스트가 배치될 자리를 미리 보여준다.
-    /// Q/E 좌우 회전, 스크롤 위아래 조절, 좌클릭으로 확정한다.
+    /// Q/E 부드러운 좌우 회전(요), 스크롤 15도 단위 앞뒤 기울이기(피치), 좌클릭으로 확정한다.
     /// 배치 불가능한 위치(겹침·손이 닿지 않는 곳)에서는 고스트가 빨간색이 되고 확정할 수 없다.
     /// </summary>
     [RequireComponent(typeof(PlayerInteractor))]
     public sealed class ItemPlacementController : MonoBehaviour
     {
+        private const float AutoLiftStep = 0.05f;
+        private const float AutoLiftMax = 0.75f;
+
         [SerializeField]
         private InputActionAsset inputActions;
 
@@ -31,14 +34,14 @@ namespace Game.Client.Interactions
         private InputActionMap playerMap;
         private InputAction placementModeAction;
         private InputAction rotateAction;
-        private InputAction heightAction;
+        private InputAction scrollRotateAction;
         private InputAction confirmAction;
         private Transform cameraTransform;
 
         private GameObject ghost;
         private Renderer[] ghostRenderers;
-        private float yawOffset;
-        private float heightOffset;
+        private Quaternion ghostRotation = Quaternion.identity;
+        private readonly RaycastHit[] surfaceHits = new RaycastHit[8];
         private bool isCurrentPoseValid;
         private Vector3 previewPosition;
         private Quaternion previewRotation;
@@ -58,7 +61,7 @@ namespace Game.Client.Interactions
             playerMap = inputActions.FindActionMap("Player", throwIfNotFound: true);
             placementModeAction = playerMap.FindAction("PlacementMode", throwIfNotFound: true);
             rotateAction = playerMap.FindAction("RotateObject", throwIfNotFound: true);
-            heightAction = playerMap.FindAction("AdjustHeight", throwIfNotFound: true);
+            scrollRotateAction = playerMap.FindAction("AdjustHeight", throwIfNotFound: true);
             confirmAction = playerMap.FindAction("Attack", throwIfNotFound: true);
         }
 
@@ -117,8 +120,9 @@ namespace Game.Client.Interactions
         {
             IsPlacing = true;
             interactor.IsThrowSuppressed = true;
-            yawOffset = 0f;
-            heightOffset = 0f;
+
+            // 시작 방향: 캐릭터가 보는 방향에 맞춰 세운 상태.
+            ghostRotation = Quaternion.AngleAxis(transform.eulerAngles.y, Vector3.up);
             CreateGhost(interactor.CarriedItem);
         }
 
@@ -145,17 +149,26 @@ namespace Game.Client.Interactions
 
         private void ReadAdjustInput()
         {
-            // Q/E: 좌우 회전 (누르는 동안 회전)
+            // 회전축은 항상 "내 시점 기준"으로 고정한다: 증분 회전을 누적 회전의 왼쪽에 곱하면
+            // 물건이 어떤 자세든 축은 유지되고 물건만 돈다.
+            // Q/E: 수직축(월드 위) 기준 좌우 회전
             var rotateInput = rotateAction.ReadValue<float>();
-            yawOffset += rotateInput * interactionConfig.PlacementRotateSpeedDegrees * Time.deltaTime;
+            if (Mathf.Abs(rotateInput) > 0.01f)
+            {
+                var deltaYaw = rotateInput * interactionConfig.PlacementRotateSpeedDegrees * Time.deltaTime;
+                ghostRotation = Quaternion.AngleAxis(deltaYaw, Vector3.up) * ghostRotation;
+            }
 
-            // 스크롤: 위아래 오프셋 (한 칸에 한 스텝)
-            var scroll = heightAction.ReadValue<float>();
+            // 스크롤: 내 시점의 좌우축 기준 앞뒤 기울이기 (한 칸에 일정 각도)
+            var scroll = scrollRotateAction.ReadValue<float>();
             if (Mathf.Abs(scroll) > 0.01f)
             {
-                heightOffset = Mathf.Clamp(
-                    heightOffset + Mathf.Sign(scroll) * interactionConfig.PlacementHeightStep,
-                    0f, interactionConfig.PlacementMaxHeightOffset);
+                var tiltAxis = transform.right;
+                tiltAxis.y = 0f;
+                tiltAxis.Normalize();
+
+                var deltaPitch = Mathf.Sign(scroll) * interactionConfig.PlacementScrollRotateStepDegrees;
+                ghostRotation = Quaternion.AngleAxis(deltaPitch, tiltAxis) * ghostRotation;
             }
         }
 
@@ -166,30 +179,98 @@ namespace Game.Client.Interactions
                 return;
             }
 
-            // 크로스헤어가 가리키는 표면을 기준점으로 삼는다. 표면이 없으면 최대 거리 지점.
+            // 크로스헤어가 가리키는 표면을 기준점으로 삼는다.
             var cameraToPlayer = Vector3.Distance(cameraTransform.position, transform.position);
             var ray = new Ray(cameraTransform.position, cameraTransform.forward);
-            var maxDistance = interactionConfig.InteractionDistance + cameraToPlayer;
+            var maxRayDistance = interactionConfig.PlacementMaxDistance + cameraToPlayer;
 
-            Vector3 surfacePoint;
-            var hasSurface = Physics.Raycast(ray, out var hit, maxDistance,
-                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
-                && !hit.transform.IsChildOf(transform);
-            surfacePoint = hasSurface ? hit.point : ray.GetPoint(maxDistance);
+            if (!TryFindNearestSurface(ray, maxRayDistance, out var surfacePoint))
+            {
+                surfacePoint = ray.GetPoint(maxRayDistance);
+            }
 
-            previewPosition = surfacePoint + Vector3.up * heightOffset;
-            previewRotation = Quaternion.Euler(0f, transform.eulerAngles.y + yawOffset, 0f);
+            // 최대 배치 거리(수평)를 넘어가면 한계선 안쪽으로 끌어당긴다.
+            // 홀로그램은 항상 "지금 놓을 수 있는 자리"를 보여준다.
+            var flatOffset = surfacePoint - transform.position;
+            var height = flatOffset.y;
+            flatOffset.y = 0f;
+            if (flatOffset.magnitude > interactionConfig.PlacementMaxDistance)
+            {
+                surfacePoint = transform.position
+                    + flatOffset.normalized * interactionConfig.PlacementMaxDistance
+                    + Vector3.up * height;
+            }
 
-            ghost.transform.SetPositionAndRotation(previewPosition, previewRotation);
+            // 허공이라면 어차피 떨어질 것이므로 바로 아래 표면에 투영한다.
+            if (TryFindNearestSurface(new Ray(surfacePoint + Vector3.up * 0.05f, Vector3.down), 20f, out var ground))
+            {
+                surfacePoint = ground;
+            }
 
-            var withinReach = Vector3.Distance(previewPosition, transform.position)
-                <= interactionConfig.InteractionDistance + interactionConfig.PlacementMaxHeightOffset;
-            isCurrentPoseValid = withinReach && !IsOverlapping();
+            previewRotation = ghostRotation;
+
+            // 물건의 실제 중앙(바운드)을 기준으로 정렬: 중앙이 조준점 위에, 바닥이 표면에 닿게.
+            ghost.transform.SetPositionAndRotation(surfacePoint, previewRotation);
+            var bounds = ComputeGhostBounds();
+            ghost.transform.position += new Vector3(
+                surfacePoint.x - bounds.center.x,
+                surfacePoint.y - bounds.min.y,
+                surfacePoint.z - bounds.center.z);
+
+            // 장애물과 겹치면 얹힐 수 있는 높이까지 조금씩 올려 실제 놓일 자리를 예측한다.
+            // (예: 장난감 자동차 위를 조준하면 그 위에 얹힌 모습으로 보정)
+            var lifted = 0f;
+            while (IsOverlapping() && lifted < AutoLiftMax)
+            {
+                ghost.transform.position += Vector3.up * AutoLiftStep;
+                lifted += AutoLiftStep;
+            }
+
+            previewPosition = ghost.transform.position;
+
+            // 보정 한도까지 올려도 겹치면 그때만 배치 불가(빨간색).
+            isCurrentPoseValid = !IsOverlapping();
             ApplyGhostMaterial(isCurrentPoseValid ? ghostValidMaterial : ghostInvalidMaterial);
         }
 
         // 고스트가 차지할 공간에 다른 물체가 있는지 검사한다.
         // 바닥에 붙여 놓는 경우 표면 자체에 닿는 것은 허용해야 하므로 검사 상자를 살짝 줄이고 띄운다.
+        // 광선 경로에서 자기 몸(플레이어)을 제외한 가장 가까운 표면을 찾는다.
+        private bool TryFindNearestSurface(Ray ray, float maxDistance, out Vector3 surfacePoint)
+        {
+            surfacePoint = default;
+            var hitCount = Physics.RaycastNonAlloc(ray, surfaceHits, maxDistance,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            var nearestDistance = float.MaxValue;
+            var found = false;
+
+            for (var i = 0; i < hitCount; i++)
+            {
+                var hit = surfaceHits[i];
+                if (hit.transform.IsChildOf(transform) || hit.distance >= nearestDistance)
+                {
+                    continue;
+                }
+
+                nearestDistance = hit.distance;
+                surfacePoint = hit.point;
+                found = true;
+            }
+
+            return found;
+        }
+
+        private Bounds ComputeGhostBounds()
+        {
+            var bounds = ghostRenderers[0].bounds;
+            for (var i = 1; i < ghostRenderers.Length; i++)
+            {
+                bounds.Encapsulate(ghostRenderers[i].bounds);
+            }
+
+            return bounds;
+        }
+
         private bool IsOverlapping()
         {
             if (ghostRenderers == null || ghostRenderers.Length == 0)
@@ -197,12 +278,7 @@ namespace Game.Client.Interactions
                 return false;
             }
 
-            var bounds = ghostRenderers[0].bounds;
-            for (var i = 1; i < ghostRenderers.Length; i++)
-            {
-                bounds.Encapsulate(ghostRenderers[i].bounds);
-            }
-
+            var bounds = ComputeGhostBounds();
             var center = bounds.center + Vector3.up * 0.02f;
             var extents = bounds.extents * 0.85f;
 
