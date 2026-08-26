@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Accessibility;
 using Game.Client.Home;
 using Game.Core.Settings;
 using TMPro;
@@ -41,7 +42,11 @@ namespace Game.Client.Settings
         private TMP_FontAsset koreanFont;
         private SettingsTab activeTab = SettingsTab.Graphics;
         private ToggleState voiceChatToggle;
+        private ToggleState highContrastToggle;
+        private Slider uiScaleSlider;
+        private Slider textScaleSlider;
         private bool bindingAudio;
+        private bool bindingAccessibility;
 
         public event Action BackRequested;
 
@@ -50,6 +55,12 @@ namespace Game.Client.Settings
         public event Action<AudioChannel, int> AudioVolumeChanged;
 
         public event Action<bool> VoiceChatEnabledChanged;
+
+        public event Action<int> UiScaleChanged;
+
+        public event Action<int> TextScaleChanged;
+
+        public event Action<bool> HighContrastChanged;
 
         private void Awake()
         {
@@ -91,10 +102,45 @@ namespace Game.Client.Settings
             foreach (var pair in tabButtons)
             {
                 var selected = pair.Key == tab;
-                pair.Value.Label.color = selected ? Color.black : TabIdle;
+                pair.Value.Label.color = selected ? Color.black : IdleTabColor();
                 pair.Value.Label.fontStyle = selected ? FontStyles.Bold : FontStyles.Normal;
                 pair.Value.Underline.SetActive(selected);
             }
+        }
+
+        public void SetAccessibilitySettings(AccessibilitySettingsState settings)
+        {
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
+
+            bindingAccessibility = true;
+            if (uiScaleSlider != null)
+            {
+                uiScaleSlider.SetValueWithoutNotify(settings.UiScale);
+            }
+
+            if (textScaleSlider != null)
+            {
+                textScaleSlider.SetValueWithoutNotify(settings.TextScale);
+            }
+
+            if (highContrastToggle != null)
+            {
+                highContrastToggle.IsOn = settings.HighContrastEnabled;
+                BindToggle(highContrastToggle);
+            }
+
+            bindingAccessibility = false;
+            SetActiveTab(activeTab);
+        }
+
+        private static Color IdleTabColor()
+        {
+            var highContrast = AccessibilitySettingsOutput.Current != null &&
+                AccessibilitySettingsOutput.Current.HighContrastEnabled;
+            return highContrast ? Color.black : TabIdle;
         }
 
         public void SetAudioSettings(AudioSettingsState settings)
@@ -168,6 +214,7 @@ namespace Game.Client.Settings
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
             canvasObject.AddComponent<GraphicRaycaster>();
+            AccessibilityBindings.EnsureCanvas(canvasObject);
             AddImage(canvasRect, Color.white);
             return canvasRect;
         }
@@ -178,6 +225,7 @@ namespace Game.Client.Settings
             SetAnchor(header, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
             header.anchoredPosition = Vector2.zero;
             header.sizeDelta = new Vector2(0f, 96f);
+            AccessibilityBindings.EnsureLayout(header.gameObject);
 
             var layout = header.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(40, 40, 24, 12);
@@ -204,6 +252,7 @@ namespace Game.Client.Settings
             SetAnchor(tabBar, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
             tabBar.anchoredPosition = new Vector2(0f, -96f);
             tabBar.sizeDelta = new Vector2(0f, 64f);
+            AccessibilityBindings.EnsureLayout(tabBar.gameObject);
 
             var layout = tabBar.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(48, 48, 0, 0);
@@ -227,6 +276,7 @@ namespace Game.Client.Settings
             var layout = rect.gameObject.AddComponent<LayoutElement>();
             layout.preferredHeight = 64f;
             layout.minHeight = 48f;
+            AccessibilityBindings.EnsureLayout(rect.gameObject);
 
             var column = rect.gameObject.AddComponent<VerticalLayoutGroup>();
             column.childAlignment = TextAnchor.MiddleCenter;
@@ -239,6 +289,8 @@ namespace Game.Client.Settings
             var labelRect = CreateRect("Label", rect);
             var labelLayout = labelRect.gameObject.AddComponent<LayoutElement>();
             labelLayout.preferredHeight = 36f;
+            labelLayout.minHeight = 24f;
+            AccessibilityBindings.EnsureLayout(labelRect.gameObject);
             var text = AddText(
                 labelRect,
                 label,
@@ -283,6 +335,7 @@ namespace Game.Client.Settings
             SetAnchor(body, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
             body.offsetMin = new Vector2(48f, 40f);
             body.offsetMax = new Vector2(-48f, -176f);
+            AccessibilityBindings.EnsureLayout(body.gameObject);
 
             panels[SettingsTab.Graphics] = CreateGraphicsPanel(body).gameObject;
             panels[SettingsTab.Audio] = CreateAudioPanel(body).gameObject;
@@ -371,9 +424,39 @@ namespace Game.Client.Settings
         {
             var content = CreateScrollPanel(parent, "Accessibility", out var panel);
             panel.gameObject.SetActive(false);
-            CreateRangeSliderRow(content, "UI 크기", 50);
-            CreateRangeSliderRow(content, "글자 크기", 50);
-            CreateToggleRow(content, "고대비 모드", true);
+            uiScaleSlider = CreateRangeSliderRow(
+                content,
+                "UI 크기",
+                AccessibilitySettingsState.DefaultScale,
+                percent =>
+                {
+                    if (!bindingAccessibility)
+                    {
+                        UiScaleChanged?.Invoke(percent);
+                    }
+                });
+            textScaleSlider = CreateRangeSliderRow(
+                content,
+                "글자 크기",
+                AccessibilitySettingsState.DefaultScale,
+                percent =>
+                {
+                    if (!bindingAccessibility)
+                    {
+                        TextScaleChanged?.Invoke(percent);
+                    }
+                });
+            highContrastToggle = CreateToggleRow(
+                content,
+                "고대비 모드",
+                false,
+                enabled =>
+                {
+                    if (!bindingAccessibility)
+                    {
+                        HighContrastChanged?.Invoke(enabled);
+                    }
+                });
             return panel;
         }
 
@@ -570,7 +653,7 @@ namespace Game.Client.Settings
         private static void ApplyToggleHalf(ToggleHalf half, bool selected)
         {
             half.Background.color = selected ? Color.white : Color.clear;
-            half.Label.color = selected ? Color.black : TabIdle;
+            half.Label.color = selected ? Color.black : IdleTabColor();
             half.Label.fontStyle = selected ? FontStyles.Bold : FontStyles.Normal;
         }
 
@@ -745,7 +828,11 @@ namespace Game.Client.Settings
             buttons.Add(button);
         }
 
-        private void CreateRangeSliderRow(RectTransform parent, string label, int defaultValue)
+        private Slider CreateRangeSliderRow(
+            RectTransform parent,
+            string label,
+            int defaultValue,
+            Action<int> onChanged = null)
         {
             var row = CreateSettingRow(parent);
             AddRowLabel(row, label);
@@ -770,8 +857,11 @@ namespace Game.Client.Settings
             sliderLayout.flexibleWidth = 1f;
             sliderLayout.minWidth = 180f;
             sliderLayout.preferredHeight = 40f;
-            CreatePercentSlider(sliderRect, defaultValue);
+            var slider = CreatePercentSlider(sliderRect, defaultValue);
+            slider.onValueChanged.AddListener(value => onChanged?.Invoke(Mathf.RoundToInt(value)));
+            sliders.Add(slider);
             AddRangeHint(control, "크게", TextAlignmentOptions.MidlineRight);
+            return slider;
         }
 
         private void AddRangeHint(RectTransform parent, string text, TextAlignmentOptions alignment)
@@ -841,6 +931,7 @@ namespace Game.Client.Settings
             var layout = row.gameObject.AddComponent<LayoutElement>();
             layout.preferredHeight = 72f;
             layout.minHeight = 72f;
+            AccessibilityBindings.EnsureLayout(row.gameObject);
             var group = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             group.padding = new RectOffset(24, 24, 12, 12);
             group.spacing = 24f;
@@ -929,8 +1020,9 @@ namespace Game.Client.Settings
             tmp.color = Color.black;
             tmp.raycastTarget = raycastTarget;
             tmp.textWrappingMode = TextWrappingModes.NoWrap;
-            tmp.overflowMode = TextOverflowModes.Ellipsis;
+            tmp.overflowMode = TextOverflowModes.Overflow;
             target.gameObject.SetActive(true);
+            AccessibilityBindings.EnsureText(tmp);
             return tmp;
         }
 

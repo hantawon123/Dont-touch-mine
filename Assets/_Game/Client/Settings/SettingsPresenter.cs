@@ -1,4 +1,5 @@
 using System;
+using Game.Client.Accessibility;
 using Game.Client.Audio;
 using Game.Client.Home;
 using Game.Core.Flow;
@@ -13,12 +14,14 @@ namespace Game.Client.Settings
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
         private readonly IAudioSettings audioSettings;
+        private readonly IAccessibilitySettings accessibilitySettings;
 
         public SettingsPresenter(
             ISettingsView view,
             IHomeApplicationHost applicationHost,
             AppFlowSystem appFlow,
-            IAudioSettings audioSettings)
+            IAudioSettings audioSettings,
+            IAccessibilitySettings accessibilitySettings)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.applicationHost = applicationHost
@@ -26,6 +29,8 @@ namespace Game.Client.Settings
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
             this.audioSettings = audioSettings
                 ?? throw new ArgumentNullException(nameof(audioSettings));
+            this.accessibilitySettings = accessibilitySettings
+                ?? throw new ArgumentNullException(nameof(accessibilitySettings));
         }
 
         public void Start()
@@ -34,9 +39,14 @@ namespace Game.Client.Settings
             view.TabSelected += OnTabSelected;
             view.AudioVolumeChanged += OnAudioVolumeChanged;
             view.VoiceChatEnabledChanged += OnVoiceChatEnabledChanged;
+            view.UiScaleChanged += OnUiScaleChanged;
+            view.TextScaleChanged += OnTextScaleChanged;
+            view.HighContrastChanged += OnHighContrastChanged;
             audioSettings.Changed += OnAudioSettingsChanged;
+            accessibilitySettings.Changed += OnAccessibilitySettingsChanged;
             view.SetActiveTab(SettingsTab.Graphics);
             view.SetAudioSettings(audioSettings.Current);
+            view.SetAccessibilitySettings(accessibilitySettings.Current);
         }
 
         public void Dispose()
@@ -45,7 +55,11 @@ namespace Game.Client.Settings
             view.TabSelected -= OnTabSelected;
             view.AudioVolumeChanged -= OnAudioVolumeChanged;
             view.VoiceChatEnabledChanged -= OnVoiceChatEnabledChanged;
+            view.UiScaleChanged -= OnUiScaleChanged;
+            view.TextScaleChanged -= OnTextScaleChanged;
+            view.HighContrastChanged -= OnHighContrastChanged;
             audioSettings.Changed -= OnAudioSettingsChanged;
+            accessibilitySettings.Changed -= OnAccessibilitySettingsChanged;
         }
 
         private void OnTabSelected(SettingsTab tab)
@@ -63,9 +77,29 @@ namespace Game.Client.Settings
             audioSettings.TrySetVoiceChatEnabled(enabled, out _);
         }
 
+        private void OnUiScaleChanged(int percent)
+        {
+            accessibilitySettings.TrySetUiScale(percent, out _);
+        }
+
+        private void OnTextScaleChanged(int percent)
+        {
+            accessibilitySettings.TrySetTextScale(percent, out _);
+        }
+
+        private void OnHighContrastChanged(bool enabled)
+        {
+            accessibilitySettings.TrySetHighContrastEnabled(enabled, out _);
+        }
+
         private void OnAudioSettingsChanged(AudioSettingsState settings)
         {
             view.SetAudioSettings(settings);
+        }
+
+        private void OnAccessibilitySettingsChanged(AccessibilitySettingsState settings)
+        {
+            view.SetAccessibilitySettings(settings);
         }
 
         private void OnBackRequested()

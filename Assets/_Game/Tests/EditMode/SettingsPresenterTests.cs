@@ -1,4 +1,5 @@
 using System;
+using Game.Client.Accessibility;
 using Game.Client.Audio;
 using Game.Client.Home;
 using Game.Client.Settings;
@@ -17,13 +18,15 @@ namespace Game.Tests.EditMode
             var host = new FakeHomeApplicationHost();
             var appFlow = new AppFlowSystem();
             var audio = new FakeAudioSettings();
+            var accessibility = new FakeAccessibilitySettings();
             Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
 
-            using (var presenter = new SettingsPresenter(view, host, appFlow, audio))
+            using (var presenter = new SettingsPresenter(view, host, appFlow, audio, accessibility))
             {
                 presenter.Start();
                 Assert.That(view.ActiveTab, Is.EqualTo(SettingsTab.Graphics));
                 Assert.That(view.BoundAudio, Is.SameAs(audio.Current));
+                Assert.That(view.BoundAccessibility, Is.SameAs(accessibility.Current));
 
                 view.RaiseTab(SettingsTab.Audio);
                 Assert.That(view.ActiveTab, Is.EqualTo(SettingsTab.Audio));
@@ -45,9 +48,10 @@ namespace Game.Tests.EditMode
             var host = new FakeHomeApplicationHost();
             var appFlow = new AppFlowSystem();
             var audio = new FakeAudioSettings();
+            var accessibility = new FakeAccessibilitySettings();
             Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
 
-            using (var presenter = new SettingsPresenter(view, host, appFlow, audio))
+            using (var presenter = new SettingsPresenter(view, host, appFlow, audio, accessibility))
             {
                 presenter.Start();
                 view.RaiseVolume(AudioChannel.Master, 80);
@@ -62,24 +66,52 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_ForwardsAccessibilityChangesToSettings()
+        {
+            var view = new FakeSettingsView();
+            var host = new FakeHomeApplicationHost();
+            var appFlow = new AppFlowSystem();
+            var audio = new FakeAudioSettings();
+            var accessibility = new FakeAccessibilitySettings();
+            Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
+
+            using (var presenter = new SettingsPresenter(view, host, appFlow, audio, accessibility))
+            {
+                presenter.Start();
+                view.RaiseUiScale(80);
+                view.RaiseTextScale(20);
+                view.RaiseHighContrast(true);
+            }
+
+            Assert.That(accessibility.Current.UiScale, Is.EqualTo(80));
+            Assert.That(accessibility.Current.TextScale, Is.EqualTo(20));
+            Assert.That(accessibility.Current.HighContrastEnabled, Is.True);
+            Assert.That(view.BoundAccessibility.UiScale, Is.EqualTo(80));
+        }
+
+        [Test]
         public void Presenter_RequiresDependencies()
         {
             var view = new FakeSettingsView();
             var host = new FakeHomeApplicationHost();
             var appFlow = new AppFlowSystem();
             var audio = new FakeAudioSettings();
+            var accessibility = new FakeAccessibilitySettings();
 
             Assert.That(
-                () => new SettingsPresenter(null, host, appFlow, audio),
+                () => new SettingsPresenter(null, host, appFlow, audio, accessibility),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new SettingsPresenter(view, null, appFlow, audio),
+                () => new SettingsPresenter(view, null, appFlow, audio, accessibility),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new SettingsPresenter(view, host, null, audio),
+                () => new SettingsPresenter(view, host, null, audio, accessibility),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new SettingsPresenter(view, host, appFlow, null),
+                () => new SettingsPresenter(view, host, appFlow, null, accessibility),
+                Throws.TypeOf<ArgumentNullException>());
+            Assert.That(
+                () => new SettingsPresenter(view, host, appFlow, audio, null),
                 Throws.TypeOf<ArgumentNullException>());
         }
 
@@ -89,6 +121,8 @@ namespace Game.Tests.EditMode
 
             public AudioSettingsState BoundAudio { get; private set; }
 
+            public AccessibilitySettingsState BoundAccessibility { get; private set; }
+
             public event Action BackRequested;
 
             public event Action<SettingsTab> TabSelected;
@@ -96,6 +130,12 @@ namespace Game.Tests.EditMode
             public event Action<AudioChannel, int> AudioVolumeChanged;
 
             public event Action<bool> VoiceChatEnabledChanged;
+
+            public event Action<int> UiScaleChanged;
+
+            public event Action<int> TextScaleChanged;
+
+            public event Action<bool> HighContrastChanged;
 
             public void SetActiveTab(SettingsTab tab)
             {
@@ -105,6 +145,11 @@ namespace Game.Tests.EditMode
             public void SetAudioSettings(AudioSettingsState settings)
             {
                 BoundAudio = settings;
+            }
+
+            public void SetAccessibilitySettings(AccessibilitySettingsState settings)
+            {
+                BoundAccessibility = settings;
             }
 
             public void RaiseBack()
@@ -125,6 +170,21 @@ namespace Game.Tests.EditMode
             public void RaiseVoiceChat(bool enabled)
             {
                 VoiceChatEnabledChanged?.Invoke(enabled);
+            }
+
+            public void RaiseUiScale(int percent)
+            {
+                UiScaleChanged?.Invoke(percent);
+            }
+
+            public void RaiseTextScale(int percent)
+            {
+                TextScaleChanged?.Invoke(percent);
+            }
+
+            public void RaiseHighContrast(bool enabled)
+            {
+                HighContrastChanged?.Invoke(enabled);
             }
         }
 
@@ -151,6 +211,46 @@ namespace Game.Tests.EditMode
             public bool TrySetVoiceChatEnabled(bool enabled, out AudioSettingsError error)
             {
                 if (!Current.TrySetVoiceChatEnabled(enabled, out error))
+                {
+                    return false;
+                }
+
+                Changed?.Invoke(Current);
+                return true;
+            }
+        }
+
+        private sealed class FakeAccessibilitySettings : IAccessibilitySettings
+        {
+            public AccessibilitySettingsState Current { get; } = new AccessibilitySettingsState();
+
+            public event Action<AccessibilitySettingsState> Changed;
+
+            public bool TrySetUiScale(int percent, out AccessibilitySettingsError error)
+            {
+                if (!Current.TrySetUiScale(percent, out error))
+                {
+                    return false;
+                }
+
+                Changed?.Invoke(Current);
+                return true;
+            }
+
+            public bool TrySetTextScale(int percent, out AccessibilitySettingsError error)
+            {
+                if (!Current.TrySetTextScale(percent, out error))
+                {
+                    return false;
+                }
+
+                Changed?.Invoke(Current);
+                return true;
+            }
+
+            public bool TrySetHighContrastEnabled(bool enabled, out AccessibilitySettingsError error)
+            {
+                if (!Current.TrySetHighContrastEnabled(enabled, out error))
                 {
                     return false;
                 }

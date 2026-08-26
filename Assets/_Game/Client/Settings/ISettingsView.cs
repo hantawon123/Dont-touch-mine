@@ -13,8 +13,16 @@ namespace Game.Client.Settings
 
         event Action<bool> VoiceChatEnabledChanged;
 
+        event Action<int> UiScaleChanged;
+
+        event Action<int> TextScaleChanged;
+
+        event Action<bool> HighContrastChanged;
+
         void SetActiveTab(SettingsTab tab);
 
         void SetAudioSettings(AudioSettingsState settings);
+
+        void SetAccessibilitySettings(AccessibilitySettingsState settings);
     }
 }
