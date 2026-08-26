@@ -24,6 +24,7 @@ namespace Game.Network.Players
                  "They must not run on a copy of someone else's character.")]
         private UnityEngine.Behaviour[] _ownerOnly = Array.Empty<UnityEngine.Behaviour>();
 
+
         /// <summary>
         /// Seat number, handed out by the spawner in join order. Replicated
         /// because presentation on every peer orders the room by it, and only
@@ -31,6 +32,23 @@ namespace Game.Network.Players
         /// </summary>
         [Networked]
         public int Seat { get; set; }
+
+        /// <summary>
+        /// What the owner asked to be called. Replicated because every peer
+        /// shows the room's roster, and only the authority saw the name its
+        /// owner presented when joining.
+        /// </summary>
+        /// <remarks>
+        /// Display only. Code identifies a player by
+        /// <see cref="PlayerRegistry.IdOf"/>, never by this: two people may pick
+        /// the same name, and a name may change.
+        /// <para>
+        /// Replicated state rather than a message, so a peer that joins later is
+        /// told every existing name without anyone having to resend them.
+        /// </para>
+        /// </remarks>
+        [Networked]
+        public NetworkString<_32> Nickname { get; set; }
 
         /// <summary>
         /// Whether the owner holds authority over the room. Replicated rather
@@ -80,15 +98,41 @@ namespace Game.Network.Players
 
         private void SetOwnerOnlyEnabled(bool enabled)
         {
+            var missing = 0;
+
             for (var i = 0; i < _ownerOnly.Length; i++)
             {
                 var behaviour = _ownerOnly[i];
 
                 // Unity's equality covers a slot left empty in the inspector.
-                if (behaviour != null)
+                if (behaviour == null)
                 {
-                    behaviour.enabled = enabled;
+                    missing++;
+                    continue;
                 }
+
+                behaviour.enabled = enabled;
+            }
+
+            // An empty slot used to be skipped in silence, which is the worst
+            // possible outcome: the behaviour it was meant to name keeps running
+            // on every copy of the character, so a peer drives someone else's
+            // body and nothing says so.
+            if (missing > 0)
+            {
+                Debug.LogError(
+                    $"[Avatar] {missing} of {_ownerOnly.Length} owner-only slots on " +
+                    $"'{name}' are empty, so those behaviours run on every peer. " +
+                    "Re-assign them on the NetworkedPlayer prefab.",
+                    this);
+            }
+
+            if (_ownerOnly.Length == 0)
+            {
+                Debug.LogWarning(
+                    $"[Avatar] '{name}' lists no owner-only behaviours. Local " +
+                    "input and camera components will run on remote copies too.",
+                    this);
             }
         }
     }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Fusion;
+using Game.Core.Lobby;
 using UnityEngine;
 
 namespace Game.Network.Players
@@ -84,13 +85,22 @@ namespace Game.Network.Players
                 return;
             }
 
-            if (runner.Spawn(prefab) == null)
+            var session = runner.Spawn(prefab);
+
+            if (session == null)
             {
                 Debug.LogError("[Spawn] Could not spawn the match session object.");
+                return;
             }
+
+            // Belongs to the room, not to a scene. Fusion in single-peer mode
+            // leaves a spawned object in whichever scene was active, so loading
+            // the match scene would destroy the room's record of the match along
+            // with its confirmed line-up.
+            runner.MakeDontDestroyOnLoad(session.gameObject);
         }
 
-        public void Spawn(NetworkRunner runner, PlayerRef player)
+        public void Spawn(NetworkRunner runner, PlayerRef player, string nickname = null)
         {
             if (runner == null || !runner.IsServer)
             {
@@ -124,7 +134,7 @@ namespace Game.Network.Players
                 pose.position,
                 pose.rotation,
                 player,
-                (_, spawned) => Describe(spawned, seat, isHost));
+                (_, spawned) => Describe(spawned, seat, isHost, nickname));
 
             if (avatar == null)
             {
@@ -138,6 +148,13 @@ namespace Game.Network.Players
             // Fusion's own lookup, so anything else that needs this player's
             // character finds it without a second table to keep in step.
             runner.SetPlayerObject(player, avatar);
+
+            // A character belongs to the room, which outlives any one scene.
+            // Fusion in single-peer mode leaves spawned objects in whichever
+            // scene was active, so without this the match scene load destroys
+            // everyone as it replaces the lobby scene. This is the same call
+            // Fusion makes for objects it is told to keep.
+            runner.MakeDontDestroyOnLoad(avatar.gameObject);
 
             Debug.Log($"[Spawn] {player} took seat {seat} at {pose.position}.");
         }
@@ -163,6 +180,86 @@ namespace Game.Network.Players
         }
 
         /// <summary>
+        /// Puts every seated character back onto a spawn point. Called after a
+        /// networked scene load, because the points the characters were placed
+        /// on belonged to the scene that has just gone away.
+        /// </summary>
+        /// <remarks>
+        /// Authority only, for two reasons: it is the peer that holds the
+        /// seating, and it is the peer whose transform replicates. Everyone else
+        /// receives the move.
+        /// <para>
+        /// Positions are picked by seat, exactly as on the first spawn, so the
+        /// two can never disagree about where a seat stands. Lining spawn points
+        /// up with <c>playerIndex</c> instead is the match runtime's job: it owns
+        /// the positions array the match rules read, and seats may have gaps.
+        /// </para>
+        /// </remarks>
+        public void RepositionSeated(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsServer)
+            {
+                return;
+            }
+
+            var moved = 0;
+            var seatsFound = 0;
+            var avatarsFound = 0;
+
+            // Seats can have gaps, so every seat is asked rather than counting
+            // players and walking that far.
+            for (var seat = 0; seat < RoomSettings.MaxPlayerCount; seat++)
+            {
+                if (!_players.TryGetPlayer(seat, out var player))
+                {
+                    continue;
+                }
+
+                seatsFound++;
+                var avatar = runner.GetPlayerObject(player);
+
+                if (avatar == null)
+                {
+                    continue;
+                }
+
+                avatarsFound++;
+
+                var pose = PoseFor(seat);
+                var networkTransform = avatar.GetComponent<NetworkTransform>();
+
+                if (networkTransform == null)
+                {
+                    // Without one the move would not replicate at all, so the
+                    // character is left where it is rather than moved only here.
+                    Debug.LogWarning(
+                        $"[Spawn] '{avatar.name}' has no NetworkTransform, so it " +
+                        "cannot be moved into the loaded scene.",
+                        avatar);
+
+                    continue;
+                }
+
+                // Teleport rather than assignment: remote peers interpolate
+                // between the last two states, and a plain move would show the
+                // character sliding across the map from where the lobby put it.
+                networkTransform.Teleport(pose.position, pose.rotation);
+                moved++;
+
+                Debug.Log($"[Spawn] Seat {seat} placed at {pose.position}.");
+            }
+
+            // Always reported, and reported in parts. Which of the three numbers
+            // is zero says where it stopped: no seats means the registry was
+            // cleared, seats without avatars means the characters did not survive
+            // the scene change, and avatars without moves means the prefab has no
+            // NetworkTransform.
+            Debug.Log(
+                $"[Spawn] Reposition: {_spawnPoses.Count} poses, {seatsFound} seats, " +
+                $"{avatarsFound} avatars, {moved} moved.");
+        }
+
+        /// <summary>
         /// Forgets everyone. The session ending takes the characters with it, so
         /// only the seating has to be cleared for the next room.
         /// </summary>
@@ -172,7 +269,8 @@ namespace Game.Network.Players
             _spawnPoses = Array.Empty<Pose>();
         }
 
-        private static void Describe(NetworkObject spawned, int seat, bool isHost)
+        private static void Describe(
+            NetworkObject spawned, int seat, bool isHost, string nickname)
         {
             var avatar = spawned.GetComponent<PlayerAvatar>();
 
@@ -186,6 +284,7 @@ namespace Game.Network.Players
 
             avatar.Seat = seat;
             avatar.IsHost = isHost;
+            avatar.Nickname = nickname ?? string.Empty;
         }
 
         private Pose PoseFor(int seat)

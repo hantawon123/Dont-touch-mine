@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Maps;
 using Game.Core.Rooms;
 using Game.Network.Players;
 using Game.Network.Session;
+using R3;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -182,8 +184,11 @@ namespace Game.Bootstrap
     /// </summary>
     public sealed class SessionAutoConnect : IAsyncStartable
     {
-        private const int ListPollIntervalMs = 200;
-        private const int ListPollAttempts = 50;
+        /// <summary>
+        /// How long to wait for a room listing before giving up. A timer, not a
+        /// frame count, so it holds even if the player loop stalls.
+        /// </summary>
+        private const int ListWaitMs = 10_000;
 
         private readonly RoomUiCommands _commands;
         private readonly RoomBrowserSystem _state;
@@ -191,25 +196,34 @@ namespace Game.Bootstrap
         private readonly PlayerSpawner _spawner;
         private readonly SessionStartPlan _plan;
 
+        /// <summary>
+        /// Handed to the overlay so a tester can rename themselves. The profile
+        /// screen has no way into it yet, and without a rename the network only
+        /// ever carries the first-run default.
+        /// </summary>
+        private readonly PlayerProfile _profile;
+
         public SessionAutoConnect(
             RoomUiCommands commands,
             RoomBrowserSystem state,
             NetworkRunnerService network,
             PlayerSpawner spawner,
-            SessionStartPlan plan)
+            SessionStartPlan plan,
+            PlayerProfile profile)
         {
             _commands = commands;
             _state = state;
             _network = network;
             _spawner = spawner;
             _plan = plan;
+            _profile = profile;
         }
 
         public async UniTask StartAsync(CancellationToken cancellation)
         {
             // A built player has no visible console, so session state has to be
             // on screen for anyone testing with two instances.
-            SessionDebugOverlay.Attach(_network, _commands, _state);
+            SessionDebugOverlay.Attach(_network, _commands, _state, _profile);
 
             // Handed over before connecting: the host spawns the moment the
             // session starts, and a character placed before this arrives would
@@ -253,15 +267,26 @@ namespace Game.Bootstrap
 
             var rooms = _state.Rooms;
 
-            for (var i = 0; i < ListPollAttempts && rooms.CurrentValue.Count == 0; i++)
-            {
-                await UniTask.Delay(ListPollIntervalMs, cancellationToken: cancellation);
-            }
-
+            // Waited for by subscription rather than by polling. Polling asked
+            // "is it here yet" on a player-loop delay, and in a virtual player
+            // that delay was seen not to resume: the listing arrived and nothing
+            // ever looked again. Waiting on the value itself continues the moment
+            // it is published, and the timeout below runs on a timer rather than
+            // on the player loop, so neither half depends on that.
             if (rooms.CurrentValue.Count == 0)
             {
-                Debug.LogError("[Bootstrap] No rooms are listed.");
-                return;
+                using var wait = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+                wait.CancelAfter(ListWaitMs);
+
+                try
+                {
+                    await rooms.Where(listing => listing.Count > 0).FirstAsync(wait.Token);
+                }
+                catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
+                {
+                    Debug.LogError("[Bootstrap] No rooms are listed.");
+                    return;
+                }
             }
 
             var target = rooms.CurrentValue[0];
