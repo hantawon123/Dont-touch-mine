@@ -248,10 +248,7 @@ namespace Game.Client.Settings
             panels[SettingsTab.Graphics] = CreateGraphicsPanel(body).gameObject;
             panels[SettingsTab.Audio] = CreateAudioPanel(body).gameObject;
             panels[SettingsTab.Controls] = CreatePlaceholder(body, "Controls", "조작 설정은 준비 중입니다").gameObject;
-            panels[SettingsTab.Accessibility] = CreatePlaceholder(
-                body,
-                "Accessibility",
-                "접근성 설정은 준비 중입니다").gameObject;
+            panels[SettingsTab.Accessibility] = CreateAccessibilityPanel(body).gameObject;
             panels[SettingsTab.Notifications] = CreatePlaceholder(
                 body,
                 "Notifications",
@@ -311,6 +308,16 @@ namespace Game.Client.Settings
             CreateToggleRow(content, "음성 채팅", true);
             CreateSliderRow(content, "음성 채팅 음량", 50);
             CreateSliderRow(content, "마이크 입력 음량", 50);
+            return panel;
+        }
+
+        private RectTransform CreateAccessibilityPanel(RectTransform parent)
+        {
+            var content = CreateScrollPanel(parent, "Accessibility", out var panel);
+            panel.gameObject.SetActive(false);
+            CreateRangeSliderRow(content, "UI 크기", 50);
+            CreateRangeSliderRow(content, "글자 크기", 50);
+            CreateToggleRow(content, "고대비 모드", true);
             return panel;
         }
 
@@ -557,6 +564,44 @@ namespace Game.Client.Settings
 
             var slider = CreateBrightnessSlider(sliderRect, defaultValue);
             slider.onValueChanged.AddListener(value => percent.text = $"{Mathf.RoundToInt(value)}%");
+        }
+
+        private void CreateRangeSliderRow(RectTransform parent, string label, int defaultValue)
+        {
+            var row = CreateSettingRow(parent);
+            AddRowLabel(row, label);
+
+            var control = CreateRect("Control", row);
+            var controlLayout = control.gameObject.AddComponent<LayoutElement>();
+            controlLayout.preferredWidth = 420f;
+            controlLayout.minWidth = 320f;
+            controlLayout.preferredHeight = 48f;
+
+            var layout = control.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 12f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            AddRangeHint(control, "작게", TextAlignmentOptions.MidlineLeft);
+            var sliderRect = CreateRect("Slider", control);
+            var sliderLayout = sliderRect.gameObject.AddComponent<LayoutElement>();
+            sliderLayout.flexibleWidth = 1f;
+            sliderLayout.minWidth = 180f;
+            sliderLayout.preferredHeight = 40f;
+            CreateBrightnessSlider(sliderRect, defaultValue);
+            AddRangeHint(control, "크게", TextAlignmentOptions.MidlineRight);
+        }
+
+        private void AddRangeHint(RectTransform parent, string text, TextAlignmentOptions alignment)
+        {
+            var hintRect = CreateRect(text, parent);
+            var layout = hintRect.gameObject.AddComponent<LayoutElement>();
+            layout.preferredWidth = 56f;
+            layout.minWidth = 48f;
+            AddText(hintRect, text, 18f, FontStyles.Normal, alignment);
         }
 
         private Slider CreateBrightnessSlider(RectTransform parent, int defaultValue)
