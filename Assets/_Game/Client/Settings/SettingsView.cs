@@ -33,14 +33,23 @@ namespace Game.Client.Settings
         private TMP_FontAsset fontAsset;
 
         private readonly List<Button> buttons = new List<Button>();
+        private readonly List<Slider> sliders = new List<Slider>();
         private readonly Dictionary<SettingsTab, TabButton> tabButtons = new Dictionary<SettingsTab, TabButton>();
         private readonly Dictionary<SettingsTab, GameObject> panels = new Dictionary<SettingsTab, GameObject>();
+        private readonly Dictionary<AudioChannel, AudioSliderBinding> audioSliders =
+            new Dictionary<AudioChannel, AudioSliderBinding>();
         private TMP_FontAsset koreanFont;
         private SettingsTab activeTab = SettingsTab.Graphics;
+        private ToggleState voiceChatToggle;
+        private bool bindingAudio;
 
         public event Action BackRequested;
 
         public event Action<SettingsTab> TabSelected;
+
+        public event Action<AudioChannel, int> AudioVolumeChanged;
+
+        public event Action<bool> VoiceChatEnabledChanged;
 
         private void Awake()
         {
@@ -56,6 +65,14 @@ namespace Game.Client.Settings
                 if (buttons[index] != null)
                 {
                     buttons[index].onClick.RemoveAllListeners();
+                }
+            }
+
+            for (var index = 0; index < sliders.Count; index++)
+            {
+                if (sliders[index] != null)
+                {
+                    sliders[index].onValueChanged.RemoveAllListeners();
                 }
             }
         }
@@ -78,6 +95,29 @@ namespace Game.Client.Settings
                 pair.Value.Label.fontStyle = selected ? FontStyles.Bold : FontStyles.Normal;
                 pair.Value.Underline.SetActive(selected);
             }
+        }
+
+        public void SetAudioSettings(AudioSettingsState settings)
+        {
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
+
+            bindingAudio = true;
+            SetAudioSlider(AudioChannel.Master, settings.MasterVolume);
+            SetAudioSlider(AudioChannel.Bgm, settings.BgmVolume);
+            SetAudioSlider(AudioChannel.Sfx, settings.SfxVolume);
+            SetAudioSlider(AudioChannel.Ui, settings.UiVolume);
+            SetAudioSlider(AudioChannel.Voice, settings.VoiceVolume);
+            SetAudioSlider(AudioChannel.Mic, settings.MicVolume);
+            if (voiceChatToggle != null)
+            {
+                voiceChatToggle.IsOn = settings.VoiceChatEnabled;
+                BindToggle(voiceChatToggle);
+            }
+
+            bindingAudio = false;
         }
 
         private void EnsureEventSystem()
@@ -289,7 +329,7 @@ namespace Game.Client.Settings
                 "안티앨리어싱",
                 new[] { "끄기", "FXAA", "SMAA", "TAA" },
                 3);
-            CreateSliderRow(content, "밝기 / 감마", 50);
+            CreateSliderRow(content, "밝기 / 감마", 50, out _);
             return panel;
         }
 
@@ -297,13 +337,23 @@ namespace Game.Client.Settings
         {
             var content = CreateScrollPanel(parent, "Audio", out var panel);
             panel.gameObject.SetActive(false);
-            CreateSliderRow(content, "전체 음량", 50);
-            CreateSliderRow(content, "배경음악 음량", 50);
-            CreateSliderRow(content, "효과음 음량", 50);
-            CreateSliderRow(content, "UI 음량", 50);
-            CreateToggleRow(content, "음성 채팅", true);
-            CreateSliderRow(content, "음성 채팅 음량", 50);
-            CreateSliderRow(content, "마이크 입력 음량", 50);
+            CreateAudioSlider(content, "전체 음량", AudioChannel.Master);
+            CreateAudioSlider(content, "배경음악 음량", AudioChannel.Bgm);
+            CreateAudioSlider(content, "효과음 음량", AudioChannel.Sfx);
+            CreateAudioSlider(content, "UI 음량", AudioChannel.Ui);
+            voiceChatToggle = CreateToggleRow(
+                content,
+                "음성 채팅",
+                true,
+                enabled =>
+                {
+                    if (!bindingAudio)
+                    {
+                        VoiceChatEnabledChanged?.Invoke(enabled);
+                    }
+                });
+            CreateAudioSlider(content, "음성 채팅 음량", AudioChannel.Voice);
+            CreateAudioSlider(content, "마이크 입력 음량", AudioChannel.Mic);
             return panel;
         }
 
@@ -432,7 +482,11 @@ namespace Game.Client.Settings
             });
         }
 
-        private void CreateToggleRow(RectTransform parent, string label, bool defaultOn)
+        private ToggleState CreateToggleRow(
+            RectTransform parent,
+            string label,
+            bool defaultOn,
+            Action<bool> onChanged = null)
         {
             var row = CreateSettingRow(parent);
             AddRowLabel(row, label);
@@ -459,13 +513,16 @@ namespace Game.Client.Settings
             {
                 state.IsOn = true;
                 BindToggle(state);
+                onChanged?.Invoke(true);
             });
             state.OffHalf = CreateToggleHalf(control, "OFF", () =>
             {
                 state.IsOn = false;
                 BindToggle(state);
+                onChanged?.Invoke(false);
             });
             BindToggle(state);
+            return state;
         }
 
         private ToggleHalf CreateToggleHalf(RectTransform parent, string label, Action onClicked)
@@ -527,7 +584,47 @@ namespace Game.Client.Settings
             CreateTextButton(rect, label, label, 24f, FontStyles.Bold, 48f, onClicked, stretch: true);
         }
 
-        private void CreateSliderRow(RectTransform parent, string label, int defaultValue)
+        private void CreateAudioSlider(RectTransform parent, string label, AudioChannel channel)
+        {
+            var slider = CreateSliderRow(
+                parent,
+                label,
+                AudioSettingsState.DefaultVolume,
+                out var percentLabel,
+                percent =>
+                {
+                    if (!bindingAudio)
+                    {
+                        AudioVolumeChanged?.Invoke(channel, percent);
+                    }
+                });
+            audioSliders[channel] = new AudioSliderBinding
+            {
+                Slider = slider,
+                Percent = percentLabel
+            };
+        }
+
+        private void SetAudioSlider(AudioChannel channel, int percent)
+        {
+            if (!audioSliders.TryGetValue(channel, out var binding) || binding.Slider == null)
+            {
+                return;
+            }
+
+            binding.Slider.SetValueWithoutNotify(percent);
+            if (binding.Percent != null)
+            {
+                binding.Percent.text = $"{percent}%";
+            }
+        }
+
+        private Slider CreateSliderRow(
+            RectTransform parent,
+            string label,
+            int defaultValue,
+            out TMP_Text percentLabel,
+            Action<int> onChanged = null)
         {
             var row = CreateSettingRow(parent);
             AddRowLabel(row, label);
@@ -556,7 +653,7 @@ namespace Game.Client.Settings
             var percentLayout = percentRect.gameObject.AddComponent<LayoutElement>();
             percentLayout.preferredWidth = 72f;
             percentLayout.minWidth = 72f;
-            var percent = AddText(
+            percentLabel = AddText(
                 percentRect,
                 $"{defaultValue}%",
                 20f,
@@ -564,7 +661,15 @@ namespace Game.Client.Settings
                 TextAlignmentOptions.MidlineRight);
 
             var slider = CreatePercentSlider(sliderRect, defaultValue);
-            slider.onValueChanged.AddListener(value => percent.text = $"{Mathf.RoundToInt(value)}%");
+            var percent = percentLabel;
+            slider.onValueChanged.AddListener(value =>
+            {
+                var rounded = Mathf.RoundToInt(value);
+                percent.text = $"{rounded}%";
+                onChanged?.Invoke(rounded);
+            });
+            sliders.Add(slider);
+            return slider;
         }
 
         private void CreateDecimalSliderRow(RectTransform parent, string label, float defaultValue)
@@ -605,6 +710,7 @@ namespace Game.Client.Settings
 
             var slider = CreatePercentSlider(sliderRect, defaultValue, 0f, 1f, false);
             slider.onValueChanged.AddListener(value => valueLabel.text = value.ToString("0.0"));
+            sliders.Add(slider);
         }
 
         private void CreateActionRow(RectTransform parent, string label)
@@ -860,6 +966,12 @@ namespace Game.Client.Settings
             rect.anchorMin = anchorMin;
             rect.anchorMax = anchorMax;
             rect.pivot = pivot;
+        }
+
+        private sealed class AudioSliderBinding
+        {
+            public Slider Slider;
+            public TMP_Text Percent;
         }
 
         private sealed class TabButton

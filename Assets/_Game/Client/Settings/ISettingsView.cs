@@ -9,6 +9,12 @@ namespace Game.Client.Settings
 
         event Action<SettingsTab> TabSelected;
 
+        event Action<AudioChannel, int> AudioVolumeChanged;
+
+        event Action<bool> VoiceChatEnabledChanged;
+
         void SetActiveTab(SettingsTab tab);
+
+        void SetAudioSettings(AudioSettingsState settings);
     }
 }
