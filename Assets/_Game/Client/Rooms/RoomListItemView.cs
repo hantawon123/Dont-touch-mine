@@ -20,6 +20,9 @@ namespace Game.Client.Rooms
         private TMP_Text titleText;
 
         [SerializeField]
+        private TMP_Text hostNicknameText;
+
+        [SerializeField]
         private TMP_Text mapText;
 
         [SerializeField]
@@ -55,6 +58,9 @@ namespace Game.Client.Rooms
         {
             roomId = room.RoomId;
             titleText.text = room.Settings.Title;
+            hostNicknameText.text = string.IsNullOrEmpty(room.HostNickname)
+                ? string.Empty
+                : $"{room.HostNickname}의 방";
             mapText.text = room.Settings.MapId;
             playerCountText.text = $"{room.CurrentPlayerCount}/{room.Settings.MaxPlayers}";
             lockIcon.SetActive(room.Settings.IsLocked);
