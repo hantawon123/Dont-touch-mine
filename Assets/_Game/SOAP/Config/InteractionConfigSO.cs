@@ -17,9 +17,22 @@ namespace Game.SOAP.Config
         [SerializeField, Range(0f, 1f)]
         private float throwUpwardBias = 0.15f;
 
+        [Header("배치 모드")]
+        [SerializeField, Min(1f)]
+        private float placementRotateSpeedDegrees = 120f;
+
+        [SerializeField, Min(0.01f)]
+        private float placementHeightStep = 0.1f;
+
+        [SerializeField, Min(0f)]
+        private float placementMaxHeightOffset = 1f;
+
         public float InteractionDistance => interactionDistance;
         public float AimedHighlightIntensity => aimedHighlightIntensity;
         public float ThrowSpeed => throwSpeed;
         public float ThrowUpwardBias => throwUpwardBias;
+        public float PlacementRotateSpeedDegrees => placementRotateSpeedDegrees;
+        public float PlacementHeightStep => placementHeightStep;
+        public float PlacementMaxHeightOffset => placementMaxHeightOffset;
     }
 }
