@@ -104,6 +104,14 @@ namespace Game.Client.Interactions
             dropped.OnDropped();
         }
 
+        // 임시 크로스헤어: HUD 파트에서 정식 크로스헤어가 나오기 전까지 화면 중앙을 표시한다.
+        private void OnGUI()
+        {
+            var center = new Rect(Screen.width * 0.5f - 4f, Screen.height * 0.5f - 12f, 20f, 20f);
+            GUI.Label(center, aimedItem != null ? "<color=yellow><b>+</b></color>" : "+",
+                new GUIStyle(GUI.skin.label) { fontSize = 20, richText = true });
+        }
+
         private void UpdateAim()
         {
             var newAimedItem = FindAimedItem();
