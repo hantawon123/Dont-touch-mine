@@ -14,12 +14,15 @@ namespace Game.Client.Home
         void OpenHome();
 
         void OpenRoomBrowser();
+
+        void OpenLobby();
     }
 
     public sealed class UnityHomeApplicationHost : IHomeApplicationHost
     {
         public const string HomeSceneName = "Home";
         public const string RoomBrowserSceneName = "Room";
+        public const string LobbySceneName = "Lobby";
 
         public void Quit()
         {
@@ -38,6 +41,11 @@ namespace Game.Client.Home
         public void OpenRoomBrowser()
         {
             SceneManager.LoadScene(RoomBrowserSceneName);
+        }
+
+        public void OpenLobby()
+        {
+            SceneManager.LoadScene(LobbySceneName);
         }
     }
 

@@ -83,6 +83,13 @@ namespace Game.Tests.EditMode
 
             public int RoomBrowserOpenCount { get; private set; }
 
+            public int LobbyOpenCount { get; private set; }
+
+            public void OpenLobby()
+            {
+                LobbyOpenCount++;
+            }
+
             public void Quit()
             {
             }
