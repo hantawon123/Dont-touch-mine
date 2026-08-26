@@ -54,7 +54,6 @@ namespace Game.Editor
             var chat = GetOrCreateSlot(root, "ChatRoot", new Color(0.15f, 0.16f, 0.2f, 0.75f));
             var voice = GetOrCreateSlot(root, "VoiceButton", new Color(0.25f, 0.25f, 0.28f, 0.9f));
 
-            // Design: Scene#2 Lobby
             Place(settings, Anchor.TopLeft, new Vector2(24f, -24f), new Vector2(72f, 72f));
             Place(playSettings, Anchor.TopLeft, new Vector2(112f, -24f), new Vector2(160f, 72f));
             Place(start, Anchor.TopCenter, new Vector2(0f, -24f), new Vector2(220f, 72f));
@@ -73,27 +72,136 @@ namespace Game.Editor
             SetLabel(chat, "채팅");
             SetLabel(voice, "MIC");
 
-            var so = new SerializedObject(hud);
-            so.FindProperty("settingsButton").objectReferenceValue = settings;
-            so.FindProperty("playSettingsButton").objectReferenceValue = playSettings;
-            so.FindProperty("startButton").objectReferenceValue = start;
-            so.FindProperty("leaveButton").objectReferenceValue = leave;
-            so.FindProperty("keyGuideButton").objectReferenceValue = keyGuide;
-            so.FindProperty("playerListRoot").objectReferenceValue = playerList;
-            so.FindProperty("chatRoot").objectReferenceValue = chat;
-            so.FindProperty("voiceButton").objectReferenceValue = voice;
-            so.ApplyModifiedPropertiesWithoutUndo();
+            EnsureButton(keyGuide.gameObject);
+
+            var keyGuideView = hud.GetComponent<KeyGuideView>();
+            if (keyGuideView == null)
+            {
+                keyGuideView = Undo.AddComponent<KeyGuideView>(hud.gameObject);
+            }
+
+            var panel = EnsureKeyGuidePanel(root);
+            var closeButton = panel.Find("CloseButton") as RectTransform;
+            var body = panel.Find("BodyText");
+            EnsureButton(closeButton.gameObject);
+
+            var hudSo = new SerializedObject(hud);
+            hudSo.FindProperty("settingsButton").objectReferenceValue = settings;
+            hudSo.FindProperty("playSettingsButton").objectReferenceValue = playSettings;
+            hudSo.FindProperty("startButton").objectReferenceValue = start;
+            hudSo.FindProperty("leaveButton").objectReferenceValue = leave;
+            hudSo.FindProperty("keyGuideButton").objectReferenceValue = keyGuide;
+            hudSo.FindProperty("playerListRoot").objectReferenceValue = playerList;
+            hudSo.FindProperty("chatRoot").objectReferenceValue = chat;
+            hudSo.FindProperty("voiceButton").objectReferenceValue = voice;
+            hudSo.ApplyModifiedPropertiesWithoutUndo();
+
+            var keyGuideSo = new SerializedObject(keyGuideView);
+            keyGuideSo.FindProperty("openButton").objectReferenceValue =
+                keyGuide.GetComponent<Button>();
+            keyGuideSo.FindProperty("closeButton").objectReferenceValue =
+                closeButton.GetComponent<Button>();
+            keyGuideSo.FindProperty("panel").objectReferenceValue = panel.gameObject;
+            keyGuideSo.FindProperty("bodyText").objectReferenceValue =
+                body.GetComponent<Text>();
+            keyGuideSo.ApplyModifiedPropertiesWithoutUndo();
 
             var scopeSo = new SerializedObject(scope);
             scopeSo.FindProperty("hudView").objectReferenceValue = hud;
+            scopeSo.FindProperty("keyGuideView").objectReferenceValue = keyGuideView;
             scopeSo.ApplyModifiedPropertiesWithoutUndo();
+
+            panel.gameObject.SetActive(false);
 
             EditorSceneManager.MarkSceneDirty(scene);
             Selection.activeGameObject = hud.gameObject;
             EditorUtility.DisplayDialog(
                 "Lobby HUD",
-                "디자인 기준으로 HUD 자리를 배치하고 연결했습니다.\n씬을 저장하세요 (Ctrl+S).",
+                "HUD 자리와 키 세팅 가이드 패널을 배치·연결했습니다.\n씬을 저장하세요 (Ctrl+S).",
                 "OK");
+        }
+
+        private static RectTransform EnsureKeyGuidePanel(RectTransform root)
+        {
+            var existing = root.Find("KeyGuidePanel") as RectTransform;
+            if (existing != null)
+            {
+                EnsureKeyGuidePanelChildren(existing);
+                Place(existing, Anchor.Center, Vector2.zero, new Vector2(560f, 420f));
+                return existing;
+            }
+
+            var panel = GetOrCreateSlot(root, "KeyGuidePanel", new Color(0.12f, 0.13f, 0.18f, 0.96f));
+            Place(panel, Anchor.Center, Vector2.zero, new Vector2(560f, 420f));
+            EnsureKeyGuidePanelChildren(panel);
+            SetLabel(panel, string.Empty);
+            return panel;
+        }
+
+        private static void EnsureKeyGuidePanelChildren(RectTransform panel)
+        {
+            var title = panel.Find("Title");
+            if (title == null)
+            {
+                var titleGo = CreateTextChild(panel, "Title", "조작키 목록", 28, TextAnchor.UpperCenter);
+                var titleRect = titleGo.GetComponent<RectTransform>();
+                titleRect.anchorMin = new Vector2(0f, 1f);
+                titleRect.anchorMax = new Vector2(1f, 1f);
+                titleRect.pivot = new Vector2(0.5f, 1f);
+                titleRect.sizeDelta = new Vector2(-40f, 48f);
+                titleRect.anchoredPosition = new Vector2(0f, -20f);
+            }
+
+            var body = panel.Find("BodyText");
+            if (body == null)
+            {
+                var bodyGo = CreateTextChild(panel, "BodyText", string.Empty, 24, TextAnchor.UpperLeft);
+                var bodyRect = bodyGo.GetComponent<RectTransform>();
+                bodyRect.anchorMin = new Vector2(0f, 0f);
+                bodyRect.anchorMax = new Vector2(1f, 1f);
+                bodyRect.offsetMin = new Vector2(28f, 80f);
+                bodyRect.offsetMax = new Vector2(-28f, -72f);
+                var bodyText = bodyGo.GetComponent<Text>();
+                bodyText.alignment = TextAnchor.UpperLeft;
+                bodyText.horizontalOverflow = HorizontalWrapMode.Wrap;
+                bodyText.verticalOverflow = VerticalWrapMode.Overflow;
+            }
+
+            var close = panel.Find("CloseButton") as RectTransform;
+            if (close == null)
+            {
+                close = GetOrCreateSlot(panel, "CloseButton", new Color(0.35f, 0.35f, 0.4f, 1f));
+                Place(close, Anchor.BottomCenter, new Vector2(0f, 24f), new Vector2(160f, 48f));
+                SetLabel(close, "닫기");
+            }
+        }
+
+        private static GameObject CreateTextChild(
+            Transform parent,
+            string name,
+            string content,
+            int fontSize,
+            TextAnchor alignment)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            Undo.RegisterCreatedObjectUndo(go, $"Create {name}");
+            go.transform.SetParent(parent, false);
+            var text = go.GetComponent<Text>();
+            text.text = content;
+            text.fontSize = fontSize;
+            text.alignment = alignment;
+            text.color = Color.white;
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
+                ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+            return go;
+        }
+
+        private static void EnsureButton(GameObject go)
+        {
+            if (go.GetComponent<Button>() == null)
+            {
+                Undo.AddComponent<Button>(go);
+            }
         }
 
         private static GameObject CreateCanvas(Transform parent)
@@ -192,7 +300,7 @@ namespace Game.Editor
 
         private static void SetLabel(RectTransform slot, string label)
         {
-            var text = slot.GetComponentInChildren<Text>(true);
+            var text = slot.Find("Label")?.GetComponent<Text>();
             if (text != null)
             {
                 text.text = label;
@@ -206,7 +314,9 @@ namespace Game.Editor
             TopRight,
             MiddleLeft,
             BottomLeft,
-            BottomRight
+            BottomRight,
+            Center,
+            BottomCenter
         }
 
         private static void Place(RectTransform rect, Anchor anchor, Vector2 anchoredPos, Vector2 size)
@@ -242,6 +352,16 @@ namespace Game.Editor
                     rect.anchorMin = new Vector2(1f, 0f);
                     rect.anchorMax = new Vector2(1f, 0f);
                     rect.pivot = new Vector2(1f, 0f);
+                    break;
+                case Anchor.Center:
+                    rect.anchorMin = new Vector2(0.5f, 0.5f);
+                    rect.anchorMax = new Vector2(0.5f, 0.5f);
+                    rect.pivot = new Vector2(0.5f, 0.5f);
+                    break;
+                case Anchor.BottomCenter:
+                    rect.anchorMin = new Vector2(0.5f, 0f);
+                    rect.anchorMax = new Vector2(0.5f, 0f);
+                    rect.pivot = new Vector2(0.5f, 0f);
                     break;
             }
 
