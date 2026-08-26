@@ -67,14 +67,14 @@ namespace Game.Network.Players
             _sink.SetLocalPlayer(null);
         }
 
-        private void Publish(NetworkRunner runner)
+        /// <summary>
+        /// Fills the given list with everyone whose character exists, ordered by
+        /// seat. Used both to report the room and to freeze the line-up when a
+        /// match starts, so the two can never disagree.
+        /// </summary>
+        public void Capture(List<RoomParticipant> into)
         {
-            if (_sink == null)
-            {
-                return;
-            }
-
-            _buffer.Clear();
+            into.Clear();
 
             for (var index = 0; index < _avatars.Count; index++)
             {
@@ -86,7 +86,7 @@ namespace Game.Network.Players
                     continue;
                 }
 
-                _buffer.Add(new RoomParticipant(
+                into.Add(new RoomParticipant(
                     PlayerRegistry.IdOf(avatar.Owner),
                     avatar.Seat,
                     avatar.IsHost));
@@ -95,8 +95,17 @@ namespace Game.Network.Players
             // Seat order, not arrival order. Characters replicate in whatever
             // order a peer received them, and a room list that reorders itself
             // per screen is confusing.
-            _buffer.Sort(CompareBySeat);
+            into.Sort(CompareBySeat);
+        }
 
+        private void Publish(NetworkRunner runner)
+        {
+            if (_sink == null)
+            {
+                return;
+            }
+
+            Capture(_buffer);
             _sink.SetParticipants(_buffer);
 
             if (runner != null)

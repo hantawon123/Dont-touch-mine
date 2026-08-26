@@ -58,6 +58,38 @@ namespace Game.Network.Players
             }
         }
 
+        /// <summary>
+        /// Creates the objects that belong to the room rather than to a player.
+        /// Called once when the session starts.
+        /// </summary>
+        /// <remarks>
+        /// Only the authority creates them; everyone else receives them through
+        /// replication. Spawned before anyone can ask to start a match, because
+        /// the request travels through the object itself.
+        /// </remarks>
+        public void SpawnRoomObjects(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsServer)
+            {
+                return;
+            }
+
+            var prefab = _prefabs == null ? null : _prefabs.MatchSession;
+
+            if (prefab == null)
+            {
+                Debug.LogError(
+                    "[Spawn] No match session prefab is assigned, so no match can " +
+                    "be started. Set it on the NetworkPrefabs asset.");
+                return;
+            }
+
+            if (runner.Spawn(prefab) == null)
+            {
+                Debug.LogError("[Spawn] Could not spawn the match session object.");
+            }
+        }
+
         public void Spawn(NetworkRunner runner, PlayerRef player)
         {
             if (runner == null || !runner.IsServer)

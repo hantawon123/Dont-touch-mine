@@ -8,6 +8,7 @@ using Fusion.Sockets;
 using Game.Core.Ports;
 using Game.Core.Rooms;
 using Game.Network.Lobby;
+using Game.Network.Match;
 using Game.Network.Players;
 using UnityEngine;
 
@@ -41,6 +42,9 @@ namespace Game.Network.Session
         /// <summary>Where the room's roster is reported.</summary>
         private readonly IRoomParticipantSink _participantSink;
 
+        /// <summary>Where the authority's decision about starting is reported.</summary>
+        private readonly IMatchStartSink _matchStartSink;
+
         private readonly List<RoomSummary> _roomBuffer = new List<RoomSummary>();
 
         private NetworkRunner _runner;
@@ -70,11 +74,13 @@ namespace Game.Network.Session
             IRoomListSink roomListSink,
             IRoomSessionSink sessionSink,
             IRoomParticipantSink participantSink,
+            IMatchStartSink matchStartSink,
             PlayerSpawner spawner)
         {
             _roomListSink = roomListSink;
             _sessionSink = sessionSink;
             _participantSink = participantSink;
+            _matchStartSink = matchStartSink;
             _spawner = spawner;
         }
 
@@ -234,8 +240,26 @@ namespace Game.Network.Session
             Debug.Log(
                 $"[Network] Session '{RoomCode}' started as {request.Mode}. IsServer={IsServer}");
 
+            // The room needs somewhere to record that a match started before
+            // anyone can ask for one, and only the authority may create it.
+            _spawner?.SpawnRoomObjects(_runner);
+
             ReportPlayerCount();
             return SessionStartResult.Success();
+        }
+
+        /// <summary>
+        /// Asks the authority to start a match. Anyone may ask; the authority
+        /// decides and answers only the peer that asked.
+        /// </summary>
+        public void RequestMatchStart()
+        {
+            if (!IsRunning || _browsingLobby || _runnerObject == null)
+            {
+                return;
+            }
+
+            _runnerObject.GetComponent<MatchStarter>()?.RequestStart(_runner);
         }
 
         /// <summary>
@@ -307,7 +331,9 @@ namespace Game.Network.Session
 
             // Sits on the runner so that characters, which Fusion spawns and the
             // container therefore cannot inject, can still reach it.
-            _runnerObject.AddComponent<PlayerRoster>().Bind(_participantSink);
+            var roster = _runnerObject.AddComponent<PlayerRoster>();
+            roster.Bind(_participantSink);
+            _runnerObject.AddComponent<MatchStarter>().Bind(_matchStartSink, roster);
 
             return sceneManager;
         }
@@ -324,6 +350,7 @@ namespace Game.Network.Session
             if (_runnerObject != null)
             {
                 _runnerObject.GetComponent<PlayerRoster>()?.Clear();
+                _runnerObject.GetComponent<MatchStarter>()?.Clear();
             }
 
             _runner = null;

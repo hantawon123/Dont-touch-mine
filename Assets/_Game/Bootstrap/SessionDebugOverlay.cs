@@ -97,7 +97,10 @@ namespace Game.Bootstrap
                 };
             }
 
-            var height = BaseHeight + ParticipantCount * LineHeight;
+            var height = BaseHeight
+                         + ParticipantCount * LineHeight
+                         + MatchLineCount * LineHeight
+                         + (CanRequestStart ? ButtonHeight + 4 : 0);
 
             GUI.Box(new Rect(Margin, Margin, Width, height), Describe(), _boxStyle);
 
@@ -119,12 +122,58 @@ namespace Game.Bootstrap
             }
 
             GUI.enabled = true;
+
+            DrawStartButton(button);
+        }
+
+        /// <summary>
+        /// Asks the authority to start a match. Stands in for the host's START
+        /// button until the lobby screen has one.
+        /// </summary>
+        /// <remarks>
+        /// Shown to everyone, not only the host, on purpose. Refusing a request
+        /// is the authority's job, and hiding the button would mean a wrong
+        /// refusal never gets exercised.
+        /// </remarks>
+        private void DrawStartButton(Rect leaveButton)
+        {
+            if (_state == null || _state.IsMatchStarted)
+            {
+                return;
+            }
+
+            var start = new Rect(
+                leaveButton.x,
+                leaveButton.y - ButtonHeight - 4,
+                leaveButton.width,
+                ButtonHeight);
+
+            if (GUI.Button(start, "게임 시작"))
+            {
+                _network.RequestMatchStart();
+            }
         }
 
         private bool InRoom() => _network.IsRunning && !_network.IsBrowsingLobby;
 
         private int ParticipantCount =>
             _state == null ? 0 : _state.Participants.CurrentValue.Count;
+
+        /// <summary>Lines the match status adds: the status itself, plus a refusal.</summary>
+        private int MatchLineCount
+        {
+            get
+            {
+                if (_state == null)
+                {
+                    return 0;
+                }
+
+                return _state.LastStartRefusal.CurrentValue.HasValue ? 2 : 1;
+            }
+        }
+
+        private bool CanRequestStart => _state != null && !_state.IsMatchStarted;
 
         private async UniTaskVoid Leave()
         {
@@ -165,7 +214,38 @@ namespace Game.Bootstrap
                  .Append("Authority ").Append(_network.IsServer ? "host" : "client");
 
             AppendParticipants();
+            AppendMatchStatus();
             return _text.ToString();
+        }
+
+        /// <summary>
+        /// Says whether a match is running and where the local player sits in
+        /// it. The index is the one the match rules use, not a seat number.
+        /// </summary>
+        private void AppendMatchStatus()
+        {
+            if (_state == null)
+            {
+                return;
+            }
+
+            _text.Append('\n').Append("Match     ");
+
+            if (_state.IsMatchStarted)
+            {
+                _text.Append("started, you are #").Append(_state.LocalPlayerIndex);
+            }
+            else
+            {
+                _text.Append("waiting");
+            }
+
+            var refusal = _state.LastStartRefusal.CurrentValue;
+
+            if (refusal.HasValue)
+            {
+                _text.Append('\n').Append("Refused   ").Append(refusal.Value);
+            }
         }
 
         /// <summary>
