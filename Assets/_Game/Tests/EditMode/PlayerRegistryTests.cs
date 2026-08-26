@@ -130,6 +130,24 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Restore_KeepsSnapshotSeatAndRejectsCollisions()
+        {
+            var registry = new PlayerRegistry();
+            var migratedHost = Player(2);
+
+            Assert.That(registry.Restore(migratedHost, 4), Is.True);
+            Assert.That(registry.TryGetSeat(migratedHost, out var seat), Is.True);
+            Assert.That(seat, Is.EqualTo(4));
+            Assert.That(registry.TryGetPlayer(4, out var seated), Is.True);
+            Assert.That(seated, Is.EqualTo(migratedHost));
+
+            Assert.That(registry.Restore(migratedHost, 3), Is.False);
+            Assert.That(registry.Restore(Player(3), 4), Is.False);
+            Assert.That(registry.Restore(Player(4), 6), Is.False);
+            Assert.That(registry.Count, Is.EqualTo(1));
+        }
+
+        [Test]
         public void UnknownSeatOrPlayer_IsReportedNotGuessed()
         {
             var registry = new PlayerRegistry();
