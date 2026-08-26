@@ -1107,6 +1107,11 @@ namespace Game.Network.Session
             }
 
             Debug.LogWarning($"[Network] Disconnected: {reason}");
+            if (_hostMigrationInProgress)
+            {
+                return;
+            }
+
             ReportExit(Translate(reason));
         }
 
@@ -1266,11 +1271,23 @@ namespace Game.Network.Session
                 _exitReported = false;
                 ReportPlayerCount();
 
-                if (!await _runner.PushHostMigrationSnapshot())
+                try
                 {
+                    if (!await _runner.PushHostMigrationSnapshot())
+                    {
+                        Debug.LogWarning(
+                            "[Network] The migrated room resumed, but its first " +
+                            "replacement snapshot could not be pushed.");
+                    }
+                }
+                catch (Exception exception)
+                {
+                    // The room already resumed. A failed follow-up snapshot
+                    // reduces the next migration's freshness but must not close
+                    // this healthy session.
                     Debug.LogWarning(
-                        "[Network] The migrated room resumed, but its first " +
-                        "replacement snapshot could not be pushed.");
+                        $"[Network] Could not push the replacement host " +
+                        $"snapshot: {exception.Message}");
                 }
 
                 Debug.Log(
@@ -1407,6 +1424,7 @@ namespace Game.Network.Session
         private const int MaxSegmentsPerHighlight = 8;
         private const int MaxFramesPerClip = 1024;
         private const int MaxIdLength = 64;
+        private const int MaxWorldObjectsPerFrame = 64;
 
         public static byte[] Serialize(IReadOnlyList<HighlightReplayData> replay)
         {
@@ -1564,7 +1582,7 @@ namespace Game.Network.Session
         private static void WriteFrame(BinaryWriter writer, HighlightReplayFrame frame)
         {
             if (frame.PlayerPoses.Count > RoomSettings.MaxPlayerCount ||
-                frame.WorldObjects.Count > MatchSessionState.MaxReplicatedObjects)
+                frame.WorldObjects.Count > MaxWorldObjectsPerFrame)
             {
                 throw new ArgumentException("Highlight frame capacity was exceeded.");
             }
@@ -1600,7 +1618,7 @@ namespace Game.Network.Session
             }
 
             var objectCount = reader.ReadByte();
-            if (objectCount > MatchSessionState.MaxReplicatedObjects)
+            if (objectCount > MaxWorldObjectsPerFrame)
             {
                 throw new InvalidDataException("Highlight object count is invalid.");
             }
