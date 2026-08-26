@@ -1,52 +1,47 @@
 using System;
-using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Core.Flow;
 using Game.Core.Lobby;
 using Game.Core.Maps;
 using Game.Core.Rooms;
+using R3;
 using UnityEngine;
 using VContainer;
 
 namespace Game.Client.Rooms
 {
     /// <summary>
-    /// Drives room creation and room entry on the browser screen, and stands in
-    /// for the room source until the network supplies one.
+    /// Drives room creation and room entry on the browser screen.
     /// </summary>
     /// <remarks>
-    /// Publishes through <see cref="RoomBrowserSystem"/> rather than straight to
-    /// the view, so <see cref="RoomBrowserPresenter"/> stays the only thing that
-    /// renders the list. The filled-in request also leaves through
-    /// <see cref="RoomCreateRequested"/> for the layer that will open the room
-    /// for real and move the host into its lobby, and a picked room leaves
-    /// through <see cref="RoomJoinRequested"/> for the layer that will enter it.
+    /// The list is read, never written: the session is the only thing that
+    /// publishes rooms, and <see cref="RoomBrowserPresenter"/> is the only thing
+    /// that renders them. A filled-in request leaves through
+    /// <see cref="RoomCreateRequested"/> and a picked room through
+    /// <see cref="RoomJoinRequested"/>, for the layer that talks to the session.
+    /// <para>
+    /// Entering is answered rather than assumed. The screen asks, then waits for
+    /// the session to report a room code or a failure, because the authority is
+    /// what judges a password and how full a room is. Moving to the lobby before
+    /// that answer arrives lands the player in an empty lobby whenever the join
+    /// was refused.
+    /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
     public sealed class RoomScreenPresenter : MonoBehaviour
     {
         /// <summary>
-        /// Stands in for a listed room until the browser is fed by the network.
+        /// Which request is waiting on the session, and therefore where its
+        /// answer has to be shown. A verdict written into a closed modal is a
+        /// verdict nobody reads.
         /// </summary>
-        [Serializable]
-        private sealed class PlaceholderRoom
+        private enum PendingEntry
         {
-            public string title = "방이름";
-            public string hostNickname = "닉네임";
-            public string mapId = MapCatalog.PlaygroundId;
-            public int playerCount = 4;
-            public int maxPlayers = RoomSettings.MaxPlayerCount;
-            public bool isLocked = false;
-            public bool isPlaying = false;
-
-            /// <summary>Read only when <see cref="isLocked"/> is set.</summary>
-            public string password = string.Empty;
-
-            /// <summary>
-            /// What the host would have shared. Left empty for a room nobody
-            /// is meant to reach by code.
-            /// </summary>
-            public string roomCode = string.Empty;
+            None,
+            RoomList,
+            Password,
+            RoomCode,
+            Create,
         }
 
         [SerializeField]
@@ -61,33 +56,6 @@ namespace Game.Client.Rooms
         [SerializeField]
         private Transform modalParent;
 
-        /// <summary>
-        /// Credited as the host of rooms opened here, until the signed-in
-        /// profile is available on this screen.
-        /// </summary>
-        [SerializeField]
-        private string hostNickname = "나";
-
-        [SerializeField]
-        private PlaceholderRoom[] placeholderRooms = Array.Empty<PlaceholderRoom>();
-
-        private readonly List<RoomSummary> rooms = new List<RoomSummary>();
-
-        /// <summary>
-        /// What each locked room accepts, keyed by room id. Stands in for the
-        /// authority that will judge passwords once rooms are opened for real;
-        /// nothing outside this screen reads it.
-        /// </summary>
-        private readonly Dictionary<string, string> roomPasswords =
-            new Dictionary<string, string>(StringComparer.Ordinal);
-
-        /// <summary>
-        /// Which room each shared code reaches, in the form codes are issued
-        /// in. Stands in for the lookup matchmaking will answer.
-        /// </summary>
-        private readonly Dictionary<string, string> roomsByCode =
-            new Dictionary<string, string>(StringComparer.Ordinal);
-
         private IRoomBrowserView browserView;
         private RoomBrowserSystem roomBrowser;
         private IHomeApplicationHost applicationHost;
@@ -95,7 +63,8 @@ namespace Game.Client.Rooms
         private RoomCreateModalView modal;
         private RoomPasswordModalView passwordModal;
         private RoomCodeModalView codeModal;
-        private int issuedRoomCount;
+        private IDisposable enteredSubscription;
+        private IDisposable failureSubscription;
 
         /// <summary>
         /// The locked room the password modal is currently asking about, or
@@ -103,11 +72,19 @@ namespace Game.Client.Rooms
         /// </summary>
         private string pendingRoomId;
 
+        /// <summary>
+        /// Also guards against the room code and failure properties replaying a
+        /// value from before this screen existed: while this is
+        /// <see cref="PendingEntry.None"/>, neither is an answer to anything
+        /// asked here.
+        /// </summary>
+        private PendingEntry pending = PendingEntry.None;
+
         public event Action<RoomCreateRequest> RoomCreateRequested;
 
         /// <summary>
         /// A room the player asked to enter, with the password they gave for a
-        /// locked one and null for an open one.
+        /// locked one and null for an open one. The authority judges it.
         /// </summary>
         public event Action<RoomId, string> RoomJoinRequested;
 
@@ -169,12 +146,8 @@ namespace Game.Client.Rooms
                     this);
             }
 
-            foreach (var placeholder in placeholderRooms)
-            {
-                rooms.Add(ToSummary(placeholder));
-            }
-
-            PublishRooms();
+            enteredSubscription = roomBrowser.RoomCode.Subscribe(OnRoomCodeChanged);
+            failureSubscription = roomBrowser.LastFailure.Subscribe(OnFailureChanged);
         }
 
         private void Start()
@@ -217,21 +190,30 @@ namespace Game.Client.Rooms
                 codeModal.CodeEditRequested -= OnCodeCleared;
                 codeModal.EnterRequested -= OnCodeEnterRequested;
             }
+
+            enteredSubscription?.Dispose();
+            failureSubscription?.Dispose();
         }
 
         private void OnCreateRoomRequested() => modal.Open();
 
-        private void OnModalCloseRequested() => modal.Close();
+        private void OnModalCloseRequested()
+        {
+            pending = PendingEntry.None;
+            modal.SetBusy(false);
+            modal.Close();
+        }
 
+        /// <summary>
+        /// Opening a room is entering it too, so the same answer is waited for.
+        /// The form stays up and busy meanwhile: it is the only place a refusal
+        /// can send the player back to, since this modal reports no failure of
+        /// its own.
+        /// </summary>
         private void OnModalCreateRequested(RoomCreateRequest request)
         {
-            modal.Close();
-
-            if (TryAddRoom(request))
-            {
-                PublishRooms();
-            }
-
+            pending = PendingEntry.Create;
+            modal.SetBusy(true);
             RoomCreateRequested?.Invoke(request);
         }
 
@@ -244,8 +226,8 @@ namespace Game.Client.Rooms
 
             if (!room.IsLocked)
             {
+                pending = PendingEntry.RoomList;
                 RoomJoinRequested?.Invoke(room.Id, null);
-                OpenLobby();
                 return;
             }
 
@@ -263,13 +245,15 @@ namespace Game.Client.Rooms
         private void OnPasswordModalCloseRequested()
         {
             pendingRoomId = null;
+            pending = PendingEntry.None;
+            passwordModal.SetBusy(false);
             passwordModal.Close();
         }
 
         /// <summary>
-        /// Answers the modal from the stand-in password table. The room is
-        /// looked up again rather than remembered, because the list can be
-        /// republished while the modal is open.
+        /// Hands the password to the authority instead of judging it here. The
+        /// room is looked up again rather than remembered, because the list can
+        /// be republished while the modal is open.
         /// </summary>
         private void OnPasswordSubmitted(string password)
         {
@@ -286,22 +270,14 @@ namespace Game.Client.Rooms
                 return;
             }
 
-            if (!roomPasswords.TryGetValue(room.RoomId, out var expected) ||
-                !string.Equals(password, expected, StringComparison.Ordinal))
-            {
-                passwordModal.ShowFailure(RoomEntryFailure.WrongPassword);
-                return;
-            }
-
-            pendingRoomId = null;
-            passwordModal.Close();
+            pending = PendingEntry.Password;
+            passwordModal.SetBusy(true);
             RoomJoinRequested?.Invoke(room.Id, password);
-            OpenLobby();
         }
 
         /// <summary>
-        /// Moves the screen into the room's lobby. The flow state is asked
-        /// first, so a scene only loads for a move the app actually allows.
+        /// Moves the screen into the room lobby. The flow state is asked first,
+        /// so a scene only loads for a move the app actually allows.
         /// </summary>
         private void OpenLobby()
         {
@@ -325,7 +301,12 @@ namespace Game.Client.Rooms
             }
         }
 
-        private void OnCodeModalCloseRequested() => codeModal.Close();
+        private void OnCodeModalCloseRequested()
+        {
+            pending = PendingEntry.None;
+            codeModal.SetBusy(false);
+            codeModal.Close();
+        }
 
         /// <summary>Nothing is known about a room until a full code is typed.</summary>
         private void OnCodeCleared() => codeModal.ShowCodeEntry();
@@ -372,18 +353,9 @@ namespace Game.Client.Rooms
                 return;
             }
 
-            if (room.IsLocked &&
-                (!roomPasswords.TryGetValue(room.RoomId, out var expected) ||
-                 !string.Equals(password, expected, StringComparison.Ordinal)))
-            {
-                // The code stays shortened: only the password was wrong.
-                codeModal.ShowFailure(RoomEntryFailure.WrongPassword);
-                return;
-            }
-
-            codeModal.Close();
+            pending = PendingEntry.RoomCode;
+            codeModal.SetBusy(true);
             RoomJoinRequested?.Invoke(room.Id, room.IsLocked ? password : null);
-            OpenLobby();
         }
 
         private void RefuseCode(RoomEntryFailure failure)
@@ -392,32 +364,85 @@ namespace Game.Client.Rooms
             codeModal.ShowFailure(failure);
         }
 
-        private bool TryFindRoomByCode(string typedCode, out RoomSummary room)
+        /// <summary>
+        /// A room code means this peer is in a room, which is the only proof
+        /// worth changing screens for.
+        /// </summary>
+        private void OnRoomCodeChanged(string enteredRoomCode)
         {
-            var normalized = RoomCodeFormat.Normalize(typedCode);
-
-            if (RoomCodeFormat.IsWellFormed(normalized) &&
-                roomsByCode.TryGetValue(normalized, out var roomId))
+            if (pending == PendingEntry.None || string.IsNullOrWhiteSpace(enteredRoomCode))
             {
-                return TryFindRoom(roomId, out room);
+                return;
             }
 
-            room = default;
-            return false;
+            pending = PendingEntry.None;
+            pendingRoomId = null;
+
+            modal.SetBusy(false);
+            modal.Close();
+            passwordModal?.SetBusy(false);
+            passwordModal?.Close();
+            codeModal?.SetBusy(false);
+            codeModal?.Close();
+
+            OpenLobby();
+        }
+
+        /// <summary>
+        /// Shows the verdict where the request was made, so a wrong password is
+        /// reported in the field it was typed into.
+        /// </summary>
+        private void OnFailureChanged(RoomEntryFailure failure)
+        {
+            if (pending == PendingEntry.None || failure == RoomEntryFailure.None)
+            {
+                return;
+            }
+
+            var source = pending;
+            pending = PendingEntry.None;
+
+            switch (source)
+            {
+                case PendingEntry.Password:
+                    passwordModal.SetBusy(false);
+                    passwordModal.ShowFailure(failure);
+                    break;
+
+                case PendingEntry.RoomCode:
+                    codeModal.SetBusy(false);
+                    codeModal.ShowFailure(failure);
+                    break;
+
+                case PendingEntry.Create:
+                    // This modal shows no failure of its own, so the form simply
+                    // comes back with what was typed still in it.
+                    modal.SetBusy(false);
+                    Debug.LogWarning($"[Rooms] Could not open the room: {failure}.");
+                    break;
+
+                default:
+                    // Picked straight from the list, so there is no modal to
+                    // answer in. The list stays as it was.
+                    Debug.LogWarning($"[Rooms] Could not enter the room: {failure}.");
+                    break;
+            }
         }
 
         private bool TryFindRoom(string searchedRoomId, out RoomSummary room)
         {
             if (!string.IsNullOrEmpty(searchedRoomId))
             {
-                for (var index = 0; index < rooms.Count; index++)
+                var listed = roomBrowser.Rooms.CurrentValue;
+
+                for (var index = 0; index < listed.Count; index++)
                 {
                     if (string.Equals(
-                            rooms[index].RoomId,
+                            listed[index].RoomId,
                             searchedRoomId,
                             StringComparison.Ordinal))
                     {
-                        room = rooms[index];
+                        room = listed[index];
                         return true;
                     }
                 }
@@ -428,84 +453,20 @@ namespace Game.Client.Rooms
         }
 
         /// <summary>
-        /// Hands the list to the one property the browser renders from. The
-        /// property replays its current value on subscribe, so it does not
-        /// matter whether this runs before or after the browser subscribes.
+        /// Asked of the session rather than of a local table: the code a room is
+        /// reached by is its session name, so the listing already answers this.
         /// </summary>
-        private void PublishRooms()
+        private bool TryFindRoomByCode(string typedCode, out RoomSummary room)
         {
-            roomBrowser.SetRooms(rooms);
-        }
+            var normalized = RoomCodeFormat.Normalize(typedCode);
 
-        private bool TryAddRoom(RoomCreateRequest request)
-        {
-            if (!request.TryCreateSettings(
-                    RoomSettings.MaxPlayerCount,
-                    out var settings,
-                    out _))
+            if (!RoomCodeFormat.IsWellFormed(normalized))
             {
+                room = default;
                 return false;
             }
 
-            var roomId = NextRoomId();
-            RememberPassword(roomId, settings.IsLocked, request.Password);
-
-            rooms.Insert(0, new RoomSummary(
-                roomId,
-                settings,
-                currentPlayerCount: 1,
-                isOpen: true,
-                RoomStatus.Waiting,
-                hostNickname));
-
-            return true;
+            return roomBrowser.TryFindByCode(normalized, out room);
         }
-
-        private RoomSummary ToSummary(PlaceholderRoom placeholder)
-        {
-            var mapId = MapCatalog.Contains(placeholder.mapId)
-                ? placeholder.mapId.Trim()
-                : MapCatalog.DefaultMapId;
-
-            var roomId = NextRoomId();
-            RememberPassword(roomId, placeholder.isLocked, placeholder.password);
-            RememberCode(roomId, placeholder.roomCode);
-
-            return new RoomSummary(
-                new RoomId(roomId),
-                placeholder.title,
-                mapId,
-                placeholder.playerCount,
-                placeholder.maxPlayers,
-                placeholder.isLocked,
-                isOpen: true,
-                placeholder.isPlaying ? RoomStatus.Playing : RoomStatus.Waiting,
-                placeholder.hostNickname);
-        }
-
-        /// <summary>
-        /// Files a stand-in room under the code its host would have shared.
-        /// Rooms opened on this screen get none: a code is issued by the layer
-        /// that opens a room for real and comes back with the entry result.
-        /// </summary>
-        private void RememberCode(string roomId, string roomCode)
-        {
-            var normalized = RoomCodeFormat.Normalize(roomCode);
-
-            if (RoomCodeFormat.IsWellFormed(normalized))
-            {
-                roomsByCode[normalized] = roomId;
-            }
-        }
-
-        private void RememberPassword(string roomId, bool isLocked, string password)
-        {
-            if (isLocked)
-            {
-                roomPasswords[roomId] = password ?? string.Empty;
-            }
-        }
-
-        private string NextRoomId() => $"LOCAL-{++issuedRoomCount}";
     }
 }
