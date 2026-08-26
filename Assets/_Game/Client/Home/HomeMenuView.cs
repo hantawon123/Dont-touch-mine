@@ -67,12 +67,17 @@ namespace Game.Client.Home
         private GameObject profileSettingsRoot;
         private TMP_InputField profileNicknameInput;
         private TMP_Text profileLevelText;
+        private TMP_Text appliedFeedbackText;
 
         public event Action<HomeMenuAction> ActionClicked;
 
         public event Action FriendListDismissed;
 
         public event Action ProfileSettingsDismissed;
+
+        public event Action<string> NicknameChangeRequested;
+
+        public event Action<string> NicknameEdited;
 
         public event Action FriendSearchOpened;
 
@@ -92,6 +97,7 @@ namespace Game.Client.Home
 
             SetFriendListVisible(false);
             SetProfileSettingsVisible(false);
+            SetNicknameAppliedFeedbackVisible(false);
         }
 
         private void OnDestroy()
@@ -113,6 +119,11 @@ namespace Game.Client.Home
             if (friendSearchInput != null)
             {
                 friendSearchInput.onSubmit.RemoveAllListeners();
+            }
+
+            if (profileNicknameInput != null)
+            {
+                profileNicknameInput.onValueChanged.RemoveAllListeners();
             }
         }
 
@@ -151,6 +162,16 @@ namespace Game.Client.Home
             }
 
             profileSettingsRoot.SetActive(visible);
+        }
+
+        public void SetNicknameAppliedFeedbackVisible(bool visible)
+        {
+            if (appliedFeedbackText == null)
+            {
+                return;
+            }
+
+            appliedFeedbackText.gameObject.SetActive(visible);
         }
 
         public void SetFriendListVisible(bool visible)
@@ -490,6 +511,7 @@ namespace Game.Client.Home
 
             CreateProfileSettingsHeader(root);
             CreateProfileSettingsBody(root);
+            CreateAppliedFeedback(root);
             profileSettingsRoot = root.gameObject;
         }
 
@@ -596,7 +618,7 @@ namespace Game.Client.Home
                 24f,
                 FontStyles.Normal,
                 TextAlignmentOptions.Center,
-                null,
+                OnChangeNicknameClicked,
                 160f,
                 48f);
         }
@@ -681,8 +703,30 @@ namespace Game.Client.Home
             input.lineType = TMP_InputField.LineType.SingleLine;
             input.characterLimit = 32;
             input.text = "사용자닉네임";
+            input.onValueChanged.AddListener(value => NicknameEdited?.Invoke(value));
             fieldRect.gameObject.SetActive(true);
             profileNicknameInput = input;
+        }
+
+        private void CreateAppliedFeedback(RectTransform parent)
+        {
+            var feedbackRect = CreateRect("AppliedFeedback", parent);
+            SetAnchor(feedbackRect, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+            feedbackRect.anchoredPosition = new Vector2(0f, 48f);
+            feedbackRect.sizeDelta = new Vector2(400f, 40f);
+            appliedFeedbackText = AddText(
+                feedbackRect,
+                "반영되었습니다",
+                22f,
+                FontStyles.Normal,
+                TextAlignmentOptions.Center);
+            appliedFeedbackText.gameObject.SetActive(false);
+        }
+
+        private void OnChangeNicknameClicked()
+        {
+            NicknameChangeRequested?.Invoke(
+                profileNicknameInput != null ? profileNicknameInput.text : string.Empty);
         }
 
         private RectTransform CreateSimpleTextButton(

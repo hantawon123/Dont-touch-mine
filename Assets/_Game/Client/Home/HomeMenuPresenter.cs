@@ -77,6 +77,8 @@ namespace Game.Client.Home
             view.ActionClicked += OnActionClicked;
             view.FriendListDismissed += HideFriendList;
             view.ProfileSettingsDismissed += HideProfileSettings;
+            view.NicknameChangeRequested += OnNicknameChangeRequested;
+            view.NicknameEdited += OnNicknameEdited;
             view.FriendSearchOpened += OnFriendSearchOpened;
             view.FriendSearchClosed += OnFriendSearchClosed;
             view.FriendSearchRequested += OnFriendSearchRequested;
@@ -95,6 +97,8 @@ namespace Game.Client.Home
             view.ActionClicked -= OnActionClicked;
             view.FriendListDismissed -= HideFriendList;
             view.ProfileSettingsDismissed -= HideProfileSettings;
+            view.NicknameChangeRequested -= OnNicknameChangeRequested;
+            view.NicknameEdited -= OnNicknameEdited;
             view.FriendSearchOpened -= OnFriendSearchOpened;
             view.FriendSearchClosed -= OnFriendSearchClosed;
             view.FriendSearchRequested -= OnFriendSearchRequested;
@@ -133,6 +137,32 @@ namespace Game.Client.Home
                 HideFriendList();
                 HideProfileSettings();
                 applicationHost.OpenRoomBrowser();
+            }
+        }
+
+        private void OnNicknameChangeRequested(string nickname)
+        {
+            if (!isProfileSettingsVisible)
+            {
+                return;
+            }
+
+            if (profile.TryChangeNickname(nickname, out _))
+            {
+                view.SetNicknameAppliedFeedbackVisible(true);
+            }
+        }
+
+        private void OnNicknameEdited(string nickname)
+        {
+            if (!isProfileSettingsVisible)
+            {
+                return;
+            }
+
+            if (!string.Equals(nickname, profile.Nickname, StringComparison.Ordinal))
+            {
+                view.SetNicknameAppliedFeedbackVisible(false);
             }
         }
 
@@ -187,6 +217,7 @@ namespace Game.Client.Home
             isProfileSettingsVisible = true;
             view.SetNickname(profile.Nickname);
             view.SetLevel(profile.Level);
+            view.SetNicknameAppliedFeedbackVisible(false);
             view.SetProfileSettingsVisible(true);
         }
 
@@ -194,6 +225,7 @@ namespace Game.Client.Home
         {
             isProfileSettingsVisible = false;
             view.SetNickname(profile.Nickname);
+            view.SetNicknameAppliedFeedbackVisible(false);
             view.SetProfileSettingsVisible(false);
         }
 
