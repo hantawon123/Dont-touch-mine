@@ -86,6 +86,29 @@ namespace Game.Server.Match
         public double StunEndsAt { get; }
     }
 
+    public readonly struct ObjectThrownEvent
+    {
+        public ObjectThrownEvent(
+            int playerIndex,
+            string objectId,
+            Pose releasePose,
+            Vector3 initialVelocity,
+            double thrownAt)
+        {
+            PlayerIndex = playerIndex;
+            ObjectId = objectId ?? throw new ArgumentNullException(nameof(objectId));
+            ReleasePose = releasePose;
+            InitialVelocity = initialVelocity;
+            ThrownAt = thrownAt;
+        }
+
+        public int PlayerIndex { get; }
+        public string ObjectId { get; }
+        public Pose ReleasePose { get; }
+        public Vector3 InitialVelocity { get; }
+        public double ThrownAt { get; }
+    }
+
     public sealed class MatchSessionCoordinator
     {
         private const double MapObjectEjectionDelaySeconds = 0.5d;
@@ -176,6 +199,7 @@ namespace Game.Server.Match
         public event Action<PlayerItemDestroyedEvent> PlayerItemDestroyed;
         public event Action<FinalWarningStartedEvent> FinalWarningStarted;
         public event Action<PlayerStunnedEvent> PlayerStunned;
+        public event Action<ObjectThrownEvent> ObjectThrown;
         public event Action<MatchResult> MatchEnded;
 
         public bool Start(double now)
@@ -363,6 +387,39 @@ namespace Game.Server.Match
                     CanInteract(playerIndex, now)) &&
                    TryGetHeldObjectId(playerIndex, out var objectId) &&
                    placementValidator.IsValid(objectId, pose);
+        }
+
+        public bool TryThrowHeldObject(
+            int playerIndex,
+            Pose releasePose,
+            Vector3 initialVelocity,
+            double now)
+        {
+            var isSearching = CanInteract(playerIndex, now);
+            if ((!CanActDuringHidingTurn(playerIndex, now) && !isSearching) ||
+                !IsFinite(releasePose.position) ||
+                !IsFinite(releasePose.rotation) ||
+                !IsFinite(initialVelocity) ||
+                initialVelocity.sqrMagnitude <= 0f ||
+                !TryGetHeldObjectId(playerIndex, out var objectId) ||
+                !ReleaseHeldObjectAt(playerIndex, releasePose))
+            {
+                return false;
+            }
+
+            if (isSearching)
+            {
+                highlightRecorder.RecordItemInteraction(playerIndex, objectId, now);
+            }
+
+            ObjectThrown?.Invoke(
+                new ObjectThrownEvent(
+                    playerIndex,
+                    objectId,
+                    releasePose,
+                    initialVelocity,
+                    now));
+            return true;
         }
 
         public bool TryGetHeldObjectId(int playerIndex, out string objectId)
@@ -718,6 +775,21 @@ namespace Game.Server.Match
             mapObjectHolderById.Remove(objectId);
             worldObjects.TrySetPose(objectId, pose);
             return true;
+        }
+
+        private static bool IsFinite(Vector3 value)
+        {
+            return float.IsFinite(value.x) &&
+                   float.IsFinite(value.y) &&
+                   float.IsFinite(value.z);
+        }
+
+        private static bool IsFinite(Quaternion value)
+        {
+            return float.IsFinite(value.x) &&
+                   float.IsFinite(value.y) &&
+                   float.IsFinite(value.z) &&
+                   float.IsFinite(value.w);
         }
 
         private static void ValidateUniqueObjectIds(

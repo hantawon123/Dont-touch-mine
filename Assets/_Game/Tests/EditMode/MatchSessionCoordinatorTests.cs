@@ -907,6 +907,62 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void ThrowHeldPlayerItem_ReleasesAndPublishesLaunch()
+        {
+            StartSearching();
+            var itemId = session.Assignments[0].Item.ItemId;
+            var releasePose = new Pose(new Vector3(2f, 1f, 3f), Quaternion.identity);
+            var initialVelocity = new Vector3(0f, 2f, 8f);
+            ObjectThrownEvent? thrownEvent = null;
+            session.ObjectThrown += value => thrownEvent = value;
+
+            Assert.That(session.TryHoldObject(0, itemId, 200d), Is.True);
+            Assert.That(
+                session.TryThrowHeldObject(0, releasePose, Vector3.zero, 200d),
+                Is.False);
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.True);
+            Assert.That(
+                session.TryThrowHeldObject(
+                    0,
+                    new Pose(new Vector3(float.NaN, 0f, 0f), Quaternion.identity),
+                    initialVelocity,
+                    200d),
+                Is.False);
+
+            Assert.That(
+                session.TryThrowHeldObject(0, releasePose, initialVelocity, 200d),
+                Is.True);
+
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
+            Assert.That(session.TryGetItemPlacement(0, out var placement), Is.True);
+            Assert.That(placement.Pose.position, Is.EqualTo(releasePose.position));
+            Assert.That(thrownEvent.HasValue, Is.True);
+            Assert.That(thrownEvent.Value.PlayerIndex, Is.Zero);
+            Assert.That(thrownEvent.Value.ObjectId, Is.EqualTo(itemId));
+            Assert.That(thrownEvent.Value.ReleasePose.position, Is.EqualTo(releasePose.position));
+            Assert.That(thrownEvent.Value.InitialVelocity, Is.EqualTo(initialVelocity));
+            Assert.That(thrownEvent.Value.ThrownAt, Is.EqualTo(200d));
+        }
+
+        [Test]
+        public void HidingPlayer_CanThrowHeldMapObject()
+        {
+            session.Start(10d);
+            var releasePose = new Pose(new Vector3(4f, 1f, 5f), Quaternion.identity);
+            var initialVelocity = new Vector3(3f, 2f, 6f);
+
+            Assert.That(session.TryHoldObject(0, "shelf", 20d), Is.True);
+            Assert.That(
+                session.TryThrowHeldObject(0, releasePose, initialVelocity, 20d),
+                Is.True);
+
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(releasePose.position));
+            Assert.That(session.TryHoldObject(1, "shelf", 20d), Is.False);
+        }
+
+        [Test]
         public void SearchTimeout_PreservesMultipleWinnersAndPlaysHighlights()
         {
             StartSearching();
