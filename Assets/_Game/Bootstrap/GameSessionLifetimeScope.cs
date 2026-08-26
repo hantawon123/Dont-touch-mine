@@ -262,11 +262,19 @@ namespace Game.Bootstrap
             }
 
             var rooms = _state.Rooms;
+            Debug.Log($"[Bootstrap] Waiting for a room listing. Have {rooms.CurrentValue.Count}.");
+
+            var waited = 0;
 
             for (var i = 0; i < ListPollAttempts && rooms.CurrentValue.Count == 0; i++)
             {
                 await UniTask.Delay(ListPollIntervalMs, cancellationToken: cancellation);
+                waited = i + 1;
             }
+
+            Debug.Log(
+                $"[Bootstrap] Done waiting after {waited} attempts. " +
+                $"Have {rooms.CurrentValue.Count} room(s).");
 
             if (rooms.CurrentValue.Count == 0)
             {
