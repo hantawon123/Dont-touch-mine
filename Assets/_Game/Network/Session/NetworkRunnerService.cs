@@ -11,6 +11,7 @@ using Game.Network.Lobby;
 using Game.Network.Match;
 using Game.Network.Players;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Game.Network.Session
 {
@@ -25,7 +26,8 @@ namespace Game.Network.Session
     /// to a dedicated server is therefore a change at the call site, not a
     /// rewrite of the gameplay layer.
     /// </remarks>
-    public sealed class NetworkRunnerService : INetworkRunnerCallbacks, IDisposable
+    public sealed class NetworkRunnerService :
+        INetworkRunnerCallbacks, IMatchSceneDirector, IDisposable
     {
         private const string RunnerObjectName = "[NetworkRunner]";
 
@@ -44,6 +46,25 @@ namespace Game.Network.Session
 
         /// <summary>Where the authority's decision about starting is reported.</summary>
         private readonly IMatchStartSink _matchStartSink;
+
+        /// <summary>
+        /// Which scenes this layer may load. Optional so tests and scenes
+        /// without a map can still open a session; a match then reports that it
+        /// has nowhere to go rather than failing to construct.
+        /// </summary>
+        private readonly NetworkScenes _scenes;
+
+        /// <summary>
+        /// Raised on every peer once a networked scene has finished loading.
+        /// </summary>
+        /// <remarks>
+        /// Exists because the scene's own contents are not this layer's business.
+        /// Spawn points are marked by a component in <c>Game.Bootstrap</c>, which
+        /// this assembly cannot reference, so Bootstrap listens here and hands
+        /// the points over. No Fusion type is passed, so a listener does not need
+        /// to reference Fusion either.
+        /// </remarks>
+        public event Action SceneLoaded;
 
         private readonly List<RoomSummary> _roomBuffer = new List<RoomSummary>();
 
@@ -75,13 +96,15 @@ namespace Game.Network.Session
             IRoomSessionSink sessionSink,
             IRoomParticipantSink participantSink,
             IMatchStartSink matchStartSink,
-            PlayerSpawner spawner)
+            PlayerSpawner spawner,
+            NetworkScenes scenes = null)
         {
             _roomListSink = roomListSink;
             _sessionSink = sessionSink;
             _participantSink = participantSink;
             _matchStartSink = matchStartSink;
             _spawner = spawner;
+            _scenes = scenes;
         }
 
         public bool IsRunning => _runner != null && _runner.IsRunning;
@@ -197,6 +220,18 @@ namespace Game.Network.Session
 
             var sceneManager = CreateRunner(request.Mode != GameMode.Server);
 
+            // Fusion is handed a linked token rather than the caller's own.
+            // It registers a callback that shuts the runner down when the token
+            // fires, and the token we are given belongs to whichever scene asked
+            // to connect. That is right while connecting and wrong afterwards:
+            // the session is a project-wide singleton, and loading a networked
+            // scene destroys the scene that asked, which would otherwise cancel
+            // the token and take the running session down with it. Cutting the
+            // link once StartGame returns keeps cancellation working during the
+            // attempt without letting a scene outlive its authority over it.
+            var startCancellation =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+
             var args = new StartGameArgs
             {
                 GameMode = request.Mode,
@@ -205,7 +240,8 @@ namespace Game.Network.Session
                 ConnectionToken = EncodeToken(request.Password),
                 EnableClientSessionCreation = request.AllowCreate,
                 SceneManager = sceneManager,
-                StartGameCancellationToken = cancellation,
+                Scene = CaptureCurrentScene(),
+                StartGameCancellationToken = startCancellation.Token,
             };
 
             if (request.MaxPlayers > 0)
@@ -222,6 +258,13 @@ namespace Game.Network.Session
             {
                 Shutdown();
                 throw;
+            }
+            finally
+            {
+                // Disposing releases the callback Fusion registered, so the token
+                // can never fire again. This one line is what stops a match scene
+                // load from ending the session.
+                startCancellation.Dispose();
             }
 
             if (!result.Ok)
@@ -333,9 +376,81 @@ namespace Game.Network.Session
             // container therefore cannot inject, can still reach it.
             var roster = _runnerObject.AddComponent<PlayerRoster>();
             roster.Bind(_participantSink);
-            _runnerObject.AddComponent<MatchStarter>().Bind(_matchStartSink, roster);
+            _runnerObject.AddComponent<MatchStarter>()
+                .Bind(_matchStartSink, roster, this);
 
             return sceneManager;
+        }
+
+        /// <summary>
+        /// The scene the session opens in, so that Fusion has something to
+        /// replicate as the current scene from the start.
+        /// </summary>
+        /// <remarks>
+        /// Without this the runner reports <c>started with no scene</c> and scene
+        /// synchronisation never engages, which makes a later
+        /// <see cref="EnterMatchScene"/> a no-op. The scene has to be in the
+        /// build list to have an index Fusion can send, and one that is not is
+        /// left empty rather than guessed at: a wrong index would load a
+        /// different scene on the clients than the host is in.
+        /// </remarks>
+        private static NetworkSceneInfo CaptureCurrentScene()
+        {
+            var info = new NetworkSceneInfo();
+            var active = SceneManager.GetActiveScene();
+
+            if (active.buildIndex < 0 ||
+                active.buildIndex >= SceneManager.sceneCountInBuildSettings)
+            {
+                Debug.LogWarning(
+                    $"[Session] '{active.name}' is not in the build scene list, " +
+                    "so the session starts without a synchronised scene. Add it " +
+                    "under File > Build Profiles.");
+
+                return info;
+            }
+
+            // Additive, not Single. This only tells Fusion which scene the
+            // session begins in; the scene is already loaded. Declaring it as
+            // Single invites the scene manager to reload it while the peer is
+            // still connecting, which would destroy the scope that is driving
+            // the connection. Replacing the scene is what EnterMatchScene does.
+            info.AddSceneRef(SceneRef.FromIndex(active.buildIndex), LoadSceneMode.Additive);
+            return info;
+        }
+
+        /// <summary>
+        /// Takes the room into the map. Only the authority may change the
+        /// networked scene; Fusion carries the change to everyone else.
+        /// </summary>
+        public void EnterMatchScene(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsRunning || !runner.IsServer)
+            {
+                return;
+            }
+
+            if (_scenes == null)
+            {
+                Debug.LogError(
+                    "[Session] No NetworkScenes asset is assigned, so the match " +
+                    "cannot move into a map. Set it on ProjectLifetimeScope.");
+                return;
+            }
+
+            var scene = _scenes.MatchScene;
+
+            if (!scene.IsValid)
+            {
+                // NetworkScenes has already said which of the two reasons it is.
+                return;
+            }
+
+            // Single, not Additive: the lobby scene would otherwise stay loaded
+            // behind the map, leaving two cameras rendering and the lobby's
+            // geometry inside it.
+            runner.LoadScene(scene, LoadSceneMode.Single);
+            Debug.Log("[Session] Loading the match scene for everyone.");
         }
 
         /// <summary>
@@ -644,7 +759,24 @@ namespace Game.Network.Session
 
         public void OnSceneLoadStart(NetworkRunner runner) { }
 
-        public void OnSceneLoadDone(NetworkRunner runner) { }
+        /// <summary>
+        /// Re-seats everyone on the newly loaded scene's spawn points.
+        /// </summary>
+        /// <remarks>
+        /// Order matters. Listeners run first so that the scene's spawn points
+        /// have reached the spawner, and only then are the characters moved;
+        /// moving first would place them on the points of the scene that has
+        /// just been unloaded.
+        /// </remarks>
+        public void OnSceneLoadDone(NetworkRunner runner)
+        {
+            Debug.Log(
+                $"[Session] Scene load done: '{SceneManager.GetActiveScene().name}', " +
+                $"IsServer={runner != null && runner.IsServer}.");
+
+            SceneLoaded?.Invoke();
+            _spawner?.RepositionSeated(runner);
+        }
 
         public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
 

@@ -18,9 +18,18 @@ namespace Game.Bootstrap
         [Tooltip("Prefabs this application spawns over the network.")]
         private NetworkPrefabs _networkPrefabs;
 
+        [SerializeField]
+        [Tooltip("Scenes this application loads over the network.")]
+        private NetworkScenes _networkScenes;
+
         protected override void Configure(IContainerBuilder builder)
         {
-            RegisterServices(builder, _networkPrefabs);
+            RegisterServices(builder, _networkPrefabs, _networkScenes);
+
+            // Registered here rather than in RegisterServices because it listens
+            // to a live session. Tests build the same container without wanting
+            // anything to react to scene loads.
+            builder.RegisterEntryPoint<MatchSceneSpawnPoints>();
         }
 
         /// <param name="networkPrefabs">
@@ -28,8 +37,14 @@ namespace Game.Bootstrap
         /// asset. A spawner without prefabs reports the problem when it is first
         /// asked to spawn rather than failing to construct.
         /// </param>
+        /// <param name="networkScenes">
+        /// Optional for the same reason. A session without it still opens; only
+        /// moving into a map reports that it has nowhere to go.
+        /// </param>
         public static void RegisterServices(
-            IContainerBuilder builder, NetworkPrefabs networkPrefabs = null)
+            IContainerBuilder builder,
+            NetworkPrefabs networkPrefabs = null,
+            NetworkScenes networkScenes = null)
         {
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
@@ -55,7 +70,18 @@ namespace Game.Bootstrap
                 c => new PlayerSpawner(networkPrefabs, c.Resolve<PlayerRegistry>()),
                 Lifetime.Singleton);
 
-            builder.Register<NetworkRunnerService>(Lifetime.Singleton);
+            // Built by hand for the same reason the spawner is: the scene asset
+            // is a value, not a service, and registering it as a resolvable type
+            // would let anything ask for a Fusion scene reference.
+            builder.Register(
+                c => new NetworkRunnerService(
+                    c.Resolve<IRoomListSink>(),
+                    c.Resolve<IRoomSessionSink>(),
+                    c.Resolve<IRoomParticipantSink>(),
+                    c.Resolve<IMatchStartSink>(),
+                    c.Resolve<PlayerSpawner>(),
+                    networkScenes),
+                Lifetime.Singleton);
             builder.Register<RoomCodeGenerator>(Lifetime.Singleton);
             builder.Register<IRoomBrowser, RoomBrowser>(Lifetime.Singleton);
             builder.Register<RoomUiCommands>(Lifetime.Singleton);

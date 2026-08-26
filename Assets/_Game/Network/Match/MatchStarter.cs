@@ -32,16 +32,27 @@ namespace Game.Network.Match
         private PlayerRoster _roster;
 
         /// <summary>
+        /// Takes the room into the map once a match is confirmed. Held as an
+        /// interface so that this stays a judge of whether a match may start and
+        /// never learns what a scene is.
+        /// </summary>
+        private IMatchSceneDirector _sceneDirector;
+
+        /// <summary>
         /// The room's object, remembered as it reports itself. Anything wanting
         /// to ask for a match needs a handle on it, and only this peer's copy of
         /// it can carry the request.
         /// </summary>
         private MatchSessionState _state;
 
-        public void Bind(IMatchStartSink sink, PlayerRoster roster)
+        public void Bind(
+            IMatchStartSink sink,
+            PlayerRoster roster,
+            IMatchSceneDirector sceneDirector)
         {
             _sink = sink;
             _roster = roster;
+            _sceneDirector = sceneDirector;
         }
 
         /// <summary>
@@ -92,6 +103,11 @@ namespace Game.Network.Match
 
             state.Confirm(participantIds);
             Debug.Log($"[Match] Started with {participantIds.Length} players.");
+
+            // After the line-up is frozen, not before: the map replaces this
+            // scene, and a load that began first could tear down the objects
+            // this method is still reading.
+            _sceneDirector?.EnterMatchScene(runner);
         }
 
         /// <summary>
