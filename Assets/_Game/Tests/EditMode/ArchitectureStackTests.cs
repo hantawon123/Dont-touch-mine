@@ -5,6 +5,7 @@ using Game.Core.Flow;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Ports;
+using Game.Network.Match;
 using Game.Network.Session;
 using NUnit.Framework;
 using R3;
@@ -40,11 +41,15 @@ namespace Game.Architecture.Tests
 
             using var container = builder.Build();
             var roomState = container.Resolve<RoomBrowserSystem>();
+            var network = container.Resolve<NetworkRunnerService>();
 
             Assert.That(container.Resolve<IRoomListSink>(), Is.SameAs(roomState));
             Assert.That(container.Resolve<IRoomSessionSink>(), Is.SameAs(roomState));
             Assert.That(container.Resolve<RoomUiCommands>(), Is.Not.Null);
-            Assert.That(container.Resolve<NetworkRunnerService>(), Is.Not.Null);
+            Assert.That(network, Is.Not.Null);
+            Assert.That(container.Resolve<INetworkMatchRuntimeSource>(), Is.SameAs(network));
+            Assert.That(container.Resolve<INetworkMatchAuthority>(), Is.SameAs(network));
+            Assert.That(container.Resolve<INetworkMatchEvents>(), Is.SameAs(network));
             Assert.That(container.Resolve<AppFlowSystem>(), Is.Not.Null);
             Assert.That(container.Resolve<HomeMenuSystem>(), Is.Not.Null);
             Assert.That(container.Resolve<FriendListSystem>(), Is.Not.Null);
