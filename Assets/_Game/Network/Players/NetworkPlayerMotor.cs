@@ -38,6 +38,9 @@ namespace Game.Network.Players
         [Networked]
         private NetworkButtons PreviousButtons { get; set; }
 
+        [Networked]
+        public NetworkBool ControlsEnabled { get; private set; }
+
         private bool IsConfigured => _controller != null && _inputSource != null;
 
         private void Awake()
@@ -62,10 +65,19 @@ namespace Game.Network.Players
             }
         }
 
+        public override void Spawned()
+        {
+            if (Object.HasStateAuthority)
+            {
+                ControlsEnabled = true;
+            }
+        }
+
         /// <summary>Called only for the local player's object from OnInput.</summary>
         public NetworkPlayerInput CaptureInput()
         {
-            if (!IsConfigured || Object == null || !Object.HasInputAuthority)
+            if (!IsConfigured || Object == null || !Object.HasInputAuthority ||
+                !ControlsEnabled)
             {
                 return default;
             }
@@ -81,7 +93,10 @@ namespace Game.Network.Players
             }
 
             var input = default(NetworkPlayerInput);
-            GetInput(out input);
+            if (ControlsEnabled)
+            {
+                GetInput(out input);
+            }
 
             var deltaTime = Runner.DeltaTime;
             var gravity = Physics.gravity.y * _gravityMultiplier;
@@ -108,13 +123,41 @@ namespace Game.Network.Players
             velocity.y = VerticalVelocity;
             _controller.Move(velocity * deltaTime);
 
-            var targetRotation = Quaternion.Euler(0f, input.LookYawDegrees, 0f);
-            transform.rotation = Quaternion.RotateTowards(
-                transform.rotation,
-                targetRotation,
-                _rotationSpeedDegrees * deltaTime);
+            if (ControlsEnabled)
+            {
+                var targetRotation = Quaternion.Euler(0f, input.LookYawDegrees, 0f);
+                transform.rotation = Quaternion.RotateTowards(
+                    transform.rotation,
+                    targetRotation,
+                    _rotationSpeedDegrees * deltaTime);
+            }
 
             PreviousButtons = input.Buttons;
+        }
+
+        internal bool TrySetControlsEnabled(bool enabled)
+        {
+            if (Object == null || !Object.HasStateAuthority)
+            {
+                return false;
+            }
+
+            ControlsEnabled = enabled;
+            if (!enabled)
+            {
+                PreviousButtons = default;
+            }
+
+            return true;
+        }
+
+        internal void ResetMotion()
+        {
+            if (Object != null && Object.HasStateAuthority)
+            {
+                VerticalVelocity = 0f;
+                PreviousButtons = default;
+            }
         }
 
         internal static Vector3 ToWorldDirection(Vector2 move, float lookYawDegrees)

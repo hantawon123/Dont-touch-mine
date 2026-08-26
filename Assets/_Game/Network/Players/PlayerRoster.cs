@@ -123,7 +123,7 @@ namespace Game.Network.Players
             return false;
         }
 
-        private bool TryGetAvatar(string playerId, out PlayerAvatar found)
+        internal bool TryGetAvatar(string playerId, out PlayerAvatar found)
         {
             if (!string.IsNullOrWhiteSpace(playerId))
             {

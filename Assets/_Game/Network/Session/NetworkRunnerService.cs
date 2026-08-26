@@ -440,6 +440,18 @@ namespace Game.Network.Session
                    _matchStarter.TryPublishItemAssignments(assignments);
         }
 
+        public bool TrySetPlayerControls(int playerIndex, bool enabled)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TrySetPlayerControls(playerIndex, enabled);
+        }
+
+        public bool TryTeleportPlayer(int playerIndex, Pose pose)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryTeleportPlayer(playerIndex, pose);
+        }
+
         public bool BindMatchSession(
             MatchSessionCoordinator session,
             Pose shredderEjectionPose)

@@ -208,6 +208,35 @@ namespace Game.Network.Match
             return true;
         }
 
+        public bool TrySetPlayerControls(int playerIndex, bool enabled)
+        {
+            if (!TryGetPlayingAvatar(playerIndex, out var avatar))
+            {
+                return false;
+            }
+
+            var motor = avatar.GetComponent<NetworkPlayerMotor>();
+            return motor != null && motor.TrySetControlsEnabled(enabled);
+        }
+
+        public bool TryTeleportPlayer(int playerIndex, Pose pose)
+        {
+            if (!TryGetPlayingAvatar(playerIndex, out var avatar))
+            {
+                return false;
+            }
+
+            var networkTransform = avatar.GetComponent<NetworkTransform>();
+            if (networkTransform == null)
+            {
+                return false;
+            }
+
+            networkTransform.Teleport(pose.position, pose.rotation);
+            avatar.GetComponent<NetworkPlayerMotor>()?.ResetMotion();
+            return true;
+        }
+
         public void PublishItemAssignment(string itemId)
         {
             ItemAssignmentReceived?.Invoke(itemId);
@@ -658,6 +687,19 @@ namespace Game.Network.Match
 
             pose = default;
             return false;
+        }
+
+        private bool TryGetPlayingAvatar(int playerIndex, out PlayerAvatar avatar)
+        {
+            if (_state == null || _state.Object == null ||
+                !_state.Object.HasStateAuthority || _roster == null ||
+                playerIndex < 0 || playerIndex >= _playing.Count)
+            {
+                avatar = null;
+                return false;
+            }
+
+            return _roster.TryGetAvatar(_playing[playerIndex].PlayerId, out avatar);
         }
 
         private bool IsObjectWithinReach(

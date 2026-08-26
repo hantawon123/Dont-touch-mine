@@ -56,6 +56,10 @@ namespace Game.Bootstrap
         private MatchRuntimeController runtime;
         private MatchParticipant[] pendingLineUp;
         private MatchStateSnapshot lastPublishedSnapshot;
+        private bool[] synchronizedControls = Array.Empty<bool>();
+        private MatchPhase synchronizedPhase = (MatchPhase)(-1);
+        private int synchronizedHidingTurn = -1;
+        private bool hasSynchronizedPlayers;
         private bool hasPublishedSnapshot;
         private bool started;
 
@@ -144,6 +148,7 @@ namespace Game.Bootstrap
             }
 
             runtime.Tick();
+            SynchronizePlayers();
             PublishSnapshotIfChanged();
         }
 
@@ -193,6 +198,80 @@ namespace Game.Bootstrap
             }
         }
 
+        private void SynchronizePlayers()
+        {
+            var session = composition.Session;
+            var now = network.ServerTime;
+            var phase = session.CurrentPhase;
+            var hidingTurn = phase == MatchPhase.Hiding
+                ? session.GetCurrentHidingTurnIndex(now)
+                : -1;
+            var phaseChanged = phase != synchronizedPhase;
+
+            if (phase == MatchPhase.Hiding && hidingTurn >= 0 &&
+                (phaseChanged || hidingTurn != synchronizedHidingTurn) &&
+                session.TryGetCurrentHidingSpawnPose(
+                    hidingTurn,
+                    now,
+                    out var hidingPose) &&
+                !network.TryTeleportPlayer(hidingTurn, hidingPose))
+            {
+                throw new InvalidOperationException(
+                    $"The authority could not position hiding player {hidingTurn}.");
+            }
+
+            if (phase == MatchPhase.Searching && phaseChanged)
+            {
+                for (var playerIndex = 0;
+                     playerIndex < session.Players.Players.Count;
+                     playerIndex++)
+                {
+                    if (session.Players.IsActive(playerIndex) &&
+                        !network.TryTeleportPlayer(
+                            playerIndex,
+                            session.GetSearchingSpawnPose(playerIndex)))
+                    {
+                        throw new InvalidOperationException(
+                            $"The authority could not position searching player {playerIndex}.");
+                    }
+                }
+            }
+
+            if (synchronizedControls.Length != session.Players.Players.Count)
+            {
+                synchronizedControls = new bool[session.Players.Players.Count];
+                hasSynchronizedPlayers = false;
+            }
+
+            for (var playerIndex = 0;
+                 playerIndex < synchronizedControls.Length;
+                 playerIndex++)
+            {
+                var enabled = session.Players.IsActive(playerIndex) &&
+                              !session.IsPlayerStunned(playerIndex, now) &&
+                              (phase == MatchPhase.Searching ||
+                               phase == MatchPhase.Hiding &&
+                               playerIndex == hidingTurn);
+                if (hasSynchronizedPlayers &&
+                    synchronizedControls[playerIndex] == enabled)
+                {
+                    continue;
+                }
+
+                if (!network.TrySetPlayerControls(playerIndex, enabled))
+                {
+                    throw new InvalidOperationException(
+                        $"The authority could not set controls for player {playerIndex}.");
+                }
+
+                synchronizedControls[playerIndex] = enabled;
+            }
+
+            synchronizedPhase = phase;
+            synchronizedHidingTurn = hidingTurn;
+            hasSynchronizedPlayers = true;
+        }
+
         private void PublishSnapshotIfChanged()
         {
             var snapshot = composition.Session.CaptureStateSnapshot();
@@ -224,6 +303,10 @@ namespace Game.Bootstrap
             composition = null;
             runtime = null;
             pendingLineUp = null;
+            synchronizedControls = Array.Empty<bool>();
+            synchronizedPhase = (MatchPhase)(-1);
+            synchronizedHidingTurn = -1;
+            hasSynchronizedPlayers = false;
             hasPublishedSnapshot = false;
         }
     }

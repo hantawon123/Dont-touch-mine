@@ -125,24 +125,29 @@ namespace Game.Bootstrap
                     continue;
                 }
 
+                var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                var acceptsLocalInput = avatar.IsOwner &&
+                                        motor != null &&
+                                        motor.ControlsEnabled;
+
                 var interactor = avatar.GetComponent<PlayerInteractor>();
                 if (interactor != null)
                 {
-                    interactor.BindCommands(avatar.IsOwner ? this : null);
-                    interactor.enabled = avatar.IsOwner;
+                    interactor.BindCommands(acceptsLocalInput ? this : null);
+                    interactor.enabled = acceptsLocalInput;
                     interactors[playerIndex] = interactor;
 
                     var placement = avatar.GetComponent<ItemPlacementController>();
                     if (placement != null)
                     {
-                        placement.enabled = avatar.IsOwner;
+                        placement.enabled = acceptsLocalInput;
                     }
                 }
 
                 var combatant = avatar.GetComponent<PlayerCombatant>();
                 if (combatant != null)
                 {
-                    combatant.ConfigureNetworkPlayer(playerIndex, avatar.IsOwner);
+                    combatant.ConfigureNetworkPlayer(playerIndex, acceptsLocalInput);
                     combatants[playerIndex] = combatant;
                 }
             }
