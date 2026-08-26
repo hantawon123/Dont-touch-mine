@@ -155,7 +155,7 @@ namespace Game.Network.Session
         /// out of a list. An empty result is left empty rather than replaced with
         /// a placeholder: only presentation knows what to show instead.
         /// </remarks>
-        private static string SanitiseNickname(string presented)
+        internal static string SanitiseNickname(string presented)
         {
             if (string.IsNullOrWhiteSpace(presented))
             {
@@ -697,7 +697,7 @@ namespace Game.Network.Session
         /// character is spawned, which is exactly when the authority needs it.
         /// </para>
         /// </remarks>
-        private static byte[] EncodeToken(string password, string nickname)
+        internal static byte[] EncodeToken(string password, string nickname)
         {
             var passwordBytes = Encoding.UTF8.GetBytes(password ?? string.Empty);
             var nicknameBytes = Encoding.UTF8.GetBytes(nickname ?? string.Empty);
@@ -731,7 +731,7 @@ namespace Game.Network.Session
         /// than an exception: the bytes come from another peer, so a malformed
         /// token is a thing that happens and not a bug to crash on.
         /// </summary>
-        private static void DecodeToken(byte[] token, out string password, out string nickname)
+        internal static void DecodeToken(byte[] token, out string password, out string nickname)
         {
             password = string.Empty;
             nickname = string.Empty;
