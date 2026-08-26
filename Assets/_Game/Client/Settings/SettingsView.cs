@@ -19,7 +19,6 @@ namespace Game.Client.Settings
         private static readonly Color TabIdle = new Color(0.45f, 0.45f, 0.45f, 1f);
         private static readonly Color MenuHover = new Color(0.18f, 0.47f, 0.98f, 1f);
         private static readonly Color MenuPressed = new Color(0.10f, 0.32f, 0.78f, 1f);
-        private static readonly Color PlaceholderColor = new Color(0.55f, 0.55f, 0.55f, 1f);
 
         private static readonly (SettingsTab Tab, string Label)[] Tabs =
         {
@@ -247,7 +246,7 @@ namespace Game.Client.Settings
 
             panels[SettingsTab.Graphics] = CreateGraphicsPanel(body).gameObject;
             panels[SettingsTab.Audio] = CreateAudioPanel(body).gameObject;
-            panels[SettingsTab.Controls] = CreatePlaceholder(body, "Controls", "조작 설정은 준비 중입니다").gameObject;
+            panels[SettingsTab.Controls] = CreateControlsPanel(body).gameObject;
             panels[SettingsTab.Accessibility] = CreateAccessibilityPanel(body).gameObject;
             panels[SettingsTab.Notifications] = CreateNotificationsPanel(body).gameObject;
         }
@@ -305,6 +304,16 @@ namespace Game.Client.Settings
             CreateToggleRow(content, "음성 채팅", true);
             CreateSliderRow(content, "음성 채팅 음량", 50);
             CreateSliderRow(content, "마이크 입력 음량", 50);
+            return panel;
+        }
+
+        private RectTransform CreateControlsPanel(RectTransform parent)
+        {
+            var content = CreateScrollPanel(parent, "Controls", out var panel);
+            panel.gameObject.SetActive(false);
+            CreateDecimalSliderRow(content, "마우스 감도", 0.5f);
+            CreateDecimalSliderRow(content, "카메라 감도", 0.5f);
+            CreateActionRow(content, "키 설정 변경");
             return panel;
         }
 
@@ -369,23 +378,6 @@ namespace Game.Client.Settings
             scroll.viewport = viewport;
             scroll.content = content;
             return content;
-        }
-
-        private RectTransform CreatePlaceholder(RectTransform parent, string name, string message)
-        {
-            var panel = CreateRect(name, parent);
-            SetAnchor(panel, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
-            panel.offsetMin = Vector2.zero;
-            panel.offsetMax = Vector2.zero;
-            panel.gameObject.SetActive(false);
-
-            var label = CreateRect("Hint", panel);
-            SetAnchor(label, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
-            label.offsetMin = Vector2.zero;
-            label.offsetMax = Vector2.zero;
-            var text = AddText(label, message, 24f, FontStyles.Normal, TextAlignmentOptions.Center);
-            text.color = PlaceholderColor;
-            return panel;
         }
 
         private void CreateCycleRow(RectTransform parent, string label, string[] options, int defaultIndex)
@@ -571,8 +563,80 @@ namespace Game.Client.Settings
                 FontStyles.Bold,
                 TextAlignmentOptions.MidlineRight);
 
-            var slider = CreateBrightnessSlider(sliderRect, defaultValue);
+            var slider = CreatePercentSlider(sliderRect, defaultValue);
             slider.onValueChanged.AddListener(value => percent.text = $"{Mathf.RoundToInt(value)}%");
+        }
+
+        private void CreateDecimalSliderRow(RectTransform parent, string label, float defaultValue)
+        {
+            var row = CreateSettingRow(parent);
+            AddRowLabel(row, label);
+
+            var control = CreateRect("Control", row);
+            var controlLayout = control.gameObject.AddComponent<LayoutElement>();
+            controlLayout.preferredWidth = 420f;
+            controlLayout.minWidth = 320f;
+            controlLayout.preferredHeight = 48f;
+
+            var layout = control.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 12f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            var sliderRect = CreateRect("Slider", control);
+            var sliderLayout = sliderRect.gameObject.AddComponent<LayoutElement>();
+            sliderLayout.flexibleWidth = 1f;
+            sliderLayout.minWidth = 220f;
+            sliderLayout.preferredHeight = 40f;
+
+            var valueRect = CreateRect("Value", control);
+            var valueLayout = valueRect.gameObject.AddComponent<LayoutElement>();
+            valueLayout.preferredWidth = 72f;
+            valueLayout.minWidth = 72f;
+            var valueLabel = AddText(
+                valueRect,
+                defaultValue.ToString("0.0"),
+                20f,
+                FontStyles.Bold,
+                TextAlignmentOptions.MidlineRight);
+
+            var slider = CreatePercentSlider(sliderRect, defaultValue, 0f, 1f, false);
+            slider.onValueChanged.AddListener(value => valueLabel.text = value.ToString("0.0"));
+        }
+
+        private void CreateActionRow(RectTransform parent, string label)
+        {
+            var row = CreateSettingRow(parent);
+            var actionRect = CreateRect("Action", row);
+            var layout = actionRect.gameObject.AddComponent<LayoutElement>();
+            layout.flexibleWidth = 1f;
+            layout.minWidth = 180f;
+            layout.preferredHeight = 48f;
+            var text = AddText(
+                actionRect,
+                label,
+                24f,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineLeft,
+                raycastTarget: true);
+            text.color = Color.white;
+            var button = actionRect.gameObject.AddComponent<Button>();
+            button.targetGraphic = text;
+            button.transition = Selectable.Transition.ColorTint;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.black;
+            colors.highlightedColor = MenuHover;
+            colors.pressedColor = MenuPressed;
+            colors.selectedColor = Color.black;
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+            text.CrossFadeColor(colors.normalColor, 0f, true, true);
+            buttons.Add(button);
         }
 
         private void CreateRangeSliderRow(RectTransform parent, string label, int defaultValue)
@@ -600,7 +664,7 @@ namespace Game.Client.Settings
             sliderLayout.flexibleWidth = 1f;
             sliderLayout.minWidth = 180f;
             sliderLayout.preferredHeight = 40f;
-            CreateBrightnessSlider(sliderRect, defaultValue);
+            CreatePercentSlider(sliderRect, defaultValue);
             AddRangeHint(control, "크게", TextAlignmentOptions.MidlineRight);
         }
 
@@ -613,7 +677,12 @@ namespace Game.Client.Settings
             AddText(hintRect, text, 18f, FontStyles.Normal, alignment);
         }
 
-        private Slider CreateBrightnessSlider(RectTransform parent, int defaultValue)
+        private Slider CreatePercentSlider(
+            RectTransform parent,
+            float defaultValue,
+            float minValue = 0f,
+            float maxValue = 100f,
+            bool wholeNumbers = true)
         {
             const float trackHeight = 6f;
             const float handleSize = 36f;
@@ -652,9 +721,9 @@ namespace Game.Client.Settings
             slider.handleRect = handle;
             slider.targetGraphic = handleImage;
             slider.direction = Slider.Direction.LeftToRight;
-            slider.minValue = 0f;
-            slider.maxValue = 100f;
-            slider.wholeNumbers = true;
+            slider.minValue = minValue;
+            slider.maxValue = maxValue;
+            slider.wholeNumbers = wholeNumbers;
             slider.value = defaultValue;
             slider.navigation = new Navigation { mode = Navigation.Mode.None };
             return slider;
