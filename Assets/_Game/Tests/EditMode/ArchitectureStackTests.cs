@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using Game.Bootstrap;
+using Game.Client.Accessibility;
 using Game.Client.Audio;
 using Game.Core.Flow;
 using Game.Core.Home;
@@ -59,6 +60,10 @@ namespace Game.Architecture.Tests
             Assert.That(
                 AudioListener.volume,
                 Is.EqualTo(audio.Current.GetListenerVolume()).Within(0.0001f));
+
+            var accessibility = container.Resolve<IAccessibilitySettings>();
+            Assert.That(accessibility, Is.Not.Null);
+            Assert.That(accessibility.Current, Is.Not.Null);
         }
     }
 }

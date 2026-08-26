@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Accessibility;
 using Game.Core.Home;
 using TMPro;
 using UnityEngine;
@@ -331,6 +332,7 @@ namespace Game.Client.Home
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
             canvasObject.AddComponent<GraphicRaycaster>();
+            AccessibilityBindings.EnsureCanvas(canvasObject);
             return canvasRect;
         }
 
@@ -1456,6 +1458,7 @@ namespace Game.Client.Home
             tmp.textWrappingMode = TextWrappingModes.NoWrap;
             tmp.overflowMode = TextOverflowModes.Overflow;
             target.gameObject.SetActive(true);
+            AccessibilityBindings.EnsureText(tmp);
             return tmp;
         }
 

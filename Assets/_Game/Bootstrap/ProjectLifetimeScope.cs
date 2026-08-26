@@ -1,3 +1,4 @@
+using Game.Client.Accessibility;
 using Game.Client.Audio;
 using Game.Core.Flow;
 using Game.Core.Home;
@@ -42,7 +43,17 @@ namespace Game.Bootstrap
                 .As<IAudioSettingsApplier>();
             builder.Register<AudioSettingsService>(Lifetime.Singleton)
                 .As<IAudioSettings>();
-            builder.RegisterBuildCallback(container => container.Resolve<IAudioSettings>());
+            builder.Register<PlayerPrefsAccessibilitySettingsStore>(Lifetime.Singleton)
+                .As<IAccessibilitySettingsStore>();
+            builder.Register<UnityAccessibilitySettingsApplier>(Lifetime.Singleton)
+                .As<IAccessibilitySettingsApplier>();
+            builder.Register<AccessibilitySettingsService>(Lifetime.Singleton)
+                .As<IAccessibilitySettings>();
+            builder.RegisterBuildCallback(container =>
+            {
+                container.Resolve<IAudioSettings>();
+                container.Resolve<IAccessibilitySettings>();
+            });
 
             // Replaced by the saved Steam/backend profile when that adapter is connected.
             builder.RegisterInstance(new PlayerProfile("Player", 1));
