@@ -246,7 +246,7 @@ namespace Game.Client.Settings
             body.offsetMax = new Vector2(-48f, -176f);
 
             panels[SettingsTab.Graphics] = CreateGraphicsPanel(body).gameObject;
-            panels[SettingsTab.Audio] = CreatePlaceholder(body, "Audio", "오디오 설정은 준비 중입니다").gameObject;
+            panels[SettingsTab.Audio] = CreateAudioPanel(body).gameObject;
             panels[SettingsTab.Controls] = CreatePlaceholder(body, "Controls", "조작 설정은 준비 중입니다").gameObject;
             panels[SettingsTab.Accessibility] = CreatePlaceholder(
                 body,
@@ -260,43 +260,7 @@ namespace Game.Client.Settings
 
         private RectTransform CreateGraphicsPanel(RectTransform parent)
         {
-            var panel = CreateRect("Graphics", parent);
-            SetAnchor(panel, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
-            panel.offsetMin = Vector2.zero;
-            panel.offsetMax = Vector2.zero;
-
-            var scroll = panel.gameObject.AddComponent<ScrollRect>();
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 24f;
-
-            var viewport = CreateRect("Viewport", panel);
-            SetAnchor(viewport, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
-            viewport.offsetMin = Vector2.zero;
-            viewport.offsetMax = Vector2.zero;
-            viewport.gameObject.AddComponent<RectMask2D>();
-            AddImage(viewport, Color.clear, raycastTarget: true);
-
-            var content = CreateRect("Content", viewport);
-            SetAnchor(content, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
-            content.anchoredPosition = Vector2.zero;
-            content.sizeDelta = Vector2.zero;
-            var contentLayout = content.gameObject.AddComponent<VerticalLayoutGroup>();
-            contentLayout.spacing = 12f;
-            contentLayout.padding = new RectOffset(8, 8, 8, 8);
-            contentLayout.childAlignment = TextAnchor.UpperCenter;
-            contentLayout.childControlWidth = true;
-            contentLayout.childControlHeight = true;
-            contentLayout.childForceExpandWidth = true;
-            contentLayout.childForceExpandHeight = false;
-            var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            scroll.viewport = viewport;
-            scroll.content = content;
-
+            var content = CreateScrollPanel(parent, "Graphics", out var panel);
             CreateCycleRow(
                 content,
                 "그래픽 품질",
@@ -334,6 +298,61 @@ namespace Game.Client.Settings
                 3);
             CreateSliderRow(content, "밝기 / 감마", 50);
             return panel;
+        }
+
+        private RectTransform CreateAudioPanel(RectTransform parent)
+        {
+            var content = CreateScrollPanel(parent, "Audio", out var panel);
+            panel.gameObject.SetActive(false);
+            CreateSliderRow(content, "전체 음량", 50);
+            CreateSliderRow(content, "배경음악 음량", 50);
+            CreateSliderRow(content, "효과음 음량", 50);
+            CreateSliderRow(content, "UI 음량", 50);
+            CreateToggleRow(content, "음성 채팅", true);
+            CreateSliderRow(content, "음성 채팅 음량", 50);
+            CreateSliderRow(content, "마이크 입력 음량", 50);
+            return panel;
+        }
+
+        private RectTransform CreateScrollPanel(RectTransform parent, string name, out RectTransform panel)
+        {
+            panel = CreateRect(name, parent);
+            SetAnchor(panel, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            panel.offsetMin = Vector2.zero;
+            panel.offsetMax = Vector2.zero;
+
+            var scroll = panel.gameObject.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 24f;
+
+            var viewport = CreateRect("Viewport", panel);
+            SetAnchor(viewport, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            viewport.offsetMin = Vector2.zero;
+            viewport.offsetMax = Vector2.zero;
+            viewport.gameObject.AddComponent<RectMask2D>();
+            AddImage(viewport, Color.clear, raycastTarget: true);
+
+            var content = CreateRect("Content", viewport);
+            SetAnchor(content, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+            var contentLayout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+            contentLayout.spacing = 12f;
+            contentLayout.padding = new RectOffset(8, 8, 8, 8);
+            contentLayout.childAlignment = TextAnchor.UpperCenter;
+            contentLayout.childControlWidth = true;
+            contentLayout.childControlHeight = true;
+            contentLayout.childForceExpandWidth = true;
+            contentLayout.childForceExpandHeight = false;
+            var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.viewport = viewport;
+            scroll.content = content;
+            return content;
         }
 
         private RectTransform CreatePlaceholder(RectTransform parent, string name, string message)
@@ -403,6 +422,91 @@ namespace Game.Client.Settings
                 state.Index = (state.Index + 1) % state.Options.Length;
                 state.ValueLabel.text = state.Options[state.Index];
             });
+        }
+
+        private void CreateToggleRow(RectTransform parent, string label, bool defaultOn)
+        {
+            var row = CreateSettingRow(parent);
+            AddRowLabel(row, label);
+
+            var control = CreateRect("Toggle", row);
+            var controlLayout = control.gameObject.AddComponent<LayoutElement>();
+            controlLayout.preferredWidth = 220f;
+            controlLayout.minWidth = 180f;
+            controlLayout.preferredHeight = 48f;
+            var background = AddImage(control, RowColor, HomeUiFonts.PillSprite);
+            background.type = Image.Type.Sliced;
+
+            var layout = control.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(4, 4, 4, 4);
+            layout.spacing = 0f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = true;
+
+            var state = new ToggleState { IsOn = defaultOn };
+            state.OnHalf = CreateToggleHalf(control, "ON", () =>
+            {
+                state.IsOn = true;
+                BindToggle(state);
+            });
+            state.OffHalf = CreateToggleHalf(control, "OFF", () =>
+            {
+                state.IsOn = false;
+                BindToggle(state);
+            });
+            BindToggle(state);
+        }
+
+        private ToggleHalf CreateToggleHalf(RectTransform parent, string label, Action onClicked)
+        {
+            var rect = CreateRect(label, parent);
+            var layout = rect.gameObject.AddComponent<LayoutElement>();
+            layout.flexibleWidth = 1f;
+            layout.minWidth = 72f;
+            layout.preferredHeight = 40f;
+            var image = AddImage(rect, Color.white, HomeUiFonts.PillSprite, raycastTarget: true);
+            image.type = Image.Type.Sliced;
+
+            var labelRect = CreateRect("Label", rect);
+            SetAnchor(labelRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+            var text = AddText(
+                labelRect,
+                label,
+                20f,
+                FontStyles.Bold,
+                TextAlignmentOptions.Center,
+                raycastTarget: true);
+
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.transition = Selectable.Transition.None;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            button.onClick.AddListener(() => onClicked?.Invoke());
+            buttons.Add(button);
+
+            return new ToggleHalf
+            {
+                Background = image,
+                Label = text
+            };
+        }
+
+        private static void BindToggle(ToggleState state)
+        {
+            ApplyToggleHalf(state.OnHalf, state.IsOn);
+            ApplyToggleHalf(state.OffHalf, !state.IsOn);
+        }
+
+        private static void ApplyToggleHalf(ToggleHalf half, bool selected)
+        {
+            half.Background.color = selected ? Color.white : Color.clear;
+            half.Label.color = selected ? Color.black : TabIdle;
+            half.Label.fontStyle = selected ? FontStyles.Bold : FontStyles.Normal;
         }
 
         private void CreateCycleArrow(RectTransform parent, string label, Action onClicked)
@@ -646,6 +750,19 @@ namespace Game.Client.Settings
             public string[] Options;
             public int Index;
             public TMP_Text ValueLabel;
+        }
+
+        private sealed class ToggleState
+        {
+            public bool IsOn;
+            public ToggleHalf OnHalf;
+            public ToggleHalf OffHalf;
+        }
+
+        private sealed class ToggleHalf
+        {
+            public Image Background;
+            public TMP_Text Label;
         }
     }
 }
