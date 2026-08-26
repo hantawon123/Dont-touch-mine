@@ -54,6 +54,8 @@ namespace Game.Network.Match
         public event Action<ObjectThrownEvent> ObjectThrownReceived;
         public event Action<FinalWarningStartedEvent> FinalWarningReceived;
         public event Action<IReadOnlyList<bool>> ParticipantActivityReceived;
+        public event Action<IReadOnlyList<PlayerInteractionStateSnapshot>>
+            PlayerInteractionStatesReceived;
         public event Action<MatchResult> MatchResultReceived;
         public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
         public event Action SimulationTick;
@@ -225,6 +227,12 @@ namespace Game.Network.Match
             ParticipantActivityReceived?.Invoke(active);
         }
 
+        public void PublishPlayerInteractionStates(
+            IReadOnlyList<PlayerInteractionStateSnapshot> states)
+        {
+            PlayerInteractionStatesReceived?.Invoke(states);
+        }
+
         public void PublishMatchResult(MatchResult result)
         {
             MatchResultReceived?.Invoke(result);
@@ -253,6 +261,21 @@ namespace Game.Network.Match
             _session.MatchEnded += OnMatchEnded;
             _shredderEjectionPose = shredderEjectionPose;
             _hasShredderEjectionPose = true;
+
+            var remainingUses = new int[_session.Players.Players.Count];
+            for (var playerIndex = 0;
+                 playerIndex < remainingUses.Length;
+                 playerIndex++)
+            {
+                remainingUses[playerIndex] =
+                    _session.GetRemainingDestructionUses(playerIndex);
+            }
+
+            if (!_state.TryInitializePlayerInteractionStates(remainingUses))
+            {
+                throw new InvalidOperationException(
+                    "The authority could not initialize player interaction state.");
+            }
         }
 
         public bool UnbindSession(MatchSessionCoordinator session)
@@ -439,14 +462,20 @@ namespace Game.Network.Match
 
             if (_session.TryDestroyHeldPlayerItem(playerIndex, now))
             {
+                PublishRemainingDestructionUses(playerIndex);
                 return _state.TrySetObjectDestroyed(objectId);
             }
 
-            return _session.TryUseShredderOnHeldMapObject(
-                       playerIndex,
-                       _shredderEjectionPose,
-                       now) &&
-                   _state.TrySetObjectReleased(objectId, _shredderEjectionPose);
+            if (!_session.TryUseShredderOnHeldMapObject(
+                    playerIndex,
+                    _shredderEjectionPose,
+                    now))
+            {
+                return false;
+            }
+
+            PublishRemainingDestructionUses(playerIndex);
+            return _state.TrySetObjectReleased(objectId, _shredderEjectionPose);
         }
 
         public bool TryHandlePlayerLeft(PlayerRef player)
@@ -524,6 +553,9 @@ namespace Game.Network.Match
 
         private void OnPlayerStunned(PlayerStunnedEvent confirmedEvent)
         {
+            _state?.TrySetStunEndsAt(
+                confirmedEvent.TargetPlayerIndex,
+                confirmedEvent.StunEndsAt);
             _state?.RPC_NotifyPlayerStunned(
                 confirmedEvent.AttackerPlayerIndex,
                 confirmedEvent.TargetPlayerIndex,
@@ -553,6 +585,13 @@ namespace Game.Network.Match
         private void OnMatchEnded(MatchResult result)
         {
             _state?.TrySetResult(result);
+        }
+
+        private void PublishRemainingDestructionUses(int playerIndex)
+        {
+            _state?.TrySetRemainingDestructionUses(
+                playerIndex,
+                _session.GetRemainingDestructionUses(playerIndex));
         }
 
         private void UnbindSession()

@@ -8,6 +8,33 @@ using UnityEngine;
 
 namespace Game.Network.Match
 {
+    public readonly struct PlayerInteractionStateSnapshot
+    {
+        public PlayerInteractionStateSnapshot(
+            int playerIndex,
+            double stunEndsAt,
+            int remainingDestructionUses)
+        {
+            if (playerIndex < 0 ||
+                double.IsNaN(stunEndsAt) ||
+                double.IsInfinity(stunEndsAt) ||
+                stunEndsAt < 0d ||
+                remainingDestructionUses < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(playerIndex));
+            }
+
+            PlayerIndex = playerIndex;
+            StunEndsAt = stunEndsAt;
+            RemainingDestructionUses = remainingDestructionUses;
+        }
+
+        public int PlayerIndex { get; }
+        public double StunEndsAt { get; }
+        public int RemainingDestructionUses { get; }
+        public bool IsStunned(double serverTime) => serverTime < StunEndsAt;
+    }
+
     public readonly struct MatchObjectStateSnapshot
     {
         public MatchObjectStateSnapshot(
@@ -108,6 +135,15 @@ namespace Game.Network.Match
         [Networked]
         public int ParticipantActivityRevision { get; set; }
 
+        [Networked, Capacity(MaxParticipants)]
+        public NetworkArray<double> StunEndsAt => default;
+
+        [Networked, Capacity(MaxParticipants)]
+        public NetworkArray<int> RemainingDestructionUses => default;
+
+        [Networked]
+        public int PlayerInteractionStateRevision { get; set; }
+
         [Networked]
         public MatchPhase Phase { get; set; }
 
@@ -142,6 +178,7 @@ namespace Game.Network.Match
         private double _publishedPhaseEndsAt = -1d;
         private int _publishedObjectStateRevision = -1;
         private int _publishedParticipantActivityRevision = -1;
+        private int _publishedPlayerInteractionStateRevision = -1;
         private bool _publishedHasResult;
 
         public override void Spawned()
@@ -150,6 +187,7 @@ namespace Game.Network.Match
             PublishSnapshot();
             PublishObjectStates();
             PublishParticipantActivity();
+            PublishPlayerInteractionStates();
             PublishResult();
         }
 
@@ -189,6 +227,12 @@ namespace Game.Network.Match
                 PublishParticipantActivity();
             }
 
+            if (_publishedPlayerInteractionStateRevision !=
+                PlayerInteractionStateRevision)
+            {
+                PublishPlayerInteractionStates();
+            }
+
             if (_publishedHasResult != HasResult)
             {
                 PublishResult();
@@ -225,6 +269,70 @@ namespace Game.Network.Match
 
             ParticipantActive.Set(playerIndex, false);
             ParticipantActivityRevision++;
+            return true;
+        }
+
+        public bool TryInitializePlayerInteractionStates(
+            IReadOnlyList<int> remainingDestructionUses)
+        {
+            if (Object == null ||
+                !Object.HasStateAuthority ||
+                remainingDestructionUses == null ||
+                remainingDestructionUses.Count != ParticipantCount)
+            {
+                return false;
+            }
+
+            for (var playerIndex = 0;
+                 playerIndex < remainingDestructionUses.Count;
+                 playerIndex++)
+            {
+                if (remainingDestructionUses[playerIndex] < 0)
+                {
+                    return false;
+                }
+            }
+
+            for (var playerIndex = 0;
+                 playerIndex < remainingDestructionUses.Count;
+                 playerIndex++)
+            {
+                StunEndsAt.Set(playerIndex, 0d);
+                RemainingDestructionUses.Set(
+                    playerIndex,
+                    remainingDestructionUses[playerIndex]);
+            }
+
+            PlayerInteractionStateRevision++;
+            return true;
+        }
+
+        public bool TrySetStunEndsAt(int playerIndex, double stunEndsAt)
+        {
+            if (!CanWritePlayerInteractionState(playerIndex) ||
+                double.IsNaN(stunEndsAt) ||
+                double.IsInfinity(stunEndsAt) ||
+                stunEndsAt < 0d)
+            {
+                return false;
+            }
+
+            StunEndsAt.Set(playerIndex, stunEndsAt);
+            PlayerInteractionStateRevision++;
+            return true;
+        }
+
+        public bool TrySetRemainingDestructionUses(
+            int playerIndex,
+            int remainingUses)
+        {
+            if (!CanWritePlayerInteractionState(playerIndex) || remainingUses < 0)
+            {
+                return false;
+            }
+
+            RemainingDestructionUses.Set(playerIndex, remainingUses);
+            PlayerInteractionStateRevision++;
             return true;
         }
 
@@ -490,6 +598,23 @@ namespace Game.Network.Match
             StarterOf(Runner)?.PublishParticipantActivity(active);
         }
 
+        private void PublishPlayerInteractionStates()
+        {
+            _publishedPlayerInteractionStateRevision =
+                PlayerInteractionStateRevision;
+            var count = Mathf.Min(ParticipantCount, MaxParticipants);
+            var snapshots = new PlayerInteractionStateSnapshot[count];
+            for (var playerIndex = 0; playerIndex < count; playerIndex++)
+            {
+                snapshots[playerIndex] = new PlayerInteractionStateSnapshot(
+                    playerIndex,
+                    StunEndsAt.Get(playerIndex),
+                    RemainingDestructionUses.Get(playerIndex));
+            }
+
+            StarterOf(Runner)?.PublishPlayerInteractionStates(snapshots);
+        }
+
         private void PublishResult()
         {
             _publishedHasResult = HasResult;
@@ -529,6 +654,14 @@ namespace Game.Network.Match
             }
 
             return true;
+        }
+
+        private bool CanWritePlayerInteractionState(int playerIndex)
+        {
+            return Object != null &&
+                   Object.HasStateAuthority &&
+                   playerIndex >= 0 &&
+                   playerIndex < ParticipantCount;
         }
 
         private bool WriteObjectState(

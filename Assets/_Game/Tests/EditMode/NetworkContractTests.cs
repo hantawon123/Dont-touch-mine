@@ -225,18 +225,31 @@ namespace Game.Architecture.Tests
             {
                 var starter = gameObject.AddComponent<MatchStarter>();
                 IReadOnlyList<bool> receivedActivity = null;
+                IReadOnlyList<PlayerInteractionStateSnapshot> receivedInteractions = null;
                 MatchResult? receivedResult = null;
                 starter.ParticipantActivityReceived += value =>
                     receivedActivity = value;
+                starter.PlayerInteractionStatesReceived += value =>
+                    receivedInteractions = value;
                 starter.MatchResultReceived += value => receivedResult = value;
 
                 starter.PublishParticipantActivity(new[] { true, false });
+                starter.PublishPlayerInteractionStates(new[]
+                {
+                    new PlayerInteractionStateSnapshot(0, 12d, 4),
+                    new PlayerInteractionStateSnapshot(1, 0d, 5),
+                });
                 starter.PublishMatchResult(new MatchResult(
                     MatchEndReason.LastPlayerStanding,
                     300d,
                     new[] { 0 }));
 
                 Assert.That(receivedActivity, Is.EqualTo(new[] { true, false }));
+                Assert.That(receivedInteractions.Count, Is.EqualTo(2));
+                Assert.That(receivedInteractions[0].StunEndsAt, Is.EqualTo(12d));
+                Assert.That(
+                    receivedInteractions[0].RemainingDestructionUses,
+                    Is.EqualTo(4));
                 Assert.That(receivedResult.HasValue, Is.True);
                 Assert.That(
                     receivedResult.Value.EndReason,
@@ -248,6 +261,27 @@ namespace Game.Architecture.Tests
             {
                 UnityEngine.Object.DestroyImmediate(gameObject);
             }
+        }
+
+        [Test]
+        public void PlayerInteractionState_IsPersistentNetworkedData()
+        {
+            var stunEndsAt = typeof(MatchSessionState).GetProperty("StunEndsAt");
+            var remainingUses = typeof(MatchSessionState).GetProperty(
+                "RemainingDestructionUses");
+
+            Assert.That(stunEndsAt, Is.Not.Null);
+            Assert.That(remainingUses, Is.Not.Null);
+            Assert.That(
+                Attribute.IsDefined(stunEndsAt, typeof(Fusion.NetworkedAttribute)),
+                Is.True);
+            Assert.That(
+                Attribute.IsDefined(remainingUses, typeof(Fusion.NetworkedAttribute)),
+                Is.True);
+
+            var snapshot = new PlayerInteractionStateSnapshot(1, 15d, 3);
+            Assert.That(snapshot.IsStunned(14.99d), Is.True);
+            Assert.That(snapshot.IsStunned(15d), Is.False);
         }
 
         [Test]

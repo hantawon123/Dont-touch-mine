@@ -68,6 +68,8 @@ namespace Game.Network.Session
         public event Action<ObjectThrownEvent> ObjectThrownReceived;
         public event Action<FinalWarningStartedEvent> FinalWarningReceived;
         public event Action<IReadOnlyList<bool>> ParticipantActivityReceived;
+        public event Action<IReadOnlyList<PlayerInteractionStateSnapshot>>
+            PlayerInteractionStatesReceived;
         public event Action<MatchResult> MatchResultReceived;
         public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
         public event Action SimulationTick;
@@ -438,6 +440,8 @@ namespace Game.Network.Session
             _matchStarter.ObjectThrownReceived += OnObjectThrownReceived;
             _matchStarter.FinalWarningReceived += OnFinalWarningReceived;
             _matchStarter.ParticipantActivityReceived += OnParticipantActivityReceived;
+            _matchStarter.PlayerInteractionStatesReceived +=
+                OnPlayerInteractionStatesReceived;
             _matchStarter.MatchResultReceived += OnMatchResultReceived;
             _matchStarter.LineUpReceived += OnLineUpReceived;
             _matchStarter.SimulationTick += OnSimulationTick;
@@ -470,6 +474,8 @@ namespace Game.Network.Session
                 _matchStarter.ObjectThrownReceived -= OnObjectThrownReceived;
                 _matchStarter.FinalWarningReceived -= OnFinalWarningReceived;
                 _matchStarter.ParticipantActivityReceived -= OnParticipantActivityReceived;
+                _matchStarter.PlayerInteractionStatesReceived -=
+                    OnPlayerInteractionStatesReceived;
                 _matchStarter.MatchResultReceived -= OnMatchResultReceived;
                 _matchStarter.LineUpReceived -= OnLineUpReceived;
                 _matchStarter.SimulationTick -= OnSimulationTick;
@@ -527,6 +533,12 @@ namespace Game.Network.Session
         private void OnParticipantActivityReceived(IReadOnlyList<bool> active)
         {
             ParticipantActivityReceived?.Invoke(active);
+        }
+
+        private void OnPlayerInteractionStatesReceived(
+            IReadOnlyList<PlayerInteractionStateSnapshot> states)
+        {
+            PlayerInteractionStatesReceived?.Invoke(states);
         }
 
         private void OnMatchResultReceived(MatchResult result)
