@@ -10,8 +10,9 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkMatchFlowIntegrationTests
     {
-        [Test]
-        public void TwoPeers_FollowConfirmedMatchFlowToResult()
+        [TestCase(MatchEndReason.TimeExpired)]
+        [TestCase(MatchEndReason.AllPlayerItemsDestroyed)]
+        public void NormalResult_WaitsForResultPhase(MatchEndReason reason)
         {
             var network = new FakeNetworkMatchEvents();
             var hostFlow = CreateLobbyFlow();
@@ -31,10 +32,35 @@ namespace Game.Architecture.Tests
             AssertPeersAt(hostFlow, clientFlow, AppFlowState.Highlight);
 
             network.Publish(new MatchResult(
-                MatchEndReason.TimeExpired,
+                reason,
                 570d,
                 new[] { 0, 1 }));
+            AssertPeersAt(hostFlow, clientFlow, AppFlowState.Highlight);
+
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
             AssertPeersAt(hostFlow, clientFlow, AppFlowState.Result);
+        }
+
+        [Test]
+        public void ResultPhaseBeforeResultEvent_WaitsForResultData()
+        {
+            var network = new FakeNetworkMatchEvents();
+            var flow = CreateLobbyFlow();
+            using var synchronizer = new NetworkMatchFlowSynchronizer(network, flow);
+            synchronizer.Start();
+
+            network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 540d));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 570d));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Highlight));
+
+            network.Publish(new MatchResult(
+                MatchEndReason.TimeExpired,
+                540d,
+                new[] { 0 }));
+
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Result));
         }
 
         [Test]
@@ -49,6 +75,9 @@ namespace Game.Architecture.Tests
             client.Start();
 
             network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 180d));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            AssertPeersAt(hostFlow, clientFlow, AppFlowState.InGame);
+
             network.Publish(new MatchResult(
                 MatchEndReason.LastPlayerStanding,
                 90d,

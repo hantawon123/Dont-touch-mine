@@ -16,6 +16,8 @@ namespace Game.Bootstrap
         private readonly INetworkMatchEvents network;
         private readonly AppFlowSystem appFlow;
         private bool started;
+        private bool hasNormalResult;
+        private bool hasResultPhase;
 
         public NetworkMatchFlowSynchronizer(
             INetworkMatchEvents network,
@@ -55,11 +57,18 @@ namespace Game.Bootstrap
             {
                 case MatchPhase.Hiding:
                 case MatchPhase.Searching:
+                    hasNormalResult = false;
+                    hasResultPhase = false;
                     TransitionToInGame();
                     break;
 
                 case MatchPhase.Highlight:
                     TransitionToHighlight();
+                    break;
+
+                case MatchPhase.Result:
+                    hasResultPhase = true;
+                    TryTransitionToResult();
                     break;
             }
         }
@@ -68,11 +77,21 @@ namespace Game.Bootstrap
         {
             if (result.EndReason == MatchEndReason.LastPlayerStanding)
             {
+                hasNormalResult = false;
                 TransitionToLobby();
                 return;
             }
 
-            TransitionToResult();
+            hasNormalResult = true;
+            TryTransitionToResult();
+        }
+
+        private void TryTransitionToResult()
+        {
+            if (hasNormalResult && hasResultPhase)
+            {
+                TransitionToResult();
+            }
         }
 
         private void TransitionToInGame()
