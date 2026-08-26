@@ -75,6 +75,7 @@ namespace Game.Editor
             EnsurePlayerListContent(playerList);
             EnsureChatContent(chat);
 
+            EnsureButton(leave.gameObject);
             EnsureButton(keyGuide.gameObject);
             EnsureButton(playSettings.gameObject);
             EnsureButton(start.gameObject);

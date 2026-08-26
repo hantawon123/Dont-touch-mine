@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Home;
 using Game.Client.Lobby;
 using Game.Core.Lobby;
 using UnityEngine;
@@ -70,6 +71,7 @@ namespace Game.Bootstrap
                     "Chat views must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
             }
 
+            builder.Register<UnityHomeApplicationHost>(Lifetime.Scoped).As<IHomeApplicationHost>();
             builder.RegisterComponent(hudView);
             builder.RegisterComponent(keyGuideView).As<IKeyGuideView>();
             builder.RegisterComponent(playerListView).As<ILobbyPlayerListView>();
@@ -87,6 +89,7 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<LobbyHostChromePresenter>();
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
             builder.RegisterEntryPoint<LobbyChatPresenter>();
+            builder.RegisterEntryPoint<LobbyExitPresenter>();
         }
 
         private static LobbyParticipantList CreateSampleParticipantList()
