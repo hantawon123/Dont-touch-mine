@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Core.Items;
 using Game.Core.Match;
+using Game.Core.Players;
 using Game.Server.Items;
 using Game.Server.Players;
 using Game.SOAP.Config;
