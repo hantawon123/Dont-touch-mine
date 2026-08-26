@@ -29,6 +29,10 @@ namespace Game.Network
         [Tooltip("Map a match plays in. It must also be in the build scene " +
                  "list, or it cannot be loaded over the network.")]
         private UnityEditor.SceneAsset _matchScene;
+
+        [SerializeField]
+        [Tooltip("Waiting room the players return to after a match.")]
+        private UnityEditor.SceneAsset _lobbyScene;
 #endif
 
         /// <summary>
@@ -39,12 +43,18 @@ namespace Game.Network
         [HideInInspector]
         private string _matchScenePath = string.Empty;
 
+        [SerializeField]
+        [HideInInspector]
+        private string _lobbyScenePath = string.Empty;
+
         /// <summary>
         /// The map a match plays in. Invalid when nothing is assigned or the
         /// scene is missing from the build list; callers check
         /// <c>IsValid</c> rather than assuming.
         /// </summary>
         public SceneRef MatchScene => Resolve(_matchScenePath, "match scene");
+
+        public SceneRef LobbyScene => Resolve(_lobbyScenePath, "lobby scene");
 
         /// <summary>
         /// Turns a project path into the reference Fusion replicates.
@@ -88,27 +98,34 @@ namespace Game.Network
         /// </summary>
         private void OnValidate()
         {
-            var path = _matchScene == null
+            var matchPath = _matchScene == null
                 ? string.Empty
                 : UnityEditor.AssetDatabase.GetAssetPath(_matchScene);
+            var lobbyPath = _lobbyScene == null
+                ? string.Empty
+                : UnityEditor.AssetDatabase.GetAssetPath(_lobbyScene);
 
-            if (_matchScenePath != path)
+            if (_matchScenePath != matchPath || _lobbyScenePath != lobbyPath)
             {
-                _matchScenePath = path;
+                _matchScenePath = matchPath;
+                _lobbyScenePath = lobbyPath;
                 UnityEditor.EditorUtility.SetDirty(this);
             }
 
-            if (string.IsNullOrEmpty(path))
-            {
-                return;
-            }
+            WarnIfMissingFromBuild(matchPath, _matchScene);
+            WarnIfMissingFromBuild(lobbyPath, _lobbyScene);
+        }
 
-            if (SceneUtility.GetBuildIndexByScenePath(path) < 0)
+        private void WarnIfMissingFromBuild(
+            string path,
+            UnityEditor.SceneAsset scene)
+        {
+            if (!string.IsNullOrEmpty(path) &&
+                SceneUtility.GetBuildIndexByScenePath(path) < 0)
             {
                 Debug.LogWarning(
-                    $"[Network] '{_matchScene.name}' is not in the build scene " +
-                    "list. Add it under File > Build Profiles, or a match will " +
-                    "start without anyone reaching the map.",
+                    $"[Network] '{scene.name}' is not in the build scene list. " +
+                    "Add it under File > Build Profiles.",
                     this);
             }
         }

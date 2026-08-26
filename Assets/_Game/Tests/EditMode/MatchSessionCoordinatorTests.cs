@@ -799,11 +799,13 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void WorldObjectPose_PersistsBetweenHidingTurns()
+        public void HidingTurnBoundary_RestoresWorldAndKeepsHiddenItems()
         {
             session.Start(10d);
             var firstPose = new Pose(new Vector3(1f, 2f, 3f), Quaternion.identity);
             var secondPose = new Pose(new Vector3(4f, 5f, 6f), Quaternion.identity);
+            var resetCount = 0;
+            session.WorldObjectsReset += _ => resetCount++;
 
             Assert.That(
                 session.TryRecordWorldObjectPose(1, "shelf", firstPose, 20d),
@@ -814,11 +816,49 @@ namespace Game.Tests.EditMode
 
             session.AdvanceTime(40d, lastKnownPositions);
 
+            Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
+            Assert.That(state.Pose.position, Is.EqualTo(Vector3.zero));
+            Assert.That(resetCount, Is.EqualTo(1));
+
             Assert.That(
                 session.TryRecordWorldObjectPose(1, "shelf", secondPose, 45d),
                 Is.True);
-            Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
+            Assert.That(session.TryGetWorldObjectState("shelf", out state), Is.True);
             Assert.That(state.Pose.position, Is.EqualTo(secondPose.position));
+
+            session.AdvanceTime(190d, lastKnownPositions);
+
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
+            Assert.That(session.TryGetWorldObjectState("shelf", out state), Is.True);
+            Assert.That(state.Pose.position, Is.EqualTo(Vector3.zero));
+            Assert.That(session.AllItemsPlaced, Is.True);
+            Assert.That(resetCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void FutureHidingPlayerLeaving_DoesNotResetCurrentTurnEarly()
+        {
+            session.Start(10d);
+            var movedPose = new Pose(Vector3.right, Quaternion.identity);
+            var resetCount = 0;
+            session.WorldObjectsReset += _ => resetCount++;
+
+            Assert.That(
+                session.TryRecordWorldObjectPose(0, "shelf", movedPose, 20d),
+                Is.True);
+            Assert.That(
+                session.TryHandlePlayerLeft(1, Pose.identity, 20d),
+                Is.True);
+
+            Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
+            Assert.That(state.Pose.position, Is.EqualTo(movedPose.position));
+            Assert.That(resetCount, Is.Zero);
+
+            session.AdvanceTime(40d, lastKnownPositions);
+
+            Assert.That(session.TryGetWorldObjectState("shelf", out state), Is.True);
+            Assert.That(state.Pose.position, Is.EqualTo(Vector3.zero));
+            Assert.That(resetCount, Is.EqualTo(1));
         }
 
         [Test]

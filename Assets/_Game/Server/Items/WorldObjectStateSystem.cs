@@ -24,6 +24,7 @@ namespace Game.Server.Items
     public sealed class WorldObjectStateSystem
     {
         private readonly List<string> objectIds;
+        private readonly WorldObjectState[] initialStates;
         private readonly Dictionary<string, WorldObjectState> states;
 
         public WorldObjectStateSystem(IReadOnlyList<WorldObjectState> initialStates)
@@ -34,12 +35,14 @@ namespace Game.Server.Items
             }
 
             objectIds = new List<string>(initialStates.Count);
+            this.initialStates = new WorldObjectState[initialStates.Count];
             states = new Dictionary<string, WorldObjectState>(
                 initialStates.Count,
                 StringComparer.Ordinal);
 
-            foreach (var state in initialStates)
+            for (var index = 0; index < initialStates.Count; index++)
             {
+                var state = initialStates[index];
                 if (string.IsNullOrWhiteSpace(state.ObjectId) ||
                     !states.TryAdd(state.ObjectId, state))
                 {
@@ -49,6 +52,7 @@ namespace Game.Server.Items
                 }
 
                 objectIds.Add(state.ObjectId);
+                this.initialStates[index] = state;
             }
         }
 
@@ -83,6 +87,14 @@ namespace Game.Server.Items
             }
 
             return snapshot;
+        }
+
+        public void ResetToInitial()
+        {
+            foreach (var state in initialStates)
+            {
+                states[state.ObjectId] = state;
+            }
         }
     }
 }

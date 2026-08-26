@@ -55,6 +55,12 @@ namespace Game.Bootstrap
         {
             switch (snapshot.Phase)
             {
+                case MatchPhase.Waiting:
+                    hasNormalResult = false;
+                    hasResultPhase = false;
+                    TransitionToLobby();
+                    break;
+
                 case MatchPhase.Hiding:
                 case MatchPhase.Searching:
                     hasNormalResult = false;

@@ -150,6 +150,7 @@ namespace Game.Server.Match
         private MatchResult? result;
         private bool finalWarningStarted;
         private bool hasExplicitHighlightCandidates;
+        private int resetHidingTurnCount;
 
         public MatchSessionCoordinator(
             MatchRulesSO rules,
@@ -214,6 +215,7 @@ namespace Game.Server.Match
         public event Action<PlayerStunnedEvent> PlayerStunned;
         public event Action<ObjectThrownEvent> ObjectThrown;
         public event Action<ObjectAutoReleasedEvent> ObjectAutoReleased;
+        public event Action<IReadOnlyList<WorldObjectState>> WorldObjectsReset;
         public event Action<MatchResult> MatchEnded;
 
         public MatchStateSnapshot CaptureStateSnapshot()
@@ -1060,6 +1062,15 @@ namespace Game.Server.Match
 
                 CompleteHidingTurn(playerIndex, lastKnownPlayerPositions[playerIndex]);
             }
+
+            if (expiredTurnCount <= resetHidingTurnCount)
+            {
+                return;
+            }
+
+            resetHidingTurnCount = expiredTurnCount;
+            worldObjects.ResetToInitial();
+            WorldObjectsReset?.Invoke(worldObjects.CaptureSnapshot());
         }
 
         private void CompleteMapObjectEjections(double now)

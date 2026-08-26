@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Fusion;
 using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Server.Items;
 using Game.Server.Match;
 using UnityEngine;
 
@@ -262,6 +263,41 @@ namespace Game.Network.Match
             IsStarted = true;
         }
 
+        public bool TryResetForRematch()
+        {
+            if (Object == null || !Object.HasStateAuthority || !IsStarted)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < ParticipantCount; index++)
+            {
+                Participants.Set(index, default);
+                ParticipantActive.Set(index, false);
+                StunEndsAt.Set(index, 0d);
+                RemainingDestructionUses.Set(index, 0);
+            }
+
+            for (var index = 0; index < WinnerCount; index++)
+            {
+                WinnerPlayerIndices.Set(index, 0);
+            }
+
+            ObjectStates.Clear();
+            ParticipantCount = 0;
+            ParticipantActivityRevision++;
+            PlayerInteractionStateRevision++;
+            Phase = MatchPhase.Waiting;
+            PhaseEndsAt = 0d;
+            ObjectStateRevision++;
+            HasResult = false;
+            ResultEndReason = default;
+            ResultEndedAt = 0d;
+            WinnerCount = 0;
+            IsStarted = false;
+            return true;
+        }
+
         public bool TrySetParticipantInactive(int playerIndex)
         {
             if (Object == null || !Object.HasStateAuthority ||
@@ -487,6 +523,44 @@ namespace Game.Network.Match
             return WriteObjectState(key, state);
         }
 
+        public bool TryResetWorldObjects(IReadOnlyList<WorldObjectState> states)
+        {
+            if (Object == null || !Object.HasStateAuthority || states == null)
+            {
+                return false;
+            }
+
+            var newObjectCount = 0;
+            foreach (var worldObject in states)
+            {
+                NetworkString<_64> key = worldObject.ObjectId;
+                if (!ObjectStates.ContainsKey(key))
+                {
+                    newObjectCount++;
+                }
+            }
+
+            if (ObjectStates.Count + newObjectCount > MaxReplicatedObjects)
+            {
+                return false;
+            }
+
+            foreach (var worldObject in states)
+            {
+                NetworkString<_64> key = worldObject.ObjectId;
+                ObjectStates.TryGet(key, out var state);
+                state.HolderPlayerIndex = -1;
+                state.Position = worldObject.Pose.position;
+                state.Rotation = worldObject.Pose.rotation;
+                state.InitialVelocity = default;
+                state.IsDestroyed = false;
+                state.IsPhysicsActive = false;
+                WriteObjectState(key, state);
+            }
+
+            return true;
+        }
+
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
         private void RPC_AssignItem([RpcTarget] PlayerRef target, string itemId)
         {
@@ -533,6 +607,12 @@ namespace Game.Network.Match
         public void RPC_RequestShredder(RpcInfo info = default)
         {
             StarterOf(Runner)?.TryUseShredder(info.Source);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestReturnToLobby(RpcInfo info = default)
+        {
+            StarterOf(Runner)?.TryReturnToLobby(info.Source);
         }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]

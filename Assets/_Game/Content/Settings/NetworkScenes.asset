@@ -13,4 +13,6 @@ MonoBehaviour:
   m_Name: NetworkScenes
   m_EditorClassIdentifier: Game.Network::Game.Network.NetworkScenes
   _matchScene: {fileID: 102900000, guid: 38063f202021431d87d19016376c9b66, type: 3}
+  _lobbyScene: {fileID: 102900000, guid: d0bbed07a70236d47ae2d3cf7104e90c, type: 3}
   _matchScenePath: Assets/_Game/Content/Scenes/Playground.unity
+  _lobbyScenePath: Assets/_Game/Content/Scenes/Lobby.unity
