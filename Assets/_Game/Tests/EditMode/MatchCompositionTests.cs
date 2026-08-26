@@ -121,6 +121,97 @@ namespace Game.Tests.EditMode
             }
         }
 
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(4)]
+        [TestCase(5)]
+        [TestCase(6)]
+        public void ParticipantSnapshot_InitializesMatchBySeatForActualPlayerCount(
+            int playerCount)
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+
+            try
+            {
+                var participants = new MatchParticipant[playerCount];
+                for (var index = 0; index < playerCount; index++)
+                {
+                    var seat = playerCount - index - 1;
+                    participants[index] = new MatchParticipant($"seat-{seat}", seat);
+                }
+
+                var factory = new MatchRuntimeFactory(rules);
+                using var composition = factory.CreateSessionFromParticipants(
+                    participants,
+                    new AcceptAllPlacements(),
+                    CreateSpawnPoints(playerCount),
+                    CreateItems(playerCount),
+                    new System.Random(100 + playerCount));
+
+                Assert.That(composition.Session.Players.Players.Count, Is.EqualTo(playerCount));
+                Assert.That(composition.Session.Assignments.Count, Is.EqualTo(playerCount));
+                for (var playerIndex = 0; playerIndex < playerCount; playerIndex++)
+                {
+                    Assert.That(
+                        composition.Session.Players.GetPlayer(playerIndex).PlayerId,
+                        Is.EqualTo($"seat-{playerIndex}"));
+                }
+
+                Assert.That(composition.Session.Start(10d), Is.True);
+                Assert.That(
+                    composition.Session.GetRemainingSeconds(10d),
+                    Is.EqualTo(30d * playerCount));
+                Assert.That(
+                    composition.Session.GetRemainingDestructionUses(playerCount - 1),
+                    Is.EqualTo(rules.DestructionUsesPerPlayer));
+                Assert.That(
+                    composition.Session.GetSearchingSpawnPose(playerCount - 1),
+                    Is.Not.EqualTo(default(Pose)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void ParticipantSnapshot_RejectsDuplicateSeats()
+        {
+            AssertInvalidParticipants(
+                new MatchParticipant("first", 0),
+                new MatchParticipant("second", 0));
+        }
+
+        [Test]
+        public void ParticipantSnapshot_RejectsDuplicatePlayerIds()
+        {
+            AssertInvalidParticipants(
+                new MatchParticipant("same", 0),
+                new MatchParticipant("same", 1));
+        }
+
+        private static void AssertInvalidParticipants(params MatchParticipant[] participants)
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+
+            try
+            {
+                var factory = new MatchRuntimeFactory(rules);
+                Assert.That(
+                    () => factory.CreateSessionFromParticipants(
+                        participants,
+                        new AcceptAllPlacements(),
+                        CreateSpawnPoints(participants.Length),
+                        CreateItems(participants.Length),
+                        new System.Random(1)),
+                    Throws.ArgumentException);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
         private static RoomLobbySystem CreateLobby(int playerCount)
         {
             var request = new Game.Core.Rooms.RoomCreateRequest(
@@ -135,22 +226,26 @@ namespace Game.Tests.EditMode
             return new RoomLobbySystem(settings, "host", playerCount);
         }
 
-        private static Pose[] CreateSpawnPoints()
+        private static Pose[] CreateSpawnPoints(int playerCount = 2)
         {
-            return new[]
+            var poses = new Pose[playerCount];
+            for (var index = 0; index < playerCount; index++)
             {
-                new Pose(Vector3.zero, Quaternion.identity),
-                new Pose(Vector3.right, Quaternion.identity)
-            };
+                poses[index] = new Pose(Vector3.right * index, Quaternion.identity);
+            }
+
+            return poses;
         }
 
-        private static ItemDefinition[] CreateItems()
+        private static ItemDefinition[] CreateItems(int playerCount = 2)
         {
-            return new[]
+            var items = new ItemDefinition[playerCount];
+            for (var index = 0; index < playerCount; index++)
             {
-                new ItemDefinition("bear", "toy"),
-                new ItemDefinition("apple", "food")
-            };
+                items[index] = new ItemDefinition($"item-{index}", $"category-{index}");
+            }
+
+            return items;
         }
 
         private sealed class AcceptAllPlacements : IPlacementValidator
