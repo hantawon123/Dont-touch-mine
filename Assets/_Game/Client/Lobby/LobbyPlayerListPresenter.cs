@@ -14,8 +14,7 @@ namespace Game.Client.Lobby
         private readonly ILobbyConfirmView kickConfirmView;
         private readonly ILobbyConfirmView transferConfirmView;
 
-        private IDisposable participantsSubscription;
-        private IDisposable hostSubscription;
+        private IDisposable refreshSubscription;
         private string pendingPlayerId;
         private bool pendingIsKick;
 
@@ -48,9 +47,15 @@ namespace Game.Client.Lobby
             transferConfirmView.Confirmed += ConfirmPending;
             transferConfirmView.Cancelled += CancelPending;
 
-            participantsSubscription = participantList.Participants.Subscribe(_ => Refresh());
-            hostSubscription = hostSession.IsLocalHost.Subscribe(_ => Refresh());
-            Refresh();
+            refreshSubscription = Observable.CombineLatest(
+                    participantList.Participants,
+                    hostSession.IsLocalHost,
+                    (participants, isLocalHost) =>
+                        (Participants: participants, IsLocalHost: isLocalHost))
+                .Subscribe(state => view.SetParticipants(
+                    state.Participants ?? Array.Empty<LobbyParticipant>(),
+                    state.IsLocalHost,
+                    hostSession.LocalPlayerId));
         }
 
         public void Dispose()
@@ -61,18 +66,7 @@ namespace Game.Client.Lobby
             kickConfirmView.Cancelled -= CancelPending;
             transferConfirmView.Confirmed -= ConfirmPending;
             transferConfirmView.Cancelled -= CancelPending;
-            participantsSubscription?.Dispose();
-            hostSubscription?.Dispose();
-        }
-
-        private void Refresh()
-        {
-            var participants = participantList.Participants.CurrentValue
-                ?? Array.Empty<LobbyParticipant>();
-            view.SetParticipants(
-                participants,
-                hostSession.IsLocalHost.CurrentValue,
-                hostSession.LocalPlayerId);
+            refreshSubscription?.Dispose();
         }
 
         private void OnKickClicked(string playerId, string displayName)

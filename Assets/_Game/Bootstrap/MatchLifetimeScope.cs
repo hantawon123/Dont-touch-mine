@@ -1,5 +1,6 @@
 using System;
 using Game.Client.Match;
+using Game.Core.Items;
 using Game.Core.Match;
 using Game.Server.Match;
 using Game.Server.Players;
@@ -21,6 +22,9 @@ namespace Game.Bootstrap
         [SerializeField]
         private MatchRuntimeContext matchRuntimeContext;
 
+        [SerializeField]
+        private MatchSceneConfiguration matchSceneConfiguration;
+
         protected override void Configure(IContainerBuilder builder)
         {
             if (matchRules == null)
@@ -38,6 +42,12 @@ namespace Game.Bootstrap
                 throw new InvalidOperationException("MatchRuntimeContext must be assigned.");
             }
 
+            if (matchSceneConfiguration == null)
+            {
+                throw new InvalidOperationException(
+                    "MatchSceneConfiguration must be assigned.");
+            }
+
             builder.RegisterInstance(matchRules);
             builder.Register<MatchState>(Lifetime.Scoped).AsSelf().As<IMatchState>();
             builder.Register<MatchFlow>(Lifetime.Scoped);
@@ -48,6 +58,13 @@ namespace Game.Bootstrap
                 .As<IMatchRuntimeContext>()
                 .As<IMatchClock>();
             builder.RegisterComponent(matchPhaseView).As<IMatchPhaseView>();
+            builder.RegisterInstance(new NetworkMatchRuntimeConfiguration(
+                matchSceneConfiguration.CreatePlacementValidator(),
+                matchSceneConfiguration.CaptureSpawnPoses(),
+                ItemCatalog.Definitions,
+                matchSceneConfiguration.CaptureWorldObjectStates(),
+                matchSceneConfiguration.CaptureShredderEjectionPose()));
+            builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
             builder.RegisterEntryPoint<MatchPhasePresenter>();
         }
     }

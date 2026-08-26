@@ -59,6 +59,23 @@ namespace Game.Tests.EditMode
                 Throws.TypeOf<InvalidOperationException>());
         }
 
+        [Test]
+        public void CapturePlacementVolumes_PreservesConfiguredBounds()
+        {
+            var volumes = MatchSceneConfiguration.CapturePlacementVolumes(new[]
+            {
+                new ScenePlacementVolumeReference(
+                    "item",
+                    Vector3.up,
+                    new Vector3(0.5f, 1f, 0.25f)),
+            });
+
+            Assert.That(volumes, Has.Length.EqualTo(1));
+            Assert.That(volumes[0].ObjectId, Is.EqualTo("item"));
+            Assert.That(volumes[0].CenterOffset, Is.EqualTo(Vector3.up));
+            Assert.That(volumes[0].HalfExtents, Is.EqualTo(new Vector3(0.5f, 1f, 0.25f)));
+        }
+
         private Transform[] CreateSpawnPoints()
         {
             var spawnPoints = new Transform[6];

@@ -8,9 +8,12 @@ using Fusion.Sockets;
 using Game.Core.Home;
 using Game.Core.Ports;
 using Game.Core.Rooms;
+using Game.Core.Match;
+using Game.Core.Items;
 using Game.Network.Lobby;
 using Game.Network.Match;
 using Game.Network.Players;
+using Game.Server.Match;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -28,7 +31,12 @@ namespace Game.Network.Session
     /// rewrite of the gameplay layer.
     /// </remarks>
     public sealed class NetworkRunnerService :
-        INetworkRunnerCallbacks, IMatchSceneDirector, IDisposable
+        INetworkRunnerCallbacks,
+        IMatchSceneDirector,
+        INetworkMatchRuntimeSource,
+        INetworkMatchAuthority,
+        INetworkMatchEvents,
+        IDisposable
     {
         private const string RunnerObjectName = "[NetworkRunner]";
 
@@ -80,6 +88,22 @@ namespace Game.Network.Session
 
         private NetworkRunner _runner;
         private GameObject _runnerObject;
+        private PlayerRoster _roster;
+        private MatchStarter _matchStarter;
+
+        public event Action<MatchStateSnapshot> MatchStateReceived;
+        public event Action<string> ItemAssignmentReceived;
+        public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
+        public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
+        public event Action<PlayerStunnedEvent> PlayerStunnedReceived;
+        public event Action<ObjectThrownEvent> ObjectThrownReceived;
+        public event Action<FinalWarningStartedEvent> FinalWarningReceived;
+        public event Action<IReadOnlyList<bool>> ParticipantActivityReceived;
+        public event Action<IReadOnlyList<PlayerInteractionStateSnapshot>>
+            PlayerInteractionStatesReceived;
+        public event Action<MatchResult> MatchResultReceived;
+        public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
+        public event Action SimulationTick;
 
         /// <summary>
         /// Password this peer requires from joiners while it is the authority. A
@@ -190,6 +214,31 @@ namespace Game.Network.Session
         /// and a dedicated server, so gameplay never asks which one it is.
         /// </summary>
         public bool IsServer => _runner != null && _runner.IsServer;
+
+        public double ServerTime
+        {
+            get
+            {
+                if (!IsRunning)
+                {
+                    throw new InvalidOperationException(
+                        "Network time is unavailable before the runner starts.");
+                }
+
+                return _runner.SimulationTime;
+            }
+        }
+
+        public bool TryGetPlayerPose(string playerId, out Pose pose)
+        {
+            if (_roster != null)
+            {
+                return _roster.TryGetPose(playerId, out pose);
+            }
+
+            pose = default;
+            return false;
+        }
 
         public string RoomCode
         {
@@ -378,6 +427,54 @@ namespace Game.Network.Session
             _runnerObject.GetComponent<MatchStarter>()?.RequestStart(_runner);
         }
 
+        public bool TryPublishMatchState(MatchStateSnapshot snapshot)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryPublishSnapshot(snapshot);
+        }
+
+        public bool TryPublishItemAssignments(
+            IReadOnlyList<PlayerItemAssignment> assignments)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryPublishItemAssignments(assignments);
+        }
+
+        public bool BindMatchSession(
+            MatchSessionCoordinator session,
+            Pose shredderEjectionPose)
+        {
+            if (!IsServer || _matchStarter == null || session == null)
+            {
+                return false;
+            }
+
+            _matchStarter.BindSession(session, shredderEjectionPose);
+            return true;
+        }
+
+        public bool UnbindMatchSession(MatchSessionCoordinator session)
+        {
+            return _matchStarter != null &&
+                   _matchStarter.UnbindSession(session);
+        }
+
+        public bool RequestHoldObject(string objectId) =>
+            _matchStarter != null && _matchStarter.RequestHoldObject(objectId);
+
+        public bool RequestReleaseHeldObject(Pose pose) =>
+            _matchStarter != null && _matchStarter.RequestReleaseHeldObject(pose);
+
+        public bool RequestThrowHeldObject(Pose pose, Vector3 initialVelocity) =>
+            _matchStarter != null &&
+            _matchStarter.RequestThrowHeldObject(pose, initialVelocity);
+
+        public bool RequestHitPlayer(int targetPlayerIndex) =>
+            _matchStarter != null && _matchStarter.RequestHitPlayer(targetPlayerIndex);
+
+        public bool RequestUseShredder() =>
+            _matchStarter != null && _matchStarter.RequestUseShredder();
+
         /// <summary>
         /// Leaves the current session. Fusion tears the runner down itself, so
         /// this does not await anything.
@@ -447,10 +544,27 @@ namespace Game.Network.Session
 
             // Sits on the runner so that characters, which Fusion spawns and the
             // container therefore cannot inject, can still reach it.
-            var roster = _runnerObject.AddComponent<PlayerRoster>();
-            roster.Bind(_participantSink);
-            _runnerObject.AddComponent<MatchStarter>()
-                .Bind(_matchStartSink, roster, this);
+            _roster = _runnerObject.AddComponent<PlayerRoster>();
+            _roster.Bind(_participantSink);
+            _matchStarter = _runnerObject.AddComponent<MatchStarter>();
+
+            // This service is the scene director: it already owns the runner's
+            // scene manager, the initial scene and the scene callbacks, so the
+            // starter can confirm a line-up without learning what a scene is.
+            _matchStarter.Bind(_matchStartSink, _roster, this);
+            _matchStarter.MatchStateReceived += OnMatchStateReceived;
+            _matchStarter.ItemAssignmentReceived += OnItemAssignmentReceived;
+            _matchStarter.ObjectStatesReceived += OnObjectStatesReceived;
+            _matchStarter.ItemDestroyedReceived += OnItemDestroyedReceived;
+            _matchStarter.PlayerStunnedReceived += OnPlayerStunnedReceived;
+            _matchStarter.ObjectThrownReceived += OnObjectThrownReceived;
+            _matchStarter.FinalWarningReceived += OnFinalWarningReceived;
+            _matchStarter.ParticipantActivityReceived += OnParticipantActivityReceived;
+            _matchStarter.PlayerInteractionStatesReceived +=
+                OnPlayerInteractionStatesReceived;
+            _matchStarter.MatchResultReceived += OnMatchResultReceived;
+            _matchStarter.LineUpReceived += OnLineUpReceived;
+            _matchStarter.SimulationTick += OnSimulationTick;
 
             return sceneManager;
         }
@@ -538,11 +652,30 @@ namespace Game.Network.Session
             if (_runnerObject != null)
             {
                 _runnerObject.GetComponent<PlayerRoster>()?.Clear();
-                _runnerObject.GetComponent<MatchStarter>()?.Clear();
+                _matchStarter?.Clear();
+            }
+
+            if (_matchStarter != null)
+            {
+                _matchStarter.MatchStateReceived -= OnMatchStateReceived;
+                _matchStarter.ItemAssignmentReceived -= OnItemAssignmentReceived;
+                _matchStarter.ObjectStatesReceived -= OnObjectStatesReceived;
+                _matchStarter.ItemDestroyedReceived -= OnItemDestroyedReceived;
+                _matchStarter.PlayerStunnedReceived -= OnPlayerStunnedReceived;
+                _matchStarter.ObjectThrownReceived -= OnObjectThrownReceived;
+                _matchStarter.FinalWarningReceived -= OnFinalWarningReceived;
+                _matchStarter.ParticipantActivityReceived -= OnParticipantActivityReceived;
+                _matchStarter.PlayerInteractionStatesReceived -=
+                    OnPlayerInteractionStatesReceived;
+                _matchStarter.MatchResultReceived -= OnMatchResultReceived;
+                _matchStarter.LineUpReceived -= OnLineUpReceived;
+                _matchStarter.SimulationTick -= OnSimulationTick;
             }
 
             _runner = null;
             _runnerObject = null;
+            _roster = null;
+            _matchStarter = null;
             _expectedPassword = null;
             _browsingLobby = false;
 
@@ -550,6 +683,68 @@ namespace Game.Network.Session
             // itself. Left behind, the next room would start numbering from
             // wherever the last one stopped.
             _spawner?.Clear();
+        }
+
+        private void OnMatchStateReceived(MatchStateSnapshot snapshot)
+        {
+            MatchStateReceived?.Invoke(snapshot);
+        }
+
+        private void OnItemAssignmentReceived(string itemId)
+        {
+            ItemAssignmentReceived?.Invoke(itemId);
+        }
+
+        private void OnObjectStatesReceived(
+            IReadOnlyList<MatchObjectStateSnapshot> states)
+        {
+            ObjectStatesReceived?.Invoke(states);
+        }
+
+        private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmedEvent)
+        {
+            ItemDestroyedReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnPlayerStunnedReceived(PlayerStunnedEvent confirmedEvent)
+        {
+            PlayerStunnedReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnObjectThrownReceived(ObjectThrownEvent confirmedEvent)
+        {
+            ObjectThrownReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnFinalWarningReceived(FinalWarningStartedEvent confirmedEvent)
+        {
+            FinalWarningReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnParticipantActivityReceived(IReadOnlyList<bool> active)
+        {
+            ParticipantActivityReceived?.Invoke(active);
+        }
+
+        private void OnPlayerInteractionStatesReceived(
+            IReadOnlyList<PlayerInteractionStateSnapshot> states)
+        {
+            PlayerInteractionStatesReceived?.Invoke(states);
+        }
+
+        private void OnMatchResultReceived(MatchResult result)
+        {
+            MatchResultReceived?.Invoke(result);
+        }
+
+        private void OnLineUpReceived(IReadOnlyList<MatchParticipant> participants)
+        {
+            LineUpReceived?.Invoke(participants);
+        }
+
+        private void OnSimulationTick()
+        {
+            SimulationTick?.Invoke();
         }
 
         private bool IsCurrentRunner(NetworkRunner runner) =>
@@ -785,6 +980,11 @@ namespace Game.Network.Session
             }
 
             Debug.Log($"[Network] Player left: {player}.");
+            if (runner.IsServer)
+            {
+                _matchStarter?.TryHandlePlayerLeft(player);
+            }
+
             _spawner?.Despawn(runner, player);
             ReportPlayerCount();
         }

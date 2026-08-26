@@ -99,6 +99,52 @@ namespace Game.Network.Players
             into.Sort(CompareBySeat);
         }
 
+        public bool TryGetPose(string playerId, out Pose pose)
+        {
+            if (TryGetAvatar(playerId, out var avatar))
+            {
+                pose = new Pose(avatar.transform.position, avatar.transform.rotation);
+                return true;
+            }
+
+            pose = default;
+            return false;
+        }
+
+        public bool TryGetPlayer(string playerId, out PlayerRef player)
+        {
+            if (TryGetAvatar(playerId, out var avatar))
+            {
+                player = avatar.Owner;
+                return true;
+            }
+
+            player = PlayerRef.None;
+            return false;
+        }
+
+        private bool TryGetAvatar(string playerId, out PlayerAvatar found)
+        {
+            if (!string.IsNullOrWhiteSpace(playerId))
+            {
+                for (var index = 0; index < _avatars.Count; index++)
+                {
+                    var avatar = _avatars[index];
+                    if (avatar != null && string.Equals(
+                            PlayerRegistry.IdOf(avatar.Owner),
+                            playerId,
+                            System.StringComparison.Ordinal))
+                    {
+                        found = avatar;
+                        return true;
+                    }
+                }
+            }
+
+            found = null;
+            return false;
+        }
+
         private void Publish(NetworkRunner runner)
         {
             if (_sink == null)

@@ -4,6 +4,7 @@ using Game.Core.Lobby;
 using Game.Core.Ports;
 using Game.Network;
 using Game.Network.Lobby;
+using Game.Network.Match;
 using Game.Network.Players;
 using Game.Network.Session;
 using UnityEngine;
@@ -105,17 +106,24 @@ namespace Game.Bootstrap
 
             // Built by hand for the same reason the spawner is: the scene asset
             // is a value, not a service, and registering it as a resolvable type
-            // would let anything ask for a Fusion scene reference.
+            // would let anything ask for a Fusion scene reference. The interfaces
+            // it also answers to are listed here rather than resolved separately,
+            // so every one of them means the same instance.
             builder.Register(
-                c => new NetworkRunnerService(
-                    c.Resolve<IRoomListSink>(),
-                    c.Resolve<IRoomSessionSink>(),
-                    c.Resolve<IRoomParticipantSink>(),
-                    c.Resolve<IMatchStartSink>(),
-                    c.Resolve<PlayerSpawner>(),
-                    c.Resolve<PlayerProfile>(),
-                    networkScenes),
-                Lifetime.Singleton);
+                    c => new NetworkRunnerService(
+                        c.Resolve<IRoomListSink>(),
+                        c.Resolve<IRoomSessionSink>(),
+                        c.Resolve<IRoomParticipantSink>(),
+                        c.Resolve<IMatchStartSink>(),
+                        c.Resolve<PlayerSpawner>(),
+                        c.Resolve<PlayerProfile>(),
+                        networkScenes),
+                    Lifetime.Singleton)
+                .AsSelf()
+                .As<INetworkMatchRuntimeSource>()
+                .As<INetworkMatchAuthority>()
+                .As<INetworkMatchEvents>();
+            builder.RegisterEntryPoint<NetworkMatchFlowSynchronizer>();
             builder.Register<RoomCodeGenerator>(Lifetime.Singleton);
             builder.Register<IRoomBrowser, RoomBrowser>(Lifetime.Singleton);
             builder.Register<RoomUiCommands>(Lifetime.Singleton);

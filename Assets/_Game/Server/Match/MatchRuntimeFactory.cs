@@ -177,26 +177,29 @@ namespace Game.Server.Match
             MatchRulesSO.ValidatePlayerCount(participants.Count);
             var ordered = new MatchParticipant[participants.Count];
             var playerIds = new HashSet<string>(StringComparer.Ordinal);
-            var seats = new HashSet<int>();
+            var assignedIndices = new bool[participants.Count];
 
             for (var index = 0; index < participants.Count; index++)
             {
                 var participant = participants[index];
                 if (string.IsNullOrWhiteSpace(participant.PlayerId) ||
-                    participant.Seat < 0 ||
-                    participant.Seat >= MatchRulesSO.MaxPlayerCount ||
+                    participant.PlayerIndex < 0 ||
+                    participant.PlayerIndex >= participants.Count ||
                     !playerIds.Add(participant.PlayerId) ||
-                    !seats.Add(participant.Seat))
+                    assignedIndices[participant.PlayerIndex])
                 {
                     throw new ArgumentException(
-                        "Participants require unique player ids and seats from 0 to 5.",
+                        "Participants require unique player ids and contiguous player indices from zero.",
                         nameof(participants));
                 }
 
+                assignedIndices[participant.PlayerIndex] = true;
                 ordered[index] = participant;
             }
 
-            Array.Sort(ordered, (left, right) => left.Seat.CompareTo(right.Seat));
+            Array.Sort(
+                ordered,
+                (left, right) => left.PlayerIndex.CompareTo(right.PlayerIndex));
             var orderedPlayerIds = new string[ordered.Length];
             for (var index = 0; index < ordered.Length; index++)
             {
