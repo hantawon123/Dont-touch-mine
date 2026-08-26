@@ -830,6 +830,33 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void SearchingPlacement_ValidatesPreviewAndReleaseForEveryObject()
+        {
+            StartSearching();
+            var playerItemId = session.Assignments[0].Item.ItemId;
+            var invalidPose = new Pose(new Vector3(-1f, 0f, 0f), Quaternion.identity);
+            var validPose = new Pose(new Vector3(3f, 0f, 2f), Quaternion.identity);
+
+            Assert.That(session.TryHoldObject(0, playerItemId, 200d), Is.True);
+            Assert.That(session.CanPlaceHeldObject(0, invalidPose, 200d), Is.False);
+            Assert.That(session.TryReleaseHeldObject(0, invalidPose, 200d), Is.False);
+            Assert.That(session.TryGetHeldObjectId(0, out var heldObjectId), Is.True);
+            Assert.That(heldObjectId, Is.EqualTo(playerItemId));
+            Assert.That(session.CanPlaceHeldObject(0, validPose, 200d), Is.True);
+            Assert.That(session.TryReleaseHeldObject(0, validPose, 200d), Is.True);
+            Assert.That(session.TryGetItemPlacement(0, out var playerPlacement), Is.True);
+            Assert.That(playerPlacement.Pose.position, Is.EqualTo(validPose.position));
+
+            Assert.That(session.TryHoldObject(0, "shelf", 200d), Is.True);
+            Assert.That(session.CanPlaceHeldObject(0, invalidPose, 200d), Is.False);
+            Assert.That(session.TryReleaseHeldObject(0, invalidPose, 200d), Is.False);
+            Assert.That(session.CanPlaceHeldObject(0, validPose, 200d), Is.True);
+            Assert.That(session.TryReleaseHeldObject(0, validPose, 200d), Is.True);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(validPose.position));
+        }
+
+        [Test]
         public void Shredder_EjectsMapObjectAfterHalfSecondWithoutDestroyingIt()
         {
             StartSearching();

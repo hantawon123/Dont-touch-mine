@@ -342,9 +342,8 @@ namespace Game.Server.Match
         public bool TryReleaseHeldObject(int playerIndex, Pose pose, double now)
         {
             var isHiding = CanActDuringHidingTurn(playerIndex, now);
-            if ((!isHiding && !CanInteract(playerIndex, now)) ||
+            if (!CanPlaceHeldObject(playerIndex, pose, now) ||
                 !TryGetHeldObjectId(playerIndex, out var objectId) ||
-                (isHiding && !placementValidator.IsValid(objectId, pose)) ||
                 !ReleaseHeldObjectAt(playerIndex, pose))
             {
                 return false;
@@ -356,6 +355,14 @@ namespace Game.Server.Match
             }
 
             return true;
+        }
+
+        public bool CanPlaceHeldObject(int playerIndex, Pose pose, double now)
+        {
+            return (CanActDuringHidingTurn(playerIndex, now) ||
+                    CanInteract(playerIndex, now)) &&
+                   TryGetHeldObjectId(playerIndex, out var objectId) &&
+                   placementValidator.IsValid(objectId, pose);
         }
 
         public bool TryGetHeldObjectId(int playerIndex, out string objectId)
