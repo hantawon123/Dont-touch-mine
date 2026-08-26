@@ -63,6 +63,8 @@ namespace Game.Tests.EditMode
         {
             session.Start(10d);
             var manualPose = new Pose(new Vector3(9f, 1f, 2f), Quaternion.identity);
+            var released = new List<ObjectAutoReleasedEvent>();
+            session.ObjectAutoReleased += released.Add;
 
             Assert.That(session.TryRecordItemPlacement(1, manualPose, 20d), Is.False);
             Assert.That(session.TryRecordItemPlacement(0, manualPose, 20d), Is.True);
@@ -78,6 +80,9 @@ namespace Game.Tests.EditMode
             Assert.That(session.TryGetItemPlacement(1, out var secondPlacement), Is.True);
             Assert.That(secondPlacement.Pose.position, Is.EqualTo(lastKnownPositions[1]));
             Assert.That(secondPlacement.WasAutoPlaced, Is.True);
+            Assert.That(released, Has.Count.EqualTo(MatchRulesSO.PlayerCount - 1));
+            Assert.That(released[0].ObjectId, Is.EqualTo(session.Assignments[1].Item.ItemId));
+            Assert.That(released[0].Pose.position, Is.EqualTo(lastKnownPositions[1]));
         }
 
         [Test]
@@ -123,6 +128,8 @@ namespace Game.Tests.EditMode
             var itemId = session.Assignments[0].Item.ItemId;
             var firstPose = new Pose(new Vector3(2f, 0f, 1f), Quaternion.identity);
             lastKnownPositions[0] = new Vector3(8f, 0f, 4f);
+            var released = new List<ObjectAutoReleasedEvent>();
+            session.ObjectAutoReleased += released.Add;
 
             Assert.That(session.TryRecordItemPlacement(0, firstPose, 20d), Is.True);
             Assert.That(session.TryHoldObject(0, itemId, 25d), Is.True);
@@ -133,6 +140,11 @@ namespace Game.Tests.EditMode
             Assert.That(session.TryGetItemPlacement(0, out var placement), Is.True);
             Assert.That(placement.Pose.position, Is.EqualTo(lastKnownPositions[0]));
             Assert.That(placement.WasAutoPlaced, Is.True);
+
+            session.AdvanceTime(40d, lastKnownPositions);
+            Assert.That(released, Has.Count.EqualTo(1));
+            Assert.That(released[0].ObjectId, Is.EqualTo(itemId));
+            Assert.That(released[0].Pose.position, Is.EqualTo(lastKnownPositions[0]));
         }
 
         [Test]

@@ -302,6 +302,7 @@ namespace Game.Network.Match
             _session.PlayerItemDestroyed += OnPlayerItemDestroyed;
             _session.PlayerStunned += OnPlayerStunned;
             _session.ObjectThrown += OnObjectThrown;
+            _session.ObjectAutoReleased += OnObjectAutoReleased;
             _session.FinalWarningStarted += OnFinalWarningStarted;
             _session.MatchEnded += OnMatchEnded;
             _shredderEjectionPose = shredderEjectionPose;
@@ -538,51 +539,12 @@ namespace Game.Network.Match
                     $"[Match] No last pose was found for leaving player {playerId}.");
             }
 
-            _session.TryGetHeldObjectId(playerIndex, out var heldObjectId);
             if (!_session.TryHandlePlayerLeft(playerIndex, lastKnownPose, ServerTime))
             {
                 return false;
             }
 
             _state.TrySetParticipantInactive(playerIndex);
-
-            if (heldObjectId != null)
-            {
-                var releasedPose = lastKnownPose;
-                var foundPose = false;
-                foreach (var assignment in _session.Assignments)
-                {
-                    if (string.Equals(
-                            assignment.Item.ItemId,
-                            heldObjectId,
-                            StringComparison.Ordinal) &&
-                        _session.TryGetItemPlacement(
-                            assignment.PlayerIndex,
-                            out var placement))
-                    {
-                        releasedPose = placement.Pose;
-                        foundPose = true;
-                        break;
-                    }
-                }
-
-                if (!foundPose &&
-                    _session.TryGetWorldObjectState(heldObjectId, out var worldObject))
-                {
-                    releasedPose = worldObject.Pose;
-                }
-
-                _state.TrySetObjectReleased(heldObjectId, releasedPose);
-            }
-
-            var ownItemId = _session.Assignments[playerIndex].Item.ItemId;
-            if (!string.Equals(ownItemId, heldObjectId, StringComparison.Ordinal) &&
-                _session.TryGetItemPlacement(playerIndex, out var ownPlacement) &&
-                ownPlacement.WasAutoPlaced)
-            {
-                _state.TrySetObjectReleased(ownItemId, ownPlacement.Pose);
-            }
-
             return true;
         }
 
@@ -620,6 +582,13 @@ namespace Game.Network.Match
                 confirmedEvent.ThrownAt);
         }
 
+        private void OnObjectAutoReleased(ObjectAutoReleasedEvent confirmedEvent)
+        {
+            _state?.TrySetObjectReleased(
+                confirmedEvent.ObjectId,
+                confirmedEvent.Pose);
+        }
+
         private void OnFinalWarningStarted(FinalWarningStartedEvent confirmedEvent)
         {
             _state?.RPC_NotifyFinalWarning(
@@ -649,6 +618,7 @@ namespace Game.Network.Match
             _session.PlayerItemDestroyed -= OnPlayerItemDestroyed;
             _session.PlayerStunned -= OnPlayerStunned;
             _session.ObjectThrown -= OnObjectThrown;
+            _session.ObjectAutoReleased -= OnObjectAutoReleased;
             _session.FinalWarningStarted -= OnFinalWarningStarted;
             _session.MatchEnded -= OnMatchEnded;
             _session = null;
