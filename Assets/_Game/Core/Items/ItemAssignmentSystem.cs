@@ -39,6 +39,11 @@ namespace Game.Core.Items
 
     public static class ItemAssignmentSystem
     {
+        public static PlayerItemAssignment[] Assign(int playerCount, Random random)
+        {
+            return Assign(ItemCatalog.Definitions, playerCount, random);
+        }
+
         public static PlayerItemAssignment[] Assign(
             IReadOnlyList<ItemDefinition> definitions,
             int playerCount,

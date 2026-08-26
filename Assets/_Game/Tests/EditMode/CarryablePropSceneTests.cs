@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using Game.Client.Interactions;
+using Game.Core.Items;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -43,6 +45,39 @@ namespace Game.Architecture.Tests
                         Assert.That(meshCollider.convex, Is.True,
                             $"{item.name}: 동적 Rigidbody와 함께 사용할 MeshCollider는 Convex여야 합니다.");
                     }
+                }
+            }
+            finally
+            {
+                if (openedForTest)
+                {
+                    EditorSceneManager.CloseScene(scene, removeScene: true);
+                }
+            }
+        }
+
+        [Test]
+        public void Playground_ContainsEveryMvpItemCatalogEntry()
+        {
+            var scene = SceneManager.GetSceneByPath(PlaygroundScenePath);
+            var openedForTest = !scene.isLoaded;
+
+            if (openedForTest)
+            {
+                scene = EditorSceneManager.OpenScene(PlaygroundScenePath, OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                var carryableItems = CollectCarryableItems(scene);
+
+                foreach (var definition in ItemCatalog.Definitions)
+                {
+                    Assert.That(
+                        carryableItems.Exists(item =>
+                            item.name.StartsWith(definition.ItemId, StringComparison.Ordinal)),
+                        Is.True,
+                        $"{definition.ItemId}: Playground에 대응하는 CarryableItem이 없습니다.");
                 }
             }
             finally
