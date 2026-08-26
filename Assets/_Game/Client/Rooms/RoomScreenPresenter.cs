@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Lobby;
+using Game.Core.Maps;
 using Game.Core.Rooms;
 using UnityEngine;
 using VContainer;
@@ -29,7 +30,7 @@ namespace Game.Client.Rooms
         {
             public string title = "방이름";
             public string hostNickname = "닉네임";
-            public string mapId = "맵1";
+            public string mapId = MapCatalog.PlaygroundId;
             public int playerCount = 4;
             public int maxPlayers = RoomSettings.MaxPlayerCount;
             public bool isLocked = false;
@@ -41,9 +42,6 @@ namespace Game.Client.Rooms
 
         [SerializeField]
         private Transform modalParent;
-
-        [SerializeField]
-        private string[] mapIds = Array.Empty<string>();
 
         /// <summary>
         /// Credited as the host of rooms opened here, until the signed-in
@@ -73,7 +71,7 @@ namespace Game.Client.Rooms
 
             modal = Instantiate(modalPrefab, modalParent);
             modal.Close();
-            modal.SetMapOptions(mapIds);
+            modal.SetMapOptions(MapCatalog.MapIds);
 
             browserView.CreateRoomRequested += OnCreateRoomRequested;
             modal.CloseRequested += OnModalCloseRequested;
@@ -161,10 +159,14 @@ namespace Game.Client.Rooms
 
         private RoomSummary ToSummary(PlaceholderRoom placeholder)
         {
+            var mapId = MapCatalog.Contains(placeholder.mapId)
+                ? placeholder.mapId.Trim()
+                : MapCatalog.DefaultMapId;
+
             return new RoomSummary(
                 new RoomId(NextRoomId()),
                 placeholder.title,
-                placeholder.mapId,
+                mapId,
                 placeholder.playerCount,
                 placeholder.maxPlayers,
                 placeholder.isLocked,
