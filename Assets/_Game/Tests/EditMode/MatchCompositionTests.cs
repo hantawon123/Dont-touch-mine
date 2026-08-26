@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Bootstrap;
 using Game.Core.Flow;
 using Game.Core.Items;
 using Game.Core.Lobby;
@@ -29,6 +30,7 @@ namespace Game.Tests.EditMode
                 builder.Register<MatchFlow>(Lifetime.Scoped);
                 builder.Register<PlayerInteractionSystem>(Lifetime.Scoped);
                 builder.Register<MatchRuntimeFactory>(Lifetime.Scoped);
+                builder.Register<HighlightRuntimeFactory>(Lifetime.Scoped);
 
                 using var container = builder.Build();
                 var flow = container.Resolve<MatchFlow>();
@@ -40,9 +42,79 @@ namespace Game.Tests.EditMode
                 Assert.That(container.Resolve<MatchState>(), Is.SameAs(state));
                 Assert.That(container.Resolve<PlayerInteractionSystem>(), Is.Not.Null);
                 Assert.That(container.Resolve<MatchRuntimeFactory>(), Is.Not.Null);
+                Assert.That(container.Resolve<HighlightRuntimeFactory>(), Is.Not.Null);
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void HighlightRuntimeFactory_ComposesPlaybackForActiveSession()
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            var sceneObjects = new List<GameObject>();
+
+            try
+            {
+                var participants = new[] { "host", "guest" };
+                var lobby = CreateLobby(participants.Length);
+                var appFlow = new AppFlowSystem();
+                Assert.That(appFlow.TryTransitionTo(AppFlowState.RoomBrowser), Is.True);
+                Assert.That(appFlow.TryTransitionTo(AppFlowState.Lobby), Is.True);
+
+                var matchFactory = new MatchRuntimeFactory(rules);
+                using var match = matchFactory.Create(
+                    lobby,
+                    new TestRuntimeContext(participants.Length),
+                    appFlow,
+                    participants,
+                    new AcceptAllPlacements(),
+                    CreateSpawnPoints(),
+                    CreateItems(),
+                    new System.Random(1234));
+
+                var players = new Transform[participants.Length];
+                for (var index = 0; index < players.Length; index++)
+                {
+                    var player = new GameObject($"Player {index}");
+                    sceneObjects.Add(player);
+                    players[index] = player.transform;
+                }
+
+                var camera = new GameObject("Highlight Camera");
+                var fallback = new GameObject("Highlight Fallback");
+                sceneObjects.Add(camera);
+                sceneObjects.Add(fallback);
+
+                var factory = new HighlightRuntimeFactory();
+                var playback = factory.Create(
+                    match,
+                    players,
+                    Array.Empty<SceneWorldObjectReference>(),
+                    camera.transform,
+                    fallback.transform);
+
+                Assert.That(playback, Is.Not.Null);
+                Assert.That(playback.IsPlaying, Is.False);
+                Assert.That(() => playback.Tick(0f), Throws.Nothing);
+                Assert.That(
+                    () => factory.Create(
+                        match,
+                        new[] { players[0] },
+                        Array.Empty<SceneWorldObjectReference>(),
+                        camera.transform,
+                        fallback.transform),
+                    Throws.TypeOf<InvalidOperationException>());
+            }
+            finally
+            {
+                foreach (var sceneObject in sceneObjects)
+                {
+                    UnityEngine.Object.DestroyImmediate(sceneObject);
+                }
+
                 UnityEngine.Object.DestroyImmediate(rules);
             }
         }
