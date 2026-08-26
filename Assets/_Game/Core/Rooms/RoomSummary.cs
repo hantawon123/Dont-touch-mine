@@ -25,6 +25,12 @@ namespace Game.Core.Rooms
         public bool IsOpen { get; }
         public RoomStatus Status { get; }
 
+        /// <summary>
+        /// Who opened the room, for the list to credit. Empty when the source
+        /// of the listing does not report it.
+        /// </summary>
+        public string HostNickname { get; }
+
         public RoomSummary(
             RoomId id,
             string displayName,
@@ -33,13 +39,15 @@ namespace Game.Core.Rooms
             int maxPlayers,
             bool isLocked,
             bool isOpen,
-            RoomStatus status = RoomStatus.Waiting)
+            RoomStatus status = RoomStatus.Waiting,
+            string hostNickname = null)
             : this(
                 id,
                 new RoomSettings(displayName?.Trim(), isLocked, maxPlayers, mapId?.Trim()),
                 playerCount,
                 isOpen,
-                status)
+                status,
+                hostNickname)
         {
         }
 
@@ -48,8 +56,15 @@ namespace Game.Core.Rooms
             RoomSettings settings,
             int currentPlayerCount,
             bool isOpen,
-            RoomStatus status = RoomStatus.Waiting)
-            : this(new RoomId(roomId?.Trim()), settings, currentPlayerCount, isOpen, status)
+            RoomStatus status = RoomStatus.Waiting,
+            string hostNickname = null)
+            : this(
+                new RoomId(roomId?.Trim()),
+                settings,
+                currentPlayerCount,
+                isOpen,
+                status,
+                hostNickname)
         {
         }
 
@@ -58,7 +73,8 @@ namespace Game.Core.Rooms
             RoomSettings settings,
             int playerCount,
             bool isOpen,
-            RoomStatus status)
+            RoomStatus status,
+            string hostNickname)
         {
             if (!settings.IsValid)
             {
@@ -80,6 +96,7 @@ namespace Game.Core.Rooms
             PlayerCount = playerCount;
             IsOpen = isOpen;
             Status = status;
+            HostNickname = hostNickname?.Trim() ?? string.Empty;
         }
 
         public bool IsFull => MaxPlayers > 0 && PlayerCount >= MaxPlayers;

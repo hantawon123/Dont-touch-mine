@@ -19,7 +19,7 @@ namespace Game.Client.Home
     public sealed class UnityHomeApplicationHost : IHomeApplicationHost
     {
         public const string HomeSceneName = "Home";
-        public const string RoomBrowserSceneName = "RoomBrowserPreview";
+        public const string RoomBrowserSceneName = "Room";
 
         public void Quit()
         {

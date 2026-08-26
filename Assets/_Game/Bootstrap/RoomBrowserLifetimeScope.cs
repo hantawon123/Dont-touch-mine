@@ -11,6 +11,9 @@ namespace Game.Bootstrap
         [SerializeField]
         private RoomBrowserView roomBrowserView;
 
+        [SerializeField]
+        private RoomScreenPresenter roomScreenPresenter;
+
         protected override void Configure(IContainerBuilder builder)
         {
             if (roomBrowserView == null)
@@ -22,6 +25,11 @@ namespace Game.Bootstrap
             builder.Register<UnityHomeApplicationHost>(Lifetime.Scoped).As<IHomeApplicationHost>();
             builder.RegisterComponent(roomBrowserView).As<IRoomBrowserView>();
             builder.RegisterEntryPoint<RoomBrowserPresenter>();
+
+            if (roomScreenPresenter != null)
+            {
+                builder.RegisterComponent(roomScreenPresenter);
+            }
         }
     }
 }
