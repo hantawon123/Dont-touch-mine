@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Client.Lobby;
 using Game.Core.Lobby;
+using Game.Network.Session;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -81,8 +82,18 @@ namespace Game.Bootstrap
             builder.RegisterComponent(chatView).As<ILobbyChatView>();
             builder.RegisterComponent(chatBubbleView).As<ILobbyChatBubbleView>();
             builder.RegisterInstance<IReadOnlyList<ControlKeyBinding>>(ControlKeyGuide.Bindings);
-            builder.RegisterInstance(CreateSampleParticipantList()).As<ILobbyParticipantList>();
-            builder.RegisterInstance(CreateSampleHostSession()).As<ILobbyHostSession>();
+            builder.Register<NetworkLobbyParticipantList>(Lifetime.Scoped)
+                .As<ILobbyParticipantList>();
+
+            // Built by hand because the not-yet-synced half of the settings is a
+            // value this scope owns, not a service anything should resolve.
+            builder.Register(
+                    c => new NetworkLobbyHostSession(
+                        c.Resolve<RoomBrowserSystem>(),
+                        c.Resolve<NetworkRunnerService>(),
+                        CreateUnsyncedSettings()),
+                    Lifetime.Scoped)
+                .As<ILobbyHostSession>();
             builder.RegisterInstance(CreateSampleChatLog()).As<ILobbyChatLog>();
             builder.RegisterEntryPoint<KeyGuidePresenter>();
             builder.RegisterEntryPoint<LobbyPlayerListPresenter>();
@@ -92,28 +103,22 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<LobbyExitPresenter>();
         }
 
-        private static LobbyParticipantList CreateSampleParticipantList()
+        /// <summary>
+        /// The half of the room settings the session does not carry yet. Room
+        /// code and player cap are overwritten from the room the peer is in; the
+        /// rest waits on S15P21D205-205 and is only here so the settings form
+        /// has usable values in the meantime.
+        /// </summary>
+        private static PlaySettingsDraft CreateUnsyncedSettings()
         {
-            return new LobbyParticipantList(new[]
-            {
-                new LobbyParticipant("host-1", "김말갈", true),
-                new LobbyParticipant("player-2", "김명행", false),
-                new LobbyParticipant("player-3", "보리우유", false),
-                new LobbyParticipant("player-4", "초롱초롱한닉네임테스트용", false),
-            });
-        }
-
-        private static LobbyHostSession CreateSampleHostSession()
-        {
-            var settings = new PlaySettingsDraft(
-                "초보방",
-                "K7M2QF",
-                true,
-                "1234",
+            return new PlaySettingsDraft(
+                string.Empty,
+                string.Empty,
+                false,
+                string.Empty,
                 6,
                 5,
                 "market-01");
-            return new LobbyHostSession("host-1", true, settings);
         }
 
         private static LobbyChatLog CreateSampleChatLog()
