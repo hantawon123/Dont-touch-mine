@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Fusion;
 using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Server.Match;
 using UnityEngine;
 
 namespace Game.Network.Match
@@ -293,6 +294,61 @@ namespace Game.Network.Match
         public void RPC_RequestShredder(RpcInfo info = default)
         {
             StarterOf(Runner)?.TryUseShredder(info.Source);
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_NotifyItemDestroyed(
+            int destroyerPlayerIndex,
+            string itemId,
+            double destroyedAt)
+        {
+            StarterOf(Runner)?.PublishItemDestroyed(
+                new PlayerItemDestroyedEvent(
+                    destroyerPlayerIndex,
+                    itemId,
+                    destroyedAt));
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_NotifyPlayerStunned(
+            int attackerPlayerIndex,
+            int targetPlayerIndex,
+            string droppedObjectId,
+            double stunnedAt,
+            double stunEndsAt)
+        {
+            StarterOf(Runner)?.PublishPlayerStunned(
+                new PlayerStunnedEvent(
+                    attackerPlayerIndex,
+                    targetPlayerIndex,
+                    string.IsNullOrEmpty(droppedObjectId) ? null : droppedObjectId,
+                    stunnedAt,
+                    stunEndsAt));
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_NotifyObjectThrown(
+            int playerIndex,
+            string objectId,
+            Vector3 position,
+            Quaternion rotation,
+            Vector3 initialVelocity,
+            double thrownAt)
+        {
+            StarterOf(Runner)?.PublishObjectThrown(
+                new ObjectThrownEvent(
+                    playerIndex,
+                    objectId,
+                    new Pose(position, rotation),
+                    initialVelocity,
+                    thrownAt));
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_NotifyFinalWarning(double startedAt, double endsAt)
+        {
+            StarterOf(Runner)?.PublishFinalWarning(
+                new FinalWarningStartedEvent(startedAt, endsAt));
         }
 
         /// <summary>

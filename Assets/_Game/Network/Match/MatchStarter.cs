@@ -47,6 +47,10 @@ namespace Game.Network.Match
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<string> ItemAssignmentReceived;
         public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
+        public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
+        public event Action<PlayerStunnedEvent> PlayerStunnedReceived;
+        public event Action<ObjectThrownEvent> ObjectThrownReceived;
+        public event Action<FinalWarningStartedEvent> FinalWarningReceived;
 
         public void Bind(IMatchStartSink sink, PlayerRoster roster)
         {
@@ -193,11 +197,41 @@ namespace Game.Network.Match
             ObjectStatesReceived?.Invoke(states);
         }
 
+        public void PublishItemDestroyed(PlayerItemDestroyedEvent confirmedEvent)
+        {
+            ItemDestroyedReceived?.Invoke(confirmedEvent);
+        }
+
+        public void PublishPlayerStunned(PlayerStunnedEvent confirmedEvent)
+        {
+            PlayerStunnedReceived?.Invoke(confirmedEvent);
+        }
+
+        public void PublishObjectThrown(ObjectThrownEvent confirmedEvent)
+        {
+            ObjectThrownReceived?.Invoke(confirmedEvent);
+        }
+
+        public void PublishFinalWarning(FinalWarningStartedEvent confirmedEvent)
+        {
+            FinalWarningReceived?.Invoke(confirmedEvent);
+        }
+
         public void BindSession(
             MatchSessionCoordinator session,
             Pose shredderEjectionPose)
         {
-            _session = session ?? throw new ArgumentNullException(nameof(session));
+            if (session == null)
+            {
+                throw new ArgumentNullException(nameof(session));
+            }
+
+            UnbindSession();
+            _session = session;
+            _session.PlayerItemDestroyed += OnPlayerItemDestroyed;
+            _session.PlayerStunned += OnPlayerStunned;
+            _session.ObjectThrown += OnObjectThrown;
+            _session.FinalWarningStarted += OnFinalWarningStarted;
             _shredderEjectionPose = shredderEjectionPose;
             _hasShredderEjectionPose = true;
         }
@@ -371,6 +405,56 @@ namespace Game.Network.Match
 
         private double ServerTime => _state.Runner.SimulationTime;
 
+        private void OnPlayerItemDestroyed(PlayerItemDestroyedEvent confirmedEvent)
+        {
+            _state?.RPC_NotifyItemDestroyed(
+                confirmedEvent.DestroyerPlayerIndex,
+                confirmedEvent.ItemId,
+                confirmedEvent.DestroyedAt);
+        }
+
+        private void OnPlayerStunned(PlayerStunnedEvent confirmedEvent)
+        {
+            _state?.RPC_NotifyPlayerStunned(
+                confirmedEvent.AttackerPlayerIndex,
+                confirmedEvent.TargetPlayerIndex,
+                confirmedEvent.DroppedObjectId ?? string.Empty,
+                confirmedEvent.StunnedAt,
+                confirmedEvent.StunEndsAt);
+        }
+
+        private void OnObjectThrown(ObjectThrownEvent confirmedEvent)
+        {
+            _state?.RPC_NotifyObjectThrown(
+                confirmedEvent.PlayerIndex,
+                confirmedEvent.ObjectId,
+                confirmedEvent.ReleasePose.position,
+                confirmedEvent.ReleasePose.rotation,
+                confirmedEvent.InitialVelocity,
+                confirmedEvent.ThrownAt);
+        }
+
+        private void OnFinalWarningStarted(FinalWarningStartedEvent confirmedEvent)
+        {
+            _state?.RPC_NotifyFinalWarning(
+                confirmedEvent.StartedAt,
+                confirmedEvent.EndsAt);
+        }
+
+        private void UnbindSession()
+        {
+            if (_session == null)
+            {
+                return;
+            }
+
+            _session.PlayerItemDestroyed -= OnPlayerItemDestroyed;
+            _session.PlayerStunned -= OnPlayerStunned;
+            _session.ObjectThrown -= OnObjectThrown;
+            _session.FinalWarningStarted -= OnFinalWarningStarted;
+            _session = null;
+        }
+
         private bool TryGetPlayerIndex(PlayerRef source, out int playerIndex)
         {
             if (_session == null || _state == null || _state.Runner == null)
@@ -401,7 +485,7 @@ namespace Game.Network.Match
         public void Clear()
         {
             _state = null;
-            _session = null;
+            UnbindSession();
             _hasShredderEjectionPose = false;
             _playing.Clear();
             _room.Clear();

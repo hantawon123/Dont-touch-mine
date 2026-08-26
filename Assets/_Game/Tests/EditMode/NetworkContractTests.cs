@@ -155,6 +155,48 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void MatchEventRpcs_BroadcastOnlyAuthorityConfirmedData()
+        {
+            var names = new[]
+            {
+                "RPC_NotifyItemDestroyed",
+                "RPC_NotifyPlayerStunned",
+                "RPC_NotifyObjectThrown",
+                "RPC_NotifyFinalWarning",
+            };
+
+            foreach (var name in names)
+            {
+                var rpc = typeof(MatchSessionState).GetMethod(name);
+
+                Assert.That(rpc, Is.Not.Null, name);
+                var attribute = (Fusion.RpcAttribute)Attribute.GetCustomAttribute(
+                    rpc,
+                    typeof(Fusion.RpcAttribute));
+                Assert.That(attribute, Is.Not.Null, name);
+                Assert.That(
+                    attribute.Sources,
+                    Is.EqualTo(Fusion.RpcSources.StateAuthority),
+                    name);
+                Assert.That(
+                    attribute.Targets,
+                    Is.EqualTo(Fusion.RpcTargets.All),
+                    name);
+            }
+
+            var destroyedRpc = typeof(MatchSessionState).GetMethod(
+                "RPC_NotifyItemDestroyed");
+            Assert.That(
+                Array.Exists(
+                    destroyedRpc.GetParameters(),
+                    parameter => parameter.Name.IndexOf(
+                        "owner",
+                        StringComparison.OrdinalIgnoreCase) >= 0),
+                Is.False,
+                "Destroyed item notifications must not reveal its owner.");
+        }
+
+        [Test]
         public void ObjectStateSnapshot_PreservesPhysicsAndVisibilityState()
         {
             var pose = new Pose(new Vector3(1f, 2f, 3f), Quaternion.Euler(0f, 45f, 0f));

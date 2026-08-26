@@ -61,6 +61,10 @@ namespace Game.Network.Session
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<string> ItemAssignmentReceived;
         public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
+        public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
+        public event Action<PlayerStunnedEvent> PlayerStunnedReceived;
+        public event Action<ObjectThrownEvent> ObjectThrownReceived;
+        public event Action<FinalWarningStartedEvent> FinalWarningReceived;
 
         /// <summary>
         /// Password this peer requires from joiners while it is the authority. A
@@ -417,6 +421,10 @@ namespace Game.Network.Session
             _matchStarter.MatchStateReceived += OnMatchStateReceived;
             _matchStarter.ItemAssignmentReceived += OnItemAssignmentReceived;
             _matchStarter.ObjectStatesReceived += OnObjectStatesReceived;
+            _matchStarter.ItemDestroyedReceived += OnItemDestroyedReceived;
+            _matchStarter.PlayerStunnedReceived += OnPlayerStunnedReceived;
+            _matchStarter.ObjectThrownReceived += OnObjectThrownReceived;
+            _matchStarter.FinalWarningReceived += OnFinalWarningReceived;
 
             return sceneManager;
         }
@@ -441,6 +449,10 @@ namespace Game.Network.Session
                 _matchStarter.MatchStateReceived -= OnMatchStateReceived;
                 _matchStarter.ItemAssignmentReceived -= OnItemAssignmentReceived;
                 _matchStarter.ObjectStatesReceived -= OnObjectStatesReceived;
+                _matchStarter.ItemDestroyedReceived -= OnItemDestroyedReceived;
+                _matchStarter.PlayerStunnedReceived -= OnPlayerStunnedReceived;
+                _matchStarter.ObjectThrownReceived -= OnObjectThrownReceived;
+                _matchStarter.FinalWarningReceived -= OnFinalWarningReceived;
             }
 
             _runner = null;
@@ -470,6 +482,26 @@ namespace Game.Network.Session
             IReadOnlyList<MatchObjectStateSnapshot> states)
         {
             ObjectStatesReceived?.Invoke(states);
+        }
+
+        private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmedEvent)
+        {
+            ItemDestroyedReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnPlayerStunnedReceived(PlayerStunnedEvent confirmedEvent)
+        {
+            PlayerStunnedReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnObjectThrownReceived(ObjectThrownEvent confirmedEvent)
+        {
+            ObjectThrownReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnFinalWarningReceived(FinalWarningStartedEvent confirmedEvent)
+        {
+            FinalWarningReceived?.Invoke(confirmedEvent);
         }
 
         private bool IsCurrentRunner(NetworkRunner runner) =>
