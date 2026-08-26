@@ -602,8 +602,18 @@ namespace Game.Network.Match
                 return false;
             }
 
+            if (!_sceneDirector.EnterLobbyScene(_state.Runner))
+            {
+                return false;
+            }
+
             _returningToLobby = true;
-            _sceneDirector.EnterLobbyScene(_state.Runner);
+            if (!_state.TryResetForRematch())
+            {
+                throw new InvalidOperationException(
+                    "The authority could not reset the completed match state.");
+            }
+
             return true;
         }
 

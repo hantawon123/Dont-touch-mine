@@ -263,6 +263,41 @@ namespace Game.Network.Match
             IsStarted = true;
         }
 
+        public bool TryResetForRematch()
+        {
+            if (Object == null || !Object.HasStateAuthority || !IsStarted)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < ParticipantCount; index++)
+            {
+                Participants.Set(index, default);
+                ParticipantActive.Set(index, false);
+                StunEndsAt.Set(index, 0d);
+                RemainingDestructionUses.Set(index, 0);
+            }
+
+            for (var index = 0; index < WinnerCount; index++)
+            {
+                WinnerPlayerIndices.Set(index, 0);
+            }
+
+            ObjectStates.Clear();
+            ParticipantCount = 0;
+            ParticipantActivityRevision++;
+            PlayerInteractionStateRevision++;
+            Phase = MatchPhase.Waiting;
+            PhaseEndsAt = 0d;
+            ObjectStateRevision++;
+            HasResult = false;
+            ResultEndReason = default;
+            ResultEndedAt = 0d;
+            WinnerCount = 0;
+            IsStarted = false;
+            return true;
+        }
+
         public bool TrySetParticipantInactive(int playerIndex)
         {
             if (Object == null || !Object.HasStateAuthority ||

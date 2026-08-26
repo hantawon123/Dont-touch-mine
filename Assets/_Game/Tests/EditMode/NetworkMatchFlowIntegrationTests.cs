@@ -86,6 +86,33 @@ namespace Game.Architecture.Tests
             AssertPeersAt(hostFlow, clientFlow, AppFlowState.Lobby);
         }
 
+        [Test]
+        public void ResetAfterResult_ReturnsPeersToLobbyAndAllowsRematch()
+        {
+            var network = new FakeNetworkMatchEvents();
+            var hostFlow = CreateLobbyFlow();
+            var clientFlow = CreateLobbyFlow();
+            using var host = new NetworkMatchFlowSynchronizer(network, hostFlow);
+            using var client = new NetworkMatchFlowSynchronizer(network, clientFlow);
+            host.Start();
+            client.Start();
+
+            network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 180d));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 570d));
+            network.Publish(new MatchResult(
+                MatchEndReason.TimeExpired,
+                570d,
+                new[] { 0 }));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            AssertPeersAt(hostFlow, clientFlow, AppFlowState.Result);
+
+            network.Publish(new MatchStateSnapshot(MatchPhase.Waiting, 0d));
+            AssertPeersAt(hostFlow, clientFlow, AppFlowState.Lobby);
+
+            network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 180d));
+            AssertPeersAt(hostFlow, clientFlow, AppFlowState.InGame);
+        }
+
         private static AppFlowSystem CreateLobbyFlow()
         {
             var flow = new AppFlowSystem();

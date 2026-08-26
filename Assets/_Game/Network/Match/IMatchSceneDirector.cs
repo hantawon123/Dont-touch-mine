@@ -28,6 +28,6 @@ namespace Game.Network.Match
         /// <summary>
         /// Returns everyone to the waiting room without leaving the network session.
         /// </summary>
-        void EnterLobbyScene(NetworkRunner runner);
+        bool EnterLobbyScene(NetworkRunner runner);
     }
 }
