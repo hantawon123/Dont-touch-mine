@@ -12,12 +12,30 @@ namespace Game.Architecture.Tests
     public sealed class NetworkContractTests
     {
         [Test]
-        public void Participant_UsesSeatAsStablePlayerIndex()
+        public void Participant_UsesOnlyStablePlayerIndex()
         {
             var participant = new MatchParticipant("player", 3);
 
             Assert.That(participant.PlayerIndex, Is.EqualTo(3));
-            Assert.That(participant.Seat, Is.EqualTo(participant.PlayerIndex));
+            Assert.That(typeof(MatchParticipant).GetProperty("Seat"), Is.Null);
+        }
+
+        [Test]
+        public void Participant_ConvertsRoomSeatOrderToContiguousPlayerIndices()
+        {
+            var participants = MatchParticipant.FromRoomParticipants(new[]
+            {
+                new Game.Core.Rooms.RoomParticipant("late-seat", 5, false),
+                new Game.Core.Rooms.RoomParticipant("host", 0, true),
+                new Game.Core.Rooms.RoomParticipant("middle-seat", 3, false),
+            });
+
+            Assert.That(
+                Array.ConvertAll(participants, participant => participant.PlayerId),
+                Is.EqualTo(new[] { "host", "middle-seat", "late-seat" }));
+            Assert.That(
+                Array.ConvertAll(participants, participant => participant.PlayerIndex),
+                Is.EqualTo(new[] { 0, 1, 2 }));
         }
 
         [Test]

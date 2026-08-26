@@ -100,10 +100,11 @@ namespace Game.Network.Match
 
             var state = _state;
 
-            var participantIds = new string[_room.Count];
-            for (var index = 0; index < _room.Count; index++)
+            var participants = MatchParticipant.FromRoomParticipants(_room);
+            var participantIds = new string[participants.Length];
+            for (var index = 0; index < participants.Length; index++)
             {
-                participantIds[index] = _room[index].PlayerId;
+                participantIds[index] = participants[index].PlayerId;
             }
 
             state.Confirm(participantIds);

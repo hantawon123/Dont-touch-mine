@@ -198,7 +198,7 @@ namespace Game.Tests.EditMode
         [TestCase(4)]
         [TestCase(5)]
         [TestCase(6)]
-        public void ParticipantSnapshot_InitializesMatchBySeatForActualPlayerCount(
+        public void ParticipantSnapshot_InitializesMatchByPlayerIndexForActualPlayerCount(
             int playerCount)
         {
             var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
@@ -208,8 +208,10 @@ namespace Game.Tests.EditMode
                 var participants = new MatchParticipant[playerCount];
                 for (var index = 0; index < playerCount; index++)
                 {
-                    var seat = playerCount - index - 1;
-                    participants[index] = new MatchParticipant($"seat-{seat}", seat);
+                    var playerIndex = playerCount - index - 1;
+                    participants[index] = new MatchParticipant(
+                        $"player-{playerIndex}",
+                        playerIndex);
                 }
 
                 var factory = new MatchRuntimeFactory(rules);
@@ -226,7 +228,7 @@ namespace Game.Tests.EditMode
                 {
                     Assert.That(
                         composition.Session.Players.GetPlayer(playerIndex).PlayerId,
-                        Is.EqualTo($"seat-{playerIndex}"));
+                        Is.EqualTo($"player-{playerIndex}"));
                 }
 
                 Assert.That(composition.Session.Start(10d), Is.True);
@@ -247,11 +249,19 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void ParticipantSnapshot_RejectsDuplicateSeats()
+        public void ParticipantSnapshot_RejectsDuplicatePlayerIndices()
         {
             AssertInvalidParticipants(
                 new MatchParticipant("first", 0),
                 new MatchParticipant("second", 0));
+        }
+
+        [Test]
+        public void ParticipantSnapshot_RejectsGappedPlayerIndices()
+        {
+            AssertInvalidParticipants(
+                new MatchParticipant("first", 0),
+                new MatchParticipant("second", 2));
         }
 
         [Test]
