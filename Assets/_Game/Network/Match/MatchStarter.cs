@@ -53,6 +53,8 @@ namespace Game.Network.Match
         public event Action<FinalWarningStartedEvent> FinalWarningReceived;
         public event Action<IReadOnlyList<bool>> ParticipantActivityReceived;
         public event Action<MatchResult> MatchResultReceived;
+        public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
+        public event Action SimulationTick;
 
         public void Bind(IMatchStartSink sink, PlayerRoster roster)
         {
@@ -124,11 +126,6 @@ namespace Game.Network.Match
 
             _state = state;
 
-            if (_sink == null)
-            {
-                return;
-            }
-
             _playing.Clear();
 
             if (state.IsStarted)
@@ -144,7 +141,8 @@ namespace Game.Network.Match
                 }
             }
 
-            _sink.MatchStarted(_playing);
+            _sink?.MatchStarted(_playing);
+            LineUpReceived?.Invoke(_playing);
         }
 
         public bool TryPublishSnapshot(MatchStateSnapshot snapshot)
@@ -230,6 +228,11 @@ namespace Game.Network.Match
             MatchResultReceived?.Invoke(result);
         }
 
+        public void PublishSimulationTick()
+        {
+            SimulationTick?.Invoke();
+        }
+
         public void BindSession(
             MatchSessionCoordinator session,
             Pose shredderEjectionPose)
@@ -248,6 +251,17 @@ namespace Game.Network.Match
             _session.MatchEnded += OnMatchEnded;
             _shredderEjectionPose = shredderEjectionPose;
             _hasShredderEjectionPose = true;
+        }
+
+        public bool UnbindSession(MatchSessionCoordinator session)
+        {
+            if (!ReferenceEquals(_session, session))
+            {
+                return false;
+            }
+
+            UnbindSession();
+            return true;
         }
 
         public bool RequestHoldObject(string objectId)
@@ -573,6 +587,7 @@ namespace Game.Network.Match
             _playing.Clear();
             _room.Clear();
             _sink?.MatchStarted(_playing);
+            LineUpReceived?.Invoke(_playing);
         }
 
         /// <summary>

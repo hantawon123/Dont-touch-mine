@@ -203,6 +203,11 @@ namespace Game.Server.Match
         public event Action<ObjectThrownEvent> ObjectThrown;
         public event Action<MatchResult> MatchEnded;
 
+        public MatchStateSnapshot CaptureStateSnapshot()
+        {
+            return state.CaptureSnapshot();
+        }
+
         public bool Start(double now)
         {
             return flow.Start(now);

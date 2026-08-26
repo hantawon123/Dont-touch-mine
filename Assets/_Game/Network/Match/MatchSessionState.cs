@@ -153,6 +153,14 @@ namespace Game.Network.Match
             PublishResult();
         }
 
+        public override void FixedUpdateNetwork()
+        {
+            if (Object.HasStateAuthority)
+            {
+                StarterOf(Runner)?.PublishSimulationTick();
+            }
+        }
+
         /// <summary>
         /// Watches for the authority's decision arriving. Compared against what
         /// was last reported rather than using a change detector, because the

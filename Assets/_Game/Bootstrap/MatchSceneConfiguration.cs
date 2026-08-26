@@ -25,6 +25,34 @@ namespace Game.Bootstrap
         public Transform Target => target;
     }
 
+    [Serializable]
+    public sealed class ScenePlacementVolumeReference
+    {
+        [SerializeField]
+        private string objectId;
+
+        [SerializeField]
+        private Vector3 centerOffset;
+
+        [SerializeField]
+        private Vector3 halfExtents = Vector3.one * 0.25f;
+
+        public ScenePlacementVolumeReference(
+            string objectId,
+            Vector3 centerOffset,
+            Vector3 halfExtents)
+        {
+            this.objectId = objectId;
+            this.centerOffset = centerOffset;
+            this.halfExtents = halfExtents;
+        }
+
+        public PlacementVolume Capture()
+        {
+            return new PlacementVolume(objectId, centerOffset, halfExtents);
+        }
+    }
+
     [DisallowMultipleComponent]
     public sealed class MatchSceneConfiguration : MonoBehaviour
     {
@@ -35,6 +63,19 @@ namespace Game.Bootstrap
         private SceneWorldObjectReference[] worldObjects =
             Array.Empty<SceneWorldObjectReference>();
 
+        [SerializeField]
+        private ScenePlacementVolumeReference[] placementVolumes =
+            Array.Empty<ScenePlacementVolumeReference>();
+
+        [SerializeField]
+        private LayerMask placementBlockingLayers;
+
+        [SerializeField]
+        private LayerMask placementSupportLayers;
+
+        [SerializeField]
+        private Transform shredderEjectionPoint;
+
         public Pose[] CaptureSpawnPoses()
         {
             return CaptureSpawnPoses(spawnPoints);
@@ -43,6 +84,27 @@ namespace Game.Bootstrap
         public WorldObjectState[] CaptureWorldObjectStates()
         {
             return CaptureWorldObjectStates(worldObjects);
+        }
+
+        public IPlacementValidator CreatePlacementValidator()
+        {
+            return new PhysicsPlacementValidator(
+                CapturePlacementVolumes(placementVolumes),
+                placementBlockingLayers,
+                placementSupportLayers);
+        }
+
+        public Pose CaptureShredderEjectionPose()
+        {
+            if (shredderEjectionPoint == null)
+            {
+                throw new InvalidOperationException(
+                    "A shredder ejection point is required.");
+            }
+
+            return new Pose(
+                shredderEjectionPoint.position,
+                shredderEjectionPoint.rotation);
         }
 
         public static Pose[] CaptureSpawnPoses(IReadOnlyList<Transform> transforms)
@@ -104,6 +166,25 @@ namespace Game.Bootstrap
             }
 
             return states;
+        }
+
+        public static PlacementVolume[] CapturePlacementVolumes(
+            IReadOnlyList<ScenePlacementVolumeReference> references)
+        {
+            if (references == null)
+            {
+                throw new ArgumentNullException(nameof(references));
+            }
+
+            var volumes = new PlacementVolume[references.Count];
+            for (var index = 0; index < references.Count; index++)
+            {
+                volumes[index] = references[index]?.Capture() ??
+                    throw new InvalidOperationException(
+                        "Every placement volume must be assigned.");
+            }
+
+            return volumes;
         }
     }
 }

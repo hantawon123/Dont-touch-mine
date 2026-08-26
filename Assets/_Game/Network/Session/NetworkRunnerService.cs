@@ -31,6 +31,7 @@ namespace Game.Network.Session
     public sealed class NetworkRunnerService :
         INetworkRunnerCallbacks,
         INetworkMatchRuntimeSource,
+        INetworkMatchAuthority,
         INetworkMatchEvents,
         IDisposable
     {
@@ -68,6 +69,8 @@ namespace Game.Network.Session
         public event Action<FinalWarningStartedEvent> FinalWarningReceived;
         public event Action<IReadOnlyList<bool>> ParticipantActivityReceived;
         public event Action<MatchResult> MatchResultReceived;
+        public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
+        public event Action SimulationTick;
 
         /// <summary>
         /// Password this peer requires from joiners while it is the authority. A
@@ -332,6 +335,12 @@ namespace Game.Network.Session
             return true;
         }
 
+        public bool UnbindMatchSession(MatchSessionCoordinator session)
+        {
+            return _matchStarter != null &&
+                   _matchStarter.UnbindSession(session);
+        }
+
         public bool RequestHoldObject(string objectId) =>
             _matchStarter != null && _matchStarter.RequestHoldObject(objectId);
 
@@ -430,6 +439,8 @@ namespace Game.Network.Session
             _matchStarter.FinalWarningReceived += OnFinalWarningReceived;
             _matchStarter.ParticipantActivityReceived += OnParticipantActivityReceived;
             _matchStarter.MatchResultReceived += OnMatchResultReceived;
+            _matchStarter.LineUpReceived += OnLineUpReceived;
+            _matchStarter.SimulationTick += OnSimulationTick;
 
             return sceneManager;
         }
@@ -460,6 +471,8 @@ namespace Game.Network.Session
                 _matchStarter.FinalWarningReceived -= OnFinalWarningReceived;
                 _matchStarter.ParticipantActivityReceived -= OnParticipantActivityReceived;
                 _matchStarter.MatchResultReceived -= OnMatchResultReceived;
+                _matchStarter.LineUpReceived -= OnLineUpReceived;
+                _matchStarter.SimulationTick -= OnSimulationTick;
             }
 
             _runner = null;
@@ -519,6 +532,16 @@ namespace Game.Network.Session
         private void OnMatchResultReceived(MatchResult result)
         {
             MatchResultReceived?.Invoke(result);
+        }
+
+        private void OnLineUpReceived(IReadOnlyList<MatchParticipant> participants)
+        {
+            LineUpReceived?.Invoke(participants);
+        }
+
+        private void OnSimulationTick()
+        {
+            SimulationTick?.Invoke();
         }
 
         private bool IsCurrentRunner(NetworkRunner runner) =>
