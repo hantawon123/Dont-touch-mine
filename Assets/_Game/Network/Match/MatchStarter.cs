@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Fusion;
 using Game.Core.Lobby;
+using Game.Core.Items;
 using Game.Core.Match;
 using Game.Core.Ports;
 using Game.Core.Rooms;
@@ -40,6 +41,7 @@ namespace Game.Network.Match
         private MatchSessionState _state;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
+        public event Action<string> ItemAssignmentReceived;
 
         public void Bind(IMatchStartSink sink, PlayerRoster roster)
         {
@@ -141,6 +143,44 @@ namespace Game.Network.Match
         public void PublishSnapshot(MatchStateSnapshot snapshot)
         {
             MatchStateReceived?.Invoke(snapshot);
+        }
+
+        public bool TryPublishItemAssignments(
+            IReadOnlyList<PlayerItemAssignment> assignments)
+        {
+            if (_state == null || _roster == null || assignments == null ||
+                assignments.Count != _playing.Count)
+            {
+                return false;
+            }
+
+            var targets = new PlayerRef[assignments.Count];
+            for (var index = 0; index < assignments.Count; index++)
+            {
+                var assignment = assignments[index];
+                if (assignment.PlayerIndex != index ||
+                    string.IsNullOrWhiteSpace(assignment.Item.ItemId) ||
+                    !_roster.TryGetPlayer(_playing[index].PlayerId, out targets[index]))
+                {
+                    return false;
+                }
+            }
+
+            for (var index = 0; index < assignments.Count; index++)
+            {
+                if (!_state.TrySendItemAssignment(
+                        targets[index], assignments[index].Item.ItemId))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public void PublishItemAssignment(string itemId)
+        {
+            ItemAssignmentReceived?.Invoke(itemId);
         }
 
         /// <summary>Reports a refusal on the peer that asked.</summary>

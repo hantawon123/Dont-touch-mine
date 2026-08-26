@@ -8,6 +8,7 @@ using Fusion.Sockets;
 using Game.Core.Ports;
 using Game.Core.Rooms;
 using Game.Core.Match;
+using Game.Core.Items;
 using Game.Network.Lobby;
 using Game.Network.Match;
 using Game.Network.Players;
@@ -57,6 +58,7 @@ namespace Game.Network.Session
         private MatchStarter _matchStarter;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
+        public event Action<string> ItemAssignmentReceived;
 
         /// <summary>
         /// Password this peer requires from joiners while it is the authority. A
@@ -301,6 +303,13 @@ namespace Game.Network.Session
                    _matchStarter.TryPublishSnapshot(snapshot);
         }
 
+        public bool TryPublishItemAssignments(
+            IReadOnlyList<PlayerItemAssignment> assignments)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryPublishItemAssignments(assignments);
+        }
+
         /// <summary>
         /// Leaves the current session. Fusion tears the runner down itself, so
         /// this does not await anything.
@@ -375,6 +384,7 @@ namespace Game.Network.Session
             _matchStarter = _runnerObject.AddComponent<MatchStarter>();
             _matchStarter.Bind(_matchStartSink, _roster);
             _matchStarter.MatchStateReceived += OnMatchStateReceived;
+            _matchStarter.ItemAssignmentReceived += OnItemAssignmentReceived;
 
             return sceneManager;
         }
@@ -397,6 +407,7 @@ namespace Game.Network.Session
             if (_matchStarter != null)
             {
                 _matchStarter.MatchStateReceived -= OnMatchStateReceived;
+                _matchStarter.ItemAssignmentReceived -= OnItemAssignmentReceived;
             }
 
             _runner = null;
@@ -415,6 +426,11 @@ namespace Game.Network.Session
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
         {
             MatchStateReceived?.Invoke(snapshot);
+        }
+
+        private void OnItemAssignmentReceived(string itemId)
+        {
+            ItemAssignmentReceived?.Invoke(itemId);
         }
 
         private bool IsCurrentRunner(NetworkRunner runner) =>

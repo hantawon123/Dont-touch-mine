@@ -115,6 +115,24 @@ namespace Game.Network.Match
             return true;
         }
 
+        public bool TrySendItemAssignment(PlayerRef target, string itemId)
+        {
+            if (Object == null || !Object.HasStateAuthority ||
+                !target.IsRealPlayer || string.IsNullOrWhiteSpace(itemId))
+            {
+                return false;
+            }
+
+            RPC_AssignItem(target, itemId.Trim());
+            return true;
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        private void RPC_AssignItem([RpcTarget] PlayerRef target, string itemId)
+        {
+            StarterOf(Runner)?.PublishItemAssignment(itemId);
+        }
+
         /// <summary>
         /// Reports the room's answer to whoever is listening on this peer.
         /// </summary>

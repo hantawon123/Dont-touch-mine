@@ -81,5 +81,36 @@ namespace Game.Architecture.Tests
                 UnityEngine.Object.DestroyImmediate(gameObject);
             }
         }
+
+        [Test]
+        public void ItemAssignmentRpc_TargetsOnePlayerAndForwardsOnlyItemId()
+        {
+            var rpc = typeof(MatchSessionState).GetMethod(
+                "RPC_AssignItem",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic);
+            var gameObject = new GameObject("MatchStarterTest");
+
+            try
+            {
+                Assert.That(rpc, Is.Not.Null);
+                Assert.That(
+                    rpc.GetParameters()[0].IsDefined(
+                        typeof(Fusion.RpcTargetAttribute), false),
+                    Is.True);
+
+                var starter = gameObject.AddComponent<MatchStarter>();
+                string received = null;
+                starter.ItemAssignmentReceived += itemId => received = itemId;
+
+                starter.PublishItemAssignment("Soda_01");
+
+                Assert.That(received, Is.EqualTo("Soda_01"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
     }
 }

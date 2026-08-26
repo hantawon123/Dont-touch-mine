@@ -100,24 +100,47 @@ namespace Game.Network.Players
 
         public bool TryGetPose(string playerId, out Pose pose)
         {
+            if (TryGetAvatar(playerId, out var avatar))
+            {
+                pose = new Pose(avatar.transform.position, avatar.transform.rotation);
+                return true;
+            }
+
+            pose = default;
+            return false;
+        }
+
+        public bool TryGetPlayer(string playerId, out PlayerRef player)
+        {
+            if (TryGetAvatar(playerId, out var avatar))
+            {
+                player = avatar.Owner;
+                return true;
+            }
+
+            player = PlayerRef.None;
+            return false;
+        }
+
+        private bool TryGetAvatar(string playerId, out PlayerAvatar found)
+        {
             if (!string.IsNullOrWhiteSpace(playerId))
             {
                 for (var index = 0; index < _avatars.Count; index++)
                 {
                     var avatar = _avatars[index];
-                    if (avatar != null &&
-                        string.Equals(
+                    if (avatar != null && string.Equals(
                             PlayerRegistry.IdOf(avatar.Owner),
                             playerId,
                             System.StringComparison.Ordinal))
                     {
-                        pose = new Pose(avatar.transform.position, avatar.transform.rotation);
+                        found = avatar;
                         return true;
                     }
                 }
             }
 
-            pose = default;
+            found = null;
             return false;
         }
 
