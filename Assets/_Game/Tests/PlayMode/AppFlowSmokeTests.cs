@@ -82,10 +82,6 @@ namespace Game.Tests.PlayMode
                 Assert.That(match.Session.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
                 Assert.That(match.Session.AllItemsPlaced, Is.True);
                 Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.InGame));
-                Assert.That(match.Session.SetHighlightCandidates(new[]
-                {
-                    new HighlightCandidate(HighlightType.FinalMoment, 420d, 430d, "final")
-                }), Is.True);
 
                 yield return null;
 
@@ -96,6 +92,10 @@ namespace Game.Tests.PlayMode
                 context.ServerTime = 430d;
                 match.Runtime.Tick();
                 Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Highlight));
+                Assert.That(
+                    match.Session.TryGetCurrentHighlight(out var generatedHighlight),
+                    Is.True);
+                Assert.That(generatedHighlight.Type, Is.EqualTo(HighlightType.LongestHidden));
                 Assert.That(highlight.IsPlaying, Is.False);
                 highlight.Tick(10f);
                 Assert.That(highlight.IsPlaying, Is.False);
