@@ -116,9 +116,11 @@ namespace Game.Client.Players
             velocity.y = verticalVelocity;
             controller.Move(velocity * Time.deltaTime);
 
-            if (direction.sqrMagnitude > 0.0001f)
+            // 몸은 항상 카메라가 보는 방향(좌우)을 향한다. 조준 기반 게임의 표준 방식.
+            var lookForward = GetCameraFlatForward();
+            if (lookForward.sqrMagnitude > 0.0001f)
             {
-                var targetRotation = Quaternion.LookRotation(direction);
+                var targetRotation = Quaternion.LookRotation(lookForward);
                 transform.rotation = Quaternion.RotateTowards(
                     transform.rotation, targetRotation, movementConfig.RotationSpeedDegrees * Time.deltaTime);
             }
@@ -237,17 +239,40 @@ namespace Game.Client.Players
             }
         }
 
+        private Vector3 GetCameraFlatForward()
+        {
+            if (!TryEnsureCamera())
+            {
+                return Vector3.zero;
+            }
+
+            var forward = cameraTransform.forward;
+            forward.y = 0f;
+            return forward.normalized;
+        }
+
+        private bool TryEnsureCamera()
+        {
+            if (cameraTransform != null)
+            {
+                return true;
+            }
+
+            var mainCamera = Camera.main;
+            if (mainCamera == null)
+            {
+                return false;
+            }
+
+            cameraTransform = mainCamera.transform;
+            return true;
+        }
+
         private Vector3 ToCameraRelativeDirection(Vector2 input)
         {
-            if (cameraTransform == null)
+            if (!TryEnsureCamera())
             {
-                var mainCamera = Camera.main;
-                if (mainCamera == null)
-                {
-                    return new Vector3(input.x, 0f, input.y);
-                }
-
-                cameraTransform = mainCamera.transform;
+                return new Vector3(input.x, 0f, input.y);
             }
 
             var forward = cameraTransform.forward;
