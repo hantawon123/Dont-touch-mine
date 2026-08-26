@@ -1089,7 +1089,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void DestroyHeldPlayerItem_RequiresAnOpponentItem()
+        public void DestroyHeldPlayerItem_AllowsOwnAndOpponentItems()
         {
             StartSearching();
             var ownItem = session.Assignments[0].Item.ItemId;
@@ -1098,16 +1098,17 @@ namespace Game.Tests.EditMode
             session.PlayerItemDestroyed += value => destroyedEvent = value;
 
             Assert.That(session.TryHoldObject(0, ownItem, 200d), Is.True);
-            Assert.That(session.TryDestroyHeldPlayerItem(0, 200d), Is.False);
-            Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(5));
-            Assert.That(destroyedEvent.HasValue, Is.False);
-
-            Assert.That(
-                session.TryReleaseHeldObject(0, new Pose(Vector3.zero, Quaternion.identity), 200d),
-                Is.True);
-            Assert.That(session.TryHoldObject(0, opponentItem, 200d), Is.True);
             Assert.That(session.TryDestroyHeldPlayerItem(0, 200d), Is.True);
             Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(4));
+            Assert.That(destroyedEvent.HasValue, Is.True);
+            Assert.That(destroyedEvent.Value.DestroyerPlayerIndex, Is.Zero);
+            Assert.That(destroyedEvent.Value.ItemId, Is.EqualTo(ownItem));
+            Assert.That(destroyedEvent.Value.DestroyedAt, Is.EqualTo(200d));
+
+            destroyedEvent = null;
+            Assert.That(session.TryHoldObject(0, opponentItem, 200d), Is.True);
+            Assert.That(session.TryDestroyHeldPlayerItem(0, 200d), Is.True);
+            Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(3));
             Assert.That(session.TryHoldObject(2, opponentItem, 200d), Is.False);
             Assert.That(destroyedEvent.HasValue, Is.True);
             Assert.That(destroyedEvent.Value.DestroyerPlayerIndex, Is.Zero);

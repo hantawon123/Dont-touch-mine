@@ -112,3 +112,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.CarryableItem
   displayName: "\uC18C\uB2E4\uCE94"
+  isPlayerItem: 1
+  ownerPlayerIndex: 0
