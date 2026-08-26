@@ -23,7 +23,6 @@ namespace Game.Client.Home
         private static readonly Color FriendSeparatorColor = new Color(0.75f, 0.75f, 0.75f, 1f);
         private static readonly Color PanelShadowColor = new Color(0.1f, 0.1f, 0.1f, 0.38f);
         private static readonly Color ItemShadowColor = new Color(0.12f, 0.12f, 0.12f, 0.32f);
-        private const float AddFriendIconSize = 28f;
 
         [SerializeField]
         private string title = "로고 or 이름 두둥";
@@ -45,13 +44,16 @@ namespace Game.Client.Home
         private readonly List<FriendRow> onlineRows = new List<FriendRow>();
         private readonly List<FriendRow> offlineRows = new List<FriendRow>();
         private TMP_FontAsset koreanFont;
-        private GameObject friendListPanel;
+        private GameObject friendListRoot;
         private TMP_Text onlineSectionText;
         private TMP_Text offlineSectionText;
         private RectTransform onlineItemsRoot;
         private RectTransform offlineItemsRoot;
+        private Button dismissButton;
 
         public event Action<HomeMenuAction> ActionClicked;
+
+        public event Action FriendListDismissed;
 
         private void Awake()
         {
@@ -60,6 +62,8 @@ namespace Game.Client.Home
             {
                 BuildLayout();
             }
+
+            SetFriendListVisible(false);
         }
 
         private void OnDestroy()
@@ -70,6 +74,11 @@ namespace Game.Client.Home
                 {
                     menuButtons[index].onClick.RemoveAllListeners();
                 }
+            }
+
+            if (dismissButton != null)
+            {
+                dismissButton.onClick.RemoveAllListeners();
             }
         }
 
@@ -91,9 +100,9 @@ namespace Game.Client.Home
 
         public void SetFriendListVisible(bool visible)
         {
-            if (friendListPanel != null)
+            if (friendListRoot != null)
             {
-                friendListPanel.SetActive(visible);
+                friendListRoot.SetActive(visible);
             }
         }
 
@@ -143,7 +152,9 @@ namespace Game.Client.Home
             CreateProfile(canvas);
             CreateCharacter(canvas);
             CreateLeftButtons(canvas);
-            CreateSystemButtons(canvas);
+            CreateQuitButton(canvas);
+            CreateBottomRightButtons(canvas);
+            CreateFriendListRoot(canvas);
         }
 
         private RectTransform CreateCanvas()
@@ -287,38 +298,68 @@ namespace Game.Client.Home
             CreateTextButton(left, "방 찾기", HomeMenuAction.FindRoom, TextAlignmentOptions.MidlineLeft);
             CreateSpacer(left, 18f);
             CreateTextButton(left, "프로필 설정", HomeMenuAction.ProfileSettings, TextAlignmentOptions.MidlineLeft);
-            var friendsButton = CreateTextButton(
-                left,
-                "친구 목록",
-                HomeMenuAction.Friends,
-                TextAlignmentOptions.MidlineLeft);
-            CreateFriendListPanel(friendsButton);
         }
 
-        private void CreateFriendListPanel(RectTransform friendsButton)
+        private void CreateQuitButton(RectTransform canvas)
         {
-            var panel = CreateRect("FriendListPanel", friendsButton);
-            var ignoreLayout = panel.gameObject.AddComponent<LayoutElement>();
-            ignoreLayout.ignoreLayout = true;
-            SetAnchor(panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0f));
-            panel.anchoredPosition = new Vector2(0f, 16f);
+            var quit = CreateRect("QuitButton", canvas);
+            SetAnchor(quit, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f));
+            quit.anchoredPosition = new Vector2(48f, 48f);
+            quit.sizeDelta = new Vector2(280f, 56f);
+            AddVerticalLayout(quit, TextAnchor.LowerLeft);
+            CreateTextButton(quit, "게임 종료", HomeMenuAction.Quit, TextAlignmentOptions.MidlineLeft);
+        }
+
+        private void CreateBottomRightButtons(RectTransform canvas)
+        {
+            var row = CreateRect("BottomRightButtons", canvas);
+            SetAnchor(row, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f));
+            row.anchoredPosition = new Vector2(-48f, 48f);
+            row.sizeDelta = new Vector2(400f, 56f);
+
+            var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 28f;
+            layout.childAlignment = TextAnchor.MiddleRight;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            CreateTextButton(row, "환경 설정", HomeMenuAction.Settings, TextAlignmentOptions.MidlineRight, 160f);
+            CreateTextButton(row, "친구 목록", HomeMenuAction.Friends, TextAlignmentOptions.MidlineRight, 160f);
+        }
+
+        private void CreateFriendListRoot(RectTransform canvas)
+        {
+            var root = CreateRect("FriendListRoot", canvas);
+            SetAnchor(root, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            root.offsetMin = Vector2.zero;
+            root.offsetMax = Vector2.zero;
+
+            var dismiss = CreateRect("DismissArea", root);
+            SetAnchor(dismiss, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            dismiss.offsetMin = Vector2.zero;
+            dismiss.offsetMax = Vector2.zero;
+            var dismissImage = AddImage(dismiss, new Color(0f, 0f, 0f, 0.01f), raycastTarget: true);
+            dismissButton = dismiss.gameObject.AddComponent<Button>();
+            dismissButton.targetGraphic = dismissImage;
+            dismissButton.transition = Selectable.Transition.None;
+            dismissButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            dismissButton.onClick.AddListener(() => FriendListDismissed?.Invoke());
+
+            CreateFriendListPanel(root);
+            friendListRoot = root.gameObject;
+            friendListRoot.SetActive(false);
+        }
+
+        private void CreateFriendListPanel(RectTransform parent)
+        {
+            var panel = CreateRect("Panel", parent);
+            SetAnchor(panel, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f));
+            panel.anchoredPosition = new Vector2(-48f, 116f);
             panel.sizeDelta = new Vector2(320f, 460f);
             var panelImage = AddImage(panel, Color.white, HomeUiFonts.RoundedSprite, raycastTarget: true);
             panelImage.type = Image.Type.Sliced;
-
-            var nestedCanvas = panel.gameObject.AddComponent<Canvas>();
-            nestedCanvas.overrideSorting = true;
-            nestedCanvas.sortingOrder = 110;
-            nestedCanvas.additionalShaderChannels =
-                AdditionalCanvasShaderChannels.TexCoord1
-                | AdditionalCanvasShaderChannels.Normal
-                | AdditionalCanvasShaderChannels.Tangent;
-            panel.gameObject.AddComponent<GraphicRaycaster>();
-
-            var consumeClicks = panel.gameObject.AddComponent<Button>();
-            consumeClicks.transition = Selectable.Transition.None;
-            consumeClicks.targetGraphic = panelImage;
-            consumeClicks.navigation = new Navigation { mode = Navigation.Mode.None };
             AddDropShadow(panel.gameObject, PanelShadowColor, new Vector2(4f, -5f));
             AddDropShadow(panel.gameObject, new Color(0.1f, 0.1f, 0.1f, 0.18f), new Vector2(8f, -10f));
 
@@ -331,52 +372,12 @@ namespace Game.Client.Home
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
-            CreateFriendListHeader(panel);
-            CreateFriendListBody(panel);
-            friendListPanel = panel.gameObject;
-            friendListPanel.SetActive(false);
-        }
-
-        private void CreateFriendListHeader(RectTransform panel)
-        {
             var header = CreateRect("Header", panel);
             var headerLayout = header.gameObject.AddComponent<LayoutElement>();
             headerLayout.preferredHeight = 36f;
             headerLayout.minHeight = 36f;
+            AddText(header, "친구", 24f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
 
-            var row = header.gameObject.AddComponent<HorizontalLayoutGroup>();
-            row.childAlignment = TextAnchor.MiddleLeft;
-            row.childControlWidth = true;
-            row.childControlHeight = false;
-            row.childForceExpandWidth = false;
-            row.childForceExpandHeight = false;
-            row.spacing = 8f;
-
-            var titleRect = CreateRect("Title", header);
-            var titleLayout = titleRect.gameObject.AddComponent<LayoutElement>();
-            titleLayout.preferredWidth = 0f;
-            titleLayout.flexibleWidth = 1f;
-            titleLayout.minWidth = 80f;
-            titleLayout.preferredHeight = 36f;
-            AddText(titleRect, "친구", 24f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
-
-            var addFriend = CreateRect("AddFriend", header);
-            addFriend.sizeDelta = new Vector2(AddFriendIconSize, AddFriendIconSize);
-            var addFriendLayout = addFriend.gameObject.AddComponent<LayoutElement>();
-            addFriendLayout.preferredWidth = AddFriendIconSize;
-            addFriendLayout.preferredHeight = AddFriendIconSize;
-            addFriendLayout.minWidth = AddFriendIconSize;
-            addFriendLayout.minHeight = AddFriendIconSize;
-            addFriendLayout.flexibleWidth = 0f;
-            addFriendLayout.flexibleHeight = 0f;
-            var addFriendAspect = addFriend.gameObject.AddComponent<AspectRatioFitter>();
-            addFriendAspect.aspectMode = AspectRatioFitter.AspectMode.WidthControlsHeight;
-            addFriendAspect.aspectRatio = 1f;
-            AddEmptyBox(addFriend, Color.black, 2f);
-        }
-
-        private void CreateFriendListBody(RectTransform panel)
-        {
             var scroll = CreateRect("Scroll", panel);
             var scrollLayout = scroll.gameObject.AddComponent<LayoutElement>();
             scrollLayout.flexibleHeight = 1f;
@@ -398,7 +399,6 @@ namespace Game.Client.Home
 
             var content = CreateRect("Content", viewport);
             SetAnchor(content, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
-            content.pivot = new Vector2(0.5f, 1f);
             content.anchoredPosition = Vector2.zero;
             content.sizeDelta = Vector2.zero;
             var contentLayout = content.gameObject.AddComponent<VerticalLayoutGroup>();
@@ -552,16 +552,6 @@ namespace Game.Client.Home
             };
         }
 
-        private static void AddEmptyBox(RectTransform rect, Color color, float thickness)
-        {
-            AddImage(rect, color);
-            var inner = CreateRect("Inner", rect);
-            SetAnchor(inner, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
-            inner.offsetMin = new Vector2(thickness, thickness);
-            inner.offsetMax = new Vector2(-thickness, -thickness);
-            AddImage(inner, Color.white);
-        }
-
         private static void AddDropShadow(GameObject target, Color color, Vector2 distance)
         {
             var shadow = target.AddComponent<Shadow>();
@@ -570,27 +560,18 @@ namespace Game.Client.Home
             shadow.useGraphicAlpha = true;
         }
 
-        private void CreateSystemButtons(RectTransform canvas)
-        {
-            var right = CreateRect("SystemButtons", canvas);
-            SetAnchor(right, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f));
-            right.anchoredPosition = new Vector2(-48f, 48f);
-            right.sizeDelta = new Vector2(280f, 140f);
-            AddVerticalLayout(right, TextAnchor.LowerRight);
-
-            CreateTextButton(right, "환경 설정", HomeMenuAction.Settings, TextAlignmentOptions.MidlineRight);
-            CreateTextButton(right, "게임 종료", HomeMenuAction.Quit, TextAlignmentOptions.MidlineRight);
-        }
-
         private RectTransform CreateTextButton(
             RectTransform parent,
             string label,
             HomeMenuAction action,
-            TextAlignmentOptions alignment)
+            TextAlignmentOptions alignment,
+            float preferredWidth = 280f)
         {
             var buttonRect = CreateRect(action.ToString(), parent);
-            buttonRect.sizeDelta = new Vector2(280f, 56f);
+            buttonRect.sizeDelta = new Vector2(preferredWidth, 56f);
             var layoutElement = buttonRect.gameObject.AddComponent<LayoutElement>();
+            layoutElement.preferredWidth = preferredWidth;
+            layoutElement.minWidth = preferredWidth;
             layoutElement.preferredHeight = 56f;
             layoutElement.minHeight = 56f;
 

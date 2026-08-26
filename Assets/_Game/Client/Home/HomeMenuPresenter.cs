@@ -71,16 +71,18 @@ namespace Game.Client.Home
         public void Start()
         {
             view.ActionClicked += OnActionClicked;
+            view.FriendListDismissed += HideFriendList;
             profile.Changed += OnProfileChanged;
             friends.FriendsChanged += BindFriends;
             BindProfile(profile);
             BindFriends();
-            view.SetFriendListVisible(false);
+            HideFriendList();
         }
 
         public void Dispose()
         {
             view.ActionClicked -= OnActionClicked;
+            view.FriendListDismissed -= HideFriendList;
             profile.Changed -= OnProfileChanged;
             friends.FriendsChanged -= BindFriends;
         }
@@ -96,8 +98,7 @@ namespace Game.Client.Home
 
             if (action == HomeMenuAction.Friends)
             {
-                isFriendListVisible = !isFriendListVisible;
-                view.SetFriendListVisible(isFriendListVisible);
+                ShowFriendList();
                 return;
             }
 
@@ -109,13 +110,19 @@ namespace Game.Client.Home
             }
         }
 
-        private void HideFriendList()
+        private void ShowFriendList()
         {
-            if (!isFriendListVisible)
+            if (isFriendListVisible)
             {
                 return;
             }
 
+            isFriendListVisible = true;
+            view.SetFriendListVisible(true);
+        }
+
+        private void HideFriendList()
+        {
             isFriendListVisible = false;
             view.SetFriendListVisible(false);
         }

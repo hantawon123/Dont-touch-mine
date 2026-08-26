@@ -8,6 +8,8 @@ namespace Game.Client.Home
     {
         event Action<HomeMenuAction> ActionClicked;
 
+        event Action FriendListDismissed;
+
         void SetNickname(string nickname);
 
         void SetLevel(int level);

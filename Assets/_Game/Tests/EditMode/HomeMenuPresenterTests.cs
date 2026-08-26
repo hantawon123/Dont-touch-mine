@@ -72,7 +72,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Presenter_FriendsAction_TogglesFriendListPanel()
+        public void Presenter_FriendsAction_ShowsFriendListPanel()
         {
             var profile = new PlayerProfile("사용자닉네임", 1);
             var menu = new HomeMenuSystem();
@@ -92,7 +92,7 @@ namespace Game.Tests.EditMode
             Assert.That(view.FriendListVisible, Is.True);
 
             view.Raise(HomeMenuAction.Friends);
-            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.FriendListVisible, Is.True);
         }
 
         [Test]
@@ -130,6 +130,26 @@ namespace Game.Tests.EditMode
             Assert.That(view.OnlineFriends, Is.Empty);
             Assert.That(view.OfflineFriends.Count, Is.EqualTo(1));
             Assert.That(view.OfflineFriends[0].Nickname, Is.EqualTo("친구4"));
+        }
+
+        [Test]
+        public void Presenter_ClickOutsideFriendList_HidesPanel()
+        {
+            var profile = new PlayerProfile("사용자닉네임", 1);
+            var menu = new HomeMenuSystem();
+            var view = new FakeHomeMenuView();
+            var host = new FakeHomeApplicationHost();
+            var appFlow = new AppFlowSystem();
+            var friends = new FriendListSystem();
+
+            using var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow, friends);
+            presenter.Start();
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+
+            view.RaiseFriendListDismissed();
+
+            Assert.That(view.FriendListVisible, Is.False);
         }
 
         [Test]
@@ -199,6 +219,8 @@ namespace Game.Tests.EditMode
 
             public event Action<HomeMenuAction> ActionClicked;
 
+            public event Action FriendListDismissed;
+
             public void SetNickname(string nickname)
             {
                 Nickname = nickname;
@@ -225,6 +247,11 @@ namespace Game.Tests.EditMode
             public void Raise(HomeMenuAction action)
             {
                 ActionClicked?.Invoke(action);
+            }
+
+            public void RaiseFriendListDismissed()
+            {
+                FriendListDismissed?.Invoke();
             }
         }
 
