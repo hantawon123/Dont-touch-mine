@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Home;
+using Game.Core.Flow;
 using Game.Core.Home;
 using NUnit.Framework;
 
@@ -15,10 +16,11 @@ namespace Game.Tests.EditMode
             var menu = new HomeMenuSystem();
             var view = new FakeHomeMenuView();
             var host = new FakeHomeApplicationHost();
+            var appFlow = new AppFlowSystem();
             var requestedActions = new List<HomeMenuAction>();
             menu.ActionRequested += requestedActions.Add;
 
-            using (var presenter = new HomeMenuPresenter(profile, menu, view, host))
+            using (var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow))
             {
                 presenter.Start();
                 Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
@@ -39,10 +41,32 @@ namespace Game.Tests.EditMode
                 requestedActions,
                 Is.EqualTo(Enum.GetValues(typeof(HomeMenuAction))));
             Assert.That(host.QuitCount, Is.EqualTo(1));
+            Assert.That(host.RoomBrowserOpenCount, Is.EqualTo(1));
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.RoomBrowser));
 
             view.Raise(HomeMenuAction.FindRoom);
             Assert.That(requestedActions.Count, Is.EqualTo(Enum.GetValues(typeof(HomeMenuAction)).Length));
             Assert.That(host.QuitCount, Is.EqualTo(1));
+            Assert.That(host.RoomBrowserOpenCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Presenter_FindRoom_OpensRoomBrowser()
+        {
+            var profile = new PlayerProfile("사용자닉네임", 1);
+            var menu = new HomeMenuSystem();
+            var view = new FakeHomeMenuView();
+            var host = new FakeHomeApplicationHost();
+            var appFlow = new AppFlowSystem();
+
+            using var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow);
+            presenter.Start();
+            view.Raise(HomeMenuAction.FindRoom);
+
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.RoomBrowser));
+            Assert.That(host.RoomBrowserOpenCount, Is.EqualTo(1));
+            Assert.That(host.HomeOpenCount, Is.Zero);
+            Assert.That(host.QuitCount, Is.Zero);
         }
 
         [Test]
@@ -52,18 +76,22 @@ namespace Game.Tests.EditMode
             var menu = new HomeMenuSystem();
             var view = new FakeHomeMenuView();
             var host = new FakeHomeApplicationHost();
+            var appFlow = new AppFlowSystem();
 
             Assert.That(
-                () => new HomeMenuPresenter(null, menu, view, host),
+                () => new HomeMenuPresenter(null, menu, view, host, appFlow),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, null, view, host),
+                () => new HomeMenuPresenter(profile, null, view, host, appFlow),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, null, host),
+                () => new HomeMenuPresenter(profile, menu, null, host, appFlow),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, null),
+                () => new HomeMenuPresenter(profile, menu, view, null, appFlow),
+                Throws.TypeOf<ArgumentNullException>());
+            Assert.That(
+                () => new HomeMenuPresenter(profile, menu, view, host, null),
                 Throws.TypeOf<ArgumentNullException>());
         }
 
@@ -95,9 +123,23 @@ namespace Game.Tests.EditMode
         {
             public int QuitCount { get; private set; }
 
+            public int HomeOpenCount { get; private set; }
+
+            public int RoomBrowserOpenCount { get; private set; }
+
             public void Quit()
             {
                 QuitCount++;
+            }
+
+            public void OpenHome()
+            {
+                HomeOpenCount++;
+            }
+
+            public void OpenRoomBrowser()
+            {
+                RoomBrowserOpenCount++;
             }
         }
     }
