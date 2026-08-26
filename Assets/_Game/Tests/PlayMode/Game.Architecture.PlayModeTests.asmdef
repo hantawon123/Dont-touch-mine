@@ -2,6 +2,7 @@
     "name": "Game.Architecture.PlayModeTests",
     "rootNamespace": "Game.Tests.PlayMode",
     "references": [
+        "Game.Bootstrap",
         "Game.Core",
         "Game.Server",
         "Game.SOAP",
