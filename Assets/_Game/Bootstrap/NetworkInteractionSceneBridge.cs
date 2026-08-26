@@ -30,6 +30,9 @@ namespace Game.Bootstrap
         private readonly Dictionary<int, PlayerCombatant> combatants = new();
         private readonly Dictionary<string, int> appliedVersions =
             new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> settlingVersions =
+            new(StringComparer.Ordinal);
+        private readonly List<string> settledObjectIds = new();
 
         private MatchObjectStateSnapshot[] objectStates =
             Array.Empty<MatchObjectStateSnapshot>();
@@ -73,6 +76,7 @@ namespace Game.Bootstrap
             RefreshPlayers();
             TryApplyAssignment();
             ApplyObjectStates();
+            ConfirmSettledObjects();
             ApplyPlayerStates();
         }
 
@@ -211,6 +215,7 @@ namespace Game.Bootstrap
 
                 if (state.IsDestroyed)
                 {
+                    settlingVersions.Remove(state.ObjectId);
                     ForgetItem(item);
                     appliedVersions[state.ObjectId] = state.Version;
                     items.Remove(state.ObjectId);
@@ -220,6 +225,7 @@ namespace Game.Bootstrap
 
                 if (state.HolderPlayerIndex >= 0)
                 {
+                    settlingVersions.Remove(state.ObjectId);
                     if (!interactors.TryGetValue(
                             state.HolderPlayerIndex,
                             out var holder))
@@ -236,10 +242,53 @@ namespace Game.Bootstrap
                 else
                 {
                     ForgetItem(item);
-                    item.OnReleased(state.Pose, state.InitialVelocity);
+                    if (state.IsPhysicsActive)
+                    {
+                        item.OnReleased(state.Pose, state.InitialVelocity);
+                        if (network.IsServer)
+                        {
+                            settlingVersions[state.ObjectId] = state.Version;
+                        }
+                    }
+                    else
+                    {
+                        settlingVersions.Remove(state.ObjectId);
+                        item.OnSettled(state.Pose, network.IsServer);
+                    }
                 }
 
                 appliedVersions[state.ObjectId] = state.Version;
+            }
+        }
+
+        private void ConfirmSettledObjects()
+        {
+            if (!network.IsServer || settlingVersions.Count == 0)
+            {
+                return;
+            }
+
+            settledObjectIds.Clear();
+            foreach (var pair in settlingVersions)
+            {
+                if (!items.TryGetValue(pair.Key, out var item) || item == null)
+                {
+                    settledObjectIds.Add(pair.Key);
+                    continue;
+                }
+
+                if (!item.TryGetSettledPose(out var pose))
+                {
+                    continue;
+                }
+
+                network.TryConfirmObjectSettled(pair.Key, pose, pair.Value);
+                settledObjectIds.Add(pair.Key);
+            }
+
+            foreach (var objectId in settledObjectIds)
+            {
+                settlingVersions.Remove(objectId);
             }
         }
 

@@ -481,6 +481,16 @@ namespace Game.Network.Session
             _matchStarter != null &&
             _matchStarter.RequestThrowHeldObject(pose, initialVelocity);
 
+        public bool TryConfirmObjectSettled(
+            string objectId,
+            Pose pose,
+            int expectedVersion) =>
+            IsServer && _matchStarter != null &&
+            _matchStarter.TryConfirmObjectSettled(
+                objectId,
+                pose,
+                expectedVersion);
+
         public bool RequestHitPlayer(int targetPlayerIndex) =>
             _matchStarter != null && _matchStarter.RequestHitPlayer(targetPlayerIndex);
 

@@ -978,6 +978,7 @@ namespace Game.Tests.EditMode
         {
             session.Start(10d);
             var releasePose = new Pose(new Vector3(4f, 1f, 5f), Quaternion.identity);
+            var settledPose = new Pose(new Vector3(7f, 0f, 2f), Quaternion.Euler(0f, 30f, 0f));
             var initialVelocity = new Vector3(3f, 2f, 6f);
 
             Assert.That(session.TryHoldObject(0, "shelf", 20d), Is.True);
@@ -988,6 +989,12 @@ namespace Game.Tests.EditMode
             Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
             Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
             Assert.That(mapObject.Pose.position, Is.EqualTo(releasePose.position));
+
+            Assert.That(
+                session.TryConfirmReleasedObjectPose("shelf", settledPose),
+                Is.True);
+            Assert.That(session.TryGetObjectPose("shelf", out var confirmedPose), Is.True);
+            Assert.That(confirmedPose, Is.EqualTo(settledPose));
             Assert.That(session.TryHoldObject(1, "shelf", 20d), Is.False);
         }
 
