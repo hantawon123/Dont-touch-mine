@@ -249,10 +249,7 @@ namespace Game.Client.Settings
             panels[SettingsTab.Audio] = CreateAudioPanel(body).gameObject;
             panels[SettingsTab.Controls] = CreatePlaceholder(body, "Controls", "조작 설정은 준비 중입니다").gameObject;
             panels[SettingsTab.Accessibility] = CreateAccessibilityPanel(body).gameObject;
-            panels[SettingsTab.Notifications] = CreatePlaceholder(
-                body,
-                "Notifications",
-                "알림 설정은 준비 중입니다").gameObject;
+            panels[SettingsTab.Notifications] = CreateNotificationsPanel(body).gameObject;
         }
 
         private RectTransform CreateGraphicsPanel(RectTransform parent)
@@ -318,6 +315,18 @@ namespace Game.Client.Settings
             CreateRangeSliderRow(content, "UI 크기", 50);
             CreateRangeSliderRow(content, "글자 크기", 50);
             CreateToggleRow(content, "고대비 모드", true);
+            return panel;
+        }
+
+        private RectTransform CreateNotificationsPanel(RectTransform parent)
+        {
+            var content = CreateScrollPanel(parent, "Notifications", out var panel);
+            panel.gameObject.SetActive(false);
+            CreateToggleRow(content, "게임 초대 알림", true);
+            CreateToggleRow(content, "친구 요청 알림", true);
+            CreateToggleRow(content, "파티 알림", true);
+            CreateToggleRow(content, "게임 종료 알림", true);
+            CreateToggleRow(content, "업데이트/공지 알림", true);
             return panel;
         }
 
