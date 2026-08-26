@@ -68,9 +68,10 @@ namespace Game.Editor
             SetLabel(start, "START");
             SetLabel(leave, "게임 나가기");
             SetLabel(keyGuide, "키 세팅 가이드");
-            SetLabel(playerList, "참가자 목록");
+            SetLabel(playerList, string.Empty);
             SetLabel(chat, "채팅");
             SetLabel(voice, "MIC");
+            EnsurePlayerListContent(playerList);
 
             EnsureButton(keyGuide.gameObject);
 
@@ -78,6 +79,12 @@ namespace Game.Editor
             if (keyGuideView == null)
             {
                 keyGuideView = Undo.AddComponent<KeyGuideView>(hud.gameObject);
+            }
+
+            var playerListView = playerList.GetComponent<LobbyPlayerListView>();
+            if (playerListView == null)
+            {
+                playerListView = Undo.AddComponent<LobbyPlayerListView>(playerList.gameObject);
             }
 
             var panel = EnsureKeyGuidePanel(root);
@@ -106,9 +113,17 @@ namespace Game.Editor
                 body.GetComponent<Text>();
             keyGuideSo.ApplyModifiedPropertiesWithoutUndo();
 
+            var playerListSo = new SerializedObject(playerListView);
+            playerListSo.FindProperty("titleText").objectReferenceValue =
+                playerList.Find("Title")?.GetComponent<Text>();
+            playerListSo.FindProperty("bodyText").objectReferenceValue =
+                playerList.Find("BodyText")?.GetComponent<Text>();
+            playerListSo.ApplyModifiedPropertiesWithoutUndo();
+
             var scopeSo = new SerializedObject(scope);
             scopeSo.FindProperty("hudView").objectReferenceValue = hud;
             scopeSo.FindProperty("keyGuideView").objectReferenceValue = keyGuideView;
+            scopeSo.FindProperty("playerListView").objectReferenceValue = playerListView;
             scopeSo.ApplyModifiedPropertiesWithoutUndo();
 
             panel.gameObject.SetActive(false);
@@ -117,8 +132,43 @@ namespace Game.Editor
             Selection.activeGameObject = hud.gameObject;
             EditorUtility.DisplayDialog(
                 "Lobby HUD",
-                "HUD 자리와 키 세팅 가이드 패널을 배치·연결했습니다.\n씬을 저장하세요 (Ctrl+S).",
+                "HUD·키 가이드·참가자 목록을 배치·연결했습니다.\n씬을 저장하세요 (Ctrl+S).",
                 "OK");
+        }
+
+        private static void EnsurePlayerListContent(RectTransform playerList)
+        {
+            var leftoverLabel = playerList.Find("Label");
+            if (leftoverLabel != null)
+            {
+                leftoverLabel.gameObject.SetActive(false);
+            }
+
+            if (playerList.Find("Title") == null)
+            {
+                var titleGo = CreateTextChild(playerList, "Title", "참가자 목록", 22, TextAnchor.UpperCenter);
+                var titleRect = titleGo.GetComponent<RectTransform>();
+                titleRect.anchorMin = new Vector2(0f, 1f);
+                titleRect.anchorMax = new Vector2(1f, 1f);
+                titleRect.pivot = new Vector2(0.5f, 1f);
+                titleRect.sizeDelta = new Vector2(-16f, 36f);
+                titleRect.anchoredPosition = new Vector2(0f, -10f);
+            }
+
+            if (playerList.Find("BodyText") == null)
+            {
+                var bodyGo = CreateTextChild(playerList, "BodyText", string.Empty, 20, TextAnchor.UpperLeft);
+                var bodyRect = bodyGo.GetComponent<RectTransform>();
+                bodyRect.anchorMin = Vector2.zero;
+                bodyRect.anchorMax = Vector2.one;
+                bodyRect.offsetMin = new Vector2(16f, 16f);
+                bodyRect.offsetMax = new Vector2(-16f, -48f);
+                var bodyText = bodyGo.GetComponent<Text>();
+                bodyText.alignment = TextAnchor.UpperLeft;
+                bodyText.horizontalOverflow = HorizontalWrapMode.Wrap;
+                bodyText.verticalOverflow = VerticalWrapMode.Overflow;
+                bodyText.lineSpacing = 1.2f;
+            }
         }
 
         private static RectTransform EnsureKeyGuidePanel(RectTransform root)
