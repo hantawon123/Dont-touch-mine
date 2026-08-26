@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Players;
 using Game.Core.Match;
 using Game.Core.Players;
 using Game.Network.Match;
+using Game.Network.Players;
 using Game.Server.Match;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Architecture.Tests
@@ -61,6 +64,40 @@ namespace Game.Architecture.Tests
                 new PlayerInputIntent(float.NaN, 0f, 0f, PlayerInputButtons.None));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new PlayerInputIntent(0f, 0f, 0f, (PlayerInputButtons)128));
+        }
+
+        [Test]
+        public void NetworkInput_PreservesIntentAndUsesCameraYaw()
+        {
+            var intent = new PlayerInputIntent(
+                0f,
+                1f,
+                90f,
+                PlayerInputButtons.Jump | PlayerInputButtons.Sprint);
+            var input = NetworkPlayerInput.FromIntent(intent);
+            var direction = NetworkPlayerMotor.ToWorldDirection(
+                input.Move,
+                input.LookYawDegrees);
+
+            Assert.That(input.IsPressed(NetworkPlayerButton.Jump), Is.True);
+            Assert.That(input.IsPressed(NetworkPlayerButton.Sprint), Is.True);
+            Assert.That(direction.x, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(direction.z, Is.EqualTo(0f).Within(0.0001f));
+        }
+
+        [Test]
+        public void NetworkPlayerPrefab_HasAuthoritativeMovementComponents()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/NetworkedPlayer.prefab");
+
+            Assert.That(prefab, Is.Not.Null);
+            Assert.That(prefab.GetComponent<NetworkPlayerMotor>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<Fusion.NetworkTransform>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<CharacterController>(), Is.Not.Null);
+            Assert.That(
+                prefab.GetComponent<PlayerMovement>(),
+                Is.InstanceOf<IPlayerInputIntentSource>());
         }
 
         [Test]

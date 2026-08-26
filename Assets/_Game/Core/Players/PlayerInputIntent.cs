@@ -2,6 +2,11 @@ using System;
 
 namespace Game.Core.Players
 {
+    public interface IPlayerInputIntentSource
+    {
+        PlayerInputIntent CaptureInputIntent();
+    }
+
     [Flags]
     public enum PlayerInputButtons : byte
     {

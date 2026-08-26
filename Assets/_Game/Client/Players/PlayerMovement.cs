@@ -1,3 +1,4 @@
+using Game.Core.Players;
 using Game.SOAP.Config;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -12,7 +13,7 @@ namespace Game.Client.Players
     }
 
     [RequireComponent(typeof(CharacterController))]
-    public sealed class PlayerMovement : MonoBehaviour
+    public sealed class PlayerMovement : MonoBehaviour, IPlayerInputIntentSource
     {
         [SerializeField]
         private InputActionAsset inputActions;
@@ -53,6 +54,47 @@ namespace Game.Client.Players
         public void AddImpulse(Vector3 impulse)
         {
             externalVelocity += impulse;
+        }
+
+        public PlayerInputIntent CaptureInputIntent()
+        {
+            if (playerMap == null)
+            {
+                return default;
+            }
+
+            if (!playerMap.enabled)
+            {
+                playerMap.Enable();
+            }
+
+            var move = moveAction.ReadValue<Vector2>();
+            var buttons = PlayerInputButtons.None;
+
+            if (jumpAction.IsPressed())
+            {
+                buttons |= PlayerInputButtons.Jump;
+            }
+
+            if (sprintAction.IsPressed())
+            {
+                buttons |= PlayerInputButtons.Sprint;
+            }
+
+            if (crouchAction.IsPressed())
+            {
+                buttons |= PlayerInputButtons.Crouch;
+            }
+
+            if (proneAction.IsPressed())
+            {
+                buttons |= PlayerInputButtons.Prone;
+            }
+
+            var lookYaw = TryEnsureCamera()
+                ? cameraTransform.eulerAngles.y
+                : transform.eulerAngles.y;
+            return new PlayerInputIntent(move.x, move.y, lookYaw, buttons);
         }
 
         private void Awake()

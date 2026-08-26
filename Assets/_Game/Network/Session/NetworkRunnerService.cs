@@ -1097,9 +1097,25 @@ namespace Game.Network.Session
             _roomListSink?.SetRooms(_roomBuffer);
         }
 
-        public void OnInput(NetworkRunner runner, NetworkInput input) { }
+        public void OnInput(NetworkRunner runner, NetworkInput input)
+        {
+            if (runner == null || !runner.IsRunning)
+            {
+                return;
+            }
 
-        public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
+            var playerObject = runner.GetPlayerObject(runner.LocalPlayer);
+            var motor = playerObject == null
+                ? null
+                : playerObject.GetComponent<NetworkPlayerMotor>();
+
+            input.Set(motor == null ? default : motor.CaptureInput());
+        }
+
+        public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input)
+        {
+            input.Set(default(NetworkPlayerInput));
+        }
 
         public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
 
