@@ -76,5 +76,38 @@ namespace Game.Tests.EditMode
                 () => friendList.ReplaceFriends(null),
                 Throws.TypeOf<ArgumentNullException>());
         }
+
+        [Test]
+        public void FriendSearch_FindsUsersAndSendsPendingRequest()
+        {
+            var search = new FriendSearchSystem();
+            var changedCount = 0;
+            search.ResultsChanged += () => changedCount++;
+            search.ReplaceDirectory(new[]
+            {
+                new FriendSummary("player-1", "친구1", FriendPresence.Online),
+                new FriendSummary("player-2", "검색유저", FriendPresence.Offline)
+            });
+
+            search.Search("검색", new[] { "player-1" });
+            Assert.That(search.Results.Count, Is.EqualTo(1));
+            Assert.That(search.Results[0].Nickname, Is.EqualTo("검색유저"));
+            Assert.That(search.Results[0].IsPending, Is.False);
+
+            Assert.That(search.TrySendRequest("player-2"), Is.True);
+            Assert.That(search.Results[0].IsPending, Is.True);
+            Assert.That(search.TrySendRequest("player-2"), Is.False);
+            Assert.That(search.TrySendRequest("player-1"), Is.False);
+
+            search.ClearResults();
+            Assert.That(search.Results, Is.Empty);
+            Assert.That(changedCount, Is.GreaterThan(0));
+            Assert.That(
+                () => search.ReplaceDirectory(null),
+                Throws.TypeOf<ArgumentNullException>());
+            Assert.That(
+                () => search.Search("검색", null),
+                Throws.TypeOf<ArgumentNullException>());
+        }
     }
 }

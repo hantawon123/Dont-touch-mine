@@ -17,10 +17,12 @@ namespace Game.Tests.EditMode
             var view = new FakeHomeMenuView();
             var host = new FakeHomeApplicationHost();
             var appFlow = new AppFlowSystem();
+            var friends = new FriendListSystem();
+            var search = new FriendSearchSystem();
             var requestedActions = new List<HomeMenuAction>();
             menu.ActionRequested += requestedActions.Add;
 
-            using (var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow))
+            using (var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, search))
             {
                 presenter.Start();
                 Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
@@ -53,20 +55,141 @@ namespace Game.Tests.EditMode
         [Test]
         public void Presenter_FindRoom_OpensRoomBrowser()
         {
-            var profile = new PlayerProfile("사용자닉네임", 1);
-            var menu = new HomeMenuSystem();
-            var view = new FakeHomeMenuView();
-            var host = new FakeHomeApplicationHost();
-            var appFlow = new AppFlowSystem();
-
-            using var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow);
-            presenter.Start();
+            using var presenter = CreateStartedPresenter(out var view, out var host, out var appFlow, out _, out _);
             view.Raise(HomeMenuAction.FindRoom);
 
             Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.RoomBrowser));
             Assert.That(host.RoomBrowserOpenCount, Is.EqualTo(1));
             Assert.That(host.HomeOpenCount, Is.Zero);
             Assert.That(host.QuitCount, Is.Zero);
+        }
+
+        [Test]
+        public void Presenter_FriendsAction_ShowsFriendListPanel()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.OnlineFriends, Is.Empty);
+            Assert.That(view.OfflineFriends, Is.Empty);
+
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+            Assert.That(view.FriendSearchVisible, Is.False);
+
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+            Assert.That(view.FriendSearchVisible, Is.False);
+        }
+
+        [Test]
+        public void Presenter_CannotShowSearchUntilFriendListIsOpen()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+
+            view.RaiseFriendSearchOpened();
+
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.FriendSearchVisible, Is.False);
+        }
+
+        [Test]
+        public void Presenter_BindsFriendListAndUpdatesWhenFriendsChange()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out var friends, out _);
+
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("player-1", "친구1", FriendPresence.InGame),
+                new FriendSummary("player-2", "친구2", FriendPresence.Online),
+                new FriendSummary("player-3", "친구3", FriendPresence.Offline)
+            });
+
+            Assert.That(view.OnlineFriends.Count, Is.EqualTo(2));
+            Assert.That(view.OnlineFriends[0].Nickname, Is.EqualTo("친구1"));
+            Assert.That(view.OnlineFriends[0].Presence, Is.EqualTo(FriendPresence.InGame));
+            Assert.That(view.OnlineFriends[1].Nickname, Is.EqualTo("친구2"));
+            Assert.That(view.OfflineFriends.Count, Is.EqualTo(1));
+            Assert.That(view.OfflineFriends[0].Nickname, Is.EqualTo("친구3"));
+
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("player-4", "친구4", FriendPresence.Offline)
+            });
+
+            Assert.That(view.OnlineFriends, Is.Empty);
+            Assert.That(view.OfflineFriends.Count, Is.EqualTo(1));
+            Assert.That(view.OfflineFriends[0].Nickname, Is.EqualTo("친구4"));
+        }
+
+        [Test]
+        public void Presenter_ClickOutsideFriendList_HidesPanel()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+
+            view.RaiseFriendListDismissed();
+
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.FriendSearchVisible, Is.False);
+        }
+
+        [Test]
+        public void Presenter_FindRoom_HidesOpenFriendList()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out var host, out _, out _, out _);
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+
+            view.Raise(HomeMenuAction.FindRoom);
+
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.FriendSearchVisible, Is.False);
+            Assert.That(host.RoomBrowserOpenCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Presenter_OpenSearch_SwitchesPanelToSearchThenCloseReturnsToList()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+            view.Raise(HomeMenuAction.Friends);
+            view.RaiseFriendSearchOpened();
+
+            Assert.That(view.FriendListVisible, Is.True);
+            Assert.That(view.FriendSearchVisible, Is.True);
+
+            view.RaiseFriendSearchClosed();
+
+            Assert.That(view.FriendListVisible, Is.True);
+            Assert.That(view.FriendSearchVisible, Is.False);
+        }
+
+        [Test]
+        public void Presenter_SearchAndRequest_BindsResultsAndMarksPending()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out var friends, out var search);
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("player-1", "친구1", FriendPresence.Online)
+            });
+            search.ReplaceDirectory(new[]
+            {
+                new FriendSummary("player-1", "친구1", FriendPresence.Online),
+                new FriendSummary("player-2", "검색유저", FriendPresence.Online)
+            });
+
+            view.Raise(HomeMenuAction.Friends);
+            view.RaiseFriendSearchOpened();
+            view.RaiseFriendSearchRequested("검색");
+
+            Assert.That(view.SearchResults.Count, Is.EqualTo(1));
+            Assert.That(view.SearchResults[0].Nickname, Is.EqualTo("검색유저"));
+            Assert.That(view.SearchResults[0].IsPending, Is.False);
+
+            view.RaiseFriendRequestClicked("player-2");
+
+            Assert.That(view.SearchResults[0].IsPending, Is.True);
         }
 
         [Test]
@@ -77,22 +200,49 @@ namespace Game.Tests.EditMode
             var view = new FakeHomeMenuView();
             var host = new FakeHomeApplicationHost();
             var appFlow = new AppFlowSystem();
+            var friends = new FriendListSystem();
+            var search = new FriendSearchSystem();
 
             Assert.That(
-                () => new HomeMenuPresenter(null, menu, view, host, appFlow),
+                () => new HomeMenuPresenter(null, menu, view, host, appFlow, friends, search),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, null, view, host, appFlow),
+                () => new HomeMenuPresenter(profile, null, view, host, appFlow, friends, search),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, null, host, appFlow),
+                () => new HomeMenuPresenter(profile, menu, null, host, appFlow, friends, search),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, null, appFlow),
+                () => new HomeMenuPresenter(profile, menu, view, null, appFlow, friends, search),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, null),
+                () => new HomeMenuPresenter(profile, menu, view, host, null, friends, search),
                 Throws.TypeOf<ArgumentNullException>());
+            Assert.That(
+                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, null, search),
+                Throws.TypeOf<ArgumentNullException>());
+            Assert.That(
+                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, null),
+                Throws.TypeOf<ArgumentNullException>());
+        }
+
+        private static HomeMenuPresenter CreateStartedPresenter(
+            out FakeHomeMenuView view,
+            out FakeHomeApplicationHost host,
+            out AppFlowSystem appFlow,
+            out FriendListSystem friends,
+            out FriendSearchSystem search)
+        {
+            var profile = new PlayerProfile("사용자닉네임", 1);
+            var menu = new HomeMenuSystem();
+            view = new FakeHomeMenuView();
+            host = new FakeHomeApplicationHost();
+            appFlow = new AppFlowSystem();
+            friends = new FriendListSystem();
+            search = new FriendSearchSystem();
+            var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, search);
+            presenter.Start();
+            return presenter;
         }
 
         private sealed class FakeHomeMenuView : IHomeMenuView
@@ -101,7 +251,30 @@ namespace Game.Tests.EditMode
 
             public int Level { get; private set; }
 
+            public bool FriendListVisible { get; private set; }
+
+            public bool FriendSearchVisible { get; private set; }
+
+            public IReadOnlyList<FriendSummary> OnlineFriends { get; private set; } =
+                Array.Empty<FriendSummary>();
+
+            public IReadOnlyList<FriendSummary> OfflineFriends { get; private set; } =
+                Array.Empty<FriendSummary>();
+
+            public IReadOnlyList<FriendSearchHit> SearchResults { get; private set; } =
+                Array.Empty<FriendSearchHit>();
+
             public event Action<HomeMenuAction> ActionClicked;
+
+            public event Action FriendListDismissed;
+
+            public event Action FriendSearchOpened;
+
+            public event Action FriendSearchClosed;
+
+            public event Action<string> FriendSearchRequested;
+
+            public event Action<string> FriendRequestClicked;
 
             public void SetNickname(string nickname)
             {
@@ -113,9 +286,66 @@ namespace Game.Tests.EditMode
                 Level = level;
             }
 
+            public void SetFriendListVisible(bool visible)
+            {
+                FriendListVisible = visible;
+                if (!visible)
+                {
+                    FriendSearchVisible = false;
+                }
+            }
+
+            public void SetFriends(
+                IReadOnlyList<FriendSummary> onlineFriends,
+                IReadOnlyList<FriendSummary> offlineFriends)
+            {
+                OnlineFriends = onlineFriends;
+                OfflineFriends = offlineFriends;
+            }
+
+            public void SetFriendSearchVisible(bool visible)
+            {
+                if (visible && !FriendListVisible)
+                {
+                    return;
+                }
+
+                FriendSearchVisible = visible;
+            }
+
+            public void SetFriendSearchResults(IReadOnlyList<FriendSearchHit> results)
+            {
+                SearchResults = results;
+            }
+
             public void Raise(HomeMenuAction action)
             {
                 ActionClicked?.Invoke(action);
+            }
+
+            public void RaiseFriendListDismissed()
+            {
+                FriendListDismissed?.Invoke();
+            }
+
+            public void RaiseFriendSearchOpened()
+            {
+                FriendSearchOpened?.Invoke();
+            }
+
+            public void RaiseFriendSearchClosed()
+            {
+                FriendSearchClosed?.Invoke();
+            }
+
+            public void RaiseFriendSearchRequested(string query)
+            {
+                FriendSearchRequested?.Invoke(query);
+            }
+
+            public void RaiseFriendRequestClicked(string playerId)
+            {
+                FriendRequestClicked?.Invoke(playerId);
             }
         }
 

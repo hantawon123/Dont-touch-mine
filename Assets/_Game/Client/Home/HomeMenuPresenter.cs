@@ -45,16 +45,21 @@ namespace Game.Client.Home
     {
         private readonly PlayerProfile profile;
         private readonly HomeMenuSystem menu;
+        private readonly FriendListSystem friends;
+        private readonly FriendSearchSystem search;
         private readonly IHomeMenuView view;
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
+        private bool isFriendListVisible;
 
         public HomeMenuPresenter(
             PlayerProfile profile,
             HomeMenuSystem menu,
             IHomeMenuView view,
             IHomeApplicationHost applicationHost,
-            AppFlowSystem appFlow)
+            AppFlowSystem appFlow,
+            FriendListSystem friends,
+            FriendSearchSystem search)
         {
             this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
             this.menu = menu ?? throw new ArgumentNullException(nameof(menu));
@@ -62,19 +67,37 @@ namespace Game.Client.Home
             this.applicationHost = applicationHost
                 ?? throw new ArgumentNullException(nameof(applicationHost));
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
+            this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
+            this.search = search ?? throw new ArgumentNullException(nameof(search));
         }
 
         public void Start()
         {
             view.ActionClicked += OnActionClicked;
-            profile.Changed += OnProfileChanged;
+            view.FriendListDismissed += HideFriendList;
+            view.FriendSearchOpened += OnFriendSearchOpened;
+            view.FriendSearchClosed += OnFriendSearchClosed;
+            view.FriendSearchRequested += OnFriendSearchRequested;
+            view.FriendRequestClicked += OnFriendRequestClicked;
+            profile.Changed += BindProfile;
+            friends.FriendsChanged += BindFriends;
+            search.ResultsChanged += BindSearchResults;
             BindProfile(profile);
+            BindFriends();
+            HideFriendList();
         }
 
         public void Dispose()
         {
             view.ActionClicked -= OnActionClicked;
-            profile.Changed -= OnProfileChanged;
+            view.FriendListDismissed -= HideFriendList;
+            view.FriendSearchOpened -= OnFriendSearchOpened;
+            view.FriendSearchClosed -= OnFriendSearchClosed;
+            view.FriendSearchRequested -= OnFriendSearchRequested;
+            view.FriendRequestClicked -= OnFriendRequestClicked;
+            profile.Changed -= BindProfile;
+            friends.FriendsChanged -= BindFriends;
+            search.ResultsChanged -= BindSearchResults;
         }
 
         private void OnActionClicked(HomeMenuAction action)
@@ -86,16 +109,92 @@ namespace Game.Client.Home
                 return;
             }
 
+            if (action == HomeMenuAction.Friends)
+            {
+                ShowFriendList();
+                return;
+            }
+
             if (action == HomeMenuAction.FindRoom &&
                 appFlow.TryTransitionTo(AppFlowState.RoomBrowser))
             {
+                HideFriendList();
                 applicationHost.OpenRoomBrowser();
             }
         }
 
-        private void OnProfileChanged(PlayerProfile changed)
+        private void OnFriendSearchOpened()
         {
-            BindProfile(changed);
+            search.ClearResults();
+            view.SetFriendSearchVisible(true);
+            BindSearchResults();
+        }
+
+        private void OnFriendSearchClosed()
+        {
+            HideFriendSearch();
+        }
+
+        private void OnFriendSearchRequested(string query)
+        {
+            search.Search(query, CollectFriendIds());
+        }
+
+        private void OnFriendRequestClicked(string playerId)
+        {
+            search.TrySendRequest(playerId);
+        }
+
+        private void ShowFriendList()
+        {
+            if (isFriendListVisible)
+            {
+                return;
+            }
+
+            isFriendListVisible = true;
+            HideFriendSearch();
+            view.SetFriendListVisible(true);
+        }
+
+        private void HideFriendList()
+        {
+            HideFriendSearch();
+            isFriendListVisible = false;
+            view.SetFriendListVisible(false);
+        }
+
+        private void HideFriendSearch()
+        {
+            search.ClearResults();
+            view.SetFriendSearchVisible(false);
+        }
+
+        private void BindFriends()
+        {
+            view.SetFriends(friends.OnlineFriends, friends.OfflineFriends);
+        }
+
+        private void BindSearchResults()
+        {
+            view.SetFriendSearchResults(search.Results);
+        }
+
+        private string[] CollectFriendIds()
+        {
+            var ids = new string[friends.OnlineFriends.Count + friends.OfflineFriends.Count];
+            var index = 0;
+            for (var i = 0; i < friends.OnlineFriends.Count; i++)
+            {
+                ids[index++] = friends.OnlineFriends[i].PlayerId;
+            }
+
+            for (var i = 0; i < friends.OfflineFriends.Count; i++)
+            {
+                ids[index++] = friends.OfflineFriends[i].PlayerId;
+            }
+
+            return ids;
         }
 
         private void BindProfile(PlayerProfile source)
