@@ -167,7 +167,7 @@ namespace Game.Client.Players
             }
 
             Posture = posture;
-            ApplyPostureShape(targetHeight);
+            ApplyPostureShape(posture, targetHeight);
         }
 
         // 몸을 세울 때 머리 위 공간이 있는지 검사한다. (책상 밑 등에서는 일어설 수 없다)
@@ -209,16 +209,30 @@ namespace Game.Client.Players
             };
         }
 
-        private void ApplyPostureShape(float height)
+        private void ApplyPostureShape(PlayerPosture posture, float height)
         {
             controller.height = height;
             controller.center = new Vector3(0f, height * 0.5f, 0f);
 
-            if (visualRoot != null)
+            if (visualRoot == null)
             {
-                // 임시 캡슐 비주얼: 세로 스케일로 자세를 표현한다. (기본 캡슐 높이 2m 기준)
-                var scale = visualRoot.localScale;
+                return;
+            }
+
+            // 임시 캡슐 비주얼: 자세를 스케일과 회전으로 표현한다. (기본 캡슐 높이 2m 기준)
+            var scale = visualRoot.localScale;
+            if (posture == PlayerPosture.Prone)
+            {
+                // 몸 길이는 서 있을 때 키를 유지한 채 앞으로 눕힌다.
+                var bodyRadius = height * 0.5f;
+                visualRoot.localScale = new Vector3(scale.x, movementConfig.StandHeight * 0.5f, scale.z);
+                visualRoot.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                visualRoot.localPosition = new Vector3(0f, bodyRadius, 0f);
+            }
+            else
+            {
                 visualRoot.localScale = new Vector3(scale.x, height * 0.5f, scale.z);
+                visualRoot.localRotation = Quaternion.identity;
                 visualRoot.localPosition = new Vector3(0f, height * 0.5f, 0f);
             }
         }
