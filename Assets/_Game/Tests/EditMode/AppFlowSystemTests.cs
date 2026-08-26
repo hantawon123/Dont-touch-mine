@@ -46,6 +46,17 @@ namespace Game.Tests.EditMode
             Assert.That(backFlow.TryTransitionTo(AppFlowState.Home), Is.True);
         }
 
+        [Test]
+        public void TryTransitionTo_AllowsSettingsAndBackToHome()
+        {
+            var flow = new AppFlowSystem();
+            Assert.That(flow.TryTransitionTo(AppFlowState.Settings), Is.True);
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Settings));
+            Assert.That(flow.TryTransitionTo(AppFlowState.RoomBrowser), Is.False);
+            Assert.That(flow.TryTransitionTo(AppFlowState.Home), Is.True);
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Home));
+        }
+
         [TestCase(AppFlowState.Home)]
         [TestCase(AppFlowState.InGame)]
         [TestCase(AppFlowState.Result)]
