@@ -40,9 +40,13 @@ namespace Game.Network.Session
         INetworkMatchRuntimeSource,
         INetworkMatchAuthority,
         INetworkMatchEvents,
+        ILobbyChatTransport,
         IDisposable
     {
         private const string RunnerObjectName = "[NetworkRunner]";
+        private const int ItemAssignmentKeyType = 0x4954454D;
+        private const int ItemAssignmentKeyVersion = 1;
+        private const int MaxItemAssignmentBytes = 128;
         private const int HighlightReplayKeyType = 0x484C5452;
         private const int HighlightReplayKeyVersion = 1;
 
@@ -98,6 +102,7 @@ namespace Game.Network.Session
         private MatchStarter _matchStarter;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
+        public event Action<LobbyChatMessage> ChatReceived;
         public event Action<string> ItemAssignmentReceived;
         public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
         public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
@@ -129,6 +134,7 @@ namespace Game.Network.Session
         /// both a disconnect and a shutdown for one exit.
         /// </summary>
         private bool _exitReported;
+        private int _itemAssignmentTransferSequence;
         private int _highlightTransferSequence;
         private bool _hostMigrationInProgress;
         private int _configuredMaxPlayers;
@@ -236,6 +242,11 @@ namespace Game.Network.Session
         /// and a dedicated server, so gameplay never asks which one it is.
         /// </summary>
         public bool IsServer => _runner != null && _runner.IsServer;
+
+        public bool TrySendChat(string text)
+        {
+            return _matchStarter != null && _matchStarter.RequestLobbyChat(text);
+        }
 
         public double ServerTime
         {
@@ -582,8 +593,57 @@ namespace Game.Network.Session
         public bool TryPublishItemAssignments(
             IReadOnlyList<PlayerItemAssignment> assignments)
         {
+            if (!IsServer || _roster == null || assignments == null)
+            {
+                return false;
+            }
+
+            var participants = new List<RoomParticipant>(assignments.Count);
+            _roster.Capture(participants);
+            if (participants.Count != assignments.Count)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < assignments.Count; index++)
+            {
+                var assignment = assignments[index];
+                var itemId = assignment.Item.ItemId?.Trim();
+                if (assignment.PlayerIndex != index ||
+                    string.IsNullOrEmpty(itemId) ||
+                    !_roster.TryGetPlayer(participants[index].PlayerId, out var target))
+                {
+                    return false;
+                }
+
+                var payload = Encoding.UTF8.GetBytes(itemId);
+                if (payload.Length > MaxItemAssignmentBytes)
+                {
+                    return false;
+                }
+
+                if (target == _runner.LocalPlayer)
+                {
+                    ItemAssignmentReceived?.Invoke(itemId);
+                    continue;
+                }
+
+                var key = ReliableKey.FromInts(
+                    ItemAssignmentKeyType,
+                    ItemAssignmentKeyVersion,
+                    ++_itemAssignmentTransferSequence,
+                    0);
+                _runner.SendReliableDataToPlayer(target, key, payload);
+            }
+
+            return true;
+        }
+
+        public bool TryInitializeAssignedItems(
+            IReadOnlyList<PlayerItemAssignment> assignments)
+        {
             return IsServer && _matchStarter != null &&
-                   _matchStarter.TryPublishItemAssignments(assignments);
+                   _matchStarter.TryInitializeAssignedItems(assignments);
         }
 
         public bool TryPublishHighlightReplay(
@@ -655,6 +715,9 @@ namespace Game.Network.Session
 
         public bool RequestHoldObject(string objectId) =>
             _matchStarter != null && _matchStarter.RequestHoldObject(objectId);
+
+        public bool RequestDropHeldObject(Pose pose) =>
+            _matchStarter != null && _matchStarter.RequestDropHeldObject(pose);
 
         public bool RequestReleaseHeldObject(Pose pose) =>
             _matchStarter != null && _matchStarter.RequestReleaseHeldObject(pose);
@@ -807,7 +870,7 @@ namespace Game.Network.Session
             // starter can confirm a line-up without learning what a scene is.
             _matchStarter.Bind(_matchStartSink, _roster, this);
             _matchStarter.MatchStateReceived += OnMatchStateReceived;
-            _matchStarter.ItemAssignmentReceived += OnItemAssignmentReceived;
+            _matchStarter.LobbyChatReceived += OnLobbyChatReceived;
             _matchStarter.ObjectStatesReceived += OnObjectStatesReceived;
             _matchStarter.ItemDestroyedReceived += OnItemDestroyedReceived;
             _matchStarter.PlayerStunnedReceived += OnPlayerStunnedReceived;
@@ -944,7 +1007,7 @@ namespace Game.Network.Session
             if (_matchStarter != null)
             {
                 _matchStarter.MatchStateReceived -= OnMatchStateReceived;
-                _matchStarter.ItemAssignmentReceived -= OnItemAssignmentReceived;
+                _matchStarter.LobbyChatReceived -= OnLobbyChatReceived;
                 _matchStarter.ObjectStatesReceived -= OnObjectStatesReceived;
                 _matchStarter.ItemDestroyedReceived -= OnItemDestroyedReceived;
                 _matchStarter.PlayerStunnedReceived -= OnPlayerStunnedReceived;
@@ -984,9 +1047,9 @@ namespace Game.Network.Session
             MatchStateReceived?.Invoke(snapshot);
         }
 
-        private void OnItemAssignmentReceived(string itemId)
+        private void OnLobbyChatReceived(LobbyChatMessage message)
         {
-            ItemAssignmentReceived?.Invoke(itemId);
+            ChatReceived?.Invoke(message);
         }
 
         private void OnObjectStatesReceived(
@@ -1641,8 +1704,32 @@ namespace Game.Network.Session
             NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data)
         {
             key.GetInts(out var type, out var version, out _, out _);
-            if (!IsCurrentRunner(runner) || runner.IsServer ||
-                type != HighlightReplayKeyType ||
+            if (!IsCurrentRunner(runner) || runner.IsServer)
+            {
+                return;
+            }
+
+            if (type == ItemAssignmentKeyType)
+            {
+                if (version != ItemAssignmentKeyVersion ||
+                    data.Length == 0 || data.Length > MaxItemAssignmentBytes)
+                {
+                    Debug.LogWarning("[Match] Rejected invalid item assignment data.");
+                    return;
+                }
+
+                var itemId = Encoding.UTF8.GetString(data.ToArray()).Trim();
+                if (string.IsNullOrEmpty(itemId))
+                {
+                    Debug.LogWarning("[Match] Rejected empty item assignment.");
+                    return;
+                }
+
+                ItemAssignmentReceived?.Invoke(itemId);
+                return;
+            }
+
+            if (type != HighlightReplayKeyType ||
                 version != HighlightReplayKeyVersion)
             {
                 return;

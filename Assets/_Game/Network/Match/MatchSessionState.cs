@@ -45,7 +45,8 @@ namespace Game.Network.Match
             Vector3 initialVelocity,
             bool isDestroyed,
             int version,
-            bool isPhysicsActive = false)
+            bool isPhysicsActive = false,
+            bool isPendingEjection = false)
         {
             if (string.IsNullOrWhiteSpace(objectId))
             {
@@ -64,6 +65,7 @@ namespace Game.Network.Match
             IsDestroyed = isDestroyed;
             Version = version;
             IsPhysicsActive = isPhysicsActive;
+            IsPendingEjection = isPendingEjection;
         }
 
         public string ObjectId { get; }
@@ -73,12 +75,14 @@ namespace Game.Network.Match
         public bool IsDestroyed { get; }
         public int Version { get; }
         public bool IsPhysicsActive { get; }
+        public bool IsPendingEjection { get; }
     }
 
     internal struct ReplicatedObjectState : INetworkStruct
     {
         private const int DestroyedFlag = 1 << 0;
         private const int PhysicsActiveFlag = 1 << 1;
+        private const int PendingEjectionFlag = 1 << 2;
 
         public NetworkString<_16> ObjectId;
         public int HolderPlayerIndex;
@@ -98,6 +102,12 @@ namespace Game.Network.Match
         {
             readonly get => (Flags & PhysicsActiveFlag) != 0;
             set => Flags = value ? Flags | PhysicsActiveFlag : Flags & ~PhysicsActiveFlag;
+        }
+
+        public bool IsPendingEjection
+        {
+            readonly get => (Flags & PendingEjectionFlag) != 0;
+            set => Flags = value ? Flags | PendingEjectionFlag : Flags & ~PendingEjectionFlag;
         }
     }
 
@@ -439,18 +449,6 @@ namespace Game.Network.Match
             return true;
         }
 
-        public bool TrySendItemAssignment(PlayerRef target, string itemId)
-        {
-            if (Object == null || !Object.HasStateAuthority ||
-                !target.IsRealPlayer || string.IsNullOrWhiteSpace(itemId))
-            {
-                return false;
-            }
-
-            RPC_AssignItem(target, itemId.Trim());
-            return true;
-        }
-
         public bool TrySetObjectHeld(string objectId, int holderPlayerIndex)
         {
             if (holderPlayerIndex < 0 || !TryGetWritableState(objectId, out var key, out var state))
@@ -461,6 +459,7 @@ namespace Game.Network.Match
             state.HolderPlayerIndex = holderPlayerIndex;
             state.InitialVelocity = default;
             state.IsPhysicsActive = false;
+            state.IsPendingEjection = false;
             return WriteObjectState(key, state);
         }
 
@@ -489,7 +488,7 @@ namespace Game.Network.Match
                    (!TryFindObjectState(objectId, out _, out var state) ||
                    state.HolderPlayerIndex < 0 &&
                    !state.IsDestroyed &&
-                   !state.IsPhysicsActive);
+                   !state.IsPendingEjection);
         }
 
         public bool TrySetObjectReleased(
@@ -507,6 +506,24 @@ namespace Game.Network.Match
             state.Rotation = pose.rotation;
             state.InitialVelocity = initialVelocity;
             state.IsPhysicsActive = true;
+            state.IsPendingEjection = false;
+            return WriteObjectState(key, state);
+        }
+
+        public bool TrySetObjectPendingEjection(string objectId, Pose pose)
+        {
+            if (!TryGetWritableState(objectId, out var key, out var state))
+            {
+                return false;
+            }
+
+            state.HolderPlayerIndex = -1;
+            state.Position = pose.position;
+            state.Rotation = pose.rotation;
+            state.InitialVelocity = default;
+            state.IsDestroyed = false;
+            state.IsPhysicsActive = false;
+            state.IsPendingEjection = true;
             return WriteObjectState(key, state);
         }
 
@@ -522,6 +539,7 @@ namespace Game.Network.Match
                 state.Version != expectedVersion ||
                 state.HolderPlayerIndex >= 0 ||
                 state.IsDestroyed ||
+                state.IsPendingEjection ||
                 !state.IsPhysicsActive)
             {
                 return false;
@@ -531,6 +549,7 @@ namespace Game.Network.Match
             state.Rotation = pose.rotation;
             state.InitialVelocity = default;
             state.IsPhysicsActive = false;
+            state.IsPendingEjection = false;
             return WriteObjectState(key, state);
         }
 
@@ -545,6 +564,7 @@ namespace Game.Network.Match
             state.InitialVelocity = default;
             state.IsDestroyed = true;
             state.IsPhysicsActive = false;
+            state.IsPendingEjection = false;
             return WriteObjectState(key, state);
         }
 
@@ -584,16 +604,11 @@ namespace Game.Network.Match
                 state.InitialVelocity = default;
                 state.IsDestroyed = false;
                 state.IsPhysicsActive = false;
+                state.IsPendingEjection = false;
                 WriteObjectState(index, state);
             }
 
             return true;
-        }
-
-        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-        private void RPC_AssignItem([RpcTarget] PlayerRef target, string itemId)
-        {
-            StarterOf(Runner)?.PublishItemAssignment(itemId);
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -609,6 +624,17 @@ namespace Game.Network.Match
             RpcInfo info = default)
         {
             StarterOf(Runner)?.TryReleaseHeldObject(
+                info.Source,
+                new Pose(position, rotation));
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestDrop(
+            Vector3 position,
+            Quaternion rotation,
+            RpcInfo info = default)
+        {
+            StarterOf(Runner)?.TryDropHeldObject(
                 info.Source,
                 new Pose(position, rotation));
         }
@@ -642,6 +668,29 @@ namespace Game.Network.Match
         public void RPC_RequestReturnToLobby(RpcInfo info = default)
         {
             StarterOf(Runner)?.TryReturnToLobby(info.Source);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestLobbyChat(string text, RpcInfo info = default)
+        {
+            StarterOf(Runner)?.TryRelayLobbyChat(info.Source, text);
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_NotifyLobbyChat(
+            string senderId,
+            string senderName,
+            string text)
+        {
+            if (string.IsNullOrWhiteSpace(senderId) ||
+                string.IsNullOrWhiteSpace(senderName) ||
+                string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            StarterOf(Runner)?.PublishLobbyChat(
+                new LobbyChatMessage(senderId, senderName, text));
         }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
@@ -733,7 +782,8 @@ namespace Game.Network.Match
                     state.InitialVelocity,
                     state.IsDestroyed,
                     state.Version,
-                    state.IsPhysicsActive);
+                    state.IsPhysicsActive,
+                    state.IsPendingEjection);
             }
 
             StarterOf(Runner)?.PublishObjectStates(snapshots);

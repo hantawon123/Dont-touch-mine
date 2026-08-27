@@ -21,7 +21,11 @@ namespace Game.Tests.EditMode
             var chatView = new FakeChatView();
             var bubbleView = new FakeBubbleView();
 
-            using var presenter = new LobbyChatPresenter(log, chatView, bubbleView);
+            using var presenter = new LobbyChatPresenter(
+                log,
+                new FakeTransport(),
+                chatView,
+                bubbleView);
             presenter.Start();
 
             Assert.That(chatView.LastMessages.Count, Is.EqualTo(2));
@@ -36,8 +40,13 @@ namespace Game.Tests.EditMode
             var log = new LobbyChatLog("host-1", "김말갈");
             var chatView = new FakeChatView();
             var bubbleView = new FakeBubbleView();
+            var transport = new FakeTransport();
 
-            using var presenter = new LobbyChatPresenter(log, chatView, bubbleView);
+            using var presenter = new LobbyChatPresenter(
+                log,
+                transport,
+                chatView,
+                bubbleView);
             presenter.Start();
             chatView.EmitSend("테스트 메시지");
 
@@ -64,6 +73,7 @@ namespace Game.Tests.EditMode
 
             using var presenter = new LobbyChatPresenter(
                 log,
+                new FakeTransport(),
                 chatView,
                 new FakeBubbleView());
             presenter.Start();
@@ -105,6 +115,18 @@ namespace Game.Tests.EditMode
             public void Show(LobbyChatMessage message) => Shown.Add(message);
 
             public void Clear() => Shown.Clear();
+        }
+
+        private sealed class FakeTransport : ILobbyChatTransport
+        {
+            public event System.Action<LobbyChatMessage> ChatReceived;
+
+            public bool TrySendChat(string text)
+            {
+                ChatReceived?.Invoke(
+                    new LobbyChatMessage("host-1", "김말갈", text));
+                return true;
+            }
         }
     }
 }

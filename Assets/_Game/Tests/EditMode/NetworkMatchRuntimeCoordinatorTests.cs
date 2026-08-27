@@ -43,7 +43,8 @@ namespace Game.Architecture.Tests
                         CreateSpawnPoints(),
                         CreateItems(),
                         Array.Empty<WorldObjectState>(),
-                        new Pose(Vector3.forward, Quaternion.identity)),
+                        new Pose(Vector3.forward, Quaternion.identity),
+                        CreateWaitingPoints()),
                     roomState);
 
                 coordinator.Start();
@@ -60,14 +61,17 @@ namespace Game.Architecture.Tests
                 Assert.That(network.Snapshots[0].Phase, Is.EqualTo(MatchPhase.Hiding));
                 Assert.That(network.Controls[0], Is.True);
                 Assert.That(network.Controls[1], Is.False);
-                Assert.That(network.TeleportedPlayers, Is.EqualTo(new[] { 0 }));
+                Assert.That(network.TeleportedPlayers, Is.EqualTo(new[] { 0, 1 }));
+                Assert.That(network.TeleportedPoses[1].position.z, Is.EqualTo(-10f));
 
                 network.ServerTime = 10d + rules.HidingTurnDurationSeconds;
                 network.PublishSimulationTick();
 
                 Assert.That(network.Controls[0], Is.False);
                 Assert.That(network.Controls[1], Is.True);
-                Assert.That(network.TeleportedPlayers, Is.EqualTo(new[] { 0, 1 }));
+                Assert.That(
+                    network.TeleportedPlayers,
+                    Is.EqualTo(new[] { 0, 1, 0, 1 }));
 
                 network.ServerTime = network.Snapshots[0].PhaseEndsAt;
                 network.PublishSimulationTick();
@@ -78,7 +82,7 @@ namespace Game.Architecture.Tests
                 Assert.That(network.Controls[1], Is.True);
                 Assert.That(
                     network.TeleportedPlayers,
-                    Is.EqualTo(new[] { 0, 1, 0, 1 }));
+                    Is.EqualTo(new[] { 0, 1, 0, 1, 0, 1 }));
 
                 var searchingStartedAt = network.Snapshots[0].PhaseEndsAt;
                 Assert.That(
@@ -165,6 +169,19 @@ namespace Game.Architecture.Tests
             };
         }
 
+        private static Pose[] CreateWaitingPoints()
+        {
+            var poses = new Pose[MatchRulesSO.MaxPlayerCount];
+            for (var index = 0; index < poses.Length; index++)
+            {
+                poses[index] = new Pose(
+                    new Vector3(index, 0f, -10f),
+                    Quaternion.identity);
+            }
+
+            return poses;
+        }
+
         private sealed class AcceptAllPlacements : IPlacementValidator
         {
             public bool IsValid(string objectId, Pose pose) => true;
@@ -200,6 +217,7 @@ namespace Game.Architecture.Tests
             public List<MatchStateSnapshot> Snapshots { get; } = new();
             public Dictionary<int, bool> Controls { get; } = new();
             public List<int> TeleportedPlayers { get; } = new();
+            public List<Pose> TeleportedPoses { get; } = new();
             public int UnbindCount { get; private set; }
 
             public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
@@ -241,6 +259,13 @@ namespace Game.Architecture.Tests
                 return true;
             }
 
+            public bool TryInitializeAssignedItems(
+                IReadOnlyList<PlayerItemAssignment> assignments)
+            {
+                Assignments = assignments;
+                return true;
+            }
+
             public bool TryPublishHighlightReplay(
                 IReadOnlyList<HighlightReplayData> replay)
             {
@@ -257,6 +282,7 @@ namespace Game.Architecture.Tests
             public bool TryTeleportPlayer(int playerIndex, Pose pose)
             {
                 TeleportedPlayers.Add(playerIndex);
+                TeleportedPoses.Add(pose);
                 return true;
             }
 

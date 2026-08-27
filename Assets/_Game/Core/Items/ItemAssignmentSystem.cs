@@ -5,7 +5,7 @@ namespace Game.Core.Items
 {
     public readonly struct ItemDefinition
     {
-        public ItemDefinition(string itemId, string category)
+        public ItemDefinition(string itemId, string category, string displayName = null)
         {
             if (string.IsNullOrWhiteSpace(itemId))
             {
@@ -19,10 +19,14 @@ namespace Game.Core.Items
 
             ItemId = itemId.Trim();
             Category = category.Trim();
+            DisplayName = string.IsNullOrWhiteSpace(displayName)
+                ? ItemId
+                : displayName.Trim();
         }
 
         public string ItemId { get; }
         public string Category { get; }
+        public string DisplayName { get; }
     }
 
     public readonly struct PlayerItemAssignment

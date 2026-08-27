@@ -28,6 +28,9 @@ namespace Game.Network.Match
     [DisallowMultipleComponent]
     public sealed class MatchStarter : MonoBehaviour
     {
+        private static readonly Vector3 ShredderEjectionLocalVelocity =
+            new(0f, 1.5f, 4f);
+
         private readonly List<RoomParticipant> _room = new List<RoomParticipant>();
         private readonly List<MatchParticipant> _playing = new List<MatchParticipant>();
         private readonly InteractionAuthorityRules _interactionRules =
@@ -55,7 +58,7 @@ namespace Game.Network.Match
         private bool _returningToLobby;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
-        public event Action<string> ItemAssignmentReceived;
+        public event Action<LobbyChatMessage> LobbyChatReceived;
         public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
         public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
         public event Action<PlayerStunnedEvent> PlayerStunnedReceived;
@@ -176,39 +179,6 @@ namespace Game.Network.Match
             MatchStateReceived?.Invoke(snapshot);
         }
 
-        public bool TryPublishItemAssignments(
-            IReadOnlyList<PlayerItemAssignment> assignments)
-        {
-            if (_state == null || _roster == null || assignments == null ||
-                assignments.Count != _playing.Count)
-            {
-                return false;
-            }
-
-            var targets = new PlayerRef[assignments.Count];
-            for (var index = 0; index < assignments.Count; index++)
-            {
-                var assignment = assignments[index];
-                if (assignment.PlayerIndex != index ||
-                    string.IsNullOrWhiteSpace(assignment.Item.ItemId) ||
-                    !_roster.TryGetPlayer(_playing[index].PlayerId, out targets[index]))
-                {
-                    return false;
-                }
-            }
-
-            for (var index = 0; index < assignments.Count; index++)
-            {
-                if (!_state.TrySendItemAssignment(
-                        targets[index], assignments[index].Item.ItemId))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
         public bool TrySetPlayerControls(int playerIndex, bool enabled)
         {
             if (!TryGetPlayingAvatar(playerIndex, out var avatar))
@@ -236,9 +206,28 @@ namespace Game.Network.Match
             return motor.TryTeleport(pose);
         }
 
-        public void PublishItemAssignment(string itemId)
+        public bool TryInitializeAssignedItems(
+            IReadOnlyList<PlayerItemAssignment> assignments)
         {
-            ItemAssignmentReceived?.Invoke(itemId);
+            if (_state == null || _session == null || assignments == null ||
+                assignments.Count != _session.Players.Players.Count)
+            {
+                return false;
+            }
+
+            for (var playerIndex = 0; playerIndex < assignments.Count; playerIndex++)
+            {
+                var assignment = assignments[playerIndex];
+                if (assignment.PlayerIndex != playerIndex ||
+                    !_state.CanHoldObject(assignment.Item.ItemId) ||
+                    !_session.TryInitializeAssignedItem(playerIndex) ||
+                    !_state.TrySetObjectHeld(assignment.Item.ItemId, playerIndex))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public void PublishObjectStates(IReadOnlyList<MatchObjectStateSnapshot> states)
@@ -303,7 +292,7 @@ namespace Game.Network.Match
             _session.PlayerStunned += OnPlayerStunned;
             _session.ObjectThrown += OnObjectThrown;
             _session.ObjectAutoReleased += OnObjectAutoReleased;
-            _session.WorldObjectsReset += OnWorldObjectsReset;
+            _session.MapObjectEjected += OnMapObjectEjected;
             _session.FinalWarningStarted += OnFinalWarningStarted;
             _session.MatchEnded += OnMatchEnded;
             _shredderEjectionPose = shredderEjectionPose;
@@ -358,6 +347,17 @@ namespace Game.Network.Match
             return true;
         }
 
+        public bool RequestDropHeldObject(Pose pose)
+        {
+            if (_state == null)
+            {
+                return false;
+            }
+
+            _state.RPC_RequestDrop(pose.position, pose.rotation);
+            return true;
+        }
+
         public bool RequestThrowHeldObject(Pose pose, Vector3 initialVelocity)
         {
             if (_state == null)
@@ -402,6 +402,63 @@ namespace Game.Network.Match
             return true;
         }
 
+        public bool RequestLobbyChat(string text)
+        {
+            if (_state == null || string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            _state.RPC_RequestLobbyChat(LobbyChatMessage.ClampText(text.Trim()));
+            return true;
+        }
+
+        public bool TryRelayLobbyChat(PlayerRef source, string text)
+        {
+            if (_state == null || _state.Object == null ||
+                !_state.Object.HasStateAuthority || _roster == null ||
+                string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            if (!source.IsRealPlayer && _state.Runner.IsServer)
+            {
+                source = _state.Runner.LocalPlayer;
+            }
+
+            var playerId = PlayerRegistry.IdOf(source);
+            _room.Clear();
+            _roster.Capture(_room);
+            for (var index = 0; index < _room.Count; index++)
+            {
+                var participant = _room[index];
+                if (!string.Equals(
+                        participant.PlayerId,
+                        playerId,
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var nickname = string.IsNullOrEmpty(participant.Nickname)
+                    ? participant.PlayerId
+                    : participant.Nickname;
+                _state.RPC_NotifyLobbyChat(
+                    participant.PlayerId,
+                    nickname,
+                    LobbyChatMessage.ClampText(text.Trim()));
+                return true;
+            }
+
+            return false;
+        }
+
+        public void PublishLobbyChat(LobbyChatMessage message)
+        {
+            LobbyChatReceived?.Invoke(message);
+        }
+
         public bool TryHoldObject(PlayerRef source, string objectId)
         {
             if (!TryGetPlayerIndex(source, out var playerIndex) ||
@@ -425,6 +482,21 @@ namespace Game.Network.Match
                 !_session.TryGetHeldObjectId(playerIndex, out var objectId) ||
                 !_state.CanTrackObject(objectId) ||
                 !_session.TryReleaseHeldObject(playerIndex, pose, ServerTime))
+            {
+                return false;
+            }
+
+            return _state.TrySetObjectReleased(objectId, pose);
+        }
+
+        public bool TryDropHeldObject(PlayerRef source, Pose pose)
+        {
+            if (!TryGetPlayerIndex(source, out var playerIndex) ||
+                !TryGetPlayerPose(playerIndex, out var playerPose) ||
+                !_interactionRules.IsValidRelease(playerPose, pose) ||
+                !_session.TryGetHeldObjectId(playerIndex, out var objectId) ||
+                !_state.CanTrackObject(objectId) ||
+                !_session.TryDropHeldObject(playerIndex, pose, ServerTime))
             {
                 return false;
             }
@@ -555,7 +627,9 @@ namespace Game.Network.Match
             }
 
             PublishRemainingDestructionUses(playerIndex);
-            return _state.TrySetObjectReleased(objectId, _shredderEjectionPose);
+            return _state.TrySetObjectPendingEjection(
+                objectId,
+                _shredderEjectionPose);
         }
 
         public bool TryHandlePlayerLeft(PlayerRef player)
@@ -656,12 +730,15 @@ namespace Game.Network.Match
                 confirmedEvent.Pose);
         }
 
-        private void OnWorldObjectsReset(IReadOnlyList<Game.Server.Items.WorldObjectState> states)
+        private void OnMapObjectEjected(MapObjectEjectedEvent confirmedEvent)
         {
-            if (_state == null || !_state.TryResetWorldObjects(states))
+            if (_state == null || !_state.TrySetObjectReleased(
+                    confirmedEvent.ObjectId,
+                    confirmedEvent.Pose,
+                    CalculateShredderEjectionVelocity(confirmedEvent.Pose.rotation)))
             {
                 throw new InvalidOperationException(
-                    "The authority could not reset the world objects.");
+                    $"The shredder could not eject '{confirmedEvent.ObjectId}'.");
             }
         }
 
@@ -699,11 +776,14 @@ namespace Game.Network.Match
             _session.PlayerStunned -= OnPlayerStunned;
             _session.ObjectThrown -= OnObjectThrown;
             _session.ObjectAutoReleased -= OnObjectAutoReleased;
-            _session.WorldObjectsReset -= OnWorldObjectsReset;
+            _session.MapObjectEjected -= OnMapObjectEjected;
             _session.FinalWarningStarted -= OnFinalWarningStarted;
             _session.MatchEnded -= OnMatchEnded;
             _session = null;
         }
+
+        internal static Vector3 CalculateShredderEjectionVelocity(Quaternion rotation) =>
+            rotation * ShredderEjectionLocalVelocity;
 
         private bool TryGetPlayerIndex(PlayerRef source, out int playerIndex)
         {
@@ -809,7 +889,7 @@ namespace Game.Network.Match
             _room.Clear();
             _roster?.Capture(_room);
 
-            if (_room.Count < RoomSettings.MinPlayerCount)
+            if (_room.Count < RoomSettings.MinMatchPlayerCount)
             {
                 return RoomStartResult.NotEnoughPlayers;
             }

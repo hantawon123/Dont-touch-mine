@@ -12,7 +12,6 @@ namespace Game.Client.Combat
     /// 전투 참가자: 빈손 좌클릭 공격(전방 근접 판정)과 피격/기절 반응을 담당한다.
     /// 판정 규칙(3타 기절, 기절 시간, 무적)은 IPlayerCombatRules(서버 시스템)가 소유하고,
     /// 이 컴포넌트는 입력 의도 전달과 로컬 표현만 맡는다.
-    /// 더미(공격 안 하는 대상)는 Input Actions를 비우고 Is Attacker를 꺼서 사용한다.
     /// </summary>
     public sealed class PlayerCombatant : MonoBehaviour
     {
@@ -47,11 +46,16 @@ namespace Game.Client.Combat
         private MaterialPropertyBlock propertyBlock;
         private readonly Collider[] attackHits = new Collider[MaxAttackHits];
         private float nextAttackTime;
+        private float pendingHitTime;
+        private bool hasPendingHit;
         private float hitFlashUntil;
         private bool wasTintApplied;
         [SerializeField, HideInInspector]
         private bool usesNetworkState;
         private bool networkStunned;
+
+        /// <summary>공격 모션 재생 등 표현 계층이 구독하는 공격 실행 알림.</summary>
+        public event System.Action AttackPerformed;
 
         public bool IsStunned =>
             usesNetworkState
@@ -125,10 +129,6 @@ namespace Game.Client.Combat
             {
                 playerMap?.Enable();
             }
-            else
-            {
-                playerMap?.Disable();
-            }
         }
 
         public void SetNetworkStunned(bool stunned)
@@ -140,11 +140,6 @@ namespace Game.Client.Combat
         private void OnEnable()
         {
             playerMap?.Enable();
-        }
-
-        private void OnDisable()
-        {
-            playerMap?.Disable();
         }
 
         private void Update()
@@ -168,12 +163,21 @@ namespace Game.Client.Combat
                 return;
             }
 
+            // 예약된 타격 판정: 모션의 임팩트 타이밍에 맞춰 실제 판정을 수행한다.
+            if (hasPendingHit && Time.time >= pendingHitTime)
+            {
+                hasPendingHit = false;
+                PerformAttack();
+            }
+
             // 빈손 좌클릭만 공격이다. (물건을 들고 있으면 던지기가 담당)
             var isEmptyHanded = interactor == null || interactor.CarriedItem == null;
             if (isEmptyHanded && attackAction.WasPressedThisFrame() && Time.time >= nextAttackTime)
             {
                 nextAttackTime = Time.time + combatConfig.AttackCooldownSeconds;
-                PerformAttack();
+                AttackPerformed?.Invoke();
+                pendingHitTime = Time.time + combatConfig.AttackHitDelaySeconds;
+                hasPendingHit = true;
             }
         }
 
@@ -226,7 +230,8 @@ namespace Game.Client.Combat
 
             if (result == HitResult.Stunned)
             {
-                // 기절하면 들고 있던 물건을 떨어뜨린다. (기획서 13절)
+                // 기절하면 들고 있던 물건을 떨어뜨리고, 휘두르던 공격도 취소한다. (기획서 13절)
+                hasPendingHit = false;
                 GetComponent<ICarriedItemDropper>()?.DropCarriedItem();
             }
         }

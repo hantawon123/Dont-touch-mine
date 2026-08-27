@@ -134,6 +134,24 @@ namespace Game.Architecture.Tests
                     captured.RuntimeContext.ReplayObjects.Count,
                     Is.LessThanOrEqualTo(PlaygroundMatchScene.MaxReplayObjectCount),
                     "하이라이트 샘플 수는 라이브 동기화 용량과 별도로 제한해야 합니다.");
+
+                foreach (var source in ItemCatalog.Definitions)
+                {
+                    Assert.That(
+                        ContainsWorldObject(
+                            captured.NetworkConfiguration.InitialWorldObjects,
+                            source.ItemId),
+                        Is.True,
+                        $"{source.ItemId}: 맵 원본은 배정 후에도 일반 물건으로 남아야 합니다.");
+                }
+
+                foreach (var assigned in captured.NetworkConfiguration.ItemDefinitions)
+                {
+                    Assert.That(
+                        assigned.ItemId,
+                        Does.StartWith("Assigned_"),
+                        "배정 물건은 맵 원본과 다른 런타임 ID를 써야 합니다.");
+                }
             }
             finally
             {
@@ -161,6 +179,21 @@ namespace Game.Architecture.Tests
             foreach (var itemCollider in item.GetComponentsInChildren<Collider>(includeInactive: true))
             {
                 if (itemCollider.enabled && !itemCollider.isTrigger)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ContainsWorldObject(
+            IReadOnlyList<Game.Server.Items.WorldObjectState> states,
+            string objectId)
+        {
+            foreach (var state in states)
+            {
+                if (string.Equals(state.ObjectId, objectId, StringComparison.Ordinal))
                 {
                     return true;
                 }

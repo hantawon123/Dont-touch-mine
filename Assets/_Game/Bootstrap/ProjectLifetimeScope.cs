@@ -122,7 +122,8 @@ namespace Game.Bootstrap
                 .AsSelf()
                 .As<INetworkMatchRuntimeSource>()
                 .As<INetworkMatchAuthority>()
-                .As<INetworkMatchEvents>();
+                .As<INetworkMatchEvents>()
+                .As<ILobbyChatTransport>();
             builder.RegisterEntryPoint<NetworkMatchFlowSynchronizer>();
             builder.Register<RoomCodeGenerator>(Lifetime.Singleton);
             builder.Register<IRoomBrowser, RoomBrowser>(Lifetime.Singleton);

@@ -12,6 +12,7 @@ namespace Game.Client.Interactions
     public interface IPlayerInteractionCommands
     {
         bool RequestHold(string objectId);
+        bool RequestDrop(Pose pose);
         bool RequestRelease(Pose pose);
         bool RequestThrow(Pose pose, Vector3 initialVelocity);
         bool RequestHit(int targetPlayerIndex);
@@ -34,6 +35,12 @@ namespace Game.Client.Interactions
 
         [SerializeField]
         private Transform holdPoint;
+
+        [SerializeField, Min(0f), Tooltip("소지 물건이 몸에서 앞으로 떨어진 거리")]
+        private float holdForwardOffset = 0.45f;
+
+        [SerializeField, Min(0f), Tooltip("소지 물건이 눈높이에서 아래로 내려간 거리")]
+        private float holdHeightBelowEyes = 0.55f;
 
         public CarryableItem CarriedItem { get; private set; }
 
@@ -69,7 +76,6 @@ namespace Game.Client.Interactions
         private Transform cameraTransform;
         private Component aimedTarget;
         private PlayerMovement playerMovement;
-        private bool wasCursorLocked;
         private bool isAimingThrow;
         private IPlayerInteractionCommands commands;
         private readonly RaycastHit[] aimHits = new RaycastHit[MaxAimHits];
@@ -108,7 +114,10 @@ namespace Game.Client.Interactions
             // 손 위치가 자세(서기/앉기/엎드리기)의 눈높이를 따라가게 한다.
             if (playerMovement != null)
             {
-                var target = new Vector3(0f, Mathf.Max(0.2f, playerMovement.CurrentEyeHeight - 0.25f), 0.7f);
+                var target = new Vector3(
+                    0f,
+                    Mathf.Max(0.2f, playerMovement.CurrentEyeHeight - holdHeightBelowEyes),
+                    holdForwardOffset);
                 holdPoint.localPosition = Vector3.Lerp(holdPoint.localPosition, target, 10f * Time.deltaTime);
             }
         }
@@ -118,22 +127,12 @@ namespace Game.Client.Interactions
             playerMap?.Enable();
         }
 
-        private void OnDisable()
-        {
-            playerMap?.Disable();
-        }
-
         private void Update()
         {
             UpdateAim();
 
-            // 커서가 풀린 상태(메뉴 조작 등)의 클릭은 게임 입력으로 취급하지 않는다.
-            // 재잠금 클릭과 같은 프레임에 던져지지 않도록, 직전 프레임부터 잠겨 있던 경우만 허용한다.
-            var isCursorLocked = Cursor.lockState == CursorLockMode.Locked;
-            var acceptInput = isCursorLocked && wasCursorLocked && !IsInputLocked;
-            wasCursorLocked = isCursorLocked;
-
-            if (!acceptInput)
+            // 커서가 풀린 상태(메뉴 조작 등)의 클릭만 게임 입력에서 제외한다.
+            if (Cursor.lockState != CursorLockMode.Locked || IsInputLocked)
             {
                 CancelThrowAim();
                 return;
@@ -321,7 +320,7 @@ namespace Game.Client.Interactions
 
             if (commands != null)
             {
-                commands.RequestRelease(
+                commands.RequestDrop(
                     new Pose(dropped.transform.position, dropped.transform.rotation));
                 return;
             }

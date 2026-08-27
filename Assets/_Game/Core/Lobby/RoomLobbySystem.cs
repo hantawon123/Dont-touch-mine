@@ -70,7 +70,7 @@ namespace Game.Core.Lobby
                 return RoomStartResult.NotHost;
             }
 
-            if (CurrentPlayerCount < RoomSettings.MinPlayerCount)
+            if (CurrentPlayerCount < RoomSettings.MinMatchPlayerCount)
             {
                 return RoomStartResult.NotEnoughPlayers;
             }

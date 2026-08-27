@@ -8,6 +8,8 @@ namespace Game.Client.Match
     {
         void SetPhase(MatchPhase phase);
         void SetRemainingSeconds(double remainingSeconds);
+        void SetAssignedItem(string displayName);
+        void SetRemainingDestructionUses(int remainingUses);
         void ShowDestructionNotice(string message);
         void HideDestructionNotice();
         void SetShredderMarker(Vector2 screenPosition, bool visible);
@@ -26,6 +28,9 @@ namespace Game.Client.Match
         private MatchTimerView timerView;
 
         [SerializeField]
+        private TMP_Text assignedItemText;
+
+        [SerializeField]
         private GameObject destructionNoticeRoot;
 
         [SerializeField]
@@ -37,6 +42,9 @@ namespace Game.Client.Match
         [SerializeField]
         private Canvas rootCanvas;
 
+        private string assignedItemDisplayName;
+        private int remainingDestructionUses = -1;
+
         private void Awake()
         {
             if (rootCanvas == null)
@@ -46,12 +54,27 @@ namespace Game.Client.Match
 
             HideDestructionNotice();
             SetShredderMarker(default, false);
+            SetAssignedItem(null);
         }
 
         public void SetPhase(MatchPhase phase) => phaseView?.SetPhase(phase);
 
         public void SetRemainingSeconds(double remainingSeconds) =>
             timerView?.SetRemainingSeconds(remainingSeconds);
+
+        public void SetAssignedItem(string displayName)
+        {
+            assignedItemDisplayName = string.IsNullOrWhiteSpace(displayName)
+                ? null
+                : displayName.Trim();
+            RefreshPlayerStatus();
+        }
+
+        public void SetRemainingDestructionUses(int remainingUses)
+        {
+            remainingDestructionUses = remainingUses;
+            RefreshPlayerStatus();
+        }
 
         public void ShowDestructionNotice(string message)
         {
@@ -100,6 +123,32 @@ namespace Game.Client.Match
                     out var localPoint))
             {
                 shredderMarker.anchoredPosition = localPoint;
+            }
+        }
+
+        private void RefreshPlayerStatus()
+        {
+            if (assignedItemText == null)
+            {
+                return;
+            }
+
+            var hasItem = assignedItemDisplayName != null;
+            var hasUses = remainingDestructionUses >= 0;
+            assignedItemText.gameObject.SetActive(hasItem || hasUses);
+            assignedItemText.text = hasItem && hasUses
+                ? $"내 물건: {assignedItemDisplayName}\n파쇄기: {remainingDestructionUses}회"
+                : hasItem
+                    ? $"내 물건: {assignedItemDisplayName}"
+                    : hasUses
+                        ? $"파쇄기: {remainingDestructionUses}회"
+                        : string.Empty;
+
+            if (hasItem && hasUses)
+            {
+                var size = assignedItemText.rectTransform.sizeDelta;
+                size.y = Mathf.Max(size.y, 96f);
+                assignedItemText.rectTransform.sizeDelta = size;
             }
         }
     }

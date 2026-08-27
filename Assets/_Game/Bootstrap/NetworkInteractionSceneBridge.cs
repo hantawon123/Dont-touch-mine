@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Combat;
+using Game.Client.Cameras;
 using Game.Client.Interactions;
 using Game.Core.Lobby;
 using Game.Core.Match;
@@ -40,7 +41,8 @@ namespace Game.Bootstrap
             Array.Empty<PlayerInteractionStateSnapshot>();
         private string assignedItemId;
         private CarryableItem highlightedAssignment;
-        private bool assignmentHoldRequested;
+        private PlayerCameraController cameraRig;
+        private Transform cameraTarget;
         private bool standaloneActorsDisabled;
 
         public NetworkInteractionSceneBridge(
@@ -64,6 +66,7 @@ namespace Game.Bootstrap
             network.ItemAssignmentReceived -= OnItemAssignmentReceived;
             network.ObjectStatesReceived -= OnObjectStatesReceived;
             network.PlayerInteractionStatesReceived -= OnPlayerStatesReceived;
+            DestroyCarriedSceneItems();
             SetHighlightedAssignment(null);
         }
 
@@ -76,13 +79,15 @@ namespace Game.Bootstrap
 
             DisableStandaloneActors();
             RefreshPlayers();
-            TryApplyAssignment();
+            ApplyAssignmentOwner();
             ApplyObjectStates();
             ConfirmSettledObjects();
             ApplyPlayerStates();
         }
 
         public bool RequestHold(string objectId) => network.RequestHoldObject(objectId);
+
+        public bool RequestDrop(Pose pose) => network.RequestDropHeldObject(pose);
 
         public bool RequestRelease(Pose pose) => network.RequestReleaseHeldObject(pose);
 
@@ -131,6 +136,11 @@ namespace Game.Bootstrap
                     continue;
                 }
 
+                if (avatar.IsOwner)
+                {
+                    BindLocalCamera(avatar.transform);
+                }
+
                 var motor = avatar.GetComponent<NetworkPlayerMotor>();
                 var acceptsLocalInput = avatar.IsOwner &&
                                         motor != null &&
@@ -159,6 +169,25 @@ namespace Game.Bootstrap
             }
         }
 
+        private void BindLocalCamera(Transform target)
+        {
+            if (target == null || ReferenceEquals(cameraTarget, target))
+            {
+                return;
+            }
+
+            cameraRig ??= UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(
+                FindObjectsInactive.Include);
+            if (cameraRig == null)
+            {
+                return;
+            }
+
+            cameraTarget = target;
+            cameraRig.SetFollowTarget(target);
+            cameraRig.SetCursorCaptureEnabled(true);
+        }
+
         private void DisableStandaloneActors()
         {
             if (standaloneActorsDisabled)
@@ -178,9 +207,9 @@ namespace Game.Bootstrap
             }
         }
 
-        private void TryApplyAssignment()
+        private void ApplyAssignmentOwner()
         {
-            if (assignmentHoldRequested || string.IsNullOrEmpty(assignedItemId) ||
+            if (string.IsNullOrEmpty(assignedItemId) ||
                 room.LocalPlayerIndex < 0)
             {
                 return;
@@ -197,7 +226,6 @@ namespace Game.Bootstrap
 
             item.AssignToPlayer(room.LocalPlayerIndex);
             SetHighlightedAssignment(item);
-            assignmentHoldRequested = network.RequestHoldObject(assignedItemId);
         }
 
         private void ApplyObjectStates()
@@ -216,7 +244,15 @@ namespace Game.Bootstrap
                     continue;
                 }
 
-                if (state.IsDestroyed)
+                if (state.IsPendingEjection)
+                {
+                    settlingVersions.Remove(state.ObjectId);
+                    ForgetItem(item);
+                    item.OnStored(state.Pose);
+                    appliedVersions[state.ObjectId] = state.Version;
+                    continue;
+                }
+                else if (state.IsDestroyed)
                 {
                     settlingVersions.Remove(state.ObjectId);
                     ForgetItem(item);
@@ -326,10 +362,23 @@ namespace Game.Bootstrap
             }
         }
 
+        private void DestroyCarriedSceneItems()
+        {
+            foreach (var item in items.Values)
+            {
+                if (item == null || !item.IsCarried)
+                {
+                    continue;
+                }
+
+                ForgetItem(item);
+                UnityEngine.Object.Destroy(item.gameObject);
+            }
+        }
+
         private void OnItemAssignmentReceived(string itemId)
         {
             assignedItemId = string.IsNullOrWhiteSpace(itemId) ? null : itemId.Trim();
-            assignmentHoldRequested = false;
             SetHighlightedAssignment(
                 assignedItemId != null && items.TryGetValue(assignedItemId, out var item)
                     ? item

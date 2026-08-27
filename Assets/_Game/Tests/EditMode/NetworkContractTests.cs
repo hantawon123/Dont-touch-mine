@@ -183,34 +183,14 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void ItemAssignmentRpc_TargetsOnePlayerAndForwardsOnlyItemId()
+        public void ShredderEjectionVelocity_UsesSpotForwardAndAddsLift()
         {
-            var rpc = typeof(MatchSessionState).GetMethod(
-                "RPC_AssignItem",
-                System.Reflection.BindingFlags.Instance |
-                System.Reflection.BindingFlags.NonPublic);
-            var gameObject = new GameObject("MatchStarterTest");
+            var rotation = Quaternion.Euler(0f, 90f, 0f);
 
-            try
-            {
-                Assert.That(rpc, Is.Not.Null);
-                Assert.That(
-                    rpc.GetParameters()[0].IsDefined(
-                        typeof(Fusion.RpcTargetAttribute), false),
-                    Is.True);
+            var velocity = MatchStarter.CalculateShredderEjectionVelocity(rotation);
 
-                var starter = gameObject.AddComponent<MatchStarter>();
-                string received = null;
-                starter.ItemAssignmentReceived += itemId => received = itemId;
-
-                starter.PublishItemAssignment("Soda_01");
-
-                Assert.That(received, Is.EqualTo("Soda_01"));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(gameObject);
-            }
+            Assert.That(velocity.y, Is.GreaterThan(0f));
+            Assert.That(Vector3.Dot(velocity, rotation * Vector3.forward), Is.GreaterThan(0f));
         }
 
         [Test]
@@ -219,6 +199,7 @@ namespace Game.Architecture.Tests
             var names = new[]
             {
                 "RPC_RequestHold",
+                "RPC_RequestDrop",
                 "RPC_RequestRelease",
                 "RPC_RequestThrow",
                 "RPC_RequestHit",
@@ -398,6 +379,7 @@ namespace Game.Architecture.Tests
             Assert.That(snapshot.IsDestroyed, Is.True);
             Assert.That(snapshot.Version, Is.EqualTo(7));
             Assert.That(snapshot.IsPhysicsActive, Is.True);
+            Assert.That(snapshot.IsPendingEjection, Is.False);
         }
 
         [Test]
