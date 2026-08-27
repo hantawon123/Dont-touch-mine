@@ -4,6 +4,7 @@ using Game.Core.Flow;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using R3;
+using UnityEngine;
 using VContainer.Unity;
 
 namespace Game.Client.Lobby
@@ -85,11 +86,19 @@ namespace Game.Client.Lobby
             ReturnToBrowser();
         }
 
+        /// <summary>
+        /// A refusal is reported rather than swallowed. Returning in silence
+        /// makes a dead Leave button and a hung screen look identical from the
+        /// outside, which is exactly what made this hard to place once already.
+        /// </summary>
         private void ReturnToBrowser()
         {
             if (appFlow.CurrentState != AppFlowState.RoomBrowser &&
                 !appFlow.TryTransitionTo(AppFlowState.RoomBrowser))
             {
+                Debug.LogError(
+                    "[Lobby] Cannot leave for the room browser from " +
+                    $"{appFlow.CurrentState}.");
                 return;
             }
 

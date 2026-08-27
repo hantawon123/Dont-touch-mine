@@ -152,6 +152,14 @@ namespace Game.Bootstrap
                 cameraRig = Instantiate(cameraRigPrefab);
             }
 
+            // The lobby is a screen the player clicks through, so the mouse
+            // belongs to its UI whether or not the avatar has arrived yet. This
+            // used to sit inside the search below, which meant a late avatar
+            // left the cursor captured — and a captured cursor cannot press
+            // Leave, because it reports from the centre of the screen and the
+            // click reached the combat input instead of the button.
+            cameraRig.SetCursorCaptureEnabled(false);
+
             var avatars = FindObjectsByType<PlayerAvatar>(
                 FindObjectsInactive.Exclude,
                 FindObjectsSortMode.None);
@@ -163,10 +171,11 @@ namespace Game.Bootstrap
                 }
 
                 cameraRig.SetFollowTarget(avatars[i].transform);
-                cameraRig.SetCursorCaptureEnabled(false);
                 return;
             }
 
+            // Only the camera's follow target is missing now; the screen is
+            // still usable, so this stays a warning.
             Debug.LogWarning("Lobby camera could not find the local PlayerAvatar.", this);
         }
 

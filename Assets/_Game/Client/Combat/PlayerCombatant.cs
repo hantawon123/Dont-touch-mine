@@ -215,6 +215,14 @@ namespace Game.Client.Combat
         /// <summary>피격 처리: 판정 규칙에 등록하고 결과에 따라 연출과 드랍을 수행한다.</summary>
         public void ReceiveHit(Vector3 hitDirection)
         {
+            // 네트워크 플레이어는 권한이 판정하고 그 결과를 네트워크 상태로
+            // 받으므로 로컬 규칙을 갖지 않는다. 여기서 판정할 것이 없다.
+            // 경기가 없는 로비에서 주먹을 휘두르면 이 줄에서 터졌다.
+            if (combatRules == null)
+            {
+                return;
+            }
+
             var result = combatRules.RegisterHit(playerIndex, Time.timeAsDouble);
             if (result == HitResult.Ignored)
             {

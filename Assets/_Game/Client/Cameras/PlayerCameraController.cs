@@ -1,6 +1,7 @@
 using Game.Client.Players;
 using Unity.Cinemachine;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace Game.Client.Cameras
@@ -112,7 +113,8 @@ namespace Game.Client.Cameras
                 SetCursorLocked(false);
             }
             else if (Cursor.lockState != CursorLockMode.Locked
-                     && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+                     && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame
+                     && !IsPointerOverUi())
             {
                 SetCursorLocked(true);
             }
@@ -184,6 +186,19 @@ namespace Game.Client.Cameras
                 }
             }
         }
+
+        /// <summary>
+        /// True while the mouse is over something the UI will handle.
+        /// </summary>
+        /// <remarks>
+        /// A click aimed at a HUD button must not also recapture the mouse. The
+        /// recapture lands in the same frame as the click and a captured cursor
+        /// reports from the centre of the screen, so the button the player was
+        /// pointing at can lose the very press meant for it. That is how the
+        /// lobby's Leave button came to need two or three tries.
+        /// </remarks>
+        private static bool IsPointerOverUi() =>
+            EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
 
         private static void SetCursorLocked(bool locked)
         {
