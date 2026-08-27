@@ -50,6 +50,19 @@ namespace Game.Client.Players
         /// <summary>기절 등 외부에서 이동 입력을 잠글 때 사용한다.</summary>
         public bool IsMovementLocked { get; set; }
 
+        /// <summary>수평 이동 속력(m/s). 애니메이션 등 표현 계층이 읽는다.</summary>
+        public float PlanarSpeed
+        {
+            get
+            {
+                var velocity = controller.velocity;
+                velocity.y = 0f;
+                return velocity.magnitude;
+            }
+        }
+
+        public bool IsGrounded => controller.isGrounded;
+
         /// <summary>넉백 등 외부 충격을 가한다. 시간이 지나며 자연히 줄어든다.</summary>
         public void AddImpulse(Vector3 impulse)
         {
@@ -275,6 +288,13 @@ namespace Game.Client.Players
             controller.center = new Vector3(0f, height * 0.5f, 0f);
 
             if (visualRoot == null)
+            {
+                return;
+            }
+
+            // 애니메이션이 있는 캐릭터 모델은 찌그러뜨리지 않는다.
+            // 자세 표현은 애니메이션이 담당하고, 여기서는 충돌체만 조정한다.
+            if (visualRoot.GetComponentInChildren<Animator>() != null)
             {
                 return;
             }
