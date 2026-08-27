@@ -76,10 +76,16 @@ namespace Game.Client.Cameras
             ApplyView();
         }
 
+        /// <remarks>
+        /// Locks to whatever capture is currently set rather than to true. A
+        /// screen that handed the mouse to its UI, as the lobby does, would
+        /// otherwise get the cursor captured again the next time this rig is
+        /// re-enabled, and a captured cursor cannot press the buttons on it.
+        /// </remarks>
         private void OnEnable()
         {
             playerMap?.Enable();
-            SetCursorLocked(true);
+            SetCursorLocked(cursorCaptureEnabled);
         }
 
         private void OnDisable()
