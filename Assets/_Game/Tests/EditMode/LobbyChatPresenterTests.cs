@@ -57,6 +57,23 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void BlankSubmit_ExitsChatWithoutAppendingMessage()
+        {
+            var log = new LobbyChatLog("host-1", "김말갈");
+            var chatView = new FakeChatView();
+
+            using var presenter = new LobbyChatPresenter(
+                log,
+                chatView,
+                new FakeBubbleView());
+            presenter.Start();
+            chatView.EmitSend("   ");
+
+            Assert.That(log.Messages.CurrentValue, Is.Empty);
+            Assert.That(chatView.ClearedInput, Is.True);
+        }
+
+        [Test]
         public void TryAppendLocal_ClampsToMaxLength()
         {
             var log = new LobbyChatLog("host-1", "김말갈");

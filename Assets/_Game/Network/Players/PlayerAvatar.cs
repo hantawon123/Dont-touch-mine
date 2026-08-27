@@ -69,12 +69,10 @@ namespace Game.Network.Players
 
         public override void Spawned()
         {
-            // Off on every peer for now, the owner included. Local input cannot
-            // move a networked character while the host holds state authority:
-            // NetworkTransform replicates the host's value straight back over
-            // anything moved locally, so the character would snap back. The
-            // input pipeline turns these on for the owner once movement is
-            // simulated on the host instead.
+            // PlayerMovement stays as the input/config source, but its Update
+            // loop must not move a networked body as well. NetworkPlayerMotor
+            // applies that same input during Fusion prediction and authority
+            // simulation; enabling both movers causes visible snap-back.
             SetOwnerOnlyEnabled(false);
 
             RosterOf(Runner)?.Add(this);

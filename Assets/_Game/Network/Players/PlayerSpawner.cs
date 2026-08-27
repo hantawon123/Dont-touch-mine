@@ -248,14 +248,12 @@ namespace Game.Network.Players
                 avatarsFound++;
 
                 var pose = PoseFor(seat);
-                var networkTransform = avatar.GetComponent<NetworkTransform>();
+                var motor = avatar.GetComponent<NetworkPlayerMotor>();
 
-                if (networkTransform == null)
+                if (motor == null)
                 {
-                    // Without one the move would not replicate at all, so the
-                    // character is left where it is rather than moved only here.
                     Debug.LogWarning(
-                        $"[Spawn] '{avatar.name}' has no NetworkTransform, so it " +
+                        $"[Spawn] '{avatar.name}' has no NetworkPlayerMotor, so it " +
                         "cannot be moved into the loaded scene.",
                         avatar);
 
@@ -265,7 +263,11 @@ namespace Game.Network.Players
                 // Teleport rather than assignment: remote peers interpolate
                 // between the last two states, and a plain move would show the
                 // character sliding across the map from where the lobby put it.
-                networkTransform.Teleport(pose.position, pose.rotation);
+                if (!motor.TryTeleport(pose))
+                {
+                    continue;
+                }
+
                 moved++;
 
                 Debug.Log($"[Spawn] Seat {seat} placed at {pose.position}.");
@@ -275,7 +277,7 @@ namespace Game.Network.Players
             // is zero says where it stopped: no seats means the registry was
             // cleared, seats without avatars means the characters did not survive
             // the scene change, and avatars without moves means the prefab has no
-            // NetworkTransform.
+            // network movement component.
             Debug.Log(
                 $"[Spawn] Reposition: {_spawnPoses.Count} poses, {seatsFound} seats, " +
                 $"{avatarsFound} avatars, {moved} moved.");

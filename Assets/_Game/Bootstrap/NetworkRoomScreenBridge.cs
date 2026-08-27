@@ -26,13 +26,19 @@ namespace Game.Bootstrap
     public sealed class NetworkRoomScreenBridge : IStartable, IDisposable
     {
         private readonly RoomScreenPresenter screen;
+        private readonly IRoomBrowserView browserView;
         private readonly RoomUiCommands commands;
         private readonly CancellationTokenSource cancellation =
             new CancellationTokenSource();
+        private bool isRefreshing;
 
-        public NetworkRoomScreenBridge(RoomScreenPresenter screen, RoomUiCommands commands)
+        public NetworkRoomScreenBridge(
+            RoomScreenPresenter screen,
+            IRoomBrowserView browserView,
+            RoomUiCommands commands)
         {
             this.screen = screen ?? throw new ArgumentNullException(nameof(screen));
+            this.browserView = browserView ?? throw new ArgumentNullException(nameof(browserView));
             this.commands = commands ?? throw new ArgumentNullException(nameof(commands));
         }
 
@@ -40,6 +46,7 @@ namespace Game.Bootstrap
         {
             screen.RoomCreateRequested += OnCreateRequested;
             screen.RoomJoinRequested += OnJoinRequested;
+            browserView.RefreshRequested += OnRefreshRequested;
             Refresh().Forget();
         }
 
@@ -47,10 +54,13 @@ namespace Game.Bootstrap
         {
             screen.RoomCreateRequested -= OnCreateRequested;
             screen.RoomJoinRequested -= OnJoinRequested;
+            browserView.RefreshRequested -= OnRefreshRequested;
 
             cancellation.Cancel();
             cancellation.Dispose();
         }
+
+        private void OnRefreshRequested() => Refresh().Forget();
 
         private void OnCreateRequested(RoomCreateRequest request)
         {
@@ -64,6 +74,12 @@ namespace Game.Bootstrap
 
         private async UniTaskVoid Refresh()
         {
+            if (isRefreshing)
+            {
+                return;
+            }
+
+            isRefreshing = true;
             try
             {
                 await commands.RefreshAsync(cancellation.Token);
@@ -75,6 +91,10 @@ namespace Game.Bootstrap
             catch (Exception failure)
             {
                 Debug.LogError($"[Rooms] Could not reach the room list: {failure.Message}");
+            }
+            finally
+            {
+                isRefreshing = false;
             }
         }
 

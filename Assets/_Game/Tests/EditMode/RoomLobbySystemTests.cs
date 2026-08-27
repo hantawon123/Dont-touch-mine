@@ -177,6 +177,20 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void RoomBrowser_EmptySnapshot_RemovesPreviouslyListedRooms()
+        {
+            using var browser = new RoomBrowserSystem();
+            browser.SetRooms(new[]
+            {
+                new RoomSummary("OLD-ROOM", CreateSettings(), 1, true)
+            });
+
+            browser.SetRooms(Array.Empty<RoomSummary>());
+
+            Assert.That(browser.Rooms.CurrentValue, Is.Empty);
+        }
+
+        [Test]
         public void RoomUiCommands_ForwardsRequestsAndPublishesResults()
         {
             using var state = new RoomBrowserSystem();

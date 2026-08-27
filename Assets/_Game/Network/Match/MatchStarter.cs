@@ -227,15 +227,13 @@ namespace Game.Network.Match
                 return false;
             }
 
-            var networkTransform = avatar.GetComponent<NetworkTransform>();
-            if (networkTransform == null)
+            var motor = avatar.GetComponent<NetworkPlayerMotor>();
+            if (motor == null)
             {
                 return false;
             }
 
-            networkTransform.Teleport(pose.position, pose.rotation);
-            avatar.GetComponent<NetworkPlayerMotor>()?.ResetMotion();
-            return true;
+            return motor.TryTeleport(pose);
         }
 
         public void PublishItemAssignment(string itemId)

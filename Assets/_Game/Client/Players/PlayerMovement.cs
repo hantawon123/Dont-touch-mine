@@ -29,15 +29,19 @@ namespace Game.Client.Players
 
         public PlayerPosture Posture { get; private set; } = PlayerPosture.Standing;
 
+        public PlayerMovementSettings MovementSettings => new(
+            movementConfig.WalkSpeed,
+            movementConfig.SprintSpeed,
+            movementConfig.RotationSpeedDegrees,
+            movementConfig.JumpHeight,
+            movementConfig.GravityMultiplier);
+
         public float CurrentEyeHeight => Posture switch
         {
             PlayerPosture.Crouching => movementConfig.CrouchEyeHeight,
             PlayerPosture.Prone => movementConfig.ProneEyeHeight,
             _ => movementConfig.StandEyeHeight
         };
-
-        // 접지 상태를 안정시키기 위해 바닥에 있을 때 아래로 살짝 눌러주는 속도.
-        private const float GroundedStickVelocity = -2f;
 
         private CharacterController controller;
         private InputActionMap playerMap;
@@ -162,25 +166,22 @@ namespace Game.Client.Players
             var inputLocked = IsMovementLocked || IsTextInputFocused();
             var input = inputLocked ? Vector2.zero : moveAction.ReadValue<Vector2>();
             var direction = ToCameraRelativeDirection(input);
-            var gravity = -Physics.gravity.y * movementConfig.GravityMultiplier;
 
             if (!inputLocked)
             {
                 HandlePostureInput();
             }
 
-            if (controller.isGrounded)
-            {
-                verticalVelocity = GroundedStickVelocity;
-
-                if (!inputLocked && jumpAction.WasPressedThisFrame() && Posture == PlayerPosture.Standing)
-                {
-                    // 목표 높이(JumpHeight)에 도달하는 초기 속도: v = sqrt(2gh)
-                    verticalVelocity = Mathf.Sqrt(2f * gravity * movementConfig.JumpHeight);
-                }
-            }
-
-            verticalVelocity -= gravity * Time.deltaTime;
+            var jumpRequested = !inputLocked &&
+                jumpAction.WasPressedThisFrame() &&
+                Posture == PlayerPosture.Standing;
+            verticalVelocity = PlayerMovementKinematics.StepVerticalVelocity(
+                verticalVelocity,
+                controller.isGrounded,
+                jumpRequested,
+                Physics.gravity.y,
+                Time.deltaTime,
+                MovementSettings);
 
             // 넉백 등 외부 충격은 시간이 지나며 감쇠한다.
             externalVelocity = Vector3.MoveTowards(externalVelocity, Vector3.zero, 12f * Time.deltaTime);
@@ -303,7 +304,9 @@ namespace Game.Client.Players
             {
                 PlayerPosture.Crouching => movementConfig.CrouchSpeed,
                 PlayerPosture.Prone => movementConfig.ProneSpeed,
-                _ => sprintAction.IsPressed() ? movementConfig.SprintSpeed : movementConfig.WalkSpeed
+                _ => PlayerMovementKinematics.MoveSpeed(
+                    MovementSettings,
+                    sprintAction.IsPressed())
             };
         }
 

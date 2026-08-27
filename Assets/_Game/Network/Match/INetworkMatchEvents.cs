@@ -28,6 +28,7 @@ namespace Game.Network.Match
     public interface INetworkMatchAuthority : INetworkMatchRuntimeSource
     {
         bool IsServer { get; }
+        int DestructionLimit { get; }
         event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
         event Action SimulationTick;
         bool BindMatchSession(MatchSessionCoordinator session, Pose shredderEjectionPose);

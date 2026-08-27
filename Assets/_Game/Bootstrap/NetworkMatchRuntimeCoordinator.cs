@@ -165,7 +165,8 @@ namespace Game.Bootstrap
                 configuration.SpawnPoints,
                 configuration.ItemDefinitions,
                 new System.Random(),
-                configuration.InitialWorldObjects);
+                configuration.InitialWorldObjects,
+                network.DestructionLimit);
 
             try
             {
