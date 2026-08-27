@@ -1,6 +1,7 @@
 using System;
 using Game.Client.Accessibility;
 using Game.Client.Audio;
+using Game.Client.Graphics;
 using Game.Client.Home;
 using Game.Core.Flow;
 using Game.Core.Settings;
@@ -15,13 +16,15 @@ namespace Game.Client.Settings
         private readonly AppFlowSystem appFlow;
         private readonly IAudioSettings audioSettings;
         private readonly IAccessibilitySettings accessibilitySettings;
+        private readonly IGraphicsSettings graphicsSettings;
 
         public SettingsPresenter(
             ISettingsView view,
             IHomeApplicationHost applicationHost,
             AppFlowSystem appFlow,
             IAudioSettings audioSettings,
-            IAccessibilitySettings accessibilitySettings)
+            IAccessibilitySettings accessibilitySettings,
+            IGraphicsSettings graphicsSettings)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.applicationHost = applicationHost
@@ -31,6 +34,8 @@ namespace Game.Client.Settings
                 ?? throw new ArgumentNullException(nameof(audioSettings));
             this.accessibilitySettings = accessibilitySettings
                 ?? throw new ArgumentNullException(nameof(accessibilitySettings));
+            this.graphicsSettings = graphicsSettings
+                ?? throw new ArgumentNullException(nameof(graphicsSettings));
         }
 
         public void Start()
@@ -42,11 +47,15 @@ namespace Game.Client.Settings
             view.UiScaleChanged += OnUiScaleChanged;
             view.TextScaleChanged += OnTextScaleChanged;
             view.HighContrastChanged += OnHighContrastChanged;
+            view.GraphicsSettingChanged += OnGraphicsSettingChanged;
+            view.BrightnessChanged += OnBrightnessChanged;
             audioSettings.Changed += OnAudioSettingsChanged;
             accessibilitySettings.Changed += OnAccessibilitySettingsChanged;
+            graphicsSettings.Changed += OnGraphicsSettingsChanged;
             view.SetActiveTab(SettingsTab.Graphics);
             view.SetAudioSettings(audioSettings.Current);
             view.SetAccessibilitySettings(accessibilitySettings.Current);
+            view.SetGraphicsSettings(graphicsSettings.Current);
         }
 
         public void Dispose()
@@ -58,8 +67,11 @@ namespace Game.Client.Settings
             view.UiScaleChanged -= OnUiScaleChanged;
             view.TextScaleChanged -= OnTextScaleChanged;
             view.HighContrastChanged -= OnHighContrastChanged;
+            view.GraphicsSettingChanged -= OnGraphicsSettingChanged;
+            view.BrightnessChanged -= OnBrightnessChanged;
             audioSettings.Changed -= OnAudioSettingsChanged;
             accessibilitySettings.Changed -= OnAccessibilitySettingsChanged;
+            graphicsSettings.Changed -= OnGraphicsSettingsChanged;
         }
 
         private void OnTabSelected(SettingsTab tab)
@@ -92,6 +104,39 @@ namespace Game.Client.Settings
             accessibilitySettings.TrySetHighContrastEnabled(enabled, out _);
         }
 
+        private void OnGraphicsSettingChanged(GraphicsSetting setting, int index)
+        {
+            switch (setting)
+            {
+                case GraphicsSetting.Quality:
+                    graphicsSettings.TrySetQuality((GraphicsQualityPreset)index, out _);
+                    return;
+                case GraphicsSetting.Resolution:
+                    graphicsSettings.TrySetResolution(index, out _);
+                    return;
+                case GraphicsSetting.DisplayMode:
+                    graphicsSettings.TrySetDisplayMode((DisplayMode)index, out _);
+                    return;
+                case GraphicsSetting.FrameCap:
+                    graphicsSettings.TrySetFrameCap(index, out _);
+                    return;
+                case GraphicsSetting.Shadows:
+                    graphicsSettings.TrySetShadows((ShadowQualityLevel)index, out _);
+                    return;
+                case GraphicsSetting.Effects:
+                    graphicsSettings.TrySetEffects((EffectsQualityLevel)index, out _);
+                    return;
+                case GraphicsSetting.AntiAliasing:
+                    graphicsSettings.TrySetAntiAliasing((AntiAliasingMode)index, out _);
+                    return;
+            }
+        }
+
+        private void OnBrightnessChanged(int percent)
+        {
+            graphicsSettings.TrySetBrightness(percent, out _);
+        }
+
         private void OnAudioSettingsChanged(AudioSettingsState settings)
         {
             view.SetAudioSettings(settings);
@@ -100,6 +145,11 @@ namespace Game.Client.Settings
         private void OnAccessibilitySettingsChanged(AccessibilitySettingsState settings)
         {
             view.SetAccessibilitySettings(settings);
+        }
+
+        private void OnGraphicsSettingsChanged(GraphicsSettingsState settings)
+        {
+            view.SetGraphicsSettings(settings);
         }
 
         private void OnBackRequested()

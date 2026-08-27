@@ -1,6 +1,7 @@
 using System;
 using Game.Client.Accessibility;
 using Game.Client.Audio;
+using Game.Client.Graphics;
 using Game.Client.Home;
 using Game.Client.Settings;
 using Game.Core.Flow;
@@ -19,14 +20,17 @@ namespace Game.Tests.EditMode
             var appFlow = new AppFlowSystem();
             var audio = new FakeAudioSettings();
             var accessibility = new FakeAccessibilitySettings();
+            var graphics = new FakeGraphicsSettings();
             Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
 
-            using (var presenter = new SettingsPresenter(view, host, appFlow, audio, accessibility))
+            using (var presenter = new SettingsPresenter(
+                view, host, appFlow, audio, accessibility, graphics))
             {
                 presenter.Start();
                 Assert.That(view.ActiveTab, Is.EqualTo(SettingsTab.Graphics));
                 Assert.That(view.BoundAudio, Is.SameAs(audio.Current));
                 Assert.That(view.BoundAccessibility, Is.SameAs(accessibility.Current));
+                Assert.That(view.BoundGraphics, Is.SameAs(graphics.Current));
 
                 view.RaiseTab(SettingsTab.Audio);
                 Assert.That(view.ActiveTab, Is.EqualTo(SettingsTab.Audio));
@@ -49,9 +53,11 @@ namespace Game.Tests.EditMode
             var appFlow = new AppFlowSystem();
             var audio = new FakeAudioSettings();
             var accessibility = new FakeAccessibilitySettings();
+            var graphics = new FakeGraphicsSettings();
             Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
 
-            using (var presenter = new SettingsPresenter(view, host, appFlow, audio, accessibility))
+            using (var presenter = new SettingsPresenter(
+                view, host, appFlow, audio, accessibility, graphics))
             {
                 presenter.Start();
                 view.RaiseVolume(AudioChannel.Master, 80);
@@ -73,9 +79,11 @@ namespace Game.Tests.EditMode
             var appFlow = new AppFlowSystem();
             var audio = new FakeAudioSettings();
             var accessibility = new FakeAccessibilitySettings();
+            var graphics = new FakeGraphicsSettings();
             Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
 
-            using (var presenter = new SettingsPresenter(view, host, appFlow, audio, accessibility))
+            using (var presenter = new SettingsPresenter(
+                view, host, appFlow, audio, accessibility, graphics))
             {
                 presenter.Start();
                 view.RaiseUiScale(80);
@@ -90,6 +98,33 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_ForwardsGraphicsChangesToSettings()
+        {
+            var view = new FakeSettingsView();
+            var host = new FakeHomeApplicationHost();
+            var appFlow = new AppFlowSystem();
+            var audio = new FakeAudioSettings();
+            var accessibility = new FakeAccessibilitySettings();
+            var graphics = new FakeGraphicsSettings();
+            Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
+
+            using (var presenter = new SettingsPresenter(
+                view, host, appFlow, audio, accessibility, graphics))
+            {
+                presenter.Start();
+                view.RaiseGraphics(GraphicsSetting.Quality, (int)GraphicsQualityPreset.Low);
+                view.RaiseGraphics(GraphicsSetting.DisplayMode, (int)DisplayMode.Windowed);
+                view.RaiseBrightness(20);
+            }
+
+            Assert.That(graphics.Current.Quality, Is.EqualTo(GraphicsQualityPreset.Low));
+            Assert.That(graphics.Current.DisplayMode, Is.EqualTo(DisplayMode.Windowed));
+            Assert.That(graphics.Current.Brightness, Is.EqualTo(20));
+            Assert.That(view.BoundGraphics.Quality, Is.EqualTo(GraphicsQualityPreset.Low));
+            Assert.That(view.BoundGraphics.Brightness, Is.EqualTo(20));
+        }
+
+        [Test]
         public void Presenter_RequiresDependencies()
         {
             var view = new FakeSettingsView();
@@ -97,21 +132,25 @@ namespace Game.Tests.EditMode
             var appFlow = new AppFlowSystem();
             var audio = new FakeAudioSettings();
             var accessibility = new FakeAccessibilitySettings();
+            var graphics = new FakeGraphicsSettings();
 
             Assert.That(
-                () => new SettingsPresenter(null, host, appFlow, audio, accessibility),
+                () => new SettingsPresenter(null, host, appFlow, audio, accessibility, graphics),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new SettingsPresenter(view, null, appFlow, audio, accessibility),
+                () => new SettingsPresenter(view, null, appFlow, audio, accessibility, graphics),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new SettingsPresenter(view, host, null, audio, accessibility),
+                () => new SettingsPresenter(view, host, null, audio, accessibility, graphics),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new SettingsPresenter(view, host, appFlow, null, accessibility),
+                () => new SettingsPresenter(view, host, appFlow, null, accessibility, graphics),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new SettingsPresenter(view, host, appFlow, audio, null),
+                () => new SettingsPresenter(view, host, appFlow, audio, null, graphics),
+                Throws.TypeOf<ArgumentNullException>());
+            Assert.That(
+                () => new SettingsPresenter(view, host, appFlow, audio, accessibility, null),
                 Throws.TypeOf<ArgumentNullException>());
         }
 
@@ -122,6 +161,8 @@ namespace Game.Tests.EditMode
             public AudioSettingsState BoundAudio { get; private set; }
 
             public AccessibilitySettingsState BoundAccessibility { get; private set; }
+
+            public GraphicsSettingsState BoundGraphics { get; private set; }
 
             public event Action BackRequested;
 
@@ -137,6 +178,10 @@ namespace Game.Tests.EditMode
 
             public event Action<bool> HighContrastChanged;
 
+            public event Action<GraphicsSetting, int> GraphicsSettingChanged;
+
+            public event Action<int> BrightnessChanged;
+
             public void SetActiveTab(SettingsTab tab)
             {
                 ActiveTab = tab;
@@ -150,6 +195,11 @@ namespace Game.Tests.EditMode
             public void SetAccessibilitySettings(AccessibilitySettingsState settings)
             {
                 BoundAccessibility = settings;
+            }
+
+            public void SetGraphicsSettings(GraphicsSettingsState settings)
+            {
+                BoundGraphics = settings;
             }
 
             public void RaiseBack()
@@ -185,6 +235,16 @@ namespace Game.Tests.EditMode
             public void RaiseHighContrast(bool enabled)
             {
                 HighContrastChanged?.Invoke(enabled);
+            }
+
+            public void RaiseGraphics(GraphicsSetting setting, int index)
+            {
+                GraphicsSettingChanged?.Invoke(setting, index);
+            }
+
+            public void RaiseBrightness(int percent)
+            {
+                BrightnessChanged?.Invoke(percent);
             }
         }
 
@@ -257,6 +317,63 @@ namespace Game.Tests.EditMode
 
                 Changed?.Invoke(Current);
                 return true;
+            }
+        }
+
+        private sealed class FakeGraphicsSettings : IGraphicsSettings
+        {
+            public GraphicsSettingsState Current { get; } = new GraphicsSettingsState();
+
+            public event Action<GraphicsSettingsState> Changed;
+
+            public bool TrySetQuality(GraphicsQualityPreset quality, out GraphicsSettingsError error)
+            {
+                return Persist(Current.TrySetQuality(quality, out error));
+            }
+
+            public bool TrySetResolution(int index, out GraphicsSettingsError error)
+            {
+                return Persist(Current.TrySetResolution(index, out error));
+            }
+
+            public bool TrySetDisplayMode(DisplayMode mode, out GraphicsSettingsError error)
+            {
+                return Persist(Current.TrySetDisplayMode(mode, out error));
+            }
+
+            public bool TrySetFrameCap(int index, out GraphicsSettingsError error)
+            {
+                return Persist(Current.TrySetFrameCap(index, out error));
+            }
+
+            public bool TrySetShadows(ShadowQualityLevel shadows, out GraphicsSettingsError error)
+            {
+                return Persist(Current.TrySetShadows(shadows, out error));
+            }
+
+            public bool TrySetEffects(EffectsQualityLevel effects, out GraphicsSettingsError error)
+            {
+                return Persist(Current.TrySetEffects(effects, out error));
+            }
+
+            public bool TrySetAntiAliasing(AntiAliasingMode antiAliasing, out GraphicsSettingsError error)
+            {
+                return Persist(Current.TrySetAntiAliasing(antiAliasing, out error));
+            }
+
+            public bool TrySetBrightness(int percent, out GraphicsSettingsError error)
+            {
+                return Persist(Current.TrySetBrightness(percent, out error));
+            }
+
+            private bool Persist(bool succeeded)
+            {
+                if (succeeded)
+                {
+                    Changed?.Invoke(Current);
+                }
+
+                return succeeded;
             }
         }
 

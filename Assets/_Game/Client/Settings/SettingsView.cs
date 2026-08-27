@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Accessibility;
+using Game.Client.Graphics;
 using Game.Client.Home;
 using Game.Core.Settings;
 using TMPro;
@@ -45,8 +46,18 @@ namespace Game.Client.Settings
         private ToggleState highContrastToggle;
         private Slider uiScaleSlider;
         private Slider textScaleSlider;
+        private CycleState qualityCycle;
+        private CycleState resolutionCycle;
+        private CycleState displayModeCycle;
+        private CycleState frameCapCycle;
+        private CycleState shadowsCycle;
+        private CycleState effectsCycle;
+        private CycleState antiAliasingCycle;
+        private Slider brightnessSlider;
+        private TMP_Text brightnessPercent;
         private bool bindingAudio;
         private bool bindingAccessibility;
+        private bool bindingGraphics;
 
         public event Action BackRequested;
 
@@ -61,6 +72,10 @@ namespace Game.Client.Settings
         public event Action<int> TextScaleChanged;
 
         public event Action<bool> HighContrastChanged;
+
+        public event Action<GraphicsSetting, int> GraphicsSettingChanged;
+
+        public event Action<int> BrightnessChanged;
 
         private void Awake()
         {
@@ -134,6 +149,34 @@ namespace Game.Client.Settings
 
             bindingAccessibility = false;
             SetActiveTab(activeTab);
+        }
+
+        public void SetGraphicsSettings(GraphicsSettingsState settings)
+        {
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
+
+            bindingGraphics = true;
+            qualityCycle?.SetIndex((int)settings.Quality);
+            resolutionCycle?.SetIndex(settings.ResolutionIndex);
+            displayModeCycle?.SetIndex((int)settings.DisplayMode);
+            frameCapCycle?.SetIndex(settings.FrameCapIndex);
+            shadowsCycle?.SetIndex((int)settings.Shadows);
+            effectsCycle?.SetIndex((int)settings.Effects);
+            antiAliasingCycle?.SetIndex((int)settings.AntiAliasing);
+            if (brightnessSlider != null)
+            {
+                brightnessSlider.SetValueWithoutNotify(settings.Brightness);
+            }
+
+            if (brightnessPercent != null)
+            {
+                brightnessPercent.text = $"{settings.Brightness}%";
+            }
+
+            bindingGraphics = false;
         }
 
         private static Color IdleTabColor()
@@ -215,6 +258,7 @@ namespace Game.Client.Settings
             scaler.matchWidthOrHeight = 0.5f;
             canvasObject.AddComponent<GraphicRaycaster>();
             AccessibilityBindings.EnsureCanvas(canvasObject);
+            GraphicsBindings.EnsureCanvas(canvasObject);
             AddImage(canvasRect, Color.white);
             return canvasRect;
         }
@@ -347,42 +391,60 @@ namespace Game.Client.Settings
         private RectTransform CreateGraphicsPanel(RectTransform parent)
         {
             var content = CreateScrollPanel(parent, "Graphics", out var panel);
-            CreateCycleRow(
+            qualityCycle = CreateCycleRow(
                 content,
                 "그래픽 품질",
                 new[] { "매우 낮음", "낮음", "중간", "높음", "매우 높음", "사용자 설정" },
-                3);
-            CreateCycleRow(
+                3,
+                index => RaiseGraphicsSetting(GraphicsSetting.Quality, index));
+            resolutionCycle = CreateCycleRow(
                 content,
                 "해상도",
                 new[] { "1280x720", "1920x1080", "2560x1440", "3840x2160" },
-                1);
-            CreateCycleRow(
+                1,
+                index => RaiseGraphicsSetting(GraphicsSetting.Resolution, index));
+            displayModeCycle = CreateCycleRow(
                 content,
                 "화면 모드",
                 new[] { "전체 화면", "창 모드", "무테 창 모드" },
-                0);
-            CreateCycleRow(
+                0,
+                index => RaiseGraphicsSetting(GraphicsSetting.DisplayMode, index));
+            frameCapCycle = CreateCycleRow(
                 content,
                 "프레임 제한",
                 new[] { "30", "60", "90", "120", "144", "165", "240", "제한 없음" },
-                1);
-            CreateCycleRow(
+                1,
+                index => RaiseGraphicsSetting(GraphicsSetting.FrameCap, index));
+            shadowsCycle = CreateCycleRow(
                 content,
                 "그림자 품질",
                 new[] { "끄기", "낮음", "중간", "높음", "매우 높음" },
-                3);
-            CreateCycleRow(
+                3,
+                index => RaiseGraphicsSetting(GraphicsSetting.Shadows, index));
+            effectsCycle = CreateCycleRow(
                 content,
                 "이펙트 품질",
                 new[] { "낮음", "중간", "높음", "매우 높음" },
-                2);
-            CreateCycleRow(
+                2,
+                index => RaiseGraphicsSetting(GraphicsSetting.Effects, index));
+            antiAliasingCycle = CreateCycleRow(
                 content,
                 "안티앨리어싱",
                 new[] { "끄기", "FXAA", "SMAA", "TAA" },
-                3);
-            CreateSliderRow(content, "밝기 / 감마", 50, out _);
+                3,
+                index => RaiseGraphicsSetting(GraphicsSetting.AntiAliasing, index));
+            brightnessSlider = CreateSliderRow(
+                content,
+                "밝기",
+                GraphicsSettingsState.DefaultBrightness,
+                out brightnessPercent,
+                percent =>
+                {
+                    if (!bindingGraphics)
+                    {
+                        BrightnessChanged?.Invoke(percent);
+                    }
+                });
             return panel;
         }
 
@@ -513,7 +575,20 @@ namespace Game.Client.Settings
             return content;
         }
 
-        private void CreateCycleRow(RectTransform parent, string label, string[] options, int defaultIndex)
+        private void RaiseGraphicsSetting(GraphicsSetting setting, int index)
+        {
+            if (!bindingGraphics)
+            {
+                GraphicsSettingChanged?.Invoke(setting, index);
+            }
+        }
+
+        private CycleState CreateCycleRow(
+            RectTransform parent,
+            string label,
+            string[] options,
+            int defaultIndex,
+            Action<int> onChanged = null)
         {
             var row = CreateSettingRow(parent);
             AddRowLabel(row, label);
@@ -544,7 +619,8 @@ namespace Game.Client.Settings
             CreateCycleArrow(control, "<", () =>
             {
                 state.Index = (state.Index - 1 + state.Options.Length) % state.Options.Length;
-                state.ValueLabel.text = state.Options[state.Index];
+                state.RefreshLabel();
+                onChanged?.Invoke(state.Index);
             });
 
             var valueRect = CreateRect("Value", control);
@@ -561,8 +637,10 @@ namespace Game.Client.Settings
             CreateCycleArrow(control, ">", () =>
             {
                 state.Index = (state.Index + 1) % state.Options.Length;
-                state.ValueLabel.text = state.Options[state.Index];
+                state.RefreshLabel();
+                onChanged?.Invoke(state.Index);
             });
+            return state;
         }
 
         private ToggleState CreateToggleRow(
@@ -1077,6 +1155,25 @@ namespace Game.Client.Settings
             public string[] Options;
             public int Index;
             public TMP_Text ValueLabel;
+
+            public void SetIndex(int index)
+            {
+                if (Options == null || Options.Length == 0)
+                {
+                    return;
+                }
+
+                Index = Mathf.Clamp(index, 0, Options.Length - 1);
+                RefreshLabel();
+            }
+
+            public void RefreshLabel()
+            {
+                if (ValueLabel != null && Options != null && Index >= 0 && Index < Options.Length)
+                {
+                    ValueLabel.text = Options[Index];
+                }
+            }
         }
 
         private sealed class ToggleState

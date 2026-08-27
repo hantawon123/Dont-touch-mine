@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Accessibility;
+using Game.Client.Graphics;
 using Game.Core.Home;
 using TMPro;
 using UnityEngine;
@@ -333,6 +334,8 @@ namespace Game.Client.Home
             scaler.matchWidthOrHeight = 0.5f;
             canvasObject.AddComponent<GraphicRaycaster>();
             AccessibilityBindings.EnsureCanvas(canvasObject);
+            GraphicsBindings.EnsureCanvas(canvasObject);
+            AddImage(canvasRect, Color.white);
             return canvasRect;
         }
 

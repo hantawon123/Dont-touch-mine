@@ -19,10 +19,16 @@ namespace Game.Client.Settings
 
         event Action<bool> HighContrastChanged;
 
+        event Action<GraphicsSetting, int> GraphicsSettingChanged;
+
+        event Action<int> BrightnessChanged;
+
         void SetActiveTab(SettingsTab tab);
 
         void SetAudioSettings(AudioSettingsState settings);
 
         void SetAccessibilitySettings(AccessibilitySettingsState settings);
+
+        void SetGraphicsSettings(GraphicsSettingsState settings);
     }
 }
