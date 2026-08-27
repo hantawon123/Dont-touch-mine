@@ -176,7 +176,40 @@ namespace Game.Bootstrap
 
             // Only the camera's follow target is missing now; the screen is
             // still usable, so this stays a warning.
-            Debug.LogWarning("Lobby camera could not find the local PlayerAvatar.", this);
+            Debug.LogWarning(
+                "Lobby camera could not find the local PlayerAvatar. " +
+                DescribeAvatarSearch(),
+                this);
+        }
+
+        /// <summary>
+        /// Says why the search above came up empty, in the three terms that tell
+        /// the causes apart: whether any avatar exists at all, whether the ones
+        /// that do are active, and whether any of them claims input authority.
+        /// </summary>
+        /// <remarks>
+        /// TEMPORARY DIAGNOSTIC. Remove once the missing follow target is
+        /// understood. The three causes are indistinguishable from the warning
+        /// alone, and guessing between them has already cost a round of wrong
+        /// fixes.
+        /// </remarks>
+        private static string DescribeAvatarSearch()
+        {
+            var active = FindObjectsByType<PlayerAvatar>(
+                FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            var all = FindObjectsByType<PlayerAvatar>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
+
+            var owned = 0;
+            for (var i = 0; i < all.Length; i++)
+            {
+                if (all[i].IsOwner)
+                {
+                    owned++;
+                }
+            }
+
+            return $"avatars: active={active.Length} total={all.Length} owned={owned}.";
         }
 
         /// <summary>

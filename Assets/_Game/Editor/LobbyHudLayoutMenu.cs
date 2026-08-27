@@ -61,7 +61,10 @@ namespace Game.Editor
             Place(leave, Anchor.TopRight, new Vector2(-24f, -24f), new Vector2(180f, 72f));
             Place(keyGuide, Anchor.MiddleLeft, new Vector2(24f, 40f), new Vector2(180f, 96f));
             Place(playerList, Anchor.TopRight, new Vector2(-24f, -120f), new Vector2(300f, 420f));
-            Place(chat, Anchor.BottomLeft, new Vector2(24f, 24f), new Vector2(720f, 240f));
+            // Lifted clear of the floor. Sitting at the bottom edge put the chat
+            // behind the characters standing in the lobby, which is where the
+            // camera looks.
+            Place(chat, Anchor.BottomLeft, new Vector2(24f, 200f), new Vector2(720f, 240f));
             Place(voice, Anchor.BottomRight, new Vector2(-24f, 24f), new Vector2(72f, 72f));
 
             SetLabel(settings, "설정");
