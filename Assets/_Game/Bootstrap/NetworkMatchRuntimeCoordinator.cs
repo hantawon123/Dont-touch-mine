@@ -308,10 +308,12 @@ namespace Game.Bootstrap
                  playerIndex < synchronizedControls.Length;
                  playerIndex++)
             {
+                // 숨기기 페이즈에는 현재 숨기는 사람만 움직일 수 있다.
+                // 나머지는 대기 구역에서 이동이 잠긴다. (걸어서 집에 들어오는 것 방지)
                 var enabled = session.Players.IsActive(playerIndex) &&
                               !session.IsPlayerStunned(playerIndex, now) &&
-                              (phase == MatchPhase.Hiding ||
-                               phase == MatchPhase.Searching);
+                              (phase == MatchPhase.Searching ||
+                               (phase == MatchPhase.Hiding && playerIndex == hidingTurn));
                 if (hasSynchronizedPlayers &&
                     synchronizedControls[playerIndex] == enabled)
                 {
