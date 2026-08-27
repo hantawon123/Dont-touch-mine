@@ -194,16 +194,20 @@ namespace Game.Network.Match
         {
             if (!TryGetPlayingAvatar(playerIndex, out var avatar))
             {
+                Debug.LogWarning(
+                    $"[PlayerTeleport] No avatar mapped to playerIndex={playerIndex}, " +
+                    $"target={pose.position}.");
                 return false;
             }
 
             var motor = avatar.GetComponent<NetworkPlayerMotor>();
-            if (motor == null)
-            {
-                return false;
-            }
-
-            return motor.TryTeleport(pose);
+            var teleported = motor != null && motor.TryTeleport(pose);
+            Debug.Log(
+                $"[PlayerTeleport] playerIndex={playerIndex}, " +
+                $"playerId={_playing[playerIndex].PlayerId}, " +
+                $"avatarOwner={avatar.Owner}, target={pose.position}, " +
+                $"success={teleported}.");
+            return teleported;
         }
 
         public bool TryInitializeAssignedItems(

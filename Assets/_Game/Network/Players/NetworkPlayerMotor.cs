@@ -17,6 +17,8 @@ namespace Game.Network.Players
         private CharacterController _controller;
         private NetworkTransform _networkTransform;
         private IPlayerInputIntentSource _inputSource;
+        private Pose _pendingTeleportPose;
+        private bool _reapplyTeleportNextTick;
 
         [Networked]
         private float VerticalVelocity { get; set; }
@@ -102,6 +104,12 @@ namespace Game.Network.Players
             if (!IsConfigured || Object == null || !Object.HasStateAuthority)
             {
                 return;
+            }
+
+            if (_reapplyTeleportNextTick)
+            {
+                _reapplyTeleportNextTick = false;
+                ApplyTeleport(_pendingTeleportPose);
             }
 
             if (!GetInput(out NetworkPlayerInput input))
@@ -196,9 +204,22 @@ namespace Game.Network.Players
                 return false;
             }
 
-            _networkTransform.Teleport(pose.position, pose.rotation);
+            ApplyTeleport(pose);
+            _pendingTeleportPose = pose;
+            _reapplyTeleportNextTick = true;
             ResetMotion();
             return true;
+        }
+
+        private void ApplyTeleport(Pose pose)
+        {
+            // CharacterController and NetworkTransform both cache their previous
+            // pose. Suspend collision resolution while updating both writers.
+            _controller.enabled = false;
+            transform.SetPositionAndRotation(pose.position, pose.rotation);
+            _networkTransform.Teleport(pose.position, pose.rotation);
+            _controller.enabled = true;
+            Physics.SyncTransforms();
         }
 
         internal static Vector3 ToWorldDirection(Vector2 move, float lookYawDegrees)
