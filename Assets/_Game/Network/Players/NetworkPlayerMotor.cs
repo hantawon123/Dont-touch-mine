@@ -5,8 +5,9 @@ using UnityEngine;
 namespace Game.Network.Players
 {
     /// <summary>
-    /// Collects input on the owning peer and applies the same movement model
-    /// during Fusion prediction and authority simulation.
+    /// Collects input on the owning peer and applies the shared movement model
+    /// once on State Authority. NetworkTransform distributes that single result
+    /// to every peer, so clients never become competing transform writers.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CharacterController))]
@@ -63,8 +64,7 @@ namespace Game.Network.Players
         /// <summary>Called only for the local player's object from OnInput.</summary>
         public NetworkPlayerInput CaptureInput()
         {
-            if (!IsConfigured || Object == null || !Object.HasInputAuthority ||
-                !ControlsEnabled)
+            if (!IsConfigured || Object == null || !Object.HasInputAuthority)
             {
                 return default;
             }
@@ -74,7 +74,7 @@ namespace Game.Network.Players
 
         public override void FixedUpdateNetwork()
         {
-            if (!IsConfigured)
+            if (!IsConfigured || Object == null || !Object.HasStateAuthority)
             {
                 return;
             }
