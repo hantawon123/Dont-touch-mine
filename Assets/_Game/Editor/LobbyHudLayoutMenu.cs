@@ -964,6 +964,29 @@ namespace Game.Editor
                     labelRect.offsetMax = new Vector2(-12f, -10f);
                 }
 
+                // 이름표는 말풍선과 같은 캔버스를 쓰되 늘 켜져 있다. 말풍선이
+                // 뜨는 자리를 비켜 아래에 둔다.
+                var nameplate = canvas.Find("Nameplate") as RectTransform;
+                if (nameplate == null)
+                {
+                    var nameplateGo = new GameObject("Nameplate", typeof(RectTransform));
+                    Undo.RegisterCreatedObjectUndo(nameplateGo, "Create Nameplate");
+                    nameplateGo.transform.SetParent(canvas, false);
+                    nameplate = nameplateGo.GetComponent<RectTransform>();
+                }
+
+                var nameLabel = nameplate.GetComponent<Text>();
+                if (nameLabel == null)
+                {
+                    nameLabel = Undo.AddComponent<Text>(nameplate.gameObject);
+                }
+
+                Place(nameplate, Anchor.Center, new Vector2(0f, -52f), new Vector2(320f, 40f));
+                ApplyText(nameLabel, string.Empty, 22, TextAnchor.MiddleCenter);
+                nameLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+                nameLabel.verticalOverflow = VerticalWrapMode.Overflow;
+                nameLabel.raycastTarget = false;
+
                 bubble.gameObject.SetActive(false);
                 anchors.Add(new LobbyChatBubbleAnchor
                 {
@@ -971,6 +994,7 @@ namespace Game.Editor
                     headAnchor = head,
                     bubbleRoot = bubble,
                     bubbleText = label,
+                    nameText = nameLabel,
                 });
             }
 
@@ -986,6 +1010,7 @@ namespace Game.Editor
                 element.FindPropertyRelative("headAnchor").objectReferenceValue = anchors[i].headAnchor;
                 element.FindPropertyRelative("bubbleRoot").objectReferenceValue = anchors[i].bubbleRoot;
                 element.FindPropertyRelative("bubbleText").objectReferenceValue = anchors[i].bubbleText;
+                element.FindPropertyRelative("nameText").objectReferenceValue = anchors[i].nameText;
             }
 
             so.ApplyModifiedPropertiesWithoutUndo();
