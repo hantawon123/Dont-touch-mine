@@ -235,6 +235,9 @@ namespace Game.Architecture.Tests
 
             public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
             public event Action SimulationTick;
+            public event Action SceneLoaded;
+
+            public void PublishSceneLoaded() => SceneLoaded?.Invoke();
 
             public bool TryGetPlayerPose(string playerId, out Pose pose) =>
                 poses.TryGetValue(playerId, out pose);

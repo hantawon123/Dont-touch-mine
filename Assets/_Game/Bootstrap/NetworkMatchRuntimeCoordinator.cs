@@ -105,6 +105,7 @@ namespace Game.Bootstrap
             started = true;
             network.LineUpReceived += OnLineUpReceived;
             network.SimulationTick += OnSimulationTick;
+            network.SceneLoaded += OnSceneLoaded;
 
             var currentLineUp = roomState.MatchParticipants.CurrentValue;
             if (currentLineUp.Count > 0)
@@ -120,6 +121,7 @@ namespace Game.Bootstrap
                 started = false;
                 network.LineUpReceived -= OnLineUpReceived;
                 network.SimulationTick -= OnSimulationTick;
+                network.SceneLoaded -= OnSceneLoaded;
             }
 
             StopRuntime();
@@ -210,6 +212,13 @@ namespace Game.Bootstrap
                 hasPublishedSnapshot = false;
                 throw;
             }
+        }
+
+        // 씬 로드 직후 스포너가 전원을 씬 스폰 위치로 재배치해 경기 배치를 덮어쓴다.
+        // 숨기기 초기 배치를 다음 틱에 다시 적용하도록 표시한다.
+        private void OnSceneLoaded()
+        {
+            hidingInitialPlacementDone = false;
         }
 
         private void SynchronizePlayers()
