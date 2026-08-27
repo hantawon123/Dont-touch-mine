@@ -9,6 +9,7 @@ namespace Game.Client.Match
         /// <inheritdoc cref="IMatchPhaseView.SetPhase"/>
         void SetPhase(MatchPhase phase, string hidingPlayerName);
         void SetRemainingSeconds(double remainingSeconds);
+        void SetHighlightTitle(string title);
         void SetAssignedItem(string displayName);
         void SetRemainingDestructionUses(int remainingUses);
         void ShowDestructionNotice(string message);
@@ -27,6 +28,9 @@ namespace Game.Client.Match
 
         [SerializeField]
         private MatchTimerView timerView;
+
+        [SerializeField]
+        private TMP_Text highlightTitleText;
 
         [SerializeField]
         private TMP_Text assignedItemText;
@@ -55,6 +59,7 @@ namespace Game.Client.Match
 
             HideDestructionNotice();
             SetShredderMarker(default, false);
+            SetHighlightTitle(null);
             SetAssignedItem(null);
         }
 
@@ -63,6 +68,18 @@ namespace Game.Client.Match
 
         public void SetRemainingSeconds(double remainingSeconds) =>
             timerView?.SetRemainingSeconds(remainingSeconds);
+
+        public void SetHighlightTitle(string title)
+        {
+            if (highlightTitleText == null)
+            {
+                return;
+            }
+
+            var visible = !string.IsNullOrWhiteSpace(title);
+            highlightTitleText.text = visible ? title.Trim() : string.Empty;
+            highlightTitleText.gameObject.SetActive(visible);
+        }
 
         public void SetAssignedItem(string displayName)
         {

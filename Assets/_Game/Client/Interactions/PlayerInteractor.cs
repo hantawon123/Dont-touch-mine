@@ -42,6 +42,9 @@ namespace Game.Client.Interactions
         [SerializeField, Min(0f), Tooltip("소지 물건이 눈높이에서 아래로 내려간 거리")]
         private float holdHeightBelowEyes = 0.55f;
 
+        [SerializeField, Tooltip("소지 물건의 좌우 치우침 (+ 오른쪽)")]
+        private float holdSideOffset = 0.25f;
+
         public CarryableItem CarriedItem { get; private set; }
 
         public Transform HoldPoint => holdPoint;
@@ -115,7 +118,7 @@ namespace Game.Client.Interactions
             if (playerMovement != null)
             {
                 var target = new Vector3(
-                    0f,
+                    holdSideOffset,
                     Mathf.Max(0.2f, playerMovement.CurrentEyeHeight - holdHeightBelowEyes),
                     holdForwardOffset);
                 holdPoint.localPosition = Vector3.Lerp(holdPoint.localPosition, target, 10f * Time.deltaTime);

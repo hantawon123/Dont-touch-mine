@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Players;
+using Game.Network.Players;
 using Game.Server.Items;
 using Game.Server.Match;
 using UnityEngine;
@@ -119,6 +121,12 @@ namespace Game.Bootstrap
             for (var index = 0; index < playerCount; index++)
             {
                 ApplyPose(playerTargets[index], from.PlayerPoses[index], to.PlayerPoses[index], t);
+                ApplyLocomotion(
+                    playerTargets[index],
+                    from.PlayerPoses[index],
+                    to.PlayerPoses[index],
+                    to.RecordedAt - from.RecordedAt,
+                    (float)clip.Segment.PlaybackSpeed);
             }
 
             foreach (var fromObject in from.WorldObjects)
@@ -190,6 +198,29 @@ namespace Game.Bootstrap
             target.SetPositionAndRotation(
                 Vector3.Lerp(from.position, to.position, t),
                 Quaternion.Slerp(from.rotation, to.rotation, t));
+        }
+
+        private static void ApplyLocomotion(
+            Transform target,
+            Pose from,
+            Pose to,
+            double recordedDurationSeconds,
+            float playbackSpeed)
+        {
+            if (target == null || recordedDurationSeconds <= 0d)
+            {
+                return;
+            }
+
+            var delta = to.position - from.position;
+            delta.y = 0f;
+            var speed = delta.magnitude /
+                        (float)recordedDurationSeconds * playbackSpeed;
+            var motor = target.GetComponent<NetworkPlayerMotor>();
+            target.GetComponent<PlayerAnimationDriver>()?.ApplyNetworkState(
+                speed,
+                grounded: true,
+                attackSequence: motor != null ? motor.AttackSequence : 0);
         }
     }
 }
