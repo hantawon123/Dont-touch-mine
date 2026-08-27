@@ -57,6 +57,9 @@ namespace Game.Client.Combat
         /// <summary>공격 모션 재생 등 표현 계층이 구독하는 공격 실행 알림.</summary>
         public event System.Action AttackPerformed;
 
+        /// <summary>표현 계층(애니메이션)이 참조하는 전투 설정.</summary>
+        public CombatConfigSO Config => combatConfig;
+
         public bool IsStunned =>
             usesNetworkState
                 ? networkStunned
@@ -174,7 +177,7 @@ namespace Game.Client.Combat
             var isEmptyHanded = interactor == null || interactor.CarriedItem == null;
             if (isEmptyHanded && attackAction.WasPressedThisFrame() && Time.time >= nextAttackTime)
             {
-                nextAttackTime = Time.time + combatConfig.AttackCooldownSeconds;
+                nextAttackTime = Time.time + combatConfig.EffectiveAttackCooldownSeconds;
                 AttackPerformed?.Invoke();
                 pendingHitTime = Time.time + combatConfig.AttackHitDelaySeconds;
                 hasPendingHit = true;

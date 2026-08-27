@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Combat;
 using Game.Client.Cameras;
 using Game.Client.Interactions;
+using Game.Client.Players;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Match;
@@ -145,6 +146,16 @@ namespace Game.Bootstrap
                 var acceptsLocalInput = avatar.IsOwner &&
                                         motor != null &&
                                         motor.ControlsEnabled;
+
+                if (motor != null)
+                {
+                    avatar.GetComponent<PlayerMovement>()?.ApplyNetworkPosture(
+                        motor.Posture);
+                    avatar.GetComponent<PlayerAnimationDriver>()?.ApplyNetworkState(
+                        motor.AnimationSpeed,
+                        motor.AnimationGrounded,
+                        motor.AttackSequence);
+                }
 
                 var interactor = avatar.GetComponent<PlayerInteractor>();
                 if (interactor != null)

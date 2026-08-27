@@ -60,6 +60,10 @@ namespace Game.Bootstrap
         private Transform[] spawnPoints = Array.Empty<Transform>();
 
         [SerializeField]
+        [Tooltip("숨기기 차례가 아닌 플레이어가 대기하는 지점. 비우면 일반 스폰 지점을 대신 사용한다.")]
+        private Transform[] waitingSpawnPoints = Array.Empty<Transform>();
+
+        [SerializeField]
         private SceneWorldObjectReference[] worldObjects =
             Array.Empty<SceneWorldObjectReference>();
 
@@ -79,6 +83,21 @@ namespace Game.Bootstrap
         public Pose[] CaptureSpawnPoses()
         {
             return CaptureSpawnPoses(spawnPoints);
+        }
+
+        /// <summary>숨기기 대기 지점. 설정하지 않으면 null을 돌려주고 일반 스폰 지점이 대신 쓰인다.</summary>
+        public Pose[] CaptureWaitingSpawnPoses()
+        {
+            if (waitingSpawnPoints == null || waitingSpawnPoints.Length == 0)
+            {
+                Debug.LogWarning(
+                    "[Match] 대기 스폰 지점이 설정되지 않아 일반 스폰 지점을 대신 사용합니다. " +
+                    "MatchSceneConfiguration의 Waiting Spawn Points를 연결하세요.",
+                    this);
+                return null;
+            }
+
+            return CaptureSpawnPoses(waitingSpawnPoints);
         }
 
         public WorldObjectState[] CaptureWorldObjectStates()

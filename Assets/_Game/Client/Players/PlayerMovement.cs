@@ -8,13 +8,6 @@ using UnityEngine.UI;
 
 namespace Game.Client.Players
 {
-    public enum PlayerPosture
-    {
-        Standing,
-        Crouching,
-        Prone
-    }
-
     [RequireComponent(typeof(CharacterController))]
     public sealed class PlayerMovement : MonoBehaviour, IPlayerInputIntentSource
     {
@@ -34,7 +27,12 @@ namespace Game.Client.Players
             movementConfig.SprintSpeed,
             movementConfig.RotationSpeedDegrees,
             movementConfig.JumpHeight,
-            movementConfig.GravityMultiplier);
+            movementConfig.GravityMultiplier,
+            movementConfig.CrouchSpeed,
+            movementConfig.ProneSpeed,
+            movementConfig.StandHeight,
+            movementConfig.CrouchHeight,
+            movementConfig.ProneHeight);
 
         public float CurrentEyeHeight => Posture switch
         {
@@ -50,6 +48,7 @@ namespace Game.Client.Players
         private InputAction sprintAction;
         private InputAction crouchAction;
         private InputAction proneAction;
+        private InputAction attackAction;
         private Transform cameraTransform;
         private float verticalVelocity;
         private Vector3 externalVelocity;
@@ -69,6 +68,11 @@ namespace Game.Client.Players
         }
 
         public bool IsGrounded => controller.isGrounded;
+
+        public void ApplyNetworkPosture(PlayerPosture posture)
+        {
+            Posture = posture;
+        }
 
         /// <summary>넉백 등 외부 충격을 가한다. 시간이 지나며 자연히 줄어든다.</summary>
         public void AddImpulse(Vector3 impulse)
@@ -123,6 +127,11 @@ namespace Game.Client.Players
                 buttons |= PlayerInputButtons.Prone;
             }
 
+            if (attackAction.IsPressed())
+            {
+                buttons |= PlayerInputButtons.Attack;
+            }
+
             var lookYaw = TryEnsureCamera()
                 ? cameraTransform.eulerAngles.y
                 : transform.eulerAngles.y;
@@ -153,6 +162,7 @@ namespace Game.Client.Players
             sprintAction = playerMap.FindAction("Sprint", throwIfNotFound: true);
             crouchAction = playerMap.FindAction("Crouch", throwIfNotFound: true);
             proneAction = playerMap.FindAction("Prone", throwIfNotFound: true);
+            attackAction = playerMap.FindAction("Attack", throwIfNotFound: true);
 
             if (visualRoot == null)
             {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Cameras;
 using Game.Client.Home;
 using Game.Client.Lobby;
+using Game.Client.Players;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Maps;
@@ -123,6 +124,7 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<LobbyChatPresenter>();
             builder.RegisterEntryPoint<LobbyChatBubbleBinder>();
             builder.RegisterEntryPoint<LobbyPlayerCameraBinder>();
+            builder.RegisterEntryPoint<LobbyPlayerAnimationBinder>();
             // AsSelf so the bridge below can take the leave request off it.
             builder.RegisterEntryPoint<LobbyExitPresenter>().AsSelf();
             builder.RegisterEntryPoint<NetworkLobbyExitBridge>();
@@ -338,6 +340,32 @@ namespace Game.Bootstrap
             }
 
             return string.Empty;
+        }
+    }
+
+    internal sealed class LobbyPlayerAnimationBinder : ITickable
+    {
+        public void Tick()
+        {
+            var avatars = UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None);
+
+            for (var i = 0; i < avatars.Length; i++)
+            {
+                var avatar = avatars[i];
+                var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                if (motor == null)
+                {
+                    continue;
+                }
+
+                avatar.GetComponent<PlayerMovement>()?.ApplyNetworkPosture(motor.Posture);
+                avatar.GetComponent<PlayerAnimationDriver>()?.ApplyNetworkState(
+                    motor.AnimationSpeed,
+                    motor.AnimationGrounded,
+                    motor.AttackSequence);
+            }
         }
     }
 }

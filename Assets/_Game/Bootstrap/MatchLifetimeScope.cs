@@ -63,7 +63,8 @@ namespace Game.Bootstrap
                 matchSceneConfiguration.CaptureSpawnPoses(),
                 ItemCatalog.Definitions,
                 matchSceneConfiguration.CaptureWorldObjectStates(),
-                matchSceneConfiguration.CaptureShredderEjectionPose()));
+                matchSceneConfiguration.CaptureShredderEjectionPose(),
+                matchSceneConfiguration.CaptureWaitingSpawnPoses()));
             builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
             builder.RegisterEntryPoint<MatchPhasePresenter>();
         }

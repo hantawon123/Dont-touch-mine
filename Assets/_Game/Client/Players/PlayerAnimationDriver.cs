@@ -1,4 +1,5 @@
 using Game.Client.Combat;
+using Game.Core.Players;
 using UnityEngine;
 
 namespace Game.Client.Players
@@ -22,14 +23,23 @@ namespace Game.Client.Players
         private const float SpeedDampTime = 0.1f;
         private const float CrossFadeSeconds = 0.15f;
 
-        [SerializeField, Min(0.1f), Tooltip("펀치 모션 유지 시간(초)")]
+        [SerializeField, Min(0.1f), Tooltip("펀치 모션 유지 시간(초). CombatConfig가 있으면 그 값을 우선한다")]
         private float punchDurationSeconds = 0.5f;
+
+        private float PunchDuration =>
+            combatant != null && combatant.Config != null
+                ? combatant.Config.PunchMotionSeconds
+                : punchDurationSeconds;
 
         private PlayerMovement movement;
         private PlayerCombatant combatant;
         private Animator animator;
         private string currentState;
         private float punchUntilTime;
+        private bool usesNetworkState;
+        private float networkSpeed;
+        private bool networkGrounded;
+        private int networkAttackSequence;
 
         private void Awake()
         {
@@ -65,7 +75,17 @@ namespace Game.Client.Players
 
         private void OnAttackPerformed()
         {
-            punchUntilTime = Time.time + punchDurationSeconds;
+            if (usesNetworkState)
+            {
+                return;
+            }
+
+            PlayPunch();
+        }
+
+        private void PlayPunch()
+        {
+            punchUntilTime = Time.time + PunchDuration;
 
             // 연속 공격: 이미 Punch 상태여도 클립을 처음부터 다시 재생한다.
             // (상태 변화 감지에만 의존하면 두 번째 공격부터 마지막 프레임에 멈춘 채 보인다)
@@ -73,9 +93,33 @@ namespace Game.Client.Players
             animator.CrossFadeInFixedTime(PunchState, 0.05f, 0, 0f);
         }
 
+        public void ApplyNetworkState(
+            float planarSpeed,
+            bool grounded,
+            int attackSequence)
+        {
+            if (!usesNetworkState)
+            {
+                usesNetworkState = true;
+                networkAttackSequence = attackSequence;
+            }
+            else if (networkAttackSequence != attackSequence)
+            {
+                networkAttackSequence = attackSequence;
+                PlayPunch();
+            }
+
+            networkSpeed = Mathf.Max(0f, planarSpeed);
+            networkGrounded = grounded;
+        }
+
         private void Update()
         {
-            animator.SetFloat(SpeedId, movement.PlanarSpeed, SpeedDampTime, Time.deltaTime);
+            animator.SetFloat(
+                SpeedId,
+                usesNetworkState ? networkSpeed : movement.PlanarSpeed,
+                SpeedDampTime,
+                Time.deltaTime);
 
             var desiredState = ResolveDesiredState();
             if (desiredState != currentState)
@@ -97,7 +141,7 @@ namespace Game.Client.Players
                 return PunchState;
             }
 
-            if (!movement.IsGrounded)
+            if (!(usesNetworkState ? networkGrounded : movement.IsGrounded))
             {
                 return AirborneState;
             }
