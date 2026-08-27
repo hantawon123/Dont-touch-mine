@@ -60,15 +60,17 @@ namespace Game.Architecture.Tests
                 Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
                 Assert.That(network.Snapshots, Has.Count.EqualTo(1));
                 Assert.That(network.Snapshots[0].Phase, Is.EqualTo(MatchPhase.Hiding));
+                // 숨기기 페이즈: 현재 턴(0번)만 조작 가능, 대기자는 잠금.
                 Assert.That(network.Controls[0], Is.True);
-                Assert.That(network.Controls[1], Is.True);
+                Assert.That(network.Controls[1], Is.False);
                 Assert.That(network.TeleportedPlayers, Is.EqualTo(new[] { 0, 1 }));
                 Assert.That(network.TeleportedPoses[1].position.z, Is.EqualTo(-10f));
 
                 network.ServerTime = 10d + rules.HidingTurnDurationSeconds;
                 network.PublishSimulationTick();
 
-                Assert.That(network.Controls[0], Is.True);
+                // 턴 교대: 이제 1번만 조작 가능.
+                Assert.That(network.Controls[0], Is.False);
                 Assert.That(network.Controls[1], Is.True);
                 Assert.That(
                     network.InitializedAssignmentPlayers,
