@@ -169,11 +169,6 @@ namespace Game.Client.Players
             playerMap?.Enable();
         }
 
-        private void OnDisable()
-        {
-            playerMap?.Disable();
-        }
-
         private void Update()
         {
             var inputLocked = IsMovementLocked || IsTextInputFocused();

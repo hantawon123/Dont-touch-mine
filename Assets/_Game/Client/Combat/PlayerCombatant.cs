@@ -12,7 +12,6 @@ namespace Game.Client.Combat
     /// 전투 참가자: 빈손 좌클릭 공격(전방 근접 판정)과 피격/기절 반응을 담당한다.
     /// 판정 규칙(3타 기절, 기절 시간, 무적)은 IPlayerCombatRules(서버 시스템)가 소유하고,
     /// 이 컴포넌트는 입력 의도 전달과 로컬 표현만 맡는다.
-    /// 더미(공격 안 하는 대상)는 Input Actions를 비우고 Is Attacker를 꺼서 사용한다.
     /// </summary>
     public sealed class PlayerCombatant : MonoBehaviour
     {
@@ -130,10 +129,6 @@ namespace Game.Client.Combat
             {
                 playerMap?.Enable();
             }
-            else
-            {
-                playerMap?.Disable();
-            }
         }
 
         public void SetNetworkStunned(bool stunned)
@@ -145,11 +140,6 @@ namespace Game.Client.Combat
         private void OnEnable()
         {
             playerMap?.Enable();
-        }
-
-        private void OnDisable()
-        {
-            playerMap?.Disable();
         }
 
         private void Update()

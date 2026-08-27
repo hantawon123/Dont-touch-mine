@@ -19,7 +19,8 @@ namespace Game.Bootstrap
             IReadOnlyList<Pose> spawnPoints,
             IReadOnlyList<ItemDefinition> itemDefinitions,
             IReadOnlyList<WorldObjectState> initialWorldObjects,
-            Pose shredderEjectionPose)
+            Pose shredderEjectionPose,
+            IReadOnlyList<Pose> hidingWaitingSpawnPoints = null)
         {
             PlacementValidator = placementValidator ??
                 throw new ArgumentNullException(nameof(placementValidator));
@@ -29,6 +30,13 @@ namespace Game.Bootstrap
             InitialWorldObjects = initialWorldObjects ??
                 throw new ArgumentNullException(nameof(initialWorldObjects));
             ShredderEjectionPose = shredderEjectionPose;
+            HidingWaitingSpawnPoints = hidingWaitingSpawnPoints ?? spawnPoints;
+            if (HidingWaitingSpawnPoints.Count < spawnPoints.Count)
+            {
+                throw new ArgumentException(
+                    "A waiting point is required for every match spawn point.",
+                    nameof(hidingWaitingSpawnPoints));
+            }
         }
 
         public IPlacementValidator PlacementValidator { get; }
@@ -36,6 +44,7 @@ namespace Game.Bootstrap
         public IReadOnlyList<ItemDefinition> ItemDefinitions { get; }
         public IReadOnlyList<WorldObjectState> InitialWorldObjects { get; }
         public Pose ShredderEjectionPose { get; }
+        public IReadOnlyList<Pose> HidingWaitingSpawnPoints { get; }
     }
 
     /// <summary>
@@ -178,8 +187,9 @@ namespace Game.Bootstrap
                 if (!network.BindMatchSession(
                         created.Session,
                         configuration.ShredderEjectionPose) ||
-                    !network.TryPublishItemAssignments(created.Session.Assignments) ||
-                    !createdRuntime.StartMatch())
+                    !createdRuntime.StartMatch() ||
+                    !network.TryInitializeAssignedItems(created.Session.Assignments) ||
+                    !network.TryPublishItemAssignments(created.Session.Assignments))
                 {
                     throw new InvalidOperationException(
                         "The authority could not initialize the network match runtime.");
@@ -215,11 +225,26 @@ namespace Game.Bootstrap
                 session.TryGetCurrentHidingSpawnPose(
                     hidingTurn,
                     now,
-                    out var hidingPose) &&
-                !network.TryTeleportPlayer(hidingTurn, hidingPose))
+                    out var hidingPose))
             {
-                throw new InvalidOperationException(
-                    $"The authority could not position hiding player {hidingTurn}.");
+                for (var playerIndex = 0;
+                     playerIndex < session.Players.Players.Count;
+                     playerIndex++)
+                {
+                    if (!session.Players.IsActive(playerIndex))
+                    {
+                        continue;
+                    }
+
+                    var pose = playerIndex == hidingTurn
+                        ? hidingPose
+                        : configuration.HidingWaitingSpawnPoints[playerIndex];
+                    if (!network.TryTeleportPlayer(playerIndex, pose))
+                    {
+                        throw new InvalidOperationException(
+                            $"The authority could not position hiding player {playerIndex}.");
+                    }
+                }
             }
 
             if (phase == MatchPhase.Searching && phaseChanged)

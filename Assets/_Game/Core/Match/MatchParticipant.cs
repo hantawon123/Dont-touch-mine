@@ -38,7 +38,7 @@ namespace Game.Core.Match
                 throw new ArgumentNullException(nameof(roomParticipants));
             }
 
-            if (roomParticipants.Count < RoomSettings.MinPlayerCount ||
+            if (roomParticipants.Count < RoomSettings.MinMatchPlayerCount ||
                 roomParticipants.Count > RoomSettings.MaxPlayerCount)
             {
                 throw new ArgumentOutOfRangeException(nameof(roomParticipants));

@@ -86,6 +86,28 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void InitializeAssignedItem_GivesEveryPlayerTheirOwnItemBeforeTurn()
+        {
+            session.Start(10d);
+
+            for (var playerIndex = 0;
+                 playerIndex < session.Assignments.Count;
+                 playerIndex++)
+            {
+                Assert.That(
+                    session.TryInitializeAssignedItem(playerIndex),
+                    Is.True,
+                    $"player {playerIndex}");
+                Assert.That(
+                    session.TryGetHeldObjectId(playerIndex, out var objectId),
+                    Is.True);
+                Assert.That(
+                    objectId,
+                    Is.EqualTo(session.Assignments[playerIndex].Item.ItemId));
+            }
+        }
+
+        [Test]
         public void HidingPlayer_CanMovePlayerItemsAndMapObjects()
         {
             session.Start(10d);
@@ -799,13 +821,11 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void HidingTurnBoundary_RestoresWorldAndKeepsHiddenItems()
+        public void HidingTurnBoundary_KeepsMovedWorldObjectsForLaterPhases()
         {
             session.Start(10d);
             var firstPose = new Pose(new Vector3(1f, 2f, 3f), Quaternion.identity);
             var secondPose = new Pose(new Vector3(4f, 5f, 6f), Quaternion.identity);
-            var resetCount = 0;
-            session.WorldObjectsReset += _ => resetCount++;
 
             Assert.That(
                 session.TryRecordWorldObjectPose(1, "shelf", firstPose, 20d),
@@ -817,8 +837,7 @@ namespace Game.Tests.EditMode
             session.AdvanceTime(40d, lastKnownPositions);
 
             Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
-            Assert.That(state.Pose.position, Is.EqualTo(Vector3.zero));
-            Assert.That(resetCount, Is.EqualTo(1));
+            Assert.That(state.Pose.position, Is.EqualTo(firstPose.position));
 
             Assert.That(
                 session.TryRecordWorldObjectPose(1, "shelf", secondPose, 45d),
@@ -830,18 +849,15 @@ namespace Game.Tests.EditMode
 
             Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
             Assert.That(session.TryGetWorldObjectState("shelf", out state), Is.True);
-            Assert.That(state.Pose.position, Is.EqualTo(Vector3.zero));
+            Assert.That(state.Pose.position, Is.EqualTo(secondPose.position));
             Assert.That(session.AllItemsPlaced, Is.True);
-            Assert.That(resetCount, Is.EqualTo(2));
         }
 
         [Test]
-        public void FutureHidingPlayerLeaving_DoesNotResetCurrentTurnEarly()
+        public void FutureHidingPlayerLeaving_KeepsCurrentWorldState()
         {
             session.Start(10d);
             var movedPose = new Pose(Vector3.right, Quaternion.identity);
-            var resetCount = 0;
-            session.WorldObjectsReset += _ => resetCount++;
 
             Assert.That(
                 session.TryRecordWorldObjectPose(0, "shelf", movedPose, 20d),
@@ -852,13 +868,11 @@ namespace Game.Tests.EditMode
 
             Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
             Assert.That(state.Pose.position, Is.EqualTo(movedPose.position));
-            Assert.That(resetCount, Is.Zero);
 
             session.AdvanceTime(40d, lastKnownPositions);
 
             Assert.That(session.TryGetWorldObjectState("shelf", out state), Is.True);
-            Assert.That(state.Pose.position, Is.EqualTo(Vector3.zero));
-            Assert.That(resetCount, Is.EqualTo(1));
+            Assert.That(state.Pose.position, Is.EqualTo(movedPose.position));
         }
 
         [Test]
@@ -926,10 +940,26 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Drop_ReleasesHeldObjectWithoutPrecisionPlacementValidation()
+        {
+            StartSearching();
+            var dropPose = new Pose(new Vector3(-1f, 0f, 0f), Quaternion.identity);
+
+            Assert.That(session.TryHoldObject(0, "shelf", 200d), Is.True);
+            Assert.That(session.CanPlaceHeldObject(0, dropPose, 200d), Is.False);
+            Assert.That(session.TryDropHeldObject(0, dropPose, 200d), Is.True);
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
+            Assert.That(state.Pose.position, Is.EqualTo(dropPose.position));
+        }
+
+        [Test]
         public void Shredder_EjectsMapObjectAfterHalfSecondWithoutDestroyingIt()
         {
             StartSearching();
             var ejectionPose = new Pose(new Vector3(3f, 0f, 4f), Quaternion.identity);
+            MapObjectEjectedEvent? ejected = null;
+            session.MapObjectEjected += value => ejected = value;
 
             Assert.That(
                 session.TryUseShredderOnHeldMapObject(0, ejectionPose, 200d),
@@ -947,10 +977,14 @@ namespace Game.Tests.EditMode
             session.AdvanceTime(200.49d, lastKnownPositions);
             Assert.That(session.TryGetWorldObjectState("shelf", out var state), Is.True);
             Assert.That(state.Pose.position, Is.EqualTo(Vector3.zero));
+            Assert.That(ejected.HasValue, Is.False);
 
             session.AdvanceTime(200.5d, lastKnownPositions);
             Assert.That(session.TryGetWorldObjectState("shelf", out state), Is.True);
             Assert.That(state.Pose.position, Is.EqualTo(ejectionPose.position));
+            Assert.That(ejected.HasValue, Is.True);
+            Assert.That(ejected.Value.ObjectId, Is.EqualTo("shelf"));
+            Assert.That(ejected.Value.Pose.position, Is.EqualTo(ejectionPose.position));
             Assert.That(session.GetRemainingDestructionUses(0), Is.EqualTo(4));
             Assert.That(session.TryHoldObject(1, "shelf", 200.5d), Is.True);
         }

@@ -8,6 +8,7 @@ namespace Game.Tests.EditMode
     {
         private GameObject floor;
         private GameObject obstacle;
+        private GameObject player;
         private PhysicsPlacementValidator validator;
 
         [SetUp]
@@ -19,6 +20,10 @@ namespace Game.Tests.EditMode
 
             obstacle = GameObject.CreatePrimitive(PrimitiveType.Cube);
             obstacle.transform.SetPositionAndRotation(new Vector3(2f, 0.5f, 0f), Quaternion.identity);
+
+            player = new GameObject("Player");
+            player.transform.position = new Vector3(0f, 1f, 0f);
+            player.AddComponent<CharacterController>();
 
             Physics.SyncTransforms();
             var defaultLayerMask = 1 << 0;
@@ -36,6 +41,7 @@ namespace Game.Tests.EditMode
         {
             Object.DestroyImmediate(floor);
             Object.DestroyImmediate(obstacle);
+            Object.DestroyImmediate(player);
         }
 
         [Test]

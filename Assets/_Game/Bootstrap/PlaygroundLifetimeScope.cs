@@ -6,6 +6,7 @@ using Game.Server.Match;
 using Game.Server.Players;
 using Game.SOAP.Config;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using VContainer;
 using VContainer.Unity;
 
@@ -17,12 +18,36 @@ namespace Game.Bootstrap
     /// </summary>
     public sealed class PlaygroundLifetimeScope : LifetimeScope
     {
+        private bool waitingForSceneLoad;
+
         [SerializeField]
         private MatchRulesSO matchRules;
 
         [SerializeField]
         [Tooltip("Optional HUD root. Leave empty until the scene UI is laid out.")]
         private NetworkMatchHudView matchHudView;
+
+        protected override void Awake()
+        {
+            if (gameObject.scene.isLoaded)
+            {
+                base.Awake();
+                return;
+            }
+
+            waitingForSceneLoad = true;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+
+        protected override void OnDestroy()
+        {
+            if (waitingForSceneLoad)
+            {
+                SceneManager.sceneLoaded -= OnSceneLoaded;
+            }
+
+            base.OnDestroy();
+        }
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -43,12 +68,27 @@ namespace Game.Bootstrap
             builder.Register<MatchRuntimeFactory>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>();
+            builder.RegisterEntryPoint<NetworkHighlightPlaybackController>();
+            builder.RegisterEntryPoint<NetworkResultLobbyReturnController>();
 
             if (matchHudView != null)
             {
                 builder.RegisterComponent(matchHudView).As<INetworkMatchHudView>();
                 builder.RegisterEntryPoint<NetworkMatchHudPresenter>();
             }
+
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (!waitingForSceneLoad || scene != gameObject.scene)
+            {
+                return;
+            }
+
+            waitingForSceneLoad = false;
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            base.Awake();
         }
     }
 }

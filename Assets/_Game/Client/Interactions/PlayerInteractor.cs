@@ -12,6 +12,7 @@ namespace Game.Client.Interactions
     public interface IPlayerInteractionCommands
     {
         bool RequestHold(string objectId);
+        bool RequestDrop(Pose pose);
         bool RequestRelease(Pose pose);
         bool RequestThrow(Pose pose, Vector3 initialVelocity);
         bool RequestHit(int targetPlayerIndex);
@@ -75,7 +76,6 @@ namespace Game.Client.Interactions
         private Transform cameraTransform;
         private Component aimedTarget;
         private PlayerMovement playerMovement;
-        private bool wasCursorLocked;
         private bool isAimingThrow;
         private IPlayerInteractionCommands commands;
         private readonly RaycastHit[] aimHits = new RaycastHit[MaxAimHits];
@@ -127,22 +127,12 @@ namespace Game.Client.Interactions
             playerMap?.Enable();
         }
 
-        private void OnDisable()
-        {
-            playerMap?.Disable();
-        }
-
         private void Update()
         {
             UpdateAim();
 
-            // 커서가 풀린 상태(메뉴 조작 등)의 클릭은 게임 입력으로 취급하지 않는다.
-            // 재잠금 클릭과 같은 프레임에 던져지지 않도록, 직전 프레임부터 잠겨 있던 경우만 허용한다.
-            var isCursorLocked = Cursor.lockState == CursorLockMode.Locked;
-            var acceptInput = isCursorLocked && wasCursorLocked && !IsInputLocked;
-            wasCursorLocked = isCursorLocked;
-
-            if (!acceptInput)
+            // 커서가 풀린 상태(메뉴 조작 등)의 클릭만 게임 입력에서 제외한다.
+            if (Cursor.lockState != CursorLockMode.Locked || IsInputLocked)
             {
                 CancelThrowAim();
                 return;
@@ -330,7 +320,7 @@ namespace Game.Client.Interactions
 
             if (commands != null)
             {
-                commands.RequestRelease(
+                commands.RequestDrop(
                     new Pose(dropped.transform.position, dropped.transform.rotation));
                 return;
             }

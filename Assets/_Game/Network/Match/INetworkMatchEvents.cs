@@ -15,6 +15,7 @@ namespace Game.Network.Match
     public interface INetworkMatchEvents
     {
         event Action<MatchStateSnapshot> MatchStateReceived;
+        event Action<string> ItemAssignmentReceived;
         event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
         event Action<IReadOnlyList<PlayerInteractionStateSnapshot>>
             PlayerInteractionStatesReceived;
@@ -33,6 +34,7 @@ namespace Game.Network.Match
         event Action SimulationTick;
         bool BindMatchSession(MatchSessionCoordinator session, Pose shredderEjectionPose);
         bool UnbindMatchSession(MatchSessionCoordinator session);
+        bool TryInitializeAssignedItems(IReadOnlyList<PlayerItemAssignment> assignments);
         bool TryPublishMatchState(MatchStateSnapshot snapshot);
         bool TryPublishItemAssignments(IReadOnlyList<PlayerItemAssignment> assignments);
         bool TryPublishHighlightReplay(IReadOnlyList<HighlightReplayData> replay);

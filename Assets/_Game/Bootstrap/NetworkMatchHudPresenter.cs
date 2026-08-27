@@ -1,5 +1,6 @@
 using System;
 using Game.Client.Match;
+using Game.Core.Items;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Match;
@@ -41,8 +42,11 @@ namespace Game.Bootstrap
         public void Start()
         {
             events.MatchStateReceived += OnMatchStateReceived;
+            events.ItemAssignmentReceived += OnItemAssignmentReceived;
             events.ItemDestroyedReceived += OnItemDestroyedReceived;
+            events.PlayerInteractionStatesReceived += OnPlayerInteractionStatesReceived;
             view.HideDestructionNotice();
+            view.SetRemainingDestructionUses(-1);
             view.SetShredderMarker(default, false);
             FindSceneReferences();
         }
@@ -50,7 +54,9 @@ namespace Game.Bootstrap
         public void Dispose()
         {
             events.MatchStateReceived -= OnMatchStateReceived;
+            events.ItemAssignmentReceived -= OnItemAssignmentReceived;
             events.ItemDestroyedReceived -= OnItemDestroyedReceived;
+            events.PlayerInteractionStatesReceived -= OnPlayerInteractionStatesReceived;
             view.HideDestructionNotice();
             view.SetShredderMarker(default, false);
         }
@@ -87,6 +93,31 @@ namespace Game.Bootstrap
                 $"{DisplayNameOf(confirmed.DestroyerPlayerIndex)}님이 물건을 파괴했습니다!");
             noticeEndsAt = Math.Max(clock.ServerTime, confirmed.DestroyedAt) +
                            NoticeDurationSeconds;
+        }
+
+        private void OnItemAssignmentReceived(string itemId)
+        {
+            view.SetAssignedItem(ItemCatalog.DisplayNameOf(itemId));
+        }
+
+        private void OnPlayerInteractionStatesReceived(
+            System.Collections.Generic.IReadOnlyList<PlayerInteractionStateSnapshot> states)
+        {
+            var localPlayerIndex = room.LocalPlayerIndex;
+            if (states == null || localPlayerIndex < 0)
+            {
+                return;
+            }
+
+            for (var index = 0; index < states.Count; index++)
+            {
+                if (states[index].PlayerIndex == localPlayerIndex)
+                {
+                    view.SetRemainingDestructionUses(
+                        states[index].RemainingDestructionUses);
+                    return;
+                }
+            }
         }
 
         private string DisplayNameOf(int playerIndex)
