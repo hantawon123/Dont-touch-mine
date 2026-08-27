@@ -1,5 +1,6 @@
 using Game.Client.Accessibility;
 using Game.Client.Audio;
+using Game.Client.Graphics;
 using Game.Core.Flow;
 using Game.Core.Home;
 using Game.Core.Lobby;
@@ -49,10 +50,17 @@ namespace Game.Bootstrap
                 .As<IAccessibilitySettingsApplier>();
             builder.Register<AccessibilitySettingsService>(Lifetime.Singleton)
                 .As<IAccessibilitySettings>();
+            builder.Register<PlayerPrefsGraphicsSettingsStore>(Lifetime.Singleton)
+                .As<IGraphicsSettingsStore>();
+            builder.Register<UnityGraphicsSettingsApplier>(Lifetime.Singleton)
+                .As<IGraphicsSettingsApplier>();
+            builder.Register<GraphicsSettingsService>(Lifetime.Singleton)
+                .As<IGraphicsSettings>();
             builder.RegisterBuildCallback(container =>
             {
                 container.Resolve<IAudioSettings>();
                 container.Resolve<IAccessibilitySettings>();
+                container.Resolve<IGraphicsSettings>();
             });
 
             // Replaced by the saved Steam/backend profile when that adapter is connected.

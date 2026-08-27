@@ -3,6 +3,7 @@ using Cysharp.Threading.Tasks;
 using Game.Bootstrap;
 using Game.Client.Accessibility;
 using Game.Client.Audio;
+using Game.Client.Graphics;
 using Game.Core.Flow;
 using Game.Core.Home;
 using Game.Core.Lobby;
@@ -64,6 +65,10 @@ namespace Game.Architecture.Tests
             var accessibility = container.Resolve<IAccessibilitySettings>();
             Assert.That(accessibility, Is.Not.Null);
             Assert.That(accessibility.Current, Is.Not.Null);
+
+            var graphics = container.Resolve<IGraphicsSettings>();
+            Assert.That(graphics, Is.Not.Null);
+            Assert.That(graphics.Current, Is.Not.Null);
         }
     }
 }
