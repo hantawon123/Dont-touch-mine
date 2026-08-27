@@ -6,7 +6,8 @@ namespace Game.Client.Match
 {
     public interface INetworkMatchHudView
     {
-        void SetPhase(MatchPhase phase);
+        /// <inheritdoc cref="IMatchPhaseView.SetPhase"/>
+        void SetPhase(MatchPhase phase, string hidingPlayerName);
         void SetRemainingSeconds(double remainingSeconds);
         void SetAssignedItem(string displayName);
         void SetRemainingDestructionUses(int remainingUses);
@@ -57,7 +58,8 @@ namespace Game.Client.Match
             SetAssignedItem(null);
         }
 
-        public void SetPhase(MatchPhase phase) => phaseView?.SetPhase(phase);
+        public void SetPhase(MatchPhase phase, string hidingPlayerName) =>
+            phaseView?.SetPhase(phase, hidingPlayerName);
 
         public void SetRemainingSeconds(double remainingSeconds) =>
             timerView?.SetRemainingSeconds(remainingSeconds);

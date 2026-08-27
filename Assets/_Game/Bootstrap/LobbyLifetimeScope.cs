@@ -7,6 +7,7 @@ using Game.Client.Players;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Maps;
+using Game.Core.Rooms;
 using Game.Network.Players;
 using Game.Network.Session;
 using R3;
@@ -122,6 +123,7 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
             builder.RegisterEntryPoint<LobbyChatPresenter>();
             builder.RegisterEntryPoint<LobbyChatBubbleBinder>();
+            builder.RegisterEntryPoint<LobbyPlayerCameraBinder>();
             builder.RegisterEntryPoint<LobbyPlayerAnimationBinder>();
             // AsSelf so the bridge below can take the leave request off it.
             builder.RegisterEntryPoint<LobbyExitPresenter>().AsSelf();
@@ -154,22 +156,19 @@ namespace Game.Bootstrap
                 cameraRig = Instantiate(cameraRigPrefab);
             }
 
-            var avatars = FindObjectsByType<PlayerAvatar>(
-                FindObjectsInactive.Exclude,
-                FindObjectsSortMode.None);
-            for (var i = 0; i < avatars.Length; i++)
-            {
-                if (!avatars[i].IsOwner)
-                {
-                    continue;
-                }
+            // The lobby is a screen the player clicks through, so the mouse
+            // belongs to its UI whether or not the avatar has arrived yet. This
+            // used to sit inside the search below, which meant a late avatar
+            // left the cursor captured — and a captured cursor cannot press
+            // Leave, because it reports from the centre of the screen and the
+            // click reached the combat input instead of the button.
+            cameraRig.SetCursorCaptureEnabled(false);
 
-                cameraRig.SetFollowTarget(avatars[i].transform);
-                cameraRig.SetCursorCaptureEnabled(false);
-                return;
-            }
-
-            Debug.LogWarning("Lobby camera could not find the local PlayerAvatar.", this);
+            // The follow target is not looked for here. On a client the avatar
+            // is a replicated object that has not arrived yet at this point in
+            // the scene load — measured as zero avatars present, while the host,
+            // which spawns its own locally, always found one. LobbyPlayerCamera
+            // Binder waits for it instead.
         }
 
         /// <summary>
@@ -209,6 +208,72 @@ namespace Game.Bootstrap
         }
     }
 
+    /// <summary>
+    /// Points the lobby camera at the local character once it exists.
+    /// </summary>
+    /// <remarks>
+    /// Looking once while the scene loads only ever worked for the host. A
+    /// client's character is replicated to it, so at that moment there is no
+    /// avatar in the scene at all and the camera was left following nothing for
+    /// the whole visit. The participant list changes as characters register
+    /// themselves, which makes it the signal to look again — the same one the
+    /// chat bubbles bind on.
+    /// </remarks>
+    internal sealed class LobbyPlayerCameraBinder : IStartable, IDisposable
+    {
+        private readonly RoomBrowserSystem room;
+        private IDisposable subscription;
+        private bool isBound;
+
+        public LobbyPlayerCameraBinder(RoomBrowserSystem room)
+        {
+            this.room = room ?? throw new ArgumentNullException(nameof(room));
+        }
+
+        public void Start()
+        {
+            subscription = room.Participants.Subscribe(_ => TryBind());
+        }
+
+        public void Dispose()
+        {
+            subscription?.Dispose();
+        }
+
+        private void TryBind()
+        {
+            if (isBound)
+            {
+                return;
+            }
+
+            var cameraRig = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(
+                FindObjectsInactive.Include);
+            if (cameraRig == null)
+            {
+                return;
+            }
+
+            // Inactive included: a character can register before Unity has
+            // finished bringing its object up.
+            var avatars = UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+
+            for (var i = 0; i < avatars.Length; i++)
+            {
+                if (!avatars[i].IsOwner)
+                {
+                    continue;
+                }
+
+                cameraRig.SetFollowTarget(avatars[i].transform);
+                isBound = true;
+                return;
+            }
+        }
+    }
+
     internal sealed class LobbyChatBubbleBinder : IStartable, IDisposable
     {
         private readonly RoomBrowserSystem room;
@@ -242,13 +307,39 @@ namespace Game.Bootstrap
                 FindObjectsSortMode.None);
             Array.Sort(avatars, (left, right) => left.Seat.CompareTo(right.Seat));
 
+            var seated = room.Participants.CurrentValue;
+
             for (var i = 0; i < avatars.Length; i++)
             {
                 var avatar = avatars[i];
                 var playerId = PlayerRegistry.IdOf(avatar.Owner);
                 var head = avatar.transform.Find("Visual") ?? avatar.transform;
-                bubbles.BindPlayer(playerId, head);
+                bubbles.BindPlayer(playerId, head, NicknameOf(seated, playerId));
             }
+        }
+
+        /// <summary>
+        /// Empty rather than the id when the name has not replicated yet: a
+        /// nameplate showing a raw id reads as a bug, so the plate stays hidden
+        /// until the next rebind brings a real name.
+        /// </summary>
+        private static string NicknameOf(
+            IReadOnlyList<RoomParticipant> seated, string playerId)
+        {
+            if (string.IsNullOrEmpty(playerId))
+            {
+                return string.Empty;
+            }
+
+            for (var index = 0; index < seated.Count; index++)
+            {
+                if (string.Equals(seated[index].PlayerId, playerId, StringComparison.Ordinal))
+                {
+                    return seated[index].Nickname;
+                }
+            }
+
+            return string.Empty;
         }
     }
 

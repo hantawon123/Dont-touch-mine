@@ -34,24 +34,31 @@ namespace Game.Client.Home
         }
 
         /// <summary>
-        /// Loaded asynchronously, unlike the screens below it, so the click that
-        /// asked for it finishes before the scene it is on is torn down.
+        /// The two ways out of a screen, loaded asynchronously so the click that
+        /// asked finishes before the scene it was on is torn down.
         /// </summary>
         /// <remarks>
+        /// Both are taken while something is still live: the browser may be
+        /// connecting to matchmaking when Home is asked for, and the lobby is in
+        /// a room when the browser is. <c>OpenLobby</c> below is an entry rather
+        /// than an exit and stays synchronous.
+        /// <para>
         /// This alone does not make leaving safe. The unload still runs on the
         /// main thread as part of the load, so anything a departing scene does
         /// during <c>OnDestroy</c> that needs frames of its own will still
         /// deadlock here — see <c>NetworkRoomScreenBridge.Dispose</c>, which is
         /// where that was actually fixed.
+        /// </para>
         /// </remarks>
         public void OpenHome()
         {
             SceneManager.LoadSceneAsync(HomeSceneName);
         }
 
+        /// <inheritdoc cref="OpenHome"/>
         public void OpenRoomBrowser()
         {
-            SceneManager.LoadScene(RoomBrowserSceneName);
+            SceneManager.LoadSceneAsync(RoomBrowserSceneName);
         }
 
         public void OpenLobby()

@@ -6,6 +6,7 @@ using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Core.Rooms;
 using Game.Network.Match;
+using Game.SOAP.Config;
 using Game.Server.Items;
 using Game.Server.Match;
 using NUnit.Framework;
@@ -33,10 +34,12 @@ namespace Game.Architecture.Tests
             });
             room.SetLocalPlayer("client");
 
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
             using var presenter = new NetworkMatchHudPresenter(
                 network,
                 network,
                 room,
+                rules,
                 view);
             presenter.Start();
 
@@ -63,6 +66,53 @@ namespace Game.Architecture.Tests
             Assert.That(view.NoticeVisible, Is.False);
         }
 
+        /// <summary>
+        /// The phase line names whoever the hiding turn is waiting on. Turns are
+        /// derived from the phase's end time, so this also pins the derivation:
+        /// two players at 30s each means hiding began 60s before it ends.
+        /// </summary>
+        [Test]
+        public void HidingPhase_NamesThePlayerWhoseTurnItIs()
+        {
+            var network = new FakeNetwork();
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.SetParticipants(new[]
+            {
+                new RoomParticipant("host", 0, true, "방장"),
+                new RoomParticipant("client", 1, false, "민수"),
+            });
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            using var presenter = new NetworkMatchHudPresenter(
+                network, network, room, rules, view);
+            presenter.Start();
+
+            // 끝이 100초, 2명 x 30초 => 40초에 시작.
+            network.ServerTime = 50d;
+            network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+            Assert.That(view.Phase, Is.EqualTo(MatchPhase.Hiding));
+            Assert.That(view.HidingPlayerName, Is.EqualTo("방장"));
+
+            network.ServerTime = 75d;
+            presenter.Tick();
+            Assert.That(view.HidingPlayerName, Is.EqualTo("민수"));
+
+            // 단계가 마지막 턴보다 길어져도 없는 사람을 부르지 않는다.
+            network.ServerTime = 130d;
+            presenter.Tick();
+            Assert.That(view.HidingPlayerName, Is.EqualTo("민수"));
+
+            // 숨기기가 아닌 단계는 아무도 지목하지 않는다.
+            network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 200d));
+            Assert.That(view.HidingPlayerName, Is.Empty);
+        }
+
         private sealed class FakeView : INetworkMatchHudView
         {
             public MatchPhase Phase { get; private set; }
@@ -72,7 +122,13 @@ namespace Game.Architecture.Tests
             public string AssignedItem { get; private set; }
             public int RemainingDestructionUses { get; private set; } = -1;
 
-            public void SetPhase(MatchPhase phase) => Phase = phase;
+            public string HidingPlayerName { get; private set; }
+
+            public void SetPhase(MatchPhase phase, string hidingPlayerName)
+            {
+                Phase = phase;
+                HidingPlayerName = hidingPlayerName;
+            }
             public void SetRemainingSeconds(double value) => RemainingSeconds = value;
             public void SetAssignedItem(string displayName) => AssignedItem = displayName;
             public void SetRemainingDestructionUses(int value) =>

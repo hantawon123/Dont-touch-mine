@@ -19,13 +19,32 @@ namespace Game.Client.Lobby
         public Transform headAnchor;
         public RectTransform bubbleRoot;
         public Text bubbleText;
+
+        /// <summary>
+        /// The name shown under the bubble. Unlike the bubble it stays visible,
+        /// so it is what tells characters apart when nobody is talking.
+        /// </summary>
+        public Text nameText;
     }
 
     /// <summary>
-    /// World-space speech bubbles above sample head anchors.
+    /// Everything that floats above a lobby character: the nameplate, which is
+    /// always up, and the speech bubble, which comes and goes.
     /// </summary>
+    /// <remarks>
+    /// Both share one world-space canvas per player, so they share the anchor
+    /// pool and the single billboarding pass in <c>LateUpdate</c> rather than
+    /// each keeping their own copy of it. The type name predates the nameplate.
+    /// </remarks>
     public sealed class LobbyChatBubbleView : MonoBehaviour, ILobbyChatBubbleView
     {
+        /// <summary>
+        /// Names the generator gives the two labels, so a cloned canvas can be
+        /// taken apart again. Changing either means changing LobbyHudLayoutMenu.
+        /// </summary>
+        private const string templateBubbleName = "Bubble";
+        private const string templateNameplateName = "Nameplate";
+
         private const float MinBubbleWidth = 140f;
         private const float MaxBubbleWidth = 420f;
         private const float MinBubbleHeight = 56f;
@@ -122,10 +141,16 @@ namespace Game.Client.Lobby
 
                 anchor.playerId = string.Empty;
                 anchor.headAnchor = null;
+                ApplyName(anchor, null);
             }
         }
 
-        public void BindPlayer(string playerId, Transform headAnchor)
+        /// <param name="displayName">
+        /// What to show on the nameplate. Empty hides it rather than showing a
+        /// blank plate, which is what a character whose name has not replicated
+        /// yet would otherwise get.
+        /// </param>
+        public void BindPlayer(string playerId, Transform headAnchor, string displayName)
         {
             if (string.IsNullOrWhiteSpace(playerId) || headAnchor == null)
             {
@@ -140,6 +165,21 @@ namespace Game.Client.Lobby
 
             anchor.playerId = playerId.Trim();
             anchor.headAnchor = headAnchor;
+            ApplyName(anchor, displayName);
+        }
+
+        private static void ApplyName(LobbyChatBubbleAnchor anchor, string displayName)
+        {
+            if (anchor.nameText == null)
+            {
+                return;
+            }
+
+            var trimmed = displayName?.Trim();
+            var hasName = !string.IsNullOrEmpty(trimmed);
+
+            anchor.nameText.text = hasName ? trimmed : string.Empty;
+            anchor.nameText.gameObject.SetActive(hasName);
         }
 
         private static void ResizeBubble(LobbyChatBubbleAnchor anchor)
@@ -208,9 +248,12 @@ namespace Game.Client.Lobby
             }
 
             var canvas = Instantiate(templateCanvas, transform);
-            var text = canvas.GetComponentInChildren<Text>(true);
-            var bubble = text == null ? null : text.transform.parent as RectTransform;
-            if (bubble == null)
+
+            // Found by name because the clone carries two labels now, and which
+            // is which cannot be told apart by type.
+            var bubble = canvas.Find(templateBubbleName) as RectTransform;
+            var text = bubble == null ? null : bubble.GetComponentInChildren<Text>(true);
+            if (bubble == null || text == null)
             {
                 Destroy(canvas.gameObject);
                 return null;
@@ -219,7 +262,8 @@ namespace Game.Client.Lobby
             var anchor = new LobbyChatBubbleAnchor
             {
                 bubbleRoot = bubble,
-                bubbleText = text
+                bubbleText = text,
+                nameText = canvas.Find(templateNameplateName)?.GetComponent<Text>()
             };
             bubble.gameObject.SetActive(false);
             anchors.Add(anchor);

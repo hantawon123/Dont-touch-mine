@@ -4,6 +4,7 @@ using Game.Core.Items;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Match;
+using Game.SOAP.Config;
 using Game.Server.Match;
 using UnityEngine;
 using VContainer.Unity;
@@ -19,6 +20,7 @@ namespace Game.Bootstrap
         private readonly INetworkMatchEvents events;
         private readonly INetworkMatchRuntimeSource clock;
         private readonly RoomBrowserSystem room;
+        private readonly MatchRulesSO rules;
         private readonly INetworkMatchHudView view;
 
         private MatchStateSnapshot snapshot;
@@ -27,15 +29,25 @@ namespace Game.Bootstrap
         private Transform shredder;
         private Camera worldCamera;
 
+        /// <summary>
+        /// What the phase line currently says, so a turn that has not moved is
+        /// not written to the view on every tick.
+        /// </summary>
+        private string reportedHidingName = string.Empty;
+        private MatchPhase reportedPhase;
+        private bool hasReportedPhase;
+
         public NetworkMatchHudPresenter(
             INetworkMatchEvents events,
             INetworkMatchRuntimeSource clock,
             RoomBrowserSystem room,
+            MatchRulesSO rules,
             INetworkMatchHudView view)
         {
             this.events = events ?? throw new ArgumentNullException(nameof(events));
             this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
             this.room = room ?? throw new ArgumentNullException(nameof(room));
+            this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
         }
 
@@ -71,6 +83,10 @@ namespace Game.Bootstrap
             var now = clock.ServerTime;
             view.SetRemainingSeconds(Math.Max(0d, snapshot.PhaseEndsAt - now));
 
+            // Whose turn it is moves with time, not with any event: the phase
+            // stays Hiding while the turn travels down the line-up.
+            ReportPhase();
+
             if (noticeEndsAt > 0d && now >= noticeEndsAt)
             {
                 noticeEndsAt = 0d;
@@ -84,7 +100,55 @@ namespace Game.Bootstrap
         {
             snapshot = received;
             hasSnapshot = true;
-            view.SetPhase(received.Phase);
+            ReportPhase();
+        }
+
+        /// <summary>
+        /// Writes the phase, and during hiding who it is waiting on.
+        /// </summary>
+        /// <remarks>
+        /// The turn is worked out here rather than replicated. It is a function
+        /// of the phase, when the phase ends and how many are playing, and this
+        /// peer already has all three, so <see cref="HidingTurns"/> answers the
+        /// same question the authority asks of it.
+        /// </remarks>
+        private void ReportPhase()
+        {
+            var name = HidingPlayerName();
+
+            if (hasReportedPhase &&
+                snapshot.Phase == reportedPhase &&
+                string.Equals(name, reportedHidingName, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            reportedPhase = snapshot.Phase;
+            reportedHidingName = name;
+            hasReportedPhase = true;
+
+            view.SetPhase(snapshot.Phase, name);
+        }
+
+        /// <summary>
+        /// Empty is a normal answer, not a failure: the line-up arrives over the
+        /// network, so a turn can be known before the names that go with it are.
+        /// The view falls back to the bare phase then.
+        /// </summary>
+        private string HidingPlayerName()
+        {
+            var playing = room.MatchParticipants.CurrentValue;
+
+            var turnIndex = HidingTurns.IndexAt(
+                snapshot.Phase,
+                snapshot.PhaseEndsAt,
+                clock.ServerTime,
+                playing.Count,
+                rules.HidingTurnDurationSeconds);
+
+            return turnIndex == HidingTurns.NoTurn
+                ? string.Empty
+                : DisplayNameOf(playing[turnIndex].PlayerIndex);
         }
 
         private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmed)

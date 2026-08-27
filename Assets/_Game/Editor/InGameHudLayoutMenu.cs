@@ -131,8 +131,10 @@ namespace Game.Editor
                 "숨기는 중",
                 38f,
                 TextAlignmentOptions.Center);
+            // Wider than the phase names need, because hiding now reads
+            // "<이름>이 숨기는 중" and a nickname can run to its full length.
             Place(phaseText.rectTransform, new Vector2(0.5f, 1f),
-                new Vector2(0f, -58f), new Vector2(360f, 54f));
+                new Vector2(0f, -58f), new Vector2(620f, 54f));
             var phaseView = phaseText.gameObject.AddComponent<MatchPhaseView>();
             Assign(phaseView, "phaseText", phaseText);
 
