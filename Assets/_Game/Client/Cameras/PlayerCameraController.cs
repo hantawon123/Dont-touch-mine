@@ -48,6 +48,7 @@ namespace Game.Client.Cameras
         private float pitch;
         private bool isFirstPerson;
         private bool cursorCaptureEnabled = true;
+        private bool escapeReleasesCursor = true;
 
         private void Awake()
         {
@@ -114,7 +115,8 @@ namespace Game.Client.Cameras
             }
 
             // Esc로 커서 해제, 화면 클릭으로 다시 잠금.
-            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            if (escapeReleasesCursor
+                && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 SetCursorLocked(false);
             }
@@ -152,6 +154,12 @@ namespace Game.Client.Cameras
                 Quaternion.Euler(pitch, yaw, 0f));
         }
 
+        /// <summary>
+        /// The character this rig follows, for screens that have to stop it
+        /// moving while they hold the mouse.
+        /// </summary>
+        public PlayerMovement FollowMovement => followMovement;
+
         public void SetFollowTarget(Transform target)
         {
             if (target == null)
@@ -174,6 +182,22 @@ namespace Game.Client.Cameras
         {
             cursorCaptureEnabled = captureEnabled;
             SetCursorLocked(captureEnabled);
+        }
+
+        /// <summary>
+        /// Hands Esc over to a screen that has its own use for it.
+        /// </summary>
+        /// <remarks>
+        /// A screen with a pause menu releases the cursor itself when the menu
+        /// opens. If this rig also answered the same Esc, the release and the
+        /// re-capture would land in the same frame in an order nothing decides —
+        /// the cursor came back free about half the times the menu was closed.
+        /// Screens without a menu keep it, because Esc is the only way out of a
+        /// captured cursor there.
+        /// </remarks>
+        public void SetEscapeReleasesCursor(bool releasesCursor)
+        {
+            escapeReleasesCursor = releasesCursor;
         }
 
         private void ApplyView()

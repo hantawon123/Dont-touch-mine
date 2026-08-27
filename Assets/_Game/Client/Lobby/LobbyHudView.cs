@@ -4,6 +4,15 @@ using UnityEngine.UI;
 
 namespace Game.Client.Lobby
 {
+    /// <summary>
+    /// The lobby's always-on screen furniture.
+    /// </summary>
+    /// <remarks>
+    /// Starting and leaving are not here. The cursor is captured for looking
+    /// around for most of the visit, and a captured cursor reports from the
+    /// centre of the screen, so buttons pinned to a corner could not be pressed
+    /// at all. Both moved to the Esc menu — see <see cref="LobbyPauseMenuView"/>.
+    /// </remarks>
     public sealed class LobbyHudView : MonoBehaviour
     {
         [SerializeField]
@@ -11,12 +20,6 @@ namespace Game.Client.Lobby
 
         [SerializeField]
         private RectTransform playSettingsButton;
-
-        [SerializeField]
-        private RectTransform startButton;
-
-        [SerializeField]
-        private RectTransform leaveButton;
 
         [SerializeField]
         private RectTransform keyGuideButton;
@@ -31,48 +34,23 @@ namespace Game.Client.Lobby
         private RectTransform voiceButton;
 
         public event Action PlaySettingsClicked;
-        public event Action StartClicked;
-        public event Action LeaveClicked;
 
         private Button playSettingsUiButton;
-        private Button startUiButton;
-
-        /// <summary>
-        /// Taken from the slot rather than serialized on its own, so the HUD
-        /// layout builder keeps assigning one field per slot.
-        /// </summary>
-        private Button leaveUiButton;
 
         private void OnEnable()
         {
             playSettingsUiButton = playSettingsButton != null
                 ? playSettingsButton.GetComponent<Button>()
                 : null;
-            startUiButton = startButton != null
-                ? startButton.GetComponent<Button>()
-                : null;
-            leaveUiButton = leaveButton != null
-                ? leaveButton.GetComponent<Button>()
-                : null;
 
             if (playSettingsUiButton != null)
             {
                 playSettingsUiButton.onClick.AddListener(HandlePlaySettingsClicked);
             }
-
-            if (startUiButton != null)
-            {
-                startUiButton.onClick.AddListener(HandleStartClicked);
-            }
-
-            if (leaveUiButton != null)
-            {
-                leaveUiButton.onClick.AddListener(HandleLeaveClicked);
-            }
             else
             {
                 Debug.LogError(
-                    "LeaveButton has no Button component. Run " +
+                    "PlaySettingsButton has no Button component. Run " +
                     "Game > Lobby > Build HUD Layout on the Lobby scene.",
                     this);
             }
@@ -84,16 +62,6 @@ namespace Game.Client.Lobby
             {
                 playSettingsUiButton.onClick.RemoveListener(HandlePlaySettingsClicked);
             }
-
-            if (startUiButton != null)
-            {
-                startUiButton.onClick.RemoveListener(HandleStartClicked);
-            }
-
-            if (leaveUiButton != null)
-            {
-                leaveUiButton.onClick.RemoveListener(HandleLeaveClicked);
-            }
         }
 
         public void SetHostControlsVisible(bool visible)
@@ -102,17 +70,8 @@ namespace Game.Client.Lobby
             {
                 playSettingsButton.gameObject.SetActive(visible);
             }
-
-            if (startButton != null)
-            {
-                startButton.gameObject.SetActive(visible);
-            }
         }
 
         private void HandlePlaySettingsClicked() => PlaySettingsClicked?.Invoke();
-
-        private void HandleStartClicked() => StartClicked?.Invoke();
-
-        private void HandleLeaveClicked() => LeaveClicked?.Invoke();
     }
 }

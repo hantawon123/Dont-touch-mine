@@ -21,22 +21,24 @@ namespace Game.Client.Lobby
     /// and telling it is asynchronous, so that half leaves through
     /// <see cref="LeaveRequested"/> for a layer that can await it.
     /// </para>
+    /// <para>
+    /// No view is wired here. The button that asks lives in the Esc menu, and
+    /// keeping the way out a method rather than a subscription means there is
+    /// one leaving path however many screens come to offer it.
+    /// </para>
     /// </remarks>
     public sealed class LobbyExitPresenter : IStartable, IDisposable
     {
-        private readonly LobbyHudView view;
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
         private readonly RoomBrowserSystem roomBrowser;
         private IDisposable exitSubscription;
 
         public LobbyExitPresenter(
-            LobbyHudView view,
             IHomeApplicationHost applicationHost,
             AppFlowSystem appFlow,
             RoomBrowserSystem roomBrowser)
         {
-            this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.applicationHost = applicationHost
                 ?? throw new ArgumentNullException(nameof(applicationHost));
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
@@ -49,17 +51,19 @@ namespace Game.Client.Lobby
 
         public void Start()
         {
-            view.LeaveClicked += OnLeaveClicked;
             exitSubscription = roomBrowser.LastExit.Subscribe(OnRoomEnded);
         }
 
         public void Dispose()
         {
-            view.LeaveClicked -= OnLeaveClicked;
             exitSubscription?.Dispose();
         }
 
-        private void OnLeaveClicked()
+        /// <summary>
+        /// The player asked to go. Called by whatever screen offered them the
+        /// way out.
+        /// </summary>
+        public void RequestLeave()
         {
             // Announced before the screen changes, because this screen is about
             // to go away and the session still has to hear it.

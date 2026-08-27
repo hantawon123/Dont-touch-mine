@@ -5,6 +5,11 @@ using VContainer.Unity;
 
 namespace Game.Client.Lobby
 {
+    /// <summary>
+    /// Shows the host-only parts of the always-on HUD to the host and nobody
+    /// else. Asking to start is not here: that button lives in the Esc menu,
+    /// where a released cursor can reach it.
+    /// </summary>
     public sealed class LobbyHostChromePresenter : IStartable, IDisposable
     {
         private readonly ILobbyHostSession hostSession;
@@ -17,21 +22,13 @@ namespace Game.Client.Lobby
             this.hudView = hudView ?? throw new ArgumentNullException(nameof(hudView));
         }
 
-        /// <remarks>
-        /// The button only asks. Taking everyone into the map is the authority's
-        /// job and already happens once the line-up is confirmed, so loading a
-        /// scene here would move whoever clicked on ahead of the others and race
-        /// the networked load on the authority's own screen.
-        /// </remarks>
         public void Start()
         {
             subscription = hostSession.IsLocalHost.Subscribe(hudView.SetHostControlsVisible);
-            hudView.StartClicked += hostSession.RequestStart;
         }
 
         public void Dispose()
         {
-            hudView.StartClicked -= hostSession.RequestStart;
             subscription?.Dispose();
         }
     }
