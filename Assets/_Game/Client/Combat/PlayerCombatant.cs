@@ -47,11 +47,16 @@ namespace Game.Client.Combat
         private MaterialPropertyBlock propertyBlock;
         private readonly Collider[] attackHits = new Collider[MaxAttackHits];
         private float nextAttackTime;
+        private float pendingHitTime;
+        private bool hasPendingHit;
         private float hitFlashUntil;
         private bool wasTintApplied;
         [SerializeField, HideInInspector]
         private bool usesNetworkState;
         private bool networkStunned;
+
+        /// <summary>공격 모션 재생 등 표현 계층이 구독하는 공격 실행 알림.</summary>
+        public event System.Action AttackPerformed;
 
         public bool IsStunned =>
             usesNetworkState
@@ -168,12 +173,21 @@ namespace Game.Client.Combat
                 return;
             }
 
+            // 예약된 타격 판정: 모션의 임팩트 타이밍에 맞춰 실제 판정을 수행한다.
+            if (hasPendingHit && Time.time >= pendingHitTime)
+            {
+                hasPendingHit = false;
+                PerformAttack();
+            }
+
             // 빈손 좌클릭만 공격이다. (물건을 들고 있으면 던지기가 담당)
             var isEmptyHanded = interactor == null || interactor.CarriedItem == null;
             if (isEmptyHanded && attackAction.WasPressedThisFrame() && Time.time >= nextAttackTime)
             {
                 nextAttackTime = Time.time + combatConfig.AttackCooldownSeconds;
-                PerformAttack();
+                AttackPerformed?.Invoke();
+                pendingHitTime = Time.time + combatConfig.AttackHitDelaySeconds;
+                hasPendingHit = true;
             }
         }
 
@@ -226,7 +240,8 @@ namespace Game.Client.Combat
 
             if (result == HitResult.Stunned)
             {
-                // 기절하면 들고 있던 물건을 떨어뜨린다. (기획서 13절)
+                // 기절하면 들고 있던 물건을 떨어뜨리고, 휘두르던 공격도 취소한다. (기획서 13절)
+                hasPendingHit = false;
                 GetComponent<ICarriedItemDropper>()?.DropCarriedItem();
             }
         }

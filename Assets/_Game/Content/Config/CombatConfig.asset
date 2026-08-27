@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: CombatConfig
   m_EditorClassIdentifier: Game.SOAP::Game.SOAP.Config.CombatConfigSO
   attackCooldownSeconds: 0.5
+  attackHitDelaySeconds: 0.7
   attackForwardOffset: 0.8
   attackRadius: 0.7
   hitKnockbackImpulse: 4
