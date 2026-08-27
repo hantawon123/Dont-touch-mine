@@ -141,6 +141,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8abcfeb6c73e3214f85b580e88456956, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Players.PlayerAnimationDriver
+  punchDurationSeconds: 0.9
 --- !u!1001 &5646776048723381448
 PrefabInstance:
   m_ObjectHideFlags: 0
