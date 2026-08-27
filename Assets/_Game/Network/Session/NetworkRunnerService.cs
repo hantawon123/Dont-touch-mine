@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -809,7 +809,7 @@ namespace Game.Network.Session
         {
             // No room departure to report: a session that never started is not
             // one this peer can leave.
-            if (ReferenceEquals(_runner, runner))
+            if (IsCurrentRunner(runner))
             {
                 ReleaseRunner();
             }
