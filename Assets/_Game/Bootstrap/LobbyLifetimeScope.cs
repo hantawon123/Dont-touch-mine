@@ -26,6 +26,9 @@ namespace Game.Bootstrap
         private KeyGuideView keyGuideView;
 
         [SerializeField]
+        private LobbyPauseMenuView pauseMenuView;
+
+        [SerializeField]
         private LobbyPlayerListView playerListView;
 
         [SerializeField]
@@ -64,6 +67,17 @@ namespace Game.Bootstrap
                     "KeyGuideView must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
             }
 
+            if (pauseMenuView == null)
+            {
+                pauseMenuView = hudView.GetComponent<LobbyPauseMenuView>();
+            }
+
+            if (pauseMenuView == null)
+            {
+                throw new InvalidOperationException(
+                    "LobbyPauseMenuView must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
+            }
+
             if (playerListView == null)
             {
                 throw new InvalidOperationException(
@@ -90,6 +104,7 @@ namespace Game.Bootstrap
             builder.Register<UnityHomeApplicationHost>(Lifetime.Scoped).As<IHomeApplicationHost>();
             builder.RegisterComponent(hudView);
             builder.RegisterComponent(keyGuideView).As<IKeyGuideView>();
+            builder.RegisterComponent(pauseMenuView).As<ILobbyPauseMenuView>();
             builder.RegisterComponent(playerListView).As<ILobbyPlayerListView>();
             builder.RegisterComponent(playSettingsView).As<IPlaySettingsView>();
             builder.RegisterComponent(kickConfirmView).As<IKickConfirmView>();
@@ -120,6 +135,7 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<KeyGuidePresenter>();
             builder.RegisterEntryPoint<LobbyPlayerListPresenter>();
             builder.RegisterEntryPoint<LobbyHostChromePresenter>();
+            builder.RegisterEntryPoint<LobbyPauseMenuPresenter>();
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
             builder.RegisterEntryPoint<LobbyChatPresenter>();
             builder.RegisterEntryPoint<LobbyChatBubbleBinder>();
@@ -144,31 +160,34 @@ namespace Game.Bootstrap
                 // so hand the scene-owned points over once this scene is ready.
                 container.Resolve<NetworkRunnerService>()
                     .RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
-                BindLocalPlayerCamera();
+                EnsurePlayerCameraRig();
             });
         }
 
-        private void BindLocalPlayerCamera()
+        /// <summary>
+        /// Makes sure the lobby has a camera rig to look through.
+        /// </summary>
+        /// <remarks>
+        /// The cursor is not set here. Whether it is captured depends on whether
+        /// the Esc menu is open, which is live state that a single call while the
+        /// scene loads cannot hold — <see cref="LobbyPauseMenuPresenter"/> owns
+        /// it.
+        /// <para>
+        /// The follow target is not looked for here either. On a client the
+        /// avatar is a replicated object that has not arrived yet at this point
+        /// in the scene load — measured as zero avatars present, while the host,
+        /// which spawns its own locally, always found one.
+        /// <see cref="LobbyPlayerCameraBinder"/> waits for it instead.
+        /// </para>
+        /// </remarks>
+        private void EnsurePlayerCameraRig()
         {
-            var cameraRig = FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
-            if (cameraRig == null)
+            if (FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include) != null)
             {
-                cameraRig = Instantiate(cameraRigPrefab);
+                return;
             }
 
-            // The lobby is a screen the player clicks through, so the mouse
-            // belongs to its UI whether or not the avatar has arrived yet. This
-            // used to sit inside the search below, which meant a late avatar
-            // left the cursor captured — and a captured cursor cannot press
-            // Leave, because it reports from the centre of the screen and the
-            // click reached the combat input instead of the button.
-            cameraRig.SetCursorCaptureEnabled(false);
-
-            // The follow target is not looked for here. On a client the avatar
-            // is a replicated object that has not arrived yet at this point in
-            // the scene load — measured as zero avatars present, while the host,
-            // which spawns its own locally, always found one. LobbyPlayerCamera
-            // Binder waits for it instead.
+            Instantiate(cameraRigPrefab);
         }
 
         /// <summary>
