@@ -156,6 +156,29 @@ namespace Game.Network.Players
             return false;
         }
 
+        /// <summary>
+        /// Finds an avatar by Fusion's owner identity. This is also valid while
+        /// Fusion's optional PlayerObject lookup is still arriving on a client.
+        /// </summary>
+        internal bool TryGetAvatar(PlayerRef owner, out PlayerAvatar found)
+        {
+            if (owner.IsRealPlayer)
+            {
+                for (var index = 0; index < _avatars.Count; index++)
+                {
+                    var avatar = _avatars[index];
+                    if (avatar != null && avatar.Owner == owner)
+                    {
+                        found = avatar;
+                        return true;
+                    }
+                }
+            }
+
+            found = null;
+            return false;
+        }
+
         private void Publish(NetworkRunner runner)
         {
             if (_sink == null)

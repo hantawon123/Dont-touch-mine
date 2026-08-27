@@ -1538,6 +1538,16 @@ namespace Game.Network.Session
                 ? null
                 : playerObject.GetComponent<NetworkPlayerMotor>();
 
+            // SetPlayerObject is authority-owned state and can arrive after the
+            // avatar itself on a client. The roster is populated from Spawned,
+            // so it keeps input alive during that ordering window instead of
+            // silently submitting default input for the whole local player.
+            if (motor == null && _roster != null &&
+                _roster.TryGetAvatar(runner.LocalPlayer, out var localAvatar))
+            {
+                motor = localAvatar.GetComponent<NetworkPlayerMotor>();
+            }
+
             input.Set(motor == null ? default : motor.CaptureInput());
         }
 
