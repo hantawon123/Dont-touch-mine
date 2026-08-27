@@ -61,10 +61,10 @@ namespace Game.Editor
             Place(leave, Anchor.TopRight, new Vector2(-24f, -24f), new Vector2(180f, 72f));
             Place(keyGuide, Anchor.MiddleLeft, new Vector2(24f, 40f), new Vector2(180f, 96f));
             Place(playerList, Anchor.TopRight, new Vector2(-24f, -120f), new Vector2(300f, 420f));
-            // Lifted clear of the floor. Sitting at the bottom edge put the chat
-            // behind the characters standing in the lobby, which is where the
-            // camera looks.
-            Place(chat, Anchor.BottomLeft, new Vector2(24f, 200f), new Vector2(720f, 240f));
+            // Lifted well clear of the floor and narrowed. The characters stand
+            // low and centre, which is where the camera looks, and a 720-wide
+            // panel on the bottom edge ran straight across them.
+            Place(chat, Anchor.BottomLeft, new Vector2(24f, 380f), new Vector2(640f, 240f));
             Place(voice, Anchor.BottomRight, new Vector2(-24f, 24f), new Vector2(72f, 72f));
 
             SetLabel(settings, "설정");
@@ -981,7 +981,10 @@ namespace Game.Editor
                     nameLabel = Undo.AddComponent<Text>(nameplate.gameObject);
                 }
 
-                Place(nameplate, Anchor.Center, new Vector2(0f, -52f), new Vector2(320f, 40f));
+                // 캔버스 중심은 이제 머리에서 2.6 위다. 캔버스 스케일이 0.01
+                // 이므로 -70 은 월드 -0.7, 즉 머리 바로 위에 놓인다. 말풍선은
+                // 중심에서 자라 위로 올라가고 이름표는 그 아래에 남는다.
+                Place(nameplate, Anchor.Center, new Vector2(0f, -70f), new Vector2(320f, 40f));
                 ApplyText(nameLabel, string.Empty, 22, TextAnchor.MiddleCenter);
                 nameLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
                 nameLabel.verticalOverflow = VerticalWrapMode.Overflow;
@@ -1000,6 +1003,10 @@ namespace Game.Editor
 
             var so = new SerializedObject(view);
             so.FindProperty("visibleSeconds").floatValue = 3.5f;
+
+            // 머리 위로 확실히 올린다. headAnchor 는 캐릭터의 Visual 루트여서
+            // 발밑에 가깝고, 1.35 로는 말풍선이 얼굴을 덮었다.
+            so.FindProperty("heightOffset").floatValue = 2.6f;
             so.FindProperty("uiFont").objectReferenceValue = ResolveLobbyFont();
             var anchorsProp = so.FindProperty("anchors");
             anchorsProp.arraySize = anchors.Count;
