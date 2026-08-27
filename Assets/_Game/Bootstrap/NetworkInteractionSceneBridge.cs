@@ -149,6 +149,8 @@ namespace Game.Bootstrap
 
                 if (motor != null)
                 {
+                    avatar.GetComponent<PlayerMovement>()?.ApplyNetworkPosture(
+                        motor.Posture);
                     avatar.GetComponent<PlayerAnimationDriver>()?.ApplyNetworkState(
                         motor.AnimationSpeed,
                         motor.AnimationGrounded,

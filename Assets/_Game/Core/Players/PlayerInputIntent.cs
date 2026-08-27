@@ -2,6 +2,13 @@ using System;
 
 namespace Game.Core.Players
 {
+    public enum PlayerPosture : byte
+    {
+        Standing,
+        Crouching,
+        Prone
+    }
+
     public interface IPlayerInputIntentSource
     {
         PlayerMovementSettings MovementSettings { get; }
@@ -19,13 +26,23 @@ namespace Game.Core.Players
             float sprintSpeed,
             float rotationSpeedDegrees,
             float jumpHeight,
-            float gravityMultiplier)
+            float gravityMultiplier,
+            float crouchSpeed = 2f,
+            float proneSpeed = 0.8f,
+            float standHeight = 1.8f,
+            float crouchHeight = 1.2f,
+            float proneHeight = 0.6f)
         {
             if (!float.IsFinite(walkSpeed) || walkSpeed < 0f ||
                 !float.IsFinite(sprintSpeed) || sprintSpeed < 0f ||
                 !float.IsFinite(rotationSpeedDegrees) || rotationSpeedDegrees < 0f ||
                 !float.IsFinite(jumpHeight) || jumpHeight < 0f ||
-                !float.IsFinite(gravityMultiplier) || gravityMultiplier <= 0f)
+                !float.IsFinite(gravityMultiplier) || gravityMultiplier <= 0f ||
+                !float.IsFinite(crouchSpeed) || crouchSpeed < 0f ||
+                !float.IsFinite(proneSpeed) || proneSpeed < 0f ||
+                !float.IsFinite(standHeight) || standHeight <= 0f ||
+                !float.IsFinite(crouchHeight) || crouchHeight <= 0f ||
+                !float.IsFinite(proneHeight) || proneHeight <= 0f)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(walkSpeed),
@@ -37,6 +54,11 @@ namespace Game.Core.Players
             RotationSpeedDegrees = rotationSpeedDegrees;
             JumpHeight = jumpHeight;
             GravityMultiplier = gravityMultiplier;
+            CrouchSpeed = crouchSpeed;
+            ProneSpeed = proneSpeed;
+            StandHeight = standHeight;
+            CrouchHeight = crouchHeight;
+            ProneHeight = proneHeight;
         }
 
         public float WalkSpeed { get; }
@@ -44,6 +66,11 @@ namespace Game.Core.Players
         public float RotationSpeedDegrees { get; }
         public float JumpHeight { get; }
         public float GravityMultiplier { get; }
+        public float CrouchSpeed { get; }
+        public float ProneSpeed { get; }
+        public float StandHeight { get; }
+        public float CrouchHeight { get; }
+        public float ProneHeight { get; }
     }
 
     /// <summary>

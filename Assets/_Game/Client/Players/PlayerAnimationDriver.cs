@@ -1,4 +1,5 @@
 using Game.Client.Combat;
+using Game.Core.Players;
 using UnityEngine;
 
 namespace Game.Client.Players

@@ -156,6 +156,34 @@ namespace Game.Architecture.Tests
             Assert.That(settings.JumpHeight, Is.EqualTo(config.JumpHeight));
             Assert.That(settings.GravityMultiplier,
                 Is.EqualTo(config.GravityMultiplier));
+            Assert.That(settings.CrouchSpeed, Is.EqualTo(config.CrouchSpeed));
+            Assert.That(settings.ProneSpeed, Is.EqualTo(config.ProneSpeed));
+            Assert.That(settings.StandHeight, Is.EqualTo(config.StandHeight));
+            Assert.That(settings.CrouchHeight, Is.EqualTo(config.CrouchHeight));
+            Assert.That(settings.ProneHeight, Is.EqualTo(config.ProneHeight));
+        }
+
+        [Test]
+        public void NetworkPlayer_PostureInputChangesPoseAndMovementSpeed()
+        {
+            var crouchInput = NetworkPlayerInput.FromIntent(new PlayerInputIntent(
+                0f,
+                1f,
+                0f,
+                PlayerInputButtons.Crouch));
+            var settings = new PlayerMovementSettings(
+                4f, 7f, 720f, 1.1f, 2f, 2f, 0.8f, 1.8f, 1.2f, 0.6f);
+
+            var posture = NetworkPlayerMotor.ResolvePosture(
+                PlayerPosture.Standing,
+                true,
+                crouchInput,
+                default);
+
+            Assert.That(posture, Is.EqualTo(PlayerPosture.Crouching));
+            Assert.That(
+                NetworkPlayerMotor.MoveSpeedForPosture(settings, posture, true),
+                Is.EqualTo(2f));
         }
 
         [Test]
