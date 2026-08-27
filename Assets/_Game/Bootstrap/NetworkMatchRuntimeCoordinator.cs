@@ -66,6 +66,9 @@ namespace Game.Bootstrap
         private MatchParticipant[] pendingLineUp;
         private MatchStateSnapshot lastPublishedSnapshot;
         private bool[] synchronizedControls = Array.Empty<bool>();
+        private bool[] initializedAssignments = Array.Empty<bool>();
+        private readonly PlayerItemAssignment[] assignmentBuffer =
+            new PlayerItemAssignment[1];
         private MatchPhase synchronizedPhase = (MatchPhase)(-1);
         private int synchronizedHidingTurn = -1;
         private bool hasSynchronizedPlayers;
@@ -187,9 +190,7 @@ namespace Game.Bootstrap
                 if (!network.BindMatchSession(
                         created.Session,
                         configuration.ShredderEjectionPose) ||
-                    !createdRuntime.StartMatch() ||
-                    !network.TryInitializeAssignedItems(created.Session.Assignments) ||
-                    !network.TryPublishItemAssignments(created.Session.Assignments))
+                    !createdRuntime.StartMatch())
                 {
                     throw new InvalidOperationException(
                         "The authority could not initialize the network match runtime.");
@@ -220,6 +221,11 @@ namespace Game.Bootstrap
                 : -1;
             var phaseChanged = phase != synchronizedPhase;
 
+            if (initializedAssignments.Length != session.Assignments.Count)
+            {
+                initializedAssignments = new bool[session.Assignments.Count];
+            }
+
             if (phase == MatchPhase.Hiding && hidingTurn >= 0 &&
                 (phaseChanged || hidingTurn != synchronizedHidingTurn) &&
                 session.TryGetCurrentHidingSpawnPose(
@@ -227,24 +233,52 @@ namespace Game.Bootstrap
                     now,
                     out var hidingPose))
             {
-                for (var playerIndex = 0;
-                     playerIndex < session.Players.Players.Count;
-                     playerIndex++)
+                if (phaseChanged)
                 {
-                    if (!session.Players.IsActive(playerIndex))
+                    // 숨기기 페이즈 진입: 전원 초기 배치.
+                    // (현재 턴은 집 안, 나머지는 대기 구역)
+                    for (var playerIndex = 0;
+                         playerIndex < session.Players.Players.Count;
+                         playerIndex++)
                     {
-                        continue;
-                    }
+                        if (!session.Players.IsActive(playerIndex))
+                        {
+                            continue;
+                        }
 
-                    var pose = playerIndex == hidingTurn
-                        ? hidingPose
-                        : configuration.HidingWaitingSpawnPoints[playerIndex];
-                    if (!network.TryTeleportPlayer(playerIndex, pose))
-                    {
-                        throw new InvalidOperationException(
-                            $"The authority could not position hiding player {playerIndex}.");
+                        var pose = playerIndex == hidingTurn
+                            ? hidingPose
+                            : configuration.HidingWaitingSpawnPoints[playerIndex];
+                        if (!network.TryTeleportPlayer(playerIndex, pose))
+                        {
+                            throw new InvalidOperationException(
+                                $"The authority could not position hiding player {playerIndex}.");
+                        }
                     }
                 }
+                else
+                {
+                    // 턴 교대: 새로 숨기는 사람만 집 안으로, 직전에 숨긴 사람만 대기 구역으로.
+                    // 나머지는 있던 자리를 유지한다.
+                    if (!network.TryTeleportPlayer(hidingTurn, hidingPose))
+                    {
+                        throw new InvalidOperationException(
+                            $"The authority could not position hiding player {hidingTurn}.");
+                    }
+
+                    var previousTurn = synchronizedHidingTurn;
+                    if (previousTurn >= 0 && previousTurn != hidingTurn &&
+                        session.Players.IsActive(previousTurn) &&
+                        !network.TryTeleportPlayer(
+                            previousTurn,
+                            configuration.HidingWaitingSpawnPoints[previousTurn]))
+                    {
+                        throw new InvalidOperationException(
+                            $"The authority could not position waiting player {previousTurn}.");
+                    }
+                }
+
+                InitializeCurrentAssignment(session, hidingTurn);
             }
 
             if (phase == MatchPhase.Searching && phaseChanged)
@@ -276,9 +310,8 @@ namespace Game.Bootstrap
             {
                 var enabled = session.Players.IsActive(playerIndex) &&
                               !session.IsPlayerStunned(playerIndex, now) &&
-                              (phase == MatchPhase.Searching ||
-                               phase == MatchPhase.Hiding &&
-                               playerIndex == hidingTurn);
+                              (phase == MatchPhase.Hiding ||
+                               phase == MatchPhase.Searching);
                 if (hasSynchronizedPlayers &&
                     synchronizedControls[playerIndex] == enabled)
                 {
@@ -297,6 +330,26 @@ namespace Game.Bootstrap
             synchronizedPhase = phase;
             synchronizedHidingTurn = hidingTurn;
             hasSynchronizedPlayers = true;
+        }
+
+        private void InitializeCurrentAssignment(
+            MatchSessionCoordinator session,
+            int playerIndex)
+        {
+            if (initializedAssignments[playerIndex])
+            {
+                return;
+            }
+
+            assignmentBuffer[0] = session.Assignments[playerIndex];
+            if (!network.TryInitializeAssignedItems(assignmentBuffer) ||
+                !network.TryPublishItemAssignments(assignmentBuffer))
+            {
+                throw new InvalidOperationException(
+                    $"The authority could not initialize the assigned item for player {playerIndex}.");
+            }
+
+            initializedAssignments[playerIndex] = true;
         }
 
         private void PublishSnapshotIfChanged()
@@ -344,6 +397,7 @@ namespace Game.Bootstrap
             runtime = null;
             pendingLineUp = null;
             synchronizedControls = Array.Empty<bool>();
+            initializedAssignments = Array.Empty<bool>();
             synchronizedPhase = (MatchPhase)(-1);
             synchronizedHidingTurn = -1;
             hasSynchronizedPlayers = false;

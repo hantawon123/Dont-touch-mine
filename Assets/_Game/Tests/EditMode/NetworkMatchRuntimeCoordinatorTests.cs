@@ -56,22 +56,32 @@ namespace Game.Architecture.Tests
                 network.PublishSimulationTick();
 
                 Assert.That(network.BoundSession, Is.Not.Null);
-                Assert.That(network.Assignments.Count, Is.EqualTo(2));
+                Assert.That(network.InitializedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
+                Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
                 Assert.That(network.Snapshots, Has.Count.EqualTo(1));
                 Assert.That(network.Snapshots[0].Phase, Is.EqualTo(MatchPhase.Hiding));
                 Assert.That(network.Controls[0], Is.True);
-                Assert.That(network.Controls[1], Is.False);
+                Assert.That(network.Controls[1], Is.True);
                 Assert.That(network.TeleportedPlayers, Is.EqualTo(new[] { 0, 1 }));
                 Assert.That(network.TeleportedPoses[1].position.z, Is.EqualTo(-10f));
 
                 network.ServerTime = 10d + rules.HidingTurnDurationSeconds;
                 network.PublishSimulationTick();
 
-                Assert.That(network.Controls[0], Is.False);
+                Assert.That(network.Controls[0], Is.True);
                 Assert.That(network.Controls[1], Is.True);
                 Assert.That(
+                    network.InitializedAssignmentPlayers,
+                    Is.EqualTo(new[] { 0, 1 }));
+                Assert.That(
+                    network.PublishedAssignmentPlayers,
+                    Is.EqualTo(new[] { 0, 1 }));
+                // 턴 교대: 새로 숨는 1번만 집으로, 직전에 숨긴 0번만 대기 구역으로 이동한다.
+                Assert.That(
                     network.TeleportedPlayers,
-                    Is.EqualTo(new[] { 0, 1, 0, 1 }));
+                    Is.EqualTo(new[] { 0, 1, 1, 0 }));
+                Assert.That(network.TeleportedPoses[2].position.z, Is.EqualTo(0f));
+                Assert.That(network.TeleportedPoses[3].position.z, Is.EqualTo(-10f));
 
                 network.ServerTime = network.Snapshots[0].PhaseEndsAt;
                 network.PublishSimulationTick();
@@ -82,7 +92,7 @@ namespace Game.Architecture.Tests
                 Assert.That(network.Controls[1], Is.True);
                 Assert.That(
                     network.TeleportedPlayers,
-                    Is.EqualTo(new[] { 0, 1, 0, 1, 0, 1 }));
+                    Is.EqualTo(new[] { 0, 1, 1, 0, 0, 1 }));
 
                 var searchingStartedAt = network.Snapshots[0].PhaseEndsAt;
                 Assert.That(
@@ -212,7 +222,8 @@ namespace Game.Architecture.Tests
             public int DestructionLimit => PlaySettingsDraft.DefaultDestructionLimit;
             public double ServerTime { get; set; }
             public MatchSessionCoordinator BoundSession { get; private set; }
-            public IReadOnlyList<PlayerItemAssignment> Assignments { get; private set; }
+            public List<int> InitializedAssignmentPlayers { get; } = new();
+            public List<int> PublishedAssignmentPlayers { get; } = new();
             public IReadOnlyList<HighlightReplayData> HighlightReplay { get; private set; }
             public List<MatchStateSnapshot> Snapshots { get; } = new();
             public Dictionary<int, bool> Controls { get; } = new();
@@ -255,14 +266,22 @@ namespace Game.Architecture.Tests
             public bool TryPublishItemAssignments(
                 IReadOnlyList<PlayerItemAssignment> assignments)
             {
-                Assignments = assignments;
+                foreach (var assignment in assignments)
+                {
+                    PublishedAssignmentPlayers.Add(assignment.PlayerIndex);
+                }
+
                 return true;
             }
 
             public bool TryInitializeAssignedItems(
                 IReadOnlyList<PlayerItemAssignment> assignments)
             {
-                Assignments = assignments;
+                foreach (var assignment in assignments)
+                {
+                    InitializedAssignmentPlayers.Add(assignment.PlayerIndex);
+                }
+
                 return true;
             }
 

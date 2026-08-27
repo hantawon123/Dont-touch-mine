@@ -632,7 +632,7 @@ namespace Game.Server.Match
             Vector3 targetPosition,
             double now)
         {
-            if (!CanInteract(attackerPlayerIndex, now) ||
+            if (!CanFight(attackerPlayerIndex, now) ||
                 !Players.IsActive(targetPlayerIndex) ||
                 attackerPlayerIndex == targetPlayerIndex)
             {
@@ -913,6 +913,16 @@ namespace Game.Server.Match
         {
             return Players.IsActive(playerIndex) &&
                    IsSearchingAt(now) &&
+                   !interactions.IsStunned(playerIndex, now);
+        }
+
+        private bool CanFight(int playerIndex, double now)
+        {
+            var phase = state.CurrentPhase.CurrentValue;
+            return Players.IsActive(playerIndex) &&
+                   (phase == MatchPhase.Hiding &&
+                    flow.GetRemainingSeconds(now) > 0d ||
+                    IsSearchingAt(now)) &&
                    !interactions.IsStunned(playerIndex, now);
         }
 
