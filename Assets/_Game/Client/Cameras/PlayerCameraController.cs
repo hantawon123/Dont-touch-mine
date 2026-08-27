@@ -41,6 +41,7 @@ namespace Game.Client.Cameras
         private InputAction lookAction;
         private InputAction toggleViewAction;
         private PlayerMovement followMovement;
+        private Renderer[] bodyRenderers;
         private float currentEyeHeight;
         private float yaw;
         private float pitch;
@@ -70,6 +71,9 @@ namespace Game.Client.Cameras
 
             followMovement = followTarget.GetComponent<PlayerMovement>();
             currentEyeHeight = followMovement != null ? followMovement.CurrentEyeHeight : headOffset.y;
+
+            var visual = followTarget.Find("Visual");
+            bodyRenderers = visual != null ? visual.GetComponentsInChildren<Renderer>() : new Renderer[0];
 
             playerMap = inputActions.FindActionMap("Player", throwIfNotFound: true);
             lookAction = playerMap.FindAction("Look", throwIfNotFound: true);
@@ -135,6 +139,17 @@ namespace Game.Client.Cameras
         {
             thirdPersonCamera.Priority = isFirstPerson ? InactivePriority : ActivePriority;
             firstPersonCamera.Priority = isFirstPerson ? ActivePriority : InactivePriority;
+
+            // 1인칭에서는 내 몸이 화면을 가리지 않게 숨긴다. 그림자는 남겨 존재감을 유지한다.
+            if (bodyRenderers != null)
+            {
+                foreach (var bodyRenderer in bodyRenderers)
+                {
+                    bodyRenderer.shadowCastingMode = isFirstPerson
+                        ? UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly
+                        : UnityEngine.Rendering.ShadowCastingMode.On;
+                }
+            }
         }
 
         private static void SetCursorLocked(bool locked)

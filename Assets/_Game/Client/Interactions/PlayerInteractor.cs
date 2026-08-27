@@ -35,6 +35,12 @@ namespace Game.Client.Interactions
         [SerializeField]
         private Transform holdPoint;
 
+        [SerializeField, Min(0f), Tooltip("소지 물건이 몸에서 앞으로 떨어진 거리")]
+        private float holdForwardOffset = 0.45f;
+
+        [SerializeField, Min(0f), Tooltip("소지 물건이 눈높이에서 아래로 내려간 거리")]
+        private float holdHeightBelowEyes = 0.55f;
+
         public CarryableItem CarriedItem { get; private set; }
 
         public Transform HoldPoint => holdPoint;
@@ -108,7 +114,10 @@ namespace Game.Client.Interactions
             // 손 위치가 자세(서기/앉기/엎드리기)의 눈높이를 따라가게 한다.
             if (playerMovement != null)
             {
-                var target = new Vector3(0f, Mathf.Max(0.2f, playerMovement.CurrentEyeHeight - 0.25f), 0.7f);
+                var target = new Vector3(
+                    0f,
+                    Mathf.Max(0.2f, playerMovement.CurrentEyeHeight - holdHeightBelowEyes),
+                    holdForwardOffset);
                 holdPoint.localPosition = Vector3.Lerp(holdPoint.localPosition, target, 10f * Time.deltaTime);
             }
         }
