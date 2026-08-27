@@ -89,7 +89,8 @@ namespace Game.Core.Players
         Jump = 1 << 0,
         Sprint = 1 << 1,
         Crouch = 1 << 2,
-        Prone = 1 << 3
+        Prone = 1 << 3,
+        Attack = 1 << 4
     }
 
     /// <summary>
@@ -101,7 +102,8 @@ namespace Game.Core.Players
             PlayerInputButtons.Jump |
             PlayerInputButtons.Sprint |
             PlayerInputButtons.Crouch |
-            PlayerInputButtons.Prone;
+            PlayerInputButtons.Prone |
+            PlayerInputButtons.Attack;
 
         public PlayerInputIntent(
             float moveX,

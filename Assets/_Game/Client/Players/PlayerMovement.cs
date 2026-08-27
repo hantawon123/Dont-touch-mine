@@ -50,6 +50,7 @@ namespace Game.Client.Players
         private InputAction sprintAction;
         private InputAction crouchAction;
         private InputAction proneAction;
+        private InputAction attackAction;
         private Transform cameraTransform;
         private float verticalVelocity;
         private Vector3 externalVelocity;
@@ -123,6 +124,11 @@ namespace Game.Client.Players
                 buttons |= PlayerInputButtons.Prone;
             }
 
+            if (attackAction.IsPressed())
+            {
+                buttons |= PlayerInputButtons.Attack;
+            }
+
             var lookYaw = TryEnsureCamera()
                 ? cameraTransform.eulerAngles.y
                 : transform.eulerAngles.y;
@@ -153,6 +159,7 @@ namespace Game.Client.Players
             sprintAction = playerMap.FindAction("Sprint", throwIfNotFound: true);
             crouchAction = playerMap.FindAction("Crouch", throwIfNotFound: true);
             proneAction = playerMap.FindAction("Prone", throwIfNotFound: true);
+            attackAction = playerMap.FindAction("Attack", throwIfNotFound: true);
 
             if (visualRoot == null)
             {

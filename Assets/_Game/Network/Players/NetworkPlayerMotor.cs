@@ -27,6 +27,15 @@ namespace Game.Network.Players
         [Networked]
         public NetworkBool ControlsEnabled { get; private set; }
 
+        [Networked]
+        public float AnimationSpeed { get; private set; }
+
+        [Networked]
+        public NetworkBool AnimationGrounded { get; private set; }
+
+        [Networked]
+        public int AttackSequence { get; private set; }
+
         private bool IsConfigured =>
             _controller != null && _networkTransform != null && _inputSource != null;
 
@@ -107,6 +116,14 @@ namespace Game.Network.Players
             var velocity = direction * speed;
             velocity.y = VerticalVelocity;
             _controller.Move(velocity * deltaTime);
+
+            AnimationSpeed = direction.magnitude * speed;
+            AnimationGrounded = _controller.isGrounded;
+
+            if (input.WasPressed(NetworkPlayerButton.Attack, PreviousButtons))
+            {
+                AttackSequence++;
+            }
 
             if (ControlsEnabled)
             {

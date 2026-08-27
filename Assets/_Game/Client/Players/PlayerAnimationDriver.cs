@@ -30,6 +30,10 @@ namespace Game.Client.Players
         private Animator animator;
         private string currentState;
         private float punchUntilTime;
+        private bool usesNetworkState;
+        private float networkSpeed;
+        private bool networkGrounded;
+        private int networkAttackSequence;
 
         private void Awake()
         {
@@ -65,6 +69,16 @@ namespace Game.Client.Players
 
         private void OnAttackPerformed()
         {
+            if (usesNetworkState)
+            {
+                return;
+            }
+
+            PlayPunch();
+        }
+
+        private void PlayPunch()
+        {
             punchUntilTime = Time.time + punchDurationSeconds;
 
             // 연속 공격: 이미 Punch 상태여도 클립을 처음부터 다시 재생한다.
@@ -73,9 +87,33 @@ namespace Game.Client.Players
             animator.CrossFadeInFixedTime(PunchState, 0.05f, 0, 0f);
         }
 
+        public void ApplyNetworkState(
+            float planarSpeed,
+            bool grounded,
+            int attackSequence)
+        {
+            if (!usesNetworkState)
+            {
+                usesNetworkState = true;
+                networkAttackSequence = attackSequence;
+            }
+            else if (networkAttackSequence != attackSequence)
+            {
+                networkAttackSequence = attackSequence;
+                PlayPunch();
+            }
+
+            networkSpeed = Mathf.Max(0f, planarSpeed);
+            networkGrounded = grounded;
+        }
+
         private void Update()
         {
-            animator.SetFloat(SpeedId, movement.PlanarSpeed, SpeedDampTime, Time.deltaTime);
+            animator.SetFloat(
+                SpeedId,
+                usesNetworkState ? networkSpeed : movement.PlanarSpeed,
+                SpeedDampTime,
+                Time.deltaTime);
 
             var desiredState = ResolveDesiredState();
             if (desiredState != currentState)
@@ -97,7 +135,7 @@ namespace Game.Client.Players
                 return PunchState;
             }
 
-            if (!movement.IsGrounded)
+            if (!(usesNetworkState ? networkGrounded : movement.IsGrounded))
             {
                 return AirborneState;
             }

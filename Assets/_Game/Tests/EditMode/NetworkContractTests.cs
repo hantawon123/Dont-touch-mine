@@ -79,7 +79,9 @@ namespace Game.Architecture.Tests
                 0f,
                 1f,
                 90f,
-                PlayerInputButtons.Jump | PlayerInputButtons.Sprint);
+                PlayerInputButtons.Jump |
+                PlayerInputButtons.Sprint |
+                PlayerInputButtons.Attack);
             var input = NetworkPlayerInput.FromIntent(intent);
             var direction = NetworkPlayerMotor.ToWorldDirection(
                 input.Move,
@@ -87,6 +89,7 @@ namespace Game.Architecture.Tests
 
             Assert.That(input.IsPressed(NetworkPlayerButton.Jump), Is.True);
             Assert.That(input.IsPressed(NetworkPlayerButton.Sprint), Is.True);
+            Assert.That(input.IsPressed(NetworkPlayerButton.Attack), Is.True);
             Assert.That(direction.x, Is.EqualTo(1f).Within(0.0001f));
             Assert.That(direction.z, Is.EqualTo(0f).Within(0.0001f));
         }
