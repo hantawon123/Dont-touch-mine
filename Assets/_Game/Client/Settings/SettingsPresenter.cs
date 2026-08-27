@@ -1,6 +1,7 @@
 using System;
 using Game.Client.Accessibility;
 using Game.Client.Audio;
+using Game.Client.Controls;
 using Game.Client.Graphics;
 using Game.Client.Home;
 using Game.Core.Flow;
@@ -17,6 +18,7 @@ namespace Game.Client.Settings
         private readonly IAudioSettings audioSettings;
         private readonly IAccessibilitySettings accessibilitySettings;
         private readonly IGraphicsSettings graphicsSettings;
+        private readonly IControlSettings controlSettings;
 
         public SettingsPresenter(
             ISettingsView view,
@@ -24,7 +26,8 @@ namespace Game.Client.Settings
             AppFlowSystem appFlow,
             IAudioSettings audioSettings,
             IAccessibilitySettings accessibilitySettings,
-            IGraphicsSettings graphicsSettings)
+            IGraphicsSettings graphicsSettings,
+            IControlSettings controlSettings)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.applicationHost = applicationHost
@@ -36,6 +39,8 @@ namespace Game.Client.Settings
                 ?? throw new ArgumentNullException(nameof(accessibilitySettings));
             this.graphicsSettings = graphicsSettings
                 ?? throw new ArgumentNullException(nameof(graphicsSettings));
+            this.controlSettings = controlSettings
+                ?? throw new ArgumentNullException(nameof(controlSettings));
         }
 
         public void Start()
@@ -49,17 +54,23 @@ namespace Game.Client.Settings
             view.HighContrastChanged += OnHighContrastChanged;
             view.GraphicsSettingChanged += OnGraphicsSettingChanged;
             view.BrightnessChanged += OnBrightnessChanged;
+            view.ControlRebindRequested += OnControlRebindRequested;
             audioSettings.Changed += OnAudioSettingsChanged;
             accessibilitySettings.Changed += OnAccessibilitySettingsChanged;
             graphicsSettings.Changed += OnGraphicsSettingsChanged;
+            controlSettings.Changed += OnControlSettingsChanged;
+            controlSettings.RebindListeningChanged += OnControlListeningChanged;
+            controlSettings.BindingConflict += OnBindingConflict;
             view.SetActiveTab(SettingsTab.Graphics);
             view.SetAudioSettings(audioSettings.Current);
             view.SetAccessibilitySettings(accessibilitySettings.Current);
             view.SetGraphicsSettings(graphicsSettings.Current);
+            view.SetControlSettings(controlSettings.Current);
         }
 
         public void Dispose()
         {
+            controlSettings.CancelRebind();
             view.BackRequested -= OnBackRequested;
             view.TabSelected -= OnTabSelected;
             view.AudioVolumeChanged -= OnAudioVolumeChanged;
@@ -69,9 +80,13 @@ namespace Game.Client.Settings
             view.HighContrastChanged -= OnHighContrastChanged;
             view.GraphicsSettingChanged -= OnGraphicsSettingChanged;
             view.BrightnessChanged -= OnBrightnessChanged;
+            view.ControlRebindRequested -= OnControlRebindRequested;
             audioSettings.Changed -= OnAudioSettingsChanged;
             accessibilitySettings.Changed -= OnAccessibilitySettingsChanged;
             graphicsSettings.Changed -= OnGraphicsSettingsChanged;
+            controlSettings.Changed -= OnControlSettingsChanged;
+            controlSettings.RebindListeningChanged -= OnControlListeningChanged;
+            controlSettings.BindingConflict -= OnBindingConflict;
         }
 
         private void OnTabSelected(SettingsTab tab)
@@ -137,6 +152,12 @@ namespace Game.Client.Settings
             graphicsSettings.TrySetBrightness(percent, out _);
         }
 
+        private void OnControlRebindRequested(ControlAction action)
+        {
+            view.SetControlMessage(string.Empty);
+            controlSettings.TryStartRebind(action, out _);
+        }
+
         private void OnAudioSettingsChanged(AudioSettingsState settings)
         {
             view.SetAudioSettings(settings);
@@ -152,8 +173,26 @@ namespace Game.Client.Settings
             view.SetGraphicsSettings(settings);
         }
 
+        private void OnControlSettingsChanged(ControlSettingsState settings)
+        {
+            view.SetControlMessage(string.Empty);
+            view.SetControlSettings(settings);
+        }
+
+        private void OnControlListeningChanged(ControlAction? action)
+        {
+            view.SetControlListening(action);
+        }
+
+        private void OnBindingConflict(ControlAction occupiedBy)
+        {
+            var label = ControlSettingsState.RowLabel(occupiedBy);
+            view.SetControlMessage($"이미 '{label}'에 사용 중인 키입니다.");
+        }
+
         private void OnBackRequested()
         {
+            controlSettings.CancelRebind();
             if (appFlow.CurrentState != AppFlowState.Home &&
                 !appFlow.TryTransitionTo(AppFlowState.Home))
             {

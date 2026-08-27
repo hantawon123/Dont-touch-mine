@@ -23,6 +23,8 @@ namespace Game.Client.Settings
 
         event Action<int> BrightnessChanged;
 
+        event Action<ControlAction> ControlRebindRequested;
+
         void SetActiveTab(SettingsTab tab);
 
         void SetAudioSettings(AudioSettingsState settings);
@@ -30,5 +32,11 @@ namespace Game.Client.Settings
         void SetAccessibilitySettings(AccessibilitySettingsState settings);
 
         void SetGraphicsSettings(GraphicsSettingsState settings);
+
+        void SetControlSettings(ControlSettingsState settings);
+
+        void SetControlListening(ControlAction? action);
+
+        void SetControlMessage(string message);
     }
 }

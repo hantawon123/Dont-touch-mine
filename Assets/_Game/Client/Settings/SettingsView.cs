@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Accessibility;
+using Game.Client.Controls;
 using Game.Client.Graphics;
 using Game.Client.Home;
 using Game.Core.Settings;
@@ -40,6 +41,7 @@ namespace Game.Client.Settings
         private readonly Dictionary<SettingsTab, GameObject> panels = new Dictionary<SettingsTab, GameObject>();
         private readonly Dictionary<AudioChannel, AudioSliderBinding> audioSliders =
             new Dictionary<AudioChannel, AudioSliderBinding>();
+        private readonly List<BindRow> bindRows = new List<BindRow>();
         private TMP_FontAsset koreanFont;
         private SettingsTab activeTab = SettingsTab.Graphics;
         private ToggleState voiceChatToggle;
@@ -58,6 +60,10 @@ namespace Game.Client.Settings
         private bool bindingAudio;
         private bool bindingAccessibility;
         private bool bindingGraphics;
+        private bool bindingControls;
+        private ControlAction? listeningAction;
+        private ControlSettingsState boundControls;
+        private TMP_Text controlMessage;
 
         public event Action BackRequested;
 
@@ -76,6 +82,8 @@ namespace Game.Client.Settings
         public event Action<GraphicsSetting, int> GraphicsSettingChanged;
 
         public event Action<int> BrightnessChanged;
+
+        public event Action<ControlAction> ControlRebindRequested;
 
         private void Awake()
         {
@@ -177,6 +185,53 @@ namespace Game.Client.Settings
             }
 
             bindingGraphics = false;
+        }
+
+        public void SetControlSettings(ControlSettingsState settings)
+        {
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
+
+            boundControls = settings;
+            RefreshBindRows();
+        }
+
+        public void SetControlListening(ControlAction? action)
+        {
+            listeningAction = action;
+            RefreshBindRows();
+        }
+
+        public void SetControlMessage(string message)
+        {
+            if (controlMessage == null)
+            {
+                return;
+            }
+
+            controlMessage.text = message ?? string.Empty;
+        }
+
+        private void RefreshBindRows()
+        {
+            var settings = boundControls ?? new ControlSettingsState();
+            bindingControls = true;
+            for (var index = 0; index < bindRows.Count; index++)
+            {
+                var row = bindRows[index];
+                if (row.ValueLabel == null)
+                {
+                    continue;
+                }
+
+                row.ValueLabel.text = listeningAction == row.Action
+                    ? "입력 대기"
+                    : ControlBindingDisplay.ToLabel(settings.GetPath(row.Action));
+            }
+
+            bindingControls = false;
         }
 
         private static Color IdleTabColor()
@@ -478,8 +533,30 @@ namespace Game.Client.Settings
             panel.gameObject.SetActive(false);
             CreateDecimalSliderRow(content, "마우스 감도", 0.5f);
             CreateDecimalSliderRow(content, "카메라 감도", 0.5f);
-            CreateActionRow(content, "키 설정 변경");
+            controlMessage = CreateControlMessage(content);
+            for (var index = 0; index < ControlSettingsState.Rows.Length; index++)
+            {
+                CreateBindRow(content, ControlSettingsState.Rows[index]);
+            }
+
             return panel;
+        }
+
+        private TMP_Text CreateControlMessage(RectTransform parent)
+        {
+            var row = CreateRect("ControlMessage", parent);
+            var layout = row.gameObject.AddComponent<LayoutElement>();
+            layout.preferredHeight = 36f;
+            layout.minHeight = 28f;
+            var text = AddText(
+                row,
+                string.Empty,
+                18f,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineLeft);
+            text.color = new Color(0.75f, 0.18f, 0.18f, 1f);
+            text.textWrappingMode = TextWrappingModes.Normal;
+            return text;
         }
 
         private RectTransform CreateAccessibilityPanel(RectTransform parent)
@@ -641,6 +718,59 @@ namespace Game.Client.Settings
                 onChanged?.Invoke(state.Index);
             });
             return state;
+        }
+
+        private void CreateBindRow(RectTransform parent, ControlBindingRow binding)
+        {
+            var row = CreateSettingRow(parent);
+            AddRowLabel(row, binding.Label);
+
+            var control = CreateRect("Control", row);
+            var controlLayout = control.gameObject.AddComponent<LayoutElement>();
+            controlLayout.preferredWidth = 420f;
+            controlLayout.minWidth = 320f;
+            controlLayout.preferredHeight = 48f;
+            var background = AddImage(control, RowColor, HomeUiFonts.PillSprite, raycastTarget: true);
+            background.type = Image.Type.Sliced;
+
+            var valueRect = CreateRect("Value", control);
+            SetAnchor(valueRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            valueRect.offsetMin = Vector2.zero;
+            valueRect.offsetMax = Vector2.zero;
+            var valueLabel = AddText(
+                valueRect,
+                ControlBindingDisplay.ToLabel(ControlSettingsState.GetDefaultPath(binding.Action)),
+                22f,
+                FontStyles.Bold,
+                TextAlignmentOptions.Center,
+                raycastTarget: false);
+
+            var action = binding.Action;
+            var button = control.gameObject.AddComponent<Button>();
+            button.targetGraphic = background;
+            button.transition = Selectable.Transition.ColorTint;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(0.85f, 0.9f, 1f, 1f);
+            colors.pressedColor = new Color(0.75f, 0.82f, 1f, 1f);
+            colors.selectedColor = Color.white;
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+            button.onClick.AddListener(() =>
+            {
+                if (!bindingControls)
+                {
+                    ControlRebindRequested?.Invoke(action);
+                }
+            });
+            buttons.Add(button);
+            bindRows.Add(new BindRow
+            {
+                Action = action,
+                ValueLabel = valueLabel
+            });
         }
 
         private ToggleState CreateToggleRow(
@@ -1148,6 +1278,12 @@ namespace Game.Client.Settings
         {
             public TMP_Text Label;
             public GameObject Underline;
+        }
+
+        private sealed class BindRow
+        {
+            public ControlAction Action;
+            public TMP_Text ValueLabel;
         }
 
         private sealed class CycleState

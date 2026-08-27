@@ -1,6 +1,7 @@
 using System;
 using Game.Client.Accessibility;
 using Game.Client.Audio;
+using Game.Client.Controls;
 using Game.Client.Graphics;
 using Game.Client.Home;
 using Game.Client.Settings;
@@ -21,16 +22,18 @@ namespace Game.Tests.EditMode
             var audio = new FakeAudioSettings();
             var accessibility = new FakeAccessibilitySettings();
             var graphics = new FakeGraphicsSettings();
+            var controls = new FakeControlSettings();
             Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
 
             using (var presenter = new SettingsPresenter(
-                view, host, appFlow, audio, accessibility, graphics))
+                view, host, appFlow, audio, accessibility, graphics, controls))
             {
                 presenter.Start();
                 Assert.That(view.ActiveTab, Is.EqualTo(SettingsTab.Graphics));
                 Assert.That(view.BoundAudio, Is.SameAs(audio.Current));
                 Assert.That(view.BoundAccessibility, Is.SameAs(accessibility.Current));
                 Assert.That(view.BoundGraphics, Is.SameAs(graphics.Current));
+                Assert.That(view.BoundControls, Is.SameAs(controls.Current));
 
                 view.RaiseTab(SettingsTab.Audio);
                 Assert.That(view.ActiveTab, Is.EqualTo(SettingsTab.Audio));
@@ -54,10 +57,11 @@ namespace Game.Tests.EditMode
             var audio = new FakeAudioSettings();
             var accessibility = new FakeAccessibilitySettings();
             var graphics = new FakeGraphicsSettings();
+            var controls = new FakeControlSettings();
             Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
 
             using (var presenter = new SettingsPresenter(
-                view, host, appFlow, audio, accessibility, graphics))
+                view, host, appFlow, audio, accessibility, graphics, controls))
             {
                 presenter.Start();
                 view.RaiseVolume(AudioChannel.Master, 80);
@@ -80,10 +84,11 @@ namespace Game.Tests.EditMode
             var audio = new FakeAudioSettings();
             var accessibility = new FakeAccessibilitySettings();
             var graphics = new FakeGraphicsSettings();
+            var controls = new FakeControlSettings();
             Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
 
             using (var presenter = new SettingsPresenter(
-                view, host, appFlow, audio, accessibility, graphics))
+                view, host, appFlow, audio, accessibility, graphics, controls))
             {
                 presenter.Start();
                 view.RaiseUiScale(80);
@@ -106,10 +111,11 @@ namespace Game.Tests.EditMode
             var audio = new FakeAudioSettings();
             var accessibility = new FakeAccessibilitySettings();
             var graphics = new FakeGraphicsSettings();
+            var controls = new FakeControlSettings();
             Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
 
             using (var presenter = new SettingsPresenter(
-                view, host, appFlow, audio, accessibility, graphics))
+                view, host, appFlow, audio, accessibility, graphics, controls))
             {
                 presenter.Start();
                 view.RaiseGraphics(GraphicsSetting.Quality, (int)GraphicsQualityPreset.Low);
@@ -125,6 +131,54 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_ForwardsControlRebind()
+        {
+            var view = new FakeSettingsView();
+            var host = new FakeHomeApplicationHost();
+            var appFlow = new AppFlowSystem();
+            var audio = new FakeAudioSettings();
+            var accessibility = new FakeAccessibilitySettings();
+            var graphics = new FakeGraphicsSettings();
+            var controls = new FakeControlSettings();
+            Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
+
+            using (var presenter = new SettingsPresenter(
+                view, host, appFlow, audio, accessibility, graphics, controls))
+            {
+                presenter.Start();
+                view.RaiseControlRebind(ControlAction.Jump);
+                controls.CompleteRebind("<Keyboard>/h");
+            }
+
+            Assert.That(controls.Current.GetPath(ControlAction.Jump), Is.EqualTo("<Keyboard>/h"));
+            Assert.That(view.BoundControls.GetPath(ControlAction.Jump), Is.EqualTo("<Keyboard>/h"));
+        }
+
+        [Test]
+        public void Presenter_ShowsConflictWhenRebindOverlaps()
+        {
+            var view = new FakeSettingsView();
+            var host = new FakeHomeApplicationHost();
+            var appFlow = new AppFlowSystem();
+            var audio = new FakeAudioSettings();
+            var accessibility = new FakeAccessibilitySettings();
+            var graphics = new FakeGraphicsSettings();
+            var controls = new FakeControlSettings();
+            Assert.That(appFlow.TryTransitionTo(AppFlowState.Settings), Is.True);
+
+            using (var presenter = new SettingsPresenter(
+                view, host, appFlow, audio, accessibility, graphics, controls))
+            {
+                presenter.Start();
+                view.RaiseControlRebind(ControlAction.Jump);
+                controls.CompleteRebind("<Keyboard>/w");
+            }
+
+            Assert.That(controls.Current.GetPath(ControlAction.Jump), Is.EqualTo("<Keyboard>/space"));
+            Assert.That(view.ControlMessage, Is.EqualTo("이미 '이동 (앞)'에 사용 중인 키입니다."));
+        }
+
+        [Test]
         public void Presenter_RequiresDependencies()
         {
             var view = new FakeSettingsView();
@@ -133,24 +187,28 @@ namespace Game.Tests.EditMode
             var audio = new FakeAudioSettings();
             var accessibility = new FakeAccessibilitySettings();
             var graphics = new FakeGraphicsSettings();
+            var controls = new FakeControlSettings();
 
             Assert.That(
-                () => new SettingsPresenter(null, host, appFlow, audio, accessibility, graphics),
+                () => new SettingsPresenter(null, host, appFlow, audio, accessibility, graphics, controls),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new SettingsPresenter(view, null, appFlow, audio, accessibility, graphics),
+                () => new SettingsPresenter(view, null, appFlow, audio, accessibility, graphics, controls),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new SettingsPresenter(view, host, null, audio, accessibility, graphics),
+                () => new SettingsPresenter(view, host, null, audio, accessibility, graphics, controls),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new SettingsPresenter(view, host, appFlow, null, accessibility, graphics),
+                () => new SettingsPresenter(view, host, appFlow, null, accessibility, graphics, controls),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new SettingsPresenter(view, host, appFlow, audio, null, graphics),
+                () => new SettingsPresenter(view, host, appFlow, audio, null, graphics, controls),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new SettingsPresenter(view, host, appFlow, audio, accessibility, null),
+                () => new SettingsPresenter(view, host, appFlow, audio, accessibility, null, controls),
+                Throws.TypeOf<ArgumentNullException>());
+            Assert.That(
+                () => new SettingsPresenter(view, host, appFlow, audio, accessibility, graphics, null),
                 Throws.TypeOf<ArgumentNullException>());
         }
 
@@ -163,6 +221,12 @@ namespace Game.Tests.EditMode
             public AccessibilitySettingsState BoundAccessibility { get; private set; }
 
             public GraphicsSettingsState BoundGraphics { get; private set; }
+
+            public ControlSettingsState BoundControls { get; private set; }
+
+            public ControlAction? Listening { get; private set; }
+
+            public string ControlMessage { get; private set; }
 
             public event Action BackRequested;
 
@@ -182,6 +246,8 @@ namespace Game.Tests.EditMode
 
             public event Action<int> BrightnessChanged;
 
+            public event Action<ControlAction> ControlRebindRequested;
+
             public void SetActiveTab(SettingsTab tab)
             {
                 ActiveTab = tab;
@@ -200,6 +266,21 @@ namespace Game.Tests.EditMode
             public void SetGraphicsSettings(GraphicsSettingsState settings)
             {
                 BoundGraphics = settings;
+            }
+
+            public void SetControlSettings(ControlSettingsState settings)
+            {
+                BoundControls = settings;
+            }
+
+            public void SetControlListening(ControlAction? action)
+            {
+                Listening = action;
+            }
+
+            public void SetControlMessage(string message)
+            {
+                ControlMessage = message;
             }
 
             public void RaiseBack()
@@ -245,6 +326,11 @@ namespace Game.Tests.EditMode
             public void RaiseBrightness(int percent)
             {
                 BrightnessChanged?.Invoke(percent);
+            }
+
+            public void RaiseControlRebind(ControlAction action)
+            {
+                ControlRebindRequested?.Invoke(action);
             }
         }
 
@@ -374,6 +460,67 @@ namespace Game.Tests.EditMode
                 }
 
                 return succeeded;
+            }
+        }
+
+        private sealed class FakeControlSettings : IControlSettings
+        {
+            public ControlSettingsState Current { get; } = new ControlSettingsState();
+
+            public ControlAction? ListeningAction { get; private set; }
+
+            public event Action<ControlSettingsState> Changed;
+
+            public event Action<ControlAction?> RebindListeningChanged;
+
+            public event Action<ControlAction> BindingConflict;
+
+            public bool TrySetPath(ControlAction action, string path, out ControlSettingsError error)
+            {
+                if (Current.GetPath(action) == path)
+                {
+                    error = ControlSettingsError.None;
+                    return true;
+                }
+
+                if (!Current.TrySetPath(action, path, out error))
+                {
+                    if (error == ControlSettingsError.DuplicatePath &&
+                        Current.TryFindConflict(action, path, out var occupiedBy))
+                    {
+                        BindingConflict?.Invoke(occupiedBy);
+                    }
+
+                    return false;
+                }
+
+                Changed?.Invoke(Current);
+                return true;
+            }
+
+            public bool TryStartRebind(ControlAction action, out ControlSettingsError error)
+            {
+                ListeningAction = action;
+                RebindListeningChanged?.Invoke(action);
+                error = ControlSettingsError.None;
+                return true;
+            }
+
+            public void CancelRebind()
+            {
+                ListeningAction = null;
+                RebindListeningChanged?.Invoke(null);
+            }
+
+            public void CompleteRebind(string path)
+            {
+                var action = ListeningAction;
+                ListeningAction = null;
+                RebindListeningChanged?.Invoke(null);
+                if (action.HasValue)
+                {
+                    TrySetPath(action.Value, path, out _);
+                }
             }
         }
 
