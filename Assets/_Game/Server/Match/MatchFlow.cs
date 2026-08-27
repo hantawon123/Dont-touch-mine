@@ -73,35 +73,32 @@ namespace Game.Server.Match
                    remainingSeconds <= rules.FinalWarningSeconds;
         }
 
+        /// <remarks>
+        /// The rule itself lives in <see cref="HidingTurns"/> because the screens
+        /// report the same turn from the same replicated values, and a rule kept
+        /// in two places is a rule that eventually disagrees with itself.
+        /// </remarks>
         public int GetCurrentHidingTurnIndex(double now)
         {
             ValidateTime(now);
-            if (state.CurrentPhase.CurrentValue != MatchPhase.Hiding)
-            {
-                return -1;
-            }
-
-            var hidingStartedAt = state.PhaseEndsAt.CurrentValue - HidingDurationSeconds;
-            var elapsedSeconds = Math.Max(0d, now - hidingStartedAt);
-            return Math.Min(
-                (int)(elapsedSeconds / rules.HidingTurnDurationSeconds),
-                playerCount - 1);
+            return HidingTurns.IndexAt(
+                state.CurrentPhase.CurrentValue,
+                state.PhaseEndsAt.CurrentValue,
+                now,
+                playerCount,
+                rules.HidingTurnDurationSeconds);
         }
 
         public double GetHidingTurnRemainingSeconds(double now)
         {
-            var turnIndex = GetCurrentHidingTurnIndex(now);
-            if (turnIndex < 0)
-            {
-                return 0d;
-            }
-
-            var hidingStartedAt = state.PhaseEndsAt.CurrentValue - HidingDurationSeconds;
-            var turnEndsAt = hidingStartedAt +
-                             ((turnIndex + 1) * rules.HidingTurnDurationSeconds);
-            return Math.Min(
-                rules.HidingTurnDurationSeconds,
-                Math.Max(0d, turnEndsAt - now));
+            // Checked here now that the turn index is no longer asked for first.
+            ValidateTime(now);
+            return HidingTurns.RemainingSecondsAt(
+                state.CurrentPhase.CurrentValue,
+                state.PhaseEndsAt.CurrentValue,
+                now,
+                playerCount,
+                rules.HidingTurnDurationSeconds);
         }
 
         public bool CompleteHighlight()

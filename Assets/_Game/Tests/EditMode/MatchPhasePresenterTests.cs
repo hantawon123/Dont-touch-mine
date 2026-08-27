@@ -42,9 +42,12 @@ namespace Game.Tests.EditMode
         {
             public MatchPhase Phase { get; private set; }
 
-            public void SetPhase(MatchPhase phase)
+            public string HidingPlayerName { get; private set; }
+
+            public void SetPhase(MatchPhase phase, string hidingPlayerName)
             {
                 Phase = phase;
+                HidingPlayerName = hidingPlayerName;
             }
         }
 
