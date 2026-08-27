@@ -17,6 +17,7 @@ namespace Game.Bootstrap
         private readonly float height;
         private readonly float followSharpness;
         private readonly int collisionLayerMask;
+        private readonly HashSet<Renderer> hiddenRenderers = new();
         private Transform currentTarget;
         private float currentDistance;
 
@@ -25,11 +26,11 @@ namespace Game.Bootstrap
             Transform fallbackTransform,
             IReadOnlyList<Transform> playerTargets,
             IReadOnlyList<SceneWorldObjectReference> objectTargets,
-            float closeDistance = 5f,
-            float wideDistance = 9f,
-            float height = 3f,
+            float closeDistance = 8f,
+            float wideDistance = 12f,
+            float height = 4.5f,
             float followSharpness = 10f,
-            int collisionLayerMask = 0)
+            int collisionLayerMask = Physics.DefaultRaycastLayers)
         {
             this.cameraTransform = cameraTransform ??
                 throw new ArgumentNullException(nameof(cameraTransform));
@@ -74,6 +75,7 @@ namespace Game.Bootstrap
 
         public bool Focus(HighlightCandidate highlight)
         {
+            ClearOccluders();
             currentTarget = ResolveTarget(highlight.TargetId);
             if (currentTarget == null)
             {
@@ -87,6 +89,19 @@ namespace Game.Bootstrap
                 : closeDistance;
             ApplyTargetPose(1f);
             return true;
+        }
+
+        public void ClearOccluders()
+        {
+            foreach (var renderer in hiddenRenderers)
+            {
+                if (renderer != null)
+                {
+                    renderer.forceRenderingOff = false;
+                }
+            }
+
+            hiddenRenderers.Clear();
         }
 
         public void Tick(float deltaSeconds)
@@ -136,16 +151,7 @@ namespace Game.Bootstrap
             var desiredPosition = focusPosition +
                                   (Vector3.back * currentDistance) +
                                   (Vector3.up * height);
-            if (collisionLayerMask != 0 &&
-                Physics.Linecast(
-                    focusPosition,
-                    desiredPosition,
-                    out var hit,
-                    collisionLayerMask,
-                    QueryTriggerInteraction.Ignore))
-            {
-                desiredPosition = hit.point + (hit.normal * 0.2f);
-            }
+            UpdateOccluders(focusPosition, desiredPosition);
 
             var desiredRotation = Quaternion.LookRotation(
                 focusPosition - desiredPosition,
@@ -157,9 +163,75 @@ namespace Game.Bootstrap
 
         private void ApplyFallback()
         {
+            ClearOccluders();
             cameraTransform.SetPositionAndRotation(
                 fallbackTransform.position,
                 fallbackTransform.rotation);
         }
+
+        private void UpdateOccluders(Vector3 focusPosition, Vector3 cameraPosition)
+        {
+            ClearOccluders();
+            if (collisionLayerMask == 0)
+            {
+                return;
+            }
+
+            var direction = cameraPosition - focusPosition;
+            var distance = direction.magnitude;
+            if (distance <= Mathf.Epsilon)
+            {
+                return;
+            }
+
+            foreach (var hit in Physics.SphereCastAll(
+                         focusPosition,
+                         0.5f,
+                         direction / distance,
+                         distance,
+                         collisionLayerMask,
+                         QueryTriggerInteraction.Ignore))
+            {
+                HideIfOccluding(hit.collider.GetComponent<Renderer>());
+                HideIfOccluding(hit.collider.GetComponentInParent<Renderer>());
+                foreach (var renderer in hit.collider.GetComponentsInChildren<Renderer>(true))
+                {
+                    HideIfOccluding(renderer);
+                }
+            }
+        }
+
+        private void HideIfOccluding(Renderer renderer)
+        {
+            if (renderer == null || renderer.forceRenderingOff || IsReplaySubject(renderer.transform))
+            {
+                return;
+            }
+
+            renderer.forceRenderingOff = true;
+            hiddenRenderers.Add(renderer);
+        }
+
+        private bool IsReplaySubject(Transform candidate)
+        {
+            if (IsSameHierarchy(candidate, currentTarget))
+            {
+                return true;
+            }
+
+            foreach (var player in playerTargets)
+            {
+                if (IsSameHierarchy(candidate, player))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsSameHierarchy(Transform left, Transform right) =>
+            left != null && right != null &&
+            (left == right || left.IsChildOf(right) || right.IsChildOf(left));
     }
 }

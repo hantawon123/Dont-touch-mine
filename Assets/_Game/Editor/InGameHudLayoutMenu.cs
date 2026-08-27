@@ -55,6 +55,7 @@ namespace Game.Editor
                 }
 
                 EnsureAssignedItem(hud);
+                EnsureHighlightTitle(hud);
                 EnsureWaitingSpawnPoints(scene);
 
                 ConnectLifetimeScope(scene, hud);
@@ -236,6 +237,36 @@ namespace Game.Editor
                     new Vector2(0f, 1f),
                     new Vector2(250f, -72f),
                     new Vector2(460f, 56f));
+            }
+
+            property.objectReferenceValue = text;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            text.gameObject.SetActive(false);
+        }
+
+        private static void EnsureHighlightTitle(NetworkMatchHudView hud)
+        {
+            var serialized = new SerializedObject(hud);
+            var property = serialized.FindProperty("highlightTitleText");
+            if (property.objectReferenceValue != null)
+            {
+                return;
+            }
+
+            var text = hud.transform.Find("HighlightTitleText")?.GetComponent<TMP_Text>();
+            if (text == null)
+            {
+                text = CreateText(
+                    hud.transform,
+                    "HighlightTitleText",
+                    "FIRST BLOOD",
+                    38f,
+                    TextAlignmentOptions.Right);
+                Place(
+                    text.rectTransform,
+                    Vector2.one,
+                    new Vector2(-270f, -72f),
+                    new Vector2(500f, 64f));
             }
 
             property.objectReferenceValue = text;

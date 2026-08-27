@@ -35,7 +35,7 @@ namespace Game.Tests.EditMode
 
             Assert.That(director.Focus(Candidate(HighlightType.FirstBlood, "item")), Is.True);
 
-            Assert.That(camera.transform.position.z, Is.EqualTo(-5f));
+            Assert.That(camera.transform.position.z, Is.EqualTo(-8f));
         }
 
         [Test]
@@ -52,7 +52,7 @@ namespace Game.Tests.EditMode
 
             director.Focus(Candidate(HighlightType.LongestHidden, "item"));
 
-            Assert.That(camera.transform.position.z, Is.EqualTo(-9f));
+            Assert.That(camera.transform.position.z, Is.EqualTo(-12f));
         }
 
         [Test]
@@ -91,6 +91,32 @@ namespace Game.Tests.EditMode
             Assert.That(
                 Quaternion.Angle(camera.transform.rotation, fallback.transform.rotation),
                 Is.LessThan(0.001f));
+        }
+
+        [Test]
+        public void Focus_HidesAndRestoresRendererBlockingTheTarget()
+        {
+            var camera = Create("Camera", Vector3.zero);
+            var fallback = Create("Fallback", Vector3.left);
+            var item = Create("Item", Vector3.zero);
+            var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            blocker.name = "Wall";
+            blocker.transform.position = new Vector3(0f, 2.75f, -4f);
+            blocker.transform.localScale = new Vector3(4f, 4f, 0.5f);
+            gameObjects.Add(blocker);
+            Physics.SyncTransforms();
+
+            var director = Director(
+                camera.transform,
+                fallback.transform,
+                new Transform[0],
+                new[] { new SceneWorldObjectReference("item", item.transform) });
+
+            director.Focus(Candidate(HighlightType.FirstBlood, "item"));
+
+            Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.True);
+            director.ClearOccluders();
+            Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.False);
         }
 
         private static HighlightCameraDirector Director(

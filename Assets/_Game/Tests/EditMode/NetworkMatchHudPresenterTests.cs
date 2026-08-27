@@ -130,6 +130,7 @@ namespace Game.Architecture.Tests
                 HidingPlayerName = hidingPlayerName;
             }
             public void SetRemainingSeconds(double value) => RemainingSeconds = value;
+            public void SetHighlightTitle(string title) { }
             public void SetAssignedItem(string displayName) => AssignedItem = displayName;
             public void SetRemainingDestructionUses(int value) =>
                 RemainingDestructionUses = value;
