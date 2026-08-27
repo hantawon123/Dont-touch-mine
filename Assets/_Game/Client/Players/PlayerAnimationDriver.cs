@@ -66,6 +66,11 @@ namespace Game.Client.Players
         private void OnAttackPerformed()
         {
             punchUntilTime = Time.time + punchDurationSeconds;
+
+            // 연속 공격: 이미 Punch 상태여도 클립을 처음부터 다시 재생한다.
+            // (상태 변화 감지에만 의존하면 두 번째 공격부터 마지막 프레임에 멈춘 채 보인다)
+            currentState = PunchState;
+            animator.CrossFadeInFixedTime(PunchState, 0.05f, 0, 0f);
         }
 
         private void Update()

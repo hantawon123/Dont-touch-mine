@@ -76,11 +76,12 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     network.PublishedAssignmentPlayers,
                     Is.EqualTo(new[] { 0, 1 }));
+                // 턴 교대: 새로 숨는 1번만 집으로, 직전에 숨긴 0번만 대기 구역으로 이동한다.
                 Assert.That(
                     network.TeleportedPlayers,
-                    Is.EqualTo(new[] { 0, 1, 0, 1 }));
-                Assert.That(network.TeleportedPoses[2].position.z, Is.EqualTo(-10f));
-                Assert.That(network.TeleportedPoses[3].position.z, Is.EqualTo(0f));
+                    Is.EqualTo(new[] { 0, 1, 1, 0 }));
+                Assert.That(network.TeleportedPoses[2].position.z, Is.EqualTo(0f));
+                Assert.That(network.TeleportedPoses[3].position.z, Is.EqualTo(-10f));
 
                 network.ServerTime = network.Snapshots[0].PhaseEndsAt;
                 network.PublishSimulationTick();
@@ -91,7 +92,7 @@ namespace Game.Architecture.Tests
                 Assert.That(network.Controls[1], Is.True);
                 Assert.That(
                     network.TeleportedPlayers,
-                    Is.EqualTo(new[] { 0, 1, 0, 1, 0, 1 }));
+                    Is.EqualTo(new[] { 0, 1, 1, 0, 0, 1 }));
 
                 var searchingStartedAt = network.Snapshots[0].PhaseEndsAt;
                 Assert.That(
