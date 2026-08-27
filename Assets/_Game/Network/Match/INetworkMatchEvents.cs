@@ -15,6 +15,7 @@ namespace Game.Network.Match
     public interface INetworkMatchEvents
     {
         event Action<MatchStateSnapshot> MatchStateReceived;
+        event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
         event Action<IReadOnlyList<PlayerInteractionStateSnapshot>>
             PlayerInteractionStatesReceived;
         event Action<IReadOnlyList<HighlightReplayData>> HighlightReplayReceived;

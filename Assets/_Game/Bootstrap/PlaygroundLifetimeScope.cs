@@ -1,4 +1,5 @@
 using System;
+using Game.Client.Match;
 using Game.Core.Match;
 using Game.Core.Players;
 using Game.Server.Match;
@@ -19,6 +20,10 @@ namespace Game.Bootstrap
         [SerializeField]
         private MatchRulesSO matchRules;
 
+        [SerializeField]
+        [Tooltip("Optional HUD root. Leave empty until the scene UI is laid out.")]
+        private NetworkMatchHudView matchHudView;
+
         protected override void Configure(IContainerBuilder builder)
         {
             if (matchRules == null)
@@ -38,6 +43,12 @@ namespace Game.Bootstrap
             builder.Register<MatchRuntimeFactory>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>();
+
+            if (matchHudView != null)
+            {
+                builder.RegisterComponent(matchHudView).As<INetworkMatchHudView>();
+                builder.RegisterEntryPoint<NetworkMatchHudPresenter>();
+            }
         }
     }
 }
