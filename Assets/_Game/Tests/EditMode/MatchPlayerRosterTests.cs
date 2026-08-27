@@ -31,9 +31,9 @@ namespace Game.Tests.EditMode
         [Test]
         public void Constructor_AcceptsMinimumPlayerCount()
         {
-            var roster = new MatchPlayerRoster(new[] { "player-0", "player-1" });
+            var roster = new MatchPlayerRoster(new[] { "player-0" });
 
-            Assert.That(roster.Players.Count, Is.EqualTo(2));
+            Assert.That(roster.Players.Count, Is.EqualTo(1));
         }
 
         [Test]
@@ -58,10 +58,7 @@ namespace Game.Tests.EditMode
                 () => new MatchPlayerRoster(null),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new MatchPlayerRoster(new[]
-                {
-                    "player-0"
-                }),
+                () => new MatchPlayerRoster(Array.Empty<string>()),
                 Throws.ArgumentException);
             Assert.That(
                 () => new MatchPlayerRoster(new[]

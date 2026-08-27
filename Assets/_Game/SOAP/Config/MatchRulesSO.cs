@@ -6,7 +6,7 @@ namespace Game.SOAP.Config
     [CreateAssetMenu(fileName = "MatchRules", menuName = "Game/Match Rules")]
     public sealed class MatchRulesSO : ScriptableObject
     {
-        public const int MinPlayerCount = 2;
+        public const int MinPlayerCount = 1;
         public const int MaxPlayerCount = 6;
         public const int PlayerCount = MaxPlayerCount;
         public const int MaxHighlightCount = 3;

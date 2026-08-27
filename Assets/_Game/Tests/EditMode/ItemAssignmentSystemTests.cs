@@ -72,6 +72,17 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void AssignedCatalogItemKeepsSourceDisplayName()
+        {
+            var assigned = ItemCatalog.AssignedDefinition(0);
+
+            Assert.That(assigned.ItemId, Is.EqualTo("Assigned_0"));
+            Assert.That(
+                ItemCatalog.DisplayNameOf(assigned.ItemId),
+                Is.EqualTo(ItemCatalog.Definitions[0].DisplayName));
+        }
+
+        [Test]
         public void Assign_RejectsInsufficientItems()
         {
             var definitions = new[]

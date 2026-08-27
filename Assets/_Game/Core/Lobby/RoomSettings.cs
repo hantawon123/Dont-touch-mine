@@ -56,6 +56,7 @@ namespace Game.Core.Lobby
 
     public readonly struct RoomSettings
     {
+        public const int MinMatchPlayerCount = 1;
         public const int MinPlayerCount = 2;
         public const int MaxPlayerCount = 6;
 

@@ -302,7 +302,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void TryStart_AllowsOnlyHostWithAtLeastTwoPlayers()
+        public void TryStart_AllowsOnlyHost()
         {
             var lobby = new RoomLobbySystem(CreateSettings(), "host", 2);
             var eventCount = 0;
@@ -316,15 +316,15 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void TryStart_RejectsHostUntilTwoPlayersArePresent()
+        public void TryStart_AllowsHostWhenOnePlayerIsPresent()
         {
-            var lobby = new RoomLobbySystem(CreateSettings(), "host", 1);
+            var lobby = new RoomLobbySystem(CreateSettings(), "host", 0);
 
             Assert.That(
                 lobby.TryStart("host"),
                 Is.EqualTo(RoomStartResult.NotEnoughPlayers));
 
-            lobby.UpdatePlayerCount(2);
+            lobby.UpdatePlayerCount(1);
 
             Assert.That(lobby.TryStart("host"), Is.EqualTo(RoomStartResult.Started));
         }

@@ -15,6 +15,8 @@ namespace Game.Client.Interactions
     {
         private const float AutoLiftStep = 0.05f;
         private const float AutoLiftMax = 0.75f;
+        private const float PlacementSkinWidth = 0.01f;
+        private const float MaxSupportDistance = 0.05f;
 
         [SerializeField]
         private InputActionAsset inputActions;
@@ -45,6 +47,8 @@ namespace Game.Client.Interactions
         private bool isCurrentPoseValid;
         private Vector3 previewPosition;
         private Quaternion previewRotation;
+        private Vector3 placementCenterOffset;
+        private Vector3 placementHalfExtents;
 
         private void Awake()
         {
@@ -72,7 +76,6 @@ namespace Game.Client.Interactions
 
         private void OnDisable()
         {
-            playerMap?.Disable();
             ExitPlacementMode();
         }
 
@@ -209,13 +212,17 @@ namespace Game.Client.Interactions
 
             previewRotation = ghostRotation;
 
-            // 물건의 실제 중앙(바운드)을 기준으로 정렬: 중앙이 조준점 위에, 바닥이 표면에 닿게.
-            ghost.transform.SetPositionAndRotation(surfacePoint, previewRotation);
-            var bounds = ComputeGhostBounds();
-            ghost.transform.position += new Vector3(
-                surfacePoint.x - bounds.center.x,
-                surfacePoint.y - bounds.min.y,
-                surfacePoint.z - bounds.center.z);
+            // 서버와 같은 콜라이더 부피를 사용해 바닥이 표면에 닿는 루트 위치를 계산한다.
+            var xExtent = previewRotation * new Vector3(placementHalfExtents.x, 0f, 0f);
+            var yExtent = previewRotation * new Vector3(0f, placementHalfExtents.y, 0f);
+            var zExtent = previewRotation * new Vector3(0f, 0f, placementHalfExtents.z);
+            var verticalExtent = Mathf.Abs(xExtent.y) +
+                                 Mathf.Abs(yExtent.y) +
+                                 Mathf.Abs(zExtent.y);
+            var volumeCenter = surfacePoint + Vector3.up * verticalExtent;
+            var rootPosition = volumeCenter -
+                               (previewRotation * placementCenterOffset);
+            ghost.transform.SetPositionAndRotation(rootPosition, previewRotation);
 
             // 장애물과 겹치면 얹힐 수 있는 높이까지 조금씩 올려 실제 놓일 자리를 예측한다.
             // (예: 장난감 자동차 위를 조준하면 그 위에 얹힌 모습으로 보정)
@@ -229,7 +236,7 @@ namespace Game.Client.Interactions
             previewPosition = ghost.transform.position;
 
             // 보정 한도까지 올려도 겹치면 그때만 배치 불가(빨간색).
-            isCurrentPoseValid = !IsOverlapping();
+            isCurrentPoseValid = !IsOverlapping() && HasSupport();
             ApplyGhostMaterial(isCurrentPoseValid ? ghostValidMaterial : ghostInvalidMaterial);
         }
 
@@ -260,36 +267,26 @@ namespace Game.Client.Interactions
             return found;
         }
 
-        private Bounds ComputeGhostBounds()
-        {
-            var bounds = ghostRenderers[0].bounds;
-            for (var i = 1; i < ghostRenderers.Length; i++)
-            {
-                bounds.Encapsulate(ghostRenderers[i].bounds);
-            }
-
-            return bounds;
-        }
-
         private bool IsOverlapping()
         {
-            if (ghostRenderers == null || ghostRenderers.Length == 0)
+            if (ghost == null)
             {
                 return false;
             }
 
-            var bounds = ComputeGhostBounds();
-            var center = bounds.center + Vector3.up * 0.02f;
-            var extents = bounds.extents * 0.85f;
+            var center = ghost.transform.position +
+                         (ghost.transform.rotation * placementCenterOffset);
+            var extents = placementHalfExtents -
+                          (Vector3.one * PlacementSkinWidth);
 
             var overlaps = Physics.OverlapBox(
-                center, extents, Quaternion.identity,
+                center, extents, ghost.transform.rotation,
                 Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
             foreach (var overlap in overlaps)
             {
-                // 플레이어 자신은 겹침으로 치지 않는다. (들고 있는 물건의 콜라이더는 꺼져 있어 잡히지 않는다)
-                if (!overlap.transform.IsChildOf(transform))
+                // 플레이어는 순간적으로 이동하므로 배치 지형으로 취급하지 않는다.
+                if (overlap.GetComponentInParent<CharacterController>() == null)
                 {
                     return true;
                 }
@@ -298,24 +295,38 @@ namespace Game.Client.Interactions
             return false;
         }
 
+        private bool HasSupport()
+        {
+            var center = ghost.transform.position +
+                         (ghost.transform.rotation * placementCenterOffset);
+            return Physics.Raycast(
+                center,
+                Vector3.down,
+                placementHalfExtents.y + MaxSupportDistance,
+                Physics.DefaultRaycastLayers,
+                QueryTriggerInteraction.Ignore);
+        }
+
         private void ConfirmPlacement()
         {
-            if (!interactor.TryPlaceCarried(previewPosition, previewRotation))
-            {
-                return;
-            }
-
-            ExitPlacementMode();
+            // Sending a network request does not mean authority accepted it.
+            // Keep throw input suppressed until replicated state clears the hand.
+            interactor.TryPlaceCarried(previewPosition, previewRotation);
         }
 
         // 들고 있는 물건의 겉모습만 복제해 홀로그램 고스트를 만든다.
         private void CreateGhost(CarryableItem item)
         {
+            placementCenterOffset = item.PlacementCenterOffset;
+            placementHalfExtents = item.PlacementHalfExtents;
             ghost = Instantiate(item.gameObject);
             ghost.name = "PlacementGhost";
 
             foreach (var component in ghost.GetComponentsInChildren<Collider>())
             {
+                // Destroy is deferred until the end of the frame. Disable now
+                // so the fresh preview cannot collide with its own collider.
+                component.enabled = false;
                 Destroy(component);
             }
 
@@ -326,6 +337,7 @@ namespace Game.Client.Interactions
 
             if (ghost.TryGetComponent<Rigidbody>(out var ghostBody))
             {
+                ghostBody.isKinematic = true;
                 Destroy(ghostBody);
             }
 

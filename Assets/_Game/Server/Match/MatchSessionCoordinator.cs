@@ -122,6 +122,18 @@ namespace Game.Server.Match
         public Pose Pose { get; }
     }
 
+    public readonly struct MapObjectEjectedEvent
+    {
+        public MapObjectEjectedEvent(string objectId, Pose pose)
+        {
+            ObjectId = objectId ?? throw new ArgumentNullException(nameof(objectId));
+            Pose = pose;
+        }
+
+        public string ObjectId { get; }
+        public Pose Pose { get; }
+    }
+
     public sealed class MatchSessionCoordinator
     {
         private const double MapObjectEjectionDelaySeconds = 0.5d;
@@ -150,7 +162,6 @@ namespace Game.Server.Match
         private MatchResult? result;
         private bool finalWarningStarted;
         private bool hasExplicitHighlightCandidates;
-        private int resetHidingTurnCount;
 
         public MatchSessionCoordinator(
             MatchRulesSO rules,
@@ -215,7 +226,7 @@ namespace Game.Server.Match
         public event Action<PlayerStunnedEvent> PlayerStunned;
         public event Action<ObjectThrownEvent> ObjectThrown;
         public event Action<ObjectAutoReleasedEvent> ObjectAutoReleased;
-        public event Action<IReadOnlyList<WorldObjectState>> WorldObjectsReset;
+        public event Action<MapObjectEjectedEvent> MapObjectEjected;
         public event Action<MatchResult> MatchEnded;
 
         public MatchStateSnapshot CaptureStateSnapshot()
@@ -452,6 +463,18 @@ namespace Game.Server.Match
             return true;
         }
 
+        public bool TryInitializeAssignedItem(int playerIndex)
+        {
+            if (playerIndex < 0 || playerIndex >= Assignments.Count)
+            {
+                return false;
+            }
+
+            return outcome.TryHoldItem(
+                playerIndex,
+                Assignments[playerIndex].Item.ItemId);
+        }
+
         public bool TryReleaseHeldObject(int playerIndex, Pose pose, double now)
         {
             var isHiding = CanActDuringHidingTurn(playerIndex, now);
@@ -463,6 +486,26 @@ namespace Game.Server.Match
             }
 
             if (!isHiding)
+            {
+                highlightRecorder.RecordItemInteraction(playerIndex, objectId, now);
+            }
+
+            return true;
+        }
+
+        public bool TryDropHeldObject(int playerIndex, Pose pose, double now)
+        {
+            var isSearching = CanInteract(playerIndex, now);
+            if ((!CanActDuringHidingTurn(playerIndex, now) && !isSearching) ||
+                !IsFinite(pose.position) ||
+                !IsFinite(pose.rotation) ||
+                !TryGetHeldObjectId(playerIndex, out var objectId) ||
+                !ReleaseHeldObjectAt(playerIndex, pose))
+            {
+                return false;
+            }
+
+            if (isSearching)
             {
                 highlightRecorder.RecordItemInteraction(playerIndex, objectId, now);
             }
@@ -828,10 +871,36 @@ namespace Game.Server.Match
                 var segment = highlight.Segments[index];
                 clips[index] = new HighlightReplayClip(
                     segment,
-                    highlightReplayBuffer.Capture(segment.StartedAt, segment.EndedAt));
+                    CaptureReplayFrames(segment));
             }
 
             return clips;
+        }
+
+        private HighlightReplayFrame[] CaptureReplayFrames(HighlightSegment segment)
+        {
+            var captured = highlightReplayBuffer.Capture(
+                segment.StartedAt,
+                segment.EndedAt);
+            var maxFrameCount = Math.Max(
+                2,
+                (int)Math.Ceiling(
+                    segment.PlaybackDurationSeconds /
+                    HighlightReplaySampleIntervalSeconds) + 1);
+            if (captured.Length <= maxFrameCount)
+            {
+                return captured;
+            }
+
+            var sampled = new HighlightReplayFrame[maxFrameCount];
+            for (var index = 0; index < sampled.Length; index++)
+            {
+                var sourceIndex = index * (captured.Length - 1) /
+                                  (sampled.Length - 1);
+                sampled[index] = captured[sourceIndex];
+            }
+
+            return sampled;
         }
 
         private bool IsSearchingAt(double now)
@@ -1089,14 +1158,6 @@ namespace Game.Server.Match
                 CompleteHidingTurn(playerIndex, lastKnownPlayerPositions[playerIndex]);
             }
 
-            if (expiredTurnCount <= resetHidingTurnCount)
-            {
-                return;
-            }
-
-            resetHidingTurnCount = expiredTurnCount;
-            worldObjects.ResetToInitial();
-            WorldObjectsReset?.Invoke(worldObjects.CaptureSnapshot());
         }
 
         private void CompleteMapObjectEjections(double now)
@@ -1111,6 +1172,8 @@ namespace Game.Server.Match
 
                 worldObjects.TrySetPose(pair.Key, pair.Value.Pose);
                 completedMapObjectEjections.Add(pair.Key);
+                MapObjectEjected?.Invoke(
+                    new MapObjectEjectedEvent(pair.Key, pair.Value.Pose));
             }
 
             foreach (var objectId in completedMapObjectEjections)

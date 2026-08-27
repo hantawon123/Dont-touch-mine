@@ -15,6 +15,7 @@ namespace Game.Editor
     {
         private const string MenuPath = "Game/InGame/Build HUD Layout";
         private const string ScenePath = "Assets/_Game/Content/Scenes/Playground.unity";
+        private const int WaitingSpawnPointCount = 6;
         private const string RequestPath =
             "Assets/_Game/Editor/InGameHudInstallRequest.txt";
         private const string HudName = "InGameHud";
@@ -52,6 +53,9 @@ namespace Game.Editor
                 {
                     hud = CreateHud(scene);
                 }
+
+                EnsureAssignedItem(hud);
+                EnsureWaitingSpawnPoints(scene);
 
                 ConnectLifetimeScope(scene, hud);
                 EditorSceneManager.MarkSceneDirty(scene);
@@ -205,6 +209,69 @@ namespace Game.Editor
             }
 
             Assign(scope, "matchHudView", hud);
+        }
+
+        private static void EnsureAssignedItem(NetworkMatchHudView hud)
+        {
+            var serialized = new SerializedObject(hud);
+            var property = serialized.FindProperty("assignedItemText");
+            if (property.objectReferenceValue != null)
+            {
+                return;
+            }
+
+            var text = hud.transform.Find("AssignedItemText")?.GetComponent<TMP_Text>();
+            if (text == null)
+            {
+                text = CreateText(
+                    hud.transform,
+                    "AssignedItemText",
+                    "내 물건: 탄산음료",
+                    34f,
+                    TextAlignmentOptions.Left);
+                Place(
+                    text.rectTransform,
+                    new Vector2(0f, 1f),
+                    new Vector2(250f, -72f),
+                    new Vector2(460f, 56f));
+            }
+
+            property.objectReferenceValue = text;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            text.gameObject.SetActive(false);
+        }
+
+        private static void EnsureWaitingSpawnPoints(Scene scene)
+        {
+            Transform root = null;
+            foreach (var gameObject in scene.GetRootGameObjects())
+            {
+                if (gameObject.name == "WaitingSpawnPoints")
+                {
+                    root = gameObject.transform;
+                    break;
+                }
+            }
+
+            if (root == null)
+            {
+                var rootObject = new GameObject("WaitingSpawnPoints");
+                SceneManager.MoveGameObjectToScene(rootObject, scene);
+                root = rootObject.transform;
+            }
+
+            for (var index = 0; index < WaitingSpawnPointCount; index++)
+            {
+                var point = root.Find($"WaitingSpawnPoint_{index + 1}");
+                if (point == null)
+                {
+                    point = new GameObject($"WaitingSpawnPoint_{index + 1}").transform;
+                    point.SetParent(root, false);
+                }
+
+                point.localPosition = new Vector3(9.5f, 0.7f, -3f + (index * 1.2f));
+                point.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            }
         }
 
         private static TextMeshProUGUI CreateText(

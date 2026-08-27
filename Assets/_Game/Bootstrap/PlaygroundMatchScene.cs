@@ -5,6 +5,7 @@ using Game.Client.Interactions;
 using Game.Core.Items;
 using Game.Server.Items;
 using Game.Server.Match;
+using Game.SOAP.Config;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -40,14 +41,27 @@ namespace Game.Bootstrap
             }
 
             var items = CaptureUniqueItems(scene);
+            var assignmentDefinitions = new ItemDefinition[ItemCatalog.Definitions.Count];
             var assignments = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var definition in ItemCatalog.Definitions)
+            for (var index = 0; index < ItemCatalog.Definitions.Count; index++)
             {
-                assignments.Add(definition.ItemId);
+                var definition = ItemCatalog.Definitions[index];
                 if (!items.ContainsKey(definition.ItemId))
                 {
                     throw new InvalidOperationException(
                         $"Playground is missing item '{definition.ItemId}'.");
+                }
+
+                var assignedDefinition = ItemCatalog.AssignedDefinition(index);
+                assignmentDefinitions[index] = assignedDefinition;
+                assignments.Add(assignedDefinition.ItemId);
+
+                if (!items.ContainsKey(assignedDefinition.ItemId))
+                {
+                    var copy = CreateAssignedCopy(
+                        items[definition.ItemId],
+                        assignedDefinition.ItemId);
+                    items.Add(assignedDefinition.ItemId, copy);
                 }
             }
 
@@ -69,11 +83,13 @@ namespace Game.Bootstrap
 
             var volumes = new List<PlacementVolume>();
             var replayItems = new List<CarryableItem>(MaxReplayObjectCount);
-            foreach (var definition in ItemCatalog.Definitions)
+            for (var index = 0; index < assignmentDefinitions.Length; index++)
             {
-                var item = items[definition.ItemId];
-                volumes.Add(CaptureVolume(item));
-                replayItems.Add(item);
+                var definition = assignmentDefinitions[index];
+                var copy = items[definition.ItemId];
+                var source = items[ItemCatalog.Definitions[index].ItemId];
+                volumes.Add(CaptureVolume(source, definition.ItemId));
+                replayItems.Add(copy);
             }
 
             foreach (var item in worldItems)
@@ -86,19 +102,39 @@ namespace Game.Bootstrap
             }
 
             var ejectionPoint = FindTransform(scene, "ShredderSpot");
+            var spawnPoints = CaptureSpawnPoints(scene);
             var configuration = new NetworkMatchRuntimeConfiguration(
                 new PhysicsPlacementValidator(
                     volumes,
                     Physics.DefaultRaycastLayers,
                     Physics.DefaultRaycastLayers),
-                CaptureSpawnPoints(scene),
-                ItemCatalog.Definitions,
+                spawnPoints,
+                assignmentDefinitions,
                 worldObjects,
-                new Pose(ejectionPoint.position, ejectionPoint.rotation));
+                new Pose(ejectionPoint.position, ejectionPoint.rotation),
+                CaptureWaitingSpawnPoints(scene, spawnPoints));
 
             return new PlaygroundMatchScene(
                 new PlaygroundRuntimeContext(replayItems),
                 configuration);
+        }
+
+        private static CarryableItem CreateAssignedCopy(
+            CarryableItem source,
+            string objectId)
+        {
+            var copyObject = UnityEngine.Object.Instantiate(
+                source.gameObject,
+                source.transform.parent);
+            copyObject.name = $"{objectId}_{source.name}";
+
+            var copy = copyObject.GetComponent<CarryableItem>();
+            copy.UseObjectId(objectId);
+
+            // The copy has no world position before the match starts. It becomes
+            // visible when the replicated held state attaches it to a HoldPoint.
+            copyObject.SetActive(false);
+            return copy;
         }
 
         private static SortedDictionary<string, CarryableItem> CaptureUniqueItems(Scene scene)
@@ -139,7 +175,39 @@ namespace Game.Bootstrap
             return poses;
         }
 
+        private static Pose[] CaptureWaitingSpawnPoints(
+            Scene scene,
+            IReadOnlyList<Pose> fallbackPoints)
+        {
+            var poses = new Pose[MatchRulesSO.MaxPlayerCount];
+            for (var index = 0; index < poses.Length; index++)
+            {
+                poses[index] = TryFindTransform(
+                    scene,
+                    $"WaitingSpawnPoint_{index + 1}",
+                    out var point)
+                    ? new Pose(point.position, point.rotation)
+                    : fallbackPoints[index];
+            }
+
+            return poses;
+        }
+
         private static Transform FindTransform(Scene scene, string objectName)
+        {
+            if (TryFindTransform(scene, objectName, out var found))
+            {
+                return found;
+            }
+
+            throw new InvalidOperationException(
+                $"Playground is missing required object '{objectName}'.");
+        }
+
+        private static bool TryFindTransform(
+            Scene scene,
+            string objectName,
+            out Transform found)
         {
             foreach (var root in scene.GetRootGameObjects())
             {
@@ -148,49 +216,24 @@ namespace Game.Bootstrap
                 {
                     if (string.Equals(transform.name, objectName, StringComparison.Ordinal))
                     {
-                        return transform;
+                        found = transform;
+                        return true;
                     }
                 }
             }
 
-            throw new InvalidOperationException(
-                $"Playground is missing required object '{objectName}'.");
+            found = null;
+            return false;
         }
 
-        private static PlacementVolume CaptureVolume(CarryableItem item)
+        private static PlacementVolume CaptureVolume(
+            CarryableItem item,
+            string objectId = null)
         {
-            var colliders = item.GetComponentsInChildren<Collider>(includeInactive: true);
-            Bounds? bounds = null;
-            foreach (var itemCollider in colliders)
-            {
-                if (!itemCollider.isTrigger)
-                {
-                    bounds = bounds.HasValue
-                        ? Encapsulate(bounds.Value, itemCollider.bounds)
-                        : itemCollider.bounds;
-                }
-            }
-
-            if (!bounds.HasValue)
-            {
-                throw new InvalidOperationException(
-                    $"Carryable '{item.ObjectId}' has no solid collider.");
-            }
-
-            var captured = bounds.Value;
-            var centerOffset = Quaternion.Inverse(item.transform.rotation) *
-                               (captured.center - item.transform.position);
-            var halfExtents = captured.extents;
-            halfExtents.x = Mathf.Max(halfExtents.x, 0.02f);
-            halfExtents.y = Mathf.Max(halfExtents.y, 0.02f);
-            halfExtents.z = Mathf.Max(halfExtents.z, 0.02f);
-            return new PlacementVolume(item.ObjectId, centerOffset, halfExtents);
-        }
-
-        private static Bounds Encapsulate(Bounds current, Bounds added)
-        {
-            current.Encapsulate(added);
-            return current;
+            return new PlacementVolume(
+                string.IsNullOrWhiteSpace(objectId) ? item.ObjectId : objectId,
+                item.PlacementCenterOffset,
+                item.PlacementHalfExtents);
         }
 
         private sealed class PlaygroundRuntimeContext : IMatchRuntimeContext
@@ -216,7 +259,7 @@ namespace Game.Bootstrap
                     replayObjects.Clear();
                     foreach (var item in replayItems)
                     {
-                        if (item != null)
+                        if (item != null && item.gameObject.activeInHierarchy)
                         {
                             replayObjects.Add(new WorldObjectState(
                                 item.ObjectId,

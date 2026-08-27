@@ -45,6 +45,13 @@ namespace Game.Core.Lobby
         }
     }
 
+    public interface ILobbyChatTransport
+    {
+        event Action<LobbyChatMessage> ChatReceived;
+
+        bool TrySendChat(string text);
+    }
+
     public interface ILobbyChatLog
     {
         string LocalPlayerId { get; }

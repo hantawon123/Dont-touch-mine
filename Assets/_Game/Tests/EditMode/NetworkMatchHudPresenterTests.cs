@@ -31,6 +31,7 @@ namespace Game.Architecture.Tests
                 new MatchParticipant("host", 0),
                 new MatchParticipant("client", 1),
             });
+            room.SetLocalPlayer("client");
 
             using var presenter = new NetworkMatchHudPresenter(
                 network,
@@ -40,9 +41,18 @@ namespace Game.Architecture.Tests
             presenter.Start();
 
             network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 40d));
+            network.PublishItemAssignment("Soda_01");
             presenter.Tick();
             Assert.That(view.Phase, Is.EqualTo(MatchPhase.Searching));
             Assert.That(view.RemainingSeconds, Is.EqualTo(30d));
+            Assert.That(view.AssignedItem, Is.EqualTo("탄산음료"));
+
+            network.Publish(new[]
+            {
+                new PlayerInteractionStateSnapshot(0, 0d, 5),
+                new PlayerInteractionStateSnapshot(1, 0d, 3),
+            });
+            Assert.That(view.RemainingDestructionUses, Is.EqualTo(3));
 
             network.Publish(new PlayerItemDestroyedEvent(1, "SecretItem", 12d));
             Assert.That(view.Notice, Is.EqualTo("민수님이 물건을 파괴했습니다!"));
@@ -59,9 +69,14 @@ namespace Game.Architecture.Tests
             public double RemainingSeconds { get; private set; }
             public string Notice { get; private set; }
             public bool NoticeVisible { get; private set; }
+            public string AssignedItem { get; private set; }
+            public int RemainingDestructionUses { get; private set; } = -1;
 
             public void SetPhase(MatchPhase phase) => Phase = phase;
             public void SetRemainingSeconds(double value) => RemainingSeconds = value;
+            public void SetAssignedItem(string displayName) => AssignedItem = displayName;
+            public void SetRemainingDestructionUses(int value) =>
+                RemainingDestructionUses = value;
 
             public void ShowDestructionNotice(string message)
             {
@@ -77,6 +92,7 @@ namespace Game.Architecture.Tests
         {
             public double ServerTime { get; set; }
             public event Action<MatchStateSnapshot> MatchStateReceived;
+            public event Action<string> ItemAssignmentReceived;
             public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
             public event Action<IReadOnlyList<PlayerInteractionStateSnapshot>>
                 PlayerInteractionStatesReceived;
@@ -90,8 +106,12 @@ namespace Game.Architecture.Tests
             }
 
             public void Publish(MatchStateSnapshot value) => MatchStateReceived?.Invoke(value);
+            public void PublishItemAssignment(string itemId) =>
+                ItemAssignmentReceived?.Invoke(itemId);
             public void Publish(PlayerItemDestroyedEvent value) =>
                 ItemDestroyedReceived?.Invoke(value);
+            public void Publish(IReadOnlyList<PlayerInteractionStateSnapshot> value) =>
+                PlayerInteractionStatesReceived?.Invoke(value);
         }
     }
 }

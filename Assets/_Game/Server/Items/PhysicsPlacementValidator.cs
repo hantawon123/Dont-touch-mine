@@ -46,6 +46,7 @@ namespace Game.Server.Items
         private readonly int supportLayerMask;
         private readonly float maxSupportDistance;
         private readonly float skinWidth;
+        private readonly Collider[] overlapBuffer = new Collider[32];
 
         public PhysicsPlacementValidator(
             IReadOnlyList<PlacementVolume> volumes,
@@ -110,14 +111,22 @@ namespace Game.Server.Items
 
             var center = pose.position + (pose.rotation * volume.CenterOffset);
             var halfExtents = volume.HalfExtents - (Vector3.one * skinWidth);
-            if (Physics.CheckBox(
+            var overlapCount = Physics.OverlapBoxNonAlloc(
                     center,
                     halfExtents,
+                    overlapBuffer,
                     pose.rotation,
                     blockingLayerMask,
-                    QueryTriggerInteraction.Ignore))
+                    QueryTriggerInteraction.Ignore);
+            for (var index = 0; index < overlapCount; index++)
             {
-                return false;
+                // Players are transient and use the same default physics layer
+                // as props in the current scenes. They must not make a green
+                // client preview fail only on authority.
+                if (overlapBuffer[index].GetComponentInParent<CharacterController>() == null)
+                {
+                    return false;
+                }
             }
 
             return Physics.Raycast(

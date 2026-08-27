@@ -1,6 +1,7 @@
 using System;
 using Game.Core.Items;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Game.Client.Interactions
 {
@@ -36,6 +37,24 @@ namespace Game.Client.Interactions
 
         public int OwnerPlayerIndex => isPlayerItem ? ownerPlayerIndex : -1;
 
+        public Vector3 PlacementCenterOffset
+        {
+            get
+            {
+                EnsurePlacementVolume();
+                return placementCenterOffset;
+            }
+        }
+
+        public Vector3 PlacementHalfExtents
+        {
+            get
+            {
+                EnsurePlacementVolume();
+                return placementHalfExtents;
+            }
+        }
+
         public string InteractionPrompt => $"{displayName} 들기 [F]";
 
         private Rigidbody body;
@@ -44,17 +63,22 @@ namespace Game.Client.Interactions
         private MaterialPropertyBlock propertyBlock;
         private AssignedItemOutline assignedOutline;
         private string resolvedObjectId;
+        private Scene owningScene;
+        private Vector3 placementCenterOffset;
+        private Vector3 placementHalfExtents;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         private void Awake()
         {
+            owningScene = gameObject.scene;
             _ = ObjectId;
             body = GetComponent<Rigidbody>();
 
             // 빠르게 던져진 작은 물체가 얇은 벽을 프레임 사이에 통과(터널링)하지 않도록
             // 이동 경로 전체를 검사하는 연속 충돌 감지를 사용한다.
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            colliders = GetComponentsInChildren<Collider>();
+            colliders = GetComponentsInChildren<Collider>(includeInactive: true);
+            CapturePlacementVolume();
             renderers = GetComponentsInChildren<Renderer>();
             propertyBlock = new MaterialPropertyBlock();
         }
@@ -73,6 +97,7 @@ namespace Game.Client.Interactions
         // Photon 도입 시 서버 확정 결과를 받아 호출하는 구조로 바뀐다.
         public void OnPickedUp(Transform holdPoint)
         {
+            gameObject.SetActive(true);
             IsCarried = true;
             SetAimed(false, 1f);
 
@@ -86,11 +111,25 @@ namespace Game.Client.Interactions
         public void OnDropped()
         {
             transform.SetParent(null, worldPositionStays: true);
+            RestoreOwningScene();
 
             SetCollidersEnabled(true);
             body.isKinematic = false;
 
             IsCarried = false;
+        }
+
+        public void OnStored(Pose pose)
+        {
+            transform.SetParent(null, worldPositionStays: true);
+            RestoreOwningScene();
+            transform.SetPositionAndRotation(pose.position, pose.rotation);
+            body.linearVelocity = default;
+            body.angularVelocity = default;
+            body.isKinematic = true;
+            SetCollidersEnabled(false);
+            IsCarried = false;
+            gameObject.SetActive(false);
         }
 
         /// <summary>
@@ -99,7 +138,9 @@ namespace Game.Client.Interactions
         /// </summary>
         public void OnPlaced(Vector3 position, Quaternion rotation)
         {
+            gameObject.SetActive(true);
             transform.SetParent(null, worldPositionStays: true);
+            RestoreOwningScene();
             transform.SetPositionAndRotation(position, rotation);
 
             SetCollidersEnabled(true);
@@ -130,6 +171,7 @@ namespace Game.Client.Interactions
         public void OnSettled(Pose pose, bool keepDynamic)
         {
             transform.SetParent(null, worldPositionStays: true);
+            RestoreOwningScene();
             transform.SetPositionAndRotation(pose.position, pose.rotation);
 
             SetCollidersEnabled(true);
@@ -145,6 +187,56 @@ namespace Game.Client.Interactions
             else
             {
                 body.isKinematic = true;
+            }
+        }
+
+        private void RestoreOwningScene()
+        {
+            if (owningScene.IsValid() && owningScene.isLoaded &&
+                gameObject.scene.handle != owningScene.handle)
+            {
+                SceneManager.MoveGameObjectToScene(gameObject, owningScene);
+            }
+        }
+
+        private void CapturePlacementVolume()
+        {
+            colliders ??= GetComponentsInChildren<Collider>(includeInactive: true);
+            Bounds? combined = null;
+            foreach (var itemCollider in colliders)
+            {
+                if (itemCollider.isTrigger)
+                {
+                    continue;
+                }
+
+                if (!combined.HasValue)
+                {
+                    combined = itemCollider.bounds;
+                    continue;
+                }
+
+                var bounds = combined.Value;
+                bounds.Encapsulate(itemCollider.bounds);
+                combined = bounds;
+            }
+
+            var captured = combined ?? new Bounds(transform.position, Vector3.one * 0.04f);
+            placementCenterOffset = Quaternion.Inverse(transform.rotation) *
+                                    (captured.center - transform.position);
+            placementHalfExtents = new Vector3(
+                Mathf.Max(captured.extents.x, 0.02f),
+                Mathf.Max(captured.extents.y, 0.02f),
+                Mathf.Max(captured.extents.z, 0.02f));
+        }
+
+        private void EnsurePlacementVolume()
+        {
+            if (placementHalfExtents.x <= 0f ||
+                placementHalfExtents.y <= 0f ||
+                placementHalfExtents.z <= 0f)
+            {
+                CapturePlacementVolume();
             }
         }
 
@@ -184,6 +276,21 @@ namespace Game.Client.Interactions
         public void UseSceneInstanceObjectId()
         {
             resolvedObjectId = ResolveSceneInstanceObjectId();
+        }
+
+        /// <summary>
+        /// Runtime-created assignment copies need an id that is different from
+        /// the original prop which remains in the map.
+        /// </summary>
+        public void UseObjectId(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException("Object id is required.", nameof(value));
+            }
+
+            objectId = value.Trim();
+            resolvedObjectId = objectId;
         }
 
         /// <summary>조준 하이라이트: 밝기를 살짝 올려 조준 중임을 표시한다.</summary>
