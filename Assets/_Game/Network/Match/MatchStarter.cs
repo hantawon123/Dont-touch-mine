@@ -210,15 +210,21 @@ namespace Game.Network.Match
             IReadOnlyList<PlayerItemAssignment> assignments)
         {
             if (_state == null || _session == null || assignments == null ||
-                assignments.Count != _session.Players.Players.Count)
+                assignments.Count == 0)
             {
                 return false;
             }
 
-            for (var playerIndex = 0; playerIndex < assignments.Count; playerIndex++)
+            for (var index = 0; index < assignments.Count; index++)
             {
-                var assignment = assignments[playerIndex];
-                if (assignment.PlayerIndex != playerIndex ||
+                var assignment = assignments[index];
+                var playerIndex = assignment.PlayerIndex;
+                if (playerIndex < 0 ||
+                    playerIndex >= _session.Assignments.Count ||
+                    !string.Equals(
+                        _session.Assignments[playerIndex].Item.ItemId,
+                        assignment.Item.ItemId,
+                        StringComparison.Ordinal) ||
                     !_state.CanHoldObject(assignment.Item.ItemId) ||
                     !_session.TryInitializeAssignedItem(playerIndex) ||
                     !_state.TrySetObjectHeld(assignment.Item.ItemId, playerIndex))

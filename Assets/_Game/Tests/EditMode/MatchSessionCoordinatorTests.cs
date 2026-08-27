@@ -1247,6 +1247,19 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void WaitingPlayer_CanHitDuringAnotherPlayersHidingTurn()
+        {
+            session.Start(10d);
+
+            Assert.That(
+                session.RegisterHit(1, 2, Vector3.zero, 20d),
+                Is.EqualTo(HitResult.Registered));
+            Assert.That(
+                session.TryHoldObject(1, "shelf", 20d),
+                Is.False);
+        }
+
+        [Test]
         public void PlayerLeavingDuringSearching_DropsItemAndCannotWinOrInteract()
         {
             StartSearching();

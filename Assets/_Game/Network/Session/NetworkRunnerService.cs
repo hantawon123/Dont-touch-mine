@@ -555,7 +555,7 @@ namespace Game.Network.Session
 
             var participants = new List<RoomParticipant>(assignments.Count);
             _roster.Capture(participants);
-            if (participants.Count != assignments.Count)
+            if (assignments.Count == 0)
             {
                 return false;
             }
@@ -563,10 +563,14 @@ namespace Game.Network.Session
             for (var index = 0; index < assignments.Count; index++)
             {
                 var assignment = assignments[index];
+                var playerIndex = assignment.PlayerIndex;
                 var itemId = assignment.Item.ItemId?.Trim();
-                if (assignment.PlayerIndex != index ||
+                if (playerIndex < 0 ||
+                    playerIndex >= participants.Count ||
                     string.IsNullOrEmpty(itemId) ||
-                    !_roster.TryGetPlayer(participants[index].PlayerId, out var target))
+                    !_roster.TryGetPlayer(
+                        participants[playerIndex].PlayerId,
+                        out var target))
                 {
                     return false;
                 }
