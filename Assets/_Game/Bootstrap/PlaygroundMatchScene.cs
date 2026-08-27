@@ -32,7 +32,9 @@ namespace Game.Bootstrap
 
         public static PlaygroundMatchScene Capture(Scene scene)
         {
-            if (!scene.IsValid() || !scene.isLoaded)
+            // isLoaded는 씬 오브젝트들의 Awake 시점에는 아직 false라서 검사할 수 없다.
+            // (LifetimeScope.Awake에서 호출되므로) 유효성과 내용물 존재만 확인한다.
+            if (!scene.IsValid() || scene.rootCount == 0)
             {
                 throw new ArgumentException("A loaded Playground scene is required.", nameof(scene));
             }
