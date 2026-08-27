@@ -71,6 +71,7 @@ namespace Game.Bootstrap
             new PlayerItemAssignment[1];
         private MatchPhase synchronizedPhase = (MatchPhase)(-1);
         private int synchronizedHidingTurn = -1;
+        private bool hidingInitialPlacementDone;
         private bool hasSynchronizedPlayers;
         private bool hasPublishedSnapshot;
         private bool hasPublishedHighlightReplay;
@@ -226,14 +227,21 @@ namespace Game.Bootstrap
                 initializedAssignments = new bool[session.Assignments.Count];
             }
 
+            if (phase != MatchPhase.Hiding)
+            {
+                hidingInitialPlacementDone = false;
+            }
+
             if (phase == MatchPhase.Hiding && hidingTurn >= 0 &&
-                (phaseChanged || hidingTurn != synchronizedHidingTurn) &&
+                (!hidingInitialPlacementDone || hidingTurn != synchronizedHidingTurn) &&
                 session.TryGetCurrentHidingSpawnPose(
                     hidingTurn,
                     now,
                     out var hidingPose))
             {
-                if (phaseChanged)
+                // 페이즈 진입 틱에 아바타가 아직 준비되지 않았을 수 있으므로,
+                // 초기 배치는 "한 번 성공할 때까지" 재시도한다. (일회성 감지 금지)
+                if (!hidingInitialPlacementDone)
                 {
                     // 숨기기 페이즈 진입: 전원 초기 배치.
                     // (현재 턴은 집 안, 나머지는 대기 구역)
@@ -255,6 +263,8 @@ namespace Game.Bootstrap
                                 $"The authority could not position hiding player {playerIndex}.");
                         }
                     }
+
+                    hidingInitialPlacementDone = true;
                 }
                 else
                 {
@@ -402,6 +412,7 @@ namespace Game.Bootstrap
             initializedAssignments = Array.Empty<bool>();
             synchronizedPhase = (MatchPhase)(-1);
             synchronizedHidingTurn = -1;
+            hidingInitialPlacementDone = false;
             hasSynchronizedPlayers = false;
             hasPublishedSnapshot = false;
             hasPublishedHighlightReplay = false;
