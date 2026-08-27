@@ -28,8 +28,6 @@ namespace Game.Bootstrap
         private readonly RoomScreenPresenter screen;
         private readonly IRoomBrowserView browserView;
         private readonly RoomUiCommands commands;
-        private readonly CancellationTokenSource cancellation =
-            new CancellationTokenSource();
         private bool isRefreshing;
 
         public NetworkRoomScreenBridge(
@@ -50,14 +48,35 @@ namespace Game.Bootstrap
             Refresh().Forget();
         }
 
+        /// <summary>
+        /// Lets go of the screen's requests. An in-flight connect is left to
+        /// finish rather than cancelled.
+        /// </summary>
+        /// <remarks>
+        /// Cancelling here is what froze the game on the way out of the room
+        /// browser. A token runs its registrations synchronously and Fusion
+        /// holds one on any connect it is given a token for, so cancelling from
+        /// this method — which Unity calls from <c>LifetimeScope.OnDestroy</c>
+        /// while it is unloading the scene — ran Fusion's entire connect
+        /// teardown inside the scene unload, on the main thread, and the two
+        /// waited on each other. The next scene never came up. Loading that
+        /// scene asynchronously does not help: the unload still runs inside the
+        /// load, on the same thread.
+        /// <para>
+        /// Nothing is leaked by letting the connect run out. The session, the
+        /// commands and the browser state it reports to are all project-wide
+        /// and outlive this screen, and both <c>RefreshAsync</c> and
+        /// <c>StartAsync</c> replace a lobby runner they find already running,
+        /// so the next visit starts clean either way. What this screen must
+        /// stop doing is reacting, and detaching the handlers above is what
+        /// does that.
+        /// </para>
+        /// </remarks>
         public void Dispose()
         {
             screen.RoomCreateRequested -= OnCreateRequested;
             screen.RoomJoinRequested -= OnJoinRequested;
             browserView.RefreshRequested -= OnRefreshRequested;
-
-            cancellation.Cancel();
-            cancellation.Dispose();
         }
 
         private void OnRefreshRequested() => Refresh().Forget();
@@ -82,7 +101,7 @@ namespace Game.Bootstrap
             isRefreshing = true;
             try
             {
-                await commands.RefreshAsync(cancellation.Token);
+                await commands.RefreshAsync(CancellationToken.None);
             }
             catch (OperationCanceledException)
             {
@@ -106,7 +125,7 @@ namespace Game.Bootstrap
         {
             try
             {
-                await commands.CreateAsync(request, cancellation.Token);
+                await commands.CreateAsync(request, CancellationToken.None);
             }
             catch (OperationCanceledException)
             {
@@ -121,7 +140,7 @@ namespace Game.Bootstrap
         {
             try
             {
-                await commands.EnterAsync(room, password, cancellation.Token);
+                await commands.EnterAsync(room, password, CancellationToken.None);
             }
             catch (OperationCanceledException)
             {

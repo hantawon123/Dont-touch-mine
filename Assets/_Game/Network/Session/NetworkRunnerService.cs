@@ -223,8 +223,19 @@ namespace Game.Network.Session
 
         public bool IsRunning => _runner != null && _runner.IsRunning;
 
-        /// <summary>True while the room list is being received.</summary>
-        public bool IsBrowsingLobby => _browsingLobby && IsRunning;
+        /// <summary>
+        /// True once this peer has taken a lobby runner, including while that
+        /// runner is still connecting.
+        /// </summary>
+        /// <remarks>
+        /// The connecting half matters. Leaving the browser no longer cancels
+        /// the connect, so opening it again can find one still in flight, and a
+        /// caller asking this is asking whether there is a lobby runner to
+        /// replace. Answering "no" until the connect lands would let a second
+        /// runner be built beside the first, leaving an orphan that keeps
+        /// pushing room lists into this service.
+        /// </remarks>
+        public bool IsBrowsingLobby => _browsingLobby;
 
         /// <summary>
         /// True on whichever peer holds authority. Identical for a player host
@@ -342,26 +353,44 @@ namespace Game.Network.Session
             CreateRunner(provideInput: false);
             _browsingLobby = true;
 
+            // Held locally because this attempt may outlive its own claim on the
+            // service: it is no longer cancelled when the browser closes, so a
+            // newer attempt can take over before this one lands.
+            var runner = _runner;
+
             StartGameResult result;
             try
             {
-                result = await _runner.JoinSessionLobby(
+                result = await runner.JoinSessionLobby(
                     SessionLobby.ClientServer, null, null, null, cancellation);
             }
             catch (OperationCanceledException)
             {
-                Shutdown();
+                ReleaseAfterFusionShutdown(runner);
                 throw;
             }
 
             if (!result.Ok)
             {
                 var failure = SessionStartResult.Classify(result.ShutdownReason);
+
+                ReleaseAfterFusionShutdown(runner);
+
+                // Fusion answers a cancelled connect with a failed result rather
+                // than by throwing, and leaving the browser mid-connect is the
+                // ordinary way to reach it. Reported as the cancellation it is,
+                // so callers unwind quietly instead of recording a verdict on
+                // the project-wide browser state for the next screen to find.
+                if (failure == SessionFailure.Canceled)
+                {
+                    throw new OperationCanceledException(
+                        $"Joining the matchmaking lobby was cancelled. {result.ErrorMessage}");
+                }
+
                 Debug.LogError(
                     $"[Network] Could not join lobby: {failure} " +
                     $"({result.ShutdownReason}) {result.ErrorMessage}");
 
-                Shutdown();
                 return SessionStartResult.Failed(failure, result.ErrorMessage);
             }
 
@@ -390,6 +419,10 @@ namespace Game.Network.Session
             _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
 
             var sceneManager = CreateRunner(request.Mode != GameMode.Server);
+
+            // See JoinLobbyAsync: the attempt tears down its own runner, not
+            // whichever one the service holds when the answer arrives.
+            var runner = _runner;
 
             // Fusion is handed a linked token rather than the caller's own.
             // It registers a callback that shuts the runner down when the token
@@ -428,11 +461,11 @@ namespace Game.Network.Session
             StartGameResult result;
             try
             {
-                result = await _runner.StartGame(args);
+                result = await runner.StartGame(args);
             }
             catch (OperationCanceledException)
             {
-                Shutdown();
+                ReleaseAfterFusionShutdown(runner);
                 throw;
             }
             finally
@@ -446,11 +479,23 @@ namespace Game.Network.Session
             if (!result.Ok)
             {
                 var failure = SessionStartResult.Classify(result.ShutdownReason);
+
+                ReleaseAfterFusionShutdown(runner);
+
+                // Cancelled the same way a lobby connect is: the screen that
+                // asked went away. See JoinLobbyAsync for why this unwinds
+                // instead of answering.
+                if (failure == SessionFailure.Canceled)
+                {
+                    throw new OperationCanceledException(
+                        $"Starting session '{request.RoomCode}' was cancelled. " +
+                        result.ErrorMessage);
+                }
+
                 Debug.LogError(
                     $"[Network] Could not start session '{request.RoomCode}' as {request.Mode}: " +
                     $"{failure} ({result.ShutdownReason}) {result.ErrorMessage}");
 
-                Shutdown();
                 return SessionStartResult.Failed(failure, result.ErrorMessage);
             }
 
@@ -729,6 +774,56 @@ namespace Game.Network.Session
                 runner.Shutdown();
             }
             else
+            {
+                UnityEngine.Object.Destroy(runner.gameObject);
+            }
+        }
+
+        /// <summary>
+        /// Clears this service after Fusion has already torn the runner down on
+        /// its own, which is how every failed start arrives.
+        /// </summary>
+        /// <remarks>
+        /// A refused or cancelled <c>StartGame</c> reaches us through Fusion's
+        /// <c>ShutdownAndBuildResult</c>, so the runner is already stopping by
+        /// the time the result is read. Calling <see cref="Shutdown"/> here
+        /// would re-enter <c>NetworkRunner.Shutdown</c> from inside Fusion's own
+        /// teardown.
+        /// <para>
+        /// Cancellation makes that fatal rather than merely redundant. The token
+        /// belongs to the screen, so it fires from
+        /// <c>LifetimeScope.OnDestroy</c>, and a token fires its registrations
+        /// synchronously: the continuation runs on the destroy stack, in the
+        /// middle of a scene load, and takes Fusion down re-entrantly with it.
+        /// Leaving the room browser while it was still connecting froze the game
+        /// exactly this way.
+        /// </para>
+        /// </remarks>
+        /// <param name="runner">
+        /// The runner the failed attempt started, which is not always the one
+        /// this service holds now. An abandoned connect finishes on its own
+        /// since it is no longer cancelled, and can land after a newer attempt
+        /// has taken over, so its own runner is the only thing it may clear.
+        /// </param>
+        private void ReleaseAfterFusionShutdown(NetworkRunner runner)
+        {
+            // No room departure to report: a session that never started is not
+            // one this peer can leave.
+            if (IsCurrentRunner(runner))
+            {
+                ReleaseRunner();
+            }
+
+            // Unity's equality covers already destroyed instances.
+            if (runner == null)
+            {
+                return;
+            }
+
+            // Still running means Fusion's teardown is mid-flight and owns the
+            // object; it destroys the runner as it finishes. Only one Fusion has
+            // already let go of can be left behind, and that one is ours.
+            if (!runner.IsRunning)
             {
                 UnityEngine.Object.Destroy(runner.gameObject);
             }

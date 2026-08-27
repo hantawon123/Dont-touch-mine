@@ -33,6 +33,13 @@ namespace Game.Client.Rooms
 
         private readonly List<RoomListItemView> spawnedItems = new List<RoomListItemView>();
 
+        /// <summary>
+        /// The session publishes an empty room list as it shuts down, and a
+        /// shutdown can land while this scene is being destroyed. Rebuilding the
+        /// list then would spawn items into a dying scene.
+        /// </summary>
+        private bool isDestroyed;
+
         public event Action<string> SearchTextChanged;
         public event Action RefreshRequested;
         public event Action RoomCodeSearchRequested;
@@ -51,6 +58,8 @@ namespace Game.Client.Rooms
 
         private void OnDestroy()
         {
+            isDestroyed = true;
+
             searchInputField.onValueChanged.RemoveListener(OnSearchTextChanged);
             refreshButton.onClick.RemoveListener(OnRefreshButtonClicked);
             roomCodeSearchButton.onClick.RemoveListener(OnRoomCodeSearchButtonClicked);
@@ -73,12 +82,24 @@ namespace Game.Client.Rooms
                 throw new ArgumentNullException(nameof(rooms));
             }
 
+            if (isDestroyed)
+            {
+                return;
+            }
+
             EnsurePoolSize(rooms.Count);
 
             for (var index = 0; index < spawnedItems.Count; index++)
             {
                 var item = spawnedItems[index];
                 var isVisible = index < rooms.Count;
+
+                // Unity destroys a scene's objects in no set order, so a pooled
+                // item can already be gone while this view is not.
+                if (item == null)
+                {
+                    continue;
+                }
 
                 // Keeps the rendered order equal to the list order even when
                 // the content holds children this pool did not create.

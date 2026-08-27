@@ -5,6 +5,7 @@ using Game.Core.Flow;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using R3;
+using UnityEngine;
 using VContainer.Unity;
 
 namespace Game.Client.Rooms
@@ -43,11 +44,19 @@ namespace Game.Client.Rooms
             roomsSubscription?.Dispose();
         }
 
+        /// <summary>
+        /// A refusal is reported rather than swallowed. Returning in silence
+        /// makes a dead back button and a hung screen look identical, which is
+        /// exactly the confusion this cost once already.
+        /// </summary>
         private void OnBackRequested()
         {
             if (appFlow.CurrentState != AppFlowState.Home &&
                 !appFlow.TryTransitionTo(AppFlowState.Home))
             {
+                Debug.LogError(
+                    $"[Rooms] Cannot leave the room browser for the home screen " +
+                    $"from {appFlow.CurrentState}.");
                 return;
             }
 

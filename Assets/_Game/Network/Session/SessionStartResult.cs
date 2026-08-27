@@ -27,6 +27,13 @@ namespace Game.Network.Session
         /// <summary>A session is already running on this service.</summary>
         AlreadyRunning,
 
+        /// <summary>
+        /// The attempt was called off before it finished, which is what leaving
+        /// the screen mid-connect looks like. Not a failure to report: nobody
+        /// asked for an answer any more.
+        /// </summary>
+        Canceled,
+
         /// <summary>Anything Fusion reported that does not map to the above.</summary>
         Unknown,
     }
@@ -71,6 +78,8 @@ namespace Game.Network.Session
                     return SessionFailure.ConnectionFailed;
                 case ShutdownReason.AlreadyRunning:
                     return SessionFailure.AlreadyRunning;
+                case ShutdownReason.OperationCanceled:
+                    return SessionFailure.Canceled;
                 default:
                     return SessionFailure.Unknown;
             }

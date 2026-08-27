@@ -33,9 +33,20 @@ namespace Game.Client.Home
 #endif
         }
 
+        /// <summary>
+        /// Loaded asynchronously, unlike the screens below it, so the click that
+        /// asked for it finishes before the scene it is on is torn down.
+        /// </summary>
+        /// <remarks>
+        /// This alone does not make leaving safe. The unload still runs on the
+        /// main thread as part of the load, so anything a departing scene does
+        /// during <c>OnDestroy</c> that needs frames of its own will still
+        /// deadlock here — see <c>NetworkRoomScreenBridge.Dispose</c>, which is
+        /// where that was actually fixed.
+        /// </remarks>
         public void OpenHome()
         {
-            SceneManager.LoadScene(HomeSceneName);
+            SceneManager.LoadSceneAsync(HomeSceneName);
         }
 
         public void OpenRoomBrowser()

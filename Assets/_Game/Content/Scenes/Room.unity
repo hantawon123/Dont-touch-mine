@@ -229,7 +229,6 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 220001}
   - {fileID: 230001}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -327,17 +326,17 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 220000}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 221001}
-  m_Father: {fileID: 210001}
+  m_Father: {fileID: 230001}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 77, y: -7}
+  m_AnchoredPosition: {x: -134.25694, y: 31.000046}
   m_SizeDelta: {x: 272, y: 93}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!222 &220002
@@ -596,6 +595,7 @@ RectTransform:
   - {fileID: 260001}
   - {fileID: 270001}
   - {fileID: 280001}
+  - {fileID: 220001}
   m_Father: {fileID: 210001}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -2544,64 +2544,6 @@ MonoBehaviour:
   passwordModalPrefab: {fileID: 100004, guid: e166a86f55e146dd837f4bdd27f610f9, type: 3}
   codeModalPrefab: {fileID: 100004, guid: 149c3fb3e0134a62acec8f046b152987, type: 3}
   modalParent: {fileID: 210001}
-  mapIds:
-  - "\uB9F51"
-  hostNickname: "\uB098"
-  placeholderRooms:
-  - title: "\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984"
-    hostNickname: "\uD64D\uAE38\uB3D9"
-    mapId: "\uB9F51"
-    playerCount: 6
-    maxPlayers: 6
-    isLocked: 1
-    isPlaying: 1
-    password: 
-    roomCode: AAA111
-  - title: "\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984"
-    hostNickname: "\uAE40\uC601\uD558"
-    mapId: "\uB9F51"
-    playerCount: 4
-    maxPlayers: 6
-    isLocked: 0
-    isPlaying: 0
-    password: 
-    roomCode: BBB222
-  - title: "\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984"
-    hostNickname: "\uC774\uCCA0\uC218"
-    mapId: "\uB9F51"
-    playerCount: 4
-    maxPlayers: 6
-    isLocked: 0
-    isPlaying: 0
-    password: 
-    roomCode: CCC333
-  - title: "\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984"
-    hostNickname: "\uBC15\uBBFC\uC9C0"
-    mapId: "\uB9F51"
-    playerCount: 4
-    maxPlayers: 6
-    isLocked: 0
-    isPlaying: 0
-    password: 
-    roomCode: DDD444
-  - title: "\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984"
-    hostNickname: "\uCD5C\uC9C0\uC6B0"
-    mapId: "\uB9F51"
-    playerCount: 4
-    maxPlayers: 6
-    isLocked: 0
-    isPlaying: 0
-    password: 
-    roomCode: EEE555
-  - title: "\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984\uBC29\uC774\uB984"
-    hostNickname: "\uC544\uBB34\uAC1C"
-    mapId: "\uB9F51"
-    playerCount: 4
-    maxPlayers: 6
-    isLocked: 1
-    isPlaying: 0
-    password: 1234
-    roomCode: FFF666
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
