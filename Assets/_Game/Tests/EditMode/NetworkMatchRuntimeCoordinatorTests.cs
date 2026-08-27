@@ -63,8 +63,9 @@ namespace Game.Architecture.Tests
                 // 숨기기 페이즈: 현재 턴(0번)만 조작 가능, 대기자는 잠금.
                 Assert.That(network.Controls[0], Is.True);
                 Assert.That(network.Controls[1], Is.False);
-                Assert.That(network.TeleportedPlayers, Is.EqualTo(new[] { 0, 1 }));
-                Assert.That(network.TeleportedPoses[1].position.z, Is.EqualTo(-10f));
+                Assert.That(network.TeleportedPlayers, Is.EqualTo(new[] { 1, 0 }));
+                Assert.That(network.TeleportedPoses[0].position.z, Is.EqualTo(-10f));
+                Assert.That(network.TeleportedPoses[1].position.z, Is.EqualTo(0f));
 
                 network.ServerTime = 10d + rules.HidingTurnDurationSeconds;
                 network.PublishSimulationTick();
@@ -81,7 +82,7 @@ namespace Game.Architecture.Tests
                 // 턴 교대: 새로 숨는 1번만 집으로, 직전에 숨긴 0번만 대기 구역으로 이동한다.
                 Assert.That(
                     network.TeleportedPlayers,
-                    Is.EqualTo(new[] { 0, 1, 1, 0 }));
+                    Is.EqualTo(new[] { 1, 0, 1, 0 }));
                 Assert.That(network.TeleportedPoses[2].position.z, Is.EqualTo(0f));
                 Assert.That(network.TeleportedPoses[3].position.z, Is.EqualTo(-10f));
 
@@ -94,7 +95,7 @@ namespace Game.Architecture.Tests
                 Assert.That(network.Controls[1], Is.True);
                 Assert.That(
                     network.TeleportedPlayers,
-                    Is.EqualTo(new[] { 0, 1, 1, 0, 0, 1 }));
+                    Is.EqualTo(new[] { 1, 0, 1, 0, 0, 1 }));
 
                 var searchingStartedAt = network.Snapshots[0].PhaseEndsAt;
                 Assert.That(

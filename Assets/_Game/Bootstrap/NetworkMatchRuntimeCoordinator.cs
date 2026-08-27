@@ -252,25 +252,44 @@ namespace Game.Bootstrap
                 // 초기 배치는 "한 번 성공할 때까지" 재시도한다. (일회성 감지 금지)
                 if (!hidingInitialPlacementDone)
                 {
-                    // 숨기기 페이즈 진입: 전원 초기 배치.
-                    // (현재 턴은 집 안, 나머지는 대기 구역)
+                    // 숨기기 페이즈 진입: 대기자를 먼저 밖으로 비운 뒤
+                    // 현재 턴 플레이어를 집 안으로 옮겨 캐릭터 겹침을 막는다.
                     for (var playerIndex = 0;
                          playerIndex < session.Players.Players.Count;
                          playerIndex++)
                     {
-                        if (!session.Players.IsActive(playerIndex))
+                        if (!session.Players.IsActive(playerIndex) ||
+                            playerIndex == hidingTurn)
                         {
                             continue;
                         }
 
-                        var pose = playerIndex == hidingTurn
-                            ? hidingPose
-                            : configuration.HidingWaitingSpawnPoints[playerIndex];
-                        if (!network.TryTeleportPlayer(playerIndex, pose))
+                        var pose = configuration.HidingWaitingSpawnPoints[playerIndex];
+                        var teleported = network.TryTeleportPlayer(playerIndex, pose);
+                        var player = session.Players.GetPlayer(playerIndex);
+                        Debug.Log(
+                            $"[HidingSpawn] turn={hidingTurn}, " +
+                            $"playerIndex={playerIndex}, playerId={player.PlayerId}, " +
+                            $"role=waiting, " +
+                            $"target={pose.position}, success={teleported}.");
+                        if (!teleported)
                         {
                             throw new InvalidOperationException(
-                                $"The authority could not position hiding player {playerIndex}.");
+                                $"The authority could not position waiting player {playerIndex}.");
                         }
+                    }
+
+                    var hiderTeleported = network.TryTeleportPlayer(hidingTurn, hidingPose);
+                    var hider = session.Players.GetPlayer(hidingTurn);
+                    Debug.Log(
+                        $"[HidingSpawn] turn={hidingTurn}, " +
+                        $"playerIndex={hidingTurn}, playerId={hider.PlayerId}, " +
+                        $"role=hider, target={hidingPose.position}, " +
+                        $"success={hiderTeleported}.");
+                    if (!hiderTeleported)
+                    {
+                        throw new InvalidOperationException(
+                            $"The authority could not position hiding player {hidingTurn}.");
                     }
 
                     hidingInitialPlacementDone = true;
@@ -279,7 +298,14 @@ namespace Game.Bootstrap
                 {
                     // 턴 교대: 새로 숨기는 사람만 집 안으로, 직전에 숨긴 사람만 대기 구역으로.
                     // 나머지는 있던 자리를 유지한다.
-                    if (!network.TryTeleportPlayer(hidingTurn, hidingPose))
+                    var hiderTeleported = network.TryTeleportPlayer(hidingTurn, hidingPose);
+                    var hider = session.Players.GetPlayer(hidingTurn);
+                    Debug.Log(
+                        $"[HidingSpawn] turn={hidingTurn}, " +
+                        $"playerIndex={hidingTurn}, playerId={hider.PlayerId}, " +
+                        $"role=hider, target={hidingPose.position}, " +
+                        $"success={hiderTeleported}.");
+                    if (!hiderTeleported)
                     {
                         throw new InvalidOperationException(
                             $"The authority could not position hiding player {hidingTurn}.");
@@ -287,13 +313,23 @@ namespace Game.Bootstrap
 
                     var previousTurn = synchronizedHidingTurn;
                     if (previousTurn >= 0 && previousTurn != hidingTurn &&
-                        session.Players.IsActive(previousTurn) &&
-                        !network.TryTeleportPlayer(
-                            previousTurn,
-                            configuration.HidingWaitingSpawnPoints[previousTurn]))
+                        session.Players.IsActive(previousTurn))
                     {
-                        throw new InvalidOperationException(
-                            $"The authority could not position waiting player {previousTurn}.");
+                        var waitingPose =
+                            configuration.HidingWaitingSpawnPoints[previousTurn];
+                        var waitingTeleported =
+                            network.TryTeleportPlayer(previousTurn, waitingPose);
+                        var waiting = session.Players.GetPlayer(previousTurn);
+                        Debug.Log(
+                            $"[HidingSpawn] turn={hidingTurn}, " +
+                            $"playerIndex={previousTurn}, playerId={waiting.PlayerId}, " +
+                            $"role=waiting, target={waitingPose.position}, " +
+                            $"success={waitingTeleported}.");
+                        if (!waitingTeleported)
+                        {
+                            throw new InvalidOperationException(
+                                $"The authority could not position waiting player {previousTurn}.");
+                        }
                     }
                 }
 
