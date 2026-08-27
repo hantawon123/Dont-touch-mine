@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Combat;
+using Game.Client.Interactions;
 using Game.Client.Players;
 using Game.Core.Match;
 using Game.Core.Players;
@@ -105,6 +107,32 @@ namespace Game.Architecture.Tests
             Assert.That(
                 prefab.GetComponent<PlayerMovement>(),
                 Is.InstanceOf<IPlayerInputIntentSource>());
+        }
+
+        [Test]
+        public void NetworkPlayerPrefab_LimitsLocalInputToItsOwner()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/NetworkedPlayer.prefab");
+            var avatar = prefab.GetComponent<PlayerAvatar>();
+            var ownerOnly = new SerializedObject(avatar).FindProperty("_ownerOnly");
+            var types = new HashSet<Type>();
+
+            for (var index = 0; index < ownerOnly.arraySize; index++)
+            {
+                var behaviour = ownerOnly.GetArrayElementAtIndex(index)
+                    .objectReferenceValue as Behaviour;
+                Assert.That(behaviour, Is.Not.Null);
+                types.Add(behaviour.GetType());
+            }
+
+            Assert.That(types, Is.EquivalentTo(new[]
+            {
+                typeof(PlayerMovement),
+                typeof(PlayerInteractor),
+                typeof(ItemPlacementController),
+                typeof(PlayerCombatant),
+            }));
         }
 
         [Test]

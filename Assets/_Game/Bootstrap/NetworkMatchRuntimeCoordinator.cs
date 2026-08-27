@@ -66,6 +66,9 @@ namespace Game.Bootstrap
         private MatchParticipant[] pendingLineUp;
         private MatchStateSnapshot lastPublishedSnapshot;
         private bool[] synchronizedControls = Array.Empty<bool>();
+        private bool[] initializedAssignments = Array.Empty<bool>();
+        private readonly PlayerItemAssignment[] assignmentBuffer =
+            new PlayerItemAssignment[1];
         private MatchPhase synchronizedPhase = (MatchPhase)(-1);
         private int synchronizedHidingTurn = -1;
         private bool hasSynchronizedPlayers;
@@ -187,9 +190,7 @@ namespace Game.Bootstrap
                 if (!network.BindMatchSession(
                         created.Session,
                         configuration.ShredderEjectionPose) ||
-                    !createdRuntime.StartMatch() ||
-                    !network.TryInitializeAssignedItems(created.Session.Assignments) ||
-                    !network.TryPublishItemAssignments(created.Session.Assignments))
+                    !createdRuntime.StartMatch())
                 {
                     throw new InvalidOperationException(
                         "The authority could not initialize the network match runtime.");
@@ -220,6 +221,11 @@ namespace Game.Bootstrap
                 : -1;
             var phaseChanged = phase != synchronizedPhase;
 
+            if (initializedAssignments.Length != session.Assignments.Count)
+            {
+                initializedAssignments = new bool[session.Assignments.Count];
+            }
+
             if (phase == MatchPhase.Hiding && hidingTurn >= 0 &&
                 (phaseChanged || hidingTurn != synchronizedHidingTurn) &&
                 session.TryGetCurrentHidingSpawnPose(
@@ -245,6 +251,8 @@ namespace Game.Bootstrap
                             $"The authority could not position hiding player {playerIndex}.");
                     }
                 }
+
+                InitializeCurrentAssignment(session, hidingTurn);
             }
 
             if (phase == MatchPhase.Searching && phaseChanged)
@@ -276,9 +284,8 @@ namespace Game.Bootstrap
             {
                 var enabled = session.Players.IsActive(playerIndex) &&
                               !session.IsPlayerStunned(playerIndex, now) &&
-                              (phase == MatchPhase.Searching ||
-                               phase == MatchPhase.Hiding &&
-                               playerIndex == hidingTurn);
+                              (phase == MatchPhase.Hiding ||
+                               phase == MatchPhase.Searching);
                 if (hasSynchronizedPlayers &&
                     synchronizedControls[playerIndex] == enabled)
                 {
@@ -297,6 +304,26 @@ namespace Game.Bootstrap
             synchronizedPhase = phase;
             synchronizedHidingTurn = hidingTurn;
             hasSynchronizedPlayers = true;
+        }
+
+        private void InitializeCurrentAssignment(
+            MatchSessionCoordinator session,
+            int playerIndex)
+        {
+            if (initializedAssignments[playerIndex])
+            {
+                return;
+            }
+
+            assignmentBuffer[0] = session.Assignments[playerIndex];
+            if (!network.TryInitializeAssignedItems(assignmentBuffer) ||
+                !network.TryPublishItemAssignments(assignmentBuffer))
+            {
+                throw new InvalidOperationException(
+                    $"The authority could not initialize the assigned item for player {playerIndex}.");
+            }
+
+            initializedAssignments[playerIndex] = true;
         }
 
         private void PublishSnapshotIfChanged()
@@ -344,6 +371,7 @@ namespace Game.Bootstrap
             runtime = null;
             pendingLineUp = null;
             synchronizedControls = Array.Empty<bool>();
+            initializedAssignments = Array.Empty<bool>();
             synchronizedPhase = (MatchPhase)(-1);
             synchronizedHidingTurn = -1;
             hasSynchronizedPlayers = false;

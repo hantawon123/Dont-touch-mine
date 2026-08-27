@@ -69,11 +69,19 @@ namespace Game.Network.Players
 
         public override void Spawned()
         {
-            // PlayerMovement stays as the input/config source, but its Update
-            // loop must not move a networked body as well. NetworkPlayerMotor
-            // applies that same input during Fusion prediction and authority
-            // simulation; enabling both movers causes visible snap-back.
-            SetOwnerOnlyEnabled(false);
+            SetOwnerOnlyEnabled(IsOwner);
+
+            // The movement component is kept only as the shared input/config
+            // source. NetworkPlayerMotor is the sole component that moves this
+            // networked body, including on the owning peer.
+            var behaviours = GetComponents<MonoBehaviour>();
+            for (var index = 0; index < behaviours.Length; index++)
+            {
+                if (behaviours[index] is Game.Core.Players.IPlayerInputIntentSource)
+                {
+                    behaviours[index].enabled = false;
+                }
+            }
 
             RosterOf(Runner)?.Add(this);
         }
