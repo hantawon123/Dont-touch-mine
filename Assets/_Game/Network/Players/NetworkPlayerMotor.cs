@@ -27,6 +27,18 @@ namespace Game.Network.Players
         [Networked]
         public NetworkBool ControlsEnabled { get; private set; }
 
+        [Networked]
+        public float AnimationSpeed { get; private set; }
+
+        [Networked]
+        public NetworkBool AnimationGrounded { get; private set; }
+
+        [Networked]
+        public int AttackSequence { get; private set; }
+
+        [Networked]
+        public PlayerPosture Posture { get; private set; }
+
         private bool IsConfigured =>
             _controller != null && _networkTransform != null && _inputSource != null;
 
@@ -58,6 +70,12 @@ namespace Game.Network.Players
             if (Object.HasStateAuthority)
             {
                 ControlsEnabled = true;
+                if (IsConfigured)
+                {
+                    ApplyPosture(
+                        PlayerPosture.Standing,
+                        _inputSource.MovementSettings);
+                }
             }
         }
 
@@ -91,6 +109,13 @@ namespace Game.Network.Players
 
             var deltaTime = Runner.DeltaTime;
             var settings = _inputSource.MovementSettings;
+            var requestedPosture = ResolvePosture(
+                Posture,
+                _controller.isGrounded,
+                input,
+                PreviousButtons);
+            TryApplyPosture(requestedPosture, settings);
+
             VerticalVelocity = PlayerMovementKinematics.StepVerticalVelocity(
                 VerticalVelocity,
                 _controller.isGrounded,
@@ -100,13 +125,22 @@ namespace Game.Network.Players
                 settings);
 
             var direction = ToWorldDirection(input.Move, input.LookYawDegrees);
-            var speed = PlayerMovementKinematics.MoveSpeed(
+            var speed = MoveSpeedForPosture(
                 settings,
+                Posture,
                 input.IsPressed(NetworkPlayerButton.Sprint));
 
             var velocity = direction * speed;
             velocity.y = VerticalVelocity;
             _controller.Move(velocity * deltaTime);
+
+            AnimationSpeed = direction.magnitude * speed;
+            AnimationGrounded = _controller.isGrounded;
+
+            if (input.WasPressed(NetworkPlayerButton.Attack, PreviousButtons))
+            {
+                AttackSequence++;
+            }
 
             if (ControlsEnabled)
             {
@@ -162,5 +196,102 @@ namespace Game.Network.Players
             var local = Vector3.ClampMagnitude(new Vector3(move.x, 0f, move.y), 1f);
             return Quaternion.Euler(0f, lookYawDegrees, 0f) * local;
         }
+
+        internal static PlayerPosture ResolvePosture(
+            PlayerPosture current,
+            bool grounded,
+            NetworkPlayerInput input,
+            NetworkButtons previous)
+        {
+            if (!grounded)
+            {
+                return current;
+            }
+
+            if (input.WasPressed(NetworkPlayerButton.Crouch, previous))
+            {
+                current = current == PlayerPosture.Crouching
+                    ? PlayerPosture.Standing
+                    : PlayerPosture.Crouching;
+            }
+
+            if (input.WasPressed(NetworkPlayerButton.Prone, previous))
+            {
+                current = current == PlayerPosture.Prone
+                    ? PlayerPosture.Standing
+                    : PlayerPosture.Prone;
+            }
+
+            if (input.WasPressed(NetworkPlayerButton.Jump, previous) &&
+                current != PlayerPosture.Standing)
+            {
+                current = PlayerPosture.Standing;
+            }
+
+            return current;
+        }
+
+        internal static float MoveSpeedForPosture(
+            PlayerMovementSettings settings,
+            PlayerPosture posture,
+            bool sprinting) => posture switch
+        {
+            PlayerPosture.Crouching => settings.CrouchSpeed,
+            PlayerPosture.Prone => settings.ProneSpeed,
+            _ => PlayerMovementKinematics.MoveSpeed(settings, sprinting)
+        };
+
+        private void TryApplyPosture(
+            PlayerPosture requested,
+            PlayerMovementSettings settings)
+        {
+            if (requested == Posture)
+            {
+                return;
+            }
+
+            var height = HeightForPosture(requested, settings);
+            if (height > _controller.height && !HasHeadroom(height))
+            {
+                return;
+            }
+
+            ApplyPosture(requested, settings);
+        }
+
+        private void ApplyPosture(
+            PlayerPosture posture,
+            PlayerMovementSettings settings)
+        {
+            var height = HeightForPosture(posture, settings);
+            Posture = posture;
+            _controller.height = height;
+            _controller.center = new Vector3(0f, height * 0.5f, 0f);
+        }
+
+        private bool HasHeadroom(float targetHeight)
+        {
+            var radius = _controller.radius * 0.95f;
+            var topSphereCenter = transform.position + _controller.center +
+                Vector3.up * (_controller.height * 0.5f - _controller.radius);
+
+            return !Physics.SphereCast(
+                topSphereCenter,
+                radius,
+                Vector3.up,
+                out _,
+                targetHeight - _controller.height,
+                Physics.DefaultRaycastLayers,
+                QueryTriggerInteraction.Ignore);
+        }
+
+        private static float HeightForPosture(
+            PlayerPosture posture,
+            PlayerMovementSettings settings) => posture switch
+        {
+            PlayerPosture.Crouching => settings.CrouchHeight,
+            PlayerPosture.Prone => settings.ProneHeight,
+            _ => settings.StandHeight
+        };
     }
 }

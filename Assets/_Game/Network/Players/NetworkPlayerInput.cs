@@ -9,7 +9,8 @@ namespace Game.Network.Players
         Jump = 0,
         Sprint = 1,
         Crouch = 2,
-        Prone = 3
+        Prone = 3,
+        Attack = 4
     }
 
     /// <summary>Input sent by one client for one Fusion simulation tick.</summary>
@@ -34,6 +35,9 @@ namespace Game.Network.Players
             buttons.Set(
                 (int)NetworkPlayerButton.Prone,
                 intent.IsPressed(PlayerInputButtons.Prone));
+            buttons.Set(
+                (int)NetworkPlayerButton.Attack,
+                intent.IsPressed(PlayerInputButtons.Attack));
 
             return new NetworkPlayerInput
             {
