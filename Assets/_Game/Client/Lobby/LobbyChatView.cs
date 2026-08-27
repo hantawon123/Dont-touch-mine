@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Core.Lobby;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Game.Client.Lobby
@@ -38,6 +39,7 @@ namespace Game.Client.Lobby
         private readonly List<string> rowKeys = new();
         private Coroutine scrollRoutine;
         private Coroutine clearRoutine;
+        private Coroutine focusRoutine;
         private float lastSendUnscaledTime = -1f;
         private Font cachedFont;
 
@@ -82,6 +84,36 @@ namespace Game.Client.Lobby
                 StopCoroutine(clearRoutine);
                 clearRoutine = null;
             }
+
+            if (focusRoutine != null)
+            {
+                StopCoroutine(focusRoutine);
+                focusRoutine = null;
+            }
+        }
+
+        private void Update()
+        {
+            var keyboard = Keyboard.current;
+            if (inputField == null || inputField.isFocused || focusRoutine != null ||
+                keyboard == null ||
+                (!keyboard.enterKey.wasPressedThisFrame &&
+                 !keyboard.numpadEnterKey.wasPressedThisFrame))
+            {
+                return;
+            }
+
+            // Focus on the next frame so the Enter that opened chat cannot also
+            // submit it through InputField.onSubmit in the same frame.
+            focusRoutine = StartCoroutine(FocusInputNextFrame());
+        }
+
+        private IEnumerator FocusInputNextFrame()
+        {
+            yield return null;
+            inputField.Select();
+            inputField.ActivateInputField();
+            focusRoutine = null;
         }
 
         public void SetMessages(IReadOnlyList<LobbyChatMessage> messages)
@@ -114,7 +146,7 @@ namespace Game.Client.Lobby
             // corrupts caret/IME state (Substring exception, leftover char, focus loss).
             if (!isActiveAndEnabled)
             {
-                ApplyClearedInput(restoreFocus: false);
+                ApplyClearedInput();
                 return;
             }
 
@@ -129,11 +161,11 @@ namespace Game.Client.Lobby
         private IEnumerator ClearInputAfterInputFieldSettles()
         {
             yield return null;
-            ApplyClearedInput(restoreFocus: true);
+            ApplyClearedInput();
             clearRoutine = null;
         }
 
-        private void ApplyClearedInput(bool restoreFocus)
+        private void ApplyClearedInput()
         {
             if (inputField == null)
             {
@@ -145,14 +177,7 @@ namespace Game.Client.Lobby
             inputField.selectionAnchorPosition = 0;
             inputField.selectionFocusPosition = 0;
             inputField.ForceLabelUpdate();
-
-            if (!restoreFocus)
-            {
-                return;
-            }
-
-            inputField.ActivateInputField();
-            inputField.Select();
+            inputField.DeactivateInputField();
         }
 
         private void HandleSubmit(string submitted)

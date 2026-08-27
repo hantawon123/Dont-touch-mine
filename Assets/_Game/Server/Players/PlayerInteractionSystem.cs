@@ -1,4 +1,5 @@
 using System;
+using Game.Core.Lobby;
 using Game.Core.Players;
 using Game.SOAP.Config;
 using VContainer;
@@ -20,9 +21,23 @@ namespace Game.Server.Players
         }
 
         public PlayerInteractionSystem(MatchRulesSO rules, int playerCount)
+            : this(rules, playerCount, rules?.DestructionUsesPerPlayer ?? 0)
+        {
+        }
+
+        public PlayerInteractionSystem(
+            MatchRulesSO rules,
+            int playerCount,
+            int destructionUsesPerPlayer)
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             MatchRulesSO.ValidatePlayerCount(playerCount);
+            if (destructionUsesPerPlayer < PlaySettingsDraft.MinDestructionLimit ||
+                destructionUsesPerPlayer > PlaySettingsDraft.MaxDestructionLimit)
+            {
+                throw new ArgumentOutOfRangeException(nameof(destructionUsesPerPlayer));
+            }
+
             hitCounts = new int[playerCount];
             remainingDestructionUses = new int[playerCount];
             stunnedUntil = new double[playerCount];
@@ -30,7 +45,7 @@ namespace Game.Server.Players
 
             for (var playerIndex = 0; playerIndex < remainingDestructionUses.Length; playerIndex++)
             {
-                remainingDestructionUses[playerIndex] = rules.DestructionUsesPerPlayer;
+                remainingDestructionUses[playerIndex] = destructionUsesPerPlayer;
             }
         }
 

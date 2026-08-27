@@ -18,13 +18,19 @@ namespace Game.Network.Lobby
             var displayName = ReadString(info, SessionPropertyKeys.DisplayName, UnnamedRoom);
             var mapId = ReadString(info, SessionPropertyKeys.MapId, null);
             var hostNickname = ReadString(info, SessionPropertyKeys.HostNickname, null);
+            var maxPlayers = ReadInt(
+                info,
+                SessionPropertyKeys.MaxPlayers,
+                info.MaxPlayers);
 
             if (string.IsNullOrWhiteSpace(info.Name)
                 || string.IsNullOrWhiteSpace(mapId)
-                || info.MaxPlayers < RoomSettings.MinPlayerCount
-                || info.MaxPlayers > RoomSettings.MaxPlayerCount
-                || info.PlayerCount < 0
-                || info.PlayerCount > info.MaxPlayers)
+                || !info.IsVisible
+                || !info.IsOpen
+                || maxPlayers < RoomSettings.MinPlayerCount
+                || maxPlayers > RoomSettings.MaxPlayerCount
+                || info.PlayerCount < 1
+                || info.PlayerCount > maxPlayers)
             {
                 summary = default;
                 return false;
@@ -35,7 +41,7 @@ namespace Game.Network.Lobby
                 displayName,
                 mapId,
                 info.PlayerCount,
-                info.MaxPlayers,
+                maxPlayers,
                 ReadBool(info, SessionPropertyKeys.Locked),
                 info.IsOpen,
                 RoomStatus.Waiting,
@@ -74,6 +80,17 @@ namespace Game.Network.Lobby
                    && properties.TryGetValue(key, out var property)
                    && property.Isbool
                    && (bool)property;
+        }
+
+        private static int ReadInt(SessionInfo info, string key, int fallback)
+        {
+            var properties = info.Properties;
+
+            return properties != null
+                   && properties.TryGetValue(key, out var property)
+                   && property.IsInt
+                ? (int)property
+                : fallback;
         }
     }
 }

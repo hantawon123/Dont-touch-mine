@@ -1,7 +1,10 @@
 using Game.Core.Players;
 using Game.SOAP.Config;
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace Game.Client.Players
 {
@@ -26,15 +29,19 @@ namespace Game.Client.Players
 
         public PlayerPosture Posture { get; private set; } = PlayerPosture.Standing;
 
+        public PlayerMovementSettings MovementSettings => new(
+            movementConfig.WalkSpeed,
+            movementConfig.SprintSpeed,
+            movementConfig.RotationSpeedDegrees,
+            movementConfig.JumpHeight,
+            movementConfig.GravityMultiplier);
+
         public float CurrentEyeHeight => Posture switch
         {
             PlayerPosture.Crouching => movementConfig.CrouchEyeHeight,
             PlayerPosture.Prone => movementConfig.ProneEyeHeight,
             _ => movementConfig.StandEyeHeight
         };
-
-        // 접지 상태를 안정시키기 위해 바닥에 있을 때 아래로 살짝 눌러주는 속도.
-        private const float GroundedStickVelocity = -2f;
 
         private CharacterController controller;
         private InputActionMap playerMap;
@@ -74,6 +81,18 @@ namespace Game.Client.Players
             if (playerMap == null)
             {
                 return default;
+            }
+
+            if (IsMovementLocked || IsTextInputFocused())
+            {
+                var heldYaw = TryEnsureCamera()
+                    ? cameraTransform.eulerAngles.y
+                    : transform.eulerAngles.y;
+                return new PlayerInputIntent(
+                    0f,
+                    0f,
+                    heldYaw,
+                    PlayerInputButtons.None);
             }
 
             if (!playerMap.enabled)
@@ -157,27 +176,25 @@ namespace Game.Client.Players
 
         private void Update()
         {
-            var input = IsMovementLocked ? Vector2.zero : moveAction.ReadValue<Vector2>();
+            var inputLocked = IsMovementLocked || IsTextInputFocused();
+            var input = inputLocked ? Vector2.zero : moveAction.ReadValue<Vector2>();
             var direction = ToCameraRelativeDirection(input);
-            var gravity = -Physics.gravity.y * movementConfig.GravityMultiplier;
 
-            if (!IsMovementLocked)
+            if (!inputLocked)
             {
                 HandlePostureInput();
             }
 
-            if (controller.isGrounded)
-            {
-                verticalVelocity = GroundedStickVelocity;
-
-                if (!IsMovementLocked && jumpAction.WasPressedThisFrame() && Posture == PlayerPosture.Standing)
-                {
-                    // 목표 높이(JumpHeight)에 도달하는 초기 속도: v = sqrt(2gh)
-                    verticalVelocity = Mathf.Sqrt(2f * gravity * movementConfig.JumpHeight);
-                }
-            }
-
-            verticalVelocity -= gravity * Time.deltaTime;
+            var jumpRequested = !inputLocked &&
+                jumpAction.WasPressedThisFrame() &&
+                Posture == PlayerPosture.Standing;
+            verticalVelocity = PlayerMovementKinematics.StepVerticalVelocity(
+                verticalVelocity,
+                controller.isGrounded,
+                jumpRequested,
+                Physics.gravity.y,
+                Time.deltaTime,
+                MovementSettings);
 
             // 넉백 등 외부 충격은 시간이 지나며 감쇠한다.
             externalVelocity = Vector3.MoveTowards(externalVelocity, Vector3.zero, 12f * Time.deltaTime);
@@ -189,12 +206,34 @@ namespace Game.Client.Players
 
             // 몸은 항상 카메라가 보는 방향(좌우)을 향한다. 조준 기반 게임의 표준 방식.
             var lookForward = GetCameraFlatForward();
-            if (lookForward.sqrMagnitude > 0.0001f)
+            if (!inputLocked && lookForward.sqrMagnitude > 0.0001f)
             {
                 var targetRotation = Quaternion.LookRotation(lookForward);
                 transform.rotation = Quaternion.RotateTowards(
                     transform.rotation, targetRotation, movementConfig.RotationSpeedDegrees * Time.deltaTime);
             }
+        }
+
+        /// <summary>
+        /// UI 입력창에 커서가 있을 때 키 입력이 이동 명령으로도 전달되는 것을 막는다.
+        /// 레거시 Lobby 채팅과 TMP 기반 화면을 같은 규칙으로 처리한다.
+        /// </summary>
+        public static bool IsTextInputFocused()
+        {
+            var selected = EventSystem.current?.currentSelectedGameObject;
+            if (selected == null)
+            {
+                return false;
+            }
+
+            var legacyInput = selected.GetComponentInParent<InputField>();
+            if (legacyInput != null && legacyInput.isFocused)
+            {
+                return true;
+            }
+
+            var tmpInput = selected.GetComponentInParent<TMP_InputField>();
+            return tmpInput != null && tmpInput.isFocused;
         }
 
         private void HandlePostureInput()
@@ -278,7 +317,9 @@ namespace Game.Client.Players
             {
                 PlayerPosture.Crouching => movementConfig.CrouchSpeed,
                 PlayerPosture.Prone => movementConfig.ProneSpeed,
-                _ => sprintAction.IsPressed() ? movementConfig.SprintSpeed : movementConfig.WalkSpeed
+                _ => PlayerMovementKinematics.MoveSpeed(
+                    MovementSettings,
+                    sprintAction.IsPressed())
             };
         }
 

@@ -1,9 +1,14 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Cameras;
 using Game.Client.Home;
 using Game.Client.Lobby;
+using Game.Core.Home;
 using Game.Core.Lobby;
+using Game.Core.Maps;
+using Game.Network.Players;
 using Game.Network.Session;
+using R3;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -35,6 +40,9 @@ namespace Game.Bootstrap
 
         [SerializeField]
         private LobbyChatBubbleView chatBubbleView;
+
+        [SerializeField]
+        private PlayerCameraController cameraRigPrefab;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -72,6 +80,11 @@ namespace Game.Bootstrap
                     "Chat views must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
             }
 
+            if (cameraRigPrefab == null)
+            {
+                throw new InvalidOperationException("PlayerCameraRig prefab must be assigned.");
+            }
+
             builder.Register<UnityHomeApplicationHost>(Lifetime.Scoped).As<IHomeApplicationHost>();
             builder.RegisterComponent(hudView);
             builder.RegisterComponent(keyGuideView).As<IKeyGuideView>();
@@ -80,7 +93,9 @@ namespace Game.Bootstrap
             builder.RegisterComponent(kickConfirmView).As<IKickConfirmView>();
             builder.RegisterComponent(transferConfirmView).As<IHostTransferConfirmView>();
             builder.RegisterComponent(chatView).As<ILobbyChatView>();
-            builder.RegisterComponent(chatBubbleView).As<ILobbyChatBubbleView>();
+            builder.RegisterComponent(chatBubbleView)
+                .AsSelf()
+                .As<ILobbyChatBubbleView>();
             builder.RegisterInstance<IReadOnlyList<ControlKeyBinding>>(ControlKeyGuide.Bindings);
             builder.Register<NetworkLobbyParticipantList>(Lifetime.Scoped)
                 .As<ILobbyParticipantList>();
@@ -94,15 +109,65 @@ namespace Game.Bootstrap
                         CreateUnsyncedSettings()),
                     Lifetime.Scoped)
                 .As<ILobbyHostSession>();
-            builder.RegisterInstance(CreateSampleChatLog()).As<ILobbyChatLog>();
+            builder.Register(
+                    c => CreateChatLog(
+                        c.Resolve<RoomBrowserSystem>(),
+                        c.Resolve<PlayerProfile>()),
+                    Lifetime.Scoped)
+                .As<ILobbyChatLog>();
             builder.RegisterEntryPoint<KeyGuidePresenter>();
             builder.RegisterEntryPoint<LobbyPlayerListPresenter>();
             builder.RegisterEntryPoint<LobbyHostChromePresenter>();
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
             builder.RegisterEntryPoint<LobbyChatPresenter>();
+            builder.RegisterEntryPoint<LobbyChatBubbleBinder>();
             // AsSelf so the bridge below can take the leave request off it.
             builder.RegisterEntryPoint<LobbyExitPresenter>().AsSelf();
             builder.RegisterEntryPoint<NetworkLobbyExitBridge>();
+
+            builder.RegisterBuildCallback(container =>
+            {
+                var sceneConfiguration =
+                    FindAnyObjectByType<MatchSceneConfiguration>();
+                if (sceneConfiguration == null)
+                {
+                    throw new InvalidOperationException(
+                        "Lobby requires the same scene spawn configuration used by matches.");
+                }
+
+                // The avatar is created in Room before Lobby's floor exists.
+                // UI scene changes do not pass through Fusion's scene loader,
+                // so hand the scene-owned points over once this scene is ready.
+                container.Resolve<NetworkRunnerService>()
+                    .RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
+                BindLocalPlayerCamera();
+            });
+        }
+
+        private void BindLocalPlayerCamera()
+        {
+            var cameraRig = FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
+            if (cameraRig == null)
+            {
+                cameraRig = Instantiate(cameraRigPrefab);
+            }
+
+            var avatars = FindObjectsByType<PlayerAvatar>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None);
+            for (var i = 0; i < avatars.Length; i++)
+            {
+                if (!avatars[i].IsOwner)
+                {
+                    continue;
+                }
+
+                cameraRig.SetFollowTarget(avatars[i].transform);
+                cameraRig.SetCursorCaptureEnabled(false);
+                return;
+            }
+
+            Debug.LogWarning("Lobby camera could not find the local PlayerAvatar.", this);
         }
 
         /// <summary>
@@ -118,23 +183,70 @@ namespace Game.Bootstrap
                 string.Empty,
                 false,
                 string.Empty,
-                6,
-                5,
-                "market-01");
+                RoomSettings.MaxPlayerCount,
+                PlaySettingsDraft.DefaultDestructionLimit,
+                MapCatalog.DefaultMapId);
         }
 
-        private static LobbyChatLog CreateSampleChatLog()
+        private static LobbyChatLog CreateChatLog(
+            RoomBrowserSystem room,
+            PlayerProfile profile)
         {
+            var localPlayerId = room.LocalPlayerId.CurrentValue;
+            if (string.IsNullOrWhiteSpace(localPlayerId))
+            {
+                // The roster normally arrives before the scene. This fallback
+                // keeps chat usable during the short gap without inventing a
+                // name the user can see.
+                localPlayerId = "local";
+            }
+
             return new LobbyChatLog(
-                "host-1",
-                "김말갈",
-                new[]
-                {
-                    new LobbyChatMessage("player-2", "김명행", "안녕하세요!"),
-                    new LobbyChatMessage("player-3", "보리우유", "오늘 한 판 해요"),
-                    new LobbyChatMessage("player-4", "초롱초롱한닉네임테스트용", "닉네임 길어도 본문 보여요"),
-                    new LobbyChatMessage("host-1", "김말갈", "곧 시작합니다"),
-                });
+                localPlayerId,
+                profile.Nickname);
+        }
+    }
+
+    internal sealed class LobbyChatBubbleBinder : IStartable, IDisposable
+    {
+        private readonly RoomBrowserSystem room;
+        private readonly LobbyChatBubbleView bubbles;
+        private IDisposable subscription;
+
+        public LobbyChatBubbleBinder(
+            RoomBrowserSystem room,
+            LobbyChatBubbleView bubbles)
+        {
+            this.room = room ?? throw new ArgumentNullException(nameof(room));
+            this.bubbles = bubbles ?? throw new ArgumentNullException(nameof(bubbles));
+        }
+
+        public void Start()
+        {
+            subscription = room.Participants.Subscribe(_ => Rebind());
+        }
+
+        public void Dispose()
+        {
+            subscription?.Dispose();
+        }
+
+        private void Rebind()
+        {
+            bubbles.ClearBindings();
+
+            var avatars = UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None);
+            Array.Sort(avatars, (left, right) => left.Seat.CompareTo(right.Seat));
+
+            for (var i = 0; i < avatars.Length; i++)
+            {
+                var avatar = avatars[i];
+                var playerId = PlayerRegistry.IdOf(avatar.Owner);
+                var head = avatar.transform.Find("Visual") ?? avatar.transform;
+                bubbles.BindPlayer(playerId, head);
+            }
         }
     }
 }

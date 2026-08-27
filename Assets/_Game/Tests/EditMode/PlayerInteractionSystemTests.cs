@@ -38,6 +38,16 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void CustomDestructionLimit_IsUsedForTheMatch()
+        {
+            var configured = new PlayerInteractionSystem(rules, 2, 2);
+
+            Assert.That(configured.TryUseDestruction(0), Is.True);
+            Assert.That(configured.TryUseDestruction(0), Is.True);
+            Assert.That(configured.TryUseDestruction(0), Is.False);
+        }
+
+        [Test]
         public void RegisterHit_StunsOnThirdHitForTwoSeconds()
         {
             Assert.That(system.RegisterHit(0, 10d), Is.EqualTo(HitResult.Registered));

@@ -146,7 +146,7 @@ namespace Game.Client.Rooms
                     this);
             }
 
-            enteredSubscription = roomBrowser.RoomCode.Subscribe(OnRoomCodeChanged);
+            enteredSubscription = roomBrowser.IsInRoom.Subscribe(OnRoomEnteredChanged);
             failureSubscription = roomBrowser.LastFailure.Subscribe(OnFailureChanged);
         }
 
@@ -365,12 +365,13 @@ namespace Game.Client.Rooms
         }
 
         /// <summary>
-        /// A room code means this peer is in a room, which is the only proof
-        /// worth changing screens for.
+        /// A confirmed session entry moves every peer to the room lobby. Room
+        /// code visibility is separate: list entrants intentionally do not
+        /// receive a shareable code.
         /// </summary>
-        private void OnRoomCodeChanged(string enteredRoomCode)
+        private void OnRoomEnteredChanged(bool entered)
         {
-            if (pending == PendingEntry.None || string.IsNullOrWhiteSpace(enteredRoomCode))
+            if (pending == PendingEntry.None || !entered)
             {
                 return;
             }

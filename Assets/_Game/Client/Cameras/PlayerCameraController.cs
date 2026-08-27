@@ -46,6 +46,7 @@ namespace Game.Client.Cameras
         private float yaw;
         private float pitch;
         private bool isFirstPerson;
+        private bool cursorCaptureEnabled = true;
 
         private void Awake()
         {
@@ -59,27 +60,18 @@ namespace Game.Client.Cameras
             if (followTarget == null)
             {
                 var player = FindAnyObjectByType<PlayerMovement>();
-                if (player == null)
-                {
-                    Debug.LogError("PlayerCameraController: 따라갈 대상이 없습니다. followTarget을 연결하거나 씬에 PlayerMovement를 배치하세요.", this);
-                    enabled = false;
-                    return;
-                }
-
-                followTarget = player.transform;
+                followTarget = player != null ? player.transform : null;
             }
-
-            followMovement = followTarget.GetComponent<PlayerMovement>();
-            currentEyeHeight = followMovement != null ? followMovement.CurrentEyeHeight : headOffset.y;
-
-            var visual = followTarget.Find("Visual");
-            bodyRenderers = visual != null ? visual.GetComponentsInChildren<Renderer>() : new Renderer[0];
 
             playerMap = inputActions.FindActionMap("Player", throwIfNotFound: true);
             lookAction = playerMap.FindAction("Look", throwIfNotFound: true);
             toggleViewAction = playerMap.FindAction("ToggleView", throwIfNotFound: true);
 
-            yaw = followTarget.eulerAngles.y;
+            if (followTarget != null)
+            {
+                SetFollowTarget(followTarget);
+            }
+
             ApplyView();
         }
 
@@ -97,6 +89,23 @@ namespace Game.Client.Cameras
 
         private void Update()
         {
+            if (PlayerMovement.IsTextInputFocused())
+            {
+                SetCursorLocked(false);
+                return;
+            }
+
+            if (toggleViewAction.WasPressedThisFrame())
+            {
+                isFirstPerson = !isFirstPerson;
+                ApplyView();
+            }
+
+            if (!cursorCaptureEnabled)
+            {
+                return;
+            }
+
             // Esc로 커서 해제, 화면 클릭으로 다시 잠금.
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
@@ -115,15 +124,15 @@ namespace Game.Client.Cameras
                 pitch = Mathf.Clamp(pitch - look.y * lookSensitivity, minPitch, maxPitch);
             }
 
-            if (toggleViewAction.WasPressedThisFrame())
-            {
-                isFirstPerson = !isFirstPerson;
-                ApplyView();
-            }
         }
 
         private void LateUpdate()
         {
+            if (followTarget == null)
+            {
+                return;
+            }
+
             // 자세(서기/앉기/엎드리기)에 따라 눈높이를 부드럽게 따라간다.
             var targetEyeHeight = followMovement != null ? followMovement.CurrentEyeHeight : headOffset.y;
             currentEyeHeight = Mathf.Lerp(
@@ -133,6 +142,30 @@ namespace Game.Client.Cameras
             transform.SetPositionAndRotation(
                 followTarget.position + offset,
                 Quaternion.Euler(pitch, yaw, 0f));
+        }
+
+        public void SetFollowTarget(Transform target)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            followTarget = target;
+            followMovement = target.GetComponent<PlayerMovement>();
+            currentEyeHeight = followMovement != null ? followMovement.CurrentEyeHeight : headOffset.y;
+            yaw = target.eulerAngles.y;
+
+            // 1인칭 몸 숨김 대상 렌더러를 새 대상 기준으로 다시 수집한다.
+            var visual = target.Find("Visual");
+            bodyRenderers = visual != null ? visual.GetComponentsInChildren<Renderer>() : new Renderer[0];
+            ApplyView();
+        }
+
+        public void SetCursorCaptureEnabled(bool captureEnabled)
+        {
+            cursorCaptureEnabled = captureEnabled;
+            SetCursorLocked(captureEnabled);
         }
 
         private void ApplyView()

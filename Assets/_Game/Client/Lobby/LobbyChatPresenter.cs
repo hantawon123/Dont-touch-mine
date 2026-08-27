@@ -39,11 +39,7 @@ namespace Game.Client.Lobby
 
         private void HandleSend(string text)
         {
-            if (!chatLog.TryAppendLocal(text, out _))
-            {
-                return;
-            }
-
+            chatLog.TryAppendLocal(text, out _);
             chatView.ClearInput();
         }
 

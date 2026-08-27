@@ -8,6 +8,7 @@ using Fusion;
 using Fusion.Sockets;
 using Game.Core.Home;
 using Game.Core.Lobby;
+using Game.Core.Maps;
 using Game.Core.Ports;
 using Game.Core.Rooms;
 using Game.Core.Match;
@@ -130,6 +131,8 @@ namespace Game.Network.Session
         private bool _exitReported;
         private int _highlightTransferSequence;
         private bool _hostMigrationInProgress;
+        private int _configuredMaxPlayers;
+        private int _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
 
         private bool _disposed;
 
@@ -280,6 +283,11 @@ namespace Game.Network.Session
         {
             get
             {
+                if (_configuredMaxPlayers > 0)
+                {
+                    return _configuredMaxPlayers;
+                }
+
                 if (_runner == null)
                 {
                     return 0;
@@ -289,6 +297,24 @@ namespace Game.Network.Session
                 return info.IsValid ? info.MaxPlayers : 0;
             }
         }
+
+        public string RoomDisplayName
+        {
+            get
+            {
+                if (_runner == null || !_runner.SessionInfo.IsValid)
+                {
+                    return null;
+                }
+
+                return ReadStringProperty(
+                    _runner.SessionInfo,
+                    SessionPropertyKeys.DisplayName,
+                    null);
+            }
+        }
+
+        public int DestructionLimit => _destructionLimit;
 
         /// <summary>
         /// Connects to the matchmaking lobby so the room list starts arriving
@@ -347,6 +373,10 @@ namespace Game.Network.Session
             }
 
             _expectedPassword = request.Password;
+            _configuredMaxPlayers = request.MaxPlayers > 0
+                ? request.MaxPlayers
+                : 0;
+            _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
 
             var sceneManager = CreateRunner(request.Mode != GameMode.Server);
 
@@ -376,7 +406,12 @@ namespace Game.Network.Session
 
             if (request.MaxPlayers > 0)
             {
-                args.PlayerCount = request.MaxPlayers;
+                // Photon keeps the physical room at the project maximum so the
+                // host may raise its chosen limit later. OnConnectRequest below
+                // enforces the smaller, user-visible limit.
+                args.PlayerCount = request.AllowCreate
+                    ? RoomSettings.MaxPlayerCount
+                    : request.MaxPlayers;
             }
 
             StartGameResult result;
@@ -409,9 +444,16 @@ namespace Game.Network.Session
             }
 
             _exitReported = false;
+            ReadConfiguredSettings();
 
             Debug.Log(
                 $"[Network] Session '{RoomCode}' started as {request.Mode}. IsServer={IsServer}");
+
+            // OnPlayerJoined can run while Fusion is still finalising the
+            // local player's identity. Publish once more after StartGame has
+            // completed so a one-player room shows its host immediately rather
+            // than waiting for another player's join to trigger a refresh.
+            _roster?.Refresh(_runner);
 
             // The room needs somewhere to record that a match started before
             // anyone can ask for one, and only the authority may create it.
@@ -419,6 +461,40 @@ namespace Game.Network.Session
 
             ReportPlayerCount();
             return SessionStartResult.Success();
+        }
+
+        public bool TryApplyLobbySettings(
+            int maxPlayers,
+            int destructionLimit,
+            string mapId)
+        {
+            if (!IsServer || _runner == null || !_runner.SessionInfo.IsValid ||
+                maxPlayers < RoomSettings.MinPlayerCount ||
+                maxPlayers > RoomSettings.MaxPlayerCount ||
+                maxPlayers < PlayerCount ||
+                destructionLimit < PlaySettingsDraft.MinDestructionLimit ||
+                destructionLimit > PlaySettingsDraft.MaxDestructionLimit ||
+                !MapCatalog.Contains(mapId))
+            {
+                return false;
+            }
+
+            var properties = new Dictionary<string, SessionProperty>
+            {
+                [SessionPropertyKeys.MaxPlayers] = maxPlayers,
+                [SessionPropertyKeys.DestructionLimit] = destructionLimit,
+                [SessionPropertyKeys.MapId] = mapId.Trim(),
+            };
+
+            if (!_runner.SessionInfo.UpdateCustomProperties(properties))
+            {
+                return false;
+            }
+
+            _configuredMaxPlayers = maxPlayers;
+            _destructionLimit = destructionLimit;
+            ReportPlayerCount();
+            return true;
         }
 
         /// <summary>
@@ -439,6 +515,18 @@ namespace Game.Network.Session
             IsRunning && !_browsingLobby &&
             _matchStarter != null &&
             _matchStarter.RequestReturnToLobby();
+
+        /// <summary>Moves every seated player onto positions owned by the current scene.</summary>
+        public void RepositionPlayers(IReadOnlyList<Pose> poses)
+        {
+            if (!IsServer)
+            {
+                return;
+            }
+
+            _spawner?.UseSpawnPoses(poses);
+            _spawner?.RepositionSeated(_runner);
+        }
 
         public bool TryPublishMatchState(MatchStateSnapshot snapshot)
         {
@@ -743,6 +831,12 @@ namespace Game.Network.Session
         /// </summary>
         private void ReleaseRunner(bool preserveMigrationState = false)
         {
+            // A room list is a snapshot owned by the current lobby runner. Once
+            // that runner is gone, retaining its last snapshot shows rooms that
+            // may already have disappeared when the browser is opened again.
+            _roomBuffer.Clear();
+            _roomListSink?.SetRooms(_roomBuffer);
+
             // Emptied while the runner object still exists. It is destroyed with
             // the session, and presentation would otherwise keep showing the
             // people who were in the room we just left.
@@ -776,6 +870,8 @@ namespace Game.Network.Session
             if (!preserveMigrationState)
             {
                 _expectedPassword = null;
+                _configuredMaxPlayers = 0;
+                _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
             }
             _browsingLobby = false;
 
@@ -877,6 +973,14 @@ namespace Game.Network.Session
                 properties[SessionPropertyKeys.MapId] = request.MapId;
             }
 
+            if (request.MaxPlayers > 0)
+            {
+                properties[SessionPropertyKeys.MaxPlayers] = request.MaxPlayers;
+            }
+
+            properties[SessionPropertyKeys.DestructionLimit] =
+                PlaySettingsDraft.DefaultDestructionLimit;
+
             var hostNickname = SanitiseNickname(nickname);
 
             if (hostNickname.Length > 0)
@@ -887,6 +991,50 @@ namespace Game.Network.Session
             properties[SessionPropertyKeys.Locked] = !string.IsNullOrEmpty(request.Password);
 
             return properties;
+        }
+
+        private void ReadConfiguredSettings()
+        {
+            if (_runner == null || !_runner.SessionInfo.IsValid)
+            {
+                return;
+            }
+
+            var info = _runner.SessionInfo;
+            _configuredMaxPlayers = ReadIntProperty(
+                info,
+                SessionPropertyKeys.MaxPlayers,
+                info.MaxPlayers);
+            _destructionLimit = ReadIntProperty(
+                info,
+                SessionPropertyKeys.DestructionLimit,
+                PlaySettingsDraft.DefaultDestructionLimit);
+        }
+
+        private static int ReadIntProperty(
+            SessionInfo info,
+            string key,
+            int fallback)
+        {
+            var properties = info.Properties;
+            return properties != null &&
+                   properties.TryGetValue(key, out var property) &&
+                   property.IsInt
+                ? (int)property
+                : fallback;
+        }
+
+        private static string ReadStringProperty(
+            SessionInfo info,
+            string key,
+            string fallback)
+        {
+            var properties = info.Properties;
+            return properties != null &&
+                   properties.TryGetValue(key, out var property) &&
+                   property.IsString
+                ? (string)property
+                : fallback;
         }
 
         /// <summary>
@@ -1131,6 +1279,13 @@ namespace Game.Network.Session
         {
             if (!IsCurrentRunner(runner))
             {
+                request.Refuse();
+                return;
+            }
+
+            if (_configuredMaxPlayers > 0 && PlayerCount >= _configuredMaxPlayers)
+            {
+                Debug.Log("[Network] Refused a join: configured player limit reached.");
                 request.Refuse();
                 return;
             }

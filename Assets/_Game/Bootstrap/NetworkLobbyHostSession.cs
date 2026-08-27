@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Lobby;
+using Game.Core.Maps;
 using Game.Core.Rooms;
 using Game.Network.Session;
 using R3;
@@ -17,10 +18,8 @@ namespace Game.Bootstrap
     /// answer differs per screen and changes when the host leaves, so the room
     /// is the only thing entitled to say it.
     /// <para>
-    /// Start is the one request that gets through today. Kick, host transfer and
-    /// settings all need a client-to-host message, which the RPC blocker
-    /// prevents; they keep their guards and say so in the log rather than
-    /// failing silently.
+        /// Start and host-owned room settings are applied directly by the
+        /// authority. Kick and host transfer still require their own commands.
     /// </para>
     /// </remarks>
     public sealed class NetworkLobbyHostSession : ILobbyHostSession, IDisposable
@@ -118,12 +117,40 @@ namespace Game.Bootstrap
                 return;
             }
 
-            ReportUnreachable("방 설정 적용", "205");
+            var minimumPlayers = System.Math.Max(
+                RoomSettings.MinPlayerCount,
+                room.PlayerCount.CurrentValue);
+            var maxPlayers = System.Math.Min(
+                RoomSettings.MaxPlayerCount,
+                System.Math.Max(minimumPlayers, draft.MaxPlayers));
+            var destructionLimit = System.Math.Min(
+                PlaySettingsDraft.MaxDestructionLimit,
+                System.Math.Max(
+                    PlaySettingsDraft.MinDestructionLimit,
+                    draft.DestructionLimit));
+            var mapId = MapCatalog.Contains(draft.MapId)
+                ? draft.MapId.Trim()
+                : settings.CurrentValue.MapId;
+            var applied = new PlaySettingsDraft(
+                draft.Title,
+                draft.RoomCode,
+                draft.PasswordEnabled,
+                draft.Password,
+                maxPlayers,
+                destructionLimit,
+                mapId);
 
-            // Kept local so the form does not snap back on the host's own
-            // screen. Nobody else sees it until 205 lands.
-            SettingsApplyRequested?.Invoke(draft);
-            settings.Value = draft;
+            if (!network.TryApplyLobbySettings(
+                    applied.MaxPlayers,
+                    applied.DestructionLimit,
+                    applied.MapId))
+            {
+                Debug.LogWarning("[Lobby] 방 설정을 네트워크 세션에 적용하지 못했습니다.");
+                return;
+            }
+
+            SettingsApplyRequested?.Invoke(applied);
+            settings.Value = applied;
         }
 
         public void Dispose()
@@ -178,9 +205,10 @@ namespace Game.Bootstrap
         private void RepublishSettings()
         {
             var current = settings.CurrentValue;
+            var sessionTitle = network.RoomDisplayName;
 
             settings.Value = new PlaySettingsDraft(
-                current.Title,
+                string.IsNullOrWhiteSpace(sessionTitle) ? current.Title : sessionTitle,
                 room.RoomCode.CurrentValue ?? string.Empty,
                 current.PasswordEnabled,
                 current.Password,

@@ -36,14 +36,15 @@ namespace Game.Network.Lobby
         }
 
         /// <summary>
-        /// Photon pushes the room list on its own once the lobby is joined, so
-        /// this only has to guarantee we are in the lobby.
+        /// Photon pushes the room list on its own once the lobby is joined. A
+        /// manual refresh reconnects so Photon sends a complete new snapshot
+        /// instead of leaving the previous runner's cached list on screen.
         /// </summary>
         public async UniTask<RoomEntryFailure> RefreshAsync(CancellationToken cancellation)
         {
             if (_network.IsBrowsingLobby)
             {
-                return RoomEntryFailure.None;
+                _network.Shutdown();
             }
 
             var result = await _network.JoinLobbyAsync(cancellation);
