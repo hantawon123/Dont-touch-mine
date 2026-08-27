@@ -8,6 +8,7 @@
         "Game.Network",
         "Game.Server",
         "Game.SOAP",
+        "Unity.InputSystem",
         "R3.Unity",
         "UniTask",
         "VContainer",

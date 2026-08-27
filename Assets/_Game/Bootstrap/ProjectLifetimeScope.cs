@@ -1,5 +1,6 @@
 using Game.Client.Accessibility;
 using Game.Client.Audio;
+using Game.Client.Controls;
 using Game.Client.Graphics;
 using Game.Core.Flow;
 using Game.Core.Home;
@@ -10,6 +11,7 @@ using Game.Network.Lobby;
 using Game.Network.Players;
 using Game.Network.Session;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using VContainer;
 using VContainer.Unity;
 
@@ -23,7 +25,7 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
-            RegisterServices(builder, _networkPrefabs);
+            RegisterServices(builder, _networkPrefabs, InputSystem.actions);
         }
 
         /// <param name="networkPrefabs">
@@ -31,8 +33,14 @@ namespace Game.Bootstrap
         /// asset. A spawner without prefabs reports the problem when it is first
         /// asked to spawn rather than failing to construct.
         /// </param>
+        /// <param name="inputActions">
+        /// Project-wide actions in play mode. Tests omit this so the applier
+        /// does not touch the .inputactions asset during Edit Mode.
+        /// </param>
         public static void RegisterServices(
-            IContainerBuilder builder, NetworkPrefabs networkPrefabs = null)
+            IContainerBuilder builder,
+            NetworkPrefabs networkPrefabs = null,
+            InputActionAsset inputActions = null)
         {
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
@@ -56,11 +64,18 @@ namespace Game.Bootstrap
                 .As<IGraphicsSettingsApplier>();
             builder.Register<GraphicsSettingsService>(Lifetime.Singleton)
                 .As<IGraphicsSettings>();
+            builder.Register<PlayerPrefsControlSettingsStore>(Lifetime.Singleton)
+                .As<IControlSettingsStore>();
+            builder.Register(_ => new UnityControlSettingsApplier(inputActions), Lifetime.Singleton)
+                .As<IControlSettingsApplier>();
+            builder.Register<ControlSettingsService>(Lifetime.Singleton)
+                .As<IControlSettings>();
             builder.RegisterBuildCallback(container =>
             {
                 container.Resolve<IAudioSettings>();
                 container.Resolve<IAccessibilitySettings>();
                 container.Resolve<IGraphicsSettings>();
+                container.Resolve<IControlSettings>();
             });
 
             // Replaced by the saved Steam/backend profile when that adapter is connected.
