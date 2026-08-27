@@ -32,6 +32,12 @@ namespace Game.Network.Match
         int DestructionLimit { get; }
         event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
         event Action SimulationTick;
+
+        /// <summary>
+        /// 씬 로드가 끝났을 때. 스포너가 이 직후 전원을 씬 스폰 위치로 재배치하므로,
+        /// 경기 배치(숨기기 초기 배치 등)는 이 신호 이후 다시 적용해야 한다.
+        /// </summary>
+        event Action SceneLoaded;
         bool BindMatchSession(MatchSessionCoordinator session, Pose shredderEjectionPose);
         bool UnbindMatchSession(MatchSessionCoordinator session);
         bool TryInitializeAssignedItems(IReadOnlyList<PlayerItemAssignment> assignments);
