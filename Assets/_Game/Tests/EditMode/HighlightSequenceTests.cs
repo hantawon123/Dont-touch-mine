@@ -1,3 +1,4 @@
+using Game.Bootstrap;
 using Game.Server.Match;
 using Game.SOAP.Config;
 using NUnit.Framework;
@@ -69,6 +70,20 @@ namespace Game.Tests.EditMode
             Assert.That(sequence.TotalDurationSeconds, Is.Zero);
             Assert.That(sequence.IsComplete, Is.True);
             Assert.That(sequence.TryGetCurrent(out _), Is.False);
+        }
+
+        [TestCase(HighlightType.FirstBlood, "FIRST BLOOD")]
+        [TestCase(HighlightType.TteTanMulgun, "HOT ITEM")]
+        [TestCase(HighlightType.FinalMoment, "FINAL MOMENT")]
+        [TestCase(HighlightType.LongestHidden, "LONGEST HIDDEN")]
+        [TestCase(HighlightType.MostStunned, "MOST STUNNED")]
+        public void HighlightTitle_UsesReadableEnglishLabel(
+            HighlightType type,
+            string expected)
+        {
+            Assert.That(
+                NetworkHighlightPlaybackController.TitleOf(type),
+                Is.EqualTo(expected));
         }
 
         private static HighlightCandidate Candidate(HighlightType type)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Cameras;
 using Game.Client.Interactions;
+using Game.Client.Match;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Match;
@@ -55,6 +56,7 @@ namespace Game.Bootstrap
                 return;
             }
 
+            cameraDirector.ClearOccluders();
             session.CompleteCurrentHighlight();
             TryStartCurrent();
         }
@@ -138,6 +140,7 @@ namespace Game.Bootstrap
             Array.Empty<HighlightReplayData>();
         private HighlightReplayPlayer replayPlayer;
         private HighlightCameraDirector cameraDirector;
+        private INetworkMatchHudView hud;
         private PlayerCameraController cameraRig;
         private GameObject fallbackObject;
         private MatchPhase phase = MatchPhase.Waiting;
@@ -155,6 +158,8 @@ namespace Game.Bootstrap
 
         public void Start()
         {
+            hud = UnityEngine.Object.FindFirstObjectByType<NetworkMatchHudView>(
+                FindObjectsInactive.Include);
             network.MatchStateReceived += OnMatchStateReceived;
             network.HighlightReplayReceived += OnHighlightReplayReceived;
         }
@@ -189,9 +194,13 @@ namespace Game.Bootstrap
             }
 
             replayPlayer = null;
+            cameraDirector?.ClearOccluders();
             cameraDirector = null;
             replayIndex++;
-            TryStartNext();
+            if (!TryStartNext())
+            {
+                hud?.SetHighlightTitle(null);
+            }
         }
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
@@ -216,7 +225,9 @@ namespace Game.Bootstrap
             replay = received ?? Array.Empty<HighlightReplayData>();
             replayIndex = 0;
             replayPlayer = null;
+            cameraDirector?.ClearOccluders();
             cameraDirector = null;
+            hud?.SetHighlightTitle(null);
             if (phase == MatchPhase.Highlight)
             {
                 TryStartNext();
@@ -292,8 +303,19 @@ namespace Game.Bootstrap
                 playerTargets,
                 objectTargets);
             cameraDirector.Focus(current.Candidate);
+            hud?.SetHighlightTitle(TitleOf(current.Candidate.Type));
             return true;
         }
+
+        internal static string TitleOf(HighlightType type) => type switch
+        {
+            HighlightType.FirstBlood => "FIRST BLOOD",
+            HighlightType.TteTanMulgun => "HOT ITEM",
+            HighlightType.FinalMoment => "FINAL MOMENT",
+            HighlightType.LongestHidden => "LONGEST HIDDEN",
+            HighlightType.MostStunned => "MOST STUNNED",
+            _ => type.ToString().ToUpperInvariant(),
+        };
 
         private Transform[] CapturePlayerTargets(int playerCount)
         {
@@ -358,7 +380,9 @@ namespace Game.Bootstrap
         private void StopPlayback()
         {
             replayPlayer = null;
+            cameraDirector?.ClearOccluders();
             cameraDirector = null;
+            hud?.SetHighlightTitle(null);
             if (cameraRig != null && cameraOverridden)
             {
                 cameraRig.enabled = cameraWasEnabled;
