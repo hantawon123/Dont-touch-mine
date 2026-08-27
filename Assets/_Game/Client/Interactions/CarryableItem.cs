@@ -42,6 +42,7 @@ namespace Game.Client.Interactions
         private Collider[] colliders;
         private Renderer[] renderers;
         private MaterialPropertyBlock propertyBlock;
+        private AssignedItemOutline assignedOutline;
         private string resolvedObjectId;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
@@ -163,6 +164,17 @@ namespace Game.Client.Interactions
         {
             isPlayerItem = true;
             ownerPlayerIndex = playerIndex;
+        }
+
+        public void SetAssignedHighlight(bool visible)
+        {
+            if (visible && assignedOutline == null)
+            {
+                assignedOutline = GetComponent<AssignedItemOutline>() ??
+                                  gameObject.AddComponent<AssignedItemOutline>();
+            }
+
+            assignedOutline?.SetVisible(visible);
         }
 
         /// <summary>
