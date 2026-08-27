@@ -133,6 +133,7 @@ namespace Game.Architecture.Tests
         private sealed class FakeNetworkMatchEvents : INetworkMatchEvents
         {
             public event Action<MatchStateSnapshot> MatchStateReceived;
+            public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
             public event Action<System.Collections.Generic.IReadOnlyList<
                 PlayerInteractionStateSnapshot>> PlayerInteractionStatesReceived;
             public event Action<System.Collections.Generic.IReadOnlyList<

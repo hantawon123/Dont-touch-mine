@@ -52,6 +52,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: NetworkedPlayer
       objectReference: {fileID: 0}
+    - target: {fileID: 9079316150982572114, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
+      propertyPath: usesNetworkState
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

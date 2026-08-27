@@ -77,13 +77,28 @@ namespace Game.Network.Match
 
     internal struct ReplicatedObjectState : INetworkStruct
     {
+        private const int DestroyedFlag = 1 << 0;
+        private const int PhysicsActiveFlag = 1 << 1;
+
+        public NetworkString<_16> ObjectId;
         public int HolderPlayerIndex;
         public Vector3 Position;
         public Quaternion Rotation;
         public Vector3 InitialVelocity;
-        public NetworkBool IsDestroyed;
-        public NetworkBool IsPhysicsActive;
+        public int Flags;
         public int Version;
+
+        public bool IsDestroyed
+        {
+            readonly get => (Flags & DestroyedFlag) != 0;
+            set => Flags = value ? Flags | DestroyedFlag : Flags & ~DestroyedFlag;
+        }
+
+        public bool IsPhysicsActive
+        {
+            readonly get => (Flags & PhysicsActiveFlag) != 0;
+            set => Flags = value ? Flags | PhysicsActiveFlag : Flags & ~PhysicsActiveFlag;
+        }
     }
 
     /// <summary>
@@ -113,6 +128,7 @@ namespace Game.Network.Match
         // Fusion reserves this state capacity up front, so keep it close to the
         // real map maximum instead of treating it as an unbounded collection.
         public const int MaxReplicatedObjects = 256;
+        public const int MaxObjectIdLength = 16;
 
         [Networked]
         public bool IsStarted { get; set; }
@@ -157,9 +173,11 @@ namespace Game.Network.Match
         [Networked]
         public double PhaseEndsAt { get; set; }
 
+        [Networked]
+        public int ObjectStateCount { get; set; }
+
         [Networked, Capacity(MaxReplicatedObjects)]
-        internal NetworkDictionary<NetworkString<_64>, ReplicatedObjectState>
-            ObjectStates => default;
+        internal NetworkArray<ReplicatedObjectState> ObjectStates => default;
 
         [Networked]
         public int ObjectStateRevision { get; set; }
@@ -285,7 +303,12 @@ namespace Game.Network.Match
                 WinnerPlayerIndices.Set(index, 0);
             }
 
-            ObjectStates.Clear();
+            for (var index = 0; index < ObjectStateCount; index++)
+            {
+                ObjectStates.Set(index, default);
+            }
+
+            ObjectStateCount = 0;
             ParticipantCount = 0;
             ParticipantActivityRevision++;
             PlayerInteractionStateRevision++;
@@ -449,9 +472,9 @@ namespace Game.Network.Match
                 return false;
             }
 
-            NetworkString<_64> key = objectId.Trim();
-            return ObjectStates.ContainsKey(key) ||
-                   ObjectStates.Count < MaxReplicatedObjects;
+            return IsValidObjectId(objectId) &&
+                   (TryFindObjectState(objectId, out _, out _) ||
+                    ObjectStateCount < MaxReplicatedObjects);
         }
 
         public bool CanHoldObject(string objectId)
@@ -462,11 +485,11 @@ namespace Game.Network.Match
                 return false;
             }
 
-            NetworkString<_64> key = objectId.Trim();
-            return !ObjectStates.TryGet(key, out var state) ||
+            return IsValidObjectId(objectId) &&
+                   (!TryFindObjectState(objectId, out _, out var state) ||
                    state.HolderPlayerIndex < 0 &&
                    !state.IsDestroyed &&
-                   !state.IsPhysicsActive;
+                   !state.IsPhysicsActive);
         }
 
         public bool TrySetObjectReleased(
@@ -532,32 +555,36 @@ namespace Game.Network.Match
                 return false;
             }
 
-            var newObjectCount = 0;
+            var newObjectIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var worldObject in states)
             {
-                NetworkString<_64> key = worldObject.ObjectId;
-                if (!ObjectStates.ContainsKey(key))
+                if (!IsValidObjectId(worldObject.ObjectId))
                 {
-                    newObjectCount++;
+                    return false;
+                }
+
+                var objectId = worldObject.ObjectId.Trim();
+                if (!TryFindObjectState(objectId, out _, out _))
+                {
+                    newObjectIds.Add(objectId);
                 }
             }
 
-            if (ObjectStates.Count + newObjectCount > MaxReplicatedObjects)
+            if (ObjectStateCount + newObjectIds.Count > MaxReplicatedObjects)
             {
                 return false;
             }
 
             foreach (var worldObject in states)
             {
-                NetworkString<_64> key = worldObject.ObjectId;
-                ObjectStates.TryGet(key, out var state);
+                TryGetWritableState(worldObject.ObjectId, out var index, out var state);
                 state.HolderPlayerIndex = -1;
                 state.Position = worldObject.Pose.position;
                 state.Rotation = worldObject.Pose.rotation;
                 state.InitialVelocity = default;
                 state.IsDestroyed = false;
                 state.IsPhysicsActive = false;
-                WriteObjectState(key, state);
+                WriteObjectState(index, state);
             }
 
             return true;
@@ -694,15 +721,13 @@ namespace Game.Network.Match
         private void PublishObjectStates()
         {
             _publishedObjectStateRevision = ObjectStateRevision;
-            var states = ObjectStates;
-            var snapshots = new MatchObjectStateSnapshot[states.Count];
-            var index = 0;
-
-            foreach (var pair in states)
+            var count = Mathf.Min(ObjectStateCount, MaxReplicatedObjects);
+            var snapshots = new MatchObjectStateSnapshot[count];
+            for (var index = 0; index < count; index++)
             {
-                var state = pair.Value;
-                snapshots[index++] = new MatchObjectStateSnapshot(
-                    pair.Key.ToString(),
+                var state = ObjectStates.Get(index);
+                snapshots[index] = new MatchObjectStateSnapshot(
+                    state.ObjectId.ToString(),
                     state.HolderPlayerIndex,
                     new Pose(state.Position, state.Rotation),
                     state.InitialVelocity,
@@ -765,19 +790,20 @@ namespace Game.Network.Match
 
         private bool TryGetWritableState(
             string objectId,
-            out NetworkString<_64> key,
+            out int index,
             out ReplicatedObjectState state)
         {
-            key = default;
+            index = -1;
             state = default;
             if (!CanTrackObject(objectId))
             {
                 return false;
             }
 
-            key = objectId.Trim();
-            if (!ObjectStates.TryGet(key, out state))
+            if (!TryFindObjectState(objectId, out index, out state))
             {
+                index = ObjectStateCount++;
+                state.ObjectId = objectId.Trim();
                 state.HolderPlayerIndex = -1;
                 state.Rotation = Quaternion.identity;
             }
@@ -804,15 +830,48 @@ namespace Game.Network.Match
             float.IsFinite(value.z) &&
             float.IsFinite(value.w);
 
-        private bool WriteObjectState(
-            NetworkString<_64> key,
-            ReplicatedObjectState state)
+        private bool WriteObjectState(int index, ReplicatedObjectState state)
         {
             state.Version++;
-            var states = ObjectStates;
-            states.Set(key, state);
+            ObjectStates.Set(index, state);
             ObjectStateRevision++;
             return true;
+        }
+
+        private bool TryFindObjectState(
+            string objectId,
+            out int index,
+            out ReplicatedObjectState state)
+        {
+            index = -1;
+            state = default;
+            if (!IsValidObjectId(objectId))
+            {
+                return false;
+            }
+
+            NetworkString<_16> key = objectId.Trim();
+            var count = Mathf.Min(ObjectStateCount, MaxReplicatedObjects);
+            for (var candidate = 0; candidate < count; candidate++)
+            {
+                var current = ObjectStates.Get(candidate);
+                if (!current.ObjectId.Equals(key))
+                {
+                    continue;
+                }
+
+                index = candidate;
+                state = current;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsValidObjectId(string objectId)
+        {
+            return !string.IsNullOrWhiteSpace(objectId) &&
+                   objectId.Trim().Length <= MaxObjectIdLength;
         }
 
         /// <summary>

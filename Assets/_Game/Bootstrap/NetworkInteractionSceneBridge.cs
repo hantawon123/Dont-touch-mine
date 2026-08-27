@@ -39,6 +39,7 @@ namespace Game.Bootstrap
         private PlayerInteractionStateSnapshot[] playerStates =
             Array.Empty<PlayerInteractionStateSnapshot>();
         private string assignedItemId;
+        private CarryableItem highlightedAssignment;
         private bool assignmentHoldRequested;
         private bool standaloneActorsDisabled;
 
@@ -63,6 +64,7 @@ namespace Game.Bootstrap
             network.ItemAssignmentReceived -= OnItemAssignmentReceived;
             network.ObjectStatesReceived -= OnObjectStatesReceived;
             network.PlayerInteractionStatesReceived -= OnPlayerStatesReceived;
+            SetHighlightedAssignment(null);
         }
 
         public void Tick()
@@ -194,6 +196,7 @@ namespace Game.Bootstrap
             }
 
             item.AssignToPlayer(room.LocalPlayerIndex);
+            SetHighlightedAssignment(item);
             assignmentHoldRequested = network.RequestHoldObject(assignedItemId);
         }
 
@@ -217,6 +220,11 @@ namespace Game.Bootstrap
                 {
                     settlingVersions.Remove(state.ObjectId);
                     ForgetItem(item);
+                    if (ReferenceEquals(highlightedAssignment, item))
+                    {
+                        highlightedAssignment = null;
+                    }
+
                     appliedVersions[state.ObjectId] = state.Version;
                     items.Remove(state.ObjectId);
                     UnityEngine.Object.Destroy(item.gameObject);
@@ -322,6 +330,29 @@ namespace Game.Bootstrap
         {
             assignedItemId = string.IsNullOrWhiteSpace(itemId) ? null : itemId.Trim();
             assignmentHoldRequested = false;
+            SetHighlightedAssignment(
+                assignedItemId != null && items.TryGetValue(assignedItemId, out var item)
+                    ? item
+                    : null);
+        }
+
+        private void SetHighlightedAssignment(CarryableItem item)
+        {
+            if (ReferenceEquals(highlightedAssignment, item))
+            {
+                return;
+            }
+
+            if (highlightedAssignment != null)
+            {
+                highlightedAssignment.SetAssignedHighlight(false);
+            }
+
+            highlightedAssignment = item;
+            if (highlightedAssignment != null)
+            {
+                highlightedAssignment.SetAssignedHighlight(true);
+            }
         }
 
         private void OnObjectStatesReceived(

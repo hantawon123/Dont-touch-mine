@@ -42,6 +42,7 @@ namespace Game.Client.Interactions
         private Collider[] colliders;
         private Renderer[] renderers;
         private MaterialPropertyBlock propertyBlock;
+        private AssignedItemOutline assignedOutline;
         private string resolvedObjectId;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
@@ -165,6 +166,17 @@ namespace Game.Client.Interactions
             ownerPlayerIndex = playerIndex;
         }
 
+        public void SetAssignedHighlight(bool visible)
+        {
+            if (visible && assignedOutline == null)
+            {
+                assignedOutline = GetComponent<AssignedItemOutline>() ??
+                                  gameObject.AddComponent<AssignedItemOutline>();
+            }
+
+            assignedOutline?.SetVisible(visible);
+        }
+
         /// <summary>
         /// 같은 카탈로그 물건이 씬에 여러 개 있을 때 추가 인스턴스에
         /// 씬 계층 기반의 결정적인 ID를 부여한다.
@@ -224,8 +236,9 @@ namespace Game.Client.Interactions
 
         private string ResolveSceneInstanceObjectId()
         {
-            // Scene hierarchy is identical on every peer. Hashing it keeps the
-            // replicated id below Fusion's 64-character NetworkString limit.
+            // Scene hierarchy is identical on every peer. The compact hash is
+            // enough to identify scene props and keeps the replicated match
+            // state inside Fusion's per-NetworkObject size limit.
             var hash = 2166136261u;
             var current = transform;
             while (current != null)
@@ -235,8 +248,7 @@ namespace Game.Client.Interactions
                 current = current.parent;
             }
 
-            var baseName = name.Length > 48 ? name.Substring(0, 48) : name;
-            return $"{baseName}#{hash:X8}";
+            return $"{hash:X8}";
         }
 
         private static void Hash(string value, ref uint hash)
