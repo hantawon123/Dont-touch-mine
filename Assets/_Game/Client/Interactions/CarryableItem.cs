@@ -236,8 +236,9 @@ namespace Game.Client.Interactions
 
         private string ResolveSceneInstanceObjectId()
         {
-            // Scene hierarchy is identical on every peer. Hashing it keeps the
-            // replicated id below Fusion's 64-character NetworkString limit.
+            // Scene hierarchy is identical on every peer. The compact hash is
+            // enough to identify scene props and keeps the replicated match
+            // state inside Fusion's per-NetworkObject size limit.
             var hash = 2166136261u;
             var current = transform;
             while (current != null)
@@ -247,8 +248,7 @@ namespace Game.Client.Interactions
                 current = current.parent;
             }
 
-            var baseName = name.Length > 48 ? name.Substring(0, 48) : name;
-            return $"{baseName}#{hash:X8}";
+            return $"{hash:X8}";
         }
 
         private static void Hash(string value, ref uint hash)

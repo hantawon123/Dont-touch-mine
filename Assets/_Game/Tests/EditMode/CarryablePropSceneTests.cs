@@ -106,7 +106,8 @@ namespace Game.Architecture.Tests
                 PlaygroundMatchScene captured = null;
                 Assert.DoesNotThrow(() => captured = PlaygroundMatchScene.Capture(scene));
 
-                var carryableCount = CollectCarryableItems(scene).Count;
+                var carryableItems = CollectCarryableItems(scene);
+                var carryableCount = carryableItems.Count;
                 Assert.That(
                     captured.NetworkConfiguration.InitialWorldObjects.Count +
                     ItemCatalog.Definitions.Count,
@@ -121,6 +122,14 @@ namespace Game.Architecture.Tests
                     Is.LessThanOrEqualTo(
                         Game.Network.Match.MatchSessionState.MaxReplicatedObjects),
                     "Playground의 모든 CarryableItem이 네트워크 상태 용량 안에 들어야 합니다.");
+                foreach (var item in carryableItems)
+                {
+                    Assert.That(
+                        item.ObjectId.Length,
+                        Is.LessThanOrEqualTo(
+                            Game.Network.Match.MatchSessionState.MaxObjectIdLength),
+                        $"{item.name}: 물건 ID가 네트워크 제한보다 깁니다.");
+                }
                 Assert.That(
                     captured.RuntimeContext.ReplayObjects.Count,
                     Is.LessThanOrEqualTo(PlaygroundMatchScene.MaxReplayObjectCount),

@@ -49,6 +49,7 @@ namespace Game.Client.Combat
         private float nextAttackTime;
         private float hitFlashUntil;
         private bool wasTintApplied;
+        [SerializeField, HideInInspector]
         private bool usesNetworkState;
         private bool networkStunned;
 
