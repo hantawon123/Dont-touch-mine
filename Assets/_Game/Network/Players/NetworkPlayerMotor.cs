@@ -37,6 +37,13 @@ namespace Game.Network.Players
         public int AttackSequence { get; private set; }
 
         [Networked]
+        private float NextAttackAllowedAt { get; set; }
+
+        [SerializeField, Min(0.1f)]
+        [Tooltip("공격 재입력 대기 시간. CombatConfig의 PunchMotionSeconds와 맞춘다. (모션 중 재입력 방지)")]
+        private float attackCooldownSeconds = 0.9f;
+
+        [Networked]
         public PlayerPosture Posture { get; private set; }
 
         private bool IsConfigured =>
@@ -137,9 +144,12 @@ namespace Game.Network.Players
             AnimationSpeed = direction.magnitude * speed;
             AnimationGrounded = _controller.isGrounded;
 
-            if (input.WasPressed(NetworkPlayerButton.Attack, PreviousButtons))
+            // 펀치 모션이 끝나기 전에는 공격 재입력을 받지 않는다.
+            if (input.WasPressed(NetworkPlayerButton.Attack, PreviousButtons) &&
+                Runner.SimulationTime >= NextAttackAllowedAt)
             {
                 AttackSequence++;
+                NextAttackAllowedAt = Runner.SimulationTime + attackCooldownSeconds;
             }
 
             if (ControlsEnabled)
