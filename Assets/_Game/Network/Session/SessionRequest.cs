@@ -14,6 +14,12 @@ namespace Game.Network.Session
         /// <summary>Identifier of the selected map.</summary>
         public const string MapId = "map";
 
+        /// <summary>Host-configured admission limit (2-6).</summary>
+        public const string MaxPlayers = "max";
+
+        /// <summary>How many player-item destruction attempts each player gets.</summary>
+        public const string DestructionLimit = "destroy";
+
         /// <summary>
         /// Name of whoever opened the room, for the listing to credit. Display
         /// only: it is not unique and nothing looks anyone up by it.

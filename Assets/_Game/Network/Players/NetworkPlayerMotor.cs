@@ -5,31 +5,16 @@ using UnityEngine;
 namespace Game.Network.Players
 {
     /// <summary>
-    /// Collects input on the owning peer and simulates the character on State Authority.
+    /// Collects input on the owning peer and applies the same movement model
+    /// during Fusion prediction and authority simulation.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CharacterController))]
+    [RequireComponent(typeof(NetworkTransform))]
     public sealed class NetworkPlayerMotor : NetworkBehaviour
     {
-        private const float GroundedStickVelocity = -2f;
-
-        [Header("Movement")]
-        [SerializeField, Min(0f)]
-        private float _walkSpeed = 4f;
-
-        [SerializeField, Min(0f)]
-        private float _sprintSpeed = 7f;
-
-        [SerializeField, Min(0f)]
-        private float _rotationSpeedDegrees = 720f;
-
-        [SerializeField, Min(0f)]
-        private float _jumpHeight = 1.1f;
-
-        [SerializeField, Min(0.1f)]
-        private float _gravityMultiplier = 2f;
-
         private CharacterController _controller;
+        private NetworkTransform _networkTransform;
         private IPlayerInputIntentSource _inputSource;
 
         [Networked]
@@ -41,11 +26,13 @@ namespace Game.Network.Players
         [Networked]
         public NetworkBool ControlsEnabled { get; private set; }
 
-        private bool IsConfigured => _controller != null && _inputSource != null;
+        private bool IsConfigured =>
+            _controller != null && _networkTransform != null && _inputSource != null;
 
         private void Awake()
         {
             _controller = GetComponent<CharacterController>();
+            _networkTransform = GetComponent<NetworkTransform>();
 
             var behaviours = GetComponents<MonoBehaviour>();
             for (var i = 0; i < behaviours.Length; i++)
@@ -87,38 +74,36 @@ namespace Game.Network.Players
 
         public override void FixedUpdateNetwork()
         {
-            if (!Object.HasStateAuthority || !IsConfigured)
+            if (!IsConfigured)
             {
                 return;
             }
 
-            var input = default(NetworkPlayerInput);
-            if (ControlsEnabled)
+            if (!GetInput(out NetworkPlayerInput input))
             {
-                GetInput(out input);
+                return;
+            }
+
+            if (!ControlsEnabled)
+            {
+                input = default;
             }
 
             var deltaTime = Runner.DeltaTime;
-            var gravity = Physics.gravity.y * _gravityMultiplier;
-
-            if (_controller.isGrounded && VerticalVelocity < 0f)
-            {
-                VerticalVelocity = GroundedStickVelocity;
-            }
-
-            if (_controller.isGrounded &&
-                input.WasPressed(NetworkPlayerButton.Jump, PreviousButtons))
-            {
-                VerticalVelocity = Mathf.Sqrt(
-                    -2f * gravity * _jumpHeight);
-            }
-
-            VerticalVelocity += gravity * deltaTime;
+            var settings = _inputSource.MovementSettings;
+            VerticalVelocity = PlayerMovementKinematics.StepVerticalVelocity(
+                VerticalVelocity,
+                _controller.isGrounded,
+                input.WasPressed(NetworkPlayerButton.Jump, PreviousButtons),
+                Physics.gravity.y,
+                deltaTime,
+                settings);
 
             var direction = ToWorldDirection(input.Move, input.LookYawDegrees);
-            var speed = input.IsPressed(NetworkPlayerButton.Sprint)
-                ? _sprintSpeed
-                : _walkSpeed;
+            var speed = PlayerMovementKinematics.MoveSpeed(
+                settings,
+                input.IsPressed(NetworkPlayerButton.Sprint));
+
             var velocity = direction * speed;
             velocity.y = VerticalVelocity;
             _controller.Move(velocity * deltaTime);
@@ -129,7 +114,7 @@ namespace Game.Network.Players
                 transform.rotation = Quaternion.RotateTowards(
                     transform.rotation,
                     targetRotation,
-                    _rotationSpeedDegrees * deltaTime);
+                    settings.RotationSpeedDegrees * deltaTime);
             }
 
             PreviousButtons = input.Buttons;
@@ -158,6 +143,18 @@ namespace Game.Network.Players
                 VerticalVelocity = 0f;
                 PreviousButtons = default;
             }
+        }
+
+        internal bool TryTeleport(Pose pose)
+        {
+            if (Object == null || !Object.HasStateAuthority)
+            {
+                return false;
+            }
+
+            _networkTransform.Teleport(pose.position, pose.rotation);
+            ResetMotion();
+            return true;
         }
 
         internal static Vector3 ToWorldDirection(Vector2 move, float lookYawDegrees)

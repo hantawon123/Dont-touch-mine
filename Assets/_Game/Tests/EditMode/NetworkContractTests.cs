@@ -9,6 +9,7 @@ using Game.Network.Players;
 using Game.Network.Session;
 using Game.Server.Items;
 using Game.Server.Match;
+using Game.SOAP.Config;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -94,13 +95,52 @@ namespace Game.Architecture.Tests
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/_Game/Content/Prefabs/NetworkedPlayer.prefab");
 
-            Assert.That(prefab, Is.Not.Null);
-            Assert.That(prefab.GetComponent<NetworkPlayerMotor>(), Is.Not.Null);
-            Assert.That(prefab.GetComponent<Fusion.NetworkTransform>(), Is.Not.Null);
-            Assert.That(prefab.GetComponent<CharacterController>(), Is.Not.Null);
+            Assert.That(prefab, Is.Not.Null, "NetworkedPlayer prefab is missing.");
+            Assert.That(prefab.GetComponent<NetworkPlayerMotor>(), Is.Not.Null,
+                "NetworkPlayerMotor is missing.");
+            Assert.That(prefab.GetComponent<Fusion.NetworkTransform>(), Is.Not.Null,
+                "NetworkTransform is missing.");
+            Assert.That(prefab.GetComponent<CharacterController>(), Is.Not.Null,
+                "CharacterController is missing.");
             Assert.That(
                 prefab.GetComponent<PlayerMovement>(),
                 Is.InstanceOf<IPlayerInputIntentSource>());
+        }
+
+        [Test]
+        public void NetworkPlayer_UsesTheSameMovementSettingsAsLocalPlayer()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/NetworkedPlayer.prefab");
+            var source = prefab.GetComponent<PlayerMovement>();
+            var settings = source.MovementSettings;
+            var config = AssetDatabase.LoadAssetAtPath<MovementConfigSO>(
+                "Assets/_Game/Content/Config/MovementConfig.asset");
+
+            Assert.That(config, Is.Not.Null);
+            Assert.That(settings.WalkSpeed, Is.EqualTo(config.WalkSpeed));
+            Assert.That(settings.SprintSpeed, Is.EqualTo(config.SprintSpeed));
+            Assert.That(settings.RotationSpeedDegrees,
+                Is.EqualTo(config.RotationSpeedDegrees));
+            Assert.That(settings.JumpHeight, Is.EqualTo(config.JumpHeight));
+            Assert.That(settings.GravityMultiplier,
+                Is.EqualTo(config.GravityMultiplier));
+        }
+
+        [Test]
+        public void SharedMovementKinematics_JumpRisesThenFallsContinuously()
+        {
+            var settings = new PlayerMovementSettings(4f, 7f, 720f, 1.1f, 2f);
+            const float deltaTime = 1f / 60f;
+
+            var takeoff = PlayerMovementKinematics.StepVerticalVelocity(
+                0f, true, true, -9.81f, deltaTime, settings);
+            var nextTick = PlayerMovementKinematics.StepVerticalVelocity(
+                takeoff, false, false, -9.81f, deltaTime, settings);
+
+            Assert.That(takeoff, Is.GreaterThan(0f));
+            Assert.That(nextTick, Is.LessThan(takeoff));
+            Assert.That(nextTick, Is.GreaterThan(0f));
         }
 
         [Test]

@@ -4,7 +4,82 @@ namespace Game.Core.Players
 {
     public interface IPlayerInputIntentSource
     {
+        PlayerMovementSettings MovementSettings { get; }
+
         PlayerInputIntent CaptureInputIntent();
+    }
+
+    /// <summary>
+    /// Engine-neutral movement values shared by local and network simulation.
+    /// </summary>
+    public readonly struct PlayerMovementSettings
+    {
+        public PlayerMovementSettings(
+            float walkSpeed,
+            float sprintSpeed,
+            float rotationSpeedDegrees,
+            float jumpHeight,
+            float gravityMultiplier)
+        {
+            if (!float.IsFinite(walkSpeed) || walkSpeed < 0f ||
+                !float.IsFinite(sprintSpeed) || sprintSpeed < 0f ||
+                !float.IsFinite(rotationSpeedDegrees) || rotationSpeedDegrees < 0f ||
+                !float.IsFinite(jumpHeight) || jumpHeight < 0f ||
+                !float.IsFinite(gravityMultiplier) || gravityMultiplier <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(walkSpeed),
+                    "Movement settings must be finite and non-negative.");
+            }
+
+            WalkSpeed = walkSpeed;
+            SprintSpeed = sprintSpeed;
+            RotationSpeedDegrees = rotationSpeedDegrees;
+            JumpHeight = jumpHeight;
+            GravityMultiplier = gravityMultiplier;
+        }
+
+        public float WalkSpeed { get; }
+        public float SprintSpeed { get; }
+        public float RotationSpeedDegrees { get; }
+        public float JumpHeight { get; }
+        public float GravityMultiplier { get; }
+    }
+
+    /// <summary>
+    /// Movement math shared by the local Update loop and Fusion simulation.
+    /// Keeping it here prevents lobby/network movement from quietly acquiring
+    /// different stopping or jumping behaviour.
+    /// </summary>
+    public static class PlayerMovementKinematics
+    {
+        private const float GroundedStickVelocity = -2f;
+
+        public static float MoveSpeed(
+            PlayerMovementSettings settings,
+            bool sprinting) =>
+            sprinting ? settings.SprintSpeed : settings.WalkSpeed;
+
+        public static float StepVerticalVelocity(
+            float currentVelocity,
+            bool grounded,
+            bool jumpRequested,
+            float physicsGravityY,
+            float deltaTime,
+            PlayerMovementSettings settings)
+        {
+            if (grounded)
+            {
+                currentVelocity = jumpRequested
+                    ? MathF.Sqrt(
+                        2f * -physicsGravityY * settings.GravityMultiplier *
+                        settings.JumpHeight)
+                    : GroundedStickVelocity;
+            }
+
+            return currentVelocity -
+                (-physicsGravityY * settings.GravityMultiplier * deltaTime);
+        }
     }
 
     [Flags]

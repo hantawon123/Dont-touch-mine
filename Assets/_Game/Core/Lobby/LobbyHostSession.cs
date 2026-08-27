@@ -5,6 +5,10 @@ namespace Game.Core.Lobby
 {
     public readonly struct PlaySettingsDraft
     {
+        public const int MinDestructionLimit = 1;
+        public const int MaxDestructionLimit = 10;
+        public const int DefaultDestructionLimit = 5;
+
         public PlaySettingsDraft(
             string title,
             string roomCode,

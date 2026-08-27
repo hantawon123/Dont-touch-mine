@@ -22,6 +22,7 @@ namespace Game.Core.Lobby
         private readonly ReactiveProperty<RoomEntryFailure> lastFailure =
             new(RoomEntryFailure.None);
         private readonly ReactiveProperty<string> roomCode = new(null);
+        private readonly ReactiveProperty<bool> isInRoom = new(false);
         private readonly ReactiveProperty<int> playerCount = new(0);
         private readonly ReactiveProperty<int> maxPlayers = new(0);
         private readonly ReactiveProperty<RoomExitReason?> lastExit = new(null);
@@ -38,6 +39,7 @@ namespace Game.Core.Lobby
         public ReadOnlyReactiveProperty<bool> IsBusy => isBusy;
         public ReadOnlyReactiveProperty<RoomEntryFailure> LastFailure => lastFailure;
         public ReadOnlyReactiveProperty<string> RoomCode => roomCode;
+        public ReadOnlyReactiveProperty<bool> IsInRoom => isInRoom;
         public ReadOnlyReactiveProperty<int> PlayerCount => playerCount;
         public ReadOnlyReactiveProperty<int> MaxPlayers => maxPlayers;
         public ReadOnlyReactiveProperty<RoomExitReason?> LastExit => lastExit;
@@ -189,6 +191,7 @@ namespace Game.Core.Lobby
 
         public void RoomClosed(RoomExitReason reason)
         {
+            isInRoom.Value = false;
             playerCount.Value = 0;
             maxPlayers.Value = 0;
             roomCode.Value = null;
@@ -215,6 +218,7 @@ namespace Game.Core.Lobby
 
             if (result.Ok)
             {
+                isInRoom.Value = true;
                 lastExit.Value = null;
             }
 
@@ -233,6 +237,7 @@ namespace Game.Core.Lobby
             isBusy.Dispose();
             lastFailure.Dispose();
             roomCode.Dispose();
+            isInRoom.Dispose();
             playerCount.Dispose();
             maxPlayers.Dispose();
             lastExit.Dispose();

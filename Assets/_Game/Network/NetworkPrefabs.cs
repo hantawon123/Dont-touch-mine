@@ -19,7 +19,7 @@ namespace Game.Network
     {
         [SerializeField]
         [Tooltip("Character spawned for each player. Needs NetworkObject, " +
-                 "NetworkTransform, PlayerAvatar and NetworkPlayerMotor.")]
+                 "NetworkCharacterController, PlayerAvatar and NetworkPlayerMotor.")]
         private NetworkObject _player;
 
         [SerializeField]
@@ -35,10 +35,10 @@ namespace Game.Network
 #if UNITY_EDITOR
         /// <summary>
         /// Catches the two mistakes that fail silently at runtime: a missing
-        /// prefab, and a prefab without <c>NetworkTransform</c>. Fusion only
-        /// applies the spawn position locally, so without it every character
-        /// stacks at the origin on every peer but the one that spawned it, and
-        /// nothing in the console says why.
+        /// prefab, and a prefab without <c>NetworkCharacterController</c>.
+        /// That component owns both predicted movement and replicated position;
+        /// using a plain transform synchronizer beside a CharacterController
+        /// makes prediction restore the character to its previous position.
         /// </summary>
         private void OnValidate()
         {
@@ -47,12 +47,12 @@ namespace Game.Network
                 return;
             }
 
-            if (_player.GetComponentInChildren<NetworkTransform>() == null)
+            if (_player.GetComponentInChildren<NetworkCharacterController>() == null)
             {
                 Debug.LogWarning(
-                    $"[Network] '{_player.name}' has no NetworkTransform. Spawn " +
-                    "positions will not replicate and every character will appear " +
-                    "at the origin on remote peers.",
+                    $"[Network] '{_player.name}' has no NetworkCharacterController. " +
+                    "Predicted movement and spawn positions will not replicate " +
+                    "correctly.",
                     this);
             }
 

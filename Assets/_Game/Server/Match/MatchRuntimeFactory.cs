@@ -116,7 +116,8 @@ namespace Game.Server.Match
             IReadOnlyList<Pose> spawnPoints,
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
-            IReadOnlyList<WorldObjectState> initialWorldObjects = null)
+            IReadOnlyList<WorldObjectState> initialWorldObjects = null,
+            int? destructionUsesPerPlayer = null)
         {
             if (participantIds == null)
             {
@@ -128,7 +129,10 @@ namespace Game.Server.Match
             {
                 var playerCount = participantIds.Count;
                 var flow = new MatchFlow(rules, state, playerCount);
-                var interactions = new PlayerInteractionSystem(rules, playerCount);
+                var interactions = new PlayerInteractionSystem(
+                    rules,
+                    playerCount,
+                    destructionUsesPerPlayer ?? rules.DestructionUsesPerPlayer);
                 var session = new MatchSessionCoordinator(
                     rules,
                     state,
@@ -155,7 +159,8 @@ namespace Game.Server.Match
             IReadOnlyList<Pose> spawnPoints,
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
-            IReadOnlyList<WorldObjectState> initialWorldObjects = null)
+            IReadOnlyList<WorldObjectState> initialWorldObjects = null,
+            int? destructionUsesPerPlayer = null)
         {
             return CreateSession(
                 CaptureParticipantIds(participants),
@@ -163,7 +168,8 @@ namespace Game.Server.Match
                 spawnPoints,
                 itemDefinitions,
                 random,
-                initialWorldObjects);
+                initialWorldObjects,
+                destructionUsesPerPlayer);
         }
 
         private static string[] CaptureParticipantIds(

@@ -192,6 +192,7 @@ namespace Game.Architecture.Tests
             }
 
             public bool IsServer => true;
+            public int DestructionLimit => PlaySettingsDraft.DefaultDestructionLimit;
             public double ServerTime { get; set; }
             public MatchSessionCoordinator BoundSession { get; private set; }
             public IReadOnlyList<PlayerItemAssignment> Assignments { get; private set; }

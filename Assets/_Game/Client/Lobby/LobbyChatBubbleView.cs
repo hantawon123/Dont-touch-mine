@@ -34,6 +34,9 @@ namespace Game.Client.Lobby
         [SerializeField]
         private float visibleSeconds = 3.5f;
 
+        [SerializeField, Min(0f)]
+        private float heightOffset = 1.35f;
+
         [SerializeField]
         private Font uiFont;
 
@@ -56,12 +59,10 @@ namespace Game.Client.Lobby
 
                 var canvas = anchor.bubbleRoot.parent as RectTransform;
                 var follow = canvas != null ? canvas : anchor.bubbleRoot;
-                follow.position = anchor.headAnchor.position + Vector3.up * 0.55f;
+                follow.position = anchor.headAnchor.position + Vector3.up * heightOffset;
                 if (camera != null)
                 {
-                    follow.rotation = Quaternion.LookRotation(
-                        follow.position - camera.transform.position,
-                        Vector3.up);
+                    follow.rotation = camera.transform.rotation;
                 }
 
                 if (hideAt.TryGetValue(anchor.playerId, out var until) && now >= until)
@@ -108,6 +109,39 @@ namespace Game.Client.Lobby
             }
         }
 
+        public void ClearBindings()
+        {
+            Clear();
+            for (var i = 0; i < anchors.Count; i++)
+            {
+                var anchor = anchors[i];
+                if (anchor == null)
+                {
+                    continue;
+                }
+
+                anchor.playerId = string.Empty;
+                anchor.headAnchor = null;
+            }
+        }
+
+        public void BindPlayer(string playerId, Transform headAnchor)
+        {
+            if (string.IsNullOrWhiteSpace(playerId) || headAnchor == null)
+            {
+                return;
+            }
+
+            var anchor = FindAnchor(playerId) ?? FindFreeAnchor() ?? CloneAnchor();
+            if (anchor == null)
+            {
+                return;
+            }
+
+            anchor.playerId = playerId.Trim();
+            anchor.headAnchor = headAnchor;
+        }
+
         private static void ResizeBubble(LobbyChatBubbleAnchor anchor)
         {
             var text = anchor.bubbleText;
@@ -144,6 +178,52 @@ namespace Game.Client.Lobby
             }
 
             return null;
+        }
+
+        private LobbyChatBubbleAnchor FindFreeAnchor()
+        {
+            for (var i = 0; i < anchors.Count; i++)
+            {
+                var anchor = anchors[i];
+                if (anchor != null && string.IsNullOrEmpty(anchor.playerId))
+                {
+                    return anchor;
+                }
+            }
+
+            return null;
+        }
+
+        private LobbyChatBubbleAnchor CloneAnchor()
+        {
+            if (anchors.Count == 0 || anchors[0]?.bubbleRoot == null)
+            {
+                return null;
+            }
+
+            var templateCanvas = anchors[0].bubbleRoot.parent as RectTransform;
+            if (templateCanvas == null)
+            {
+                return null;
+            }
+
+            var canvas = Instantiate(templateCanvas, transform);
+            var text = canvas.GetComponentInChildren<Text>(true);
+            var bubble = text == null ? null : text.transform.parent as RectTransform;
+            if (bubble == null)
+            {
+                Destroy(canvas.gameObject);
+                return null;
+            }
+
+            var anchor = new LobbyChatBubbleAnchor
+            {
+                bubbleRoot = bubble,
+                bubbleText = text
+            };
+            bubble.gameObject.SetActive(false);
+            anchors.Add(anchor);
+            return anchor;
         }
     }
 }

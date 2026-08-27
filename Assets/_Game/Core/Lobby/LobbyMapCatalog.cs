@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Core.Maps;
 
 namespace Game.Core.Lobby
 {
@@ -17,17 +18,7 @@ namespace Game.Core.Lobby
 
     public static class LobbyMapCatalog
     {
-        public static IReadOnlyList<LobbyMapOption> SampleMaps { get; } = Array.AsReadOnly(new[]
-        {
-            new LobbyMapOption("market-01", "시장 골목"),
-            new LobbyMapOption("rooftop-01", "옥상 정원"),
-            new LobbyMapOption("station-01", "역전 광장"),
-            new LobbyMapOption("park-01", "밤의 공원"),
-            new LobbyMapOption("harbor-01", "항구 창고"),
-            new LobbyMapOption("school-01", "폐교 복도"),
-            new LobbyMapOption("subway-01", "지하 상가"),
-            new LobbyMapOption("plaza-01", "도심 광장"),
-        });
+        public static IReadOnlyList<LobbyMapOption> Maps { get; } = CreateMaps();
 
         public static int IndexOf(string mapId)
         {
@@ -36,15 +27,27 @@ namespace Game.Core.Lobby
                 return 0;
             }
 
-            for (var i = 0; i < SampleMaps.Count; i++)
+            for (var i = 0; i < Maps.Count; i++)
             {
-                if (string.Equals(SampleMaps[i].Id, mapId.Trim(), StringComparison.Ordinal))
+                if (string.Equals(Maps[i].Id, mapId.Trim(), StringComparison.Ordinal))
                 {
                     return i;
                 }
             }
 
             return 0;
+        }
+
+        private static IReadOnlyList<LobbyMapOption> CreateMaps()
+        {
+            var options = new LobbyMapOption[MapCatalog.MapIds.Count];
+            for (var i = 0; i < options.Length; i++)
+            {
+                var mapId = MapCatalog.MapIds[i];
+                options[i] = new LobbyMapOption(mapId, mapId);
+            }
+
+            return Array.AsReadOnly(options);
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Lobby;
+using Game.Core.Rooms;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,8 +22,6 @@ namespace Game.Client.Lobby
 
     public sealed class PlaySettingsView : MonoBehaviour, IPlaySettingsView
     {
-        private const int FixedMaxPlayers = 6;
-        private const int FixedDestructionLimit = 5;
         private const float MapSlotSize = 90f;
         private const float MapSlotSpacing = 12f;
 
@@ -90,8 +89,10 @@ namespace Game.Client.Lobby
         private string roomCode = string.Empty;
         private bool passwordEnabled;
         private string password = string.Empty;
+        private int maxPlayers = RoomSettings.MaxPlayerCount;
+        private int destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
         private int selectedMapIndex;
-        private IReadOnlyList<LobbyMapOption> maps = LobbyMapCatalog.SampleMaps;
+        private IReadOnlyList<LobbyMapOption> maps = LobbyMapCatalog.Maps;
         private readonly List<Image> mapSlotImages = new();
         private readonly List<Button> mapSlotButtons = new();
         private readonly Dictionary<Button, UnityEngine.Events.UnityAction> boundActions = new();
@@ -109,10 +110,10 @@ namespace Game.Client.Lobby
             Bind(copyRoomCodeButton, () => CopyRoomCodeRequested?.Invoke());
             Bind(inviteButton, () => InviteRequested?.Invoke());
             Bind(copyPasswordButton, () => CopyPasswordRequested?.Invoke());
-            Bind(maxPlayersMinusButton, RefreshFixedCounters);
-            Bind(maxPlayersPlusButton, RefreshFixedCounters);
-            Bind(destructionMinusButton, RefreshFixedCounters);
-            Bind(destructionPlusButton, RefreshFixedCounters);
+            Bind(maxPlayersMinusButton, () => SetMaxPlayers(maxPlayers - 1));
+            Bind(maxPlayersPlusButton, () => SetMaxPlayers(maxPlayers + 1));
+            Bind(destructionMinusButton, () => SetDestructionLimit(destructionLimit - 1));
+            Bind(destructionPlusButton, () => SetDestructionLimit(destructionLimit + 1));
             Bind(mapPrevButton, () => ScrollMaps(-1));
             Bind(mapNextButton, () => ScrollMaps(1));
             BindMapSlots();
@@ -148,6 +149,14 @@ namespace Game.Client.Lobby
             roomCode = draft.RoomCode;
             passwordEnabled = draft.PasswordEnabled;
             password = draft.Password ?? string.Empty;
+            maxPlayers = Mathf.Clamp(
+                draft.MaxPlayers,
+                RoomSettings.MinPlayerCount,
+                RoomSettings.MaxPlayerCount);
+            destructionLimit = Mathf.Clamp(
+                draft.DestructionLimit,
+                PlaySettingsDraft.MinDestructionLimit,
+                PlaySettingsDraft.MaxDestructionLimit);
             selectedMapIndex = LobbyMapCatalog.IndexOf(draft.MapId);
 
             if (titleText != null)
@@ -162,7 +171,7 @@ namespace Game.Client.Lobby
 
             EnsureMapSlotsBuilt();
             RefreshPasswordMask();
-            RefreshFixedCounters();
+            RefreshCounters();
             RefreshMapSelection(scrollIntoView: true);
         }
 
@@ -174,8 +183,8 @@ namespace Game.Client.Lobby
                 roomCode,
                 passwordEnabled,
                 password,
-                FixedMaxPlayers,
-                FixedDestructionLimit,
+                maxPlayers,
+                destructionLimit,
                 map.Id);
         }
 
@@ -368,16 +377,56 @@ namespace Game.Client.Lobby
             passwordMaskedText.text = new string('*', Mathf.Clamp(password.Length, 4, 12));
         }
 
-        private void RefreshFixedCounters()
+        private void SetMaxPlayers(int value)
+        {
+            maxPlayers = Mathf.Clamp(
+                value,
+                RoomSettings.MinPlayerCount,
+                RoomSettings.MaxPlayerCount);
+            RefreshCounters();
+        }
+
+        private void SetDestructionLimit(int value)
+        {
+            destructionLimit = Mathf.Clamp(
+                value,
+                PlaySettingsDraft.MinDestructionLimit,
+                PlaySettingsDraft.MaxDestructionLimit);
+            RefreshCounters();
+        }
+
+        private void RefreshCounters()
         {
             if (maxPlayersText != null)
             {
-                maxPlayersText.text = FixedMaxPlayers.ToString();
+                maxPlayersText.text = maxPlayers.ToString();
             }
 
             if (destructionLimitText != null)
             {
-                destructionLimitText.text = FixedDestructionLimit.ToString();
+                destructionLimitText.text = destructionLimit.ToString();
+            }
+
+            if (maxPlayersMinusButton != null)
+            {
+                maxPlayersMinusButton.interactable = maxPlayers > RoomSettings.MinPlayerCount;
+            }
+
+            if (maxPlayersPlusButton != null)
+            {
+                maxPlayersPlusButton.interactable = maxPlayers < RoomSettings.MaxPlayerCount;
+            }
+
+            if (destructionMinusButton != null)
+            {
+                destructionMinusButton.interactable =
+                    destructionLimit > PlaySettingsDraft.MinDestructionLimit;
+            }
+
+            if (destructionPlusButton != null)
+            {
+                destructionPlusButton.interactable =
+                    destructionLimit < PlaySettingsDraft.MaxDestructionLimit;
             }
         }
 
