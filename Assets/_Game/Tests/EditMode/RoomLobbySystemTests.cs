@@ -204,6 +204,20 @@ namespace Game.Tests.EditMode
 
             Assert.That(createResult.Ok, Is.True);
             Assert.That(state.RoomCode.CurrentValue, Is.EqualTo("ROOM-123"));
+            Assert.That(state.IsInRoom.CurrentValue, Is.True);
+
+            state.RoomClosed(RoomExitReason.Left);
+            browser.NextEntryResult = RoomEntryResult.Entered();
+            var listedEntry = commands.EnterAsync(
+                    new RoomId("ROOM-123"),
+                    null,
+                    CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+
+            Assert.That(listedEntry.Ok, Is.True);
+            Assert.That(state.RoomCode.CurrentValue, Is.Null);
+            Assert.That(state.IsInRoom.CurrentValue, Is.True);
 
             browser.NextEntryResult = RoomEntryResult.Failed(RoomEntryFailure.WrongPassword);
             var enterResult = commands.EnterAsync(
@@ -216,7 +230,7 @@ namespace Game.Tests.EditMode
             Assert.That(enterResult.Ok, Is.False);
             Assert.That(state.LastFailure.CurrentValue, Is.EqualTo(RoomEntryFailure.WrongPassword));
             Assert.That(browser.CreateCount, Is.EqualTo(1));
-            Assert.That(browser.EnterCount, Is.EqualTo(1));
+            Assert.That(browser.EnterCount, Is.EqualTo(2));
         }
 
         [Test]

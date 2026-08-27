@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Cameras;
 using Game.Client.Home;
 using Game.Client.Lobby;
 using Game.Core.Lobby;
+using Game.Network.Players;
 using Game.Network.Session;
 using UnityEngine;
 using VContainer;
@@ -35,6 +37,9 @@ namespace Game.Bootstrap
 
         [SerializeField]
         private LobbyChatBubbleView chatBubbleView;
+
+        [SerializeField]
+        private PlayerCameraController cameraRigPrefab;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -72,6 +77,11 @@ namespace Game.Bootstrap
                     "Chat views must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
             }
 
+            if (cameraRigPrefab == null)
+            {
+                throw new InvalidOperationException("PlayerCameraRig prefab must be assigned.");
+            }
+
             builder.Register<UnityHomeApplicationHost>(Lifetime.Scoped).As<IHomeApplicationHost>();
             builder.RegisterComponent(hudView);
             builder.RegisterComponent(keyGuideView).As<IKeyGuideView>();
@@ -103,7 +113,54 @@ namespace Game.Bootstrap
             // AsSelf so the bridge below can take the leave request off it.
             builder.RegisterEntryPoint<LobbyExitPresenter>().AsSelf();
             builder.RegisterEntryPoint<NetworkLobbyExitBridge>();
+
+            // The character is created while the room screen is still open and
+            // can fall before this scene loads. Reset every seat after the
+            // lobby's ground exists; the authority's move replicates to guests.
+            builder.RegisterBuildCallback(container =>
+            {
+                container.Resolve<NetworkRunnerService>()
+                    .RepositionPlayers(CreateLobbySpawnPoses());
+
+                BindLocalPlayerCamera();
+            });
         }
+
+        private void BindLocalPlayerCamera()
+        {
+            var cameraRig = FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
+            if (cameraRig == null)
+            {
+                cameraRig = Instantiate(cameraRigPrefab);
+            }
+
+            var avatars = FindObjectsByType<PlayerAvatar>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None);
+            for (var i = 0; i < avatars.Length; i++)
+            {
+                if (!avatars[i].IsOwner)
+                {
+                    continue;
+                }
+
+                cameraRig.SetFollowTarget(avatars[i].transform);
+                cameraRig.SetCursorCaptureEnabled(false);
+                return;
+            }
+
+            Debug.LogWarning("Lobby camera could not find the local PlayerAvatar.", this);
+        }
+
+        private static IReadOnlyList<Pose> CreateLobbySpawnPoses() => new[]
+        {
+            new Pose(new Vector3(0f, 0f, 3f), Quaternion.Euler(0f, 180f, 0f)),
+            new Pose(new Vector3(-2f, 0f, 3f), Quaternion.Euler(0f, 180f, 0f)),
+            new Pose(new Vector3(2f, 0f, 3f), Quaternion.Euler(0f, 180f, 0f)),
+            new Pose(new Vector3(-4f, 0f, 3f), Quaternion.Euler(0f, 180f, 0f)),
+            new Pose(new Vector3(4f, 0f, 3f), Quaternion.Euler(0f, 180f, 0f)),
+            new Pose(new Vector3(0f, 0f, 5f), Quaternion.Euler(0f, 180f, 0f)),
+        };
 
         /// <summary>
         /// The half of the room settings the session does not carry yet. Room

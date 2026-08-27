@@ -413,6 +413,12 @@ namespace Game.Network.Session
             Debug.Log(
                 $"[Network] Session '{RoomCode}' started as {request.Mode}. IsServer={IsServer}");
 
+            // OnPlayerJoined can run while Fusion is still finalising the
+            // local player's identity. Publish once more after StartGame has
+            // completed so a one-player room shows its host immediately rather
+            // than waiting for another player's join to trigger a refresh.
+            _roster?.Refresh(_runner);
+
             // The room needs somewhere to record that a match started before
             // anyone can ask for one, and only the authority may create it.
             _spawner?.SpawnRoomObjects(_runner);
@@ -439,6 +445,18 @@ namespace Game.Network.Session
             IsRunning && !_browsingLobby &&
             _matchStarter != null &&
             _matchStarter.RequestReturnToLobby();
+
+        /// <summary>Moves every seated player onto positions owned by the current scene.</summary>
+        public void RepositionPlayers(IReadOnlyList<Pose> poses)
+        {
+            if (!IsServer)
+            {
+                return;
+            }
+
+            _spawner?.UseSpawnPoses(poses);
+            _spawner?.RepositionSeated(_runner);
+        }
 
         public bool TryPublishMatchState(MatchStateSnapshot snapshot)
         {

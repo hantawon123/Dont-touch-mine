@@ -52,6 +52,17 @@ namespace Game.Network.Players
             }
         }
 
+        /// <summary>
+        /// Re-emits the current roster after Fusion has finished starting the
+        /// local session. The host avatar can spawn while the runner is still
+        /// finalising its local player identity, so the first snapshot may be
+        /// too early for the lobby to identify the host.
+        /// </summary>
+        internal void Refresh(NetworkRunner runner)
+        {
+            Publish(runner);
+        }
+
         /// <summary>Empties the list when the room is gone.</summary>
         public void Clear()
         {
