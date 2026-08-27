@@ -22,8 +22,13 @@ namespace Game.Client.Players
         private const float SpeedDampTime = 0.1f;
         private const float CrossFadeSeconds = 0.15f;
 
-        [SerializeField, Min(0.1f), Tooltip("펀치 모션 유지 시간(초)")]
+        [SerializeField, Min(0.1f), Tooltip("펀치 모션 유지 시간(초). CombatConfig가 있으면 그 값을 우선한다")]
         private float punchDurationSeconds = 0.5f;
+
+        private float PunchDuration =>
+            combatant != null && combatant.Config != null
+                ? combatant.Config.PunchMotionSeconds
+                : punchDurationSeconds;
 
         private PlayerMovement movement;
         private PlayerCombatant combatant;
@@ -65,7 +70,7 @@ namespace Game.Client.Players
 
         private void OnAttackPerformed()
         {
-            punchUntilTime = Time.time + punchDurationSeconds;
+            punchUntilTime = Time.time + PunchDuration;
 
             // 연속 공격: 이미 Punch 상태여도 클립을 처음부터 다시 재생한다.
             // (상태 변화 감지에만 의존하면 두 번째 공격부터 마지막 프레임에 멈춘 채 보인다)
