@@ -219,7 +219,7 @@ namespace Game.Client.Rooms
 
         private void OnRoomSelected(string selectedRoomId)
         {
-            if (!TryFindRoom(selectedRoomId, out var room) || !room.CanJoin)
+            if (!roomBrowser.TryFindById(selectedRoomId, out var room) || !room.CanJoin)
             {
                 return;
             }
@@ -257,7 +257,7 @@ namespace Game.Client.Rooms
         /// </summary>
         private void OnPasswordSubmitted(string password)
         {
-            if (!TryFindRoom(pendingRoomId, out var room))
+            if (!roomBrowser.TryFindById(pendingRoomId, out var room))
             {
                 passwordModal.ShowFailure(RoomEntryFailure.NotFound);
                 return;
@@ -428,29 +428,6 @@ namespace Game.Client.Rooms
                     Debug.LogWarning($"[Rooms] Could not enter the room: {failure}.");
                     break;
             }
-        }
-
-        private bool TryFindRoom(string searchedRoomId, out RoomSummary room)
-        {
-            if (!string.IsNullOrEmpty(searchedRoomId))
-            {
-                var listed = roomBrowser.Rooms.CurrentValue;
-
-                for (var index = 0; index < listed.Count; index++)
-                {
-                    if (string.Equals(
-                            listed[index].RoomId,
-                            searchedRoomId,
-                            StringComparison.Ordinal))
-                    {
-                        room = listed[index];
-                        return true;
-                    }
-                }
-            }
-
-            room = default;
-            return false;
         }
 
         /// <summary>

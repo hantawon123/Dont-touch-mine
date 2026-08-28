@@ -129,6 +129,23 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void RoomBrowser_FindsRoomByExactIdPreservingCaseAndWhitespace()
+        {
+            using var browser = new RoomBrowserSystem();
+            browser.SetRooms(new[]
+            {
+                new RoomSummary("ROOM-A1", CreateSettings(), 1, true),
+                new RoomSummary("ROOM-A10", CreateSettings(), 2, true)
+            });
+
+            Assert.That(browser.TryFindById("ROOM-A1", out var room), Is.True);
+            Assert.That(room.RoomId, Is.EqualTo("ROOM-A1"));
+            Assert.That(browser.TryFindById("room-a1", out _), Is.False);
+            Assert.That(browser.TryFindById(" ROOM-A1 ", out _), Is.False);
+            Assert.That(browser.TryFindById(string.Empty, out _), Is.False);
+        }
+
+        [Test]
         public void RoomBrowser_PublishesRoomListAndSessionState()
         {
             using var browser = new RoomBrowserSystem();
