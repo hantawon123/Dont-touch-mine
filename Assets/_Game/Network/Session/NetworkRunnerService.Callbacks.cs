@@ -97,7 +97,11 @@ namespace Game.Network.Session
                 return;
             }
 
-            if (_configuredMaxPlayers > 0 && PlayerCount >= _configuredMaxPlayers)
+            // SessionInfo.PlayerCount can already include the connection that
+            // is waiting for this decision. Count only accepted players so the
+            // final available slot is not rejected as an off-by-one.
+            if (_configuredMaxPlayers > 0 &&
+                CountActivePlayers(runner) >= _configuredMaxPlayers)
             {
                 Debug.Log("[Network] Refused a join: configured player limit reached.");
                 request.Refuse();
