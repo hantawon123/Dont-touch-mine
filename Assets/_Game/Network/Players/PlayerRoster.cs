@@ -28,6 +28,8 @@ namespace Game.Network.Players
 
         private IRoomParticipantSink _sink;
 
+        public IReadOnlyList<PlayerAvatar> Avatars => _avatars;
+
         public void Bind(IRoomParticipantSink sink)
         {
             _sink = sink;

@@ -6,8 +6,8 @@ namespace Game.Network.Players
 {
     /// <summary>
     /// Collects input on the owning peer and applies the shared movement model
-    /// once on State Authority. NetworkTransform distributes that single result
-    /// to every peer, so clients never become competing transform writers.
+    /// on Input Authority for prediction and State Authority for validation.
+    /// NetworkTransform reconciles both simulations for every peer.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CharacterController))]
@@ -101,7 +101,7 @@ namespace Game.Network.Players
 
         public override void FixedUpdateNetwork()
         {
-            if (!IsConfigured || Object == null || !Object.HasStateAuthority)
+            if (!IsConfigured || Object == null)
             {
                 return;
             }

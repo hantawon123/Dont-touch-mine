@@ -364,15 +364,25 @@ namespace Game.Bootstrap
 
     internal sealed class LobbyPlayerAnimationBinder : ITickable
     {
+        private readonly NetworkRunnerService network;
+
+        public LobbyPlayerAnimationBinder(NetworkRunnerService network)
+        {
+            this.network = network ?? throw new ArgumentNullException(nameof(network));
+        }
+
         public void Tick()
         {
-            var avatars = UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
-                FindObjectsInactive.Exclude,
-                FindObjectsSortMode.None);
+            var avatars = network.PlayerAvatars;
 
-            for (var i = 0; i < avatars.Length; i++)
+            for (var i = 0; i < avatars.Count; i++)
             {
                 var avatar = avatars[i];
+                if (avatar == null || !avatar.isActiveAndEnabled)
+                {
+                    continue;
+                }
+
                 var motor = avatar.GetComponent<NetworkPlayerMotor>();
                 if (motor == null)
                 {
