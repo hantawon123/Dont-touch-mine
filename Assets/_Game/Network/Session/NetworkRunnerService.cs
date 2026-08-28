@@ -98,6 +98,7 @@ namespace Game.Network.Session
         private GameObject _runnerObject;
         private PlayerRoster _roster;
         private MatchStarter _matchStarter;
+        private NetworkPlayerMotor _localInputMotor;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<LobbyChatMessage> ChatReceived;
@@ -1035,6 +1036,7 @@ namespace Game.Network.Session
             _runnerObject = null;
             _roster = null;
             _matchStarter = null;
+            _localInputMotor = null;
             if (!preserveMigrationState)
             {
                 _expectedPassword = null;

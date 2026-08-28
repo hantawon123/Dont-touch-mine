@@ -43,6 +43,11 @@ namespace Game.Network.Session
             }
 
             _spawner?.Despawn(runner, player);
+            if (player == runner.LocalPlayer)
+            {
+                _localInputMotor = null;
+            }
+
             ReportPlayerCount();
         }
 
@@ -182,6 +187,20 @@ namespace Game.Network.Session
                 return;
             }
 
+            if (_localInputMotor == null ||
+                _localInputMotor.Object == null ||
+                !_localInputMotor.Object.HasInputAuthority)
+            {
+                _localInputMotor = FindLocalInputMotor(runner);
+            }
+
+            input.Set(_localInputMotor == null
+                ? default
+                : _localInputMotor.CaptureInput());
+        }
+
+        private NetworkPlayerMotor FindLocalInputMotor(NetworkRunner runner)
+        {
             var playerObject = runner.GetPlayerObject(runner.LocalPlayer);
             var motor = playerObject == null
                 ? null
@@ -197,7 +216,7 @@ namespace Game.Network.Session
                 motor = localAvatar.GetComponent<NetworkPlayerMotor>();
             }
 
-            input.Set(motor == null ? default : motor.CaptureInput());
+            return motor;
         }
 
         public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input)
