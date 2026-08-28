@@ -1170,13 +1170,20 @@ namespace Game.Network.Session
                 return;
             }
 
+            _sessionSink?.PlayerCountChanged(
+                CountActivePlayers(_runner),
+                MaxPlayers);
+        }
+
+        private static int CountActivePlayers(NetworkRunner runner)
+        {
             var count = 0;
-            foreach (var _ in _runner.ActivePlayers)
+            foreach (var _ in runner.ActivePlayers)
             {
                 count++;
             }
 
-            _sessionSink?.PlayerCountChanged(count, MaxPlayers);
+            return count;
         }
 
         /// <summary>
