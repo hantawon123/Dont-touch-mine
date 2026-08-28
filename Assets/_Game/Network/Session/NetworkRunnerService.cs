@@ -42,6 +42,7 @@ namespace Game.Network.Session
         IDisposable
     {
         private const string RunnerObjectName = "[NetworkRunner]";
+        private const string MatchmakingRegion = "kr";
         private const int ItemAssignmentKeyType = 0x4954454D;
         private const int ItemAssignmentKeyVersion = 1;
         private const int MaxItemAssignmentBytes = 128;
@@ -861,6 +862,12 @@ namespace Game.Network.Session
         /// </param>
         private INetworkSceneManager CreateRunner(bool provideInput)
         {
+            // Photon room lists are region-local. Leaving this empty lets each
+            // PC choose a different "best" region, so teammates can create a
+            // valid room that the others can never list.
+            Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings.FixedRegion =
+                MatchmakingRegion;
+
             _runnerObject = new GameObject(RunnerObjectName);
             UnityEngine.Object.DontDestroyOnLoad(_runnerObject);
 
@@ -992,6 +999,21 @@ namespace Game.Network.Session
             runner.LoadScene(scene, LoadSceneMode.Single);
             Debug.Log("[Session] Returning everyone to the lobby scene.");
             return true;
+        }
+
+        /// <summary>
+        /// Enters the room lobby through Fusion after a room create or join.
+        /// The host publishes the scene change; clients receive the host's scene
+        /// through the normal Fusion scene synchronisation path.
+        /// </summary>
+        public bool EnterLobbyScene()
+        {
+            if (!IsRunning || _browsingLobby)
+            {
+                return false;
+            }
+
+            return !_runner.IsServer || EnterLobbyScene(_runner);
         }
 
         /// <summary>

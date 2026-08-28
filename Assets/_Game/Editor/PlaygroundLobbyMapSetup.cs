@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -44,8 +43,7 @@ namespace Game.Editor
             try
             {
                 ReplaceGeneratedMap(lobby, playground);
-                CopySpawnPointPoses(lobby, playground);
-                DisableLobbyPlaceholder(lobby, "LobbyGroundCollider");
+                // Lobby points stay outdoors; Playground points are inside the match house.
                 DisableLobbyPlaceholder(lobby, "Directional Light");
 
                 EditorSceneManager.MarkSceneDirty(lobby);
@@ -92,39 +90,6 @@ namespace Game.Editor
             {
                 throw new InvalidOperationException(
                     "Copied Playground environment has no renderers or colliders.");
-            }
-        }
-
-        private static void CopySpawnPointPoses(Scene lobby, Scene playground)
-        {
-            var source = FindRoot(playground, "SpawnPoints");
-            var target = FindRoot(lobby, "LobbySpawnPoints");
-            if (source == null || target == null)
-            {
-                throw new InvalidOperationException(
-                    "Playground SpawnPoints or LobbySpawnPoints is missing.");
-            }
-
-            var sourcePoints = source.GetComponentsInChildren<Transform>(true)
-                .Where(point => point != source.transform)
-                .OrderBy(point => point.name, StringComparer.Ordinal)
-                .ToArray();
-            var targetPoints = target.GetComponentsInChildren<Transform>(true)
-                .Where(point => point != target.transform)
-                .OrderBy(point => point.name, StringComparer.Ordinal)
-                .ToArray();
-
-            if (sourcePoints.Length != targetPoints.Length)
-            {
-                throw new InvalidOperationException(
-                    "Playground and Lobby spawn point counts do not match.");
-            }
-
-            for (var index = 0; index < sourcePoints.Length; index++)
-            {
-                targetPoints[index].SetPositionAndRotation(
-                    sourcePoints[index].position,
-                    sourcePoints[index].rotation);
             }
         }
 

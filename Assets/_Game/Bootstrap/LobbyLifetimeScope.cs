@@ -234,29 +234,21 @@ namespace Game.Bootstrap
     /// Looking once while the scene loads only ever worked for the host. A
     /// client's character is replicated to it, so at that moment there is no
     /// avatar in the scene at all and the camera was left following nothing for
-    /// the whole visit. The participant list changes as characters register
-    /// themselves, which makes it the signal to look again — the same one the
-    /// chat bubbles bind on.
+    /// the whole visit. Binding is retried until both the replicated local avatar
+    /// and camera rig exist, then stops doing work.
     /// </remarks>
-    internal sealed class LobbyPlayerCameraBinder : IStartable, IDisposable
+    internal sealed class LobbyPlayerCameraBinder : IStartable, ITickable
     {
-        private readonly RoomBrowserSystem room;
-        private IDisposable subscription;
         private bool isBound;
-
-        public LobbyPlayerCameraBinder(RoomBrowserSystem room)
-        {
-            this.room = room ?? throw new ArgumentNullException(nameof(room));
-        }
 
         public void Start()
         {
-            subscription = room.Participants.Subscribe(_ => TryBind());
+            TryBind();
         }
 
-        public void Dispose()
+        public void Tick()
         {
-            subscription?.Dispose();
+            TryBind();
         }
 
         private void TryBind()

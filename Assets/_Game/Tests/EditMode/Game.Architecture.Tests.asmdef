@@ -8,6 +8,7 @@
         "Game.Network",
         "Game.Server",
         "Game.SOAP",
+        "Fusion.Addons.KCC",
         "R3.Unity",
         "UniTask",
         "VContainer",

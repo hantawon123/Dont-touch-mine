@@ -52,6 +52,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: NetworkedPlayer
       objectReference: {fileID: 0}
+    - target: {fileID: 7563371311393477283, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 9079316150982572114, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
       propertyPath: usesNetworkState
       value: 1
@@ -65,7 +69,13 @@ PrefabInstance:
       addedObject: {fileID: -9007580115909417150}
     - targetCorrespondingSourceObject: {fileID: 2282384052253138322, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
       insertIndex: -1
-      addedObject: {fileID: -5003637855077419415}
+      addedObject: {fileID: 610284993000000001}
+    - targetCorrespondingSourceObject: {fileID: 2282384052253138322, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 610284993000000002}
+    - targetCorrespondingSourceObject: {fileID: 2282384052253138322, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 610284993000000003}
     - targetCorrespondingSourceObject: {fileID: 2282384052253138322, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1929926723870030691}
@@ -73,6 +83,39 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 4428912650376401123}
   m_SourcePrefab: {fileID: 100100000, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
+--- !u!114 &410287478940895968 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 9079316150982572114, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
+  m_PrefabInstance: {fileID: 8913071879193391794}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7213992088965803808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 522bad07de0c19741ba2d0d10edf74bd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Combat.PlayerCombatant
+--- !u!114 &460006283746865044 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 9066822341622078758, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
+  m_PrefabInstance: {fileID: 8913071879193391794}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7213992088965803808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4eb92b1a4c63ac24ebe3a6651628b15a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.PlayerInteractor
+--- !u!114 &7200085059802958369 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1754785993224845459, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
+  m_PrefabInstance: {fileID: 8913071879193391794}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7213992088965803808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba03eb9d0023dec4cb75f9296cc9d1d3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.ItemPlacementController
 --- !u!1 &7213992088965803808 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2282384052253138322, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
@@ -88,7 +131,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkObject
   SortKey: 789665955
   SendPriority: 1
@@ -96,11 +139,38 @@ MonoBehaviour:
   Flags: 262402
   NestedObjects: []
   NetworkedBehaviours:
-  - {fileID: -5003637855077419415}
+  - {fileID: 610284993000000002}
   - {fileID: 1929926723870030691}
   - {fileID: 4428912650376401123}
   ForceRemoteRenderTimeframe: 0
---- !u!114 &-5003637855077419415
+--- !u!54 &610284993000000001
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7213992088965803808}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 126
+  m_CollisionDetection: 0
+--- !u!114 &610284993000000002
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -109,37 +179,61 @@ MonoBehaviour:
   m_GameObject: {fileID: 7213992088965803808}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 158639473, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkTransform
-  _stateAuthorityChangeErrorCorrectionDelta: 0
-  SyncScale: 0
-  SyncParent: 0
-  _autoAOIOverride: 1
-  ConfigFlags: 0
-  PhysicsSettings:
-    ForecastEnabled: 1
-    DebugPhysics: 0
-    GravityForecast: 2
-    MaxExtrapolationTime: 0.15
-    MinLinearDetectedError: 0.02
-    MinAngularDetectedError: 3
-    MaxLinearError: 0
-    MaxAngularError: 0
-    LowCorrectionProgressThreshold: 0.015
-    HighErrorSimilarityThreshold: 1
-    MaxErrorTotalTime: 0.5
-    MaxRemoteSleepIgnoreTime: 0.5
-    ErrorCorrectionType: 0
-    LinearVelCorrectionMul: 1
-    AngularVelCorrectionMul: 1
-    PositionCorrectionLerp: 0.15
-    RotationCorrectionLerp: 0.15
-    Spring: 75
-    Damper: 2
-    MinImpactfulCollisionAlignment: 0.3
-    ImpactStartCorrectionTime: 0.1
-    ImpactCorrectionTimeComplete: 0.3
+  m_Script: {fileID: 11500000, guid: 2f7684f04e649e84fb2ee1bc9fbee42d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _stateAuthorityChangeErrorCorrectionDelta: 0.15
+  _settings:
+    Shape: 1
+    IsTrigger: 0
+    Radius: 0.3
+    Height: 1.8
+    Extent: 0.035
+    ColliderLayer: 6
+    CollisionLayerMask:
+      serializedVersion: 2
+      m_Bits: 1
+    Features: -1
+    InputAuthorityBehavior: 1
+    StateAuthorityBehavior: 0
+    ProxyInterpolationMode: 0
+    ForcePredictedLookRotation: 1
+    AllowClientTeleports: 0
+    Processors:
+    - {fileID: 610284993000000003}
+    - {fileID: 561824206424634091, guid: 68c4081a63f1dfd469da9c95bea22158, type: 3}
+    - {fileID: 8306782452827789390, guid: 6d976f9777012db4aa55e7e6b1991afe, type: 3}
+    MaxPenetrationSteps: 8
+    CCDRadiusMultiplier: 0.75
+    AntiJitterDistance: {x: 0.025, y: 0.01}
+    PredictionCorrectionSpeed: 30
+    NetworkedInteractions: 8
+    CompressNetworkPosition: 0
+    ForceSingleOverlapQuery: 0
+    SuppressConvexMeshColliders: 0
+--- !u!114 &610284993000000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7213992088965803808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73cdb945e866448eb5ec6a24715b364a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Network::Game.Network.Players.PlayerKCCMovementProcessor
+  KinematicSpeed: 7
+  JumpMultiplier: 1
+  Gravity: {x: 0, y: -19.62, z: 0}
+  RelativePriority: 0
+  MaxGroundAngle: 60
+  DynamicGroundFriction: 20
+  KinematicGroundAcceleration: 50
+  KinematicGroundFriction: 35
+  DynamicAirFriction: 2
+  KinematicAirAcceleration: 5
+  KinematicAirFriction: 2
 --- !u!114 &1929926723870030691
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -154,9 +248,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Network::Game.Network.Players.PlayerAvatar
   _ownerOnly:
   - {fileID: 8892521152148427364}
-  - {fileID: 7446187389440399211}
-  - {fileID: 7446187389440399212}
-  - {fileID: 7446187389440399213}
+  - {fileID: 460006283746865044}
+  - {fileID: 7200085059802958369}
+  - {fileID: 410287478940895968}
   _Seat: 0
   _Nickname:
     _length: 0
@@ -173,8 +267,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f3c1a89d744f41c485faedee2351ed8a, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Network::Game.Network.Players.NetworkPlayerMotor
+  _ControlsEnabled:
+    RawValue: 0
+  _DesiredMoveSpeed: 0
+  _AnimationSpeed: 0
+  _AnimationGrounded:
+    RawValue: 0
+  _AttackSequence: 0
+  attackCooldownSeconds: 0.9
+  _Posture: 0
 --- !u!114 &8892521152148427364 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 61083888703512790, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
@@ -186,36 +289,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e81857fa3c9deb74d87c85cffb8d8545, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Players.PlayerMovement
---- !u!114 &7446187389440399211 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 9066822341622078758, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
-  m_PrefabInstance: {fileID: 8913071879193391794}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7213992088965803808}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4eb92b1a4c63ac24ebe3a6651628b15a, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.PlayerInteractor
---- !u!114 &7446187389440399212 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 1754785993224845459, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
-  m_PrefabInstance: {fileID: 8913071879193391794}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7213992088965803808}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ba03eb9d0023dec4cb75f9296cc9d1d3, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.ItemPlacementController
---- !u!114 &7446187389440399213 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 9079316150982572114, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
-  m_PrefabInstance: {fileID: 8913071879193391794}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7213992088965803808}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 522bad07de0c19741ba2d0d10edf74bd, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Game.Client::Game.Client.Combat.PlayerCombatant

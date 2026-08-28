@@ -56,8 +56,8 @@
         "InputDelaySettings": 0,
         "MinimumInputDelay": 0,
         "MinimumInputDelayUnit": 0,
-        "ClientsCanAddInputDelayToLimitResims": false,
-        "ClientMaxResimsPerFrame": -1
+        "ClientsCanAddInputDelayToLimitResims": true,
+        "ClientMaxResimsPerFrame": 2
     },
     "Network": {
         "ConnectionTimeout": 10.0,
@@ -96,7 +96,8 @@
     "AssembliesToWeave": [
         "Assembly-CSharp",
         "Assembly-CSharp-firstpass",
-        "Game.Network"
+        "Game.Network",
+        "Fusion.Addons.KCC"
     ],
     "UseSerializableDictionary": true,
     "NullChecksForNetworkedProperties": true,

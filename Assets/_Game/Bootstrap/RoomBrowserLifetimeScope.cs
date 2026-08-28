@@ -1,5 +1,6 @@
 using Game.Client.Home;
 using Game.Client.Rooms;
+using Game.Network.Session;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -22,7 +23,8 @@ namespace Game.Bootstrap
                 return;
             }
 
-            builder.Register<UnityHomeApplicationHost>(Lifetime.Scoped).As<IHomeApplicationHost>();
+            builder.Register<NetworkRoomApplicationHost>(Lifetime.Scoped)
+                .As<IHomeApplicationHost>();
             builder.RegisterComponent(roomBrowserView).As<IRoomBrowserView>();
             builder.RegisterEntryPoint<RoomBrowserPresenter>();
 
@@ -40,6 +42,37 @@ namespace Game.Bootstrap
                     "RoomScreenPresenter must be assigned on RoomBrowserLifetimeScope, " +
                     "otherwise the screen never reaches Photon.",
                     this);
+            }
+        }
+
+        /// <summary>
+        /// The room screen already owns a running Fusion session. Its lobby
+        /// transition must therefore use Fusion instead of replacing the Unity
+        /// scene behind the runner.
+        /// </summary>
+        private sealed class NetworkRoomApplicationHost : IHomeApplicationHost
+        {
+            private readonly NetworkRunnerService network;
+            private readonly UnityHomeApplicationHost fallback = new();
+
+            public NetworkRoomApplicationHost(NetworkRunnerService network)
+            {
+                this.network = network;
+            }
+
+            public void Quit() => fallback.Quit();
+
+            public void OpenHome() => fallback.OpenHome();
+
+            public void OpenRoomBrowser() => fallback.OpenRoomBrowser();
+
+            public void OpenLobby()
+            {
+                if (!network.EnterLobbyScene())
+                {
+                    Debug.LogError(
+                        "[Session] Cannot enter Lobby without a running room session.");
+                }
             }
         }
     }
