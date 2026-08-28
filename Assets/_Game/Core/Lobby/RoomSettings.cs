@@ -9,49 +9,10 @@ namespace Game.Core.Lobby
         MapRequired
     }
 
-    public enum RoomJoinRequestError
-    {
-        None,
-        RoomIdRequired,
-        PasswordRequired
-    }
-
     public enum RoomStatus
     {
         Waiting,
         Playing
-    }
-
-    public readonly struct RoomJoinRequest
-    {
-        public RoomJoinRequest(string roomId, string password)
-        {
-            RoomId = roomId?.Trim();
-            Password = password;
-        }
-
-        public string RoomId { get; }
-        public string Password { get; }
-
-        public bool TryValidate(
-            bool passwordRequired,
-            out RoomJoinRequestError error)
-        {
-            if (string.IsNullOrWhiteSpace(RoomId))
-            {
-                error = RoomJoinRequestError.RoomIdRequired;
-                return false;
-            }
-
-            if (passwordRequired && string.IsNullOrWhiteSpace(Password))
-            {
-                error = RoomJoinRequestError.PasswordRequired;
-                return false;
-            }
-
-            error = RoomJoinRequestError.None;
-            return true;
-        }
     }
 
     public readonly struct RoomSettings

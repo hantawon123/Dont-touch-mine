@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Game.Server.Items;
 using UnityEngine;
 
-namespace Game.Server.Items
+namespace Game.Bootstrap
 {
     public readonly struct PlacementVolume
     {

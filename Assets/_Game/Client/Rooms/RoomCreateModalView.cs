@@ -16,7 +16,7 @@ namespace Game.Client.Rooms
     /// <see cref="RoomCreateRequest"/> and never opens a room itself.
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class RoomCreateModalView : MonoBehaviour, IRoomCreateModalView
+    public sealed class RoomCreateModalView : MonoBehaviour
     {
         [SerializeField]
         private Button closeButton;

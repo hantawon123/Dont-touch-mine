@@ -22,7 +22,7 @@ namespace Game.Client.Rooms
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class RoomCodeModalView : MonoBehaviour, IRoomCodeModalView
+    public sealed class RoomCodeModalView : MonoBehaviour
     {
         /// <summary>Resized per state, because a code alone needs far less room.</summary>
         [SerializeField]

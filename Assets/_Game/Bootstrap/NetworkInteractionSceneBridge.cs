@@ -126,10 +126,15 @@ namespace Game.Bootstrap
                 return;
             }
 
-            foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
-                         FindObjectsInactive.Exclude,
-                         FindObjectsSortMode.None))
+            var avatars = network.PlayerAvatars;
+            for (var avatarIndex = 0; avatarIndex < avatars.Count; avatarIndex++)
             {
+                var avatar = avatars[avatarIndex];
+                if (avatar == null || !avatar.isActiveAndEnabled)
+                {
+                    continue;
+                }
+
                 var playerId = PlayerRegistry.IdOf(avatar.Owner);
                 var playerIndex = IndexOf(participants, playerId);
                 if (playerIndex < 0)

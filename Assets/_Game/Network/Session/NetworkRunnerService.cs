@@ -243,6 +243,9 @@ namespace Game.Network.Session
         /// </summary>
         public bool IsServer => _runner != null && _runner.IsServer;
 
+        public IReadOnlyList<PlayerAvatar> PlayerAvatars =>
+            _roster?.Avatars ?? Array.Empty<PlayerAvatar>();
+
         public bool TrySendChat(string text)
         {
             return _matchStarter != null && _matchStarter.RequestLobbyChat(text);
