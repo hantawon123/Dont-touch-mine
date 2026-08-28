@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -13,7 +12,6 @@ using Game.Core.Ports;
 using Game.Core.Rooms;
 using Game.Core.Match;
 using Game.Core.Items;
-using Game.Network.Lobby;
 using Game.Network.Match;
 using Game.Network.Players;
 using Game.Server.Items;
@@ -34,7 +32,7 @@ namespace Game.Network.Session
     /// to a dedicated server is therefore a change at the call site, not a
     /// rewrite of the gameplay layer.
     /// </remarks>
-    public sealed class NetworkRunnerService :
+    public sealed partial class NetworkRunnerService :
         INetworkRunnerCallbacks,
         IMatchSceneDirector,
         INetworkMatchRuntimeSource,
@@ -100,6 +98,7 @@ namespace Game.Network.Session
         private GameObject _runnerObject;
         private PlayerRoster _roster;
         private MatchStarter _matchStarter;
+        private NetworkPlayerMotor _localInputMotor;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<LobbyChatMessage> ChatReceived;
@@ -182,7 +181,10 @@ namespace Game.Network.Session
                 return SanitiseNickname(_profile?.Nickname);
             }
 
-            DecodeToken(runner.GetPlayerConnectionToken(player), out _, out var presented);
+            SessionConnectionTokenCodec.Decode(
+                runner.GetPlayerConnectionToken(player),
+                out _,
+                out var presented);
             return SanitiseNickname(presented);
         }
 
@@ -332,7 +334,7 @@ namespace Game.Network.Session
                     return null;
                 }
 
-                return ReadStringProperty(
+                return SessionPropertyMapper.ReadString(
                     _runner.SessionInfo,
                     SessionPropertyKeys.DisplayName,
                     null);
@@ -443,8 +445,12 @@ namespace Game.Network.Session
             {
                 GameMode = request.Mode,
                 SessionName = request.RoomCode,
-                SessionProperties = BuildProperties(request, _profile?.Nickname),
-                ConnectionToken = EncodeToken(request.Password, _profile?.Nickname),
+                SessionProperties = SessionPropertyMapper.BuildForStart(
+                    request,
+                    SanitiseNickname(_profile?.Nickname)),
+                ConnectionToken = SessionConnectionTokenCodec.Encode(
+                    request.Password,
+                    _profile?.Nickname),
                 EnableClientSessionCreation = request.AllowCreate,
                 SceneManager = sceneManager,
                 Scene = CaptureCurrentScene(),
@@ -538,12 +544,10 @@ namespace Game.Network.Session
                 return false;
             }
 
-            var properties = new Dictionary<string, SessionProperty>
-            {
-                [SessionPropertyKeys.MaxPlayers] = maxPlayers,
-                [SessionPropertyKeys.DestructionLimit] = destructionLimit,
-                [SessionPropertyKeys.MapId] = mapId.Trim(),
-            };
+            var properties = SessionPropertyMapper.BuildLobbySettings(
+                maxPlayers,
+                destructionLimit,
+                mapId);
 
             if (!_runner.SessionInfo.UpdateCustomProperties(properties))
             {
@@ -1032,6 +1036,7 @@ namespace Game.Network.Session
             _runnerObject = null;
             _roster = null;
             _matchStarter = null;
+            _localInputMotor = null;
             if (!preserveMigrationState)
             {
                 _expectedPassword = null;
@@ -1114,50 +1119,6 @@ namespace Game.Network.Session
         private bool IsCurrentRunner(NetworkRunner runner) =>
             ReferenceEquals(runner, _runner);
 
-        /// <summary>
-        /// Session properties are readable by anyone browsing the lobby, so only
-        /// the peer opening the room writes them and no secret goes in.
-        /// </summary>
-        private static Dictionary<string, SessionProperty> BuildProperties(
-            in SessionRequest request, string nickname)
-        {
-            if (request.Mode == GameMode.Client)
-            {
-                return null;
-            }
-
-            var properties = new Dictionary<string, SessionProperty>();
-
-            if (!string.IsNullOrEmpty(request.DisplayName))
-            {
-                properties[SessionPropertyKeys.DisplayName] = request.DisplayName;
-            }
-
-            if (!string.IsNullOrEmpty(request.MapId))
-            {
-                properties[SessionPropertyKeys.MapId] = request.MapId;
-            }
-
-            if (request.MaxPlayers > 0)
-            {
-                properties[SessionPropertyKeys.MaxPlayers] = request.MaxPlayers;
-            }
-
-            properties[SessionPropertyKeys.DestructionLimit] =
-                PlaySettingsDraft.DefaultDestructionLimit;
-
-            var hostNickname = SanitiseNickname(nickname);
-
-            if (hostNickname.Length > 0)
-            {
-                properties[SessionPropertyKeys.HostNickname] = hostNickname;
-            }
-
-            properties[SessionPropertyKeys.Locked] = !string.IsNullOrEmpty(request.Password);
-
-            return properties;
-        }
-
         private void ReadConfiguredSettings()
         {
             if (_runner == null || !_runner.SessionInfo.IsValid)
@@ -1166,40 +1127,14 @@ namespace Game.Network.Session
             }
 
             var info = _runner.SessionInfo;
-            _configuredMaxPlayers = ReadIntProperty(
+            _configuredMaxPlayers = SessionPropertyMapper.ReadInt(
                 info,
                 SessionPropertyKeys.MaxPlayers,
                 info.MaxPlayers);
-            _destructionLimit = ReadIntProperty(
+            _destructionLimit = SessionPropertyMapper.ReadInt(
                 info,
                 SessionPropertyKeys.DestructionLimit,
                 PlaySettingsDraft.DefaultDestructionLimit);
-        }
-
-        private static int ReadIntProperty(
-            SessionInfo info,
-            string key,
-            int fallback)
-        {
-            var properties = info.Properties;
-            return properties != null &&
-                   properties.TryGetValue(key, out var property) &&
-                   property.IsInt
-                ? (int)property
-                : fallback;
-        }
-
-        private static string ReadStringProperty(
-            SessionInfo info,
-            string key,
-            string fallback)
-        {
-            var properties = info.Properties;
-            return properties != null &&
-                   properties.TryGetValue(key, out var property) &&
-                   property.IsString
-                ? (string)property
-                : fallback;
         }
 
         /// <summary>
@@ -1288,778 +1223,5 @@ namespace Game.Network.Session
             }
         }
 
-        /// <summary>Marks the layout below, so a change can be recognised.</summary>
-        private const byte TokenVersion = 1;
-
-        /// <summary>Version byte plus the two bytes holding the password length.</summary>
-        private const int TokenHeaderSize = 3;
-
-        /// <summary>
-        /// Packs what a joiner hands the host before it is let in: the password it
-        /// presents, and the name it asks to be shown as.
-        /// </summary>
-        /// <remarks>
-        /// The password is length-prefixed rather than separated by a character.
-        /// A password may contain anything, so any separator could occur inside
-        /// one and split it in the wrong place, refusing a correct password.
-        /// <para>
-        /// The nickname travels here because the alternative is an RPC from the
-        /// client, and RPCs do not work from this assembly. It arrives before the
-        /// character is spawned, which is exactly when the authority needs it.
-        /// </para>
-        /// </remarks>
-        internal static byte[] EncodeToken(string password, string nickname)
-        {
-            var passwordBytes = Encoding.UTF8.GetBytes(password ?? string.Empty);
-            var nicknameBytes = Encoding.UTF8.GetBytes(nickname ?? string.Empty);
-
-            if (passwordBytes.Length == 0 && nicknameBytes.Length == 0)
-            {
-                return null;
-            }
-
-            if (passwordBytes.Length > ushort.MaxValue)
-            {
-                return null;
-            }
-
-            var token = new byte[TokenHeaderSize + passwordBytes.Length + nicknameBytes.Length];
-            token[0] = TokenVersion;
-            token[1] = (byte)(passwordBytes.Length >> 8);
-            token[2] = (byte)(passwordBytes.Length & 0xFF);
-
-            passwordBytes.CopyTo(token, TokenHeaderSize);
-            nicknameBytes.CopyTo(token, TokenHeaderSize + passwordBytes.Length);
-
-            return token;
-        }
-
-        /// <summary>
-        /// Reads a token back. Anything unreadable yields empty values rather
-        /// than an exception: the bytes come from another peer, so a malformed
-        /// token is a thing that happens and not a bug to crash on.
-        /// </summary>
-        internal static void DecodeToken(byte[] token, out string password, out string nickname)
-        {
-            password = string.Empty;
-            nickname = string.Empty;
-
-            if (token == null || token.Length < TokenHeaderSize || token[0] != TokenVersion)
-            {
-                return;
-            }
-
-            var passwordLength = (token[1] << 8) | token[2];
-
-            if (TokenHeaderSize + passwordLength > token.Length)
-            {
-                return;
-            }
-
-            password = Encoding.UTF8.GetString(token, TokenHeaderSize, passwordLength);
-
-            var nicknameStart = TokenHeaderSize + passwordLength;
-            nickname = Encoding.UTF8.GetString(
-                token, nicknameStart, token.Length - nicknameStart);
-        }
-
-        private static bool Matches(string presented, string expected)
-        {
-            return !string.IsNullOrEmpty(expected)
-                   && string.Equals(presented, expected, StringComparison.Ordinal);
-        }
-
-        // ---- INetworkRunnerCallbacks ------------------------------------------
-        // Only the connection lifecycle is handled here. Gameplay callbacks are
-        // filled in by later steps.
-
-        public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
-        {
-            if (!IsCurrentRunner(runner))
-            {
-                return;
-            }
-
-            Debug.Log($"[Network] Player joined: {player}.");
-            _spawner?.Spawn(runner, player, NicknameOf(runner, player));
-            ReportPlayerCount();
-        }
-
-        public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
-        {
-            if (!IsCurrentRunner(runner))
-            {
-                return;
-            }
-
-            Debug.Log($"[Network] Player left: {player}.");
-            if (runner.IsServer)
-            {
-                _matchStarter?.TryHandlePlayerLeft(player);
-            }
-
-            _spawner?.Despawn(runner, player);
-            ReportPlayerCount();
-        }
-
-        public void OnConnectedToServer(NetworkRunner runner)
-        {
-            if (!IsCurrentRunner(runner))
-            {
-                return;
-            }
-
-            Debug.Log($"[Network] Connected to session '{RoomCode}'.");
-        }
-
-        public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
-        {
-            if (!IsCurrentRunner(runner))
-            {
-                return;
-            }
-
-            Debug.LogWarning($"[Network] Disconnected: {reason}");
-            if (_hostMigrationInProgress)
-            {
-                return;
-            }
-
-            ReportExit(Translate(reason));
-        }
-
-        public void OnConnectFailed(
-            NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
-        {
-            Debug.LogError($"[Network] Connect failed: {reason}");
-        }
-
-        /// <summary>
-        /// Runs on the authority when a client asks to join. The password check
-        /// belongs here: refusing at this point keeps the client out of the
-        /// session entirely rather than kicking it after it is already inside.
-        /// </summary>
-        public void OnConnectRequest(
-            NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token)
-        {
-            if (!IsCurrentRunner(runner))
-            {
-                request.Refuse();
-                return;
-            }
-
-            if (_configuredMaxPlayers > 0 && PlayerCount >= _configuredMaxPlayers)
-            {
-                Debug.Log("[Network] Refused a join: configured player limit reached.");
-                request.Refuse();
-                return;
-            }
-
-            if (string.IsNullOrEmpty(_expectedPassword))
-            {
-                request.Accept();
-                return;
-            }
-
-            DecodeToken(token, out var presented, out _);
-
-            // Only the password admits anyone. The room code says which room to
-            // reach and grants nothing, so a code read off the browser listing
-            // is useless without the password. The nickname in the same token
-            // grants nothing either and is not read here.
-            if (Matches(presented, _expectedPassword))
-            {
-                request.Accept();
-                return;
-            }
-
-            Debug.Log("[Network] Refused a join: wrong password.");
-            request.Refuse();
-        }
-
-        public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
-        {
-            if (!IsCurrentRunner(runner))
-            {
-                return;
-            }
-
-            Debug.Log($"[Network] Shutdown: {shutdownReason}");
-            if (_hostMigrationInProgress &&
-                shutdownReason == ShutdownReason.HostMigration)
-            {
-                ReleaseRunner(preserveMigrationState: true);
-                return;
-            }
-
-            ReportExit(Translate(shutdownReason));
-            ReleaseRunner();
-        }
-
-        /// <summary>
-        /// Photon pushes the room list unprompted whenever it changes, so this
-        /// converts and forwards it rather than answering a request.
-        /// </summary>
-        public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
-        {
-            if (!IsCurrentRunner(runner))
-            {
-                return;
-            }
-
-            _roomBuffer.Clear();
-
-            if (sessionList != null)
-            {
-                for (var i = 0; i < sessionList.Count; i++)
-                {
-                    if (RoomSummaryMapper.TryToSummary(sessionList[i], out var room))
-                    {
-                        _roomBuffer.Add(room);
-                    }
-                    else
-                    {
-                        Debug.LogWarning(
-                            $"[Network] Ignored invalid room listing '{sessionList[i].Name}'.");
-                    }
-                }
-            }
-
-            Debug.Log($"[Network] Room list updated: {_roomBuffer.Count} room(s).");
-            _roomListSink?.SetRooms(_roomBuffer);
-        }
-
-        public void OnInput(NetworkRunner runner, NetworkInput input)
-        {
-            if (runner == null || !runner.IsRunning)
-            {
-                return;
-            }
-
-            var playerObject = runner.GetPlayerObject(runner.LocalPlayer);
-            var motor = playerObject == null
-                ? null
-                : playerObject.GetComponent<NetworkPlayerMotor>();
-
-            // SetPlayerObject is authority-owned state and can arrive after the
-            // avatar itself on a client. The roster is populated from Spawned,
-            // so it keeps input alive during that ordering window instead of
-            // silently submitting default input for the whole local player.
-            if (motor == null && _roster != null &&
-                _roster.TryGetAvatar(runner.LocalPlayer, out var localAvatar))
-            {
-                motor = localAvatar.GetComponent<NetworkPlayerMotor>();
-            }
-
-            input.Set(motor == null ? default : motor.CaptureInput());
-        }
-
-        public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input)
-        {
-            input.Set(default(NetworkPlayerInput));
-        }
-
-        public async void OnHostMigration(
-            NetworkRunner runner,
-            HostMigrationToken hostMigrationToken)
-        {
-            if (!IsCurrentRunner(runner) || hostMigrationToken == null ||
-                _hostMigrationInProgress)
-            {
-                return;
-            }
-
-            _hostMigrationInProgress = true;
-            Debug.Log("[Network] Host migration started.");
-
-            try
-            {
-                await runner.Shutdown(shutdownReason: ShutdownReason.HostMigration);
-
-                var sceneManager = CreateRunner(
-                    hostMigrationToken.GameMode != GameMode.Server);
-                var result = await _runner.StartGame(new StartGameArgs
-                {
-                    GameMode = hostMigrationToken.GameMode,
-                    HostMigrationToken = hostMigrationToken,
-                    HostMigrationResume = ResumeHostMigration,
-                    ConnectionToken = EncodeToken(
-                        _expectedPassword,
-                        _profile?.Nickname),
-                    SceneManager = sceneManager,
-                    Scene = CaptureCurrentScene(),
-                });
-
-                if (!result.Ok)
-                {
-                    throw new InvalidOperationException(
-                        $"Fusion could not resume the room: " +
-                        $"{result.ShutdownReason} {result.ErrorMessage}");
-                }
-
-                _hostMigrationInProgress = false;
-                _exitReported = false;
-                ReportPlayerCount();
-
-                try
-                {
-                    if (!await _runner.PushHostMigrationSnapshot())
-                    {
-                        Debug.LogWarning(
-                            "[Network] The migrated room resumed, but its first " +
-                            "replacement snapshot could not be pushed.");
-                    }
-                }
-                catch (Exception exception)
-                {
-                    // The room already resumed. A failed follow-up snapshot
-                    // reduces the next migration's freshness but must not close
-                    // this healthy session.
-                    Debug.LogWarning(
-                        $"[Network] Could not push the replacement host " +
-                        $"snapshot: {exception.Message}");
-                }
-
-                Debug.Log(
-                    $"[Network] Host migration completed. IsServer={IsServer}.");
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"[Network] Host migration failed: {exception.Message}");
-                _hostMigrationInProgress = false;
-                ReportExit(RoomExitReason.HostClosed);
-                Shutdown();
-            }
-        }
-
-        private void ResumeHostMigration(NetworkRunner resumedRunner)
-        {
-            var playerByObject = new Dictionary<NetworkId, PlayerRef>();
-            foreach (var pair in
-                     resumedRunner.GetResumeSnapshotNetworkObjectPlayerObjects())
-            {
-                playerByObject[pair.Value] = pair.Key;
-            }
-
-            foreach (var snapshotObject in
-                     resumedRunner.GetResumeSnapshotNetworkObjects())
-            {
-                var hasTransform = snapshotObject.TryGetBehaviour<NetworkTRSP>(
-                    out var networkTransform);
-                var position = hasTransform
-                    ? networkTransform.Data.Position
-                    : Vector3.zero;
-                var rotation = hasTransform
-                    ? networkTransform.Data.Rotation
-                    : Quaternion.identity;
-                var player = playerByObject.TryGetValue(
-                    snapshotObject.Id,
-                    out var mappedPlayer)
-                    ? mappedPlayer
-                    : PlayerRef.None;
-
-                var restoredObject = resumedRunner.Spawn(
-                    snapshotObject,
-                    position,
-                    rotation,
-                    player,
-                    (_, spawned) => spawned.CopyStateFrom(snapshotObject));
-                if (restoredObject == null)
-                {
-                    throw new InvalidOperationException(
-                        $"Could not restore network object '{snapshotObject.Id}'.");
-                }
-
-                resumedRunner.MakeDontDestroyOnLoad(restoredObject.gameObject);
-                if (player.IsRealPlayer &&
-                    !(_spawner?.Restore(resumedRunner, player, restoredObject) ?? false))
-                {
-                    throw new InvalidOperationException(
-                        $"Could not restore the character owned by {player}.");
-                }
-            }
-
-            foreach (var sceneObject in
-                     resumedRunner.GetResumeSnapshotNetworkSceneObjects())
-            {
-                sceneObject.Item1.CopyStateFrom(sceneObject.Item2);
-            }
-        }
-
-        public void OnSceneLoadStart(NetworkRunner runner) { }
-
-        /// <summary>
-        /// Re-seats everyone on the newly loaded scene's spawn points.
-        /// </summary>
-        /// <remarks>
-        /// Order matters. Listeners run first so that the scene's spawn points
-        /// have reached the spawner, and only then are the characters moved;
-        /// moving first would place them on the points of the scene that has
-        /// just been unloaded.
-        /// </remarks>
-        public void OnSceneLoadDone(NetworkRunner runner)
-        {
-            Debug.Log(
-                $"[Session] Scene load done: '{SceneManager.GetActiveScene().name}', " +
-                $"IsServer={runner != null && runner.IsServer}.");
-
-            SceneLoaded?.Invoke();
-            _spawner?.RepositionSeated(runner);
-        }
-
-        public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
-
-        public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
-
-        public void OnCustomAuthenticationResponse(
-            NetworkRunner runner, Dictionary<string, object> data) { }
-
-        public void OnReliableDataProgress(
-            NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
-
-        public void OnReliableDataReceived(
-            NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data)
-        {
-            key.GetInts(out var type, out var version, out _, out _);
-            if (!IsCurrentRunner(runner) || runner.IsServer)
-            {
-                return;
-            }
-
-            if (type == ItemAssignmentKeyType)
-            {
-                if (version != ItemAssignmentKeyVersion ||
-                    data.Length == 0 || data.Length > MaxItemAssignmentBytes)
-                {
-                    Debug.LogWarning("[Match] Rejected invalid item assignment data.");
-                    return;
-                }
-
-                var itemId = Encoding.UTF8.GetString(data.ToArray()).Trim();
-                if (string.IsNullOrEmpty(itemId))
-                {
-                    Debug.LogWarning("[Match] Rejected empty item assignment.");
-                    return;
-                }
-
-                ItemAssignmentReceived?.Invoke(itemId);
-                return;
-            }
-
-            if (type != HighlightReplayKeyType ||
-                version != HighlightReplayKeyVersion)
-            {
-                return;
-            }
-
-            if (!HighlightReplaySerializer.TryDeserialize(data, out var replay))
-            {
-                Debug.LogWarning("[Match] Rejected invalid highlight replay data.");
-                return;
-            }
-
-            HighlightReplayReceived?.Invoke(replay);
-        }
-
-        // The parameter type is obsolete in Fusion's own interface declaration,
-        // so implementing this callback at all raises CS0618. Nothing to fix on
-        // our side until Fusion changes the signature.
-#pragma warning disable CS0618
-        public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
-#pragma warning restore CS0618
-    }
-
-    internal static class HighlightReplaySerializer
-    {
-        private const int Magic = 0x4852504C;
-        private const byte Version = 1;
-        private const int MaxPayloadBytes = 8 * 1024 * 1024;
-        private const int MaxHighlightCount = 3;
-        private const int MaxSegmentsPerHighlight = 8;
-        private const int MaxFramesPerClip = 1024;
-        private const int MaxIdLength = 64;
-        private const int MaxWorldObjectsPerFrame = 64;
-
-        public static byte[] Serialize(IReadOnlyList<HighlightReplayData> replay)
-        {
-            if (replay == null ||
-                replay.Count > MaxHighlightCount)
-            {
-                throw new ArgumentException(
-                    "At most three highlights can be transferred.",
-                    nameof(replay));
-            }
-
-            using var stream = new MemoryStream();
-            using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-            writer.Write(Magic);
-            writer.Write(Version);
-            writer.Write((byte)replay.Count);
-
-            foreach (var highlight in replay)
-            {
-                WriteHighlight(writer, highlight);
-            }
-
-            writer.Flush();
-            if (stream.Length > MaxPayloadBytes)
-            {
-                throw new ArgumentException(
-                    "Highlight replay payload exceeds 8 MB.",
-                    nameof(replay));
-            }
-
-            return stream.ToArray();
-        }
-
-        public static bool TryDeserialize(
-            ReadOnlySpan<byte> data,
-            out HighlightReplayData[] replay)
-        {
-            replay = Array.Empty<HighlightReplayData>();
-            if (data.Length == 0 || data.Length > MaxPayloadBytes)
-            {
-                return false;
-            }
-
-            try
-            {
-                using var stream = new MemoryStream(data.ToArray(), writable: false);
-                using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
-                if (reader.ReadInt32() != Magic || reader.ReadByte() != Version)
-                {
-                    return false;
-                }
-
-                var highlightCount = reader.ReadByte();
-                if (highlightCount > MaxHighlightCount)
-                {
-                    return false;
-                }
-
-                var decoded = new HighlightReplayData[highlightCount];
-                for (var index = 0; index < decoded.Length; index++)
-                {
-                    decoded[index] = ReadHighlight(reader);
-                }
-
-                if (stream.Position != stream.Length)
-                {
-                    return false;
-                }
-
-                replay = decoded;
-                return true;
-            }
-            catch (Exception exception) when (
-                exception is IOException ||
-                exception is ArgumentException ||
-                exception is OverflowException)
-            {
-                return false;
-            }
-        }
-
-        private static void WriteHighlight(
-            BinaryWriter writer,
-            HighlightReplayData replay)
-        {
-            if (replay == null ||
-                replay.Candidate.Segments.Count > MaxSegmentsPerHighlight ||
-                replay.Clips.Count != replay.Candidate.Segments.Count)
-            {
-                throw new ArgumentException("Highlight replay is invalid.", nameof(replay));
-            }
-
-            writer.Write((byte)replay.Candidate.Type);
-            WriteId(writer, replay.Candidate.TargetId);
-            writer.Write((byte)replay.Clips.Count);
-            foreach (var clip in replay.Clips)
-            {
-                WriteSegment(writer, clip.Segment);
-                var frameCount = Math.Min(clip.Frames.Count, MaxFramesPerClip);
-                writer.Write(frameCount);
-                for (var frameIndex = 0; frameIndex < frameCount; frameIndex++)
-                {
-                    var sourceIndex = frameCount <= 1
-                        ? 0
-                        : frameIndex * (clip.Frames.Count - 1) / (frameCount - 1);
-                    WriteFrame(writer, clip.Frames[sourceIndex]);
-                }
-            }
-        }
-
-        private static HighlightReplayData ReadHighlight(BinaryReader reader)
-        {
-            var type = (HighlightType)reader.ReadByte();
-            var targetId = ReadId(reader);
-            var segmentCount = reader.ReadByte();
-            if (segmentCount == 0 || segmentCount > MaxSegmentsPerHighlight)
-            {
-                throw new InvalidDataException("Highlight segment count is invalid.");
-            }
-
-            var segments = new HighlightSegment[segmentCount];
-            var clips = new HighlightReplayClip[segmentCount];
-            for (var index = 0; index < segmentCount; index++)
-            {
-                var segment = ReadSegment(reader);
-                var frameCount = ReadCount(reader, MaxFramesPerClip);
-                var frames = new HighlightReplayFrame[frameCount];
-                for (var frameIndex = 0; frameIndex < frameCount; frameIndex++)
-                {
-                    frames[frameIndex] = ReadFrame(reader);
-                }
-
-                segments[index] = segment;
-                clips[index] = new HighlightReplayClip(segment, frames);
-            }
-
-            return new HighlightReplayData(
-                new HighlightCandidate(type, segments, targetId),
-                clips);
-        }
-
-        private static void WriteSegment(BinaryWriter writer, HighlightSegment segment)
-        {
-            writer.Write(segment.StartedAt);
-            writer.Write(segment.EndedAt);
-            writer.Write(segment.PlaybackSpeed);
-        }
-
-        private static HighlightSegment ReadSegment(BinaryReader reader) =>
-            new HighlightSegment(
-                reader.ReadDouble(),
-                reader.ReadDouble(),
-                reader.ReadDouble());
-
-        private static void WriteFrame(BinaryWriter writer, HighlightReplayFrame frame)
-        {
-            if (frame.PlayerPoses.Count > RoomSettings.MaxPlayerCount ||
-                frame.WorldObjects.Count > MaxWorldObjectsPerFrame)
-            {
-                throw new ArgumentException("Highlight frame capacity was exceeded.");
-            }
-
-            writer.Write(frame.RecordedAt);
-            writer.Write((byte)frame.PlayerPoses.Count);
-            foreach (var pose in frame.PlayerPoses)
-            {
-                WritePose(writer, pose);
-            }
-
-            writer.Write((byte)frame.WorldObjects.Count);
-            foreach (var worldObject in frame.WorldObjects)
-            {
-                WriteId(writer, worldObject.ObjectId);
-                WritePose(writer, worldObject.Pose);
-            }
-        }
-
-        private static HighlightReplayFrame ReadFrame(BinaryReader reader)
-        {
-            var recordedAt = reader.ReadDouble();
-            var playerCount = reader.ReadByte();
-            if (playerCount > RoomSettings.MaxPlayerCount)
-            {
-                throw new InvalidDataException("Highlight player count is invalid.");
-            }
-
-            var playerPoses = new Pose[playerCount];
-            for (var index = 0; index < playerPoses.Length; index++)
-            {
-                playerPoses[index] = ReadPose(reader);
-            }
-
-            var objectCount = reader.ReadByte();
-            if (objectCount > MaxWorldObjectsPerFrame)
-            {
-                throw new InvalidDataException("Highlight object count is invalid.");
-            }
-
-            var worldObjects = new WorldObjectState[objectCount];
-            for (var index = 0; index < worldObjects.Length; index++)
-            {
-                worldObjects[index] = new WorldObjectState(
-                    ReadId(reader),
-                    ReadPose(reader));
-            }
-
-            return new HighlightReplayFrame(recordedAt, playerPoses, worldObjects);
-        }
-
-        private static void WritePose(BinaryWriter writer, Pose pose)
-        {
-            if (!IsFinite(pose))
-            {
-                throw new ArgumentException("Highlight pose must be finite.");
-            }
-
-            writer.Write(pose.position.x);
-            writer.Write(pose.position.y);
-            writer.Write(pose.position.z);
-            writer.Write(pose.rotation.x);
-            writer.Write(pose.rotation.y);
-            writer.Write(pose.rotation.z);
-            writer.Write(pose.rotation.w);
-        }
-
-        private static Pose ReadPose(BinaryReader reader)
-        {
-            var pose = new Pose(
-                new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()),
-                new Quaternion(
-                    reader.ReadSingle(),
-                    reader.ReadSingle(),
-                    reader.ReadSingle(),
-                    reader.ReadSingle()));
-            if (!IsFinite(pose))
-            {
-                throw new InvalidDataException("Highlight pose is invalid.");
-            }
-
-            return pose;
-        }
-
-        private static void WriteId(BinaryWriter writer, string value)
-        {
-            if (string.IsNullOrWhiteSpace(value) || value.Length > MaxIdLength)
-            {
-                throw new ArgumentException("Highlight id is invalid.", nameof(value));
-            }
-
-            writer.Write(value);
-        }
-
-        private static string ReadId(BinaryReader reader)
-        {
-            var value = reader.ReadString();
-            if (string.IsNullOrWhiteSpace(value) || value.Length > MaxIdLength)
-            {
-                throw new InvalidDataException("Highlight id is invalid.");
-            }
-
-            return value;
-        }
-
-        private static int ReadCount(BinaryReader reader, int max)
-        {
-            var count = reader.ReadInt32();
-            if (count < 0 || count > max)
-            {
-                throw new InvalidDataException("Highlight collection size is invalid.");
-            }
-
-            return count;
-        }
-
-        private static bool IsFinite(Pose pose) =>
-            float.IsFinite(pose.position.x) &&
-            float.IsFinite(pose.position.y) &&
-            float.IsFinite(pose.position.z) &&
-            float.IsFinite(pose.rotation.x) &&
-            float.IsFinite(pose.rotation.y) &&
-            float.IsFinite(pose.rotation.z) &&
-            float.IsFinite(pose.rotation.w);
     }
 }
