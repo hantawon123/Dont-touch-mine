@@ -60,9 +60,9 @@ namespace Game.Architecture.Tests
                 Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
                 Assert.That(network.Snapshots, Has.Count.EqualTo(1));
                 Assert.That(network.Snapshots[0].Phase, Is.EqualTo(MatchPhase.Hiding));
-                // 숨기기 페이즈: 현재 턴(0번)만 조작 가능, 대기자는 잠금.
+                // 숨기기 페이즈: 숨기는 사람과 밖의 대기자 모두 조작 가능.
                 Assert.That(network.Controls[0], Is.True);
-                Assert.That(network.Controls[1], Is.False);
+                Assert.That(network.Controls[1], Is.True);
                 Assert.That(network.TeleportedPlayers, Is.EqualTo(new[] { 1, 0 }));
                 Assert.That(network.TeleportedPoses[0].position.z, Is.EqualTo(-10f));
                 Assert.That(network.TeleportedPoses[1].position.z, Is.EqualTo(0f));
@@ -70,8 +70,8 @@ namespace Game.Architecture.Tests
                 network.ServerTime = 10d + rules.HidingTurnDurationSeconds;
                 network.PublishSimulationTick();
 
-                // 턴 교대: 이제 1번만 조작 가능.
-                Assert.That(network.Controls[0], Is.False);
+                // 턴 교대 후에도 두 플레이어 모두 조작 가능.
+                Assert.That(network.Controls[0], Is.True);
                 Assert.That(network.Controls[1], Is.True);
                 Assert.That(
                     network.InitializedAssignmentPlayers,
@@ -155,6 +155,8 @@ namespace Game.Architecture.Tests
 
                 Assert.That(network.BoundSession, Is.Null);
                 Assert.That(network.UnbindCount, Is.EqualTo(1));
+                Assert.That(network.Controls[0], Is.True);
+                Assert.That(network.Controls[1], Is.True);
             }
             finally
             {

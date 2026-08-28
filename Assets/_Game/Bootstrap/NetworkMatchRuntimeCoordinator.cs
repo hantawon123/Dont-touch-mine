@@ -363,12 +363,13 @@ namespace Game.Bootstrap
                  playerIndex < synchronizedControls.Length;
                  playerIndex++)
             {
-                // 숨기기 페이즈에는 현재 숨기는 사람만 움직일 수 있다.
-                // 나머지는 대기 구역에서 이동이 잠긴다. (걸어서 집에 들어오는 것 방지)
+                // 숨기기 대기자도 로비처럼 밖에서 이동하고 공격 모션을
+                // 사용할 수 있다. 실제 기절 판정은 MatchSessionCoordinator가
+                // 찾기 페이즈에만 적용한다.
                 var enabled = session.Players.IsActive(playerIndex) &&
-                              !session.IsPlayerStunned(playerIndex, now) &&
-                              (phase == MatchPhase.Searching ||
-                               (phase == MatchPhase.Hiding && playerIndex == hidingTurn));
+                              (phase == MatchPhase.Hiding ||
+                               (phase == MatchPhase.Searching &&
+                                !session.IsPlayerStunned(playerIndex, now)));
                 if (hasSynchronizedPlayers &&
                     synchronizedControls[playerIndex] == enabled)
                 {
@@ -446,6 +447,22 @@ namespace Game.Bootstrap
         {
             if (composition != null)
             {
+                // Result disables every avatar. The room-level avatars survive
+                // the scene change, so restore them before returning to Lobby.
+                if (network.IsServer)
+                {
+                    var players = composition.Session.Players;
+                    for (var playerIndex = 0;
+                         playerIndex < players.Players.Count;
+                         playerIndex++)
+                    {
+                        if (players.IsActive(playerIndex))
+                        {
+                            network.TrySetPlayerControls(playerIndex, true);
+                        }
+                    }
+                }
+
                 network.UnbindMatchSession(composition.Session);
                 composition.Dispose();
             }

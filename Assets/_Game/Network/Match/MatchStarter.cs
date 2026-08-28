@@ -689,6 +689,13 @@ namespace Game.Network.Match
                 return false;
             }
 
+            // The reset below clears the player-index mapping. Restore controls
+            // while every match participant can still be resolved to an avatar.
+            for (var playerIndex = 0; playerIndex < _playing.Count; playerIndex++)
+            {
+                TrySetPlayerControls(playerIndex, true);
+            }
+
             _returningToLobby = true;
             if (!_state.TryResetForRematch())
             {
