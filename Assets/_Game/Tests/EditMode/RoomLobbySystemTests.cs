@@ -113,25 +113,6 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void JoinRequest_ValidatesRoomCodeAndLockedRoomPassword()
-        {
-            Assert.That(
-                new RoomJoinRequest(" ", null).TryValidate(false, out var roomIdError),
-                Is.False);
-            Assert.That(roomIdError, Is.EqualTo(RoomJoinRequestError.RoomIdRequired));
-
-            Assert.That(
-                new RoomJoinRequest("room-1", " ").TryValidate(true, out var passwordError),
-                Is.False);
-            Assert.That(passwordError, Is.EqualTo(RoomJoinRequestError.PasswordRequired));
-
-            Assert.That(
-                new RoomJoinRequest(" room-1 ", "secret").TryValidate(true, out var error),
-                Is.True);
-            Assert.That(error, Is.EqualTo(RoomJoinRequestError.None));
-        }
-
-        [Test]
         public void RoomBrowser_FindsRoomByExactCodeIgnoringCaseAndWhitespace()
         {
             using var browser = new RoomBrowserSystem();

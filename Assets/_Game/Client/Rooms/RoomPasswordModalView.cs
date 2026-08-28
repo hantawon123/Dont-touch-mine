@@ -16,7 +16,7 @@ namespace Game.Client.Rooms
     /// <see cref="ShowFailure"/>, so the modal never judges a password.
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class RoomPasswordModalView : MonoBehaviour, IRoomPasswordModalView
+    public sealed class RoomPasswordModalView : MonoBehaviour
     {
         [SerializeField]
         private Button closeButton;

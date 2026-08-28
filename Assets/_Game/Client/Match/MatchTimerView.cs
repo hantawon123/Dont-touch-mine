@@ -3,6 +3,11 @@ using UnityEngine;
 
 namespace Game.Client.Match
 {
+    public interface IMatchTimerView
+    {
+        void SetRemainingSeconds(double remainingSeconds);
+    }
+
     [DisallowMultipleComponent]
     public sealed class MatchTimerView : MonoBehaviour, IMatchTimerView
     {

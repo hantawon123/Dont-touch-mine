@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Lobby;
 using Game.Core.Lobby;
 using NUnit.Framework;
+using R3;
 
 namespace Game.Tests.EditMode
 {
@@ -71,12 +72,51 @@ namespace Game.Tests.EditMode
                 Throws.ArgumentException);
         }
 
-        private static LobbyHostSession CreateHostSession(bool isHost)
+        private static FakeHostSession CreateHostSession(bool isHost)
         {
-            return new LobbyHostSession(
+            return new FakeHostSession(
                 "host-1",
                 isHost,
                 new PlaySettingsDraft("방", "CODE", false, string.Empty, 6, 5, "map"));
+        }
+
+        private sealed class FakeHostSession : ILobbyHostSession, IDisposable
+        {
+            private readonly ReactiveProperty<bool> isLocalHost;
+            private readonly ReactiveProperty<PlaySettingsDraft> settings;
+
+            public FakeHostSession(
+                string localPlayerId,
+                bool localIsHost,
+                PlaySettingsDraft initialSettings)
+            {
+                LocalPlayerId = localPlayerId;
+                isLocalHost = new ReactiveProperty<bool>(localIsHost);
+                settings = new ReactiveProperty<PlaySettingsDraft>(initialSettings);
+            }
+
+            public string LocalPlayerId { get; }
+            public ReadOnlyReactiveProperty<bool> IsLocalHost => isLocalHost;
+            public ReadOnlyReactiveProperty<PlaySettingsDraft> Settings => settings;
+
+            public event Action StartRequested;
+            public event Action<string> KickRequested;
+            public event Action<string> HostTransferRequested;
+            public event Action<PlaySettingsDraft> SettingsApplyRequested;
+
+            public void SetLocalHost(bool value) => isLocalHost.Value = value;
+            public void ReplaceSettings(PlaySettingsDraft value) => settings.Value = value;
+            public void RequestStart() => StartRequested?.Invoke();
+            public void RequestKick(string playerId) => KickRequested?.Invoke(playerId);
+            public void RequestHostTransfer(string playerId) => HostTransferRequested?.Invoke(playerId);
+            public void RequestApplySettings(PlaySettingsDraft value) =>
+                SettingsApplyRequested?.Invoke(value);
+
+            public void Dispose()
+            {
+                isLocalHost.Dispose();
+                settings.Dispose();
+            }
         }
 
         private sealed class FakePlayerListView : ILobbyPlayerListView
