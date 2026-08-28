@@ -156,6 +156,16 @@ namespace Game.Network.Players
             // Fusion makes for objects it is told to keep.
             runner.MakeDontDestroyOnLoad(avatar.gameObject);
 
+            // Spawned() keeps KCC inactive while the room is still changing
+            // scenes. A player joining an already-loaded lobby does not receive
+            // another scene callback, so activate that avatar immediately when
+            // this scene has already supplied valid spawn points.
+            if (_spawnPoses.Count > 0 &&
+                avatar.TryGetBehaviour<NetworkPlayerMotor>(out var motor))
+            {
+                motor.TryTeleport(pose);
+            }
+
             Debug.Log($"[Spawn] {player} took seat {seat} at {pose.position}.");
         }
 

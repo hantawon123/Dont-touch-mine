@@ -1,33 +1,36 @@
 using Fusion;
+using Fusion.Addons.KCC;
 using Game.Core.Players;
 using UnityEngine;
 
 namespace Game.Network.Players
 {
     /// <summary>
-    /// Collects input on the owning peer and applies the shared movement model
-    /// on Input Authority for prediction and State Authority for validation.
-    /// NetworkTransform reconciles both simulations for every peer.
+    /// Feeds owner input into Fusion KCC. KCC is the only component that writes
+    /// the networked position; this component owns gameplay state only.
     /// </summary>
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(CharacterController))]
-    [RequireComponent(typeof(NetworkTransform))]
+    [RequireComponent(typeof(KCC))]
+    [RequireComponent(typeof(PlayerKCCMovementProcessor))]
     public sealed class NetworkPlayerMotor : NetworkBehaviour
     {
-        private CharacterController _controller;
-        private NetworkTransform _networkTransform;
-        private IPlayerInputIntentSource _inputSource;
-        private Pose _pendingTeleportPose;
-        private bool _reapplyTeleportNextTick;
+        private KCC kcc;
+        private PlayerKCCMovementProcessor movementProcessor;
+        private IPlayerInputIntentSource inputSource;
+        private bool hasPendingTeleport;
+        private Pose pendingTeleport;
 
         [Networked]
-        private float VerticalVelocity { get; set; }
+        private NetworkBool ScenePlacementReady { get; set; }
 
         [Networked]
         private NetworkButtons PreviousButtons { get; set; }
 
         [Networked]
         public NetworkBool ControlsEnabled { get; private set; }
+
+        [Networked]
+        public float DesiredMoveSpeed { get; private set; }
 
         [Networked]
         public float AnimationSpeed { get; private set; }
@@ -42,31 +45,31 @@ namespace Game.Network.Players
         private float NextAttackAllowedAt { get; set; }
 
         [SerializeField, Min(0.1f)]
-        [Tooltip("공격 재입력 대기 시간. CombatConfig의 PunchMotionSeconds와 맞춘다. (모션 중 재입력 방지)")]
+        [Tooltip("공격 재입력 대기 시간. CombatConfig의 PunchMotionSeconds와 맞춘다.")]
         private float attackCooldownSeconds = 0.9f;
 
         [Networked]
         public PlayerPosture Posture { get; private set; }
 
         private bool IsConfigured =>
-            _controller != null && _networkTransform != null && _inputSource != null;
+            kcc != null && movementProcessor != null && inputSource != null;
 
         private void Awake()
         {
-            _controller = GetComponent<CharacterController>();
-            _networkTransform = GetComponent<NetworkTransform>();
+            kcc = GetComponent<KCC>();
+            movementProcessor = GetComponent<PlayerKCCMovementProcessor>();
 
             var behaviours = GetComponents<MonoBehaviour>();
-            for (var i = 0; i < behaviours.Length; i++)
+            for (var index = 0; index < behaviours.Length; index++)
             {
-                if (behaviours[i] is IPlayerInputIntentSource source)
+                if (behaviours[index] is IPlayerInputIntentSource source)
                 {
-                    _inputSource = source;
+                    inputSource = source;
                     break;
                 }
             }
 
-            if (_inputSource == null)
+            if (inputSource == null)
             {
                 Debug.LogError(
                     "[Movement] NetworkedPlayer has no IPlayerInputIntentSource.",
@@ -76,15 +79,26 @@ namespace Game.Network.Players
 
         public override void Spawned()
         {
+            if (!IsConfigured)
+            {
+                return;
+            }
+
+            var settings = inputSource.MovementSettings;
+            movementProcessor.ConfigureGravity(settings.GravityMultiplier);
+
             if (Object.HasStateAuthority)
             {
+                // The room creates its avatar before the networked lobby scene
+                // has finished loading. At that point this object already lives
+                // in DontDestroyOnLoad, where there is deliberately no floor.
+                // Keep KCC dormant until PlayerSpawner receives a real scene
+                // spawn point and activates it through TryTeleport().
+                kcc.SetActive(false);
+                ScenePlacementReady = false;
                 ControlsEnabled = true;
-                if (IsConfigured)
-                {
-                    ApplyPosture(
-                        PlayerPosture.Standing,
-                        _inputSource.MovementSettings);
-                }
+                DesiredMoveSpeed = settings.WalkSpeed;
+                ApplyPosture(PlayerPosture.Standing, settings);
             }
         }
 
@@ -96,23 +110,18 @@ namespace Game.Network.Players
                 return default;
             }
 
-            return NetworkPlayerInput.FromIntent(_inputSource.CaptureInputIntent());
+            return NetworkPlayerInput.FromIntent(inputSource.CaptureInputIntent());
         }
 
         public override void FixedUpdateNetwork()
         {
-            if (!IsConfigured || Object == null)
+            if (!ApplyPendingScenePlacement())
             {
                 return;
             }
 
-            if (_reapplyTeleportNextTick)
-            {
-                _reapplyTeleportNextTick = false;
-                ApplyTeleport(_pendingTeleportPose);
-            }
-
-            if (!GetInput(out NetworkPlayerInput input))
+            if (!IsConfigured || Object == null ||
+                !GetInput(out NetworkPlayerInput input))
             {
                 return;
             }
@@ -122,51 +131,44 @@ namespace Game.Network.Players
                 input = default;
             }
 
-            var deltaTime = Runner.DeltaTime;
-            var settings = _inputSource.MovementSettings;
+            var settings = inputSource.MovementSettings;
+            var grounded = kcc.FixedData.IsGrounded;
             var requestedPosture = ResolvePosture(
                 Posture,
-                _controller.isGrounded,
+                grounded,
                 input,
                 PreviousButtons);
             TryApplyPosture(requestedPosture, settings);
 
-            VerticalVelocity = PlayerMovementKinematics.StepVerticalVelocity(
-                VerticalVelocity,
-                _controller.isGrounded,
-                input.WasPressed(NetworkPlayerButton.Jump, PreviousButtons),
-                Physics.gravity.y,
-                deltaTime,
-                settings);
-
             var direction = ToWorldDirection(input.Move, input.LookYawDegrees);
-            var speed = MoveSpeedForPosture(
+            DesiredMoveSpeed = MoveSpeedForPosture(
                 settings,
                 Posture,
                 input.IsPressed(NetworkPlayerButton.Sprint));
+            kcc.SetInputDirection(direction);
 
-            var velocity = direction * speed;
-            velocity.y = VerticalVelocity;
-            _controller.Move(velocity * deltaTime);
+            if (grounded &&
+                input.WasPressed(NetworkPlayerButton.Jump, PreviousButtons))
+            {
+                var gravity = -Physics.gravity.y * settings.GravityMultiplier;
+                var jumpSpeed = Mathf.Sqrt(2f * gravity * settings.JumpHeight);
+                kcc.Jump(Vector3.up * jumpSpeed);
+            }
 
-            AnimationSpeed = direction.magnitude * speed;
-            AnimationGrounded = _controller.isGrounded;
+            var yaw = Mathf.MoveTowardsAngle(
+                kcc.FixedData.LookYaw,
+                input.LookYawDegrees,
+                settings.RotationSpeedDegrees * Runner.DeltaTime);
+            kcc.SetLookRotation(0f, yaw);
 
-            // 펀치 모션이 끝나기 전에는 공격 재입력을 받지 않는다.
+            AnimationSpeed = direction.magnitude * DesiredMoveSpeed;
+            AnimationGrounded = grounded;
+
             if (input.WasPressed(NetworkPlayerButton.Attack, PreviousButtons) &&
                 Runner.SimulationTime >= NextAttackAllowedAt)
             {
                 AttackSequence++;
                 NextAttackAllowedAt = Runner.SimulationTime + attackCooldownSeconds;
-            }
-
-            if (ControlsEnabled)
-            {
-                var targetRotation = Quaternion.Euler(0f, input.LookYawDegrees, 0f);
-                transform.rotation = Quaternion.RotateTowards(
-                    transform.rotation,
-                    targetRotation,
-                    settings.RotationSpeedDegrees * deltaTime);
             }
 
             PreviousButtons = input.Buttons;
@@ -183,6 +185,7 @@ namespace Game.Network.Players
             if (!enabled)
             {
                 PreviousButtons = default;
+                kcc.SetInputDirection(Vector3.zero);
             }
 
             return true;
@@ -190,36 +193,64 @@ namespace Game.Network.Players
 
         internal void ResetMotion()
         {
-            if (Object != null && Object.HasStateAuthority)
+            if (Object == null || !Object.HasStateAuthority || kcc == null)
             {
-                VerticalVelocity = 0f;
-                PreviousButtons = default;
+                return;
             }
+
+            PreviousButtons = default;
+            kcc.SetInputDirection(Vector3.zero);
+            kcc.SetDynamicVelocity(Vector3.zero);
+            kcc.SetKinematicVelocity(Vector3.zero);
         }
 
         internal bool TryTeleport(Pose pose)
         {
-            if (Object == null || !Object.HasStateAuthority)
+            if (Object == null || !Object.HasStateAuthority || kcc == null)
             {
                 return false;
             }
 
-            ApplyTeleport(pose);
-            _pendingTeleportPose = pose;
-            _reapplyTeleportNextTick = true;
-            ResetMotion();
+            // Scene callbacks run outside Fusion's fixed tick. KCC changes made
+            // there affect render data only and are discarded by the next
+            // simulation tick, which previously let the avatar resume falling
+            // from its pre-scene position. Apply the complete placement from
+            // FixedUpdateNetwork instead.
+            pendingTeleport = pose;
+            hasPendingTeleport = true;
             return true;
         }
 
-        private void ApplyTeleport(Pose pose)
+        private bool ApplyPendingScenePlacement()
         {
-            // CharacterController and NetworkTransform both cache their previous
-            // pose. Suspend collision resolution while updating both writers.
-            _controller.enabled = false;
-            transform.SetPositionAndRotation(pose.position, pose.rotation);
-            _networkTransform.Teleport(pose.position, pose.rotation);
-            _controller.enabled = true;
-            Physics.SyncTransforms();
+            if (!IsConfigured || Object == null)
+            {
+                return false;
+            }
+
+            if (Object.HasStateAuthority && hasPendingTeleport)
+            {
+                hasPendingTeleport = false;
+                kcc.SetPosition(pendingTeleport.position);
+                kcc.SetLookRotation(pendingTeleport.rotation);
+                ResetMotion();
+                kcc.SetActive(true);
+                ScenePlacementReady = true;
+            }
+            else if (Object.HasStateAuthority && !ScenePlacementReady)
+            {
+                // Ensure fixed data is inactive as well as render data. Calling
+                // SetActive only from Spawned is insufficient when Spawned runs
+                // outside the simulation tick.
+                kcc.SetActive(false);
+            }
+
+            // Input-authority peers used to start predicting from the prefab's
+            // temporary position before the host had placed the avatar in the
+            // loaded scene. The host saw the corrected body, while the owner
+            // could remain pressed into the floor. Gate every peer on the same
+            // replicated placement state.
+            return ScenePlacementReady;
         }
 
         internal static Vector3 ToWorldDirection(Vector2 move, float lookYawDegrees)
@@ -282,7 +313,7 @@ namespace Game.Network.Players
             }
 
             var height = HeightForPosture(requested, settings);
-            if (height > _controller.height && !HasHeadroom(height))
+            if (height > kcc.Settings.Height && !HasHeadroom(height))
             {
                 return;
             }
@@ -294,26 +325,35 @@ namespace Game.Network.Players
             PlayerPosture posture,
             PlayerMovementSettings settings)
         {
-            var height = HeightForPosture(posture, settings);
             Posture = posture;
-            _controller.height = height;
-            _controller.center = new Vector3(0f, height * 0.5f, 0f);
+            kcc.SetShape(
+                EKCCShape.Capsule,
+                kcc.Settings.Radius,
+                HeightForPosture(posture, settings));
         }
 
         private bool HasHeadroom(float targetHeight)
         {
-            var radius = _controller.radius * 0.95f;
-            var topSphereCenter = transform.position + _controller.center +
-                Vector3.up * (_controller.height * 0.5f - _controller.radius);
-
-            return !Physics.SphereCast(
-                topSphereCenter,
+            var radius = kcc.Settings.Radius * 0.95f;
+            var currentHeight = kcc.Settings.Height;
+            var origin = transform.position + Vector3.up * (currentHeight - radius);
+            var hits = Physics.SphereCastAll(
+                origin,
                 radius,
                 Vector3.up,
-                out _,
-                targetHeight - _controller.height,
+                targetHeight - currentHeight,
                 Physics.DefaultRaycastLayers,
                 QueryTriggerInteraction.Ignore);
+
+            for (var index = 0; index < hits.Length; index++)
+            {
+                if (!hits[index].collider.transform.IsChildOf(transform))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static float HeightForPosture(

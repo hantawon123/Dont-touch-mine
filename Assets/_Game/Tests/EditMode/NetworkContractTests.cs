@@ -12,9 +12,11 @@ using Game.Network.Session;
 using Game.Server.Items;
 using Game.Server.Match;
 using Game.SOAP.Config;
+using Fusion.Addons.KCC;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using NetworkTransform = Fusion.NetworkTransform;
 
 namespace Game.Architecture.Tests
 {
@@ -103,10 +105,29 @@ namespace Game.Architecture.Tests
             Assert.That(prefab, Is.Not.Null, "NetworkedPlayer prefab is missing.");
             Assert.That(prefab.GetComponent<NetworkPlayerMotor>(), Is.Not.Null,
                 "NetworkPlayerMotor is missing.");
-            Assert.That(prefab.GetComponent<Fusion.NetworkTransform>(), Is.Not.Null,
-                "NetworkTransform is missing.");
-            Assert.That(prefab.GetComponent<CharacterController>(), Is.Not.Null,
-                "CharacterController is missing.");
+            var kcc = prefab.GetComponent<KCC>();
+            var rigidbody = prefab.GetComponent<Rigidbody>();
+            var processor = prefab.GetComponent<PlayerKCCMovementProcessor>();
+
+            Assert.That(kcc, Is.Not.Null,
+                "KCC is missing.");
+            Assert.That(rigidbody, Is.Not.Null,
+                "KCC Rigidbody is missing.");
+            Assert.That(rigidbody.isKinematic, Is.True);
+            Assert.That(rigidbody.useGravity, Is.False);
+            Assert.That(processor, Is.Not.Null,
+                "Player KCC environment processor is missing.");
+            Assert.That(kcc.Settings.Processors, Does.Contain(processor));
+            var playerLayer = LayerMask.NameToLayer("Player");
+            Assert.That(playerLayer, Is.GreaterThanOrEqualTo(0),
+                "The Player layer is missing.");
+            Assert.That(kcc.Settings.ColliderLayer, Is.EqualTo(playerLayer),
+                "KCCCollider must use the Player layer so the third-person " +
+                "camera does not treat its own body as a wall.");
+            Assert.That(prefab.GetComponent<NetworkTransform>(), Is.Null,
+                "KCC must be the only network transform writer.");
+            Assert.That(prefab.GetComponent<CharacterController>().enabled, Is.False,
+                "The inherited CharacterController must not compete with KCC.");
             Assert.That(
                 prefab.GetComponent<PlayerMovement>(),
                 Is.InstanceOf<IPlayerInputIntentSource>());

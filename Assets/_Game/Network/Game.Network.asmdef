@@ -5,6 +5,7 @@
         "Game.Core",
         "Game.Server",
         "Fusion.Unity",
+        "Fusion.Addons.KCC",
         "Photon.Realtime",
         "UniTask"
     ],

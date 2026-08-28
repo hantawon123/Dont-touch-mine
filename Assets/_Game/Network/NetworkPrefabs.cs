@@ -19,7 +19,8 @@ namespace Game.Network
     {
         [SerializeField]
         [Tooltip("Character spawned for each player. Needs NetworkObject, " +
-                 "NetworkCharacterController, PlayerAvatar and NetworkPlayerMotor.")]
+                 "KCC, Rigidbody, PlayerAvatar and " +
+                 "NetworkPlayerMotor.")]
         private NetworkObject _player;
 
         [SerializeField]
@@ -35,10 +36,7 @@ namespace Game.Network
 #if UNITY_EDITOR
         /// <summary>
         /// Catches the two mistakes that fail silently at runtime: a missing
-        /// prefab, and a prefab without <c>NetworkCharacterController</c>.
-        /// That component owns both predicted movement and replicated position;
-        /// using a plain transform synchronizer beside a CharacterController
-        /// makes prediction restore the character to its previous position.
+        /// prefab, and a prefab without its movement or transform components.
         /// </summary>
         private void OnValidate()
         {
@@ -47,12 +45,12 @@ namespace Game.Network
                 return;
             }
 
-            if (_player.GetComponentInChildren<NetworkCharacterController>() == null)
+            if (_player.GetComponentInChildren<Fusion.Addons.KCC.KCC>() == null ||
+                _player.GetComponentInChildren<Rigidbody>() == null)
             {
                 Debug.LogWarning(
-                    $"[Network] '{_player.name}' has no NetworkCharacterController. " +
-                    "Predicted movement and spawn positions will not replicate " +
-                    "correctly.",
+                    $"[Network] '{_player.name}' needs KCC and a kinematic " +
+                    "Rigidbody for predicted movement.",
                     this);
             }
 
