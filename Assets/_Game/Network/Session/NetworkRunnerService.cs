@@ -334,7 +334,7 @@ namespace Game.Network.Session
                     return null;
                 }
 
-                return ReadStringProperty(
+                return SessionPropertyMapper.ReadString(
                     _runner.SessionInfo,
                     SessionPropertyKeys.DisplayName,
                     null);
@@ -445,7 +445,9 @@ namespace Game.Network.Session
             {
                 GameMode = request.Mode,
                 SessionName = request.RoomCode,
-                SessionProperties = BuildProperties(request, _profile?.Nickname),
+                SessionProperties = SessionPropertyMapper.BuildForStart(
+                    request,
+                    SanitiseNickname(_profile?.Nickname)),
                 ConnectionToken = SessionConnectionTokenCodec.Encode(
                     request.Password,
                     _profile?.Nickname),
@@ -542,12 +544,10 @@ namespace Game.Network.Session
                 return false;
             }
 
-            var properties = new Dictionary<string, SessionProperty>
-            {
-                [SessionPropertyKeys.MaxPlayers] = maxPlayers,
-                [SessionPropertyKeys.DestructionLimit] = destructionLimit,
-                [SessionPropertyKeys.MapId] = mapId.Trim(),
-            };
+            var properties = SessionPropertyMapper.BuildLobbySettings(
+                maxPlayers,
+                destructionLimit,
+                mapId);
 
             if (!_runner.SessionInfo.UpdateCustomProperties(properties))
             {
@@ -1118,50 +1118,6 @@ namespace Game.Network.Session
         private bool IsCurrentRunner(NetworkRunner runner) =>
             ReferenceEquals(runner, _runner);
 
-        /// <summary>
-        /// Session properties are readable by anyone browsing the lobby, so only
-        /// the peer opening the room writes them and no secret goes in.
-        /// </summary>
-        private static Dictionary<string, SessionProperty> BuildProperties(
-            in SessionRequest request, string nickname)
-        {
-            if (request.Mode == GameMode.Client)
-            {
-                return null;
-            }
-
-            var properties = new Dictionary<string, SessionProperty>();
-
-            if (!string.IsNullOrEmpty(request.DisplayName))
-            {
-                properties[SessionPropertyKeys.DisplayName] = request.DisplayName;
-            }
-
-            if (!string.IsNullOrEmpty(request.MapId))
-            {
-                properties[SessionPropertyKeys.MapId] = request.MapId;
-            }
-
-            if (request.MaxPlayers > 0)
-            {
-                properties[SessionPropertyKeys.MaxPlayers] = request.MaxPlayers;
-            }
-
-            properties[SessionPropertyKeys.DestructionLimit] =
-                PlaySettingsDraft.DefaultDestructionLimit;
-
-            var hostNickname = SanitiseNickname(nickname);
-
-            if (hostNickname.Length > 0)
-            {
-                properties[SessionPropertyKeys.HostNickname] = hostNickname;
-            }
-
-            properties[SessionPropertyKeys.Locked] = !string.IsNullOrEmpty(request.Password);
-
-            return properties;
-        }
-
         private void ReadConfiguredSettings()
         {
             if (_runner == null || !_runner.SessionInfo.IsValid)
@@ -1170,40 +1126,14 @@ namespace Game.Network.Session
             }
 
             var info = _runner.SessionInfo;
-            _configuredMaxPlayers = ReadIntProperty(
+            _configuredMaxPlayers = SessionPropertyMapper.ReadInt(
                 info,
                 SessionPropertyKeys.MaxPlayers,
                 info.MaxPlayers);
-            _destructionLimit = ReadIntProperty(
+            _destructionLimit = SessionPropertyMapper.ReadInt(
                 info,
                 SessionPropertyKeys.DestructionLimit,
                 PlaySettingsDraft.DefaultDestructionLimit);
-        }
-
-        private static int ReadIntProperty(
-            SessionInfo info,
-            string key,
-            int fallback)
-        {
-            var properties = info.Properties;
-            return properties != null &&
-                   properties.TryGetValue(key, out var property) &&
-                   property.IsInt
-                ? (int)property
-                : fallback;
-        }
-
-        private static string ReadStringProperty(
-            SessionInfo info,
-            string key,
-            string fallback)
-        {
-            var properties = info.Properties;
-            return properties != null &&
-                   properties.TryGetValue(key, out var property) &&
-                   property.IsString
-                ? (string)property
-                : fallback;
         }
 
         /// <summary>
