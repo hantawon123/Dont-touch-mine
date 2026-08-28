@@ -177,6 +177,13 @@ namespace Game.Editor
             material.SetFloat("_GradientScale", Padding + 1);
             material.SetFloat("_WeightNormal", fontAsset.normalStyle);
             material.SetFloat("_WeightBold", fontAsset.boldStyle);
+
+            // Outline and underlay widths are held as fractions of the gradient
+            // scale, so they are wrong the moment it changes. TextMeshPro
+            // recomputes them the next time it touches the material anyway;
+            // doing it here keeps that from surfacing later as a stray edit to
+            // a file this whole exercise is meant to hold still.
+            ShaderUtilities.UpdateShaderRatios(material);
         }
 
         private static void DestroySpareAtlasPages(TMP_FontAsset fontAsset,
