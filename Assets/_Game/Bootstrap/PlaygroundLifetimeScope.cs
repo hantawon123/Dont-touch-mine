@@ -1,7 +1,11 @@
 using System;
+using System.Collections.Generic;
 using Game.Client.Match;
+using Game.Client.Players;
 using Game.Core.Match;
 using Game.Core.Players;
+using Game.Network.Players;
+using Game.Network.Session;
 using Game.Server.Match;
 using Game.Server.Players;
 using Game.SOAP.Config;
@@ -70,6 +74,7 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>();
             builder.RegisterEntryPoint<NetworkHighlightPlaybackController>();
             builder.RegisterEntryPoint<NetworkResultLobbyReturnController>();
+            builder.RegisterEntryPoint<InGamePlayerNameplatePresenter>();
 
             if (matchHudView != null)
             {
@@ -89,6 +94,54 @@ namespace Game.Bootstrap
             waitingForSceneLoad = false;
             SceneManager.sceneLoaded -= OnSceneLoaded;
             base.Awake();
+        }
+    }
+
+    internal sealed class InGamePlayerNameplatePresenter : ITickable, IDisposable
+    {
+        private readonly NetworkRunnerService network;
+        private readonly Dictionary<PlayerAvatar, PlayerNameplateView> views = new();
+
+        public InGamePlayerNameplatePresenter(NetworkRunnerService network)
+        {
+            this.network = network ?? throw new ArgumentNullException(nameof(network));
+        }
+
+        public void Tick()
+        {
+            var avatars = network.PlayerAvatars;
+            for (var index = 0; index < avatars.Count; index++)
+            {
+                var avatar = avatars[index];
+                if (avatar == null)
+                {
+                    continue;
+                }
+
+                if (!views.TryGetValue(avatar, out var view) || view == null)
+                {
+                    view = PlayerNameplateView.Attach(avatar.transform);
+                    views[avatar] = view;
+                }
+
+                if (!view.HasNickname)
+                {
+                    view.SetNickname(avatar.Nickname.ToString());
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            foreach (var view in views.Values)
+            {
+                if (view != null)
+                {
+                    UnityEngine.Object.Destroy(view.gameObject);
+                }
+            }
+
+            views.Clear();
         }
     }
 }

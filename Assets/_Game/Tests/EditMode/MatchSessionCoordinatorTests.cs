@@ -1255,6 +1255,13 @@ namespace Game.Tests.EditMode
                 session.RegisterHit(1, 2, Vector3.zero, 20d),
                 Is.EqualTo(HitResult.Registered));
             Assert.That(
+                session.RegisterHit(1, 2, Vector3.zero, 20.1d),
+                Is.EqualTo(HitResult.Registered));
+            Assert.That(
+                session.RegisterHit(1, 2, Vector3.zero, 20.2d),
+                Is.EqualTo(HitResult.Registered));
+            Assert.That(session.IsPlayerStunned(2, 20.3d), Is.False);
+            Assert.That(
                 session.TryHoldObject(1, "shelf", 20d),
                 Is.False);
         }

@@ -639,6 +639,13 @@ namespace Game.Server.Match
                 return HitResult.Ignored;
             }
 
+            // Hiding waiters may punch exactly as they do in the lobby, but
+            // lobby punches do not build stun stacks or disable anyone.
+            if (state.CurrentPhase.CurrentValue == MatchPhase.Hiding)
+            {
+                return HitResult.Registered;
+            }
+
             var hitResult = interactions.RegisterHit(targetPlayerIndex, now);
             if (hitResult != HitResult.Stunned)
             {
