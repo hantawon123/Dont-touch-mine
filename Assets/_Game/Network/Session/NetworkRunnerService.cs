@@ -181,7 +181,10 @@ namespace Game.Network.Session
                 return SanitiseNickname(_profile?.Nickname);
             }
 
-            DecodeToken(runner.GetPlayerConnectionToken(player), out _, out var presented);
+            SessionConnectionTokenCodec.Decode(
+                runner.GetPlayerConnectionToken(player),
+                out _,
+                out var presented);
             return SanitiseNickname(presented);
         }
 
@@ -443,7 +446,9 @@ namespace Game.Network.Session
                 GameMode = request.Mode,
                 SessionName = request.RoomCode,
                 SessionProperties = BuildProperties(request, _profile?.Nickname),
-                ConnectionToken = EncodeToken(request.Password, _profile?.Nickname),
+                ConnectionToken = SessionConnectionTokenCodec.Encode(
+                    request.Password,
+                    _profile?.Nickname),
                 EnableClientSessionCreation = request.AllowCreate,
                 SceneManager = sceneManager,
                 Scene = CaptureCurrentScene(),
@@ -1287,87 +1292,6 @@ namespace Game.Network.Session
             }
         }
 
-        /// <summary>Marks the layout below, so a change can be recognised.</summary>
-        private const byte TokenVersion = 1;
-
-        /// <summary>Version byte plus the two bytes holding the password length.</summary>
-        private const int TokenHeaderSize = 3;
-
-        /// <summary>
-        /// Packs what a joiner hands the host before it is let in: the password it
-        /// presents, and the name it asks to be shown as.
-        /// </summary>
-        /// <remarks>
-        /// The password is length-prefixed rather than separated by a character.
-        /// A password may contain anything, so any separator could occur inside
-        /// one and split it in the wrong place, refusing a correct password.
-        /// <para>
-        /// The nickname travels here because the alternative is an RPC from the
-        /// client, and RPCs do not work from this assembly. It arrives before the
-        /// character is spawned, which is exactly when the authority needs it.
-        /// </para>
-        /// </remarks>
-        internal static byte[] EncodeToken(string password, string nickname)
-        {
-            var passwordBytes = Encoding.UTF8.GetBytes(password ?? string.Empty);
-            var nicknameBytes = Encoding.UTF8.GetBytes(nickname ?? string.Empty);
-
-            if (passwordBytes.Length == 0 && nicknameBytes.Length == 0)
-            {
-                return null;
-            }
-
-            if (passwordBytes.Length > ushort.MaxValue)
-            {
-                return null;
-            }
-
-            var token = new byte[TokenHeaderSize + passwordBytes.Length + nicknameBytes.Length];
-            token[0] = TokenVersion;
-            token[1] = (byte)(passwordBytes.Length >> 8);
-            token[2] = (byte)(passwordBytes.Length & 0xFF);
-
-            passwordBytes.CopyTo(token, TokenHeaderSize);
-            nicknameBytes.CopyTo(token, TokenHeaderSize + passwordBytes.Length);
-
-            return token;
-        }
-
-        /// <summary>
-        /// Reads a token back. Anything unreadable yields empty values rather
-        /// than an exception: the bytes come from another peer, so a malformed
-        /// token is a thing that happens and not a bug to crash on.
-        /// </summary>
-        internal static void DecodeToken(byte[] token, out string password, out string nickname)
-        {
-            password = string.Empty;
-            nickname = string.Empty;
-
-            if (token == null || token.Length < TokenHeaderSize || token[0] != TokenVersion)
-            {
-                return;
-            }
-
-            var passwordLength = (token[1] << 8) | token[2];
-
-            if (TokenHeaderSize + passwordLength > token.Length)
-            {
-                return;
-            }
-
-            password = Encoding.UTF8.GetString(token, TokenHeaderSize, passwordLength);
-
-            var nicknameStart = TokenHeaderSize + passwordLength;
-            nickname = Encoding.UTF8.GetString(
-                token, nicknameStart, token.Length - nicknameStart);
-        }
-
-        private static bool Matches(string presented, string expected)
-        {
-            return !string.IsNullOrEmpty(expected)
-                   && string.Equals(presented, expected, StringComparison.Ordinal);
-        }
-
         // ---- INetworkRunnerCallbacks ------------------------------------------
         // Only the connection lifecycle is handled here. Gameplay callbacks are
         // filled in by later steps.
@@ -1460,13 +1384,15 @@ namespace Game.Network.Session
                 return;
             }
 
-            DecodeToken(token, out var presented, out _);
+            SessionConnectionTokenCodec.Decode(token, out var presented, out _);
 
             // Only the password admits anyone. The room code says which room to
             // reach and grants nothing, so a code read off the browser listing
             // is useless without the password. The nickname in the same token
             // grants nothing either and is not read here.
-            if (Matches(presented, _expectedPassword))
+            if (SessionConnectionTokenCodec.MatchesPassword(
+                    presented,
+                    _expectedPassword))
             {
                 request.Accept();
                 return;
@@ -1582,7 +1508,7 @@ namespace Game.Network.Session
                     GameMode = hostMigrationToken.GameMode,
                     HostMigrationToken = hostMigrationToken,
                     HostMigrationResume = ResumeHostMigration,
-                    ConnectionToken = EncodeToken(
+                    ConnectionToken = SessionConnectionTokenCodec.Encode(
                         _expectedPassword,
                         _profile?.Nickname),
                     SceneManager = sceneManager,
