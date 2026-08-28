@@ -182,6 +182,29 @@ namespace Game.Core.Lobby
             return false;
         }
 
+        public bool TryFindById(string candidate, out RoomSummary room)
+        {
+            if (!string.IsNullOrEmpty(candidate))
+            {
+                var currentRooms = rooms.Value;
+
+                for (var index = 0; index < currentRooms.Count; index++)
+                {
+                    if (string.Equals(
+                            currentRooms[index].RoomId,
+                            candidate,
+                            StringComparison.Ordinal))
+                    {
+                        room = currentRooms[index];
+                        return true;
+                    }
+                }
+            }
+
+            room = default;
+            return false;
+        }
+
         public void PlayerCountChanged(int current, int max)
         {
             playerCount.Value = current;
