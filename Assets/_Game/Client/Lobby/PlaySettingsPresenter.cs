@@ -10,7 +10,7 @@ namespace Game.Client.Lobby
     {
         private readonly ILobbyHostSession hostSession;
         private readonly IPlaySettingsView view;
-        private readonly LobbyHudView hudView;
+        private readonly ILobbyPauseMenuView pauseMenu;
         private IDisposable hostSubscription;
         private IDisposable settingsSubscription;
         private bool isOpen;
@@ -18,11 +18,11 @@ namespace Game.Client.Lobby
         public PlaySettingsPresenter(
             ILobbyHostSession hostSession,
             IPlaySettingsView view,
-            LobbyHudView hudView)
+            ILobbyPauseMenuView pauseMenu)
         {
             this.hostSession = hostSession ?? throw new ArgumentNullException(nameof(hostSession));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
-            this.hudView = hudView ?? throw new ArgumentNullException(nameof(hudView));
+            this.pauseMenu = pauseMenu ?? throw new ArgumentNullException(nameof(pauseMenu));
         }
 
         public void Start()
@@ -33,7 +33,7 @@ namespace Game.Client.Lobby
             view.CopyRoomCodeRequested += CopyRoomCode;
             view.InviteRequested += Invite;
             view.CopyPasswordRequested += CopyPassword;
-            hudView.PlaySettingsClicked += Open;
+            pauseMenu.PlaySettingsClicked += Open;
             hostSubscription = hostSession.IsLocalHost.Subscribe(HandleHostChanged);
             settingsSubscription = hostSession.Settings.Subscribe(HandleSettingsChanged);
         }
@@ -45,16 +45,21 @@ namespace Game.Client.Lobby
             view.CopyRoomCodeRequested -= CopyRoomCode;
             view.InviteRequested -= Invite;
             view.CopyPasswordRequested -= CopyPassword;
-            hudView.PlaySettingsClicked -= Open;
+            pauseMenu.PlaySettingsClicked -= Open;
             hostSubscription?.Dispose();
             settingsSubscription?.Dispose();
         }
 
+        /// <remarks>
+        /// Asks rather than closes, so the Esc menu this was opened from hears
+        /// about it and comes back. Closing straight away would leave the menu
+        /// standing aside for a screen that is no longer on the glass.
+        /// </remarks>
         private void HandleHostChanged(bool isHost)
         {
-            if (!isHost)
+            if (!isHost && isOpen)
             {
-                Close();
+                view.RequestClose();
             }
         }
 
