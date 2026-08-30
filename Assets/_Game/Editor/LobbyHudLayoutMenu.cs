@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
@@ -13,6 +14,13 @@ namespace Game.Editor
     public static class LobbyHudLayoutMenu
     {
         private const string MenuPath = "Game/Lobby/Build HUD Layout";
+
+        /// <summary>
+        /// Handed to the lobby scope so the talk key can be read without going
+        /// through the camera rig, which keeps its own copy private.
+        /// </summary>
+        private const string InputActionsPath =
+            "Assets/InputSystem_Actions.inputactions";
 
         [MenuItem(MenuPath)]
         public static void BuildHudLayout()
@@ -60,6 +68,9 @@ namespace Game.Editor
             SetLabel(playerList, string.Empty);
             SetLabel(chat, string.Empty);
             SetLabel(voice, "MIC");
+            // The only always-on button left. Muting happens mid-sentence, which
+            // is too fast for a menu that has to be opened first.
+            EnsureButton(voice.gameObject);
             EnsurePlayerListContent(playerList);
             EnsureChatContent(chat);
 
@@ -112,6 +123,21 @@ namespace Game.Editor
                 root,
                 "HostTransferConfirmPanel",
                 "방장 위임 확인");
+            var voiceView = hud.GetComponent<VoiceView>();
+            if (voiceView == null)
+            {
+                voiceView = Undo.AddComponent<VoiceView>(hud.gameObject);
+            }
+
+            var voiceSo = new SerializedObject(voiceView);
+            voiceSo.FindProperty("muteButton").objectReferenceValue =
+                voice.GetComponent<Button>();
+            voiceSo.FindProperty("background").objectReferenceValue =
+                voice.GetComponent<Image>();
+            voiceSo.FindProperty("label").objectReferenceValue =
+                voice.Find("Label")?.GetComponent<Text>();
+            voiceSo.ApplyModifiedPropertiesWithoutUndo();
+
             var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
 
             var hudSo = new SerializedObject(hud);
@@ -173,6 +199,9 @@ namespace Game.Editor
             scopeSo.FindProperty("transferConfirmView").objectReferenceValue = transferConfirm;
             scopeSo.FindProperty("chatView").objectReferenceValue = chatView;
             scopeSo.FindProperty("chatBubbleView").objectReferenceValue = chatBubbleView;
+            scopeSo.FindProperty("voiceView").objectReferenceValue = voiceView;
+            scopeSo.FindProperty("inputActions").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
             scopeSo.ApplyModifiedPropertiesWithoutUndo();
 
             keyGuidePanel.gameObject.SetActive(false);

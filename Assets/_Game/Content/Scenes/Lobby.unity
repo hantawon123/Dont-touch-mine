@@ -60601,6 +60601,7 @@ GameObject:
   - component: {fileID: 1180236507}
   - component: {fileID: 1180236509}
   - component: {fileID: 1180236508}
+  - component: {fileID: 1180236510}
   m_Layer: 0
   m_Name: VoiceButton
   m_TagString: Untagged
@@ -60666,6 +60667,50 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1180236506}
   m_CullTransparentMesh: 1
+--- !u!114 &1180236510
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1180236506}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
+  m_Navigation:
+    m_Mode: 3
+    m_WrapAround: 0
+    m_SelectOnUp: {fileID: 0}
+    m_SelectOnDown: {fileID: 0}
+    m_SelectOnLeft: {fileID: 0}
+    m_SelectOnRight: {fileID: 0}
+  m_Transition: 1
+  m_Colors:
+    m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
+    m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
+    m_SelectedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
+    m_ColorMultiplier: 1
+    m_FadeDuration: 0.1
+  m_SpriteState:
+    m_HighlightedSprite: {fileID: 0}
+    m_PressedSprite: {fileID: 0}
+    m_SelectedSprite: {fileID: 0}
+    m_DisabledSprite: {fileID: 0}
+  m_AnimationTriggers:
+    m_NormalTrigger: Normal
+    m_HighlightedTrigger: Highlighted
+    m_PressedTrigger: Pressed
+    m_SelectedTrigger: Selected
+    m_DisabledTrigger: Disabled
+  m_Interactable: 1
+  m_TargetGraphic: {fileID: 1180236508}
+  m_OnClick:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &1181386187
 GameObject:
   m_ObjectHideFlags: 0
@@ -85420,6 +85465,7 @@ GameObject:
   - component: {fileID: 1635673784}
   - component: {fileID: 1635673785}
   - component: {fileID: 1635673786}
+  - component: {fileID: 1635673787}
   m_Layer: 0
   m_Name: LobbyHud
   m_TagString: Untagged
@@ -85599,6 +85645,21 @@ MonoBehaviour:
   settingsButton: {fileID: 883124550}
   playSettingsButton: {fileID: 45611108}
   keyGuideButton: {fileID: 177542827}
+--- !u!114 &1635673787
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1635673778}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f88b01ed9d694fe4f980e5bb3186ccbe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Lobby.VoiceView
+  muteButton: {fileID: 1180236510}
+  background: {fileID: 1180236508}
+  label: {fileID: 872920110}
 --- !u!1 &1640290594
 GameObject:
   m_ObjectHideFlags: 0
@@ -94838,6 +94899,8 @@ MonoBehaviour:
   transferConfirmView: {fileID: 1492415830}
   chatView: {fileID: 1928557081}
   chatBubbleView: {fileID: 1032459987}
+  voiceView: {fileID: 1635673787}
+  inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   cameraRigPrefab: {fileID: 8790836612570162375, guid: 8f2f4301582f0a84bb1abb53842d175c, type: 3}
 --- !u!4 &1844095858
 Transform:
