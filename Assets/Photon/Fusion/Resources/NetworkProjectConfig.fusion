@@ -97,7 +97,8 @@
         "Assembly-CSharp",
         "Assembly-CSharp-firstpass",
         "Game.Network",
-        "Fusion.Addons.KCC"
+        "Fusion.Addons.KCC",
+        "PhotonVoice.Fusion"
     ],
     "UseSerializableDictionary": true,
     "NullChecksForNetworkedProperties": true,
