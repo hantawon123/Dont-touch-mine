@@ -21,8 +21,24 @@ namespace Game.Editor
     /// copy on merge. Baking the set up front leaves TextMeshPro nothing to
     /// add, and the file stops moving.
     /// <para>
-    /// Re-run this after replacing the source font or editing the character
-    /// set file. Nothing else needs to run it.
+    /// Baking every Hangul syllable would not fit, and that is what an earlier
+    /// builder here concluded before settling on Dynamic. All 11,172 of them
+    /// need an atlas so large the glyphs come out mushy. The set below is the
+    /// 2,350 of KS X 1001, which is what Korean text actually uses, and those
+    /// fit one 2048 square page at a sampling size the screens never exceed.
+    /// </para>
+    /// <para>
+    /// This rewrites the asset in place instead of recreating it. Two scenes
+    /// assign the font and its material to text components directly — 24
+    /// references between them — and TMP Settings names it as the project
+    /// default. Deleting and recreating the asset would reissue its guid and
+    /// leave every one of those pointing at nothing.
+    /// </para>
+    /// <para>
+    /// Re-run this after replacing the source font
+    /// (<c>Assets/_Game/Content/Fonts/Cafe24Ssurround-v2.0.ttf</c>, reached
+    /// through the guid the asset already holds) or after editing the
+    /// character set file. Nothing else needs to run it.
     /// </para>
     /// </remarks>
     public static class FontAtlasBaker
