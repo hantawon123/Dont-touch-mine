@@ -46,16 +46,10 @@ namespace Game.Editor
             EnsureEventSystem();
 
             var root = hud.transform as RectTransform;
-            var settings = GetOrCreateSlot(root, "SettingsButton", new Color(0.25f, 0.25f, 0.28f, 0.9f));
-            var playSettings = GetOrCreateSlot(root, "PlaySettingsButton", new Color(0.25f, 0.25f, 0.28f, 0.9f));
-            var keyGuide = GetOrCreateSlot(root, "KeyGuideButton", new Color(0.2f, 0.22f, 0.28f, 0.85f));
             var playerList = GetOrCreateSlot(root, "PlayerListRoot", new Color(0.15f, 0.16f, 0.2f, 0.75f));
             var chat = GetOrCreateSlot(root, "ChatRoot", new Color(0.15f, 0.16f, 0.2f, 0.75f));
             var voice = GetOrCreateSlot(root, "VoiceButton", new Color(0.25f, 0.25f, 0.28f, 0.9f));
 
-            Place(settings, Anchor.TopLeft, new Vector2(24f, -24f), new Vector2(72f, 72f));
-            Place(playSettings, Anchor.TopLeft, new Vector2(112f, -24f), new Vector2(160f, 72f));
-            Place(keyGuide, Anchor.MiddleLeft, new Vector2(24f, 40f), new Vector2(180f, 96f));
             Place(playerList, Anchor.TopRight, new Vector2(-24f, -24f), new Vector2(300f, 420f));
             // Lifted well clear of the floor and narrowed. The characters stand
             // low and centre, which is where the camera looks, and a 720-wide
@@ -63,23 +57,21 @@ namespace Game.Editor
             Place(chat, Anchor.BottomLeft, new Vector2(24f, 380f), new Vector2(640f, 240f));
             Place(voice, Anchor.BottomRight, new Vector2(-24f, 24f), new Vector2(72f, 72f));
 
-            SetLabel(settings, "설정");
-            SetLabel(playSettings, "플레이 설정");
-            SetLabel(keyGuide, "키 세팅 가이드");
             SetLabel(playerList, string.Empty);
             SetLabel(chat, string.Empty);
             SetLabel(voice, "MIC");
             EnsurePlayerListContent(playerList);
             EnsureChatContent(chat);
 
-            EnsureButton(keyGuide.gameObject);
-            EnsureButton(playSettings.gameObject);
-
-            // Start and Leave used to sit up here, where a captured cursor could
-            // not reach them. They are in the Esc menu now, so the old slots go
-            // rather than stay behind as dead buttons.
+            // Every button the lobby used to keep in a corner is an Esc menu
+            // entry now: a captured cursor reports from the centre of the screen
+            // and cannot reach a corner at all. The old slots go rather than
+            // stay behind as dead buttons.
             DestroyIfExists(root, "StartButton");
             DestroyIfExists(root, "LeaveButton");
+            DestroyIfExists(root, "SettingsButton");
+            DestroyIfExists(root, "PlaySettingsButton");
+            DestroyIfExists(root, "KeyGuideButton");
 
             var keyGuideView = hud.GetComponent<KeyGuideView>();
             if (keyGuideView == null)
@@ -99,12 +91,19 @@ namespace Game.Editor
                 chatView = Undo.AddComponent<LobbyChatView>(chat.gameObject);
             }
 
+            // Built before the screens it leads to: both of them take their
+            // open button from this panel now.
+            var pauseMenuView = EnsurePauseMenuView(root, hud);
+            var pauseMenuPanel = root.Find("PauseMenuPanel") as RectTransform;
+            var pausePlaySettings = pauseMenuPanel.Find("PlaySettingsButton") as RectTransform;
+            var pauseKeyGuide = pauseMenuPanel.Find("KeyGuideButton") as RectTransform;
+
             var keyGuidePanel = EnsureKeyGuidePanel(root);
             var keyGuideClose = keyGuidePanel.Find("CloseButton") as RectTransform;
             var keyGuideBody = keyGuidePanel.Find("BodyText");
             EnsureButton(keyGuideClose.gameObject);
 
-            var playSettingsView = EnsurePlaySettingsView(root, playSettings);
+            var playSettingsView = EnsurePlaySettingsView(root, pausePlaySettings);
             var kickConfirm = EnsureConfirmView<KickConfirmView>(
                 root,
                 "KickConfirmPanel",
@@ -114,12 +113,8 @@ namespace Game.Editor
                 "HostTransferConfirmPanel",
                 "방장 위임 확인");
             var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
-            var pauseMenuView = EnsurePauseMenuView(root, hud);
 
             var hudSo = new SerializedObject(hud);
-            hudSo.FindProperty("settingsButton").objectReferenceValue = settings;
-            hudSo.FindProperty("playSettingsButton").objectReferenceValue = playSettings;
-            hudSo.FindProperty("keyGuideButton").objectReferenceValue = keyGuide;
             hudSo.FindProperty("playerListRoot").objectReferenceValue = playerList;
             hudSo.FindProperty("chatRoot").objectReferenceValue = chat;
             hudSo.FindProperty("voiceButton").objectReferenceValue = voice;
@@ -127,7 +122,7 @@ namespace Game.Editor
 
             var keyGuideSo = new SerializedObject(keyGuideView);
             keyGuideSo.FindProperty("openButton").objectReferenceValue =
-                keyGuide.GetComponent<Button>();
+                pauseKeyGuide.GetComponent<Button>();
             keyGuideSo.FindProperty("closeButton").objectReferenceValue =
                 keyGuideClose.GetComponent<Button>();
             keyGuideSo.FindProperty("panel").objectReferenceValue = keyGuidePanel.gameObject;
@@ -1109,7 +1104,7 @@ namespace Game.Editor
                 SetLabel(panel, string.Empty);
             }
 
-            Place(panel, Anchor.Center, Vector2.zero, new Vector2(420f, 360f));
+            Place(panel, Anchor.Center, Vector2.zero, new Vector2(420f, 560f));
 
             if (panel.Find("Title") == null)
             {
@@ -1122,14 +1117,29 @@ namespace Game.Editor
                 titleRect.anchoredPosition = new Vector2(0f, -20f);
             }
 
+            // Six rows 72 apart, running from what changes the room, through
+            // what only reads, to the way out. Leaving sits above returning so
+            // the button that ends the visit is not the one under the thumb.
             var buttonSize = new Vector2(260f, 56f);
             var start = EnsureButtonSlot(
-                panel, "StartButton", "게임 시작", new Vector2(0f, 52f), buttonSize);
+                panel, "StartButton", "게임 시작", new Vector2(0f, 160f), buttonSize);
+            var playSettings = EnsureButtonSlot(
+                panel, "PlaySettingsButton", "플레이 설정", new Vector2(0f, 88f), buttonSize);
+            var settings = EnsureButtonSlot(
+                panel, "SettingsButton", "설정", new Vector2(0f, 16f), buttonSize);
+            var keyGuide = EnsureButtonSlot(
+                panel, "KeyGuideButton", "키 세팅 가이드", new Vector2(0f, -56f), buttonSize);
             var leave = EnsureButtonSlot(
-                panel, "LeaveButton", "게임 나가기", new Vector2(0f, -20f), buttonSize);
+                panel, "LeaveButton", "게임 나가기", new Vector2(0f, -128f), buttonSize);
             var resume = EnsureButtonSlot(
-                panel, "ResumeButton", "돌아가기", new Vector2(0f, -92f), buttonSize);
+                panel, "ResumeButton", "돌아가기", new Vector2(0f, -200f), buttonSize);
             EnsureImage(start.gameObject, new Color(1f, 0.85f, 0.2f, 0.95f));
+
+            // Nothing answers this one yet. It keeps its place so the menu does
+            // not reshuffle when a settings screen arrives, but it is left
+            // unpressable: a button that swallows a click reads as broken.
+            var settingsButton = settings.GetComponent<Button>();
+            settingsButton.interactable = false;
 
             var view = hud.GetComponent<LobbyPauseMenuView>();
             if (view == null)
@@ -1142,6 +1152,11 @@ namespace Game.Editor
             so.FindProperty("startButton").objectReferenceValue = start.GetComponent<Button>();
             so.FindProperty("leaveButton").objectReferenceValue = leave.GetComponent<Button>();
             so.FindProperty("resumeButton").objectReferenceValue = resume.GetComponent<Button>();
+            so.FindProperty("settingsButton").objectReferenceValue = settingsButton;
+            so.FindProperty("playSettingsButton").objectReferenceValue =
+                playSettings.GetComponent<Button>();
+            so.FindProperty("keyGuideButton").objectReferenceValue =
+                keyGuide.GetComponent<Button>();
             so.ApplyModifiedPropertiesWithoutUndo();
 
             panel.gameObject.SetActive(false);

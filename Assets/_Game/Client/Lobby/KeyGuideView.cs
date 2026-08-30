@@ -178,6 +178,8 @@ namespace Game.Client.Lobby
             }
         }
 
+        public void RequestClose() => CloseRequested?.Invoke();
+
         private void HandleOpenClicked() => OpenRequested?.Invoke();
 
         private void HandleCloseClicked() => CloseRequested?.Invoke();

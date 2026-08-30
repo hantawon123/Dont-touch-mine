@@ -134,7 +134,6 @@ namespace Game.Bootstrap
                 .As<ILobbyChatLog>();
             builder.RegisterEntryPoint<KeyGuidePresenter>();
             builder.RegisterEntryPoint<LobbyPlayerListPresenter>();
-            builder.RegisterEntryPoint<LobbyHostChromePresenter>();
             builder.RegisterEntryPoint<LobbyPauseMenuPresenter>();
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
             builder.RegisterEntryPoint<LobbyChatPresenter>();

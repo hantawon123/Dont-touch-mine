@@ -24,22 +24,47 @@ namespace Game.Client.Lobby
     /// The one-shot call this replaces ran before the avatar had replicated in,
     /// so nothing owned the state afterwards.
     /// </para>
+    /// <para>
+    /// The menu also leads to the play settings and key guide screens. Those
+    /// are wider than this panel and sit at the same centre, so the menu steps
+    /// aside while one is up rather than showing its edges around it. The
+    /// cursor and the movement lock stay as they are through that: the player
+    /// is still in the menu, just on a different page of it.
+    /// </para>
     /// </remarks>
     public sealed class LobbyPauseMenuPresenter : IStartable, ITickable, IDisposable
     {
         private readonly ILobbyPauseMenuView view;
+        private readonly IKeyGuideView keyGuide;
+        private readonly IPlaySettingsView playSettings;
         private readonly ILobbyHostSession hostSession;
         private readonly LobbyExitPresenter exit;
         private IDisposable hostSubscription;
         private PlayerCameraController cameraRig;
         private PlayerMovement lockedMovement;
 
+        /// <summary>
+        /// Closes whichever screen the menu stepped aside for, or null while the
+        /// menu itself is the thing on screen.
+        /// </summary>
+        /// <remarks>
+        /// Held as the close call rather than as the view: the two screens share
+        /// no type, and what this needs from either of them is the same one
+        /// thing.
+        /// </remarks>
+        private Action closeOpenScreen;
+
         public LobbyPauseMenuPresenter(
             ILobbyPauseMenuView view,
+            IKeyGuideView keyGuide,
+            IPlaySettingsView playSettings,
             ILobbyHostSession hostSession,
             LobbyExitPresenter exit)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
+            this.keyGuide = keyGuide ?? throw new ArgumentNullException(nameof(keyGuide));
+            this.playSettings = playSettings
+                ?? throw new ArgumentNullException(nameof(playSettings));
             this.hostSession = hostSession
                 ?? throw new ArgumentNullException(nameof(hostSession));
             this.exit = exit ?? throw new ArgumentNullException(nameof(exit));
@@ -50,10 +75,18 @@ namespace Game.Client.Lobby
             view.StartClicked += OnStartClicked;
             view.LeaveClicked += OnLeaveClicked;
             view.ResumeClicked += Close;
+            view.PlaySettingsClicked += OnPlaySettingsClicked;
+            view.KeyGuideClicked += OnKeyGuideClicked;
 
-            // Starting is the host's to ask for, so the button is not there for
-            // anyone else. Same rule the play settings button follows.
-            hostSubscription = hostSession.IsLocalHost.Subscribe(view.SetStartVisible);
+            // Both screens are opened by their own presenters, which listen to
+            // the same buttons. Coming back is what is left over, and it is the
+            // menu's to do.
+            keyGuide.CloseRequested += OnScreenClosed;
+            playSettings.CloseRequested += OnScreenClosed;
+
+            // Starting and changing the room are the host's to ask for, so
+            // neither entry is there for anyone else.
+            hostSubscription = hostSession.IsLocalHost.Subscribe(ApplyHostControls);
 
             Close();
         }
@@ -63,6 +96,10 @@ namespace Game.Client.Lobby
             view.StartClicked -= OnStartClicked;
             view.LeaveClicked -= OnLeaveClicked;
             view.ResumeClicked -= Close;
+            view.PlaySettingsClicked -= OnPlaySettingsClicked;
+            view.KeyGuideClicked -= OnKeyGuideClicked;
+            keyGuide.CloseRequested -= OnScreenClosed;
+            playSettings.CloseRequested -= OnScreenClosed;
             hostSubscription?.Dispose();
 
             // A frozen avatar and a rig that no longer answers Esc would both
@@ -95,6 +132,15 @@ namespace Game.Client.Lobby
                 return;
             }
 
+            // One page back rather than all the way out. Asking the screen to
+            // close, instead of hiding it, keeps its presenter's idea of whether
+            // it is open in step with what is on the glass.
+            if (closeOpenScreen != null)
+            {
+                closeOpenScreen.Invoke();
+                return;
+            }
+
             if (view.IsOpen)
             {
                 Close();
@@ -103,6 +149,12 @@ namespace Game.Client.Lobby
             {
                 Open();
             }
+        }
+
+        private void ApplyHostControls(bool isHost)
+        {
+            view.SetStartVisible(isHost);
+            view.SetPlaySettingsVisible(isHost);
         }
 
         private void Open()
@@ -122,9 +174,43 @@ namespace Game.Client.Lobby
 
         private void Close()
         {
+            closeOpenScreen = null;
             view.SetVisible(false);
             SetCursorCaptured(true);
             ReleaseMovement();
+        }
+
+        /// <remarks>
+        /// The cursor and the movement lock are deliberately left alone. The
+        /// player is still in the menu, and re-capturing the cursor here would
+        /// hand them a settings screen they cannot click.
+        /// </remarks>
+        private void OnPlaySettingsClicked() => StepAsideFor(playSettings.RequestClose);
+
+        private void OnKeyGuideClicked() => StepAsideFor(keyGuide.RequestClose);
+
+        private void StepAsideFor(Action close)
+        {
+            closeOpenScreen = close;
+            view.SetVisible(false);
+        }
+
+        /// <remarks>
+        /// Runs for the screen's own close button and for Esc alike, since both
+        /// arrive as the same request. Also runs when a screen closes itself —
+        /// play settings does when the room changes hands — which is the case
+        /// this exists for: without it the menu would stay hidden behind a
+        /// screen that is no longer there.
+        /// </remarks>
+        private void OnScreenClosed()
+        {
+            if (closeOpenScreen == null)
+            {
+                return;
+            }
+
+            closeOpenScreen = null;
+            view.SetVisible(true);
         }
 
         /// <remarks>
@@ -146,6 +232,7 @@ namespace Game.Client.Lobby
         /// </remarks>
         private void OnLeaveClicked()
         {
+            closeOpenScreen = null;
             view.SetVisible(false);
             ReleaseMovement();
             SetCursorCaptured(false);
