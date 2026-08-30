@@ -8,7 +8,8 @@
         "Game.Server",
         "Game.SOAP",
         "UniTask",
-        "VContainer"
+        "VContainer",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

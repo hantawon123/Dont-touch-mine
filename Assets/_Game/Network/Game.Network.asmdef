@@ -7,7 +7,10 @@
         "Fusion.Unity",
         "Fusion.Addons.KCC",
         "Photon.Realtime",
-        "UniTask"
+        "UniTask",
+        "PhotonVoice",
+        "PhotonVoice.Fusion",
+        "R3.Unity"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
