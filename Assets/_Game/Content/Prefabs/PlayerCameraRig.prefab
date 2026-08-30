@@ -169,7 +169,7 @@ MonoBehaviour:
   headOffset: {x: 0, y: 1.6, z: 0}
   lookSensitivity: 0.12
   minPitch: -60
-  maxPitch: 75
+  maxPitch: 85
 --- !u!1 &9001102983196606390
 GameObject:
   m_ObjectHideFlags: 0

@@ -32,8 +32,19 @@ namespace Game.Client.Cameras
         [SerializeField, Range(-89f, 0f)]
         private float minPitch = -60f;
 
+        /// <summary>
+        /// How far down the view can be pushed, in degrees below level.
+        /// </summary>
+        /// <remarks>
+        /// The first person camera sits at eye height, so this angle decides
+        /// how close to the player's own feet the view can reach: the ground is
+        /// met <c>eyeHeight / tan(maxPitch)</c> ahead, which standing is 0.14 m
+        /// at 85 degrees and was 0.43 m at the 75 this replaces. Short of a
+        /// pace, so nothing on the floor stays out of reach while standing
+        /// still.
+        /// </remarks>
         [SerializeField, Range(0f, 89f)]
-        private float maxPitch = 75f;
+        private float maxPitch = 85f;
 
         [SerializeField, Min(0.1f)]
         private float eyeHeightLerpSpeed = 8f;
