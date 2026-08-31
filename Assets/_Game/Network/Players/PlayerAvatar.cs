@@ -68,8 +68,18 @@ namespace Game.Network.Players
         /// <summary>True on the peer whose player this character belongs to.</summary>
         public bool IsOwner => Object.HasInputAuthority;
 
+        private bool _publishedIsHost;
+
+        public override void Render()
+        {
+            if (_publishedIsHost == IsHost) return;
+            _publishedIsHost = IsHost;
+            RosterOf(Runner)?.Refresh(Runner);
+        }
+
         public override void Spawned()
         {
+            _publishedIsHost = IsHost;
             SetOwnerOnlyEnabled(IsOwner);
 
             // The movement component is kept only as the shared input/config

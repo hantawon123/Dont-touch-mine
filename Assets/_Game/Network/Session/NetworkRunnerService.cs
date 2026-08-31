@@ -48,6 +48,8 @@ namespace Game.Network.Session
         private const string MatchmakingRegion = "kr";
         private const int ItemAssignmentKeyType = 0x4954454D;
         private const int ItemAssignmentKeyVersion = 1;
+        private const int ItemAssignmentRequestKeyType = 0x49545251;
+        private readonly Dictionary<string, string> _publishedItemAssignments = new(StringComparer.Ordinal);
         private const int MaxItemAssignmentBytes = 128;
         private const int HighlightReplayKeyType = 0x484C5452;
         private const int HighlightReplayKeyVersion = 3;
@@ -114,6 +116,8 @@ namespace Game.Network.Session
         /// to reference Fusion either.
         /// </remarks>
         public event Action SceneLoaded;
+        // Raised at end-of-frame, before the old runner destroys its avatars.
+        public event Action HostMigrationStarting;
 
         private readonly List<RoomSummary> _roomBuffer = new List<RoomSummary>();
 
@@ -155,10 +159,30 @@ namespace Game.Network.Session
         /// Guards against reporting the same departure twice. Fusion can raise
         /// both a disconnect and a shutdown for one exit.
         /// </summary>
-        private bool _exitReported;
+        private bool _exitReported = true;
+        private bool _isClientSession;
+        private bool _hostLossShutdownPending;
+        private NetworkRunner _departingRunner;
+        // Do not load a local scene while Fusion is still unloading its network scene.
+        public bool IsRoomExitPending => _departingRunner != null;
         private int _itemAssignmentTransferSequence;
         private int _highlightTransferSequence;
         private bool _hostMigrationInProgress;
+        private bool _matchRuntimeRestorePending;
+        private Exception _matchRuntimeRestoreFailure;
+        public bool IsMatchRuntimeRestorePending => _hostMigrationInProgress && _matchRuntimeRestorePending;
+
+        public void ReportMatchRuntimeRestored(Exception failure)
+        {
+            if (!IsMatchRuntimeRestorePending) return;
+            _matchRuntimeRestoreFailure = failure;
+            _matchRuntimeRestorePending = false;
+        }
+        private bool _roomInitializationInProgress;
+        private int _hostMigrationRevision;
+        public MatchMigrationState MatchMigration { get; private set; }
+        // Stable across replacement runners; identity only, not authentication.
+        private readonly long _playerUniqueId = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0) | 1L;
         private int _configuredMaxPlayers;
         private int _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
 
@@ -278,6 +302,10 @@ namespace Game.Network.Session
         /// and a dedicated server, so gameplay never asks which one it is.
         /// </summary>
         public bool IsServer => _runner != null && _runner.IsServer;
+        public bool IsRuntimeReady => IsRunning && !_exitReported && !_hostMigrationInProgress;
+        public bool IsHostMigrationInProgress => _hostMigrationInProgress;
+        // Includes connecting/loading, but excludes a standalone scene and room browsing.
+        public bool HasRoomSession => _hostMigrationInProgress || (_runner != null && !_browsingLobby);
 
         public IReadOnlyList<PlayerAvatar> PlayerAvatars =>
             _roster?.Avatars ?? Array.Empty<PlayerAvatar>();
@@ -383,7 +411,8 @@ namespace Game.Network.Session
         /// </summary>
         public async UniTask<SessionStartResult> JoinLobbyAsync(CancellationToken cancellation)
         {
-            if (IsRunning)
+            await UniTask.WaitUntil(() => !IsRoomExitPending, cancellationToken: cancellation);
+            if (IsRunning || _roomInitializationInProgress)
             {
                 return SessionStartResult.Failed(
                     SessionFailure.AlreadyRunning, "A session is already running.");
@@ -440,6 +469,10 @@ namespace Game.Network.Session
         public async UniTask<SessionStartResult> StartAsync(
             SessionRequest request, CancellationToken cancellation)
         {
+            await UniTask.WaitUntil(() => !IsRoomExitPending, cancellationToken: cancellation);
+            if (_roomInitializationInProgress)
+                return SessionStartResult.Failed(SessionFailure.AlreadyRunning,
+                    "Room initialization or its cleanup is still in progress.");
             if (_browsingLobby)
             {
                 // The lobby runner cannot also play a session, so it is replaced.
@@ -477,7 +510,9 @@ namespace Game.Network.Session
 
             var args = new StartGameArgs
             {
+                Config = ConfigureSession(NetworkProjectConfig.Global),
                 GameMode = request.Mode,
+                PlayerUniqueId = _playerUniqueId,
                 SessionName = request.RoomCode,
                 SessionProperties = SessionPropertyMapper.BuildForStart(
                     request,
@@ -542,24 +577,74 @@ namespace Game.Network.Session
                 return SessionStartResult.Failed(failure, result.ErrorMessage);
             }
 
-            _exitReported = false;
-            ReadConfiguredSettings();
+            if (!IsCurrentRunner(runner) || !runner.IsRunning)
+                throw new OperationCanceledException("The session start was superseded or stopped.");
 
-            Debug.Log(
-                $"[Network] Session '{RoomCode}' started as {request.Mode}. IsServer={IsServer}");
+            _roomInitializationInProgress = true;
+            try
+            {
+                var initialized = await CompleteRoomInitializationAsync(() =>
+                {
+                    _isClientSession = runner.IsClient && !runner.IsServer;
+                    _exitReported = false;
+                    ReadConfiguredSettings();
+                    // Publish again after Fusion finalizes the local player identity.
+                    _spawner?.RefreshHost(runner);
+                    _roster?.Refresh(runner);
+                    _spawner?.SpawnRoomObjects(runner);
+                    ReportPlayerCount();
+                }, () => CleanupFailedRoomInitializationAsync(runner));
 
-            // OnPlayerJoined can run while Fusion is still finalising the
-            // local player's identity. Publish once more after StartGame has
-            // completed so a one-player room shows its host immediately rather
-            // than waiting for another player's join to trigger a refresh.
-            _roster?.Refresh(_runner);
+                if (initialized.Ok)
+                    Debug.Log($"[Network] Session '{RoomCode}' started as {request.Mode}. IsServer={IsServer}");
+                else
+                    Debug.LogError($"[Network] Room initialization failed: {initialized.Detail}");
+                return initialized;
+            }
+            finally
+            {
+                _roomInitializationInProgress = false;
+            }
+        }
 
-            // The room needs somewhere to record that a match started before
-            // anyone can ask for one, and only the authority may create it.
-            _spawner?.SpawnRoomObjects(_runner);
+        internal static NetworkProjectConfig ConfigureSession(NetworkProjectConfig config)
+        {
+            // Runtime-only policy; the serialized project settings remain available for restoration.
+            // config.HostMigration.EnableAutoUpdate = true;
+            config.HostMigration.EnableAutoUpdate = false;
+            return config;
+        }
 
-            ReportPlayerCount();
-            return SessionStartResult.Success();
+        internal static async UniTask<SessionStartResult> CompleteRoomInitializationAsync(
+            Action initialize, Func<UniTask> cleanup)
+        {
+            try
+            {
+                initialize();
+                return SessionStartResult.Success();
+            }
+            catch (Exception failure)
+            {
+                // Do not report failure (and enable retry) until cleanup completes.
+                await cleanup();
+                if (failure is OperationCanceledException) throw;
+                return SessionStartResult.Failed(SessionFailure.Unknown, failure.Message);
+            }
+        }
+
+        private async UniTask CleanupFailedRoomInitializationAsync(NetworkRunner runner)
+        {
+            if (!IsCurrentRunner(runner)) return;
+            _hostMigrationRevision++;
+            _hostMigrationInProgress = false;
+            _exitReported = true; // A room that failed to open is not a voluntary departure.
+            ReleaseRunner();
+            // This path follows a successful StartGame, unlike Fusion-owned start failures.
+            // Dropping ownership first prevents callbacks or Shutdown() from stopping it twice.
+            if (runner != null && runner.IsRunning)
+                await runner.Shutdown();
+            else
+                ReleaseAfterFusionShutdown(runner);
         }
 
         public bool TryApplyLobbySettings(
@@ -609,7 +694,7 @@ namespace Game.Network.Session
         }
 
         public bool RequestReturnToLobby() =>
-            IsRunning && !_browsingLobby &&
+            IsRuntimeReady && !_browsingLobby &&
             _matchStarter != null &&
             _matchStarter.RequestReturnToLobby();
 
@@ -622,7 +707,7 @@ namespace Game.Network.Session
             }
 
             _spawner?.UseSpawnPoses(poses);
-            _spawner?.RepositionSeated(_runner);
+            if (!_hostMigrationInProgress) _spawner?.RepositionSeated(_runner);
         }
 
         public bool TryPublishMatchState(MatchStateSnapshot snapshot)
@@ -634,7 +719,7 @@ namespace Game.Network.Session
         public bool TryPublishItemAssignments(
             IReadOnlyList<PlayerItemAssignment> assignments)
         {
-            if (!IsServer || _roster == null || assignments == null)
+            if (!IsServer || _roster == null || _matchStarter == null || assignments == null)
             {
                 return false;
             }
@@ -651,12 +736,10 @@ namespace Game.Network.Session
                 var assignment = assignments[index];
                 var playerIndex = assignment.PlayerIndex;
                 var itemId = assignment.Item.ItemId?.Trim();
-                if (playerIndex < 0 ||
-                    playerIndex >= participants.Count ||
-                    string.IsNullOrEmpty(itemId) ||
-                    !_roster.TryGetPlayer(
-                        participants[playerIndex].PlayerId,
-                        out var target))
+                if (string.IsNullOrEmpty(itemId) ||
+                    !TryResolveAssignmentRecipient(_matchStarter.PlayingParticipants,
+                        participants, playerIndex, out var playerId) ||
+                    !_roster.TryGetPlayer(playerId, out var target))
                 {
                     return false;
                 }
@@ -667,21 +750,71 @@ namespace Game.Network.Session
                     return false;
                 }
 
-                if (target == _runner.LocalPlayer)
-                {
-                    ItemAssignmentReceived?.Invoke(itemId);
-                    continue;
-                }
-
-                var key = ReliableKey.FromInts(
-                    ItemAssignmentKeyType,
-                    ItemAssignmentKeyVersion,
-                    ++_itemAssignmentTransferSequence,
-                    0);
-                _runner.SendReliableDataToPlayer(target, key, payload);
+                // Accept for delivery even if a restored avatar's connection is not back yet.
+                // Its scene requests this published assignment again when ready.
+                _publishedItemAssignments[playerId] = itemId;
+                SendItemAssignment(target, itemId);
             }
 
             return true;
+        }
+
+        public bool RequestItemAssignment()
+        {
+            if (!IsRuntimeReady || _browsingLobby || !_runner.LocalPlayer.IsRealPlayer) return false;
+            if (IsServer) return ResendItemAssignment(_runner.LocalPlayer);
+            _runner.SendReliableDataToServer(ReliableKey.FromInts(
+                ItemAssignmentRequestKeyType, ItemAssignmentKeyVersion, ++_itemAssignmentTransferSequence, 0),
+                new byte[] { 1 });
+            return true;
+        }
+
+        private bool ResendItemAssignment(PlayerRef requester)
+        {
+            if (!IsRuntimeReady || !IsServer || _matchStarter == null || !requester.IsRealPlayer ||
+                !TryGetPublishedAssignment(_publishedItemAssignments, _matchStarter.PlayingParticipants,
+                    PlayerRegistry.IdOf(requester), out var itemId)) return false;
+            SendItemAssignment(requester, itemId);
+            return true;
+        }
+
+        internal static bool TryGetPublishedAssignment(IReadOnlyDictionary<string, string> published,
+            IReadOnlyList<MatchParticipant> playing, string requesterId, out string itemId)
+        {
+            itemId = null;
+            foreach (var participant in playing)
+                if (participant.PlayerId == requesterId)
+                    return published.TryGetValue(requesterId, out itemId);
+            return false;
+        }
+
+        private void SendItemAssignment(PlayerRef target, string itemId)
+        {
+            if (target == _runner.LocalPlayer)
+                ItemAssignmentReceived?.Invoke(itemId);
+            else
+                _runner.SendReliableDataToPlayer(target, ReliableKey.FromInts(
+                    ItemAssignmentKeyType, ItemAssignmentKeyVersion, ++_itemAssignmentTransferSequence, 0),
+                    Encoding.UTF8.GetBytes(itemId));
+        }
+
+        internal static bool TryResolveAssignmentRecipient(
+            IReadOnlyList<MatchParticipant> playing,
+            IReadOnlyList<RoomParticipant> present,
+            int playerIndex,
+            out string playerId)
+        {
+            // Match indices stay frozen; the current room list shrinks on departure.
+            playerId = null;
+            if (playerIndex < 0 || playerIndex >= playing.Count) return false;
+            var assignedPlayerId = playing[playerIndex].PlayerId;
+            foreach (var participant in present)
+            {
+                if (participant.PlayerId != assignedPlayerId) continue;
+                playerId = assignedPlayerId;
+                return true;
+            }
+            return false;
         }
 
         public bool TryInitializeAssignedItems(
@@ -752,6 +885,7 @@ namespace Game.Network.Session
             }
 
             _matchStarter.BindSession(session, shredderEjectionPose);
+            MatchMigration = null;
             return true;
         }
 
@@ -796,6 +930,8 @@ namespace Game.Network.Session
         /// </summary>
         public void Shutdown()
         {
+            _hostMigrationRevision++;
+            _hostMigrationInProgress = false;
             var runner = _runner;
 
             // A voluntary room exit must be reported before references are
@@ -803,6 +939,19 @@ namespace Game.Network.Session
             // do not represent a room departure.
             if (runner != null && runner.IsRunning && !_browsingLobby)
             {
+                if (runner.IsServer && runner.SessionInfo.IsValid)
+                {
+                    try
+                    {
+                        runner.SessionInfo.IsOpen = false;
+                        runner.SessionInfo.IsVisible = false;
+                    }
+                    catch (Exception exception)
+                    {
+                        // Losing the cloud connection must not prevent local cleanup.
+                        Debug.LogWarning($"[Network] Could not hide the closing room: {exception.Message}");
+                    }
+                }
                 ReportExit(RoomExitReason.Left);
             }
 
@@ -898,6 +1047,8 @@ namespace Game.Network.Session
         /// </param>
         private INetworkSceneManager CreateRunner(bool provideInput)
         {
+            _hostLossShutdownPending = false;
+            _isClientSession = false;
             // Photon room lists are region-local. Leaving this empty lets each
             // PC choose a different "best" region, so teammates can create a
             // valid room that the others can never list.
@@ -1020,7 +1171,8 @@ namespace Game.Network.Session
 
         public bool EnterResultScene()
         {
-            if (!IsServer || _runner == null || !_runner.IsRunning) return false;
+            if (!IsServer || !IsRuntimeReady) return false;
+            if (IsResultSceneLoaded) return true;
             if (_scenes == null)
             {
                 Debug.LogError("[Session] NetworkScenes must be assigned to load results.");
@@ -1079,6 +1231,10 @@ namespace Game.Network.Session
         /// </summary>
         private void ReleaseRunner(bool preserveMigrationState = false)
         {
+            _publishedItemAssignments.Clear();
+            _matchRuntimeRestorePending = false;
+            _matchRuntimeRestoreFailure = null;
+            MatchMigration = null;
             IsResultSceneLoaded = false;
             _highlightPendingPlayers.Clear();
             _receivedHighlightSequence = 0;
@@ -1195,11 +1351,18 @@ namespace Game.Network.Session
 
         private void OnLineUpReceived(IReadOnlyList<MatchParticipant> participants)
         {
+            if (participants == null || participants.Count == 0)
+            {
+                MatchMigration = null;
+                _publishedItemAssignments.Clear();
+            }
             LineUpReceived?.Invoke(participants);
         }
 
         private void OnSimulationTick()
         {
+            // During migration only the requested runtime restoration may consume this tick.
+            if (!IsRuntimeReady && !IsMatchRuntimeRestorePending) return;
             SimulationTick?.Invoke();
         }
 
@@ -1230,7 +1393,7 @@ namespace Game.Network.Session
         /// </summary>
         private void ReportPlayerCount()
         {
-            if (_runner == null || _browsingLobby)
+            if (_runner == null || _browsingLobby || _exitReported)
             {
                 return;
             }
@@ -1263,9 +1426,13 @@ namespace Game.Network.Session
             }
 
             _exitReported = true;
+            _departingRunner = _runner;
             Debug.Log($"[Network] Left the room: {reason}");
             _sessionSink?.RoomClosed(reason);
         }
+
+        internal static RoomExitReason ResolveUnexpectedExit(bool clientSession, RoomExitReason reason) =>
+            clientSession ? RoomExitReason.HostClosed : reason;
 
         private static RoomExitReason Translate(ShutdownReason reason)
         {

@@ -148,6 +148,27 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Migration_RestoresRemainingSeatsBeforeRepeatedJoins()
+        {
+            var registry = new PlayerRegistry();
+            var oldHost = Player(0);
+            var newHost = Player(1);
+            var guest = Player(2);
+            registry.Add(oldHost);
+            registry.Add(newHost);
+            registry.Add(guest);
+            registry.Clear();
+
+            Assert.That(registry.Restore(newHost, 1), Is.True);
+            Assert.That(registry.Restore(guest, 2), Is.True);
+            Assert.That(registry.Add(newHost), Is.EqualTo(1));
+            Assert.That(registry.Add(guest), Is.EqualTo(2));
+            Assert.That(registry.TryGetSeat(oldHost, out _), Is.False);
+            Assert.That(registry.Count, Is.EqualTo(2));
+            Assert.That(registry.Add(Player(3)), Is.EqualTo(0));
+        }
+
+        [Test]
         public void UnknownSeatOrPlayer_IsReportedNotGuessed()
         {
             var registry = new PlayerRegistry();

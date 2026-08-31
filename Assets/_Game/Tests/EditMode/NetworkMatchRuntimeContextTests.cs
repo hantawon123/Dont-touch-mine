@@ -93,6 +93,7 @@ namespace Game.Architecture.Tests
 
         private sealed class FakeNetworkSource : INetworkMatchRuntimeSource
         {
+            public bool IsRuntimeReady => true;
             private readonly IDictionary<string, Pose> poses;
 
             public FakeNetworkSource(

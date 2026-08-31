@@ -79,18 +79,18 @@ namespace Game.Network.Players
 
             if (prefab == null)
             {
-                Debug.LogError(
+                throw new InvalidOperationException(
                     "[Spawn] No match session prefab is assigned, so no match can " +
                     "be started. Set it on the NetworkPrefabs asset.");
-                return;
             }
 
+            // Fail before Spawn assigns a runner to a partially allocated object.
+            ValidateRoomObjectStateSize(NetworkObject.GetWordCount(prefab), (int)runner.Config.Heap.PageShift);
             var session = runner.Spawn(prefab);
 
             if (session == null)
             {
-                Debug.LogError("[Spawn] Could not spawn the match session object.");
-                return;
+                throw new InvalidOperationException("[Spawn] Could not spawn the match session object.");
             }
 
             // Belongs to the room, not to a scene. Fusion in single-peer mode
@@ -100,9 +100,25 @@ namespace Game.Network.Players
             runner.MakeDontDestroyOnLoad(session.gameObject);
         }
 
+        internal static void ValidateRoomObjectStateSize(int wordCount, int pageShift)
+        {
+            if (pageShift < 10 || pageShift > 18)
+                throw new ArgumentOutOfRangeException(nameof(pageShift));
+            var bytes = (long)wordCount * sizeof(int);
+            var pageBytes = 1L << pageShift;
+            if (wordCount < NetworkObjectHeader.WORDS || bytes > pageBytes)
+                throw new InvalidOperationException(
+                    $"[Spawn] MatchSession state needs {bytes} bytes; Fusion heap page is {pageBytes} bytes.");
+        }
+
         public void Spawn(NetworkRunner runner, PlayerRef player, string nickname = null)
         {
             if (runner == null || !runner.IsServer)
+            {
+                return;
+            }
+
+            if (runner.GetPlayerObject(player) != null)
             {
                 return;
             }
@@ -209,6 +225,19 @@ namespace Game.Network.Players
             runner.SetPlayerObject(player, restoredObject);
             runner.MakeDontDestroyOnLoad(restoredObject.gameObject);
             return true;
+        }
+
+        public void RefreshHost(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsServer) return;
+            for (var seat = 0; seat < RoomSettings.MaxPlayerCount; seat++)
+            {
+                if (!_players.TryGetPlayer(seat, out var player)) continue;
+                var playerObject = runner.GetPlayerObject(player);
+                if (playerObject != null && playerObject.TryGetBehaviour<PlayerAvatar>(out var avatar))
+                    avatar.IsHost = player == runner.LocalPlayer;
+            }
+            Debug.Log($"[Spawn] Room authority is now {runner.LocalPlayer}.");
         }
 
         /// <summary>

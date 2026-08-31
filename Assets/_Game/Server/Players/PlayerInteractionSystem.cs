@@ -51,6 +51,22 @@ namespace Game.Server.Players
 
         public int PlayerCount => hitCounts.Length;
 
+        public double GetStunEndsAt(int playerIndex) => stunnedUntil[playerIndex];
+        public double GetInvulnerableEndsAt(int playerIndex) => invulnerableUntil[playerIndex];
+
+        internal void Restore(int playerIndex, int hits, int uses, double stunEnd, double invulnerableEnd)
+        {
+            ValidatePlayerIndex(playerIndex);
+            ValidateTime(stunEnd);
+            ValidateTime(invulnerableEnd);
+            if (hits < 0 || hits >= rules.HitsRequiredToStun || uses < 0 || invulnerableEnd < stunEnd)
+                throw new ArgumentOutOfRangeException(nameof(hits));
+            hitCounts[playerIndex] = hits;
+            remainingDestructionUses[playerIndex] = uses;
+            stunnedUntil[playerIndex] = stunEnd;
+            invulnerableUntil[playerIndex] = invulnerableEnd;
+        }
+
         public int GetHitCount(int playerIndex)
         {
             ValidatePlayerIndex(playerIndex);

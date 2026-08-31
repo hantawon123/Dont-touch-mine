@@ -31,9 +31,14 @@ namespace Game.Architecture.Tests
                 using var presenter = new NetworkMatchHudPresenter(network, network, room, rules, view, playback);
                 playback.Start();
                 presenter.Start();
+                // State callbacks can arrive while the replacement runner is starting.
+                network.IsRuntimeReady = false;
                 if (phaseFirst) network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 0d));
                 network.Publish(new MatchResult(MatchEndReason.TimeExpired, 100d, new[] { 0 }));
                 if (!phaseFirst) network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 0d));
+                Assert.DoesNotThrow(() => presenter.Tick());
+                Assert.DoesNotThrow(() => playback.Tick());
+                network.IsRuntimeReady = true;
                 for (var second = 0; second < 3; second++)
                 {
                     network.ServerTime = 100d + second;
@@ -166,6 +171,12 @@ namespace Game.Architecture.Tests
             Assert.That(view.Phase, Is.EqualTo(MatchPhase.Hiding));
             Assert.That(view.HidingPlayerName, Is.EqualTo("방장"));
 
+            network.IsRuntimeReady = false;
+            network.ServerTime = 75d;
+            Assert.DoesNotThrow(() => presenter.Tick());
+            Assert.That(view.HidingPlayerName, Is.EqualTo("방장"));
+            network.IsRuntimeReady = true;
+
             network.ServerTime = 75d;
             presenter.Tick();
             Assert.That(view.HidingPlayerName, Is.EqualTo("민수"));
@@ -216,7 +227,13 @@ namespace Game.Architecture.Tests
 
         private sealed class FakeNetwork : INetworkMatchEvents, INetworkMatchRuntimeSource
         {
-            public double ServerTime { get; set; }
+            public bool IsRuntimeReady { get; set; } = true;
+            private double serverTime;
+            public double ServerTime
+            {
+                get => IsRuntimeReady ? serverTime : throw new InvalidOperationException("Runner is unavailable.");
+                set => serverTime = value;
+            }
             public event Action<MatchStateSnapshot> MatchStateReceived;
             public event Action<string> ItemAssignmentReceived;
             public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;

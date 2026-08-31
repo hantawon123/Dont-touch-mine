@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Cysharp.Threading.Tasks;
 using Fusion;
+using Fusion.Addons.KCC;
 using Fusion.Sockets;
+using Game.Core.Match;
+using Game.Core.Players;
 using Game.Core.Rooms;
 using Game.Network.Lobby;
 using Game.Network.Players;
@@ -13,6 +17,7 @@ namespace Game.Network.Session
 {
     public sealed partial class NetworkRunnerService
     {
+        internal const double HostMigrationStageTimeoutSeconds = 60d;
         // ---- INetworkRunnerCallbacks ------------------------------------------
         // Only the connection lifecycle is handled here. Gameplay callbacks are
         // filled in by later steps.
@@ -25,6 +30,8 @@ namespace Game.Network.Session
             }
 
             Debug.Log($"[Network] Player joined: {player}.");
+            // Snapshot seats must be restored before a join can allocate a new one.
+            if (_hostMigrationInProgress) return;
             _spawner?.Spawn(runner, player, NicknameOf(runner, player));
             ReportPlayerCount();
         }
@@ -75,7 +82,7 @@ namespace Game.Network.Session
                 return;
             }
 
-            ReportExit(Translate(reason));
+            ReportExit(ResolveUnexpectedExit(_isClientSession, Translate(reason)));
         }
 
         public void OnConnectFailed(
@@ -148,7 +155,10 @@ namespace Game.Network.Session
                 return;
             }
 
-            ReportExit(Translate(shutdownReason));
+            // Unexpected shutdown of the replacement runner ends this migration.
+            _hostMigrationInProgress = false;
+            _hostMigrationRevision++;
+            ReportExit(ResolveUnexpectedExit(_isClientSession, Translate(shutdownReason)));
             ReleaseRunner();
         }
 
@@ -192,6 +202,12 @@ namespace Game.Network.Session
                 return;
             }
 
+            if (_hostMigrationInProgress)
+            {
+                input.Set(default(NetworkPlayerInput));
+                return;
+            }
+
             if (_localInputMotor == null ||
                 _localInputMotor.Object == null ||
                 !_localInputMotor.Object.HasInputAuthority)
@@ -229,7 +245,30 @@ namespace Game.Network.Session
             input.Set(default(NetworkPlayerInput));
         }
 
-        public async void OnHostMigration(
+        public void OnHostMigration(
+            NetworkRunner runner,
+            HostMigrationToken hostMigrationToken)
+        {
+            // Migration is suspended: never reconnect or promote another participant.
+            // MigrateHostAsync(runner, hostMigrationToken).Forget();
+            if (!IsCurrentRunner(runner) || runner == null || _browsingLobby || _hostLossShutdownPending) return;
+            // A disconnect callback can have already reported the reason, but a
+            // migration callback still requires us to stop this runner explicitly.
+            _hostLossShutdownPending = true;
+            ReportExit(RoomExitReason.HostClosed);
+            CloseAfterHostLostAsync(runner).Forget(exception => Debug.LogException(exception));
+        }
+
+        private async UniTask CloseAfterHostLostAsync(NetworkRunner runner)
+        {
+            // Leave Fusion's callback/simulation stack before disposing physics and voice.
+            await UniTask.NextFrame(PlayerLoopTiming.Update);
+            if (!IsCurrentRunner(runner) || runner == null || runner.IsShutdown) return;
+            await runner.Shutdown();
+        }
+
+        /* Host migration suspended. Preserve the previous implementation for later restoration.
+        private async UniTask MigrateHostAsync(
             NetworkRunner runner,
             HostMigrationToken hostMigrationToken)
         {
@@ -240,40 +279,167 @@ namespace Game.Network.Session
             }
 
             _hostMigrationInProgress = true;
+            var migrationStartedAt = Time.realtimeSinceStartupAsDouble;
+            var migrationRevision = ++_hostMigrationRevision;
+            var migrationScene = runner.SceneInfo;
+            var lobbyPoses = new Dictionary<PlayerRef, (Pose Pose, PlayerPosture Posture)>();
+            if (_scenes != null && IsOnlyScene(migrationScene, _scenes.LobbyScene))
+            {
+                foreach (var avatar in PlayerAvatars)
+                {
+                    if (avatar == null || avatar.Object == null || !avatar.Object.IsValid) continue;
+                    var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                    if (motor != null)
+                        lobbyPoses[avatar.Owner] = (new Pose(avatar.transform.position, avatar.transform.rotation), motor.Posture);
+                }
+            }
+            NetworkRunner replacementRunner = null;
             Debug.Log("[Network] Host migration started.");
 
             try
             {
+                if (!Application.isBatchMode && HostMigrationStarting != null)
+                {
+                    await UniTask.WaitForEndOfFrame();
+                    if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(runner)) return;
+                    HostMigrationStarting.Invoke();
+                }
+                // EndOfFrame resumes inside camera rendering in the Editor.
+                // Do not tear down Fusion, physics and voice on that render stack.
+                await UniTask.NextFrame(PlayerLoopTiming.Update);
+                if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(runner)) return;
+                var shutdownStartedAt = Time.realtimeSinceStartupAsDouble;
                 await runner.Shutdown(shutdownReason: ShutdownReason.HostMigration);
+                if (migrationRevision != _hostMigrationRevision) return;
+                Debug.Log($"[Network] Host migration: old runner stopped in {Time.realtimeSinceStartupAsDouble - shutdownStartedAt:F3}s; creating replacement.");
+                _spawner?.Clear();
 
+                // Let destruction finish and present the held frame before building
+                // another runner and voice rig on the same frame as teardown.
+                await UniTask.NextFrame(PlayerLoopTiming.Update);
+                if (migrationRevision != _hostMigrationRevision) return;
+                var connectionStartedAt = Time.realtimeSinceStartupAsDouble;
                 var sceneManager = CreateRunner(
                     hostMigrationToken.GameMode != GameMode.Server);
-                var result = await _runner.StartGame(new StartGameArgs
+                replacementRunner = _runner;
+                Exception restoreFailure = null;
+                var result = await replacementRunner.StartGame(new StartGameArgs
                 {
                     GameMode = hostMigrationToken.GameMode,
+                    PlayerUniqueId = _playerUniqueId,
                     HostMigrationToken = hostMigrationToken,
-                    HostMigrationResume = ResumeHostMigration,
+                    HostMigrationResume = resumedRunner =>
+                    {
+                        if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(resumedRunner)) return;
+                        // Fusion invokes this from a coroutine, outside this async try/catch.
+                        restoreFailure = TryRestoreHostMigrationSnapshot(() => ResumeHostMigration(resumedRunner));
+                    },
                     ConnectionToken = SessionConnectionTokenCodec.Encode(
                         _expectedPassword,
                         _profile?.Nickname),
                     SceneManager = sceneManager,
-                    Scene = CaptureCurrentScene(),
+                    Scene = migrationScene,
                 });
+                if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner)) return;
+                Debug.Log($"[Network] Host migration: replacement StartGame took {Time.realtimeSinceStartupAsDouble - connectionStartedAt:F3}s.");
 
                 if (!result.Ok)
                 {
-                    throw new InvalidOperationException(
+                    Debug.LogError(
                         $"Fusion could not resume the room: " +
                         $"{result.ShutdownReason} {result.ErrorMessage}");
+                    _hostMigrationInProgress = false;
+                    ReportExit(RoomExitReason.HostClosed);
+                    // StartGame failure already owns Fusion teardown; do not shut it down again.
+                    ReleaseAfterFusionShutdown(replacementRunner);
+                    return;
                 }
 
+                // StartGame can succeed before Fusion invokes HostMigrationResume.
+                // IsResume clears only after the callback and Fusion's remaining initialization.
+                if (!await WaitForHostMigrationAsync(replacementRunner, migrationRevision, () =>
+                    restoreFailure != null ||
+                    CanCompleteHostMigration(replacementRunner.IsRunning, replacementRunner.IsResume,
+                        replacementRunner.IsSceneManagerBusy), "Fusion initialization")) return;
+                if (restoreFailure != null)
+                    throw new InvalidOperationException(
+                        $"Could not restore the host migration snapshot: {restoreFailure.Message}", restoreFailure);
+
+                ReadConfiguredSettings();
+                if (replacementRunner.IsServer)
+                {
+                    if (_matchStarter == null || _scenes == null)
+                        throw new InvalidOperationException("Host migration requires room state and scene configuration.");
+                    MatchMigration = _matchStarter.CaptureMigrationState();
+                    var phase = ResolveHostMigrationPhase(MatchMigration?.Phase.Phase ?? MatchPhase.Waiting,
+                        MatchMigration?.Result.HasValue ?? false);
+                    var scene = phase switch
+                    {
+                        MatchPhase.Waiting => _scenes.LobbyScene,
+                        MatchPhase.Result => _scenes.ResultScene,
+                        _ => _scenes.MatchScene,
+                    };
+                    if (!scene.IsValid)
+                        throw new InvalidOperationException($"No scene is configured for migrated phase {phase}.");
+                    if (phase == MatchPhase.Result && !TryPublishMatchState(new MatchStateSnapshot(phase, 0d)))
+                        throw new InvalidOperationException("Could not restore the completed match phase.");
+                    // The departing peer's scene can be newer than the saved checkpoint.
+                    // Room objects survive this correction; only the scene-owned runtime is rebuilt.
+                    if (!IsOnlyScene(replacementRunner.SceneInfo, scene))
+                    {
+                        var load = replacementRunner.LoadScene(scene, LoadSceneMode.Single);
+                        if (!await WaitForHostMigrationAsync(replacementRunner, migrationRevision,
+                                () => load.IsDone, "checkpoint scene load")) return;
+                        if (load.Error != null) throw load.Error;
+                    }
+                    // Scene entry points must subscribe before replaying the retained room state.
+                    await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
+                    if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner)) return;
+                    _matchStarter.PublishSceneState();
+                    foreach (var player in replacementRunner.ActivePlayers)
+                        _spawner?.Spawn(replacementRunner, player, NicknameOf(replacementRunner, player));
+                    if (phase == MatchPhase.Hiding || phase == MatchPhase.Searching)
+                    {
+                        _matchRuntimeRestoreFailure = null;
+                        _matchRuntimeRestorePending = true;
+                        // The scene coordinator restores rules on a simulation tick. Keep gameplay paused
+                        // and observe its result from Update, so failure cleanup never tears down a tick.
+                        if (!await WaitForHostMigrationAsync(replacementRunner, migrationRevision,
+                                () => !_matchRuntimeRestorePending, "match runtime restore")) return;
+                        if (_matchRuntimeRestoreFailure != null)
+                            throw new InvalidOperationException(
+                                $"Could not restore match rules: {_matchRuntimeRestoreFailure.Message}",
+                                _matchRuntimeRestoreFailure);
+                    }
+                    // Lobby movement has no match-rule checkpoint to roll back. Keep the new
+                    // host's last observed positions instead of seating everyone at the entrance.
+                    if (phase == MatchPhase.Waiting)
+                    {
+                        foreach (var avatar in PlayerAvatars)
+                        {
+                            if (avatar == null || !lobbyPoses.TryGetValue(avatar.Owner, out var saved)) continue;
+                            var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                            if (motor == null || !motor.TryRestoreScenePose(saved.Pose, saved.Posture))
+                                throw new InvalidOperationException("Could not restore the lobby character pose.");
+                        }
+                    }
+                    _spawner?.RefreshHost(replacementRunner);
+                    if (!replacementRunner.SessionInfo.UpdateCustomProperties(
+                        new Dictionary<string, SessionProperty>
+                        {
+                            [SessionPropertyKeys.HostNickname] = SanitiseNickname(_profile?.Nickname),
+                        }))
+                        Debug.LogWarning("[Network] Could not update the migrated room's host name.");
+                }
+                _roster?.Refresh(replacementRunner);
                 _hostMigrationInProgress = false;
                 _exitReported = false;
                 ReportPlayerCount();
+                Debug.Log($"[Network] Host migration runtime ready after {Time.realtimeSinceStartupAsDouble - migrationStartedAt:F3}s. IsServer={IsServer}.");
 
                 try
                 {
-                    if (!await _runner.PushHostMigrationSnapshot())
+                    if (replacementRunner.IsServer && !await replacementRunner.PushHostMigrationSnapshot())
                     {
                         Debug.LogWarning(
                             "[Network] The migrated room resumed, but its first " +
@@ -290,11 +456,13 @@ namespace Game.Network.Session
                         $"snapshot: {exception.Message}");
                 }
 
+                if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner)) return;
                 Debug.Log(
                     $"[Network] Host migration completed. IsServer={IsServer}.");
             }
             catch (Exception exception)
             {
+                if (migrationRevision != _hostMigrationRevision) return;
                 Debug.LogError($"[Network] Host migration failed: {exception.Message}");
                 _hostMigrationInProgress = false;
                 ReportExit(RoomExitReason.HostClosed);
@@ -302,6 +470,66 @@ namespace Game.Network.Session
             }
         }
 
+        private async UniTask<bool> WaitForHostMigrationAsync(
+            NetworkRunner runner, int revision, Func<bool> completed, string stage)
+        {
+            var startedAt = Time.realtimeSinceStartupAsDouble;
+            await UniTask.WaitUntil(() => revision != _hostMigrationRevision || !IsCurrentRunner(runner) ||
+                IsHostMigrationStageComplete(completed(), Time.realtimeSinceStartupAsDouble - startedAt, stage));
+            var current = revision == _hostMigrationRevision && IsCurrentRunner(runner);
+            if (current)
+                Debug.Log($"[Network] Host migration: {stage} took {Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
+            return current;
+        }
+
+        */
+
+        internal static bool IsHostMigrationStageComplete(bool completed, double elapsed, string stage)
+        {
+            if (completed) return true;
+            if (elapsed >= HostMigrationStageTimeoutSeconds)
+                throw new TimeoutException($"Host migration timed out during {stage}.");
+            return false;
+        }
+
+        internal static MatchPhase ResolveHostMigrationPhase(MatchPhase savedPhase, bool hasResult)
+        {
+            switch (savedPhase)
+            {
+                case MatchPhase.Waiting when !hasResult:
+                case MatchPhase.Hiding when !hasResult:
+                case MatchPhase.Searching when !hasResult:
+                    return savedPhase;
+                case MatchPhase.Highlight when hasResult:
+                case MatchPhase.Result when hasResult:
+                    return MatchPhase.Result; // The previous host's replay is unavailable.
+                default:
+                    throw new InvalidOperationException("The host snapshot has inconsistent match phase and result.");
+            }
+        }
+
+        internal static bool IsOnlyScene(NetworkSceneInfo info, SceneRef expected) =>
+            expected.IsValid && info.SceneCount == 1 && info.Scenes[0] == expected;
+
+        internal static bool CanCompleteHostMigration(bool isRunning, bool isResuming, bool isSceneManagerBusy)
+        {
+            return isRunning && !isResuming && !isSceneManagerBusy;
+        }
+
+        internal static Exception TryRestoreHostMigrationSnapshot(Action restore)
+        {
+            try
+            {
+                restore();
+                return null;
+            }
+            catch (Exception exception)
+            {
+                return exception;
+            }
+        }
+
+        /* Host migration suspended. No snapshot objects are recreated.
         private void ResumeHostMigration(NetworkRunner resumedRunner)
         {
             var playerByObject = new Dictionary<NetworkId, PlayerRef>();
@@ -314,11 +542,18 @@ namespace Game.Network.Session
             foreach (var snapshotObject in
                      resumedRunner.GetResumeSnapshotNetworkObjects())
             {
+                // The former host has left; do not resurrect its avatar or seat.
+                if (snapshotObject.TryGetBehaviour<PlayerAvatar>(out var snapshotAvatar) &&
+                    snapshotAvatar.IsHost)
+                    continue;
+
                 var hasTransform = snapshotObject.TryGetBehaviour<NetworkTRSP>(
                     out var networkTransform);
                 var position = hasTransform
                     ? networkTransform.Data.Position
                     : Vector3.zero;
+                if (snapshotObject.TryGetBehaviour<KCC>(out var snapshotKcc))
+                    position = snapshotKcc.GetNetworkBufferPosition();
                 var rotation = hasTransform
                     ? networkTransform.Data.Rotation
                     : Quaternion.identity;
@@ -333,7 +568,12 @@ namespace Game.Network.Session
                     position,
                     rotation,
                     player,
-                    (_, spawned) => spawned.CopyStateFrom(snapshotObject));
+                    (_, spawned) =>
+                    {
+                        spawned.CopyStateFrom(snapshotObject);
+                        if (spawned.TryGetBehaviour<PlayerAvatar>(out var avatar))
+                            avatar.IsHost = player.IsRealPlayer && player == resumedRunner.LocalPlayer;
+                    });
                 if (restoredObject == null)
                 {
                     throw new InvalidOperationException(
@@ -341,6 +581,9 @@ namespace Game.Network.Session
                 }
 
                 resumedRunner.MakeDontDestroyOnLoad(restoredObject.gameObject);
+                if (restoredObject.TryGetBehaviour<NetworkPlayerMotor>(out var restoredMotor) &&
+                    !restoredMotor.TryRestoreScenePose(new Pose(position, rotation), restoredMotor.Posture))
+                    throw new InvalidOperationException("Could not resume the restored character's KCC.");
                 if (player.IsRealPlayer &&
                     !(_spawner?.Restore(resumedRunner, player, restoredObject) ?? false))
                 {
@@ -355,6 +598,8 @@ namespace Game.Network.Session
                 sceneObject.Item1.CopyStateFrom(sceneObject.Item2);
             }
         }
+
+        */
 
         public void OnSceneLoadStart(NetworkRunner runner)
         {
@@ -388,7 +633,20 @@ namespace Game.Network.Session
                 $"IsServer={runner != null && runner.IsServer}.");
 
             SceneLoaded?.Invoke();
-            _spawner?.RepositionSeated(runner);
+            PublishSceneStateWhenReadyAsync(runner).Forget(exception => Debug.LogException(exception));
+            if (!_hostMigrationInProgress &&
+                (!runner.IsResume || !(_matchStarter?.HasStartedMatch ?? false)))
+                _spawner?.RepositionSeated(runner);
+        }
+
+        private async UniTask PublishSceneStateWhenReadyAsync(NetworkRunner runner)
+        {
+            // A scene can load after MatchSessionState.Spawned without changing its revisions.
+            var sceneInfo = runner.SceneInfo;
+            await UniTask.NextFrame(PlayerLoopTiming.LastPostLateUpdate);
+            if (IsCurrentRunner(runner) && runner.IsRunning && !runner.IsSceneManagerBusy &&
+                runner.SceneInfo.Equals(sceneInfo))
+                _matchStarter?.PublishSceneState();
         }
 
         public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
@@ -411,6 +669,9 @@ namespace Game.Network.Session
             }
             if (runner.IsServer)
             {
+                if (type == ItemAssignmentRequestKeyType && version == ItemAssignmentKeyVersion &&
+                    data.Length == 1 && data[0] == 1)
+                    ResendItemAssignment(player); // The transport sender, never a client-supplied player id.
                 if (type == HighlightReadyKeyType && version == HighlightReplayKeyVersion &&
                     sequence == _highlightTransferSequence && data.Length == 1 && data[0] == 1)
                     _highlightPendingPlayers.Remove(player);

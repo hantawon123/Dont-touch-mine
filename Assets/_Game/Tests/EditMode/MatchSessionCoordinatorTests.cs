@@ -85,6 +85,125 @@ namespace Game.Tests.EditMode
             Assert.That(released[0].Pose.position, Is.EqualTo(lastKnownPositions[1]));
         }
 
+        [TestCase(1000d)]
+        [TestCase(0d)]
+        public void Migration_HidingKeepsAssignmentsTurnAndRemainingTime(double resumedAt)
+        {
+            session.Start(10d);
+            session.AdvanceTime(45d, lastKnownPositions);
+            Assert.That(session.TryInitializeAssignedItem(1), Is.True);
+            var snapshot = CaptureMigration(45d);
+            using var restored = RestoreMigration(snapshot, resumedAt);
+            Assert.That(restored.Session.CurrentPhase, Is.EqualTo(MatchPhase.Hiding));
+            Assert.That(restored.Session.GetCurrentHidingTurnIndex(resumedAt), Is.EqualTo(1));
+            Assert.That(restored.Session.GetRemainingSeconds(resumedAt), Is.EqualTo(session.GetRemainingSeconds(45d)));
+            for (var i = 0; i < session.Assignments.Count; i++)
+                Assert.That(restored.Session.Assignments[i].Item.ItemId, Is.EqualTo(session.Assignments[i].Item.ItemId));
+            Assert.That(restored.Session.TryGetHeldObjectId(1, out var held), Is.True);
+            Assert.That(held, Is.EqualTo(session.Assignments[1].Item.ItemId));
+            Assert.That(restored.Session.TryGetItemPlacement(0, out var placed), Is.True);
+            Assert.That(placed.Pose.position, Is.EqualTo(lastKnownPositions[0]));
+            Assert.That(restored.Session.Start(resumedAt), Is.False);
+        }
+
+        [Test]
+        public void Migration_SearchingKeepsCombatDestructionAndPendingEjection()
+        {
+            session.Start(10d);
+            var searchingAt = 10d + rules.HidingDurationSeconds;
+            session.AdvanceTime(searchingAt, lastKnownPositions);
+            var itemId = session.Assignments[0].Item.ItemId;
+            Assert.That(session.TryHoldObject(1, itemId, searchingAt), Is.True);
+            Assert.That(session.TryDestroyHeldPlayerItem(1, searchingAt), Is.True);
+            for (var hit = 0; hit < rules.HitsRequiredToStun; hit++)
+                session.RegisterHit(0, 2, Vector3.zero, searchingAt);
+            session.RegisterHit(0, 3, Vector3.zero, searchingAt);
+            var ejectionPose = new Pose(new Vector3(4, 5, 6), Quaternion.identity);
+            Assert.That(session.TryHoldObject(1, "shelf", searchingAt), Is.True);
+            Assert.That(session.TryUseShredderOnHeldMapObject(1, ejectionPose, searchingAt), Is.True);
+            var snapshot = CaptureMigration(searchingAt + 0.1d);
+            using var restored = RestoreMigration(snapshot, 1000d);
+            Assert.That(restored.Session.DestroyedPlayerItemCount, Is.EqualTo(1));
+            Assert.That(restored.Session.TryHoldObject(1, itemId, 1000d), Is.False);
+            Assert.That(restored.Session.IsPlayerStunned(2, 1000d), Is.True);
+            Assert.That(restored.Session.IsPlayerStunned(2, 1000d + rules.StunDurationSeconds), Is.False);
+            Assert.That(restored.Session.GetHitCount(3), Is.EqualTo(1));
+            Assert.That(restored.Session.GetRemainingDestructionUses(1), Is.EqualTo(rules.DestructionUsesPerPlayer - 2));
+            var ejected = new List<MapObjectEjectedEvent>();
+            restored.Session.MapObjectEjected += ejected.Add;
+            restored.Session.AdvanceTime(1000.3d, lastKnownPositions);
+            Assert.That(ejected, Is.Empty);
+            restored.Session.AdvanceTime(1000.5d, lastKnownPositions);
+            Assert.That(ejected.Count, Is.EqualTo(1));
+            Assert.That(ejected[0].Pose.position, Is.EqualTo(ejectionPose.position));
+        }
+
+        [Test]
+        public void Migration_ConfirmedResultSurvivesAndMissingReplayIsSkipped()
+        {
+            session.Start(10d);
+            var searchingAt = 10d + rules.HidingDurationSeconds;
+            session.AdvanceTime(searchingAt, lastKnownPositions);
+            session.SetHighlightCandidates(new[] { Candidate(HighlightType.FirstBlood, "bear") });
+            var endedAt = searchingAt + rules.SearchingDurationSeconds;
+            session.AdvanceTime(endedAt, lastKnownPositions);
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Highlight));
+            Assert.That(session.TryGetResult(out var previous), Is.True);
+            using var restored = RestoreMigration(CaptureMigration(endedAt), 1000d);
+            Assert.That(restored.Session.CurrentPhase, Is.EqualTo(MatchPhase.Result));
+            Assert.That(restored.Session.TryHandlePlayerLeft(0, Pose.identity, 1000d), Is.True);
+            Assert.That(restored.Session.TryGetResult(out var after), Is.True);
+            Assert.That(after.EndReason, Is.EqualTo(previous.EndReason));
+            Assert.That(after.WinnerPlayerIndices, Is.EqualTo(previous.WinnerPlayerIndices));
+            Assert.That(restored.Session.TryGetCurrentHighlight(out _), Is.False);
+        }
+
+        [Test]
+        public void Migration_InvalidAssignmentDoesNotFallBackToANewMatch()
+        {
+            session.Start(10d);
+            var snapshot = CaptureMigration(15d);
+            snapshot.Players[0].ItemId = "missing-item";
+            Assert.Throws<System.ArgumentException>(() => RestoreMigration(snapshot, 100d));
+        }
+
+        private MatchMigrationState CaptureMigration(double at)
+        {
+            var players = new MatchMigrationPlayer[session.Assignments.Count];
+            for (var i = 0; i < players.Length; i++)
+                players[i] = session.CaptureMigrationPlayer(i, new Pose(lastKnownPositions[i], Quaternion.identity));
+            var objects = new List<MatchMigrationObject>();
+            var destroyed = new HashSet<string>(session.CaptureDestroyedPlayerItemIds());
+            foreach (var assignment in session.Assignments)
+            {
+                var holder = HolderOf(assignment.Item.ItemId);
+                var placed = session.TryGetItemPlacement(assignment.PlayerIndex, out var placement);
+                if (!placed && holder < 0 && !destroyed.Contains(assignment.Item.ItemId)) continue;
+                objects.Add(new MatchMigrationObject { ObjectId = assignment.Item.ItemId, Pose = placement.Pose,
+                    Holder = holder, Destroyed = destroyed.Contains(assignment.Item.ItemId) });
+            }
+            foreach (var item in session.CaptureWorldObjectSnapshot())
+            {
+                var pending = session.TryGetPendingEjection(item.ObjectId, out var ejectsAt, out var pose);
+                objects.Add(new MatchMigrationObject { ObjectId = item.ObjectId, Pose = item.Pose,
+                    Holder = HolderOf(item.ObjectId), PendingEjection = pending, EjectsAt = ejectsAt, EjectionPose = pose });
+            }
+            return new MatchMigrationState { CapturedAt = at, Phase = session.CaptureStateSnapshot(),
+                Players = players, Objects = objects.ToArray(), Result = session.TryGetResult(out var result) ? result : null };
+        }
+
+        private int HolderOf(string id)
+        {
+            for (var i = 0; i < session.Assignments.Count; i++)
+                if (session.TryGetHeldObjectId(i, out var held) && held == id) return i;
+            return -1;
+        }
+
+        private MatchSessionComposition RestoreMigration(MatchMigrationState snapshot, double now) =>
+            new MatchRuntimeFactory(rules).RestoreSession(snapshot, now, new TestPlacementValidator(),
+                CreateSpawnPoints(), CreateItemDefinitions(),
+                new[] { new WorldObjectState("shelf", Pose.identity) }, rules.DestructionUsesPerPlayer);
+
         [Test]
         public void InitializeAssignedItem_GivesEveryPlayerTheirOwnItemBeforeTurn()
         {
@@ -1246,6 +1365,67 @@ namespace Game.Tests.EditMode
             Assert.That(session.TryGetCurrentHidingSpawnPose(0, 21d, out _), Is.False);
         }
 
+        [TestCase(0, 50d)]
+        [TestCase(1, 40d)]
+        public void TwoPlayerHiding_DepartureSkipsEmptyTurnAndKeepsSurvivor(int leaving, double searchingAt)
+        {
+            using var matchState = new MatchState();
+            var match = CreateSession(matchState, 1234, 2);
+            var positions = new[] { new Vector3(2, 0, 1), new Vector3(4, 0, 1) };
+            var survivor = 1 - leaving;
+            match.Start(10d);
+            Assert.That(match.TryHandlePlayerLeft(leaving, new Pose(positions[leaving], Quaternion.identity), 20d), Is.True);
+            Assert.That(match.GetCurrentHidingTurnIndex(20d), Is.EqualTo(survivor));
+            var snapshot = match.CaptureStateSnapshot();
+            Assert.That(HidingTurns.IndexAt(snapshot.Phase, snapshot.PhaseEndsAt, 20d, 2,
+                rules.HidingTurnDurationSeconds), Is.EqualTo(survivor));
+            Assert.That(match.TryGetItemPlacement(leaving, out var dropped), Is.True);
+            Assert.That(dropped.Pose.position, Is.EqualTo(positions[leaving]));
+            Assert.That(match.TryHandlePlayerLeft(leaving, Pose.identity, 20d), Is.False);
+            Assert.That(match.TryGetResult(out _), Is.False);
+            match.AdvanceTime(searchingAt, positions);
+            Assert.That(match.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
+            Assert.That(match.Players.ActivePlayerCount, Is.EqualTo(1));
+            Assert.That(match.AllItemsPlaced, Is.True);
+            Assert.That(match.GetRemainingSeconds(searchingAt), Is.EqualTo(rules.SearchingDurationSeconds));
+            Assert.That(match.TryHoldObject(survivor, match.Assignments[leaving].Item.ItemId, searchingAt), Is.True);
+        }
+
+        [Test]
+        public void Hiding_ConsecutiveDepartedTurnsAreSkippedWithoutRenumberingPlayers()
+        {
+            session.Start(10d);
+            session.TryHandlePlayerLeft(1, Pose.identity, 20d);
+            session.TryHandlePlayerLeft(2, Pose.identity, 20d);
+            Assert.That(session.GetCurrentHidingTurnIndex(20d), Is.EqualTo(0));
+            session.AdvanceTime(40d, lastKnownPositions);
+            Assert.That(session.GetCurrentHidingTurnIndex(40d), Is.EqualTo(3));
+            Assert.That(session.Players.GetPlayer(3).PlayerId, Is.EqualTo("player-3"));
+            Assert.That(session.GetRemainingSeconds(40d), Is.EqualTo(90d));
+            session.AdvanceTime(130d, lastKnownPositions);
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
+            Assert.That(session.AllItemsPlaced, Is.True);
+        }
+
+        [Test]
+        public void SoleRemainingPlayer_CanStillEndMatchByDestroyingEveryItem()
+        {
+            using var matchState = new MatchState();
+            var match = CreateSession(matchState, 1234, 2);
+            match.Start(10d);
+            match.AdvanceTime(70d, new[] { Vector3.zero, Vector3.one });
+            match.TryHandlePlayerLeft(1, Pose.identity, 71d);
+            Assert.That(match.TryGetResult(out _), Is.False);
+            foreach (var assignment in match.Assignments)
+            {
+                Assert.That(match.TryHoldObject(0, assignment.Item.ItemId, 72d), Is.True);
+                Assert.That(match.TryDestroyHeldPlayerItem(0, 72d), Is.True);
+            }
+            Assert.That(match.TryGetResult(out var result), Is.True);
+            Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.AllPlayerItemsDestroyed));
+            Assert.That(result.EndedAt, Is.EqualTo(72d));
+        }
+
         [Test]
         public void WaitingPlayer_CanHitDuringAnotherPlayersHidingTurn()
         {
@@ -1322,7 +1502,7 @@ namespace Game.Tests.EditMode
         [TestCase(4)]
         [TestCase(5)]
         [TestCase(6)]
-        public void PlayerLeavingUntilOneRemains_EndsMatchWithSoleWinner(int playerCount)
+        public void PlayerLeavingUntilOneRemains_ContinuesUntilNormalTimeLimit(int playerCount)
         {
             var matchState = new MatchState();
             try
@@ -1357,10 +1537,16 @@ namespace Game.Tests.EditMode
                     }
                 }
 
-                Assert.That(matchSession.CurrentPhase, Is.EqualTo(MatchPhase.Result));
+                Assert.That(matchSession.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
                 Assert.That(matchSession.Players.ActivePlayerCount, Is.EqualTo(1));
+                Assert.That(matchSession.TryGetResult(out _), Is.False);
+                Assert.That(matchSession.TryHoldObject(0, matchSession.Assignments[0].Item.ItemId,
+                    searchingStartedAt + playerCount), Is.True);
+                var deadline = searchingStartedAt + rules.SearchingDurationSeconds;
+                matchSession.AdvanceTime(deadline, positions);
                 Assert.That(matchSession.TryGetResult(out var result), Is.True);
-                Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.LastPlayerStanding));
+                Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.TimeExpired));
+                Assert.That(result.EndedAt, Is.EqualTo(deadline));
                 Assert.That(result.WinnerPlayerIndices, Is.EqualTo(new[] { 0 }));
             }
             finally
@@ -1370,7 +1556,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void LastPlayerStanding_SkipsHighlightAndResultAndPreparesRematchFromLobby()
+        public void SoleRemainingPlayer_StaysInGameAndCannotPrepareRematchEarly()
         {
             var lobby = CreateFullLobby();
             var appFlow = new AppFlowSystem();
@@ -1410,18 +1596,18 @@ namespace Game.Tests.EditMode
             context.ServerTime = 210d;
             matchRuntime.Tick();
 
-            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Lobby));
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.InGame));
             Assert.That(
                 changedStates,
-                Is.EqualTo(new[] { AppFlowState.InGame, AppFlowState.Lobby }));
+                Is.EqualTo(new[] { AppFlowState.InGame }));
 
             var nextState = new MatchState();
             try
             {
                 var nextSession = CreateSession(nextState, 5678);
-                Assert.That(startCoordinator.TryPrepareRematch(nextSession), Is.True);
-                Assert.That(lobby.IsStarted, Is.False);
-                Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Lobby));
+                Assert.That(startCoordinator.TryPrepareRematch(nextSession), Is.False);
+                Assert.That(lobby.IsStarted, Is.True);
+                Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.InGame));
             }
             finally
             {

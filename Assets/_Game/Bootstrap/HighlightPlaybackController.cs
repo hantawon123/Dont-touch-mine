@@ -205,6 +205,7 @@ namespace Game.Bootstrap
             }
 
             // Keep the live camera visible for the end announcement/post-roll.
+            if (!clock.IsRuntimeReady) return;
             if (clock.ServerTime < gameEndNoticeEndsAt)
             {
                 transition.SetOpacity(0f);
@@ -297,7 +298,7 @@ namespace Game.Bootstrap
             if (phase == MatchPhase.Highlight)
             {
                 replayIndex = 0;
-                transition.SetOpacity(clock.ServerTime < gameEndNoticeEndsAt ? 0f : 1f);
+                transition.SetOpacity(!clock.IsRuntimeReady || clock.ServerTime < gameEndNoticeEndsAt ? 0f : 1f);
                 return;
             }
 

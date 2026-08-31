@@ -117,7 +117,8 @@ namespace Game.Server.Match
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
             IReadOnlyList<WorldObjectState> initialWorldObjects = null,
-            int? destructionUsesPerPlayer = null)
+            int? destructionUsesPerPlayer = null,
+            IReadOnlyList<PlayerItemAssignment> restoredAssignments = null)
         {
             if (participantIds == null)
             {
@@ -143,7 +144,8 @@ namespace Game.Server.Match
                     spawnPoints,
                     itemDefinitions,
                     random,
-                    initialWorldObjects);
+                    initialWorldObjects,
+                    restoredAssignments);
                 return new MatchSessionComposition(state, session);
             }
             catch
@@ -170,6 +172,41 @@ namespace Game.Server.Match
                 random,
                 initialWorldObjects,
                 destructionUsesPerPlayer);
+        }
+
+        public MatchSessionComposition RestoreSession(
+            MatchMigrationState snapshot, double now, IPlacementValidator validator,
+            IReadOnlyList<Pose> spawnPoints, IReadOnlyList<ItemDefinition> itemDefinitions,
+            IReadOnlyList<WorldObjectState> initialObjects, int destructionUses)
+        {
+            if (snapshot?.Players == null) throw new ArgumentNullException(nameof(snapshot));
+            var ids = new string[snapshot.Players.Length];
+            var assignments = new PlayerItemAssignment[ids.Length];
+            for (var i = 0; i < ids.Length; i++)
+            {
+                ids[i] = snapshot.Players[i].PlayerId;
+                var found = false;
+                foreach (var item in itemDefinitions)
+                {
+                    if (item.ItemId != snapshot.Players[i].ItemId) continue;
+                    assignments[i] = new PlayerItemAssignment(i, item);
+                    found = true;
+                    break;
+                }
+                if (!found) throw new ArgumentException("Unknown migrated assignment.", nameof(snapshot));
+            }
+            var created = CreateSession(ids, validator, spawnPoints, itemDefinitions,
+                new System.Random(0), initialObjects, destructionUses, assignments);
+            try
+            {
+                created.Session.RestoreMigration(snapshot, now);
+                return created;
+            }
+            catch
+            {
+                created.Dispose();
+                throw;
+            }
         }
 
         private static string[] CaptureParticipantIds(

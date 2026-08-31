@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using Game.Client.Combat;
 using Game.Client.Interactions;
 using Game.Client.Players;
@@ -22,6 +23,372 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [TestCase(Game.Core.Flow.AppFlowState.Lobby)]
+        [TestCase(Game.Core.Flow.AppFlowState.InGame)]
+        [TestCase(Game.Core.Flow.AppFlowState.Highlight)]
+        [TestCase(Game.Core.Flow.AppFlowState.Result)]
+        public void RoomDisconnect_LeavesEveryPhaseOnceOutsideCallback(Game.Core.Flow.AppFlowState phase)
+        {
+            using var room = new Game.Core.Lobby.RoomBrowserSystem();
+            var network = new NetworkRunnerService(null, null, null, null, null, null);
+            var flow = new Game.Core.Flow.AppFlowSystem();
+            flow.TryTransitionTo(Game.Core.Flow.AppFlowState.Lobby);
+            flow.TryRestoreSessionState(phase);
+            var application = new DisconnectApplicationSpy();
+            using var controller = new Game.Bootstrap.NetworkRoomDisconnectController(network, room, flow, application);
+            controller.Start();
+            room.RoomClosed(Game.Core.Rooms.RoomExitReason.HostClosed);
+            Assert.That(application.OpenCount, Is.Zero, "Do not load scenes inside Fusion callbacks.");
+            Assert.That(flow.CurrentState, Is.EqualTo(phase));
+            controller.Tick();
+            controller.Tick();
+            room.RoomClosed(Game.Core.Rooms.RoomExitReason.HostClosed);
+            controller.Tick();
+            Assert.That(application.OpenCount, Is.EqualTo(1));
+            Assert.That(flow.CurrentState, Is.EqualTo(Game.Core.Flow.AppFlowState.RoomBrowser));
+            Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.HostClosed),
+                "The next browser view must still receive the reason.");
+        }
+
+        [Test]
+        public void RoomDisconnect_VoluntaryDepartureAlsoWaitsForTick_AndDisposalStopsNavigation()
+        {
+            using var room = new Game.Core.Lobby.RoomBrowserSystem();
+            var flow = new Game.Core.Flow.AppFlowSystem();
+            flow.TryTransitionTo(Game.Core.Flow.AppFlowState.Lobby);
+            var application = new DisconnectApplicationSpy();
+            var controller = new Game.Bootstrap.NetworkRoomDisconnectController(
+                new NetworkRunnerService(null, null, null, null, null, null), room, flow, application);
+            controller.Start();
+            room.RoomClosed(Game.Core.Rooms.RoomExitReason.Left);
+            Assert.That(application.OpenCount, Is.Zero);
+            controller.Tick();
+            Assert.That(application.OpenCount, Is.EqualTo(1));
+            Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.Left));
+            flow.TryTransitionTo(Game.Core.Flow.AppFlowState.Lobby);
+            controller.Dispose();
+            room.RoomClosed(Game.Core.Rooms.RoomExitReason.HostClosed);
+            controller.Tick();
+            Assert.That(application.OpenCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RoomDisconnect_UnexpectedClientLossReportsHostConnectionLost()
+        {
+            foreach (Game.Core.Rooms.RoomExitReason reason in Enum.GetValues(typeof(Game.Core.Rooms.RoomExitReason)))
+            {
+                Assert.That(NetworkRunnerService.ResolveUnexpectedExit(true, reason),
+                    Is.EqualTo(Game.Core.Rooms.RoomExitReason.HostClosed));
+                Assert.That(NetworkRunnerService.ResolveUnexpectedExit(false, reason), Is.EqualTo(reason));
+            }
+        }
+
+        [Test]
+        public void RoomDisconnectLifecycle_WaitsForRunnerDestructionAndRetainsFirstReason()
+        {
+            using var room = new Game.Core.Lobby.RoomBrowserSystem();
+            var network = new NetworkRunnerService(null, room, null, null, null, null);
+            var flow = new Game.Core.Flow.AppFlowSystem();
+            flow.TryTransitionTo(Game.Core.Flow.AppFlowState.Lobby);
+            flow.TryRestoreSessionState(Game.Core.Flow.AppFlowState.Result);
+            var application = new DisconnectApplicationSpy();
+            using var controller = new Game.Bootstrap.NetworkRoomDisconnectController(network, room, flow, application);
+            var runnerObject = new GameObject("Disconnect Lifecycle Test");
+            try
+            {
+                var runner = runnerObject.AddComponent<Fusion.NetworkRunner>();
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                typeof(NetworkRunnerService).GetField("_runner", flags).SetValue(network, runner);
+                typeof(NetworkRunnerService).GetField("_exitReported", flags).SetValue(network, false);
+                typeof(NetworkRunnerService).GetField("_isClientSession", flags).SetValue(network, true);
+                controller.Start();
+                network.OnDisconnectedFromServer(runner, Fusion.Sockets.NetDisconnectReason.Timeout);
+                typeof(NetworkRunnerService).GetMethod("ReportPlayerCount", flags).Invoke(network, null);
+                Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.HostClosed));
+                controller.Tick();
+                Assert.That(application.OpenCount, Is.Zero);
+                network.OnShutdown(runner, Fusion.ShutdownReason.Ok);
+                controller.Tick();
+                Assert.That(application.OpenCount, Is.Zero, "OnShutdown is not the end of Unity object destruction.");
+                UnityEngine.Object.DestroyImmediate(runnerObject);
+                controller.Tick();
+                Assert.That(application.OpenCount, Is.EqualTo(1));
+                Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.HostClosed));
+            }
+            finally
+            {
+                if (runnerObject != null) UnityEngine.Object.DestroyImmediate(runnerObject);
+            }
+        }
+
+        [Test]
+        public void RoomDisconnectConfig_DisablesMigrationWithoutChangingHeapSettings()
+        {
+            var source = new Fusion.NetworkProjectConfig();
+            source.HostMigration.EnableAutoUpdate = true;
+            var pageShift = source.Heap.PageShift;
+            var session = NetworkRunnerService.ConfigureSession(source);
+            Assert.That(session.HostMigration.EnableAutoUpdate, Is.False);
+            Assert.That(session.Heap.PageShift, Is.EqualTo(pageShift));
+        }
+
+        private sealed class DisconnectApplicationSpy : Game.Client.Home.IHomeApplicationHost
+        {
+            public int OpenCount { get; private set; }
+            public void OpenRoomBrowser() => OpenCount++;
+            public void Quit() { }
+            public void OpenHome() { }
+            public void OpenLobby() { }
+        }
+
+        [Test]
+        public void LobbyEntry_WaitsForPlacementAndCameraFrames_AndClearsOnExit()
+        {
+            var view = new EntryTransitionSpy();
+            var binder = new Game.Bootstrap.LobbyPlayerCameraBinder(
+                new NetworkRunnerService(null, null, null, null, null, null), view);
+            binder.UpdateEntryTransition(false, 100);
+            Assert.That(view.Opacity, Is.EqualTo(1f));
+            binder.UpdateEntryTransition(true, 101);
+            binder.UpdateEntryTransition(true, 102);
+            Assert.That(view.Opacity, Is.EqualTo(1f), "Do not reveal before camera rendering catches up.");
+            binder.UpdateEntryTransition(false, 103);
+            binder.UpdateEntryTransition(true, 104);
+            Assert.That(view.Opacity, Is.EqualTo(1f), "Losing readiness restarts the render wait.");
+            binder.UpdateEntryTransition(true, 106);
+            Assert.That(view.Opacity, Is.Zero);
+            binder.UpdateEntryTransition(false, 107);
+            Assert.That(view.Opacity, Is.Zero, "A completed entry does not cover later gameplay or migration.");
+
+            var nextVisit = new Game.Bootstrap.LobbyPlayerCameraBinder(
+                new NetworkRunnerService(null, null, null, null, null, null), view);
+            nextVisit.UpdateEntryTransition(false, 200);
+            Assert.That(view.Opacity, Is.EqualTo(1f), "Re-entry starts a fresh placement wait.");
+            nextVisit.Dispose();
+            Assert.That(view.Opacity, Is.Zero, "Leaving before placement must not leave a black screen.");
+        }
+
+        private sealed class EntryTransitionSpy : Game.Client.Match.IHighlightTransitionView
+        {
+            public float Opacity { get; private set; }
+            public void SetOpacity(float opacity) => Opacity = opacity;
+        }
+
+        [TestCase(false, true, false, 0d, false)]
+        [TestCase(false, false, true, 10d, false)]
+        [TestCase(true, false, false, 4.9d, false)]
+        [TestCase(true, true, false, 0d, true)]
+        [TestCase(true, false, true, 0d, true)]
+        [TestCase(true, false, false, 5d, true)]
+        public void HostMigration_RevealsOnlyAfterRuntimeAndCameraRecovery(
+            bool runtimeReady, bool cameraReady, bool resultScene, double elapsed, bool expected)
+        {
+            Assert.That(Game.Bootstrap.HostMigrationPresentationController.CanReveal(
+                runtimeReady, cameraReady, resultScene, elapsed), Is.EqualTo(expected));
+        }
+
+        [TestCase(PlayerPosture.Standing, 1.8f)]
+        [TestCase(PlayerPosture.Crouching, 1.2f)]
+        [TestCase(PlayerPosture.Prone, 0.6f)]
+        public void HostMigration_MotorPreservesSavedPostureAndColliderHeight(PlayerPosture saved, float height)
+        {
+            var settings = new PlayerMovementSettings(4f, 7f, 720f, 1.1f, 2f,
+                2f, 0.8f, 1.8f, 1.2f, 0.6f);
+            var restored = NetworkPlayerMotor.ResolveSpawnPosture(true, saved);
+            Assert.That(restored, Is.EqualTo(saved));
+            Assert.That(NetworkPlayerMotor.HeightForPosture(restored, settings), Is.EqualTo(height));
+            Assert.That(NetworkPlayerMotor.ResolvePosture(restored, true, default, default), Is.EqualTo(saved),
+                "The first idle input tick must not stand up after restoration.");
+            Assert.That(NetworkPlayerMotor.ResolveSpawnPosture(false, saved), Is.EqualTo(PlayerPosture.Standing),
+                "A newly spawned character still starts standing.");
+        }
+
+        [TestCase(MatchPhase.Waiting, false, MatchPhase.Waiting)]
+        [TestCase(MatchPhase.Hiding, false, MatchPhase.Hiding)]
+        [TestCase(MatchPhase.Searching, false, MatchPhase.Searching)]
+        [TestCase(MatchPhase.Highlight, true, MatchPhase.Result)]
+        [TestCase(MatchPhase.Result, true, MatchPhase.Result)]
+        public void HostMigration_RoutesFromCheckpointRatherThanDepartingScene(
+            MatchPhase savedPhase, bool hasResult, MatchPhase expected)
+        {
+            Assert.That(NetworkRunnerService.ResolveHostMigrationPhase(savedPhase, hasResult), Is.EqualTo(expected));
+            var expectedScene = Fusion.SceneRef.FromIndex(expected == MatchPhase.Waiting ? 1 :
+                expected == MatchPhase.Result ? 3 : 2);
+            foreach (var previousScene in new[] { 1, 2, 3 })
+            {
+                Fusion.NetworkSceneInfo info = Fusion.SceneRef.FromIndex(previousScene);
+                Assert.That(NetworkRunnerService.IsOnlyScene(info, expectedScene),
+                    Is.EqualTo(info.Scenes[0] == expectedScene));
+            }
+            Assert.That(NetworkRunnerService.IsOnlyScene(default, expectedScene), Is.False);
+            Assert.That(NetworkRunnerService.IsOnlyScene(expectedScene, default), Is.False);
+        }
+
+        [TestCase(MatchPhase.Highlight, false)]
+        [TestCase(MatchPhase.Result, false)]
+        [TestCase(MatchPhase.Waiting, true)]
+        [TestCase(MatchPhase.Hiding, true)]
+        [TestCase(MatchPhase.Searching, true)]
+        [TestCase((MatchPhase)99, false)]
+        public void HostMigration_RejectsInconsistentCheckpoint(MatchPhase phase, bool hasResult)
+        {
+            Assert.Throws<InvalidOperationException>(() => NetworkRunnerService.ResolveHostMigrationPhase(phase, hasResult));
+        }
+
+        [Test]
+        public void HostMigration_StageWaitHasAnUnscaledDeadline()
+        {
+            Assert.That(NetworkRunnerService.IsHostMigrationStageComplete(false, 59.9d, "runtime"), Is.False);
+            var error = Assert.Throws<TimeoutException>(() =>
+                NetworkRunnerService.IsHostMigrationStageComplete(false, 60d, "runtime"));
+            Assert.That(error.Message, Does.Contain("runtime"));
+            Assert.That(NetworkRunnerService.IsHostMigrationStageComplete(true, 60d, "runtime"), Is.True);
+        }
+
+        [Test]
+        public void AssignmentRecipient_LateReadyRequestOnlyGetsItsPublishedAssignment()
+        {
+            var playing = new[] { new MatchParticipant("host", 0), new MatchParticipant("late", 1),
+                new MatchParticipant("not-published", 2) };
+            var published = new Dictionary<string, string> { ["host"] = "host-item", ["late"] = "late-item" };
+            Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, playing, "late", out var item), Is.True);
+            Assert.That(item, Is.EqualTo("late-item"));
+            Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, playing, "late", out item), Is.True,
+                "Repeated ready requests must remain safe if the previous response arrived too early.");
+            Assert.That(item, Is.EqualTo("late-item"));
+            Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, playing, "not-published", out _), Is.False,
+                "Do not reveal an assignment before the authority publishes it.");
+            Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, playing, "newcomer", out _), Is.False);
+            Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, Array.Empty<MatchParticipant>(), "late", out _), Is.False);
+            published.Clear(); // Runner replacement or rematch reset.
+            Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, playing, "late", out _), Is.False);
+        }
+
+        [TestCase(false, false, false, false)]
+        [TestCase(false, false, true, false)]
+        [TestCase(false, true, false, false)]
+        [TestCase(false, true, true, false)]
+        [TestCase(true, false, false, true)]
+        [TestCase(true, false, true, false)]
+        [TestCase(true, true, false, false)]
+        [TestCase(true, true, true, false)]
+        public void HostMigration_CompletesOnlyAfterFusionAndSceneAreReady(
+            bool running, bool resuming, bool sceneBusy, bool expected)
+        {
+            Assert.That(NetworkRunnerService.CanCompleteHostMigration(running, resuming, sceneBusy),
+                Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void HostMigration_RestoresSeatsBeforeCreatingMissingPlayers()
+        {
+            var registry = new PlayerRegistry();
+            var newHost = Fusion.PlayerRef.FromIndex(1);
+            var newcomer = Fusion.PlayerRef.FromIndex(2);
+
+            // StartGame succeeded, but the scene and snapshot have not resumed yet.
+            if (NetworkRunnerService.CanCompleteHostMigration(false, true, true))
+                registry.Add(newHost);
+            Assert.That(registry.Count, Is.Zero, "Do not allocate seat 0 before restoring seat 1.");
+
+            var failure = NetworkRunnerService.TryRestoreHostMigrationSnapshot(() =>
+            {
+                Assert.That(registry.Restore(newHost, 1), Is.True);
+            });
+            Assert.That(failure, Is.Null);
+            Assert.That(NetworkRunnerService.CanCompleteHostMigration(true, true, false), Is.False,
+                "Returning from our callback alone does not finish Fusion initialization.");
+
+            if (NetworkRunnerService.CanCompleteHostMigration(true, false, false))
+            {
+                Assert.That(registry.Add(newHost), Is.EqualTo(1));
+                Assert.That(registry.Add(newcomer), Is.Zero);
+            }
+            Assert.That(registry.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void HostMigration_RestoreFailureReturnsToTheMigrationOwner()
+        {
+            var expected = new InvalidOperationException("Could not restore player 2.");
+            Exception failure = null;
+            Assert.DoesNotThrow(() => failure = NetworkRunnerService.TryRestoreHostMigrationSnapshot(
+                () => throw expected));
+            Assert.That(failure, Is.SameAs(expected),
+                "A coroutine callback failure must reach migration cleanup instead of escaping Fusion.");
+        }
+
+        [Test]
+        public void MatchSessionPrefab_WithMigrationFitsConfiguredHeapPage()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/MatchSession.prefab");
+            Assert.That(prefab, Is.Not.Null);
+            Assert.That(prefab.GetComponent<MatchMigrationCheckpoint>(), Is.Not.Null);
+            var wordCount = Fusion.NetworkObject.GetWordCount(prefab.GetComponent<Fusion.NetworkObject>());
+            Assert.That(wordCount, Is.GreaterThan(Fusion.NetworkObjectHeader.WORDS));
+            Assert.DoesNotThrow(() => PlayerSpawner.ValidateRoomObjectStateSize(
+                wordCount, (int)Fusion.NetworkProjectConfig.Global.Heap.PageShift));
+        }
+
+        [TestCase(10499, 15, false)] // Observed 41,996-byte MatchSession vs the old 32 KiB page.
+        [TestCase(10499, 16, true)]
+        [TestCase(16384, 16, true)]
+        [TestCase(16385, 16, false)]
+        [TestCase(0, 16, false)]
+        public void RoomObjectStateSize_RejectsOverflowBeforeSpawn(int words, int pageShift, bool fits)
+        {
+            if (fits)
+                Assert.DoesNotThrow(() => PlayerSpawner.ValidateRoomObjectStateSize(words, pageShift));
+            else
+                Assert.Throws<InvalidOperationException>(() =>
+                    PlayerSpawner.ValidateRoomObjectStateSize(words, pageShift));
+        }
+
+        [Test]
+        public void RoomInitialization_SuccessDoesNotCleanUp()
+        {
+            var initialized = false;
+            var result = NetworkRunnerService.CompleteRoomInitializationAsync(
+                () => initialized = true,
+                () => throw new InvalidOperationException("Successful rooms must remain running."))
+                .GetAwaiter().GetResult();
+            Assert.That(initialized, Is.True);
+            Assert.That(result.Ok, Is.True);
+        }
+
+        [Test]
+        public void RoomInitialization_FailureWaitsForCleanupBeforeRetry()
+        {
+            var cleanup = new UniTaskCompletionSource();
+            var cleanupCalls = 0;
+            var pending = NetworkRunnerService.CompleteRoomInitializationAsync(
+                () => throw new InvalidOperationException("room object failed"),
+                () => { cleanupCalls++; return cleanup.Task; });
+            Assert.That(cleanupCalls, Is.EqualTo(1));
+            Assert.That(pending.Status, Is.EqualTo(UniTaskStatus.Pending));
+            cleanup.TrySetResult();
+            var failure = pending.GetAwaiter().GetResult();
+            Assert.That(failure.Ok, Is.False);
+            Assert.That(failure.Failure, Is.EqualTo(SessionFailure.Unknown));
+            Assert.That(failure.Detail, Is.EqualTo("room object failed"));
+            var retry = NetworkRunnerService.CompleteRoomInitializationAsync(
+                () => { }, () => { cleanupCalls++; return UniTask.CompletedTask; }).GetAwaiter().GetResult();
+            Assert.That(retry.Ok, Is.True);
+            Assert.That(cleanupCalls, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RoomInitialization_CancellationAlsoCleansUp()
+        {
+            var cleaned = false;
+            Assert.Throws<OperationCanceledException>(() =>
+                NetworkRunnerService.CompleteRoomInitializationAsync(
+                    () => throw new OperationCanceledException(),
+                    () => { cleaned = true; return UniTask.CompletedTask; }).GetAwaiter().GetResult());
+            Assert.That(cleaned, Is.True);
+        }
+
         [Test]
         public void Participant_UsesOnlyStablePlayerIndex()
         {
@@ -47,6 +414,47 @@ namespace Game.Architecture.Tests
             Assert.That(
                 Array.ConvertAll(participants, participant => participant.PlayerIndex),
                 Is.EqualTo(new[] { 0, 1, 2 }));
+        }
+
+        [TestCase(2, 0)]
+        [TestCase(3, 0)]
+        [TestCase(3, 1)]
+        [TestCase(6, 0)]
+        public void AssignmentRecipient_AfterDepartureUsesFrozenLineUp(int playerCount, int leavingIndex)
+        {
+            var present = new List<Game.Core.Rooms.RoomParticipant>();
+            for (var i = 0; i < playerCount; i++)
+                present.Add(new Game.Core.Rooms.RoomParticipant($"player-{i}", i, i == 0));
+            var playing = MatchParticipant.FromRoomParticipants(present);
+            present.RemoveAt(leavingIndex);
+
+            for (var i = 0; i < playerCount; i++)
+            {
+                var found = NetworkRunnerService.TryResolveAssignmentRecipient(playing, present, i, out var id);
+                Assert.That(found, Is.EqualTo(i != leavingIndex));
+                Assert.That(id, Is.EqualTo(i == leavingIndex ? null : $"player-{i}"));
+            }
+
+            // Reusing a room seat must never deliver the departed player's secret assignment.
+            present.Add(new Game.Core.Rooms.RoomParticipant("newcomer", leavingIndex, false));
+            Assert.That(NetworkRunnerService.TryResolveAssignmentRecipient(
+                playing, present, leavingIndex, out var replacement), Is.False);
+            Assert.That(replacement, Is.Null);
+        }
+
+        [TestCase(-1)]
+        [TestCase(2)]
+        public void AssignmentRecipient_RejectsOutOfRangeMatchIndex(int playerIndex)
+        {
+            var present = new[]
+            {
+                new Game.Core.Rooms.RoomParticipant("host", 0, true),
+                new Game.Core.Rooms.RoomParticipant("guest", 5, false),
+            };
+            var playing = MatchParticipant.FromRoomParticipants(present);
+            Assert.That(NetworkRunnerService.TryResolveAssignmentRecipient(
+                playing, present, playerIndex, out var id), Is.False);
+            Assert.That(id, Is.Null);
         }
 
         [Test]

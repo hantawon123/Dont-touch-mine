@@ -19,6 +19,7 @@ namespace Game.Network.Players
         private IPlayerInputIntentSource inputSource;
         private bool hasPendingTeleport;
         private Pose pendingTeleport;
+        private PlayerPosture? pendingPosture;
 
         [Networked]
         private NetworkBool ScenePlacementReady { get; set; }
@@ -50,6 +51,9 @@ namespace Game.Network.Players
 
         [Networked]
         public PlayerPosture Posture { get; private set; }
+
+        public bool IsScenePlacementReady => Object != null && Object.IsValid &&
+                                             ScenePlacementReady && !hasPendingTeleport;
 
         private bool IsConfigured =>
             kcc != null && movementProcessor != null && inputSource != null;
@@ -107,9 +111,14 @@ namespace Game.Network.Players
                 // spawn point and activates it through TryTeleport().
                 kcc.SetActive(false);
                 ScenePlacementReady = false;
-                ControlsEnabled = true;
-                DesiredMoveSpeed = settings.WalkSpeed;
-                ApplyPosture(PlayerPosture.Standing, settings);
+                if (!Runner.IsResume)
+                {
+                    ControlsEnabled = true;
+                    DesiredMoveSpeed = settings.WalkSpeed;
+                }
+                // CopyStateFrom runs before Spawned. Preserve the saved posture instead of
+                // standing up inside low geometry, and reapply its local KCC collider shape.
+                ApplyPosture(ResolveSpawnPosture(Runner.IsResume, Posture), settings);
             }
         }
 
@@ -232,6 +241,13 @@ namespace Game.Network.Players
             return true;
         }
 
+        internal bool TryRestoreScenePose(Pose pose, PlayerPosture posture)
+        {
+            if (!TryTeleport(pose)) return false;
+            pendingPosture = posture;
+            return true;
+        }
+
         private bool ApplyPendingScenePlacement()
         {
             if (!IsConfigured || Object == null)
@@ -242,6 +258,11 @@ namespace Game.Network.Players
             if (Object.HasStateAuthority && hasPendingTeleport)
             {
                 hasPendingTeleport = false;
+                if (pendingPosture.HasValue)
+                {
+                    ApplyPosture(pendingPosture.Value, inputSource.MovementSettings);
+                    pendingPosture = null;
+                }
                 kcc.SetPosition(pendingTeleport.position);
                 kcc.SetLookRotation(pendingTeleport.rotation);
                 ResetMotion();
@@ -269,6 +290,9 @@ namespace Game.Network.Players
             var local = Vector3.ClampMagnitude(new Vector3(move.x, 0f, move.y), 1f);
             return Quaternion.Euler(0f, lookYawDegrees, 0f) * local;
         }
+
+        internal static PlayerPosture ResolveSpawnPosture(bool isResuming, PlayerPosture savedPosture) =>
+            isResuming ? savedPosture : PlayerPosture.Standing;
 
         internal static PlayerPosture ResolvePosture(
             PlayerPosture current,
@@ -367,7 +391,7 @@ namespace Game.Network.Players
             return true;
         }
 
-        private static float HeightForPosture(
+        internal static float HeightForPosture(
             PlayerPosture posture,
             PlayerMovementSettings settings) => posture switch
         {

@@ -10,6 +10,111 @@ namespace Game.Tests.EditMode
     public sealed class ReplayVisualTests
     {
         [Test]
+        public void MigrationFrame_PreparesHiddenAndReusesBufferUntilRoomExit()
+        {
+            if (Application.isBatchMode || Screen.width <= 0 || Screen.height <= 0)
+                Assert.Ignore("Requires an Editor graphics context, like the migration frame capture.");
+            var root = new GameObject("Migration Presentation Test");
+            try
+            {
+                var view = root.AddComponent<Game.Client.Cameras.HostMigrationFrameView>();
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var frameField = view.GetType().GetField("frame", flags);
+                view.Prepare();
+                var frame = frameField.GetValue(view) as RenderTexture;
+                Assert.That(frame, Is.Not.Null);
+                Assert.That(frame.IsCreated(), Is.True);
+                Assert.That(root.GetComponentInChildren<Canvas>(true).gameObject.activeSelf, Is.False,
+                    "Prewarming must not cover normal gameplay or block its UI.");
+                view.Clear();
+                view.Prepare();
+                Assert.That(frameField.GetValue(view), Is.SameAs(frame), "Do not allocate again on each migration.");
+                view.Release();
+                Assert.That(frameField.GetValue(view), Is.Null);
+                Assert.That(frame == null || !frame.IsCreated(), Is.True, "Release GPU memory on room exit.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void LobbyCamera_OnlyBindsExplicitTarget_AndCutsToItsPlacedPosition()
+        {
+            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCameraRig.prefab");
+            var characterPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab");
+            var unrelated = Object.Instantiate(characterPrefab);
+            var root = Object.Instantiate(prefab);
+            var placed = new GameObject("Placed Local Avatar");
+            try
+            {
+                var camera = root.GetComponent<Game.Client.Cameras.PlayerCameraController>();
+                camera.RequireExplicitFollowTarget();
+                typeof(Game.Client.Cameras.PlayerCameraController).GetMethod("Start",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(camera, null);
+                Assert.That(camera.FollowTarget, Is.Null, "Do not auto-bind another avatar while joining.");
+                placed.transform.position = new Vector3(30f, 4f, 40f);
+                placed.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+                camera.SetFollowTarget(placed.transform);
+                Assert.That(root.transform.position, Is.EqualTo(placed.transform.position + Vector3.up * 1.6f));
+                Assert.That(Quaternion.Angle(root.transform.rotation, placed.transform.rotation), Is.LessThan(0.01f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(placed);
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(unrelated);
+            }
+        }
+
+        [Test]
+        public void MigrationCamera_RebindsDestroyedTargetWithoutResettingView()
+        {
+            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCameraRig.prefab");
+            var root = Object.Instantiate(prefab);
+            var previous = new GameObject("Previous Avatar");
+            var replacement = new GameObject("Restored Avatar");
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var type = typeof(Game.Client.Cameras.PlayerCameraController);
+            try
+            {
+                var camera = root.GetComponent<Game.Client.Cameras.PlayerCameraController>();
+                camera.SetFollowTarget(previous.transform);
+                type.GetField("yaw", flags).SetValue(camera, 123f);
+                type.GetField("pitch", flags).SetValue(camera, -25f);
+                type.GetField("isFirstPerson", flags).SetValue(camera, true);
+                camera.SetCursorCaptureEnabled(false);
+                var pose = new Pose(new Vector3(4f, 2f, 8f), Quaternion.Euler(-25f, 123f, 0f));
+                root.transform.SetPositionAndRotation(pose.position, pose.rotation);
+                camera.SetMigrationSuspended(true);
+                Object.DestroyImmediate(previous);
+                replacement.transform.position = new Vector3(4f, 0.4f, 8f);
+                camera.SetFollowTarget(replacement.transform, preserveView: true);
+                type.GetMethod("LateUpdate", flags).Invoke(camera, null);
+                Assert.That(camera.FollowTarget, Is.EqualTo(replacement.transform));
+                Assert.That(root.transform.position, Is.EqualTo(pose.position), "Keep the last view during recovery.");
+                Assert.That(type.GetField("yaw", flags).GetValue(camera), Is.EqualTo(123f));
+                Assert.That(type.GetField("pitch", flags).GetValue(camera), Is.EqualTo(-25f));
+                Assert.That(type.GetField("isFirstPerson", flags).GetValue(camera), Is.True);
+                Assert.That(type.GetField("cursorCaptureEnabled", flags).GetValue(camera), Is.False);
+                camera.SetMigrationSuspended(false);
+                type.GetMethod("LateUpdate", flags).Invoke(camera, null);
+                Assert.That(Quaternion.Angle(root.transform.rotation, pose.rotation), Is.LessThan(0.01f));
+            }
+            finally
+            {
+                if (previous != null) Object.DestroyImmediate(previous);
+                Object.DestroyImmediate(replacement);
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void HighlightHud_KeepsOnlyTitleAndNotice_AndRestoresPriorVisibility()
         {
             var root = new GameObject("HUD", typeof(Canvas));

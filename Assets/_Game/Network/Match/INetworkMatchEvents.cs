@@ -10,6 +10,7 @@ namespace Game.Network.Match
     public interface INetworkResultNavigation
     {
         bool IsServer { get; }
+        bool IsRuntimeReady { get; }
         bool IsResultSceneLoaded { get; }
         bool EnterResultScene();
         bool RequestReturnToLobby();
@@ -42,6 +43,9 @@ namespace Game.Network.Match
     public interface INetworkMatchAuthority : INetworkMatchRuntimeSource
     {
         bool IsServer { get; }
+        MatchMigrationState MatchMigration { get; }
+        bool IsMatchRuntimeRestorePending { get; }
+        void ReportMatchRuntimeRestored(Exception failure);
         int DestructionLimit { get; }
         event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
         event Action SimulationTick;

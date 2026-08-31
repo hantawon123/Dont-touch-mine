@@ -41,6 +41,7 @@ namespace Game.Bootstrap
         private PlayerInteractionStateSnapshot[] playerStates =
             Array.Empty<PlayerInteractionStateSnapshot>();
         private string assignedItemId;
+        private double nextAssignmentRequestAt;
         private CarryableItem highlightedAssignment;
         private PlayerCameraController cameraRig;
         private Transform cameraTarget;
@@ -73,11 +74,19 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
-            if (!network.IsRunning || network.IsBrowsingLobby)
+            if (!network.IsRuntimeReady || network.IsBrowsingLobby)
             {
                 return;
             }
 
+            // Request after scene subscribers are installed; retry until an assignment actually arrives.
+            // The host only resends assignments already published for this sender's current match.
+            var now = Time.unscaledTimeAsDouble;
+            if (assignedItemId == null && room.LocalPlayerIndex >= 0 && now >= nextAssignmentRequestAt)
+            {
+                nextAssignmentRequestAt = now + 1d;
+                network.RequestItemAssignment();
+            }
             DisableStandaloneActors();
             RefreshPlayers();
             ApplyAssignmentOwner();
@@ -142,12 +151,12 @@ namespace Game.Bootstrap
                     continue;
                 }
 
-                if (avatar.IsOwner)
+                var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                if (avatar.IsOwner && motor != null && motor.IsScenePlacementReady)
                 {
                     BindLocalCamera(avatar.transform);
                 }
 
-                var motor = avatar.GetComponent<NetworkPlayerMotor>();
                 var acceptsLocalInput = avatar.IsOwner &&
                                         motor != null &&
                                         motor.ControlsEnabled;
@@ -187,21 +196,22 @@ namespace Game.Bootstrap
 
         private void BindLocalCamera(Transform target)
         {
-            if (target == null || ReferenceEquals(cameraTarget, target))
+            if (target == null || (cameraRig != null && ReferenceEquals(cameraTarget, target)))
             {
                 return;
             }
 
-            cameraRig ??= UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(
-                FindObjectsInactive.Include);
+            if (cameraRig == null)
+                cameraRig = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
             if (cameraRig == null)
             {
                 return;
             }
 
+            var preserveView = !ReferenceEquals(cameraTarget, null);
             cameraTarget = target;
-            cameraRig.SetFollowTarget(target);
-            cameraRig.SetCursorCaptureEnabled(true);
+            cameraRig.SetFollowTarget(target, preserveView);
+            if (!preserveView) cameraRig.SetCursorCaptureEnabled(true);
         }
 
         private void DisableStandaloneActors()
@@ -354,7 +364,7 @@ namespace Game.Bootstrap
 
         private void ApplyPlayerStates()
         {
-            if (!network.IsRunning)
+            if (!network.IsRuntimeReady)
             {
                 return;
             }

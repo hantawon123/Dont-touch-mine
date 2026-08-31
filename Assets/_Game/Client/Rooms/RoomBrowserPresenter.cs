@@ -17,6 +17,7 @@ namespace Game.Client.Rooms
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
         private IDisposable roomsSubscription;
+        private IDisposable exitSubscription;
 
         public RoomBrowserPresenter(
             IRoomBrowserView view,
@@ -34,15 +35,29 @@ namespace Game.Client.Rooms
         public void Start()
         {
             view.BackRequested += OnBackRequested;
+            view.DisconnectionAcknowledged += OnDisconnectionAcknowledged;
             roomsSubscription = rooms.Rooms.Subscribe(OnRoomsChanged);
+            exitSubscription = rooms.LastExit.Subscribe(OnRoomExit);
             view.SetRooms(rooms.Rooms.CurrentValue);
         }
 
         public void Dispose()
         {
             view.BackRequested -= OnBackRequested;
+            view.DisconnectionAcknowledged -= OnDisconnectionAcknowledged;
             roomsSubscription?.Dispose();
+            exitSubscription?.Dispose();
         }
+
+        private void OnRoomExit(RoomExitReason? reason)
+        {
+            if (!reason.HasValue || reason == RoomExitReason.Left) return;
+            view.ShowDisconnection(reason == RoomExitReason.HostClosed
+                ? "호스트의 연결이 끊어졌습니다"
+                : "서버와의 연결이 끊어졌습니다");
+        }
+
+        private void OnDisconnectionAcknowledged() => rooms.AcknowledgeExit();
 
         /// <summary>
         /// A refusal is reported rather than swallowed. Returning in silence

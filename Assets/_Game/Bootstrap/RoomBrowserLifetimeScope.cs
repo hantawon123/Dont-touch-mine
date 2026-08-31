@@ -1,4 +1,5 @@
 using Game.Client.Home;
+using Game.Client.Match;
 using Game.Client.Rooms;
 using Game.Network.Session;
 using UnityEngine;
@@ -27,6 +28,7 @@ namespace Game.Bootstrap
                 .As<IHomeApplicationHost>();
             builder.RegisterComponent(roomBrowserView).As<IRoomBrowserView>();
             builder.RegisterEntryPoint<RoomBrowserPresenter>();
+            builder.RegisterEntryPoint<RoomBrowserTransitionReset>();
 
             if (roomScreenPresenter != null)
             {
@@ -43,6 +45,13 @@ namespace Game.Bootstrap
                     "otherwise the screen never reaches Photon.",
                     this);
             }
+        }
+
+        private sealed class RoomBrowserTransitionReset : IStartable
+        {
+            private readonly IHighlightTransitionView transition;
+            public RoomBrowserTransitionReset(IHighlightTransitionView transition) => this.transition = transition;
+            public void Start() => transition.SetOpacity(0f);
         }
 
         /// <summary>

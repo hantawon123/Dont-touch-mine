@@ -43,6 +43,13 @@ namespace Game.Server.Match
             return true;
         }
 
+        public bool ResumeMatch()
+        {
+            if (isStarted || session.CurrentPhase == MatchPhase.Waiting) return false;
+            isStarted = true;
+            return true;
+        }
+
         public bool TryPrepareRematch(MatchSessionCoordinator nextSession)
         {
             if (nextSession == null)

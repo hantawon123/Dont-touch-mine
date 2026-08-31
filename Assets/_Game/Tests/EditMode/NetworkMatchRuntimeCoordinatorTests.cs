@@ -18,6 +18,84 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkMatchRuntimeCoordinatorTests
     {
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        public void Migration_ResumesWithoutStartingOrInitializingItemsAgain(bool hostLeft, bool invalidCheckpoint)
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                var participants = new[] { new MatchParticipant("host", 0), new MatchParticipant("client", 1) };
+                var factory = new MatchRuntimeFactory(rules);
+                using var original = factory.CreateSessionFromParticipants(participants, new AcceptAllPlacements(),
+                    CreateSpawnPoints(), CreateItems(), new System.Random(7));
+                original.Session.Start(10d);
+                original.Session.TryInitializeAssignedItem(0);
+                var pose = new Pose(new Vector3(8, 2, 4), Quaternion.identity);
+                var checkpoint = new MatchMigrationState
+                {
+                    CapturedAt = 20d, Phase = original.Session.CaptureStateSnapshot(),
+                    Players = new[] { original.Session.CaptureMigrationPlayer(0, pose),
+                        original.Session.CaptureMigrationPlayer(1, Pose.identity) },
+                    Objects = new[] { new MatchMigrationObject { ObjectId = original.Session.Assignments[0].Item.ItemId,
+                        Holder = 0, Pose = pose } },
+                };
+                var poses = new Dictionary<string, Pose> { ["host"] = pose, ["client"] = Pose.identity };
+                if (hostLeft) poses.Remove("host");
+                var network = new FakeNetworkAuthority(100d, poses)
+                    { MatchMigration = checkpoint, IsRuntimeReady = false };
+                if (invalidCheckpoint) checkpoint.Players[1].ItemId = "missing-item";
+                using var room = new RoomBrowserSystem();
+                var flow = new AppFlowSystem();
+                flow.TryTransitionTo(AppFlowState.Lobby);
+                flow.TryTransitionTo(AppFlowState.InGame);
+                using var coordinator = new NetworkMatchRuntimeCoordinator(network, factory, new FakeSceneContext(), flow,
+                    new NetworkMatchRuntimeConfiguration(new AcceptAllPlacements(), CreateSpawnPoints(), CreateItems(),
+                        Array.Empty<WorldObjectState>(), Pose.identity, CreateWaitingPoints()), room);
+                coordinator.Start();
+                network.PublishLineUp(participants);
+                network.PublishSimulationTick();
+                Assert.That(network.BoundSession, Is.Null, "Ordinary ticks must stay paused during migration.");
+                network.IsMatchRuntimeRestorePending = true;
+                Assert.DoesNotThrow(() => network.PublishSimulationTick());
+                Assert.That(network.RestoreReports, Is.EqualTo(1));
+                Assert.That(network.IsMatchRuntimeRestorePending, Is.False);
+                if (invalidCheckpoint)
+                {
+                    Assert.That(network.RestoreFailure, Is.Not.Null);
+                    Assert.That(network.BoundSession, Is.Null);
+                    Assert.DoesNotThrow(() => network.PublishSimulationTick());
+                    Assert.That(network.RestoreReports, Is.EqualTo(1));
+                    return;
+                }
+                Assert.That(network.RestoreFailure, Is.Null);
+                Assert.That(network.IsRuntimeReady, Is.False, "Only the migration owner may resume gameplay.");
+                network.IsRuntimeReady = true;
+                network.PublishSimulationTick();
+                Assert.That(network.BoundSession.CurrentPhase, Is.EqualTo(MatchPhase.Hiding));
+                Assert.That(network.BoundSession.GetRemainingSeconds(100d), Is.EqualTo(hostLeft ? 30d : 50d));
+                Assert.That(network.InitializedAssignmentPlayers, Is.EqualTo(hostLeft ? new[] { 1 } : Array.Empty<int>()));
+                Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(hostLeft ? new[] { 1, 1 } : new[] { 0, 1 }));
+                if (hostLeft)
+                {
+                    Assert.That(network.BoundSession.Players.ActivePlayerCount, Is.EqualTo(1));
+                    Assert.That(network.BoundSession.TryGetResult(out _), Is.False);
+                    Assert.That(network.BoundSession.TryGetHeldObjectId(0, out _), Is.False);
+                    Assert.That(network.BoundSession.TryGetItemPlacement(0, out var dropped), Is.True);
+                    Assert.That(dropped.Pose.position, Is.EqualTo(pose.position));
+                    Assert.That(network.Controls[1], Is.True);
+                    Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.InGame));
+                }
+                else Assert.That(network.TeleportedPoses[0].position, Is.EqualTo(pose.position));
+                var teleports = network.TeleportedPlayers.Count;
+                network.PublishSceneLoaded();
+                network.PublishSimulationTick();
+                Assert.That(network.TeleportedPlayers.Count, Is.EqualTo(teleports));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(rules); }
+        }
+
         [TestCase(MatchPhase.Hiding)]
         [TestCase(MatchPhase.Searching)]
         [TestCase(MatchPhase.Highlight)]
@@ -74,9 +152,9 @@ namespace Game.Architecture.Tests
                 }
                 else
                 {
-                    Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Result));
-                    Assert.That(session.TryGetResult(out var result), Is.True);
-                    Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.LastPlayerStanding));
+                    Assert.That(session.CurrentPhase, Is.EqualTo(departurePhase));
+                    Assert.That(session.TryGetResult(out _), Is.False);
+                    Assert.That(session.Players.ActivePlayerCount, Is.EqualTo(1));
                 }
             }
             finally { UnityEngine.Object.DestroyImmediate(rules); }
@@ -316,6 +394,17 @@ namespace Game.Architecture.Tests
             }
 
             public bool IsServer => true;
+            public MatchMigrationState MatchMigration { get; set; }
+            public bool IsMatchRuntimeRestorePending { get; set; }
+            public int RestoreReports { get; private set; }
+            public Exception RestoreFailure { get; private set; }
+            public void ReportMatchRuntimeRestored(Exception failure)
+            {
+                RestoreReports++;
+                RestoreFailure = failure;
+                IsMatchRuntimeRestorePending = false;
+            }
+            public bool IsRuntimeReady { get; set; } = true;
             public bool IsHighlightReplayReady { get; set; }
             public int DestructionLimit => PlaySettingsDraft.DefaultDestructionLimit;
             public double ServerTime { get; set; }

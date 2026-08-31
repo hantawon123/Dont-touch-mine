@@ -219,6 +219,11 @@ namespace Game.Network.Match
         public override void Spawned()
         {
             PublishLineUp();
+            PublishSceneState();
+        }
+
+        internal void PublishSceneState()
+        {
             PublishSnapshot();
             PublishObjectStates();
             PublishParticipantActivity();

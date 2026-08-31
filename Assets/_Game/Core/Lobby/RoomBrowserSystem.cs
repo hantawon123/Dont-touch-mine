@@ -221,6 +221,8 @@ namespace Game.Core.Lobby
             lastExit.Value = reason;
         }
 
+        public void AcknowledgeExit() => lastExit.Value = null;
+
         internal void BeginOperation()
         {
             activeOperations++;

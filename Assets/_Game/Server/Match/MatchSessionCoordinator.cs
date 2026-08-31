@@ -134,7 +134,7 @@ namespace Game.Server.Match
         public Pose Pose { get; }
     }
 
-    public sealed class MatchSessionCoordinator
+    public sealed partial class MatchSessionCoordinator
     {
         private const double MapObjectEjectionDelaySeconds = 0.5d;
         private const double HighlightReplaySampleIntervalSeconds = 0.1d;
@@ -164,6 +164,7 @@ namespace Game.Server.Match
         private MatchResult? result;
         private bool finalWarningStarted;
         private bool hasExplicitHighlightCandidates;
+        private bool replayUnavailable;
 
         public MatchSessionCoordinator(
             MatchRulesSO rules,
@@ -175,7 +176,8 @@ namespace Game.Server.Match
             IReadOnlyList<Pose> spawnPoints,
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
-            IReadOnlyList<WorldObjectState> initialWorldObjects = null)
+            IReadOnlyList<WorldObjectState> initialWorldObjects = null,
+            IReadOnlyList<PlayerItemAssignment> restoredAssignments = null)
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             this.state = state ?? throw new ArgumentNullException(nameof(state));
@@ -196,7 +198,7 @@ namespace Game.Server.Match
             this.placementValidator = placementValidator ??
                 throw new ArgumentNullException(nameof(placementValidator));
 
-            var assignments = ItemAssignmentSystem.Assign(
+            var assignments = restoredAssignments ?? ItemAssignmentSystem.Assign(
                 itemDefinitions,
                 playerCount,
                 random);
@@ -296,7 +298,7 @@ namespace Game.Server.Match
                     nameof(lastKnownPlayerPositions));
             }
 
-            StartHighlightRecordingIfNeeded(now);
+            if (!replayUnavailable) StartHighlightRecordingIfNeeded(now);
             if (TryGetExpiredSearchingEnd(now, out var searchingEndedAt))
             {
                 CaptureResult(MatchEndReason.TimeExpired, searchingEndedAt);
@@ -305,6 +307,7 @@ namespace Game.Server.Match
             if (state.CurrentPhase.CurrentValue == MatchPhase.Hiding)
             {
                 CompleteExpiredHidingTurns(now, lastKnownPlayerPositions);
+                SkipDepartedHidingTurns(now);
             }
 
             CompleteMapObjectEjections(now);
@@ -745,20 +748,7 @@ namespace Game.Server.Match
             {
                 ReleaseHeldObjectAt(playerIndex, lastKnownPose, true);
             }
-            if (Players.ActivePlayerCount == 1)
-            {
-                var winnerPlayerIndex = GetSoleActivePlayerIndex();
-                if (!flow.CompleteMatchEarly())
-                {
-                    throw new InvalidOperationException("The match could not end early.");
-                }
-
-                CaptureResult(
-                    MatchEndReason.LastPlayerStanding,
-                    now,
-                    new[] { winnerPlayerIndex },
-                    false);
-            }
+            SkipDepartedHidingTurns(now);
 
             return true;
         }
@@ -804,6 +794,7 @@ namespace Game.Server.Match
             IReadOnlyList<Pose> playerPoses,
             IReadOnlyList<WorldObjectState> replayObjects)
         {
+            if (replayUnavailable) return false;
             if (state.CurrentPhase.CurrentValue != MatchPhase.Searching &&
                 state.CurrentPhase.CurrentValue != MatchPhase.Hiding &&
                 !(state.CurrentPhase.CurrentValue == MatchPhase.Highlight && result.HasValue &&
@@ -1167,17 +1158,14 @@ namespace Game.Server.Match
             MatchEnded?.Invoke(capturedResult);
         }
 
-        private int GetSoleActivePlayerIndex()
+        private void SkipDepartedHidingTurns(double now)
         {
-            foreach (var player in Players.Players)
+            // Bounded by the frozen line-up, including consecutive departed players.
+            for (var skipped = 0; skipped < Players.Players.Count; skipped++)
             {
-                if (player.IsActive)
-                {
-                    return player.PlayerIndex;
-                }
+                var turn = flow.GetCurrentHidingTurnIndex(now);
+                if (turn < 0 || Players.IsActive(turn) || !flow.SkipCurrentHidingTurn(now)) return;
             }
-
-            throw new InvalidOperationException("No active player remains.");
         }
 
         private void StartHighlightRecordingIfNeeded(double now)
