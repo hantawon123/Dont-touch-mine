@@ -1,5 +1,6 @@
 using System;
 using Game.Client.Match;
+using Game.Core.Match;
 using R3;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -46,19 +47,40 @@ namespace Game.Bootstrap
         }
     }
 
-    public sealed class ResultPresenter : IStartable, IDisposable
+    public sealed class ResultPresenter : IStartable, ITickable, IDisposable
     {
         private readonly NetworkResultLobbyReturnController result;
         private readonly IResultView view;
+        private readonly IHighlightTransitionView transition;
+        private float fadeElapsed;
         private IDisposable subscription;
 
-        public ResultPresenter(NetworkResultLobbyReturnController result, IResultView view)
+        public ResultPresenter(NetworkResultLobbyReturnController result, IResultView view,
+            IHighlightTransitionView transition)
         {
             this.result = result;
             this.view = view;
+            this.transition = transition;
         }
 
-        public void Start() => subscription = result.ResultText.Subscribe(view.SetText);
-        public void Dispose() => subscription?.Dispose();
+        public void Start()
+        {
+            transition.SetOpacity(1f);
+            subscription = result.ResultText.Subscribe(view.SetText);
+        }
+
+        public void Tick() => Tick(Time.unscaledDeltaTime);
+
+        internal void Tick(float deltaSeconds)
+        {
+            fadeElapsed += deltaSeconds;
+            transition.SetOpacity(1f - Mathf.Clamp01(fadeElapsed / (float)HighlightPresentationTiming.FadeSeconds));
+        }
+
+        public void Dispose()
+        {
+            subscription?.Dispose();
+            transition.SetOpacity(0f);
+        }
     }
 }

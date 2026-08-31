@@ -29,6 +29,7 @@ namespace Game.Bootstrap
         private MatchStateSnapshot snapshot;
         private bool hasSnapshot;
         private double noticeEndsAt;
+        private double gameEndNoticeEndsAt = -1d;
         private Transform shredder;
         private Camera worldCamera;
 
@@ -59,6 +60,7 @@ namespace Game.Bootstrap
         public void Start()
         {
             events.MatchStateReceived += OnMatchStateReceived;
+            events.MatchResultReceived += OnMatchResultReceived;
             events.ItemAssignmentReceived += OnItemAssignmentReceived;
             events.ItemDestroyedReceived += OnItemDestroyedReceived;
             events.PlayerInteractionStatesReceived += OnPlayerInteractionStatesReceived;
@@ -71,6 +73,7 @@ namespace Game.Bootstrap
         public void Dispose()
         {
             events.MatchStateReceived -= OnMatchStateReceived;
+            events.MatchResultReceived -= OnMatchResultReceived;
             events.ItemAssignmentReceived -= OnItemAssignmentReceived;
             events.ItemDestroyedReceived -= OnItemDestroyedReceived;
             events.PlayerInteractionStatesReceived -= OnPlayerInteractionStatesReceived;
@@ -92,7 +95,11 @@ namespace Game.Bootstrap
             // stays Hiding while the turn travels down the line-up.
             ReportPhase();
 
-            if (snapshot.Phase == MatchPhase.Highlight)
+            if (UpdateGameEndNotice())
+            {
+                // The end announcement takes priority over destruction notices.
+            }
+            else if (snapshot.Phase == MatchPhase.Highlight)
             {
                 UpdateReplayNotice(playback?.PlaybackSourceTime);
             }
@@ -110,6 +117,8 @@ namespace Game.Bootstrap
             if ((!hasSnapshot || snapshot.Phase != received.Phase) &&
                 (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting))
                 destructions.Clear();
+            if (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting)
+                gameEndNoticeEndsAt = -1d;
             if (received.Phase == MatchPhase.Highlight || received.Phase == MatchPhase.Result)
             {
                 noticeEndsAt = 0d;
@@ -118,6 +127,25 @@ namespace Game.Bootstrap
             snapshot = received;
             hasSnapshot = true;
             ReportPhase();
+            UpdateGameEndNotice();
+        }
+
+        private void OnMatchResultReceived(MatchResult result)
+        {
+            if (result.EndReason == MatchEndReason.LastPlayerStanding) return;
+            gameEndNoticeEndsAt = result.EndedAt + HighlightPresentationTiming.PostRollSeconds;
+            UpdateGameEndNotice();
+        }
+
+        private bool UpdateGameEndNotice()
+        {
+            var remaining = gameEndNoticeEndsAt - clock.ServerTime;
+            var active = remaining > 0d && (!hasSnapshot || snapshot.Phase != MatchPhase.Result);
+            view.SetEndCountdown(active ? remaining : 0d);
+            if (!active) return false;
+            view.ShowDestructionNotice("게임이 종료되었습니다!");
+            noticeEndsAt = gameEndNoticeEndsAt;
+            return true;
         }
 
         /// <summary>
@@ -171,6 +199,7 @@ namespace Game.Bootstrap
         private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmed)
         {
             destructions.Add(confirmed);
+            if (UpdateGameEndNotice()) return;
             if (hasSnapshot && (snapshot.Phase == MatchPhase.Highlight || snapshot.Phase == MatchPhase.Result))
                 return;
             view.ShowDestructionNotice(

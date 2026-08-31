@@ -16,6 +16,54 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkMatchHudPresenterTests
     {
+        [TestCase(false)]
+        [TestCase(true)]
+        public void GameEnd_CountsDownBeforeBlackTransition(bool phaseFirst)
+        {
+            var network = new FakeNetwork { ServerTime = 100d };
+            var view = new FakeView();
+            var transition = new FakeTransition();
+            using var room = new RoomBrowserSystem();
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var playback = new NetworkHighlightPlaybackController(network, room, network, transition);
+                using var presenter = new NetworkMatchHudPresenter(network, network, room, rules, view, playback);
+                playback.Start();
+                presenter.Start();
+                if (phaseFirst) network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 0d));
+                network.Publish(new MatchResult(MatchEndReason.TimeExpired, 100d, new[] { 0 }));
+                if (!phaseFirst) network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 0d));
+                for (var second = 0; second < 3; second++)
+                {
+                    network.ServerTime = 100d + second;
+                    presenter.Tick();
+                    playback.Tick();
+                    Assert.That(view.NoticeVisible, Is.True);
+                    Assert.That(view.Notice, Is.EqualTo("게임이 종료되었습니다!"));
+                    Assert.That(view.EndCountdown, Is.EqualTo(3 - second));
+                    Assert.That(transition.Opacity, Is.Zero);
+                }
+                network.ServerTime = 103d;
+                presenter.Tick();
+                playback.Tick();
+                Assert.That(view.NoticeVisible, Is.False);
+                Assert.That(transition.Opacity, Is.EqualTo(1f));
+                Assert.That(view.EndCountdown, Is.Zero);
+                network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+                Assert.That(transition.Opacity, Is.EqualTo(1f));
+                playback.Dispose();
+                Assert.That(transition.Opacity, Is.EqualTo(1f));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(rules); }
+        }
+
+        private sealed class FakeTransition : IHighlightTransitionView
+        {
+            public float Opacity { get; private set; }
+            public void SetOpacity(float opacity) => Opacity = opacity;
+        }
+
         [Test]
         public void ConfirmedEvents_UpdateTimerPhaseAndAnonymousItemNotice()
         {
@@ -136,6 +184,8 @@ namespace Game.Architecture.Tests
         {
             public MatchPhase Phase { get; private set; }
             public double RemainingSeconds { get; private set; }
+            public double EndCountdown { get; private set; }
+            public void SetEndCountdown(double value) => EndCountdown = value;
             public string Notice { get; private set; }
             public bool NoticeVisible { get; private set; }
             public string AssignedItem { get; private set; }
@@ -182,6 +232,7 @@ namespace Game.Architecture.Tests
             }
 
             public void Publish(MatchStateSnapshot value) => MatchStateReceived?.Invoke(value);
+            public void Publish(MatchResult value) => MatchResultReceived?.Invoke(value);
             public void PublishItemAssignment(string itemId) =>
                 ItemAssignmentReceived?.Invoke(itemId);
             public void Publish(PlayerItemDestroyedEvent value) =>

@@ -13,6 +13,7 @@
         "UniTask",
         "VContainer",
         "UnityEngine.TestRunner",
+        "Unity.TextMeshPro",
         "UnityEditor.TestRunner"
     ],
     "includePlatforms": [

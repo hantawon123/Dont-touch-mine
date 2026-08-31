@@ -10,6 +10,51 @@ namespace Game.Tests.EditMode
     public sealed class ReplayVisualTests
     {
         [Test]
+        public void HighlightHud_KeepsOnlyTitleAndNotice_AndRestoresPriorVisibility()
+        {
+            var root = new GameObject("HUD", typeof(Canvas));
+            try
+            {
+                var hud = root.AddComponent<Game.Client.Match.NetworkMatchHudView>();
+                var title = new GameObject("Title", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+                title.transform.SetParent(root.transform);
+                var notice = new GameObject("Notice", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+                notice.transform.SetParent(root.transform);
+                var timer = new GameObject("Timer", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+                timer.transform.SetParent(root.transform);
+                var hidden = new GameObject("AlreadyHidden", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+                hidden.transform.SetParent(root.transform);
+                hidden.GetComponent<UnityEngine.UI.Image>().enabled = false;
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var timerView = timer.AddComponent<Game.Client.Match.MatchTimerView>();
+                var timerLabel = new GameObject("TimerText", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+                timerLabel.transform.SetParent(timer.transform);
+                var timerText = timerLabel.GetComponent<TMPro.TMP_Text>();
+                typeof(Game.Client.Match.MatchTimerView).GetField("timerText", flags).SetValue(timerView, timerText);
+                typeof(Game.Client.Match.NetworkMatchHudView).GetField("timerView", flags).SetValue(hud, timerView);
+                typeof(Game.Client.Match.NetworkMatchHudView).GetField("highlightTitleText", flags)
+                    .SetValue(hud, title.GetComponent<TMPro.TMP_Text>());
+                typeof(Game.Client.Match.NetworkMatchHudView).GetField("destructionNoticeRoot", flags)
+                    .SetValue(hud, notice);
+                hud.SetPhase(Game.Core.Match.MatchPhase.Highlight, "");
+                Assert.That(title.GetComponent<TMPro.TMP_Text>().enabled, Is.True);
+                Assert.That(notice.GetComponent<TMPro.TMP_Text>().enabled, Is.True);
+                Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
+                hud.SetEndCountdown(3d);
+                Assert.That(timerText.enabled, Is.True);
+                Assert.That(timerText.text, Is.EqualTo("00:03"));
+                Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.True);
+                hud.SetEndCountdown(0d);
+                Assert.That(timerText.enabled, Is.False);
+                Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
+                hud.SetPhase(Game.Core.Match.MatchPhase.Searching, "");
+                Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.True);
+                Assert.That(hidden.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
         public void SourceClock_FollowsSpeedCutsAndRestart_AndHoldsAtEnd()
         {
             var player = new HighlightReplayPlayer(new Transform[0], new SceneWorldObjectReference[0]);

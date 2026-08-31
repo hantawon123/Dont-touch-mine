@@ -6,6 +6,7 @@ namespace Game.Core.Match
     {
         public const double PostRollSeconds = 3d;
         public const double DeliveryGraceSeconds = 2d;
+        public const double ReadyLeadSeconds = 0.5d;
         public const double TitleSeconds = 0.4d;
         public const double FadeSeconds = 0.3d;
         public const double EndHoldSeconds = 0.4d;

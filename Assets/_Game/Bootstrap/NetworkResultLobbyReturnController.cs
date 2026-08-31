@@ -75,7 +75,10 @@ namespace Game.Bootstrap
             loadRequested = false;
             returned = false;
             returnAt = -1d;
-            resultText.Value = "표시할 경기 결과가 없습니다.";
+            // Waiting arrives before Result finishes unloading. Keep its text
+            // until the next match starts, independently of navigation state.
+            if (phase == MatchPhase.Hiding)
+                resultText.Value = "표시할 경기 결과가 없습니다.";
         }
 
         private void OnMatchResultReceived(MatchResult result)

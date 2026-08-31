@@ -18,6 +18,70 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkMatchRuntimeCoordinatorTests
     {
+        [TestCase(MatchPhase.Hiding)]
+        [TestCase(MatchPhase.Searching)]
+        [TestCase(MatchPhase.Highlight)]
+        [TestCase(MatchPhase.Result)]
+        public void DepartedAvatar_IsNotSentControlCommands(MatchPhase departurePhase)
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                var poses = new Dictionary<string, Pose> { ["host"] = Pose.identity, ["client"] = Pose.identity };
+                var network = new FakeNetworkAuthority(10d, poses);
+                using var room = new RoomBrowserSystem();
+                var appFlow = new AppFlowSystem();
+                appFlow.TryTransitionTo(AppFlowState.Lobby);
+                appFlow.TryTransitionTo(AppFlowState.InGame);
+                using var coordinator = new NetworkMatchRuntimeCoordinator(network,
+                    new MatchRuntimeFactory(rules), new FakeSceneContext(), appFlow,
+                    new NetworkMatchRuntimeConfiguration(new AcceptAllPlacements(), CreateSpawnPoints(),
+                        CreateItems(), Array.Empty<WorldObjectState>(), Pose.identity, CreateWaitingPoints()), room);
+                coordinator.Start();
+                network.PublishLineUp(new[] { new MatchParticipant("host", 0), new MatchParticipant("client", 1) });
+                network.PublishSimulationTick();
+                var session = network.BoundSession;
+                if (departurePhase != MatchPhase.Hiding)
+                {
+                    network.ServerTime = session.CaptureStateSnapshot().PhaseEndsAt;
+                    network.PublishSimulationTick();
+                }
+                if (departurePhase == MatchPhase.Highlight || departurePhase == MatchPhase.Result)
+                {
+                    session.SetHighlightCandidates(new[] {
+                        new HighlightCandidate(HighlightType.FirstBlood, network.ServerTime, network.ServerTime + 4d, "client") });
+                    network.ServerTime = session.CaptureStateSnapshot().PhaseEndsAt;
+                    network.PublishSimulationTick();
+                    if (departurePhase == MatchPhase.Result)
+                        while (session.CompleteCurrentHighlight()) { }
+                }
+                Assert.That(session.CurrentPhase, Is.EqualTo(departurePhase));
+                var hadResult = session.TryGetResult(out var originalResult);
+                Assert.That(session.TryHandlePlayerLeft(1, Pose.identity, network.ServerTime), Is.True);
+                Assert.That(session.TryHandlePlayerLeft(1, Pose.identity, network.ServerTime), Is.False);
+                poses.Remove("client");
+                network.MissingControlPlayers.Add(1);
+                network.ControlCalls.Clear();
+                Assert.DoesNotThrow(() => network.PublishSimulationTick());
+                Assert.DoesNotThrow(() => network.PublishSimulationTick());
+                Assert.That(network.ControlCalls, Has.No.Member(1));
+                Assert.That(session.Players.IsActive(1), Is.False);
+                if (hadResult)
+                {
+                    Assert.That(session.TryGetResult(out var afterLeave), Is.True);
+                    Assert.That(afterLeave.EndReason, Is.EqualTo(originalResult.EndReason));
+                    Assert.That(afterLeave.WinnerPlayerIndices, Is.EqualTo(originalResult.WinnerPlayerIndices));
+                }
+                else
+                {
+                    Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Result));
+                    Assert.That(session.TryGetResult(out var result), Is.True);
+                    Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.LastPlayerStanding));
+                }
+            }
+            finally { UnityEngine.Object.DestroyImmediate(rules); }
+        }
+
         [TestCase(false)]
         [TestCase(true)]
         public void Authority_StartsTicksPublishesAndReleasesMatchRuntime(bool readinessTimeout)
@@ -170,7 +234,7 @@ namespace Game.Architecture.Tests
                     network.PublishSimulationTick();
                     Assert.That(network.Snapshots[3].Phase, Is.EqualTo(MatchPhase.Highlight));
                     Assert.That(network.Snapshots[3].PhaseEndsAt, Is.EqualTo(network.ServerTime +
-                        HighlightPresentationTiming.DeliveryGraceSeconds + 4d +
+                        HighlightPresentationTiming.ReadyLeadSeconds + 4d +
                         HighlightPresentationTiming.OverheadSeconds).Within(0.001));
                     network.ServerTime = network.Snapshots[3].PhaseEndsAt;
                     network.PublishSimulationTick();
@@ -261,6 +325,8 @@ namespace Game.Architecture.Tests
             public IReadOnlyList<HighlightReplayData> HighlightReplay { get; private set; }
             public List<MatchStateSnapshot> Snapshots { get; } = new();
             public Dictionary<int, bool> Controls { get; } = new();
+            public HashSet<int> MissingControlPlayers { get; } = new();
+            public List<int> ControlCalls { get; } = new();
             public List<int> TeleportedPlayers { get; } = new();
             public List<Pose> TeleportedPoses { get; } = new();
             public int UnbindCount { get; private set; }
@@ -331,6 +397,8 @@ namespace Game.Architecture.Tests
 
             public bool TrySetPlayerControls(int playerIndex, bool enabled)
             {
+                ControlCalls.Add(playerIndex);
+                if (MissingControlPlayers.Contains(playerIndex)) return false;
                 Controls[playerIndex] = enabled;
                 return true;
             }

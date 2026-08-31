@@ -1,6 +1,9 @@
 using Game.Core.Match;
+using System.Collections.Generic;
+using Game.Client.Interactions;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
@@ -9,6 +12,7 @@ namespace Game.Client.Match
         /// <inheritdoc cref="IMatchPhaseView.SetPhase"/>
         void SetPhase(MatchPhase phase, string hidingPlayerName);
         void SetRemainingSeconds(double remainingSeconds);
+        void SetEndCountdown(double remainingSeconds);
         void SetHighlightTitle(string title);
         void SetAssignedItem(string displayName);
         void SetRemainingDestructionUses(int remainingUses);
@@ -49,6 +53,10 @@ namespace Game.Client.Match
 
         private string assignedItemDisplayName;
         private int remainingDestructionUses = -1;
+        private bool highlightOnly;
+        private bool showEndCountdown;
+        private readonly Dictionary<Graphic, bool> hiddenGraphics = new();
+        private readonly Dictionary<PlayerInteractor, bool> hiddenCrosshairs = new();
 
         private void Awake()
         {
@@ -63,8 +71,66 @@ namespace Game.Client.Match
             SetAssignedItem(null);
         }
 
-        public void SetPhase(MatchPhase phase, string hidingPlayerName) =>
+        public void SetPhase(MatchPhase phase, string hidingPlayerName)
+        {
+            SetHighlightOnly(phase == MatchPhase.Highlight);
             phaseView?.SetPhase(phase, hidingPlayerName);
+        }
+
+        private void SetHighlightOnly(bool value)
+        {
+            if (highlightOnly == value) return;
+            highlightOnly = value;
+            if (!value)
+            {
+                RestoreHud();
+                return;
+            }
+            // Hide presentation components, not HUD objects/presenters. Notices
+            // must keep receiving events and updating at their original position.
+            foreach (var graphic in FindObjectsByType<Graphic>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (graphic.gameObject.scene != gameObject.scene ||
+                    (highlightTitleText != null && graphic.transform.IsChildOf(highlightTitleText.transform)) ||
+                    (destructionNoticeRoot != null && graphic.transform.IsChildOf(destructionNoticeRoot.transform)))
+                    continue;
+                hiddenGraphics[graphic] = graphic.enabled;
+                graphic.enabled = false;
+            }
+            foreach (var interactor in FindObjectsByType<PlayerInteractor>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                hiddenCrosshairs[interactor] = interactor.HudVisible;
+                interactor.SetHudVisible(false);
+            }
+        }
+
+        private void LateUpdate()
+        {
+            if (!highlightOnly) return;
+            foreach (var pair in hiddenGraphics)
+                if (pair.Key != null)
+                    pair.Key.enabled = showEndCountdown && timerView != null &&
+                        pair.Key.transform.IsChildOf(timerView.transform) && pair.Value;
+        }
+
+        public void SetEndCountdown(double remainingSeconds)
+        {
+            showEndCountdown = remainingSeconds > 0d;
+            if (showEndCountdown) timerView?.SetRemainingSeconds(remainingSeconds);
+            LateUpdate();
+        }
+
+        private void RestoreHud()
+        {
+            foreach (var pair in hiddenGraphics)
+                if (pair.Key != null) pair.Key.enabled = pair.Value;
+            foreach (var pair in hiddenCrosshairs)
+                if (pair.Key != null) pair.Key.SetHudVisible(pair.Value);
+            hiddenGraphics.Clear();
+            hiddenCrosshairs.Clear();
+        }
+
+        private void OnDestroy() => RestoreHud();
 
         public void SetRemainingSeconds(double remainingSeconds) =>
             timerView?.SetRemainingSeconds(remainingSeconds);

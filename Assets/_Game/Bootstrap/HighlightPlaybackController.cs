@@ -141,6 +141,7 @@ namespace Game.Bootstrap
         private readonly INetworkMatchRuntimeSource clock;
         private readonly IHighlightTransitionView transition;
         private double highlightEndsAt;
+        private double gameEndNoticeEndsAt = double.PositiveInfinity;
         private double appliedBodyTime;
         private bool readinessConfirmed;
         public double? PlaybackSourceTime { get; private set; }
@@ -174,6 +175,7 @@ namespace Game.Bootstrap
             hud = UnityEngine.Object.FindFirstObjectByType<NetworkMatchHudView>(
                 FindObjectsInactive.Include);
             network.MatchStateReceived += OnMatchStateReceived;
+            network.MatchResultReceived += OnMatchResultReceived;
             network.HighlightReplayReceived += OnHighlightReplayReceived;
             CaptureVisuals();
         }
@@ -181,6 +183,7 @@ namespace Game.Bootstrap
         public void Dispose()
         {
             network.MatchStateReceived -= OnMatchStateReceived;
+            network.MatchResultReceived -= OnMatchResultReceived;
             network.HighlightReplayReceived -= OnHighlightReplayReceived;
             StopPlayback();
             foreach (var visual in playerVisuals.Values) visual.Dispose();
@@ -198,6 +201,13 @@ namespace Game.Bootstrap
             if (phase != MatchPhase.Highlight)
             {
                 CaptureVisuals();
+                return;
+            }
+
+            // Keep the live camera visible for the end announcement/post-roll.
+            if (clock.ServerTime < gameEndNoticeEndsAt)
+            {
+                transition.SetOpacity(0f);
                 return;
             }
 
@@ -287,7 +297,7 @@ namespace Game.Bootstrap
             if (phase == MatchPhase.Highlight)
             {
                 replayIndex = 0;
-                transition.SetOpacity(1f);
+                transition.SetOpacity(clock.ServerTime < gameEndNoticeEndsAt ? 0f : 1f);
                 return;
             }
 
@@ -295,8 +305,12 @@ namespace Game.Bootstrap
             if (phase == MatchPhase.Waiting || phase == MatchPhase.Hiding)
             {
                 replay = Array.Empty<HighlightReplayData>();
+                gameEndNoticeEndsAt = double.PositiveInfinity;
             }
         }
+
+        private void OnMatchResultReceived(MatchResult result) =>
+            gameEndNoticeEndsAt = result.EndedAt + HighlightPresentationTiming.PostRollSeconds;
 
         private void OnHighlightReplayReceived(IReadOnlyList<HighlightReplayData> received)
         {
@@ -446,7 +460,7 @@ namespace Game.Bootstrap
             foreach (var visual in playerVisuals.Values) visual.SetPlaying(false);
             foreach (var visual in itemVisuals.Values) visual.SetPlaying(false);
             cameraRig?.EndReplay();
-            transition.SetOpacity(0f);
+            transition.SetOpacity(phase == MatchPhase.Result ? 1f : 0f);
         }
     }
 
