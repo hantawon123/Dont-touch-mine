@@ -107,7 +107,7 @@ namespace Game.Client.Players
             foreach (Transform child in source)
             {
                 // Held items have their own replay track; do not bake them into the actor's mesh copy.
-                if (child.GetComponent<CarryableItem>() != null) continue;
+                if (child.GetComponent<CarryableItem>() != null || child.GetComponent<TMPro.TMP_Text>() != null) continue;
                 CopyHierarchy(child, copy, transforms);
             }
             return copy;

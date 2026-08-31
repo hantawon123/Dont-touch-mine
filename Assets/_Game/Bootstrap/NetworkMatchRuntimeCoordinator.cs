@@ -365,13 +365,19 @@ namespace Game.Bootstrap
                  playerIndex < synchronizedControls.Length;
                  playerIndex++)
             {
+                // Departed avatars have already been despawned by the network.
+                if (!session.Players.IsActive(playerIndex))
+                {
+                    synchronizedControls[playerIndex] = false;
+                    continue;
+                }
+
                 // 숨기기 대기자도 로비처럼 밖에서 이동하고 공격 모션을
                 // 사용할 수 있다. 실제 기절 판정은 MatchSessionCoordinator가
                 // 찾기 페이즈에만 적용한다.
-                var enabled = session.Players.IsActive(playerIndex) &&
-                              (phase == MatchPhase.Hiding ||
+                var enabled = phase == MatchPhase.Hiding ||
                                (phase == MatchPhase.Searching &&
-                                !session.IsPlayerStunned(playerIndex, now)));
+                                !session.IsPlayerStunned(playerIndex, now));
                 if (hasSynchronizedPlayers &&
                     synchronizedControls[playerIndex] == enabled)
                 {
@@ -436,7 +442,7 @@ namespace Game.Bootstrap
             {
                 if (hasPublishedHighlightReplay && network.IsHighlightReplayReady)
                 {
-                    session.ScheduleHighlightPlayback(network.ServerTime + HighlightPresentationTiming.DeliveryGraceSeconds);
+                    session.ScheduleHighlightPlayback(network.ServerTime + HighlightPresentationTiming.ReadyLeadSeconds);
                     waitingForHighlightReady = false;
                 }
                 else if (network.ServerTime >= highlightReadyDeadline)

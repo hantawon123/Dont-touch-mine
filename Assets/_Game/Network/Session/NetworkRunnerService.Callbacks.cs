@@ -356,7 +356,10 @@ namespace Game.Network.Session
             }
         }
 
-        public void OnSceneLoadStart(NetworkRunner runner) { }
+        public void OnSceneLoadStart(NetworkRunner runner)
+        {
+            if (IsCurrentRunner(runner)) IsResultSceneLoaded = false;
+        }
 
         /// <summary>
         /// Re-seats everyone on the newly loaded scene's spawn points.
@@ -369,6 +372,17 @@ namespace Game.Network.Session
         /// </remarks>
         public void OnSceneLoadDone(NetworkRunner runner)
         {
+            if (!IsCurrentRunner(runner)) return;
+            // Fusion merges loaded scenes into its own scene in multi-peer mode.
+            // Their original Unity scene path is no longer a loaded-scene identity.
+            IsResultSceneLoaded = false;
+            if (_scenes != null && !string.IsNullOrEmpty(_scenes.ResultScenePath))
+            {
+                var resultScene = _scenes.ResultScene;
+                var info = runner.SceneInfo;
+                for (var index = 0; index < info.SceneCount; index++)
+                    if (info.Scenes[index] == resultScene) IsResultSceneLoaded = true;
+            }
             Debug.Log(
                 $"[Session] Scene load done: '{SceneManager.GetActiveScene().name}', " +
                 $"IsServer={runner != null && runner.IsServer}.");
@@ -429,13 +443,14 @@ namespace Game.Network.Session
                 return;
             }
 
-            if (!HighlightReplaySerializer.TryDeserialize(data, out var replay))
+            if (!HighlightReplaySerializer.TryDeserializeCompressed(data, out var replay))
             {
                 Debug.LogWarning("[Match] Rejected invalid highlight replay data.");
                 return;
             }
 
             _receivedHighlightSequence = sequence;
+            Debug.Log($"[Highlight] Received {data.Length:N0} compressed bytes; preparing replay.");
             HighlightReplayReceived?.Invoke(replay);
         }
 

@@ -14,6 +14,16 @@ namespace Game.Architecture.Tests
 {
     public sealed class ResultPresentationTests
     {
+        [Test]
+        public void ReturnAuthorization_UsesRetainedParticipantsWithoutMatchSession()
+        {
+            var playing = new[] { new MatchParticipant("host", 0), new MatchParticipant("client", 1) };
+            Assert.That(MatchStarter.IsReturnParticipant(playing, "host"), Is.True);
+            Assert.That(MatchStarter.IsReturnParticipant(playing, "client"), Is.True);
+            Assert.That(MatchStarter.IsReturnParticipant(playing, "stranger"), Is.False);
+            Assert.That(MatchStarter.IsReturnParticipant(playing, null), Is.False);
+        }
+
         [TestCase(false)]
         [TestCase(true)]
         public void ResultSurvivesSceneChange_AndReturnWaitsForSceneLoad(bool phaseFirst)
@@ -36,8 +46,14 @@ namespace Game.Architecture.Tests
             controller.Tick(100);
             Assert.That(network.ReturnCalls, Is.Zero);
             var view = new FakeView();
-            using var presenter = new ResultPresenter(controller, view);
+            var transition = new FakeTransition();
+            using var presenter = new ResultPresenter(controller, view, transition);
             presenter.Start();
+            Assert.That(transition.Opacity, Is.EqualTo(1f));
+            presenter.Tick(0.15f);
+            Assert.That(transition.Opacity, Is.EqualTo(0.5f).Within(0.001f));
+            presenter.Tick(0.15f);
+            Assert.That(transition.Opacity, Is.Zero);
             Assert.That(view.Text, Does.Contain("승리").And.Contain("승자: 민수").And.Contain("제한 시간 종료"));
             network.IsResultSceneLoaded = true;
             controller.Tick(100);
@@ -46,7 +62,12 @@ namespace Game.Architecture.Tests
             controller.Tick(105);
             controller.Tick(106);
             Assert.That(network.ReturnCalls, Is.EqualTo(1));
+            var displayedResult = view.Text;
             network.Publish(new MatchStateSnapshot(MatchPhase.Waiting, 0));
+            Assert.That(view.Text, Is.EqualTo(displayedResult));
+            controller.Tick(107);
+            Assert.That(network.ReturnCalls, Is.EqualTo(1));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 0));
             Assert.That(view.Text, Is.EqualTo("표시할 경기 결과가 없습니다."));
         }
 
@@ -63,6 +84,9 @@ namespace Game.Architecture.Tests
             Assert.That(controller.ResultText.CurrentValue, Does.Contain("패배").And.Contain("방장"));
             Assert.That(network.LoadCalls, Is.Zero);
             Assert.That(network.ReturnCalls, Is.Zero);
+            var displayedResult = controller.ResultText.CurrentValue;
+            network.Publish(new MatchStateSnapshot(MatchPhase.Waiting, 0));
+            Assert.That(controller.ResultText.CurrentValue, Is.EqualTo(displayedResult));
         }
 
         [Test]
@@ -91,6 +115,12 @@ namespace Game.Architecture.Tests
         {
             public string Text { get; private set; }
             public void SetText(string value) => Text = value;
+        }
+
+        private sealed class FakeTransition : IHighlightTransitionView
+        {
+            public float Opacity { get; private set; }
+            public void SetOpacity(float value) => Opacity = value;
         }
 
         private sealed class FakeNetwork : INetworkMatchEvents, INetworkResultNavigation

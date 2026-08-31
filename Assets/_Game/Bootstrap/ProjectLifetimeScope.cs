@@ -1,4 +1,5 @@
 using Game.Core.Flow;
+using Game.Client.Match;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Ports;
@@ -35,6 +36,10 @@ namespace Game.Bootstrap
 
             RegisterServices(builder, _networkPrefabs, _networkScenes, LoadProfile(store));
             builder.RegisterInstance<IProfileStore>(store);
+            // Shared across Playground and Result so scene unloading cannot reveal gameplay.
+            var transition = new GameObject("Highlight Transition").AddComponent<HighlightTransitionView>();
+            transition.transform.SetParent(transform, false);
+            builder.RegisterComponent(transition).As<IHighlightTransitionView>();
 
             // Both listen to something live. Tests build the same container
             // without wanting anything to react to scene loads or to write to

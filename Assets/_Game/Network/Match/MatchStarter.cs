@@ -408,6 +408,10 @@ namespace Game.Network.Match
                 return false;
             }
 
+            // The host must return the actual outcome, not merely report that an
+            // RPC was sent. Result has already unloaded/unbound the match session.
+            if (_state.Object != null && _state.Object.HasStateAuthority)
+                return ReturnToLobby();
             _state.RPC_RequestReturnToLobby();
             return true;
         }
@@ -644,6 +648,15 @@ namespace Game.Network.Match
 
         public bool TryHandlePlayerLeft(PlayerRef player)
         {
+            // Result has unloaded the scene-owned session; the replicated roster remains.
+            if (_session == null && _state != null && _state.Phase == MatchPhase.Result && player.IsRealPlayer)
+            {
+                var leavingId = PlayerRegistry.IdOf(player);
+                foreach (var participant in _playing)
+                    if (participant.PlayerId == leavingId)
+                        return _state.TrySetParticipantInactive(participant.PlayerIndex);
+                return false;
+            }
             if (!TryGetPlayerIndex(player, out var playerIndex))
             {
                 return false;
@@ -668,12 +681,20 @@ namespace Game.Network.Match
 
         public bool TryReturnToLobby(PlayerRef source)
         {
-            if (!TryGetPlayerIndex(source, out _))
+            if (_state == null || !source.IsRealPlayer ||
+                !IsReturnParticipant(_playing, PlayerRegistry.IdOf(source)))
             {
                 return false;
             }
 
             return ReturnToLobby();
+        }
+
+        internal static bool IsReturnParticipant(IReadOnlyList<MatchParticipant> playing, string playerId)
+        {
+            foreach (var participant in playing)
+                if (participant.PlayerId == playerId) return true;
+            return false;
         }
 
         private bool ReturnToLobby()

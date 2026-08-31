@@ -723,6 +723,10 @@ namespace Game.Server.Match
         {
             flow.GetRemainingSeconds(now);
             var phase = state.CurrentPhase.CurrentValue;
+            // The match outcome and recorded replay are final. Only membership
+            // changes when somebody leaves during presentation.
+            if (phase == MatchPhase.Highlight || phase == MatchPhase.Result)
+                return Players.TryDeactivate(playerIndex);
             if (phase != MatchPhase.Hiding && phase != MatchPhase.Searching)
             {
                 return false;

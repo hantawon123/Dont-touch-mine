@@ -50,7 +50,7 @@ namespace Game.Network.Session
         private const int ItemAssignmentKeyVersion = 1;
         private const int MaxItemAssignmentBytes = 128;
         private const int HighlightReplayKeyType = 0x484C5452;
-        private const int HighlightReplayKeyVersion = 2;
+        private const int HighlightReplayKeyVersion = 3;
         private const int HighlightReadyKeyType = 0x484C5244;
         private readonly HashSet<PlayerRef> _highlightPendingPlayers = new();
         private int _receivedHighlightSequence;
@@ -702,7 +702,7 @@ namespace Game.Network.Session
             byte[] payload;
             try
             {
-                payload = HighlightReplaySerializer.Serialize(replay);
+                payload = HighlightReplaySerializer.SerializeCompressed(replay);
             }
             catch (ArgumentException exception)
             {
@@ -717,6 +717,7 @@ namespace Game.Network.Session
                 0);
             _highlightPendingPlayers.Clear();
             foreach (var player in _runner.ActivePlayers) _highlightPendingPlayers.Add(player);
+            Debug.Log($"[Highlight] Sending {payload.Length:N0} compressed bytes to {_highlightPendingPlayers.Count} peers.");
             HighlightReplayReceived?.Invoke(replay);
             foreach (var player in _runner.ActivePlayers)
             {
@@ -1015,8 +1016,7 @@ namespace Game.Network.Session
             Debug.Log("[Session] Loading the match scene for everyone.");
         }
 
-        public bool IsResultSceneLoaded => _scenes != null &&
-            SceneManager.GetSceneByPath(_scenes.ResultScenePath).isLoaded;
+        public bool IsResultSceneLoaded { get; private set; }
 
         public bool EnterResultScene()
         {
@@ -1079,6 +1079,7 @@ namespace Game.Network.Session
         /// </summary>
         private void ReleaseRunner(bool preserveMigrationState = false)
         {
+            IsResultSceneLoaded = false;
             _highlightPendingPlayers.Clear();
             _receivedHighlightSequence = 0;
             // The rig is a component on the runner object and goes down with it.

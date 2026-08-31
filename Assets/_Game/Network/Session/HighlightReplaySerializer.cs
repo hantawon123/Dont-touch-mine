@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using Game.Core.Lobby;
 using Game.Server.Items;
@@ -19,6 +20,39 @@ namespace Game.Network.Session
         private const int MaxFramesPerClip = 1024;
         private const int MaxIdLength = 64;
         private const int MaxWorldObjectsPerFrame = 64;
+
+        public static byte[] SerializeCompressed(IReadOnlyList<HighlightReplayData> replay)
+        {
+            var raw = Serialize(replay);
+            using var output = new MemoryStream();
+            using (var gzip = new GZipStream(output, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
+                gzip.Write(raw, 0, raw.Length);
+            if (output.Length > MaxPayloadBytes)
+                throw new ArgumentException("Compressed replay exceeds transfer capacity.", nameof(replay));
+            return output.ToArray();
+        }
+
+        public static bool TryDeserializeCompressed(ReadOnlySpan<byte> data, out HighlightReplayData[] replay)
+        {
+            replay = Array.Empty<HighlightReplayData>();
+            if (data.Length == 0 || data.Length > MaxPayloadBytes) return false;
+            try
+            {
+                using var input = new MemoryStream(data.ToArray(), writable: false);
+                using var gzip = new GZipStream(input, CompressionMode.Decompress);
+                using var output = new MemoryStream();
+                var buffer = new byte[8192];
+                int read;
+                while ((read = gzip.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    if (output.Length + read > MaxPayloadBytes) return false;
+                    output.Write(buffer, 0, read);
+                }
+                return TryDeserialize(output.ToArray(), out replay);
+            }
+            catch (InvalidDataException) { return false; }
+            catch (IOException) { return false; }
+        }
 
         public static byte[] Serialize(IReadOnlyList<HighlightReplayData> replay)
         {

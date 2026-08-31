@@ -13,6 +13,27 @@ namespace Game.Tests.EditMode
     public sealed class HighlightStoryTests
     {
         [Test]
+        public void CompressedReplay_ReducesRepeatedPoseData_AndRejectsInvalidInput()
+        {
+            var segment = new HighlightSegment(0, 10);
+            var objects = Enumerable.Range(0, 32)
+                .Select(i => new WorldObjectState("item-" + i, Pose.identity)).ToArray();
+            var frames = Enumerable.Range(0, 101)
+                .Select(i => new HighlightReplayFrame(i * 0.1, new[] { Pose.identity, Pose.identity }, objects)).ToArray();
+            var replay = new[] { new HighlightReplayData(
+                new HighlightCandidate(HighlightType.FirstBlood, new[] { segment }, "item-0"),
+                new[] { new HighlightReplayClip(segment, frames) }) };
+            var raw = HighlightReplaySerializer.Serialize(replay);
+            var packed = HighlightReplaySerializer.SerializeCompressed(replay);
+            Assert.That(packed.Length, Is.LessThan(raw.Length / 4));
+            Assert.That(HighlightReplaySerializer.TryDeserializeCompressed(packed, out var restored), Is.True);
+            Assert.That(restored[0].Clips[0].Frames.Count, Is.EqualTo(101));
+            Assert.That(restored[0].Clips[0].Frames[100].WorldObjects.Count, Is.EqualTo(32));
+            Assert.That(HighlightReplaySerializer.TryDeserializeCompressed(new byte[] { 1, 2, 3 }, out _), Is.False);
+            Assert.That(HighlightReplaySerializer.TryDeserializeCompressed(raw, out _), Is.False);
+        }
+
+        [Test]
         public void ReplayTransfer_RoundTripsRecordedActions()
         {
             var segment = new HighlightSegment(10, 11);
