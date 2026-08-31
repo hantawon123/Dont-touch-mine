@@ -23,6 +23,19 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [TestCase(false, true, false, 0d, false)]
+        [TestCase(false, false, true, 10d, false)]
+        [TestCase(true, false, false, 4.9d, false)]
+        [TestCase(true, true, false, 0d, true)]
+        [TestCase(true, false, true, 0d, true)]
+        [TestCase(true, false, false, 5d, true)]
+        public void HostMigration_RevealsOnlyAfterRuntimeAndCameraRecovery(
+            bool runtimeReady, bool cameraReady, bool resultScene, double elapsed, bool expected)
+        {
+            Assert.That(Game.Bootstrap.HostMigrationPresentationController.CanReveal(
+                runtimeReady, cameraReady, resultScene, elapsed), Is.EqualTo(expected));
+        }
+
         [TestCase(PlayerPosture.Standing, 1.8f)]
         [TestCase(PlayerPosture.Crouching, 1.2f)]
         [TestCase(PlayerPosture.Prone, 0.6f)]

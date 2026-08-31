@@ -10,6 +10,49 @@ namespace Game.Tests.EditMode
     public sealed class ReplayVisualTests
     {
         [Test]
+        public void MigrationCamera_RebindsDestroyedTargetWithoutResettingView()
+        {
+            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCameraRig.prefab");
+            var root = Object.Instantiate(prefab);
+            var previous = new GameObject("Previous Avatar");
+            var replacement = new GameObject("Restored Avatar");
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var type = typeof(Game.Client.Cameras.PlayerCameraController);
+            try
+            {
+                var camera = root.GetComponent<Game.Client.Cameras.PlayerCameraController>();
+                camera.SetFollowTarget(previous.transform);
+                type.GetField("yaw", flags).SetValue(camera, 123f);
+                type.GetField("pitch", flags).SetValue(camera, -25f);
+                type.GetField("isFirstPerson", flags).SetValue(camera, true);
+                camera.SetCursorCaptureEnabled(false);
+                var pose = new Pose(new Vector3(4f, 2f, 8f), Quaternion.Euler(-25f, 123f, 0f));
+                root.transform.SetPositionAndRotation(pose.position, pose.rotation);
+                camera.SetMigrationSuspended(true);
+                Object.DestroyImmediate(previous);
+                replacement.transform.position = new Vector3(4f, 0.4f, 8f);
+                camera.SetFollowTarget(replacement.transform, preserveView: true);
+                type.GetMethod("LateUpdate", flags).Invoke(camera, null);
+                Assert.That(camera.FollowTarget, Is.EqualTo(replacement.transform));
+                Assert.That(root.transform.position, Is.EqualTo(pose.position), "Keep the last view during recovery.");
+                Assert.That(type.GetField("yaw", flags).GetValue(camera), Is.EqualTo(123f));
+                Assert.That(type.GetField("pitch", flags).GetValue(camera), Is.EqualTo(-25f));
+                Assert.That(type.GetField("isFirstPerson", flags).GetValue(camera), Is.True);
+                Assert.That(type.GetField("cursorCaptureEnabled", flags).GetValue(camera), Is.False);
+                camera.SetMigrationSuspended(false);
+                type.GetMethod("LateUpdate", flags).Invoke(camera, null);
+                Assert.That(Quaternion.Angle(root.transform.rotation, pose.rotation), Is.LessThan(0.01f));
+            }
+            finally
+            {
+                if (previous != null) Object.DestroyImmediate(previous);
+                Object.DestroyImmediate(replacement);
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void HighlightHud_KeepsOnlyTitleAndNotice_AndRestoresPriorVisibility()
         {
             var root = new GameObject("HUD", typeof(Canvas));

@@ -60,6 +60,8 @@ namespace Game.Client.Cameras
         private bool isFirstPerson;
         private bool cursorCaptureEnabled = true;
         private bool escapeReleasesCursor = true;
+        private bool migrationSuspended;
+        private Vector3 followCorrection;
         private CinemachineBrain replayBrain;
         private Camera replayOutput;
         private bool replayBrainEnabled;
@@ -138,6 +140,7 @@ namespace Game.Client.Cameras
 
         private void Update()
         {
+            if (migrationSuspended) return;
             if (PlayerMovement.IsTextInputFocused())
             {
                 SetCursorLocked(false);
@@ -179,7 +182,7 @@ namespace Game.Client.Cameras
 
         private void LateUpdate()
         {
-            if (followTarget == null)
+            if (migrationSuspended || followTarget == null)
             {
                 return;
             }
@@ -190,8 +193,10 @@ namespace Game.Client.Cameras
                 currentEyeHeight, targetEyeHeight, eyeHeightLerpSpeed * Time.deltaTime);
 
             var offset = new Vector3(headOffset.x, currentEyeHeight, headOffset.z);
+            followCorrection = Vector3.Lerp(followCorrection, Vector3.zero,
+                1f - Mathf.Exp(-Time.unscaledDeltaTime / 0.08f));
             transform.SetPositionAndRotation(
-                followTarget.position + offset,
+                followTarget.position + offset + followCorrection,
                 Quaternion.Euler(pitch, yaw, 0f));
         }
 
@@ -200,8 +205,11 @@ namespace Game.Client.Cameras
         /// moving while they hold the mouse.
         /// </summary>
         public PlayerMovement FollowMovement => followMovement;
+        public Transform FollowTarget => followTarget;
 
-        public void SetFollowTarget(Transform target)
+        public void SetMigrationSuspended(bool suspended) => migrationSuspended = suspended;
+
+        public void SetFollowTarget(Transform target, bool preserveView = false)
         {
             if (target == null)
             {
@@ -210,8 +218,17 @@ namespace Game.Client.Cameras
 
             followTarget = target;
             followMovement = target.GetComponent<PlayerMovement>();
-            currentEyeHeight = followMovement != null ? followMovement.CurrentEyeHeight : headOffset.y;
-            yaw = target.eulerAngles.y;
+            if (preserveView)
+            {
+                followCorrection = transform.position - target.position -
+                                   new Vector3(headOffset.x, currentEyeHeight, headOffset.z);
+            }
+            else
+            {
+                currentEyeHeight = followMovement != null ? followMovement.CurrentEyeHeight : headOffset.y;
+                yaw = target.eulerAngles.y;
+                followCorrection = Vector3.zero;
+            }
 
             // 1인칭 몸 숨김 대상 렌더러를 새 대상 기준으로 다시 수집한다.
             var visual = target.Find("Visual");
@@ -251,6 +268,7 @@ namespace Game.Client.Cameras
             {
                 foreach (var bodyRenderer in bodyRenderers)
                 {
+                    if (bodyRenderer == null) continue;
                     bodyRenderer.shadowCastingMode = isFirstPerson
                         ? UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly
                         : UnityEngine.Rendering.ShadowCastingMode.On;

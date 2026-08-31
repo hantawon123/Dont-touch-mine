@@ -1,5 +1,6 @@
 using Game.Core.Flow;
 using Game.Client.Match;
+using Game.Client.Cameras;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Ports;
@@ -41,6 +42,10 @@ namespace Game.Bootstrap
             var transition = new GameObject("Highlight Transition").AddComponent<HighlightTransitionView>();
             transition.transform.SetParent(transform, false);
             builder.RegisterComponent(transition).As<IHighlightTransitionView>();
+            var migrationFrame = new GameObject("Host Migration Presentation").AddComponent<HostMigrationFrameView>();
+            migrationFrame.transform.SetParent(transform, false);
+            builder.RegisterComponent(migrationFrame);
+            builder.RegisterEntryPoint<HostMigrationPresentationController>();
 
             // Both listen to something live. Tests build the same container
             // without wanting anything to react to scene loads or to write to

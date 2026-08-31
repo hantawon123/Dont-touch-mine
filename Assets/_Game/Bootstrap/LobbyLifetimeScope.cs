@@ -255,11 +255,18 @@ namespace Game.Bootstrap
     /// client's character is replicated to it, so at that moment there is no
     /// avatar in the scene at all and the camera was left following nothing for
     /// the whole visit. Binding is retried until both the replicated local avatar
-    /// and camera rig exist, then stops doing work.
+    /// and camera rig exist. A migrated avatar replaces the previous binding.
     /// </remarks>
     internal sealed class LobbyPlayerCameraBinder : IStartable, ITickable
     {
-        private bool isBound;
+        private readonly NetworkRunnerService network;
+        private PlayerAvatar boundAvatar;
+        private PlayerCameraController boundRig;
+
+        public LobbyPlayerCameraBinder(NetworkRunnerService network)
+        {
+            this.network = network ?? throw new ArgumentNullException(nameof(network));
+        }
 
         public void Start()
         {
@@ -273,7 +280,9 @@ namespace Game.Bootstrap
 
         private void TryBind()
         {
-            if (isBound)
+            if (!network.IsRuntimeReady ||
+                (boundRig != null && boundAvatar != null && boundAvatar.PlayerId != null && boundAvatar.IsOwner &&
+                 boundRig.FollowTarget == boundAvatar.transform))
             {
                 return;
             }
@@ -285,21 +294,21 @@ namespace Game.Bootstrap
                 return;
             }
 
-            // Inactive included: a character can register before Unity has
-            // finished bringing its object up.
-            var avatars = UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
-                FindObjectsInactive.Include,
-                FindObjectsSortMode.None);
+            var avatars = network.PlayerAvatars;
 
-            for (var i = 0; i < avatars.Length; i++)
+            for (var i = 0; i < avatars.Count; i++)
             {
-                if (!avatars[i].IsOwner)
+                if (avatars[i] == null || avatars[i].PlayerId == null || !avatars[i].IsOwner)
                 {
                     continue;
                 }
+                var motor = avatars[i].GetComponent<NetworkPlayerMotor>();
+                if (motor == null || !motor.IsScenePlacementReady) continue;
 
-                cameraRig.SetFollowTarget(avatars[i].transform);
-                isBound = true;
+                cameraRig.SetFollowTarget(avatars[i].transform,
+                    boundRig == cameraRig && !ReferenceEquals(boundAvatar, null));
+                boundAvatar = avatars[i];
+                boundRig = cameraRig;
                 return;
             }
         }

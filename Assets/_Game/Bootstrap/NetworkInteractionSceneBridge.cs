@@ -151,12 +151,12 @@ namespace Game.Bootstrap
                     continue;
                 }
 
-                if (avatar.IsOwner)
+                var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                if (avatar.IsOwner && motor != null && motor.IsScenePlacementReady)
                 {
                     BindLocalCamera(avatar.transform);
                 }
 
-                var motor = avatar.GetComponent<NetworkPlayerMotor>();
                 var acceptsLocalInput = avatar.IsOwner &&
                                         motor != null &&
                                         motor.ControlsEnabled;
@@ -196,21 +196,22 @@ namespace Game.Bootstrap
 
         private void BindLocalCamera(Transform target)
         {
-            if (target == null || ReferenceEquals(cameraTarget, target))
+            if (target == null || (cameraRig != null && ReferenceEquals(cameraTarget, target)))
             {
                 return;
             }
 
-            cameraRig ??= UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(
-                FindObjectsInactive.Include);
+            if (cameraRig == null)
+                cameraRig = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
             if (cameraRig == null)
             {
                 return;
             }
 
+            var preserveView = !ReferenceEquals(cameraTarget, null);
             cameraTarget = target;
-            cameraRig.SetFollowTarget(target);
-            cameraRig.SetCursorCaptureEnabled(true);
+            cameraRig.SetFollowTarget(target, preserveView);
+            if (!preserveView) cameraRig.SetCursorCaptureEnabled(true);
         }
 
         private void DisableStandaloneActors()

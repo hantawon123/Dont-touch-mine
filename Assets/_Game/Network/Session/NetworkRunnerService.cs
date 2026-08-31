@@ -116,6 +116,8 @@ namespace Game.Network.Session
         /// to reference Fusion either.
         /// </remarks>
         public event Action SceneLoaded;
+        // Raised at end-of-frame, before the old runner destroys its avatars.
+        public event Action HostMigrationStarting;
 
         private readonly List<RoomSummary> _roomBuffer = new List<RoomSummary>();
 
@@ -296,6 +298,7 @@ namespace Game.Network.Session
         /// </summary>
         public bool IsServer => _runner != null && _runner.IsServer;
         public bool IsRuntimeReady => IsRunning && !_hostMigrationInProgress;
+        public bool IsHostMigrationInProgress => _hostMigrationInProgress;
 
         public IReadOnlyList<PlayerAvatar> PlayerAvatars =>
             _roster?.Avatars ?? Array.Empty<PlayerAvatar>();
@@ -685,7 +688,7 @@ namespace Game.Network.Session
             }
 
             _spawner?.UseSpawnPoses(poses);
-            _spawner?.RepositionSeated(_runner);
+            if (!_hostMigrationInProgress) _spawner?.RepositionSeated(_runner);
         }
 
         public bool TryPublishMatchState(MatchStateSnapshot snapshot)

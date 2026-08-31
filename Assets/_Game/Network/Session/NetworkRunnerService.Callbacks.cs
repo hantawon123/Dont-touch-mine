@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Text;
 using Cysharp.Threading.Tasks;
 using Fusion;
+using Fusion.Addons.KCC;
 using Fusion.Sockets;
 using Game.Core.Match;
+using Game.Core.Players;
 using Game.Core.Rooms;
 using Game.Network.Lobby;
 using Game.Network.Players;
@@ -200,6 +202,12 @@ namespace Game.Network.Session
                 return;
             }
 
+            if (_hostMigrationInProgress)
+            {
+                input.Set(default(NetworkPlayerInput));
+                return;
+            }
+
             if (_localInputMotor == null ||
                 _localInputMotor.Object == null ||
                 !_localInputMotor.Object.HasInputAuthority)
@@ -257,11 +265,28 @@ namespace Game.Network.Session
             _hostMigrationInProgress = true;
             var migrationRevision = ++_hostMigrationRevision;
             var migrationScene = runner.SceneInfo;
+            var lobbyPoses = new Dictionary<PlayerRef, (Pose Pose, PlayerPosture Posture)>();
+            if (_scenes != null && IsOnlyScene(migrationScene, _scenes.LobbyScene))
+            {
+                foreach (var avatar in PlayerAvatars)
+                {
+                    if (avatar == null || avatar.Object == null || !avatar.Object.IsValid) continue;
+                    var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                    if (motor != null)
+                        lobbyPoses[avatar.Owner] = (new Pose(avatar.transform.position, avatar.transform.rotation), motor.Posture);
+                }
+            }
             NetworkRunner replacementRunner = null;
             Debug.Log("[Network] Host migration started.");
 
             try
             {
+                if (!Application.isBatchMode && HostMigrationStarting != null)
+                {
+                    await UniTask.WaitForEndOfFrame();
+                    if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(runner)) return;
+                    HostMigrationStarting.Invoke();
+                }
                 await runner.Shutdown(shutdownReason: ShutdownReason.HostMigration);
                 if (migrationRevision != _hostMigrationRevision) return;
                 Debug.Log("[Network] Host migration: old runner stopped; creating replacement.");
@@ -358,8 +383,18 @@ namespace Game.Network.Session
                                 $"Could not restore match rules: {_matchRuntimeRestoreFailure.Message}",
                                 _matchRuntimeRestoreFailure);
                     }
-                    if (!(_matchStarter?.HasStartedMatch ?? false))
-                        _spawner?.RepositionSeated(replacementRunner);
+                    // Lobby movement has no match-rule checkpoint to roll back. Keep the new
+                    // host's last observed positions instead of seating everyone at the entrance.
+                    if (phase == MatchPhase.Waiting)
+                    {
+                        foreach (var avatar in PlayerAvatars)
+                        {
+                            if (avatar == null || !lobbyPoses.TryGetValue(avatar.Owner, out var saved)) continue;
+                            var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                            if (motor == null || !motor.TryRestoreScenePose(saved.Pose, saved.Posture))
+                                throw new InvalidOperationException("Could not restore the lobby character pose.");
+                        }
+                    }
                     _spawner?.RefreshHost(replacementRunner);
                     if (!replacementRunner.SessionInfo.UpdateCustomProperties(
                         new Dictionary<string, SessionProperty>
@@ -482,6 +517,8 @@ namespace Game.Network.Session
                 var position = hasTransform
                     ? networkTransform.Data.Position
                     : Vector3.zero;
+                if (snapshotObject.TryGetBehaviour<KCC>(out var snapshotKcc))
+                    position = snapshotKcc.GetNetworkBufferPosition();
                 var rotation = hasTransform
                     ? networkTransform.Data.Rotation
                     : Quaternion.identity;
@@ -509,6 +546,9 @@ namespace Game.Network.Session
                 }
 
                 resumedRunner.MakeDontDestroyOnLoad(restoredObject.gameObject);
+                if (restoredObject.TryGetBehaviour<NetworkPlayerMotor>(out var restoredMotor) &&
+                    !restoredMotor.TryRestoreScenePose(new Pose(position, rotation), restoredMotor.Posture))
+                    throw new InvalidOperationException("Could not resume the restored character's KCC.");
                 if (player.IsRealPlayer &&
                     !(_spawner?.Restore(resumedRunner, player, restoredObject) ?? false))
                 {

@@ -19,6 +19,7 @@ namespace Game.Network.Players
         private IPlayerInputIntentSource inputSource;
         private bool hasPendingTeleport;
         private Pose pendingTeleport;
+        private PlayerPosture? pendingPosture;
 
         [Networked]
         private NetworkBool ScenePlacementReady { get; set; }
@@ -50,6 +51,9 @@ namespace Game.Network.Players
 
         [Networked]
         public PlayerPosture Posture { get; private set; }
+
+        public bool IsScenePlacementReady => Object != null && Object.IsValid &&
+                                             ScenePlacementReady && !hasPendingTeleport;
 
         private bool IsConfigured =>
             kcc != null && movementProcessor != null && inputSource != null;
@@ -237,6 +241,13 @@ namespace Game.Network.Players
             return true;
         }
 
+        internal bool TryRestoreScenePose(Pose pose, PlayerPosture posture)
+        {
+            if (!TryTeleport(pose)) return false;
+            pendingPosture = posture;
+            return true;
+        }
+
         private bool ApplyPendingScenePlacement()
         {
             if (!IsConfigured || Object == null)
@@ -247,6 +258,11 @@ namespace Game.Network.Players
             if (Object.HasStateAuthority && hasPendingTeleport)
             {
                 hasPendingTeleport = false;
+                if (pendingPosture.HasValue)
+                {
+                    ApplyPosture(pendingPosture.Value, inputSource.MovementSettings);
+                    pendingPosture = null;
+                }
                 kcc.SetPosition(pendingTeleport.position);
                 kcc.SetLookRotation(pendingTeleport.rotation);
                 ResetMotion();
