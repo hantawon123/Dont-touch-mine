@@ -7,6 +7,14 @@ using UnityEngine;
 
 namespace Game.Network.Match
 {
+    public interface INetworkResultNavigation
+    {
+        bool IsServer { get; }
+        bool IsResultSceneLoaded { get; }
+        bool EnterResultScene();
+        bool RequestReturnToLobby();
+    }
+
     public interface INetworkHighlightReady
     {
         bool TryConfirmHighlightReady();

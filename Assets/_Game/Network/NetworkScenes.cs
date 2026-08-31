@@ -33,6 +33,8 @@ namespace Game.Network
         [SerializeField]
         [Tooltip("Waiting room the players return to after a match.")]
         private UnityEditor.SceneAsset _lobbyScene;
+        [SerializeField]
+        private UnityEditor.SceneAsset _resultScene;
 #endif
 
         /// <summary>
@@ -46,6 +48,11 @@ namespace Game.Network
         [SerializeField]
         [HideInInspector]
         private string _lobbyScenePath = string.Empty;
+        [SerializeField, HideInInspector]
+        private string _resultScenePath = string.Empty;
+
+        public string ResultScenePath => _resultScenePath;
+        public SceneRef ResultScene => Resolve(_resultScenePath, "result scene");
 
         /// <summary>
         /// The map a match plays in. Invalid when nothing is assigned or the
@@ -104,16 +111,21 @@ namespace Game.Network
             var lobbyPath = _lobbyScene == null
                 ? string.Empty
                 : UnityEditor.AssetDatabase.GetAssetPath(_lobbyScene);
+            var resultPath = _resultScene == null
+                ? string.Empty
+                : UnityEditor.AssetDatabase.GetAssetPath(_resultScene);
 
-            if (_matchScenePath != matchPath || _lobbyScenePath != lobbyPath)
+            if (_matchScenePath != matchPath || _lobbyScenePath != lobbyPath || _resultScenePath != resultPath)
             {
                 _matchScenePath = matchPath;
                 _lobbyScenePath = lobbyPath;
+                _resultScenePath = resultPath;
                 UnityEditor.EditorUtility.SetDirty(this);
             }
 
             WarnIfMissingFromBuild(matchPath, _matchScene);
             WarnIfMissingFromBuild(lobbyPath, _lobbyScene);
+            WarnIfMissingFromBuild(resultPath, _resultScene);
         }
 
         private void WarnIfMissingFromBuild(

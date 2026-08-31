@@ -40,6 +40,7 @@ namespace Game.Network.Session
         INetworkMatchAuthority,
         INetworkMatchEvents,
         INetworkHighlightReady,
+        INetworkResultNavigation,
         ILobbyChatTransport,
         IDisposable
     {
@@ -1012,6 +1013,23 @@ namespace Game.Network.Session
             // geometry inside it.
             runner.LoadScene(scene, LoadSceneMode.Single);
             Debug.Log("[Session] Loading the match scene for everyone.");
+        }
+
+        public bool IsResultSceneLoaded => _scenes != null &&
+            SceneManager.GetSceneByPath(_scenes.ResultScenePath).isLoaded;
+
+        public bool EnterResultScene()
+        {
+            if (!IsServer || _runner == null || !_runner.IsRunning) return false;
+            if (_scenes == null)
+            {
+                Debug.LogError("[Session] NetworkScenes must be assigned to load results.");
+                return false;
+            }
+            var scene = _scenes.ResultScene;
+            if (!scene.IsValid) return false;
+            _runner.LoadScene(scene, LoadSceneMode.Single);
+            return true;
         }
 
         public bool EnterLobbyScene(NetworkRunner runner)

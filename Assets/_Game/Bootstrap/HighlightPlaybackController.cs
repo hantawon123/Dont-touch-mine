@@ -450,47 +450,4 @@ namespace Game.Bootstrap
         }
     }
 
-    /// <summary>Shows the result phase briefly, then returns the whole room to its lobby.</summary>
-    public sealed class NetworkResultLobbyReturnController :
-        IStartable,
-        ITickable,
-        IDisposable
-    {
-        private const double ResultDisplaySeconds = 5d;
-        private readonly INetworkMatchEvents events;
-        private readonly NetworkRunnerService network;
-        private double returnAt = -1d;
-
-        public NetworkResultLobbyReturnController(
-            INetworkMatchEvents events,
-            NetworkRunnerService network)
-        {
-            this.events = events ?? throw new ArgumentNullException(nameof(events));
-            this.network = network ?? throw new ArgumentNullException(nameof(network));
-        }
-
-        public void Start() => events.MatchStateReceived += OnMatchStateReceived;
-
-        public void Dispose() => events.MatchStateReceived -= OnMatchStateReceived;
-
-        public void Tick()
-        {
-            if (returnAt < 0d || Time.unscaledTimeAsDouble < returnAt || !network.IsServer)
-            {
-                return;
-            }
-
-            if (network.RequestReturnToLobby())
-            {
-                returnAt = -1d;
-            }
-        }
-
-        private void OnMatchStateReceived(MatchStateSnapshot snapshot)
-        {
-            returnAt = snapshot.Phase == MatchPhase.Result && network.IsServer
-                ? Time.unscaledTimeAsDouble + ResultDisplaySeconds
-                : -1d;
-        }
-    }
 }
