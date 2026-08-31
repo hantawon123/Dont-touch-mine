@@ -289,6 +289,7 @@ namespace Game.Network.Session
                 ReadConfiguredSettings();
                 if (replacementRunner.IsServer)
                 {
+                    MatchMigration = _matchStarter?.CaptureMigrationState();
                     foreach (var player in replacementRunner.ActivePlayers)
                         _spawner?.Spawn(replacementRunner, player, NicknameOf(replacementRunner, player));
                     _spawner?.RefreshHost(replacementRunner);
@@ -433,7 +434,8 @@ namespace Game.Network.Session
                 $"IsServer={runner != null && runner.IsServer}.");
 
             SceneLoaded?.Invoke();
-            _spawner?.RepositionSeated(runner);
+            if (!runner.IsResume || !(_matchStarter?.HasStartedMatch ?? false))
+                _spawner?.RepositionSeated(runner);
         }
 
         public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }

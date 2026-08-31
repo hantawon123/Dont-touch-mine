@@ -56,6 +56,7 @@ namespace Game.Network.Match
         private Pose _shredderEjectionPose;
         private bool _hasShredderEjectionPose;
         private bool _returningToLobby;
+        public bool HasStartedMatch => _state != null && _state.IsStarted;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<LobbyChatMessage> LobbyChatReceived;
@@ -284,6 +285,20 @@ namespace Game.Network.Match
         public void PublishSimulationTick()
         {
             SimulationTick?.Invoke();
+            if (_session != null && _state != null)
+            {
+                for (var i = 0; i < _session.Assignments.Count; i++)
+                    if (!_session.Players.IsActive(i)) _state.TrySetParticipantInactive(i);
+                _state.GetComponent<MatchMigrationCheckpoint>()?.Capture(_session, _state, _roster);
+            }
+        }
+
+        public MatchMigrationState CaptureMigrationState()
+        {
+            if (_state == null || !_state.IsStarted) return null;
+            var checkpoint = _state.GetComponent<MatchMigrationCheckpoint>();
+            if (checkpoint == null) throw new InvalidOperationException("Match migration checkpoint is missing.");
+            return checkpoint.Read(_state);
         }
 
         public void BindSession(
@@ -307,6 +322,18 @@ namespace Game.Network.Match
             _session.MatchEnded += OnMatchEnded;
             _shredderEjectionPose = shredderEjectionPose;
             _hasShredderEjectionPose = true;
+
+            if (_session.CurrentPhase != MatchPhase.Waiting)
+            {
+                // Restored combat timers must not be reset by the normal new-match initializer.
+                for (var i = 0; i < _session.Assignments.Count; i++)
+                {
+                    var restored = _session.CaptureMigrationPlayer(i, default);
+                    _state.TrySetStunEndsAt(i, restored.StunEndsAt);
+                    _state.TrySetRemainingDestructionUses(i, restored.DestructionUses);
+                }
+                return;
+            }
 
             var remainingUses = new int[_session.Players.Players.Count];
             for (var playerIndex = 0;

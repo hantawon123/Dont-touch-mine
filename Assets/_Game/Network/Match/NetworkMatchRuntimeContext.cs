@@ -28,7 +28,8 @@ namespace Game.Network.Match
         public NetworkMatchRuntimeContext(
             INetworkMatchRuntimeSource source,
             IMatchRuntimeContext sceneContext,
-            IReadOnlyList<MatchParticipant> participants)
+            IReadOnlyList<MatchParticipant> participants,
+            IReadOnlyList<Pose> restoredPoses = null)
         {
             this.source = source ?? throw new ArgumentNullException(nameof(source));
             this.sceneContext = sceneContext ??
@@ -49,6 +50,16 @@ namespace Game.Network.Match
             positions = new Vector3[participantsByIndex.Length];
             poses = new Pose[participantsByIndex.Length];
             hasPose = new bool[participantsByIndex.Length];
+            if (restoredPoses != null)
+            {
+                if (restoredPoses.Count != poses.Length) throw new ArgumentException("Migration pose count mismatch.");
+                for (var i = 0; i < poses.Length; i++)
+                {
+                    poses[i] = restoredPoses[i];
+                    positions[i] = poses[i].position;
+                    hasPose[i] = true;
+                }
+            }
         }
 
         public double ServerTime => source.ServerTime;

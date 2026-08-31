@@ -42,6 +42,7 @@ namespace Game.Network.Match
     public interface INetworkMatchAuthority : INetworkMatchRuntimeSource
     {
         bool IsServer { get; }
+        MatchMigrationState MatchMigration { get; }
         int DestructionLimit { get; }
         event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
         event Action SimulationTick;

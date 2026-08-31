@@ -18,6 +18,53 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkMatchRuntimeCoordinatorTests
     {
+        [Test]
+        public void Migration_ResumesWithoutStartingOrInitializingItemsAgain()
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                var participants = new[] { new MatchParticipant("host", 0), new MatchParticipant("client", 1) };
+                var factory = new MatchRuntimeFactory(rules);
+                using var original = factory.CreateSessionFromParticipants(participants, new AcceptAllPlacements(),
+                    CreateSpawnPoints(), CreateItems(), new System.Random(7));
+                original.Session.Start(10d);
+                original.Session.TryInitializeAssignedItem(0);
+                var pose = new Pose(new Vector3(8, 2, 4), Quaternion.identity);
+                var checkpoint = new MatchMigrationState
+                {
+                    CapturedAt = 20d, Phase = original.Session.CaptureStateSnapshot(),
+                    Players = new[] { original.Session.CaptureMigrationPlayer(0, pose),
+                        original.Session.CaptureMigrationPlayer(1, Pose.identity) },
+                    Objects = new[] { new MatchMigrationObject { ObjectId = original.Session.Assignments[0].Item.ItemId,
+                        Holder = 0, Pose = pose } },
+                };
+                var network = new FakeNetworkAuthority(100d,
+                    new Dictionary<string, Pose> { ["host"] = pose, ["client"] = Pose.identity })
+                    { MatchMigration = checkpoint };
+                using var room = new RoomBrowserSystem();
+                var flow = new AppFlowSystem();
+                flow.TryTransitionTo(AppFlowState.Lobby);
+                flow.TryTransitionTo(AppFlowState.InGame);
+                using var coordinator = new NetworkMatchRuntimeCoordinator(network, factory, new FakeSceneContext(), flow,
+                    new NetworkMatchRuntimeConfiguration(new AcceptAllPlacements(), CreateSpawnPoints(), CreateItems(),
+                        Array.Empty<WorldObjectState>(), Pose.identity, CreateWaitingPoints()), room);
+                coordinator.Start();
+                network.PublishLineUp(participants);
+                network.PublishSimulationTick();
+                Assert.That(network.BoundSession.CurrentPhase, Is.EqualTo(MatchPhase.Hiding));
+                Assert.That(network.BoundSession.GetRemainingSeconds(100d), Is.EqualTo(50d));
+                Assert.That(network.InitializedAssignmentPlayers, Is.Empty);
+                Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(new[] { 0, 1 }));
+                Assert.That(network.TeleportedPoses[0].position, Is.EqualTo(pose.position));
+                var teleports = network.TeleportedPlayers.Count;
+                network.PublishSceneLoaded();
+                network.PublishSimulationTick();
+                Assert.That(network.TeleportedPlayers.Count, Is.EqualTo(teleports));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(rules); }
+        }
+
         [TestCase(MatchPhase.Hiding)]
         [TestCase(MatchPhase.Searching)]
         [TestCase(MatchPhase.Highlight)]
@@ -316,6 +363,7 @@ namespace Game.Architecture.Tests
             }
 
             public bool IsServer => true;
+            public MatchMigrationState MatchMigration { get; set; }
             public bool IsRuntimeReady { get; set; } = true;
             public bool IsHighlightReplayReady { get; set; }
             public int DestructionLimit => PlaySettingsDraft.DefaultDestructionLimit;

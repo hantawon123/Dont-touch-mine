@@ -160,6 +160,7 @@ namespace Game.Network.Session
         private int _highlightTransferSequence;
         private bool _hostMigrationInProgress;
         private int _hostMigrationRevision;
+        public MatchMigrationState MatchMigration { get; private set; }
         // Stable across replacement runners; identity only, not authentication.
         private readonly long _playerUniqueId = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0) | 1L;
         private int _configuredMaxPlayers;
@@ -758,6 +759,7 @@ namespace Game.Network.Session
             }
 
             _matchStarter.BindSession(session, shredderEjectionPose);
+            MatchMigration = null;
             return true;
         }
 
@@ -1087,6 +1089,7 @@ namespace Game.Network.Session
         /// </summary>
         private void ReleaseRunner(bool preserveMigrationState = false)
         {
+            MatchMigration = null;
             IsResultSceneLoaded = false;
             _highlightPendingPlayers.Clear();
             _receivedHighlightSequence = 0;
@@ -1203,6 +1206,7 @@ namespace Game.Network.Session
 
         private void OnLineUpReceived(IReadOnlyList<MatchParticipant> participants)
         {
+            if (participants == null || participants.Count == 0) MatchMigration = null;
             LineUpReceived?.Invoke(participants);
         }
 

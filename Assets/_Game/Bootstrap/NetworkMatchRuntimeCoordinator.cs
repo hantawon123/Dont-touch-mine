@@ -78,6 +78,7 @@ namespace Game.Bootstrap
         private bool waitingForHighlightReady;
         private double highlightReadyDeadline;
         private bool started;
+        private bool resumedRuntime;
 
         public NetworkMatchRuntimeCoordinator(
             INetworkMatchAuthority network,
@@ -173,11 +174,29 @@ namespace Game.Bootstrap
 
         private void StartRuntime(IReadOnlyList<MatchParticipant> participants)
         {
+            var migration = network.MatchMigration;
+            Pose[] restoredPoses = null;
+            if (migration != null)
+            {
+                if (migration.Players.Length != participants.Count)
+                    throw new InvalidOperationException("Migrated match line-up size changed.");
+                restoredPoses = new Pose[participants.Count];
+                for (var i = 0; i < participants.Count; i++)
+                {
+                    if (migration.Players[participants[i].PlayerIndex].PlayerId != participants[i].PlayerId)
+                        throw new InvalidOperationException("Migrated match line-up changed.");
+                    restoredPoses[i] = migration.Players[i].Pose;
+                }
+            }
             var networkContext = new NetworkMatchRuntimeContext(
                 network,
                 sceneContext,
-                participants);
-            var created = factory.CreateSessionFromParticipants(
+                participants, restoredPoses);
+            var created = migration != null
+                ? factory.RestoreSession(migration, network.ServerTime, configuration.PlacementValidator,
+                    configuration.SpawnPoints, configuration.ItemDefinitions,
+                    configuration.InitialWorldObjects, network.DestructionLimit)
+                : factory.CreateSessionFromParticipants(
                 participants,
                 configuration.PlacementValidator,
                 configuration.SpawnPoints,
@@ -196,7 +215,7 @@ namespace Game.Bootstrap
                 if (!network.BindMatchSession(
                         created.Session,
                         configuration.ShredderEjectionPose) ||
-                    !createdRuntime.StartMatch())
+                    !(migration != null ? createdRuntime.ResumeMatch() : createdRuntime.StartMatch()))
                 {
                     throw new InvalidOperationException(
                         "The authority could not initialize the network match runtime.");
@@ -204,6 +223,7 @@ namespace Game.Bootstrap
 
                 composition = created;
                 runtime = createdRuntime;
+                if (migration != null) RestorePlayers(migration);
                 PublishSnapshotIfChanged();
             }
             catch
@@ -221,7 +241,38 @@ namespace Game.Bootstrap
         // 숨기기 초기 배치를 다음 틱에 다시 적용하도록 표시한다.
         private void OnSceneLoaded()
         {
+            if (resumedRuntime) return;
             hidingInitialPlacementDone = false;
+        }
+
+        private void RestorePlayers(MatchMigrationState migration)
+        {
+            var session = composition.Session;
+            resumedRuntime = true;
+            synchronizedPhase = session.CurrentPhase;
+            synchronizedHidingTurn = session.GetCurrentHidingTurnIndex(network.ServerTime);
+            hidingInitialPlacementDone = synchronizedPhase == MatchPhase.Hiding;
+            initializedAssignments = new bool[migration.Players.Length];
+            for (var i = 0; i < migration.Players.Length; i++)
+            {
+                foreach (var item in migration.Objects)
+                    if (item.ObjectId == migration.Players[i].ItemId) initializedAssignments[i] = true;
+                if (!session.Players.IsActive(i)) continue;
+                if (!network.TryGetPlayerPose(migration.Players[i].PlayerId, out _))
+                {
+                    session.TryHandlePlayerLeft(i, migration.Players[i].Pose, network.ServerTime);
+                    continue;
+                }
+                if (!network.TryTeleportPlayer(i, migration.Players[i].Pose))
+                    throw new InvalidOperationException($"Could not restore player {i}'s pose.");
+                assignmentBuffer[0] = session.Assignments[i];
+                if (!network.TryPublishItemAssignments(assignmentBuffer))
+                    throw new InvalidOperationException($"Could not restore player {i}'s assignment.");
+            }
+            // At an exact turn boundary the snapshot may precede that turn's first initialization.
+            if (session.CurrentPhase == MatchPhase.Hiding && synchronizedHidingTurn >= 0 &&
+                session.Players.IsActive(synchronizedHidingTurn) && !initializedAssignments[synchronizedHidingTurn])
+                InitializeCurrentAssignment(session, synchronizedHidingTurn);
         }
 
         private void SynchronizePlayers()
@@ -497,6 +548,7 @@ namespace Game.Bootstrap
 
             composition = null;
             runtime = null;
+            resumedRuntime = false;
             pendingLineUp = null;
             synchronizedControls = Array.Empty<bool>();
             initializedAssignments = Array.Empty<bool>();

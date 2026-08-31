@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 8254353663732267819}
   - component: {fileID: 3868694429504036928}
   - component: {fileID: 530443398338678102}
+  - component: {fileID: 530443398338678103}
   m_Layer: 0
   m_Name: MatchSession
   m_TagString: Untagged
@@ -52,6 +53,7 @@ MonoBehaviour:
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: 530443398338678102}
+  - {fileID: 530443398338678103}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &530443398338678102
 MonoBehaviour:
@@ -68,3 +70,15 @@ MonoBehaviour:
   _IsStarted: 0
   _ParticipantCount: 0
   _Participants: []
+--- !u!114 &530443398338678103
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7477507801552443215}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbeb24f3295e4f36944ca6a391cc0444, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Network::Game.Network.Match.MatchMigrationCheckpoint
