@@ -10,7 +10,8 @@
         "UniTask",
         "PhotonVoice",
         "PhotonVoice.Fusion",
-        "R3.Unity"
+        "R3.Unity",
+        "PhotonVoice.API"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
