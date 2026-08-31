@@ -107,9 +107,14 @@ namespace Game.Network.Players
                 // spawn point and activates it through TryTeleport().
                 kcc.SetActive(false);
                 ScenePlacementReady = false;
-                ControlsEnabled = true;
-                DesiredMoveSpeed = settings.WalkSpeed;
-                ApplyPosture(PlayerPosture.Standing, settings);
+                if (!Runner.IsResume)
+                {
+                    ControlsEnabled = true;
+                    DesiredMoveSpeed = settings.WalkSpeed;
+                }
+                // CopyStateFrom runs before Spawned. Preserve the saved posture instead of
+                // standing up inside low geometry, and reapply its local KCC collider shape.
+                ApplyPosture(ResolveSpawnPosture(Runner.IsResume, Posture), settings);
             }
         }
 
@@ -270,6 +275,9 @@ namespace Game.Network.Players
             return Quaternion.Euler(0f, lookYawDegrees, 0f) * local;
         }
 
+        internal static PlayerPosture ResolveSpawnPosture(bool isResuming, PlayerPosture savedPosture) =>
+            isResuming ? savedPosture : PlayerPosture.Standing;
+
         internal static PlayerPosture ResolvePosture(
             PlayerPosture current,
             bool grounded,
@@ -367,7 +375,7 @@ namespace Game.Network.Players
             return true;
         }
 
-        private static float HeightForPosture(
+        internal static float HeightForPosture(
             PlayerPosture posture,
             PlayerMovementSettings settings) => posture switch
         {

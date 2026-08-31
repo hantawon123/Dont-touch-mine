@@ -23,6 +23,22 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [TestCase(PlayerPosture.Standing, 1.8f)]
+        [TestCase(PlayerPosture.Crouching, 1.2f)]
+        [TestCase(PlayerPosture.Prone, 0.6f)]
+        public void HostMigration_MotorPreservesSavedPostureAndColliderHeight(PlayerPosture saved, float height)
+        {
+            var settings = new PlayerMovementSettings(4f, 7f, 720f, 1.1f, 2f,
+                2f, 0.8f, 1.8f, 1.2f, 0.6f);
+            var restored = NetworkPlayerMotor.ResolveSpawnPosture(true, saved);
+            Assert.That(restored, Is.EqualTo(saved));
+            Assert.That(NetworkPlayerMotor.HeightForPosture(restored, settings), Is.EqualTo(height));
+            Assert.That(NetworkPlayerMotor.ResolvePosture(restored, true, default, default), Is.EqualTo(saved),
+                "The first idle input tick must not stand up after restoration.");
+            Assert.That(NetworkPlayerMotor.ResolveSpawnPosture(false, saved), Is.EqualTo(PlayerPosture.Standing),
+                "A newly spawned character still starts standing.");
+        }
+
         [TestCase(MatchPhase.Waiting, false, MatchPhase.Waiting)]
         [TestCase(MatchPhase.Hiding, false, MatchPhase.Hiding)]
         [TestCase(MatchPhase.Searching, false, MatchPhase.Searching)]
