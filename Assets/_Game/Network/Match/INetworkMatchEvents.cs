@@ -10,6 +10,7 @@ namespace Game.Network.Match
     public interface INetworkResultNavigation
     {
         bool IsServer { get; }
+        bool IsRuntimeReady { get; }
         bool IsResultSceneLoaded { get; }
         bool EnterResultScene();
         bool RequestReturnToLobby();

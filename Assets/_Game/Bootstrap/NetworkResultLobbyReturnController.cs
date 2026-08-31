@@ -23,6 +23,7 @@ namespace Game.Bootstrap
         private bool loadRequested;
         private bool returned;
         private double returnAt = -1d;
+        private double pausedAt = -1d;
 
         public ReadOnlyReactiveProperty<string> ResultText => resultText;
 
@@ -51,6 +52,16 @@ namespace Game.Bootstrap
 
         internal void Tick(double now)
         {
+            if (!navigation.IsRuntimeReady)
+            {
+                if (pausedAt < 0d) pausedAt = now;
+                return;
+            }
+            if (pausedAt >= 0d)
+            {
+                if (returnAt >= 0d) returnAt += Math.Max(0d, now - pausedAt);
+                pausedAt = -1d;
+            }
             if (!navigation.IsServer || phase != MatchPhase.Result || !hasResult || returned) return;
             if (!loadRequested)
             {
@@ -75,6 +86,7 @@ namespace Game.Bootstrap
             loadRequested = false;
             returned = false;
             returnAt = -1d;
+            pausedAt = -1d;
             // Waiting arrives before Result finishes unloading. Keep its text
             // until the next match starts, independently of navigation state.
             if (phase == MatchPhase.Hiding)

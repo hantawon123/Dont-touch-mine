@@ -672,7 +672,7 @@ namespace Game.Network.Session
         }
 
         public bool RequestReturnToLobby() =>
-            IsRunning && !_browsingLobby &&
+            IsRuntimeReady && !_browsingLobby &&
             _matchStarter != null &&
             _matchStarter.RequestReturnToLobby();
 
@@ -1134,7 +1134,7 @@ namespace Game.Network.Session
 
         public bool EnterResultScene()
         {
-            if (!IsServer || _runner == null || !_runner.IsRunning) return false;
+            if (!IsServer || !IsRuntimeReady) return false;
             if (_scenes == null)
             {
                 Debug.LogError("[Session] NetworkScenes must be assigned to load results.");

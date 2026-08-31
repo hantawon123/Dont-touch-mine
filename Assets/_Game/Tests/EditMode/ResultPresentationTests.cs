@@ -15,6 +15,59 @@ namespace Game.Architecture.Tests
     public sealed class ResultPresentationTests
     {
         [Test]
+        public void Migration_NewHostWaitsForReadinessBeforeResultNavigation()
+        {
+            using var room = CreateRoom();
+            var network = new FakeNetwork { IsServer = false };
+            using var controller = new NetworkResultLobbyReturnController(network, network, room);
+            controller.Start();
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 100, new[] { 1 }));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0));
+            controller.Tick(0);
+            network.IsServer = true;
+            network.IsRuntimeReady = false;
+            controller.Tick(10);
+            controller.Tick(100);
+            Assert.That(network.LoadCalls, Is.Zero);
+            Assert.That(network.ReturnCalls, Is.Zero);
+            network.IsRuntimeReady = true;
+            controller.Tick(101);
+            Assert.That(network.LoadCalls, Is.EqualTo(1));
+            controller.Tick(110);
+            Assert.That(network.ReturnCalls, Is.Zero);
+            network.IsResultSceneLoaded = true;
+            controller.Tick(120);
+            controller.Tick(124.9);
+            Assert.That(network.ReturnCalls, Is.Zero);
+            controller.Tick(125);
+            Assert.That(network.ReturnCalls, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Migration_PausesAnExistingResultCountdownWithoutReloading()
+        {
+            using var room = CreateRoom();
+            var network = new FakeNetwork { IsResultSceneLoaded = true };
+            using var controller = new NetworkResultLobbyReturnController(network, network, room);
+            controller.Start();
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 100, new[] { 1 }));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0));
+            controller.Tick(10); // Return at 15; three seconds remain when migration starts.
+            network.IsRuntimeReady = false;
+            controller.Tick(12);
+            controller.Tick(100);
+            Assert.That(network.ReturnCalls, Is.Zero);
+            network.IsRuntimeReady = true;
+            controller.Tick(102);
+            controller.Tick(104.9);
+            Assert.That(network.ReturnCalls, Is.Zero);
+            controller.Tick(105);
+            controller.Tick(106);
+            Assert.That(network.ReturnCalls, Is.EqualTo(1));
+            Assert.That(network.LoadCalls, Is.EqualTo(1));
+        }
+
+        [Test]
         public void ReturnAuthorization_UsesRetainedParticipantsWithoutMatchSession()
         {
             var playing = new[] { new MatchParticipant("host", 0), new MatchParticipant("client", 1) };
@@ -126,6 +179,7 @@ namespace Game.Architecture.Tests
         private sealed class FakeNetwork : INetworkMatchEvents, INetworkResultNavigation
         {
             public bool IsServer { get; set; } = true;
+            public bool IsRuntimeReady { get; set; } = true;
             public bool IsResultSceneLoaded { get; set; }
             public int LoadCalls { get; private set; }
             public int ReturnCalls { get; private set; }
