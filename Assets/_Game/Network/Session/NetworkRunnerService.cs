@@ -14,6 +14,7 @@ using Game.Core.Match;
 using Game.Core.Items;
 using Game.Network.Match;
 using Game.Network.Players;
+using Game.Network.Voice;
 using Game.Server.Items;
 using Game.Server.Match;
 using UnityEngine;
@@ -225,6 +226,17 @@ namespace Game.Network.Session
         }
 
         public bool IsRunning => _runner != null && _runner.IsRunning;
+
+        /// <summary>
+        /// The local microphone for the session that is running, or null on a
+        /// dedicated server and between sessions.
+        /// </summary>
+        /// <remarks>
+        /// Exposed rather than injected because the rig is built with the runner
+        /// and replaced with it. Anything holding a reference across a shutdown
+        /// would be holding a destroyed component.
+        /// </remarks>
+        public IVoiceControl Voice { get; private set; }
 
         /// <summary>
         /// True once this peer has taken a lobby runner, including while that
@@ -877,6 +889,11 @@ namespace Game.Network.Session
             _runner.ProvideInput = provideInput;
             _runner.AddCallbacks(this);
 
+            // Voice rides on the same object because its client reads the runner
+            // for the session it should follow. A dedicated server has no
+            // microphone and nobody to hear it, so it does not carry one.
+            Voice = provideInput ? VoiceRig.Attach(_runnerObject) : null;
+
             // Sits on the runner so that characters, which Fusion spawns and the
             // container therefore cannot inject, can still reach it.
             _roster = _runnerObject.AddComponent<PlayerRoster>();
@@ -1022,6 +1039,11 @@ namespace Game.Network.Session
         /// </summary>
         private void ReleaseRunner(bool preserveMigrationState = false)
         {
+            // The rig is a component on the runner object and goes down with it.
+            // A caller that kept talking to it afterwards would be talking to a
+            // destroyed component.
+            Voice = null;
+
             // A room list is a snapshot owned by the current lobby runner. Once
             // that runner is gone, retaining its last snapshot shows rooms that
             // may already have disappeared when the browser is opened again.

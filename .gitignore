@@ -122,3 +122,10 @@ InitTestScene*.unity*
 # Fusion은 이 파일을 Resources.Load(이름 기준)로 읽으므로 GUID 참조가 없어 안전합니다.
 /[Aa]ssets/Photon/Fusion/Resources/PhotonAppSettings.asset
 /[Aa]ssets/Photon/Fusion/Resources/PhotonAppSettings.asset.meta
+
+# Photon 설치 관리자가 내려받는 패키지 폴더 (개인별 설치물)
+# 안의 *.unitypackage는 위에서 이미 제외하므로 폴더에는 커밋할 내용이 없고,
+# 폴더 .meta만 커밋되면 패키지를 내려받지 않은 팀원 쪽에서 폴더 없는 meta가
+# 남아 Unity가 경고를 냅니다. 필요하면 Fusion Hub에서 다시 받으면 됩니다.
+/[Aa]ssets/Photon/FusionDemos.meta
+/[Aa]ssets/Photon/FusionMenu.meta

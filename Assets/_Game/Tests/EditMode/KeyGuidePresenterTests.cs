@@ -68,6 +68,8 @@ namespace Game.Tests.EditMode
             public void SetEntries(IReadOnlyList<ControlKeyBinding> bindings) =>
                 Entries = bindings;
 
+            public void RequestClose() => CloseRequested?.Invoke();
+
             public void RaiseOpen() => OpenRequested?.Invoke();
 
             public void RaiseClose() => CloseRequested?.Invoke();

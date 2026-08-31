@@ -145,6 +145,26 @@
                     "interactions": "",
                     "initialStateCheck": true,
                     "priority": 0
+                },
+                {
+                    "name": "PushToTalk",
+                    "type": "Button",
+                    "id": "7c1f0f3a-2d64-4a1b-9f52-6b0e4a9d1c37",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false,
+                    "priority": 0
+                },
+                {
+                    "name": "VoiceToggle",
+                    "type": "Button",
+                    "id": "5b2d7e41-0c93-4f88-a1d6-92e4b7f30c15",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false,
+                    "priority": 0
                 }
             ],
             "bindings": [
@@ -607,6 +627,28 @@
                     "processors": "",
                     "groups": "Keyboard&Mouse",
                     "action": "AdjustHeight",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "3e58b2c9-9a17-4d02-8c6b-1f7a35de84b0",
+                    "path": "<Keyboard>/g",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "PushToTalk",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "9f4a1c60-73b5-4e2a-8d19-c60b8a2f4d73",
+                    "path": "<Keyboard>/b",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "VoiceToggle",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

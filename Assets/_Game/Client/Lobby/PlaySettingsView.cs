@@ -18,6 +18,13 @@ namespace Game.Client.Lobby
         void SetVisible(bool visible);
         void SetDraft(PlaySettingsDraft draft);
         PlaySettingsDraft ReadDraft();
+
+        /// <summary>
+        /// Asks to be closed as if the panel's own close button was pressed.
+        /// See <see cref="IKeyGuideView.RequestClose"/> for why this goes
+        /// through the presenter rather than hiding the panel directly.
+        /// </summary>
+        void RequestClose();
     }
 
     public sealed class PlaySettingsView : MonoBehaviour, IPlaySettingsView
@@ -142,6 +149,8 @@ namespace Game.Client.Lobby
                 panel.SetActive(visible);
             }
         }
+
+        public void RequestClose() => CloseRequested?.Invoke();
 
         public void SetDraft(PlaySettingsDraft draft)
         {

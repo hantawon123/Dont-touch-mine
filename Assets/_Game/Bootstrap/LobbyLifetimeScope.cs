@@ -7,11 +7,13 @@ using Game.Client.Players;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Maps;
+using Game.Core.Ports;
 using Game.Core.Rooms;
 using Game.Network.Players;
 using Game.Network.Session;
 using R3;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using VContainer;
 using VContainer.Unity;
 
@@ -45,6 +47,17 @@ namespace Game.Bootstrap
 
         [SerializeField]
         private LobbyChatBubbleView chatBubbleView;
+
+        [SerializeField]
+        private VoiceView voiceView;
+
+        /// <summary>
+        /// Read for the talk key. Held here rather than reached through the
+        /// camera rig, which keeps its own copy private and is a prefab this
+        /// scope has not instantiated yet when the container is built.
+        /// </summary>
+        [SerializeField]
+        private InputActionAsset inputActions;
 
         [SerializeField]
         private PlayerCameraController cameraRigPrefab;
@@ -113,6 +126,12 @@ namespace Game.Bootstrap
             builder.RegisterComponent(chatBubbleView)
                 .AsSelf()
                 .As<ILobbyChatBubbleView>();
+            builder.RegisterComponent(voiceView).As<IVoiceView>();
+            builder.RegisterInstance(inputActions);
+
+            // An entry point because it mirrors the per-session rig every frame,
+            // and a plain registration would never be ticked.
+            builder.RegisterEntryPoint<NetworkVoiceControl>().As<IVoiceControl>();
             builder.RegisterInstance<IReadOnlyList<ControlKeyBinding>>(ControlKeyGuide.Bindings);
             builder.Register<NetworkLobbyParticipantList>(Lifetime.Scoped)
                 .As<ILobbyParticipantList>();
@@ -134,9 +153,9 @@ namespace Game.Bootstrap
                 .As<ILobbyChatLog>();
             builder.RegisterEntryPoint<KeyGuidePresenter>();
             builder.RegisterEntryPoint<LobbyPlayerListPresenter>();
-            builder.RegisterEntryPoint<LobbyHostChromePresenter>();
             builder.RegisterEntryPoint<LobbyPauseMenuPresenter>();
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
+            builder.RegisterEntryPoint<VoicePresenter>();
             builder.RegisterEntryPoint<LobbyChatPresenter>();
             builder.RegisterEntryPoint<LobbyChatBubbleBinder>();
             builder.RegisterEntryPoint<LobbyPlayerCameraBinder>();
