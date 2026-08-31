@@ -4,6 +4,7 @@ using System.Text;
 using Cysharp.Threading.Tasks;
 using Fusion;
 using Fusion.Sockets;
+using Game.Core.Match;
 using Game.Core.Rooms;
 using Game.Network.Lobby;
 using Game.Network.Players;
@@ -14,6 +15,7 @@ namespace Game.Network.Session
 {
     public sealed partial class NetworkRunnerService
     {
+        internal const double HostMigrationStageTimeoutSeconds = 60d;
         // ---- INetworkRunnerCallbacks ------------------------------------------
         // Only the connection lifecycle is handled here. Gameplay callbacks are
         // filled in by later steps.
@@ -302,12 +304,10 @@ namespace Game.Network.Session
 
                 // StartGame can succeed before Fusion invokes HostMigrationResume.
                 // IsResume clears only after the callback and Fusion's remaining initialization.
-                await UniTask.WaitUntil(() =>
-                    migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner) ||
+                if (!await WaitForHostMigrationAsync(replacementRunner, migrationRevision, () =>
                     restoreFailure != null ||
                     CanCompleteHostMigration(replacementRunner.IsRunning, replacementRunner.IsResume,
-                        replacementRunner.IsSceneManagerBusy));
-                if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner)) return;
+                        replacementRunner.IsSceneManagerBusy), "Fusion initialization")) return;
                 if (restoreFailure != null)
                     throw new InvalidOperationException(
                         $"Could not restore the host migration snapshot: {restoreFailure.Message}", restoreFailure);
@@ -315,19 +315,44 @@ namespace Game.Network.Session
                 ReadConfiguredSettings();
                 if (replacementRunner.IsServer)
                 {
-                    MatchMigration = _matchStarter?.CaptureMigrationState();
+                    if (_matchStarter == null || _scenes == null)
+                        throw new InvalidOperationException("Host migration requires room state and scene configuration.");
+                    MatchMigration = _matchStarter.CaptureMigrationState();
+                    var phase = ResolveHostMigrationPhase(MatchMigration?.Phase.Phase ?? MatchPhase.Waiting,
+                        MatchMigration?.Result.HasValue ?? false);
+                    var scene = phase switch
+                    {
+                        MatchPhase.Waiting => _scenes.LobbyScene,
+                        MatchPhase.Result => _scenes.ResultScene,
+                        _ => _scenes.MatchScene,
+                    };
+                    if (!scene.IsValid)
+                        throw new InvalidOperationException($"No scene is configured for migrated phase {phase}.");
+                    if (phase == MatchPhase.Result && !TryPublishMatchState(new MatchStateSnapshot(phase, 0d)))
+                        throw new InvalidOperationException("Could not restore the completed match phase.");
+                    // The departing peer's scene can be newer than the saved checkpoint.
+                    // Room objects survive this correction; only the scene-owned runtime is rebuilt.
+                    if (!IsOnlyScene(replacementRunner.SceneInfo, scene))
+                    {
+                        var load = replacementRunner.LoadScene(scene, LoadSceneMode.Single);
+                        if (!await WaitForHostMigrationAsync(replacementRunner, migrationRevision,
+                                () => load.IsDone, "checkpoint scene load")) return;
+                        if (load.Error != null) throw load.Error;
+                    }
+                    // Scene entry points must subscribe before replaying the retained room state.
+                    await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
+                    if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner)) return;
+                    _matchStarter.PublishSceneState();
                     foreach (var player in replacementRunner.ActivePlayers)
                         _spawner?.Spawn(replacementRunner, player, NicknameOf(replacementRunner, player));
-                    if (MatchMigration != null && !IsResultSceneLoaded)
+                    if (phase == MatchPhase.Hiding || phase == MatchPhase.Searching)
                     {
                         _matchRuntimeRestoreFailure = null;
                         _matchRuntimeRestorePending = true;
                         // The scene coordinator restores rules on a simulation tick. Keep gameplay paused
                         // and observe its result from Update, so failure cleanup never tears down a tick.
-                        await UniTask.WaitUntil(() =>
-                            migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner) ||
-                            !_matchRuntimeRestorePending);
-                        if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner)) return;
+                        if (!await WaitForHostMigrationAsync(replacementRunner, migrationRevision,
+                                () => !_matchRuntimeRestorePending, "match runtime restore")) return;
                         if (_matchRuntimeRestoreFailure != null)
                             throw new InvalidOperationException(
                                 $"Could not restore match rules: {_matchRuntimeRestoreFailure.Message}",
@@ -380,6 +405,42 @@ namespace Game.Network.Session
                 Shutdown();
             }
         }
+
+        private async UniTask<bool> WaitForHostMigrationAsync(
+            NetworkRunner runner, int revision, Func<bool> completed, string stage)
+        {
+            var startedAt = Time.realtimeSinceStartupAsDouble;
+            await UniTask.WaitUntil(() => revision != _hostMigrationRevision || !IsCurrentRunner(runner) ||
+                IsHostMigrationStageComplete(completed(), Time.realtimeSinceStartupAsDouble - startedAt, stage));
+            return revision == _hostMigrationRevision && IsCurrentRunner(runner);
+        }
+
+        internal static bool IsHostMigrationStageComplete(bool completed, double elapsed, string stage)
+        {
+            if (completed) return true;
+            if (elapsed >= HostMigrationStageTimeoutSeconds)
+                throw new TimeoutException($"Host migration timed out during {stage}.");
+            return false;
+        }
+
+        internal static MatchPhase ResolveHostMigrationPhase(MatchPhase savedPhase, bool hasResult)
+        {
+            switch (savedPhase)
+            {
+                case MatchPhase.Waiting when !hasResult:
+                case MatchPhase.Hiding when !hasResult:
+                case MatchPhase.Searching when !hasResult:
+                    return savedPhase;
+                case MatchPhase.Highlight when hasResult:
+                case MatchPhase.Result when hasResult:
+                    return MatchPhase.Result; // The previous host's replay is unavailable.
+                default:
+                    throw new InvalidOperationException("The host snapshot has inconsistent match phase and result.");
+            }
+        }
+
+        internal static bool IsOnlyScene(NetworkSceneInfo info, SceneRef expected) =>
+            expected.IsValid && info.SceneCount == 1 && info.Scenes[0] == expected;
 
         internal static bool CanCompleteHostMigration(bool isRunning, bool isResuming, bool isSceneManagerBusy)
         {
@@ -495,9 +556,20 @@ namespace Game.Network.Session
                 $"IsServer={runner != null && runner.IsServer}.");
 
             SceneLoaded?.Invoke();
+            PublishSceneStateWhenReadyAsync(runner).Forget(exception => Debug.LogException(exception));
             if (!_hostMigrationInProgress &&
                 (!runner.IsResume || !(_matchStarter?.HasStartedMatch ?? false)))
                 _spawner?.RepositionSeated(runner);
+        }
+
+        private async UniTask PublishSceneStateWhenReadyAsync(NetworkRunner runner)
+        {
+            // A scene can load after MatchSessionState.Spawned without changing its revisions.
+            var sceneInfo = runner.SceneInfo;
+            await UniTask.NextFrame(PlayerLoopTiming.LastPostLateUpdate);
+            if (IsCurrentRunner(runner) && runner.IsRunning && !runner.IsSceneManagerBusy &&
+                runner.SceneInfo.Equals(sceneInfo))
+                _matchStarter?.PublishSceneState();
         }
 
         public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }

@@ -181,6 +181,12 @@ namespace Game.Network.Match
             MatchStateReceived?.Invoke(snapshot);
         }
 
+        internal void PublishSceneState()
+        {
+            if (_state != null && _state.Object != null && _state.Object.IsValid)
+                _state.PublishSceneState();
+        }
+
         public bool TrySetPlayerControls(int playerIndex, bool enabled)
         {
             if (!TryGetPlayingAvatar(playerIndex, out var avatar))

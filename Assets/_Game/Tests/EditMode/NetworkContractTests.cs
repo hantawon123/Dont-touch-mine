@@ -23,6 +23,48 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [TestCase(MatchPhase.Waiting, false, MatchPhase.Waiting)]
+        [TestCase(MatchPhase.Hiding, false, MatchPhase.Hiding)]
+        [TestCase(MatchPhase.Searching, false, MatchPhase.Searching)]
+        [TestCase(MatchPhase.Highlight, true, MatchPhase.Result)]
+        [TestCase(MatchPhase.Result, true, MatchPhase.Result)]
+        public void HostMigration_RoutesFromCheckpointRatherThanDepartingScene(
+            MatchPhase savedPhase, bool hasResult, MatchPhase expected)
+        {
+            Assert.That(NetworkRunnerService.ResolveHostMigrationPhase(savedPhase, hasResult), Is.EqualTo(expected));
+            var expectedScene = Fusion.SceneRef.FromIndex(expected == MatchPhase.Waiting ? 1 :
+                expected == MatchPhase.Result ? 3 : 2);
+            foreach (var previousScene in new[] { 1, 2, 3 })
+            {
+                Fusion.NetworkSceneInfo info = Fusion.SceneRef.FromIndex(previousScene);
+                Assert.That(NetworkRunnerService.IsOnlyScene(info, expectedScene),
+                    Is.EqualTo(info.Scenes[0] == expectedScene));
+            }
+            Assert.That(NetworkRunnerService.IsOnlyScene(default, expectedScene), Is.False);
+            Assert.That(NetworkRunnerService.IsOnlyScene(expectedScene, default), Is.False);
+        }
+
+        [TestCase(MatchPhase.Highlight, false)]
+        [TestCase(MatchPhase.Result, false)]
+        [TestCase(MatchPhase.Waiting, true)]
+        [TestCase(MatchPhase.Hiding, true)]
+        [TestCase(MatchPhase.Searching, true)]
+        [TestCase((MatchPhase)99, false)]
+        public void HostMigration_RejectsInconsistentCheckpoint(MatchPhase phase, bool hasResult)
+        {
+            Assert.Throws<InvalidOperationException>(() => NetworkRunnerService.ResolveHostMigrationPhase(phase, hasResult));
+        }
+
+        [Test]
+        public void HostMigration_StageWaitHasAnUnscaledDeadline()
+        {
+            Assert.That(NetworkRunnerService.IsHostMigrationStageComplete(false, 59.9d, "runtime"), Is.False);
+            var error = Assert.Throws<TimeoutException>(() =>
+                NetworkRunnerService.IsHostMigrationStageComplete(false, 60d, "runtime"));
+            Assert.That(error.Message, Does.Contain("runtime"));
+            Assert.That(NetworkRunnerService.IsHostMigrationStageComplete(true, 60d, "runtime"), Is.True);
+        }
+
         [Test]
         public void AssignmentRecipient_LateReadyRequestOnlyGetsItsPublishedAssignment()
         {
