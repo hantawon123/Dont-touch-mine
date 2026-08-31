@@ -39,6 +39,7 @@ namespace Game.Network.Session
             Debug.Log($"[Network] Player left: {player}.");
             if (runner.IsServer)
             {
+                _highlightPendingPlayers.Remove(player);
                 _matchStarter?.TryHandlePlayerLeft(player);
             }
 
@@ -389,9 +390,16 @@ namespace Game.Network.Session
         public void OnReliableDataReceived(
             NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data)
         {
-            key.GetInts(out var type, out var version, out _, out _);
-            if (!IsCurrentRunner(runner) || runner.IsServer)
+            key.GetInts(out var type, out var version, out var sequence, out _);
+            if (!IsCurrentRunner(runner))
             {
+                return;
+            }
+            if (runner.IsServer)
+            {
+                if (type == HighlightReadyKeyType && version == HighlightReplayKeyVersion &&
+                    sequence == _highlightTransferSequence && data.Length == 1 && data[0] == 1)
+                    _highlightPendingPlayers.Remove(player);
                 return;
             }
 
@@ -427,6 +435,7 @@ namespace Game.Network.Session
                 return;
             }
 
+            _receivedHighlightSequence = sequence;
             HighlightReplayReceived?.Invoke(replay);
         }
 

@@ -142,6 +142,8 @@ namespace Game.Bootstrap
         private readonly IHighlightTransitionView transition;
         private double highlightEndsAt;
         private double appliedBodyTime;
+        private bool readinessConfirmed;
+        public double? PlaybackSourceTime { get; private set; }
         private int lastWarnedIndex = -1;
         private IReadOnlyList<HighlightReplayData> replay =
             Array.Empty<HighlightReplayData>();
@@ -202,9 +204,28 @@ namespace Game.Bootstrap
             var totalDuration = 0d;
             foreach (var data in replay)
                 totalDuration += data.Candidate.PlaybackDurationSeconds + HighlightPresentationTiming.OverheadSeconds;
-            var elapsed = clock.ServerTime - (highlightEndsAt - totalDuration);
-            if (elapsed < 0d || replay.Count == 0)
+            // Prepare behind the black transition, then acknowledge this transfer.
+            // The authority does not start the shared timeline until every peer is ready.
+            if (!readinessConfirmed && replay.Count > 0)
             {
+                CaptureVisuals();
+                if (replayPlayer == null && !TryCreateScenePlayback(replay[0]))
+                {
+                    PlaybackSourceTime = null;
+                    if (lastWarnedIndex != 0)
+                    {
+                        Debug.LogWarning("[Highlight] Waiting for player visuals and output camera before acknowledging readiness.");
+                        lastWarnedIndex = 0;
+                    }
+                    transition.SetOpacity(1f);
+                    return;
+                }
+                readinessConfirmed = network is INetworkHighlightReady ready && ready.TryConfirmHighlightReady();
+            }
+            var elapsed = clock.ServerTime - (highlightEndsAt - totalDuration);
+            if (highlightEndsAt <= 0d || elapsed < 0d || replay.Count == 0)
+            {
+                PlaybackSourceTime = null;
                 transition.SetOpacity(1f);
                 return;
             }
@@ -217,6 +238,7 @@ namespace Game.Bootstrap
             }
             if (index >= replay.Count)
             {
+                PlaybackSourceTime = null;
                 transition.SetOpacity(1f);
                 hud?.SetHighlightTitle(null);
                 return;
@@ -248,6 +270,7 @@ namespace Game.Bootstrap
             var previousClip = replayPlayer.CurrentClipIndex;
             replayPlayer.Advance(Math.Max(0d, bodyTime - appliedBodyTime));
             appliedBodyTime = bodyTime;
+            PlaybackSourceTime = bodyTime > 0d ? replayPlayer.SourceTime : null;
             if (previousClip != replayPlayer.CurrentClipIndex && replayPlayer.IsPlaying &&
                 replay[index].Candidate.Type != HighlightType.LongestHidden)
                 cameraDirector.Focus(replay[index].Candidate);
@@ -257,12 +280,13 @@ namespace Game.Bootstrap
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
         {
+            // A same-phase update schedules playback after the readiness barrier.
+            if (snapshot.Phase == MatchPhase.Highlight) highlightEndsAt = snapshot.PhaseEndsAt;
             if (phase == snapshot.Phase) return;
             phase = snapshot.Phase;
             if (phase == MatchPhase.Highlight)
             {
                 replayIndex = 0;
-                highlightEndsAt = snapshot.PhaseEndsAt;
                 transition.SetOpacity(1f);
                 return;
             }
@@ -277,6 +301,8 @@ namespace Game.Bootstrap
         private void OnHighlightReplayReceived(IReadOnlyList<HighlightReplayData> received)
         {
             replay = received ?? Array.Empty<HighlightReplayData>();
+            readinessConfirmed = false;
+            PlaybackSourceTime = null;
             replayIndex = 0;
             lastWarnedIndex = -1;
             replayPlayer = null;
@@ -378,7 +404,8 @@ namespace Game.Bootstrap
 
         private void CaptureVisuals()
         {
-            foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(FindObjectsSortMode.None))
+            foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 var id = avatar.PlayerId;
                 if (id == null) continue;
@@ -410,6 +437,8 @@ namespace Game.Bootstrap
 
         private void StopPlayback()
         {
+            PlaybackSourceTime = null;
+            readinessConfirmed = false;
             replayPlayer = null;
             cameraDirector?.ClearOccluders();
             cameraDirector = null;

@@ -39,6 +39,7 @@ namespace Game.Network.Session
         INetworkMatchRuntimeSource,
         INetworkMatchAuthority,
         INetworkMatchEvents,
+        INetworkHighlightReady,
         ILobbyChatTransport,
         IDisposable
     {
@@ -49,6 +50,25 @@ namespace Game.Network.Session
         private const int MaxItemAssignmentBytes = 128;
         private const int HighlightReplayKeyType = 0x484C5452;
         private const int HighlightReplayKeyVersion = 2;
+        private const int HighlightReadyKeyType = 0x484C5244;
+        private readonly HashSet<PlayerRef> _highlightPendingPlayers = new();
+        private int _receivedHighlightSequence;
+        public bool IsHighlightReplayReady => _highlightPendingPlayers.Count == 0;
+
+        public bool TryConfirmHighlightReady()
+        {
+            if (_runner == null || !_runner.IsRunning) return false;
+            if (IsServer)
+                _highlightPendingPlayers.Remove(_runner.LocalPlayer);
+            else
+            {
+                if (_receivedHighlightSequence == 0) return false;
+                _runner.SendReliableDataToServer(ReliableKey.FromInts(
+                    HighlightReadyKeyType, HighlightReplayKeyVersion, _receivedHighlightSequence, 0),
+                    new byte[] { 1 });
+            }
+            return true;
+        }
 
         private readonly IRoomListSink _roomListSink;
         private readonly IRoomSessionSink _sessionSink;
@@ -689,12 +709,14 @@ namespace Game.Network.Session
                 return false;
             }
 
-            HighlightReplayReceived?.Invoke(replay);
             var key = ReliableKey.FromInts(
                 HighlightReplayKeyType,
                 HighlightReplayKeyVersion,
                 ++_highlightTransferSequence,
                 0);
+            _highlightPendingPlayers.Clear();
+            foreach (var player in _runner.ActivePlayers) _highlightPendingPlayers.Add(player);
+            HighlightReplayReceived?.Invoke(replay);
             foreach (var player in _runner.ActivePlayers)
             {
                 if (player != _runner.LocalPlayer)
@@ -1039,6 +1061,8 @@ namespace Game.Network.Session
         /// </summary>
         private void ReleaseRunner(bool preserveMigrationState = false)
         {
+            _highlightPendingPlayers.Clear();
+            _receivedHighlightSequence = 0;
             // The rig is a component on the runner object and goes down with it.
             // A caller that kept talking to it afterwards would be talking to a
             // destroyed component.

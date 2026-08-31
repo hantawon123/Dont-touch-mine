@@ -854,6 +854,23 @@ namespace Game.Server.Match
             return true;
         }
 
+        public bool WaitForHighlightPlayback()
+        {
+            if (CurrentPhase != MatchPhase.Highlight) return false;
+            state.EnterPhase(MatchPhase.Highlight, 0d);
+            return true;
+        }
+
+        public bool ScheduleHighlightPlayback(double startsAt)
+        {
+            if (CurrentPhase != MatchPhase.Highlight) return false;
+            if (!double.IsFinite(startsAt) || startsAt < 0d)
+                throw new ArgumentOutOfRangeException(nameof(startsAt));
+            state.EnterPhase(MatchPhase.Highlight, startsAt + highlights.TotalDurationSeconds +
+                highlights.Count * HighlightPresentationTiming.OverheadSeconds);
+            return true;
+        }
+
         public bool CompleteCurrentHighlight()
         {
             if (state.CurrentPhase.CurrentValue != MatchPhase.Highlight ||

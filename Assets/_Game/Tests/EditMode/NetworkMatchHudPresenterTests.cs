@@ -64,6 +64,25 @@ namespace Game.Architecture.Tests
             network.ServerTime = 16d;
             presenter.Tick();
             Assert.That(view.NoticeVisible, Is.False);
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 0d));
+            presenter.UpdateReplayNotice(11.9d);
+            Assert.That(view.NoticeVisible, Is.False);
+            presenter.UpdateReplayNotice(12d);
+            Assert.That(view.Notice, Is.EqualTo("민수님이 물건을 파괴했습니다!"));
+            Assert.That(view.NoticeVisible, Is.True);
+            presenter.UpdateReplayNotice(15d);
+            Assert.That(view.NoticeVisible, Is.False);
+            // A later montage may revisit the same destruction.
+            presenter.UpdateReplayNotice(12.5d);
+            Assert.That(view.NoticeVisible, Is.True);
+            presenter.UpdateReplayNotice(null);
+            Assert.That(view.NoticeVisible, Is.False);
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            presenter.Tick();
+            Assert.That(view.NoticeVisible, Is.False);
+            network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+            presenter.UpdateReplayNotice(12.5d);
+            Assert.That(view.NoticeVisible, Is.False);
         }
 
         /// <summary>

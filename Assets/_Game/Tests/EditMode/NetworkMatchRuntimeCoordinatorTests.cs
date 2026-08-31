@@ -12,13 +12,15 @@ using Game.Server.Match;
 using Game.SOAP.Config;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Architecture.Tests
 {
     public sealed class NetworkMatchRuntimeCoordinatorTests
     {
-        [Test]
-        public void Authority_StartsTicksPublishesAndReleasesMatchRuntime()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Authority_StartsTicksPublishesAndReleasesMatchRuntime(bool readinessTimeout)
         {
             var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
 
@@ -137,6 +139,7 @@ namespace Game.Architecture.Tests
 
                 Assert.That(network.Snapshots, Has.Count.EqualTo(3));
                 Assert.That(network.Snapshots[2].Phase, Is.EqualTo(MatchPhase.Highlight));
+                Assert.That(network.Snapshots[2].PhaseEndsAt, Is.Zero);
                 Assert.That(network.HighlightReplay, Is.Null.Or.Empty);
                 network.ServerTime += MatchSessionCoordinator.HighlightPostRollSeconds;
                 network.PublishSimulationTick();
@@ -148,11 +151,33 @@ namespace Game.Architecture.Tests
                     network.HighlightReplay[0].Clips[0].Frames,
                     Is.Not.Empty);
 
-                network.ServerTime = network.Snapshots[2].PhaseEndsAt;
+                // A transfer taking longer than the old two-second grace must not
+                // consume any of the highlight's running time.
+                network.ServerTime += 10d;
                 network.PublishSimulationTick();
+                Assert.That(network.BoundSession.CurrentPhase, Is.EqualTo(MatchPhase.Highlight));
+                Assert.That(network.BoundSession.CaptureStateSnapshot().PhaseEndsAt, Is.Zero);
 
-                Assert.That(network.Snapshots, Has.Count.EqualTo(4));
-                Assert.That(network.Snapshots[3].Phase, Is.EqualTo(MatchPhase.Result));
+                if (readinessTimeout)
+                {
+                    network.ServerTime += 30d;
+                    LogAssert.Expect(LogType.Warning, "[Highlight] Replay preparation timed out; skipping to results.");
+                    network.PublishSimulationTick();
+                }
+                else
+                {
+                    network.IsHighlightReplayReady = true;
+                    network.PublishSimulationTick();
+                    Assert.That(network.Snapshots[3].Phase, Is.EqualTo(MatchPhase.Highlight));
+                    Assert.That(network.Snapshots[3].PhaseEndsAt, Is.EqualTo(network.ServerTime +
+                        HighlightPresentationTiming.DeliveryGraceSeconds + 4d +
+                        HighlightPresentationTiming.OverheadSeconds).Within(0.001));
+                    network.ServerTime = network.Snapshots[3].PhaseEndsAt;
+                    network.PublishSimulationTick();
+                }
+
+                Assert.That(network.Snapshots, Has.Count.EqualTo(readinessTimeout ? 4 : 5));
+                Assert.That(network.Snapshots[network.Snapshots.Count - 1].Phase, Is.EqualTo(MatchPhase.Result));
 
                 coordinator.Dispose();
 
@@ -227,6 +252,7 @@ namespace Game.Architecture.Tests
             }
 
             public bool IsServer => true;
+            public bool IsHighlightReplayReady { get; set; }
             public int DestructionLimit => PlaySettingsDraft.DefaultDestructionLimit;
             public double ServerTime { get; set; }
             public MatchSessionCoordinator BoundSession { get; private set; }
