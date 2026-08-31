@@ -49,6 +49,36 @@ namespace Game.Client.Cameras
         private bool isFirstPerson;
         private bool cursorCaptureEnabled = true;
         private bool escapeReleasesCursor = true;
+        private CinemachineBrain replayBrain;
+        private Camera replayOutput;
+        private bool replayBrainEnabled;
+        private bool replayRigEnabled;
+        private Pose replayCameraPose;
+
+        public Transform BeginReplay()
+        {
+            if (replayOutput != null) return replayOutput.transform;
+            var output = Camera.main;
+            if (output == null) return null;
+            replayOutput = output;
+            replayCameraPose = new Pose(output.transform.position, output.transform.rotation);
+            replayBrain = output.GetComponent<CinemachineBrain>();
+            replayBrainEnabled = replayBrain != null && replayBrain.enabled;
+            replayRigEnabled = enabled;
+            if (replayBrain != null) replayBrain.enabled = false;
+            enabled = false;
+            return output.transform;
+        }
+
+        public void EndReplay()
+        {
+            if (replayOutput == null) return;
+            replayOutput.transform.SetPositionAndRotation(replayCameraPose.position, replayCameraPose.rotation);
+            if (replayBrain != null) replayBrain.enabled = replayBrainEnabled;
+            enabled = replayRigEnabled;
+            replayOutput = null;
+            replayBrain = null;
+        }
 
         private void Awake()
         {

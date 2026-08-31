@@ -45,6 +45,7 @@ namespace Game.Bootstrap
         }
 
         public bool IsPlaying { get; private set; }
+        public int CurrentClipIndex => clipIndex;
 
         public bool Start(IReadOnlyList<HighlightReplayClip> replayClips)
         {
@@ -129,17 +130,17 @@ namespace Game.Bootstrap
                     (float)clip.Segment.PlaybackSpeed);
             }
 
-            foreach (var fromObject in from.WorldObjects)
+            foreach (var pair in objectTargets)
             {
-                if (!objectTargets.TryGetValue(fromObject.ObjectId, out var target))
-                {
-                    continue;
-                }
-
-                var toPose = TryFindObject(to.WorldObjects, fromObject.ObjectId, out var toObject)
-                    ? toObject.Pose
-                    : fromObject.Pose;
-                ApplyPose(target, fromObject.Pose, toPose, t);
+                var hasFrom = TryFindObject(from.WorldObjects, pair.Key, out var fromObject);
+                var hasTo = TryFindObject(to.WorldObjects, pair.Key, out var toObject);
+                var visible = t >= 1f ? hasTo : hasFrom;
+                var target = pair.Value;
+                if (target == null) continue;
+                target.gameObject.SetActive(visible);
+                if (visible)
+                    ApplyPose(target, hasFrom ? fromObject.Pose : toObject.Pose,
+                        hasTo ? toObject.Pose : fromObject.Pose, t);
             }
         }
 
@@ -216,6 +217,9 @@ namespace Game.Bootstrap
             delta.y = 0f;
             var speed = delta.magnitude /
                         (float)recordedDurationSeconds * playbackSpeed;
+            var animator = target.GetComponentInChildren<Animator>();
+            if (animator != null && animator.runtimeAnimatorController != null)
+                animator.SetFloat("Speed", speed);
             var motor = target.GetComponent<NetworkPlayerMotor>();
             target.GetComponent<PlayerAnimationDriver>()?.ApplyNetworkState(
                 speed,

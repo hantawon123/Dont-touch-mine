@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Cameras;
 using Game.Client.Interactions;
 using Game.Client.Match;
+using Game.Client.Players;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Match;
@@ -147,6 +148,8 @@ namespace Game.Bootstrap
         private int replayIndex;
         private bool cameraWasEnabled;
         private bool cameraOverridden;
+        private readonly Dictionary<string, ReplayVisual> playerVisuals = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, ReplayVisual> itemVisuals = new(StringComparer.Ordinal);
 
         public NetworkHighlightPlaybackController(
             INetworkMatchEvents network,
@@ -162,6 +165,7 @@ namespace Game.Bootstrap
                 FindObjectsInactive.Include);
             network.MatchStateReceived += OnMatchStateReceived;
             network.HighlightReplayReceived += OnHighlightReplayReceived;
+            CaptureVisuals();
         }
 
         public void Dispose()
@@ -169,6 +173,10 @@ namespace Game.Bootstrap
             network.MatchStateReceived -= OnMatchStateReceived;
             network.HighlightReplayReceived -= OnHighlightReplayReceived;
             StopPlayback();
+            foreach (var visual in playerVisuals.Values) visual.Dispose();
+            foreach (var visual in itemVisuals.Values) visual.Dispose();
+            playerVisuals.Clear();
+            itemVisuals.Clear();
             if (fallbackObject != null)
             {
                 UnityEngine.Object.Destroy(fallbackObject);
@@ -179,6 +187,7 @@ namespace Game.Bootstrap
         {
             if (phase != MatchPhase.Highlight)
             {
+                CaptureVisuals();
                 return;
             }
 
@@ -187,8 +196,9 @@ namespace Game.Bootstrap
                 return;
             }
 
+            var playing = replayPlayer.Advance(Time.unscaledDeltaTime);
             cameraDirector.Tick(Time.unscaledDeltaTime);
-            if (replayPlayer.Advance(Time.unscaledDeltaTime))
+            if (playing)
             {
                 return;
             }
@@ -205,6 +215,7 @@ namespace Game.Bootstrap
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
         {
+            if (phase == snapshot.Phase) return;
             phase = snapshot.Phase;
             if (phase == MatchPhase.Highlight)
             {
@@ -275,6 +286,15 @@ namespace Game.Bootstrap
             }
 
             var objectTargets = CaptureObjectTargets();
+            foreach (var visual in playerVisuals.Values) visual.SetPlaying(true);
+            foreach (var visual in itemVisuals.Values) visual.SetPlaying(true);
+            var output = cameraRig.BeginReplay();
+            if (output == null)
+            {
+                StopPlayback();
+                Debug.LogError("[Highlight] No output camera is available.");
+                return false;
+            }
             var candidatePlayer = new HighlightReplayPlayer(playerTargets, objectTargets);
             if (!candidatePlayer.Start(current.Clips))
             {
@@ -287,8 +307,8 @@ namespace Game.Bootstrap
             }
 
             fallbackObject.transform.SetPositionAndRotation(
-                cameraRig.transform.position,
-                cameraRig.transform.rotation);
+                output.position,
+                output.rotation);
             if (!cameraOverridden)
             {
                 cameraWasEnabled = cameraRig.enabled;
@@ -298,7 +318,7 @@ namespace Game.Bootstrap
 
             replayPlayer = candidatePlayer;
             cameraDirector = new HighlightCameraDirector(
-                cameraRig.transform,
+                output,
                 fallbackObject.transform,
                 playerTargets,
                 objectTargets);
@@ -321,45 +341,38 @@ namespace Game.Bootstrap
         {
             var targets = new Transform[playerCount];
             var participants = room.MatchParticipants.CurrentValue;
-            foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
-                         FindObjectsInactive.Exclude,
-                         FindObjectsSortMode.None))
+            foreach (var participant in participants)
             {
-                var playerId = PlayerRegistry.IdOf(avatar.Owner);
-                for (var index = 0; index < participants.Count; index++)
-                {
-                    var participant = participants[index];
-                    if (participant.PlayerIndex >= 0 &&
-                        participant.PlayerIndex < targets.Length &&
-                        string.Equals(
-                            participant.PlayerId,
-                            playerId,
-                            StringComparison.Ordinal))
-                    {
-                        targets[participant.PlayerIndex] = avatar.transform;
-                        break;
-                    }
-                }
+                if (participant.PlayerIndex >= 0 && participant.PlayerIndex < targets.Length &&
+                    playerVisuals.TryGetValue(participant.PlayerId, out var visual))
+                    targets[participant.PlayerIndex] = visual.Target;
             }
 
             return targets;
         }
 
-        private static SceneWorldObjectReference[] CaptureObjectTargets()
+        private SceneWorldObjectReference[] CaptureObjectTargets()
         {
             var references = new List<SceneWorldObjectReference>();
-            var ids = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var item in UnityEngine.Object.FindObjectsByType<CarryableItem>(
-                         FindObjectsInactive.Include,
-                         FindObjectsSortMode.None))
-            {
-                if (item != null && ids.Add(item.ObjectId))
-                {
-                    references.Add(new SceneWorldObjectReference(item.ObjectId, item.transform));
-                }
-            }
-
+            foreach (var pair in itemVisuals)
+                references.Add(new SceneWorldObjectReference(pair.Key, pair.Value.Target));
             return references.ToArray();
+        }
+
+        private void CaptureVisuals()
+        {
+            foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(FindObjectsSortMode.None))
+            {
+                var id = PlayerRegistry.IdOf(avatar.Owner);
+                if (!playerVisuals.ContainsKey(id))
+                    playerVisuals.Add(id, new ReplayVisual(avatar.transform, null));
+            }
+            foreach (var item in UnityEngine.Object.FindObjectsByType<CarryableItem>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (!itemVisuals.ContainsKey(item.ObjectId))
+                    itemVisuals.Add(item.ObjectId, new ReplayVisual(item.transform, null));
+            }
         }
 
         private static int GetRecordedPlayerCount(
@@ -383,9 +396,11 @@ namespace Game.Bootstrap
             cameraDirector?.ClearOccluders();
             cameraDirector = null;
             hud?.SetHighlightTitle(null);
+            foreach (var visual in playerVisuals.Values) visual.SetPlaying(false);
+            foreach (var visual in itemVisuals.Values) visual.SetPlaying(false);
+            cameraRig?.EndReplay();
             if (cameraRig != null && cameraOverridden)
             {
-                cameraRig.enabled = cameraWasEnabled;
                 cameraOverridden = false;
             }
         }
