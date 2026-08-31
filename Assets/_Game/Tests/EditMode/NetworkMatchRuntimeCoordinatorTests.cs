@@ -18,9 +18,10 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkMatchRuntimeCoordinatorTests
     {
-        [TestCase(false)]
-        [TestCase(true)]
-        public void Migration_ResumesWithoutStartingOrInitializingItemsAgain(bool hostLeft)
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        public void Migration_ResumesWithoutStartingOrInitializingItemsAgain(bool hostLeft, bool invalidCheckpoint)
         {
             var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
             try
@@ -43,7 +44,8 @@ namespace Game.Architecture.Tests
                 var poses = new Dictionary<string, Pose> { ["host"] = pose, ["client"] = Pose.identity };
                 if (hostLeft) poses.Remove("host");
                 var network = new FakeNetworkAuthority(100d, poses)
-                    { MatchMigration = checkpoint };
+                    { MatchMigration = checkpoint, IsRuntimeReady = false };
+                if (invalidCheckpoint) checkpoint.Players[1].ItemId = "missing-item";
                 using var room = new RoomBrowserSystem();
                 var flow = new AppFlowSystem();
                 flow.TryTransitionTo(AppFlowState.Lobby);
@@ -53,6 +55,23 @@ namespace Game.Architecture.Tests
                         Array.Empty<WorldObjectState>(), Pose.identity, CreateWaitingPoints()), room);
                 coordinator.Start();
                 network.PublishLineUp(participants);
+                network.PublishSimulationTick();
+                Assert.That(network.BoundSession, Is.Null, "Ordinary ticks must stay paused during migration.");
+                network.IsMatchRuntimeRestorePending = true;
+                Assert.DoesNotThrow(() => network.PublishSimulationTick());
+                Assert.That(network.RestoreReports, Is.EqualTo(1));
+                Assert.That(network.IsMatchRuntimeRestorePending, Is.False);
+                if (invalidCheckpoint)
+                {
+                    Assert.That(network.RestoreFailure, Is.Not.Null);
+                    Assert.That(network.BoundSession, Is.Null);
+                    Assert.DoesNotThrow(() => network.PublishSimulationTick());
+                    Assert.That(network.RestoreReports, Is.EqualTo(1));
+                    return;
+                }
+                Assert.That(network.RestoreFailure, Is.Null);
+                Assert.That(network.IsRuntimeReady, Is.False, "Only the migration owner may resume gameplay.");
+                network.IsRuntimeReady = true;
                 network.PublishSimulationTick();
                 Assert.That(network.BoundSession.CurrentPhase, Is.EqualTo(MatchPhase.Hiding));
                 Assert.That(network.BoundSession.GetRemainingSeconds(100d), Is.EqualTo(hostLeft ? 30d : 50d));
@@ -376,6 +395,15 @@ namespace Game.Architecture.Tests
 
             public bool IsServer => true;
             public MatchMigrationState MatchMigration { get; set; }
+            public bool IsMatchRuntimeRestorePending { get; set; }
+            public int RestoreReports { get; private set; }
+            public Exception RestoreFailure { get; private set; }
+            public void ReportMatchRuntimeRestored(Exception failure)
+            {
+                RestoreReports++;
+                RestoreFailure = failure;
+                IsMatchRuntimeRestorePending = false;
+            }
             public bool IsRuntimeReady { get; set; } = true;
             public bool IsHighlightReplayReady { get; set; }
             public int DestructionLimit => PlaySettingsDraft.DefaultDestructionLimit;

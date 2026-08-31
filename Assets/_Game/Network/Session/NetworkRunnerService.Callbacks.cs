@@ -318,6 +318,21 @@ namespace Game.Network.Session
                     MatchMigration = _matchStarter?.CaptureMigrationState();
                     foreach (var player in replacementRunner.ActivePlayers)
                         _spawner?.Spawn(replacementRunner, player, NicknameOf(replacementRunner, player));
+                    if (MatchMigration != null && !IsResultSceneLoaded)
+                    {
+                        _matchRuntimeRestoreFailure = null;
+                        _matchRuntimeRestorePending = true;
+                        // The scene coordinator restores rules on a simulation tick. Keep gameplay paused
+                        // and observe its result from Update, so failure cleanup never tears down a tick.
+                        await UniTask.WaitUntil(() =>
+                            migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner) ||
+                            !_matchRuntimeRestorePending);
+                        if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner)) return;
+                        if (_matchRuntimeRestoreFailure != null)
+                            throw new InvalidOperationException(
+                                $"Could not restore match rules: {_matchRuntimeRestoreFailure.Message}",
+                                _matchRuntimeRestoreFailure);
+                    }
                     if (!(_matchStarter?.HasStartedMatch ?? false))
                         _spawner?.RepositionSeated(replacementRunner);
                     _spawner?.RefreshHost(replacementRunner);

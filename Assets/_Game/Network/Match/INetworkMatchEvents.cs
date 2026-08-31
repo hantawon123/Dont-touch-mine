@@ -43,6 +43,8 @@ namespace Game.Network.Match
     {
         bool IsServer { get; }
         MatchMigrationState MatchMigration { get; }
+        bool IsMatchRuntimeRestorePending { get; }
+        void ReportMatchRuntimeRestored(Exception failure);
         int DestructionLimit { get; }
         event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
         event Action SimulationTick;

@@ -148,6 +148,24 @@ namespace Game.Bootstrap
 
         private void OnSimulationTick()
         {
+            if (network.IsMatchRuntimeRestorePending)
+            {
+                if (!network.IsServer || pendingLineUp == null) return;
+                var participants = pendingLineUp;
+                pendingLineUp = null;
+                Exception failure = null;
+                try
+                {
+                    StartRuntime(participants);
+                }
+                catch (Exception exception)
+                {
+                    StopRuntime();
+                    failure = exception;
+                }
+                network.ReportMatchRuntimeRestored(failure);
+                return;
+            }
             if (!network.IsRuntimeReady) return;
             if (!network.IsServer)
             {

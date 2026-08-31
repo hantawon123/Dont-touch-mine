@@ -159,6 +159,16 @@ namespace Game.Network.Session
         private int _itemAssignmentTransferSequence;
         private int _highlightTransferSequence;
         private bool _hostMigrationInProgress;
+        private bool _matchRuntimeRestorePending;
+        private Exception _matchRuntimeRestoreFailure;
+        public bool IsMatchRuntimeRestorePending => _hostMigrationInProgress && _matchRuntimeRestorePending;
+
+        public void ReportMatchRuntimeRestored(Exception failure)
+        {
+            if (!IsMatchRuntimeRestorePending) return;
+            _matchRuntimeRestoreFailure = failure;
+            _matchRuntimeRestorePending = false;
+        }
         private bool _roomInitializationInProgress;
         private int _hostMigrationRevision;
         public MatchMigrationState MatchMigration { get; private set; }
@@ -1150,6 +1160,8 @@ namespace Game.Network.Session
         /// </summary>
         private void ReleaseRunner(bool preserveMigrationState = false)
         {
+            _matchRuntimeRestorePending = false;
+            _matchRuntimeRestoreFailure = null;
             MatchMigration = null;
             IsResultSceneLoaded = false;
             _highlightPendingPlayers.Clear();
@@ -1273,7 +1285,8 @@ namespace Game.Network.Session
 
         private void OnSimulationTick()
         {
-            if (!IsRuntimeReady) return;
+            // During migration only the requested runtime restoration may consume this tick.
+            if (!IsRuntimeReady && !IsMatchRuntimeRestorePending) return;
             SimulationTick?.Invoke();
         }
 
