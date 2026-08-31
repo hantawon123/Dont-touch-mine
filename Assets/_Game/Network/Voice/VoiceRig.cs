@@ -44,6 +44,9 @@ namespace Game.Network.Voice
         private VoiceNetworkObject localVoice;
         private bool talking;
 
+        /// <summary>When the last lag reading was printed, to keep it to one a second.</summary>
+        private float lastLagReport;
+
         public ReadOnlyReactiveProperty<bool> IsAvailable => available;
         public ReadOnlyReactiveProperty<bool> IsMuted => muted;
         public ReadOnlyReactiveProperty<bool> IsTransmitting => transmitting;
@@ -121,6 +124,63 @@ namespace Game.Network.Voice
 
             available.Value = client.ClientState == ClientState.Joined;
             transmitting.Value = recorder != null && recorder.IsCurrentlyTransmitting;
+
+            PumpTransport();
+            ReportLag();
+        }
+
+        /// <summary>
+        /// Sends and receives once more this frame.
+        /// </summary>
+        /// <remarks>
+        /// The SDK services its own transport on a fixed 33 ms timer, which is
+        /// slower than the 20 ms frames the encoder produces. Frames wait for a
+        /// tick that has not come and then leave in bursts, which costs up to a
+        /// frame of delay for nothing. These are the same two calls the SDK
+        /// makes, and a Photon peer expects to be serviced as often as the host
+        /// application cares to: the extra call finds nothing to do when nothing
+        /// is waiting.
+        /// </remarks>
+        private void PumpTransport()
+        {
+            if (client.ClientState != ClientState.Joined)
+            {
+                return;
+            }
+
+            client.Client.LoadBalancingPeer.Service();
+            client.VoiceClient.Service();
+        }
+
+        /// <summary>
+        /// Prints how far behind the remote streams are actually running.
+        /// </summary>
+        /// <remarks>
+        /// Temporary, and the only measured number in the chain. Everything else
+        /// about the delay is read from configuration and added up, which says
+        /// what the settings ask for rather than what happens. Speaker.Lag is the
+        /// distance between what has arrived and what is being played, so it says
+        /// whether the jitter buffer settles on the delay it was given.
+        /// </remarks>
+        private void ReportLag()
+        {
+            if (Time.unscaledTime - lastLagReport < 1f)
+            {
+                return;
+            }
+
+            lastLagReport = Time.unscaledTime;
+            foreach (var candidate in
+                     FindObjectsByType<VoiceNetworkObject>(FindObjectsSortMode.None))
+            {
+                if (candidate.Object == null || candidate.IsLocal ||
+                    candidate.SpeakerInUse == null || !candidate.SpeakerInUse.IsPlaying)
+                {
+                    continue;
+                }
+
+                Debug.Log($"[VoiceLag] lag={candidate.SpeakerInUse.Lag}ms");
+            }
         }
 
         /// <summary>
