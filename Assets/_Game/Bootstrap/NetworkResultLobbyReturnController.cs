@@ -66,7 +66,7 @@ namespace Game.Bootstrap
             if (!loadRequested)
             {
                 loadRequested = true;
-                if (!navigation.EnterResultScene())
+                if (!navigation.IsResultSceneLoaded && !navigation.EnterResultScene())
                 {
                     Debug.LogError("[Result] Cannot load Result scene. Returning to lobby after the result delay.");
                     returnAt = now + ResultDisplaySeconds;
@@ -80,8 +80,10 @@ namespace Game.Bootstrap
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
         {
+            var rolledBackToSearching = snapshot.Phase == MatchPhase.Searching &&
+                phase is MatchPhase.Highlight or MatchPhase.Result;
             phase = snapshot.Phase;
-            if (phase != MatchPhase.Waiting && phase != MatchPhase.Hiding) return;
+            if (phase != MatchPhase.Waiting && phase != MatchPhase.Hiding && !rolledBackToSearching) return;
             hasResult = false;
             loadRequested = false;
             returned = false;

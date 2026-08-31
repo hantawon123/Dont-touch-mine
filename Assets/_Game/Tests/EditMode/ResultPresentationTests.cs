@@ -15,6 +15,62 @@ namespace Game.Architecture.Tests
     public sealed class ResultPresentationTests
     {
         [Test]
+        public void Migration_NewHostKeepsAlreadyLoadedResultScene()
+        {
+            using var room = CreateRoom();
+            var network = new FakeNetwork { IsServer = false, IsResultSceneLoaded = true };
+            using var controller = new NetworkResultLobbyReturnController(network, network, room);
+            controller.Start();
+            var result = new MatchResult(MatchEndReason.TimeExpired, 100, new[] { 1 });
+            network.Publish(result);
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0));
+            controller.Tick(0);
+            network.IsServer = true;
+            network.IsRuntimeReady = false;
+            controller.Tick(10);
+            Assert.That(network.LoadCalls, Is.Zero);
+            Assert.That(network.ReturnCalls, Is.Zero);
+            network.IsRuntimeReady = true;
+            controller.Tick(100);
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0));
+            network.Publish(result); // Scene state is republished after restoration.
+            controller.Tick(104.9);
+            Assert.That(network.LoadCalls, Is.Zero);
+            Assert.That(network.ReturnCalls, Is.Zero);
+            controller.Tick(105);
+            controller.Tick(106);
+            Assert.That(network.LoadCalls, Is.Zero);
+            Assert.That(network.ReturnCalls, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Migration_SearchingRollbackClearsOldResultNavigation()
+        {
+            using var room = CreateRoom();
+            var network = new FakeNetwork { IsResultSceneLoaded = true };
+            using var controller = new NetworkResultLobbyReturnController(network, network, room);
+            controller.Start();
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 100, new[] { 1 }));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0));
+            controller.Tick(0);
+            controller.Tick(5); // Old result already returned once.
+            Assert.That(network.ReturnCalls, Is.EqualTo(1));
+            network.IsResultSceneLoaded = false;
+            network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 200));
+            controller.Tick(100);
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0));
+            controller.Tick(200);
+            Assert.That(network.LoadCalls, Is.Zero, "The old result must not trigger navigation.");
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 200, new[] { 0 }));
+            controller.Tick(201);
+            Assert.That(network.LoadCalls, Is.EqualTo(1));
+            network.IsResultSceneLoaded = true;
+            controller.Tick(202);
+            controller.Tick(207);
+            Assert.That(network.ReturnCalls, Is.EqualTo(2), "The old returned flag must not block the restored match.");
+        }
+
+        [Test]
         public void Migration_NewHostWaitsForReadinessBeforeResultNavigation()
         {
             using var room = CreateRoom();
@@ -47,11 +103,13 @@ namespace Game.Architecture.Tests
         public void Migration_PausesAnExistingResultCountdownWithoutReloading()
         {
             using var room = CreateRoom();
-            var network = new FakeNetwork { IsResultSceneLoaded = true };
+            var network = new FakeNetwork();
             using var controller = new NetworkResultLobbyReturnController(network, network, room);
             controller.Start();
             network.Publish(new MatchResult(MatchEndReason.TimeExpired, 100, new[] { 1 }));
             network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0));
+            controller.Tick(10);
+            network.IsResultSceneLoaded = true;
             controller.Tick(10); // Return at 15; three seconds remain when migration starts.
             network.IsRuntimeReady = false;
             controller.Tick(12);

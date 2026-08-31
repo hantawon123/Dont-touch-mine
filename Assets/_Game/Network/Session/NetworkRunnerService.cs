@@ -1135,6 +1135,7 @@ namespace Game.Network.Session
         public bool EnterResultScene()
         {
             if (!IsServer || !IsRuntimeReady) return false;
+            if (IsResultSceneLoaded) return true;
             if (_scenes == null)
             {
                 Debug.LogError("[Session] NetworkScenes must be assigned to load results.");
