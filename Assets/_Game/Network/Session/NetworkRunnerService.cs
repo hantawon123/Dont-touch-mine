@@ -641,7 +641,7 @@ namespace Game.Network.Session
         public bool TryPublishItemAssignments(
             IReadOnlyList<PlayerItemAssignment> assignments)
         {
-            if (!IsServer || _roster == null || assignments == null)
+            if (!IsServer || _roster == null || _matchStarter == null || assignments == null)
             {
                 return false;
             }
@@ -658,12 +658,10 @@ namespace Game.Network.Session
                 var assignment = assignments[index];
                 var playerIndex = assignment.PlayerIndex;
                 var itemId = assignment.Item.ItemId?.Trim();
-                if (playerIndex < 0 ||
-                    playerIndex >= participants.Count ||
-                    string.IsNullOrEmpty(itemId) ||
-                    !_roster.TryGetPlayer(
-                        participants[playerIndex].PlayerId,
-                        out var target))
+                if (string.IsNullOrEmpty(itemId) ||
+                    !TryResolveAssignmentRecipient(_matchStarter.PlayingParticipants,
+                        participants, playerIndex, out var playerId) ||
+                    !_roster.TryGetPlayer(playerId, out var target))
                 {
                     return false;
                 }
@@ -689,6 +687,25 @@ namespace Game.Network.Session
             }
 
             return true;
+        }
+
+        internal static bool TryResolveAssignmentRecipient(
+            IReadOnlyList<MatchParticipant> playing,
+            IReadOnlyList<RoomParticipant> present,
+            int playerIndex,
+            out string playerId)
+        {
+            // Match indices stay frozen; the current room list shrinks on departure.
+            playerId = null;
+            if (playerIndex < 0 || playerIndex >= playing.Count) return false;
+            var assignedPlayerId = playing[playerIndex].PlayerId;
+            foreach (var participant in present)
+            {
+                if (participant.PlayerId != assignedPlayerId) continue;
+                playerId = assignedPlayerId;
+                return true;
+            }
+            return false;
         }
 
         public bool TryInitializeAssignedItems(

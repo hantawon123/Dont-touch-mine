@@ -57,6 +57,7 @@ namespace Game.Network.Match
         private bool _hasShredderEjectionPose;
         private bool _returningToLobby;
         public bool HasStartedMatch => _state != null && _state.IsStarted;
+        internal IReadOnlyList<MatchParticipant> PlayingParticipants => _playing;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<LobbyChatMessage> LobbyChatReceived;

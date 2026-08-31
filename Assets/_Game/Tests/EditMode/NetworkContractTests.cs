@@ -49,6 +49,47 @@ namespace Game.Architecture.Tests
                 Is.EqualTo(new[] { 0, 1, 2 }));
         }
 
+        [TestCase(2, 0)]
+        [TestCase(3, 0)]
+        [TestCase(3, 1)]
+        [TestCase(6, 0)]
+        public void AssignmentRecipient_AfterDepartureUsesFrozenLineUp(int playerCount, int leavingIndex)
+        {
+            var present = new List<Game.Core.Rooms.RoomParticipant>();
+            for (var i = 0; i < playerCount; i++)
+                present.Add(new Game.Core.Rooms.RoomParticipant($"player-{i}", i, i == 0));
+            var playing = MatchParticipant.FromRoomParticipants(present);
+            present.RemoveAt(leavingIndex);
+
+            for (var i = 0; i < playerCount; i++)
+            {
+                var found = NetworkRunnerService.TryResolveAssignmentRecipient(playing, present, i, out var id);
+                Assert.That(found, Is.EqualTo(i != leavingIndex));
+                Assert.That(id, Is.EqualTo(i == leavingIndex ? null : $"player-{i}"));
+            }
+
+            // Reusing a room seat must never deliver the departed player's secret assignment.
+            present.Add(new Game.Core.Rooms.RoomParticipant("newcomer", leavingIndex, false));
+            Assert.That(NetworkRunnerService.TryResolveAssignmentRecipient(
+                playing, present, leavingIndex, out var replacement), Is.False);
+            Assert.That(replacement, Is.Null);
+        }
+
+        [TestCase(-1)]
+        [TestCase(2)]
+        public void AssignmentRecipient_RejectsOutOfRangeMatchIndex(int playerIndex)
+        {
+            var present = new[]
+            {
+                new Game.Core.Rooms.RoomParticipant("host", 0, true),
+                new Game.Core.Rooms.RoomParticipant("guest", 5, false),
+            };
+            var playing = MatchParticipant.FromRoomParticipants(present);
+            Assert.That(NetworkRunnerService.TryResolveAssignmentRecipient(
+                playing, present, playerIndex, out var id), Is.False);
+            Assert.That(id, Is.Null);
+        }
+
         [Test]
         public void InputIntent_NormalizesMovementYawAndButtons()
         {
