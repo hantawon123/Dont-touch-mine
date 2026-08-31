@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Cysharp.Threading.Tasks;
 using Fusion;
 using Fusion.Sockets;
 using Game.Core.Rooms;
@@ -234,7 +235,14 @@ namespace Game.Network.Session
             input.Set(default(NetworkPlayerInput));
         }
 
-        public async void OnHostMigration(
+        public void OnHostMigration(
+            NetworkRunner runner,
+            HostMigrationToken hostMigrationToken)
+        {
+            MigrateHostAsync(runner, hostMigrationToken).Forget();
+        }
+
+        private async UniTask MigrateHostAsync(
             NetworkRunner runner,
             HostMigrationToken hostMigrationToken)
         {
@@ -260,12 +268,18 @@ namespace Game.Network.Session
                 var sceneManager = CreateRunner(
                     hostMigrationToken.GameMode != GameMode.Server);
                 replacementRunner = _runner;
+                Exception restoreFailure = null;
                 var result = await replacementRunner.StartGame(new StartGameArgs
                 {
                     GameMode = hostMigrationToken.GameMode,
                     PlayerUniqueId = _playerUniqueId,
                     HostMigrationToken = hostMigrationToken,
-                    HostMigrationResume = ResumeHostMigration,
+                    HostMigrationResume = resumedRunner =>
+                    {
+                        if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(resumedRunner)) return;
+                        // Fusion invokes this from a coroutine, outside this async try/catch.
+                        restoreFailure = TryRestoreHostMigrationSnapshot(() => ResumeHostMigration(resumedRunner));
+                    },
                     ConnectionToken = SessionConnectionTokenCodec.Encode(
                         _expectedPassword,
                         _profile?.Nickname),
@@ -286,12 +300,26 @@ namespace Game.Network.Session
                     return;
                 }
 
+                // StartGame can succeed before Fusion invokes HostMigrationResume.
+                // IsResume clears only after the callback and Fusion's remaining initialization.
+                await UniTask.WaitUntil(() =>
+                    migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner) ||
+                    restoreFailure != null ||
+                    CanCompleteHostMigration(replacementRunner.IsRunning, replacementRunner.IsResume,
+                        replacementRunner.IsSceneManagerBusy));
+                if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner)) return;
+                if (restoreFailure != null)
+                    throw new InvalidOperationException(
+                        $"Could not restore the host migration snapshot: {restoreFailure.Message}", restoreFailure);
+
                 ReadConfiguredSettings();
                 if (replacementRunner.IsServer)
                 {
                     MatchMigration = _matchStarter?.CaptureMigrationState();
                     foreach (var player in replacementRunner.ActivePlayers)
                         _spawner?.Spawn(replacementRunner, player, NicknameOf(replacementRunner, player));
+                    if (!(_matchStarter?.HasStartedMatch ?? false))
+                        _spawner?.RepositionSeated(replacementRunner);
                     _spawner?.RefreshHost(replacementRunner);
                     if (!replacementRunner.SessionInfo.UpdateCustomProperties(
                         new Dictionary<string, SessionProperty>
@@ -335,6 +363,24 @@ namespace Game.Network.Session
                 _hostMigrationInProgress = false;
                 ReportExit(RoomExitReason.HostClosed);
                 Shutdown();
+            }
+        }
+
+        internal static bool CanCompleteHostMigration(bool isRunning, bool isResuming, bool isSceneManagerBusy)
+        {
+            return isRunning && !isResuming && !isSceneManagerBusy;
+        }
+
+        internal static Exception TryRestoreHostMigrationSnapshot(Action restore)
+        {
+            try
+            {
+                restore();
+                return null;
+            }
+            catch (Exception exception)
+            {
+                return exception;
             }
         }
 
@@ -434,7 +480,8 @@ namespace Game.Network.Session
                 $"IsServer={runner != null && runner.IsServer}.");
 
             SceneLoaded?.Invoke();
-            if (!runner.IsResume || !(_matchStarter?.HasStartedMatch ?? false))
+            if (!_hostMigrationInProgress &&
+                (!runner.IsResume || !(_matchStarter?.HasStartedMatch ?? false)))
                 _spawner?.RepositionSeated(runner);
         }
 

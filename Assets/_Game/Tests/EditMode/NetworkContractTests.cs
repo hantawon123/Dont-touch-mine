@@ -23,6 +23,60 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [TestCase(false, false, false, false)]
+        [TestCase(false, false, true, false)]
+        [TestCase(false, true, false, false)]
+        [TestCase(false, true, true, false)]
+        [TestCase(true, false, false, true)]
+        [TestCase(true, false, true, false)]
+        [TestCase(true, true, false, false)]
+        [TestCase(true, true, true, false)]
+        public void HostMigration_CompletesOnlyAfterFusionAndSceneAreReady(
+            bool running, bool resuming, bool sceneBusy, bool expected)
+        {
+            Assert.That(NetworkRunnerService.CanCompleteHostMigration(running, resuming, sceneBusy),
+                Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void HostMigration_RestoresSeatsBeforeCreatingMissingPlayers()
+        {
+            var registry = new PlayerRegistry();
+            var newHost = Fusion.PlayerRef.FromIndex(1);
+            var newcomer = Fusion.PlayerRef.FromIndex(2);
+
+            // StartGame succeeded, but the scene and snapshot have not resumed yet.
+            if (NetworkRunnerService.CanCompleteHostMigration(false, true, true))
+                registry.Add(newHost);
+            Assert.That(registry.Count, Is.Zero, "Do not allocate seat 0 before restoring seat 1.");
+
+            var failure = NetworkRunnerService.TryRestoreHostMigrationSnapshot(() =>
+            {
+                Assert.That(registry.Restore(newHost, 1), Is.True);
+            });
+            Assert.That(failure, Is.Null);
+            Assert.That(NetworkRunnerService.CanCompleteHostMigration(true, true, false), Is.False,
+                "Returning from our callback alone does not finish Fusion initialization.");
+
+            if (NetworkRunnerService.CanCompleteHostMigration(true, false, false))
+            {
+                Assert.That(registry.Add(newHost), Is.EqualTo(1));
+                Assert.That(registry.Add(newcomer), Is.Zero);
+            }
+            Assert.That(registry.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void HostMigration_RestoreFailureReturnsToTheMigrationOwner()
+        {
+            var expected = new InvalidOperationException("Could not restore player 2.");
+            Exception failure = null;
+            Assert.DoesNotThrow(() => failure = NetworkRunnerService.TryRestoreHostMigrationSnapshot(
+                () => throw expected));
+            Assert.That(failure, Is.SameAs(expected),
+                "A coroutine callback failure must reach migration cleanup instead of escaping Fusion.");
+        }
+
         [Test]
         public void MatchSessionPrefab_WithMigrationFitsConfiguredHeapPage()
         {
