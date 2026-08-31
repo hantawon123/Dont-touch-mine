@@ -23,6 +23,25 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [Test]
+        public void AssignmentRecipient_LateReadyRequestOnlyGetsItsPublishedAssignment()
+        {
+            var playing = new[] { new MatchParticipant("host", 0), new MatchParticipant("late", 1),
+                new MatchParticipant("not-published", 2) };
+            var published = new Dictionary<string, string> { ["host"] = "host-item", ["late"] = "late-item" };
+            Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, playing, "late", out var item), Is.True);
+            Assert.That(item, Is.EqualTo("late-item"));
+            Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, playing, "late", out item), Is.True,
+                "Repeated ready requests must remain safe if the previous response arrived too early.");
+            Assert.That(item, Is.EqualTo("late-item"));
+            Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, playing, "not-published", out _), Is.False,
+                "Do not reveal an assignment before the authority publishes it.");
+            Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, playing, "newcomer", out _), Is.False);
+            Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, Array.Empty<MatchParticipant>(), "late", out _), Is.False);
+            published.Clear(); // Runner replacement or rematch reset.
+            Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, playing, "late", out _), Is.False);
+        }
+
         [TestCase(false, false, false, false)]
         [TestCase(false, false, true, false)]
         [TestCase(false, true, false, false)]

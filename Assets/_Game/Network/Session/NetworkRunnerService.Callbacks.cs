@@ -520,6 +520,9 @@ namespace Game.Network.Session
             }
             if (runner.IsServer)
             {
+                if (type == ItemAssignmentRequestKeyType && version == ItemAssignmentKeyVersion &&
+                    data.Length == 1 && data[0] == 1)
+                    ResendItemAssignment(player); // The transport sender, never a client-supplied player id.
                 if (type == HighlightReadyKeyType && version == HighlightReplayKeyVersion &&
                     sequence == _highlightTransferSequence && data.Length == 1 && data[0] == 1)
                     _highlightPendingPlayers.Remove(player);

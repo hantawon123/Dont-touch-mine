@@ -41,6 +41,7 @@ namespace Game.Bootstrap
         private PlayerInteractionStateSnapshot[] playerStates =
             Array.Empty<PlayerInteractionStateSnapshot>();
         private string assignedItemId;
+        private double nextAssignmentRequestAt;
         private CarryableItem highlightedAssignment;
         private PlayerCameraController cameraRig;
         private Transform cameraTarget;
@@ -73,11 +74,19 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
-            if (!network.IsRunning || network.IsBrowsingLobby)
+            if (!network.IsRuntimeReady || network.IsBrowsingLobby)
             {
                 return;
             }
 
+            // Request after scene subscribers are installed; retry until an assignment actually arrives.
+            // The host only resends assignments already published for this sender's current match.
+            var now = Time.unscaledTimeAsDouble;
+            if (assignedItemId == null && room.LocalPlayerIndex >= 0 && now >= nextAssignmentRequestAt)
+            {
+                nextAssignmentRequestAt = now + 1d;
+                network.RequestItemAssignment();
+            }
             DisableStandaloneActors();
             RefreshPlayers();
             ApplyAssignmentOwner();

@@ -48,6 +48,8 @@ namespace Game.Network.Session
         private const string MatchmakingRegion = "kr";
         private const int ItemAssignmentKeyType = 0x4954454D;
         private const int ItemAssignmentKeyVersion = 1;
+        private const int ItemAssignmentRequestKeyType = 0x49545251;
+        private readonly Dictionary<string, string> _publishedItemAssignments = new(StringComparer.Ordinal);
         private const int MaxItemAssignmentBytes = 128;
         private const int HighlightReplayKeyType = 0x484C5452;
         private const int HighlightReplayKeyVersion = 3;
@@ -726,21 +728,52 @@ namespace Game.Network.Session
                     return false;
                 }
 
-                if (target == _runner.LocalPlayer)
-                {
-                    ItemAssignmentReceived?.Invoke(itemId);
-                    continue;
-                }
-
-                var key = ReliableKey.FromInts(
-                    ItemAssignmentKeyType,
-                    ItemAssignmentKeyVersion,
-                    ++_itemAssignmentTransferSequence,
-                    0);
-                _runner.SendReliableDataToPlayer(target, key, payload);
+                // Accept for delivery even if a restored avatar's connection is not back yet.
+                // Its scene requests this published assignment again when ready.
+                _publishedItemAssignments[playerId] = itemId;
+                SendItemAssignment(target, itemId);
             }
 
             return true;
+        }
+
+        public bool RequestItemAssignment()
+        {
+            if (!IsRuntimeReady || _browsingLobby || !_runner.LocalPlayer.IsRealPlayer) return false;
+            if (IsServer) return ResendItemAssignment(_runner.LocalPlayer);
+            _runner.SendReliableDataToServer(ReliableKey.FromInts(
+                ItemAssignmentRequestKeyType, ItemAssignmentKeyVersion, ++_itemAssignmentTransferSequence, 0),
+                new byte[] { 1 });
+            return true;
+        }
+
+        private bool ResendItemAssignment(PlayerRef requester)
+        {
+            if (!IsRuntimeReady || !IsServer || _matchStarter == null || !requester.IsRealPlayer ||
+                !TryGetPublishedAssignment(_publishedItemAssignments, _matchStarter.PlayingParticipants,
+                    PlayerRegistry.IdOf(requester), out var itemId)) return false;
+            SendItemAssignment(requester, itemId);
+            return true;
+        }
+
+        internal static bool TryGetPublishedAssignment(IReadOnlyDictionary<string, string> published,
+            IReadOnlyList<MatchParticipant> playing, string requesterId, out string itemId)
+        {
+            itemId = null;
+            foreach (var participant in playing)
+                if (participant.PlayerId == requesterId)
+                    return published.TryGetValue(requesterId, out itemId);
+            return false;
+        }
+
+        private void SendItemAssignment(PlayerRef target, string itemId)
+        {
+            if (target == _runner.LocalPlayer)
+                ItemAssignmentReceived?.Invoke(itemId);
+            else
+                _runner.SendReliableDataToPlayer(target, ReliableKey.FromInts(
+                    ItemAssignmentKeyType, ItemAssignmentKeyVersion, ++_itemAssignmentTransferSequence, 0),
+                    Encoding.UTF8.GetBytes(itemId));
         }
 
         internal static bool TryResolveAssignmentRecipient(
@@ -1160,6 +1193,7 @@ namespace Game.Network.Session
         /// </summary>
         private void ReleaseRunner(bool preserveMigrationState = false)
         {
+            _publishedItemAssignments.Clear();
             _matchRuntimeRestorePending = false;
             _matchRuntimeRestoreFailure = null;
             MatchMigration = null;
@@ -1279,7 +1313,11 @@ namespace Game.Network.Session
 
         private void OnLineUpReceived(IReadOnlyList<MatchParticipant> participants)
         {
-            if (participants == null || participants.Count == 0) MatchMigration = null;
+            if (participants == null || participants.Count == 0)
+            {
+                MatchMigration = null;
+                _publishedItemAssignments.Clear();
+            }
             LineUpReceived?.Invoke(participants);
         }
 
