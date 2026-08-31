@@ -54,5 +54,18 @@ namespace Game.Core.Flow
                     return false;
             }
         }
+
+        /// <summary>Aligns an existing room with confirmed state, including snapshot rollback.</summary>
+        public bool TryRestoreSessionState(AppFlowState restoredState)
+        {
+            if (!IsSessionState(CurrentState) || !IsSessionState(restoredState)) return false;
+            if (CurrentState == restoredState) return true;
+            CurrentState = restoredState;
+            StateChanged?.Invoke(restoredState);
+            return true;
+        }
+
+        private static bool IsSessionState(AppFlowState state) =>
+            state is AppFlowState.Lobby or AppFlowState.InGame or AppFlowState.Highlight or AppFlowState.Result;
     }
 }

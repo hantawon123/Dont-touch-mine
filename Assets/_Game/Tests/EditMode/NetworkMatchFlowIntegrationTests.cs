@@ -10,6 +10,48 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkMatchFlowIntegrationTests
     {
+        [TestCase(AppFlowState.Highlight, MatchPhase.Hiding)]
+        [TestCase(AppFlowState.Highlight, MatchPhase.Searching)]
+        [TestCase(AppFlowState.Result, MatchPhase.Hiding)]
+        [TestCase(AppFlowState.Result, MatchPhase.Searching)]
+        public void Migration_RollbackRestoresGameplayAndClearsOldResult(AppFlowState previous, MatchPhase saved)
+        {
+            var network = new FakeNetworkMatchEvents();
+            var flow = CreateLobbyFlow();
+            using var sync = new NetworkMatchFlowSynchronizer(network, flow);
+            sync.Start();
+            network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 120d));
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 110d, new[] { 0 }));
+            if (previous == AppFlowState.Result) network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            var changes = new System.Collections.Generic.List<AppFlowState>();
+            flow.StateChanged += changes.Add;
+            network.Publish(new MatchStateSnapshot(saved, 200d));
+            network.Publish(new MatchStateSnapshot(saved, 200d));
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.InGame));
+            Assert.That(changes, Is.EqualTo(new[] { AppFlowState.InGame }), "Do not emit fake Result/Lobby transitions.");
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.InGame), "The previous result must not complete this phase.");
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 200d, new[] { 0 }));
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Result));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Migration_RestoresCompletedCheckpointFromLobby(bool phaseFirst)
+        {
+            var network = new FakeNetworkMatchEvents();
+            var flow = CreateLobbyFlow();
+            using var sync = new NetworkMatchFlowSynchronizer(network, flow);
+            sync.Start();
+            if (phaseFirst) network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            else network.Publish(new MatchResult(MatchEndReason.TimeExpired, 100d, new[] { 0 }));
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Lobby));
+            if (phaseFirst) network.Publish(new MatchResult(MatchEndReason.TimeExpired, 100d, new[] { 0 }));
+            else network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Result));
+        }
+
         [TestCase(MatchEndReason.TimeExpired)]
         [TestCase(MatchEndReason.AllPlayerItemsDestroyed)]
         public void NormalResult_WaitsForResultPhase(MatchEndReason reason)

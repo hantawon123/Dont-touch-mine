@@ -100,49 +100,14 @@ namespace Game.Bootstrap
             }
         }
 
-        private void TransitionToInGame()
-        {
-            if (appFlow.CurrentState == AppFlowState.Lobby)
-            {
-                appFlow.TryTransitionTo(AppFlowState.InGame);
-            }
-        }
+        // These callbacks carry confirmed room state, not a user's request to advance.
+        // A saved checkpoint can move backward or skip phases already completed by the host.
+        private void TransitionToInGame() => appFlow.TryRestoreSessionState(AppFlowState.InGame);
 
-        private void TransitionToHighlight()
-        {
-            if (appFlow.CurrentState == AppFlowState.InGame)
-            {
-                appFlow.TryTransitionTo(AppFlowState.Highlight);
-            }
-        }
+        private void TransitionToHighlight() => appFlow.TryRestoreSessionState(AppFlowState.Highlight);
 
-        private void TransitionToResult()
-        {
-            TransitionToHighlight();
+        private void TransitionToResult() => appFlow.TryRestoreSessionState(AppFlowState.Result);
 
-            if (appFlow.CurrentState == AppFlowState.Highlight)
-            {
-                appFlow.TryTransitionTo(AppFlowState.Result);
-            }
-        }
-
-        private void TransitionToLobby()
-        {
-            if (appFlow.CurrentState == AppFlowState.InGame)
-            {
-                appFlow.TryTransitionTo(AppFlowState.Lobby);
-                return;
-            }
-
-            if (appFlow.CurrentState == AppFlowState.Highlight)
-            {
-                appFlow.TryTransitionTo(AppFlowState.Result);
-            }
-
-            if (appFlow.CurrentState == AppFlowState.Result)
-            {
-                appFlow.TryTransitionTo(AppFlowState.Lobby);
-            }
-        }
+        private void TransitionToLobby() => appFlow.TryRestoreSessionState(AppFlowState.Lobby);
     }
 }
