@@ -299,6 +299,8 @@ namespace Game.Network.Session
         public bool IsServer => _runner != null && _runner.IsServer;
         public bool IsRuntimeReady => IsRunning && !_hostMigrationInProgress;
         public bool IsHostMigrationInProgress => _hostMigrationInProgress;
+        // Includes connecting/loading, but excludes a standalone scene and room browsing.
+        public bool HasRoomSession => _hostMigrationInProgress || (_runner != null && !_browsingLobby);
 
         public IReadOnlyList<PlayerAvatar> PlayerAvatars =>
             _roster?.Avatars ?? Array.Empty<PlayerAvatar>();

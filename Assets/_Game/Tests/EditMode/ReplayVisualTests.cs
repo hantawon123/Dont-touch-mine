@@ -10,6 +10,38 @@ namespace Game.Tests.EditMode
     public sealed class ReplayVisualTests
     {
         [Test]
+        public void LobbyCamera_OnlyBindsExplicitTarget_AndCutsToItsPlacedPosition()
+        {
+            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCameraRig.prefab");
+            var characterPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab");
+            var unrelated = Object.Instantiate(characterPrefab);
+            var root = Object.Instantiate(prefab);
+            var placed = new GameObject("Placed Local Avatar");
+            try
+            {
+                var camera = root.GetComponent<Game.Client.Cameras.PlayerCameraController>();
+                camera.RequireExplicitFollowTarget();
+                typeof(Game.Client.Cameras.PlayerCameraController).GetMethod("Start",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(camera, null);
+                Assert.That(camera.FollowTarget, Is.Null, "Do not auto-bind another avatar while joining.");
+                placed.transform.position = new Vector3(30f, 4f, 40f);
+                placed.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+                camera.SetFollowTarget(placed.transform);
+                Assert.That(root.transform.position, Is.EqualTo(placed.transform.position + Vector3.up * 1.6f));
+                Assert.That(Quaternion.Angle(root.transform.rotation, placed.transform.rotation), Is.LessThan(0.01f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(placed);
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(unrelated);
+            }
+        }
+
+        [Test]
         public void MigrationCamera_RebindsDestroyedTargetWithoutResettingView()
         {
             var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(

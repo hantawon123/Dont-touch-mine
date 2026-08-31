@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Cameras;
 using Game.Client.Home;
 using Game.Client.Lobby;
+using Game.Client.Match;
 using Game.Client.Players;
 using Game.Client.Voice;
 using Game.Core.Home;
@@ -159,6 +160,12 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<VoicePresenter>();
             builder.RegisterEntryPoint<LobbyChatPresenter>();
             builder.RegisterEntryPoint<LobbyChatBubbleBinder>();
+            // Scene-owned: leaving the lobby also removes its entry cover.
+            // Do not reuse the project-wide highlight/result transition's state.
+            var entryCover = new GameObject("Lobby Entry Transition").AddComponent<HighlightTransitionView>();
+            entryCover.transform.SetParent(transform, false);
+            entryCover.SetOpacity(1f);
+            builder.RegisterComponent(entryCover).As<IHighlightTransitionView>();
             builder.RegisterEntryPoint<LobbyPlayerCameraBinder>();
             builder.RegisterEntryPoint<LobbyPlayerAnimationBinder>();
             // AsSelf so the bridge below can take the leave request off it.
@@ -202,12 +209,9 @@ namespace Game.Bootstrap
         /// </remarks>
         private void EnsurePlayerCameraRig()
         {
-            if (FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include) != null)
-            {
-                return;
-            }
-
-            Instantiate(cameraRigPrefab);
+            var rig = FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
+            if (rig == null) rig = Instantiate(cameraRigPrefab);
+            rig.RequireExplicitFollowTarget();
         }
 
         /// <summary>
@@ -257,15 +261,19 @@ namespace Game.Bootstrap
     /// the whole visit. Binding is retried until both the replicated local avatar
     /// and camera rig exist. A migrated avatar replaces the previous binding.
     /// </remarks>
-    internal sealed class LobbyPlayerCameraBinder : IStartable, ITickable
+    internal sealed class LobbyPlayerCameraBinder : IStartable, ITickable, IDisposable
     {
         private readonly NetworkRunnerService network;
+        private readonly IHighlightTransitionView entryCover;
         private PlayerAvatar boundAvatar;
         private PlayerCameraController boundRig;
+        private int readyFrame = -1;
+        private bool entryComplete;
 
-        public LobbyPlayerCameraBinder(NetworkRunnerService network)
+        public LobbyPlayerCameraBinder(NetworkRunnerService network, IHighlightTransitionView entryCover)
         {
             this.network = network ?? throw new ArgumentNullException(nameof(network));
+            this.entryCover = entryCover ?? throw new ArgumentNullException(nameof(entryCover));
         }
 
         public void Start()
@@ -276,7 +284,33 @@ namespace Game.Bootstrap
         public void Tick()
         {
             TryBind();
+            if (entryComplete) return;
+            var motor = boundAvatar != null ? boundAvatar.GetComponent<NetworkPlayerMotor>() : null;
+            var ready = network.IsRuntimeReady && boundAvatar != null && boundAvatar.PlayerId != null &&
+                        boundAvatar.IsOwner && motor != null && motor.IsScenePlacementReady &&
+                        boundRig != null && boundRig.isActiveAndEnabled &&
+                        boundRig.FollowTarget == boundAvatar.transform;
+            UpdateEntryTransition(!network.HasRoomSession || ready, Time.frameCount);
         }
+
+        internal void UpdateEntryTransition(bool ready, int frame)
+        {
+            if (entryComplete) return;
+            if (!ready)
+            {
+                readyFrame = -1;
+                entryCover.SetOpacity(1f);
+                return;
+            }
+            if (readyFrame < 0) readyFrame = frame;
+            // KCC Render, camera LateUpdate and Cinemachine must see the placed
+            // target before revealing it. Lost readiness restarts this wait.
+            if (frame - readyFrame < 2) return;
+            entryComplete = true;
+            entryCover.SetOpacity(0f);
+        }
+
+        public void Dispose() => entryCover.SetOpacity(0f);
 
         private void TryBind()
         {

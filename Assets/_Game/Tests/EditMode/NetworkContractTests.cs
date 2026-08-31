@@ -23,6 +23,39 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [Test]
+        public void LobbyEntry_WaitsForPlacementAndCameraFrames_AndClearsOnExit()
+        {
+            var view = new EntryTransitionSpy();
+            var binder = new Game.Bootstrap.LobbyPlayerCameraBinder(
+                new NetworkRunnerService(null, null, null, null, null, null), view);
+            binder.UpdateEntryTransition(false, 100);
+            Assert.That(view.Opacity, Is.EqualTo(1f));
+            binder.UpdateEntryTransition(true, 101);
+            binder.UpdateEntryTransition(true, 102);
+            Assert.That(view.Opacity, Is.EqualTo(1f), "Do not reveal before camera rendering catches up.");
+            binder.UpdateEntryTransition(false, 103);
+            binder.UpdateEntryTransition(true, 104);
+            Assert.That(view.Opacity, Is.EqualTo(1f), "Losing readiness restarts the render wait.");
+            binder.UpdateEntryTransition(true, 106);
+            Assert.That(view.Opacity, Is.Zero);
+            binder.UpdateEntryTransition(false, 107);
+            Assert.That(view.Opacity, Is.Zero, "A completed entry does not cover later gameplay or migration.");
+
+            var nextVisit = new Game.Bootstrap.LobbyPlayerCameraBinder(
+                new NetworkRunnerService(null, null, null, null, null, null), view);
+            nextVisit.UpdateEntryTransition(false, 200);
+            Assert.That(view.Opacity, Is.EqualTo(1f), "Re-entry starts a fresh placement wait.");
+            nextVisit.Dispose();
+            Assert.That(view.Opacity, Is.Zero, "Leaving before placement must not leave a black screen.");
+        }
+
+        private sealed class EntryTransitionSpy : Game.Client.Match.IHighlightTransitionView
+        {
+            public float Opacity { get; private set; }
+            public void SetOpacity(float opacity) => Opacity = opacity;
+        }
+
         [TestCase(false, true, false, 0d, false)]
         [TestCase(false, false, true, 10d, false)]
         [TestCase(true, false, false, 4.9d, false)]
