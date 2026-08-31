@@ -1,10 +1,12 @@
 using System.IO;
 using Game.Bootstrap;
 using Game.Client.Match;
+using Game.Client.Voice;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -14,6 +16,13 @@ namespace Game.Editor
     public static class InGameHudLayoutMenu
     {
         private const string MenuPath = "Game/InGame/Build HUD Layout";
+
+        /// <summary>
+        /// Handed to the scope so the talk keys can be read without going
+        /// through a character, which Fusion spawns after the scope is built.
+        /// </summary>
+        private const string InputActionsPath =
+            "Assets/InputSystem_Actions.inputactions";
         private const string ScenePath = "Assets/_Game/Content/Scenes/Playground.unity";
         private const int WaitingSpawnPointCount = 6;
         private const string RequestPath =
@@ -56,6 +65,7 @@ namespace Game.Editor
 
                 EnsureAssignedItem(hud);
                 EnsureHighlightTitle(hud);
+                EnsureVoiceButton(hud);
                 EnsureWaitingSpawnPoints(scene);
 
                 ConnectLifetimeScope(scene, hud);
@@ -193,6 +203,64 @@ namespace Game.Editor
             return hud;
         }
 
+        /// <summary>
+        /// Puts the microphone button in the corner of the match HUD.
+        /// </summary>
+        /// <remarks>
+        /// Same corner and size as the lobby's, because it is the same button
+        /// doing the same job and a player crossing from one screen to the other
+        /// should not have to look for it again.
+        /// </remarks>
+        private static VoiceView EnsureVoiceButton(NetworkMatchHudView hud)
+        {
+            var view = hud.GetComponent<VoiceView>();
+            if (view == null)
+            {
+                view = hud.gameObject.AddComponent<VoiceView>();
+            }
+
+            var slot = hud.transform.Find("VoiceButton") as RectTransform;
+            if (slot == null)
+            {
+                slot = CreatePanel(
+                    hud.transform,
+                    "VoiceButton",
+                    new Color(0.25f, 0.25f, 0.28f, 0.9f));
+            }
+
+            Place(
+                slot,
+                new Vector2(1f, 0f),
+                new Vector2(-60f, 60f),
+                new Vector2(72f, 72f));
+
+            var button = slot.GetComponent<Button>();
+            if (button == null)
+            {
+                button = slot.gameObject.AddComponent<Button>();
+            }
+
+            var caption = slot.Find("Label")?.GetComponent<TMP_Text>();
+            if (caption == null)
+            {
+                caption = CreateText(
+                    slot,
+                    "Label",
+                    "MIC",
+                    24f,
+                    TextAlignmentOptions.Center);
+                Stretch(caption.rectTransform, 6f);
+            }
+
+            var serialized = new SerializedObject(view);
+            serialized.FindProperty("muteButton").objectReferenceValue = button;
+            serialized.FindProperty("background").objectReferenceValue =
+                slot.GetComponent<Image>();
+            serialized.FindProperty("tmpLabel").objectReferenceValue = caption;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            return view;
+        }
+
         private static void ConnectLifetimeScope(Scene scene, NetworkMatchHudView hud)
         {
             PlaygroundLifetimeScope scope = null;
@@ -212,6 +280,11 @@ namespace Game.Editor
             }
 
             Assign(scope, "matchHudView", hud);
+            Assign(scope, "voiceView", hud.GetComponent<VoiceView>());
+            Assign(
+                scope,
+                "inputActions",
+                AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath));
         }
 
         private static void EnsureAssignedItem(NetworkMatchHudView hud)

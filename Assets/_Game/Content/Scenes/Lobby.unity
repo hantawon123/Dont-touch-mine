@@ -85660,6 +85660,7 @@ MonoBehaviour:
   muteButton: {fileID: 1180236510}
   background: {fileID: 1180236508}
   label: {fileID: 872920110}
+  tmpLabel: {fileID: 0}
 --- !u!1 &1640290594
 GameObject:
   m_ObjectHideFlags: 0

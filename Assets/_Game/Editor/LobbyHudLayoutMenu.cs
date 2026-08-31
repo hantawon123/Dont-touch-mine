@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Bootstrap;
 using Game.Client.Lobby;
+using Game.Client.Voice;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;

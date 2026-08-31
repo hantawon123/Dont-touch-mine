@@ -2,6 +2,7 @@ using Game.Core.Flow;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Ports;
+using Game.Core.Voice;
 using Game.Network;
 using Game.Network.Lobby;
 using Game.Network.Match;
@@ -127,6 +128,11 @@ namespace Game.Bootstrap
                 .As<ILobbyChatTransport>();
             builder.RegisterEntryPoint<NetworkMatchFlowSynchronizer>();
             builder.RegisterEntryPoint<NetworkResultLobbyReturnController>().AsSelf();
+            // Outlives every screen. The rig that opens the microphone is
+            // rebuilt with each session and the control that drives it with each
+            // screen, but a player who muted themselves meant it to hold.
+            builder.Register<VoicePreferences>(Lifetime.Singleton);
+
             builder.Register<RoomCodeGenerator>(Lifetime.Singleton);
             builder.Register<IRoomBrowser, RoomBrowser>(Lifetime.Singleton);
             builder.Register<RoomUiCommands>(Lifetime.Singleton);
