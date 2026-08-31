@@ -168,8 +168,8 @@ namespace Game.Bootstrap
             builder.RegisterComponent(entryCover).As<IHighlightTransitionView>();
             builder.RegisterEntryPoint<LobbyPlayerCameraBinder>();
             builder.RegisterEntryPoint<LobbyPlayerAnimationBinder>();
-            // AsSelf so the bridge below can take the leave request off it.
-            builder.RegisterEntryPoint<LobbyExitPresenter>().AsSelf();
+            // Voluntary requests reach the project-owned session/exit flow through the bridge.
+            builder.Register<LobbyExitPresenter>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkLobbyExitBridge>();
 
             builder.RegisterBuildCallback(container =>

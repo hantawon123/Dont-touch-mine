@@ -23,6 +23,124 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [TestCase(Game.Core.Flow.AppFlowState.Lobby)]
+        [TestCase(Game.Core.Flow.AppFlowState.InGame)]
+        [TestCase(Game.Core.Flow.AppFlowState.Highlight)]
+        [TestCase(Game.Core.Flow.AppFlowState.Result)]
+        public void RoomDisconnect_LeavesEveryPhaseOnceOutsideCallback(Game.Core.Flow.AppFlowState phase)
+        {
+            using var room = new Game.Core.Lobby.RoomBrowserSystem();
+            var network = new NetworkRunnerService(null, null, null, null, null, null);
+            var flow = new Game.Core.Flow.AppFlowSystem();
+            flow.TryTransitionTo(Game.Core.Flow.AppFlowState.Lobby);
+            flow.TryRestoreSessionState(phase);
+            var application = new DisconnectApplicationSpy();
+            using var controller = new Game.Bootstrap.NetworkRoomDisconnectController(network, room, flow, application);
+            controller.Start();
+            room.RoomClosed(Game.Core.Rooms.RoomExitReason.HostClosed);
+            Assert.That(application.OpenCount, Is.Zero, "Do not load scenes inside Fusion callbacks.");
+            Assert.That(flow.CurrentState, Is.EqualTo(phase));
+            controller.Tick();
+            controller.Tick();
+            room.RoomClosed(Game.Core.Rooms.RoomExitReason.HostClosed);
+            controller.Tick();
+            Assert.That(application.OpenCount, Is.EqualTo(1));
+            Assert.That(flow.CurrentState, Is.EqualTo(Game.Core.Flow.AppFlowState.RoomBrowser));
+            Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.HostClosed),
+                "The next browser view must still receive the reason.");
+        }
+
+        [Test]
+        public void RoomDisconnect_VoluntaryDepartureAlsoWaitsForTick_AndDisposalStopsNavigation()
+        {
+            using var room = new Game.Core.Lobby.RoomBrowserSystem();
+            var flow = new Game.Core.Flow.AppFlowSystem();
+            flow.TryTransitionTo(Game.Core.Flow.AppFlowState.Lobby);
+            var application = new DisconnectApplicationSpy();
+            var controller = new Game.Bootstrap.NetworkRoomDisconnectController(
+                new NetworkRunnerService(null, null, null, null, null, null), room, flow, application);
+            controller.Start();
+            room.RoomClosed(Game.Core.Rooms.RoomExitReason.Left);
+            Assert.That(application.OpenCount, Is.Zero);
+            controller.Tick();
+            Assert.That(application.OpenCount, Is.EqualTo(1));
+            Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.Left));
+            flow.TryTransitionTo(Game.Core.Flow.AppFlowState.Lobby);
+            controller.Dispose();
+            room.RoomClosed(Game.Core.Rooms.RoomExitReason.HostClosed);
+            controller.Tick();
+            Assert.That(application.OpenCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RoomDisconnect_UnexpectedClientLossReportsHostConnectionLost()
+        {
+            foreach (Game.Core.Rooms.RoomExitReason reason in Enum.GetValues(typeof(Game.Core.Rooms.RoomExitReason)))
+            {
+                Assert.That(NetworkRunnerService.ResolveUnexpectedExit(true, reason),
+                    Is.EqualTo(Game.Core.Rooms.RoomExitReason.HostClosed));
+                Assert.That(NetworkRunnerService.ResolveUnexpectedExit(false, reason), Is.EqualTo(reason));
+            }
+        }
+
+        [Test]
+        public void RoomDisconnectLifecycle_WaitsForRunnerDestructionAndRetainsFirstReason()
+        {
+            using var room = new Game.Core.Lobby.RoomBrowserSystem();
+            var network = new NetworkRunnerService(null, room, null, null, null, null);
+            var flow = new Game.Core.Flow.AppFlowSystem();
+            flow.TryTransitionTo(Game.Core.Flow.AppFlowState.Lobby);
+            flow.TryRestoreSessionState(Game.Core.Flow.AppFlowState.Result);
+            var application = new DisconnectApplicationSpy();
+            using var controller = new Game.Bootstrap.NetworkRoomDisconnectController(network, room, flow, application);
+            var runnerObject = new GameObject("Disconnect Lifecycle Test");
+            try
+            {
+                var runner = runnerObject.AddComponent<Fusion.NetworkRunner>();
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                typeof(NetworkRunnerService).GetField("_runner", flags).SetValue(network, runner);
+                typeof(NetworkRunnerService).GetField("_exitReported", flags).SetValue(network, false);
+                typeof(NetworkRunnerService).GetField("_isClientSession", flags).SetValue(network, true);
+                controller.Start();
+                network.OnDisconnectedFromServer(runner, Fusion.Sockets.NetDisconnectReason.Timeout);
+                typeof(NetworkRunnerService).GetMethod("ReportPlayerCount", flags).Invoke(network, null);
+                Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.HostClosed));
+                controller.Tick();
+                Assert.That(application.OpenCount, Is.Zero);
+                network.OnShutdown(runner, Fusion.ShutdownReason.Ok);
+                controller.Tick();
+                Assert.That(application.OpenCount, Is.Zero, "OnShutdown is not the end of Unity object destruction.");
+                UnityEngine.Object.DestroyImmediate(runnerObject);
+                controller.Tick();
+                Assert.That(application.OpenCount, Is.EqualTo(1));
+                Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.HostClosed));
+            }
+            finally
+            {
+                if (runnerObject != null) UnityEngine.Object.DestroyImmediate(runnerObject);
+            }
+        }
+
+        [Test]
+        public void RoomDisconnectConfig_DisablesMigrationWithoutChangingHeapSettings()
+        {
+            var source = new Fusion.NetworkProjectConfig();
+            source.HostMigration.EnableAutoUpdate = true;
+            var pageShift = source.Heap.PageShift;
+            var session = NetworkRunnerService.ConfigureSession(source);
+            Assert.That(session.HostMigration.EnableAutoUpdate, Is.False);
+            Assert.That(session.Heap.PageShift, Is.EqualTo(pageShift));
+        }
+
+        private sealed class DisconnectApplicationSpy : Game.Client.Home.IHomeApplicationHost
+        {
+            public int OpenCount { get; private set; }
+            public void OpenRoomBrowser() => OpenCount++;
+            public void Quit() { }
+            public void OpenHome() { }
+            public void OpenLobby() { }
+        }
+
         [Test]
         public void LobbyEntry_WaitsForPlacementAndCameraFrames_AndClearsOnExit()
         {

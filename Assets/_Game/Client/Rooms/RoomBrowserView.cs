@@ -39,6 +39,8 @@ namespace Game.Client.Rooms
         /// list then would spawn items into a dying scene.
         /// </summary>
         private bool isDestroyed;
+        private GameObject disconnectionPopup;
+        private TMP_Text disconnectionMessage;
 
         public event Action<string> SearchTextChanged;
         public event Action RefreshRequested;
@@ -46,6 +48,7 @@ namespace Game.Client.Rooms
         public event Action CreateRoomRequested;
         public event Action BackRequested;
         public event Action<string> RoomSelected;
+        public event Action DisconnectionAcknowledged;
 
         private void Awake()
         {
@@ -111,6 +114,70 @@ namespace Game.Client.Rooms
                     item.Bind(rooms[index]);
                 }
             }
+        }
+
+        public void ShowDisconnection(string message)
+        {
+            if (isDestroyed) return;
+            if (disconnectionPopup == null) BuildDisconnectionPopup();
+            disconnectionMessage.text = message;
+            disconnectionPopup.SetActive(true);
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+
+        private void BuildDisconnectionPopup()
+        {
+            disconnectionPopup = new GameObject("Disconnection Popup", typeof(RectTransform),
+                typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            disconnectionPopup.transform.SetParent(transform, false);
+            var canvas = disconnectionPopup.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 1000;
+            var scaler = disconnectionPopup.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            var backdrop = CreatePopupRect("Backdrop", disconnectionPopup.transform, Vector2.zero, Vector2.one);
+            backdrop.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.65f);
+            var panel = CreatePopupRect("Panel", backdrop, new Vector2(0.3f, 0.38f), new Vector2(0.7f, 0.62f));
+            panel.gameObject.AddComponent<Image>().color = new Color(0.12f, 0.14f, 0.18f, 1f);
+            disconnectionMessage = CreatePopupText("Message", panel, new Vector2(0.04f, 0.4f), new Vector2(0.96f, 0.95f));
+            var buttonRect = CreatePopupRect("Confirm", panel, new Vector2(0.35f, 0.08f), new Vector2(0.65f, 0.32f));
+            var background = buttonRect.gameObject.AddComponent<Image>();
+            background.color = new Color(0.25f, 0.4f, 0.6f, 1f);
+            var button = buttonRect.gameObject.AddComponent<Button>();
+            button.targetGraphic = background;
+            button.onClick.AddListener(() =>
+            {
+                disconnectionPopup.SetActive(false);
+                DisconnectionAcknowledged?.Invoke();
+            });
+            CreatePopupText("Label", buttonRect, Vector2.zero, Vector2.one).text = "확인";
+        }
+
+        private TMP_Text CreatePopupText(string label, Transform parent, Vector2 min, Vector2 max)
+        {
+            var rect = CreatePopupRect(label, parent, min, max);
+            var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
+            // Reuse the room screen's Korean font and its fallback configuration.
+            text.font = searchInputField.textComponent.font;
+            text.fontSize = 32f;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = Color.white;
+            text.richText = false;
+            text.raycastTarget = false;
+            return text;
+        }
+
+        private static RectTransform CreatePopupRect(string label, Transform parent, Vector2 min, Vector2 max)
+        {
+            var rect = new GameObject(label, typeof(RectTransform)).GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            rect.anchorMin = min;
+            rect.anchorMax = max;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            return rect;
         }
 
         private void EnsurePoolSize(int requiredCount)

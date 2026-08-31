@@ -82,7 +82,7 @@ namespace Game.Network.Session
                 return;
             }
 
-            ReportExit(Translate(reason));
+            ReportExit(ResolveUnexpectedExit(_isClientSession, Translate(reason)));
         }
 
         public void OnConnectFailed(
@@ -158,7 +158,7 @@ namespace Game.Network.Session
             // Unexpected shutdown of the replacement runner ends this migration.
             _hostMigrationInProgress = false;
             _hostMigrationRevision++;
-            ReportExit(Translate(shutdownReason));
+            ReportExit(ResolveUnexpectedExit(_isClientSession, Translate(shutdownReason)));
             ReleaseRunner();
         }
 
@@ -249,9 +249,25 @@ namespace Game.Network.Session
             NetworkRunner runner,
             HostMigrationToken hostMigrationToken)
         {
-            MigrateHostAsync(runner, hostMigrationToken).Forget();
+            // Migration is suspended: never reconnect or promote another participant.
+            // MigrateHostAsync(runner, hostMigrationToken).Forget();
+            if (!IsCurrentRunner(runner) || runner == null || _browsingLobby || _hostLossShutdownPending) return;
+            // A disconnect callback can have already reported the reason, but a
+            // migration callback still requires us to stop this runner explicitly.
+            _hostLossShutdownPending = true;
+            ReportExit(RoomExitReason.HostClosed);
+            CloseAfterHostLostAsync(runner).Forget(exception => Debug.LogException(exception));
         }
 
+        private async UniTask CloseAfterHostLostAsync(NetworkRunner runner)
+        {
+            // Leave Fusion's callback/simulation stack before disposing physics and voice.
+            await UniTask.NextFrame(PlayerLoopTiming.Update);
+            if (!IsCurrentRunner(runner) || runner == null || runner.IsShutdown) return;
+            await runner.Shutdown();
+        }
+
+        /* Host migration suspended. Preserve the previous implementation for later restoration.
         private async UniTask MigrateHostAsync(
             NetworkRunner runner,
             HostMigrationToken hostMigrationToken)
@@ -466,6 +482,8 @@ namespace Game.Network.Session
             return current;
         }
 
+        */
+
         internal static bool IsHostMigrationStageComplete(bool completed, double elapsed, string stage)
         {
             if (completed) return true;
@@ -511,6 +529,7 @@ namespace Game.Network.Session
             }
         }
 
+        /* Host migration suspended. No snapshot objects are recreated.
         private void ResumeHostMigration(NetworkRunner resumedRunner)
         {
             var playerByObject = new Dictionary<NetworkId, PlayerRef>();
@@ -579,6 +598,8 @@ namespace Game.Network.Session
                 sceneObject.Item1.CopyStateFrom(sceneObject.Item2);
             }
         }
+
+        */
 
         public void OnSceneLoadStart(NetworkRunner runner)
         {

@@ -296,7 +296,8 @@ namespace Game.Network.Match
             {
                 for (var i = 0; i < _session.Assignments.Count; i++)
                     if (!_session.Players.IsActive(i)) _state.TrySetParticipantInactive(i);
-                _state.GetComponent<MatchMigrationCheckpoint>()?.Capture(_session, _state, _roster);
+                // Host migration suspended; retain the checkpoint component/schema but do not record it.
+                // _state.GetComponent<MatchMigrationCheckpoint>()?.Capture(_session, _state, _roster);
             }
         }
 

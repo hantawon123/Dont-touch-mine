@@ -159,7 +159,12 @@ namespace Game.Network.Session
         /// Guards against reporting the same departure twice. Fusion can raise
         /// both a disconnect and a shutdown for one exit.
         /// </summary>
-        private bool _exitReported;
+        private bool _exitReported = true;
+        private bool _isClientSession;
+        private bool _hostLossShutdownPending;
+        private NetworkRunner _departingRunner;
+        // Do not load a local scene while Fusion is still unloading its network scene.
+        public bool IsRoomExitPending => _departingRunner != null;
         private int _itemAssignmentTransferSequence;
         private int _highlightTransferSequence;
         private bool _hostMigrationInProgress;
@@ -297,7 +302,7 @@ namespace Game.Network.Session
         /// and a dedicated server, so gameplay never asks which one it is.
         /// </summary>
         public bool IsServer => _runner != null && _runner.IsServer;
-        public bool IsRuntimeReady => IsRunning && !_hostMigrationInProgress;
+        public bool IsRuntimeReady => IsRunning && !_exitReported && !_hostMigrationInProgress;
         public bool IsHostMigrationInProgress => _hostMigrationInProgress;
         // Includes connecting/loading, but excludes a standalone scene and room browsing.
         public bool HasRoomSession => _hostMigrationInProgress || (_runner != null && !_browsingLobby);
@@ -406,6 +411,7 @@ namespace Game.Network.Session
         /// </summary>
         public async UniTask<SessionStartResult> JoinLobbyAsync(CancellationToken cancellation)
         {
+            await UniTask.WaitUntil(() => !IsRoomExitPending, cancellationToken: cancellation);
             if (IsRunning || _roomInitializationInProgress)
             {
                 return SessionStartResult.Failed(
@@ -463,6 +469,7 @@ namespace Game.Network.Session
         public async UniTask<SessionStartResult> StartAsync(
             SessionRequest request, CancellationToken cancellation)
         {
+            await UniTask.WaitUntil(() => !IsRoomExitPending, cancellationToken: cancellation);
             if (_roomInitializationInProgress)
                 return SessionStartResult.Failed(SessionFailure.AlreadyRunning,
                     "Room initialization or its cleanup is still in progress.");
@@ -503,6 +510,7 @@ namespace Game.Network.Session
 
             var args = new StartGameArgs
             {
+                Config = ConfigureSession(NetworkProjectConfig.Global),
                 GameMode = request.Mode,
                 PlayerUniqueId = _playerUniqueId,
                 SessionName = request.RoomCode,
@@ -577,6 +585,7 @@ namespace Game.Network.Session
             {
                 var initialized = await CompleteRoomInitializationAsync(() =>
                 {
+                    _isClientSession = runner.IsClient && !runner.IsServer;
                     _exitReported = false;
                     ReadConfiguredSettings();
                     // Publish again after Fusion finalizes the local player identity.
@@ -596,6 +605,14 @@ namespace Game.Network.Session
             {
                 _roomInitializationInProgress = false;
             }
+        }
+
+        internal static NetworkProjectConfig ConfigureSession(NetworkProjectConfig config)
+        {
+            // Runtime-only policy; the serialized project settings remain available for restoration.
+            // config.HostMigration.EnableAutoUpdate = true;
+            config.HostMigration.EnableAutoUpdate = false;
+            return config;
         }
 
         internal static async UniTask<SessionStartResult> CompleteRoomInitializationAsync(
@@ -922,6 +939,19 @@ namespace Game.Network.Session
             // do not represent a room departure.
             if (runner != null && runner.IsRunning && !_browsingLobby)
             {
+                if (runner.IsServer && runner.SessionInfo.IsValid)
+                {
+                    try
+                    {
+                        runner.SessionInfo.IsOpen = false;
+                        runner.SessionInfo.IsVisible = false;
+                    }
+                    catch (Exception exception)
+                    {
+                        // Losing the cloud connection must not prevent local cleanup.
+                        Debug.LogWarning($"[Network] Could not hide the closing room: {exception.Message}");
+                    }
+                }
                 ReportExit(RoomExitReason.Left);
             }
 
@@ -1017,6 +1047,8 @@ namespace Game.Network.Session
         /// </param>
         private INetworkSceneManager CreateRunner(bool provideInput)
         {
+            _hostLossShutdownPending = false;
+            _isClientSession = false;
             // Photon room lists are region-local. Leaving this empty lets each
             // PC choose a different "best" region, so teammates can create a
             // valid room that the others can never list.
@@ -1361,7 +1393,7 @@ namespace Game.Network.Session
         /// </summary>
         private void ReportPlayerCount()
         {
-            if (_runner == null || _browsingLobby)
+            if (_runner == null || _browsingLobby || _exitReported)
             {
                 return;
             }
@@ -1394,9 +1426,13 @@ namespace Game.Network.Session
             }
 
             _exitReported = true;
+            _departingRunner = _runner;
             Debug.Log($"[Network] Left the room: {reason}");
             _sessionSink?.RoomClosed(reason);
         }
+
+        internal static RoomExitReason ResolveUnexpectedExit(bool clientSession, RoomExitReason reason) =>
+            clientSession ? RoomExitReason.HostClosed : reason;
 
         private static RoomExitReason Translate(ShutdownReason reason)
         {

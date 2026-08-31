@@ -6,6 +6,25 @@ namespace Game.Tests.EditMode
 {
     public sealed class AppFlowSystemTests
     {
+        [TestCase(AppFlowState.Lobby)]
+        [TestCase(AppFlowState.InGame)]
+        [TestCase(AppFlowState.Highlight)]
+        [TestCase(AppFlowState.Result)]
+        public void ExitSession_ReturnsDirectlyToBrowserOnce(AppFlowState phase)
+        {
+            var flow = new AppFlowSystem();
+            Assert.That(flow.TryExitSession(), Is.False);
+            flow.TryTransitionTo(AppFlowState.Lobby);
+            flow.TryRestoreSessionState(phase);
+            var changes = new List<AppFlowState>();
+            flow.StateChanged += changes.Add;
+            Assert.That(flow.TryExitSession(), Is.True);
+            Assert.That(flow.TryExitSession(), Is.False);
+            Assert.That(changes, Is.EqualTo(new[] { AppFlowState.RoomBrowser }));
+            Assert.That(flow.TryRestoreSessionState(phase), Is.False,
+                "Late state replication must not re-enter the abandoned room.");
+        }
+
         [Test]
         public void RestoreSessionState_IsAtomicAndDoesNotRelaxNormalTransitions()
         {

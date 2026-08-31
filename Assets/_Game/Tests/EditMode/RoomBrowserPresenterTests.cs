@@ -12,6 +12,34 @@ namespace Game.Tests.EditMode
     public sealed class RoomBrowserPresenterTests
     {
         [Test]
+        public void Presenter_HostDisconnectIsShownOnceUntilAcknowledged_AndNotForVoluntaryExit()
+        {
+            using var rooms = new RoomBrowserSystem();
+            var host = new FakeHomeApplicationHost();
+            var flow = new AppFlowSystem();
+            rooms.RoomClosed(RoomExitReason.HostClosed); // Arrives before the browser scene exists.
+            var view = new FakeRoomBrowserView();
+            using (var presenter = new RoomBrowserPresenter(view, rooms, host, flow))
+            {
+                presenter.Start();
+                Assert.That(view.DisconnectionMessage, Is.EqualTo("호스트의 연결이 끊어졌습니다"));
+                Assert.That(view.DisconnectionCount, Is.EqualTo(1));
+                rooms.RoomClosed(RoomExitReason.HostClosed); // Duplicate network callback.
+                Assert.That(view.DisconnectionCount, Is.EqualTo(1));
+                view.AcknowledgeDisconnection();
+                Assert.That(rooms.LastExit.CurrentValue, Is.Null);
+            }
+            var reopened = new FakeRoomBrowserView();
+            using var next = new RoomBrowserPresenter(reopened, rooms, host, flow);
+            next.Start();
+            Assert.That(reopened.DisconnectionCount, Is.Zero);
+            rooms.RoomClosed(RoomExitReason.Left);
+            Assert.That(reopened.DisconnectionCount, Is.Zero);
+            rooms.RoomClosed(RoomExitReason.HostClosed); // A subsequent room can also close.
+            Assert.That(reopened.DisconnectionCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void Presenter_Back_ReturnsToHome()
         {
             using var rooms = new RoomBrowserSystem();
@@ -62,6 +90,15 @@ namespace Game.Tests.EditMode
             public event Action CreateRoomRequested;
             public event Action BackRequested;
             public event Action<string> RoomSelected;
+            public event Action DisconnectionAcknowledged;
+            public string DisconnectionMessage { get; private set; }
+            public int DisconnectionCount { get; private set; }
+            public void ShowDisconnection(string message)
+            {
+                DisconnectionMessage = message;
+                DisconnectionCount++;
+            }
+            public void AcknowledgeDisconnection() => DisconnectionAcknowledged?.Invoke();
 
             public IReadOnlyList<RoomSummary> Rooms { get; private set; }
 
