@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using Game.Client.Combat;
 using Game.Client.Interactions;
 using Game.Client.Players;
@@ -22,6 +23,77 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [Test]
+        public void MatchSessionPrefab_WithMigrationFitsConfiguredHeapPage()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/MatchSession.prefab");
+            Assert.That(prefab, Is.Not.Null);
+            Assert.That(prefab.GetComponent<MatchMigrationCheckpoint>(), Is.Not.Null);
+            var wordCount = Fusion.NetworkObject.GetWordCount(prefab.GetComponent<Fusion.NetworkObject>());
+            Assert.That(wordCount, Is.GreaterThan(Fusion.NetworkObjectHeader.WORDS));
+            Assert.DoesNotThrow(() => PlayerSpawner.ValidateRoomObjectStateSize(
+                wordCount, (int)Fusion.NetworkProjectConfig.Global.Heap.PageShift));
+        }
+
+        [TestCase(10499, 15, false)] // Observed 41,996-byte MatchSession vs the old 32 KiB page.
+        [TestCase(10499, 16, true)]
+        [TestCase(16384, 16, true)]
+        [TestCase(16385, 16, false)]
+        [TestCase(0, 16, false)]
+        public void RoomObjectStateSize_RejectsOverflowBeforeSpawn(int words, int pageShift, bool fits)
+        {
+            if (fits)
+                Assert.DoesNotThrow(() => PlayerSpawner.ValidateRoomObjectStateSize(words, pageShift));
+            else
+                Assert.Throws<InvalidOperationException>(() =>
+                    PlayerSpawner.ValidateRoomObjectStateSize(words, pageShift));
+        }
+
+        [Test]
+        public void RoomInitialization_SuccessDoesNotCleanUp()
+        {
+            var initialized = false;
+            var result = NetworkRunnerService.CompleteRoomInitializationAsync(
+                () => initialized = true,
+                () => throw new InvalidOperationException("Successful rooms must remain running."))
+                .GetAwaiter().GetResult();
+            Assert.That(initialized, Is.True);
+            Assert.That(result.Ok, Is.True);
+        }
+
+        [Test]
+        public void RoomInitialization_FailureWaitsForCleanupBeforeRetry()
+        {
+            var cleanup = new UniTaskCompletionSource();
+            var cleanupCalls = 0;
+            var pending = NetworkRunnerService.CompleteRoomInitializationAsync(
+                () => throw new InvalidOperationException("room object failed"),
+                () => { cleanupCalls++; return cleanup.Task; });
+            Assert.That(cleanupCalls, Is.EqualTo(1));
+            Assert.That(pending.Status, Is.EqualTo(UniTaskStatus.Pending));
+            cleanup.TrySetResult();
+            var failure = pending.GetAwaiter().GetResult();
+            Assert.That(failure.Ok, Is.False);
+            Assert.That(failure.Failure, Is.EqualTo(SessionFailure.Unknown));
+            Assert.That(failure.Detail, Is.EqualTo("room object failed"));
+            var retry = NetworkRunnerService.CompleteRoomInitializationAsync(
+                () => { }, () => { cleanupCalls++; return UniTask.CompletedTask; }).GetAwaiter().GetResult();
+            Assert.That(retry.Ok, Is.True);
+            Assert.That(cleanupCalls, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RoomInitialization_CancellationAlsoCleansUp()
+        {
+            var cleaned = false;
+            Assert.Throws<OperationCanceledException>(() =>
+                NetworkRunnerService.CompleteRoomInitializationAsync(
+                    () => throw new OperationCanceledException(),
+                    () => { cleaned = true; return UniTask.CompletedTask; }).GetAwaiter().GetResult());
+            Assert.That(cleaned, Is.True);
+        }
+
         [Test]
         public void Participant_UsesOnlyStablePlayerIndex()
         {

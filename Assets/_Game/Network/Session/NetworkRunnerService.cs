@@ -159,6 +159,7 @@ namespace Game.Network.Session
         private int _itemAssignmentTransferSequence;
         private int _highlightTransferSequence;
         private bool _hostMigrationInProgress;
+        private bool _roomInitializationInProgress;
         private int _hostMigrationRevision;
         public MatchMigrationState MatchMigration { get; private set; }
         // Stable across replacement runners; identity only, not authentication.
@@ -388,7 +389,7 @@ namespace Game.Network.Session
         /// </summary>
         public async UniTask<SessionStartResult> JoinLobbyAsync(CancellationToken cancellation)
         {
-            if (IsRunning)
+            if (IsRunning || _roomInitializationInProgress)
             {
                 return SessionStartResult.Failed(
                     SessionFailure.AlreadyRunning, "A session is already running.");
@@ -445,6 +446,9 @@ namespace Game.Network.Session
         public async UniTask<SessionStartResult> StartAsync(
             SessionRequest request, CancellationToken cancellation)
         {
+            if (_roomInitializationInProgress)
+                return SessionStartResult.Failed(SessionFailure.AlreadyRunning,
+                    "Room initialization or its cleanup is still in progress.");
             if (_browsingLobby)
             {
                 // The lobby runner cannot also play a session, so it is replaced.
@@ -548,25 +552,65 @@ namespace Game.Network.Session
                 return SessionStartResult.Failed(failure, result.ErrorMessage);
             }
 
-            _exitReported = false;
-            ReadConfiguredSettings();
+            if (!IsCurrentRunner(runner) || !runner.IsRunning)
+                throw new OperationCanceledException("The session start was superseded or stopped.");
 
-            Debug.Log(
-                $"[Network] Session '{RoomCode}' started as {request.Mode}. IsServer={IsServer}");
+            _roomInitializationInProgress = true;
+            try
+            {
+                var initialized = await CompleteRoomInitializationAsync(() =>
+                {
+                    _exitReported = false;
+                    ReadConfiguredSettings();
+                    // Publish again after Fusion finalizes the local player identity.
+                    _spawner?.RefreshHost(runner);
+                    _roster?.Refresh(runner);
+                    _spawner?.SpawnRoomObjects(runner);
+                    ReportPlayerCount();
+                }, () => CleanupFailedRoomInitializationAsync(runner));
 
-            // OnPlayerJoined can run while Fusion is still finalising the
-            // local player's identity. Publish once more after StartGame has
-            // completed so a one-player room shows its host immediately rather
-            // than waiting for another player's join to trigger a refresh.
-            _spawner?.RefreshHost(_runner);
-            _roster?.Refresh(_runner);
+                if (initialized.Ok)
+                    Debug.Log($"[Network] Session '{RoomCode}' started as {request.Mode}. IsServer={IsServer}");
+                else
+                    Debug.LogError($"[Network] Room initialization failed: {initialized.Detail}");
+                return initialized;
+            }
+            finally
+            {
+                _roomInitializationInProgress = false;
+            }
+        }
 
-            // The room needs somewhere to record that a match started before
-            // anyone can ask for one, and only the authority may create it.
-            _spawner?.SpawnRoomObjects(_runner);
+        internal static async UniTask<SessionStartResult> CompleteRoomInitializationAsync(
+            Action initialize, Func<UniTask> cleanup)
+        {
+            try
+            {
+                initialize();
+                return SessionStartResult.Success();
+            }
+            catch (Exception failure)
+            {
+                // Do not report failure (and enable retry) until cleanup completes.
+                await cleanup();
+                if (failure is OperationCanceledException) throw;
+                return SessionStartResult.Failed(SessionFailure.Unknown, failure.Message);
+            }
+        }
 
-            ReportPlayerCount();
-            return SessionStartResult.Success();
+        private async UniTask CleanupFailedRoomInitializationAsync(NetworkRunner runner)
+        {
+            if (!IsCurrentRunner(runner)) return;
+            _hostMigrationRevision++;
+            _hostMigrationInProgress = false;
+            _exitReported = true; // A room that failed to open is not a voluntary departure.
+            ReleaseRunner();
+            // This path follows a successful StartGame, unlike Fusion-owned start failures.
+            // Dropping ownership first prevents callbacks or Shutdown() from stopping it twice.
+            if (runner != null && runner.IsRunning)
+                await runner.Shutdown();
+            else
+                ReleaseAfterFusionShutdown(runner);
         }
 
         public bool TryApplyLobbySettings(
