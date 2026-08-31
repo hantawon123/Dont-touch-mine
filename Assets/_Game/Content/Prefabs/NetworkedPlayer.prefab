@@ -145,8 +145,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PhotonVoice::Photon.Voice.Unity.Speaker
   playDelayConfig:
-    Low: 200
-    High: 200
+    Low: 80
+    High: 80
     Max: 1000
     SpeedUpPerc: 5
   restartOnDeviceChange: 1
@@ -173,10 +173,10 @@ MonoBehaviour:
   encrypt: 0
   transmitEnabled: 0
   samplingRate: 48000
-  frameDuration: 40000
+  frameDuration: 20000
   bitrate: 40000
   sourceType: 0
-  microphoneType: 0
+  microphoneType: 1
   audioClip: {fileID: 0}
   loopAudioClip: 1
   recordingEnabled: 1
@@ -200,7 +200,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6602695234639459594}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7ddec46cf6a4c4addbf21b6be8442124, type: 3}
   m_Name: 
