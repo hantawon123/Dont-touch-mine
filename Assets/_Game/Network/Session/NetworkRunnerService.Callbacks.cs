@@ -263,6 +263,7 @@ namespace Game.Network.Session
             }
 
             _hostMigrationInProgress = true;
+            var migrationStartedAt = Time.realtimeSinceStartupAsDouble;
             var migrationRevision = ++_hostMigrationRevision;
             var migrationScene = runner.SceneInfo;
             var lobbyPoses = new Dictionary<PlayerRef, (Pose Pose, PlayerPosture Posture)>();
@@ -287,11 +288,21 @@ namespace Game.Network.Session
                     if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(runner)) return;
                     HostMigrationStarting.Invoke();
                 }
+                // EndOfFrame resumes inside camera rendering in the Editor.
+                // Do not tear down Fusion, physics and voice on that render stack.
+                await UniTask.NextFrame(PlayerLoopTiming.Update);
+                if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(runner)) return;
+                var shutdownStartedAt = Time.realtimeSinceStartupAsDouble;
                 await runner.Shutdown(shutdownReason: ShutdownReason.HostMigration);
                 if (migrationRevision != _hostMigrationRevision) return;
-                Debug.Log("[Network] Host migration: old runner stopped; creating replacement.");
+                Debug.Log($"[Network] Host migration: old runner stopped in {Time.realtimeSinceStartupAsDouble - shutdownStartedAt:F3}s; creating replacement.");
                 _spawner?.Clear();
 
+                // Let destruction finish and present the held frame before building
+                // another runner and voice rig on the same frame as teardown.
+                await UniTask.NextFrame(PlayerLoopTiming.Update);
+                if (migrationRevision != _hostMigrationRevision) return;
+                var connectionStartedAt = Time.realtimeSinceStartupAsDouble;
                 var sceneManager = CreateRunner(
                     hostMigrationToken.GameMode != GameMode.Server);
                 replacementRunner = _runner;
@@ -314,6 +325,7 @@ namespace Game.Network.Session
                     Scene = migrationScene,
                 });
                 if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner)) return;
+                Debug.Log($"[Network] Host migration: replacement StartGame took {Time.realtimeSinceStartupAsDouble - connectionStartedAt:F3}s.");
 
                 if (!result.Ok)
                 {
@@ -407,6 +419,7 @@ namespace Game.Network.Session
                 _hostMigrationInProgress = false;
                 _exitReported = false;
                 ReportPlayerCount();
+                Debug.Log($"[Network] Host migration runtime ready after {Time.realtimeSinceStartupAsDouble - migrationStartedAt:F3}s. IsServer={IsServer}.");
 
                 try
                 {
@@ -447,7 +460,10 @@ namespace Game.Network.Session
             var startedAt = Time.realtimeSinceStartupAsDouble;
             await UniTask.WaitUntil(() => revision != _hostMigrationRevision || !IsCurrentRunner(runner) ||
                 IsHostMigrationStageComplete(completed(), Time.realtimeSinceStartupAsDouble - startedAt, stage));
-            return revision == _hostMigrationRevision && IsCurrentRunner(runner);
+            var current = revision == _hostMigrationRevision && IsCurrentRunner(runner);
+            if (current)
+                Debug.Log($"[Network] Host migration: {stage} took {Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
+            return current;
         }
 
         internal static bool IsHostMigrationStageComplete(bool completed, double elapsed, string stage)

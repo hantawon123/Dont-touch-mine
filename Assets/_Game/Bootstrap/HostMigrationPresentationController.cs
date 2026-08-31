@@ -15,6 +15,7 @@ namespace Game.Bootstrap
         private bool waiting;
         private double readyAt = -1d;
         private int revealFrame = -1;
+        private bool preparationFailed;
 
         public HostMigrationPresentationController(NetworkRunnerService network, HostMigrationFrameView view)
         {
@@ -28,7 +29,7 @@ namespace Game.Bootstrap
         {
             network.HostMigrationStarting -= OnMigrationStarting;
             ReleaseCamera();
-            if (view != null) view.Clear();
+            if (view != null) view.Release();
         }
 
         private void OnMigrationStarting()
@@ -55,12 +56,31 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
-            if (!waiting || network.IsHostMigrationInProgress) return;
+            if (!waiting)
+            {
+                if (!network.HasRoomSession)
+                {
+                    view.Release();
+                    preparationFailed = false;
+                }
+                else if (!network.IsHostMigrationInProgress && !preparationFailed)
+                {
+                    try { view.Prepare(); }
+                    catch (Exception exception)
+                    {
+                        // A display/resource error must not stop room updates or spam every tick.
+                        preparationFailed = true;
+                        Debug.LogException(exception);
+                    }
+                }
+                return;
+            }
+            if (network.IsHostMigrationInProgress) return;
             if (!network.IsRuntimeReady || network.IsBrowsingLobby)
             {
                 waiting = false;
                 ReleaseCamera();
-                view.Clear();
+                view.Release();
                 return;
             }
 
@@ -78,6 +98,7 @@ namespace Game.Bootstrap
             }
             if (Time.frameCount < revealFrame) return;
             waiting = false;
+            Debug.Log($"[Network] Host migration presentation revealing after {Time.unscaledTimeAsDouble - readyAt:F3}s from runtime recovery.");
             view.Reveal();
         }
 

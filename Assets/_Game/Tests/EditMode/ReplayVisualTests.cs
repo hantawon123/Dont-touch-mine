@@ -10,6 +10,36 @@ namespace Game.Tests.EditMode
     public sealed class ReplayVisualTests
     {
         [Test]
+        public void MigrationFrame_PreparesHiddenAndReusesBufferUntilRoomExit()
+        {
+            if (Application.isBatchMode || Screen.width <= 0 || Screen.height <= 0)
+                Assert.Ignore("Requires an Editor graphics context, like the migration frame capture.");
+            var root = new GameObject("Migration Presentation Test");
+            try
+            {
+                var view = root.AddComponent<Game.Client.Cameras.HostMigrationFrameView>();
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var frameField = view.GetType().GetField("frame", flags);
+                view.Prepare();
+                var frame = frameField.GetValue(view) as RenderTexture;
+                Assert.That(frame, Is.Not.Null);
+                Assert.That(frame.IsCreated(), Is.True);
+                Assert.That(root.GetComponentInChildren<Canvas>(true).gameObject.activeSelf, Is.False,
+                    "Prewarming must not cover normal gameplay or block its UI.");
+                view.Clear();
+                view.Prepare();
+                Assert.That(frameField.GetValue(view), Is.SameAs(frame), "Do not allocate again on each migration.");
+                view.Release();
+                Assert.That(frameField.GetValue(view), Is.Null);
+                Assert.That(frame == null || !frame.IsCreated(), Is.True, "Release GPU memory on room exit.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void LobbyCamera_OnlyBindsExplicitTarget_AndCutsToItsPlacedPosition()
         {
             var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(

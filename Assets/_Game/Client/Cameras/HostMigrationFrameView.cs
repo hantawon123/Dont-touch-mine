@@ -16,10 +16,19 @@ namespace Game.Client.Cameras
         public void Capture()
         {
             Clear();
-            if (Application.isBatchMode || Screen.width <= 0 || Screen.height <= 0) return;
-            frame = new RenderTexture(Screen.width, Screen.height, 0);
-            frame.Create();
+            Prepare();
+            if (frame == null || !frame.IsCreated()) return;
             ScreenCapture.CaptureScreenshotIntoRenderTexture(frame);
+            image.texture = frame;
+            group.alpha = 1f;
+            canvas.gameObject.SetActive(true);
+        }
+
+        // Warm up during normal room updates, not on the migration/render stack.
+        public void Prepare()
+        {
+            if (Application.isBatchMode || Screen.width <= 0 || Screen.height <= 0) return;
+            if (canvas != null && canvas.gameObject.activeSelf) return;
             if (canvas == null)
             {
                 var root = new GameObject("Migration Frame", typeof(RectTransform), typeof(Canvas),
@@ -36,10 +45,12 @@ namespace Game.Client.Cameras
                 image.rectTransform.anchorMax = Vector2.one;
                 image.rectTransform.offsetMin = image.rectTransform.offsetMax = Vector2.zero;
                 image.raycastTarget = true;
+                root.SetActive(false);
             }
-            image.texture = frame;
-            group.alpha = 1f;
-            canvas.gameObject.SetActive(true);
+            if (frame != null && frame.width == Screen.width && frame.height == Screen.height && frame.IsCreated()) return;
+            Release();
+            frame = new RenderTexture(Screen.width, Screen.height, 0);
+            frame.Create();
         }
 
         public void Reveal() => revealing = true;
@@ -56,12 +67,18 @@ namespace Game.Client.Cameras
             revealing = false;
             if (canvas != null) canvas.gameObject.SetActive(false);
             if (image != null) image.texture = null;
+        }
+
+        public void Release()
+        {
+            Clear();
             if (frame == null) return;
             frame.Release();
-            Destroy(frame);
+            if (Application.isPlaying) Destroy(frame);
+            else DestroyImmediate(frame);
             frame = null;
         }
 
-        private void OnDestroy() => Clear();
+        private void OnDestroy() => Release();
     }
 }
