@@ -11,7 +11,8 @@
         "PhotonVoice",
         "PhotonVoice.Fusion",
         "R3.Unity",
-        "PhotonVoice.API"
+        "PhotonVoice.API",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
