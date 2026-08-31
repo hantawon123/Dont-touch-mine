@@ -47,8 +47,9 @@ namespace Game.Network.Voice
         /// Added from code rather than placed on a prefab because the runner
         /// object is itself built at runtime, once per session.
         /// </remarks>
-        public static VoiceRig Attach(GameObject runnerObject)
+        public static VoiceRig Attach(NetworkRunner runner)
         {
+            var runnerObject = runner.gameObject;
             var recorder = runnerObject.AddComponent<Recorder>();
 
             // Silent until the player asks to talk. An open microphone in a game
@@ -57,6 +58,12 @@ namespace Game.Network.Voice
 
             var client = runnerObject.AddComponent<FusionVoiceClient>();
             client.PrimaryRecorder = recorder;
+
+            // Registered by hand. Fusion collects the callbacks it finds on the
+            // runner object when the runner comes up, and this client is added
+            // after that, so it would otherwise never hear that the local player
+            // joined — which is the only thing that makes it connect.
+            runner.AddCallbacks(client);
 
             var rig = runnerObject.AddComponent<VoiceRig>();
             rig.recorder = recorder;

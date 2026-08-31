@@ -892,7 +892,7 @@ namespace Game.Network.Session
             // Voice rides on the same object because its client reads the runner
             // for the session it should follow. A dedicated server has no
             // microphone and nobody to hear it, so it does not carry one.
-            Voice = provideInput ? VoiceRig.Attach(_runnerObject) : null;
+            Voice = provideInput ? VoiceRig.Attach(_runner) : null;
 
             // Sits on the runner so that characters, which Fusion spawns and the
             // container therefore cannot inject, can still reach it.
