@@ -49,6 +49,7 @@ namespace Game.Bootstrap
 
         public bool IsPlaying { get; private set; }
         public int CurrentClipIndex => clipIndex;
+        public double? SourceTime => lastSourceTime < 0d ? null : lastSourceTime;
 
         public bool Start(IReadOnlyList<HighlightReplayClip> replayClips)
         {

@@ -7,6 +7,19 @@ using UnityEngine;
 
 namespace Game.Network.Match
 {
+    public interface INetworkResultNavigation
+    {
+        bool IsServer { get; }
+        bool IsResultSceneLoaded { get; }
+        bool EnterResultScene();
+        bool RequestReturnToLobby();
+    }
+
+    public interface INetworkHighlightReady
+    {
+        bool TryConfirmHighlightReady();
+    }
+
     /// <summary>
     /// Match-wide messages already confirmed by the network authority.
     /// Presentation and application flow observe these without depending on
@@ -44,6 +57,7 @@ namespace Game.Network.Match
         bool TryPublishMatchState(MatchStateSnapshot snapshot);
         bool TryPublishItemAssignments(IReadOnlyList<PlayerItemAssignment> assignments);
         bool TryPublishHighlightReplay(IReadOnlyList<HighlightReplayData> replay);
+        bool IsHighlightReplayReady { get; }
         bool TrySetPlayerControls(int playerIndex, bool enabled);
         bool TryTeleportPlayer(int playerIndex, Pose pose);
     }

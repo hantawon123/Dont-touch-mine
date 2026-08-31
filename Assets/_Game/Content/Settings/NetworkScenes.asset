@@ -16,3 +16,5 @@ MonoBehaviour:
   _lobbyScene: {fileID: 102900000, guid: d0bbed07a70236d47ae2d3cf7104e90c, type: 3}
   _matchScenePath: Assets/_Game/Content/Scenes/Playground.unity
   _lobbyScenePath: Assets/_Game/Content/Scenes/Lobby.unity
+  _resultScene: {fileID: 102900000, guid: 27403880fe50ecc47814bffa7bc551e6, type: 3}
+  _resultScenePath: Assets/_Game/Content/Scenes/Result.unity

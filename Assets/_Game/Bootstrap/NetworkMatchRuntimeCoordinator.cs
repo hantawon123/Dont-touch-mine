@@ -75,6 +75,8 @@ namespace Game.Bootstrap
         private bool hasSynchronizedPlayers;
         private bool hasPublishedSnapshot;
         private bool hasPublishedHighlightReplay;
+        private bool waitingForHighlightReady;
+        private double highlightReadyDeadline;
         private bool started;
 
         public NetworkMatchRuntimeCoordinator(
@@ -412,6 +414,14 @@ namespace Game.Bootstrap
 
         private void PublishSnapshotIfChanged()
         {
+            var session = composition.Session;
+            if (session.CurrentPhase == MatchPhase.Highlight &&
+                (!hasPublishedSnapshot || lastPublishedSnapshot.Phase != MatchPhase.Highlight))
+            {
+                session.WaitForHighlightPlayback();
+                waitingForHighlightReady = true;
+                highlightReadyDeadline = network.ServerTime + 30d;
+            }
             var snapshot = composition.Session.CaptureStateSnapshot();
             if (snapshot.Phase == MatchPhase.Highlight && !hasPublishedHighlightReplay &&
                 composition.Session.TryGetResult(out var result) &&
@@ -421,6 +431,21 @@ namespace Game.Bootstrap
                     !network.TryPublishHighlightReplay(replay))
                     throw new InvalidOperationException("The authority could not publish the highlight replay.");
                 hasPublishedHighlightReplay = true;
+            }
+            if (snapshot.Phase == MatchPhase.Highlight && waitingForHighlightReady)
+            {
+                if (hasPublishedHighlightReplay && network.IsHighlightReplayReady)
+                {
+                    session.ScheduleHighlightPlayback(network.ServerTime + HighlightPresentationTiming.DeliveryGraceSeconds);
+                    waitingForHighlightReady = false;
+                }
+                else if (network.ServerTime >= highlightReadyDeadline)
+                {
+                    Debug.LogWarning("[Highlight] Replay preparation timed out; skipping to results.");
+                    while (session.CompleteCurrentHighlight()) { }
+                    waitingForHighlightReady = false;
+                }
+                snapshot = session.CaptureStateSnapshot();
             }
             if (hasPublishedSnapshot &&
                 snapshot.Phase == lastPublishedSnapshot.Phase &&
@@ -474,6 +499,7 @@ namespace Game.Bootstrap
             hasSynchronizedPlayers = false;
             hasPublishedSnapshot = false;
             hasPublishedHighlightReplay = false;
+            waitingForHighlightReady = false;
         }
     }
 }

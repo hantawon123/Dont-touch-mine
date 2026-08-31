@@ -678,8 +678,10 @@ namespace Game.Network.Match
 
         private bool ReturnToLobby()
         {
+            // Loading Result unloads the match scene and unbinds its session.
+            // The authority's replicated phase remains valid until rematch reset.
             if (_returningToLobby || _sceneDirector == null || _state == null ||
-                _session == null || _session.CurrentPhase != MatchPhase.Result)
+                (_session?.CurrentPhase ?? _state.Phase) != MatchPhase.Result)
             {
                 return false;
             }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Client.Match;
 using Game.Core.Items;
 using Game.Core.Lobby;
@@ -22,6 +23,8 @@ namespace Game.Bootstrap
         private readonly RoomBrowserSystem room;
         private readonly MatchRulesSO rules;
         private readonly INetworkMatchHudView view;
+        private readonly NetworkHighlightPlaybackController playback;
+        private readonly List<PlayerItemDestroyedEvent> destructions = new();
 
         private MatchStateSnapshot snapshot;
         private bool hasSnapshot;
@@ -42,13 +45,15 @@ namespace Game.Bootstrap
             INetworkMatchRuntimeSource clock,
             RoomBrowserSystem room,
             MatchRulesSO rules,
-            INetworkMatchHudView view)
+            INetworkMatchHudView view,
+            NetworkHighlightPlaybackController playback = null)
         {
             this.events = events ?? throw new ArgumentNullException(nameof(events));
             this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
             this.room = room ?? throw new ArgumentNullException(nameof(room));
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
+            this.playback = playback;
         }
 
         public void Start()
@@ -87,7 +92,11 @@ namespace Game.Bootstrap
             // stays Hiding while the turn travels down the line-up.
             ReportPhase();
 
-            if (noticeEndsAt > 0d && now >= noticeEndsAt)
+            if (snapshot.Phase == MatchPhase.Highlight)
+            {
+                UpdateReplayNotice(playback?.PlaybackSourceTime);
+            }
+            else if (noticeEndsAt > 0d && now >= noticeEndsAt)
             {
                 noticeEndsAt = 0d;
                 view.HideDestructionNotice();
@@ -98,6 +107,14 @@ namespace Game.Bootstrap
 
         private void OnMatchStateReceived(MatchStateSnapshot received)
         {
+            if ((!hasSnapshot || snapshot.Phase != received.Phase) &&
+                (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting))
+                destructions.Clear();
+            if (received.Phase == MatchPhase.Highlight || received.Phase == MatchPhase.Result)
+            {
+                noticeEndsAt = 0d;
+                view.HideDestructionNotice();
+            }
             snapshot = received;
             hasSnapshot = true;
             ReportPhase();
@@ -153,10 +170,30 @@ namespace Game.Bootstrap
 
         private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmed)
         {
+            destructions.Add(confirmed);
+            if (hasSnapshot && (snapshot.Phase == MatchPhase.Highlight || snapshot.Phase == MatchPhase.Result))
+                return;
             view.ShowDestructionNotice(
                 $"{DisplayNameOf(confirmed.DestroyerPlayerIndex)}님이 물건을 파괴했습니다!");
             noticeEndsAt = Math.Max(clock.ServerTime, confirmed.DestroyedAt) +
                            NoticeDurationSeconds;
+        }
+
+        internal void UpdateReplayNotice(double? sourceTime)
+        {
+            PlayerItemDestroyedEvent? latest = null;
+            foreach (var destruction in destructions)
+            {
+                if (sourceTime.HasValue && destruction.DestroyedAt <= sourceTime.Value &&
+                    sourceTime.Value < destruction.DestroyedAt + NoticeDurationSeconds &&
+                    (!latest.HasValue || latest.Value.DestroyedAt <= destruction.DestroyedAt))
+                    latest = destruction;
+            }
+            if (latest.HasValue)
+                view.ShowDestructionNotice(
+                    $"{DisplayNameOf(latest.Value.DestroyerPlayerIndex)}님이 물건을 파괴했습니다!");
+            else
+                view.HideDestructionNotice();
         }
 
         private void OnItemAssignmentReceived(string itemId)

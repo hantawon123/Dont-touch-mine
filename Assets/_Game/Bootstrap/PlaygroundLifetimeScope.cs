@@ -75,8 +75,7 @@ namespace Game.Bootstrap
             var transition = new GameObject("Highlight Transition").AddComponent<HighlightTransitionView>();
             transition.transform.SetParent(transform, false);
             builder.RegisterComponent(transition).As<IHighlightTransitionView>();
-            builder.RegisterEntryPoint<NetworkHighlightPlaybackController>();
-            builder.RegisterEntryPoint<NetworkResultLobbyReturnController>();
+            builder.RegisterEntryPoint<NetworkHighlightPlaybackController>().AsSelf();
             builder.RegisterEntryPoint<InGamePlayerNameplatePresenter>();
 
             if (matchHudView != null)
