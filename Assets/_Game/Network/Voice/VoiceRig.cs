@@ -44,8 +44,6 @@ namespace Game.Network.Voice
         private VoiceNetworkObject localVoice;
         private bool talking;
 
-        /// <summary>When the last lag reading was printed, to keep it to one a second.</summary>
-        private float lastLagReport;
 
         public ReadOnlyReactiveProperty<bool> IsAvailable => available;
         public ReadOnlyReactiveProperty<bool> IsMuted => muted;
@@ -126,7 +124,6 @@ namespace Game.Network.Voice
             transmitting.Value = recorder != null && recorder.IsCurrentlyTransmitting;
 
             PumpTransport();
-            ReportLag();
         }
 
         /// <summary>
@@ -150,45 +147,6 @@ namespace Game.Network.Voice
 
             client.Client.LoadBalancingPeer.Service();
             client.VoiceClient.Service();
-        }
-
-        /// <summary>
-        /// Prints how far behind the remote streams are actually running.
-        /// </summary>
-        /// <remarks>
-        /// Temporary, and the only measured number in the chain. Everything else
-        /// about the delay is read from configuration and added up, which says
-        /// what the settings ask for rather than what happens. Speaker.Lag is the
-        /// distance between what has arrived and what is being played, so it says
-        /// whether the jitter buffer settles on the delay it was given.
-        /// </remarks>
-        private void ReportLag()
-        {
-            if (Time.unscaledTime - lastLagReport < 1f)
-            {
-                return;
-            }
-
-            lastLagReport = Time.unscaledTime;
-            foreach (var candidate in
-                     FindObjectsByType<VoiceNetworkObject>(FindObjectsSortMode.None))
-            {
-                if (candidate.Object == null || candidate.IsLocal ||
-                    candidate.SpeakerInUse == null || !candidate.SpeakerInUse.IsPlaying)
-                {
-                    continue;
-                }
-
-                // Loss alongside lag, because they call for opposite answers.
-                // A buffer that sits high while nothing is lost is absorbing
-                // jitter, and no amount of error correction shortens it. One
-                // that sits high while frames go missing is waiting for gaps
-                // that forward error correction could fill instead.
-                Debug.Log(
-                    $"[VoiceLag] lag={candidate.SpeakerInUse.Lag}ms " +
-                    $"loss={client.FramesLostPercent:F1}% " +
-                    $"recv={client.FramesReceivedPerSecond:F0}/s");
-            }
         }
 
         /// <summary>
