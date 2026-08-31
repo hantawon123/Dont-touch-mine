@@ -5,7 +5,7 @@ using R3;
 using UnityEngine.InputSystem;
 using VContainer.Unity;
 
-namespace Game.Client.Lobby
+namespace Game.Client.Voice
 {
     /// <summary>
     /// Turns the two talk keys and the microphone button into what the voice

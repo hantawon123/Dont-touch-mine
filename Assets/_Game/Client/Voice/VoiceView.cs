@@ -1,8 +1,9 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Game.Client.Lobby
+namespace Game.Client.Voice
 {
     public interface IVoiceView
     {
@@ -49,6 +50,20 @@ namespace Game.Client.Lobby
         [SerializeField]
         private Text label;
 
+        /// <summary>
+        /// The same label where the screen was built with TextMeshPro.
+        /// </summary>
+        /// <remarks>
+        /// Two fields because the two screens that show this button were laid
+        /// out with different text stacks: the lobby with Unity's own Text and
+        /// the match HUD with TextMeshPro. Only one is ever filled. Converting
+        /// either screen wholesale is a bigger change than this button, and a
+        /// legacy Text in the match HUD would need its Korean font wired by hand
+        /// where TextMeshPro already has one.
+        /// </remarks>
+        [SerializeField]
+        private TMP_Text tmpLabel;
+
         public event Action MuteToggleRequested;
 
         private void OnEnable()
@@ -90,16 +105,23 @@ namespace Game.Client.Lobby
                             : IdleColor;
             }
 
+            // The latch is called out by name. A microphone left open is the
+            // one state a player can be in without meaning to be, and a colour
+            // alone is easy to stop noticing.
+            var caption = muted
+                ? "음소거"
+                : latched
+                    ? "ON"
+                    : "MIC";
+
             if (label != null)
             {
-                // The latch is called out by name. A microphone left open is
-                // the one state a player can be in without meaning to be, and a
-                // colour alone is easy to stop noticing.
-                label.text = muted
-                    ? "음소거"
-                    : latched
-                        ? "ON"
-                        : "MIC";
+                label.text = caption;
+            }
+
+            if (tmpLabel != null)
+            {
+                tmpLabel.text = caption;
             }
 
             if (muteButton != null)

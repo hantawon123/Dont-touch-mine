@@ -4,6 +4,7 @@ using Game.Client.Cameras;
 using Game.Client.Home;
 using Game.Client.Lobby;
 using Game.Client.Players;
+using Game.Client.Voice;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Maps;

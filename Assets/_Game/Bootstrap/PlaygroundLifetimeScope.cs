@@ -2,14 +2,17 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Match;
 using Game.Client.Players;
+using Game.Client.Voice;
 using Game.Core.Match;
 using Game.Core.Players;
+using Game.Core.Ports;
 using Game.Network.Players;
 using Game.Network.Session;
 using Game.Server.Match;
 using Game.Server.Players;
 using Game.SOAP.Config;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using VContainer;
 using VContainer.Unity;
@@ -30,6 +33,17 @@ namespace Game.Bootstrap
         [SerializeField]
         [Tooltip("Optional HUD root. Leave empty until the scene UI is laid out.")]
         private NetworkMatchHudView matchHudView;
+
+        [SerializeField]
+        [Tooltip("Microphone button on the match HUD.")]
+        private VoiceView voiceView;
+
+        /// <summary>
+        /// Read for the talk keys. Held here rather than reached through a
+        /// character, which is spawned by Fusion after this scope is built.
+        /// </summary>
+        [SerializeField]
+        private InputActionAsset inputActions;
 
         protected override void Awake()
         {
@@ -79,6 +93,18 @@ namespace Game.Bootstrap
             {
                 builder.RegisterComponent(matchHudView).As<INetworkMatchHudView>();
                 builder.RegisterEntryPoint<NetworkMatchHudPresenter>();
+            }
+
+            // The rig on the runner keeps carrying voice through the match on
+            // its own. What the match lacks is a way to speak to it, so the
+            // control and the button are what get registered here. The mute
+            // choice itself comes from the project scope and is already set.
+            if (voiceView != null && inputActions != null)
+            {
+                builder.RegisterComponent(voiceView).As<IVoiceView>();
+                builder.RegisterInstance(inputActions);
+                builder.RegisterEntryPoint<NetworkVoiceControl>().As<IVoiceControl>();
+                builder.RegisterEntryPoint<VoicePresenter>();
             }
 
         }
