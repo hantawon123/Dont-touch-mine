@@ -179,7 +179,15 @@ namespace Game.Network.Voice
                     continue;
                 }
 
-                Debug.Log($"[VoiceLag] lag={candidate.SpeakerInUse.Lag}ms");
+                // Loss alongside lag, because they call for opposite answers.
+                // A buffer that sits high while nothing is lost is absorbing
+                // jitter, and no amount of error correction shortens it. One
+                // that sits high while frames go missing is waiting for gaps
+                // that forward error correction could fill instead.
+                Debug.Log(
+                    $"[VoiceLag] lag={candidate.SpeakerInUse.Lag}ms " +
+                    $"loss={client.FramesLostPercent:F1}% " +
+                    $"recv={client.FramesReceivedPerSecond:F0}/s");
             }
         }
 
