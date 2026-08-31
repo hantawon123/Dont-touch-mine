@@ -10,6 +10,7 @@ using Game.Network.Match;
 using Game.Network.Players;
 using Game.Network.Session;
 using Game.Server.Match;
+using Game.SOAP.Config;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -137,6 +138,11 @@ namespace Game.Bootstrap
     {
         private readonly INetworkMatchEvents network;
         private readonly RoomBrowserSystem room;
+        private readonly INetworkMatchRuntimeSource clock;
+        private readonly IHighlightTransitionView transition;
+        private double highlightEndsAt;
+        private double appliedBodyTime;
+        private int lastWarnedIndex = -1;
         private IReadOnlyList<HighlightReplayData> replay =
             Array.Empty<HighlightReplayData>();
         private HighlightReplayPlayer replayPlayer;
@@ -146,17 +152,19 @@ namespace Game.Bootstrap
         private GameObject fallbackObject;
         private MatchPhase phase = MatchPhase.Waiting;
         private int replayIndex;
-        private bool cameraWasEnabled;
-        private bool cameraOverridden;
         private readonly Dictionary<string, ReplayVisual> playerVisuals = new(StringComparer.Ordinal);
         private readonly Dictionary<string, ReplayVisual> itemVisuals = new(StringComparer.Ordinal);
 
         public NetworkHighlightPlaybackController(
             INetworkMatchEvents network,
-            RoomBrowserSystem room)
+            RoomBrowserSystem room,
+            INetworkMatchRuntimeSource clock,
+            IHighlightTransitionView transition)
         {
             this.network = network ?? throw new ArgumentNullException(nameof(network));
             this.room = room ?? throw new ArgumentNullException(nameof(room));
+            this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            this.transition = transition ?? throw new ArgumentNullException(nameof(transition));
         }
 
         public void Start()
@@ -191,26 +199,60 @@ namespace Game.Bootstrap
                 return;
             }
 
-            if (replayPlayer == null && !TryStartNext())
+            var totalDuration = 0d;
+            foreach (var data in replay)
+                totalDuration += data.Candidate.PlaybackDurationSeconds + HighlightPresentationTiming.OverheadSeconds;
+            var elapsed = clock.ServerTime - (highlightEndsAt - totalDuration);
+            if (elapsed < 0d || replay.Count == 0)
             {
+                transition.SetOpacity(1f);
                 return;
             }
-
-            var playing = replayPlayer.Advance(Time.unscaledDeltaTime);
-            cameraDirector.Tick(Time.unscaledDeltaTime);
-            if (playing)
+            var index = 0;
+            while (index < replay.Count && elapsed >= replay[index].Candidate.PlaybackDurationSeconds +
+                       HighlightPresentationTiming.OverheadSeconds)
             {
-                return;
+                elapsed -= replay[index].Candidate.PlaybackDurationSeconds + HighlightPresentationTiming.OverheadSeconds;
+                index++;
             }
-
-            replayPlayer = null;
-            cameraDirector?.ClearOccluders();
-            cameraDirector = null;
-            replayIndex++;
-            if (!TryStartNext())
+            if (index >= replay.Count)
             {
+                transition.SetOpacity(1f);
                 hud?.SetHighlightTitle(null);
+                return;
             }
+            if (replayPlayer == null || replayIndex != index)
+            {
+                cameraDirector?.ClearOccluders();
+                replayPlayer = null;
+                replayIndex = index;
+                appliedBodyTime = 0d;
+                if (!TryCreateScenePlayback(replay[index]))
+                {
+                    if (lastWarnedIndex != index)
+                    {
+                        Debug.LogWarning($"[Highlight] Cannot prepare {replay[index].Candidate.Type}: check replay frames, player visuals and output camera.");
+                        lastWarnedIndex = index;
+                    }
+                    transition.SetOpacity(1f);
+                    return;
+                }
+            }
+            var duration = replay[index].Candidate.PlaybackDurationSeconds;
+            var bodyTime = HighlightPresentationTiming.BodyTime(elapsed, duration);
+            if (bodyTime < appliedBodyTime)
+            {
+                replayPlayer.Start(replay[index].Clips);
+                appliedBodyTime = 0d;
+            }
+            var previousClip = replayPlayer.CurrentClipIndex;
+            replayPlayer.Advance(Math.Max(0d, bodyTime - appliedBodyTime));
+            appliedBodyTime = bodyTime;
+            if (previousClip != replayPlayer.CurrentClipIndex && replayPlayer.IsPlaying &&
+                replay[index].Candidate.Type != HighlightType.LongestHidden)
+                cameraDirector.Focus(replay[index].Candidate);
+            cameraDirector.Tick(Time.unscaledDeltaTime);
+            transition.SetOpacity(HighlightPresentationTiming.Opacity(elapsed, duration));
         }
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
@@ -220,7 +262,8 @@ namespace Game.Bootstrap
             if (phase == MatchPhase.Highlight)
             {
                 replayIndex = 0;
-                TryStartNext();
+                highlightEndsAt = snapshot.PhaseEndsAt;
+                transition.SetOpacity(1f);
                 return;
             }
 
@@ -235,30 +278,11 @@ namespace Game.Bootstrap
         {
             replay = received ?? Array.Empty<HighlightReplayData>();
             replayIndex = 0;
+            lastWarnedIndex = -1;
             replayPlayer = null;
             cameraDirector?.ClearOccluders();
             cameraDirector = null;
             hud?.SetHighlightTitle(null);
-            if (phase == MatchPhase.Highlight)
-            {
-                TryStartNext();
-            }
-        }
-
-        private bool TryStartNext()
-        {
-            while (phase == MatchPhase.Highlight && replayIndex < replay.Count)
-            {
-                var current = replay[replayIndex];
-                if (TryCreateScenePlayback(current))
-                {
-                    return true;
-                }
-
-                replayIndex++;
-            }
-
-            return false;
         }
 
         private bool TryCreateScenePlayback(HighlightReplayData current)
@@ -292,12 +316,12 @@ namespace Game.Bootstrap
             if (output == null)
             {
                 StopPlayback();
-                Debug.LogError("[Highlight] No output camera is available.");
                 return false;
             }
             var candidatePlayer = new HighlightReplayPlayer(playerTargets, objectTargets);
             if (!candidatePlayer.Start(current.Clips))
             {
+                StopPlayback();
                 return false;
             }
 
@@ -309,13 +333,6 @@ namespace Game.Bootstrap
             fallbackObject.transform.SetPositionAndRotation(
                 output.position,
                 output.rotation);
-            if (!cameraOverridden)
-            {
-                cameraWasEnabled = cameraRig.enabled;
-                cameraRig.enabled = false;
-                cameraOverridden = true;
-            }
-
             replayPlayer = candidatePlayer;
             cameraDirector = new HighlightCameraDirector(
                 output,
@@ -363,7 +380,8 @@ namespace Game.Bootstrap
         {
             foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(FindObjectsSortMode.None))
             {
-                var id = PlayerRegistry.IdOf(avatar.Owner);
+                var id = avatar.PlayerId;
+                if (id == null) continue;
                 if (!playerVisuals.ContainsKey(id))
                     playerVisuals.Add(id, new ReplayVisual(avatar.transform, null));
             }
@@ -399,10 +417,7 @@ namespace Game.Bootstrap
             foreach (var visual in playerVisuals.Values) visual.SetPlaying(false);
             foreach (var visual in itemVisuals.Values) visual.SetPlaying(false);
             cameraRig?.EndReplay();
-            if (cameraRig != null && cameraOverridden)
-            {
-                cameraOverridden = false;
-            }
+            transition.SetOpacity(0f);
         }
     }
 

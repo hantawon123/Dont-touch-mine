@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Game.Client.Interactions;
 
 namespace Game.Client.Players
 {
@@ -27,6 +28,7 @@ namespace Game.Client.Players
             originalVisibility = new bool[originals.Length];
             foreach (var original in originals)
             {
+                if (!transforms.ContainsKey(original.transform)) continue;
                 Renderer copy;
                 if (original is SkinnedMeshRenderer skin)
                 {
@@ -50,6 +52,9 @@ namespace Game.Client.Players
                 }
                 else continue;
                 copy.sharedMaterials = original.sharedMaterials;
+                var properties = new MaterialPropertyBlock();
+                original.GetPropertyBlock(properties);
+                copy.SetPropertyBlock(properties);
                 copy.shadowCastingMode = ShadowCastingMode.On;
                 copy.receiveShadows = original.receiveShadows;
                 copy.enabled = original.enabled;
@@ -63,6 +68,7 @@ namespace Game.Client.Players
                 Animator.runtimeAnimatorController = animator.runtimeAnimatorController;
                 Animator.applyRootMotion = false;
                 Animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                Animator.enabled = false;
             }
         }
 
@@ -77,12 +83,13 @@ namespace Game.Client.Players
                 for (var i = 0; i < originals.Length; i++)
                     if (originals[i] != null) originals[i].forceRenderingOff = playing || originalVisibility[i];
             hidden = playing;
-            Target.gameObject.SetActive(playing);
+            if (Target != null) Target.gameObject.SetActive(playing);
         }
 
         public void Dispose()
         {
             SetPlaying(false);
+            if (Target == null) return;
             if (Application.isPlaying) UnityEngine.Object.Destroy(Target.gameObject);
             else UnityEngine.Object.DestroyImmediate(Target.gameObject);
         }
@@ -91,12 +98,18 @@ namespace Game.Client.Players
             Dictionary<Transform, Transform> transforms)
         {
             var copy = new GameObject(source.name).transform;
+            copy.gameObject.layer = source.gameObject.layer;
             copy.SetParent(parent, false);
             copy.localPosition = source.localPosition;
             copy.localRotation = source.localRotation;
             copy.localScale = source.localScale;
             transforms.Add(source, copy);
-            foreach (Transform child in source) CopyHierarchy(child, copy, transforms);
+            foreach (Transform child in source)
+            {
+                // Held items have their own replay track; do not bake them into the actor's mesh copy.
+                if (child.GetComponent<CarryableItem>() != null) continue;
+                CopyHierarchy(child, copy, transforms);
+            }
             return copy;
         }
     }
