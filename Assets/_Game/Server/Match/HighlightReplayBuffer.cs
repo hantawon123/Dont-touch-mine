@@ -72,7 +72,8 @@ namespace Game.Server.Match
         public HighlightReplayFrame(
             double recordedAt,
             IReadOnlyList<Pose> playerPoses,
-            IReadOnlyList<WorldObjectState> worldObjects)
+            IReadOnlyList<WorldObjectState> worldObjects,
+            IReadOnlyList<byte> playerActions = null)
         {
             if (recordedAt < 0d || double.IsNaN(recordedAt) || double.IsInfinity(recordedAt))
             {
@@ -104,11 +105,22 @@ namespace Game.Server.Match
             RecordedAt = recordedAt;
             PlayerPoses = Array.AsReadOnly(copiedPlayerPoses);
             WorldObjects = Array.AsReadOnly(copiedWorldObjects);
+            if (playerActions != null && playerActions.Count != playerPoses.Count)
+                throw new ArgumentException("Actions must match player poses.", nameof(playerActions));
+            var actions = new byte[playerPoses.Count];
+            for (var i = 0; i < actions.Length; i++)
+            {
+                actions[i] = playerActions == null ? (byte)0 : playerActions[i];
+                if (actions[i] > 2) throw new ArgumentOutOfRangeException(nameof(playerActions));
+            }
+            PlayerActions = Array.AsReadOnly(actions);
         }
 
         public double RecordedAt { get; }
         public IReadOnlyList<Pose> PlayerPoses { get; }
         public IReadOnlyList<WorldObjectState> WorldObjects { get; }
+        // 0: locomotion, 1: confirmed hit, 2: stunned. Authority-recorded, not inferred on clients.
+        public IReadOnlyList<byte> PlayerActions { get; }
     }
 
     public sealed class HighlightReplayBuffer
@@ -143,7 +155,8 @@ namespace Game.Server.Match
         public bool TryRecord(
             double now,
             IReadOnlyList<Pose> playerPoses,
-            IReadOnlyList<WorldObjectState> worldObjects)
+            IReadOnlyList<WorldObjectState> worldObjects,
+            IReadOnlyList<byte> playerActions = null)
         {
             if (now < 0d || double.IsNaN(now) || double.IsInfinity(now))
             {
@@ -160,7 +173,7 @@ namespace Game.Server.Match
                 return false;
             }
 
-            frames.Enqueue(new HighlightReplayFrame(now, playerPoses, worldObjects));
+            frames.Enqueue(new HighlightReplayFrame(now, playerPoses, worldObjects, playerActions));
             lastRecordedAt = now;
 
             var oldestAllowedAt = now - maxDurationSeconds;

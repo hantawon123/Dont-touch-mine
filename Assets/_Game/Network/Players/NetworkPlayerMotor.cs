@@ -54,6 +54,17 @@ namespace Game.Network.Players
         private bool IsConfigured =>
             kcc != null && movementProcessor != null && inputSource != null;
 
+        public bool TryGetSimulationPose(out Pose pose)
+        {
+            if (kcc == null || Object == null || !Object.IsValid)
+            {
+                pose = default;
+                return false;
+            }
+            pose = new Pose(kcc.FixedData.TargetPosition, kcc.FixedData.TransformRotation);
+            return true;
+        }
+
         private void Awake()
         {
             kcc = GetComponent<KCC>();

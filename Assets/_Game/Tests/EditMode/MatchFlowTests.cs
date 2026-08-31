@@ -127,7 +127,7 @@ namespace Game.Tests.EditMode
             flow.AdvanceIfExpired(550d);
 
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
-            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(580d));
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(589.8d).Within(0.001d));
             Assert.That(flow.CompleteHighlight(), Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Result));
             Assert.That(state.PhaseEndsAt.CurrentValue, Is.Zero);
@@ -142,7 +142,7 @@ namespace Game.Tests.EditMode
 
             Assert.That(flow.CompleteSearchingEarly(300d), Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
-            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(330d));
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(339.8d).Within(0.001d));
             Assert.That(flow.CompleteSearchingEarly(301d), Is.False);
         }
     }

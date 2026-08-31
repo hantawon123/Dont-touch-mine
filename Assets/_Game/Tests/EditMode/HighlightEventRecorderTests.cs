@@ -48,17 +48,17 @@ namespace Game.Tests.EditMode
         [Test]
         public void CaptureCandidates_SelectsMostInteractedItemByDefinedTieBreakers()
         {
-            recorder.RecordItemInteraction(0, "item-a", 101d);
-            recorder.RecordItemInteraction(1, "item-a", 102d);
-            recorder.RecordItemInteraction(0, "item-b", 103d);
-            recorder.RecordItemInteraction(1, "item-b", 104d);
-            recorder.RecordItemInteraction(1, "item-b", 105d);
+            recorder.RecordItemPickup(0, "item-a", 101d);
+            recorder.RecordItemPickup(1, "item-a", 102d);
+            recorder.RecordItemPickup(0, "item-b", 103d);
+            recorder.RecordItemPickup(1, "item-b", 104d);
+            recorder.RecordItemPickup(1, "item-b", 105d);
 
             var candidate = Candidate(HighlightType.TteTanMulgun, 110d);
 
             Assert.That(candidate.TargetId, Is.EqualTo("item-b"));
-            Assert.That(candidate.Segments, Has.Count.EqualTo(3));
-            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(6d));
+            Assert.That(candidate.Segments, Has.Count.EqualTo(2));
+            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(5d));
         }
 
         [Test]

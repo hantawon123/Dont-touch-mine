@@ -10,6 +10,13 @@ namespace Game.Server.Match
         private readonly MatchRulesSO rules;
         private readonly MatchState state;
         private readonly int playerCount;
+        private double? highlightPresentationDuration;
+
+        public void SetHighlightPresentationDuration(double duration)
+        {
+            ValidateTime(duration);
+            highlightPresentationDuration = duration;
+        }
 
         [Inject]
         public MatchFlow(MatchRulesSO rules, MatchState state)
@@ -140,7 +147,13 @@ namespace Game.Server.Match
         private void EnterPhase(MatchPhase phase, double startedAt)
         {
             var duration = rules.GetDurationSeconds(phase, playerCount);
-            state.EnterPhase(phase, duration > 0f ? startedAt + duration : 0d);
+            if (phase == MatchPhase.Highlight)
+                duration += (float)(HighlightPresentationTiming.PostRollSeconds +
+                    HighlightPresentationTiming.DeliveryGraceSeconds +
+                    MatchRulesSO.MaxHighlightCount * HighlightPresentationTiming.OverheadSeconds);
+            var actualDuration = phase == MatchPhase.Highlight && highlightPresentationDuration.HasValue
+                ? highlightPresentationDuration.Value : duration;
+            state.EnterPhase(phase, actualDuration > 0d ? startedAt + actualDuration : 0d);
         }
 
         private static void ValidateTime(double time)
