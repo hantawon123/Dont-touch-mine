@@ -1,5 +1,6 @@
 using System;
 using Fusion;
+using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Players;
 using Game.Server.Match;
@@ -88,7 +89,7 @@ namespace Game.Network.Match
 
         internal MatchMigrationState Read(MatchSessionState state)
         {
-            if (!Object.HasStateAuthority || PlayerCount != state.ParticipantCount || PlayerCount < 2 ||
+            if (!Object.HasStateAuthority || PlayerCount != state.ParticipantCount || PlayerCount < RoomSettings.MinMatchPlayerCount ||
                 PlayerCount > MatchSessionState.MaxParticipants || state.ObjectStateCount < 0 ||
                 state.ObjectStateCount > MatchSessionState.MaxReplicatedObjects)
                 throw new InvalidOperationException("The host snapshot has no valid match checkpoint.");

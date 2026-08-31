@@ -1365,6 +1365,67 @@ namespace Game.Tests.EditMode
             Assert.That(session.TryGetCurrentHidingSpawnPose(0, 21d, out _), Is.False);
         }
 
+        [TestCase(0, 50d)]
+        [TestCase(1, 40d)]
+        public void TwoPlayerHiding_DepartureSkipsEmptyTurnAndKeepsSurvivor(int leaving, double searchingAt)
+        {
+            using var matchState = new MatchState();
+            var match = CreateSession(matchState, 1234, 2);
+            var positions = new[] { new Vector3(2, 0, 1), new Vector3(4, 0, 1) };
+            var survivor = 1 - leaving;
+            match.Start(10d);
+            Assert.That(match.TryHandlePlayerLeft(leaving, new Pose(positions[leaving], Quaternion.identity), 20d), Is.True);
+            Assert.That(match.GetCurrentHidingTurnIndex(20d), Is.EqualTo(survivor));
+            var snapshot = match.CaptureStateSnapshot();
+            Assert.That(HidingTurns.IndexAt(snapshot.Phase, snapshot.PhaseEndsAt, 20d, 2,
+                rules.HidingTurnDurationSeconds), Is.EqualTo(survivor));
+            Assert.That(match.TryGetItemPlacement(leaving, out var dropped), Is.True);
+            Assert.That(dropped.Pose.position, Is.EqualTo(positions[leaving]));
+            Assert.That(match.TryHandlePlayerLeft(leaving, Pose.identity, 20d), Is.False);
+            Assert.That(match.TryGetResult(out _), Is.False);
+            match.AdvanceTime(searchingAt, positions);
+            Assert.That(match.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
+            Assert.That(match.Players.ActivePlayerCount, Is.EqualTo(1));
+            Assert.That(match.AllItemsPlaced, Is.True);
+            Assert.That(match.GetRemainingSeconds(searchingAt), Is.EqualTo(rules.SearchingDurationSeconds));
+            Assert.That(match.TryHoldObject(survivor, match.Assignments[leaving].Item.ItemId, searchingAt), Is.True);
+        }
+
+        [Test]
+        public void Hiding_ConsecutiveDepartedTurnsAreSkippedWithoutRenumberingPlayers()
+        {
+            session.Start(10d);
+            session.TryHandlePlayerLeft(1, Pose.identity, 20d);
+            session.TryHandlePlayerLeft(2, Pose.identity, 20d);
+            Assert.That(session.GetCurrentHidingTurnIndex(20d), Is.EqualTo(0));
+            session.AdvanceTime(40d, lastKnownPositions);
+            Assert.That(session.GetCurrentHidingTurnIndex(40d), Is.EqualTo(3));
+            Assert.That(session.Players.GetPlayer(3).PlayerId, Is.EqualTo("player-3"));
+            Assert.That(session.GetRemainingSeconds(40d), Is.EqualTo(90d));
+            session.AdvanceTime(130d, lastKnownPositions);
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
+            Assert.That(session.AllItemsPlaced, Is.True);
+        }
+
+        [Test]
+        public void SoleRemainingPlayer_CanStillEndMatchByDestroyingEveryItem()
+        {
+            using var matchState = new MatchState();
+            var match = CreateSession(matchState, 1234, 2);
+            match.Start(10d);
+            match.AdvanceTime(70d, new[] { Vector3.zero, Vector3.one });
+            match.TryHandlePlayerLeft(1, Pose.identity, 71d);
+            Assert.That(match.TryGetResult(out _), Is.False);
+            foreach (var assignment in match.Assignments)
+            {
+                Assert.That(match.TryHoldObject(0, assignment.Item.ItemId, 72d), Is.True);
+                Assert.That(match.TryDestroyHeldPlayerItem(0, 72d), Is.True);
+            }
+            Assert.That(match.TryGetResult(out var result), Is.True);
+            Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.AllPlayerItemsDestroyed));
+            Assert.That(result.EndedAt, Is.EqualTo(72d));
+        }
+
         [Test]
         public void WaitingPlayer_CanHitDuringAnotherPlayersHidingTurn()
         {
@@ -1441,7 +1502,7 @@ namespace Game.Tests.EditMode
         [TestCase(4)]
         [TestCase(5)]
         [TestCase(6)]
-        public void PlayerLeavingUntilOneRemains_EndsMatchWithSoleWinner(int playerCount)
+        public void PlayerLeavingUntilOneRemains_ContinuesUntilNormalTimeLimit(int playerCount)
         {
             var matchState = new MatchState();
             try
@@ -1476,10 +1537,16 @@ namespace Game.Tests.EditMode
                     }
                 }
 
-                Assert.That(matchSession.CurrentPhase, Is.EqualTo(MatchPhase.Result));
+                Assert.That(matchSession.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
                 Assert.That(matchSession.Players.ActivePlayerCount, Is.EqualTo(1));
+                Assert.That(matchSession.TryGetResult(out _), Is.False);
+                Assert.That(matchSession.TryHoldObject(0, matchSession.Assignments[0].Item.ItemId,
+                    searchingStartedAt + playerCount), Is.True);
+                var deadline = searchingStartedAt + rules.SearchingDurationSeconds;
+                matchSession.AdvanceTime(deadline, positions);
                 Assert.That(matchSession.TryGetResult(out var result), Is.True);
-                Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.LastPlayerStanding));
+                Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.TimeExpired));
+                Assert.That(result.EndedAt, Is.EqualTo(deadline));
                 Assert.That(result.WinnerPlayerIndices, Is.EqualTo(new[] { 0 }));
             }
             finally
@@ -1489,7 +1556,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void LastPlayerStanding_SkipsHighlightAndResultAndPreparesRematchFromLobby()
+        public void SoleRemainingPlayer_StaysInGameAndCannotPrepareRematchEarly()
         {
             var lobby = CreateFullLobby();
             var appFlow = new AppFlowSystem();
@@ -1529,18 +1596,18 @@ namespace Game.Tests.EditMode
             context.ServerTime = 210d;
             matchRuntime.Tick();
 
-            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Lobby));
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.InGame));
             Assert.That(
                 changedStates,
-                Is.EqualTo(new[] { AppFlowState.InGame, AppFlowState.Lobby }));
+                Is.EqualTo(new[] { AppFlowState.InGame }));
 
             var nextState = new MatchState();
             try
             {
                 var nextSession = CreateSession(nextState, 5678);
-                Assert.That(startCoordinator.TryPrepareRematch(nextSession), Is.True);
-                Assert.That(lobby.IsStarted, Is.False);
-                Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Lobby));
+                Assert.That(startCoordinator.TryPrepareRematch(nextSession), Is.False);
+                Assert.That(lobby.IsStarted, Is.True);
+                Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.InGame));
             }
             finally
             {

@@ -108,6 +108,16 @@ namespace Game.Server.Match
                 rules.HidingTurnDurationSeconds);
         }
 
+        internal bool SkipCurrentHidingTurn(double now)
+        {
+            var remaining = GetHidingTurnRemainingSeconds(now);
+            if (remaining <= 0d) return false;
+            // Keep the original player indices. Moving the shared deadline also
+            // advances the turn derived by clients from HidingTurns.
+            state.EnterPhase(MatchPhase.Hiding, Math.Max(now, state.PhaseEndsAt.CurrentValue - remaining));
+            return true;
+        }
+
         public bool CompleteHighlight()
         {
             if (state.CurrentPhase.CurrentValue != MatchPhase.Highlight)

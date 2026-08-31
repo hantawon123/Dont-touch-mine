@@ -307,6 +307,7 @@ namespace Game.Server.Match
             if (state.CurrentPhase.CurrentValue == MatchPhase.Hiding)
             {
                 CompleteExpiredHidingTurns(now, lastKnownPlayerPositions);
+                SkipDepartedHidingTurns(now);
             }
 
             CompleteMapObjectEjections(now);
@@ -747,20 +748,7 @@ namespace Game.Server.Match
             {
                 ReleaseHeldObjectAt(playerIndex, lastKnownPose, true);
             }
-            if (Players.ActivePlayerCount == 1)
-            {
-                var winnerPlayerIndex = GetSoleActivePlayerIndex();
-                if (!flow.CompleteMatchEarly())
-                {
-                    throw new InvalidOperationException("The match could not end early.");
-                }
-
-                CaptureResult(
-                    MatchEndReason.LastPlayerStanding,
-                    now,
-                    new[] { winnerPlayerIndex },
-                    false);
-            }
+            SkipDepartedHidingTurns(now);
 
             return true;
         }
@@ -1170,17 +1158,14 @@ namespace Game.Server.Match
             MatchEnded?.Invoke(capturedResult);
         }
 
-        private int GetSoleActivePlayerIndex()
+        private void SkipDepartedHidingTurns(double now)
         {
-            foreach (var player in Players.Players)
+            // Bounded by the frozen line-up, including consecutive departed players.
+            for (var skipped = 0; skipped < Players.Players.Count; skipped++)
             {
-                if (player.IsActive)
-                {
-                    return player.PlayerIndex;
-                }
+                var turn = flow.GetCurrentHidingTurnIndex(now);
+                if (turn < 0 || Players.IsActive(turn) || !flow.SkipCurrentHidingTurn(now)) return;
             }
-
-            throw new InvalidOperationException("No active player remains.");
         }
 
         private void StartHighlightRecordingIfNeeded(double now)

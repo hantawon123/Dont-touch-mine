@@ -18,8 +18,9 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkMatchRuntimeCoordinatorTests
     {
-        [Test]
-        public void Migration_ResumesWithoutStartingOrInitializingItemsAgain()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Migration_ResumesWithoutStartingOrInitializingItemsAgain(bool hostLeft)
         {
             var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
             try
@@ -39,8 +40,9 @@ namespace Game.Architecture.Tests
                     Objects = new[] { new MatchMigrationObject { ObjectId = original.Session.Assignments[0].Item.ItemId,
                         Holder = 0, Pose = pose } },
                 };
-                var network = new FakeNetworkAuthority(100d,
-                    new Dictionary<string, Pose> { ["host"] = pose, ["client"] = Pose.identity })
+                var poses = new Dictionary<string, Pose> { ["host"] = pose, ["client"] = Pose.identity };
+                if (hostLeft) poses.Remove("host");
+                var network = new FakeNetworkAuthority(100d, poses)
                     { MatchMigration = checkpoint };
                 using var room = new RoomBrowserSystem();
                 var flow = new AppFlowSystem();
@@ -53,10 +55,20 @@ namespace Game.Architecture.Tests
                 network.PublishLineUp(participants);
                 network.PublishSimulationTick();
                 Assert.That(network.BoundSession.CurrentPhase, Is.EqualTo(MatchPhase.Hiding));
-                Assert.That(network.BoundSession.GetRemainingSeconds(100d), Is.EqualTo(50d));
-                Assert.That(network.InitializedAssignmentPlayers, Is.Empty);
-                Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(new[] { 0, 1 }));
-                Assert.That(network.TeleportedPoses[0].position, Is.EqualTo(pose.position));
+                Assert.That(network.BoundSession.GetRemainingSeconds(100d), Is.EqualTo(hostLeft ? 30d : 50d));
+                Assert.That(network.InitializedAssignmentPlayers, Is.EqualTo(hostLeft ? new[] { 1 } : Array.Empty<int>()));
+                Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(hostLeft ? new[] { 1, 1 } : new[] { 0, 1 }));
+                if (hostLeft)
+                {
+                    Assert.That(network.BoundSession.Players.ActivePlayerCount, Is.EqualTo(1));
+                    Assert.That(network.BoundSession.TryGetResult(out _), Is.False);
+                    Assert.That(network.BoundSession.TryGetHeldObjectId(0, out _), Is.False);
+                    Assert.That(network.BoundSession.TryGetItemPlacement(0, out var dropped), Is.True);
+                    Assert.That(dropped.Pose.position, Is.EqualTo(pose.position));
+                    Assert.That(network.Controls[1], Is.True);
+                    Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.InGame));
+                }
+                else Assert.That(network.TeleportedPoses[0].position, Is.EqualTo(pose.position));
                 var teleports = network.TeleportedPlayers.Count;
                 network.PublishSceneLoaded();
                 network.PublishSimulationTick();
@@ -121,9 +133,9 @@ namespace Game.Architecture.Tests
                 }
                 else
                 {
-                    Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Result));
-                    Assert.That(session.TryGetResult(out var result), Is.True);
-                    Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.LastPlayerStanding));
+                    Assert.That(session.CurrentPhase, Is.EqualTo(departurePhase));
+                    Assert.That(session.TryGetResult(out _), Is.False);
+                    Assert.That(session.Players.ActivePlayerCount, Is.EqualTo(1));
                 }
             }
             finally { UnityEngine.Object.DestroyImmediate(rules); }
