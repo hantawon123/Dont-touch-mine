@@ -10,6 +10,7 @@ namespace Game.Network.Match
 {
     public interface INetworkMatchRuntimeSource
     {
+        bool IsRuntimeReady { get; }
         double ServerTime { get; }
         bool TryGetPlayerPose(string playerId, out Pose pose);
     }

@@ -83,7 +83,7 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
-            if (!hasSnapshot)
+            if (!hasSnapshot || !clock.IsRuntimeReady)
             {
                 return;
             }
@@ -139,6 +139,7 @@ namespace Game.Bootstrap
 
         private bool UpdateGameEndNotice()
         {
+            if (!clock.IsRuntimeReady) return false;
             var remaining = gameEndNoticeEndsAt - clock.ServerTime;
             var active = remaining > 0d && (!hasSnapshot || snapshot.Phase != MatchPhase.Result);
             view.SetEndCountdown(active ? remaining : 0d);
@@ -159,6 +160,7 @@ namespace Game.Bootstrap
         /// </remarks>
         private void ReportPhase()
         {
+            if (!clock.IsRuntimeReady) return;
             var name = HidingPlayerName();
 
             if (hasReportedPhase &&
@@ -204,7 +206,7 @@ namespace Game.Bootstrap
                 return;
             view.ShowDestructionNotice(
                 $"{DisplayNameOf(confirmed.DestroyerPlayerIndex)}님이 물건을 파괴했습니다!");
-            noticeEndsAt = Math.Max(clock.ServerTime, confirmed.DestroyedAt) +
+            noticeEndsAt = Math.Max(clock.IsRuntimeReady ? clock.ServerTime : confirmed.DestroyedAt, confirmed.DestroyedAt) +
                            NoticeDurationSeconds;
         }
 

@@ -148,6 +148,9 @@ namespace Game.Network.Session
                 return;
             }
 
+            // Unexpected shutdown of the replacement runner ends this migration.
+            _hostMigrationInProgress = false;
+            _hostMigrationRevision++;
             ReportExit(Translate(shutdownReason));
             ReleaseRunner();
         }
@@ -240,15 +243,21 @@ namespace Game.Network.Session
             }
 
             _hostMigrationInProgress = true;
+            var migrationRevision = ++_hostMigrationRevision;
+            var migrationScene = runner.SceneInfo;
+            NetworkRunner replacementRunner = null;
             Debug.Log("[Network] Host migration started.");
 
             try
             {
                 await runner.Shutdown(shutdownReason: ShutdownReason.HostMigration);
+                if (migrationRevision != _hostMigrationRevision) return;
+                Debug.Log("[Network] Host migration: old runner stopped; creating replacement.");
 
                 var sceneManager = CreateRunner(
                     hostMigrationToken.GameMode != GameMode.Server);
-                var result = await _runner.StartGame(new StartGameArgs
+                replacementRunner = _runner;
+                var result = await replacementRunner.StartGame(new StartGameArgs
                 {
                     GameMode = hostMigrationToken.GameMode,
                     HostMigrationToken = hostMigrationToken,
@@ -257,14 +266,20 @@ namespace Game.Network.Session
                         _expectedPassword,
                         _profile?.Nickname),
                     SceneManager = sceneManager,
-                    Scene = CaptureCurrentScene(),
+                    Scene = migrationScene,
                 });
+                if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner)) return;
 
                 if (!result.Ok)
                 {
-                    throw new InvalidOperationException(
+                    Debug.LogError(
                         $"Fusion could not resume the room: " +
                         $"{result.ShutdownReason} {result.ErrorMessage}");
+                    _hostMigrationInProgress = false;
+                    ReportExit(RoomExitReason.HostClosed);
+                    // StartGame failure already owns Fusion teardown; do not shut it down again.
+                    ReleaseAfterFusionShutdown(replacementRunner);
+                    return;
                 }
 
                 _hostMigrationInProgress = false;
@@ -273,7 +288,7 @@ namespace Game.Network.Session
 
                 try
                 {
-                    if (!await _runner.PushHostMigrationSnapshot())
+                    if (replacementRunner.IsServer && !await replacementRunner.PushHostMigrationSnapshot())
                     {
                         Debug.LogWarning(
                             "[Network] The migrated room resumed, but its first " +
@@ -290,11 +305,13 @@ namespace Game.Network.Session
                         $"snapshot: {exception.Message}");
                 }
 
+                if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner)) return;
                 Debug.Log(
                     $"[Network] Host migration completed. IsServer={IsServer}.");
             }
             catch (Exception exception)
             {
+                if (migrationRevision != _hostMigrationRevision) return;
                 Debug.LogError($"[Network] Host migration failed: {exception.Message}");
                 _hostMigrationInProgress = false;
                 ReportExit(RoomExitReason.HostClosed);

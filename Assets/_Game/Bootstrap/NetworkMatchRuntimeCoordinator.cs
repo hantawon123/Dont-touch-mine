@@ -147,6 +147,7 @@ namespace Game.Bootstrap
 
         private void OnSimulationTick()
         {
+            if (!network.IsRuntimeReady) return;
             if (!network.IsServer)
             {
                 StopRuntime();

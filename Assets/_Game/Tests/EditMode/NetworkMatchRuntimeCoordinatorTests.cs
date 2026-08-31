@@ -316,6 +316,7 @@ namespace Game.Architecture.Tests
             }
 
             public bool IsServer => true;
+            public bool IsRuntimeReady { get; set; } = true;
             public bool IsHighlightReplayReady { get; set; }
             public int DestructionLimit => PlaySettingsDraft.DefaultDestructionLimit;
             public double ServerTime { get; set; }

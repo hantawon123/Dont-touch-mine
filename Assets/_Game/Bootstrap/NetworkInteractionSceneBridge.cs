@@ -354,7 +354,7 @@ namespace Game.Bootstrap
 
         private void ApplyPlayerStates()
         {
-            if (!network.IsRunning)
+            if (!network.IsRuntimeReady)
             {
                 return;
             }

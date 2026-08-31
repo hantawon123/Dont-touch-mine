@@ -159,6 +159,7 @@ namespace Game.Network.Session
         private int _itemAssignmentTransferSequence;
         private int _highlightTransferSequence;
         private bool _hostMigrationInProgress;
+        private int _hostMigrationRevision;
         private int _configuredMaxPlayers;
         private int _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
 
@@ -278,6 +279,7 @@ namespace Game.Network.Session
         /// and a dedicated server, so gameplay never asks which one it is.
         /// </summary>
         public bool IsServer => _runner != null && _runner.IsServer;
+        public bool IsRuntimeReady => IsRunning && !_hostMigrationInProgress;
 
         public IReadOnlyList<PlayerAvatar> PlayerAvatars =>
             _roster?.Avatars ?? Array.Empty<PlayerAvatar>();
@@ -796,6 +798,8 @@ namespace Game.Network.Session
         /// </summary>
         public void Shutdown()
         {
+            _hostMigrationRevision++;
+            _hostMigrationInProgress = false;
             var runner = _runner;
 
             // A voluntary room exit must be reported before references are
@@ -1200,6 +1204,7 @@ namespace Game.Network.Session
 
         private void OnSimulationTick()
         {
+            if (!IsRuntimeReady) return;
             SimulationTick?.Invoke();
         }
 
