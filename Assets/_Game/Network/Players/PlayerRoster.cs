@@ -116,6 +116,8 @@ namespace Game.Network.Players
         {
             if (TryGetAvatar(playerId, out var avatar))
             {
+                var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                if (motor != null && motor.TryGetSimulationPose(out pose)) return true;
                 pose = new Pose(avatar.transform.position, avatar.transform.rotation);
                 return true;
             }

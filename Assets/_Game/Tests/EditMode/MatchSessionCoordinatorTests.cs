@@ -811,7 +811,7 @@ namespace Game.Tests.EditMode
 
             Assert.That(session.AllPlayerItemsDestroyed, Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
-            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(230d));
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(228.2d).Within(0.001d));
             Assert.That(session.TryGetCurrentHighlight(out var highlight), Is.True);
             Assert.That(highlight.Type, Is.EqualTo(HighlightType.FirstBlood));
             Assert.That(session.TryGetResult(out var result), Is.True);

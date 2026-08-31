@@ -48,7 +48,7 @@ namespace Game.Network.Session
         private const int ItemAssignmentKeyVersion = 1;
         private const int MaxItemAssignmentBytes = 128;
         private const int HighlightReplayKeyType = 0x484C5452;
-        private const int HighlightReplayKeyVersion = 1;
+        private const int HighlightReplayKeyVersion = 2;
 
         private readonly IRoomListSink _roomListSink;
         private readonly IRoomSessionSink _sessionSink;

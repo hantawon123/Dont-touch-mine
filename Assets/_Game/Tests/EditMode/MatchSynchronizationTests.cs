@@ -30,9 +30,9 @@ namespace Game.Tests.EditMode
 
                 flow.AdvanceIfExpired(550d);
                 Synchronize(states);
-                AssertSynchronized(states, MatchPhase.Highlight, 580d);
+                AssertSynchronized(states, MatchPhase.Highlight, 589.8d);
 
-                flow.AdvanceIfExpired(580d);
+                flow.AdvanceIfExpired(states[0].PhaseEndsAt.CurrentValue);
                 Synchronize(states);
                 AssertSynchronized(states, MatchPhase.Result, 0d);
             }
@@ -75,7 +75,7 @@ namespace Game.Tests.EditMode
             foreach (var state in states)
             {
                 Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(expectedPhase));
-                Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(expectedDeadline));
+                Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(expectedDeadline).Within(0.001d));
             }
         }
     }

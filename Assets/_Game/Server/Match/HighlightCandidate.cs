@@ -7,12 +7,12 @@ namespace Game.Server.Match
     {
         public HighlightSegment(double startedAt, double endedAt, double playbackSpeed = 1d)
         {
-            if (startedAt < 0d)
+            if (!double.IsFinite(startedAt) || startedAt < 0d)
             {
                 throw new ArgumentOutOfRangeException(nameof(startedAt));
             }
 
-            if (endedAt < startedAt)
+            if (!double.IsFinite(endedAt) || endedAt < startedAt)
             {
                 throw new ArgumentOutOfRangeException(nameof(endedAt));
             }

@@ -413,24 +413,20 @@ namespace Game.Bootstrap
         private void PublishSnapshotIfChanged()
         {
             var snapshot = composition.Session.CaptureStateSnapshot();
+            if (snapshot.Phase == MatchPhase.Highlight && !hasPublishedHighlightReplay &&
+                composition.Session.TryGetResult(out var result) &&
+                network.ServerTime >= result.EndedAt + MatchSessionCoordinator.HighlightPostRollSeconds)
+            {
+                if (!composition.Session.TryCaptureHighlightReplay(out var replay) ||
+                    !network.TryPublishHighlightReplay(replay))
+                    throw new InvalidOperationException("The authority could not publish the highlight replay.");
+                hasPublishedHighlightReplay = true;
+            }
             if (hasPublishedSnapshot &&
                 snapshot.Phase == lastPublishedSnapshot.Phase &&
                 snapshot.PhaseEndsAt == lastPublishedSnapshot.PhaseEndsAt)
             {
                 return;
-            }
-
-            if (snapshot.Phase == MatchPhase.Highlight &&
-                !hasPublishedHighlightReplay)
-            {
-                if (!composition.Session.TryCaptureHighlightReplay(out var replay) ||
-                    !network.TryPublishHighlightReplay(replay))
-                {
-                    throw new InvalidOperationException(
-                        "The authority could not publish the highlight replay.");
-                }
-
-                hasPublishedHighlightReplay = true;
             }
 
             if (!network.TryPublishMatchState(snapshot))

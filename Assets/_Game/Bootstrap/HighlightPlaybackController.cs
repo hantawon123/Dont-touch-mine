@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using Game.Client.Cameras;
 using Game.Client.Interactions;
 using Game.Client.Match;
+using Game.Client.Players;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Match;
 using Game.Network.Players;
 using Game.Network.Session;
 using Game.Server.Match;
+using Game.SOAP.Config;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -136,6 +138,11 @@ namespace Game.Bootstrap
     {
         private readonly INetworkMatchEvents network;
         private readonly RoomBrowserSystem room;
+        private readonly INetworkMatchRuntimeSource clock;
+        private readonly IHighlightTransitionView transition;
+        private double highlightEndsAt;
+        private double appliedBodyTime;
+        private int lastWarnedIndex = -1;
         private IReadOnlyList<HighlightReplayData> replay =
             Array.Empty<HighlightReplayData>();
         private HighlightReplayPlayer replayPlayer;
@@ -145,15 +152,19 @@ namespace Game.Bootstrap
         private GameObject fallbackObject;
         private MatchPhase phase = MatchPhase.Waiting;
         private int replayIndex;
-        private bool cameraWasEnabled;
-        private bool cameraOverridden;
+        private readonly Dictionary<string, ReplayVisual> playerVisuals = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, ReplayVisual> itemVisuals = new(StringComparer.Ordinal);
 
         public NetworkHighlightPlaybackController(
             INetworkMatchEvents network,
-            RoomBrowserSystem room)
+            RoomBrowserSystem room,
+            INetworkMatchRuntimeSource clock,
+            IHighlightTransitionView transition)
         {
             this.network = network ?? throw new ArgumentNullException(nameof(network));
             this.room = room ?? throw new ArgumentNullException(nameof(room));
+            this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            this.transition = transition ?? throw new ArgumentNullException(nameof(transition));
         }
 
         public void Start()
@@ -162,6 +173,7 @@ namespace Game.Bootstrap
                 FindObjectsInactive.Include);
             network.MatchStateReceived += OnMatchStateReceived;
             network.HighlightReplayReceived += OnHighlightReplayReceived;
+            CaptureVisuals();
         }
 
         public void Dispose()
@@ -169,6 +181,10 @@ namespace Game.Bootstrap
             network.MatchStateReceived -= OnMatchStateReceived;
             network.HighlightReplayReceived -= OnHighlightReplayReceived;
             StopPlayback();
+            foreach (var visual in playerVisuals.Values) visual.Dispose();
+            foreach (var visual in itemVisuals.Values) visual.Dispose();
+            playerVisuals.Clear();
+            itemVisuals.Clear();
             if (fallbackObject != null)
             {
                 UnityEngine.Object.Destroy(fallbackObject);
@@ -179,37 +195,75 @@ namespace Game.Bootstrap
         {
             if (phase != MatchPhase.Highlight)
             {
+                CaptureVisuals();
                 return;
             }
 
-            if (replayPlayer == null && !TryStartNext())
+            var totalDuration = 0d;
+            foreach (var data in replay)
+                totalDuration += data.Candidate.PlaybackDurationSeconds + HighlightPresentationTiming.OverheadSeconds;
+            var elapsed = clock.ServerTime - (highlightEndsAt - totalDuration);
+            if (elapsed < 0d || replay.Count == 0)
             {
+                transition.SetOpacity(1f);
                 return;
             }
-
-            cameraDirector.Tick(Time.unscaledDeltaTime);
-            if (replayPlayer.Advance(Time.unscaledDeltaTime))
+            var index = 0;
+            while (index < replay.Count && elapsed >= replay[index].Candidate.PlaybackDurationSeconds +
+                       HighlightPresentationTiming.OverheadSeconds)
             {
-                return;
+                elapsed -= replay[index].Candidate.PlaybackDurationSeconds + HighlightPresentationTiming.OverheadSeconds;
+                index++;
             }
-
-            replayPlayer = null;
-            cameraDirector?.ClearOccluders();
-            cameraDirector = null;
-            replayIndex++;
-            if (!TryStartNext())
+            if (index >= replay.Count)
             {
+                transition.SetOpacity(1f);
                 hud?.SetHighlightTitle(null);
+                return;
             }
+            if (replayPlayer == null || replayIndex != index)
+            {
+                cameraDirector?.ClearOccluders();
+                replayPlayer = null;
+                replayIndex = index;
+                appliedBodyTime = 0d;
+                if (!TryCreateScenePlayback(replay[index]))
+                {
+                    if (lastWarnedIndex != index)
+                    {
+                        Debug.LogWarning($"[Highlight] Cannot prepare {replay[index].Candidate.Type}: check replay frames, player visuals and output camera.");
+                        lastWarnedIndex = index;
+                    }
+                    transition.SetOpacity(1f);
+                    return;
+                }
+            }
+            var duration = replay[index].Candidate.PlaybackDurationSeconds;
+            var bodyTime = HighlightPresentationTiming.BodyTime(elapsed, duration);
+            if (bodyTime < appliedBodyTime)
+            {
+                replayPlayer.Start(replay[index].Clips);
+                appliedBodyTime = 0d;
+            }
+            var previousClip = replayPlayer.CurrentClipIndex;
+            replayPlayer.Advance(Math.Max(0d, bodyTime - appliedBodyTime));
+            appliedBodyTime = bodyTime;
+            if (previousClip != replayPlayer.CurrentClipIndex && replayPlayer.IsPlaying &&
+                replay[index].Candidate.Type != HighlightType.LongestHidden)
+                cameraDirector.Focus(replay[index].Candidate);
+            cameraDirector.Tick(Time.unscaledDeltaTime);
+            transition.SetOpacity(HighlightPresentationTiming.Opacity(elapsed, duration));
         }
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
         {
+            if (phase == snapshot.Phase) return;
             phase = snapshot.Phase;
             if (phase == MatchPhase.Highlight)
             {
                 replayIndex = 0;
-                TryStartNext();
+                highlightEndsAt = snapshot.PhaseEndsAt;
+                transition.SetOpacity(1f);
                 return;
             }
 
@@ -224,30 +278,11 @@ namespace Game.Bootstrap
         {
             replay = received ?? Array.Empty<HighlightReplayData>();
             replayIndex = 0;
+            lastWarnedIndex = -1;
             replayPlayer = null;
             cameraDirector?.ClearOccluders();
             cameraDirector = null;
             hud?.SetHighlightTitle(null);
-            if (phase == MatchPhase.Highlight)
-            {
-                TryStartNext();
-            }
-        }
-
-        private bool TryStartNext()
-        {
-            while (phase == MatchPhase.Highlight && replayIndex < replay.Count)
-            {
-                var current = replay[replayIndex];
-                if (TryCreateScenePlayback(current))
-                {
-                    return true;
-                }
-
-                replayIndex++;
-            }
-
-            return false;
         }
 
         private bool TryCreateScenePlayback(HighlightReplayData current)
@@ -275,9 +310,18 @@ namespace Game.Bootstrap
             }
 
             var objectTargets = CaptureObjectTargets();
+            foreach (var visual in playerVisuals.Values) visual.SetPlaying(true);
+            foreach (var visual in itemVisuals.Values) visual.SetPlaying(true);
+            var output = cameraRig.BeginReplay();
+            if (output == null)
+            {
+                StopPlayback();
+                return false;
+            }
             var candidatePlayer = new HighlightReplayPlayer(playerTargets, objectTargets);
             if (!candidatePlayer.Start(current.Clips))
             {
+                StopPlayback();
                 return false;
             }
 
@@ -287,18 +331,11 @@ namespace Game.Bootstrap
             }
 
             fallbackObject.transform.SetPositionAndRotation(
-                cameraRig.transform.position,
-                cameraRig.transform.rotation);
-            if (!cameraOverridden)
-            {
-                cameraWasEnabled = cameraRig.enabled;
-                cameraRig.enabled = false;
-                cameraOverridden = true;
-            }
-
+                output.position,
+                output.rotation);
             replayPlayer = candidatePlayer;
             cameraDirector = new HighlightCameraDirector(
-                cameraRig.transform,
+                output,
                 fallbackObject.transform,
                 playerTargets,
                 objectTargets);
@@ -321,45 +358,39 @@ namespace Game.Bootstrap
         {
             var targets = new Transform[playerCount];
             var participants = room.MatchParticipants.CurrentValue;
-            foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
-                         FindObjectsInactive.Exclude,
-                         FindObjectsSortMode.None))
+            foreach (var participant in participants)
             {
-                var playerId = PlayerRegistry.IdOf(avatar.Owner);
-                for (var index = 0; index < participants.Count; index++)
-                {
-                    var participant = participants[index];
-                    if (participant.PlayerIndex >= 0 &&
-                        participant.PlayerIndex < targets.Length &&
-                        string.Equals(
-                            participant.PlayerId,
-                            playerId,
-                            StringComparison.Ordinal))
-                    {
-                        targets[participant.PlayerIndex] = avatar.transform;
-                        break;
-                    }
-                }
+                if (participant.PlayerIndex >= 0 && participant.PlayerIndex < targets.Length &&
+                    playerVisuals.TryGetValue(participant.PlayerId, out var visual))
+                    targets[participant.PlayerIndex] = visual.Target;
             }
 
             return targets;
         }
 
-        private static SceneWorldObjectReference[] CaptureObjectTargets()
+        private SceneWorldObjectReference[] CaptureObjectTargets()
         {
             var references = new List<SceneWorldObjectReference>();
-            var ids = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var item in UnityEngine.Object.FindObjectsByType<CarryableItem>(
-                         FindObjectsInactive.Include,
-                         FindObjectsSortMode.None))
-            {
-                if (item != null && ids.Add(item.ObjectId))
-                {
-                    references.Add(new SceneWorldObjectReference(item.ObjectId, item.transform));
-                }
-            }
-
+            foreach (var pair in itemVisuals)
+                references.Add(new SceneWorldObjectReference(pair.Key, pair.Value.Target));
             return references.ToArray();
+        }
+
+        private void CaptureVisuals()
+        {
+            foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(FindObjectsSortMode.None))
+            {
+                var id = avatar.PlayerId;
+                if (id == null) continue;
+                if (!playerVisuals.ContainsKey(id))
+                    playerVisuals.Add(id, new ReplayVisual(avatar.transform, null));
+            }
+            foreach (var item in UnityEngine.Object.FindObjectsByType<CarryableItem>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (!itemVisuals.ContainsKey(item.ObjectId))
+                    itemVisuals.Add(item.ObjectId, new ReplayVisual(item.transform, null));
+            }
         }
 
         private static int GetRecordedPlayerCount(
@@ -383,11 +414,10 @@ namespace Game.Bootstrap
             cameraDirector?.ClearOccluders();
             cameraDirector = null;
             hud?.SetHighlightTitle(null);
-            if (cameraRig != null && cameraOverridden)
-            {
-                cameraRig.enabled = cameraWasEnabled;
-                cameraOverridden = false;
-            }
+            foreach (var visual in playerVisuals.Values) visual.SetPlaying(false);
+            foreach (var visual in itemVisuals.Values) visual.SetPlaying(false);
+            cameraRig?.EndReplay();
+            transition.SetOpacity(0f);
         }
     }
 

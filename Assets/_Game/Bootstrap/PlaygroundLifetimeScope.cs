@@ -72,6 +72,9 @@ namespace Game.Bootstrap
             builder.Register<MatchRuntimeFactory>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>();
+            var transition = new GameObject("Highlight Transition").AddComponent<HighlightTransitionView>();
+            transition.transform.SetParent(transform, false);
+            builder.RegisterComponent(transition).As<IHighlightTransitionView>();
             builder.RegisterEntryPoint<NetworkHighlightPlaybackController>();
             builder.RegisterEntryPoint<NetworkResultLobbyReturnController>();
             builder.RegisterEntryPoint<InGamePlayerNameplatePresenter>();

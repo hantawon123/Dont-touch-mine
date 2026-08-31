@@ -137,6 +137,9 @@ namespace Game.Architecture.Tests
 
                 Assert.That(network.Snapshots, Has.Count.EqualTo(3));
                 Assert.That(network.Snapshots[2].Phase, Is.EqualTo(MatchPhase.Highlight));
+                Assert.That(network.HighlightReplay, Is.Null.Or.Empty);
+                network.ServerTime += MatchSessionCoordinator.HighlightPostRollSeconds;
+                network.PublishSimulationTick();
                 Assert.That(network.HighlightReplay.Count, Is.EqualTo(1));
                 Assert.That(
                     network.HighlightReplay[0].Candidate.Type,

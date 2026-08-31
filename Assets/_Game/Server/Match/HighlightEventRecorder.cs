@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Game.Core.Items;
 using Game.SOAP.Config;
+using UnityEngine;
 
 namespace Game.Server.Match
 {
@@ -15,6 +16,25 @@ namespace Game.Server.Match
         private GameEvent? firstDestroyedEvent;
         private GameEvent? lastGameEvent;
         private double searchingStartedAt = -1d;
+        private double recordingStartedAt = -1d;
+
+        public void StartRecording(double now)
+        {
+            ValidateTime(now);
+            if (recordingStartedAt < 0d) recordingStartedAt = now;
+        }
+
+        public void RecordItemPickup(int playerIndex, string itemId, double now)
+        {
+            RecordItemInteraction(playerIndex, itemId, now);
+            if (!items.TryGetValue(itemId, out var item)) return;
+            if (item.LastHolder != playerIndex)
+            {
+                item.PickedUpAt.Add(now);
+                item.Holders.Add(playerIndex);
+                item.LastHolder = playerIndex;
+            }
+        }
 
         public HighlightEventRecorder(
             MatchRulesSO rules,
@@ -59,21 +79,23 @@ namespace Game.Server.Match
                 return;
             }
 
-            item.InteractingPlayers.Add(playerIndex);
             item.InteractionCount++;
             item.LastInteractedAt = now;
-            item.InteractedAt.Add(now);
             if (playerIndex != item.OwnerPlayerIndex && !item.FirstOtherPlayerInteractionAt.HasValue)
             {
                 item.FirstOtherPlayerInteractionAt = now;
             }
 
-            lastGameEvent = new GameEvent(itemId, now);
         }
 
         public void RecordItemDestroyed(int destroyerPlayerIndex, string itemId, double now)
         {
             RecordItemInteraction(destroyerPlayerIndex, itemId, now);
+            if (items.TryGetValue(itemId, out var destroyedItem))
+            {
+                destroyedItem.Destroyed = true;
+                lastGameEvent = new GameEvent(itemId, now);
+            }
             if (!firstDestroyedEvent.HasValue && items.ContainsKey(itemId))
             {
                 firstDestroyedEvent = new GameEvent(itemId, now);
@@ -90,7 +112,8 @@ namespace Game.Server.Match
                 now);
         }
 
-        public HighlightCandidate[] CaptureCandidates(double endedAt)
+        public HighlightCandidate[] CaptureCandidates(double endedAt, MatchEndReason? endReason = null,
+            IReadOnlyList<HighlightReplayFrame> frames = null)
         {
             ValidateTime(endedAt);
             var candidates = new List<HighlightCandidate>();
@@ -107,12 +130,15 @@ namespace Game.Server.Match
             {
                 candidates.Add(new HighlightCandidate(
                     HighlightType.TteTanMulgun,
-                    CreateMontageSegments(mostInteractedItem.InteractedAt, endedAt, 5, 1d),
+                    CreateMontageSegments(mostInteractedItem.PickedUpAt, endedAt, 3, 2d),
                     mostInteractedItemId));
             }
 
             if (lastGameEvent.HasValue &&
-                endedAt - lastGameEvent.Value.OccurredAt <= rules.HighlightClipDurationSeconds)
+                endedAt - lastGameEvent.Value.OccurredAt <= rules.HighlightClipDurationSeconds &&
+                (!firstDestroyedEvent.HasValue ||
+                 lastGameEvent.Value.OccurredAt != firstDestroyedEvent.Value.OccurredAt ||
+                 lastGameEvent.Value.TargetId != firstDestroyedEvent.Value.TargetId))
             {
                 candidates.Add(CreateEventCandidate(
                     HighlightType.FinalMoment,
@@ -120,19 +146,37 @@ namespace Game.Server.Match
                     endedAt));
             }
 
-            if (TryGetLongestHiddenItem(endedAt, out var longestHiddenItemId, out var hiddenUntil))
+            if (TryGetLongestHiddenItem(endedAt, out var longestHiddenItemId, out _))
             {
-                var hiddenDuration = hiddenUntil - searchingStartedAt;
-                candidates.Add(new HighlightCandidate(
-                    HighlightType.LongestHidden,
-                    new[]
+                var startedAt = recordingStartedAt >= 0d ? recordingStartedAt : searchingStartedAt;
+                var hiddenDuration = endedAt - startedAt;
+                var hiddenSegments = frames == null
+                    ? new[] { new HighlightSegment(startedAt, endedAt,
+                        Math.Max(1d, hiddenDuration / rules.HighlightClipDurationSeconds)) }
+                    : CreateHiddenSegments(longestHiddenItemId, startedAt, endedAt, frames);
+                if (hiddenSegments.Length > 0)
+                    candidates.Add(new HighlightCandidate(HighlightType.LongestHidden,
+                        hiddenSegments, longestHiddenItemId));
+            }
+
+            if (endReason == MatchEndReason.TimeExpired &&
+                !candidates.Exists(candidate => candidate.Type == HighlightType.FinalMoment))
+            {
+                string survivor = null;
+                var longest = -1d;
+                foreach (var pair in items)
+                {
+                    if (pair.Value.Destroyed) continue;
+                    var hiddenUntil = pair.Value.FirstOtherPlayerInteractionAt ?? endedAt;
+                    if (hiddenUntil > longest || hiddenUntil == longest && string.CompareOrdinal(pair.Key, survivor) < 0)
                     {
-                        new HighlightSegment(
-                            searchingStartedAt,
-                            hiddenUntil,
-                            Math.Max(1d, hiddenDuration / rules.HighlightClipDurationSeconds))
-                    },
-                    longestHiddenItemId));
+                        survivor = pair.Key;
+                        longest = hiddenUntil;
+                    }
+                }
+                if (survivor != null)
+                    candidates.Add(CreateEventCandidate(HighlightType.FinalMoment,
+                        new GameEvent(survivor, endedAt), endedAt));
             }
 
             if (TryGetMostStunnedPlayer(out var mostStunnedPlayerIndex))
@@ -150,6 +194,62 @@ namespace Game.Server.Match
             return candidates.ToArray();
         }
 
+        private HighlightSegment[] CreateHiddenSegments(string itemId, double start, double end,
+            IReadOnlyList<HighlightReplayFrame> frames)
+        {
+            var encounters = new List<double>();
+            var wasNear = false;
+            foreach (var frame in frames)
+            {
+                if (frame.RecordedAt < searchingStartedAt) continue;
+                var near = false;
+                foreach (var item in frame.WorldObjects)
+                {
+                    if (item.ObjectId != itemId) continue;
+                    for (var i = 0; i < frame.PlayerPoses.Count; i++)
+                        if (i != items[itemId].OwnerPlayerIndex &&
+                            Vector3.Distance(frame.PlayerPoses[i].position, item.Pose.position) <= 4f)
+                            near = true;
+                }
+                if (near && !wasNear &&
+                    (encounters.Count == 0 || frame.RecordedAt - encounters[encounters.Count - 1] >= 4d))
+                    encounters.Add(frame.RecordedAt);
+                wasNear = near;
+            }
+            if (encounters.Count == 0 || end <= start) return Array.Empty<HighlightSegment>();
+
+            var windows = new List<HighlightSegment> { new(start, Math.Min(end, start + 1d)) };
+            windows.Add(new HighlightSegment(Math.Max(start, encounters[0] - 1d), Math.Min(end, encounters[0] + 1d)));
+            if (encounters.Count > 1)
+                windows.Add(new HighlightSegment(Math.Max(start, encounters[encounters.Count - 1] - 1d),
+                    Math.Min(end, encounters[encounters.Count - 1] + 1d)));
+            windows.Add(new HighlightSegment(Math.Max(start, end - 1d), end));
+            var merged = new List<HighlightSegment>();
+            foreach (var window in windows)
+            {
+                if (merged.Count > 0 && window.StartedAt <= merged[merged.Count - 1].EndedAt)
+                {
+                    var previous = merged[merged.Count - 1];
+                    merged[merged.Count - 1] = new HighlightSegment(previous.StartedAt,
+                        Math.Max(previous.EndedAt, window.EndedAt));
+                }
+                else merged.Add(window);
+            }
+            var normalDuration = 0d;
+            foreach (var window in merged) normalDuration += window.PlaybackDurationSeconds;
+            var fastSpeed = Math.Max(1d, (end - start - normalDuration) /
+                Math.Max(0.1d, rules.HighlightClipDurationSeconds - normalDuration));
+            var segments = new List<HighlightSegment>();
+            var cursor = start;
+            foreach (var window in merged)
+            {
+                if (window.StartedAt > cursor) segments.Add(new HighlightSegment(cursor, window.StartedAt, fastSpeed));
+                segments.Add(window);
+                cursor = window.EndedAt;
+            }
+            return segments.ToArray();
+        }
+
         private HighlightCandidate CreateEventCandidate(
             HighlightType type,
             GameEvent gameEvent,
@@ -157,8 +257,8 @@ namespace Game.Server.Match
         {
             return new HighlightCandidate(
                 type,
-                Math.Max(0d, gameEvent.OccurredAt - 7d),
-                Math.Min(matchEndedAt, gameEvent.OccurredAt + 3d),
+                Math.Max(Math.Max(0d, recordingStartedAt >= 0d ? recordingStartedAt : searchingStartedAt), gameEvent.OccurredAt - 7d),
+                gameEvent.OccurredAt + 3d,
                 gameEvent.TargetId);
         }
 
@@ -169,7 +269,7 @@ namespace Game.Server.Match
             foreach (var pair in items)
             {
                 var item = pair.Value;
-                if (item.InteractingPlayers.Count < 2 ||
+                if (item.Holders.Count < 2 ||
                     selected != null && !IsMoreInteracted(item, pair.Key, selected, itemId))
                 {
                     continue;
@@ -188,9 +288,9 @@ namespace Game.Server.Match
             ItemRecord selected,
             string selectedId)
         {
-            if (candidate.InteractingPlayers.Count != selected.InteractingPlayers.Count)
+            if (candidate.Holders.Count != selected.Holders.Count)
             {
-                return candidate.InteractingPlayers.Count > selected.InteractingPlayers.Count;
+                return candidate.Holders.Count > selected.Holders.Count;
             }
 
             if (candidate.InteractionCount != selected.InteractionCount)
@@ -271,8 +371,10 @@ namespace Game.Server.Match
                 var eventIndex = segmentCount == 1
                     ? 0
                     : index * (eventTimes.Count - 1) / (segmentCount - 1);
-                var startedAt = Math.Max(searchingStartedAt, eventTimes[eventIndex] - radiusSeconds);
-                var segmentEndedAt = Math.Min(endedAt, eventTimes[eventIndex] + radiusSeconds);
+                var startedAt = Math.Max(Math.Max(0d, recordingStartedAt >= 0d ? recordingStartedAt : searchingStartedAt), eventTimes[eventIndex] - radiusSeconds);
+                var segmentEndedAt = Math.Min(endedAt + 3d, eventTimes[eventIndex] + radiusSeconds);
+                if (index > 0) startedAt = Math.Max(startedAt, segments[index - 1].EndedAt);
+                segmentEndedAt = Math.Max(startedAt, segmentEndedAt);
                 segments[index] = new HighlightSegment(startedAt, segmentEndedAt);
                 totalSourceDuration += segmentEndedAt - startedAt;
             }
@@ -327,11 +429,13 @@ namespace Game.Server.Match
             }
 
             public int OwnerPlayerIndex { get; }
-            public HashSet<int> InteractingPlayers { get; } = new();
+            public bool Destroyed { get; set; }
             public int InteractionCount { get; set; }
             public double LastInteractedAt { get; set; }
             public double? FirstOtherPlayerInteractionAt { get; set; }
-            public List<double> InteractedAt { get; } = new();
+            public int LastHolder { get; set; } = -1;
+            public HashSet<int> Holders { get; } = new();
+            public List<double> PickedUpAt { get; } = new();
         }
 
         private readonly struct GameEvent

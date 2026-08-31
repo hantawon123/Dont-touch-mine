@@ -15,6 +15,9 @@ namespace Game.Bootstrap
         private IReadOnlyList<HighlightReplayClip> clips = Array.Empty<HighlightReplayClip>();
         private int clipIndex;
         private double clipElapsedSeconds;
+        private double lastSourceTime = -1d;
+        private int lastAppliedClip = -1;
+        private readonly Dictionary<Animator, byte> animationActions = new();
 
         public HighlightReplayPlayer(
             IReadOnlyList<Transform> playerTargets,
@@ -45,12 +48,16 @@ namespace Game.Bootstrap
         }
 
         public bool IsPlaying { get; private set; }
+        public int CurrentClipIndex => clipIndex;
 
         public bool Start(IReadOnlyList<HighlightReplayClip> replayClips)
         {
             clips = replayClips ?? throw new ArgumentNullException(nameof(replayClips));
             clipIndex = 0;
             clipElapsedSeconds = 0d;
+            lastSourceTime = -1d;
+            lastAppliedClip = -1;
+            animationActions.Clear();
             IsPlaying = MoveToPlayableClip();
             if (IsPlaying)
             {
@@ -114,6 +121,8 @@ namespace Game.Bootstrap
             var sourceTime = clip.Segment.StartedAt +
                              (clipElapsedSeconds * clip.Segment.PlaybackSpeed);
             FindFrames(clip.Frames, sourceTime, out var from, out var to, out var t);
+            var cut = lastAppliedClip != clipIndex || lastSourceTime < 0d;
+            var sourceDelta = cut ? 0f : Mathf.Max(0f, (float)(sourceTime - lastSourceTime));
 
             var playerCount = Math.Min(
                 playerTargets.Count,
@@ -127,20 +136,32 @@ namespace Game.Bootstrap
                     to.PlayerPoses[index],
                     to.RecordedAt - from.RecordedAt,
                     (float)clip.Segment.PlaybackSpeed);
-            }
-
-            foreach (var fromObject in from.WorldObjects)
-            {
-                if (!objectTargets.TryGetValue(fromObject.ObjectId, out var target))
+                var animator = playerTargets[index] != null
+                    ? playerTargets[index].GetComponentInChildren<Animator>() : null;
+                if (animator != null && animator.runtimeAnimatorController != null)
                 {
-                    continue;
+                    var action = t >= 1f ? to.PlayerActions[index] : from.PlayerActions[index];
+                    if (cut || !animationActions.TryGetValue(animator, out var previous) || action != previous)
+                        animator.Play(action == 2 ? "Stunned" : action == 1 ? "Punch" : "Locomotion", 0, 0f);
+                    animationActions[animator] = action;
+                    animator.Update(sourceDelta);
                 }
-
-                var toPose = TryFindObject(to.WorldObjects, fromObject.ObjectId, out var toObject)
-                    ? toObject.Pose
-                    : fromObject.Pose;
-                ApplyPose(target, fromObject.Pose, toPose, t);
             }
+
+            foreach (var pair in objectTargets)
+            {
+                var hasFrom = TryFindObject(from.WorldObjects, pair.Key, out var fromObject);
+                var hasTo = TryFindObject(to.WorldObjects, pair.Key, out var toObject);
+                var visible = t >= 1f ? hasTo : hasFrom;
+                var target = pair.Value;
+                if (target == null) continue;
+                target.gameObject.SetActive(visible);
+                if (visible)
+                    ApplyPose(target, hasFrom ? fromObject.Pose : toObject.Pose,
+                        hasTo ? toObject.Pose : fromObject.Pose, t);
+            }
+            lastAppliedClip = clipIndex;
+            lastSourceTime = sourceTime;
         }
 
         private static void FindFrames(
@@ -216,6 +237,9 @@ namespace Game.Bootstrap
             delta.y = 0f;
             var speed = delta.magnitude /
                         (float)recordedDurationSeconds * playbackSpeed;
+            var animator = target.GetComponentInChildren<Animator>();
+            if (animator != null && animator.runtimeAnimatorController != null)
+                animator.SetFloat("Speed", speed);
             var motor = target.GetComponent<NetworkPlayerMotor>();
             target.GetComponent<PlayerAnimationDriver>()?.ApplyNetworkState(
                 speed,

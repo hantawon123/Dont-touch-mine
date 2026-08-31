@@ -20,6 +20,10 @@ namespace Game.Bootstrap
         private readonly HashSet<Renderer> hiddenRenderers = new();
         private Transform currentTarget;
         private float currentDistance;
+        private HighlightType currentType;
+        private Vector3 overviewAnchor;
+        private Vector3 shotDirection = Vector3.back;
+        private Transform supportingPlayer;
 
         public HighlightCameraDirector(
             Transform cameraTransform,
@@ -76,6 +80,7 @@ namespace Game.Bootstrap
         public bool Focus(HighlightCandidate highlight)
         {
             ClearOccluders();
+            currentType = highlight.Type;
             currentTarget = ResolveTarget(highlight.TargetId);
             if (currentTarget == null)
             {
@@ -87,6 +92,19 @@ namespace Game.Bootstrap
                               highlight.Type == HighlightType.LongestHidden
                 ? wideDistance
                 : closeDistance;
+            overviewAnchor = currentTarget.position;
+            supportingPlayer = null;
+            var nearest = 6f;
+            foreach (var player in playerTargets)
+            {
+                if (player == null || player == currentTarget) continue;
+                var distance = Vector3.Distance(player.position, currentTarget.position);
+                if (distance < nearest) { nearest = distance; supportingPlayer = player; }
+            }
+            var actor = supportingPlayer != null ? supportingPlayer : currentTarget;
+            shotDirection = supportingPlayer != null
+                ? (-actor.forward + actor.right * 0.65f).normalized : Vector3.back;
+            // Keep one side of the action through the shot; do not orbit with every player turn.
             ApplyTargetPose(1f);
             return true;
         }
@@ -147,9 +165,20 @@ namespace Game.Bootstrap
 
         private void ApplyTargetPose(float t)
         {
-            var focusPosition = currentTarget.position + (Vector3.up * 1f);
+            if (currentType == HighlightType.LongestHidden && currentTarget.gameObject.activeInHierarchy &&
+                Vector3.Distance(currentTarget.position, overviewAnchor) > 4f)
+                overviewAnchor = currentTarget.position;
+            var subjectPosition = currentType == HighlightType.LongestHidden ? overviewAnchor : currentTarget.position;
+            var focusPosition = subjectPosition + Vector3.up;
+            var distance = currentDistance;
+            if (currentType != HighlightType.LongestHidden && supportingPlayer != null &&
+                Vector3.Distance(subjectPosition, supportingPlayer.position) < 6f)
+            {
+                focusPosition = (subjectPosition + supportingPlayer.position) * 0.5f + Vector3.up;
+                distance = Mathf.Max(distance, Vector3.Distance(subjectPosition, supportingPlayer.position) * 1.5f);
+            }
             var desiredPosition = focusPosition +
-                                  (Vector3.back * currentDistance) +
+                                  (shotDirection * distance) +
                                   (Vector3.up * height);
             UpdateOccluders(focusPosition, desiredPosition);
 
