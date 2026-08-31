@@ -3,6 +3,7 @@ using Game.Core.Ports;
 using Photon.Realtime;
 using Photon.Voice.Fusion;
 using Photon.Voice.Unity;
+using POpusCodec.Enums;
 using R3;
 using UnityEngine;
 
@@ -27,6 +28,12 @@ namespace Game.Network.Voice
     /// </remarks>
     public sealed class VoiceRig : MonoBehaviour, IVoiceControl
     {
+        /// <summary>
+        /// Bits per second the encoder may spend. Opus treats this as a ceiling
+        /// and spends less on quiet speech.
+        /// </summary>
+        private const int SpeechBitrate = 40000;
+
         private readonly ReactiveProperty<bool> available = new(false);
         private readonly ReactiveProperty<bool> muted = new(false);
         private readonly ReactiveProperty<bool> transmitting = new(false);
@@ -55,6 +62,22 @@ namespace Game.Network.Voice
             // Silent until the player asks to talk. An open microphone in a game
             // about hiding gives away more than the player meant to say.
             recorder.TransmitEnabled = false;
+
+            // Matched to what the microphones actually run at. The default of
+            // 24 kHz made every frame pass through a resampler on the way to the
+            // encoder, which is loss paid for nothing.
+            recorder.SamplingRate = SamplingRate.Sampling48000;
+
+            // Room to spend the wider band on. Opus needs more of it at 48 kHz
+            // than at 24 to sound better rather than merely wider, and six
+            // players who mostly take turns cost little either way.
+            recorder.Bitrate = SpeechBitrate;
+
+            // Echo cancellation, noise suppression and automatic gain, all on by
+            // default once the component exists. Cancellation matters most: a
+            // player listening on speakers sends everyone else's voices back to
+            // them, and it is each machine's own job to stop that.
+            runnerObject.AddComponent<WebRtcAudioDsp>();
 
             var client = runnerObject.AddComponent<FusionVoiceClient>();
             client.PrimaryRecorder = recorder;
