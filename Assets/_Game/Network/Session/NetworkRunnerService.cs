@@ -160,6 +160,8 @@ namespace Game.Network.Session
         private int _highlightTransferSequence;
         private bool _hostMigrationInProgress;
         private int _hostMigrationRevision;
+        // Stable across replacement runners; identity only, not authentication.
+        private readonly long _playerUniqueId = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0) | 1L;
         private int _configuredMaxPlayers;
         private int _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
 
@@ -480,6 +482,7 @@ namespace Game.Network.Session
             var args = new StartGameArgs
             {
                 GameMode = request.Mode,
+                PlayerUniqueId = _playerUniqueId,
                 SessionName = request.RoomCode,
                 SessionProperties = SessionPropertyMapper.BuildForStart(
                     request,
@@ -554,6 +557,7 @@ namespace Game.Network.Session
             // local player's identity. Publish once more after StartGame has
             // completed so a one-player room shows its host immediately rather
             // than waiting for another player's join to trigger a refresh.
+            _spawner?.RefreshHost(_runner);
             _roster?.Refresh(_runner);
 
             // The room needs somewhere to record that a match started before

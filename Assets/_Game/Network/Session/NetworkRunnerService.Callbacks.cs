@@ -25,6 +25,8 @@ namespace Game.Network.Session
             }
 
             Debug.Log($"[Network] Player joined: {player}.");
+            // Snapshot seats must be restored before a join can allocate a new one.
+            if (_hostMigrationInProgress) return;
             _spawner?.Spawn(runner, player, NicknameOf(runner, player));
             ReportPlayerCount();
         }
@@ -253,6 +255,7 @@ namespace Game.Network.Session
                 await runner.Shutdown(shutdownReason: ShutdownReason.HostMigration);
                 if (migrationRevision != _hostMigrationRevision) return;
                 Debug.Log("[Network] Host migration: old runner stopped; creating replacement.");
+                _spawner?.Clear();
 
                 var sceneManager = CreateRunner(
                     hostMigrationToken.GameMode != GameMode.Server);
@@ -260,6 +263,7 @@ namespace Game.Network.Session
                 var result = await replacementRunner.StartGame(new StartGameArgs
                 {
                     GameMode = hostMigrationToken.GameMode,
+                    PlayerUniqueId = _playerUniqueId,
                     HostMigrationToken = hostMigrationToken,
                     HostMigrationResume = ResumeHostMigration,
                     ConnectionToken = SessionConnectionTokenCodec.Encode(
@@ -282,6 +286,20 @@ namespace Game.Network.Session
                     return;
                 }
 
+                ReadConfiguredSettings();
+                if (replacementRunner.IsServer)
+                {
+                    foreach (var player in replacementRunner.ActivePlayers)
+                        _spawner?.Spawn(replacementRunner, player, NicknameOf(replacementRunner, player));
+                    _spawner?.RefreshHost(replacementRunner);
+                    if (!replacementRunner.SessionInfo.UpdateCustomProperties(
+                        new Dictionary<string, SessionProperty>
+                        {
+                            [SessionPropertyKeys.HostNickname] = SanitiseNickname(_profile?.Nickname),
+                        }))
+                        Debug.LogWarning("[Network] Could not update the migrated room's host name.");
+                }
+                _roster?.Refresh(replacementRunner);
                 _hostMigrationInProgress = false;
                 _exitReported = false;
                 ReportPlayerCount();
@@ -331,6 +349,11 @@ namespace Game.Network.Session
             foreach (var snapshotObject in
                      resumedRunner.GetResumeSnapshotNetworkObjects())
             {
+                // The former host has left; do not resurrect its avatar or seat.
+                if (snapshotObject.TryGetBehaviour<PlayerAvatar>(out var snapshotAvatar) &&
+                    snapshotAvatar.IsHost)
+                    continue;
+
                 var hasTransform = snapshotObject.TryGetBehaviour<NetworkTRSP>(
                     out var networkTransform);
                 var position = hasTransform
@@ -350,7 +373,12 @@ namespace Game.Network.Session
                     position,
                     rotation,
                     player,
-                    (_, spawned) => spawned.CopyStateFrom(snapshotObject));
+                    (_, spawned) =>
+                    {
+                        spawned.CopyStateFrom(snapshotObject);
+                        if (spawned.TryGetBehaviour<PlayerAvatar>(out var avatar))
+                            avatar.IsHost = player.IsRealPlayer && player == resumedRunner.LocalPlayer;
+                    });
                 if (restoredObject == null)
                 {
                     throw new InvalidOperationException(

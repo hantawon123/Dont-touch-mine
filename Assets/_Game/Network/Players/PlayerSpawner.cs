@@ -107,6 +107,11 @@ namespace Game.Network.Players
                 return;
             }
 
+            if (runner.GetPlayerObject(player) != null)
+            {
+                return;
+            }
+
             var prefab = _prefabs == null ? null : _prefabs.Player;
 
             if (prefab == null)
@@ -209,6 +214,19 @@ namespace Game.Network.Players
             runner.SetPlayerObject(player, restoredObject);
             runner.MakeDontDestroyOnLoad(restoredObject.gameObject);
             return true;
+        }
+
+        public void RefreshHost(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsServer) return;
+            for (var seat = 0; seat < RoomSettings.MaxPlayerCount; seat++)
+            {
+                if (!_players.TryGetPlayer(seat, out var player)) continue;
+                var playerObject = runner.GetPlayerObject(player);
+                if (playerObject != null && playerObject.TryGetBehaviour<PlayerAvatar>(out var avatar))
+                    avatar.IsHost = player == runner.LocalPlayer;
+            }
+            Debug.Log($"[Spawn] Room authority is now {runner.LocalPlayer}.");
         }
 
         /// <summary>
