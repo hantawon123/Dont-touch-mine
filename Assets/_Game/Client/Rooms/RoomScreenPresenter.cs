@@ -379,13 +379,9 @@ namespace Game.Client.Rooms
             pending = PendingEntry.None;
             pendingRoomId = null;
 
-            modal.SetBusy(false);
-            modal.Close();
-            passwordModal?.SetBusy(false);
-            passwordModal?.Close();
-            codeModal?.SetBusy(false);
-            codeModal?.Close();
-
+            // Keep the exact screen that requested entry visible until Fusion
+            // replaces this scene. Closing it first exposes the browser behind
+            // it for a frame and makes one transition look like two.
             OpenLobby();
         }
 
