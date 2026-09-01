@@ -79,6 +79,35 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Focus_KeepsTheSameTopViewDirectionRegardlessOfActorFacing()
+        {
+            var camera = Create("Camera", Vector3.zero);
+            var fallback = Create("Fallback", Vector3.left);
+            var player = Create("Player", Vector3.zero);
+            var item = Create("Item", Vector3.zero);
+            var director = Director(
+                camera.transform,
+                fallback.transform,
+                new[] { player.transform },
+                new[] { new SceneWorldObjectReference("item", item.transform) });
+
+            player.transform.rotation = Quaternion.identity;
+            director.Focus(Candidate(
+                HighlightType.FirstBlood, "item", eventAt: 7d, actorPlayerIndex: 0));
+            director.SetPlaybackTime(6.5d);
+            var firstPosition = camera.transform.position;
+            var firstRotation = camera.transform.rotation;
+
+            player.transform.rotation = Quaternion.Euler(0f, 120f, 0f);
+            director.Focus(Candidate(
+                HighlightType.FirstBlood, "item", eventAt: 7d, actorPlayerIndex: 0));
+            director.SetPlaybackTime(6.5d);
+
+            Assert.That(camera.transform.position, Is.EqualTo(firstPosition));
+            Assert.That(Quaternion.Angle(camera.transform.rotation, firstRotation), Is.LessThan(0.001f));
+        }
+
+        [Test]
         public void Focus_UsesFallbackWhenTargetDoesNotExist()
         {
             var camera = Create("Camera", Vector3.zero);
@@ -195,7 +224,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Focus_HidesRendererBlockingTheEdgeOfTheActionFrame()
+        public void Focus_DoesNotHideRendererOutsideTheActionSightline()
         {
             var camera = Create("Camera", Vector3.zero);
             var fallback = Create("Fallback", Vector3.left);
@@ -215,7 +244,7 @@ namespace Game.Tests.EditMode
 
             director.Focus(Candidate(HighlightType.FirstBlood, "item"));
 
-            Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.True);
+            Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.False);
         }
 
         private static HighlightCameraDirector Director(
@@ -230,14 +259,16 @@ namespace Game.Tests.EditMode
         private static HighlightCandidate Candidate(
             HighlightType type,
             string targetId,
-            double eventAt = 10d)
+            double eventAt = 10d,
+            int actorPlayerIndex = -1)
         {
             return new HighlightCandidate(
                 type,
                 new[] { new HighlightSegment(0d, 10d) },
                 targetId,
                 eventAt,
-                50d);
+                50d,
+                actorPlayerIndex);
         }
 
         private GameObject Create(string name, Vector3 position)

@@ -209,7 +209,6 @@ namespace Game.Bootstrap
         private float currentDistance;
         private HighlightType currentType;
         private Vector3 overviewAnchor;
-        private Vector3 shotDirection = Vector3.back;
         private Transform supportingPlayer;
         private HighlightCandidate currentHighlight;
         private HighlightShot[] shots = Array.Empty<HighlightShot>();
@@ -263,7 +262,7 @@ namespace Game.Bootstrap
             this.height = height;
             this.followSharpness = followSharpness;
             this.collisionLayerMask = collisionLayerMask;
-            replayCameraRig = HighlightReplayCameraRig.TryCreate(cameraTransform, collisionLayerMask);
+            replayCameraRig = HighlightReplayCameraRig.TryCreate(cameraTransform);
         }
 
         public Transform CurrentTarget => currentTarget;
@@ -392,12 +391,6 @@ namespace Game.Bootstrap
                 HighlightShotFraming.Medium => (closeDistance + wideDistance) * 0.5f,
                 _ => closeDistance,
             };
-            var actor = supportingPlayer != null ? supportingPlayer : currentTarget;
-            var side = currentShotIndex % 2 == 0 ? 0.65f : -0.65f;
-            shotDirection = supportingPlayer != null
-                ? (-actor.forward + actor.right * side).normalized
-                : Vector3.back;
-            replayCameraRig?.SetTargets(currentTarget, supportingPlayer);
             ApplyTargetPose(shot.HardCut ? 1f : 0f);
         }
 
@@ -432,7 +425,7 @@ namespace Game.Bootstrap
                 distance = Mathf.Max(distance, Vector3.Distance(subjectPosition, supportingPlayer.position) * 1.5f);
             }
             var desiredPosition = focusPosition +
-                                  (shotDirection * distance) +
+                                  (Vector3.back * distance) +
                                   (Vector3.up * height);
             var desiredRotation = Quaternion.LookRotation(
                 focusPosition - desiredPosition,
@@ -444,7 +437,6 @@ namespace Game.Bootstrap
                     desiredPosition,
                     desiredRotation,
                     t,
-                    FramingSizeOf(CurrentShot?.Framing ?? HighlightShotFraming.Medium),
                     t >= 1f);
                 return;
             }
@@ -479,7 +471,7 @@ namespace Game.Bootstrap
 
             foreach (var hit in Physics.SphereCastAll(
                          focusPosition,
-                         Mathf.Clamp(currentDistance * 0.5f, 2.5f, 8f),
+                         0.75f,
                          direction / distance,
                          distance,
                          collisionLayerMask,
@@ -487,10 +479,6 @@ namespace Game.Bootstrap
             {
                 HideIfOccluding(hit.collider.GetComponent<Renderer>());
                 HideIfOccluding(hit.collider.GetComponentInParent<Renderer>());
-                foreach (var renderer in hit.collider.GetComponentsInChildren<Renderer>(true))
-                {
-                    HideIfOccluding(renderer);
-                }
             }
         }
 
@@ -526,13 +514,6 @@ namespace Game.Bootstrap
         private static bool IsSameHierarchy(Transform left, Transform right) =>
             left != null && right != null &&
             (left == right || left.IsChildOf(right) || right.IsChildOf(left));
-
-        private static float FramingSizeOf(HighlightShotFraming framing) => framing switch
-        {
-            HighlightShotFraming.Wide => 0.38f,
-            HighlightShotFraming.Medium => 0.5f,
-            _ => 0.65f,
-        };
 
         public void Dispose()
         {
