@@ -10,6 +10,9 @@ namespace Game.Bootstrap
 {
     public sealed class HighlightReplayPlayer
     {
+        private const double CutFadeSeconds = 0.12d;
+        private const double CutBlackSeconds = 0.06d;
+
         private readonly IReadOnlyList<Transform> playerTargets;
         private readonly Dictionary<string, Transform> objectTargets;
         private IReadOnlyList<HighlightReplayClip> clips = Array.Empty<HighlightReplayClip>();
@@ -50,6 +53,28 @@ namespace Game.Bootstrap
         public bool IsPlaying { get; private set; }
         public int CurrentClipIndex => clipIndex;
         public double? SourceTime => lastSourceTime < 0d ? null : lastSourceTime;
+
+        internal static float CutOpacity(
+            IReadOnlyList<HighlightReplayClip> replayClips,
+            double playbackTime)
+        {
+            if (replayClips == null) throw new ArgumentNullException(nameof(replayClips));
+            if (!double.IsFinite(playbackTime) || playbackTime < 0d)
+                throw new ArgumentOutOfRangeException(nameof(playbackTime));
+
+            var boundary = 0d;
+            var halfBlack = CutBlackSeconds * 0.5d;
+            for (var index = 0; index < replayClips.Count - 1; index++)
+            {
+                boundary += replayClips[index].Segment.PlaybackDurationSeconds;
+                var distance = Math.Abs(playbackTime - boundary);
+                if (distance <= halfBlack) return 1f;
+                if (distance < halfBlack + CutFadeSeconds)
+                    return (float)(1d - (distance - halfBlack) / CutFadeSeconds);
+            }
+
+            return 0f;
+        }
 
         public bool Start(IReadOnlyList<HighlightReplayClip> replayClips)
         {
