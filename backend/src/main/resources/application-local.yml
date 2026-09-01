@@ -1,0 +1,16 @@
+# 로컬 개발용. 여기 적힌 계정은 compose.local.yml이 띄우는 컨테이너 전용이며
+# 개발자 PC 밖으로 나가지 않으므로 저장소에 그대로 둡니다.
+spring:
+  datasource:
+    # 3307입니다. compose.local.yml이 호스트 3307에 물려 있습니다.
+    url: jdbc:mysql://localhost:3307/d205?characterEncoding=UTF-8&serverTimezone=Asia/Seoul&rewriteBatchedStatements=true
+    username: d205
+    password: d205local
+
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    com.ssafy.d205: debug
+    org.hibernate.SQL: debug
