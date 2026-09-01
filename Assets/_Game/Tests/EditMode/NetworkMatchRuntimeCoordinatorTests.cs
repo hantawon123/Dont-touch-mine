@@ -283,8 +283,12 @@ namespace Game.Architecture.Tests
                 Assert.That(network.Snapshots[2].Phase, Is.EqualTo(MatchPhase.Highlight));
                 Assert.That(network.Snapshots[2].PhaseEndsAt, Is.Zero);
                 Assert.That(network.HighlightReplay, Is.Null.Or.Empty);
+                Assert.That(network.Controls[0], Is.True);
+                Assert.That(network.Controls[1], Is.True);
                 network.ServerTime += MatchSessionCoordinator.HighlightPostRollSeconds;
                 network.PublishSimulationTick();
+                Assert.That(network.Controls[0], Is.False);
+                Assert.That(network.Controls[1], Is.False);
                 Assert.That(network.HighlightReplay.Count, Is.EqualTo(1));
                 Assert.That(
                     network.HighlightReplay[0].Candidate.Type,

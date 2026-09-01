@@ -1,5 +1,6 @@
 using System.Linq;
 using Game.Core.Items;
+using Game.Server.Items;
 using Game.Server.Match;
 using Game.SOAP.Config;
 using NUnit.Framework;
@@ -41,6 +42,9 @@ namespace Game.Tests.EditMode
             var candidate = Candidate(HighlightType.FirstBlood, 120d);
 
             Assert.That(candidate.TargetId, Is.EqualTo("item-a"));
+            Assert.That(candidate.ActorPlayerIndex, Is.EqualTo(1));
+            Assert.That(candidate.EventAt, Is.EqualTo(110d));
+            Assert.That(candidate.Score, Is.EqualTo(60d));
             Assert.That(candidate.StartedAt, Is.EqualTo(103d));
             Assert.That(candidate.EndedAt, Is.EqualTo(113d));
         }
@@ -57,8 +61,10 @@ namespace Game.Tests.EditMode
             var candidate = Candidate(HighlightType.TteTanMulgun, 110d);
 
             Assert.That(candidate.TargetId, Is.EqualTo("item-b"));
+            Assert.That(candidate.ActorPlayerIndex, Is.EqualTo(1));
+            Assert.That(candidate.SecondaryPlayerIndex, Is.EqualTo(-1));
             Assert.That(candidate.Segments, Has.Count.EqualTo(2));
-            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(5d));
+            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(4d));
         }
 
         [Test]
@@ -82,18 +88,36 @@ namespace Game.Tests.EditMode
 
             Assert.That(candidate.TargetId, Is.EqualTo("item-d"));
             Assert.That(candidate.EndedAt, Is.EqualTo(140d));
-            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(10d));
+            Assert.That(candidate.Score, Is.EqualTo(70d));
+            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(6d));
+            Assert.That(candidate.Segments.All(segment => segment.PlaybackSpeed == 1d), Is.True);
+        }
+
+        [Test]
+        public void CaptureCandidates_SelectsLongestHiddenOnlyFromSurvivingItems()
+        {
+            recorder.RecordItemDestroyed(0, "item-a", 140d);
+            recorder.RecordItemInteraction(0, "item-b", 110d);
+            recorder.RecordItemInteraction(0, "item-c", 120d);
+            recorder.RecordItemInteraction(0, "item-d", 130d);
+
+            var candidate = Candidate(HighlightType.LongestHidden, 140d);
+
+            Assert.That(candidate.TargetId, Is.EqualTo("item-d"));
         }
 
         [Test]
         public void CaptureCandidates_SelectsMostStunnedUsingLatestStunAsTieBreaker()
         {
-            recorder.RecordPlayerStunned(1, 105d);
-            recorder.RecordPlayerStunned(2, 106d);
+            recorder.RecordPlayerStunned(0, 1, 105d);
+            recorder.RecordPlayerStunned(3, 2, 106d);
 
             var candidate = Candidate(HighlightType.MostStunned, 110d);
 
             Assert.That(candidate.TargetId, Is.EqualTo("2"));
+            Assert.That(candidate.ActorPlayerIndex, Is.EqualTo(3));
+            Assert.That(candidate.SecondaryPlayerIndex, Is.EqualTo(-1));
+            Assert.That(candidate.EventAt, Is.EqualTo(106d));
             Assert.That(candidate.Segments, Has.Count.EqualTo(1));
             Assert.That(candidate.StartedAt, Is.EqualTo(104d));
             Assert.That(candidate.EndedAt, Is.EqualTo(108d));
@@ -119,6 +143,52 @@ namespace Game.Tests.EditMode
             Assert.That(
                 () => recorder.RecordPlayerStunned(4, 101d),
                 Throws.TypeOf<System.ArgumentOutOfRangeException>());
+        }
+
+        [Test]
+        public void CaptureCandidates_RanksMeaningfulLateEventAboveRoutineFirstBlood()
+        {
+            recorder.RecordItemDestroyed(1, "item-a", 101d);
+            recorder.RecordPlayerStunned(2, 3, 119d);
+
+            var selected = HighlightCandidateSelector.Select(recorder.CaptureCandidates(120d));
+
+            Assert.That(selected[0].Type, Is.EqualTo(HighlightType.FinalMoment));
+            Assert.That(selected[0].ActorPlayerIndex, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void CaptureCandidates_DoesNotCreateLongestHiddenForDestroyedSoloItem()
+        {
+            var solo = new HighlightEventRecorder(rules, new[]
+            {
+                Assignment(0, "solo-item")
+            });
+            solo.StartRecording(100d);
+            solo.RecordItemPickup(0, "solo-item", 100d);
+            solo.StartSearching(130d);
+            solo.RecordItemDestroyed(0, "solo-item", 160d);
+
+            var candidates = solo.CaptureCandidates(
+                160d,
+                MatchEndReason.AllPlayerItemsDestroyed,
+                new[]
+                {
+                    new HighlightReplayFrame(
+                        130d,
+                        new[] { Pose.identity },
+                        new[] { new WorldObjectState("solo-item", Pose.identity) })
+                });
+
+            var hotItem = candidates.Single(candidate =>
+                candidate.Type == HighlightType.TteTanMulgun);
+            Assert.That(candidates.Any(candidate =>
+                candidate.Type == HighlightType.FirstBlood), Is.True);
+            Assert.That(hotItem.ActorPlayerIndex, Is.Zero);
+            Assert.That(hotItem.Score, Is.GreaterThan(0d));
+            Assert.That(hotItem.EventAt, Is.LessThanOrEqualTo(hotItem.EndedAt));
+            Assert.That(candidates.Any(candidate =>
+                candidate.Type == HighlightType.LongestHidden), Is.False);
         }
 
         private HighlightCandidate Candidate(HighlightType type, double endedAt)

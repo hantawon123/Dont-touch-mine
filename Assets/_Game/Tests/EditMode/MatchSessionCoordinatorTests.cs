@@ -777,6 +777,30 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void ReplayRecording_StartsOneSecondAfterSearchingBegins()
+        {
+            var playerPoses = CreatePlayerPoses(lastKnownPositions);
+            var replayObjects = new[]
+            {
+                new WorldObjectState("shelf", Pose.identity)
+            };
+            session.Start(10d);
+
+            Assert.That(
+                session.TryRecordReplayFrame(100d, playerPoses, replayObjects),
+                Is.False);
+
+            session.AdvanceTime(190d, lastKnownPositions);
+
+            Assert.That(
+                session.TryRecordReplayFrame(190.9d, playerPoses, replayObjects),
+                Is.False);
+            Assert.That(
+                session.TryRecordReplayFrame(191d, playerPoses, replayObjects),
+                Is.True);
+        }
+
+        [Test]
         public void HighlightPlaybackController_PlaysAllCandidatesAndEntersResult()
         {
             StartSearching();

@@ -17,7 +17,7 @@ namespace Game.Bootstrap
         private double clipElapsedSeconds;
         private double lastSourceTime = -1d;
         private int lastAppliedClip = -1;
-        private readonly Dictionary<Animator, byte> animationActions = new();
+        private readonly Dictionary<Animator, HighlightPlayerAction> animationActions = new();
 
         public HighlightReplayPlayer(
             IReadOnlyList<Transform> playerTargets,
@@ -143,7 +143,7 @@ namespace Game.Bootstrap
                 {
                     var action = t >= 1f ? to.PlayerActions[index] : from.PlayerActions[index];
                     if (cut || !animationActions.TryGetValue(animator, out var previous) || action != previous)
-                        animator.Play(action == 2 ? "Stunned" : action == 1 ? "Punch" : "Locomotion", 0, 0f);
+                        animator.Play(AnimationStateOf(action), 0, 0f);
                     animationActions[animator] = action;
                     animator.Update(sourceDelta);
                 }
@@ -246,6 +246,16 @@ namespace Game.Bootstrap
                 speed,
                 grounded: true,
                 attackSequence: motor != null ? motor.AttackSequence : 0);
+        }
+
+        internal static string AnimationStateOf(HighlightPlayerAction action)
+        {
+            if ((action & HighlightPlayerAction.Stunned) != 0) return "Stunned";
+            if ((action & HighlightPlayerAction.Punching) != 0) return "Punch";
+            if ((action & HighlightPlayerAction.Airborne) != 0) return "Airborne";
+            if ((action & HighlightPlayerAction.Prone) != 0) return "Crawl";
+            if ((action & HighlightPlayerAction.Crouching) != 0) return "CrouchMove";
+            return "Locomotion";
         }
     }
 }

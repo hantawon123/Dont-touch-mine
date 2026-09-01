@@ -37,6 +37,7 @@ namespace Game.Network.Session
         INetworkRunnerCallbacks,
         IMatchSceneDirector,
         INetworkMatchRuntimeSource,
+        INetworkPlayerReplayStateSource,
         INetworkMatchAuthority,
         INetworkMatchEvents,
         INetworkHighlightReady,
@@ -52,7 +53,7 @@ namespace Game.Network.Session
         private readonly Dictionary<string, string> _publishedItemAssignments = new(StringComparer.Ordinal);
         private const int MaxItemAssignmentBytes = 128;
         private const int HighlightReplayKeyType = 0x484C5452;
-        private const int HighlightReplayKeyVersion = 3;
+        private const int HighlightReplayKeyVersion = 4;
         private const int HighlightReadyKeyType = 0x484C5244;
         private readonly HashSet<PlayerRef> _highlightPendingPlayers = new();
         private int _receivedHighlightSequence;
@@ -337,6 +338,27 @@ namespace Game.Network.Session
             }
 
             pose = default;
+            return false;
+        }
+
+        public bool TryGetPlayerReplayState(
+            string playerId,
+            out NetworkPlayerReplayState state)
+        {
+            if (_roster != null && _roster.TryGetAvatar(playerId, out var avatar))
+            {
+                var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                if (motor != null)
+                {
+                    state = new NetworkPlayerReplayState(
+                        motor.Posture,
+                        motor.AnimationGrounded,
+                        motor.AttackSequence);
+                    return true;
+                }
+            }
+
+            state = default;
             return false;
         }
 

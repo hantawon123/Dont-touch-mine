@@ -73,10 +73,14 @@ namespace Game.Server.Match
         {
             if (isStarted)
             {
+                var replayActions = context is IHighlightReplayActionSource actionSource
+                    ? actionSource.PlayerReplayActions
+                    : null;
                 session.TryRecordReplayFrame(
                     context.ServerTime,
                     context.PlayerPoses,
-                    context.ReplayObjects);
+                    context.ReplayObjects,
+                    replayActions);
                 session.AdvanceTime(context.ServerTime, context.PlayerPositions);
                 SyncAppFlow();
             }

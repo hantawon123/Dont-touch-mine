@@ -877,7 +877,11 @@ namespace Game.Architecture.Tests
             var candidate = new HighlightCandidate(
                 HighlightType.FirstBlood,
                 new[] { segment },
-                "player-1");
+                "player-1",
+                eventAt: 11.5d,
+                score: 87d,
+                actorPlayerIndex: 2,
+                secondaryPlayerIndex: 3);
             var frame = new HighlightReplayFrame(
                 11d,
                 new[]
@@ -905,6 +909,10 @@ namespace Game.Architecture.Tests
             Assert.That(restored, Has.Length.EqualTo(1));
             Assert.That(restored[0].Candidate.Type, Is.EqualTo(HighlightType.FirstBlood));
             Assert.That(restored[0].Candidate.TargetId, Is.EqualTo("player-1"));
+            Assert.That(restored[0].Candidate.EventAt, Is.EqualTo(11.5d));
+            Assert.That(restored[0].Candidate.Score, Is.EqualTo(87d));
+            Assert.That(restored[0].Candidate.ActorPlayerIndex, Is.EqualTo(2));
+            Assert.That(restored[0].Candidate.SecondaryPlayerIndex, Is.EqualTo(3));
             Assert.That(restored[0].Clips[0].Segment.PlaybackSpeed, Is.EqualTo(2d));
             Assert.That(restored[0].Clips[0].Frames[0].RecordedAt, Is.EqualTo(11d));
             Assert.That(

@@ -138,8 +138,11 @@ namespace Game.Server.Match
     {
         private const double MapObjectEjectionDelaySeconds = 0.5d;
         private const double HighlightReplaySampleIntervalSeconds = 0.1d;
+        private const double HighlightRecordingDelaySeconds = 1d;
         public const double HighlightPostRollSeconds = HighlightPresentationTiming.PostRollSeconds;
         private readonly Dictionary<int, double> lastHitAt = new();
+        private readonly Dictionary<int, double> lastPlacementAt = new();
+        private readonly Dictionary<int, double> lastThrowAt = new();
 
         private readonly MatchRulesSO rules;
         private readonly MatchState state;
@@ -213,7 +216,7 @@ namespace Game.Server.Match
             highlightRecorder = new HighlightEventRecorder(rules, assignments);
             highlightReplayBuffer = new HighlightReplayBuffer(
                 HighlightReplaySampleIntervalSeconds,
-                rules.SearchingDurationSeconds + rules.GetHidingDurationSeconds(playerCount) + HighlightPostRollSeconds + 1d);
+                rules.SearchingDurationSeconds + HighlightPostRollSeconds + 1d);
             ValidateUniqueObjectIds(assignments, worldObjectStates);
             highlights = new HighlightSequence(Array.Empty<HighlightCandidate>(), rules);
         }
@@ -241,7 +244,6 @@ namespace Game.Server.Match
         public bool Start(double now)
         {
             if (!flow.Start(now)) return false;
-            highlightRecorder.StartRecording(now);
             return true;
         }
 
@@ -500,6 +502,8 @@ namespace Game.Server.Match
                 highlightRecorder.RecordItemInteraction(playerIndex, objectId, now);
             }
 
+            lastPlacementAt[playerIndex] = now;
+
             return true;
         }
 
@@ -561,6 +565,7 @@ namespace Game.Server.Match
                     releasePose,
                     initialVelocity,
                     now));
+            lastThrowAt[playerIndex] = now;
             return true;
         }
 
@@ -675,7 +680,7 @@ namespace Game.Server.Match
                     now);
             }
 
-            highlightRecorder.RecordPlayerStunned(targetPlayerIndex, now);
+            highlightRecorder.RecordPlayerStunned(attackerPlayerIndex, targetPlayerIndex, now);
             PlayerStunned?.Invoke(
                 new PlayerStunnedEvent(
                     attackerPlayerIndex,
@@ -792,13 +797,18 @@ namespace Game.Server.Match
         public bool TryRecordReplayFrame(
             double now,
             IReadOnlyList<Pose> playerPoses,
-            IReadOnlyList<WorldObjectState> replayObjects)
+            IReadOnlyList<WorldObjectState> replayObjects,
+            IReadOnlyList<HighlightPlayerAction> playerActions = null)
         {
             if (replayUnavailable) return false;
-            if (state.CurrentPhase.CurrentValue != MatchPhase.Searching &&
-                state.CurrentPhase.CurrentValue != MatchPhase.Hiding &&
-                !(state.CurrentPhase.CurrentValue == MatchPhase.Highlight && result.HasValue &&
-                  now <= result.Value.EndedAt + HighlightPostRollSeconds + HighlightReplaySampleIntervalSeconds))
+            var phase = state.CurrentPhase.CurrentValue;
+            var searchingStartedAt = state.PhaseEndsAt.CurrentValue - rules.SearchingDurationSeconds;
+            var canRecordSearching = phase == MatchPhase.Searching &&
+                                     now >= searchingStartedAt + HighlightRecordingDelaySeconds;
+            var canRecordPostRoll = phase == MatchPhase.Highlight && result.HasValue &&
+                                    now <= result.Value.EndedAt + HighlightPostRollSeconds +
+                                    HighlightReplaySampleIntervalSeconds;
+            if (!canRecordSearching && !canRecordPostRoll)
             {
                 return false;
             }
@@ -810,10 +820,29 @@ namespace Game.Server.Match
                     nameof(playerPoses));
             }
 
-            var actions = new byte[playerPoses.Count];
+            if (playerActions != null && playerActions.Count != playerPoses.Count)
+            {
+                throw new ArgumentException(
+                    "Replay actions must match player poses.",
+                    nameof(playerActions));
+            }
+
+            var actions = new HighlightPlayerAction[playerPoses.Count];
             for (var i = 0; i < actions.Length; i++)
-                actions[i] = interactions.IsStunned(i, now) ? (byte)2 :
-                    lastHitAt.TryGetValue(i, out var hitAt) && now - hitAt < 0.5d ? (byte)1 : (byte)0;
+            {
+                var action = playerActions == null
+                    ? HighlightPlayerAction.None
+                    : playerActions[i];
+                if (interactions.IsStunned(i, now)) action |= HighlightPlayerAction.Stunned;
+                if (lastHitAt.TryGetValue(i, out var hitAt) && now - hitAt < 0.5d)
+                    action |= HighlightPlayerAction.Punching;
+                if (TryGetHeldObjectId(i, out _)) action |= HighlightPlayerAction.Carrying;
+                if (lastThrowAt.TryGetValue(i, out var thrownAt) && now - thrownAt < 0.5d)
+                    action |= HighlightPlayerAction.Throwing;
+                if (lastPlacementAt.TryGetValue(i, out var placedAt) && now - placedAt < 0.5d)
+                    action |= HighlightPlayerAction.Placing;
+                actions[i] = action;
+            }
             return highlightReplayBuffer.TryRecord(now, playerPoses, replayObjects, actions);
         }
 
@@ -1170,16 +1199,21 @@ namespace Game.Server.Match
 
         private void StartHighlightRecordingIfNeeded(double now)
         {
+            double searchingStartedAt;
             switch (state.CurrentPhase.CurrentValue)
             {
                 case MatchPhase.Hiding when now >= state.PhaseEndsAt.CurrentValue:
-                    highlightRecorder.StartSearching(state.PhaseEndsAt.CurrentValue);
+                    searchingStartedAt = state.PhaseEndsAt.CurrentValue;
                     break;
                 case MatchPhase.Searching:
-                    highlightRecorder.StartSearching(
-                        state.PhaseEndsAt.CurrentValue - rules.SearchingDurationSeconds);
+                    searchingStartedAt = state.PhaseEndsAt.CurrentValue - rules.SearchingDurationSeconds;
                     break;
+                default:
+                    return;
             }
+
+            highlightRecorder.StartSearching(searchingStartedAt);
+            highlightRecorder.StartRecording(searchingStartedAt + HighlightRecordingDelaySeconds);
         }
 
         private void CompleteExpiredHidingTurns(
