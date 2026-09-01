@@ -53,7 +53,7 @@ namespace Game.Network.Session
         private readonly Dictionary<string, string> _publishedItemAssignments = new(StringComparer.Ordinal);
         private const int MaxItemAssignmentBytes = 128;
         private const int HighlightReplayKeyType = 0x484C5452;
-        private const int HighlightReplayKeyVersion = 3;
+        private const int HighlightReplayKeyVersion = 4;
         private const int HighlightReadyKeyType = 0x484C5244;
         private readonly HashSet<PlayerRef> _highlightPendingPlayers = new();
         private int _receivedHighlightSequence;
