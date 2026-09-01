@@ -223,7 +223,7 @@ namespace Game.Bootstrap
             IReadOnlyList<SceneWorldObjectReference> objectTargets,
             float closeDistance = 10f,
             float wideDistance = 14f,
-            float height = 5.5f,
+            float height = 7.5f,
             float followSharpness = 10f,
             int collisionLayerMask = Physics.DefaultRaycastLayers,
             IReadOnlyList<SceneHighlightOcclusionReference> occlusionGroups = null)

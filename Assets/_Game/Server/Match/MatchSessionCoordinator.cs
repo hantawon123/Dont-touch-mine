@@ -138,6 +138,7 @@ namespace Game.Server.Match
     {
         private const double MapObjectEjectionDelaySeconds = 0.5d;
         private const double HighlightReplaySampleIntervalSeconds = 0.1d;
+        private const double HighlightRecordingDelaySeconds = 1d;
         public const double HighlightPostRollSeconds = HighlightPresentationTiming.PostRollSeconds;
         private readonly Dictionary<int, double> lastHitAt = new();
         private readonly Dictionary<int, double> lastPlacementAt = new();
@@ -215,7 +216,7 @@ namespace Game.Server.Match
             highlightRecorder = new HighlightEventRecorder(rules, assignments);
             highlightReplayBuffer = new HighlightReplayBuffer(
                 HighlightReplaySampleIntervalSeconds,
-                rules.SearchingDurationSeconds + rules.GetHidingDurationSeconds(playerCount) + HighlightPostRollSeconds + 1d);
+                rules.SearchingDurationSeconds + HighlightPostRollSeconds + 1d);
             ValidateUniqueObjectIds(assignments, worldObjectStates);
             highlights = new HighlightSequence(Array.Empty<HighlightCandidate>(), rules);
         }
@@ -243,7 +244,6 @@ namespace Game.Server.Match
         public bool Start(double now)
         {
             if (!flow.Start(now)) return false;
-            highlightRecorder.StartRecording(now);
             return true;
         }
 
@@ -801,10 +801,14 @@ namespace Game.Server.Match
             IReadOnlyList<HighlightPlayerAction> playerActions = null)
         {
             if (replayUnavailable) return false;
-            if (state.CurrentPhase.CurrentValue != MatchPhase.Searching &&
-                state.CurrentPhase.CurrentValue != MatchPhase.Hiding &&
-                !(state.CurrentPhase.CurrentValue == MatchPhase.Highlight && result.HasValue &&
-                  now <= result.Value.EndedAt + HighlightPostRollSeconds + HighlightReplaySampleIntervalSeconds))
+            var phase = state.CurrentPhase.CurrentValue;
+            var searchingStartedAt = state.PhaseEndsAt.CurrentValue - rules.SearchingDurationSeconds;
+            var canRecordSearching = phase == MatchPhase.Searching &&
+                                     now >= searchingStartedAt + HighlightRecordingDelaySeconds;
+            var canRecordPostRoll = phase == MatchPhase.Highlight && result.HasValue &&
+                                    now <= result.Value.EndedAt + HighlightPostRollSeconds +
+                                    HighlightReplaySampleIntervalSeconds;
+            if (!canRecordSearching && !canRecordPostRoll)
             {
                 return false;
             }
@@ -1195,16 +1199,21 @@ namespace Game.Server.Match
 
         private void StartHighlightRecordingIfNeeded(double now)
         {
+            double searchingStartedAt;
             switch (state.CurrentPhase.CurrentValue)
             {
                 case MatchPhase.Hiding when now >= state.PhaseEndsAt.CurrentValue:
-                    highlightRecorder.StartSearching(state.PhaseEndsAt.CurrentValue);
+                    searchingStartedAt = state.PhaseEndsAt.CurrentValue;
                     break;
                 case MatchPhase.Searching:
-                    highlightRecorder.StartSearching(
-                        state.PhaseEndsAt.CurrentValue - rules.SearchingDurationSeconds);
+                    searchingStartedAt = state.PhaseEndsAt.CurrentValue - rules.SearchingDurationSeconds;
                     break;
+                default:
+                    return;
             }
+
+            highlightRecorder.StartSearching(searchingStartedAt);
+            highlightRecorder.StartRecording(searchingStartedAt + HighlightRecordingDelaySeconds);
         }
 
         private void CompleteExpiredHidingTurns(

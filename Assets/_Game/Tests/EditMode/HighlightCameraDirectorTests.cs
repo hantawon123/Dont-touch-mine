@@ -38,6 +38,7 @@ namespace Game.Tests.EditMode
                 Is.True);
 
             Assert.That(camera.transform.position.z, Is.EqualTo(-14f));
+            Assert.That(camera.transform.position.y, Is.EqualTo(8.5f));
             director.SetPlaybackTime(6.5d);
             Assert.That(camera.transform.position.z, Is.EqualTo(-10f));
         }
@@ -259,6 +260,15 @@ namespace Game.Tests.EditMode
                 2.5f,
                 upperLevel.transform);
 
+            var roof = Create("Roof", Vector3.zero);
+            var roofRenderer = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            roofRenderer.transform.SetParent(roof.transform);
+            roofRenderer.transform.position = new Vector3(8f, 5.5f, 4f);
+            gameObjects.Add(roofRenderer);
+            var roofGroup = new SceneHighlightOcclusionReference(
+                5.5f,
+                roof.transform);
+
             var upperReplayItem = GameObject.CreatePrimitive(PrimitiveType.Cube);
             upperReplayItem.transform.position = new Vector3(8f, 3f, 4f);
             gameObjects.Add(upperReplayItem);
@@ -277,18 +287,25 @@ namespace Game.Tests.EditMode
                     new SceneWorldObjectReference("item", item.transform),
                     new SceneWorldObjectReference("upper", upperReplayItem.transform),
                 },
-                new[] { upperGroup });
+                new[] { upperGroup, roofGroup });
 
             director.Focus(Candidate(HighlightType.FirstBlood, "item"));
 
             Assert.That(upperFloor.GetComponent<Renderer>().forceRenderingOff, Is.True);
+            Assert.That(roofRenderer.GetComponent<Renderer>().forceRenderingOff, Is.True);
             Assert.That(upperReplayItem.GetComponent<Renderer>().forceRenderingOff, Is.True);
 
             item.transform.position = new Vector3(0f, 3f, 0f);
             director.Tick(1f);
 
             Assert.That(upperFloor.GetComponent<Renderer>().forceRenderingOff, Is.False);
+            Assert.That(roofRenderer.GetComponent<Renderer>().forceRenderingOff, Is.True);
             Assert.That(upperReplayItem.GetComponent<Renderer>().forceRenderingOff, Is.False);
+
+            item.transform.position = new Vector3(0f, 6f, 0f);
+            director.Tick(1f);
+
+            Assert.That(roofRenderer.GetComponent<Renderer>().forceRenderingOff, Is.False);
         }
 
         private static HighlightCameraDirector Director(

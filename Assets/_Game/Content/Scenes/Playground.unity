@@ -7021,6 +7021,8 @@ MonoBehaviour:
     contentRoots:
     - {fileID: 1905800772}
     - {fileID: 2147000001}
+  - visibleFromHeight: 5.5
+    contentRoots:
     - {fileID: 2147000002}
 --- !u!4 &456893478 stripped
 Transform:
