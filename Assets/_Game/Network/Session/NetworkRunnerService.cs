@@ -1328,7 +1328,8 @@ namespace Game.Network.Session
                 var lobby = _scenes.LobbyScene;
                 if (lobby.IsValid && IsOnlyScene(_runner.SceneInfo, lobby))
                 {
-                    CompletePreloadedLobbyEntry(lobby);
+                    CompletePreloadedLobbyEntryWhenReadyAsync(_runner, lobby)
+                        .Forget(Debug.LogException);
                     return true;
                 }
             }
@@ -1340,21 +1341,37 @@ namespace Game.Network.Session
         /// Finishes the additive initial load with the same local result as a
         /// single scene load, without loading Lobby a second time.
         /// </summary>
-        private static void CompletePreloadedLobbyEntry(SceneRef lobby)
+        private async UniTask CompletePreloadedLobbyEntryWhenReadyAsync(
+            NetworkRunner runner,
+            SceneRef lobby)
         {
-            var lobbyScene = SceneManager.GetSceneByBuildIndex(lobby.AsIndex);
-            if (!lobbyScene.IsValid() || !lobbyScene.isLoaded)
+            await UniTask.WaitUntil(() =>
+            {
+                var scene = SceneManager.GetSceneByBuildIndex(lobby.AsIndex);
+                return !IsCurrentRunner(runner) || !runner.IsRunning ||
+                       scene.IsValid() && scene.isLoaded;
+            });
+
+            if (!IsCurrentRunner(runner) || !runner.IsRunning)
             {
                 return;
             }
 
+            // Do not unload a scene from inside Fusion's scene-load callback.
+            await UniTask.NextFrame();
+            if (!IsCurrentRunner(runner) || !runner.IsRunning)
+            {
+                return;
+            }
+
+            var lobbyScene = SceneManager.GetSceneByBuildIndex(lobby.AsIndex);
             SceneManager.SetActiveScene(lobbyScene);
             for (var index = SceneManager.sceneCount - 1; index >= 0; index--)
             {
                 var loaded = SceneManager.GetSceneAt(index);
                 if (loaded != lobbyScene && loaded.isLoaded)
                 {
-                    SceneManager.UnloadSceneAsync(loaded);
+                    _ = SceneManager.UnloadSceneAsync(loaded);
                 }
             }
         }
