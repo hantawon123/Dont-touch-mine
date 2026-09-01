@@ -2,6 +2,7 @@ using Fusion;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using Game.Network.Session;
+using PhotonRoomInfo = Photon.Realtime.RoomInfo;
 
 namespace Game.Network.Lobby
 {
@@ -24,6 +25,43 @@ namespace Game.Network.Lobby
                 info.MaxPlayers);
 
             if (string.IsNullOrWhiteSpace(info.Name)
+                || string.IsNullOrWhiteSpace(mapId)
+                || !info.IsVisible
+                || !info.IsOpen
+                || maxPlayers < RoomSettings.MinPlayerCount
+                || maxPlayers > RoomSettings.MaxPlayerCount
+                || info.PlayerCount < 1
+                || info.PlayerCount > maxPlayers)
+            {
+                summary = default;
+                return false;
+            }
+
+            summary = new RoomSummary(
+                new RoomId(info.Name),
+                displayName,
+                mapId,
+                info.PlayerCount,
+                maxPlayers,
+                ReadBool(info, SessionPropertyKeys.Locked),
+                info.IsOpen,
+                RoomStatus.Waiting,
+                hostNickname);
+            return true;
+        }
+
+        public static bool TryToSummary(PhotonRoomInfo info, out RoomSummary summary)
+        {
+            var displayName = ReadString(
+                info, SessionPropertyKeys.DisplayName, UnnamedRoom);
+            var mapId = ReadString(info, SessionPropertyKeys.MapId, null);
+            var hostNickname = ReadString(
+                info, SessionPropertyKeys.HostNickname, null);
+            var maxPlayers = ReadInt(
+                info, SessionPropertyKeys.MaxPlayers, info.MaxPlayers);
+
+            if (info.RemovedFromList
+                || string.IsNullOrWhiteSpace(info.Name)
                 || string.IsNullOrWhiteSpace(mapId)
                 || !info.IsVisible
                 || !info.IsOpen
@@ -92,5 +130,33 @@ namespace Game.Network.Lobby
                 ? (int)property
                 : fallback;
         }
+
+        private static string ReadString(
+            PhotonRoomInfo info, string key, string fallback)
+        {
+            if (info.CustomProperties != null
+                && info.CustomProperties.TryGetValue(key, out var value)
+                && value is string text
+                && !string.IsNullOrEmpty(text))
+            {
+                return text;
+            }
+
+            return fallback;
+        }
+
+        private static bool ReadBool(PhotonRoomInfo info, string key) =>
+            info.CustomProperties != null
+            && info.CustomProperties.TryGetValue(key, out var value)
+            && value is bool enabled
+            && enabled;
+
+        private static int ReadInt(
+            PhotonRoomInfo info, string key, int fallback) =>
+            info.CustomProperties != null
+            && info.CustomProperties.TryGetValue(key, out var value)
+            && value is int number
+                ? number
+                : fallback;
     }
 }

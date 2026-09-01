@@ -1,5 +1,4 @@
 using System;
-using Game.Client.Cameras;
 using Game.Client.Home;
 using Game.Core.Flow;
 using Game.Core.Lobby;
@@ -61,7 +60,6 @@ namespace Game.Client.Rooms
         private RoomBrowserSystem roomBrowser;
         private IHomeApplicationHost applicationHost;
         private AppFlowSystem appFlow;
-        private HostMigrationFrameView sceneTransitionFrame;
         private RoomCreateModalView modal;
         private RoomPasswordModalView passwordModal;
         private RoomCodeModalView codeModal;
@@ -95,17 +93,13 @@ namespace Game.Client.Rooms
             IRoomBrowserView view,
             RoomBrowserSystem browserSystem,
             IHomeApplicationHost host,
-            AppFlowSystem flow,
-            HostMigrationFrameView transitionFrame)
+            AppFlowSystem flow)
         {
             browserView = view ?? throw new ArgumentNullException(nameof(view));
             roomBrowser = browserSystem
                 ?? throw new ArgumentNullException(nameof(browserSystem));
             applicationHost = host ?? throw new ArgumentNullException(nameof(host));
             appFlow = flow ?? throw new ArgumentNullException(nameof(flow));
-            sceneTransitionFrame = transitionFrame ??
-                                   throw new ArgumentNullException(nameof(transitionFrame));
-            sceneTransitionFrame.Clear();
 
             modal = Instantiate(modalPrefab, modalParent);
             modal.Close();
@@ -385,9 +379,13 @@ namespace Game.Client.Rooms
             pending = PendingEntry.None;
             pendingRoomId = null;
 
-            // Fusion unloads Room before Lobby has rendered a complete frame.
-            // Hold this complete frame, then Lobby clears it once its camera is ready.
-            sceneTransitionFrame.Capture();
+            modal.SetBusy(false);
+            modal.Close();
+            passwordModal?.SetBusy(false);
+            passwordModal?.Close();
+            codeModal?.SetBusy(false);
+            codeModal?.Close();
+
             OpenLobby();
         }
 

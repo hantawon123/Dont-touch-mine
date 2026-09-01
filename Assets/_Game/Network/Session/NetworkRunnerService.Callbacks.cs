@@ -5,6 +5,7 @@ using Cysharp.Threading.Tasks;
 using Fusion;
 using Fusion.Addons.KCC;
 using Fusion.Sockets;
+using Photon.Realtime;
 using Game.Core.Match;
 using Game.Core.Players;
 using Game.Core.Rooms;
@@ -15,7 +16,7 @@ using UnityEngine.SceneManagement;
 
 namespace Game.Network.Session
 {
-    public sealed partial class NetworkRunnerService
+    public sealed partial class NetworkRunnerService : ILobbyCallbacks
     {
         internal const double HostMigrationStageTimeoutSeconds = 60d;
         // ---- INetworkRunnerCallbacks ------------------------------------------
@@ -188,6 +189,59 @@ namespace Game.Network.Session
                         Debug.LogWarning(
                             $"[Network] Ignored invalid room listing '{sessionList[i].Name}'.");
                     }
+                }
+            }
+
+            Debug.Log($"[Network] Room list updated: {_roomBuffer.Count} room(s).");
+            _roomListSink?.SetRooms(_roomBuffer);
+        }
+
+        public void OnJoinedLobby()
+        {
+        }
+
+        public void OnLeftLobby()
+        {
+        }
+
+        public void OnLobbyStatisticsUpdate(List<TypedLobbyInfo> lobbyStatistics)
+        {
+        }
+
+        public void OnRoomListUpdate(List<RoomInfo> roomList)
+        {
+            if (!_browsingLobby || _matchmakingClient == null)
+            {
+                return;
+            }
+
+            if (roomList != null)
+            {
+                for (var i = 0; i < roomList.Count; i++)
+                {
+                    var info = roomList[i];
+                    if (info == null || string.IsNullOrEmpty(info.Name))
+                    {
+                        continue;
+                    }
+
+                    if (info.RemovedFromList)
+                    {
+                        _realtimeRooms.Remove(info.Name);
+                    }
+                    else
+                    {
+                        _realtimeRooms[info.Name] = info;
+                    }
+                }
+            }
+
+            _roomBuffer.Clear();
+            foreach (var info in _realtimeRooms.Values)
+            {
+                if (RoomSummaryMapper.TryToSummary(info, out var room))
+                {
+                    _roomBuffer.Add(room);
                 }
             }
 
@@ -604,37 +658,12 @@ namespace Game.Network.Session
         public void OnSceneLoadStart(NetworkRunner runner)
         {
             if (!IsCurrentRunner(runner)) return;
+            RaiseNetworkSceneLoadingPriority();
             IsResultSceneLoaded = false;
             _networkSceneLoadStartedAt = Time.realtimeSinceStartupAsDouble;
-            HideOutgoingSceneForPreloadedLobby(runner);
             Debug.Log(
                 $"[SceneTiming] Fusion scene load started: current={SceneManager.GetActiveScene().name}, " +
                 $"isServer={runner.IsServer}.");
-        }
-
-        private void HideOutgoingSceneForPreloadedLobby(NetworkRunner runner)
-        {
-            if (_scenes == null || !IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene))
-            {
-                return;
-            }
-
-            var lobby = SceneManager.GetSceneByBuildIndex(_scenes.LobbyScene.AsIndex);
-            var outgoing = SceneManager.GetActiveScene();
-            if (!lobby.IsValid() || !lobby.isLoaded ||
-                !outgoing.IsValid() || !outgoing.isLoaded || outgoing == lobby)
-            {
-                return;
-            }
-
-            SceneManager.SetActiveScene(lobby);
-            foreach (var root in outgoing.GetRootGameObjects())
-            {
-                root.SetActive(false);
-            }
-
-            Debug.Log(
-                $"[SceneTiming] Preloaded Lobby activated; outgoing scene '{outgoing.name}' hidden.");
         }
 
         /// <summary>
@@ -659,6 +688,23 @@ namespace Game.Network.Session
                 for (var index = 0; index < info.SceneCount; index++)
                     if (info.Scenes[index] == resultScene) IsResultSceneLoaded = true;
             }
+            var lobbyLoaded = _scenes != null &&
+                              IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene);
+            var tookOverPreloadedLobby = lobbyLoaded &&
+                                         _preloadedLobbyRoots.Length > 0;
+            if (tookOverPreloadedLobby)
+            {
+                for (var i = 0; i < _preloadedLobbyRoots.Length; i++)
+                {
+                    if (_preloadedLobbyRoots[i] != null)
+                    {
+                        _preloadedLobbyRoots[i].SetActive(true);
+                    }
+                }
+
+                _preloadedLobbyRoots = Array.Empty<GameObject>();
+            }
+
             Debug.Log(
                 $"[Session] Scene load done: '{SceneManager.GetActiveScene().name}', " +
                 $"IsServer={runner != null && runner.IsServer}.");
@@ -667,12 +713,26 @@ namespace Game.Network.Session
                 $"isServer={runner.IsServer}, " +
                 $"elapsed={(_networkSceneLoadStartedAt < 0d ? 0d : Time.realtimeSinceStartupAsDouble - _networkSceneLoadStartedAt):F3}s.");
             _networkSceneLoadStartedAt = -1d;
+            RestoreNetworkSceneLoadingPriority();
+            if (lobbyLoaded && _roomEntryStartedAt >= 0d)
+            {
+                Debug.Log(
+                    $"[SceneTiming] Room-to-Lobby ready: " +
+                    $"total={Time.realtimeSinceStartupAsDouble - _roomEntryStartedAt:F3}s, " +
+                    $"preloaded={tookOverPreloadedLobby}.");
+                _roomEntryStartedAt = -1d;
+                _lobbyPreloadStartedAt = -1d;
+            }
 
             SceneLoaded?.Invoke();
+            if (tookOverPreloadedLobby && runner.IsServer)
+            {
+                _spawner?.RepositionSeated(runner);
+            }
             PublishSceneStateWhenReadyAsync(runner).Forget(exception => Debug.LogException(exception));
             if (!_hostMigrationInProgress &&
                 !(_matchStarter?.HasStartedMatch ?? false) &&
-                !(_scenes != null && IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene)))
+                !lobbyLoaded)
                 _spawner?.RepositionSeated(runner);
         }
 

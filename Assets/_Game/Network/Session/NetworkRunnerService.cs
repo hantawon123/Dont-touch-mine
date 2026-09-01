@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Fusion;
+using Fusion.Matchmaking;
 using Fusion.Sockets;
 using Game.Core.Home;
 using Game.Core.Lobby;
@@ -17,6 +18,7 @@ using Game.Network.Players;
 using Game.Network.Voice;
 using Game.Server.Items;
 using Game.Server.Match;
+using Photon.Realtime;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -121,13 +123,27 @@ namespace Game.Network.Session
         public event Action HostMigrationStarting;
 
         private readonly List<RoomSummary> _roomBuffer = new List<RoomSummary>();
+        private readonly Dictionary<string, RoomInfo> _realtimeRooms =
+            new Dictionary<string, RoomInfo>(StringComparer.Ordinal);
 
         private NetworkRunner _runner;
+        private RealtimeClient _matchmakingClient;
+        private ConnectionServiceScope _matchmakingService;
+        private bool _joiningMatchmakingLobby;
         private GameObject _runnerObject;
         private PlayerRoster _roster;
         private MatchStarter _matchStarter;
         private NetworkPlayerMotor _localInputMotor;
         private double _networkSceneLoadStartedAt = -1d;
+        private double _roomEntryStartedAt = -1d;
+        private double _lobbyPreloadStartedAt = -1d;
+        private AsyncOperation _lobbyPreload;
+        private GameObject[] _preloadedLobbyRoots = Array.Empty<GameObject>();
+        private bool _lobbyPreloadEntering;
+        private UnityEngine.ThreadPriority _previousLoadingPriority;
+        private bool _lobbyPreloadRaisedPriority;
+        private UnityEngine.ThreadPriority _previousNetworkLoadingPriority;
+        private bool _networkLoadRaisedPriority;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<LobbyChatMessage> ChatReceived;
@@ -152,8 +168,8 @@ namespace Game.Network.Session
         private string _expectedPassword;
 
         /// <summary>
-        /// True while the runner is browsing a lobby rather than playing a
-        /// session. Entering a room replaces that runner with a fresh one.
+        /// True while the standalone Realtime client is browsing the lobby.
+        /// Fusion takes that same connection over when a room starts.
         /// </summary>
         private bool _browsingLobby;
 
@@ -286,16 +302,12 @@ namespace Game.Network.Session
         public IVoiceControl Voice { get; private set; }
 
         /// <summary>
-        /// True once this peer has taken a lobby runner, including while that
-        /// runner is still connecting.
+        /// True once this peer owns a matchmaking client, including while that
+        /// client is still connecting.
         /// </summary>
         /// <remarks>
-        /// The connecting half matters. Leaving the browser no longer cancels
-        /// the connect, so opening it again can find one still in flight, and a
-        /// caller asking this is asking whether there is a lobby runner to
-        /// replace. Answering "no" until the connect lands would let a second
-        /// runner be built beside the first, leaving an orphan that keeps
-        /// pushing room lists into this service.
+        /// Answering true during connection prevents a second browser refresh
+        /// from creating another Photon client beside the first.
         /// </remarks>
         public bool IsBrowsingLobby => _browsingLobby;
 
@@ -441,59 +453,58 @@ namespace Game.Network.Session
                 return SessionStartResult.Failed(
                     SessionFailure.AlreadyRunning, "A session is already running.");
             }
+            if (_browsingLobby)
+            {
+                return SessionStartResult.Failed(
+                    SessionFailure.AlreadyRunning,
+                    "The matchmaking lobby is already connected.");
+            }
 
-            CreateRunner(provideInput: false);
+            var photonSettings =
+                Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings;
+            photonSettings.FixedRegion = MatchmakingRegion;
+            var client = MatchmakingArgumentsExtensions.BuildRealtimeClient(
+                photonSettings);
+            client.AddCallbackTarget(this);
+            _matchmakingClient = client;
             _browsingLobby = true;
+            _joiningMatchmakingLobby = true;
 
-            // Held locally because this attempt may outlive its own claim on the
-            // service: it is no longer cancelled when the browser closes, so a
-            // newer attempt can take over before this one lands.
-            var runner = _runner;
-
-            StartGameResult result;
+            var asyncConfig = AsyncConfig.CreateUnityAsyncConfig();
+            asyncConfig.CancellationToken = cancellation;
             var connectionStartedAt = Time.realtimeSinceStartupAsDouble;
             try
             {
-                result = await runner.JoinSessionLobby(
-                    SessionLobby.ClientServer, null, null, null, cancellation);
+                await client.ConnectUsingSettingsAsync(
+                    photonSettings, asyncConfig);
+                await client.JoinLobbyAsync(TypedLobby.Default, config: asyncConfig);
             }
             catch (OperationCanceledException)
             {
                 Debug.Log(
                     $"[SceneTiming] Photon lobby join cancelled, " +
                     $"elapsed={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s.");
-                ReleaseAfterFusionShutdown(runner);
+                ReleaseMatchmakingClient(client, disconnect: true);
                 throw;
             }
+            catch (Exception exception)
+            {
+                Debug.LogError(
+                    $"[Network] Could not join lobby: {exception.Message}");
+                ReleaseMatchmakingClient(client, disconnect: true);
+                return SessionStartResult.Failed(
+                    SessionFailure.ConnectionFailed, exception.Message);
+            }
+            finally
+            {
+                _joiningMatchmakingLobby = false;
+            }
 
+            _matchmakingService = new ConnectionServiceScope(client);
             Debug.Log(
-                $"[SceneTiming] Photon lobby join completed: ok={result.Ok}, " +
+                $"[SceneTiming] Photon lobby join completed: ok=True, " +
                 $"connection={Time.realtimeSinceStartupAsDouble - connectionStartedAt:F3}s, " +
                 $"total={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s.");
-
-            if (!result.Ok)
-            {
-                var failure = SessionStartResult.Classify(result.ShutdownReason);
-
-                ReleaseAfterFusionShutdown(runner);
-
-                // Fusion answers a cancelled connect with a failed result rather
-                // than by throwing, and leaving the browser mid-connect is the
-                // ordinary way to reach it. Reported as the cancellation it is,
-                // so callers unwind quietly instead of recording a verdict on
-                // the project-wide browser state for the next screen to find.
-                if (failure == SessionFailure.Canceled)
-                {
-                    throw new OperationCanceledException(
-                        $"Joining the matchmaking lobby was cancelled. {result.ErrorMessage}");
-                }
-
-                Debug.LogError(
-                    $"[Network] Could not join lobby: {failure} " +
-                    $"({result.ShutdownReason}) {result.ErrorMessage}");
-
-                return SessionStartResult.Failed(failure, result.ErrorMessage);
-            }
 
             Debug.Log("[Network] Joined matchmaking lobby.");
             return SessionStartResult.Success();
@@ -504,13 +515,23 @@ namespace Game.Network.Session
         {
             var requestedAt = Time.realtimeSinceStartupAsDouble;
             await UniTask.WaitUntil(() => !IsRoomExitPending, cancellationToken: cancellation);
+            await UniTask.WaitUntil(
+                () => !_joiningMatchmakingLobby,
+                cancellationToken: cancellation);
             if (_roomInitializationInProgress)
                 return SessionStartResult.Failed(SessionFailure.AlreadyRunning,
                     "Room initialization or its cleanup is still in progress.");
+
+            RealtimeClient matchmakingClient = null;
             if (_browsingLobby)
             {
-                // The lobby runner cannot also play a session, so it is replaced.
-                await ShutdownLobbyRunnerAsync();
+                matchmakingClient = _matchmakingClient;
+                if (matchmakingClient == null)
+                {
+                    return SessionStartResult.Failed(
+                        SessionFailure.ConnectionFailed,
+                        "The matchmaking connection is no longer available.");
+                }
             }
             else if (IsRunning)
             {
@@ -526,12 +547,6 @@ namespace Game.Network.Session
 
             var sceneManager = CreateRunner(request.Mode != GameMode.Server);
 
-            // Lobby is local content, so load it while Photon is connecting.
-            // Fusion takes the already-loaded scene over after the room opens.
-            var roomEntryPreload = PreloadRoomEntrySceneAsync();
-
-            // See JoinLobbyAsync: the attempt tears down its own runner, not
-            // whichever one the service holds when the answer arrives.
             var runner = _runner;
 
             // Fusion is handed a linked token rather than the caller's own.
@@ -562,6 +577,7 @@ namespace Game.Network.Session
                 SceneManager = sceneManager,
                 Scene = CaptureCurrentScene(),
                 StartGameCancellationToken = startCancellation.Token,
+                RealtimeClient = matchmakingClient,
             };
 
             if (request.MaxPlayers > 0)
@@ -576,13 +592,25 @@ namespace Game.Network.Session
 
             StartGameResult result;
             var connectionStartedAt = Time.realtimeSinceStartupAsDouble;
+            _roomEntryStartedAt = requestedAt;
+            if (request.AllowCreate)
+            {
+                BeginLobbyPreload();
+            }
+
+            if (matchmakingClient != null)
+            {
+                // Fusion takes over servicing this already-authenticated client.
+                ReleaseMatchmakingClient(matchmakingClient, disconnect: false);
+            }
+
             try
             {
                 result = await runner.StartGame(args);
             }
             catch (OperationCanceledException)
             {
-                await CleanupRoomEntryPreloadAsync(roomEntryPreload);
+                await CleanupLobbyPreloadAsync();
                 Debug.Log(
                     $"[SceneTiming] Session connection cancelled: mode={request.Mode}, " +
                     $"elapsed={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s.");
@@ -591,7 +619,7 @@ namespace Game.Network.Session
             }
             catch
             {
-                await CleanupRoomEntryPreloadAsync(roomEntryPreload);
+                await CleanupLobbyPreloadAsync();
                 throw;
             }
             finally
@@ -605,13 +633,14 @@ namespace Game.Network.Session
             var connectionSeconds = Time.realtimeSinceStartupAsDouble - connectionStartedAt;
             Debug.Log(
                 $"[SceneTiming] Session connection completed: mode={request.Mode}, ok={result.Ok}, " +
+                $"reusedMatchmaking={matchmakingClient != null}, " +
                 $"connection={connectionSeconds:F3}s.");
 
             if (!result.Ok)
             {
                 var failure = SessionStartResult.Classify(result.ShutdownReason);
 
-                await CleanupRoomEntryPreloadAsync(roomEntryPreload);
+                await CleanupLobbyPreloadAsync();
                 ReleaseAfterFusionShutdown(runner);
 
                 // Cancelled the same way a lobby connect is: the screen that
@@ -632,12 +661,10 @@ namespace Game.Network.Session
             }
 
             if (!IsCurrentRunner(runner) || !runner.IsRunning)
+            {
+                await CleanupLobbyPreloadAsync();
                 throw new OperationCanceledException("The session start was superseded or stopped.");
-
-            // The connection and local load have now both completed. The room
-            // presenter can request Lobby, and Fusion's default scene manager
-            // will take this scene over instead of loading it again.
-            await roomEntryPreload;
+            }
 
             _roomInitializationInProgress = true;
             try
@@ -701,6 +728,7 @@ namespace Game.Network.Session
             _hostMigrationRevision++;
             _hostMigrationInProgress = false;
             _exitReported = true; // A room that failed to open is not a voluntary departure.
+            await CleanupLobbyPreloadAsync();
             ReleaseRunner();
             // This path follows a successful StartGame, unlike Fusion-owned start failures.
             // Dropping ownership first prevents callbacks or Shutdown() from stopping it twice.
@@ -764,11 +792,10 @@ namespace Game.Network.Session
         /// <summary>Moves every seated player onto positions owned by the current scene.</summary>
         public void RepositionPlayers(IReadOnlyList<Pose> poses)
         {
-            // A scene may be preloaded before Fusion grants this peer authority.
-            // Keep its poses so the first authoritative spawn still uses them.
+            // A preloaded scene is allowed to publish its transforms, but it
+            // must not move live avatars until Fusion has taken that scene over.
             _spawner?.UseSpawnPoses(poses);
-
-            if (!IsServer)
+            if (!IsServer || _lobbyPreloadEntering)
             {
                 return;
             }
@@ -999,10 +1026,12 @@ namespace Game.Network.Session
             _hostMigrationRevision++;
             _hostMigrationInProgress = false;
             var runner = _runner;
+            ReleaseMatchmakingClient(_matchmakingClient, disconnect: true);
+            CleanupLobbyPreloadAsync().Forget(Debug.LogException);
+            _roomEntryStartedAt = -1d;
 
             // A voluntary room exit must be reported before references are
-            // cleared. Lobby runners and runners that never started a session
-            // do not represent a room departure.
+            // cleared. A standalone lobby connection is not a room departure.
             if (runner != null && runner.IsRunning && !_browsingLobby)
             {
                 if (runner.IsServer && runner.SessionInfo.IsValid)
@@ -1042,25 +1071,31 @@ namespace Game.Network.Session
             }
         }
 
-        private async UniTask ShutdownLobbyRunnerAsync()
+        private void ReleaseMatchmakingClient(
+            RealtimeClient client, bool disconnect)
         {
-            var runner = _runner;
-            if (runner == null)
+            if (client == null)
             {
-                ReleaseRunner();
                 return;
             }
 
-            var startedAt = Time.realtimeSinceStartupAsDouble;
-            if (runner.IsRunning)
-                await runner.Shutdown();
+            client.RemoveCallbackTarget(this);
 
-            // OnShutdown normally releases the current runner while the await
-            // completes. This also covers an already-stopped runner.
-            ReleaseAfterFusionShutdown(runner);
-            Debug.Log(
-                $"[SceneTiming] Lobby runner shutdown completed, " +
-                $"elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
+            if (ReferenceEquals(_matchmakingClient, client))
+            {
+                _matchmakingService?.Dispose();
+                _matchmakingService = null;
+                _matchmakingClient = null;
+                _realtimeRooms.Clear();
+                _roomBuffer.Clear();
+                _roomListSink?.SetRooms(_roomBuffer);
+                _browsingLobby = false;
+            }
+
+            if (disconnect)
+            {
+                client.Disconnect();
+            }
         }
 
         /// <summary>
@@ -1211,69 +1246,183 @@ namespace Game.Network.Session
                 return info;
             }
 
-            return BuildRoomConnectionScene(SceneRef.FromIndex(active.buildIndex));
-        }
-
-        internal static NetworkSceneInfo BuildRoomConnectionScene(SceneRef roomBrowser)
-        {
-            var info = new NetworkSceneInfo();
-            if (roomBrowser.IsValid)
-            {
-                // Additive, not Single. The scene is already loaded and keeps
-                // driving the connection while Lobby preloads beside it.
-                info.AddSceneRef(roomBrowser, LoadSceneMode.Additive);
-            }
-
+            // Additive, not Single. This only tells Fusion which scene the
+            // session begins in; the scene is already loaded. Declaring it as
+            // Single invites the scene manager to reload it while the peer is
+            // still connecting, which would destroy the scope that is driving
+            // the connection. Replacing the scene is what EnterMatchScene does.
+            info.AddSceneRef(SceneRef.FromIndex(active.buildIndex), LoadSceneMode.Additive);
             return info;
         }
 
-        private async UniTask<Scene> PreloadRoomEntrySceneAsync()
+        private void BeginLobbyPreload()
         {
-            if (_scenes == null || !_scenes.LobbyScene.IsValid)
+            if (_lobbyPreload != null || _scenes == null ||
+                !_scenes.LobbyScene.IsValid)
             {
-                return default;
+                return;
             }
 
-            var lobby = _scenes.LobbyScene;
-            var existing = SceneManager.GetSceneByBuildIndex(lobby.AsIndex);
-            if (existing.IsValid() && existing.isLoaded)
+            var scene = _scenes.LobbyScene;
+            var loaded = SceneManager.GetSceneByBuildIndex(scene.AsIndex);
+            if (loaded.IsValid() && loaded.isLoaded)
             {
-                return existing;
+                return;
             }
 
-            var startedAt = Time.realtimeSinceStartupAsDouble;
+            _lobbyPreloadStartedAt = Time.realtimeSinceStartupAsDouble;
+            _lobbyPreload = SceneManager.LoadSceneAsync(
+                scene.AsIndex, LoadSceneMode.Additive);
+            if (_lobbyPreload == null)
+            {
+                _lobbyPreloadStartedAt = -1d;
+                return;
+            }
+
+            _previousLoadingPriority = Application.backgroundLoadingPriority;
+            Application.backgroundLoadingPriority = UnityEngine.ThreadPriority.High;
+            _lobbyPreloadRaisedPriority = true;
+            _lobbyPreload.priority = 100;
+            // Read and deserialize in parallel with Photon, but do not run the
+            // Lobby scene or expose its UI before room entry is confirmed.
+            _lobbyPreload.allowSceneActivation = false;
+            Debug.Log("[SceneTiming] Lobby background preload requested.");
+        }
+
+        private async UniTask CompleteLobbyPreloadAndEnterAsync(
+            NetworkRunner runner)
+        {
+            if (_lobbyPreloadEntering)
+            {
+                return;
+            }
+
+            _lobbyPreloadEntering = true;
+            var operation = _lobbyPreload;
             try
             {
-                var operation = SceneManager.LoadSceneAsync(lobby.AsIndex, LoadSceneMode.Additive);
-                if (operation == null)
+                await UniTask.WaitUntil(() => operation == null ||
+                    operation.isDone || operation.progress >= 0.9f ||
+                    !IsCurrentRunner(runner) || !runner.IsRunning);
+
+                if (operation == null || !IsCurrentRunner(runner) ||
+                    !runner.IsRunning)
                 {
-                    Debug.LogWarning("[SceneTiming] Lobby preload could not be started.");
-                    return default;
+                    await CleanupLobbyPreloadAsync();
+                    return;
                 }
 
-                await operation.ToUniTask();
-                var loaded = SceneManager.GetSceneByBuildIndex(lobby.AsIndex);
                 Debug.Log(
-                    $"[SceneTiming] Lobby preload completed, " +
-                    $"elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
-                return loaded;
+                    $"[SceneTiming] Lobby preload reached activation gate, " +
+                    $"elapsed={Time.realtimeSinceStartupAsDouble - _lobbyPreloadStartedAt:F3}s.");
+                operation.allowSceneActivation = true;
+                await UniTask.WaitUntil(() => operation.isDone);
+                RestoreLobbyPreloadPriority();
+
+                var lobby = SceneManager.GetSceneByBuildIndex(
+                    _scenes.LobbyScene.AsIndex);
+                if (!lobby.IsValid() || !lobby.isLoaded)
+                {
+                    _lobbyPreload = null;
+                    LoadLobbyScene(runner);
+                    return;
+                }
+
+                _preloadedLobbyRoots = lobby.GetRootGameObjects();
+                for (var i = 0; i < _preloadedLobbyRoots.Length; i++)
+                {
+                    _preloadedLobbyRoots[i].SetActive(false);
+                }
+
+                _lobbyPreload = null;
+                Debug.Log(
+                    $"[SceneTiming] Lobby preload activated for Fusion takeover, " +
+                    $"elapsed={Time.realtimeSinceStartupAsDouble - _lobbyPreloadStartedAt:F3}s.");
+                LoadLobbyScene(runner);
             }
-            catch (Exception failure)
+            finally
             {
-                // A preload is an optimization, not a requirement. The normal
-                // Fusion scene request remains the fallback.
-                Debug.LogWarning($"[SceneTiming] Lobby preload skipped: {failure.Message}");
-                return default;
+                RestoreLobbyPreloadPriority();
+                _lobbyPreloadEntering = false;
             }
         }
 
-        private static async UniTask CleanupRoomEntryPreloadAsync(UniTask<Scene> preload)
+        private async UniTask CleanupLobbyPreloadAsync()
         {
-            var scene = await preload;
-            if (scene.IsValid() && scene.isLoaded)
+            var operation = _lobbyPreload;
+            var hadPreload = operation != null || _preloadedLobbyRoots.Length > 0;
+            _lobbyPreload = null;
+            _lobbyPreloadEntering = false;
+            _lobbyPreloadStartedAt = -1d;
+            _roomEntryStartedAt = -1d;
+            RestoreLobbyPreloadPriority();
+
+            if (!hadPreload)
             {
-                await SceneManager.UnloadSceneAsync(scene).ToUniTask();
+                return;
             }
+
+            if (operation != null && !operation.isDone)
+            {
+                operation.allowSceneActivation = true;
+                await UniTask.WaitUntil(() => operation.isDone);
+            }
+            if (_scenes == null || !_scenes.LobbyScene.IsValid)
+            {
+                return;
+            }
+
+            var lobby = SceneManager.GetSceneByBuildIndex(
+                _scenes.LobbyScene.AsIndex);
+            if (!lobby.IsValid() || !lobby.isLoaded)
+            {
+                return;
+            }
+
+            foreach (var root in lobby.GetRootGameObjects())
+            {
+                root.SetActive(false);
+            }
+
+            await SceneManager.UnloadSceneAsync(lobby).ToUniTask();
+            _preloadedLobbyRoots = Array.Empty<GameObject>();
+        }
+
+        private void RestoreLobbyPreloadPriority()
+        {
+            if (!_lobbyPreloadRaisedPriority)
+            {
+                return;
+            }
+
+            Application.backgroundLoadingPriority = _previousLoadingPriority;
+            _lobbyPreloadRaisedPriority = false;
+        }
+
+        private void RaiseNetworkSceneLoadingPriority()
+        {
+            if (_networkLoadRaisedPriority)
+            {
+                return;
+            }
+
+            _previousNetworkLoadingPriority =
+                Application.backgroundLoadingPriority;
+            Application.backgroundLoadingPriority =
+                UnityEngine.ThreadPriority.High;
+            _networkLoadRaisedPriority = true;
+        }
+
+        private void RestoreNetworkSceneLoadingPriority()
+        {
+            if (!_networkLoadRaisedPriority)
+            {
+                return;
+            }
+
+            Application.backgroundLoadingPriority =
+                _previousNetworkLoadingPriority;
+            _networkLoadRaisedPriority = false;
         }
 
         /// <summary>
@@ -1350,6 +1499,26 @@ namespace Game.Network.Session
                 return false;
             }
 
+            if (_lobbyPreload != null)
+            {
+                CompleteLobbyPreloadAndEnterAsync(runner)
+                    .Forget(Debug.LogException);
+                return true;
+            }
+
+            return LoadLobbyScene(runner);
+        }
+
+        private bool LoadLobbyScene(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsRunning || !runner.IsServer ||
+                _scenes == null || !_scenes.LobbyScene.IsValid)
+            {
+                return false;
+            }
+
+            var scene = _scenes.LobbyScene;
+
             Debug.Log(
                 $"[SceneTiming] Network load requested: {SceneManager.GetActiveScene().name} -> " +
                 $"{scene}.");
@@ -1370,57 +1539,7 @@ namespace Game.Network.Session
                 return false;
             }
 
-            if (_scenes != null)
-            {
-                var lobby = _scenes.LobbyScene;
-                if (lobby.IsValid && IsOnlyScene(_runner.SceneInfo, lobby))
-                {
-                    CompletePreloadedLobbyEntryWhenReadyAsync(_runner, lobby)
-                        .Forget(Debug.LogException);
-                    return true;
-                }
-            }
-
             return !_runner.IsServer || EnterLobbyScene(_runner);
-        }
-
-        /// <summary>
-        /// Finishes the additive initial load with the same local result as a
-        /// single scene load, without loading Lobby a second time.
-        /// </summary>
-        private async UniTask CompletePreloadedLobbyEntryWhenReadyAsync(
-            NetworkRunner runner,
-            SceneRef lobby)
-        {
-            await UniTask.WaitUntil(() =>
-            {
-                var scene = SceneManager.GetSceneByBuildIndex(lobby.AsIndex);
-                return !IsCurrentRunner(runner) || !runner.IsRunning ||
-                       scene.IsValid() && scene.isLoaded;
-            });
-
-            if (!IsCurrentRunner(runner) || !runner.IsRunning)
-            {
-                return;
-            }
-
-            // Do not unload a scene from inside Fusion's scene-load callback.
-            await UniTask.NextFrame();
-            if (!IsCurrentRunner(runner) || !runner.IsRunning)
-            {
-                return;
-            }
-
-            var lobbyScene = SceneManager.GetSceneByBuildIndex(lobby.AsIndex);
-            SceneManager.SetActiveScene(lobbyScene);
-            for (var index = SceneManager.sceneCount - 1; index >= 0; index--)
-            {
-                var loaded = SceneManager.GetSceneAt(index);
-                if (loaded != lobbyScene && loaded.isLoaded)
-                {
-                    _ = SceneManager.UnloadSceneAsync(loaded);
-                }
-            }
         }
 
         /// <summary>
@@ -1429,6 +1548,7 @@ namespace Game.Network.Session
         /// </summary>
         private void ReleaseRunner(bool preserveMigrationState = false)
         {
+            RestoreNetworkSceneLoadingPriority();
             _publishedItemAssignments.Clear();
             _matchRuntimeRestorePending = false;
             _matchRuntimeRestoreFailure = null;
@@ -1441,8 +1561,8 @@ namespace Game.Network.Session
             // destroyed component.
             Voice = null;
 
-            // A room list is a snapshot owned by the current lobby runner. Once
-            // that runner is gone, retaining its last snapshot shows rooms that
+            // A room list is a snapshot owned by the matchmaking connection.
+            // Once that connection is gone, retaining its last snapshot shows rooms that
             // may already have disappeared when the browser is opened again.
             _roomBuffer.Clear();
             _roomListSink?.SetRooms(_roomBuffer);

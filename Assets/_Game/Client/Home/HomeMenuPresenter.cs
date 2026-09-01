@@ -77,10 +77,23 @@ namespace Game.Client.Home
             var source = SceneManager.GetActiveScene().name;
             var startedAt = Time.realtimeSinceStartupAsDouble;
             Debug.Log($"[SceneTiming] Local load requested: {source} -> {target}.");
+            var previousPriority = Application.backgroundLoadingPriority;
+            Application.backgroundLoadingPriority = ThreadPriority.High;
             var operation = SceneManager.LoadSceneAsync(target);
-            operation.completed += _ => Debug.Log(
-                $"[SceneTiming] Local load completed: {source} -> {target}, " +
-                $"elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
+            if (operation == null)
+            {
+                Application.backgroundLoadingPriority = previousPriority;
+                return;
+            }
+
+            operation.priority = 100;
+            operation.completed += _ =>
+            {
+                Application.backgroundLoadingPriority = previousPriority;
+                Debug.Log(
+                    $"[SceneTiming] Local load completed: {source} -> {target}, " +
+                    $"elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
+            };
         }
     }
 
