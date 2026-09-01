@@ -132,6 +132,17 @@ namespace Game.Architecture.Tests
             Assert.That(session.Heap.PageShift, Is.EqualTo(pageShift));
         }
 
+        [Test]
+        public void RoomEntry_StartsWithLobbyAlreadyInTheInitialSceneSet()
+        {
+            var lobby = Fusion.SceneRef.FromIndex(2);
+
+            var sceneInfo = NetworkRunnerService.BuildInitialRoomScene(lobby);
+
+            Assert.That(sceneInfo.SceneCount, Is.EqualTo(1));
+            Assert.That(sceneInfo.Scenes[0], Is.EqualTo(lobby));
+        }
+
         private sealed class DisconnectApplicationSpy : Game.Client.Home.IHomeApplicationHost
         {
             public int OpenCount { get; private set; }

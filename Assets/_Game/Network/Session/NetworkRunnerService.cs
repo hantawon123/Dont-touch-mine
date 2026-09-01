@@ -556,7 +556,7 @@ namespace Game.Network.Session
                     _profile?.Nickname),
                 EnableClientSessionCreation = request.AllowCreate,
                 SceneManager = sceneManager,
-                Scene = CaptureCurrentScene(),
+                Scene = CaptureRoomEntryScene(),
                 StartGameCancellationToken = startCancellation.Token,
             };
 
@@ -1202,6 +1202,34 @@ namespace Game.Network.Session
         }
 
         /// <summary>
+        /// Loads the room lobby as part of <c>StartGame</c>, so entering a room
+        /// does not wait for the connection and then begin a second scene load.
+        /// Additive keeps the room-browser scope alive long enough to publish
+        /// the confirmed entry and finish its existing navigation flow.
+        /// </summary>
+        private NetworkSceneInfo CaptureRoomEntryScene()
+        {
+            if (_scenes == null)
+            {
+                return CaptureCurrentScene();
+            }
+
+            var lobby = _scenes.LobbyScene;
+            return lobby.IsValid ? BuildInitialRoomScene(lobby) : CaptureCurrentScene();
+        }
+
+        internal static NetworkSceneInfo BuildInitialRoomScene(SceneRef lobby)
+        {
+            var info = new NetworkSceneInfo();
+            if (lobby.IsValid)
+            {
+                info.AddSceneRef(lobby, LoadSceneMode.Additive);
+            }
+
+            return info;
+        }
+
+        /// <summary>
         /// Takes the room into the map. Only the authority may change the
         /// networked scene; Fusion carries the change to everyone else.
         /// </summary>
@@ -1295,7 +1323,40 @@ namespace Game.Network.Session
                 return false;
             }
 
+            if (_scenes != null)
+            {
+                var lobby = _scenes.LobbyScene;
+                if (lobby.IsValid && IsOnlyScene(_runner.SceneInfo, lobby))
+                {
+                    CompletePreloadedLobbyEntry(lobby);
+                    return true;
+                }
+            }
+
             return !_runner.IsServer || EnterLobbyScene(_runner);
+        }
+
+        /// <summary>
+        /// Finishes the additive initial load with the same local result as a
+        /// single scene load, without loading Lobby a second time.
+        /// </summary>
+        private static void CompletePreloadedLobbyEntry(SceneRef lobby)
+        {
+            var lobbyScene = SceneManager.GetSceneByBuildIndex(lobby.AsIndex);
+            if (!lobbyScene.IsValid() || !lobbyScene.isLoaded)
+            {
+                return;
+            }
+
+            SceneManager.SetActiveScene(lobbyScene);
+            for (var index = SceneManager.sceneCount - 1; index >= 0; index--)
+            {
+                var loaded = SceneManager.GetSceneAt(index);
+                if (loaded != lobbyScene && loaded.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loaded);
+                }
+            }
         }
 
         /// <summary>
