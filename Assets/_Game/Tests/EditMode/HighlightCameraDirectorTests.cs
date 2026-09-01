@@ -22,7 +22,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Focus_UsesCloseDistanceForEventHighlights()
+        public void Focus_UsesWideEstablishingShotThenClosesOnEvent()
         {
             var camera = Create("Camera", Vector3.zero);
             var fallback = Create("Fallback", Vector3.left);
@@ -33,9 +33,14 @@ namespace Game.Tests.EditMode
                 new Transform[0],
                 new[] { new SceneWorldObjectReference("item", item.transform) });
 
-            Assert.That(director.Focus(Candidate(HighlightType.FirstBlood, "item")), Is.True);
+            Assert.That(
+                director.Focus(Candidate(HighlightType.FirstBlood, "item", eventAt: 7d)),
+                Is.True);
 
-            Assert.That(camera.transform.position.z, Is.EqualTo(-8f));
+            Assert.That(camera.transform.position.z, Is.EqualTo(-14f));
+            Assert.That(camera.transform.position.y, Is.EqualTo(8.5f));
+            director.SetPlaybackTime(6.5d);
+            Assert.That(camera.transform.position.z, Is.EqualTo(-10f));
         }
 
         [Test]
@@ -52,7 +57,7 @@ namespace Game.Tests.EditMode
 
             director.Focus(Candidate(HighlightType.LongestHidden, "item"));
 
-            Assert.That(camera.transform.position.z, Is.EqualTo(-12f));
+            Assert.That(camera.transform.position.z, Is.EqualTo(-14f));
         }
 
         [Test]
@@ -75,6 +80,35 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Focus_KeepsTheSameTopViewDirectionRegardlessOfActorFacing()
+        {
+            var camera = Create("Camera", Vector3.zero);
+            var fallback = Create("Fallback", Vector3.left);
+            var player = Create("Player", Vector3.zero);
+            var item = Create("Item", Vector3.zero);
+            var director = Director(
+                camera.transform,
+                fallback.transform,
+                new[] { player.transform },
+                new[] { new SceneWorldObjectReference("item", item.transform) });
+
+            player.transform.rotation = Quaternion.identity;
+            director.Focus(Candidate(
+                HighlightType.FirstBlood, "item", eventAt: 7d, actorPlayerIndex: 0));
+            director.SetPlaybackTime(6.5d);
+            var firstPosition = camera.transform.position;
+            var firstRotation = camera.transform.rotation;
+
+            player.transform.rotation = Quaternion.Euler(0f, 120f, 0f);
+            director.Focus(Candidate(
+                HighlightType.FirstBlood, "item", eventAt: 7d, actorPlayerIndex: 0));
+            director.SetPlaybackTime(6.5d);
+
+            Assert.That(camera.transform.position, Is.EqualTo(firstPosition));
+            Assert.That(Quaternion.Angle(camera.transform.rotation, firstRotation), Is.LessThan(0.001f));
+        }
+
+        [Test]
         public void Focus_UsesFallbackWhenTargetDoesNotExist()
         {
             var camera = Create("Camera", Vector3.zero);
@@ -91,6 +125,48 @@ namespace Game.Tests.EditMode
             Assert.That(
                 Quaternion.Angle(camera.transform.rotation, fallback.transform.rotation),
                 Is.LessThan(0.001f));
+        }
+
+        [Test]
+        public void ShotPlanner_CutsMontageAtRecordedSegmentBoundaries()
+        {
+            var candidate = new HighlightCandidate(
+                HighlightType.TteTanMulgun,
+                new[]
+                {
+                    new HighlightSegment(0d, 2d),
+                    new HighlightSegment(5d, 7d),
+                    new HighlightSegment(9d, 11d),
+                },
+                "item",
+                eventAt: 10d,
+                score: 80d,
+                actorPlayerIndex: 0);
+
+            var shots = HighlightShotPlanner.Build(candidate);
+
+            Assert.That(shots, Has.Length.EqualTo(3));
+            Assert.That(shots[0].StartedAt, Is.EqualTo(0d));
+            Assert.That(shots[1].StartedAt, Is.EqualTo(2d));
+            Assert.That(shots[2].StartedAt, Is.EqualTo(4d));
+            Assert.That(shots[2].Framing, Is.EqualTo(HighlightShotFraming.Close));
+            Assert.That(shots[2].EmphasizesEvent, Is.True);
+        }
+
+        [Test]
+        public void PlaybackPacing_SlowsAroundEventButKeepsWholeDuration()
+        {
+            var candidate = new HighlightCandidate(
+                HighlightType.FirstBlood,
+                new[] { new HighlightSegment(0d, 10d) },
+                "target",
+                eventAt: 5d,
+                score: 80d);
+
+            Assert.That(HighlightPlaybackPacing.Map(candidate, 0d), Is.Zero);
+            Assert.That(HighlightPlaybackPacing.Map(candidate, 10d), Is.EqualTo(10d));
+            Assert.That(HighlightPlaybackPacing.Map(candidate, 4.5d), Is.EqualTo(4.75d).Within(0.001d));
+            Assert.That(HighlightPlaybackPacing.Map(candidate, 5.7d), Is.EqualTo(5.35d).Within(0.001d));
         }
 
         [Test]
@@ -119,18 +195,147 @@ namespace Game.Tests.EditMode
             Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.False);
         }
 
+        [Test]
+        public void Focus_HidesRendererWhenCinemachineReplayRigIsActive()
+        {
+            var camera = Create("Camera", Vector3.zero);
+            camera.AddComponent<Camera>();
+            var brainType = System.Type.GetType(
+                "Unity.Cinemachine.CinemachineBrain, Unity.Cinemachine");
+            Assert.That(brainType, Is.Not.Null);
+            camera.AddComponent(brainType);
+            var fallback = Create("Fallback", Vector3.left);
+            var item = Create("Item", Vector3.zero);
+            var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            blocker.name = "Floor";
+            blocker.transform.position = new Vector3(0f, 2.75f, -4f);
+            blocker.transform.localScale = new Vector3(4f, 4f, 0.5f);
+            gameObjects.Add(blocker);
+            Physics.SyncTransforms();
+
+            using var director = Director(
+                camera.transform,
+                fallback.transform,
+                new Transform[0],
+                new[] { new SceneWorldObjectReference("item", item.transform) });
+
+            director.Focus(Candidate(HighlightType.FirstBlood, "item"));
+
+            Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.True);
+        }
+
+        [Test]
+        public void Focus_DoesNotHideRendererOutsideTheActionSightline()
+        {
+            var camera = Create("Camera", Vector3.zero);
+            var fallback = Create("Fallback", Vector3.left);
+            var item = Create("Item", Vector3.zero);
+            var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            blocker.name = "Upper Floor Edge";
+            blocker.transform.position = new Vector3(5f, 5f, -4f);
+            blocker.transform.localScale = Vector3.one * 0.5f;
+            gameObjects.Add(blocker);
+            Physics.SyncTransforms();
+
+            using var director = Director(
+                camera.transform,
+                fallback.transform,
+                new Transform[0],
+                new[] { new SceneWorldObjectReference("item", item.transform) });
+
+            director.Focus(Candidate(HighlightType.FirstBlood, "item"));
+
+            Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.False);
+        }
+
+        [Test]
+        public void Focus_HidesAuthoredUpperLevelAndReplayObjectsUntilSubjectMovesUpstairs()
+        {
+            var upperLevel = Create("Any Upper Level", Vector3.zero);
+            var upperFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            upperFloor.transform.SetParent(upperLevel.transform);
+            upperFloor.transform.position = new Vector3(8f, 3f, 4f);
+            gameObjects.Add(upperFloor);
+            var upperGroup = new SceneHighlightOcclusionReference(
+                2.5f,
+                upperLevel.transform);
+
+            var roof = Create("Roof", Vector3.zero);
+            var roofRenderer = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            roofRenderer.transform.SetParent(roof.transform);
+            roofRenderer.transform.position = new Vector3(8f, 5.5f, 4f);
+            gameObjects.Add(roofRenderer);
+            var roofGroup = new SceneHighlightOcclusionReference(
+                5.5f,
+                roof.transform);
+
+            var upperReplayItem = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            upperReplayItem.transform.position = new Vector3(8f, 3f, 4f);
+            gameObjects.Add(upperReplayItem);
+
+            var camera = Create("Camera", Vector3.zero);
+            var fallback = Create("Fallback", Vector3.left);
+            var item = Create("Item", new Vector3(0f, 0.5f, 0f));
+            Physics.SyncTransforms();
+
+            using var director = Director(
+                camera.transform,
+                fallback.transform,
+                new Transform[0],
+                new[]
+                {
+                    new SceneWorldObjectReference("item", item.transform),
+                    new SceneWorldObjectReference("upper", upperReplayItem.transform),
+                },
+                new[] { upperGroup, roofGroup });
+
+            director.Focus(Candidate(HighlightType.FirstBlood, "item"));
+
+            Assert.That(upperFloor.GetComponent<Renderer>().forceRenderingOff, Is.True);
+            Assert.That(roofRenderer.GetComponent<Renderer>().forceRenderingOff, Is.True);
+            Assert.That(upperReplayItem.GetComponent<Renderer>().forceRenderingOff, Is.True);
+
+            item.transform.position = new Vector3(0f, 3f, 0f);
+            director.Tick(1f);
+
+            Assert.That(upperFloor.GetComponent<Renderer>().forceRenderingOff, Is.False);
+            Assert.That(roofRenderer.GetComponent<Renderer>().forceRenderingOff, Is.True);
+            Assert.That(upperReplayItem.GetComponent<Renderer>().forceRenderingOff, Is.False);
+
+            item.transform.position = new Vector3(0f, 6f, 0f);
+            director.Tick(1f);
+
+            Assert.That(roofRenderer.GetComponent<Renderer>().forceRenderingOff, Is.False);
+        }
+
         private static HighlightCameraDirector Director(
             Transform camera,
             Transform fallback,
             IReadOnlyList<Transform> players,
-            IReadOnlyList<SceneWorldObjectReference> objects)
+            IReadOnlyList<SceneWorldObjectReference> objects,
+            IReadOnlyList<SceneHighlightOcclusionReference> occlusionGroups = null)
         {
-            return new HighlightCameraDirector(camera, fallback, players, objects);
+            return new HighlightCameraDirector(
+                camera,
+                fallback,
+                players,
+                objects,
+                occlusionGroups: occlusionGroups);
         }
 
-        private static HighlightCandidate Candidate(HighlightType type, string targetId)
+        private static HighlightCandidate Candidate(
+            HighlightType type,
+            string targetId,
+            double eventAt = 10d,
+            int actorPlayerIndex = -1)
         {
-            return new HighlightCandidate(type, 0d, 10d, targetId);
+            return new HighlightCandidate(
+                type,
+                new[] { new HighlightSegment(0d, 10d) },
+                targetId,
+                eventAt,
+                50d,
+                actorPlayerIndex);
         }
 
         private GameObject Create(string name, Vector3 position)

@@ -13,7 +13,7 @@ namespace Game.Network.Session
     internal static class HighlightReplaySerializer
     {
         private const int Magic = 0x4852504C;
-        private const byte Version = 2;
+        private const byte Version = 4;
         private const int MaxPayloadBytes = 8 * 1024 * 1024;
         private const int MaxHighlightCount = 3;
         private const int MaxSegmentsPerHighlight = 8;
@@ -147,6 +147,10 @@ namespace Game.Network.Session
 
             writer.Write((byte)replay.Candidate.Type);
             WriteId(writer, replay.Candidate.TargetId);
+            writer.Write(replay.Candidate.EventAt);
+            writer.Write(replay.Candidate.Score);
+            writer.Write(replay.Candidate.ActorPlayerIndex);
+            writer.Write(replay.Candidate.SecondaryPlayerIndex);
             writer.Write((byte)replay.Clips.Count);
             foreach (var clip in replay.Clips)
             {
@@ -167,6 +171,10 @@ namespace Game.Network.Session
         {
             var type = (HighlightType)reader.ReadByte();
             var targetId = ReadId(reader);
+            var eventAt = reader.ReadDouble();
+            var score = reader.ReadDouble();
+            var actorPlayerIndex = reader.ReadInt32();
+            var secondaryPlayerIndex = reader.ReadInt32();
             var segmentCount = reader.ReadByte();
             if (segmentCount == 0 || segmentCount > MaxSegmentsPerHighlight)
             {
@@ -190,7 +198,14 @@ namespace Game.Network.Session
             }
 
             return new HighlightReplayData(
-                new HighlightCandidate(type, segments, targetId),
+                new HighlightCandidate(
+                    type,
+                    segments,
+                    targetId,
+                    eventAt,
+                    score,
+                    actorPlayerIndex,
+                    secondaryPlayerIndex),
                 clips);
         }
 
@@ -221,7 +236,7 @@ namespace Game.Network.Session
             {
                 WritePose(writer, pose);
             }
-            foreach (var action in frame.PlayerActions) writer.Write(action);
+            foreach (var action in frame.PlayerActions) writer.Write((byte)action);
 
             writer.Write((byte)frame.WorldObjects.Count);
             foreach (var worldObject in frame.WorldObjects)
@@ -245,8 +260,9 @@ namespace Game.Network.Session
             {
                 playerPoses[index] = ReadPose(reader);
             }
-            var actions = new byte[playerCount];
-            for (var index = 0; index < actions.Length; index++) actions[index] = reader.ReadByte();
+            var actions = new HighlightPlayerAction[playerCount];
+            for (var index = 0; index < actions.Length; index++)
+                actions[index] = (HighlightPlayerAction)reader.ReadByte();
 
             var objectCount = reader.ReadByte();
             if (objectCount > MaxWorldObjectsPerFrame)

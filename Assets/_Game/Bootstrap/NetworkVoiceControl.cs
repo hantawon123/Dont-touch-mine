@@ -39,6 +39,7 @@ namespace Game.Bootstrap
         private IVoiceControl current;
 
         private bool talking;
+        private bool disposed;
 
         public NetworkVoiceControl(
             NetworkRunnerService network,
@@ -59,6 +60,7 @@ namespace Game.Bootstrap
 
         public void SetMuted(bool muted)
         {
+            if (disposed) return;
             preferences.Muted = muted;
             this.muted.Value = muted;
             network.Voice?.SetMuted(muted);
@@ -66,6 +68,7 @@ namespace Game.Bootstrap
 
         public void SetTalking(bool talking)
         {
+            if (disposed) return;
             this.talking = talking;
             network.Voice?.SetTalking(talking);
         }
@@ -77,6 +80,7 @@ namespace Game.Bootstrap
         /// </remarks>
         public void Tick()
         {
+            if (disposed) return;
             var voice = network.Voice;
             if (voice == null)
             {
@@ -101,6 +105,8 @@ namespace Game.Bootstrap
 
         public void Dispose()
         {
+            if (disposed) return;
+            disposed = true;
             available.Dispose();
             muted.Dispose();
             transmitting.Dispose();

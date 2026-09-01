@@ -131,6 +131,10 @@ namespace Game.Client.Rooms
             disconnectionPopup = new GameObject("Disconnection Popup", typeof(RectTransform),
                 typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             disconnectionPopup.transform.SetParent(transform, false);
+            var popupRect = disconnectionPopup.GetComponent<RectTransform>();
+            popupRect.anchorMin = Vector2.zero;
+            popupRect.anchorMax = Vector2.one;
+            popupRect.offsetMin = popupRect.offsetMax = Vector2.zero;
             var canvas = disconnectionPopup.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.overrideSorting = true;

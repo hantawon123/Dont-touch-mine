@@ -445,9 +445,14 @@ namespace Game.Bootstrap
                 // 숨기기 대기자도 로비처럼 밖에서 이동하고 공격 모션을
                 // 사용할 수 있다. 실제 기절 판정은 MatchSessionCoordinator가
                 // 찾기 페이즈에만 적용한다.
+                var isEndCountdown = phase == MatchPhase.Highlight &&
+                                     session.TryGetResult(out var matchResult) &&
+                                     now < matchResult.EndedAt +
+                                     MatchSessionCoordinator.HighlightPostRollSeconds;
                 var enabled = phase == MatchPhase.Hiding ||
                                (phase == MatchPhase.Searching &&
-                                !session.IsPlayerStunned(playerIndex, now));
+                                !session.IsPlayerStunned(playerIndex, now)) ||
+                               isEndCountdown;
                 if (hasSynchronizedPlayers &&
                     synchronizedControls[playerIndex] == enabled)
                 {

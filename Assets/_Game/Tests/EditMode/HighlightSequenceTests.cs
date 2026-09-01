@@ -1,4 +1,6 @@
 using Game.Bootstrap;
+using Game.Core.Match;
+using Game.Core.Rooms;
 using Game.Server.Match;
 using Game.SOAP.Config;
 using NUnit.Framework;
@@ -84,6 +86,32 @@ namespace Game.Tests.EditMode
             Assert.That(
                 NetworkHighlightPlaybackController.TitleOf(type),
                 Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void HighlightTitle_AddsRecordedActorNickname()
+        {
+            var candidate = new HighlightCandidate(
+                HighlightType.FirstBlood,
+                new[] { new HighlightSegment(0d, 10d) },
+                "item",
+                eventAt: 5d,
+                score: 80d,
+                actorPlayerIndex: 1);
+
+            Assert.That(NetworkHighlightPlaybackController.TitleOf(
+                    candidate,
+                    new[]
+                    {
+                        new MatchParticipant("p1", 0),
+                        new MatchParticipant("p2", 1),
+                    },
+                    new[]
+                    {
+                        new RoomParticipant("p1", 0, true, "방장"),
+                        new RoomParticipant("p2", 1, false, "민수"),
+                    }),
+                Is.EqualTo("FIRST BLOOD · 민수"));
         }
 
         private static HighlightCandidate Candidate(HighlightType type)

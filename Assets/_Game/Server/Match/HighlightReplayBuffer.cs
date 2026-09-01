@@ -5,6 +5,25 @@ using UnityEngine;
 
 namespace Game.Server.Match
 {
+    [Flags]
+    public enum HighlightPlayerAction : byte
+    {
+        None = 0,
+        Punching = 1 << 0,
+        Stunned = 1 << 1,
+        Airborne = 1 << 2,
+        Crouching = 1 << 3,
+        Prone = 1 << 4,
+        Carrying = 1 << 5,
+        Throwing = 1 << 6,
+        Placing = 1 << 7,
+    }
+
+    public interface IHighlightReplayActionSource
+    {
+        IReadOnlyList<HighlightPlayerAction> PlayerReplayActions { get; }
+    }
+
     public readonly struct HighlightReplayClip
     {
         public HighlightReplayClip(
@@ -73,7 +92,7 @@ namespace Game.Server.Match
             double recordedAt,
             IReadOnlyList<Pose> playerPoses,
             IReadOnlyList<WorldObjectState> worldObjects,
-            IReadOnlyList<byte> playerActions = null)
+            IReadOnlyList<HighlightPlayerAction> playerActions = null)
         {
             if (recordedAt < 0d || double.IsNaN(recordedAt) || double.IsInfinity(recordedAt))
             {
@@ -107,11 +126,10 @@ namespace Game.Server.Match
             WorldObjects = Array.AsReadOnly(copiedWorldObjects);
             if (playerActions != null && playerActions.Count != playerPoses.Count)
                 throw new ArgumentException("Actions must match player poses.", nameof(playerActions));
-            var actions = new byte[playerPoses.Count];
+            var actions = new HighlightPlayerAction[playerPoses.Count];
             for (var i = 0; i < actions.Length; i++)
             {
-                actions[i] = playerActions == null ? (byte)0 : playerActions[i];
-                if (actions[i] > 2) throw new ArgumentOutOfRangeException(nameof(playerActions));
+                actions[i] = playerActions == null ? HighlightPlayerAction.None : playerActions[i];
             }
             PlayerActions = Array.AsReadOnly(actions);
         }
@@ -119,8 +137,7 @@ namespace Game.Server.Match
         public double RecordedAt { get; }
         public IReadOnlyList<Pose> PlayerPoses { get; }
         public IReadOnlyList<WorldObjectState> WorldObjects { get; }
-        // 0: locomotion, 1: confirmed hit, 2: stunned. Authority-recorded, not inferred on clients.
-        public IReadOnlyList<byte> PlayerActions { get; }
+        public IReadOnlyList<HighlightPlayerAction> PlayerActions { get; }
     }
 
     public sealed class HighlightReplayBuffer
@@ -156,7 +173,7 @@ namespace Game.Server.Match
             double now,
             IReadOnlyList<Pose> playerPoses,
             IReadOnlyList<WorldObjectState> worldObjects,
-            IReadOnlyList<byte> playerActions = null)
+            IReadOnlyList<HighlightPlayerAction> playerActions = null)
         {
             if (now < 0d || double.IsNaN(now) || double.IsInfinity(now))
             {
