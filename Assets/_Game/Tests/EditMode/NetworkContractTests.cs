@@ -158,25 +158,37 @@ namespace Game.Architecture.Tests
             var view = new EntryTransitionSpy();
             var binder = new Game.Bootstrap.LobbyPlayerCameraBinder(
                 new NetworkRunnerService(null, null, null, null, null, null), view);
-            binder.UpdateEntryTransition(false, 100);
+            binder.UpdateEntryTransition(false, true, 100);
             Assert.That(view.Opacity, Is.EqualTo(1f));
-            binder.UpdateEntryTransition(true, 101);
-            binder.UpdateEntryTransition(true, 102);
+            binder.UpdateEntryTransition(true, true, 101);
+            binder.UpdateEntryTransition(true, true, 102);
             Assert.That(view.Opacity, Is.EqualTo(1f), "Do not reveal before camera rendering catches up.");
-            binder.UpdateEntryTransition(false, 103);
-            binder.UpdateEntryTransition(true, 104);
+            binder.UpdateEntryTransition(false, true, 103);
+            binder.UpdateEntryTransition(true, true, 104);
             Assert.That(view.Opacity, Is.EqualTo(1f), "Losing readiness restarts the render wait.");
-            binder.UpdateEntryTransition(true, 106);
+            binder.UpdateEntryTransition(true, true, 106);
             Assert.That(view.Opacity, Is.Zero);
-            binder.UpdateEntryTransition(false, 107);
+            binder.UpdateEntryTransition(false, true, 107);
             Assert.That(view.Opacity, Is.Zero, "A completed entry does not cover later gameplay or migration.");
 
             var nextVisit = new Game.Bootstrap.LobbyPlayerCameraBinder(
                 new NetworkRunnerService(null, null, null, null, null, null), view);
-            nextVisit.UpdateEntryTransition(false, 200);
+            nextVisit.UpdateEntryTransition(false, true, 200);
             Assert.That(view.Opacity, Is.EqualTo(1f), "Re-entry starts a fresh placement wait.");
             nextVisit.Dispose();
             Assert.That(view.Opacity, Is.Zero, "Leaving before placement must not leave a black screen.");
+        }
+
+        [Test]
+        public void LobbyEntry_DoesNotCoverRoomWhileLobbyIsPreloaded()
+        {
+            var view = new EntryTransitionSpy();
+            var binder = new Game.Bootstrap.LobbyPlayerCameraBinder(
+                new NetworkRunnerService(null, null, null, null, null, null), view);
+
+            binder.UpdateEntryTransition(false, false, 100);
+
+            Assert.That(view.Opacity, Is.Zero);
         }
 
         private sealed class EntryTransitionSpy : Game.Client.Match.IHighlightTransitionView

@@ -16,6 +16,7 @@ using Game.Network.Session;
 using R3;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using VContainer;
 using VContainer.Unity;
 
@@ -165,7 +166,8 @@ namespace Game.Bootstrap
             // Do not reuse the project-wide highlight/result transition's state.
             var entryCover = new GameObject("Lobby Entry Transition").AddComponent<HighlightTransitionView>();
             entryCover.transform.SetParent(transform, false);
-            entryCover.SetOpacity(1f);
+            // A preloaded additive Lobby must not cover the still-visible Room.
+            entryCover.SetOpacity(SceneManager.GetActiveScene() == gameObject.scene ? 1f : 0f);
             builder.RegisterComponent(entryCover).As<IHighlightTransitionView>();
             builder.RegisterEntryPoint<LobbyPlayerCameraBinder>();
             builder.RegisterEntryPoint<LobbyPlayerAnimationBinder>();
@@ -271,6 +273,7 @@ namespace Game.Bootstrap
         private readonly IHighlightTransitionView entryCover;
         private PlayerAvatar boundAvatar;
         private PlayerCameraController boundRig;
+        private readonly int lobbySceneHandle;
         private int readyFrame = -1;
         private bool entryComplete;
         private double startedAt;
@@ -279,6 +282,9 @@ namespace Game.Bootstrap
         {
             this.network = network ?? throw new ArgumentNullException(nameof(network));
             this.entryCover = entryCover ?? throw new ArgumentNullException(nameof(entryCover));
+            lobbySceneHandle = entryCover is Component component
+                ? component.gameObject.scene.handle
+                : -1;
         }
 
         public void Start()
@@ -296,12 +302,20 @@ namespace Game.Bootstrap
                         boundAvatar.IsOwner && motor != null && motor.IsScenePlacementReady &&
                         boundRig != null && boundRig.isActiveAndEnabled &&
                         boundRig.FollowTarget == boundAvatar.transform;
-            UpdateEntryTransition(!network.HasRoomSession || ready, Time.frameCount);
+            var lobbyIsActive = lobbySceneHandle < 0 ||
+                                SceneManager.GetActiveScene().handle == lobbySceneHandle;
+            UpdateEntryTransition(!network.HasRoomSession || ready, lobbyIsActive, Time.frameCount);
         }
 
-        internal void UpdateEntryTransition(bool ready, int frame)
+        internal void UpdateEntryTransition(bool ready, bool lobbyIsActive, int frame)
         {
             if (entryComplete) return;
+            if (!lobbyIsActive)
+            {
+                readyFrame = -1;
+                entryCover.SetOpacity(0f);
+                return;
+            }
             if (!ready)
             {
                 readyFrame = -1;
