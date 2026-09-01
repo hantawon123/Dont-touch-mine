@@ -1,5 +1,6 @@
 using System.Linq;
 using Game.Core.Items;
+using Game.Server.Items;
 using Game.Server.Match;
 using Game.SOAP.Config;
 using NUnit.Framework;
@@ -141,6 +142,40 @@ namespace Game.Tests.EditMode
 
             Assert.That(selected[0].Type, Is.EqualTo(HighlightType.FinalMoment));
             Assert.That(selected[0].ActorPlayerIndex, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void CaptureCandidates_ScoresSoloPlacementAndHiddenJourney()
+        {
+            var solo = new HighlightEventRecorder(rules, new[]
+            {
+                Assignment(0, "solo-item")
+            });
+            solo.StartRecording(100d);
+            solo.RecordItemPickup(0, "solo-item", 100d);
+            solo.StartSearching(130d);
+
+            var candidates = solo.CaptureCandidates(
+                160d,
+                MatchEndReason.TimeExpired,
+                new[]
+                {
+                    new HighlightReplayFrame(
+                        130d,
+                        new[] { Pose.identity },
+                        new[] { new WorldObjectState("solo-item", Pose.identity) })
+                });
+
+            var hotItem = candidates.Single(candidate =>
+                candidate.Type == HighlightType.TteTanMulgun);
+            var longestHidden = candidates.Single(candidate =>
+                candidate.Type == HighlightType.LongestHidden);
+
+            Assert.That(hotItem.ActorPlayerIndex, Is.Zero);
+            Assert.That(hotItem.Score, Is.GreaterThan(0d));
+            Assert.That(longestHidden.ActorPlayerIndex, Is.Zero);
+            Assert.That(longestHidden.Score, Is.EqualTo(70d));
+            Assert.That(longestHidden.Segments, Has.Count.EqualTo(2));
         }
 
         private HighlightCandidate Candidate(HighlightType type, double endedAt)

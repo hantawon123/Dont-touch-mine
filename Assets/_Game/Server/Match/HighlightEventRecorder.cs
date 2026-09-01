@@ -16,6 +16,7 @@ namespace Game.Server.Match
             new(StringComparer.Ordinal);
         private readonly List<double>[] stunnedAtByPlayer;
         private readonly int[] lastStunnerByPlayer;
+        private readonly bool isSolo;
         private GameEvent? firstDestroyedEvent;
         private GameEvent? lastGameEvent;
         private double searchingStartedAt = -1d;
@@ -50,6 +51,7 @@ namespace Game.Server.Match
             }
 
             MatchRulesSO.ValidatePlayerCount(assignments.Count);
+            isSolo = assignments.Count == 1;
             stunnedAtByPlayer = CreateStunRecords(assignments.Count);
             lastStunnerByPlayer = new int[assignments.Count];
             Array.Fill(lastStunnerByPlayer, -1);
@@ -170,7 +172,7 @@ namespace Game.Server.Match
             if (TryGetLongestHiddenItem(endedAt, out var longestHiddenItemId, out var hiddenUntil))
             {
                 var startedAt = recordingStartedAt >= 0d ? recordingStartedAt : searchingStartedAt;
-                var hiddenSegments = frames == null
+                var hiddenSegments = frames == null || isSolo
                     ? CreateHiddenSummarySegments(startedAt, endedAt)
                     : CreateHiddenSegments(longestHiddenItemId, startedAt, endedAt, frames);
                 if (hiddenSegments.Length > 0)
@@ -325,7 +327,7 @@ namespace Game.Server.Match
             foreach (var pair in items)
             {
                 var item = pair.Value;
-                if (item.Holders.Count < 2 ||
+                if (item.Holders.Count < (isSolo ? 1 : 2) ||
                     selected != null && !IsMoreInteracted(item, pair.Key, selected, itemId))
                 {
                     continue;
