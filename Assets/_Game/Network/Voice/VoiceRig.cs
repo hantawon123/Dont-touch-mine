@@ -60,6 +60,16 @@ namespace Game.Network.Voice
         public static VoiceRig Attach(NetworkRunner runner)
         {
             var runnerObject = runner.gameObject;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // Before the client, because the SDK picks its logger by walking up
+            // from whatever object a component sits on and settles on the first
+            // one it finds. At the default level it says nothing about which
+            // stream reached which speaker, which is the half of the chain we
+            // cannot otherwise see.
+            runnerObject.AddComponent<VoiceLogger>().LogLevel = Photon.Voice.LogLevel.Info;
+#endif
+
             var client = runnerObject.AddComponent<FusionVoiceClient>();
 
             // No primary recorder. Leaving it unset is what makes each avatar bring
