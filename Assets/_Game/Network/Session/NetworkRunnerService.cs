@@ -510,7 +510,7 @@ namespace Game.Network.Session
             if (_browsingLobby)
             {
                 // The lobby runner cannot also play a session, so it is replaced.
-                Shutdown();
+                await ShutdownLobbyRunnerAsync();
             }
             else if (IsRunning)
             {
@@ -1021,6 +1021,27 @@ namespace Game.Network.Session
             {
                 UnityEngine.Object.Destroy(runner.gameObject);
             }
+        }
+
+        private async UniTask ShutdownLobbyRunnerAsync()
+        {
+            var runner = _runner;
+            if (runner == null)
+            {
+                ReleaseRunner();
+                return;
+            }
+
+            var startedAt = Time.realtimeSinceStartupAsDouble;
+            if (runner.IsRunning)
+                await runner.Shutdown();
+
+            // OnShutdown normally releases the current runner while the await
+            // completes. This also covers an already-stopped runner.
+            ReleaseAfterFusionShutdown(runner);
+            Debug.Log(
+                $"[SceneTiming] Lobby runner shutdown completed, " +
+                $"elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
         }
 
         /// <summary>
