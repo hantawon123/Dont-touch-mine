@@ -1230,8 +1230,8 @@ namespace Game.Network.Session
         {
             var settings =
                 Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings;
-            // Empty selects Photon Best Region. A deployment can instead set a
-            // region on ProjectLifetimeScope without recompiling network code.
+            // The deployment supplies its region through ProjectLifetimeScope,
+            // so changing regions does not require recompiling network code.
             settings.FixedRegion = _networkRegion;
             return settings;
         }

@@ -33,7 +33,7 @@ namespace Game.Bootstrap
         private NetworkScenes _networkScenes;
 
         [SerializeField]
-        [Tooltip("Photon region code. Leave empty to use Best Region; room lists are region-local.")]
+        [Tooltip("Photon region code supplied by the deployment settings; room lists are region-local.")]
         private string _networkRegion;
 
         protected override void Configure(IContainerBuilder builder)

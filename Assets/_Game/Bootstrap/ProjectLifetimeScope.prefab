@@ -50,3 +50,4 @@ MonoBehaviour:
   autoInjectGameObjects: []
   _networkPrefabs: {fileID: 11400000, guid: 2450c63f1603a3d4dba80fb89b09e87c, type: 2}
   _networkScenes: {fileID: 11400000, guid: aa74c23ab3984644dbe9e23eb9aa482c, type: 2}
+  _networkRegion: kr
