@@ -15,6 +15,16 @@ pipeline {
         timestamps()
     }
 
+    triggers {
+        // UI 대신 여기에 둔다. Job을 다시 만들어도 살아남고 변경이 저장소에
+        // 기록된다. 웹훅으로 바꿀 때는 이 블록만 gitlab(...)으로 교체하면 된다.
+        //
+        // 주의: backend/ 밖의 변경을 걸러내는 경로 필터는 여기에 넣을 수 없다.
+        // Git 플러그인의 SCM 설정에 있어서 Job UI에만 존재한다.
+        // deploy/README.md의 Job 설정 항목을 참고할 것.
+        pollSCM('H/2 * * * *')
+    }
+
     environment {
         COMPOSE_FILE = 'compose.prod.yml'
         HEALTH_URL   = 'http://localhost:8080/actuator/health'

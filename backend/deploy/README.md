@@ -63,3 +63,40 @@ EC2 전체가 넘어갑니다. 그래서 9090을 루프백에만 바인딩하고
 
 **인증서는 certbot이 관리합니다.** `certbot.timer`가 자동 갱신하고 갱신에는
 80번이 열려 있어야 합니다. ufw에서 80을 닫으면 90일 뒤에 만료됩니다.
+
+## Jenkins Job 설정
+
+`Jenkinsfile`에 담을 수 없는 설정입니다. Job을 다시 만들면 여기 보고 복원하세요.
+
+Job 이름 `d205-backend-deploy`, 종류 Pipeline.
+
+| 위치 | 항목 | 값 |
+| --- | --- | --- |
+| Pipeline | Definition | `Pipeline script from SCM` |
+| Pipeline | SCM | `Git` |
+| Pipeline | Repository URL | `https://lab.ssafy.com/s15-metaverse-game-sub1/S15P21D205.git` |
+| Pipeline | Credentials | `gitlab-deploy-token` |
+| Pipeline | Branch Specifier | `*/develop` |
+| Pipeline | Script Path | `backend/Jenkinsfile` |
+| Pipeline | Additional Behaviours | `Polling ignores commits in certain paths` |
+| Pipeline | └ Included Regions | `backend/.*` |
+
+`Included Regions`가 핵심입니다. 이 저장소는 Unity 작업이 대부분이라, 없으면
+백엔드와 무관한 커밋마다 Gradle 빌드와 컨테이너 교체가 일어납니다.
+폴링에만 적용되므로 "지금 빌드"는 경로와 무관하게 항상 동작합니다 —
+필요할 때 강제 배포 수단이 됩니다.
+
+### 크리덴셜
+
+| ID | 종류 | 내용 |
+| --- | --- | --- |
+| `gitlab-deploy-token` | Username with password | GitLab Deploy Token (`read_repository`). 발급은 Maintainer 권한 필요 |
+| `d205-backend-env` | Secret file | prod `.env`. 원본은 서버의 `/home/ubuntu/d205/.env` |
+
+`d205-backend-env`는 `Jenkinsfile`이 코드에서 직접 참조하므로 ID를 바꾸면 빌드가 깨집니다.
+
+### 트리거
+
+폴링(2분 간격)입니다. 웹훅을 쓰지 않는 이유는 GitLab 웹훅 등록에 Maintainer
+권한이 필요하고, Jenkins에 인바운드 엔드포인트를 여는 대가가 따르기 때문입니다.
+Jenkins는 docker 소켓 권한을 가지므로 노출면을 늘리지 않는 편이 낫습니다.
