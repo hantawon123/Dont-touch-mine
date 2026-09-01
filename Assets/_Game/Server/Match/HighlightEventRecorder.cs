@@ -9,6 +9,8 @@ namespace Game.Server.Match
 {
     public sealed class HighlightEventRecorder
     {
+        private const double LongestHiddenMaxScore = 70d;
+
         private readonly MatchRulesSO rules;
         private readonly Dictionary<string, ItemRecord> items =
             new(StringComparer.Ordinal);
@@ -176,7 +178,7 @@ namespace Game.Server.Match
                         hiddenSegments,
                         longestHiddenItemId,
                         hiddenUntil,
-                        100d * Math.Clamp(
+                        LongestHiddenMaxScore * Math.Clamp(
                             (hiddenUntil - searchingStartedAt) /
                             Math.Max(1d, endedAt - searchingStartedAt),
                             0d,

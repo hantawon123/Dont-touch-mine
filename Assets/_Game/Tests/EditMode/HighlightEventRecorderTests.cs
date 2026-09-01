@@ -87,6 +87,7 @@ namespace Game.Tests.EditMode
 
             Assert.That(candidate.TargetId, Is.EqualTo("item-d"));
             Assert.That(candidate.EndedAt, Is.EqualTo(140d));
+            Assert.That(candidate.Score, Is.EqualTo(70d));
             Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(6d));
             Assert.That(candidate.Segments.All(segment => segment.PlaybackSpeed == 1d), Is.True);
         }
