@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: d205
+
+  # local을 기본값으로 둡니다. 프로필을 지정하지 않고 실행하는 쪽은 항상
+  # 개발자 본인 PC이고, 운영은 배포 스크립트가 prod를 명시합니다.
+  profiles:
+    default: local
+
+  jpa:
+    hibernate:
+      # 스키마는 Flyway가 관리합니다. Hibernate에는 검증만 맡겨서
+      # 엔티티와 실제 테이블이 어긋나면 기동 시점에 바로 드러나게 합니다.
+      ddl-auto: validate
+    # 영속성 컨텍스트를 뷰까지 열어두면 컨트롤러에서 지연 로딩이 일어나
+    # 쿼리가 어디서 나가는지 추적할 수 없게 됩니다.
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # 헬스체크만 엽니다. 나머지 엔드포인트는 인증을 붙인 뒤에 판단합니다.
+        include: health
+  endpoint:
+    health:
+      show-details: never
