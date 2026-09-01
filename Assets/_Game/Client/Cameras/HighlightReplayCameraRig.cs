@@ -49,7 +49,7 @@ namespace Game.Client.Cameras
             groupFraming.FramingMode = CinemachineGroupFraming.FramingModes.HorizontalAndVertical;
             groupFraming.SizeAdjustment = CinemachineGroupFraming.SizeAdjustmentModes.DollyThenZoom;
             groupFraming.LateralAdjustment = CinemachineGroupFraming.LateralAdjustmentModes.ChangePosition;
-            groupFraming.DollyRange = new Vector2(-3f, 6f);
+            groupFraming.DollyRange = new Vector2(0f, 8f);
             groupFraming.FovRange = new Vector2(35f, 70f);
             groupFraming.Damping = 0.35f;
 

@@ -37,9 +37,9 @@ namespace Game.Tests.EditMode
                 director.Focus(Candidate(HighlightType.FirstBlood, "item", eventAt: 7d)),
                 Is.True);
 
-            Assert.That(camera.transform.position.z, Is.EqualTo(-12f));
+            Assert.That(camera.transform.position.z, Is.EqualTo(-14f));
             director.SetPlaybackTime(6.5d);
-            Assert.That(camera.transform.position.z, Is.EqualTo(-8f));
+            Assert.That(camera.transform.position.z, Is.EqualTo(-10f));
         }
 
         [Test]
@@ -56,7 +56,7 @@ namespace Game.Tests.EditMode
 
             director.Focus(Candidate(HighlightType.LongestHidden, "item"));
 
-            Assert.That(camera.transform.position.z, Is.EqualTo(-12f));
+            Assert.That(camera.transform.position.z, Is.EqualTo(-14f));
         }
 
         [Test]
@@ -180,6 +180,30 @@ namespace Game.Tests.EditMode
             blocker.name = "Floor";
             blocker.transform.position = new Vector3(0f, 2.75f, -4f);
             blocker.transform.localScale = new Vector3(4f, 4f, 0.5f);
+            gameObjects.Add(blocker);
+            Physics.SyncTransforms();
+
+            using var director = Director(
+                camera.transform,
+                fallback.transform,
+                new Transform[0],
+                new[] { new SceneWorldObjectReference("item", item.transform) });
+
+            director.Focus(Candidate(HighlightType.FirstBlood, "item"));
+
+            Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.True);
+        }
+
+        [Test]
+        public void Focus_HidesRendererBlockingTheEdgeOfTheActionFrame()
+        {
+            var camera = Create("Camera", Vector3.zero);
+            var fallback = Create("Fallback", Vector3.left);
+            var item = Create("Item", Vector3.zero);
+            var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            blocker.name = "Upper Floor Edge";
+            blocker.transform.position = new Vector3(2f, 3f, -4f);
+            blocker.transform.localScale = Vector3.one * 0.5f;
             gameObjects.Add(blocker);
             Physics.SyncTransforms();
 

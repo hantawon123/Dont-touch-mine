@@ -220,9 +220,9 @@ namespace Game.Bootstrap
             Transform fallbackTransform,
             IReadOnlyList<Transform> playerTargets,
             IReadOnlyList<SceneWorldObjectReference> objectTargets,
-            float closeDistance = 8f,
-            float wideDistance = 12f,
-            float height = 4.5f,
+            float closeDistance = 10f,
+            float wideDistance = 14f,
+            float height = 5.5f,
             float followSharpness = 10f,
             int collisionLayerMask = Physics.DefaultRaycastLayers)
         {
@@ -479,7 +479,7 @@ namespace Game.Bootstrap
 
             foreach (var hit in Physics.SphereCastAll(
                          focusPosition,
-                         0.5f,
+                         Mathf.Clamp(currentDistance * 0.3f, 1.5f, 4.5f),
                          direction / distance,
                          distance,
                          collisionLayerMask,
@@ -529,9 +529,9 @@ namespace Game.Bootstrap
 
         private static float FramingSizeOf(HighlightShotFraming framing) => framing switch
         {
-            HighlightShotFraming.Wide => 0.45f,
-            HighlightShotFraming.Medium => 0.6f,
-            _ => 0.75f,
+            HighlightShotFraming.Wide => 0.38f,
+            HighlightShotFraming.Medium => 0.5f,
+            _ => 0.65f,
         };
 
         public void Dispose()
