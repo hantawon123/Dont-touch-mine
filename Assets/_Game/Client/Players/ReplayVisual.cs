@@ -21,7 +21,6 @@ namespace Game.Client.Players
             if (source == null) throw new ArgumentNullException(nameof(source));
             var transforms = new Dictionary<Transform, Transform>();
             Target = CopyHierarchy(source, parent, transforms);
-            Target.gameObject.SetActive(false);
             Target.SetPositionAndRotation(source.position, source.rotation);
             Target.localScale = source.lossyScale;
             originals = source.GetComponentsInChildren<Renderer>(true);
@@ -68,8 +67,11 @@ namespace Game.Client.Players
                 Animator.runtimeAnimatorController = animator.runtimeAnimatorController;
                 Animator.applyRootMotion = false;
                 Animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                Animator.Rebind();
+                Animator.Update(0f);
                 Animator.enabled = false;
             }
+            Target.gameObject.SetActive(false);
         }
 
         public void SetPlaying(bool playing)

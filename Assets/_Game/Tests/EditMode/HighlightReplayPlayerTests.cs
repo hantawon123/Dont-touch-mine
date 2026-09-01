@@ -89,6 +89,20 @@ namespace Game.Tests.EditMode
             Assert.That(player.IsPlaying, Is.False);
         }
 
+        [Test]
+        public void CutOpacity_HidesOnlyDiscontinuousClipBoundary()
+        {
+            var clips = new[]
+            {
+                Clip(new HighlightSegment(0d, 1d), Frame(0d, Vector3.zero)),
+                Clip(new HighlightSegment(10d, 11d), Frame(10d, Vector3.one)),
+            };
+
+            Assert.That(HighlightReplayPlayer.CutOpacity(clips, 0.8d), Is.Zero);
+            Assert.That(HighlightReplayPlayer.CutOpacity(clips, 1d), Is.EqualTo(1f));
+            Assert.That(HighlightReplayPlayer.CutOpacity(clips, 1.2d), Is.Zero);
+        }
+
         private HighlightReplayFrame Frame(
             double recordedAt,
             Vector3 playerPosition,

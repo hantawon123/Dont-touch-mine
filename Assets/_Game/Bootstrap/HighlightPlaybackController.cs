@@ -258,6 +258,7 @@ namespace Game.Bootstrap
             }
             if (replayPlayer == null || replayIndex != index)
             {
+                var changedHighlight = replayPlayer != null && replayIndex != index;
                 cameraDirector?.ClearOccluders();
                 replayPlayer = null;
                 replayIndex = index;
@@ -269,6 +270,12 @@ namespace Game.Bootstrap
                         Debug.LogWarning($"[Highlight] Cannot prepare {replay[index].Candidate.Type}: check replay frames, player visuals and output camera.");
                         lastWarnedIndex = index;
                     }
+                    transition.SetOpacity(1f);
+                    return;
+                }
+                if (changedHighlight)
+                {
+                    PlaybackSourceTime = null;
                     transition.SetOpacity(1f);
                     return;
                 }
@@ -286,7 +293,9 @@ namespace Game.Bootstrap
             PlaybackSourceTime = playbackTime > 0d ? replayPlayer.SourceTime : null;
             cameraDirector.SetPlaybackTime(playbackTime);
             cameraDirector.Tick(Time.unscaledDeltaTime);
-            transition.SetOpacity(HighlightPresentationTiming.Opacity(elapsed, duration));
+            transition.SetOpacity(Mathf.Max(
+                HighlightPresentationTiming.Opacity(elapsed, duration),
+                HighlightReplayPlayer.CutOpacity(replay[index].Clips, playbackTime)));
         }
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)

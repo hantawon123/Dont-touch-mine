@@ -4,11 +4,32 @@ using Game.Server.Match;
 using Game.Server.Items;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEditor;
 
 namespace Game.Tests.EditMode
 {
     public sealed class ReplayVisualTests
     {
+        [Test]
+        public void ReplayCopy_InitializesAnimatorBeforeManualPlayback()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab");
+            var source = Object.Instantiate(prefab);
+            ReplayVisual visual = null;
+            try
+            {
+                visual = new ReplayVisual(source.transform, null);
+                Assert.That(visual.Animator, Is.Not.Null);
+                Assert.That(visual.Animator.isInitialized, Is.True);
+            }
+            finally
+            {
+                visual?.Dispose();
+                Object.DestroyImmediate(source);
+            }
+        }
+
         [Test]
         public void MigrationFrame_PreparesHiddenAndReusesBufferUntilRoomExit()
         {
