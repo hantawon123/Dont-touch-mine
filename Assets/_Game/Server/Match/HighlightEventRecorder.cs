@@ -143,11 +143,19 @@ namespace Game.Server.Match
 
             if (TryGetMostInteractedItem(out var mostInteractedItemId, out var mostInteractedItem))
             {
+                var segments = CreateMontageSegments(
+                    mostInteractedItem.PickedUpAt,
+                    endedAt,
+                    3,
+                    1.5d);
                 candidates.Add(new HighlightCandidate(
                     HighlightType.TteTanMulgun,
-                    CreateMontageSegments(mostInteractedItem.PickedUpAt, endedAt, 3, 1.5d),
+                    segments,
                     mostInteractedItemId,
-                    mostInteractedItem.LastInteractedAt,
+                    Math.Clamp(
+                        mostInteractedItem.LastInteractedAt,
+                        segments[0].StartedAt,
+                        segments[segments.Length - 1].EndedAt),
                     Math.Min(100d,
                         25d + mostInteractedItem.Holders.Count * 15d +
                         mostInteractedItem.InteractionCount * 5d),

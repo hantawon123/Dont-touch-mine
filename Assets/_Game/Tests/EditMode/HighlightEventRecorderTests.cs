@@ -154,10 +154,11 @@ namespace Game.Tests.EditMode
             solo.StartRecording(100d);
             solo.RecordItemPickup(0, "solo-item", 100d);
             solo.StartSearching(130d);
+            solo.RecordItemDestroyed(0, "solo-item", 160d);
 
             var candidates = solo.CaptureCandidates(
                 160d,
-                MatchEndReason.TimeExpired,
+                MatchEndReason.AllPlayerItemsDestroyed,
                 new[]
                 {
                     new HighlightReplayFrame(
@@ -171,8 +172,11 @@ namespace Game.Tests.EditMode
             var longestHidden = candidates.Single(candidate =>
                 candidate.Type == HighlightType.LongestHidden);
 
+            Assert.That(candidates.Any(candidate =>
+                candidate.Type == HighlightType.FirstBlood), Is.True);
             Assert.That(hotItem.ActorPlayerIndex, Is.Zero);
             Assert.That(hotItem.Score, Is.GreaterThan(0d));
+            Assert.That(hotItem.EventAt, Is.LessThanOrEqualTo(hotItem.EndedAt));
             Assert.That(longestHidden.ActorPlayerIndex, Is.Zero);
             Assert.That(longestHidden.Score, Is.EqualTo(70d));
             Assert.That(longestHidden.Segments, Has.Count.EqualTo(2));
