@@ -69,6 +69,7 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
+            var configureStartedAt = Time.realtimeSinceStartupAsDouble;
             if (matchRules == null)
             {
                 throw new InvalidOperationException("PlaygroundLifetimeScope: MatchRulesSO를 연결하세요.");
@@ -79,7 +80,11 @@ namespace Game.Bootstrap
                 .AsSelf()
                 .As<IPlayerCombatRules>();
 
+            var captureStartedAt = Time.realtimeSinceStartupAsDouble;
             var matchScene = PlaygroundMatchScene.Capture(gameObject.scene);
+            Debug.Log(
+                $"[SceneTiming] Playground scene capture completed, " +
+                $"elapsed={Time.realtimeSinceStartupAsDouble - captureStartedAt:F3}s.");
             builder.RegisterInstance(matchScene.RuntimeContext)
                 .As<IMatchRuntimeContext>();
             builder.RegisterInstance(matchScene.NetworkConfiguration);
@@ -107,6 +112,9 @@ namespace Game.Bootstrap
                 builder.RegisterEntryPoint<VoicePresenter>();
             }
 
+            builder.RegisterBuildCallback(_ => Debug.Log(
+                $"[SceneTiming] Playground scope ready, " +
+                $"elapsed={Time.realtimeSinceStartupAsDouble - configureStartedAt:F3}s."));
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)

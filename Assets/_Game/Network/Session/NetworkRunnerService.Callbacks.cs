@@ -603,7 +603,12 @@ namespace Game.Network.Session
 
         public void OnSceneLoadStart(NetworkRunner runner)
         {
-            if (IsCurrentRunner(runner)) IsResultSceneLoaded = false;
+            if (!IsCurrentRunner(runner)) return;
+            IsResultSceneLoaded = false;
+            _networkSceneLoadStartedAt = Time.realtimeSinceStartupAsDouble;
+            Debug.Log(
+                $"[SceneTiming] Fusion scene load started: current={SceneManager.GetActiveScene().name}, " +
+                $"isServer={runner.IsServer}.");
         }
 
         /// <summary>
@@ -631,6 +636,11 @@ namespace Game.Network.Session
             Debug.Log(
                 $"[Session] Scene load done: '{SceneManager.GetActiveScene().name}', " +
                 $"IsServer={runner != null && runner.IsServer}.");
+            Debug.Log(
+                $"[SceneTiming] Fusion scene load completed: scene={SceneManager.GetActiveScene().name}, " +
+                $"isServer={runner.IsServer}, " +
+                $"elapsed={(_networkSceneLoadStartedAt < 0d ? 0d : Time.realtimeSinceStartupAsDouble - _networkSceneLoadStartedAt):F3}s.");
+            _networkSceneLoadStartedAt = -1d;
 
             SceneLoaded?.Invoke();
             PublishSceneStateWhenReadyAsync(runner).Forget(exception => Debug.LogException(exception));

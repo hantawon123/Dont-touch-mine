@@ -127,6 +127,7 @@ namespace Game.Network.Session
         private PlayerRoster _roster;
         private MatchStarter _matchStarter;
         private NetworkPlayerMotor _localInputMotor;
+        private double _networkSceneLoadStartedAt = -1d;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<LobbyChatMessage> ChatReceived;
@@ -433,6 +434,7 @@ namespace Game.Network.Session
         /// </summary>
         public async UniTask<SessionStartResult> JoinLobbyAsync(CancellationToken cancellation)
         {
+            var requestedAt = Time.realtimeSinceStartupAsDouble;
             await UniTask.WaitUntil(() => !IsRoomExitPending, cancellationToken: cancellation);
             if (IsRunning || _roomInitializationInProgress)
             {
@@ -449,6 +451,7 @@ namespace Game.Network.Session
             var runner = _runner;
 
             StartGameResult result;
+            var connectionStartedAt = Time.realtimeSinceStartupAsDouble;
             try
             {
                 result = await runner.JoinSessionLobby(
@@ -456,9 +459,17 @@ namespace Game.Network.Session
             }
             catch (OperationCanceledException)
             {
+                Debug.Log(
+                    $"[SceneTiming] Photon lobby join cancelled, " +
+                    $"elapsed={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s.");
                 ReleaseAfterFusionShutdown(runner);
                 throw;
             }
+
+            Debug.Log(
+                $"[SceneTiming] Photon lobby join completed: ok={result.Ok}, " +
+                $"connection={Time.realtimeSinceStartupAsDouble - connectionStartedAt:F3}s, " +
+                $"total={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s.");
 
             if (!result.Ok)
             {
@@ -491,6 +502,7 @@ namespace Game.Network.Session
         public async UniTask<SessionStartResult> StartAsync(
             SessionRequest request, CancellationToken cancellation)
         {
+            var requestedAt = Time.realtimeSinceStartupAsDouble;
             await UniTask.WaitUntil(() => !IsRoomExitPending, cancellationToken: cancellation);
             if (_roomInitializationInProgress)
                 return SessionStartResult.Failed(SessionFailure.AlreadyRunning,
@@ -559,12 +571,16 @@ namespace Game.Network.Session
             }
 
             StartGameResult result;
+            var connectionStartedAt = Time.realtimeSinceStartupAsDouble;
             try
             {
                 result = await runner.StartGame(args);
             }
             catch (OperationCanceledException)
             {
+                Debug.Log(
+                    $"[SceneTiming] Session connection cancelled: mode={request.Mode}, " +
+                    $"elapsed={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s.");
                 ReleaseAfterFusionShutdown(runner);
                 throw;
             }
@@ -575,6 +591,11 @@ namespace Game.Network.Session
                 // load from ending the session.
                 startCancellation.Dispose();
             }
+
+            var connectionSeconds = Time.realtimeSinceStartupAsDouble - connectionStartedAt;
+            Debug.Log(
+                $"[SceneTiming] Session connection completed: mode={request.Mode}, ok={result.Ok}, " +
+                $"connection={connectionSeconds:F3}s.");
 
             if (!result.Ok)
             {
@@ -621,6 +642,10 @@ namespace Game.Network.Session
                     Debug.Log($"[Network] Session '{RoomCode}' started as {request.Mode}. IsServer={IsServer}");
                 else
                     Debug.LogError($"[Network] Room initialization failed: {initialized.Detail}");
+                Debug.Log(
+                    $"[SceneTiming] Room session ready: mode={request.Mode}, ok={initialized.Ok}, " +
+                    $"connection={connectionSeconds:F3}s, " +
+                    $"total={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s.");
                 return initialized;
             }
             finally
@@ -1185,6 +1210,7 @@ namespace Game.Network.Session
             // Single, not Additive: the lobby scene would otherwise stay loaded
             // behind the map, leaving two cameras rendering and the lobby's
             // geometry inside it.
+            Debug.Log($"[SceneTiming] Network load requested: Lobby -> {scene}.");
             runner.LoadScene(scene, LoadSceneMode.Single);
             Debug.Log("[Session] Loading the match scene for everyone.");
         }
@@ -1202,6 +1228,7 @@ namespace Game.Network.Session
             }
             var scene = _scenes.ResultScene;
             if (!scene.IsValid) return false;
+            Debug.Log($"[SceneTiming] Network load requested: Playground -> {scene}.");
             _runner.LoadScene(scene, LoadSceneMode.Single);
             return true;
         }
@@ -1227,6 +1254,9 @@ namespace Game.Network.Session
                 return false;
             }
 
+            Debug.Log(
+                $"[SceneTiming] Network load requested: {SceneManager.GetActiveScene().name} -> " +
+                $"{scene}.");
             runner.LoadScene(scene, LoadSceneMode.Single);
             Debug.Log("[Session] Returning everyone to the lobby scene.");
             return true;
