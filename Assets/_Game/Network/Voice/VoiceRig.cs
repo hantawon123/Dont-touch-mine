@@ -62,10 +62,12 @@ namespace Game.Network.Voice
             var runnerObject = runner.gameObject;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            // VoiceDiagnostics already records the useful chain state. Keep the
-            // SDK logger for failures without printing every connection step and
-            // its stack trace on the main thread while a scene is loading.
-            runnerObject.AddComponent<VoiceLogger>().LogLevel = Photon.Voice.LogLevel.Warning;
+            // Before the client, because the SDK picks its logger by walking up
+            // from whatever object a component sits on and settles on the first
+            // one it finds. At the default level it says nothing about which
+            // stream reached which speaker, which is the half of the chain we
+            // cannot otherwise see.
+            runnerObject.AddComponent<VoiceLogger>().LogLevel = Photon.Voice.LogLevel.Info;
 #endif
 
             var client = runnerObject.AddComponent<FusionVoiceClient>();
