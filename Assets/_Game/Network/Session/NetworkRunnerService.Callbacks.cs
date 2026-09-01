@@ -645,7 +645,8 @@ namespace Game.Network.Session
             SceneLoaded?.Invoke();
             PublishSceneStateWhenReadyAsync(runner).Forget(exception => Debug.LogException(exception));
             if (!_hostMigrationInProgress &&
-                (!runner.IsResume || !(_matchStarter?.HasStartedMatch ?? false)))
+                (!runner.IsResume || !(_matchStarter?.HasStartedMatch ?? false)) &&
+                !(_scenes != null && IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene)))
                 _spawner?.RepositionSeated(runner);
         }
 
