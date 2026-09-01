@@ -1,0 +1,80 @@
+// 백엔드 배포 파이프라인. Jenkins Job의 스크립트 경로를 backend/Jenkinsfile로 지정합니다.
+//
+// 트리거는 이 파일에 두지 않고 Job 설정에서 지정합니다. 웹훅과 폴링 중 어느 쪽으로
+// 갈지는 보안그룹에 80/443을 열 수 있는지에 달려 있고, 그 결정이 파이프라인의
+// 나머지를 바꾸지 않기 때문입니다.
+pipeline {
+    agent any
+
+    options {
+        // 빌드가 멈춰서 슬롯을 물고 있는 상황을 막습니다.
+        timeout(time: 20, unit: 'MINUTES')
+        // 같은 compose 프로젝트를 두 빌드가 동시에 건드리면 컨테이너가 꼬입니다.
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        timestamps()
+    }
+
+    environment {
+        COMPOSE_FILE = 'compose.prod.yml'
+        HEALTH_URL   = 'http://localhost:8080/actuator/health'
+    }
+
+    stages {
+        stage('배포') {
+            steps {
+                // 워크스페이스는 git 체크아웃이라 .env가 없습니다(저장소에 넣지 않으므로).
+                // Jenkins 크리덴셜에 보관한 파일을 빌드마다 써넣습니다.
+                withCredentials([file(credentialsId: 'd205-backend-env', variable: 'ENV_FILE')]) {
+                    dir('backend') {
+                        sh '''
+                            cp "$ENV_FILE" .env
+                            chmod 600 .env
+                            docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('헬스체크') {
+            steps {
+                dir('backend') {
+                    // 컨테이너가 떴다는 것과 애플리케이션이 응답한다는 것은 다릅니다.
+                    // Flyway 마이그레이션과 DB 연결까지 끝나야 UP이 나옵니다.
+                    sh '''
+                        for i in $(seq 1 30); do
+                            if curl -fsS --max-time 3 "$HEALTH_URL" | grep -q '"status":"UP"'; then
+                                echo "헬스체크 통과 (${i}회 시도)"
+                                exit 0
+                            fi
+                            sleep 2
+                        done
+
+                        echo "헬스체크 실패 - 60초 안에 UP이 되지 않았습니다"
+                        docker compose -f "$COMPOSE_FILE" ps || true
+                        docker compose -f "$COMPOSE_FILE" logs app --tail 100 || true
+                        exit 1
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            dir('backend') {
+                // 시크릿을 워크스페이스에 남기지 않습니다. 스테이지가 모두 끝난
+                // 뒤에 지웁니다. compose는 명령마다 .env를 다시 읽으므로
+                // 헬스체크 단계의 logs 조회까지는 파일이 있어야 합니다.
+                sh 'rm -f .env'
+                // 빌드 캐시가 계속 쌓여 디스크를 먹습니다. 7일보다 오래된 것만
+                // 버리므로 다음 빌드의 캐시 적중률은 그대로입니다.
+                sh 'docker builder prune -f --filter until=168h || true'
+            }
+        }
+        failure {
+            echo '배포 실패. 이전 컨테이너는 계속 동작 중입니다.'
+        }
+    }
+}
