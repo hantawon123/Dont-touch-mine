@@ -247,6 +247,36 @@ namespace Game.Tests.EditMode
             Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.False);
         }
 
+        [Test]
+        public void Focus_HidesOccludersAcrossThePresentedAreaWithoutMapMetadata()
+        {
+            var nearbyFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            nearbyFloor.transform.position = new Vector3(0f, 3f, -4f);
+            gameObjects.Add(nearbyFloor);
+            var distantFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            distantFloor.transform.position = new Vector3(5f, 3f, -4f);
+            gameObjects.Add(distantFloor);
+
+            var camera = Create("Camera", Vector3.zero);
+            var fallback = Create("Fallback", Vector3.left);
+            var item = Create("Item", new Vector3(0f, 0.5f, 0f));
+            Physics.SyncTransforms();
+
+            using var director = Director(
+                camera.transform,
+                fallback.transform,
+                new Transform[0],
+                new[] { new SceneWorldObjectReference("item", item.transform) });
+
+            director.Focus(Candidate(HighlightType.FirstBlood, "item"));
+
+            Assert.That(nearbyFloor.GetComponent<Renderer>().forceRenderingOff, Is.True);
+            Assert.That(distantFloor.GetComponent<Renderer>().forceRenderingOff, Is.True);
+            director.ClearOccluders();
+            Assert.That(nearbyFloor.GetComponent<Renderer>().forceRenderingOff, Is.False);
+            Assert.That(distantFloor.GetComponent<Renderer>().forceRenderingOff, Is.False);
+        }
+
         private static HighlightCameraDirector Director(
             Transform camera,
             Transform fallback,

@@ -469,10 +469,28 @@ namespace Game.Bootstrap
                 return;
             }
 
+            var normalizedDirection = direction / distance;
+            var viewArea = new Vector3(
+                Mathf.Max(2f, currentDistance * 0.5f),
+                0.35f,
+                Mathf.Max(2f, currentDistance * 0.35f));
+            foreach (var hit in Physics.BoxCastAll(
+                         focusPosition,
+                         viewArea,
+                         normalizedDirection,
+                         Quaternion.identity,
+                         distance,
+                         collisionLayerMask,
+                         QueryTriggerInteraction.Ignore))
+            {
+                HideIfOccluding(hit.collider.GetComponent<Renderer>());
+                HideIfOccluding(hit.collider.GetComponentInParent<Renderer>());
+            }
+
             foreach (var hit in Physics.SphereCastAll(
                          focusPosition,
                          0.75f,
-                         direction / distance,
+                         normalizedDirection,
                          distance,
                          collisionLayerMask,
                          QueryTriggerInteraction.Ignore))
