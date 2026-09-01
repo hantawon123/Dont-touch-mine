@@ -118,6 +118,7 @@ namespace Game.Client.Cameras
         {
             if (disposed) return;
             disposed = true;
+            if (root == null) return;
             root.SetActive(false);
             if (Application.isPlaying)
             {
