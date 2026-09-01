@@ -612,13 +612,13 @@ namespace Game.Network.Session
         }
 
         /// <summary>
-        /// Re-seats everyone on the newly loaded scene's spawn points.
+        /// Re-seats waiting-room players on the newly loaded scene's spawn points.
         /// </summary>
         /// <remarks>
         /// Order matters. Listeners run first so that the scene's spawn points
-        /// have reached the spawner, and only then are the characters moved;
-        /// moving first would place them on the points of the scene that has
-        /// just been unloaded.
+        /// have reached the spawner. Once a match has started, its runtime owns
+        /// the role-specific placement; applying the generic points here would
+        /// only teleport every character twice during the same transition.
         /// </remarks>
         public void OnSceneLoadDone(NetworkRunner runner)
         {
@@ -645,7 +645,7 @@ namespace Game.Network.Session
             SceneLoaded?.Invoke();
             PublishSceneStateWhenReadyAsync(runner).Forget(exception => Debug.LogException(exception));
             if (!_hostMigrationInProgress &&
-                (!runner.IsResume || !(_matchStarter?.HasStartedMatch ?? false)) &&
+                !(_matchStarter?.HasStartedMatch ?? false) &&
                 !(_scenes != null && IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene)))
                 _spawner?.RepositionSeated(runner);
         }
