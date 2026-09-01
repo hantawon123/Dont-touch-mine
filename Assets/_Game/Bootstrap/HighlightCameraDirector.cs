@@ -479,7 +479,7 @@ namespace Game.Bootstrap
 
             foreach (var hit in Physics.SphereCastAll(
                          focusPosition,
-                         Mathf.Clamp(currentDistance * 0.3f, 1.5f, 4.5f),
+                         Mathf.Clamp(currentDistance * 0.5f, 2.5f, 8f),
                          direction / distance,
                          distance,
                          collisionLayerMask,

@@ -202,7 +202,7 @@ namespace Game.Tests.EditMode
             var item = Create("Item", Vector3.zero);
             var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
             blocker.name = "Upper Floor Edge";
-            blocker.transform.position = new Vector3(2f, 3f, -4f);
+            blocker.transform.position = new Vector3(5f, 5f, -4f);
             blocker.transform.localScale = Vector3.one * 0.5f;
             gameObjects.Add(blocker);
             Physics.SyncTransforms();
