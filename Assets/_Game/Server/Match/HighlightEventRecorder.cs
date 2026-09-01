@@ -141,7 +141,7 @@ namespace Game.Server.Match
             {
                 candidates.Add(new HighlightCandidate(
                     HighlightType.TteTanMulgun,
-                    CreateMontageSegments(mostInteractedItem.PickedUpAt, endedAt, 3, 2d),
+                    CreateMontageSegments(mostInteractedItem.PickedUpAt, endedAt, 3, 1.5d),
                     mostInteractedItemId,
                     mostInteractedItem.LastInteractedAt,
                     Math.Min(100d,
@@ -168,10 +168,8 @@ namespace Game.Server.Match
             if (TryGetLongestHiddenItem(endedAt, out var longestHiddenItemId, out var hiddenUntil))
             {
                 var startedAt = recordingStartedAt >= 0d ? recordingStartedAt : searchingStartedAt;
-                var hiddenDuration = endedAt - startedAt;
                 var hiddenSegments = frames == null
-                    ? new[] { new HighlightSegment(startedAt, endedAt,
-                        Math.Max(1d, hiddenDuration / rules.HighlightClipDurationSeconds)) }
+                    ? CreateHiddenSummarySegments(startedAt, endedAt)
                     : CreateHiddenSegments(longestHiddenItemId, startedAt, endedAt, frames);
                 if (hiddenSegments.Length > 0)
                     candidates.Add(new HighlightCandidate(HighlightType.LongestHidden,
@@ -266,19 +264,20 @@ namespace Game.Server.Match
                 }
                 else merged.Add(window);
             }
-            var normalDuration = 0d;
-            foreach (var window in merged) normalDuration += window.PlaybackDurationSeconds;
-            var fastSpeed = Math.Max(1d, (end - start - normalDuration) /
-                Math.Max(0.1d, rules.HighlightClipDurationSeconds - normalDuration));
-            var segments = new List<HighlightSegment>();
-            var cursor = start;
-            foreach (var window in merged)
-            {
-                if (window.StartedAt > cursor) segments.Add(new HighlightSegment(cursor, window.StartedAt, fastSpeed));
-                segments.Add(window);
-                cursor = window.EndedAt;
-            }
-            return segments.ToArray();
+            return merged.ToArray();
+        }
+
+        private static HighlightSegment[] CreateHiddenSummarySegments(double start, double end)
+        {
+            var introEnd = Math.Min(end, start + 2d);
+            var endingStart = Math.Max(introEnd, end - 4d);
+            return endingStart <= introEnd
+                ? new[] { new HighlightSegment(start, end) }
+                : new[]
+                {
+                    new HighlightSegment(start, introEnd),
+                    new HighlightSegment(endingStart, end),
+                };
         }
 
         private HighlightCandidate CreateEventCandidate(

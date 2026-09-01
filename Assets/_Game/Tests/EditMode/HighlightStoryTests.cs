@@ -127,7 +127,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Hidden_UsesNormalSpeedAtEncounter_AndFastForEmptyTime()
+        public void Hidden_CutsEmptyTime_AndKeepsMeaningfulMomentsAtNormalSpeed()
         {
             WithRecorder(recorder =>
             {
@@ -136,9 +136,9 @@ namespace Game.Tests.EditMode
                     .Single(c => c.Type == HighlightType.LongestHidden);
                 Assert.That(hidden.StartedAt, Is.EqualTo(100));
                 Assert.That(hidden.EndedAt, Is.EqualTo(140));
-                Assert.That(hidden.PlaybackDurationSeconds, Is.LessThanOrEqualTo(10.001));
+                Assert.That(hidden.PlaybackDurationSeconds, Is.LessThanOrEqualTo(6.001));
                 Assert.That(hidden.Segments.Any(s => s.StartedAt <= 120 && s.EndedAt >= 120 && s.PlaybackSpeed == 1), Is.True);
-                Assert.That(hidden.Segments.Any(s => s.PlaybackSpeed > 1), Is.True);
+                Assert.That(hidden.Segments.All(s => s.PlaybackSpeed == 1), Is.True);
             });
         }
 

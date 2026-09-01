@@ -63,7 +63,7 @@ namespace Game.Tests.EditMode
             Assert.That(candidate.ActorPlayerIndex, Is.EqualTo(1));
             Assert.That(candidate.SecondaryPlayerIndex, Is.EqualTo(-1));
             Assert.That(candidate.Segments, Has.Count.EqualTo(2));
-            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(5d));
+            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(4d));
         }
 
         [Test]
@@ -87,7 +87,8 @@ namespace Game.Tests.EditMode
 
             Assert.That(candidate.TargetId, Is.EqualTo("item-d"));
             Assert.That(candidate.EndedAt, Is.EqualTo(140d));
-            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(10d));
+            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(6d));
+            Assert.That(candidate.Segments.All(segment => segment.PlaybackSpeed == 1d), Is.True);
         }
 
         [Test]
