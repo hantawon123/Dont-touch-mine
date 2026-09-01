@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Match;
+using Game.Core.Players;
 using Game.Network.Match;
 using Game.Server.Items;
 using Game.Server.Match;
@@ -91,10 +92,45 @@ namespace Game.Architecture.Tests
             Assert.That(context.PlayerPositions[1], Is.EqualTo(lastPose.position));
         }
 
-        private sealed class FakeNetworkSource : INetworkMatchRuntimeSource
+        [Test]
+        public void Context_CapturesPostureAirborneAndAttackPulse()
+        {
+            var source = new FakeNetworkSource(10d, new Dictionary<string, Pose>
+            {
+                ["player-0"] = Pose.identity,
+                ["player-1"] = Pose.identity,
+            });
+            source.SetReplayState("player-0",
+                new NetworkPlayerReplayState(PlayerPosture.Crouching, false, 0));
+            source.SetReplayState("player-1",
+                new NetworkPlayerReplayState(PlayerPosture.Standing, true, 0));
+            var context = new NetworkMatchRuntimeContext(
+                source,
+                new FakeSceneContext(),
+                new[]
+                {
+                    new MatchParticipant("player-0", 0),
+                    new MatchParticipant("player-1", 1),
+                });
+
+            Assert.That(context.PlayerReplayActions[0], Is.EqualTo(
+                HighlightPlayerAction.Crouching | HighlightPlayerAction.Airborne));
+
+            source.ServerTime = 10.1d;
+            source.SetReplayState("player-1",
+                new NetworkPlayerReplayState(PlayerPosture.Standing, true, 1));
+
+            Assert.That(context.PlayerReplayActions[1] & HighlightPlayerAction.Punching,
+                Is.Not.EqualTo(HighlightPlayerAction.None));
+        }
+
+        private sealed class FakeNetworkSource :
+            INetworkMatchRuntimeSource,
+            INetworkPlayerReplayStateSource
         {
             public bool IsRuntimeReady => true;
             private readonly IDictionary<string, Pose> poses;
+            private readonly Dictionary<string, NetworkPlayerReplayState> replayStates = new();
 
             public FakeNetworkSource(
                 double serverTime,
@@ -104,7 +140,7 @@ namespace Game.Architecture.Tests
                 this.poses = poses;
             }
 
-            public double ServerTime { get; }
+            public double ServerTime { get; set; }
 
             public bool TryGetPlayerPose(string playerId, out Pose pose) =>
                 poses.TryGetValue(playerId, out pose);
@@ -113,6 +149,14 @@ namespace Game.Architecture.Tests
             {
                 poses.Remove(playerId);
             }
+
+            public void SetReplayState(string playerId, NetworkPlayerReplayState state) =>
+                replayStates[playerId] = state;
+
+            public bool TryGetPlayerReplayState(
+                string playerId,
+                out NetworkPlayerReplayState state) =>
+                replayStates.TryGetValue(playerId, out state);
         }
 
         private sealed class FakeSceneContext : IMatchRuntimeContext

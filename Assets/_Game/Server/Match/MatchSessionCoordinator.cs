@@ -140,6 +140,8 @@ namespace Game.Server.Match
         private const double HighlightReplaySampleIntervalSeconds = 0.1d;
         public const double HighlightPostRollSeconds = HighlightPresentationTiming.PostRollSeconds;
         private readonly Dictionary<int, double> lastHitAt = new();
+        private readonly Dictionary<int, double> lastPlacementAt = new();
+        private readonly Dictionary<int, double> lastThrowAt = new();
 
         private readonly MatchRulesSO rules;
         private readonly MatchState state;
@@ -500,6 +502,8 @@ namespace Game.Server.Match
                 highlightRecorder.RecordItemInteraction(playerIndex, objectId, now);
             }
 
+            lastPlacementAt[playerIndex] = now;
+
             return true;
         }
 
@@ -561,6 +565,7 @@ namespace Game.Server.Match
                     releasePose,
                     initialVelocity,
                     now));
+            lastThrowAt[playerIndex] = now;
             return true;
         }
 
@@ -792,7 +797,8 @@ namespace Game.Server.Match
         public bool TryRecordReplayFrame(
             double now,
             IReadOnlyList<Pose> playerPoses,
-            IReadOnlyList<WorldObjectState> replayObjects)
+            IReadOnlyList<WorldObjectState> replayObjects,
+            IReadOnlyList<HighlightPlayerAction> playerActions = null)
         {
             if (replayUnavailable) return false;
             if (state.CurrentPhase.CurrentValue != MatchPhase.Searching &&
@@ -810,10 +816,29 @@ namespace Game.Server.Match
                     nameof(playerPoses));
             }
 
-            var actions = new byte[playerPoses.Count];
+            if (playerActions != null && playerActions.Count != playerPoses.Count)
+            {
+                throw new ArgumentException(
+                    "Replay actions must match player poses.",
+                    nameof(playerActions));
+            }
+
+            var actions = new HighlightPlayerAction[playerPoses.Count];
             for (var i = 0; i < actions.Length; i++)
-                actions[i] = interactions.IsStunned(i, now) ? (byte)2 :
-                    lastHitAt.TryGetValue(i, out var hitAt) && now - hitAt < 0.5d ? (byte)1 : (byte)0;
+            {
+                var action = playerActions == null
+                    ? HighlightPlayerAction.None
+                    : playerActions[i];
+                if (interactions.IsStunned(i, now)) action |= HighlightPlayerAction.Stunned;
+                if (lastHitAt.TryGetValue(i, out var hitAt) && now - hitAt < 0.5d)
+                    action |= HighlightPlayerAction.Punching;
+                if (TryGetHeldObjectId(i, out _)) action |= HighlightPlayerAction.Carrying;
+                if (lastThrowAt.TryGetValue(i, out var thrownAt) && now - thrownAt < 0.5d)
+                    action |= HighlightPlayerAction.Throwing;
+                if (lastPlacementAt.TryGetValue(i, out var placedAt) && now - placedAt < 0.5d)
+                    action |= HighlightPlayerAction.Placing;
+                actions[i] = action;
+            }
             return highlightReplayBuffer.TryRecord(now, playerPoses, replayObjects, actions);
         }
 

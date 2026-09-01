@@ -37,6 +37,7 @@ namespace Game.Network.Session
         INetworkRunnerCallbacks,
         IMatchSceneDirector,
         INetworkMatchRuntimeSource,
+        INetworkPlayerReplayStateSource,
         INetworkMatchAuthority,
         INetworkMatchEvents,
         INetworkHighlightReady,
@@ -337,6 +338,27 @@ namespace Game.Network.Session
             }
 
             pose = default;
+            return false;
+        }
+
+        public bool TryGetPlayerReplayState(
+            string playerId,
+            out NetworkPlayerReplayState state)
+        {
+            if (_roster != null && _roster.TryGetAvatar(playerId, out var avatar))
+            {
+                var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                if (motor != null)
+                {
+                    state = new NetworkPlayerReplayState(
+                        motor.Posture,
+                        motor.AnimationGrounded,
+                        motor.AttackSequence);
+                    return true;
+                }
+            }
+
+            state = default;
             return false;
         }
 

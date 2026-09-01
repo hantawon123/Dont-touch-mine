@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Core.Players;
 using Game.Server.Items;
 using Game.Server.Match;
 using UnityEngine;
@@ -15,7 +16,33 @@ namespace Game.Network.Match
         bool TryGetPlayerPose(string playerId, out Pose pose);
     }
 
-    public sealed class NetworkMatchRuntimeContext : IMatchRuntimeContext
+    public readonly struct NetworkPlayerReplayState
+    {
+        public NetworkPlayerReplayState(
+            PlayerPosture posture,
+            bool grounded,
+            int attackSequence)
+        {
+            if (!Enum.IsDefined(typeof(PlayerPosture), posture) || attackSequence < 0)
+                throw new ArgumentOutOfRangeException(nameof(posture));
+            Posture = posture;
+            Grounded = grounded;
+            AttackSequence = attackSequence;
+        }
+
+        public PlayerPosture Posture { get; }
+        public bool Grounded { get; }
+        public int AttackSequence { get; }
+    }
+
+    public interface INetworkPlayerReplayStateSource
+    {
+        bool TryGetPlayerReplayState(string playerId, out NetworkPlayerReplayState state);
+    }
+
+    public sealed class NetworkMatchRuntimeContext :
+        IMatchRuntimeContext,
+        IHighlightReplayActionSource
     {
         private readonly INetworkMatchRuntimeSource source;
         private readonly IMatchRuntimeContext sceneContext;
@@ -24,6 +51,10 @@ namespace Game.Network.Match
         private Vector3[] positions;
         private Pose[] poses;
         private bool[] hasPose;
+        private readonly HighlightPlayerAction[] replayActions;
+        private readonly int[] attackSequences;
+        private readonly bool[] hasAttackSequence;
+        private readonly double[] punchEndsAt;
 
         public NetworkMatchRuntimeContext(
             INetworkMatchRuntimeSource source,
@@ -50,6 +81,10 @@ namespace Game.Network.Match
             positions = new Vector3[participantsByIndex.Length];
             poses = new Pose[participantsByIndex.Length];
             hasPose = new bool[participantsByIndex.Length];
+            replayActions = new HighlightPlayerAction[participantsByIndex.Length];
+            attackSequences = new int[participantsByIndex.Length];
+            hasAttackSequence = new bool[participantsByIndex.Length];
+            punchEndsAt = new double[participantsByIndex.Length];
             if (restoredPoses != null)
             {
                 if (restoredPoses.Count != poses.Length) throw new ArgumentException("Migration pose count mismatch.");
@@ -83,6 +118,14 @@ namespace Game.Network.Match
         }
 
         public IReadOnlyList<WorldObjectState> ReplayObjects => sceneContext.ReplayObjects;
+        public IReadOnlyList<HighlightPlayerAction> PlayerReplayActions
+        {
+            get
+            {
+                CapturePlayers();
+                return replayActions;
+            }
+        }
 
         private void CapturePlayers()
         {
@@ -91,6 +134,7 @@ namespace Game.Network.Match
                  playerIndex++)
             {
                 var playerId = participantsByIndex[playerIndex].PlayerId;
+                replayActions[playerIndex] = HighlightPlayerAction.None;
                 if (!source.TryGetPlayerPose(playerId, out var pose))
                 {
                     if (!hasPose[playerIndex])
@@ -105,7 +149,37 @@ namespace Game.Network.Match
                 poses[playerIndex] = pose;
                 positions[playerIndex] = pose.position;
                 hasPose[playerIndex] = true;
+                CaptureReplayAction(playerId, playerIndex);
             }
+        }
+
+        private void CaptureReplayAction(string playerId, int playerIndex)
+        {
+            replayActions[playerIndex] = HighlightPlayerAction.None;
+            if (source is not INetworkPlayerReplayStateSource replaySource ||
+                !replaySource.TryGetPlayerReplayState(playerId, out var state))
+            {
+                return;
+            }
+
+            var action = state.Posture switch
+            {
+                PlayerPosture.Crouching => HighlightPlayerAction.Crouching,
+                PlayerPosture.Prone => HighlightPlayerAction.Prone,
+                _ => HighlightPlayerAction.None,
+            };
+            if (!state.Grounded) action |= HighlightPlayerAction.Airborne;
+            if (hasAttackSequence[playerIndex] &&
+                attackSequences[playerIndex] != state.AttackSequence)
+            {
+                punchEndsAt[playerIndex] = source.ServerTime + 0.5d;
+            }
+
+            attackSequences[playerIndex] = state.AttackSequence;
+            hasAttackSequence[playerIndex] = true;
+            if (source.ServerTime < punchEndsAt[playerIndex])
+                action |= HighlightPlayerAction.Punching;
+            replayActions[playerIndex] = action;
         }
 
         private static MatchParticipant[] OrderByPlayerIndex(

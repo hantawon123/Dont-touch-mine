@@ -38,21 +38,30 @@ namespace Game.Tests.EditMode
         {
             var segment = new HighlightSegment(10, 11);
             var frame = new HighlightReplayFrame(10, new[] { Pose.identity, Pose.identity },
-                new WorldObjectState[0], new byte[] { 1, 2 });
+                new WorldObjectState[0], new[]
+                {
+                    HighlightPlayerAction.Punching | HighlightPlayerAction.Carrying,
+                    HighlightPlayerAction.Stunned | HighlightPlayerAction.Prone,
+                });
             var data = new HighlightReplayData(new HighlightCandidate(HighlightType.MostStunned,
                 new[] { segment }, "1"), new[] { new HighlightReplayClip(segment, new[] { frame }) });
             var bytes = HighlightReplaySerializer.Serialize(new[] { data });
             Assert.That(HighlightReplaySerializer.TryDeserialize(bytes, out var decoded), Is.True);
-            Assert.That(decoded[0].Clips[0].Frames[0].PlayerActions, Is.EqualTo(new byte[] { 1, 2 }));
+            Assert.That(decoded[0].Clips[0].Frames[0].PlayerActions, Is.EqualTo(new[]
+            {
+                HighlightPlayerAction.Punching | HighlightPlayerAction.Carrying,
+                HighlightPlayerAction.Stunned | HighlightPlayerAction.Prone,
+            }));
             bytes[4] = 1;
             Assert.That(HighlightReplaySerializer.TryDeserialize(bytes, out _), Is.False);
         }
 
         [Test]
-        public void ReplayFrame_RejectsUnknownAction()
+        public void ReplayFrame_RejectsActionCountMismatch()
         {
             Assert.That(() => new HighlightReplayFrame(0, new[] { Pose.identity },
-                new WorldObjectState[0], new byte[] { 3 }), Throws.TypeOf<System.ArgumentOutOfRangeException>());
+                new WorldObjectState[0], System.Array.Empty<HighlightPlayerAction>()),
+                Throws.TypeOf<System.ArgumentException>());
         }
 
         [Test]
