@@ -94,6 +94,19 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void CaptureCandidates_SelectsLongestHiddenOnlyFromSurvivingItems()
+        {
+            recorder.RecordItemDestroyed(0, "item-a", 140d);
+            recorder.RecordItemInteraction(0, "item-b", 110d);
+            recorder.RecordItemInteraction(0, "item-c", 120d);
+            recorder.RecordItemInteraction(0, "item-d", 130d);
+
+            var candidate = Candidate(HighlightType.LongestHidden, 140d);
+
+            Assert.That(candidate.TargetId, Is.EqualTo("item-d"));
+        }
+
+        [Test]
         public void CaptureCandidates_SelectsMostStunnedUsingLatestStunAsTieBreaker()
         {
             recorder.RecordPlayerStunned(0, 1, 105d);
@@ -145,7 +158,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void CaptureCandidates_ScoresSoloPlacementAndHiddenJourney()
+        public void CaptureCandidates_DoesNotCreateLongestHiddenForDestroyedSoloItem()
         {
             var solo = new HighlightEventRecorder(rules, new[]
             {
@@ -169,17 +182,13 @@ namespace Game.Tests.EditMode
 
             var hotItem = candidates.Single(candidate =>
                 candidate.Type == HighlightType.TteTanMulgun);
-            var longestHidden = candidates.Single(candidate =>
-                candidate.Type == HighlightType.LongestHidden);
-
             Assert.That(candidates.Any(candidate =>
                 candidate.Type == HighlightType.FirstBlood), Is.True);
             Assert.That(hotItem.ActorPlayerIndex, Is.Zero);
             Assert.That(hotItem.Score, Is.GreaterThan(0d));
             Assert.That(hotItem.EventAt, Is.LessThanOrEqualTo(hotItem.EndedAt));
-            Assert.That(longestHidden.ActorPlayerIndex, Is.Zero);
-            Assert.That(longestHidden.Score, Is.EqualTo(70d));
-            Assert.That(longestHidden.Segments, Has.Count.EqualTo(2));
+            Assert.That(candidates.Any(candidate =>
+                candidate.Type == HighlightType.LongestHidden), Is.False);
         }
 
         private HighlightCandidate Candidate(HighlightType type, double endedAt)

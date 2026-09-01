@@ -386,6 +386,7 @@ namespace Game.Server.Match
 
             foreach (var pair in items)
             {
+                if (pair.Value.Destroyed) continue;
                 var candidateHiddenUntil = pair.Value.FirstOtherPlayerInteractionAt ?? endedAt;
                 if (candidateHiddenUntil < searchingStartedAt ||
                     itemId != null && candidateHiddenUntil < hiddenUntil ||
