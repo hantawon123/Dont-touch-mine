@@ -16,6 +16,9 @@ namespace Game.Core.Match
         public static double BodyTime(double elapsed, double duration) =>
             Math.Max(0d, Math.Min(duration, elapsed - TitleSeconds - FadeSeconds));
 
+        public static float CountdownExitOpacity(double remaining) =>
+            (float)(1d - Math.Clamp(remaining / FadeSeconds, 0d, 1d));
+
         public static float Opacity(double elapsed, double duration)
         {
             if (elapsed < TitleSeconds) return 1f;

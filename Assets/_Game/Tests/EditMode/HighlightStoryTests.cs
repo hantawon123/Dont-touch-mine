@@ -74,6 +74,9 @@ namespace Game.Tests.EditMode
         [Test]
         public void Fade_DoesNotConsumeBody_AndHoldsLastFrame()
         {
+            Assert.That(HighlightPresentationTiming.CountdownExitOpacity(1), Is.Zero);
+            Assert.That(HighlightPresentationTiming.CountdownExitOpacity(0.15), Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(HighlightPresentationTiming.CountdownExitOpacity(0), Is.EqualTo(1f));
             Assert.That(HighlightPresentationTiming.BodyTime(0.5, 10), Is.Zero);
             Assert.That(HighlightPresentationTiming.Opacity(0.55, 10), Is.EqualTo(0.5f).Within(0.001f));
             Assert.That(HighlightPresentationTiming.BodyTime(10.7, 10), Is.EqualTo(10).Within(0.001));

@@ -209,7 +209,8 @@ namespace Game.Bootstrap
             if (!clock.IsRuntimeReady) return;
             if (clock.ServerTime < gameEndNoticeEndsAt)
             {
-                transition.SetOpacity(0f);
+                transition.SetOpacity(HighlightPresentationTiming.CountdownExitOpacity(
+                    gameEndNoticeEndsAt - clock.ServerTime));
                 return;
             }
 
