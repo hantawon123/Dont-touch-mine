@@ -29,9 +29,16 @@ namespace Game.Network
                  "is drawn, so it has no visual parts.")]
         private NetworkObject _matchSession;
 
+        [SerializeField]
+        [Tooltip("One per room, holding host-migration recovery state. Kept on " +
+                 "a separate NetworkObject so MatchSession stays within Fusion's heap page limit.")]
+        private NetworkObject _matchMigrationCheckpoint;
+
         public NetworkObject Player => _player;
 
         public NetworkObject MatchSession => _matchSession;
+
+        public NetworkObject MatchMigrationCheckpoint => _matchMigrationCheckpoint;
 
 #if UNITY_EDITOR
         /// <summary>
@@ -68,6 +75,14 @@ namespace Game.Network
                 Debug.LogWarning(
                     $"[Network] '{_matchSession.name}' has no MatchSessionState, " +
                     "so starting a match would confirm nothing.",
+                    this);
+            }
+
+            if (_matchMigrationCheckpoint != null &&
+                _matchMigrationCheckpoint.GetComponentInChildren<Match.MatchMigrationCheckpoint>() == null)
+            {
+                Debug.LogWarning(
+                    $"[Network] '{_matchMigrationCheckpoint.name}' has no MatchMigrationCheckpoint.",
                     this);
             }
         }

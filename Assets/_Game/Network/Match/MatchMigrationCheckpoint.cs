@@ -53,7 +53,7 @@ namespace Game.Network.Match
     // Included in the authoritative Fusion snapshot, not in ordinary client replication:
     // assignments must remain private until this peer actually becomes the authority.
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(MatchSessionState))]
+    [RequireComponent(typeof(NetworkObject))]
     public sealed class MatchMigrationCheckpoint : NetworkBehaviour
     {
         [Networked] public int PlayerCount { get; set; }
@@ -66,6 +66,7 @@ namespace Game.Network.Match
         public override void Spawned()
         {
             if (Object.HasStateAuthority) ReplicateToAll(false);
+            Runner?.GetComponent<MatchStarter>()?.Publish(this);
         }
 
         internal void Capture(MatchSessionCoordinator session, MatchSessionState state, PlayerRoster roster)

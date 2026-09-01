@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Network::Game.Network.NetworkPrefabs
   _player: {fileID: -9007580115909417150, guid: b9a31acada10bc34ca6c5804b523d4c9, type: 3}
   _matchSession: {fileID: 3868694429504036928, guid: 323cb3698f391384f822da0f2b47bb39, type: 3}
+  _matchMigrationCheckpoint: {fileID: 6183048200159072361, guid: 7d7b5e1d0a0b4b769f6e8e1342f7c913, type: 3}

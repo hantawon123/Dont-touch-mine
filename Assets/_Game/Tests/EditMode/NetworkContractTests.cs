@@ -319,16 +319,29 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void MatchSessionPrefab_WithMigrationFitsConfiguredHeapPage()
+        public void RoomStatePrefabs_EachFitTheLegacyHeapPage()
         {
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            var sessionPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/_Game/Content/Prefabs/MatchSession.prefab");
-            Assert.That(prefab, Is.Not.Null);
-            Assert.That(prefab.GetComponent<MatchMigrationCheckpoint>(), Is.Not.Null);
-            var wordCount = Fusion.NetworkObject.GetWordCount(prefab.GetComponent<Fusion.NetworkObject>());
-            Assert.That(wordCount, Is.GreaterThan(Fusion.NetworkObjectHeader.WORDS));
-            Assert.DoesNotThrow(() => PlayerSpawner.ValidateRoomObjectStateSize(
-                wordCount, (int)Fusion.NetworkProjectConfig.Global.Heap.PageShift));
+            var checkpointPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/MatchMigrationCheckpoint.prefab");
+            Assert.That(sessionPrefab, Is.Not.Null);
+            Assert.That(checkpointPrefab, Is.Not.Null);
+            Assert.That(sessionPrefab.GetComponent<MatchSessionState>(), Is.Not.Null);
+            Assert.That(sessionPrefab.GetComponent<MatchMigrationCheckpoint>(), Is.Null);
+            Assert.That(checkpointPrefab.GetComponent<MatchMigrationCheckpoint>(), Is.Not.Null);
+            var prefabs = AssetDatabase.LoadAssetAtPath<NetworkPrefabs>(
+                "Assets/_Game/Content/Settings/NetworkPrefabs.asset");
+            Assert.That(prefabs.MatchSession.gameObject, Is.SameAs(sessionPrefab));
+            Assert.That(prefabs.MatchMigrationCheckpoint.gameObject, Is.SameAs(checkpointPrefab));
+            foreach (var prefab in new[] { sessionPrefab, checkpointPrefab })
+            {
+                var wordCount = Fusion.NetworkObject.GetWordCount(
+                    prefab.GetComponent<Fusion.NetworkObject>());
+                Assert.That(wordCount, Is.GreaterThan(Fusion.NetworkObjectHeader.WORDS));
+                Assert.DoesNotThrow(() =>
+                    PlayerSpawner.ValidateRoomObjectStateSize(wordCount, 15));
+            }
         }
 
         [TestCase(10499, 15, false)] // Observed 41,996-byte MatchSession vs the old 32 KiB page.
