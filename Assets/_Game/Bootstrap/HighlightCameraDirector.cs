@@ -6,6 +6,160 @@ using UnityEngine;
 
 namespace Game.Bootstrap
 {
+    public enum HighlightShotSubject
+    {
+        Target,
+        ActorAndTarget,
+        Overview
+    }
+
+    public enum HighlightShotFraming
+    {
+        Wide,
+        Medium,
+        Close
+    }
+
+    public readonly struct HighlightShot
+    {
+        public HighlightShot(
+            double startedAt,
+            double endedAt,
+            HighlightShotSubject subject,
+            HighlightShotFraming framing,
+            bool hardCut,
+            bool emphasizesEvent = false)
+        {
+            if (!double.IsFinite(startedAt) || startedAt < 0d)
+                throw new ArgumentOutOfRangeException(nameof(startedAt));
+            if (!double.IsFinite(endedAt) || endedAt <= startedAt)
+                throw new ArgumentOutOfRangeException(nameof(endedAt));
+            StartedAt = startedAt;
+            EndedAt = endedAt;
+            Subject = subject;
+            Framing = framing;
+            HardCut = hardCut;
+            EmphasizesEvent = emphasizesEvent;
+        }
+
+        public double StartedAt { get; }
+        public double EndedAt { get; }
+        public HighlightShotSubject Subject { get; }
+        public HighlightShotFraming Framing { get; }
+        public bool HardCut { get; }
+        public bool EmphasizesEvent { get; }
+    }
+
+    public static class HighlightShotPlanner
+    {
+        private const double MinimumShotSeconds = 0.1d;
+
+        public static HighlightShot[] Build(HighlightCandidate highlight)
+        {
+            if (highlight.PlaybackDurationSeconds <= 0d) return Array.Empty<HighlightShot>();
+            return highlight.Type switch
+            {
+                HighlightType.TteTanMulgun => BuildMontage(highlight, HighlightShotSubject.ActorAndTarget),
+                HighlightType.LongestHidden => BuildJourney(highlight),
+                HighlightType.MostStunned => BuildMontage(highlight, HighlightShotSubject.ActorAndTarget),
+                _ => BuildEvent(highlight),
+            };
+        }
+
+        private static HighlightShot[] BuildEvent(HighlightCandidate highlight)
+        {
+            var duration = highlight.PlaybackDurationSeconds;
+            var eventAt = PlaybackTimeOf(highlight, highlight.EventAt);
+            var establishEnd = Math.Min(duration, 1.2d);
+            var actionStart = Math.Clamp(eventAt - 1d, establishEnd, duration);
+            var payoffEnd = Math.Min(duration, eventAt + 1.2d);
+            var shots = new List<HighlightShot>(4);
+            Add(shots, 0d, establishEnd,
+                HighlightShotSubject.Overview, HighlightShotFraming.Wide, true);
+            Add(shots, establishEnd, actionStart,
+                HighlightShotSubject.ActorAndTarget, HighlightShotFraming.Medium, false);
+            Add(shots, actionStart, payoffEnd,
+                HighlightShotSubject.ActorAndTarget, HighlightShotFraming.Close, true, true);
+            Add(shots, payoffEnd, duration,
+                HighlightShotSubject.ActorAndTarget, HighlightShotFraming.Wide, false);
+            return shots.ToArray();
+        }
+
+        private static HighlightShot[] BuildMontage(
+            HighlightCandidate highlight,
+            HighlightShotSubject subject)
+        {
+            var shots = new List<HighlightShot>(highlight.Segments.Count);
+            var cursor = 0d;
+            for (var index = 0; index < highlight.Segments.Count; index++)
+            {
+                var end = cursor + highlight.Segments[index].PlaybackDurationSeconds;
+                var framing = index == 0
+                    ? HighlightShotFraming.Wide
+                    : index == highlight.Segments.Count - 1
+                        ? HighlightShotFraming.Close
+                        : HighlightShotFraming.Medium;
+                Add(shots, cursor, end, subject, framing, true,
+                    index == highlight.Segments.Count - 1);
+                cursor = end;
+            }
+
+            return shots.ToArray();
+        }
+
+        private static HighlightShot[] BuildJourney(HighlightCandidate highlight)
+        {
+            var shots = new List<HighlightShot>(highlight.Segments.Count);
+            var cursor = 0d;
+            for (var index = 0; index < highlight.Segments.Count; index++)
+            {
+                var segment = highlight.Segments[index];
+                var end = cursor + segment.PlaybackDurationSeconds;
+                var isLast = index == highlight.Segments.Count - 1;
+                Add(
+                    shots,
+                    cursor,
+                    end,
+                    segment.PlaybackSpeed > 1d
+                        ? HighlightShotSubject.Overview
+                        : HighlightShotSubject.ActorAndTarget,
+                    isLast ? HighlightShotFraming.Close : HighlightShotFraming.Wide,
+                    true,
+                    isLast);
+                cursor = end;
+            }
+
+            return shots.ToArray();
+        }
+
+        private static double PlaybackTimeOf(HighlightCandidate highlight, double sourceTime)
+        {
+            var playbackTime = 0d;
+            foreach (var segment in highlight.Segments)
+            {
+                if (sourceTime < segment.StartedAt) return playbackTime;
+                if (sourceTime <= segment.EndedAt)
+                    return playbackTime + (sourceTime - segment.StartedAt) / segment.PlaybackSpeed;
+                playbackTime += segment.PlaybackDurationSeconds;
+            }
+
+            return highlight.PlaybackDurationSeconds;
+        }
+
+        private static void Add(
+            ICollection<HighlightShot> shots,
+            double start,
+            double end,
+            HighlightShotSubject subject,
+            HighlightShotFraming framing,
+            bool hardCut,
+            bool emphasizesEvent = false)
+        {
+            if (end - start < MinimumShotSeconds) return;
+            shots.Add(new HighlightShot(start, end, subject, framing, hardCut, emphasizesEvent));
+        }
+    }
+
     public sealed class HighlightCameraDirector
     {
         private readonly Transform cameraTransform;
@@ -24,6 +178,9 @@ namespace Game.Bootstrap
         private Vector3 overviewAnchor;
         private Vector3 shotDirection = Vector3.back;
         private Transform supportingPlayer;
+        private HighlightCandidate currentHighlight;
+        private HighlightShot[] shots = Array.Empty<HighlightShot>();
+        private int currentShotIndex = -1;
 
         public HighlightCameraDirector(
             Transform cameraTransform,
@@ -76,11 +233,17 @@ namespace Game.Bootstrap
         }
 
         public Transform CurrentTarget => currentTarget;
+        public HighlightShot? CurrentShot => currentShotIndex >= 0 && currentShotIndex < shots.Length
+            ? shots[currentShotIndex]
+            : null;
 
         public bool Focus(HighlightCandidate highlight)
         {
             ClearOccluders();
             currentType = highlight.Type;
+            currentHighlight = highlight;
+            shots = HighlightShotPlanner.Build(highlight);
+            currentShotIndex = -1;
             currentTarget = ResolveTarget(highlight.TargetId);
             if (currentTarget == null)
             {
@@ -88,25 +251,35 @@ namespace Game.Bootstrap
                 return false;
             }
 
-            currentDistance = highlight.Type == HighlightType.TteTanMulgun ||
-                              highlight.Type == HighlightType.LongestHidden
-                ? wideDistance
-                : closeDistance;
             overviewAnchor = currentTarget.position;
-            supportingPlayer = null;
-            var nearest = 6f;
-            foreach (var player in playerTargets)
+            if (shots.Length == 0)
             {
-                if (player == null || player == currentTarget) continue;
-                var distance = Vector3.Distance(player.position, currentTarget.position);
-                if (distance < nearest) { nearest = distance; supportingPlayer = player; }
+                ApplyFallback();
+                return false;
             }
-            var actor = supportingPlayer != null ? supportingPlayer : currentTarget;
-            shotDirection = supportingPlayer != null
-                ? (-actor.forward + actor.right * 0.65f).normalized : Vector3.back;
-            // Keep one side of the action through the shot; do not orbit with every player turn.
-            ApplyTargetPose(1f);
+
+            SetPlaybackTime(0d);
             return true;
+        }
+
+        public void SetPlaybackTime(double playbackTime)
+        {
+            if (!double.IsFinite(playbackTime) || playbackTime < 0d)
+                throw new ArgumentOutOfRangeException(nameof(playbackTime));
+            if (shots.Length == 0) return;
+            var next = shots.Length - 1;
+            for (var index = 0; index < shots.Length; index++)
+            {
+                if (playbackTime < shots[index].EndedAt)
+                {
+                    next = index;
+                    break;
+                }
+            }
+
+            if (next == currentShotIndex) return;
+            currentShotIndex = next;
+            ApplyShot(shots[next]);
         }
 
         public void ClearOccluders()
@@ -161,6 +334,52 @@ namespace Game.Bootstrap
                    playerIndex < playerTargets.Count
                 ? playerTargets[playerIndex]
                 : null;
+        }
+
+        private Transform ResolvePlayer(int playerIndex) =>
+            playerIndex >= 0 && playerIndex < playerTargets.Count
+                ? playerTargets[playerIndex]
+                : null;
+
+        private void ApplyShot(HighlightShot shot)
+        {
+            currentTarget = ResolveTarget(currentHighlight.TargetId);
+            supportingPlayer = shot.Subject == HighlightShotSubject.Overview
+                ? null
+                : ResolvePlayer(currentHighlight.ActorPlayerIndex);
+            if (supportingPlayer == currentTarget)
+                supportingPlayer = ResolvePlayer(currentHighlight.SecondaryPlayerIndex);
+            if (supportingPlayer == null && shot.Subject == HighlightShotSubject.ActorAndTarget)
+                supportingPlayer = FindNearestPlayer(currentTarget);
+
+            currentDistance = shot.Framing switch
+            {
+                HighlightShotFraming.Wide => wideDistance,
+                HighlightShotFraming.Medium => (closeDistance + wideDistance) * 0.5f,
+                _ => closeDistance,
+            };
+            var actor = supportingPlayer != null ? supportingPlayer : currentTarget;
+            var side = currentShotIndex % 2 == 0 ? 0.65f : -0.65f;
+            shotDirection = supportingPlayer != null
+                ? (-actor.forward + actor.right * side).normalized
+                : Vector3.back;
+            ApplyTargetPose(shot.HardCut ? 1f : 0f);
+        }
+
+        private Transform FindNearestPlayer(Transform target)
+        {
+            Transform nearestPlayer = null;
+            var nearestDistance = 6f;
+            foreach (var player in playerTargets)
+            {
+                if (player == null || player == target) continue;
+                var distance = Vector3.Distance(player.position, target.position);
+                if (distance >= nearestDistance) continue;
+                nearestDistance = distance;
+                nearestPlayer = player;
+            }
+
+            return nearestPlayer;
         }
 
         private void ApplyTargetPose(float t)

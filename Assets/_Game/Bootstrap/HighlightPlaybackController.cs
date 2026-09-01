@@ -278,13 +278,10 @@ namespace Game.Bootstrap
                 replayPlayer.Start(replay[index].Clips);
                 appliedBodyTime = 0d;
             }
-            var previousClip = replayPlayer.CurrentClipIndex;
             replayPlayer.Advance(Math.Max(0d, bodyTime - appliedBodyTime));
             appliedBodyTime = bodyTime;
             PlaybackSourceTime = bodyTime > 0d ? replayPlayer.SourceTime : null;
-            if (previousClip != replayPlayer.CurrentClipIndex && replayPlayer.IsPlaying &&
-                replay[index].Candidate.Type != HighlightType.LongestHidden)
-                cameraDirector.Focus(replay[index].Candidate);
+            cameraDirector.SetPlaybackTime(bodyTime);
             cameraDirector.Tick(Time.unscaledDeltaTime);
             transition.SetOpacity(HighlightPresentationTiming.Opacity(elapsed, duration));
         }

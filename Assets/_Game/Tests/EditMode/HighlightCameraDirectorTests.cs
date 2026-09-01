@@ -22,7 +22,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Focus_UsesCloseDistanceForEventHighlights()
+        public void Focus_UsesWideEstablishingShotThenClosesOnEvent()
         {
             var camera = Create("Camera", Vector3.zero);
             var fallback = Create("Fallback", Vector3.left);
@@ -33,8 +33,12 @@ namespace Game.Tests.EditMode
                 new Transform[0],
                 new[] { new SceneWorldObjectReference("item", item.transform) });
 
-            Assert.That(director.Focus(Candidate(HighlightType.FirstBlood, "item")), Is.True);
+            Assert.That(
+                director.Focus(Candidate(HighlightType.FirstBlood, "item", eventAt: 7d)),
+                Is.True);
 
+            Assert.That(camera.transform.position.z, Is.EqualTo(-12f));
+            director.SetPlaybackTime(6.5d);
             Assert.That(camera.transform.position.z, Is.EqualTo(-8f));
         }
 
@@ -94,6 +98,32 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void ShotPlanner_CutsMontageAtRecordedSegmentBoundaries()
+        {
+            var candidate = new HighlightCandidate(
+                HighlightType.TteTanMulgun,
+                new[]
+                {
+                    new HighlightSegment(0d, 2d),
+                    new HighlightSegment(5d, 7d),
+                    new HighlightSegment(9d, 11d),
+                },
+                "item",
+                eventAt: 10d,
+                score: 80d,
+                actorPlayerIndex: 0);
+
+            var shots = HighlightShotPlanner.Build(candidate);
+
+            Assert.That(shots, Has.Length.EqualTo(3));
+            Assert.That(shots[0].StartedAt, Is.EqualTo(0d));
+            Assert.That(shots[1].StartedAt, Is.EqualTo(2d));
+            Assert.That(shots[2].StartedAt, Is.EqualTo(4d));
+            Assert.That(shots[2].Framing, Is.EqualTo(HighlightShotFraming.Close));
+            Assert.That(shots[2].EmphasizesEvent, Is.True);
+        }
+
+        [Test]
         public void Focus_HidesAndRestoresRendererBlockingTheTarget()
         {
             var camera = Create("Camera", Vector3.zero);
@@ -128,9 +158,17 @@ namespace Game.Tests.EditMode
             return new HighlightCameraDirector(camera, fallback, players, objects);
         }
 
-        private static HighlightCandidate Candidate(HighlightType type, string targetId)
+        private static HighlightCandidate Candidate(
+            HighlightType type,
+            string targetId,
+            double eventAt = 10d)
         {
-            return new HighlightCandidate(type, 0d, 10d, targetId);
+            return new HighlightCandidate(
+                type,
+                new[] { new HighlightSegment(0d, 10d) },
+                targetId,
+                eventAt,
+                50d);
         }
 
         private GameObject Create(string name, Vector3 position)
