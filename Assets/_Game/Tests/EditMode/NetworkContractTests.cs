@@ -133,14 +133,14 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void RoomEntry_StartsWithLobbyAlreadyInTheInitialSceneSet()
+        public void RoomEntry_KeepsBrowserAsConnectionSceneWhileLobbyPreloads()
         {
-            var lobby = Fusion.SceneRef.FromIndex(2);
+            var browser = Fusion.SceneRef.FromIndex(1);
 
-            var sceneInfo = NetworkRunnerService.BuildInitialRoomScene(lobby);
+            var sceneInfo = NetworkRunnerService.BuildRoomConnectionScene(browser);
 
             Assert.That(sceneInfo.SceneCount, Is.EqualTo(1));
-            Assert.That(sceneInfo.Scenes[0], Is.EqualTo(lobby));
+            Assert.That(sceneInfo.Scenes[0], Is.EqualTo(browser));
         }
 
         private sealed class DisconnectApplicationSpy : Game.Client.Home.IHomeApplicationHost

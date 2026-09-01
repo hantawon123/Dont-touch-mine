@@ -526,6 +526,10 @@ namespace Game.Network.Session
 
             var sceneManager = CreateRunner(request.Mode != GameMode.Server);
 
+            // Lobby is local content, so load it while Photon is connecting.
+            // Fusion takes the already-loaded scene over after the room opens.
+            var roomEntryPreload = PreloadRoomEntrySceneAsync();
+
             // See JoinLobbyAsync: the attempt tears down its own runner, not
             // whichever one the service holds when the answer arrives.
             var runner = _runner;
@@ -556,7 +560,7 @@ namespace Game.Network.Session
                     _profile?.Nickname),
                 EnableClientSessionCreation = request.AllowCreate,
                 SceneManager = sceneManager,
-                Scene = CaptureRoomEntryScene(),
+                Scene = CaptureCurrentScene(),
                 StartGameCancellationToken = startCancellation.Token,
             };
 
@@ -578,10 +582,16 @@ namespace Game.Network.Session
             }
             catch (OperationCanceledException)
             {
+                await CleanupRoomEntryPreloadAsync(roomEntryPreload);
                 Debug.Log(
                     $"[SceneTiming] Session connection cancelled: mode={request.Mode}, " +
                     $"elapsed={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s.");
                 ReleaseAfterFusionShutdown(runner);
+                throw;
+            }
+            catch
+            {
+                await CleanupRoomEntryPreloadAsync(roomEntryPreload);
                 throw;
             }
             finally
@@ -601,6 +611,7 @@ namespace Game.Network.Session
             {
                 var failure = SessionStartResult.Classify(result.ShutdownReason);
 
+                await CleanupRoomEntryPreloadAsync(roomEntryPreload);
                 ReleaseAfterFusionShutdown(runner);
 
                 // Cancelled the same way a lobby connect is: the screen that
@@ -622,6 +633,11 @@ namespace Game.Network.Session
 
             if (!IsCurrentRunner(runner) || !runner.IsRunning)
                 throw new OperationCanceledException("The session start was superseded or stopped.");
+
+            // The connection and local load have now both completed. The room
+            // presenter can request Lobby, and Fusion's default scene manager
+            // will take this scene over instead of loading it again.
+            await roomEntryPreload;
 
             _roomInitializationInProgress = true;
             try
@@ -748,12 +764,15 @@ namespace Game.Network.Session
         /// <summary>Moves every seated player onto positions owned by the current scene.</summary>
         public void RepositionPlayers(IReadOnlyList<Pose> poses)
         {
+            // A scene may be preloaded before Fusion grants this peer authority.
+            // Keep its poses so the first authoritative spawn still uses them.
+            _spawner?.UseSpawnPoses(poses);
+
             if (!IsServer)
             {
                 return;
             }
 
-            _spawner?.UseSpawnPoses(poses);
             if (!_hostMigrationInProgress) _spawner?.RepositionSeated(_runner);
         }
 
@@ -1192,41 +1211,69 @@ namespace Game.Network.Session
                 return info;
             }
 
-            // Additive, not Single. This only tells Fusion which scene the
-            // session begins in; the scene is already loaded. Declaring it as
-            // Single invites the scene manager to reload it while the peer is
-            // still connecting, which would destroy the scope that is driving
-            // the connection. Replacing the scene is what EnterMatchScene does.
-            info.AddSceneRef(SceneRef.FromIndex(active.buildIndex), LoadSceneMode.Additive);
+            return BuildRoomConnectionScene(SceneRef.FromIndex(active.buildIndex));
+        }
+
+        internal static NetworkSceneInfo BuildRoomConnectionScene(SceneRef roomBrowser)
+        {
+            var info = new NetworkSceneInfo();
+            if (roomBrowser.IsValid)
+            {
+                // Additive, not Single. The scene is already loaded and keeps
+                // driving the connection while Lobby preloads beside it.
+                info.AddSceneRef(roomBrowser, LoadSceneMode.Additive);
+            }
+
             return info;
         }
 
-        /// <summary>
-        /// Loads the room lobby as part of <c>StartGame</c>, so entering a room
-        /// does not wait for the connection and then begin a second scene load.
-        /// Additive keeps the room-browser scope alive long enough to publish
-        /// the confirmed entry and finish its existing navigation flow.
-        /// </summary>
-        private NetworkSceneInfo CaptureRoomEntryScene()
+        private async UniTask<Scene> PreloadRoomEntrySceneAsync()
         {
-            if (_scenes == null)
+            if (_scenes == null || !_scenes.LobbyScene.IsValid)
             {
-                return CaptureCurrentScene();
+                return default;
             }
 
             var lobby = _scenes.LobbyScene;
-            return lobby.IsValid ? BuildInitialRoomScene(lobby) : CaptureCurrentScene();
-        }
-
-        internal static NetworkSceneInfo BuildInitialRoomScene(SceneRef lobby)
-        {
-            var info = new NetworkSceneInfo();
-            if (lobby.IsValid)
+            var existing = SceneManager.GetSceneByBuildIndex(lobby.AsIndex);
+            if (existing.IsValid() && existing.isLoaded)
             {
-                info.AddSceneRef(lobby, LoadSceneMode.Additive);
+                return existing;
             }
 
-            return info;
+            var startedAt = Time.realtimeSinceStartupAsDouble;
+            try
+            {
+                var operation = SceneManager.LoadSceneAsync(lobby.AsIndex, LoadSceneMode.Additive);
+                if (operation == null)
+                {
+                    Debug.LogWarning("[SceneTiming] Lobby preload could not be started.");
+                    return default;
+                }
+
+                await operation.ToUniTask();
+                var loaded = SceneManager.GetSceneByBuildIndex(lobby.AsIndex);
+                Debug.Log(
+                    $"[SceneTiming] Lobby preload completed, " +
+                    $"elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
+                return loaded;
+            }
+            catch (Exception failure)
+            {
+                // A preload is an optimization, not a requirement. The normal
+                // Fusion scene request remains the fallback.
+                Debug.LogWarning($"[SceneTiming] Lobby preload skipped: {failure.Message}");
+                return default;
+            }
+        }
+
+        private static async UniTask CleanupRoomEntryPreloadAsync(UniTask<Scene> preload)
+        {
+            var scene = await preload;
+            if (scene.IsValid() && scene.isLoaded)
+            {
+                await SceneManager.UnloadSceneAsync(scene).ToUniTask();
+            }
         }
 
         /// <summary>
