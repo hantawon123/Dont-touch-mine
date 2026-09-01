@@ -124,6 +124,22 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void PlaybackPacing_SlowsAroundEventButKeepsWholeDuration()
+        {
+            var candidate = new HighlightCandidate(
+                HighlightType.FirstBlood,
+                new[] { new HighlightSegment(0d, 10d) },
+                "target",
+                eventAt: 5d,
+                score: 80d);
+
+            Assert.That(HighlightPlaybackPacing.Map(candidate, 0d), Is.Zero);
+            Assert.That(HighlightPlaybackPacing.Map(candidate, 10d), Is.EqualTo(10d));
+            Assert.That(HighlightPlaybackPacing.Map(candidate, 4.5d), Is.EqualTo(4.75d).Within(0.001d));
+            Assert.That(HighlightPlaybackPacing.Map(candidate, 5.7d), Is.EqualTo(5.35d).Within(0.001d));
+        }
+
+        [Test]
         public void Focus_HidesAndRestoresRendererBlockingTheTarget()
         {
             var camera = Create("Camera", Vector3.zero);

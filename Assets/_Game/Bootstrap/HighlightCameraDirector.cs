@@ -133,7 +133,7 @@ namespace Game.Bootstrap
             return shots.ToArray();
         }
 
-        private static double PlaybackTimeOf(HighlightCandidate highlight, double sourceTime)
+        internal static double PlaybackTimeOf(HighlightCandidate highlight, double sourceTime)
         {
             var playbackTime = 0d;
             foreach (var segment in highlight.Segments)
@@ -159,6 +159,37 @@ namespace Game.Bootstrap
             if (end - start < MinimumShotSeconds) return;
             shots.Add(new HighlightShot(start, end, subject, framing, hardCut, emphasizesEvent));
         }
+    }
+
+    public static class HighlightPlaybackPacing
+    {
+        public static double Map(HighlightCandidate highlight, double presentationTime)
+        {
+            var duration = highlight.PlaybackDurationSeconds;
+            if (!double.IsFinite(presentationTime) || presentationTime < 0d)
+                throw new ArgumentOutOfRangeException(nameof(presentationTime));
+            if (duration <= 0d) return 0d;
+
+            var time = Math.Min(duration, presentationTime);
+            var eventTime = HighlightShotPlanner.PlaybackTimeOf(highlight, highlight.EventAt);
+            var slowStart = Math.Max(0d, eventTime - 0.5d);
+            var slowEnd = Math.Min(duration, eventTime + 0.7d);
+            var sourceStart = Math.Max(0d, eventTime - 0.25d);
+            var sourceEnd = Math.Min(duration, eventTime + 0.35d);
+            if (slowEnd - slowStart < 0.2d || sourceEnd <= sourceStart)
+                return time;
+            if (time <= slowStart)
+                return Lerp(0d, sourceStart, Ratio(time, 0d, slowStart));
+            if (time <= slowEnd)
+                return Lerp(sourceStart, sourceEnd, Ratio(time, slowStart, slowEnd));
+            return Lerp(sourceEnd, duration, Ratio(time, slowEnd, duration));
+        }
+
+        private static double Ratio(double value, double start, double end) =>
+            end <= start ? 1d : Math.Clamp((value - start) / (end - start), 0d, 1d);
+
+        private static double Lerp(double start, double end, double t) =>
+            start + (end - start) * t;
     }
 
     public sealed class HighlightCameraDirector : IDisposable

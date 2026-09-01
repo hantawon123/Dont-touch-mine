@@ -6,6 +6,7 @@ using Game.Client.Match;
 using Game.Client.Players;
 using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Core.Rooms;
 using Game.Network.Match;
 using Game.Network.Players;
 using Game.Network.Session;
@@ -273,15 +274,16 @@ namespace Game.Bootstrap
             }
             var duration = replay[index].Candidate.PlaybackDurationSeconds;
             var bodyTime = HighlightPresentationTiming.BodyTime(elapsed, duration);
-            if (bodyTime < appliedBodyTime)
+            var playbackTime = HighlightPlaybackPacing.Map(replay[index].Candidate, bodyTime);
+            if (playbackTime < appliedBodyTime)
             {
                 replayPlayer.Start(replay[index].Clips);
                 appliedBodyTime = 0d;
             }
-            replayPlayer.Advance(Math.Max(0d, bodyTime - appliedBodyTime));
-            appliedBodyTime = bodyTime;
-            PlaybackSourceTime = bodyTime > 0d ? replayPlayer.SourceTime : null;
-            cameraDirector.SetPlaybackTime(bodyTime);
+            replayPlayer.Advance(Math.Max(0d, playbackTime - appliedBodyTime));
+            appliedBodyTime = playbackTime;
+            PlaybackSourceTime = playbackTime > 0d ? replayPlayer.SourceTime : null;
+            cameraDirector.SetPlaybackTime(playbackTime);
             cameraDirector.Tick(Time.unscaledDeltaTime);
             transition.SetOpacity(HighlightPresentationTiming.Opacity(elapsed, duration));
         }
@@ -378,7 +380,10 @@ namespace Game.Bootstrap
                 playerTargets,
                 objectTargets);
             cameraDirector.Focus(current.Candidate);
-            hud?.SetHighlightTitle(TitleOf(current.Candidate.Type));
+            hud?.SetHighlightTitle(TitleOf(
+                current.Candidate,
+                room.MatchParticipants.CurrentValue,
+                room.Participants.CurrentValue));
             return true;
         }
 
@@ -391,6 +396,41 @@ namespace Game.Bootstrap
             HighlightType.MostStunned => "MOST STUNNED",
             _ => type.ToString().ToUpperInvariant(),
         };
+
+        internal static string TitleOf(
+            HighlightCandidate candidate,
+            IReadOnlyList<MatchParticipant> matchParticipants,
+            IReadOnlyList<RoomParticipant> roomParticipants)
+        {
+            var title = TitleOf(candidate.Type);
+            if (candidate.ActorPlayerIndex < 0 ||
+                matchParticipants == null ||
+                roomParticipants == null)
+            {
+                return title;
+            }
+
+            string playerId = null;
+            foreach (var participant in matchParticipants)
+            {
+                if (participant.PlayerIndex != candidate.ActorPlayerIndex) continue;
+                playerId = participant.PlayerId;
+                break;
+            }
+
+            if (playerId == null) return title;
+            foreach (var participant in roomParticipants)
+            {
+                if (!string.Equals(participant.PlayerId, playerId, StringComparison.Ordinal))
+                    continue;
+                var displayName = string.IsNullOrWhiteSpace(participant.Nickname)
+                    ? participant.PlayerId
+                    : participant.Nickname;
+                return $"{title} · {displayName}";
+            }
+
+            return title;
+        }
 
         private Transform[] CapturePlayerTargets(int playerCount)
         {
