@@ -165,6 +165,35 @@ namespace Game.Tests.EditMode
             Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.False);
         }
 
+        [Test]
+        public void Focus_HidesRendererWhenCinemachineReplayRigIsActive()
+        {
+            var camera = Create("Camera", Vector3.zero);
+            camera.AddComponent<Camera>();
+            var brainType = System.Type.GetType(
+                "Unity.Cinemachine.CinemachineBrain, Unity.Cinemachine");
+            Assert.That(brainType, Is.Not.Null);
+            camera.AddComponent(brainType);
+            var fallback = Create("Fallback", Vector3.left);
+            var item = Create("Item", Vector3.zero);
+            var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            blocker.name = "Floor";
+            blocker.transform.position = new Vector3(0f, 2.75f, -4f);
+            blocker.transform.localScale = new Vector3(4f, 4f, 0.5f);
+            gameObjects.Add(blocker);
+            Physics.SyncTransforms();
+
+            using var director = Director(
+                camera.transform,
+                fallback.transform,
+                new Transform[0],
+                new[] { new SceneWorldObjectReference("item", item.transform) });
+
+            director.Focus(Candidate(HighlightType.FirstBlood, "item"));
+
+            Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.True);
+        }
+
         private static HighlightCameraDirector Director(
             Transform camera,
             Transform fallback,

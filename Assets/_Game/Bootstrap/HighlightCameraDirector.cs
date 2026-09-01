@@ -437,6 +437,7 @@ namespace Game.Bootstrap
             var desiredRotation = Quaternion.LookRotation(
                 focusPosition - desiredPosition,
                 Vector3.up);
+            UpdateOccluders(focusPosition, desiredPosition);
             if (replayCameraRig != null)
             {
                 replayCameraRig.SetPose(
@@ -448,7 +449,6 @@ namespace Game.Bootstrap
                 return;
             }
 
-            UpdateOccluders(focusPosition, desiredPosition);
             cameraTransform.SetPositionAndRotation(
                 Vector3.Lerp(cameraTransform.position, desiredPosition, t),
                 Quaternion.Slerp(cameraTransform.rotation, desiredRotation, t));
