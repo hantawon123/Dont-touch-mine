@@ -46,6 +46,8 @@ namespace Game.Bootstrap
         private PlayerCameraController cameraRig;
         private Transform cameraTarget;
         private bool standaloneActorsDisabled;
+        private bool readinessReported;
+        private double startedAt;
 
         public NetworkInteractionSceneBridge(
             NetworkRunnerService network,
@@ -57,6 +59,7 @@ namespace Game.Bootstrap
 
         public void Start()
         {
+            startedAt = Time.realtimeSinceStartupAsDouble;
             network.ItemAssignmentReceived += OnItemAssignmentReceived;
             network.ObjectStatesReceived += OnObjectStatesReceived;
             network.PlayerInteractionStatesReceived += OnPlayerStatesReceived;
@@ -212,6 +215,13 @@ namespace Game.Bootstrap
             cameraTarget = target;
             cameraRig.SetFollowTarget(target, preserveView);
             if (!preserveView) cameraRig.SetCursorCaptureEnabled(true);
+            if (!readinessReported)
+            {
+                readinessReported = true;
+                Debug.Log(
+                    $"[SceneTiming] Playground local player ready, " +
+                    $"elapsedSinceBridgeStart={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
+            }
         }
 
         private void DisableStandaloneActors()

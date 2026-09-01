@@ -5,6 +5,7 @@ using Cysharp.Threading.Tasks;
 using Fusion;
 using Fusion.Addons.KCC;
 using Fusion.Sockets;
+using Photon.Realtime;
 using Game.Core.Match;
 using Game.Core.Players;
 using Game.Core.Rooms;
@@ -15,7 +16,7 @@ using UnityEngine.SceneManagement;
 
 namespace Game.Network.Session
 {
-    public sealed partial class NetworkRunnerService
+    public sealed partial class NetworkRunnerService : ILobbyCallbacks
     {
         internal const double HostMigrationStageTimeoutSeconds = 60d;
         // ---- INetworkRunnerCallbacks ------------------------------------------
@@ -188,6 +189,59 @@ namespace Game.Network.Session
                         Debug.LogWarning(
                             $"[Network] Ignored invalid room listing '{sessionList[i].Name}'.");
                     }
+                }
+            }
+
+            Debug.Log($"[Network] Room list updated: {_roomBuffer.Count} room(s).");
+            _roomListSink?.SetRooms(_roomBuffer);
+        }
+
+        public void OnJoinedLobby()
+        {
+        }
+
+        public void OnLeftLobby()
+        {
+        }
+
+        public void OnLobbyStatisticsUpdate(List<TypedLobbyInfo> lobbyStatistics)
+        {
+        }
+
+        public void OnRoomListUpdate(List<RoomInfo> roomList)
+        {
+            if (!_browsingLobby || _matchmakingClient == null)
+            {
+                return;
+            }
+
+            if (roomList != null)
+            {
+                for (var i = 0; i < roomList.Count; i++)
+                {
+                    var info = roomList[i];
+                    if (info == null || string.IsNullOrEmpty(info.Name))
+                    {
+                        continue;
+                    }
+
+                    if (info.RemovedFromList)
+                    {
+                        _realtimeRooms.Remove(info.Name);
+                    }
+                    else
+                    {
+                        _realtimeRooms[info.Name] = info;
+                    }
+                }
+            }
+
+            _roomBuffer.Clear();
+            foreach (var info in _realtimeRooms.Values)
+            {
+                if (RoomSummaryMapper.TryToSummary(info, out var room))
+                {
+                    _roomBuffer.Add(room);
                 }
             }
 
@@ -603,17 +657,23 @@ namespace Game.Network.Session
 
         public void OnSceneLoadStart(NetworkRunner runner)
         {
-            if (IsCurrentRunner(runner)) IsResultSceneLoaded = false;
+            if (!IsCurrentRunner(runner)) return;
+            RaiseNetworkSceneLoadingPriority();
+            IsResultSceneLoaded = false;
+            _networkSceneLoadStartedAt = Time.realtimeSinceStartupAsDouble;
+            Debug.Log(
+                $"[SceneTiming] Fusion scene load started: current={SceneManager.GetActiveScene().name}, " +
+                $"isServer={runner.IsServer}.");
         }
 
         /// <summary>
-        /// Re-seats everyone on the newly loaded scene's spawn points.
+        /// Re-seats waiting-room players on the newly loaded scene's spawn points.
         /// </summary>
         /// <remarks>
         /// Order matters. Listeners run first so that the scene's spawn points
-        /// have reached the spawner, and only then are the characters moved;
-        /// moving first would place them on the points of the scene that has
-        /// just been unloaded.
+        /// have reached the spawner. Once a match has started, its runtime owns
+        /// the role-specific placement; applying the generic points here would
+        /// only teleport every character twice during the same transition.
         /// </remarks>
         public void OnSceneLoadDone(NetworkRunner runner)
         {
@@ -628,15 +688,108 @@ namespace Game.Network.Session
                 for (var index = 0; index < info.SceneCount; index++)
                     if (info.Scenes[index] == resultScene) IsResultSceneLoaded = true;
             }
+            var lobbyLoaded = _scenes != null &&
+                              IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene);
+            var tookOverPreloadedLobby = lobbyLoaded &&
+                                         _preloadedLobbyRoots.Length > 0;
+            if (tookOverPreloadedLobby)
+            {
+                for (var i = 0; i < _preloadedLobbyRoots.Length; i++)
+                {
+                    if (_preloadedLobbyRoots[i] != null)
+                    {
+                        _preloadedLobbyRoots[i].SetActive(true);
+                    }
+                }
+
+                _preloadedLobbyRoots = Array.Empty<GameObject>();
+            }
+
+            if (lobbyLoaded)
+            {
+                ActivateLobbySceneAndUnloadFrontendAsync(runner)
+                    .Forget(exception => Debug.LogException(exception));
+            }
+
             Debug.Log(
                 $"[Session] Scene load done: '{SceneManager.GetActiveScene().name}', " +
                 $"IsServer={runner != null && runner.IsServer}.");
+            Debug.Log(
+                $"[SceneTiming] Fusion scene load completed: scene={SceneManager.GetActiveScene().name}, " +
+                $"isServer={runner.IsServer}, " +
+                $"elapsed={(_networkSceneLoadStartedAt < 0d ? 0d : Time.realtimeSinceStartupAsDouble - _networkSceneLoadStartedAt):F3}s.");
+            _networkSceneLoadStartedAt = -1d;
+            RestoreNetworkSceneLoadingPriority();
+            if (lobbyLoaded && _roomEntryStartedAt >= 0d)
+            {
+                Debug.Log(
+                    $"[SceneTiming] Room-to-Lobby ready: " +
+                    $"total={Time.realtimeSinceStartupAsDouble - _roomEntryStartedAt:F3}s, " +
+                    $"preloaded={tookOverPreloadedLobby}.");
+                _roomEntryStartedAt = -1d;
+                _lobbyPreloadStartedAt = -1d;
+            }
 
             SceneLoaded?.Invoke();
+            if (tookOverPreloadedLobby && runner.IsServer)
+            {
+                _spawner?.RepositionSeated(runner);
+            }
             PublishSceneStateWhenReadyAsync(runner).Forget(exception => Debug.LogException(exception));
             if (!_hostMigrationInProgress &&
-                (!runner.IsResume || !(_matchStarter?.HasStartedMatch ?? false)))
+                !(_matchStarter?.HasStartedMatch ?? false) &&
+                !lobbyLoaded)
                 _spawner?.RepositionSeated(runner);
+        }
+
+        /// <summary>
+        /// Finishes a preloaded Lobby takeover with the same Unity scene state as
+        /// an ordinary single-scene load.
+        /// </summary>
+        /// <remarks>
+        /// Lobby may already be loaded additively while Photon connects. Fusion
+        /// can then adopt it without Unity making it active or unloading the
+        /// Home/Room frontend pair. In single-peer mode that leaves Fusion's
+        /// physics scene pointing at Room, so the visible Lobby avatar cannot
+        /// move correctly. Select Lobby immediately, then leave Fusion's scene
+        /// callback before unloading the old frontend scenes.
+        /// </remarks>
+        private async UniTask ActivateLobbySceneAndUnloadFrontendAsync(
+            NetworkRunner runner)
+        {
+            if (_scenes == null || !_scenes.LobbyScene.IsValid)
+            {
+                return;
+            }
+
+            var lobby = SceneManager.GetSceneByBuildIndex(
+                _scenes.LobbyScene.AsIndex);
+            if (!lobby.IsValid() || !lobby.isLoaded)
+            {
+                return;
+            }
+
+            SceneManager.SetActiveScene(lobby);
+
+            await UniTask.NextFrame(PlayerLoopTiming.Update);
+            if (!IsCurrentRunner(runner) || !runner.IsRunning ||
+                !IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene))
+            {
+                return;
+            }
+
+            for (var index = SceneManager.sceneCount - 1; index >= 0; index--)
+            {
+                var loaded = SceneManager.GetSceneAt(index);
+                // A Lobby session owns one build scene. buildIndex < 0 is a
+                // Fusion/runtime scene and must remain under Fusion's control.
+                if (!loaded.isLoaded || loaded == lobby || loaded.buildIndex < 0)
+                {
+                    continue;
+                }
+
+                _ = SceneManager.UnloadSceneAsync(loaded);
+            }
         }
 
         private async UniTask PublishSceneStateWhenReadyAsync(NetworkRunner runner)

@@ -66,6 +66,7 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
+            var configureStartedAt = Time.realtimeSinceStartupAsDouble;
             if (hudView == null)
             {
                 throw new InvalidOperationException("LobbyHudView must be assigned.");
@@ -188,6 +189,9 @@ namespace Game.Bootstrap
                 container.Resolve<NetworkRunnerService>()
                     .RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
                 EnsurePlayerCameraRig();
+                Debug.Log(
+                    $"[SceneTiming] Lobby scope ready, " +
+                    $"elapsed={Time.realtimeSinceStartupAsDouble - configureStartedAt:F3}s.");
             });
         }
 
@@ -269,6 +273,7 @@ namespace Game.Bootstrap
         private PlayerCameraController boundRig;
         private int readyFrame = -1;
         private bool entryComplete;
+        private double startedAt;
 
         public LobbyPlayerCameraBinder(NetworkRunnerService network, IHighlightTransitionView entryCover)
         {
@@ -278,6 +283,7 @@ namespace Game.Bootstrap
 
         public void Start()
         {
+            startedAt = Time.realtimeSinceStartupAsDouble;
             TryBind();
         }
 
@@ -308,6 +314,9 @@ namespace Game.Bootstrap
             if (frame - readyFrame < 2) return;
             entryComplete = true;
             entryCover.SetOpacity(0f);
+            Debug.Log(
+                $"[SceneTiming] Lobby local player ready, " +
+                $"elapsedSinceBinderStart={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
         }
 
         public void Dispose() => entryCover.SetOpacity(0f);

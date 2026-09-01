@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using Game.Client.Rooms;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
+using Game.Network.Session;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -28,16 +29,19 @@ namespace Game.Bootstrap
         private readonly RoomScreenPresenter screen;
         private readonly IRoomBrowserView browserView;
         private readonly RoomUiCommands commands;
+        private readonly NetworkRunnerService network;
         private bool isRefreshing;
 
         public NetworkRoomScreenBridge(
             RoomScreenPresenter screen,
             IRoomBrowserView browserView,
-            RoomUiCommands commands)
+            RoomUiCommands commands,
+            NetworkRunnerService network)
         {
             this.screen = screen ?? throw new ArgumentNullException(nameof(screen));
             this.browserView = browserView ?? throw new ArgumentNullException(nameof(browserView));
             this.commands = commands ?? throw new ArgumentNullException(nameof(commands));
+            this.network = network ?? throw new ArgumentNullException(nameof(network));
         }
 
         public void Start()
@@ -45,41 +49,30 @@ namespace Game.Bootstrap
             screen.RoomCreateRequested += OnCreateRequested;
             screen.RoomJoinRequested += OnJoinRequested;
             browserView.RefreshRequested += OnRefreshRequested;
+            browserView.CreateRoomRequested += OnCreateFormOpened;
             Refresh().Forget();
         }
 
         /// <summary>
-        /// Lets go of the screen's requests. An in-flight connect is left to
-        /// finish rather than cancelled.
+        /// Lets go of the screen's requests. The project-owned matchmaking
+        /// connection is intentionally left alive for the room session to reuse.
         /// </summary>
         /// <remarks>
-        /// Cancelling here is what froze the game on the way out of the room
-        /// browser. A token runs its registrations synchronously and Fusion
-        /// holds one on any connect it is given a token for, so cancelling from
-        /// this method — which Unity calls from <c>LifetimeScope.OnDestroy</c>
-        /// while it is unloading the scene — ran Fusion's entire connect
-        /// teardown inside the scene unload, on the main thread, and the two
-        /// waited on each other. The next scene never came up. Loading that
-        /// scene asynchronously does not help: the unload still runs inside the
-        /// load, on the same thread.
-        /// <para>
-        /// Nothing is leaked by letting the connect run out. The session, the
-        /// commands and the browser state it reports to are all project-wide
-        /// and outlive this screen, and both <c>RefreshAsync</c> and
-        /// <c>StartAsync</c> replace a lobby runner they find already running,
-        /// so the next visit starts clean either way. What this screen must
-        /// stop doing is reacting, and detaching the handlers above is what
-        /// does that.
-        /// </para>
+        /// The session service outlives this scene. Detaching the handlers is
+        /// sufficient; it stops this view reacting without tearing down the
+        /// Photon connection during scene unload.
         /// </remarks>
         public void Dispose()
         {
             screen.RoomCreateRequested -= OnCreateRequested;
             screen.RoomJoinRequested -= OnJoinRequested;
             browserView.RefreshRequested -= OnRefreshRequested;
+            browserView.CreateRoomRequested -= OnCreateFormOpened;
         }
 
         private void OnRefreshRequested() => Refresh().Forget();
+
+        private void OnCreateFormOpened() => network.PrepareLobbyScene();
 
         private void OnCreateRequested(RoomCreateRequest request)
         {

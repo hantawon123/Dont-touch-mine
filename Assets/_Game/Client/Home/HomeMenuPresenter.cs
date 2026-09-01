@@ -52,18 +52,48 @@ namespace Game.Client.Home
         /// </remarks>
         public void OpenHome()
         {
-            SceneManager.LoadSceneAsync(HomeSceneName);
+            LoadSceneAsync(HomeSceneName);
         }
 
         /// <inheritdoc cref="OpenHome"/>
         public void OpenRoomBrowser()
         {
-            SceneManager.LoadSceneAsync(RoomBrowserSceneName);
+            LoadSceneAsync(RoomBrowserSceneName);
         }
 
         public void OpenLobby()
         {
+            var source = SceneManager.GetActiveScene().name;
+            var startedAt = Time.realtimeSinceStartupAsDouble;
+            Debug.Log($"[SceneTiming] Local load requested: {source} -> {LobbySceneName}.");
             SceneManager.LoadScene(LobbySceneName);
+            Debug.Log(
+                $"[SceneTiming] Local load completed: {source} -> {LobbySceneName}, " +
+                $"elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
+        }
+
+        private static void LoadSceneAsync(string target)
+        {
+            var source = SceneManager.GetActiveScene().name;
+            var startedAt = Time.realtimeSinceStartupAsDouble;
+            Debug.Log($"[SceneTiming] Local load requested: {source} -> {target}.");
+            var previousPriority = Application.backgroundLoadingPriority;
+            Application.backgroundLoadingPriority = ThreadPriority.High;
+            var operation = SceneManager.LoadSceneAsync(target);
+            if (operation == null)
+            {
+                Application.backgroundLoadingPriority = previousPriority;
+                return;
+            }
+
+            operation.priority = 100;
+            operation.completed += _ =>
+            {
+                Application.backgroundLoadingPriority = previousPriority;
+                Debug.Log(
+                    $"[SceneTiming] Local load completed: {source} -> {target}, " +
+                    $"elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
+            };
         }
     }
 

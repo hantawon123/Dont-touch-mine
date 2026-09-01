@@ -62,18 +62,22 @@ namespace Game.Bootstrap
         private sealed class NetworkRoomApplicationHost : IHomeApplicationHost
         {
             private readonly NetworkRunnerService network;
+            private readonly FrontendSceneCoordinator scenes;
             private readonly UnityHomeApplicationHost fallback = new();
 
-            public NetworkRoomApplicationHost(NetworkRunnerService network)
+            public NetworkRoomApplicationHost(
+                NetworkRunnerService network,
+                FrontendSceneCoordinator scenes)
             {
                 this.network = network;
+                this.scenes = scenes;
             }
 
             public void Quit() => fallback.Quit();
 
-            public void OpenHome() => fallback.OpenHome();
+            public void OpenHome() => scenes.OpenHome();
 
-            public void OpenRoomBrowser() => fallback.OpenRoomBrowser();
+            public void OpenRoomBrowser() => scenes.OpenRoomBrowser();
 
             public void OpenLobby()
             {

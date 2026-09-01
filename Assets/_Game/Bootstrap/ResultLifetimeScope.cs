@@ -40,10 +40,14 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
+            var configureStartedAt = Time.realtimeSinceStartupAsDouble;
             if (view == null) throw new InvalidOperationException("ResultLifetimeScope: ResultView를 연결하세요.");
             view.Initialize();
             builder.RegisterComponent(view).As<IResultView>();
             builder.RegisterEntryPoint<ResultPresenter>();
+            builder.RegisterBuildCallback(_ => Debug.Log(
+                $"[SceneTiming] Result scope ready, " +
+                $"elapsed={Time.realtimeSinceStartupAsDouble - configureStartedAt:F3}s."));
         }
     }
 
