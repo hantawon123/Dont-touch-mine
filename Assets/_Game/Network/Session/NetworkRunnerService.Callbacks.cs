@@ -606,9 +606,35 @@ namespace Game.Network.Session
             if (!IsCurrentRunner(runner)) return;
             IsResultSceneLoaded = false;
             _networkSceneLoadStartedAt = Time.realtimeSinceStartupAsDouble;
+            HideOutgoingSceneForPreloadedLobby(runner);
             Debug.Log(
                 $"[SceneTiming] Fusion scene load started: current={SceneManager.GetActiveScene().name}, " +
                 $"isServer={runner.IsServer}.");
+        }
+
+        private void HideOutgoingSceneForPreloadedLobby(NetworkRunner runner)
+        {
+            if (_scenes == null || !IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene))
+            {
+                return;
+            }
+
+            var lobby = SceneManager.GetSceneByBuildIndex(_scenes.LobbyScene.AsIndex);
+            var outgoing = SceneManager.GetActiveScene();
+            if (!lobby.IsValid() || !lobby.isLoaded ||
+                !outgoing.IsValid() || !outgoing.isLoaded || outgoing == lobby)
+            {
+                return;
+            }
+
+            SceneManager.SetActiveScene(lobby);
+            foreach (var root in outgoing.GetRootGameObjects())
+            {
+                root.SetActive(false);
+            }
+
+            Debug.Log(
+                $"[SceneTiming] Preloaded Lobby activated; outgoing scene '{outgoing.name}' hidden.");
         }
 
         /// <summary>
