@@ -319,7 +319,6 @@ namespace Game.Bootstrap
             if (!ready)
             {
                 readyFrame = -1;
-                entryCover.SetOpacity(1f);
                 return;
             }
             if (readyFrame < 0) readyFrame = frame;

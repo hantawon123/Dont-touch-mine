@@ -156,6 +156,7 @@ namespace Game.Architecture.Tests
         public void LobbyEntry_WaitsForPlacementAndCameraFrames_AndClearsOnExit()
         {
             var view = new EntryTransitionSpy();
+            view.SetOpacity(1f);
             var binder = new Game.Bootstrap.LobbyPlayerCameraBinder(
                 new NetworkRunnerService(null, null, null, null, null, null), view);
             binder.UpdateEntryTransition(false, true, 100);
@@ -173,6 +174,7 @@ namespace Game.Architecture.Tests
 
             var nextVisit = new Game.Bootstrap.LobbyPlayerCameraBinder(
                 new NetworkRunnerService(null, null, null, null, null, null), view);
+            view.SetOpacity(1f);
             nextVisit.UpdateEntryTransition(false, true, 200);
             Assert.That(view.Opacity, Is.EqualTo(1f), "Re-entry starts a fresh placement wait.");
             nextVisit.Dispose();
@@ -187,6 +189,7 @@ namespace Game.Architecture.Tests
                 new NetworkRunnerService(null, null, null, null, null, null), view);
 
             binder.UpdateEntryTransition(false, false, 100);
+            binder.UpdateEntryTransition(false, true, 101);
 
             Assert.That(view.Opacity, Is.Zero);
         }
