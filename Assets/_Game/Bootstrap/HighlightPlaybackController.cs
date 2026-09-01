@@ -318,7 +318,7 @@ namespace Game.Bootstrap
             replayIndex = 0;
             lastWarnedIndex = -1;
             replayPlayer = null;
-            cameraDirector?.ClearOccluders();
+            cameraDirector?.Dispose();
             cameraDirector = null;
             hud?.SetHighlightTitle(null);
         }
@@ -452,7 +452,7 @@ namespace Game.Bootstrap
             PlaybackSourceTime = null;
             readinessConfirmed = false;
             replayPlayer = null;
-            cameraDirector?.ClearOccluders();
+            cameraDirector?.Dispose();
             cameraDirector = null;
             hud?.SetHighlightTitle(null);
             foreach (var visual in playerVisuals.Values) visual.SetPlaying(false);

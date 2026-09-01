@@ -79,7 +79,7 @@ namespace Game.Client.Cameras
             replayBrain = output.GetComponent<CinemachineBrain>();
             replayBrainEnabled = replayBrain != null && replayBrain.enabled;
             replayRigEnabled = enabled;
-            if (replayBrain != null) replayBrain.enabled = false;
+            if (replayBrain != null) replayBrain.enabled = true;
             enabled = false;
             return output.transform;
         }

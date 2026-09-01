@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Game.Client.Cameras;
 using Game.Server.Match;
 using UnityEngine;
 
@@ -160,7 +161,7 @@ namespace Game.Bootstrap
         }
     }
 
-    public sealed class HighlightCameraDirector
+    public sealed class HighlightCameraDirector : IDisposable
     {
         private readonly Transform cameraTransform;
         private readonly Transform fallbackTransform;
@@ -172,6 +173,7 @@ namespace Game.Bootstrap
         private readonly float followSharpness;
         private readonly int collisionLayerMask;
         private readonly HashSet<Renderer> hiddenRenderers = new();
+        private readonly HighlightReplayCameraRig replayCameraRig;
         private Transform currentTarget;
         private float currentDistance;
         private HighlightType currentType;
@@ -230,6 +232,7 @@ namespace Game.Bootstrap
             this.height = height;
             this.followSharpness = followSharpness;
             this.collisionLayerMask = collisionLayerMask;
+            replayCameraRig = HighlightReplayCameraRig.TryCreate(cameraTransform, collisionLayerMask);
         }
 
         public Transform CurrentTarget => currentTarget;
@@ -363,6 +366,7 @@ namespace Game.Bootstrap
             shotDirection = supportingPlayer != null
                 ? (-actor.forward + actor.right * side).normalized
                 : Vector3.back;
+            replayCameraRig?.SetTargets(currentTarget, supportingPlayer);
             ApplyTargetPose(shot.HardCut ? 1f : 0f);
         }
 
@@ -399,11 +403,21 @@ namespace Game.Bootstrap
             var desiredPosition = focusPosition +
                                   (shotDirection * distance) +
                                   (Vector3.up * height);
-            UpdateOccluders(focusPosition, desiredPosition);
-
             var desiredRotation = Quaternion.LookRotation(
                 focusPosition - desiredPosition,
                 Vector3.up);
+            if (replayCameraRig != null)
+            {
+                replayCameraRig.SetPose(
+                    desiredPosition,
+                    desiredRotation,
+                    t,
+                    FramingSizeOf(CurrentShot?.Framing ?? HighlightShotFraming.Medium),
+                    t >= 1f);
+                return;
+            }
+
+            UpdateOccluders(focusPosition, desiredPosition);
             cameraTransform.SetPositionAndRotation(
                 Vector3.Lerp(cameraTransform.position, desiredPosition, t),
                 Quaternion.Slerp(cameraTransform.rotation, desiredRotation, t));
@@ -481,5 +495,18 @@ namespace Game.Bootstrap
         private static bool IsSameHierarchy(Transform left, Transform right) =>
             left != null && right != null &&
             (left == right || left.IsChildOf(right) || right.IsChildOf(left));
+
+        private static float FramingSizeOf(HighlightShotFraming framing) => framing switch
+        {
+            HighlightShotFraming.Wide => 0.45f,
+            HighlightShotFraming.Medium => 0.6f,
+            _ => 0.75f,
+        };
+
+        public void Dispose()
+        {
+            ClearOccluders();
+            replayCameraRig?.Dispose();
+        }
     }
 }
