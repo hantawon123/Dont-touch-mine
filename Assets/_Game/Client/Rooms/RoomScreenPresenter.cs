@@ -1,4 +1,5 @@
 using System;
+using Game.Client.Cameras;
 using Game.Client.Home;
 using Game.Core.Flow;
 using Game.Core.Lobby;
@@ -60,6 +61,7 @@ namespace Game.Client.Rooms
         private RoomBrowserSystem roomBrowser;
         private IHomeApplicationHost applicationHost;
         private AppFlowSystem appFlow;
+        private HostMigrationFrameView sceneTransitionFrame;
         private RoomCreateModalView modal;
         private RoomPasswordModalView passwordModal;
         private RoomCodeModalView codeModal;
@@ -93,13 +95,17 @@ namespace Game.Client.Rooms
             IRoomBrowserView view,
             RoomBrowserSystem browserSystem,
             IHomeApplicationHost host,
-            AppFlowSystem flow)
+            AppFlowSystem flow,
+            HostMigrationFrameView transitionFrame)
         {
             browserView = view ?? throw new ArgumentNullException(nameof(view));
             roomBrowser = browserSystem
                 ?? throw new ArgumentNullException(nameof(browserSystem));
             applicationHost = host ?? throw new ArgumentNullException(nameof(host));
             appFlow = flow ?? throw new ArgumentNullException(nameof(flow));
+            sceneTransitionFrame = transitionFrame ??
+                                   throw new ArgumentNullException(nameof(transitionFrame));
+            sceneTransitionFrame.Clear();
 
             modal = Instantiate(modalPrefab, modalParent);
             modal.Close();
@@ -379,9 +385,9 @@ namespace Game.Client.Rooms
             pending = PendingEntry.None;
             pendingRoomId = null;
 
-            // Keep the exact screen that requested entry visible until Fusion
-            // replaces this scene. Closing it first exposes the browser behind
-            // it for a frame and makes one transition look like two.
+            // Fusion unloads Room before Lobby has rendered a complete frame.
+            // Hold this complete frame, then Lobby clears it once its camera is ready.
+            sceneTransitionFrame.Capture();
             OpenLobby();
         }
 

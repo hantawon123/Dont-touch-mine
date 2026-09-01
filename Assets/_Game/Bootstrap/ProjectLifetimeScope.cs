@@ -43,10 +43,12 @@ namespace Game.Bootstrap
             var transition = new GameObject("Highlight Transition").AddComponent<HighlightTransitionView>();
             transition.transform.SetParent(transform, false);
             builder.RegisterComponent(transition).As<IHighlightTransitionView>();
+            var sceneFrame = new GameObject("Scene Transition Frame")
+                .AddComponent<HostMigrationFrameView>();
+            sceneFrame.transform.SetParent(transform, false);
+            sceneFrame.Prepare();
+            builder.RegisterComponent(sceneFrame);
             // Host migration suspended: do not allocate/capture frames or freeze the camera.
-            // var migrationFrame = new GameObject("Host Migration Presentation").AddComponent<HostMigrationFrameView>();
-            // migrationFrame.transform.SetParent(transform, false);
-            // builder.RegisterComponent(migrationFrame);
             // builder.RegisterEntryPoint<HostMigrationPresentationController>();
             builder.Register<UnityHomeApplicationHost>(Lifetime.Singleton).As<IHomeApplicationHost>();
             builder.RegisterEntryPoint<NetworkRoomDisconnectController>();

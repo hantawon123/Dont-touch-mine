@@ -271,6 +271,7 @@ namespace Game.Bootstrap
     {
         private readonly NetworkRunnerService network;
         private readonly IHighlightTransitionView entryCover;
+        private readonly HostMigrationFrameView sceneTransitionFrame;
         private PlayerAvatar boundAvatar;
         private PlayerCameraController boundRig;
         private readonly int lobbySceneHandle;
@@ -278,10 +279,14 @@ namespace Game.Bootstrap
         private bool entryComplete;
         private double startedAt;
 
-        public LobbyPlayerCameraBinder(NetworkRunnerService network, IHighlightTransitionView entryCover)
+        public LobbyPlayerCameraBinder(
+            NetworkRunnerService network,
+            IHighlightTransitionView entryCover,
+            HostMigrationFrameView sceneTransitionFrame = null)
         {
             this.network = network ?? throw new ArgumentNullException(nameof(network));
             this.entryCover = entryCover ?? throw new ArgumentNullException(nameof(entryCover));
+            this.sceneTransitionFrame = sceneTransitionFrame;
             lobbySceneHandle = entryCover is Component component
                 ? component.gameObject.scene.handle
                 : -1;
@@ -327,12 +332,17 @@ namespace Game.Bootstrap
             if (frame - readyFrame < 2) return;
             entryComplete = true;
             entryCover.SetOpacity(0f);
+            sceneTransitionFrame?.Clear();
             Debug.Log(
                 $"[SceneTiming] Lobby local player ready, " +
                 $"elapsedSinceBinderStart={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
         }
 
-        public void Dispose() => entryCover.SetOpacity(0f);
+        public void Dispose()
+        {
+            entryCover.SetOpacity(0f);
+            sceneTransitionFrame?.Clear();
+        }
 
         private void TryBind()
         {
