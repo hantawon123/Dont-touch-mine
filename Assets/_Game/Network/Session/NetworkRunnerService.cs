@@ -48,7 +48,6 @@ namespace Game.Network.Session
         IDisposable
     {
         private const string RunnerObjectName = "[NetworkRunner]";
-        private const string MatchmakingRegion = "kr";
         private const int ItemAssignmentKeyType = 0x4954454D;
         private const int ItemAssignmentKeyVersion = 1;
         private const int ItemAssignmentRequestKeyType = 0x49545251;
@@ -107,6 +106,7 @@ namespace Game.Network.Session
         /// has nowhere to go rather than failing to construct.
         /// </summary>
         private readonly NetworkScenes _scenes;
+        private readonly string _networkRegion;
 
         /// <summary>
         /// Raised on every peer once a networked scene has finished loading.
@@ -213,7 +213,8 @@ namespace Game.Network.Session
             IMatchStartSink matchStartSink,
             PlayerSpawner spawner,
             PlayerProfile profile,
-            NetworkScenes scenes = null)
+            NetworkScenes scenes = null,
+            string networkRegion = null)
         {
             _roomListSink = roomListSink;
             _sessionSink = sessionSink;
@@ -222,6 +223,9 @@ namespace Game.Network.Session
             _spawner = spawner;
             _profile = profile;
             _scenes = scenes;
+            _networkRegion = string.IsNullOrWhiteSpace(networkRegion)
+                ? null
+                : networkRegion.Trim();
         }
 
         /// <summary>
@@ -460,9 +464,7 @@ namespace Game.Network.Session
                     "The matchmaking lobby is already connected.");
             }
 
-            var photonSettings =
-                Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings;
-            photonSettings.FixedRegion = MatchmakingRegion;
+            var photonSettings = GetPhotonSettings();
             var client = MatchmakingArgumentsExtensions.BuildRealtimeClient(
                 photonSettings);
             client.AddCallbackTarget(this);
@@ -504,7 +506,8 @@ namespace Game.Network.Session
             Debug.Log(
                 $"[SceneTiming] Photon lobby join completed: ok=True, " +
                 $"connection={Time.realtimeSinceStartupAsDouble - connectionStartedAt:F3}s, " +
-                $"total={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s.");
+                $"total={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s, " +
+                $"region={client.CurrentRegion}.");
 
             Debug.Log("[Network] Joined matchmaking lobby.");
             return SessionStartResult.Success();
@@ -537,6 +540,15 @@ namespace Game.Network.Session
             {
                 return SessionStartResult.Failed(
                     SessionFailure.AlreadyRunning, "A session is already running.");
+            }
+
+            // A create form may have warmed Lobby before the user changed their
+            // mind and selected an existing room. The joining runner owns its
+            // own scene synchronisation, so do not leave a second Unity load in
+            // flight beside it.
+            if (!request.AllowCreate && _lobbyPreload != null)
+            {
+                await CleanupLobbyPreloadAsync();
             }
 
             _expectedPassword = request.Password;
@@ -1171,11 +1183,7 @@ namespace Game.Network.Session
         {
             _hostLossShutdownPending = false;
             _isClientSession = false;
-            // Photon room lists are region-local. Leaving this empty lets each
-            // PC choose a different "best" region, so teammates can create a
-            // valid room that the others can never list.
-            Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings.FixedRegion =
-                MatchmakingRegion;
+            GetPhotonSettings();
 
             _runnerObject = new GameObject(RunnerObjectName);
             UnityEngine.Object.DontDestroyOnLoad(_runnerObject);
@@ -1216,6 +1224,16 @@ namespace Game.Network.Session
             _matchStarter.SimulationTick += OnSimulationTick;
 
             return sceneManager;
+        }
+
+        private Fusion.Photon.Realtime.FusionAppSettings GetPhotonSettings()
+        {
+            var settings =
+                Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings;
+            // Empty selects Photon Best Region. A deployment can instead set a
+            // region on ProjectLifetimeScope without recompiling network code.
+            settings.FixedRegion = _networkRegion;
+            return settings;
         }
 
         /// <summary>
@@ -1287,6 +1305,19 @@ namespace Game.Network.Session
             // Lobby scene or expose its UI before room entry is confirmed.
             _lobbyPreload.allowSceneActivation = false;
             Debug.Log("[SceneTiming] Lobby background preload requested.");
+        }
+
+        /// <summary>
+        /// Starts the host's next Lobby load while the create-room form is open.
+        /// Closing the form keeps the completed preload as a cache; leaving the
+        /// room browser releases it through the normal session shutdown path.
+        /// </summary>
+        public void PrepareLobbyScene()
+        {
+            if (_browsingLobby && !_joiningMatchmakingLobby)
+            {
+                BeginLobbyPreload();
+            }
         }
 
         private async UniTask CompleteLobbyPreloadAndEnterAsync(

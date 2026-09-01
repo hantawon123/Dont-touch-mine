@@ -77,10 +77,6 @@ namespace Game.Client.Interactions
             // 빠르게 던져진 작은 물체가 얇은 벽을 프레임 사이에 통과(터널링)하지 않도록
             // 이동 경로 전체를 검사하는 연속 충돌 감지를 사용한다.
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            colliders = GetComponentsInChildren<Collider>(includeInactive: true);
-            CapturePlacementVolume();
-            renderers = GetComponentsInChildren<Renderer>();
-            propertyBlock = new MaterialPropertyBlock();
         }
 
         public bool CanInteract(PlayerInteractor interactor)
@@ -296,6 +292,8 @@ namespace Game.Client.Interactions
         /// <summary>조준 하이라이트: 밝기를 살짝 올려 조준 중임을 표시한다.</summary>
         public void SetAimed(bool aimed, float intensity)
         {
+            renderers ??= GetComponentsInChildren<Renderer>();
+            propertyBlock ??= new MaterialPropertyBlock();
             foreach (var itemRenderer in renderers)
             {
                 var baseColor = itemRenderer.sharedMaterial != null
@@ -317,6 +315,7 @@ namespace Game.Client.Interactions
 
         private void SetCollidersEnabled(bool isEnabled)
         {
+            colliders ??= GetComponentsInChildren<Collider>(includeInactive: true);
             foreach (var itemCollider in colliders)
             {
                 itemCollider.enabled = isEnabled;

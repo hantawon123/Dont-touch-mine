@@ -705,6 +705,12 @@ namespace Game.Network.Session
                 _preloadedLobbyRoots = Array.Empty<GameObject>();
             }
 
+            if (lobbyLoaded)
+            {
+                ActivateLobbySceneAndUnloadFrontendAsync(runner)
+                    .Forget(exception => Debug.LogException(exception));
+            }
+
             Debug.Log(
                 $"[Session] Scene load done: '{SceneManager.GetActiveScene().name}', " +
                 $"IsServer={runner != null && runner.IsServer}.");
@@ -734,6 +740,56 @@ namespace Game.Network.Session
                 !(_matchStarter?.HasStartedMatch ?? false) &&
                 !lobbyLoaded)
                 _spawner?.RepositionSeated(runner);
+        }
+
+        /// <summary>
+        /// Finishes a preloaded Lobby takeover with the same Unity scene state as
+        /// an ordinary single-scene load.
+        /// </summary>
+        /// <remarks>
+        /// Lobby may already be loaded additively while Photon connects. Fusion
+        /// can then adopt it without Unity making it active or unloading the
+        /// Home/Room frontend pair. In single-peer mode that leaves Fusion's
+        /// physics scene pointing at Room, so the visible Lobby avatar cannot
+        /// move correctly. Select Lobby immediately, then leave Fusion's scene
+        /// callback before unloading the old frontend scenes.
+        /// </remarks>
+        private async UniTask ActivateLobbySceneAndUnloadFrontendAsync(
+            NetworkRunner runner)
+        {
+            if (_scenes == null || !_scenes.LobbyScene.IsValid)
+            {
+                return;
+            }
+
+            var lobby = SceneManager.GetSceneByBuildIndex(
+                _scenes.LobbyScene.AsIndex);
+            if (!lobby.IsValid() || !lobby.isLoaded)
+            {
+                return;
+            }
+
+            SceneManager.SetActiveScene(lobby);
+
+            await UniTask.NextFrame(PlayerLoopTiming.Update);
+            if (!IsCurrentRunner(runner) || !runner.IsRunning ||
+                !IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene))
+            {
+                return;
+            }
+
+            for (var index = SceneManager.sceneCount - 1; index >= 0; index--)
+            {
+                var loaded = SceneManager.GetSceneAt(index);
+                // A Lobby session owns one build scene. buildIndex < 0 is a
+                // Fusion/runtime scene and must remain under Fusion's control.
+                if (!loaded.isLoaded || loaded == lobby || loaded.buildIndex < 0)
+                {
+                    continue;
+                }
+
+                _ = SceneManager.UnloadSceneAsync(loaded);
+            }
         }
 
         private async UniTask PublishSceneStateWhenReadyAsync(NetworkRunner runner)

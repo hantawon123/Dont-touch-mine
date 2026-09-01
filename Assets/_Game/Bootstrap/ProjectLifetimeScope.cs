@@ -11,6 +11,9 @@ using Game.Network.Match;
 using Game.Network.Players;
 using Game.Network.Session;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using VContainer;
 using VContainer.Unity;
 
@@ -29,6 +32,10 @@ namespace Game.Bootstrap
         [Tooltip("Scenes this application loads over the network.")]
         private NetworkScenes _networkScenes;
 
+        [SerializeField]
+        [Tooltip("Photon region code. Leave empty to use Best Region; room lists are region-local.")]
+        private string _networkRegion;
+
         protected override void Configure(IContainerBuilder builder)
         {
             // The store is built here, not in RegisterServices: it reads this
@@ -36,13 +43,29 @@ namespace Game.Bootstrap
             // whoever last played on the developer's machine.
             var store = new PlayerPrefsProfileStore();
 
-            RegisterServices(builder, _networkPrefabs, _networkScenes, LoadProfile(store));
+            RegisterServices(
+                builder,
+                _networkPrefabs,
+                _networkScenes,
+                LoadProfile(store),
+                _networkRegion);
             builder.RegisterInstance<IProfileStore>(store);
             // Shared across Playground and Result so scene unloading cannot reveal gameplay.
             var transition = new GameObject("Highlight Transition").AddComponent<HighlightTransitionView>();
             transition.transform.SetParent(transform, false);
             builder.RegisterComponent(transition).As<IHighlightTransitionView>();
+
+            var inputObject = new GameObject("UI EventSystem");
+            inputObject.SetActive(false);
+            inputObject.transform.SetParent(transform, false);
+            var eventSystem = inputObject.AddComponent<EventSystem>();
+            var inputModule = inputObject.AddComponent<InputSystemUIInputModule>();
+            inputObject.AddComponent<SharedUiInputActions>().Bind(inputModule);
+            inputObject.SetActive(true);
+            builder.RegisterComponent(eventSystem);
+
             builder.Register<UnityHomeApplicationHost>(Lifetime.Singleton).As<IHomeApplicationHost>();
+            builder.RegisterEntryPoint<FrontendSceneCoordinator>().AsSelf();
             builder.RegisterEntryPoint<NetworkRoomDisconnectController>();
 
             // Both listen to something live. Tests build the same container
@@ -50,6 +73,34 @@ namespace Game.Bootstrap
             // this machine's preferences.
             builder.RegisterEntryPoint<MatchSceneSpawnPoints>();
             builder.RegisterEntryPoint<ProfilePersistence>();
+        }
+
+        private sealed class SharedUiInputActions : MonoBehaviour
+        {
+            private DefaultInputActions actions;
+
+            public void Bind(InputSystemUIInputModule inputModule)
+            {
+                actions = new DefaultInputActions();
+                inputModule.actionsAsset = actions.asset;
+                inputModule.cancel = InputActionReference.Create(actions.UI.Cancel);
+                inputModule.submit = InputActionReference.Create(actions.UI.Submit);
+                inputModule.move = InputActionReference.Create(actions.UI.Navigate);
+                inputModule.leftClick = InputActionReference.Create(actions.UI.Click);
+                inputModule.rightClick = InputActionReference.Create(actions.UI.RightClick);
+                inputModule.middleClick = InputActionReference.Create(actions.UI.MiddleClick);
+                inputModule.point = InputActionReference.Create(actions.UI.Point);
+                inputModule.scrollWheel = InputActionReference.Create(actions.UI.ScrollWheel);
+                inputModule.trackedDeviceOrientation =
+                    InputActionReference.Create(actions.UI.TrackedDeviceOrientation);
+                inputModule.trackedDevicePosition =
+                    InputActionReference.Create(actions.UI.TrackedDevicePosition);
+            }
+
+            private void OnDestroy()
+            {
+                actions?.Dispose();
+            }
         }
 
         /// <summary>
@@ -85,7 +136,8 @@ namespace Game.Bootstrap
             IContainerBuilder builder,
             NetworkPrefabs networkPrefabs = null,
             NetworkScenes networkScenes = null,
-            PlayerProfile profile = null)
+            PlayerProfile profile = null,
+            string networkRegion = null)
         {
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
@@ -126,7 +178,8 @@ namespace Game.Bootstrap
                         c.Resolve<IMatchStartSink>(),
                         c.Resolve<PlayerSpawner>(),
                         c.Resolve<PlayerProfile>(),
-                        networkScenes),
+                        networkScenes,
+                        networkRegion),
                     Lifetime.Singleton)
                 .AsSelf()
                 .As<INetworkMatchRuntimeSource>()
