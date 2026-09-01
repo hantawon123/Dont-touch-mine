@@ -248,14 +248,20 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Focus_HidesOccludersAcrossThePresentedAreaWithoutMapMetadata()
+        public void Focus_HidesAuthoredUpperLevelAndReplayObjectsUntilSubjectMovesUpstairs()
         {
-            var nearbyFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            nearbyFloor.transform.position = new Vector3(0f, 3f, -4f);
-            gameObjects.Add(nearbyFloor);
-            var distantFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            distantFloor.transform.position = new Vector3(5f, 3f, -4f);
-            gameObjects.Add(distantFloor);
+            var upperLevel = Create("Any Upper Level", Vector3.zero);
+            var upperFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            upperFloor.transform.SetParent(upperLevel.transform);
+            upperFloor.transform.position = new Vector3(8f, 3f, 4f);
+            gameObjects.Add(upperFloor);
+            var upperGroup = new SceneHighlightOcclusionReference(
+                2.5f,
+                upperLevel.transform);
+
+            var upperReplayItem = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            upperReplayItem.transform.position = new Vector3(8f, 3f, 4f);
+            gameObjects.Add(upperReplayItem);
 
             var camera = Create("Camera", Vector3.zero);
             var fallback = Create("Fallback", Vector3.left);
@@ -266,24 +272,38 @@ namespace Game.Tests.EditMode
                 camera.transform,
                 fallback.transform,
                 new Transform[0],
-                new[] { new SceneWorldObjectReference("item", item.transform) });
+                new[]
+                {
+                    new SceneWorldObjectReference("item", item.transform),
+                    new SceneWorldObjectReference("upper", upperReplayItem.transform),
+                },
+                new[] { upperGroup });
 
             director.Focus(Candidate(HighlightType.FirstBlood, "item"));
 
-            Assert.That(nearbyFloor.GetComponent<Renderer>().forceRenderingOff, Is.True);
-            Assert.That(distantFloor.GetComponent<Renderer>().forceRenderingOff, Is.True);
-            director.ClearOccluders();
-            Assert.That(nearbyFloor.GetComponent<Renderer>().forceRenderingOff, Is.False);
-            Assert.That(distantFloor.GetComponent<Renderer>().forceRenderingOff, Is.False);
+            Assert.That(upperFloor.GetComponent<Renderer>().forceRenderingOff, Is.True);
+            Assert.That(upperReplayItem.GetComponent<Renderer>().forceRenderingOff, Is.True);
+
+            item.transform.position = new Vector3(0f, 3f, 0f);
+            director.Tick(1f);
+
+            Assert.That(upperFloor.GetComponent<Renderer>().forceRenderingOff, Is.False);
+            Assert.That(upperReplayItem.GetComponent<Renderer>().forceRenderingOff, Is.False);
         }
 
         private static HighlightCameraDirector Director(
             Transform camera,
             Transform fallback,
             IReadOnlyList<Transform> players,
-            IReadOnlyList<SceneWorldObjectReference> objects)
+            IReadOnlyList<SceneWorldObjectReference> objects,
+            IReadOnlyList<SceneHighlightOcclusionReference> occlusionGroups = null)
         {
-            return new HighlightCameraDirector(camera, fallback, players, objects);
+            return new HighlightCameraDirector(
+                camera,
+                fallback,
+                players,
+                objects,
+                occlusionGroups: occlusionGroups);
         }
 
         private static HighlightCandidate Candidate(

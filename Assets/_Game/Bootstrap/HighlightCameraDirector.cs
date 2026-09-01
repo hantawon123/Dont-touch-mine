@@ -204,6 +204,8 @@ namespace Game.Bootstrap
         private readonly float followSharpness;
         private readonly int collisionLayerMask;
         private readonly HashSet<Renderer> hiddenRenderers = new();
+        private readonly IReadOnlyList<SceneHighlightOcclusionReference> occlusionGroups;
+        private readonly Dictionary<Transform, Renderer[]> replayRenderers = new();
         private readonly HighlightReplayCameraRig replayCameraRig;
         private Transform currentTarget;
         private float currentDistance;
@@ -223,7 +225,8 @@ namespace Game.Bootstrap
             float wideDistance = 14f,
             float height = 5.5f,
             float followSharpness = 10f,
-            int collisionLayerMask = Physics.DefaultRaycastLayers)
+            int collisionLayerMask = Physics.DefaultRaycastLayers,
+            IReadOnlyList<SceneHighlightOcclusionReference> occlusionGroups = null)
         {
             this.cameraTransform = cameraTransform ??
                 throw new ArgumentNullException(nameof(cameraTransform));
@@ -257,11 +260,20 @@ namespace Game.Bootstrap
                 }
             }
 
+            foreach (var player in playerTargets)
+                CacheReplayRenderers(player);
+            foreach (var target in this.objectTargets.Values)
+                CacheReplayRenderers(target);
+
             this.closeDistance = closeDistance;
             this.wideDistance = wideDistance;
             this.height = height;
             this.followSharpness = followSharpness;
             this.collisionLayerMask = collisionLayerMask;
+            this.occlusionGroups = occlusionGroups ??
+                UnityEngine.Object.FindFirstObjectByType<MatchSceneConfiguration>(
+                    FindObjectsInactive.Include)?.HighlightOcclusionGroups ??
+                Array.Empty<SceneHighlightOcclusionReference>();
             replayCameraRig = HighlightReplayCameraRig.TryCreate(cameraTransform);
         }
 
@@ -430,7 +442,7 @@ namespace Game.Bootstrap
             var desiredRotation = Quaternion.LookRotation(
                 focusPosition - desiredPosition,
                 Vector3.up);
-            UpdateOccluders(focusPosition, desiredPosition);
+            UpdateOccluders(subjectPosition, focusPosition, desiredPosition);
             if (replayCameraRig != null)
             {
                 replayCameraRig.SetPose(
@@ -454,9 +466,13 @@ namespace Game.Bootstrap
                 fallbackTransform.rotation);
         }
 
-        private void UpdateOccluders(Vector3 focusPosition, Vector3 cameraPosition)
+        private void UpdateOccluders(
+            Vector3 subjectPosition,
+            Vector3 focusPosition,
+            Vector3 cameraPosition)
         {
             ClearOccluders();
+            HideUpperLevels(subjectPosition.y);
             if (collisionLayerMask == 0)
             {
                 return;
@@ -469,28 +485,10 @@ namespace Game.Bootstrap
                 return;
             }
 
-            var normalizedDirection = direction / distance;
-            var viewArea = new Vector3(
-                Mathf.Max(2f, currentDistance * 0.5f),
-                0.35f,
-                Mathf.Max(2f, currentDistance * 0.35f));
-            foreach (var hit in Physics.BoxCastAll(
-                         focusPosition,
-                         viewArea,
-                         normalizedDirection,
-                         Quaternion.identity,
-                         distance,
-                         collisionLayerMask,
-                         QueryTriggerInteraction.Ignore))
-            {
-                HideIfOccluding(hit.collider.GetComponent<Renderer>());
-                HideIfOccluding(hit.collider.GetComponentInParent<Renderer>());
-            }
-
             foreach (var hit in Physics.SphereCastAll(
                          focusPosition,
                          0.75f,
-                         normalizedDirection,
+                         direction / distance,
                          distance,
                          collisionLayerMask,
                          QueryTriggerInteraction.Ignore))
@@ -500,13 +498,41 @@ namespace Game.Bootstrap
             }
         }
 
-        private void HideIfOccluding(Renderer renderer)
+        private void HideUpperLevels(float subjectHeight)
         {
-            if (renderer == null || renderer.forceRenderingOff || IsReplaySubject(renderer.transform))
+            var firstHiddenHeight = float.PositiveInfinity;
+            foreach (var group in occlusionGroups)
             {
-                return;
+                if (group == null || subjectHeight >= group.VisibleFromHeight) continue;
+                firstHiddenHeight = Mathf.Min(firstHiddenHeight, group.VisibleFromHeight);
+                foreach (var renderer in group.Renderers)
+                    HideRenderer(renderer);
             }
 
+            if (!float.IsFinite(firstHiddenHeight)) return;
+            foreach (var pair in replayRenderers)
+            {
+                if (pair.Key == null || pair.Key.position.y < firstHiddenHeight) continue;
+                foreach (var renderer in pair.Value)
+                    HideRenderer(renderer);
+            }
+        }
+
+        private void CacheReplayRenderers(Transform target)
+        {
+            if (target != null && !replayRenderers.ContainsKey(target))
+                replayRenderers.Add(target, target.GetComponentsInChildren<Renderer>(true));
+        }
+
+        private void HideIfOccluding(Renderer renderer)
+        {
+            if (renderer == null || IsReplaySubject(renderer.transform)) return;
+            HideRenderer(renderer);
+        }
+
+        private void HideRenderer(Renderer renderer)
+        {
+            if (renderer == null || renderer.forceRenderingOff) return;
             renderer.forceRenderingOff = true;
             hiddenRenderers.Add(renderer);
         }

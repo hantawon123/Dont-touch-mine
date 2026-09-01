@@ -445,7 +445,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -7016,6 +7016,12 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   shredderEjectionPoint: {fileID: 0}
+  highlightOcclusionGroups:
+  - visibleFromHeight: 2.5
+    contentRoots:
+    - {fileID: 1905800772}
+    - {fileID: 2147000001}
+    - {fileID: 2147000002}
 --- !u!4 &456893478 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4716768421664081566, guid: 7ce6c7106895e51498834a38c6d6ca71, type: 3}
@@ -28069,6 +28075,16 @@ Transform:
   - {fileID: 1759986638}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &2147000001 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8360819853856194092, guid: 8f92c88f27cf6dd459899dfebdad33a7, type: 3}
+  m_PrefabInstance: {fileID: 1734934696}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &2147000002 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3731502749060533239, guid: 8f92c88f27cf6dd459899dfebdad33a7, type: 3}
+  m_PrefabInstance: {fileID: 1734934696}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1908282742
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -53,6 +53,45 @@ namespace Game.Bootstrap
         }
     }
 
+    [Serializable]
+    public sealed class SceneHighlightOcclusionReference
+    {
+        [SerializeField]
+        private float visibleFromHeight;
+
+        [SerializeField]
+        private Transform[] contentRoots = Array.Empty<Transform>();
+
+        [NonSerialized]
+        private Renderer[] renderers;
+
+        public SceneHighlightOcclusionReference(
+            float visibleFromHeight,
+            params Transform[] contentRoots)
+        {
+            if (!float.IsFinite(visibleFromHeight))
+                throw new ArgumentOutOfRangeException(nameof(visibleFromHeight));
+            this.visibleFromHeight = visibleFromHeight;
+            this.contentRoots = contentRoots ??
+                throw new ArgumentNullException(nameof(contentRoots));
+        }
+
+        public float VisibleFromHeight => visibleFromHeight;
+        public IReadOnlyList<Renderer> Renderers => renderers ??= CaptureRenderers();
+
+        private Renderer[] CaptureRenderers()
+        {
+            var captured = new List<Renderer>();
+            foreach (var root in contentRoots)
+            {
+                if (root != null)
+                    captured.AddRange(root.GetComponentsInChildren<Renderer>(true));
+            }
+
+            return captured.ToArray();
+        }
+    }
+
     [DisallowMultipleComponent]
     public sealed class MatchSceneConfiguration : MonoBehaviour
     {
@@ -79,6 +118,14 @@ namespace Game.Bootstrap
 
         [SerializeField]
         private Transform shredderEjectionPoint;
+
+        [SerializeField]
+        [Tooltip("하이라이트에서 피사체보다 위에 있으면 통째로 숨길 층과 지붕 묶음입니다.")]
+        private SceneHighlightOcclusionReference[] highlightOcclusionGroups =
+            Array.Empty<SceneHighlightOcclusionReference>();
+
+        public IReadOnlyList<SceneHighlightOcclusionReference> HighlightOcclusionGroups =>
+            highlightOcclusionGroups ?? Array.Empty<SceneHighlightOcclusionReference>();
 
         public Pose[] CaptureSpawnPoses()
         {
