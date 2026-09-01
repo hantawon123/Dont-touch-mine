@@ -52,6 +52,7 @@ namespace Game.Network.Match
         /// it can carry the request.
         /// </summary>
         private MatchSessionState _state;
+        private MatchMigrationCheckpoint _checkpoint;
         private MatchSessionCoordinator _session;
         private Pose _shredderEjectionPose;
         private bool _hasShredderEjectionPose;
@@ -169,6 +170,11 @@ namespace Game.Network.Match
 
             _sink?.MatchStarted(_playing);
             LineUpReceived?.Invoke(_playing);
+        }
+
+        public void Publish(MatchMigrationCheckpoint checkpoint)
+        {
+            _checkpoint = checkpoint;
         }
 
         public bool TryPublishSnapshot(MatchStateSnapshot snapshot)
@@ -297,16 +303,15 @@ namespace Game.Network.Match
                 for (var i = 0; i < _session.Assignments.Count; i++)
                     if (!_session.Players.IsActive(i)) _state.TrySetParticipantInactive(i);
                 // Host migration suspended; retain the checkpoint component/schema but do not record it.
-                // _state.GetComponent<MatchMigrationCheckpoint>()?.Capture(_session, _state, _roster);
+                // _checkpoint?.Capture(_session, _state, _roster);
             }
         }
 
         public MatchMigrationState CaptureMigrationState()
         {
             if (_state == null || !_state.IsStarted) return null;
-            var checkpoint = _state.GetComponent<MatchMigrationCheckpoint>();
-            if (checkpoint == null) throw new InvalidOperationException("Match migration checkpoint is missing.");
-            return checkpoint.Read(_state);
+            if (_checkpoint == null) throw new InvalidOperationException("Match migration checkpoint is missing.");
+            return _checkpoint.Read(_state);
         }
 
         public void BindSession(

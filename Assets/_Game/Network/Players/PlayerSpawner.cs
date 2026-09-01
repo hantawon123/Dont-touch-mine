@@ -75,22 +75,28 @@ namespace Game.Network.Players
                 return;
             }
 
-            var prefab = _prefabs == null ? null : _prefabs.MatchSession;
+            var sessionPrefab = _prefabs == null ? null : _prefabs.MatchSession;
+            var checkpointPrefab = _prefabs == null ? null : _prefabs.MatchMigrationCheckpoint;
 
-            if (prefab == null)
+            if (sessionPrefab == null || checkpointPrefab == null)
             {
                 throw new InvalidOperationException(
-                    "[Spawn] No match session prefab is assigned, so no match can " +
-                    "be started. Set it on the NetworkPrefabs asset.");
+                    "[Spawn] Match session and migration checkpoint prefabs must both " +
+                    "be assigned on the NetworkPrefabs asset.");
             }
 
             // Fail before Spawn assigns a runner to a partially allocated object.
-            ValidateRoomObjectStateSize(NetworkObject.GetWordCount(prefab), (int)runner.Config.Heap.PageShift);
-            var session = runner.Spawn(prefab);
+            var pageShift = (int)runner.Config.Heap.PageShift;
+            ValidateRoomObjectStateSize(NetworkObject.GetWordCount(sessionPrefab), pageShift);
+            ValidateRoomObjectStateSize(NetworkObject.GetWordCount(checkpointPrefab), pageShift);
+            var session = runner.Spawn(sessionPrefab);
+            var checkpoint = runner.Spawn(checkpointPrefab);
 
-            if (session == null)
+            if (session == null || checkpoint == null)
             {
-                throw new InvalidOperationException("[Spawn] Could not spawn the match session object.");
+                if (session != null) runner.Despawn(session);
+                if (checkpoint != null) runner.Despawn(checkpoint);
+                throw new InvalidOperationException("[Spawn] Could not spawn the room state objects.");
             }
 
             // Belongs to the room, not to a scene. Fusion in single-peer mode
@@ -98,6 +104,7 @@ namespace Game.Network.Players
             // the match scene would destroy the room's record of the match along
             // with its confirmed line-up.
             runner.MakeDontDestroyOnLoad(session.gameObject);
+            runner.MakeDontDestroyOnLoad(checkpoint.gameObject);
         }
 
         internal static void ValidateRoomObjectStateSize(int wordCount, int pageShift)
