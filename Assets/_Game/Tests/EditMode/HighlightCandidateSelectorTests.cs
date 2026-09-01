@@ -52,11 +52,36 @@ namespace Game.Tests.EditMode
             Assert.That(selected[0].TargetId, Is.EqualTo("first"));
         }
 
+        [Test]
+        public void Select_RanksScoredCandidatesAheadOfFixedCategoryOrder()
+        {
+            var selected = HighlightCandidateSelector.Select(new[]
+            {
+                Candidate(HighlightType.FirstBlood, "first", 60d),
+                Candidate(HighlightType.LongestHidden, "hidden", 95d),
+                Candidate(HighlightType.MostStunned, "stunned", 75d),
+                Candidate(HighlightType.FinalMoment, "final", 90d),
+            });
+
+            Assert.That(selected, Has.Length.EqualTo(3));
+            Assert.That(selected[0].TargetId, Is.EqualTo("hidden"));
+            Assert.That(selected[1].TargetId, Is.EqualTo("final"));
+            Assert.That(selected[2].TargetId, Is.EqualTo("stunned"));
+        }
+
         private static HighlightCandidate Candidate(
             HighlightType type,
-            string targetId = "target")
+            string targetId = "target",
+            double? score = null)
         {
-            return new HighlightCandidate(type, 10d, 20d, targetId);
+            return score.HasValue
+                ? new HighlightCandidate(
+                    type,
+                    new[] { new HighlightSegment(10d, 20d) },
+                    targetId,
+                    18d,
+                    score.Value)
+                : new HighlightCandidate(type, 10d, 20d, targetId);
         }
     }
 }

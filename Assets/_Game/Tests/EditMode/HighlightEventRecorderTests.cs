@@ -41,6 +41,9 @@ namespace Game.Tests.EditMode
             var candidate = Candidate(HighlightType.FirstBlood, 120d);
 
             Assert.That(candidate.TargetId, Is.EqualTo("item-a"));
+            Assert.That(candidate.ActorPlayerIndex, Is.EqualTo(1));
+            Assert.That(candidate.EventAt, Is.EqualTo(110d));
+            Assert.That(candidate.Score, Is.EqualTo(60d));
             Assert.That(candidate.StartedAt, Is.EqualTo(103d));
             Assert.That(candidate.EndedAt, Is.EqualTo(113d));
         }
@@ -57,6 +60,8 @@ namespace Game.Tests.EditMode
             var candidate = Candidate(HighlightType.TteTanMulgun, 110d);
 
             Assert.That(candidate.TargetId, Is.EqualTo("item-b"));
+            Assert.That(candidate.ActorPlayerIndex, Is.EqualTo(1));
+            Assert.That(candidate.SecondaryPlayerIndex, Is.EqualTo(-1));
             Assert.That(candidate.Segments, Has.Count.EqualTo(2));
             Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(5d));
         }
@@ -88,12 +93,15 @@ namespace Game.Tests.EditMode
         [Test]
         public void CaptureCandidates_SelectsMostStunnedUsingLatestStunAsTieBreaker()
         {
-            recorder.RecordPlayerStunned(1, 105d);
-            recorder.RecordPlayerStunned(2, 106d);
+            recorder.RecordPlayerStunned(0, 1, 105d);
+            recorder.RecordPlayerStunned(3, 2, 106d);
 
             var candidate = Candidate(HighlightType.MostStunned, 110d);
 
             Assert.That(candidate.TargetId, Is.EqualTo("2"));
+            Assert.That(candidate.ActorPlayerIndex, Is.EqualTo(3));
+            Assert.That(candidate.SecondaryPlayerIndex, Is.EqualTo(-1));
+            Assert.That(candidate.EventAt, Is.EqualTo(106d));
             Assert.That(candidate.Segments, Has.Count.EqualTo(1));
             Assert.That(candidate.StartedAt, Is.EqualTo(104d));
             Assert.That(candidate.EndedAt, Is.EqualTo(108d));
@@ -119,6 +127,18 @@ namespace Game.Tests.EditMode
             Assert.That(
                 () => recorder.RecordPlayerStunned(4, 101d),
                 Throws.TypeOf<System.ArgumentOutOfRangeException>());
+        }
+
+        [Test]
+        public void CaptureCandidates_RanksMeaningfulLateEventAboveRoutineFirstBlood()
+        {
+            recorder.RecordItemDestroyed(1, "item-a", 101d);
+            recorder.RecordPlayerStunned(2, 3, 119d);
+
+            var selected = HighlightCandidateSelector.Select(recorder.CaptureCandidates(120d));
+
+            Assert.That(selected[0].Type, Is.EqualTo(HighlightType.FinalMoment));
+            Assert.That(selected[0].ActorPlayerIndex, Is.EqualTo(2));
         }
 
         private HighlightCandidate Candidate(HighlightType type, double endedAt)

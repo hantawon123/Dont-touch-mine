@@ -675,7 +675,7 @@ namespace Game.Server.Match
                     now);
             }
 
-            highlightRecorder.RecordPlayerStunned(targetPlayerIndex, now);
+            highlightRecorder.RecordPlayerStunned(attackerPlayerIndex, targetPlayerIndex, now);
             PlayerStunned?.Invoke(
                 new PlayerStunnedEvent(
                     attackerPlayerIndex,
