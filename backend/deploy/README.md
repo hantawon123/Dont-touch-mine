@@ -115,6 +115,7 @@ Jenkins 관리 → System → GitLab 섹션.
 | --- | --- | --- |
 | `gitlab-deploy-token` | Username with password | Deploy Token (`read_repository`). 클론용 |
 | `gitlab-api-token` | GitLab Personal Access Token | Project Access Token, 역할 **`Developer`**, 스코프 `api` |
+| `gitlab-api-token-text` | Secret text | **`gitlab-api-token`과 같은 값.** 파이프라인 스크립트용 |
 | `d205-backend-env` | Secret file | prod `.env`. 원본은 서버의 `/home/ubuntu/d205/.env` |
 
 `gitlab-api-token`의 역할이 `Reporter`면 **커밋 상태를 게시할 수 없습니다**(403).
@@ -122,6 +123,13 @@ Jenkins 관리 → System → GitLab 섹션.
 발급 후 변경이 불가하므로 잘못 만들었으면 폐기하고 다시 발급해야 합니다.
 
 `d205-backend-env`는 `Jenkinsfile`이 코드에서 직접 참조하므로 ID를 바꾸면 빌드가 깨집니다.
+
+**토큰이 두 곳에 있는 이유가 있습니다.** GitLab 플러그인의 토큰 크리덴셜은
+`StringCredentials`가 아니어서 파이프라인의 `string()` 바인딩으로 읽을 수 없습니다
+(`is of type 'GitLab Personal Access Token' where 'StringCredentials' was expected`).
+플러그인은 `gitlab-api-token`을, 파이프라인 스크립트는 `gitlab-api-token-text`를
+씁니다. **토큰을 갱신할 때 두 개를 모두 고쳐야 합니다.** 하나만 고치면 한쪽이
+조용히 실패합니다.
 
 ### 웹훅
 
@@ -189,6 +197,11 @@ MR Job들은 서로 병렬로 돌기 때문에 고정 포트는 충돌합니다.
 merged results pipeline과 merge train이 없어 대상 브랜치가 움직여도 MR이 자동으로
 재검증되지 않습니다. 그러면 MR은 "이전 develop에 합친 결과"로 받은 초록불을
 그대로 들고 있게 되고, 그 상태로 머지하면 검증되지 않은 조합이 들어갑니다.
+
+재검증 요청이 실패하면 빌드가 `UNSTABLE`로 끝납니다. 배포는 이미 성공했으므로
+실패로 만들지 않지만, 조용히 넘기면 무효화가 죽은 것을 아무도 모르기 때문입니다.
+**GitLab은 `UNSTABLE`을 `failed`로 표시합니다.** develop 커밋에 빨간불이 뜨지만
+배포는 정상이라는 뜻이니, 그때는 빌드 로그의 재검증 부분을 확인하세요.
 
 커밋 상태를 직접 게시하지 않고 재빌드를 요청하는 이유가 있습니다. GitLab은 상태를
 (SHA, 컨텍스트) 쌍으로 관리하므로, 플러그인과 다른 컨텍스트로 `pending`을 올리면
