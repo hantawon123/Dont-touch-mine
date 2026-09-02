@@ -430,6 +430,7 @@ namespace Game.Architecture.Tests
                 IsMatchRuntimeRestorePending = false;
             }
             public bool IsRuntimeReady { get; set; } = true;
+            public MatchRuleSettings MatchRules => MatchRuleSettings.Default;
             public bool IsHighlightReplayReady { get; set; }
             public int DestructionLimit => PlaySettingsDraft.DefaultDestructionLimit;
             public double ServerTime { get; set; }

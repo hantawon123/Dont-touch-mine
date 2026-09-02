@@ -38,6 +38,7 @@ namespace Game.Network.Session
 
             properties[SessionPropertyKeys.DestructionLimit] =
                 PlaySettingsDraft.DefaultDestructionLimit;
+            AddMatchRules(properties, MatchRuleSettings.Default);
 
             if (!string.IsNullOrEmpty(sanitisedHostNickname))
             {
@@ -51,13 +52,43 @@ namespace Game.Network.Session
         public static Dictionary<string, SessionProperty> BuildLobbySettings(
             int maxPlayers,
             int destructionLimit,
-            string mapId) =>
-            new Dictionary<string, SessionProperty>
+            string mapId,
+            MatchRuleSettings matchRules)
+        {
+            var properties = new Dictionary<string, SessionProperty>
             {
                 [SessionPropertyKeys.MaxPlayers] = maxPlayers,
                 [SessionPropertyKeys.DestructionLimit] = destructionLimit,
                 [SessionPropertyKeys.MapId] = mapId.Trim(),
             };
+            AddMatchRules(properties, matchRules);
+            return properties;
+        }
+
+        public static MatchRuleSettings ReadMatchRules(
+            SessionInfo info,
+            MatchRuleSettings fallback)
+        {
+            return MatchRuleSettings.TryCreate(
+                ReadInt(
+                    info,
+                    SessionPropertyKeys.HidingDurationSeconds,
+                    fallback.HidingDurationSeconds),
+                ReadInt(
+                    info,
+                    SessionPropertyKeys.SearchingDurationMinutes,
+                    fallback.SearchingDurationMinutes),
+                ReadInt(
+                    info,
+                    SessionPropertyKeys.SprintMultiplierPercent,
+                    (int)(fallback.SprintMultiplier * 100f)) / 100f,
+                ReadInt(info, SessionPropertyKeys.StunHitCount, fallback.StunHitCount),
+                ReadString(info, SessionPropertyKeys.CategoryId, fallback.CategoryId),
+                out var settings,
+                out _)
+                ? settings
+                : fallback;
+        }
 
         public static int ReadInt(SessionInfo info, string key, int fallback)
         {
@@ -77,6 +108,20 @@ namespace Game.Network.Session
                    property.IsString
                 ? (string)property
                 : fallback;
+        }
+
+        private static void AddMatchRules(
+            IDictionary<string, SessionProperty> properties,
+            MatchRuleSettings settings)
+        {
+            properties[SessionPropertyKeys.HidingDurationSeconds] =
+                settings.HidingDurationSeconds;
+            properties[SessionPropertyKeys.SearchingDurationMinutes] =
+                settings.SearchingDurationMinutes;
+            properties[SessionPropertyKeys.SprintMultiplierPercent] =
+                (int)(settings.SprintMultiplier * 100f);
+            properties[SessionPropertyKeys.StunHitCount] = settings.StunHitCount;
+            properties[SessionPropertyKeys.CategoryId] = settings.CategoryId ?? string.Empty;
         }
     }
 }

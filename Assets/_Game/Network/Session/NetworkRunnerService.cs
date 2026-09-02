@@ -209,6 +209,7 @@ namespace Game.Network.Session
         private readonly long _playerUniqueId = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0) | 1L;
         private int _configuredMaxPlayers;
         private int _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
+        private MatchRuleSettings _matchRules = MatchRuleSettings.Default;
 
         private bool _disposed;
 
@@ -449,6 +450,7 @@ namespace Game.Network.Session
         }
 
         public int DestructionLimit => _destructionLimit;
+        public MatchRuleSettings MatchRules => _matchRules;
 
         /// <summary>
         /// Connects to the matchmaking lobby so the room list starts arriving
@@ -562,6 +564,7 @@ namespace Game.Network.Session
                 ? request.MaxPlayers
                 : 0;
             _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
+            _matchRules = MatchRuleSettings.Default;
 
             var sceneManager = CreateRunner(request.Mode != GameMode.Server);
 
@@ -759,15 +762,25 @@ namespace Game.Network.Session
         public bool TryApplyLobbySettings(
             int maxPlayers,
             int destructionLimit,
-            string mapId)
+            string mapId,
+            MatchRuleSettings matchRules)
         {
+            var validMatchRules = MatchRuleSettings.TryCreate(
+                matchRules.HidingDurationSeconds,
+                matchRules.SearchingDurationMinutes,
+                matchRules.SprintMultiplier,
+                matchRules.StunHitCount,
+                matchRules.CategoryId,
+                out var normalizedMatchRules,
+                out _);
             if (!IsServer || _runner == null || !_runner.SessionInfo.IsValid ||
                 maxPlayers < RoomSettings.MinPlayerCount ||
                 maxPlayers > RoomSettings.MaxPlayerCount ||
                 maxPlayers < PlayerCount ||
                 destructionLimit < PlaySettingsDraft.MinDestructionLimit ||
                 destructionLimit > PlaySettingsDraft.MaxDestructionLimit ||
-                !MapCatalog.Contains(mapId))
+                !MapCatalog.Contains(mapId) ||
+                !validMatchRules)
             {
                 return false;
             }
@@ -775,7 +788,8 @@ namespace Game.Network.Session
             var properties = SessionPropertyMapper.BuildLobbySettings(
                 maxPlayers,
                 destructionLimit,
-                mapId);
+                mapId,
+                normalizedMatchRules);
 
             if (!_runner.SessionInfo.UpdateCustomProperties(properties))
             {
@@ -784,6 +798,7 @@ namespace Game.Network.Session
 
             _configuredMaxPlayers = maxPlayers;
             _destructionLimit = destructionLimit;
+            _matchRules = normalizedMatchRules;
             ReportPlayerCount();
             return true;
         }
@@ -1650,6 +1665,7 @@ namespace Game.Network.Session
                 _expectedPassword = null;
                 _configuredMaxPlayers = 0;
                 _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
+                _matchRules = MatchRuleSettings.Default;
             }
             _browsingLobby = false;
 
@@ -1767,6 +1783,9 @@ namespace Game.Network.Session
                 info,
                 SessionPropertyKeys.DestructionLimit,
                 PlaySettingsDraft.DefaultDestructionLimit);
+            _matchRules = SessionPropertyMapper.ReadMatchRules(
+                info,
+                MatchRuleSettings.Default);
         }
 
         /// <summary>

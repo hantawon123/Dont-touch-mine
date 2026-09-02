@@ -13,6 +13,7 @@ namespace Game.Network.Match
     {
         bool IsRuntimeReady { get; }
         double ServerTime { get; }
+        MatchRuleSettings MatchRules { get; }
         bool TryGetPlayerPose(string playerId, out Pose pose);
     }
 
