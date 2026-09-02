@@ -180,7 +180,7 @@ namespace Game.Server.Match
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
             IReadOnlyList<WorldObjectState> initialWorldObjects = null,
-            IReadOnlyList<PlayerItemAssignment> restoredAssignments = null)
+            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null)
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             this.state = state ?? throw new ArgumentNullException(nameof(state));
@@ -201,7 +201,7 @@ namespace Game.Server.Match
             this.placementValidator = placementValidator ??
                 throw new ArgumentNullException(nameof(placementValidator));
 
-            var assignments = restoredAssignments ?? ItemAssignmentSystem.Assign(
+            var assignments = specifiedAssignments ?? ItemAssignmentSystem.Assign(
                 itemDefinitions,
                 playerCount,
                 random);

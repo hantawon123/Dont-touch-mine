@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Items;
+using Game.Server.Items;
 using NUnit.Framework;
 
 namespace Game.Tests.EditMode
@@ -152,6 +153,24 @@ namespace Game.Tests.EditMode
                     out var failure),
                 Is.False);
             Assert.That(failure, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void SelectionSession_BuildsAssignmentsOnlyAfterEveryPlayerConfirms()
+        {
+            var selection = new ItemSelectionSession(
+                Definitions,
+                new[] { "toy", "food" });
+
+            Assert.That(selection.TryConfirm(0, "ball", out _), Is.True);
+            Assert.That(selection.TryCreateAssignments(out _), Is.False);
+            Assert.That(selection.TryConfirm(1, "apple", out _), Is.True);
+            Assert.That(selection.TryCreateAssignments(out var assignments), Is.True);
+
+            Assert.That(assignments[0].PlayerIndex, Is.EqualTo(0));
+            Assert.That(assignments[0].Item.ItemId, Is.EqualTo("ball"));
+            Assert.That(assignments[1].PlayerIndex, Is.EqualTo(1));
+            Assert.That(assignments[1].Item.ItemId, Is.EqualTo("apple"));
         }
 
         [Test]

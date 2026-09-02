@@ -193,6 +193,52 @@ namespace Game.Tests.EditMode
             }
         }
 
+        [Test]
+        public void SessionFactory_UsesConfirmedSelectionsForPlayerProvisioning()
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+
+            try
+            {
+                var items = new[]
+                {
+                    new ItemDefinition("ball", "toy"),
+                    new ItemDefinition("apple", "food")
+                };
+                var selection = new ItemSelectionSession(items, new[] { "toy", "food" });
+                Assert.That(selection.TryConfirm(0, "ball", out _), Is.True);
+                Assert.That(selection.TryConfirm(1, "apple", out _), Is.True);
+                Assert.That(selection.TryCreateAssignments(out var assignments), Is.True);
+
+                var participants = new[]
+                {
+                    new MatchParticipant("host", 0),
+                    new MatchParticipant("guest", 1)
+                };
+                using var composition = new MatchRuntimeFactory(rules)
+                    .CreateSessionFromParticipants(
+                        participants,
+                        new AcceptAllPlacements(),
+                        CreateSpawnPoints(),
+                        items,
+                        new System.Random(1),
+                        specifiedAssignments: assignments);
+
+                Assert.That(composition.Session.Assignments[0].Item.ItemId, Is.EqualTo("ball"));
+                Assert.That(composition.Session.Assignments[1].Item.ItemId, Is.EqualTo("apple"));
+                Assert.That(composition.Session.TryInitializeAssignedItem(0), Is.True);
+                Assert.That(composition.Session.TryGetHeldObjectId(0, out var held), Is.True);
+                Assert.That(held, Is.EqualTo("ball"));
+                Assert.That(composition.Session.TryInitializeAssignedItem(1), Is.True);
+                Assert.That(composition.Session.TryGetHeldObjectId(1, out held), Is.True);
+                Assert.That(held, Is.EqualTo("apple"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
         [TestCase(2)]
         [TestCase(3)]
         [TestCase(4)]
