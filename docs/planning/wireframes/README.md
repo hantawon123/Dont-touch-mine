@@ -11,7 +11,7 @@ Jira `[와이어]` 화면별로 **배치 / 동작 / 유스케이스**만 적습�
 | [S15P21D205-448](https://ssafy.atlassian.net/browse/S15P21D205-448) | 캐릭터 옷장 | 김채린 | [character-closet.md](character-closet.md) |
 | [S15P21D205-449](https://ssafy.atlassian.net/browse/S15P21D205-449) | 친구 목록(추가) 모달 | 양혜림 | [friends.md](friends.md) |
 | [S15P21D205-450](https://ssafy.atlassian.net/browse/S15P21D205-450) | 프로필 설정 모달 | 양혜림 | [profile.md](profile.md) |
-| [S15P21D205-452](https://ssafy.atlassian.net/browse/S15P21D205-452) | 서버 설정 모달 | 김채린 | [server.md](server.md) |
+| [S15P21D205-452](https://ssafy.atlassian.net/browse/S15P21D205-452) | 서버 설정 모달 | 김채린 | [server-modal.md](server-modal.md) |
 | [S15P21D205-453](https://ssafy.atlassian.net/browse/S15P21D205-453) | 게임 찾기 | 양혜림 | [find-game.md](find-game.md) |
 | [S15P21D205-451](https://ssafy.atlassian.net/browse/S15P21D205-451) | 방 만들기 모달 | 김채린 | [create-room.md](create-room.md) |
 | [S15P21D205-383](https://ssafy.atlassian.net/browse/S15P21D205-383) | 로비 | 김채린 | [lobby.md](lobby.md) |
