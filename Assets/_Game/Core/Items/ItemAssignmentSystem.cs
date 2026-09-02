@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Game.Core.Items
 {
@@ -39,6 +40,79 @@ namespace Game.Core.Items
 
         public int PlayerIndex { get; }
         public ItemDefinition Item { get; }
+    }
+
+    public enum ItemSelectionFailure
+    {
+        None = 0,
+        MissingCategory,
+        UnknownItem,
+        WrongCategory,
+        AlreadySelected
+    }
+
+    public static class ItemSelectionRules
+    {
+        public static IReadOnlyList<ItemDefinition> AvailableItems(
+            IReadOnlyList<ItemDefinition> definitions,
+            string category,
+            IReadOnlyCollection<string> selectedItemIds)
+        {
+            if (definitions == null) throw new ArgumentNullException(nameof(definitions));
+            if (selectedItemIds == null) throw new ArgumentNullException(nameof(selectedItemIds));
+            if (string.IsNullOrWhiteSpace(category)) return Array.Empty<ItemDefinition>();
+
+            var normalizedCategory = category.Trim();
+            return Array.AsReadOnly(definitions
+                .Where(definition =>
+                    string.Equals(definition.Category, normalizedCategory, StringComparison.Ordinal) &&
+                    !selectedItemIds.Contains(definition.ItemId))
+                .ToArray());
+        }
+
+        public static bool TryResolveSelection(
+            IReadOnlyList<ItemDefinition> definitions,
+            string category,
+            string itemId,
+            IReadOnlyCollection<string> selectedItemIds,
+            out ItemDefinition selected,
+            out ItemSelectionFailure failure)
+        {
+            if (definitions == null) throw new ArgumentNullException(nameof(definitions));
+            if (selectedItemIds == null) throw new ArgumentNullException(nameof(selectedItemIds));
+
+            selected = default;
+            if (string.IsNullOrWhiteSpace(category))
+            {
+                failure = ItemSelectionFailure.MissingCategory;
+                return false;
+            }
+
+            var normalizedCategory = category.Trim();
+            var normalizedItemId = itemId?.Trim();
+            foreach (var definition in definitions)
+            {
+                if (!string.Equals(definition.ItemId, normalizedItemId, StringComparison.Ordinal)) continue;
+                if (!string.Equals(definition.Category, normalizedCategory, StringComparison.Ordinal))
+                {
+                    failure = ItemSelectionFailure.WrongCategory;
+                    return false;
+                }
+
+                if (selectedItemIds.Contains(definition.ItemId))
+                {
+                    failure = ItemSelectionFailure.AlreadySelected;
+                    return false;
+                }
+
+                selected = definition;
+                failure = ItemSelectionFailure.None;
+                return true;
+            }
+
+            failure = ItemSelectionFailure.UnknownItem;
+            return false;
+        }
     }
 
     public static class ItemAssignmentSystem

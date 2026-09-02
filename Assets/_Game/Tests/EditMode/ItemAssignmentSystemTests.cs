@@ -101,6 +101,60 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void SelectionRules_ListOnlyAvailableItemsInAssignedCategory()
+        {
+            var available = ItemSelectionRules.AvailableItems(
+                Definitions,
+                "toy",
+                new[] { "bear" });
+
+            Assert.That(available, Has.Count.EqualTo(1));
+            Assert.That(available[0].ItemId, Is.EqualTo("ball"));
+        }
+
+        [Test]
+        public void SelectionRules_ResolveValidSelection()
+        {
+            Assert.That(
+                ItemSelectionRules.TryResolveSelection(
+                    Definitions,
+                    "toy",
+                    "ball",
+                    Array.Empty<string>(),
+                    out var selected,
+                    out var failure),
+                Is.True);
+            Assert.That(selected.ItemId, Is.EqualTo("ball"));
+            Assert.That(failure, Is.EqualTo(ItemSelectionFailure.None));
+        }
+
+        [TestCase(null, "ball", null, ItemSelectionFailure.MissingCategory)]
+        [TestCase("toy", "missing", null, ItemSelectionFailure.UnknownItem)]
+        [TestCase("food", "ball", null, ItemSelectionFailure.WrongCategory)]
+        [TestCase("toy", "ball", "ball", ItemSelectionFailure.AlreadySelected)]
+        public void SelectionRules_RejectInvalidSelection(
+            string category,
+            string itemId,
+            string selectedItemId,
+            ItemSelectionFailure expected)
+        {
+            var selectedItemIds = selectedItemId == null
+                ? Array.Empty<string>()
+                : new[] { selectedItemId };
+
+            Assert.That(
+                ItemSelectionRules.TryResolveSelection(
+                    Definitions,
+                    category,
+                    itemId,
+                    selectedItemIds,
+                    out _,
+                    out var failure),
+                Is.False);
+            Assert.That(failure, Is.EqualTo(expected));
+        }
+
+        [Test]
         public void Assign_RejectsInsufficientItems()
         {
             var definitions = new[]
