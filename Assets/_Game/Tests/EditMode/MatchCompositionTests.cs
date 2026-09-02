@@ -239,6 +239,68 @@ namespace Game.Tests.EditMode
             }
         }
 
+        [Test]
+        public void SessionFactory_DoesNotCarryConfirmedSelectionsIntoRematch()
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+
+            try
+            {
+                var items = new[]
+                {
+                    new ItemDefinition("ball", "toy"),
+                    new ItemDefinition("block", "toy"),
+                    new ItemDefinition("apple", "food"),
+                    new ItemDefinition("bread", "food")
+                };
+                var participants = new[]
+                {
+                    new MatchParticipant("host", 0),
+                    new MatchParticipant("guest", 1)
+                };
+                var firstSelection = new ItemSelectionSession(items, new[] { "toy", "food" });
+                Assert.That(firstSelection.TryConfirm(0, "ball", out _), Is.True);
+                Assert.That(firstSelection.TryConfirm(1, "apple", out _), Is.True);
+                Assert.That(firstSelection.TryCreateAssignments(out var firstAssignments), Is.True);
+
+                var rematchSelection = new ItemSelectionSession(items, new[] { "toy", "food" });
+                Assert.That(rematchSelection.TryConfirm(0, "block", out _), Is.True);
+                Assert.That(rematchSelection.TryConfirm(1, "bread", out _), Is.True);
+                Assert.That(rematchSelection.TryCreateAssignments(out var rematchAssignments), Is.True);
+
+                var factory = new MatchRuntimeFactory(rules);
+                using var first = factory.CreateSessionFromParticipants(
+                    participants,
+                    new AcceptAllPlacements(),
+                    CreateSpawnPoints(),
+                    items,
+                    new System.Random(1),
+                    specifiedAssignments: firstAssignments);
+                using var rematch = factory.CreateSessionFromParticipants(
+                    participants,
+                    new AcceptAllPlacements(),
+                    CreateSpawnPoints(),
+                    items,
+                    new System.Random(2),
+                    specifiedAssignments: rematchAssignments);
+
+                Assert.That(first.Session.Assignments[0].Item.ItemId, Is.EqualTo("ball"));
+                Assert.That(first.Session.Assignments[1].Item.ItemId, Is.EqualTo("apple"));
+                Assert.That(rematch.Session.Assignments[0].Item.ItemId, Is.EqualTo("block"));
+                Assert.That(rematch.Session.Assignments[1].Item.ItemId, Is.EqualTo("bread"));
+                Assert.That(rematch.Session.TryInitializeAssignedItem(0), Is.True);
+                Assert.That(rematch.Session.TryInitializeAssignedItem(1), Is.True);
+                Assert.That(rematch.Session.TryGetHeldObjectId(0, out var hostItem), Is.True);
+                Assert.That(rematch.Session.TryGetHeldObjectId(1, out var guestItem), Is.True);
+                Assert.That(hostItem, Is.EqualTo("block"));
+                Assert.That(guestItem, Is.EqualTo("bread"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
         [TestCase(2)]
         [TestCase(3)]
         [TestCase(4)]
