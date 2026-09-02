@@ -53,6 +53,15 @@ namespace Game.Core.Items
             int playerCount,
             Random random)
         {
+            return Assign(definitions, playerCount, random, null);
+        }
+
+        public static PlayerItemAssignment[] Assign(
+            IReadOnlyList<ItemDefinition> definitions,
+            int playerCount,
+            Random random,
+            string categoryId)
+        {
             if (definitions == null)
             {
                 throw new ArgumentNullException(nameof(definitions));
@@ -102,7 +111,10 @@ namespace Game.Core.Items
 
             for (var categoryIndex = categories.Count - 1; categoryIndex >= 0; categoryIndex--)
             {
-                if (itemsByCategory[categories[categoryIndex]].Count < playerCount)
+                var candidateCategory = categories[categoryIndex];
+                if (itemsByCategory[candidateCategory].Count < playerCount ||
+                    (!string.IsNullOrWhiteSpace(categoryId) &&
+                     !string.Equals(candidateCategory, categoryId.Trim(), StringComparison.Ordinal)))
                 {
                     categories.RemoveAt(categoryIndex);
                 }

@@ -5,6 +5,7 @@ using Game.Client.Combat;
 using Game.Client.Interactions;
 using Game.Client.Players;
 using Game.Core.Match;
+using Game.Core.Lobby;
 using Game.Core.Players;
 using Game.Network.Match;
 using Game.Network;
@@ -23,6 +24,48 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [TestCase(false, true, 2, 6, 5, "playground", "food", false)]
+        [TestCase(true, false, 2, 6, 5, "playground", "food", false)]
+        [TestCase(true, true, 3, 2, 5, "playground", "food", false)]
+        [TestCase(true, true, 2, 6, -1, "playground", "food", false)]
+        [TestCase(true, true, 2, 6, 0, "playground", "food", true)]
+        [TestCase(true, true, 2, 6, 5, "missing", "food", false)]
+        [TestCase(true, true, 2, 6, 5, "playground", "unsupported", false)]
+        [TestCase(true, true, 2, 6, 5, "playground", "food", true)]
+        public void LobbySettingsValidation_EnforcesAuthorityRangesAndCategory(
+            bool hasAuthority,
+            bool hasValidSession,
+            int currentPlayerCount,
+            int maxPlayers,
+            int destructionLimit,
+            string mapId,
+            string categoryId,
+            bool expected)
+        {
+            Assert.That(
+                MatchRuleSettings.TryCreate(
+                    60,
+                    5,
+                    1.5f,
+                    4,
+                    categoryId,
+                    out var rules,
+                    out _),
+                Is.True);
+
+            Assert.That(
+                NetworkRunnerService.TryValidateLobbySettingsRequest(
+                    hasAuthority,
+                    hasValidSession,
+                    currentPlayerCount,
+                    maxPlayers,
+                    destructionLimit,
+                    mapId,
+                    rules,
+                    out _),
+                Is.EqualTo(expected));
+        }
+
         [TestCase(Game.Core.Flow.AppFlowState.Lobby)]
         [TestCase(Game.Core.Flow.AppFlowState.InGame)]
         [TestCase(Game.Core.Flow.AppFlowState.Highlight)]
@@ -626,6 +669,20 @@ namespace Game.Architecture.Tests
             Assert.That(
                 NetworkPlayerMotor.MoveSpeedForPosture(settings, posture, true),
                 Is.EqualTo(2f));
+        }
+
+        [Test]
+        public void NetworkPlayer_SprintSpeedUsesRoomMultiplier()
+        {
+            var settings = new PlayerMovementSettings(4f, 7f, 720f, 1.1f, 2f);
+
+            Assert.That(
+                NetworkPlayerMotor.MoveSpeedForPosture(
+                    settings,
+                    PlayerPosture.Standing,
+                    true,
+                    1.5f),
+                Is.EqualTo(10.5f));
         }
 
         [Test]

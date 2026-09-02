@@ -93,7 +93,14 @@ namespace Game.Bootstrap
             }
 
             var now = clock.ServerTime;
-            view.SetRemainingSeconds(Math.Max(0d, snapshot.PhaseEndsAt - now));
+            view.SetRemainingSeconds(snapshot.Phase == MatchPhase.Hiding
+                ? HidingTurns.RemainingSecondsAt(
+                    snapshot.Phase,
+                    snapshot.PhaseEndsAt,
+                    now,
+                    room.MatchParticipants.CurrentValue.Count,
+                    HidingTurnDurationSeconds)
+                : Math.Max(0d, snapshot.PhaseEndsAt - now));
 
             // Whose turn it is moves with time, not with any event: the phase
             // stays Hiding while the turn travels down the line-up.
@@ -195,12 +202,17 @@ namespace Game.Bootstrap
                 snapshot.PhaseEndsAt,
                 clock.ServerTime,
                 playing.Count,
-                rules.HidingTurnDurationSeconds);
+                HidingTurnDurationSeconds);
 
             return turnIndex == HidingTurns.NoTurn
                 ? string.Empty
                 : DisplayNameOf(playing[turnIndex].PlayerIndex);
         }
+
+        private double HidingTurnDurationSeconds =>
+            clock.MatchRules.HidingDurationSeconds > 0
+                ? clock.MatchRules.HidingDurationSeconds
+                : rules.HidingTurnDurationSeconds;
 
         private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmed)
         {

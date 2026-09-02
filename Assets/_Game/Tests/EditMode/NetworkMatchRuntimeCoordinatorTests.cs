@@ -430,6 +430,7 @@ namespace Game.Architecture.Tests
                 IsMatchRuntimeRestorePending = false;
             }
             public bool IsRuntimeReady { get; set; } = true;
+            public MatchRuleSettings MatchRules { get; set; } = MatchRuleSettings.Default;
             public bool IsHighlightReplayReady { get; set; }
             public int DestructionLimit => PlaySettingsDraft.DefaultDestructionLimit;
             public double ServerTime { get; set; }
@@ -442,6 +443,7 @@ namespace Game.Architecture.Tests
             public IReadOnlyList<HighlightReplayData> HighlightReplay { get; private set; }
             public List<MatchStateSnapshot> Snapshots { get; } = new();
             public Dictionary<int, bool> Controls { get; } = new();
+            public Dictionary<int, float> SprintMultipliers { get; } = new();
             public HashSet<int> MissingControlPlayers { get; } = new();
             public List<int> ControlCalls { get; } = new();
             public List<int> TeleportedPlayers { get; } = new();
@@ -527,6 +529,12 @@ namespace Game.Architecture.Tests
                 ControlCalls.Add(playerIndex);
                 if (MissingControlPlayers.Contains(playerIndex)) return false;
                 Controls[playerIndex] = enabled;
+                return true;
+            }
+
+            public bool TrySetPlayerSprintMultiplier(int playerIndex, float multiplier)
+            {
+                SprintMultipliers[playerIndex] = multiplier;
                 return true;
             }
 

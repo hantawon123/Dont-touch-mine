@@ -205,6 +205,17 @@ namespace Game.Network.Match
             return motor != null && motor.TrySetControlsEnabled(enabled);
         }
 
+        public bool TrySetPlayerSprintMultiplier(int playerIndex, float multiplier)
+        {
+            if (!TryGetPlayingAvatar(playerIndex, out var avatar))
+            {
+                return false;
+            }
+
+            var motor = avatar.GetComponent<NetworkPlayerMotor>();
+            return motor != null && motor.TrySetSprintMultiplier(multiplier);
+        }
+
         public bool TryTeleportPlayer(int playerIndex, Pose pose)
         {
             if (!TryGetPlayingAvatar(playerIndex, out var avatar))

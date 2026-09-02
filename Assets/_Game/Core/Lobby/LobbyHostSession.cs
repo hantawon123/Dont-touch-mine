@@ -112,6 +112,8 @@ namespace Game.Core.Lobby
         public const int MinDestructionLimit = 1;
         public const int MaxDestructionLimit = 10;
         public const int DefaultDestructionLimit = 5;
+        public const int UnlimitedDestructionLimit = 0;
+        public const int UnlimitedDestructionUses = int.MaxValue;
 
         public PlaySettingsDraft(
             string title,

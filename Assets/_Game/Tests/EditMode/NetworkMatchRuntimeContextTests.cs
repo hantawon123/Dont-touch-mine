@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Core.Players;
 using Game.Network.Match;
@@ -129,6 +130,7 @@ namespace Game.Architecture.Tests
             INetworkPlayerReplayStateSource
         {
             public bool IsRuntimeReady => true;
+            public MatchRuleSettings MatchRules => MatchRuleSettings.Default;
             private readonly IDictionary<string, Pose> poses;
             private readonly Dictionary<string, NetworkPlayerReplayState> replayStates = new();
 

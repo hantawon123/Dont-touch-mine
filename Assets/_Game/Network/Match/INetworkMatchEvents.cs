@@ -66,6 +66,7 @@ namespace Game.Network.Match
             IReadOnlyList<PlayerItemStatusSnapshot> statuses);
         bool TryPublishHighlightReplay(IReadOnlyList<HighlightReplayData> replay);
         bool IsHighlightReplayReady { get; }
+        bool TrySetPlayerSprintMultiplier(int playerIndex, float multiplier);
         bool TrySetPlayerControls(int playerIndex, bool enabled);
         bool TryTeleportPlayer(int playerIndex, Pose pose);
     }

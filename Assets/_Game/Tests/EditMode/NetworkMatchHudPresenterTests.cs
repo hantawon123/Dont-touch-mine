@@ -170,6 +170,8 @@ namespace Game.Architecture.Tests
             network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
             Assert.That(view.Phase, Is.EqualTo(MatchPhase.Hiding));
             Assert.That(view.HidingPlayerName, Is.EqualTo("방장"));
+            presenter.Tick();
+            Assert.That(view.RemainingSeconds, Is.EqualTo(20d));
 
             network.IsRuntimeReady = false;
             network.ServerTime = 75d;
@@ -180,6 +182,7 @@ namespace Game.Architecture.Tests
             network.ServerTime = 75d;
             presenter.Tick();
             Assert.That(view.HidingPlayerName, Is.EqualTo("민수"));
+            Assert.That(view.RemainingSeconds, Is.EqualTo(25d));
 
             // 단계가 마지막 턴보다 길어져도 없는 사람을 부르지 않는다.
             network.ServerTime = 130d;
@@ -189,6 +192,42 @@ namespace Game.Architecture.Tests
             // 숨기기가 아닌 단계는 아무도 지목하지 않는다.
             network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 200d));
             Assert.That(view.HidingPlayerName, Is.Empty);
+        }
+
+        [Test]
+        public void HidingTimer_ResetsForEachTurnUsingConfiguredDuration()
+        {
+            Assert.That(
+                MatchRuleSettings.TryCreate(60, 5, 1f, 3, null, out var matchRules, out _),
+                Is.True);
+            var network = new FakeNetwork { MatchRules = matchRules };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.ServerTime = 10d;
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 120d));
+                presenter.Tick();
+                Assert.That(view.RemainingSeconds, Is.EqualTo(50d));
+
+                network.ServerTime = 60d;
+                presenter.Tick();
+                Assert.That(view.RemainingSeconds, Is.EqualTo(60d));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
         }
 
         [Test]
@@ -278,6 +317,7 @@ namespace Game.Architecture.Tests
             public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses { get; set; } =
                 Array.Empty<PlayerItemStatusSnapshot>();
             public bool IsRuntimeReady { get; set; } = true;
+            public MatchRuleSettings MatchRules { get; set; } = MatchRuleSettings.Default;
             private double serverTime;
             public double ServerTime
             {

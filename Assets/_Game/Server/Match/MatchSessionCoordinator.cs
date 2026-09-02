@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Items;
+using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Core.Players;
 using Game.Server.Items;
@@ -180,7 +181,8 @@ namespace Game.Server.Match
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
             IReadOnlyList<WorldObjectState> initialWorldObjects = null,
-            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null)
+            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null,
+            MatchRuleSettings? matchRules = null)
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             this.state = state ?? throw new ArgumentNullException(nameof(state));
@@ -204,7 +206,8 @@ namespace Game.Server.Match
             var assignments = specifiedAssignments ?? ItemAssignmentSystem.Assign(
                 itemDefinitions,
                 playerCount,
-                random);
+                random,
+                matchRules?.CategoryId);
             Assignments = assignments;
             var validatedSpawnPoints = ValidateSpawnPoints(spawnPoints, playerCount);
             hidingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, playerCount, random);
@@ -216,7 +219,7 @@ namespace Game.Server.Match
             highlightRecorder = new HighlightEventRecorder(rules, assignments);
             highlightReplayBuffer = new HighlightReplayBuffer(
                 HighlightReplaySampleIntervalSeconds,
-                rules.SearchingDurationSeconds + HighlightPostRollSeconds + 1d);
+                flow.SearchingDurationSeconds + HighlightPostRollSeconds + 1d);
             ValidateUniqueObjectIds(assignments, worldObjectStates);
             highlights = new HighlightSequence(Array.Empty<HighlightCandidate>(), rules);
         }
@@ -481,7 +484,7 @@ namespace Game.Server.Match
             if (CurrentPhase == MatchPhase.Hiding)
             {
                 var turnStartedAt = state.PhaseEndsAt.CurrentValue - flow.HidingDurationSeconds +
-                    playerIndex * rules.HidingTurnDurationSeconds;
+                    playerIndex * flow.HidingTurnDurationSeconds;
                 highlightRecorder.RecordItemPickup(playerIndex, itemId, Math.Max(0d, turnStartedAt));
             }
             return true;
@@ -807,7 +810,7 @@ namespace Game.Server.Match
         {
             if (replayUnavailable) return false;
             var phase = state.CurrentPhase.CurrentValue;
-            var searchingStartedAt = state.PhaseEndsAt.CurrentValue - rules.SearchingDurationSeconds;
+            var searchingStartedAt = state.PhaseEndsAt.CurrentValue - flow.SearchingDurationSeconds;
             var canRecordSearching = phase == MatchPhase.Searching &&
                                      now >= searchingStartedAt + HighlightRecordingDelaySeconds;
             var canRecordPostRoll = phase == MatchPhase.Highlight && result.HasValue &&
@@ -1152,7 +1155,7 @@ namespace Game.Server.Match
             {
                 case MatchPhase.Hiding:
                     searchingEndedAt =
-                        state.PhaseEndsAt.CurrentValue + rules.SearchingDurationSeconds;
+                        state.PhaseEndsAt.CurrentValue + flow.SearchingDurationSeconds;
                     return now >= searchingEndedAt;
                 case MatchPhase.Searching:
                     searchingEndedAt = state.PhaseEndsAt.CurrentValue;
@@ -1211,7 +1214,7 @@ namespace Game.Server.Match
                     searchingStartedAt = state.PhaseEndsAt.CurrentValue;
                     break;
                 case MatchPhase.Searching:
-                    searchingStartedAt = state.PhaseEndsAt.CurrentValue - rules.SearchingDurationSeconds;
+                    searchingStartedAt = state.PhaseEndsAt.CurrentValue - flow.SearchingDurationSeconds;
                     break;
                 default:
                     return;
@@ -1230,7 +1233,7 @@ namespace Game.Server.Match
             var elapsedSeconds = Math.Max(0d, now - hidingStartedAt);
             var expiredTurnCount = Math.Min(
                 Players.Players.Count,
-                (int)(elapsedSeconds / rules.HidingTurnDurationSeconds));
+                (int)(elapsedSeconds / flow.HidingTurnDurationSeconds));
 
             for (var playerIndex = 0; playerIndex < expiredTurnCount; playerIndex++)
             {

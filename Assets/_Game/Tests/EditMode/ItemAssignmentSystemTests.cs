@@ -72,6 +72,20 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Assign_UsesConfiguredCategory()
+        {
+            var assignments = ItemAssignmentSystem.Assign(
+                Definitions,
+                2,
+                new Random(42),
+                "food");
+
+            Assert.That(assignments, Has.Length.EqualTo(2));
+            Assert.That(assignments[0].Item.Category, Is.EqualTo("food"));
+            Assert.That(assignments[1].Item.Category, Is.EqualTo("food"));
+        }
+
+        [Test]
         public void AssignedCatalogItemKeepsSourceDisplayName()
         {
             var assigned = ItemCatalog.AssignedDefinition(0);

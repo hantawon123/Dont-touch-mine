@@ -1,4 +1,5 @@
 using Game.Core.Match;
+using Game.Core.Lobby;
 using Game.Server.Match;
 using Game.SOAP.Config;
 using NUnit.Framework;
@@ -35,6 +36,20 @@ namespace Game.Tests.EditMode
             Assert.That(started, Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Hiding));
             Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(190d));
+        }
+
+        [Test]
+        public void ConfiguredRules_OverrideHidingAndSearchingDurations()
+        {
+            Assert.That(
+                MatchRuleSettings.TryCreate(60, 2, 1f, 3, null, out var configured, out _),
+                Is.True);
+            var configuredFlow = new MatchFlow(rules, state, 2, configured);
+
+            Assert.That(configuredFlow.Start(10d), Is.True);
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(130d));
+            Assert.That(configuredFlow.AdvanceIfExpired(130d), Is.True);
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(250d));
         }
 
         [Test]
