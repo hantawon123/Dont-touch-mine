@@ -3,6 +3,7 @@ using Game.Core.Flow;
 using Game.Core.Match;
 using Game.Network.Match;
 using Game.Server.Match;
+using UnityEngine;
 using VContainer.Unity;
 
 namespace Game.Bootstrap
@@ -11,13 +12,16 @@ namespace Game.Bootstrap
     /// Keeps each peer's application flow aligned with the authority-confirmed
     /// match phase and result.
     /// </summary>
-    public sealed class NetworkMatchFlowSynchronizer : IStartable, IDisposable
+    public sealed class NetworkMatchFlowSynchronizer : IStartable, ITickable, IDisposable
     {
+        internal const double ResultDataGraceSeconds = 2d;
         private readonly INetworkMatchEvents network;
         private readonly AppFlowSystem appFlow;
         private bool started;
         private bool hasNormalResult;
         private bool hasResultPhase;
+        private bool directLobbyResult;
+        private double resultDataFallbackAt = -1d;
 
         public NetworkMatchFlowSynchronizer(
             INetworkMatchEvents network,
@@ -51,6 +55,30 @@ namespace Game.Bootstrap
             network.MatchResultReceived -= OnMatchResultReceived;
         }
 
+        public void Tick() => Tick(Time.unscaledTimeAsDouble);
+
+        internal void Tick(double now)
+        {
+            if (!hasResultPhase || hasNormalResult || directLobbyResult)
+            {
+                return;
+            }
+
+            if (resultDataFallbackAt < 0d)
+            {
+                resultDataFallbackAt = now + ResultDataGraceSeconds;
+                return;
+            }
+
+            if (now >= resultDataFallbackAt)
+            {
+                // A missing result must not strand a peer in Highlight forever.
+                // The result presenter supplies a user-facing fallback message.
+                hasNormalResult = true;
+                TransitionToResult();
+            }
+        }
+
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
         {
             switch (snapshot.Phase)
@@ -58,6 +86,8 @@ namespace Game.Bootstrap
                 case MatchPhase.Waiting:
                     hasNormalResult = false;
                     hasResultPhase = false;
+                    directLobbyResult = false;
+                    resultDataFallbackAt = -1d;
                     TransitionToLobby();
                     break;
 
@@ -65,14 +95,22 @@ namespace Game.Bootstrap
                 case MatchPhase.Searching:
                     hasNormalResult = false;
                     hasResultPhase = false;
+                    directLobbyResult = false;
+                    resultDataFallbackAt = -1d;
                     TransitionToInGame();
                     break;
 
                 case MatchPhase.Highlight:
+                    hasResultPhase = false;
+                    resultDataFallbackAt = -1d;
                     TransitionToHighlight();
                     break;
 
                 case MatchPhase.Result:
+                    if (!hasResultPhase)
+                    {
+                        resultDataFallbackAt = -1d;
+                    }
                     hasResultPhase = true;
                     TryTransitionToResult();
                     break;
@@ -84,11 +122,16 @@ namespace Game.Bootstrap
             if (result.EndReason == MatchEndReason.LastPlayerStanding)
             {
                 hasNormalResult = false;
+                hasResultPhase = false;
+                directLobbyResult = true;
+                resultDataFallbackAt = -1d;
                 TransitionToLobby();
                 return;
             }
 
             hasNormalResult = true;
+            directLobbyResult = false;
+            resultDataFallbackAt = -1d;
             TryTransitionToResult();
         }
 

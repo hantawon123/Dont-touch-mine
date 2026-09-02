@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Text;
 using System.Collections.Generic;
 using Fusion;
 using Game.Core.Lobby;
@@ -573,6 +575,24 @@ namespace Game.Network.Match
             return WriteObjectState(key, state);
         }
 
+        public bool TryPublishPlayerItemStatuses(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            if (Object == null || !Object.HasStateAuthority ||
+                statuses == null)
+            {
+                return false;
+            }
+
+            if (!TrySerializePlayerItemStatuses(statuses, out var payload))
+            {
+                return false;
+            }
+
+            RPC_NotifyPlayerItemStatuses(payload);
+            return true;
+        }
+
         public bool TryResetWorldObjects(IReadOnlyList<WorldObjectState> states)
         {
             if (Object == null || !Object.HasStateAuthority || states == null)
@@ -682,6 +702,17 @@ namespace Game.Network.Match
         }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_NotifyPlayerItemStatuses(byte[] payload)
+        {
+            if (!TryDeserializePlayerItemStatuses(payload, out var statuses))
+            {
+                return;
+            }
+
+            StarterOf(Runner)?.PublishPlayerItemStatuses(statuses);
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
         public void RPC_NotifyLobbyChat(
             string senderId,
             string senderName,
@@ -696,6 +727,92 @@ namespace Game.Network.Match
 
             StarterOf(Runner)?.PublishLobbyChat(
                 new LobbyChatMessage(senderId, senderName, text));
+        }
+
+        private static bool TrySerializePlayerItemStatuses(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses,
+            out byte[] payload)
+        {
+            payload = null;
+
+            if (statuses == null || statuses.Count > ushort.MaxValue)
+            {
+                return false;
+            }
+
+            using var stream = new MemoryStream();
+            using var writer = new BinaryWriter(stream, Encoding.UTF8, true);
+
+            writer.Write((ushort)statuses.Count);
+            for (var index = 0; index < statuses.Count; index++)
+            {
+                var status = statuses[index];
+                if (string.IsNullOrWhiteSpace(status.ItemId))
+                {
+                    return false;
+                }
+
+                var itemId = status.ItemId.Trim();
+                var itemIdBytes = Encoding.UTF8.GetBytes(itemId);
+                if (itemIdBytes.Length > MaxObjectIdLength ||
+                    itemIdBytes.Length > byte.MaxValue)
+                {
+                    return false;
+                }
+
+                writer.Write((byte)itemIdBytes.Length);
+                writer.Write(itemIdBytes);
+                writer.Write(status.IsDestroyed);
+            }
+
+            payload = stream.ToArray();
+            return true;
+        }
+
+        private static bool TryDeserializePlayerItemStatuses(
+            byte[] payload,
+            out PlayerItemStatusSnapshot[] statuses)
+        {
+            statuses = null;
+            if (payload == null || payload.Length == 0)
+            {
+                return false;
+            }
+
+            using var stream = new MemoryStream(payload);
+            using var reader = new BinaryReader(stream, Encoding.UTF8, true);
+
+            ushort count;
+            try
+            {
+                count = reader.ReadUInt16();
+                statuses = new PlayerItemStatusSnapshot[count];
+                for (var index = 0; index < count; index++)
+                {
+                    var idLength = reader.ReadByte();
+                    if (idLength == 0 || idLength > MaxObjectIdLength ||
+                        reader.BaseStream.Position + idLength > stream.Length)
+                    {
+                        return false;
+                    }
+
+                    var itemId = Encoding.UTF8.GetString(reader.ReadBytes(idLength));
+                    var isDestroyed = reader.ReadBoolean();
+                    statuses[index] = new PlayerItemStatusSnapshot(itemId, isDestroyed);
+                }
+            }
+            catch (Exception)
+            {
+                statuses = null;
+                return false;
+            }
+
+            if (reader.BaseStream.Position != reader.BaseStream.Length)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]

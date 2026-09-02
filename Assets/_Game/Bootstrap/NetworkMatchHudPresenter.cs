@@ -63,9 +63,11 @@ namespace Game.Bootstrap
             events.MatchResultReceived += OnMatchResultReceived;
             events.ItemAssignmentReceived += OnItemAssignmentReceived;
             events.ItemDestroyedReceived += OnItemDestroyedReceived;
+            events.PlayerItemStatusesReceived += OnPlayerItemStatusesReceived;
             events.PlayerInteractionStatesReceived += OnPlayerInteractionStatesReceived;
             view.HideDestructionNotice();
             view.SetRemainingDestructionUses(-1);
+            view.SetPlayerItemStatuses(events.LatestPlayerItemStatuses);
             view.SetShredderMarker(default, false);
             FindSceneReferences();
         }
@@ -76,8 +78,10 @@ namespace Game.Bootstrap
             events.MatchResultReceived -= OnMatchResultReceived;
             events.ItemAssignmentReceived -= OnItemAssignmentReceived;
             events.ItemDestroyedReceived -= OnItemDestroyedReceived;
+            events.PlayerItemStatusesReceived -= OnPlayerItemStatusesReceived;
             events.PlayerInteractionStatesReceived -= OnPlayerInteractionStatesReceived;
             view.HideDestructionNotice();
+            view.SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
             view.SetShredderMarker(default, false);
         }
 
@@ -230,6 +234,12 @@ namespace Game.Bootstrap
         private void OnItemAssignmentReceived(string itemId)
         {
             view.SetAssignedItem(ItemCatalog.DisplayNameOf(itemId));
+        }
+
+        private void OnPlayerItemStatusesReceived(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            view.SetPlayerItemStatuses(statuses);
         }
 
         private void OnPlayerInteractionStatesReceived(

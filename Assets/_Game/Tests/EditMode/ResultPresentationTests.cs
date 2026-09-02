@@ -201,6 +201,44 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void MissingResultData_ShowsFallbackAndReturnsToLobby()
+        {
+            using var room = CreateRoom();
+            var network = new FakeNetwork { IsResultSceneLoaded = true };
+            using var controller = new NetworkResultLobbyReturnController(network, network, room);
+            controller.Start();
+
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            controller.Tick(0d);
+            controller.Tick(NetworkMatchFlowSynchronizer.ResultDataGraceSeconds - 0.01d);
+            Assert.That(network.ReturnCalls, Is.Zero);
+
+            controller.Tick(NetworkMatchFlowSynchronizer.ResultDataGraceSeconds);
+            Assert.That(controller.ResultText.CurrentValue,
+                Does.Contain("경기 결과 데이터를 받지 못했습니다"));
+            Assert.That(network.ReturnCalls, Is.Zero);
+
+            controller.Tick(NetworkMatchFlowSynchronizer.ResultDataGraceSeconds + 5d);
+            Assert.That(network.ReturnCalls, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void LastPlayerStanding_DoesNotFallbackOnStaleResultPhase()
+        {
+            using var room = CreateRoom();
+            var network = new FakeNetwork { IsResultSceneLoaded = true };
+            using var controller = new NetworkResultLobbyReturnController(network, network, room);
+            controller.Start();
+
+            network.Publish(new MatchResult(MatchEndReason.LastPlayerStanding, 100d, new[] { 0 }));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            controller.Tick(0d);
+            controller.Tick(NetworkMatchFlowSynchronizer.ResultDataGraceSeconds + 5d);
+
+            Assert.That(network.ReturnCalls, Is.Zero);
+        }
+
+        [Test]
         public void FormatterHandlesJointWinnersAndNoWinner()
         {
             using var room = CreateRoom();
@@ -210,6 +248,18 @@ namespace Game.Architecture.Tests
             Assert.That(NetworkResultLobbyReturnController.FormatResult(
                 new MatchResult(MatchEndReason.TimeExpired, 100, new int[0]), room),
                 Does.Contain("승자 없음"));
+        }
+
+        [Test]
+        public void FormatterUsesPlayerIndexWhenParticipantDataIsMissing()
+        {
+            using var room = new RoomBrowserSystem();
+            var text = NetworkResultLobbyReturnController.FormatResult(
+                new MatchResult(MatchEndReason.TimeExpired, 100, new[] { 3 }),
+                room);
+
+            Assert.That(text, Does.Contain("승자: 플레이어 4"));
+            Assert.That(text, Does.Contain("제한 시간 종료"));
         }
 
         private static RoomBrowserSystem CreateRoom()
@@ -236,6 +286,8 @@ namespace Game.Architecture.Tests
 
         private sealed class FakeNetwork : INetworkMatchEvents, INetworkResultNavigation
         {
+            public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses { get; } =
+                Array.Empty<PlayerItemStatusSnapshot>();
             public bool IsServer { get; set; } = true;
             public bool IsRuntimeReady { get; set; } = true;
             public bool IsResultSceneLoaded { get; set; }
@@ -247,6 +299,7 @@ namespace Game.Architecture.Tests
             public event Action<MatchResult> MatchResultReceived;
             public event Action<string> ItemAssignmentReceived;
             public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
+            public event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;
             public event Action<IReadOnlyList<PlayerInteractionStateSnapshot>> PlayerInteractionStatesReceived;
             public event Action<IReadOnlyList<HighlightReplayData>> HighlightReplayReceived;
             public void Publish(MatchStateSnapshot value) => MatchStateReceived?.Invoke(value);

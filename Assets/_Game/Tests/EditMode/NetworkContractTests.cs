@@ -755,6 +755,7 @@ namespace Game.Architecture.Tests
             var names = new[]
             {
                 "RPC_NotifyItemDestroyed",
+                "RPC_NotifyPlayerItemStatuses",
                 "RPC_NotifyPlayerStunned",
                 "RPC_NotifyObjectThrown",
                 "RPC_NotifyFinalWarning",
@@ -779,6 +780,15 @@ namespace Game.Architecture.Tests
                     name);
             }
 
+            var statusRpc = typeof(MatchSessionState).GetMethod(
+                "RPC_NotifyPlayerItemStatuses");
+            Assert.That(
+                Array.Exists(
+                    statusRpc.GetParameters(),
+                    parameter => parameter.ParameterType == typeof(byte[])),
+                Is.True,
+                "Item status notifications must carry only the encoded public status list.");
+
             var destroyedRpc = typeof(MatchSessionState).GetMethod(
                 "RPC_NotifyItemDestroyed");
             Assert.That(
@@ -789,6 +799,23 @@ namespace Game.Architecture.Tests
                         StringComparison.OrdinalIgnoreCase) >= 0),
                 Is.False,
                 "Destroyed item notifications must not reveal its owner.");
+
+            var statusProperties = typeof(PlayerItemStatusSnapshot).GetProperties();
+            Assert.That(statusProperties, Has.Length.EqualTo(2));
+            Assert.That(
+                Array.Exists(statusProperties, property =>
+                    string.Equals(property.Name, "ItemId", StringComparison.Ordinal)),
+                Is.True);
+            Assert.That(
+                Array.Exists(statusProperties, property =>
+                    string.Equals(property.Name, "IsDestroyed", StringComparison.Ordinal)),
+                Is.True);
+            Assert.That(
+                Array.Exists(statusProperties, property =>
+                    property.Name.IndexOf("owner", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    property.Name.IndexOf("player", StringComparison.OrdinalIgnoreCase) >= 0),
+                Is.False,
+                "Public item status snapshots must not expose assignment ownership.");
         }
 
         [Test]
@@ -802,6 +829,7 @@ namespace Game.Architecture.Tests
                 IReadOnlyList<bool> receivedActivity = null;
                 IReadOnlyList<PlayerInteractionStateSnapshot> receivedInteractions = null;
                 MatchResult? receivedResult = null;
+                IReadOnlyList<PlayerItemStatusSnapshot> secondReceivedStatuses = null;
                 starter.ParticipantActivityReceived += value =>
                     receivedActivity = value;
                 starter.PlayerInteractionStatesReceived += value =>
@@ -814,6 +842,14 @@ namespace Game.Architecture.Tests
                     new PlayerInteractionStateSnapshot(0, 12d, 4),
                     new PlayerInteractionStateSnapshot(1, 0d, 5),
                 });
+                IReadOnlyList<PlayerItemStatusSnapshot> receivedStatuses = null;
+                starter.PlayerItemStatusesReceived += value => receivedStatuses = value;
+                starter.PlayerItemStatusesReceived += value => secondReceivedStatuses = value;
+                starter.PublishPlayerItemStatuses(new[]
+                {
+                    new PlayerItemStatusSnapshot("Soda_01", false),
+                    new PlayerItemStatusSnapshot("Burger_01", true),
+                });
                 starter.PublishMatchResult(new MatchResult(
                     MatchEndReason.LastPlayerStanding,
                     300d,
@@ -825,6 +861,12 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     receivedInteractions[0].RemainingDestructionUses,
                     Is.EqualTo(4));
+                Assert.That(receivedStatuses, Has.Count.EqualTo(2));
+                Assert.That(receivedStatuses[0].ItemId, Is.EqualTo("Soda_01"));
+                Assert.That(receivedStatuses[0].IsDestroyed, Is.False);
+                Assert.That(receivedStatuses[1].ItemId, Is.EqualTo("Burger_01"));
+                Assert.That(receivedStatuses[1].IsDestroyed, Is.True);
+                Assert.That(secondReceivedStatuses, Is.EqualTo(receivedStatuses));
                 Assert.That(receivedResult.HasValue, Is.True);
                 Assert.That(
                     receivedResult.Value.EndReason,

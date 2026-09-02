@@ -202,6 +202,10 @@ namespace Game.Architecture.Tests
                 Assert.That(network.BoundSession, Is.Not.Null);
                 Assert.That(network.InitializedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
                 Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
+                Assert.That(network.PlayerItemStatuses, Has.Count.EqualTo(1));
+                Assert.That(network.PlayerItemStatuses[0], Has.Count.EqualTo(2));
+                Assert.That(network.PlayerItemStatuses[0][0].IsDestroyed, Is.False);
+                Assert.That(network.PlayerItemStatuses[0][1].IsDestroyed, Is.False);
                 Assert.That(network.Snapshots, Has.Count.EqualTo(1));
                 Assert.That(network.Snapshots[0].Phase, Is.EqualTo(MatchPhase.Hiding));
                 // 숨기기 페이즈: 숨기는 사람과 밖의 대기자 모두 조작 가능.
@@ -237,11 +241,21 @@ namespace Game.Architecture.Tests
                 Assert.That(network.Snapshots[1].Phase, Is.EqualTo(MatchPhase.Searching));
                 Assert.That(network.Controls[0], Is.True);
                 Assert.That(network.Controls[1], Is.True);
+                var searchingStartedAt = network.Snapshots[0].PhaseEndsAt;
+                Assert.That(
+                    network.BoundSession.TryDestroyHeldPlayerItem(0, searchingStartedAt),
+                    Is.True);
+                Assert.That(network.PlayerItemStatuses, Has.Count.EqualTo(2));
+                Assert.That(network.PlayerItemStatuses[1][0].IsDestroyed, Is.True);
+                Assert.That(network.PlayerItemStatuses[1][1].IsDestroyed, Is.False);
+                Assert.That(
+                    network.BoundSession.TryDestroyHeldPlayerItem(0, searchingStartedAt),
+                    Is.False);
+                Assert.That(network.PlayerItemStatuses, Has.Count.EqualTo(2));
                 Assert.That(
                     network.TeleportedPlayers,
                     Is.EqualTo(new[] { 1, 0, 1, 0, 0, 1 }));
 
-                var searchingStartedAt = network.Snapshots[0].PhaseEndsAt;
                 Assert.That(
                     network.BoundSession.RegisterHit(
                         0, 1, Vector3.right, searchingStartedAt),
@@ -415,6 +429,9 @@ namespace Game.Architecture.Tests
             public MatchSessionCoordinator BoundSession { get; private set; }
             public List<int> InitializedAssignmentPlayers { get; } = new();
             public List<int> PublishedAssignmentPlayers { get; } = new();
+            public List<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatuses { get; } = new();
+            public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses { get; } =
+                Array.Empty<PlayerItemStatusSnapshot>();
             public IReadOnlyList<HighlightReplayData> HighlightReplay { get; private set; }
             public List<MatchStateSnapshot> Snapshots { get; } = new();
             public Dictionary<int, bool> Controls { get; } = new();
@@ -427,6 +444,7 @@ namespace Game.Architecture.Tests
             public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
             public event Action SimulationTick;
             public event Action SceneLoaded;
+            public event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;
 
             public void PublishSceneLoaded() => SceneLoaded?.Invoke();
 
@@ -485,6 +503,15 @@ namespace Game.Architecture.Tests
                 IReadOnlyList<HighlightReplayData> replay)
             {
                 HighlightReplay = replay;
+                return true;
+            }
+
+            public bool TryPublishPlayerItemStatuses(
+                IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+            {
+                PlayerItemStatuses.Add(statuses == null
+                    ? null
+                    : new List<PlayerItemStatusSnapshot>(statuses));
                 return true;
             }
 

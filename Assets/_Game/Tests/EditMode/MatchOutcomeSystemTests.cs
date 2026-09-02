@@ -55,6 +55,26 @@ namespace Game.Tests.EditMode
             Assert.That(system.TryHoldItem(0, "item-1"), Is.True);
         }
 
+        [Test]
+        public void CapturePlayerItemStatuses_TracksAllAssignmentsAndDestruction()
+        {
+            var system = new MatchOutcomeSystem(CreateAssignments());
+            var intact = system.CapturePlayerItemStatuses();
+
+            Assert.That(intact.Length, Is.EqualTo(6));
+            for (var playerIndex = 0; playerIndex < intact.Length; playerIndex++)
+            {
+                Assert.That(intact[playerIndex].ItemId, Is.EqualTo($"item-{playerIndex}"));
+                Assert.That(intact[playerIndex].IsDestroyed, Is.False);
+            }
+
+            Assert.That(system.DestroyItem("item-3"), Is.True);
+            var destroyed = system.CapturePlayerItemStatuses();
+            Assert.That(destroyed, Is.Not.SameAs(intact));
+            Assert.That(destroyed[3].IsDestroyed, Is.True);
+            Assert.That(destroyed[0].IsDestroyed, Is.False);
+        }
+
         private static PlayerItemAssignment[] CreateAssignments()
         {
             var assignments = new PlayerItemAssignment[6];
