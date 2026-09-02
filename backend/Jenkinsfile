@@ -1,50 +1,83 @@
-// 백엔드 배포 파이프라인. Jenkins Job의 스크립트 경로를 backend/Jenkinsfile로 지정합니다.
+// 백엔드 파이프라인. Jenkins Job의 스크립트 경로를 backend/Jenkinsfile로 지정합니다.
+//
+// 하나의 파일이 두 경로를 처리합니다.
+//
+//   develop        대상 확인 생략 → 빌드 → 테스트 → 기동 검증(운영 DB) → 배포 → 헬스체크
+//   MR / 그 외      대상 확인 → 빌드 → 테스트 → 기동 검증(일회용 DB), 배포하지 않음
 //
 // 살아 있는 컨테이너를 교체하기 전에 새 이미지가 실제로 기동하는지 먼저 확인합니다.
 // compose up 은 컨테이너를 먼저 교체하고 앱은 그 뒤에 뜨기 때문에, 곧바로 배포하면
 // 마이그레이션 오류나 설정 오류가 곧 서비스 다운으로 이어집니다.
-//
-//   빌드 → 기동 검증(임시 컨테이너) → 배포 → 헬스체크
-//
-// 기동 검증 단계에서 실패하면 살아 있는 컨테이너를 건드리지 않은 상태로 멈춥니다.
 pipeline {
     agent any
 
     options {
-        // 빌드가 멈춰서 슬롯을 물고 있는 상황을 막습니다.
-        timeout(time: 25, unit: 'MINUTES')
+        timeout(time: 30, unit: 'MINUTES')
         // 같은 compose 프로젝트를 두 빌드가 동시에 건드리면 컨테이너가 꼬입니다.
+        // Job 단위이므로 Multibranch에서 MR Job들끼리는 병렬로 돕니다. 검증 경로의
+        // 컨테이너 이름에 빌드 번호를 넣어 서로 충돌하지 않게 했습니다.
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '30'))
         timestamps()
     }
 
     triggers {
-        // UI 대신 여기에 둔다. Job을 다시 만들어도 살아남고 변경이 저장소에
-        // 기록된다. 웹훅으로 바꿀 때는 이 블록만 gitlab(...)으로 교체하면 된다.
-        //
-        // 주의: backend/ 밖의 변경을 걸러내는 경로 필터는 여기에 넣을 수 없다.
-        // Git 플러그인의 SCM 설정에 있어서 Job UI에만 존재한다.
-        // deploy/README.md의 Job 설정 항목을 참고할 것.
+        // 경로 필터는 여기 넣을 수 없습니다. Git 플러그인의 SCM 설정이라 Job UI에만
+        // 존재합니다. deploy/README.md의 Job 설정 항목을 참고할 것.
         pollSCM('H/2 * * * *')
     }
 
     environment {
         COMPOSE_FILE = 'compose.prod.yml'
-        APP_IMAGE    = 'd205-app'
         HEALTH_URL   = 'http://localhost:8080/actuator/health'
 
-        // 임시 컨테이너. 살아 있는 8080과 겹치지 않는 루프백 포트를 씁니다.
-        SMOKE_NAME   = 'd205-app-smoke'
-        SMOKE_URL    = 'http://127.0.0.1:18080/actuator/health'
+        // 배포 여부. BRANCH_NAME은 Multibranch에서만 설정되므로, 없으면 단독 Job이
+        // Branch Specifier가 가리키는 develop을 빌드한다고 보고 배포합니다.
+        //
+        // when { branch 'develop' } 를 쓰면 단독 Job에서 조건이 false가 되어 배포가
+        // 조용히 멈춥니다. 빌드는 초록불인데 배포가 안 되는 상태라 찾기 어렵습니다.
+        DEPLOY = "${env.BRANCH_NAME == null || env.BRANCH_NAME == 'develop'}"
+
+        // MR이면 대상 브랜치, 아니면 develop. 대상 확인의 비교 기준입니다.
+        DIFF_BASE = "${env.CHANGE_TARGET ?: 'develop'}"
+
+        // 검증 경로에서 만드는 자원들. 빌드 번호를 넣어 동시 빌드와 충돌하지 않게 합니다.
+        VERIFY_TAG = "verify-${env.BUILD_NUMBER}"
+        VERIFY_PFX = "d205-verify-${env.BUILD_NUMBER}"
     }
 
     stages {
-        stage('빌드') {
+        stage('대상 확인') {
+            // develop 배포 경로는 Job의 경로 필터가 이미 걸러줍니다.
+            when { environment name: 'DEPLOY', value: 'false' }
             steps {
-                // 워크스페이스는 git 체크아웃이라 .env가 없습니다(저장소에 넣지 않으므로).
-                // Jenkins 크리덴셜에 보관한 파일을 빌드마다 써넣습니다. 이후 단계는
-                // 같은 워크스페이스를 쓰므로 여기서 한 번 쓰면 됩니다.
+                sh '''
+                    git fetch --no-tags origin "$DIFF_BASE:refs/remotes/origin/$DIFF_BASE" 2>/dev/null || true
+
+                    changed=$(git diff --name-only "origin/$DIFF_BASE...HEAD" -- backend/ | wc -l)
+                    echo "backend/ 변경 파일: $changed 개 (기준: origin/$DIFF_BASE)"
+
+                    if [ "$changed" -eq 0 ]; then
+                        echo "backend/ 변경이 없어 검증할 것이 없습니다."
+                        echo "SKIP" > .verify-skip
+                    fi
+                '''
+                // 건너뛸 때 실패로 끝내면 안 됩니다. 머지 차단을 켜면 백엔드와 무관한
+                // MR이 전부 머지 불가가 됩니다. 성공으로 보고하고 뒤 단계만 넘깁니다.
+                script {
+                    if (fileExists('.verify-skip')) {
+                        env.SKIP_ALL = 'true'
+                        currentBuild.description = 'backend/ 변경 없음 - 건너뜀'
+                    }
+                }
+            }
+        }
+
+        stage('빌드') {
+            when { allOf { environment name: 'DEPLOY', value: 'true' } }
+            steps {
+                // 워크스페이스는 git 체크아웃이라 .env가 없습니다. compose.prod.yml이
+                // ${VAR:?} 를 쓰므로 build 명령에도 값이 필요합니다.
                 withCredentials([file(credentialsId: 'd205-backend-env', variable: 'ENV_FILE')]) {
                     dir('backend') {
                         sh '''
@@ -53,7 +86,6 @@ pipeline {
                             docker compose -f "$COMPOSE_FILE" build
 
                             # 기동 검증이 실제 DB를 필요로 하므로 먼저 확인합니다.
-                            # 이미 떠 있으면 아무 일도 일어나지 않습니다.
                             docker compose -f "$COMPOSE_FILE" up -d --no-build mysql
                         '''
                     }
@@ -61,47 +93,86 @@ pipeline {
             }
         }
 
-        stage('기동 검증') {
+        stage('빌드 (검증)') {
+            when {
+                allOf {
+                    environment name: 'DEPLOY', value: 'false'
+                    not { environment name: 'SKIP_ALL', value: 'true' }
+                }
+            }
+            steps {
+                dir('backend') {
+                    // compose를 쓰지 않습니다. compose.prod.yml 파싱에 운영 환경변수가
+                    // 필요하고, 남의 브랜치 빌드에 운영 크리덴셜을 줄 이유가 없습니다.
+                    // 그리고 d205-app:latest 를 덮어쓰면 운영 태그가 오염됩니다.
+                    sh 'docker build -t "d205-app:$VERIFY_TAG" .'
+                }
+            }
+        }
+
+        stage('테스트') {
+            when { not { environment name: 'SKIP_ALL', value: 'true' } }
+            steps {
+                dir('backend') {
+                    // Testcontainers가 mysql:8.4 컨테이너를 띄웁니다. 호스트 포트를
+                    // 무작위로 잡고 Ryuk가 회수하므로 동시 빌드에서 충돌하지 않습니다.
+                    sh '''
+                        chmod +x gradlew
+                        ./gradlew test --no-daemon --console=plain
+                    '''
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'backend/build/test-results/test/*.xml'
+                }
+            }
+        }
+
+        stage('기동 검증 (운영 DB)') {
+            when { environment name: 'DEPLOY', value: 'true' }
             steps {
                 dir('backend') {
                     sh '''
-                        docker rm -f "$SMOKE_NAME" >/dev/null 2>&1 || true
+                        docker rm -f "$VERIFY_PFX-app" >/dev/null 2>&1 || true
 
-                        NET=$(docker network ls \
-                            --filter label=com.docker.compose.project=d205 \
-                            --format '{{.Name}}' | head -1)
+                        NET=$(docker network ls --filter label=com.docker.compose.project=d205 --format '{{.Name}}' | head -1)
                         if [ -z "$NET" ]; then
                             echo "compose 네트워크를 찾지 못했습니다. mysql이 떠 있는지 확인하세요."
                             exit 1
                         fi
                         echo "네트워크: $NET"
 
-                        # 비밀번호는 --env-file로 넘깁니다. -e DB_PASSWORD=... 로 주면
+                        # 비밀번호는 --env-file로 넘깁니다. -e DB_PASSWORD= 로 주면
                         # sh -x 트레이스에 값이 그대로 찍힙니다.
                         #
-                        # 이 컨테이너가 Flyway를 돌려 실제 DB에 마이그레이션을 적용합니다.
-                        # 그래서 깨진 마이그레이션이 여기서 드러납니다. 같은 DB에 두 앱이
-                        # 잠깐 붙지만 Flyway가 DB 락을 잡으므로 이중 적용은 없습니다.
-                        docker run -d --name "$SMOKE_NAME" \
+                        # 이 컨테이너가 Flyway를 돌려 운영 DB에 마이그레이션을 적용합니다.
+                        # 빈 DB에서는 통과하지만 기존 데이터가 있으면 실패하는 경우를
+                        # 여기서 잡습니다. 그래서 검증 경로와 달리 운영 DB를 씁니다.
+                        #
+                        # 호스트 포트는 0으로 두어 도커가 빈 포트를 고르게 합니다.
+                        docker run -d --name "$VERIFY_PFX-app" \
                             --network "$NET" \
                             --env-file .env \
                             -e SPRING_PROFILES_ACTIVE=prod \
                             -e DB_HOST=mysql \
                             -e DB_PORT=3306 \
                             -e TZ=Asia/Seoul \
-                            -p 127.0.0.1:18080:8080 \
-                            "$APP_IMAGE"
+                            -p 127.0.0.1:0:8080 \
+                            d205-app
 
-                        # 폴링 트레이스가 로그를 수십 줄 채우므로 여기서만 끕니다.
+                        PORT=$(docker port "$VERIFY_PFX-app" 8080 | head -1 | sed 's/.*://')
+                        echo "임시 컨테이너 포트: $PORT"
+
                         set +x
                         ok=0
                         for i in $(seq 1 45); do
-                            running=$(docker inspect -f '{{.State.Running}}' "$SMOKE_NAME" 2>/dev/null || echo false)
+                            running=$(docker inspect -f '{{.State.Running}}' "$VERIFY_PFX-app" 2>/dev/null || echo false)
                             if [ "$running" != true ]; then
                                 echo "임시 컨테이너가 종료되었습니다 (${i}회 시도)"
                                 break
                             fi
-                            if curl -fsS --max-time 3 "$SMOKE_URL" 2>/dev/null | grep -q '"status":"UP"'; then
+                            if curl -fsS --max-time 3 "http://127.0.0.1:$PORT/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
                                 echo "기동 검증 통과 (${i}회 시도)"
                                 ok=1
                                 break
@@ -112,7 +183,100 @@ pipeline {
 
                         if [ "$ok" != 1 ]; then
                             echo "기동 검증 실패 - 살아 있는 컨테이너는 교체하지 않았습니다"
-                            docker logs "$SMOKE_NAME" --tail 120 2>&1 || true
+                            docker logs "$VERIFY_PFX-app" --tail 120 2>&1 || true
+                            exit 1
+                        fi
+                    '''
+                }
+            }
+        }
+
+        stage('기동 검증 (일회용 DB)') {
+            when {
+                allOf {
+                    environment name: 'DEPLOY', value: 'false'
+                    not { environment name: 'SKIP_ALL', value: 'true' }
+                }
+            }
+            steps {
+                dir('backend') {
+                    // 운영 DB를 건드릴 수 없으므로 MySQL을 새로 띄웁니다. 접속 정보도
+                    // 여기서 만들어 씁니다. 운영 크리덴셜은 이 경로에 들어오지 않습니다.
+                    sh '''
+                        NET="$VERIFY_PFX-net"
+                        DB="$VERIFY_PFX-mysql"
+                        APP="$VERIFY_PFX-app"
+
+                        set +x
+                        PW=$(tr -dc A-Za-z0-9 < /dev/urandom | head -c 24)
+                        set -x
+
+                        docker network create "$NET"
+
+                        set +x
+                        docker run -d --name "$DB" --network "$NET" \
+                            -e MYSQL_ROOT_PASSWORD="$PW" \
+                            -e MYSQL_DATABASE=d205 \
+                            -e MYSQL_USER=d205 \
+                            -e MYSQL_PASSWORD="$PW" \
+                            -e TZ=Asia/Seoul \
+                            mysql:8.4 \
+                            --character-set-server=utf8mb4 \
+                            --collation-server=utf8mb4_0900_ai_ci > /dev/null
+                        set -x
+
+                        set +x
+                        echo "MySQL 준비 대기"
+                        db_ok=0
+                        for i in $(seq 1 40); do
+                            if docker exec "$DB" mysqladmin ping -h 127.0.0.1 --silent >/dev/null 2>&1; then
+                                echo "MySQL 준비됨 (${i}회 시도)"
+                                db_ok=1
+                                break
+                            fi
+                            sleep 2
+                        done
+                        if [ "$db_ok" != 1 ]; then
+                            echo "일회용 MySQL이 준비되지 않았습니다"
+                            docker logs "$DB" --tail 50 2>&1 || true
+                            exit 1
+                        fi
+
+                        docker run -d --name "$APP" --network "$NET" \
+                            -e SPRING_PROFILES_ACTIVE=prod \
+                            -e DB_HOST="$DB" \
+                            -e DB_PORT=3306 \
+                            -e DB_NAME=d205 \
+                            -e DB_USERNAME=d205 \
+                            -e DB_PASSWORD="$PW" \
+                            -e TZ=Asia/Seoul \
+                            -p 127.0.0.1:0:8080 \
+                            "d205-app:$VERIFY_TAG" > /dev/null
+                        set -x
+
+                        PORT=$(docker port "$APP" 8080 | head -1 | sed 's/.*://')
+                        echo "임시 컨테이너 포트: $PORT"
+
+                        set +x
+                        ok=0
+                        for i in $(seq 1 45); do
+                            running=$(docker inspect -f '{{.State.Running}}' "$APP" 2>/dev/null || echo false)
+                            if [ "$running" != true ]; then
+                                echo "임시 컨테이너가 종료되었습니다 (${i}회 시도)"
+                                break
+                            fi
+                            if curl -fsS --max-time 3 "http://127.0.0.1:$PORT/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
+                                echo "기동 검증 통과 (${i}회 시도)"
+                                ok=1
+                                break
+                            fi
+                            sleep 2
+                        done
+                        set -x
+
+                        if [ "$ok" != 1 ]; then
+                            echo "기동 검증 실패"
+                            docker logs "$APP" --tail 120 2>&1 || true
                             exit 1
                         fi
                     '''
@@ -121,11 +285,12 @@ pipeline {
         }
 
         stage('배포') {
+            when { environment name: 'DEPLOY', value: 'true' }
             steps {
                 dir('backend') {
                     sh '''
                         # 임시 컨테이너를 먼저 치웁니다. 남겨두면 같은 DB에 계속 붙어 있습니다.
-                        docker rm -f "$SMOKE_NAME" >/dev/null 2>&1 || true
+                        docker rm -f "$VERIFY_PFX-app" >/dev/null 2>&1 || true
 
                         # 이미지는 이미 빌드됐고 기동도 확인됐습니다. 여기서는 교체만 합니다.
                         docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
@@ -135,6 +300,7 @@ pipeline {
         }
 
         stage('헬스체크') {
+            when { environment name: 'DEPLOY', value: 'true' }
             steps {
                 dir('backend') {
                     // 기동 검증을 통과했으니 여기서 실패하는 것은 교체 과정의 문제입니다.
@@ -162,20 +328,22 @@ pipeline {
     post {
         always {
             dir('backend') {
-                // 임시 컨테이너가 어느 단계에서 실패하든 남지 않게 합니다.
-                sh 'docker rm -f "$SMOKE_NAME" >/dev/null 2>&1 || true'
-                // 시크릿을 워크스페이스에 남기지 않습니다.
-                sh 'rm -f .env'
-                // 빌드 캐시가 쌓여 디스크를 먹습니다. 7일보다 오래된 것만 버리므로
-                // 다음 빌드의 캐시 적중률은 그대로입니다.
-                sh 'docker builder prune -f --filter until=168h || true'
+                // 이 빌드가 만든 자원만 지웁니다. 이름에 빌드 번호가 들어 있어
+                // 동시에 도는 다른 빌드의 컨테이너를 건드리지 않습니다.
+                sh '''
+                    docker rm -f $(docker ps -aq --filter "name=$VERIFY_PFX-") 2>/dev/null || true
+                    docker network rm "$VERIFY_PFX-net" 2>/dev/null || true
+                    docker image rm -f "d205-app:$VERIFY_TAG" 2>/dev/null || true
+                    rm -f .env .verify-skip
+                    docker builder prune -f --filter until=168h || true
+                '''
             }
         }
         failure {
             echo '''파이프라인 실패. 서비스 상태는 어느 단계에서 실패했는지에 달려 있습니다.
 
-  빌드 / 기동 검증 단계  -> 살아 있는 컨테이너를 교체하지 않았으므로 서비스는 정상입니다.
-  배포 / 헬스체크 단계   -> 컨테이너가 이미 교체되었으므로 서비스가 내려간 상태일 수 있습니다.
+  대상 확인 / 빌드 / 테스트 / 기동 검증  -> 운영 컨테이너를 교체하지 않았으므로 서비스는 정상입니다.
+  배포 / 헬스체크                        -> 컨테이너가 이미 교체되었으므로 서비스가 내려간 상태일 수 있습니다.
 
 확인: ssh d205 'bash /var/lib/jenkins/workspace/d205-backend-deploy/backend/deploy/verify.sh'
 복구 절차는 backend/deploy/README.md 를 참고하세요.'''
