@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f05f2dc4010ac834e9eedfc01cc10efa
+timeCreated: 1500355698
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 96082
+  packageName: Big Warehouse Pack
+  packageVersion: 1.0
+  assetPath: Assets/IGBlocks/IG_Warehouse/Prefabs/Warehouseparts/WareBig_Detail.prefab
+  uploadId: 897076

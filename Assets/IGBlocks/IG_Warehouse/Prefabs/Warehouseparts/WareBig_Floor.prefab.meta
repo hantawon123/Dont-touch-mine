@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: fa9238a2eb213a94eb7a783c7e370e43
+timeCreated: 1500355722
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 96082
+  packageName: Big Warehouse Pack
+  packageVersion: 1.0
+  assetPath: Assets/IGBlocks/IG_Warehouse/Prefabs/Warehouseparts/WareBig_Floor.prefab
+  uploadId: 897076

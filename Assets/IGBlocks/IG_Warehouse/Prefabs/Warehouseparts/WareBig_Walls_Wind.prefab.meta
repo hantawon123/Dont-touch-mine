@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 26ff2b6d47a46e54f981d47e3475cc6f
+timeCreated: 1500355760
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 96082
+  packageName: Big Warehouse Pack
+  packageVersion: 1.0
+  assetPath: Assets/IGBlocks/IG_Warehouse/Prefabs/Warehouseparts/WareBig_Walls_Wind.prefab
+  uploadId: 897076
