@@ -160,10 +160,17 @@ namespace Game.Tests.EditMode
         [Test]
         public void CaptureCandidates_KeepsFirstBloodAheadOfSimultaneousFinalDestruction()
         {
-            recorder.RecordItemDestroyed(1, "item-a", 110d);
-            recorder.RecordItemDestroyed(2, "item-b", 110d);
+            var onlyDestroyedItems = new HighlightEventRecorder(rules, new[]
+            {
+                Assignment(0, "item-a"),
+                Assignment(1, "item-b"),
+            });
+            onlyDestroyedItems.StartSearching(100d);
+            onlyDestroyedItems.RecordItemDestroyed(1, "item-a", 110d);
+            onlyDestroyedItems.RecordItemDestroyed(0, "item-b", 110d);
 
-            var selected = HighlightCandidateSelector.Select(recorder.CaptureCandidates(110d));
+            var selected = HighlightCandidateSelector.Select(
+                onlyDestroyedItems.CaptureCandidates(110d));
 
             Assert.That(selected[0].Type, Is.EqualTo(HighlightType.FirstBlood));
             Assert.That(selected.Any(candidate => candidate.Type == HighlightType.FinalMoment), Is.True);

@@ -183,6 +183,8 @@ namespace Game.Server.Match
                 var hiddenSegments = frames == null || isSolo
                     ? CreateHiddenSummarySegments(startedAt, endedAt)
                     : CreateHiddenSegments(longestHiddenItemId, startedAt, endedAt, frames);
+                if (hiddenSegments.Length == 0)
+                    hiddenSegments = CreateHiddenSummarySegments(startedAt, endedAt);
                 if (hiddenSegments.Length > 0)
                     candidates.Add(new HighlightCandidate(HighlightType.LongestHidden,
                         hiddenSegments,
@@ -203,7 +205,8 @@ namespace Game.Server.Match
                 var longest = -1d;
                 foreach (var pair in items)
                 {
-                    if (pair.Value.Destroyed) continue;
+                    if (pair.Value.Destroyed ||
+                        pair.Value.LastInteractedAt < searchingStartedAt) continue;
                     var candidateHiddenUntil = pair.Value.FirstOtherPlayerInteractionAt ?? endedAt;
                     if (candidateHiddenUntil > longest ||
                         candidateHiddenUntil == longest && string.CompareOrdinal(pair.Key, survivor) < 0)
