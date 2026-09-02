@@ -123,11 +123,14 @@ namespace Game.Bootstrap
             var maxPlayers = System.Math.Min(
                 RoomSettings.MaxPlayerCount,
                 System.Math.Max(minimumPlayers, draft.MaxPlayers));
-            var destructionLimit = System.Math.Min(
-                PlaySettingsDraft.MaxDestructionLimit,
-                System.Math.Max(
-                    PlaySettingsDraft.MinDestructionLimit,
-                    draft.DestructionLimit));
+            var destructionLimit = draft.DestructionLimit ==
+                                   PlaySettingsDraft.UnlimitedDestructionLimit
+                ? PlaySettingsDraft.UnlimitedDestructionLimit
+                : System.Math.Min(
+                    PlaySettingsDraft.MaxDestructionLimit,
+                    System.Math.Max(
+                        PlaySettingsDraft.MinDestructionLimit,
+                        draft.DestructionLimit));
             var mapId = MapCatalog.Contains(draft.MapId)
                 ? draft.MapId.Trim()
                 : settings.CurrentValue.MapId;

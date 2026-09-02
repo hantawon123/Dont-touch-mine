@@ -89,5 +89,22 @@ namespace Game.Architecture.Tests
             Assert.That((string)properties[SessionPropertyKeys.CategoryId],
                 Is.EqualTo("fruit"));
         }
+
+        [Test]
+        public void LobbySettings_SerializesUnlimitedDestructionDistinctly()
+        {
+            var properties = SessionPropertyMapper.BuildLobbySettings(
+                6,
+                PlaySettingsDraft.UnlimitedDestructionLimit,
+                "Playground",
+                MatchRuleSettings.Default);
+
+            Assert.That(
+                (int)properties[SessionPropertyKeys.DestructionLimit],
+                Is.EqualTo(PlaySettingsDraft.UnlimitedDestructionLimit));
+            Assert.That(
+                PlaySettingsDraft.UnlimitedDestructionLimit,
+                Is.LessThan(PlaySettingsDraft.MinDestructionLimit));
+        }
     }
 }

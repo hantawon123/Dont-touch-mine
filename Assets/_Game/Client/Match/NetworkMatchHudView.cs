@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Game.Client.Interactions;
 using Game.Core.Items;
+using Game.Core.Lobby;
 using Game.Core.Match;
 using TMPro;
 using UnityEngine;
@@ -260,13 +261,16 @@ namespace Game.Client.Match
 
             var hasItem = assignedItemDisplayName != null;
             var hasUses = remainingDestructionUses >= 0;
+            var uses = remainingDestructionUses == PlaySettingsDraft.UnlimitedDestructionUses
+                ? "무한"
+                : $"{remainingDestructionUses}회";
             assignedItemText.gameObject.SetActive(hasItem || hasUses);
             assignedItemText.text = hasItem && hasUses
-                ? $"내 물건: {assignedItemDisplayName}\n파쇄기: {remainingDestructionUses}회"
+                ? $"내 물건: {assignedItemDisplayName}\n파쇄기: {uses}"
                 : hasItem
                     ? $"내 물건: {assignedItemDisplayName}"
                     : hasUses
-                        ? $"파쇄기: {remainingDestructionUses}회"
+                        ? $"파쇄기: {uses}"
                         : string.Empty;
 
             if (hasItem && hasUses)

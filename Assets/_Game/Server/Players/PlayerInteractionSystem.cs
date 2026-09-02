@@ -34,8 +34,9 @@ namespace Game.Server.Players
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             MatchRulesSO.ValidatePlayerCount(playerCount);
-            if (destructionUsesPerPlayer < PlaySettingsDraft.MinDestructionLimit ||
-                destructionUsesPerPlayer > PlaySettingsDraft.MaxDestructionLimit)
+            if (destructionUsesPerPlayer != PlaySettingsDraft.UnlimitedDestructionLimit &&
+                (destructionUsesPerPlayer < PlaySettingsDraft.MinDestructionLimit ||
+                 destructionUsesPerPlayer > PlaySettingsDraft.MaxDestructionLimit))
             {
                 throw new ArgumentOutOfRangeException(nameof(destructionUsesPerPlayer));
             }
@@ -54,7 +55,10 @@ namespace Game.Server.Players
 
             for (var playerIndex = 0; playerIndex < remainingDestructionUses.Length; playerIndex++)
             {
-                remainingDestructionUses[playerIndex] = destructionUsesPerPlayer;
+                remainingDestructionUses[playerIndex] = destructionUsesPerPlayer ==
+                    PlaySettingsDraft.UnlimitedDestructionLimit
+                    ? PlaySettingsDraft.UnlimitedDestructionUses
+                    : destructionUsesPerPlayer;
             }
         }
 
@@ -94,6 +98,12 @@ namespace Game.Server.Players
             if (remainingDestructionUses[playerIndex] == 0)
             {
                 return false;
+            }
+
+            if (remainingDestructionUses[playerIndex] ==
+                PlaySettingsDraft.UnlimitedDestructionUses)
+            {
+                return true;
             }
 
             remainingDestructionUses[playerIndex]--;

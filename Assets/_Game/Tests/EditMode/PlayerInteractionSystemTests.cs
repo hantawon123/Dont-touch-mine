@@ -1,3 +1,4 @@
+using Game.Core.Lobby;
 using Game.Core.Players;
 using Game.Server.Players;
 using Game.SOAP.Config;
@@ -58,6 +59,21 @@ namespace Game.Tests.EditMode
             Assert.That(system.IsStunned(0, 13.999d), Is.True);
             Assert.That(system.RegisterHit(0, 13d), Is.EqualTo(HitResult.Ignored));
             Assert.That(system.IsStunned(0, 14d), Is.False);
+        }
+
+        [Test]
+        public void UnlimitedDestruction_DoesNotConsumeUses()
+        {
+            var configured = new PlayerInteractionSystem(
+                rules,
+                2,
+                PlaySettingsDraft.UnlimitedDestructionLimit);
+
+            Assert.That(configured.TryUseDestruction(0), Is.True);
+            Assert.That(configured.TryUseDestruction(0), Is.True);
+            Assert.That(
+                configured.GetRemainingDestructionUses(0),
+                Is.EqualTo(PlaySettingsDraft.UnlimitedDestructionUses));
         }
 
         [Test]

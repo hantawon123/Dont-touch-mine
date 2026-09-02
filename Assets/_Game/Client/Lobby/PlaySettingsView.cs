@@ -162,10 +162,13 @@ namespace Game.Client.Lobby
                 draft.MaxPlayers,
                 RoomSettings.MinPlayerCount,
                 RoomSettings.MaxPlayerCount);
-            destructionLimit = Mathf.Clamp(
-                draft.DestructionLimit,
-                PlaySettingsDraft.MinDestructionLimit,
-                PlaySettingsDraft.MaxDestructionLimit);
+            destructionLimit = draft.DestructionLimit ==
+                               PlaySettingsDraft.UnlimitedDestructionLimit
+                ? PlaySettingsDraft.UnlimitedDestructionLimit
+                : Mathf.Clamp(
+                    draft.DestructionLimit,
+                    PlaySettingsDraft.MinDestructionLimit,
+                    PlaySettingsDraft.MaxDestructionLimit);
             selectedMapIndex = LobbyMapCatalog.IndexOf(draft.MapId);
 
             if (titleText != null)
@@ -397,10 +400,15 @@ namespace Game.Client.Lobby
 
         private void SetDestructionLimit(int value)
         {
-            destructionLimit = Mathf.Clamp(
-                value,
-                PlaySettingsDraft.MinDestructionLimit,
-                PlaySettingsDraft.MaxDestructionLimit);
+            destructionLimit = destructionLimit ==
+                               PlaySettingsDraft.UnlimitedDestructionLimit
+                ? PlaySettingsDraft.MaxDestructionLimit
+                : value > PlaySettingsDraft.MaxDestructionLimit
+                    ? PlaySettingsDraft.UnlimitedDestructionLimit
+                    : Mathf.Clamp(
+                        value,
+                        PlaySettingsDraft.MinDestructionLimit,
+                        PlaySettingsDraft.MaxDestructionLimit);
             RefreshCounters();
         }
 
@@ -413,7 +421,10 @@ namespace Game.Client.Lobby
 
             if (destructionLimitText != null)
             {
-                destructionLimitText.text = destructionLimit.ToString();
+                destructionLimitText.text = destructionLimit ==
+                                            PlaySettingsDraft.UnlimitedDestructionLimit
+                    ? "무한"
+                    : destructionLimit.ToString();
             }
 
             if (maxPlayersMinusButton != null)
@@ -429,13 +440,14 @@ namespace Game.Client.Lobby
             if (destructionMinusButton != null)
             {
                 destructionMinusButton.interactable =
+                    destructionLimit == PlaySettingsDraft.UnlimitedDestructionLimit ||
                     destructionLimit > PlaySettingsDraft.MinDestructionLimit;
             }
 
             if (destructionPlusButton != null)
             {
                 destructionPlusButton.interactable =
-                    destructionLimit < PlaySettingsDraft.MaxDestructionLimit;
+                    destructionLimit != PlaySettingsDraft.UnlimitedDestructionLimit;
             }
         }
 

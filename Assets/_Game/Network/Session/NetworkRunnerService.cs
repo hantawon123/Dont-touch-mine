@@ -818,8 +818,9 @@ namespace Game.Network.Session
                 maxPlayers < RoomSettings.MinPlayerCount ||
                 maxPlayers > RoomSettings.MaxPlayerCount ||
                 maxPlayers < currentPlayerCount ||
-                destructionLimit < PlaySettingsDraft.MinDestructionLimit ||
-                destructionLimit > PlaySettingsDraft.MaxDestructionLimit ||
+                (destructionLimit != PlaySettingsDraft.UnlimitedDestructionLimit &&
+                 (destructionLimit < PlaySettingsDraft.MinDestructionLimit ||
+                  destructionLimit > PlaySettingsDraft.MaxDestructionLimit)) ||
                 !MapCatalog.Contains(mapId) ||
                 !validMatchRules ||
                 (!normalizedMatchRules.UsesRandomCategory &&
