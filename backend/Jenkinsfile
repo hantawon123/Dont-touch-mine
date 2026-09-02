@@ -98,6 +98,65 @@ pipeline {
                         env.SKIP_ALL = 'false'
                         echo 'backend/ 변경이 있어 빌드를 진행합니다.'
                     }
+
+                    // develop이 갱신되면 열려 있는 MR들의 초록불은 낡은 것이 됩니다.
+                    // 그 MR은 "이전 develop에 합친 결과"로 검증받았기 때문입니다.
+                    // GitLab Free에는 merged results pipeline과 merge train이 없어
+                    // 자동 재검증이 일어나지 않습니다. 그래서 여기서 직접 요청합니다.
+                    //
+                    // 배포 뒤가 아니라 판별 직후인 여기서 하는 이유: 빌드 마지막에
+                    // 하면 머지한 순간부터 재빌드가 걸릴 때까지 3분가량 낡은 초록불이
+                    // 그대로 보이고 그동안 머지 버튼도 열려 있습니다. 여기서 하면 그
+                    // 틈이 15초 수준으로 줄어듭니다. 대가는 MR 재빌드가 이 빌드와
+                    // 겹쳐 도는 것인데, MR 두 개를 동시에 빌드해 둘 다 통과한 것을
+                    // 확인했으므로 감당하는 범위입니다.
+                    //
+                    // 커밋 상태를 직접 게시하지 않는 이유: GitLab은 상태를 (SHA, 컨텍스트)
+                    // 쌍으로 관리하므로, 플러그인과 다른 컨텍스트로 pending을 올리면
+                    // 그 상태가 영구히 남아 머지가 영원히 잠깁니다. 재빌드를 요청하면
+                    // 플러그인이 스스로 pending을 올리고(즉시 잠김) 완료 후 갱신합니다.
+                    //
+                    // backend/ 변경이 없어 건너뛴 빌드에서는 하지 않습니다. MR의 백엔드
+                    // 검증 결과가 달라질 이유가 없기 때문입니다.
+                    if (env.DEPLOY == 'true' && env.SKIP_ALL != 'true') {
+                        // gitlab-api-token 이 아니라 -text 입니다. GitLab 플러그인의 토큰
+                        // 크리덴셜은 StringCredentials가 아니어서 파이프라인의 string()
+                        // 바인딩으로 읽을 수 없습니다. 같은 토큰을 Secret text로 한 번 더
+                        // 등록해 씁니다. 갱신할 때 두 개를 모두 고쳐야 합니다.
+                        try {
+                            withCredentials([string(credentialsId: 'gitlab-api-token-text', variable: 'GL_TOKEN')]) {
+                                def raw = sh(returnStdout: true, script: '''
+                                    set +x
+                                    curl -fsS -H "PRIVATE-TOKEN: $GL_TOKEN" "$GITLAB_API/projects/$GITLAB_PROJECT/merge_requests?state=opened&target_branch=develop&per_page=100" | jq -r '.[].iid'
+                                ''').trim()
+
+                                def folder = env.JOB_NAME.contains('/') ? env.JOB_NAME.split('/')[0] : null
+                                def iids = raw ? raw.split('\\s+') : []
+                                echo "develop 대상 열린 MR: ${iids.size()} 개"
+
+                                if (folder == null) {
+                                    echo '단독 Job이라 MR Job을 찾을 수 없어 재검증 요청을 생략합니다.'
+                                } else {
+                                    for (iid in iids) {
+                                        def target = "${folder}/MR-${iid}"
+                                        try {
+                                            build job: target, wait: false, propagate: false
+                                            echo "  ${target} 재빌드 요청 (develop 갱신 반영)"
+                                        } catch (err) {
+                                            echo "  ${target} 트리거 실패: ${err.message}"
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (err) {
+                            // 재검증 요청이 실패해도 이 빌드의 본 임무인 빌드와
+                            // 배포는 막지 않습니다. 다만 조용히 넘기면 무효화가
+                            // 동작하지 않는 것을 아무도 모르게 되므로 UNSTABLE로
+                            // 눈에 띄게 남깁니다.
+                            echo "열린 MR 재검증 요청 실패: ${err.message}"
+                            currentBuild.result = 'UNSTABLE'
+                        }
+                    }
                 }
             }
         }
@@ -375,67 +434,18 @@ pipeline {
     }
 
     post {
-        success {
-            script {
-                // develop이 갱신되면 열려 있는 MR들의 초록불은 낡은 것이 됩니다.
-                // 그 MR은 "이전 develop에 합친 결과"로 검증받았기 때문입니다.
-                // GitLab Free에는 merged results pipeline과 merge train이 없어
-                // 자동 재검증이 일어나지 않습니다. 그래서 여기서 직접 요청합니다.
-                //
-                // 커밋 상태를 직접 게시하지 않는 이유: GitLab은 상태를 (SHA, 컨텍스트)
-                // 쌍으로 관리하므로, 플러그인과 다른 컨텍스트로 pending을 올리면
-                // 그 상태가 영구히 남아 머지가 영원히 잠깁니다. 재빌드를 요청하면
-                // 플러그인이 스스로 pending을 올리고(즉시 잠김) 완료 후 갱신합니다.
-                //
-                // backend/ 변경이 없어 건너뛴 빌드에서는 하지 않습니다. MR의 백엔드
-                // 검증 결과가 달라질 이유가 없기 때문입니다.
-                if (env.DEPLOY == 'true' && env.SKIP_ALL != 'true') {
-                    // gitlab-api-token 이 아니라 -text 입니다. GitLab 플러그인의 토큰
-                    // 크리덴셜은 StringCredentials가 아니어서 파이프라인의 string()
-                    // 바인딩으로 읽을 수 없습니다. 같은 토큰을 Secret text로 한 번 더
-                    // 등록해 씁니다. 갱신할 때 두 개를 모두 고쳐야 합니다.
-                    try {
-                        withCredentials([string(credentialsId: 'gitlab-api-token-text', variable: 'GL_TOKEN')]) {
-                            def raw = sh(returnStdout: true, script: '''
-                                set +x
-                                curl -fsS -H "PRIVATE-TOKEN: $GL_TOKEN" "$GITLAB_API/projects/$GITLAB_PROJECT/merge_requests?state=opened&target_branch=develop&per_page=100" | jq -r '.[].iid'
-                            ''').trim()
-
-                            def folder = env.JOB_NAME.contains('/') ? env.JOB_NAME.split('/')[0] : null
-                            def iids = raw ? raw.split('\\s+') : []
-                            echo "develop 대상 열린 MR: ${iids.size()} 개"
-
-                            if (folder == null) {
-                                echo '단독 Job이라 MR Job을 찾을 수 없어 재검증 요청을 생략합니다.'
-                            } else {
-                                for (iid in iids) {
-                                    def target = "${folder}/MR-${iid}"
-                                    try {
-                                        build job: target, wait: false, propagate: false
-                                        echo "  ${target} 재빌드 요청 (develop 갱신 반영)"
-                                    } catch (err) {
-                                        echo "  ${target} 트리거 실패: ${err.message}"
-                                    }
-                                }
-                            }
-                        }
-                    } catch (err) {
-                        // 배포는 이미 끝났으므로 빌드를 실패로 만들지는 않습니다.
-                        // 다만 조용히 넘기면 무효화가 동작하지 않는 것을 아무도
-                        // 모르게 되므로 UNSTABLE로 눈에 띄게 남깁니다.
-                        echo "열린 MR 재검증 요청 실패: ${err.message}"
-                        currentBuild.result = 'UNSTABLE'
-                    }
-                }
-            }
-        }
         always {
             // 예전 방식이 워크스페이스 루트에 남긴 표시 파일을 치웁니다.
             // 지금은 만들지 않지만, 남아 있으면 사람이 볼 때 혼란스럽습니다.
             sh 'rm -f .verify-skip'
             dir('backend') {
-                // 이 빌드가 만든 자원만 지웁니다. 이름에 빌드 번호가 들어 있어
+                // 이 빌드가 만든 자원만 지웁니다. 이름에 BUILD_TAG가 들어 있어
                 // 동시에 도는 다른 빌드의 컨테이너를 건드리지 않습니다.
+                //
+                // 빌드 번호만으로는 안 됩니다. 그것은 Job마다 따로 매겨져서
+                // MR-150과 MR-151의 첫 빌드가 같은 이름을 갖습니다. 실제로
+                // 그렇게 서로의 컨테이너를 지운 적이 있습니다. BUILD_TAG는
+                // Job 이름까지 포함해 전역에서 겹치지 않습니다.
                 sh '''
                     docker rm -f $(docker ps -aq --filter "name=$VERIFY_PFX-") 2>/dev/null || true
                     docker network rm "$VERIFY_PFX-net" 2>/dev/null || true
