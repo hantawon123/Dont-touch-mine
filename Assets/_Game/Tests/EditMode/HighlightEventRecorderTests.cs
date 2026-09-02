@@ -158,6 +158,18 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void CaptureCandidates_KeepsFirstBloodAheadOfSimultaneousFinalDestruction()
+        {
+            recorder.RecordItemDestroyed(1, "item-a", 110d);
+            recorder.RecordItemDestroyed(2, "item-b", 110d);
+
+            var selected = HighlightCandidateSelector.Select(recorder.CaptureCandidates(110d));
+
+            Assert.That(selected[0].Type, Is.EqualTo(HighlightType.FirstBlood));
+            Assert.That(selected.Any(candidate => candidate.Type == HighlightType.FinalMoment), Is.True);
+        }
+
+        [Test]
         public void CaptureCandidates_DoesNotCreateLongestHiddenForDestroyedSoloItem()
         {
             var solo = new HighlightEventRecorder(rules, new[]

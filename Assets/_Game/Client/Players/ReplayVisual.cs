@@ -67,9 +67,10 @@ namespace Game.Client.Players
                 Animator.runtimeAnimatorController = animator.runtimeAnimatorController;
                 Animator.applyRootMotion = false;
                 Animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                Animator.keepAnimatorStateOnDisable = true;
                 Animator.Rebind();
                 Animator.Update(0f);
-                Animator.enabled = false;
+                Animator.speed = 0f;
             }
             Target.gameObject.SetActive(false);
         }

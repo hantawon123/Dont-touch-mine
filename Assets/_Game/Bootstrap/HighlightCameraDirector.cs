@@ -124,7 +124,9 @@ namespace Game.Bootstrap
                     segment.PlaybackSpeed > 1d
                         ? HighlightShotSubject.Overview
                         : HighlightShotSubject.ActorAndTarget,
-                    isLast ? HighlightShotFraming.Close : HighlightShotFraming.Wide,
+                    index > 0 && isLast
+                        ? HighlightShotFraming.Close
+                        : HighlightShotFraming.Wide,
                     true,
                     isLast);
                 cursor = end;

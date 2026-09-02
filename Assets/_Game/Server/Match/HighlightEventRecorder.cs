@@ -309,7 +309,7 @@ namespace Game.Server.Match
                 },
                 gameEvent.TargetId,
                 gameEvent.OccurredAt,
-                ScoreEvent(type, gameEvent.OccurredAt, matchEndedAt),
+                ScoreEvent(type, gameEvent, matchEndedAt),
                 gameEvent.ActorPlayerIndex,
                 items.TryGetValue(gameEvent.TargetId, out var item) &&
                 item.OwnerPlayerIndex != gameEvent.ActorPlayerIndex
@@ -317,11 +317,18 @@ namespace Game.Server.Match
                     : -1);
         }
 
-        private double ScoreEvent(HighlightType type, double occurredAt, double matchEndedAt)
+        private double ScoreEvent(HighlightType type, GameEvent gameEvent, double matchEndedAt)
         {
             if (type == HighlightType.FirstBlood) return 60d;
             if (type != HighlightType.FinalMoment) return 0d;
-            var distanceFromEnd = Math.Max(0d, matchEndedAt - occurredAt);
+            if (firstDestroyedEvent.HasValue &&
+                gameEvent.OccurredAt == firstDestroyedEvent.Value.OccurredAt &&
+                items.ContainsKey(gameEvent.TargetId))
+            {
+                return 60d;
+            }
+
+            var distanceFromEnd = Math.Max(0d, matchEndedAt - gameEvent.OccurredAt);
             return 50d + 50d * (1d - Math.Clamp(
                 distanceFromEnd / rules.HighlightClipDurationSeconds,
                 0d,
