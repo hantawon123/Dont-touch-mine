@@ -13,6 +13,78 @@ namespace Game.Tests.EditMode
     public sealed class RoomLobbySystemTests
     {
         [Test]
+        public void MatchRuleSettings_DefaultsMatchTheSpecification()
+        {
+            var settings = MatchRuleSettings.Default;
+
+            Assert.That(settings.HidingDurationSeconds, Is.EqualTo(30));
+            Assert.That(settings.SearchingDurationMinutes, Is.EqualTo(5));
+            Assert.That(settings.SearchingDurationSeconds, Is.EqualTo(300));
+            Assert.That(settings.SprintMultiplier, Is.EqualTo(1f));
+            Assert.That(settings.StunHitCount, Is.EqualTo(3));
+            Assert.That(settings.UsesRandomCategory, Is.True);
+        }
+
+        [TestCase(10, 1, 0.5f, 1)]
+        [TestCase(30, 5, 1f, 3)]
+        [TestCase(120, 15, 3f, 10)]
+        public void MatchRuleSettings_AcceptsSupportedValues(
+            int hidingSeconds,
+            int searchingMinutes,
+            float sprintMultiplier,
+            int stunHitCount)
+        {
+            Assert.That(
+                MatchRuleSettings.TryCreate(
+                    hidingSeconds,
+                    searchingMinutes,
+                    sprintMultiplier,
+                    stunHitCount,
+                    "  fruit  ",
+                    out var settings,
+                    out var error),
+                Is.True);
+            Assert.That(error, Is.EqualTo(MatchRuleSettingsError.None));
+            Assert.That(settings.CategoryId, Is.EqualTo("fruit"));
+        }
+
+        [TestCase(9, 5, 1f, 3, MatchRuleSettingsError.InvalidHidingDuration)]
+        [TestCase(121, 5, 1f, 3, MatchRuleSettingsError.InvalidHidingDuration)]
+        [TestCase(30, 0, 1f, 3, MatchRuleSettingsError.InvalidSearchingDuration)]
+        [TestCase(30, 16, 1f, 3, MatchRuleSettingsError.InvalidSearchingDuration)]
+        [TestCase(30, 5, 2.5f, 3, MatchRuleSettingsError.InvalidSprintMultiplier)]
+        [TestCase(30, 5, 1f, 0, MatchRuleSettingsError.InvalidStunHitCount)]
+        [TestCase(30, 5, 1f, 11, MatchRuleSettingsError.InvalidStunHitCount)]
+        public void MatchRuleSettings_RejectsUnsupportedValues(
+            int hidingSeconds,
+            int searchingMinutes,
+            float sprintMultiplier,
+            int stunHitCount,
+            MatchRuleSettingsError expected)
+        {
+            Assert.That(
+                MatchRuleSettings.TryCreate(
+                    hidingSeconds,
+                    searchingMinutes,
+                    sprintMultiplier,
+                    stunHitCount,
+                    null,
+                    out _,
+                    out var error),
+                Is.False);
+            Assert.That(error, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void PlaySettingsDraft_OldConstructorKeepsMatchRuleDefaults()
+        {
+            var draft = new PlaySettingsDraft("방", "CODE", false, null, 6, 5, "map");
+
+            Assert.That(draft.MatchRules.HidingDurationSeconds, Is.EqualTo(30));
+            Assert.That(draft.MatchRules.SearchingDurationMinutes, Is.EqualTo(5));
+        }
+
+        [Test]
         public void CreateSettings_ValidatesPublicRoomConfiguration()
         {
             var request = new RoomCreateRequest(
