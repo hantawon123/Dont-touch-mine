@@ -213,15 +213,17 @@ namespace Game.Bootstrap
             var created = migration != null
                 ? factory.RestoreSession(migration, network.ServerTime, configuration.PlacementValidator,
                     configuration.SpawnPoints, configuration.ItemDefinitions,
-                    configuration.InitialWorldObjects, network.DestructionLimit)
+                    configuration.InitialWorldObjects, network.DestructionLimit,
+                    network.MatchRules)
                 : factory.CreateSessionFromParticipants(
-                participants,
-                configuration.PlacementValidator,
-                configuration.SpawnPoints,
-                configuration.ItemDefinitions,
-                new System.Random(),
-                configuration.InitialWorldObjects,
-                network.DestructionLimit);
+                    participants,
+                    configuration.PlacementValidator,
+                    configuration.SpawnPoints,
+                    configuration.ItemDefinitions,
+                    new System.Random(),
+                    configuration.InitialWorldObjects,
+                    network.DestructionLimit,
+                    matchRules: network.MatchRules);
 
             try
             {
@@ -229,6 +231,17 @@ namespace Game.Bootstrap
                     created.Session,
                     networkContext,
                     appFlow);
+
+                for (var playerIndex = 0; playerIndex < participants.Count; playerIndex++)
+                {
+                    if (!network.TrySetPlayerSprintMultiplier(
+                            playerIndex,
+                            network.MatchRules.SprintMultiplier))
+                    {
+                        throw new InvalidOperationException(
+                            $"The authority could not apply sprint rules to player {playerIndex}.");
+                    }
+                }
 
                 if (!network.BindMatchSession(
                         created.Session,

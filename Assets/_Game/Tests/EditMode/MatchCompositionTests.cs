@@ -5,6 +5,7 @@ using Game.Core.Flow;
 using Game.Core.Items;
 using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Core.Players;
 using Game.Server.Items;
 using Game.Server.Match;
 using Game.Server.Players;
@@ -380,6 +381,53 @@ namespace Game.Tests.EditMode
             AssertInvalidParticipants(
                 new MatchParticipant("same", 0),
                 new MatchParticipant("same", 1));
+        }
+
+        [Test]
+        public void SessionFactory_AppliesConfiguredRuntimeRules()
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                Assert.That(
+                    MatchRuleSettings.TryCreate(
+                        60,
+                        2,
+                        1.5f,
+                        1,
+                        "food",
+                        out var configured,
+                        out _),
+                    Is.True);
+                var items = new[]
+                {
+                    new ItemDefinition("toy-1", "toy"),
+                    new ItemDefinition("toy-2", "toy"),
+                    new ItemDefinition("food-1", "food"),
+                    new ItemDefinition("food-2", "food")
+                };
+                using var composition = new MatchRuntimeFactory(rules).CreateSession(
+                    new[] { "host", "guest" },
+                    new AcceptAllPlacements(),
+                    CreateSpawnPoints(),
+                    items,
+                    new System.Random(1),
+                    matchRules: configured);
+
+                Assert.That(composition.Session.Start(10d), Is.True);
+                Assert.That(composition.State.PhaseEndsAt.CurrentValue, Is.EqualTo(130d));
+                Assert.That(composition.Session.Assignments[0].Item.Category, Is.EqualTo("food"));
+                Assert.That(composition.Session.Assignments[1].Item.Category, Is.EqualTo("food"));
+                Assert.That(composition.Session.AdvanceTime(130d, new[] { Vector3.zero, Vector3.zero }), Is.True);
+                Assert.That(composition.State.PhaseEndsAt.CurrentValue, Is.EqualTo(250d));
+                Assert.That(
+                    composition.Session.RegisterHit(0, 1, Vector3.right, 130d),
+                    Is.EqualTo(HitResult.Stunned));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
         }
 
         private static void AssertInvalidParticipants(params MatchParticipant[] participants)

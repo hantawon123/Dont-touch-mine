@@ -629,6 +629,20 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void NetworkPlayer_SprintSpeedUsesRoomMultiplier()
+        {
+            var settings = new PlayerMovementSettings(4f, 7f, 720f, 1.1f, 2f);
+
+            Assert.That(
+                NetworkPlayerMotor.MoveSpeedForPosture(
+                    settings,
+                    PlayerPosture.Standing,
+                    true,
+                    1.5f),
+                Is.EqualTo(10.5f));
+        }
+
+        [Test]
         public void SharedMovementKinematics_JumpRisesThenFallsContinuously()
         {
             var settings = new PlayerMovementSettings(4f, 7f, 720f, 1.1f, 2f);

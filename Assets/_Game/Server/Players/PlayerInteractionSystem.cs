@@ -9,6 +9,7 @@ namespace Game.Server.Players
     public sealed class PlayerInteractionSystem : IPlayerCombatRules
     {
         private readonly MatchRulesSO rules;
+        private readonly int hitsRequiredToStun;
         private readonly int[] hitCounts;
         private readonly int[] remainingDestructionUses;
         private readonly double[] stunnedUntil;
@@ -28,7 +29,8 @@ namespace Game.Server.Players
         public PlayerInteractionSystem(
             MatchRulesSO rules,
             int playerCount,
-            int destructionUsesPerPlayer)
+            int destructionUsesPerPlayer,
+            int? hitsRequiredToStun = null)
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             MatchRulesSO.ValidatePlayerCount(playerCount);
@@ -36,6 +38,13 @@ namespace Game.Server.Players
                 destructionUsesPerPlayer > PlaySettingsDraft.MaxDestructionLimit)
             {
                 throw new ArgumentOutOfRangeException(nameof(destructionUsesPerPlayer));
+            }
+
+            this.hitsRequiredToStun = hitsRequiredToStun ?? rules.HitsRequiredToStun;
+            if (this.hitsRequiredToStun < MatchRuleSettings.MinStunHitCount ||
+                this.hitsRequiredToStun > MatchRuleSettings.MaxStunHitCount)
+            {
+                throw new ArgumentOutOfRangeException(nameof(hitsRequiredToStun));
             }
 
             hitCounts = new int[playerCount];
@@ -59,7 +68,7 @@ namespace Game.Server.Players
             ValidatePlayerIndex(playerIndex);
             ValidateTime(stunEnd);
             ValidateTime(invulnerableEnd);
-            if (hits < 0 || hits >= rules.HitsRequiredToStun || uses < 0 || invulnerableEnd < stunEnd)
+            if (hits < 0 || hits >= hitsRequiredToStun || uses < 0 || invulnerableEnd < stunEnd)
                 throw new ArgumentOutOfRangeException(nameof(hits));
             hitCounts[playerIndex] = hits;
             remainingDestructionUses[playerIndex] = uses;
@@ -102,7 +111,7 @@ namespace Game.Server.Players
             }
 
             hitCounts[playerIndex]++;
-            if (hitCounts[playerIndex] < rules.HitsRequiredToStun)
+            if (hitCounts[playerIndex] < hitsRequiredToStun)
             {
                 return HitResult.Registered;
             }

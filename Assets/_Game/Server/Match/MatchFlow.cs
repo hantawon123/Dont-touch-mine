@@ -1,4 +1,5 @@
 using System;
+using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.SOAP.Config;
 using VContainer;
@@ -10,6 +11,8 @@ namespace Game.Server.Match
         private readonly MatchRulesSO rules;
         private readonly MatchState state;
         private readonly int playerCount;
+        private readonly float hidingTurnDurationSeconds;
+        private readonly float searchingDurationSeconds;
         private double? highlightPresentationDuration;
 
         public void SetHighlightPresentationDuration(double duration)
@@ -24,16 +27,26 @@ namespace Game.Server.Match
         {
         }
 
-        public MatchFlow(MatchRulesSO rules, MatchState state, int playerCount)
+        public MatchFlow(
+            MatchRulesSO rules,
+            MatchState state,
+            int playerCount,
+            MatchRuleSettings? matchRules = null)
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             this.state = state ?? throw new ArgumentNullException(nameof(state));
             MatchRulesSO.ValidatePlayerCount(playerCount);
             this.playerCount = playerCount;
+            hidingTurnDurationSeconds = matchRules?.HidingDurationSeconds ??
+                rules.HidingTurnDurationSeconds;
+            searchingDurationSeconds = matchRules?.SearchingDurationSeconds ??
+                rules.SearchingDurationSeconds;
         }
 
         public int PlayerCount => playerCount;
-        public float HidingDurationSeconds => rules.GetHidingDurationSeconds(playerCount);
+        public float HidingTurnDurationSeconds => hidingTurnDurationSeconds;
+        public float HidingDurationSeconds => hidingTurnDurationSeconds * playerCount;
+        public float SearchingDurationSeconds => searchingDurationSeconds;
 
         public bool Start(double now)
         {
@@ -93,7 +106,7 @@ namespace Game.Server.Match
                 state.PhaseEndsAt.CurrentValue,
                 now,
                 playerCount,
-                rules.HidingTurnDurationSeconds);
+                hidingTurnDurationSeconds);
         }
 
         public double GetHidingTurnRemainingSeconds(double now)
@@ -105,7 +118,7 @@ namespace Game.Server.Match
                 state.PhaseEndsAt.CurrentValue,
                 now,
                 playerCount,
-                rules.HidingTurnDurationSeconds);
+                hidingTurnDurationSeconds);
         }
 
         internal bool SkipCurrentHidingTurn(double now)
@@ -156,7 +169,12 @@ namespace Game.Server.Match
 
         private void EnterPhase(MatchPhase phase, double startedAt)
         {
-            var duration = rules.GetDurationSeconds(phase, playerCount);
+            var duration = phase switch
+            {
+                MatchPhase.Hiding => HidingDurationSeconds,
+                MatchPhase.Searching => searchingDurationSeconds,
+                _ => rules.GetDurationSeconds(phase, playerCount)
+            };
             if (phase == MatchPhase.Highlight)
                 duration += (float)(HighlightPresentationTiming.PostRollSeconds +
                     HighlightPresentationTiming.DeliveryGraceSeconds +

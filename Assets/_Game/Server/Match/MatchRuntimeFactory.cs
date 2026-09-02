@@ -32,7 +32,8 @@ namespace Game.Server.Match
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
             IReadOnlyList<WorldObjectState> initialWorldObjects = null,
-            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null)
+            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null,
+            MatchRuleSettings? matchRules = null)
         {
             return Create(
                 lobby,
@@ -44,7 +45,8 @@ namespace Game.Server.Match
                 itemDefinitions,
                 random,
                 initialWorldObjects,
-                specifiedAssignments);
+                specifiedAssignments,
+                matchRules);
         }
 
         public MatchRuntimeComposition Create(
@@ -57,7 +59,8 @@ namespace Game.Server.Match
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
             IReadOnlyList<WorldObjectState> initialWorldObjects = null,
-            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null)
+            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null,
+            MatchRuleSettings? matchRules = null)
         {
             if (lobby == null)
             {
@@ -93,7 +96,8 @@ namespace Game.Server.Match
                 itemDefinitions,
                 random,
                 initialWorldObjects,
-                specifiedAssignments: specifiedAssignments);
+                specifiedAssignments: specifiedAssignments,
+                matchRules: matchRules);
 
             try
             {
@@ -122,7 +126,8 @@ namespace Game.Server.Match
             System.Random random,
             IReadOnlyList<WorldObjectState> initialWorldObjects = null,
             int? destructionUsesPerPlayer = null,
-            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null)
+            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null,
+            MatchRuleSettings? matchRules = null)
         {
             if (participantIds == null)
             {
@@ -133,11 +138,12 @@ namespace Game.Server.Match
             try
             {
                 var playerCount = participantIds.Count;
-                var flow = new MatchFlow(rules, state, playerCount);
+                var flow = new MatchFlow(rules, state, playerCount, matchRules);
                 var interactions = new PlayerInteractionSystem(
                     rules,
                     playerCount,
-                    destructionUsesPerPlayer ?? rules.DestructionUsesPerPlayer);
+                    destructionUsesPerPlayer ?? rules.DestructionUsesPerPlayer,
+                    matchRules?.StunHitCount);
                 var session = new MatchSessionCoordinator(
                     rules,
                     state,
@@ -149,7 +155,8 @@ namespace Game.Server.Match
                     itemDefinitions,
                     random,
                     initialWorldObjects,
-                    specifiedAssignments);
+                    specifiedAssignments,
+                    matchRules);
                 return new MatchSessionComposition(state, session);
             }
             catch
@@ -167,7 +174,8 @@ namespace Game.Server.Match
             System.Random random,
             IReadOnlyList<WorldObjectState> initialWorldObjects = null,
             int? destructionUsesPerPlayer = null,
-            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null)
+            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null,
+            MatchRuleSettings? matchRules = null)
         {
             return CreateSession(
                 CaptureParticipantIds(participants),
@@ -177,13 +185,15 @@ namespace Game.Server.Match
                 random,
                 initialWorldObjects,
                 destructionUsesPerPlayer,
-                specifiedAssignments);
+                specifiedAssignments,
+                matchRules);
         }
 
         public MatchSessionComposition RestoreSession(
             MatchMigrationState snapshot, double now, IPlacementValidator validator,
             IReadOnlyList<Pose> spawnPoints, IReadOnlyList<ItemDefinition> itemDefinitions,
-            IReadOnlyList<WorldObjectState> initialObjects, int destructionUses)
+            IReadOnlyList<WorldObjectState> initialObjects, int destructionUses,
+            MatchRuleSettings? matchRules = null)
         {
             if (snapshot?.Players == null) throw new ArgumentNullException(nameof(snapshot));
             var ids = new string[snapshot.Players.Length];
@@ -202,7 +212,7 @@ namespace Game.Server.Match
                 if (!found) throw new ArgumentException("Unknown migrated assignment.", nameof(snapshot));
             }
             var created = CreateSession(ids, validator, spawnPoints, itemDefinitions,
-                new System.Random(0), initialObjects, destructionUses, assignments);
+                new System.Random(0), initialObjects, destructionUses, assignments, matchRules);
             try
             {
                 created.Session.RestoreMigration(snapshot, now);

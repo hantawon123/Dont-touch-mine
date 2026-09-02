@@ -1002,6 +1002,12 @@ namespace Game.Network.Session
                    _matchStarter.TrySetPlayerControls(playerIndex, enabled);
         }
 
+        public bool TrySetPlayerSprintMultiplier(int playerIndex, float multiplier)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TrySetPlayerSprintMultiplier(playerIndex, multiplier);
+        }
+
         public bool TryTeleportPlayer(int playerIndex, Pose pose)
         {
             return IsServer && _matchStarter != null &&

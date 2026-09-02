@@ -61,6 +61,14 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void RegisterHit_UsesConfiguredHitCount()
+        {
+            var configured = new PlayerInteractionSystem(rules, 2, 5, 1);
+
+            Assert.That(configured.RegisterHit(0, 10d), Is.EqualTo(HitResult.Stunned));
+        }
+
+        [Test]
         public void DefaultInvulnerability_DoesNotContinueAfterStun()
         {
             system.RegisterHit(0, 0d);

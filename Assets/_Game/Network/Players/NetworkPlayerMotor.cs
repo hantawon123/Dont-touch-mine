@@ -34,6 +34,9 @@ namespace Game.Network.Players
         public float DesiredMoveSpeed { get; private set; }
 
         [Networked]
+        public float SprintMultiplier { get; private set; }
+
+        [Networked]
         public float AnimationSpeed { get; private set; }
 
         [Networked]
@@ -115,6 +118,7 @@ namespace Game.Network.Players
                 {
                     ControlsEnabled = true;
                     DesiredMoveSpeed = settings.WalkSpeed;
+                    SprintMultiplier = 1f;
                 }
                 // CopyStateFrom runs before Spawned. Preserve the saved posture instead of
                 // standing up inside low geometry, and reapply its local KCC collider shape.
@@ -164,7 +168,8 @@ namespace Game.Network.Players
             DesiredMoveSpeed = MoveSpeedForPosture(
                 settings,
                 Posture,
-                input.IsPressed(NetworkPlayerButton.Sprint));
+                input.IsPressed(NetworkPlayerButton.Sprint),
+                SprintMultiplier);
             kcc.SetInputDirection(direction);
 
             if (grounded &&
@@ -208,6 +213,18 @@ namespace Game.Network.Players
                 kcc.SetInputDirection(Vector3.zero);
             }
 
+            return true;
+        }
+
+        internal bool TrySetSprintMultiplier(float multiplier)
+        {
+            if (Object == null || !Object.HasStateAuthority ||
+                !float.IsFinite(multiplier) || multiplier <= 0f)
+            {
+                return false;
+            }
+
+            SprintMultiplier = multiplier;
             return true;
         }
 
@@ -331,11 +348,14 @@ namespace Game.Network.Players
         internal static float MoveSpeedForPosture(
             PlayerMovementSettings settings,
             PlayerPosture posture,
-            bool sprinting) => posture switch
+            bool sprinting,
+            float sprintMultiplier = 1f) => posture switch
         {
             PlayerPosture.Crouching => settings.CrouchSpeed,
             PlayerPosture.Prone => settings.ProneSpeed,
-            _ => PlayerMovementKinematics.MoveSpeed(settings, sprinting)
+            _ => sprinting
+                ? settings.SprintSpeed * sprintMultiplier
+                : settings.WalkSpeed
         };
 
         private void TryApplyPosture(
