@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 280d2554c631e104c85fda7297c8e73f
+timeCreated: 1500355845
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 96082
+  packageName: Big Warehouse Pack
+  packageVersion: 1.0
+  assetPath: Assets/IGBlocks/IG_Warehouse/Prefabs/Warehouseparts/WareMedium_Walls.prefab
+  uploadId: 897076
