@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 97b2b968c9cebe34d9bf7bc86682f934
+timeCreated: 1500355803
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 96082
+  packageName: Big Warehouse Pack
+  packageVersion: 1.0
+  assetPath: Assets/IGBlocks/IG_Warehouse/Prefabs/Warehouseparts/WareFront_Walls_Door.prefab
+  uploadId: 897076
