@@ -765,22 +765,15 @@ namespace Game.Network.Session
             string mapId,
             MatchRuleSettings matchRules)
         {
-            var validMatchRules = MatchRuleSettings.TryCreate(
-                matchRules.HidingDurationSeconds,
-                matchRules.SearchingDurationMinutes,
-                matchRules.SprintMultiplier,
-                matchRules.StunHitCount,
-                matchRules.CategoryId,
-                out var normalizedMatchRules,
-                out _);
-            if (!IsServer || _runner == null || !_runner.SessionInfo.IsValid ||
-                maxPlayers < RoomSettings.MinPlayerCount ||
-                maxPlayers > RoomSettings.MaxPlayerCount ||
-                maxPlayers < PlayerCount ||
-                destructionLimit < PlaySettingsDraft.MinDestructionLimit ||
-                destructionLimit > PlaySettingsDraft.MaxDestructionLimit ||
-                !MapCatalog.Contains(mapId) ||
-                !validMatchRules)
+            if (_runner == null || !TryValidateLobbySettingsRequest(
+                    IsServer,
+                    _runner.SessionInfo.IsValid,
+                    PlayerCount,
+                    maxPlayers,
+                    destructionLimit,
+                    mapId,
+                    matchRules,
+                    out var normalizedMatchRules))
             {
                 return false;
             }
@@ -800,6 +793,42 @@ namespace Game.Network.Session
             _destructionLimit = destructionLimit;
             _matchRules = normalizedMatchRules;
             ReportPlayerCount();
+            return true;
+        }
+
+        internal static bool TryValidateLobbySettingsRequest(
+            bool hasAuthority,
+            bool hasValidSession,
+            int currentPlayerCount,
+            int maxPlayers,
+            int destructionLimit,
+            string mapId,
+            MatchRuleSettings matchRules,
+            out MatchRuleSettings normalizedMatchRules)
+        {
+            var validMatchRules = MatchRuleSettings.TryCreate(
+                matchRules.HidingDurationSeconds,
+                matchRules.SearchingDurationMinutes,
+                matchRules.SprintMultiplier,
+                matchRules.StunHitCount,
+                matchRules.CategoryId,
+                out normalizedMatchRules,
+                out _);
+            if (!hasAuthority || !hasValidSession ||
+                maxPlayers < RoomSettings.MinPlayerCount ||
+                maxPlayers > RoomSettings.MaxPlayerCount ||
+                maxPlayers < currentPlayerCount ||
+                destructionLimit < PlaySettingsDraft.MinDestructionLimit ||
+                destructionLimit > PlaySettingsDraft.MaxDestructionLimit ||
+                !MapCatalog.Contains(mapId) ||
+                !validMatchRules ||
+                (!normalizedMatchRules.UsesRandomCategory &&
+                 ItemCatalog.DefinitionsInCategory(normalizedMatchRules.CategoryId).Count == 0))
+            {
+                normalizedMatchRules = default;
+                return false;
+            }
+
             return true;
         }
 
@@ -1781,17 +1810,38 @@ namespace Game.Network.Session
             }
 
             var info = _runner.SessionInfo;
-            _configuredMaxPlayers = SessionPropertyMapper.ReadInt(
+            var maxPlayers = SessionPropertyMapper.ReadInt(
                 info,
                 SessionPropertyKeys.MaxPlayers,
-                info.MaxPlayers);
-            _destructionLimit = SessionPropertyMapper.ReadInt(
+                _configuredMaxPlayers > 0 ? _configuredMaxPlayers : info.MaxPlayers);
+            var destructionLimit = SessionPropertyMapper.ReadInt(
                 info,
                 SessionPropertyKeys.DestructionLimit,
-                PlaySettingsDraft.DefaultDestructionLimit);
-            _matchRules = SessionPropertyMapper.ReadMatchRules(
+                _destructionLimit);
+            var matchRules = SessionPropertyMapper.ReadMatchRules(
                 info,
-                MatchRuleSettings.Default);
+                _matchRules);
+            var mapId = SessionPropertyMapper.ReadString(
+                info,
+                SessionPropertyKeys.MapId,
+                MapCatalog.DefaultMapId);
+
+            if (!TryValidateLobbySettingsRequest(
+                    true,
+                    true,
+                    info.PlayerCount,
+                    maxPlayers,
+                    destructionLimit,
+                    mapId,
+                    matchRules,
+                    out var normalizedMatchRules))
+            {
+                return;
+            }
+
+            _configuredMaxPlayers = maxPlayers;
+            _destructionLimit = destructionLimit;
+            _matchRules = normalizedMatchRules;
         }
 
         /// <summary>
