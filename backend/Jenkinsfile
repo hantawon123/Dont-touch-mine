@@ -14,8 +14,8 @@ pipeline {
     options {
         timeout(time: 30, unit: 'MINUTES')
         // 같은 compose 프로젝트를 두 빌드가 동시에 건드리면 컨테이너가 꼬입니다.
-        // Job 단위이므로 MR Job들끼리는 병렬로 돕니다. 검증 경로의 컨테이너 이름에
-        // 빌드 번호를 넣어 서로 충돌하지 않게 했습니다.
+        // Job 단위이므로 MR Job들끼리는 병렬로 돕니다. 검증 경로의 자원 이름에
+        // BUILD_TAG를 넣어 서로 격리합니다.
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '30'))
         timestamps()
@@ -43,9 +43,12 @@ pipeline {
         // MR이면 대상 브랜치, 아니면 develop. 대상 확인의 비교 기준입니다.
         DIFF_BASE = "${env.CHANGE_TARGET ?: 'develop'}"
 
-        // 검증 경로에서 만드는 자원들. 빌드 번호를 넣어 동시 빌드와 충돌하지 않게 합니다.
-        VERIFY_TAG = "verify-${env.BUILD_NUMBER}"
-        VERIFY_PFX = "d205-verify-${env.BUILD_NUMBER}"
+        // 검증 경로에서 만드는 자원들. BUILD_TAG는 Job 이름까지 포함해 전역적으로
+        // 유일합니다. BUILD_NUMBER는 Job 단위라, 서로 다른 MR Job이 모두 빌드 #1이면
+        // 이름이 겹칩니다. 실제로 MR 두 개가 동시에 돌면서 한쪽이 네트워크 생성에
+        // 실패하고 다른 쪽은 정리에 컨테이너를 빼앗겼습니다.
+        VERIFY_TAG = "verify-${env.BUILD_TAG}"
+        VERIFY_PFX = "d205-verify-${env.BUILD_TAG}"
     }
 
     stages {
