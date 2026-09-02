@@ -374,8 +374,8 @@ namespace Game.Architecture.Tests
         {
             return new[]
             {
-                new ItemDefinition("item-0", "category-0"),
-                new ItemDefinition("item-1", "category-1"),
+                new ItemDefinition("item-0", "test"),
+                new ItemDefinition("item-1", "test"),
             };
         }
 

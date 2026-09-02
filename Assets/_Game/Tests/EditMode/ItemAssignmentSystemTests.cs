@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Items;
-using Game.Server.Items;
 using NUnit.Framework;
 
 namespace Game.Tests.EditMode
@@ -12,12 +11,12 @@ namespace Game.Tests.EditMode
         {
             new("bear", "toy"),
             new("ball", "toy"),
+            new("block", "toy"),
+            new("doll", "toy"),
+            new("car", "toy"),
+            new("kite", "toy"),
             new("apple", "food"),
-            new("bread", "food"),
-            new("hammer", "tool"),
-            new("wrench", "tool"),
-            new("cup", "kitchen"),
-            new("plate", "kitchen")
+            new("bread", "food")
         };
 
         [Test]
@@ -34,7 +33,7 @@ namespace Game.Tests.EditMode
             {
                 Assert.That(assignments[playerIndex].PlayerIndex, Is.EqualTo(playerIndex));
                 Assert.That(assignedItemIds.Add(assignments[playerIndex].Item.ItemId), Is.True);
-                Assert.That(assignments[playerIndex].Item.Category, Is.Not.Empty);
+                Assert.That(assignments[playerIndex].Item.Category, Is.EqualTo("toy"));
             }
         }
 
@@ -54,7 +53,7 @@ namespace Game.Tests.EditMode
             foreach (var assignment in assignments)
             {
                 Assert.That(assignedItemIds.Add(assignment.Item.ItemId), Is.True);
-                Assert.That(ItemCatalog.Definitions, Does.Contain(assignment.Item));
+                Assert.That(ItemCatalog.AssignmentDefinitions, Does.Contain(assignment.Item));
             }
         }
 
@@ -102,98 +101,21 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void SelectionRules_ListOnlyAvailableItemsInAssignedCategory()
+        public void Catalog_ProvidesSixAssignmentCopiesPerCategory()
         {
-            var available = ItemSelectionRules.AvailableItems(
-                Definitions,
-                "toy",
-                new[] { "bear" });
+            foreach (var category in ItemCatalog.Categories)
+            {
+                var count = 0;
+                foreach (var assignment in ItemCatalog.AssignmentDefinitions)
+                {
+                    if (assignment.Category == category)
+                    {
+                        count++;
+                    }
+                }
 
-            Assert.That(available, Has.Count.EqualTo(1));
-            Assert.That(available[0].ItemId, Is.EqualTo("ball"));
-        }
-
-        [Test]
-        public void SelectionRules_ResolveValidSelection()
-        {
-            Assert.That(
-                ItemSelectionRules.TryResolveSelection(
-                    Definitions,
-                    "toy",
-                    "ball",
-                    Array.Empty<string>(),
-                    out var selected,
-                    out var failure),
-                Is.True);
-            Assert.That(selected.ItemId, Is.EqualTo("ball"));
-            Assert.That(failure, Is.EqualTo(ItemSelectionFailure.None));
-        }
-
-        [TestCase(null, "ball", null, ItemSelectionFailure.MissingCategory)]
-        [TestCase("toy", "missing", null, ItemSelectionFailure.UnknownItem)]
-        [TestCase("food", "ball", null, ItemSelectionFailure.WrongCategory)]
-        [TestCase("toy", "ball", "ball", ItemSelectionFailure.AlreadySelected)]
-        public void SelectionRules_RejectInvalidSelection(
-            string category,
-            string itemId,
-            string selectedItemId,
-            ItemSelectionFailure expected)
-        {
-            var selectedItemIds = selectedItemId == null
-                ? Array.Empty<string>()
-                : new[] { selectedItemId };
-
-            Assert.That(
-                ItemSelectionRules.TryResolveSelection(
-                    Definitions,
-                    category,
-                    itemId,
-                    selectedItemIds,
-                    out _,
-                    out var failure),
-                Is.False);
-            Assert.That(failure, Is.EqualTo(expected));
-        }
-
-        [Test]
-        public void SelectionSession_BuildsAssignmentsOnlyAfterEveryPlayerConfirms()
-        {
-            var selection = new ItemSelectionSession(
-                Definitions,
-                new[] { "toy", "food" });
-
-            Assert.That(selection.TryConfirm(0, "ball", out _), Is.True);
-            Assert.That(selection.TryCreateAssignments(out _), Is.False);
-            Assert.That(selection.TryConfirm(1, "apple", out _), Is.True);
-            Assert.That(selection.TryCreateAssignments(out var assignments), Is.True);
-
-            Assert.That(assignments[0].PlayerIndex, Is.EqualTo(0));
-            Assert.That(assignments[0].Item.ItemId, Is.EqualTo("ball"));
-            Assert.That(assignments[1].PlayerIndex, Is.EqualTo(1));
-            Assert.That(assignments[1].Item.ItemId, Is.EqualTo("apple"));
-            Assert.That(selection.IsFinalized, Is.True);
-            Assert.That(selection.TryCreateAssignments(out _), Is.False);
-        }
-
-        [Test]
-        public void SelectionSession_RequiresCancelBeforeChangingConfirmation()
-        {
-            var selection = new ItemSelectionSession(
-                Definitions,
-                new[] { "toy", "food" });
-
-            Assert.That(selection.TryConfirm(0, "ball", out _), Is.True);
-            Assert.That(selection.TryConfirm(0, "bear", out var failure), Is.False);
-            Assert.That(failure, Is.EqualTo(ItemSelectionFailure.AlreadyConfirmed));
-            Assert.That(selection.TryCancel(0), Is.True);
-            Assert.That(selection.ConfirmedCount, Is.Zero);
-            Assert.That(selection.TryConfirm(0, "bear", out _), Is.True);
-
-            Assert.That(selection.TryConfirm(1, "apple", out _), Is.True);
-            Assert.That(selection.TryCreateAssignments(out _), Is.True);
-            Assert.That(selection.TryCancel(0), Is.False);
-            Assert.That(selection.TryConfirm(0, "ball", out failure), Is.False);
-            Assert.That(failure, Is.EqualTo(ItemSelectionFailure.SelectionClosed));
+                Assert.That(count, Is.EqualTo(6), category);
+            }
         }
 
         [Test]

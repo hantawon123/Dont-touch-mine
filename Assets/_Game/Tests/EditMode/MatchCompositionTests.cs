@@ -194,7 +194,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void SessionFactory_UsesConfirmedSelectionsForPlayerProvisioning()
+        public void SessionFactory_UsesSpecifiedAssignmentsForPlayerProvisioning()
         {
             var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
 
@@ -205,10 +205,11 @@ namespace Game.Tests.EditMode
                     new ItemDefinition("ball", "toy"),
                     new ItemDefinition("apple", "food")
                 };
-                var selection = new ItemSelectionSession(items, new[] { "toy", "food" });
-                Assert.That(selection.TryConfirm(0, "ball", out _), Is.True);
-                Assert.That(selection.TryConfirm(1, "apple", out _), Is.True);
-                Assert.That(selection.TryCreateAssignments(out var assignments), Is.True);
+                var assignments = new[]
+                {
+                    new PlayerItemAssignment(0, items[0]),
+                    new PlayerItemAssignment(1, items[1])
+                };
 
                 var participants = new[]
                 {
@@ -240,7 +241,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void SessionFactory_DoesNotCarryConfirmedSelectionsIntoRematch()
+        public void SessionFactory_DoesNotCarrySpecifiedAssignmentsIntoRematch()
         {
             var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
 
@@ -258,15 +259,16 @@ namespace Game.Tests.EditMode
                     new MatchParticipant("host", 0),
                     new MatchParticipant("guest", 1)
                 };
-                var firstSelection = new ItemSelectionSession(items, new[] { "toy", "food" });
-                Assert.That(firstSelection.TryConfirm(0, "ball", out _), Is.True);
-                Assert.That(firstSelection.TryConfirm(1, "apple", out _), Is.True);
-                Assert.That(firstSelection.TryCreateAssignments(out var firstAssignments), Is.True);
-
-                var rematchSelection = new ItemSelectionSession(items, new[] { "toy", "food" });
-                Assert.That(rematchSelection.TryConfirm(0, "block", out _), Is.True);
-                Assert.That(rematchSelection.TryConfirm(1, "bread", out _), Is.True);
-                Assert.That(rematchSelection.TryCreateAssignments(out var rematchAssignments), Is.True);
+                var firstAssignments = new[]
+                {
+                    new PlayerItemAssignment(0, items[0]),
+                    new PlayerItemAssignment(1, items[2])
+                };
+                var rematchAssignments = new[]
+                {
+                    new PlayerItemAssignment(0, items[1]),
+                    new PlayerItemAssignment(1, items[3])
+                };
 
                 var factory = new MatchRuntimeFactory(rules);
                 using var first = factory.CreateSessionFromParticipants(
@@ -432,7 +434,7 @@ namespace Game.Tests.EditMode
             var items = new ItemDefinition[playerCount];
             for (var index = 0; index < playerCount; index++)
             {
-                items[index] = new ItemDefinition($"item-{index}", $"category-{index}");
+                items[index] = new ItemDefinition($"item-{index}", "test");
             }
 
             return items;
