@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Game.Core.Items
 {
@@ -21,9 +22,29 @@ namespace Game.Core.Items
             new("Kettle1_C1", "kitchen", "주전자"),
             new("Toaster_03", "kitchen", "토스터")
         };
-
         public static IReadOnlyList<ItemDefinition> Definitions { get; } =
             Array.AsReadOnly(DefinitionValues);
+        public static IReadOnlyList<string> Categories { get; } =
+            Array.AsReadOnly(DefinitionValues
+                .Select(definition => definition.Category)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray());
+
+        public static IReadOnlyList<ItemDefinition> DefinitionsInCategory(string category)
+        {
+            if (string.IsNullOrWhiteSpace(category))
+            {
+                return Array.Empty<ItemDefinition>();
+            }
+
+            var normalizedCategory = category.Trim();
+            return Array.AsReadOnly(DefinitionValues
+                .Where(definition => string.Equals(
+                    definition.Category,
+                    normalizedCategory,
+                    StringComparison.Ordinal))
+                .ToArray());
+        }
 
         public static string DisplayNameOf(string itemId)
         {

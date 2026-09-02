@@ -83,6 +83,24 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Catalog_ExposesItemsGroupedByActualCategory()
+        {
+            Assert.That(
+                ItemCatalog.Categories,
+                Is.EqualTo(new[] { "food", "tableware", "decoration", "kitchen" }));
+
+            var food = ItemCatalog.DefinitionsInCategory("food");
+
+            Assert.That(food, Has.Count.EqualTo(3));
+            foreach (var item in food)
+            {
+                Assert.That(item.Category, Is.EqualTo("food"));
+            }
+
+            Assert.That(food[0].ItemId, Is.EqualTo("Soda_01"));
+        }
+
+        [Test]
         public void Assign_RejectsInsufficientItems()
         {
             var definitions = new[]
