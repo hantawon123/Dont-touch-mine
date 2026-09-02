@@ -202,8 +202,9 @@ namespace Game.Architecture.Tests
                 Assert.That(network.BoundSession, Is.Not.Null);
                 Assert.That(network.InitializedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
                 Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
-                Assert.That(network.PlayerItemStatuses, Has.Count.EqualTo(1));
-                Assert.That(network.PlayerItemStatuses[0], Has.Count.EqualTo(2));
+                Assert.That(network.PlayerItemStatuses.Count, Is.EqualTo(1));
+                Assert.That(network.PlayerItemStatuses[0], Is.Not.Null);
+                Assert.That(network.PlayerItemStatuses[0].Count, Is.EqualTo(2));
                 Assert.That(network.PlayerItemStatuses[0][0].IsDestroyed, Is.False);
                 Assert.That(network.PlayerItemStatuses[0][1].IsDestroyed, Is.False);
                 Assert.That(network.Snapshots, Has.Count.EqualTo(1));
@@ -243,15 +244,21 @@ namespace Game.Architecture.Tests
                 Assert.That(network.Controls[1], Is.True);
                 var searchingStartedAt = network.Snapshots[0].PhaseEndsAt;
                 Assert.That(
+                    network.BoundSession.TryHoldObject(
+                        0,
+                        network.BoundSession.Assignments[0].Item.ItemId,
+                        searchingStartedAt),
+                    Is.True);
+                Assert.That(
                     network.BoundSession.TryDestroyHeldPlayerItem(0, searchingStartedAt),
                     Is.True);
-                Assert.That(network.PlayerItemStatuses, Has.Count.EqualTo(2));
+                Assert.That(network.PlayerItemStatuses.Count, Is.EqualTo(2));
                 Assert.That(network.PlayerItemStatuses[1][0].IsDestroyed, Is.True);
                 Assert.That(network.PlayerItemStatuses[1][1].IsDestroyed, Is.False);
                 Assert.That(
                     network.BoundSession.TryDestroyHeldPlayerItem(0, searchingStartedAt),
                     Is.False);
-                Assert.That(network.PlayerItemStatuses, Has.Count.EqualTo(2));
+                Assert.That(network.PlayerItemStatuses.Count, Is.EqualTo(2));
                 Assert.That(
                     network.TeleportedPlayers,
                     Is.EqualTo(new[] { 1, 0, 1, 0, 0, 1 }));

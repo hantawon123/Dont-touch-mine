@@ -861,12 +861,13 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     receivedInteractions[0].RemainingDestructionUses,
                     Is.EqualTo(4));
-                Assert.That(receivedStatuses, Has.Count.EqualTo(2));
+                Assert.That(receivedStatuses, Is.Not.Null);
+                Assert.That(receivedStatuses.Count, Is.EqualTo(2));
                 Assert.That(receivedStatuses[0].ItemId, Is.EqualTo("Soda_01"));
                 Assert.That(receivedStatuses[0].IsDestroyed, Is.False);
                 Assert.That(receivedStatuses[1].ItemId, Is.EqualTo("Burger_01"));
                 Assert.That(receivedStatuses[1].IsDestroyed, Is.True);
-                Assert.That(secondReceivedStatuses, Is.EqualTo(receivedStatuses));
+                Assert.That(secondReceivedStatuses, Is.SameAs(receivedStatuses));
                 Assert.That(receivedResult.HasValue, Is.True);
                 Assert.That(
                     receivedResult.Value.EndReason,
