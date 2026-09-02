@@ -727,6 +727,11 @@ namespace Game.Server.Match
             return winners.ToArray();
         }
 
+        public PlayerItemStatusSnapshot[] CapturePlayerItemStatuses()
+        {
+            return outcome.CapturePlayerItemStatuses();
+        }
+
         public bool TryHandlePlayerLeft(int playerIndex, Pose lastKnownPose, double now)
         {
             flow.GetRemainingSeconds(now);

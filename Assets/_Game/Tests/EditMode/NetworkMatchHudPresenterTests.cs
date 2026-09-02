@@ -191,6 +191,48 @@ namespace Game.Architecture.Tests
             Assert.That(view.HidingPlayerName, Is.Empty);
         }
 
+        [Test]
+        public void Start_UsesCachedItemStatuses_AndDisposeUnsubscribes()
+        {
+            var network = new FakeNetwork
+            {
+                LatestPlayerItemStatuses = new[]
+                {
+                    new PlayerItemStatusSnapshot("Soda_01", false),
+                    new PlayerItemStatusSnapshot("Burger_01", true),
+                },
+            };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+                Assert.That(view.PlayerItemStatuses, Has.Count.EqualTo(2));
+                Assert.That(view.PlayerItemStatuses[1].IsDestroyed, Is.True);
+
+                network.PublishPlayerItemStatuses(new[]
+                {
+                    new PlayerItemStatusSnapshot("Pineapple_01", false),
+                });
+                Assert.That(view.PlayerItemStatuses, Has.Count.EqualTo(1));
+                Assert.That(view.PlayerItemStatuses[0].ItemId, Is.EqualTo("Pineapple_01"));
+
+                presenter.Dispose();
+                network.PublishPlayerItemStatuses(new[]
+                {
+                    new PlayerItemStatusSnapshot("Cup1_C3", true),
+                });
+                Assert.That(view.PlayerItemStatuses, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
         private sealed class FakeView : INetworkMatchHudView
         {
             public MatchPhase Phase { get; private set; }
@@ -200,6 +242,8 @@ namespace Game.Architecture.Tests
             public string Notice { get; private set; }
             public bool NoticeVisible { get; private set; }
             public string AssignedItem { get; private set; }
+            public IReadOnlyList<PlayerItemStatusSnapshot> PlayerItemStatuses { get; private set; } =
+                Array.Empty<PlayerItemStatusSnapshot>();
             public int RemainingDestructionUses { get; private set; } = -1;
 
             public string HidingPlayerName { get; private set; }
@@ -212,6 +256,10 @@ namespace Game.Architecture.Tests
             public void SetRemainingSeconds(double value) => RemainingSeconds = value;
             public void SetHighlightTitle(string title) { }
             public void SetAssignedItem(string displayName) => AssignedItem = displayName;
+            public void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses) =>
+                PlayerItemStatuses = statuses == null
+                    ? Array.Empty<PlayerItemStatusSnapshot>()
+                    : new List<PlayerItemStatusSnapshot>(statuses);
             public void SetRemainingDestructionUses(int value) =>
                 RemainingDestructionUses = value;
 
@@ -227,6 +275,8 @@ namespace Game.Architecture.Tests
 
         private sealed class FakeNetwork : INetworkMatchEvents, INetworkMatchRuntimeSource
         {
+            public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses { get; set; } =
+                Array.Empty<PlayerItemStatusSnapshot>();
             public bool IsRuntimeReady { get; set; } = true;
             private double serverTime;
             public double ServerTime
@@ -237,6 +287,7 @@ namespace Game.Architecture.Tests
             public event Action<MatchStateSnapshot> MatchStateReceived;
             public event Action<string> ItemAssignmentReceived;
             public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
+            public event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;
             public event Action<IReadOnlyList<PlayerInteractionStateSnapshot>>
                 PlayerInteractionStatesReceived;
             public event Action<IReadOnlyList<HighlightReplayData>> HighlightReplayReceived;
@@ -252,6 +303,11 @@ namespace Game.Architecture.Tests
             public void Publish(MatchResult value) => MatchResultReceived?.Invoke(value);
             public void PublishItemAssignment(string itemId) =>
                 ItemAssignmentReceived?.Invoke(itemId);
+            public void PublishPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> value)
+            {
+                LatestPlayerItemStatuses = value ?? Array.Empty<PlayerItemStatusSnapshot>();
+                PlayerItemStatusesReceived?.Invoke(value);
+            }
             public void Publish(PlayerItemDestroyedEvent value) =>
                 ItemDestroyedReceived?.Invoke(value);
             public void Publish(IReadOnlyList<PlayerInteractionStateSnapshot> value) =>

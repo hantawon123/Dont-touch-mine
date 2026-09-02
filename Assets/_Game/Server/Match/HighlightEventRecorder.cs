@@ -183,6 +183,8 @@ namespace Game.Server.Match
                 var hiddenSegments = frames == null || isSolo
                     ? CreateHiddenSummarySegments(startedAt, endedAt)
                     : CreateHiddenSegments(longestHiddenItemId, startedAt, endedAt, frames);
+                if (hiddenSegments.Length == 0)
+                    hiddenSegments = CreateHiddenSummarySegments(startedAt, endedAt);
                 if (hiddenSegments.Length > 0)
                     candidates.Add(new HighlightCandidate(HighlightType.LongestHidden,
                         hiddenSegments,
@@ -203,7 +205,8 @@ namespace Game.Server.Match
                 var longest = -1d;
                 foreach (var pair in items)
                 {
-                    if (pair.Value.Destroyed) continue;
+                    if (pair.Value.Destroyed ||
+                        pair.Value.LastInteractedAt < searchingStartedAt) continue;
                     var candidateHiddenUntil = pair.Value.FirstOtherPlayerInteractionAt ?? endedAt;
                     if (candidateHiddenUntil > longest ||
                         candidateHiddenUntil == longest && string.CompareOrdinal(pair.Key, survivor) < 0)
@@ -309,7 +312,7 @@ namespace Game.Server.Match
                 },
                 gameEvent.TargetId,
                 gameEvent.OccurredAt,
-                ScoreEvent(type, gameEvent.OccurredAt, matchEndedAt),
+                ScoreEvent(type, gameEvent, matchEndedAt),
                 gameEvent.ActorPlayerIndex,
                 items.TryGetValue(gameEvent.TargetId, out var item) &&
                 item.OwnerPlayerIndex != gameEvent.ActorPlayerIndex
@@ -317,11 +320,18 @@ namespace Game.Server.Match
                     : -1);
         }
 
-        private double ScoreEvent(HighlightType type, double occurredAt, double matchEndedAt)
+        private double ScoreEvent(HighlightType type, GameEvent gameEvent, double matchEndedAt)
         {
             if (type == HighlightType.FirstBlood) return 60d;
             if (type != HighlightType.FinalMoment) return 0d;
-            var distanceFromEnd = Math.Max(0d, matchEndedAt - occurredAt);
+            if (firstDestroyedEvent.HasValue &&
+                gameEvent.OccurredAt == firstDestroyedEvent.Value.OccurredAt &&
+                items.ContainsKey(gameEvent.TargetId))
+            {
+                return 60d;
+            }
+
+            var distanceFromEnd = Math.Max(0d, matchEndedAt - gameEvent.OccurredAt);
             return 50d + 50d * (1d - Math.Clamp(
                 distanceFromEnd / rules.HighlightClipDurationSeconds,
                 0d,

@@ -58,6 +58,8 @@ namespace Game.Network.Session
         private const int HighlightReadyKeyType = 0x484C5244;
         private readonly HashSet<PlayerRef> _highlightPendingPlayers = new();
         private int _receivedHighlightSequence;
+        private IReadOnlyList<PlayerItemStatusSnapshot> _latestPlayerItemStatuses =
+            Array.Empty<PlayerItemStatusSnapshot>();
         public bool IsHighlightReplayReady => _highlightPendingPlayers.Count == 0;
 
         public bool TryConfirmHighlightReady()
@@ -150,6 +152,7 @@ namespace Game.Network.Session
         public event Action<string> ItemAssignmentReceived;
         public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
         public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
+        public event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;
         public event Action<PlayerStunnedEvent> PlayerStunnedReceived;
         public event Action<ObjectThrownEvent> ObjectThrownReceived;
         public event Action<FinalWarningStartedEvent> FinalWarningReceived;
@@ -160,6 +163,9 @@ namespace Game.Network.Session
         public event Action<MatchResult> MatchResultReceived;
         public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
         public event Action SimulationTick;
+
+        public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses =>
+            _latestPlayerItemStatuses;
 
         /// <summary>
         /// Password this peer requires from joiners while it is the authority. A
@@ -864,6 +870,13 @@ namespace Game.Network.Session
             return true;
         }
 
+        public bool TryPublishPlayerItemStatuses(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryPublishPlayerItemStatuses(statuses);
+        }
+
         public bool RequestItemAssignment()
         {
             if (!IsRuntimeReady || _browsingLobby || !_runner.LocalPlayer.IsRealPlayer) return false;
@@ -1213,6 +1226,7 @@ namespace Game.Network.Session
             _matchStarter.LobbyChatReceived += OnLobbyChatReceived;
             _matchStarter.ObjectStatesReceived += OnObjectStatesReceived;
             _matchStarter.ItemDestroyedReceived += OnItemDestroyedReceived;
+            _matchStarter.PlayerItemStatusesReceived += OnPlayerItemStatusesReceived;
             _matchStarter.PlayerStunnedReceived += OnPlayerStunnedReceived;
             _matchStarter.ObjectThrownReceived += OnObjectThrownReceived;
             _matchStarter.FinalWarningReceived += OnFinalWarningReceived;
@@ -1581,6 +1595,7 @@ namespace Game.Network.Session
         {
             RestoreNetworkSceneLoadingPriority();
             _publishedItemAssignments.Clear();
+            _latestPlayerItemStatuses = Array.Empty<PlayerItemStatusSnapshot>();
             _matchRuntimeRestorePending = false;
             _matchRuntimeRestoreFailure = null;
             MatchMigration = null;
@@ -1613,6 +1628,7 @@ namespace Game.Network.Session
                 _matchStarter.LobbyChatReceived -= OnLobbyChatReceived;
                 _matchStarter.ObjectStatesReceived -= OnObjectStatesReceived;
                 _matchStarter.ItemDestroyedReceived -= OnItemDestroyedReceived;
+                _matchStarter.PlayerItemStatusesReceived -= OnPlayerItemStatusesReceived;
                 _matchStarter.PlayerStunnedReceived -= OnPlayerStunnedReceived;
                 _matchStarter.ObjectThrownReceived -= OnObjectThrownReceived;
                 _matchStarter.FinalWarningReceived -= OnFinalWarningReceived;
@@ -1667,6 +1683,22 @@ namespace Game.Network.Session
             ItemDestroyedReceived?.Invoke(confirmedEvent);
         }
 
+        private void OnPlayerItemStatusesReceived(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            if (statuses == null || statuses.Count == 0)
+            {
+                _latestPlayerItemStatuses = Array.Empty<PlayerItemStatusSnapshot>();
+            }
+            else
+            {
+                _latestPlayerItemStatuses =
+                    new List<PlayerItemStatusSnapshot>(statuses).AsReadOnly();
+            }
+
+            PlayerItemStatusesReceived?.Invoke(_latestPlayerItemStatuses);
+        }
+
         private void OnPlayerStunnedReceived(PlayerStunnedEvent confirmedEvent)
         {
             PlayerStunnedReceived?.Invoke(confirmedEvent);
@@ -1700,6 +1732,7 @@ namespace Game.Network.Session
 
         private void OnLineUpReceived(IReadOnlyList<MatchParticipant> participants)
         {
+            _latestPlayerItemStatuses = Array.Empty<PlayerItemStatusSnapshot>();
             if (participants == null || participants.Count == 0)
             {
                 MatchMigration = null;

@@ -64,6 +64,7 @@ namespace Game.Network.Match
         public event Action<LobbyChatMessage> LobbyChatReceived;
         public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
         public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
+        public event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;
         public event Action<PlayerStunnedEvent> PlayerStunnedReceived;
         public event Action<ObjectThrownEvent> ObjectThrownReceived;
         public event Action<FinalWarningStartedEvent> FinalWarningReceived;
@@ -254,9 +255,21 @@ namespace Game.Network.Match
             return true;
         }
 
+        public bool TryPublishPlayerItemStatuses(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            return _state != null && _state.TryPublishPlayerItemStatuses(statuses);
+        }
+
         public void PublishObjectStates(IReadOnlyList<MatchObjectStateSnapshot> states)
         {
             ObjectStatesReceived?.Invoke(states);
+        }
+
+        public void PublishPlayerItemStatuses(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            PlayerItemStatusesReceived?.Invoke(statuses);
         }
 
         public void PublishItemDestroyed(PlayerItemDestroyedEvent confirmedEvent)

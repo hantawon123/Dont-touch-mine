@@ -241,7 +241,13 @@ namespace Game.Bootstrap
 
                 composition = created;
                 runtime = createdRuntime;
+                composition.Session.PlayerItemDestroyed += OnPlayerItemDestroyed;
                 if (migration != null) RestorePlayers(migration);
+                if (!PublishPlayerItemStatuses(composition.Session))
+                {
+                    throw new InvalidOperationException(
+                        "The authority could not publish player item statuses.");
+                }
                 PublishSnapshotIfChanged();
             }
             catch
@@ -493,6 +499,11 @@ namespace Game.Bootstrap
             initializedAssignments[playerIndex] = true;
         }
 
+        private bool PublishPlayerItemStatuses(MatchSessionCoordinator session)
+        {
+            return network.TryPublishPlayerItemStatuses(session.CapturePlayerItemStatuses());
+        }
+
         private void PublishSnapshotIfChanged()
         {
             var session = composition.Session;
@@ -549,6 +560,7 @@ namespace Game.Bootstrap
         {
             if (composition != null)
             {
+                composition.Session.PlayerItemDestroyed -= OnPlayerItemDestroyed;
                 // Result disables every avatar. The room-level avatars survive
                 // the scene change, so restore them before returning to Lobby.
                 if (network.IsServer)
@@ -582,6 +594,16 @@ namespace Game.Bootstrap
             hasPublishedSnapshot = false;
             hasPublishedHighlightReplay = false;
             waitingForHighlightReady = false;
+        }
+
+        private void OnPlayerItemDestroyed(PlayerItemDestroyedEvent confirmedEvent)
+        {
+            if (composition == null ||
+                !PublishPlayerItemStatuses(composition.Session))
+            {
+                throw new InvalidOperationException(
+                    $"Failed to publish player item statuses after item destruction: {confirmedEvent.ItemId}.");
+            }
         }
     }
 }

@@ -24,6 +24,9 @@ namespace Game.Bootstrap
         private bool returned;
         private double returnAt = -1d;
         private double pausedAt = -1d;
+        private double resultDataFallbackAt = -1d;
+        private bool resultDataFallbackActive;
+        private bool directLobbyResult;
 
         public ReadOnlyReactiveProperty<string> ResultText => resultText;
 
@@ -62,7 +65,19 @@ namespace Game.Bootstrap
                 if (returnAt >= 0d) returnAt += Math.Max(0d, now - pausedAt);
                 pausedAt = -1d;
             }
-            if (!navigation.IsServer || phase != MatchPhase.Result || !hasResult || returned) return;
+            if (phase == MatchPhase.Result && !hasResult && !directLobbyResult)
+            {
+                if (resultDataFallbackAt < 0d)
+                    resultDataFallbackAt = now + NetworkMatchFlowSynchronizer.ResultDataGraceSeconds;
+                if (now >= resultDataFallbackAt)
+                {
+                    resultDataFallbackAt = -1d;
+                    resultDataFallbackActive = true;
+                    resultText.Value = "경기 결과 데이터를 받지 못했습니다.\n\n잠시 후 로비로 돌아갑니다.";
+                }
+            }
+            if (!navigation.IsServer || phase != MatchPhase.Result ||
+                (!hasResult && !resultDataFallbackActive) || returned) return;
             if (!loadRequested)
             {
                 loadRequested = true;
@@ -83,12 +98,20 @@ namespace Game.Bootstrap
             var rolledBackToSearching = snapshot.Phase == MatchPhase.Searching &&
                 phase is MatchPhase.Highlight or MatchPhase.Result;
             phase = snapshot.Phase;
+            if (phase != MatchPhase.Result)
+            {
+                resultDataFallbackAt = -1d;
+                resultDataFallbackActive = false;
+            }
             if (phase != MatchPhase.Waiting && phase != MatchPhase.Hiding && !rolledBackToSearching) return;
             hasResult = false;
+            directLobbyResult = false;
             loadRequested = false;
             returned = false;
             returnAt = -1d;
             pausedAt = -1d;
+            resultDataFallbackAt = -1d;
+            resultDataFallbackActive = false;
             // Waiting arrives before Result finishes unloading. Keep its text
             // until the next match starts, independently of navigation state.
             if (phase == MatchPhase.Hiding)
@@ -99,6 +122,9 @@ namespace Game.Bootstrap
         {
             // Early departure retains the existing direct-to-lobby path.
             hasResult = result.EndReason != MatchEndReason.LastPlayerStanding;
+            directLobbyResult = !hasResult;
+            resultDataFallbackAt = -1d;
+            resultDataFallbackActive = false;
             resultText.Value = FormatResult(result, room);
         }
 

@@ -31,6 +31,8 @@ namespace Game.Network.Match
         event Action<MatchStateSnapshot> MatchStateReceived;
         event Action<string> ItemAssignmentReceived;
         event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
+        event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;
+        IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses { get; }
         event Action<IReadOnlyList<PlayerInteractionStateSnapshot>>
             PlayerInteractionStatesReceived;
         event Action<IReadOnlyList<HighlightReplayData>> HighlightReplayReceived;
@@ -60,6 +62,8 @@ namespace Game.Network.Match
         bool TryInitializeAssignedItems(IReadOnlyList<PlayerItemAssignment> assignments);
         bool TryPublishMatchState(MatchStateSnapshot snapshot);
         bool TryPublishItemAssignments(IReadOnlyList<PlayerItemAssignment> assignments);
+        bool TryPublishPlayerItemStatuses(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses);
         bool TryPublishHighlightReplay(IReadOnlyList<HighlightReplayData> replay);
         bool IsHighlightReplayReady { get; }
         bool TrySetPlayerControls(int playerIndex, bool enabled);
