@@ -1,14 +1,18 @@
 // 백엔드 배포 파이프라인. Jenkins Job의 스크립트 경로를 backend/Jenkinsfile로 지정합니다.
 //
-// 트리거는 이 파일에 두지 않고 Job 설정에서 지정합니다. 웹훅과 폴링 중 어느 쪽으로
-// 갈지는 보안그룹에 80/443을 열 수 있는지에 달려 있고, 그 결정이 파이프라인의
-// 나머지를 바꾸지 않기 때문입니다.
+// 살아 있는 컨테이너를 교체하기 전에 새 이미지가 실제로 기동하는지 먼저 확인합니다.
+// compose up 은 컨테이너를 먼저 교체하고 앱은 그 뒤에 뜨기 때문에, 곧바로 배포하면
+// 마이그레이션 오류나 설정 오류가 곧 서비스 다운으로 이어집니다.
+//
+//   빌드 → 기동 검증(임시 컨테이너) → 배포 → 헬스체크
+//
+// 기동 검증 단계에서 실패하면 살아 있는 컨테이너를 건드리지 않은 상태로 멈춥니다.
 pipeline {
     agent any
 
     options {
         // 빌드가 멈춰서 슬롯을 물고 있는 상황을 막습니다.
-        timeout(time: 20, unit: 'MINUTES')
+        timeout(time: 25, unit: 'MINUTES')
         // 같은 compose 프로젝트를 두 빌드가 동시에 건드리면 컨테이너가 꼬입니다.
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '30'))
@@ -27,22 +31,105 @@ pipeline {
 
     environment {
         COMPOSE_FILE = 'compose.prod.yml'
+        APP_IMAGE    = 'd205-app'
         HEALTH_URL   = 'http://localhost:8080/actuator/health'
+
+        // 임시 컨테이너. 살아 있는 8080과 겹치지 않는 루프백 포트를 씁니다.
+        SMOKE_NAME   = 'd205-app-smoke'
+        SMOKE_URL    = 'http://127.0.0.1:18080/actuator/health'
     }
 
     stages {
-        stage('배포') {
+        stage('빌드') {
             steps {
                 // 워크스페이스는 git 체크아웃이라 .env가 없습니다(저장소에 넣지 않으므로).
-                // Jenkins 크리덴셜에 보관한 파일을 빌드마다 써넣습니다.
+                // Jenkins 크리덴셜에 보관한 파일을 빌드마다 써넣습니다. 이후 단계는
+                // 같은 워크스페이스를 쓰므로 여기서 한 번 쓰면 됩니다.
                 withCredentials([file(credentialsId: 'd205-backend-env', variable: 'ENV_FILE')]) {
                     dir('backend') {
                         sh '''
                             cp "$ENV_FILE" .env
                             chmod 600 .env
-                            docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
+                            docker compose -f "$COMPOSE_FILE" build
+
+                            # 기동 검증이 실제 DB를 필요로 하므로 먼저 확인합니다.
+                            # 이미 떠 있으면 아무 일도 일어나지 않습니다.
+                            docker compose -f "$COMPOSE_FILE" up -d --no-build mysql
                         '''
                     }
+                }
+            }
+        }
+
+        stage('기동 검증') {
+            steps {
+                dir('backend') {
+                    sh '''
+                        docker rm -f "$SMOKE_NAME" >/dev/null 2>&1 || true
+
+                        NET=$(docker network ls \
+                            --filter label=com.docker.compose.project=d205 \
+                            --format '{{.Name}}' | head -1)
+                        if [ -z "$NET" ]; then
+                            echo "compose 네트워크를 찾지 못했습니다. mysql이 떠 있는지 확인하세요."
+                            exit 1
+                        fi
+                        echo "네트워크: $NET"
+
+                        # 비밀번호는 --env-file로 넘깁니다. -e DB_PASSWORD=... 로 주면
+                        # sh -x 트레이스에 값이 그대로 찍힙니다.
+                        #
+                        # 이 컨테이너가 Flyway를 돌려 실제 DB에 마이그레이션을 적용합니다.
+                        # 그래서 깨진 마이그레이션이 여기서 드러납니다. 같은 DB에 두 앱이
+                        # 잠깐 붙지만 Flyway가 DB 락을 잡으므로 이중 적용은 없습니다.
+                        docker run -d --name "$SMOKE_NAME" \
+                            --network "$NET" \
+                            --env-file .env \
+                            -e SPRING_PROFILES_ACTIVE=prod \
+                            -e DB_HOST=mysql \
+                            -e DB_PORT=3306 \
+                            -e TZ=Asia/Seoul \
+                            -p 127.0.0.1:18080:8080 \
+                            "$APP_IMAGE"
+
+                        # 폴링 트레이스가 로그를 수십 줄 채우므로 여기서만 끕니다.
+                        set +x
+                        ok=0
+                        for i in $(seq 1 45); do
+                            running=$(docker inspect -f '{{.State.Running}}' "$SMOKE_NAME" 2>/dev/null || echo false)
+                            if [ "$running" != true ]; then
+                                echo "임시 컨테이너가 종료되었습니다 (${i}회 시도)"
+                                break
+                            fi
+                            if curl -fsS --max-time 3 "$SMOKE_URL" 2>/dev/null | grep -q '"status":"UP"'; then
+                                echo "기동 검증 통과 (${i}회 시도)"
+                                ok=1
+                                break
+                            fi
+                            sleep 2
+                        done
+                        set -x
+
+                        if [ "$ok" != 1 ]; then
+                            echo "기동 검증 실패 - 살아 있는 컨테이너는 교체하지 않았습니다"
+                            docker logs "$SMOKE_NAME" --tail 120 2>&1 || true
+                            exit 1
+                        fi
+                    '''
+                }
+            }
+        }
+
+        stage('배포') {
+            steps {
+                dir('backend') {
+                    sh '''
+                        # 임시 컨테이너를 먼저 치웁니다. 남겨두면 같은 DB에 계속 붙어 있습니다.
+                        docker rm -f "$SMOKE_NAME" >/dev/null 2>&1 || true
+
+                        # 이미지는 이미 빌드됐고 기동도 확인됐습니다. 여기서는 교체만 합니다.
+                        docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+                    '''
                 }
             }
         }
@@ -50,16 +137,17 @@ pipeline {
         stage('헬스체크') {
             steps {
                 dir('backend') {
-                    // 컨테이너가 떴다는 것과 애플리케이션이 응답한다는 것은 다릅니다.
-                    // Flyway 마이그레이션과 DB 연결까지 끝나야 UP이 나옵니다.
+                    // 기동 검증을 통과했으니 여기서 실패하는 것은 교체 과정의 문제입니다.
                     sh '''
+                        set +x
                         for i in $(seq 1 30); do
-                            if curl -fsS --max-time 3 "$HEALTH_URL" | grep -q '"status":"UP"'; then
+                            if curl -fsS --max-time 3 "$HEALTH_URL" 2>/dev/null | grep -q '"status":"UP"'; then
                                 echo "헬스체크 통과 (${i}회 시도)"
                                 exit 0
                             fi
                             sleep 2
                         done
+                        set -x
 
                         echo "헬스체크 실패 - 60초 안에 UP이 되지 않았습니다"
                         docker compose -f "$COMPOSE_FILE" ps || true
@@ -74,17 +162,23 @@ pipeline {
     post {
         always {
             dir('backend') {
-                // 시크릿을 워크스페이스에 남기지 않습니다. 스테이지가 모두 끝난
-                // 뒤에 지웁니다. compose는 명령마다 .env를 다시 읽으므로
-                // 헬스체크 단계의 logs 조회까지는 파일이 있어야 합니다.
+                // 임시 컨테이너가 어느 단계에서 실패하든 남지 않게 합니다.
+                sh 'docker rm -f "$SMOKE_NAME" >/dev/null 2>&1 || true'
+                // 시크릿을 워크스페이스에 남기지 않습니다.
                 sh 'rm -f .env'
-                // 빌드 캐시가 계속 쌓여 디스크를 먹습니다. 7일보다 오래된 것만
-                // 버리므로 다음 빌드의 캐시 적중률은 그대로입니다.
+                // 빌드 캐시가 쌓여 디스크를 먹습니다. 7일보다 오래된 것만 버리므로
+                // 다음 빌드의 캐시 적중률은 그대로입니다.
                 sh 'docker builder prune -f --filter until=168h || true'
             }
         }
         failure {
-            echo '배포 실패. 이전 컨테이너는 계속 동작 중입니다.'
+            echo '''파이프라인 실패. 서비스 상태는 어느 단계에서 실패했는지에 달려 있습니다.
+
+  빌드 / 기동 검증 단계  -> 살아 있는 컨테이너를 교체하지 않았으므로 서비스는 정상입니다.
+  배포 / 헬스체크 단계   -> 컨테이너가 이미 교체되었으므로 서비스가 내려간 상태일 수 있습니다.
+
+확인: ssh d205 'bash /var/lib/jenkins/workspace/d205-backend-deploy/backend/deploy/verify.sh'
+복구 절차는 backend/deploy/README.md 를 참고하세요.'''
         }
     }
 }
