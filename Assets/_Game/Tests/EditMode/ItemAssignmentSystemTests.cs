@@ -171,6 +171,29 @@ namespace Game.Tests.EditMode
             Assert.That(assignments[0].Item.ItemId, Is.EqualTo("ball"));
             Assert.That(assignments[1].PlayerIndex, Is.EqualTo(1));
             Assert.That(assignments[1].Item.ItemId, Is.EqualTo("apple"));
+            Assert.That(selection.IsFinalized, Is.True);
+            Assert.That(selection.TryCreateAssignments(out _), Is.False);
+        }
+
+        [Test]
+        public void SelectionSession_RequiresCancelBeforeChangingConfirmation()
+        {
+            var selection = new ItemSelectionSession(
+                Definitions,
+                new[] { "toy", "food" });
+
+            Assert.That(selection.TryConfirm(0, "ball", out _), Is.True);
+            Assert.That(selection.TryConfirm(0, "bear", out var failure), Is.False);
+            Assert.That(failure, Is.EqualTo(ItemSelectionFailure.AlreadyConfirmed));
+            Assert.That(selection.TryCancel(0), Is.True);
+            Assert.That(selection.ConfirmedCount, Is.Zero);
+            Assert.That(selection.TryConfirm(0, "bear", out _), Is.True);
+
+            Assert.That(selection.TryConfirm(1, "apple", out _), Is.True);
+            Assert.That(selection.TryCreateAssignments(out _), Is.True);
+            Assert.That(selection.TryCancel(0), Is.False);
+            Assert.That(selection.TryConfirm(0, "ball", out failure), Is.False);
+            Assert.That(failure, Is.EqualTo(ItemSelectionFailure.SelectionClosed));
         }
 
         [Test]

@@ -46,6 +46,7 @@ namespace Game.Server.Items
 
         public int ConfirmedCount { get; private set; }
         public bool IsComplete => ConfirmedCount == selections.Length;
+        public bool IsFinalized { get; private set; }
 
         public IReadOnlyList<ItemDefinition> AvailableItemsFor(int playerIndex)
         {
@@ -65,8 +66,18 @@ namespace Game.Server.Items
             out ItemSelectionFailure failure)
         {
             ValidatePlayerIndex(playerIndex);
+            if (IsFinalized)
+            {
+                failure = ItemSelectionFailure.SelectionClosed;
+                return false;
+            }
+
             var previous = selections[playerIndex];
-            if (previous.HasValue) selectedItemIds.Remove(previous.Value.ItemId);
+            if (previous.HasValue)
+            {
+                failure = ItemSelectionFailure.AlreadyConfirmed;
+                return false;
+            }
 
             if (!ItemSelectionRules.TryResolveSelection(
                     definitions,
@@ -76,26 +87,37 @@ namespace Game.Server.Items
                     out var selected,
                     out failure))
             {
-                if (previous.HasValue) selectedItemIds.Add(previous.Value.ItemId);
                 return false;
             }
 
             selections[playerIndex] = selected;
             selectedItemIds.Add(selected.ItemId);
-            if (!previous.HasValue) ConfirmedCount++;
+            ConfirmedCount++;
+            return true;
+        }
+
+        public bool TryCancel(int playerIndex)
+        {
+            ValidatePlayerIndex(playerIndex);
+            if (IsFinalized || !selections[playerIndex].HasValue) return false;
+
+            selectedItemIds.Remove(selections[playerIndex].Value.ItemId);
+            selections[playerIndex] = null;
+            ConfirmedCount--;
             return true;
         }
 
         public bool TryCreateAssignments(out PlayerItemAssignment[] assignments)
         {
             assignments = null;
-            if (!IsComplete) return false;
+            if (!IsComplete || IsFinalized) return false;
 
             assignments = new PlayerItemAssignment[selections.Length];
             for (var playerIndex = 0; playerIndex < selections.Length; playerIndex++)
                 assignments[playerIndex] = new PlayerItemAssignment(
                     playerIndex,
                     selections[playerIndex].Value);
+            IsFinalized = true;
             return true;
         }
 

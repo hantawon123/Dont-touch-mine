@@ -48,7 +48,9 @@ namespace Game.Core.Items
         MissingCategory,
         UnknownItem,
         WrongCategory,
-        AlreadySelected
+        AlreadySelected,
+        AlreadyConfirmed,
+        SelectionClosed
     }
 
     public static class ItemSelectionRules
