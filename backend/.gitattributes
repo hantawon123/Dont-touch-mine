@@ -1,0 +1,13 @@
+# 이 디렉터리의 산출물은 리눅스 서버에서 실행됩니다. Windows에서 클론해도
+# 작업 트리를 LF로 유지해서, scp로 올린 스크립트와 설정이 그대로 동작하게 합니다.
+# core.autocrlf=true인 환경에서 CRLF로 체크아웃되면 셸 스크립트가
+# bad interpreter로 죽고, nginx 설정은 지시어 값 끝에 \r이 섞입니다.
+* text=auto eol=lf
+
+# 위 규칙으로도 LF지만 Initializr 기본값이라 명시해 둡니다.
+/gradlew text eol=lf
+
+# Windows에서 실행하는 배치 파일만 CRLF입니다.
+*.bat text eol=crlf
+
+*.jar binary

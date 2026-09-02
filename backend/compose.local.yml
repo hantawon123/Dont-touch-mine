@@ -1,0 +1,38 @@
+# 로컬 개발용 MySQL. 운영 서버(j15d205)에는 이 파일을 쓰지 않습니다.
+# 여기 비밀번호는 개발자 PC의 컨테이너 전용입니다.
+
+# 프로젝트 이름을 고정합니다. 지정하지 않으면 디렉터리명인 "backend"가 쓰여서,
+# 같은 이름의 다른 프로젝트가 있는 PC에서 서로의 컨테이너를 고아로 인식합니다.
+name: d205
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: d205-mysql-local
+    environment:
+      MYSQL_ROOT_PASSWORD: rootlocal
+      MYSQL_DATABASE: d205
+      MYSQL_USER: d205
+      MYSQL_PASSWORD: d205local
+      TZ: Asia/Seoul
+    # 닉네임에 한글과 이모지가 들어올 수 있어 utf8mb4로 고정합니다.
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    # 호스트는 3307을 씁니다. 3306은 이미 설치된 MySQL 서비스가 점유하는 경우가
+    # 많고, 그쪽을 끄면 다른 과목 실습이 멈추기 때문입니다.
+    ports:
+      - "3307:3306"
+    volumes:
+      - d205-mysql-data:/var/lib/mysql
+    healthcheck:
+      # 애플리케이션이 붙기 전에 MySQL이 실제로 질의를 받을 수 있는지 확인합니다.
+      # 컨테이너가 떴다는 것과 DB가 준비됐다는 것은 다릅니다.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-prootlocal"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+volumes:
+  d205-mysql-data:
