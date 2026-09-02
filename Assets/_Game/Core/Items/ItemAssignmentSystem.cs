@@ -45,7 +45,7 @@ namespace Game.Core.Items
     {
         public static PlayerItemAssignment[] Assign(int playerCount, Random random)
         {
-            return Assign(ItemCatalog.Definitions, playerCount, random);
+            return Assign(ItemCatalog.AssignmentDefinitions, playerCount, random);
         }
 
         public static PlayerItemAssignment[] Assign(
@@ -100,28 +100,30 @@ namespace Game.Core.Items
                 categoryItems.Add(definition);
             }
 
-            if (itemIds.Count < playerCount)
+            for (var categoryIndex = categories.Count - 1; categoryIndex >= 0; categoryIndex--)
             {
-                throw new InvalidOperationException(
-                    $"At least {playerCount} unique items are required.");
-            }
-
-            var assignments = new PlayerItemAssignment[playerCount];
-            for (var playerIndex = 0; playerIndex < playerCount; playerIndex++)
-            {
-                var categoryIndex = random.Next(categories.Count);
-                var category = categories[categoryIndex];
-                var categoryItems = itemsByCategory[category];
-                var itemIndex = random.Next(categoryItems.Count);
-                var item = categoryItems[itemIndex];
-
-                assignments[playerIndex] = new PlayerItemAssignment(playerIndex, item);
-                categoryItems.RemoveAt(itemIndex);
-
-                if (categoryItems.Count == 0)
+                if (itemsByCategory[categories[categoryIndex]].Count < playerCount)
                 {
                     categories.RemoveAt(categoryIndex);
                 }
+            }
+
+            if (categories.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"A category with at least {playerCount} unique items is required.");
+            }
+
+            var category = categories[random.Next(categories.Count)];
+            var candidates = itemsByCategory[category];
+            var assignments = new PlayerItemAssignment[playerCount];
+            for (var playerIndex = 0; playerIndex < playerCount; playerIndex++)
+            {
+                var itemIndex = random.Next(candidates.Count);
+                var item = candidates[itemIndex];
+
+                assignments[playerIndex] = new PlayerItemAssignment(playerIndex, item);
+                candidates.RemoveAt(itemIndex);
             }
 
             return assignments;

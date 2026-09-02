@@ -1706,14 +1706,14 @@ namespace Game.Tests.EditMode
         {
             return new[]
             {
-                new ItemDefinition("bear", "toy"),
-                new ItemDefinition("ball", "toy"),
-                new ItemDefinition("apple", "food"),
-                new ItemDefinition("bread", "food"),
-                new ItemDefinition("hammer", "tool"),
-                new ItemDefinition("wrench", "tool"),
-                new ItemDefinition("cup", "kitchen"),
-                new ItemDefinition("plate", "kitchen")
+                new ItemDefinition("bear", "test"),
+                new ItemDefinition("ball", "test"),
+                new ItemDefinition("apple", "test"),
+                new ItemDefinition("bread", "test"),
+                new ItemDefinition("hammer", "test"),
+                new ItemDefinition("wrench", "test"),
+                new ItemDefinition("cup", "test"),
+                new ItemDefinition("plate", "test")
             };
         }
 

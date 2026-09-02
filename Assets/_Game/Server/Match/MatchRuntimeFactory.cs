@@ -31,7 +31,8 @@ namespace Game.Server.Match
             IReadOnlyList<Pose> spawnPoints,
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
-            IReadOnlyList<WorldObjectState> initialWorldObjects = null)
+            IReadOnlyList<WorldObjectState> initialWorldObjects = null,
+            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null)
         {
             return Create(
                 lobby,
@@ -42,7 +43,8 @@ namespace Game.Server.Match
                 spawnPoints,
                 itemDefinitions,
                 random,
-                initialWorldObjects);
+                initialWorldObjects,
+                specifiedAssignments);
         }
 
         public MatchRuntimeComposition Create(
@@ -54,7 +56,8 @@ namespace Game.Server.Match
             IReadOnlyList<Pose> spawnPoints,
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
-            IReadOnlyList<WorldObjectState> initialWorldObjects = null)
+            IReadOnlyList<WorldObjectState> initialWorldObjects = null,
+            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null)
         {
             if (lobby == null)
             {
@@ -89,7 +92,8 @@ namespace Game.Server.Match
                 spawnPoints,
                 itemDefinitions,
                 random,
-                initialWorldObjects);
+                initialWorldObjects,
+                specifiedAssignments: specifiedAssignments);
 
             try
             {
@@ -118,7 +122,7 @@ namespace Game.Server.Match
             System.Random random,
             IReadOnlyList<WorldObjectState> initialWorldObjects = null,
             int? destructionUsesPerPlayer = null,
-            IReadOnlyList<PlayerItemAssignment> restoredAssignments = null)
+            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null)
         {
             if (participantIds == null)
             {
@@ -145,7 +149,7 @@ namespace Game.Server.Match
                     itemDefinitions,
                     random,
                     initialWorldObjects,
-                    restoredAssignments);
+                    specifiedAssignments);
                 return new MatchSessionComposition(state, session);
             }
             catch
@@ -162,7 +166,8 @@ namespace Game.Server.Match
             IReadOnlyList<ItemDefinition> itemDefinitions,
             System.Random random,
             IReadOnlyList<WorldObjectState> initialWorldObjects = null,
-            int? destructionUsesPerPlayer = null)
+            int? destructionUsesPerPlayer = null,
+            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null)
         {
             return CreateSession(
                 CaptureParticipantIds(participants),
@@ -171,7 +176,8 @@ namespace Game.Server.Match
                 itemDefinitions,
                 random,
                 initialWorldObjects,
-                destructionUsesPerPlayer);
+                destructionUsesPerPlayer,
+                specifiedAssignments);
         }
 
         public MatchSessionComposition RestoreSession(

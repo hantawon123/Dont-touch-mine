@@ -11,12 +11,12 @@ namespace Game.Tests.EditMode
         {
             new("bear", "toy"),
             new("ball", "toy"),
+            new("block", "toy"),
+            new("doll", "toy"),
+            new("car", "toy"),
+            new("kite", "toy"),
             new("apple", "food"),
-            new("bread", "food"),
-            new("hammer", "tool"),
-            new("wrench", "tool"),
-            new("cup", "kitchen"),
-            new("plate", "kitchen")
+            new("bread", "food")
         };
 
         [Test]
@@ -33,7 +33,7 @@ namespace Game.Tests.EditMode
             {
                 Assert.That(assignments[playerIndex].PlayerIndex, Is.EqualTo(playerIndex));
                 Assert.That(assignedItemIds.Add(assignments[playerIndex].Item.ItemId), Is.True);
-                Assert.That(assignments[playerIndex].Item.Category, Is.Not.Empty);
+                Assert.That(assignments[playerIndex].Item.Category, Is.EqualTo("toy"));
             }
         }
 
@@ -53,7 +53,7 @@ namespace Game.Tests.EditMode
             foreach (var assignment in assignments)
             {
                 Assert.That(assignedItemIds.Add(assignment.Item.ItemId), Is.True);
-                Assert.That(ItemCatalog.Definitions, Does.Contain(assignment.Item));
+                Assert.That(ItemCatalog.AssignmentDefinitions, Does.Contain(assignment.Item));
             }
         }
 
@@ -80,6 +80,42 @@ namespace Game.Tests.EditMode
             Assert.That(
                 ItemCatalog.DisplayNameOf(assigned.ItemId),
                 Is.EqualTo(ItemCatalog.Definitions[0].DisplayName));
+        }
+
+        [Test]
+        public void Catalog_ExposesItemsGroupedByActualCategory()
+        {
+            Assert.That(
+                ItemCatalog.Categories,
+                Is.EqualTo(new[] { "food", "tableware", "decoration", "kitchen" }));
+
+            var food = ItemCatalog.DefinitionsInCategory("food");
+
+            Assert.That(food, Has.Count.EqualTo(3));
+            foreach (var item in food)
+            {
+                Assert.That(item.Category, Is.EqualTo("food"));
+            }
+
+            Assert.That(food[0].ItemId, Is.EqualTo("Soda_01"));
+        }
+
+        [Test]
+        public void Catalog_ProvidesSixAssignmentCopiesPerCategory()
+        {
+            foreach (var category in ItemCatalog.Categories)
+            {
+                var count = 0;
+                foreach (var assignment in ItemCatalog.AssignmentDefinitions)
+                {
+                    if (assignment.Category == category)
+                    {
+                        count++;
+                    }
+                }
+
+                Assert.That(count, Is.EqualTo(6), category);
+            }
         }
 
         [Test]

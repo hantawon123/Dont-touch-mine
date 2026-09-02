@@ -193,6 +193,116 @@ namespace Game.Tests.EditMode
             }
         }
 
+        [Test]
+        public void SessionFactory_UsesSpecifiedAssignmentsForPlayerProvisioning()
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+
+            try
+            {
+                var items = new[]
+                {
+                    new ItemDefinition("ball", "toy"),
+                    new ItemDefinition("apple", "food")
+                };
+                var assignments = new[]
+                {
+                    new PlayerItemAssignment(0, items[0]),
+                    new PlayerItemAssignment(1, items[1])
+                };
+
+                var participants = new[]
+                {
+                    new MatchParticipant("host", 0),
+                    new MatchParticipant("guest", 1)
+                };
+                using var composition = new MatchRuntimeFactory(rules)
+                    .CreateSessionFromParticipants(
+                        participants,
+                        new AcceptAllPlacements(),
+                        CreateSpawnPoints(),
+                        items,
+                        new System.Random(1),
+                        specifiedAssignments: assignments);
+
+                Assert.That(composition.Session.Assignments[0].Item.ItemId, Is.EqualTo("ball"));
+                Assert.That(composition.Session.Assignments[1].Item.ItemId, Is.EqualTo("apple"));
+                Assert.That(composition.Session.TryInitializeAssignedItem(0), Is.True);
+                Assert.That(composition.Session.TryGetHeldObjectId(0, out var held), Is.True);
+                Assert.That(held, Is.EqualTo("ball"));
+                Assert.That(composition.Session.TryInitializeAssignedItem(1), Is.True);
+                Assert.That(composition.Session.TryGetHeldObjectId(1, out held), Is.True);
+                Assert.That(held, Is.EqualTo("apple"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void SessionFactory_DoesNotCarrySpecifiedAssignmentsIntoRematch()
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+
+            try
+            {
+                var items = new[]
+                {
+                    new ItemDefinition("ball", "toy"),
+                    new ItemDefinition("block", "toy"),
+                    new ItemDefinition("apple", "food"),
+                    new ItemDefinition("bread", "food")
+                };
+                var participants = new[]
+                {
+                    new MatchParticipant("host", 0),
+                    new MatchParticipant("guest", 1)
+                };
+                var firstAssignments = new[]
+                {
+                    new PlayerItemAssignment(0, items[0]),
+                    new PlayerItemAssignment(1, items[2])
+                };
+                var rematchAssignments = new[]
+                {
+                    new PlayerItemAssignment(0, items[1]),
+                    new PlayerItemAssignment(1, items[3])
+                };
+
+                var factory = new MatchRuntimeFactory(rules);
+                using var first = factory.CreateSessionFromParticipants(
+                    participants,
+                    new AcceptAllPlacements(),
+                    CreateSpawnPoints(),
+                    items,
+                    new System.Random(1),
+                    specifiedAssignments: firstAssignments);
+                using var rematch = factory.CreateSessionFromParticipants(
+                    participants,
+                    new AcceptAllPlacements(),
+                    CreateSpawnPoints(),
+                    items,
+                    new System.Random(2),
+                    specifiedAssignments: rematchAssignments);
+
+                Assert.That(first.Session.Assignments[0].Item.ItemId, Is.EqualTo("ball"));
+                Assert.That(first.Session.Assignments[1].Item.ItemId, Is.EqualTo("apple"));
+                Assert.That(rematch.Session.Assignments[0].Item.ItemId, Is.EqualTo("block"));
+                Assert.That(rematch.Session.Assignments[1].Item.ItemId, Is.EqualTo("bread"));
+                Assert.That(rematch.Session.TryInitializeAssignedItem(0), Is.True);
+                Assert.That(rematch.Session.TryInitializeAssignedItem(1), Is.True);
+                Assert.That(rematch.Session.TryGetHeldObjectId(0, out var hostItem), Is.True);
+                Assert.That(rematch.Session.TryGetHeldObjectId(1, out var guestItem), Is.True);
+                Assert.That(hostItem, Is.EqualTo("block"));
+                Assert.That(guestItem, Is.EqualTo("bread"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
         [TestCase(2)]
         [TestCase(3)]
         [TestCase(4)]
@@ -324,7 +434,7 @@ namespace Game.Tests.EditMode
             var items = new ItemDefinition[playerCount];
             for (var index = 0; index < playerCount; index++)
             {
-                items[index] = new ItemDefinition($"item-{index}", $"category-{index}");
+                items[index] = new ItemDefinition($"item-{index}", "test");
             }
 
             return items;

@@ -110,7 +110,7 @@ namespace Game.Architecture.Tests
                 var carryableCount = carryableItems.Count;
                 Assert.That(
                     captured.NetworkConfiguration.InitialWorldObjects.Count +
-                    ItemCatalog.Definitions.Count,
+                    ItemCatalog.AssignmentDefinitions.Count,
                     Is.EqualTo(carryableCount),
                     "모든 CarryableItem이 배정 물건 또는 일반 맵 물건으로 등록되어야 합니다.");
                 Assert.That(
