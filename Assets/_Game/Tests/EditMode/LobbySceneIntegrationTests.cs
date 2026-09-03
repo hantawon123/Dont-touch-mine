@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Bootstrap;
 using Game.Client.Lobby;
 using NUnit.Framework;
 using UnityEditor;
@@ -123,6 +124,22 @@ namespace Game.Tests.EditMode
                         $"'{name}' is still on the HUD root. It moved into the " +
                         "Esc menu, so the old slot should be gone.");
                 }
+            });
+        }
+
+        [Test]
+        public void SceneFlow_UsesTheLobbySpawnConfiguration()
+        {
+            WithLobbyScene(scene =>
+            {
+                var scope = SingleComponent<LobbyLifetimeScope>(scene);
+                var assigned = new SerializedObject(scope)
+                    .FindProperty("sceneConfiguration")
+                    .objectReferenceValue;
+
+                Assert.That(assigned,
+                    Is.SameAs(SingleComponent<MatchSceneConfiguration>(scene)),
+                    "LobbyLifetimeScope must not discover spawn points across merged Fusion scenes.");
             });
         }
 

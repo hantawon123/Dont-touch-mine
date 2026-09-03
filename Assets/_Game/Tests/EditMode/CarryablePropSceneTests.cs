@@ -91,6 +91,26 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Capture_RejectsSceneMissingCatalogItemsBeforeRuntimeStarts()
+        {
+            var scene = EditorSceneManager.NewPreviewScene();
+            var root = new GameObject("Empty Playground");
+            SceneManager.MoveGameObjectToScene(root, scene);
+
+            try
+            {
+                var failure = Assert.Throws<InvalidOperationException>(
+                    () => PlaygroundMatchScene.Capture(scene));
+
+                Assert.That(failure.Message, Does.Contain("is missing item"));
+            }
+            finally
+            {
+                EditorSceneManager.ClosePreviewScene(scene);
+            }
+        }
+
+        [Test]
         public void Playground_CapturesNetworkMatchConfiguration()
         {
             var scene = SceneManager.GetSceneByPath(PlaygroundScenePath);

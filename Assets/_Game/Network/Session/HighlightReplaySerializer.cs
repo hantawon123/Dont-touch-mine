@@ -154,6 +154,10 @@ namespace Game.Network.Session
             writer.Write((byte)replay.Clips.Count);
             foreach (var clip in replay.Clips)
             {
+                if (clip.Frames.Count == 0)
+                    throw new ArgumentException(
+                        "Every transferred highlight clip must contain a replay frame.",
+                        nameof(replay));
                 WriteSegment(writer, clip.Segment);
                 var frameCount = Math.Min(clip.Frames.Count, MaxFramesPerClip);
                 writer.Write(frameCount);
@@ -187,6 +191,9 @@ namespace Game.Network.Session
             {
                 var segment = ReadSegment(reader);
                 var frameCount = ReadCount(reader, MaxFramesPerClip);
+                if (frameCount == 0)
+                    throw new InvalidDataException(
+                        "Every transferred highlight clip must contain a replay frame.");
                 var frames = new HighlightReplayFrame[frameCount];
                 for (var frameIndex = 0; frameIndex < frameCount; frameIndex++)
                 {

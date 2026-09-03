@@ -129,6 +129,11 @@ namespace Game.Network.Voice
             }
 
             announced = true;
+            // Room/Lobby transitions can destroy a network avatar between the
+            // periodic rescan and this report. Do not query Photon Voice on a
+            // stale VoiceNetworkObject; its IsLocal getter dereferences the
+            // underlying Fusion object.
+            voices.RemoveAll(voice => voice == null || voice.Object == null);
 
             var mine = 0;
             var remote = 0;

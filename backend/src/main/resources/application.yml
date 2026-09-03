@@ -36,3 +36,20 @@ management:
   endpoint:
     health:
       show-details: never
+
+# API 명세와 Swagger UI 는 기본으로 끕니다.
+#
+# 위 actuator 와 같은 판단입니다. 지금 API 에는 인증이 없어서 userId 를 아는 사람이
+# 부를 수 있고, 계정 삭제는 되돌릴 수 없습니다. Swagger UI 를 서빙하는 서버는 그
+# 페이지의 대상 서버가 되므로 "Try it out" 이 그 서버에 실제로 씁니다.
+#
+# 켜는 곳은 application-local.yml 과 테스트 프로필입니다. 새 프로필을 추가하는
+# 사람이 잊어도 안전한 쪽에 있게 하려고 기본값을 끔으로 둡니다.
+#
+# 배포 서버에서 볼 수 없는 대신, 명세를 docs/openapi.json 으로 커밋합니다.
+# OpenApiSpecTest 가 코드와 다르면 실패하므로 낡을 수 없습니다.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

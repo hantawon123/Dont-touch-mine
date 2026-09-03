@@ -202,6 +202,7 @@ namespace Game.Architecture.Tests
             public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses { get; } =
                 Array.Empty<PlayerItemStatusSnapshot>();
             public event Action<MatchStateSnapshot> MatchStateReceived;
+            public event Action<Game.Core.Lobby.LobbyChatMessage> MatchChatReceived;
             public event Action<string> ItemAssignmentReceived;
             public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
             public event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;

@@ -1,0 +1,23 @@
+# 테스트 프로필 설정.
+#
+# 접속 상태 스윕을 사실상 끕니다. 스케줄러가 테스트 중에 돌면 하트비트를 과거로 밀어
+# 크래시 상황을 만드는 테스트와 경합합니다. 저장된 status 가 아직 IN_GAME 인 것을
+# 확인하는 사이에 스윕이 OFFLINE 으로 바꿔버리면 간헐적으로 실패하고, 그때 원인을
+# 찾기가 어렵습니다.
+#
+# fixedDelay 는 기동 직후 한 번 돌고 그다음 이 간격을 셉니다. 기동 시점에는 데이터가
+# 없어서 해가 없고, 한 시간 뒤에는 테스트가 이미 끝나 있습니다.
+#
+# 스윕 자체를 검증하는 테스트는 sweep() 을 직접 부르므로 이 설정과 무관합니다.
+presence:
+  sweep-interval-ms: 3600000
+
+# OpenApiSpecTest 가 읽습니다. UI 까지 켜는 것은 로컬 설정(application-local.yml)이
+# 실제로 동작하는지 검증하기 위한 것입니다. 경로 설정이 틀리면 아무 오류 없이 404 가
+# 되어서, 클라이언트 담당자가 열어볼 때까지 아무도 모릅니다.
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html

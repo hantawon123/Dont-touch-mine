@@ -875,14 +875,20 @@ namespace Game.Server.Match
             }
 
             var selected = highlights.Capture();
-            replay = new HighlightReplayData[selected.Length];
+            var playableCandidates = new List<HighlightCandidate>(selected.Length);
+            var playableReplay = new List<HighlightReplayData>(selected.Length);
             for (var index = 0; index < selected.Length; index++)
             {
-                replay[index] = new HighlightReplayData(
-                    selected[index],
-                    CaptureReplay(selected[index]));
+                var clips = CaptureReplay(selected[index]);
+                if (!HasPlayableFrames(clips)) continue;
+                playableCandidates.Add(selected[index]);
+                playableReplay.Add(new HighlightReplayData(selected[index], clips));
             }
 
+            // The shared schedule must describe the payload clients can actually play.
+            // Otherwise an empty clip still consumes highlight time behind a black cover.
+            highlights = new HighlightSequence(playableCandidates, rules);
+            replay = playableReplay.ToArray();
             return true;
         }
 
@@ -898,8 +904,9 @@ namespace Game.Server.Match
             if (CurrentPhase != MatchPhase.Highlight) return false;
             if (!double.IsFinite(startsAt) || startsAt < 0d)
                 throw new ArgumentOutOfRangeException(nameof(startsAt));
-            state.EnterPhase(MatchPhase.Highlight, startsAt + highlights.TotalDurationSeconds +
-                highlights.Count * HighlightPresentationTiming.OverheadSeconds);
+            state.EnterPhase(
+                MatchPhase.Highlight,
+                startsAt + highlights.ScheduledDurationSeconds);
             return true;
         }
 
@@ -972,6 +979,15 @@ namespace Game.Server.Match
             }
 
             return sampled;
+        }
+
+        private static bool HasPlayableFrames(IReadOnlyList<HighlightReplayClip> clips)
+        {
+            if (clips.Count == 0) return false;
+            for (var index = 0; index < clips.Count; index++)
+                if (clips[index].Frames.Count == 0)
+                    return false;
+            return true;
         }
 
         private bool IsSearchingAt(double now)

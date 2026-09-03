@@ -646,6 +646,11 @@ namespace Game.Architecture.Tests
             Assert.That(settings.StandHeight, Is.EqualTo(config.StandHeight));
             Assert.That(settings.CrouchHeight, Is.EqualTo(config.CrouchHeight));
             Assert.That(settings.ProneHeight, Is.EqualTo(config.ProneHeight));
+            Assert.That(settings.MaxStamina, Is.EqualTo(config.MaxStamina));
+            Assert.That(settings.StaminaDrainPerSecond,
+                Is.EqualTo(config.StaminaDrainPerSecond));
+            Assert.That(settings.StaminaRecoveryPerSecond,
+                Is.EqualTo(config.StaminaRecoveryPerSecond));
         }
 
         [Test]
@@ -714,10 +719,12 @@ namespace Game.Architecture.Tests
         public void MatchStarter_ForwardsReplicatedPhaseSnapshot()
         {
             var gameObject = new GameObject("MatchStarterTest");
+            var stateObject = new GameObject("UnspawnedMatchSessionStateTest");
 
             try
             {
                 var starter = gameObject.AddComponent<MatchStarter>();
+                var state = stateObject.AddComponent<MatchSessionState>();
                 var expected = new MatchStateSnapshot(MatchPhase.Searching, 120d);
                 var received = new MatchStateSnapshot();
                 var wasReceived = false;
@@ -729,13 +736,19 @@ namespace Game.Architecture.Tests
                 };
 
                 starter.PublishSnapshot(expected);
+                var flags = System.Reflection.BindingFlags.Instance |
+                            System.Reflection.BindingFlags.NonPublic;
+                typeof(MatchStarter).GetField("_state", flags).SetValue(starter, state);
 
                 Assert.That(wasReceived, Is.True);
                 Assert.That(received.Phase, Is.EqualTo(MatchPhase.Searching));
                 Assert.That(received.PhaseEndsAt, Is.EqualTo(120d));
+                Assert.That(starter.CurrentPhase, Is.EqualTo(MatchPhase.Searching),
+                    "An unspawned client state must fall back to the last replicated phase.");
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(stateObject);
                 UnityEngine.Object.DestroyImmediate(gameObject);
             }
         }
@@ -763,6 +776,7 @@ namespace Game.Architecture.Tests
                 "RPC_RequestHit",
                 "RPC_RequestShredder",
                 "RPC_RequestReturnToLobby",
+                "RPC_RequestMatchChat",
             };
 
             foreach (var name in names)
@@ -816,6 +830,7 @@ namespace Game.Architecture.Tests
                 "RPC_NotifyPlayerStunned",
                 "RPC_NotifyObjectThrown",
                 "RPC_NotifyFinalWarning",
+                "RPC_NotifyMatchChat",
             };
 
             foreach (var name in names)
@@ -957,6 +972,18 @@ namespace Game.Architecture.Tests
             var snapshot = new PlayerInteractionStateSnapshot(1, 15d, 3);
             Assert.That(snapshot.IsStunned(14.99d), Is.True);
             Assert.That(snapshot.IsStunned(15d), Is.False);
+        }
+
+        [Test]
+        public void PlayerStamina_IsPersistentNetworkedData()
+        {
+            var stamina = typeof(NetworkPlayerMotor).GetProperty("CurrentStamina");
+            var exhausted = typeof(NetworkPlayerMotor).GetProperty("IsSprintExhausted");
+
+            Assert.That(stamina, Is.Not.Null);
+            Assert.That(exhausted, Is.Not.Null);
+            Assert.That(Attribute.IsDefined(stamina, typeof(Fusion.NetworkedAttribute)), Is.True);
+            Assert.That(Attribute.IsDefined(exhausted, typeof(Fusion.NetworkedAttribute)), Is.True);
         }
 
         [Test]

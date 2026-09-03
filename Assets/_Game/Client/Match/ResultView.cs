@@ -26,6 +26,18 @@ namespace Game.Client.Match
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
+            var backgroundObject = new GameObject(
+                "Result Background",
+                typeof(RectTransform),
+                typeof(Image));
+            backgroundObject.transform.SetParent(canvasObject.transform, false);
+            var background = backgroundObject.GetComponent<Image>();
+            background.color = new Color(0.04f, 0.04f, 0.04f, 1f);
+            background.raycastTarget = false;
+            var backgroundRect = background.rectTransform;
+            backgroundRect.anchorMin = Vector2.zero;
+            backgroundRect.anchorMax = Vector2.one;
+            backgroundRect.offsetMin = backgroundRect.offsetMax = Vector2.zero;
             var textObject = new GameObject("Result Text", typeof(RectTransform), typeof(TextMeshProUGUI));
             textObject.transform.SetParent(canvasObject.transform, false);
             label = textObject.GetComponent<TextMeshProUGUI>();

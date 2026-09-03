@@ -36,14 +36,12 @@ namespace Game.Architecture.Tests
             Assert.That(
                 (int)properties[SessionPropertyKeys.DestructionLimit],
                 Is.EqualTo(PlaySettingsDraft.DefaultDestructionLimit));
-            Assert.That((int)properties[SessionPropertyKeys.HidingDurationSeconds],
-                Is.EqualTo(30));
-            Assert.That((int)properties[SessionPropertyKeys.SearchingDurationMinutes],
-                Is.EqualTo(5));
-            Assert.That((int)properties[SessionPropertyKeys.SprintMultiplierPercent],
-                Is.EqualTo(100));
-            Assert.That((int)properties[SessionPropertyKeys.StunHitCount], Is.EqualTo(3));
-            Assert.That((string)properties[SessionPropertyKeys.CategoryId], Is.Empty);
+            Assert.That(properties.ContainsKey(SessionPropertyKeys.HidingDurationSeconds), Is.False);
+            Assert.That(properties.ContainsKey(SessionPropertyKeys.SearchingDurationMinutes), Is.False);
+            Assert.That(properties.ContainsKey(SessionPropertyKeys.SprintMultiplierPercent), Is.False);
+            Assert.That(properties.ContainsKey(SessionPropertyKeys.StunHitCount), Is.False);
+            Assert.That(properties.ContainsKey(SessionPropertyKeys.CategoryId), Is.False);
+            Assert.That(properties.Count, Is.LessThanOrEqualTo(10));
             Assert.That((string)properties[SessionPropertyKeys.HostNickname],
                 Is.EqualTo("태원"));
             Assert.That((bool)properties[SessionPropertyKeys.Locked], Is.True);

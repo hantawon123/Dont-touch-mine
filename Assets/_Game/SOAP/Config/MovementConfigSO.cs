@@ -11,6 +11,16 @@ namespace Game.SOAP.Config
         [SerializeField, Min(0f)]
         private float sprintSpeed = 7f;
 
+        [Header("스태미나")]
+        [SerializeField, Min(0.1f)]
+        private float maxStamina = 100f;
+
+        [SerializeField, Min(0.1f)]
+        private float staminaDrainPerSecond = 20f;
+
+        [SerializeField, Min(0.1f)]
+        private float staminaRecoveryPerSecond = 15f;
+
         [SerializeField, Min(0f)]
         private float rotationSpeedDegrees = 720f;
 
@@ -47,6 +57,9 @@ namespace Game.SOAP.Config
 
         public float WalkSpeed => walkSpeed;
         public float SprintSpeed => sprintSpeed;
+        public float MaxStamina => maxStamina;
+        public float StaminaDrainPerSecond => staminaDrainPerSecond;
+        public float StaminaRecoveryPerSecond => staminaRecoveryPerSecond;
         public float RotationSpeedDegrees => rotationSpeedDegrees;
         public float JumpHeight => jumpHeight;
         public float GravityMultiplier => gravityMultiplier;

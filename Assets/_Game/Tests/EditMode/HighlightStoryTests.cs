@@ -57,6 +57,19 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void ReplayTransfer_RejectsAClipWithoutRecordedFrames()
+        {
+            var segment = new HighlightSegment(10, 11);
+            var replay = new HighlightReplayData(
+                new HighlightCandidate(HighlightType.FirstBlood, new[] { segment }, "item"),
+                new[] { new HighlightReplayClip(segment, System.Array.Empty<HighlightReplayFrame>()) });
+
+            Assert.That(
+                () => HighlightReplaySerializer.Serialize(new[] { replay }),
+                Throws.TypeOf<System.ArgumentException>());
+        }
+
+        [Test]
         public void ReplayFrame_RejectsActionCountMismatch()
         {
             Assert.That(() => new HighlightReplayFrame(0, new[] { Pose.identity },
@@ -69,6 +82,7 @@ namespace Game.Tests.EditMode
         {
             Assert.That(() => new HighlightSegment(double.NaN, 1), Throws.TypeOf<System.ArgumentOutOfRangeException>());
             Assert.That(() => new HighlightSegment(0, double.PositiveInfinity), Throws.TypeOf<System.ArgumentOutOfRangeException>());
+            Assert.That(() => new HighlightSegment(1, 1), Throws.TypeOf<System.ArgumentOutOfRangeException>());
         }
 
         [Test]

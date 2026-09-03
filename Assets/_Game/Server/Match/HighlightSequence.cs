@@ -37,6 +37,9 @@ namespace Game.Server.Match
         public int CurrentIndex => currentIndex;
         public bool IsComplete => currentIndex >= highlights.Length;
         public float TotalDurationSeconds { get; }
+        public double ScheduledDurationSeconds =>
+            TotalDurationSeconds + highlights.Length *
+            Game.Core.Match.HighlightPresentationTiming.OverheadSeconds;
 
         public bool TryGetCurrent(out HighlightCandidate highlight)
         {

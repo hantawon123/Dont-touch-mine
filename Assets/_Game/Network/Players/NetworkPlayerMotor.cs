@@ -1,6 +1,7 @@
 using Fusion;
 using Fusion.Addons.KCC;
 using Game.Core.Players;
+using Game.Server.Players;
 using UnityEngine;
 
 namespace Game.Network.Players
@@ -35,6 +36,12 @@ namespace Game.Network.Players
 
         [Networked]
         public float SprintMultiplier { get; private set; }
+
+        [Networked]
+        public float CurrentStamina { get; private set; }
+
+        [Networked]
+        public NetworkBool IsSprintExhausted { get; private set; }
 
         [Networked]
         public float AnimationSpeed { get; private set; }
@@ -119,6 +126,8 @@ namespace Game.Network.Players
                     ControlsEnabled = true;
                     DesiredMoveSpeed = settings.WalkSpeed;
                     SprintMultiplier = 1f;
+                    CurrentStamina = settings.MaxStamina;
+                    IsSprintExhausted = false;
                 }
                 // CopyStateFrom runs before Spawned. Preserve the saved posture instead of
                 // standing up inside low geometry, and reapply its local KCC collider shape.
@@ -165,10 +174,25 @@ namespace Game.Network.Players
             TryApplyPosture(requestedPosture, settings);
 
             var direction = ToWorldDirection(input.Move, input.LookYawDegrees);
+            var sprintRequested = Posture == PlayerPosture.Standing &&
+                                  direction.sqrMagnitude > 0f &&
+                                  input.IsPressed(NetworkPlayerButton.Sprint);
+            if (Object.HasStateAuthority)
+            {
+                var stamina = PlayerStaminaRules.Step(
+                    CurrentStamina,
+                    IsSprintExhausted,
+                    sprintRequested,
+                    Runner.DeltaTime,
+                    settings);
+                CurrentStamina = stamina.Value;
+                IsSprintExhausted = stamina.IsExhausted;
+            }
+
             DesiredMoveSpeed = MoveSpeedForPosture(
                 settings,
                 Posture,
-                input.IsPressed(NetworkPlayerButton.Sprint),
+                sprintRequested && !IsSprintExhausted && CurrentStamina > 0f,
                 SprintMultiplier);
             kcc.SetInputDirection(direction);
 
@@ -225,6 +249,18 @@ namespace Game.Network.Players
             }
 
             SprintMultiplier = multiplier;
+            return true;
+        }
+
+        internal bool TryResetStamina()
+        {
+            if (Object == null || !Object.HasStateAuthority || inputSource == null)
+            {
+                return false;
+            }
+
+            CurrentStamina = inputSource.MovementSettings.MaxStamina;
+            IsSprintExhausted = false;
             return true;
         }
 

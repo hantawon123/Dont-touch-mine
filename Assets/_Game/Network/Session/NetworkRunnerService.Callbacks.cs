@@ -690,6 +690,10 @@ namespace Game.Network.Session
             }
             var lobbyLoaded = _scenes != null &&
                               IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene);
+            _highlightLobbyPrepared = _scenes != null &&
+                ContainsScene(runner.SceneInfo, _scenes.LobbyScene) &&
+                ContainsScene(runner.SceneInfo, _scenes.MatchScene);
+            if (_highlightLobbyPrepared) _highlightLobbyLoadRequested = false;
             var tookOverPreloadedLobby = lobbyLoaded &&
                                          _preloadedLobbyRoots.Length > 0;
             if (tookOverPreloadedLobby)
@@ -828,6 +832,22 @@ namespace Game.Network.Session
                 if (type == HighlightReadyKeyType && version == HighlightReplayKeyVersion &&
                     sequence == _highlightTransferSequence && data.Length == 1 && data[0] == 1)
                     _highlightPendingPlayers.Remove(player);
+                if (type == HighlightCompleteKeyType && version == HighlightReplayKeyVersion &&
+                    sequence == _highlightTransferSequence && data.Length == 1 && data[0] == 1 &&
+                    TryCompleteHighlightViewing(player))
+                    runner.SendReliableDataToPlayer(player, key, new byte[] { 1 });
+                return;
+            }
+
+            if (type == HighlightCompleteKeyType)
+            {
+                if (version == HighlightReplayKeyVersion &&
+                    sequence == _receivedHighlightSequence &&
+                    data.Length == 1 && data[0] == 1)
+                {
+                    _highlightCompletionRequested = false;
+                    _localHighlightComplete = true;
+                }
                 return;
             }
 
@@ -864,7 +884,11 @@ namespace Game.Network.Session
             }
 
             _receivedHighlightSequence = sequence;
-            Debug.Log($"[Highlight] Received {data.Length:N0} compressed bytes; preparing replay.");
+            _highlightCompletionRequested = false;
+            _localHighlightComplete = false;
+            Debug.Log(
+                $"[Highlight] Received {replay.Length} playable highlight(s), " +
+                $"{data.Length:N0} compressed bytes; preparing replay.");
             HighlightReplayReceived?.Invoke(replay);
         }
 

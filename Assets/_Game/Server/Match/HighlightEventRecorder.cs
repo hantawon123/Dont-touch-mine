@@ -148,21 +148,22 @@ namespace Game.Server.Match
                     endedAt,
                     3,
                     1.5d);
-                candidates.Add(new HighlightCandidate(
-                    HighlightType.TteTanMulgun,
-                    segments,
-                    mostInteractedItemId,
-                    Math.Clamp(
-                        mostInteractedItem.LastInteractedAt,
-                        segments[0].StartedAt,
-                        segments[segments.Length - 1].EndedAt),
-                    Math.Min(100d,
-                        25d + mostInteractedItem.Holders.Count * 15d +
-                        mostInteractedItem.InteractionCount * 5d),
-                    mostInteractedItem.LastHolder,
-                    mostInteractedItem.OwnerPlayerIndex != mostInteractedItem.LastHolder
-                        ? mostInteractedItem.OwnerPlayerIndex
-                        : -1));
+                if (segments.Length > 0)
+                    candidates.Add(new HighlightCandidate(
+                        HighlightType.TteTanMulgun,
+                        segments,
+                        mostInteractedItemId,
+                        Math.Clamp(
+                            mostInteractedItem.LastInteractedAt,
+                            segments[0].StartedAt,
+                            segments[segments.Length - 1].EndedAt),
+                        Math.Min(100d,
+                            25d + mostInteractedItem.Holders.Count * 15d +
+                            mostInteractedItem.InteractionCount * 5d),
+                        mostInteractedItem.LastHolder,
+                        mostInteractedItem.OwnerPlayerIndex != mostInteractedItem.LastHolder
+                            ? mostInteractedItem.OwnerPlayerIndex
+                            : -1));
             }
 
             if (lastGameEvent.HasValue &&
@@ -222,17 +223,19 @@ namespace Game.Server.Match
 
             if (TryGetMostStunnedPlayer(out var mostStunnedPlayerIndex))
             {
-                candidates.Add(new HighlightCandidate(
-                    HighlightType.MostStunned,
-                    CreateMontageSegments(
-                        stunnedAtByPlayer[mostStunnedPlayerIndex],
-                        endedAt,
-                        3,
-                        2d),
-                    mostStunnedPlayerIndex.ToString(CultureInfo.InvariantCulture),
-                    stunnedAtByPlayer[mostStunnedPlayerIndex][stunnedAtByPlayer[mostStunnedPlayerIndex].Count - 1],
-                    Math.Min(100d, stunnedAtByPlayer[mostStunnedPlayerIndex].Count * 25d),
-                    lastStunnerByPlayer[mostStunnedPlayerIndex]));
+                var segments = CreateMontageSegments(
+                    stunnedAtByPlayer[mostStunnedPlayerIndex],
+                    endedAt,
+                    3,
+                    2d);
+                if (segments.Length > 0)
+                    candidates.Add(new HighlightCandidate(
+                        HighlightType.MostStunned,
+                        segments,
+                        mostStunnedPlayerIndex.ToString(CultureInfo.InvariantCulture),
+                        stunnedAtByPlayer[mostStunnedPlayerIndex][stunnedAtByPlayer[mostStunnedPlayerIndex].Count - 1],
+                        Math.Min(100d, stunnedAtByPlayer[mostStunnedPlayerIndex].Count * 25d),
+                        lastStunnerByPlayer[mostStunnedPlayerIndex]));
             }
 
             return candidates.ToArray();
@@ -284,6 +287,7 @@ namespace Game.Server.Match
 
         private static HighlightSegment[] CreateHiddenSummarySegments(double start, double end)
         {
+            if (end <= start) return Array.Empty<HighlightSegment>();
             var introEnd = Math.Min(end, start + 2d);
             var endingStart = Math.Max(introEnd, end - 4d);
             return endingStart <= introEnd
@@ -345,7 +349,7 @@ namespace Game.Server.Match
             foreach (var pair in items)
             {
                 var item = pair.Value;
-                if (item.Holders.Count < (isSolo ? 1 : 2) ||
+                if (item.Holders.Count < 2 ||
                     selected != null && !IsMoreInteracted(item, pair.Key, selected, itemId))
                 {
                     continue;
@@ -441,7 +445,7 @@ namespace Game.Server.Match
             double radiusSeconds)
         {
             var segmentCount = Math.Min(eventTimes.Count, maxSegmentCount);
-            var segments = new HighlightSegment[segmentCount];
+            var segments = new List<HighlightSegment>(segmentCount);
             var totalSourceDuration = 0d;
             for (var index = 0; index < segmentCount; index++)
             {
@@ -450,16 +454,17 @@ namespace Game.Server.Match
                     : index * (eventTimes.Count - 1) / (segmentCount - 1);
                 var startedAt = Math.Max(Math.Max(0d, recordingStartedAt >= 0d ? recordingStartedAt : searchingStartedAt), eventTimes[eventIndex] - radiusSeconds);
                 var segmentEndedAt = Math.Min(endedAt + 3d, eventTimes[eventIndex] + radiusSeconds);
-                if (index > 0) startedAt = Math.Max(startedAt, segments[index - 1].EndedAt);
-                segmentEndedAt = Math.Max(startedAt, segmentEndedAt);
-                segments[index] = new HighlightSegment(startedAt, segmentEndedAt);
+                if (segments.Count > 0)
+                    startedAt = Math.Max(startedAt, segments[segments.Count - 1].EndedAt);
+                if (segmentEndedAt <= startedAt) continue;
+                segments.Add(new HighlightSegment(startedAt, segmentEndedAt));
                 totalSourceDuration += segmentEndedAt - startedAt;
             }
 
             var playbackSpeed = Math.Max(1d, totalSourceDuration / rules.HighlightClipDurationSeconds);
             if (playbackSpeed > 1d)
             {
-                for (var index = 0; index < segments.Length; index++)
+                for (var index = 0; index < segments.Count; index++)
                 {
                     segments[index] = new HighlightSegment(
                         segments[index].StartedAt,
@@ -468,7 +473,7 @@ namespace Game.Server.Match
                 }
             }
 
-            return segments;
+            return segments.ToArray();
         }
 
         private static List<double>[] CreateStunRecords(int playerCount)

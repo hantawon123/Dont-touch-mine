@@ -31,7 +31,10 @@ namespace Game.Core.Players
             float proneSpeed = 0.8f,
             float standHeight = 1.8f,
             float crouchHeight = 1.2f,
-            float proneHeight = 0.6f)
+            float proneHeight = 0.6f,
+            float maxStamina = 100f,
+            float staminaDrainPerSecond = 20f,
+            float staminaRecoveryPerSecond = 15f)
         {
             if (!float.IsFinite(walkSpeed) || walkSpeed < 0f ||
                 !float.IsFinite(sprintSpeed) || sprintSpeed < 0f ||
@@ -42,7 +45,10 @@ namespace Game.Core.Players
                 !float.IsFinite(proneSpeed) || proneSpeed < 0f ||
                 !float.IsFinite(standHeight) || standHeight <= 0f ||
                 !float.IsFinite(crouchHeight) || crouchHeight <= 0f ||
-                !float.IsFinite(proneHeight) || proneHeight <= 0f)
+                !float.IsFinite(proneHeight) || proneHeight <= 0f ||
+                !float.IsFinite(maxStamina) || maxStamina <= 0f ||
+                !float.IsFinite(staminaDrainPerSecond) || staminaDrainPerSecond <= 0f ||
+                !float.IsFinite(staminaRecoveryPerSecond) || staminaRecoveryPerSecond <= 0f)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(walkSpeed),
@@ -59,6 +65,9 @@ namespace Game.Core.Players
             StandHeight = standHeight;
             CrouchHeight = crouchHeight;
             ProneHeight = proneHeight;
+            MaxStamina = maxStamina;
+            StaminaDrainPerSecond = staminaDrainPerSecond;
+            StaminaRecoveryPerSecond = staminaRecoveryPerSecond;
         }
 
         public float WalkSpeed { get; }
@@ -71,6 +80,9 @@ namespace Game.Core.Players
         public float StandHeight { get; }
         public float CrouchHeight { get; }
         public float ProneHeight { get; }
+        public float MaxStamina { get; }
+        public float StaminaDrainPerSecond { get; }
+        public float StaminaRecoveryPerSecond { get; }
     }
 
     /// <summary>
