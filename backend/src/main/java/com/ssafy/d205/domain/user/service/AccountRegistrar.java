@@ -11,6 +11,7 @@ import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.entity.UserIdentity;
 import com.ssafy.d205.domain.user.repository.UserIdentityRepository;
 import com.ssafy.d205.domain.user.repository.UserRepository;
+import com.ssafy.d205.global.common.TimeProvider;
 
 /**
  * 새 계정을 만드는 일만 합니다. 유니크 제약 위반은 여기서 잡지 않고 그대로 올려보냅니다.
@@ -28,6 +29,7 @@ public class AccountRegistrar {
     private final UserRepository userRepository;
     private final UserIdentityRepository userIdentityRepository;
     private final NicknameGenerator nicknameGenerator;
+    private final TimeProvider timeProvider;
 
     /**
      * users와 user_identities에 각각 한 행을 넣습니다. 둘 중 하나만 남으면
@@ -35,8 +37,12 @@ public class AccountRegistrar {
      */
     @Transactional
     public AccountResponse register(String deviceId) {
-        User user = userRepository.save(User.create(nicknameGenerator.generate()));
-        userIdentityRepository.save(UserIdentity.link(user, AuthProvider.DEVICE, deviceId));
+        // 시각을 한 번 읽어 두 행에 같은 값을 씁니다. 각자 읽으면 users.created_at 과
+        // user_identities.linked_at 이 1초 어긋날 수 있습니다.
+        String now = timeProvider.now();
+
+        User user = userRepository.save(User.create(nicknameGenerator.generate(), now));
+        userIdentityRepository.save(UserIdentity.link(user, AuthProvider.DEVICE, deviceId, now));
         return AccountResponse.from(user);
     }
 }

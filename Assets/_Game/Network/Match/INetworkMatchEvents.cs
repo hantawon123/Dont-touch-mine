@@ -14,6 +14,8 @@ namespace Game.Network.Match
         bool IsRuntimeReady { get; }
         bool IsResultSceneLoaded { get; }
         bool EnterResultScene();
+        bool PrepareLobbyForHighlights();
+        bool CompleteLocalHighlightViewing();
         bool RequestReturnToLobby();
     }
 

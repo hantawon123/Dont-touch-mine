@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ssafy.d205.domain.user.dto.UserSearchResponse;
 import com.ssafy.d205.domain.user.entity.NicknamePolicy;
-import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.service.UserSearchService;
 
 @RestController

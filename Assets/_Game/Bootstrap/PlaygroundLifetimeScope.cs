@@ -30,6 +30,9 @@ namespace Game.Bootstrap
     public sealed class PlaygroundLifetimeScope : LifetimeScope
     {
         private bool waitingForSceneLoad;
+        private GameObject[] sceneRoots = Array.Empty<GameObject>();
+
+        internal IReadOnlyList<GameObject> SceneRoots => sceneRoots;
 
         [SerializeField]
         private MatchRulesSO matchRules;
@@ -51,6 +54,7 @@ namespace Game.Bootstrap
 
         protected override void Awake()
         {
+            sceneRoots = gameObject.scene.GetRootGameObjects();
             if (gameObject.scene.isLoaded)
             {
                 EnsureGameplayEventSystem();

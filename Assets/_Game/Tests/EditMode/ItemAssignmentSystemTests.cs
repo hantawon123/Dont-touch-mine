@@ -145,6 +145,34 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Assign_RejectsItemWithoutCategory()
+        {
+            Assert.Throws<ArgumentException>(() =>
+                ItemAssignmentSystem.Assign(
+                    new[] { default(ItemDefinition) },
+                    1,
+                    new Random(1)));
+        }
+
+        [Test]
+        public void Assign_RejectsConfiguredCategoryWithInsufficientItems()
+        {
+            var definitions = new[]
+            {
+                new ItemDefinition("bear", "toy"),
+                new ItemDefinition("ball", "toy"),
+                new ItemDefinition("apple", "food")
+            };
+
+            Assert.Throws<InvalidOperationException>(() =>
+                ItemAssignmentSystem.Assign(
+                    definitions,
+                    2,
+                    new Random(1),
+                    "food"));
+        }
+
+        [Test]
         public void Assign_RejectsDuplicateItemIds()
         {
             var definitions = new[]

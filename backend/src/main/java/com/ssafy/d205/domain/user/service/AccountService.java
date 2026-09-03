@@ -13,6 +13,7 @@ import com.ssafy.d205.domain.user.entity.AuthProvider;
 import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.repository.UserIdentityRepository;
 import com.ssafy.d205.domain.user.repository.UserRepository;
+import com.ssafy.d205.global.common.TimeProvider;
 import com.ssafy.d205.global.exception.NicknameGenerationFailedException;
 import com.ssafy.d205.global.exception.NicknameTakenException;
 import com.ssafy.d205.global.exception.UnknownCallerException;
@@ -30,6 +31,7 @@ public class AccountService {
     private final AccountRegistrar accountRegistrar;
     private final UserRepository userRepository;
     private final UserIdentityRepository userIdentityRepository;
+    private final TimeProvider timeProvider;
 
     /**
      * 기기 식별자로 계정을 발급합니다. <b>멱등합니다.</b>
@@ -98,7 +100,7 @@ public class AccountService {
             throw new NicknameTakenException(nickname);
         }
 
-        user.rename(nickname);
+        user.rename(nickname, timeProvider.now());
         return AccountResponse.from(user);
     }
 

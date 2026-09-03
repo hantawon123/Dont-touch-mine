@@ -58,6 +58,8 @@ namespace Game.Network.Match
         private bool _hasShredderEjectionPose;
         private bool _returningToLobby;
         public bool HasStartedMatch => _state != null && _state.IsStarted;
+        public MatchPhase CurrentPhase =>
+            _session?.CurrentPhase ?? _state?.Phase ?? MatchPhase.Waiting;
         internal IReadOnlyList<MatchParticipant> PlayingParticipants => _playing;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
@@ -858,6 +860,19 @@ namespace Game.Network.Match
             }
 
             return ReturnToLobby();
+        }
+
+        public bool TryCompleteHighlightViewing(PlayerRef source, Pose lobbyPose)
+        {
+            if (_state == null || _session == null ||
+                _session.CurrentPhase != MatchPhase.Highlight ||
+                !TryGetPlayerIndex(source, out var playerIndex) ||
+                !TryTeleportPlayer(playerIndex, lobbyPose))
+            {
+                return false;
+            }
+
+            return TrySetPlayerControls(playerIndex, true);
         }
 
         internal static bool IsReturnParticipant(IReadOnlyList<MatchParticipant> playing, string playerId)

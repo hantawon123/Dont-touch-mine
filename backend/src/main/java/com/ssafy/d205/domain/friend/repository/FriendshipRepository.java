@@ -59,6 +59,37 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Integer>
     List<FriendRequestRow> findOutgoing(@Param("meSeq") Integer meSeq);
 
     /**
+     * 성립된 친구 목록. 상대의 접속 상태를 함께 가져옵니다.
+     *
+     * <p>user_presence 를 LEFT JOIN 하는 이유는 한 번도 접속하지 않은 친구는 그 테이블에
+     * 행이 없기 때문입니다. INNER JOIN 이면 그 사람이 목록에서 사라집니다.
+     *
+     * <p>저장된 status 를 그대로 쓰지 않고 heartbeat_at 도 함께 가져옵니다. 크래시로 죽은
+     * 클라이언트의 status 는 ONLINE 으로 남아 있어서, 실제 상태는 마지막 하트비트로
+     * 계산해야 합니다. 그 판정은 PresenceTimeout 이 합니다.
+     *
+     * <p>상대는 쌍에서 내가 아닌 쪽이므로 CASE 로 골라 조인합니다. 정렬을 nickname_lower
+     * 로 하는 것은 V6 의 인덱스를 쓰기 위해서이고, 온라인 여부로 나누는 것은 클라이언트가
+     * 합니다.
+     */
+    @Query(value = """
+            SELECT u.public_id     AS userId,
+                   u.nickname      AS nickname,
+                   p.status        AS status,
+                   p.heartbeat_at  AS heartbeatAt
+              FROM friendships f
+              JOIN users u
+                ON u.users_seq = CASE WHEN f.user_low_seq = :meSeq
+                                      THEN f.user_high_seq
+                                      ELSE f.user_low_seq END
+              LEFT JOIN user_presence p ON p.user_seq = u.users_seq
+             WHERE f.status = 'ACCEPTED'
+               AND (f.user_low_seq = :meSeq OR f.user_high_seq = :meSeq)
+             ORDER BY u.nickname_lower
+            """, nativeQuery = true)
+    List<FriendSummaryRow> findFriends(@Param("meSeq") Integer meSeq);
+
+    /**
      * 두 사람 사이에 차단이 있는지. 방향은 보지 않습니다.
      *
      * <p>차단은 양방향으로 적용합니다. A가 B를 차단하면 B도 A에게 요청을 보낼 수

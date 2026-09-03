@@ -22,7 +22,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ssafy.d205.domain.user.dto.IssueAccountRequest;
 import com.ssafy.d205.domain.user.dto.UpdateNicknameRequest;
 import com.ssafy.d205.domain.user.entity.NicknamePolicy;
-import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.support.IntegrationTest;
 
 class AccountApiTest extends IntegrationTest {
