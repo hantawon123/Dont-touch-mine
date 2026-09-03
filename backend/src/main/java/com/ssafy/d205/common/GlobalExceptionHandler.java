@@ -14,6 +14,12 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import java.util.stream.Collectors;
 
 import com.ssafy.d205.account.AccountNotFoundException;
+import com.ssafy.d205.friend.AlreadyFriendsException;
+import com.ssafy.d205.friend.FriendRequestAlreadySentException;
+import com.ssafy.d205.friend.FriendRequestNotFoundException;
+import com.ssafy.d205.friend.NotFriendsException;
+import com.ssafy.d205.friend.SelfFriendRequestException;
+import com.ssafy.d205.friend.TargetUserNotFoundException;
 import com.ssafy.d205.account.NicknameGenerationFailedException;
 import com.ssafy.d205.account.NicknameTakenException;
 
@@ -61,6 +67,50 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAccountNotFound(AccountNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse("ACCOUNT_NOT_FOUND", "계정을 찾을 수 없습니다."));
+    }
+
+    /**
+     * 상대를 찾을 수 없습니다. 부르는 사람이 없는 경우(ACCOUNT_NOT_FOUND)와 코드를
+     * 구분합니다. 전자는 클라이언트가 계정 발급을 다시 불러야 하고, 후자는 "그
+     * 사용자가 없습니다"를 보여주면 됩니다.
+     *
+     * <p>차단 관계일 때도 이 코드입니다. 차단당했다는 사실을 알려주면 차단한 사람이
+     * 드러나므로, 없는 사용자와 구분되지 않게 두는 것이 의도입니다.
+     */
+    @ExceptionHandler(TargetUserNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleTargetNotFound(TargetUserNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse("TARGET_NOT_FOUND", "상대를 찾을 수 없습니다."));
+    }
+
+    @ExceptionHandler(SelfFriendRequestException.class)
+    public ResponseEntity<ErrorResponse> handleSelfRequest(SelfFriendRequestException e) {
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse("SELF_FRIEND_REQUEST", "자기 자신에게 친구 요청을 보낼 수 없습니다."));
+    }
+
+    @ExceptionHandler(AlreadyFriendsException.class)
+    public ResponseEntity<ErrorResponse> handleAlreadyFriends(AlreadyFriendsException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("ALREADY_FRIENDS", "이미 친구입니다."));
+    }
+
+    @ExceptionHandler(FriendRequestAlreadySentException.class)
+    public ResponseEntity<ErrorResponse> handleRequestAlreadySent(FriendRequestAlreadySentException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("REQUEST_ALREADY_SENT", "이미 보낸 친구 요청입니다."));
+    }
+
+    @ExceptionHandler(FriendRequestNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleRequestNotFound(FriendRequestNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse("FRIEND_REQUEST_NOT_FOUND", "친구 요청을 찾을 수 없습니다."));
+    }
+
+    @ExceptionHandler(NotFriendsException.class)
+    public ResponseEntity<ErrorResponse> handleNotFriends(NotFriendsException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse("NOT_FRIENDS", "친구가 아닙니다."));
     }
 
     @ExceptionHandler(NicknameTakenException.class)
