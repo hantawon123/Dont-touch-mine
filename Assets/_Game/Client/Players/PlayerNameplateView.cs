@@ -8,7 +8,7 @@ namespace Game.Client.Players
     {
         private const string ObjectName = "PlayerNameplate";
         // Lobby canvas: 2.6m anchor - 0.7m nameplate offset.
-        private const float HeightOffset = 1.9f;
+        private const float HeightOffset = 1.7f;
 
         private TextMeshPro label;
         private string displayedName = string.Empty;

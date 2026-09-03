@@ -646,6 +646,11 @@ namespace Game.Architecture.Tests
             Assert.That(settings.StandHeight, Is.EqualTo(config.StandHeight));
             Assert.That(settings.CrouchHeight, Is.EqualTo(config.CrouchHeight));
             Assert.That(settings.ProneHeight, Is.EqualTo(config.ProneHeight));
+            Assert.That(settings.MaxStamina, Is.EqualTo(config.MaxStamina));
+            Assert.That(settings.StaminaDrainPerSecond,
+                Is.EqualTo(config.StaminaDrainPerSecond));
+            Assert.That(settings.StaminaRecoveryPerSecond,
+                Is.EqualTo(config.StaminaRecoveryPerSecond));
         }
 
         [Test]
@@ -763,6 +768,7 @@ namespace Game.Architecture.Tests
                 "RPC_RequestHit",
                 "RPC_RequestShredder",
                 "RPC_RequestReturnToLobby",
+                "RPC_RequestMatchChat",
             };
 
             foreach (var name in names)
@@ -816,6 +822,7 @@ namespace Game.Architecture.Tests
                 "RPC_NotifyPlayerStunned",
                 "RPC_NotifyObjectThrown",
                 "RPC_NotifyFinalWarning",
+                "RPC_NotifyMatchChat",
             };
 
             foreach (var name in names)
@@ -957,6 +964,18 @@ namespace Game.Architecture.Tests
             var snapshot = new PlayerInteractionStateSnapshot(1, 15d, 3);
             Assert.That(snapshot.IsStunned(14.99d), Is.True);
             Assert.That(snapshot.IsStunned(15d), Is.False);
+        }
+
+        [Test]
+        public void PlayerStamina_IsPersistentNetworkedData()
+        {
+            var stamina = typeof(NetworkPlayerMotor).GetProperty("CurrentStamina");
+            var exhausted = typeof(NetworkPlayerMotor).GetProperty("IsSprintExhausted");
+
+            Assert.That(stamina, Is.Not.Null);
+            Assert.That(exhausted, Is.Not.Null);
+            Assert.That(Attribute.IsDefined(stamina, typeof(Fusion.NetworkedAttribute)), Is.True);
+            Assert.That(Attribute.IsDefined(exhausted, typeof(Fusion.NetworkedAttribute)), Is.True);
         }
 
         [Test]

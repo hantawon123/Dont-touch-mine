@@ -241,6 +241,12 @@ namespace Game.Bootstrap
                         throw new InvalidOperationException(
                             $"The authority could not apply sprint rules to player {playerIndex}.");
                     }
+
+                    if (migration == null && !network.TryResetPlayerStamina(playerIndex))
+                    {
+                        throw new InvalidOperationException(
+                            $"The authority could not reset stamina for player {playerIndex}.");
+                    }
                 }
 
                 if (!network.BindMatchSession(

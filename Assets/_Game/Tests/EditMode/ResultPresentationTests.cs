@@ -135,6 +135,18 @@ namespace Game.Architecture.Tests
             Assert.That(MatchStarter.IsReturnParticipant(playing, null), Is.False);
         }
 
+        [Test]
+        public void MatchChatAuthorization_UsesFrozenLineUp()
+        {
+            var playing = new[] { new MatchParticipant("host", 0), new MatchParticipant("client", 1) };
+
+            Assert.That(MatchStarter.IsMatchChatParticipant(playing, "host"), Is.True);
+            Assert.That(MatchStarter.IsMatchChatParticipant(playing, "client"), Is.True);
+            Assert.That(MatchStarter.IsMatchChatParticipant(playing, "late-joiner"), Is.False);
+            Assert.That(MatchStarter.IsMatchChatParticipant(playing, ""), Is.False);
+            Assert.That(MatchStarter.IsMatchChatParticipant(null, "host"), Is.False);
+        }
+
         [TestCase(false)]
         [TestCase(true)]
         public void ResultSurvivesSceneChange_AndReturnWaitsForSceneLoad(bool phaseFirst)
@@ -296,6 +308,7 @@ namespace Game.Architecture.Tests
             public bool EnterResultScene() { LoadCalls++; return true; }
             public bool RequestReturnToLobby() { ReturnCalls++; return true; }
             public event Action<MatchStateSnapshot> MatchStateReceived;
+            public event Action<Game.Core.Lobby.LobbyChatMessage> MatchChatReceived;
             public event Action<MatchResult> MatchResultReceived;
             public event Action<string> ItemAssignmentReceived;
             public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;

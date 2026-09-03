@@ -45,6 +45,7 @@ namespace Game.Network.Session
         INetworkHighlightReady,
         INetworkResultNavigation,
         ILobbyChatTransport,
+        IMatchChatTransport,
         IDisposable
     {
         private const string RunnerObjectName = "[NetworkRunner]";
@@ -149,6 +150,7 @@ namespace Game.Network.Session
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<LobbyChatMessage> ChatReceived;
+        public event Action<LobbyChatMessage> MatchChatReceived;
         public event Action<string> ItemAssignmentReceived;
         public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
         public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
@@ -338,6 +340,11 @@ namespace Game.Network.Session
         public bool TrySendChat(string text)
         {
             return _matchStarter != null && _matchStarter.RequestLobbyChat(text);
+        }
+
+        public bool TrySendMatchChat(string text)
+        {
+            return _matchStarter != null && _matchStarter.RequestMatchChat(text);
         }
 
         public double ServerTime
@@ -1038,6 +1045,12 @@ namespace Game.Network.Session
                    _matchStarter.TrySetPlayerSprintMultiplier(playerIndex, multiplier);
         }
 
+        public bool TryResetPlayerStamina(int playerIndex)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryResetPlayerStamina(playerIndex);
+        }
+
         public bool TryTeleportPlayer(int playerIndex, Pose pose)
         {
             return IsServer && _matchStarter != null &&
@@ -1275,6 +1288,7 @@ namespace Game.Network.Session
             _matchStarter.Bind(_matchStartSink, _roster, this);
             _matchStarter.MatchStateReceived += OnMatchStateReceived;
             _matchStarter.LobbyChatReceived += OnLobbyChatReceived;
+            _matchStarter.MatchChatReceived += OnMatchChatReceived;
             _matchStarter.ObjectStatesReceived += OnObjectStatesReceived;
             _matchStarter.ItemDestroyedReceived += OnItemDestroyedReceived;
             _matchStarter.PlayerItemStatusesReceived += OnPlayerItemStatusesReceived;
@@ -1677,6 +1691,7 @@ namespace Game.Network.Session
             {
                 _matchStarter.MatchStateReceived -= OnMatchStateReceived;
                 _matchStarter.LobbyChatReceived -= OnLobbyChatReceived;
+                _matchStarter.MatchChatReceived -= OnMatchChatReceived;
                 _matchStarter.ObjectStatesReceived -= OnObjectStatesReceived;
                 _matchStarter.ItemDestroyedReceived -= OnItemDestroyedReceived;
                 _matchStarter.PlayerItemStatusesReceived -= OnPlayerItemStatusesReceived;
@@ -1722,6 +1737,11 @@ namespace Game.Network.Session
         private void OnLobbyChatReceived(LobbyChatMessage message)
         {
             ChatReceived?.Invoke(message);
+        }
+
+        private void OnMatchChatReceived(LobbyChatMessage message)
+        {
+            MatchChatReceived?.Invoke(message);
         }
 
         private void OnObjectStatesReceived(
