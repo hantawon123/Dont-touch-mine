@@ -82,6 +82,30 @@ namespace Game.Tests.EditMode
             Assert.That(selected[0].TargetId, Is.EqualTo("meaningful"));
         }
 
+        [Test]
+        public void Select_KeepsOnlyTheSegmentClosestToEachHighlightEvent()
+        {
+            var selected = HighlightCandidateSelector.Select(new[]
+            {
+                new HighlightCandidate(
+                    HighlightType.LongestHidden,
+                    new[]
+                    {
+                        new HighlightSegment(10d, 12d),
+                        new HighlightSegment(20d, 22d),
+                        new HighlightSegment(30d, 32d),
+                    },
+                    "hidden",
+                    eventAt: 21d,
+                    score: 90d),
+            });
+
+            Assert.That(selected, Has.Length.EqualTo(1));
+            Assert.That(selected[0].Segments, Has.Count.EqualTo(1));
+            Assert.That(selected[0].Segments[0].StartedAt, Is.EqualTo(20d));
+            Assert.That(selected[0].Segments[0].EndedAt, Is.EqualTo(22d));
+        }
+
         private static HighlightCandidate Candidate(
             HighlightType type,
             string targetId = "target",

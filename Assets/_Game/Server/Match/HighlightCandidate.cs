@@ -208,7 +208,40 @@ namespace Game.Server.Match
                     ranked.Count - Game.SOAP.Config.MatchRulesSO.MaxHighlightCount);
             }
 
+            for (var index = 0; index < ranked.Count; index++)
+                ranked[index] = KeepEventSegment(ranked[index]);
+
             return ranked.ToArray();
+        }
+
+        private static HighlightCandidate KeepEventSegment(HighlightCandidate candidate)
+        {
+            var selected = candidate.Segments[0];
+            var selectedDistance = DistanceFrom(candidate.EventAt, selected);
+            for (var index = 1; index < candidate.Segments.Count; index++)
+            {
+                var segment = candidate.Segments[index];
+                var distance = DistanceFrom(candidate.EventAt, segment);
+                if (distance >= selectedDistance) continue;
+                selected = segment;
+                selectedDistance = distance;
+            }
+
+            return new HighlightCandidate(
+                candidate.Type,
+                new[] { selected },
+                candidate.TargetId,
+                Math.Clamp(candidate.EventAt, selected.StartedAt, selected.EndedAt),
+                candidate.Score,
+                candidate.ActorPlayerIndex,
+                candidate.SecondaryPlayerIndex);
+        }
+
+        private static double DistanceFrom(double eventAt, HighlightSegment segment)
+        {
+            if (eventAt < segment.StartedAt) return segment.StartedAt - eventAt;
+            if (eventAt > segment.EndedAt) return eventAt - segment.EndedAt;
+            return 0d;
         }
     }
 }
