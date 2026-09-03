@@ -719,10 +719,12 @@ namespace Game.Architecture.Tests
         public void MatchStarter_ForwardsReplicatedPhaseSnapshot()
         {
             var gameObject = new GameObject("MatchStarterTest");
+            var stateObject = new GameObject("UnspawnedMatchSessionStateTest");
 
             try
             {
                 var starter = gameObject.AddComponent<MatchStarter>();
+                var state = stateObject.AddComponent<MatchSessionState>();
                 var expected = new MatchStateSnapshot(MatchPhase.Searching, 120d);
                 var received = new MatchStateSnapshot();
                 var wasReceived = false;
@@ -734,13 +736,19 @@ namespace Game.Architecture.Tests
                 };
 
                 starter.PublishSnapshot(expected);
+                var flags = System.Reflection.BindingFlags.Instance |
+                            System.Reflection.BindingFlags.NonPublic;
+                typeof(MatchStarter).GetField("_state", flags).SetValue(starter, state);
 
                 Assert.That(wasReceived, Is.True);
                 Assert.That(received.Phase, Is.EqualTo(MatchPhase.Searching));
                 Assert.That(received.PhaseEndsAt, Is.EqualTo(120d));
+                Assert.That(starter.CurrentPhase, Is.EqualTo(MatchPhase.Searching),
+                    "An unspawned client state must fall back to the last replicated phase.");
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(stateObject);
                 UnityEngine.Object.DestroyImmediate(gameObject);
             }
         }
