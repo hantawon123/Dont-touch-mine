@@ -38,7 +38,6 @@ namespace Game.Network.Session
 
             properties[SessionPropertyKeys.DestructionLimit] =
                 PlaySettingsDraft.DefaultDestructionLimit;
-            AddMatchRules(properties, MatchRuleSettings.Default);
 
             if (!string.IsNullOrEmpty(sanitisedHostNickname))
             {

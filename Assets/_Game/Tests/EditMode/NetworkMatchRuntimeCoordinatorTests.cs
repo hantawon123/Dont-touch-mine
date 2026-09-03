@@ -74,6 +74,8 @@ namespace Game.Architecture.Tests
                 network.IsRuntimeReady = true;
                 network.PublishSimulationTick();
                 Assert.That(network.BoundSession.CurrentPhase, Is.EqualTo(MatchPhase.Hiding));
+                Assert.That(network.ResetStaminaPlayers, Is.Empty,
+                    "A resumed match must preserve replicated stamina.");
                 Assert.That(network.BoundSession.GetRemainingSeconds(100d), Is.EqualTo(hostLeft ? 30d : 50d));
                 Assert.That(network.InitializedAssignmentPlayers, Is.EqualTo(hostLeft ? new[] { 1 } : Array.Empty<int>()));
                 Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(hostLeft ? new[] { 1, 1 } : new[] { 0, 1 }));
@@ -200,6 +202,7 @@ namespace Game.Architecture.Tests
                 network.PublishSimulationTick();
 
                 Assert.That(network.BoundSession, Is.Not.Null);
+                Assert.That(network.ResetStaminaPlayers, Is.EquivalentTo(new[] { 0, 1 }));
                 Assert.That(network.InitializedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
                 Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
                 Assert.That(network.PlayerItemStatuses.Count, Is.EqualTo(1));
@@ -444,6 +447,7 @@ namespace Game.Architecture.Tests
             public List<MatchStateSnapshot> Snapshots { get; } = new();
             public Dictionary<int, bool> Controls { get; } = new();
             public Dictionary<int, float> SprintMultipliers { get; } = new();
+            public HashSet<int> ResetStaminaPlayers { get; } = new();
             public HashSet<int> MissingControlPlayers { get; } = new();
             public List<int> ControlCalls { get; } = new();
             public List<int> TeleportedPlayers { get; } = new();
@@ -535,6 +539,12 @@ namespace Game.Architecture.Tests
             public bool TrySetPlayerSprintMultiplier(int playerIndex, float multiplier)
             {
                 SprintMultipliers[playerIndex] = multiplier;
+                return true;
+            }
+
+            public bool TryResetPlayerStamina(int playerIndex)
+            {
+                ResetStaminaPlayers.Add(playerIndex);
                 return true;
             }
 

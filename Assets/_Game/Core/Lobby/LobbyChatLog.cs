@@ -52,6 +52,14 @@ namespace Game.Core.Lobby
         bool TrySendChat(string text);
     }
 
+    /// <summary>Transport for messages sent only by the confirmed match line-up.</summary>
+    public interface IMatchChatTransport
+    {
+        event Action<LobbyChatMessage> MatchChatReceived;
+
+        bool TrySendMatchChat(string text);
+    }
+
     public interface ILobbyChatLog
     {
         string LocalPlayerId { get; }

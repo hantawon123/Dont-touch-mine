@@ -1,3 +1,4 @@
+using Game.Client.Interactions;
 using Game.Core.Players;
 using Game.SOAP.Config;
 using TMPro;
@@ -32,7 +33,10 @@ namespace Game.Client.Players
             movementConfig.ProneSpeed,
             movementConfig.StandHeight,
             movementConfig.CrouchHeight,
-            movementConfig.ProneHeight);
+            movementConfig.ProneHeight,
+            movementConfig.MaxStamina,
+            movementConfig.StaminaDrainPerSecond,
+            movementConfig.StaminaRecoveryPerSecond);
 
         public float CurrentEyeHeight => Posture switch
         {
@@ -49,6 +53,7 @@ namespace Game.Client.Players
         private InputAction crouchAction;
         private InputAction proneAction;
         private InputAction attackAction;
+        private PlayerInteractor interactor;
         private Transform cameraTransform;
         private float verticalVelocity;
         private Vector3 externalVelocity;
@@ -127,7 +132,9 @@ namespace Game.Client.Players
                 buttons |= PlayerInputButtons.Prone;
             }
 
-            if (attackAction.IsPressed())
+            // 소지 중인 좌클릭은 던지기/배치 입력이므로 네트워크 공격으로 보내지 않는다.
+            if ((interactor == null || interactor.CarriedItem == null) &&
+                attackAction.IsPressed())
             {
                 buttons |= PlayerInputButtons.Attack;
             }
@@ -163,6 +170,7 @@ namespace Game.Client.Players
             crouchAction = playerMap.FindAction("Crouch", throwIfNotFound: true);
             proneAction = playerMap.FindAction("Prone", throwIfNotFound: true);
             attackAction = playerMap.FindAction("Attack", throwIfNotFound: true);
+            interactor = GetComponent<PlayerInteractor>();
 
             if (visualRoot == null)
             {

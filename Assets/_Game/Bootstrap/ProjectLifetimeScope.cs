@@ -186,7 +186,8 @@ namespace Game.Bootstrap
                 .As<INetworkMatchAuthority>()
                 .As<INetworkMatchEvents>()
                 .As<INetworkResultNavigation>()
-                .As<ILobbyChatTransport>();
+                .As<ILobbyChatTransport>()
+                .As<IMatchChatTransport>();
             builder.RegisterEntryPoint<NetworkMatchFlowSynchronizer>();
             builder.RegisterEntryPoint<NetworkResultLobbyReturnController>().AsSelf();
             // Outlives every screen. The rig that opens the microphone is

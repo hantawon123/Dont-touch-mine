@@ -701,6 +701,12 @@ namespace Game.Network.Match
             StarterOf(Runner)?.TryRelayLobbyChat(info.Source, text);
         }
 
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestMatchChat(string text, RpcInfo info = default)
+        {
+            StarterOf(Runner)?.TryRelayMatchChat(info.Source, text);
+        }
+
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
         public void RPC_NotifyPlayerItemStatuses(byte[] payload)
         {
@@ -726,6 +732,23 @@ namespace Game.Network.Match
             }
 
             StarterOf(Runner)?.PublishLobbyChat(
+                new LobbyChatMessage(senderId, senderName, text));
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_NotifyMatchChat(
+            string senderId,
+            string senderName,
+            string text)
+        {
+            if (string.IsNullOrWhiteSpace(senderId) ||
+                string.IsNullOrWhiteSpace(senderName) ||
+                string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            StarterOf(Runner)?.PublishMatchChat(
                 new LobbyChatMessage(senderId, senderName, text));
         }
 

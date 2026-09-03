@@ -325,6 +325,7 @@ namespace Game.Architecture.Tests
                 set => serverTime = value;
             }
             public event Action<MatchStateSnapshot> MatchStateReceived;
+            public event Action<Game.Core.Lobby.LobbyChatMessage> MatchChatReceived;
             public event Action<string> ItemAssignmentReceived;
             public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
             public event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;

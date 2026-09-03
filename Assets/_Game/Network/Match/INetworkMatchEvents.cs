@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Items;
+using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Server.Match;
 using UnityEngine;
@@ -29,6 +30,7 @@ namespace Game.Network.Match
     public interface INetworkMatchEvents
     {
         event Action<MatchStateSnapshot> MatchStateReceived;
+        event Action<LobbyChatMessage> MatchChatReceived;
         event Action<string> ItemAssignmentReceived;
         event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
         event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;
@@ -67,6 +69,7 @@ namespace Game.Network.Match
         bool TryPublishHighlightReplay(IReadOnlyList<HighlightReplayData> replay);
         bool IsHighlightReplayReady { get; }
         bool TrySetPlayerSprintMultiplier(int playerIndex, float multiplier);
+        bool TryResetPlayerStamina(int playerIndex);
         bool TrySetPlayerControls(int playerIndex, bool enabled);
         bool TryTeleportPlayer(int playerIndex, Pose pose);
     }
