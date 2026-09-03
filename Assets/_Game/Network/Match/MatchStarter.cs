@@ -57,10 +57,17 @@ namespace Game.Network.Match
         private Pose _shredderEjectionPose;
         private bool _hasShredderEjectionPose;
         private bool _returningToLobby;
-        public bool HasStartedMatch => _state != null && _state.IsStarted;
+        private bool _lastPublishedStarted;
+        private MatchPhase _lastPublishedPhase = MatchPhase.Waiting;
+        public bool HasStartedMatch =>
+            HasValidState ? _state.IsStarted : _lastPublishedStarted;
         public MatchPhase CurrentPhase =>
-            _session?.CurrentPhase ?? _state?.Phase ?? MatchPhase.Waiting;
+            _session?.CurrentPhase ??
+            (HasValidState ? _state.Phase : _lastPublishedPhase);
         internal IReadOnlyList<MatchParticipant> PlayingParticipants => _playing;
+
+        private bool HasValidState =>
+            _state != null && _state.Object != null && _state.Object.IsValid;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<LobbyChatMessage> LobbyChatReceived;
@@ -156,10 +163,11 @@ namespace Game.Network.Match
             }
 
             _state = state;
+            _lastPublishedStarted = state.IsStarted;
 
             _playing.Clear();
 
-            if (state.IsStarted)
+            if (_lastPublishedStarted)
             {
                 var count = Mathf.Min(state.ParticipantCount, MatchSessionState.MaxParticipants);
 
@@ -188,6 +196,7 @@ namespace Game.Network.Match
 
         public void PublishSnapshot(MatchStateSnapshot snapshot)
         {
+            _lastPublishedPhase = snapshot.Phase;
             MatchStateReceived?.Invoke(snapshot);
         }
 
@@ -1091,6 +1100,8 @@ namespace Game.Network.Match
         public void Clear()
         {
             _state = null;
+            _lastPublishedStarted = false;
+            _lastPublishedPhase = MatchPhase.Waiting;
             UnbindSession();
             _hasShredderEjectionPose = false;
             _returningToLobby = false;
