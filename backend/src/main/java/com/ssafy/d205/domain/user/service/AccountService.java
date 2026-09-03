@@ -1,6 +1,7 @@
 package com.ssafy.d205.domain.user.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ import com.ssafy.d205.global.exception.NicknameTakenException;
 import com.ssafy.d205.global.exception.UnknownCallerException;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AccountService {
 
@@ -102,6 +104,65 @@ public class AccountService {
 
         user.rename(nickname, timeProvider.now());
         return AccountResponse.from(user);
+    }
+
+    /**
+     * 계정을 삭제합니다. <b>되돌릴 수 없습니다.</b>
+     *
+     * <p>하드 삭제입니다. users 한 행을 지우면 user_identities, friendships,
+     * user_blocks, user_presence 가 ON DELETE CASCADE 로 함께 사라집니다. 스키마가 그렇게
+     * 설계돼 있고, 소프트 삭제는 조회 쿼리 열 곳에 필터를 추가해야 하는데 하나만
+     * 빠뜨려도 삭제된 계정이 조용히 새어 나옵니다.
+     *
+     * <p><b>자격증명을 요구합니다.</b> X-User-Id 는 인증이 아니라 식별이라 남의 id 를 아는
+     * 사람이 그 계정을 지울 수 있습니다. 다른 API 는 조작해도 되돌릴 수 있지만 이건
+     * 복구가 안 됩니다. deviceId 는 user_identities 주석대로 자격증명이고 클라이언트가
+     * 갖고 있으므로 요구해도 부담이 없습니다.
+     *
+     * <p>자격증명이 틀리면 계정이 없는 것과 같은 응답을 줍니다. "userId 는 맞는데
+     * deviceId 가 틀렸다"고 알려주면 <b>남의 계정이 존재한다는 사실이 드러납니다.</b>
+     *
+     * <p><b>DEVICE 신원에만 동작합니다.</b> AuthProvider 에는 STEAM 과 EPIC 도 있지만
+     * 여기서는 DEVICE 를 찾습니다. 지금은 발급이 항상 DEVICE 행을 만들어서 모든 계정에
+     * 그 행이 있으므로 문제가 없습니다.
+     *
+     * <p>STEAM/EPIC 연결을 붙일 때 이 결합을 반드시 다시 봐야 합니다. Steam 으로만
+     * 시작해서 DEVICE 행이 없는 계정이 생기면 <b>그 계정은 영구히 탈퇴할 수 없습니다.</b>
+     * 지금 미리 일반화하지 않는 것은 신원 종류가 하나뿐인 상태에서 만드는 추상화가
+     * 실제 요구와 어긋날 가능성이 크기 때문입니다.
+     */
+    @Transactional
+    public void delete(String callerUserId, String deviceId) {
+        // 자격증명으로 계정을 찾고 그것이 호출자와 같은지만 봅니다. publicId 로 한 번 더
+        // 찾아 seq 를 비교할 필요가 없습니다. 호출자가 없거나 deviceId 가 없거나 둘이
+        // 안 맞는 세 경우 모두 같은 404 로 끝나므로 관찰되는 동작이 같고, 이렇게 쓰면
+        // 코드가 보안 성질을 그대로 말합니다 — 자격증명이 가리키는 계정만 지운다.
+        User user = userIdentityRepository
+                .findUserByProviderAndProviderUserId(AuthProvider.DEVICE, deviceId)
+                .filter(found -> found.getPublicId().equals(callerUserId))
+                .orElseThrow(() -> {
+                    // 남의 userId 로 deviceId 를 찔러보는 시도를 남깁니다. 응답은 계정이
+                    // 없는 것과 구분되지 않으므로, 흔적이 남는 곳은 여기뿐입니다.
+                    //
+                    // 문구를 단정하지 않는 이유가 있습니다. 여기 오는 경우가 셋인데
+                    // (기기 식별자가 없음 / 호출자가 없음 / 둘이 안 맞음) 셋을 구분하려면
+                    // 조회를 한 번 더 해야 합니다. "맞지 않습니다"로 적으면 탈퇴한
+                    // 클라이언트의 재시도를 찔러보기로 읽게 됩니다.
+                    //
+                    // deviceId 는 절대 넣지 않습니다. 자격증명이라 로그에 남으면 그
+                    // 로그를 읽을 수 있는 사람이 계정을 지울 수 있게 됩니다.
+                    log.warn("계정 삭제 실패 - 자격증명으로 계정을 확인할 수 없습니다. userId={}",
+                            callerUserId);
+                    return new UnknownCallerException(callerUserId);
+                });
+
+        // 자식 행은 DB의 ON DELETE CASCADE 가 지웁니다. UserIdentity 의 @ManyToOne 에
+        // cascade 설정이 없는 것은 그래서입니다.
+        //
+        // 주의: Hibernate 는 그 삭제를 모릅니다. 이 뒤에 같은 트랜잭션에서 자식 엔티티를
+        // 로드해 쓰는 코드를 넣으면 영속성 컨텍스트에 살아 있는 자식이 남고, flush 순서에
+        // 따라 FK 위반이나 지워진 행의 부활이 생깁니다.
+        userRepository.delete(user);
     }
 
     private Optional<User> findByDevice(String deviceId) {
