@@ -1,4 +1,4 @@
-package com.ssafy.d205.domain.account.dto;
+package com.ssafy.d205.domain.user.dto;
 
 import com.ssafy.d205.domain.user.entity.User;
 

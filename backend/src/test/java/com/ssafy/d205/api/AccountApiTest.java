@@ -19,8 +19,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.ssafy.d205.domain.account.dto.IssueAccountRequest;
-import com.ssafy.d205.domain.account.dto.UpdateNicknameRequest;
+import com.ssafy.d205.domain.user.dto.IssueAccountRequest;
+import com.ssafy.d205.domain.user.dto.UpdateNicknameRequest;
 import com.ssafy.d205.domain.user.entity.NicknamePolicy;
 import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.support.IntegrationTest;

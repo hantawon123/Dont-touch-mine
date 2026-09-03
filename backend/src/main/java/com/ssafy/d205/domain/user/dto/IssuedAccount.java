@@ -1,4 +1,4 @@
-package com.ssafy.d205.domain.account.dto;
+package com.ssafy.d205.domain.user.dto;
 
 /**
  * 발급 결과.

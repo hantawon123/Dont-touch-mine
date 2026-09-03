@@ -1,4 +1,4 @@
-package com.ssafy.d205.domain.account.service;
+package com.ssafy.d205.domain.user.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -7,8 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
-import com.ssafy.d205.domain.account.dto.AccountResponse;
-import com.ssafy.d205.domain.account.dto.IssuedAccount;
+import com.ssafy.d205.domain.user.dto.AccountResponse;
+import com.ssafy.d205.domain.user.dto.IssuedAccount;
 import com.ssafy.d205.domain.user.entity.AuthProvider;
 import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.repository.UserIdentityRepository;

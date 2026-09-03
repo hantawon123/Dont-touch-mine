@@ -1,4 +1,4 @@
-package com.ssafy.d205.domain.account.controller;
+package com.ssafy.d205.domain.user.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,12 +12,12 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.ssafy.d205.domain.account.dto.AccountResponse;
-import com.ssafy.d205.domain.account.dto.IssueAccountRequest;
-import com.ssafy.d205.domain.account.dto.IssuedAccount;
-import com.ssafy.d205.domain.account.dto.UpdateNicknameRequest;
-import com.ssafy.d205.domain.account.service.AccountService;
+import com.ssafy.d205.domain.user.dto.AccountResponse;
+import com.ssafy.d205.domain.user.dto.IssueAccountRequest;
+import com.ssafy.d205.domain.user.dto.IssuedAccount;
+import com.ssafy.d205.domain.user.dto.UpdateNicknameRequest;
 import com.ssafy.d205.domain.user.entity.User;
+import com.ssafy.d205.domain.user.service.AccountService;
 
 @RestController
 @RequestMapping("/api/v1/accounts")
