@@ -1,0 +1,727 @@
+{
+  "components" : {
+    "schemas" : {
+      "AccountResponse" : {
+        "properties" : {
+          "createdAt" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "nicknameSet" : {
+            "type" : "boolean"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "BlockListResponse" : {
+        "properties" : {
+          "blocked" : {
+            "items" : {
+              "$ref" : "#/components/schemas/BlockedUserSummary"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "BlockedUserSummary" : {
+        "properties" : {
+          "blockedAt" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "FriendListResponse" : {
+        "properties" : {
+          "friends" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FriendSummary"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "FriendRequestListResponse" : {
+        "properties" : {
+          "requests" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FriendRequestSummary"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "FriendRequestSummary" : {
+        "properties" : {
+          "nickname" : {
+            "type" : "string"
+          },
+          "requestedAt" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "FriendSummary" : {
+        "properties" : {
+          "nickname" : {
+            "type" : "string"
+          },
+          "presence" : {
+            "enum" : [
+              "OFFLINE",
+              "ONLINE",
+              "IN_GAME"
+            ],
+            "type" : "string"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "IssueAccountRequest" : {
+        "properties" : {
+          "deviceId" : {
+            "maxLength" : 36,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "deviceId"
+        ],
+        "type" : "object"
+      },
+      "SendFriendRequestRequest" : {
+        "properties" : {
+          "userId" : {
+            "maxLength" : 36,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "userId"
+        ],
+        "type" : "object"
+      },
+      "SendFriendRequestResponse" : {
+        "properties" : {
+          "status" : {
+            "enum" : [
+              "PENDING",
+              "ACCEPTED"
+            ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "UpdateNicknameRequest" : {
+        "properties" : {
+          "nickname" : {
+            "minLength" : 1,
+            "pattern" : "^[가-힣a-zA-Z0-9]{2,12}$",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "nickname"
+        ],
+        "type" : "object"
+      },
+      "UpdatePresenceRequest" : {
+        "properties" : {
+          "sessionId" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "UserSearchResponse" : {
+        "properties" : {
+          "users" : {
+            "items" : {
+              "$ref" : "#/components/schemas/UserSummary"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "UserSummary" : {
+        "properties" : {
+          "nickname" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      }
+    }
+  },
+  "info" : {
+    "description" : "기기 식별자 기반 계정, 유저 검색, 친구, 차단, 접속 상태 API.\n\nX-User-Id 는 인증이 아니라 식별입니다. 되돌릴 수 없는 연산만 자격증명(X-Device-Id)을 함께 요구합니다. 오류 코드 표와 하트비트 규칙은 docs/client-guide.md 를 보세요.",
+    "title" : "D205 API",
+    "version" : "v1"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/api/v1/accounts" : {
+      "post" : {
+        "operationId" : "issue",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IssueAccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "account-controller"
+        ]
+      }
+    },
+    "/api/v1/accounts/me" : {
+      "delete" : {
+        "operationId" : "delete",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "header",
+            "name" : "X-Device-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [
+          "account-controller"
+        ]
+      },
+      "get" : {
+        "operationId" : "me",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "account-controller"
+        ]
+      },
+      "patch" : {
+        "operationId" : "rename",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateNicknameRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "account-controller"
+        ]
+      }
+    },
+    "/api/v1/blocks" : {
+      "get" : {
+        "operationId" : "list_2",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BlockListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "block-controller"
+        ]
+      }
+    },
+    "/api/v1/blocks/{userId}" : {
+      "delete" : {
+        "operationId" : "unblock",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [
+          "block-controller"
+        ]
+      },
+      "put" : {
+        "operationId" : "block",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [
+          "block-controller"
+        ]
+      }
+    },
+    "/api/v1/friend-requests" : {
+      "get" : {
+        "operationId" : "list",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "direction",
+            "required" : false,
+            "schema" : {
+              "default" : "incoming",
+              "pattern" : "incoming|outgoing",
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FriendRequestListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "friend-request-controller"
+        ]
+      },
+      "post" : {
+        "operationId" : "send",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SendFriendRequestRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SendFriendRequestResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "friend-request-controller"
+        ]
+      }
+    },
+    "/api/v1/friend-requests/{userId}" : {
+      "delete" : {
+        "operationId" : "delete_1",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [
+          "friend-request-controller"
+        ]
+      }
+    },
+    "/api/v1/friend-requests/{userId}/accept" : {
+      "post" : {
+        "operationId" : "accept",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [
+          "friend-request-controller"
+        ]
+      }
+    },
+    "/api/v1/friends" : {
+      "get" : {
+        "operationId" : "list_1",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FriendListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "friend-controller"
+        ]
+      }
+    },
+    "/api/v1/friends/{userId}" : {
+      "delete" : {
+        "operationId" : "unfriend",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [
+          "friend-controller"
+        ]
+      }
+    },
+    "/api/v1/presence" : {
+      "delete" : {
+        "operationId" : "goOffline",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [
+          "presence-controller"
+        ]
+      },
+      "put" : {
+        "operationId" : "report",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdatePresenceRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [
+          "presence-controller"
+        ]
+      }
+    },
+    "/api/v1/users" : {
+      "get" : {
+        "operationId" : "search",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "nickname",
+            "required" : true,
+            "schema" : {
+              "pattern" : "^[가-힣a-zA-Z0-9]{2,12}$",
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "limit",
+            "required" : false,
+            "schema" : {
+              "default" : 20,
+              "format" : "int32",
+              "maximum" : 50,
+              "minimum" : 1,
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserSearchResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "user-search-controller"
+        ]
+      }
+    }
+  },
+  "servers" : [
+    {
+      "description" : "운영",
+      "url" : "https://j15d205.p.ssafy.io"
+    },
+    {
+      "description" : "로컬",
+      "url" : "http://localhost:8080"
+    }
+  ]
+}

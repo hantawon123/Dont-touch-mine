@@ -11,3 +11,13 @@
 # 스윕 자체를 검증하는 테스트는 sweep() 을 직접 부르므로 이 설정과 무관합니다.
 presence:
   sweep-interval-ms: 3600000
+
+# OpenApiSpecTest 가 읽습니다. UI 까지 켜는 것은 로컬 설정(application-local.yml)이
+# 실제로 동작하는지 검증하기 위한 것입니다. 경로 설정이 틀리면 아무 오류 없이 404 가
+# 되어서, 클라이언트 담당자가 열어볼 때까지 아무도 모릅니다.
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html

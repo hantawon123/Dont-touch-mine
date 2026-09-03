@@ -14,6 +14,19 @@ java {
 	}
 }
 
+// 소스 인코딩을 못 박습니다.
+//
+// 지정하지 않으면 javac 는 플랫폼 기본 문자셋을 씁니다. JDK 18 부터 그 값이 UTF-8
+// 이라 지금은 지정하지 않아도 맞지만, 이 코드베이스는 주석과 오류 메시지가 한글이라
+// 어긋나는 순간 조용히 깨집니다. 응답 메시지는 테스트가 검증하지 않으므로
+// (code 로만 단정합니다) 깨져도 빌드가 통과합니다.
+//
+// 실제로 이 개발 PC 는 native.encoding 이 MS949 이고 젠킨스는 UTF-8 입니다.
+// 기본값에 기대면 두 곳이 갈릴 여지를 남겨 둡니다.
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+}
+
 repositories {
 	mavenCentral()
 }
@@ -25,6 +38,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.flywaydb:flyway-mysql'
+	// API 명세를 코드에서 생성합니다. 손으로 유지하는 엔드포인트 목록을 두지 않기
+	// 위한 것입니다. 2.x는 Spring Boot 3용이고 3.x가 Boot 4용입니다.
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	annotationProcessor 'org.projectlombok:lombok'
