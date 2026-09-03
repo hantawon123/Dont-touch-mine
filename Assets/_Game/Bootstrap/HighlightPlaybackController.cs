@@ -138,6 +138,8 @@ namespace Game.Bootstrap
         ITickable,
         IDisposable
     {
+        private const double TimelineEpsilonSeconds = 0.000001d;
+
         private readonly INetworkMatchEvents network;
         private readonly RoomBrowserSystem room;
         private readonly INetworkMatchRuntimeSource clock;
@@ -291,12 +293,13 @@ namespace Game.Bootstrap
             if (acceptsShortcut && keyboard.spaceKey.wasPressedThisFrame) SkipCurrent();
 
             var elapsed = clock.ServerTime - (highlightEndsAt - totalDuration) + localSkipOffset;
-            if (highlightEndsAt <= 0d || elapsed < 0d || replay.Count == 0)
+            if (highlightEndsAt <= 0d || elapsed < -TimelineEpsilonSeconds || replay.Count == 0)
             {
                 PlaybackSourceTime = null;
                 transition.SetOpacity(1f);
                 return;
             }
+            elapsed = Math.Max(0d, elapsed);
             var index = 0;
             while (index < replay.Count && elapsed >= replay[index].Candidate.PlaybackDurationSeconds +
                        HighlightPresentationTiming.OverheadSeconds)
@@ -430,7 +433,8 @@ namespace Game.Bootstrap
             }
 
             var elapsed = clock.ServerTime - (highlightEndsAt - TotalDuration()) + localSkipOffset;
-            if (elapsed < 0d) return false;
+            if (elapsed < -TimelineEpsilonSeconds) return false;
+            elapsed = Math.Max(0d, elapsed);
             for (var replayPosition = 0; replayPosition < replay.Count; replayPosition++)
             {
                 var duration = replay[replayPosition].Candidate.PlaybackDurationSeconds +
