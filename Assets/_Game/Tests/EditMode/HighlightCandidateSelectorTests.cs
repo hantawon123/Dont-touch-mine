@@ -69,6 +69,19 @@ namespace Game.Tests.EditMode
             Assert.That(selected[2].TargetId, Is.EqualTo("stunned"));
         }
 
+        [Test]
+        public void Select_ExcludesCandidatesWithNoHighlightScore()
+        {
+            var selected = HighlightCandidateSelector.Select(new[]
+            {
+                Candidate(HighlightType.LongestHidden, "empty", 0d),
+                Candidate(HighlightType.FirstBlood, "meaningful", 60d),
+            });
+
+            Assert.That(selected, Has.Length.EqualTo(1));
+            Assert.That(selected[0].TargetId, Is.EqualTo("meaningful"));
+        }
+
         private static HighlightCandidate Candidate(
             HighlightType type,
             string targetId = "target",

@@ -12394,6 +12394,7 @@ MonoBehaviour:
   voiceView: {fileID: 1635673787}
   inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   cameraRigPrefab: {fileID: 8790836612570162375, guid: 8f2f4301582f0a84bb1abb53842d175c, type: 3}
+  sceneConfiguration: {fileID: 1800000012}
 --- !u!4 &1844095858
 Transform:
   m_ObjectHideFlags: 0

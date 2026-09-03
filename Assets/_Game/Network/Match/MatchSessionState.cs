@@ -707,20 +707,6 @@ namespace Game.Network.Match
             StarterOf(Runner)?.TryRelayMatchChat(info.Source, text);
         }
 
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-        public void RPC_RequestSkipCurrentHighlight(
-            int expectedIndex,
-            RpcInfo info = default)
-        {
-            StarterOf(Runner)?.TrySkipCurrentHighlight(info.Source, expectedIndex);
-        }
-
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-        public void RPC_RequestSkipAllHighlights(RpcInfo info = default)
-        {
-            StarterOf(Runner)?.TrySkipAllHighlights(info.Source);
-        }
-
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
         public void RPC_NotifyPlayerItemStatuses(byte[] payload)
         {

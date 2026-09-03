@@ -801,6 +801,79 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void CaptureHighlightReplay_DropsCandidatesWithoutPlayableFramesFromSchedule()
+        {
+            StartSearching();
+            var poses = CreatePlayerPoses(lastKnownPositions);
+            Assert.That(
+                session.TryRecordReplayFrame(200d, poses, new WorldObjectState[0]),
+                Is.True);
+            Assert.That(session.SetHighlightCandidates(new[]
+            {
+                new HighlightCandidate(HighlightType.FirstBlood, 199d, 201d, "playable"),
+                new HighlightCandidate(HighlightType.FinalMoment, 300d, 301d, "missing")
+            }), Is.True);
+            session.AdvanceTime(550d, lastKnownPositions);
+
+            Assert.That(session.TryCaptureHighlightReplay(out var replay), Is.True);
+            Assert.That(replay, Has.Length.EqualTo(1));
+            Assert.That(replay[0].Candidate.TargetId, Is.EqualTo("playable"));
+            Assert.That(session.ScheduleHighlightPlayback(560d), Is.True);
+            Assert.That(
+                state.PhaseEndsAt.CurrentValue,
+                Is.EqualTo(560d + replay[0].Candidate.PlaybackDurationSeconds +
+                    HighlightPresentationTiming.OverheadSeconds).Within(0.001d));
+        }
+
+        [Test]
+        public void SoloMatch_DestroyedOwnItemPublishesOnlyFirstBlood()
+        {
+            var soloState = new MatchState();
+            try
+            {
+                var solo = CreateSession(soloState, 1234, 1);
+                var positions = new[] { Vector3.zero };
+                var poses = CreatePlayerPoses(positions);
+                Assert.That(solo.Start(10d), Is.True);
+                var searchingAt = 10d + rules.GetHidingDurationSeconds(1);
+                solo.AdvanceTime(searchingAt, positions);
+                var itemId = solo.Assignments[0].Item.ItemId;
+                Assert.That(
+                    solo.TryRecordReplayFrame(
+                        searchingAt + 1d,
+                        poses,
+                        new[] { new WorldObjectState(itemId, Pose.identity) }),
+                    Is.True);
+                Assert.That(solo.TryHoldObject(0, itemId, searchingAt + 2d), Is.True);
+                Assert.That(
+                    solo.TryDestroyHeldPlayerItem(0, searchingAt + 2d),
+                    Is.True);
+                Assert.That(
+                    solo.TryRecordReplayFrame(
+                        searchingAt + 2d,
+                        poses,
+                        System.Array.Empty<WorldObjectState>()),
+                    Is.True);
+                Assert.That(
+                    solo.TryRecordReplayFrame(
+                        searchingAt + 5d,
+                        poses,
+                        System.Array.Empty<WorldObjectState>()),
+                    Is.True);
+
+                Assert.That(solo.TryCaptureHighlightReplay(out var replay), Is.True);
+                Assert.That(replay, Has.Length.EqualTo(1));
+                Assert.That(replay[0].Candidate.Type, Is.EqualTo(HighlightType.FirstBlood));
+                Assert.That(replay[0].Clips, Has.All.Matches<HighlightReplayClip>(
+                    clip => clip.Frames.Count > 0));
+            }
+            finally
+            {
+                soloState.Dispose();
+            }
+        }
+
+        [Test]
         public void HighlightPlaybackController_PlaysAllCandidatesAndEntersResult()
         {
             StartSearching();
@@ -880,49 +953,6 @@ namespace Game.Tests.EditMode
                     }
                 }
             }
-        }
-
-        [Test]
-        public void HighlightSkip_CurrentAdvancesOnceAndRejectsStaleIndex()
-        {
-            StartSearching();
-            Assert.That(session.SetHighlightCandidates(new[]
-            {
-                Candidate(HighlightType.FirstBlood, "first"),
-                Candidate(HighlightType.FinalMoment, "final")
-            }), Is.True);
-            session.AdvanceTime(550d, lastKnownPositions);
-            Assert.That(session.WaitForHighlightPlayback(), Is.True);
-            Assert.That(session.TrySkipCurrentHighlight(0, 600d), Is.False);
-            Assert.That(session.ScheduleHighlightPlayback(600d), Is.True);
-
-            var originalEnd = state.PhaseEndsAt.CurrentValue;
-            Assert.That(session.TrySkipCurrentHighlight(1, 601d), Is.False);
-            Assert.That(session.TrySkipCurrentHighlight(0, 601d), Is.True);
-            Assert.That(state.PhaseEndsAt.CurrentValue, Is.LessThan(originalEnd));
-            Assert.That(session.TryGetCurrentHighlight(out var current), Is.True);
-            Assert.That(current.Type, Is.EqualTo(HighlightType.FinalMoment));
-
-            Assert.That(session.TrySkipCurrentHighlight(0, 601d), Is.False);
-            Assert.That(session.TrySkipCurrentHighlight(0, 602d), Is.False);
-            Assert.That(session.TrySkipCurrentHighlight(1, 601d), Is.True);
-            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Result));
-        }
-
-        [Test]
-        public void HighlightSkip_AllEntersResultOnlyOnce()
-        {
-            StartSearching();
-            Assert.That(session.SetHighlightCandidates(new[]
-            {
-                Candidate(HighlightType.FirstBlood, "first"),
-                Candidate(HighlightType.FinalMoment, "final")
-            }), Is.True);
-            session.AdvanceTime(550d, lastKnownPositions);
-
-            Assert.That(session.TrySkipAllHighlights(), Is.True);
-            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Result));
-            Assert.That(session.TrySkipAllHighlights(), Is.False);
         }
 
         [Test]

@@ -50,7 +50,6 @@ namespace Game.Architecture.Tests
             Assert.That(container.Resolve<INetworkMatchRuntimeSource>(), Is.SameAs(network));
             Assert.That(container.Resolve<INetworkMatchAuthority>(), Is.SameAs(network));
             Assert.That(container.Resolve<INetworkMatchEvents>(), Is.SameAs(network));
-            Assert.That(container.Resolve<INetworkHighlightCommands>(), Is.SameAs(network));
             Assert.That(container.Resolve<INetworkResultNavigation>(), Is.SameAs(network));
             Assert.That(container.Resolve<IMatchChatTransport>(), Is.SameAs(network));
             Assert.That(container.Resolve<NetworkResultLobbyReturnController>(), Is.Not.Null);

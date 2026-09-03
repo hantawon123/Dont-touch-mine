@@ -14,18 +14,14 @@ namespace Game.Network.Match
         bool IsRuntimeReady { get; }
         bool IsResultSceneLoaded { get; }
         bool EnterResultScene();
+        bool PrepareLobbyForHighlights();
+        bool CompleteLocalHighlightViewing();
         bool RequestReturnToLobby();
     }
 
     public interface INetworkHighlightReady
     {
         bool TryConfirmHighlightReady();
-    }
-
-    public interface INetworkHighlightCommands
-    {
-        bool RequestSkipCurrentHighlight(int expectedIndex);
-        bool RequestSkipAllHighlights();
     }
 
     /// <summary>

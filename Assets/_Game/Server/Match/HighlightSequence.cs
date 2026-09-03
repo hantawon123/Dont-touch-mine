@@ -64,34 +64,6 @@ namespace Game.Server.Match
             return true;
         }
 
-        public bool TryGetScheduledIndex(
-            double elapsedSeconds,
-            out int index,
-            out double currentEndsAt)
-        {
-            index = -1;
-            currentEndsAt = 0d;
-            if (!double.IsFinite(elapsedSeconds) || elapsedSeconds < 0d)
-            {
-                return false;
-            }
-
-            for (var candidateIndex = 0;
-                 candidateIndex < highlights.Length;
-                 candidateIndex++)
-            {
-                currentEndsAt += highlights[candidateIndex].PlaybackDurationSeconds +
-                    Game.Core.Match.HighlightPresentationTiming.OverheadSeconds;
-                if (elapsedSeconds < currentEndsAt)
-                {
-                    index = candidateIndex;
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         public HighlightCandidate[] Capture()
         {
             var snapshot = new HighlightCandidate[highlights.Length];
