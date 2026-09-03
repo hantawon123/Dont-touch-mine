@@ -4,10 +4,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 import java.util.stream.Collectors;
 
@@ -29,6 +31,22 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
+                .collect(Collectors.joining(" "));
+        return ResponseEntity.badRequest().body(new ErrorResponse("INVALID_REQUEST", message));
+    }
+
+    /**
+     * 쿼리 파라미터나 경로 변수의 제약 위반입니다.
+     *
+     * <p>요청 본문(@Valid @RequestBody)은 MethodArgumentNotValidException 으로 오지만,
+     * 파라미터에 직접 붙인 제약은 스프링 프레임워크 6.1부터 이 예외로 옵니다. 둘을
+     * 같은 코드로 내보내는 것은 클라이언트에게 "요청이 규칙에 안 맞는다"는 사실이
+     * 같기 때문입니다. 어디가 틀렸는지는 메시지가 알려줍니다.
+     */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ErrorResponse> handleParameterValidation(HandlerMethodValidationException e) {
+        String message = e.getAllErrors().stream()
+                .map(MessageSourceResolvable::getDefaultMessage)
                 .collect(Collectors.joining(" "));
         return ResponseEntity.badRequest().body(new ErrorResponse("INVALID_REQUEST", message));
     }
