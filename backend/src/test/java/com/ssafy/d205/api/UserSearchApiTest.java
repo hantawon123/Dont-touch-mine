@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -260,17 +261,11 @@ class UserSearchApiTest extends IntegrationTest {
         return userId;
     }
 
-    /**
-     * 차단 API가 아직 없어서 직접 넣습니다. public_id 로 내부 seq 를 찾는 것까지
-     * 한 문장으로 처리해 테스트가 seq 를 알 필요가 없게 했습니다.
-     */
-    private void block(String blockerUserId, String blockedUserId) {
-        jdbcTemplate.update("""
-                INSERT INTO user_blocks (blocker_seq, blocked_seq, created_at)
-                SELECT b.users_seq, t.users_seq, '20260101000000'
-                  FROM users b, users t
-                 WHERE b.public_id = ? AND t.public_id = ?
-                """, blockerUserId, blockedUserId);
+    /** 차단 API로 넣습니다. 테스트가 실제 경로를 지나게 하는 편이 낫습니다. */
+    private void block(String blockerUserId, String blockedUserId) throws Exception {
+        mvc.perform(put("/api/v1/blocks/{userId}", blockedUserId)
+                        .header(USER_ID_HEADER, blockerUserId))
+                .andExpect(status().isNoContent());
     }
 
     private org.springframework.test.web.servlet.RequestBuilder searchRequest(
