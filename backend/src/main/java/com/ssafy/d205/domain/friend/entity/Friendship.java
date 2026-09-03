@@ -12,8 +12,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import com.ssafy.d205.global.common.Timestamps;
-
 /**
  * 두 사용자 사이의 친구 관계. 요청과 성립을 한 행으로 다룹니다.
  *
@@ -77,17 +75,17 @@ public class Friendship {
     }
 
     /** 요청 상태로 만듭니다. 두 seq 를 정렬해 넣습니다. */
-    public static Friendship request(int requesterSeq, int targetSeq) {
+    public static Friendship request(int requesterSeq, int targetSeq, String now) {
         return new Friendship(Math.min(requesterSeq, targetSeq),
                               Math.max(requesterSeq, targetSeq),
                               requesterSeq,
                               FriendshipStatus.PENDING,
-                              Timestamps.now());
+                              now);
     }
 
-    public void accept() {
+    public void accept(String now) {
         this.status = FriendshipStatus.ACCEPTED;
-        this.acceptedAt = Timestamps.now();
+        this.acceptedAt = now;
     }
 
     public boolean isPending() {
