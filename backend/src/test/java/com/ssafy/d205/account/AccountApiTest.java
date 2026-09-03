@@ -126,6 +126,55 @@ class AccountApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$.nickname").value(nickname));
     }
 
+    @Test
+    @DisplayName("발급 직후에는 nicknameSet이 false다")
+    void generatedNicknameIsNotMarkedAsSet() throws Exception {
+        mvc.perform(issueRequest(newDeviceId()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.nicknameSet").value(false));
+    }
+
+    @Test
+    @DisplayName("닉네임을 바꾸면 nicknameSet이 true가 된다")
+    void renameMarksNicknameAsSet() throws Exception {
+        String userId = issueAndGetUserId();
+
+        mvc.perform(renameRequest(userId, uniqueNickname()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nicknameSet").value(true));
+
+        mvc.perform(get("/api/v1/accounts/me").header(USER_ID_HEADER, userId))
+                .andExpect(jsonPath("$.nicknameSet").value(true));
+    }
+
+    @Test
+    @DisplayName("닉네임을 정한 뒤 발급을 다시 불러도 nicknameSet이 유지된다")
+    void reissueKeepsNicknameSetFlag() throws Exception {
+        // 이 컬럼을 만든 이유입니다. 입력 화면에서 껐다가 다시 켠 상황에서 발급은
+        // 200을 돌려주는데, 그것만으로는 닉네임을 정했는지 알 수 없었습니다.
+        String deviceId = newDeviceId();
+        String userId = userIdOf(mvc.perform(issueRequest(deviceId))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString());
+
+        mvc.perform(renameRequest(userId, uniqueNickname())).andExpect(status().isOk());
+
+        mvc.perform(issueRequest(deviceId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nicknameSet").value(true));
+    }
+
+    @Test
+    @DisplayName("닉네임을 두 번 바꿔도 nicknameSet은 true로 남는다")
+    void secondRenameKeepsNicknameSetFlag() throws Exception {
+        String userId = issueAndGetUserId();
+
+        mvc.perform(renameRequest(userId, uniqueNickname())).andExpect(status().isOk());
+        mvc.perform(renameRequest(userId, uniqueNickname()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nicknameSet").value(true));
+    }
+
     @ParameterizedTest
     @DisplayName("규칙에 맞지 않는 닉네임은 400")
     @ValueSource(strings = {

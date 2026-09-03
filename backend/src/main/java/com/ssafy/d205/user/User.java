@@ -48,6 +48,16 @@ public class User {
     @Column(name = "nickname", nullable = false, length = 32)
     private String nickname;
 
+    /**
+     * 사용자가 닉네임을 직접 정한 시각. 아직 정하지 않았으면 NULL입니다.
+     *
+     * <p>발급 때 서버가 지어준 임시 닉네임인지, 사용자가 고른 것인지 구분하기 위한
+     * 값입니다. 발급이 멱등해서 두 번째 요청부터는 200이 나가는데, 그것만으로는
+     * 클라이언트가 입력 화면을 띄워야 하는지 알 수 없습니다.
+     */
+    @Column(name = "nickname_set_at", length = 14)
+    private String nicknameSetAt;
+
     @Column(name = "created_at", nullable = false, length = 14, updatable = false)
     private String createdAt;
 
@@ -70,7 +80,19 @@ public class User {
     }
 
     public void rename(String nickname) {
+        String now = Timestamps.now();
         this.nickname = nickname;
-        this.updatedAt = Timestamps.now();
+        this.updatedAt = now;
+
+        // 첫 변경에서만 채웁니다. 매번 갱신하면 "정한 시각"이 아니라 "마지막으로 바꾼
+        // 시각"이 되어 이름과 내용이 어긋납니다. 그 값은 updated_at이 들고 있습니다.
+        if (this.nicknameSetAt == null) {
+            this.nicknameSetAt = now;
+        }
+    }
+
+    /** 서버가 지어준 임시 닉네임을 그대로 쓰고 있으면 false입니다. */
+    public boolean isNicknameSet() {
+        return nicknameSetAt != null;
     }
 }
