@@ -7,15 +7,19 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
+import com.ssafy.d205.domain.friend.dto.FriendListResponse;
 import com.ssafy.d205.domain.friend.dto.FriendRequestListResponse;
 import com.ssafy.d205.domain.friend.dto.FriendRequestSummary;
+import com.ssafy.d205.domain.friend.dto.FriendSummary;
 import com.ssafy.d205.domain.friend.dto.SendFriendRequestResponse;
 import com.ssafy.d205.domain.friend.entity.Friendship;
 import com.ssafy.d205.domain.friend.entity.FriendshipStatus;
 import com.ssafy.d205.domain.friend.repository.FriendRequestRow;
 import com.ssafy.d205.domain.friend.repository.FriendshipRepository;
+import com.ssafy.d205.domain.presence.entity.PresenceTimeout;
 import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.repository.UserRepository;
+import com.ssafy.d205.global.common.TimeProvider;
 import com.ssafy.d205.global.exception.AlreadyFriendsException;
 import com.ssafy.d205.global.exception.FriendRequestAlreadySentException;
 import com.ssafy.d205.global.exception.FriendRequestNotFoundException;
@@ -45,6 +49,7 @@ public class FriendshipService {
 
     private final FriendshipRepository friendshipRepository;
     private final UserRepository userRepository;
+    private final TimeProvider timeProvider;
 
     /**
      * 친구 요청을 보냅니다.
@@ -79,11 +84,11 @@ public class FriendshipService {
             if (friendship.isRequestedBy(me.getSeq())) {
                 throw new FriendRequestAlreadySentException();
             }
-            friendship.accept();
+            friendship.accept(timeProvider.now());
             return new SendFriendRequestResponse(FriendshipStatus.ACCEPTED);
         }
 
-        friendshipRepository.save(Friendship.request(me.getSeq(), target.getSeq()));
+        friendshipRepository.save(Friendship.request(me.getSeq(), target.getSeq(), timeProvider.now()));
         return new SendFriendRequestResponse(FriendshipStatus.PENDING);
     }
 
@@ -110,7 +115,7 @@ public class FriendshipService {
         if (friendship.isRequestedBy(me.getSeq())) {
             throw new FriendRequestNotFoundException();
         }
-        friendship.accept();
+        friendship.accept(timeProvider.now());
     }
 
     /**
@@ -157,6 +162,28 @@ public class FriendshipService {
 
         return new FriendRequestListResponse(rows.stream()
                 .map(row -> new FriendRequestSummary(row.getUserId(), row.getNickname(), row.getRequestedAt()))
+                .toList());
+    }
+
+    /**
+     * 친구 목록. 각 친구의 접속 상태를 함께 돌려줍니다.
+     *
+     * <p>차단 필터를 넣지 않습니다. 차단할 때 friendships 행을 함께 지운다는 것이
+     * 이 도메인의 전제이므로(클래스 주석 참고) 걸러낼 대상이 없습니다.
+     */
+    @Transactional(readOnly = true)
+    public FriendListResponse listFriends(String callerUserId) {
+        User me = caller(callerUserId);
+
+        // 기준 시각을 한 번만 계산합니다. 행마다 읽으면 친구 50명이면 시계를 50번 읽고
+        // 판정 기준이 행마다 미세하게 달라집니다. 한 조회는 한 기준으로 판정해야 합니다.
+        String thresholdAt = timeProvider.minus(PresenceTimeout.TIMEOUT);
+
+        return new FriendListResponse(friendshipRepository.findFriends(me.getSeq()).stream()
+                .map(row -> new FriendSummary(
+                        row.getUserId(),
+                        row.getNickname(),
+                        PresenceTimeout.effective(row.getStatus(), row.getHeartbeatAt(), thresholdAt)))
                 .toList());
     }
 

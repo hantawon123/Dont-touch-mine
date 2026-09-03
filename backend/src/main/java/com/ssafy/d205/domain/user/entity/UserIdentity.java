@@ -15,8 +15,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import com.ssafy.d205.global.common.Timestamps;
-
 /**
  * 계정에 연결된 외부 신원.
  *
@@ -61,14 +59,14 @@ public class UserIdentity {
     @Column(name = "linked_at", nullable = false, length = 14, updatable = false)
     private String linkedAt;
 
-    private UserIdentity(User user, AuthProvider provider, String providerUserId) {
+    private UserIdentity(User user, AuthProvider provider, String providerUserId, String now) {
         this.user = user;
         this.provider = provider;
         this.providerUserId = providerUserId;
-        this.linkedAt = Timestamps.now();
+        this.linkedAt = now;
     }
 
-    public static UserIdentity link(User user, AuthProvider provider, String providerUserId) {
-        return new UserIdentity(user, provider, providerUserId);
+    public static UserIdentity link(User user, AuthProvider provider, String providerUserId, String now) {
+        return new UserIdentity(user, provider, providerUserId, now);
     }
 }

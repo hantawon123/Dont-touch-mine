@@ -12,8 +12,6 @@ import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
-import com.ssafy.d205.global.common.Timestamps;
-
 /**
  * 게임 계정.
  *
@@ -75,12 +73,11 @@ public class User {
      * public_id는 애플리케이션이 UUIDv4로 만듭니다. DB의 AUTO_INCREMENT와 달리
      * 값을 미리 알 수 있어야 하고, 순서를 유추할 수 없어야 하기 때문입니다.
      */
-    public static User create(String nickname) {
-        return new User(UUID.randomUUID().toString(), nickname, Timestamps.now());
+    public static User create(String nickname, String now) {
+        return new User(UUID.randomUUID().toString(), nickname, now);
     }
 
-    public void rename(String nickname) {
-        String now = Timestamps.now();
+    public void rename(String nickname, String now) {
         this.nickname = nickname;
         this.updatedAt = now;
 

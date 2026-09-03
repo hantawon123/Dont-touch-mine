@@ -19,7 +19,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.support.IntegrationTest;
 
 class FriendRequestApiTest extends IntegrationTest {
