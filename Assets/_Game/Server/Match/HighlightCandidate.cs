@@ -12,7 +12,7 @@ namespace Game.Server.Match
                 throw new ArgumentOutOfRangeException(nameof(startedAt));
             }
 
-            if (!double.IsFinite(endedAt) || endedAt < startedAt)
+            if (!double.IsFinite(endedAt) || endedAt <= startedAt)
             {
                 throw new ArgumentOutOfRangeException(nameof(endedAt));
             }
@@ -183,6 +183,7 @@ namespace Game.Server.Match
             var candidatesByType = new Dictionary<HighlightType, HighlightCandidate>();
             foreach (var candidate in candidates)
             {
+                if (candidate.Score <= 0d) continue;
                 if (!candidatesByType.TryGetValue(candidate.Type, out var selected) ||
                     candidate.Score > selected.Score ||
                     candidate.Score == selected.Score && candidate.EventAt > selected.EventAt)

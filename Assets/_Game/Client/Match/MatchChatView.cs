@@ -36,6 +36,7 @@ namespace Game.Client.Match
         private TMP_FontAsset cachedFont;
 
         public event Action<string> SendRequested;
+        public bool IsInputFocused => inputField != null && inputField.isFocused;
 
         public static MatchChatView Create(Transform canvasParent)
         {

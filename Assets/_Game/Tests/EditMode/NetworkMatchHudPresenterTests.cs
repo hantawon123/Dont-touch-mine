@@ -63,6 +63,139 @@ namespace Game.Architecture.Tests
             finally { UnityEngine.Object.DestroyImmediate(rules); }
         }
 
+        [Test]
+        public void ReturnToLobby_KeepsTransitionCoveredUntilLobbyTakesOwnership()
+        {
+            var network = new FakeNetwork();
+            var transition = new FakeTransition();
+            using var room = new RoomBrowserSystem();
+            using var playback = new NetworkHighlightPlaybackController(network, room, network, transition);
+            playback.Start();
+
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 10d));
+            transition.SetOpacity(0.5f);
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            Assert.That(transition.Opacity, Is.EqualTo(1f),
+                "The live camera must not be restored under a partial fade.");
+            network.Publish(new MatchStateSnapshot(MatchPhase.Waiting, 0d));
+            Assert.That(transition.Opacity, Is.EqualTo(1f));
+
+            network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 0d));
+            Assert.That(transition.Opacity, Is.Zero);
+        }
+
+        [Test]
+        public void HighlightSkip_AffectsOnlyTheLocalPlayback()
+        {
+            var firstNetwork = new FakeNetwork { ServerTime = 10d };
+            var secondNetwork = new FakeNetwork { ServerTime = 10d };
+            using var room = new RoomBrowserSystem();
+            using var first = new NetworkHighlightPlaybackController(
+                firstNetwork, room, firstNetwork, new FakeTransition());
+            using var second = new NetworkHighlightPlaybackController(
+                secondNetwork, room, secondNetwork, new FakeTransition());
+            first.Start();
+            second.Start();
+
+            Assert.That(first.SkipCurrent(), Is.False);
+            Assert.That(first.SkipAll(), Is.False);
+
+            var replay = CreateReplay(HighlightType.FirstBlood, HighlightType.FinalMoment);
+            var duration = 20d + 2d * HighlightPresentationTiming.OverheadSeconds;
+            firstNetwork.Publish(new MatchResult(MatchEndReason.TimeExpired, 0d, new[] { 0 }));
+            firstNetwork.PublishReplay(replay);
+            firstNetwork.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 10d + duration));
+            secondNetwork.Publish(new MatchResult(MatchEndReason.TimeExpired, 0d, new[] { 0 }));
+            secondNetwork.PublishReplay(replay);
+            secondNetwork.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 10d + duration));
+
+            Assert.That(first.SkipCurrent(), Is.True);
+            Assert.That(second.SkipCurrent(), Is.True,
+                "One player's skip must not move another player's playback.");
+            Assert.That(first.SkipAll(), Is.True);
+            Assert.That(firstNetwork.CompleteHighlightCalls, Is.EqualTo(1));
+            Assert.That(secondNetwork.CompleteHighlightCalls, Is.Zero,
+                "One player's skip-all must not complete another player's playback.");
+            Assert.That(first.SkipCurrent(), Is.False);
+            Assert.That(second.SkipCurrent(), Is.True,
+                "One player's skip-all must not stop another player's playback.");
+            Assert.That(second.SkipAll(), Is.True);
+            Assert.That(secondNetwork.CompleteHighlightCalls, Is.EqualTo(1));
+            Assert.That(second.SkipCurrent(), Is.False);
+        }
+
+        [Test]
+        public void AcknowledgedHighlight_DoesNotReclaimLobbyTransition()
+        {
+            var network = new FakeNetwork
+            {
+                ServerTime = 10d,
+                CompleteHighlightResult = false,
+            };
+            var transition = new FakeTransition();
+            using var room = new RoomBrowserSystem();
+            using var playback = new NetworkHighlightPlaybackController(
+                network, room, network, transition);
+            playback.Start();
+
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 0d, new[] { 0 }));
+            network.PublishReplay(CreateReplay(HighlightType.FirstBlood));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight,
+                10d + HighlightPresentationTiming.OverheadSeconds));
+
+            Assert.That(playback.SkipAll(), Is.True);
+            Assert.That(transition.Opacity, Is.EqualTo(1f));
+            Assert.That(network.CompleteHighlightCalls, Is.EqualTo(1));
+
+            // Simulate an acknowledgement arriving before LobbyLifetimeScope's
+            // Update, with the playback controller ticking later that frame.
+            network.CompleteHighlightResult = true;
+            transition.SetOpacity(0f);
+            playback.Tick();
+
+            Assert.That(transition.Opacity, Is.Zero);
+            Assert.That(network.CompleteHighlightCalls, Is.EqualTo(2));
+            playback.Tick();
+            Assert.That(network.CompleteHighlightCalls, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void EmptyHighlightReplay_ConfirmsReadinessWithoutStartingPlayback()
+        {
+            var network = new FakeNetwork { ServerTime = 3d };
+            var transition = new FakeTransition();
+            using var room = new RoomBrowserSystem();
+            using var playback = new NetworkHighlightPlaybackController(
+                network, room, network, transition);
+            playback.Start();
+
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 0d, new[] { 0 }));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 0d));
+            network.PublishReplay(Array.Empty<HighlightReplayData>());
+            playback.Tick();
+
+            Assert.That(network.HighlightReadyCalls, Is.EqualTo(1));
+            Assert.That(playback.PlaybackSourceTime, Is.Null);
+            Assert.That(transition.Opacity, Is.EqualTo(1f));
+        }
+
+        private static HighlightReplayData[] CreateReplay(params HighlightType[] types)
+        {
+            var result = new HighlightReplayData[types.Length];
+            for (var index = 0; index < types.Length; index++)
+            {
+                var segment = new HighlightSegment(0d, 10d);
+                result[index] = new HighlightReplayData(
+                    new HighlightCandidate(types[index], new[] { segment }, $"item-{index}"),
+                    new[]
+                    {
+                        new HighlightReplayClip(segment, Array.Empty<HighlightReplayFrame>())
+                    });
+            }
+
+            return result;
+        }
+
         private sealed class FakeTransition : IHighlightTransitionView
         {
             public float Opacity { get; private set; }
@@ -312,11 +445,20 @@ namespace Game.Architecture.Tests
             public void SetShredderMarker(Vector2 screenPosition, bool visible) { }
         }
 
-        private sealed class FakeNetwork : INetworkMatchEvents, INetworkMatchRuntimeSource
+        private sealed class FakeNetwork :
+            INetworkMatchEvents,
+            INetworkMatchRuntimeSource,
+            INetworkResultNavigation,
+            INetworkHighlightReady
         {
             public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses { get; set; } =
                 Array.Empty<PlayerItemStatusSnapshot>();
             public bool IsRuntimeReady { get; set; } = true;
+            public bool IsServer { get; set; }
+            public bool IsResultSceneLoaded { get; set; }
+            public bool CompleteHighlightResult { get; set; } = true;
+            public int CompleteHighlightCalls { get; private set; }
+            public int HighlightReadyCalls { get; private set; }
             public MatchRuleSettings MatchRules { get; set; } = MatchRuleSettings.Default;
             private double serverTime;
             public double ServerTime
@@ -333,15 +475,29 @@ namespace Game.Architecture.Tests
                 PlayerInteractionStatesReceived;
             public event Action<IReadOnlyList<HighlightReplayData>> HighlightReplayReceived;
             public event Action<MatchResult> MatchResultReceived;
-
             public bool TryGetPlayerPose(string playerId, out Pose pose)
             {
                 pose = default;
                 return false;
             }
+            public bool EnterResultScene() => true;
+            public bool PrepareLobbyForHighlights() => true;
+            public bool TryConfirmHighlightReady()
+            {
+                HighlightReadyCalls++;
+                return true;
+            }
+            public bool CompleteLocalHighlightViewing()
+            {
+                CompleteHighlightCalls++;
+                return CompleteHighlightResult;
+            }
+            public bool RequestReturnToLobby() => true;
 
             public void Publish(MatchStateSnapshot value) => MatchStateReceived?.Invoke(value);
             public void Publish(MatchResult value) => MatchResultReceived?.Invoke(value);
+            public void PublishReplay(IReadOnlyList<HighlightReplayData> value) =>
+                HighlightReplayReceived?.Invoke(value);
             public void PublishItemAssignment(string itemId) =>
                 ItemAssignmentReceived?.Invoke(itemId);
             public void PublishPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> value)

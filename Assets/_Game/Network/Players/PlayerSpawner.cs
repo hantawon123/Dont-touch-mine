@@ -329,6 +329,18 @@ namespace Game.Network.Players
                 $"{avatarsFound} avatars, {moved} moved.");
         }
 
+        public bool TryGetSpawnPose(PlayerRef player, out Pose pose)
+        {
+            if (_players.TryGetSeat(player, out var seat))
+            {
+                pose = PoseFor(seat);
+                return true;
+            }
+
+            pose = default;
+            return false;
+        }
+
         /// <summary>
         /// Forgets everyone. The session ending takes the characters with it, so
         /// only the seating has to be cleared for the next room.
