@@ -883,6 +883,49 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void HighlightSkip_CurrentAdvancesOnceAndRejectsStaleIndex()
+        {
+            StartSearching();
+            Assert.That(session.SetHighlightCandidates(new[]
+            {
+                Candidate(HighlightType.FirstBlood, "first"),
+                Candidate(HighlightType.FinalMoment, "final")
+            }), Is.True);
+            session.AdvanceTime(550d, lastKnownPositions);
+            Assert.That(session.WaitForHighlightPlayback(), Is.True);
+            Assert.That(session.TrySkipCurrentHighlight(0, 600d), Is.False);
+            Assert.That(session.ScheduleHighlightPlayback(600d), Is.True);
+
+            var originalEnd = state.PhaseEndsAt.CurrentValue;
+            Assert.That(session.TrySkipCurrentHighlight(1, 601d), Is.False);
+            Assert.That(session.TrySkipCurrentHighlight(0, 601d), Is.True);
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.LessThan(originalEnd));
+            Assert.That(session.TryGetCurrentHighlight(out var current), Is.True);
+            Assert.That(current.Type, Is.EqualTo(HighlightType.FinalMoment));
+
+            Assert.That(session.TrySkipCurrentHighlight(0, 601d), Is.False);
+            Assert.That(session.TrySkipCurrentHighlight(0, 602d), Is.False);
+            Assert.That(session.TrySkipCurrentHighlight(1, 601d), Is.True);
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Result));
+        }
+
+        [Test]
+        public void HighlightSkip_AllEntersResultOnlyOnce()
+        {
+            StartSearching();
+            Assert.That(session.SetHighlightCandidates(new[]
+            {
+                Candidate(HighlightType.FirstBlood, "first"),
+                Candidate(HighlightType.FinalMoment, "final")
+            }), Is.True);
+            session.AdvanceTime(550d, lastKnownPositions);
+
+            Assert.That(session.TrySkipAllHighlights(), Is.True);
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Result));
+            Assert.That(session.TrySkipAllHighlights(), Is.False);
+        }
+
+        [Test]
         public void HudStateQueries_ReturnCurrentPublicMatchState()
         {
             session.Start(10d);

@@ -42,6 +42,7 @@ namespace Game.Network.Session
         INetworkPlayerReplayStateSource,
         INetworkMatchAuthority,
         INetworkMatchEvents,
+        INetworkHighlightCommands,
         INetworkHighlightReady,
         INetworkResultNavigation,
         ILobbyChatTransport,
@@ -858,6 +859,16 @@ namespace Game.Network.Session
             IsRuntimeReady && !_browsingLobby &&
             _matchStarter != null &&
             _matchStarter.RequestReturnToLobby();
+
+        public bool RequestSkipCurrentHighlight(int expectedIndex) =>
+            IsRuntimeReady && !_browsingLobby &&
+            _matchStarter != null &&
+            _matchStarter.RequestSkipCurrentHighlight(expectedIndex);
+
+        public bool RequestSkipAllHighlights() =>
+            IsRuntimeReady && !_browsingLobby &&
+            _matchStarter != null &&
+            _matchStarter.RequestSkipAllHighlights();
 
         /// <summary>Moves every seated player onto positions owned by the current scene.</summary>
         public void RepositionPlayers(IReadOnlyList<Pose> poses)

@@ -898,9 +898,54 @@ namespace Game.Server.Match
             if (CurrentPhase != MatchPhase.Highlight) return false;
             if (!double.IsFinite(startsAt) || startsAt < 0d)
                 throw new ArgumentOutOfRangeException(nameof(startsAt));
-            state.EnterPhase(MatchPhase.Highlight, startsAt + highlights.TotalDurationSeconds +
-                highlights.Count * HighlightPresentationTiming.OverheadSeconds);
+            state.EnterPhase(
+                MatchPhase.Highlight,
+                startsAt + highlights.ScheduledDurationSeconds);
             return true;
+        }
+
+        public bool TrySkipCurrentHighlight(int expectedIndex, double now)
+        {
+            var phaseEndsAt = state.PhaseEndsAt.CurrentValue;
+            if (CurrentPhase != MatchPhase.Highlight ||
+                expectedIndex < 0 ||
+                !double.IsFinite(now) ||
+                phaseEndsAt <= 0d ||
+                now >= phaseEndsAt)
+            {
+                return false;
+            }
+
+            var elapsed = now - (phaseEndsAt - highlights.ScheduledDurationSeconds);
+            if (!highlights.TryGetScheduledIndex(
+                    elapsed,
+                    out var currentIndex,
+                    out var currentEndsAt) ||
+                currentIndex != expectedIndex ||
+                highlights.CurrentIndex > expectedIndex)
+            {
+                return false;
+            }
+
+            while (highlights.CurrentIndex <= expectedIndex)
+            {
+                highlights.CompleteCurrent();
+            }
+
+            if (highlights.IsComplete)
+            {
+                return flow.CompleteHighlight();
+            }
+
+            state.EnterPhase(
+                MatchPhase.Highlight,
+                Math.Max(now, phaseEndsAt - (currentEndsAt - elapsed)));
+            return true;
+        }
+
+        public bool TrySkipAllHighlights()
+        {
+            return flow.CompleteHighlight();
         }
 
         public bool CompleteCurrentHighlight()

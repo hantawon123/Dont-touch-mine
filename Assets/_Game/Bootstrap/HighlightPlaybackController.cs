@@ -197,6 +197,20 @@ namespace Game.Bootstrap
             }
         }
 
+        public bool SkipCurrent()
+        {
+            return phase == MatchPhase.Highlight &&
+                   network is INetworkHighlightCommands commands &&
+                   commands.RequestSkipCurrentHighlight(replayIndex);
+        }
+
+        public bool SkipAll()
+        {
+            return phase == MatchPhase.Highlight &&
+                   network is INetworkHighlightCommands commands &&
+                   commands.RequestSkipAllHighlights();
+        }
+
         public void Tick()
         {
             if (phase != MatchPhase.Highlight)

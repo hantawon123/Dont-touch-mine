@@ -37,6 +37,9 @@ namespace Game.Server.Match
         public int CurrentIndex => currentIndex;
         public bool IsComplete => currentIndex >= highlights.Length;
         public float TotalDurationSeconds { get; }
+        public double ScheduledDurationSeconds =>
+            TotalDurationSeconds + highlights.Length *
+            Game.Core.Match.HighlightPresentationTiming.OverheadSeconds;
 
         public bool TryGetCurrent(out HighlightCandidate highlight)
         {
@@ -59,6 +62,34 @@ namespace Game.Server.Match
 
             currentIndex++;
             return true;
+        }
+
+        public bool TryGetScheduledIndex(
+            double elapsedSeconds,
+            out int index,
+            out double currentEndsAt)
+        {
+            index = -1;
+            currentEndsAt = 0d;
+            if (!double.IsFinite(elapsedSeconds) || elapsedSeconds < 0d)
+            {
+                return false;
+            }
+
+            for (var candidateIndex = 0;
+                 candidateIndex < highlights.Length;
+                 candidateIndex++)
+            {
+                currentEndsAt += highlights[candidateIndex].PlaybackDurationSeconds +
+                    Game.Core.Match.HighlightPresentationTiming.OverheadSeconds;
+                if (elapsedSeconds < currentEndsAt)
+                {
+                    index = candidateIndex;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public HighlightCandidate[] Capture()

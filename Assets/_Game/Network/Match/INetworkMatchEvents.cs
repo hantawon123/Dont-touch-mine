@@ -22,6 +22,12 @@ namespace Game.Network.Match
         bool TryConfirmHighlightReady();
     }
 
+    public interface INetworkHighlightCommands
+    {
+        bool RequestSkipCurrentHighlight(int expectedIndex);
+        bool RequestSkipAllHighlights();
+    }
+
     /// <summary>
     /// Match-wide messages already confirmed by the network authority.
     /// Presentation and application flow observe these without depending on

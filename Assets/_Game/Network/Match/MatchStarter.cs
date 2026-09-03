@@ -515,6 +515,28 @@ namespace Game.Network.Match
             return true;
         }
 
+        public bool RequestSkipCurrentHighlight(int expectedIndex)
+        {
+            if (_state == null || expectedIndex < 0)
+            {
+                return false;
+            }
+
+            _state.RPC_RequestSkipCurrentHighlight(expectedIndex);
+            return true;
+        }
+
+        public bool RequestSkipAllHighlights()
+        {
+            if (_state == null)
+            {
+                return false;
+            }
+
+            _state.RPC_RequestSkipAllHighlights();
+            return true;
+        }
+
         public bool TryRelayLobbyChat(PlayerRef source, string text)
         {
             if (_state == null || _state.Object == null ||
@@ -599,6 +621,18 @@ namespace Game.Network.Match
         public void PublishMatchChat(LobbyChatMessage message)
         {
             MatchChatReceived?.Invoke(message);
+        }
+
+        public bool TrySkipCurrentHighlight(PlayerRef source, int expectedIndex)
+        {
+            return TryGetActivePlayerIndex(source, out _) &&
+                   _session.TrySkipCurrentHighlight(expectedIndex, ServerTime);
+        }
+
+        public bool TrySkipAllHighlights(PlayerRef source)
+        {
+            return TryGetActivePlayerIndex(source, out _) &&
+                   _session.TrySkipAllHighlights();
         }
 
         internal static bool IsMatchChatParticipant(
@@ -1013,6 +1047,12 @@ namespace Game.Network.Match
                    _session.Players.TryGetPlayerIndex(
                        PlayerRegistry.IdOf(source),
                        out playerIndex);
+        }
+
+        private bool TryGetActivePlayerIndex(PlayerRef source, out int playerIndex)
+        {
+            return TryGetPlayerIndex(source, out playerIndex) &&
+                   _session.Players.IsActive(playerIndex);
         }
 
         private bool TryGetPlayerPose(int playerIndex, out Pose pose)

@@ -63,6 +63,29 @@ namespace Game.Architecture.Tests
             finally { UnityEngine.Object.DestroyImmediate(rules); }
         }
 
+        [Test]
+        public void HighlightSkip_ForwardsCurrentIndexOnlyDuringHighlight()
+        {
+            var network = new FakeNetwork();
+            var transition = new FakeTransition();
+            using var room = new RoomBrowserSystem();
+            using var playback = new NetworkHighlightPlaybackController(
+                network,
+                room,
+                network,
+                transition);
+            playback.Start();
+
+            Assert.That(playback.SkipCurrent(), Is.False);
+            Assert.That(playback.SkipAll(), Is.False);
+
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 100d));
+            Assert.That(playback.SkipCurrent(), Is.True);
+            Assert.That(network.RequestedHighlightIndex, Is.Zero);
+            Assert.That(playback.SkipAll(), Is.True);
+            Assert.That(network.SkipAllRequests, Is.EqualTo(1));
+        }
+
         private sealed class FakeTransition : IHighlightTransitionView
         {
             public float Opacity { get; private set; }
@@ -312,7 +335,10 @@ namespace Game.Architecture.Tests
             public void SetShredderMarker(Vector2 screenPosition, bool visible) { }
         }
 
-        private sealed class FakeNetwork : INetworkMatchEvents, INetworkMatchRuntimeSource
+        private sealed class FakeNetwork :
+            INetworkMatchEvents,
+            INetworkMatchRuntimeSource,
+            INetworkHighlightCommands
         {
             public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses { get; set; } =
                 Array.Empty<PlayerItemStatusSnapshot>();
@@ -333,6 +359,20 @@ namespace Game.Architecture.Tests
                 PlayerInteractionStatesReceived;
             public event Action<IReadOnlyList<HighlightReplayData>> HighlightReplayReceived;
             public event Action<MatchResult> MatchResultReceived;
+            public int RequestedHighlightIndex { get; private set; } = -1;
+            public int SkipAllRequests { get; private set; }
+
+            public bool RequestSkipCurrentHighlight(int expectedIndex)
+            {
+                RequestedHighlightIndex = expectedIndex;
+                return true;
+            }
+
+            public bool RequestSkipAllHighlights()
+            {
+                SkipAllRequests++;
+                return true;
+            }
 
             public bool TryGetPlayerPose(string playerId, out Pose pose)
             {
