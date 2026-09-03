@@ -21,7 +21,6 @@ import com.ssafy.d205.domain.friend.dto.SendFriendRequestRequest;
 import com.ssafy.d205.domain.friend.dto.SendFriendRequestResponse;
 import com.ssafy.d205.domain.friend.entity.FriendshipStatus;
 import com.ssafy.d205.domain.friend.service.FriendshipService;
-import com.ssafy.d205.domain.user.entity.User;
 
 /**
  * 대기 중인 친구 요청을 다룹니다. 성립된 관계는 /api/v1/friends 쪽입니다.

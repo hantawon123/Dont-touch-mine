@@ -16,7 +16,6 @@ import com.ssafy.d205.domain.user.dto.AccountResponse;
 import com.ssafy.d205.domain.user.dto.IssueAccountRequest;
 import com.ssafy.d205.domain.user.dto.IssuedAccount;
 import com.ssafy.d205.domain.user.dto.UpdateNicknameRequest;
-import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.service.AccountService;
 
 @RestController
