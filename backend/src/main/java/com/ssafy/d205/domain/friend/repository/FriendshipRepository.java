@@ -1,6 +1,7 @@
 package com.ssafy.d205.domain.friend.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -9,6 +10,17 @@ import java.util.Optional;
 
 import com.ssafy.d205.domain.friend.entity.Friendship;
 
+/**
+ * 친구 도메인의 두 테이블을 다룹니다 — friendships 와 user_blocks.
+ *
+ * <p>user_blocks 를 엔티티로 만들지 않은 이유는 복합 기본키라 @IdClass 보일러플레이트가
+ * 따라오는데, 필요한 세 연산(멱등 삽입, 삭제, 조인 조회)이 모두 네이티브 쿼리로
+ * 끝나기 때문입니다. 엔티티가 할 일이 없습니다.
+ *
+ * <p>차단을 친구와 같은 도메인에 둔 이유는 순환 의존을 피하기 위해서입니다. 차단할 때
+ * friendships 를 지워야 하고, 검색·요청·수락은 차단을 검사해야 합니다. 도메인을 나누면
+ * 양방향 의존이 됩니다.
+ */
 public interface FriendshipRepository extends JpaRepository<Friendship, Integer> {
 
     Optional<Friendship> findByUserLowSeqAndUserHighSeq(Integer lowSeq, Integer highSeq);
@@ -88,6 +100,76 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Integer>
              ORDER BY u.nickname_lower
             """, nativeQuery = true)
     List<FriendSummaryRow> findFriends(@Param("meSeq") Integer meSeq);
+
+    /**
+     * 차단합니다. <b>멱등합니다.</b>
+     *
+     * <p>ON DUPLICATE KEY UPDATE 로 중복 키를 오류가 아니라 무시로 만듭니다.
+     * created_at = created_at 은 아무것도 바꾸지 않는 갱신이고, 목적은 그것뿐입니다.
+     *
+     * <p>조회 후 없으면 삽입하는 방식은 동시 요청에 뚫려 제약 위반이 납니다. 그러면
+     * 트랜잭션이 롤백 전용이 되어 계정 발급처럼 삽입을 별도 빈으로 빼야 하는데,
+     * 이 한 문장은 애초에 위반이 나지 않으므로 그럴 필요가 없습니다.
+     */
+    @Modifying
+    @Query(value = """
+            INSERT INTO user_blocks (blocker_seq, blocked_seq, created_at)
+            VALUES (:blockerSeq, :blockedSeq, :now)
+            ON DUPLICATE KEY UPDATE created_at = created_at
+            """, nativeQuery = true)
+    int insertBlock(@Param("blockerSeq") Integer blockerSeq,
+                    @Param("blockedSeq") Integer blockedSeq,
+                    @Param("now") String now);
+
+    /**
+     * 차단을 해제합니다. 없어도 오류가 아닙니다. 영향받은 행이 0이면 이미 해제 상태입니다.
+     */
+    @Modifying
+    @Query(value = """
+            DELETE FROM user_blocks
+             WHERE blocker_seq = :blockerSeq AND blocked_seq = :blockedSeq
+            """, nativeQuery = true)
+    int deleteBlock(@Param("blockerSeq") Integer blockerSeq,
+                    @Param("blockedSeq") Integer blockedSeq);
+
+    /**
+     * 내가 차단한 사람들. 내가 차단당한 것은 담지 않습니다.
+     *
+     * <p>PK 선두 컬럼이 blocker_seq 라 이 조회는 기본키 인덱스를 그대로 씁니다.
+     */
+    @Query(value = """
+            SELECT u.public_id  AS userId,
+                   u.nickname   AS nickname,
+                   b.created_at AS blockedAt
+              FROM user_blocks b
+              JOIN users u ON u.users_seq = b.blocked_seq
+             WHERE b.blocker_seq = :meSeq
+             ORDER BY b.created_at DESC
+            """, nativeQuery = true)
+    List<BlockedUserRow> findBlocked(@Param("meSeq") Integer meSeq);
+
+    /**
+     * 차단한 두 사람 사이의 친구 관계와 대기 중인 요청을 지웁니다.
+     *
+     * <p><b>차단할 때 반드시 함께 해야 합니다.</b> 이걸 빼면 이미 친구인 상태가 유지되고
+     * 받은 요청 목록에 차단한 사람의 요청이 계속 보입니다. 목록 쿼리에 차단 필터를 붙여
+     * 가리는 방법도 있지만, 관계를 남겨두면 언젠가 다른 경로로 새어 나옵니다.
+     *
+     * <p>상태를 가리지 않고 지웁니다. ACCEPTED 든 PENDING 든 차단하면 없어야 합니다.
+     *
+     * <p>clearAutomatically 를 켠 이유가 있습니다. 네이티브 삭제는 DB만 지우고 영속성
+     * 컨텍스트는 건드리지 않습니다. 지금은 block() 이 Friendship 을 로드하지 않아
+     * 무해하지만, 누가 "차단 전 관계를 확인해 로그를 남기자" 같은 코드를 넣어
+     * findByPair() 를 부르면 그 엔티티가 관리 상태로 남습니다. 그 뒤 같은 트랜잭션에서
+     * 읽으면 <b>지워진 행이 캐시에서 나옵니다.</b> 컨텍스트를 비워 그 함정을 없앱니다.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query(value = """
+            DELETE FROM friendships
+             WHERE user_low_seq = :lowSeq AND user_high_seq = :highSeq
+            """, nativeQuery = true)
+    int deleteFriendshipByPair(@Param("lowSeq") Integer lowSeq,
+                               @Param("highSeq") Integer highSeq);
 
     /**
      * 두 사람 사이에 차단이 있는지. 방향은 보지 않습니다.

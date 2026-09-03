@@ -7,6 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
+import com.ssafy.d205.domain.friend.dto.BlockListResponse;
+import com.ssafy.d205.domain.friend.dto.BlockedUserSummary;
 import com.ssafy.d205.domain.friend.dto.FriendListResponse;
 import com.ssafy.d205.domain.friend.dto.FriendRequestListResponse;
 import com.ssafy.d205.domain.friend.dto.FriendRequestSummary;
@@ -24,6 +26,7 @@ import com.ssafy.d205.global.exception.AlreadyFriendsException;
 import com.ssafy.d205.global.exception.FriendRequestAlreadySentException;
 import com.ssafy.d205.global.exception.FriendRequestNotFoundException;
 import com.ssafy.d205.global.exception.NotFriendsException;
+import com.ssafy.d205.global.exception.SelfBlockException;
 import com.ssafy.d205.global.exception.SelfFriendRequestException;
 import com.ssafy.d205.global.exception.TargetUserNotFoundException;
 import com.ssafy.d205.global.exception.UnknownCallerException;
@@ -184,6 +187,54 @@ public class FriendshipService {
                         row.getUserId(),
                         row.getNickname(),
                         PresenceTimeout.effective(row.getStatus(), row.getHeartbeatAt(), thresholdAt)))
+                .toList());
+    }
+
+    /**
+     * 차단합니다. <b>멱등합니다.</b> 이미 차단한 상대를 다시 차단해도 성공입니다.
+     *
+     * <p>차단만 하지 않고 <b>기존 친구 관계와 대기 중인 요청을 함께 지웁니다.</b>
+     * 이걸 빼면 이미 친구인 상태가 유지되고 받은 요청 목록에 차단한 사람이 계속
+     * 보입니다. 클래스 주석에 요구사항으로 적어둔 것을 여기서 구현합니다.
+     *
+     * <p>그래서 accept 의 차단 검사는 이제 경합 방어선으로만 남습니다. 차단과 수락이
+     * 거의 동시에 일어나 관계 삭제와 수락이 엇갈리는 경우입니다.
+     */
+    @Transactional
+    public void block(String callerUserId, String targetUserId) {
+        User me = caller(callerUserId);
+        User target = target(targetUserId);
+
+        if (me.getSeq().equals(target.getSeq())) {
+            throw new SelfBlockException();
+        }
+
+        friendshipRepository.insertBlock(me.getSeq(), target.getSeq(), timeProvider.now());
+        friendshipRepository.deleteFriendshipByPair(Math.min(me.getSeq(), target.getSeq()),
+                                                    Math.max(me.getSeq(), target.getSeq()));
+    }
+
+    /**
+     * 차단을 해제합니다. <b>멱등합니다.</b> 차단하지 않은 상대를 해제해도 성공입니다.
+     *
+     * <p>지웠던 친구 관계는 돌아오지 않습니다. 해제는 "다시 보이고 요청을 받을 수 있게"
+     * 하는 것이고, 관계 복원은 다시 친구 요청을 보내는 것입니다.
+     */
+    @Transactional
+    public void unblock(String callerUserId, String targetUserId) {
+        User me = caller(callerUserId);
+        User target = target(targetUserId);
+
+        friendshipRepository.deleteBlock(me.getSeq(), target.getSeq());
+    }
+
+    /** 내가 차단한 목록. 내가 차단당한 것은 담지 않습니다. */
+    @Transactional(readOnly = true)
+    public BlockListResponse listBlocked(String callerUserId) {
+        User me = caller(callerUserId);
+
+        return new BlockListResponse(friendshipRepository.findBlocked(me.getSeq()).stream()
+                .map(row -> new BlockedUserSummary(row.getUserId(), row.getNickname(), row.getBlockedAt()))
                 .toList());
     }
 

@@ -79,6 +79,12 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("SELF_FRIEND_REQUEST", "자기 자신에게 친구 요청을 보낼 수 없습니다."));
     }
 
+    @ExceptionHandler(SelfBlockException.class)
+    public ResponseEntity<ErrorResponse> handleSelfBlock(SelfBlockException e) {
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse("SELF_BLOCK", "자기 자신을 차단할 수 없습니다."));
+    }
+
     @ExceptionHandler(AlreadyFriendsException.class)
     public ResponseEntity<ErrorResponse> handleAlreadyFriends(AlreadyFriendsException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

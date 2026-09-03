@@ -16,6 +16,7 @@ import java.util.UUID;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -184,19 +185,41 @@ class FriendRequestApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("차단이 걸린 뒤에는 남아 있던 요청을 수락할 수 없다")
-    void cannotAcceptAfterBlock() throws Exception {
-        // send 에만 차단 검사를 두면 이 경로로 친구가 됩니다. 요청을 먼저 보내고
-        // 그다음 차단이 걸리는 순서입니다.
+    @DisplayName("차단은 있는데 요청이 남아 있으면 수락을 거부한다")
+    void cannotAcceptWhenBlockRaceLeavesRequest() throws Exception {
+        // accept 의 차단 검사가 두 번째 방어선임을 확인합니다.
+        //
+        // 차단 API 는 user_blocks 에 행을 넣으면서 friendships 행을 함께 지우므로,
+        // 정상 경로에서는 "차단은 있는데 요청이 남은" 상태가 만들어지지 않습니다.
+        // 그래서 차단 API 를 쓰면 이 테스트는 요청이 이미 없는 상황을 확인할 뿐이고,
+        // 나중에 누가 관계 삭제를 지워도 통과해 버립니다.
+        //
+        // 그 상태는 차단과 수락이 거의 동시에 일어날 때만 생깁니다. 재현하려고
+        // user_blocks 에만 직접 행을 넣습니다.
+        String requester = createUser();
+        String me = createUser();
+        send(requester, me).andExpect(status().isCreated());
+
+        insertBlockRowOnly(me, requester);
+
+        mvc.perform(post("/api/v1/friend-requests/{userId}/accept", requester).header(USER_ID_HEADER, me))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TARGET_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("차단하면 남아 있던 요청 자체가 사라진다")
+    void blockRemovesPendingRequest() throws Exception {
+        // 위 테스트가 경합을 다루고, 이쪽이 정상 경로입니다. 차단 API 를 쓰면 요청이
+        // 지워지므로 수락할 대상이 애초에 없습니다.
         String requester = createUser();
         String me = createUser();
         send(requester, me).andExpect(status().isCreated());
 
         block(me, requester);
 
-        mvc.perform(post("/api/v1/friend-requests/{userId}/accept", requester).header(USER_ID_HEADER, me))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("TARGET_NOT_FOUND"));
+        mvc.perform(get("/api/v1/friend-requests").header(USER_ID_HEADER, me))
+                .andExpect(jsonPath("$.requests.length()").value(0));
     }
 
     @Test
@@ -362,13 +385,25 @@ class FriendRequestApiTest extends IntegrationTest {
                 .content("{\"userId\":\"" + targetUserId + "\"}"));
     }
 
-    /** 차단 API가 아직 없어서 직접 넣습니다. */
-    private void block(String blockerUserId, String blockedUserId) {
+    /**
+     * user_blocks 에만 행을 넣습니다. friendships 는 건드리지 않습니다.
+     *
+     * <p>차단 API 는 관계를 함께 지우므로 이 상태를 만들 수 없습니다. 차단과 수락이
+     * 동시에 일어나는 경합만 이렇게 되고, 그 경우를 시험하려면 직접 넣어야 합니다.
+     */
+    private void insertBlockRowOnly(String blockerUserId, String blockedUserId) {
         jdbcTemplate.update("""
                 INSERT INTO user_blocks (blocker_seq, blocked_seq, created_at)
                 SELECT b.users_seq, t.users_seq, '20260101000000'
                   FROM users b, users t
                  WHERE b.public_id = ? AND t.public_id = ?
                 """, blockerUserId, blockedUserId);
+    }
+
+    /** 차단 API로 넣습니다. 테스트가 실제 경로를 지나게 하는 편이 낫습니다. */
+    private void block(String blockerUserId, String blockedUserId) throws Exception {
+        mvc.perform(put("/api/v1/blocks/{userId}", blockedUserId)
+                        .header(USER_ID_HEADER, blockerUserId))
+                .andExpect(status().isNoContent());
     }
 }
