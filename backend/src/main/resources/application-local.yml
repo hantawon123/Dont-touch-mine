@@ -14,3 +14,12 @@ logging:
   level:
     com.ssafy.d205: debug
     org.hibernate.SQL: debug
+
+# 로컬에서만 켭니다. http://localhost:8080/swagger-ui.html
+# 여기서 누르는 요청은 compose.local.yml 이 띄운 컨테이너에만 씁니다.
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
