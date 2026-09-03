@@ -1,0 +1,190 @@
+### 계정 API 눌러보기
+#
+# VS Code 확장 REST Client (humao.rest-client) 로 실행합니다.
+# 설치 후 이 파일을 열면 각 요청 위에 "Send Request" 링크가 생깁니다.
+#
+# 위에서 아래로 순서대로 누르세요. 1번 발급의 응답에서 userId 를 꺼내 뒤쪽 요청이
+# 그대로 씁니다. 그래서 1번을 누르지 않고 3번부터 누르면 userId 가 비어 400 이 옵니다.
+#
+# REST Client 에는 자동 검증이 없습니다. 각 요청 위에 기대하는 응답을 적어 뒀으니
+# 눈으로 맞춰 보세요.
+#
+#
+# 주의: host 가 운영 서버입니다. 요청을 누르면 운영 DB에 실제 계정 행이 생깁니다.
+#
+# 남은 테스트 계정을 지우려면 서버에서 이렇게 합니다. user_identities 와
+# user_presence 는 ON DELETE CASCADE 로 함께 지워집니다.
+#
+#   docker exec -it d205-mysql mysql -uroot -p
+#   DELETE FROM d205.users WHERE nickname LIKE 'HTTP테스트%';
+#
+
+@host = https://j15d205.p.ssafy.io
+# @host = http://localhost:8080
+
+# 같은 값을 두 번 보내 멱등성을 확인하므로 고정값입니다.
+# 완전히 새 계정으로 처음부터 해보려면 이 두 값을 바꾸세요.
+@deviceId = 11111111-2222-3333-4444-555555555555
+@deviceIdB = 99999999-8888-7777-6666-555555555555
+
+# 12글자 규칙 안에 들어가는 값입니다.
+@nickname = HTTP테스트일
+
+
+### 0. 서버가 살아 있나
+# 기대: 200  {"status":"UP"}
+GET {{host}}/actuator/health
+
+
+### 1. 계정 발급
+# 기대: 처음 보는 기기면 201, 이미 발급된 기기면 200
+#       응답의 nicknameSet 이 false 면 아직 임시 닉네임입니다
+#       응답에 deviceId 가 들어 있으면 안 됩니다 (자격증명이므로)
+# @name issue
+POST {{host}}/api/v1/accounts
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}"
+}
+
+
+###
+# 위 응답에서 userId 를 꺼내 아래 요청들이 씁니다.
+@userId = {{issue.response.body.$.userId}}
+
+
+### 2. 같은 기기로 다시 발급 (멱등성)
+# 기대: 200 이고 userId 가 1번과 같아야 합니다
+#       201 이 오면 계정이 새로 생긴 것이므로 중복 발급 방지가 깨진 것입니다
+POST {{host}}/api/v1/accounts
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}"
+}
+
+
+### 3. 내 계정 조회
+# 기대: 200 이고 userId 가 1번과 같음
+GET {{host}}/api/v1/accounts/me
+X-User-Id: {{userId}}
+
+
+### 4. 닉네임 변경
+# 기대: 200 이고 nickname 이 바뀌고 nicknameSet 이 true 로 바뀝니다
+#       클라이언트는 이 값으로 입력 화면을 띄울지 결정합니다
+PATCH {{host}}/api/v1/accounts/me
+Content-Type: application/json
+X-User-Id: {{userId}}
+
+{
+  "nickname": "{{nickname}}"
+}
+
+
+### 5. 변경 후 다시 발급 (nicknameSet 유지)
+# 기대: 200 이고 nicknameSet 이 true
+#
+# 입력 화면에서 껐다가 다시 켠 상황입니다. 상태 코드는 200 이지만 닉네임은 이미
+# 정해져 있으므로, 여기서 false 가 오면 클라이언트가 입력 화면을 또 띄웁니다.
+POST {{host}}/api/v1/accounts
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}"
+}
+
+
+### 6. 두 번째 계정 발급 (중복 닉네임 시험용)
+# 기대: 201 또는 200
+# @name issueB
+POST {{host}}/api/v1/accounts
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceIdB}}"
+}
+
+
+###
+@userIdB = {{issueB.response.body.$.userId}}
+
+
+### 7. 남이 쓰는 닉네임으로 변경
+# 기대: 409  {"code":"NICKNAME_TAKEN"}
+PATCH {{host}}/api/v1/accounts/me
+Content-Type: application/json
+X-User-Id: {{userIdB}}
+
+{
+  "nickname": "{{nickname}}"
+}
+
+
+### 8. 대소문자만 다른 닉네임
+# 기대: 200
+#
+# V4 로 nickname 컬럼이 대소문자를 구분하므로 HTTP테스트일 과 http테스트일 은
+# 서로 다른 닉네임입니다. 여기가 409 로 나오면 콜레이션이 되돌아간 것입니다.
+PATCH {{host}}/api/v1/accounts/me
+Content-Type: application/json
+X-User-Id: {{userIdB}}
+
+{
+  "nickname": "http테스트일"
+}
+
+
+### 9. 규칙을 어긴 닉네임 - 공백
+# 기대: 400  {"code":"INVALID_REQUEST"}
+PATCH {{host}}/api/v1/accounts/me
+Content-Type: application/json
+X-User-Id: {{userId}}
+
+{
+  "nickname": "이름 사이공백"
+}
+
+
+### 10. 규칙을 어긴 닉네임 - 13글자
+# 기대: 400  {"code":"INVALID_REQUEST"}
+PATCH {{host}}/api/v1/accounts/me
+Content-Type: application/json
+X-User-Id: {{userId}}
+
+{
+  "nickname": "열세글자짜리닉네임입니다요"
+}
+
+
+### 11. 규칙을 어긴 닉네임 - 특수문자
+# 기대: 400  {"code":"INVALID_REQUEST"}
+PATCH {{host}}/api/v1/accounts/me
+Content-Type: application/json
+X-User-Id: {{userId}}
+
+{
+  "nickname": "nick-name"
+}
+
+
+### 12. 헤더 없이 조회
+# 기대: 400  {"code":"MISSING_HEADER"}
+GET {{host}}/api/v1/accounts/me
+
+
+### 13. 없는 계정 조회
+# 기대: 404  {"code":"ACCOUNT_NOT_FOUND"}
+GET {{host}}/api/v1/accounts/me
+X-User-Id: 00000000-0000-4000-8000-000000000000
+
+
+### 14. deviceId 를 비워서 발급
+# 기대: 400  {"code":"INVALID_REQUEST"}
+POST {{host}}/api/v1/accounts
+Content-Type: application/json
+
+{
+  "deviceId": ""
+}
