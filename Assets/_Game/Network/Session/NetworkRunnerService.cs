@@ -45,6 +45,7 @@ namespace Game.Network.Session
         INetworkHighlightReady,
         INetworkResultNavigation,
         ILobbyChatTransport,
+        IMatchChatTransport,
         IDisposable
     {
         private const string RunnerObjectName = "[NetworkRunner]";
@@ -56,13 +57,25 @@ namespace Game.Network.Session
         private const int HighlightReplayKeyType = 0x484C5452;
         private const int HighlightReplayKeyVersion = 4;
         private const int HighlightReadyKeyType = 0x484C5244;
+        private const int HighlightCompleteKeyType = 0x484C444E;
         private readonly HashSet<PlayerRef> _highlightPendingPlayers = new();
+        private readonly HashSet<PlayerRef> _highlightCompletedPlayers = new();
         private int _receivedHighlightSequence;
+        private bool _highlightResultUnloadRequested;
+        private bool _highlightLobbyLoadRequested;
+        private bool _highlightLobbyPrepared;
+        private bool _highlightCompletionRequested;
+        private bool _localHighlightComplete;
+        private IReadOnlyList<PlayerItemStatusSnapshot> _latestPlayerItemStatuses =
+            Array.Empty<PlayerItemStatusSnapshot>();
         public bool IsHighlightReplayReady => _highlightPendingPlayers.Count == 0;
+        public bool IsHighlightInProgress =>
+            _matchStarter != null && _matchStarter.CurrentPhase == MatchPhase.Highlight;
+        public bool IsLocalHighlightComplete => _localHighlightComplete;
 
         public bool TryConfirmHighlightReady()
         {
-            if (_runner == null || !_runner.IsRunning) return false;
+            if (_runner == null || !_runner.IsRunning || !_highlightLobbyPrepared) return false;
             if (IsServer)
                 _highlightPendingPlayers.Remove(_runner.LocalPlayer);
             else
@@ -73,6 +86,36 @@ namespace Game.Network.Session
                     new byte[] { 1 });
             }
             return true;
+        }
+
+        public bool CompleteLocalHighlightViewing()
+        {
+            if (_runner == null || !_runner.IsRunning || !_highlightLobbyPrepared ||
+                !IsHighlightInProgress)
+            {
+                return false;
+            }
+            if (_localHighlightComplete) return true;
+
+            if (IsServer)
+            {
+                if (!TryCompleteHighlightViewing(_runner.LocalPlayer)) return false;
+                _localHighlightComplete = true;
+            }
+            else
+            {
+                if (_receivedHighlightSequence == 0 || _highlightCompletionRequested)
+                    return false;
+                _runner.SendReliableDataToServer(ReliableKey.FromInts(
+                    HighlightCompleteKeyType,
+                    HighlightReplayKeyVersion,
+                    _receivedHighlightSequence,
+                    0),
+                    new byte[] { 1 });
+                _highlightCompletionRequested = true;
+            }
+
+            return _localHighlightComplete;
         }
 
         private readonly IRoomListSink _roomListSink;
@@ -147,9 +190,11 @@ namespace Game.Network.Session
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<LobbyChatMessage> ChatReceived;
+        public event Action<LobbyChatMessage> MatchChatReceived;
         public event Action<string> ItemAssignmentReceived;
         public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
         public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
+        public event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;
         public event Action<PlayerStunnedEvent> PlayerStunnedReceived;
         public event Action<ObjectThrownEvent> ObjectThrownReceived;
         public event Action<FinalWarningStartedEvent> FinalWarningReceived;
@@ -160,6 +205,9 @@ namespace Game.Network.Session
         public event Action<MatchResult> MatchResultReceived;
         public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
         public event Action SimulationTick;
+
+        public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses =>
+            _latestPlayerItemStatuses;
 
         /// <summary>
         /// Password this peer requires from joiners while it is the authority. A
@@ -203,6 +251,7 @@ namespace Game.Network.Session
         private readonly long _playerUniqueId = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0) | 1L;
         private int _configuredMaxPlayers;
         private int _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
+        private MatchRuleSettings _matchRules = MatchRuleSettings.Default;
 
         private bool _disposed;
 
@@ -333,6 +382,11 @@ namespace Game.Network.Session
             return _matchStarter != null && _matchStarter.RequestLobbyChat(text);
         }
 
+        public bool TrySendMatchChat(string text)
+        {
+            return _matchStarter != null && _matchStarter.RequestMatchChat(text);
+        }
+
         public double ServerTime
         {
             get
@@ -443,6 +497,7 @@ namespace Game.Network.Session
         }
 
         public int DestructionLimit => _destructionLimit;
+        public MatchRuleSettings MatchRules => _matchRules;
 
         /// <summary>
         /// Connects to the matchmaking lobby so the room list starts arriving
@@ -556,6 +611,7 @@ namespace Game.Network.Session
                 ? request.MaxPlayers
                 : 0;
             _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
+            _matchRules = MatchRuleSettings.Default;
 
             var sceneManager = CreateRunner(request.Mode != GameMode.Server);
 
@@ -753,15 +809,18 @@ namespace Game.Network.Session
         public bool TryApplyLobbySettings(
             int maxPlayers,
             int destructionLimit,
-            string mapId)
+            string mapId,
+            MatchRuleSettings matchRules)
         {
-            if (!IsServer || _runner == null || !_runner.SessionInfo.IsValid ||
-                maxPlayers < RoomSettings.MinPlayerCount ||
-                maxPlayers > RoomSettings.MaxPlayerCount ||
-                maxPlayers < PlayerCount ||
-                destructionLimit < PlaySettingsDraft.MinDestructionLimit ||
-                destructionLimit > PlaySettingsDraft.MaxDestructionLimit ||
-                !MapCatalog.Contains(mapId))
+            if (_runner == null || !TryValidateLobbySettingsRequest(
+                    IsServer,
+                    _runner.SessionInfo.IsValid,
+                    PlayerCount,
+                    maxPlayers,
+                    destructionLimit,
+                    mapId,
+                    matchRules,
+                    out var normalizedMatchRules))
             {
                 return false;
             }
@@ -769,7 +828,8 @@ namespace Game.Network.Session
             var properties = SessionPropertyMapper.BuildLobbySettings(
                 maxPlayers,
                 destructionLimit,
-                mapId);
+                mapId,
+                normalizedMatchRules);
 
             if (!_runner.SessionInfo.UpdateCustomProperties(properties))
             {
@@ -778,7 +838,45 @@ namespace Game.Network.Session
 
             _configuredMaxPlayers = maxPlayers;
             _destructionLimit = destructionLimit;
+            _matchRules = normalizedMatchRules;
             ReportPlayerCount();
+            return true;
+        }
+
+        internal static bool TryValidateLobbySettingsRequest(
+            bool hasAuthority,
+            bool hasValidSession,
+            int currentPlayerCount,
+            int maxPlayers,
+            int destructionLimit,
+            string mapId,
+            MatchRuleSettings matchRules,
+            out MatchRuleSettings normalizedMatchRules)
+        {
+            var validMatchRules = MatchRuleSettings.TryCreate(
+                matchRules.HidingDurationSeconds,
+                matchRules.SearchingDurationMinutes,
+                matchRules.SprintMultiplier,
+                matchRules.StunHitCount,
+                matchRules.CategoryId,
+                out normalizedMatchRules,
+                out _);
+            if (!hasAuthority || !hasValidSession ||
+                maxPlayers < RoomSettings.MinPlayerCount ||
+                maxPlayers > RoomSettings.MaxPlayerCount ||
+                maxPlayers < currentPlayerCount ||
+                (destructionLimit != PlaySettingsDraft.UnlimitedDestructionLimit &&
+                 (destructionLimit < PlaySettingsDraft.MinDestructionLimit ||
+                  destructionLimit > PlaySettingsDraft.MaxDestructionLimit)) ||
+                !MapCatalog.Contains(mapId) ||
+                !validMatchRules ||
+                (!normalizedMatchRules.UsesRandomCategory &&
+                 ItemCatalog.DefinitionsInCategory(normalizedMatchRules.CategoryId).Count == 0))
+            {
+                normalizedMatchRules = default;
+                return false;
+            }
+
             return true;
         }
 
@@ -807,7 +905,7 @@ namespace Game.Network.Session
             // A preloaded scene is allowed to publish its transforms, but it
             // must not move live avatars until Fusion has taken that scene over.
             _spawner?.UseSpawnPoses(poses);
-            if (!IsServer || _lobbyPreloadEntering)
+            if (!IsServer || _lobbyPreloadEntering || IsHighlightInProgress)
             {
                 return;
             }
@@ -862,6 +960,13 @@ namespace Game.Network.Session
             }
 
             return true;
+        }
+
+        public bool TryPublishPlayerItemStatuses(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryPublishPlayerItemStatuses(statuses);
         }
 
         public bool RequestItemAssignment()
@@ -954,8 +1059,28 @@ namespace Game.Network.Session
                 ++_highlightTransferSequence,
                 0);
             _highlightPendingPlayers.Clear();
-            foreach (var player in _runner.ActivePlayers) _highlightPendingPlayers.Add(player);
-            Debug.Log($"[Highlight] Sending {payload.Length:N0} compressed bytes to {_highlightPendingPlayers.Count} peers.");
+            _highlightCompletedPlayers.Clear();
+            _highlightCompletionRequested = false;
+            _localHighlightComplete = false;
+            var activePlayerCount = 0;
+            foreach (var player in _runner.ActivePlayers)
+            {
+                activePlayerCount++;
+                _highlightPendingPlayers.Add(player);
+            }
+            var descriptions = new string[replay.Count];
+            for (var index = 0; index < replay.Count; index++)
+            {
+                var frameCount = 0;
+                foreach (var clip in replay[index].Clips)
+                    frameCount += clip.Frames.Count;
+                descriptions[index] =
+                    $"{replay[index].Candidate.Type}(score={replay[index].Candidate.Score:F1}, frames={frameCount})";
+            }
+            Debug.Log(
+                $"[Highlight] Sending {replay.Count} playable highlight(s) " +
+                $"[{string.Join(", ", descriptions)}], {payload.Length:N0} compressed bytes " +
+                $"to {activePlayerCount} peers.");
             HighlightReplayReceived?.Invoke(replay);
             foreach (var player in _runner.ActivePlayers)
             {
@@ -972,6 +1097,18 @@ namespace Game.Network.Session
         {
             return IsServer && _matchStarter != null &&
                    _matchStarter.TrySetPlayerControls(playerIndex, enabled);
+        }
+
+        public bool TrySetPlayerSprintMultiplier(int playerIndex, float multiplier)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TrySetPlayerSprintMultiplier(playerIndex, multiplier);
+        }
+
+        public bool TryResetPlayerStamina(int playerIndex)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryResetPlayerStamina(playerIndex);
         }
 
         public bool TryTeleportPlayer(int playerIndex, Pose pose)
@@ -1211,8 +1348,10 @@ namespace Game.Network.Session
             _matchStarter.Bind(_matchStartSink, _roster, this);
             _matchStarter.MatchStateReceived += OnMatchStateReceived;
             _matchStarter.LobbyChatReceived += OnLobbyChatReceived;
+            _matchStarter.MatchChatReceived += OnMatchChatReceived;
             _matchStarter.ObjectStatesReceived += OnObjectStatesReceived;
             _matchStarter.ItemDestroyedReceived += OnItemDestroyedReceived;
+            _matchStarter.PlayerItemStatusesReceived += OnPlayerItemStatusesReceived;
             _matchStarter.PlayerStunnedReceived += OnPlayerStunnedReceived;
             _matchStarter.ObjectThrownReceived += OnObjectThrownReceived;
             _matchStarter.FinalWarningReceived += OnFinalWarningReceived;
@@ -1504,9 +1643,38 @@ namespace Game.Network.Session
             }
             var scene = _scenes.ResultScene;
             if (!scene.IsValid) return false;
-            Debug.Log($"[SceneTiming] Network load requested: Playground -> {scene}.");
-            _runner.LoadScene(scene, LoadSceneMode.Single);
+            Debug.Log($"[SceneTiming] Result additive load requested: {scene}.");
+            _runner.LoadScene(scene, LoadSceneMode.Additive);
             return true;
+        }
+
+        public bool PrepareLobbyForHighlights()
+        {
+            if (!IsServer || !IsRuntimeReady || !IsHighlightInProgress ||
+                _scenes == null || !_scenes.LobbyScene.IsValid ||
+                !_scenes.MatchScene.IsValid)
+            {
+                return false;
+            }
+            if (ContainsScene(_runner.SceneInfo, _scenes.ResultScene))
+            {
+                if (!_highlightResultUnloadRequested)
+                {
+                    _highlightResultUnloadRequested = true;
+                    Debug.Log("[SceneTiming] Result display completed; unloading Result.");
+                    _runner.UnloadScene(_scenes.ResultScene);
+                }
+                return false;
+            }
+            _highlightResultUnloadRequested = false;
+            if (ContainsScene(_runner.SceneInfo, _scenes.LobbyScene))
+                return _highlightLobbyPrepared;
+            if (_highlightLobbyLoadRequested) return false;
+
+            _highlightLobbyLoadRequested = true;
+            Debug.Log("[SceneTiming] Highlight lobby additive load requested.");
+            _runner.LoadScene(_scenes.LobbyScene, LoadSceneMode.Additive);
+            return false;
         }
 
         public bool EnterLobbyScene(NetworkRunner runner)
@@ -1530,6 +1698,22 @@ namespace Game.Network.Session
                 return false;
             }
 
+            if (ContainsScene(runner.SceneInfo, scene))
+            {
+                var matchScene = _scenes.MatchScene;
+                if (ContainsScene(runner.SceneInfo, matchScene))
+                {
+                    // A completion request can race the shared Highlight -> Result
+                    // boundary. Place every remaining avatar before its old floor
+                    // disappears; players who already entered Lobby stay on the
+                    // same seat pose.
+                    _spawner?.RepositionSeated(runner);
+                    Debug.Log("[SceneTiming] Highlight lobby ready; unloading Playground.");
+                    runner.UnloadScene(matchScene);
+                }
+                return true;
+            }
+
             if (_lobbyPreload != null)
             {
                 CompleteLobbyPreloadAndEnterAsync(runner)
@@ -1538,6 +1722,28 @@ namespace Game.Network.Session
             }
 
             return LoadLobbyScene(runner);
+        }
+
+        private bool TryCompleteHighlightViewing(PlayerRef player)
+        {
+            if (_highlightCompletedPlayers.Contains(player)) return true;
+            if (_spawner == null || _matchStarter == null ||
+                !_spawner.TryGetSpawnPose(player, out var pose) ||
+                !_matchStarter.TryCompleteHighlightViewing(player, pose))
+            {
+                return false;
+            }
+
+            _highlightCompletedPlayers.Add(player);
+            return true;
+        }
+
+        private static bool ContainsScene(NetworkSceneInfo info, SceneRef scene)
+        {
+            if (!scene.IsValid) return false;
+            for (var index = 0; index < info.SceneCount; index++)
+                if (info.Scenes[index] == scene) return true;
+            return false;
         }
 
         private bool LoadLobbyScene(NetworkRunner runner)
@@ -1581,12 +1787,19 @@ namespace Game.Network.Session
         {
             RestoreNetworkSceneLoadingPriority();
             _publishedItemAssignments.Clear();
+            _latestPlayerItemStatuses = Array.Empty<PlayerItemStatusSnapshot>();
             _matchRuntimeRestorePending = false;
             _matchRuntimeRestoreFailure = null;
             MatchMigration = null;
             IsResultSceneLoaded = false;
             _highlightPendingPlayers.Clear();
+            _highlightCompletedPlayers.Clear();
             _receivedHighlightSequence = 0;
+            _highlightResultUnloadRequested = false;
+            _highlightLobbyLoadRequested = false;
+            _highlightLobbyPrepared = false;
+            _highlightCompletionRequested = false;
+            _localHighlightComplete = false;
             // The rig is a component on the runner object and goes down with it.
             // A caller that kept talking to it afterwards would be talking to a
             // destroyed component.
@@ -1611,8 +1824,10 @@ namespace Game.Network.Session
             {
                 _matchStarter.MatchStateReceived -= OnMatchStateReceived;
                 _matchStarter.LobbyChatReceived -= OnLobbyChatReceived;
+                _matchStarter.MatchChatReceived -= OnMatchChatReceived;
                 _matchStarter.ObjectStatesReceived -= OnObjectStatesReceived;
                 _matchStarter.ItemDestroyedReceived -= OnItemDestroyedReceived;
+                _matchStarter.PlayerItemStatusesReceived -= OnPlayerItemStatusesReceived;
                 _matchStarter.PlayerStunnedReceived -= OnPlayerStunnedReceived;
                 _matchStarter.ObjectThrownReceived -= OnObjectThrownReceived;
                 _matchStarter.FinalWarningReceived -= OnFinalWarningReceived;
@@ -1634,6 +1849,7 @@ namespace Game.Network.Session
                 _expectedPassword = null;
                 _configuredMaxPlayers = 0;
                 _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
+                _matchRules = MatchRuleSettings.Default;
             }
             _browsingLobby = false;
 
@@ -1648,12 +1864,26 @@ namespace Game.Network.Session
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
         {
+            if (snapshot.Phase == MatchPhase.Hiding)
+            {
+                _highlightCompletedPlayers.Clear();
+                _highlightResultUnloadRequested = false;
+                _highlightLobbyLoadRequested = false;
+                _highlightLobbyPrepared = false;
+                _highlightCompletionRequested = false;
+                _localHighlightComplete = false;
+            }
             MatchStateReceived?.Invoke(snapshot);
         }
 
         private void OnLobbyChatReceived(LobbyChatMessage message)
         {
             ChatReceived?.Invoke(message);
+        }
+
+        private void OnMatchChatReceived(LobbyChatMessage message)
+        {
+            MatchChatReceived?.Invoke(message);
         }
 
         private void OnObjectStatesReceived(
@@ -1665,6 +1895,22 @@ namespace Game.Network.Session
         private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmedEvent)
         {
             ItemDestroyedReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnPlayerItemStatusesReceived(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            if (statuses == null || statuses.Count == 0)
+            {
+                _latestPlayerItemStatuses = Array.Empty<PlayerItemStatusSnapshot>();
+            }
+            else
+            {
+                _latestPlayerItemStatuses =
+                    new List<PlayerItemStatusSnapshot>(statuses).AsReadOnly();
+            }
+
+            PlayerItemStatusesReceived?.Invoke(_latestPlayerItemStatuses);
         }
 
         private void OnPlayerStunnedReceived(PlayerStunnedEvent confirmedEvent)
@@ -1700,6 +1946,7 @@ namespace Game.Network.Session
 
         private void OnLineUpReceived(IReadOnlyList<MatchParticipant> participants)
         {
+            _latestPlayerItemStatuses = Array.Empty<PlayerItemStatusSnapshot>();
             if (participants == null || participants.Count == 0)
             {
                 MatchMigration = null;
@@ -1726,14 +1973,38 @@ namespace Game.Network.Session
             }
 
             var info = _runner.SessionInfo;
-            _configuredMaxPlayers = SessionPropertyMapper.ReadInt(
+            var maxPlayers = SessionPropertyMapper.ReadInt(
                 info,
                 SessionPropertyKeys.MaxPlayers,
-                info.MaxPlayers);
-            _destructionLimit = SessionPropertyMapper.ReadInt(
+                _configuredMaxPlayers > 0 ? _configuredMaxPlayers : info.MaxPlayers);
+            var destructionLimit = SessionPropertyMapper.ReadInt(
                 info,
                 SessionPropertyKeys.DestructionLimit,
-                PlaySettingsDraft.DefaultDestructionLimit);
+                _destructionLimit);
+            var matchRules = SessionPropertyMapper.ReadMatchRules(
+                info,
+                _matchRules);
+            var mapId = SessionPropertyMapper.ReadString(
+                info,
+                SessionPropertyKeys.MapId,
+                MapCatalog.DefaultMapId);
+
+            if (!TryValidateLobbySettingsRequest(
+                    true,
+                    true,
+                    info.PlayerCount,
+                    maxPlayers,
+                    destructionLimit,
+                    mapId,
+                    matchRules,
+                    out var normalizedMatchRules))
+            {
+                return;
+            }
+
+            _configuredMaxPlayers = maxPlayers;
+            _destructionLimit = destructionLimit;
+            _matchRules = normalizedMatchRules;
         }
 
         /// <summary>

@@ -213,15 +213,17 @@ namespace Game.Bootstrap
             var created = migration != null
                 ? factory.RestoreSession(migration, network.ServerTime, configuration.PlacementValidator,
                     configuration.SpawnPoints, configuration.ItemDefinitions,
-                    configuration.InitialWorldObjects, network.DestructionLimit)
+                    configuration.InitialWorldObjects, network.DestructionLimit,
+                    network.MatchRules)
                 : factory.CreateSessionFromParticipants(
-                participants,
-                configuration.PlacementValidator,
-                configuration.SpawnPoints,
-                configuration.ItemDefinitions,
-                new System.Random(),
-                configuration.InitialWorldObjects,
-                network.DestructionLimit);
+                    participants,
+                    configuration.PlacementValidator,
+                    configuration.SpawnPoints,
+                    configuration.ItemDefinitions,
+                    new System.Random(),
+                    configuration.InitialWorldObjects,
+                    network.DestructionLimit,
+                    matchRules: network.MatchRules);
 
             try
             {
@@ -229,6 +231,23 @@ namespace Game.Bootstrap
                     created.Session,
                     networkContext,
                     appFlow);
+
+                for (var playerIndex = 0; playerIndex < participants.Count; playerIndex++)
+                {
+                    if (!network.TrySetPlayerSprintMultiplier(
+                            playerIndex,
+                            network.MatchRules.SprintMultiplier))
+                    {
+                        throw new InvalidOperationException(
+                            $"The authority could not apply sprint rules to player {playerIndex}.");
+                    }
+
+                    if (migration == null && !network.TryResetPlayerStamina(playerIndex))
+                    {
+                        throw new InvalidOperationException(
+                            $"The authority could not reset stamina for player {playerIndex}.");
+                    }
+                }
 
                 if (!network.BindMatchSession(
                         created.Session,
@@ -241,7 +260,13 @@ namespace Game.Bootstrap
 
                 composition = created;
                 runtime = createdRuntime;
+                composition.Session.PlayerItemDestroyed += OnPlayerItemDestroyed;
                 if (migration != null) RestorePlayers(migration);
+                if (!PublishPlayerItemStatuses(composition.Session))
+                {
+                    throw new InvalidOperationException(
+                        "The authority could not publish player item statuses.");
+                }
                 PublishSnapshotIfChanged();
             }
             catch
@@ -493,6 +518,11 @@ namespace Game.Bootstrap
             initializedAssignments[playerIndex] = true;
         }
 
+        private bool PublishPlayerItemStatuses(MatchSessionCoordinator session)
+        {
+            return network.TryPublishPlayerItemStatuses(session.CapturePlayerItemStatuses());
+        }
+
         private void PublishSnapshotIfChanged()
         {
             var session = composition.Session;
@@ -549,6 +579,7 @@ namespace Game.Bootstrap
         {
             if (composition != null)
             {
+                composition.Session.PlayerItemDestroyed -= OnPlayerItemDestroyed;
                 // Result disables every avatar. The room-level avatars survive
                 // the scene change, so restore them before returning to Lobby.
                 if (network.IsServer)
@@ -582,6 +613,16 @@ namespace Game.Bootstrap
             hasPublishedSnapshot = false;
             hasPublishedHighlightReplay = false;
             waitingForHighlightReady = false;
+        }
+
+        private void OnPlayerItemDestroyed(PlayerItemDestroyedEvent confirmedEvent)
+        {
+            if (composition == null ||
+                !PublishPlayerItemStatuses(composition.Session))
+            {
+                throw new InvalidOperationException(
+                    $"Failed to publish player item statuses after item destruction: {confirmedEvent.ItemId}.");
+            }
         }
     }
 }

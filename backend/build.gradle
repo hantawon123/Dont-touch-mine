@@ -34,6 +34,14 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-flyway-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	// 테스트가 필요한 DB를 스스로 띄웁니다. 파이프라인이 DB를 주입하는 방식은
+	// 로컬과 CI가 갈리게 되므로 의존성 선언을 테스트 코드 쪽에 둡니다.
+	//
+	// Testcontainers 2.x에서 모듈명이 바뀌었습니다. 1.x의 org.testcontainers:mysql,
+	// org.testcontainers:junit-jupiter 는 2.0.5에 없습니다.
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+	testImplementation 'org.testcontainers:testcontainers-mysql'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'

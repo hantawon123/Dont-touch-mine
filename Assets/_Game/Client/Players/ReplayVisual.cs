@@ -10,6 +10,7 @@ namespace Game.Client.Players
     public sealed class ReplayVisual : IDisposable
     {
         private readonly Renderer[] originals;
+        private readonly Renderer[] copies;
         private readonly bool[] originalVisibility;
         private bool hidden;
 
@@ -67,11 +68,14 @@ namespace Game.Client.Players
                 Animator.runtimeAnimatorController = animator.runtimeAnimatorController;
                 Animator.applyRootMotion = false;
                 Animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                Animator.keepAnimatorStateOnDisable = true;
                 Animator.Rebind();
                 Animator.Update(0f);
-                Animator.enabled = false;
+                Animator.speed = 0f;
             }
-            Target.gameObject.SetActive(false);
+            copies = Target.GetComponentsInChildren<Renderer>(true);
+            foreach (var copy in copies) copy.forceRenderingOff = true;
+            Target.gameObject.SetActive(Animator != null);
         }
 
         public void SetPlaying(bool playing)
@@ -85,7 +89,9 @@ namespace Game.Client.Players
                 for (var i = 0; i < originals.Length; i++)
                     if (originals[i] != null) originals[i].forceRenderingOff = playing || originalVisibility[i];
             hidden = playing;
-            if (Target != null) Target.gameObject.SetActive(playing);
+            if (Target == null) return;
+            foreach (var copy in copies) copy.forceRenderingOff = !playing;
+            Target.gameObject.SetActive(playing || Animator != null);
         }
 
         public void Dispose()

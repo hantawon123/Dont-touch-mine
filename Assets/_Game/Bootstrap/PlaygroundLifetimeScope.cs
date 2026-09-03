@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Game.Client.Match;
 using Game.Client.Players;
 using Game.Client.Voice;
+using Game.Core.Home;
+using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Core.Players;
 using Game.Core.Ports;
@@ -12,7 +14,9 @@ using Game.Server.Match;
 using Game.Server.Players;
 using Game.SOAP.Config;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using VContainer;
 using VContainer.Unity;
@@ -26,6 +30,9 @@ namespace Game.Bootstrap
     public sealed class PlaygroundLifetimeScope : LifetimeScope
     {
         private bool waitingForSceneLoad;
+        private GameObject[] sceneRoots = Array.Empty<GameObject>();
+
+        internal IReadOnlyList<GameObject> SceneRoots => sceneRoots;
 
         [SerializeField]
         private MatchRulesSO matchRules;
@@ -47,8 +54,10 @@ namespace Game.Bootstrap
 
         protected override void Awake()
         {
+            sceneRoots = gameObject.scene.GetRootGameObjects();
             if (gameObject.scene.isLoaded)
             {
+                EnsureGameplayEventSystem();
                 base.Awake();
                 return;
             }
@@ -100,6 +109,22 @@ namespace Game.Bootstrap
                 builder.RegisterEntryPoint<NetworkMatchHudPresenter>();
             }
 
+            var chatCanvas = matchHudView == null
+                ? null
+                : matchHudView.GetComponentInParent<Canvas>();
+            var chatView = MatchChatView.Create(chatCanvas == null ? null : chatCanvas.transform);
+            var chatBubbleView = MatchChatBubbleView.Create(transform);
+            builder.RegisterComponent(chatView).As<IMatchChatView>();
+            builder.RegisterComponent(chatBubbleView).As<IMatchChatBubbleView>();
+            builder.Register(
+                    c => CreateChatLog(
+                        c.Resolve<RoomBrowserSystem>(),
+                        c.Resolve<PlayerProfile>()),
+                    Lifetime.Scoped)
+                .As<ILobbyChatLog>();
+            builder.RegisterEntryPoint<MatchChatPresenter>();
+            builder.RegisterEntryPoint<InGameChatBubbleBinder>();
+
             // The rig on the runner keeps carrying voice through the match on
             // its own. What the match lacks is a way to speak to it, so the
             // control and the button are what get registered here. The mute
@@ -126,7 +151,39 @@ namespace Game.Bootstrap
 
             waitingForSceneLoad = false;
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            EnsureGameplayEventSystem();
             base.Awake();
+        }
+
+        private void EnsureGameplayEventSystem()
+        {
+            // The project scope's EventSystem belongs to the frontend and is
+            // intentionally disabled while Fusion owns a gameplay scene.
+            // Keep a scene-local module alive for the in-game chat input.
+            var current = EventSystem.current;
+            if (current != null && current.gameObject.scene == gameObject.scene)
+            {
+                return;
+            }
+
+            var eventSystemObject = new GameObject(
+                "Playground UI EventSystem",
+                typeof(EventSystem),
+                typeof(InputSystemUIInputModule));
+            eventSystemObject.transform.SetParent(transform, false);
+        }
+
+        private static LobbyChatLog CreateChatLog(
+            RoomBrowserSystem room,
+            PlayerProfile profile)
+        {
+            var localPlayerId = room.LocalPlayerId.CurrentValue;
+            if (string.IsNullOrWhiteSpace(localPlayerId))
+            {
+                localPlayerId = "local";
+            }
+
+            return new LobbyChatLog(localPlayerId, profile.Nickname);
         }
     }
 
@@ -176,5 +233,36 @@ namespace Game.Bootstrap
 
             views.Clear();
         }
+    }
+
+    internal sealed class InGameChatBubbleBinder : ITickable, IDisposable
+    {
+        private readonly NetworkRunnerService network;
+        private readonly IMatchChatBubbleView bubbles;
+
+        public InGameChatBubbleBinder(
+            NetworkRunnerService network,
+            IMatchChatBubbleView bubbles)
+        {
+            this.network = network ?? throw new ArgumentNullException(nameof(network));
+            this.bubbles = bubbles ?? throw new ArgumentNullException(nameof(bubbles));
+        }
+
+        public void Tick()
+        {
+            var avatars = network.PlayerAvatars;
+            for (var index = 0; index < avatars.Count; index++)
+            {
+                var avatar = avatars[index];
+                if (avatar == null || !avatar.isActiveAndEnabled || string.IsNullOrEmpty(avatar.PlayerId))
+                {
+                    continue;
+                }
+
+                bubbles.BindPlayer(avatar.PlayerId, avatar.transform);
+            }
+        }
+
+        public void Dispose() => bubbles.Clear();
     }
 }

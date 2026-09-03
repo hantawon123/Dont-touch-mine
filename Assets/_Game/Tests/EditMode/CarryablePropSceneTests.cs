@@ -91,6 +91,26 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Capture_RejectsSceneMissingCatalogItemsBeforeRuntimeStarts()
+        {
+            var scene = EditorSceneManager.NewPreviewScene();
+            var root = new GameObject("Empty Playground");
+            SceneManager.MoveGameObjectToScene(root, scene);
+
+            try
+            {
+                var failure = Assert.Throws<InvalidOperationException>(
+                    () => PlaygroundMatchScene.Capture(scene));
+
+                Assert.That(failure.Message, Does.Contain("is missing item"));
+            }
+            finally
+            {
+                EditorSceneManager.ClosePreviewScene(scene);
+            }
+        }
+
+        [Test]
         public void Playground_CapturesNetworkMatchConfiguration()
         {
             var scene = SceneManager.GetSceneByPath(PlaygroundScenePath);
@@ -110,7 +130,7 @@ namespace Game.Architecture.Tests
                 var carryableCount = carryableItems.Count;
                 Assert.That(
                     captured.NetworkConfiguration.InitialWorldObjects.Count +
-                    ItemCatalog.Definitions.Count,
+                    ItemCatalog.AssignmentDefinitions.Count,
                     Is.EqualTo(carryableCount),
                     "모든 CarryableItem이 배정 물건 또는 일반 맵 물건으로 등록되어야 합니다.");
                 Assert.That(

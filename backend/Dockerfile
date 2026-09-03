@@ -9,7 +9,11 @@ WORKDIR /workspace
 COPY gradlew ./
 COPY gradle gradle
 COPY build.gradle settings.gradle ./
-RUN chmod +x gradlew && ./gradlew --no-daemon --quiet dependencies
+# stdout만 버립니다. dependencies 태스크는 의존성 트리를 결과물로 출력하는데,
+# 목적은 다운로드로 레이어를 굳히는 것이라 트리는 필요 없습니다. --quiet로는
+# 막히지 않습니다(로그 레벨이 아니라 태스크 출력이므로). stderr는 남겨서
+# 실패 원인이 보이게 합니다.
+RUN chmod +x gradlew && ./gradlew --no-daemon dependencies > /dev/null
 
 COPY src src
 # 테스트는 CI에서 돌립니다. 배포 이미지 빌드는 산출물을 만드는 단계입니다.

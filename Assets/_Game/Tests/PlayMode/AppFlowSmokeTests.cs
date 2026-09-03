@@ -177,7 +177,7 @@ namespace Game.Tests.PlayMode
             return new[]
             {
                 new ItemDefinition("bear", "toy"),
-                new ItemDefinition("apple", "food")
+                new ItemDefinition("apple", "toy")
             };
         }
 

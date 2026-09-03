@@ -5,6 +5,7 @@ using Game.Client.Combat;
 using Game.Client.Interactions;
 using Game.Client.Players;
 using Game.Core.Match;
+using Game.Core.Lobby;
 using Game.Core.Players;
 using Game.Network.Match;
 using Game.Network;
@@ -23,6 +24,48 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [TestCase(false, true, 2, 6, 5, "playground", "food", false)]
+        [TestCase(true, false, 2, 6, 5, "playground", "food", false)]
+        [TestCase(true, true, 3, 2, 5, "playground", "food", false)]
+        [TestCase(true, true, 2, 6, -1, "playground", "food", false)]
+        [TestCase(true, true, 2, 6, 0, "playground", "food", true)]
+        [TestCase(true, true, 2, 6, 5, "missing", "food", false)]
+        [TestCase(true, true, 2, 6, 5, "playground", "unsupported", false)]
+        [TestCase(true, true, 2, 6, 5, "playground", "food", true)]
+        public void LobbySettingsValidation_EnforcesAuthorityRangesAndCategory(
+            bool hasAuthority,
+            bool hasValidSession,
+            int currentPlayerCount,
+            int maxPlayers,
+            int destructionLimit,
+            string mapId,
+            string categoryId,
+            bool expected)
+        {
+            Assert.That(
+                MatchRuleSettings.TryCreate(
+                    60,
+                    5,
+                    1.5f,
+                    4,
+                    categoryId,
+                    out var rules,
+                    out _),
+                Is.True);
+
+            Assert.That(
+                NetworkRunnerService.TryValidateLobbySettingsRequest(
+                    hasAuthority,
+                    hasValidSession,
+                    currentPlayerCount,
+                    maxPlayers,
+                    destructionLimit,
+                    mapId,
+                    rules,
+                    out _),
+                Is.EqualTo(expected));
+        }
+
         [TestCase(Game.Core.Flow.AppFlowState.Lobby)]
         [TestCase(Game.Core.Flow.AppFlowState.InGame)]
         [TestCase(Game.Core.Flow.AppFlowState.Highlight)]
@@ -603,6 +646,11 @@ namespace Game.Architecture.Tests
             Assert.That(settings.StandHeight, Is.EqualTo(config.StandHeight));
             Assert.That(settings.CrouchHeight, Is.EqualTo(config.CrouchHeight));
             Assert.That(settings.ProneHeight, Is.EqualTo(config.ProneHeight));
+            Assert.That(settings.MaxStamina, Is.EqualTo(config.MaxStamina));
+            Assert.That(settings.StaminaDrainPerSecond,
+                Is.EqualTo(config.StaminaDrainPerSecond));
+            Assert.That(settings.StaminaRecoveryPerSecond,
+                Is.EqualTo(config.StaminaRecoveryPerSecond));
         }
 
         [Test]
@@ -626,6 +674,20 @@ namespace Game.Architecture.Tests
             Assert.That(
                 NetworkPlayerMotor.MoveSpeedForPosture(settings, posture, true),
                 Is.EqualTo(2f));
+        }
+
+        [Test]
+        public void NetworkPlayer_SprintSpeedUsesRoomMultiplier()
+        {
+            var settings = new PlayerMovementSettings(4f, 7f, 720f, 1.1f, 2f);
+
+            Assert.That(
+                NetworkPlayerMotor.MoveSpeedForPosture(
+                    settings,
+                    PlayerPosture.Standing,
+                    true,
+                    1.5f),
+                Is.EqualTo(10.5f));
         }
 
         [Test]
@@ -657,10 +719,12 @@ namespace Game.Architecture.Tests
         public void MatchStarter_ForwardsReplicatedPhaseSnapshot()
         {
             var gameObject = new GameObject("MatchStarterTest");
+            var stateObject = new GameObject("UnspawnedMatchSessionStateTest");
 
             try
             {
                 var starter = gameObject.AddComponent<MatchStarter>();
+                var state = stateObject.AddComponent<MatchSessionState>();
                 var expected = new MatchStateSnapshot(MatchPhase.Searching, 120d);
                 var received = new MatchStateSnapshot();
                 var wasReceived = false;
@@ -672,13 +736,19 @@ namespace Game.Architecture.Tests
                 };
 
                 starter.PublishSnapshot(expected);
+                var flags = System.Reflection.BindingFlags.Instance |
+                            System.Reflection.BindingFlags.NonPublic;
+                typeof(MatchStarter).GetField("_state", flags).SetValue(starter, state);
 
                 Assert.That(wasReceived, Is.True);
                 Assert.That(received.Phase, Is.EqualTo(MatchPhase.Searching));
                 Assert.That(received.PhaseEndsAt, Is.EqualTo(120d));
+                Assert.That(starter.CurrentPhase, Is.EqualTo(MatchPhase.Searching),
+                    "An unspawned client state must fall back to the last replicated phase.");
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(stateObject);
                 UnityEngine.Object.DestroyImmediate(gameObject);
             }
         }
@@ -706,6 +776,7 @@ namespace Game.Architecture.Tests
                 "RPC_RequestHit",
                 "RPC_RequestShredder",
                 "RPC_RequestReturnToLobby",
+                "RPC_RequestMatchChat",
             };
 
             foreach (var name in names)
@@ -755,9 +826,11 @@ namespace Game.Architecture.Tests
             var names = new[]
             {
                 "RPC_NotifyItemDestroyed",
+                "RPC_NotifyPlayerItemStatuses",
                 "RPC_NotifyPlayerStunned",
                 "RPC_NotifyObjectThrown",
                 "RPC_NotifyFinalWarning",
+                "RPC_NotifyMatchChat",
             };
 
             foreach (var name in names)
@@ -779,6 +852,15 @@ namespace Game.Architecture.Tests
                     name);
             }
 
+            var statusRpc = typeof(MatchSessionState).GetMethod(
+                "RPC_NotifyPlayerItemStatuses");
+            Assert.That(
+                Array.Exists(
+                    statusRpc.GetParameters(),
+                    parameter => parameter.ParameterType == typeof(byte[])),
+                Is.True,
+                "Item status notifications must carry only the encoded public status list.");
+
             var destroyedRpc = typeof(MatchSessionState).GetMethod(
                 "RPC_NotifyItemDestroyed");
             Assert.That(
@@ -789,6 +871,23 @@ namespace Game.Architecture.Tests
                         StringComparison.OrdinalIgnoreCase) >= 0),
                 Is.False,
                 "Destroyed item notifications must not reveal its owner.");
+
+            var statusProperties = typeof(PlayerItemStatusSnapshot).GetProperties();
+            Assert.That(statusProperties, Has.Length.EqualTo(2));
+            Assert.That(
+                Array.Exists(statusProperties, property =>
+                    string.Equals(property.Name, "ItemId", StringComparison.Ordinal)),
+                Is.True);
+            Assert.That(
+                Array.Exists(statusProperties, property =>
+                    string.Equals(property.Name, "IsDestroyed", StringComparison.Ordinal)),
+                Is.True);
+            Assert.That(
+                Array.Exists(statusProperties, property =>
+                    property.Name.IndexOf("owner", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    property.Name.IndexOf("player", StringComparison.OrdinalIgnoreCase) >= 0),
+                Is.False,
+                "Public item status snapshots must not expose assignment ownership.");
         }
 
         [Test]
@@ -802,6 +901,7 @@ namespace Game.Architecture.Tests
                 IReadOnlyList<bool> receivedActivity = null;
                 IReadOnlyList<PlayerInteractionStateSnapshot> receivedInteractions = null;
                 MatchResult? receivedResult = null;
+                IReadOnlyList<PlayerItemStatusSnapshot> secondReceivedStatuses = null;
                 starter.ParticipantActivityReceived += value =>
                     receivedActivity = value;
                 starter.PlayerInteractionStatesReceived += value =>
@@ -814,6 +914,14 @@ namespace Game.Architecture.Tests
                     new PlayerInteractionStateSnapshot(0, 12d, 4),
                     new PlayerInteractionStateSnapshot(1, 0d, 5),
                 });
+                IReadOnlyList<PlayerItemStatusSnapshot> receivedStatuses = null;
+                starter.PlayerItemStatusesReceived += value => receivedStatuses = value;
+                starter.PlayerItemStatusesReceived += value => secondReceivedStatuses = value;
+                starter.PublishPlayerItemStatuses(new[]
+                {
+                    new PlayerItemStatusSnapshot("Soda_01", false),
+                    new PlayerItemStatusSnapshot("Burger_01", true),
+                });
                 starter.PublishMatchResult(new MatchResult(
                     MatchEndReason.LastPlayerStanding,
                     300d,
@@ -825,6 +933,13 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     receivedInteractions[0].RemainingDestructionUses,
                     Is.EqualTo(4));
+                Assert.That(receivedStatuses, Is.Not.Null);
+                Assert.That(receivedStatuses.Count, Is.EqualTo(2));
+                Assert.That(receivedStatuses[0].ItemId, Is.EqualTo("Soda_01"));
+                Assert.That(receivedStatuses[0].IsDestroyed, Is.False);
+                Assert.That(receivedStatuses[1].ItemId, Is.EqualTo("Burger_01"));
+                Assert.That(receivedStatuses[1].IsDestroyed, Is.True);
+                Assert.That(secondReceivedStatuses, Is.SameAs(receivedStatuses));
                 Assert.That(receivedResult.HasValue, Is.True);
                 Assert.That(
                     receivedResult.Value.EndReason,
@@ -857,6 +972,18 @@ namespace Game.Architecture.Tests
             var snapshot = new PlayerInteractionStateSnapshot(1, 15d, 3);
             Assert.That(snapshot.IsStunned(14.99d), Is.True);
             Assert.That(snapshot.IsStunned(15d), Is.False);
+        }
+
+        [Test]
+        public void PlayerStamina_IsPersistentNetworkedData()
+        {
+            var stamina = typeof(NetworkPlayerMotor).GetProperty("CurrentStamina");
+            var exhausted = typeof(NetworkPlayerMotor).GetProperty("IsSprintExhausted");
+
+            Assert.That(stamina, Is.Not.Null);
+            Assert.That(exhausted, Is.Not.Null);
+            Assert.That(Attribute.IsDefined(stamina, typeof(Fusion.NetworkedAttribute)), Is.True);
+            Assert.That(Attribute.IsDefined(exhausted, typeof(Fusion.NetworkedAttribute)), Is.True);
         }
 
         [Test]

@@ -41,17 +41,19 @@ namespace Game.Bootstrap
             }
 
             var items = CaptureUniqueItems(scene);
-            var assignmentDefinitions = new ItemDefinition[ItemCatalog.Definitions.Count];
-            var assignments = new HashSet<string>(StringComparer.Ordinal);
-            for (var index = 0; index < ItemCatalog.Definitions.Count; index++)
+            foreach (var definition in ItemCatalog.Definitions)
             {
-                var definition = ItemCatalog.Definitions[index];
                 if (!items.ContainsKey(definition.ItemId))
                 {
                     throw new InvalidOperationException(
                         $"Playground is missing item '{definition.ItemId}'.");
                 }
+            }
 
+            var assignmentDefinitions = new ItemDefinition[ItemCatalog.AssignmentDefinitions.Count];
+            var assignments = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 0; index < assignmentDefinitions.Length; index++)
+            {
                 var assignedDefinition = ItemCatalog.AssignedDefinition(index);
                 assignmentDefinitions[index] = assignedDefinition;
                 assignments.Add(assignedDefinition.ItemId);
@@ -59,7 +61,7 @@ namespace Game.Bootstrap
                 if (!items.ContainsKey(assignedDefinition.ItemId))
                 {
                     var copy = CreateAssignedCopy(
-                        items[definition.ItemId],
+                        items[ItemCatalog.AssignedSourceDefinition(index).ItemId],
                         assignedDefinition.ItemId);
                     items.Add(assignedDefinition.ItemId, copy);
                 }
@@ -87,7 +89,7 @@ namespace Game.Bootstrap
             {
                 var definition = assignmentDefinitions[index];
                 var copy = items[definition.ItemId];
-                var source = items[ItemCatalog.Definitions[index].ItemId];
+                var source = items[ItemCatalog.AssignedSourceDefinition(index).ItemId];
                 volumes.Add(CaptureVolume(source, definition.ItemId));
                 replayItems.Add(copy);
             }

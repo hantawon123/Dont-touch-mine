@@ -170,7 +170,9 @@ namespace Game.Bootstrap
                     if (cut || !animationActions.TryGetValue(animator, out var previous) || action != previous)
                         animator.Play(AnimationStateOf(action), 0, 0f);
                     animationActions[animator] = action;
+                    animator.speed = 1f;
                     animator.Update(sourceDelta);
+                    animator.speed = 0f;
                 }
             }
 

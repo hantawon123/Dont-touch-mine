@@ -1,6 +1,10 @@
-using Game.Core.Match;
+using System;
 using System.Collections.Generic;
+using System.Text;
 using Game.Client.Interactions;
+using Game.Core.Items;
+using Game.Core.Lobby;
+using Game.Core.Match;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,6 +19,7 @@ namespace Game.Client.Match
         void SetEndCountdown(double remainingSeconds);
         void SetHighlightTitle(string title);
         void SetAssignedItem(string displayName);
+        void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses);
         void SetRemainingDestructionUses(int remainingUses);
         void ShowDestructionNotice(string message);
         void HideDestructionNotice();
@@ -38,6 +43,9 @@ namespace Game.Client.Match
 
         [SerializeField]
         private TMP_Text assignedItemText;
+
+        [SerializeField, Tooltip("Optional public item status text. Leave empty until the scene UI is laid out.")]
+        private TMP_Text playerItemStatusesText;
 
         [SerializeField]
         private GameObject destructionNoticeRoot;
@@ -69,6 +77,7 @@ namespace Game.Client.Match
             SetShredderMarker(default, false);
             SetHighlightTitle(null);
             SetAssignedItem(null);
+            SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
         }
 
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
@@ -155,6 +164,38 @@ namespace Game.Client.Match
             RefreshPlayerStatus();
         }
 
+        public void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            if (playerItemStatusesText == null)
+            {
+                return;
+            }
+
+            if (statuses == null || statuses.Count == 0)
+            {
+                playerItemStatusesText.text = string.Empty;
+                playerItemStatusesText.gameObject.SetActive(false);
+                return;
+            }
+
+            var builder = new StringBuilder();
+            for (var index = 0; index < statuses.Count; index++)
+            {
+                if (index > 0)
+                {
+                    builder.Append('\n');
+                }
+
+                var status = statuses[index];
+                builder.Append(ItemCatalog.DisplayNameOf(status.ItemId));
+                builder.Append(": ");
+                builder.Append(status.IsDestroyed ? "파괴됨" : "정상");
+            }
+
+            playerItemStatusesText.text = builder.ToString();
+            playerItemStatusesText.gameObject.SetActive(true);
+        }
+
         public void SetRemainingDestructionUses(int remainingUses)
         {
             remainingDestructionUses = remainingUses;
@@ -220,13 +261,16 @@ namespace Game.Client.Match
 
             var hasItem = assignedItemDisplayName != null;
             var hasUses = remainingDestructionUses >= 0;
+            var uses = remainingDestructionUses == PlaySettingsDraft.UnlimitedDestructionUses
+                ? "무한"
+                : $"{remainingDestructionUses}회";
             assignedItemText.gameObject.SetActive(hasItem || hasUses);
             assignedItemText.text = hasItem && hasUses
-                ? $"내 물건: {assignedItemDisplayName}\n파쇄기: {remainingDestructionUses}회"
+                ? $"내 물건: {assignedItemDisplayName}\n파쇄기: {uses}"
                 : hasItem
                     ? $"내 물건: {assignedItemDisplayName}"
                     : hasUses
-                        ? $"파쇄기: {remainingDestructionUses}회"
+                        ? $"파쇄기: {uses}"
                         : string.Empty;
 
             if (hasItem && hasUses)

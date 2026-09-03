@@ -57,13 +57,24 @@ namespace Game.Network.Match
         private Pose _shredderEjectionPose;
         private bool _hasShredderEjectionPose;
         private bool _returningToLobby;
-        public bool HasStartedMatch => _state != null && _state.IsStarted;
+        private bool _lastPublishedStarted;
+        private MatchPhase _lastPublishedPhase = MatchPhase.Waiting;
+        public bool HasStartedMatch =>
+            HasValidState ? _state.IsStarted : _lastPublishedStarted;
+        public MatchPhase CurrentPhase =>
+            _session?.CurrentPhase ??
+            (HasValidState ? _state.Phase : _lastPublishedPhase);
         internal IReadOnlyList<MatchParticipant> PlayingParticipants => _playing;
+
+        private bool HasValidState =>
+            _state != null && _state.Object != null && _state.Object.IsValid;
 
         public event Action<MatchStateSnapshot> MatchStateReceived;
         public event Action<LobbyChatMessage> LobbyChatReceived;
+        public event Action<LobbyChatMessage> MatchChatReceived;
         public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
         public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
+        public event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;
         public event Action<PlayerStunnedEvent> PlayerStunnedReceived;
         public event Action<ObjectThrownEvent> ObjectThrownReceived;
         public event Action<FinalWarningStartedEvent> FinalWarningReceived;
@@ -152,10 +163,11 @@ namespace Game.Network.Match
             }
 
             _state = state;
+            _lastPublishedStarted = state.IsStarted;
 
             _playing.Clear();
 
-            if (state.IsStarted)
+            if (_lastPublishedStarted)
             {
                 var count = Mathf.Min(state.ParticipantCount, MatchSessionState.MaxParticipants);
 
@@ -184,6 +196,7 @@ namespace Game.Network.Match
 
         public void PublishSnapshot(MatchStateSnapshot snapshot)
         {
+            _lastPublishedPhase = snapshot.Phase;
             MatchStateReceived?.Invoke(snapshot);
         }
 
@@ -202,6 +215,28 @@ namespace Game.Network.Match
 
             var motor = avatar.GetComponent<NetworkPlayerMotor>();
             return motor != null && motor.TrySetControlsEnabled(enabled);
+        }
+
+        public bool TrySetPlayerSprintMultiplier(int playerIndex, float multiplier)
+        {
+            if (!TryGetPlayingAvatar(playerIndex, out var avatar))
+            {
+                return false;
+            }
+
+            var motor = avatar.GetComponent<NetworkPlayerMotor>();
+            return motor != null && motor.TrySetSprintMultiplier(multiplier);
+        }
+
+        public bool TryResetPlayerStamina(int playerIndex)
+        {
+            if (!TryGetPlayingAvatar(playerIndex, out var avatar))
+            {
+                return false;
+            }
+
+            var motor = avatar.GetComponent<NetworkPlayerMotor>();
+            return motor != null && motor.TryResetStamina();
         }
 
         public bool TryTeleportPlayer(int playerIndex, Pose pose)
@@ -254,9 +289,21 @@ namespace Game.Network.Match
             return true;
         }
 
+        public bool TryPublishPlayerItemStatuses(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            return _state != null && _state.TryPublishPlayerItemStatuses(statuses);
+        }
+
         public void PublishObjectStates(IReadOnlyList<MatchObjectStateSnapshot> states)
         {
             ObjectStatesReceived?.Invoke(states);
+        }
+
+        public void PublishPlayerItemStatuses(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            PlayerItemStatusesReceived?.Invoke(statuses);
         }
 
         public void PublishItemDestroyed(PlayerItemDestroyedEvent confirmedEvent)
@@ -467,6 +514,18 @@ namespace Game.Network.Match
             return true;
         }
 
+        /// <summary>Requests a chat message for the frozen match line-up.</summary>
+        public bool RequestMatchChat(string text)
+        {
+            if (_state == null || !_state.IsStarted || string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            _state.RPC_RequestMatchChat(LobbyChatMessage.ClampText(text.Trim()));
+            return true;
+        }
+
         public bool TryRelayLobbyChat(PlayerRef source, string text)
         {
             if (_state == null || _state.Object == null ||
@@ -511,6 +570,88 @@ namespace Game.Network.Match
         public void PublishLobbyChat(LobbyChatMessage message)
         {
             LobbyChatReceived?.Invoke(message);
+        }
+
+        public bool TryRelayMatchChat(PlayerRef source, string text)
+        {
+            if (_state == null || !_state.IsStarted || _state.Object == null ||
+                !_state.Object.HasStateAuthority || string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            if (!source.IsRealPlayer && _state.Runner.IsServer)
+            {
+                source = _state.Runner.LocalPlayer;
+            }
+
+            var playerId = PlayerRegistry.IdOf(source);
+            for (var index = 0; index < _playing.Count; index++)
+            {
+                var participant = _playing[index];
+                if (!string.Equals(participant.PlayerId, playerId, StringComparison.Ordinal) ||
+                    participant.PlayerIndex < 0 ||
+                    participant.PlayerIndex >= _state.ParticipantCount ||
+                    !_state.ParticipantActive.Get(participant.PlayerIndex))
+                {
+                    continue;
+                }
+
+                _state.RPC_NotifyMatchChat(
+                    participant.PlayerId,
+                    ResolveNickname(participant.PlayerId),
+                    LobbyChatMessage.ClampText(text.Trim()));
+                return true;
+            }
+
+            return false;
+        }
+
+        public void PublishMatchChat(LobbyChatMessage message)
+        {
+            MatchChatReceived?.Invoke(message);
+        }
+
+        internal static bool IsMatchChatParticipant(
+            IReadOnlyList<MatchParticipant> playing,
+            string playerId)
+        {
+            if (playing == null || string.IsNullOrWhiteSpace(playerId))
+            {
+                return false;
+            }
+
+            for (var index = 0; index < playing.Count; index++)
+            {
+                if (string.Equals(playing[index].PlayerId, playerId, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private string ResolveNickname(string playerId)
+        {
+            if (_roster == null)
+            {
+                return playerId;
+            }
+
+            _room.Clear();
+            _roster.Capture(_room);
+            for (var index = 0; index < _room.Count; index++)
+            {
+                if (string.Equals(_room[index].PlayerId, playerId, StringComparison.Ordinal))
+                {
+                    return string.IsNullOrEmpty(_room[index].Nickname)
+                        ? playerId
+                        : _room[index].Nickname;
+                }
+            }
+
+            return playerId;
         }
 
         public bool TryHoldObject(PlayerRef source, string objectId)
@@ -730,6 +871,19 @@ namespace Game.Network.Match
             return ReturnToLobby();
         }
 
+        public bool TryCompleteHighlightViewing(PlayerRef source, Pose lobbyPose)
+        {
+            if (_state == null || _session == null ||
+                _session.CurrentPhase != MatchPhase.Highlight ||
+                !TryGetPlayerIndex(source, out var playerIndex) ||
+                !TryTeleportPlayer(playerIndex, lobbyPose))
+            {
+                return false;
+            }
+
+            return TrySetPlayerControls(playerIndex, true);
+        }
+
         internal static bool IsReturnParticipant(IReadOnlyList<MatchParticipant> playing, string playerId)
         {
             foreach (var participant in playing)
@@ -946,6 +1100,8 @@ namespace Game.Network.Match
         public void Clear()
         {
             _state = null;
+            _lastPublishedStarted = false;
+            _lastPublishedPhase = MatchPhase.Waiting;
             UnbindSession();
             _hasShredderEjectionPose = false;
             _returningToLobby = false;

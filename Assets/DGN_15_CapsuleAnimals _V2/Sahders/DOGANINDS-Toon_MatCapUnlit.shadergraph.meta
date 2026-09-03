@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: f90679808e8b6a744951cd98e6ad47f0
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 625f186215c104763be7675aa2d941aa, type: 3}
+AssetOrigin:
+  serializedVersion: 1
+  productId: 298807
+  packageName: 'V2 Capsule Humanoid Animal Characters V2: 15 Unique Humanoids, Matcap
+    Magic'
+  packageVersion: 1.01
+  assetPath: Assets/DGN_15_CapsuleAnimals _V2/Sahders/DOGANINDS-Toon_MatCapUnlit.shadergraph
+  uploadId: 732419

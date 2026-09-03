@@ -20,6 +20,12 @@ namespace Game.Network.Session
         /// <summary>How many player-item destruction attempts each player gets.</summary>
         public const string DestructionLimit = "destroy";
 
+        public const string HidingDurationSeconds = "hide";
+        public const string SearchingDurationMinutes = "search";
+        public const string SprintMultiplierPercent = "sprint";
+        public const string StunHitCount = "stun";
+        public const string CategoryId = "category";
+
         /// <summary>
         /// Name of whoever opened the room, for the listing to credit. Display
         /// only: it is not unique and nothing looks anyone up by it.

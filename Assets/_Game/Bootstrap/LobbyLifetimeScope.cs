@@ -15,7 +15,9 @@ using Game.Network.Players;
 using Game.Network.Session;
 using R3;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using VContainer;
 using VContainer.Unity;
 
@@ -63,6 +65,31 @@ namespace Game.Bootstrap
 
         [SerializeField]
         private PlayerCameraController cameraRigPrefab;
+
+        [SerializeField]
+        private MatchSceneConfiguration sceneConfiguration;
+
+        private NetworkRunnerService stagingNetwork;
+        private GameObject[] sceneRoots = Array.Empty<GameObject>();
+        private Renderer[] stagingRenderers = Array.Empty<Renderer>();
+        private bool[] stagingRendererStates = Array.Empty<bool>();
+        private Collider[] stagingColliders = Array.Empty<Collider>();
+        private bool[] stagingColliderStates = Array.Empty<bool>();
+        private Behaviour[] stagingBehaviours = Array.Empty<Behaviour>();
+        private bool[] stagingBehaviourStates = Array.Empty<bool>();
+        private Behaviour[] outgoingBehaviours = Array.Empty<Behaviour>();
+        private bool[] outgoingBehaviourStates = Array.Empty<bool>();
+        private bool highlightStaging;
+        private bool stagingVisible;
+
+        protected override void Awake()
+        {
+            // Fusion can merge additive content into its runner scene after
+            // Awake. Keep the roots that actually arrived with Lobby so match
+            // objects are never shifted or hidden with it.
+            sceneRoots = gameObject.scene.GetRootGameObjects();
+            base.Awake();
+        }
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -175,8 +202,7 @@ namespace Game.Bootstrap
 
             builder.RegisterBuildCallback(container =>
             {
-                var sceneConfiguration =
-                    FindAnyObjectByType<MatchSceneConfiguration>();
+                var network = container.Resolve<NetworkRunnerService>();
                 if (sceneConfiguration == null)
                 {
                     throw new InvalidOperationException(
@@ -186,13 +212,120 @@ namespace Game.Bootstrap
                 // The avatar is created in Room before Lobby's floor exists.
                 // UI scene changes do not pass through Fusion's scene loader,
                 // so hand the scene-owned points over once this scene is ready.
-                container.Resolve<NetworkRunnerService>()
-                    .RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
+                network.RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
+                if (network.IsHighlightInProgress)
+                    PrepareHighlightStaging(network);
                 EnsurePlayerCameraRig();
+                if (highlightStaging)
+                {
+                    CaptureStagingPresentation();
+                    SetStagingVisible(false);
+                }
                 Debug.Log(
                     $"[SceneTiming] Lobby scope ready, " +
                     $"elapsed={Time.realtimeSinceStartupAsDouble - configureStartedAt:F3}s.");
             });
+        }
+
+        private void Update()
+        {
+            if (!highlightStaging || stagingNetwork == null) return;
+            if (!stagingNetwork.IsHighlightInProgress)
+            {
+                // The phase reset can happen after this lobby was already shown.
+                // Repeat the cover handoff before ending staging ownership.
+                SetStagingVisible(true);
+                highlightStaging = false;
+                return;
+            }
+
+            var visible = stagingNetwork.IsLocalHighlightComplete;
+            if (visible != stagingVisible) SetStagingVisible(visible);
+        }
+
+        private void PrepareHighlightStaging(NetworkRunnerService network)
+        {
+            stagingNetwork = network;
+            highlightStaging = true;
+        }
+
+        private void CaptureStagingPresentation()
+        {
+            var renderers = new List<Renderer>();
+            var colliders = new List<Collider>();
+            var behaviours = new List<Behaviour>();
+            foreach (var root in sceneRoots)
+            {
+                renderers.AddRange(root.GetComponentsInChildren<Renderer>(true));
+                colliders.AddRange(root.GetComponentsInChildren<Collider>(true));
+                foreach (var behaviour in root.GetComponentsInChildren<Behaviour>(true))
+                {
+                    if (behaviour is Camera or Canvas or AudioListener or AudioSource or
+                        EventSystem or Light or HighlightTransitionView)
+                        behaviours.Add(behaviour);
+                }
+            }
+
+            stagingRenderers = renderers.ToArray();
+            stagingRendererStates = new bool[stagingRenderers.Length];
+            for (var index = 0; index < stagingRenderers.Length; index++)
+                stagingRendererStates[index] = stagingRenderers[index].forceRenderingOff;
+            stagingColliders = colliders.ToArray();
+            stagingColliderStates = new bool[stagingColliders.Length];
+            for (var index = 0; index < stagingColliders.Length; index++)
+                stagingColliderStates[index] = stagingColliders[index].enabled;
+            stagingBehaviours = behaviours.ToArray();
+            stagingBehaviourStates = new bool[stagingBehaviours.Length];
+            for (var index = 0; index < stagingBehaviours.Length; index++)
+                stagingBehaviourStates[index] = stagingBehaviours[index].enabled;
+
+            var playground = FindFirstObjectByType<PlaygroundLifetimeScope>(
+                FindObjectsInactive.Include);
+            if (playground == null) return;
+            var outgoing = new List<Behaviour>();
+            foreach (var root in playground.SceneRoots)
+            {
+                foreach (var behaviour in root.GetComponentsInChildren<Behaviour>(true))
+                {
+                    if (behaviour is Camera or Canvas or AudioListener or AudioSource or
+                        EventSystem or Light)
+                        outgoing.Add(behaviour);
+                }
+            }
+            outgoingBehaviours = outgoing.ToArray();
+            outgoingBehaviourStates = new bool[outgoingBehaviours.Length];
+            for (var index = 0; index < outgoingBehaviours.Length; index++)
+                outgoingBehaviourStates[index] = outgoingBehaviours[index].enabled;
+        }
+
+        private void SetStagingVisible(bool visible)
+        {
+            stagingVisible = visible;
+            for (var index = 0; index < stagingRenderers.Length; index++)
+                if (stagingRenderers[index] != null)
+                    stagingRenderers[index].forceRenderingOff =
+                        !visible || stagingRendererStates[index];
+            for (var index = 0; index < stagingColliders.Length; index++)
+                if (stagingColliders[index] != null)
+                    stagingColliders[index].enabled =
+                        visible && stagingColliderStates[index];
+            for (var index = 0; index < stagingBehaviours.Length; index++)
+                if (stagingBehaviours[index] != null)
+                    stagingBehaviours[index].enabled =
+                        visible && stagingBehaviourStates[index];
+            for (var index = 0; index < outgoingBehaviours.Length; index++)
+                if (outgoingBehaviours[index] != null)
+                    outgoingBehaviours[index].enabled =
+                        !visible && outgoingBehaviourStates[index];
+            if (visible && gameObject.scene.isLoaded)
+            {
+                SceneManager.SetActiveScene(gameObject.scene);
+                foreach (var cover in FindObjectsByType<HighlightTransitionView>(
+                             FindObjectsInactive.Include,
+                             FindObjectsSortMode.None))
+                    if (cover.gameObject.name == "Highlight Transition")
+                        cover.SetOpacity(0f);
+            }
         }
 
         /// <summary>
@@ -215,6 +348,9 @@ namespace Game.Bootstrap
         {
             var rig = FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
             if (rig == null) rig = Instantiate(cameraRigPrefab);
+            if (highlightStaging && rig.gameObject.scene != gameObject.scene &&
+                rig.transform.parent == null)
+                SceneManager.MoveGameObjectToScene(rig.gameObject, gameObject.scene);
             rig.RequireExplicitFollowTarget();
         }
 
@@ -284,11 +420,17 @@ namespace Game.Bootstrap
         public void Start()
         {
             startedAt = Time.realtimeSinceStartupAsDouble;
-            TryBind();
+            if (!IsWaitingForLocalHighlight()) TryBind();
         }
 
         public void Tick()
         {
+            if (IsWaitingForLocalHighlight())
+            {
+                UpdateEntryTransition(false, Time.frameCount);
+                return;
+            }
+
             TryBind();
             if (entryComplete) return;
             var motor = boundAvatar != null ? boundAvatar.GetComponent<NetworkPlayerMotor>() : null;
@@ -314,12 +456,22 @@ namespace Game.Bootstrap
             if (frame - readyFrame < 2) return;
             entryComplete = true;
             entryCover.SetOpacity(0f);
+            var covers = UnityEngine.Object.FindObjectsByType<HighlightTransitionView>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            foreach (var cover in covers) cover.SetOpacity(0f);
+            var output = Camera.main;
             Debug.Log(
                 $"[SceneTiming] Lobby local player ready, " +
-                $"elapsedSinceBinderStart={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
+                $"elapsedSinceBinderStart={Time.realtimeSinceStartupAsDouble - startedAt:F3}s, " +
+                $"camera={(output == null ? "none" : output.gameObject.scene.name + "/" + output.name)}, " +
+                $"coversCleared={covers.Length}.");
         }
 
         public void Dispose() => entryCover.SetOpacity(0f);
+
+        private bool IsWaitingForLocalHighlight() =>
+            network.IsHighlightInProgress && !network.IsLocalHighlightComplete;
 
         private void TryBind()
         {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Bootstrap;
 using Game.Core.Flow;
 using Game.Core.Match;
@@ -106,6 +107,26 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ResultPhaseWithoutResultData_FallsBackAfterGracePeriod()
+        {
+            var network = new FakeNetworkMatchEvents();
+            var flow = CreateLobbyFlow();
+            using var synchronizer = new NetworkMatchFlowSynchronizer(network, flow);
+            synchronizer.Start();
+
+            network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 540d));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 570d));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+
+            synchronizer.Tick(0d);
+            synchronizer.Tick(NetworkMatchFlowSynchronizer.ResultDataGraceSeconds - 0.01d);
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Highlight));
+
+            synchronizer.Tick(NetworkMatchFlowSynchronizer.ResultDataGraceSeconds);
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Result));
+        }
+
+        [Test]
         public void LastPlayerStanding_ReturnsBothPeersDirectlyToLobby()
         {
             var network = new FakeNetworkMatchEvents();
@@ -125,6 +146,10 @@ namespace Game.Architecture.Tests
                 90d,
                 new[] { 0 }));
 
+            AssertPeersAt(hostFlow, clientFlow, AppFlowState.Lobby);
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            host.Tick(0d);
+            client.Tick(NetworkMatchFlowSynchronizer.ResultDataGraceSeconds);
             AssertPeersAt(hostFlow, clientFlow, AppFlowState.Lobby);
         }
 
@@ -174,9 +199,13 @@ namespace Game.Architecture.Tests
 
         private sealed class FakeNetworkMatchEvents : INetworkMatchEvents
         {
+            public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses { get; } =
+                Array.Empty<PlayerItemStatusSnapshot>();
             public event Action<MatchStateSnapshot> MatchStateReceived;
+            public event Action<Game.Core.Lobby.LobbyChatMessage> MatchChatReceived;
             public event Action<string> ItemAssignmentReceived;
             public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
+            public event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;
             public event Action<System.Collections.Generic.IReadOnlyList<
                 PlayerInteractionStateSnapshot>> PlayerInteractionStatesReceived;
             public event Action<System.Collections.Generic.IReadOnlyList<

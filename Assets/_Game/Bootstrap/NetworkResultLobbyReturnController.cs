@@ -10,20 +10,24 @@ using VContainer.Unity;
 
 namespace Game.Bootstrap
 {
-    // Project-scoped: the match scene is unloaded before the result view is built.
+    // Project-scoped: the authority owns the single post-highlight lobby return.
     public sealed class NetworkResultLobbyReturnController : IStartable, ITickable, IDisposable
     {
-        private const double ResultDisplaySeconds = 5d;
+        internal const double ResultDisplaySeconds = 5d;
         private readonly INetworkMatchEvents events;
         private readonly INetworkResultNavigation navigation;
         private readonly RoomBrowserSystem room;
         private readonly ReactiveProperty<string> resultText = new("표시할 경기 결과가 없습니다.");
         private MatchPhase phase;
         private bool hasResult;
-        private bool loadRequested;
         private bool returned;
-        private double returnAt = -1d;
-        private double pausedAt = -1d;
+        private double resultDataFallbackAt = -1d;
+        private bool resultDataFallbackActive;
+        private bool directLobbyResult;
+        private bool resultLoadRequested;
+        private double resultLoadAt = -1d;
+        private double resultEndsAt = -1d;
+        private bool highlightLobbyRequested;
 
         public ReadOnlyReactiveProperty<string> ResultText => resultText;
 
@@ -48,33 +52,45 @@ namespace Game.Bootstrap
             resultText.Dispose();
         }
 
-        public void Tick() => Tick(Time.unscaledTimeAsDouble);
+        public void Tick()
+        {
+            var now = navigation.IsRuntimeReady &&
+                      navigation is INetworkMatchRuntimeSource clock
+                ? clock.ServerTime
+                : Time.unscaledTimeAsDouble;
+            Tick(now);
+        }
 
         internal void Tick(double now)
         {
             if (!navigation.IsRuntimeReady)
             {
-                if (pausedAt < 0d) pausedAt = now;
                 return;
             }
-            if (pausedAt >= 0d)
+            if (navigation.IsServer && phase == MatchPhase.Highlight && hasResult)
             {
-                if (returnAt >= 0d) returnAt += Math.Max(0d, now - pausedAt);
-                pausedAt = -1d;
+                if (!resultLoadRequested && now >= resultLoadAt)
+                    resultLoadRequested = navigation.EnterResultScene();
+                if (navigation.IsResultSceneLoaded && resultEndsAt < 0d)
+                    resultEndsAt = now + ResultDisplaySeconds;
+                if (resultEndsAt >= 0d && now >= resultEndsAt &&
+                    !highlightLobbyRequested)
+                    highlightLobbyRequested = navigation.PrepareLobbyForHighlights();
             }
-            if (!navigation.IsServer || phase != MatchPhase.Result || !hasResult || returned) return;
-            if (!loadRequested)
+            if (phase == MatchPhase.Result && !hasResult && !directLobbyResult)
             {
-                loadRequested = true;
-                if (!navigation.IsResultSceneLoaded && !navigation.EnterResultScene())
+                if (resultDataFallbackAt < 0d)
+                    resultDataFallbackAt = now + NetworkMatchFlowSynchronizer.ResultDataGraceSeconds;
+                if (now >= resultDataFallbackAt)
                 {
-                    Debug.LogError("[Result] Cannot load Result scene. Returning to lobby after the result delay.");
-                    returnAt = now + ResultDisplaySeconds;
+                    resultDataFallbackAt = -1d;
+                    resultDataFallbackActive = true;
+                    resultText.Value = "경기 결과 데이터를 받지 못했습니다.\n\n로비로 돌아갑니다.";
                 }
             }
-            if (returnAt < 0d && navigation.IsResultSceneLoaded)
-                returnAt = now + ResultDisplaySeconds;
-            if (returnAt >= 0d && now >= returnAt && navigation.RequestReturnToLobby())
+            if (!navigation.IsServer || phase != MatchPhase.Result ||
+                (!hasResult && !resultDataFallbackActive) || returned) return;
+            if (navigation.RequestReturnToLobby())
                 returned = true;
         }
 
@@ -83,12 +99,21 @@ namespace Game.Bootstrap
             var rolledBackToSearching = snapshot.Phase == MatchPhase.Searching &&
                 phase is MatchPhase.Highlight or MatchPhase.Result;
             phase = snapshot.Phase;
+            if (phase != MatchPhase.Result)
+            {
+                resultDataFallbackAt = -1d;
+                resultDataFallbackActive = false;
+            }
             if (phase != MatchPhase.Waiting && phase != MatchPhase.Hiding && !rolledBackToSearching) return;
             hasResult = false;
-            loadRequested = false;
+            directLobbyResult = false;
             returned = false;
-            returnAt = -1d;
-            pausedAt = -1d;
+            resultLoadRequested = false;
+            resultLoadAt = -1d;
+            resultEndsAt = -1d;
+            highlightLobbyRequested = false;
+            resultDataFallbackAt = -1d;
+            resultDataFallbackActive = false;
             // Waiting arrives before Result finishes unloading. Keep its text
             // until the next match starts, independently of navigation state.
             if (phase == MatchPhase.Hiding)
@@ -99,10 +124,18 @@ namespace Game.Bootstrap
         {
             // Early departure retains the existing direct-to-lobby path.
             hasResult = result.EndReason != MatchEndReason.LastPlayerStanding;
-            resultText.Value = FormatResult(result, room);
+            directLobbyResult = !hasResult;
+            resultDataFallbackAt = -1d;
+            resultDataFallbackActive = false;
+            resultLoadAt = result.EndedAt + HighlightPresentationTiming.PostRollSeconds;
+            resultText.Value =
+                $"{FormatResult(result, room, false)}\n\n잠시 후 하이라이트가 재생됩니다.";
         }
 
-        internal static string FormatResult(MatchResult result, RoomBrowserSystem room)
+        internal static string FormatResult(
+            MatchResult result,
+            RoomBrowserSystem room,
+            bool includeLobbyNotice = true)
         {
             var winners = new List<string>();
             var localWon = false;
@@ -129,7 +162,8 @@ namespace Game.Bootstrap
                 MatchEndReason.LastPlayerStanding => "마지막 플레이어 생존",
                 _ => "경기 종료"
             };
-            return $"게임 결과\n\n{outcome}\n승자: {(winners.Count == 0 ? "없음" : string.Join(", ", winners))}\n종료 사유: {reason}\n\n잠시 후 로비로 돌아갑니다.";
+            var summary = $"게임 결과\n\n{outcome}\n승자: {(winners.Count == 0 ? "없음" : string.Join(", ", winners))}\n종료 사유: {reason}";
+            return includeLobbyNotice ? $"{summary}\n\n로비로 돌아갑니다." : summary;
         }
     }
 }

@@ -158,15 +158,34 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void CaptureCandidates_DoesNotCreateLongestHiddenForDestroyedSoloItem()
+        public void CaptureCandidates_KeepsFirstBloodAheadOfSimultaneousFinalDestruction()
+        {
+            var onlyDestroyedItems = new HighlightEventRecorder(rules, new[]
+            {
+                Assignment(0, "item-a"),
+                Assignment(1, "item-b"),
+            });
+            onlyDestroyedItems.StartSearching(100d);
+            onlyDestroyedItems.RecordItemDestroyed(1, "item-a", 110d);
+            onlyDestroyedItems.RecordItemDestroyed(0, "item-b", 110d);
+
+            var selected = HighlightCandidateSelector.Select(
+                onlyDestroyedItems.CaptureCandidates(110d));
+
+            Assert.That(selected[0].Type, Is.EqualTo(HighlightType.FirstBlood));
+            Assert.That(selected.Any(candidate => candidate.Type == HighlightType.FinalMoment), Is.True);
+        }
+
+        [Test]
+        public void CaptureCandidates_DoesNotCreateFallbackHighlightsForDestroyedSoloItem()
         {
             var solo = new HighlightEventRecorder(rules, new[]
             {
                 Assignment(0, "solo-item")
             });
-            solo.StartRecording(100d);
             solo.RecordItemPickup(0, "solo-item", 100d);
             solo.StartSearching(130d);
+            solo.StartRecording(131d);
             solo.RecordItemDestroyed(0, "solo-item", 160d);
 
             var candidates = solo.CaptureCandidates(
@@ -180,15 +199,29 @@ namespace Game.Tests.EditMode
                         new[] { new WorldObjectState("solo-item", Pose.identity) })
                 });
 
-            var hotItem = candidates.Single(candidate =>
-                candidate.Type == HighlightType.TteTanMulgun);
-            Assert.That(candidates.Any(candidate =>
-                candidate.Type == HighlightType.FirstBlood), Is.True);
-            Assert.That(hotItem.ActorPlayerIndex, Is.Zero);
-            Assert.That(hotItem.Score, Is.GreaterThan(0d));
-            Assert.That(hotItem.EventAt, Is.LessThanOrEqualTo(hotItem.EndedAt));
-            Assert.That(candidates.Any(candidate =>
-                candidate.Type == HighlightType.LongestHidden), Is.False);
+            Assert.That(candidates.Select(candidate => candidate.Type),
+                Is.EqualTo(new[] { HighlightType.FirstBlood }));
+        }
+
+        [Test]
+        public void CaptureCandidates_IgnoresMontageEventsBeforeRecordingBegins()
+        {
+            var delayed = new HighlightEventRecorder(rules, new[]
+            {
+                Assignment(0, "item-a"),
+                Assignment(1, "item-b")
+            });
+            delayed.RecordItemPickup(0, "item-a", 100d);
+            delayed.RecordItemPickup(1, "item-a", 101d);
+            delayed.RecordPlayerStunned(0, 1, 101d);
+            delayed.StartSearching(100d);
+            delayed.StartRecording(110d);
+
+            var types = delayed.CaptureCandidates(120d)
+                .Select(candidate => candidate.Type)
+                .ToArray();
+            Assert.That(types.Contains(HighlightType.TteTanMulgun), Is.False);
+            Assert.That(types.Contains(HighlightType.MostStunned), Is.False);
         }
 
         private HighlightCandidate Candidate(HighlightType type, double endedAt)

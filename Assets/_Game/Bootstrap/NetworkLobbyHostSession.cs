@@ -123,11 +123,14 @@ namespace Game.Bootstrap
             var maxPlayers = System.Math.Min(
                 RoomSettings.MaxPlayerCount,
                 System.Math.Max(minimumPlayers, draft.MaxPlayers));
-            var destructionLimit = System.Math.Min(
-                PlaySettingsDraft.MaxDestructionLimit,
-                System.Math.Max(
-                    PlaySettingsDraft.MinDestructionLimit,
-                    draft.DestructionLimit));
+            var destructionLimit = draft.DestructionLimit ==
+                                   PlaySettingsDraft.UnlimitedDestructionLimit
+                ? PlaySettingsDraft.UnlimitedDestructionLimit
+                : System.Math.Min(
+                    PlaySettingsDraft.MaxDestructionLimit,
+                    System.Math.Max(
+                        PlaySettingsDraft.MinDestructionLimit,
+                        draft.DestructionLimit));
             var mapId = MapCatalog.Contains(draft.MapId)
                 ? draft.MapId.Trim()
                 : settings.CurrentValue.MapId;
@@ -138,12 +141,14 @@ namespace Game.Bootstrap
                 draft.Password,
                 maxPlayers,
                 destructionLimit,
-                mapId);
+                mapId,
+                draft.MatchRules);
 
             if (!network.TryApplyLobbySettings(
                     applied.MaxPlayers,
                     applied.DestructionLimit,
-                    applied.MapId))
+                    applied.MapId,
+                    applied.MatchRules))
             {
                 Debug.LogWarning("[Lobby] 방 설정을 네트워크 세션에 적용하지 못했습니다.");
                 return;
@@ -214,7 +219,8 @@ namespace Game.Bootstrap
                 current.Password,
                 room.MaxPlayers.CurrentValue > 0 ? room.MaxPlayers.CurrentValue : current.MaxPlayers,
                 current.DestructionLimit,
-                current.MapId);
+                current.MapId,
+                network.MatchRules);
         }
 
         private static void ReportUnreachable(string what, string ticket)

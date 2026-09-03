@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Items;
+using Game.Core.Match;
 
 namespace Game.Server.Match
 {
@@ -125,6 +126,19 @@ namespace Game.Server.Match
             }
 
             return winners.ToArray();
+        }
+
+        public PlayerItemStatusSnapshot[] CapturePlayerItemStatuses()
+        {
+            var status = new PlayerItemStatusSnapshot[itemIdByOwner.Length];
+            for (var itemOwner = 0; itemOwner < itemIdByOwner.Length; itemOwner++)
+            {
+                status[itemOwner] = new PlayerItemStatusSnapshot(
+                    itemIdByOwner[itemOwner],
+                    destroyedItems[itemOwner]);
+            }
+
+            return status;
         }
 
         public string[] CaptureDestroyedItemIds()

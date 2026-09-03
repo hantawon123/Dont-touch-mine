@@ -65,6 +65,11 @@ namespace Game.Bootstrap
                 return;
             }
 
+            // Result and the hidden Lobby are additive presentation scenes, not
+            // a gameplay-scene replacement. LobbyLifetimeScope already supplied
+            // its original poses before moving the staged roots out of the way.
+            if (_network != null && _network.IsHighlightInProgress) return;
+
             var configuration =
                 UnityEngine.Object.FindAnyObjectByType<MatchSceneConfiguration>();
 

@@ -30,6 +30,7 @@ namespace Game.Bootstrap
         private bool hasSnapshot;
         private double noticeEndsAt;
         private double gameEndNoticeEndsAt = -1d;
+        private string gameEndNotice = "게임이 종료되었습니다!";
         private Transform shredder;
         private Camera worldCamera;
 
@@ -63,9 +64,11 @@ namespace Game.Bootstrap
             events.MatchResultReceived += OnMatchResultReceived;
             events.ItemAssignmentReceived += OnItemAssignmentReceived;
             events.ItemDestroyedReceived += OnItemDestroyedReceived;
+            events.PlayerItemStatusesReceived += OnPlayerItemStatusesReceived;
             events.PlayerInteractionStatesReceived += OnPlayerInteractionStatesReceived;
             view.HideDestructionNotice();
             view.SetRemainingDestructionUses(-1);
+            view.SetPlayerItemStatuses(events.LatestPlayerItemStatuses);
             view.SetShredderMarker(default, false);
             FindSceneReferences();
         }
@@ -76,8 +79,10 @@ namespace Game.Bootstrap
             events.MatchResultReceived -= OnMatchResultReceived;
             events.ItemAssignmentReceived -= OnItemAssignmentReceived;
             events.ItemDestroyedReceived -= OnItemDestroyedReceived;
+            events.PlayerItemStatusesReceived -= OnPlayerItemStatusesReceived;
             events.PlayerInteractionStatesReceived -= OnPlayerInteractionStatesReceived;
             view.HideDestructionNotice();
+            view.SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
             view.SetShredderMarker(default, false);
         }
 
@@ -89,7 +94,14 @@ namespace Game.Bootstrap
             }
 
             var now = clock.ServerTime;
-            view.SetRemainingSeconds(Math.Max(0d, snapshot.PhaseEndsAt - now));
+            view.SetRemainingSeconds(snapshot.Phase == MatchPhase.Hiding
+                ? HidingTurns.RemainingSecondsAt(
+                    snapshot.Phase,
+                    snapshot.PhaseEndsAt,
+                    now,
+                    room.MatchParticipants.CurrentValue.Count,
+                    HidingTurnDurationSeconds)
+                : Math.Max(0d, snapshot.PhaseEndsAt - now));
 
             // Whose turn it is moves with time, not with any event: the phase
             // stays Hiding while the turn travels down the line-up.
@@ -118,7 +130,10 @@ namespace Game.Bootstrap
                 (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting))
                 destructions.Clear();
             if (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting)
+            {
                 gameEndNoticeEndsAt = -1d;
+                gameEndNotice = "게임이 종료되었습니다!";
+            }
             if (received.Phase == MatchPhase.Highlight || received.Phase == MatchPhase.Result)
             {
                 noticeEndsAt = 0d;
@@ -133,6 +148,7 @@ namespace Game.Bootstrap
         private void OnMatchResultReceived(MatchResult result)
         {
             if (result.EndReason == MatchEndReason.LastPlayerStanding) return;
+            gameEndNotice = "게임이 종료되었습니다!";
             gameEndNoticeEndsAt = result.EndedAt + HighlightPresentationTiming.PostRollSeconds;
             UpdateGameEndNotice();
         }
@@ -144,7 +160,7 @@ namespace Game.Bootstrap
             var active = remaining > 0d && (!hasSnapshot || snapshot.Phase != MatchPhase.Result);
             view.SetEndCountdown(active ? remaining : 0d);
             if (!active) return false;
-            view.ShowDestructionNotice("게임이 종료되었습니다!");
+            view.ShowDestructionNotice(gameEndNotice);
             noticeEndsAt = gameEndNoticeEndsAt;
             return true;
         }
@@ -191,12 +207,17 @@ namespace Game.Bootstrap
                 snapshot.PhaseEndsAt,
                 clock.ServerTime,
                 playing.Count,
-                rules.HidingTurnDurationSeconds);
+                HidingTurnDurationSeconds);
 
             return turnIndex == HidingTurns.NoTurn
                 ? string.Empty
                 : DisplayNameOf(playing[turnIndex].PlayerIndex);
         }
+
+        private double HidingTurnDurationSeconds =>
+            clock.MatchRules.HidingDurationSeconds > 0
+                ? clock.MatchRules.HidingDurationSeconds
+                : rules.HidingTurnDurationSeconds;
 
         private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmed)
         {
@@ -230,6 +251,12 @@ namespace Game.Bootstrap
         private void OnItemAssignmentReceived(string itemId)
         {
             view.SetAssignedItem(ItemCatalog.DisplayNameOf(itemId));
+        }
+
+        private void OnPlayerItemStatusesReceived(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            view.SetPlayerItemStatuses(statuses);
         }
 
         private void OnPlayerInteractionStatesReceived(
