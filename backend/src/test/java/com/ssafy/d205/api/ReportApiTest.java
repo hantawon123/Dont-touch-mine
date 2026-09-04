@@ -228,20 +228,46 @@ class ReportApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("신고자가 탈퇴하면 그 사람이 낸 신고도 사라진다")
-    void deletingTheReporterRemovesTheirReports() throws Exception {
-        // 운영에는 남기는 편이 유리하지만 이 프로젝트는 탈퇴가 흔적을 남기지 않는다고
-        // 약속했고(V7 주석), 메모는 그 사람이 쓴 글입니다. 약속을 지키는 쪽을 택했습니다.
+    @DisplayName("신고자가 탈퇴해도 신고는 남고 신고자만 비워진다")
+    void deletingTheReporterKeepsTheirReports() throws Exception {
+        // 신고는 신고당한 사람에 대한 기록이지 신고자에 대한 기록이 아닙니다. 목격자가
+        // 떠났다고 제3자에 대한 진술을 없앨 이유가 없습니다.
         String deviceId = UUID.randomUUID().toString();
         String me = createUser(deviceId);
         String other = createUser();
         report(me, other, "ABUSE", "남을까").andExpect(status().isCreated());
 
         // 삭제되고 나면 public_id 로는 찾을 수 없으므로 seq 를 먼저 잡아둡니다.
-        int reporterSeq = seqOf(me);
+        int reportedSeq = seqOf(other);
         deleteAccount(me, deviceId);
 
-        assertThat(reportsBy(reporterSeq)).isZero();
+        Map<String, Object> row = onlyReportAbout(reportedSeq);
+        assertThat(row.get("reporter_seq")).isNull();
+        assertThat(row.get("memo")).isEqualTo("남을까");
+        assertThat(row.get("reason")).isEqualTo("ABUSE");
+    }
+
+    @Test
+    @DisplayName("신고자가 탈퇴해도 CHECK 가 걸리지 않는다")
+    void aNullReporterDoesNotTripTheSelfCheck() throws Exception {
+        // ck_user_reports_not_self 가 reporter_seq <> reported_seq 인데, SET NULL 이
+        // 되는 순간 그 비교가 NULL 이 됩니다. CHECK 는 거짓일 때만 막으므로 통과하는
+        // 것이 맞지만, 이 성질에 기대고 있으니 확인해 둡니다. 여기서 막히면 탈퇴 자체가
+        // 실패합니다.
+        String deviceId = UUID.randomUUID().toString();
+        String me = createUser(deviceId);
+        String first = createUser();
+        String second = createUser();
+        report(me, first, "SPAM", null).andExpect(status().isCreated());
+        report(me, second, "ABUSE", null).andExpect(status().isCreated());
+
+        int firstSeq = seqOf(first);
+        int secondSeq = seqOf(second);
+
+        deleteAccount(me, deviceId);
+
+        assertThat(onlyReportAbout(firstSeq).get("reporter_seq")).isNull();
+        assertThat(onlyReportAbout(secondSeq).get("reporter_seq")).isNull();
     }
 
     @Test
@@ -311,11 +337,6 @@ class ReportApiTest extends IntegrationTest {
     private int reportsAbout(int reportedSeq) {
         return jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM user_reports WHERE reported_seq = ?", Integer.class, reportedSeq);
-    }
-
-    private int reportsBy(int reporterSeq) {
-        return jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM user_reports WHERE reporter_seq = ?", Integer.class, reporterSeq);
     }
 
     private Map<String, Object> onlyReportAbout(int reportedSeq) {

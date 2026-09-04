@@ -35,7 +35,13 @@ public class UserReport {
     @Column(name = "user_reports_seq")
     private Integer seq;
 
-    @Column(name = "reporter_seq", nullable = false)
+    /**
+     * 신고한 사람. <b>탈퇴하면 NULL 이 됩니다.</b>
+     *
+     * <p>기록을 지우지 않고 신고자만 비우는 이유는 V9 주석에 있습니다 - 신고는
+     * 신고당한 사람에 대한 기록이지 신고자에 대한 기록이 아닙니다.
+     */
+    @Column(name = "reporter_seq")
     private Integer reporterSeq;
 
     @Column(name = "reported_seq", nullable = false)

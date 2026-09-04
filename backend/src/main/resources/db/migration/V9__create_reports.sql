@@ -8,7 +8,8 @@ CREATE TABLE user_reports
 (
     user_reports_seq INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
-    reporter_seq     INT UNSIGNED NOT NULL,
+    -- 신고자가 탈퇴하면 NULL 이 됩니다. 아래 FK 주석 참고.
+    reporter_seq     INT UNSIGNED NULL,
     reported_seq     INT UNSIGNED NOT NULL,
 
     -- ReportReason 의 이름을 그대로 담습니다. 서버가 목록에 대해 검증하므로 이 컬럼에
@@ -32,15 +33,33 @@ CREATE TABLE user_reports
     -- 그래서 UNIQUE 키가 없고, 대신 "이 사람이 몇 건 신고당했나"를 위한 인덱스를 둡니다.
     KEY ix_user_reports_reported (reported_seq, created_at),
 
-    CONSTRAINT ck_user_reports_not_self CHECK (reporter_seq <> reported_seq),
-
-    -- 양쪽 다 CASCADE 입니다. 신고자가 탈퇴하면 그 사람이 남긴 신고도 사라집니다.
+    -- 자기 신고를 막는 CHECK 가 여기 없습니다. 일부러 뺀 것이니 다시 넣지 마세요.
     --
-    -- 신고를 남겨두는 편이 운영에는 유리합니다. 하지만 이 프로젝트는 탈퇴가 흔적을
-    -- 남기지 않는다고 약속했고(V7 주석), 신고 메모는 그 사람이 쓴 글입니다. 약속을
-    -- 지키는 쪽을 택합니다. 신고당한 쪽이 탈퇴하면 볼 대상이 없으므로 함께 지웁니다.
+    -- MySQL 은 CHECK 에 쓰인 컬럼을 ON DELETE SET NULL 의 대상으로 삼지 못합니다.
+    -- 넣으면 이 마이그레이션이 "cannot be used in a check constraint ... needed in a
+    -- foreign key constraint referential action" 으로 실패합니다. 둘 중 하나만 가질 수
+    -- 있습니다.
+    --
+    -- 기록을 지키는 쪽을 골랐습니다. 자기 신고는 ReportService 가 막고 테스트가 그것을
+    -- 고정합니다. 그 검사가 언젠가 뚫려도 결과는 뜻 없는 행 하나지만, 신고가 사라지는
+    -- 것은 제재 근거가 사라지는 일입니다. room_invites 와 반대되는 선택인데, 거기는
+    -- SET NULL 을 쓸 이유가 없어서 제약을 그대로 둘 수 있었습니다.
+
+    -- 두 방향을 다르게 다룹니다.
+    --
+    -- 신고자가 탈퇴하면 기록은 남고 신고자만 NULL 이 됩니다. 신고는 신고당한 사람에
+    -- 대한 기록이지 신고자에 대한 기록이 아닙니다. 목격자가 떠났다고 제3자에 대한
+    -- 진술을 없앨 이유가 없습니다.
+    --
+    -- 대가가 있습니다. 떠난 신고자가 전부 NULL 이라 "세 명이 신고"인지 "한 명이 세 번"
+    -- 인지 구분되지 않습니다. 운영자 도구는 남아 있는 신고자에 대해서만 그 구분을 할 수
+    -- 있습니다. 기록 자체가 사라지는 것보다는 낫다고 봤습니다.
+    --
+    -- 신고당한 쪽은 CASCADE 입니다. 그 사람이 없으면 볼 대상이 없습니다. 다만 이건
+    -- "탈퇴 후 재가입"으로 신고 기록을 세탁하는 경로이기도 합니다. 막으려면 탈퇴해도
+    -- 남는 신원 고정점이 필요하고, 그것은 제재를 설계할 때 함께 정해야 합니다.
     CONSTRAINT fk_user_reports_reporter
-        FOREIGN KEY (reporter_seq) REFERENCES users (users_seq) ON DELETE CASCADE,
+        FOREIGN KEY (reporter_seq) REFERENCES users (users_seq) ON DELETE SET NULL,
     CONSTRAINT fk_user_reports_reported
         FOREIGN KEY (reported_seq) REFERENCES users (users_seq) ON DELETE CASCADE
 ) ENGINE = InnoDB;
