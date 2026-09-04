@@ -102,11 +102,23 @@ namespace Game.Core.Home
         /// rather than the pending mark being kept, because there is nothing
         /// left to wait for.
         /// </para>
+        /// <para>
+        /// Only rows the search is currently showing can be sent to. That is
+        /// every caller today, since the button lives on such a row.
+        /// </para>
         /// </remarks>
         public async UniTask<BackendFailure> SendRequestAsync(
             string playerId, CancellationToken cancellation)
         {
-            search.TrySendRequest(playerId);
+            if (!search.TrySendRequest(playerId))
+            {
+                // The row refused: already a friend, already asked, or somebody
+                // who asked first and is shown with an accept button instead.
+                // Sending anyway spends a round trip to be told something this
+                // screen already knows, and answers with a failure the player
+                // cannot act on.
+                return BackendFailure.None;
+            }
 
             var answer = await gateway.SendRequestAsync(playerId, cancellation);
             if (!answer.Ok)

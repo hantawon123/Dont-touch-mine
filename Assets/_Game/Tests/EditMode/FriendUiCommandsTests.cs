@@ -228,8 +228,10 @@ namespace Game.Architecture.Tests
 
             await commands.SendRequestAsync("b", CancellationToken.None);
 
-            // Nothing to mark, because there is no row. The guard is here so a
-            // stale click cannot leave a pending mark on a hidden row.
+            // Not merely invisible: nothing was sent. The server would answer
+            // this by making them friends on the spot, which is a second and
+            // worse way to reach what the accept button above does.
+            Assert.That(gateway.SentTo, Is.Null);
             Assert.That(search.Results, Is.Empty);
         }
 
@@ -333,9 +335,12 @@ namespace Game.Architecture.Tests
                 return Answer(Found);
             }
 
+            public string SentTo { get; private set; }
+
             public UniTask<BackendResult<FriendRequestOutcome>> SendRequestAsync(
                 string playerId, CancellationToken cancellation)
             {
+                SentTo = playerId;
                 return UniTask.FromResult(
                     Failure == BackendFailure.None
                         ? BackendResult<FriendRequestOutcome>.Success(Outcome)
