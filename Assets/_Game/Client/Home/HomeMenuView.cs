@@ -228,7 +228,6 @@ namespace Game.Client.Home
 
             CreateProfileSettingsHeader(root);
             CreateProfileSettingsBody(root);
-            CreateAppliedFeedback(root);
             profileSettingsRoot = root.gameObject;
         }
 
@@ -337,6 +336,7 @@ namespace Game.Client.Home
                 OnChangeNicknameClicked,
                 160f,
                 48f);
+            CreateAppliedFeedback(info);
         }
 
         private void CreateProfileNicknameField(RectTransform parent)
@@ -384,35 +384,61 @@ namespace Game.Client.Home
             profileNicknameInput = input;
         }
 
+        /// <summary>
+        /// The line under the button that says a rename landed, or why it did
+        /// not.
+        /// </summary>
+        /// <remarks>
+        /// Under the button, not at the foot of the screen where it used to sit.
+        /// The field is on the right of the panel and the message was three
+        /// hundred pixels below it in the middle, so the two never read as one
+        /// thing.
+        /// <para>
+        /// One slot that is always in the layout, with the two messages taking
+        /// turns inside it. Adding and removing a row instead would re-centre
+        /// the panel and shift the button under the cursor that just pressed it.
+        /// They never show together: one says the name was saved and the other
+        /// says it was refused.
+        /// </para>
+        /// </remarks>
         private void CreateAppliedFeedback(RectTransform parent)
         {
-            var feedbackRect = CreateRect("AppliedFeedback", parent);
-            SetAnchor(feedbackRect, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
-            feedbackRect.anchoredPosition = new Vector2(0f, 48f);
-            feedbackRect.sizeDelta = new Vector2(400f, 40f);
-            appliedFeedbackText = AddText(
-                feedbackRect,
-                "반영되었습니다",
-                22f,
-                FontStyles.Normal,
-                TextAlignmentOptions.Center);
-            appliedFeedbackText.gameObject.SetActive(false);
+            var slot = CreateRect("Feedback", parent);
+            var slotLayout = slot.gameObject.AddComponent<LayoutElement>();
+            slotLayout.preferredWidth = 360f;
+            slotLayout.minWidth = 360f;
+            slotLayout.preferredHeight = 34f;
+            slotLayout.minHeight = 34f;
 
-            // Sits where the success line does, because only one of them can be
-            // true at a time and stacking them would leave a gap under whichever
-            // is hidden.
-            var errorRect = CreateRect("NicknameError", parent);
-            SetAnchor(errorRect, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
-            errorRect.anchoredPosition = new Vector2(0f, 48f);
-            errorRect.sizeDelta = new Vector2(400f, 40f);
-            nicknameErrorText = AddText(
-                errorRect,
-                string.Empty,
-                22f,
+            appliedFeedbackText = AddFeedbackText(slot, "반영되었습니다");
+
+            nicknameErrorText = AddFeedbackText(slot, string.Empty);
+            nicknameErrorText.color = new Color(0.78f, 0.20f, 0.20f, 1f);
+        }
+
+        /// <remarks>
+        /// Sized down rather than clipped. The refusals are sentences, not
+        /// labels — "한글, 영문, 숫자로 2~12글자여야 합니다" is more than twice
+        /// the width of "반영되었습니다" — and a fixed size would cut one of them.
+        /// </remarks>
+        private TMP_Text AddFeedbackText(RectTransform slot, string message)
+        {
+            var rect = CreateRect("Line", slot);
+            SetAnchor(rect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            var text = AddText(
+                rect,
+                message,
+                20f,
                 FontStyles.Normal,
                 TextAlignmentOptions.Center);
-            nicknameErrorText.color = new Color(0.78f, 0.20f, 0.20f, 1f);
-            nicknameErrorText.gameObject.SetActive(false);
+            text.enableAutoSizing = true;
+            text.fontSizeMin = 13f;
+            text.fontSizeMax = 20f;
+            text.gameObject.SetActive(false);
+            return text;
         }
 
         private void OnChangeNicknameClicked()
