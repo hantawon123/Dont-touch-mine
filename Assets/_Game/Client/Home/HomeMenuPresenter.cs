@@ -272,7 +272,6 @@ namespace Game.Client.Home
 
             isProfileSettingsVisible = true;
             view.SetNickname(profile.Nickname);
-            view.SetLevel(profile.Level);
             view.SetNicknameAppliedFeedbackVisible(false);
             view.SetProfileSettingsVisible(true);
         }
@@ -321,7 +320,6 @@ namespace Game.Client.Home
         private void BindProfile(PlayerProfile source)
         {
             view.SetNickname(source.Nickname);
-            view.SetLevel(source.Level);
         }
     }
 }

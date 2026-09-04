@@ -3,6 +3,7 @@
     "rootNamespace": "Game.Bootstrap",
     "references": [
         "Game.Client",
+        "Game.Backend",
         "Game.Core",
         "Game.Network",
         "Game.Server",

@@ -2,10 +2,12 @@
     "name": "Game.Architecture.PlayModeTests",
     "rootNamespace": "Game.Tests.PlayMode",
     "references": [
+        "Game.Backend",
         "Game.Bootstrap",
         "Game.Core",
         "Game.Server",
         "Game.SOAP",
+        "UniTask",
         "UnityEngine.TestRunner"
     ],
     "includePlatforms": [],

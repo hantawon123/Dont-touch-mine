@@ -13,22 +13,17 @@ namespace Game.Client.Home
         private string title = "로고 or 이름 두둥";
 
         [SerializeField]
-        [Range(0f, 1f)]
-        private float experienceRatio = 0.4f;
-
-        [SerializeField]
         private TMP_FontAsset fontAsset;
 
         [SerializeField]
         private TMP_Text nicknameText;
 
-        [SerializeField]
-        private TMP_Text levelText;
-
         private readonly List<Button> menuButtons = new List<Button>();
         private readonly List<FriendRow> onlineRows = new List<FriendRow>();
         private readonly List<FriendRow> offlineRows = new List<FriendRow>();
         private readonly List<SearchRow> searchRows = new List<SearchRow>();
+        private readonly List<RequestRow> requestRows = new List<RequestRow>();
+        private readonly List<RequestRow> sentRows = new List<RequestRow>();
         private TMP_FontAsset koreanFont;
         private GameObject friendListRoot;
         private GameObject friendListBody;
@@ -41,13 +36,18 @@ namespace Game.Client.Home
         private RectTransform onlineItemsRoot;
         private RectTransform offlineItemsRoot;
         private RectTransform searchItemsRoot;
+        private GameObject requestsSection;
+        private RectTransform requestsItemsRoot;
+        private GameObject sentSection;
+        private RectTransform sentItemsRoot;
+        private GameObject refreshButton;
         private TMP_InputField friendSearchInput;
         private TMP_Text searchEmptyText;
         private Button dismissButton;
         private GameObject profileSettingsRoot;
         private TMP_InputField profileNicknameInput;
-        private TMP_Text profileLevelText;
         private TMP_Text appliedFeedbackText;
+        private TMP_Text nicknameErrorText;
 
         public event Action<HomeMenuAction> ActionClicked;
 
@@ -67,10 +67,22 @@ namespace Game.Client.Home
 
         public event Action<string> FriendRequestClicked;
 
+        public event Action<string> FriendRequestAccepted;
+
+        public event Action<string> FriendRequestDeclined;
+
+        public event Action<string> FriendRequestCancelled;
+
+        public event Action FriendListRefreshRequested;
+
+        public event Action<string> FriendRemoved;
+
+        public event Action<string> FriendBlocked;
+
         private void Awake()
         {
             EnsureEventSystem();
-            if (nicknameText == null || levelText == null)
+            if (nicknameText == null)
             {
                 BuildLayout();
             }
@@ -90,6 +102,11 @@ namespace Game.Client.Home
                     searchRows[index].RequestButton.onClick.RemoveAllListeners();
                 }
             }
+
+            ClearRequestRows(requestRows);
+            ClearRequestRows(sentRows);
+            ClearFriendRows(onlineRows);
+            ClearFriendRows(offlineRows);
 
             if (dismissButton != null)
             {
@@ -120,20 +137,6 @@ namespace Game.Client.Home
             }
         }
 
-        public void SetLevel(int level)
-        {
-            var label = $"Lv.{level}";
-            if (levelText != null)
-            {
-                levelText.text = label;
-            }
-
-            if (profileLevelText != null)
-            {
-                profileLevelText.text = label;
-            }
-        }
-
         public void SetProfileSettingsVisible(bool visible)
         {
             if (profileSettingsRoot == null)
@@ -144,6 +147,25 @@ namespace Game.Client.Home
             profileSettingsRoot.SetActive(visible);
         }
 
+        public void SetNicknameError(string message)
+        {
+            if (nicknameErrorText == null)
+            {
+                return;
+            }
+
+            var hasMessage = !string.IsNullOrEmpty(message);
+            nicknameErrorText.text = message ?? string.Empty;
+            nicknameErrorText.gameObject.SetActive(hasMessage);
+
+            // The two never show together. One says the name was taken and the
+            // other says it was saved, and both at once is a contradiction.
+            if (hasMessage && appliedFeedbackText != null)
+            {
+                appliedFeedbackText.gameObject.SetActive(false);
+            }
+        }
+
         public void SetNicknameAppliedFeedbackVisible(bool visible)
         {
             if (appliedFeedbackText == null)
@@ -152,6 +174,11 @@ namespace Game.Client.Home
             }
 
             appliedFeedbackText.gameObject.SetActive(visible);
+
+            if (visible && nicknameErrorText != null)
+            {
+                nicknameErrorText.gameObject.SetActive(false);
+            }
         }
 
         public void SetFriendListVisible(bool visible)
@@ -209,6 +236,11 @@ namespace Game.Client.Home
                 addFriendButton.SetActive(!visible);
             }
 
+            if (refreshButton != null)
+            {
+                refreshButton.SetActive(!visible);
+            }
+
             if (closeSearchButton != null)
             {
                 closeSearchButton.SetActive(visible);
@@ -239,6 +271,72 @@ namespace Game.Client.Home
 
             BindSearchRows(results);
             UpdateSearchEmptyHint(results);
+        }
+
+        private static void ClearFriendRows(List<FriendRow> rows)
+        {
+            for (var index = 0; index < rows.Count; index++)
+            {
+                if (rows[index].BlockButton != null)
+                {
+                    rows[index].BlockButton.onClick.RemoveAllListeners();
+                }
+
+                if (rows[index].RemoveButton != null)
+                {
+                    rows[index].RemoveButton.onClick.RemoveAllListeners();
+                }
+            }
+        }
+
+        private static void ClearRequestRows(List<RequestRow> rows)
+        {
+            for (var index = 0; index < rows.Count; index++)
+            {
+                if (rows[index].AcceptButton != null)
+                {
+                    rows[index].AcceptButton.onClick.RemoveAllListeners();
+                }
+
+                if (rows[index].DeclineButton != null)
+                {
+                    rows[index].DeclineButton.onClick.RemoveAllListeners();
+                }
+            }
+        }
+
+        public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests)
+        {
+            if (requests == null)
+            {
+                throw new ArgumentNullException(nameof(requests));
+            }
+
+            if (sentItemsRoot == null || sentSection == null)
+            {
+                return;
+            }
+
+            sentSection.SetActive(requests.Count > 0);
+            BindRequestRows(sentRows, sentItemsRoot, requests, sent: true);
+        }
+
+        public void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests)
+        {
+            if (requests == null)
+            {
+                throw new ArgumentNullException(nameof(requests));
+            }
+
+            if (requestsItemsRoot == null || requestsSection == null)
+            {
+                return;
+            }
+
+            // Hidden rather than shown empty. The panel is small, and a heading
+            // over nothing costs the search results the room they need.
+            requestsSection.SetActive(requests.Count > 0);
+            BindRequestRows(requestRows, requestsItemsRoot, requests, sent: false);
         }
 
         private void UpdateSearchEmptyHint(IReadOnlyList<FriendSearchHit> results)

@@ -27,30 +27,25 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void PlayerProfile_StoresAndUpdatesNicknameAndLevel()
+        public void PlayerProfile_StoresAndUpdatesNickname()
         {
-            var profile = new PlayerProfile(" 사용자 ", 1);
+            var profile = new PlayerProfile(" 사용자 ");
             var changedCount = 0;
             profile.Changed += _ => changedCount++;
 
             Assert.That(
                 profile.TryChangeNickname(" 새닉네임 ", out var error),
                 Is.True);
-            Assert.That(profile.TryUpdateLevel(2, out error), Is.True);
             Assert.That(error, Is.EqualTo(PlayerProfileError.None));
             Assert.That(profile.Nickname, Is.EqualTo("새닉네임"));
-            Assert.That(profile.Level, Is.EqualTo(2));
-            Assert.That(changedCount, Is.EqualTo(2));
+            Assert.That(changedCount, Is.EqualTo(1));
 
             Assert.That(
                 profile.TryChangeNickname(" ", out error),
                 Is.False);
             Assert.That(error, Is.EqualTo(PlayerProfileError.NicknameRequired));
-            Assert.That(profile.Nickname, Is.EqualTo("새닉네임"));
-            Assert.That(profile.Level, Is.EqualTo(2));
-
-            Assert.That(profile.TryUpdateLevel(0, out error), Is.False);
-            Assert.That(error, Is.EqualTo(PlayerProfileError.InvalidLevel));
+            Assert.That(profile.Nickname, Is.EqualTo("새닉네임"), "a blank name changes nothing");
+            Assert.That(changedCount, Is.EqualTo(1), "and tells nobody");
         }
 
         [Test]

@@ -12,7 +12,7 @@ namespace Game.Tests.EditMode
         [Test]
         public void Presenter_BindsProfileAndForwardsEveryMenuAction()
         {
-            var profile = new PlayerProfile("사용자닉네임", 1);
+            var profile = new PlayerProfile("사용자닉네임");
             var menu = new HomeMenuSystem();
             var view = new FakeHomeMenuView();
             var host = new FakeHomeApplicationHost();
@@ -26,12 +26,9 @@ namespace Game.Tests.EditMode
             {
                 presenter.Start();
                 Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
-                Assert.That(view.Level, Is.EqualTo(1));
 
                 Assert.That(profile.TryChangeNickname("새닉네임", out _), Is.True);
-                Assert.That(profile.TryUpdateLevel(3, out _), Is.True);
                 Assert.That(view.Nickname, Is.EqualTo("새닉네임"));
-                Assert.That(view.Level, Is.EqualTo(3));
 
                 foreach (HomeMenuAction action in Enum.GetValues(typeof(HomeMenuAction)))
                 {
@@ -326,7 +323,7 @@ namespace Game.Tests.EditMode
         [Test]
         public void Presenter_RequiresDependencies()
         {
-            var profile = new PlayerProfile("사용자닉네임", 1);
+            var profile = new PlayerProfile("사용자닉네임");
             var menu = new HomeMenuSystem();
             var view = new FakeHomeMenuView();
             var host = new FakeHomeApplicationHost();
@@ -364,7 +361,7 @@ namespace Game.Tests.EditMode
             out FriendListSystem friends,
             out FriendSearchSystem search)
         {
-            var profile = new PlayerProfile("사용자닉네임", 1);
+            var profile = new PlayerProfile("사용자닉네임");
             var menu = new HomeMenuSystem();
             view = new FakeHomeMenuView();
             host = new FakeHomeApplicationHost();
@@ -379,8 +376,6 @@ namespace Game.Tests.EditMode
         private sealed class FakeHomeMenuView : IHomeMenuView
         {
             public string Nickname { get; private set; }
-
-            public int Level { get; private set; }
 
             public bool FriendListVisible { get; private set; }
 
@@ -417,19 +412,59 @@ namespace Game.Tests.EditMode
 
             public event Action<string> FriendRequestClicked;
 
+            public event Action<string> FriendRequestAccepted;
+
+            public event Action<string> FriendRequestDeclined;
+
+            public event Action<string> FriendRequestCancelled;
+
+            public event Action FriendListRefreshRequested;
+
+            public event Action<string> FriendRemoved;
+
+            public event Action<string> FriendBlocked;
+
+            public IReadOnlyList<FriendRequestSummary> IncomingRequests { get; private set; } =
+                Array.Empty<FriendRequestSummary>();
+
+            public void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests)
+            {
+                IncomingRequests = requests;
+            }
+
+            public IReadOnlyList<FriendRequestSummary> OutgoingRequests { get; private set; } =
+                Array.Empty<FriendRequestSummary>();
+
+            public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests)
+            {
+                OutgoingRequests = requests;
+            }
+
+            public void RaiseFriendRequestAccepted(string playerId)
+            {
+                FriendRequestAccepted?.Invoke(playerId);
+            }
+
+            public void RaiseFriendRequestDeclined(string playerId)
+            {
+                FriendRequestDeclined?.Invoke(playerId);
+            }
+
             public void SetNickname(string nickname)
             {
                 Nickname = nickname;
             }
 
-            public void SetLevel(int level)
-            {
-                Level = level;
-            }
-
             public void SetProfileSettingsVisible(bool visible)
             {
                 ProfileSettingsVisible = visible;
+            }
+
+            public string NicknameError { get; private set; } = string.Empty;
+
+            public void SetNicknameError(string message)
+            {
+                NicknameError = message ?? string.Empty;
             }
 
             public void SetNicknameAppliedFeedbackVisible(bool visible)
