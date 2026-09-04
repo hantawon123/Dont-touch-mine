@@ -42,10 +42,6 @@ namespace Game.Core.Ports
         /// does not show it; the value is a placeholder, not an answer, and
         /// nothing should read it.
         /// </para>
-        /// <para>
-        /// People who have blocked this player are absent, and people this player
-        /// blocked are absent too. Neither is distinguishable from not existing.
-        /// </para>
         /// </remarks>
         UniTask<BackendResult<IReadOnlyList<FriendSummary>>> SearchAsync(
             string nickname, CancellationToken cancellation);

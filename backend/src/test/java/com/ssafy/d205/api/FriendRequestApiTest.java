@@ -156,73 +156,6 @@ class FriendRequestApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("차단 관계면 없는 상대와 같은 404")
-    void blockedTargetLooksMissing() throws Exception {
-        // 차단당했다는 사실을 알려주면 차단한 사람이 드러납니다. 없는 사용자와
-        // 구분되지 않아야 합니다. 코드가 TARGET_NOT_FOUND 로 같은지 확인합니다.
-        String me = createUser();
-        String other = createUser();
-        block(other, me);
-
-        send(me, other)
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("TARGET_NOT_FOUND"));
-    }
-
-    @Test
-    @DisplayName("내가 차단한 상대에게도 보낼 수 없다")
-    void cannotSendToUserIBlocked() throws Exception {
-        // 차단 검사는 방향을 보지 않습니다. 위 테스트가 상대가 나를 차단한 경우이고
-        // 이쪽이 내가 상대를 차단한 경우입니다. 한 방향만 시험하면 쿼리의 OR 한쪽이
-        // 빠져도 통과합니다.
-        String me = createUser();
-        String other = createUser();
-        block(me, other);
-
-        send(me, other)
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("TARGET_NOT_FOUND"));
-    }
-
-    @Test
-    @DisplayName("차단은 있는데 요청이 남아 있으면 수락을 거부한다")
-    void cannotAcceptWhenBlockRaceLeavesRequest() throws Exception {
-        // accept 의 차단 검사가 두 번째 방어선임을 확인합니다.
-        //
-        // 차단 API 는 user_blocks 에 행을 넣으면서 friendships 행을 함께 지우므로,
-        // 정상 경로에서는 "차단은 있는데 요청이 남은" 상태가 만들어지지 않습니다.
-        // 그래서 차단 API 를 쓰면 이 테스트는 요청이 이미 없는 상황을 확인할 뿐이고,
-        // 나중에 누가 관계 삭제를 지워도 통과해 버립니다.
-        //
-        // 그 상태는 차단과 수락이 거의 동시에 일어날 때만 생깁니다. 재현하려고
-        // user_blocks 에만 직접 행을 넣습니다.
-        String requester = createUser();
-        String me = createUser();
-        send(requester, me).andExpect(status().isCreated());
-
-        insertBlockRowOnly(me, requester);
-
-        mvc.perform(post("/api/v1/friend-requests/{userId}/accept", requester).header(USER_ID_HEADER, me))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("TARGET_NOT_FOUND"));
-    }
-
-    @Test
-    @DisplayName("차단하면 남아 있던 요청 자체가 사라진다")
-    void blockRemovesPendingRequest() throws Exception {
-        // 위 테스트가 경합을 다루고, 이쪽이 정상 경로입니다. 차단 API 를 쓰면 요청이
-        // 지워지므로 수락할 대상이 애초에 없습니다.
-        String requester = createUser();
-        String me = createUser();
-        send(requester, me).andExpect(status().isCreated());
-
-        block(me, requester);
-
-        mvc.perform(get("/api/v1/friend-requests").header(USER_ID_HEADER, me))
-                .andExpect(jsonPath("$.requests.length()").value(0));
-    }
-
-    @Test
     @DisplayName("거절하면 요청이 사라지고 다시 요청할 수 있다")
     void rejectAllowsRequestingAgain() throws Exception {
         // V2 주석이 REJECTED 상태를 남기지 않는 이유로 든 시나리오입니다. 상태로
@@ -385,25 +318,4 @@ class FriendRequestApiTest extends IntegrationTest {
                 .content("{\"userId\":\"" + targetUserId + "\"}"));
     }
 
-    /**
-     * user_blocks 에만 행을 넣습니다. friendships 는 건드리지 않습니다.
-     *
-     * <p>차단 API 는 관계를 함께 지우므로 이 상태를 만들 수 없습니다. 차단과 수락이
-     * 동시에 일어나는 경합만 이렇게 되고, 그 경우를 시험하려면 직접 넣어야 합니다.
-     */
-    private void insertBlockRowOnly(String blockerUserId, String blockedUserId) {
-        jdbcTemplate.update("""
-                INSERT INTO user_blocks (blocker_seq, blocked_seq, created_at)
-                SELECT b.users_seq, t.users_seq, '20260101000000'
-                  FROM users b, users t
-                 WHERE b.public_id = ? AND t.public_id = ?
-                """, blockerUserId, blockedUserId);
-    }
-
-    /** 차단 API로 넣습니다. 테스트가 실제 경로를 지나게 하는 편이 낫습니다. */
-    private void block(String blockerUserId, String blockedUserId) throws Exception {
-        mvc.perform(put("/api/v1/blocks/{userId}", blockedUserId)
-                        .header(USER_ID_HEADER, blockerUserId))
-                .andExpect(status().isNoContent());
-    }
 }

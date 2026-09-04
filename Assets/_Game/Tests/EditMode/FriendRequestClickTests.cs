@@ -75,7 +75,7 @@ namespace Game.Architecture.Tests
                 Gateway = new RecordingGateway();
 
                 var friends = new FriendListSystem();
-                Commands = new FriendUiCommands(Gateway, new NoBlocks(), friends, Search);
+                Commands = new FriendUiCommands(Gateway, friends, Search);
 
                 presenter = new HomeMenuPresenter(
                     new PlayerProfile("나"),
@@ -174,23 +174,6 @@ namespace Game.Architecture.Tests
                         Array.Empty<FriendRequestSummary>()));
         }
 
-        private sealed class NoBlocks : IBlockGateway
-        {
-            public UniTask<BackendResult> BlockAsync(
-                string playerId, CancellationToken cancellation) =>
-                UniTask.FromResult(BackendResult.Success());
-
-            public UniTask<BackendResult> UnblockAsync(
-                string playerId, CancellationToken cancellation) =>
-                UniTask.FromResult(BackendResult.Success());
-
-            public UniTask<BackendResult<IReadOnlyList<BlockedPlayer>>> ListBlockedAsync(
-                CancellationToken cancellation) =>
-                UniTask.FromResult(
-                    BackendResult<IReadOnlyList<BlockedPlayer>>.Success(
-                        Array.Empty<BlockedPlayer>()));
-        }
-
         private sealed class SilentHost : IHomeApplicationHost
         {
             public void Quit() { }
@@ -222,7 +205,6 @@ namespace Game.Architecture.Tests
             public event Action<string> FriendRequestCancelled;
             public event Action FriendListRefreshRequested;
             public event Action<string> FriendRemoved;
-            public event Action<string> FriendBlocked;
 
             public void RaiseFriendRequestClicked(string playerId) =>
                 FriendRequestClicked?.Invoke(playerId);
@@ -266,7 +248,6 @@ namespace Game.Architecture.Tests
                 FriendRequestCancelled?.Invoke(null);
                 FriendListRefreshRequested?.Invoke();
                 FriendRemoved?.Invoke(null);
-                FriendBlocked?.Invoke(null);
             }
         }
     }

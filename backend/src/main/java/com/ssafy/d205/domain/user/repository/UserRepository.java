@@ -26,19 +26,13 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      * <p><b>prefix 는 반드시 소문자로 넘겨야 합니다.</b> nickname_lower 컬럼이 as_cs
      * 콜레이션이라 대문자로 넘기면 아무것도 걸리지 않습니다. 서비스가 변환합니다.
      *
-     * <p>JPQL이 아니라 네이티브 쿼리인 이유가 둘입니다.
+     * <p>JPQL이 아니라 네이티브 쿼리인 이유는 nickname_lower 가 V6이 만든 생성
+     * 컬럼이고 엔티티에 매핑하지 않았기 때문입니다. 값을 쓰는 곳이 이 쿼리 하나뿐인데,
+     * 매핑하면 읽기 전용 애너테이션을 정확히 달아야 하고 실수하면 INSERT 가 깨집니다.
      *
-     * <p>첫째, nickname_lower 는 V6이 만든 생성 컬럼이고 엔티티에 매핑하지 않았습니다.
-     * 값을 쓰는 곳이 이 쿼리 하나뿐인데, 매핑하면 읽기 전용 애너테이션을 정확히 달아야
-     * 하고 실수하면 INSERT 가 깨집니다.
-     *
-     * <p>둘째, 차단 검사가 user_blocks 를 읽는데 그 테이블은 복합 기본키라 엔티티로
-     * 만들면 @IdClass 보일러플레이트가 따라옵니다. 차단 API 가 아직 없어 다른 데서
-     * 쓸 일도 없습니다.
-     *
-     * <p>차단은 양방향으로 걸러냅니다. 내가 차단한 사람과 나를 차단한 사람이 모두
-     * 결과에서 빠집니다. 한쪽만 보면 차단당한 사람이 상대를 계속 찾아낼 수 있어
-     * 차단의 의미가 없어집니다. user_blocks 의 두 인덱스가 각 방향을 담당합니다.
+     * <p>거르는 것은 나 자신뿐입니다. 차단이 있던 동안에는 양쪽 방향의 차단도 함께
+     * 걸러냈지만 그 테이블은 사라졌습니다. 신고는 상대에게 아무 영향이 없으므로
+     * 검색 결과를 바꾸지 않습니다.
      *
      * <p>정렬을 nickname_lower 로 하는 것은 ix_users_nickname_lower 를 그대로 쓰기
      * 위해서입니다. 다른 컬럼으로 정렬하면 정렬을 위한 별도 작업이 생깁니다.
@@ -49,11 +43,6 @@ public interface UserRepository extends JpaRepository<User, Integer> {
               FROM users u
              WHERE u.nickname_lower LIKE CONCAT(:prefix, '%')
                AND u.users_seq <> :meSeq
-               AND NOT EXISTS (
-                   SELECT 1
-                     FROM user_blocks b
-                    WHERE (b.blocker_seq = :meSeq AND b.blocked_seq = u.users_seq)
-                       OR (b.blocker_seq = u.users_seq AND b.blocked_seq = :meSeq))
              ORDER BY u.nickname_lower
             """, nativeQuery = true)
     List<UserSummaryRow> searchByNicknamePrefix(@Param("prefix") String prefix,

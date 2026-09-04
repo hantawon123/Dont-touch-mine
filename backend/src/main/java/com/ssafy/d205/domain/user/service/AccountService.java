@@ -110,7 +110,7 @@ public class AccountService {
      * 계정을 삭제합니다. <b>되돌릴 수 없습니다.</b>
      *
      * <p>하드 삭제입니다. users 한 행을 지우면 user_identities, friendships,
-     * user_blocks, user_presence 가 ON DELETE CASCADE 로 함께 사라집니다. 스키마가 그렇게
+     * user_presence 가 ON DELETE CASCADE 로 함께 사라집니다. 스키마가 그렇게
      * 설계돼 있고, 소프트 삭제는 조회 쿼리 열 곳에 필터를 추가해야 하는데 하나만
      * 빠뜨려도 삭제된 계정이 조용히 새어 나옵니다.
      *

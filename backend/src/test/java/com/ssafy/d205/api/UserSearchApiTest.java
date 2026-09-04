@@ -97,36 +97,6 @@ class UserSearchApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("내가 차단한 사람은 결과에 담기지 않는다")
-    void excludesBlockedUser() throws Exception {
-        String prefix = newPrefix();
-        String me = createUser(prefix + "ME");
-        String other = createUser(prefix + "AA");
-
-        block(me, other);
-
-        mvc.perform(searchRequest(me, prefix, null))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.users.length()").value(0));
-    }
-
-    @Test
-    @DisplayName("나를 차단한 사람도 결과에 담기지 않는다")
-    void excludesUserWhoBlockedMe() throws Exception {
-        // 차단은 양방향으로 적용합니다. 한쪽만 걸러내면 차단당한 사람이 상대를
-        // 계속 찾아낼 수 있어 차단의 의미가 없어집니다.
-        String prefix = newPrefix();
-        String me = createUser(prefix + "ME");
-        String other = createUser(prefix + "AA");
-
-        block(other, me);
-
-        mvc.perform(searchRequest(me, prefix, null))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.users.length()").value(0));
-    }
-
-    @Test
     @DisplayName("결과가 없으면 빈 배열")
     void emptyResultIsEmptyArray() throws Exception {
         String me = createUser(newPrefix() + "ME");
@@ -261,12 +231,6 @@ class UserSearchApiTest extends IntegrationTest {
         return userId;
     }
 
-    /** 차단 API로 넣습니다. 테스트가 실제 경로를 지나게 하는 편이 낫습니다. */
-    private void block(String blockerUserId, String blockedUserId) throws Exception {
-        mvc.perform(put("/api/v1/blocks/{userId}", blockedUserId)
-                        .header(USER_ID_HEADER, blockerUserId))
-                .andExpect(status().isNoContent());
-    }
 
     private org.springframework.test.web.servlet.RequestBuilder searchRequest(
             String callerUserId, String nickname, Integer limit) {

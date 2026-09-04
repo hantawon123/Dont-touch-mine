@@ -311,29 +311,6 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public async Task BlockingSomeone_ReloadsTheFriendList()
-        {
-            var gateway = new FakeFriendGateway();
-            gateway.Friends = new[]
-            {
-                Friend("a", "가", FriendPresence.Online),
-                Friend("b", "나", FriendPresence.Online)
-            };
-            var commands = Build(gateway, out var friends, out _);
-            await commands.RefreshFriendsAsync(CancellationToken.None);
-            Assert.That(friends.OnlineFriends.Count, Is.EqualTo(2));
-
-            // The server ends the friendship as part of blocking, so the list it
-            // answers with afterwards is shorter.
-            gateway.Friends = new[] { Friend("a", "가", FriendPresence.Online) };
-            var failure = await commands.BlockAsync("b", CancellationToken.None);
-
-            Assert.That(failure, Is.EqualTo(BackendFailure.None));
-            Assert.That(friends.OnlineFriends.Count, Is.EqualTo(1));
-            Assert.That(friends.OnlineFriends[0].PlayerId, Is.EqualTo("a"));
-        }
-
-        [Test]
         public async Task SentRequests_AreReadFromTheOutgoingDirection()
         {
             var gateway = new FakeFriendGateway();
@@ -412,30 +389,7 @@ namespace Game.Architecture.Tests
         {
             friends = new FriendListSystem();
             search = new FriendSearchSystem();
-            return new FriendUiCommands(gateway, new FakeBlockGateway(), friends, search);
-        }
-
-        /// <summary>Accepts every block and remembers the last one.</summary>
-        private sealed class FakeBlockGateway : IBlockGateway
-        {
-            public string Blocked { get; private set; }
-
-            public UniTask<BackendResult> BlockAsync(
-                string playerId, CancellationToken cancellation)
-            {
-                Blocked = playerId;
-                return UniTask.FromResult(BackendResult.Success());
-            }
-
-            public UniTask<BackendResult> UnblockAsync(
-                string playerId, CancellationToken cancellation) =>
-                UniTask.FromResult(BackendResult.Success());
-
-            public UniTask<BackendResult<IReadOnlyList<BlockedPlayer>>> ListBlockedAsync(
-                CancellationToken cancellation) =>
-                UniTask.FromResult(
-                    BackendResult<IReadOnlyList<BlockedPlayer>>.Success(
-                        Array.Empty<BlockedPlayer>()));
+            return new FriendUiCommands(gateway, friends, search);
         }
 
         /// <summary>Answers whatever the test set, and records what it was asked.</summary>

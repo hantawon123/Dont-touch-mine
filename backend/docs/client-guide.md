@@ -97,7 +97,6 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 | `MISSING_HEADER` | 400 | 필수 헤더가 없음 | 버그입니다. 헤더를 확인하세요 |
 | `INVALID_REQUEST` | 400 | 값이 형식에 안 맞음 | 입력값을 고쳐 다시 보냅니다 |
 | `SELF_FRIEND_REQUEST` | 400 | 자기에게 친구 요청 | UI 에서 미리 막습니다 |
-| `SELF_BLOCK` | 400 | 자기를 차단 | UI 에서 미리 막습니다 |
 | `ACCOUNT_NOT_FOUND` | 404 | 부르는 사람의 계정이 없음 | **계정을 다시 발급받아야 합니다** |
 | `TARGET_NOT_FOUND` | 404 | 상대를 찾을 수 없음 | "그 사용자가 없습니다" |
 | `FRIEND_REQUEST_NOT_FOUND` | 404 | 그 요청이 없음 | 목록을 다시 불러옵니다 |
@@ -111,12 +110,6 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 `ACCOUNT_NOT_FOUND` 와 `TARGET_NOT_FOUND` 를 나눈 이유가 대응이 다르기 때문입니다.
 전자는 내 계정이 사라진 것이라 발급부터 다시 해야 하고, 후자는 화면에 메시지만 띄우면
 됩니다.
-
-### 차단은 조용히 적용됩니다
-
-누가 나를 차단했는지 **알 수 없게 되어 있습니다.** 차단당한 쪽에서 그 사람을 검색하면
-결과에 안 나오고, 친구 요청을 보내면 `TARGET_NOT_FOUND` 가 옵니다. 계정이 없는 경우와
-구분되지 않습니다. 의도한 것이니 "차단당했습니다" 같은 메시지를 만들지 마세요.
 
 ---
 
@@ -174,8 +167,10 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 사람에게 방 코드가 흘러가는 길을 아예 두지 않으려는 것입니다. 요청만 보내둔 상대는
 아직 친구가 아닙니다.
 
-차단은 여기서도 조용히 적용됩니다. 차단이 걸린 상대는 `TARGET_NOT_FOUND` 이고 계정이
-없는 경우와 구분되지 않습니다.
+**친구를 끊으면 그 사람과 주고받은 초대가 함께 사라집니다.** 남겨두면 끊은 것이 끊은
+것이 아닙니다 — 방금 끊은 사람이 이미 받아둔 코드로 그대로 들어옵니다. 끊은 뒤에
+초대 목록을 다시 부를 필요는 없지만, 화면에 남아 있던 초대가 서버에는 이미 없으므로
+누르면 `NOT_FOUND` 가 옵니다.
 
 ### 방 코드 형식
 
@@ -220,7 +215,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 
 ## 8. 계정 삭제
 
-`DELETE /api/v1/accounts/me` 는 **되돌릴 수 없습니다.** 계정과 함께 친구 관계, 차단, 접속
+`DELETE /api/v1/accounts/me` 는 **되돌릴 수 없습니다.** 계정과 함께 친구 관계와 접속
 기록이 모두 사라집니다. 복구 수단이 없으니 확인 화면을 반드시 두세요.
 
 `X-User-Id` 와 `X-Device-Id` 를 함께 보냅니다. 자격증명이 맞지 않으면 `404

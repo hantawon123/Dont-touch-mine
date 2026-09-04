@@ -56,11 +56,6 @@ public class InviteService {
             // 줍니다. 자기를 부르는 것은 상대를 찾을 수 없는 것과 같게 답합니다.
             throw new TargetUserNotFoundException(targetUserId);
         }
-        if (friendshipRepository.existsBlockBetween(me.getSeq(), target.getSeq())) {
-            // 차단당했다는 사실을 알려주지 않습니다. 없는 사용자와 같게 답합니다.
-            throw new TargetUserNotFoundException(targetUserId);
-        }
-
         Optional<Friendship> friendship = friendshipRepository.findByPair(me.getSeq(), target.getSeq());
         if (friendship.isEmpty() || friendship.get().isPending()) {
             throw new NotFriendsException();

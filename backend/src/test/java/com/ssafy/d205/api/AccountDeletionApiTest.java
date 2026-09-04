@@ -64,34 +64,27 @@ class AccountDeletionApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("CASCADE가 신원, 접속 상태, 친구 관계, 차단을 모두 지운다")
+    @DisplayName("CASCADE가 신원, 접속 상태, 친구 관계를 모두 지운다")
     void cascadeRemovesEverything() throws Exception {
-        // 스키마를 믿지 않고 확인합니다. ON DELETE CASCADE 가 네 테이블에 걸려 있는데
+        // 스키마를 믿지 않고 확인합니다. ON DELETE CASCADE 가 세 테이블에 걸려 있는데
         // 지금까지 users 를 지우는 코드가 없어서 한 번도 동작한 적이 없었습니다.
         String deviceId = newDeviceId();
         String me = createUser(deviceId);
         String friend = createUser(newDeviceId());
-        String blockedByMe = createUser(newDeviceId());
-        String blockedMe = createUser(newDeviceId());
 
         befriend(me, friend);
         heartbeat(me);
-        block(me, blockedByMe);
-        block(blockedMe, me);
 
         int seq = seqOf(me);
         assertThat(count("user_identities", seq)).isOne();
         assertThat(count("user_presence", seq)).isOne();
         assertThat(friendshipCount(seq)).isOne();
-        assertThat(blockCount(seq)).isEqualTo(2);
 
         deleteAccount(me, deviceId).andExpect(status().isNoContent());
 
         assertThat(count("user_identities", seq)).isZero();
         assertThat(count("user_presence", seq)).isZero();
         assertThat(friendshipCount(seq)).isZero();
-        // 내가 차단한 것과 나를 차단한 것 둘 다 사라져야 합니다. FK 가 양쪽에 걸려 있습니다.
-        assertThat(blockCount(seq)).isZero();
     }
 
     @Test
@@ -112,23 +105,6 @@ class AccountDeletionApiTest extends IntegrationTest {
         assertThat(friendshipCount(seq)).isZero();
         mvc.perform(get("/api/v1/friend-requests").header(USER_ID_HEADER, other))
                 .andExpect(jsonPath("$.requests.length()").value(0));
-    }
-
-    @Test
-    @DisplayName("나를 차단한 사람의 차단 목록에서도 사라진다")
-    void disappearsFromOthersBlockList() throws Exception {
-        String deviceId = newDeviceId();
-        String me = createUser(deviceId);
-        String blocker = createUser(newDeviceId());
-        block(blocker, me);
-
-        mvc.perform(get("/api/v1/blocks").header(USER_ID_HEADER, blocker))
-                .andExpect(jsonPath("$.blocked.length()").value(1));
-
-        deleteAccount(me, deviceId).andExpect(status().isNoContent());
-
-        mvc.perform(get("/api/v1/blocks").header(USER_ID_HEADER, blocker))
-                .andExpect(jsonPath("$.blocked.length()").value(0));
     }
 
     @Test
@@ -259,11 +235,6 @@ class AccountDeletionApiTest extends IntegrationTest {
                 .andExpect(status().isNoContent());
     }
 
-    private void block(String blocker, String blocked) throws Exception {
-        mvc.perform(put("/api/v1/blocks/{userId}", blocked).header(USER_ID_HEADER, blocker))
-                .andExpect(status().isNoContent());
-    }
-
     private void heartbeat(String userId) throws Exception {
         mvc.perform(put("/api/v1/presence")
                         .header(USER_ID_HEADER, userId)
@@ -289,12 +260,5 @@ class AccountDeletionApiTest extends IntegrationTest {
                 SELECT COUNT(*) FROM friendships
                  WHERE user_low_seq = ? OR user_high_seq = ? OR requested_by_seq = ?
                 """, Integer.class, userSeq, userSeq, userSeq);
-    }
-
-    private int blockCount(int userSeq) {
-        return jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM user_blocks
-                 WHERE blocker_seq = ? OR blocked_seq = ?
-                """, Integer.class, userSeq, userSeq);
     }
 }

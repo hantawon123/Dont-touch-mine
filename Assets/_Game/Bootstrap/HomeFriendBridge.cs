@@ -49,7 +49,6 @@ namespace Game.Bootstrap
             view.FriendRequestCancelled += OnFriendRequestCancelled;
             view.FriendListRefreshRequested += OnRefreshRequested;
             view.FriendRemoved += OnFriendRemoved;
-            view.FriendBlocked += OnFriendBlocked;
 
             // Loaded before the player opens anything, so the panel is filled
             // the first time rather than after it appears empty.
@@ -67,7 +66,6 @@ namespace Game.Bootstrap
             view.FriendRequestCancelled -= OnFriendRequestCancelled;
             view.FriendListRefreshRequested -= OnRefreshRequested;
             view.FriendRemoved -= OnFriendRemoved;
-            view.FriendBlocked -= OnFriendBlocked;
 
             // Everything in flight is abandoned rather than allowed to write to
             // a screen that is being torn down.
@@ -124,11 +122,6 @@ namespace Game.Bootstrap
         private void OnFriendRemoved(string playerId)
         {
             RemoveFriendAsync(playerId).Forget();
-        }
-
-        private void OnFriendBlocked(string playerId)
-        {
-            BlockAsync(playerId).Forget();
         }
 
         private async UniTaskVoid RefreshAsync()
@@ -255,22 +248,6 @@ namespace Game.Bootstrap
             }
 
             Report("unfriend", await friends.RemoveFriendAsync(playerId, lifetime.Token));
-        }
-
-        /// <remarks>
-        /// The friend list is reloaded by the command itself, because blocking
-        /// ends the friendship. The requests are reloaded here, because it drops
-        /// any request between the two as well.
-        /// </remarks>
-        private async UniTaskVoid BlockAsync(string playerId)
-        {
-            if (!await Ready())
-            {
-                return;
-            }
-
-            Report("block", await friends.BlockAsync(playerId, lifetime.Token));
-            await RefreshRequests();
         }
 
         /// <summary>

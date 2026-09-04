@@ -910,20 +910,6 @@ namespace Game.Client.Home
                 row.Nickname.text = friend.Nickname;
                 row.Status.text = friend.Presence == FriendPresence.InGame ? "게임중" : string.Empty;
 
-                // Disarmed on every draw. A row half way through asking for
-                // confirmation must not stay that way for whoever lands in it
-                // next, and a refresh is exactly when that happens.
-                row.BlockArmed = false;
-                if (row.BlockLabel != null)
-                {
-                    row.BlockLabel.text = "차단";
-                }
-
-                if (row.BlockButton != null)
-                {
-                    row.BlockButton.interactable = true;
-                }
-
                 if (row.RemoveButton != null)
                 {
                     row.RemoveButton.interactable = true;
@@ -1363,8 +1349,6 @@ namespace Game.Client.Home
                 Status = status
             };
 
-            // Ending the friendship first, blocking second: the pair reads left
-            // to right from the lighter action to the heavier one.
             friendRow.RemoveButton = CreateRowTextButton(
                 row,
                 "Remove",
@@ -1372,14 +1356,6 @@ namespace Game.Client.Home
                 36f,
                 () => RemoveFriend(friendRow));
 
-            friendRow.BlockButton = CreateRowTextButton(
-                row,
-                "Block",
-                "차단",
-                36f,
-                () => ConfirmBlock(friendRow));
-
-            friendRow.BlockLabel = friendRow.BlockButton.GetComponentInChildren<TMP_Text>();
             return friendRow;
         }
 
@@ -1387,9 +1363,9 @@ namespace Game.Client.Home
         /// Ends the friendship on the first press.
         /// </summary>
         /// <remarks>
-        /// No confirmation, unlike blocking. Both people can still find each
-        /// other afterwards and either can ask again, so the worst a stray press
-        /// costs is one more request.
+        /// No confirmation. Both people can still find each other afterwards and
+        /// either can ask again, so the worst a stray press costs is one more
+        /// request.
         /// </remarks>
         private void RemoveFriend(FriendRow row)
         {
@@ -1399,40 +1375,7 @@ namespace Game.Client.Home
             }
 
             row.RemoveButton.interactable = false;
-            row.BlockButton.interactable = false;
             FriendRemoved?.Invoke(row.PlayerId);
-        }
-
-        /// <summary>
-        /// Two presses to block: the first asks, the second does it.
-        /// </summary>
-        /// <remarks>
-        /// A confirmation step rather than a dialog, because the row is small and
-        /// a modal over a modal is worse than a label that changes. Blocking is
-        /// not only hiding someone — the server ends the friendship and drops any
-        /// request with it — so a single stray press should not do it.
-        /// <para>
-        /// The armed state lasts until this list is drawn again, which happens on
-        /// every refresh, so it cannot sit armed for long.
-        /// </para>
-        /// </remarks>
-        private void ConfirmBlock(FriendRow row)
-        {
-            if (string.IsNullOrEmpty(row.PlayerId))
-            {
-                return;
-            }
-
-            if (!row.BlockArmed)
-            {
-                row.BlockArmed = true;
-                row.BlockLabel.text = "확인?";
-                return;
-            }
-
-            row.BlockArmed = false;
-            row.BlockButton.interactable = false;
-            FriendBlocked?.Invoke(row.PlayerId);
         }
 
         private static void AddDropShadow(GameObject target, Color color, Vector2 distance)
@@ -1558,9 +1501,6 @@ namespace Game.Client.Home
             public TMP_Text Nickname;
             public TMP_Text Status;
             public Button RemoveButton;
-            public Button BlockButton;
-            public TMP_Text BlockLabel;
-            public bool BlockArmed;
         }
 
         private sealed class RequestRow

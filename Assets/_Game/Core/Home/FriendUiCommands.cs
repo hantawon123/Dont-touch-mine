@@ -24,18 +24,15 @@ namespace Game.Core.Home
     public sealed class FriendUiCommands
     {
         private readonly IFriendGateway gateway;
-        private readonly IBlockGateway blocks;
         private readonly FriendListSystem friends;
         private readonly FriendSearchSystem search;
 
         public FriendUiCommands(
             IFriendGateway gateway,
-            IBlockGateway blocks,
             FriendListSystem friends,
             FriendSearchSystem search)
         {
             this.gateway = gateway ?? throw new ArgumentNullException(nameof(gateway));
-            this.blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
             this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
             this.search = search ?? throw new ArgumentNullException(nameof(search));
         }
@@ -72,8 +69,8 @@ namespace Game.Core.Home
         /// Two steps, because the two filters are not the same one.
         /// <see cref="FriendSearchSystem.Search"/> narrows what this client
         /// already holds and decides which rows are already friends;
-        /// the server decides who exists, hides anyone involved in a block, and
-        /// matches a prefix rather than a substring. Replacing the directory
+        /// the server decides who exists and matches a prefix rather than a
+        /// substring. Replacing the directory
         /// re-runs the local pass against the new rows, so the order here is
         /// what makes both apply.
         /// </remarks>
@@ -237,35 +234,18 @@ namespace Game.Core.Home
         /// Ends a friendship, then reloads the friend list.
         /// </summary>
         /// <remarks>
-        /// Unlike blocking, this leaves both people able to find each other, so
-        /// either can ask again. That is why the screen asks for no confirmation
-        /// before calling it.
+        /// Both people can still find each other afterwards and either can ask
+        /// again, so the screen asks for no confirmation before calling it.
+        /// <para>
+        /// The server also drops any room invite between the two. Someone just
+        /// unfriended should not still be able to walk in on a code they were
+        /// handed a moment ago.
+        /// </para>
         /// </remarks>
         public async UniTask<BackendFailure> RemoveFriendAsync(
             string playerId, CancellationToken cancellation)
         {
             var answer = await gateway.RemoveFriendAsync(playerId, cancellation);
-            if (!answer.Ok)
-            {
-                return answer.Failure;
-            }
-
-            return await RefreshFriendsAsync(cancellation);
-        }
-
-        /// <summary>
-        /// Blocks someone, then reloads the friend list.
-        /// </summary>
-        /// <remarks>
-        /// The reload is not optional. Blocking ends the friendship and drops
-        /// any request between the two, so a list left as it was would show a
-        /// friend who is no longer one and offer to unfriend a row the server
-        /// has already removed.
-        /// </remarks>
-        public async UniTask<BackendFailure> BlockAsync(
-            string playerId, CancellationToken cancellation)
-        {
-            var answer = await blocks.BlockAsync(playerId, cancellation);
             if (!answer.Ok)
             {
                 return answer.Failure;

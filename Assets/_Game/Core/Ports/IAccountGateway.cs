@@ -42,7 +42,7 @@ namespace Game.Core.Ports
             string nickname, CancellationToken cancellation);
 
         /// <summary>
-        /// Deletes this account, its friendships, its blocks and its presence.
+        /// Deletes this account, its friendships and its presence.
         /// </summary>
         /// <remarks>
         /// There is no undo and no recovery, so presentation must confirm before

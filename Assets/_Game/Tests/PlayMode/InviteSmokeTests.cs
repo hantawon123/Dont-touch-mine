@@ -149,7 +149,6 @@ namespace Game.Tests.PlayMode
                 accounts = new AccountGateway(client);
                 Commands = new FriendUiCommands(
                     new FriendGateway(client),
-                    new BlockGateway(client),
                     new FriendListSystem(),
                     new FriendSearchSystem());
                 Invites = new InviteGateway(client);

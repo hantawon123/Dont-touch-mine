@@ -210,53 +210,33 @@ class InviteApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("차단이 걸린 상대는 없는 사람과 같게 답한다")
-    void blockingHidesTheTarget() throws Exception {
-        String host = createUser();
-        String guest = createUser();
-        befriend(host, guest);
-
-        mvc.perform(put("/api/v1/blocks/{userId}", host).header(USER_ID_HEADER, guest))
-                .andExpect(status().isNoContent());
-
-        // 차단당했다는 사실이 드러나면 안 됩니다. 계정이 없는 경우와 구분되지 않습니다.
-        mvc.perform(post("/api/v1/invites")
-                        .header(USER_ID_HEADER, host)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(guest, ROOM)))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("TARGET_NOT_FOUND"));
-    }
-
-    @Test
-    @DisplayName("차단하면 이미 보낸 초대도 함께 사라진다")
-    void blockingRemovesInvitesAlreadySent() throws Exception {
+    @DisplayName("친구를 끊으면 이미 보낸 초대도 함께 사라진다")
+    void unfriendingRemovesInvitesAlreadySent() throws Exception {
         String host = createUser();
         String guest = createUser();
         befriend(host, guest);
         invite(host, guest, ROOM);
 
-        mvc.perform(put("/api/v1/blocks/{userId}", guest).header(USER_ID_HEADER, host))
-                .andExpect(status().isNoContent());
+        unfriend(host, guest);
 
-        // 남겨두면 차단이 뚫립니다. 관계가 끊긴 뒤에도 이미 받아둔 초대로 상대의 방에
-        // 들어갈 수 있고, 차단은 상대가 나를 찾지도 닿지도 못하게 하는 것입니다.
+        // 남겨두면 끊은 것이 끊은 것이 아닙니다. 방금 끊은 사람이 이미 받아둔 초대로
+        // 내 방에 그대로 들어올 수 있습니다. 수명이 3분이라 창이 좁을 뿐입니다.
         mvc.perform(get("/api/v1/invites").header(USER_ID_HEADER, guest))
                 .andExpect(jsonPath("$.invites").isEmpty());
         assertThat(inviteRows(guest)).isZero();
     }
 
     @Test
-    @DisplayName("차단당한 쪽이 보낸 초대도 사라진다")
-    void blockingRemovesInvitesInBothDirections() throws Exception {
+    @DisplayName("끊긴 쪽이 보낸 초대도 사라진다")
+    void unfriendingRemovesInvitesInBothDirections() throws Exception {
         String host = createUser();
         String guest = createUser();
         befriend(host, guest);
         invite(guest, host, ROOM);
 
-        // 차단은 양방향으로 적용되므로 초대도 양쪽이 없어져야 합니다.
-        mvc.perform(put("/api/v1/blocks/{userId}", guest).header(USER_ID_HEADER, host))
-                .andExpect(status().isNoContent());
+        // 한 방향만 지우면 내가 끊었는데 상대가 보낸 초대는 살아남습니다. 끊는 쪽이
+        // 누구든 남은 초대가 없어야 합니다.
+        unfriend(host, guest);
 
         mvc.perform(get("/api/v1/invites").header(USER_ID_HEADER, host))
                 .andExpect(jsonPath("$.invites").isEmpty());
@@ -396,5 +376,10 @@ class InviteApiTest extends IntegrationTest {
                   JOIN users u ON u.users_seq = i.invitee_seq
                  WHERE u.public_id = ?
                 """, String.class, inviteeUserId);
+    }
+
+    private void unfriend(String caller, String other) throws Exception {
+        mvc.perform(delete("/api/v1/friends/{userId}", other).header(USER_ID_HEADER, caller))
+                .andExpect(status().isNoContent());
     }
 }

@@ -79,7 +79,6 @@ namespace Game.Client.Home
 
         public event Action<string> FriendRemoved;
 
-        public event Action<string> FriendBlocked;
 
         private void Awake()
         {
@@ -292,11 +291,6 @@ namespace Game.Client.Home
         {
             for (var index = 0; index < rows.Count; index++)
             {
-                if (rows[index].BlockButton != null)
-                {
-                    rows[index].BlockButton.onClick.RemoveAllListeners();
-                }
-
                 if (rows[index].RemoveButton != null)
                 {
                     rows[index].RemoveButton.onClick.RemoveAllListeners();

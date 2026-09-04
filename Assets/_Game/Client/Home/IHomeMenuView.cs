@@ -40,12 +40,6 @@ namespace Game.Client.Home
         /// </summary>
         event Action<string> FriendRemoved;
 
-        /// <summary>
-        /// A friend, blocked. Raised only after the player confirms, because
-        /// blocking also ends the friendship.
-        /// </summary>
-        event Action<string> FriendBlocked;
-
         void SetNickname(string nickname);
 
         void SetProfileSettingsVisible(bool visible);

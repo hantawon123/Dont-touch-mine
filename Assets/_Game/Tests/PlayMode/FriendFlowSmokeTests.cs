@@ -190,8 +190,7 @@ namespace Game.Tests.PlayMode
                 accounts = new AccountGateway(client);
                 Friends = new FriendListSystem();
                 Search = new FriendSearchSystem();
-                Commands = new FriendUiCommands(
-                    new FriendGateway(client), new BlockGateway(client), Friends, Search);
+                Commands = new FriendUiCommands(new FriendGateway(client), Friends, Search);
                 Nickname = nickname;
             }
 

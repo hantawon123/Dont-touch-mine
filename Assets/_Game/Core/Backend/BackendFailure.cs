@@ -44,8 +44,8 @@ namespace Game.Core.Backend
         InvalidRequest,
 
         /// <summary>
-        /// Aimed at yourself — a friend request or a block. Presentation should
-        /// prevent this rather than report it.
+        /// Aimed at yourself — a friend request. Presentation should prevent
+        /// this rather than report it.
         /// </summary>
         SelfRequest,
 
@@ -55,15 +55,7 @@ namespace Game.Core.Backend
         /// </summary>
         AccountNotFound,
 
-        /// <summary>
-        /// The other user could not be found.
-        /// </summary>
-        /// <remarks>
-        /// Also what a blocked caller gets, deliberately: the server refuses to
-        /// distinguish "no such account" from "that person blocked you" so that
-        /// blocking stays invisible. Do not translate this into a message about
-        /// being blocked.
-        /// </remarks>
+        /// <summary>The other user could not be found.</summary>
         TargetNotFound,
 
         /// <summary>No such pending friend request. The list is stale.</summary>
