@@ -140,6 +140,18 @@ namespace Game.Bootstrap
             builder.RegisterInstance<IAccountGateway>(new AccountGateway(client));
             builder.RegisterInstance<IFriendGateway>(new FriendGateway(client));
             builder.RegisterInstance<IPresenceGateway>(new PresenceGateway(client));
+
+            // Registered beside the gateways rather than in RegisterServices,
+            // because it needs one. A test container that builds only the
+            // services has no backend to command.
+            builder.Register<FriendUiCommands>(Lifetime.Singleton);
+
+            // Registered as itself as well as an entry point, because the two
+            // things that wait on it resolve it. One registration, so they wait
+            // on the sign-in that actually ran rather than on a second instance
+            // that never started.
+            builder.RegisterEntryPoint<BackendSignIn>().AsSelf();
+            builder.RegisterEntryPoint<PresenceHeartbeat>();
         }
 
         /// <summary>

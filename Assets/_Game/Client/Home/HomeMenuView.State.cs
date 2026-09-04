@@ -29,6 +29,7 @@ namespace Game.Client.Home
         private readonly List<FriendRow> onlineRows = new List<FriendRow>();
         private readonly List<FriendRow> offlineRows = new List<FriendRow>();
         private readonly List<SearchRow> searchRows = new List<SearchRow>();
+        private readonly List<RequestRow> requestRows = new List<RequestRow>();
         private TMP_FontAsset koreanFont;
         private GameObject friendListRoot;
         private GameObject friendListBody;
@@ -41,6 +42,8 @@ namespace Game.Client.Home
         private RectTransform onlineItemsRoot;
         private RectTransform offlineItemsRoot;
         private RectTransform searchItemsRoot;
+        private GameObject requestsSection;
+        private RectTransform requestsItemsRoot;
         private TMP_InputField friendSearchInput;
         private TMP_Text searchEmptyText;
         private Button dismissButton;
@@ -67,6 +70,10 @@ namespace Game.Client.Home
 
         public event Action<string> FriendRequestClicked;
 
+        public event Action<string> FriendRequestAccepted;
+
+        public event Action<string> FriendRequestDeclined;
+
         private void Awake()
         {
             EnsureEventSystem();
@@ -88,6 +95,19 @@ namespace Game.Client.Home
                 if (searchRows[index].RequestButton != null)
                 {
                     searchRows[index].RequestButton.onClick.RemoveAllListeners();
+                }
+            }
+
+            for (var index = 0; index < requestRows.Count; index++)
+            {
+                if (requestRows[index].AcceptButton != null)
+                {
+                    requestRows[index].AcceptButton.onClick.RemoveAllListeners();
+                }
+
+                if (requestRows[index].DeclineButton != null)
+                {
+                    requestRows[index].DeclineButton.onClick.RemoveAllListeners();
                 }
             }
 
@@ -239,6 +259,24 @@ namespace Game.Client.Home
 
             BindSearchRows(results);
             UpdateSearchEmptyHint(results);
+        }
+
+        public void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests)
+        {
+            if (requests == null)
+            {
+                throw new ArgumentNullException(nameof(requests));
+            }
+
+            if (requestsItemsRoot == null || requestsSection == null)
+            {
+                return;
+            }
+
+            // Hidden rather than shown empty. The panel is small, and a heading
+            // over nothing costs the search results the room they need.
+            requestsSection.SetActive(requests.Count > 0);
+            BindRequestRows(requests);
         }
 
         private void UpdateSearchEmptyHint(IReadOnlyList<FriendSearchHit> results)

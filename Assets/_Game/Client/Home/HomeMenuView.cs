@@ -642,6 +642,7 @@ namespace Game.Client.Home
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
+            requestsItemsRoot = CreateRequestsSection(body);
             CreateSearchBar(body);
             searchItemsRoot = CreateSearchResults(body);
             friendSearchBody.SetActive(false);
@@ -1033,6 +1034,209 @@ namespace Game.Client.Home
             return row;
         }
 
+        /// <summary>
+        /// The received requests, above the search box.
+        /// </summary>
+        /// <remarks>
+        /// Above rather than on a tab of its own: a request is something waiting
+        /// for an answer, and putting it behind a tab hides the one thing in
+        /// this panel that somebody else is waiting on.
+        /// <para>
+        /// No scroll view. Requests are few, and the section takes only the
+        /// height its rows need, so the search results below keep the rest.
+        /// </para>
+        /// </remarks>
+        private RectTransform CreateRequestsSection(RectTransform parent)
+        {
+            var section = CreateRect("Requests", parent);
+            var sectionLayout = section.gameObject.AddComponent<VerticalLayoutGroup>();
+            sectionLayout.spacing = 8f;
+            sectionLayout.childAlignment = TextAnchor.UpperLeft;
+            sectionLayout.childControlWidth = true;
+            sectionLayout.childControlHeight = true;
+            sectionLayout.childForceExpandWidth = true;
+            sectionLayout.childForceExpandHeight = false;
+
+            var headerRect = CreateRect("Header", section);
+            var headerLayout = headerRect.gameObject.AddComponent<LayoutElement>();
+            headerLayout.preferredHeight = 24f;
+            headerLayout.minHeight = 24f;
+            AddText(
+                headerRect,
+                "받은 요청",
+                18f,
+                FontStyles.Bold,
+                TextAlignmentOptions.MidlineLeft);
+
+            var items = CreateRect("Items", section);
+            var itemsLayout = items.gameObject.AddComponent<VerticalLayoutGroup>();
+            itemsLayout.spacing = 8f;
+            itemsLayout.childAlignment = TextAnchor.UpperLeft;
+            itemsLayout.childControlWidth = true;
+            itemsLayout.childControlHeight = true;
+            itemsLayout.childForceExpandWidth = true;
+            itemsLayout.childForceExpandHeight = false;
+
+            requestsSection = section.gameObject;
+            requestsSection.SetActive(false);
+            return items;
+        }
+
+        private void BindRequestRows(IReadOnlyList<FriendRequestSummary> requests)
+        {
+            while (requestRows.Count < requests.Count)
+            {
+                requestRows.Add(CreateRequestRow(requestsItemsRoot));
+            }
+
+            for (var index = 0; index < requestRows.Count; index++)
+            {
+                var row = requestRows[index];
+                var isVisible = index < requests.Count;
+                row.Root.SetActive(isVisible);
+                if (!isVisible)
+                {
+                    continue;
+                }
+
+                var request = requests[index];
+                row.PlayerId = request.PlayerId;
+                row.Nickname.text = request.Nickname;
+
+                // Re-enabled on every bind. A row is reused by whoever lands in
+                // that slot next, and a button left insensitive by the previous
+                // occupant would refuse the new one.
+                row.AcceptButton.interactable = true;
+                row.DeclineButton.interactable = true;
+            }
+        }
+
+        private RequestRow CreateRequestRow(RectTransform parent)
+        {
+            var rowRect = CreateRect("RequestRow", parent);
+            var rowLayout = rowRect.gameObject.AddComponent<LayoutElement>();
+            rowLayout.preferredHeight = 52f;
+            rowLayout.minHeight = 52f;
+            var rowImage = AddImage(rowRect, FriendRowColor, HomeUiFonts.RoundedSprite);
+            rowImage.type = Image.Type.Sliced;
+            rowImage.pixelsPerUnitMultiplier = 1.4f;
+            AddDropShadow(rowRect.gameObject, ItemShadowColor, new Vector2(2f, -3f));
+
+            var layout = rowRect.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(10, 10, 8, 8);
+            layout.spacing = 8f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            var avatar = CreateRect("Avatar", rowRect);
+            var avatarLayout = avatar.gameObject.AddComponent<LayoutElement>();
+            avatarLayout.preferredWidth = 36f;
+            avatarLayout.preferredHeight = 36f;
+            avatarLayout.minWidth = 36f;
+            avatarLayout.minHeight = 36f;
+            var avatarImage = AddImage(avatar, AvatarColor, HomeUiFonts.CircleSprite);
+            avatarImage.preserveAspect = true;
+
+            var nicknameRect = CreateRect("Nickname", rowRect);
+            var nicknameLayout = nicknameRect.gameObject.AddComponent<LayoutElement>();
+            nicknameLayout.flexibleWidth = 1f;
+            nicknameLayout.minWidth = 40f;
+            var nickname = AddText(
+                nicknameRect,
+                string.Empty,
+                18f,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineLeft);
+            nickname.overflowMode = TextOverflowModes.Ellipsis;
+
+            var row = new RequestRow
+            {
+                Root = rowRect.gameObject,
+                Nickname = nickname
+            };
+
+            row.AcceptButton = CreateRowTextButton(
+                rowRect,
+                "Accept",
+                "수락",
+                56f,
+                () => AnswerRequest(row, accepted: true));
+
+            row.DeclineButton = CreateRowTextButton(
+                rowRect,
+                "Decline",
+                "거절",
+                56f,
+                () => AnswerRequest(row, accepted: false));
+
+            return row;
+        }
+
+        /// <remarks>
+        /// Both buttons go insensitive on either click. The answer takes a round
+        /// trip, and a second click would answer a request that no longer
+        /// exists. The next bind turns them back on.
+        /// </remarks>
+        private void AnswerRequest(RequestRow row, bool accepted)
+        {
+            if (string.IsNullOrEmpty(row.PlayerId))
+            {
+                return;
+            }
+
+            row.AcceptButton.interactable = false;
+            row.DeclineButton.interactable = false;
+
+            if (accepted)
+            {
+                FriendRequestAccepted?.Invoke(row.PlayerId);
+            }
+            else
+            {
+                FriendRequestDeclined?.Invoke(row.PlayerId);
+            }
+        }
+
+        private Button CreateRowTextButton(
+            RectTransform parent,
+            string name,
+            string label,
+            float width,
+            Action onClicked)
+        {
+            var rect = CreateRect(name, parent);
+            var layout = rect.gameObject.AddComponent<LayoutElement>();
+            layout.preferredWidth = width;
+            layout.minWidth = width;
+            layout.preferredHeight = 32f;
+            var text = AddText(
+                rect,
+                label,
+                16f,
+                FontStyles.Normal,
+                TextAlignmentOptions.Center,
+                raycastTarget: true);
+
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = text;
+            button.transition = Selectable.Transition.ColorTint;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.black;
+            colors.highlightedColor = TextHover;
+            colors.pressedColor = TextPressed;
+            colors.selectedColor = Color.black;
+            colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 1f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+            button.onClick.AddListener(() => onClicked?.Invoke());
+            return button;
+        }
+
         private void OnSearchClicked()
         {
             FriendSearchRequested?.Invoke(friendSearchInput != null ? friendSearchInput.text : string.Empty);
@@ -1229,6 +1433,15 @@ namespace Game.Client.Home
             public GameObject Root;
             public TMP_Text Nickname;
             public TMP_Text Status;
+        }
+
+        private sealed class RequestRow
+        {
+            public GameObject Root;
+            public string PlayerId;
+            public TMP_Text Nickname;
+            public Button AcceptButton;
+            public Button DeclineButton;
         }
 
         private sealed class SearchRow

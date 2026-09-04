@@ -78,16 +78,46 @@ namespace Game.Core.Home
             }
 
             lastQuery = query == null ? string.Empty : query.Trim();
+            Exclude(existingFriendIds);
+            RebuildResults();
+        }
+
+        /// <summary>
+        /// Updates who counts as already befriended, leaving the query alone.
+        /// </summary>
+        /// <remarks>
+        /// Called when the friend list changes under a search that is already on
+        /// screen. Without it the results keep offering to befriend someone who
+        /// became a friend a moment ago — which happens on every accept, and on
+        /// every request the server settles on the spot because the other player
+        /// had asked first. Pressing that button answers ALREADY_FRIENDS.
+        /// <para>
+        /// Separate from <see cref="Search"/> because that one also replaces the
+        /// query, and there is no new query here — only a new answer to which
+        /// rows still make sense.
+        /// </para>
+        /// </remarks>
+        public void ExcludeFriends(IEnumerable<string> friendIds)
+        {
+            if (friendIds == null)
+            {
+                throw new ArgumentNullException(nameof(friendIds));
+            }
+
+            Exclude(friendIds);
+            RebuildResults();
+        }
+
+        private void Exclude(IEnumerable<string> friendIds)
+        {
             excludedFriendIds.Clear();
-            foreach (var friendId in existingFriendIds)
+            foreach (var friendId in friendIds)
             {
                 if (!string.IsNullOrWhiteSpace(friendId))
                 {
                     excludedFriendIds.Add(friendId.Trim());
                 }
             }
-
-            RebuildResults();
         }
 
         public void ClearResults()
@@ -135,6 +165,34 @@ namespace Game.Core.Home
             pendingRequests.Add(id);
             RebuildResults();
             return true;
+        }
+
+        /// <summary>
+        /// Takes back a request that was shown as pending but did not happen.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="TrySendRequest"/> marks the row pending before the server
+        /// has answered, so the button reacts to the click rather than to the
+        /// round trip. That leaves the row lying whenever the server refuses,
+        /// and without this there is no way to stop it: the pending set only
+        /// ever grew, so one failed request showed "요청 중" until the player
+        /// closed the panel.
+        /// <para>
+        /// Does nothing when the row was not pending, so a caller can undo
+        /// without first checking whether there is anything to undo.
+        /// </para>
+        /// </remarks>
+        public void CancelPendingRequest(string playerId)
+        {
+            if (string.IsNullOrWhiteSpace(playerId))
+            {
+                throw new ArgumentException("Player id is required.", nameof(playerId));
+            }
+
+            if (pendingRequests.Remove(playerId.Trim()))
+            {
+                RebuildResults();
+            }
         }
 
         private void RebuildResults()

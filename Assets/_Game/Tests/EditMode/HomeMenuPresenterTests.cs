@@ -417,6 +417,28 @@ namespace Game.Tests.EditMode
 
             public event Action<string> FriendRequestClicked;
 
+            public event Action<string> FriendRequestAccepted;
+
+            public event Action<string> FriendRequestDeclined;
+
+            public IReadOnlyList<FriendRequestSummary> IncomingRequests { get; private set; } =
+                Array.Empty<FriendRequestSummary>();
+
+            public void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests)
+            {
+                IncomingRequests = requests;
+            }
+
+            public void RaiseFriendRequestAccepted(string playerId)
+            {
+                FriendRequestAccepted?.Invoke(playerId);
+            }
+
+            public void RaiseFriendRequestDeclined(string playerId)
+            {
+                FriendRequestDeclined?.Invoke(playerId);
+            }
+
             public void SetNickname(string nickname)
             {
                 Nickname = nickname;
