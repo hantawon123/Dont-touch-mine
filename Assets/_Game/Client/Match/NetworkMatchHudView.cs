@@ -64,6 +64,9 @@ namespace Game.Client.Match
         [SerializeField]
         private HidingIntroView hidingIntroView;
 
+        [SerializeField]
+        private HidingTurnStartView hidingTurnStartView;
+
         private string assignedItemDisplayName;
         private int remainingDestructionUses = -1;
         private bool highlightOnly;
@@ -85,6 +88,7 @@ namespace Game.Client.Match
             SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
             EnsureHidingIntro();
             HideHidingIntro();
+            EnsureHidingTurnStart();
         }
 
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
@@ -109,7 +113,8 @@ namespace Game.Client.Match
                 if (graphic.gameObject.scene != gameObject.scene ||
                     (highlightTitleText != null && graphic.transform.IsChildOf(highlightTitleText.transform)) ||
                     (destructionNoticeRoot != null && graphic.transform.IsChildOf(destructionNoticeRoot.transform)) ||
-                    (hidingIntroView != null && graphic.transform.IsChildOf(hidingIntroView.transform)))
+                    (hidingIntroView != null && graphic.transform.IsChildOf(hidingIntroView.transform)) ||
+                    (hidingTurnStartView != null && graphic.transform.IsChildOf(hidingTurnStartView.transform)))
                     continue;
                 hiddenGraphics[graphic] = graphic.enabled;
                 graphic.enabled = false;
@@ -281,6 +286,19 @@ namespace Game.Client.Match
             if (hidingIntroView == null)
             {
                 hidingIntroView = HidingIntroView.Create(transform);
+            }
+        }
+
+        private void EnsureHidingTurnStart()
+        {
+            if (hidingTurnStartView == null)
+            {
+                hidingTurnStartView = GetComponentInChildren<HidingTurnStartView>(true);
+            }
+
+            if (hidingTurnStartView == null)
+            {
+                hidingTurnStartView = HidingTurnStartView.Create(transform);
             }
         }
 
