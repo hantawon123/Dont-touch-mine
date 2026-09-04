@@ -1273,7 +1273,7 @@ namespace Game.Editor
         private static Font ResolveLobbyFont()
         {
             var korean = AssetDatabase.LoadAssetAtPath<Font>(
-                "Assets/_Game/Content/Fonts/Cafe24Ssurround-v2.0.ttf");
+                "Assets/_Game/Content/Fonts/Paperlogy-5Medium.ttf");
             if (korean != null)
             {
                 return korean;

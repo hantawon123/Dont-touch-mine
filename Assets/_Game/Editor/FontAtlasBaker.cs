@@ -35,29 +35,40 @@ namespace Game.Editor
     /// leave every one of those pointing at nothing.
     /// </para>
     /// <para>
-    /// Re-run this after replacing the source font
-    /// (<c>Assets/_Game/Content/Fonts/Cafe24Ssurround-v2.0.ttf</c>, reached
-    /// through the guid the asset already holds) or after editing the
-    /// character set file. Nothing else needs to run it.
+    /// One run bakes every weight the interface asks for. A weight missing its
+    /// asset is created; a weight that has one is rewritten in place, because
+    /// scenes and TMP Settings reach these by guid.
+    /// </para>
+    /// <para>
+    /// Re-run this after replacing a source font or editing the character set
+    /// file. Nothing else needs to run it.
     /// </para>
     /// </remarks>
     public static class FontAtlasBaker
     {
-        private const string MenuPath = "Game/Fonts/Bake Static Atlas";
+        private const string MenuPath = "Game/Fonts/Bake Static Atlases";
 
-        private const string FontAssetPath =
-            "Assets/_Game/Content/Fonts/Cafe24Ssurround SDF.asset";
+        private const string FontDirectory = "Assets/_Game/Content/Fonts/";
+
+        /// <summary>
+        /// The weights the interface actually draws. Each carries the whole
+        /// Korean set.
+        /// </summary>
+        /// <remarks>
+        /// Only weights in this table are baked, because each costs about 10 MB
+        /// on disk and 1.5 MB committed. The other six Paperlogy files stay in
+        /// the project as fonts; a screen that wants one adds a line here and
+        /// runs the menu, which is a minute's work and no loss in the meantime.
+        /// </remarks>
+        private static readonly Target[] Targets =
+        {
+            new Target("Paperlogy-5Medium"),
+            new Target("Paperlogy-6SemiBold"),
+            new Target("Paperlogy-7Bold"),
+        };
 
         private const string CharacterSetPath =
             "Assets/_Game/Editor/FontAtlasCharacterSet.txt";
-
-        /// <summary>
-        /// Atlas edge in pixels. Unity serialises the texture into the asset as
-        /// hexadecimal text at two characters per byte, so a 2048 square alpha
-        /// atlas costs about 8 MB of file. Committed once, that is cheaper than
-        /// the dynamic atlas rewriting 6 MB on an unpredictable schedule.
-        /// </summary>
-        private const int AtlasSize = 2048;
 
         /// <summary>
         /// Size the glyphs are rendered at while packing. Scenes draw this font
@@ -84,17 +95,26 @@ namespace Game.Editor
         private const int MissingCharacterLimit = 200;
 
         [MenuItem(MenuPath)]
-        public static void BakeStaticAtlas()
+        public static void BakeStaticAtlases()
         {
-            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
-                FontAssetPath);
-            if (fontAsset == null)
+            foreach (var target in Targets)
             {
-                throw new InvalidOperationException(
-                    $"No font asset at '{FontAssetPath}'.");
+                Bake(target);
             }
 
-            var sourceFont = ResolveSourceFont(fontAsset);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        private static void Bake(Target target)
+        {
+            var sourceFont = AssetDatabase.LoadAssetAtPath<Font>(target.SourceFontPath);
+            if (sourceFont == null)
+            {
+                throw new InvalidOperationException(
+                    $"No source font at '{target.SourceFontPath}'.");
+            }
+
             var characters = ReadCharacterSet();
 
             // Pack into a throwaway asset first. Its tables, glyph rectangles
@@ -105,8 +125,8 @@ namespace Game.Editor
                 SamplingPointSize,
                 Padding,
                 GlyphRenderMode.SDFAA,
-                AtlasSize,
-                AtlasSize,
+                target.AtlasSize,
+                target.AtlasSize,
                 AtlasPopulationMode.Dynamic,
                 enableMultiAtlasSupport: false);
 
@@ -124,14 +144,60 @@ namespace Game.Editor
                     out var missing,
                     includeFontFeatures: true);
 
-                RejectOverfilledAtlas(missing);
+                RejectOverfilledAtlas(target, missing);
+
+                var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                    target.AssetPath) ?? CreateAsset(target, sourceFont);
+
                 TransferInto(fontAsset, baked);
-                ReportResult(fontAsset, characters, missing);
+                ReportResult(fontAsset, target, characters, missing);
             }
             finally
             {
                 DiscardBakedAsset(baked);
             }
+        }
+
+        /// <summary>
+        /// Writes an empty asset for a weight that has none yet, so the bake
+        /// itself has one path: fill in what is already on disk.
+        /// </summary>
+        /// <remarks>
+        /// The atlas texture and the material live inside the asset file as
+        /// sub-objects, which is how TextMeshPro's own creator leaves them and
+        /// what lets a later bake refill them without reissuing an id.
+        /// </remarks>
+        private static TMP_FontAsset CreateAsset(Target target, Font sourceFont)
+        {
+            var fontAsset = TMP_FontAsset.CreateFontAsset(
+                sourceFont,
+                SamplingPointSize,
+                Padding,
+                GlyphRenderMode.SDFAA,
+                target.AtlasSize,
+                target.AtlasSize,
+                AtlasPopulationMode.Dynamic,
+                enableMultiAtlasSupport: false);
+
+            fontAsset.name = target.AssetName;
+            AssetDatabase.CreateAsset(fontAsset, target.AssetPath);
+
+            var atlas = fontAsset.atlasTextures[0];
+            atlas.name = target.AssetName + " Atlas";
+            AssetDatabase.AddObjectToAsset(atlas, fontAsset);
+
+            var material = fontAsset.material;
+            if (material == null)
+            {
+                material = new Material(Shader.Find("TextMeshPro/Distance Field"));
+                fontAsset.material = material;
+            }
+
+            material.name = target.AssetName + " Material";
+            AssetDatabase.AddObjectToAsset(material, fontAsset);
+
+            AssetDatabase.SaveAssets();
+            return fontAsset;
         }
 
         /// <summary>
@@ -217,7 +283,7 @@ namespace Game.Editor
             }
         }
 
-        private static void RejectOverfilledAtlas(string missing)
+        private static void RejectOverfilledAtlas(Target target, string missing)
         {
             if (string.IsNullOrEmpty(missing) ||
                 missing.Length <= MissingCharacterLimit)
@@ -226,10 +292,10 @@ namespace Game.Editor
             }
 
             throw new InvalidOperationException(
-                $"{missing.Length} characters did not fit a {AtlasSize} square " +
-                $"atlas at sampling size {SamplingPointSize}. Lower " +
-                "SamplingPointSize or trim the character set, then rerun. The " +
-                "font asset was left untouched.");
+                $"{missing.Length} characters of {target.AssetName} did not fit " +
+                $"a {target.AtlasSize} square atlas at sampling size " +
+                $"{SamplingPointSize}. Lower SamplingPointSize or trim the " +
+                "character set, then rerun. The font asset was left untouched.");
         }
 
         /// <summary>
@@ -259,37 +325,6 @@ namespace Game.Editor
             return characters.ToString();
         }
 
-        /// <summary>
-        /// Finds the font this atlas is rendered from. A Static asset holds
-        /// only the guid, so a rerun has to go through that.
-        /// </summary>
-        private static Font ResolveSourceFont(TMP_FontAsset fontAsset)
-        {
-            if (fontAsset.sourceFontFile != null)
-            {
-                return fontAsset.sourceFontFile;
-            }
-
-            var serialized = new SerializedObject(fontAsset);
-            var guid = serialized
-                .FindProperty("m_SourceFontFileGUID")
-                ?.stringValue;
-
-            var font = string.IsNullOrEmpty(guid)
-                ? null
-                : AssetDatabase.LoadAssetAtPath<Font>(
-                    AssetDatabase.GUIDToAssetPath(guid));
-
-            if (font == null)
-            {
-                throw new InvalidOperationException(
-                    $"'{fontAsset.name}' no longer points at a source font. " +
-                    "Assign one on the asset before baking.");
-            }
-
-            return font;
-        }
-
         private static void DiscardBakedAsset(TMP_FontAsset baked)
         {
             if (baked.atlasTextures != null && baked.atlasTextures.Length > 0)
@@ -306,14 +341,16 @@ namespace Game.Editor
         }
 
         private static void ReportResult(TMP_FontAsset fontAsset,
+                                         Target target,
                                          string requested,
                                          string missing)
         {
             var summary =
-                $"[Fonts] Baked {fontAsset.characterTable.Count} of " +
-                $"{requested.Length} characters into a {AtlasSize} square " +
-                $"atlas at sampling size {SamplingPointSize}. The asset is now " +
-                "Static and will stop rewriting itself.";
+                $"[Fonts] {target.AssetName}: baked " +
+                $"{fontAsset.characterTable.Count} of {requested.Length} " +
+                $"characters into a {target.AtlasSize} square atlas at sampling " +
+                "size " + SamplingPointSize + ". The asset is now Static and " +
+                "will stop rewriting itself.";
 
             if (string.IsNullOrEmpty(missing))
             {
@@ -327,6 +364,34 @@ namespace Game.Editor
                 $"{summary}\nNot in the source font ({missing.Length}): " +
                 missing,
                 fontAsset);
+        }
+
+        /// <summary>
+        /// One weight to bake, named by its font file. The asset sits beside the
+        /// font under the same name, so the two never have to be matched up by
+        /// hand.
+        /// </summary>
+        private readonly struct Target
+        {
+            public Target(string fontName)
+            {
+                SourceFontPath = FontDirectory + fontName + ".ttf";
+                AssetPath = FontDirectory + fontName + " SDF.asset";
+                AssetName = fontName + " SDF";
+            }
+
+            public string SourceFontPath { get; }
+            public string AssetPath { get; }
+            public string AssetName { get; }
+
+            /// <summary>
+            /// Atlas edge in pixels. Unity serialises the texture into the asset
+            /// as hexadecimal text at two characters per byte, so a 2048 square
+            /// alpha atlas costs about 8 MB of file. Committed once, that is
+            /// cheaper than a dynamic atlas rewriting 6 MB on an unpredictable
+            /// schedule.
+            /// </summary>
+            public int AtlasSize => 2048;
         }
     }
 }

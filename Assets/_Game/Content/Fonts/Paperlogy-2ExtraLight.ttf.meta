@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: b420a5095113cd54082c9276e666d17d
+guid: d6a520258a635f44f9757c00426070e5
 TrueTypeFontImporter:
   externalObjects: {}
   serializedVersion: 4
@@ -9,7 +9,7 @@ TrueTypeFontImporter:
   characterPadding: 1
   includeFontData: 1
   fontNames:
-  - Cafe24 Ssurround
+  - Paperlogy
   fallbackFontReferences: []
   customCharacters: 
   fontRenderingMode: 0

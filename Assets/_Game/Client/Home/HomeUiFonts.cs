@@ -175,7 +175,7 @@ namespace Game.Client.Home
             if (koreanFont == null)
             {
                 throw new InvalidOperationException(
-                    "Korean TMP font is missing. Assign Cafe24Ssurround SDF " +
+                    "Korean TMP font is missing. Assign a Paperlogy SDF asset " +
                     "or set it as TMP Settings default font.");
             }
 
