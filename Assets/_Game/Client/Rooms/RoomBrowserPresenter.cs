@@ -19,6 +19,7 @@ namespace Game.Client.Rooms
         private IDisposable roomsSubscription;
         private IDisposable exitSubscription;
         private IDisposable busySubscription;
+        private IDisposable failureSubscription;
 
         public RoomBrowserPresenter(
             IRoomBrowserView view,
@@ -40,6 +41,7 @@ namespace Game.Client.Rooms
             roomsSubscription = rooms.Rooms.Subscribe(OnRoomsChanged);
             exitSubscription = rooms.LastExit.Subscribe(OnRoomExit);
             busySubscription = rooms.IsBusy.Subscribe(view.SetBusy);
+            failureSubscription = rooms.LastFailure.Subscribe(view.ShowEntryFailure);
             view.SetRooms(rooms.Rooms.CurrentValue);
         }
 
@@ -50,6 +52,7 @@ namespace Game.Client.Rooms
             roomsSubscription?.Dispose();
             exitSubscription?.Dispose();
             busySubscription?.Dispose();
+            failureSubscription?.Dispose();
         }
 
         private void OnRoomExit(RoomExitReason? reason)

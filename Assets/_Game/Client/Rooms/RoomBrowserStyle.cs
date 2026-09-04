@@ -64,6 +64,10 @@ namespace Game.Client.Rooms
             public static readonly Color CodeCellText = Color.black;
 
             public static readonly Color ScrollbarHandle = FromHex(0xF5F3F1);
+
+            public static readonly Color ToastFill = FromHex(0xFF9A6A, 0.2f);
+            public static readonly Color ToastTitle = FromHex(0xFF7032);
+            public static readonly Color ToastBody = Color.white;
         }
 
         /// <summary>
@@ -78,6 +82,7 @@ namespace Game.Client.Rooms
             public const int EnterButton = 10;
             public const int CodeCell = 15;
             public const int Scrollbar = 18;
+            public const int Toast = 20;
         }
 
         public static class Layout
@@ -170,6 +175,20 @@ namespace Game.Client.Rooms
 
             public const float RowStrokeThickness = 1.5f;
 
+            /// <summary>
+            /// The failure notice, centred under the top edge of the screen.
+            /// </summary>
+            public static readonly Vector2 ToastSize = new Vector2(590f, 136f);
+            public const float ToastTopMargin = 48f;
+            public const float ToastTitleOffsetY = 26f;
+            public const float ToastBodyOffsetY = -22f;
+
+            /// <summary>
+            /// Long enough to read two lines and short enough not to sit over
+            /// the list while the player tries the next room.
+            /// </summary>
+            public const float ToastSeconds = 3f;
+
             public const float ScrollbarWidth = 10f;
             public const float ScrollbarRightPadding = 10f;
         }
@@ -182,6 +201,8 @@ namespace Game.Client.Rooms
             public const float Search = 24f;
             public const float CodeCell = 24f;
             public const float Refresh = 18f;
+            public const float ToastTitle = 30f;
+            public const float ToastBody = 20f;
             public const float RoomStatus = 20f;
             public const float RoomTitle = 24f;
             public const float MapName = 20f;

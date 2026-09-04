@@ -46,6 +46,10 @@ namespace Game.Client.Rooms
 
         private ScrollRect roomScroll;
         private CanvasGroup refreshGroup;
+        private CanvasGroup listGroup;
+        private CanvasGroup toastGroup;
+        private TMP_Text toastBody;
+        private float toastHidesAt;
         private TMP_Text emptyStateText;
         private Image enterButtonBackground;
         private TMP_Text enterButtonLabel;
@@ -77,6 +81,9 @@ namespace Game.Client.Rooms
             BuildBackButton(root);
             BuildCodePanel(root);
             BuildRoomListPanel(root);
+
+            // Built last so it draws over the panels it reports about.
+            BuildToast(root);
         }
 
         /// <summary>
@@ -449,6 +456,19 @@ namespace Game.Client.Rooms
         private bool isRefreshBusy;
 
         /// <summary>
+        /// Stops a second room being picked while the first answer is on its
+        /// way. Two entries in flight land the player in whichever room answers
+        /// last, which is not the one they asked for second.
+        /// </summary>
+        private void SetListBusy(bool busy)
+        {
+            if (listGroup != null)
+            {
+                listGroup.interactable = !busy;
+            }
+        }
+
+        /// <summary>
         /// Shows that a refresh is running by fading the button it came from.
         /// </summary>
         private void SetRefreshBusy(bool busy)
@@ -490,6 +510,78 @@ namespace Game.Client.Rooms
             {
                 RefreshButtonState();
             }
+
+            if (toastGroup != null &&
+                toastGroup.gameObject.activeSelf &&
+                Time.unscaledTime >= toastHidesAt)
+            {
+                toastGroup.gameObject.SetActive(false);
+            }
+        }
+
+        /// <summary>
+        /// The failure notice. Hidden until something goes wrong, and never
+        /// clickable: it reports, and the player carries on behind it.
+        /// </summary>
+        private void BuildToast(RectTransform parent)
+        {
+            var toast = RoomBrowserUi.CreateImage(
+                "Toast",
+                parent,
+                RoomBrowserStyle.Palette.ToastFill,
+                RoomBrowserUi.Rounded(RoomBrowserStyle.Radius.Toast));
+
+            toast.raycastTarget = false;
+            toast.rectTransform.Anchor(
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, -RoomBrowserStyle.Layout.ToastTopMargin),
+                RoomBrowserStyle.Layout.ToastSize);
+
+            var title = RoomBrowserUi.CreateText(
+                "Title",
+                toast.transform,
+                ResolveFont(semiBoldFont),
+                RoomBrowserStyle.FontSize.ToastTitle,
+                RoomBrowserStyle.Palette.ToastTitle,
+                TextAlignmentOptions.Center);
+            title.text = RoomEntryMessages.Title;
+            title.rectTransform.Anchor(
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0f, RoomBrowserStyle.Layout.ToastTitleOffsetY),
+                new Vector2(RoomBrowserStyle.Layout.ToastSize.x, 40f));
+
+            toastBody = RoomBrowserUi.CreateText(
+                "Body",
+                toast.transform,
+                ResolveFont(mediumFont),
+                RoomBrowserStyle.FontSize.ToastBody,
+                RoomBrowserStyle.Palette.ToastBody,
+                TextAlignmentOptions.Center);
+            toastBody.rectTransform.Anchor(
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0f, RoomBrowserStyle.Layout.ToastBodyOffsetY),
+                new Vector2(RoomBrowserStyle.Layout.ToastSize.x, 32f));
+
+            toastGroup = toast.gameObject.AddComponent<CanvasGroup>();
+            toastGroup.blocksRaycasts = false;
+            toastGroup.interactable = false;
+            toast.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Shows the notice, and restarts its three seconds if one is already up:
+        /// the newest failure is the one the player just caused.
+        /// </summary>
+        private void ShowToast(string message)
+        {
+            if (toastGroup == null)
+            {
+                return;
+            }
+
+            toastBody.text = message;
+            toastHidesAt = Time.unscaledTime + RoomBrowserStyle.Layout.ToastSeconds;
+            toastGroup.gameObject.SetActive(true);
         }
 
         private void BuildRoomList(RectTransform panel)
@@ -530,6 +622,10 @@ namespace Game.Client.Rooms
             roomScroll.viewport = viewport;
             roomScroll.content = content;
             listContent = content;
+
+            // Scrolling stays available while a request is out; picking a second
+            // room does not, because the first answer is still on its way.
+            listGroup = scrollRect.gameObject.AddComponent<CanvasGroup>();
 
             BuildScrollbar(panel);
             BuildEmptyState(viewport);

@@ -113,6 +113,17 @@ namespace Game.Client.Rooms
             }
 
             SetRefreshBusy(busy);
+            SetListBusy(busy);
+        }
+
+        public void ShowEntryFailure(RoomEntryFailure failure)
+        {
+            if (isDestroyed || failure == RoomEntryFailure.None)
+            {
+                return;
+            }
+
+            ShowToast(RoomEntryMessages.Describe(failure));
         }
 
         public void ShowDisconnection(string message)

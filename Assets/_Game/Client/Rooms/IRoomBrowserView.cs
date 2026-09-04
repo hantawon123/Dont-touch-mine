@@ -22,6 +22,12 @@ namespace Game.Client.Rooms
         /// </summary>
         void SetBusy(bool busy);
 
+        /// <summary>
+        /// Reports why a room refused the player. Nothing else says so: a failed
+        /// entry leaves the screen exactly as it was.
+        /// </summary>
+        void ShowEntryFailure(RoomEntryFailure failure);
+
         void ShowDisconnection(string message);
     }
 }

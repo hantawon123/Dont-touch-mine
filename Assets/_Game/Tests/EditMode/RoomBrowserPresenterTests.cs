@@ -113,6 +113,13 @@ namespace Game.Tests.EditMode
                 IsBusy = busy;
             }
 
+            public RoomEntryFailure LastFailure { get; private set; }
+
+            public void ShowEntryFailure(RoomEntryFailure failure)
+            {
+                LastFailure = failure;
+            }
+
             public void RaiseBack()
             {
                 BackRequested?.Invoke();
