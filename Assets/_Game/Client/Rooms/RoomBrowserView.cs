@@ -36,6 +36,7 @@ namespace Game.Client.Rooms
         public event Action<string> SearchTextChanged;
         public event Action RefreshRequested;
         public event Action RoomCodeSearchRequested;
+        public event Action<string> RoomCodeEntered;
         public event Action CreateRoomRequested;
         public event Action BackRequested;
         public event Action<string> RoomSelected;
@@ -224,10 +225,9 @@ namespace Game.Client.Rooms
             RefreshRequested?.Invoke();
         }
 
-        // The wire-frame drops both controls from this screen: a code is typed
-        // into the panel on the left instead of opening a modal, and rooms are
-        // opened from the home menu. The two ways out survive unraised until the
-        // stories that move them land, so the presenter keeps working meanwhile.
+        // Neither control is on this screen any more: a code is typed into the
+        // panel on the left, and rooms are opened from the home menu. They stay
+        // until the modal is taken out, because the presenter still listens.
         private void OnRoomCodeSearchButtonClicked() => RoomCodeSearchRequested?.Invoke();
 
         private void OnCreateRoomButtonClicked() => CreateRoomRequested?.Invoke();

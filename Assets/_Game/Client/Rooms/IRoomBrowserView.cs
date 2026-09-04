@@ -8,7 +8,13 @@ namespace Game.Client.Rooms
     {
         event Action<string> SearchTextChanged;
         event Action RefreshRequested;
+
         event Action RoomCodeSearchRequested;
+
+        /// <summary>
+        /// A full room code, typed into the panel on the left.
+        /// </summary>
+        event Action<string> RoomCodeEntered;
         event Action CreateRoomRequested;
         event Action BackRequested;
         event Action<string> RoomSelected;

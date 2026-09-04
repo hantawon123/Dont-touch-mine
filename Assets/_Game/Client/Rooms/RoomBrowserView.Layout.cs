@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Core.Rooms;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -56,6 +57,17 @@ namespace Game.Client.Rooms
         private Button enterButton;
 
         private readonly List<TMP_Text> codeCellTexts = new List<TMP_Text>();
+
+        /// <summary>
+        /// One field behind all six cells rather than six fields.
+        /// </summary>
+        /// <remarks>
+        /// Typing, backspace, holding a key down, pasting six characters at
+        /// once and selecting them all are things a text field already does.
+        /// Six fields would mean moving focus by hand on every one of those, and
+        /// getting one of them wrong is a code that cannot be typed.
+        /// </remarks>
+        private TMP_InputField codeInput;
 
         /// <summary>
         /// Builds the whole screen under this object. Called first thing in
@@ -200,6 +212,8 @@ namespace Game.Client.Rooms
 
             codeCellTexts.Clear();
 
+            BuildCodeInput(row);
+
             for (var index = 0; index < count; index++)
             {
                 var cell = RoomBrowserUi.CreateImage(
@@ -224,6 +238,94 @@ namespace Game.Client.Rooms
 
                 codeCellTexts.Add(character);
             }
+        }
+
+        /// <summary>
+        /// The invisible field the cells show. It covers them, so a click
+        /// anywhere on the row puts the caret in it.
+        /// </summary>
+        private void BuildCodeInput(RectTransform row)
+        {
+            var fieldRect = RoomBrowserUi.CreateRect("CodeInput", row).Stretch();
+
+            // Behind the cells in the hierarchy but above nothing: it needs a
+            // graphic to be clickable, and a clear one leaves the cells visible.
+            fieldRect.SetAsFirstSibling();
+            var background = fieldRect.gameObject.AddComponent<Image>();
+            background.color = Color.clear;
+
+            var textArea = RoomBrowserUi.CreateRect("TextArea", fieldRect).Stretch();
+            textArea.gameObject.AddComponent<RectMask2D>();
+
+            var text = RoomBrowserUi.CreateText(
+                "Text",
+                textArea,
+                ResolveFont(boldFont),
+                RoomBrowserStyle.FontSize.CodeCell,
+                Color.clear,
+                TextAlignmentOptions.Center);
+            text.rectTransform.Stretch();
+
+            fieldRect.gameObject.SetActive(false);
+            codeInput = fieldRect.gameObject.AddComponent<TMP_InputField>();
+            codeInput.textViewport = textArea;
+            codeInput.textComponent = text;
+            codeInput.targetGraphic = background;
+            codeInput.fontAsset = ResolveFont(boldFont);
+            codeInput.pointSize = RoomBrowserStyle.FontSize.CodeCell;
+            codeInput.lineType = TMP_InputField.LineType.SingleLine;
+            codeInput.richText = false;
+            codeInput.characterLimit = RoomCodeFormat.CodeLength;
+
+            // The cells draw the characters, so the field's own caret and
+            // selection would be a second cursor on the same text.
+            codeInput.caretWidth = 0;
+            codeInput.customCaretColor = true;
+            codeInput.caretColor = Color.clear;
+            codeInput.selectionColor = Color.clear;
+
+            codeInput.onValidateInput += AcceptCodeCharacter;
+            codeInput.onValueChanged.AddListener(OnCodeChanged);
+            codeInput.onSubmit.AddListener(_ => SubmitCode());
+            fieldRect.gameObject.SetActive(true);
+        }
+
+        /// <summary>
+        /// Keeps a typed character only if a code could contain it, in the case
+        /// codes are issued in. Lower case is raised rather than refused: a code
+        /// read aloud and typed in lower case is the same code.
+        /// </summary>
+        private static char AcceptCodeCharacter(string text, int index, char character)
+        {
+            var raised = char.ToUpperInvariant(character);
+            return RoomCodeFormat.IsAllowed(raised) ? raised : ' ';
+        }
+
+        private void OnCodeChanged(string code)
+        {
+            for (var index = 0; index < codeCellTexts.Count; index++)
+            {
+                codeCellTexts[index].text = index < code.Length
+                    ? code[index].ToString()
+                    : string.Empty;
+            }
+
+            SetCodeEntryEnabled(code.Length == RoomCodeFormat.CodeLength);
+        }
+
+        /// <summary>
+        /// Sends the code on. Six characters that all passed validation are
+        /// well formed by construction, so the check is on length alone.
+        /// </summary>
+        private void SubmitCode()
+        {
+            if (codeInput == null ||
+                codeInput.text.Length != RoomCodeFormat.CodeLength)
+            {
+                return;
+            }
+
+            RoomCodeEntered?.Invoke(codeInput.text);
         }
 
         private void BuildEnterButton(RectTransform panel)
@@ -252,6 +354,7 @@ namespace Game.Client.Rooms
             enterButton = enterButtonBackground.gameObject.AddComponent<Button>();
             enterButton.targetGraphic = enterButtonBackground;
             enterButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            enterButton.onClick.AddListener(SubmitCode);
 
             SetCodeEntryEnabled(false);
         }
