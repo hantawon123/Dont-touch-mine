@@ -109,6 +109,17 @@ namespace Game.Core.Items
             return AssignmentDefinitionValues[assignmentIndex];
         }
 
+        public static string VisualSourceIdOf(string itemId)
+        {
+            if (TryGetAssignedDefinition(itemId, out _) &&
+                int.TryParse(itemId.AsSpan(AssignedPrefix.Length), out var index))
+            {
+                return AssignedSourceDefinition(index).ItemId;
+            }
+
+            return string.IsNullOrWhiteSpace(itemId) ? string.Empty : itemId.Trim();
+        }
+
         public static ItemDefinition AssignedSourceDefinition(int assignmentIndex)
         {
             if (assignmentIndex < 0 || assignmentIndex >= AssignmentSourceIndices.Length)

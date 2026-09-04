@@ -94,6 +94,9 @@ namespace Game.Tests.EditMode
             Assert.That(
                 ItemCatalog.DisplayNameOf(assigned.ItemId),
                 Is.EqualTo(ItemCatalog.Definitions[0].DisplayName));
+            Assert.That(
+                ItemCatalog.VisualSourceIdOf(assigned.ItemId),
+                Is.EqualTo(ItemCatalog.Definitions[0].ItemId));
         }
 
         [Test]
