@@ -66,7 +66,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public async Task BeingBlocked_ReadsAsNotFound()
+        public async Task AMissingTarget_SaysSoWithoutGuessingWhy()
         {
             using var wiring = await Wiring.StartAsync();
             await wiring.SearchAsync("나");
@@ -77,10 +77,9 @@ namespace Game.Architecture.Tests
             wiring.View.RaiseFriendRequestClicked("b");
             await wiring.Settle();
 
-            // The server refuses to distinguish a blocked target from an account
-            // that does not exist. Saying which it is would undo that.
+            // The account may have been deleted, or the search list may simply
+            // be stale. The screen says what the server said and no more.
             Assert.That(wiring.View.FriendActionError, Is.EqualTo("그 사용자를 찾을 수 없습니다"));
-            Assert.That(wiring.View.FriendActionError, Does.Not.Contain("차단"));
         }
 
         [Test]

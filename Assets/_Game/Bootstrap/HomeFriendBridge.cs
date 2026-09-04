@@ -305,9 +305,6 @@ namespace Game.Bootstrap
         {
             switch (failure)
             {
-                // Deliberately not "that person blocked you". The server refuses
-                // to distinguish a blocked target from an account that does not
-                // exist, and saying which it is would undo that.
                 case BackendFailure.TargetNotFound:
                     return "그 사용자를 찾을 수 없습니다";
 
