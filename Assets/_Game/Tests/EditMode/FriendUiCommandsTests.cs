@@ -274,6 +274,43 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public async Task EndingAFriendship_ReloadsTheFriendList()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Friends = new[]
+            {
+                Friend("a", "가", FriendPresence.Online),
+                Friend("b", "나", FriendPresence.Online)
+            };
+            var commands = Build(gateway, out var friends, out _);
+            await commands.RefreshFriendsAsync(CancellationToken.None);
+
+            gateway.Friends = new[] { Friend("a", "가", FriendPresence.Online) };
+            var failure = await commands.RemoveFriendAsync("b", CancellationToken.None);
+
+            Assert.That(failure, Is.EqualTo(BackendFailure.None));
+            Assert.That(gateway.Removed, Is.EqualTo("b"));
+            Assert.That(friends.OnlineFriends.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public async Task AFailedUnfriend_LeavesTheListAlone()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Friends = new[] { Friend("b", "나", FriendPresence.Online) };
+            var commands = Build(gateway, out var friends, out _);
+            await commands.RefreshFriendsAsync(CancellationToken.None);
+
+            gateway.Failure = BackendFailure.Offline;
+            var failure = await commands.RemoveFriendAsync("b", CancellationToken.None);
+
+            Assert.That(failure, Is.EqualTo(BackendFailure.Offline));
+
+            // Removing it here would show a friendship ended that still stands.
+            Assert.That(friends.OnlineFriends.Count, Is.EqualTo(1));
+        }
+
+        [Test]
         public async Task BlockingSomeone_ReloadsTheFriendList()
         {
             var gateway = new FakeFriendGateway();
@@ -468,8 +505,14 @@ namespace Game.Architecture.Tests
                 return Answer();
             }
 
+            public string Removed { get; private set; }
+
             public UniTask<BackendResult> RemoveFriendAsync(
-                string playerId, CancellationToken cancellation) => Answer();
+                string playerId, CancellationToken cancellation)
+            {
+                Removed = playerId;
+                return Answer();
+            }
 
             private UniTask<BackendResult> Answer()
             {

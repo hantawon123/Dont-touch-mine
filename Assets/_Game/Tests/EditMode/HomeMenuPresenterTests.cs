@@ -420,6 +420,8 @@ namespace Game.Tests.EditMode
 
             public event Action FriendListRefreshRequested;
 
+            public event Action<string> FriendRemoved;
+
             public event Action<string> FriendBlocked;
 
             public IReadOnlyList<FriendRequestSummary> IncomingRequests { get; private set; } =
