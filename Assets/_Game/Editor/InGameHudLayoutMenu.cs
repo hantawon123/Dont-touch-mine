@@ -65,6 +65,7 @@ namespace Game.Editor
 
                 EnsureAssignedItem(hud);
                 EnsureHighlightTitle(hud);
+                EnsureHidingIntro(hud);
                 EnsureVoiceButton(hud);
                 EnsureWaitingSpawnPoints(scene);
 
@@ -285,6 +286,31 @@ namespace Game.Editor
                 scope,
                 "inputActions",
                 AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath));
+        }
+
+        private static void EnsureHidingIntro(NetworkMatchHudView hud)
+        {
+            var serialized = new SerializedObject(hud);
+            var property = serialized.FindProperty("hidingIntroView");
+            var view = property.objectReferenceValue as HidingIntroView;
+            if (view == null)
+            {
+                view = hud.GetComponentInChildren<HidingIntroView>(true);
+            }
+
+            if (view == null)
+            {
+                view = HidingIntroView.Create(hud.transform);
+            }
+
+            property.objectReferenceValue = view;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var viewSerialized = new SerializedObject(view);
+            viewSerialized.FindProperty("previewOnAwake").boolValue = true;
+            viewSerialized.FindProperty("previewItemName").stringValue = "탄산음료";
+            viewSerialized.ApplyModifiedPropertiesWithoutUndo();
+            view.Show("탄산음료");
         }
 
         private static void EnsureAssignedItem(NetworkMatchHudView hud)

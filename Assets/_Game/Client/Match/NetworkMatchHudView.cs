@@ -59,6 +59,9 @@ namespace Game.Client.Match
         [SerializeField]
         private Canvas rootCanvas;
 
+        [SerializeField]
+        private HidingIntroView hidingIntroView;
+
         private string assignedItemDisplayName;
         private int remainingDestructionUses = -1;
         private bool highlightOnly;
@@ -78,6 +81,7 @@ namespace Game.Client.Match
             SetHighlightTitle(null);
             SetAssignedItem(null);
             SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
+            EnsureHidingIntro();
         }
 
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
@@ -101,7 +105,8 @@ namespace Game.Client.Match
             {
                 if (graphic.gameObject.scene != gameObject.scene ||
                     (highlightTitleText != null && graphic.transform.IsChildOf(highlightTitleText.transform)) ||
-                    (destructionNoticeRoot != null && graphic.transform.IsChildOf(destructionNoticeRoot.transform)))
+                    (destructionNoticeRoot != null && graphic.transform.IsChildOf(destructionNoticeRoot.transform)) ||
+                    (hidingIntroView != null && graphic.transform.IsChildOf(hidingIntroView.transform)))
                     continue;
                 hiddenGraphics[graphic] = graphic.enabled;
                 graphic.enabled = false;
@@ -249,6 +254,19 @@ namespace Game.Client.Match
                     out var localPoint))
             {
                 shredderMarker.anchoredPosition = localPoint;
+            }
+        }
+
+        private void EnsureHidingIntro()
+        {
+            if (hidingIntroView == null)
+            {
+                hidingIntroView = GetComponentInChildren<HidingIntroView>(true);
+            }
+
+            if (hidingIntroView == null)
+            {
+                hidingIntroView = HidingIntroView.Create(transform);
             }
         }
 
