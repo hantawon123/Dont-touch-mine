@@ -1317,10 +1317,12 @@ namespace Game.Client.Home
             AddDropShadow(row.gameObject, ItemShadowColor, new Vector2(2f, -3f));
             AddDropShadow(row.gameObject, new Color(0.12f, 0.12f, 0.12f, 0.16f), new Vector2(4f, -6f));
 
-            // Tighter than the other rows because this one carries two actions
-            // beside a status badge. The panel leaves 284 for a row, and at the
-            // old spacing a second button pushed the nickname under its own
-            // minimum and out of the panel.
+            // Tighter than the other rows. It was set this way when the row
+            // carried two actions beside the status badge and the nickname was
+            // being squeezed under its own minimum; blocking is gone and one
+            // action is left, so there is room to spare now. Left as it is
+            // because the row reads well and loosening it would only move
+            // things for no reason.
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(10, 10, 8, 8);
             layout.spacing = 6f;

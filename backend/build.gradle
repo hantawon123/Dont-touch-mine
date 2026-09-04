@@ -65,4 +65,17 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+
+	// ClientGuideTest 와 OpenApiSpecTest 는 docs/ 를 실행 중에 파일로 읽습니다. 그런데
+	// 그 경로가 입력으로 선언돼 있지 않아서, 문서만 고친 실행에서는 Gradle 이 이 태스크를
+	// UP-TO-DATE 로 건너뜁니다. 결과가 "통과"로 보이지만 테스트는 한 번도 돌지 않았습니다.
+	//
+	// 그래서 가이드에서 오류 코드나 열거형 이름을 한 줄 지워도 통과했습니다. 문서가 코드와
+	// 어긋나는 것을 잡으라고 만든 테스트인데 정작 문서만 바뀐 경우를 못 봤습니다.
+	//
+	// OpenApiSpecTest 는 이 디렉터리에 쓰기도 합니다. 명세가 실제로 달라진 실행 다음에는
+	// 입력이 바뀌어 한 번 더 도는데, 그 경우는 어차피 실패해서 다시 돌려야 하는 때입니다.
+	inputs.dir('docs')
+			.withPropertyName('docs')
+			.withPathSensitivity(PathSensitivity.RELATIVE)
 }

@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ssafy.d205.domain.presence.dto.UpdatePresenceRequest;
 import com.ssafy.d205.domain.presence.entity.PresenceStatus;
+import com.ssafy.d205.domain.report.entity.ReportReason;
 import com.ssafy.d205.domain.presence.entity.PresenceTimeout;
 import com.ssafy.d205.domain.invite.entity.InviteExpiry;
 import com.ssafy.d205.domain.invite.entity.RoomCodePolicy;
@@ -67,6 +68,17 @@ class ClientGuideTest {
 
         assertThat(guide())
                 .as("PresenceStatus 에 값을 추가했으면 문서에도 넣으세요.")
+                .contains(names);
+    }
+
+    @Test
+    @DisplayName("신고 사유가 전부 문서화되어 있다")
+    void everyReportReasonIsDocumented() throws IOException {
+        List<String> names = Arrays.stream(ReportReason.values()).map(Enum::name).toList();
+
+        assertThat(guide())
+                .as("ReportReason 에 값을 추가했으면 문서의 표에도 넣으세요. 클라이언트가 이 이름을 "
+                        + "그대로 보내므로, 표에 없는 값은 아무도 고를 수 없습니다.")
                 .contains(names);
     }
 
