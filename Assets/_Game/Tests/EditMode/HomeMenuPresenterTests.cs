@@ -439,6 +439,13 @@ namespace Game.Tests.EditMode
             public IReadOnlyList<FriendRequestSummary> OutgoingRequests { get; private set; } =
                 Array.Empty<FriendRequestSummary>();
 
+            public string FriendActionError { get; private set; } = string.Empty;
+
+            public void SetFriendActionError(string message)
+            {
+                FriendActionError = message ?? string.Empty;
+            }
+
             public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests)
             {
                 OutgoingRequests = requests;

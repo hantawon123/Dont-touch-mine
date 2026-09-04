@@ -230,6 +230,13 @@ namespace Game.Architecture.Tests
 
             public void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests) { }
 
+            public string FriendActionError { get; private set; } = string.Empty;
+
+            public void SetFriendActionError(string message)
+            {
+                FriendActionError = message ?? string.Empty;
+            }
+
             public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests) { }
 
             /// <remarks>

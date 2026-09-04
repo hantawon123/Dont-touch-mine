@@ -626,6 +626,29 @@ namespace Game.Client.Home
                 body, "보낸 요청", "보낸 요청이 없습니다", out sentSection, out sentEmptyText);
             CreateSearchBar(body);
             searchItemsRoot = CreateSearchResults(body);
+
+            // At the foot of the panel rather than inside the scrolling results,
+            // so a message about the button that was just pressed cannot be
+            // scrolled out of sight.
+            var errorRect = CreateRect("ActionError", body);
+            var errorLayout = errorRect.gameObject.AddComponent<LayoutElement>();
+            errorLayout.preferredHeight = 34f;
+            errorLayout.minHeight = 34f;
+            friendActionErrorText = AddText(
+                errorRect,
+                string.Empty,
+                15f,
+                FontStyles.Normal,
+                TextAlignmentOptions.Center);
+            friendActionErrorText.color = new Color(0.78f, 0.20f, 0.20f, 1f);
+
+            // Sized down rather than clipped, like the rename messages. These are
+            // sentences and the panel is 320 wide.
+            friendActionErrorText.enableAutoSizing = true;
+            friendActionErrorText.fontSizeMin = 12f;
+            friendActionErrorText.fontSizeMax = 15f;
+            friendActionErrorText.gameObject.SetActive(false);
+
             friendSearchBody.SetActive(false);
         }
 

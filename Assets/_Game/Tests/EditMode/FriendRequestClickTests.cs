@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using Game.Bootstrap;
 using Game.Client.Home;
 using Game.Core.Backend;
 using Game.Core.Flow;
 using Game.Core.Home;
 using Game.Core.Ports;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Architecture.Tests
 {
@@ -31,7 +34,7 @@ namespace Game.Architecture.Tests
         [Test]
         public async Task PressingTheButton_SendsTheRequest()
         {
-            var wiring = new Wiring();
+            using var wiring = await Wiring.StartAsync();
 
             await wiring.SearchAsync("나");
             wiring.View.RaiseFriendRequestClicked("b");
@@ -46,9 +49,65 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public async Task ARefusedRequest_SaysWhyOnTheScreen()
+        {
+            using var wiring = await Wiring.StartAsync();
+            await wiring.SearchAsync("나");
+
+            wiring.Gateway.Failure = BackendFailure.AlreadyFriends;
+            LogAssert.Expect(
+                LogType.Warning, new System.Text.RegularExpressions.Regex("friend request failed"));
+            wiring.View.RaiseFriendRequestClicked("b");
+            await wiring.Settle();
+
+            // The log alone left the player looking at a button that appeared to
+            // do nothing.
+            Assert.That(wiring.View.FriendActionError, Is.EqualTo("이미 친구입니다"));
+        }
+
+        [Test]
+        public async Task BeingBlocked_ReadsAsNotFound()
+        {
+            using var wiring = await Wiring.StartAsync();
+            await wiring.SearchAsync("나");
+
+            wiring.Gateway.Failure = BackendFailure.TargetNotFound;
+            LogAssert.Expect(
+                LogType.Warning, new System.Text.RegularExpressions.Regex("friend request failed"));
+            wiring.View.RaiseFriendRequestClicked("b");
+            await wiring.Settle();
+
+            // The server refuses to distinguish a blocked target from an account
+            // that does not exist. Saying which it is would undo that.
+            Assert.That(wiring.View.FriendActionError, Is.EqualTo("그 사용자를 찾을 수 없습니다"));
+            Assert.That(wiring.View.FriendActionError, Does.Not.Contain("차단"));
+        }
+
+        [Test]
+        public async Task ASuccessAfterAFailure_ClearsTheMessage()
+        {
+            using var wiring = await Wiring.StartAsync();
+            await wiring.SearchAsync("나");
+
+            wiring.Gateway.Failure = BackendFailure.Offline;
+            LogAssert.Expect(
+                LogType.Warning, new System.Text.RegularExpressions.Regex("friend request failed"));
+            wiring.View.RaiseFriendRequestClicked("b");
+            await wiring.Settle();
+            Assert.That(wiring.View.FriendActionError, Is.Not.Empty);
+
+            wiring.Gateway.Failure = BackendFailure.None;
+            wiring.View.RaiseFriendRequestClicked("b");
+            await wiring.Settle();
+
+            // A message must not outlive the thing it was about.
+            Assert.That(wiring.View.FriendActionError, Is.Empty);
+        }
+
+        [Test]
         public async Task OnlyOnePlaceMarksTheRow()
         {
-            var wiring = new Wiring();
+            using var wiring = await Wiring.StartAsync();
             await wiring.SearchAsync("나");
 
             // The presenter is started and listening. If it also answered this
@@ -64,15 +123,24 @@ namespace Game.Architecture.Tests
         /// The home screen as the container builds it: a presenter on the view,
         /// and a bridge carrying the same events to the command.
         /// </summary>
-        private sealed class Wiring
+        /// <summary>
+        /// The home screen as the container builds it: the real presenter and
+        /// the real bridge on one view.
+        /// </summary>
+        /// <remarks>
+        /// Both are the production classes. A stand-in bridge here would be a
+        /// second copy of the wiring and the message table, and the test would
+        /// pass while the real ones disagreed.
+        /// </remarks>
+        private sealed class Wiring : IDisposable
         {
             private readonly HomeMenuPresenter presenter;
+            private readonly HomeFriendBridge bridge;
 
-            public Wiring()
+            private Wiring(BackendSignIn signIn)
             {
                 View = new ClickView();
                 Search = new FriendSearchSystem();
-                Gateway = new RecordingGateway();
 
                 var friends = new FriendListSystem();
                 Commands = new FriendUiCommands(Gateway, new NoBlocks(), friends, Search);
@@ -87,17 +155,24 @@ namespace Game.Architecture.Tests
                     Search);
                 presenter.Start();
 
-                // What HomeFriendBridge does.
-                View.FriendRequestClicked += OnClicked;
+                bridge = new HomeFriendBridge(View, Commands, signIn);
+                bridge.Start();
             }
 
             public ClickView View { get; }
 
             public FriendSearchSystem Search { get; }
 
-            public RecordingGateway Gateway { get; }
+            public RecordingGateway Gateway { get; } = new RecordingGateway();
 
             public FriendUiCommands Commands { get; }
+
+            public static async UniTask<Wiring> StartAsync()
+            {
+                var signIn = new BackendSignIn(new SignedInAccounts(), new PlayerProfile("나"));
+                await signIn.StartAsync(CancellationToken.None);
+                return new Wiring(signIn);
+            }
 
             public async UniTask SearchAsync(string query)
             {
@@ -110,15 +185,42 @@ namespace Game.Architecture.Tests
             }
 
             /// <remarks>
-            /// The gateway answers without ever yielding, so one turn is enough
-            /// for the fire-and-forget the bridge starts.
+            /// The fakes answer without ever yielding, so a couple of turns
+            /// carry the bridge's fire-and-forget through to the end.
             /// </remarks>
-            public async UniTask Settle() => await UniTask.Yield();
-
-            private void OnClicked(string playerId)
+            public async UniTask Settle()
             {
-                Commands.SendRequestAsync(playerId, CancellationToken.None).Forget();
+                await UniTask.Yield();
+                await UniTask.Yield();
+                await UniTask.Yield();
             }
+
+            public void Dispose()
+            {
+                bridge.Dispose();
+                presenter.Dispose();
+            }
+        }
+
+        /// <summary>An account gateway that signs in and does nothing else.</summary>
+        private sealed class SignedInAccounts : IAccountGateway
+        {
+            public UniTask<BackendResult<AccountSnapshot>> SignInAsync(
+                CancellationToken cancellation) => Account();
+
+            public UniTask<BackendResult<AccountSnapshot>> RefreshAsync(
+                CancellationToken cancellation) => Account();
+
+            public UniTask<BackendResult<AccountSnapshot>> RenameAsync(
+                string nickname, CancellationToken cancellation) => Account();
+
+            public UniTask<BackendResult> DeleteAccountAsync(CancellationToken cancellation) =>
+                UniTask.FromResult(BackendResult.Success());
+
+            private static UniTask<BackendResult<AccountSnapshot>> Account() =>
+                UniTask.FromResult(
+                    BackendResult<AccountSnapshot>.Success(
+                        new AccountSnapshot("me", "나", true)));
         }
 
         private sealed class RecordingGateway : IFriendGateway
@@ -130,13 +232,17 @@ namespace Game.Architecture.Tests
 
             public int SendCount { get; private set; }
 
+            public BackendFailure Failure { get; set; } = BackendFailure.None;
+
             public UniTask<BackendResult<FriendRequestOutcome>> SendRequestAsync(
                 string playerId, CancellationToken cancellation)
             {
                 SentTo = playerId;
                 SendCount++;
                 return UniTask.FromResult(
-                    BackendResult<FriendRequestOutcome>.Success(FriendRequestOutcome.Sent));
+                    Failure == BackendFailure.None
+                        ? BackendResult<FriendRequestOutcome>.Success(FriendRequestOutcome.Sent)
+                        : BackendResult<FriendRequestOutcome>.Failed(Failure));
             }
 
             public UniTask<BackendResult<IReadOnlyList<FriendSummary>>> SearchAsync(
@@ -247,6 +353,13 @@ namespace Game.Architecture.Tests
             public void SetFriendSearchVisible(bool visible) { }
 
             public void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests) { }
+
+            public string FriendActionError { get; private set; } = string.Empty;
+
+            public void SetFriendActionError(string message)
+            {
+                FriendActionError = message ?? string.Empty;
+            }
 
             public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests) { }
 

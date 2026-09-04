@@ -78,5 +78,11 @@ namespace Game.Client.Home
         /// list hides the section.
         /// </summary>
         void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests);
+
+        /// <summary>
+        /// Says why the last thing the player asked for did not happen. An empty
+        /// message clears it.
+        /// </summary>
+        void SetFriendActionError(string message);
     }
 }
