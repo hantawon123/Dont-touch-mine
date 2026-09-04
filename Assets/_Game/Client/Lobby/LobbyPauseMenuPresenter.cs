@@ -154,7 +154,7 @@ namespace Game.Client.Lobby
         private void ApplyHostControls(bool isHost)
         {
             view.SetStartVisible(isHost);
-            view.SetPlaySettingsVisible(isHost);
+            view.SetPlaySettingsVisible(true);
         }
 
         private void Open()
@@ -197,10 +197,7 @@ namespace Game.Client.Lobby
 
         /// <remarks>
         /// Runs for the screen's own close button and for Esc alike, since both
-        /// arrive as the same request. Also runs when a screen closes itself —
-        /// play settings does when the room changes hands — which is the case
-        /// this exists for: without it the menu would stay hidden behind a
-        /// screen that is no longer there.
+        /// arrive as the same request. Returning here preserves the menu's cursor and movement lock.
         /// </remarks>
         private void OnScreenClosed()
         {

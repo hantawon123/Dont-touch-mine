@@ -166,15 +166,14 @@ namespace Game.Bootstrap
             builder.Register<NetworkLobbyParticipantList>(Lifetime.Scoped)
                 .As<ILobbyParticipantList>();
 
-            // Built by hand because the not-yet-synced half of the settings is a
-            // value this scope owns, not a service anything should resolve.
+            // Standalone scenes retain defaults until the network session is ready.
             builder.Register(
                     c => new NetworkLobbyHostSession(
                         c.Resolve<RoomBrowserSystem>(),
                         c.Resolve<NetworkRunnerService>(),
                         CreateUnsyncedSettings()),
                     Lifetime.Scoped)
-                .As<ILobbyHostSession>();
+                .As<ILobbyHostSession>().As<ITickable>();
             builder.Register(
                     c => CreateChatLog(
                         c.Resolve<RoomBrowserSystem>(),

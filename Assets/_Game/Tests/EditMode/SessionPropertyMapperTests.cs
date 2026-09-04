@@ -41,6 +41,9 @@ namespace Game.Architecture.Tests
             Assert.That(properties.ContainsKey(SessionPropertyKeys.SprintMultiplierPercent), Is.False);
             Assert.That(properties.ContainsKey(SessionPropertyKeys.StunHitCount), Is.False);
             Assert.That(properties.ContainsKey(SessionPropertyKeys.CategoryId), Is.False);
+            Assert.That(SessionPropertyMapper.ReadPackedMatchRules(
+                (string)properties[SessionPropertyKeys.MatchRules], default),
+                Is.EqualTo(MatchRuleSettings.Default));
             Assert.That(properties.Count, Is.LessThanOrEqualTo(10));
             Assert.That((string)properties[SessionPropertyKeys.HostNickname],
                 Is.EqualTo("태원"));
@@ -77,15 +80,34 @@ namespace Game.Architecture.Tests
             Assert.That((int)properties[SessionPropertyKeys.DestructionLimit], Is.EqualTo(3));
             Assert.That((string)properties[SessionPropertyKeys.MapId],
                 Is.EqualTo("Playground"));
-            Assert.That((int)properties[SessionPropertyKeys.HidingDurationSeconds],
-                Is.EqualTo(60));
-            Assert.That((int)properties[SessionPropertyKeys.SearchingDurationMinutes],
-                Is.EqualTo(10));
-            Assert.That((int)properties[SessionPropertyKeys.SprintMultiplierPercent],
-                Is.EqualTo(150));
-            Assert.That((int)properties[SessionPropertyKeys.StunHitCount], Is.EqualTo(5));
-            Assert.That((string)properties[SessionPropertyKeys.CategoryId],
-                Is.EqualTo("fruit"));
+            Assert.That(SessionPropertyMapper.ReadPackedMatchRules(
+                (string)properties[SessionPropertyKeys.MatchRules], default), Is.EqualTo(matchRules));
+        }
+
+        [Test]
+        public void CreateAndRepeatedSettingsUpdates_StayWithinTenProperties()
+        {
+            var all = SessionPropertyMapper.BuildForStart(
+                SessionRequest.Create("ROOM01", "방", "playground", 6, "secret"), "host");
+            for (var count = 2; count <= 6; count++)
+            {
+                foreach (var pair in SessionPropertyMapper.BuildLobbySettings(
+                             count, count, "playground", MatchRuleSettings.Default))
+                    all[pair.Key] = pair.Value;
+                Assert.That(all.Count, Is.LessThanOrEqualTo(10));
+            }
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("broken")]
+        [TestCase("{}")]
+        [TestCase("{\"version\":2}")]
+        [TestCase("{\"version\":1,\"hiding\":0,\"searching\":5,\"sprint\":1,\"stun\":3}")]
+        public void InvalidPackedRules_KeepLastValidSettings(string payload)
+        {
+            MatchRuleSettings.TryCreate(60, 10, 1.5f, 5, "food", out var previous, out _);
+            Assert.That(SessionPropertyMapper.ReadPackedMatchRules(payload, previous), Is.EqualTo(previous));
         }
 
         [Test]

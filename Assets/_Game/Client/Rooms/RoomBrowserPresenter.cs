@@ -52,9 +52,12 @@ namespace Game.Client.Rooms
         private void OnRoomExit(RoomExitReason? reason)
         {
             if (!reason.HasValue || reason == RoomExitReason.Left) return;
-            view.ShowDisconnection(reason == RoomExitReason.HostClosed
-                ? "호스트의 연결이 끊어졌습니다"
-                : "서버와의 연결이 끊어졌습니다");
+            view.ShowDisconnection(reason switch
+            {
+                RoomExitReason.Kicked => "방장에 의해 강퇴되었습니다",
+                RoomExitReason.HostClosed => "호스트의 연결이 끊어졌습니다",
+                _ => "서버와의 연결이 끊어졌습니다",
+            });
         }
 
         private void OnDisconnectionAcknowledged() => rooms.AcknowledgeExit();
