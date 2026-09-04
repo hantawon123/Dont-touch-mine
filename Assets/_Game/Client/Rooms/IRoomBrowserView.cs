@@ -15,6 +15,13 @@ namespace Game.Client.Rooms
         event Action DisconnectionAcknowledged;
 
         void SetRooms(IReadOnlyList<RoomSummary> rooms);
+
+        /// <summary>
+        /// Whether the screen is waiting on matchmaking. A refresh that gives no
+        /// sign of running invites a second one on top of the first.
+        /// </summary>
+        void SetBusy(bool busy);
+
         void ShowDisconnection(string message);
     }
 }

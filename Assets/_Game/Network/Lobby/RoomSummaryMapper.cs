@@ -48,7 +48,8 @@ namespace Game.Network.Lobby
                 ReadBool(info, SessionPropertyKeys.Playing)
                     ? RoomStatus.Playing
                     : RoomStatus.Waiting,
-                hostNickname);
+                hostNickname,
+                ReadInt(info, SessionPropertyKeys.OpenedAt, 0));
             return true;
         }
 
@@ -87,7 +88,8 @@ namespace Game.Network.Lobby
                 ReadBool(info, SessionPropertyKeys.Playing)
                     ? RoomStatus.Playing
                     : RoomStatus.Waiting,
-                hostNickname);
+                hostNickname,
+                ReadInt(info, SessionPropertyKeys.OpenedAt, 0));
             return true;
         }
 

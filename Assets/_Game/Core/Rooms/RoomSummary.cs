@@ -31,6 +31,14 @@ namespace Game.Core.Rooms
         /// </summary>
         public string HostNickname { get; }
 
+        /// <summary>
+        /// When the room was opened, in seconds since the Unix epoch, so the
+        /// list can put the newest first. Zero when the listing does not say,
+        /// which sorts such a room to the bottom rather than the top: a room of
+        /// unknown age is not a new one.
+        /// </summary>
+        public int OpenedAt { get; }
+
         public RoomSummary(
             RoomId id,
             string displayName,
@@ -40,14 +48,16 @@ namespace Game.Core.Rooms
             bool isLocked,
             bool isOpen,
             RoomStatus status = RoomStatus.Waiting,
-            string hostNickname = null)
+            string hostNickname = null,
+            int openedAt = 0)
             : this(
                 id,
                 new RoomSettings(displayName?.Trim(), isLocked, maxPlayers, mapId?.Trim()),
                 playerCount,
                 isOpen,
                 status,
-                hostNickname)
+                hostNickname,
+                openedAt)
         {
         }
 
@@ -57,14 +67,16 @@ namespace Game.Core.Rooms
             int currentPlayerCount,
             bool isOpen,
             RoomStatus status = RoomStatus.Waiting,
-            string hostNickname = null)
+            string hostNickname = null,
+            int openedAt = 0)
             : this(
                 new RoomId(roomId?.Trim()),
                 settings,
                 currentPlayerCount,
                 isOpen,
                 status,
-                hostNickname)
+                hostNickname,
+                openedAt)
         {
         }
 
@@ -74,7 +86,8 @@ namespace Game.Core.Rooms
             int playerCount,
             bool isOpen,
             RoomStatus status,
-            string hostNickname)
+            string hostNickname,
+            int openedAt)
         {
             if (!settings.IsValid)
             {
@@ -97,6 +110,7 @@ namespace Game.Core.Rooms
             IsOpen = isOpen;
             Status = status;
             HostNickname = hostNickname?.Trim() ?? string.Empty;
+            OpenedAt = openedAt;
         }
 
         public bool IsFull => MaxPlayers > 0 && PlayerCount >= MaxPlayers;

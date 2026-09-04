@@ -105,6 +105,16 @@ namespace Game.Client.Rooms
             }
         }
 
+        public void SetBusy(bool busy)
+        {
+            if (isDestroyed)
+            {
+                return;
+            }
+
+            SetRefreshBusy(busy);
+        }
+
         public void ShowDisconnection(string message)
         {
             if (isDestroyed) return;
@@ -187,7 +197,11 @@ namespace Game.Client.Rooms
 
         private void OnSearchTextChanged(string text) => SearchTextChanged?.Invoke(text);
 
-        private void OnRefreshButtonClicked() => RefreshRequested?.Invoke();
+        private void OnRefreshButtonClicked()
+        {
+            BeginRefreshCooldown();
+            RefreshRequested?.Invoke();
+        }
 
         // The wire-frame drops both controls from this screen: a code is typed
         // into the panel on the left instead of opening a modal, and rooms are

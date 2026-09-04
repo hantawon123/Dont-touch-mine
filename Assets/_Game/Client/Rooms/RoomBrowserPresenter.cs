@@ -18,6 +18,7 @@ namespace Game.Client.Rooms
         private readonly AppFlowSystem appFlow;
         private IDisposable roomsSubscription;
         private IDisposable exitSubscription;
+        private IDisposable busySubscription;
 
         public RoomBrowserPresenter(
             IRoomBrowserView view,
@@ -38,6 +39,7 @@ namespace Game.Client.Rooms
             view.DisconnectionAcknowledged += OnDisconnectionAcknowledged;
             roomsSubscription = rooms.Rooms.Subscribe(OnRoomsChanged);
             exitSubscription = rooms.LastExit.Subscribe(OnRoomExit);
+            busySubscription = rooms.IsBusy.Subscribe(view.SetBusy);
             view.SetRooms(rooms.Rooms.CurrentValue);
         }
 
@@ -47,6 +49,7 @@ namespace Game.Client.Rooms
             view.DisconnectionAcknowledged -= OnDisconnectionAcknowledged;
             roomsSubscription?.Dispose();
             exitSubscription?.Dispose();
+            busySubscription?.Dispose();
         }
 
         private void OnRoomExit(RoomExitReason? reason)

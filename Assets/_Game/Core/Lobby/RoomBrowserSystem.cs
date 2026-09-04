@@ -155,7 +155,88 @@ namespace Game.Core.Lobby
                 snapshot[index] = refreshedRooms[index];
             }
 
+            Array.Sort(snapshot, CompareForListing);
             rooms.Value = snapshot;
+        }
+
+        /// <summary>
+        /// Newest room first, and rooms opened in the same second by name, so a
+        /// player watching the list sees it hold still except where it changed.
+        /// </summary>
+        /// <remarks>
+        /// Matchmaking hands the rooms over in whatever order it happens to hold
+        /// them, and that order moves between refreshes. Sorting here rather
+        /// than in the view keeps every reader of the list — the browser, a
+        /// search, a test — looking at the same order.
+        /// </remarks>
+        private static int CompareForListing(RoomSummary left, RoomSummary right)
+        {
+            var byAge = right.OpenedAt.CompareTo(left.OpenedAt);
+            if (byAge != 0)
+            {
+                return byAge;
+            }
+
+            var byName = CompareNames(left.DisplayName, right.DisplayName);
+
+            // Two rooms can share a name. Falling back to the id keeps the order
+            // from depending on which one matchmaking listed first.
+            return byName != 0
+                ? byName
+                : string.Compare(left.RoomId, right.RoomId, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Korean first, then Latin, then digits, and alphabetically within each.
+        /// </summary>
+        /// <remarks>
+        /// Ordinal order alone would run the other way round, because Unicode
+        /// puts digits before Latin and Latin far before Hangul. Players read
+        /// this list in Korean, so Korean names come first.
+        /// </remarks>
+        private static int CompareNames(string left, string right)
+        {
+            var byScript = ScriptRank(left).CompareTo(ScriptRank(right));
+            if (byScript != 0)
+            {
+                return byScript;
+            }
+
+            // Case-insensitive so 'apple' and 'Apple' sit together, then ordinal
+            // so the two of them still have a fixed order between refreshes.
+            var byName = string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
+            return byName != 0
+                ? byName
+                : string.Compare(left, right, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Which group a room name sorts into, read from its first character.
+        /// Anything else — punctuation, an emoji — sorts last.
+        /// </summary>
+        private static int ScriptRank(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return 3;
+            }
+
+            var first = name[0];
+
+            // Precomposed syllables and the standalone jamo a name can start
+            // with, which Unicode keeps in a separate block.
+            if ((first >= '가' && first <= '힣') ||
+                (first >= 'ㄱ' && first <= 'ㆎ'))
+            {
+                return 0;
+            }
+
+            if ((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z'))
+            {
+                return 1;
+            }
+
+            return first >= '0' && first <= '9' ? 2 : 3;
         }
 
         public bool TryFindByCode(string candidate, out RoomSummary room)

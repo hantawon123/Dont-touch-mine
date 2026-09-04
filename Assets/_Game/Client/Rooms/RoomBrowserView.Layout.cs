@@ -45,6 +45,7 @@ namespace Game.Client.Rooms
         private TMP_FontAsset boldFont;
 
         private ScrollRect roomScroll;
+        private CanvasGroup refreshGroup;
         private TMP_Text emptyStateText;
         private Image enterButtonBackground;
         private TMP_Text enterButtonLabel;
@@ -406,6 +407,8 @@ namespace Game.Client.Rooms
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = false;
 
+            refreshGroup = button.gameObject.AddComponent<CanvasGroup>();
+
             var icon = RoomBrowserUi.CreateImage(
                 "Icon", content, RoomBrowserStyle.Palette.Accent);
             icon.sprite = refreshIcon;
@@ -426,6 +429,67 @@ namespace Game.Client.Rooms
             refreshButton = button.gameObject.AddComponent<Button>();
             refreshButton.targetGraphic = button;
             refreshButton.navigation = new Navigation { mode = Navigation.Mode.None };
+        }
+
+        /// <summary>
+        /// How long the refresh button stays locked after a press.
+        /// </summary>
+        /// <remarks>
+        /// Matchmaking answers faster than this, so the wait is not about the
+        /// request finishing. It is about how often the list is worth asking for:
+        /// a player holding the button down would send a request a frame, and
+        /// each one is a round trip to the cloud that returns much the same list.
+        /// </remarks>
+        private const float RefreshCooldownSeconds = 5f;
+
+        /// <summary>
+        /// Unscaled, because a paused game must not freeze the wait.
+        /// </summary>
+        private float refreshReadyAt;
+        private bool isRefreshBusy;
+
+        /// <summary>
+        /// Shows that a refresh is running by fading the button it came from.
+        /// </summary>
+        private void SetRefreshBusy(bool busy)
+        {
+            isRefreshBusy = busy;
+            RefreshButtonState();
+        }
+
+        /// <summary>
+        /// Starts the wait. Called as the press goes out rather than when the
+        /// answer comes back, so the five seconds are counted between presses.
+        /// </summary>
+        private void BeginRefreshCooldown()
+        {
+            refreshReadyAt = Time.unscaledTime + RefreshCooldownSeconds;
+            RefreshButtonState();
+        }
+
+        private void RefreshButtonState()
+        {
+            if (refreshButton == null)
+            {
+                return;
+            }
+
+            var ready = !isRefreshBusy && Time.unscaledTime >= refreshReadyAt;
+            refreshButton.interactable = ready;
+
+            if (refreshGroup != null)
+            {
+                refreshGroup.alpha = ready ? 1f : 0.6f;
+            }
+        }
+
+        private void Update()
+        {
+            // Nothing wakes the button when the wait runs out, so it is checked.
+            if (refreshButton != null && !refreshButton.interactable)
+            {
+                RefreshButtonState();
+            }
         }
 
         private void BuildRoomList(RectTransform panel)

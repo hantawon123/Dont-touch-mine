@@ -33,6 +33,17 @@ namespace Game.Network.Session
         public const string HostNickname = "host";
 
         /// <summary>
+        /// When the room was opened, in seconds since the Unix epoch.
+        /// </summary>
+        /// <remarks>
+        /// Written once by the host, because the room list is ordered newest
+        /// first and a session listing carries no age of its own. Seconds rather
+        /// than ticks: a session property holds an int, and seconds fit one for
+        /// another decade.
+        /// </remarks>
+        public const string OpenedAt = "opened";
+
+        /// <summary>
         /// Whether the room is playing rather than waiting.
         /// </summary>
         /// <remarks>

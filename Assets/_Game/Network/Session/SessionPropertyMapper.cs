@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Fusion;
 using Game.Core.Lobby;
@@ -45,6 +46,8 @@ namespace Game.Network.Session
             }
 
             properties[SessionPropertyKeys.Locked] = !string.IsNullOrEmpty(request.Password);
+            properties[SessionPropertyKeys.OpenedAt] =
+                (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             return properties;
         }
 

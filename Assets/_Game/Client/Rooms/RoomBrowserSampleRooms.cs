@@ -115,15 +115,20 @@ namespace Game.Client.Rooms
         {
             return new List<RoomSummary>
             {
-                Room("sample-1", "방제목이지렁방제목이지렁방제목이지렁", 5, RoomStatus.Waiting, "엘리자베스3세"),
-                Room("sample-2", "방제목이지렁방제목이지렁방제목이지렁", 6, RoomStatus.Playing, "엘리자베스3세"),
-                Room("sample-3", "방제목이지렁방제목이지렁방제목이지렁", 6, RoomStatus.Waiting, "엘리자베스3세"),
-                Room("sample-4", "방제목이스무글자까지가능해요이거이거이거", 1, RoomStatus.Waiting, "만약열두글자넘어가면이거"),
+                Room("sample-1", "방제목이지렁방제목이지렁방제목이지렁", 5, RoomStatus.Waiting, "엘리자베스3세", 4),
+                Room("sample-2", "방제목이지렁방제목이지렁방제목이지렁", 6, RoomStatus.Playing, "엘리자베스3세", 3),
+                Room("sample-3", "방제목이지렁방제목이지렁방제목이지렁", 6, RoomStatus.Waiting, "엘리자베스3세", 2),
+                Room("sample-4", "방제목이스무글자까지가능해요이거이거이거", 1, RoomStatus.Waiting, "만약열두글자넘어가면이거", 1),
             };
         }
 
         private static RoomSummary Room(
-            string id, string title, int players, RoomStatus status, string host)
+            string id,
+            string title,
+            int players,
+            RoomStatus status,
+            string host,
+            int minutesOld)
         {
             return new RoomSummary(
                 new RoomId(id),
@@ -134,7 +139,11 @@ namespace Game.Client.Rooms
                 isLocked: false,
                 isOpen: true,
                 status,
-                host);
+                host,
+
+                // Spaced a minute apart so the rows keep the order they are
+                // written in here, which is the order the wire-frame draws.
+                (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds() - (minutesOld * 60));
         }
     }
 }

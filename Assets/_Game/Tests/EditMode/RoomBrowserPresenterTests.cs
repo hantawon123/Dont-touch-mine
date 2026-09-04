@@ -101,10 +101,16 @@ namespace Game.Tests.EditMode
             public void AcknowledgeDisconnection() => DisconnectionAcknowledged?.Invoke();
 
             public IReadOnlyList<RoomSummary> Rooms { get; private set; }
+            public bool IsBusy { get; private set; }
 
             public void SetRooms(IReadOnlyList<RoomSummary> rooms)
             {
                 Rooms = rooms;
+            }
+
+            public void SetBusy(bool busy)
+            {
+                IsBusy = busy;
             }
 
             public void RaiseBack()
