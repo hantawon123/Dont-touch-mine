@@ -684,7 +684,6 @@ namespace Game.Client.Rooms
                 RoomBrowserStyle.Palette.TextMuted,
                 TextAlignmentOptions.Center);
             emptyStateText.rectTransform.Stretch();
-            emptyStateText.text = "조건에 맞는 방이 없습니다";
             SetEmptyStateVisible(false);
         }
 
@@ -694,6 +693,23 @@ namespace Game.Client.Rooms
             {
                 emptyStateText.gameObject.SetActive(visible);
             }
+        }
+
+        private void ShowEmptyState(string message)
+        {
+            if (emptyStateText == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(message))
+            {
+                SetEmptyStateVisible(false);
+                return;
+            }
+
+            emptyStateText.text = message;
+            SetEmptyStateVisible(true);
         }
 
         /// <summary>

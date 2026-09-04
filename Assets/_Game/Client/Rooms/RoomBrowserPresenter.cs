@@ -12,6 +12,9 @@ namespace Game.Client.Rooms
 {
     public sealed class RoomBrowserPresenter : IStartable, IDisposable
     {
+        public const string NoRooms = "열려 있는 방이 없어요";
+        public const string NoSearchResults = "검색 결과가 없어요";
+
 
         private readonly IRoomBrowserView view;
         private readonly RoomBrowserSystem rooms;
@@ -129,7 +132,21 @@ namespace Game.Client.Rooms
             }
 
             view.SetRooms(matching);
+            view.SetEmptyMessage(DescribeEmptyList(all.Count, matching.Count));
         }
 
+        /// <summary>
+        /// Null while there is something to show. An empty list has two causes
+        /// and the player can only act on one of them.
+        /// </summary>
+        private string DescribeEmptyList(int roomCount, int matchCount)
+        {
+            if (matchCount > 0)
+            {
+                return null;
+            }
+
+            return roomCount > 0 ? NoSearchResults : NoRooms;
+        }
     }
 }

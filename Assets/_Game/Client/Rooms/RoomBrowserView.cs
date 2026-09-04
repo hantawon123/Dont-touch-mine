@@ -116,6 +116,16 @@ namespace Game.Client.Rooms
             SetListBusy(busy);
         }
 
+        public void SetEmptyMessage(string message)
+        {
+            if (isDestroyed)
+            {
+                return;
+            }
+
+            ShowEmptyState(message);
+        }
+
         public void ShowEntryFailure(RoomEntryFailure failure)
         {
             if (isDestroyed || failure == RoomEntryFailure.None)

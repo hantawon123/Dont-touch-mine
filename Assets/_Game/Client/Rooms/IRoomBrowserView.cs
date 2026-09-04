@@ -23,6 +23,12 @@ namespace Game.Client.Rooms
         void SetBusy(bool busy);
 
         /// <summary>
+        /// Explains an empty list, or hides that explanation when given null.
+        /// An empty list on its own says nothing about why.
+        /// </summary>
+        void SetEmptyMessage(string message);
+
+        /// <summary>
         /// Reports why a room refused the player. Nothing else says so: a failed
         /// entry leaves the screen exactly as it was.
         /// </summary>

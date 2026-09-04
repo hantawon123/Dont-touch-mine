@@ -200,6 +200,13 @@ namespace Game.Tests.EditMode
                 IsBusy = busy;
             }
 
+            public string EmptyMessage { get; private set; }
+
+            public void SetEmptyMessage(string message)
+            {
+                EmptyMessage = message;
+            }
+
             public RoomEntryFailure LastFailure { get; private set; }
 
             public void ShowEntryFailure(RoomEntryFailure failure)
