@@ -50,22 +50,18 @@ namespace Game.Client.Lobby
             settingsSubscription?.Dispose();
         }
 
-        /// <remarks>
-        /// Asks rather than closes, so the Esc menu this was opened from hears
-        /// about it and comes back. Closing straight away would leave the menu
-        /// standing aside for a screen that is no longer on the glass.
-        /// </remarks>
         private void HandleHostChanged(bool isHost)
         {
+            view.SetEditable(isHost);
             if (!isHost && isOpen)
             {
-                view.RequestClose();
+                view.SetDraft(hostSession.Settings.CurrentValue);
             }
         }
 
         private void HandleSettingsChanged(PlaySettingsDraft draft)
         {
-            if (!isOpen)
+            if (!isOpen || hostSession.IsLocalHost.CurrentValue)
             {
                 return;
             }
@@ -75,11 +71,7 @@ namespace Game.Client.Lobby
 
         private void Open()
         {
-            if (!hostSession.IsLocalHost.CurrentValue)
-            {
-                return;
-            }
-
+            view.SetEditable(hostSession.IsLocalHost.CurrentValue);
             view.SetDraft(hostSession.Settings.CurrentValue);
             isOpen = true;
             view.SetVisible(true);

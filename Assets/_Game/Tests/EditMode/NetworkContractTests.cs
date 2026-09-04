@@ -24,6 +24,51 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [TestCase(true, true, "guest", true)]
+        [TestCase(true, true, "padded-guest", true)]
+        [TestCase(false, true, "guest", false)]
+        [TestCase(true, false, "guest", false)]
+        [TestCase(true, true, "host", false)]
+        [TestCase(true, true, "P99", false)]
+        [TestCase(true, true, "", false)]
+        [TestCase(true, true, null, false)]
+        public void LobbyKick_OnlyHostCanResolveAnotherActivePlayer(
+            bool authority, bool lobby, string targetId, bool expected)
+        {
+            var host = Fusion.PlayerRef.FromIndex(0);
+            var guest = Fusion.PlayerRef.FromIndex(1);
+            targetId = targetId switch
+            {
+                "host" => PlayerRegistry.IdOf(host),
+                "guest" => PlayerRegistry.IdOf(guest),
+                "padded-guest" => " " + PlayerRegistry.IdOf(guest) + " ",
+                _ => targetId
+            };
+            Assert.That(NetworkRunnerService.TryResolveKickTarget(authority, lobby, host,
+                new[] { host, guest }, targetId, out var target), Is.EqualTo(expected));
+            Assert.That(target, Is.EqualTo(expected ? guest : Fusion.PlayerRef.None));
+        }
+
+        [Test]
+        public void LobbyKick_AcknowledgementCannotRemoveAnotherOrNewerRequest()
+        {
+            var guest = Fusion.PlayerRef.FromIndex(1);
+            var other = Fusion.PlayerRef.FromIndex(2);
+            var pending = new Dictionary<Fusion.PlayerRef, int> { [guest] = 2 };
+            Assert.That(NetworkRunnerService.TryRemovePendingKick(pending, other, 2), Is.False);
+            Assert.That(NetworkRunnerService.TryRemovePendingKick(pending, guest, 1), Is.False);
+            Assert.That(pending[guest], Is.EqualTo(2));
+            Assert.That(NetworkRunnerService.TryRemovePendingKick(pending, guest, 2), Is.True);
+            Assert.That(NetworkRunnerService.TryRemovePendingKick(pending, guest, 2), Is.False);
+        }
+
+        [Test]
+        public void LobbyKick_NoSessionRejectsRequest()
+        {
+            var network = new NetworkRunnerService(null, null, null, null, null, null);
+            Assert.That(network.TryKickPlayer("P2"), Is.False);
+        }
+
         [TestCase(false, true, 2, 6, 5, "playground", "food", false)]
         [TestCase(true, false, 2, 6, 5, "playground", "food", false)]
         [TestCase(true, true, 3, 2, 5, "playground", "food", false)]
@@ -126,8 +171,9 @@ namespace Game.Architecture.Tests
             }
         }
 
-        [Test]
-        public void RoomDisconnectLifecycle_WaitsForRunnerDestructionAndRetainsFirstReason()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void RoomDisconnectLifecycle_WaitsForRunnerDestructionAndRetainsFirstReason(bool kicked)
         {
             using var room = new Game.Core.Lobby.RoomBrowserSystem();
             var network = new NetworkRunnerService(null, room, null, null, null, null);
@@ -145,9 +191,14 @@ namespace Game.Architecture.Tests
                 typeof(NetworkRunnerService).GetField("_exitReported", flags).SetValue(network, false);
                 typeof(NetworkRunnerService).GetField("_isClientSession", flags).SetValue(network, true);
                 controller.Start();
+                var expected = kicked ? Game.Core.Rooms.RoomExitReason.Kicked :
+                    Game.Core.Rooms.RoomExitReason.HostClosed;
+                if (kicked)
+                    typeof(NetworkRunnerService).GetMethod("ReportExit", flags).Invoke(network,
+                        new object[] { Game.Core.Rooms.RoomExitReason.Kicked });
                 network.OnDisconnectedFromServer(runner, Fusion.Sockets.NetDisconnectReason.Timeout);
                 typeof(NetworkRunnerService).GetMethod("ReportPlayerCount", flags).Invoke(network, null);
-                Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.HostClosed));
+                Assert.That(room.LastExit.CurrentValue, Is.EqualTo(expected));
                 controller.Tick();
                 Assert.That(application.OpenCount, Is.Zero);
                 network.OnShutdown(runner, Fusion.ShutdownReason.Ok);
@@ -156,7 +207,7 @@ namespace Game.Architecture.Tests
                 UnityEngine.Object.DestroyImmediate(runnerObject);
                 controller.Tick();
                 Assert.That(application.OpenCount, Is.EqualTo(1));
-                Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.HostClosed));
+                Assert.That(room.LastExit.CurrentValue, Is.EqualTo(expected));
             }
             finally
             {

@@ -18,11 +18,6 @@ namespace Game.Core.Rooms
         /// <summary>
         /// The authority removed this player.
         /// </summary>
-        /// <remarks>
-        /// Not produced yet. A kick and the authority simply leaving arrive as
-        /// the same shutdown reason, so telling them apart needs the authority to
-        /// say so first, over its own message, before closing the connection.
-        /// </remarks>
         Kicked,
 
         /// <summary>Ended for a reason that does not map to the above.</summary>

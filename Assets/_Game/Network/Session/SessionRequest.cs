@@ -20,6 +20,9 @@ namespace Game.Network.Session
         /// <summary>How many player-item destruction attempts each player gets.</summary>
         public const string DestructionLimit = "destroy";
 
+        /// <summary>Versioned match rules in one property to stay below Fusion's 10-key limit.</summary>
+        public const string MatchRules = "rules";
+
         public const string HidingDurationSeconds = "hide";
         public const string SearchingDurationMinutes = "search";
         public const string SprintMultiplierPercent = "sprint";

@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using Fusion;
 using Game.Core.Lobby;
+using UnityEngine;
 
 namespace Game.Network.Session
 {
@@ -45,6 +47,7 @@ namespace Game.Network.Session
             }
 
             properties[SessionPropertyKeys.Locked] = !string.IsNullOrEmpty(request.Password);
+            AddMatchRules(properties, MatchRuleSettings.Default);
             return properties;
         }
 
@@ -68,6 +71,10 @@ namespace Game.Network.Session
             SessionInfo info,
             MatchRuleSettings fallback)
         {
+            if (info.Properties != null && info.Properties.ContainsKey(SessionPropertyKeys.MatchRules))
+                return ReadPackedMatchRules(ReadString(info, SessionPropertyKeys.MatchRules, null), fallback);
+
+            // Read older rooms, but never add the five legacy keys to a new room.
             return MatchRuleSettings.TryCreate(
                 ReadInt(
                     info,
@@ -113,14 +120,42 @@ namespace Game.Network.Session
             IDictionary<string, SessionProperty> properties,
             MatchRuleSettings settings)
         {
-            properties[SessionPropertyKeys.HidingDurationSeconds] =
-                settings.HidingDurationSeconds;
-            properties[SessionPropertyKeys.SearchingDurationMinutes] =
-                settings.SearchingDurationMinutes;
-            properties[SessionPropertyKeys.SprintMultiplierPercent] =
-                (int)(settings.SprintMultiplier * 100f);
-            properties[SessionPropertyKeys.StunHitCount] = settings.StunHitCount;
-            properties[SessionPropertyKeys.CategoryId] = settings.CategoryId ?? string.Empty;
+            properties[SessionPropertyKeys.MatchRules] = JsonUtility.ToJson(new RulesPayload
+            {
+                version = 1,
+                hiding = settings.HidingDurationSeconds,
+                searching = settings.SearchingDurationMinutes,
+                sprint = settings.SprintMultiplier,
+                stun = settings.StunHitCount,
+                category = settings.CategoryId
+            });
+        }
+
+        internal static MatchRuleSettings ReadPackedMatchRules(string json, MatchRuleSettings fallback)
+        {
+            if (string.IsNullOrEmpty(json)) return fallback;
+            try
+            {
+                var payload = JsonUtility.FromJson<RulesPayload>(json);
+                return payload.version == 1 && MatchRuleSettings.TryCreate(
+                    payload.hiding, payload.searching, payload.sprint, payload.stun,
+                    payload.category, out var rules, out _) ? rules : fallback;
+            }
+            catch (ArgumentException)
+            {
+                return fallback;
+            }
+        }
+
+        [Serializable]
+        private struct RulesPayload
+        {
+            public int version;
+            public int hiding;
+            public int searching;
+            public float sprint;
+            public int stun;
+            public string category;
         }
     }
 }

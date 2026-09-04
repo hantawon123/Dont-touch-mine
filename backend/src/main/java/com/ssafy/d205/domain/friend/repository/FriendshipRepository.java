@@ -122,6 +122,30 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Integer>
                     @Param("now") String now);
 
     /**
+     * 두 사람 사이의 방 초대를 양방향으로 지웁니다. 차단할 때 부릅니다.
+     *
+     * <p>초대를 남겨두면 차단이 뚫립니다. 친구였다가 차단당한 사람은 관계가 끊긴 뒤에도
+     * 이미 받아둔 초대로 상대의 방에 들어갈 수 있습니다. 차단은 상대가 나를 찾지도
+     * 닿지도 못하게 하는 것인데, 방 코드는 이미 건네진 뒤입니다. 초대의 수명이 3분이라
+     * 창이 좁을 뿐 열려 있는 것은 마찬가지입니다.
+     *
+     * <p>양방향인 이유는 차단이 양방향으로 적용되기 때문입니다. 내가 보낸 초대도 상대가
+     * 받은 초대도 함께 없어져야 합니다.
+     *
+     * <p>이 쿼리가 room_invites 를 읽는데도 여기 있는 이유는 user_blocks 와 같습니다.
+     * 초대 도메인에 두면 친구 도메인이 초대를 부르고 초대 도메인이 친구를 부르는
+     * 양방향 의존이 됩니다.
+     */
+    @Modifying
+    @Query(value = """
+            DELETE FROM room_invites
+             WHERE (inviter_seq = :userSeqA AND invitee_seq = :userSeqB)
+                OR (inviter_seq = :userSeqB AND invitee_seq = :userSeqA)
+            """, nativeQuery = true)
+    int deleteInvitesBetween(@Param("userSeqA") Integer userSeqA,
+                             @Param("userSeqB") Integer userSeqB);
+
+    /**
      * 차단을 해제합니다. 없어도 오류가 아닙니다. 영향받은 행이 0이면 이미 해제 상태입니다.
      */
     @Modifying

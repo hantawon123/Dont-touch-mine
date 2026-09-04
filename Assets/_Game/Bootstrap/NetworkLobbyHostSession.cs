@@ -6,6 +6,7 @@ using Game.Core.Rooms;
 using Game.Network.Session;
 using R3;
 using UnityEngine;
+using VContainer.Unity;
 
 namespace Game.Bootstrap
 {
@@ -18,17 +19,18 @@ namespace Game.Bootstrap
     /// answer differs per screen and changes when the host leaves, so the room
     /// is the only thing entitled to say it.
     /// <para>
-        /// Start and host-owned room settings are applied directly by the
-        /// authority. Kick and host transfer still require their own commands.
+    /// Start, kick and host-owned room settings are applied directly by the
+    /// authority. Host transfer still requires its own command.
     /// </para>
     /// </remarks>
-    public sealed class NetworkLobbyHostSession : ILobbyHostSession, IDisposable
+    public sealed class NetworkLobbyHostSession : ILobbyHostSession, ITickable, IDisposable
     {
         private readonly RoomBrowserSystem room;
         private readonly NetworkRunnerService network;
         private readonly ReactiveProperty<bool> isLocalHost = new(false);
         private readonly ReactiveProperty<PlaySettingsDraft> settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
+        private float nextSettingsRefresh;
 
         public NetworkLobbyHostSession(
             RoomBrowserSystem room,
@@ -43,8 +45,6 @@ namespace Game.Bootstrap
             subscriptions.Add(this.room.Participants.Subscribe(_ => RecomputeHost()));
             subscriptions.Add(this.room.LocalPlayerId.Subscribe(_ => RecomputeHost()));
 
-            // Only these two are known to the session; the rest of the draft
-            // waits on 205.
             subscriptions.Add(this.room.RoomCode.Subscribe(_ => RepublishSettings()));
             subscriptions.Add(this.room.MaxPlayers.Subscribe(_ => RepublishSettings()));
         }
@@ -75,6 +75,14 @@ namespace Game.Bootstrap
             settings.Value = next;
         }
 
+        public void Tick()
+        {
+            // Fusion exposes current SessionInfo, but no runner callback for changed custom properties.
+            if (Time.unscaledTime < nextSettingsRefresh) return;
+            nextSettingsRefresh = Time.unscaledTime + 0.25f;
+            RepublishSettings();
+        }
+
         public void RequestStart()
         {
             if (!isLocalHost.CurrentValue)
@@ -95,7 +103,11 @@ namespace Game.Bootstrap
                 return;
             }
 
-            ReportUnreachable("강퇴", "199");
+            if (!network.TryKickPlayer(target))
+            {
+                Debug.LogWarning("[Lobby] 강퇴할 수 없습니다. 로비 상태와 대상 접속을 확인하세요.");
+                return;
+            }
             KickRequested?.Invoke(target);
         }
 
@@ -155,7 +167,7 @@ namespace Game.Bootstrap
             }
 
             SettingsApplyRequested?.Invoke(applied);
-            settings.Value = applied;
+            RepublishSettings();
         }
 
         public void Dispose()
@@ -209,18 +221,10 @@ namespace Game.Bootstrap
 
         private void RepublishSettings()
         {
-            var current = settings.CurrentValue;
-            var sessionTitle = network.RoomDisplayName;
-
-            settings.Value = new PlaySettingsDraft(
-                string.IsNullOrWhiteSpace(sessionTitle) ? current.Title : sessionTitle,
-                room.RoomCode.CurrentValue ?? string.Empty,
-                current.PasswordEnabled,
-                current.Password,
-                room.MaxPlayers.CurrentValue > 0 ? room.MaxPlayers.CurrentValue : current.MaxPlayers,
-                current.DestructionLimit,
-                current.MapId,
-                network.MatchRules);
+            if (!network.TryReadLobbySettings(out var latest)) return;
+            settings.Value = latest;
+            if (room.MaxPlayers.CurrentValue != latest.MaxPlayers)
+                room.PlayerCountChanged(room.PlayerCount.CurrentValue, latest.MaxPlayers);
         }
 
         private static void ReportUnreachable(string what, string ticket)
