@@ -48,6 +48,7 @@ namespace Game.Bootstrap
         {
             screen.RoomCreateRequested += OnCreateRequested;
             screen.RoomJoinRequested += OnJoinRequested;
+            screen.RoomCodeEntryRequested += OnCodeEntryRequested;
             browserView.RefreshRequested += OnRefreshRequested;
             browserView.CreateRoomRequested += OnCreateFormOpened;
             Refresh().Forget();
@@ -66,6 +67,7 @@ namespace Game.Bootstrap
         {
             screen.RoomCreateRequested -= OnCreateRequested;
             screen.RoomJoinRequested -= OnJoinRequested;
+            screen.RoomCodeEntryRequested -= OnCodeEntryRequested;
             browserView.RefreshRequested -= OnRefreshRequested;
             browserView.CreateRoomRequested -= OnCreateFormOpened;
         }
@@ -82,6 +84,11 @@ namespace Game.Bootstrap
         private void OnJoinRequested(RoomId room, string password)
         {
             Enter(room, password).Forget();
+        }
+
+        private void OnCodeEntryRequested(string code)
+        {
+            EnterByCode(code).Forget();
         }
 
         private async UniTaskVoid Refresh()
@@ -141,6 +148,27 @@ namespace Game.Bootstrap
             catch (Exception failure)
             {
                 Debug.LogError($"[Rooms] Could not enter the room: {failure.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Enters by the code itself rather than by looking it up in the list.
+        /// A code is a room's session name, so this reaches rooms the list is
+        /// not currently holding.
+        /// </summary>
+        private async UniTaskVoid EnterByCode(string code)
+        {
+            try
+            {
+                await commands.EnterByCodeAsync(code, null, CancellationToken.None);
+            }
+            catch (OperationCanceledException)
+            {
+                // The screen closed while entering. Nothing to report.
+            }
+            catch (Exception failure)
+            {
+                Debug.LogError($"[Rooms] Could not enter by code: {failure.Message}");
             }
         }
     }

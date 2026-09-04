@@ -270,7 +270,6 @@ namespace Game.Tests.EditMode
         {
             public event Action<string> SearchTextChanged;
             public event Action RefreshRequested;
-            public event Action RoomCodeSearchRequested;
             public event Action<string> RoomCodeEntered;
             public event Action CreateRoomRequested;
             public event Action BackRequested;

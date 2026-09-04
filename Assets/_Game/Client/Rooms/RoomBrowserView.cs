@@ -35,7 +35,6 @@ namespace Game.Client.Rooms
 
         public event Action<string> SearchTextChanged;
         public event Action RefreshRequested;
-        public event Action RoomCodeSearchRequested;
         public event Action<string> RoomCodeEntered;
         public event Action CreateRoomRequested;
         public event Action BackRequested;
@@ -225,11 +224,9 @@ namespace Game.Client.Rooms
             RefreshRequested?.Invoke();
         }
 
-        // Neither control is on this screen any more: a code is typed into the
-        // panel on the left, and rooms are opened from the home menu. They stay
-        // until the modal is taken out, because the presenter still listens.
-        private void OnRoomCodeSearchButtonClicked() => RoomCodeSearchRequested?.Invoke();
-
+        // Rooms are opened from the home menu now, so nothing on this screen
+        // raises this. It stays until that move lands, because the presenter
+        // still listens for it.
         private void OnCreateRoomButtonClicked() => CreateRoomRequested?.Invoke();
 
         private void OnBackButtonClicked() => BackRequested?.Invoke();
