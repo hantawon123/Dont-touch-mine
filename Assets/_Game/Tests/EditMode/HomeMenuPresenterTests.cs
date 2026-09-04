@@ -315,9 +315,13 @@ namespace Game.Tests.EditMode
             Assert.That(view.SearchResults[0].Nickname, Is.EqualTo("검색유저"));
             Assert.That(view.SearchResults[0].IsPending, Is.False);
 
+            // The presenter does not answer this click any more. Marking the row
+            // belongs to the command that sends the request, because doing both
+            // left the command looking at a row that already said it was waiting
+            // and dropping the request.
             view.RaiseFriendRequestClicked("player-2");
 
-            Assert.That(view.SearchResults[0].IsPending, Is.True);
+            Assert.That(view.SearchResults[0].IsPending, Is.False);
         }
 
         [Test]
