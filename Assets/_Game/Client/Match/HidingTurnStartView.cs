@@ -42,12 +42,13 @@ namespace Game.Client.Match
 
         [SerializeField]
         [Tooltip("Shows the overlay in the editor Game view without entering Play.")]
-        private bool previewOnAwake = true;
+        private bool previewOnAwake;
 
         [SerializeField]
         private float previewRemainingSeconds = 30f;
 
         private int lastTotalSeconds = -1;
+        private bool shown;
 
         public static string FormatTimer(double remainingSeconds)
         {
@@ -66,42 +67,37 @@ namespace Game.Client.Match
         private void OnEnable()
         {
             EnsureLayout();
-            if (previewOnAwake)
+            if (previewOnAwake && !shown)
             {
                 Show(previewRemainingSeconds);
                 return;
             }
 
-            if (Application.isPlaying)
+            if (!shown)
             {
-                Hide();
+                SetVisualsVisible(false);
             }
         }
 
         public void Show(double remainingSeconds)
         {
+            shown = true;
+            if (!gameObject.activeSelf)
+            {
+                gameObject.SetActive(true);
+            }
+
             EnsureLayout();
             transform.SetAsLastSibling();
             SetRemainingSeconds(remainingSeconds);
             ApplyBanner();
-
-            if (root != null)
-            {
-                root.SetActive(true);
-            }
-
-            gameObject.SetActive(true);
+            SetVisualsVisible(true);
         }
 
         public void Hide()
         {
-            if (root != null && root != gameObject)
-            {
-                root.SetActive(false);
-                return;
-            }
-
-            gameObject.SetActive(false);
+            shown = false;
+            SetVisualsVisible(false);
         }
 
         public void SetRemainingSeconds(double remainingSeconds)
@@ -148,7 +144,7 @@ namespace Game.Client.Match
         {
             if (root == null)
             {
-                root = gameObject;
+                root = transform.Find("Content")?.gameObject ?? gameObject;
             }
 
             var rect = transform as RectTransform;
@@ -271,6 +267,21 @@ namespace Game.Client.Match
             var dx = x - cornerX;
             var dy = y - cornerY;
             return (dx * dx) + (dy * dy) <= radius * radius;
+        }
+
+        private void SetVisualsVisible(bool visible)
+        {
+            var content = transform.Find("Content");
+            if (content != null)
+            {
+                content.gameObject.SetActive(visible);
+                return;
+            }
+
+            if (root != null && root != gameObject)
+            {
+                root.SetActive(visible);
+            }
         }
 
         private static void ApplyBannerCorner(Image banner)

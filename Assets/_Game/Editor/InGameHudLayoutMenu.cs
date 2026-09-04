@@ -330,6 +330,11 @@ namespace Game.Editor
 
             property.objectReferenceValue = view;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var viewSerialized = new SerializedObject(view);
+            viewSerialized.FindProperty("previewOnAwake").boolValue = false;
+            viewSerialized.ApplyModifiedPropertiesWithoutUndo();
+            view.Hide();
         }
 
         private static void EnsureAssignedItem(NetworkMatchHudView hud)

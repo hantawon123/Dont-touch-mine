@@ -46,6 +46,7 @@ namespace Game.Bootstrap
         private bool hidingIntroVisible;
         private bool hidingIntroOpenedThisPhase;
         private double hidingIntroEndsAt;
+        private bool hidingTurnStartVisible;
 
         public NetworkMatchHudPresenter(
             INetworkMatchEvents events,
@@ -76,6 +77,9 @@ namespace Game.Bootstrap
             view.SetPlayerItemStatuses(events.LatestPlayerItemStatuses);
             view.SetShredderMarker(default, false);
             view.HideHidingIntro();
+            view.HideHidingTurnStart();
+            view.SetMatchChatVisible(false);
+            view.SetPlayerStatusVisible(false);
             FindSceneReferences();
         }
 
@@ -91,6 +95,7 @@ namespace Game.Bootstrap
             view.SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
             view.SetShredderMarker(default, false);
             HideHidingIntro();
+            HideHidingTurnStart();
         }
 
         public void Tick()
@@ -129,6 +134,7 @@ namespace Game.Bootstrap
             }
 
             UpdateHidingIntro(now);
+            UpdateHidingTurnStart(now);
             UpdateShredderMarker();
         }
 
@@ -151,13 +157,18 @@ namespace Game.Bootstrap
             {
                 hidingIntroOpenedThisPhase = false;
                 HideHidingIntro();
+                HideHidingTurnStart();
             }
 
             snapshot = received;
             hasSnapshot = true;
+            var extrasVisible = received.Phase != MatchPhase.Hiding;
+            view.SetMatchChatVisible(extrasVisible);
+            view.SetPlayerStatusVisible(extrasVisible);
             ReportPhase();
             UpdateGameEndNotice();
             TryShowHidingIntro();
+            UpdateHidingTurnStart(clock.IsRuntimeReady ? clock.ServerTime : 0d);
         }
 
         private void OnMatchResultReceived(MatchResult result)
@@ -325,6 +336,70 @@ namespace Game.Bootstrap
 
             hidingIntroVisible = false;
             view.HideHidingIntro();
+        }
+
+        private void UpdateHidingTurnStart(double now)
+        {
+            if (hidingIntroVisible ||
+                !hasSnapshot ||
+                snapshot.Phase != MatchPhase.Hiding ||
+                !clock.IsRuntimeReady)
+            {
+                HideHidingTurnStart();
+                return;
+            }
+
+            var playing = room.MatchParticipants.CurrentValue;
+            var turnIndex = HidingTurns.IndexAt(
+                snapshot.Phase,
+                snapshot.PhaseEndsAt,
+                now,
+                playing.Count,
+                HidingTurnDurationSeconds);
+            if (turnIndex == HidingTurns.NoTurn ||
+                turnIndex != room.LocalPlayerIndex)
+            {
+                HideHidingTurnStart();
+                return;
+            }
+
+            var remaining = HidingTurns.RemainingSecondsAt(
+                snapshot.Phase,
+                snapshot.PhaseEndsAt,
+                now,
+                playing.Count,
+                HidingTurnDurationSeconds);
+            var phaseStartedAt = snapshot.PhaseEndsAt - (HidingTurnDurationSeconds * playing.Count);
+            var turnStartedAt = phaseStartedAt + (turnIndex * HidingTurnDurationSeconds);
+            var overlayStartsAt = Math.Max(
+                turnStartedAt,
+                phaseStartedAt + HidingIntroView.VisibleSeconds);
+            if (now < overlayStartsAt ||
+                now >= overlayStartsAt + HidingTurnStartView.VisibleSeconds)
+            {
+                HideHidingTurnStart();
+                return;
+            }
+
+            if (!hidingTurnStartVisible)
+            {
+                hidingTurnStartVisible = true;
+                view.ShowHidingTurnStart(remaining);
+                return;
+            }
+
+            view.SetHidingTurnStartSeconds(remaining);
+        }
+
+        private void HideHidingTurnStart()
+        {
+            if (!hidingTurnStartVisible)
+            {
+                return;
+            }
+
+            hidingTurnStartVisible = false;
+            view.HideHidingTurnStart();
         }
 
         private void OnPlayerItemStatusesReceived(

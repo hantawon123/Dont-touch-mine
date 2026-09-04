@@ -42,6 +42,7 @@ namespace Game.Client.Match
         private RawImage itemPreview;
 
         private HidingIntroItemPreview preview;
+        private bool shown;
 
         [SerializeField]
         [Tooltip("Preview the briefing in the editor. Match start wiring keeps this off.")]
@@ -78,17 +79,26 @@ namespace Game.Client.Match
         private void Awake()
         {
             EnsureLayout();
-            if (previewOnAwake)
+            if (previewOnAwake && !shown)
             {
                 Show(previewItemName);
                 return;
             }
 
-            Hide();
+            if (!shown)
+            {
+                SetVisualsVisible(false);
+            }
         }
 
         public void Show(string itemDisplayName, string itemId = null)
         {
+            shown = true;
+            if (!gameObject.activeSelf)
+            {
+                gameObject.SetActive(true);
+            }
+
             EnsureLayout();
             transform.SetAsLastSibling();
 
@@ -111,25 +121,14 @@ namespace Game.Client.Match
             }
 
             preview?.Show(itemId);
-
-            if (root != null)
-            {
-                root.SetActive(true);
-            }
-
-            gameObject.SetActive(true);
+            SetVisualsVisible(true);
         }
 
         public void Hide()
         {
+            shown = false;
             preview?.Clear();
-            if (root != null && root != gameObject)
-            {
-                root.SetActive(false);
-                return;
-            }
-
-            gameObject.SetActive(false);
+            SetVisualsVisible(false);
         }
 
         private void LateUpdate()
@@ -149,7 +148,7 @@ namespace Game.Client.Match
 
             if (root == null)
             {
-                root = gameObject;
+                root = transform.Find("Background")?.gameObject ?? gameObject;
             }
 
             var rect = transform as RectTransform;
@@ -246,6 +245,21 @@ namespace Game.Client.Match
                 new Vector2(0.5f, 0.5f),
                 new Vector2(0f, -170f),
                 new Vector2(1400f, 80f));
+        }
+
+        private void SetVisualsVisible(bool visible)
+        {
+            var background = transform.Find("Background");
+            if (background != null)
+            {
+                background.gameObject.SetActive(visible);
+            }
+
+            var content = transform.Find("Content");
+            if (content != null)
+            {
+                content.gameObject.SetActive(visible);
+            }
         }
 
         private void EnsureOverlayCanvas()

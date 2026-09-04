@@ -26,6 +26,11 @@ namespace Game.Client.Match
         void SetShredderMarker(Vector2 screenPosition, bool visible);
         void ShowHidingIntro(string itemDisplayName, string itemId);
         void HideHidingIntro();
+        void ShowHidingTurnStart(double remainingSeconds);
+        void HideHidingTurnStart();
+        void SetHidingTurnStartSeconds(double remainingSeconds);
+        void SetMatchChatVisible(bool visible);
+        void SetPlayerStatusVisible(bool visible);
     }
 
     /// <summary>
@@ -69,6 +74,7 @@ namespace Game.Client.Match
 
         private string assignedItemDisplayName;
         private int remainingDestructionUses = -1;
+        private bool playerStatusVisible = true;
         private bool highlightOnly;
         private bool showEndCountdown;
         private readonly Dictionary<Graphic, bool> hiddenGraphics = new();
@@ -89,6 +95,8 @@ namespace Game.Client.Match
             EnsureHidingIntro();
             HideHidingIntro();
             EnsureHidingTurnStart();
+            HideHidingTurnStart();
+            HideVoiceButton();
         }
 
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
@@ -276,6 +284,39 @@ namespace Game.Client.Match
             hidingIntroView?.Hide();
         }
 
+        public void ShowHidingTurnStart(double remainingSeconds)
+        {
+            EnsureHidingTurnStart();
+            SetTopHudVisible(false);
+            hidingTurnStartView?.Show(remainingSeconds);
+        }
+
+        public void HideHidingTurnStart()
+        {
+            hidingTurnStartView?.Hide();
+            SetTopHudVisible(true);
+        }
+
+        public void SetHidingTurnStartSeconds(double remainingSeconds)
+        {
+            hidingTurnStartView?.SetRemainingSeconds(remainingSeconds);
+        }
+
+        public void SetMatchChatVisible(bool visible)
+        {
+            var chat = GetComponentInParent<Canvas>()?.GetComponentInChildren<MatchChatView>(true);
+            if (chat != null)
+            {
+                chat.gameObject.SetActive(visible);
+            }
+        }
+
+        public void SetPlayerStatusVisible(bool visible)
+        {
+            playerStatusVisible = visible;
+            RefreshPlayerStatus();
+        }
+
         private void EnsureHidingIntro()
         {
             if (hidingIntroView == null)
@@ -302,6 +343,28 @@ namespace Game.Client.Match
             }
         }
 
+        private void HideVoiceButton()
+        {
+            var slot = transform.Find("VoiceButton");
+            if (slot != null)
+            {
+                slot.gameObject.SetActive(false);
+            }
+        }
+
+        private void SetTopHudVisible(bool visible)
+        {
+            if (phaseView != null)
+            {
+                phaseView.gameObject.SetActive(visible);
+            }
+
+            if (timerView != null)
+            {
+                timerView.gameObject.SetActive(visible);
+            }
+        }
+
         private void RefreshPlayerStatus()
         {
             if (assignedItemText == null)
@@ -314,7 +377,7 @@ namespace Game.Client.Match
             var uses = remainingDestructionUses == PlaySettingsDraft.UnlimitedDestructionUses
                 ? "무한"
                 : $"{remainingDestructionUses}회";
-            assignedItemText.gameObject.SetActive(hasItem || hasUses);
+            assignedItemText.gameObject.SetActive(playerStatusVisible && (hasItem || hasUses));
             assignedItemText.text = hasItem && hasUses
                 ? $"내 물건: {assignedItemDisplayName}\n파쇄기: {uses}"
                 : hasItem
