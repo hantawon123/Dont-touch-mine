@@ -895,6 +895,11 @@ namespace Game.Client.Home
                 {
                     row.BlockButton.interactable = true;
                 }
+
+                if (row.RemoveButton != null)
+                {
+                    row.RemoveButton.interactable = true;
+                }
             }
         }
 
@@ -1250,24 +1255,22 @@ namespace Game.Client.Home
             AddDropShadow(row.gameObject, ItemShadowColor, new Vector2(2f, -3f));
             AddDropShadow(row.gameObject, new Color(0.12f, 0.12f, 0.12f, 0.16f), new Vector2(4f, -6f));
 
+            // Tighter than the other rows because this one carries two actions
+            // beside a status badge. The panel leaves 284 for a row, and at the
+            // old spacing a second button pushed the nickname under its own
+            // minimum and out of the panel.
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(10, 10, 8, 8);
-            layout.spacing = 10f;
+            layout.spacing = 6f;
             layout.childAlignment = TextAnchor.MiddleLeft;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = true;
 
-            var avatar = CreateRect("Avatar", row);
-            var avatarLayout = avatar.gameObject.AddComponent<LayoutElement>();
-            avatarLayout.preferredWidth = 36f;
-            avatarLayout.preferredHeight = 36f;
-            avatarLayout.minWidth = 36f;
-            avatarLayout.minHeight = 36f;
-            var avatarImage = AddImage(avatar, AvatarColor, HomeUiFonts.CircleSprite);
-            avatarImage.preserveAspect = true;
-
+            // No avatar. It was a plain grey circle carrying no picture and no
+            // information, and the 42 it took left the nickname 76 to work with —
+            // enough to cut a six character name in half.
             var nicknameRect = CreateRect("Nickname", row);
             var nicknameLayout = nicknameRect.gameObject.AddComponent<LayoutElement>();
             nicknameLayout.flexibleWidth = 1f;
@@ -1282,8 +1285,8 @@ namespace Game.Client.Home
 
             var statusRect = CreateRect("Status", row);
             var statusLayout = statusRect.gameObject.AddComponent<LayoutElement>();
-            statusLayout.preferredWidth = 76f;
-            statusLayout.minWidth = 76f;
+            statusLayout.preferredWidth = 56f;
+            statusLayout.minWidth = 56f;
             statusLayout.preferredHeight = 28f;
             var statusImage = AddImage(statusRect, FriendStatusColor, HomeUiFonts.RoundedSprite);
             statusImage.type = Image.Type.Sliced;
@@ -1307,15 +1310,44 @@ namespace Game.Client.Home
                 Status = status
             };
 
+            // Ending the friendship first, blocking second: the pair reads left
+            // to right from the lighter action to the heavier one.
+            friendRow.RemoveButton = CreateRowTextButton(
+                row,
+                "Remove",
+                "삭제",
+                36f,
+                () => RemoveFriend(friendRow));
+
             friendRow.BlockButton = CreateRowTextButton(
                 row,
                 "Block",
                 "차단",
-                40f,
+                36f,
                 () => ConfirmBlock(friendRow));
 
             friendRow.BlockLabel = friendRow.BlockButton.GetComponentInChildren<TMP_Text>();
             return friendRow;
+        }
+
+        /// <summary>
+        /// Ends the friendship on the first press.
+        /// </summary>
+        /// <remarks>
+        /// No confirmation, unlike blocking. Both people can still find each
+        /// other afterwards and either can ask again, so the worst a stray press
+        /// costs is one more request.
+        /// </remarks>
+        private void RemoveFriend(FriendRow row)
+        {
+            if (string.IsNullOrEmpty(row.PlayerId))
+            {
+                return;
+            }
+
+            row.RemoveButton.interactable = false;
+            row.BlockButton.interactable = false;
+            FriendRemoved?.Invoke(row.PlayerId);
         }
 
         /// <summary>
@@ -1472,6 +1504,7 @@ namespace Game.Client.Home
             public string PlayerId;
             public TMP_Text Nickname;
             public TMP_Text Status;
+            public Button RemoveButton;
             public Button BlockButton;
             public TMP_Text BlockLabel;
             public bool BlockArmed;

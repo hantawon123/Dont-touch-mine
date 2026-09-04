@@ -200,6 +200,7 @@ namespace Game.Architecture.Tests
             public event Action<string> FriendRequestDeclined;
             public event Action<string> FriendRequestCancelled;
             public event Action FriendListRefreshRequested;
+            public event Action<string> FriendRemoved;
             public event Action<string> FriendBlocked;
 
             public void RaiseNicknameChangeRequested(string nickname)
@@ -250,6 +251,7 @@ namespace Game.Architecture.Tests
                 FriendRequestDeclined?.Invoke(null);
                 FriendRequestCancelled?.Invoke(null);
                 FriendListRefreshRequested?.Invoke();
+                FriendRemoved?.Invoke(null);
                 FriendBlocked?.Invoke(null);
             }
         }

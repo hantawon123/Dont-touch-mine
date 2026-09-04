@@ -35,6 +35,12 @@ namespace Game.Client.Home
         event Action FriendListRefreshRequested;
 
         /// <summary>
+        /// A friendship, ended. Raised on the first press: either player can ask
+        /// again afterwards, so there is nothing here to confirm.
+        /// </summary>
+        event Action<string> FriendRemoved;
+
+        /// <summary>
         /// A friend, blocked. Raised only after the player confirms, because
         /// blocking also ends the friendship.
         /// </summary>

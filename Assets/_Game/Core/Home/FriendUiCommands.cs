@@ -229,6 +229,26 @@ namespace Game.Core.Home
         }
 
         /// <summary>
+        /// Ends a friendship, then reloads the friend list.
+        /// </summary>
+        /// <remarks>
+        /// Unlike blocking, this leaves both people able to find each other, so
+        /// either can ask again. That is why the screen asks for no confirmation
+        /// before calling it.
+        /// </remarks>
+        public async UniTask<BackendFailure> RemoveFriendAsync(
+            string playerId, CancellationToken cancellation)
+        {
+            var answer = await gateway.RemoveFriendAsync(playerId, cancellation);
+            if (!answer.Ok)
+            {
+                return answer.Failure;
+            }
+
+            return await RefreshFriendsAsync(cancellation);
+        }
+
+        /// <summary>
         /// Blocks someone, then reloads the friend list.
         /// </summary>
         /// <remarks>
