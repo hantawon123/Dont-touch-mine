@@ -24,6 +24,10 @@ namespace Game.Client.Home
 
         event Action<string> FriendRequestClicked;
 
+        event Action<string> FriendRequestAccepted;
+
+        event Action<string> FriendRequestDeclined;
+
         void SetNickname(string nickname);
 
         void SetLevel(int level);
@@ -41,5 +45,11 @@ namespace Game.Client.Home
         void SetFriendSearchVisible(bool visible);
 
         void SetFriendSearchResults(IReadOnlyList<FriendSearchHit> results);
+
+        /// <summary>
+        /// Shows the requests waiting for this player to answer. An empty list
+        /// hides the section rather than leaving an empty heading behind.
+        /// </summary>
+        void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests);
     }
 }

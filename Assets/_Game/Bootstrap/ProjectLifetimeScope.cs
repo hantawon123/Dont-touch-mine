@@ -1,3 +1,4 @@
+using Game.Backend;
 using Game.Core.Flow;
 using Game.Client.Home;
 using Game.Client.Match;
@@ -36,6 +37,10 @@ namespace Game.Bootstrap
         [Tooltip("Photon region code supplied by the deployment settings; room lists are region-local.")]
         private string _networkRegion;
 
+        [SerializeField]
+        [Tooltip("Backend address. Leave empty for the deployed server; set http://localhost:8080 to work against a local one.")]
+        private string _backendBaseUrl;
+
         protected override void Configure(IContainerBuilder builder)
         {
             // The store is built here, not in RegisterServices: it reads this
@@ -50,6 +55,12 @@ namespace Game.Bootstrap
                 LoadProfile(store),
                 _networkRegion);
             builder.RegisterInstance<IProfileStore>(store);
+
+            // Built here for the same reason the store is: the device identifier
+            // is this machine's saved credential, and a test container must not
+            // pick up the account belonging to whoever last played here.
+            RegisterBackend(builder, _backendBaseUrl);
+
             // Shared across Playground and Result so scene unloading cannot reveal gameplay.
             var transition = new GameObject("Highlight Transition").AddComponent<HighlightTransitionView>();
             transition.transform.SetParent(transform, false);
@@ -101,6 +112,46 @@ namespace Game.Bootstrap
             {
                 actions?.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Registers the backend client and the ports that speak through it.
+        /// </summary>
+        /// <remarks>
+        /// The gateways are registered by their port only. Presentation asks for
+        /// <see cref="IFriendGateway"/>, never for the client underneath, so the
+        /// day this talks to something other than REST the callers do not move.
+        /// <para>
+        /// One client for the whole application, because the account it signs
+        /// into is one account: sign in through one gateway and every other
+        /// gateway is signed in too.
+        /// </para>
+        /// </remarks>
+        private static void RegisterBackend(IContainerBuilder builder, string baseUrl)
+        {
+            var client = new BackendClient(
+                new UnityWebRequestTransport(),
+                new BackendEndpoint(baseUrl),
+                new BackendSession(DeviceIdentity.Current()));
+
+            // The client itself is not registered. Nothing above this line has a
+            // reason to hold it, and a container that hands it out is one where
+            // a presenter can send its own request and skip the ports entirely.
+            builder.RegisterInstance<IAccountGateway>(new AccountGateway(client));
+            builder.RegisterInstance<IFriendGateway>(new FriendGateway(client));
+            builder.RegisterInstance<IPresenceGateway>(new PresenceGateway(client));
+
+            // Registered beside the gateways rather than in RegisterServices,
+            // because it needs one. A test container that builds only the
+            // services has no backend to command.
+            builder.Register<FriendUiCommands>(Lifetime.Singleton);
+
+            // Registered as itself as well as an entry point, because the two
+            // things that wait on it resolve it. One registration, so they wait
+            // on the sign-in that actually ran rather than on a second instance
+            // that never started.
+            builder.RegisterEntryPoint<BackendSignIn>().AsSelf();
+            builder.RegisterEntryPoint<PresenceHeartbeat>();
         }
 
         /// <summary>

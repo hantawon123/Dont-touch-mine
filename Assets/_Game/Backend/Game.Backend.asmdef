@@ -1,16 +1,9 @@
 {
-    "name": "Game.Bootstrap",
-    "rootNamespace": "Game.Bootstrap",
+    "name": "Game.Backend",
+    "rootNamespace": "Game.Backend",
     "references": [
-        "Game.Client",
-        "Game.Backend",
         "Game.Core",
-        "Game.Network",
-        "Game.Server",
-        "Game.SOAP",
-        "UniTask",
-        "VContainer",
-        "Unity.InputSystem"
+        "UniTask"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
