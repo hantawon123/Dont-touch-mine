@@ -89,6 +89,103 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_Search_KeepsOnlyMatchingRooms()
+        {
+            using var rooms = new RoomBrowserSystem();
+            var view = new FakeRoomBrowserView();
+            using var presenter = new RoomBrowserPresenter(
+                view, rooms, new FakeHomeApplicationHost(), new AppFlowSystem());
+
+            presenter.Start();
+            rooms.SetRooms(new[] { Room("숨바꼭질 방"), Room("술래잡기 방") });
+
+            view.RaiseSearch("숨바꼭질");
+
+            Assert.That(view.Rooms.Count, Is.EqualTo(1));
+            Assert.That(view.Rooms[0].DisplayName, Is.EqualTo("숨바꼭질 방"));
+            Assert.That(view.EmptyMessage, Is.Null);
+        }
+
+        /// <summary>
+        /// The list arrives again on every refresh, and it must arrive filtered:
+        /// a player who searched and then refreshed did not ask for the search
+        /// to be dropped.
+        /// </summary>
+        [Test]
+        public void Presenter_Search_SurvivesARefreshedList()
+        {
+            using var rooms = new RoomBrowserSystem();
+            var view = new FakeRoomBrowserView();
+            using var presenter = new RoomBrowserPresenter(
+                view, rooms, new FakeHomeApplicationHost(), new AppFlowSystem());
+
+            presenter.Start();
+            rooms.SetRooms(new[] { Room("숨바꼭질 방"), Room("술래잡기 방") });
+            view.RaiseSearch("숨바꼭질");
+
+            rooms.SetRooms(new[]
+            {
+                Room("숨바꼭질 방"),
+                Room("술래잡기 방"),
+                Room("새로 열린 방"),
+            });
+
+            Assert.That(view.Rooms.Count, Is.EqualTo(1));
+            Assert.That(view.Rooms[0].DisplayName, Is.EqualTo("숨바꼭질 방"));
+        }
+
+        [Test]
+        public void Presenter_ClearingTheSearch_BringsEveryRoomBack()
+        {
+            using var rooms = new RoomBrowserSystem();
+            var view = new FakeRoomBrowserView();
+            using var presenter = new RoomBrowserPresenter(
+                view, rooms, new FakeHomeApplicationHost(), new AppFlowSystem());
+
+            presenter.Start();
+            rooms.SetRooms(new[] { Room("숨바꼭질 방"), Room("술래잡기 방") });
+            view.RaiseSearch("숨바꼭질");
+
+            view.RaiseSearch(string.Empty);
+
+            Assert.That(view.Rooms.Count, Is.EqualTo(2));
+            Assert.That(view.EmptyMessage, Is.Null);
+        }
+
+        /// <summary>
+        /// An empty list has two causes and the player can act on only one of
+        /// them, so it is not enough to show nothing.
+        /// </summary>
+        [Test]
+        public void Presenter_TellsAnEmptySearchApartFromAnEmptyLobby()
+        {
+            using var rooms = new RoomBrowserSystem();
+            var view = new FakeRoomBrowserView();
+            using var presenter = new RoomBrowserPresenter(
+                view, rooms, new FakeHomeApplicationHost(), new AppFlowSystem());
+
+            presenter.Start();
+            Assert.That(view.EmptyMessage, Is.EqualTo(RoomBrowserPresenter.NoRooms));
+
+            rooms.SetRooms(new[] { Room("숨바꼭질 방") });
+            view.RaiseSearch("없는 이름");
+
+            Assert.That(view.EmptyMessage, Is.EqualTo(RoomBrowserPresenter.NoSearchResults));
+        }
+
+        private static RoomSummary Room(string title)
+        {
+            return new RoomSummary(
+                new RoomId(title),
+                title,
+                "playground",
+                1,
+                RoomSettings.MaxPlayerCount,
+                isLocked: false,
+                isOpen: true);
+        }
+
+        [Test]
         public void Presenter_Back_ReturnsToHome()
         {
             using var rooms = new RoomBrowserSystem();
@@ -206,6 +303,8 @@ namespace Game.Tests.EditMode
             {
                 EmptyMessage = message;
             }
+
+            public void RaiseSearch(string text) => SearchTextChanged?.Invoke(text);
 
             public RoomEntryFailure LastFailure { get; private set; }
 
