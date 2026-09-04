@@ -40,6 +40,8 @@ namespace Game.Client.Home
         private RectTransform requestsItemsRoot;
         private GameObject sentSection;
         private RectTransform sentItemsRoot;
+        private TMP_Text requestsEmptyText;
+        private TMP_Text sentEmptyText;
         private GameObject refreshButton;
         private TMP_InputField friendSearchInput;
         private TMP_Text searchEmptyText;
@@ -273,6 +275,19 @@ namespace Game.Client.Home
             UpdateSearchEmptyHint(results);
         }
 
+        /// <remarks>
+        /// The section stays on screen either way. It used to disappear when it
+        /// held nothing, which saved room but hid the fact that requests can be
+        /// accepted here at all.
+        /// </remarks>
+        private static void ShowEmptyLine(TMP_Text line, bool isEmpty)
+        {
+            if (line != null)
+            {
+                line.gameObject.SetActive(isEmpty);
+            }
+        }
+
         private static void ClearFriendRows(List<FriendRow> rows)
         {
             for (var index = 0; index < rows.Count; index++)
@@ -317,7 +332,7 @@ namespace Game.Client.Home
                 return;
             }
 
-            sentSection.SetActive(requests.Count > 0);
+            ShowEmptyLine(sentEmptyText, requests.Count == 0);
             BindRequestRows(sentRows, sentItemsRoot, requests, sent: true);
         }
 
@@ -333,9 +348,7 @@ namespace Game.Client.Home
                 return;
             }
 
-            // Hidden rather than shown empty. The panel is small, and a heading
-            // over nothing costs the search results the room they need.
-            requestsSection.SetActive(requests.Count > 0);
+            ShowEmptyLine(requestsEmptyText, requests.Count == 0);
             BindRequestRows(requestRows, requestsItemsRoot, requests, sent: false);
         }
 

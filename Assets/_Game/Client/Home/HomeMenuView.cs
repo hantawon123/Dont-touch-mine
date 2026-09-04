@@ -620,8 +620,10 @@ namespace Game.Client.Home
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
-            requestsItemsRoot = CreateRequestsSection(body, "받은 요청", out requestsSection);
-            sentItemsRoot = CreateRequestsSection(body, "보낸 요청", out sentSection);
+            requestsItemsRoot = CreateRequestsSection(
+                body, "받은 요청", "받은 요청이 없습니다", out requestsSection, out requestsEmptyText);
+            sentItemsRoot = CreateRequestsSection(
+                body, "보낸 요청", "보낸 요청이 없습니다", out sentSection, out sentEmptyText);
             CreateSearchBar(body);
             searchItemsRoot = CreateSearchResults(body);
             friendSearchBody.SetActive(false);
@@ -1052,7 +1054,11 @@ namespace Game.Client.Home
         /// </para>
         /// </remarks>
         private RectTransform CreateRequestsSection(
-            RectTransform parent, string heading, out GameObject section)
+            RectTransform parent,
+            string heading,
+            string emptyMessage,
+            out GameObject section,
+            out TMP_Text emptyText)
         {
             var sectionRect = CreateRect(heading, parent);
             var sectionObject = sectionRect.gameObject;
@@ -1085,8 +1091,29 @@ namespace Game.Client.Home
             itemsLayout.childForceExpandWidth = true;
             itemsLayout.childForceExpandHeight = false;
 
+            // A line for when the list holds nothing. Hiding the whole section
+            // instead saved room, but it made "you have no requests" look
+            // exactly like "this screen cannot accept requests" — somebody went
+            // looking for the accept button and could not tell which it was.
+            var emptyRect = CreateRect("Empty", items);
+            var emptyLayout = emptyRect.gameObject.AddComponent<LayoutElement>();
+            emptyLayout.preferredHeight = 30f;
+            emptyLayout.minHeight = 30f;
+            emptyText = AddText(
+                emptyRect,
+                emptyMessage,
+                15f,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineLeft);
+
+            // The same grey the search hint uses, so a message reads as a note
+            // rather than as a row.
+            emptyText.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+
             section = sectionObject;
-            section.SetActive(false);
+
+            // Both sections start visible now. They no longer cost anything when
+            // empty: a single grey line is shorter than one row.
             return items;
         }
 
