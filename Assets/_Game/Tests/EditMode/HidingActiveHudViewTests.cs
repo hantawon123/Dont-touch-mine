@@ -24,6 +24,9 @@ namespace Game.Architecture.Tests
                 Assert.That(hint, Is.Not.Null);
                 Assert.That(hint.text, Is.EqualTo(HidingActiveHudView.HintText));
                 Assert.That(hint.fontSize, Is.EqualTo(HidingActiveHudView.HintFontSize));
+                Assert.That(
+                    view.transform.Find("TopPrompt").GetComponent<RectTransform>().anchoredPosition.y,
+                    Is.EqualTo(-HidingActiveHudView.TopPadding));
 
                 var complete = view.transform.Find("CompleteGuide/Caption")?.GetComponent<TMPro.TMP_Text>();
                 Assert.That(complete, Is.Not.Null);
@@ -88,6 +91,36 @@ namespace Game.Architecture.Tests
         {
             Assert.That(HidingActiveHudView.MeasureKeyChipWidth("C", 12f), Is.EqualTo(35f));
             Assert.That(HidingActiveHudView.MeasureKeyChipWidth("Space", 46f), Is.EqualTo(66f));
+        }
+
+        [Test]
+        public void Show_UsesWarningCopyAndColorInLastTenSeconds()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = HidingActiveHudView.Create(canvas.transform);
+                view.Show(11d, true, true);
+
+                var timer = view.transform.Find("TopPrompt/Timer")?.GetComponent<TMPro.TMP_Text>();
+                var hint = view.transform.Find("TopPrompt/Hint")?.GetComponent<TMPro.TMP_Text>();
+                Assert.That(hint.text, Is.EqualTo(HidingActiveHudView.HintText));
+                Assert.That(timer.color, Is.EqualTo(Color.white));
+                Assert.That(HidingActiveHudView.IsWarning(11d), Is.False);
+
+                view.Show(10d, true, true);
+                Assert.That(timer.text, Is.EqualTo("00:10"));
+                Assert.That(hint.text, Is.EqualTo(HidingActiveHudView.WarningHintText));
+                Assert.That(timer.color, Is.EqualTo(HidingActiveHudView.WarningColor));
+                Assert.That(hint.color, Is.EqualTo(HidingActiveHudView.WarningColor));
+                Assert.That(HidingActiveHudView.IsWarning(10d), Is.True);
+                Assert.That(HidingActiveHudView.HeartbeatScale(0f), Is.GreaterThan(1f));
+                Assert.That(HidingActiveHudView.HeartbeatScale(0.45f), Is.LessThan(1.02f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
         }
 
         [Test]

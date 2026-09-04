@@ -22,6 +22,12 @@ namespace Game.Client.Match
     public sealed class HidingActiveHudView : MonoBehaviour, IHidingActiveHudView
     {
         public const string HintText = "제한 시간 안에 물건을 숨겨주세요!";
+        public const string WarningHintText = "시간 초과 시 마지막 위치에 물건이 배치됩니다";
+        public const float WarningSeconds = 10f;
+        public const float TopPadding = 20f;
+        public const float HeartbeatPeakScale = 1.08f;
+        public const float HeartbeatPeriod = 0.9f;
+        public static readonly Color WarningColor = new Color(1f, 0.54f, 0.24f, 1f);
         public const string CompleteText = "숨기기 완료";
         public const string CompleteKey = "Y";
         public const float TimerFontSize = 45f;
@@ -83,7 +89,9 @@ namespace Game.Client.Match
         private float previewRemainingSeconds = 30f;
 
         private int lastTotalSeconds = -1;
+        private double lastRemainingSeconds;
         private bool shown;
+        private bool warningActive;
 
         public static HidingActiveHudView Create(Transform parent)
         {
@@ -119,6 +127,7 @@ namespace Game.Client.Match
             EnsureLayout();
             SetRemainingSeconds(remainingSeconds);
             ApplyFonts();
+            ApplyUrgency(remainingSeconds);
             if (keyGuide != null)
             {
                 keyGuide.SetActive(true);
@@ -131,6 +140,8 @@ namespace Game.Client.Match
         public void Hide()
         {
             shown = false;
+            warningActive = false;
+            ResetPulseScale();
             SetTopPromptVisible(false);
             SetCompleteGuideVisible(false);
             if (keyGuide != null)
@@ -141,19 +152,43 @@ namespace Game.Client.Match
 
         public void SetRemainingSeconds(double remainingSeconds)
         {
+            lastRemainingSeconds = remainingSeconds;
             if (timerText == null)
             {
                 return;
             }
 
             var totalSeconds = Mathf.Max(0, Mathf.CeilToInt((float)remainingSeconds));
-            if (totalSeconds == lastTotalSeconds)
+            if (totalSeconds != lastTotalSeconds)
             {
+                timerText.text = HidingTurnStartView.FormatTimer(remainingSeconds);
+                lastTotalSeconds = totalSeconds;
+            }
+
+            ApplyUrgency(remainingSeconds);
+        }
+
+        public static bool IsWarning(double remainingSeconds)
+        {
+            return Mathf.Max(0, Mathf.CeilToInt((float)remainingSeconds)) <= WarningSeconds;
+        }
+
+        public static float HeartbeatScale(float time)
+        {
+            var cycle = Mathf.Repeat(time, HeartbeatPeriod) / HeartbeatPeriod;
+            var beat = Pulse(cycle) + (0.62f * Pulse(cycle - 0.22f));
+            return 1f + ((HeartbeatPeakScale - 1f) * beat);
+        }
+
+        private void Update()
+        {
+            if (!shown || !warningActive || topPrompt == null || !topPrompt.activeSelf)
+            {
+                ResetPulseScale();
                 return;
             }
 
-            timerText.text = HidingTurnStartView.FormatTimer(remainingSeconds);
-            lastTotalSeconds = totalSeconds;
+            topPrompt.transform.localScale = Vector3.one * HeartbeatScale(Time.unscaledTime);
         }
 
         public void SetTopPromptVisible(bool visible)
@@ -180,7 +215,6 @@ namespace Game.Client.Match
                 timerText.font = font;
                 timerText.fontSize = TimerFontSize;
                 timerText.fontStyle = FontStyles.Normal;
-                timerText.color = Color.white;
             }
 
             if (hintText != null)
@@ -188,12 +222,54 @@ namespace Game.Client.Match
                 hintText.font = font;
                 hintText.fontSize = HintFontSize;
                 hintText.fontStyle = FontStyles.Normal;
-                hintText.text = HintText;
-                hintText.color = Color.white;
             }
 
+            ApplyUrgency(lastRemainingSeconds);
             ApplyKeyGuideStyle();
             ApplyCompleteKeyStyle();
+        }
+
+        private void ApplyUrgency(double remainingSeconds)
+        {
+            warningActive = IsWarning(remainingSeconds);
+            var color = warningActive ? WarningColor : Color.white;
+            var hint = warningActive ? WarningHintText : HintText;
+
+            if (timerText != null)
+            {
+                timerText.color = color;
+            }
+
+            if (hintText != null)
+            {
+                hintText.text = hint;
+                hintText.color = color;
+            }
+
+            if (!warningActive)
+            {
+                ResetPulseScale();
+            }
+        }
+
+        private void ResetPulseScale()
+        {
+            if (topPrompt != null)
+            {
+                topPrompt.transform.localScale = Vector3.one;
+            }
+        }
+
+        private static float Pulse(float offset)
+        {
+            var wrapped = Mathf.Repeat(offset + 1f, 1f);
+            if (wrapped > 0.5f)
+            {
+                wrapped -= 1f;
+            }
+
+            var falloff = wrapped * 14f;
+            return Mathf.Exp(-(falloff * falloff));
         }
 
         private void ApplyCompleteKeyStyle()
@@ -312,30 +388,49 @@ namespace Game.Client.Match
             {
                 keyGuide = transform.Find("KeyGuide")?.gameObject;
             }
+
+            ApplyTopPromptLayout();
+        }
+
+        private void ApplyTopPromptLayout()
+        {
+            if (topPrompt != null)
+            {
+                Place(
+                    topPrompt.GetComponent<RectTransform>(),
+                    new Vector2(0.5f, 1f),
+                    new Vector2(0f, -TopPadding),
+                    new Vector2(980f, 110f),
+                    new Vector2(0.5f, 1f));
+            }
+
+            if (timerText != null)
+            {
+                Place(
+                    timerText.rectTransform,
+                    new Vector2(0.5f, 1f),
+                    Vector2.zero,
+                    new Vector2(360f, 56f),
+                    new Vector2(0.5f, 1f));
+            }
+
+            if (hintText != null)
+            {
+                Place(
+                    hintText.rectTransform,
+                    new Vector2(0.5f, 1f),
+                    new Vector2(0f, -56f),
+                    new Vector2(920f, 40f),
+                    new Vector2(0.5f, 1f));
+            }
         }
 
         private void BuildLayout()
         {
             topPrompt = CreateRect(transform, "TopPrompt").gameObject;
-            Place(
-                topPrompt.GetComponent<RectTransform>(),
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -72f),
-                new Vector2(980f, 110f));
-
             timerText = CreateText(topPrompt.transform, "Timer", "00:30", TimerFontSize);
-            Place(
-                timerText.rectTransform,
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -8f),
-                new Vector2(360f, 56f));
-
             hintText = CreateText(topPrompt.transform, "Hint", HintText, HintFontSize);
-            Place(
-                hintText.rectTransform,
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -62f),
-                new Vector2(920f, 40f));
+            ApplyTopPromptLayout();
 
             completeGuide = CreateRect(transform, "CompleteGuide").gameObject;
             Place(
