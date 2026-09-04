@@ -32,6 +32,12 @@ namespace Game.Client.Match
         void ShowHidingActiveHud(double remainingSeconds, bool showTopPrompt, bool showCompleteGuide);
         void HideHidingActiveHud();
         void SetHidingActiveHudSeconds(double remainingSeconds);
+        void ShowHidingWaitHud(
+            int completedCount,
+            int totalCount,
+            string hidingPlayerName,
+            IReadOnlyList<HidingWaitPlayer> players);
+        void HideHidingWaitHud();
         void SetTopHudVisible(bool visible);
         void SetMatchChatVisible(bool visible);
         void SetPlayerStatusVisible(bool visible);
@@ -79,6 +85,9 @@ namespace Game.Client.Match
         [SerializeField]
         private HidingActiveHudView hidingActiveHudView;
 
+        [SerializeField]
+        private HidingWaitHudView hidingWaitHudView;
+
         private string assignedItemDisplayName;
         private int remainingDestructionUses = -1;
         private bool playerStatusVisible = true;
@@ -105,6 +114,8 @@ namespace Game.Client.Match
             HideHidingTurnStart();
             EnsureHidingActiveHud();
             HideHidingActiveHud();
+            EnsureHidingWaitHud();
+            HideHidingWaitHud();
             HideVoiceButton();
         }
 
@@ -132,7 +143,8 @@ namespace Game.Client.Match
                     (destructionNoticeRoot != null && graphic.transform.IsChildOf(destructionNoticeRoot.transform)) ||
                     (hidingIntroView != null && graphic.transform.IsChildOf(hidingIntroView.transform)) ||
                     (hidingTurnStartView != null && graphic.transform.IsChildOf(hidingTurnStartView.transform)) ||
-                    (hidingActiveHudView != null && graphic.transform.IsChildOf(hidingActiveHudView.transform)))
+                    (hidingActiveHudView != null && graphic.transform.IsChildOf(hidingActiveHudView.transform)) ||
+                    (hidingWaitHudView != null && graphic.transform.IsChildOf(hidingWaitHudView.transform)))
                     continue;
                 hiddenGraphics[graphic] = graphic.enabled;
                 graphic.enabled = false;
@@ -322,6 +334,21 @@ namespace Game.Client.Match
             hidingActiveHudView?.SetRemainingSeconds(remainingSeconds);
         }
 
+        public void ShowHidingWaitHud(
+            int completedCount,
+            int totalCount,
+            string hidingPlayerName,
+            IReadOnlyList<HidingWaitPlayer> players)
+        {
+            EnsureHidingWaitHud();
+            hidingWaitHudView?.Show(completedCount, totalCount, hidingPlayerName, players);
+        }
+
+        public void HideHidingWaitHud()
+        {
+            hidingWaitHudView?.Hide();
+        }
+
         public void SetTopHudVisible(bool visible)
         {
             if (phaseView != null)
@@ -391,6 +418,19 @@ namespace Game.Client.Match
             if (hidingActiveHudView == null)
             {
                 hidingActiveHudView = HidingActiveHudView.Create(transform);
+            }
+        }
+
+        private void EnsureHidingWaitHud()
+        {
+            if (hidingWaitHudView == null)
+            {
+                hidingWaitHudView = GetComponentInChildren<HidingWaitHudView>(true);
+            }
+
+            if (hidingWaitHudView == null)
+            {
+                hidingWaitHudView = HidingWaitHudView.Create(transform);
             }
         }
 

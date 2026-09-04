@@ -48,6 +48,7 @@ namespace Game.Bootstrap
         private double hidingIntroEndsAt;
         private bool hidingTurnStartVisible;
         private bool hidingActiveHudVisible;
+        private bool hidingWaitHudVisible;
 
         public NetworkMatchHudPresenter(
             INetworkMatchEvents events,
@@ -80,6 +81,7 @@ namespace Game.Bootstrap
             view.HideHidingIntro();
             view.HideHidingTurnStart();
             view.HideHidingActiveHud();
+            view.HideHidingWaitHud();
             view.SetMatchChatVisible(false);
             view.SetPlayerStatusVisible(false);
             FindSceneReferences();
@@ -99,6 +101,7 @@ namespace Game.Bootstrap
             HideHidingIntro();
             HideHidingTurnStart();
             HideHidingActiveHud();
+            HideHidingWaitHud();
         }
 
         public void Tick()
@@ -162,6 +165,7 @@ namespace Game.Bootstrap
                 HideHidingIntro();
                 HideHidingTurnStart();
                 HideHidingActiveHud();
+                HideHidingWaitHud();
             }
 
             snapshot = received;
@@ -351,9 +355,11 @@ namespace Game.Bootstrap
             {
                 HideHidingTurnStart();
                 HideHidingActiveHud();
+                HideHidingWaitHud();
                 if (hasSnapshot && snapshot.Phase != MatchPhase.Hiding)
                 {
                     view.SetTopHudVisible(true);
+                    view.SetMatchChatVisible(true);
                 }
 
                 return;
@@ -403,7 +409,16 @@ namespace Game.Bootstrap
             }
 
             ShowHidingActiveHud(remaining, isLocalTurn && !showStartOverlay, isLocalTurn);
-            view.SetTopHudVisible(!isLocalTurn);
+            view.SetTopHudVisible(false);
+            if (isLocalTurn)
+            {
+                HideHidingWaitHud();
+                view.SetMatchChatVisible(false);
+                return;
+            }
+
+            ShowHidingWaitHud(turnIndex, playing);
+            view.SetMatchChatVisible(true);
         }
 
         private void HideHidingTurnStart()
@@ -439,6 +454,46 @@ namespace Game.Bootstrap
 
             hidingActiveHudVisible = false;
             view.HideHidingActiveHud();
+        }
+
+        private void ShowHidingWaitHud(int turnIndex, IReadOnlyList<MatchParticipant> playing)
+        {
+            var players = new HidingWaitPlayer[playing.Count];
+            var hidingName = string.Empty;
+            for (var index = 0; index < playing.Count; index++)
+            {
+                var name = DisplayNameOf(playing[index].PlayerIndex);
+                var current = turnIndex != HidingTurns.NoTurn && index == turnIndex;
+                players[index] = new HidingWaitPlayer(
+                    name,
+                    turnIndex != HidingTurns.NoTurn && index < turnIndex,
+                    current);
+                if (current)
+                {
+                    hidingName = name;
+                }
+            }
+
+            var completed = turnIndex == HidingTurns.NoTurn ? 0 : turnIndex;
+            if (!hidingWaitHudVisible)
+            {
+                hidingWaitHudVisible = true;
+                view.ShowHidingWaitHud(completed, playing.Count, hidingName, players);
+                return;
+            }
+
+            view.ShowHidingWaitHud(completed, playing.Count, hidingName, players);
+        }
+
+        private void HideHidingWaitHud()
+        {
+            if (!hidingWaitHudVisible)
+            {
+                return;
+            }
+
+            hidingWaitHudVisible = false;
+            view.HideHidingWaitHud();
         }
 
         private void OnPlayerItemStatusesReceived(

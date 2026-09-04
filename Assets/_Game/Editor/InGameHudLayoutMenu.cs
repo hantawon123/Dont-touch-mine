@@ -68,6 +68,7 @@ namespace Game.Editor
                 EnsureHidingIntro(hud);
                 EnsureHidingTurnStart(hud);
                 EnsureHidingActiveHud(hud);
+                EnsureHidingWaitHud(hud);
                 EnsureVoiceButton(hud);
                 EnsureWaitingSpawnPoints(scene);
 
@@ -351,6 +352,30 @@ namespace Game.Editor
             if (view == null)
             {
                 view = HidingActiveHudView.Create(hud.transform);
+            }
+
+            property.objectReferenceValue = view;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var viewSerialized = new SerializedObject(view);
+            viewSerialized.FindProperty("previewOnAwake").boolValue = false;
+            viewSerialized.ApplyModifiedPropertiesWithoutUndo();
+            view.Hide();
+        }
+
+        private static void EnsureHidingWaitHud(NetworkMatchHudView hud)
+        {
+            var serialized = new SerializedObject(hud);
+            var property = serialized.FindProperty("hidingWaitHudView");
+            var view = property.objectReferenceValue as HidingWaitHudView;
+            if (view == null)
+            {
+                view = hud.GetComponentInChildren<HidingWaitHudView>(true);
+            }
+
+            if (view == null)
+            {
+                view = HidingWaitHudView.Create(hud.transform);
             }
 
             property.objectReferenceValue = view;

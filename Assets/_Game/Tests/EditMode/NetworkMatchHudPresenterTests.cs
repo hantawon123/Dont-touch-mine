@@ -485,6 +485,7 @@ namespace Game.Architecture.Tests
                 network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
                 presenter.Tick();
                 Assert.That(view.HidingTurnStartVisible, Is.True);
+                Assert.That(view.HidingWaitHudVisible, Is.False);
                 Assert.That(view.TopHudVisible, Is.False);
                 Assert.That(view.MatchChatVisible, Is.False);
                 Assert.That(view.PlayerStatusVisible, Is.False);
@@ -549,6 +550,49 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void HidingWaitHud_ShowsOrderAndChatForWaitingPlayer()
+        {
+            var network = new FakeNetwork { ServerTime = 50d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.SetParticipants(new[]
+            {
+                new RoomParticipant("host", 0, true, "방장"),
+                new RoomParticipant("client", 1, false, "민수"),
+            });
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            room.SetLocalPlayer("client");
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                presenter.Tick();
+                Assert.That(view.HidingWaitHudVisible, Is.True);
+                Assert.That(view.HidingWaitCompleted, Is.EqualTo(0));
+                Assert.That(view.HidingWaitTotal, Is.EqualTo(2));
+                Assert.That(view.HidingWaitName, Is.EqualTo("방장"));
+                Assert.That(view.HidingWaitPlayers.Count, Is.EqualTo(2));
+                Assert.That(view.HidingWaitPlayers[0].Current, Is.True);
+                Assert.That(view.HidingWaitPlayers[1].Completed, Is.False);
+                Assert.That(view.MatchChatVisible, Is.True);
+                Assert.That(view.HidingActiveTopPromptVisible, Is.False);
+                Assert.That(view.TopHudVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
         public void HidingTurnStart_DoesNotShowForOtherPlayers()
         {
             var network = new FakeNetwork { ServerTime = 70d };
@@ -573,8 +617,11 @@ namespace Game.Architecture.Tests
                 Assert.That(view.HidingActiveHudVisible, Is.True);
                 Assert.That(view.HidingCompleteGuideVisible, Is.False);
                 Assert.That(view.HidingActiveTopPromptVisible, Is.False);
-                Assert.That(view.TopHudVisible, Is.True);
-                Assert.That(view.MatchChatVisible, Is.False);
+                Assert.That(view.HidingWaitHudVisible, Is.True);
+                Assert.That(view.HidingWaitCompleted, Is.EqualTo(1));
+                Assert.That(view.HidingWaitTotal, Is.EqualTo(2));
+                Assert.That(view.TopHudVisible, Is.False);
+                Assert.That(view.MatchChatVisible, Is.True);
             }
             finally
             {
@@ -742,6 +789,31 @@ namespace Game.Architecture.Tests
 
             public void SetHidingActiveHudSeconds(double remainingSeconds) =>
                 HidingTurnStartSeconds = remainingSeconds;
+
+            public bool HidingWaitHudVisible { get; private set; }
+            public int HidingWaitCompleted { get; private set; }
+            public int HidingWaitTotal { get; private set; }
+            public string HidingWaitName { get; private set; }
+            public IReadOnlyList<HidingWaitPlayer> HidingWaitPlayers { get; private set; } =
+                Array.Empty<HidingWaitPlayer>();
+
+            public void ShowHidingWaitHud(
+                int completedCount,
+                int totalCount,
+                string hidingPlayerName,
+                IReadOnlyList<HidingWaitPlayer> players)
+            {
+                HidingWaitHudVisible = true;
+                HidingWaitCompleted = completedCount;
+                HidingWaitTotal = totalCount;
+                HidingWaitName = hidingPlayerName;
+                HidingWaitPlayers = players ?? Array.Empty<HidingWaitPlayer>();
+            }
+
+            public void HideHidingWaitHud()
+            {
+                HidingWaitHudVisible = false;
+            }
 
             public void SetTopHudVisible(bool visible) => TopHudVisible = visible;
 
