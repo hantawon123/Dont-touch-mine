@@ -163,6 +163,77 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public async Task SomeoneWhoAlreadyAsked_IsNotOfferedInTheSearch()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Requests = new[] { Request("b", "나그네") };
+            gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
+            var commands = Build(gateway, out _, out var search);
+
+            await commands.ListIncomingRequestsAsync(CancellationToken.None);
+            await commands.SearchAsync("나", Array.Empty<string>(), CancellationToken.None);
+
+            // They are already on screen just above, with an accept button.
+            // Offering to send them a request as well showed one person as two
+            // things at once.
+            Assert.That(search.Results, Is.Empty);
+        }
+
+        [Test]
+        public async Task SomeoneWhoAlreadyAsked_IsHiddenEvenWhenTheSearchCameFirst()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
+            var commands = Build(gateway, out _, out var search);
+            await commands.SearchAsync("나", Array.Empty<string>(), CancellationToken.None);
+            Assert.That(search.Results.Count, Is.EqualTo(1), "offered before");
+
+            gateway.Requests = new[] { Request("b", "나그네") };
+            await commands.ListIncomingRequestsAsync(CancellationToken.None);
+
+            Assert.That(search.Results, Is.Empty);
+        }
+
+        [Test]
+        public async Task DecliningARequest_PutsThatPersonBackInTheSearch()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Requests = new[] { Request("b", "나그네") };
+            gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
+            var commands = Build(gateway, out _, out var search);
+            await commands.ListIncomingRequestsAsync(CancellationToken.None);
+            await commands.SearchAsync("나", Array.Empty<string>(), CancellationToken.None);
+            Assert.That(search.Results, Is.Empty, "hidden while they are waiting");
+
+            await commands.DeclineRequestAsync("b", CancellationToken.None);
+
+            // The screen re-reads the requests after answering one, and this
+            // time the list does not name them.
+            gateway.Requests = Array.Empty<FriendRequestSummary>();
+            await commands.ListIncomingRequestsAsync(CancellationToken.None);
+
+            Assert.That(search.Results.Count, Is.EqualTo(1));
+            Assert.That(search.Results[0].PlayerId, Is.EqualTo("b"));
+        }
+
+        [Test]
+        public async Task ARequestCannotBeSentToSomeoneWhoAlreadyAsked()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Requests = new[] { Request("b", "나그네") };
+            gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
+            var commands = Build(gateway, out _, out var search);
+            await commands.ListIncomingRequestsAsync(CancellationToken.None);
+            await commands.SearchAsync("나", Array.Empty<string>(), CancellationToken.None);
+
+            await commands.SendRequestAsync("b", CancellationToken.None);
+
+            // Nothing to mark, because there is no row. The guard is here so a
+            // stale click cannot leave a pending mark on a hidden row.
+            Assert.That(search.Results, Is.Empty);
+        }
+
+        [Test]
         public async Task AcceptingARequest_RefreshesTheFriendList()
         {
             var gateway = new FakeFriendGateway();
@@ -216,6 +287,9 @@ namespace Game.Architecture.Tests
 
         private static FriendSummary Friend(string id, string nickname, FriendPresence presence) =>
             new FriendSummary(id, nickname, presence);
+
+        private static FriendRequestSummary Request(string id, string nickname) =>
+            new FriendRequestSummary(id, nickname, DateTime.UtcNow);
 
         private static FriendUiCommands Build(
             IFriendGateway gateway,

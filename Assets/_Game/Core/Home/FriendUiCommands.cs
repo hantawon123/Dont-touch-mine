@@ -129,11 +129,35 @@ namespace Game.Core.Home
         /// Returned rather than stored in a system, because nothing in
         /// <c>Game.Core</c> holds this list yet. The screen that shows it owns
         /// it until there is a reason for two screens to share one.
+        /// <para>
+        /// The search is told who they are on the way past, so the same person
+        /// cannot appear both as a request to accept and as a stranger to send
+        /// one to. Declining puts them back: the next read of this list no
+        /// longer names them, and the search stops hiding them.
+        /// </para>
         /// </remarks>
         public async UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>>
             ListIncomingRequestsAsync(CancellationToken cancellation)
         {
-            return await gateway.ListIncomingRequestsAsync(cancellation);
+            var answer = await gateway.ListIncomingRequestsAsync(cancellation);
+            if (answer.Ok)
+            {
+                search.ExcludeIncomingRequests(RequesterIds(answer.Value));
+            }
+
+            return answer;
+        }
+
+        private static IReadOnlyList<string> RequesterIds(
+            IReadOnlyList<FriendRequestSummary> requests)
+        {
+            var ids = new List<string>(requests.Count);
+            for (var index = 0; index < requests.Count; index++)
+            {
+                ids.Add(requests[index].PlayerId);
+            }
+
+            return ids;
         }
 
         /// <summary>
