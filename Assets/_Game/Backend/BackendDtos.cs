@@ -116,6 +116,30 @@ namespace Game.Backend
     }
 
     [Serializable]
+    internal sealed class SendInviteRequestDto
+    {
+        public string userId;
+        public string roomCode;
+    }
+
+    [Serializable]
+    internal sealed class InviteSummaryDto
+    {
+        public string userId;
+        public string nickname;
+        public string roomCode;
+
+        /// <summary>yyyyMMddHHmmss, UTC.</summary>
+        public string invitedAt;
+    }
+
+    [Serializable]
+    internal sealed class InviteListResponseDto
+    {
+        public InviteSummaryDto[] invites;
+    }
+
+    [Serializable]
     internal sealed class UpdatePresenceRequestDto
     {
         public string sessionId;
