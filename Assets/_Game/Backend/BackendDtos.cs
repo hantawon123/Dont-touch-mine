@@ -100,6 +100,18 @@ namespace Game.Backend
     }
 
     [Serializable]
+    internal sealed class SendReportRequestDto
+    {
+        public string userId;
+
+        /// <summary>ReportReason 의 서버 이름. ReportGateway 가 옮깁니다.</summary>
+        public string reason;
+
+        /// <summary>선택. 200자까지. 빈 문자열과 없음을 서버가 같게 봅니다.</summary>
+        public string memo;
+    }
+
+    [Serializable]
     internal sealed class SendInviteRequestDto
     {
         public string userId;

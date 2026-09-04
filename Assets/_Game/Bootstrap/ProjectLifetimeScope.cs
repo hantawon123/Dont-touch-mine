@@ -133,6 +133,7 @@ namespace Game.Bootstrap
             builder.RegisterInstance<IFriendGateway>(new FriendGateway(client));
             builder.RegisterInstance<IPresenceGateway>(new PresenceGateway(client));
             builder.RegisterInstance<IInviteGateway>(new InviteGateway(client));
+            builder.RegisterInstance<IReportGateway>(new ReportGateway(client));
 
             // Registered beside the gateways rather than in RegisterServices,
             // because it needs one. A test container that builds only the

@@ -158,6 +158,35 @@
         ],
         "type" : "object"
       },
+      "SendReportRequest" : {
+        "properties" : {
+          "memo" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "reason" : {
+            "enum" : [
+              "ABUSE",
+              "CHEATING",
+              "SPAM",
+              "INAPPROPRIATE_NAME",
+              "OTHER"
+            ],
+            "type" : "string"
+          },
+          "userId" : {
+            "maxLength" : 36,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "reason",
+          "userId"
+        ],
+        "type" : "object"
+      },
       "UpdateNicknameRequest" : {
         "properties" : {
           "nickname" : {
@@ -683,6 +712,39 @@
         },
         "tags" : [
           "presence-controller"
+        ]
+      }
+    },
+    "/api/v1/reports" : {
+      "post" : {
+        "operationId" : "report_1",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SendReportRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created"
+          }
+        },
+        "tags" : [
+          "report-controller"
         ]
       }
     },

@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -45,6 +46,23 @@ public class GlobalExceptionHandler {
                 .map(MessageSourceResolvable::getDefaultMessage)
                 .collect(Collectors.joining(" "));
         return ResponseEntity.badRequest().body(new ErrorResponse("INVALID_REQUEST", message));
+    }
+
+    /**
+     * 본문을 아예 읽지 못한 경우입니다. JSON 이 깨졌거나, 값이 필드의 타입에 맞지 않습니다.
+     *
+     * <p>신고 사유처럼 열거형으로 받는 값이 목록에 없으면 여기로 옵니다. @Valid 가
+     * 도는 것은 본문이 객체로 바뀐 뒤라, 바뀌지 못한 요청은 검증까지 가지 못합니다.
+     * 이 핸들러가 없으면 스프링 기본 응답이 나가고 클라이언트는 code 로 분기할 수
+     * 없습니다.
+     *
+     * <p><b>예외 메시지를 그대로 쓰지 않습니다.</b> 잭슨의 메시지에는 클래스 이름과
+     * 필드 경로가 들어 있어서 내부 구조가 그대로 흘러나갑니다.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableBody(HttpMessageNotReadableException e) {
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse("INVALID_REQUEST", "요청 본문의 값이 형식에 맞지 않습니다."));
     }
 
     @ExceptionHandler(MissingRequestHeaderException.class)
