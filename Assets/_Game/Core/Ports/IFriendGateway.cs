@@ -65,14 +65,30 @@ namespace Game.Core.Ports
         UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>> ListIncomingRequestsAsync(
             CancellationToken cancellation);
 
+        /// <summary>
+        /// Requests this player sent that nobody has answered yet.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="FriendRequestSummary.RequestedAtUtc"/> is when it was sent
+        /// rather than received, since it is the same row read from the other
+        /// side.
+        /// </remarks>
+        UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>> ListOutgoingRequestsAsync(
+            CancellationToken cancellation);
+
         /// <summary>Accepts a received request, making both players friends.</summary>
         UniTask<BackendResult> AcceptRequestAsync(
             string playerId, CancellationToken cancellation);
 
         /// <summary>
-        /// Removes a pending request. Declining one received and cancelling one
-        /// sent are the same operation on the same row.
+        /// Removes a pending request.
         /// </summary>
+        /// <remarks>
+        /// Declining one received and cancelling one sent are the same operation
+        /// on the same row, so they are one method. Two names here would be two
+        /// spellings of one call, and a reader would look for a difference that
+        /// does not exist. Which of the two it was is a question for the screen.
+        /// </remarks>
         UniTask<BackendResult> DeclineRequestAsync(
             string playerId, CancellationToken cancellation);
 

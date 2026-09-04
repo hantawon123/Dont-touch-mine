@@ -49,21 +49,36 @@ namespace Game.Bootstrap
 
         public async UniTask StartAsync(CancellationToken cancellation)
         {
-            var result = await accounts.SignInAsync(cancellation);
-
-            if (!result.Ok)
+            try
             {
-                // Not retried here. A retry loop at startup would either delay
-                // the first screen or run forever behind it; the player can
-                // reach the friend panel and see it fail, which is a place a
-                // retry belongs.
-                Debug.LogWarning($"[Backend] Could not sign in: {result.Failure}.");
-                signedIn.TrySetResult(false);
-                return;
-            }
+                var result = await accounts.SignInAsync(cancellation);
 
-            AdoptServerNickname(result.Value);
-            signedIn.TrySetResult(true);
+                if (!result.Ok)
+                {
+                    // Not retried here. A retry loop at startup would either
+                    // delay the first screen or run forever behind it; the
+                    // player can reach the friend panel and see it fail, which
+                    // is a place a retry belongs.
+                    Debug.LogWarning($"[Backend] Could not sign in: {result.Failure}.");
+                    return;
+                }
+
+                AdoptServerNickname(result.Value);
+                signedIn.TrySetResult(true);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+            finally
+            {
+                // Whatever happened above, this answers. An unset source is the
+                // one outcome nobody recovers from: the friend panel and the
+                // heartbeat both await it, so leaving it unset stops both of
+                // them for the rest of the session without saying anything.
+                // Already answered true, this does nothing.
+                signedIn.TrySetResult(false);
+            }
         }
 
         /// <remarks>

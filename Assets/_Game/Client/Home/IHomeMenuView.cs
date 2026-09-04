@@ -28,13 +28,28 @@ namespace Game.Client.Home
 
         event Action<string> FriendRequestDeclined;
 
-        void SetNickname(string nickname);
+        /// <summary>A request this player sent, taken back.</summary>
+        event Action<string> FriendRequestCancelled;
 
-        void SetLevel(int level);
+        /// <summary>The friend list, asked for again.</summary>
+        event Action FriendListRefreshRequested;
+
+        /// <summary>
+        /// A friend, blocked. Raised only after the player confirms, because
+        /// blocking also ends the friendship.
+        /// </summary>
+        event Action<string> FriendBlocked;
+
+        void SetNickname(string nickname);
 
         void SetProfileSettingsVisible(bool visible);
 
         void SetNicknameAppliedFeedbackVisible(bool visible);
+
+        /// <summary>
+        /// Says why a rename was refused. An empty message clears it.
+        /// </summary>
+        void SetNicknameError(string message);
 
         void SetFriendListVisible(bool visible);
 
@@ -51,5 +66,11 @@ namespace Game.Client.Home
         /// hides the section rather than leaving an empty heading behind.
         /// </summary>
         void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests);
+
+        /// <summary>
+        /// Shows the requests this player is waiting on an answer to. An empty
+        /// list hides the section.
+        /// </summary>
+        void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests);
     }
 }

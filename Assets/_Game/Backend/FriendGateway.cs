@@ -118,14 +118,22 @@ namespace Game.Backend
             return BackendResult<FriendRequestOutcome>.Success(outcome);
         }
 
-        public async UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>>
-            ListIncomingRequestsAsync(CancellationToken cancellation)
+        // Incoming is the server's default, written out so that reading these
+        // does not require knowing what the default is.
+        public UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>>
+            ListIncomingRequestsAsync(CancellationToken cancellation) =>
+            ListRequestsAsync("incoming", cancellation);
+
+        public UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>>
+            ListOutgoingRequestsAsync(CancellationToken cancellation) =>
+            ListRequestsAsync("outgoing", cancellation);
+
+        private async UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>>
+            ListRequestsAsync(string direction, CancellationToken cancellation)
         {
-            // Incoming is the server's default, written out so that reading this
-            // does not require knowing what the default is.
             var answer = await client.CallAsync<FriendRequestListResponseDto>(
                 HttpMethod.Get,
-                FriendRequests + "?direction=incoming",
+                FriendRequests + "?direction=" + direction,
                 null,
                 BackendAuth.UserId,
                 cancellation);

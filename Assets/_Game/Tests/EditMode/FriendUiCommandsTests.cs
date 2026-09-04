@@ -163,6 +163,154 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public async Task SomeoneWhoAlreadyAsked_IsNotOfferedInTheSearch()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Requests = new[] { Request("b", "나그네") };
+            gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
+            var commands = Build(gateway, out _, out var search);
+
+            await commands.ListIncomingRequestsAsync(CancellationToken.None);
+            await commands.SearchAsync("나", Array.Empty<string>(), CancellationToken.None);
+
+            // They are already on screen just above, with an accept button.
+            // Offering to send them a request as well showed one person as two
+            // things at once.
+            Assert.That(search.Results, Is.Empty);
+        }
+
+        [Test]
+        public async Task SomeoneWhoAlreadyAsked_IsHiddenEvenWhenTheSearchCameFirst()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
+            var commands = Build(gateway, out _, out var search);
+            await commands.SearchAsync("나", Array.Empty<string>(), CancellationToken.None);
+            Assert.That(search.Results.Count, Is.EqualTo(1), "offered before");
+
+            gateway.Requests = new[] { Request("b", "나그네") };
+            await commands.ListIncomingRequestsAsync(CancellationToken.None);
+
+            Assert.That(search.Results, Is.Empty);
+        }
+
+        [Test]
+        public async Task DecliningARequest_PutsThatPersonBackInTheSearch()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Requests = new[] { Request("b", "나그네") };
+            gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
+            var commands = Build(gateway, out _, out var search);
+            await commands.ListIncomingRequestsAsync(CancellationToken.None);
+            await commands.SearchAsync("나", Array.Empty<string>(), CancellationToken.None);
+            Assert.That(search.Results, Is.Empty, "hidden while they are waiting");
+
+            await commands.DeclineRequestAsync("b", CancellationToken.None);
+
+            // The screen re-reads the requests after answering one, and this
+            // time the list does not name them.
+            gateway.Requests = Array.Empty<FriendRequestSummary>();
+            await commands.ListIncomingRequestsAsync(CancellationToken.None);
+
+            Assert.That(search.Results.Count, Is.EqualTo(1));
+            Assert.That(search.Results[0].PlayerId, Is.EqualTo("b"));
+        }
+
+        [Test]
+        public async Task ARequestCannotBeSentToSomeoneWhoAlreadyAsked()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Requests = new[] { Request("b", "나그네") };
+            gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
+            var commands = Build(gateway, out _, out var search);
+            await commands.ListIncomingRequestsAsync(CancellationToken.None);
+            await commands.SearchAsync("나", Array.Empty<string>(), CancellationToken.None);
+
+            await commands.SendRequestAsync("b", CancellationToken.None);
+
+            // Not merely invisible: nothing was sent. The server would answer
+            // this by making them friends on the spot, which is a second and
+            // worse way to reach what the accept button above does.
+            Assert.That(gateway.SentTo, Is.Null);
+            Assert.That(search.Results, Is.Empty);
+        }
+
+        [Test]
+        public async Task CancellingASentRequest_LetsItBeSentAgain()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
+            var commands = Build(gateway, out _, out var search);
+            await commands.SearchAsync("나", Array.Empty<string>(), CancellationToken.None);
+            await commands.SendRequestAsync("b", CancellationToken.None);
+            Assert.That(search.Results[0].IsPending, Is.True);
+
+            var failure = await commands.CancelSentRequestAsync("b", CancellationToken.None);
+
+            Assert.That(failure, Is.EqualTo(BackendFailure.None));
+            Assert.That(gateway.Declined, Is.EqualTo("b"), "cancel and decline are one call");
+            Assert.That(
+                search.Results[0].IsPending, Is.False,
+                "there is no request now, so the row offers one again");
+        }
+
+        [Test]
+        public async Task AFailedCancel_LeavesTheRowWaiting()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
+            var commands = Build(gateway, out _, out var search);
+            await commands.SearchAsync("나", Array.Empty<string>(), CancellationToken.None);
+            await commands.SendRequestAsync("b", CancellationToken.None);
+
+            gateway.Failure = BackendFailure.Offline;
+            var failure = await commands.CancelSentRequestAsync("b", CancellationToken.None);
+
+            Assert.That(failure, Is.EqualTo(BackendFailure.Offline));
+
+            // The request is still there. Clearing the mark would say it was
+            // taken back when it was not.
+            Assert.That(search.Results[0].IsPending, Is.True);
+        }
+
+        [Test]
+        public async Task BlockingSomeone_ReloadsTheFriendList()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Friends = new[]
+            {
+                Friend("a", "가", FriendPresence.Online),
+                Friend("b", "나", FriendPresence.Online)
+            };
+            var commands = Build(gateway, out var friends, out _);
+            await commands.RefreshFriendsAsync(CancellationToken.None);
+            Assert.That(friends.OnlineFriends.Count, Is.EqualTo(2));
+
+            // The server ends the friendship as part of blocking, so the list it
+            // answers with afterwards is shorter.
+            gateway.Friends = new[] { Friend("a", "가", FriendPresence.Online) };
+            var failure = await commands.BlockAsync("b", CancellationToken.None);
+
+            Assert.That(failure, Is.EqualTo(BackendFailure.None));
+            Assert.That(friends.OnlineFriends.Count, Is.EqualTo(1));
+            Assert.That(friends.OnlineFriends[0].PlayerId, Is.EqualTo("a"));
+        }
+
+        [Test]
+        public async Task SentRequests_AreReadFromTheOutgoingDirection()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Sent = new[] { Request("b", "나그네") };
+            var commands = Build(gateway, out _, out _);
+
+            var answer = await commands.ListOutgoingRequestsAsync(CancellationToken.None);
+
+            Assert.That(answer.Ok, Is.True);
+            Assert.That(answer.Value.Count, Is.EqualTo(1));
+            Assert.That(answer.Value[0].PlayerId, Is.EqualTo("b"));
+        }
+
+        [Test]
         public async Task AcceptingARequest_RefreshesTheFriendList()
         {
             var gateway = new FakeFriendGateway();
@@ -217,6 +365,9 @@ namespace Game.Architecture.Tests
         private static FriendSummary Friend(string id, string nickname, FriendPresence presence) =>
             new FriendSummary(id, nickname, presence);
 
+        private static FriendRequestSummary Request(string id, string nickname) =>
+            new FriendRequestSummary(id, nickname, DateTime.UtcNow);
+
         private static FriendUiCommands Build(
             IFriendGateway gateway,
             out FriendListSystem friends,
@@ -224,7 +375,30 @@ namespace Game.Architecture.Tests
         {
             friends = new FriendListSystem();
             search = new FriendSearchSystem();
-            return new FriendUiCommands(gateway, friends, search);
+            return new FriendUiCommands(gateway, new FakeBlockGateway(), friends, search);
+        }
+
+        /// <summary>Accepts every block and remembers the last one.</summary>
+        private sealed class FakeBlockGateway : IBlockGateway
+        {
+            public string Blocked { get; private set; }
+
+            public UniTask<BackendResult> BlockAsync(
+                string playerId, CancellationToken cancellation)
+            {
+                Blocked = playerId;
+                return UniTask.FromResult(BackendResult.Success());
+            }
+
+            public UniTask<BackendResult> UnblockAsync(
+                string playerId, CancellationToken cancellation) =>
+                UniTask.FromResult(BackendResult.Success());
+
+            public UniTask<BackendResult<IReadOnlyList<BlockedPlayer>>> ListBlockedAsync(
+                CancellationToken cancellation) =>
+                UniTask.FromResult(
+                    BackendResult<IReadOnlyList<BlockedPlayer>>.Success(
+                        Array.Empty<BlockedPlayer>()));
         }
 
         /// <summary>Answers whatever the test set, and records what it was asked.</summary>
@@ -259,17 +433,26 @@ namespace Game.Architecture.Tests
                 return Answer(Found);
             }
 
+            public string SentTo { get; private set; }
+
             public UniTask<BackendResult<FriendRequestOutcome>> SendRequestAsync(
                 string playerId, CancellationToken cancellation)
             {
+                SentTo = playerId;
                 return UniTask.FromResult(
                     Failure == BackendFailure.None
                         ? BackendResult<FriendRequestOutcome>.Success(Outcome)
                         : BackendResult<FriendRequestOutcome>.Failed(Failure));
             }
 
+            public IReadOnlyList<FriendRequestSummary> Sent { get; set; } =
+                Array.Empty<FriendRequestSummary>();
+
             public UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>>
                 ListIncomingRequestsAsync(CancellationToken cancellation) => Answer(Requests);
+
+            public UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>>
+                ListOutgoingRequestsAsync(CancellationToken cancellation) => Answer(Sent);
 
             public UniTask<BackendResult> AcceptRequestAsync(
                 string playerId, CancellationToken cancellation)

@@ -35,6 +35,10 @@ namespace Game.Bootstrap
             // Carries this panel's requests to the backend and its answers
             // back. The rows it shows used to be invented here.
             builder.RegisterEntryPoint<HomeFriendBridge>();
+
+            // Sends a rename on to the account and puts the old name back when
+            // the server refuses it.
+            builder.RegisterEntryPoint<HomeProfileBridge>();
         }
 
         /// <summary>
