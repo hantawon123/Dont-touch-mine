@@ -212,6 +212,11 @@ public class FriendshipService {
         friendshipRepository.insertBlock(me.getSeq(), target.getSeq(), timeProvider.now());
         friendshipRepository.deleteFriendshipByPair(Math.min(me.getSeq(), target.getSeq()),
                                                     Math.max(me.getSeq(), target.getSeq()));
+
+        // 방 초대도 함께 지웁니다. 남겨두면 차단당한 사람이 이미 받아둔 초대로 상대의
+        // 방에 들어갈 수 있어 차단이 뚫립니다. S15P21D205-537 에서 초대가 생기면서
+        // 이 자리에 새로 필요해진 것입니다.
+        friendshipRepository.deleteInvitesBetween(me.getSeq(), target.getSeq());
     }
 
     /**
