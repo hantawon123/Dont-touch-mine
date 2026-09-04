@@ -49,6 +49,11 @@ namespace Game.Network.Session
         IDisposable
     {
         private const string RunnerObjectName = "[NetworkRunner]";
+        internal const int KickKeyType = 0x4B49434B;
+        internal const int KickKeyVersion = 1;
+        private const int KickAcknowledgementTimeoutMilliseconds = 2000;
+        private readonly Dictionary<PlayerRef, int> _pendingKicks = new();
+        private int _kickSequence;
         private const int ItemAssignmentKeyType = 0x4954454D;
         private const int ItemAssignmentKeyVersion = 1;
         private const int ItemAssignmentRequestKeyType = 0x49545251;
@@ -250,6 +255,7 @@ namespace Game.Network.Session
         // Stable across replacement runners; identity only, not authentication.
         private readonly long _playerUniqueId = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0) | 1L;
         private int _configuredMaxPlayers;
+        private string _configuredMapId = MapCatalog.DefaultMapId;
         private int _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
         private MatchRuleSettings _matchRules = MatchRuleSettings.Default;
 
@@ -380,6 +386,69 @@ namespace Game.Network.Session
         public bool TrySendChat(string text)
         {
             return _matchStarter != null && _matchStarter.RequestLobbyChat(text);
+        }
+
+        public bool TryKickPlayer(string playerId)
+        {
+            if (!IsRuntimeReady || _browsingLobby || _runner.IsSceneManagerBusy ||
+                _scenes == null || _matchStarter == null || _matchStarter.HasStartedMatch ||
+                !TryResolveKickTarget(IsServer, IsOnlyScene(_runner.SceneInfo, _scenes.LobbyScene),
+                    _runner.LocalPlayer, _runner.ActivePlayers, playerId, out var target) ||
+                _pendingKicks.ContainsKey(target))
+                return false;
+
+            var sequence = ++_kickSequence;
+            _pendingKicks.Add(target, sequence);
+            // Wait for the notice to arrive before closing the transport. A client
+            // cannot avoid a kick by withholding its acknowledgement.
+            DisconnectUnacknowledgedKickAsync(_runner, target, sequence).Forget(Debug.LogException);
+            _runner.SendReliableDataToPlayer(target,
+                ReliableKey.FromInts(KickKeyType, KickKeyVersion, sequence, 0), new byte[] { 1 });
+            Debug.Log($"[Lobby] Kick requested for {PlayerRegistry.IdOf(target)}.");
+            return true;
+        }
+
+        internal static bool TryResolveKickTarget(bool hasAuthority, bool isLobby,
+            PlayerRef localPlayer, IEnumerable<PlayerRef> activePlayers, string playerId,
+            out PlayerRef target)
+        {
+            target = PlayerRef.None;
+            if (!hasAuthority || !isLobby || !localPlayer.IsRealPlayer ||
+                activePlayers == null || string.IsNullOrWhiteSpace(playerId)) return false;
+            var id = playerId.Trim();
+            foreach (var player in activePlayers)
+            {
+                if (player.IsRealPlayer && player != localPlayer &&
+                    string.Equals(PlayerRegistry.IdOf(player), id, StringComparison.Ordinal))
+                {
+                    target = player;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private async UniTask DisconnectUnacknowledgedKickAsync(
+            NetworkRunner runner, PlayerRef target, int sequence)
+        {
+            var cancelled = await UniTask.Delay(KickAcknowledgementTimeoutMilliseconds,
+                DelayType.Realtime, cancellationToken: runner.GetCancellationTokenOnDestroy())
+                .SuppressCancellationThrow();
+            if (!cancelled) DisconnectPendingKick(runner, target, sequence);
+        }
+
+        private void DisconnectPendingKick(NetworkRunner runner, PlayerRef target, int sequence)
+        {
+            if (!IsCurrentRunner(runner) || runner == null || !runner.IsRunning || !runner.IsServer ||
+                !TryRemovePendingKick(_pendingKicks, target, sequence)) return;
+            runner.Disconnect(target);
+        }
+
+        internal static bool TryRemovePendingKick(
+            IDictionary<PlayerRef, int> pending, PlayerRef sender, int sequence)
+        {
+            if (!pending.TryGetValue(sender, out var expected) || expected != sequence) return false;
+            return pending.Remove(sender);
         }
 
         public bool TrySendMatchChat(string text)
@@ -607,6 +676,8 @@ namespace Game.Network.Session
             }
 
             _expectedPassword = request.Password;
+            _configuredMapId = string.IsNullOrWhiteSpace(request.MapId)
+                ? MapCatalog.DefaultMapId : request.MapId.Trim();
             _configuredMaxPlayers = request.MaxPlayers > 0
                 ? request.MaxPlayers
                 : 0;
@@ -812,7 +883,10 @@ namespace Game.Network.Session
             string mapId,
             MatchRuleSettings matchRules)
         {
-            if (_runner == null || !TryValidateLobbySettingsRequest(
+            if (!IsRuntimeReady || _browsingLobby || _runner.IsSceneManagerBusy ||
+                _scenes == null || !IsOnlyScene(_runner.SceneInfo, _scenes.LobbyScene) ||
+                _matchStarter == null || _matchStarter.HasStartedMatch ||
+                !TryValidateLobbySettingsRequest(
                     IsServer,
                     _runner.SessionInfo.IsValid,
                     PlayerCount,
@@ -839,7 +913,23 @@ namespace Game.Network.Session
             _configuredMaxPlayers = maxPlayers;
             _destructionLimit = destructionLimit;
             _matchRules = normalizedMatchRules;
+            _configuredMapId = mapId.Trim();
             ReportPlayerCount();
+            return true;
+        }
+
+        public bool TryReadLobbySettings(out PlaySettingsDraft settings)
+        {
+            settings = default;
+            if (!IsRuntimeReady || _browsingLobby || !_runner.SessionInfo.IsValid) return false;
+            // The host already owns the accepted values. A delayed Cloud echo must not roll them back.
+            if (!IsServer) ReadConfiguredSettings();
+            var info = _runner.SessionInfo;
+            var locked = info.Properties != null &&
+                info.Properties.TryGetValue(SessionPropertyKeys.Locked, out var property) &&
+                property.Isbool && (bool)property;
+            settings = new PlaySettingsDraft(RoomDisplayName, RoomCode, locked, _expectedPassword,
+                MaxPlayers, _destructionLimit, _configuredMapId, _matchRules);
             return true;
         }
 
@@ -1785,6 +1875,7 @@ namespace Game.Network.Session
         /// </summary>
         private void ReleaseRunner(bool preserveMigrationState = false)
         {
+            _pendingKicks.Clear();
             RestoreNetworkSceneLoadingPriority();
             _publishedItemAssignments.Clear();
             _latestPlayerItemStatuses = Array.Empty<PlayerItemStatusSnapshot>();
@@ -1848,6 +1939,7 @@ namespace Game.Network.Session
             {
                 _expectedPassword = null;
                 _configuredMaxPlayers = 0;
+                _configuredMapId = MapCatalog.DefaultMapId;
                 _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
                 _matchRules = MatchRuleSettings.Default;
             }
@@ -2005,6 +2097,7 @@ namespace Game.Network.Session
             _configuredMaxPlayers = maxPlayers;
             _destructionLimit = destructionLimit;
             _matchRules = normalizedMatchRules;
+            _configuredMapId = mapId;
         }
 
         /// <summary>

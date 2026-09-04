@@ -12,6 +12,20 @@ namespace Game.Tests.EditMode
     public sealed class RoomBrowserPresenterTests
     {
         [Test]
+        public void Presenter_KickHasItsOwnMessageAndCanBeAcknowledged()
+        {
+            using var rooms = new RoomBrowserSystem();
+            rooms.RoomClosed(RoomExitReason.Kicked);
+            var view = new FakeRoomBrowserView();
+            using var presenter = new RoomBrowserPresenter(view, rooms,
+                new FakeHomeApplicationHost(), new AppFlowSystem());
+            presenter.Start();
+            Assert.That(view.DisconnectionMessage, Is.EqualTo("방장에 의해 강퇴되었습니다"));
+            view.AcknowledgeDisconnection();
+            Assert.That(rooms.LastExit.CurrentValue, Is.Null);
+        }
+
+        [Test]
         public void Presenter_HostDisconnectIsShownOnceUntilAcknowledged_AndNotForVoluntaryExit()
         {
             using var rooms = new RoomBrowserSystem();

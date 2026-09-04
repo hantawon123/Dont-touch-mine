@@ -16,6 +16,7 @@ namespace Game.Client.Lobby
         event Action CopyPasswordRequested;
 
         void SetVisible(bool visible);
+        void SetEditable(bool editable);
         void SetDraft(PlaySettingsDraft draft);
         PlaySettingsDraft ReadDraft();
 
@@ -99,6 +100,8 @@ namespace Game.Client.Lobby
         private int maxPlayers = RoomSettings.MaxPlayerCount;
         private int destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
         private int selectedMapIndex;
+        private bool editable;
+        private MatchRuleSettings matchRules = MatchRuleSettings.Default;
         private IReadOnlyList<LobbyMapOption> maps = LobbyMapCatalog.Maps;
         private readonly List<Image> mapSlotImages = new();
         private readonly List<Button> mapSlotButtons = new();
@@ -152,12 +155,21 @@ namespace Game.Client.Lobby
 
         public void RequestClose() => CloseRequested?.Invoke();
 
+        public void SetEditable(bool value)
+        {
+            editable = value;
+            RefreshCounters();
+            foreach (var button in mapSlotButtons)
+                if (button != null) button.interactable = editable;
+        }
+
         public void SetDraft(PlaySettingsDraft draft)
         {
             title = draft.Title;
             roomCode = draft.RoomCode;
             passwordEnabled = draft.PasswordEnabled;
             password = draft.Password ?? string.Empty;
+            matchRules = draft.MatchRules;
             maxPlayers = Mathf.Clamp(
                 draft.MaxPlayers,
                 RoomSettings.MinPlayerCount,
@@ -182,6 +194,7 @@ namespace Game.Client.Lobby
             }
 
             EnsureMapSlotsBuilt();
+            SetEditable(editable);
             RefreshPasswordMask();
             RefreshCounters();
             RefreshMapSelection(scrollIntoView: true);
@@ -197,7 +210,8 @@ namespace Game.Client.Lobby
                 password,
                 maxPlayers,
                 destructionLimit,
-                map.Id);
+                map.Id,
+                matchRules);
         }
 
         private void ScrollMaps(int direction)
@@ -214,7 +228,7 @@ namespace Game.Client.Lobby
 
         private void SelectMap(int index)
         {
-            if (index < 0 || index >= maps.Count)
+            if (!editable || index < 0 || index >= maps.Count)
             {
                 return;
             }
@@ -391,6 +405,7 @@ namespace Game.Client.Lobby
 
         private void SetMaxPlayers(int value)
         {
+            if (!editable) return;
             maxPlayers = Mathf.Clamp(
                 value,
                 RoomSettings.MinPlayerCount,
@@ -400,6 +415,7 @@ namespace Game.Client.Lobby
 
         private void SetDestructionLimit(int value)
         {
+            if (!editable) return;
             destructionLimit = destructionLimit ==
                                PlaySettingsDraft.UnlimitedDestructionLimit
                 ? PlaySettingsDraft.MaxDestructionLimit
@@ -429,25 +445,25 @@ namespace Game.Client.Lobby
 
             if (maxPlayersMinusButton != null)
             {
-                maxPlayersMinusButton.interactable = maxPlayers > RoomSettings.MinPlayerCount;
+                maxPlayersMinusButton.interactable = editable && maxPlayers > RoomSettings.MinPlayerCount;
             }
 
             if (maxPlayersPlusButton != null)
             {
-                maxPlayersPlusButton.interactable = maxPlayers < RoomSettings.MaxPlayerCount;
+                maxPlayersPlusButton.interactable = editable && maxPlayers < RoomSettings.MaxPlayerCount;
             }
 
             if (destructionMinusButton != null)
             {
                 destructionMinusButton.interactable =
-                    destructionLimit == PlaySettingsDraft.UnlimitedDestructionLimit ||
-                    destructionLimit > PlaySettingsDraft.MinDestructionLimit;
+                    editable && (destructionLimit == PlaySettingsDraft.UnlimitedDestructionLimit ||
+                    destructionLimit > PlaySettingsDraft.MinDestructionLimit);
             }
 
             if (destructionPlusButton != null)
             {
                 destructionPlusButton.interactable =
-                    destructionLimit != PlaySettingsDraft.UnlimitedDestructionLimit;
+                    editable && destructionLimit != PlaySettingsDraft.UnlimitedDestructionLimit;
             }
         }
 

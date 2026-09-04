@@ -47,6 +47,7 @@ namespace Game.Network.Session
             Debug.Log($"[Network] Player left: {player}.");
             if (runner.IsServer)
             {
+                _pendingKicks.Remove(player);
                 _highlightPendingPlayers.Remove(player);
                 _matchStarter?.TryHandlePlayerLeft(player);
             }
@@ -822,6 +823,19 @@ namespace Game.Network.Session
             key.GetInts(out var type, out var version, out var sequence, out _);
             if (!IsCurrentRunner(runner))
             {
+                return;
+            }
+            if (type == KickKeyType)
+            {
+                if (version != KickKeyVersion || sequence <= 0 || data.Length != 1 || data[0] != 1)
+                    return;
+                if (runner.IsServer)
+                    DisconnectPendingKick(runner, player, sequence);
+                else if (runner.IsClient)
+                {
+                    ReportExit(RoomExitReason.Kicked);
+                    runner.SendReliableDataToServer(key, new byte[] { 1 });
+                }
                 return;
             }
             if (runner.IsServer)
