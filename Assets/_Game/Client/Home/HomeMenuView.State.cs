@@ -41,6 +41,7 @@ namespace Game.Client.Home
         private GameObject sentSection;
         private RectTransform sentItemsRoot;
         private TMP_Text requestsEmptyText;
+        private TMP_Text friendActionErrorText;
         private TMP_Text sentEmptyText;
         private GameObject refreshButton;
         private TMP_InputField friendSearchInput;
@@ -252,6 +253,10 @@ namespace Game.Client.Home
                 friendSearchInput.text = string.Empty;
             }
 
+            // Whichever way the panel is going, a message about what happened
+            // last time should not be waiting when it is opened again.
+            SetFriendActionError(string.Empty);
+
             if (visible)
             {
                 UpdateSearchEmptyHint(Array.Empty<FriendSearchHit>());
@@ -312,6 +317,18 @@ namespace Game.Client.Home
                     rows[index].DeclineButton.onClick.RemoveAllListeners();
                 }
             }
+        }
+
+        public void SetFriendActionError(string message)
+        {
+            if (friendActionErrorText == null)
+            {
+                return;
+            }
+
+            var hasMessage = !string.IsNullOrEmpty(message);
+            friendActionErrorText.text = message ?? string.Empty;
+            friendActionErrorText.gameObject.SetActive(hasMessage);
         }
 
         public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests)
