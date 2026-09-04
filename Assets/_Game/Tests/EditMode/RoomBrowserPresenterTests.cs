@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using Game.Core.Ports;
 using Game.Client.Home;
 using Game.Client.Rooms;
 using Game.Core.Flow;
@@ -37,6 +40,52 @@ namespace Game.Tests.EditMode
             Assert.That(reopened.DisconnectionCount, Is.Zero);
             rooms.RoomClosed(RoomExitReason.HostClosed); // A subsequent room can also close.
             Assert.That(reopened.DisconnectionCount, Is.EqualTo(1));
+        }
+
+        /// <summary>
+        /// The screen has no other way of knowing a request is out. Losing this
+        /// subscription still compiles and still runs; the refresh button simply
+        /// stops saying it is working, and nothing fails until someone notices.
+        /// </summary>
+        [Test]
+        public void Presenter_ReportsWhetherARequestIsRunning()
+        {
+            using var rooms = new RoomBrowserSystem();
+            var view = new FakeRoomBrowserView();
+            var browser = new PendingRoomBrowser();
+            var commands = new RoomUiCommands(browser, rooms);
+            using var presenter = new RoomBrowserPresenter(
+                view, rooms, new FakeHomeApplicationHost(), new AppFlowSystem());
+
+            presenter.Start();
+            Assert.That(view.IsBusy, Is.False);
+
+            commands.RefreshAsync(CancellationToken.None).Forget();
+            Assert.That(view.IsBusy, Is.True, "A running request must reach the view.");
+
+            browser.CompleteRefresh(RoomEntryFailure.None);
+            Assert.That(view.IsBusy, Is.False, "A finished request must release it.");
+        }
+
+        [Test]
+        public void Presenter_ReportsWhyEnteringARoomFailed()
+        {
+            using var rooms = new RoomBrowserSystem();
+            var view = new FakeRoomBrowserView();
+            var browser = new PendingRoomBrowser
+            {
+                EntryResult = RoomEntryResult.Failed(RoomEntryFailure.Full),
+            };
+            var commands = new RoomUiCommands(browser, rooms);
+            using var presenter = new RoomBrowserPresenter(
+                view, rooms, new FakeHomeApplicationHost(), new AppFlowSystem());
+
+            presenter.Start();
+            Assert.That(view.LastFailure, Is.EqualTo(RoomEntryFailure.None));
+
+            commands.EnterAsync(new RoomId("room"), null, CancellationToken.None).Forget();
+
+            Assert.That(view.LastFailure, Is.EqualTo(RoomEntryFailure.Full));
         }
 
         [Test]
@@ -79,6 +128,44 @@ namespace Game.Tests.EditMode
             Assert.That(
                 () => new RoomBrowserPresenter(view, rooms, host, null),
                 Throws.TypeOf<ArgumentNullException>());
+        }
+
+        /// <summary>
+        /// Holds a refresh open so a test can look at the screen while a request
+        /// is still out, and answers an entry however the test asks it to.
+        /// </summary>
+        private sealed class PendingRoomBrowser : IRoomBrowser
+        {
+            private UniTaskCompletionSource<RoomEntryFailure> pendingRefresh;
+
+            public RoomEntryResult EntryResult = RoomEntryResult.Entered();
+
+            public UniTask<RoomEntryFailure> RefreshAsync(CancellationToken cancellation)
+            {
+                pendingRefresh = new UniTaskCompletionSource<RoomEntryFailure>();
+                return pendingRefresh.Task;
+            }
+
+            public void CompleteRefresh(RoomEntryFailure failure)
+            {
+                pendingRefresh?.TrySetResult(failure);
+                pendingRefresh = null;
+            }
+
+            public UniTask<RoomEntryResult> CreateAsync(
+                RoomCreateRequest request, CancellationToken cancellation) =>
+                UniTask.FromResult(EntryResult);
+
+            public UniTask<RoomEntryResult> EnterAsync(
+                RoomId room, string password, CancellationToken cancellation) =>
+                UniTask.FromResult(EntryResult);
+
+            public UniTask<RoomEntryResult> EnterByCodeAsync(
+                string roomCode, string password, CancellationToken cancellation) =>
+                UniTask.FromResult(EntryResult);
+
+            public UniTask LeaveAsync(CancellationToken cancellation) =>
+                UniTask.CompletedTask;
         }
 
 #pragma warning disable CS0067

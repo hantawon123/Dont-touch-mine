@@ -218,25 +218,30 @@ namespace Game.Core.Lobby
         {
             if (string.IsNullOrEmpty(name))
             {
-                return 3;
+                return 4;
             }
 
             var first = name[0];
 
-            // Precomposed syllables and the standalone jamo a name can start
-            // with, which Unicode keeps in a separate block.
-            if ((first >= '가' && first <= '힣') ||
-                (first >= 'ㄱ' && first <= 'ㆎ'))
+            if (first >= '가' && first <= '힣')
             {
                 return 0;
             }
 
-            if ((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z'))
+            // Standalone jamo live in their own block below the syllables, so
+            // ordinal order alone would raise a name like ㅋㅋㅋ above 가나다.
+            // They are Korean, but they come after whole syllables.
+            if (first >= 'ㄱ' && first <= 'ㆎ')
             {
                 return 1;
             }
 
-            return first >= '0' && first <= '9' ? 2 : 3;
+            if ((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z'))
+            {
+                return 2;
+            }
+
+            return first >= '0' && first <= '9' ? 3 : 4;
         }
 
         public bool TryFindByCode(string candidate, out RoomSummary room)
