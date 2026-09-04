@@ -43,20 +43,14 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
-            // The store is built here, not in RegisterServices: it reads this
-            // machine's saved preferences, and a test container must not pick up
-            // whoever last played on the developer's machine.
-            var store = new PlayerPrefsProfileStore();
-
             RegisterServices(
                 builder,
                 _networkPrefabs,
                 _networkScenes,
-                LoadProfile(store),
+                null,
                 _networkRegion);
-            builder.RegisterInstance<IProfileStore>(store);
 
-            // Built here for the same reason the store is: the device identifier
+            // Built here rather than in RegisterServices: the device identifier
             // is this machine's saved credential, and a test container must not
             // pick up the account belonging to whoever last played here.
             RegisterBackend(builder, _backendBaseUrl);
@@ -79,11 +73,9 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<FrontendSceneCoordinator>().AsSelf();
             builder.RegisterEntryPoint<NetworkRoomDisconnectController>();
 
-            // Both listen to something live. Tests build the same container
-            // without wanting anything to react to scene loads or to write to
-            // this machine's preferences.
+            // Listens to something live. Tests build the same container without
+            // wanting anything to react to scene loads.
             builder.RegisterEntryPoint<MatchSceneSpawnPoints>();
-            builder.RegisterEntryPoint<ProfilePersistence>();
         }
 
         private sealed class SharedUiInputActions : MonoBehaviour
@@ -140,6 +132,7 @@ namespace Game.Bootstrap
             builder.RegisterInstance<IAccountGateway>(new AccountGateway(client));
             builder.RegisterInstance<IFriendGateway>(new FriendGateway(client));
             builder.RegisterInstance<IPresenceGateway>(new PresenceGateway(client));
+            builder.RegisterInstance<IBlockGateway>(new BlockGateway(client));
 
             // Registered beside the gateways rather than in RegisterServices,
             // because it needs one. A test container that builds only the
@@ -154,22 +147,6 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<PresenceHeartbeat>();
         }
 
-        /// <summary>
-        /// The saved profile, or a first-run default.
-        /// </summary>
-        /// <remarks>
-        /// One default in one place. It used to be decided twice — once here and
-        /// once on the home screen's own scope — which produced two profiles that
-        /// never met: renaming yourself on the home screen changed a copy the
-        /// network never read.
-        /// </remarks>
-        private static PlayerProfile LoadProfile(IProfileStore store)
-        {
-            return store.TryLoad(out var nickname, out var level)
-                ? new PlayerProfile(nickname, level)
-                : new PlayerProfile(DefaultNickname, 1);
-        }
-
         /// <param name="networkPrefabs">
         /// Optional so tests can build the same container without a project
         /// asset. A spawner without prefabs reports the problem when it is first
@@ -180,8 +157,9 @@ namespace Game.Bootstrap
         /// moving into a map reports that it has nowhere to go.
         /// </param>
         /// <param name="profile">
-        /// Optional so tests get a predictable default instead of this machine's
-        /// saved profile.
+        /// Optional so tests get a predictable name. The application leaves it
+        /// null: sign-in replaces it with the account's nickname as soon as the
+        /// server answers, and until then the default stands in.
         /// </param>
         public static void RegisterServices(
             IContainerBuilder builder,
@@ -198,7 +176,7 @@ namespace Game.Bootstrap
             // One instance for the whole application. The home screen edits this
             // one and the network reads this one, so a rename is visible in both
             // without either knowing about the other.
-            builder.RegisterInstance(profile ?? new PlayerProfile(DefaultNickname, 1));
+            builder.RegisterInstance(profile ?? new PlayerProfile(DefaultNickname));
 
             builder.Register<RoomBrowserSystem>(Lifetime.Singleton)
                 .AsSelf()

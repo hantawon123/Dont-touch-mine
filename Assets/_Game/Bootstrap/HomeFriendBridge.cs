@@ -46,6 +46,9 @@ namespace Game.Bootstrap
             view.FriendRequestClicked += OnFriendRequestClicked;
             view.FriendRequestAccepted += OnFriendRequestAccepted;
             view.FriendRequestDeclined += OnFriendRequestDeclined;
+            view.FriendRequestCancelled += OnFriendRequestCancelled;
+            view.FriendListRefreshRequested += OnRefreshRequested;
+            view.FriendBlocked += OnFriendBlocked;
 
             // Loaded before the player opens anything, so the panel is filled
             // the first time rather than after it appears empty.
@@ -60,6 +63,9 @@ namespace Game.Bootstrap
             view.FriendRequestClicked -= OnFriendRequestClicked;
             view.FriendRequestAccepted -= OnFriendRequestAccepted;
             view.FriendRequestDeclined -= OnFriendRequestDeclined;
+            view.FriendRequestCancelled -= OnFriendRequestCancelled;
+            view.FriendListRefreshRequested -= OnRefreshRequested;
+            view.FriendBlocked -= OnFriendBlocked;
 
             // Everything in flight is abandoned rather than allowed to write to
             // a screen that is being torn down.
@@ -80,7 +86,7 @@ namespace Game.Bootstrap
 
         private void OnFriendSearchOpened()
         {
-            RefreshIncomingRequestsAsync().Forget();
+            RefreshRequestsAsync().Forget();
         }
 
         private void OnFriendSearchRequested(string query)
@@ -103,6 +109,21 @@ namespace Game.Bootstrap
             AnswerRequestAsync(playerId, accepted: false).Forget();
         }
 
+        private void OnFriendRequestCancelled(string playerId)
+        {
+            CancelSentRequestAsync(playerId).Forget();
+        }
+
+        private void OnRefreshRequested()
+        {
+            RefreshAsync().Forget();
+        }
+
+        private void OnFriendBlocked(string playerId)
+        {
+            BlockAsync(playerId).Forget();
+        }
+
         private async UniTaskVoid RefreshAsync()
         {
             if (!await Ready())
@@ -111,29 +132,45 @@ namespace Game.Bootstrap
             }
 
             Report("friend list", await friends.RefreshFriendsAsync(lifetime.Token));
-            await RefreshIncomingRequests();
+            await RefreshRequests();
         }
 
-        private async UniTaskVoid RefreshIncomingRequestsAsync()
+        private async UniTaskVoid RefreshRequestsAsync()
         {
             if (!await Ready())
             {
                 return;
             }
 
-            await RefreshIncomingRequests();
+            await RefreshRequests();
         }
 
-        private async UniTask RefreshIncomingRequests()
+        /// <remarks>
+        /// Both directions together. They are shown one above the other and every
+        /// action on either changes what the other should say, so reading one
+        /// without the other leaves half the panel stale.
+        /// </remarks>
+        private async UniTask RefreshRequests()
         {
-            var answer = await friends.ListIncomingRequestsAsync(lifetime.Token);
-            if (!answer.Ok)
+            var incoming = await friends.ListIncomingRequestsAsync(lifetime.Token);
+            if (incoming.Ok)
             {
-                Report("friend requests", answer.Failure);
-                return;
+                view.SetIncomingRequests(incoming.Value);
+            }
+            else
+            {
+                Report("received requests", incoming.Failure);
             }
 
-            view.SetIncomingRequests(answer.Value);
+            var outgoing = await friends.ListOutgoingRequestsAsync(lifetime.Token);
+            if (outgoing.Ok)
+            {
+                view.SetOutgoingRequests(outgoing.Value);
+            }
+            else
+            {
+                Report("sent requests", outgoing.Failure);
+            }
         }
 
         private async UniTaskVoid SearchAsync(string query)
@@ -162,6 +199,10 @@ namespace Game.Bootstrap
             }
 
             Report("friend request", await friends.SendRequestAsync(playerId, lifetime.Token));
+
+            // The request just sent belongs in the sent list, and if the server
+            // settled it into a friendship instead there is nothing to show.
+            await RefreshRequests();
         }
 
         private async UniTaskVoid AnswerRequestAsync(string playerId, bool accepted)
@@ -180,7 +221,34 @@ namespace Game.Bootstrap
             // Re-read either way. On success the row is gone; on failure the
             // list this screen is showing is out of date, which is what most of
             // these failures mean.
-            await RefreshIncomingRequests();
+            await RefreshRequests();
+        }
+
+        private async UniTaskVoid CancelSentRequestAsync(string playerId)
+        {
+            if (!await Ready())
+            {
+                return;
+            }
+
+            Report("cancel", await friends.CancelSentRequestAsync(playerId, lifetime.Token));
+            await RefreshRequests();
+        }
+
+        /// <remarks>
+        /// The friend list is reloaded by the command itself, because blocking
+        /// ends the friendship. The requests are reloaded here, because it drops
+        /// any request between the two as well.
+        /// </remarks>
+        private async UniTaskVoid BlockAsync(string playerId)
+        {
+            if (!await Ready())
+            {
+                return;
+            }
+
+            Report("block", await friends.BlockAsync(playerId, lifetime.Token));
+            await RefreshRequests();
         }
 
         /// <summary>

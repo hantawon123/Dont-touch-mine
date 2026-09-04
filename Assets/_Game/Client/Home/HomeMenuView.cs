@@ -14,8 +14,6 @@ namespace Game.Client.Home
     {
         private static readonly Color CharacterColor = new Color(0.86f, 0.86f, 0.86f, 1f);
         private static readonly Color AvatarColor = new Color(0.62f, 0.62f, 0.62f, 1f);
-        private static readonly Color ExperienceBackground = new Color(0.82f, 0.82f, 0.82f, 1f);
-        private static readonly Color ExperienceFillColor = new Color(0.31f, 0.62f, 0.91f, 1f);
         private static readonly Color TextHover = new Color(0.35f, 0.35f, 0.35f, 1f);
         private static readonly Color TextPressed = new Color(0.15f, 0.15f, 0.15f, 1f);
         private static readonly Color MenuHover = new Color(0.18f, 0.47f, 0.98f, 1f);
@@ -136,38 +134,6 @@ namespace Game.Client.Home
                 FontStyles.Bold,
                 TextAlignmentOptions.MidlineLeft);
 
-            var levelRow = CreateRect("LevelRow", info);
-            levelRow.sizeDelta = new Vector2(260f, 22f);
-            var levelLayout = levelRow.gameObject.AddComponent<HorizontalLayoutGroup>();
-            levelLayout.spacing = 10f;
-            levelLayout.childAlignment = TextAnchor.MiddleLeft;
-            levelLayout.childControlWidth = false;
-            levelLayout.childControlHeight = true;
-            levelLayout.childForceExpandWidth = false;
-            levelLayout.childForceExpandHeight = true;
-
-            var levelRect = CreateRect("Level", levelRow);
-            levelRect.sizeDelta = new Vector2(56f, 22f);
-            levelText = AddText(
-                levelRect,
-                "Lv.1",
-                18f,
-                FontStyles.Normal,
-                TextAlignmentOptions.MidlineLeft);
-
-            var experienceTrack = CreateRect("ExperienceTrack", levelRow);
-            experienceTrack.sizeDelta = new Vector2(180f, 14f);
-            AddImage(experienceTrack, ExperienceBackground);
-
-            var experienceFill = CreateRect("ExperienceFill", experienceTrack);
-            SetAnchor(experienceFill, Vector2.zero, Vector2.one, new Vector2(0f, 0.5f));
-            experienceFill.offsetMin = Vector2.zero;
-            experienceFill.offsetMax = Vector2.zero;
-            var fillImage = AddImage(experienceFill, ExperienceFillColor);
-            fillImage.type = Image.Type.Filled;
-            fillImage.fillMethod = Image.FillMethod.Horizontal;
-            fillImage.fillOrigin = (int)Image.OriginHorizontal.Left;
-            fillImage.fillAmount = experienceRatio;
         }
 
         private void CreateCharacter(RectTransform canvas)
@@ -360,7 +326,6 @@ namespace Game.Client.Home
             var avatarImage = AddImage(avatar, CharacterColor, HomeUiFonts.CircleSprite);
             avatarImage.preserveAspect = true;
 
-            CreateProfileLevelRow(info);
             CreateProfileNicknameField(info);
             CreateSimpleTextButton(
                 info,
@@ -372,46 +337,6 @@ namespace Game.Client.Home
                 OnChangeNicknameClicked,
                 160f,
                 48f);
-        }
-
-        private void CreateProfileLevelRow(RectTransform parent)
-        {
-            var levelRow = CreateRect("LevelRow", parent);
-            levelRow.sizeDelta = new Vector2(280f, 22f);
-            var rowLayout = levelRow.gameObject.AddComponent<LayoutElement>();
-            rowLayout.preferredHeight = 22f;
-            rowLayout.minHeight = 22f;
-            rowLayout.preferredWidth = 280f;
-            var levelLayout = levelRow.gameObject.AddComponent<HorizontalLayoutGroup>();
-            levelLayout.spacing = 10f;
-            levelLayout.childAlignment = TextAnchor.MiddleCenter;
-            levelLayout.childControlWidth = false;
-            levelLayout.childControlHeight = true;
-            levelLayout.childForceExpandWidth = false;
-            levelLayout.childForceExpandHeight = true;
-
-            var levelRect = CreateRect("Level", levelRow);
-            levelRect.sizeDelta = new Vector2(56f, 22f);
-            profileLevelText = AddText(
-                levelRect,
-                "Lv.1",
-                18f,
-                FontStyles.Normal,
-                TextAlignmentOptions.MidlineLeft);
-
-            var experienceTrack = CreateRect("ExperienceTrack", levelRow);
-            experienceTrack.sizeDelta = new Vector2(180f, 14f);
-            AddImage(experienceTrack, ExperienceBackground);
-
-            var experienceFill = CreateRect("ExperienceFill", experienceTrack);
-            SetAnchor(experienceFill, Vector2.zero, Vector2.one, new Vector2(0f, 0.5f));
-            experienceFill.offsetMin = Vector2.zero;
-            experienceFill.offsetMax = Vector2.zero;
-            var fillImage = AddImage(experienceFill, ExperienceFillColor);
-            fillImage.type = Image.Type.Filled;
-            fillImage.fillMethod = Image.FillMethod.Horizontal;
-            fillImage.fillOrigin = (int)Image.OriginHorizontal.Left;
-            fillImage.fillAmount = experienceRatio;
         }
 
         private void CreateProfileNicknameField(RectTransform parent)
@@ -472,6 +397,22 @@ namespace Game.Client.Home
                 FontStyles.Normal,
                 TextAlignmentOptions.Center);
             appliedFeedbackText.gameObject.SetActive(false);
+
+            // Sits where the success line does, because only one of them can be
+            // true at a time and stacking them would leave a gap under whichever
+            // is hidden.
+            var errorRect = CreateRect("NicknameError", parent);
+            SetAnchor(errorRect, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+            errorRect.anchoredPosition = new Vector2(0f, 48f);
+            errorRect.sizeDelta = new Vector2(400f, 40f);
+            nicknameErrorText = AddText(
+                errorRect,
+                string.Empty,
+                22f,
+                FontStyles.Normal,
+                TextAlignmentOptions.Center);
+            nicknameErrorText.color = new Color(0.78f, 0.20f, 0.20f, 1f);
+            nicknameErrorText.gameObject.SetActive(false);
         }
 
         private void OnChangeNicknameClicked()
@@ -609,9 +550,20 @@ namespace Game.Client.Home
             titleLayout.preferredHeight = 36f;
             panelHeaderText = AddText(titleRect, "친구", 24f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
 
+            // Spelled out rather than drawn as a circular arrow. The font atlas
+            // is baked from a fixed character set that has no such glyph, and it
+            // is close enough to full that adding one means rebaking eight
+            // megabytes of asset — for an icon that still has to be guessed at.
+            refreshButton = CreateHeaderActionButton(
+                header, "Refresh", "새로고침", OnRefreshClicked, 72f, 14f);
             addFriendButton = CreateHeaderActionButton(header, "Add", "+", OnAddFriendClicked);
             closeSearchButton = CreateHeaderActionButton(header, "Close", "X", OnCloseSearchClicked);
             closeSearchButton.SetActive(false);
+        }
+
+        private void OnRefreshClicked()
+        {
+            FriendListRefreshRequested?.Invoke();
         }
 
         private void OnAddFriendClicked()
@@ -642,7 +594,8 @@ namespace Game.Client.Home
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
-            requestsItemsRoot = CreateRequestsSection(body);
+            requestsItemsRoot = CreateRequestsSection(body, "받은 요청", out requestsSection);
+            sentItemsRoot = CreateRequestsSection(body, "보낸 요청", out sentSection);
             CreateSearchBar(body);
             searchItemsRoot = CreateSearchResults(body);
             friendSearchBody.SetActive(false);
@@ -659,14 +612,20 @@ namespace Game.Client.Home
             row.spacing = 8f;
         }
 
-        private GameObject CreateHeaderActionButton(RectTransform parent, string name, string label, Action onClicked)
+        private GameObject CreateHeaderActionButton(
+            RectTransform parent,
+            string name,
+            string label,
+            Action onClicked,
+            float width = HeaderActionSize,
+            float fontSize = 22f)
         {
             var buttonRect = CreateRect(name, parent);
-            buttonRect.sizeDelta = new Vector2(HeaderActionSize, HeaderActionSize);
+            buttonRect.sizeDelta = new Vector2(width, HeaderActionSize);
             var layout = buttonRect.gameObject.AddComponent<LayoutElement>();
-            layout.preferredWidth = HeaderActionSize;
+            layout.preferredWidth = width;
             layout.preferredHeight = HeaderActionSize;
-            layout.minWidth = HeaderActionSize;
+            layout.minWidth = width;
             layout.minHeight = HeaderActionSize;
             layout.flexibleWidth = 0f;
             layout.flexibleHeight = 0f;
@@ -683,7 +642,7 @@ namespace Game.Client.Home
             AddText(
                 labelRect,
                 label,
-                22f,
+                fontSize,
                 FontStyles.Bold,
                 TextAlignmentOptions.Center);
             var button = buttonRect.gameObject.AddComponent<Button>();
@@ -919,8 +878,23 @@ namespace Game.Client.Home
                 }
 
                 var friend = friends[index];
+                row.PlayerId = friend.PlayerId;
                 row.Nickname.text = friend.Nickname;
                 row.Status.text = friend.Presence == FriendPresence.InGame ? "게임중" : string.Empty;
+
+                // Disarmed on every draw. A row half way through asking for
+                // confirmation must not stay that way for whoever lands in it
+                // next, and a refresh is exactly when that happens.
+                row.BlockArmed = false;
+                if (row.BlockLabel != null)
+                {
+                    row.BlockLabel.text = "차단";
+                }
+
+                if (row.BlockButton != null)
+                {
+                    row.BlockButton.interactable = true;
+                }
             }
         }
 
@@ -1046,10 +1020,13 @@ namespace Game.Client.Home
         /// height its rows need, so the search results below keep the rest.
         /// </para>
         /// </remarks>
-        private RectTransform CreateRequestsSection(RectTransform parent)
+        private RectTransform CreateRequestsSection(
+            RectTransform parent, string heading, out GameObject section)
         {
-            var section = CreateRect("Requests", parent);
-            var sectionLayout = section.gameObject.AddComponent<VerticalLayoutGroup>();
+            var sectionRect = CreateRect(heading, parent);
+            var sectionObject = sectionRect.gameObject;
+            var section_ = sectionRect;
+            var sectionLayout = sectionObject.AddComponent<VerticalLayoutGroup>();
             sectionLayout.spacing = 8f;
             sectionLayout.childAlignment = TextAnchor.UpperLeft;
             sectionLayout.childControlWidth = true;
@@ -1057,18 +1034,18 @@ namespace Game.Client.Home
             sectionLayout.childForceExpandWidth = true;
             sectionLayout.childForceExpandHeight = false;
 
-            var headerRect = CreateRect("Header", section);
+            var headerRect = CreateRect("Header", section_);
             var headerLayout = headerRect.gameObject.AddComponent<LayoutElement>();
             headerLayout.preferredHeight = 24f;
             headerLayout.minHeight = 24f;
             AddText(
                 headerRect,
-                "받은 요청",
+                heading,
                 18f,
                 FontStyles.Bold,
                 TextAlignmentOptions.MidlineLeft);
 
-            var items = CreateRect("Items", section);
+            var items = CreateRect("Items", section_);
             var itemsLayout = items.gameObject.AddComponent<VerticalLayoutGroup>();
             itemsLayout.spacing = 8f;
             itemsLayout.childAlignment = TextAnchor.UpperLeft;
@@ -1077,21 +1054,25 @@ namespace Game.Client.Home
             itemsLayout.childForceExpandWidth = true;
             itemsLayout.childForceExpandHeight = false;
 
-            requestsSection = section.gameObject;
-            requestsSection.SetActive(false);
+            section = sectionObject;
+            section.SetActive(false);
             return items;
         }
 
-        private void BindRequestRows(IReadOnlyList<FriendRequestSummary> requests)
+        private void BindRequestRows(
+            List<RequestRow> rows,
+            RectTransform parent,
+            IReadOnlyList<FriendRequestSummary> requests,
+            bool sent)
         {
-            while (requestRows.Count < requests.Count)
+            while (rows.Count < requests.Count)
             {
-                requestRows.Add(CreateRequestRow(requestsItemsRoot));
+                rows.Add(CreateRequestRow(parent, sent));
             }
 
-            for (var index = 0; index < requestRows.Count; index++)
+            for (var index = 0; index < rows.Count; index++)
             {
-                var row = requestRows[index];
+                var row = rows[index];
                 var isVisible = index < requests.Count;
                 row.Root.SetActive(isVisible);
                 if (!isVisible)
@@ -1106,12 +1087,20 @@ namespace Game.Client.Home
                 // Re-enabled on every bind. A row is reused by whoever lands in
                 // that slot next, and a button left insensitive by the previous
                 // occupant would refuse the new one.
-                row.AcceptButton.interactable = true;
+                if (row.AcceptButton != null)
+                {
+                    row.AcceptButton.interactable = true;
+                }
+
                 row.DeclineButton.interactable = true;
             }
         }
 
-        private RequestRow CreateRequestRow(RectTransform parent)
+        /// <param name="sent">
+        /// True for a request this player sent, which can only be taken back.
+        /// A received one is answered either way, so it carries two buttons.
+        /// </param>
+        private RequestRow CreateRequestRow(RectTransform parent, bool sent)
         {
             var rowRect = CreateRect("RequestRow", parent);
             var rowLayout = rowRect.gameObject.AddComponent<LayoutElement>();
@@ -1152,19 +1141,22 @@ namespace Game.Client.Home
                 Nickname = nickname
             };
 
-            row.AcceptButton = CreateRowTextButton(
-                rowRect,
-                "Accept",
-                "수락",
-                40f,
-                () => AnswerRequest(row, accepted: true));
+            if (!sent)
+            {
+                row.AcceptButton = CreateRowTextButton(
+                    rowRect,
+                    "Accept",
+                    "수락",
+                    40f,
+                    () => AnswerRequest(row, accepted: true));
+            }
 
             row.DeclineButton = CreateRowTextButton(
                 rowRect,
-                "Decline",
-                "거절",
+                sent ? "Cancel" : "Decline",
+                sent ? "취소" : "거절",
                 40f,
-                () => AnswerRequest(row, accepted: false));
+                () => AnswerRequest(row, accepted: false, cancelled: sent));
 
             return row;
         }
@@ -1174,15 +1166,25 @@ namespace Game.Client.Home
         /// trip, and a second click would answer a request that no longer
         /// exists. The next bind turns them back on.
         /// </remarks>
-        private void AnswerRequest(RequestRow row, bool accepted)
+        private void AnswerRequest(RequestRow row, bool accepted, bool cancelled = false)
         {
             if (string.IsNullOrEmpty(row.PlayerId))
             {
                 return;
             }
 
-            row.AcceptButton.interactable = false;
+            if (row.AcceptButton != null)
+            {
+                row.AcceptButton.interactable = false;
+            }
+
             row.DeclineButton.interactable = false;
+
+            if (cancelled)
+            {
+                FriendRequestCancelled?.Invoke(row.PlayerId);
+                return;
+            }
 
             if (accepted)
             {
@@ -1298,12 +1300,54 @@ namespace Game.Client.Home
                 FontStyles.Normal,
                 TextAlignmentOptions.Center);
 
-            return new FriendRow
+            var friendRow = new FriendRow
             {
                 Root = row.gameObject,
                 Nickname = nickname,
                 Status = status
             };
+
+            friendRow.BlockButton = CreateRowTextButton(
+                row,
+                "Block",
+                "차단",
+                40f,
+                () => ConfirmBlock(friendRow));
+
+            friendRow.BlockLabel = friendRow.BlockButton.GetComponentInChildren<TMP_Text>();
+            return friendRow;
+        }
+
+        /// <summary>
+        /// Two presses to block: the first asks, the second does it.
+        /// </summary>
+        /// <remarks>
+        /// A confirmation step rather than a dialog, because the row is small and
+        /// a modal over a modal is worse than a label that changes. Blocking is
+        /// not only hiding someone — the server ends the friendship and drops any
+        /// request with it — so a single stray press should not do it.
+        /// <para>
+        /// The armed state lasts until this list is drawn again, which happens on
+        /// every refresh, so it cannot sit armed for long.
+        /// </para>
+        /// </remarks>
+        private void ConfirmBlock(FriendRow row)
+        {
+            if (string.IsNullOrEmpty(row.PlayerId))
+            {
+                return;
+            }
+
+            if (!row.BlockArmed)
+            {
+                row.BlockArmed = true;
+                row.BlockLabel.text = "확인?";
+                return;
+            }
+
+            row.BlockArmed = false;
+            row.BlockButton.interactable = false;
+            FriendBlocked?.Invoke(row.PlayerId);
         }
 
         private static void AddDropShadow(GameObject target, Color color, Vector2 distance)
@@ -1425,8 +1469,12 @@ namespace Game.Client.Home
         private sealed class FriendRow
         {
             public GameObject Root;
+            public string PlayerId;
             public TMP_Text Nickname;
             public TMP_Text Status;
+            public Button BlockButton;
+            public TMP_Text BlockLabel;
+            public bool BlockArmed;
         }
 
         private sealed class RequestRow

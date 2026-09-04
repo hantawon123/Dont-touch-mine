@@ -100,6 +100,22 @@ namespace Game.Backend
     }
 
     [Serializable]
+    internal sealed class BlockedUserSummaryDto
+    {
+        public string userId;
+        public string nickname;
+
+        /// <summary>yyyyMMddHHmmss, UTC.</summary>
+        public string blockedAt;
+    }
+
+    [Serializable]
+    internal sealed class BlockListResponseDto
+    {
+        public BlockedUserSummaryDto[] blocked;
+    }
+
+    [Serializable]
     internal sealed class UpdatePresenceRequestDto
     {
         public string sessionId;

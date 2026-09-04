@@ -24,15 +24,18 @@ namespace Game.Core.Home
     public sealed class FriendUiCommands
     {
         private readonly IFriendGateway gateway;
+        private readonly IBlockGateway blocks;
         private readonly FriendListSystem friends;
         private readonly FriendSearchSystem search;
 
         public FriendUiCommands(
             IFriendGateway gateway,
+            IBlockGateway blocks,
             FriendListSystem friends,
             FriendSearchSystem search)
         {
             this.gateway = gateway ?? throw new ArgumentNullException(nameof(gateway));
+            this.blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
             this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
             this.search = search ?? throw new ArgumentNullException(nameof(search));
         }
@@ -194,6 +197,56 @@ namespace Game.Core.Home
         {
             var answer = await gateway.DeclineRequestAsync(playerId, cancellation);
             return answer.Ok ? BackendFailure.None : answer.Failure;
+        }
+
+        /// <summary>Requests this player sent and nobody has answered.</summary>
+        public async UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>>
+            ListOutgoingRequestsAsync(CancellationToken cancellation)
+        {
+            return await gateway.ListOutgoingRequestsAsync(cancellation);
+        }
+
+        /// <summary>
+        /// Takes back a request this player sent.
+        /// </summary>
+        /// <remarks>
+        /// The same server call that declines one received — it is the same row
+        /// either way — but a different thing to the screen, which is why it has
+        /// its own name here. The search row goes back to offering a request,
+        /// because after this there is none.
+        /// </remarks>
+        public async UniTask<BackendFailure> CancelSentRequestAsync(
+            string playerId, CancellationToken cancellation)
+        {
+            var answer = await gateway.DeclineRequestAsync(playerId, cancellation);
+            if (!answer.Ok)
+            {
+                return answer.Failure;
+            }
+
+            search.CancelPendingRequest(playerId);
+            return BackendFailure.None;
+        }
+
+        /// <summary>
+        /// Blocks someone, then reloads the friend list.
+        /// </summary>
+        /// <remarks>
+        /// The reload is not optional. Blocking ends the friendship and drops
+        /// any request between the two, so a list left as it was would show a
+        /// friend who is no longer one and offer to unfriend a row the server
+        /// has already removed.
+        /// </remarks>
+        public async UniTask<BackendFailure> BlockAsync(
+            string playerId, CancellationToken cancellation)
+        {
+            var answer = await blocks.BlockAsync(playerId, cancellation);
+            if (!answer.Ok)
+            {
+                return answer.Failure;
+            }
+
+            return await RefreshFriendsAsync(cancellation);
         }
 
         /// <summary>
