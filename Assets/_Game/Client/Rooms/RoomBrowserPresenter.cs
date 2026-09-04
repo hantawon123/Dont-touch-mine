@@ -12,6 +12,7 @@ namespace Game.Client.Rooms
 {
     public sealed class RoomBrowserPresenter : IStartable, IDisposable
     {
+
         private readonly IRoomBrowserView view;
         private readonly RoomBrowserSystem rooms;
         private readonly IHomeApplicationHost applicationHost;
@@ -20,6 +21,13 @@ namespace Game.Client.Rooms
         private IDisposable exitSubscription;
         private IDisposable busySubscription;
         private IDisposable failureSubscription;
+
+        /// <summary>
+        /// What the player typed, kept here rather than read back from the
+        /// field, so a refreshed list is filtered the same way the visible one
+        /// was without the search box having to be asked.
+        /// </summary>
+        private string searchText = string.Empty;
 
         public RoomBrowserPresenter(
             IRoomBrowserView view,
@@ -37,17 +45,19 @@ namespace Game.Client.Rooms
         public void Start()
         {
             view.BackRequested += OnBackRequested;
+            view.SearchTextChanged += OnSearchTextChanged;
             view.DisconnectionAcknowledged += OnDisconnectionAcknowledged;
             roomsSubscription = rooms.Rooms.Subscribe(OnRoomsChanged);
             exitSubscription = rooms.LastExit.Subscribe(OnRoomExit);
             busySubscription = rooms.IsBusy.Subscribe(view.SetBusy);
             failureSubscription = rooms.LastFailure.Subscribe(view.ShowEntryFailure);
-            view.SetRooms(rooms.Rooms.CurrentValue);
+            Render();
         }
 
         public void Dispose()
         {
             view.BackRequested -= OnBackRequested;
+            view.SearchTextChanged -= OnSearchTextChanged;
             view.DisconnectionAcknowledged -= OnDisconnectionAcknowledged;
             roomsSubscription?.Dispose();
             exitSubscription?.Dispose();
@@ -84,9 +94,42 @@ namespace Game.Client.Rooms
             applicationHost.OpenHome();
         }
 
+        private void OnSearchTextChanged(string text)
+        {
+            searchText = text ?? string.Empty;
+            Render();
+        }
+
         private void OnRoomsChanged(IReadOnlyList<RoomSummary> summaries)
         {
-            view.SetRooms(summaries);
+            Render();
         }
+
+        /// <summary>
+        /// Puts the rooms matching the search on screen, and says why there are
+        /// none when there are none.
+        /// </summary>
+        /// <remarks>
+        /// Filtering happens here rather than in the view because the view is
+        /// told what to draw, and rather than in the room system because the
+        /// search belongs to this screen: a room does not stop existing because
+        /// somebody typed.
+        /// </remarks>
+        private void Render()
+        {
+            var all = rooms.Rooms.CurrentValue;
+            var matching = new List<RoomSummary>(all.Count);
+
+            for (var index = 0; index < all.Count; index++)
+            {
+                if (all[index].MatchesTitle(searchText))
+                {
+                    matching.Add(all[index]);
+                }
+            }
+
+            view.SetRooms(matching);
+        }
+
     }
 }
