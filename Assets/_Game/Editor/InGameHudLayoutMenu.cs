@@ -307,10 +307,9 @@ namespace Game.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
             var viewSerialized = new SerializedObject(view);
-            viewSerialized.FindProperty("previewOnAwake").boolValue = true;
-            viewSerialized.FindProperty("previewItemName").stringValue = "탄산음료";
+            viewSerialized.FindProperty("previewOnAwake").boolValue = false;
             viewSerialized.ApplyModifiedPropertiesWithoutUndo();
-            view.Show("탄산음료");
+            view.Hide();
         }
 
         private static void EnsureAssignedItem(NetworkMatchHudView hud)

@@ -6,7 +6,7 @@ namespace Game.Client.Match
 {
     public interface IHidingIntroView
     {
-        void Show(string itemDisplayName, Sprite itemPreview = null);
+        void Show(string itemDisplayName, string itemId = null);
         void Hide();
     }
 
@@ -39,11 +39,13 @@ namespace Game.Client.Match
         private TMP_Text hintText;
 
         [SerializeField]
-        private Image itemPreview;
+        private RawImage itemPreview;
+
+        private HidingIntroItemPreview preview;
 
         [SerializeField]
-        [Tooltip("Leaves the briefing on so the layout can be reviewed before match-start wiring.")]
-        private bool previewOnAwake = true;
+        [Tooltip("Preview the briefing in the editor. Match start wiring keeps this off.")]
+        private bool previewOnAwake;
 
         [SerializeField]
         private string previewItemName = "탄산음료";
@@ -85,7 +87,7 @@ namespace Game.Client.Match
             Hide();
         }
 
-        public void Show(string itemDisplayName, Sprite itemPreviewSprite = null)
+        public void Show(string itemDisplayName, string itemId = null)
         {
             EnsureLayout();
             transform.SetAsLastSibling();
@@ -108,7 +110,7 @@ namespace Game.Client.Match
                 hintText.text = HintText;
             }
 
-            ApplyPreview(itemPreviewSprite);
+            preview?.Show(itemId);
 
             if (root != null)
             {
@@ -120,6 +122,7 @@ namespace Game.Client.Match
 
         public void Hide()
         {
+            preview?.Clear();
             if (root != null && root != gameObject)
             {
                 root.SetActive(false);
@@ -129,15 +132,15 @@ namespace Game.Client.Match
             gameObject.SetActive(false);
         }
 
-        private void ApplyPreview(Sprite itemPreviewSprite)
+        private void LateUpdate()
         {
-            if (itemPreview == null)
-            {
-                return;
-            }
+            preview?.Tick(Time.deltaTime);
+        }
 
-            itemPreview.sprite = itemPreviewSprite;
-            itemPreview.enabled = itemPreviewSprite != null;
+        private void OnDestroy()
+        {
+            preview?.Dispose();
+            preview = null;
         }
 
         private void EnsureLayout()
@@ -172,7 +175,12 @@ namespace Game.Client.Match
 
             if (itemPreview == null)
             {
-                itemPreview = transform.Find("Content/ItemPreview")?.GetComponent<Image>();
+                itemPreview = transform.Find("Content/ItemPreview")?.GetComponent<RawImage>();
+            }
+
+            if (preview == null && itemPreview != null)
+            {
+                preview = new HidingIntroItemPreview(itemPreview);
             }
         }
 
@@ -210,10 +218,9 @@ namespace Game.Client.Match
             content.SetParent(transform, false);
             Place(content, new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(1200f, 640f));
 
-            itemPreview = CreatePanel(content, "ItemPreview", Color.white, false).GetComponent<Image>();
-            itemPreview.enabled = false;
-            itemPreview.preserveAspect = true;
-            Place(itemPreview.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 150f), new Vector2(280f, 280f));
+            itemPreview = CreateRawImage(content, "ItemPreview");
+            Place(itemPreview.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 160f), new Vector2(360f, 360f));
+            preview = new HidingIntroItemPreview(itemPreview);
 
             messageText = CreateText(
                 content,
@@ -256,6 +263,21 @@ namespace Game.Client.Match
             {
                 gameObject.AddComponent<GraphicRaycaster>();
             }
+        }
+
+        private static RawImage CreateRawImage(Transform parent, string name)
+        {
+            var gameObject = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(RawImage));
+            gameObject.transform.SetParent(parent, false);
+            var image = gameObject.GetComponent<RawImage>();
+            image.color = Color.white;
+            image.raycastTarget = false;
+            image.enabled = false;
+            return image;
         }
 
         private static RectTransform CreatePanel(

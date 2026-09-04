@@ -24,6 +24,8 @@ namespace Game.Client.Match
         void ShowDestructionNotice(string message);
         void HideDestructionNotice();
         void SetShredderMarker(Vector2 screenPosition, bool visible);
+        void ShowHidingIntro(string itemDisplayName, string itemId);
+        void HideHidingIntro();
     }
 
     /// <summary>
@@ -82,6 +84,7 @@ namespace Game.Client.Match
             SetAssignedItem(null);
             SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
             EnsureHidingIntro();
+            HideHidingIntro();
         }
 
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
@@ -255,6 +258,17 @@ namespace Game.Client.Match
             {
                 shredderMarker.anchoredPosition = localPoint;
             }
+        }
+
+        public void ShowHidingIntro(string itemDisplayName, string itemId)
+        {
+            EnsureHidingIntro();
+            hidingIntroView?.Show(itemDisplayName, itemId);
+        }
+
+        public void HideHidingIntro()
+        {
+            hidingIntroView?.Hide();
         }
 
         private void EnsureHidingIntro()

@@ -364,6 +364,106 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void HidingStart_ShowsEachPlayersAssignedItemThenHides()
+        {
+            var network = new FakeNetwork { ServerTime = 40d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.PublishItemAssignment("Soda_01");
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                presenter.Tick();
+                Assert.That(view.HidingIntroVisible, Is.True);
+                Assert.That(view.HidingIntroItem, Is.EqualTo("탄산음료"));
+
+                network.ServerTime = 42.9d;
+                presenter.Tick();
+                Assert.That(view.HidingIntroVisible, Is.True);
+
+                network.ServerTime = 43d;
+                presenter.Tick();
+                Assert.That(view.HidingIntroVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void HidingIntro_WaitsForAssignmentInsideTheOpeningWindow()
+        {
+            var network = new FakeNetwork { ServerTime = 41d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                presenter.Tick();
+                Assert.That(view.HidingIntroVisible, Is.False);
+
+                network.PublishItemAssignment("Burger_01");
+                presenter.Tick();
+                Assert.That(view.HidingIntroVisible, Is.True);
+                Assert.That(view.HidingIntroItem, Is.EqualTo("햄버거"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void HidingIntro_DoesNotOpenAfterTheOpeningWindow()
+        {
+            var network = new FakeNetwork { ServerTime = 44d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.PublishItemAssignment("Soda_01");
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                presenter.Tick();
+                Assert.That(view.HidingIntroVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
         public void Start_UsesCachedItemStatuses_AndDisposeUnsubscribes()
         {
             var network = new FakeNetwork
@@ -443,6 +543,16 @@ namespace Game.Architecture.Tests
 
             public void HideDestructionNotice() => NoticeVisible = false;
             public void SetShredderMarker(Vector2 screenPosition, bool visible) { }
+            public string HidingIntroItem { get; private set; }
+            public bool HidingIntroVisible { get; private set; }
+
+            public void ShowHidingIntro(string itemDisplayName, string itemId)
+            {
+                HidingIntroItem = itemDisplayName;
+                HidingIntroVisible = true;
+            }
+
+            public void HideHidingIntro() => HidingIntroVisible = false;
         }
 
         private sealed class FakeNetwork :

@@ -41,6 +41,11 @@ namespace Game.Bootstrap
         private string reportedHidingName = string.Empty;
         private MatchPhase reportedPhase;
         private bool hasReportedPhase;
+        private string assignedItemId;
+        private string assignedItemDisplayName;
+        private bool hidingIntroVisible;
+        private bool hidingIntroOpenedThisPhase;
+        private double hidingIntroEndsAt;
 
         public NetworkMatchHudPresenter(
             INetworkMatchEvents events,
@@ -70,6 +75,7 @@ namespace Game.Bootstrap
             view.SetRemainingDestructionUses(-1);
             view.SetPlayerItemStatuses(events.LatestPlayerItemStatuses);
             view.SetShredderMarker(default, false);
+            view.HideHidingIntro();
             FindSceneReferences();
         }
 
@@ -84,6 +90,7 @@ namespace Game.Bootstrap
             view.HideDestructionNotice();
             view.SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
             view.SetShredderMarker(default, false);
+            HideHidingIntro();
         }
 
         public void Tick()
@@ -121,6 +128,7 @@ namespace Game.Bootstrap
                 view.HideDestructionNotice();
             }
 
+            UpdateHidingIntro(now);
             UpdateShredderMarker();
         }
 
@@ -139,10 +147,17 @@ namespace Game.Bootstrap
                 noticeEndsAt = 0d;
                 view.HideDestructionNotice();
             }
+            if (received.Phase != MatchPhase.Hiding)
+            {
+                hidingIntroOpenedThisPhase = false;
+                HideHidingIntro();
+            }
+
             snapshot = received;
             hasSnapshot = true;
             ReportPhase();
             UpdateGameEndNotice();
+            TryShowHidingIntro();
         }
 
         private void OnMatchResultReceived(MatchResult result)
@@ -250,7 +265,66 @@ namespace Game.Bootstrap
 
         private void OnItemAssignmentReceived(string itemId)
         {
-            view.SetAssignedItem(ItemCatalog.DisplayNameOf(itemId));
+            assignedItemId = itemId?.Trim();
+            assignedItemDisplayName = ItemCatalog.DisplayNameOf(itemId);
+            view.SetAssignedItem(assignedItemDisplayName);
+            if (hidingIntroVisible)
+            {
+                view.ShowHidingIntro(assignedItemDisplayName, assignedItemId);
+                return;
+            }
+
+            TryShowHidingIntro();
+        }
+
+        private void UpdateHidingIntro(double now)
+        {
+            TryShowHidingIntro();
+            if (hidingIntroVisible && now >= hidingIntroEndsAt)
+            {
+                HideHidingIntro();
+            }
+        }
+
+        private void TryShowHidingIntro()
+        {
+            if (hidingIntroOpenedThisPhase ||
+                !hasSnapshot ||
+                snapshot.Phase != MatchPhase.Hiding ||
+                string.IsNullOrEmpty(assignedItemDisplayName) ||
+                !clock.IsRuntimeReady)
+            {
+                return;
+            }
+
+            var playerCount = room.MatchParticipants.CurrentValue.Count;
+            if (playerCount <= 0)
+            {
+                return;
+            }
+
+            var startedAt = snapshot.PhaseEndsAt - (HidingTurnDurationSeconds * playerCount);
+            var endsAt = startedAt + HidingIntroView.VisibleSeconds;
+            if (clock.ServerTime >= endsAt)
+            {
+                return;
+            }
+
+            hidingIntroEndsAt = endsAt;
+            hidingIntroOpenedThisPhase = true;
+            hidingIntroVisible = true;
+            view.ShowHidingIntro(assignedItemDisplayName, assignedItemId);
+        }
+
+        private void HideHidingIntro()
+        {
+            if (!hidingIntroVisible)
+            {
+                return;
+            }
+
+            hidingIntroVisible = false;
+            view.HideHidingIntro();
         }
 
         private void OnPlayerItemStatusesReceived(
