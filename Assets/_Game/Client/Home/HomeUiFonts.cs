@@ -164,6 +164,8 @@ namespace Game.Client.Home
             }
         }
 
+        private const string SemiBoldResource = "Fonts/Paperlogy-6SemiBold";
+
         public static TMP_FontAsset Apply(TMP_FontAsset fontAsset = null)
         {
             if (koreanFont != null)
@@ -171,12 +173,28 @@ namespace Game.Client.Home
                 return koreanFont;
             }
 
-            koreanFont = fontAsset != null ? fontAsset : TMP_Settings.defaultFontAsset;
+            if (fontAsset != null)
+            {
+                koreanFont = fontAsset;
+                return koreanFont;
+            }
+
+            var source = Resources.Load<Font>(SemiBoldResource);
+            if (source != null)
+            {
+                koreanFont = TMP_FontAsset.CreateFontAsset(source);
+            }
+
+            if (koreanFont == null)
+            {
+                koreanFont = TMP_Settings.defaultFontAsset;
+            }
+
             if (koreanFont == null)
             {
                 throw new InvalidOperationException(
-                    "Korean TMP font is missing. Assign Cafe24Ssurround SDF " +
-                    "or set it as TMP Settings default font.");
+                    "Korean TMP font is missing. Add Paperlogy-6SemiBold under " +
+                    "Assets/_Game/Content/Resources/Fonts.");
             }
 
             return koreanFont;
