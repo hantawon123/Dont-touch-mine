@@ -1123,23 +1123,17 @@ namespace Game.Client.Home
             AddDropShadow(rowRect.gameObject, ItemShadowColor, new Vector2(2f, -3f));
 
             var layout = rowRect.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.padding = new RectOffset(10, 10, 8, 8);
-            layout.spacing = 8f;
+            layout.padding = new RectOffset(10, 8, 8, 8);
+            layout.spacing = 4f;
             layout.childAlignment = TextAnchor.MiddleLeft;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = true;
 
-            var avatar = CreateRect("Avatar", rowRect);
-            var avatarLayout = avatar.gameObject.AddComponent<LayoutElement>();
-            avatarLayout.preferredWidth = 36f;
-            avatarLayout.preferredHeight = 36f;
-            avatarLayout.minWidth = 36f;
-            avatarLayout.minHeight = 36f;
-            var avatarImage = AddImage(avatar, AvatarColor, HomeUiFonts.CircleSprite);
-            avatarImage.preserveAspect = true;
-
+            // No avatar, unlike the friend and search rows. This row carries two
+            // buttons where they carry one or none, and with a circle in front
+            // as well a twelve character nickname is cut to about six.
             var nicknameRect = CreateRect("Nickname", rowRect);
             var nicknameLayout = nicknameRect.gameObject.AddComponent<LayoutElement>();
             nicknameLayout.flexibleWidth = 1f;
@@ -1147,7 +1141,7 @@ namespace Game.Client.Home
             var nickname = AddText(
                 nicknameRect,
                 string.Empty,
-                18f,
+                17f,
                 FontStyles.Normal,
                 TextAlignmentOptions.MidlineLeft);
             nickname.overflowMode = TextOverflowModes.Ellipsis;
@@ -1162,14 +1156,14 @@ namespace Game.Client.Home
                 rowRect,
                 "Accept",
                 "수락",
-                56f,
+                40f,
                 () => AnswerRequest(row, accepted: true));
 
             row.DeclineButton = CreateRowTextButton(
                 rowRect,
                 "Decline",
                 "거절",
-                56f,
+                40f,
                 () => AnswerRequest(row, accepted: false));
 
             return row;
