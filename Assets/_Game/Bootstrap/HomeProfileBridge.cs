@@ -63,13 +63,9 @@ namespace Game.Bootstrap
 
         private async UniTaskVoid RenameAsync(string nickname)
         {
-            // Read before awaiting anything. The presenter has already applied
-            // the new name, so this is the name to go back to.
-            var previous = profile.Nickname;
-
             if (lifetime.IsCancellationRequested || !await signIn.Ready)
             {
-                Revert(previous, "서버에 연결되어 있지 않습니다");
+                await RevertAsync("서버에 연결되어 있지 않습니다");
                 return;
             }
 
@@ -84,7 +80,7 @@ namespace Game.Bootstrap
             {
                 // Taken from the answer rather than assumed. The server trims and
                 // is the one that decides what the stored name is.
-                profile.TryChangeNickname(result.Value.Nickname, out _);
+                Show(result.Value.Nickname);
                 view.SetNicknameError(string.Empty);
                 return;
             }
@@ -94,20 +90,55 @@ namespace Game.Bootstrap
                 return;
             }
 
-            Revert(previous, Explain(result.Failure));
+            await RevertAsync(Explain(result.Failure));
         }
 
+        /// <summary>
+        /// Puts the account's real name back on screen after a refused rename.
+        /// </summary>
         /// <remarks>
-        /// The old name goes back on screen as well as into the profile, so the
-        /// player is not left looking at a name that is not theirs.
+        /// Asked for rather than remembered. The presenter also listens for this
+        /// event and applies the new name before this runs, so by the time we get
+        /// here the local profile already holds the name the server just refused
+        /// — reading it and calling it "the previous name" would put the refused
+        /// name back and call that a rollback.
+        /// <para>
+        /// Subscribing first would fix the order today and break the day someone
+        /// reorders two registrations. Asking the account cannot go stale.
+        /// </para>
+        /// <para>
+        /// When even that call fails there is nothing to put back, so the name on
+        /// screen is left alone and only the message is shown. Saying something
+        /// false about the account is worse than showing a name that has not been
+        /// confirmed yet.
+        /// </para>
         /// </remarks>
-        private void Revert(string previous, string message)
+        private async UniTask RevertAsync(string message)
         {
-            profile.TryChangeNickname(previous, out _);
-            view.SetNickname(previous);
             view.SetNicknameAppliedFeedbackVisible(false);
             view.SetNicknameError(message);
             Debug.LogWarning($"[Profile] Rename refused: {message}");
+
+            if (lifetime.IsCancellationRequested)
+            {
+                return;
+            }
+
+            var account = await accounts.RefreshAsync(lifetime.Token);
+            if (account.Ok)
+            {
+                Show(account.Value.Nickname);
+
+                // Shown again: setting the name raises Changed, and the presenter
+                // clears the error when it redraws the profile.
+                view.SetNicknameError(message);
+            }
+        }
+
+        private void Show(string nickname)
+        {
+            profile.TryChangeNickname(nickname, out _);
+            view.SetNickname(nickname);
         }
 
         /// <remarks>
