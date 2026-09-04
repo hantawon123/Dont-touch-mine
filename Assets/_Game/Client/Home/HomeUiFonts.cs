@@ -165,39 +165,42 @@ namespace Game.Client.Home
         }
 
         private const string SemiBoldResource = "Fonts/Paperlogy-6SemiBold";
+        private const string LightResource = "Fonts/Paperlogy-3Light";
+        private static TMP_FontAsset koreanLightFont;
 
         public static TMP_FontAsset Apply(TMP_FontAsset fontAsset = null)
         {
-            if (koreanFont != null)
-            {
-                return koreanFont;
-            }
+            return koreanFont ??= LoadKorean(SemiBoldResource, fontAsset);
+        }
 
+        public static TMP_FontAsset ApplyLight(TMP_FontAsset fontAsset = null)
+        {
+            return koreanLightFont ??= LoadKorean(LightResource, fontAsset);
+        }
+
+        private static TMP_FontAsset LoadKorean(string resourcePath, TMP_FontAsset fontAsset)
+        {
             if (fontAsset != null)
             {
-                koreanFont = fontAsset;
-                return koreanFont;
+                return fontAsset;
             }
 
-            var source = Resources.Load<Font>(SemiBoldResource);
-            if (source != null)
+            var source = Resources.Load<Font>(resourcePath);
+            var loaded = source != null ? TMP_FontAsset.CreateFontAsset(source) : null;
+            if (loaded != null)
             {
-                koreanFont = TMP_FontAsset.CreateFontAsset(source);
+                return loaded;
             }
 
-            if (koreanFont == null)
+            loaded = TMP_Settings.defaultFontAsset;
+            if (loaded != null)
             {
-                koreanFont = TMP_Settings.defaultFontAsset;
+                return loaded;
             }
 
-            if (koreanFont == null)
-            {
-                throw new InvalidOperationException(
-                    "Korean TMP font is missing. Add Paperlogy-6SemiBold under " +
-                    "Assets/_Game/Content/Resources/Fonts.");
-            }
-
-            return koreanFont;
+            throw new InvalidOperationException(
+                "Korean TMP font is missing. Add Paperlogy under " +
+                "Assets/_Game/Content/Resources/Fonts.");
         }
 
         private static bool IsInsideRoundedRect(int x, int y, int size, int radius)

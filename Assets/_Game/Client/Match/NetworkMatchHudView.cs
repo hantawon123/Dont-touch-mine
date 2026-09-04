@@ -29,6 +29,10 @@ namespace Game.Client.Match
         void ShowHidingTurnStart(double remainingSeconds);
         void HideHidingTurnStart();
         void SetHidingTurnStartSeconds(double remainingSeconds);
+        void ShowHidingActiveHud(double remainingSeconds, bool showTopPrompt, bool showCompleteGuide);
+        void HideHidingActiveHud();
+        void SetHidingActiveHudSeconds(double remainingSeconds);
+        void SetTopHudVisible(bool visible);
         void SetMatchChatVisible(bool visible);
         void SetPlayerStatusVisible(bool visible);
     }
@@ -72,6 +76,9 @@ namespace Game.Client.Match
         [SerializeField]
         private HidingTurnStartView hidingTurnStartView;
 
+        [SerializeField]
+        private HidingActiveHudView hidingActiveHudView;
+
         private string assignedItemDisplayName;
         private int remainingDestructionUses = -1;
         private bool playerStatusVisible = true;
@@ -96,6 +103,8 @@ namespace Game.Client.Match
             HideHidingIntro();
             EnsureHidingTurnStart();
             HideHidingTurnStart();
+            EnsureHidingActiveHud();
+            HideHidingActiveHud();
             HideVoiceButton();
         }
 
@@ -122,7 +131,8 @@ namespace Game.Client.Match
                     (highlightTitleText != null && graphic.transform.IsChildOf(highlightTitleText.transform)) ||
                     (destructionNoticeRoot != null && graphic.transform.IsChildOf(destructionNoticeRoot.transform)) ||
                     (hidingIntroView != null && graphic.transform.IsChildOf(hidingIntroView.transform)) ||
-                    (hidingTurnStartView != null && graphic.transform.IsChildOf(hidingTurnStartView.transform)))
+                    (hidingTurnStartView != null && graphic.transform.IsChildOf(hidingTurnStartView.transform)) ||
+                    (hidingActiveHudView != null && graphic.transform.IsChildOf(hidingActiveHudView.transform)))
                     continue;
                 hiddenGraphics[graphic] = graphic.enabled;
                 graphic.enabled = false;
@@ -294,7 +304,35 @@ namespace Game.Client.Match
         public void HideHidingTurnStart()
         {
             hidingTurnStartView?.Hide();
-            SetTopHudVisible(true);
+        }
+
+        public void ShowHidingActiveHud(double remainingSeconds, bool showTopPrompt, bool showCompleteGuide)
+        {
+            EnsureHidingActiveHud();
+            hidingActiveHudView?.Show(remainingSeconds, showTopPrompt, showCompleteGuide);
+        }
+
+        public void HideHidingActiveHud()
+        {
+            hidingActiveHudView?.Hide();
+        }
+
+        public void SetHidingActiveHudSeconds(double remainingSeconds)
+        {
+            hidingActiveHudView?.SetRemainingSeconds(remainingSeconds);
+        }
+
+        public void SetTopHudVisible(bool visible)
+        {
+            if (phaseView != null)
+            {
+                phaseView.gameObject.SetActive(visible);
+            }
+
+            if (timerView != null)
+            {
+                timerView.gameObject.SetActive(visible);
+            }
         }
 
         public void SetHidingTurnStartSeconds(double remainingSeconds)
@@ -343,25 +381,25 @@ namespace Game.Client.Match
             }
         }
 
+        private void EnsureHidingActiveHud()
+        {
+            if (hidingActiveHudView == null)
+            {
+                hidingActiveHudView = GetComponentInChildren<HidingActiveHudView>(true);
+            }
+
+            if (hidingActiveHudView == null)
+            {
+                hidingActiveHudView = HidingActiveHudView.Create(transform);
+            }
+        }
+
         private void HideVoiceButton()
         {
             var slot = transform.Find("VoiceButton");
             if (slot != null)
             {
                 slot.gameObject.SetActive(false);
-            }
-        }
-
-        private void SetTopHudVisible(bool visible)
-        {
-            if (phaseView != null)
-            {
-                phaseView.gameObject.SetActive(visible);
-            }
-
-            if (timerView != null)
-            {
-                timerView.gameObject.SetActive(visible);
             }
         }
 

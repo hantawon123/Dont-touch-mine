@@ -498,7 +498,10 @@ namespace Game.Architecture.Tests
                 network.ServerTime = 71d;
                 presenter.Tick();
                 Assert.That(view.HidingTurnStartVisible, Is.False);
-                Assert.That(view.TopHudVisible, Is.True);
+                Assert.That(view.HidingActiveHudVisible, Is.True);
+                Assert.That(view.HidingActiveTopPromptVisible, Is.True);
+                Assert.That(view.HidingCompleteGuideVisible, Is.True);
+                Assert.That(view.TopHudVisible, Is.False);
                 Assert.That(view.MatchChatVisible, Is.False);
                 Assert.That(view.PlayerStatusVisible, Is.False);
             }
@@ -535,7 +538,9 @@ namespace Game.Architecture.Tests
                 network.ServerTime = 44d;
                 presenter.Tick();
                 Assert.That(view.HidingTurnStartVisible, Is.False);
-                Assert.That(view.TopHudVisible, Is.True);
+                Assert.That(view.HidingActiveHudVisible, Is.True);
+                Assert.That(view.HidingActiveTopPromptVisible, Is.True);
+                Assert.That(view.TopHudVisible, Is.False);
             }
             finally
             {
@@ -565,6 +570,9 @@ namespace Game.Architecture.Tests
                 network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
                 presenter.Tick();
                 Assert.That(view.HidingTurnStartVisible, Is.False);
+                Assert.That(view.HidingActiveHudVisible, Is.True);
+                Assert.That(view.HidingCompleteGuideVisible, Is.False);
+                Assert.That(view.HidingActiveTopPromptVisible, Is.False);
                 Assert.That(view.TopHudVisible, Is.True);
                 Assert.That(view.MatchChatVisible, Is.False);
             }
@@ -705,11 +713,37 @@ namespace Game.Architecture.Tests
             public void HideHidingTurnStart()
             {
                 HidingTurnStartVisible = false;
-                TopHudVisible = true;
             }
 
             public void SetHidingTurnStartSeconds(double remainingSeconds) =>
                 HidingTurnStartSeconds = remainingSeconds;
+
+            public bool HidingActiveHudVisible { get; private set; }
+            public bool HidingActiveTopPromptVisible { get; private set; }
+            public bool HidingCompleteGuideVisible { get; private set; }
+
+            public void ShowHidingActiveHud(
+                double remainingSeconds,
+                bool showTopPrompt,
+                bool showCompleteGuide)
+            {
+                HidingActiveHudVisible = true;
+                HidingActiveTopPromptVisible = showTopPrompt;
+                HidingCompleteGuideVisible = showCompleteGuide;
+                HidingTurnStartSeconds = remainingSeconds;
+            }
+
+            public void HideHidingActiveHud()
+            {
+                HidingActiveHudVisible = false;
+                HidingActiveTopPromptVisible = false;
+                HidingCompleteGuideVisible = false;
+            }
+
+            public void SetHidingActiveHudSeconds(double remainingSeconds) =>
+                HidingTurnStartSeconds = remainingSeconds;
+
+            public void SetTopHudVisible(bool visible) => TopHudVisible = visible;
 
             public void SetMatchChatVisible(bool visible) => MatchChatVisible = visible;
             public bool PlayerStatusVisible { get; private set; } = true;
