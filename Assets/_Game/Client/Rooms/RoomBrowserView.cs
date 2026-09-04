@@ -7,29 +7,20 @@ using UnityEngine.UI;
 
 namespace Game.Client.Rooms
 {
+    /// <summary>
+    /// The room browser screen. Its layout lives in the other half of this
+    /// class, <see cref="BuildLayout"/>.
+    /// </summary>
     [DisallowMultipleComponent]
-    public sealed class RoomBrowserView : MonoBehaviour, IRoomBrowserView
+    public sealed partial class RoomBrowserView : MonoBehaviour, IRoomBrowserView
     {
-        [SerializeField]
+        // Built by BuildLayout rather than assigned in the scene, so the screen
+        // has one description of itself and the scene holds no hierarchy to
+        // conflict over.
         private TMP_InputField searchInputField;
-
-        [SerializeField]
         private Button refreshButton;
-
-        [SerializeField]
-        private Button roomCodeSearchButton;
-
-        [SerializeField]
-        private Button createRoomButton;
-
-        [SerializeField]
         private Button backButton;
-
-        [SerializeField]
         private Transform listContent;
-
-        [SerializeField]
-        private RoomListItemView listItemPrefab;
 
         private readonly List<RoomListItemView> spawnedItems = new List<RoomListItemView>();
 
@@ -52,10 +43,10 @@ namespace Game.Client.Rooms
 
         private void Awake()
         {
+            BuildLayout();
+
             searchInputField.onValueChanged.AddListener(OnSearchTextChanged);
             refreshButton.onClick.AddListener(OnRefreshButtonClicked);
-            roomCodeSearchButton.onClick.AddListener(OnRoomCodeSearchButtonClicked);
-            createRoomButton.onClick.AddListener(OnCreateRoomButtonClicked);
             backButton.onClick.AddListener(OnBackButtonClicked);
         }
 
@@ -65,8 +56,6 @@ namespace Game.Client.Rooms
 
             searchInputField.onValueChanged.RemoveListener(OnSearchTextChanged);
             refreshButton.onClick.RemoveListener(OnRefreshButtonClicked);
-            roomCodeSearchButton.onClick.RemoveListener(OnRoomCodeSearchButtonClicked);
-            createRoomButton.onClick.RemoveListener(OnCreateRoomButtonClicked);
             backButton.onClick.RemoveListener(OnBackButtonClicked);
 
             foreach (var item in spawnedItems)
@@ -188,7 +177,9 @@ namespace Game.Client.Rooms
         {
             while (spawnedItems.Count < requiredCount)
             {
-                var item = Instantiate(listItemPrefab, listContent);
+                var item = RoomListItemView.Create(
+                    listContent, ResolveFont(semiBoldFont), ResolveFont(mediumFont));
+
                 item.Selected += OnRoomItemSelected;
                 spawnedItems.Add(item);
             }
@@ -198,6 +189,10 @@ namespace Game.Client.Rooms
 
         private void OnRefreshButtonClicked() => RefreshRequested?.Invoke();
 
+        // The wire-frame drops both controls from this screen: a code is typed
+        // into the panel on the left instead of opening a modal, and rooms are
+        // opened from the home menu. The two ways out survive unraised until the
+        // stories that move them land, so the presenter keeps working meanwhile.
         private void OnRoomCodeSearchButtonClicked() => RoomCodeSearchRequested?.Invoke();
 
         private void OnCreateRoomButtonClicked() => CreateRoomRequested?.Invoke();
