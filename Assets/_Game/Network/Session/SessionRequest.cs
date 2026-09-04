@@ -32,6 +32,17 @@ namespace Game.Network.Session
         /// </summary>
         public const string HostNickname = "host";
 
+        /// <summary>
+        /// Whether the room is playing rather than waiting.
+        /// </summary>
+        /// <remarks>
+        /// The room list needs this and has nothing else to read it from: a
+        /// session in a match looks exactly like one in its lobby from outside,
+        /// and hiding the session instead would make a running match vanish from
+        /// the list rather than show as unavailable.
+        /// </remarks>
+        public const string Playing = "playing";
+
         /// <summary>Whether the room requires a password.</summary>
         public const string Locked = "locked";
     }

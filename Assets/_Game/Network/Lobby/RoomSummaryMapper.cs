@@ -45,7 +45,9 @@ namespace Game.Network.Lobby
                 maxPlayers,
                 ReadBool(info, SessionPropertyKeys.Locked),
                 info.IsOpen,
-                RoomStatus.Waiting,
+                ReadBool(info, SessionPropertyKeys.Playing)
+                    ? RoomStatus.Playing
+                    : RoomStatus.Waiting,
                 hostNickname);
             return true;
         }
@@ -82,7 +84,9 @@ namespace Game.Network.Lobby
                 maxPlayers,
                 ReadBool(info, SessionPropertyKeys.Locked),
                 info.IsOpen,
-                RoomStatus.Waiting,
+                ReadBool(info, SessionPropertyKeys.Playing)
+                    ? RoomStatus.Playing
+                    : RoomStatus.Waiting,
                 hostNickname);
             return true;
         }

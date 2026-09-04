@@ -64,6 +64,18 @@ namespace Game.Network.Session
             return properties;
         }
 
+        /// <summary>
+        /// The one property a match start changes. Sent on its own so a status
+        /// update cannot rewrite the room's settings by accident.
+        /// </summary>
+        public static Dictionary<string, SessionProperty> BuildRoomStatus(bool playing)
+        {
+            return new Dictionary<string, SessionProperty>
+            {
+                [SessionPropertyKeys.Playing] = playing,
+            };
+        }
+
         public static MatchRuleSettings ReadMatchRules(
             SessionInfo info,
             MatchRuleSettings fallback)
