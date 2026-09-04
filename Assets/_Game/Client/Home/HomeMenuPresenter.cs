@@ -138,7 +138,6 @@ namespace Game.Client.Home
             view.FriendSearchOpened += OnFriendSearchOpened;
             view.FriendSearchClosed += OnFriendSearchClosed;
             view.FriendSearchRequested += OnFriendSearchRequested;
-            view.FriendRequestClicked += OnFriendRequestClicked;
             profile.Changed += BindProfile;
             friends.FriendsChanged += BindFriends;
             search.ResultsChanged += BindSearchResults;
@@ -158,7 +157,6 @@ namespace Game.Client.Home
             view.FriendSearchOpened -= OnFriendSearchOpened;
             view.FriendSearchClosed -= OnFriendSearchClosed;
             view.FriendSearchRequested -= OnFriendSearchRequested;
-            view.FriendRequestClicked -= OnFriendRequestClicked;
             profile.Changed -= BindProfile;
             friends.FriendsChanged -= BindFriends;
             search.ResultsChanged -= BindSearchResults;
@@ -239,10 +237,11 @@ namespace Game.Client.Home
             search.Search(query, CollectFriendIds());
         }
 
-        private void OnFriendRequestClicked(string playerId)
-        {
-            search.TrySendRequest(playerId);
-        }
+        // Nothing here for a friend request. Marking the row was this class's
+        // job before the request reached a server; now the command that sends it
+        // marks the row itself, and doing it here as well made the command see a
+        // row already waiting and decide there was nothing to send. The request
+        // never left, and the row said 요청 중 all the same.
 
         private void ShowFriendList()
         {

@@ -120,6 +120,11 @@ namespace Game.Core.Home
                 // Sending anyway spends a round trip to be told something this
                 // screen already knows, and answers with a failure the player
                 // cannot act on.
+                //
+                // This is why marking the row belongs here and nowhere else. A
+                // screen that marked it first would leave this looking at a row
+                // that is already waiting, and the request would be dropped
+                // while the row claimed it had been sent.
                 return BackendFailure.None;
             }
 
