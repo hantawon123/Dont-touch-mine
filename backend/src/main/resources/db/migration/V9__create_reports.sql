@@ -24,6 +24,26 @@ CREATE TABLE user_reports
 
     created_at       CHAR(14)     NOT NULL,
 
+    -- ReportStatus 의 이름. 운영자가 이미 본 신고를 다시 보지 않게 하는 표시입니다.
+    --
+    -- DEFAULT 는 실제로 쓰이지 않습니다. UserReport 생성자가 늘 PENDING 을 넣기 때문에
+    -- JPA 가 보내는 INSERT 에는 이 컬럼이 항상 들어 있습니다. 그래도 남겨둔 이유는
+    -- JPA 를 거치지 않는 삽입 - 이관 스크립트나 손으로 넣는 행 - 이 미검토로 떨어지게
+    -- 하기 위해서입니다. 그런 행이 상태 없이 들어오면 운영자 목록에서 조용히 빠집니다.
+    --
+    -- 상태를 사람이 아니라 신고 한 건마다 두는 이유가 있습니다. 운영자는 사람을 보고
+    -- 판단하므로 한 사람의 신고 다섯 건을 한 번에 표시하게 되는데, 그 뒤에 새로 들어온
+    -- 신고는 PENDING 이라 저절로 다시 올라옵니다. 사람 단위로 두면 "언제부터 다시 봐야
+    -- 하는가"를 따로 관리해야 합니다.
+    status           VARCHAR(16)  NOT NULL DEFAULT 'PENDING',
+
+    -- 검토한 시각. 아직 안 봤으면 NULL 입니다.
+    --
+    -- 누가 봤는지는 담지 않습니다. 지금 이 서버에는 인증이 없어서 어떤 값을 넣어도
+    -- 스스로 신고한 이름일 뿐이고, 확인할 수 없는 "누가 결정했다"는 없느니만 못합니다.
+    -- 인증이 생길 때 함께 넣어야 합니다.
+    reviewed_at      CHAR(14)     NULL,
+
     PRIMARY KEY (user_reports_seq),
 
     -- 같은 사람을 여러 번 신고하는 것을 막지 않습니다. 횟수 자체가 운영자에게 신호가
@@ -32,6 +52,10 @@ CREATE TABLE user_reports
     --
     -- 그래서 UNIQUE 키가 없고, 대신 "이 사람이 몇 건 신고당했나"를 위한 인덱스를 둡니다.
     KEY ix_user_reports_reported (reported_seq, created_at),
+
+    -- 운영자 화면의 기본 질문은 "아직 안 본 신고를 오래된 순으로"입니다. status 가
+    -- 선두라 그 조회가 동등 비교로 시작하고, created_at 이 뒤라 정렬이 인덱스로 끝납니다.
+    KEY ix_user_reports_pending (status, created_at),
 
     -- 자기 신고를 막는 CHECK 가 여기 없습니다. 일부러 뺀 것이니 다시 넣지 마세요.
     --

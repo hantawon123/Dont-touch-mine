@@ -19,6 +19,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ssafy.d205.domain.report.entity.ReportStatus;
+import com.ssafy.d205.domain.report.entity.UserReport;
+import com.ssafy.d205.domain.report.repository.UserReportRepository;
 import com.ssafy.d205.support.IntegrationTest;
 
 /**
@@ -43,6 +46,9 @@ class ReportApiTest extends IntegrationTest {
     @Autowired
     JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    UserReportRepository userReportRepository;
+
     @Test
     @DisplayName("신고하면 사유와 메모가 그대로 남는다")
     void reportIsStored() throws Exception {
@@ -59,6 +65,41 @@ class ReportApiTest extends IntegrationTest {
         assertThat(((Number) row.get("reporter_seq")).intValue()).isEqualTo(seqOf(me));
         assertThat(((Number) row.get("reported_seq")).intValue()).isEqualTo(seqOf(other));
         assertThat((String) row.get("created_at")).hasSize(14);
+    }
+
+    @Test
+    @DisplayName("들어온 신고는 미검토 상태다")
+    void aNewReportIsPending() throws Exception {
+        // 값을 넣는 것은 컬럼 기본값이 아니라 UserReport 생성자입니다. JPA 가 보내는
+        // INSERT 에 status 가 늘 들어 있어서 DEFAULT 는 지나가지 않습니다. 여기서 보는
+        // 것은 어느 층이 채우느냐가 아니라 "들어온 신고는 아직 안 본 것"이라는 사실입니다.
+        String me = createUser();
+        String other = createUser();
+
+        report(me, other, "ABUSE", null).andExpect(status().isCreated());
+
+        Map<String, Object> row = onlyReportAbout(seqOf(other));
+        assertThat(row.get("status")).isEqualTo("PENDING");
+        assertThat(row.get("reviewed_at")).isNull();
+    }
+
+    @Test
+    @DisplayName("검토하면 상태와 시각이 함께 적힌다")
+    void reviewingWritesBothStatusAndTime() throws Exception {
+        // 운영자 API 가 아직 없어서 도메인 메서드를 직접 부릅니다. 인증 없이 열면
+        // 아무나 신고를 기각 처리해 숨길 수 있어 API 를 두지 않았습니다.
+        String me = createUser();
+        String other = createUser();
+        report(me, other, "CHEATING", null).andExpect(status().isCreated());
+
+        int seq = (int) (long) (Long) onlyReportAbout(seqOf(other)).get("user_reports_seq");
+        UserReport found = userReportRepository.findById(seq).orElseThrow();
+        found.review(ReportStatus.DISMISSED, "20260905120000");
+        userReportRepository.saveAndFlush(found);
+
+        Map<String, Object> row = onlyReportAbout(seqOf(other));
+        assertThat(row.get("status")).isEqualTo("DISMISSED");
+        assertThat(row.get("reviewed_at")).isEqualTo("20260905120000");
     }
 
     @Test

@@ -20,9 +20,12 @@ import lombok.NoArgsConstructor;
  * 대부분이 여기서 나옵니다 - 읽는 경로가 없으니 조회 성능도, 경합도 문제가 되지
  * 않습니다.
  *
- * <p>고칠 일이 없어서 상태를 바꾸는 메서드가 없습니다. 신고를 취소하는 API 도 두지
- * 않았습니다. 취소를 허용하면 "신고했다가 지운 기록"이 남을지 말지를 정해야 하는데,
- * 운영자 도구가 없는 지금은 그 질문에 답할 근거가 없습니다.
+ * <p>신고자는 이 행을 고칠 수 없습니다. 취소하는 API 를 두지 않았습니다 - 취소를
+ * 허용하면 "신고했다가 지운 기록"이 남을지 말지를 정해야 하는데, 그 질문에 답할 근거가
+ * 아직 없습니다.
+ *
+ * <p>바뀌는 것은 검토 상태 하나뿐이고 그것은 운영자가 바꿉니다. 다만 <b>그 API 는 아직
+ * 없습니다.</b> 인증이 없는 채로 열면 아무나 신고를 기각 처리해 숨길 수 있습니다.
  */
 @Entity
 @Table(name = "user_reports")
@@ -63,6 +66,15 @@ public class UserReport {
     @Column(name = "created_at", nullable = false, length = 14)
     private String createdAt;
 
+    /** 검토 상태. 들어올 때는 늘 {@link ReportStatus#PENDING} 입니다. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 16)
+    private ReportStatus status;
+
+    /** 검토한 시각. 아직 안 봤으면 null 입니다. */
+    @Column(name = "reviewed_at", length = 14)
+    private String reviewedAt;
+
     private UserReport(Integer reporterSeq, Integer reportedSeq,
                        ReportReason reason, String memo, String now) {
         this.reporterSeq = reporterSeq;
@@ -70,10 +82,26 @@ public class UserReport {
         this.reason = reason;
         this.memo = memo;
         this.createdAt = now;
+        this.status = ReportStatus.PENDING;
     }
 
     public static UserReport of(Integer reporterSeq, Integer reportedSeq,
                                 ReportReason reason, String memo, String now) {
         return new UserReport(reporterSeq, reportedSeq, reason, memo, now);
+    }
+
+    /**
+     * 운영자가 이 신고를 마무리합니다.
+     *
+     * <p>상태와 시각을 함께 씁니다. 둘을 따로 두면 "처리했다는데 언제인지 모르는" 행이
+     * 생기고, 그 행은 검토 이력으로 쓸 수 없습니다.
+     *
+     * <p>다시 부르면 덮어씁니다. 판단을 뒤집는 일은 실제로 일어나고, 막으면 잘못 누른
+     * 것을 고칠 방법이 없어집니다. 대신 이전 판단이 무엇이었는지는 남지 않으므로,
+     * 이력이 필요해지면 이 행이 아니라 별도 기록이 있어야 합니다.
+     */
+    public void review(ReportStatus decision, String now) {
+        this.status = decision;
+        this.reviewedAt = now;
     }
 }
