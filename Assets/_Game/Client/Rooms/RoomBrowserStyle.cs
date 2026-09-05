@@ -65,7 +65,18 @@ namespace Game.Client.Rooms
 
             public static readonly Color ScrollbarHandle = FromHex(0xF5F3F1);
 
-            public static readonly Color ToastFill = FromHex(0xFF9A6A, 0.2f);
+            /// <summary>
+            /// Two layers, as the mock-up draws it: a near-black base with an
+            /// orange wash over it. One orange fill on its own comes out as a
+            /// bright panel rather than a dark one with a warm cast.
+            /// </summary>
+            /// <remarks>
+            /// The base is 97% where the mock-up says 90%, for the reason the
+            /// panels are: this project composites in linear colour and lets
+            /// more of the background through at the same number.
+            /// </remarks>
+            public static readonly Color ToastBase = FromHex(0x000000, 0.97f);
+            public static readonly Color ToastTint = FromHex(0xFF9A6A, 0.2f);
             public static readonly Color ToastTitle = FromHex(0xFF7032);
             public static readonly Color ToastBody = Color.white;
         }

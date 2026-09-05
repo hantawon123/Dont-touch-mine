@@ -30,6 +30,17 @@ namespace Game.Client.Rooms
         /// list then would spawn items into a dying scene.
         /// </summary>
         private bool isDestroyed;
+
+        /// <summary>
+        /// Which way into a room was last used from this screen, so a refusal
+        /// can be answered in the terms of the thing the player just did.
+        /// </summary>
+        /// <remarks>
+        /// Held here because this is where both ways in are: a row was clicked
+        /// or a code was submitted, and nothing between here and the session
+        /// carries that apart.
+        /// </remarks>
+        private RoomEntrySource lastEntrySource = RoomEntrySource.RoomList;
         private GameObject disconnectionPopup;
         private TMP_Text disconnectionMessage;
 
@@ -133,7 +144,7 @@ namespace Game.Client.Rooms
                 return;
             }
 
-            ShowToast(RoomEntryMessages.Describe(failure));
+            ShowToast(RoomEntryMessages.Describe(failure, lastEntrySource));
         }
 
         public void ShowDisconnection(string message)
@@ -231,6 +242,10 @@ namespace Game.Client.Rooms
 
         private void OnBackButtonClicked() => BackRequested?.Invoke();
 
-        private void OnRoomItemSelected(string selectedRoomId) => RoomSelected?.Invoke(selectedRoomId);
+        private void OnRoomItemSelected(string selectedRoomId)
+        {
+            lastEntrySource = RoomEntrySource.RoomList;
+            RoomSelected?.Invoke(selectedRoomId);
+        }
     }
 }

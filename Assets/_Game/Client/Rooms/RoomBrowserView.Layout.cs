@@ -3,6 +3,7 @@ using Game.Core.Rooms;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
@@ -188,6 +189,14 @@ namespace Game.Client.Rooms
 
             BuildCodeCells(panel.rectTransform);
             BuildEnterButton(panel.rectTransform);
+
+            // Anywhere on the panel puts the caret in the code, not just the
+            // hidden field behind the six cells. Handing focus over from the
+            // search box is otherwise a click that lands on nothing.
+            var focus = panel.gameObject.AddComponent<Button>();
+            focus.transition = Selectable.Transition.None;
+            focus.navigation = new Navigation { mode = Navigation.Mode.None };
+            focus.onClick.AddListener(FocusCodeInput);
         }
 
         private void BuildCodeCells(RectTransform panel)
@@ -222,6 +231,10 @@ namespace Game.Client.Rooms
                     RoomBrowserStyle.Palette.CodeCellFill,
                     RoomBrowserUi.Rounded(RoomBrowserStyle.Radius.CodeCell));
 
+                // A cell that took the click would stop it reaching the field
+                // underneath, which is the thing that actually types.
+                cell.raycastTarget = false;
+
                 var element = cell.gameObject.AddComponent<LayoutElement>();
                 element.preferredWidth = cellSize;
                 element.preferredHeight = cellSize;
@@ -251,6 +264,11 @@ namespace Game.Client.Rooms
             // Behind the cells in the hierarchy but above nothing: it needs a
             // graphic to be clickable, and a clear one leaves the cells visible.
             fieldRect.SetAsFirstSibling();
+
+            // The row lays its children out as cells, and this is not one. Left
+            // in, it would be spaced like a seventh cell and squeeze the six.
+            var ignore = fieldRect.gameObject.AddComponent<LayoutElement>();
+            ignore.ignoreLayout = true;
             var background = fieldRect.gameObject.AddComponent<Image>();
             background.color = Color.clear;
 
@@ -284,10 +302,46 @@ namespace Game.Client.Rooms
             codeInput.caretColor = Color.clear;
             codeInput.selectionColor = Color.clear;
 
+            // A room code is letters and digits, and a Korean keyboard hands
+            // over composed syllables that are neither. They get filtered out
+            // one by one, so typing looks broken while pasting works. Turning
+            // the IME off while this field has focus is what makes the keys
+            // arrive as the characters printed on them.
+            codeInput.onSelect.AddListener(_ => SetImeEnabled(false));
+            codeInput.onDeselect.AddListener(_ => SetImeEnabled(true));
             codeInput.onValidateInput += AcceptCodeCharacter;
             codeInput.onValueChanged.AddListener(OnCodeChanged);
             codeInput.onSubmit.AddListener(_ => SubmitCode());
             fieldRect.gameObject.SetActive(true);
+        }
+
+        /// <summary>
+        /// Puts the caret at the end of whatever has been typed, so a click on
+        /// the panel carries on rather than starting over.
+        /// </summary>
+        private void FocusCodeInput()
+        {
+            if (codeInput == null)
+            {
+                return;
+            }
+
+            codeInput.Select();
+            codeInput.ActivateInputField();
+            codeInput.caretPosition = codeInput.text.Length;
+        }
+
+        /// <summary>
+        /// Leaves the keyboard as it was found. The player types Korean
+        /// everywhere else on this screen, including the search box beside it.
+        /// </summary>
+        private static void SetImeEnabled(bool enabled)
+        {
+            var keyboard = Keyboard.current;
+            if (keyboard != null)
+            {
+                keyboard.SetIMEEnabled(enabled);
+            }
         }
 
         /// <summary>
@@ -325,6 +379,7 @@ namespace Game.Client.Rooms
                 return;
             }
 
+            lastEntrySource = RoomEntrySource.RoomCode;
             RoomCodeEntered?.Invoke(codeInput.text);
         }
 
@@ -492,6 +547,9 @@ namespace Game.Client.Rooms
             searchInputField.characterLimit = 20;
             searchInputField.caretColor = RoomBrowserStyle.Palette.Accent;
             searchInputField.customCaretColor = true;
+            // Whatever the code panel did to the keyboard, the search box gets
+            // it back: room names are typed in Korean.
+            searchInputField.onSelect.AddListener(_ => SetImeEnabled(true));
             fieldRect.gameObject.SetActive(true);
         }
 
@@ -606,6 +664,15 @@ namespace Game.Client.Rooms
             }
         }
 
+        /// <summary>
+        /// The keyboard is the whole application's, not this screen's, so it is
+        /// handed back before the screen goes away.
+        /// </summary>
+        private void OnDisable()
+        {
+            SetImeEnabled(true);
+        }
+
         private void Update()
         {
             // Nothing wakes the button when the wait runs out, so it is checked.
@@ -631,7 +698,7 @@ namespace Game.Client.Rooms
             var toast = RoomBrowserUi.CreateImage(
                 "Toast",
                 parent,
-                RoomBrowserStyle.Palette.ToastFill,
+                RoomBrowserStyle.Palette.ToastBase,
                 RoomBrowserUi.Rounded(RoomBrowserStyle.Radius.Toast));
 
             toast.raycastTarget = false;
@@ -639,6 +706,17 @@ namespace Game.Client.Rooms
                 new Vector2(0.5f, 1f),
                 new Vector2(0f, -RoomBrowserStyle.Layout.ToastTopMargin),
                 RoomBrowserStyle.Layout.ToastSize);
+
+            // The warm cast over the base, and under the text: the mock-up
+            // stacks these two fills rather than blending them into one.
+            var tint = RoomBrowserUi.CreateImage(
+                "Tint",
+                toast.transform,
+                RoomBrowserStyle.Palette.ToastTint,
+                RoomBrowserUi.Rounded(RoomBrowserStyle.Radius.Toast));
+
+            tint.raycastTarget = false;
+            tint.rectTransform.Stretch();
 
             var title = RoomBrowserUi.CreateText(
                 "Title",
