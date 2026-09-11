@@ -4,6 +4,7 @@ using Game.Client.Lobby;
 using Game.Client.Match;
 using Game.Client.Players;
 using Game.Client.Settings;
+using Game.Core.Match;
 using Game.Network.Session;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -36,6 +37,25 @@ namespace Game.Bootstrap
             this.exit = exit;
             this.chat = chat;
             this.network = network;
+        }
+
+        public static bool BlocksEscapeDuringPresentation(MatchPhase phase)
+        {
+            return phase == MatchPhase.Highlight || phase == MatchPhase.Result;
+        }
+
+        public static bool ShouldHandleEscape(
+            bool textFocused,
+            bool capturing,
+            bool modalBlocking,
+            bool consumedEscape,
+            bool presentationBlocks = false)
+        {
+            return !textFocused &&
+                   !capturing &&
+                   !modalBlocking &&
+                   !consumedEscape &&
+                   !presentationBlocks;
         }
 
         public void Start()
@@ -90,8 +110,19 @@ namespace Game.Bootstrap
                     Keyboard.current.escapeKey.wasPressedThisFrame) view.RequestBack();
                 return;
             }
-            if (!network.IsRuntimeReady || PlayerMovement.IsTextInputFocused() ||
-                Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
+            if (!network.IsRuntimeReady ||
+                Keyboard.current == null ||
+                !Keyboard.current.escapeKey.wasPressedThisFrame ||
+                !ShouldHandleEscape(
+                    PlayerMovement.IsTextInputFocused() ||
+                    (chat != null && chat.ConsumedEscapeThisFrame),
+                    false,
+                    view.BlocksEscape,
+                    view.ConsumedEscapeThisFrame))
+            {
+                return;
+            }
+
             restoreCursorFrame = -1;
             ownsGameplayCursor = false;
             IsOpen = true;

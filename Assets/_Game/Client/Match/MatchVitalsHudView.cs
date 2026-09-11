@@ -1,5 +1,4 @@
 using Game.Client.Home;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -23,13 +22,9 @@ namespace Game.Client.Match
         public const float ShakeAmplitude = 2.5f;
         public const float ShakeCyclesPerSecond = 18f;
         public const int DefaultHits = 3;
-        public const float ValueFontSize = 22f;
         public const float IconSize = 22f;
         public const float IconPadding = 12f;
         public const float BarIconGap = 8f;
-        public const float BarValueGap = 8f;
-        public const float ValueWidth = 72f;
-        public const float ValuePadding = 8f;
         public const float RowInset = 16f;
         public const float BarHeight = 14f;
         public const float BarSlant = 10f;
@@ -39,7 +34,7 @@ namespace Game.Client.Match
         public const float BottomPadding = MatchChatView.Margin;
 
         public static float BarStart => IconPadding + IconSize + BarIconGap;
-        public static float BarRightInset => ValuePadding + ValueWidth + BarValueGap;
+        public static float BarRightInset => IconPadding;
         public static float TrackWidth =>
             PanelWidth - (RowInset * 2f) - BarStart - BarRightInset;
         public static float SegmentWidth =>
@@ -63,10 +58,7 @@ namespace Game.Client.Match
         private Image staminaIcon;
 
         [SerializeField]
-        private TMP_Text staminaText;
-
-        [SerializeField]
-        private TMP_Text healthText;
+        private RectTransform staminaRow;
 
         [SerializeField]
         private RectTransform staminaFill;
@@ -79,9 +71,10 @@ namespace Game.Client.Match
         private bool previewOnAwake;
 
         private bool shown;
-        private bool shakeStaminaNumber;
+        private bool shakeStamina;
         private float shakeElapsed;
-        private Vector2 staminaTextRest = new Vector2(-ValuePadding, 0f);
+        private float lastStamina = float.NaN;
+        private Vector2 staminaRowRest;
 
         public static string FormatValue(int current, int max)
         {
@@ -101,6 +94,16 @@ namespace Game.Client.Match
         public static bool IsLowStamina(float current)
         {
             return current <= LowStaminaThreshold;
+        }
+
+        public static bool ShouldShakeStamina(float current, float previous, bool exhausted)
+        {
+            if (exhausted || !IsLowStamina(current) || !float.IsFinite(previous))
+            {
+                return false;
+            }
+
+            return current < previous;
         }
 
         public static Color StaminaColorFor(bool exhausted)
@@ -193,6 +196,7 @@ namespace Game.Client.Match
         public void Hide()
         {
             shown = false;
+            lastStamina = float.NaN;
             StopStaminaShake();
             if (panel != null)
             {
@@ -205,20 +209,9 @@ namespace Game.Client.Match
             EnsureLayout();
             var staminaColor = StaminaColorFor(stamina, exhausted);
             var staminaAccent = StaminaAccentFor(stamina, exhausted);
-            if (staminaText != null)
-            {
-                staminaText.text = FormatStamina(stamina);
-                staminaText.color = staminaAccent;
-            }
-
             if (staminaIcon != null)
             {
                 staminaIcon.color = staminaAccent;
-            }
-
-            if (healthText != null)
-            {
-                healthText.text = FormatValue(hits, maxHits);
             }
 
             if (staminaFill != null)
@@ -233,14 +226,16 @@ namespace Game.Client.Match
                 }
             }
 
-            if (shown && IsLowStamina(stamina))
+            if (shown && ShouldShakeStamina(stamina, lastStamina, exhausted))
             {
-                shakeStaminaNumber = true;
+                shakeStamina = true;
             }
             else
             {
                 StopStaminaShake();
             }
+
+            lastStamina = stamina;
 
             if (healthSegments == null)
             {
@@ -257,35 +252,35 @@ namespace Game.Client.Match
             }
         }
 
-        private void Update()
+        private void LateUpdate()
         {
-            if (staminaText == null)
+            if (staminaRow == null)
             {
                 return;
             }
 
-            if (!shown || !shakeStaminaNumber)
+            if (!shown || !shakeStamina)
             {
-                ResetStaminaTextPosition();
+                ResetStaminaRowPosition();
                 return;
             }
 
             shakeElapsed += Time.unscaledDeltaTime;
-            staminaText.rectTransform.anchoredPosition = staminaTextRest + ShakeOffset(shakeElapsed);
+            staminaRow.anchoredPosition = staminaRowRest + ShakeOffset(shakeElapsed);
         }
 
         private void StopStaminaShake()
         {
-            shakeStaminaNumber = false;
+            shakeStamina = false;
             shakeElapsed = 0f;
-            ResetStaminaTextPosition();
+            ResetStaminaRowPosition();
         }
 
-        private void ResetStaminaTextPosition()
+        private void ResetStaminaRowPosition()
         {
-            if (staminaText != null)
+            if (staminaRow != null)
             {
-                staminaText.rectTransform.anchoredPosition = staminaTextRest;
+                staminaRow.anchoredPosition = staminaRowRest;
             }
         }
 
@@ -302,8 +297,7 @@ namespace Game.Client.Match
                 DestroyChild("Panel");
                 panel = null;
                 staminaIcon = null;
-                staminaText = null;
-                healthText = null;
+                staminaRow = null;
                 staminaFill = null;
                 healthSegments = null;
                 BuildLayout();
@@ -319,19 +313,12 @@ namespace Game.Client.Match
                 staminaIcon = transform.Find("Panel/Stamina/Icon")?.GetComponent<Image>();
             }
 
-            if (staminaText == null)
+            if (staminaRow == null)
             {
-                staminaText = transform.Find("Panel/Stamina/Value")?.GetComponent<TMP_Text>();
-                if (staminaText != null)
-                {
-                    staminaTextRest = staminaText.rectTransform.anchoredPosition;
-                }
+                staminaRow = transform.Find("Panel/Stamina") as RectTransform;
             }
 
-            if (healthText == null)
-            {
-                healthText = transform.Find("Panel/Health/Value")?.GetComponent<TMP_Text>();
-            }
+            StripValueLabels();
 
             if (staminaFill == null)
             {
@@ -365,6 +352,8 @@ namespace Game.Client.Match
                    staminaBar != null &&
                    staminaBar.GetComponent<ParallelogramShear>() != null &&
                    Mathf.Approximately(staminaBar.sizeDelta.x, BarWidth) &&
+                   transform.Find("Panel/Stamina/Value") == null &&
+                   transform.Find("Panel/Health/Value") == null &&
                    segment != null &&
                    Mathf.Approximately(segment.preferredWidth, SegmentWidth) &&
                    Mathf.Approximately(segment.flexibleWidth, 0f);
@@ -393,10 +382,12 @@ namespace Game.Client.Match
                     new Vector2(0.5f, 0f));
             }
 
-            var staminaRow = transform.Find("Panel/Stamina") as RectTransform;
-            if (staminaRow != null)
+            var staminaRowTransform = transform.Find("Panel/Stamina") as RectTransform;
+            if (staminaRowTransform != null)
             {
-                StretchRow(staminaRow, 16f);
+                StretchRow(staminaRowTransform, 16f);
+                staminaRow = staminaRowTransform;
+                staminaRowRest = staminaRowTransform.anchoredPosition;
             }
 
             var healthRow = transform.Find("Panel/Health") as RectTransform;
@@ -435,15 +426,14 @@ namespace Game.Client.Match
 
             var stamina = CreateRow(panelRect, "Stamina", FlashIconResource, Color.white);
             StretchRow(stamina, 16f);
+            staminaRow = stamina;
+            staminaRowRest = stamina.anchoredPosition;
             staminaIcon = stamina.Find("Icon")?.GetComponent<Image>();
             staminaFill = CreateFillBar(stamina, "Bar", StaminaColor);
-            staminaText = CreateValue(stamina, FormatStamina(DefaultStamina));
-            staminaTextRest = staminaText.rectTransform.anchoredPosition;
 
             var health = CreateRow(panelRect, "Health", HeartIconResource, Color.white);
             StretchRow(health, -16f);
             healthSegments = CreateHealthSegments(health);
-            healthText = CreateValue(health, FormatValue(DefaultHits, DefaultHits));
         }
 
         private static RectTransform CreateRow(
@@ -510,18 +500,19 @@ namespace Game.Client.Match
             return segments;
         }
 
-        private static TMP_Text CreateValue(Transform parent, string content)
+        private void StripValueLabels()
         {
-            var text = CreateText(parent, "Value", content, ValueFontSize);
-            text.fontStyle = FontStyles.Italic;
-            text.alignment = TextAlignmentOptions.MidlineRight;
-            Place(
-                text.rectTransform,
-                new Vector2(1f, 0.5f),
-                new Vector2(-ValuePadding, 0f),
-                new Vector2(ValueWidth, 28f),
-                new Vector2(1f, 0.5f));
-            return text;
+            DestroyChildAt("Panel/Stamina/Value");
+            DestroyChildAt("Panel/Health/Value");
+        }
+
+        private void DestroyChildAt(string path)
+        {
+            var child = transform.Find(path);
+            if (child != null)
+            {
+                DestroyImmediate(child.gameObject);
+            }
         }
 
         private static RectTransform CreateRect(Transform parent, string name)
@@ -545,31 +536,6 @@ namespace Game.Client.Match
             image.raycastTarget = false;
             image.preserveAspect = sprite != null;
             return image;
-        }
-
-        private static TMP_Text CreateText(
-            Transform parent,
-            string name,
-            string content,
-            float fontSize)
-        {
-            var gameObject = new GameObject(
-                name,
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(TextMeshProUGUI));
-            gameObject.transform.SetParent(parent, false);
-            var text = gameObject.GetComponent<TextMeshProUGUI>();
-            text.text = content;
-            text.fontSize = fontSize;
-            text.alignment = TextAlignmentOptions.Center;
-            text.color = Color.white;
-            text.raycastTarget = false;
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Overflow;
-            text.font = HomeUiFonts.Apply();
-            text.fontStyle = FontStyles.Italic;
-            return text;
         }
 
         private static void Place(

@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Match;
-using Game.Client.Settings;
-using Game.Client.Lobby;
 using Game.Client.Players;
 using Game.Client.Voice;
 using Game.Client.Common;
+using Game.Client.Lobby;
+using Game.Client.Settings;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Match;
@@ -114,8 +114,15 @@ namespace Game.Bootstrap
                 builder.RegisterBuildCallback(c =>
                 {
                     var network = c.Resolve<NetworkRunnerService>();
+                    var assignedItemId = (string)null;
+                    network.ItemAssignmentReceived += itemId => assignedItemId = itemId;
                     matchHudView.gameObject.AddComponent<Game.Client.Settings.InterfaceHudView>()
-                        .Bind(c.Resolve<Game.Core.Settings.InterfaceSettingsSystem>(), () => network.LocalPingMilliseconds);
+                        .Bind(
+                            c.Resolve<Game.Core.Settings.InterfaceSettingsSystem>(),
+                            () => network.LocalPingMilliseconds,
+                            () => MatchCategoryHud.LabelFor(
+                                assignedItemId,
+                                network.MatchRules.CategoryId));
                 });
                 builder.RegisterEntryPoint<NetworkMatchHudPresenter>().AsSelf();
                 builder.RegisterBuildCallback(c =>

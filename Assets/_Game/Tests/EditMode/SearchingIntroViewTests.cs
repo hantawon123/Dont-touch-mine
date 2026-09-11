@@ -63,6 +63,8 @@ namespace Game.Architecture.Tests
                 Assert.That(hint, Is.Not.Null);
                 Assert.That(hint.text, Is.EqualTo(SearchingIntroView.FormatRichHint("햄버거")));
                 Assert.That(hint.fontSize, Is.EqualTo(SearchingIntroView.FontSize));
+                Assert.That(view.transform.Find("Content/ItemPreview"), Is.Null);
+                Assert.That(view.transform.Find("ItemPreview"), Is.Null);
             }
             finally
             {

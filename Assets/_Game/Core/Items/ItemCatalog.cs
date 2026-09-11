@@ -27,6 +27,17 @@ namespace Game.Core.Items
             Array.AsReadOnly(Definitions.Where(d => string.Equals(d.Category, category?.Trim(), StringComparison.Ordinal)).ToArray());
         public static string DisplayNameOf(string itemId) =>
             Definitions.FirstOrDefault(d => d.ItemId == itemId).DisplayName ?? itemId?.Trim() ?? string.Empty;
+        public static string CategoryOf(string itemId)
+        {
+            var id = itemId?.Trim();
+            if (string.IsNullOrEmpty(id))
+            {
+                return string.Empty;
+            }
+
+            var definition = Definitions.FirstOrDefault(d => d.ItemId == id);
+            return string.IsNullOrEmpty(definition.ItemId) ? string.Empty : definition.Category;
+        }
         public static string VisualSourceIdOf(string itemId) => itemId?.Trim() ?? string.Empty;
         public static ItemDefinition AssignedDefinition(int index) => Definitions[index];
         public static ItemDefinition AssignedSourceDefinition(int index) => Definitions[index];

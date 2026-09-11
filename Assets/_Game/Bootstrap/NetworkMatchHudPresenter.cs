@@ -321,6 +321,7 @@ namespace Game.Bootstrap
         private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmed)
         {
             destructions.Add(confirmed);
+            RefreshDestroyedItems();
             if (UpdateGameEndNotice()) return;
             if (hasSnapshot && (snapshot.Phase == MatchPhase.Highlight || snapshot.Phase == MatchPhase.Result))
                 return;
@@ -352,6 +353,7 @@ namespace Game.Bootstrap
             assignedItemId = itemId?.Trim();
             assignedItemDisplayName = ItemCatalog.DisplayNameOf(itemId);
             view.SetAssignedItem(assignedItemDisplayName);
+            RefreshDestroyedItems();
             if (hidingIntroVisible)
             {
                 view.ShowHidingIntro(assignedItemDisplayName, assignedItemId);
@@ -360,7 +362,7 @@ namespace Game.Bootstrap
 
             if (searchingIntroVisible)
             {
-                view.ShowSearchingIntro(assignedItemDisplayName, assignedItemId);
+                view.ShowSearchingIntro(assignedItemDisplayName);
                 return;
             }
 
@@ -452,7 +454,7 @@ namespace Game.Bootstrap
             searchingIntroEndsAt = endsAt;
             searchingIntroOpenedThisPhase = true;
             searchingIntroVisible = true;
-            view.ShowSearchingIntro(assignedItemDisplayName, assignedItemId);
+            view.ShowSearchingIntro(assignedItemDisplayName);
         }
 
         private void HideSearchingIntro()
@@ -738,9 +740,17 @@ namespace Game.Bootstrap
 
         private void RefreshDestroyedItems()
         {
+            var order = new string[destructions.Count];
+            for (var index = 0; index < destructions.Count; index++)
+            {
+                order[index] = destructions[index].ItemId;
+            }
+
             view.SetDestroyedItems(
                 room.MatchParticipants.CurrentValue.Count,
-                events.LatestPlayerItemStatuses);
+                events.LatestPlayerItemStatuses,
+                assignedItemId,
+                order);
         }
 
         private void OnPlayerInteractionStatesReceived(

@@ -300,7 +300,47 @@ namespace Game.Client.Home
 
         public static TMP_FontAsset Apply(TMP_FontAsset fontAsset = null)
         {
-            return koreanFont ??= LoadKorean(SemiBoldResource, fontAsset);
+            if (IsWeight(koreanFont, "SemiBold"))
+            {
+                return koreanFont;
+            }
+
+            if (IsWeight(fontAsset, "SemiBold"))
+            {
+                koreanFont = fontAsset;
+                return koreanFont;
+            }
+
+            try
+            {
+                koreanFont = LoadKorean(SemiBoldResource, null);
+            }
+            catch (InvalidOperationException)
+            {
+                koreanFont = null;
+            }
+
+            if (IsWeight(koreanFont, "SemiBold"))
+            {
+                return koreanFont;
+            }
+
+            var source = Resources.Load<Font>(SemiBoldResource) ?? LoadEditorFont(SemiBoldResource);
+            var created = CreateRuntimeKorean(source);
+            if (IsUsable(created))
+            {
+                koreanFont = created;
+                return koreanFont;
+            }
+
+            if (IsUsable(koreanFont))
+            {
+                return koreanFont;
+            }
+
+            throw new InvalidOperationException(
+                "Korean TMP font is missing. Add Paperlogy under " +
+                "Assets/_Game/Content/Resources/Fonts.");
         }
 
         public static TMP_FontAsset ApplyLight(TMP_FontAsset fontAsset = null)
@@ -534,6 +574,12 @@ namespace Game.Client.Home
         private static bool IsUsable(TMP_FontAsset font)
         {
             return font != null && font.material != null;
+        }
+
+        private static bool IsWeight(TMP_FontAsset font, string weight)
+        {
+            return IsUsable(font) &&
+                   font.name.IndexOf(weight, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static TMP_FontAsset LoadEditorFontAsset(string resourcePath)

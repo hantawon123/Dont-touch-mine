@@ -1,3 +1,4 @@
+using System;
 using Game.Client.Home;
 using TMPro;
 using UnityEngine;
@@ -423,6 +424,38 @@ namespace Game.Client.Match
             return text;
         }
 
+        private const string SemiBoldResource = "Fonts/Paperlogy-6SemiBold";
+        private static TMP_FontAsset paperlogySemiBold;
+
+        private static TMP_FontAsset ResolveSemiBold()
+        {
+            if (paperlogySemiBold != null)
+            {
+                return paperlogySemiBold;
+            }
+
+            var applied = HomeUiFonts.Apply();
+            if (applied != null &&
+                applied.name.IndexOf("SemiBold", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                paperlogySemiBold = applied;
+                return paperlogySemiBold;
+            }
+
+            var source = Resources.Load<Font>(SemiBoldResource);
+            if (source != null)
+            {
+                paperlogySemiBold = HomeUiFonts.CreateRuntimeKorean(source);
+            }
+
+            if (paperlogySemiBold == null)
+            {
+                paperlogySemiBold = applied;
+            }
+
+            return paperlogySemiBold;
+        }
+
         private static void ApplySemiBold(TMP_Text text, float fontSize)
         {
             if (text == null)
@@ -430,7 +463,7 @@ namespace Game.Client.Match
                 return;
             }
 
-            var font = HomeUiFonts.Apply();
+            var font = ResolveSemiBold();
             if (font != null)
             {
                 text.font = font;

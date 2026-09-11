@@ -1098,6 +1098,48 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void DestroyedItems_PassLocalAssignmentAndDestructionOrder()
+        {
+            var network = new FakeNetwork();
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+                new MatchParticipant("guest", 2),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+                network.PublishItemAssignment("Soda_01");
+                network.Publish(new PlayerItemDestroyedEvent(1, "Burger_01", 10d));
+                network.Publish(new PlayerItemDestroyedEvent(2, "Pineapple_01", 11d));
+                network.PublishPlayerItemStatuses(new[]
+                {
+                    new PlayerItemStatusSnapshot("Soda_01", false),
+                    new PlayerItemStatusSnapshot("Burger_01", true),
+                    new PlayerItemStatusSnapshot("Pineapple_01", true),
+                });
+
+                Assert.That(view.DestroyedItemPlayerCount, Is.EqualTo(3));
+                Assert.That(view.DestroyedLocalItemId, Is.EqualTo("Soda_01"));
+                Assert.That(view.DestroyedItemOrder, Is.EqualTo(new[]
+                {
+                    "Burger_01",
+                    "Pineapple_01",
+                }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
         private sealed class FakeView : INetworkMatchHudView
         {
             public bool IntroPresented { get; set; } = true;
@@ -1146,14 +1188,24 @@ namespace Game.Architecture.Tests
             public void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses) =>
                 SetDestroyedItems(statuses == null ? 0 : statuses.Count, statuses);
 
+            public string DestroyedLocalItemId { get; private set; }
+            public IReadOnlyList<string> DestroyedItemOrder { get; private set; } =
+                Array.Empty<string>();
+
             public void SetDestroyedItems(
                 int playerCount,
-                IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+                IReadOnlyList<PlayerItemStatusSnapshot> statuses,
+                string localItemId = null,
+                IReadOnlyList<string> destroyedItemIdsInOrder = null)
             {
                 DestroyedItemPlayerCount = playerCount;
                 PlayerItemStatuses = statuses == null
                     ? Array.Empty<PlayerItemStatusSnapshot>()
                     : new List<PlayerItemStatusSnapshot>(statuses);
+                DestroyedLocalItemId = localItemId;
+                DestroyedItemOrder = destroyedItemIdsInOrder == null
+                    ? Array.Empty<string>()
+                    : new List<string>(destroyedItemIdsInOrder);
             }
             public void SetRemainingDestructionUses(int value) =>
                 RemainingDestructionUses = value;
@@ -1179,7 +1231,7 @@ namespace Game.Architecture.Tests
             public string SearchingIntroItem { get; private set; }
             public bool SearchingIntroVisible { get; private set; }
 
-            public void ShowSearchingIntro(string itemDisplayName, string itemId)
+            public void ShowSearchingIntro(string itemDisplayName)
             {
                 SearchingIntroItem = itemDisplayName;
                 SearchingIntroVisible = true;
