@@ -62,6 +62,9 @@ namespace Game.Editor
         /// </summary>
         private const bool DimWarehouse = false;
 
+        /// <summary>실시간 복귀 시 환경광 세기. 기본 1보다 조금 올려 "베이크 전보다 밝게"(사용자 요청 2026-09-11).</summary>
+        private const float RealtimeAmbientIntensity = 1.3f;
+
         /// <summary>천장 스팟(형광등 역할) 베이크 세기. 팩 기본 2~3은 52×75 m 매장을 굽기엔 어두워서 올린다.</summary>
         private const float BakedSpotIntensity = 5f;
 
@@ -709,7 +712,26 @@ namespace Game.Editor
             }
 
             RenderSettings.ambientMode = AmbientMode.Skybox;
-            RenderSettings.ambientIntensity = 1f;
+            RenderSettings.ambientIntensity = RealtimeAmbientIntensity;
+            // 베이크 데이터를 지우면 스카이박스 환경광 프로브도 사라져 실내가 어두워진다(평균 밝기 34). 즉시 다시 만든다(→ 94).
+            DynamicGI.UpdateEnvironment();
+
+            // 베이크용으로 만든 프로브는 데이터가 지워지면 검게 비치거나 무의미하므로 함께 치운다(3번 메뉴로 다시 만들 수 있음).
+            var probeGroup = GameObject.Find(ProbeGroupName);
+            if (probeGroup != null)
+            {
+                Undo.DestroyObjectImmediate(probeGroup);
+            }
+
+            var envRoot = GameObject.Find(EnvironmentRootName);
+            var probesRoot = envRoot != null ? envRoot.transform.Find(ReflectionRootName) : null;
+            if (probesRoot != null)
+            {
+                foreach (var probe in probesRoot.GetComponentsInChildren<ReflectionProbe>(true).ToArray())
+                {
+                    Undo.DestroyObjectImmediate(probe.gameObject);
+                }
+            }
 
             var cleared = 0;
             const StaticEditorFlags bakeFlags = StaticEditorFlags.ContributeGI | StaticEditorFlags.ReflectionProbeStatic;
