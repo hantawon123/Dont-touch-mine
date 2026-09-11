@@ -101,7 +101,7 @@
 ### T8 (908). [CL] 파쇄기 배치·마커 연동
 - **설명**: 마트 콘셉트에 맞는 파쇄 장치(폐기물 압축기 등)를 배치하고 기존 파쇄기 로직·HUD 마커를 연결한다.
 - **작업**
-  - [ ] `ShredderInteractable` 프리팹을 마트 소품 외형으로 교체 또는 리스킨
+  - [x] `ShredderInteractable` 외형을 팀원 PurpleBear_Shredder 프리팹(Scale 0.45)으로 교체(2026-09-11), 튕김 지점 보존
   - [ ] `ShredderSpot`(튕겨 나오는 위치) 마커, `PlaygroundMatchScene`의 이름 기반 조회가 새 씬에서도 통하게 확인
   - [ ] HUD 파쇄기 마커(`NetworkMatchHudPresenter.UpdateShredderMarker`) 화면 표시 확인
   - [ ] 인당 5회 제한·전체 공지 동작 재확인

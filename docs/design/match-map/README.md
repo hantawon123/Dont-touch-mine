@@ -175,3 +175,10 @@
   - 조절 손잡이: 전체 바탕(벽 포함) = 환경광 세기(바꾸면 `Lightmapping.Bake()`로 환경광 데이터 재생성), 바닥·윗면 = 보정등, 전등 웅덩이 = FixtureLight 세기.
   - **프로필 함정**: `VolumeProfile.Add<T>()`만 하면 컴포넌트가 서브에셋으로 저장되지 않아 커밋된 에셋이 빈 채(`components: [{fileID: 0}]`)가 된다. `AssetDatabase.AddObjectToAsset(component, profile)` 후 SaveAssets 필수. 로비 `LobbyPostProcess.asset`이 이 상태(비어 있음) → 별도 수정 예정.
 - 베이크로 돌아갈 때 남은 조정: 해상도 8 → 12 texels/m 검토(얼룩 보이면), 캐릭터 실시간 그림자(태양광 Mixed만) 확인, 드로우콜·WebGL 프레임 측정.
+
+### 11. 파쇄기 외형 (2026-09-11, 908)
+
+- 임시 박스(0.8×0.9×0.8 큐브)였던 `Shredder_A`/`Shredder_B`에 팀원(hantawon123, d21adf0a)이 올린 `Assets/PurpleBearShredder/Prefabs/PurpleBear_Shredder.prefab`(보라색 파쇄기, Animator `Spin` 칼날 회전, BoxCollider 5개 + `ShredZone` 트리거)을 자식으로 붙였다. Playground는 같은 프리팹을 Scale 0.3으로 쓴다.
+- 루트 구조는 그대로(`ShredderInteractable` + 루트 BoxCollider + `ShredderSpot`/`ShredderTarget` 자식). 루트 스케일을 (1,1,1)·바닥(y 0)으로 정리하고 큐브 MeshFilter/MeshRenderer만 제거, 모델은 자식 `PurpleBear_Shredder` Scale **0.45**(가로 1.33 × 높이 0.76 × 깊이 1.02 m). 루트 BoxCollider를 모델 바운드로 맞춰 조준·프롬프트("파괴하기")가 그대로 동작. 튕김 지점·목표점은 월드 위치를 보존.
+- `Shredder_B`는 냉동고 사이 틈이라 모델을 로컬 z +0.2 m로 밀어 겹침 0으로 맞춤(자동 탐색: 회전 0/90° × x/z 오프셋 조합 중 첫 무충돌). 재질은 URP Lit(팩 동봉)이라 마트 조명과 톤이 맞는다.
+- 남은 것: HUD 파쇄기 마커 표시 확인, 인당 5회 제한·전체 공지 재확인(플레이 테스트에서).
