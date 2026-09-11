@@ -214,23 +214,39 @@ namespace Game.Client.Settings
             var track = CreateRect("Track", root);
             SetAnchor(track, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0.5f));
             track.anchoredPosition = Vector2.zero;
-            track.sizeDelta = new Vector2(0f, SettingsStyle.Slider.TrackSize.y);
-            AddImage(
-                track,
-                SettingsStyle.Palette.SliderTrack,
+            track.sizeDelta = new Vector2(0f, SettingsStyle.Slider.FillHeight);
+            var trackBackground = CreateRect("Background", track);
+            SetAnchor(trackBackground, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0.5f));
+            trackBackground.anchoredPosition = Vector2.zero;
+            trackBackground.sizeDelta = new Vector2(0f, SettingsStyle.Slider.TrackSize.y);
+            AddImage(trackBackground, SettingsStyle.Palette.SliderTrack,
                 HomeUiFonts.Rounded(SettingsStyle.Slider.TrackRadius));
 
-            var fillArea = CreateRect("FillArea", root);
+            var fillArea = CreateRect("FillArea", track);
             SetAnchor(fillArea, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0.5f));
+            // Use exactly the handle centre's travel range for the fill endpoint.
             fillArea.anchoredPosition = Vector2.zero;
-            fillArea.sizeDelta = new Vector2(0f, SettingsStyle.Slider.TrackSize.y);
+            fillArea.sizeDelta = new Vector2(-SettingsStyle.Slider.HandleDiameter, SettingsStyle.Slider.FillHeight);
 
             var fill = CreateRect("Fill", fillArea);
             Stretch(fill);
+            // Extend only the fixed left edge; the right edge stays at the handle centre.
+            fill.offsetMin = new Vector2(
+                -SettingsStyle.Slider.HandleDiameter * 0.5f - SettingsStyle.Slider.FillLeftOverhang, 0f);
+            fill.offsetMax = Vector2.zero;
+            // Slider changes only the clipping window. Keep the coloured rail
+            // at its full width so small values cannot squeeze its corners.
+            fill.gameObject.AddComponent<RectMask2D>();
+            var fillGraphic = CreateRect("Graphic", fill);
+            SetAnchor(fillGraphic, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+            fillGraphic.anchoredPosition = Vector2.zero;
+            fillGraphic.sizeDelta = new Vector2(
+                SettingsStyle.Slider.TrackSize.x + SettingsStyle.Slider.FillLeftOverhang,
+                SettingsStyle.Slider.FillHeight);
             AddImage(
-                fill,
+                fillGraphic,
                 SettingsStyle.Palette.SliderFill,
-                HomeUiFonts.Rounded(SettingsStyle.Slider.TrackRadius));
+                HomeUiFonts.Rounded(SettingsStyle.Slider.FillRadius));
 
             // As tall as the handle and inset by half of it on each side, so the
             // handle's centre — not its edge — reaches both ends of the track.

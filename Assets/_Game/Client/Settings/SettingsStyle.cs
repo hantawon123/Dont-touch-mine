@@ -353,12 +353,16 @@ namespace Game.Client.Settings
         public static class Slider
         {
             public static readonly Vector2 TrackSize = new Vector2(292f, 7f);
+            public const float FillHeight = 9f;
+            public const float FillLeftOverhang = 2f;
+            public const int FillRadius = 4;
 
             /// <summary>
-            /// The design says 11, more than the track is tall; the sprite is
-            /// clamped to the track's own half-height and draws the same pill.
+            /// Keep the generated nine-slice border (radius + 1) close to half
+            /// the seven-pixel track height. A larger radius is compressed only
+            /// vertically by Image.Sliced, leaving long, flattened ends.
             /// </summary>
-            public const int TrackRadius = 11;
+            public const int TrackRadius = 3;
 
             public const float HandleDiameter = 15f;
             public const float PercentFontSize = 24f;
