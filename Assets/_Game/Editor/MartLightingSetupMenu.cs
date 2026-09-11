@@ -217,6 +217,66 @@ namespace Game.Editor
             Debug.Log($"[Mart Lighting] ContributeGI 표시 {marked}개 (경계 밖 제외 {skippedOutside}, 움직이는 것 제외 {skippedMovable}). 씬 저장됨.");
         }
 
+        // ------------------------------------------------------------------ 1b. 지붕 빛 통과
+
+        private const string RoofPassFolder = "Assets/_Game/Content/Lighting";
+        private static readonly string[] RoofNameHints = { "Roof", "Ceiling", "Skylight" };
+        /// <summary>이 높이(m) 위에 있는 바닥 메시(위층 바닥 = 아래층 천장)도 지붕으로 본다.</summary>
+        private const float RoofFloorMinY = 4.5f;
+
+        /// <summary>
+        /// 지붕·천장 렌더러의 Cast Shadows를 끈다. 베이크 계산에서 하늘빛(환경광)이 지붕을 통과해 실내로 들어오므로,
+        /// 실시간 환경광처럼 균일하게 밝은 실내를 베이크로도 얻는다(사용자 선택 2026-09-11). 태양광 실시간 그림자는 영향 없음.
+        /// 다시 실행하면 같은 결과. 되돌리려면 <see cref="RestoreRoofShadows"/>.
+        /// </summary>
+        [MenuItem(MenuRoot + "1b. Let Sky Light Through Roof (Roof Cast Shadows Off)")]
+        public static void LetSkyThroughRoof()
+        {
+            var count = SetRoofShadowCasting(ShadowCastingMode.Off);
+            Debug.Log($"[Mart Lighting] 지붕·천장 렌더러 {count}개 Cast Shadows Off → 베이크에서 하늘빛이 실내로 들어옵니다. 다음: 3 → 4 → 5.");
+        }
+
+        [MenuItem(MenuRoot + "1c. Restore Roof Cast Shadows")]
+        public static void RestoreRoofShadows()
+        {
+            var count = SetRoofShadowCasting(ShadowCastingMode.On);
+            Debug.Log($"[Mart Lighting] 지붕·천장 렌더러 {count}개 Cast Shadows On.");
+        }
+
+        private static int SetRoofShadowCasting(ShadowCastingMode mode)
+        {
+            var scene = EnsureSceneOpen();
+            if (!scene.IsValid())
+            {
+                return 0;
+            }
+
+            var count = 0;
+            foreach (var renderer in Object.FindObjectsByType<MeshRenderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (renderer.gameObject.scene != scene || IsMovable(renderer.transform))
+                {
+                    continue;
+                }
+
+                var name = renderer.name;
+                var isRoof = RoofNameHints.Any(h => name.Contains(h)) ||
+                             (name.Contains("Floor") && renderer.bounds.min.y > RoofFloorMinY);
+                if (!isRoof || renderer.shadowCastingMode == mode)
+                {
+                    continue;
+                }
+
+                Undo.RecordObject(renderer, "Roof Shadow Casting");
+                renderer.shadowCastingMode = mode;
+                count++;
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            return count;
+        }
+
         // ------------------------------------------------------------------ 2. 조명 모드
 
         [MenuItem(MenuRoot + "2. Convert Lights (Sun Mixed, Others Baked, Warehouse Dim)")]
@@ -506,8 +566,9 @@ namespace Game.Editor
             EditorUtility.SetDirty(settings);
             Lightmapping.lightingSettings = settings;
 
-            RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = BakedAmbient;
+            // 환경광: 지붕 빛 통과(1b) 방식에서는 실시간 룩과 같은 스카이박스 환경광 ×1.3을 그대로 굽는다.
+            RenderSettings.ambientMode = AmbientMode.Skybox;
+            RenderSettings.ambientIntensity = RealtimeAmbientIntensity;
 
             var probeCount = BuildLightProbes(boundary);
             var reflectionCount = BuildReflectionProbes(boundary);
