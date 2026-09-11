@@ -163,4 +163,15 @@
   - **어두운 곳 확인용 실시간 전등(2026-09-11)**: 전등 소품 79개 자리의 `FixtureLight_*`를 Realtime(세기 2.5, 범위 10, 그림자 없음)으로 켜 두었다(`MartEnvironment/Lights`). 어디가 어두운지 보려는 용도이며 켜고 끄면서 비교 가능. 조명 93개. 플레이 모드 계산대 밝기 115.
   - 베이크 도구(0~6번)는 그대로 남겨 두었다. 나중에 그림자·음영이 필요하면 0 → 1 → 2/2b/2c → 3 → 4 → 5 순서로 다시 굽는다. 라이트맵 UV(FBX 383개)는 이미 켜져 있어 재사용된다.
   - `supermarket-lighting-realtime-checkout.png`, `-loading.png`.
+- **최종 확정(2026-09-11 사용자 "밝기는 괜찮다")** — 실시간 조명, 베이크 없음:
+  | 요소 | 값 |
+  |---|---|
+  | 팩 조명 14개 | 원본 그대로(스팟 2.0~3.12, 포인트 3.3~7.5, 태양광 1.35 Realtime) |
+  | 전등 소품 자리 라이트 `FixtureLight_*` 79개 | Realtime 포인트, 세기 1.5, 범위 11 m, 그림자 없음 (`MartEnvironment/Lights`) |
+  | 수직 보정등 `Overhead Fill Light` | Realtime Directional, X 90° 수직 아래, 세기 0.75, 그림자 없음 — 지붕에 막히지 않는 채움광(사용자 제안) |
+  | 환경광 | Skybox, 세기 1.35 + `Supermarket/LightingData.asset`(환경광 프로브만, 라이트맵 0장) |
+  | 포스트프로세스 `MartPostProcess` | Tonemapping Neutral, ColorAdjustments 노출 +0.25·대비 5·채도 6, Bloom 0.3(threshold 1, scatter 0.6), Vignette 0.12 |
+  | 계산대 뷰 평균 밝기 | 138 (가장자리 117) |
+  - 조절 손잡이: 전체 바탕(벽 포함) = 환경광 세기(바꾸면 `Lightmapping.Bake()`로 환경광 데이터 재생성), 바닥·윗면 = 보정등, 전등 웅덩이 = FixtureLight 세기.
+  - **프로필 함정**: `VolumeProfile.Add<T>()`만 하면 컴포넌트가 서브에셋으로 저장되지 않아 커밋된 에셋이 빈 채(`components: [{fileID: 0}]`)가 된다. `AssetDatabase.AddObjectToAsset(component, profile)` 후 SaveAssets 필수. 로비 `LobbyPostProcess.asset`이 이 상태(비어 있음) → 별도 수정 예정.
 - 베이크로 돌아갈 때 남은 조정: 해상도 8 → 12 texels/m 검토(얼룩 보이면), 캐릭터 실시간 그림자(태양광 Mixed만) 확인, 드로우콜·WebGL 프레임 측정.
