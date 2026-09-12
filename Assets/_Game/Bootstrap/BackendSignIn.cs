@@ -22,7 +22,7 @@ namespace Game.Bootstrap
     /// launch returns the same account rather than piling up new ones.
     /// </para>
     /// </remarks>
-    public sealed class BackendSignIn : IAsyncStartable
+    public sealed class BackendSignIn : IAsyncStartable, IAccountReady
     {
         private readonly IAccountGateway accounts;
         private readonly PlayerProfile profile;
