@@ -9,6 +9,13 @@ namespace Game.Client.Interactions
     /// 물건을 든 채 우클릭으로 켜고 끄며, 반투명 고스트가 배치될 자리를 미리 보여준다.
     /// Q/E 부드러운 좌우 회전(요), 스크롤 15도 단위 앞뒤 기울이기(피치), 좌클릭으로 확정한다.
     /// 배치 불가능한 위치(겹침·손이 닿지 않는 곳)에서는 고스트가 빨간색이 되고 확정할 수 없다.
+    /// <para>
+    /// 조준 규칙(2026-09-12 개정): 고스트는 항상 <b>크로스헤어가 실제로 가리킨 자리</b>에 그린다. 예전에는 손이 닿는
+    /// 거리를 넘으면 플레이어 쪽으로 끌어와 바닥에 투영했는데, 진열대 안쪽을 노리면 매번 진열대 앞 바닥에 놓여
+    /// "다른 곳을 인식한다"고 느껴졌다. 지금은 거리를 넘으면 그 자리에 빨간 고스트와 "너무 멀어요"를 보여 준다.
+    /// 거리는 발 중심이 아니라 가슴 높이에서 잰다(캡슐 반지름 때문에 선반에 0.5 m 이상 다가갈 수 없어서).
+    /// 수직면(선반 앞면·상품 옆면)을 조준하면 그 면 조금 안쪽의 윗면(선반 판)을 찾아 그 위에 놓는다.
+    /// </para>
     /// </summary>
     [RequireComponent(typeof(PlayerInteractor))]
     public sealed class ItemPlacementController : MonoBehaviour
@@ -17,6 +24,24 @@ namespace Game.Client.Interactions
         private const float AutoLiftMax = 0.75f;
         private const float PlacementSkinWidth = 0.01f;
         private const float MaxSupportDistance = 0.05f;
+
+        /// <summary>손 닿는 거리를 재는 기준 높이(가슴). 발 중심(0)에서 재면 선반 안쪽이 항상 거리 초과가 된다.</summary>
+        private const float ReachOriginHeight = 1.2f;
+
+        /// <summary>거리 초과 자리도 빨간 고스트로 보여 주기 위해 광선은 손 거리보다 이만큼 더 멀리 본다.</summary>
+        private const float ReachSlack = 0.6f;
+
+        /// <summary>법선의 y가 이 값보다 크면 윗면, 작으면(절댓값) 수직면으로 본다.</summary>
+        private const float VerticalFaceNormalLimit = 0.5f;
+
+        /// <summary>수직면을 조준했을 때 광선 방향으로 이만큼 안쪽을 조사해 선반 판을 찾는다.</summary>
+        private const float ShelfInsetDistance = 0.15f;
+
+        /// <summary>안쪽 조사점 위·아래로 이만큼 범위에서 윗면을 찾는다(선반 칸 높이 안).</summary>
+        private const float ShelfProbeUp = 0.35f;
+        private const float ShelfProbeDown = 0.6f;
+
+        public const string OutOfReachLabel = "너무 멀어요";
 
         [SerializeField]
         private InputActionAsset inputActions;
@@ -57,6 +82,8 @@ namespace Game.Client.Interactions
         private Quaternion ghostRotation = Quaternion.identity;
         private readonly RaycastHit[] surfaceHits = new RaycastHit[8];
         private bool isCurrentPoseValid;
+        private bool isOutOfReach;
+        private bool lastPromptWasPlace;
         private Vector3 previewPosition;
         private Quaternion previewRotation;
         private Vector3 placementCenterOffset;
@@ -221,33 +248,29 @@ namespace Game.Client.Interactions
                 return;
             }
 
-            // 크로스헤어가 가리키는 표면을 기준점으로 삼는다.
+            // 크로스헤어가 가리키는 표면을 기준점으로 삼는다. 광선은 카메라에서 나가므로 카메라-플레이어 거리를 더한다.
             var cameraToPlayer = Vector3.Distance(cameraTransform.position, transform.position);
             var ray = new Ray(cameraTransform.position, cameraTransform.forward);
-            var maxRayDistance = interactionConfig.PlacementMaxDistance + cameraToPlayer;
+            var maxRayDistance = interactionConfig.PlacementMaxDistance + cameraToPlayer + ReachSlack;
 
-            if (!TryFindNearestSurface(ray, maxRayDistance, out var surfacePoint))
+            Vector3 surfacePoint;
+            if (TryFindNearestSurface(ray, maxRayDistance, out var aimed))
             {
+                surfacePoint = ResolveSurfacePoint(ray, aimed);
+            }
+            else
+            {
+                // 허공을 조준하면 광선 끝 아래의 바닥에 놓는다(어차피 떨어질 자리).
                 surfacePoint = ray.GetPoint(maxRayDistance);
+                if (TryFindNearestSurface(new Ray(surfacePoint + Vector3.up * 0.05f, Vector3.down), 20f, out var ground))
+                {
+                    surfacePoint = ground.point;
+                }
             }
 
-            // 최대 배치 거리(수평)를 넘어가면 한계선 안쪽으로 끌어당긴다.
-            // 홀로그램은 항상 "지금 놓을 수 있는 자리"를 보여준다.
-            var flatOffset = surfacePoint - transform.position;
-            var height = flatOffset.y;
-            flatOffset.y = 0f;
-            if (flatOffset.magnitude > interactionConfig.PlacementMaxDistance)
-            {
-                surfacePoint = transform.position
-                    + flatOffset.normalized * interactionConfig.PlacementMaxDistance
-                    + Vector3.up * height;
-            }
-
-            // 허공이라면 어차피 떨어질 것이므로 바로 아래 표면에 투영한다.
-            if (TryFindNearestSurface(new Ray(surfacePoint + Vector3.up * 0.05f, Vector3.down), 20f, out var ground))
-            {
-                surfacePoint = ground;
-            }
+            // 손이 닿는 거리를 넘으면 위치를 끌어오지 않는다. 그 자리에 빨간 고스트를 두어 "왜 안 되는지" 보이게 한다.
+            var reachOrigin = transform.position + Vector3.up * ReachOriginHeight;
+            isOutOfReach = Vector3.Distance(reachOrigin, surfacePoint) > interactionConfig.PlacementMaxDistance;
 
             previewRotation = ghostRotation;
 
@@ -274,8 +297,8 @@ namespace Game.Client.Interactions
 
             previewPosition = ghost.transform.position;
 
-            // 보정 한도까지 올려도 겹치면 그때만 배치 불가(빨간색).
-            isCurrentPoseValid = !IsOverlapping() && HasSupport();
+            // 보정 한도까지 올려도 겹치면, 또는 손이 닿지 않으면 배치 불가(빨간색).
+            isCurrentPoseValid = !isOutOfReach && !IsOverlapping() && HasSupport();
             if (lastGhostValid != isCurrentPoseValid)
             {
                 ApplyGhostMaterial(isCurrentPoseValid ? ghostValidMaterial : ghostInvalidMaterial);
@@ -285,12 +308,10 @@ namespace Game.Client.Interactions
             RefreshPlacementPrompt();
         }
 
-        // 고스트가 차지할 공간에 다른 물체가 있는지 검사한다.
-        // 바닥에 붙여 놓는 경우 표면 자체에 닿는 것은 허용해야 하므로 검사 상자를 살짝 줄이고 띄운다.
         // 광선 경로에서 자기 몸(플레이어)을 제외한 가장 가까운 표면을 찾는다.
-        private bool TryFindNearestSurface(Ray ray, float maxDistance, out Vector3 surfacePoint)
+        private bool TryFindNearestSurface(Ray ray, float maxDistance, out RaycastHit nearest)
         {
-            surfacePoint = default;
+            nearest = default;
             var hitCount = Physics.RaycastNonAlloc(ray, surfaceHits, maxDistance,
                 Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
             var nearestDistance = float.MaxValue;
@@ -305,13 +326,37 @@ namespace Game.Client.Interactions
                 }
 
                 nearestDistance = hit.distance;
-                surfacePoint = hit.point;
+                nearest = hit;
                 found = true;
             }
 
             return found;
         }
 
+        /// <summary>
+        /// 조준한 면이 윗면이면 그 점을 쓰고, 수직면(선반 앞면·상품 옆면)이면 광선 방향으로 조금 안쪽에서
+        /// 위아래로 윗면(선반 판·바닥)을 찾아 그 위를 기준점으로 삼는다. 못 찾으면 조준점 그대로(겹침으로 빨간색).
+        /// </summary>
+        private Vector3 ResolveSurfacePoint(Ray ray, RaycastHit aimed)
+        {
+            if (Mathf.Abs(aimed.normal.y) > VerticalFaceNormalLimit)
+            {
+                return aimed.point;
+            }
+
+            var inside = aimed.point + ray.direction * ShelfInsetDistance;
+            var probe = new Ray(inside + Vector3.up * ShelfProbeUp, Vector3.down);
+            if (TryFindNearestSurface(probe, ShelfProbeUp + ShelfProbeDown, out var top) &&
+                top.normal.y > VerticalFaceNormalLimit)
+            {
+                return top.point;
+            }
+
+            return aimed.point;
+        }
+
+        // 고스트가 차지할 공간에 다른 물체가 있는지 검사한다.
+        // 바닥에 붙여 놓는 경우 표면 자체에 닿는 것은 허용해야 하므로 검사 상자를 살짝 줄이고 띄운다.
         private bool IsOverlapping()
         {
             if (ghost == null)
@@ -411,24 +456,33 @@ namespace Game.Client.Interactions
 
         private void RefreshPlacementPrompt()
         {
-            if (!IsPlacing ||
-                !isCurrentPoseValid ||
-                ghost == null ||
-                interactor == null ||
-                !PlayerInteractor.CanShowWorldPrompt(
-                    interactor.HudVisible,
-                    interactor.InteractionPromptsAllowed,
-                    Cursor.lockState == CursorLockMode.Locked))
+            var canShow = IsPlacing &&
+                          ghost != null &&
+                          interactor != null &&
+                          PlayerInteractor.CanShowWorldPrompt(
+                              interactor.HudVisible,
+                              interactor.InteractionPromptsAllowed,
+                              Cursor.lockState == CursorLockMode.Locked);
+            if (!canShow || (!isCurrentPoseValid && !isOutOfReach))
             {
                 promptView?.Hide();
                 return;
             }
 
-            if (promptView != null && promptView.IsVisible)
+            if (isOutOfReach)
+            {
+                // 빨간 고스트만으로는 겹침인지 거리인지 알 수 없어 이유를 적어 준다.
+                PromptView.Show(string.Empty, OutOfReachLabel, ghost.transform, icon: null, actionColor: Color.white);
+                lastPromptWasPlace = false;
+                return;
+            }
+
+            if (promptView != null && promptView.IsVisible && lastPromptWasPlace)
             {
                 return;
             }
 
+            lastPromptWasPlace = true;
             placeIcon ??= InteractionPromptView.LoadLeftClickIcon();
             PromptView.Show(
                 string.Empty,
