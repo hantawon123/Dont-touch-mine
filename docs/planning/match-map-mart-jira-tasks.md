@@ -101,7 +101,7 @@
 ### T8 (908). [CL] 파쇄기 배치·마커 연동
 - **설명**: 마트 콘셉트에 맞는 파쇄 장치(폐기물 압축기 등)를 배치하고 기존 파쇄기 로직·HUD 마커를 연결한다.
 - **작업**
-  - [ ] `ShredderInteractable` 프리팹을 마트 소품 외형으로 교체 또는 리스킨
+  - [x] `ShredderInteractable` 외형을 팀원 PurpleBear_Shredder 프리팹(Scale 0.45)으로 교체(2026-09-11), 튕김 지점 보존
   - [ ] `ShredderSpot`(튕겨 나오는 위치) 마커, `PlaygroundMatchScene`의 이름 기반 조회가 새 씬에서도 통하게 확인
   - [ ] HUD 파쇄기 마커(`NetworkMatchHudPresenter.UpdateShredderMarker`) 화면 표시 확인
   - [ ] 인당 5회 제한·전체 공지 동작 재확인
@@ -111,7 +111,7 @@
 ### T9 (909). [CL] 스폰·대기 스폰·탈출 지점 마커 배치
 - **설명**: `MatchSceneSetupMenu`로 스폰 부모(`SpawnPoints`, `WaitingSpawnPoints`)를 만들고 도면 위치에 배치. 탈출 지점 마커를 새로 정의한다.
 - **작업**
-  - [ ] SpawnPoint_1~6, WaitingSpawnPoint_1~6 배치(방향은 방 안쪽), 바닥 위 0.85 m 규칙 유지
+  - [x] SpawnPoint_1~10(사용자 배치) + WaitingSpawnPoint_1~10(헬스장, 6면 밀폐 콜라이더, 2026-09-11)
   - [ ] 탈출 지점 마커(`EscapePoint` 또는 트리거 볼륨) 정의 — 규칙 파트와 이름·형태 협의
   - [ ] `MatchSceneSpawnPoints`가 새 씬에서 스폰을 읽는지 확인, "No spawn points" 로그 없음
   - [ ] 6인 동시 스폰 시 겹침·밀림 없음
@@ -135,10 +135,11 @@
 ### T11 (911). [CL] 조명·분위기·성능
 - **설명**: 마트 형광등 조명을 베이크하고 포스트프로세스로 톤을 맞춘다. 6인 WebGL에서 프레임을 지킨다.
 - **작업**
-  - [ ] `LobbyLightingSetupMenu`를 맵 일반화(설정 에셋·프로브 루트·경계 매개변수) 후 Setup/Bake
-  - [ ] 조명 콘셉트: 밝은 형광등 기본 + 창고·하역장은 어둡게(숨기기 유리 구역), FINAL 30초 경찰 경광등 연출 여지
-  - [ ] 라이트맵 해상도·샘플은 로비 설정(20 texels/m, 2048)에서 시작, 얼룩 시 상향
-  - [ ] 포스트프로세스 Volume(로비 `LobbyPostProcess` 참고), 카메라 SMAA
+  - [x] 마트용 `MartLightingSetupMenu`(Game/Match Map/Lighting) 작성 — UV2 생성·정적 플래그·조명 모드·전등 라이트·설정/프로브·PP·Bake (2026-09-11)
+  - [x] 조명 확정(2026-09-11): 실시간 — 팩 조명 원본 + 전등 자리 라이트 79개(1.5/11 m) + 수직 보정등 0.75 + 환경광 1.35(환경광 데이터) + PP(노출 +0.25). 베이크 도구는 보존. FINAL 경광등 연출은 913에서
+  - [x] 라이트맵 8 texels/m·4096(로비 20·2048은 25배 면적에 과함) → 2장(1024). 얼룩 시 12로 상향
+  - [x] 포스트프로세스 `MartPostProcess` 볼륨(컴포넌트 서브에셋 저장 확인), 카메라 PP + SMAA Medium
+  - [ ] 로비 `LobbyPostProcess.asset` 컴포넌트가 비어 있음(같은 함정) — 별도 수정
   - [ ] 정적 배칭 메뉴(`LobbyStaticBatchingMenu`, 868) 일반화 적용, 드로우콜·프레임 측정(에디터·WebGL)
   - [ ] 재베이크 규칙 문서화(소품·전등·Static 변경 후 반드시 베이크)
 - **완료 조건**: 베이크 완료 스크린샷, WebGL 6인 테스트 프레임 목표(팀 기준) 충족

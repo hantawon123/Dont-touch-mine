@@ -9,6 +9,12 @@ namespace Game.Client.Interactions
     /// 물건을 든 채 우클릭으로 켜고 끄며, 반투명 고스트가 배치될 자리를 미리 보여준다.
     /// Q/E 부드러운 좌우 회전(요), 스크롤 15도 단위 앞뒤 기울이기(피치), 좌클릭으로 확정한다.
     /// 배치 불가능한 위치(겹침·손이 닿지 않는 곳)에서는 고스트가 빨간색이 되고 확정할 수 없다.
+    /// <para>
+    /// 조준 규칙(2026-09-12): 조준점이 손 닿는 수평 거리를 넘으면 예전처럼 그 방향으로 한계선 안쪽까지 끌어와
+    /// "지금 놓을 수 있는 자리"를 보여 준다(바닥·가까운 선반은 항상 초록). 다만 수직면(선반 앞면·상품 옆면)을
+    /// 조준했을 때는 그 면 조금 안쪽의 윗면(선반 판)을 먼저 찾아, 진열대 칸 안에도 놓을 수 있게 했다.
+    /// 한때 거리 초과를 빨간 고스트로만 보여 주는 방식을 시도했지만 바닥 조준까지 빨갱이 되어 되돌렸다.
+    /// </para>
     /// </summary>
     [RequireComponent(typeof(PlayerInteractor))]
     public sealed class ItemPlacementController : MonoBehaviour
@@ -17,6 +23,16 @@ namespace Game.Client.Interactions
         private const float AutoLiftMax = 0.75f;
         private const float PlacementSkinWidth = 0.01f;
         private const float MaxSupportDistance = 0.05f;
+
+        /// <summary>법선의 y가 이 값보다 크면 윗면, 작으면(절댓값) 수직면으로 본다.</summary>
+        private const float VerticalFaceNormalLimit = 0.5f;
+
+        /// <summary>수직면을 조준했을 때 광선 방향으로 이만큼 안쪽을 조사해 선반 판을 찾는다.</summary>
+        private const float ShelfInsetDistance = 0.15f;
+
+        /// <summary>안쪽 조사점 위·아래로 이만큼 범위에서 윗면을 찾는다(선반 칸 높이 안).</summary>
+        private const float ShelfProbeUp = 0.35f;
+        private const float ShelfProbeDown = 0.6f;
 
         [SerializeField]
         private InputActionAsset inputActions;
@@ -221,15 +237,15 @@ namespace Game.Client.Interactions
                 return;
             }
 
-            // 크로스헤어가 가리키는 표면을 기준점으로 삼는다.
+            // 크로스헤어가 가리키는 표면을 기준점으로 삼는다. 광선은 카메라에서 나가므로 카메라-플레이어 거리를 더한다.
             var cameraToPlayer = Vector3.Distance(cameraTransform.position, transform.position);
             var ray = new Ray(cameraTransform.position, cameraTransform.forward);
             var maxRayDistance = interactionConfig.PlacementMaxDistance + cameraToPlayer;
 
-            if (!TryFindNearestSurface(ray, maxRayDistance, out var surfacePoint))
-            {
-                surfacePoint = ray.GetPoint(maxRayDistance);
-            }
+            // 수직면(선반 앞면·상품 옆면)을 조준했으면 그 안쪽 윗면(선반 판)을 기준점으로 삼는다.
+            var surfacePoint = TryFindNearestSurface(ray, maxRayDistance, out var aimed)
+                ? ResolveSurfacePoint(ray, aimed)
+                : ray.GetPoint(maxRayDistance);
 
             // 최대 배치 거리(수평)를 넘어가면 한계선 안쪽으로 끌어당긴다.
             // 홀로그램은 항상 "지금 놓을 수 있는 자리"를 보여준다.
@@ -246,7 +262,7 @@ namespace Game.Client.Interactions
             // 허공이라면 어차피 떨어질 것이므로 바로 아래 표면에 투영한다.
             if (TryFindNearestSurface(new Ray(surfacePoint + Vector3.up * 0.05f, Vector3.down), 20f, out var ground))
             {
-                surfacePoint = ground;
+                surfacePoint = ground.point;
             }
 
             previewRotation = ghostRotation;
@@ -285,12 +301,10 @@ namespace Game.Client.Interactions
             RefreshPlacementPrompt();
         }
 
-        // 고스트가 차지할 공간에 다른 물체가 있는지 검사한다.
-        // 바닥에 붙여 놓는 경우 표면 자체에 닿는 것은 허용해야 하므로 검사 상자를 살짝 줄이고 띄운다.
         // 광선 경로에서 자기 몸(플레이어)을 제외한 가장 가까운 표면을 찾는다.
-        private bool TryFindNearestSurface(Ray ray, float maxDistance, out Vector3 surfacePoint)
+        private bool TryFindNearestSurface(Ray ray, float maxDistance, out RaycastHit nearest)
         {
-            surfacePoint = default;
+            nearest = default;
             var hitCount = Physics.RaycastNonAlloc(ray, surfaceHits, maxDistance,
                 Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
             var nearestDistance = float.MaxValue;
@@ -305,13 +319,37 @@ namespace Game.Client.Interactions
                 }
 
                 nearestDistance = hit.distance;
-                surfacePoint = hit.point;
+                nearest = hit;
                 found = true;
             }
 
             return found;
         }
 
+        /// <summary>
+        /// 조준한 면이 윗면이면 그 점을 쓰고, 수직면(선반 앞면·상품 옆면)이면 광선 방향으로 조금 안쪽에서
+        /// 위아래로 윗면(선반 판·바닥)을 찾아 그 위를 기준점으로 삼는다. 못 찾으면 조준점 그대로(겹침으로 빨간색).
+        /// </summary>
+        private Vector3 ResolveSurfacePoint(Ray ray, RaycastHit aimed)
+        {
+            if (Mathf.Abs(aimed.normal.y) > VerticalFaceNormalLimit)
+            {
+                return aimed.point;
+            }
+
+            var inside = aimed.point + ray.direction * ShelfInsetDistance;
+            var probe = new Ray(inside + Vector3.up * ShelfProbeUp, Vector3.down);
+            if (TryFindNearestSurface(probe, ShelfProbeUp + ShelfProbeDown, out var top) &&
+                top.normal.y > VerticalFaceNormalLimit)
+            {
+                return top.point;
+            }
+
+            return aimed.point;
+        }
+
+        // 고스트가 차지할 공간에 다른 물체가 있는지 검사한다.
+        // 바닥에 붙여 놓는 경우 표면 자체에 닿는 것은 허용해야 하므로 검사 상자를 살짝 줄이고 띄운다.
         private bool IsOverlapping()
         {
             if (ghost == null)
@@ -344,10 +382,13 @@ namespace Game.Client.Interactions
         {
             var center = ghost.transform.position +
                          (ghost.transform.rotation * placementCenterOffset);
+            // 서버(PhysicsPlacementValidator)와 같은 규칙: 기울인 상자는 실제 바닥까지 광선을 늘린다.
+            var verticalExtent = PlacementVolumeMath.RotatedVerticalExtent(
+                ghost.transform.rotation, placementHalfExtents);
             return Physics.Raycast(
                 center,
                 Vector3.down,
-                placementHalfExtents.y + MaxSupportDistance,
+                verticalExtent + MaxSupportDistance,
                 Physics.DefaultRaycastLayers,
                 QueryTriggerInteraction.Ignore);
         }
