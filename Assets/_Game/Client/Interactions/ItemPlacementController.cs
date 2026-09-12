@@ -382,10 +382,13 @@ namespace Game.Client.Interactions
         {
             var center = ghost.transform.position +
                          (ghost.transform.rotation * placementCenterOffset);
+            // 서버(PhysicsPlacementValidator)와 같은 규칙: 기울인 상자는 실제 바닥까지 광선을 늘린다.
+            var verticalExtent = PlacementVolumeMath.RotatedVerticalExtent(
+                ghost.transform.rotation, placementHalfExtents);
             return Physics.Raycast(
                 center,
                 Vector3.down,
-                placementHalfExtents.y + MaxSupportDistance,
+                verticalExtent + MaxSupportDistance,
                 Physics.DefaultRaycastLayers,
                 QueryTriggerInteraction.Ignore);
         }
