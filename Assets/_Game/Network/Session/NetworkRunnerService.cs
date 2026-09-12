@@ -159,6 +159,7 @@ namespace Game.Network.Session
         /// </remarks>
         private readonly PlayerProfile _profile;
         private readonly PublishedPlayerName _publishedName;
+        private readonly IAccountReady _accountReady;
 
         /// <summary>Where the authority's decision about starting is reported.</summary>
         private readonly IMatchStartSink _matchStartSink;
@@ -309,7 +310,8 @@ namespace Game.Network.Session
             PlayerProfile profile,
             NetworkScenes scenes = null,
             ServerRegionSystem regions = null,
-            PublishedPlayerName publishedName = null)
+            PublishedPlayerName publishedName = null,
+            IAccountReady accountReady = null)
         {
             _roomListSink = roomListSink;
             _sessionSink = sessionSink;
@@ -320,6 +322,11 @@ namespace Game.Network.Session
             _scenes = scenes;
             _regions = regions;
             _publishedName = publishedName;
+
+            // Optional so the tests that build this by hand do not all have to
+            // supply one. Null means no wait, which is what those tests expect -
+            // they never sign in.
+            _accountReady = accountReady;
         }
 
         /// <summary>
@@ -748,6 +755,10 @@ namespace Game.Network.Session
                     "The matchmaking lobby is already connected.");
             }
 
+            // Before the client is built, because its AuthValues are read the
+            // moment it is (S15P21D205-928).
+            await WaitForAccountAsync(cancellation);
+
             var photonSettings = GetPhotonSettings();
             var client = MatchmakingArgumentsExtensions.BuildRealtimeClient(
                 photonSettings);
@@ -849,6 +860,12 @@ namespace Game.Network.Session
                 : 0;
             _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
             _matchRules = MatchRuleSettings.Default;
+
+            // The room is its own Photon connection and authenticates on its own,
+            // so it waits on its own too (S15P21D205-928). Reusing the lobby's
+            // already-authenticated client is the common path, but not the only
+            // one - joining by code goes straight here.
+            await WaitForAccountAsync(cancellation);
 
             var sceneManager = CreateRunner(request.Mode != GameMode.Server);
 
@@ -1682,6 +1699,38 @@ namespace Game.Network.Session
         /// scope here and <c>Photon.Realtime</c> would resolve to it.
         /// </para>
         /// </remarks>
+        /// <summary>
+        /// Waits for signing in to finish, so the credentials below are there to
+        /// send (S15P21D205-928).
+        /// </summary>
+        /// <remarks>
+        /// <see cref="BuildAuthValues"/> reads the profile at the moment it is
+        /// called. Nothing used to make that moment come after the account
+        /// arrived, and the room browser warms the lobby up the instant the home
+        /// screen appears - so the connection went out with no credentials at
+        /// all, which Photon refuses once anonymous clients are turned off.
+        /// <para>
+        /// <b>Waiting does not mean requiring.</b> Ready answers false when
+        /// there is no account and this returns anyway; the connection then goes
+        /// out anonymous, which is the fail-open side of the same decision. A
+        /// backend outage must not become nobody being able to play.
+        /// </para>
+        /// <para>
+        /// Ready always completes - sign-in has its own timeout - so there is no
+        /// timeout here. Adding one would only race the one underneath it.
+        /// </para>
+        /// </remarks>
+        private async UniTask WaitForAccountAsync(CancellationToken cancellation)
+        {
+            if (_accountReady == null)
+            {
+                return;
+            }
+
+            await _accountReady.Ready.AttachExternalCancellation(cancellation)
+                .SuppressCancellationThrow();
+        }
+
         private global::Photon.Realtime.AuthenticationValues BuildAuthValues()
         {
             var userId = _profile?.UserId;
