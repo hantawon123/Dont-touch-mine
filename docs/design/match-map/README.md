@@ -182,3 +182,12 @@
 - 루트 구조는 그대로(`ShredderInteractable` + 루트 BoxCollider + `ShredderSpot`/`ShredderTarget` 자식). 루트 스케일을 (1,1,1)·바닥(y 0)으로 정리하고 큐브 MeshFilter/MeshRenderer만 제거, 모델은 자식 `PurpleBear_Shredder` Scale **0.45**(가로 1.33 × 높이 0.76 × 깊이 1.02 m). 루트 BoxCollider를 모델 바운드로 맞춰 조준·프롬프트("파괴하기")가 그대로 동작. 튕김 지점·목표점은 월드 위치를 보존.
 - `Shredder_B`는 냉동고 사이 틈이라 모델을 로컬 z +0.2 m로 밀어 겹침 0으로 맞춤(자동 탐색: 회전 0/90° × x/z 오프셋 조합 중 첫 무충돌). 재질은 URP Lit(팩 동봉)이라 마트 조명과 톤이 맞는다.
 - 남은 것: HUD 파쇄기 마커 표시 확인, 인당 5회 제한·전체 공지 재확인(플레이 테스트에서).
+
+### 12. 숨기기 대기 구역 — 헬스장 (2026-09-11, 909)
+
+- 규칙: 숨기기 단계가 시작되면 첫 숨는 사람을 뺀 전원이 `WaitingSpawnPoint_N`(자기 번호)으로 텔레포트되고, 한 명이 숨기기를 끝내면 그 사람만 자기 대기 지점으로 옮겨진다(`NetworkMatchRuntimeCoordinator`, role=waiting). 대기 지점이 없으면 같은 번호의 `SpawnPoint_N`(매장 안)으로 대체되어 대기자가 숨기는 모습을 볼 수 있었다.
+- **대기 공간 = 헬스장**(사용자 선택; 2층 푸드코트 자동 후보는 폐기). 방 범위 x -49.1~-37.2, z -17.1~-8.6(약 12×8.5 m), 바닥 y 0. 현재 매치 경계(Boundary, x ≥ -27.5) **밖**이라 대기자는 텔레포트로만 들어오고 경계 벽 때문에 매장으로 걸어갈 수 없다.
+- **밀폐 콜라이더** `MartEnvironment/WaitingArea/WaitingBound_{West,East,North,South,Ceiling,Floor}`: 벽 면에 두께 0.4 m 박스, 천장 y 3.0, 바닥 아래 y -0.5. 문·유리문·천장 덕트 틈으로 나갈 수 없게 6면 전부 막음.
+- **대기 스폰 10개** `WaitingSpawnPoints/WaitingSpawnPoint_1~10`: 바닥 +0.85 m, 서로 2 m 이상, 소품과 겹침 없음, 방 중심을 바라봄. 검증: 이름 중복 0, 10개 모두 방 안, 눈높이에서 매장 스폰 10곳 시야 0/10, 26방향 30 m 광선 새는 곳 0/260.
+- 숨기기 단계 UI 안내(N/6명 순서)와 대기자 이동은 규칙 코드 그대로. 탐색 시작 때 전원 매장 안 탐색 스폰으로 다시 이동.
+- 참고: `PlaygroundMatchScene.Capture`를 에디트 모드에서 호출하면 Carryable 오브젝트 id 미해석으로 예외("Object id is required")가 나지만 런타임에는 Awake에서 해석되므로 문제 없음(이전 플레이 확인).

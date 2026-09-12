@@ -111,7 +111,7 @@
 ### T9 (909). [CL] 스폰·대기 스폰·탈출 지점 마커 배치
 - **설명**: `MatchSceneSetupMenu`로 스폰 부모(`SpawnPoints`, `WaitingSpawnPoints`)를 만들고 도면 위치에 배치. 탈출 지점 마커를 새로 정의한다.
 - **작업**
-  - [ ] SpawnPoint_1~6, WaitingSpawnPoint_1~6 배치(방향은 방 안쪽), 바닥 위 0.85 m 규칙 유지
+  - [x] SpawnPoint_1~10(사용자 배치) + WaitingSpawnPoint_1~10(헬스장, 6면 밀폐 콜라이더, 2026-09-11)
   - [ ] 탈출 지점 마커(`EscapePoint` 또는 트리거 볼륨) 정의 — 규칙 파트와 이름·형태 협의
   - [ ] `MatchSceneSpawnPoints`가 새 씬에서 스폰을 읽는지 확인, "No spawn points" 로그 없음
   - [ ] 6인 동시 스폰 시 겹침·밀림 없음
