@@ -56,6 +56,7 @@ namespace Game.Client.Lobby
         public const float InviteCooldownSeconds = 10f;
 
         public static readonly Color KickColor = new Color(177f / 255f, 177f / 255f, 177f / 255f, 1f);
+        public static readonly Color SelfNicknameColor = new Color(1f, 0.54f, 0.24f, 1f);
         public static readonly Color RowHoverFill = new Color(1f, 1f, 1f, 0.12f);
         public static readonly Color ReportTooltipFill = Color.white;
         public static readonly Color ReportTooltipLabel = new Color(1f, 0f, 0f, 1f);
@@ -203,7 +204,8 @@ namespace Game.Client.Lobby
                     shownName,
                     participant.IsHost,
                     canKick,
-                    showAdd: false);
+                    showAdd: false,
+                    isSelf: isSelf);
                 var playerId = participant.Id;
                 var displayName = participant.DisplayName;
 
@@ -893,7 +895,8 @@ namespace Game.Client.Lobby
             string nickname,
             bool showLeader,
             bool showKick,
-            bool showAdd)
+            bool showAdd,
+            bool isSelf = false)
         {
             var row = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             row.SetParent(parent, false);
@@ -903,7 +906,7 @@ namespace Game.Client.Lobby
             element.flexibleWidth = 1f;
 
             CreateAvatar(row);
-            var nameLabel = CreateNickname(row, nickname);
+            var nameLabel = CreateNickname(row, nickname, isSelf);
             CreateLeader(row, nameLabel, showLeader);
             if (showKick)
             {
@@ -945,9 +948,10 @@ namespace Game.Client.Lobby
             image.preserveAspect = true;
         }
 
-        private static TextMeshProUGUI CreateNickname(RectTransform parent, string nickname)
+        private static TextMeshProUGUI CreateNickname(RectTransform parent, string nickname, bool isSelf)
         {
             var name = CreateLabel(parent, "Name", nickname, HomeUiFonts.ApplyRegular(), NicknameFontSize);
+            name.color = isSelf ? SelfNicknameColor : Color.white;
             name.alignment = TextAlignmentOptions.MidlineLeft;
             name.overflowMode = TextOverflowModes.Ellipsis;
             name.textWrappingMode = TextWrappingModes.NoWrap;

@@ -8,6 +8,7 @@ using NUnit.Framework;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace Game.Architecture.Tests
 {
@@ -212,6 +213,10 @@ namespace Game.Architecture.Tests
 
                 var name = guestRow.Find("Name").GetComponent<TMP_Text>();
                 Assert.That(name.text, Is.EqualTo("게스트닉"));
+                Assert.That(name.color, Is.EqualTo(Color.white));
+                Assert.That(
+                    hostRow.Find("Name").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(LobbyPlayerListView.SelfNicknameColor));
                 Assert.That(name.fontSize, Is.EqualTo(LobbyPlayerListView.NicknameFontSize));
                 Assert.That(name.font, Is.EqualTo(HomeUiFonts.ApplyRegular()));
                 Assert.That(
@@ -260,6 +265,12 @@ namespace Game.Architecture.Tests
                 var guestRow = canvas.transform.Find("Columns/Participants/Scroll/RowRoot/Row_player-2");
                 Assert.That(hostRow.Find("Kick"), Is.Null);
                 Assert.That(guestRow.Find("Kick"), Is.Null);
+                Assert.That(
+                    guestRow.Find("Name").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(LobbyPlayerListView.SelfNicknameColor));
+                Assert.That(
+                    hostRow.Find("Name").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(Color.white));
             }
             finally
             {
