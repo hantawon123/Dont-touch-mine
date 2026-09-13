@@ -32,6 +32,9 @@ namespace Game.Client.Lobby
         public const float RowHeight = 42f;
         public const float AvatarSize = 32f;
         public const float AvatarLeft = 10f;
+        public const float MuteIconSize = 16f;
+        public const string AvatarDimName = "Dim";
+        public const string MuteIconName = "Mute";
         public const float NicknameLeft = 10f;
         public const float LeaderIconGap = 6f;
         public const float LeaderIconSize = 16f;
@@ -61,6 +64,7 @@ namespace Game.Client.Lobby
         public static readonly Color ReportTooltipFill = Color.white;
         public static readonly Color ReportTooltipLabel = new Color(1f, 0f, 0f, 1f);
         public static readonly Color AvatarColor = new Color(0.62f, 0.62f, 0.62f, 1f);
+        public static readonly Color MutedAvatarDim = new Color(0f, 0f, 0f, 0.55f);
         public static readonly Color OnlineSectionColor = Color.white;
         public static readonly Color WaitingSectionColor = new Color(0.35f, 0.85f, 0.4f, 1f);
         public static readonly Color InGameSectionColor = new Color(1f, 0.28f, 0.28f, 1f);
@@ -205,7 +209,8 @@ namespace Game.Client.Lobby
                     participant.IsHost,
                     canKick,
                     showAdd: false,
-                    isSelf: isSelf);
+                    isSelf: isSelf,
+                    isMuted: participant.IsMuted);
                 var playerId = participant.Id;
                 var displayName = participant.DisplayName;
 
@@ -896,7 +901,8 @@ namespace Game.Client.Lobby
             bool showLeader,
             bool showKick,
             bool showAdd,
-            bool isSelf = false)
+            bool isSelf = false,
+            bool isMuted = false)
         {
             var row = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             row.SetParent(parent, false);
@@ -905,7 +911,7 @@ namespace Game.Client.Lobby
             element.minHeight = RowHeight;
             element.flexibleWidth = 1f;
 
-            CreateAvatar(row);
+            CreateAvatar(row, isMuted);
             var nameLabel = CreateNickname(row, nickname, isSelf);
             CreateLeader(row, nameLabel, showLeader);
             if (showKick)
@@ -935,7 +941,7 @@ namespace Game.Client.Lobby
             bucket.Add(row.gameObject);
         }
 
-        private static void CreateAvatar(RectTransform parent)
+        private static void CreateAvatar(RectTransform parent, bool muted)
         {
             var avatar = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
                 .GetComponent<RectTransform>();
@@ -946,6 +952,38 @@ namespace Game.Client.Lobby
             image.color = AvatarColor;
             image.raycastTarget = false;
             image.preserveAspect = true;
+            if (muted)
+            {
+                CreateMutedOverlay(avatar);
+            }
+        }
+
+        private static void CreateMutedOverlay(RectTransform avatar)
+        {
+            var dim = new GameObject(
+                    AvatarDimName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
+                .GetComponent<RectTransform>();
+            dim.SetParent(avatar, false);
+            Stretch(dim, 0f, 0f, 0f, 0f);
+            var dimImage = dim.GetComponent<Image>();
+            dimImage.sprite = HomeUiFonts.CircleSprite;
+            dimImage.color = MutedAvatarDim;
+            dimImage.raycastTarget = false;
+            dimImage.preserveAspect = true;
+
+            var mute = new GameObject(
+                    MuteIconName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
+                .GetComponent<RectTransform>();
+            mute.SetParent(avatar, false);
+            mute.anchorMin = mute.anchorMax = new Vector2(0.5f, 0.5f);
+            mute.pivot = new Vector2(0.5f, 0.5f);
+            mute.anchoredPosition = Vector2.zero;
+            mute.sizeDelta = new Vector2(MuteIconSize, MuteIconSize);
+            var muteImage = mute.GetComponent<Image>();
+            muteImage.sprite = LobbyPlayerListSprites.MicOffWhite;
+            muteImage.color = Color.white;
+            muteImage.preserveAspect = true;
+            muteImage.raycastTarget = false;
         }
 
         private static TextMeshProUGUI CreateNickname(RectTransform parent, string nickname, bool isSelf)

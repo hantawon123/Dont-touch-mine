@@ -279,6 +279,47 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void SetParticipants_MutedPlayerDimsAvatarAndShowsMuteIcon()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true, isMuted: false),
+                        new LobbyParticipant("player-2", "게스트닉", false, isMuted: true),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1");
+
+                var hostAvatar = canvas.transform.Find(
+                    "Columns/Participants/Scroll/RowRoot/Row_host-1/Avatar");
+                var guestAvatar = canvas.transform.Find(
+                    "Columns/Participants/Scroll/RowRoot/Row_player-2/Avatar");
+                Assert.That(hostAvatar.Find(LobbyPlayerListView.AvatarDimName), Is.Null);
+                Assert.That(hostAvatar.Find(LobbyPlayerListView.MuteIconName), Is.Null);
+
+                var dim = guestAvatar.Find(LobbyPlayerListView.AvatarDimName).GetComponent<Image>();
+                Assert.That(dim.color, Is.EqualTo(LobbyPlayerListView.MutedAvatarDim));
+                Assert.That(dim.sprite, Is.EqualTo(HomeUiFonts.CircleSprite));
+                var mute = guestAvatar.Find(LobbyPlayerListView.MuteIconName) as RectTransform;
+                Assert.That(mute, Is.Not.Null);
+                Assert.That(mute.sizeDelta, Is.EqualTo(new Vector2(
+                    LobbyPlayerListView.MuteIconSize,
+                    LobbyPlayerListView.MuteIconSize)));
+                Assert.That(
+                    mute.GetComponent<Image>().sprite,
+                    Is.EqualTo(LobbyPlayerListSprites.MicOffWhite));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void SetParticipants_OthersGetAReportTooltipAndSelfDoesNot()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
