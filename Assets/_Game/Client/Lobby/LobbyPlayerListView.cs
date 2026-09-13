@@ -18,22 +18,23 @@ namespace Game.Client.Lobby
         public const string ParticipantsTitle = "게임 참가자 목록";
         public const string FriendsTitle = "친구 목록";
         public const float TitleFontSize = 20f;
-        public const float NicknameFontSize = 16f;
+        public const float NicknameFontSize = 18f;
         public const float KickFontSize = 16f;
         public const float ReportFontSize = 18f;
-        public const float RowHeight = 40f;
-        public const float AvatarSize = 30f;
+        public const float RowHeight = 42f;
+        public const float AvatarSize = 32f;
         public const float AvatarLeft = 10f;
         public const float NicknameLeft = 10f;
         public const float LeaderIconGap = 6f;
         public const float LeaderIconSize = 16f;
         public const float ActionRight = 16f;
-        public const float AddButtonSize = 24f;
+        public const float AddButtonSize = 26f;
         public const float PanelPadding = 24f;
         public const float ColumnInnerPadding = 10f;
+        public const float TitleLeftPadding = ColumnInnerPadding + AvatarLeft;
         public const float TitleHeight = 28f;
         public const float TitleToRows = 12f;
-        public const float ModalWidth = 750f;
+        public const float ModalWidth = 800f;
         public const float ModalHeight = 420f;
         public const float ColumnWidthRatio = 0.4f;
         public const int PanelRadius = 30;
@@ -392,7 +393,7 @@ namespace Game.Client.Lobby
                 title.anchorMin = new Vector2(0f, 1f);
                 title.anchorMax = new Vector2(1f, 1f);
                 title.pivot = new Vector2(0.5f, 1f);
-                title.offsetMin = new Vector2(pad, -(pad + TitleHeight));
+                title.offsetMin = new Vector2(TitleLeftPadding, -(pad + TitleHeight));
                 title.offsetMax = new Vector2(-pad, -pad);
             }
 

@@ -161,7 +161,7 @@ namespace Game.Architecture.Tests
                     Is.EqualTo(LobbyPlayerListView.ColumnWidthRatio).Within(0.001f));
                 var title = participants.Find("Title") as RectTransform;
                 var scroll = participants.Find("Scroll") as RectTransform;
-                Assert.That(title.offsetMin.x, Is.EqualTo(LobbyPlayerListView.ColumnInnerPadding));
+                Assert.That(title.offsetMin.x, Is.EqualTo(LobbyPlayerListView.TitleLeftPadding));
                 Assert.That(title.offsetMax.x, Is.EqualTo(-LobbyPlayerListView.ColumnInnerPadding));
                 Assert.That(title.offsetMax.y, Is.EqualTo(-LobbyPlayerListView.ColumnInnerPadding));
                 Assert.That(scroll.offsetMin, Is.EqualTo(new Vector2(
