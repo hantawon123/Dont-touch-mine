@@ -21,6 +21,9 @@ namespace Game.Client.Match
         public const float VisibleSeconds = Game.Core.Match.MatchIntroTiming.VisibleSeconds;
         public const float MessageFontSize = 55f;
         public const float HintFontSize = 55f;
+        public const float ContentAnchoredY = -174f;
+        public const float MessageAnchoredY = 36f;
+        public const float HintAnchoredY = -60f;
         public const string HintText =
             "다른 도둑들에게 빼앗기지 않도록 비밀 장소에 잘 챙겨두세요.";
 
@@ -135,11 +138,6 @@ namespace Game.Client.Match
             SetVisualsVisible(false);
         }
 
-        private void LateUpdate()
-        {
-            preview?.Tick(Time.deltaTime);
-        }
-
         private void OnDestroy()
         {
             preview?.Dispose();
@@ -149,6 +147,7 @@ namespace Game.Client.Match
         private void EnsureLayout()
         {
             DestroyLegacyModal();
+            DestroyChild("Content/ItemPreview");
 
             if (root == null)
             {
@@ -176,14 +175,43 @@ namespace Game.Client.Match
                 hintText = transform.Find("Content/Hint")?.GetComponent<TMP_Text>();
             }
 
-            if (itemPreview == null)
-            {
-                itemPreview = transform.Find("Content/ItemPreview")?.GetComponent<RawImage>();
-            }
-
+            itemPreview = HidingIntroItemPreview.EnsureIntroSlot(transform);
             if (preview == null && itemPreview != null)
             {
-                preview = new HidingIntroItemPreview(itemPreview);
+                preview = new HidingIntroItemPreview(itemPreview, rotates: true);
+            }
+
+            ApplyCenteredPlacement();
+        }
+
+        private void ApplyCenteredPlacement()
+        {
+            var content = transform.Find("Content") as RectTransform;
+            if (content != null)
+            {
+                Place(
+                    content,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0f, ContentAnchoredY),
+                    new Vector2(1200f, 640f));
+            }
+
+            if (messageText != null)
+            {
+                Place(
+                    messageText.rectTransform,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0f, MessageAnchoredY),
+                    new Vector2(1400f, 80f));
+            }
+
+            if (hintText != null)
+            {
+                Place(
+                    hintText.rectTransform,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0f, HintAnchoredY),
+                    new Vector2(1400f, 80f));
             }
         }
 
@@ -219,11 +247,11 @@ namespace Game.Client.Match
 
             var content = new GameObject("Content", typeof(RectTransform)).GetComponent<RectTransform>();
             content.SetParent(transform, false);
-            Place(content, new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(1200f, 640f));
-
-            itemPreview = CreateRawImage(content, "ItemPreview");
-            Place(itemPreview.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 160f), new Vector2(360f, 360f));
-            preview = new HidingIntroItemPreview(itemPreview);
+            Place(
+                content,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0f, ContentAnchoredY),
+                new Vector2(1200f, 640f));
 
             messageText = CreateText(
                 content,
@@ -234,7 +262,7 @@ namespace Game.Client.Match
             Place(
                 messageText.rectTransform,
                 new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -80f),
+                new Vector2(0f, MessageAnchoredY),
                 new Vector2(1400f, 80f));
 
             hintText = CreateText(
@@ -247,7 +275,7 @@ namespace Game.Client.Match
             Place(
                 hintText.rectTransform,
                 new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -170f),
+                new Vector2(0f, HintAnchoredY),
                 new Vector2(1400f, 80f));
         }
 
@@ -263,6 +291,11 @@ namespace Game.Client.Match
             if (content != null)
             {
                 content.gameObject.SetActive(visible);
+            }
+
+            if (itemPreview != null)
+            {
+                itemPreview.gameObject.SetActive(visible);
             }
         }
 
@@ -281,21 +314,6 @@ namespace Game.Client.Match
             {
                 gameObject.AddComponent<GraphicRaycaster>();
             }
-        }
-
-        private static RawImage CreateRawImage(Transform parent, string name)
-        {
-            var gameObject = new GameObject(
-                name,
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(RawImage));
-            gameObject.transform.SetParent(parent, false);
-            var image = gameObject.GetComponent<RawImage>();
-            image.color = Color.white;
-            image.raycastTarget = false;
-            image.enabled = false;
-            return image;
         }
 
         private static RectTransform CreatePanel(

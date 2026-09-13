@@ -7,7 +7,7 @@ namespace Game.Client.Match
 {
     public interface ISearchingIntroView
     {
-        void Show(string itemDisplayName, string itemId = null);
+        void Show(string itemDisplayName);
         void Hide();
     }
 
@@ -42,10 +42,6 @@ namespace Game.Client.Match
         [SerializeField]
         private TMP_Text hintText;
 
-        [SerializeField]
-        private RawImage itemPreview;
-
-        private HidingIntroItemPreview preview;
         private bool shown;
         private int shownAtFrame;
         public bool IsPresented => shown && isActiveAndEnabled && Time.frameCount > shownAtFrame + 1;
@@ -111,7 +107,7 @@ namespace Game.Client.Match
             }
         }
 
-        public void Show(string itemDisplayName, string itemId = null)
+        public void Show(string itemDisplayName)
         {
             shown = true;
             shownAtFrame = Time.frameCount;
@@ -128,31 +124,20 @@ namespace Game.Client.Match
             ApplyText(titleText, font, TitleText);
             ApplyText(bodyText, font, BodyText);
             ApplyText(hintText, font, FormatRichHint(name));
-
-            preview?.Show(itemId);
             SetVisualsVisible(true);
         }
 
         public void Hide()
         {
             shown = false;
-            preview?.Clear();
             SetVisualsVisible(false);
-        }
-
-        private void LateUpdate()
-        {
-            preview?.Tick(Time.deltaTime);
-        }
-
-        private void OnDestroy()
-        {
-            preview?.Dispose();
-            preview = null;
         }
 
         private void EnsureLayout()
         {
+            DestroyChild("Content/ItemPreview");
+            DestroyChild("ItemPreview");
+
             if (root == null)
             {
                 root = transform.Find("Background")?.gameObject ?? gameObject;
@@ -183,16 +168,23 @@ namespace Game.Client.Match
             {
                 hintText = transform.Find("Content/Hint")?.GetComponent<TMP_Text>();
             }
+        }
 
-            if (itemPreview == null)
+        private void DestroyChild(string childName)
+        {
+            var child = transform.Find(childName);
+            if (child == null)
             {
-                itemPreview = transform.Find("Content/ItemPreview")?.GetComponent<RawImage>();
+                return;
             }
 
-            if (preview == null && itemPreview != null)
+            if (Application.isPlaying)
             {
-                preview = new HidingIntroItemPreview(itemPreview);
+                Destroy(child.gameObject);
+                return;
             }
+
+            DestroyImmediate(child.gameObject);
         }
 
         private void BuildLayout()
@@ -206,22 +198,18 @@ namespace Game.Client.Match
             content.SetParent(transform, false);
             Place(content, new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(1800f, 720f));
 
-            itemPreview = CreateRawImage(content, "ItemPreview");
-            Place(itemPreview.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 190f), new Vector2(360f, 360f));
-            preview = new HidingIntroItemPreview(itemPreview);
-
             titleText = CreateText(content, "Title", TitleText, FontSize, TextAlignmentOptions.Center);
             Place(
                 titleText.rectTransform,
                 new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -50f),
+                new Vector2(0f, 90f),
                 new Vector2(1800f, 80f));
 
             bodyText = CreateText(content, "Body", BodyText, FontSize, TextAlignmentOptions.Center);
             Place(
                 bodyText.rectTransform,
                 new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -140f),
+                new Vector2(0f, 0f),
                 new Vector2(1800f, 80f));
 
             hintText = CreateText(
@@ -233,7 +221,7 @@ namespace Game.Client.Match
             Place(
                 hintText.rectTransform,
                 new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -230f),
+                new Vector2(0f, -90f),
                 new Vector2(1800f, 80f));
         }
 
@@ -280,21 +268,6 @@ namespace Game.Client.Match
             text.fontSize = FontSize;
             text.fontStyle = FontStyles.Normal;
             text.text = content;
-        }
-
-        private static RawImage CreateRawImage(Transform parent, string name)
-        {
-            var gameObject = new GameObject(
-                name,
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(RawImage));
-            gameObject.transform.SetParent(parent, false);
-            var image = gameObject.GetComponent<RawImage>();
-            image.color = Color.white;
-            image.raycastTarget = false;
-            image.enabled = false;
-            return image;
         }
 
         private static RectTransform CreatePanel(

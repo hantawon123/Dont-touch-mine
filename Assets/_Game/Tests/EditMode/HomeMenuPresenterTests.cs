@@ -428,7 +428,9 @@ namespace Game.Tests.EditMode
 
             // The refusal is logged on purpose, so the test says it expects one
             // rather than failing on it.
-            LogAssert.Expect(LogType.Error, "Cannot open a room from Highlight.");
+            LogAssert.Expect(
+                LogType.Warning,
+                new System.Text.RegularExpressions.Regex("Cannot open a room from Highlight"));
             view.RaiseRoomCreationRequested("우리방", true, 6);
 
             Assert.That(

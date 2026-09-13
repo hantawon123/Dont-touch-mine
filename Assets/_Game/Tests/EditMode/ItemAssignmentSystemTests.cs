@@ -101,6 +101,10 @@ namespace Game.Tests.EditMode
             Assert.That(
                 ItemCatalog.VisualSourceIdOf(assigned.ItemId),
                 Is.EqualTo(ItemCatalog.Definitions[0].ItemId));
+            Assert.That(
+                ItemCatalog.CategoryOf(assigned.ItemId),
+                Is.EqualTo(ItemCatalog.Definitions[0].Category));
+            Assert.That(ItemCatalog.CategoryOf("  "), Is.EqualTo(string.Empty));
         }
 
         [Test]

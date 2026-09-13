@@ -140,3 +140,77 @@
   - 테스트: `AssignedItemOutlineTests`(SeeThrough 마스크·껍질 재질 상태, 기본 모드 무변경).
   - **렌더 큐 문제(2026-09-11)**: 위 수정 뒤에도 사용자 화면에서 윤곽선이 안 보였다. 원인은 그리는 순서. Synty(Polygon) 재질은 알파 클립 때문에 **큐 2450(AlphaTest)** 에 그려지는데 윤곽선 셰이더는 `Geometry+1`(2001)이라 먼저 그려지고, 그 뒤에 그려지는 앞쪽 소품·선반·옆 물건이 윤곽선을 덮어썼다(URP Lit 상자로 만든 테스트 장면은 큐 2000이라 재현이 안 됐음). 셰이더 큐를 `AlphaTest+49`(2499), SeeThrough 마스크·껍질 재질 큐를 2498·2499로 옮겨 해결. 검증: 냉장고 안 상품 8방향 중 앞에 소품이 있는 5방향이 0 px → 수정 후 전 방향 표시. 이 문제는 chrin105의 원래 윤곽선(로비 계획판·지정 물건 빨간 윤곽선)에도 같은 조건이면 생기므로 공유 필요.
   - 검증 시 주의: 에디터에서 갓 임포트/수정한 셰이더는 비동기 컴파일 중이라 첫 `Camera.Render()`에 아무것도 그려지지 않는다(에디트 모드 검증이 전부 0으로 나온 원인). 두 번 렌더하거나 플레이 모드에서 확인할 것.
+
+### 10. 조명 베이크 1차 (2026-09-11, 911)
+
+- 메뉴 `Game/Match Map/Lighting/`([MartLightingSetupMenu.cs](../../../Assets/_Game/Editor/MartLightingSetupMenu.cs)). 로비 도구를 마트 규모(경계 안 52×75 m, 로비의 25배)와 평평한 씬 구조(경계 박스 15개 합집합)에 맞게 옮긴 것.
+  0. **Generate Lightmap UVs**: Synty FBX는 라이트맵 UV(UV2)가 없어(3,757개 중 3,712개) 1·2차 베이크가 아틀라스 UV0로 구워져 라이트맵이 거의 비어 있었다. FBX 임포터 383개 Generate Lightmap UVs 켜서 재임포트 + 분해 메시 에셋 89개 `Unwrapping.GenerateSecondaryUVSet`.
+  1. **Mark Static**: 경계 안 고정 소품 3,757개에 ContributeGI·ReflectionProbeStatic·OccludeeStatic(경계 밖 외부 지형 9,148개·움직이는 상품 7,109개 제외).
+  2. **Convert Lights**: 태양광 Mixed(부드러운 그림자), 팩 스팟 7·포인트 6은 Baked, 스팟 세기 5, 창고 구역(x < -40) 포인트 세기 절반.
+  2b. **Fixture Lights**: 마트는 지붕이 닫혀 환경광이 실내로 안 들어와 조명 14개로는 어두웠다(라이트맵 평균 0.08). 전등 소품(천장 바·스팟·벽등) 79개 자리에 Baked 포인트(범위 9 m, 세기 3.5, 난색) 자동 생성 → 조명 93개.
+  3. **Setup**: `MartLighting.lighting`(Progressive GPU, 8 texels/m, 최대 4096, Shadowmask, AO 0.5 m, 샘플 32/256/128, 바운스 2), 평면 환경광, 라이트 프로브 격자 3.5 m × 높이 0.4/1.6/3.2 m → 902개, 리플렉션 프로브 3×4 = 12개(Baked 128).
+  4. **Post-Process**: 로비 프로필 복제 `MartPostProcess.asset`(Neutral 톤매핑·블룸·비네트·색보정) → `Mart Post Volume`(global), Synty 데모 `Global Volume` 제거, Main Camera PP + SMAA Medium.
+  5/6. Bake / Clear, Report.
+- 결과: 라이트맵 2장(1024), 산출물 `Assets/_Game/Content/Scenes/Supermarket/`(약 22 MB, exr는 LFS). 매장 밝기 평균 45 → 71(계산대), 49 → 79(진열대). 창고는 갓등 몇 개만 남아 어둡게 유지(숨기기 유리 구역).
+  - `supermarket-lighting-bake-v1-checkout.png`, `-shelf.png`, `-warehouse.png`.
+- **재베이크 규칙**: 선반·벽·전등·고정 소품 이동/추가/삭제, Static 플래그 변경 뒤 5번 재실행. 들 수 있는 상품 7,101개는 동적(라이트 프로브로 조명)이라 배치를 바꿔도 재베이크 불필요. 새 고정 소품을 넣으면 0·1번을 먼저 다시 돌려 UV2·플래그를 채운다.
+- **밝기 상향 2차(2026-09-11, 사용자 "어두운 곳이 너무 많다")**: 태양을 실내로 옮기는 건 효과가 없다(Directional은 위치가 없는 평행광, 지붕에 막힘). 대신 (1) 간접광 세기(Indirect Intensity) 1 → 2, (2) 전등 라이트 범위 9 → 13 m·세기 3.5 → 5, (3) `2c. Add Fill Lights In Dark Areas`: 바닥 4 m 격자 표본 중 어느 실내 라이트 범위(×0.75)에도 안 드는 지점에 Baked 포인트(범위 12, 세기 3) 자동 추가(창고 제외, 5개). 조명 98개. 결과 평균 밝기 계산대 71 → 96, 진열대 79 → 106, 통로 125. `supermarket-lighting-bake-v2-checkout.png`, `-shelf.png`.
+- **3차(2026-09-11, 사용자 "창고·입구가 빛이 없어 너무 어둡다, 무서워진다")**: 창고 어둡게 두기 해제(`DimWarehouse = false`, 창고 포인트 세기 복구·채움 라이트 창고 포함), 채움 라이트를 **6 m 격자 천장 전등**으로 바꿈(판정 거리 0.3, 범위 11, 세기 3.5 → 51개). 조명 144개. 하역장 평균 밝기 34 → 65(눈높이 109), 계산대 104, 진열대 113. `supermarket-lighting-bake-v3-loading.png`, `-checkout.png`.
+  - 대안 메뉴 `7. Revert To Realtime Lighting (No Bake)`: 베이크 전처럼 실시간 조명 + 스카이박스 환경광(지붕에 가려지지 않아 실내가 균일하게 밝음)으로 되돌린다. 그림자·접촉 음영은 사라진다. 자동 생성 라이트 제거·ContributeGI 해제·베이크 데이터 삭제까지 한 번에.
+- **현재 상태 = 실시간 조명(베이크 없음, 2026-09-11 사용자 결정)**: 3차까지 봐도 "실내라서 베이크 전처럼 균일하게 밝은 쪽이 낫다"는 판단으로 `7. Revert To Realtime Lighting`을 적용. 팩 조명 14개 Realtime(스팟 세기 5 유지), 스카이박스 환경광 세기 1.3, 자동 생성 라이트·프로브·라이트맵·ContributeGI 모두 제거, 포스트프로세스(SMAA)는 유지. 평균 밝기 계산대 94, 하역장 88.
+  - 함정: `Lightmapping.ClearLightingDataAsset()` 뒤에는 스카이박스 환경광 프로브가 사라져 실내가 어두워진다(34). `DynamicGI.UpdateEnvironment()`로 즉시 재생성(메뉴에 포함). 씬 로드 시에는 Unity가 자동 생성한다.
+  - **플레이 모드 함정(2026-09-11)**: 에디터에서는 `DynamicGI.UpdateEnvironment()`로 환경광이 보였지만 **플레이 모드에서는 환경광 프로브가 0**이었다(라이팅 데이터가 없으면 런타임에 생성되지 않음). 해결: GI 대상 0개 상태에서 `Lightmapping.Bake()`(2.5초) → `Supermarket/LightingData.asset`에 환경광 프로브만 저장(라이트맵 0장). 이 에셋은 커밋 대상. 스카이박스·환경광 세기를 바꾸면 다시 생성해야 한다.
+  - **어두운 곳 확인용 실시간 전등(2026-09-11)**: 전등 소품 79개 자리의 `FixtureLight_*`를 Realtime(세기 2.5, 범위 10, 그림자 없음)으로 켜 두었다(`MartEnvironment/Lights`). 어디가 어두운지 보려는 용도이며 켜고 끄면서 비교 가능. 조명 93개. 플레이 모드 계산대 밝기 115.
+  - 베이크 도구(0~6번)는 그대로 남겨 두었다. 나중에 그림자·음영이 필요하면 0 → 1 → 2/2b/2c → 3 → 4 → 5 순서로 다시 굽는다. 라이트맵 UV(FBX 383개)는 이미 켜져 있어 재사용된다.
+  - `supermarket-lighting-realtime-checkout.png`, `-loading.png`.
+- **최종 확정(2026-09-11 사용자 "밝기는 괜찮다")** — 실시간 조명, 베이크 없음:
+  | 요소 | 값 |
+  |---|---|
+  | 팩 조명 14개 | 원본 그대로(스팟 2.0~3.12, 포인트 3.3~7.5, 태양광 1.35 Realtime) |
+  | 전등 소품 자리 라이트 `FixtureLight_*` 79개 | Realtime 포인트, 세기 1.5, 범위 11 m, 그림자 없음 (`MartEnvironment/Lights`) |
+  | 수직 보정등 `Overhead Fill Light` | Realtime Directional, X 90° 수직 아래, 세기 0.75, 그림자 없음 — 지붕에 막히지 않는 채움광(사용자 제안) |
+  | 환경광 | Skybox, 세기 1.35 + `Supermarket/LightingData.asset`(환경광 프로브만, 라이트맵 0장) |
+  | 포스트프로세스 `MartPostProcess` | Tonemapping Neutral, ColorAdjustments 노출 +0.25·대비 5·채도 6, Bloom 0.3(threshold 1, scatter 0.6), Vignette 0.12 |
+  | 계산대 뷰 평균 밝기 | 138 (가장자리 117) |
+  - 조절 손잡이: 전체 바탕(벽 포함) = 환경광 세기(바꾸면 `Lightmapping.Bake()`로 환경광 데이터 재생성), 바닥·윗면 = 보정등, 전등 웅덩이 = FixtureLight 세기.
+  - **프로필 함정**: `VolumeProfile.Add<T>()`만 하면 컴포넌트가 서브에셋으로 저장되지 않아 커밋된 에셋이 빈 채(`components: [{fileID: 0}]`)가 된다. `AssetDatabase.AddObjectToAsset(component, profile)` 후 SaveAssets 필수. 로비 `LobbyPostProcess.asset`이 이 상태(비어 있음) → 별도 수정 예정.
+- 베이크로 돌아갈 때 남은 조정: 해상도 8 → 12 texels/m 검토(얼룩 보이면), 캐릭터 실시간 그림자(태양광 Mixed만) 확인, 드로우콜·WebGL 프레임 측정.
+
+### 11. 파쇄기 외형 (2026-09-11, 908)
+
+- 임시 박스(0.8×0.9×0.8 큐브)였던 `Shredder_A`/`Shredder_B`에 팀원(hantawon123, d21adf0a)이 올린 `Assets/PurpleBearShredder/Prefabs/PurpleBear_Shredder.prefab`(보라색 파쇄기, Animator `Spin` 칼날 회전, BoxCollider 5개 + `ShredZone` 트리거)을 자식으로 붙였다. Playground는 같은 프리팹을 Scale 0.3으로 쓴다.
+- 루트 구조는 그대로(`ShredderInteractable` + 루트 BoxCollider + `ShredderSpot`/`ShredderTarget` 자식). 루트 스케일을 (1,1,1)·바닥(y 0)으로 정리하고 큐브 MeshFilter/MeshRenderer만 제거, 모델은 자식 `PurpleBear_Shredder` Scale **0.45**(가로 1.33 × 높이 0.76 × 깊이 1.02 m). 루트 BoxCollider를 모델 바운드로 맞춰 조준·프롬프트("파괴하기")가 그대로 동작. 튕김 지점·목표점은 월드 위치를 보존.
+- `Shredder_B`는 냉동고 사이 틈이라 모델을 로컬 z +0.2 m로 밀어 겹침 0으로 맞춤(자동 탐색: 회전 0/90° × x/z 오프셋 조합 중 첫 무충돌). 재질은 URP Lit(팩 동봉)이라 마트 조명과 톤이 맞는다.
+- 남은 것: HUD 파쇄기 마커 표시 확인, 인당 5회 제한·전체 공지 재확인(플레이 테스트에서).
+
+### 12. 숨기기 대기 구역 — 헬스장 (2026-09-11, 909)
+
+- 규칙: 숨기기 단계가 시작되면 첫 숨는 사람을 뺀 전원이 `WaitingSpawnPoint_N`(자기 번호)으로 텔레포트되고, 한 명이 숨기기를 끝내면 그 사람만 자기 대기 지점으로 옮겨진다(`NetworkMatchRuntimeCoordinator`, role=waiting). 대기 지점이 없으면 같은 번호의 `SpawnPoint_N`(매장 안)으로 대체되어 대기자가 숨기는 모습을 볼 수 있었다.
+- **대기 공간 = 헬스장**(사용자 선택; 2층 푸드코트 자동 후보는 폐기). 방 범위 x -49.1~-37.2, z -17.1~-8.6(약 12×8.5 m), 바닥 y 0. 현재 매치 경계(Boundary, x ≥ -27.5) **밖**이라 대기자는 텔레포트로만 들어오고 경계 벽 때문에 매장으로 걸어갈 수 없다.
+- **밀폐 콜라이더** `MartEnvironment/WaitingArea/WaitingBound_{West,East,North,South,Ceiling,Floor}`: 벽 면에 두께 0.4 m 박스, 천장 y 3.0, 바닥 아래 y -0.5. 문·유리문·천장 덕트 틈으로 나갈 수 없게 6면 전부 막음.
+- **대기 스폰 10개** `WaitingSpawnPoints/WaitingSpawnPoint_1~10`: 바닥 +0.85 m, 서로 2 m 이상, 소품과 겹침 없음, 방 중심을 바라봄. 검증: 이름 중복 0, 10개 모두 방 안, 눈높이에서 매장 스폰 10곳 시야 0/10, 26방향 30 m 광선 새는 곳 0/260.
+- 숨기기 단계 UI 안내(N/6명 순서)와 대기자 이동은 규칙 코드 그대로. 탐색 시작 때 전원 매장 안 탐색 스폰으로 다시 이동.
+- 참고: `PlaygroundMatchScene.Capture`를 에디트 모드에서 호출하면 Carryable 오브젝트 id 미해석으로 예외("Object id is required")가 나지만 런타임에는 Awake에서 해석되므로 문제 없음(이전 플레이 확인).
+
+### 13. 배치(놓기) 조준 로직 수정 (2026-09-12, 906)
+
+- 증상(사용자): 진열대 안쪽을 노리면 고스트가 엉뚱한 곳(진열대 앞 바닥)에 뜨고, 초록/빨강이 의도와 안 맞음.
+- 원인(`ItemPlacementController.UpdatePreviewPose`): 조준점이 플레이어 발 중심에서 수평 1 m를 넘으면 1 m 지점으로 **끌어당긴 뒤 아래로 투영**했다. 캡슐 반지름 0.3 m + 선반 받침 때문에 플레이어 중심은 선반 면에서 0.5 m 이상 떨어져 있어 선반 안쪽(깊이 0.4~0.6 m)은 거의 항상 초과 → 허공 → 바닥으로 투영. 또 광선이 첫 표면(선반 앞면·앞줄 상품)에서 멈춰 안쪽 선반 판을 못 잡았다.
+- 수정(2차, 같은 날): 1차로 "거리 초과 시 끌어당기지 않고 빨간 고스트 + 너무 멀어요"를 넣었다가 **바닥 조준까지 전부 빨갱이 되어 되돌렸다**(가슴 높이에서 3차원 거리를 재니 1 m 앞 바닥이 1.56 m로 계산됨). 최종:
+  1. 거리 초과 시 예전처럼 플레이어 방향 한계선 안쪽으로 끌어와 "지금 놓을 수 있는 자리"를 보여 준다(수평 거리, `InteractionConfig.placementMaxDistance` 1 → **1.3 m**).
+  2. 수직면(법선 |y| < 0.5)을 조준하면 광선 방향으로 0.15 m 안쪽에서 위 0.35 m / 아래 0.6 m 범위로 윗면을 찾아 그 위에 놓는다(선반 판·상품 위). 끌어당김이 선반 안쪽 점을 선반 밖으로 밀어내면 예전처럼 바닥에 놓인다 — 이때는 한 걸음 더 다가가면 된다.
+  3. 서버 판정(`PhysicsPlacementValidator`: 겹침·받침면·차례 규칙)은 변경 없음. 거리 한도는 클라이언트 UX 규칙(서버에 거리 검사 없음).
+- 검증 수치: 컨트롤러 배치 수학은 0/30/60/90° 기울기에서 겉모습 최저점이 바닥 아래 최대 6 mm(뚫림 없음). 배정 물건 프리팹 318종은 콜라이더=겉모습. 마트 진열 상품 중 콜라이더가 겉모습보다 작은 프리팹 **59종**(파인애플 10 cm 등)에 겉모습 크기 BoxCollider를 추가해 놓았을 때 바닥에 잠기지 않게 함.
+- **기울인 물건이 빨간색이던 원인(2026-09-12, 사용자 스크린샷)**: 받침면 검사 광선 길이가 회전을 무시한 반높이(`HalfExtents.y + 0.05`)여서, 45° 기울인 물건은 모서리가 바닥에 정확히 닿아 있어도 광선이 허공에서 끝나 "받침 없음"으로 거부됐다. 서버(`PhysicsPlacementValidator`)와 클라이언트(`HasSupport`) 둘 다 같은 식이라 함께 고침: 회전한 상자의 세로 반높이(`PlacementVolumeMath.RotatedVerticalExtent`, Client 어셈블리)만큼 내린다. 테스트 `IsValid_TiltedItemRestingOnCornerIsSupported`.
+- 남은 한계: 30~60° 기울기에서는 판정이 상자(AABB) 기준이라 모서리로 떠 보임. 해결은 90° 단위 스냅(클라이언트) 또는 실제 모양 판정(서버, hantawon123 협의) 중 선택 대기.
+
+### 14. 1차 마무리 (2026-09-13)
+
+- develop에 머지된 상태 = 플레이 가능한 마트 맵: `supermarket` 맵 선택·씬 로드, 스폰 10(탐색 시 재셔플), 헬스장 대기 구역(6면 밀폐 + 대기 스폰 10), 파쇄기 2대(PurpleBear 외형), Carryable 7,101개(가구 콜라이더 시각 메시화, 콜라이더 보정 59종), 실시간 조명(전등 79 + 보정등 + 환경광 데이터) + PP, 조준 윤곽선(SeeThrough, 렌더 큐), 배치 조준(선반 안쪽·1.3 m)·기울기 받침 판정 수정.
+- **2차로 넘긴 것(모두 팀 의논 필요)**:
+  1. 배치 규칙 — 기울기 30~60° 떠 보임(90° 스냅 vs 실제 모양 판정), 고스트에 차례·시간 규칙 상태 표시(네트워크 상태 노출) — hantawon123
+  2. 대기 구역(헬스장) 물건 상호작용 — 대기자 허용 + 텔레포트 시 강제 놓기 규칙 — hantawon123
+  3. 탈출 지점 마커·FINAL 30초 판정(T9/T13) — 규칙 파트
+  4. 선반 위 올라가기 정책(T4), 숨김 장소 목표치(T5 지도 도구는 그 뒤에)
+  5. 로비 `LobbyPostProcess.asset` 컴포넌트 복구(별도 커밋), 파쇄기 HUD 마커·5회 제한 플레이 확인, 미분류 소품 76개, 6인 플레이테스트(T14)
+- 도구 모음(`Game/Match Map/…`): Carryable 1~5(보고·변환·정적 배칭·가구 콜라이더·도달 검사), Lighting 0~7(UV2·정적 플래그·조명 모드·전등/채움 라이트·지붕 빛 통과·설정/프로브·PP·Bake·Clear·실시간 복귀). 수정 뒤 재실행 규칙은 각 절 참고.

@@ -26,6 +26,32 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void PrefabOf_ReturnsTheCatalogPrefab()
+        {
+            var catalog = ItemCatalogSO.Load();
+            var item = catalog.categories.First(c => c.enabled).items.First(i => i.enabled);
+            Assert.That(catalog.PrefabOf(item.id), Is.SameAs(item.prefab));
+            Assert.That(catalog.PrefabOf("missing_item"), Is.Null);
+            Assert.That(catalog.PrefabOf("  "), Is.Null);
+        }
+
+        [Test]
+        public void LabelOf_ReturnsCatalogLabelAndFallsBackToId()
+        {
+            var catalog = ItemCatalogSO.Load();
+            var category = catalog.categories.First(c => c.enabled);
+            Assert.That(
+                Game.Client.Lobby.PlaySettingsCategoryCatalog.LabelOf(category.id),
+                Is.EqualTo(category.label));
+            Assert.That(
+                Game.Client.Lobby.PlaySettingsCategoryCatalog.LabelOf(string.Empty),
+                Is.EqualTo("랜덤"));
+            Assert.That(
+                Game.Client.Lobby.PlaySettingsCategoryCatalog.LabelOf("missing_category"),
+                Is.EqualTo("missing_category"));
+        }
+
+        [Test]
         public void Random_ChoosesOneCategory_AndCanReachEveryEnabledCategory()
         {
             ItemCatalogSO.Load();

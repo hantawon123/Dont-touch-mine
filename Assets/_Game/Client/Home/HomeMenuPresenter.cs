@@ -477,7 +477,7 @@ namespace Game.Client.Home
             if (appFlow.CurrentState != AppFlowState.Lobby &&
                 !appFlow.CanTransitionTo(AppFlowState.Lobby))
             {
-                Debug.LogError($"Cannot open a room from {appFlow.CurrentState}.");
+                Debug.LogWarning($"Cannot open a room from {appFlow.CurrentState}.");
                 return;
             }
 

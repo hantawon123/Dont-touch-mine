@@ -20,14 +20,18 @@ namespace Game.Client.Match
         void SetHighlightHud(bool visible, string subtitle, IReadOnlyList<float> barFills);
         void SetAssignedItem(string displayName);
         void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses);
-        void SetDestroyedItems(int playerCount, IReadOnlyList<PlayerItemStatusSnapshot> statuses);
+        void SetDestroyedItems(
+            int playerCount,
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses,
+            string localItemId = null,
+            IReadOnlyList<string> destroyedItemIdsInOrder = null);
         void SetRemainingDestructionUses(int remainingUses);
         void ShowDestructionNotice(string message);
         void HideDestructionNotice();
         void SetShredderMarker(Vector2 screenPosition, bool visible);
         void ShowHidingIntro(string itemDisplayName, string itemId);
         void HideHidingIntro();
-        void ShowSearchingIntro(string itemDisplayName, string itemId);
+        void ShowSearchingIntro(string itemDisplayName);
         void HideSearchingIntro();
         bool IsPhaseIntroPresented(MatchPhase phase);
         void ShowHidingTurnStart(double remainingSeconds, string bannerText = null);
@@ -111,10 +115,17 @@ namespace Game.Client.Match
         [SerializeField]
         private DestroyedItemsHudView destroyedItemsHudView;
 
+        [SerializeField]
+        private MatchUrgencyBorderView urgencyBorderView;
+
+        private MatchPhase currentPhase;
+        private double lastRemainingSeconds = 999d;
         private int remainingDestructionUses = -1;
         private int destroyedItemPlayerCount;
         private IReadOnlyList<PlayerItemStatusSnapshot> destroyedItemStatuses =
             Array.Empty<PlayerItemStatusSnapshot>();
+        private string destroyedItemLocalId;
+        private IReadOnlyList<string> destroyedItemOrder = Array.Empty<string>();
         private bool playerStatusVisible = true;
         private bool highlightOnly;
         private bool hidingPresentation, searchingPresentation;
@@ -149,6 +160,8 @@ namespace Game.Client.Match
             HideVitals();
             EnsureDestroyedItemsHud();
             destroyedItemsHudView?.Hide();
+            EnsureUrgencyBorder();
+            urgencyBorderView?.Hide();
             EnsureDestructionUsesText();
             EnsureHighlightHud();
             HideVoiceButton();
@@ -157,6 +170,7 @@ namespace Game.Client.Match
 
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
         {
+            currentPhase = phase;
             SetHighlightOnly(phase == MatchPhase.Highlight);
             if (phase != MatchPhase.Highlight)
             {
@@ -165,6 +179,8 @@ namespace Game.Client.Match
 
             phaseView?.SetPhase(phase, hidingPlayerName);
             RefreshKeyGuide(phase);
+            RefreshUrgencyBorder();
+            ApplyDestroyedItems();
         }
 
         private void SetHighlightOnly(bool value)
@@ -189,7 +205,8 @@ namespace Game.Client.Match
                     (hidingActiveHudView != null && graphic.transform.IsChildOf(hidingActiveHudView.transform)) ||
                     (hidingWaitHudView != null && graphic.transform.IsChildOf(hidingWaitHudView.transform)) ||
                     (vitalsHudView != null && graphic.transform.IsChildOf(vitalsHudView.transform)) ||
-                    (keySettingGuideView != null && graphic.transform.IsChildOf(keySettingGuideView.transform)))
+                    (keySettingGuideView != null && graphic.transform.IsChildOf(keySettingGuideView.transform)) ||
+                    (urgencyBorderView != null && graphic.transform.IsChildOf(urgencyBorderView.transform)))
                     continue;
                 hiddenGraphics[graphic] = graphic.enabled;
                 graphic.enabled = false;
@@ -230,6 +247,7 @@ namespace Game.Client.Match
         {
             showEndCountdown = true;
             timerView?.SetResult(headline, subtitle);
+            urgencyBorderView?.Hide();
             LateUpdate();
         }
 
@@ -247,7 +265,9 @@ namespace Game.Client.Match
 
         public void SetRemainingSeconds(double remainingSeconds)
         {
+            lastRemainingSeconds = remainingSeconds;
             timerView?.SetRemainingSeconds(remainingSeconds);
+            RefreshUrgencyBorder();
         }
 
         public void SetHighlightHud(bool visible, string subtitle, IReadOnlyList<float> barFills)
@@ -278,15 +298,23 @@ namespace Game.Client.Match
                 playerItemStatusesText.gameObject.SetActive(false);
             }
 
-            SetDestroyedItems(statuses == null ? 0 : statuses.Count, statuses);
+            SetDestroyedItems(
+                statuses == null ? 0 : statuses.Count,
+                statuses,
+                destroyedItemLocalId,
+                destroyedItemOrder);
         }
 
         public void SetDestroyedItems(
             int playerCount,
-            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses,
+            string localItemId = null,
+            IReadOnlyList<string> destroyedItemIdsInOrder = null)
         {
             destroyedItemPlayerCount = playerCount;
             destroyedItemStatuses = statuses ?? Array.Empty<PlayerItemStatusSnapshot>();
+            destroyedItemLocalId = localItemId;
+            destroyedItemOrder = destroyedItemIdsInOrder ?? Array.Empty<string>();
             ApplyDestroyedItems();
         }
 
@@ -360,11 +388,11 @@ namespace Game.Client.Match
             hidingIntroView?.Hide();
         }
 
-        public void ShowSearchingIntro(string itemDisplayName, string itemId)
+        public void ShowSearchingIntro(string itemDisplayName)
         {
             EnsureSearchingIntro();
             searchingPresentation = true;
-            searchingIntroView?.Show(itemDisplayName, itemId);
+            searchingIntroView?.Show(itemDisplayName);
         }
 
         public void HideSearchingIntro()
@@ -491,13 +519,52 @@ namespace Game.Client.Match
                 return;
             }
 
-            if (!playerStatusVisible || destroyedItemPlayerCount <= 0)
+            if (destroyedItemPlayerCount <= 0 || !ShowsDestroyedItems(currentPhase))
             {
                 destroyedItemsHudView.Hide();
                 return;
             }
 
-            destroyedItemsHudView.Show(destroyedItemPlayerCount, destroyedItemStatuses);
+            destroyedItemsHudView.Show(
+                destroyedItemPlayerCount,
+                destroyedItemStatuses,
+                destroyedItemLocalId,
+                destroyedItemOrder);
+        }
+
+        private static bool ShowsDestroyedItems(MatchPhase phase)
+        {
+            return phase == MatchPhase.Searching;
+        }
+
+        private void RefreshUrgencyBorder()
+        {
+            EnsureUrgencyBorder();
+            if (urgencyBorderView == null)
+            {
+                return;
+            }
+
+            if (currentPhase == MatchPhase.Searching && MatchTimerView.IsWarning(lastRemainingSeconds))
+            {
+                urgencyBorderView.Show();
+                return;
+            }
+
+            urgencyBorderView.Hide();
+        }
+
+        private void EnsureUrgencyBorder()
+        {
+            if (urgencyBorderView == null)
+            {
+                urgencyBorderView = GetComponentInChildren<MatchUrgencyBorderView>(true);
+            }
+
+            if (urgencyBorderView == null)
+            {
+                urgencyBorderView = MatchUrgencyBorderView.Create(transform);
+            }
         }
 
         private void EnsureHidingIntro()

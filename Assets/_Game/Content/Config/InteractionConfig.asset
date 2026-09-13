@@ -13,4 +13,5 @@ MonoBehaviour:
   m_Name: InteractionConfig
   m_EditorClassIdentifier: Game.SOAP::Game.SOAP.Config.InteractionConfigSO
   interactionDistance: 2
+  placementMaxDistance: 1.3
   aimedHighlightIntensity: 1.35

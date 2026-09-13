@@ -135,12 +135,21 @@ namespace Game.Bootstrap
                 }
             }
 
+            // 받침면 검사: 회전한 상자의 실제 바닥까지 광선을 내린다. 예전엔 회전을 무시한 반높이(HalfExtents.y)만
+            // 써서, 기울인 물건은 바닥 위에 정확히 얹혀 있어도 광선이 허공에서 끝나 "받침 없음"으로 거부됐다.
+            var verticalExtent = RotatedVerticalExtent(pose.rotation, volume.HalfExtents);
             return Physics.Raycast(
                 center,
                 Vector3.down,
-                volume.HalfExtents.y + maxSupportDistance,
+                verticalExtent + maxSupportDistance,
                 supportLayerMask,
                 QueryTriggerInteraction.Ignore);
+        }
+
+        /// <summary>회전한 배치 상자의 세로 반높이. 클라이언트 미리보기와 같은 식(<see cref="PlacementVolumeMath"/>).</summary>
+        public static float RotatedVerticalExtent(Quaternion rotation, Vector3 halfExtents)
+        {
+            return PlacementVolumeMath.RotatedVerticalExtent(rotation, halfExtents);
         }
 
         private static bool IsFinite(Vector3 value)
