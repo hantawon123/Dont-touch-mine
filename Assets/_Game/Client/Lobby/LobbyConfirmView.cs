@@ -13,6 +13,8 @@ namespace Game.Client.Lobby
 
         ReportReason SelectedReason { get; }
 
+        string Note { get; }
+
         void Show(string message, string confirmLabel);
         void Show(string message, string confirmLabel, bool chooseReason);
         void Hide();
@@ -36,6 +38,8 @@ namespace Game.Client.Lobby
         public event Action Cancelled;
 
         public ReportReason SelectedReason { get; private set; } = ReportReason.Other;
+
+        public string Note => string.Empty;
 
         public static LobbyConfirmView Create(Transform parent, bool showCancel = true)
         {

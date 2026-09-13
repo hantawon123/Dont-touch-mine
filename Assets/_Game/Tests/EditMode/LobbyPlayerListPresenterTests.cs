@@ -236,9 +236,12 @@ namespace Game.Tests.EditMode
             Assert.That(reports.Sent, Is.Empty);
 
             confirm.SelectedReason = ReportReason.Cheating;
+            confirm.Note = "채팅으로 욕설을 했습니다";
             confirm.RaiseConfirm();
 
-            Assert.That(reports.Sent, Is.EqualTo(new[] { ("player-2", ReportReason.Cheating) }));
+            Assert.That(
+                reports.Sent,
+                Is.EqualTo(new[] { ("player-2", ReportReason.Cheating, "채팅으로 욕설을 했습니다") }));
             Assert.That(confirm.IsVisible, Is.False);
         }
 
@@ -373,7 +376,7 @@ namespace Game.Tests.EditMode
 
         private sealed class FakeReportGateway : IReportGateway
         {
-            public List<(string PlayerId, ReportReason Reason)> Sent { get; } = new();
+            public List<(string PlayerId, ReportReason Reason, string Note)> Sent { get; } = new();
 
             public UniTask<BackendResult> ReportAsync(
                 string playerId,
@@ -381,7 +384,7 @@ namespace Game.Tests.EditMode
                 string note,
                 CancellationToken cancellation)
             {
-                Sent.Add((playerId, reason));
+                Sent.Add((playerId, reason, note));
                 return UniTask.FromResult(BackendResult.Success());
             }
         }
@@ -405,6 +408,7 @@ namespace Game.Tests.EditMode
             public string Message { get; private set; }
             public string ConfirmLabel { get; private set; }
             public ReportReason SelectedReason { get; set; } = ReportReason.Other;
+            public string Note { get; set; } = string.Empty;
             public event Action Confirmed;
             public event Action Cancelled;
 

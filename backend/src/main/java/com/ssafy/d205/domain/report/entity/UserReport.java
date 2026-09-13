@@ -59,7 +59,7 @@ public class UserReport {
     private ReportReason reason;
 
     /** 신고자가 적은 한 줄. 없을 수 있습니다. */
-    @Column(name = "memo", length = 200)
+    @Column(name = "memo", length = 500)
     private String memo;
 
     /** 신고한 시각. yyyyMMddHHmmss, UTC. */

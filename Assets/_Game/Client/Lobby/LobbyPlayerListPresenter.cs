@@ -243,6 +243,7 @@ namespace Game.Client.Lobby
                 ReportAsync(
                     pendingPlayerId,
                     confirmView.SelectedReason,
+                    confirmView.Note,
                     lifetime.Token).Forget();
             }
 
@@ -264,9 +265,9 @@ namespace Game.Client.Lobby
         /// </para>
         /// </remarks>
         private async UniTaskVoid ReportAsync(
-            string userId, ReportReason reason, CancellationToken cancellation)
+            string userId, ReportReason reason, string note, CancellationToken cancellation)
         {
-            var result = await reports.ReportAsync(userId, reason, null, cancellation);
+            var result = await reports.ReportAsync(userId, reason, note, cancellation);
 
             if (result.Ok || result.Failure == BackendFailure.Cancelled)
             {

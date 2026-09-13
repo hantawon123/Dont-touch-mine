@@ -455,7 +455,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 목록에 없는 값은 `400 INVALID_REQUEST` 입니다. 값이 늘어날 수는 있으니 클라이언트에서
 목록을 하드코딩할 때는 그 점을 감안하세요.
 
-### `memo` 는 선택이고 200자까지입니다
+### `memo` 는 선택이고 500자까지입니다
 
 비워도 되고, 생략해도 `""` 로 보내도 같습니다. 넘으면 `400 INVALID_REQUEST` 입니다.
 

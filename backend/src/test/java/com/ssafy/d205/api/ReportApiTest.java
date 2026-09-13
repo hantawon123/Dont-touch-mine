@@ -194,12 +194,12 @@ class ReportApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("메모가 200자를 넘으면 400 INVALID_REQUEST")
+    @DisplayName("메모가 500자를 넘으면 400 INVALID_REQUEST")
     void tooLongMemoIsRejected() throws Exception {
         String me = createUser();
         String other = createUser();
 
-        report(me, other, "OTHER", "가".repeat(201))
+        report(me, other, "OTHER", "가".repeat(501))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
 
@@ -207,14 +207,14 @@ class ReportApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("200자 메모는 받는다")
+    @DisplayName("500자 메모는 받는다")
     void memoAtTheLimitIsAccepted() throws Exception {
-        // 경계에서 한 칸 어긋나는 실수를 잡습니다. 위 테스트만 있으면 199자에서 막아도
+        // 경계에서 한 칸 어긋나는 실수를 잡습니다. 위 테스트만 있으면 499자에서 막아도
         // 통과합니다.
         String me = createUser();
         String other = createUser();
 
-        report(me, other, "OTHER", "가".repeat(200)).andExpect(status().isCreated());
+        report(me, other, "OTHER", "가".repeat(500)).andExpect(status().isCreated());
 
         assertThat(reportsAbout(seqOf(other))).isOne();
     }
