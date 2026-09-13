@@ -1,6 +1,7 @@
 using Game.Client.Character;
 using Game.Client.Home;
 using Game.Client.Lobby;
+using Game.Client.Settings;
 using Game.Core.Ports;
 using NUnit.Framework;
 using TMPro;
@@ -138,6 +139,52 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     counter.GetComponent<TMP_Text>().text,
                     Is.EqualTo("욕설을 했습니다".Length + "/" + KickConfirmView.NoteMaxLength));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void Show_Report_OtherNeedsFiveCharactersToConfirm()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<KickConfirmView>();
+                view.Show("게스트님을 신고하시겠습니까?", "확인", true);
+
+                var overlay = canvas.transform.Find(KickConfirmView.RootName);
+                var accept = overlay.Find("Panel/AcceptButton").GetComponent<Button>();
+                var note = overlay.Find("Panel/" + KickConfirmView.NoteRootName)
+                    .GetComponent<TMP_InputField>();
+                Assert.That(accept.interactable, Is.True);
+
+                overlay.Find("Panel/" + KickConfirmView.ReasonRootName + "/"
+                    + KickConfirmView.ReasonFieldName).GetComponent<Button>().onClick.Invoke();
+                overlay.Find("Panel/" + KickConfirmView.ReasonRootName + "/"
+                    + KickConfirmView.ReasonOptionsName + "/"
+                    + ReportReason.Other).GetComponent<Button>().onClick.Invoke();
+                Assert.That(view.SelectedReason, Is.EqualTo(ReportReason.Other));
+                Assert.That(accept.interactable, Is.False);
+                Assert.That(
+                    overlay.Find("Panel/AcceptButton").GetComponent<Image>().color,
+                    Is.EqualTo(SettingsStyle.Palette.ButtonOffFill));
+
+                note.text = "네글자임";
+                Assert.That(note.text.Trim().Length, Is.EqualTo(4));
+                Assert.That(accept.interactable, Is.False);
+
+                note.text = "     ";
+                Assert.That(accept.interactable, Is.False);
+
+                note.text = "다섯글자임";
+                Assert.That(note.text.Trim().Length, Is.EqualTo(5));
+                Assert.That(accept.interactable, Is.True);
+                Assert.That(
+                    overlay.Find("Panel/AcceptButton").GetComponent<Image>().color,
+                    Is.EqualTo(CharacterClosetStyle.Palette.AcceptFill));
             }
             finally
             {

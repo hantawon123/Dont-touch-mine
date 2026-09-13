@@ -40,6 +40,7 @@ namespace Game.Client.Lobby
         public const float NoteCounterInsetX = 12f;
         public const float NoteCounterInsetY = 8f;
         public const int NoteMaxLength = 500;
+        public const int NoteRequiredLength = 5;
         public const string NoteRootName = "Note";
         public const string NoteCounterName = "Counter";
         public const string NotePlaceholder = "내용을 입력해주세요";
@@ -88,6 +89,10 @@ namespace Game.Client.Lobby
         private RectTransform plate;
         private RectTransform declineButton;
         private RectTransform acceptButton;
+        private Button acceptControl;
+        private Image acceptFill;
+        private HomeHoverHighlight acceptHover;
+        private bool choosingReason;
         private GameObject reasonRoot;
         private GameObject reasonOptions;
         private GameObject noteRoot;
@@ -135,6 +140,7 @@ namespace Game.Client.Lobby
             ApplyReason(SelectedReason);
             ResetNote();
             ApplyLayout(chooseReason);
+            RefreshAcceptEnabled();
             if (chooseReason && noteInput != null)
             {
                 noteInput.ActivateInputField();
@@ -260,8 +266,14 @@ namespace Game.Client.Lobby
                 CharacterClosetStyle.Palette.AcceptFill,
                 CharacterClosetStyle.Palette.AcceptHoverFill,
                 CharacterClosetStyle.Palette.AcceptLabel,
-                () => Confirmed?.Invoke());
+                TryConfirm);
             acceptButton = plate.Find("AcceptButton") as RectTransform;
+            if (acceptButton != null)
+            {
+                acceptControl = acceptButton.GetComponent<Button>();
+                acceptFill = acceptButton.GetComponent<Image>();
+                acceptHover = acceptButton.GetComponent<HomeHoverHighlight>();
+            }
 
             CreateCloseButton(plate);
         }
@@ -462,11 +474,57 @@ namespace Game.Client.Lobby
             }
 
             ShowNoteCount(0);
+            RefreshAcceptEnabled();
         }
 
         private void OnNoteTyped(string text)
         {
             ShowNoteCount(text != null ? text.Length : 0);
+            RefreshAcceptEnabled();
+        }
+
+        private void TryConfirm()
+        {
+            if (!CanAccept)
+            {
+                return;
+            }
+
+            Confirmed?.Invoke();
+        }
+
+        private bool CanAccept =>
+            !choosingReason
+            || SelectedReason != ReportReason.Other
+            || Note.Trim().Length >= NoteRequiredLength;
+
+        private void RefreshAcceptEnabled()
+        {
+            var enabled = CanAccept;
+            if (acceptControl != null)
+            {
+                acceptControl.interactable = enabled;
+            }
+
+            if (acceptHover != null)
+            {
+                acceptHover.Bind(
+                    acceptFill,
+                    null,
+                    enabled
+                        ? CharacterClosetStyle.Palette.AcceptFill
+                        : SettingsStyle.Palette.ButtonOffFill,
+                    enabled
+                        ? CharacterClosetStyle.Palette.AcceptHoverFill
+                        : SettingsStyle.Palette.ButtonOffFill);
+            }
+
+            if (acceptLabel != null)
+            {
+                acceptLabel.color = enabled
+                    ? CharacterClosetStyle.Palette.AcceptLabel
+                    : SettingsStyle.Palette.ButtonOffLabel;
+            }
         }
 
         private void ShowNoteCount(int length)
@@ -479,6 +537,7 @@ namespace Game.Client.Lobby
 
         private void ApplyLayout(bool chooseReason)
         {
+            choosingReason = chooseReason;
             SetReasonOpen(false);
             if (reasonRoot != null)
             {
@@ -512,6 +571,8 @@ namespace Game.Client.Lobby
             {
                 acceptButton.anchoredPosition = new Vector2(half, -buttonTop);
             }
+
+            RefreshAcceptEnabled();
         }
 
         private void ApplyReason(ReportReason reason)
@@ -521,6 +582,8 @@ namespace Game.Client.Lobby
             {
                 reasonValue.text = ReasonLabel(reason);
             }
+
+            RefreshAcceptEnabled();
         }
 
         private void PickReason(ReportReason reason)
