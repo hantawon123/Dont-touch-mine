@@ -243,7 +243,7 @@ namespace Game.Client.Settings
             public const float FontSize = 30f;
             public const float IconSize = 24f;
             public const float IconGap = 14f;
-            public const string Label = "전체설정 초기화";
+            public const string Label = "전체 변경 취소";
         }
 
         public static class Tabs
@@ -763,7 +763,7 @@ namespace Game.Client.Settings
             public const float FontSize = 32f;
             public const float IconSize = 30f;
             public const float IconGap = 14f;
-            public const string ResetLabel = "초기화";
+            public const string ResetLabel = "변경 취소";
             public const string ApplyLabel = "적용하기";
 
             /// <summary>
@@ -781,15 +781,15 @@ namespace Game.Client.Settings
         /// </summary>
         public static class Modal
         {
-            public const string ResetAllTitle = "전체 설정을 초기화하시겠습니까?";
-            public const string ResetAllSubtitle = "모든 설정이 초기값으로 돌아갑니다.";
+            public const string ResetAllTitle = "전체 설정의 변경을 취소하시겠습니까?";
+            public const string ResetAllSubtitle = "모든 설정을 마지막으로 저장한 값으로 되돌립니다.";
 
             /// <summary>Takes the tab's name in front.</summary>
-            public const string ResetTabTitleSuffix = " 설정을 초기화하시겠습니까?";
+            public const string ResetTabTitleSuffix = " 설정의 변경을 취소하시겠습니까?";
 
-            public const string ResetTabSubtitle = "설정이 초기값으로 돌아갑니다.";
+            public const string ResetTabSubtitle = "현재 탭의 설정을 마지막으로 저장한 값으로 되돌립니다.";
             public const string CancelLabel = "취소";
-            public const string ResetLabel = "초기화";
+            public const string ResetLabel = "변경 취소";
 
             public const string DiscardTitle = "저장하고 나가시겠습니까?";
             public const string DiscardSubtitle = "저장하지 않으면 변경사항이 사라집니다.";
