@@ -133,6 +133,19 @@ namespace Game.Core.Settings
         public OptionChoices DeviceChoices => SoundCatalog.DeviceChoices(devices.Names);
 
         public event Action<SoundSettings> Changed;
+        public event Action<SoundSettings> AudioChanged;
+
+        /// <summary>Audition speaker volumes without saving the draft.</summary>
+        public void Preview(SoundSettings draft)
+        {
+            var preview = Current
+                .With(SoundVolume.Master, SoundCatalog.Clamp(draft.Get(SoundVolume.Master)))
+                .With(SoundVolume.Music, SoundCatalog.Clamp(draft.Get(SoundVolume.Music)))
+                .With(SoundVolume.Ambience, SoundCatalog.Clamp(draft.Get(SoundVolume.Ambience)))
+                .With(SoundVolume.Effects, SoundCatalog.Clamp(draft.Get(SoundVolume.Effects)));
+            applier.Apply(preview);
+            AudioChanged?.Invoke(preview);
+        }
 
         /// <summary>
         /// Settles on these values, writes them down and carries them to the
@@ -153,6 +166,7 @@ namespace Game.Core.Settings
             // The audio before the listeners: what is heard should have changed
             // by the time anything reacts to the change.
             applier.Apply(next);
+            AudioChanged?.Invoke(next);
             Changed?.Invoke(next);
         }
 
@@ -160,6 +174,10 @@ namespace Game.Core.Settings
         /// Carries whatever is currently in force to the audio, without saving
         /// or telling anyone. For the application's startup.
         /// </summary>
-        public void ApplyToAudio() => applier.Apply(Current);
+        public void ApplyToAudio()
+        {
+            applier.Apply(Current);
+            AudioChanged?.Invoke(Current);
+        }
     }
 }
