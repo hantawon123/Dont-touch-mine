@@ -52,6 +52,9 @@ namespace Game.Bootstrap
         [Tooltip("Pixel of the cursor picture that clicks, from its top-left. An arrow's tip, a hand's fingertip.")]
         private Vector2 _cursorHotspot;
 
+        [SerializeField]
+        private AudioClip _menuBgm;
+
         protected override void Configure(IContainerBuilder builder)
         {
             // Built here rather than in RegisterServices: it reads this
@@ -110,6 +113,17 @@ namespace Game.Bootstrap
             // put on an action, so only the application has one.
             builder.Register<IKeyCapture, UnityKeyCapture>(Lifetime.Singleton);
             builder.RegisterEntryPoint<SoundSettingsStartup>();
+            if (_menuBgm != null)
+            {
+                var musicObject = new GameObject("Menu BGM");
+                musicObject.transform.SetParent(transform, false);
+                var music = musicObject.AddComponent<AudioSource>();
+                music.playOnAwake = false;
+                music.loop = true;
+                music.spatialBlend = 0f;
+                music.clip = _menuBgm;
+                builder.RegisterEntryPoint<MenuBgmController>().WithParameter(music);
+            }
 
             // Makes a saved choice real. Registered here rather than in
             // RegisterServices because only the application has a window to

@@ -191,7 +191,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Reset_PutsTheDefaults_NotTheAppliedValues()
+        public void CancelChanges_RestoresAppliedValues_NotDefaults()
         {
             store.Save(new GeneralSettings("en"));
             general = new GeneralSettingsSystem(store, TwoLanguages);
@@ -199,15 +199,12 @@ namespace Game.Architecture.Tests
             view.StepLanguage(1);
             Assert.That(presenter.GeneralDraft.LanguageCode, Is.EqualTo("ko"));
 
-            // Reset puts the default Korean in the draft. Restoring the applied
-            // English instead — what the closet does — would darken the
-            // buttons; here they stay lit, because the default is not what is
-            // applied and there is now something to apply.
+            // Cancel restores saved English rather than factory-default Korean.
             view.Reset();
             view.Accept();
 
-            Assert.That(presenter.GeneralDraft.LanguageCode, Is.EqualTo("ko"));
-            Assert.That(view.ActionsEnabled, Is.True);
+            Assert.That(presenter.GeneralDraft.LanguageCode, Is.EqualTo("en"));
+            Assert.That(view.ActionsEnabled, Is.False);
             Assert.That(general.Current.LanguageCode, Is.EqualTo("en"), "Reset applies nothing by itself.");
         }
 
@@ -226,7 +223,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void ResetAll_AlwaysAsks_AndAcceptingPutsEveryDefaultInTheDraft()
+        public void CancelAll_RestoresSavedSettings()
         {
             store.Save(new GeneralSettings("en"));
             general = new GeneralSettingsSystem(store, TwoLanguages);
@@ -239,8 +236,8 @@ namespace Game.Architecture.Tests
 
             view.Accept();
 
-            Assert.That(presenter.GeneralDraft.LanguageCode, Is.EqualTo("ko"));
-            Assert.That(view.ActionsEnabled, Is.True, "The defaults differ from what is applied.");
+            Assert.That(presenter.GeneralDraft.LanguageCode, Is.EqualTo("en"));
+            Assert.That(view.ActionsEnabled, Is.False);
             Assert.That(general.Current.LanguageCode, Is.EqualTo("en"));
         }
 
