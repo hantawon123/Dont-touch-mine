@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Client.Lobby;
@@ -383,30 +384,35 @@ namespace Game.Architecture.Tests
                     new FriendSummary("f-2", "오프라인친구", FriendPresence.Offline),
                 });
 
-                var friends = canvas.transform.Find("Columns/Friends/Scroll/RowRoot");
-                Assert.That(friends.childCount, Is.EqualTo(2));
+                var root = canvas.transform.Find("Columns/Friends/Scroll/RowRoot");
+                var online = root.Find(LobbyPlayerListView.OnlineItemsName);
+                Assert.That(root.Find("OnlineSection").gameObject.activeSelf, Is.True);
+                Assert.That(root.Find("OnlineSection").GetComponent<TMP_Text>().text,
+                    Is.EqualTo(LobbyPlayerListView.OnlineSectionTitle));
+                Assert.That(root.Find("OnlineSection").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(LobbyPlayerListView.OnlineSectionColor));
+                Assert.That(root.Find("WaitingSection").gameObject.activeSelf, Is.False);
+                Assert.That(root.Find("InGameSection").gameObject.activeSelf, Is.False);
+                Assert.That(online.gameObject.activeSelf, Is.True);
+                Assert.That(online.childCount, Is.EqualTo(1));
+                Assert.That(root.Find(LobbyPlayerListView.WaitingItemsName).gameObject.activeSelf, Is.False);
+                Assert.That(root.Find(LobbyPlayerListView.InGameItemsName).gameObject.activeSelf, Is.False);
                 Assert.That(
-                    friends.Find("Friend_f-1/Name").GetComponent<TMP_Text>().text,
+                    online.Find("Friend_f-1/Name").GetComponent<TMP_Text>().text,
                     Is.EqualTo("초대할까말까할까말까"));
-                Assert.That(
-                    friends.Find("Friend_f-2/Name").GetComponent<TMP_Text>().text,
-                    Is.EqualTo("오프라인친구"));
-                for (var index = 0; index < friends.childCount; index++)
-                {
-                    var add = friends.GetChild(index).Find("Add") as RectTransform;
-                    Assert.That(add, Is.Not.Null);
-                    Assert.That(add.sizeDelta, Is.EqualTo(new Vector2(
-                        LobbyPlayerListView.AddButtonSize,
-                        LobbyPlayerListView.AddButtonSize)));
-                    Assert.That(add.anchorMin.x, Is.EqualTo(1f));
-                    Assert.That(add.anchoredPosition.x, Is.EqualTo(-LobbyPlayerListView.ActionRight));
-                    Assert.That(add.GetComponent<Button>(), Is.Not.Null);
-                    Assert.That(add.GetComponent<Image>().sprite, Is.Not.Null);
-                }
+                Assert.That(online.Find("Friend_f-2"), Is.Null);
+                var add = online.Find("Friend_f-1/Add") as RectTransform;
+                Assert.That(add, Is.Not.Null);
+                Assert.That(add.sizeDelta, Is.EqualTo(new Vector2(
+                    LobbyPlayerListView.AddButtonSize,
+                    LobbyPlayerListView.AddButtonSize)));
+                Assert.That(add.anchorMin.x, Is.EqualTo(1f));
+                Assert.That(add.anchoredPosition.x, Is.EqualTo(-LobbyPlayerListView.ActionRight));
+                Assert.That(add.GetComponent<Button>().interactable, Is.True);
 
                 var invited = new List<(string Id, string Name)>();
                 view.InviteClicked += (id, name) => invited.Add((id, name));
-                friends.Find("Friend_f-1/Add").GetComponent<Button>().onClick.Invoke();
+                add.GetComponent<Button>().onClick.Invoke();
                 Assert.That(invited, Is.EqualTo(new[] { ("f-1", "초대할까말까할까말까") }));
             }
             finally
@@ -434,9 +440,13 @@ namespace Game.Architecture.Tests
                 view.InviteClicked += (id, _) => invited.Add(id);
 
                 var first = canvas.transform
-                    .Find("Columns/Friends/Scroll/RowRoot/Friend_f-1/Add");
+                    .Find("Columns/Friends/Scroll/RowRoot/"
+                        + LobbyPlayerListView.OnlineItemsName
+                        + "/Friend_f-1/Add");
                 var second = canvas.transform
-                    .Find("Columns/Friends/Scroll/RowRoot/Friend_f-2/Add");
+                    .Find("Columns/Friends/Scroll/RowRoot/"
+                        + LobbyPlayerListView.OnlineItemsName
+                        + "/Friend_f-2/Add");
                 first.GetComponent<Button>().onClick.Invoke();
                 first.GetComponent<Button>().onClick.Invoke();
 
@@ -458,7 +468,9 @@ namespace Game.Architecture.Tests
                     new FriendSummary("f-2", "두번째", FriendPresence.Online),
                 });
                 first = canvas.transform
-                    .Find("Columns/Friends/Scroll/RowRoot/Friend_f-1/Add");
+                    .Find("Columns/Friends/Scroll/RowRoot/"
+                        + LobbyPlayerListView.OnlineItemsName
+                        + "/Friend_f-1/Add");
                 Assert.That(first.GetComponent<Button>().interactable, Is.False);
                 Assert.That(first.GetComponent<Image>().sprite, Is.EqualTo(lockedIcon));
 
@@ -466,6 +478,102 @@ namespace Game.Architecture.Tests
                 view.RefreshInviteCooldowns();
                 Assert.That(first.GetComponent<Button>().interactable, Is.True);
                 Assert.That(first.GetComponent<Image>().sprite, Is.EqualTo(readyIcon));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetFriends_GroupsByPresenceAndLocksBusyInvites()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetFriends(new[]
+                {
+                    new FriendSummary("online-1", "접속중", FriendPresence.Online),
+                    new FriendSummary("lobby-1", "로비대기", FriendPresence.InLobby),
+                    new FriendSummary("game-1", "한판중", FriendPresence.InGame),
+                });
+
+                var root = canvas.transform.Find("Columns/Friends/Scroll/RowRoot");
+                var online = root.Find(LobbyPlayerListView.OnlineItemsName + "/Friend_online-1/Add")
+                    .GetComponent<Button>();
+                var waiting = root.Find(LobbyPlayerListView.WaitingItemsName + "/Friend_lobby-1/Add")
+                    .GetComponent<Button>();
+                var playing = root.Find(LobbyPlayerListView.InGameItemsName + "/Friend_game-1/Add")
+                    .GetComponent<Button>();
+                Assert.That(
+                    root.Find(LobbyPlayerListView.OnlineItemsName + "/Friend_online-1/Name")
+                        .GetComponent<TMP_Text>().text,
+                    Is.EqualTo("접속중"));
+                Assert.That(
+                    root.Find(LobbyPlayerListView.WaitingItemsName + "/Friend_lobby-1/Name")
+                        .GetComponent<TMP_Text>().text,
+                    Is.EqualTo("로비대기"));
+                Assert.That(
+                    root.Find(LobbyPlayerListView.InGameItemsName + "/Friend_game-1/Name")
+                        .GetComponent<TMP_Text>().text,
+                    Is.EqualTo("한판중"));
+                Assert.That(root.Find("OnlineSection").gameObject.activeSelf, Is.True);
+                Assert.That(root.Find("WaitingSection").gameObject.activeSelf, Is.True);
+                Assert.That(root.Find("InGameSection").gameObject.activeSelf, Is.True);
+                Assert.That(root.Find("WaitingSection").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(LobbyPlayerListView.WaitingSectionColor));
+                Assert.That(root.Find("InGameSection").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(LobbyPlayerListView.InGameSectionColor));
+                Assert.That(online.interactable, Is.True);
+                Assert.That(waiting.interactable, Is.False);
+                Assert.That(playing.interactable, Is.False);
+                Assert.That(
+                    waiting.GetComponent<Image>().sprite,
+                    Is.EqualTo(LobbyPlayerListSprites.PlusGray));
+                Assert.That(
+                    playing.GetComponent<Image>().sprite,
+                    Is.EqualTo(LobbyPlayerListSprites.PlusGray));
+
+                var invited = new List<string>();
+                view.InviteClicked += (id, _) => invited.Add(id);
+                waiting.onClick.Invoke();
+                playing.onClick.Invoke();
+                Assert.That(invited, Is.Empty);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetFriends_HidesEmptySectionTitlesUntilSomeoneAppears()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetFriends(Array.Empty<FriendSummary>());
+
+                var root = canvas.transform.Find("Columns/Friends/Scroll/RowRoot");
+                Assert.That(root.Find("OnlineSection").gameObject.activeSelf, Is.False);
+                Assert.That(root.Find("WaitingSection").gameObject.activeSelf, Is.False);
+                Assert.That(root.Find("InGameSection").gameObject.activeSelf, Is.False);
+
+                view.SetFriends(new[]
+                {
+                    new FriendSummary("game-1", "한판중", FriendPresence.InGame),
+                });
+                Assert.That(root.Find("OnlineSection").gameObject.activeSelf, Is.False);
+                Assert.That(root.Find("WaitingSection").gameObject.activeSelf, Is.False);
+                Assert.That(root.Find("InGameSection").gameObject.activeSelf, Is.True);
+                Assert.That(root.Find("InGameSection").GetComponent<TMP_Text>().text,
+                    Is.EqualTo(LobbyPlayerListView.InGameSectionTitle));
+                Assert.That(
+                    root.Find(LobbyPlayerListView.InGameItemsName + "/Friend_game-1/Name")
+                        .GetComponent<TMP_Text>().text,
+                    Is.EqualTo("한판중"));
             }
             finally
             {

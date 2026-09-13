@@ -17,7 +17,15 @@ namespace Game.Client.Lobby
     {
         public const string ParticipantsTitle = "게임 참가자 목록";
         public const string FriendsTitle = "친구 목록";
+        public const string OnlineSectionTitle = "게임 접속 중";
+        public const string WaitingSectionTitle = "대기중";
+        public const string InGameSectionTitle = "게임중";
+        public const string OnlineItemsName = "OnlineItems";
+        public const string WaitingItemsName = "WaitingItems";
+        public const string InGameItemsName = "InGameItems";
         public const float TitleFontSize = 20f;
+        public const float SectionFontSize = 16f;
+        public const float SectionHeight = 28f;
         public const float NicknameFontSize = 18f;
         public const float KickFontSize = 16f;
         public const float ReportFontSize = 18f;
@@ -52,17 +60,27 @@ namespace Game.Client.Lobby
         public static readonly Color ReportTooltipFill = Color.white;
         public static readonly Color ReportTooltipLabel = new Color(1f, 0f, 0f, 1f);
         public static readonly Color AvatarColor = new Color(0.62f, 0.62f, 0.62f, 1f);
+        public static readonly Color OnlineSectionColor = Color.white;
+        public static readonly Color WaitingSectionColor = new Color(0.35f, 0.85f, 0.4f, 1f);
+        public static readonly Color InGameSectionColor = new Color(1f, 0.28f, 0.28f, 1f);
 
         public static readonly Vector2 ModalSize = new Vector2(ModalWidth, ModalHeight);
 
         private RectTransform participantRowRoot;
         private RectTransform friendRowRoot;
+        private RectTransform onlineSection;
+        private RectTransform waitingSection;
+        private RectTransform inGameSection;
+        private RectTransform onlineItemsRoot;
+        private RectTransform waitingItemsRoot;
+        private RectTransform inGameItemsRoot;
         private TextMeshProUGUI participantsTitle;
         private TextMeshProUGUI friendsTitle;
         private readonly List<GameObject> participantRows = new();
         private readonly List<GameObject> friendRows = new();
         private readonly Dictionary<string, Button> inviteButtons = new();
         private readonly Dictionary<string, Image> inviteIcons = new();
+        private readonly Dictionary<string, bool> inviteAllowed = new();
         private readonly Dictionary<string, float> inviteReadyAt = new();
         private Func<float> inviteClock = () => Time.unscaledTime;
         private Game.Core.Settings.InterfacePresentation presentation;
@@ -238,13 +256,139 @@ namespace Game.Client.Lobby
         public void SetFriends(IReadOnlyList<FriendSummary> friends)
         {
             EnsureLayout();
+            EnsureFriendSections();
             inviteButtons.Clear();
             inviteIcons.Clear();
+            inviteAllowed.Clear();
             ClearRows(friendRows);
 
-            if (friends == null || friends.Count == 0)
+            var online = new List<FriendSummary>();
+            var waiting = new List<FriendSummary>();
+            var playing = new List<FriendSummary>();
+            if (friends != null)
             {
-                CreateInfoRow(friendRowRoot, friendRows, "친구가 없습니다.");
+                for (var index = 0; index < friends.Count; index++)
+                {
+                    var friend = friends[index];
+                    switch (friend.Presence)
+                    {
+                        case FriendPresence.Online:
+                            online.Add(friend);
+                            break;
+                        case FriendPresence.InLobby:
+                            waiting.Add(friend);
+                            break;
+                        case FriendPresence.InGame:
+                            playing.Add(friend);
+                            break;
+                    }
+                }
+            }
+
+            AppendFriends(onlineItemsRoot, online, canInvite: true);
+            AppendFriends(waitingItemsRoot, waiting, canInvite: false);
+            AppendFriends(inGameItemsRoot, playing, canInvite: false);
+            SetSectionVisible(onlineSection, onlineItemsRoot, online.Count > 0);
+            SetSectionVisible(waitingSection, waitingItemsRoot, waiting.Count > 0);
+            SetSectionVisible(inGameSection, inGameItemsRoot, playing.Count > 0);
+        }
+
+        private void EnsureFriendSections()
+        {
+            if (friendRowRoot == null || onlineItemsRoot != null)
+            {
+                return;
+            }
+
+            onlineSection = CreateSectionTitle(
+                friendRowRoot, "OnlineSection", OnlineSectionTitle, OnlineSectionColor);
+            onlineItemsRoot = CreateItemGroup(friendRowRoot, OnlineItemsName);
+            waitingSection = CreateSectionTitle(
+                friendRowRoot, "WaitingSection", WaitingSectionTitle, WaitingSectionColor);
+            waitingItemsRoot = CreateItemGroup(friendRowRoot, WaitingItemsName);
+            inGameSection = CreateSectionTitle(
+                friendRowRoot, "InGameSection", InGameSectionTitle, InGameSectionColor);
+            inGameItemsRoot = CreateItemGroup(friendRowRoot, InGameItemsName);
+        }
+
+        private static void SetSectionVisible(
+            RectTransform title, RectTransform items, bool visible)
+        {
+            if (title != null)
+            {
+                title.gameObject.SetActive(visible);
+            }
+
+            if (items != null)
+            {
+                items.gameObject.SetActive(visible);
+            }
+        }
+
+        private static RectTransform CreateSectionTitle(
+            RectTransform parent, string name, string label, Color color)
+        {
+            var rect = FindOrCreateRect(name, parent);
+            var element = rect.GetComponent<LayoutElement>();
+            if (element == null)
+            {
+                element = rect.gameObject.AddComponent<LayoutElement>();
+            }
+
+            element.preferredHeight = SectionHeight;
+            element.minHeight = SectionHeight;
+            element.flexibleWidth = 1f;
+
+            var text = rect.GetComponent<TextMeshProUGUI>();
+            if (text == null)
+            {
+                text = rect.gameObject.AddComponent<TextMeshProUGUI>();
+            }
+
+            text.text = label;
+            text.font = HomeUiFonts.ApplyRegular();
+            text.fontSize = SectionFontSize;
+            text.fontStyle = FontStyles.Normal;
+            text.color = color;
+            text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.raycastTarget = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Overflow;
+            return rect;
+        }
+
+        private static RectTransform CreateItemGroup(RectTransform parent, string name)
+        {
+            var group = FindOrCreateRect(name, parent);
+            var layout = group.GetComponent<VerticalLayoutGroup>();
+            if (layout == null)
+            {
+                layout = group.gameObject.AddComponent<VerticalLayoutGroup>();
+            }
+
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            layout.spacing = 0f;
+
+            var fitter = group.GetComponent<ContentSizeFitter>();
+            if (fitter == null)
+            {
+                fitter = group.gameObject.AddComponent<ContentSizeFitter>();
+            }
+
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            return group;
+        }
+
+        private void AppendFriends(
+            RectTransform parent, IReadOnlyList<FriendSummary> friends, bool canInvite)
+        {
+            if (parent == null)
+            {
                 return;
             }
 
@@ -252,14 +396,14 @@ namespace Game.Client.Lobby
             {
                 var friend = friends[index];
                 var row = CreateRow(
-                    friendRowRoot,
+                    parent,
                     friendRows,
                     $"Friend_{friend.PlayerId}",
                     friend.Nickname,
                     showLeader: false,
                     showKick: false,
                     showAdd: true);
-                BindInvite(row, friend.PlayerId, friend.Nickname);
+                BindInvite(row, friend.PlayerId, friend.Nickname, canInvite);
             }
         }
 
@@ -560,7 +704,7 @@ namespace Game.Client.Lobby
             return scrollbar;
         }
 
-        private void BindInvite(RectTransform row, string playerId, string nickname)
+        private void BindInvite(RectTransform row, string playerId, string nickname, bool canInvite)
         {
             var add = row.Find("Add");
             if (add == null)
@@ -577,13 +721,14 @@ namespace Game.Client.Lobby
 
             inviteButtons[playerId] = button;
             inviteIcons[playerId] = icon;
+            inviteAllowed[playerId] = canInvite;
             ApplyInviteButton(playerId);
             button.onClick.AddListener(() => TryInvite(playerId, nickname));
         }
 
         private void TryInvite(string playerId, string nickname)
         {
-            if (IsInviteCooling(playerId))
+            if (!CanInvite(playerId) || IsInviteCooling(playerId))
             {
                 return;
             }
@@ -595,18 +740,23 @@ namespace Game.Client.Lobby
 
         private void ApplyInviteButton(string playerId)
         {
-            var cooling = IsInviteCooling(playerId);
+            var locked = !CanInvite(playerId) || IsInviteCooling(playerId);
             if (inviteButtons.TryGetValue(playerId, out var button) && button != null)
             {
-                button.interactable = !cooling;
+                button.interactable = !locked;
             }
 
             if (inviteIcons.TryGetValue(playerId, out var icon) && icon != null)
             {
-                icon.sprite = cooling
+                icon.sprite = locked
                     ? LobbyPlayerListSprites.PlusGray
                     : LobbyPlayerListSprites.Plus;
             }
+        }
+
+        private bool CanInvite(string playerId)
+        {
+            return inviteAllowed.TryGetValue(playerId, out var allowed) && allowed;
         }
 
         private bool IsInviteCooling(string playerId)
