@@ -173,7 +173,7 @@
   | 포스트프로세스 `MartPostProcess` | Tonemapping Neutral, ColorAdjustments 노출 +0.25·대비 5·채도 6, Bloom 0.3(threshold 1, scatter 0.6), Vignette 0.12 |
   | 계산대 뷰 평균 밝기 | 138 (가장자리 117) |
   - 조절 손잡이: 전체 바탕(벽 포함) = 환경광 세기(바꾸면 `Lightmapping.Bake()`로 환경광 데이터 재생성), 바닥·윗면 = 보정등, 전등 웅덩이 = FixtureLight 세기.
-  - **프로필 함정**: `VolumeProfile.Add<T>()`만 하면 컴포넌트가 서브에셋으로 저장되지 않아 커밋된 에셋이 빈 채(`components: [{fileID: 0}]`)가 된다. `AssetDatabase.AddObjectToAsset(component, profile)` 후 SaveAssets 필수. 로비 `LobbyPostProcess.asset`이 이 상태(비어 있음) → 별도 수정 예정.
+  - **프로필 함정**: `VolumeProfile.Add<T>()`만 하면 컴포넌트가 서브에셋으로 저장되지 않아 커밋된 에셋이 빈 채(`components: [{fileID: 0}]`)가 된다. `AssetDatabase.AddObjectToAsset(component, profile)` 후 SaveAssets 필수. 로비 `LobbyPostProcess.asset`도 이 상태(비어 있음)지만 사용자가 현재 로비 톤을 유지하기로 해 그대로 둠(2026-09-14).
 - 베이크로 돌아갈 때 남은 조정: 해상도 8 → 12 texels/m 검토(얼룩 보이면), 캐릭터 실시간 그림자(태양광 Mixed만) 확인, 드로우콜·WebGL 프레임 측정.
 
 ### 11. 파쇄기 외형 (2026-09-11, 908)
@@ -212,5 +212,5 @@
   2. 대기 구역(헬스장) 물건 상호작용 — 대기자 허용 + 텔레포트 시 강제 놓기 규칙 — hantawon123
   3. 탈출 지점 마커·FINAL 30초 판정(T9/T13) — 규칙 파트
   4. 선반 위 올라가기 정책(T4), 숨김 장소 목표치(T5 지도 도구는 그 뒤에)
-  5. 로비 `LobbyPostProcess.asset` 컴포넌트 복구(별도 커밋), 파쇄기 HUD 마커·5회 제한 플레이 확인, 미분류 소품 76개, 6인 플레이테스트(T14)
+  5. 파쇄기 HUD 마커·5회 제한 플레이 확인(로비 PP는 미적용 상태 유지로 종결), 미분류 소품 76개, 6인 플레이테스트(T14)
 - 도구 모음(`Game/Match Map/…`): Carryable 1~5(보고·변환·정적 배칭·가구 콜라이더·도달 검사), Lighting 0~7(UV2·정적 플래그·조명 모드·전등/채움 라이트·지붕 빛 통과·설정/프로브·PP·Bake·Clear·실시간 복귀). 수정 뒤 재실행 규칙은 각 절 참고.
