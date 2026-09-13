@@ -194,12 +194,13 @@ namespace Game.Client.Lobby
                 // and passing the Photon one to the report API is what made every
                 // report 404 with nobody noticing (S15P21D205-926).
                 //
-                // No account, no report: a participant who joined without one has
-                // nothing the server can be told about, and sending a blank id
-                // would only turn the 404 into a 400.
+                // Anyone but yourself, host included. No account, no report: a
+                // participant who joined without one has nothing the server can
+                // be told about, and a blank id would only turn the 404 into a
+                // 400.
                 if (!isSelf && !string.IsNullOrWhiteSpace(participant.UserId))
                 {
-                    BindReport(row, participant.UserId, displayName);
+                    BindReport(row, participant.UserId, displayName, below: participant.IsHost);
                 }
 
                 var kick = row.Find("Kick")?.GetComponent<Button>();
@@ -618,7 +619,7 @@ namespace Game.Client.Lobby
         /// The backend account of the player this row shows, never the Photon
         /// player id. The report API looks the value up in users.public_id.
         /// </param>
-        private void BindReport(RectTransform row, string userId, string displayName)
+        private void BindReport(RectTransform row, string userId, string displayName, bool below)
         {
             var fill = row.GetComponent<Image>();
             if (fill == null)
@@ -632,7 +633,7 @@ namespace Game.Client.Lobby
             fill.color = Color.clear;
             fill.raycastTarget = true;
 
-            var tooltip = CreateReportTooltip(row);
+            var tooltip = CreateReportTooltip(row, below);
             var hover = row.gameObject.AddComponent<LobbyReportHover>();
             hover.Bind(fill, tooltip.gameObject, RowHoverFill);
 
@@ -644,7 +645,7 @@ namespace Game.Client.Lobby
             });
         }
 
-        private static RectTransform CreateReportTooltip(RectTransform parent)
+        private static RectTransform CreateReportTooltip(RectTransform parent, bool below)
         {
             var tooltip = new GameObject(
                     "Report",
@@ -668,9 +669,19 @@ namespace Game.Client.Lobby
                 Mathf.Max(label.preferredWidth + (padX * 2f), 1f),
                 Mathf.Max(label.preferredHeight + (padY * 2f), ReportFontSize + (padY * 2f)));
 
-            tooltip.anchorMin = tooltip.anchorMax = new Vector2(0.5f, 1f);
-            tooltip.pivot = new Vector2(0.5f, 0f);
-            tooltip.anchoredPosition = new Vector2(0f, ReportTooltipGap);
+            if (below)
+            {
+                tooltip.anchorMin = tooltip.anchorMax = new Vector2(0.5f, 0f);
+                tooltip.pivot = new Vector2(0.5f, 1f);
+                tooltip.anchoredPosition = new Vector2(0f, -ReportTooltipGap);
+            }
+            else
+            {
+                tooltip.anchorMin = tooltip.anchorMax = new Vector2(0.5f, 1f);
+                tooltip.pivot = new Vector2(0.5f, 0f);
+                tooltip.anchoredPosition = new Vector2(0f, ReportTooltipGap);
+            }
+
             tooltip.sizeDelta = size;
             Stretch(label.rectTransform, 0f, 0f, 0f, 0f);
 
@@ -690,12 +701,12 @@ namespace Game.Client.Lobby
             var button = tooltip.GetComponent<Button>();
             button.targetGraphic = fill;
             button.transition = Selectable.Transition.None;
-            CreateReportBridge(tooltip);
+            CreateReportBridge(tooltip, below);
             tooltip.gameObject.SetActive(false);
             return tooltip;
         }
 
-        private static void CreateReportBridge(RectTransform tooltip)
+        private static void CreateReportBridge(RectTransform tooltip, bool below)
         {
             var bridge = new GameObject(
                     ReportBridgeName,
@@ -704,9 +715,19 @@ namespace Game.Client.Lobby
                     typeof(Image))
                 .GetComponent<RectTransform>();
             bridge.SetParent(tooltip, false);
-            bridge.anchorMin = new Vector2(0f, 0f);
-            bridge.anchorMax = new Vector2(1f, 0f);
-            bridge.pivot = new Vector2(0.5f, 1f);
+            if (below)
+            {
+                bridge.anchorMin = new Vector2(0f, 1f);
+                bridge.anchorMax = new Vector2(1f, 1f);
+                bridge.pivot = new Vector2(0.5f, 0f);
+            }
+            else
+            {
+                bridge.anchorMin = new Vector2(0f, 0f);
+                bridge.anchorMax = new Vector2(1f, 0f);
+                bridge.pivot = new Vector2(0.5f, 1f);
+            }
+
             bridge.anchoredPosition = Vector2.zero;
             bridge.sizeDelta = new Vector2(0f, ReportTooltipGap + ReportTooltipOverlap);
 

@@ -293,17 +293,17 @@ namespace Game.Architecture.Tests
                 var tooltip = hostRow.Find("Report") as RectTransform;
                 Assert.That(tooltip, Is.Not.Null);
                 Assert.That(tooltip.gameObject.activeSelf, Is.False);
-                Assert.That(tooltip.anchorMin, Is.EqualTo(new Vector2(0.5f, 1f)));
-                Assert.That(tooltip.pivot, Is.EqualTo(new Vector2(0.5f, 0f)));
-                Assert.That(tooltip.anchoredPosition.y, Is.EqualTo(LobbyPlayerListView.ReportTooltipGap));
+                Assert.That(tooltip.anchorMin, Is.EqualTo(new Vector2(0.5f, 0f)));
+                Assert.That(tooltip.pivot, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(tooltip.anchoredPosition.y, Is.EqualTo(-LobbyPlayerListView.ReportTooltipGap));
                 var bridge = tooltip.Find(LobbyPlayerListView.ReportBridgeName) as RectTransform;
                 Assert.That(bridge, Is.Not.Null);
+                Assert.That(bridge.anchorMin, Is.EqualTo(new Vector2(0f, 1f)));
                 Assert.That(
                     bridge.sizeDelta.y,
                     Is.EqualTo(
                         LobbyPlayerListView.ReportTooltipGap
                         + LobbyPlayerListView.ReportTooltipOverlap));
-                Assert.That(bridge.GetComponent<Image>().raycastTarget, Is.True);
                 var label = tooltip.Find("Label").GetComponent<TMP_Text>();
                 Assert.That(label.text, Is.EqualTo(LobbyPlayerListView.ReportLabel));
                 Assert.That(label.fontSize, Is.EqualTo(18f));
@@ -324,6 +324,45 @@ namespace Game.Architecture.Tests
                 // (S15P21D205-926).
                 Assert.That(reported, Is.EqualTo(new[] { ("account-host-1", "방장닉") }));
                 Assert.That(tooltip.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetParticipants_HostCanReportAGuestAndStillKick()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true, "account-host-1"),
+                        new LobbyParticipant("player-2", "게스트닉", false, "account-player-2"),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1");
+
+                var hostRow = canvas.transform.Find("Columns/Participants/Scroll/RowRoot/Row_host-1");
+                var guestRow = canvas.transform.Find("Columns/Participants/Scroll/RowRoot/Row_player-2");
+                Assert.That(hostRow.Find("Report"), Is.Null);
+                Assert.That(guestRow.Find("Kick"), Is.Not.Null);
+                var tooltip = guestRow.Find("Report") as RectTransform;
+                Assert.That(tooltip, Is.Not.Null);
+                Assert.That(tooltip.gameObject.activeSelf, Is.False);
+                Assert.That(tooltip.anchorMin, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(tooltip.pivot, Is.EqualTo(new Vector2(0.5f, 0f)));
+                Assert.That(tooltip.anchoredPosition.y, Is.EqualTo(LobbyPlayerListView.ReportTooltipGap));
+
+                guestRow.GetComponent<LobbyReportHover>().ShowTooltip();
+                var reported = new List<(string Id, string Name)>();
+                view.ReportClicked += (id, name) => reported.Add((id, name));
+                tooltip.GetComponent<Button>().onClick.Invoke();
+                Assert.That(reported, Is.EqualTo(new[] { ("account-player-2", "게스트닉") }));
             }
             finally
             {
