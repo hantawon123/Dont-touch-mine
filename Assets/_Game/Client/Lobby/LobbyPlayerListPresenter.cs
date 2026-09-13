@@ -29,7 +29,13 @@ namespace Game.Client.Lobby
         [VContainer.Inject]
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value) =>
             presentation = value;
+
+        [VContainer.Inject]
+        public void BindVoice(IVoiceControl value) => voice = value;
+
+        private IVoiceControl voice;
         private IDisposable refreshSubscription;
+        private IDisposable muteSubscription;
 
         /// <summary>
         /// The last thing the room said about itself, so that a name arriving
@@ -73,6 +79,10 @@ namespace Game.Client.Lobby
             confirmView.Confirmed += ConfirmPending;
             confirmView.Cancelled += CancelPending;
             friends.FriendsChanged += BindFriends;
+            if (voice != null)
+            {
+                muteSubscription = voice.IsMuted.Subscribe(_ => Draw());
+            }
 
             refreshSubscription = Observable.CombineLatest(
                     participantList.Participants,
@@ -118,7 +128,7 @@ namespace Game.Client.Lobby
             }
 
             var state = latest.Value;
-            var people = state.Participants ?? Array.Empty<LobbyParticipant>();
+            var people = WithLocalMute(state.Participants ?? Array.Empty<LobbyParticipant>());
             view.SetParticipants(
                 people,
                 state.IsLocalHost,
@@ -138,7 +148,50 @@ namespace Game.Client.Lobby
             confirmView.Confirmed -= ConfirmPending;
             confirmView.Cancelled -= CancelPending;
             friends.FriendsChanged -= BindFriends;
+            muteSubscription?.Dispose();
             refreshSubscription?.Dispose();
+        }
+
+        /// <summary>
+        /// The local microphone is the source of truth for this machine. The
+        /// roster's copy can lag a frame, or never land if the avatar has not
+        /// published yet, and then the owner would not see their own mute.
+        /// </summary>
+        private IReadOnlyList<LobbyParticipant> WithLocalMute(
+            IReadOnlyList<LobbyParticipant> people)
+        {
+            var localId = hostSession.LocalPlayerId;
+            if (voice == null || string.IsNullOrEmpty(localId) || people.Count == 0)
+            {
+                return people;
+            }
+
+            var localMuted = voice.IsMuted.CurrentValue;
+            for (var index = 0; index < people.Count; index++)
+            {
+                var person = people[index];
+                if (!string.Equals(person.Id, localId, StringComparison.Ordinal)
+                    || person.IsMuted == localMuted)
+                {
+                    continue;
+                }
+
+                var copy = new LobbyParticipant[people.Count];
+                for (var write = 0; write < people.Count; write++)
+                {
+                    copy[write] = people[write];
+                }
+
+                copy[index] = new LobbyParticipant(
+                    person.Id,
+                    person.DisplayName,
+                    person.IsHost,
+                    person.UserId,
+                    localMuted);
+                return copy;
+            }
+
+            return people;
         }
 
         private void BindFriends()

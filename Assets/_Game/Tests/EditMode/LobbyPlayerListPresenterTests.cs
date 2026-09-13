@@ -80,6 +80,38 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Start_ShowsTheLocalPlayersOwnMuteOnTheirRow()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+                new LobbyParticipant("player-2", "게스트", false, isMuted: true),
+            });
+            var view = new FakePlayerListView();
+            var voice = new FakeVoiceControl(muted: true);
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                new FriendListSystem(),
+                new FakeInviteGateway(),
+                new FakeReportGateway(),
+                view,
+                new FakeCountView(),
+                new FakeConfirmView());
+            presenter.BindVoice(voice);
+
+            presenter.Start();
+
+            Assert.That(view.Participants[0].Id, Is.EqualTo("host-1"));
+            Assert.That(view.Participants[0].IsMuted, Is.True);
+            Assert.That(view.Participants[1].IsMuted, Is.True);
+
+            voice.SetMuted(false);
+            Assert.That(view.Participants[0].IsMuted, Is.False);
+            Assert.That(view.Participants[1].IsMuted, Is.True);
+        }
+
+        [Test]
         public void Start_HidesFriendsWhoAreAlreadyInTheRoom()
         {
             var list = new LobbyParticipantList(new[]
@@ -346,6 +378,28 @@ namespace Game.Tests.EditMode
             public void RaiseInvite(string id, string name) => InviteClicked?.Invoke(id, name);
 
             public void RaiseReport(string id, string name) => ReportClicked?.Invoke(id, name);
+        }
+
+        private sealed class FakeVoiceControl : IVoiceControl
+        {
+            private readonly ReactiveProperty<bool> muted;
+            private readonly ReactiveProperty<bool> available = new(true);
+            private readonly ReactiveProperty<bool> transmitting = new(false);
+
+            public FakeVoiceControl(bool muted)
+            {
+                this.muted = new ReactiveProperty<bool>(muted);
+            }
+
+            public ReadOnlyReactiveProperty<bool> IsAvailable => available;
+            public ReadOnlyReactiveProperty<bool> IsMuted => muted;
+            public ReadOnlyReactiveProperty<bool> IsTransmitting => transmitting;
+
+            public void SetMuted(bool value) => muted.Value = value;
+
+            public void SetTalking(bool talking)
+            {
+            }
         }
 
         private sealed class FakeInviteGateway : IInviteGateway
