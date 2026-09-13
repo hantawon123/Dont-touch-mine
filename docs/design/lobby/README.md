@@ -109,7 +109,7 @@
   - 포인트 라이트 4개를 **Baked**로 전환(베이크 그림자는 유지, 실시간 그림자 맵 24장 제거) → 실시간 그림자 캐스터 11개/11장.
   - `PC_RPAsset` Additional Lights 그림자 아틀라스 2048 → 4096.
 - **창문 태양광 냉색**: Directional Light(Mixed) 흰색 1.5 → `#CCE0FF` 1.3. 전구(#F5DBBF 계열) 온광과 대비.
-- **포스트프로세스**: `Assets/_Game/Content/Lighting/LobbyPostProcess.asset`(Tonemapping Neutral, Bloom threshold 1.0/intensity 0.35/scatter 0.6, Vignette 0.28/smoothness 0.4, ColorAdjustments contrast +8/saturation +6/exposure +0.1). Lobby 씬 루트 `Lobby Post Volume`(global)에 연결, Lobby `Main Camera` Post Processing 켬 + SMAA Medium. 카메라가 씬 소유라 매치 씬에는 영향 없음. Home 씬의 SampleSceneProfile(Neutral 톤매핑·블룸·비네트)과 같은 계열로 맞춤.
+- **포스트프로세스 — 실제로는 미적용(2026-09-14 확정)**: `LobbyPostProcess.asset`은 컴포넌트가 하위 에셋으로 저장되지 않아 커밋된 파일이 비어 있다(`components: [{fileID: 0}]`). 즉 톤매핑·블룸·비네트·색 보정은 로비에 **걸려 있지 않고**, 카메라의 SMAA Medium만 동작한다. 사용자가 현재 밝기·톤이 딱 좋다고 판단해 **이 상태를 그대로 유지**한다(효과를 채우면 가장자리가 어두워지고 하이라이트가 눌림). 빈 프로필과 `Lobby Post Volume`은 효과가 없어 그대로 두었다. 나중에 효과를 넣으려면 `VolumeProfile.Add<T>()` 뒤 `AssetDatabase.AddObjectToAsset(component, profile)`로 저장해야 한다(마트 `MartPostProcess`에서 한 방식).
 - 위 변경(라이트 모드·색) 반영 재베이크.
 - **정리**: 미사용 창고 에셋 팩 `Assets/IGBlocks/IG_Warehouse`(129 MB) 삭제, `Assets/_Recovery`(크래시 복구 씬) 추적 해제 + gitignore.
 - 남은 것: 벽 상단 콜라이더(사물함 위 점프로 벽 위에 걸치는 현상이 실제로 보일 때), Unity MCP 패키지(`com.coplaydev.unity-mcp`)를 manifest에 포함할지 팀 결정.
