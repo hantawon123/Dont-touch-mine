@@ -24,6 +24,7 @@ namespace Game.Architecture.Tests
     public sealed class WebSocketNotificationStreamTests
     {
         private const string UserId = "user-1";
+        private const string AccountToken = "signed-token-1";
 
         [Test]
         public void Run_SaysHelloFirst()
@@ -35,6 +36,10 @@ namespace Game.Architecture.Tests
             Assert.That(connection.Sent.Count, Is.EqualTo(1));
             Assert.That(connection.Sent[0], Does.Contain("\"type\":\"HELLO\""));
             Assert.That(connection.Sent[0], Does.Contain("\"userId\":\"" + UserId + "\""));
+
+            // The id is public; the server's signature over it goes with it, the
+            // same value the REST calls send as X-Account-Token.
+            Assert.That(connection.Sent[0], Does.Contain("\"token\":\"" + AccountToken + "\""));
         }
 
         [Test]
@@ -297,7 +302,7 @@ namespace Game.Architecture.Tests
             List<TimeSpan> waits = null)
         {
             var session = new BackendSession("device");
-            session.Adopt(UserId);
+            session.Adopt(UserId, AccountToken);
 
             var stream = new WebSocketNotificationStream(
                 transport,

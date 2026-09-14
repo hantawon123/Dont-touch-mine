@@ -18,7 +18,7 @@ import com.ssafy.d205.domain.user.entity.UserAppearance;
 import com.ssafy.d205.domain.user.event.AccountDeletedEvent;
 import com.ssafy.d205.domain.user.repository.UserAppearanceRepository;
 import com.ssafy.d205.domain.user.repository.UserIdentityRepository;
-import com.ssafy.d205.domain.photon.PhotonAuthTokens;
+import com.ssafy.d205.global.security.AccountTokens;
 import com.ssafy.d205.domain.user.repository.UserRepository;
 import com.ssafy.d205.global.common.TimeProvider;
 import com.ssafy.d205.global.exception.NicknameGenerationFailedException;
@@ -43,7 +43,7 @@ public class AccountService {
     private final UserAppearanceRepository userAppearanceRepository;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher events;
-    private final PhotonAuthTokens photonAuthTokens;
+    private final AccountTokens accountTokens;
 
     /**
      * 기기 식별자로 계정을 발급합니다. <b>멱등합니다.</b>
@@ -276,6 +276,6 @@ public class AccountService {
         UserAppearance appearance = userAppearanceRepository.findById(user.getSeq()).orElse(null);
         // 계정을 돌려주는 모든 자리에 토큰이 함께 갑니다. 발급에서만 주면 앱을 껐다 켠
         // 클라이언트가 /me 로 계정을 읽은 뒤 토큰 없이 Photon 에 붙습니다.
-        return AccountResponse.from(user, appearance, photonAuthTokens.issue(user.getPublicId()));
+        return AccountResponse.from(user, appearance, accountTokens.issue(user.getPublicId()));
     }
 }

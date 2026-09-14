@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 import com.ssafy.d205.domain.user.entity.User;
+import com.ssafy.d205.global.security.AccountTokens;
 import com.ssafy.d205.domain.user.repository.UserRepository;
 
 /**
@@ -53,7 +54,7 @@ public class PhotonAuthController {
     private static final int BAD_PARAMETERS = 3;
 
     private final UserRepository userRepository;
-    private final PhotonAuthTokens tokens;
+    private final AccountTokens tokens;
 
     @Value("${photon.auth.key:}")
     private String expectedKey;
