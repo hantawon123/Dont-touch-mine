@@ -1091,7 +1091,9 @@ namespace Game.Client.Lobby
                     applyLabel = labelTransform.GetComponent<Text>();
                     if (applyLabel != null)
                     {
-                        applyLabel.font = MediumFont();
+                        applyLabel.font = ActionFont();
+                        applyLabel.fontSize = PlaySettingsStyle.FontSize.Apply;
+                        applyLabel.fontStyle = FontStyle.Normal;
                     }
                 }
             }
@@ -1136,6 +1138,12 @@ namespace Game.Client.Lobby
             if (labelTransform != null)
             {
                 revertLabel = labelTransform.GetComponent<Text>();
+                if (revertLabel != null)
+                {
+                    revertLabel.font = ActionFont();
+                    revertLabel.fontSize = PlaySettingsStyle.FontSize.Apply;
+                    revertLabel.fontStyle = FontStyle.Normal;
+                }
             }
 
             RefreshRevertChrome();
@@ -1187,8 +1195,9 @@ namespace Game.Client.Lobby
             Stretch(labelRect);
             revertLabel = labelRect.gameObject.AddComponent<Text>();
             revertLabel.text = PlaySettingsStyle.Layout.ResetLabel;
-            revertLabel.font = MediumFont();
+            revertLabel.font = ActionFont();
             revertLabel.fontSize = fontSize;
+            revertLabel.fontStyle = FontStyle.Normal;
             revertLabel.color = PlaySettingsStyle.Palette.ResetOffLabel;
             revertLabel.alignment = TextAnchor.MiddleCenter;
             revertLabel.raycastTarget = false;
@@ -1265,8 +1274,9 @@ namespace Game.Client.Lobby
 
             applyLabel = labelRect.gameObject.AddComponent<Text>();
             applyLabel.text = "적용하기";
-            applyLabel.font = MediumFont();
+            applyLabel.font = ActionFont();
             applyLabel.fontSize = fontSize;
+            applyLabel.fontStyle = FontStyle.Normal;
             applyLabel.color = PlaySettingsStyle.Palette.ApplyOffLabel;
             applyLabel.alignment = TextAnchor.MiddleCenter;
             applyLabel.raycastTarget = false;
@@ -1359,7 +1369,6 @@ namespace Game.Client.Lobby
         private static Font bodyFont;
         private static Font headerFont;
         private static Font extraBoldFont;
-        private static Font mediumFont;
         private static Sprite copyIcon;
         private static Sprite copyCheckIcon;
         private static Sprite arrowLeftIcon;
@@ -1376,23 +1385,7 @@ namespace Game.Client.Lobby
             extraBoldFont ??= Resources.Load<Font>(PlaySettingsStyle.GameStartFontResource)
             ?? HeaderFont();
 
-        private static Font MediumFont()
-        {
-            if (mediumFont != null)
-            {
-                return mediumFont;
-            }
-
-            mediumFont = Resources.Load<Font>(PlaySettingsStyle.MediumFontResource);
-#if UNITY_EDITOR
-            if (mediumFont == null)
-            {
-                mediumFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
-                    "Assets/_Game/Content/Fonts/Paperlogy-5Medium.ttf");
-            }
-#endif
-            return mediumFont ?? BodyFont();
-        }
+        private static Font ActionFont() => BodyFont();
 
         private static Sprite LoadCopyIcon()
         {

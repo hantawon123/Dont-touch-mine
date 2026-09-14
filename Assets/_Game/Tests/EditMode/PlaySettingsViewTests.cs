@@ -97,6 +97,13 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     reset.Find("Text").GetComponent<Text>().text,
                     Is.EqualTo(PlaySettingsStyle.Layout.ResetLabel));
+                var resetText = reset.Find("Text").GetComponent<Text>();
+                var applyText = apply.Find("Text").GetComponent<Text>();
+                Assert.That(resetText.font, Is.EqualTo(applyText.font));
+                Assert.That(resetText.fontSize, Is.EqualTo(PlaySettingsStyle.FontSize.Apply));
+                Assert.That(applyText.fontSize, Is.EqualTo(PlaySettingsStyle.FontSize.Apply));
+                Assert.That(resetText.fontStyle, Is.EqualTo(FontStyle.Normal));
+                Assert.That(applyText.fontStyle, Is.EqualTo(FontStyle.Normal));
                 Assert.That(
                     reset.GetComponent<Image>().color,
                     Is.EqualTo(PlaySettingsStyle.Palette.ResetFill));
