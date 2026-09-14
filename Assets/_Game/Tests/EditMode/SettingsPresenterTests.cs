@@ -581,7 +581,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void DraggingAVolume_MovesTheDraft_AndLightsTheButtons_WithoutBeingHeard()
+        public void DraggingAVolume_MovesTheDraft_AndLightsTheButtons_AndIsHeardWithoutBeingSaved()
         {
             using var presenter = Started();
 
@@ -591,8 +591,11 @@ namespace Game.Architecture.Tests
             Assert.That(view.Volumes[SoundVolume.Music], Is.EqualTo(20));
             Assert.That(view.Volumes[SoundVolume.Master], Is.EqualTo(50), "The other sliders stay.");
             Assert.That(view.ActionsEnabled, Is.True);
-            Assert.That(soundApplier.ApplyCount, Is.EqualTo(0), "Nothing is heard until apply.");
-            Assert.That(soundStore.Saved, Is.Null);
+
+            // Heard at once, as a preview, so the player can judge the level
+            // while dragging. Saved only on apply.
+            Assert.That(soundApplier.ApplyCount, Is.EqualTo(1), "The drag is previewed.");
+            Assert.That(soundStore.Saved, Is.Null, "Nothing is saved until apply.");
         }
 
         [Test]
