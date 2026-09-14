@@ -132,3 +132,15 @@ ops:
   sample-interval-ms: 60000
   sweep-interval-ms: 3600000
   retention-days: 30
+
+# 분석 서비스의 내부 API (S15P21D205-1002). 두 서비스는 DB 를 공유하지 않으므로 계정 서비스가 분석에
+# 시킬 일(탈퇴 로그 익명화, 개요 탭 경기 통계)은 이 주소로 HTTP 를 보냅니다.
+#
+# 운영은 compose 네트워크의 서비스 이름(http://analytics:8080)이고 로컬은 8081 입니다. 키는 분석
+# 서비스의 internal.key 와 같은 값이어야 하며 .env 의 INTERNAL_KEY 하나를 둘이 읽습니다. 키가 비면 분석이
+# 전부 404 로 거절하므로 두 기능이 조용히 멈춥니다. 기동 로그에 경고가 남습니다.
+analytics:
+  internal-url: ${ANALYTICS_INTERNAL_URL:http://localhost:8081}
+  internal-key: ${INTERNAL_KEY:}
+  # 익명화 요청이 실패했을 때 다시 보내는 간격. 분석이 재시작하는 데 1분이면 충분합니다.
+  erase-retry-ms: 60000

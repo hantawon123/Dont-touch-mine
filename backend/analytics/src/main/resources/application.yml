@@ -34,6 +34,11 @@ management:
       exposure:
         include: health
 
+# /internal/** 을 잠그는 공유 키. 계정 서비스의 analytics.internal-key 와 같은 값이어야 하고 .env 의
+# INTERNAL_KEY 하나를 둘이 읽습니다. 비어 있으면 그 경로는 전부 404 입니다(InternalKeyFilter).
+internal:
+  key: ${INTERNAL_KEY:}
+
 # 수집 동작 한도. 값의 뜻은 AnalyticsProperties 에, 명세는 docs/analytics-events.md 에 있습니다.
 analytics:
   queue-capacity: 100000

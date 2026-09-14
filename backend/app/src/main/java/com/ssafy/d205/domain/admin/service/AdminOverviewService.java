@@ -17,6 +17,7 @@ import com.ssafy.d205.domain.notification.service.NotificationSessionRegistry;
 import com.ssafy.d205.domain.ops.entity.OpsSample;
 import com.ssafy.d205.domain.ops.repository.OpsSampleRepository;
 import com.ssafy.d205.domain.ops.service.AccountDeletionCounter;
+import com.ssafy.d205.domain.ops.service.AnalyticsInternalClient;
 import com.ssafy.d205.domain.ops.service.SystemGauges;
 import com.ssafy.d205.domain.presence.entity.PresenceStatus;
 import com.ssafy.d205.domain.presence.repository.UserPresenceRepository;
@@ -52,6 +53,7 @@ public class AdminOverviewService {
     private final OpsSampleRepository samples;
     private final AccountDeletionCounter deletions;
     private final SystemGauges gauges;
+    private final AnalyticsInternalClient analytics;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -91,7 +93,8 @@ public class AdminOverviewService {
                 ? bucket(rows, WEEK_BUCKET_MINUTES)
                 : rows.stream().map(AdminOverviewService::point).toList();
 
-        return new AdminOverview(current, week ? "7d" : "24h", series, null);
+        // 경기 통계는 분석 서비스의 것입니다. 죽어 있으면 비어 오고 화면은 그 카드만 비웁니다.
+        return new AdminOverview(current, week ? "7d" : "24h", series, analytics.fetchSummary().orElse(null));
     }
 
     private static AdminOverview.Point point(OpsSample s) {
