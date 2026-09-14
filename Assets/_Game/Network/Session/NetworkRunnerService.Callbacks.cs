@@ -619,6 +619,9 @@ namespace Game.Network.Session
             }
         }
 
+        internal static bool IsHighlightMapLoaded(NetworkSceneInfo info, Game.Network.NetworkScenes scenes, string mapId) =>
+            scenes != null && ContainsScene(info, scenes.MatchSceneFor(mapId));
+
         internal static bool IsOnlyScene(NetworkSceneInfo info, SceneRef expected) =>
             expected.IsValid && info.SceneCount == 1 && info.Scenes[0] == expected;
 
@@ -749,7 +752,7 @@ namespace Game.Network.Session
                               IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene);
             _highlightLobbyPrepared = _scenes != null &&
                 ContainsScene(runner.SceneInfo, _scenes.LobbyScene) &&
-                ContainsScene(runner.SceneInfo, _scenes.MatchScene);
+                IsHighlightMapLoaded(runner.SceneInfo, _scenes, AnalyticsMapId);
             if (_highlightLobbyPrepared) _highlightLobbyLoadRequested = false;
             var tookOverPreloadedLobby = lobbyLoaded &&
                                          _preloadedLobbyRoots.Length > 0;
