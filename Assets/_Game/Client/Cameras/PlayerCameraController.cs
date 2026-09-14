@@ -159,6 +159,9 @@ namespace Game.Client.Cameras
             if (migrationSuspended) return;
             if (PlayerMovement.IsTextInputFocused())
             {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                if (!releasedCursorForTextInput) Game.Client.Common.WebPointerInput.DiscardHeldButtons();
+#endif
                 SetCursorLocked(false);
                 releasedCursorForTextInput = true;
                 return;
@@ -166,6 +169,9 @@ namespace Game.Client.Cameras
 
             if (releasedCursorForTextInput)
             {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                Game.Client.Common.WebPointerInput.DiscardHeldButtons();
+#endif
                 releasedCursorForTextInput = false;
                 if (cursorCaptureEnabled)
                 {
@@ -275,6 +281,10 @@ namespace Game.Client.Cameras
 
         public void SetCursorCaptureEnabled(bool captureEnabled)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (cursorCaptureEnabled != captureEnabled)
+                Game.Client.Common.WebPointerInput.DiscardHeldButtons();
+#endif
             cursorCaptureEnabled = captureEnabled;
             SetCursorLocked(captureEnabled);
         }

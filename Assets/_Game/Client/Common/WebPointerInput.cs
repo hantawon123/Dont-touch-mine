@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Game.Client.Common
 {
@@ -44,6 +45,15 @@ namespace Game.Client.Common
                 return false;
 #endif
             }
+        }
+
+        // A browser/UI focus handoff can swallow key-up. Cancel the device's
+        // held state, not just the movement output, before gameplay resumes.
+        // Soft-reset keeps the pointer position used by the UI.
+        public static void DiscardHeldButtons()
+        {
+            if (Keyboard.current != null) InputSystem.ResetDevice(Keyboard.current);
+            if (Mouse.current != null) InputSystem.ResetDevice(Mouse.current);
         }
 
         public static void Release(bool allowFullscreenResume = false)
