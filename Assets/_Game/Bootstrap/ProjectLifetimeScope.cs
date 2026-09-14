@@ -57,6 +57,16 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
+            if (DedicatedServerStartup.IsRequested)
+            {
+                RegisterServices(builder, _networkPrefabs, _networkScenes,
+                    new PlayerProfile("Server"), new ServerRegionSystem(new InMemoryServerRegionStore(),
+                        DedicatedServerStartup.Argument("-region", _networkRegion)));
+                RegisterBackend(builder, _backendBaseUrl);
+                builder.RegisterEntryPoint<MatchSceneSpawnPoints>();
+                builder.RegisterEntryPoint<DedicatedServerStartup>();
+                return;
+            }
             // Built here rather than in RegisterServices: it reads this
             // machine's preferences, and a test container must not pick up
             // whichever region the developer last chose. The deployment's own
@@ -230,11 +240,20 @@ namespace Game.Bootstrap
         private static void RegisterBackend(IContainerBuilder builder, string baseUrl)
         {
             var endpoint = new BackendEndpoint(baseUrl);
-            var session = new BackendSession(DeviceIdentity.Current());
+            var session = new BackendSession(DedicatedServerStartup.IsRequested ? DedicatedServerStartup.DeviceId() : DeviceIdentity.Current());
             var client = new BackendClient(new UnityWebRequestTransport(), endpoint, session);
             builder.RegisterInstance(new MatchAnalyticsUpload(new UnityWebRequestTransport(), endpoint,
                 System.IO.Path.Combine(Application.persistentDataPath, "match-analytics")));
             builder.RegisterEntryPoint<MatchAnalyticsRecorder>();
+            if (DedicatedServerStartup.IsRequested)
+            {
+                builder.RegisterInstance<IAccountGateway>(new AccountGateway(client));
+                // VContainer resolves optional constructor parameters too. A server
+                // must explicitly omit the player's saved-credential fallback.
+                builder.RegisterEntryPoint<BackendSignIn>().AsSelf().As<IAccountReady>()
+                    .WithParameter(typeof(IPhotonCredentialStore), (object)null);
+                return;
+            }
 
             // First, because the presence gateway sends over it when it is up.
             var frames = RegisterNotifications(builder, endpoint, session);

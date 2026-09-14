@@ -6,6 +6,97 @@ namespace Game.Architecture.Tests
 {
     public sealed class SessionPropertyMapperTests
     {
+        private sealed class PendingAccount : Game.Core.Ports.IAccountReady
+        {
+            public readonly Cysharp.Threading.Tasks.UniTaskCompletionSource<bool> Completion = new();
+            public bool Requested;
+            public Cysharp.Threading.Tasks.UniTask<bool> Ready
+            {
+                get { Requested = true; return Completion.Task; }
+            }
+        }
+
+        [UnityEngine.TestTools.UnityTest]
+        public System.Collections.IEnumerator LobbyJoin_RechecksConnectionAfterSharedSignIn() =>
+            Cysharp.Threading.Tasks.UniTask.ToCoroutine(async () =>
+            {
+                var account = new PendingAccount();
+                var network = new NetworkRunnerService(null, null, null, null, null, null, accountReady: account);
+                try
+                {
+                    var joining = network.JoinLobbyAsync(System.Threading.CancellationToken.None);
+                    await Cysharp.Threading.Tasks.UniTask.WaitUntil(() => account.Requested);
+                    typeof(NetworkRunnerService).GetField("_browsingLobby",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(network, true);
+                    account.Completion.TrySetResult(true);
+                    Assert.That((await joining).Ok, Is.True);
+                }
+                finally { network.Dispose(); }
+            });
+
+        [UnityEngine.TestTools.UnityTest]
+        public System.Collections.IEnumerator LobbyJoin_CancelDuringSignInDoesNotCreateConnection() =>
+            Cysharp.Threading.Tasks.UniTask.ToCoroutine(async () =>
+            {
+                var account = new PendingAccount();
+                var network = new NetworkRunnerService(null, null, null, null, null, null, accountReady: account);
+                using var cancellation = new System.Threading.CancellationTokenSource();
+                try
+                {
+                    var joining = network.JoinLobbyAsync(cancellation.Token);
+                    await Cysharp.Threading.Tasks.UniTask.WaitUntil(() => account.Requested);
+                    cancellation.Cancel();
+                    var cancelled = false;
+                    try { await joining; }
+                    catch (System.OperationCanceledException) { cancelled = true; }
+                    Assert.That(cancelled, Is.True);
+                    Assert.That(network.IsBrowsingLobby, Is.False);
+                }
+                finally { network.Dispose(); }
+            });
+
+        private sealed class ListedServer : Photon.Realtime.RoomInfo
+        {
+            public ListedServer(bool available, int peers) : base("988ABC", new Photon.Client.PhotonHashtable
+            {
+                [Photon.Realtime.GamePropertyKey.IsOpen] = true,
+                [Photon.Realtime.GamePropertyKey.IsVisible] = true,
+                [Photon.Realtime.GamePropertyKey.PlayerCount] = (byte)peers,
+                [SessionPropertyKeys.AvailableServer] = available,
+                [SessionPropertyKeys.MapId] = "supermarket",
+                [SessionPropertyKeys.MaxPlayers] = 6
+            }) { }
+        }
+
+        [UnityEngine.TestTools.UnityTest]
+        public System.Collections.IEnumerator AvailableServer_ReusesWarmLobbyAndHidesUnclaimedRoom() =>
+            Cysharp.Threading.Tasks.UniTask.ToCoroutine(async () =>
+            {
+                var network = new NetworkRunnerService(null, null, null, null, null, null);
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var type = typeof(NetworkRunnerService);
+                type.GetField("_browsingLobby", flags).SetValue(network, true);
+                type.GetField("_receivedLobbySnapshot", flags).SetValue(network, true);
+                var rooms = (System.Collections.Generic.IDictionary<string, Photon.Realtime.RoomInfo>)
+                    type.GetField("_realtimeRooms", flags).GetValue(network);
+                var available = new ListedServer(true, 1);
+                rooms.Add(available.Name, available);
+                try
+                {
+                    Assert.That(await network.FindAvailableServerAsync(System.Threading.CancellationToken.None), Is.EqualTo("988ABC"));
+                    Assert.That(Game.Network.Lobby.RoomSummaryMapper.TryToSummary(available, out _), Is.False);
+                    Assert.That(Game.Network.Lobby.RoomSummaryMapper.TryToSummary(new ListedServer(false, 7), out var room), Is.True);
+                    Assert.That(room.PlayerCount, Is.EqualTo(6));
+                }
+                finally { network.Dispose(); }
+            });
+
+        [TestCase(1, true, 0)]
+        [TestCase(7, true, 6)]
+        [TestCase(6, false, 6)]
+        [TestCase(0, true, 0)]
+        public void RoomListing_DoesNotCountDedicatedServerAsPlayer(int peers, bool dedicated, int expected) =>
+            Assert.That(Game.Network.Lobby.RoomSummaryMapper.CountPlayers(peers, dedicated), Is.EqualTo(expected));
         [Test]
         public void PrivateSession_IsInvisibleWithoutPassword_AndCodeJoinCannotCreate()
         {
@@ -109,6 +200,20 @@ namespace Game.Architecture.Tests
                     all[pair.Key] = pair.Value;
                 Assert.That(all.Count, Is.LessThanOrEqualTo(10));
             }
+        }
+
+        [Test]
+        public void AvailableServer_AdvertisesCapacityWithoutExceedingPhotonPropertyLimit()
+        {
+            var request = SessionRequest.AvailableServer("988ABC", "supermarket");
+            Assert.That(request.Mode, Is.EqualTo(Fusion.GameMode.Server));
+            Assert.That(request.IsVisible, Is.True);
+            var properties = SessionPropertyMapper.BuildForStart(request, "Server");
+            Assert.That((bool)properties[SessionPropertyKeys.AvailableServer], Is.True);
+            Assert.That(properties.Count, Is.LessThanOrEqualTo(10));
+            Assert.That(properties.ContainsKey("password"), Is.False);
+            var client = SessionPropertyMapper.BuildForStart(SessionRequest.Join("988ABC", "secret"), "client");
+            Assert.That(client, Is.Null, "A joining client must never publish authority properties.");
         }
 
         [Test]

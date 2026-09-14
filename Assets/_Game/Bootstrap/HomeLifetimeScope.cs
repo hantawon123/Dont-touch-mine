@@ -22,6 +22,7 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
+            if (DedicatedServerStartup.IsRequested) return;
             if (homeMenuView == null)
             {
                 Debug.LogError("HomeMenuView must be assigned on HomeLifetimeScope.", this);

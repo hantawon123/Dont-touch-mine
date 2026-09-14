@@ -45,6 +45,7 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
+            if (DedicatedServerStartup.IsRequested) return;
             var configureStartedAt = Time.realtimeSinceStartupAsDouble;
             if (view == null) throw new InvalidOperationException("ResultLifetimeScope: ResultView를 연결하세요.");
             view.Initialize();
