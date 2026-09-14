@@ -28,6 +28,12 @@ namespace Game.Bootstrap
     /// </remarks>
     public sealed class UnityGraphicsSettingsApplier : IGraphicsSettingsApplier
     {
+        /// <summary>
+        /// Editor-only. The Game view owns the picture there, so a hook in
+        /// Game.Editor sets its size to the same code the player window uses.
+        /// </summary>
+        public static Action<int, int> ApplyEditorGameView;
+
         public void Apply(GraphicsSettings settings)
         {
             // ShadowQuality remains a saved/displayed preference only.
@@ -42,8 +48,9 @@ namespace Game.Bootstrap
         /// make the window jump twice.
         /// </summary>
         /// <remarks>
-        /// Left alone in the editor, whose Game view owns its own size, and on
-        /// WebGL, where the page owns the canvas.
+        /// Left alone on WebGL, where the page owns the canvas. In the editor
+        /// the Game view is set to the same size, so overlay passes and the
+        /// backbuffer stop disagreeing (1887×1153 vs 1920×1080).
         /// <para>
         /// This runs after <see cref="DesktopResolutionBootstrap"/>, which puts
         /// a fresh install at the display's own size before any scene loads.
@@ -53,14 +60,21 @@ namespace Game.Bootstrap
         /// </remarks>
         private static void ApplyWindow(GraphicsSettings settings)
         {
-#if UNITY_EDITOR || UNITY_WEBGL
-            return;
-#else
             if (!TryReadResolution(settings.Get(GraphicsOption.Resolution), out var width, out var height))
             {
                 return;
             }
 
+#if UNITY_WEBGL
+            return;
+#elif UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
+            ApplyEditorGameView?.Invoke(width, height);
+#else
             var mode = string.Equals(
                 settings.Get(GraphicsOption.DisplayMode),
                 GraphicsCatalog.Windowed,
