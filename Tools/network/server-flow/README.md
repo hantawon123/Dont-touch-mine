@@ -43,3 +43,32 @@ python Tools/network/server-flow/serve.py '<webgl-output>'
 독립 프로젝트에만 적용되는 WebGL 설정은 HTTP API를 로컬 프리뷰를 거쳐 기존 HTTPS 백엔드로 전달한다. 프리뷰는 `127.0.0.1`에만 바인딩하고 대상 백엔드를 고정하며 계정·토큰·요청 본문을 로그에 저장하지 않는다. WebSocket은 기존 백엔드에 직접 연결한다. 제품 소스의 백엔드 주소와 운영 CORS 설정은 바뀌지 않는다. 확인 후 프리뷰 Python 프로세스를 종료한다.
 
 실행 결과는 [작업 기록](../../../docs/planning/server-session-988.md)에 갱신한다. 이 도구의 존재나 컴파일 성공 자체는 게임 흐름 검증 통과를 뜻하지 않는다. 서로 다른 PC의 WebGL 6인 검증과 운영 서버 수용량 측정은 별도로 필요하다.
+
+## Linux / 기존 EC2 시험 실행
+
+동일 버전 에디터의 Linux Dedicated Server Build Support를 설치한 뒤, 위 독립 프로젝트의 `Assets/Editor/ServerFlowBuild.cs`에 현재 `ValidationBuild.cs`를 복사한다. `SERVER_FLOW_OUTPUT`을 별도 Linux 출력 폴더로 지정하고 다음 진입점을 사용한다.
+
+`ProjectSettings`의 Server 타깃에도 현재 SDK의 Fusion 컴파일 기호가 필요하다. 특히 `FUSION_WEAVER`가 없으면 Photon Voice/Fusion 어셈블리가 제외되고 네트워크 타입이 컴파일되지 않는다. 현재 저장소는 Standalone/WebGL과 같은 SDK 기호를 Server에도 기록한다. SDK 업그레이드 때 세 타깃의 설정을 함께 확인한다.
+
+```powershell
+& '<Unity.exe>' -batchmode -nographics -quit -projectPath '<isolated-project>' -buildTarget Linux64 -standaloneBuildSubtarget Server -executeMethod ServerFlowBuild.BuildLinux -logFile '<linux-build.log>'
+```
+
+출력 전체를 Linux x86_64 서버에 복사한다. `ServerFlow988.x86_64`만 복사하면 데이터와 네이티브 라이브러리가 없어 실행되지 않는다. Mono Linux의 Dedicated Server 타깃과 `dedicatedServerOptimizations`를 사용해 그래픽 자산을 줄이며 `-batchmode -nographics -gameServer`로 시작한다. 물리 데이터 등 보존 범위는 [Unity 공식 최적화 설명](https://docs.unity3d.com/6000.0/Documentation/Manual/dedicated-server-optimizations.html)을 참고한다. 실제 게임의 경기·씬·물리 구성과 함께 실행 검증해야 한다.
+
+기존 EC2의 검증 전용 경로는 `/home/ubuntu/d205-game-server-988/`이다. 다음 명령은 해당 경로에 Linux 빌드를 배치한 후 실행한다. 기존 백엔드·DB 서비스와 분리된 임시 systemd 서비스이며 부팅 시 자동 실행하지 않는다.
+
+```bash
+sudo systemd-run --unit=d205-game-988-trial --collect \
+  -p User=ubuntu -p Group=ubuntu -p UMask=0077 \
+  -p WorkingDirectory=/home/ubuntu/d205-game-server-988/linux-v1 \
+  -p Environment=HOME=/home/ubuntu/d205-game-server-988/state \
+  -p CPUQuota=150% -p MemoryMax=3G -p Nice=10 -p RuntimeMaxSec=1200 \
+  /home/ubuntu/d205-game-server-988/linux-v1/ServerFlow988.x86_64 \
+  -batchmode -nographics -gameServer -roomCode 988EC2 -region kr \
+  -job-worker-count 1 -logFile /home/ubuntu/d205-game-server-988/logs/server.log
+```
+
+CPU 상한은 1.5 vCPU이며 메모리 상한은 3 GiB이다. 상한은 안정적으로 운영 가능한 방 수의 측정 결과가 아니다. 서비스 최대 수명은 20분이며, 게임 자체의 빈 서버 120초 종료와 방장 퇴장 종료가 우선 적용된다. 재시작은 위 명령을 다시 실행한다. 명시적으로 종료할 때는 `sudo systemctl stop d205-game-988-trial.service`를 사용한다.
+
+같은 `988-local-v1` 클라이언트로 접속하고 서버 로그의 `Server / IsServer=True`, 각 클라이언트의 `Client / IsServer=False`, 실제 경기 흐름과 종료를 확인한다. Photon을 통한 연결을 사용하며 이 시험을 위해 기존 웹 배포·Jenkins나 방화벽을 변경하지 않는다. 서버 HOME 아래의 실험 기기 ID와 전체 인증 로그는 외부 보고서에 넣지 않는다.
