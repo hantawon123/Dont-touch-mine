@@ -45,7 +45,7 @@ namespace Game.Backend
                 return snapshot;
             }
 
-            client.Session.Adopt(snapshot.Value.UserId);
+            client.Session.Adopt(snapshot.Value.UserId, snapshot.Value.PhotonToken);
             return snapshot;
         }
 
@@ -55,9 +55,20 @@ namespace Game.Backend
             var answer = await client.CallAsync<AccountResponseDto>(
                 HttpMethod.Get, Me, null, BackendAuth.UserId, cancellation);
 
-            return answer.Ok
-                ? Map(answer.Value)
-                : BackendResult<AccountSnapshot>.Failed(answer.Failure);
+            if (!answer.Ok)
+            {
+                return BackendResult<AccountSnapshot>.Failed(answer.Failure);
+            }
+
+            // Re-adopted so a token the server re-issued (after its secret was
+            // rotated) replaces the one this session started with.
+            var snapshot = Map(answer.Value);
+            if (snapshot.Ok)
+            {
+                client.Session.Adopt(snapshot.Value.UserId, snapshot.Value.PhotonToken);
+            }
+
+            return snapshot;
         }
 
         public async UniTask<BackendResult<AccountSnapshot>> RenameAsync(

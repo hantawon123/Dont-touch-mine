@@ -93,8 +93,8 @@ com.ssafy.d205
 │  ├─ common/        TimeProvider, Timestamps 같은 공통 유틸
 │  ├─ config/        시계, 스케줄링, OpenAPI, 알림 WebSocket 설정
 │  ├─ exception/     전역 예외 처리, 공통 응답, 여러 도메인이 쓰는 예외
-│  ├─ security/      관리자 세션 인증과 CSRF
-│  └─ web/           /admin 관리 화면 정적 파일 연결
+│  ├─ security/      관리자 세션 인증과 CSRF, 계정 토큰 서명
+│  └─ web/           요청 앞의 토큰·정지 검사, /admin 관리 화면 정적 파일 연결
 └─ domain/
    ├─ admin/         운영자 세션 조회와 신고 검토 API
    ├─ analytics/     플레이 로그 수집, 버퍼링, 분석 DB 적재
@@ -141,10 +141,13 @@ domain/friend/
 확인할 수 있습니다.
 
 `global/config/`에는 `ClockConfig`, `SchedulingConfig`, `OpenApiConfig`,
-`NotificationProperties`, `WebSocketConfig`가 있습니다. 관리자 인증은
-`global/security/`(`SecurityConfig`, `LoginAttempt`), 관리 화면 정적 파일 연결은
-`global/web/`(`AdminPageConfig`)에 둡니다. Photon Custom Authentication처럼 아직 만들지
-않은 것은 그때 `domain/` 아래에 도메인으로 추가합니다.
+`NotificationProperties`, `WebSocketConfig`가 있습니다. 관리자 인증과 계정 토큰 서명은
+`global/security/`(`SecurityConfig`, `LoginAttempt`, `AccountTokens`), 모든 요청 앞에서
+X-User-Id 의 토큰을 대조하고 정지 계정을 거르는 인터셉터와 관리 화면 정적 파일 연결은
+`global/web/`(`AccountTokenInterceptor`, `SuspensionInterceptor`, `RequestGuardConfig`,
+`AdminPageConfig`)에 둡니다. `AccountTokens` 가 domain 이 아니라 global 에 있는 이유는
+Photon 인증(`domain/photon`)과 게임 API 인터셉터가 같은 서명을 보기 때문입니다. 한 도메인에
+두면 global 이 domain 을 의존하게 되어 방향이 뒤집힙니다.
 
 ## 협업 규칙
 

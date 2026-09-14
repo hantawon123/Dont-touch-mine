@@ -154,7 +154,11 @@ class PhotonAuthApiTest extends IntegrationTest {
         Account account = createAccount();
         suspend(account.userId());
 
-        mvc.perform(get("/api/v1/accounts/me").header("X-User-Id", account.userId()))
+        // 토큰은 실어 보냅니다(975). 안 실으면 정지 검사에 닿기 전에 401 로 끝나 이 테스트가
+        // 보려는 것(정지가 토큰 재발급 경로를 막는가)을 못 봅니다.
+        mvc.perform(get("/api/v1/accounts/me")
+                        .header("X-User-Id", account.userId())
+                        .header("X-Account-Token", account.photonToken()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("SUSPENDED"));
     }
@@ -184,7 +188,9 @@ class PhotonAuthApiTest extends IntegrationTest {
         Account issued = createAccount();
         assertThat(issued.photonToken()).isNotBlank();
 
-        String body = mvc.perform(get("/api/v1/accounts/me").header("X-User-Id", issued.userId()))
+        String body = mvc.perform(get("/api/v1/accounts/me")
+                        .header("X-User-Id", issued.userId())
+                        .header("X-Account-Token", issued.photonToken()))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 

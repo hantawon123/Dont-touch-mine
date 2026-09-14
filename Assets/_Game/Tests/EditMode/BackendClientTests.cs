@@ -21,6 +21,7 @@ namespace Game.Architecture.Tests
     {
         private const string DeviceId = "device-under-test";
         private const string UserId = "user-1";
+        private const string AccountToken = "signed-token-1";
 
         [Test]
         public async Task SignIn_SendsDeviceIdWithoutIdentifyingHeader()
@@ -42,7 +43,8 @@ namespace Game.Architecture.Tests
         public async Task SignIn_AdoptsTheAccountSoLaterCallsIdentify()
         {
             var transport = new FakeTransport();
-            transport.Answer(201, "{\"userId\":\"user-1\",\"nickname\":\"이름\",\"nicknameSet\":false}");
+            transport.Answer(201, "{\"userId\":\"user-1\",\"nickname\":\"이름\",\"nicknameSet\":false,"
+                + "\"photonToken\":\"" + AccountToken + "\"}");
             var client = Client(transport, out _);
             await new AccountGateway(client).SignInAsync(CancellationToken.None);
 
@@ -51,8 +53,41 @@ namespace Game.Architecture.Tests
 
             Assert.That(Header(transport.LastCall, "X-User-Id"), Is.EqualTo(UserId));
 
-            // Identification only. The credential does not ride along with it.
+            // The id is public, so the server's signature over it goes with it.
+            Assert.That(Header(transport.LastCall, "X-Account-Token"), Is.EqualTo(AccountToken));
+
+            // The device credential does not. Only what cannot be undone asks for it.
             Assert.That(Header(transport.LastCall, "X-Device-Id"), Is.Null);
+        }
+
+        [Test]
+        public async Task AServerThatIssuedNoToken_GetsNoTokenHeader()
+        {
+            // A server without a signing secret leaves photonToken out and checks
+            // nothing. An empty header would only be one more thing to ignore.
+            var transport = new FakeTransport();
+            transport.Answer(201, "{\"userId\":\"user-1\",\"nickname\":\"이름\",\"nicknameSet\":false}");
+            var client = Client(transport, out _);
+            await new AccountGateway(client).SignInAsync(CancellationToken.None);
+
+            transport.Answer(200, "{\"friends\":[]}");
+            await new FriendGateway(client).ListFriendsAsync(CancellationToken.None);
+
+            Assert.That(Header(transport.LastCall, "X-User-Id"), Is.EqualTo(UserId));
+            Assert.That(Header(transport.LastCall, "X-Account-Token"), Is.Null);
+        }
+
+        [Test]
+        public async Task TheTokenNeverTravelsInTheUrl()
+        {
+            var transport = new FakeTransport();
+            var client = SignedIn(transport, out _);
+
+            transport.Answer(200, "{\"friends\":[]}");
+            await new FriendGateway(client).ListFriendsAsync(CancellationToken.None);
+
+            // nginx writes query strings to its access log.
+            Assert.That(transport.LastCall.Url, Does.Not.Contain(AccountToken));
         }
 
         [Test]
@@ -79,6 +114,7 @@ namespace Game.Architecture.Tests
 
             Assert.That(result.Ok, Is.True);
             Assert.That(Header(transport.LastCall, "X-Device-Id"), Is.EqualTo(DeviceId));
+            Assert.That(Header(transport.LastCall, "X-Account-Token"), Is.EqualTo(AccountToken));
             Assert.That(session.SignedIn, Is.False);
         }
 
@@ -494,7 +530,7 @@ namespace Game.Architecture.Tests
         private static BackendClient SignedIn(IHttpTransport transport, out BackendSession session)
         {
             var client = Client(transport, out session);
-            session.Adopt(UserId);
+            session.Adopt(UserId, AccountToken);
             return client;
         }
 
