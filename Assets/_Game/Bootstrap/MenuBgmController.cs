@@ -2,6 +2,7 @@ using System;
 using Game.Core.Flow;
 using Game.Core.Settings;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using VContainer.Unity;
 
 namespace Game.Bootstrap
@@ -36,6 +37,7 @@ namespace Game.Bootstrap
             if (started) return;
             started = true;
             flow.StateChanged += OnStateChanged;
+            SceneManager.activeSceneChanged += OnActiveSceneChanged;
             sound.AudioChanged += ApplyVolume;
             ApplyVolume(sound.Current);
             OnStateChanged(flow.CurrentState);
@@ -50,6 +52,18 @@ namespace Game.Bootstrap
 
         private void OnStateChanged(AppFlowState state)
         {
+            // AppFlow starts at Home even while the startup Intro scene is active.
+            // Stop immediately here so the intro's own ambience is the only track.
+            if (SceneManager.GetActiveScene().name == "Intro")
+            {
+                inMenu = false;
+                fading = false;
+                playing = false;
+                fadeGain = 0f;
+                source.volume = 0f;
+                source.Stop();
+                return;
+            }
             var next = ShouldPlay(state);
             if (next == inMenu) return;
             inMenu = next;
@@ -60,6 +74,9 @@ namespace Game.Bootstrap
             }
             fading = true;
         }
+
+        private void OnActiveSceneChanged(Scene previous, Scene current) =>
+            OnStateChanged(flow.CurrentState);
 
         public void Tick() => AdvanceFade(Time.unscaledDeltaTime);
 
@@ -86,6 +103,7 @@ namespace Game.Bootstrap
             fading = false;
             playing = false;
             flow.StateChanged -= OnStateChanged;
+            SceneManager.activeSceneChanged -= OnActiveSceneChanged;
             sound.AudioChanged -= ApplyVolume;
             if (source != null) source.Stop();
         }
