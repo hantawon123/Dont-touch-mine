@@ -26,7 +26,7 @@ namespace Game.Client.Lobby
         public const float ApplyPaddingHorizontal = 80f;
         public const float ApplyPaddingVertical = 11f;
         public const int ApplyButtonRadius = 32;
-        public const int LayoutVersion = 33;
+        public const int LayoutVersion = 35;
 
         public const string RegularFontResource = "Fonts/Paperlogy-4Regular";
         public const string MediumFontResource = "Fonts/Paperlogy-5Medium";
@@ -90,6 +90,12 @@ namespace Game.Client.Lobby
             public const float CopiedFeedbackWidth = 220f;
             public const float CopiedFeedbackShift = 40f;
             public const float LabelAreaRatio = 0.42f;
+            public const float TitleCounterWidth = 80f;
+            public const float TitleCounterHeight = 28f;
+            public const float TitleCounterRightInset = 4f;
+            public const float TitleCounterGap = 8f;
+            public static float TitleInputRightPadding =>
+                TitleCounterWidth + TitleCounterGap + TitleCounterRightInset;
             public const float RoomCodeValueWidth = 160f;
             public const float RoomCodeControlSpacing = 8f;
             public const float ControlValueWidth = 132f;

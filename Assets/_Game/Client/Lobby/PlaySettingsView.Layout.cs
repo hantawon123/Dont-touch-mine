@@ -404,6 +404,7 @@ namespace Game.Client.Lobby
         private void BuildTitleRow(RectTransform parent)
         {
             var row = CreateLayoutRow(parent, PlaySettingsStyle.RowHeight);
+            row.name = "TitleRow";
             CreateBodyText(row, "방 제목", new Vector2(0f, 0f),
                 new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 1f), Vector2.zero, Vector2.zero);
 
@@ -414,20 +415,16 @@ namespace Game.Client.Lobby
             field.offsetMax = Vector2.zero;
 
             var underline = CreateRect("Underline", field);
-            Anchor(underline, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f));
-            underline.sizeDelta = new Vector2(0f, 1f);
+            Anchor(underline, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 0f));
+            underline.sizeDelta = new Vector2(-PlaySettingsStyle.Layout.TitleInputRightPadding, 1f);
             underline.anchoredPosition = new Vector2(0f, 6f);
             underline.gameObject.AddComponent<Image>().color = PlaySettingsStyle.Palette.Underline;
-
-            titleCounterText = CreateBodyText(field, "0/20", new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
-                new Vector2(-4f, -14f), new Vector2(80f, 28f));
-            titleCounterText.alignment = TextAnchor.MiddleRight;
-            titleCounterText.fontSize = PlaySettingsStyle.FontSize.Counter;
 
             var inputRect = CreateRect("TitleInput", field);
             Anchor(inputRect, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0.5f, 0.5f));
             inputRect.offsetMin = new Vector2(0f, 12f);
-            inputRect.offsetMax = Vector2.zero;
+            inputRect.offsetMax = new Vector2(-PlaySettingsStyle.Layout.TitleInputRightPadding, 0f);
+            inputRect.gameObject.AddComponent<RectMask2D>();
             var inputBg = inputRect.gameObject.AddComponent<Image>();
             inputBg.color = Color.clear;
             titleText = CreateBodyText(inputRect, string.Empty, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -436,6 +433,15 @@ namespace Game.Client.Lobby
             titleInput.textComponent = titleText;
             titleInput.targetGraphic = inputBg;
             titleInput.characterLimit = RoomSettings.MaxTitleLength;
+
+            titleCounterText = CreateBodyText(field, "0/20", new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                new Vector2(-PlaySettingsStyle.Layout.TitleCounterRightInset, -14f),
+                new Vector2(
+                    PlaySettingsStyle.Layout.TitleCounterWidth,
+                    PlaySettingsStyle.Layout.TitleCounterHeight));
+            titleCounterText.gameObject.name = "TitleCounter";
+            titleCounterText.alignment = TextAnchor.MiddleRight;
+            titleCounterText.fontSize = PlaySettingsStyle.FontSize.Counter;
         }
 
         private void BuildRoomCodeRow(RectTransform parent)
