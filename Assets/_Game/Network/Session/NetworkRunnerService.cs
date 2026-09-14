@@ -1830,7 +1830,19 @@ namespace Game.Network.Session
             // so changing regions does not require recompiling network code.
             settings.FixedRegion = _regions?.Current.Code;
             // Native authority and WebGL clients must use the same protocol bucket.
-            settings.AppVersion = $"server-v1-{Application.version}";
+            var buildVersion = Application.version;
+#if UNITY_EDITOR
+            // Local opt-in only. Never change the product version to join a test
+            // server, and never apply an Editor override to shipped players.
+            var testVersionPath = System.IO.Path.Combine(Application.dataPath, "../UserSettings/ServerFlowVersion.txt");
+            if (System.IO.File.Exists(testVersionPath))
+            {
+                var testVersion = System.IO.File.ReadAllText(testVersionPath).Trim();
+                if (!string.IsNullOrEmpty(testVersion)) buildVersion = testVersion;
+            }
+            Debug.Log($"[Network] Editor matchmaking: version={buildVersion}, region={settings.FixedRegion}");
+#endif
+            settings.AppVersion = $"server-v1-{buildVersion}";
             return settings;
         }
 

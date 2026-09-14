@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 from release_host import Pool, READY, ReleaseHandler
 from releases import atomic_json, read_json, stage, validate
 from serve import create_server
+from sync_editor import main as sync_editor
 
 
 class Child:
@@ -119,6 +120,12 @@ class ReleaseTests(unittest.TestCase):
             self.request('new'); self.ready('new')
             with urlopen(origin + '/') as response:
                 self.assertIn('/releases/new/web/', response.url)
+            project = self.root / 'editor-project'
+            (project / 'ProjectSettings').mkdir(parents=True)
+            (project / 'ProjectSettings/ProjectVersion.txt').write_text('test')
+            with patch('sys.argv', ['sync_editor.py', str(project), '--origin', origin]):
+                sync_editor()
+            self.assertEqual((project / 'UserSettings/ServerFlowVersion.txt').read_text().strip(), 'new')
             with urlopen(origin + '/releases/old/web/Build/code.js') as response:
                 self.assertEqual(response.read(), b'old')
             for path in ('/request.json', '/releases/old/server/game', '/releases/old/web/%2e%2e/server/game'):
