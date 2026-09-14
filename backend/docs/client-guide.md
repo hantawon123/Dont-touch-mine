@@ -478,6 +478,8 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 ### `memo` 는 선택이고 500자까지입니다
 
 비워도 되고, 생략해도 `""` 로 보내도 같습니다. 넘으면 `400 INVALID_REQUEST` 입니다.
+원래 200자였는데 운영자가 메모를 보기 시작하면서 피드백 메시지와 같은 500자로 늘렸습니다.
+입력칸의 글자수 제한도 500 으로 맞추세요.
 
 `OTHER` 를 고른 경우에는 메모가 사실상 필수입니다. 서버가 강제하지는 않지만 메모 없는
 `OTHER` 는 운영자가 판단할 근거가 없습니다. 화면에서 유도해 주세요.

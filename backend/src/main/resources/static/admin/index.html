@@ -124,6 +124,14 @@
   .feedback .head .actions button { padding: 4px 9px; font-size: 13px; }
   .feedback .meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
   .id { color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace; }
+  /* 사용자 줄. 이름 아래 한 줄에 가입일·접속 상태·마지막 접속을 작게 둡니다. 훑는 화면이라
+     줄마다 세 줄을 차지하면 스크롤이 길어집니다. */
+  .userline { color: var(--muted); font-size: 12px; }
+  .userline .on { color: var(--ok); font-weight: 600; }
+  .section { font-weight: 600; margin-top: 10px; padding-bottom: 2px; }
+  .section:first-child { margin-top: 0; }
+  .gone { color: var(--muted); font-style: italic; }
+  .bar input { margin-bottom: 0; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -150,6 +158,7 @@
     <div class="tabs">
       <button id="tabReports" class="tab on" type="button">신고 검토</button>
       <button id="tabFeedback" class="tab" type="button">피드백</button>
+      <button id="tabUsers" class="tab" type="button">사용자</button>
       <span class="grow"></span>
       <button id="logout">로그아웃</button>
     </div>
@@ -194,6 +203,24 @@
         <button id="refreshFeedback">새로고침</button>
       </div>
       <div class="card"><div id="feedbackRows"></div></div>
+    </div>
+
+    <!-- 사용자 -->
+    <div id="usersView" hidden>
+      <!--
+        신고가 없는 사람도 여기서 찾아 정지할 수 있습니다. 검색 규칙이 게임 안 검색과
+        다르다는 것을 적어 둡니다 - 운영자가 "게임에서는 안 나오는데 여기서는 나온다"를
+        버그로 오해하지 않게 하려는 것입니다.
+      -->
+      <div class="warnbar">
+        닉네임 <b>일부</b>로 찾고 대소문자를 구분합니다. userId 전체를 넣어도 됩니다.
+        게임 안 검색과 달리 검색을 꺼 둔 사람도 나옵니다. 비워 두면 최근 가입순입니다.
+      </div>
+      <div class="bar">
+        <input id="userQuery" class="grow" placeholder="닉네임 일부 또는 userId" autocomplete="off">
+        <button id="searchUsers" class="primary">검색</button>
+      </div>
+      <div class="card"><div id="userRows"></div></div>
     </div>
   </div>
 </div>
@@ -438,7 +465,14 @@
    * 둘을 나란히 두지 않는 이유는, 그러면 지금 어느 쪽 상태인지를 버튼이 아니라
    * 다른 곳에서 읽어야 하기 때문입니다. 한 자리에 지금 할 수 있는 일만 둡니다.
    */
-  function suspension(user) {
+  /**
+   * 정지·해제 버튼. 신고 탭과 사용자 탭이 같이 씁니다.
+   *
+   * @param done 처리 뒤 다시 그릴 목록. 기본은 신고 목록이고, 사용자 탭은 자기 목록을 넘깁니다.
+   *             안 받으면 사용자 탭에서 누른 정지가 신고 목록을 새로 그리고 사용자 줄은 옛
+   *             상태로 남습니다.
+   */
+  function suspension(user, done = load) {
     const button = document.createElement('button');
     const suspended = !!user.suspended;
     button.textContent = suspended ? '정지 해제' : '정지';
@@ -473,7 +507,7 @@
 
         // 목록을 먼저 다시 그립니다. 그리는 쪽이 알림을 지우므로 순서가 반대면
         // 방금 띄운 문구가 그 자리에서 사라집니다.
-        await load();
+        await done();
 
         // changed 가 false 면 그 사이에 다른 사람이 이미 바꿔 둔 것입니다. 오류가
         // 아니라 원하던 상태가 이미 되어 있는 것입니다.
@@ -540,12 +574,7 @@
 
       const text = document.createElement('span');
       text.textContent = report.reason + ' · ' + when(report.createdAt);
-      if (report.memo) {
-        const memo = document.createElement('span');
-        memo.className = 'memo';
-        memo.textContent = ' — ' + report.memo;
-        text.appendChild(memo);
-      }
+      text.appendChild(memoOf(report));
       line.appendChild(text);
 
       // 건별로 치웁니다. 사람 단위로는 과한 경우 - 다섯 건 중 한 건만 스팸일 때 -
@@ -601,15 +630,20 @@
    * "아까 본 목록"이 남아 있는 일이 없고, 이 화면의 조회는 둘 다 가볍습니다.
    */
   function showTab(name) {
-    const reports = name === 'reports';
-    el('reportsView').hidden = !reports;
-    el('feedbackView').hidden = reports;
-    el('tabReports').classList.toggle('on', reports);
-    el('tabFeedback').classList.toggle('on', !reports);
+    const tabs = {
+      reports: ['reportsView', 'tabReports', '신고 검토'],
+      feedback: ['feedbackView', 'tabFeedback', '피드백'],
+      users: ['usersView', 'tabUsers', '사용자'],
+    };
+    for (const key of Object.keys(tabs)) {
+      const on = key === name;
+      el(tabs[key][0]).hidden = !on;
+      el(tabs[key][1]).classList.toggle('on', on);
+    }
     // 파라미터가 name 이므로 여기서 name 을 다시 선언하면 안 됩니다. 같은 스코프의
     // 재선언은 런타임이 아니라 파스 단계에서 죽고, 그러면 이 script 블록이 통째로
     // 실행되지 않아 화면이 "확인하는 중…"에서 멈춥니다.
-    const title = reports ? '신고 검토' : '피드백';
+    const title = tabs[name][2];
     el('pageTitle').textContent = title;
     // 브라우저 탭 제목도 같이 바꿉니다. 창을 두 개 띄워 두면 제목이 유일한 구분입니다.
     document.title = title + ' · D205';
@@ -713,6 +747,196 @@
     return row;
   }
 
+  const PRESENCE = { OFFLINE: '오프라인', ONLINE: '온라인', IN_LOBBY: '로비', IN_GAME: '경기 중' };
+
+  async function loadUsers() {
+    say('');
+    const q = el('userQuery').value.trim();
+    renderUsers((await call('/users?q=' + encodeURIComponent(q))).users);
+  }
+
+  function renderUsers(users) {
+    const box = el('userRows');
+    box.textContent = '';
+
+    if (!users.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = el('userQuery').value.trim()
+        ? '그런 사용자가 없습니다. 닉네임은 대소문자를 구분합니다.'
+        : '사용자가 없습니다.';
+      box.appendChild(empty);
+      return;
+    }
+
+    for (const user of users) {
+      box.appendChild(userRowOf(user));
+    }
+  }
+
+  function userRowOf(user) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.dataset.userId = user.userId;
+
+    const who = document.createElement('div');
+    who.className = 'who';
+
+    const nick = document.createElement('div');
+    nick.className = 'nick';
+    if (user.suspended) {
+      row.classList.add('suspended');
+      const badge = document.createElement('span');
+      badge.className = 'badge-suspended';
+      badge.textContent = '정지됨';
+      badge.title = user.suspendedReason || '';
+      nick.appendChild(badge);
+    }
+    nick.appendChild(document.createTextNode(user.nickname));
+    const id = document.createElement('span');
+    id.className = 'id';
+    id.textContent = ' ' + user.userId.slice(0, 8);
+    id.title = user.userId;
+    nick.appendChild(id);
+    who.appendChild(nick);
+
+    const line = document.createElement('div');
+    line.className = 'userline';
+    const presence = document.createElement('span');
+    presence.textContent = PRESENCE[user.presence] || user.presence;
+    if (user.presence && user.presence !== 'OFFLINE') presence.className = 'on';
+    line.appendChild(presence);
+    line.appendChild(document.createTextNode(
+      ' · 가입 ' + when(user.createdAt)
+      + (user.lastSeenAt ? ' · 마지막 ' + when(user.lastSeenAt) : '')));
+    who.appendChild(line);
+
+    const counts = document.createElement('div');
+    counts.className = 'counts';
+    // 신고 수를 굵게 둡니다. 이 화면에서 운영자가 먼저 보는 숫자입니다.
+    const reports = document.createElement('b');
+    reports.textContent = '신고 ' + user.reportCount;
+    const friends = document.createElement('span');
+    friends.className = 'people';
+    friends.textContent = ' · 친구 ' + user.friendCount;
+    counts.append(reports, friends);
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+
+    const copy = document.createElement('button');
+    copy.textContent = 'ID 복사';
+    copy.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(user.userId);
+        say('userId 를 복사했습니다.', 'good');
+      } catch (ignored) {
+        // 클립보드 권한이 없는 브라우저입니다. 제목에 전체 값이 있으니 거기서 긁으면 됩니다.
+        say('복사하지 못했습니다. 짧은 ID 위에 마우스를 올리면 전체 값이 보입니다.', 'bad');
+      }
+    });
+    actions.appendChild(copy);
+
+    const open = document.createElement('button');
+    open.textContent = '상세';
+    open.className = 'detail-toggle';
+    open.addEventListener('click', () => toggleUserDetail(row, user, open));
+    actions.appendChild(open);
+
+    actions.appendChild(suspension(user, loadUsers));
+
+    row.append(who, counts, actions);
+    return row;
+  }
+
+  /**
+   * 한 사람을 펼칩니다. 받은 신고, 한 신고, 보낸 피드백을 한 응답으로 받아 세 묶음으로 그립니다.
+   *
+   * 신고 탭의 상세와 달리 상대편(신고자 또는 신고당한 사람)을 보여줍니다. 운영자가 사람
+   * 하나를 판단하는 자리라 누가 신고했는지가 필요합니다. 탈퇴한 상대는 이름 없이 남습니다.
+   */
+  async function toggleUserDetail(row, user, button) {
+    const open = row.nextElementSibling;
+    if (open && open.classList.contains('detail')) {
+      open.remove();
+      button.textContent = '상세';
+      return;
+    }
+
+    const detail = await call('/users/' + encodeURIComponent(user.userId));
+    const box = document.createElement('div');
+    box.className = 'detail';
+
+    section(box, '받은 신고 ' + detail.receivedReports.length + '건', detail.receivedReports,
+      (r) => reportLine(r, '신고한 사람'));
+    section(box, '한 신고 ' + detail.madeReports.length + '건', detail.madeReports,
+      (r) => reportLine(r, '대상'));
+    section(box, '보낸 피드백 ' + detail.feedback.length + '건', detail.feedback, (f) => {
+      const line = document.createElement('div');
+      line.textContent = when(f.createdAt)
+        + ([f.buildVer, f.platform].filter(Boolean).length
+          ? ' · ' + [f.buildVer, f.platform].filter(Boolean).join(' ') : '')
+        + ' — ' + f.message;
+      return line;
+    });
+
+    row.after(box);
+    button.textContent = '접기';
+  }
+
+  function section(box, title, items, lineOf) {
+    const head = document.createElement('div');
+    head.className = 'section';
+    head.textContent = title;
+    box.appendChild(head);
+
+    if (!items.length) {
+      const none = document.createElement('div');
+      none.className = 'gone';
+      none.textContent = '없음';
+      box.appendChild(none);
+      return;
+    }
+    for (const item of items) {
+      box.appendChild(lineOf(item));
+    }
+  }
+
+  function reportLine(report, role) {
+    const line = document.createElement('div');
+    const text = document.createElement('span');
+    text.textContent = report.reason + ' · ' + when(report.createdAt) + ' · ' + report.status + ' · ' + role + ' ';
+    line.appendChild(text);
+
+    const who = document.createElement('span');
+    if (report.counterpartUserId) {
+      who.textContent = report.counterpartNickname;
+      who.title = report.counterpartUserId;
+    } else {
+      who.className = 'gone';
+      who.textContent = '탈퇴한 계정';
+    }
+    line.appendChild(who);
+
+    line.appendChild(memoOf(report));
+    return line;
+  }
+
+  /**
+   * 신고자가 적은 메모. 없으면 "메모 없음"이라고 흐리게 적습니다.
+   *
+   * 빈 자리로 두면 운영자가 메모라는 칸이 있다는 것 자체를 모릅니다. 사유는 고정 목록이라
+   * 맥락이 없고, 그 맥락을 주는 것이 메모인데, 신고자가 안 적었다는 사실도 판단 재료입니다.
+   */
+  function memoOf(report) {
+    const memo = document.createElement('span');
+    memo.className = 'memo';
+    memo.textContent = report.memo ? ' — ' + report.memo : ' — 메모 없음';
+    if (!report.memo) memo.classList.add('gone');
+    return memo;
+  }
+
   el('loginForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     say('');
@@ -754,6 +978,19 @@
 
   el('refreshFeedback').addEventListener('click', () => loadFeedback().catch(() => {}));
   el('limit').addEventListener('change', () => loadFeedback().catch(() => {}));
+
+  el('tabUsers').addEventListener('click', () => {
+    showTab('users');
+    loadUsers().catch(() => {});
+  });
+
+  el('searchUsers').addEventListener('click', () => loadUsers().catch(() => {}));
+  el('userQuery').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      loadUsers().catch(() => {});
+    }
+  });
 
   async function start() {
     const res = await fetch(API + '/session');

@@ -50,4 +50,30 @@ public interface UserFeedbackRepository extends JpaRepository<UserFeedback, Inte
              LIMIT :limit
             """, nativeQuery = true)
     List<FeedbackRow> findRecent(@Param("limit") int limit);
+
+    /**
+     * 한 사람이 보낸 피드백. 관리 화면 사용자 상세용(S15P21D205-973).
+     *
+     * <p>위 조회와 달리 INNER JOIN 입니다. 사람을 지정해 묻는 자리라 작성자가 NULL 인 행은
+     * 애초에 대상이 아닙니다.
+     *
+     * <p>상한을 박아 둡니다. 한 사람이 100건 넘게 보냈다면 그 자체가 신호이고, 화면에서 다
+     * 읽을 양도 아닙니다.
+     */
+    @Query(value = """
+            SELECT f.user_feedback_seq AS id,
+                   u.public_id         AS authorUserId,
+                   u.nickname          AS authorNickname,
+                   f.message           AS message,
+                   f.build_ver         AS buildVer,
+                   f.platform          AS platform,
+                   f.created_at        AS createdAt
+              FROM user_feedback f
+              JOIN users u ON u.users_seq = f.author_seq
+             WHERE u.public_id = :userId
+               AND f.deleted_at IS NULL
+             ORDER BY f.created_at DESC, f.user_feedback_seq DESC
+             LIMIT 100
+            """, nativeQuery = true)
+    List<FeedbackRow> findByAuthorForAdmin(@Param("userId") String userId);
 }

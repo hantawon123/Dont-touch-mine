@@ -346,7 +346,88 @@ DELETE /api/v1/admin/feedback/{id}          한 건 완전 삭제
 
 ---
 
-## 9. 알고 있어야 할 것
+## 9. 사용자 조회
+
+신고가 없는 사람도 찾아서 정지하거나 들여다보는 자리입니다. 그 전에는 정지 버튼이 신고
+목록 안에만 있었습니다.
+
+### 검색
+
+```
+GET /api/v1/admin/users?q=검색어&limit=50
+```
+
+`q` 는 **닉네임 부분 일치**(대소문자 구분) 또는 **userId 정확 일치**입니다. 게임 클라이언트의
+유저 검색과 규칙이 다릅니다. 그쪽은 정확 일치이고 검색을 꺼 둔 사람을 빼지만, 운영자는
+그 사람도 찾아야 합니다. 그래서 이 조회는 반드시 관리자 세션 뒤에 있습니다.
+
+`q` 를 비우면 최근 가입순입니다. `limit` 은 1~50 이고 벗어나면 50 입니다. `%` 와 `_` 는
+글자 그대로 찾습니다.
+
+```json
+{
+  "users": [
+    {
+      "userId": "...",
+      "nickname": "...",
+      "createdAt": "20260914120000",
+      "presence": "IN_LOBBY",
+      "lastSeenAt": "20260914123000",
+      "reportCount": 2,
+      "friendCount": 5,
+      "suspended": false,
+      "suspendedAt": null,
+      "suspendedReason": null
+    }
+  ]
+}
+```
+
+| 필드 | 뜻 |
+| --- | --- |
+| `presence` | `OFFLINE` `ONLINE` `IN_LOBBY` `IN_GAME`. 한 번도 붙은 적이 없으면 `OFFLINE` 이고 `lastSeenAt` 이 `null` |
+| `reportCount` | 받은 신고 중 숨기지 않은 것의 수 |
+| `friendCount` | 수락된 친구 수. 보낸·받은 요청은 세지 않습니다 |
+| `suspendedReason` | 운영자만 보는 화면이라 그대로 옵니다. 게임 API 응답에는 절대 담기지 않습니다 |
+
+기기 식별자는 어떤 응답에도 없습니다. 그 값은 그 계정의 비밀번호입니다.
+
+### 한 사람 상세
+
+```
+GET /api/v1/admin/users/{userId}
+```
+
+```json
+{
+  "user": { "...위와 같은 한 줄..." },
+  "receivedReports": [
+    { "id": 12, "reason": "ABUSE", "memo": "욕설", "createdAt": "...", "status": "PENDING",
+      "counterpartUserId": "...", "counterpartNickname": "신고한 사람" }
+  ],
+  "madeReports": [
+    { "id": 13, "reason": "CHEATING", "memo": null, "createdAt": "...", "status": "DISMISSED",
+      "counterpartUserId": "...", "counterpartNickname": "신고당한 사람" }
+  ],
+  "feedback": [
+    { "id": 3, "message": "...", "buildVer": "0.9.1", "platform": "WINDOWS", "createdAt": "..." }
+  ]
+}
+```
+
+`receivedReports` 의 상대편은 **신고자**, `madeReports` 의 상대편은 **신고당한 사람**입니다.
+6절의 신고 상세는 신고자를 일부러 빼지만, 사용자 한 명을 열어 보는 이 자리에서는 무고성
+신고를 판단해야 하므로 보여줍니다. 상대편이 탈퇴했으면 둘 다 `null` 이고 화면은 "탈퇴한
+계정"으로 표시합니다.
+
+`madeReports` 에서 `DISMISSED` 가 많으면 남을 반복해서 무고하는 사람입니다.
+
+숨긴 신고와 피드백은 어디에도 나오지 않습니다. 각각 최근 순 최대 200건, 100건입니다.
+없는 계정은 `404 TARGET_NOT_FOUND` 입니다.
+
+---
+
+## 10. 알고 있어야 할 것
 
 **계정이 하나이고 팀이 공유합니다.** 누가 무엇을 했는지 구분할 수 없습니다. 사람마다
 계정을 나눌 일이 생기면 그때 계정 테이블을 만들어야 합니다.
