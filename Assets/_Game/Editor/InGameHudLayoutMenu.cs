@@ -243,58 +243,13 @@ namespace Game.Editor
         /// Puts the microphone button in the corner of the match HUD.
         /// </summary>
         /// <remarks>
-        /// Same corner and size as the lobby's, because it is the same button
+        /// Same corner and icon as the lobby's, because it is the same button
         /// doing the same job and a player crossing from one screen to the other
         /// should not have to look for it again.
         /// </remarks>
         private static VoiceView EnsureVoiceButton(NetworkMatchHudView hud)
         {
-            var view = hud.GetComponent<VoiceView>();
-            if (view == null)
-            {
-                view = hud.gameObject.AddComponent<VoiceView>();
-            }
-
-            var slot = hud.transform.Find("VoiceButton") as RectTransform;
-            if (slot == null)
-            {
-                slot = CreatePanel(
-                    hud.transform,
-                    "VoiceButton",
-                    new Color(0.25f, 0.25f, 0.28f, 0.9f));
-            }
-
-            Place(
-                slot,
-                new Vector2(1f, 0f),
-                new Vector2(-60f, 60f),
-                new Vector2(72f, 72f));
-
-            var button = slot.GetComponent<Button>();
-            if (button == null)
-            {
-                button = slot.gameObject.AddComponent<Button>();
-            }
-
-            var caption = slot.Find("Label")?.GetComponent<TMP_Text>();
-            if (caption == null)
-            {
-                caption = CreateText(
-                    slot,
-                    "Label",
-                    "MIC",
-                    24f,
-                    TextAlignmentOptions.Center);
-                Stretch(caption.rectTransform, 6f);
-            }
-
-            var serialized = new SerializedObject(view);
-            serialized.FindProperty("muteButton").objectReferenceValue = button;
-            serialized.FindProperty("background").objectReferenceValue =
-                slot.GetComponent<Image>();
-            serialized.FindProperty("tmpLabel").objectReferenceValue = caption;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-            return view;
+            return hud.EnsureVoiceControl();
         }
 
         private static void ConnectLifetimeScope(Scene scene, NetworkMatchHudView hud)

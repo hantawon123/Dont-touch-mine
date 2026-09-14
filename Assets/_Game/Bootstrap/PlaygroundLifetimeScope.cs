@@ -188,6 +188,11 @@ namespace Game.Bootstrap
             // its own. What the match lacks is a way to speak to it, so the
             // control and the button are what get registered here. The mute
             // choice itself comes from the project scope and is already set.
+            if (matchHudView != null)
+            {
+                voiceView = matchHudView.EnsureVoiceControl();
+            }
+
             if (voiceView != null && inputActions != null)
             {
                 builder.RegisterComponent(voiceView).As<IVoiceView>();

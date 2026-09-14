@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Client.Interactions;
+using Game.Client.Voice;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using TMPro;
@@ -167,7 +168,7 @@ namespace Game.Client.Match
             urgencyBorderView?.Hide();
             EnsureDestructionUsesText();
             EnsureHighlightHud();
-            HideVoiceButton();
+            EnsureVoiceControl();
             RefreshKeyGuide(MatchPhase.Waiting);
         }
 
@@ -702,13 +703,24 @@ namespace Game.Client.Match
             }
         }
 
-        private void HideVoiceButton()
+        /// <summary>
+        /// The same white / grey-slash mute control the lobby keeps beside
+        /// 환경설정. Built here so a match that never ran the layout menu
+        /// still has a button, and so an old corner plate is restyled.
+        /// </summary>
+        public VoiceView EnsureVoiceControl()
         {
-            var slot = transform.Find("VoiceButton");
-            if (slot != null)
+            var view = GetComponent<VoiceView>();
+            if (view == null)
             {
-                slot.gameObject.SetActive(false);
+                view = gameObject.AddComponent<VoiceView>();
             }
+
+            var slot = VoiceView.EnsureSlot(transform);
+            VoiceView.PlaceInCorner(slot);
+            slot.gameObject.SetActive(true);
+            view.BindSlot(slot);
+            return view;
         }
 
         private void EnsureDestructionUsesText()
