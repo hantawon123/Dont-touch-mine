@@ -114,6 +114,10 @@ namespace Game.Editor
             var playSettingsView = EnsurePlaySettingsView(root, pausePlaySettings);
             var kickConfirm = EnsureKickConfirmView(root);
             DestroyIfExists(root, "HostTransferConfirmPanel");
+
+            var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
+            KeySettingGuideView.Ensure(root);
+            var shortcutGuide = LobbyShortcutGuideView.Ensure(root);
             var voiceView = hud.GetComponent<VoiceView>();
             if (voiceView == null)
             {
@@ -121,14 +125,15 @@ namespace Game.Editor
             }
 
             var voiceSo = new SerializedObject(voiceView);
-            voiceSo.FindProperty("muteButton").objectReferenceValue = null;
-            voiceSo.FindProperty("background").objectReferenceValue = null;
+            voiceSo.FindProperty("muteButton").objectReferenceValue =
+                shortcutGuide != null ? shortcutGuide.VoiceMuteButton : null;
+            voiceSo.FindProperty("background").objectReferenceValue =
+                shortcutGuide != null ? shortcutGuide.VoiceBackground : null;
+            voiceSo.FindProperty("icon").objectReferenceValue =
+                shortcutGuide != null ? shortcutGuide.VoiceIcon : null;
             voiceSo.FindProperty("label").objectReferenceValue = null;
+            voiceSo.FindProperty("tmpLabel").objectReferenceValue = null;
             voiceSo.ApplyModifiedPropertiesWithoutUndo();
-
-            var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
-            KeySettingGuideView.Ensure(root);
-            LobbyShortcutGuideView.Ensure(root);
             var shortcutOverlay = LobbyShortcutOverlayView.Ensure(root);
             shortcutOverlay?.BindPlayerList(playerListView);
             shortcutOverlay?.Hide();

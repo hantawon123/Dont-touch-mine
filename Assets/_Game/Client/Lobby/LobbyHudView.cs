@@ -1,5 +1,6 @@
 using Game.Client.Common;
 using Game.Client.Home;
+using Game.Client.Voice;
 using TMPro;
 using UnityEngine;
 
@@ -9,14 +10,18 @@ namespace Game.Client.Lobby
     /// The lobby's always-on screen furniture.
     /// </summary>
     /// <remarks>
-    /// Nothing here is pressed. The cursor is captured for looking around for
-    /// most of the visit, and a captured cursor reports from the centre of the
-    /// screen, so a button pinned to a corner cannot be reached at all. Every
-    /// button the lobby had up here — start, leave, settings, play settings,
-    /// the key guide — is an entry in the Esc menu now. See
+    /// Most of the visit keeps the cursor captured for looking around, so a
+    /// button pinned to a corner cannot be reached. Start, leave, settings,
+    /// play settings and the key guide live in the Esc menu. See
     /// <see cref="LobbyPauseMenuView"/>.
     /// <para>
-    /// What is left is the things a player reads rather than clicks: the
+    /// The exception is the microphone beside 환경설정: the player needs to
+    /// see whether they are muted without opening a menu, and Esc frees the
+    /// pointer long enough to press it. Talk keys still work while the cursor
+    /// is captured.
+    /// </para>
+    /// <para>
+    /// What else is left is the things a player reads rather than clicks: the
     /// category/map card, the player count, the shared key guide, the
     /// 1 / 2 / Esc shortcut row, and the chat field, which the keyboard
     /// reaches on its own. The full roster opens from 2.
@@ -102,8 +107,18 @@ namespace Game.Client.Lobby
 
         public LobbyShortcutGuideView EnsureShortcutGuide()
         {
-            HideVoiceButton();
-            return LobbyShortcutGuideView.Ensure(transform);
+            HideLegacyHudVoiceButton();
+            var guide = LobbyShortcutGuideView.Ensure(transform);
+            var voice = GetComponent<VoiceView>();
+            if (voice != null && guide != null)
+            {
+                voice.BindMuteControl(
+                    guide.VoiceMuteButton,
+                    guide.VoiceBackground,
+                    guide.VoiceIcon);
+            }
+
+            return guide;
         }
 
         public LobbyShortcutOverlayView EnsureShortcutOverlay()
@@ -131,10 +146,10 @@ namespace Game.Client.Lobby
         }
 
         /// <summary>
-        /// The talk keys still run through <c>VoicePresenter</c>. The corner
-        /// button is gone because a captured cursor cannot reach it.
+        /// A leftover corner slot from before the microphone sat beside
+        /// 환경설정. Direct children only, so the shortcut-row button stays.
         /// </summary>
-        private void HideVoiceButton()
+        private void HideLegacyHudVoiceButton()
         {
             var slot = transform.Find("VoiceButton");
             if (slot != null)

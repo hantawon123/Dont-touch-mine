@@ -1,4 +1,5 @@
 using Game.Client.Home;
+using Game.Client.Voice;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,7 +7,8 @@ using UnityEngine.UI;
 namespace Game.Client.Lobby
 {
     /// <summary>
-    /// Always-on 1 / 2 / Esc shortcut row in the lobby's bottom-right corner.
+    /// Always-on 1 / 2 / Esc shortcut row in the lobby's bottom-right corner,
+    /// with the local microphone toggle to the right of 환경설정.
     /// Right edge lines up with <see cref="KeySettingGuideView"/>; the keys
     /// themselves are handled by <see cref="LobbyPauseMenuPresenter"/>.
     /// </summary>
@@ -32,6 +34,14 @@ namespace Game.Client.Lobby
             "플레이어",
             "환경설정"
         };
+
+        public const string VoiceButtonName = VoiceView.ButtonName;
+        public const string VoiceIconName = VoiceView.IconName;
+        public const float VoiceIconSize = VoiceView.IconSize;
+
+        public Button VoiceMuteButton { get; private set; }
+        public Image VoiceBackground { get; private set; }
+        public Image VoiceIcon { get; private set; }
 
         public static LobbyShortcutGuideView Create(Transform parent)
         {
@@ -76,6 +86,7 @@ namespace Game.Client.Lobby
             {
                 PlacePanel();
                 ApplyStyle();
+                EnsureVoiceButton();
                 return;
             }
 
@@ -127,6 +138,7 @@ namespace Game.Client.Lobby
 
             PlacePanel();
             ApplyStyle();
+            EnsureVoiceButton();
         }
 
         private void CreateItem(int index)
@@ -215,6 +227,32 @@ namespace Game.Client.Lobby
                     action.alignment = TextAlignmentOptions.MidlineLeft;
                 }
             }
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
+        }
+
+        /// <summary>
+        /// The mute toggle sits to the right of 환경설정: a white mic or a
+        /// grey slash, nothing else.
+        /// </summary>
+        private void EnsureVoiceButton()
+        {
+            var slot = VoiceView.EnsureSlot(transform);
+            slot.SetAsLastSibling();
+
+            var size = slot.GetComponent<LayoutElement>();
+            if (size == null)
+            {
+                size = slot.gameObject.AddComponent<LayoutElement>();
+            }
+
+            size.minWidth = size.preferredWidth = VoiceView.ButtonSize;
+            size.minHeight = size.preferredHeight = VoiceView.ButtonSize;
+            size.flexibleWidth = 0f;
+
+            VoiceBackground = slot.GetComponent<Image>();
+            VoiceMuteButton = slot.GetComponent<Button>();
+            VoiceIcon = slot.Find(VoiceView.IconName)?.GetComponent<Image>();
 
             LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
         }
