@@ -58,8 +58,8 @@ public class UserReport {
     @Column(name = "reason", nullable = false, length = 32)
     private ReportReason reason;
 
-    /** 신고자가 적은 한 줄. 없을 수 있습니다. */
-    @Column(name = "memo", length = 200)
+    /** 신고자가 적은 한 줄. 없을 수 있습니다. 상한 500자는 V17 과 SendReportRequest 와 같아야 합니다. */
+    @Column(name = "memo", length = 500)
     private String memo;
 
     /** 신고한 시각. yyyyMMddHHmmss, UTC. */

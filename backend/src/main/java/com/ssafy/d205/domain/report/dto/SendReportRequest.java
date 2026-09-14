@@ -23,7 +23,7 @@ public record SendReportRequest(
         @NotNull(message = "reason은 필수입니다.")
         ReportReason reason,
 
-        @Size(max = 200, message = "memo는 200자를 넘을 수 없습니다.")
+        @Size(max = 500, message = "memo는 500자를 넘을 수 없습니다.")
         String memo
 ) {
 }

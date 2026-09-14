@@ -93,7 +93,7 @@ public class AdminUserController {
     /**
      * @param reason 정지 사유. 필수입니다. 나중에 이 정지를 본 사람이 해제해도 되는지
      *               판단할 유일한 근거라, 비워둘 수 있게 하면 그 판단이 불가능해집니다.
-     *               길이는 신고 메모와 같은 200 자입니다.
+     *               길이는 users.suspended_reason 컬럼과 같은 200 자입니다.
      */
     public record SuspendRequest(
             @NotBlank(message = "reason은 필수입니다.")
