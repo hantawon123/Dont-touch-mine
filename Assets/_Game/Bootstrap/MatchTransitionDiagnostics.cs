@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Game.Client.Cameras;
 using Game.Network.Players;
 using UnityEngine;
@@ -8,6 +8,7 @@ namespace Game.Bootstrap
 {
     internal static class MatchTransitionDiagnostics
     {
+        [System.Diagnostics.Conditional("GAME_TRANSITION_DIAGNOSTICS")]
         internal static void Dump(string reason)
         {
             var log = new StringBuilder($"[QA-Transition] {reason} frame={Time.frameCount} time={Time.unscaledTime:F2} focus={Application.isFocused} cursor={Cursor.lockState} activeScene={SceneManager.GetActiveScene().name}");
@@ -35,8 +36,7 @@ namespace Game.Bootstrap
                 log.Append($"\n rig={rig.GetInstanceID()} scene={rig.gameObject.scene.name} enabled={rig.enabled} active={rig.gameObject.activeInHierarchy} target={(rig.FollowTarget == null ? "none" : rig.FollowTarget.name)} pos={rig.transform.position}");
             foreach (var avatar in Object.FindObjectsByType<PlayerAvatar>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                 log.Append($"\n avatar={avatar.GetInstanceID()} owner={avatar.IsOwner} scene={avatar.gameObject.scene.name} pos={avatar.transform.position}");
-            foreach (var line in log.ToString().Split('\n'))
-                Debug.Log("[QA-Detail] " + line);
+            Debug.Log(log.ToString());
         }
     }
 }
