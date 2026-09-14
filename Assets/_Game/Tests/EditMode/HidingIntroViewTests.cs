@@ -1,3 +1,9 @@
+using System.Collections;
+using System.Linq;
+using System.Reflection;
+using Game.SOAP.Config;
+using UnityEngine.TestTools;
+using UnityEngine.UI;
 using Game.Client.Match;
 using NUnit.Framework;
 using UnityEngine;
@@ -6,6 +12,42 @@ namespace Game.Architecture.Tests
 {
     public sealed class HidingIntroViewTests
     {
+        [UnityTest]
+        public IEnumerator Preview_RepeatedShowAndHideKeepsRenderingOffscreen()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
+                UnityEditor.SceneManagement.NewSceneMode.Single);
+            yield return new EnterPlayMode();
+            var slot = new GameObject("Preview target", typeof(RectTransform), typeof(RawImage));
+            var image = slot.GetComponent<RawImage>();
+            var preview = new HidingIntroItemPreview(image);
+            try
+            {
+                var catalog = Resources.Load<ItemCatalogSO>(ItemCatalogSO.ResourcePath);
+                var item = catalog.categories.SelectMany(c => c.items).First(i => i.prefab != null);
+                preview.Show(item.id);
+                var texture = image.texture;
+                Assert.That(texture, Is.Not.Null);
+                preview.Clear();
+                Assert.That(image.enabled, Is.False);
+                preview.Show(item.id);
+                preview.Show(item.id); // Assignment delivery can refresh an already visible intro.
+                var camera = (Camera)typeof(HidingIntroItemPreview).GetField("camera",
+                    BindingFlags.NonPublic | BindingFlags.Instance).GetValue(preview);
+                Assert.That(image.texture, Is.SameAs(texture));
+                Assert.That(camera.targetTexture, Is.SameAs(texture));
+                Assert.That(camera.enabled, Is.False, "Only explicit preview rendering should run.");
+                Assert.That(camera.pixelWidth, Is.EqualTo(texture.width));
+                yield return null;
+                yield return null;
+                Assert.That(camera.targetTexture, Is.SameAs(texture));
+            }
+            finally { preview.Dispose(); Object.DestroyImmediate(slot); }
+            yield return null;
+            yield return new ExitPlayMode();
+        }
+
         [Test]
         public void FormatMessage_UsesAssignedItemName()
         {

@@ -164,6 +164,64 @@ namespace Game.Architecture.Tests
             finally { UnityEngine.Object.DestroyImmediate(rules); }
         }
 
+        [TestCase(MatchPhase.Hiding)]
+        [TestCase(MatchPhase.Searching)]
+        public void Intro_AfterSevenSecondFrameStall_WaitsForFinalTickAndKeepsFullThreeSeconds(MatchPhase phase)
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                var network = new FakeNetworkAuthority(10d, new Dictionary<string, Pose>
+                    { ["host"] = Pose.identity, ["client"] = Pose.identity });
+                using var room = new RoomBrowserSystem();
+                var flow = new AppFlowSystem();
+                flow.TryTransitionTo(AppFlowState.Lobby);
+                using var coordinator = new NetworkMatchRuntimeCoordinator(network,
+                    new MatchRuntimeFactory(rules), new FakeSceneContext(), flow,
+                    new NetworkMatchRuntimeConfiguration(new AcceptAllPlacements(), CreateSpawnPoints(),
+                        CreateItems(), Array.Empty<WorldObjectState>(), Pose.identity, CreateWaitingPoints()), room);
+                coordinator.Start();
+                network.PublishLineUp(new[] { new MatchParticipant("host", 0), new MatchParticipant("client", 1) });
+                network.PublishSimulationTick();
+                var session = network.BoundSession;
+                if (phase == MatchPhase.Searching)
+                {
+                    ConfirmAllIntroReady(network);
+                    network.ServerTime = session.CaptureStateSnapshot().PhaseEndsAt;
+                    network.PublishSimulationTick();
+                }
+                var stalledAt = network.ServerTime;
+                var duration = session.GetRemainingSeconds(stalledAt);
+                for (var i = 0; i < 2; i++) Assert.That(session.ConfirmPhaseIntroReady(i, phase), Is.True);
+                network.IsFinalForwardTick = false;
+                // These ticks are one catch-up batch: no rendered frame between them.
+                for (var tick = 1; tick < 7 * 64; tick++)
+                {
+                    network.ServerTime = stalledAt + tick / 64d;
+                    network.PublishSimulationTick();
+                    Assert.That(session.CaptureStateSnapshot().PhaseEndsAt, Is.Zero,
+                        "An old tick must not start a deadline before the frame can be displayed.");
+                    Assert.That(network.Controls[0], Is.False);
+                }
+                network.ServerTime = stalledAt + 7d;
+                network.IsFinalForwardTick = true;
+                network.PublishSimulationTick();
+                Assert.That(session.CaptureStateSnapshot().PhaseEndsAt,
+                    Is.EqualTo(network.ServerTime + 3d + duration));
+                network.ServerTime += 2.99d;
+                network.PublishSimulationTick();
+                Assert.That(session.IsPhaseIntro(network.ServerTime), Is.True);
+                Assert.That(network.Controls[0], Is.False);
+                Assert.That(session.GetRemainingSeconds(network.ServerTime), Is.EqualTo(duration));
+                network.ServerTime += 0.01d;
+                network.PublishSimulationTick();
+                Assert.That(session.IsPhaseIntro(network.ServerTime), Is.False);
+                Assert.That(network.Controls[0], Is.True);
+                Assert.That(session.GetRemainingSeconds(network.ServerTime), Is.EqualTo(duration).Within(0.0001d));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(rules); }
+        }
+
         [TestCase(false)]
         [TestCase(true)]
         public void Authority_StartsTicksPublishesAndReleasesMatchRuntime(bool readinessTimeout)
@@ -205,6 +263,10 @@ namespace Game.Architecture.Tests
 
                 Assert.That(network.BoundSession, Is.Not.Null);
                 Assert.That(network.Snapshots[0].PhaseEndsAt, Is.Zero);
+                Assert.That(network.TeleportedPlayers, Is.EqualTo(new[] { 1, 0 }), "Prepare the final camera positions before readiness.");
+                Assert.That(network.InitializedAssignmentPlayers, Is.EqualTo(new[] { 0 }), "Create the first held item while loading, not after the intro.");
+                Assert.That(network.Controls[0], Is.False);
+                Assert.That(network.Controls[1], Is.False);
                 Assert.That(network.BoundSession.ConfirmPhaseIntroReady(0, MatchPhase.Hiding), Is.True);
                 network.PublishSimulationTick();
                 Assert.That(network.Snapshots, Has.Count.EqualTo(1), "One participant is still loading.");
@@ -475,6 +537,7 @@ namespace Game.Architecture.Tests
             }
 
             public bool IsServer => true;
+            public bool IsFinalForwardTick { get; set; } = true;
             public MatchMigrationState MatchMigration { get; set; }
             public bool IsMatchRuntimeRestorePending { get; set; }
             public int RestoreReports { get; private set; }

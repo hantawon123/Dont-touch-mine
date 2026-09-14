@@ -1,4 +1,7 @@
+using System.Collections;
 using System.Linq;
+using Game.Client.Combat;
+using UnityEngine.TestTools;
 using Game.Client.Character;
 using Game.Client.Players;
 using Game.Core.Players;
@@ -191,6 +194,49 @@ namespace Game.Tests.EditMode
             Assert.That(
                 PlayerAnimationDriver.ResolvePlaybackSpeed("Hit_Run", 7f, 4f, 7f, 2f, 0.8f),
                 Is.EqualTo(1f));
+        }
+
+        [UnityTest]
+        public IEnumerator ReplicatedStun_PlaysAndRecoversForLocalAndRemoteCharacters()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
+                UnityEditor.SceneManagement.NewSceneMode.Single);
+            yield return new EnterPlayMode();
+            foreach (var acceptsLocalInput in new[] { true, false })
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab");
+                var player = Object.Instantiate(prefab);
+                try
+                {
+                    var combatant = player.GetComponent<PlayerCombatant>();
+                    var driver = player.GetComponent<PlayerAnimationDriver>();
+                    var animator = player.GetComponentInChildren<Animator>();
+                    animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                    combatant.enabled = acceptsLocalInput;
+                    combatant.ConfigureNetworkPlayer(0, acceptsLocalInput);
+                    driver.ApplyNetworkState(0f, true, 0, Vector2.zero, false);
+                    combatant.SetNetworkHitCount(0);
+                    combatant.SetNetworkStunned(true);
+                    combatant.SetNetworkHitCount(3);
+                    // Explicitly evaluate the animation in the headless EditMode harness.
+                    driver.SendMessage("Update");
+                    animator.Update(0.3f);
+                    Assert.That(combatant.IsStunned, Is.True);
+                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Stunned"),
+                        Is.True, $"Stun animation missing; local input={acceptsLocalInput}");
+                    var clip = animator.GetCurrentAnimatorClipInfo(0);
+                    Assert.That(clip.Length, Is.GreaterThan(0));
+                    Assert.That(clip[0].clip.length, Is.GreaterThan(0f));
+                    combatant.SetNetworkStunned(false);
+                    driver.SendMessage("Update");
+                    animator.Update(0.3f);
+                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Idle"), Is.True);
+                }
+                finally { Object.DestroyImmediate(player); }
+            }
+            yield return new ExitPlayMode();
         }
 
         [Test]
