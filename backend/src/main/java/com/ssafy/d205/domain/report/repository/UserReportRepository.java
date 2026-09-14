@@ -187,4 +187,55 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
     @Query("DELETE FROM UserReport r WHERE r.reportedSeq = :reportedSeq AND r.status = :status")
     int deleteByReportedSeqAndStatus(@Param("reportedSeq") Integer reportedSeq,
                                      @Param("status") ReportStatus status);
+
+    /**
+     * 한 사람이 <b>받은</b> 신고. 신고자를 함께 담습니다. 관리 화면 사용자 상세용(S15P21D205-973).
+     *
+     * <p>{@link #findByReportedUserId} 와 나눈 이유는 그쪽이 신고자를 일부러 감추기 때문입니다.
+     * 그 조회의 계약을 바꾸지 않고 운영자용 자리에서만 신고자를 봅니다.
+     *
+     * <p>신고자가 탈퇴했으면 LEFT JOIN 이라 상대편 컬럼이 NULL 로 옵니다. 행 자체는 남습니다.
+     */
+    @Query(value = """
+            SELECT r.user_reports_seq AS id,
+                   r.reason           AS reason,
+                   r.memo             AS memo,
+                   r.created_at       AS createdAt,
+                   r.status           AS status,
+                   o.public_id        AS counterpartUserId,
+                   o.nickname         AS counterpartNickname
+              FROM user_reports r
+              JOIN users u ON u.users_seq = r.reported_seq
+              LEFT JOIN users o ON o.users_seq = r.reporter_seq
+             WHERE u.public_id = :userId
+               AND r.deleted_at IS NULL
+             ORDER BY r.created_at DESC, r.user_reports_seq DESC
+             LIMIT 200
+            """, nativeQuery = true)
+    List<AdminReportRow> findReceivedForAdmin(@Param("userId") String userId);
+
+    /**
+     * 한 사람이 <b>한</b> 신고. 신고당한 사람을 함께 담습니다. 관리 화면 사용자 상세용.
+     *
+     * <p>"이 사람이 남을 얼마나 신고하나"를 보는 자리입니다. 기각된 것이 많으면 무고성 신고를
+     * 반복하는 사람입니다. 신고당한 쪽은 탈퇴하면 행이 함께 지워지므로(CASCADE) 상대편이
+     * NULL 인 경우는 사실상 없지만, 조인 모양은 위와 맞춥니다.
+     */
+    @Query(value = """
+            SELECT r.user_reports_seq AS id,
+                   r.reason           AS reason,
+                   r.memo             AS memo,
+                   r.created_at       AS createdAt,
+                   r.status           AS status,
+                   o.public_id        AS counterpartUserId,
+                   o.nickname         AS counterpartNickname
+              FROM user_reports r
+              JOIN users u ON u.users_seq = r.reporter_seq
+              LEFT JOIN users o ON o.users_seq = r.reported_seq
+             WHERE u.public_id = :userId
+               AND r.deleted_at IS NULL
+             ORDER BY r.created_at DESC, r.user_reports_seq DESC
+             LIMIT 200
+            """, nativeQuery = true)
+    List<AdminReportRow> findMadeForAdmin(@Param("userId") String userId);
 }

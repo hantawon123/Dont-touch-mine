@@ -5,16 +5,21 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ssafy.d205.domain.admin.dto.AdminUserDetail;
+import com.ssafy.d205.domain.admin.dto.AdminUserListResponse;
 import com.ssafy.d205.domain.admin.service.AccountSuspensionService;
+import com.ssafy.d205.domain.admin.service.AdminUserQueryService;
 
 /**
- * 운영자의 계정 제재.
+ * 운영자의 사용자 조회와 계정 제재.
  *
  * <p><b>이 경로는 SecurityConfig 의 adminChain 이 로그인을 요구합니다.</b>
  * {@code /api/v1/admin/**} 전체가 그 체인에 잡히므로 메서드마다 권한을 적지 않습니다.
@@ -24,9 +29,8 @@ import com.ssafy.d205.domain.admin.service.AccountSuspensionService;
  * 때문입니다. 그쪽은 신고 기록을 검토하고 숨기고 지웁니다. 신고를 완전 삭제해도 정지는
  * 남아야 하는데, 한 컨트롤러에 두면 그 경계가 흐려집니다.
  *
- * <p>조회가 없습니다. 정지 여부는 신고당한 사람 목록 화면에서 함께 보여주는 편이 맞고,
- * 그건 그 화면의 응답에 필드를 더할 일입니다. 여기에 단건 조회를 두면 화면이 목록을
- * 그린 뒤 사람 수만큼 다시 물어야 합니다.
+ * <p>조회는 S15P21D205-972 에서 생겼습니다. 그 전에는 정지 버튼이 신고 목록 안에만 있어서
+ * 신고가 없는 사람은 운영자가 찾을 길이 없었습니다.
  */
 @RestController
 @RequestMapping("/api/v1/admin/users")
@@ -34,6 +38,33 @@ import com.ssafy.d205.domain.admin.service.AccountSuspensionService;
 public class AdminUserController {
 
     private final AccountSuspensionService accountSuspensionService;
+    private final AdminUserQueryService adminUserQueryService;
+
+    /**
+     * 사용자를 찾습니다. 닉네임 부분 일치(대소문자 구분) 또는 userId 정확 일치.
+     *
+     * <p>{@code q} 를 비우면 최근 가입순입니다. 탭을 열자마자 빈 화면이 아니라 사람이 보이게
+     * 하려는 것입니다. {@code limit} 은 1~50 이고 벗어나면 50 입니다.
+     *
+     * <p>게임 클라이언트의 유저 검색(정확 일치, searchable 존중)과 규칙이 다릅니다. 운영자는
+     * 검색을 꺼 둔 사람도 찾아야 하므로, 이 조회는 반드시 이 경로(관리자 세션) 뒤에 있어야
+     * 합니다.
+     */
+    @GetMapping
+    public AdminUserListResponse search(@RequestParam(required = false) String q,
+                                        @RequestParam(required = false) Integer limit) {
+        return adminUserQueryService.search(q, limit);
+    }
+
+    /**
+     * 사용자 한 명의 요약과 받은 신고, 한 신고, 보낸 피드백.
+     *
+     * <p>없는 계정은 404 TARGET_NOT_FOUND 입니다.
+     */
+    @GetMapping("/{userId}")
+    public AdminUserDetail detail(@PathVariable String userId) {
+        return adminUserQueryService.detail(userId);
+    }
 
     /**
      * 계정을 정지합니다.

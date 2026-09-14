@@ -38,6 +38,80 @@
         },
         "type" : "object"
       },
+      "AdminUserDetail" : {
+        "properties" : {
+          "feedback" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FeedbackEntry"
+            },
+            "type" : "array"
+          },
+          "madeReports" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReportEntry"
+            },
+            "type" : "array"
+          },
+          "receivedReports" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReportEntry"
+            },
+            "type" : "array"
+          },
+          "user" : {
+            "$ref" : "#/components/schemas/AdminUserSummary"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminUserListResponse" : {
+        "properties" : {
+          "users" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AdminUserSummary"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminUserSummary" : {
+        "properties" : {
+          "createdAt" : {
+            "type" : "string"
+          },
+          "friendCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "lastSeenAt" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "presence" : {
+            "type" : "string"
+          },
+          "reportCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "suspended" : {
+            "type" : "boolean"
+          },
+          "suspendedAt" : {
+            "type" : "string"
+          },
+          "suspendedReason" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "AppearanceResponse" : {
         "properties" : {
           "bodyColor" : {
@@ -60,6 +134,27 @@
           "affected" : {
             "format" : "int32",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "FeedbackEntry" : {
+        "properties" : {
+          "buildVer" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "platform" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -410,6 +505,33 @@
       },
       "ReportDetail" : {
         "properties" : {
+          "createdAt" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "memo" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ReportEntry" : {
+        "properties" : {
+          "counterpartNickname" : {
+            "type" : "string"
+          },
+          "counterpartUserId" : {
+            "type" : "string"
+          },
           "createdAt" : {
             "type" : "string"
           },
@@ -1332,6 +1454,75 @@
         },
         "tags" : [
           "admin-session-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/users" : {
+      "get" : {
+        "operationId" : "search_1",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "q",
+            "required" : false,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "limit",
+            "required" : false,
+            "schema" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminUserListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-user-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{userId}" : {
+      "get" : {
+        "operationId" : "detail_1",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminUserDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-user-controller"
         ]
       }
     },
