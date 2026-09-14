@@ -80,6 +80,20 @@ namespace Game.Network.Voice
 
             var client = runnerObject.AddComponent<FusionVoiceClient>();
 
+            // Voice does not carry Fusion's credentials (S15P21D205-934). The two
+            // are separate Photon applications - AppIdFusion and AppIdVoice - and
+            // only the first has a custom authentication provider registered.
+            // Left at the SDK default of true, the client copies the runner's
+            // AuthenticationValues and offers custom authentication to an
+            // application that has none, which answers 32755 and takes voice down
+            // for the whole session.
+            //
+            // Nothing is lost by connecting anonymously here. A suspended account
+            // is refused by Fusion and never reaches a room, and voice only
+            // connects once a room has been joined, so the provider would be a
+            // second lock behind a door that is already shut.
+            client.UseFusionAuthValues = false;
+
             // Voice is optional. The SDK otherwise logs errors on room join
             // when neither endpoint is configured, pausing the Editor before
             // the pending lobby transition can resume with Error Pause on.

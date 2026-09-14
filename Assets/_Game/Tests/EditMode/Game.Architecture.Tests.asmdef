@@ -16,7 +16,11 @@
         "Unity.InputSystem",
         "UnityEngine.TestRunner",
         "Unity.TextMeshPro",
-        "UnityEditor.TestRunner"
+        "UnityEditor.TestRunner",
+        "Fusion.Unity",
+        "PhotonVoice",
+        "PhotonVoice.Fusion",
+        "Photon.Realtime"
     ],
     "includePlatforms": [
         "Editor"

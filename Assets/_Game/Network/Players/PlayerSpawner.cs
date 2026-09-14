@@ -268,7 +268,7 @@ namespace Game.Network.Players
         /// the positions array the match rules read, and seats may have gaps.
         /// </para>
         /// </remarks>
-        public void RepositionSeated(NetworkRunner runner)
+        public void RepositionSeated(NetworkRunner runner, ISet<PlayerRef> preservePositions = null)
         {
             if (runner == null || !runner.IsServer)
             {
@@ -283,7 +283,8 @@ namespace Game.Network.Players
             // players and walking that far.
             for (var seat = 0; seat < RoomSettings.MaxPlayerCount; seat++)
             {
-                if (!_players.TryGetPlayer(seat, out var player))
+                if (!_players.TryGetPlayer(seat, out var player) ||
+                    !ShouldRepositionPlayer(player, preservePositions))
                 {
                     continue;
                 }
@@ -333,6 +334,9 @@ namespace Game.Network.Players
                 $"[Spawn] Reposition: {_spawnPoses.Count} poses, {seatsFound} seats, " +
                 $"{avatarsFound} avatars, {moved} moved.");
         }
+
+        internal static bool ShouldRepositionPlayer(PlayerRef player, ISet<PlayerRef> preservePositions) =>
+            preservePositions == null || !preservePositions.Contains(player);
 
         public bool TryGetSpawnPose(PlayerRef player, out Pose pose)
         {
