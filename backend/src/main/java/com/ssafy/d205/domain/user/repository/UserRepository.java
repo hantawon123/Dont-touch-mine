@@ -19,6 +19,12 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      */
     boolean existsByNickname(String nickname);
 
+    /** since 이후에 가입한 수. 운영 지표 샘플러와 개요 탭의 "오늘 가입"이 씁니다. */
+    long countByCreatedAtGreaterThan(String since);
+
+    /** 지금 정지된 계정 수. 개요 탭 카드용입니다. */
+    long countBySuspendedAtIsNotNull();
+
     /**
      * 닉네임이 정확히 일치하는 사용자를 찾습니다.
      *

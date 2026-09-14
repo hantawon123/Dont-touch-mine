@@ -17,6 +17,9 @@ import com.ssafy.d205.domain.feedback.entity.UserFeedback;
  */
 public interface UserFeedbackRepository extends JpaRepository<UserFeedback, Integer> {
 
+    /** since 이후(포함) 들어온 보이는 피드백 수. 개요 탭의 "오늘 피드백" 카드용입니다. */
+    long countByCreatedAtGreaterThanEqualAndDeletedAtIsNull(String since);
+
     /**
      * 최근에 들어온 피드백. 운영자 목록이 쓰는 조회입니다.
      *

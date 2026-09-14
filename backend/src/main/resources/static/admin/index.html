@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>신고 검토 · D205</title>
+<title>개요 · D205</title>
 <!--
   운영자용 신고 검토 화면.
 
@@ -132,6 +132,15 @@
   .section:first-child { margin-top: 0; }
   .gone { color: var(--muted); font-style: italic; }
   .bar input { margin-bottom: 0; }
+  /* 개요 탭. 숫자 카드는 한 줄에 여러 개, 차트는 카드 한 장에 하나입니다. */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .stat .label { color: var(--muted); font-size: 12px; }
+  .stat .value { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .value small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+  .stat.dim .value { color: var(--muted); font-size: 14px; font-weight: 400; }
+  .chart { position: relative; height: 240px; }
+  .chart-title { font-weight: 600; margin-bottom: 6px; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -156,15 +165,38 @@
   <!-- 로그인한 뒤 보이는 것. 탭 둘이 이 안에서 갈립니다. -->
   <div id="listView" hidden>
     <div class="tabs">
-      <button id="tabReports" class="tab on" type="button">신고 검토</button>
+      <button id="tabOverview" class="tab on" type="button">개요</button>
+      <button id="tabReports" class="tab" type="button">신고 검토</button>
       <button id="tabFeedback" class="tab" type="button">피드백</button>
       <button id="tabUsers" class="tab" type="button">사용자</button>
       <span class="grow"></span>
       <button id="logout">로그아웃</button>
     </div>
 
+    <!-- 개요 -->
+    <div id="overviewView">
+      <div class="bar">
+        <select id="range">
+          <option value="24h">최근 24시간</option>
+          <option value="7d">최근 7일</option>
+        </select>
+        <button id="refreshOverview">새로고침</button>
+        <span class="grow"></span>
+        <span class="when" id="overviewAt"></span>
+      </div>
+      <div class="cards" id="statCards"></div>
+      <div class="card">
+        <div class="chart-title">접속자</div>
+        <div class="chart"><canvas id="presenceChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="chart-title">서버 자원</div>
+        <div class="chart"><canvas id="resourceChart"></canvas></div>
+      </div>
+    </div>
+
     <!-- 신고 -->
-    <div id="reportsView">
+    <div id="reportsView" hidden>
       <!--
         버튼이 무엇을 하는지 화면이 직접 말해야 합니다. "조치"라고만 적혀 있으면 운영자는
         누르는 순간 상대가 정지된 줄 압니다. 실제로는 신고에 표시만 남습니다.
@@ -225,6 +257,7 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 (() => {
   'use strict';
@@ -631,6 +664,7 @@
    */
   function showTab(name) {
     const tabs = {
+      overview: ['overviewView', 'tabOverview', '개요'],
       reports: ['reportsView', 'tabReports', '신고 검토'],
       feedback: ['feedbackView', 'tabFeedback', '피드백'],
       users: ['usersView', 'tabUsers', '사용자'],
@@ -748,6 +782,109 @@
   }
 
   const PRESENCE = { OFFLINE: '오프라인', ONLINE: '온라인', IN_LOBBY: '로비', IN_GAME: '경기 중' };
+
+  /* 개요 탭. 차트 객체는 탭을 오갈 때 다시 만들지 않고 데이터만 갈아 끼웁니다. */
+  let presenceChart = null;
+  let resourceChart = null;
+
+  async function loadOverview() {
+    say('');
+    const data = await call('/overview?range=' + encodeURIComponent(el('range').value));
+    renderCards(data.now, data.matches);
+    renderCharts(data.series, data.range);
+    el('overviewAt').textContent = '지금 값 기준 ' + new Date().toLocaleTimeString('ko-KR');
+  }
+
+  function card(label, value, unit, dim) {
+    const box = document.createElement('div');
+    box.className = 'stat' + (dim ? ' dim' : '');
+    const l = document.createElement('div');
+    l.className = 'label';
+    l.textContent = label;
+    const v = document.createElement('div');
+    v.className = 'value';
+    v.textContent = value;
+    if (unit) {
+      const u = document.createElement('small');
+      u.textContent = unit;
+      v.appendChild(u);
+    }
+    box.append(l, v);
+    return box;
+  }
+
+  function renderCards(now, matches) {
+    const box = el('statCards');
+    box.textContent = '';
+    const players = now.online + now.inLobby + now.inGame;
+    box.append(
+      card('접속자', players, '온라인 ' + now.online + ' · 로비 ' + now.inLobby + ' · 경기 ' + now.inGame),
+      card('소켓 연결', now.socketConnections),
+      card('전체 플레이어', now.totalUsers),
+      card('오늘 가입 / 탈퇴', now.signupsToday + ' / ' + now.deletionsToday),
+      card('미검토 신고', now.pendingReports),
+      card('오늘 피드백', now.feedbackToday),
+      card('정지 계정', now.suspendedUsers),
+      card('CPU', now.cpuPct.toFixed(1), '%'),
+      card('힙', now.heapUsedMb + ' / ' + now.heapMaxMb, 'MB'),
+      card('DB 풀', now.dbPoolActive + ' / ' + now.dbPoolMax),
+      // 분석 서비스가 분리되어 내부 API 가 생기면 채워지는 자리입니다(1002). 그때까지는 회색입니다.
+      matches
+        ? card('오늘 경기', matches.matchesToday, '진행 중 ' + matches.inProgress)
+        : card('오늘 경기', '분리 후 연결', null, true),
+    );
+  }
+
+  function labelOf(at) {
+    // yyyyMMddHHmmss UTC → 한국 시간의 "일 시:분"
+    const iso = at.slice(0, 4) + '-' + at.slice(4, 6) + '-' + at.slice(6, 8)
+      + 'T' + at.slice(8, 10) + ':' + at.slice(10, 12) + ':' + at.slice(12, 14) + 'Z';
+    const d = new Date(iso);
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  function lineChart(canvasId, existing, labels, datasets, yMax) {
+    const options = {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom' } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 8, maxRotation: 0 } },
+        y: { beginAtZero: true, suggestedMax: yMax },
+      },
+    };
+    if (existing) {
+      existing.data.labels = labels;
+      existing.data.datasets = datasets;
+      existing.update();
+      return existing;
+    }
+    return new Chart(el(canvasId), { type: 'line', data: { labels, datasets }, options });
+  }
+
+  function series(label, values, color, fill) {
+    return { label, data: values, borderColor: color, backgroundColor: color + '33', fill: !!fill,
+      pointRadius: 0, borderWidth: 1.5, tension: 0.2 };
+  }
+
+  function renderCharts(points, range) {
+    const labels = points.map((p) => labelOf(p.at));
+    presenceChart = lineChart('presenceChart', presenceChart, labels, [
+      series('경기 중', points.map((p) => p.inGame), '#b91c1c', true),
+      series('로비', points.map((p) => p.inLobby), '#d97706', true),
+      series('온라인', points.map((p) => p.online), '#15803d', true),
+      series('소켓', points.map((p) => p.socketConnections), '#1d4ed8'),
+    ]);
+    resourceChart = lineChart('resourceChart', resourceChart, labels, [
+      series('CPU %', points.map((p) => p.cpuPct), '#b91c1c'),
+      series('힙 MB', points.map((p) => p.heapUsedMb), '#1d4ed8'),
+      series('DB 풀', points.map((p) => p.dbPoolActive), '#15803d'),
+    ]);
+    // 점이 없으면 서버가 꺼져 있었거나 방금 켜진 것입니다. 빈 차트보다 그 사실을 적습니다.
+    if (!points.length) {
+      say(range === '7d' ? '최근 7일 샘플이 없습니다. 서버가 1분마다 남깁니다.' : '최근 24시간 샘플이 없습니다. 서버가 1분마다 남깁니다.');
+    }
+  }
 
   async function loadUsers() {
     say('');
@@ -966,6 +1103,13 @@
   el('refresh').addEventListener('click', () => load().catch(() => {}));
   el('status').addEventListener('change', () => load().catch(() => {}));
 
+  el('tabOverview').addEventListener('click', () => {
+    showTab('overview');
+    loadOverview().catch(() => {});
+  });
+  el('refreshOverview').addEventListener('click', () => loadOverview().catch(() => {}));
+  el('range').addEventListener('change', () => loadOverview().catch(() => {}));
+
   el('tabReports').addEventListener('click', () => {
     showTab('reports');
     load().catch(() => {});
@@ -1001,11 +1145,11 @@
 
     showList((await res.json()).username);
 
-    // 신고로 시작합니다. 운영자가 여는 이유의 대부분이 그쪽이고, 피드백은 눌러서
-    // 갑니다. 로그인할 때마다 마지막에 본 탭을 기억하게 하려면 저장할 곳이 필요한데
+    // 개요로 시작합니다. 지금 몇 명이 붙어 있고 서버가 멀쩡한지가 열자마자 보여야 합니다.
+    // 신고와 피드백은 눌러서 갑니다. 마지막에 본 탭을 기억하려면 저장할 곳이 필요한데
     // 그만한 값은 아닙니다.
-    showTab('reports');
-    await load();
+    showTab('overview');
+    await loadOverview();
   }
 
   start().catch(() => showLogin(''));
