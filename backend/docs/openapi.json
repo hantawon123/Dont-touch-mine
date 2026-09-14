@@ -30,6 +30,26 @@
         },
         "type" : "object"
       },
+      "AdminOverview" : {
+        "properties" : {
+          "matches" : {
+            "$ref" : "#/components/schemas/MatchStats"
+          },
+          "now" : {
+            "$ref" : "#/components/schemas/Now"
+          },
+          "range" : {
+            "type" : "string"
+          },
+          "series" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Point"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "AdminSession" : {
         "properties" : {
           "username" : {
@@ -488,6 +508,92 @@
         },
         "type" : "object"
       },
+      "MatchStats" : {
+        "properties" : {
+          "avgDurationSec" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "dropoutRate" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "inProgress" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "matchesToday" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "Now" : {
+        "properties" : {
+          "cpuPct" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "dbPoolActive" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "dbPoolMax" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "deletionsToday" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "feedbackToday" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "heapMaxMb" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "heapUsedMb" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inGame" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inLobby" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "online" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "pendingReports" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "signupsToday" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "socketConnections" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "suspendedUsers" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalUsers" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "PhotonAuthResponse" : {
         "properties" : {
           "Message" : {
@@ -499,6 +605,50 @@
           },
           "UserId" : {
             "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Point" : {
+        "properties" : {
+          "at" : {
+            "type" : "string"
+          },
+          "cpuPct" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "dbPoolActive" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "deletions" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "heapUsedMb" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inGame" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inLobby" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "online" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "signups" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "socketConnections" : {
+            "format" : "int32",
+            "type" : "integer"
           }
         },
         "type" : "object"
@@ -1171,6 +1321,37 @@
         },
         "tags" : [
           "admin-feedback-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/overview" : {
+      "get" : {
+        "operationId" : "overview",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "range",
+            "required" : false,
+            "schema" : {
+              "default" : "24h",
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminOverview"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-overview-controller"
         ]
       }
     },

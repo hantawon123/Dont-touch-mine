@@ -23,6 +23,9 @@ import com.ssafy.d205.domain.report.entity.UserReport;
  */
 public interface UserReportRepository extends JpaRepository<UserReport, Integer> {
 
+    /** 그 상태의 보이는 신고 수. 개요 탭의 "미검토 신고" 카드가 PENDING 으로 부릅니다. */
+    long countByStatusAndDeletedAtIsNull(ReportStatus status);
+
     /**
      * 신고당한 사람들을 묶어서 돌려줍니다. 목록 화면이 쓰는 조회입니다.
      *

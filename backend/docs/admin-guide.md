@@ -427,7 +427,49 @@ GET /api/v1/admin/users/{userId}
 
 ---
 
-## 10. 알고 있어야 할 것
+## 10. 개요
+
+관리 화면의 첫 탭입니다. 지금 숫자와 최근 추이를 한 화면에 둡니다.
+
+```
+GET /api/v1/admin/overview?range=24h
+```
+
+`range` 는 `24h`(기본) 또는 `7d`. 그 외 값은 `24h` 로 읽습니다.
+
+```json
+{
+  "now": {
+    "online": 3, "inLobby": 4, "inGame": 6, "socketConnections": 13,
+    "totalUsers": 120, "signupsToday": 5, "deletionsToday": 0,
+    "pendingReports": 2, "feedbackToday": 1, "suspendedUsers": 1,
+    "cpuPct": 12.5, "heapUsedMb": 310, "heapMaxMb": 1024, "dbPoolActive": 2, "dbPoolMax": 13
+  },
+  "range": "24h",
+  "series": [
+    { "at": "20260914120000", "online": 3, "inLobby": 4, "inGame": 6, "socketConnections": 13,
+      "signups": 0, "deletions": 0, "cpuPct": 12.5, "heapUsedMb": 310, "dbPoolActive": 2 }
+  ],
+  "matches": null
+}
+```
+
+| 필드 | 뜻 |
+| --- | --- |
+| `now.*` | 요청 순간에 다시 잰 값입니다. 샘플이 아닙니다 |
+| `signupsToday` `feedbackToday` | "오늘"은 **Asia/Seoul** 기준입니다. 저장은 UTC 지만 운영자의 하루는 한국 시간입니다 |
+| `deletionsToday` | 탈퇴는 행이 지워져 셀 수 없어 이벤트로 셉니다. 서버가 재시작한 사이의 것은 빠질 수 있습니다 |
+| `cpuPct` | JVM 이 보는 시스템 CPU, 0~100. 컨테이너 안에서는 cgroup 한도 기준 |
+| `dbPool*` | 게임 DB 와 분석 DB 커넥션 풀을 합친 값 |
+| `series` | 1분마다 남기는 샘플. `24h` 는 그대로(최대 1,440점), `7d` 는 15분 버킷(최대 672점)으로 인원·자원은 평균, 가입·탈퇴는 합 |
+| `matches` | 경기 통계 자리. 분석 서비스가 분리되어 내부 API 가 생기기 전까지 `null` 입니다 |
+
+샘플은 서버가 1분마다 스스로 남기고 30일 지난 것은 지웁니다(`ops.*` 설정). 서버가 꺼져 있던
+구간은 점이 없습니다. 그래프의 빈 구간이 바로 다운타임입니다.
+
+---
+
+## 11. 알고 있어야 할 것
 
 **계정이 하나이고 팀이 공유합니다.** 누가 무엇을 했는지 구분할 수 없습니다. 사람마다
 계정을 나눌 일이 생기면 그때 계정 테이블을 만들어야 합니다.

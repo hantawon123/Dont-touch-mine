@@ -7,9 +7,13 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 
+import com.ssafy.d205.domain.presence.entity.PresenceStatus;
 import com.ssafy.d205.domain.presence.entity.UserPresence;
 
 public interface UserPresenceRepository extends JpaRepository<UserPresence, Integer> {
+
+    /** 그 상태인 사람 수. 운영 지표 샘플러와 개요 탭이 상태 셋에 대해 부릅니다. ix_user_presence_sweep 의 선두 컬럼입니다. */
+    long countByStatus(PresenceStatus status);
 
     /**
      * 하트비트가 끊긴 행을 OFFLINE 으로 내립니다. 스윕이 부릅니다.
