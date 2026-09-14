@@ -450,7 +450,7 @@ GET /api/v1/admin/overview?range=24h
     { "at": "20260914120000", "online": 3, "inLobby": 4, "inGame": 6, "socketConnections": 13,
       "signups": 0, "deletions": 0, "cpuPct": 12.5, "heapUsedMb": 310, "dbPoolActive": 2 }
   ],
-  "matches": null
+  "matches": { "matchesToday": 12, "inProgress": 1, "avgDurationSec": 412.5, "dropoutRate": 0.125 }
 }
 ```
 
@@ -462,7 +462,7 @@ GET /api/v1/admin/overview?range=24h
 | `cpuPct` | JVM 이 보는 시스템 CPU, 0~100. 컨테이너 안에서는 cgroup 한도 기준 |
 | `dbPool*` | 게임 DB 와 분석 DB 커넥션 풀을 합친 값 |
 | `series` | 1분마다 남기는 샘플. `24h` 는 그대로(최대 1,440점), `7d` 는 15분 버킷(최대 672점)으로 인원·자원은 평균, 가입·탈퇴는 합 |
-| `matches` | 경기 통계 자리. 분석 서비스가 분리되어 내부 API 가 생기기 전까지 `null` 입니다 |
+| `matches` | 경기 통계. 수집 서비스의 내부 API 에서 받아옵니다. `matchesToday`(오늘 시작한 경기), `inProgress`(시작 후 30분 안이고 끝 이벤트 없음), `avgDurationSec`, `dropoutRate`(시작 인원 대비 결과 없이 사라진 비율). 수집 서비스가 죽어 있으면 `null` 이고 나머지 카드는 그대로입니다 |
 
 샘플은 서버가 1분마다 스스로 남기고 30일 지난 것은 지웁니다(`ops.*` 설정). 서버가 꺼져 있던
 구간은 점이 없습니다. 그래프의 빈 구간이 바로 다운타임입니다.

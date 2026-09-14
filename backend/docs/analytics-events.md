@@ -371,6 +371,11 @@ occurred_at)`이 DB 에서 막습니다(7절).
 
 ### 계층 위치
 
+**서버 쪽은 별도 서비스입니다**(2026-09-14, S15P21D205-980). `backend/analytics` 모듈이 `/api/v1/events` 를
+받아 자기 DB(`d205-mysql-analytics`)에 쓰고, 계정 서비스(`backend/app`)는 이 경로를 모릅니다. nginx 가 이
+주소 하나만 8081 로 보냅니다. 수집 서비스가 죽어 있으면 nginx 가 502 를 내고 클라이언트는 그 배치를
+스풀에 두었다가 다시 보냅니다. 게임·계정 기능은 영향이 없습니다.
+
 Unity 쪽 전송 구현은 `Backend` 계층에 둡니다. `Client`가 아닙니다. `UnityWebRequest`를
 만지는 계층은 `Backend` 하나라는 것이 `_Game/README.md`의 규칙이고, 계정·친구·접속 상태가
 그렇게 되어 있습니다.
@@ -418,8 +423,9 @@ Unity 쪽 전송 구현은 `Backend` 계층에 둡니다. `Client`가 아닙니�
 "탈퇴는 흔적을 남기지 않는다"는 약속으로 적어 두었습니다. `game_event`는 FK 가 없어서
 그냥 두면 `user_public_id`가 남습니다. **같은 약속을 여기에도 적용합니다.**
 
-탈퇴 처리가 `UPDATE game_event SET user_public_id = NULL WHERE user_public_id = ?`를 분석
-DataSource 로 실행합니다. 행은 남고 사람만 지워집니다. 경기 집계는 "누군가 여기 숨겼다"만
+계정 서비스가 탈퇴를 커밋한 뒤 수집 서비스의 내부 API `DELETE /internal/users/{userId}/events` 를
+공유 키와 함께 부르고, 수집 서비스가 `UPDATE game_event SET user_public_id = NULL WHERE user_public_id = ?`
+를 실행합니다(S15P21D205-1002). 행은 남고 사람만 지워집니다. 경기 집계는 "누군가 여기 숨겼다"만
 알면 되고 그게 누구였는지는 필요 없으므로, 행을 지우면 남은 다섯 명의 경기가 뒤틀리고
 사람만 지우면 아무것도 뒤틀리지 않습니다.
 
@@ -427,9 +433,10 @@ DataSource 로 실행합니다. 행은 남고 사람만 지워집니다. 경기 
 바꾸는 것은 JSON 갱신이라 비싸고, 그 값들은 `match_start.players`로만 유저와 이어지므로
 최상위 컬럼이 NULL 이 된 순간 이미 끊깁니다. 최상위 컬럼만 지웁니다.
 
-**best-effort 입니다.** 분석 DB 가 죽어 있어도 탈퇴는 성공해야 합니다. 실패하면 로그만
-남기고, 그 로그를 보고 사람이 나중에 같은 UPDATE 를 실행합니다. 탈퇴를 막는 것보다 그 편이
-약속에 가깝습니다. 사용자 입장에서 탈퇴는 이미 됐고, 남은 것은 우리가 치울 일입니다.
+**best-effort 입니다.** 수집 서비스가 죽어 있어도 탈퇴는 성공해야 합니다. 호출이 실패하면 계정
+서비스가 그 userId 를 메모리에 두고 1분마다 다시 보냅니다(`AnalyticsErasureRelay`). 계정 서비스가 그
+사이 재시작하면 그 목록은 사라지고, 그때는 로그를 보고 사람이 같은 UPDATE 를 실행합니다. 탈퇴를 막는
+것보다 그 편이 약속에 가깝습니다. 사용자 입장에서 탈퇴는 이미 됐고, 남은 것은 우리가 치울 일입니다.
 
 `ix_game_event_match` 도 `ix_game_event_name` 도 `user_public_id`로 시작하지 않아 이 UPDATE 는
 풀 스캔입니다. 탈퇴는 드물고 테이블이 수백만 행이라도 수 초라 인덱스를 따로 두지 않습니다.

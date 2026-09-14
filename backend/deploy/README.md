@@ -26,22 +26,31 @@ EC2가 날아가면 같이 사라집니다.
 ```
 인터넷 ─┬─ :22  ────────────────▶ sshd
         ├─ :80  ──▶ nginx ──▶ 443 리다이렉트 + 인증서 갱신 챌린지
-        ├─ :443 ──▶ nginx ─┬─ /jenkins/ ─▶ 127.0.0.1:9090  Jenkins
-                            ├─ /ws/      ─▶ 127.0.0.1:8080  앱 컨테이너 (WebSocket, 알림)
-                            └─ /         ─▶ 127.0.0.1:8080  앱 컨테이너
-                                                              └▶ d205-mysql (포트 미공개)
-                                                                  ├─ d205            게임 (풀 10)
-                                                                  ├─ d205_analytics  플레이 로그 (풀 3)
-                                                                  └─ metabase        대시보드 설정
-        └─ :8443 ──▶ nginx (Basic Auth) ─▶ 127.0.0.1:3000  Metabase ─▶ d205-mysql (d205_reader, SELECT 만)
+        ├─ :443 ──▶ nginx ─┬─ /jenkins/        ─▶ 127.0.0.1:9090  Jenkins
+                            ├─ /api/v1/events   ─▶ 127.0.0.1:8081  d205-analytics (수집)
+                            │                                        └▶ d205-mysql-analytics
+                            │                                            ├─ d205_analytics  플레이 로그
+                            │                                            └─ metabase        대시보드 설정
+                            ├─ /ws/             ─▶ 127.0.0.1:8080  d205-app (WebSocket, 알림)
+                            └─ /                ─▶ 127.0.0.1:8080  d205-app (계정·친구·신고·관리 화면)
+                                                                     ├▶ d205-mysql (d205 게임 스키마)
+                                                                     └▶ analytics:8080/internal/… (compose 안에서만)
+        └─ :8443 ──▶ nginx (Basic Auth) ─▶ 127.0.0.1:3000  Metabase ─▶ d205-mysql-analytics (d205_reader, SELECT 만)
 ```
 
-대시보드가 `/analytics/` 가 아니라 8443 포트인 이유는 `nginx/d205.conf` 의 8443 블록 주석에
-있습니다. 한 줄로 요약하면 Metabase 는 하위 경로 아래에서 동작하지 못합니다.
+컨테이너 다섯입니다(`compose.prod.yml`). 대시보드가 `/analytics/` 가 아니라 8443 포트인 이유는
+`nginx/d205.conf` 의 8443 블록 주석에 있습니다. 한 줄로 요약하면 Metabase 는 하위 경로 아래에서
+동작하지 못합니다.
 
-한 MySQL 인스턴스에 스키마가 둘입니다. 앱은 커넥션 풀을 따로 두어 로그 쓰기가 막혀도
-게임 API 가 기다리지 않게 합니다. 별도 서비스로 나누지 않은 이유는 지라 에픽
-S15P21D205-780 에 있습니다.
+플레이 로그 수집은 2026-09-14 부터 **별도 서비스와 별도 DB 컨테이너**입니다(S15P21D205-980). 그 전에는
+한 앱, 한 MySQL 에 스키마만 갈라 두었는데, 분석 쪽 메모리 폭주나 배포 재시작이 게임 API 를 같이
+죽이는 구조였습니다. 지금은 `d205-analytics` 를 `docker kill` 해도 로비·친구·알림·신고가 그대로 돌고,
+클라이언트는 실패한 배치를 스풀에 두었다가 다시 보냅니다. 서버가 한 대라 모든 컨테이너에 메모리·CPU
+상한을 걸어 두었습니다. 상한이 없으면 한 컨테이너의 폭주가 나머지를 같이 죽여 나눈 의미가 없습니다.
+
+두 서비스는 서로의 DB 에 붙지 않습니다. 계정 서비스가 분석에 시킬 일(탈퇴한 사람의 로그 익명화,
+관리 화면 개요 탭의 경기 통계)은 compose 네트워크 안에서 `http://analytics:8080/internal/...` 을 공유
+키(`INTERNAL_KEY`)와 함께 부릅니다. nginx 에 그 경로는 없습니다.
 
 ## 적용 방법
 
@@ -64,37 +73,76 @@ scp backend/deploy/verify.sh d205:/tmp/verify.sh
 ssh d205 'bash /tmp/verify.sh'
 ```
 
-분석 스키마 권한 (플레이 로그 수집을 처음 배포하기 전에 **한 번**):
+### 분석 DB 이관 (서비스 분리 배포 뒤 **한 번**)
+
+분리 전의 플레이 로그와 Metabase 설정은 `d205-mysql` 의 `d205_analytics`·`metabase` 스키마에 있습니다.
+새 compose 가 올라가면 `d205-mysql-analytics` 는 빈 채로 뜨고 수집 서비스가 거기에 Flyway 를 돌립니다.
+그 뒤 옛 데이터를 옮깁니다.
 
 ```
-scp backend/deploy/mysql/init/01-analytics-grant.sh d205:/tmp/01-analytics-grant.sh
-ssh d205 "docker cp /tmp/01-analytics-grant.sh d205-mysql:/tmp/analytics-grant.sh && docker exec d205-mysql bash /tmp/analytics-grant.sh"
+scp backend/deploy/migrate-analytics.sh d205:/home/ubuntu/d205/deploy/migrate-analytics.sh
+ssh d205 'cd /home/ubuntu/d205 && bash deploy/migrate-analytics.sh'
+ssh d205 'cd /home/ubuntu/d205 && docker compose -f compose.prod.yml restart metabase'
 ```
 
-initdb 용 스크립트를 그대로 컨테이너 안에서 실행합니다. 컨테이너에는 compose 가 넘긴
-`MYSQL_USER`(`.env` 의 `DB_USERNAME` 과 같은 계정) 와 `MYSQL_ROOT_PASSWORD` 가 있어서 스크립트가 그 값을 씁니다. 비밀번호를 명령줄에
-적지 않는 이유이기도 합니다. 성공하면 `[analytics-grant] <계정> 에게 d205_analytics 권한을
-주었습니다.` 가 찍힙니다. 이 스크립트는 MySQL 이 데이터 볼륨을 처음 만들 때만 자동으로 돌아서,
-이미 초기화된 운영 볼륨에는 이렇게 손으로 한 번 실행해야 합니다. 스키마와 테이블은 앱이
-첫 접속에서 만듭니다(`createDatabaseIfNotExist`, Flyway).
+백업이 먼저이고 실패하면 거기서 멈춥니다. 스크립트가 끝에 옛·새 컨테이너의 행 수를 나란히 찍으니
+`다름!` 이 없는지 보고, Metabase 대시보드가 옮기기 전과 같은 숫자를 보이는지 확인합니다. 옛 스키마는
+지우지 않습니다. 며칠 문제가 없으면 `d205-mysql` 에서 `DROP DATABASE d205_analytics; DROP DATABASE metabase;`
+를 손으로 실행합니다.
 
-GRANT 만 하는 스크립트라 두 번 실행해도 해가 없습니다.
+읽기 계정(`d205_reader`)과 Metabase 계정은 `d205-mysql-analytics` 볼륨이 처음 만들어질 때
+`deploy/mysql-analytics/init/01-accounts.sh` 가 자동으로 만듭니다. 손으로 할 것이 없습니다. 볼륨이 이미
+있는데 계정만 다시 만들어야 하면 그 스크립트를 `docker cp` 로 넣어 `docker exec -e ANALYTICS_READER_PASSWORD -e METABASE_DB_PASSWORD d205-mysql-analytics bash /tmp/01-accounts.sh` 로 실행합니다. 두 번 실행해도 무해합니다.
 
-권한 없이 배포해도 앱은 뜹니다. 대신 이벤트가 전부 버려지고 로그에 30초마다
-`분석 DB 를 준비하지 못했습니다` ERROR 가 남습니다. 그 로그가 보이면 위 명령을 실행하면
-되고, 앱을 다시 띄울 필요는 없습니다.
+### 계정 DB 일일 백업 (한 번 설치)
+
+플레이 로그 백업은 `reset-analytics.sh` 가 지울 때 뜨지만, 계정 DB(users·friendships·user_reports)는
+정기 백업이 없었습니다(S15P21D205-981). `deploy/backup-game-db.sh` 를 매일 새벽 4시에 돌립니다.
+
+```
+ssh d205 'cd /home/ubuntu/d205 && bash deploy/backup-game-db.sh'
+ssh d205 "( crontab -l 2>/dev/null | grep -v backup-game-db; echo '0 4 * * * cd /home/ubuntu/d205 && bash deploy/backup-game-db.sh >> /home/ubuntu/d205-backups/backup.log 2>&1' ) | crontab -"
+ssh d205 'crontab -l'
+```
+
+첫 줄은 지금 한 번 떠 보는 것이고, 둘째 줄이 cron 을 등록합니다. 파일은 `/home/ubuntu/d205-backups/`
+에 날짜 이름으로 남고 7일 지난 것은 스크립트가 지웁니다. 덤프에 기기 식별자(그 계정의 비밀번호)가
+평문으로 들어 있어 권한이 600 입니다. 서버 밖으로 복사하려면 그때 암호화를 따로 정합니다.
+
+**복구**: 컨테이너를 그대로 두고 덤프를 root 로 넣습니다. 덤프에 `CREATE DATABASE`/`USE` 가 들어 있어
+스키마 이름을 따로 줄 필요가 없고, 넣기 전에 현재 상태를 한 번 더 백업합니다.
+
+```
+ssh d205 'cd /home/ubuntu/d205 && bash deploy/backup-game-db.sh'
+ssh d205 "set -a; . /home/ubuntu/d205/.env; set +a; gunzip -c /home/ubuntu/d205-backups/<파일>.sql.gz | docker exec -i d205-mysql sh -c 'MYSQL_PWD=\$MYSQL_ROOT_PASSWORD mysql -uroot'"
+ssh d205 'cd /home/ubuntu/d205 && docker compose -f compose.prod.yml restart app'
+```
+
+복구 뒤 앱을 재시작하는 이유는 Flyway 가 `flyway_schema_history` 를 다시 읽어 덤프 시점 이후의
+마이그레이션을 적용해야 하기 때문입니다. 2026-09-14 에 로컬(`compose.local.yml`)에서 덤프 → 삭제 →
+복구 → 계정 조회까지 한 번 확인했습니다.
 
 ### `.env` 의 키
 
-`compose.prod.yml` 이 `:?` 로 요구하는 키는 다섯입니다. 하나라도 비면 compose 파싱 단계에서 멈춥니다.
+`compose.prod.yml` 이 `:?` 로 요구하는 키는 열입니다. 하나라도 비면 compose 파싱 단계에서 멈춥니다.
 
 | 키 | 쓰는 곳 |
 | --- | --- |
-| `MYSQL_ROOT_PASSWORD` | mysql 컨테이너, `verify.sh` |
+| `MYSQL_ROOT_PASSWORD` | mysql 컨테이너, `verify.sh`, `backup-game-db.sh` |
 | `DB_NAME` | mysql(`MYSQL_DATABASE`), app, `verify.sh` |
 | `DB_USERNAME` | mysql(`MYSQL_USER`), app. 컨테이너의 `MYSQL_USER` 와 앱의 `DB_USERNAME` 은 같은 계정입니다 |
 | `DB_PASSWORD` | mysql(`MYSQL_PASSWORD`), app |
-| `METABASE_DB_PASSWORD` | metabase(`MB_DB_PASS`), 아래 2번 계정 스크립트 |
+| `ANALYTICS_MYSQL_ROOT_PASSWORD` | mysql-analytics 컨테이너, `reset-analytics.sh`, `migrate-analytics.sh` |
+| `ANALYTICS_DB_NAME` | mysql-analytics(`MYSQL_DATABASE`), analytics. `d205_analytics` 로 두세요. 이관 스크립트와 Metabase 가 그 이름을 씁니다 |
+| `ANALYTICS_DB_USERNAME` / `ANALYTICS_DB_PASSWORD` | mysql-analytics(`MYSQL_USER`/`MYSQL_PASSWORD`), analytics |
+| `ANALYTICS_READER_PASSWORD` | mysql-analytics 초기화 스크립트가 만드는 읽기 계정. Metabase 가 데이터를 볼 때 이 계정 |
+| `METABASE_DB_PASSWORD` | metabase(`MB_DB_PASS`), mysql-analytics 초기화 스크립트 |
+
+`INTERNAL_KEY` 는 `:?` 가 아니지만 **비우면 두 기능이 조용히 멈춥니다**(S15P21D205-1002). 계정 서비스가
+분석 서비스의 `/internal/...` 을 부를 때 쓰는 공유 키인데, 분석 서비스는 키가 없거나 틀리면 404 로
+답합니다. 탈퇴한 사람의 로그 익명화와 관리 화면 개요 탭의 경기 통계가 그 경로입니다. 길고 무작위인
+값을 하나 만들어 두 서비스가 같은 `.env` 에서 읽게 하면 됩니다. 두 서비스의 기동 로그에 키가 비었다는
+경고가 남습니다.
 
 `PHOTON_AUTH_SECRET` 과 `PHOTON_AUTH_KEY` 도 선택입니다(S15P21D205-925). 없으면 Photon 커스텀
 인증이 꺼진 채로 뜨고 게임은 그대로 돌아갑니다. **`.env` 에 넣는 것만으로는 앱에 닿지 않습니다** -
@@ -103,8 +151,7 @@ compose 는 `.env` 를 치환에만 쓰고 컨테이너에 전달하는 것은 `
 꺼진 채로 뜹니다.
 
 선택인 키는 `ADMIN_USERNAME`, `ADMIN_PASSWORD` 입니다. 없으면 관리 API 만 막히고 게임은 돌아가므로
-`:?` 를 붙이지 않았습니다. 그 밖에 compose 는 읽지 않지만 2번 계정 스크립트가 쓰는
-`ANALYTICS_READER_PASSWORD` 가 있습니다.
+`:?` 를 붙이지 않았습니다.
 
 같은 내용이 서버의 `/home/ubuntu/d205/.env` 와 Jenkins 의 비밀 파일 `d205-backend-env` 두 곳에 있어야 합니다.
 
@@ -121,7 +168,7 @@ ANALYTICS_READER_PASSWORD=...
 METABASE_DB_PASSWORD=...
 ```
 
-- 서버의 `/home/ubuntu/d205/.env`: 아래 2번 계정 스크립트가 이 두 줄을 읽습니다. `verify.sh` 도
+- 서버의 `/home/ubuntu/d205/.env`: `mysql-analytics` 컨테이너가 이 두 줄로 계정을 만듭니다. `verify.sh` 도
   이 파일을 읽지만 `MYSQL_ROOT_PASSWORD` 와 `DB_NAME` 만 씁니다.
 - **Jenkins 의 비밀 파일 `d205-backend-env`**: 배포의 compose 가 읽습니다. `Jenkins 관리 → Credentials
   → d205-backend-env → Update` 에서 두 줄을 더한 파일을 올립니다. 이걸 빠뜨리면 develop 빌드가
@@ -131,17 +178,10 @@ METABASE_DB_PASSWORD=...
   `ssh d205 'set -a; . /home/ubuntu/d205/.env; set +a; printf %s $METABASE_DB_PASSWORD | md5sum; printf %s $(docker exec d205-metabase printenv MB_DB_PASS) | md5sum'`
   두 줄이 같아야 합니다.
 
-**2. MySQL 계정 만들기** (한 번. 두 번 해도 무해):
-
-```
-scp backend/deploy/mysql/init/02-analytics-accounts.sh d205:/tmp/02-analytics-accounts.sh
-ssh d205 "set -a; . /home/ubuntu/d205/.env; set +a; docker cp /tmp/02-analytics-accounts.sh d205-mysql:/tmp/analytics-accounts.sh && docker exec -e ANALYTICS_READER_PASSWORD -e METABASE_DB_PASSWORD d205-mysql bash /tmp/analytics-accounts.sh"
-```
-
-비밀번호는 `docker exec -e` 로 그 순간만 넘깁니다. `compose.prod.yml` 의 mysql 환경변수에
-넣지 않는 이유는, 환경변수를 바꾸면 compose 가 MySQL 컨테이너를 다시 만들어 배포 중 DB 가
-잠깐 끊기기 때문입니다. 성공하면 `[analytics-accounts] d205_reader 에게 ...` 와
-`[analytics-accounts] metabase 스키마와 계정을 준비했습니다.` 두 줄이 찍힙니다.
+**2. MySQL 계정.** 손으로 할 것이 없습니다. `d205-mysql-analytics` 볼륨이 처음 만들어질 때
+`deploy/mysql-analytics/init/01-accounts.sh` 가 `.env` 의 두 값으로 읽기 계정과 Metabase 계정을 만듭니다.
+`docker logs d205-mysql-analytics 2>&1 | grep analytics-init` 에 두 줄이 찍혀 있으면 된 것입니다.
+볼륨이 이미 있는 상태에서 비밀번호를 바꿨다면 위 "분석 DB 이관" 절 끝의 `docker exec` 한 줄로 다시 만듭니다.
 
 **3. nginx 8443 과 Basic Auth**
 
@@ -178,11 +218,13 @@ Metabase 는 원인 예외를 로그에 남기지 않아 이 셋을 순서대로
 자체 관리자 계정을 만드는 화면이 뜹니다):
 
 - 관리자 계정을 만들고 그 정보를 팀에 공유합니다.
-- "데이터베이스 추가" 에서 MySQL, 호스트 `mysql`, 포트 `3306`, 데이터베이스 `d205_analytics`,
+- "데이터베이스 추가" 에서 MySQL, 호스트 `mysql-analytics`, 포트 `3306`, 데이터베이스 `d205_analytics`,
   사용자 `d205_reader`, 비밀번호는 `.env` 의 `ANALYTICS_READER_PASSWORD`. 이름은 "플레이 로그".
-- 같은 계정으로 데이터베이스 `d205` 를 하나 더 추가합니다. 이름은 "게임". `users` 와 조인할 때 씁니다.
-- 앱 계정(`DB_USERNAME`)을 넣지 마세요. 그 계정은 쓸 수 있는 계정이라 Metabase 의 SQL 창이
-  게임 데이터를 지우는 창이 됩니다.
+- 게임 DB 는 등록하지 않습니다. 분석 DB 컨테이너에는 게임 스키마가 없고, 읽기 계정도 그쪽에 권한이 없습니다.
+  플레이 로그에는 닉네임이 없어 `userId` 문자열만 보이는데, 그것이 의도입니다(개인정보). 이름이 필요한
+  조회는 관리 화면(사용자 탭)에서 합니다.
+- 앱 계정(`ANALYTICS_DB_USERNAME`)을 넣지 마세요. 그 계정은 쓸 수 있는 계정이라 Metabase 의 SQL 창이
+  로그를 지우는 창이 됩니다.
 
 **6. 기본 대시보드.** 데이터베이스를 등록했으면 화면은 스크립트가 만듭니다. 문서의 쿼리를 읽어
 질문 다섯 개와 대시보드 하나를 만들고, 여러 번 돌려도 이름으로 찾아 갱신합니다.
@@ -198,8 +240,9 @@ ssh -t d205 "MB_USER=<Metabase 관리자 이메일> python3 /tmp/provision_dashb
 
 ### 플레이 로그 지우기
 
-`game_event` 에는 보존 기간도 자동 삭제도 없습니다. 디스크가 찰 때까지 쌓이고, 게임 DB 와
-같은 디스크라 그때는 게임 API 도 같이 멈춥니다. 플레이테스트 사이에 비우려면:
+`game_event` 에는 보존 기간도 자동 삭제도 없습니다. 디스크가 찰 때까지 쌓입니다. 컨테이너와 볼륨은
+게임 DB 와 다르지만 **디스크는 같은 EC2 것**이라, 가득 차면 게임 DB 도 쓰기를 못 합니다. 플레이테스트
+사이에 비우려면(스크립트는 `d205-mysql-analytics` 를 봅니다):
 
 ```
 scp backend/deploy/reset-analytics.sh d205:/tmp/

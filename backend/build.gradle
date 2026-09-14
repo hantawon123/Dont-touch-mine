@@ -1,85 +1,63 @@
+import org.springframework.boot.gradle.plugin.SpringBootPlugin
+
+// 루트는 실행 파일을 만들지 않습니다. 세 모듈이 같이 쓰는 설정만 둡니다.
+//
+// 플러그인을 여기서 apply false 로 선언하는 이유는 버전을 한 곳에 두려는 것입니다. 모듈마다
+// 버전을 적으면 한 모듈만 올리는 날이 옵니다. 실제 적용은 각 모듈의 build.gradle 이 합니다.
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '4.1.1'
-	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.springframework.boot' version '4.1.1' apply false
+	id 'io.spring.dependency-management' version '1.1.7' apply false
 }
 
-group = 'com.ssafy'
-version = '0.0.1-SNAPSHOT'
-description = 'D205 game backend'
+subprojects {
+	apply plugin: 'java'
+	apply plugin: 'io.spring.dependency-management'
 
-java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
+	group = 'com.ssafy'
+	version = '0.0.1-SNAPSHOT'
+
+	java {
+		toolchain {
+			languageVersion = JavaLanguageVersion.of(21)
+		}
 	}
-}
 
-// 소스 인코딩을 못 박습니다.
-//
-// 지정하지 않으면 javac 는 플랫폼 기본 문자셋을 씁니다. JDK 18 부터 그 값이 UTF-8
-// 이라 지금은 지정하지 않아도 맞지만, 이 코드베이스는 주석과 오류 메시지가 한글이라
-// 어긋나는 순간 조용히 깨집니다. 응답 메시지는 테스트가 검증하지 않으므로
-// (code 로만 단정합니다) 깨져도 빌드가 통과합니다.
-//
-// 실제로 이 개발 PC 는 native.encoding 이 MS949 이고 젠킨스는 UTF-8 입니다.
-// 기본값에 기대면 두 곳이 갈릴 여지를 남겨 둡니다.
-tasks.withType(JavaCompile).configureEach {
-	options.encoding = 'UTF-8'
-}
+	tasks.withType(JavaCompile).configureEach {
+		options.encoding = 'UTF-8'
+	}
 
-repositories {
-	mavenCentral()
-}
+	repositories {
+		mavenCentral()
+	}
 
-dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-actuator'
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-flyway'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-	// 친구 요청·방 초대 알림을 클라이언트에 밀어주는 WebSocket 채널. STOMP 는 쓰지 않고
-	// spring-websocket 의 핸들러만 씁니다(global/config/WebSocketConfig).
-	implementation 'org.springframework.boot:spring-boot-starter-websocket'
-	implementation 'org.flywaydb:flyway-mysql'
-	// API 명세를 코드에서 생성합니다. 손으로 유지하는 엔드포인트 목록을 두지 않기
-	// 위한 것입니다. 2.x는 Spring Boot 3용이고 3.x가 Boot 4용입니다.
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0'
-	compileOnly 'org.projectlombok:lombok'
-	runtimeOnly 'com.mysql:mysql-connector-j'
-	annotationProcessor 'org.projectlombok:lombok'
-	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
-	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-flyway-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-	// 테스트가 필요한 DB를 스스로 띄웁니다. 파이프라인이 DB를 주입하는 방식은
-	// 로컬과 CI가 갈리게 되므로 의존성 선언을 테스트 코드 쪽에 둡니다.
-	//
-	// Testcontainers 2.x에서 모듈명이 바뀌었습니다. 1.x의 org.testcontainers:mysql,
-	// org.testcontainers:junit-jupiter 는 2.0.5에 없습니다.
-	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
-	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
-	testImplementation 'org.testcontainers:testcontainers-mysql'
-	testCompileOnly 'org.projectlombok:lombok'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	testAnnotationProcessor 'org.projectlombok:lombok'
-}
+	// common 은 Boot 플러그인을 적용하지 않지만 같은 BOM 으로 버전을 맞춰야 합니다. Boot 플러그인이
+	// 붙는 모듈에서는 이 import 가 중복이지만 같은 좌표라 충돌하지 않습니다.
+	dependencyManagement {
+		imports {
+			mavenBom SpringBootPlugin.BOM_COORDINATES
+		}
+	}
 
-tasks.named('test') {
-	useJUnitPlatform()
+	dependencies {
+		compileOnly 'org.projectlombok:lombok'
+		annotationProcessor 'org.projectlombok:lombok'
+		testCompileOnly 'org.projectlombok:lombok'
+		testAnnotationProcessor 'org.projectlombok:lombok'
+		testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	}
 
-	// ClientGuideTest 와 OpenApiSpecTest 는 docs/ 를 실행 중에 파일로 읽습니다. 그런데
-	// 그 경로가 입력으로 선언돼 있지 않아서, 문서만 고친 실행에서는 Gradle 이 이 태스크를
-	// UP-TO-DATE 로 건너뜁니다. 결과가 "통과"로 보이지만 테스트는 한 번도 돌지 않았습니다.
-	//
-	// 그래서 가이드에서 오류 코드나 열거형 이름을 한 줄 지워도 통과했습니다. 문서가 코드와
-	// 어긋나는 것을 잡으라고 만든 테스트인데 정작 문서만 바뀐 경우를 못 봤습니다.
-	//
-	// OpenApiSpecTest 는 이 디렉터리에 쓰기도 합니다. 명세가 실제로 달라진 실행 다음에는
-	// 입력이 바뀌어 한 번 더 도는데, 그 경우는 어차피 실패해서 다시 돌려야 하는 때입니다.
-	inputs.dir('docs')
-			.withPropertyName('docs')
-			.withPathSensitivity(PathSensitivity.RELATIVE)
+	tasks.named('test') {
+		useJUnitPlatform()
+
+		// 테스트의 작업 디렉터리를 backend/ 로 둡니다. 문서 대조 테스트가 docs/ 를, 통합 테스트가
+		// deploy/ 의 MySQL 초기화 스크립트를 상대 경로로 읽습니다. 기본값(모듈 디렉터리)이면 그
+		// 경로가 전부 깨지고, 모듈마다 ../ 를 붙이는 것보다 여기서 한 번 정하는 편이 낫습니다.
+		workingDir = rootProject.projectDir
+
+		// 문서도 테스트 입력입니다. 문서만 고쳐도 테스트가 다시 돌고, 가이드가 코드와 어긋나면 그
+		// 테스트가 실패합니다.
+		inputs.dir(rootProject.file('docs'))
+				.withPropertyName('docs')
+				.withPathSensitivity(PathSensitivity.RELATIVE)
+	}
 }
