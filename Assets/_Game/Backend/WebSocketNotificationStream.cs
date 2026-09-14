@@ -252,7 +252,12 @@ namespace Game.Backend
 
         private string Hello()
         {
-            return JsonUtility.ToJson(new HelloFrameDto { type = HelloType, userId = session.UserId });
+            return JsonUtility.ToJson(new HelloFrameDto
+            {
+                type = HelloType,
+                userId = session.UserId,
+                token = session.AccountToken ?? string.Empty
+            });
         }
 
         private void OnText(string text)

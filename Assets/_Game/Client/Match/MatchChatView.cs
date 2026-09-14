@@ -114,8 +114,7 @@ namespace Game.Client.Match
                 var canvas = root.GetComponent<Canvas>();
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
                 canvas.sortingOrder = 20;
-                root.AddComponent<CanvasScaler>().uiScaleMode =
-                    CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                Game.Client.Common.HudScreenScale.Ensure(root);
             }
 
             return AttachTo(root, keepChromeVisible);
@@ -731,6 +730,8 @@ namespace Game.Client.Match
             {
                 rootCanvas.sortingOrder = 25;
             }
+
+            Game.Client.Common.HudScreenScale.Ensure(gameObject);
 
             var input = transform.Find("InputPanel");
             if (input == null)

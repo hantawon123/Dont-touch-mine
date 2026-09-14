@@ -160,6 +160,7 @@ namespace Game.Client.Interactions
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = SortingOrder;
             canvas.pixelPerfect = false;
+            Game.Client.Common.HudScreenScale.Ensure(gameObject);
 
             var raycaster = GetComponent<GraphicRaycaster>();
             if (raycaster != null)

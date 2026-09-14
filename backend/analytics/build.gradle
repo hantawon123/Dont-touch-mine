@@ -1,0 +1,31 @@
+// 플레이 로그 수집 서비스. /api/v1/events 를 받아 큐에 쌓고 배치로 분석 DB 에 씁니다.
+//
+// JPA 가 없습니다. 이 서비스가 하는 DB 일은 배치 INSERT 하나와 집계 SELECT 몇 개라 JdbcTemplate
+// 으로 충분하고, 엔티티 매핑이 들어오면 기동이 느려지고 검증할 것이 늘어납니다.
+// Security 도 없습니다. 이벤트 수집은 서명 검사(계정 토큰)로, 내부 API 는 공유 키로 잠급니다.
+plugins {
+	id 'org.springframework.boot'
+}
+
+description = 'D205 play-log ingestion and analysis'
+
+dependencies {
+	implementation project(':common')
+
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.flywaydb:flyway-mysql'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-flyway-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+	testImplementation 'org.testcontainers:testcontainers-mysql'
+}

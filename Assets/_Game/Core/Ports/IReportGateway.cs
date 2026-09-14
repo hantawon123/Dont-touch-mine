@@ -60,7 +60,7 @@ namespace Game.Core.Ports
         /// Reports <paramref name="playerId"/>.
         /// </summary>
         /// <param name="note">
-        /// What happened, in the reporter's words. Optional, and at most 200
+        /// What happened, in the reporter's words. Optional, and at most 500
         /// characters — longer is refused as
         /// <see cref="BackendFailure.InvalidRequest"/>. Null and blank are the
         /// same thing to the server.

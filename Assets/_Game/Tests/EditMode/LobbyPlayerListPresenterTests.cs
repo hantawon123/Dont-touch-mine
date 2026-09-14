@@ -7,6 +7,8 @@ using Game.Core.Backend;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Ports;
+using Game.Core.Rooms;
+using Game.Core.Settings;
 using NUnit.Framework;
 using R3;
 
@@ -80,6 +82,38 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Start_ShowsTheLocalPlayersOwnMuteOnTheirRow()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+                new LobbyParticipant("player-2", "게스트", false, isMuted: true),
+            });
+            var view = new FakePlayerListView();
+            var voice = new FakeVoiceControl(muted: true);
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                new FriendListSystem(),
+                new FakeInviteGateway(),
+                new FakeReportGateway(),
+                view,
+                new FakeCountView(),
+                new FakeConfirmView());
+            presenter.BindVoice(voice);
+
+            presenter.Start();
+
+            Assert.That(view.Participants[0].Id, Is.EqualTo("host-1"));
+            Assert.That(view.Participants[0].IsMuted, Is.True);
+            Assert.That(view.Participants[1].IsMuted, Is.True);
+
+            voice.SetMuted(false);
+            Assert.That(view.Participants[0].IsMuted, Is.False);
+            Assert.That(view.Participants[1].IsMuted, Is.True);
+        }
+
+        [Test]
         public void Start_HidesFriendsWhoAreAlreadyInTheRoom()
         {
             var list = new LobbyParticipantList(new[]
@@ -146,6 +180,85 @@ namespace Game.Tests.EditMode
             presenter.Start();
 
             Assert.That(PlayerIdsOf(view.Friends), Is.EqualTo(new[] { "account-2" }));
+        }
+
+        [Test]
+        public void KickConfirm_UsesThePublishedNameWhenAnonymous()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+                new LobbyParticipant("player-2", "게스트닉", false),
+            });
+            using var room = new RoomBrowserSystem();
+            room.SetLocalPlayer("host-1");
+            using var presentation = new InterfacePresentation(
+                new InterfaceSettingsSystem(new InMemoryInterfaceSettingsStore()),
+                new FriendListSystem(),
+                room);
+            presentation.SetPublishedName("player-2", real: false, "익명손님");
+            presentation.MarkInitialVisibilityReady();
+            var view = new FakePlayerListView();
+            var kickConfirm = new FakeConfirmView();
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                new FriendListSystem(),
+                new FakeInviteGateway(),
+                new FakeReportGateway(),
+                view,
+                new FakeCountView(),
+                kickConfirm);
+            presenter.BindPresentation(presentation);
+
+            presenter.Start();
+            view.RaiseKick("player-2", "게스트닉");
+
+            Assert.That(
+                kickConfirm.Message,
+                Is.EqualTo(KickConfirmView.FormatTitle("익명손님")));
+        }
+
+        [Test]
+        public void KickConfirm_StaysOpenWhenFriendsRefresh()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+                new LobbyParticipant("player-2", "게스트", false),
+            });
+            var friends = new FriendListSystem();
+            using var room = new RoomBrowserSystem();
+            room.SetLocalPlayer("host-1");
+            using var presentation = new InterfacePresentation(
+                new InterfaceSettingsSystem(new InMemoryInterfaceSettingsStore()),
+                friends,
+                room);
+            presentation.MarkInitialVisibilityReady();
+            var view = new FakePlayerListView();
+            var kickConfirm = new FakeConfirmView();
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                friends,
+                new FakeInviteGateway(),
+                new FakeReportGateway(),
+                view,
+                new FakeCountView(),
+                kickConfirm);
+            presenter.BindPresentation(presentation);
+
+            presenter.Start();
+            view.RaiseKick("player-2", "게스트");
+            Assert.That(kickConfirm.IsVisible, Is.True);
+
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("f-1", "온라인친구", FriendPresence.Online),
+            });
+
+            Assert.That(kickConfirm.IsVisible, Is.True);
+            Assert.That(kickConfirm.Message, Is.EqualTo(KickConfirmView.FormatTitle("게스트")));
         }
 
         [Test]
@@ -236,10 +349,51 @@ namespace Game.Tests.EditMode
             Assert.That(reports.Sent, Is.Empty);
 
             confirm.SelectedReason = ReportReason.Cheating;
+            confirm.Note = "채팅으로 욕설을 했습니다";
             confirm.RaiseConfirm();
 
-            Assert.That(reports.Sent, Is.EqualTo(new[] { ("player-2", ReportReason.Cheating) }));
+            Assert.That(
+                reports.Sent,
+                Is.EqualTo(new[] { ("player-2", ReportReason.Cheating, "채팅으로 욕설을 했습니다") }));
             Assert.That(confirm.IsVisible, Is.False);
+        }
+
+        [Test]
+        public void Start_HidesParticipantsUntilInitialVisibilityIsReady()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+                new LobbyParticipant("player-2", "게스트", false),
+            });
+            var view = new FakePlayerListView();
+            var count = new FakeCountView();
+            using var room = new RoomBrowserSystem();
+            using var presentation = new InterfacePresentation(
+                new InterfaceSettingsSystem(new InMemoryInterfaceSettingsStore()),
+                new FriendListSystem(),
+                room);
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                new FriendListSystem(),
+                new FakeInviteGateway(),
+                new FakeReportGateway(),
+                view,
+                count,
+                new FakeConfirmView());
+            presenter.BindPresentation(presentation);
+
+            presenter.Start();
+
+            Assert.That(view.Participants, Is.Empty);
+            Assert.That(view.NamesReady, Is.False);
+            Assert.That(count.Current, Is.EqualTo(2));
+
+            presentation.MarkInitialVisibilityReady();
+
+            Assert.That(view.Participants.Count, Is.EqualTo(2));
+            Assert.That(view.NamesReady, Is.True);
         }
 
         [Test]
@@ -317,6 +471,7 @@ namespace Game.Tests.EditMode
             public IReadOnlyList<FriendSummary> Friends { get; private set; } =
                 Array.Empty<FriendSummary>();
             public bool LocalIsHost { get; private set; }
+            public bool NamesReady { get; private set; } = true;
             public int UpdateCount { get; private set; }
 
             public event Action<string, string> KickClicked;
@@ -326,10 +481,12 @@ namespace Game.Tests.EditMode
             public void SetParticipants(
                 IReadOnlyList<LobbyParticipant> participants,
                 bool localIsHost,
-                string localPlayerId)
+                string localPlayerId,
+                bool namesReady = true)
             {
                 Participants = participants;
                 LocalIsHost = localIsHost;
+                NamesReady = namesReady;
                 UpdateCount++;
             }
 
@@ -343,6 +500,28 @@ namespace Game.Tests.EditMode
             public void RaiseInvite(string id, string name) => InviteClicked?.Invoke(id, name);
 
             public void RaiseReport(string id, string name) => ReportClicked?.Invoke(id, name);
+        }
+
+        private sealed class FakeVoiceControl : IVoiceControl
+        {
+            private readonly ReactiveProperty<bool> muted;
+            private readonly ReactiveProperty<bool> available = new(true);
+            private readonly ReactiveProperty<bool> transmitting = new(false);
+
+            public FakeVoiceControl(bool muted)
+            {
+                this.muted = new ReactiveProperty<bool>(muted);
+            }
+
+            public ReadOnlyReactiveProperty<bool> IsAvailable => available;
+            public ReadOnlyReactiveProperty<bool> IsMuted => muted;
+            public ReadOnlyReactiveProperty<bool> IsTransmitting => transmitting;
+
+            public void SetMuted(bool value) => muted.Value = value;
+
+            public void SetTalking(bool talking)
+            {
+            }
         }
 
         private sealed class FakeInviteGateway : IInviteGateway
@@ -373,7 +552,7 @@ namespace Game.Tests.EditMode
 
         private sealed class FakeReportGateway : IReportGateway
         {
-            public List<(string PlayerId, ReportReason Reason)> Sent { get; } = new();
+            public List<(string PlayerId, ReportReason Reason, string Note)> Sent { get; } = new();
 
             public UniTask<BackendResult> ReportAsync(
                 string playerId,
@@ -381,7 +560,7 @@ namespace Game.Tests.EditMode
                 string note,
                 CancellationToken cancellation)
             {
-                Sent.Add((playerId, reason));
+                Sent.Add((playerId, reason, note));
                 return UniTask.FromResult(BackendResult.Success());
             }
         }
@@ -405,6 +584,7 @@ namespace Game.Tests.EditMode
             public string Message { get; private set; }
             public string ConfirmLabel { get; private set; }
             public ReportReason SelectedReason { get; set; } = ReportReason.Other;
+            public string Note { get; set; } = string.Empty;
             public event Action Confirmed;
             public event Action Cancelled;
 

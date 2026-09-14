@@ -156,9 +156,7 @@ namespace Game.Bootstrap
 
         internal static void ConfigureCanvas(Canvas canvas)
         {
-            var scaler = canvas.GetComponent<CanvasScaler>();
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+            Game.Client.Common.HudScreenScale.EnsureOn(canvas);
             canvas.sortingOrder = 10000;
             var content = new GameObject("Match Settings Content", typeof(RectTransform))
                 .GetComponent<RectTransform>();

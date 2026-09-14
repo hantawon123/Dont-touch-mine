@@ -13,7 +13,7 @@
 
 | | 게임 API (`/api/v1/...`) | 관리 API (`/api/v1/admin/...`) |
 | --- | --- | --- |
-| 신원 | `X-User-Id` 헤더 (식별일 뿐) | 로그인 세션 쿠키 |
+| 신원 | `X-User-Id` + `X-Account-Token` 헤더 (계정 토큰 서명) | 로그인 세션 쿠키 |
 | CSRF | 없음 | **필요합니다** |
 | 상태 | 무상태 | 세션 |
 
@@ -346,7 +346,130 @@ DELETE /api/v1/admin/feedback/{id}          한 건 완전 삭제
 
 ---
 
-## 9. 알고 있어야 할 것
+## 9. 사용자 조회
+
+신고가 없는 사람도 찾아서 정지하거나 들여다보는 자리입니다. 그 전에는 정지 버튼이 신고
+목록 안에만 있었습니다.
+
+### 검색
+
+```
+GET /api/v1/admin/users?q=검색어&limit=50
+```
+
+`q` 는 **닉네임 부분 일치**(대소문자 구분) 또는 **userId 정확 일치**입니다. 게임 클라이언트의
+유저 검색과 규칙이 다릅니다. 그쪽은 정확 일치이고 검색을 꺼 둔 사람을 빼지만, 운영자는
+그 사람도 찾아야 합니다. 그래서 이 조회는 반드시 관리자 세션 뒤에 있습니다.
+
+`q` 를 비우면 최근 가입순입니다. `limit` 은 1~50 이고 벗어나면 50 입니다. `%` 와 `_` 는
+글자 그대로 찾습니다.
+
+```json
+{
+  "users": [
+    {
+      "userId": "...",
+      "nickname": "...",
+      "createdAt": "20260914120000",
+      "presence": "IN_LOBBY",
+      "lastSeenAt": "20260914123000",
+      "reportCount": 2,
+      "friendCount": 5,
+      "suspended": false,
+      "suspendedAt": null,
+      "suspendedReason": null
+    }
+  ]
+}
+```
+
+| 필드 | 뜻 |
+| --- | --- |
+| `presence` | `OFFLINE` `ONLINE` `IN_LOBBY` `IN_GAME`. 한 번도 붙은 적이 없으면 `OFFLINE` 이고 `lastSeenAt` 이 `null` |
+| `reportCount` | 받은 신고 중 숨기지 않은 것의 수 |
+| `friendCount` | 수락된 친구 수. 보낸·받은 요청은 세지 않습니다 |
+| `suspendedReason` | 운영자만 보는 화면이라 그대로 옵니다. 게임 API 응답에는 절대 담기지 않습니다 |
+
+기기 식별자는 어떤 응답에도 없습니다. 그 값은 그 계정의 비밀번호입니다.
+
+### 한 사람 상세
+
+```
+GET /api/v1/admin/users/{userId}
+```
+
+```json
+{
+  "user": { "...위와 같은 한 줄..." },
+  "receivedReports": [
+    { "id": 12, "reason": "ABUSE", "memo": "욕설", "createdAt": "...", "status": "PENDING",
+      "counterpartUserId": "...", "counterpartNickname": "신고한 사람" }
+  ],
+  "madeReports": [
+    { "id": 13, "reason": "CHEATING", "memo": null, "createdAt": "...", "status": "DISMISSED",
+      "counterpartUserId": "...", "counterpartNickname": "신고당한 사람" }
+  ],
+  "feedback": [
+    { "id": 3, "message": "...", "buildVer": "0.9.1", "platform": "WINDOWS", "createdAt": "..." }
+  ]
+}
+```
+
+`receivedReports` 의 상대편은 **신고자**, `madeReports` 의 상대편은 **신고당한 사람**입니다.
+6절의 신고 상세는 신고자를 일부러 빼지만, 사용자 한 명을 열어 보는 이 자리에서는 무고성
+신고를 판단해야 하므로 보여줍니다. 상대편이 탈퇴했으면 둘 다 `null` 이고 화면은 "탈퇴한
+계정"으로 표시합니다.
+
+`madeReports` 에서 `DISMISSED` 가 많으면 남을 반복해서 무고하는 사람입니다.
+
+숨긴 신고와 피드백은 어디에도 나오지 않습니다. 각각 최근 순 최대 200건, 100건입니다.
+없는 계정은 `404 TARGET_NOT_FOUND` 입니다.
+
+---
+
+## 10. 개요
+
+관리 화면의 첫 탭입니다. 지금 숫자와 최근 추이를 한 화면에 둡니다.
+
+```
+GET /api/v1/admin/overview?range=24h
+```
+
+`range` 는 `24h`(기본) 또는 `7d`. 그 외 값은 `24h` 로 읽습니다.
+
+```json
+{
+  "now": {
+    "online": 3, "inLobby": 4, "inGame": 6, "socketConnections": 13,
+    "totalUsers": 120, "signupsToday": 5, "deletionsToday": 0,
+    "pendingReports": 2, "feedbackToday": 1, "suspendedUsers": 1,
+    "cpuPct": 12.5, "heapUsedMb": 310, "heapMaxMb": 1024, "dbPoolActive": 2, "dbPoolMax": 13
+  },
+  "range": "24h",
+  "series": [
+    { "at": "20260914120000", "online": 3, "inLobby": 4, "inGame": 6, "socketConnections": 13,
+      "signups": 0, "deletions": 0, "cpuPct": 12.5, "heapUsedMb": 310, "dbPoolActive": 2 }
+  ],
+  "matches": { "matchesToday": 12, "inProgress": 1, "avgDurationSec": 412.5, "dropoutRate": 0.125 }
+}
+```
+
+| 필드 | 뜻 |
+| --- | --- |
+| `now.*` | 요청 순간에 다시 잰 값입니다. 샘플이 아닙니다 |
+| `signupsToday` `feedbackToday` | "오늘"은 **Asia/Seoul** 기준입니다. 저장은 UTC 지만 운영자의 하루는 한국 시간입니다 |
+| `deletionsToday` | 탈퇴는 행이 지워져 셀 수 없어 이벤트로 셉니다. 서버가 재시작한 사이의 것은 빠질 수 있습니다 |
+| `cpuPct` | JVM 이 보는 시스템 CPU, 0~100. 컨테이너 안에서는 cgroup 한도 기준 |
+| `dbPool*` | 게임 DB 와 분석 DB 커넥션 풀을 합친 값 |
+| `series` | 1분마다 남기는 샘플. `24h` 는 그대로(최대 1,440점), `7d` 는 15분 버킷(최대 672점)으로 인원·자원은 평균, 가입·탈퇴는 합 |
+| `matches` | 경기 통계. 수집 서비스의 내부 API 에서 받아옵니다. `matchesToday`(오늘 시작한 경기), `inProgress`(시작 후 30분 안이고 끝 이벤트 없음), `avgDurationSec`, `dropoutRate`(시작 인원 대비 결과 없이 사라진 비율). 수집 서비스가 죽어 있으면 `null` 이고 나머지 카드는 그대로입니다 |
+
+샘플은 서버가 1분마다 스스로 남기고 30일 지난 것은 지웁니다(`ops.*` 설정). 서버가 꺼져 있던
+구간은 점이 없습니다. 그래프의 빈 구간이 바로 다운타임입니다.
+
+---
+
+## 11. 알고 있어야 할 것
 
 **계정이 하나이고 팀이 공유합니다.** 누가 무엇을 했는지 구분할 수 없습니다. 사람마다
 계정을 나눌 일이 생기면 그때 계정 테이블을 만들어야 합니다.
