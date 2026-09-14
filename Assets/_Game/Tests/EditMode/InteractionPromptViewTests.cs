@@ -176,6 +176,15 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Crosshair_StaysOffWhenAModalOwnsTheCursor()
+        {
+            Assert.That(PlayerInteractor.CanShowCrosshair(true, true, false), Is.True);
+            Assert.That(PlayerInteractor.CanShowCrosshair(true, false, true), Is.False);
+            Assert.That(PlayerInteractor.CanShowCrosshair(true, true, true), Is.False);
+            Assert.That(PlayerInteractor.CanShowCrosshair(false, true, false), Is.False);
+        }
+
+        [Test]
         public void InteractKeyLabel_UsesShippedKeyWhenSettingsAreUnbound()
         {
             Assert.That(PlayerInteractor.InteractKeyLabel(), Is.EqualTo("F"));
