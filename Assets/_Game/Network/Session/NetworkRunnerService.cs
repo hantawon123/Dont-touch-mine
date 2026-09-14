@@ -32,9 +32,10 @@ namespace Game.Network.Session
     /// </summary>
     /// <remarks>
     /// The game mode is a parameter rather than a constant, and authority is
-    /// exposed only as <see cref="IsServer"/>. Moving from a player-hosted match
-    /// to a dedicated server is therefore a change at the call site, not a
-    /// rewrite of the gameplay layer.
+    /// exposed only as <see cref="IsServer"/>, allowing a dedicated server to
+    /// reuse the authority-side gameplay rules. This does not make the product's lobby,
+    /// authentication, build-version or local presentation flows server-ready:
+    /// those still need the integration work described in S15P21D205-987/988.
     /// </remarks>
     public sealed partial class NetworkRunnerService :
         INetworkRunnerCallbacks,
