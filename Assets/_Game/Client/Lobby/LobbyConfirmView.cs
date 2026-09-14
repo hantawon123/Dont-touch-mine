@@ -52,8 +52,7 @@ namespace Game.Client.Lobby
             canvas.overrideSorting = true;
             canvas.sortingOrder = 1000;
             var scaler = root.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
+            Game.Client.Common.HudScreenScale.Apply(scaler);
             var background = Rect("Backdrop", root.transform, Vector2.zero, Vector2.one);
             background.gameObject.AddComponent<Image>().color = new Color(0, 0, 0, 0.65f);
             var body = Rect("Panel", background, new Vector2(0.3f, 0.36f), new Vector2(0.7f, 0.64f));

@@ -195,6 +195,7 @@ namespace Game.Client.Lobby
             var canvas = overlay.GetComponent<Canvas>();
             canvas.overrideSorting = true;
             canvas.sortingOrder = SortingOrder;
+            Game.Client.Common.HudScreenScale.Ensure(overlay);
 
             var blurRect = CreateRect("Backdrop", rect);
             Stretch(blurRect);

@@ -1,3 +1,4 @@
+using Game.Client.Common;
 using Game.Client.Home;
 using TMPro;
 using UnityEngine;
@@ -163,6 +164,7 @@ namespace Game.Client.Lobby
 
         private void Awake()
         {
+            HudScreenScale.EnsureOn(GetComponent<Canvas>() ?? GetComponentInParent<Canvas>());
             EnsureSharedGuide();
             EnsureShortcutGuide();
             EnsureShortcutOverlay();
@@ -175,7 +177,8 @@ namespace Game.Client.Lobby
             EnsureShortcutGuide();
             EnsureShortcutOverlay();
             EnsureMatchInfo();
-            var canvas = GetComponentInParent<Canvas>();
+            var canvas = GetComponent<Canvas>() ?? GetComponentInParent<Canvas>();
+            HudScreenScale.EnsureOn(canvas);
             HomeUiFonts.ApplyLegacy(canvas != null ? canvas.transform : transform);
         }
     }

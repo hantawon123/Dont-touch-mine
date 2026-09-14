@@ -887,6 +887,7 @@ namespace Game.Client.Lobby
             canvas.overrideSorting = true;
             var parentCanvas = parent.GetComponentInParent<Canvas>();
             canvas.sortingOrder = (parentCanvas != null ? parentCanvas.sortingOrder : 0) + 1;
+            Game.Client.Common.HudScreenScale.Ensure(tooltip.gameObject);
             tooltip.gameObject.AddComponent<GraphicRaycaster>();
 
             var button = tooltip.GetComponent<Button>();

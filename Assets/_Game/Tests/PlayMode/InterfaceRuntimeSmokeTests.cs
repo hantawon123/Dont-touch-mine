@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System.Collections;
+using Game.Client.Common;
 using Game.Client.Match;
 using Game.Client.Settings;
 using Game.Core.Match;
@@ -78,7 +79,9 @@ namespace Game.Tests.PlayMode
                     .With(InterfaceOption.FontScale, InterfaceCatalog.Large).With(InterfaceOption.InGameUi, InterfaceCatalog.Off));
                 yield return null;
                 Assert.That(label.fontSize, Is.EqualTo(34.5f).Within(0.01f));
-                Assert.That(scaler.referenceResolution.x, Is.EqualTo(1920 / 1.15f).Within(0.01f));
+                Assert.That(
+                    scaler.referenceResolution.x,
+                    Is.EqualTo(HudScreenScale.ScaledReference.x / 1.15f).Within(0.01f));
                 Assert.That(root.GetComponent<CanvasGroup>().alpha, Is.Zero);
                 Assert.That(chat.enabled, Is.False, "hidden chat must not capture Enter input");
                 yield return null;
@@ -90,7 +93,7 @@ namespace Game.Tests.PlayMode
                 settings.Apply(settings.Defaults);
                 yield return null;
                 Assert.That(label.fontSize, Is.EqualTo(30));
-                Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1920, 1080)));
+                Assert.That(scaler.referenceResolution, Is.EqualTo(HudScreenScale.ScaledReference));
             }
             finally { Object.Destroy(root); }
         }

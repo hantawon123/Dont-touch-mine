@@ -138,8 +138,10 @@ namespace Game.Client.Match
         {
             if (rootCanvas == null)
             {
-                rootCanvas = GetComponentInParent<Canvas>();
+                rootCanvas = GetComponent<Canvas>() ?? GetComponentInParent<Canvas>();
             }
+
+            Game.Client.Common.HudScreenScale.EnsureOn(rootCanvas);
 
             HideDestructionNotice();
             SetShredderMarker(default, false);
