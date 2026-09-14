@@ -868,9 +868,9 @@ namespace Game.Network.Session
             _matchRules = MatchRuleSettings.Default;
 
             // The room is its own Photon connection and authenticates on its own,
-            // so it waits on its own too (S15P21D205-928). Reusing the lobby's
-            // already-authenticated client is the common path, but not the only
-            // one - joining by code goes straight here.
+            // so it waits on its own too (S15P21D205-928). The lobby's
+            // authenticated client is not reused: Fusion must initialize
+            // its own settings for cloud reconnection and room recovery.
             await WaitForAccountAsync(cancellation);
 
             var sceneManager = CreateRunner(request.Mode != GameMode.Server);
@@ -889,37 +889,7 @@ namespace Game.Network.Session
             var startCancellation =
                 CancellationTokenSource.CreateLinkedTokenSource(cancellation);
 
-            var args = new StartGameArgs
-            {
-                Config = ConfigureSession(NetworkProjectConfig.Global),
-                GameMode = request.Mode,
-                PlayerUniqueId = _playerUniqueId,
-                SessionName = request.RoomCode,
-                IsVisible = request.AllowCreate ? request.IsVisible : (bool?)null,
-                SessionProperties = SessionPropertyMapper.BuildForStart(
-                    request,
-                    PublicHostNickname),
-                ConnectionToken = SessionConnectionTokenCodec.Encode(
-                    request.Password,
-                    _profile?.Nickname,
-                    _profile?.UserId),
-                AuthValues = BuildAuthValues(),
-                EnableClientSessionCreation = request.AllowCreate,
-                SceneManager = sceneManager,
-                Scene = CaptureCurrentScene(),
-                StartGameCancellationToken = startCancellation.Token,
-                RealtimeClient = matchmakingClient,
-            };
-
-            if (request.MaxPlayers > 0)
-            {
-                // Photon keeps the physical room at the project maximum so the
-                // host may raise its chosen limit later. OnConnectRequest below
-                // enforces the smaller, user-visible limit.
-                args.PlayerCount = request.AllowCreate
-                    ? RoomSettings.MaxPlayerCount
-                    : request.MaxPlayers;
-            }
+            var args = BuildSessionStartArgs(request, sceneManager, startCancellation.Token);
 
             StartGameResult result;
             var connectionStartedAt = Time.realtimeSinceStartupAsDouble;
@@ -931,8 +901,9 @@ namespace Game.Network.Session
 
             if (matchmakingClient != null)
             {
-                // Fusion takes over servicing this already-authenticated client.
-                ReleaseMatchmakingClient(matchmakingClient, disconnect: false);
+                // Close only the browser connection. Transferring a ready client to
+                // Fusion 2.1.2 leaves RejoinMetadata.AppSettings null (rejoin IL_00cc).
+                ReleaseMatchmakingClient(matchmakingClient, disconnect: true);
             }
 
             try
@@ -964,7 +935,7 @@ namespace Game.Network.Session
             var connectionSeconds = Time.realtimeSinceStartupAsDouble - connectionStartedAt;
             Debug.Log(
                 $"[SceneTiming] Session connection completed: mode={request.Mode}, ok={result.Ok}, " +
-                $"reusedMatchmaking={matchmakingClient != null}, " +
+                $"reusedMatchmaking=False, " +
                 $"connection={connectionSeconds:F3}s.");
 
             if (!result.Ok)
@@ -1026,6 +997,46 @@ namespace Game.Network.Session
             {
                 _roomInitializationInProgress = false;
             }
+        }
+
+        internal StartGameArgs BuildSessionStartArgs(
+            SessionRequest request, INetworkSceneManager sceneManager, CancellationToken cancellation)
+        {
+            var args = new StartGameArgs
+            {
+                Config = ConfigureSession(NetworkProjectConfig.Global),
+                GameMode = request.Mode,
+                PlayerUniqueId = _playerUniqueId,
+                SessionName = request.RoomCode,
+                IsVisible = request.AllowCreate ? request.IsVisible : (bool?)null,
+                SessionProperties = SessionPropertyMapper.BuildForStart(
+                    request,
+                    PublicHostNickname),
+                ConnectionToken = SessionConnectionTokenCodec.Encode(
+                    request.Password,
+                    _profile?.Nickname,
+                    _profile?.UserId),
+                AuthValues = BuildAuthValues(),
+                EnableClientSessionCreation = request.AllowCreate,
+                SceneManager = sceneManager,
+                Scene = CaptureCurrentScene(),
+                StartGameCancellationToken = cancellation,
+                // A connected external client skips Fusion 2.1.2's recovery-settings
+                // initialization. Let this runner establish its own cloud connection.
+                CustomPhotonAppSettings = GetPhotonSettings(),
+            };
+
+            if (request.MaxPlayers > 0)
+            {
+                // Photon keeps the physical room at the project maximum so the
+                // host may raise its chosen limit later. OnConnectRequest below
+                // enforces the smaller, user-visible limit.
+                args.PlayerCount = request.AllowCreate
+                    ? RoomSettings.MaxPlayerCount
+                    : request.MaxPlayers;
+            }
+
+            return args;
         }
 
         internal static NetworkProjectConfig ConfigureSession(NetworkProjectConfig config)
@@ -1651,6 +1662,7 @@ namespace Game.Network.Session
             _runner = _runnerObject.AddComponent<NetworkRunner>();
             _runner.ProvideInput = provideInput;
             _runner.AddCallbacks(this);
+            NetworkRunner.CloudConnectionLost += OnCloudConnectionLost;
 
             // Voice rides on the same object because its client reads the runner
             // for the session it should follow. A dedicated server keeps only
@@ -2244,6 +2256,7 @@ namespace Game.Network.Session
         /// </summary>
         private void ReleaseRunner(bool preserveMigrationState = false)
         {
+            NetworkRunner.CloudConnectionLost -= OnCloudConnectionLost;
             _pendingKicks.Clear();
             RestoreNetworkSceneLoadingPriority();
             _publishedItemAssignments.Clear();
