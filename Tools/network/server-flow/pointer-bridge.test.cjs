@@ -8,7 +8,8 @@ let exits = 0;
 let requests = 0;
 let keyboardUnlocks = 0;
 const windowCallbacks = {};
-const canvas = { addEventListener() {}, requestPointerLock() { requests++; return Promise.resolve(); } };
+const released = [];
+const canvas = { dispatchEvent(event) { released.push(event.code); callbacks.keyup(event); }, addEventListener() {}, requestPointerLock() { requests++; return Promise.resolve(); } };
 const document = {
   pointerLockElement: null, hidden: false,
   hasFocus: () => focused,
@@ -16,6 +17,7 @@ const document = {
   exitPointerLock: () => { exits++; document.pointerLockElement = null; }
 };
 const context = {
+  KeyboardEvent: function(type, options) { Object.assign(this, options); this.type = type; },
   document, Module: { canvas }, LibraryManager: { library: {} },
   navigator: { keyboard: { lock: () => Promise.resolve(), unlock: () => keyboardUnlocks++ } },
   window: { addEventListener: (name, fn) => { windowCallbacks[name] = fn; } },
@@ -46,6 +48,31 @@ lib.GamePointerRelease(); // Scene/UI transition discards a stale escape.
 assert.equal(lib.GamePointerConsumeBrowserRelease(), 0);
 assert.equal(lib.GamePointerIsLocked(), 0);
 console.log('PASS: actual capture, browser escape, consume-once, repeated release, focus loss, stale event');
+// Physical W-up is absent after Chrome's Escape unlock, as in the user trace.
+function down(code, repeat = false, target = canvas) {
+  const event = { code, key: code, keyCode: 87, which: 87, location: 0, repeat, target,
+    preventDefault() { this.prevented = true; }, stopImmediatePropagation() { this.stopped = true; } };
+  callbacks.keydown(event);
+  return event;
+}
+lock(); down('KeyW'); down('KeyD'); unlock();
+assert.deepEqual(released.splice(0), ['KeyW', 'KeyD']);
+assert.equal(down('KeyW', true).stopped, true); // OS repeat must not resurrect W.
+assert.equal(down('KeyW').stopped, undefined); // A fresh press works even if up was lost.
+callbacks.keyup({code:'KeyW'});
+lib.GamePointerRelease(1);
+assert.equal(released.length, 0);
+down('Escape'); down('KeyA', false, {tagName:'INPUT'});
+lib.GamePointerRelease(1);
+assert.equal(released.length, 0); // Do not cancel the menu key or track text fields.
+lib.GamePointerArm(0); down('KeyS'); lib.GamePointerArm(1);
+assert.deepEqual(released.splice(0), ['KeyS']); // Menu input cannot leak into resume.
+lock(); down('KeyA'); lib.GamePointerRelease(1); callbacks.pointerlockchange();
+assert.deepEqual(released.splice(0), ['KeyA']); // Programmatic release emits only once.
+down('KeyD'); windowCallbacks.blur();
+assert.deepEqual(released.splice(0), ['KeyD']);
+console.log('PASS: missing browser key-up, repeat suppression, fresh press, text/Escape exclusion, menu resume, blur');
+
 (async () => {
   document.fullscreenElement = { contains: target => target === canvas };
   callbacks.fullscreenchange();

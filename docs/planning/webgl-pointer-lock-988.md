@@ -69,3 +69,13 @@ v6 격리 Input System 회귀 검사: 2 passed / 0 failed / 1 skipped. 제외 �
 
 
 v6 WebGL 빌드: Succeeded, 564.18초. 실제 게임 입력 재검증 대기.
+
+## 창 모드 사용자 로그 및 브라우저 해제 수정 후보
+
+사용자 제공 InputFlow 로그(2026-09-14): W keydown → 잠금/입력 비활성화 → 메뉴 닫기 Escape → 재잠금 사이에 browser/Unity 어느 쪽에도 W keyup이 없다. 이후 W를 다시 누르고 놓았을 때 양쪽 keyup이 나온다. 반복 실기에서 v6의 InputSystem 초기화만으로 해결되지 않았으므로 v6 성공으로 처리하지 않는다.
+
+브라우저 연결부는 canvas에서 눌린 키를 기록하고, 잠금 해제·코드 해제·UI 복귀·포커스 손실에서 대응하는 keyup을 canvas로 전달하도록 수정했다. Escape와 HTML 입력 필드는 제외한다. 해제 후 물리 keyup이 유실됐더라도 OS 반복 keydown이 다시 이동을 켜지 않도록 막고, 새 keydown은 받는다. 키 내용은 외부 전송/저장하지 않는다.
+
+Node 계약 검사: 해제 유실, 반복 억제, 새 키 허용, 텍스트/Escape 제외, 메뉴 복귀, 중복 해제, 포커스 손실 통과. 기존 포인터/전체화면 계약도 통과.
+
+실제 검증을 빠르게 하기 위해 v6 실행 파일의 GamePointerArm/Release를 현재 저장소 jslib 함수로 교체한 v7 브라우저 코드 검증본을 별도 폴더에 준비했다. .build/server-988-webgl-input-v7-preview이며 전체 Unity 재빌드를 거친 최종 패키지는 아니다. 기존 wasm/C#은 유지하고 전체 framework 문법 검사 통과. 기존 v6 출력과 ZIP은 새 후보로 대체하지 않았다. 정식 빌드/실제 Chrome 확인은 남아 있다.
