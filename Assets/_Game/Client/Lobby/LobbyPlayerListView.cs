@@ -225,6 +225,7 @@ namespace Game.Client.Lobby
                     isSelf: isSelf,
                     isMuted: participant.IsMuted);
                 var playerId = participant.Id;
+                var rosterName = participant.DisplayName;
                 var displayName = shownName;
 
                 // Reporting names the backend account, kicking names the Photon
@@ -244,7 +245,9 @@ namespace Game.Client.Lobby
                 var kick = row.Find("Kick")?.GetComponent<Button>();
                 if (kick != null)
                 {
-                    kick.onClick.AddListener(() => KickClicked?.Invoke(playerId, displayName));
+                    kick.onClick.AddListener(() => KickClicked?.Invoke(
+                        playerId,
+                        ShownParticipantName(playerId, rosterName)));
                 }
             }
         }

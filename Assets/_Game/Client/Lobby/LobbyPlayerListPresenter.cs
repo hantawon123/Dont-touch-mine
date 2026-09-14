@@ -108,15 +108,14 @@ namespace Game.Client.Lobby
         /// was drawn with, which is what a joining player used to see for the
         /// whole time they were in the room.
         /// <para>
-        /// Also closes a kick or a hand-over that was waiting on an answer.
-        /// Whoever it named may be going by something else now, and a
-        /// confirmation that says a name nobody can see is worse than one
-        /// dismissed.
+        /// This event is not only a name change. Friend presence is polled
+        /// every few seconds while the roster is open, and that refresh is
+        /// broadcast as the same <c>Changed</c>. Closing a kick confirm here
+        /// made the panel vanish with nobody touching it.
         /// </para>
         /// </remarks>
         private void OnPresentationChanged()
         {
-            CancelPending();
             Draw();
         }
 
@@ -254,7 +253,43 @@ namespace Game.Client.Lobby
 
             pending = PendingConfirm.Kick;
             pendingPlayerId = playerId;
-            confirmView.Show(KickConfirmView.FormatTitle(displayName), KickConfirmView.ConfirmLabel);
+            confirmView.Show(
+                KickConfirmView.FormatTitle(PresentedName(playerId, displayName)),
+                KickConfirmView.ConfirmLabel);
+        }
+
+        /// <summary>
+        /// Kick confirm must say the same thing the list does. The roster still
+        /// carries the account nickname, so an anonymous player would otherwise
+        /// be named for real on the way out.
+        /// </summary>
+        private string PresentedName(string playerId, string fallback)
+        {
+            if (presentation == null || string.IsNullOrEmpty(playerId))
+            {
+                return fallback;
+            }
+
+            var rosterName = fallback;
+            if (latest.HasValue)
+            {
+                var people = latest.Value.Participants;
+                if (people != null)
+                {
+                    for (var index = 0; index < people.Count; index++)
+                    {
+                        var person = people[index];
+                        if (string.Equals(person.Id, playerId, StringComparison.Ordinal))
+                        {
+                            rosterName = person.DisplayName;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            var presented = presentation.Name(playerId, rosterName);
+            return string.IsNullOrEmpty(presented) ? fallback : presented;
         }
 
         /// <param name="userId">

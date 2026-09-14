@@ -368,6 +368,15 @@ namespace Game.Architecture.Tests
                         canvas.GetComponentsInChildren<TMP_Text>(true),
                         label => label.text == "게스트닉"),
                     Is.False);
+
+                string kickedName = null;
+                view.KickClicked += (_, name) => kickedName = name;
+                var kick = canvas.transform
+                    .Find("Columns/Participants/Scroll/RowRoot/Row_player-2/Kick")
+                    ?.GetComponent<Button>();
+                Assert.That(kick, Is.Not.Null);
+                kick.onClick.Invoke();
+                Assert.That(kickedName, Is.EqualTo("익명손님"));
             }
             finally
             {

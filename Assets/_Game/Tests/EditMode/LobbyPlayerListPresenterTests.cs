@@ -183,6 +183,85 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void KickConfirm_UsesThePublishedNameWhenAnonymous()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+                new LobbyParticipant("player-2", "게스트닉", false),
+            });
+            using var room = new RoomBrowserSystem();
+            room.SetLocalPlayer("host-1");
+            using var presentation = new InterfacePresentation(
+                new InterfaceSettingsSystem(new InMemoryInterfaceSettingsStore()),
+                new FriendListSystem(),
+                room);
+            presentation.SetPublishedName("player-2", real: false, "익명손님");
+            presentation.MarkInitialVisibilityReady();
+            var view = new FakePlayerListView();
+            var kickConfirm = new FakeConfirmView();
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                new FriendListSystem(),
+                new FakeInviteGateway(),
+                new FakeReportGateway(),
+                view,
+                new FakeCountView(),
+                kickConfirm);
+            presenter.BindPresentation(presentation);
+
+            presenter.Start();
+            view.RaiseKick("player-2", "게스트닉");
+
+            Assert.That(
+                kickConfirm.Message,
+                Is.EqualTo(KickConfirmView.FormatTitle("익명손님")));
+        }
+
+        [Test]
+        public void KickConfirm_StaysOpenWhenFriendsRefresh()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+                new LobbyParticipant("player-2", "게스트", false),
+            });
+            var friends = new FriendListSystem();
+            using var room = new RoomBrowserSystem();
+            room.SetLocalPlayer("host-1");
+            using var presentation = new InterfacePresentation(
+                new InterfaceSettingsSystem(new InMemoryInterfaceSettingsStore()),
+                friends,
+                room);
+            presentation.MarkInitialVisibilityReady();
+            var view = new FakePlayerListView();
+            var kickConfirm = new FakeConfirmView();
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                friends,
+                new FakeInviteGateway(),
+                new FakeReportGateway(),
+                view,
+                new FakeCountView(),
+                kickConfirm);
+            presenter.BindPresentation(presentation);
+
+            presenter.Start();
+            view.RaiseKick("player-2", "게스트");
+            Assert.That(kickConfirm.IsVisible, Is.True);
+
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("f-1", "온라인친구", FriendPresence.Online),
+            });
+
+            Assert.That(kickConfirm.IsVisible, Is.True);
+            Assert.That(kickConfirm.Message, Is.EqualTo(KickConfirmView.FormatTitle("게스트")));
+        }
+
+        [Test]
         public void KickConfirm_RequestsKickOnHostSession()
         {
             var list = new LobbyParticipantList(new[]
