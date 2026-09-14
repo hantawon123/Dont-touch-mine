@@ -113,3 +113,5 @@ python -m unittest discover -s Tools/network/server-flow -p 'test_release_host.p
 ```
 
 준비 전 교체 차단, 후보 실패·버전 충돌 시 기존 경로 보존, 기존 프로세스 유지와 종료 후 정책, 두 프로세스 상한, 롤백, 실제 HTTP의 버전별 파일 보존·비공개 경로 차단, 릴리스 무결성을 검사한다. 모형 프로세스 검사는 실제 EC2의 WebGL 접속·교체 검증과 구분한다.
+
+2026-09-14 실제 실행 결과와 범위는 [교체 검증 기록](../../../docs/planning/server-release-host-988.md)에 있다.
