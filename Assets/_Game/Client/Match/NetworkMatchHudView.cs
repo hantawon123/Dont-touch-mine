@@ -148,6 +148,7 @@ namespace Game.Client.Match
             SetHighlightHud(false, null, Array.Empty<float>());
             SetAssignedItem(null);
             SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
+            EnsureTimer();
             EnsureHidingIntro();
             HideHidingIntro();
             EnsureSearchingIntro();
@@ -232,6 +233,7 @@ namespace Game.Client.Match
         public void SetEndCountdown(double remainingSeconds)
         {
             showEndCountdown = remainingSeconds > 0d;
+            EnsureTimer();
             if (showEndCountdown)
             {
                 timerView?.SetRemainingSeconds(remainingSeconds);
@@ -248,6 +250,7 @@ namespace Game.Client.Match
         public void SetEndResult(string headline, string subtitle)
         {
             showEndCountdown = true;
+            EnsureTimer();
             timerView?.SetResult(headline, subtitle);
             urgencyBorderView?.Hide();
             LateUpdate();
@@ -268,6 +271,7 @@ namespace Game.Client.Match
         public void SetRemainingSeconds(double remainingSeconds)
         {
             lastRemainingSeconds = remainingSeconds;
+            EnsureTimer();
             timerView?.SetRemainingSeconds(remainingSeconds);
             RefreshUrgencyBorder();
         }
@@ -481,6 +485,7 @@ namespace Game.Client.Match
                 phaseView.gameObject.SetActive(visible);
             }
 
+            EnsureTimer();
             if (timerView != null)
             {
                 timerView.gameObject.SetActive(visible);
@@ -554,6 +559,19 @@ namespace Game.Client.Match
             }
 
             urgencyBorderView.Hide();
+        }
+
+        private void EnsureTimer()
+        {
+            if (timerView == null)
+            {
+                timerView = GetComponentInChildren<MatchTimerView>(true);
+            }
+
+            if (timerView == null)
+            {
+                timerView = MatchTimerView.Create(transform);
+            }
         }
 
         private void EnsureUrgencyBorder()
