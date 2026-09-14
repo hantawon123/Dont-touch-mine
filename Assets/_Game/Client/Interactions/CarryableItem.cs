@@ -77,6 +77,7 @@ namespace Game.Client.Interactions
             body.interpolation = RigidbodyInterpolation.Interpolate;
             SetCollidersEnabled(true);
             IsCarried = false;
+            enabled = true; // SetActive may invoke Awake on a previously inactive item.
             if (snap)
             {
                 body.position = pose.position;
@@ -87,10 +88,15 @@ namespace Game.Client.Interactions
 
         private void FixedUpdate()
         {
-            if (!remoteDriven || IsCarried || remoteProgress >= 1f) return;
+            if (!remoteDriven || IsCarried || remoteProgress >= 1f)
+            {
+                enabled = false;
+                return;
+            }
             remoteProgress = Mathf.Min(1f, remoteProgress + Time.fixedDeltaTime / 0.1f);
             body.MovePosition(Vector3.Lerp(remoteFrom.position, remoteTo.position, remoteProgress));
             body.MoveRotation(Quaternion.Slerp(remoteFrom.rotation, remoteTo.rotation, remoteProgress));
+            if (remoteProgress >= 1f) enabled = false;
         }
 
         public bool TryGetPhysicsPose(out Pose pose, out Vector3 velocity, out bool moving)
@@ -132,6 +138,9 @@ namespace Game.Client.Interactions
             // 이동 경로 전체를 검사하는 연속 충돌 감지를 사용한다.
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             ApplyCarryableLayer();
+            // Only remote pose interpolation needs a Unity tick. Public interaction
+            // methods and Rigidbody physics continue to work while this script sleeps.
+            enabled = false;
         }
 
         /// <summary>
@@ -175,6 +184,7 @@ namespace Game.Client.Interactions
             if (!owningScene.IsValid()) owningScene = gameObject.scene;
             WakeNeighbours();
             remoteDriven = false;
+            enabled = false;
             gameObject.SetActive(true);
             IsCarried = true;
             SetAimed(false, 1f);
@@ -192,6 +202,7 @@ namespace Game.Client.Interactions
         public void OnDropped()
         {
             remoteDriven = false;
+            enabled = false;
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
 
@@ -204,6 +215,7 @@ namespace Game.Client.Interactions
         public void OnStored(Pose pose)
         {
             remoteDriven = false;
+            enabled = false;
             WakeNeighbours();
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
@@ -223,6 +235,7 @@ namespace Game.Client.Interactions
         public void OnPlaced(Vector3 position, Quaternion rotation)
         {
             remoteDriven = false;
+            enabled = false;
             gameObject.SetActive(true);
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
@@ -256,6 +269,7 @@ namespace Game.Client.Interactions
         public void OnSettled(Pose pose, bool keepDynamic)
         {
             remoteDriven = false;
+            enabled = false;
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
             transform.SetPositionAndRotation(pose.position, pose.rotation);
