@@ -1,3 +1,4 @@
+using System.Reflection;
 using Game.Client.Common;
 using Game.Client.Lobby;
 using Game.Client.Match;
@@ -35,7 +36,9 @@ namespace Game.Architecture.Tests
             var host = new GameObject("LobbyHud", typeof(RectTransform), typeof(Canvas), typeof(LobbyHudView));
             try
             {
-                host.GetComponent<LobbyHudView>().SendMessage("Awake");
+                typeof(LobbyHudView)
+                    .GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.Invoke(host.GetComponent<LobbyHudView>(), null);
                 var scaler = host.GetComponent<CanvasScaler>();
                 Assert.That(scaler, Is.Not.Null);
                 Assert.That(scaler.uiScaleMode, Is.EqualTo(CanvasScaler.ScaleMode.ScaleWithScreenSize));
