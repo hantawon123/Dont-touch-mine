@@ -12,14 +12,9 @@ namespace Game.Client.Voice
     /// layer hears.
     /// </summary>
     /// <remarks>
-    /// Two ways to be heard, because they answer different moments. Holding a
-    /// key suits a sentence thrown across the room and cannot be left on by
-    /// accident. Latching it open suits a conversation, where holding a key for
-    /// a minute is its own kind of tiring.
-    /// <para>
-    /// The button is neither: it is the way to be certain of silence, and it
-    /// overrules both keys.
-    /// </para>
+    /// Holding 마이크 송출 suits a sentence thrown across the room. 마이크 고정
+    /// and the HUD button are the same on/off: they mute, or they take mute off,
+    /// and the white mic / grey slash follows either one.
     /// </remarks>
     public sealed class VoicePresenter : IStartable, ITickable, IDisposable
     {
@@ -92,12 +87,17 @@ namespace Game.Client.Voice
 
             if (toggleAction.WasPressedThisFrame())
             {
-                latched = !latched;
-                Repaint();
+                HandleVoiceToggle();
             }
 
             voice.SetTalking(latched || holdAction.IsPressed());
         }
+
+        /// <summary>
+        /// 마이크 고정 (VoiceToggle) is the same on/off as the HUD button, so
+        /// the white mic and the grey slash follow the key as well as the click.
+        /// </summary>
+        internal void HandleVoiceToggle() => ToggleMute();
 
         /// <remarks>
         /// Muting drops the latch rather than overruling it. Unmuting would
@@ -115,11 +115,6 @@ namespace Game.Client.Voice
 
             voice.SetMuted(muted);
         }
-
-        private void Repaint() => Paint(
-            voice.IsAvailable.CurrentValue,
-            voice.IsMuted.CurrentValue,
-            voice.IsTransmitting.CurrentValue);
 
         private void Paint(bool available, bool muted, bool transmitting) =>
             view.SetState(available, muted, latched, transmitting);
