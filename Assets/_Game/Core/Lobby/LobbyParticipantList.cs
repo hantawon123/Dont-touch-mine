@@ -6,7 +6,12 @@ namespace Game.Core.Lobby
 {
     public readonly struct LobbyParticipant : IEquatable<LobbyParticipant>
     {
-        public LobbyParticipant(string id, string displayName, bool isHost, string userId = null)
+        public LobbyParticipant(
+            string id,
+            string displayName,
+            bool isHost,
+            string userId = null,
+            bool isMuted = false)
         {
             if (string.IsNullOrWhiteSpace(id))
             {
@@ -22,6 +27,7 @@ namespace Game.Core.Lobby
             DisplayName = displayName.Trim();
             IsHost = isHost;
             UserId = string.IsNullOrWhiteSpace(userId) ? string.Empty : userId.Trim();
+            IsMuted = isMuted;
         }
 
         public string Id { get; }
@@ -34,17 +40,21 @@ namespace Game.Core.Lobby
         /// </summary>
         public string UserId { get; }
 
+        /// <summary>Whether this person silenced their own microphone.</summary>
+        public bool IsMuted { get; }
+
         public bool Equals(LobbyParticipant other) =>
             string.Equals(Id, other.Id, StringComparison.Ordinal) &&
             string.Equals(DisplayName, other.DisplayName, StringComparison.Ordinal) &&
             IsHost == other.IsHost &&
-            string.Equals(UserId, other.UserId, StringComparison.Ordinal);
+            string.Equals(UserId, other.UserId, StringComparison.Ordinal) &&
+            IsMuted == other.IsMuted;
 
         public override bool Equals(object obj) =>
             obj is LobbyParticipant other && Equals(other);
 
         public override int GetHashCode() =>
-            HashCode.Combine(Id, DisplayName, IsHost, UserId);
+            HashCode.Combine(Id, DisplayName, IsHost, UserId, IsMuted);
     }
 
     public interface ILobbyParticipantList

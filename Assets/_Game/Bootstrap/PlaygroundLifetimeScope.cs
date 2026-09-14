@@ -105,6 +105,7 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
                 .WithParameter(false).WithParameter(gameObject.scene).AsSelf();
+            if (DedicatedServerStartup.IsRequested) return;
             builder.RegisterEntryPoint<NetworkHighlightPlaybackController>().AsSelf();
             builder.RegisterBuildCallback(c => c.Resolve<NetworkHighlightPlaybackController>()
                 .BindScene(gameObject.scene, matchScene.RuntimeContext));
@@ -220,6 +221,7 @@ namespace Game.Bootstrap
 
         private void EnsureGameplayEventSystem()
         {
+            if (DedicatedServerStartup.IsRequested) return;
             // The project scope's EventSystem belongs to the frontend and is
             // intentionally disabled while Fusion owns a gameplay scene.
             // Keep a scene-local module alive for the in-game chat input.

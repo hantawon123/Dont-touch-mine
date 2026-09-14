@@ -5,11 +5,22 @@ EC2의 `unity-webgl` 전용 에이전트를 사용한다. 기존 백엔드 작�
 같은 EC2이므로 CPU·디스크는 공유한다. 실행 슬롯 분리만으로 빌드 속도가 빨라진다고 보장하지 않는다.
 새 접속에는 **최신 성공 빌드**를 제공한다. 커밋 반영에는 SCM 확인(최대 약 5분)과 빌드 시간이 필요하다.
 
+## 현재 적용 범위 (987~990)
+
+서버 전환 이후에는 WebGL만 게시하지 않는다. 같은 커밋 SHA로 `Builds/WebGL`과 `Builds/Server`를 순차 빌드하고 `publish_release.py`로 함께 게시한다. 게임 서버가 인증·Photon 방 준비를 끝낸 후에만 `/play/`의 신규 접속을 새 버전으로 보낸다. 기존 탭과 경기는 이전 버전을 유지한다.
+
+현재 환경 세팅을 마쳤으며 **WebGL Jenkins 작업 비활성화와 공개 `/play/` 유지보수는 유지**한다. 실제 최종 빌드·공개 재개·외부 PC 6인 검증은 사용자 요청으로 S15P21D205-1007에 분리했다. 아래 자동 배포 설명은 작업 활성화 이후의 동작이다.
+
+- 배포 호스트: `d205-game-release.service`, `/var/www/d205-game`, loopback `4292`, `/play/` HTTPS 프록시.
+- 기존 임시 시험 호스트의 loopback `4291`과 별도다. 새 배포 호스트는 최초 정상 서버/WebGL 쌍을 아직 활성화하지 않아 내부 루트도 503을 반환한다.
+- 운영·이전·복구 명령은 [서버 릴리스 호스트](../network/server-flow/release-host.md)의 ‘CI 배포 환경’ 절을 따른다. 기존 `publish.py`와 정적 사이트 복구 기록은 이전 방식의 이력이며 새 서버 전환 배포에 사용하지 않는다.
+- 팀의 일상 테스트에는 [에디터 개발 서버](../network/server-flow/development-server.md)를 사용한다. CI 빌드가 필요 없다.
+
 ## Jenkins
 
 - 작업: `d205-unity-webgl`, Pipeline script from SCM, `Tools/webgl/Jenkinsfile`.
 - 저장소: 기존 GitLab 저장소와 `gitlab-deploy-token` 읽기 자격 증명 사용.
-- 운영 Branch Specifier: `*/develop`. MR 병합 전 검증에는 `*/feature/server/webgl-delivery` 사용.
+- 운영 Branch Specifier: `*/develop`. MR 병합 전 검증에는 대상 기능 브랜치를 명시적으로 선택한다.
 - feature 빌드는 검증·산출물 보관까지만 실행한다. `origin/develop`만 Publish 단계를 실행한다.
 - 실행 동시성 1, 제한 120분. NuGet 복원 1 CPU/1GB, Unity 빌드 3 CPU/8GB.
 - Unity 컨테이너 CPU shares는 1024(기본 가중치)로 두어 CPU 경쟁 시 기존 256의 낮은 우선순위를 해제한다. CPU 3개는 상한이며 예약량이 아니다. 이미 상한까지 사용하는 경우 속도 개선은 제한적이다. 백엔드 지연이 증가하면 256으로 복구한다.
@@ -22,7 +33,7 @@ EC2의 `unity-webgl` 전용 에이전트를 사용한다. 기존 백엔드 작�
   빠른 설정의 비교 빌드와 무관한 변경으로 생략한 실행은 정상 빌드 기준 SHA를 갱신하지 않는다.
 - Unity는 명시적 `git lfs pull`로 에셋을 복원한다. Jenkins 전역 Git 설정을 변경하지 않는다.
 - Git LFS로 모델·텍스처를 복원하고, NuGetForUnity CLI 4.5.0으로 R3 등을 먼저 복원한다.
-- Unity 이미지: `unityci/editor:ubuntu-6000.3.22f1-webgl-3`, 검증한 digest 고정.
+- Unity 이미지: WebGL `ubuntu-6000.3.22f1-webgl-3`와 Linux Dedicated Server 지원이 포함된 `ubuntu-6000.3.22f1-linux-il2cpp-3.2.2`를 사용한다. 정확한 이미지 참조는 build.sh를 따른다.
 - Unity `Library`는 Jenkins workspace에 남아 다음 빌드에서 재사용된다. Unity 버전 변경 시 캐시 재생성이 필요하다.
 - `Library/WebGLCiCache`에 머신 Bee 캐시와 NuGet 패키지·도구를 보관하고 컨테이너에 마운트한다.
   동시에 실행하는 다른 프로젝트에서 동일 Library를 공유하지 않는다.

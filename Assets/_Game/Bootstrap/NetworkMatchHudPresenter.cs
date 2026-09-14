@@ -150,7 +150,7 @@ namespace Game.Bootstrap
 
             var now = clock.ServerTime;
             if (snapshot.Phase == MatchPhase.Hiding &&
-                Cursor.lockState == CursorLockMode.Locked &&
+                Game.Client.Common.WebPointerInput.IsLocked &&
                 UnityEngine.InputSystem.Keyboard.current?.yKey.wasPressedThisFrame == true &&
                 UnityEngine.EventSystems.EventSystem.current?.currentSelectedGameObject == null &&
                 HidingTurns.IndexAt(snapshot.Phase, snapshot.PhaseEndsAt, now,

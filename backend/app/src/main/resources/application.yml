@@ -1,0 +1,146 @@
+spring:
+  application:
+    name: d205
+
+  # local을 기본값으로 둡니다. 프로필을 지정하지 않고 실행하는 쪽은 항상
+  # 개발자 본인 PC이고, 운영은 배포 스크립트가 prod를 명시합니다.
+  profiles:
+    default: local
+
+  jpa:
+    hibernate:
+      # 스키마는 Flyway가 관리합니다. Hibernate에는 검증만 맡겨서
+      # 엔티티와 실제 테이블이 어긋나면 기동 시점에 바로 드러나게 합니다.
+      ddl-auto: validate
+    # 영속성 컨텍스트를 뷰까지 열어두면 컨트롤러에서 지연 로딩이 일어나
+    # 쿼리가 어디서 나가는지 추적할 수 없게 됩니다.
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+  shutdown: graceful
+  # 알림 WebSocket(883)과 접속 상태(890) 이후 클라이언트마다 연결 하나를 상시 붙들고
+  # 있습니다. 아래 두 값은 Tomcat 기본값과 같지만, 기본값이 얼마인지 모르는 채로 두지
+  # 않으려고 적어 둡니다. 연결은 NIO 라 스레드와 1:1 이 아닙니다 — 유휴 WebSocket 은
+  # 스레드를 쓰지 않고, 스레드는 프레임이 실제로 올 때만 잡힙니다.
+  #
+  # max-connections 는 동시 접속자 상한입니다. 넘으면 accept-count 만큼 OS 큐에서
+  # 기다리다 거절됩니다. nginx 쪽 worker_connections 도 같은 사람 수를 받아야 하므로
+  # 둘 중 작은 값이 실제 한도입니다. deploy/verify.sh 가 서버의 값을 찍어 줍니다.
+  tomcat:
+    max-connections: 8192
+    accept-count: 100
+    threads:
+      max: 200
+  servlet:
+    session:
+      cookie:
+        # 자바스크립트가 세션 쿠키를 읽지 못하게 합니다. 톰캣 기본값이기도 하지만,
+        # 관리자 세션이 걸려 있는 값이라 명시해 둡니다.
+        http-only: true
+        # 다른 사이트에서 우리 서버로 보내는 POST 에는 쿠키가 실리지 않습니다.
+        # CSRF 토큰과 겹치는 방어지만 층이 둘인 편이 낫습니다. strict 로 하지 않는
+        # 이유는 북마크나 링크로 들어올 때 로그아웃된 것처럼 보이기 때문입니다.
+        same-site: lax
+        # secure 는 운영에서만 켭니다. 로컬은 http 라 켜면 쿠키가 아예 오가지 않습니다.
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # 헬스체크만 엽니다.
+        #
+        # 인증이 생겼지만(SecurityConfig) 그것은 /api/v1/admin/** 에만 걸립니다.
+        # actuator 는 여전히 누구나 부를 수 있으므로, 여기에 값을 더할 때는 그 정보를
+        # 공개해도 되는지 먼저 따져야 합니다. env 나 heapdump 는 그렇지 않습니다.
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+# API 명세와 Swagger UI 는 기본으로 끕니다.
+#
+# 위 actuator 와 같은 판단입니다. 지금 API 에는 인증이 없어서 userId 를 아는 사람이
+# 부를 수 있고, 계정 삭제는 되돌릴 수 없습니다. Swagger UI 를 서빙하는 서버는 그
+# 페이지의 대상 서버가 되므로 "Try it out" 이 그 서버에 실제로 씁니다.
+#
+# 켜는 곳은 application-local.yml 과 테스트 프로필입니다. 새 프로필을 추가하는
+# 사람이 잊어도 안전한 쪽에 있게 하려고 기본값을 끔으로 둡니다.
+#
+# 배포 서버에서 볼 수 없는 대신, 명세를 docs/openapi.json 으로 커밋합니다.
+# OpenApiSpecTest 가 코드와 다르면 실패하므로 낡을 수 없습니다.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+
+# Photon 커스텀 인증(S15P21D205-925). Photon 서버가 접속 시점에
+# /api/v1/photon/auth 를 부르고, 정지된 계정이면 접속 자체가 막힙니다.
+#
+# 값이 없으면 기능이 꺼집니다 - 인증 요청을 전부 통과시키고 계정 응답에 토큰도 담지
+# 않습니다. 기본값을 심어두지 않는 이유는 admin 과 같습니다. 설정을 잊은 서버가 아는
+# 값으로 토큰을 뿌리는 것보다 기능이 꺼져 있는 편이 안전합니다.
+#
+# secret: 계정 토큰을 만드는 서명 키입니다. 바꾸면 이미 나간 토큰이 전부 무효가 되고,
+#         클라이언트는 계정을 다시 읽어 새 토큰을 받습니다.
+# key   : Photon 대시보드의 key/value 에 등록하는 공유 비밀입니다. 클라이언트에는 보이지
+#         않으므로, 이 값이 맞으면 Photon 을 거쳐 온 요청입니다. 대시보드에 아직 넣지
+#         않았으면 비워 두세요 - 그때는 토큰 검증만으로 갑니다.
+photon:
+  auth:
+    secret: ${PHOTON_AUTH_SECRET:}
+    key: ${PHOTON_AUTH_KEY:}
+
+# 관리자 계정. 값이 없으면 계정을 등록하지 않고 관리 API 만 쓸 수 없게 됩니다.
+# 게임 API 는 영향을 받지 않습니다.
+#
+# 기본값을 심어두지 않는 이유는 위 springdoc 과 같습니다. 설정을 잊은 서버가
+# 아는 비밀번호로 열려 있는 것보다, 관리 화면을 못 쓰는 편이 안전합니다.
+admin:
+  username: ${ADMIN_USERNAME:}
+  password: ${ADMIN_PASSWORD:}
+
+# 실시간 알림 채널(/ws/notifications). NotificationProperties 에 기본값이 있어 여기 적은 값은
+# 그 기본값을 눈에 보이게 옮겨 둔 것입니다.
+#
+# allowed-origins 는 브라우저(WebGL)에만 걸립니다. Unity 스탠드얼론은 Origin 헤더를 보내지
+# 않아 검사 대상이 아닙니다. 로컬 WebGL 빌드는 임의 포트로 뜨므로 패턴으로 덮습니다.
+# ping 주기는 nginx 의 proxy_read_timeout(90초)보다 짧아야 합니다. 그렇지 않으면 조용한
+# 연결을 nginx 가 먼저 끊습니다.
+notifications:
+  allowed-origins:
+    - https://j15d205.p.ssafy.io
+    - "http://localhost:[*]"
+  hello-timeout-ms: 5000
+  ping-interval-ms: 30000
+
+# 운영 지표 샘플 (S15P21D205-1003). 관리 화면 개요 탭의 접속자·서버 자원 그래프가 이 기록을 봅니다.
+#
+# 1분에 한 행이라 30일이면 43,200행입니다. 간격을 늘리면 그래프가 거칠어지고, 줄이면 행 수와
+# 집계 쿼리 횟수가 그만큼 늘어납니다. 개요 탭은 최근 7일까지만 보므로 보관 30일은 여유입니다.
+# 테스트 프로필은 샘플러를 한 시간으로 늘려 사실상 끄고 sample() 을 직접 부릅니다.
+ops:
+  sample-interval-ms: 60000
+  sweep-interval-ms: 3600000
+  retention-days: 30
+
+# 분석 서비스의 내부 API (S15P21D205-1002). 두 서비스는 DB 를 공유하지 않으므로 계정 서비스가 분석에
+# 시킬 일(탈퇴 로그 익명화, 개요 탭 경기 통계)은 이 주소로 HTTP 를 보냅니다.
+#
+# 운영은 compose 네트워크의 서비스 이름(http://analytics:8080)이고 로컬은 8081 입니다. 키는 분석
+# 서비스의 internal.key 와 같은 값이어야 하며 .env 의 INTERNAL_KEY 하나를 둘이 읽습니다. 키가 비면 분석이
+# 전부 404 로 거절하므로 두 기능이 조용히 멈춥니다. 기동 로그에 경고가 남습니다.
+analytics:
+  internal-url: ${ANALYTICS_INTERNAL_URL:http://localhost:8081}
+  internal-key: ${INTERNAL_KEY:}
+  # 익명화 요청이 실패했을 때 다시 보내는 간격. 분석이 재시작하는 데 1분이면 충분합니다.
+  erase-retry-ms: 60000

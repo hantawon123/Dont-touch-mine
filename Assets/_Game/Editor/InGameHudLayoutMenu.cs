@@ -166,10 +166,7 @@ namespace Game.Editor
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 100;
 
-            var scaler = canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
+            Game.Client.Common.HudScreenScale.Apply(canvasObject.GetComponent<CanvasScaler>());
 
             var phaseText = CreateText(
                 canvasObject.transform,

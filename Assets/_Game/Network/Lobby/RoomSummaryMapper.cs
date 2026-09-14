@@ -14,8 +14,14 @@ namespace Game.Network.Lobby
     {
         private const string UnnamedRoom = "Unnamed room";
 
+        internal static int CountPlayers(int peers, bool dedicatedServer) =>
+            System.Math.Max(0, peers - (dedicatedServer ? 1 : 0));
+
         public static bool TryToSummary(SessionInfo info, out RoomSummary summary)
         {
+            if (ReadBool(info, SessionPropertyKeys.AvailableServer)) { summary = default; return false; }
+            var playerCount = CountPlayers(info.PlayerCount,
+                info.Properties?.ContainsKey(SessionPropertyKeys.AvailableServer) == true);
             var displayName = ReadString(info, SessionPropertyKeys.DisplayName, UnnamedRoom);
             var mapId = ReadString(info, SessionPropertyKeys.MapId, null);
             var hostNickname = ReadString(info, SessionPropertyKeys.HostNickname, null);
@@ -30,8 +36,8 @@ namespace Game.Network.Lobby
                 || !info.IsOpen
                 || maxPlayers < RoomSettings.MinPlayerCount
                 || maxPlayers > RoomSettings.MaxPlayerCount
-                || info.PlayerCount < 1
-                || info.PlayerCount > maxPlayers)
+                || playerCount < 1
+                || playerCount > maxPlayers)
             {
                 summary = default;
                 return false;
@@ -41,7 +47,7 @@ namespace Game.Network.Lobby
                 new RoomId(info.Name),
                 displayName,
                 mapId,
-                info.PlayerCount,
+                playerCount,
                 maxPlayers,
                 ReadBool(info, SessionPropertyKeys.Locked),
                 info.IsOpen,
@@ -55,6 +61,9 @@ namespace Game.Network.Lobby
 
         public static bool TryToSummary(PhotonRoomInfo info, out RoomSummary summary)
         {
+            if (ReadBool(info, SessionPropertyKeys.AvailableServer)) { summary = default; return false; }
+            var playerCount = CountPlayers(info.PlayerCount,
+                info.CustomProperties.ContainsKey(SessionPropertyKeys.AvailableServer));
             var displayName = ReadString(
                 info, SessionPropertyKeys.DisplayName, UnnamedRoom);
             var mapId = ReadString(info, SessionPropertyKeys.MapId, null);
@@ -70,8 +79,8 @@ namespace Game.Network.Lobby
                 || !info.IsOpen
                 || maxPlayers < RoomSettings.MinPlayerCount
                 || maxPlayers > RoomSettings.MaxPlayerCount
-                || info.PlayerCount < 1
-                || info.PlayerCount > maxPlayers)
+                || playerCount < 1
+                || playerCount > maxPlayers)
             {
                 summary = default;
                 return false;
@@ -81,7 +90,7 @@ namespace Game.Network.Lobby
                 new RoomId(info.Name),
                 displayName,
                 mapId,
-                info.PlayerCount,
+                playerCount,
                 maxPlayers,
                 ReadBool(info, SessionPropertyKeys.Locked),
                 info.IsOpen,

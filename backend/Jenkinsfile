@@ -31,6 +31,8 @@ pipeline {
     environment {
         COMPOSE_FILE = 'compose.prod.yml'
         HEALTH_URL   = 'http://localhost:8080/actuator/health'
+        // 수집 서비스. 호스트 8081 → 컨테이너 8080 (compose.prod.yml).
+        ANALYTICS_HEALTH_URL = 'http://localhost:8081/actuator/health'
 
         GITLAB_API      = 'https://lab.ssafy.com/api/v4'
         GITLAB_PROJECT  = 's15-metaverse-game-sub1%2FS15P21D205'
@@ -212,8 +214,8 @@ pipeline {
                             chmod 600 .env
                             docker compose -f "$COMPOSE_FILE" build
 
-                            # 기동 검증이 실제 DB를 필요로 하므로 먼저 확인합니다.
-                            docker compose -f "$COMPOSE_FILE" up -d --no-build mysql
+                            # 기동 검증이 실제 DB를 필요로 하므로 먼저 확인합니다. 서비스가 둘이라 DB도 둘입니다.
+                            docker compose -f "$COMPOSE_FILE" up -d --no-build mysql mysql-analytics
                         '''
                     }
                 }
@@ -232,7 +234,11 @@ pipeline {
                     // compose를 쓰지 않습니다. compose.prod.yml 파싱에 운영 환경변수가
                     // 필요하고, 남의 브랜치 빌드에 운영 크리덴셜을 줄 이유가 없습니다.
                     // 그리고 d205-app:latest 를 덮어쓰면 운영 태그가 오염됩니다.
-                    sh 'docker build -t "d205-app:$VERIFY_TAG" .'
+                    // 이미지가 둘입니다. Dockerfile 은 하나고 MODULE 인자가 갈라 줍니다.
+                    sh '''
+                        docker build --build-arg MODULE=app -t "d205-app:$VERIFY_TAG" .
+                        docker build --build-arg MODULE=analytics -t "d205-analytics:$VERIFY_TAG" .
+                    '''
                 }
             }
         }
@@ -318,6 +324,44 @@ pipeline {
                             docker logs "$VERIFY_PFX-app" --tail 120 2>&1 || true
                             exit 1
                         fi
+
+                        # 수집 서비스도 같은 방식으로. 이쪽은 운영 분석 DB(mysql-analytics)에 Flyway 를 돌립니다.
+                        docker rm -f "$VERIFY_PFX-analytics" >/dev/null 2>&1 || true
+                        docker run -d --name "$VERIFY_PFX-analytics" \
+                            --network "$NET" \
+                            --env-file .env \
+                            -e SPRING_PROFILES_ACTIVE=prod \
+                            -e ANALYTICS_DB_HOST=mysql-analytics \
+                            -e ANALYTICS_DB_PORT=3306 \
+                            -e TZ=Asia/Seoul \
+                            -p 127.0.0.1:0:8080 \
+                            d205-analytics
+
+                        APORT=$(docker port "$VERIFY_PFX-analytics" 8080 | head -1 | sed 's/.*://')
+                        echo "임시 수집 컨테이너 포트: $APORT"
+
+                        set +x
+                        ok=0
+                        for i in $(seq 1 45); do
+                            running=$(docker inspect -f '{{.State.Running}}' "$VERIFY_PFX-analytics" 2>/dev/null || echo false)
+                            if [ "$running" != true ]; then
+                                echo "임시 수집 컨테이너가 종료되었습니다 (${i}회 시도)"
+                                break
+                            fi
+                            if curl -fsS --max-time 3 "http://127.0.0.1:$APORT/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
+                                echo "수집 서비스 기동 검증 통과 (${i}회 시도)"
+                                ok=1
+                                break
+                            fi
+                            sleep 2
+                        done
+                        set -x
+
+                        if [ "$ok" != 1 ]; then
+                            echo "수집 서비스 기동 검증 실패 - 살아 있는 컨테이너는 교체하지 않았습니다"
+                            docker logs "$VERIFY_PFX-analytics" --tail 120 2>&1 || true
+                            exit 1
+                        fi
                     '''
                 }
             }
@@ -374,6 +418,33 @@ pipeline {
                             exit 1
                         fi
 
+                        # 분석 DB 도 일회용으로. 수집 서비스가 Flyway 를 빈 DB 에 돌릴 수 있는지 봅니다.
+                        ADB="$VERIFY_PFX-mysql-analytics"
+                        set +x
+                        docker run -d --name "$ADB" --network "$NET" \
+                            -e MYSQL_ROOT_PASSWORD="$PW" \
+                            -e MYSQL_DATABASE=d205_analytics \
+                            -e MYSQL_USER=d205 \
+                            -e MYSQL_PASSWORD="$PW" \
+                            -e TZ=Asia/Seoul \
+                            mysql:8.4 \
+                            --character-set-server=utf8mb4 \
+                            --collation-server=utf8mb4_0900_ai_ci > /dev/null
+                        adb_ok=0
+                        for i in $(seq 1 40); do
+                            if docker exec "$ADB" mysqladmin ping -h 127.0.0.1 --silent >/dev/null 2>&1; then
+                                echo "분석 MySQL 준비됨 (${i}회 시도)"
+                                adb_ok=1
+                                break
+                            fi
+                            sleep 2
+                        done
+                        if [ "$adb_ok" != 1 ]; then
+                            echo "일회용 분석 MySQL이 준비되지 않았습니다"
+                            docker logs "$ADB" --tail 50 2>&1 || true
+                            exit 1
+                        fi
+
                         docker run -d --name "$APP" --network "$NET" \
                             -e SPRING_PROFILES_ACTIVE=prod \
                             -e DB_HOST="$DB" \
@@ -384,6 +455,18 @@ pipeline {
                             -e TZ=Asia/Seoul \
                             -p 127.0.0.1:0:8080 \
                             "d205-app:$VERIFY_TAG" > /dev/null
+
+                        AAPP="$VERIFY_PFX-analytics"
+                        docker run -d --name "$AAPP" --network "$NET" \
+                            -e SPRING_PROFILES_ACTIVE=prod \
+                            -e ANALYTICS_DB_HOST="$ADB" \
+                            -e ANALYTICS_DB_PORT=3306 \
+                            -e ANALYTICS_DB_NAME=d205_analytics \
+                            -e ANALYTICS_DB_USERNAME=d205 \
+                            -e ANALYTICS_DB_PASSWORD="$PW" \
+                            -e TZ=Asia/Seoul \
+                            -p 127.0.0.1:0:8080 \
+                            "d205-analytics:$VERIFY_TAG" > /dev/null
                         set -x
 
                         PORT=$(docker port "$APP" 8080 | head -1 | sed 's/.*://')
@@ -411,6 +494,32 @@ pipeline {
                             docker logs "$APP" --tail 120 2>&1 || true
                             exit 1
                         fi
+
+                        APORT=$(docker port "$AAPP" 8080 | head -1 | sed 's/.*://')
+                        echo "임시 수집 컨테이너 포트: $APORT"
+
+                        set +x
+                        ok=0
+                        for i in $(seq 1 45); do
+                            running=$(docker inspect -f '{{.State.Running}}' "$AAPP" 2>/dev/null || echo false)
+                            if [ "$running" != true ]; then
+                                echo "임시 수집 컨테이너가 종료되었습니다 (${i}회 시도)"
+                                break
+                            fi
+                            if curl -fsS --max-time 3 "http://127.0.0.1:$APORT/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
+                                echo "수집 서비스 기동 검증 통과 (${i}회 시도)"
+                                ok=1
+                                break
+                            fi
+                            sleep 2
+                        done
+                        set -x
+
+                        if [ "$ok" != 1 ]; then
+                            echo "수집 서비스 기동 검증 실패"
+                            docker logs "$AAPP" --tail 120 2>&1 || true
+                            exit 1
+                        fi
                     '''
                 }
             }
@@ -427,7 +536,7 @@ pipeline {
                 dir('backend') {
                     sh '''
                         # 임시 컨테이너를 먼저 치웁니다. 남겨두면 같은 DB에 계속 붙어 있습니다.
-                        docker rm -f "$VERIFY_PFX-app" >/dev/null 2>&1 || true
+                        docker rm -f "$VERIFY_PFX-app" "$VERIFY_PFX-analytics" >/dev/null 2>&1 || true
 
                         # 지금 나가는 이미지에 이름표를 남깁니다. compose는 d205-app:latest
                         # 하나만 쓰기 때문에, 다음 빌드가 그 이름을 가져가면 이전 이미지는
@@ -440,23 +549,28 @@ pipeline {
                         # 곧 배포 순서가 되어 도커에게 물어볼 필요가 없습니다.
                         tag="$(date -u +%Y%m%d-%H%M%S)-$(git rev-parse --short=12 HEAD)"
                         docker tag d205-app:latest "d205-app:$tag"
-                        echo "이미지 이름표: d205-app:$tag"
+                        docker tag d205-analytics:latest "d205-analytics:$tag"
+                        echo "이미지 이름표: d205-app:$tag, d205-analytics:$tag"
 
                         # 이미지는 이미 빌드됐고 기동도 확인됐습니다. 여기서는 교체만 합니다.
+                        # compose 는 이미지나 설정이 바뀐 서비스만 다시 만듭니다. 계정 서비스만 바뀐 배포에서
+                        # 수집 컨테이너는 그대로 돌고, 그 반대도 같습니다. 모듈별 변경 감지를 따로 두지 않는 이유입니다.
                         docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 
                         # 최근 5개만 남깁니다. rmi에 -f 를 붙이지 않으므로, 돌고 있는
                         # 컨테이너가 쓰는 이미지는 도커가 거부합니다. 실수로 지금 서비스
                         # 중인 이미지를 지울 수 없습니다.
-                        docker images d205-app --format '{{.Tag}}' |
-                            grep -E '^[0-9]{8}-[0-9]{6}-' |
-                            sort -r |
-                            tail -n +6 |
-                            while read -r old; do
-                                if docker rmi "d205-app:$old" >/dev/null 2>&1; then
-                                    echo "오래된 이름표 정리: $old"
-                                fi
-                            done
+                        for image in d205-app d205-analytics; do
+                            docker images "$image" --format '{{.Tag}}' |
+                                grep -E '^[0-9]{8}-[0-9]{6}-' |
+                                sort -r |
+                                tail -n +6 |
+                                while read -r old; do
+                                    if docker rmi "$image:$old" >/dev/null 2>&1; then
+                                        echo "오래된 이름표 정리: $image:$old"
+                                    fi
+                                done
+                        done
                     '''
                 }
             }
@@ -474,18 +588,22 @@ pipeline {
                     // 기동 검증을 통과했으니 여기서 실패하는 것은 교체 과정의 문제입니다.
                     sh '''
                         set +x
+                        app_ok=0; analytics_ok=0
                         for i in $(seq 1 30); do
-                            if curl -fsS --max-time 3 "$HEALTH_URL" 2>/dev/null | grep -q '"status":"UP"'; then
-                                echo "헬스체크 통과 (${i}회 시도)"
-                                exit 0
+                            if [ "$app_ok" != 1 ] && curl -fsS --max-time 3 "$HEALTH_URL" 2>/dev/null | grep -q '"status":"UP"'; then
+                                echo "계정 서비스 헬스체크 통과 (${i}회 시도)"; app_ok=1
                             fi
+                            if [ "$analytics_ok" != 1 ] && curl -fsS --max-time 3 "$ANALYTICS_HEALTH_URL" 2>/dev/null | grep -q '"status":"UP"'; then
+                                echo "수집 서비스 헬스체크 통과 (${i}회 시도)"; analytics_ok=1
+                            fi
+                            if [ "$app_ok" = 1 ] && [ "$analytics_ok" = 1 ]; then exit 0; fi
                             sleep 2
                         done
                         set -x
 
-                        echo "헬스체크 실패 - 60초 안에 UP이 되지 않았습니다"
+                        echo "헬스체크 실패 - 60초 안에 둘 다 UP이 되지 않았습니다 (app=$app_ok analytics=$analytics_ok)"
                         docker compose -f "$COMPOSE_FILE" ps || true
-                        docker compose -f "$COMPOSE_FILE" logs app --tail 100 || true
+                        docker compose -f "$COMPOSE_FILE" logs app analytics --tail 100 || true
                         exit 1
                     '''
                 }
@@ -509,7 +627,7 @@ pipeline {
                 sh '''
                     docker rm -f $(docker ps -aq --filter "name=$VERIFY_PFX-") 2>/dev/null || true
                     docker network rm "$VERIFY_PFX-net" 2>/dev/null || true
-                    docker image rm -f "d205-app:$VERIFY_TAG" 2>/dev/null || true
+                    docker image rm -f "d205-app:$VERIFY_TAG" "d205-analytics:$VERIFY_TAG" 2>/dev/null || true
                     rm -f .env
                     docker builder prune -f --filter until=168h || true
                 '''

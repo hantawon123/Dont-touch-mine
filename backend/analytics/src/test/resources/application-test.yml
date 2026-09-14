@@ -1,0 +1,6 @@
+# 테스트 프로필. 접속 정보는 AnalyticsIntegrationTest 의 @ServiceConnection 이 컨테이너에서 받아
+# spring.datasource 에 넣으므로 여기 없습니다.
+
+# 큐를 자주 비웁니다. 기본 1초를 기다리는 테스트가 여럿 쌓이면 스위트가 느려집니다.
+analytics:
+  flush-interval-ms: 200

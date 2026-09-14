@@ -22,6 +22,7 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
+            if (DedicatedServerStartup.IsRequested) return;
             if (homeMenuView == null)
             {
                 Debug.LogError("HomeMenuView must be assigned on HomeLifetimeScope.", this);
@@ -102,8 +103,7 @@ namespace Game.Bootstrap
                     ? "호스트의 연결이 끊어졌습니다" : "서버와의 연결이 끊어졌습니다");
 
                 // The game locked the cursor away. Home is a screen to click on.
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
+                Game.Client.Common.WebPointerInput.Release();
             }
         }
 

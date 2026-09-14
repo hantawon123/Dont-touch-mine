@@ -1,12 +1,16 @@
+using System;
 using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Client.Lobby;
 using Game.Core.Home;
 using Game.Core.Lobby;
+using Game.Core.Rooms;
+using Game.Core.Settings;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace Game.Architecture.Tests
 {
@@ -161,7 +165,7 @@ namespace Game.Architecture.Tests
                     Is.EqualTo(LobbyPlayerListView.ColumnWidthRatio).Within(0.001f));
                 var title = participants.Find("Title") as RectTransform;
                 var scroll = participants.Find("Scroll") as RectTransform;
-                Assert.That(title.offsetMin.x, Is.EqualTo(LobbyPlayerListView.ColumnInnerPadding));
+                Assert.That(title.offsetMin.x, Is.EqualTo(LobbyPlayerListView.TitleLeftPadding));
                 Assert.That(title.offsetMax.x, Is.EqualTo(-LobbyPlayerListView.ColumnInnerPadding));
                 Assert.That(title.offsetMax.y, Is.EqualTo(-LobbyPlayerListView.ColumnInnerPadding));
                 Assert.That(scroll.offsetMin, Is.EqualTo(new Vector2(
@@ -211,6 +215,10 @@ namespace Game.Architecture.Tests
 
                 var name = guestRow.Find("Name").GetComponent<TMP_Text>();
                 Assert.That(name.text, Is.EqualTo("게스트닉"));
+                Assert.That(name.color, Is.EqualTo(Color.white));
+                Assert.That(
+                    hostRow.Find("Name").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(LobbyPlayerListView.SelfNicknameColor));
                 Assert.That(name.fontSize, Is.EqualTo(LobbyPlayerListView.NicknameFontSize));
                 Assert.That(name.font, Is.EqualTo(HomeUiFonts.ApplyRegular()));
                 Assert.That(
@@ -259,6 +267,157 @@ namespace Game.Architecture.Tests
                 var guestRow = canvas.transform.Find("Columns/Participants/Scroll/RowRoot/Row_player-2");
                 Assert.That(hostRow.Find("Kick"), Is.Null);
                 Assert.That(guestRow.Find("Kick"), Is.Null);
+                Assert.That(
+                    guestRow.Find("Name").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(LobbyPlayerListView.SelfNicknameColor));
+                Assert.That(
+                    hostRow.Find("Name").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(Color.white));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetParticipants_HoldsTheListUntilNamesAreReady()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.EnsureLayout();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1",
+                    namesReady: false);
+
+                Assert.That(FindRow(canvas, "Row_host-1"), Is.Null);
+                Assert.That(
+                    Array.Exists(
+                        canvas.GetComponentsInChildren<TMP_Text>(true),
+                        label => label.text == "참가자가 없습니다."),
+                    Is.False);
+
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1",
+                    namesReady: true);
+
+                Assert.That(FindRow(canvas, "Row_host-1"), Is.Not.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetParticipants_HidesOthersUntilTheyPublishVisibility()
+        {
+            using var room = new RoomBrowserSystem();
+            room.SetLocalPlayer("host-1");
+            room.SetParticipants(new[]
+            {
+                new RoomParticipant("host-1", 0, true, "방장닉"),
+                new RoomParticipant("player-2", 1, false, "게스트닉"),
+            });
+            using var presentation = new InterfacePresentation(
+                new InterfaceSettingsSystem(new InMemoryInterfaceSettingsStore()),
+                new FriendListSystem(),
+                room);
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.BindPresentation(presentation);
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true),
+                        new LobbyParticipant("player-2", "게스트닉", false),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1");
+
+                Assert.That(FindRow(canvas, "Row_host-1"), Is.Not.Null);
+                Assert.That(FindRow(canvas, "Row_player-2"), Is.Null);
+                Assert.That(
+                    Array.Exists(
+                        canvas.GetComponentsInChildren<TMP_Text>(true),
+                        label => label.text == "게스트닉"),
+                    Is.False,
+                    "The real nickname must not appear before visibility is known.");
+
+                presentation.SetPublishedName("player-2", real: false, "익명손님");
+                Assert.That(
+                    canvas.transform.Find("Columns/Participants/Scroll/RowRoot/Row_player-2/Name")
+                        .GetComponent<TMP_Text>().text,
+                    Is.EqualTo("익명손님"));
+                Assert.That(
+                    Array.Exists(
+                        canvas.GetComponentsInChildren<TMP_Text>(true),
+                        label => label.text == "게스트닉"),
+                    Is.False);
+
+                string kickedName = null;
+                view.KickClicked += (_, name) => kickedName = name;
+                var kick = canvas.transform
+                    .Find("Columns/Participants/Scroll/RowRoot/Row_player-2/Kick")
+                    ?.GetComponent<Button>();
+                Assert.That(kick, Is.Not.Null);
+                kick.onClick.Invoke();
+                Assert.That(kickedName, Is.EqualTo("익명손님"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetParticipants_MutedPlayerDimsAvatarAndShowsMuteIcon()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true, isMuted: false),
+                        new LobbyParticipant("player-2", "게스트닉", false, isMuted: true),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1");
+
+                var hostAvatar = canvas.transform.Find(
+                    "Columns/Participants/Scroll/RowRoot/Row_host-1/Avatar");
+                var guestAvatar = canvas.transform.Find(
+                    "Columns/Participants/Scroll/RowRoot/Row_player-2/Avatar");
+                Assert.That(hostAvatar.Find(LobbyPlayerListView.AvatarDimName), Is.Null);
+                Assert.That(hostAvatar.Find(LobbyPlayerListView.MuteIconName), Is.Null);
+
+                var dim = guestAvatar.Find(LobbyPlayerListView.AvatarDimName).GetComponent<Image>();
+                Assert.That(dim.color, Is.EqualTo(LobbyPlayerListView.MutedAvatarDim));
+                Assert.That(dim.sprite, Is.EqualTo(HomeUiFonts.CircleSprite));
+                var mute = guestAvatar.Find(LobbyPlayerListView.MuteIconName) as RectTransform;
+                Assert.That(mute, Is.Not.Null);
+                Assert.That(mute.sizeDelta, Is.EqualTo(new Vector2(
+                    LobbyPlayerListView.MuteIconSize,
+                    LobbyPlayerListView.MuteIconSize)));
+                Assert.That(
+                    mute.GetComponent<Image>().sprite,
+                    Is.EqualTo(LobbyPlayerListSprites.MicOffWhite));
             }
             finally
             {
@@ -293,17 +452,17 @@ namespace Game.Architecture.Tests
                 var tooltip = hostRow.Find("Report") as RectTransform;
                 Assert.That(tooltip, Is.Not.Null);
                 Assert.That(tooltip.gameObject.activeSelf, Is.False);
-                Assert.That(tooltip.anchorMin, Is.EqualTo(new Vector2(0.5f, 1f)));
-                Assert.That(tooltip.pivot, Is.EqualTo(new Vector2(0.5f, 0f)));
-                Assert.That(tooltip.anchoredPosition.y, Is.EqualTo(LobbyPlayerListView.ReportTooltipGap));
+                Assert.That(tooltip.anchorMin, Is.EqualTo(new Vector2(0.5f, 0f)));
+                Assert.That(tooltip.pivot, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(tooltip.anchoredPosition.y, Is.EqualTo(-LobbyPlayerListView.ReportTooltipGap));
                 var bridge = tooltip.Find(LobbyPlayerListView.ReportBridgeName) as RectTransform;
                 Assert.That(bridge, Is.Not.Null);
+                Assert.That(bridge.anchorMin, Is.EqualTo(new Vector2(0f, 1f)));
                 Assert.That(
                     bridge.sizeDelta.y,
                     Is.EqualTo(
                         LobbyPlayerListView.ReportTooltipGap
                         + LobbyPlayerListView.ReportTooltipOverlap));
-                Assert.That(bridge.GetComponent<Image>().raycastTarget, Is.True);
                 var label = tooltip.Find("Label").GetComponent<TMP_Text>();
                 Assert.That(label.text, Is.EqualTo(LobbyPlayerListView.ReportLabel));
                 Assert.That(label.fontSize, Is.EqualTo(18f));
@@ -332,6 +491,45 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void SetParticipants_HostCanReportAGuestAndStillKick()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true, "account-host-1"),
+                        new LobbyParticipant("player-2", "게스트닉", false, "account-player-2"),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1");
+
+                var hostRow = canvas.transform.Find("Columns/Participants/Scroll/RowRoot/Row_host-1");
+                var guestRow = canvas.transform.Find("Columns/Participants/Scroll/RowRoot/Row_player-2");
+                Assert.That(hostRow.Find("Report"), Is.Null);
+                Assert.That(guestRow.Find("Kick"), Is.Not.Null);
+                var tooltip = guestRow.Find("Report") as RectTransform;
+                Assert.That(tooltip, Is.Not.Null);
+                Assert.That(tooltip.gameObject.activeSelf, Is.False);
+                Assert.That(tooltip.anchorMin, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(tooltip.pivot, Is.EqualTo(new Vector2(0.5f, 0f)));
+                Assert.That(tooltip.anchoredPosition.y, Is.EqualTo(LobbyPlayerListView.ReportTooltipGap));
+
+                guestRow.GetComponent<LobbyReportHover>().ShowTooltip();
+                var reported = new List<(string Id, string Name)>();
+                view.ReportClicked += (id, name) => reported.Add((id, name));
+                tooltip.GetComponent<Button>().onClick.Invoke();
+                Assert.That(reported, Is.EqualTo(new[] { ("account-player-2", "게스트닉") }));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void SetFriends_ShowsNicknamesAndPlusButtons()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
@@ -344,30 +542,35 @@ namespace Game.Architecture.Tests
                     new FriendSummary("f-2", "오프라인친구", FriendPresence.Offline),
                 });
 
-                var friends = canvas.transform.Find("Columns/Friends/Scroll/RowRoot");
-                Assert.That(friends.childCount, Is.EqualTo(2));
+                var root = canvas.transform.Find("Columns/Friends/Scroll/RowRoot");
+                var online = root.Find(LobbyPlayerListView.OnlineItemsName);
+                Assert.That(root.Find("OnlineSection").gameObject.activeSelf, Is.True);
+                Assert.That(root.Find("OnlineSection").GetComponent<TMP_Text>().text,
+                    Is.EqualTo(LobbyPlayerListView.OnlineSectionTitle));
+                Assert.That(root.Find("OnlineSection").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(LobbyPlayerListView.OnlineSectionColor));
+                Assert.That(root.Find("WaitingSection").gameObject.activeSelf, Is.False);
+                Assert.That(root.Find("InGameSection").gameObject.activeSelf, Is.False);
+                Assert.That(online.gameObject.activeSelf, Is.True);
+                Assert.That(online.childCount, Is.EqualTo(1));
+                Assert.That(root.Find(LobbyPlayerListView.WaitingItemsName).gameObject.activeSelf, Is.False);
+                Assert.That(root.Find(LobbyPlayerListView.InGameItemsName).gameObject.activeSelf, Is.False);
                 Assert.That(
-                    friends.Find("Friend_f-1/Name").GetComponent<TMP_Text>().text,
+                    online.Find("Friend_f-1/Name").GetComponent<TMP_Text>().text,
                     Is.EqualTo("초대할까말까할까말까"));
-                Assert.That(
-                    friends.Find("Friend_f-2/Name").GetComponent<TMP_Text>().text,
-                    Is.EqualTo("오프라인친구"));
-                for (var index = 0; index < friends.childCount; index++)
-                {
-                    var add = friends.GetChild(index).Find("Add") as RectTransform;
-                    Assert.That(add, Is.Not.Null);
-                    Assert.That(add.sizeDelta, Is.EqualTo(new Vector2(
-                        LobbyPlayerListView.AddButtonSize,
-                        LobbyPlayerListView.AddButtonSize)));
-                    Assert.That(add.anchorMin.x, Is.EqualTo(1f));
-                    Assert.That(add.anchoredPosition.x, Is.EqualTo(-LobbyPlayerListView.ActionRight));
-                    Assert.That(add.GetComponent<Button>(), Is.Not.Null);
-                    Assert.That(add.GetComponent<Image>().sprite, Is.Not.Null);
-                }
+                Assert.That(online.Find("Friend_f-2"), Is.Null);
+                var add = online.Find("Friend_f-1/Add") as RectTransform;
+                Assert.That(add, Is.Not.Null);
+                Assert.That(add.sizeDelta, Is.EqualTo(new Vector2(
+                    LobbyPlayerListView.AddButtonSize,
+                    LobbyPlayerListView.AddButtonSize)));
+                Assert.That(add.anchorMin.x, Is.EqualTo(1f));
+                Assert.That(add.anchoredPosition.x, Is.EqualTo(-LobbyPlayerListView.ActionRight));
+                Assert.That(add.GetComponent<Button>().interactable, Is.True);
 
                 var invited = new List<(string Id, string Name)>();
                 view.InviteClicked += (id, name) => invited.Add((id, name));
-                friends.Find("Friend_f-1/Add").GetComponent<Button>().onClick.Invoke();
+                add.GetComponent<Button>().onClick.Invoke();
                 Assert.That(invited, Is.EqualTo(new[] { ("f-1", "초대할까말까할까말까") }));
             }
             finally
@@ -395,9 +598,13 @@ namespace Game.Architecture.Tests
                 view.InviteClicked += (id, _) => invited.Add(id);
 
                 var first = canvas.transform
-                    .Find("Columns/Friends/Scroll/RowRoot/Friend_f-1/Add");
+                    .Find("Columns/Friends/Scroll/RowRoot/"
+                        + LobbyPlayerListView.OnlineItemsName
+                        + "/Friend_f-1/Add");
                 var second = canvas.transform
-                    .Find("Columns/Friends/Scroll/RowRoot/Friend_f-2/Add");
+                    .Find("Columns/Friends/Scroll/RowRoot/"
+                        + LobbyPlayerListView.OnlineItemsName
+                        + "/Friend_f-2/Add");
                 first.GetComponent<Button>().onClick.Invoke();
                 first.GetComponent<Button>().onClick.Invoke();
 
@@ -419,7 +626,9 @@ namespace Game.Architecture.Tests
                     new FriendSummary("f-2", "두번째", FriendPresence.Online),
                 });
                 first = canvas.transform
-                    .Find("Columns/Friends/Scroll/RowRoot/Friend_f-1/Add");
+                    .Find("Columns/Friends/Scroll/RowRoot/"
+                        + LobbyPlayerListView.OnlineItemsName
+                        + "/Friend_f-1/Add");
                 Assert.That(first.GetComponent<Button>().interactable, Is.False);
                 Assert.That(first.GetComponent<Image>().sprite, Is.EqualTo(lockedIcon));
 
@@ -427,6 +636,102 @@ namespace Game.Architecture.Tests
                 view.RefreshInviteCooldowns();
                 Assert.That(first.GetComponent<Button>().interactable, Is.True);
                 Assert.That(first.GetComponent<Image>().sprite, Is.EqualTo(readyIcon));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetFriends_GroupsByPresenceAndLocksBusyInvites()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetFriends(new[]
+                {
+                    new FriendSummary("online-1", "접속중", FriendPresence.Online),
+                    new FriendSummary("lobby-1", "로비대기", FriendPresence.InLobby),
+                    new FriendSummary("game-1", "한판중", FriendPresence.InGame),
+                });
+
+                var root = canvas.transform.Find("Columns/Friends/Scroll/RowRoot");
+                var online = root.Find(LobbyPlayerListView.OnlineItemsName + "/Friend_online-1/Add")
+                    .GetComponent<Button>();
+                var waiting = root.Find(LobbyPlayerListView.WaitingItemsName + "/Friend_lobby-1/Add")
+                    .GetComponent<Button>();
+                var playing = root.Find(LobbyPlayerListView.InGameItemsName + "/Friend_game-1/Add")
+                    .GetComponent<Button>();
+                Assert.That(
+                    root.Find(LobbyPlayerListView.OnlineItemsName + "/Friend_online-1/Name")
+                        .GetComponent<TMP_Text>().text,
+                    Is.EqualTo("접속중"));
+                Assert.That(
+                    root.Find(LobbyPlayerListView.WaitingItemsName + "/Friend_lobby-1/Name")
+                        .GetComponent<TMP_Text>().text,
+                    Is.EqualTo("로비대기"));
+                Assert.That(
+                    root.Find(LobbyPlayerListView.InGameItemsName + "/Friend_game-1/Name")
+                        .GetComponent<TMP_Text>().text,
+                    Is.EqualTo("한판중"));
+                Assert.That(root.Find("OnlineSection").gameObject.activeSelf, Is.True);
+                Assert.That(root.Find("WaitingSection").gameObject.activeSelf, Is.True);
+                Assert.That(root.Find("InGameSection").gameObject.activeSelf, Is.True);
+                Assert.That(root.Find("WaitingSection").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(LobbyPlayerListView.WaitingSectionColor));
+                Assert.That(root.Find("InGameSection").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(LobbyPlayerListView.InGameSectionColor));
+                Assert.That(online.interactable, Is.True);
+                Assert.That(waiting.interactable, Is.False);
+                Assert.That(playing.interactable, Is.False);
+                Assert.That(
+                    waiting.GetComponent<Image>().sprite,
+                    Is.EqualTo(LobbyPlayerListSprites.PlusGray));
+                Assert.That(
+                    playing.GetComponent<Image>().sprite,
+                    Is.EqualTo(LobbyPlayerListSprites.PlusGray));
+
+                var invited = new List<string>();
+                view.InviteClicked += (id, _) => invited.Add(id);
+                waiting.onClick.Invoke();
+                playing.onClick.Invoke();
+                Assert.That(invited, Is.Empty);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetFriends_HidesEmptySectionTitlesUntilSomeoneAppears()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetFriends(Array.Empty<FriendSummary>());
+
+                var root = canvas.transform.Find("Columns/Friends/Scroll/RowRoot");
+                Assert.That(root.Find("OnlineSection").gameObject.activeSelf, Is.False);
+                Assert.That(root.Find("WaitingSection").gameObject.activeSelf, Is.False);
+                Assert.That(root.Find("InGameSection").gameObject.activeSelf, Is.False);
+
+                view.SetFriends(new[]
+                {
+                    new FriendSummary("game-1", "한판중", FriendPresence.InGame),
+                });
+                Assert.That(root.Find("OnlineSection").gameObject.activeSelf, Is.False);
+                Assert.That(root.Find("WaitingSection").gameObject.activeSelf, Is.False);
+                Assert.That(root.Find("InGameSection").gameObject.activeSelf, Is.True);
+                Assert.That(root.Find("InGameSection").GetComponent<TMP_Text>().text,
+                    Is.EqualTo(LobbyPlayerListView.InGameSectionTitle));
+                Assert.That(
+                    root.Find(LobbyPlayerListView.InGameItemsName + "/Friend_game-1/Name")
+                        .GetComponent<TMP_Text>().text,
+                    Is.EqualTo("한판중"));
             }
             finally
             {

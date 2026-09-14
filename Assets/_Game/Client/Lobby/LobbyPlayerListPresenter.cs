@@ -29,7 +29,13 @@ namespace Game.Client.Lobby
         [VContainer.Inject]
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value) =>
             presentation = value;
+
+        [VContainer.Inject]
+        public void BindVoice(IVoiceControl value) => voice = value;
+
+        private IVoiceControl voice;
         private IDisposable refreshSubscription;
+        private IDisposable muteSubscription;
 
         /// <summary>
         /// The last thing the room said about itself, so that a name arriving
@@ -73,6 +79,10 @@ namespace Game.Client.Lobby
             confirmView.Confirmed += ConfirmPending;
             confirmView.Cancelled += CancelPending;
             friends.FriendsChanged += BindFriends;
+            if (voice != null)
+            {
+                muteSubscription = voice.IsMuted.Subscribe(_ => Draw());
+            }
 
             refreshSubscription = Observable.CombineLatest(
                     participantList.Participants,
@@ -98,15 +108,14 @@ namespace Game.Client.Lobby
         /// was drawn with, which is what a joining player used to see for the
         /// whole time they were in the room.
         /// <para>
-        /// Also closes a kick or a hand-over that was waiting on an answer.
-        /// Whoever it named may be going by something else now, and a
-        /// confirmation that says a name nobody can see is worse than one
-        /// dismissed.
+        /// This event is not only a name change. Friend presence is polled
+        /// every few seconds while the roster is open, and that refresh is
+        /// broadcast as the same <c>Changed</c>. Closing a kick confirm here
+        /// made the panel vanish with nobody touching it.
         /// </para>
         /// </remarks>
         private void OnPresentationChanged()
         {
-            CancelPending();
             Draw();
         }
 
@@ -118,11 +127,13 @@ namespace Game.Client.Lobby
             }
 
             var state = latest.Value;
-            var people = state.Participants ?? Array.Empty<LobbyParticipant>();
+            var people = WithLocalMute(state.Participants ?? Array.Empty<LobbyParticipant>());
+            var namesReady = presentation == null || presentation.InitialVisibilityReady;
             view.SetParticipants(
-                people,
+                namesReady ? people : Array.Empty<LobbyParticipant>(),
                 state.IsLocalHost,
-                hostSession.LocalPlayerId);
+                hostSession.LocalPlayerId,
+                namesReady);
             countView.SetCount(people.Count, state.Settings.MaxPlayers);
             BindFriends();
         }
@@ -138,7 +149,50 @@ namespace Game.Client.Lobby
             confirmView.Confirmed -= ConfirmPending;
             confirmView.Cancelled -= CancelPending;
             friends.FriendsChanged -= BindFriends;
+            muteSubscription?.Dispose();
             refreshSubscription?.Dispose();
+        }
+
+        /// <summary>
+        /// The local microphone is the source of truth for this machine. The
+        /// roster's copy can lag a frame, or never land if the avatar has not
+        /// published yet, and then the owner would not see their own mute.
+        /// </summary>
+        private IReadOnlyList<LobbyParticipant> WithLocalMute(
+            IReadOnlyList<LobbyParticipant> people)
+        {
+            var localId = hostSession.LocalPlayerId;
+            if (voice == null || string.IsNullOrEmpty(localId) || people.Count == 0)
+            {
+                return people;
+            }
+
+            var localMuted = voice.IsMuted.CurrentValue;
+            for (var index = 0; index < people.Count; index++)
+            {
+                var person = people[index];
+                if (!string.Equals(person.Id, localId, StringComparison.Ordinal)
+                    || person.IsMuted == localMuted)
+                {
+                    continue;
+                }
+
+                var copy = new LobbyParticipant[people.Count];
+                for (var write = 0; write < people.Count; write++)
+                {
+                    copy[write] = people[write];
+                }
+
+                copy[index] = new LobbyParticipant(
+                    person.Id,
+                    person.DisplayName,
+                    person.IsHost,
+                    person.UserId,
+                    localMuted);
+                return copy;
+            }
+
+            return people;
         }
 
         private void BindFriends()
@@ -199,7 +253,43 @@ namespace Game.Client.Lobby
 
             pending = PendingConfirm.Kick;
             pendingPlayerId = playerId;
-            confirmView.Show(KickConfirmView.FormatTitle(displayName), KickConfirmView.ConfirmLabel);
+            confirmView.Show(
+                KickConfirmView.FormatTitle(PresentedName(playerId, displayName)),
+                KickConfirmView.ConfirmLabel);
+        }
+
+        /// <summary>
+        /// Kick confirm must say the same thing the list does. The roster still
+        /// carries the account nickname, so an anonymous player would otherwise
+        /// be named for real on the way out.
+        /// </summary>
+        private string PresentedName(string playerId, string fallback)
+        {
+            if (presentation == null || string.IsNullOrEmpty(playerId))
+            {
+                return fallback;
+            }
+
+            var rosterName = fallback;
+            if (latest.HasValue)
+            {
+                var people = latest.Value.Participants;
+                if (people != null)
+                {
+                    for (var index = 0; index < people.Count; index++)
+                    {
+                        var person = people[index];
+                        if (string.Equals(person.Id, playerId, StringComparison.Ordinal))
+                        {
+                            rosterName = person.DisplayName;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            var presented = presentation.Name(playerId, rosterName);
+            return string.IsNullOrEmpty(presented) ? fallback : presented;
         }
 
         /// <param name="userId">
@@ -243,6 +333,7 @@ namespace Game.Client.Lobby
                 ReportAsync(
                     pendingPlayerId,
                     confirmView.SelectedReason,
+                    confirmView.Note,
                     lifetime.Token).Forget();
             }
 
@@ -264,9 +355,9 @@ namespace Game.Client.Lobby
         /// </para>
         /// </remarks>
         private async UniTaskVoid ReportAsync(
-            string userId, ReportReason reason, CancellationToken cancellation)
+            string userId, ReportReason reason, string note, CancellationToken cancellation)
         {
-            var result = await reports.ReportAsync(userId, reason, null, cancellation);
+            var result = await reports.ReportAsync(userId, reason, note, cancellation);
 
             if (result.Ok || result.Failure == BackendFailure.Cancelled)
             {
