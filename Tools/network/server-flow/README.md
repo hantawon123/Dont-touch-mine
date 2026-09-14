@@ -29,7 +29,7 @@ python Tools/network/server-flow/verify.py '<logs-directory>' --output '<evidenc
 
 ## 수동 확인용 WebGL
 
-같은 독립 프로젝트에서 다음 빌드를 실행한다. 네이티브와 WebGL의 버전은 모두 `988-local-v1`이다. 빠른 빌드는 기능 확인용이며 성능 판정에 사용하지 않는다.
+같은 독립 프로젝트에서 다음 빌드를 실행한다. 네이티브와 WebGL은 같은 `SERVER_FLOW_VERSION`을 사용한다(생략 시 `988-local-v1`). 빠른 빌드는 기능 확인용이며 성능 판정에 사용하지 않는다.
 
 ```powershell
 $env:WEBGL_OUTPUT = '<webgl-output>'
@@ -43,6 +43,10 @@ python Tools/network/server-flow/serve.py '<webgl-output>'
 독립 프로젝트에만 적용되는 WebGL 설정은 HTTP API를 로컬 프리뷰를 거쳐 기존 HTTPS 백엔드로 전달한다. 프리뷰는 `127.0.0.1`에만 바인딩하고 대상 백엔드를 고정하며 계정·토큰·요청 본문을 로그에 저장하지 않는다. WebSocket은 기존 백엔드에 직접 연결한다. 제품 소스의 백엔드 주소와 운영 CORS 설정은 바뀌지 않는다. 확인 후 프리뷰 Python 프로세스를 종료한다.
 
 실행 결과는 [작업 기록](../../../docs/planning/server-session-988.md)에 갱신한다. 이 도구의 존재나 컴파일 성공 자체는 게임 흐름 검증 통과를 뜻하지 않는다. 서로 다른 PC의 WebGL 6인 검증과 운영 서버 수용량 측정은 별도로 필요하다.
+
+## 버전 교체 테스트 호스트
+
+빌드 중 기존 서버 유지, 준비 확인 후 교체, 종료된 방 자동 재생성은 [테스트 호스트 실행 절차](release-host.md)를 사용한다. 아래 단발 EC2 실행 절차는 이전 수동 검증용이며, 새 테스트 호스트와 중복 실행하지 않는다.
 
 ## Linux / 기존 EC2 시험 실행
 

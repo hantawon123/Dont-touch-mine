@@ -12,7 +12,7 @@ public static class ServerFlowBuild
     {
         PlayerSettings.companyName = "KeepItValidation";
         PlayerSettings.productName = "ServerFlow988";
-        PlayerSettings.bundleVersion = "988-local-v1";
+        PlayerSettings.bundleVersion = Environment.GetEnvironmentVariable("SERVER_FLOW_VERSION") ?? "988-local-v1";
         PlayerSettings.runInBackground = true;
         Environment.SetEnvironmentVariable("WEBGL_REVISION", PlayerSettings.bundleVersion);
         Game.Editor.WebBuild.Build();
@@ -34,7 +34,7 @@ public static class ServerFlowBuild
         if (string.IsNullOrWhiteSpace(output)) throw new InvalidOperationException("SERVER_FLOW_OUTPUT required");
         PlayerSettings.companyName = "KeepItValidation";
         PlayerSettings.productName = "ServerFlow988";
-        PlayerSettings.bundleVersion = "988-local-v1";
+        PlayerSettings.bundleVersion = Environment.GetEnvironmentVariable("SERVER_FLOW_VERSION") ?? "988-local-v1";
         PlayerSettings.runInBackground = true;
         PlayerSettings.SetScriptingBackend(server ? NamedBuildTarget.Server : NamedBuildTarget.Standalone, ScriptingImplementation.Mono2x);
         PlayerSettings.dedicatedServerOptimizations = server;
@@ -47,5 +47,6 @@ public static class ServerFlowBuild
         });
         Debug.Log($"[Flow988Build] {result.summary.result} errors={result.summary.totalErrors}");
         if (result.summary.result != BuildResult.Succeeded) throw new BuildFailedException("988 validation build failed");
+        File.WriteAllText(Path.Combine(output, "version.txt"), PlayerSettings.bundleVersion);
     }
 }

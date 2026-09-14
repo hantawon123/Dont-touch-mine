@@ -24,7 +24,7 @@ notifications = 'var frames = RegisterNotifications(builder, endpoint, session);
 if text.count(endpoint) != 1 or text.count(notifications) != 1:
     raise SystemExit('Backend wiring changed; review local preview injection')
 text = text.replace(endpoint, '''#if UNITY_WEBGL && !UNITY_EDITOR
-            baseUrl = "http://localhost:4291";
+            baseUrl = new System.Uri(UnityEngine.Application.absoluteURL).GetLeftPart(System.UriPartial.Authority);
 #endif
             ''' + endpoint)
 text = text.replace(notifications, '''#if UNITY_WEBGL && !UNITY_EDITOR

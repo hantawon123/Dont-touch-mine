@@ -6,12 +6,6 @@ from urllib.error import HTTPError
 from urllib.parse import unquote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-parser = argparse.ArgumentParser()
-parser.add_argument('root', type=Path)
-args = parser.parse_args()
-root = args.root.resolve()
-origin = 'http://localhost:4291'
-
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         return None
@@ -23,8 +17,8 @@ class PreviewServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
 class Handler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=str(root), **kwargs)
+    def __init__(self, request, client_address, server):
+        super().__init__(request, client_address, server, directory=str(server.root))
 
     def log_message(self, format, *args):
         # URLs, request bodies and credentials must not enter a shared log.
@@ -32,8 +26,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def api(self):
         path = unquote(urlsplit(self.path).path)
-        if (self.headers.get('Host') != 'localhost:4291' or
-                self.headers.get('Origin', origin) != origin or
+        if (self.headers.get('Host') != urlsplit(self.server.origin).netloc or
+                self.headers.get('Origin', self.server.origin) != self.server.origin or
                 not self.path.startswith('/api/v1/') or '..' in path.split('/')):
             self.send_error(403)
             return
@@ -46,7 +40,7 @@ class Handler(SimpleHTTPRequestHandler):
             headers = {key: self.headers[key] for key in
                        ('Content-Type', 'Authorization', 'Accept', 'X-User-Id', 'X-Device-Id')
                        if key in self.headers}
-            request = Request('https://j15d205.p.ssafy.io' + self.path,
+            request = Request(self.server.api_origin + self.path,
                               data=payload, headers=headers, method=self.command)
             try:
                 response = upstream.open(request, timeout=20)
@@ -85,7 +79,27 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store')
         super().end_headers()
 
-if not (root / 'index.html').is_file():
-    raise SystemExit('Use the WebGL build directory containing index.html')
-print(origin, flush=True)
-PreviewServer(('127.0.0.1', 4291), Handler).serve_forever()
+def create_server(root, bind='127.0.0.1', port=4291,
+                  origin='http://localhost:4291', api_origin='https://j15d205.p.ssafy.io', handler=Handler):
+    parsed = urlsplit(api_origin)
+    if parsed.scheme != 'https' or not parsed.netloc or parsed.path not in ('', '/') or parsed.username or parsed.password:
+        raise ValueError('API upstream must be a fixed HTTPS origin without credentials')
+    server = PreviewServer((bind, port), handler)
+    server.root = Path(root).resolve()
+    server.origin = origin.rstrip('/')
+    server.api_origin = api_origin.rstrip('/')
+    return server
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('root', type=Path)
+    args = parser.parse_args()
+    if not (args.root / 'index.html').is_file():
+        raise SystemExit('Use the WebGL build directory containing index.html')
+    print('http://localhost:4291', flush=True)
+    create_server(args.root).serve_forever()
+
+
+if __name__ == '__main__':
+    main()

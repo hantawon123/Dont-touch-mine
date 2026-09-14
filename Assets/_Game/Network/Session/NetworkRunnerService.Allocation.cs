@@ -23,13 +23,23 @@ namespace Game.Network.Session
         {
             if (!IsBrowsingLobby && !(await JoinLobbyAsync(cancellation)).Ok) return null;
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
-            using var timer = timeout.CancelAfterSlim(TimeSpan.FromSeconds(15), DelayType.Realtime);
+            using var timer = timeout.CancelAfterSlim(TimeSpan.FromSeconds(30), DelayType.Realtime);
             await UniTask.WaitUntil(() => _receivedLobbySnapshot, cancellationToken: timeout.Token);
-            foreach (var info in _realtimeRooms.Values)
-                if (info.IsOpen && info.PlayerCount == 1 &&
-                    info.CustomProperties[SessionPropertyKeys.AvailableServer] is bool available && available)
-                    return info.Name;
-            return null;
+            // A small test pool replaces a finished room asynchronously. Keep
+            // waiting for lobby updates instead of failing between processes.
+            string availableRoom = null;
+            await UniTask.WaitUntil(() =>
+            {
+                foreach (var info in _realtimeRooms.Values)
+                    if (info.IsOpen && info.PlayerCount == 1 &&
+                        info.CustomProperties[SessionPropertyKeys.AvailableServer] is bool available && available)
+                    {
+                        availableRoom = info.Name;
+                        return true;
+                    }
+                return false;
+            }, cancellationToken: timeout.Token);
+            return availableRoom;
         }
 
         public async UniTask<bool> ClaimRoomAsync(RoomCreateRequest request, CancellationToken cancellation)

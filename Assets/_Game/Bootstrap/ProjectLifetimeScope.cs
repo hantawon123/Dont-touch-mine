@@ -62,7 +62,7 @@ namespace Game.Bootstrap
                 RegisterServices(builder, _networkPrefabs, _networkScenes,
                     new PlayerProfile("Server"), new ServerRegionSystem(new InMemoryServerRegionStore(),
                         DedicatedServerStartup.Argument("-region", _networkRegion)));
-                RegisterBackend(builder, _backendBaseUrl);
+                RegisterBackend(builder, DedicatedServerStartup.Argument("-backendUrl", _backendBaseUrl));
                 builder.RegisterEntryPoint<MatchSceneSpawnPoints>();
                 builder.RegisterEntryPoint<DedicatedServerStartup>();
                 return;
