@@ -106,6 +106,8 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
                 .WithParameter(false).WithParameter(gameObject.scene).AsSelf();
             builder.RegisterEntryPoint<NetworkHighlightPlaybackController>().AsSelf();
+            builder.RegisterBuildCallback(c => c.Resolve<NetworkHighlightPlaybackController>()
+                .BindScene(gameObject.scene, matchScene.RuntimeContext));
             builder.RegisterEntryPoint<InGamePlayerNameplatePresenter>();
 
             if (matchHudView != null)
@@ -128,6 +130,9 @@ namespace Game.Bootstrap
                 builder.RegisterBuildCallback(c =>
                 {
                     var presenter = c.Resolve<NetworkMatchHudPresenter>();
+                    var interactions = c.Resolve<NetworkInteractionSceneBridge>();
+                    var loading = c.Resolve<ILoadingOverlay>();
+                    presenter.BindGameplayReadiness(() => interactions.IsLocalPresentationReady, loading);
                     var settings = c.Resolve<MatchSettingsOverlay>();
                     c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(
                         () => presenter.BlocksGameplayInput || settings.IsOpen);
@@ -193,7 +198,7 @@ namespace Game.Bootstrap
 
             builder.RegisterBuildCallback(container =>
             {
-                container.Resolve<ILoadingOverlay>().Hide();
+                if (matchHudView == null) container.Resolve<ILoadingOverlay>().Hide();
                 Debug.Log(
                 $"[SceneTiming] Playground scope ready, " +
                 $"elapsed={Time.realtimeSinceStartupAsDouble - configureStartedAt:F3}s.");

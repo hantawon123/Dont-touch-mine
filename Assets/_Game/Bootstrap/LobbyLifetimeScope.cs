@@ -522,8 +522,12 @@ namespace Game.Bootstrap
                 {
                     foreach (var root in sceneRoots)
                         if (root != null)
+                        {
                             foreach (var other in root.GetComponentsInChildren<Camera>(true))
                                 other.enabled = false;
+                            foreach (var listener in root.GetComponentsInChildren<AudioListener>(true))
+                                listener.enabled = false;
+                        }
                     SceneManager.MoveGameObjectToScene(output.gameObject, gameObject.scene);
                     Debug.Log($"[QA-Transition] transferred output camera={output.GetInstanceID()} with rig={rig.GetInstanceID()}");
                 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Game.Client.Combat;
 using Game.Client.Cameras;
@@ -48,6 +48,11 @@ namespace Game.Bootstrap
         private Transform cameraTarget;
         private bool standaloneActorsDisabled;
         private bool readinessReported;
+        private bool gameplayFramePresented;
+        private bool initialStatesApplied;
+        public bool IsLocalPresentationReady => gameplayFramePresented &&
+            cameraRig != null && cameraRig.isActiveAndEnabled && cameraTarget != null &&
+            initialStatesApplied && network.IsSceneLoadComplete && network.IsSimulationCaughtUp;
         private double startedAt;
         private double cameraDiagnosticAt = double.PositiveInfinity;
 
@@ -72,6 +77,7 @@ namespace Game.Bootstrap
         public void Start()
         {
             startedAt = Time.realtimeSinceStartupAsDouble;
+            if (!lobbyMode) UnityEngine.Rendering.RenderPipelineManager.endCameraRendering += OnGameplayCameraRendered;
             network.ItemAssignmentReceived += OnItemAssignmentReceived;
             network.ObjectStatesReceived += OnObjectStatesReceived;
             network.PlayerInteractionStatesReceived += OnPlayerStatesReceived;
@@ -80,6 +86,7 @@ namespace Game.Bootstrap
 
         public void Dispose()
         {
+            UnityEngine.Rendering.RenderPipelineManager.endCameraRendering -= OnGameplayCameraRendered;
             network.ItemAssignmentReceived -= OnItemAssignmentReceived;
             network.ObjectStatesReceived -= OnObjectStatesReceived;
             network.PlayerInteractionStatesReceived -= OnPlayerStatesReceived;
@@ -145,6 +152,7 @@ namespace Game.Bootstrap
             ApplyObjectStates();
             PublishPhysicsObjects();
             ApplyPlayerStates();
+            initialStatesApplied = readinessReported && assignedItemId != null;
         }
 
         public bool RequestHold(string objectId) => network.RequestHoldObject(objectId);
@@ -234,6 +242,7 @@ namespace Game.Bootstrap
                     // A disabled network avatar must never fall back to standalone item mutation.
                     interactor.BindCommands(this);
                     interactor.enabled = acceptsLocalInput;
+                    if (!acceptsLocalInput) interactor.RefreshHoldPoint();
                     interactor.SetHudVisible(!introBlocked);
                     interactors[playerIndex] = interactor;
 
@@ -253,6 +262,22 @@ namespace Game.Bootstrap
             }
         }
 
+        private void OnGameplayCameraRendered(UnityEngine.Rendering.ScriptableRenderContext context, Camera camera)
+        {
+            // Render behind the cover before dismissing it; waiting for it to close
+            // here would make actual loading readiness circular.
+            if (!network.IsSceneLoadComplete || !initialStatesApplied)
+            {
+                gameplayFramePresented = false;
+                return;
+            }
+            if (gameplayFramePresented || !readinessReported || cameraTarget == null ||
+                camera == null || camera.gameObject.scene != scene || camera.targetTexture != null ||
+                !camera.CompareTag("MainCamera")) return;
+            gameplayFramePresented = true;
+            Debug.Log($"[SceneTiming] Gameplay frame presented: scene={scene.name}, elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
+        }
+
         private void BindLocalCamera(Transform target)
         {
             if (target == null || (cameraRig != null && ReferenceEquals(cameraTarget, target)))
@@ -269,6 +294,7 @@ namespace Game.Bootstrap
 
             var preserveView = !ReferenceEquals(cameraTarget, null);
             cameraTarget = target;
+            gameplayFramePresented = false;
             cameraRig.SetFollowTarget(target, preserveView);
             if (!preserveView) cameraRig.SetCursorCaptureEnabled(true);
             if (!readinessReported)
@@ -444,6 +470,13 @@ namespace Game.Bootstrap
                 var state = playerStates[index];
                 if (combatants.TryGetValue(state.PlayerIndex, out var combatant))
                 {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    if (combatant.IsStunned != state.IsStunned(now))
+                    {
+                        var driver = combatant.GetComponent<PlayerAnimationDriver>();
+                        Debug.Log($"[QA-Stun] apply scene={scene.name} player={state.PlayerIndex} now={now:F3} end={state.StunEndsAt:F3} stunned={state.IsStunned(now)} driverEnabled={driver != null && driver.isActiveAndEnabled} actor={combatant.GetInstanceID()}");
+                    }
+#endif
                     combatant.SetNetworkStunned(state.IsStunned(now));
                     combatant.SetNetworkHitCount(state.HitCount);
                 }

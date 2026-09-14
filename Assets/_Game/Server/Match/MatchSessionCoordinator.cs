@@ -294,6 +294,16 @@ namespace Game.Server.Match
             return flow.IsFinalPeriod(now);
         }
 
+        // Prepare the first hider while time is stopped, without opening gameplay actions.
+        public bool TryGetIntroHidingSpawnPose(double now, out Pose spawnPose)
+        {
+            spawnPose = default;
+            if (CurrentPhase != MatchPhase.Hiding || !flow.IsPhaseIntro(now) ||
+                !Players.IsActive(0)) return false;
+            spawnPose = hidingSpawnPoses[0];
+            return true;
+        }
+
         public bool TryGetCurrentHidingSpawnPose(
             int playerIndex,
             double now,

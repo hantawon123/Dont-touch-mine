@@ -30,7 +30,11 @@ namespace Game.Bootstrap
 
         public void Start()
         {
-            SeedAsync().Forget(exception => Debug.LogException(exception));
+            SeedAsync().Forget(exception =>
+            {
+                if (exception is OperationCanceledException && lifetime.IsCancellationRequested) return;
+                Debug.LogException(exception);
+            });
         }
 
         public void Dispose()

@@ -92,6 +92,7 @@ namespace Game.Client.Match
 
         public void Show(string itemId)
         {
+            var startedAt = Time.realtimeSinceStartupAsDouble;
             Clear();
             if (target == null)
             {
@@ -118,6 +119,7 @@ namespace Game.Client.Match
             stage.SetActive(true);
             BindSpin();
             SubmitPreviewRender();
+            Debug.Log($"[SceneTiming] Item preview rendered: elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s, target={texture.width}x{texture.height}.");
         }
 
         public void SetGrayscale(bool enabled)
@@ -147,6 +149,18 @@ namespace Game.Client.Match
         public void Dispose()
         {
             Clear();
+            if (texture != null)
+            {
+                if (camera != null)
+                {
+                    camera.targetTexture = null;
+                }
+
+                texture.Release();
+                UnityEngine.Object.Destroy(texture);
+                texture = null;
+            }
+
             if (stage != null)
             {
                 UnityEngine.Object.Destroy(stage);
@@ -177,20 +191,9 @@ namespace Game.Client.Match
 
             if (model != null)
             {
+                model.gameObject.SetActive(false);
                 UnityEngine.Object.Destroy(model.gameObject);
                 model = null;
-            }
-
-            if (texture != null)
-            {
-                if (camera != null)
-                {
-                    camera.targetTexture = null;
-                }
-
-                texture.Release();
-                UnityEngine.Object.Destroy(texture);
-                texture = null;
             }
 
             if (stage != null)
@@ -221,6 +224,7 @@ namespace Game.Client.Match
             cameraObject.transform.SetParent(stage.transform, false);
             ApplyPreviewLayer(cameraObject);
             camera = cameraObject.AddComponent<Camera>();
+            // Show/PreviewSpin render explicitly; do not also render in the normal camera loop.
             camera.enabled = false;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = backgroundColor;

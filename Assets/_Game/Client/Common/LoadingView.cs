@@ -33,11 +33,6 @@ namespace Game.Client.Common
 
         public const float BounceHeight = 10f;
         public const float LetterSeconds = 0.14f;
-        /// <summary>
-        /// Successful hides wait at least this long. A slower scene switch
-        /// keeps the cover up until that work finishes.
-        /// </summary>
-        public const float MinimumVisibleSeconds = 2f;
         public static readonly Vector2 LabelSize = new Vector2(900f, 36f);
 
         [SerializeField]
@@ -55,11 +50,12 @@ namespace Game.Client.Common
 
         private bool shown;
         private float animationElapsed;
-        private float shownAtUnscaled;
-        private bool hideRequested;
         private Vector3[][] restVertices;
         private bool hasRestPose;
 
+        private static LoadingView presentedView;
+        public static bool IsAnyPresented => presentedView != null &&
+            presentedView.isActiveAndEnabled && presentedView.IsPresented;
         public bool IsPresented => shown;
 
         public static LoadingView Create(Transform parent)
@@ -139,9 +135,6 @@ namespace Game.Client.Common
             return Mathf.Sin(local * Mathf.PI) * BounceHeight;
         }
 
-        public static bool HasMetMinimum(float shownAtUnscaled, float nowUnscaled) =>
-            nowUnscaled - shownAtUnscaled >= MinimumVisibleSeconds;
-
         private void OnEnable()
         {
             EnsureLayout();
@@ -171,9 +164,9 @@ namespace Game.Client.Common
 
         public void Show()
         {
+            presentedView = this;
             if (shown)
             {
-                hideRequested = false;
                 transform.SetAsLastSibling();
                 SetVisualsVisible(true);
                 return;
@@ -188,40 +181,19 @@ namespace Game.Client.Common
             EnsureLayout();
             transform.SetAsLastSibling();
             animationElapsed = 0f;
-            shownAtUnscaled = Time.unscaledTime;
-            hideRequested = false;
             SetVisualsVisible(true);
         }
 
-        public void Hide()
-        {
-            if (!shown)
-            {
-                return;
-            }
-
-            hideRequested = true;
-            TryCompleteHide(Time.unscaledTime);
-        }
+        // The caller owns readiness. Never keep a completed load covered for a timer.
+        public void Hide() => HideImmediate();
 
         public void HideImmediate()
         {
-            hideRequested = false;
-            if (!shown)
-            {
-                return;
-            }
-
-            Close();
+            if (shown) Close();
         }
 
         private void LateUpdate()
         {
-            if (hideRequested)
-            {
-                TryCompleteHide(Time.unscaledTime);
-            }
-
             if (!shown || label == null || !label.gameObject.activeInHierarchy)
             {
                 return;
@@ -231,20 +203,10 @@ namespace Game.Client.Common
             AnimateLetters();
         }
 
-        private void TryCompleteHide(float nowUnscaled)
-        {
-            if (!hideRequested || !HasMetMinimum(shownAtUnscaled, nowUnscaled))
-            {
-                return;
-            }
-
-            Close();
-        }
-
         private void Close()
         {
+            if (presentedView == this) presentedView = null;
             shown = false;
-            hideRequested = false;
             animationElapsed = 0f;
             hasRestPose = false;
             SetVisualsVisible(false);

@@ -220,7 +220,10 @@ namespace Game.Bootstrap
             }
 
             runtime.Tick();
-            composition.Session.TryStartPhaseIntro(network.ServerTime);
+            // A slow loading frame can be followed by many catch-up ticks. Starting
+            // on an old tick consumes the intro (and gameplay time) before rendering.
+            if (network.IsFinalForwardTick && composition.Session.TryStartPhaseIntro(network.ServerTime))
+                Debug.Log($"[SceneTiming] All players ready; phase intro scheduled on final tick: phase={composition.Session.CurrentPhase}, serverTime={network.ServerTime:F3}, frame={Time.frameCount}, realtime={Time.realtimeSinceStartupAsDouble:F3}.");
             SynchronizePlayers();
             PublishSnapshotIfChanged();
         }
@@ -361,7 +364,8 @@ namespace Game.Bootstrap
             var session = composition.Session;
             var now = network.ServerTime;
             var phase = session.CurrentPhase;
-            var hidingTurn = phase == MatchPhase.Hiding
+            var preparingHiding = session.TryGetIntroHidingSpawnPose(now, out var hidingPose);
+            var hidingTurn = preparingHiding ? 0 : phase == MatchPhase.Hiding
                 ? session.GetCurrentHidingTurnIndex(now)
                 : -1;
             var phaseChanged = phase != synchronizedPhase;
@@ -385,10 +389,10 @@ namespace Game.Bootstrap
 
             if (phase == MatchPhase.Hiding && hidingTurn >= 0 &&
                 (!hidingInitialPlacementDone || hidingTurn != synchronizedHidingTurn) &&
-                session.TryGetCurrentHidingSpawnPose(
+                (preparingHiding || session.TryGetCurrentHidingSpawnPose(
                     hidingTurn,
                     now,
-                    out var hidingPose))
+                    out hidingPose)))
             {
                 // 페이즈 진입 틱에 아바타가 아직 준비되지 않았을 수 있으므로,
                 // 초기 배치는 "한 번 성공할 때까지" 재시도한다. (일회성 감지 금지)

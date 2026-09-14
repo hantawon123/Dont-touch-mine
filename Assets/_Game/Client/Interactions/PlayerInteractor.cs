@@ -29,7 +29,7 @@ namespace Game.Client.Interactions
         private const int MaxAimHits = 8;
         private bool hudVisible = true;
         private bool interfaceHudVisible = true;
-        public bool HudVisible => hudVisible && interfaceHudVisible;
+        public bool HudVisible => hudVisible && interfaceHudVisible && !Game.Client.Common.LoadingView.IsAnyPresented;
         public bool PresentationHudVisible => hudVisible;
         public void SetInterfaceHudVisible(bool visible)
         {
@@ -184,7 +184,9 @@ namespace Game.Client.Interactions
             placementController = GetComponent<ItemPlacementController>();
         }
 
-        private void LateUpdate()
+        private void LateUpdate() => RefreshHoldPoint();
+
+        public void RefreshHoldPoint()
         {
             // 손 위치가 자세(서기/앉기/엎드리기)의 눈높이를 따라가게 한다.
             if (playerMovement != null)
