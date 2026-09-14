@@ -342,8 +342,18 @@ namespace Game.Client.Cameras
         private static bool IsPointerOverUi() =>
             EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
 
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        private static extern bool Game_CanRequestPointerLock();
+#endif
+
         private static void SetCursorLocked(bool locked)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // Async scene activation is not a browser gesture. Keep capture desired;
+            // the existing gameplay click path retries once the browser permits it.
+            if (locked && !Game_CanRequestPointerLock()) return;
+#endif
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !locked;
         }
