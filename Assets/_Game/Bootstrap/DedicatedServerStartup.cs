@@ -20,6 +20,9 @@ namespace Game.Bootstrap
 #if UNITY_WEBGL && !UNITY_EDITOR
                 return false;
 #else
+#if UNITY_EDITOR
+                if (EditorDevelopmentSession.IsServer) return true;
+#endif
                 return Array.IndexOf(Environment.GetCommandLineArgs(), "-gameServer") >= 0;
 #endif
             }
@@ -30,6 +33,13 @@ namespace Game.Bootstrap
 #if UNITY_WEBGL && !UNITY_EDITOR
             return fallback;
 #else
+#if UNITY_EDITOR
+            if (EditorDevelopmentSession.IsServer)
+            {
+                if (name == "-roomCode") return EditorDevelopmentSession.Code;
+                if (name == "-region") return "kr";
+            }
+#endif
             var args = Environment.GetCommandLineArgs();
             var index = Array.IndexOf(args, name);
             return index >= 0 && index + 1 < args.Length ? args[index + 1] : fallback;
@@ -61,8 +71,14 @@ namespace Game.Bootstrap
         {
             try
             {
+                var editorServer = false;
+#if UNITY_EDITOR
+                editorServer = EditorDevelopmentSession.IsServer;
+                if (editorServer) EditorDevelopmentSession.Report("인증 및 방 준비 중");
+#endif
                 var code = Argument("-roomCode");
-                if (!Application.isBatchMode || !Game.Network.Lobby.RoomCodeGenerator.IsWellFormed(code))
+                Application.runInBackground = true;
+                if ((!Application.isBatchMode && !editorServer) || !Game.Network.Lobby.RoomCodeGenerator.IsWellFormed(code))
                     throw new InvalidOperationException("Use -batchmode -gameServer -roomCode <6-character code>.");
                 var request = SessionRequest.AvailableServer(code, MapCatalog.DefaultMapId);
                 var result = await network.StartAsync(request, cancellation);
@@ -75,25 +91,42 @@ namespace Game.Bootstrap
                     throw new InvalidOperationException("Server application could not enter the room flow.");
                 if (!network.EnterLobbyScene()) throw new InvalidOperationException("Server could not enter lobby scene.");
                 Debug.Log("[Server] Ready; waiting for first room owner.");
+#if UNITY_EDITOR
+                if (editorServer) EditorDevelopmentSession.Report("준비됨: " + code);
+#endif
                 var emptySince = Time.realtimeSinceStartupAsDouble;
                 var startedAt = emptySince;
                 while (network.IsRunning)
                 {
-                    if (network.IsAwaitingRoomClaim && Time.realtimeSinceStartupAsDouble - startedAt > 120d) break;
+                    if (!editorServer && network.IsAwaitingRoomClaim && Time.realtimeSinceStartupAsDouble - startedAt > 120d) break;
                     if (network.PlayerCount > 0) emptySince = Time.realtimeSinceStartupAsDouble;
-                    if (Time.realtimeSinceStartupAsDouble - emptySince > 120d) break;
+                    if (!editorServer && Time.realtimeSinceStartupAsDouble - emptySince > 120d) break;
                     await UniTask.Delay(250, DelayType.Realtime, cancellationToken: cancellation);
                 }
                 network.Shutdown();
                 await UniTask.WaitUntil(() => !network.IsRoomExitPending, cancellationToken: cancellation);
                 Debug.Log("[Server] Session closed.");
                 if (!Application.isEditor) Application.Quit(0);
+#if UNITY_EDITOR
+                if (editorServer && UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)
+                {
+                    EditorDevelopmentSession.RestartRequested = true;
+                    UnityEditor.EditorApplication.isPlaying = false;
+                }
+#endif
             }
             catch (OperationCanceledException) { network.Shutdown(); }
             catch (Exception exception)
             {
                 network.Shutdown();
                 Debug.LogException(exception);
+#if UNITY_EDITOR
+                if (EditorDevelopmentSession.IsServer)
+                {
+                    EditorDevelopmentSession.Report("시작 실패: Console 확인");
+                    UnityEditor.EditorApplication.isPlaying = false;
+                }
+#endif
                 if (!Application.isEditor) Application.Quit(1);
             }
         }

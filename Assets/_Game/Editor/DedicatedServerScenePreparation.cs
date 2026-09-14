@@ -21,8 +21,11 @@ namespace Game.Editor
 
         public void OnProcessScene(Scene scene, BuildReport report)
         {
-            if (report == null || report.summary.platformGroup != BuildTargetGroup.Standalone ||
-                EditorUserBuildSettings.standaloneBuildSubtarget != StandaloneBuildSubtarget.Server) return;
+            var developmentPlay = report == null && EditorApplication.isPlayingOrWillChangePlaymode &&
+                Game.Network.Session.EditorDevelopmentSession.IsServer;
+            var serverBuild = report != null && report.summary.platformGroup == BuildTargetGroup.Standalone &&
+                EditorUserBuildSettings.standaloneBuildSubtarget == StandaloneBuildSubtarget.Server;
+            if (!developmentPlay && !serverBuild) return;
 
             var roots = scene.GetRootGameObjects();
             var removed = 0;

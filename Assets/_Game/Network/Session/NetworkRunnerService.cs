@@ -1832,6 +1832,14 @@ namespace Game.Network.Session
             // Native authority and WebGL clients must use the same protocol bucket.
             var buildVersion = Application.version;
 #if UNITY_EDITOR
+            if (EditorDevelopmentSession.Enabled)
+            {
+                Application.runInBackground = true;
+                settings.AppVersion = EditorDevelopmentSession.AppVersion;
+                settings.FixedRegion = "kr";
+                Debug.Log($"[Network] Development peer: {EditorDevelopmentSession.Role}, code={EditorDevelopmentSession.Code}, version={settings.AppVersion}, region=kr");
+                return settings;
+            }
             // Local opt-in only. Never change the product version to join a test
             // server, and never apply an Editor override to shipped players.
             var testVersionPath = System.IO.Path.Combine(Application.dataPath, "../UserSettings/ServerFlowVersion.txt");
