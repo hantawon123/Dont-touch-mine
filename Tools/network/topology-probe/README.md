@@ -59,19 +59,31 @@ http://127.0.0.1:4290/?room=T987EXAMPLE&peer=2&seconds=60
 
 두 번째 브라우저가 로드될 때 첫 번째의 35초가 지나지 않도록 로컬 파일 다운로드 완료 후 실행한다. 필요하면 유효 시간을 늘린다. `players=2`, 두 브라우저의 `PASS`, 첫 번째 종료 후 두 번째의 `survivedPeerExit=True`와 증가하는 tick을 대조한다. 종료 후 같은 빌드로 재입장도 확인한다.
 
-다른 버전은 `peer=4&version=topology-987-incompatible`을 사용하고, 없는 방은 `peer=5`와 새 임시 방 이름으로 접속한다. 두 경우 모두 Client가 서버를 새로 만들지 않고 `CONNECT_FAILED`로 끝나야 한다. 모든 실험 후 `python Tools/network/topology-probe/verify.py '<browser-events.log>'`로 판정한다.
+다른 버전은 `peer=4&version=topology-987-incompatible`을 사용하고, 없는 방은 `peer=5`와 새 임시 방 이름으로 접속한다. 두 경우 모두 Client가 서버를 새로 만들지 않고 `CONNECT_FAILED`로 끝나야 한다. 첫 번째 클라이언트는 정상 종료 후 같은 `peer=1`로 다시 접속하여 PASS·정상 종료를 확인한다. 모든 실험 후 `python Tools/network/topology-probe/verify.py '<browser-events.log>' --room T987EXAMPLE`로 판정한다. 같은 로그에 다른 실행의 방을 섞지 않는다.
 
 완료 후 실험 서버가 Shutdown한 로그를 확인하고 이 작업에서 시작한 프로세스·브라우저만 종료한다. 인증 응답과 전체 SDK 디버그 로그를 커밋하지 않고 `[Probe]`의 검증 결과만 보관한다.
 
 ## 실행 기록
 
-2026-09-14 중간 결과:
+2026-09-14 결과:
 
 - Win64 v4, WebGL v2 및 동일 출처 인증 경로를 반영한 WebGL v3 빌드: `Succeeded errors=0`, Unity 종료 코드 0.
 - 네이티브 Server/Client 실제 Photon 연결: Client의 tick 1752→2652, `requests=1 players=1 height=0.500 echo=1 wrongEcho=0`, 정상 Shutdown 확인.
 - 네이티브 다른 AppVersion: `CONNECT_FAILED GameNotFound`. 서버를 새로 만들지 않음.
 - WebGL 두 탭 실행: 인증 요청에서 `UnityWebRequestException: Unknown Error`. 기존 API OPTIONS 응답에 localhost 허용 CORS 헤더가 없어 접속 전 단계에서 중단. **WebGL 접속 통과 아님.**
-- 동일 출처 계정 전달 경로를 구현했으나 실행은 자동 승인 검토에서 차단됨. 실험용 기기 ID의 기존 API 전달과 인증 응답 반환에 대한 사용자 승인 후 재검증 필요.
-- 최종 브라우저 판정 도구는 아직 통과하지 않음. 두 Client 동시 접속·개별 회신·퇴장 후 유지·정상 종료·재접속은 후속 실행 대상.
+- 이후 사용자가 기존 API로 실험용 기기 ID를 전달하고 토큰을 로컬 WebGL에 반환하는 경로를 명시적으로 허용하여 재실행했다. 운영 인증·TLS·CORS 설정은 변경하지 않았다.
+- 15:44~15:46 KST, 방 `T9870914C`: 같은 PC의 Codex 내장 브라우저 두 탭이 Client로 연결됨. 서버는 별도 네이티브 프로세스이며 Photon Cloud를 경유함.
+- 두 Client 모두 `requests=2 players=2 height=0.500 echo=1 wrongEcho=0` PASS. 첫 Client 종료 후 두 번째의 tick 4742→6153 증가와 `players=1 survivedPeerExit=True` 확인.
+- 첫 Client 재접속 후 `requests=3`, PASS 및 정상 종료. 두 번째도 tick 8079에서 정상 종료. 브라우저 오류 로그 0건.
+- 다른 AppVersion(peer 4)과 없는 방(peer 5)은 모두 `CONNECT_FAILED GameNotFound`.
+- [수집한 상태 로그](evidence-2026-09-14.txt)에는 인증 응답과 기기 식별자가 없다. 아래 명령으로 전체 판정을 재실행할 수 있다.
+
+```powershell
+python Tools/network/topology-probe/verify.py Tools/network/topology-probe/evidence-2026-09-14.txt --room T9870914C
+```
+
+판정 결과: `PASS: both WebGL clients, authority replication/RPC/private echo, peer-exit survival, clean stops, rejection paths, rejoin`.
+
+검증 한계: 같은 PC에서 수행한 최소 네트워크 실험이다. 서로 다른 PC의 6인 실제 경기, 제품 로비/경기/하이라이트/재경기, 서버 프로세스 장애 복구, 배포 수용량 및 120FPS는 이 결과로 검증되지 않는다.
 
 초기 실험에서 Fusion weaving 누락/씬 bake 오류가 발생한 결과는 폐기했다. `prepare.py`의 PlayerSettings 복사와 `ProbeBuild.cs`의 씬 저장·재열기 절차에 원인 수정을 반영했다. 위 네이티브 결과는 수정 후 빌드에서만 수집했다.
