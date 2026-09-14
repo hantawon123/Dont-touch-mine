@@ -179,6 +179,7 @@ namespace Game.Client.Cameras
             if (Cursor.lockState == CursorLockMode.Locked && !IsPointerOverUi() && toggleViewAction.WasPressedThisFrame())
             {
                 isFirstPerson = !isFirstPerson;
+                CutViewBlend();
                 ApplyView();
             }
 
@@ -307,6 +308,24 @@ namespace Game.Client.Cameras
             if (bodyVisibleOverride == force) return;
             bodyVisibleOverride = force;
             ApplyView();
+        }
+
+        /// <summary>
+        /// Snaps 1st/3rd person instead of inheriting the scene Brain blend.
+        /// </summary>
+        /// <remarks>
+        /// Cinemachine's default is EaseInOut over 2 seconds. Playground already
+        /// stores a Cut, but a later map can ship the package default again and
+        /// the view key then eases between the two cameras.
+        /// </remarks>
+        private void CutViewBlend()
+        {
+            thirdPersonCamera.PreviousStateIsValid = false;
+            firstPersonCamera.PreviousStateIsValid = false;
+            var output = Camera.main;
+            var brain = output != null ? output.GetComponent<CinemachineBrain>() : null;
+            if (brain == null) return;
+            brain.DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.Cut, 0f);
         }
 
         private void ApplyView()

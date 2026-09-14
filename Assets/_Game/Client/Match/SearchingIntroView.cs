@@ -250,6 +250,7 @@ namespace Game.Client.Match
 
             canvas.overrideSorting = true;
             canvas.sortingOrder = 250;
+            Game.Client.Common.HudScreenScale.Ensure(gameObject);
 
             if (GetComponent<GraphicRaycaster>() == null)
             {

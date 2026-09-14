@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Common;
 using Game.Client.Home;
 using Game.Client.Match;
 using Game.Core.Settings;
@@ -15,7 +16,6 @@ namespace Game.Client.Settings
     {
         private InterfaceSettingsSystem settings;
         private CanvasScaler scaler;
-        private Vector2 referenceResolution;
         private CanvasGroup visibility;
         private NetworkMatchHudView match;
         private MatchChatView chat;
@@ -57,7 +57,7 @@ namespace Game.Client.Settings
             settings = value; ping = readPing; category = readCategory;
             var canvas = GetComponentInParent<Canvas>();
             scaler = canvas == null ? null : canvas.GetComponent<CanvasScaler>();
-            if (scaler != null) referenceResolution = scaler.referenceResolution;
+            HudScreenScale.EnsureOn(canvas);
             match = GetComponent<NetworkMatchHudView>();
             chat = GetComponentInChildren<MatchChatView>(true);
             if (match != null) visibility = gameObject.AddComponent<CanvasGroup>();
@@ -67,6 +67,7 @@ namespace Game.Client.Settings
             counterCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             counterCanvas.overrideSorting = true;
             counterCanvas.sortingOrder = 150;
+            HudScreenScale.Ensure(counterRoot);
             var text = new GameObject("FPS Ping", typeof(RectTransform), typeof(TextMeshProUGUI));
             text.transform.SetParent(counterRoot.transform, false);
             counters = text.GetComponent<TextMeshProUGUI>();
@@ -93,7 +94,12 @@ namespace Game.Client.Settings
         {
             if (settings == null) return;
             var current = settings.Current;
-            if (scaler != null) scaler.referenceResolution = referenceResolution / Scale(current.Get(InterfaceOption.UiScale));
+            if (scaler != null)
+            {
+                HudScreenScale.Apply(scaler);
+                scaler.referenceResolution =
+                    HudScreenScale.ScaledReference / Scale(current.Get(InterfaceOption.UiScale));
+            }
             if (visibility != null)
             {
                 var visible = current.IsOn(InterfaceOption.InGameUi) || match.HasEssentialPresentation;

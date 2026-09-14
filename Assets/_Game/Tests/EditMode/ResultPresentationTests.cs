@@ -31,7 +31,7 @@ namespace Game.Architecture.Tests
                 Assert.That(content.GetChild(1).name, Is.EqualTo("Panel"));
                 Assert.That(content.GetChild(2).name, Is.EqualTo("Confirm"));
                 Assert.That(root.GetComponent<UnityEngine.UI.CanvasScaler>().referenceResolution,
-                    Is.EqualTo(new UnityEngine.Vector2(1920f, 1080f)));
+                    Is.EqualTo(Game.Client.Common.HudScreenScale.ScaledReference));
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }

@@ -900,10 +900,7 @@ namespace Game.Editor
             var canvas = canvasGo.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
-            var scaler = canvasGo.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
+            Game.Client.Common.HudScreenScale.Apply(canvasGo.GetComponent<CanvasScaler>());
 
             var rect = canvasGo.GetComponent<RectTransform>();
             rect.anchorMin = Vector2.zero;

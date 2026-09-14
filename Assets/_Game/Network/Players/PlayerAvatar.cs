@@ -1,5 +1,6 @@
 using System;
 using Fusion;
+using Game.Network.Voice;
 using UnityEngine;
 
 namespace Game.Network.Players
@@ -84,6 +85,16 @@ namespace Game.Network.Players
         [Networked]
         public bool IsHost { get; set; }
 
+        /// <summary>
+        /// Whether the owner silenced their microphone. Replicated so every
+        /// peer can mark the same portrait, including a late joiner.
+        /// </summary>
+        [Networked]
+        public bool IsMuted { get; set; }
+
+        [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+        public void RPC_SetMuted(bool muted) => IsMuted = muted;
+
         // Hidden until the owner publishes its preference, including late joins.
         [Networked] public int NicknameVisibility { get; set; }
         [Networked] public NetworkString<_512> NicknameViewers { get; set; }
@@ -124,17 +135,38 @@ namespace Game.Network.Players
         public bool IsOwner => Object.HasInputAuthority;
 
         private bool _publishedIsHost;
+        private bool _publishedMuted;
+        private string _publishedNickname;
+        private string _publishedUserId;
+        private bool pendingMutePublish;
+        private bool pendingMuteValue;
 
         public override void Render()
         {
-            if (_publishedIsHost == IsHost) return;
+            PublishLocalMuteIfOwner();
+            var nickname = Nickname.ToString();
+            var userId = UserId.ToString();
+            if (_publishedIsHost == IsHost
+                && _publishedMuted == IsMuted
+                && string.Equals(_publishedNickname, nickname, StringComparison.Ordinal)
+                && string.Equals(_publishedUserId, userId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
             _publishedIsHost = IsHost;
+            _publishedMuted = IsMuted;
+            _publishedNickname = nickname;
+            _publishedUserId = userId;
             RosterOf(Runner)?.Refresh(Runner);
         }
 
         public override void Spawned()
         {
             _publishedIsHost = IsHost;
+            _publishedMuted = IsMuted;
+            _publishedNickname = Nickname.ToString();
+            _publishedUserId = UserId.ToString();
             SetOwnerOnlyEnabled(IsOwner);
 
             // The movement component is kept only as the shared input/config
@@ -163,6 +195,42 @@ namespace Game.Network.Players
         /// The roster sits on the runner object, which is the one place a
         /// Fusion-spawned object can reach without being injected.
         /// </summary>
+        private void PublishLocalMuteIfOwner()
+        {
+            if (!IsOwner || Runner == null)
+            {
+                return;
+            }
+
+            var voice = Runner.GetComponent<VoiceRig>();
+            if (voice == null)
+            {
+                return;
+            }
+
+            var muted = voice.IsMuted.CurrentValue;
+            if (IsMuted == muted)
+            {
+                pendingMutePublish = false;
+                return;
+            }
+
+            if (Object.HasStateAuthority)
+            {
+                IsMuted = muted;
+                return;
+            }
+
+            if (pendingMutePublish && pendingMuteValue == muted)
+            {
+                return;
+            }
+
+            pendingMutePublish = true;
+            pendingMuteValue = muted;
+            RPC_SetMuted(muted);
+        }
+
         private static PlayerRoster RosterOf(NetworkRunner runner)
         {
             return runner == null ? null : runner.GetComponent<PlayerRoster>();

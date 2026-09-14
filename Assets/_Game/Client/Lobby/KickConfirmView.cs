@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using Game.Client.Character;
 using Game.Client.Home;
+using Game.Client.Settings;
 using Game.Core.Ports;
 using TMPro;
 using UnityEngine;
@@ -28,6 +29,21 @@ namespace Game.Client.Lobby
         public const string ReasonRootName = "Reason";
         public const string ReasonFieldName = "Field";
         public const string ReasonOptionsName = "Options";
+        public const float NoteHeight = 128f;
+        public const float NoteGap = 16f;
+        public const float NoteWidth = 490f;
+        public const int NoteRadius = 10;
+        public const float NoteFontSize = 18f;
+        public const float NotePadding = 16f;
+        public const float NoteCounterFontSize = 16f;
+        public const float NoteCounterHeight = 20f;
+        public const float NoteCounterInsetX = 12f;
+        public const float NoteCounterInsetY = 8f;
+        public const int NoteMaxLength = 500;
+        public const int NoteRequiredLength = 5;
+        public const string NoteRootName = "Note";
+        public const string NoteCounterName = "Counter";
+        public const string NotePlaceholder = "내용을 입력해주세요";
         public const int SortingOrder = PlaySettingsStyle.Overlay.SortingOrder + 20;
 
         public static readonly ReportReason[] Reasons =
@@ -41,7 +57,11 @@ namespace Game.Client.Lobby
 
         public static readonly Vector2 ReportPanelSize = new Vector2(
             CharacterClosetStyle.Modal.PanelSize.x,
-            CharacterClosetStyle.Modal.PanelSize.y + ReasonGap + ReasonHeight);
+            CharacterClosetStyle.Modal.PanelSize.y
+                + ReasonGap
+                + ReasonHeight
+                + NoteGap
+                + NoteHeight);
 
         public static string FormatTitle(string displayName) =>
             $"{displayName} 님을\n강퇴하시겠습니까?";
@@ -69,8 +89,15 @@ namespace Game.Client.Lobby
         private RectTransform plate;
         private RectTransform declineButton;
         private RectTransform acceptButton;
+        private Button acceptControl;
+        private Image acceptFill;
+        private HomeHoverHighlight acceptHover;
+        private bool choosingReason;
         private GameObject reasonRoot;
         private GameObject reasonOptions;
+        private GameObject noteRoot;
+        private TMP_InputField noteInput;
+        private TMP_Text noteCounter;
         private TMP_Text title;
         private TMP_Text acceptLabel;
         private TMP_Text reasonValue;
@@ -81,6 +108,8 @@ namespace Game.Client.Lobby
         public event Action Cancelled;
 
         public ReportReason SelectedReason { get; private set; } = ReportReason.Abuse;
+
+        public string Note => noteInput != null ? noteInput.text : string.Empty;
 
         public void Show(string message)
         {
@@ -109,7 +138,13 @@ namespace Game.Client.Lobby
 
             SelectedReason = ReportReason.Abuse;
             ApplyReason(SelectedReason);
+            ResetNote();
             ApplyLayout(chooseReason);
+            RefreshAcceptEnabled();
+            if (chooseReason && noteInput != null)
+            {
+                noteInput.ActivateInputField();
+            }
 
             if (root != null)
             {
@@ -122,6 +157,11 @@ namespace Game.Client.Lobby
         public void Hide()
         {
             SetReasonOpen(false);
+            if (noteInput != null)
+            {
+                noteInput.DeactivateInputField();
+            }
+
             if (root != null)
             {
                 root.SetActive(false);
@@ -155,6 +195,7 @@ namespace Game.Client.Lobby
             var canvas = overlay.GetComponent<Canvas>();
             canvas.overrideSorting = true;
             canvas.sortingOrder = SortingOrder;
+            Game.Client.Common.HudScreenScale.Ensure(overlay);
 
             var blurRect = CreateRect("Backdrop", rect);
             Stretch(blurRect);
@@ -201,6 +242,7 @@ namespace Game.Client.Lobby
             titleRect.sizeDelta = new Vector2(0f, titleHeight);
 
             CreateReasonPicker(plate, titleHeight);
+            CreateNoteField(plate, titleHeight);
 
             var buttonTop = KickButtonTop(titleHeight);
             var half = (CharacterClosetStyle.Modal.ButtonSize.x
@@ -225,8 +267,14 @@ namespace Game.Client.Lobby
                 CharacterClosetStyle.Palette.AcceptFill,
                 CharacterClosetStyle.Palette.AcceptHoverFill,
                 CharacterClosetStyle.Palette.AcceptLabel,
-                () => Confirmed?.Invoke());
+                TryConfirm);
             acceptButton = plate.Find("AcceptButton") as RectTransform;
+            if (acceptButton != null)
+            {
+                acceptControl = acceptButton.GetComponent<Button>();
+                acceptFill = acceptButton.GetComponent<Image>();
+                acceptHover = acceptButton.GetComponent<HomeHoverHighlight>();
+            }
 
             CreateCloseButton(plate);
         }
@@ -335,12 +383,171 @@ namespace Game.Client.Lobby
             reasonRoot.SetActive(false);
         }
 
+        private void CreateNoteField(RectTransform host, float titleHeight)
+        {
+            var rootRect = CreateRect(NoteRootName, host);
+            SetAnchor(rootRect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
+            rootRect.anchoredPosition = new Vector2(
+                0f,
+                -(CharacterClosetStyle.Modal.TitleTop
+                    + titleHeight
+                    + ReasonGap
+                    + ReasonHeight
+                    + NoteGap));
+            rootRect.sizeDelta = new Vector2(NoteWidth, NoteHeight);
+            noteRoot = rootRect.gameObject;
+
+            AddImage(
+                rootRect,
+                SettingsStyle.Palette.FieldFill,
+                HomeUiFonts.Rounded(NoteRadius),
+                raycastTarget: true);
+
+            var viewport = CreateRect("TextArea", rootRect);
+            Stretch(viewport);
+            viewport.offsetMin = new Vector2(NotePadding, NotePadding + NoteCounterHeight);
+            viewport.offsetMax = new Vector2(-NotePadding, -NotePadding);
+            viewport.gameObject.AddComponent<RectMask2D>();
+
+            var text = CreateText(
+                "Text",
+                viewport,
+                string.Empty,
+                NoteFontSize,
+                SettingsStyle.Palette.FieldText,
+                TextAlignmentOptions.TopLeft,
+                HomeUiFonts.ApplyRegular());
+            Stretch(text.rectTransform);
+            text.raycastTarget = true;
+
+            var placeholder = CreateText(
+                "Placeholder",
+                viewport,
+                NotePlaceholder,
+                NoteFontSize,
+                SettingsStyle.Palette.FieldPlaceholder,
+                TextAlignmentOptions.TopLeft,
+                HomeUiFonts.ApplyRegular());
+            Stretch(placeholder.rectTransform);
+
+            noteCounter = CreateText(
+                NoteCounterName,
+                rootRect,
+                string.Empty,
+                NoteCounterFontSize,
+                SettingsStyle.Palette.Counter,
+                TextAlignmentOptions.MidlineRight,
+                HomeUiFonts.ApplyRegular());
+            var counterRect = noteCounter.rectTransform;
+            SetAnchor(counterRect, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f));
+            counterRect.anchoredPosition = new Vector2(-NoteCounterInsetX, NoteCounterInsetY);
+            counterRect.sizeDelta = new Vector2(120f, NoteCounterHeight);
+            counterRect.SetAsLastSibling();
+            ShowNoteCount(0);
+
+            rootRect.gameObject.SetActive(false);
+            var input = rootRect.gameObject.AddComponent<TMP_InputField>();
+            input.textViewport = viewport;
+            input.textComponent = text;
+            input.placeholder = placeholder;
+            input.fontAsset = text.font;
+            input.pointSize = NoteFontSize;
+            input.richText = false;
+            text.richText = false;
+            placeholder.richText = false;
+            input.lineType = TMP_InputField.LineType.MultiLineNewline;
+            input.characterLimit = NoteMaxLength;
+            input.customCaretColor = true;
+            input.caretColor = SettingsStyle.Palette.FieldText;
+            input.selectionColor = SettingsStyle.Palette.Accent;
+            input.onValueChanged.AddListener(OnNoteTyped);
+            rootRect.gameObject.SetActive(true);
+            noteRoot.SetActive(false);
+            noteInput = input;
+        }
+
+        private void ResetNote()
+        {
+            if (noteInput != null)
+            {
+                noteInput.SetTextWithoutNotify(string.Empty);
+                noteInput.DeactivateInputField();
+            }
+
+            ShowNoteCount(0);
+            RefreshAcceptEnabled();
+        }
+
+        private void OnNoteTyped(string text)
+        {
+            ShowNoteCount(text != null ? text.Length : 0);
+            RefreshAcceptEnabled();
+        }
+
+        private void TryConfirm()
+        {
+            if (!CanAccept)
+            {
+                return;
+            }
+
+            Confirmed?.Invoke();
+        }
+
+        private bool CanAccept =>
+            !choosingReason
+            || SelectedReason != ReportReason.Other
+            || Note.Trim().Length >= NoteRequiredLength;
+
+        private void RefreshAcceptEnabled()
+        {
+            var enabled = CanAccept;
+            if (acceptControl != null)
+            {
+                acceptControl.interactable = enabled;
+            }
+
+            if (acceptHover != null)
+            {
+                acceptHover.Bind(
+                    acceptFill,
+                    null,
+                    enabled
+                        ? CharacterClosetStyle.Palette.AcceptFill
+                        : SettingsStyle.Palette.ButtonOffFill,
+                    enabled
+                        ? CharacterClosetStyle.Palette.AcceptHoverFill
+                        : SettingsStyle.Palette.ButtonOffFill);
+            }
+
+            if (acceptLabel != null)
+            {
+                acceptLabel.color = enabled
+                    ? CharacterClosetStyle.Palette.AcceptLabel
+                    : SettingsStyle.Palette.ButtonOffLabel;
+            }
+        }
+
+        private void ShowNoteCount(int length)
+        {
+            if (noteCounter != null)
+            {
+                noteCounter.text = $"{length}/{NoteMaxLength}";
+            }
+        }
+
         private void ApplyLayout(bool chooseReason)
         {
+            choosingReason = chooseReason;
             SetReasonOpen(false);
             if (reasonRoot != null)
             {
                 reasonRoot.SetActive(chooseReason);
+            }
+
+            if (noteRoot != null)
+            {
+                noteRoot.SetActive(chooseReason);
             }
 
             if (plate != null)
@@ -365,6 +572,8 @@ namespace Game.Client.Lobby
             {
                 acceptButton.anchoredPosition = new Vector2(half, -buttonTop);
             }
+
+            RefreshAcceptEnabled();
         }
 
         private void ApplyReason(ReportReason reason)
@@ -374,6 +583,8 @@ namespace Game.Client.Lobby
             {
                 reasonValue.text = ReasonLabel(reason);
             }
+
+            RefreshAcceptEnabled();
         }
 
         private void PickReason(ReportReason reason)
@@ -415,6 +626,8 @@ namespace Game.Client.Lobby
             + titleHeight
             + ReasonGap
             + ReasonHeight
+            + NoteGap
+            + NoteHeight
             + CharacterClosetStyle.Modal.ButtonGapAbove;
 
         private TMP_Text CreateButton(
@@ -619,11 +832,12 @@ namespace Game.Client.Lobby
             string value,
             float size,
             Color color,
-            TextAlignmentOptions alignment)
+            TextAlignmentOptions alignment,
+            TMP_FontAsset font = null)
         {
             var rect = CreateRect(name, parent);
             var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
-            text.font = HomeUiFonts.Apply();
+            text.font = font != null ? font : HomeUiFonts.Apply();
             text.text = value;
             text.fontSize = size;
             text.color = color;
