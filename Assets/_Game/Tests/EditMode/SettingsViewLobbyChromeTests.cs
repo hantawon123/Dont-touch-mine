@@ -7,6 +7,60 @@ namespace Game.Architecture.Tests
 {
     public sealed class SettingsViewLobbyChromeTests
     {
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(5)]
+        [TestCase(10)]
+        [TestCase(50)]
+        [TestCase(100)]
+        public void SliderValue_ClipsRailWithoutShrinkingRoundedEnds(int percent)
+        {
+            var root = new GameObject("Slider Test", typeof(RectTransform));
+            root.SetActive(false);
+            try
+            {
+                var view = root.AddComponent<SettingsView>();
+                typeof(SettingsView).GetMethod("CreateSlider",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { root.GetComponent<RectTransform>(), 0, 100,
+                        new System.Action<int>(_ => { }) });
+                var slider = root.GetComponentInChildren<Slider>(true);
+                slider.SetValueWithoutNotify(percent);
+                var graphic = slider.fillRect.Find("Graphic").GetComponent<Image>();
+                var track = slider.transform.Find("Track").GetComponent<RectTransform>();
+
+                Assert.That(slider.fillRect.GetComponent<RectMask2D>(), Is.Not.Null);
+                Assert.That(slider.fillRect.anchorMax.x, Is.EqualTo(percent / 100f).Within(0.001f));
+                Assert.That(graphic.rectTransform.rect.size, Is.EqualTo(
+                    new Vector2(SettingsStyle.Slider.TrackSize.x + SettingsStyle.Slider.FillLeftOverhang,
+                        SettingsStyle.Slider.FillHeight)));
+                var background = track.transform.Find("Background").GetComponent<RectTransform>();
+                Assert.That(background.rect.height, Is.EqualTo(SettingsStyle.Slider.TrackSize.y));
+                Assert.That(graphic.rectTransform.rect.height, Is.GreaterThan(background.rect.height));
+                Assert.That(track.rect.height, Is.EqualTo(graphic.rectTransform.rect.height));
+                Assert.That(background.anchoredPosition.y, Is.Zero);
+                Assert.That(graphic.rectTransform.anchoredPosition.y, Is.Zero);
+                Assert.That(track.GetComponent<Mask>(), Is.Null);
+                Assert.That(graphic.transform.IsChildOf(track.transform), Is.True);
+                Assert.That(graphic.sprite, Is.Not.Null);
+                Assert.That(graphic.type, Is.EqualTo(Image.Type.Sliced));
+                var fillCorners = new Vector3[4];
+                slider.fillRect.GetWorldCorners(fillCorners);
+                var handleCentre = slider.handleRect.TransformPoint(slider.handleRect.rect.center);
+                Assert.That(fillCorners[2].x, Is.EqualTo(handleCentre.x).Within(0.001f),
+                    "Orange must reach the handle centre even at low values.");
+                var trackCorners = new Vector3[4];
+                track.GetWorldCorners(trackCorners);
+                Assert.That(fillCorners[0].x,
+                    Is.EqualTo(trackCorners[0].x - SettingsStyle.Slider.FillLeftOverhang).Within(0.001f));
+                Assert.That(graphic.color.a, Is.EqualTo(1f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
         [Test]
         public void ConfigureAsLobbyOverlay_HidesFeedbackAndShowsLeaveText()
         {

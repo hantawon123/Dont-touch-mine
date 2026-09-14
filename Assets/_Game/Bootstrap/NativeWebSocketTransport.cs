@@ -24,10 +24,9 @@ namespace Game.Bootstrap
     /// <see cref="UnityWebRequestTransport"/> is for requests: it opens sockets
     /// and reports frames and closure. What a frame means is decided above.
     /// <para>
-    /// <b>NativeWebSocket's <c>Connect()</c> completes when the socket
-    /// closes, not when it opens.</b> It runs the receive loop inside. Awaiting
-    /// it for "connected" would wait for the whole session. So <c>OnOpen</c> is
-    /// what means open here, and the <c>Connect()</c> task is what means closed.
+    /// Native Connect runs the receive loop until closure, while WebGL Connect
+    /// returns as soon as it starts the handshake. OnOpen and OnClose are the
+    /// lifecycle signals shared by both platforms.
     /// </para>
     /// <para>
     /// Version 2 of the package delivers its events through the main thread's
@@ -170,6 +169,9 @@ namespace Game.Bootstrap
                 try
                 {
                     await socket.Connect();
+                    // WebGL Connect only initiates the handshake and returns immediately.
+                    // OnClose owns the lifetime on both native and browser transports.
+                    await closed.Task;
                 }
                 catch (Exception exception)
                 {

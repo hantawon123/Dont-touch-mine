@@ -10,18 +10,9 @@ namespace Game.Bootstrap
     /// Carries the 사운드 settings into Unity's audio.
     /// </summary>
     /// <remarks>
-    /// One of the seven rows reaches the ear today: the master volume, which is
-    /// <see cref="AudioListener.volume"/> and exists wherever the game runs.
-    /// <para>
-    /// The other six are not wired up here, and this class is deliberately the
-    /// only place that says so. The three sub-volumes need mixer groups the
-    /// project does not have — every sound currently plays straight into the
-    /// listener — and the microphone's device, input mode and volume belong to
-    /// the voice rig, which exists only inside a room and is spoken to through
-    /// <see cref="IVoiceControl"/>, a port that today knows only how to mute.
-    /// They are saved and shown correctly, and changing one has no effect on
-    /// what is heard until those are added.
-    /// </para>
+    /// Master volume is applied through AudioListener.volume. MenuBgmController
+    /// separately applies Music to its AudioSource when settings change, so the
+    /// master gain is not multiplied twice. Other sound categories are not wired here.
     /// </remarks>
     public sealed class UnitySoundSettingsApplier : ISoundSettingsApplier
     {
