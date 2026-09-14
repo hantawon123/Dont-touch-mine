@@ -6,6 +6,7 @@ import re
 parser = argparse.ArgumentParser()
 parser.add_argument('logs', type=Path, help='server.log and client1.log through client6.log')
 parser.add_argument('--output', type=Path)
+parser.add_argument('--server-location', choices=('local', 'ec2'), default='local')
 args = parser.parse_args()
 evidence = []
 failures = []
@@ -52,7 +53,7 @@ for peer in range(1, 7):
 
 if failures:
     raise SystemExit('\n'.join('FAIL: ' + problem for problem in failures))
-result = 'PASS: local native server + six clients; external WebGL PCs remain a manual check.\n' + '\n'.join(evidence) + '\n'
+result = f'PASS: {args.server_location} native server + six clients; external WebGL PCs remain a manual check.\n' + '\n'.join(evidence) + '\n'
 if args.output:
     args.output.write_text(result, encoding='utf-8')
 print(result)

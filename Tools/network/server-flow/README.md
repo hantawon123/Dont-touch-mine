@@ -38,7 +38,7 @@ $env:WEBGL_FAST_BUILD = '1'
 python Tools/network/server-flow/serve.py '<webgl-output>'
 ```
 
-각 PC에서 빌드 폴더와 `serve.py`를 받아 Python 3으로 실행하고 `http://localhost:4291`을 연다. 서버 프로세스는 한 PC에서만 실행한다. 플레이어끼리는 Photon을 통해 연결되므로 다른 PC에 로컬 HTTP 포트를 개방할 필요가 없다.
+각 PC에서 빌드 폴더와 `serve.py`를 받아 Python 3으로 실행하고 `http://localhost:4291`을 연다. 서버 프로세스는 한 PC 또는 기존 EC2 한 곳에서만 실행한다. 플레이어끼리는 Photon을 통해 연결되므로 다른 PC에 로컬 HTTP 포트를 개방할 필요가 없다.
 
 독립 프로젝트에만 적용되는 WebGL 설정은 HTTP API를 로컬 프리뷰를 거쳐 기존 HTTPS 백엔드로 전달한다. 프리뷰는 `127.0.0.1`에만 바인딩하고 대상 백엔드를 고정하며 계정·토큰·요청 본문을 로그에 저장하지 않는다. WebSocket은 기존 백엔드에 직접 연결한다. 제품 소스의 백엔드 주소와 운영 CORS 설정은 바뀌지 않는다. 확인 후 프리뷰 Python 프로세스를 종료한다.
 
@@ -61,14 +61,25 @@ python Tools/network/server-flow/serve.py '<webgl-output>'
 ```bash
 sudo systemd-run --unit=d205-game-988-trial --collect \
   -p User=ubuntu -p Group=ubuntu -p UMask=0077 \
-  -p WorkingDirectory=/home/ubuntu/d205-game-server-988/linux-v1 \
+  -p WorkingDirectory=/home/ubuntu/d205-game-server-988/linux-v2 \
   -p Environment=HOME=/home/ubuntu/d205-game-server-988/state \
   -p CPUQuota=150% -p MemoryMax=3G -p Nice=10 -p RuntimeMaxSec=1200 \
-  /home/ubuntu/d205-game-server-988/linux-v1/ServerFlow988.x86_64 \
+  /home/ubuntu/d205-game-server-988/linux-v2/ServerFlow988.x86_64 \
   -batchmode -nographics -gameServer -roomCode 988EC2 -region kr \
-  -job-worker-count 1 -logFile /home/ubuntu/d205-game-server-988/logs/server.log
+  -job-worker-count 1 -logFile /home/ubuntu/d205-game-server-988/logs/manual.log
 ```
 
 CPU 상한은 1.5 vCPU이며 메모리 상한은 3 GiB이다. 상한은 안정적으로 운영 가능한 방 수의 측정 결과가 아니다. 서비스 최대 수명은 20분이며, 게임 자체의 빈 서버 120초 종료와 방장 퇴장 종료가 우선 적용된다. 재시작은 위 명령을 다시 실행한다. 명시적으로 종료할 때는 `sudo systemctl stop d205-game-988-trial.service`를 사용한다.
 
 같은 `988-local-v1` 클라이언트로 접속하고 서버 로그의 `Server / IsServer=True`, 각 클라이언트의 `Client / IsServer=False`, 실제 경기 흐름과 종료를 확인한다. Photon을 통한 연결을 사용하며 이 시험을 위해 기존 웹 배포·Jenkins나 방화벽을 변경하지 않는다. 서버 HOME 아래의 실험 기기 ID와 전체 인증 로그는 외부 보고서에 넣지 않는다.
+
+
+서버 빌드의 `DedicatedServerScenePreparation`은 임시 씬 복사본에서 UI 생성 컴포넌트와 UI 전용 Scope를 제거하고 Canvas를 비활성화한다. 게임용 Scope·물리 구성과 원본 씬은 유지한다. Canvas 안에 게임용 Scope나 물리 컴포넌트가 남아 있으면 빌드를 실패시킨다.
+
+2026-09-14 검증된 배치는 `linux-v2`이며 이전 `linux-v1`은 사용하지 않는다. 기존 서비스가 종료된 상태에서 실행하고 로그 파일은 실행마다 다른 이름을 사용한다. EC2 로그를 수집한 뒤에는 다음 명령으로 서버 위치를 증거에 표시한다.
+
+```powershell
+python Tools/network/server-flow/verify.py '<logs-directory>' --server-location ec2 --output '<evidence.txt>'
+```
+
+[EC2 실제 검증 결과](../../../docs/planning/server-ec2-trial-988.md)에 6인 흐름, WebGL 접속, 자원 관측과 남은 문제를 기록했다. 별도 PC의 WebGL 6인 수동 검증은 아직 남아 있다.

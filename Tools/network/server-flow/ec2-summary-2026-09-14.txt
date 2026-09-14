@@ -1,0 +1,37 @@
+S15P21D205-988 EC2 trial, 2026-09-14
+Server: Ubuntu 24.04 x86_64, Linux Dedicated Server / Mono, 988-local-v1.
+Verified deployment: /home/ubuntu/d205-game-server-988/linux-v2
+Archive SHA256: 161d479dcaf1dda4ed70b8a1690ae0c52bf184b5f07f4b80107223edbf2205b1
+Limits: CPUQuota=150%, MemoryMax=3G, RuntimeMaxSec=1200.
+No automatic restart or boot enablement.
+
+Full flow: EC2 server + six Windows clients, all six PASS.
+Six-player match, guest departure, five-player result and rematch,
+owner departure, session closed, server process exited.
+No exception types found in server/client runtime logs.
+One leftover validation client window was explicitly stopped after PASS.
+
+18 health samples: HTTP 200 in every sample.
+Health latency ms: min 41.47, median 45.75, max 64.98.
+Server cgroup MemoryPeak observed: 464.51 MiB.
+CPUUsageNSec time-delta average: 1.127 vCPU.
+Highest sampled-interval average: 1.172 vCPU (not instantaneous peak).
+Minimum host available memory observed: 10245 MiB.
+This is one idle-input functional match flow, not a capacity/load benchmark.
+
+Actual WebGL UI smoke:
+2026-09-14T11:35:23.873Z [Network] Session '988EC2' started as Client. IsServer=False
+2026-09-14T11:35:24.421Z [Rooms] Claimed server room as Client. Code=988EC2
+Visual: Lobby loaded, 1/6 players, local avatar present.
+2026-09-14T11:36:21.648Z [Network] Left the room: Left
+Visual: normal Settings > Leave confirmation returned to Home.
+EC2: [Server] Session closed. systemd trial inactive, no server exception.
+Post-test backend health: HTTP 200, 60.683 ms.
+
+Unresolved observations:
+- Chromium UnknownError recurred when opening Settings with Escape at
+  2026-09-14T11:35:53.343Z. UI and normal exit continued. Cause unconfirmed.
+- Existing presence API HTTP 401 recurred. Social integration is not certified.
+- Separate-PC WebGL six-player match, real interaction/voice and performance
+  checks remain manual. No 120 FPS or concurrent room capacity guarantee.
+No credentials or account/device identifiers are included.

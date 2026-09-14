@@ -1,4 +1,5 @@
 using System.Linq;
+using Game.Bootstrap;
 using Game.Client.Character;
 using Game.Client.Home;
 using Game.Client.Match;
@@ -24,6 +25,22 @@ namespace Game.Editor
                 EditorUserBuildSettings.standaloneBuildSubtarget != StandaloneBuildSubtarget.Server) return;
 
             var roots = scene.GetRootGameObjects();
+            var removed = 0;
+            foreach (var component in roots.SelectMany(root => root.GetComponentsInChildren<MonoBehaviour>(true)))
+            {
+                // These factories construct canvases in Awake and therefore are not
+                // covered by Canvas deactivation. Preserve GameObjects and shared scopes. The three
+                // frontend-only scopes are removed; gameplay scopes remain active.
+                if (component is HomeMenuView || component is CharacterClosetView ||
+                    component is ResultView || component is SettingsView ||
+                    component is MatchChatBubbleView || component is EndingStage ||
+                    component is RoomBrowserLifetimeScope || component is SettingsLifetimeScope ||
+                    component is CharacterClosetLifetimeScope)
+                {
+                    Object.DestroyImmediate(component);
+                    removed++;
+                }
+            }
             var canvases = roots.SelectMany(root => root.GetComponentsInChildren<Canvas>(true)).ToArray();
             foreach (var canvas in canvases)
             {
@@ -35,20 +52,7 @@ namespace Game.Editor
                 canvas.gameObject.SetActive(false);
             }
 
-            var removed = 0;
-            foreach (var component in roots.SelectMany(root => root.GetComponentsInChildren<MonoBehaviour>(true)))
-            {
-                // These factories construct canvases in Awake and therefore are not
-                // covered above. Preserve their GameObjects and shared scene scopes.
-                if (component is HomeMenuView || component is CharacterClosetView ||
-                    component is ResultView || component is SettingsView ||
-                    component is MatchChatBubbleView || component is EndingStage)
-                {
-                    Object.DestroyImmediate(component);
-                    removed++;
-                }
-            }
-            Debug.Log($"[ServerBuild] {scene.name}: disabled {canvases.Length} canvases, removed {removed} UI factories.");
+            Debug.Log($"[ServerBuild] {scene.name}: disabled {canvases.Length} canvases, removed {removed} UI components.");
         }
     }
 }
