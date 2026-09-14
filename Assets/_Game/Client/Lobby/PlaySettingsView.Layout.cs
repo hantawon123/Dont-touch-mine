@@ -308,6 +308,8 @@ namespace Game.Client.Lobby
             viewportImage.color = Color.clear;
             viewport.gameObject.AddComponent<RectMask2D>();
             bodyScroll.viewport = viewport;
+            bodyScroll.verticalScrollbar = CreateBodyScrollbar(scrollArea);
+            bodyScroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
 
             settingsContent = CreateRect("Content", viewport);
             settingsContent.anchorMin = new Vector2(0f, 1f);
@@ -365,6 +367,47 @@ namespace Game.Client.Lobby
                 out searchingValue);
             BuildRuleRow(settingsContent, "달리는 속도", 2);
             BuildRuleRow(settingsContent, "기절 펀치 횟수", 3);
+        }
+
+        /// <summary>
+        /// The handle down the body's right padding, so the wheel already
+        /// had somewhere to go and now the thumb does too.
+        /// </summary>
+        private Scrollbar CreateBodyScrollbar(RectTransform scrollArea)
+        {
+            var track = CreateRect("Scrollbar", scrollArea);
+            Anchor(track, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0.5f));
+            track.anchoredPosition = new Vector2(
+                -PlaySettingsStyle.Layout.ScrollbarRightInset, 0f);
+            track.sizeDelta = new Vector2(
+                PlaySettingsStyle.Layout.ScrollbarWidth,
+                -PlaySettingsStyle.Layout.ScrollbarVerticalInset * 2f);
+
+            var trackImage = track.gameObject.AddComponent<Image>();
+            trackImage.color = Color.clear;
+            trackImage.raycastTarget = true;
+
+            var area = CreateRect("SlidingArea", track);
+            Stretch(area);
+
+            var handle = CreateRect("Handle", area);
+            Stretch(handle);
+            handle.sizeDelta = Vector2.zero;
+
+            var handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.sprite = HomeUiFonts.Rounded(PlaySettingsStyle.Layout.ScrollbarRadius);
+            handleImage.type = Image.Type.Sliced;
+            handleImage.color = PlaySettingsStyle.Palette.ScrollbarHandle;
+            handleImage.raycastTarget = true;
+
+            var bar = track.gameObject.AddComponent<Scrollbar>();
+            bar.direction = Scrollbar.Direction.BottomToTop;
+            bar.handleRect = handle;
+            bar.targetGraphic = handleImage;
+            bar.transition = Selectable.Transition.None;
+            bar.navigation = new Navigation { mode = Navigation.Mode.None };
+            track.SetAsLastSibling();
+            return bar;
         }
 
         private void AddLayoutDivider(RectTransform parent)

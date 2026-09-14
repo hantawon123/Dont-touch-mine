@@ -134,6 +134,44 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void BodyScroll_ShowsAVerticalScrollbarOnTheRight()
+        {
+            var root = CreateView(out var panel, out _);
+            try
+            {
+                var scroll = Find(panel.transform, "SettingsScroll") as RectTransform;
+                Assert.That(scroll, Is.Not.Null);
+                var scrollRect = scroll.GetComponent<ScrollRect>();
+                Assert.That(scrollRect, Is.Not.Null);
+                Assert.That(scrollRect.verticalScrollbar, Is.Not.Null);
+                Assert.That(
+                    scrollRect.verticalScrollbarVisibility,
+                    Is.EqualTo(ScrollRect.ScrollbarVisibility.Permanent));
+
+                var bar = scrollRect.verticalScrollbar.GetComponent<RectTransform>();
+                Assert.That(bar.parent, Is.EqualTo(scroll));
+                Assert.That(bar.anchorMin, Is.EqualTo(new Vector2(1f, 0f)));
+                Assert.That(bar.anchorMax, Is.EqualTo(new Vector2(1f, 1f)));
+                Assert.That(bar.pivot, Is.EqualTo(new Vector2(1f, 0.5f)));
+                Assert.That(
+                    bar.anchoredPosition,
+                    Is.EqualTo(new Vector2(-PlaySettingsStyle.Layout.ScrollbarRightInset, 0f)));
+                Assert.That(
+                    bar.sizeDelta,
+                    Is.EqualTo(new Vector2(
+                        PlaySettingsStyle.Layout.ScrollbarWidth,
+                        -PlaySettingsStyle.Layout.ScrollbarVerticalInset * 2f)));
+                Assert.That(bar.Find("SlidingArea/Handle"), Is.Not.Null);
+                Assert.That(Find(panel.transform, "Header").Find("Scrollbar"), Is.Null);
+                Assert.That(Find(panel.transform, "Footer").Find("Scrollbar"), Is.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
         private static GameObject CreateView(out GameObject panel, out PlaySettingsView view)
         {
             var root = new GameObject("Settings layout", typeof(RectTransform), typeof(Canvas));
