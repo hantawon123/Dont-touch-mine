@@ -20,9 +20,10 @@ namespace Game.Backend
         /// Identifies the caller. Almost every call.
         /// </summary>
         /// <remarks>
-        /// Identification, not authentication: the value is public and anyone
-        /// who knows another player's id can act as them. That is accepted for
-        /// now, and it is why nothing destructive settles for it.
+        /// The user id alone is public, so the server's signature over it
+        /// (<see cref="BackendSession.AccountToken"/>) rides beside it whenever
+        /// there is one. Without the signature anyone who knows another player's
+        /// id could act as them.
         /// </remarks>
         UserId,
 
@@ -46,6 +47,8 @@ namespace Game.Backend
         private const string UserIdHeader = "X-User-Id";
 
         private const string DeviceIdHeader = "X-Device-Id";
+
+        private const string AccountTokenHeader = "X-Account-Token";
 
         private readonly IHttpTransport transport;
         private readonly BackendEndpoint endpoint;
@@ -211,27 +214,33 @@ namespace Game.Backend
         }
 
         /// <remarks>
-        /// The device identifier goes in a header, never in the path or the
-        /// query: nginx writes query strings to its access log, and this value is
-        /// the account's password.
+        /// The device identifier and the account token go in headers, never in
+        /// the path or the query: nginx writes query strings to its access log,
+        /// and these values are the account's password and its proof.
         /// </remarks>
         private IReadOnlyList<HttpHeader> Headers(BackendAuth auth)
         {
-            switch (auth)
+            if (auth == BackendAuth.None)
             {
-                case BackendAuth.UserId:
-                    return new[] { new HttpHeader(UserIdHeader, session.UserId) };
-
-                case BackendAuth.UserIdAndDevice:
-                    return new[]
-                    {
-                        new HttpHeader(UserIdHeader, session.UserId),
-                        new HttpHeader(DeviceIdHeader, session.DeviceId)
-                    };
-
-                default:
-                    return Array.Empty<HttpHeader>();
+                return Array.Empty<HttpHeader>();
             }
+
+            var headers = new List<HttpHeader>(3) { new HttpHeader(UserIdHeader, session.UserId) };
+
+            // Absent, not empty, when the server issued no token: a server without
+            // a signing secret checks nothing, and an empty header would only be
+            // one more thing for it to ignore.
+            if (!string.IsNullOrEmpty(session.AccountToken))
+            {
+                headers.Add(new HttpHeader(AccountTokenHeader, session.AccountToken));
+            }
+
+            if (auth == BackendAuth.UserIdAndDevice)
+            {
+                headers.Add(new HttpHeader(DeviceIdHeader, session.DeviceId));
+            }
+
+            return headers;
         }
 
         /// <summary>An exchange that either failed or came back with a body.</summary>
