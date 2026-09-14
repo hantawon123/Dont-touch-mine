@@ -11,10 +11,12 @@ namespace Game.Client.Lobby
         public const string PlusResource = "UI/Icon_Plus";
         public const string PlusGrayResource = "UI/Icon_Plus_Gray";
         public const string LeaderResource = "UI/Icon_Leader";
+        public const string MicOffWhiteResource = "UI/Icon_Mic_Off_White";
 
         private static Sprite plus;
         private static Sprite plusGray;
         private static Sprite leader;
+        private static Sprite micOffWhite;
 
         public static Sprite Plus => plus ??= Resources.Load<Sprite>(PlusResource) ?? BuildPlus();
 
@@ -22,6 +24,9 @@ namespace Game.Client.Lobby
             plusGray ??= Resources.Load<Sprite>(PlusGrayResource) ?? BuildPlusGray();
 
         public static Sprite Leader => leader ??= Resources.Load<Sprite>(LeaderResource) ?? BuildCrown();
+
+        public static Sprite MicOffWhite =>
+            micOffWhite ??= Resources.Load<Sprite>(MicOffWhiteResource);
 
         private static Sprite BuildPlus()
         {

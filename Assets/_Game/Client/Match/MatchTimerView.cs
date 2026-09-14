@@ -52,6 +52,27 @@ namespace Game.Client.Match
             return Mathf.Max(0, Mathf.CeilToInt((float)remainingSeconds)) <= WarningSeconds;
         }
 
+        public static MatchTimerView Create(Transform parent)
+        {
+            var root = new GameObject(
+                "TimerText",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(TextMeshProUGUI));
+            if (parent != null)
+            {
+                root.transform.SetParent(parent, false);
+            }
+
+            var text = root.GetComponent<TextMeshProUGUI>();
+            text.text = "00:00";
+            text.fontSize = HidingActiveHudView.TimerFontSize;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = Color.white;
+            text.raycastTarget = false;
+            return root.AddComponent<MatchTimerView>();
+        }
+
         private void Awake()
         {
             EnsureLayout();

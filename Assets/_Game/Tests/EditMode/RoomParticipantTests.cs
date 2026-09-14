@@ -57,6 +57,15 @@ namespace Game.Tests.EditMode
 
             Assert.That(participant.Seat, Is.EqualTo(4));
             Assert.That(participant.IsHost, Is.True);
+            Assert.That(participant.IsMuted, Is.False);
+        }
+
+        [Test]
+        public void IsMuted_IsCarriedWhenSupplied()
+        {
+            var participant = new RoomParticipant("P3", 4, true, "방장", isMuted: true);
+
+            Assert.That(participant.IsMuted, Is.True);
         }
     }
 }

@@ -40,8 +40,12 @@ namespace Game.Bootstrap
         private readonly InterfaceSettingsSystem settings;
         private readonly InterfacePresentation presentation;
         private readonly PublishedPlayerName publishedName;
-        private double nextRefresh;
         private bool hadSession;
+        private double initialVisibilityStarted;
+        private const float InitialVisibilityTimeoutSeconds = 1.5f;
+        private bool pendingOwnPublish;
+        private int pendingOwnMode;
+        private string pendingOwnName;
 
         public NetworkInterfaceSettings(NetworkRunnerService network, InterfaceSettingsSystem settings,
             InterfacePresentation presentation, PublishedPlayerName publishedName)
@@ -62,8 +66,6 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
-            if (Time.unscaledTimeAsDouble < nextRefresh) return;
-            nextRefresh = Time.unscaledTimeAsDouble + 0.25;
             if (!network.HasRoomSession)
             {
                 if (hadSession)
@@ -74,12 +76,22 @@ namespace Game.Bootstrap
                     // The next room gets a new one, which is what keeps a
                     // pseudonym from becoming a name somebody is known by.
                     publishedName.ForgetPseudonym();
+                    pendingOwnPublish = false;
+                    initialVisibilityStarted = 0d;
                 }
                 hadSession = false;
                 return;
             }
+
+            if (!hadSession)
+            {
+                initialVisibilityStarted = Time.unscaledTimeAsDouble;
+            }
+
             hadSession = true;
             var avatars = network.PlayerAvatars;
+            var awaitingVisibility = false;
+            var sawAvatar = false;
             foreach (var avatar in avatars)
             {
                 if (avatar == null || avatar.Object == null || !avatar.Object.IsValid) continue;
@@ -88,31 +100,75 @@ namespace Game.Bootstrap
                     avatar.GetComponent<Game.Client.Interactions.PlayerInteractor>()?.SetInterfaceHudVisible(
                         network.IsWaitingForMatch || settings.Current.IsOn(InterfaceOption.InGameUi));
 
-                    var streaming = publishedName.IsPseudonymous;
-                    var mode = streaming
-                        ? PlayerAvatarNaming.Pseudonymous
-                        : PlayerAvatarNaming.RealName;
-
-                    // The same name the room list was given, so a host is not
-                    // one person in the browser and another inside.
-                    var name = streaming ? publishedName.Pseudonym : string.Empty;
-                    if (avatar.NicknameVisibility != mode || avatar.NicknameViewers.ToString() != name)
-                        avatar.RPC_SetNicknameVisibility(mode, name);
+                    PublishOwnName(avatar);
                 }
 
-                switch (avatar.NicknameVisibility)
+                // Read every frame. A 0.25s poll used to leave a joiner's chat
+                // name blank until the next tick after their visibility arrived.
+                ApplyPublishedName(avatar);
+                sawAvatar = true;
+                if (string.IsNullOrEmpty(avatar.PlayerId)
+                    || avatar.NicknameVisibility == PlayerAvatarNaming.Unsaid)
                 {
-                    case PlayerAvatarNaming.RealName:
-                        presentation.SetPublishedName(avatar.PlayerId, real: true, pseudonym: null);
-                        break;
-                    case PlayerAvatarNaming.Pseudonymous:
-                        presentation.SetPublishedName(
-                            avatar.PlayerId, real: false, avatar.NicknameViewers.ToString());
-                        break;
-                    default:
-                        presentation.ClearPublishedName(avatar.PlayerId);
-                        break;
+                    awaitingVisibility = true;
                 }
+            }
+
+            var timedOut = Time.unscaledTimeAsDouble - initialVisibilityStarted
+                >= InitialVisibilityTimeoutSeconds;
+            if (!presentation.InitialVisibilityReady
+                && ((sawAvatar && !awaitingVisibility) || timedOut))
+            {
+                presentation.MarkInitialVisibilityReady();
+            }
+        }
+
+        /// <summary>
+        /// Sends this player's naming choice as soon as the avatar exists,
+        /// once, so the rest of the room does not wait on a poll interval.
+        /// </summary>
+        private void PublishOwnName(Game.Network.Players.PlayerAvatar avatar)
+        {
+            var streaming = publishedName.IsPseudonymous;
+            var mode = streaming
+                ? PlayerAvatarNaming.Pseudonymous
+                : PlayerAvatarNaming.RealName;
+
+            // The same name the room list was given, so a host is not
+            // one person in the browser and another inside.
+            var name = streaming ? publishedName.Pseudonym : string.Empty;
+            if (avatar.NicknameVisibility == mode && avatar.NicknameViewers.ToString() == name)
+            {
+                pendingOwnPublish = false;
+                return;
+            }
+
+            if (pendingOwnPublish && pendingOwnMode == mode
+                && string.Equals(pendingOwnName, name, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            pendingOwnPublish = true;
+            pendingOwnMode = mode;
+            pendingOwnName = name;
+            avatar.RPC_SetNicknameVisibility(mode, name);
+        }
+
+        private void ApplyPublishedName(Game.Network.Players.PlayerAvatar avatar)
+        {
+            switch (avatar.NicknameVisibility)
+            {
+                case PlayerAvatarNaming.RealName:
+                    presentation.SetPublishedName(avatar.PlayerId, real: true, pseudonym: null);
+                    break;
+                case PlayerAvatarNaming.Pseudonymous:
+                    presentation.SetPublishedName(
+                        avatar.PlayerId, real: false, avatar.NicknameViewers.ToString());
+                    break;
+                default:
+                    presentation.ClearPublishedName(avatar.PlayerId);
+                    break;
             }
         }
 

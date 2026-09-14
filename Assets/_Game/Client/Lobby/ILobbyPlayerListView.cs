@@ -14,7 +14,8 @@ namespace Game.Client.Lobby
         void SetParticipants(
             IReadOnlyList<LobbyParticipant> participants,
             bool localIsHost,
-            string localPlayerId);
+            string localPlayerId,
+            bool namesReady = true);
 
         void SetFriends(IReadOnlyList<FriendSummary> friends);
     }

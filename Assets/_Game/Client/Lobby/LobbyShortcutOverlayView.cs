@@ -172,6 +172,7 @@ namespace Game.Client.Lobby
 
             canvas.overrideSorting = true;
             canvas.sortingOrder = SortingOrder;
+            Game.Client.Common.HudScreenScale.Ensure(overlayRoot);
 
             if (overlayRoot.GetComponent<GraphicRaycaster>() == null)
             {

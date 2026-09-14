@@ -17,23 +17,35 @@ namespace Game.Client.Lobby
     {
         public const string ParticipantsTitle = "게임 참가자 목록";
         public const string FriendsTitle = "친구 목록";
+        public const string OnlineSectionTitle = "게임 접속 중";
+        public const string WaitingSectionTitle = "대기중";
+        public const string InGameSectionTitle = "게임중";
+        public const string OnlineItemsName = "OnlineItems";
+        public const string WaitingItemsName = "WaitingItems";
+        public const string InGameItemsName = "InGameItems";
         public const float TitleFontSize = 20f;
-        public const float NicknameFontSize = 16f;
+        public const float SectionFontSize = 16f;
+        public const float SectionHeight = 28f;
+        public const float NicknameFontSize = 18f;
         public const float KickFontSize = 16f;
         public const float ReportFontSize = 18f;
-        public const float RowHeight = 40f;
-        public const float AvatarSize = 30f;
+        public const float RowHeight = 42f;
+        public const float AvatarSize = 32f;
         public const float AvatarLeft = 10f;
+        public const float MuteIconSize = 16f;
+        public const string AvatarDimName = "Dim";
+        public const string MuteIconName = "Mute";
         public const float NicknameLeft = 10f;
         public const float LeaderIconGap = 6f;
         public const float LeaderIconSize = 16f;
         public const float ActionRight = 16f;
-        public const float AddButtonSize = 24f;
+        public const float AddButtonSize = 26f;
         public const float PanelPadding = 24f;
         public const float ColumnInnerPadding = 10f;
+        public const float TitleLeftPadding = ColumnInnerPadding + AvatarLeft;
         public const float TitleHeight = 28f;
         public const float TitleToRows = 12f;
-        public const float ModalWidth = 750f;
+        public const float ModalWidth = 800f;
         public const float ModalHeight = 420f;
         public const float ColumnWidthRatio = 0.4f;
         public const int PanelRadius = 30;
@@ -47,27 +59,40 @@ namespace Game.Client.Lobby
         public const float InviteCooldownSeconds = 10f;
 
         public static readonly Color KickColor = new Color(177f / 255f, 177f / 255f, 177f / 255f, 1f);
+        public static readonly Color SelfNicknameColor = new Color(1f, 0.54f, 0.24f, 1f);
         public static readonly Color RowHoverFill = new Color(1f, 1f, 1f, 0.12f);
         public static readonly Color ReportTooltipFill = Color.white;
         public static readonly Color ReportTooltipLabel = new Color(1f, 0f, 0f, 1f);
         public static readonly Color AvatarColor = new Color(0.62f, 0.62f, 0.62f, 1f);
+        public static readonly Color MutedAvatarDim = new Color(0f, 0f, 0f, 0.55f);
+        public static readonly Color OnlineSectionColor = Color.white;
+        public static readonly Color WaitingSectionColor = new Color(0.35f, 0.85f, 0.4f, 1f);
+        public static readonly Color InGameSectionColor = new Color(1f, 0.28f, 0.28f, 1f);
 
         public static readonly Vector2 ModalSize = new Vector2(ModalWidth, ModalHeight);
 
         private RectTransform participantRowRoot;
         private RectTransform friendRowRoot;
+        private RectTransform onlineSection;
+        private RectTransform waitingSection;
+        private RectTransform inGameSection;
+        private RectTransform onlineItemsRoot;
+        private RectTransform waitingItemsRoot;
+        private RectTransform inGameItemsRoot;
         private TextMeshProUGUI participantsTitle;
         private TextMeshProUGUI friendsTitle;
         private readonly List<GameObject> participantRows = new();
         private readonly List<GameObject> friendRows = new();
         private readonly Dictionary<string, Button> inviteButtons = new();
         private readonly Dictionary<string, Image> inviteIcons = new();
+        private readonly Dictionary<string, bool> inviteAllowed = new();
         private readonly Dictionary<string, float> inviteReadyAt = new();
         private Func<float> inviteClock = () => Time.unscaledTime;
         private Game.Core.Settings.InterfacePresentation presentation;
         private IReadOnlyList<LobbyParticipant> lastParticipants;
         private bool lastHost;
         private string lastLocal;
+        private bool lastNamesReady = true;
 
         [VContainer.Inject]
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value)
@@ -87,7 +112,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            SetParticipants(lastParticipants, lastHost, lastLocal);
+            SetParticipants(lastParticipants, lastHost, lastLocal, lastNamesReady);
         }
 
         private void OnEnable()
@@ -152,16 +177,25 @@ namespace Game.Client.Lobby
         public void SetParticipants(
             IReadOnlyList<LobbyParticipant> participants,
             bool localIsHost,
-            string localPlayerId)
+            string localPlayerId,
+            bool namesReady = true)
         {
             if (this == null)
             {
                 return;
             }
 
-            lastParticipants = participants; lastHost = localIsHost; lastLocal = localPlayerId;
+            lastParticipants = participants;
+            lastHost = localIsHost;
+            lastLocal = localPlayerId;
+            lastNamesReady = namesReady;
             EnsureLayout();
             ClearRows(participantRows);
+
+            if (!namesReady)
+            {
+                return;
+            }
 
             if (participants == null || participants.Count == 0)
             {
@@ -173,10 +207,13 @@ namespace Game.Client.Lobby
             {
                 var participant = participants[index];
                 var isSelf = string.Equals(participant.Id, localPlayerId, StringComparison.Ordinal);
+                if (!CanShowParticipant(participant.Id, isSelf))
+                {
+                    continue;
+                }
+
                 var canKick = localIsHost && !isSelf;
-                var shownName = presentation == null
-                    ? participant.DisplayName
-                    : presentation.Name(participant.Id, participant.DisplayName);
+                var shownName = ShownParticipantName(participant.Id, participant.DisplayName);
                 var row = CreateRow(
                     participantRowRoot,
                     participantRows,
@@ -184,30 +221,54 @@ namespace Game.Client.Lobby
                     shownName,
                     participant.IsHost,
                     canKick,
-                    showAdd: false);
+                    showAdd: false,
+                    isSelf: isSelf,
+                    isMuted: participant.IsMuted);
                 var playerId = participant.Id;
-                var displayName = participant.DisplayName;
+                var rosterName = participant.DisplayName;
+                var displayName = shownName;
 
                 // Reporting names the backend account, kicking names the Photon
                 // player. They are different identifiers with different readers,
                 // and passing the Photon one to the report API is what made every
                 // report 404 with nobody noticing (S15P21D205-926).
                 //
-                // No account, no report: a participant who joined without one has
-                // nothing the server can be told about, and sending a blank id
-                // would only turn the 404 into a 400.
+                // Anyone but yourself, host included. No account, no report: a
+                // participant who joined without one has nothing the server can
+                // be told about, and a blank id would only turn the 404 into a
+                // 400.
                 if (!isSelf && !string.IsNullOrWhiteSpace(participant.UserId))
                 {
-                    BindReport(row, participant.UserId, displayName);
+                    BindReport(row, participant.UserId, displayName, below: participant.IsHost);
                 }
 
                 var kick = row.Find("Kick")?.GetComponent<Button>();
                 if (kick != null)
                 {
-                    kick.onClick.AddListener(() => KickClicked?.Invoke(playerId, displayName));
+                    kick.onClick.AddListener(() => KickClicked?.Invoke(
+                        playerId,
+                        ShownParticipantName(playerId, rosterName)));
                 }
             }
         }
+
+        /// <summary>
+        /// Other people stay off the list until they have said whether the
+        /// room may use their own name. Showing the roster name first would
+        /// give away a streamer before their 익명 설정 arrived.
+        /// </summary>
+        private bool CanShowParticipant(string playerId, bool isSelf) =>
+            presentation == null
+            || isSelf
+            || presentation.HasPublishedName(playerId);
+
+        /// <summary>
+        /// Fail closed: an unpublished name is nothing, not the roster name.
+        /// </summary>
+        private string ShownParticipantName(string playerId, string displayName) =>
+            presentation == null
+                ? displayName
+                : presentation.Name(playerId, displayName);
 
         public void SetInviteClock(Func<float> clock)
         {
@@ -236,13 +297,139 @@ namespace Game.Client.Lobby
         public void SetFriends(IReadOnlyList<FriendSummary> friends)
         {
             EnsureLayout();
+            EnsureFriendSections();
             inviteButtons.Clear();
             inviteIcons.Clear();
+            inviteAllowed.Clear();
             ClearRows(friendRows);
 
-            if (friends == null || friends.Count == 0)
+            var online = new List<FriendSummary>();
+            var waiting = new List<FriendSummary>();
+            var playing = new List<FriendSummary>();
+            if (friends != null)
             {
-                CreateInfoRow(friendRowRoot, friendRows, "친구가 없습니다.");
+                for (var index = 0; index < friends.Count; index++)
+                {
+                    var friend = friends[index];
+                    switch (friend.Presence)
+                    {
+                        case FriendPresence.Online:
+                            online.Add(friend);
+                            break;
+                        case FriendPresence.InLobby:
+                            waiting.Add(friend);
+                            break;
+                        case FriendPresence.InGame:
+                            playing.Add(friend);
+                            break;
+                    }
+                }
+            }
+
+            AppendFriends(onlineItemsRoot, online, canInvite: true);
+            AppendFriends(waitingItemsRoot, waiting, canInvite: false);
+            AppendFriends(inGameItemsRoot, playing, canInvite: false);
+            SetSectionVisible(onlineSection, onlineItemsRoot, online.Count > 0);
+            SetSectionVisible(waitingSection, waitingItemsRoot, waiting.Count > 0);
+            SetSectionVisible(inGameSection, inGameItemsRoot, playing.Count > 0);
+        }
+
+        private void EnsureFriendSections()
+        {
+            if (friendRowRoot == null || onlineItemsRoot != null)
+            {
+                return;
+            }
+
+            onlineSection = CreateSectionTitle(
+                friendRowRoot, "OnlineSection", OnlineSectionTitle, OnlineSectionColor);
+            onlineItemsRoot = CreateItemGroup(friendRowRoot, OnlineItemsName);
+            waitingSection = CreateSectionTitle(
+                friendRowRoot, "WaitingSection", WaitingSectionTitle, WaitingSectionColor);
+            waitingItemsRoot = CreateItemGroup(friendRowRoot, WaitingItemsName);
+            inGameSection = CreateSectionTitle(
+                friendRowRoot, "InGameSection", InGameSectionTitle, InGameSectionColor);
+            inGameItemsRoot = CreateItemGroup(friendRowRoot, InGameItemsName);
+        }
+
+        private static void SetSectionVisible(
+            RectTransform title, RectTransform items, bool visible)
+        {
+            if (title != null)
+            {
+                title.gameObject.SetActive(visible);
+            }
+
+            if (items != null)
+            {
+                items.gameObject.SetActive(visible);
+            }
+        }
+
+        private static RectTransform CreateSectionTitle(
+            RectTransform parent, string name, string label, Color color)
+        {
+            var rect = FindOrCreateRect(name, parent);
+            var element = rect.GetComponent<LayoutElement>();
+            if (element == null)
+            {
+                element = rect.gameObject.AddComponent<LayoutElement>();
+            }
+
+            element.preferredHeight = SectionHeight;
+            element.minHeight = SectionHeight;
+            element.flexibleWidth = 1f;
+
+            var text = rect.GetComponent<TextMeshProUGUI>();
+            if (text == null)
+            {
+                text = rect.gameObject.AddComponent<TextMeshProUGUI>();
+            }
+
+            text.text = label;
+            text.font = HomeUiFonts.ApplyRegular();
+            text.fontSize = SectionFontSize;
+            text.fontStyle = FontStyles.Normal;
+            text.color = color;
+            text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.raycastTarget = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Overflow;
+            return rect;
+        }
+
+        private static RectTransform CreateItemGroup(RectTransform parent, string name)
+        {
+            var group = FindOrCreateRect(name, parent);
+            var layout = group.GetComponent<VerticalLayoutGroup>();
+            if (layout == null)
+            {
+                layout = group.gameObject.AddComponent<VerticalLayoutGroup>();
+            }
+
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            layout.spacing = 0f;
+
+            var fitter = group.GetComponent<ContentSizeFitter>();
+            if (fitter == null)
+            {
+                fitter = group.gameObject.AddComponent<ContentSizeFitter>();
+            }
+
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            return group;
+        }
+
+        private void AppendFriends(
+            RectTransform parent, IReadOnlyList<FriendSummary> friends, bool canInvite)
+        {
+            if (parent == null)
+            {
                 return;
             }
 
@@ -250,14 +437,14 @@ namespace Game.Client.Lobby
             {
                 var friend = friends[index];
                 var row = CreateRow(
-                    friendRowRoot,
+                    parent,
                     friendRows,
                     $"Friend_{friend.PlayerId}",
                     friend.Nickname,
                     showLeader: false,
                     showKick: false,
                     showAdd: true);
-                BindInvite(row, friend.PlayerId, friend.Nickname);
+                BindInvite(row, friend.PlayerId, friend.Nickname, canInvite);
             }
         }
 
@@ -392,7 +579,7 @@ namespace Game.Client.Lobby
                 title.anchorMin = new Vector2(0f, 1f);
                 title.anchorMax = new Vector2(1f, 1f);
                 title.pivot = new Vector2(0.5f, 1f);
-                title.offsetMin = new Vector2(pad, -(pad + TitleHeight));
+                title.offsetMin = new Vector2(TitleLeftPadding, -(pad + TitleHeight));
                 title.offsetMax = new Vector2(-pad, -pad);
             }
 
@@ -558,7 +745,7 @@ namespace Game.Client.Lobby
             return scrollbar;
         }
 
-        private void BindInvite(RectTransform row, string playerId, string nickname)
+        private void BindInvite(RectTransform row, string playerId, string nickname, bool canInvite)
         {
             var add = row.Find("Add");
             if (add == null)
@@ -575,13 +762,14 @@ namespace Game.Client.Lobby
 
             inviteButtons[playerId] = button;
             inviteIcons[playerId] = icon;
+            inviteAllowed[playerId] = canInvite;
             ApplyInviteButton(playerId);
             button.onClick.AddListener(() => TryInvite(playerId, nickname));
         }
 
         private void TryInvite(string playerId, string nickname)
         {
-            if (IsInviteCooling(playerId))
+            if (!CanInvite(playerId) || IsInviteCooling(playerId))
             {
                 return;
             }
@@ -593,18 +781,23 @@ namespace Game.Client.Lobby
 
         private void ApplyInviteButton(string playerId)
         {
-            var cooling = IsInviteCooling(playerId);
+            var locked = !CanInvite(playerId) || IsInviteCooling(playerId);
             if (inviteButtons.TryGetValue(playerId, out var button) && button != null)
             {
-                button.interactable = !cooling;
+                button.interactable = !locked;
             }
 
             if (inviteIcons.TryGetValue(playerId, out var icon) && icon != null)
             {
-                icon.sprite = cooling
+                icon.sprite = locked
                     ? LobbyPlayerListSprites.PlusGray
                     : LobbyPlayerListSprites.Plus;
             }
+        }
+
+        private bool CanInvite(string playerId)
+        {
+            return inviteAllowed.TryGetValue(playerId, out var allowed) && allowed;
         }
 
         private bool IsInviteCooling(string playerId)
@@ -617,7 +810,7 @@ namespace Game.Client.Lobby
         /// The backend account of the player this row shows, never the Photon
         /// player id. The report API looks the value up in users.public_id.
         /// </param>
-        private void BindReport(RectTransform row, string userId, string displayName)
+        private void BindReport(RectTransform row, string userId, string displayName, bool below)
         {
             var fill = row.GetComponent<Image>();
             if (fill == null)
@@ -631,7 +824,7 @@ namespace Game.Client.Lobby
             fill.color = Color.clear;
             fill.raycastTarget = true;
 
-            var tooltip = CreateReportTooltip(row);
+            var tooltip = CreateReportTooltip(row, below);
             var hover = row.gameObject.AddComponent<LobbyReportHover>();
             hover.Bind(fill, tooltip.gameObject, RowHoverFill);
 
@@ -643,7 +836,7 @@ namespace Game.Client.Lobby
             });
         }
 
-        private static RectTransform CreateReportTooltip(RectTransform parent)
+        private static RectTransform CreateReportTooltip(RectTransform parent, bool below)
         {
             var tooltip = new GameObject(
                     "Report",
@@ -667,9 +860,19 @@ namespace Game.Client.Lobby
                 Mathf.Max(label.preferredWidth + (padX * 2f), 1f),
                 Mathf.Max(label.preferredHeight + (padY * 2f), ReportFontSize + (padY * 2f)));
 
-            tooltip.anchorMin = tooltip.anchorMax = new Vector2(0.5f, 1f);
-            tooltip.pivot = new Vector2(0.5f, 0f);
-            tooltip.anchoredPosition = new Vector2(0f, ReportTooltipGap);
+            if (below)
+            {
+                tooltip.anchorMin = tooltip.anchorMax = new Vector2(0.5f, 0f);
+                tooltip.pivot = new Vector2(0.5f, 1f);
+                tooltip.anchoredPosition = new Vector2(0f, -ReportTooltipGap);
+            }
+            else
+            {
+                tooltip.anchorMin = tooltip.anchorMax = new Vector2(0.5f, 1f);
+                tooltip.pivot = new Vector2(0.5f, 0f);
+                tooltip.anchoredPosition = new Vector2(0f, ReportTooltipGap);
+            }
+
             tooltip.sizeDelta = size;
             Stretch(label.rectTransform, 0f, 0f, 0f, 0f);
 
@@ -684,17 +887,18 @@ namespace Game.Client.Lobby
             canvas.overrideSorting = true;
             var parentCanvas = parent.GetComponentInParent<Canvas>();
             canvas.sortingOrder = (parentCanvas != null ? parentCanvas.sortingOrder : 0) + 1;
+            Game.Client.Common.HudScreenScale.Ensure(tooltip.gameObject);
             tooltip.gameObject.AddComponent<GraphicRaycaster>();
 
             var button = tooltip.GetComponent<Button>();
             button.targetGraphic = fill;
             button.transition = Selectable.Transition.None;
-            CreateReportBridge(tooltip);
+            CreateReportBridge(tooltip, below);
             tooltip.gameObject.SetActive(false);
             return tooltip;
         }
 
-        private static void CreateReportBridge(RectTransform tooltip)
+        private static void CreateReportBridge(RectTransform tooltip, bool below)
         {
             var bridge = new GameObject(
                     ReportBridgeName,
@@ -703,9 +907,19 @@ namespace Game.Client.Lobby
                     typeof(Image))
                 .GetComponent<RectTransform>();
             bridge.SetParent(tooltip, false);
-            bridge.anchorMin = new Vector2(0f, 0f);
-            bridge.anchorMax = new Vector2(1f, 0f);
-            bridge.pivot = new Vector2(0.5f, 1f);
+            if (below)
+            {
+                bridge.anchorMin = new Vector2(0f, 1f);
+                bridge.anchorMax = new Vector2(1f, 1f);
+                bridge.pivot = new Vector2(0.5f, 0f);
+            }
+            else
+            {
+                bridge.anchorMin = new Vector2(0f, 0f);
+                bridge.anchorMax = new Vector2(1f, 0f);
+                bridge.pivot = new Vector2(0.5f, 1f);
+            }
+
             bridge.anchoredPosition = Vector2.zero;
             bridge.sizeDelta = new Vector2(0f, ReportTooltipGap + ReportTooltipOverlap);
 
@@ -721,7 +935,9 @@ namespace Game.Client.Lobby
             string nickname,
             bool showLeader,
             bool showKick,
-            bool showAdd)
+            bool showAdd,
+            bool isSelf = false,
+            bool isMuted = false)
         {
             var row = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             row.SetParent(parent, false);
@@ -730,8 +946,8 @@ namespace Game.Client.Lobby
             element.minHeight = RowHeight;
             element.flexibleWidth = 1f;
 
-            CreateAvatar(row);
-            var nameLabel = CreateNickname(row, nickname);
+            CreateAvatar(row, isMuted);
+            var nameLabel = CreateNickname(row, nickname, isSelf);
             CreateLeader(row, nameLabel, showLeader);
             if (showKick)
             {
@@ -760,7 +976,7 @@ namespace Game.Client.Lobby
             bucket.Add(row.gameObject);
         }
 
-        private static void CreateAvatar(RectTransform parent)
+        private static void CreateAvatar(RectTransform parent, bool muted)
         {
             var avatar = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
                 .GetComponent<RectTransform>();
@@ -771,11 +987,44 @@ namespace Game.Client.Lobby
             image.color = AvatarColor;
             image.raycastTarget = false;
             image.preserveAspect = true;
+            if (muted)
+            {
+                CreateMutedOverlay(avatar);
+            }
         }
 
-        private static TextMeshProUGUI CreateNickname(RectTransform parent, string nickname)
+        private static void CreateMutedOverlay(RectTransform avatar)
+        {
+            var dim = new GameObject(
+                    AvatarDimName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
+                .GetComponent<RectTransform>();
+            dim.SetParent(avatar, false);
+            Stretch(dim, 0f, 0f, 0f, 0f);
+            var dimImage = dim.GetComponent<Image>();
+            dimImage.sprite = HomeUiFonts.CircleSprite;
+            dimImage.color = MutedAvatarDim;
+            dimImage.raycastTarget = false;
+            dimImage.preserveAspect = true;
+
+            var mute = new GameObject(
+                    MuteIconName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
+                .GetComponent<RectTransform>();
+            mute.SetParent(avatar, false);
+            mute.anchorMin = mute.anchorMax = new Vector2(0.5f, 0.5f);
+            mute.pivot = new Vector2(0.5f, 0.5f);
+            mute.anchoredPosition = Vector2.zero;
+            mute.sizeDelta = new Vector2(MuteIconSize, MuteIconSize);
+            var muteImage = mute.GetComponent<Image>();
+            muteImage.sprite = LobbyPlayerListSprites.MicOffWhite;
+            muteImage.color = Color.white;
+            muteImage.preserveAspect = true;
+            muteImage.raycastTarget = false;
+        }
+
+        private static TextMeshProUGUI CreateNickname(RectTransform parent, string nickname, bool isSelf)
         {
             var name = CreateLabel(parent, "Name", nickname, HomeUiFonts.ApplyRegular(), NicknameFontSize);
+            name.color = isSelf ? SelfNicknameColor : Color.white;
             name.alignment = TextAlignmentOptions.MidlineLeft;
             name.overflowMode = TextOverflowModes.Ellipsis;
             name.textWrappingMode = TextWrappingModes.NoWrap;

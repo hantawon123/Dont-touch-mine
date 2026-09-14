@@ -108,7 +108,7 @@ namespace Game.Tests.PlayMode
         public IEnumerator AnOverlongNote_IsRefusedAsInvalid() =>
             UniTask.ToCoroutine(async () =>
             {
-                // 200 is the server's limit. Pinning it here means a change on
+                // 500 is the server's limit. Pinning it here means a change on
                 // that side shows up as a failing test rather than as a report
                 // the player thinks was filed.
                 var transport = new UnityWebRequestTransport();
@@ -124,12 +124,12 @@ namespace Game.Tests.PlayMode
                     await target.SignInAsync();
 
                     var atTheLimit = await reporter.Reports.ReportAsync(
-                        target.UserId, ReportReason.Other, new string('가', 200), Token);
-                    Assert.That(atTheLimit.Ok, Is.True, "200 characters should be accepted");
+                        target.UserId, ReportReason.Other, new string('가', 500), Token);
+                    Assert.That(atTheLimit.Ok, Is.True, "500 characters should be accepted");
 
                     var overIt = await reporter.Reports.ReportAsync(
-                        target.UserId, ReportReason.Other, new string('가', 201), Token);
-                    Assert.That(overIt.Ok, Is.False, "201 characters should be refused");
+                        target.UserId, ReportReason.Other, new string('가', 501), Token);
+                    Assert.That(overIt.Ok, Is.False, "501 characters should be refused");
                     Assert.That(overIt.Failure, Is.EqualTo(BackendFailure.InvalidRequest));
                 }
                 finally

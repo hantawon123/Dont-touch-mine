@@ -180,6 +180,13 @@ namespace Game.Core.Settings
         public const string MicOff = "off";
 
         /// <summary>
+        /// Whether 입력 모드 is 끄기. That is the settings-tab mute: the
+        /// microphone stays closed until the mode is something else.
+        /// </summary>
+        public static bool IsMicrophoneOff(string inputMode) =>
+            string.Equals(inputMode, MicOff, StringComparison.Ordinal);
+
+        /// <summary>
         /// How the microphone decides when to listen.
         /// </summary>
         /// <remarks>

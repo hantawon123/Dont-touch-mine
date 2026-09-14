@@ -114,6 +114,15 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void IsMicrophoneOff_IsOnlyTheOffInputMode()
+        {
+            Assert.That(SoundCatalog.IsMicrophoneOff(SoundCatalog.MicOff), Is.True);
+            Assert.That(SoundCatalog.IsMicrophoneOff(SoundCatalog.PushToTalk), Is.False);
+            Assert.That(SoundCatalog.IsMicrophoneOff(SoundCatalog.OpenMic), Is.False);
+            Assert.That(SoundCatalog.IsMicrophoneOff(null), Is.False);
+        }
+
+        [Test]
         public void InputModes_AreTheThreeTheDesignLists_InOrder()
         {
             var modes = SoundCatalog.InputModes;

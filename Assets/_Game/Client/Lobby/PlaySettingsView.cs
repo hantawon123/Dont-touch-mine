@@ -983,6 +983,7 @@ namespace Game.Client.Lobby
 
             canvas.overrideSorting = true;
             canvas.sortingOrder = PlaySettingsStyle.Overlay.SortingOrder;
+            Game.Client.Common.HudScreenScale.Ensure(overlayTransform.gameObject);
 
             if (overlayTransform.GetComponent<GraphicRaycaster>() == null)
             {

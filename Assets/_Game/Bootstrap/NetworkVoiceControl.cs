@@ -1,5 +1,6 @@
 using System;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using Game.Core.Voice;
 using Game.Network.Session;
 using R3;
@@ -28,6 +29,7 @@ namespace Game.Bootstrap
     {
         private readonly NetworkRunnerService network;
         private readonly VoicePreferences preferences;
+        private readonly SoundSettingsSystem sound;
         private readonly ReactiveProperty<bool> available = new(false);
         private readonly ReactiveProperty<bool> muted;
         private readonly ReactiveProperty<bool> transmitting = new(false);
@@ -43,15 +45,19 @@ namespace Game.Bootstrap
 
         public NetworkVoiceControl(
             NetworkRunnerService network,
-            VoicePreferences preferences)
+            VoicePreferences preferences,
+            SoundSettingsSystem sound)
         {
             this.network = network ?? throw new ArgumentNullException(nameof(network));
             this.preferences = preferences
                 ?? throw new ArgumentNullException(nameof(preferences));
+            this.sound = sound ?? throw new ArgumentNullException(nameof(sound));
 
             // Opens on whatever the player last decided, which is how a mute set
-            // in the lobby survives the walk into the match.
-            muted = new ReactiveProperty<bool>(preferences.Muted);
+            // in the lobby survives the walk into the match. 입력 모드 끄기 is
+            // the same silence, from the sound tab.
+            muted = new ReactiveProperty<bool>(EffectiveMute);
+            this.sound.Changed += OnSoundChanged;
         }
 
         public ReadOnlyReactiveProperty<bool> IsAvailable => available;
@@ -62,8 +68,7 @@ namespace Game.Bootstrap
         {
             if (disposed) return;
             preferences.Muted = muted;
-            this.muted.Value = muted;
-            network.Voice?.SetMuted(muted);
+            PublishEffectiveMute();
         }
 
         public void SetTalking(bool talking)
@@ -95,7 +100,7 @@ namespace Game.Bootstrap
                 // A session just started. The rig comes up silent and knowing
                 // nothing, so it hears what the player already decided.
                 current = voice;
-                voice.SetMuted(muted.Value);
+                voice.SetMuted(EffectiveMute);
                 voice.SetTalking(talking);
             }
 
@@ -107,9 +112,28 @@ namespace Game.Bootstrap
         {
             if (disposed) return;
             disposed = true;
+            sound.Changed -= OnSoundChanged;
             available.Dispose();
             muted.Dispose();
             transmitting.Dispose();
+        }
+
+        private bool EffectiveMute =>
+            VoiceMutePolicy.IsMuted(preferences.Muted, sound.Current.InputMode);
+
+        private void OnSoundChanged(SoundSettings _)
+        {
+            if (!disposed)
+            {
+                PublishEffectiveMute();
+            }
+        }
+
+        private void PublishEffectiveMute()
+        {
+            var next = EffectiveMute;
+            muted.Value = next;
+            network.Voice?.SetMuted(next);
         }
     }
 }
