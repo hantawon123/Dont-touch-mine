@@ -766,13 +766,13 @@ namespace Game.Network.Session
             SceneLoaded?.Invoke();
             if (tookOverPreloadedLobby && runner.IsServer)
             {
-                _spawner?.RepositionSeated(runner);
+                _spawner?.RepositionSeated(runner, _highlightCompletedPlayers);
             }
             PublishSceneStateWhenReadyAsync(runner).Forget(exception => Debug.LogException(exception));
             if (!_hostMigrationInProgress &&
                 !(_matchStarter?.HasStartedMatch ?? false) &&
                 !lobbyLoaded)
-                _spawner?.RepositionSeated(runner);
+                _spawner?.RepositionSeated(runner, _highlightCompletedPlayers);
         }
 
         /// <summary>

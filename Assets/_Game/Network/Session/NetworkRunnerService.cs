@@ -1177,7 +1177,7 @@ namespace Game.Network.Session
                 return;
             }
 
-            if (!_hostMigrationInProgress) _spawner?.RepositionSeated(_runner);
+            if (!_hostMigrationInProgress) _spawner?.RepositionSeated(_runner, _highlightCompletedPlayers);
         }
 
         public bool TryPublishMatchState(MatchStateSnapshot snapshot)
@@ -2073,9 +2073,9 @@ namespace Game.Network.Session
                 {
                     // A completion request can race the shared Highlight -> Result
                     // boundary. Place every remaining avatar before its old floor
-                    // disappears; players who already entered Lobby stay on the
-                    // same seat pose.
-                    _spawner?.RepositionSeated(runner);
+                    // disappears. Preserve the current position of players who
+                    // already completed viewing and are moving around Lobby.
+                    _spawner?.RepositionSeated(runner, _highlightCompletedPlayers);
                     Debug.Log($"[SceneTiming] Highlight lobby ready; unloading match scene {matchScene}.");
                     runner.UnloadScene(matchScene);
                 }

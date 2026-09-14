@@ -25,6 +25,23 @@ namespace Game.Architecture.Tests
     public sealed class NetworkContractTests
     {
         [Test]
+        public void LobbyReposition_PreservesCompletedViewers_UntilNextMatch()
+        {
+            var skipped = Fusion.PlayerRef.FromIndex(0);
+            var watching = Fusion.PlayerRef.FromIndex(1);
+            var completed = new HashSet<Fusion.PlayerRef> { skipped };
+
+            Assert.That(PlayerSpawner.ShouldRepositionPlayer(skipped, completed), Is.False,
+                "Shared highlight completion must preserve an early returner's current position.");
+            Assert.That(PlayerSpawner.ShouldRepositionPlayer(watching, completed), Is.True,
+                "A remaining viewer must still be moved before the match floor unloads.");
+            completed.Clear();
+            Assert.That(PlayerSpawner.ShouldRepositionPlayer(skipped, completed), Is.True,
+                "The next match must not inherit the previous return exemption.");
+            Assert.That(PlayerSpawner.ShouldRepositionPlayer(skipped, null), Is.True);
+        }
+
+        [Test]
         public void PlayerRoster_CaptureSkipsAvatarWithoutNetworkState()
         {
             var root = new GameObject("avatar-without-network-state");
