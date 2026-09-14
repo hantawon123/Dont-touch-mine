@@ -75,6 +75,7 @@ Content-Type: application/json
 ###
 # 위 응답에서 userId 를 꺼내 아래 요청들이 씁니다.
 @userId = {{issue.response.body.$.userId}}
+@photonToken = {{issue.response.body.$.photonToken}}
 
 
 ### 2. 같은 기기로 다시 발급 (멱등성)
@@ -92,6 +93,7 @@ Content-Type: application/json
 # 기대: 200 이고 userId 가 1번과 같음
 GET {{host}}/api/v1/accounts/me
 X-User-Id: {{userId}}
+X-Account-Token: {{photonToken}}
 
 
 ### 4. 닉네임 변경
@@ -100,6 +102,7 @@ X-User-Id: {{userId}}
 PATCH {{host}}/api/v1/accounts/me
 Content-Type: application/json
 X-User-Id: {{userId}}
+X-Account-Token: {{photonToken}}
 
 {
   "nickname": "{{nickname}}"
@@ -132,6 +135,7 @@ Content-Type: application/json
 
 ###
 @userIdB = {{issueB.response.body.$.userId}}
+@photonTokenB = {{issueB.response.body.$.photonToken}}
 
 
 ### 7. 남이 쓰는 닉네임으로 변경
@@ -139,6 +143,7 @@ Content-Type: application/json
 PATCH {{host}}/api/v1/accounts/me
 Content-Type: application/json
 X-User-Id: {{userIdB}}
+X-Account-Token: {{photonTokenB}}
 
 {
   "nickname": "{{nickname}}"
@@ -153,6 +158,7 @@ X-User-Id: {{userIdB}}
 PATCH {{host}}/api/v1/accounts/me
 Content-Type: application/json
 X-User-Id: {{userIdB}}
+X-Account-Token: {{photonTokenB}}
 
 {
   "nickname": "http테스트일"
@@ -164,6 +170,7 @@ X-User-Id: {{userIdB}}
 PATCH {{host}}/api/v1/accounts/me
 Content-Type: application/json
 X-User-Id: {{userId}}
+X-Account-Token: {{photonToken}}
 
 {
   "nickname": "이름 사이공백"
@@ -175,6 +182,7 @@ X-User-Id: {{userId}}
 PATCH {{host}}/api/v1/accounts/me
 Content-Type: application/json
 X-User-Id: {{userId}}
+X-Account-Token: {{photonToken}}
 
 {
   "nickname": "열세글자짜리닉네임입니다요"
@@ -186,6 +194,7 @@ X-User-Id: {{userId}}
 PATCH {{host}}/api/v1/accounts/me
 Content-Type: application/json
 X-User-Id: {{userId}}
+X-Account-Token: {{photonToken}}
 
 {
   "nickname": "nick-name"
@@ -198,7 +207,9 @@ GET {{host}}/api/v1/accounts/me
 
 
 ### 13. 없는 계정 조회
-# 기대: 404  {"code":"ACCOUNT_NOT_FOUND"}
+# 기대: 로컬(서명 비밀 없음) 404  {"code":"ACCOUNT_NOT_FOUND"}
+#       운영(서명 비밀 있음) 401  {"code":"UNAUTHORIZED"} - 없는 계정의 토큰은 만들 수 없어
+#       토큰 검사에서 먼저 끝납니다
 GET {{host}}/api/v1/accounts/me
 X-User-Id: 00000000-0000-4000-8000-000000000000
 
@@ -226,12 +237,14 @@ Content-Type: application/json
 # 15번 전에 1, 4, 6, 8번을 먼저 눌러야 데이터가 준비됩니다.
 GET {{host}}/api/v1/users?nickname=HTTP테
 X-User-Id: {{userId}}
+X-Account-Token: {{photonToken}}
 
 
 ### 16. 유저 검색 - limit
 # 기대: 200 이고 users 가 최대 한 개
 GET {{host}}/api/v1/users?nickname=HTTP테&limit=1
 X-User-Id: {{userId}}
+X-Account-Token: {{photonToken}}
 
 
 ### 17. 유저 검색 - 접두사가 아니면 못 찾는다
@@ -241,6 +254,7 @@ X-User-Id: {{userId}}
 # 의도한 동작입니다. LIKE '%query%' 는 인덱스를 타지 못해서 접두사로 정했습니다.
 GET {{host}}/api/v1/users?nickname=테스트
 X-User-Id: {{userId}}
+X-Account-Token: {{photonToken}}
 
 
 ### 18. 유저 검색 - 와일드카드는 막힌다
@@ -250,12 +264,14 @@ X-User-Id: {{userId}}
 # 전체 사용자가 걸립니다.
 GET {{host}}/api/v1/users?nickname=%25
 X-User-Id: {{userId}}
+X-Account-Token: {{photonToken}}
 
 
 ### 19. 유저 검색 - 한 글자는 막힌다
 # 기대: 400  {"code":"INVALID_REQUEST"}
 GET {{host}}/api/v1/users?nickname=A
 X-User-Id: {{userId}}
+X-Account-Token: {{photonToken}}
 
 
 ### 20. 유저 검색 - 헤더 없이

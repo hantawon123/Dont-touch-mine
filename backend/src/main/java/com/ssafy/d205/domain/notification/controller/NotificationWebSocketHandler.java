@@ -26,15 +26,17 @@ import com.ssafy.d205.domain.presence.service.PresenceService;
 import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.repository.UserRepository;
 import com.ssafy.d205.global.config.NotificationProperties;
+import com.ssafy.d205.global.security.AccountTokens;
 
 /**
  * {@code /ws/notifications} 로 들어오는 연결의 입구.
  *
  * <p>연결이 열리면 클라이언트가 먼저 말해야 합니다.
- * <pre>{ "type": "HELLO", "userId": "..." }</pre>
+ * <pre>{ "type": "HELLO", "userId": "...", "token": "..." }</pre>
  * 브라우저의 WebSocket 은 헤더를 붙일 수 없어 X-User-Id 를 쓸 수 없고, 쿼리스트링에 넣으면
- * nginx 접근 로그에 남습니다. 그래서 첫 프레임으로 받습니다. 신뢰 수준은 헤더와 같습니다.
- * 남의 id 를 아는 사람이 그 사람의 알림을 받을 수 있고, 그것은 REST 와 같은 문제입니다.
+ * nginx 접근 로그에 남습니다. 그래서 첫 프레임으로 받습니다. {@code token} 은 REST 의
+ * X-Account-Token 과 같은 값이고 같은 규칙으로 봅니다({@link AccountTokens}). 없으면 REST 와
+ * 똑같은 구멍이 됩니다 - 남의 id 를 아는 사람이 그 사람의 알림을 받습니다.
  *
  * <p>정해진 시간 안에 HELLO 가 없으면 끊습니다. 누구 것도 아닌 연결이 쌓이지 않게 하려는
  * 것이고, 정상 클라이언트는 연결 직후 바로 보내므로 걸리지 않습니다.
@@ -63,6 +65,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final TaskScheduler scheduler;
     private final NotificationProperties properties;
+    private final AccountTokens tokens;
 
     /** 아직 HELLO 를 보내지 않은 연결마다 걸어 둔 마감. HELLO 가 오면 취소합니다. */
     private final Map<String, ScheduledFuture<?>> helloDeadlines = new ConcurrentHashMap<>();
@@ -100,6 +103,16 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         }
 
         String userId = frame.path("userId").asString();
+
+        // AccountTokenInterceptor 와 같은 검사입니다. 이 채널은 인터셉터를 지나지 않으므로
+        // 여기서 직접 봅니다. 비밀이 없는 서버는 REST 와 마찬가지로 검사하지 않습니다.
+        // DB 를 보기 전에 끝내는 것도 같습니다 - 토큰 없이 남의 id 로 "그 계정이 있는가"를
+        // 알아내는 길을 열지 않습니다.
+        if (tokens.isEnabled() && !tokens.matches(userId, frame.path("token").asString())) {
+            close(session, CloseStatus.POLICY_VIOLATION.withReason("UNAUTHORIZED"));
+            return;
+        }
+
         Optional<User> user = userId.isBlank() ? Optional.empty() : userRepository.findByPublicId(userId);
         if (user.isEmpty()) {
             close(session, CloseStatus.POLICY_VIOLATION.withReason("UNKNOWN_USER"));
