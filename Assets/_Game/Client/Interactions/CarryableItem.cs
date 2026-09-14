@@ -57,7 +57,8 @@ namespace Game.Client.Interactions
 
         public string InteractionPrompt => "물건 잡기";
 
-        private Rigidbody body;
+        private Rigidbody cachedBody;
+        private Rigidbody body => cachedBody != null ? cachedBody : cachedBody = GetComponent<Rigidbody>();
         private bool remoteDriven;
         private Pose remoteFrom, remoteTo;
         private float remoteProgress;
@@ -123,9 +124,9 @@ namespace Game.Client.Interactions
 
         private void Awake()
         {
-            owningScene = gameObject.scene;
+            if (!owningScene.IsValid()) owningScene = gameObject.scene;
             _ = ObjectId;
-            body = GetComponent<Rigidbody>();
+            cachedBody = GetComponent<Rigidbody>();
 
             // 빠르게 던져진 작은 물체가 얇은 벽을 프레임 사이에 통과(터널링)하지 않도록
             // 이동 경로 전체를 검사하는 연속 충돌 감지를 사용한다.
@@ -171,17 +172,21 @@ namespace Game.Client.Interactions
         // Photon 도입 시 서버 확정 결과를 받아 호출하는 구조로 바뀐다.
         public void OnPickedUp(Transform holdPoint)
         {
+            if (!owningScene.IsValid()) owningScene = gameObject.scene;
             WakeNeighbours();
             remoteDriven = false;
             gameObject.SetActive(true);
             IsCarried = true;
             SetAimed(false, 1f);
 
+            body.interpolation = RigidbodyInterpolation.None;
             body.isKinematic = true;
             SetCollidersEnabled(false);
 
             transform.SetParent(holdPoint, worldPositionStays: false);
             transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            body.position = transform.position;
+            body.rotation = transform.rotation;
         }
 
         public void OnDropped()
@@ -473,9 +478,12 @@ namespace Game.Client.Interactions
                 return objectId.Trim();
             }
 
+            // Unity returns a new managed string for name; read it once per object,
+            // not once per catalog entry for every prop in a large map.
+            var itemName = name;
             foreach (var definition in ItemCatalog.Definitions)
             {
-                if (name.StartsWith(definition.ItemId, StringComparison.Ordinal))
+                if (itemName.StartsWith(definition.ItemId, StringComparison.Ordinal))
                 {
                     return definition.ItemId;
                 }

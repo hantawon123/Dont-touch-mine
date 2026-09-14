@@ -509,6 +509,12 @@ namespace Game.Network.Session
         /// </summary>
         public bool IsServer => _runner != null && _runner.IsServer;
         public bool IsRuntimeReady => IsRunning && !_exitReported && !_hostMigrationInProgress;
+        // LocalRenderTime follows the wall clock even when Fusion caps catch-up ticks per frame.
+        // IsLastTick alone only marks the end of THIS frame, not the end of the backlog.
+        public bool IsSimulationCaughtUp => _runner != null && _runner.IsRunning &&
+            _runner.LocalRenderTime <= _runner.SimulationTime + _runner.DeltaTime;
+        public bool IsFinalForwardTick => IsSimulationCaughtUp && _runner.IsForward && _runner.IsLastTick;
+        public bool IsSceneLoadComplete => IsRuntimeReady && !_runner.IsSceneManagerBusy;
         public bool IsHostMigrationInProgress => _hostMigrationInProgress;
         // Includes connecting/loading, but excludes a standalone scene and room browsing.
         public bool HasRoomSession => _hostMigrationInProgress || (_runner != null && !_browsingLobby);
@@ -1987,10 +1993,12 @@ namespace Game.Network.Session
                 return;
             }
 
+            // Keep the animated loading overlay responsive during async asset integration.
+            // This budget does not split Unity's final scene activation.
             _previousNetworkLoadingPriority =
                 Application.backgroundLoadingPriority;
             Application.backgroundLoadingPriority =
-                UnityEngine.ThreadPriority.High;
+                UnityEngine.ThreadPriority.Normal;
             _networkLoadRaisedPriority = true;
         }
 
@@ -2370,6 +2378,9 @@ namespace Game.Network.Session
 
         private void OnPlayerStunnedReceived(PlayerStunnedEvent confirmedEvent)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            Debug.Log($"[QA-Stun] rpc target={confirmedEvent.TargetPlayerIndex} now={ServerTime:F3} end={confirmedEvent.StunEndsAt:F3}");
+#endif
             PlayerStunnedReceived?.Invoke(confirmedEvent);
         }
 
@@ -2391,6 +2402,12 @@ namespace Game.Network.Session
         private void OnPlayerInteractionStatesReceived(
             IReadOnlyList<PlayerInteractionStateSnapshot> states)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (states != null)
+                foreach (var state in states)
+                    if (state.StunEndsAt > 0d)
+                        Debug.Log($"[QA-Stun] snapshot player={state.PlayerIndex} now={ServerTime:F3} end={state.StunEndsAt:F3} stunned={state.IsStunned(ServerTime)}");
+#endif
             PlayerInteractionStatesReceived?.Invoke(states);
         }
 

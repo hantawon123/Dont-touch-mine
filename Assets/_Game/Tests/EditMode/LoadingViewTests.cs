@@ -9,6 +9,30 @@ namespace Game.Architecture.Tests
     public sealed class LoadingViewTests
     {
         [Test]
+        public void LoadingCover_HidesCrosshairUntilReadyAndPreservesOtherVisibility()
+        {
+            var player = new GameObject("Player");
+            player.SetActive(false);
+            var interactor = player.AddComponent<Game.Client.Interactions.PlayerInteractor>();
+            var view = LoadingView.Create(null);
+            try
+            {
+                Assert.That(interactor.HudVisible, Is.True);
+                view.Show();
+                Assert.That(interactor.HudVisible, Is.False);
+                view.Hide(); // Readiness belongs to the presenter, not an artificial display delay.
+                Assert.That(view.IsPresented, Is.False);
+                Assert.That(interactor.HudVisible, Is.True);
+                interactor.SetInterfaceHudVisible(false);
+                view.Show();
+                view.HideImmediate();
+                Assert.That(interactor.HudVisible, Is.False, "Closing loading must not override user settings.");
+            }
+            finally { Object.DestroyImmediate(view.gameObject); Object.DestroyImmediate(player); }
+            Assert.That(LoadingView.IsAnyPresented, Is.False);
+        }
+
+        [Test]
         public void Background_IsAvailableThroughPlayerResources_AndKeepsSceneReference()
         {
             // Do not use LoadingView's editor AssetDatabase fallback here.
@@ -130,14 +154,6 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void HasMetMinimum_RequiresTwoSeconds()
-        {
-            Assert.That(LoadingView.HasMetMinimum(10f, 11.99f), Is.False);
-            Assert.That(LoadingView.HasMetMinimum(10f, 12f), Is.True);
-            Assert.That(LoadingView.MinimumVisibleSeconds, Is.EqualTo(2f));
-        }
-
-        [Test]
         public void Create_WarmsTheCoverWithoutShowingIt()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
@@ -158,7 +174,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Hide_KeepsTheCoverUntilTheMinimumHasPassed()
+        public void Hide_ClosesAsSoonAsTheCallerFinishesLoading()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
@@ -167,8 +183,8 @@ namespace Game.Architecture.Tests
                 view.Show();
                 view.Hide();
 
-                Assert.That(view.IsPresented, Is.True);
-                Assert.That(view.GetComponent<Canvas>().enabled, Is.True);
+                Assert.That(view.IsPresented, Is.False);
+                Assert.That(view.GetComponent<Canvas>().enabled, Is.False);
                 Assert.That(view.transform.Find("Background").gameObject.activeSelf, Is.True);
                 Assert.That(view.transform.Find("Content").gameObject.activeSelf, Is.True);
             }
