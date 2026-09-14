@@ -1,4 +1,5 @@
 using System.Threading;
+using System;
 using Cysharp.Threading.Tasks;
 using Game.Core.Lobby;
 using Game.Core.Ports;
@@ -19,20 +20,11 @@ namespace Game.Network.Lobby
     /// </remarks>
     public sealed class RoomBrowser : IRoomBrowser
     {
-        /// <summary>
-        /// How many codes to try before giving up. Collisions are vanishingly
-        /// rare against a billion combinations, but a taken code must not
-        /// surface to the host as a failure they cannot act on.
-        /// </summary>
-        private const int CodeAttempts = 3;
-
         private readonly NetworkRunnerService _network;
-        private readonly RoomCodeGenerator _codes;
 
         public RoomBrowser(NetworkRunnerService network, RoomCodeGenerator codes)
         {
             _network = network;
-            _codes = codes;
         }
 
         /// <summary>
@@ -65,35 +57,33 @@ namespace Game.Network.Lobby
                 return RoomEntryResult.Failed(RoomEntryFailure.InvalidRequest);
             }
 
-            for (var attempt = 0; attempt < CodeAttempts; attempt++)
+            try
             {
-                var code = _codes.Next();
-
-                var result = await _network.StartAsync(
-                    SessionRequest.Create(
-                        code,
-                        settings.Title,
-                        settings.MapId,
-                        settings.MaxPlayers,
-                        request.Password,
-                        request.IsPrivate),
-                    cancellation);
-
-                if (result.Ok)
+                var code = await _network.FindAvailableServerAsync(cancellation);
+                if (string.IsNullOrEmpty(code))
                 {
-                    Debug.Log($"[Rooms] Opened room. Code={code}");
+                    Debug.LogWarning("[Rooms] No running game server is available.");
+                    return RoomEntryResult.Failed(RoomEntryFailure.ConnectionFailed);
+                }
+                var result = await _network.StartAsync(
+                    SessionRequest.Join(code, null), cancellation);
+                if (!result.Ok) return RoomEntryResult.Failed(
+                    result.Failure is SessionFailure.Rejected or SessionFailure.RoomFull
+                        ? RoomEntryFailure.CodeUnavailable : Translate(result.Failure));
+                if (await _network.ClaimRoomAsync(request, cancellation))
+                {
+                    Debug.Log($"[Rooms] Claimed server room as Client. Code={code}");
                     return RoomEntryResult.Opened(code);
                 }
-
-                if (result.Failure != SessionFailure.CodeTaken)
-                {
-                    return RoomEntryResult.Failed(Translate(result.Failure));
-                }
-
-                Debug.LogWarning($"[Rooms] Code {code} already taken, drawing another.");
+                _network.Shutdown();
+                return RoomEntryResult.Failed(RoomEntryFailure.CodeUnavailable);
             }
-
-            return RoomEntryResult.Failed(RoomEntryFailure.CodeUnavailable);
+            catch (OperationCanceledException)
+            {
+                _network.Shutdown();
+                if (cancellation.IsCancellationRequested) throw;
+                return RoomEntryResult.Failed(RoomEntryFailure.ConnectionFailed);
+            }
         }
 
         public async UniTask<RoomEntryResult> EnterAsync(

@@ -10,6 +10,24 @@ namespace Game.Architecture.Tests
     public sealed class MatchTimerViewTests
     {
         [Test]
+        public void NetworkHud_CreatesTimerWhenTheSceneDidNotWireOne()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var hud = canvas.AddComponent<NetworkMatchHudView>();
+                hud.SetRemainingSeconds(90d);
+                var timer = hud.GetComponentInChildren<MatchTimerView>(true);
+                Assert.That(timer, Is.Not.Null);
+                Assert.That(timer.GetComponent<TMP_Text>().text, Is.EqualTo("01:30"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void SetRemainingSeconds_KeepsHidingTimerLookBeforeThirtySeconds()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));

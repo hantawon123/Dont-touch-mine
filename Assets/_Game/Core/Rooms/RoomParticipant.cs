@@ -48,8 +48,19 @@ namespace Game.Core.Rooms
         /// </remarks>
         public readonly string UserId;
 
+        /// <summary>
+        /// Whether this person silenced their own microphone. Replicated with
+        /// the rest of the row so every peer can dim the same portrait.
+        /// </summary>
+        public readonly bool IsMuted;
+
         public RoomParticipant(
-            string playerId, int seat, bool isHost, string nickname = null, string userId = null)
+            string playerId,
+            int seat,
+            bool isHost,
+            string nickname = null,
+            string userId = null,
+            bool isMuted = false)
         {
             PlayerId = playerId;
             Seat = seat;
@@ -59,6 +70,7 @@ namespace Game.Core.Rooms
             // name" without repeating the check.
             Nickname = string.IsNullOrWhiteSpace(nickname) ? string.Empty : nickname.Trim();
             UserId = string.IsNullOrWhiteSpace(userId) ? string.Empty : userId.Trim();
+            IsMuted = isMuted;
         }
     }
 }

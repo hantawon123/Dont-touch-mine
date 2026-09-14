@@ -48,6 +48,32 @@ namespace Game.Architecture.Tests
 
             policy.ClearPermissions();
             Assert.That(policy.Name("P2", "same"), Is.Empty);
+            Assert.That(policy.InitialVisibilityReady, Is.False);
+        }
+
+        [Test]
+        public void InitialVisibilityReady_OpensOnceUntilTheRoomIsLeft()
+        {
+            using var room = new RoomBrowserSystem();
+            var settings = new InterfaceSettingsSystem(new InMemoryInterfaceSettingsStore());
+            using var policy = new InterfacePresentation(settings, new FriendListSystem(), room);
+
+            Assert.That(policy.InitialVisibilityReady, Is.False);
+            Assert.That(policy.HasPublishedName("P2"), Is.False);
+
+            policy.SetPublishedName("P2", real: true, pseudonym: null);
+            Assert.That(policy.HasPublishedName("P2"), Is.True);
+            Assert.That(policy.InitialVisibilityReady, Is.False);
+
+            policy.MarkInitialVisibilityReady();
+            Assert.That(policy.InitialVisibilityReady, Is.True);
+
+            policy.MarkInitialVisibilityReady();
+            Assert.That(policy.InitialVisibilityReady, Is.True);
+
+            policy.ClearPermissions();
+            Assert.That(policy.InitialVisibilityReady, Is.False);
+            Assert.That(policy.HasPublishedName("P2"), Is.False);
         }
 
         /// <summary>

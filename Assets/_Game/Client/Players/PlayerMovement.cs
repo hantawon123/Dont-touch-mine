@@ -300,7 +300,7 @@ namespace Game.Client.Players
         /// </summary>
         public static bool ShouldIgnoreAttackInput()
         {
-            if (Cursor.lockState != CursorLockMode.Locked)
+            if (!Game.Client.Common.WebPointerInput.IsLocked)
             {
                 return true;
             }

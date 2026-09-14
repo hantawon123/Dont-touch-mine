@@ -31,7 +31,19 @@ namespace Game.Bootstrap
 
         private MatchStateSnapshot snapshot;
         private bool hasSnapshot;
+        private bool disposed;
+
+        private bool CanUpdateView => !disposed &&
+            !(view is UnityEngine.Object target && target == null);
         private bool introReadySent;
+        private double introReadyAt = -1d;
+        private Func<bool> gameplayPresentationReady;
+        private Game.Client.Common.ILoadingOverlay loading;
+        public void BindGameplayReadiness(Func<bool> isReady, Game.Client.Common.ILoadingOverlay overlay = null)
+        {
+            gameplayPresentationReady = isReady;
+            loading = overlay;
+        }
         private double noticeEndsAt;
         private double gameEndNoticeEndsAt = -1d;
         // 맵에 파쇄기가 여러 대일 수 있으므로 전부 모아 두고, 카메라(=로컬 플레이어)에 가장 가까운 것을 표시한다.
@@ -78,6 +90,7 @@ namespace Game.Bootstrap
 
         public void Start()
         {
+            if (!CanUpdateView) { Dispose(); return; }
             if (presentation != null) presentation.Changed += OnPresentationChanged;
             events.MatchStateReceived += OnMatchStateReceived;
             events.MatchResultReceived += OnMatchResultReceived;
@@ -102,6 +115,8 @@ namespace Game.Bootstrap
 
         public void Dispose()
         {
+            if (disposed) return;
+            disposed = true;
             if (presentation != null) presentation.Changed -= OnPresentationChanged;
             events.MatchStateReceived -= OnMatchStateReceived;
             events.MatchResultReceived -= OnMatchResultReceived;
@@ -109,19 +124,16 @@ namespace Game.Bootstrap
             events.ItemDestroyedReceived -= OnItemDestroyedReceived;
             events.PlayerItemStatusesReceived -= OnPlayerItemStatusesReceived;
             events.PlayerInteractionStatesReceived -= OnPlayerInteractionStatesReceived;
-            view.HideDestructionNotice();
-            view.SetDestroyedItems(0, Array.Empty<PlayerItemStatusSnapshot>());
-            view.SetShredderMarker(default, false);
-            HideHidingIntro();
-            HideSearchingIntro();
-            HideHidingTurnStart();
-            HideHidingActiveHud();
-            HideHidingWaitHud();
-            HideVitals();
+            // Scene objects may already be destroyed. Disposal must only release ownership,
+            // never rebuild or update UI while the container is unwinding.
+            hasSnapshot = false;
+            hidingIntroVisible = searchingIntroVisible = false;
+            hidingTurnStartVisible = hidingActiveHudVisible = hidingWaitHudVisible = false;
         }
 
         private void OnPresentationChanged()
         {
+            if (!CanUpdateView) { Dispose(); return; }
             view.HideDestructionNotice();
             noticeEndsAt = 0;
             hasReportedPhase = false;
@@ -130,6 +142,7 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
+            if (!CanUpdateView) { Dispose(); return; }
             if (!hasSnapshot || !clock.IsRuntimeReady)
             {
                 return;
@@ -137,7 +150,7 @@ namespace Game.Bootstrap
 
             var now = clock.ServerTime;
             if (snapshot.Phase == MatchPhase.Hiding &&
-                Cursor.lockState == CursorLockMode.Locked &&
+                Game.Client.Common.WebPointerInput.IsLocked &&
                 UnityEngine.InputSystem.Keyboard.current?.yKey.wasPressedThisFrame == true &&
                 UnityEngine.EventSystems.EventSystem.current?.currentSelectedGameObject == null &&
                 HidingTurns.IndexAt(snapshot.Phase, snapshot.PhaseEndsAt, now,
@@ -175,9 +188,25 @@ namespace Game.Bootstrap
 
             UpdateHidingIntro(now);
             UpdateSearchingIntro(now);
-            if (!introReadySent && snapshot.PhaseEndsAt == 0d &&
+            var gameplayReady = gameplayPresentationReady?.Invoke() ?? true;
+            if (loading?.IsPresented == true && gameplayReady &&
+                (view.IsPhaseIntroPresented(snapshot.Phase) || snapshot.PhaseEndsAt > 0d))
+            {
+                loading.Hide();
+                Debug.Log("[SceneTiming] Loading dismissed after scene, player, gameplay frame and briefing were prepared.");
+                return; // Let the uncovered briefing paint before reporting ready next frame.
+            }
+            if (!introReadySent && snapshot.PhaseEndsAt == 0d && gameplayReady &&
+                loading?.IsPresented != true &&
                 view.IsPhaseIntroPresented(snapshot.Phase) && events is INetworkPhaseIntroReady ready)
+            {
                 introReadySent = ready.TryConfirmPhaseIntroReady(snapshot.Phase);
+                if (introReadySent)
+                {
+                    introReadyAt = Time.realtimeSinceStartupAsDouble;
+                    Debug.Log($"[SceneTiming] Phase intro ready sent: phase={snapshot.Phase}, serverTime={now:F3}, frame={Time.frameCount}, realtime={introReadyAt:F3}.");
+                }
+            }
             UpdateHidingTurnStart(now);
             UpdateShredderMarker();
             UpdateVitals();
@@ -185,6 +214,7 @@ namespace Game.Bootstrap
 
         private void OnMatchStateReceived(MatchStateSnapshot received)
         {
+            if (!CanUpdateView) { Dispose(); return; }
             if ((!hasSnapshot || snapshot.Phase != received.Phase) &&
                 (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting))
             {
@@ -215,7 +245,11 @@ namespace Game.Bootstrap
                 HideSearchingIntro();
             }
 
-            if (!hasSnapshot || snapshot.Phase != received.Phase) introReadySent = false;
+            if (!hasSnapshot || snapshot.Phase != received.Phase)
+            {
+                introReadySent = false;
+                introReadyAt = -1d;
+            }
             snapshot = received;
             hasSnapshot = true;
             var extrasVisible = received.Phase != MatchPhase.Hiding;
@@ -232,6 +266,7 @@ namespace Game.Bootstrap
 
         private void OnMatchResultReceived(MatchResult result)
         {
+            if (!CanUpdateView) { Dispose(); return; }
             if (result.EndReason == MatchEndReason.LastPlayerStanding) return;
             gameEndNoticeEndsAt = result.EndedAt + HighlightPresentationTiming.FadeSeconds;
             UpdateGameEndNotice();
@@ -320,6 +355,7 @@ namespace Game.Bootstrap
 
         private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmed)
         {
+            if (!CanUpdateView) { Dispose(); return; }
             destructions.Add(confirmed);
             RefreshDestroyedItems();
             if (UpdateGameEndNotice()) return;
@@ -350,6 +386,7 @@ namespace Game.Bootstrap
 
         private void OnItemAssignmentReceived(string itemId)
         {
+            if (!CanUpdateView) { Dispose(); return; }
             assignedItemId = itemId?.Trim();
             assignedItemDisplayName = ItemCatalog.DisplayNameOf(itemId);
             view.SetAssignedItem(assignedItemDisplayName);
@@ -418,6 +455,7 @@ namespace Game.Bootstrap
                 return;
             }
 
+            LogIntroHidden(MatchPhase.Hiding);
             hidingIntroVisible = false;
             view.HideHidingIntro();
         }
@@ -464,8 +502,17 @@ namespace Game.Bootstrap
                 return;
             }
 
+            LogIntroHidden(MatchPhase.Searching);
             searchingIntroVisible = false;
             view.HideSearchingIntro();
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogIntroHidden(MatchPhase phase)
+        {
+            if (introReadyAt < 0d || !clock.IsRuntimeReady) return;
+            Debug.Log($"[SceneTiming] Phase intro hidden: phase={phase}, serverTime={clock.ServerTime:F3}, secondsSinceReady={Time.realtimeSinceStartupAsDouble - introReadyAt:F3}, frame={Time.frameCount}.");
         }
 
         private void UpdateVitals()
@@ -735,6 +782,7 @@ namespace Game.Bootstrap
         private void OnPlayerItemStatusesReceived(
             IReadOnlyList<PlayerItemStatusSnapshot> statuses)
         {
+            if (!CanUpdateView) { Dispose(); return; }
             RefreshDestroyedItems();
         }
 
@@ -756,6 +804,7 @@ namespace Game.Bootstrap
         private void OnPlayerInteractionStatesReceived(
             System.Collections.Generic.IReadOnlyList<PlayerInteractionStateSnapshot> states)
         {
+            if (!CanUpdateView) { Dispose(); return; }
             var localPlayerIndex = room.LocalPlayerIndex;
             if (states == null || localPlayerIndex < 0)
             {

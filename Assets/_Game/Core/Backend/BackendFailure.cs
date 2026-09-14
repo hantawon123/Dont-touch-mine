@@ -44,6 +44,13 @@ namespace Game.Core.Backend
         InvalidRequest,
 
         /// <summary>
+        /// The user id was sent without the token that proves it is ours, or
+        /// with a token that belongs to someone else. Nothing about the
+        /// account itself; signing in again brings the right token.
+        /// </summary>
+        Unauthorized,
+
+        /// <summary>
         /// Aimed at yourself — a friend request. Presentation should prevent
         /// this rather than report it.
         /// </summary>

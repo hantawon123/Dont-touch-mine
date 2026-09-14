@@ -28,6 +28,7 @@ namespace Game.Bootstrap
         private readonly AvatarAppearanceState appearance;
         private readonly IAccountGateway accounts;
         private readonly ICharacterClosetView view;
+        private readonly BackendSignIn signIn;
         private readonly CancellationTokenSource lifetime = new CancellationTokenSource();
 
         private AvatarAppearance stored;
@@ -36,11 +37,13 @@ namespace Game.Bootstrap
         public ClosetAppearanceSaver(
             AvatarAppearanceState appearance,
             IAccountGateway accounts,
-            ICharacterClosetView view)
+            ICharacterClosetView view,
+            BackendSignIn signIn)
         {
             this.appearance = appearance ?? throw new ArgumentNullException(nameof(appearance));
             this.accounts = accounts ?? throw new ArgumentNullException(nameof(accounts));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
+            this.signIn = signIn ?? throw new ArgumentNullException(nameof(signIn));
         }
 
         public void Start()
@@ -77,6 +80,10 @@ namespace Game.Bootstrap
             var result = await accounts.SetAppearanceAsync(applied, lifetime.Token);
             if (result.Ok)
             {
+                // The sign-in snapshot seeds the closet on the next read of it;
+                // kept current so it names this appearance rather than the one
+                // sign-in saw.
+                signIn.Adopt(result.Value);
                 return;
             }
 

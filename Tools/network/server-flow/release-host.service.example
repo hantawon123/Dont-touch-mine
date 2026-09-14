@@ -1,0 +1,21 @@
+[Unit]
+Description=D205 test release host
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/srv/d205-test
+ExecStart=/usr/bin/python3 /srv/d205-test/tools/release_host.py /srv/d205-test/host.json
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=25
+UMask=0077
+CPUQuota=200%
+MemoryMax=5G
+
+[Install]
+WantedBy=multi-user.target

@@ -148,6 +148,17 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
+            if (DedicatedServerStartup.IsRequested)
+            {
+                builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
+                    .WithParameter(true).WithParameter(gameObject.scene).AsSelf();
+                builder.RegisterBuildCallback(c =>
+                {
+                    c.Resolve<NetworkInteractionSceneBridge>().BindSceneItems(lobbyItems);
+                    c.Resolve<NetworkRunnerService>().RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
+                });
+                return;
+            }
             var configureStartedAt = Time.realtimeSinceStartupAsDouble;
             if (hudView == null)
             {
@@ -522,8 +533,12 @@ namespace Game.Bootstrap
                 {
                     foreach (var root in sceneRoots)
                         if (root != null)
+                        {
                             foreach (var other in root.GetComponentsInChildren<Camera>(true))
                                 other.enabled = false;
+                            foreach (var listener in root.GetComponentsInChildren<AudioListener>(true))
+                                listener.enabled = false;
+                        }
                     SceneManager.MoveGameObjectToScene(output.gameObject, gameObject.scene);
                     Debug.Log($"[QA-Transition] transferred output camera={output.GetInstanceID()} with rig={rig.GetInstanceID()}");
                 }

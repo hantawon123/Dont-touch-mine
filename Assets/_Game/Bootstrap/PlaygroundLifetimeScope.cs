@@ -105,7 +105,10 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
                 .WithParameter(false).WithParameter(gameObject.scene).AsSelf();
+            if (DedicatedServerStartup.IsRequested) return;
             builder.RegisterEntryPoint<NetworkHighlightPlaybackController>().AsSelf();
+            builder.RegisterBuildCallback(c => c.Resolve<NetworkHighlightPlaybackController>()
+                .BindScene(gameObject.scene, matchScene.RuntimeContext));
             builder.RegisterEntryPoint<InGamePlayerNameplatePresenter>();
 
             if (matchHudView != null)
@@ -128,6 +131,9 @@ namespace Game.Bootstrap
                 builder.RegisterBuildCallback(c =>
                 {
                     var presenter = c.Resolve<NetworkMatchHudPresenter>();
+                    var interactions = c.Resolve<NetworkInteractionSceneBridge>();
+                    var loading = c.Resolve<ILoadingOverlay>();
+                    presenter.BindGameplayReadiness(() => interactions.IsLocalPresentationReady, loading);
                     var settings = c.Resolve<MatchSettingsOverlay>();
                     c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(
                         () => presenter.BlocksGameplayInput || settings.IsOpen);
@@ -193,7 +199,7 @@ namespace Game.Bootstrap
 
             builder.RegisterBuildCallback(container =>
             {
-                container.Resolve<ILoadingOverlay>().Hide();
+                if (matchHudView == null) container.Resolve<ILoadingOverlay>().Hide();
                 Debug.Log(
                 $"[SceneTiming] Playground scope ready, " +
                 $"elapsed={Time.realtimeSinceStartupAsDouble - configureStartedAt:F3}s.");
@@ -215,6 +221,7 @@ namespace Game.Bootstrap
 
         private void EnsureGameplayEventSystem()
         {
+            if (DedicatedServerStartup.IsRequested) return;
             // The project scope's EventSystem belongs to the frontend and is
             // intentionally disabled while Fusion owns a gameplay scene.
             // Keep a scene-local module alive for the in-game chat input.

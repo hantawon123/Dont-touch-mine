@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Fusion;
 using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Core.Rooms;
 using Game.Server.Items;
 using Game.Server.Match;
 using UnityEngine;
@@ -724,6 +725,53 @@ namespace Game.Network.Match
             }
 
             return true;
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
+        public void RPC_RequestMatchStart(RpcInfo info = default) => StarterOf(Runner)?.ReceiveStartRequest(info.Source);
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_ClaimRoom(string title, bool locked, string password, int maxPlayers, string mapId,
+            bool isPrivate, string nickname, RpcInfo info = default)
+        {
+            if (!info.Source.IsRealPlayer || title == null || title.Length > 128 ||
+                password == null || password.Length > 128 || mapId == null || mapId.Length > 64 ||
+                nickname == null || nickname.Length > 32) return;
+            StarterOf(Runner)?.ReceiveRoomClaim(info.Source,
+                new RoomCreateRequest(title, locked, password, maxPlayers, mapId, isPrivate), nickname);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
+        public void RPC_LobbyNickname(string nickname, RpcInfo info = default)
+        {
+            if (nickname == null || nickname.Length > 32) return;
+            StarterOf(Runner)?.ReceiveLobbyNickname(info.Source, nickname);
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_RoomClaimAnswer([RpcTarget] PlayerRef target, bool accepted) => StarterOf(Runner)?.ReceiveRoomClaimAnswer(accepted);
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_StartRefused([RpcTarget] PlayerRef target, RoomStartResult reason) => StarterOf(Runner)?.Refused(reason);
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
+        public void RPC_RequestLobbyKick(string target, RpcInfo info = default)
+        {
+            if (target == null || target.Length > 32) return;
+            StarterOf(Runner)?.ReceiveLobbyKick(info.Source, target);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
+        public void RPC_RequestLobbySettings(int maxPlayers, int destructionLimit, string mapId,
+            int hidingSeconds, int searchingMinutes, float sprintMultiplier, int stunHits,
+            string categoryId, string title, RpcInfo info = default)
+        {
+            if (mapId == null || mapId.Length > 64 || categoryId == null || categoryId.Length > 64 ||
+                (title != null && !RoomSettings.IsValidTitle(title)) ||
+                !MatchRuleSettings.TryCreate(hidingSeconds, searchingMinutes, sprintMultiplier, stunHits,
+                    categoryId, out var rules, out _)) return;
+            StarterOf(Runner)?.ReceiveLobbySettings(info.Source,
+                new PlaySettingsDraft(title, string.Empty, false, string.Empty, maxPlayers, destructionLimit, mapId, rules));
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]

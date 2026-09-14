@@ -53,6 +53,23 @@ namespace Game.Architecture.Tests
             Assert.That(AudioListener.volume, Is.EqualTo(expected).Within(0.001f));
         }
         [Test]
+        public void Apply_DoesNotResizeTheEditorOutsidePlayMode()
+        {
+            var previous = UnityGraphicsSettingsApplier.ApplyEditorGameView;
+            UnityGraphicsSettingsApplier.ApplyEditorGameView = (_, _) =>
+                Assert.Fail("EditMode tests must not move the Game view.");
+            try
+            {
+                Assert.DoesNotThrow(() =>
+                    new UnityGraphicsSettingsApplier().Apply(GraphicsCatalog.Shipped.Defaults));
+            }
+            finally
+            {
+                UnityGraphicsSettingsApplier.ApplyEditorGameView = previous;
+            }
+        }
+
+        [Test]
         public void SavedGraphicsReachUnityOnStartup()
         {
             var store = new InMemoryGraphicsSettingsStore();

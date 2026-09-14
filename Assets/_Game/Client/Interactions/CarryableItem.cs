@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Core.Items;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -57,7 +58,8 @@ namespace Game.Client.Interactions
 
         public string InteractionPrompt => "물건 잡기";
 
-        private Rigidbody body;
+        private Rigidbody cachedBody;
+        private Rigidbody body => cachedBody != null ? cachedBody : cachedBody = GetComponent<Rigidbody>();
         private bool remoteDriven;
         private Pose remoteFrom, remoteTo;
         private float remoteProgress;
@@ -76,6 +78,7 @@ namespace Game.Client.Interactions
             body.interpolation = RigidbodyInterpolation.Interpolate;
             SetCollidersEnabled(true);
             IsCarried = false;
+            enabled = true; // SetActive may invoke Awake on a previously inactive item.
             if (snap)
             {
                 body.position = pose.position;
@@ -86,10 +89,15 @@ namespace Game.Client.Interactions
 
         private void FixedUpdate()
         {
-            if (!remoteDriven || IsCarried || remoteProgress >= 1f) return;
+            if (!remoteDriven || IsCarried || remoteProgress >= 1f)
+            {
+                enabled = false;
+                return;
+            }
             remoteProgress = Mathf.Min(1f, remoteProgress + Time.fixedDeltaTime / 0.1f);
             body.MovePosition(Vector3.Lerp(remoteFrom.position, remoteTo.position, remoteProgress));
             body.MoveRotation(Quaternion.Slerp(remoteFrom.rotation, remoteTo.rotation, remoteProgress));
+            if (remoteProgress >= 1f) enabled = false;
         }
 
         public bool TryGetPhysicsPose(out Pose pose, out Vector3 velocity, out bool moving)
@@ -118,19 +126,35 @@ namespace Game.Client.Interactions
         private bool assignedHighlightVisible;
         private string resolvedObjectId;
         private Scene owningScene;
+        // Filled on the build's scene copy, never on an authored prefab.
+        [SerializeField, HideInInspector] private bool preparedForBuild;
+        [SerializeField, HideInInspector] private Vector3 preparedCenter;
+        [SerializeField, HideInInspector] private Vector3 preparedExtents;
+        [SerializeField, HideInInspector] private Vector3 preparedScale;
+        private static IReadOnlyList<ItemDefinition> cachedDefinitions;
+        private static readonly Dictionary<string, string> catalogIdsByName = new(StringComparer.Ordinal);
+
         private Vector3 placementCenterOffset;
         private Vector3 placementHalfExtents;
 
         private void Awake()
         {
-            owningScene = gameObject.scene;
+            if (!owningScene.IsValid()) owningScene = gameObject.scene;
             _ = ObjectId;
-            body = GetComponent<Rigidbody>();
+            cachedBody = GetComponent<Rigidbody>();
 
             // 빠르게 던져진 작은 물체가 얇은 벽을 프레임 사이에 통과(터널링)하지 않도록
             // 이동 경로 전체를 검사하는 연속 충돌 감지를 사용한다.
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            ApplyCarryableLayer();
+            if (!preparedForBuild) ApplyCarryableLayer();
+            if (preparedForBuild && preparedScale == transform.lossyScale)
+            {
+                placementCenterOffset = preparedCenter;
+                placementHalfExtents = preparedExtents;
+            }
+            // Only remote pose interpolation needs a Unity tick. Public interaction
+            // methods and Rigidbody physics continue to work while this script sleeps.
+            enabled = false;
         }
 
         /// <summary>
@@ -171,22 +195,28 @@ namespace Game.Client.Interactions
         // Photon 도입 시 서버 확정 결과를 받아 호출하는 구조로 바뀐다.
         public void OnPickedUp(Transform holdPoint)
         {
+            if (!owningScene.IsValid()) owningScene = gameObject.scene;
             WakeNeighbours();
             remoteDriven = false;
+            enabled = false;
             gameObject.SetActive(true);
             IsCarried = true;
             SetAimed(false, 1f);
 
+            body.interpolation = RigidbodyInterpolation.None;
             body.isKinematic = true;
             SetCollidersEnabled(false);
 
             transform.SetParent(holdPoint, worldPositionStays: false);
             transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            body.position = transform.position;
+            body.rotation = transform.rotation;
         }
 
         public void OnDropped()
         {
             remoteDriven = false;
+            enabled = false;
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
 
@@ -199,6 +229,7 @@ namespace Game.Client.Interactions
         public void OnStored(Pose pose)
         {
             remoteDriven = false;
+            enabled = false;
             WakeNeighbours();
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
@@ -218,6 +249,7 @@ namespace Game.Client.Interactions
         public void OnPlaced(Vector3 position, Quaternion rotation)
         {
             remoteDriven = false;
+            enabled = false;
             gameObject.SetActive(true);
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
@@ -251,6 +283,7 @@ namespace Game.Client.Interactions
         public void OnSettled(Pose pose, bool keepDynamic)
         {
             remoteDriven = false;
+            enabled = false;
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
             transform.SetPositionAndRotation(pose.position, pose.rotation);
@@ -473,13 +506,27 @@ namespace Game.Client.Interactions
                 return objectId.Trim();
             }
 
-            foreach (var definition in ItemCatalog.Definitions)
+            // Unity returns a new managed string for name; read it once per object,
+            // not once per catalog entry for every prop in a large map.
+            var itemName = name;
+            var definitions = ItemCatalog.Definitions;
+            if (!ReferenceEquals(cachedDefinitions, definitions))
             {
-                if (name.StartsWith(definition.ItemId, StringComparison.Ordinal))
-                {
-                    return definition.ItemId;
-                }
+                cachedDefinitions = definitions;
+                catalogIdsByName.Clear();
             }
+            if (!catalogIdsByName.TryGetValue(itemName, out var catalogId))
+            {
+                foreach (var definition in definitions)
+                {
+                    if (!itemName.StartsWith(definition.ItemId, StringComparison.Ordinal)) continue;
+                    catalogId = definition.ItemId;
+                    break;
+                }
+                // Only cache catalog matches, never the per-instance hierarchy ID.
+                catalogIdsByName[itemName] = catalogId;
+            }
+            if (catalogId != null) return catalogId;
 
             return ResolveSceneInstanceObjectId();
         }

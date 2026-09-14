@@ -211,7 +211,7 @@ namespace Game.Client.Home
         /// </remarks>
         public static class Profile
         {
-            public static readonly Vector2 PanelSize = new Vector2(532f, 251f);
+            public static readonly Vector2 PanelSize = new Vector2(532f, 257f);
             public const float PanelRightMargin = 136f;
             public const float PanelBottomMargin = 108f;
 
@@ -239,14 +239,34 @@ namespace Game.Client.Home
             public static readonly Vector2 InputSize = new Vector2(472f, 52f);
             public const float InputTextPadding = 20f;
 
+            /// <summary>
+            /// Where the message line under the field starts, and how far the
+            /// counter sits in from the right: a little inside the field's
+            /// edge, short of the text inside it. Flush with the edge crowded
+            /// the corner; level with the text sat too far in.
+            /// </summary>
+            public const float TextInset = SidePadding + 10f;
+
             public static readonly Vector2 CheckSize = new Vector2(95f, 36f);
             public const float CheckRightInset = 8f;
 
-            public const float MessageTop = -134f;
+            /// <remarks>
+            /// Ten under the field rather than hard against it, so the line
+            /// reads as a note on the field and not as part of its plate.
+            /// </remarks>
+            public const float MessageTop = -140f;
             public const float MessageHeight = 26f;
 
-            public const float ApplyTop = -167f;
+            public const float ApplyTop = -173f;
             public static readonly Vector2 ApplySize = new Vector2(472f, 52f);
+
+            /// <summary>
+            /// The panel once the one change is spent: the apply row is gone,
+            /// so the plate ends where the message line does, with the same
+            /// margin under it that the apply button had.
+            /// </summary>
+            public static readonly float SettledPanelHeight =
+                PanelSize.y - ApplySize.y - ((MessageTop - MessageHeight) - ApplyTop);
 
             public const string TooLongMessage = "최대 12글자 작성가능합니다";
             public const string BadCharacterMessage = "한글/영어/숫자만 작성가능합니다";

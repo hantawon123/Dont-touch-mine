@@ -6,10 +6,11 @@ namespace Game.Backend
     /// Who this machine is to the backend.
     /// </summary>
     /// <remarks>
-    /// Holds both identifiers because they are not the same kind of thing. The
-    /// user id identifies and is public; the device id authenticates and is not.
-    /// Keeping them in one place with different visibility is what stops the
-    /// second from travelling where the first is expected.
+    /// Holds three values because they are not the same kind of thing. The
+    /// user id identifies and is public; the device id authenticates and is not;
+    /// the account token proves the user id is ours and rides with it. Keeping
+    /// them in one place with different visibility is what stops the private
+    /// ones from travelling where the public one is expected.
     /// </remarks>
     public sealed class BackendSession
     {
@@ -39,6 +40,20 @@ namespace Game.Backend
         /// </summary>
         public string UserId { get; private set; }
 
+        /// <summary>
+        /// The server's signature over <see cref="UserId"/>, or null when the
+        /// server issued none.
+        /// </summary>
+        /// <remarks>
+        /// Sent beside the user id on every identified call, because the user
+        /// id alone is public and anyone who knows another player's could
+        /// otherwise act as them. A server without a signing secret issues no
+        /// token and checks none, so null here is a working state, not an error.
+        /// Internal for the same reason as <see cref="DeviceId"/>: it belongs
+        /// in a header and nowhere else.
+        /// </remarks>
+        internal string AccountToken { get; private set; }
+
         public bool SignedIn => !string.IsNullOrEmpty(UserId);
 
         /// <remarks>
@@ -46,7 +61,7 @@ namespace Game.Backend
         /// asking the server on each launch is both simpler than a cache and
         /// correct after the account is renamed or deleted elsewhere.
         /// </remarks>
-        public void Adopt(string userId)
+        public void Adopt(string userId, string accountToken = null)
         {
             if (string.IsNullOrWhiteSpace(userId))
             {
@@ -54,12 +69,14 @@ namespace Game.Backend
             }
 
             UserId = userId.Trim();
+            AccountToken = string.IsNullOrWhiteSpace(accountToken) ? null : accountToken.Trim();
         }
 
         /// <summary>Forgets the account, after it is deleted.</summary>
         public void Clear()
         {
             UserId = null;
+            AccountToken = null;
         }
     }
 }

@@ -45,6 +45,8 @@ namespace Game.Network.Session
             }
 
             Debug.Log($"[Network] Player left: {player}.");
+            var ownerLeft = runner.IsServer && !runner.LocalPlayer.IsRealPlayer &&
+                PlayerSpawner.IsRoomOwner(runner, player);
             if (runner.IsServer)
             {
                 _pendingKicks.Remove(player);
@@ -59,6 +61,13 @@ namespace Game.Network.Session
             }
 
             ReportPlayerCount();
+            // Preserve the existing room-owner departure policy without assigning
+            // simulation authority to another player or keeping an orphaned room.
+            if (ownerLeft)
+            {
+                ReportExit(RoomExitReason.HostClosed);
+                ScheduleExitShutdown(runner);
+            }
         }
 
         public void OnConnectedToServer(NetworkRunner runner)
@@ -102,7 +111,7 @@ namespace Game.Network.Session
         public void OnConnectRequest(
             NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token)
         {
-            if (!IsCurrentRunner(runner))
+            if (!IsCurrentRunner(runner) || _exitReported)
             {
                 request.Refuse();
                 return;
@@ -111,6 +120,11 @@ namespace Game.Network.Session
             // SessionInfo.PlayerCount can already include the connection that
             // is waiting for this decision. Count only accepted players so the
             // final available slot is not rejected as an off-by-one.
+            if (_awaitingRoomClaim && _claimAdmissionPending)
+            {
+                request.Refuse();
+                return;
+            }
             if (_configuredMaxPlayers > 0 &&
                 CountActivePlayers(runner) >= _configuredMaxPlayers)
             {
@@ -134,6 +148,7 @@ namespace Game.Network.Session
 
             if (string.IsNullOrEmpty(_expectedPassword))
             {
+                if (_awaitingRoomClaim) _claimAdmissionPending = true;
                 request.Accept();
                 return;
             }
@@ -154,6 +169,13 @@ namespace Game.Network.Session
 
             Debug.Log("[Network] Refused a join: wrong password.");
             request.Refuse();
+        }
+
+        private void OnCloudConnectionLost(NetworkRunner runner, ShutdownReason reason, bool reconnecting)
+        {
+            if (!IsCurrentRunner(runner)) return;
+            Debug.LogWarning($"[Network] Photon cloud recovery: reason={reason}, reconnecting={reconnecting}, " +
+                $"isServer={runner.IsServer}, sceneLoading={runner.IsSceneManagerBusy}.");
         }
 
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
@@ -229,6 +251,7 @@ namespace Game.Network.Session
             {
                 return;
             }
+            _receivedLobbySnapshot = true;
 
             if (roomList != null)
             {

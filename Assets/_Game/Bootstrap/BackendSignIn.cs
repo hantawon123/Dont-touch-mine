@@ -70,6 +70,35 @@ namespace Game.Bootstrap
         public AccountSnapshot? Account { get; private set; }
 
         /// <summary>
+        /// Replaces <see cref="Account"/> with what the server just said about
+        /// the account, after a rename, a search-setting change or an
+        /// appearance save.
+        /// </summary>
+        /// <remarks>
+        /// Without this the snapshot stays what sign-in heard. The Home scene's
+        /// bridges are built again every time Home loads — after a room folds,
+        /// for one — and each of them draws <see cref="Account"/> first, so a
+        /// rename done on an earlier visit was put back to the old name the
+        /// next time Home opened. The server has already stored the new value;
+        /// this only keeps the client's copy of it current.
+        /// <para>
+        /// Ignored before sign-in has produced an account. Every caller awaits
+        /// <see cref="Ready"/> before it can reach the server, so there is
+        /// nothing to adopt in that case, and a null here still means "sign-in
+        /// failed" rather than "someone renamed before signing in".
+        /// </para>
+        /// </remarks>
+        public void Adopt(AccountSnapshot account)
+        {
+            if (!Account.HasValue)
+            {
+                return;
+            }
+
+            Account = account;
+        }
+
+        /// <summary>
         /// Why sign-in did not produce an account, or
         /// <see cref="BackendFailure.None"/> when it did.
         /// </summary>

@@ -89,7 +89,11 @@ namespace Game.Bootstrap
             }
 
             // 파쇄기가 여러 대면 'ShredderSpot' 이름의 튕김 지점도 여러 개다. 전부 모아 서버가 가장 가까운 것을 고르게 한다.
-            var ejectionPoints = FindAllTransforms(scene, "ShredderSpot");
+            // Index names once instead of scanning the entire map for every spawn point.
+            var transforms = scene.GetRootGameObjects()
+                .SelectMany(root => root.GetComponentsInChildren<Transform>(includeInactive: true))
+                .ToLookup(value => value.name, StringComparer.Ordinal);
+            var ejectionPoints = transforms["ShredderSpot"].ToList();
             if (ejectionPoints.Count == 0)
             {
                 throw new InvalidOperationException(
@@ -102,7 +106,7 @@ namespace Game.Bootstrap
                 ejectionPoses[index] = new Pose(ejectionPoints[index].position, ejectionPoints[index].rotation);
             }
 
-            var spawnPoints = CaptureSpawnPoints(scene);
+            var spawnPoints = CaptureSpawnPoints(scene, transforms);
             var configuration = new NetworkMatchRuntimeConfiguration(
                 new PhysicsPlacementValidator(
                     volumes,
@@ -112,7 +116,7 @@ namespace Game.Bootstrap
                 assignmentDefinitions,
                 worldObjects,
                 ejectionPoses,
-                CaptureWaitingSpawnPoints(scene, spawnPoints));
+                CaptureWaitingSpawnPoints(transforms, spawnPoints));
 
             return new PlaygroundMatchScene(
                 new PlaygroundRuntimeContext(replayItems),
@@ -167,19 +171,19 @@ namespace Game.Bootstrap
         /// <c>SpawnPoint_1</c>부터 번호가 끊기기 전까지 전부 읽는다. 최소 6개(최대 인원)는 있어야 하고,
         /// 마트처럼 10개를 둔 맵은 10개 모두 숨기기·탐색 시작 위치 후보가 된다.
         /// </summary>
-        private static Pose[] CaptureSpawnPoints(Scene scene)
+        private static Pose[] CaptureSpawnPoints(Scene scene, ILookup<string, Transform> transforms)
         {
             var poses = new List<Pose>();
             for (var index = 1; ; index++)
             {
                 if (index <= MatchRulesSO.MaxPlayerCount)
                 {
-                    var required = FindTransform(scene, $"SpawnPoint_{index}");
+                    var required = FindTransform(scene, transforms, $"SpawnPoint_{index}");
                     poses.Add(new Pose(required.position, required.rotation));
                     continue;
                 }
 
-                if (!TryFindTransform(scene, $"SpawnPoint_{index}", out var optional))
+                if (!TryFindTransform(transforms, $"SpawnPoint_{index}", out var optional))
                 {
                     break;
                 }
@@ -191,7 +195,7 @@ namespace Game.Bootstrap
         }
 
         private static Pose[] CaptureWaitingSpawnPoints(
-            Scene scene,
+            ILookup<string, Transform> transforms,
             IReadOnlyList<Pose> fallbackPoints)
         {
             // 런타임 구성은 대기 지점이 스폰 지점 수 이상이길 요구한다. 스폰 지점이 최대 인원보다 많은 맵(마트 10개)은
@@ -200,7 +204,7 @@ namespace Game.Bootstrap
             for (var index = 0; index < poses.Length; index++)
             {
                 poses[index] = TryFindTransform(
-                    scene,
+                    transforms,
                     $"WaitingSpawnPoint_{index + 1}",
                     out var point)
                     ? new Pose(point.position, point.rotation)
@@ -210,9 +214,9 @@ namespace Game.Bootstrap
             return poses;
         }
 
-        private static Transform FindTransform(Scene scene, string objectName)
+        private static Transform FindTransform(Scene scene, ILookup<string, Transform> transforms, string objectName)
         {
-            if (TryFindTransform(scene, objectName, out var found))
+            if (TryFindTransform(transforms, objectName, out var found))
             {
                 return found;
             }
@@ -221,44 +225,13 @@ namespace Game.Bootstrap
                 $"Match scene '{scene.name}' is missing required object '{objectName}'.");
         }
 
-        private static List<Transform> FindAllTransforms(Scene scene, string objectName)
-        {
-            var found = new List<Transform>();
-            foreach (var root in scene.GetRootGameObjects())
-            {
-                foreach (var transform in root.GetComponentsInChildren<Transform>(
-                             includeInactive: true))
-                {
-                    if (string.Equals(transform.name, objectName, StringComparison.Ordinal))
-                    {
-                        found.Add(transform);
-                    }
-                }
-            }
-
-            return found;
-        }
-
         private static bool TryFindTransform(
-            Scene scene,
+            ILookup<string, Transform> transforms,
             string objectName,
             out Transform found)
         {
-            foreach (var root in scene.GetRootGameObjects())
-            {
-                foreach (var transform in root.GetComponentsInChildren<Transform>(
-                             includeInactive: true))
-                {
-                    if (string.Equals(transform.name, objectName, StringComparison.Ordinal))
-                    {
-                        found = transform;
-                        return true;
-                    }
-                }
-            }
-
-            found = null;
-            return false;
+            found = transforms[objectName].FirstOrDefault();
+            return found != null;
         }
 
         private static PlacementVolume CaptureVolume(

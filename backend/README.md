@@ -20,28 +20,31 @@ Unity 클라이언트의 계정·프로필·친구·방 초대·접속 상태·�
 
 ## 실행
 
-DB를 먼저 띄웁니다. Docker Desktop이 실행 중이어야 합니다. `compose.local.yml` 에는 MySQL 과
-Metabase 대시보드가 함께 있습니다. DB 만 필요하면 `mysql` 서비스만 띄우고, 대시보드
-(<http://localhost:3000>)까지 보려면 전체를 띄웁니다. Metabase 는 첫 기동에 1분쯤 걸리고
-메모리를 1GB 가까이 씁니다.
+서비스가 둘, DB 도 둘입니다(아래 "모듈"). DB 를 먼저 띄웁니다. Docker Desktop이 실행 중이어야 합니다.
+`compose.local.yml` 에는 게임 DB(3307), 분석 DB(3308), Metabase 대시보드가 있습니다. 대시보드
+(<http://localhost:3000>)까지 보려면 전체를 띄웁니다. Metabase 는 첫 기동에 1분쯤 걸리고 메모리를 1GB
+가까이 씁니다.
 
 ```bash
-docker compose -f compose.local.yml up -d mysql   # DB 만
-docker compose -f compose.local.yml up -d         # DB + Metabase
+docker compose -f compose.local.yml up -d mysql mysql-analytics   # DB 둘만
+docker compose -f compose.local.yml up -d                          # DB 둘 + Metabase
 ```
 
-애플리케이션을 실행합니다.
+애플리케이션을 실행합니다. 계정 서비스만 필요하면 첫 줄만 띄워도 됩니다. 플레이 로그를 받거나 관리
+화면의 경기 통계 카드를 보려면 둘 다 띄웁니다.
 
 ```bash
-./gradlew bootRun
+./gradlew :app:bootRun          # 계정 서비스 8080
+./gradlew :analytics:bootRun    # 수집 서비스 8081 (다른 터미널)
 ```
 
-Windows PowerShell에서는 `.\gradlew.bat bootRun`을 사용합니다.
+Windows PowerShell에서는 `.\gradlew.bat :app:bootRun`을 사용합니다.
 
 기동을 확인합니다.
 
 ```bash
 curl http://localhost:8080/actuator/health
+curl http://localhost:8081/actuator/health
 ```
 
 `{"status":"UP"}`가 나오면 DB 연결까지 정상입니다.
@@ -55,11 +58,13 @@ docker compose -f compose.local.yml down
 ### 테스트
 
 ```bash
-./gradlew test
+./gradlew test                  # 두 모듈 전부
+./gradlew :app:test             # 한 모듈만
 ```
 
 통합 테스트가 Testcontainers 로 MySQL 컨테이너를 직접 띄우므로 Docker 데몬이 떠 있어야
-합니다. `compose.local.yml` 의 컨테이너와는 별개라, 그쪽이 떠 있지 않아도 되고 떠 있어도
+합니다. 테스트의 작업 디렉터리는 모듈이 아니라 `backend/` 입니다(루트 `build.gradle`). 문서 대조
+테스트와 초기화 스크립트 경로가 그 기준입니다. `compose.local.yml` 의 컨테이너와는 별개라, 그쪽이 떠 있지 않아도 되고 떠 있어도
 공유하지 않습니다.
 
 `docs/` 도 테스트 입력으로 선언되어 있습니다(`build.gradle` 의 `inputs.dir('docs')`). 문서만
@@ -83,9 +88,27 @@ docker compose -f compose.local.yml down
 마이그레이션 파일은 `src/main/resources/db/migration/`에 `V{번호}__{설명}.sql` 형식으로 추가합니다.
 **이미 적용된 파일은 수정하지 않습니다.** 변경이 필요하면 새 번호로 파일을 추가합니다.
 
+## 모듈
+
+Gradle 멀티프로젝트입니다. 실행 파일은 둘이고 나머지 하나는 둘이 함께 쓰는 라이브러리입니다(S15P21D205-980).
+
+```
+backend/
+├─ common/     Timestamps·TimeProvider, ClockConfig, ErrorResponse, AccountTokens. 실행 파일 아님
+├─ app/        계정·친구·초대·접속 상태·신고·피드백·알림·관리 화면.   이미지 d205-app,       8080
+└─ analytics/  플레이 로그 수집(/api/v1/events)과 집계, 내부 API.     이미지 d205-analytics, 8081
+```
+
+나눈 이유는 장애 격리입니다. 한 프로세스에 있으면 분석 쪽 메모리 폭주나 배포 재시작이 게임 API 를 같이
+죽입니다. 두 서비스는 서로를 참조하지 않고 DB 도 공유하지 않습니다. 계정 서비스가 분석에 시킬 일(탈퇴한
+사람의 로그 익명화, 개요 탭 경기 통계)은 `app` 의 `AnalyticsInternalClient` 가 HTTP 로 부르고, `analytics`
+의 `/internal/**` 이 공유 키로 받습니다. `common` 에는 "두 서비스가 같은 규약으로 다뤄야 하는 값"만
+둡니다. 편하다고 쌓으면 `common` 이 바뀔 때마다 두 이미지를 다시 배포하게 됩니다.
+
 ## 패키지 구조
 
-`global`과 `domain`으로 나누고, 각 도메인 안에서 계층으로 한 번 더 나눕니다.
+두 실행 모듈 모두 `global`과 `domain`으로 나누고, 각 도메인 안에서 계층으로 한 번 더 나눕니다. 아래는
+`app` 의 것이고, `analytics` 는 `domain/analytics` 하나와 그 안의 `internalapi/` 로 이뤄집니다.
 
 ```
 com.ssafy.d205
@@ -93,11 +116,11 @@ com.ssafy.d205
 │  ├─ common/        TimeProvider, Timestamps 같은 공통 유틸
 │  ├─ config/        시계, 스케줄링, OpenAPI, 알림 WebSocket 설정
 │  ├─ exception/     전역 예외 처리, 공통 응답, 여러 도메인이 쓰는 예외
-│  ├─ security/      관리자 세션 인증과 CSRF
-│  └─ web/           /admin 관리 화면 정적 파일 연결
+│  ├─ security/      관리자 세션 인증과 CSRF, 계정 토큰 서명
+│  └─ web/           요청 앞의 토큰·정지 검사, /admin 관리 화면 정적 파일 연결
 └─ domain/
    ├─ admin/         운영자 세션 조회와 신고 검토 API
-   ├─ analytics/     플레이 로그 수집, 버퍼링, 분석 DB 적재
+   ├─ ops/           운영 지표 샘플러, 분석 서비스 내부 API 호출(익명화 재시도, 경기 통계)
    ├─ friend/        친구 요청과 친구 관계
    ├─ invite/        친구에게 방 코드 전달, 만료 정리
    ├─ notification/  알림 WebSocket 연결과 커밋 뒤 실시간 발송
@@ -126,7 +149,6 @@ domain/friend/
 
 `event/`는 지금 `user`(`AccountDeletedEvent`)와 `notification`(`UserNotificationEvent` 등)에만
 있습니다. 도메인이 다른 도메인의 서비스를 직접 부르지 않고 이벤트로 알릴 때 둡니다.
-`analytics/config/`는 분석 DB 가 별도 데이터소스여서 그 바인딩을 두는 허용된 예외입니다.
 
 의존 방향은 `controller → service → repository → entity` 한쪽입니다.
 `entity`는 다른 계층을 참조하지 않습니다.
@@ -141,10 +163,13 @@ domain/friend/
 확인할 수 있습니다.
 
 `global/config/`에는 `ClockConfig`, `SchedulingConfig`, `OpenApiConfig`,
-`NotificationProperties`, `WebSocketConfig`가 있습니다. 관리자 인증은
-`global/security/`(`SecurityConfig`, `LoginAttempt`), 관리 화면 정적 파일 연결은
-`global/web/`(`AdminPageConfig`)에 둡니다. Photon Custom Authentication처럼 아직 만들지
-않은 것은 그때 `domain/` 아래에 도메인으로 추가합니다.
+`NotificationProperties`, `WebSocketConfig`가 있습니다. 관리자 인증과 계정 토큰 서명은
+`global/security/`(`SecurityConfig`, `LoginAttempt`, `AccountTokens`), 모든 요청 앞에서
+X-User-Id 의 토큰을 대조하고 정지 계정을 거르는 인터셉터와 관리 화면 정적 파일 연결은
+`global/web/`(`AccountTokenInterceptor`, `SuspensionInterceptor`, `RequestGuardConfig`,
+`AdminPageConfig`)에 둡니다. `AccountTokens` 가 domain 이 아니라 global 에 있는 이유는
+Photon 인증(`domain/photon`)과 게임 API 인터셉터가 같은 서명을 보기 때문입니다. 한 도메인에
+두면 global 이 domain 을 의존하게 되어 방향이 뒤집힙니다.
 
 ## 협업 규칙
 

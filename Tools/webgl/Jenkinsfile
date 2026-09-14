@@ -48,14 +48,17 @@ pipeline {
                 withCredentials([gitUsernamePassword(credentialsId: 'gitlab-deploy-token', gitToolName: 'Default')]) {
                     sh 'git lfs pull'
                 }
-                sh 'python3 Tools/webgl/test_changes.py && bash Tools/webgl/test_build.sh && python3 Tools/webgl/test_publish.py'
+                sh 'python3 Tools/webgl/test_changes.py && bash Tools/webgl/test_build.sh && python3 Tools/webgl/test_publish.py && python3 -m unittest discover -s Tools/network/server-flow -p \'test_*.py\''
             }
         }
-        stage('WebGL build') {
+        stage('Matched server and WebGL build') {
             when { environment name: 'WEBGL_REQUIRED', value: 'true' }
             steps {
                 script {
-                    if (!params.TEST_ONLY) dir('Builds/WebGL') { deleteDir() }
+                    if (!params.TEST_ONLY) {
+                        dir('Builds/WebGL') { deleteDir() }
+                        dir('Builds/Server') { deleteDir() }
+                    }
                 }
                 withEnv(["WEBGL_FAST_BUILD=${params.FAST_BUILD ? '1' : '0'}",
                          "WEBGL_TEST_ONLY=${params.TEST_ONLY ? '1' : '0'}"]) {
@@ -66,7 +69,7 @@ pipeline {
         stage('Publish') {
             when { expression { env.GIT_BRANCH == 'origin/develop' && env.WEBGL_REQUIRED == 'true' && !params.FAST_BUILD && !params.TEST_ONLY } }
             steps {
-                sh 'python3 Tools/webgl/publish.py /var/www/d205-webgl "$(git rev-parse HEAD)" --source Builds/WebGL --sequence "$BUILD_NUMBER"'
+                sh 'python3 Tools/network/server-flow/publish_release.py /var/www/d205-game/runtime "$(git rev-parse HEAD)" --web Builds/WebGL --server Builds/Server'
             }
         }
     }
@@ -74,14 +77,14 @@ pipeline {
         always {
             script {
                 if (env.WEBGL_REQUIRED == 'true') {
-                    archiveArtifacts artifacts: 'Logs/webgl-*.log,Logs/webgl-contract-results.xml,Logs/webgl-timings.tsv,Logs/webgl-build-report.json', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'Logs/server-build.log,Logs/webgl-*.log,Logs/webgl-contract-results.xml,Logs/webgl-timings.tsv,Logs/webgl-build-report.json', allowEmptyArchive: true
                 }
             }
         }
         success {
             script {
                 if (env.WEBGL_REQUIRED == 'true' && !params.TEST_ONLY) {
-                    archiveArtifacts artifacts: 'Builds/WebGL/**', fingerprint: true
+                    archiveArtifacts artifacts: 'Builds/WebGL/**,Builds/Server/**', fingerprint: true
                     if (!params.FAST_BUILD) sh 'git rev-parse HEAD > Library/WebGLCiCache/verified-revision'
                 }
             }

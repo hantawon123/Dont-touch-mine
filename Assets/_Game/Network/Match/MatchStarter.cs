@@ -100,6 +100,40 @@ namespace Game.Network.Match
         public event Action<MatchResult> MatchResultReceived;
         public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
         public event Action SimulationTick;
+        public event Action<PlayerRef, string> LobbyKickRequested;
+        public event Action<PlayerRef, PlaySettingsDraft> LobbySettingsRequested;
+        public event Action<PlayerRef, RoomCreateRequest, string> RoomClaimRequested;
+        public event Action<PlayerRef, string> LobbyNicknameRequested;
+        public event Action<bool> RoomClaimAnswered;
+        internal bool CanSendLobbyCommand => HasValidState;
+        internal void ReceiveRoomClaim(PlayerRef source, RoomCreateRequest request, string nickname) => RoomClaimRequested?.Invoke(source, request, nickname);
+        internal void ReceiveLobbyNickname(PlayerRef source, string nickname) => LobbyNicknameRequested?.Invoke(source, nickname);
+        internal bool RequestLobbyNickname(string nickname)
+        {
+            if (!HasValidState) return false;
+            _state.RPC_LobbyNickname(nickname);
+            return true;
+        }
+        internal void ReceiveRoomClaimAnswer(bool accepted) => RoomClaimAnswered?.Invoke(accepted);
+        internal void AnswerRoomClaim(PlayerRef source, bool accepted) => _state.RPC_RoomClaimAnswer(source, accepted);
+        internal void RequestRoomClaim(RoomCreateRequest request, string nickname) => _state.RPC_ClaimRoom(
+            request.Title, request.IsLocked, request.Password ?? string.Empty, request.MaxPlayers, request.MapId, request.IsPrivate, nickname);
+
+        internal void ReceiveLobbyKick(PlayerRef source, string target) => LobbyKickRequested?.Invoke(source, target);
+        internal void ReceiveLobbySettings(PlayerRef source, PlaySettingsDraft settings) => LobbySettingsRequested?.Invoke(source, settings);
+        internal bool RequestLobbyKick(string target)
+        {
+            if (!HasValidState) return false;
+            _state.RPC_RequestLobbyKick(target);
+            return true;
+        }
+        internal bool RequestLobbySettings(int maxPlayers, int destructionLimit, string mapId, MatchRuleSettings rules, string title)
+        {
+            if (!HasValidState) return false;
+            _state.RPC_RequestLobbySettings(maxPlayers, destructionLimit, mapId, rules.HidingDurationSeconds,
+                rules.SearchingDurationMinutes, rules.SprintMultiplier, rules.StunHitCount, rules.CategoryId, title);
+            return true;
+        }
 
         public void Bind(
             IMatchStartSink sink,
@@ -115,10 +149,8 @@ namespace Game.Network.Match
         /// Starts a match if the room allows it.
         /// </summary>
         /// <remarks>
-        /// Nothing crosses the network to ask. Only the authority can write the
-        /// decision, so a peer that is not the authority has no way to start one
-        /// and is told so without a round trip. When a client genuinely needs to
-        /// ask the authority for something, that will need an RPC.
+        /// The request carries Fusion's sender identity. Only the server decides,
+        /// after checking the replicated lobby owner instead of its local player.
         /// </remarks>
         public void RequestStart(NetworkRunner runner)
         {
@@ -127,16 +159,26 @@ namespace Game.Network.Match
                 return;
             }
 
-            if (!runner.IsServer)
+            if (!HasValidState)
             {
-                Debug.Log("[Match] Only the host can start the match.");
-                Refused(RoomStartResult.NotHost);
+                Debug.LogWarning("[Match] The room is not ready to start yet.");
                 return;
             }
 
-            if (_state == null)
+            _state.RPC_RequestMatchStart();
+        }
+
+        internal void ReceiveStartRequest(PlayerRef source)
+        {
+            if (!HasValidState || !_state.HasStateAuthority) return;
+            var runner = _state.Runner;
+            // The first player owns lobby management before their room claim
+            // completes. That admission alone must not start an unclaimed room.
+            if (runner.SessionInfo.Properties.TryGetValue(SessionPropertyKeys.AvailableServer, out var available) &&
+                available.Isbool && (bool)available) return;
+            if (!PlayerSpawner.IsRoomOwner(runner, source))
             {
-                Debug.LogWarning("[Match] The room is not ready to start yet.");
+                if (source.IsRealPlayer) _state.RPC_StartRefused(source, RoomStartResult.NotHost);
                 return;
             }
 
@@ -146,7 +188,7 @@ namespace Game.Network.Match
             if (refusal != RoomStartResult.Started)
             {
                 Debug.Log($"[Match] The match cannot start: {refusal}.");
-                Refused(refusal);
+                _state.RPC_StartRefused(source, refusal);
                 return;
             }
 

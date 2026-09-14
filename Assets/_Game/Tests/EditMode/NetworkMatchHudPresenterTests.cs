@@ -10,6 +10,7 @@ using Game.SOAP.Config;
 using Game.Server.Items;
 using Game.Server.Match;
 using NUnit.Framework;
+using VContainer;
 using UnityEngine;
 
 namespace Game.Architecture.Tests
@@ -31,6 +32,78 @@ namespace Game.Architecture.Tests
 
         [TearDown]
         public void RestoreCatalog() => Game.Core.Items.ItemCatalog.Configure(previousCatalog);
+
+        [Test]
+        public void DisposedPresenter_DoesNotUpdateTheNextRoom()
+        {
+            var network = new FakeNetwork { ServerTime = 10d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            using var presenter = new NetworkMatchHudPresenter(network, network, room, rules, view);
+            try
+            {
+                presenter.Start();
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 100d));
+                presenter.Tick();
+                var remaining = view.RemainingSeconds;
+                presenter.Dispose();
+                network.ServerTime = 20d;
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 200d));
+                presenter.Tick();
+                Assert.That(view.RemainingSeconds, Is.EqualTo(remaining));
+                Assert.DoesNotThrow(presenter.Dispose);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(rules); }
+        }
+
+        [TestCase("Playground")]
+        [TestCase("Supermarket")]
+        [TestCase("FutureMap")]
+        public void DestroyedSceneHud_DoesNotInterruptContainerDisposalOrReceiveNewRoomEvents(string mapName)
+        {
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
+                UnityEditor.SceneManagement.NewSceneMode.Single);
+            scene.name = mapName + "-HudLifetimeTest";
+            var root = new GameObject("InGameHud", typeof(RectTransform));
+            root.SetActive(false);
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(root, scene);
+            var hud = root.AddComponent<NetworkMatchHudView>();
+            var network = new FakeNetwork();
+            using var room = new RoomBrowserSystem();
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            var presenter = new NetworkMatchHudPresenter(network, network, room, rules, hud);
+            using var playback = new NetworkHighlightPlaybackController(network, room, network, new FakeTransition());
+            var builder = new VContainer.ContainerBuilder();
+            builder.Register<NetworkMatchHudPresenter>(_ => presenter, VContainer.Lifetime.Scoped);
+            using var container = builder.Build();
+            try
+            {
+                container.Resolve<NetworkMatchHudPresenter>();
+                playback.BindScene(scene, null);
+                playback.Start();
+                var field = typeof(NetworkHighlightPlaybackController).GetField("hud",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                Assert.That(field.GetValue(playback), Is.SameAs(hud));
+                UnityEngine.Object.DestroyImmediate(root);
+                // Rejoining can publish events before the old scope finishes disposing.
+                Assert.DoesNotThrow(() => network.Publish(new MatchStateSnapshot(MatchPhase.Waiting, 0d)));
+                Assert.DoesNotThrow(container.Dispose);
+                Assert.DoesNotThrow(presenter.Tick);
+                Assert.DoesNotThrow(playback.Dispose);
+                Assert.DoesNotThrow(() => network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 20d)));
+                Assert.DoesNotThrow(playback.Tick);
+            }
+            finally
+            {
+                if (root != null) UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(rules);
+                UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                    UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
+                    UnityEditor.SceneManagement.NewSceneMode.Single);
+            }
+        }
 
         [TestCase(false)]
         [TestCase(true)]
@@ -423,6 +496,77 @@ namespace Game.Architecture.Tests
             {
                 UnityEngine.Object.DestroyImmediate(rules);
             }
+        }
+
+        [TestCase(MatchPhase.Hiding)]
+        [TestCase(MatchPhase.Searching)]
+        public void Loading_WaitsForGameplayAndBriefingThenUncoversBeforeReportingReady(MatchPhase phase)
+        {
+            var network = new FakeNetwork { ServerTime = 100d };
+            var view = new FakeView { IntroPresented = false };
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[] { new MatchParticipant("host", 0), new MatchParticipant("client", 1) });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            var loading = new Game.Client.Common.LoadingOverlay();
+            loading.Show();
+            var gameplayReady = false;
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(network, network, room, rules, view);
+                presenter.BindGameplayReadiness(() => gameplayReady, loading);
+                presenter.Start();
+                network.Publish(new MatchStateSnapshot(phase, 0d));
+                network.PublishItemAssignment("Soda_01");
+                network.ServerTime = 160d; // Arbitrarily slow load consumes no phase time.
+                presenter.Tick();
+                Assert.That(loading.IsPresented, Is.True);
+                Assert.That(network.IntroReadyReports, Is.Empty);
+                gameplayReady = true;
+                presenter.Tick();
+                Assert.That(loading.IsPresented, Is.True, "Wait for the item briefing too.");
+                view.IntroPresented = true;
+                presenter.Tick();
+                Assert.That(loading.IsPresented, Is.False);
+                Assert.That(network.IntroReadyReports, Is.Empty, "First let the uncovered briefing render.");
+                presenter.Tick();
+                Assert.That(network.IntroReadyReports, Is.EqualTo(new[] { phase }));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(rules); }
+        }
+
+        [TestCase(MatchPhase.Hiding)]
+        [TestCase(MatchPhase.Searching)]
+        public void Intro_DoesNotReportReadyBehindLoadingCoverOrBeforeGameplayCameraRenders(MatchPhase phase)
+        {
+            var network = new FakeNetwork { ServerTime = 100d };
+            var view = new FakeView { IntroPresented = true };
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[] { new MatchParticipant("host", 0), new MatchParticipant("client", 1) });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            var loadingVisible = true;
+            var cameraPresented = false;
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(network, network, room, rules, view);
+                presenter.BindGameplayReadiness(() => !loadingVisible && cameraPresented);
+                presenter.Start();
+                network.Publish(new MatchStateSnapshot(phase, 0d));
+                network.PublishItemAssignment("Soda_01");
+                presenter.Tick();
+                network.ServerTime = 160d;
+                cameraPresented = true;
+                presenter.Tick();
+                Assert.That(network.IntroReadyReports, Is.Empty, "Camera behind a cover is not ready.");
+                cameraPresented = false;
+                loadingVisible = false;
+                presenter.Tick();
+                Assert.That(network.IntroReadyReports, Is.Empty, "Uncovering alone is not ready.");
+                cameraPresented = true;
+                presenter.Tick();
+                presenter.Tick();
+                Assert.That(network.IntroReadyReports, Is.EqualTo(new[] { phase }));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(rules); }
         }
 
         [TestCase(MatchPhase.Hiding, 60d, 30d)]
@@ -1090,7 +1234,9 @@ namespace Game.Architecture.Tests
                 {
                     new PlayerItemStatusSnapshot("Cup1_C3", true),
                 });
-                Assert.That(view.PlayerItemStatuses, Is.Empty);
+                Assert.That(view.PlayerItemStatuses, Has.Count.EqualTo(1));
+                Assert.That(view.PlayerItemStatuses[0].ItemId, Is.EqualTo("Pineapple_01"),
+                    "Disposal and later events must not update the old scene HUD.");
             }
             finally
             {

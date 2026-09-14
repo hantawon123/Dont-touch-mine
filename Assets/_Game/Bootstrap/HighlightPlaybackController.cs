@@ -163,6 +163,10 @@ namespace Game.Bootstrap
         private HighlightReplayPlayer replayPlayer;
         private HighlightCameraDirector cameraDirector;
         private INetworkMatchHudView hud;
+        private bool disposed;
+        private bool sceneBound;
+        private bool HasLiveHud => hud != null &&
+            !(hud is UnityEngine.Object target && target == null);
         private float[] highlightBarFills = Array.Empty<float>();
         private double[] highlightClipDurations = Array.Empty<double>();
         private PlayerCameraController cameraRig;
@@ -184,9 +188,29 @@ namespace Game.Bootstrap
             this.transition = transition ?? throw new ArgumentNullException(nameof(transition));
         }
 
+        private IMatchRuntimeContext sceneContext;
+        private IReadOnlyList<SceneHighlightOcclusionReference> sceneOcclusionGroups;
+        private readonly HashSet<string> recordedObjectIds = new(StringComparer.Ordinal);
+
+        public void BindScene(UnityEngine.SceneManagement.Scene scene, IMatchRuntimeContext context)
+        {
+            sceneContext = context;
+            sceneBound = true;
+            hud = null;
+            var groups = new List<SceneHighlightOcclusionReference>();
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (hud == null) hud = root.GetComponentInChildren<NetworkMatchHudView>(true);
+                foreach (var config in root.GetComponentsInChildren<MatchSceneConfiguration>(true))
+                    groups.AddRange(config.HighlightOcclusionGroups);
+            }
+            sceneOcclusionGroups = groups;
+        }
+
         public void Start()
         {
-            hud = UnityEngine.Object.FindFirstObjectByType<NetworkMatchHudView>(
+            if (disposed) return;
+            if (!sceneBound) hud = UnityEngine.Object.FindFirstObjectByType<NetworkMatchHudView>(
                 FindObjectsInactive.Include);
             network.MatchStateReceived += OnMatchStateReceived;
             network.MatchResultReceived += OnMatchResultReceived;
@@ -196,6 +220,9 @@ namespace Game.Bootstrap
 
         public void Dispose()
         {
+            if (disposed) return;
+            disposed = true;
+            hud = null;
             network.MatchStateReceived -= OnMatchStateReceived;
             network.MatchResultReceived -= OnMatchResultReceived;
             network.HighlightReplayReceived -= OnHighlightReplayReceived;
@@ -238,6 +265,7 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
+            if (disposed) return;
             if (phase != MatchPhase.Highlight)
             {
                 CaptureVisuals();
@@ -377,6 +405,7 @@ namespace Game.Bootstrap
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
         {
+            if (disposed) return;
             // A same-phase update schedules playback after the readiness barrier.
             if (snapshot.Phase == MatchPhase.Highlight) highlightEndsAt = snapshot.PhaseEndsAt;
             if (phase == snapshot.Phase) return;
@@ -409,12 +438,14 @@ namespace Game.Bootstrap
 
         private void OnMatchResultReceived(MatchResult result)
         {
+            if (disposed) return;
             matchEndedAt = result.EndedAt;
             gameEndNoticeEndsAt = result.EndedAt + HighlightPresentationTiming.FadeSeconds;
         }
 
         private void OnHighlightReplayReceived(IReadOnlyList<HighlightReplayData> received)
         {
+            if (disposed) return;
             replay = received ?? Array.Empty<HighlightReplayData>();
             readinessConfirmed = false;
             PlaybackSourceTime = null;
@@ -546,8 +577,10 @@ namespace Game.Bootstrap
                 output,
                 fallbackObject.transform,
                 playerTargets,
-                objectTargets);
+                objectTargets,
+                occlusionGroups: sceneOcclusionGroups);
             cameraDirector.Focus(current.Candidate);
+            Debug.Log($"[Highlight] Playback ready: type={current.Candidate.Type}, players={playerTargets.Length}, objects={objectTargets.Length}, camera={output.name}.");
             return true;
         }
 
@@ -630,6 +663,14 @@ namespace Game.Bootstrap
                 if (!playerVisuals.ContainsKey(id))
                     playerVisuals.Add(id, new ReplayVisual(avatar.transform, null));
             }
+            // A large map can contain thousands of products, but only recorded objects need copies.
+            recordedObjectIds.Clear();
+            if (sceneContext != null)
+                foreach (var state in sceneContext.ReplayObjects) recordedObjectIds.Add(state.ObjectId);
+            foreach (var data in replay)
+                foreach (var clip in data.Clips)
+                    foreach (var frame in clip.Frames)
+                        foreach (var state in frame.WorldObjects) recordedObjectIds.Add(state.ObjectId);
             var lobbies = UnityEngine.Object.FindObjectsByType<LobbyLifetimeScope>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var item in UnityEngine.Object.FindObjectsByType<CarryableItem>(
@@ -638,6 +679,7 @@ namespace Game.Bootstrap
                 var belongsToLobby = false;
                 foreach (var lobby in lobbies) if (lobby.OwnsItem(item)) { belongsToLobby = true; break; }
                 if (belongsToLobby) continue;
+                if (sceneContext != null && !item.IsPlayerItem && !recordedObjectIds.Contains(item.ObjectId)) continue;
                 if (!itemVisuals.ContainsKey(item.ObjectId))
                     itemVisuals.Add(item.ObjectId, new ReplayVisual(item.transform, null));
             }
@@ -645,12 +687,12 @@ namespace Game.Bootstrap
 
         private void HideHighlightHud()
         {
-            hud?.SetHighlightHud(false, null, Array.Empty<float>());
+            if (HasLiveHud) hud.SetHighlightHud(false, null, Array.Empty<float>());
         }
 
         private void PublishHighlightHud(int index, double clipElapsed)
         {
-            if (hud == null)
+            if (!HasLiveHud)
             {
                 return;
             }
@@ -717,7 +759,7 @@ namespace Game.Bootstrap
             HideHighlightHud();
             foreach (var visual in playerVisuals.Values) visual.SetPlaying(false);
             foreach (var visual in itemVisuals.Values) visual.SetPlaying(false);
-            cameraRig?.EndReplay();
+            if (cameraRig != null) cameraRig.EndReplay();
         }
     }
 

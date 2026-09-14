@@ -28,6 +28,11 @@ namespace Game.Backend
 
                 case "ACCOUNT_NOT_FOUND": return BackendFailure.AccountNotFound;
 
+                // The user id was sent without its token, or with someone else's.
+                // A client bug, unless the server rotated its secret; then the
+                // next sign-in brings a fresh token.
+                case "UNAUTHORIZED": return BackendFailure.Unauthorized;
+
                 // Told apart from AccountNotFound because the response differs.
                 // That one means issue the account again; this one answers the
                 // same to that, so retrying walks in a circle.

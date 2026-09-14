@@ -92,6 +92,7 @@ namespace Game.Client.Match
 
         public void Show(string itemId)
         {
+            var startedAt = Time.realtimeSinceStartupAsDouble;
             Clear();
             if (target == null)
             {
@@ -117,7 +118,8 @@ namespace Game.Client.Match
             target.enabled = true;
             stage.SetActive(true);
             BindSpin();
-            camera.Render();
+            SubmitPreviewRender();
+            Debug.Log($"[SceneTiming] Item preview rendered: elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s, target={texture.width}x{texture.height}.");
         }
 
         public void SetGrayscale(bool enabled)
@@ -147,6 +149,18 @@ namespace Game.Client.Match
         public void Dispose()
         {
             Clear();
+            if (texture != null)
+            {
+                if (camera != null)
+                {
+                    camera.targetTexture = null;
+                }
+
+                texture.Release();
+                UnityEngine.Object.Destroy(texture);
+                texture = null;
+            }
+
             if (stage != null)
             {
                 UnityEngine.Object.Destroy(stage);
@@ -177,20 +191,9 @@ namespace Game.Client.Match
 
             if (model != null)
             {
+                model.gameObject.SetActive(false);
                 UnityEngine.Object.Destroy(model.gameObject);
                 model = null;
-            }
-
-            if (texture != null)
-            {
-                if (camera != null)
-                {
-                    camera.targetTexture = null;
-                }
-
-                texture.Release();
-                UnityEngine.Object.Destroy(texture);
-                texture = null;
             }
 
             if (stage != null)
@@ -214,13 +217,15 @@ namespace Game.Client.Match
             texture = new RenderTexture(textureSize, textureSize, 16)
             {
                 name = "Hiding Intro Preview",
-                antiAliasing = 2
+                antiAliasing = 1
             };
 
             var cameraObject = new GameObject("Preview Camera");
             cameraObject.transform.SetParent(stage.transform, false);
             ApplyPreviewLayer(cameraObject);
             camera = cameraObject.AddComponent<Camera>();
+            // Show/PreviewSpin render explicitly; do not also render in the normal camera loop.
+            camera.enabled = false;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = backgroundColor;
             camera.orthographic = true;
@@ -231,6 +236,7 @@ namespace Game.Client.Match
             camera.depth = -100;
             camera.allowHDR = false;
             camera.allowMSAA = false;
+            camera.useOcclusionCulling = false;
 
             // Studio lights live on the offscreen stage. Item prefabs stay unlit
             // so in-world props are not changed by the HUD/intro preview.
@@ -288,8 +294,38 @@ namespace Game.Client.Match
                 }
 
                 model.Rotate(Vector3.up, RotationDegreesPerSecond * Time.unscaledDeltaTime, Space.World);
-                previewCamera.Render();
+                SubmitPreviewRender(previewCamera, previewCamera.targetTexture);
             }
+        }
+
+        /// <summary>
+        /// Off-screen only. <see cref="Camera.Render"/> goes through the game
+        /// view overlay pass, and that pass is the game view size (often a
+        /// scaled 1887×1153) while the backbuffer is 1920×1080. Fusion also
+        /// calls this from a simulation tick, mid-frame.
+        /// </summary>
+        private void SubmitPreviewRender() =>
+            SubmitPreviewRender(camera, texture);
+
+        private static void SubmitPreviewRender(Camera previewCamera, RenderTexture destination)
+        {
+            if (previewCamera == null || destination == null)
+            {
+                return;
+            }
+
+            previewCamera.targetTexture = destination;
+            var request = new RenderPipeline.StandardRequest
+            {
+                destination = destination
+            };
+            if (RenderPipeline.SupportsRenderRequest(previewCamera, request))
+            {
+                previewCamera.SubmitRenderRequest(request);
+                return;
+            }
+
+            previewCamera.Render();
         }
 
         private static int PreviewLayer
@@ -448,10 +484,7 @@ namespace Game.Client.Match
 
         private Texture2D CreateGrayscaleCopy()
         {
-            if (camera != null)
-            {
-                camera.Render();
-            }
+            SubmitPreviewRender();
 
             var copy = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false)
             {
