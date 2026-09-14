@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Game.Client.Home;
-using Game.Client.Rooms;
 using Game.Client.Settings;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
@@ -119,6 +118,7 @@ namespace Game.Client.Lobby
         {
             EnsureOverlay();
             EnsureLayout();
+            EnsureCloseButton();
             BindRuleControls();
             BindDurationSliders();
             if (titleInput != null) titleInput.onValueChanged.AddListener(OnTitleChanged);
@@ -168,6 +168,7 @@ namespace Game.Client.Lobby
         {
             EnsureOverlay();
             EnsureLayout();
+            EnsureCloseButton();
             if (overlayRoot != null)
             {
                 overlayRoot.SetActive(visible);
@@ -178,7 +179,6 @@ namespace Game.Client.Lobby
                 panel.SetActive(visible);
             }
 
-            SetBackButtonVisible(visible);
             RefreshGameStartVisible();
             if (visible)
             {
@@ -861,10 +861,10 @@ namespace Game.Client.Lobby
                     ? panelTransform.parent.parent as RectTransform
                     : null;
                 RemoveDuplicateOverlays(dedupeRoot, overlayRoot);
-                if (dedupeRoot != null && overlayRoot != null)
+                var adoptedOverlay = (RectTransform)overlayRoot.transform;
+                HideLegacyBackButtons(adoptedOverlay);
+                if (dedupeRoot != null)
                 {
-                    var adoptedOverlay = (RectTransform)overlayRoot.transform;
-                    StyleBackButton(adoptedOverlay);
                     EnsureGameStartLabel(dedupeRoot, adoptedOverlay);
                     BringOverlayForward();
                 }
@@ -890,10 +890,9 @@ namespace Game.Client.Lobby
                 EnsureOverlayScrim(existingOverlay);
                 panelTransform.SetParent(existingOverlay, false);
                 RemoveDuplicateOverlays(hudRoot, overlayRoot);
-                StyleBackButton(existingOverlay);
+                HideLegacyBackButtons(existingOverlay);
                 EnsureGameStartLabel(hudRoot, existingOverlay);
                 overlayRoot.SetActive(panel.activeSelf);
-                SetBackButtonVisible(overlayRoot.activeSelf);
                 RefreshGameStartVisible();
                 return;
             }
@@ -909,11 +908,10 @@ namespace Game.Client.Lobby
             EnsureOverlayScrim(createdOverlay);
 
             panelTransform.SetParent(createdOverlay, false);
-            StyleBackButton(createdOverlay);
+            HideLegacyBackButtons(createdOverlay);
             EnsureGameStartLabel(hudRoot, createdOverlay);
 
             overlayRoot.SetActive(panel.activeSelf);
-            SetBackButtonVisible(overlayRoot.activeSelf);
             RefreshGameStartVisible();
         }
 
@@ -1038,56 +1036,79 @@ namespace Game.Client.Lobby
             }
         }
 
-        private void StyleBackButton(RectTransform overlay)
+        private void HideLegacyBackButtons(RectTransform overlay)
         {
-            if (closeButton == null || overlay == null)
+            HideNamed(overlay, "BackButton");
+            if (overlay != null && overlay.parent != null)
             {
-                return;
+                HideNamed(overlay.parent, "BackButton");
             }
 
-            var rect = closeButton.GetComponent<RectTransform>();
-            rect.SetParent(overlay, false);
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = RoomBrowserStyle.Layout.BackButtonPosition;
-            rect.sizeDelta = RoomBrowserStyle.Layout.BackButtonSize;
-
-            var image = closeButton.GetComponent<Image>();
-            if (image != null)
+            if (closeButton != null && closeButton.gameObject.name == "BackButton")
             {
-                image.color = Color.clear;
+                closeButton.gameObject.SetActive(false);
             }
-
-            var label = closeButton.GetComponentInChildren<Text>();
-            if (label != null)
-            {
-                label.text = "← 이전";
-                label.fontSize = Mathf.RoundToInt(RoomBrowserStyle.FontSize.Back);
-                label.alignment = TextAnchor.MiddleLeft;
-                label.color = Color.white;
-                label.raycastTarget = false;
-                var labelRect = label.rectTransform;
-                labelRect.anchorMin = Vector2.zero;
-                labelRect.anchorMax = Vector2.one;
-                labelRect.offsetMin = Vector2.zero;
-                labelRect.offsetMax = Vector2.zero;
-            }
-
-            closeButton.gameObject.name = "BackButton";
         }
 
-        private void SetBackButtonVisible(bool visible)
+        private void EnsureCloseButton()
         {
-            if (closeButton == null)
+            if (panel == null)
             {
                 return;
             }
 
-            closeButton.gameObject.SetActive(visible);
-            if (visible)
+            var panelRect = (RectTransform)panel.transform;
+            var rect = panelRect.Find("CloseButton") as RectTransform;
+            if (rect == null && overlayRoot != null)
             {
-                closeButton.transform.SetAsLastSibling();
+                rect = overlayRoot.transform.Find("CloseButton") as RectTransform;
+            }
+
+            if (rect == null)
+            {
+                var go = new GameObject(
+                    "CloseButton",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image),
+                    typeof(Button));
+                rect = go.GetComponent<RectTransform>();
+            }
+
+            rect.SetParent(panelRect, false);
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition = new Vector2(
+                -PlaySettingsStyle.Overlay.CloseOffset.x,
+                -PlaySettingsStyle.Overlay.CloseOffset.y);
+            rect.sizeDelta = new Vector2(
+                PlaySettingsStyle.Overlay.CloseSize, PlaySettingsStyle.Overlay.CloseSize);
+
+            var image = rect.GetComponent<Image>() ?? rect.gameObject.AddComponent<Image>();
+            image.sprite = SettingsStyle.LoadCloseIcon();
+            image.color = PlaySettingsStyle.Palette.Text;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = true;
+            image.raycastTarget = true;
+
+            closeButton = rect.GetComponent<Button>() ?? rect.gameObject.AddComponent<Button>();
+            closeButton.targetGraphic = image;
+            closeButton.transition = Selectable.Transition.None;
+            rect.SetAsLastSibling();
+        }
+
+        private static void HideNamed(Transform parent, string name)
+        {
+            if (parent == null)
+            {
+                return;
+            }
+
+            var child = parent.Find(name);
+            if (child != null)
+            {
+                child.gameObject.SetActive(false);
             }
         }
 

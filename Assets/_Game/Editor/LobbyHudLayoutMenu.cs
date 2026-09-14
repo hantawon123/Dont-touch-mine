@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using Game.Bootstrap;
 using Game.Client;
 using Game.Client.Lobby;
-using Game.Client.Rooms;
 using Game.Client.Match;
 using Game.Client.Voice;
 using UnityEditor;
@@ -195,13 +194,12 @@ namespace Game.Editor
             }
 
             EnsurePlaySettingsChildren(panel);
-            var back = EnsureBackButton(root);
-            Place(back, Anchor.TopLeft, RoomBrowserStyle.Layout.BackButtonPosition, RoomBrowserStyle.Layout.BackButtonSize);
+            DisableIfExists(root, "BackButton");
 
             var so = new SerializedObject(view);
             so.FindProperty("openButton").objectReferenceValue =
                 openButtonSlot.GetComponent<Button>();
-            so.FindProperty("closeButton").objectReferenceValue = back.GetComponent<Button>();
+            so.FindProperty("closeButton").objectReferenceValue = null;
             so.FindProperty("panel").objectReferenceValue = panel.gameObject;
 
             so.ApplyModifiedPropertiesWithoutUndo();
@@ -215,28 +213,6 @@ namespace Game.Editor
             {
                 DisableIfExists(panel, panel.GetChild(i).name);
             }
-        }
-
-        private static RectTransform EnsureBackButton(RectTransform parent)
-        {
-            DisableIfExists(parent, "CloseButton");
-
-            var slot = parent.Find("BackButton") as RectTransform;
-            if (slot == null)
-            {
-                slot = GetOrCreateSlot(parent, "BackButton", Color.clear);
-            }
-
-            EnsureButton(slot.gameObject);
-            EnsureLabel(slot.gameObject);
-            SetLabel(slot, "← 이전", Mathf.RoundToInt(RoomBrowserStyle.FontSize.Back));
-            var label = slot.Find("Label")?.GetComponent<Text>();
-            if (label != null)
-            {
-                label.alignment = TextAnchor.MiddleLeft;
-            }
-
-            return slot;
         }
 
         private static void EnsureMapScroll(RectTransform panel, float left, float width)

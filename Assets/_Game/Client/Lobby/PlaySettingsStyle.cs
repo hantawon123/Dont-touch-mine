@@ -26,7 +26,7 @@ namespace Game.Client.Lobby
         public const float ApplyPaddingHorizontal = 80f;
         public const float ApplyPaddingVertical = 11f;
         public const int ApplyButtonRadius = 32;
-        public const int LayoutVersion = 35;
+        public const int LayoutVersion = 36;
 
         public const string RegularFontResource = "Fonts/Paperlogy-4Regular";
         public const string MediumFontResource = "Fonts/Paperlogy-5Medium";
@@ -77,6 +77,8 @@ namespace Game.Client.Lobby
             public const int GameStartRadius = 30;
             public const float GameStartHoverScale = 1.06f;
             public const float GameStartHoverSeconds = 0.08f;
+            public static readonly Vector2 CloseOffset = new Vector2(20f, 20f);
+            public const float CloseSize = 24f;
         }
 
         public static class Layout
