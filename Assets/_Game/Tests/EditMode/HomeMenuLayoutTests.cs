@@ -116,6 +116,52 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void NicknameMessage_SitsClearOfTheFieldAndInsideItsEdge()
+        {
+            using var home = new BuiltHome();
+            var message = home.Rect("NicknameMessage");
+            var counter = home.Rect("NicknameCounter");
+
+            // A note on the field, not part of its plate: a clear gap under
+            // the field, and started a little inside its edge rather than
+            // flush with the corner. The counter mirrors it on the right.
+            Assert.That(message.anchoredPosition.x, Is.EqualTo(HomeStyle.Profile.TextInset).Within(0.01f));
+            Assert.That(counter.anchoredPosition.x, Is.EqualTo(-HomeStyle.Profile.TextInset).Within(0.01f));
+            Assert.That(HomeStyle.Profile.TextInset, Is.GreaterThan(HomeStyle.Profile.SidePadding));
+            Assert.That(
+                (HomeStyle.Profile.InputTop - HomeStyle.Profile.InputSize.y) - HomeStyle.Profile.MessageTop,
+                Is.GreaterThanOrEqualTo(10f));
+        }
+
+        [Test]
+        public void SettledNickname_TakesTheApplyRowAndTheCounterOffThePanel()
+        {
+            using var home = new BuiltHome();
+            var panel = home.Rect("ProfileSettingsPanel");
+            var apply = home.Rect("ApplyButton");
+            var counter = home.Rect("NicknameCounter");
+
+            home.View.SetNicknameSettled(true);
+
+            // Nothing left to type, so nothing that talks about typing: no
+            // greyed-out apply, no 3/12, and no empty row where they were.
+            Assert.That(apply.gameObject.activeSelf, Is.False);
+            Assert.That(counter.gameObject.activeSelf, Is.False);
+            Assert.That(
+                panel.sizeDelta.y,
+                Is.EqualTo(HomeStyle.Profile.SettledPanelHeight).Within(0.01f));
+            Assert.That(panel.sizeDelta.y, Is.LessThan(HomeStyle.Profile.PanelSize.y));
+
+            home.View.SetNicknameSettled(false);
+
+            Assert.That(apply.gameObject.activeSelf, Is.True);
+            Assert.That(counter.gameObject.activeSelf, Is.True);
+            Assert.That(
+                panel.sizeDelta.y,
+                Is.EqualTo(HomeStyle.Profile.PanelSize.y).Within(0.01f));
+        }
+
+        [Test]
         public void ProfileChip_StopsAtTheMaximumWidth()
         {
             using var home = new BuiltHome();
