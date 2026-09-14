@@ -1,5 +1,6 @@
 using System.Reflection;
 using Game.Client.Lobby;
+using Game.Core.Lobby;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -73,6 +74,59 @@ namespace Game.Architecture.Tests
                 view.CloseRequested += () => raised++;
                 close.GetComponent<Button>().onClick.Invoke();
                 Assert.That(raised, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ResetButton_SharesTheFooterRowWithApply()
+        {
+            var root = CreateView(out var panel, out var view);
+            try
+            {
+                var reset = Find(panel.transform, "ResetButton") as RectTransform;
+                var apply = Find(panel.transform, "ApplyButton") as RectTransform;
+                Assert.That(reset, Is.Not.Null);
+                Assert.That(apply, Is.Not.Null);
+                Assert.That(reset.parent.name, Is.EqualTo("ActionRow"));
+                Assert.That(apply.parent, Is.EqualTo(reset.parent));
+                Assert.That(reset.GetSiblingIndex(), Is.LessThan(apply.GetSiblingIndex()));
+                Assert.That(
+                    reset.Find("Text").GetComponent<Text>().text,
+                    Is.EqualTo(PlaySettingsStyle.Layout.ResetLabel));
+                Assert.That(
+                    reset.GetComponent<Image>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.ResetFill));
+                Assert.That(
+                    reset.Find("Stroke").GetComponent<Image>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.ResetOffStroke));
+                Assert.That(Find(panel.transform, "Header").Find("ResetButton"), Is.Null);
+                Assert.That(Find(panel.transform, "Header").Find("RevertButton"), Is.Null);
+
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "playground"));
+                view.SetEditable(true);
+                Assert.That(reset.GetComponent<Button>().interactable, Is.False);
+                Assert.That(
+                    reset.Find("Text").GetComponent<Text>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.ResetOffLabel));
+                Assert.That(
+                    reset.Find("Stroke").GetComponent<Image>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.ResetOffStroke));
+
+                var plus = (Button)typeof(PlaySettingsView).GetField(
+                    "maxPlayersPlusButton",
+                    BindingFlags.Instance | BindingFlags.NonPublic).GetValue(view);
+                plus.onClick.Invoke();
+                Assert.That(reset.GetComponent<Button>().interactable, Is.True);
+                Assert.That(
+                    reset.Find("Text").GetComponent<Text>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.ResetLabel));
+                Assert.That(
+                    reset.Find("Stroke").GetComponent<Image>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.ResetStroke));
             }
             finally
             {

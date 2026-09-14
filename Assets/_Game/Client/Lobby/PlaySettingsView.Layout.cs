@@ -4,6 +4,7 @@ using Game.Client.Settings;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Game.Client.Lobby
@@ -21,6 +22,9 @@ namespace Game.Client.Lobby
         private Button applyButton;
         private Button revertButton;
         private Text revertLabel;
+        private Image revertFill;
+        private Image revertStroke;
+        private bool resetHovered;
         private Image mapPreviewImage;
         private RectTransform settingsContent;
         private ScrollRect bodyScroll;
@@ -259,14 +263,13 @@ namespace Game.Client.Lobby
             header.offsetMin = new Vector2(0f, -PlaySettingsStyle.HeaderHeight);
             header.offsetMax = Vector2.zero;
             CreateModalTitle(header, "게임 설정");
-            revertButton = CreateRevertButton(header);
 
             var footer = CreateRect("Footer", root);
             Anchor(footer, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f));
             footer.offsetMin = Vector2.zero;
             footer.offsetMax = new Vector2(0f, PlaySettingsStyle.FooterHeight);
             applyWarning = CreateApplyWarning(footer);
-            applyButton = CreateApplyButton(footer);
+            CreateFooterActions(footer);
 
             var body = CreateRect("Body", root);
             Anchor(body, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
@@ -1005,7 +1008,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            var buttonTransform = footer.Find("ApplyButton");
+            var buttonTransform = footer.Find("ActionRow/ApplyButton") ?? footer.Find("ApplyButton");
             if (buttonTransform != null)
             {
                 applyButton = buttonTransform.GetComponent<Button>();
@@ -1037,19 +1040,26 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            var header = panel.transform.Find("Header");
-            if (header == null)
+            var footer = panel.transform.Find("Footer");
+            if (footer == null)
             {
                 return;
             }
 
-            var buttonTransform = header.Find("RevertButton");
+            var buttonTransform = footer.Find("ActionRow/ResetButton") ?? footer.Find("ResetButton");
             if (buttonTransform == null)
             {
                 return;
             }
 
             revertButton = buttonTransform.GetComponent<Button>();
+            revertFill = buttonTransform.GetComponent<Image>();
+            var strokeTransform = buttonTransform.Find("Stroke");
+            if (strokeTransform != null)
+            {
+                revertStroke = strokeTransform.GetComponent<Image>();
+            }
+
             var labelTransform = buttonTransform.Find("Text");
             if (labelTransform != null)
             {
@@ -1059,45 +1069,82 @@ namespace Game.Client.Lobby
             RefreshRevertChrome();
         }
 
-        private Button CreateRevertButton(RectTransform header)
+        private void CreateFooterActions(RectTransform footer)
         {
-            var rect = CreateRect("RevertButton", header);
-            rect.anchorMin = rect.anchorMax = new Vector2(1f, 0.5f);
-            rect.pivot = new Vector2(1f, 0.5f);
-            rect.anchoredPosition = new Vector2(-PlaySettingsStyle.Layout.RevertRightMargin, 0f);
-            rect.sizeDelta = new Vector2(0f, PlaySettingsStyle.Layout.RevertHeight);
+            var row = CreateRect("ActionRow", footer);
+            row.anchorMin = row.anchorMax = new Vector2(0.5f, 0.5f);
+            row.pivot = new Vector2(0.5f, 0.5f);
+            row.anchoredPosition = Vector2.zero;
 
-            var hit = rect.gameObject.AddComponent<Image>();
-            hit.color = Color.clear;
-            hit.raycastTarget = true;
+            var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+            layout.spacing = PlaySettingsStyle.Layout.ActionSpacing;
+
+            var fitter = row.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            revertButton = CreateResetButton(row);
+            applyButton = CreateApplyButton(row);
+        }
+
+        private Button CreateResetButton(RectTransform parent)
+        {
+            var paddingX = PlaySettingsStyle.ApplyPaddingHorizontal;
+            var paddingY = PlaySettingsStyle.ApplyPaddingVertical;
+            var fontSize = PlaySettingsStyle.FontSize.Apply;
+
+            var rect = CreateRect("ResetButton", parent);
+            revertFill = rect.gameObject.AddComponent<Image>();
+            revertFill.type = Image.Type.Sliced;
+            revertFill.color = PlaySettingsStyle.Palette.ResetFill;
+
+            var stroke = CreateRect("Stroke", rect);
+            Stretch(stroke);
+            var strokeImage = stroke.gameObject.AddComponent<Image>();
+            strokeImage.type = Image.Type.Sliced;
+            strokeImage.color = PlaySettingsStyle.Palette.ResetOffStroke;
+            strokeImage.raycastTarget = false;
+            revertStroke = strokeImage;
 
             var labelRect = CreateRect("Text", rect);
             Stretch(labelRect);
-
             revertLabel = labelRect.gameObject.AddComponent<Text>();
-            revertLabel.text = PlaySettingsStyle.Layout.RevertLabel;
-            revertLabel.font = BodyFont();
-            revertLabel.fontSize = PlaySettingsStyle.FontSize.Revert;
-            revertLabel.color = Color.white;
-            revertLabel.alignment = TextAnchor.MiddleRight;
+            revertLabel.text = PlaySettingsStyle.Layout.ResetLabel;
+            revertLabel.font = MediumFont();
+            revertLabel.fontSize = fontSize;
+            revertLabel.color = PlaySettingsStyle.Palette.ResetOffLabel;
+            revertLabel.alignment = TextAnchor.MiddleCenter;
             revertLabel.raycastTarget = false;
             revertLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
             revertLabel.verticalOverflow = VerticalWrapMode.Overflow;
 
-            var textWidth = Mathf.Max(revertLabel.preferredWidth, 64f);
-            rect.sizeDelta = new Vector2(textWidth, PlaySettingsStyle.Layout.RevertHeight);
+            var textWidth = Mathf.Max(revertLabel.preferredWidth, 128f);
+            var textHeight = Mathf.Max(revertLabel.preferredHeight, fontSize);
+            var height = textHeight + (paddingY * 2f);
+            rect.sizeDelta = new Vector2(textWidth + (paddingX * 2f), height);
+
+            var radius = Mathf.Min(
+                PlaySettingsStyle.ApplyButtonRadius,
+                Mathf.Max(8, Mathf.FloorToInt((height * 0.5f) - 1f)));
+            revertFill.sprite = HomeUiFonts.Rounded(radius);
+            strokeImage.sprite = HomeUiFonts.Outline(radius, PlaySettingsStyle.BorderWidth);
+
+            var slot = rect.gameObject.AddComponent<LayoutElement>();
+            slot.preferredWidth = rect.sizeDelta.x;
+            slot.preferredHeight = rect.sizeDelta.y;
+            slot.minWidth = rect.sizeDelta.x;
+            slot.minHeight = rect.sizeDelta.y;
 
             var button = rect.gameObject.AddComponent<Button>();
-            button.targetGraphic = revertLabel;
-            button.transition = Selectable.Transition.ColorTint;
-            var colors = button.colors;
-            colors.normalColor = PlaySettingsStyle.Palette.RevertLabel;
-            colors.highlightedColor = PlaySettingsStyle.Palette.TextHover;
-            colors.pressedColor = PlaySettingsStyle.Palette.TextHover;
-            colors.selectedColor = PlaySettingsStyle.Palette.RevertLabel;
-            colors.disabledColor = PlaySettingsStyle.Palette.ApplyOffLabel;
-            colors.fadeDuration = 0.08f;
-            button.colors = colors;
+            button.targetGraphic = revertFill;
+            button.transition = Selectable.Transition.None;
+            button.interactable = false;
+            BindResetHover(button);
             return button;
         }
 
@@ -1164,6 +1211,12 @@ namespace Game.Client.Lobby
                 PlaySettingsStyle.ApplyButtonRadius,
                 Mathf.Max(8, Mathf.FloorToInt((height * 0.5f) - 1f)));
             applyFill.sprite = HomeUiFonts.Rounded(radius);
+
+            var slot = rect.gameObject.AddComponent<LayoutElement>();
+            slot.preferredWidth = rect.sizeDelta.x;
+            slot.preferredHeight = rect.sizeDelta.y;
+            slot.minWidth = rect.sizeDelta.x;
+            slot.minHeight = rect.sizeDelta.y;
             return button;
         }
 
@@ -1351,6 +1404,57 @@ namespace Game.Client.Lobby
             rect.anchorMin = anchorMin;
             rect.anchorMax = anchorMax;
             rect.pivot = pivot;
+        }
+
+        private void BindResetHover(Button button)
+        {
+            var trigger = button.gameObject.GetComponent<EventTrigger>()
+                ?? button.gameObject.AddComponent<EventTrigger>();
+            trigger.triggers.Clear();
+            AddResetHoverTrigger(trigger, EventTriggerType.PointerEnter, true);
+            AddResetHoverTrigger(trigger, EventTriggerType.PointerExit, false);
+            PaintResetHover();
+        }
+
+        private void AddResetHoverTrigger(EventTrigger trigger, EventTriggerType type, bool hovered)
+        {
+            var entry = new EventTrigger.Entry { eventID = type };
+            entry.callback.AddListener(_ =>
+            {
+                resetHovered = hovered;
+                PaintResetHover();
+            });
+            trigger.triggers.Add(entry);
+        }
+
+        private void PaintResetHover()
+        {
+            var enabled = revertButton != null && revertButton.interactable;
+            var lit = enabled && resetHovered;
+            if (revertFill != null)
+            {
+                revertFill.color = lit
+                    ? PlaySettingsStyle.Palette.ResetHoverFill
+                    : PlaySettingsStyle.Palette.ResetFill;
+            }
+
+            if (revertLabel != null)
+            {
+                revertLabel.color = !enabled
+                    ? PlaySettingsStyle.Palette.ResetOffLabel
+                    : lit
+                        ? PlaySettingsStyle.Palette.ResetHoverLabel
+                        : PlaySettingsStyle.Palette.ResetLabel;
+            }
+
+            if (revertStroke != null)
+            {
+                revertStroke.color = !enabled
+                    ? PlaySettingsStyle.Palette.ResetOffStroke
+                    : lit
+                        ? PlaySettingsStyle.Palette.ResetHoverStroke
+                        : PlaySettingsStyle.Palette.ResetStroke;
+            }
         }
     }
 }

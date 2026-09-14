@@ -307,7 +307,13 @@ namespace Game.Client.Lobby
             }
 
             revertButton.gameObject.SetActive(editable);
-            revertButton.interactable = editable;
+            revertButton.interactable = editable && HasUnappliedChanges;
+            if (!revertButton.interactable)
+            {
+                resetHovered = false;
+            }
+
+            PaintResetHover();
         }
 
         private void RequestCopyRoomCode()

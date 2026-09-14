@@ -26,7 +26,7 @@ namespace Game.Client.Lobby
         public const float ApplyPaddingHorizontal = 80f;
         public const float ApplyPaddingVertical = 11f;
         public const int ApplyButtonRadius = 32;
-        public const int LayoutVersion = 36;
+        public const int LayoutVersion = 39;
 
         public const string RegularFontResource = "Fonts/Paperlogy-4Regular";
         public const string MediumFontResource = "Fonts/Paperlogy-5Medium";
@@ -49,7 +49,14 @@ namespace Game.Client.Lobby
             public static readonly Color ApplyOnLabel = Color.black;
             public static readonly Color ApplyOffLabel = FromHex(0xA8ADB3);
             public static readonly Color ApplyWarning = FromHex(0xFF3B30);
-            public static readonly Color RevertLabel = FromHex(0xF5F3F1);
+            public static readonly Color ResetFill = Color.black;
+            public static readonly Color ResetHoverFill = Color.white;
+            public static readonly Color ResetLabel = Color.white;
+            public static readonly Color ResetHoverLabel = Color.black;
+            public static readonly Color ResetStroke = Color.white;
+            public static readonly Color ResetHoverStroke = Color.black;
+            public static readonly Color ResetOffLabel = ApplyOffLabel;
+            public static readonly Color ResetOffStroke = ApplyOffLabel;
             public static readonly Color TextHover = FromHex(0xFF9A6A);
             public static readonly Color Divider = FromHex(0xF5F3F1, 0.16f);
             public static readonly Color DefaultMark = FromHex(0xF5F3F1, 0.85f);
@@ -64,7 +71,6 @@ namespace Game.Client.Lobby
             public const int MapName = 18;
             public const int Apply = 32;
             public const int ApplyWarning = 20;
-            public const int Revert = 28;
             public const int GameStart = 32;
         }
 
@@ -113,9 +119,8 @@ namespace Game.Client.Lobby
             public const float MapSectionBottomSpacing = 20f;
             public const float SectionTitleHeight = 36f;
             public const float CategoryValueMinWidth = 200f;
-            public const float RevertRightMargin = 40f;
-            public const float RevertHeight = 44f;
-            public const string RevertLabel = "되돌리기";
+            public const float ActionSpacing = 24f;
+            public const string ResetLabel = "초기화";
 
             public static float SelectionRowHeight =>
                 MapPreviewSize.y + MapNameSpacing + MapNameHeight;
