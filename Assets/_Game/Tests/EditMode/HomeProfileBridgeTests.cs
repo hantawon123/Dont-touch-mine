@@ -66,6 +66,68 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public async Task ARenameThatWorks_SurvivesTheBridgeBeingBuiltAgain()
+        {
+            // Home is loaded again after a room folds, and the scene builds a
+            // new bridge each time. The first one drew what sign-in heard, so
+            // a rename done on the earlier visit came back as the old name —
+            // and overwrote the profile every peer's nameplate reads.
+            var accounts = new FakeAccounts("옛이름");
+            var profile = new PlayerProfile("옛이름");
+            var signIn = new BackendSignIn(accounts, profile);
+            await signIn.StartAsync(CancellationToken.None);
+
+            var firstView = new FakeView();
+            using (var first = new HomeProfileBridge(firstView, accounts, profile, signIn))
+            {
+                first.Start();
+                await UniTask.Yield();
+
+                accounts.Nickname = "새이름";
+                firstView.RaiseNicknameChangeRequested("새이름");
+                await UniTask.Yield();
+            }
+
+            var secondView = new FakeView();
+            using var second = new HomeProfileBridge(secondView, accounts, profile, signIn);
+            second.Start();
+            await UniTask.Yield();
+
+            Assert.That(profile.Nickname, Is.EqualTo("새이름"));
+            Assert.That(secondView.Nickname, Is.EqualTo("새이름"));
+            Assert.That(signIn.Account.Value.Nickname, Is.EqualTo("새이름"));
+        }
+
+        [Test]
+        public async Task TurningSearchOff_SurvivesTheBridgeBeingBuiltAgain()
+        {
+            // Same road as the rename: the toggle was put back to what sign-in
+            // heard the next time Home opened, while the server kept the change.
+            var accounts = new FakeAccounts("서버이름") { Searchable = true };
+            var profile = new PlayerProfile("서버이름");
+            var signIn = new BackendSignIn(accounts, profile);
+            await signIn.StartAsync(CancellationToken.None);
+
+            var firstView = new FakeView();
+            using (var first = new HomeProfileBridge(firstView, accounts, profile, signIn))
+            {
+                first.Start();
+                await UniTask.Yield();
+
+                firstView.RaiseSearchAllowedChanged(false);
+                await UniTask.Yield();
+            }
+
+            var secondView = new FakeView();
+            using var second = new HomeProfileBridge(secondView, accounts, profile, signIn);
+            second.Start();
+            await UniTask.Yield();
+
+            Assert.That(secondView.SearchAllowed, Is.False);
+            Assert.That(signIn.Account.Value.Searchable, Is.False);
+        }
+
+        [Test]
         public async Task ARenameThatWorks_SpendsTheOneChange()
         {
             var accounts = new FakeAccounts("서버이름") { NicknameSet = false };

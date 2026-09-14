@@ -125,6 +125,7 @@ namespace Game.Bootstrap
             {
                 // From the answer, not from what was asked. The two agree today
                 // and the account is the one that decides.
+                signIn.Adopt(result.Value);
                 view.SetNicknameSearchAllowed(result.Value.Searchable);
                 view.SetNicknameSearchAllowedError(string.Empty);
                 return;
@@ -231,6 +232,10 @@ namespace Game.Bootstrap
         /// </remarks>
         private void Show(AccountSnapshot account)
         {
+            // Kept beside the profile so the next Home load — this bridge is
+            // rebuilt with the scene — starts from this answer rather than from
+            // what sign-in heard before the rename.
+            signIn.Adopt(account);
             profile.TryChangeNickname(account.Nickname, out _);
             profile.MarkNicknameSet(account.NicknameSet);
             view.SetNickname(account.Nickname);
