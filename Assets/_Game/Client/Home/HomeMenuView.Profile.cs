@@ -52,6 +52,7 @@ namespace Game.Client.Home
             panel.anchoredPosition = new Vector2(
                 -HomeStyle.Profile.PanelRightMargin, HomeStyle.Profile.PanelBottomMargin);
             panel.sizeDelta = HomeStyle.Profile.PanelSize;
+            profilePanel = panel;
 
             var fill = AddImage(
                 panel,
@@ -231,9 +232,9 @@ namespace Game.Client.Home
             var messageRect = CreateRect("NicknameMessage", panel);
             SetAnchor(messageRect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
             messageRect.anchoredPosition = new Vector2(
-                HomeStyle.Profile.SidePadding, HomeStyle.Profile.MessageTop);
+                HomeStyle.Profile.TextInset, HomeStyle.Profile.MessageTop);
             messageRect.sizeDelta = new Vector2(
-                HomeStyle.Profile.InputSize.x * 0.7f, HomeStyle.Profile.MessageHeight);
+                HomeStyle.Profile.InputSize.x * 0.65f, HomeStyle.Profile.MessageHeight);
             nicknameMessageText = AddText(
                 messageRect,
                 string.Empty,
@@ -244,7 +245,7 @@ namespace Game.Client.Home
             var counterRect = CreateRect("NicknameCounter", panel);
             SetAnchor(counterRect, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f));
             counterRect.anchoredPosition = new Vector2(
-                -HomeStyle.Profile.SidePadding, HomeStyle.Profile.MessageTop);
+                -HomeStyle.Profile.TextInset, HomeStyle.Profile.MessageTop);
             counterRect.sizeDelta = new Vector2(120f, HomeStyle.Profile.MessageHeight);
             nicknameCounterText = AddText(
                 counterRect,
@@ -410,7 +411,9 @@ namespace Game.Client.Home
             isConfirmingNickname = confirming;
             if (applyButton != null)
             {
-                applyButton.gameObject.SetActive(!confirming);
+                // Once the change is spent there is no apply row to come back
+                // to, so cancelling a confirm must not bring the button back.
+                applyButton.gameObject.SetActive(!confirming && !currentNicknameSet);
             }
 
             if (confirmRow != null)
@@ -575,6 +578,13 @@ namespace Game.Client.Home
         /// <remarks>
         /// The field is switched off rather than hidden: the player should see
         /// the name they settled on, and that it can no longer be edited.
+        /// <para>
+        /// The apply button and the character counter go, though. Both are
+        /// about typing a new name, and a greyed-out button under a field that
+        /// cannot be edited reads as something the player has yet to unlock.
+        /// The panel shrinks to the message line so it does not keep the empty
+        /// row.
+        /// </para>
         /// </remarks>
         public void SetNicknameSettled(bool settled)
         {
@@ -587,6 +597,23 @@ namespace Game.Client.Home
             if (settled)
             {
                 SetNicknameConfirming(false);
+            }
+
+            if (applyButton != null)
+            {
+                applyButton.gameObject.SetActive(!settled && !isConfirmingNickname);
+            }
+
+            if (nicknameCounterText != null)
+            {
+                nicknameCounterText.gameObject.SetActive(!settled);
+            }
+
+            if (profilePanel != null)
+            {
+                profilePanel.sizeDelta = new Vector2(
+                    HomeStyle.Profile.PanelSize.x,
+                    settled ? HomeStyle.Profile.SettledPanelHeight : HomeStyle.Profile.PanelSize.y);
             }
 
             ClearNicknameMessage();
