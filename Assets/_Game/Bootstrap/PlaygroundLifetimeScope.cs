@@ -226,7 +226,7 @@ namespace Game.Bootstrap
 
             var eventSystemObject = new GameObject(
                 "Playground UI EventSystem",
-                typeof(EventSystem),
+                typeof(ExclusiveEventSystem),
                 typeof(InputSystemUIInputModule));
             eventSystemObject.transform.SetParent(transform, false);
         }

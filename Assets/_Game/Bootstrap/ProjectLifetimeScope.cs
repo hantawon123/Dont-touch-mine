@@ -164,7 +164,7 @@ namespace Game.Bootstrap
             var inputObject = new GameObject("UI EventSystem");
             inputObject.SetActive(false);
             inputObject.transform.SetParent(transform, false);
-            var eventSystem = inputObject.AddComponent<EventSystem>();
+            EventSystem eventSystem = inputObject.AddComponent<ExclusiveEventSystem>();
             var inputModule = inputObject.AddComponent<InputSystemUIInputModule>();
             inputObject.AddComponent<SharedUiInputActions>().Bind(inputModule);
             inputObject.SetActive(true);
