@@ -172,6 +172,44 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void Guest_HidesFooterAndLetsTheBodyFillIt()
+        {
+            var root = CreateView(out var panel, out var view);
+            try
+            {
+                view.SetEditable(false);
+                var footer = panel.transform.Find("Footer");
+                var body = panel.transform.Find("Body") as RectTransform;
+                Assert.That(footer, Is.Not.Null);
+                Assert.That(body, Is.Not.Null);
+                Assert.That(footer.gameObject.activeSelf, Is.False);
+                Assert.That(body.offsetMin.y, Is.EqualTo(0f));
+                Assert.That(
+                    Find(footer, "ResetButton").gameObject.activeInHierarchy,
+                    Is.False);
+                Assert.That(
+                    Find(footer, "ApplyButton").gameObject.activeInHierarchy,
+                    Is.False);
+
+                view.SetEditable(true);
+                Assert.That(footer.gameObject.activeSelf, Is.True);
+                Assert.That(
+                    body.offsetMin.y,
+                    Is.EqualTo(PlaySettingsStyle.FooterHeight));
+                Assert.That(
+                    Find(footer, "ResetButton").gameObject.activeInHierarchy,
+                    Is.True);
+                Assert.That(
+                    Find(footer, "ApplyButton").gameObject.activeInHierarchy,
+                    Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
         private static GameObject CreateView(out GameObject panel, out PlaySettingsView view)
         {
             var root = new GameObject("Settings layout", typeof(RectTransform), typeof(Canvas));

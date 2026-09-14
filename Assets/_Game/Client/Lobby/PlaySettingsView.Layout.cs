@@ -285,6 +285,35 @@ namespace Game.Client.Lobby
             stamp.gameObject.SetActive(false);
             stamp.gameObject.AddComponent<PlaySettingsLayoutVersion>().Version =
                 PlaySettingsStyle.LayoutVersion;
+
+            RefreshFooterSpace();
+        }
+
+        private void RefreshFooterSpace()
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            var footer = panel.transform.Find("Footer") as RectTransform;
+            var body = panel.transform.Find("Body") as RectTransform;
+            var bottom = editable ? PlaySettingsStyle.FooterHeight : 0f;
+            if (footer != null)
+            {
+                footer.gameObject.SetActive(editable);
+            }
+
+            if (body == null || Mathf.Approximately(body.offsetMin.y, bottom))
+            {
+                return;
+            }
+
+            body.offsetMin = new Vector2(0f, bottom);
+            if (panel.activeInHierarchy)
+            {
+                RebuildSettingsScrollLayout();
+            }
         }
 
         private void BuildBody(RectTransform body)

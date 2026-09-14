@@ -287,6 +287,7 @@ namespace Game.Client.Lobby
             }
 
             RefreshRevertChrome();
+            RefreshFooterSpace();
         }
 
         private void RequestRevert()
