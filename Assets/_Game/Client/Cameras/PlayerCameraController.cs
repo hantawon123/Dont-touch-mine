@@ -148,9 +148,8 @@ namespace Game.Client.Cameras
 
         private void OnDisable()
         {
-            Game.Client.Common.WebPointerInput.Arm(false);
             playerMap?.Disable();
-            SetCursorLocked(false);
+            Game.Client.Common.WebPointerInput.Release();
         }
 
         private void Update()
@@ -160,6 +159,9 @@ namespace Game.Client.Cameras
             if (migrationSuspended) return;
             if (PlayerMovement.IsTextInputFocused())
             {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                if (!releasedCursorForTextInput) Game.Client.Common.WebPointerInput.DiscardHeldButtons();
+#endif
                 SetCursorLocked(false);
                 releasedCursorForTextInput = true;
                 return;
@@ -167,6 +169,9 @@ namespace Game.Client.Cameras
 
             if (releasedCursorForTextInput)
             {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                Game.Client.Common.WebPointerInput.DiscardHeldButtons();
+#endif
                 releasedCursorForTextInput = false;
                 if (cursorCaptureEnabled)
                 {
@@ -176,7 +181,7 @@ namespace Game.Client.Cameras
 
             if (!cursorCaptureEnabled) return;
 
-            if (Cursor.lockState == CursorLockMode.Locked && !IsPointerOverUi() && toggleViewAction.WasPressedThisFrame())
+            if (Game.Client.Common.WebPointerInput.IsLocked && !IsPointerOverUi() && toggleViewAction.WasPressedThisFrame())
             {
                 isFirstPerson = !isFirstPerson;
                 CutViewBlend();
@@ -194,14 +199,14 @@ namespace Game.Client.Cameras
             {
                 SetCursorLocked(false);
             }
-            else if (Cursor.lockState != CursorLockMode.Locked
+            else if (!Game.Client.Common.WebPointerInput.IsLocked
                      && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame
                      && !IsPointerOverUi())
             {
                 SetCursorLocked(true);
             }
 
-            if (Cursor.lockState == CursorLockMode.Locked)
+            if (Game.Client.Common.WebPointerInput.IsLocked)
             {
                 var look = lookAction.ReadValue<Vector2>();
                 var settings = controls?.Current ?? ControlCatalog.Defaults;
@@ -277,6 +282,10 @@ namespace Game.Client.Cameras
 
         public void SetCursorCaptureEnabled(bool captureEnabled)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (cursorCaptureEnabled != captureEnabled)
+                Game.Client.Common.WebPointerInput.DiscardHeldButtons();
+#endif
             cursorCaptureEnabled = captureEnabled;
             SetCursorLocked(captureEnabled);
         }
@@ -361,20 +370,17 @@ namespace Game.Client.Cameras
         private static bool IsPointerOverUi() =>
             EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
 
-#if UNITY_WEBGL && !UNITY_EDITOR
-        [System.Runtime.InteropServices.DllImport("__Internal")]
-        private static extern bool Game_CanRequestPointerLock();
-#endif
-
         private static void SetCursorLocked(bool locked)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            // Async scene activation is not a browser gesture. Keep capture desired;
-            // the existing gameplay click path retries once the browser permits it.
-            if (locked && !Game_CanRequestPointerLock()) return;
-#endif
+            // Unity queues lock requests from Update/scene activation until a later
+            // DOM event, which can be Escape. WebPointerInput owns acquisition in
+            // the actual gameplay pointerdown; gameplay observes browser capture.
+            if (!locked) Game.Client.Common.WebPointerInput.Release(allowFullscreenResume: true);
+#else
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !locked;
+#endif
         }
     }
 }

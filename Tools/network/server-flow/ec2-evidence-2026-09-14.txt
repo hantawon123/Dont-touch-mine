@@ -1,0 +1,291 @@
+PASS: ec2 native server + six clients; external WebGL PCs remain a manual check.
+[Server] Ready; waiting for first room owner.
+[Match] Started with 6 players.
+[Match] Started with 5 players.
+[Server] Session closed.
+[Flow988] peer=1 CONNECTED role=Client
+[Flow988] peer=1 phase=Waiting players=6 rounds=0 assignments=0 serverTime=42.59
+[Flow988] peer=1 phase=Waiting players=6 rounds=0 assignments=0 serverTime=47.69
+[Flow988] peer=1 phase=Waiting players=6 rounds=0 assignments=0 serverTime=52.69
+[Flow988] peer=1 phase=Hiding players=6 rounds=1 assignments=2 serverTime=58.11
+[Flow988] peer=1 phase=Hiding players=6 rounds=1 assignments=2 serverTime=63.14
+[Flow988] peer=1 phase=Hiding players=6 rounds=1 assignments=2 serverTime=68.23
+[Flow988] peer=1 phase=Hiding players=6 rounds=1 assignments=2 serverTime=73.30
+[Flow988] peer=1 phase=Hiding players=6 rounds=1 assignments=2 serverTime=78.39
+[Flow988] peer=1 phase=Hiding players=6 rounds=1 assignments=2 serverTime=83.41
+[Flow988] peer=1 phase=Hiding players=6 rounds=1 assignments=2 serverTime=88.70
+[Flow988] peer=1 phase=Hiding players=6 rounds=1 assignments=2 serverTime=93.72
+[Flow988] peer=1 phase=Hiding players=6 rounds=1 assignments=2 serverTime=98.86
+[Flow988] peer=1 phase=Hiding players=6 rounds=1 assignments=2 serverTime=103.95
+[Flow988] peer=1 phase=Hiding players=6 rounds=1 assignments=2 serverTime=108.95
+[Flow988] peer=1 phase=Hiding players=6 rounds=1 assignments=2 serverTime=113.98
+[Flow988] peer=1 phase=Searching players=6 rounds=1 assignments=2 serverTime=119.05
+[Flow988] peer=1 phase=Searching players=5 rounds=1 assignments=2 serverTime=124.33
+[Flow988] peer=1 phase=Searching players=5 rounds=1 assignments=2 serverTime=129.36
+[Flow988] peer=1 phase=Searching players=5 rounds=1 assignments=2 serverTime=134.45
+[Flow988] peer=1 phase=Searching players=5 rounds=1 assignments=2 serverTime=139.52
+[Flow988] peer=1 phase=Searching players=5 rounds=1 assignments=2 serverTime=144.70
+[Flow988] peer=1 phase=Searching players=5 rounds=1 assignments=2 serverTime=149.78
+[Flow988] peer=1 phase=Searching players=5 rounds=1 assignments=2 serverTime=154.86
+[Flow988] peer=1 phase=Searching players=5 rounds=1 assignments=2 serverTime=159.91
+[Flow988] peer=1 phase=Searching players=5 rounds=1 assignments=2 serverTime=165.05
+[Flow988] peer=1 phase=Searching players=5 rounds=1 assignments=2 serverTime=170.19
+[Flow988] peer=1 phase=Searching players=5 rounds=1 assignments=2 serverTime=175.39
+[Flow988] peer=1 phase=Searching players=5 rounds=1 assignments=2 serverTime=180.59
+[Flow988] peer=1 RESULT_RECEIVED
+[Flow988] peer=1 RESULT_SCENE_LOADED
+[Flow988] peer=1 RESULT_RECEIVED
+[Flow988] peer=1 phase=Highlight players=5 rounds=1 assignments=2 serverTime=185.89
+[Flow988] peer=1 phase=Highlight players=5 rounds=1 assignments=2 serverTime=191.06
+[Flow988] peer=1 RESULT_RECEIVED
+[Flow988] peer=1 phase=Highlight players=5 rounds=1 assignments=2 serverTime=196.17
+[Flow988] peer=1 phase=Highlight players=5 rounds=1 assignments=2 serverTime=201.31
+[Flow988] peer=1 phase=Highlight players=5 rounds=1 assignments=2 serverTime=206.38
+[Flow988] peer=1 phase=Highlight players=5 rounds=1 assignments=2 serverTime=211.64
+[Flow988] peer=1 REMATCH_REQUEST
+[Flow988] peer=1 phase=Waiting players=5 rounds=1 assignments=2 serverTime=216.91
+[Flow988] peer=1 phase=Waiting players=5 rounds=1 assignments=2 serverTime=221.91
+[Flow988] peer=1 phase=Hiding players=5 rounds=2 assignments=4 serverTime=227.13
+[Flow988] peer=1 phase=Hiding players=5 rounds=2 assignments=4 serverTime=232.22
+[Flow988] peer=1 phase=Hiding players=5 rounds=2 assignments=4 serverTime=237.19
+[Flow988] peer=1 phase=Hiding players=5 rounds=2 assignments=4 serverTime=242.27
+[Flow988] peer=1 phase=Hiding players=5 rounds=2 assignments=4 serverTime=247.42
+[Flow988] peer=1 phase=Hiding players=5 rounds=2 assignments=4 serverTime=252.61
+[Flow988] peer=1 phase=Hiding players=5 rounds=2 assignments=4 serverTime=257.73
+[Flow988] peer=1 phase=Hiding players=5 rounds=2 assignments=4 serverTime=262.92
+[Flow988] peer=1 phase=Hiding players=5 rounds=2 assignments=4 serverTime=268.16
+[Flow988] peer=1 phase=Hiding players=5 rounds=2 assignments=4 serverTime=273.42
+[Flow988] peer=1 OWNER_CLOSED_AFTER_REMATCH
+[Flow988] peer=1 PASS rounds=2 result=True
+[Flow988] peer=2 CONNECTED role=Client
+[Flow988] peer=2 GUEST_START_REFUSED
+[Flow988] peer=2 phase=Waiting players=6 rounds=0 assignments=0 serverTime=46.63
+[Flow988] peer=2 phase=Waiting players=6 rounds=0 assignments=0 serverTime=51.66
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=1 serverTime=56.98
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=1 serverTime=62.03
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=1 serverTime=67.09
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=1 serverTime=72.20
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=1 serverTime=77.30
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=1 serverTime=82.44
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=1 serverTime=87.52
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=1 serverTime=92.59
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=1 serverTime=97.72
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=1 serverTime=102.84
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=1 serverTime=107.97
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=2 serverTime=113.05
+[Flow988] peer=2 phase=Hiding players=6 rounds=1 assignments=2 serverTime=118.19
+[Flow988] peer=2 phase=Searching players=6 rounds=1 assignments=2 serverTime=123.44
+[Flow988] peer=2 phase=Searching players=5 rounds=1 assignments=2 serverTime=128.55
+[Flow988] peer=2 phase=Searching players=5 rounds=1 assignments=2 serverTime=133.64
+[Flow988] peer=2 phase=Searching players=5 rounds=1 assignments=2 serverTime=138.72
+[Flow988] peer=2 phase=Searching players=5 rounds=1 assignments=2 serverTime=143.84
+[Flow988] peer=2 phase=Searching players=5 rounds=1 assignments=2 serverTime=148.89
+[Flow988] peer=2 phase=Searching players=5 rounds=1 assignments=2 serverTime=154.00
+[Flow988] peer=2 phase=Searching players=5 rounds=1 assignments=2 serverTime=159.19
+[Flow988] peer=2 phase=Searching players=5 rounds=1 assignments=2 serverTime=164.39
+[Flow988] peer=2 phase=Searching players=5 rounds=1 assignments=2 serverTime=169.59
+[Flow988] peer=2 phase=Searching players=5 rounds=1 assignments=2 serverTime=174.73
+[Flow988] peer=2 phase=Searching players=5 rounds=1 assignments=2 serverTime=179.98
+[Flow988] peer=2 RESULT_RECEIVED
+[Flow988] peer=2 RESULT_SCENE_LOADED
+[Flow988] peer=2 RESULT_RECEIVED
+[Flow988] peer=2 phase=Highlight players=5 rounds=1 assignments=2 serverTime=185.38
+[Flow988] peer=2 phase=Highlight players=5 rounds=1 assignments=2 serverTime=190.48
+[Flow988] peer=2 RESULT_RECEIVED
+[Flow988] peer=2 phase=Highlight players=5 rounds=1 assignments=2 serverTime=195.78
+[Flow988] peer=2 phase=Highlight players=5 rounds=1 assignments=2 serverTime=200.84
+[Flow988] peer=2 phase=Highlight players=5 rounds=1 assignments=2 serverTime=205.89
+[Flow988] peer=2 phase=Highlight players=5 rounds=1 assignments=2 serverTime=210.88
+[Flow988] peer=2 phase=Waiting players=5 rounds=1 assignments=2 serverTime=216.09
+[Flow988] peer=2 phase=Waiting players=5 rounds=1 assignments=2 serverTime=221.08
+[Flow988] peer=2 phase=Hiding players=5 rounds=2 assignments=3 serverTime=226.36
+[Flow988] peer=2 phase=Hiding players=5 rounds=2 assignments=3 serverTime=231.59
+[Flow988] peer=2 phase=Hiding players=5 rounds=2 assignments=3 serverTime=236.66
+[Flow988] peer=2 phase=Hiding players=5 rounds=2 assignments=3 serverTime=241.83
+[Flow988] peer=2 phase=Hiding players=5 rounds=2 assignments=3 serverTime=246.98
+[Flow988] peer=2 phase=Hiding players=5 rounds=2 assignments=3 serverTime=252.03
+[Flow988] peer=2 phase=Hiding players=5 rounds=2 assignments=3 serverTime=257.22
+[Flow988] peer=2 phase=Hiding players=5 rounds=2 assignments=3 serverTime=262.23
+[Flow988] peer=2 phase=Hiding players=5 rounds=2 assignments=3 serverTime=267.50
+[Flow988] peer=2 phase=Hiding players=5 rounds=2 assignments=4 serverTime=272.64
+[Flow988] peer=2 phase=Hiding players=5 rounds=2 assignments=4 serverTime=277.84
+[Flow988] peer=2 PASS rounds=2 result=True
+[Flow988] peer=3 CONNECTED role=Client
+[Flow988] peer=3 GUEST_START_REFUSED
+[Flow988] peer=3 phase=Waiting players=6 rounds=0 assignments=0 serverTime=45.77
+[Flow988] peer=3 phase=Waiting players=6 rounds=0 assignments=0 serverTime=50.78
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=1 serverTime=56.09
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=1 serverTime=61.11
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=1 serverTime=66.16
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=2 serverTime=71.27
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=2 serverTime=76.33
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=2 serverTime=81.55
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=2 serverTime=86.69
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=2 serverTime=91.78
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=2 serverTime=96.83
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=2 serverTime=102.00
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=2 serverTime=107.11
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=2 serverTime=112.16
+[Flow988] peer=3 phase=Hiding players=6 rounds=1 assignments=2 serverTime=117.27
+[Flow988] peer=3 phase=Searching players=6 rounds=1 assignments=2 serverTime=122.45
+[Flow988] peer=3 phase=Searching players=5 rounds=1 assignments=2 serverTime=127.56
+[Flow988] peer=3 phase=Searching players=5 rounds=1 assignments=2 serverTime=132.69
+[Flow988] peer=3 phase=Searching players=5 rounds=1 assignments=2 serverTime=137.86
+[Flow988] peer=3 phase=Searching players=5 rounds=1 assignments=2 serverTime=142.88
+[Flow988] peer=3 phase=Searching players=5 rounds=1 assignments=2 serverTime=148.02
+[Flow988] peer=3 phase=Searching players=5 rounds=1 assignments=2 serverTime=153.23
+[Flow988] peer=3 phase=Searching players=5 rounds=1 assignments=2 serverTime=158.41
+[Flow988] peer=3 phase=Searching players=5 rounds=1 assignments=2 serverTime=163.66
+[Flow988] peer=3 phase=Searching players=5 rounds=1 assignments=2 serverTime=168.83
+[Flow988] peer=3 phase=Searching players=5 rounds=1 assignments=2 serverTime=173.98
+[Flow988] peer=3 phase=Searching players=5 rounds=1 assignments=2 serverTime=179.19
+[Flow988] peer=3 RESULT_RECEIVED
+[Flow988] peer=3 RESULT_SCENE_LOADED
+[Flow988] peer=3 RESULT_RECEIVED
+[Flow988] peer=3 phase=Highlight players=5 rounds=1 assignments=2 serverTime=184.27
+[Flow988] peer=3 phase=Highlight players=5 rounds=1 assignments=2 serverTime=189.34
+[Flow988] peer=3 RESULT_RECEIVED
+[Flow988] peer=3 phase=Highlight players=5 rounds=1 assignments=2 serverTime=194.80
+[Flow988] peer=3 phase=Highlight players=5 rounds=1 assignments=2 serverTime=200.14
+[Flow988] peer=3 phase=Highlight players=5 rounds=1 assignments=2 serverTime=205.36
+[Flow988] peer=3 phase=Highlight players=5 rounds=1 assignments=2 serverTime=210.38
+[Flow988] peer=3 phase=Waiting players=5 rounds=1 assignments=2 serverTime=215.64
+[Flow988] peer=3 phase=Waiting players=5 rounds=1 assignments=2 serverTime=220.63
+[Flow988] peer=3 phase=Hiding players=5 rounds=2 assignments=3 serverTime=225.80
+[Flow988] peer=3 phase=Hiding players=5 rounds=2 assignments=3 serverTime=230.80
+[Flow988] peer=3 phase=Hiding players=5 rounds=2 assignments=3 serverTime=235.95
+[Flow988] peer=3 phase=Hiding players=5 rounds=2 assignments=4 serverTime=241.08
+[Flow988] peer=3 phase=Hiding players=5 rounds=2 assignments=4 serverTime=246.20
+[Flow988] peer=3 phase=Hiding players=5 rounds=2 assignments=4 serverTime=251.38
+[Flow988] peer=3 phase=Hiding players=5 rounds=2 assignments=4 serverTime=256.53
+[Flow988] peer=3 phase=Hiding players=5 rounds=2 assignments=4 serverTime=261.64
+[Flow988] peer=3 phase=Hiding players=5 rounds=2 assignments=4 serverTime=266.84
+[Flow988] peer=3 phase=Hiding players=5 rounds=2 assignments=4 serverTime=272.02
+[Flow988] peer=3 phase=Hiding players=5 rounds=2 assignments=4 serverTime=277.28
+[Flow988] peer=3 PASS rounds=2 result=True
+[Flow988] peer=4 CONNECTED role=Client
+[Flow988] peer=4 GUEST_START_REFUSED
+[Flow988] peer=4 phase=Waiting players=6 rounds=0 assignments=0 serverTime=46.13
+[Flow988] peer=4 phase=Waiting players=6 rounds=0 assignments=0 serverTime=51.13
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=1 serverTime=56.48
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=1 serverTime=61.45
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=1 serverTime=66.53
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=1 serverTime=71.63
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=1 serverTime=76.75
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=2 serverTime=81.80
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=2 serverTime=86.91
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=2 serverTime=91.97
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=2 serverTime=97.22
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=2 serverTime=102.25
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=2 serverTime=107.25
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=2 serverTime=112.41
+[Flow988] peer=4 phase=Hiding players=6 rounds=1 assignments=2 serverTime=117.56
+[Flow988] peer=4 phase=Searching players=6 rounds=1 assignments=2 serverTime=122.67
+[Flow988] peer=4 phase=Searching players=5 rounds=1 assignments=2 serverTime=127.83
+[Flow988] peer=4 phase=Searching players=5 rounds=1 assignments=2 serverTime=132.97
+[Flow988] peer=4 phase=Searching players=5 rounds=1 assignments=2 serverTime=138.09
+[Flow988] peer=4 phase=Searching players=5 rounds=1 assignments=2 serverTime=143.36
+[Flow988] peer=4 phase=Searching players=5 rounds=1 assignments=2 serverTime=148.50
+[Flow988] peer=4 phase=Searching players=5 rounds=1 assignments=2 serverTime=153.72
+[Flow988] peer=4 phase=Searching players=5 rounds=1 assignments=2 serverTime=158.95
+[Flow988] peer=4 phase=Searching players=5 rounds=1 assignments=2 serverTime=164.17
+[Flow988] peer=4 phase=Searching players=5 rounds=1 assignments=2 serverTime=169.30
+[Flow988] peer=4 phase=Searching players=5 rounds=1 assignments=2 serverTime=174.34
+[Flow988] peer=4 phase=Searching players=5 rounds=1 assignments=2 serverTime=179.30
+[Flow988] peer=4 RESULT_RECEIVED
+[Flow988] peer=4 RESULT_SCENE_LOADED
+[Flow988] peer=4 RESULT_RECEIVED
+[Flow988] peer=4 phase=Highlight players=5 rounds=1 assignments=2 serverTime=184.69
+[Flow988] peer=4 phase=Highlight players=5 rounds=1 assignments=2 serverTime=189.86
+[Flow988] peer=4 RESULT_RECEIVED
+[Flow988] peer=4 phase=Highlight players=5 rounds=1 assignments=2 serverTime=195.00
+[Flow988] peer=4 phase=Highlight players=5 rounds=1 assignments=2 serverTime=199.91
+[Flow988] peer=4 phase=Highlight players=5 rounds=1 assignments=2 serverTime=205.13
+[Flow988] peer=4 phase=Highlight players=5 rounds=1 assignments=2 serverTime=209.98
+[Flow988] peer=4 phase=Waiting players=5 rounds=1 assignments=2 serverTime=215.56
+[Flow988] peer=4 phase=Waiting players=5 rounds=1 assignments=2 serverTime=220.52
+[Flow988] peer=4 phase=Hiding players=5 rounds=2 assignments=3 serverTime=225.55
+[Flow988] peer=4 phase=Hiding players=5 rounds=2 assignments=3 serverTime=230.77
+[Flow988] peer=4 phase=Hiding players=5 rounds=2 assignments=3 serverTime=235.73
+[Flow988] peer=4 phase=Hiding players=5 rounds=2 assignments=3 serverTime=241.03
+[Flow988] peer=4 phase=Hiding players=5 rounds=2 assignments=3 serverTime=246.22
+[Flow988] peer=4 phase=Hiding players=5 rounds=2 assignments=4 serverTime=251.33
+[Flow988] peer=4 phase=Hiding players=5 rounds=2 assignments=4 serverTime=256.45
+[Flow988] peer=4 phase=Hiding players=5 rounds=2 assignments=4 serverTime=261.55
+[Flow988] peer=4 phase=Hiding players=5 rounds=2 assignments=4 serverTime=266.63
+[Flow988] peer=4 phase=Hiding players=5 rounds=2 assignments=4 serverTime=271.84
+[Flow988] peer=4 phase=Hiding players=5 rounds=2 assignments=4 serverTime=276.95
+[Flow988] peer=4 PASS rounds=2 result=True
+[Flow988] peer=5 CONNECTED role=Client
+[Flow988] peer=5 GUEST_START_REFUSED
+[Flow988] peer=5 phase=Waiting players=6 rounds=0 assignments=0 serverTime=46.09
+[Flow988] peer=5 phase=Waiting players=6 rounds=0 assignments=0 serverTime=51.13
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=1 serverTime=56.34
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=1 serverTime=61.36
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=1 serverTime=66.53
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=1 serverTime=71.53
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=1 serverTime=76.63
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=1 serverTime=81.77
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=1 serverTime=86.92
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=2 serverTime=92.00
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=2 serverTime=97.03
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=2 serverTime=102.14
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=2 serverTime=107.25
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=2 serverTime=112.33
+[Flow988] peer=5 phase=Hiding players=6 rounds=1 assignments=2 serverTime=117.47
+[Flow988] peer=5 phase=Searching players=6 rounds=1 assignments=2 serverTime=122.70
+[Flow988] peer=5 phase=Searching players=5 rounds=1 assignments=2 serverTime=127.81
+[Flow988] peer=5 phase=Searching players=5 rounds=1 assignments=2 serverTime=132.95
+[Flow988] peer=5 phase=Searching players=5 rounds=1 assignments=2 serverTime=138.09
+[Flow988] peer=5 phase=Searching players=5 rounds=1 assignments=2 serverTime=143.22
+[Flow988] peer=5 phase=Searching players=5 rounds=1 assignments=2 serverTime=148.44
+[Flow988] peer=5 phase=Searching players=5 rounds=1 assignments=2 serverTime=153.45
+[Flow988] peer=5 phase=Searching players=5 rounds=1 assignments=2 serverTime=158.72
+[Flow988] peer=5 phase=Searching players=5 rounds=1 assignments=2 serverTime=163.98
+[Flow988] peer=5 phase=Searching players=5 rounds=1 assignments=2 serverTime=169.16
+[Flow988] peer=5 phase=Searching players=5 rounds=1 assignments=2 serverTime=174.31
+[Flow988] peer=5 phase=Searching players=5 rounds=1 assignments=2 serverTime=179.44
+[Flow988] peer=5 RESULT_RECEIVED
+[Flow988] peer=5 RESULT_SCENE_LOADED
+[Flow988] peer=5 RESULT_RECEIVED
+[Flow988] peer=5 phase=Highlight players=5 rounds=1 assignments=2 serverTime=184.33
+[Flow988] peer=5 phase=Highlight players=5 rounds=1 assignments=2 serverTime=189.63
+[Flow988] peer=5 RESULT_RECEIVED
+[Flow988] peer=5 phase=Highlight players=5 rounds=1 assignments=2 serverTime=194.89
+[Flow988] peer=5 phase=Highlight players=5 rounds=1 assignments=2 serverTime=200.06
+[Flow988] peer=5 phase=Highlight players=5 rounds=1 assignments=2 serverTime=205.20
+[Flow988] peer=5 phase=Highlight players=5 rounds=1 assignments=2 serverTime=210.38
+[Flow988] peer=5 phase=Waiting players=5 rounds=1 assignments=2 serverTime=215.61
+[Flow988] peer=5 phase=Waiting players=5 rounds=1 assignments=2 serverTime=220.59
+[Flow988] peer=5 phase=Hiding players=5 rounds=2 assignments=3 serverTime=225.73
+[Flow988] peer=5 phase=Hiding players=5 rounds=2 assignments=3 serverTime=230.77
+[Flow988] peer=5 phase=Hiding players=5 rounds=2 assignments=3 serverTime=235.70
+[Flow988] peer=5 phase=Hiding players=5 rounds=2 assignments=3 serverTime=240.84
+[Flow988] peer=5 phase=Hiding players=5 rounds=2 assignments=3 serverTime=245.97
+[Flow988] peer=5 phase=Hiding players=5 rounds=2 assignments=3 serverTime=251.17
+[Flow988] peer=5 phase=Hiding players=5 rounds=2 assignments=3 serverTime=256.30
+[Flow988] peer=5 phase=Hiding players=5 rounds=2 assignments=4 serverTime=261.45
+[Flow988] peer=5 phase=Hiding players=5 rounds=2 assignments=4 serverTime=266.72
+[Flow988] peer=5 phase=Hiding players=5 rounds=2 assignments=4 serverTime=271.89
+[Flow988] peer=5 phase=Hiding players=5 rounds=2 assignments=4 serverTime=277.06
+[Flow988] peer=5 PASS rounds=2 result=True
+[Flow988] peer=6 CONNECTED role=Client
+[Flow988] peer=6 GUEST_START_REFUSED
+[Flow988] peer=6 phase=Waiting players=6 rounds=0 assignments=0 serverTime=46.66
+[Flow988] peer=6 phase=Waiting players=6 rounds=0 assignments=0 serverTime=51.69
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=1 serverTime=57.06
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=1 serverTime=62.02
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=1 serverTime=67.06
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=1 serverTime=72.13
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=1 serverTime=77.14
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=1 serverTime=82.39
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=1 serverTime=87.45
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=1 serverTime=92.55
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=1 serverTime=97.66
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=2 serverTime=102.70
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=2 serverTime=107.83
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=2 serverTime=112.84
+[Flow988] peer=6 phase=Hiding players=6 rounds=1 assignments=2 serverTime=117.98
+[Flow988] peer=6 phase=Searching players=6 rounds=1 assignments=2 serverTime=123.19
+[Flow988] peer=6 LEFT_DURING_MATCH
+[Flow988] peer=6 PASS rounds=1 result=False

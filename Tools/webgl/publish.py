@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
+from prepare_release import prepare
 
 
 def revision(value):
@@ -55,20 +56,7 @@ def publish(root, sha, sequence=None, source=None):
                 with tempfile.TemporaryDirectory(dir=releases, prefix='.staging-') as temporary:
                     staged = Path(temporary) / 'release'
                     shutil.copytree(source, staged)
-                    index = staged / 'index.html'
-                    page = index.read_text(encoding='utf-8').replace(
-                        '</body>', '<script src="release-info.js"></script></body>')
-                    page = page.replace('</head>', '<style>#unity-container.unity-desktop{width:min(960px,100vw)}'
-                        '#unity-container.unity-desktop #unity-canvas{width:100%!important;height:auto!important}'
-                        '#unity-container:fullscreen{width:100vw!important;height:100vh;transform:none;left:0;top:0}'
-                        '#unity-container:fullscreen #unity-canvas{width:100%!important;height:100%!important}'
-                        '#unity-container:fullscreen #unity-footer{display:none}'
-                        '</style></head>')
-                    # Fullscreen the container so native IME input remains visible above the canvas.
-                    page = page.replace('unityInstance.SetFullscreen(1);',
-                        'document.querySelector("#unity-container").requestFullscreen().catch(console.warn);')
-                    index.write_text(page, encoding='utf-8')
-                    shutil.copyfile(Path(__file__).with_name('release-info.js'), staged / 'release-info.js')
+                    prepare(staged)
                     # Jenkins may run with a restrictive umask; nginx needs read access.
                     for path in staged.rglob('*'):
                         path.chmod(0o755 if path.is_dir() else 0o644)

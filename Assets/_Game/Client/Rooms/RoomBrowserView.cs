@@ -168,8 +168,7 @@ namespace Game.Client.Rooms
             ShowToast(message);
 
             // The game locked the cursor away. This is a screen to click on.
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            Game.Client.Common.WebPointerInput.Release();
 
             DisconnectionAcknowledged?.Invoke();
         }

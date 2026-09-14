@@ -13,7 +13,7 @@ namespace Game.Network.Players
     /// <remarks>
     /// Spawning happens only where authority is, so this is gated on
     /// <see cref="NetworkRunner.IsServer"/> rather than on being the host.
-    /// Moving to a dedicated server changes nothing here.
+    /// On a dedicated server, the first admitted player manages the lobby.
     /// <para>
     /// The runner arrives as an argument instead of being held. The session
     /// service already owns it and calls in from its own callbacks, so keeping a
@@ -35,6 +35,15 @@ namespace Game.Network.Players
         private readonly PlayerRegistry _players;
 
         private IReadOnlyList<Pose> _spawnPoses = Array.Empty<Pose>();
+        private PlayerRef _roomOwner;
+
+        public static bool IsRoomOwner(NetworkRunner runner, PlayerRef player)
+        {
+            if (runner == null || !player.IsRealPlayer) return false;
+            var playerObject = runner.GetPlayerObject(player);
+            return playerObject != null && playerObject.IsValid &&
+                   playerObject.TryGetBehaviour<PlayerAvatar>(out var avatar) && avatar.IsHost;
+        }
 
         public PlayerSpawner(NetworkPrefabs prefabs, PlayerRegistry players)
         {
@@ -148,11 +157,11 @@ namespace Game.Network.Players
             var seat = _players.Add(player);
             var pose = PoseFor(seat);
 
-            // In host mode the authority is also a player, so the room's owner
-            // is whoever the server is playing as. A dedicated server plays as
-            // nobody and LocalPlayer is none, which correctly leaves the flag
-            // off everyone until a separate owner is tracked.
-            var isHost = player == runner.LocalPlayer;
+            // An explicit server room belongs to its first admitted player.
+            // Ownership never follows state authority or a client-supplied account ID.
+            var owner = runner.LocalPlayer.IsRealPlayer ? runner.LocalPlayer :
+                _roomOwner.IsRealPlayer ? _roomOwner : player;
+            var isHost = player == owner;
 
             // Networked values are set here, not after Spawn returns. Fusion
             // replicates the object as it is created, and a value written
@@ -176,6 +185,7 @@ namespace Game.Network.Players
             // Fusion's own lookup, so anything else that needs this player's
             // character finds it without a second table to keep in step.
             runner.SetPlayerObject(player, avatar);
+            _roomOwner = owner;
 
             // A character belongs to the room, which outlives any one scene.
             // Fusion in single-peer mode leaves spawned objects in whichever
@@ -247,7 +257,7 @@ namespace Game.Network.Players
                 if (!_players.TryGetPlayer(seat, out var player)) continue;
                 var playerObject = runner.GetPlayerObject(player);
                 if (playerObject != null && playerObject.TryGetBehaviour<PlayerAvatar>(out var avatar))
-                    avatar.IsHost = player == runner.LocalPlayer;
+                    avatar.IsHost = player == (runner.LocalPlayer.IsRealPlayer ? runner.LocalPlayer : _roomOwner);
             }
             Debug.Log($"[Spawn] Room authority is now {runner.LocalPlayer}.");
         }
@@ -356,6 +366,7 @@ namespace Game.Network.Players
         /// </summary>
         public void Clear()
         {
+            _roomOwner = PlayerRef.None;
             _players.Clear();
             _spawnPoses = Array.Empty<Pose>();
         }
