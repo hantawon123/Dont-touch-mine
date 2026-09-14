@@ -247,6 +247,12 @@ namespace Game.Backend
     {
         public string type;
         public string userId;
+
+        /// <summary>
+        /// The same signature that rides in X-Account-Token. Empty when the
+        /// server issued none, which the server reads as absent.
+        /// </summary>
+        public string token;
     }
 
     /// <summary>

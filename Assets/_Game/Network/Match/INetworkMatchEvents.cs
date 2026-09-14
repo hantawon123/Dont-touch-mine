@@ -54,6 +54,8 @@ namespace Game.Network.Match
     public interface INetworkMatchAuthority : INetworkMatchRuntimeSource
     {
         bool IsServer { get; }
+        // Final forward tick, with no remaining simulation backlog in later frames.
+        bool IsFinalForwardTick { get; }
         MatchMigrationState MatchMigration { get; }
         bool IsMatchRuntimeRestorePending { get; }
         void ReportMatchRuntimeRestored(Exception failure);

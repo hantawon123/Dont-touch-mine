@@ -98,6 +98,19 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * X-User-Id 는 왔는데 그 계정의 토큰이 없거나 맞지 않습니다. 정지 검사보다 앞에서
+     * 나므로 토큰 없는 요청은 SUSPENDED 를 볼 수 없습니다.
+     *
+     * <p>관리자 로그인이 없을 때 SecurityConfig 가 내는 401 과 코드가 같습니다. 뜻도 같아서
+     * (누구인지 증명하지 못했다) 일부러 맞췄습니다.
+     */
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorized(UnauthorizedException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse("UNAUTHORIZED", "계정 토큰이 없거나 맞지 않습니다."));
+    }
+
+    /**
      * 정지된 계정입니다. 계정 발급과 X-User-Id 가 붙은 모든 요청에서 나옵니다.
      *
      * <p>ACCOUNT_NOT_FOUND 와 코드를 구분합니다. 그쪽은 클라이언트가 계정 발급을 다시

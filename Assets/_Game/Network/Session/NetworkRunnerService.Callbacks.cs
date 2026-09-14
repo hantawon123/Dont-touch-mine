@@ -156,6 +156,13 @@ namespace Game.Network.Session
             request.Refuse();
         }
 
+        private void OnCloudConnectionLost(NetworkRunner runner, ShutdownReason reason, bool reconnecting)
+        {
+            if (!IsCurrentRunner(runner)) return;
+            Debug.LogWarning($"[Network] Photon cloud recovery: reason={reason}, reconnecting={reconnecting}, " +
+                $"isServer={runner.IsServer}, sceneLoading={runner.IsSceneManagerBusy}.");
+        }
+
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
         {
             if (!IsCurrentRunner(runner))
