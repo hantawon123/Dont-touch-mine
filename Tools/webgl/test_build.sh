@@ -20,9 +20,15 @@ case "$*" in
   *-runTests*)
     printf '<test-run result="%s" total="1" />' "${TEST_RESULT:-Passed}" > Logs/webgl-contract-results.xml
     ;;
+  *Game.Editor.DedicatedServerBuild.Build*)
+    test "${SERVER_FAIL:-0}" != 1 || exit 1
+    mkdir -p Builds/Server
+    touch Builds/Server/GameServer.x86_64
+    git rev-parse HEAD > Builds/Server/version.txt
+    ;;
   *-executeMethod*)
     mkdir -p Builds/WebGL
-    touch Builds/WebGL/index.html
+    printf '<html><head></head><body></body></html>' > Builds/WebGL/index.html
     git rev-parse HEAD > Builds/WebGL/version.txt
     ;;
 esac
@@ -42,6 +48,12 @@ grep -q NUGET_PACKAGES=/cache/nuget calls.log
 grep -Fq -- "--tmpfs /home/unity/.config/unity3d:uid=$(id -u),gid=$(id -g),mode=700" calls.log
 grep -q $'build\t' Logs/webgl-timings.tsv
 test -f Builds/WebGL/version.txt
+test -f Builds/WebGL/release-info.js
+grep -q release-info.js Builds/WebGL/index.html
+test -f Builds/Server/GameServer.x86_64
+cmp Builds/WebGL/version.txt Builds/Server/version.txt
+grep -q -- '-buildTarget Linux64 -standaloneBuildSubtarget Server' calls.log
+SERVER_FAIL=1 bash "$script" >/dev/null 2>&1 && exit 1
 : > calls.log
 WEBGL_TEST_ONLY=1 bash "$script" >/dev/null
 ! grep -q -- -executeMethod calls.log

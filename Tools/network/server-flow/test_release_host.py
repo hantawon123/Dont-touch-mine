@@ -1,4 +1,6 @@
 import json
+import io
+import http.client
 from pathlib import Path
 import tempfile
 import threading
@@ -139,6 +141,51 @@ class ReleaseTests(unittest.TestCase):
             error.exception.close()
         finally:
             server.shutdown(); worker.join(); server.server_close()
+
+    def test_proxy_preserves_account_token_and_release_prefix(self):
+        self.release('old'); self.request('old'); self.ready('old')
+        server = create_server(self.root, port=0, handler=ReleaseHandler)
+        server.origin = f'http://127.0.0.1:{server.server_port}'
+        server.path_prefix = '/play'
+        worker = threading.Thread(target=server.serve_forever); worker.start()
+        try:
+            connection = http.client.HTTPConnection('127.0.0.1', server.server_port)
+            connection.request('GET', '/')
+            response = connection.getresponse()
+            self.assertEqual(response.getheader('Location'), '/play/releases/old/web/')
+            response.read(); connection.close()
+            with urlopen(server.origin + '/current.json') as response:
+                self.assertEqual(json.load(response)['revision'], 'old')
+            upstream = io.BytesIO(b'{}')
+            upstream.code = 200; upstream.headers = {'Content-Type': 'application/json'}
+            with patch('serve.upstream.open', return_value=upstream) as send:
+                with urlopen(Request(server.origin + '/api/v1/presence', data=b'{}', method='PUT',
+                                     headers={'X-Account-Token': 'synthetic-test-token'})) as response:
+                    self.assertEqual(response.status, 200)
+                sent = dict((k.lower(), v) for k, v in send.call_args.args[0].header_items())
+                self.assertEqual(sent['x-account-token'], 'synthetic-test-token')
+        finally:
+            server.shutdown(); worker.join(); server.server_close()
+
+    def test_publish_waits_for_ready_and_refuses_mixed_artifacts(self):
+        from publish_release import publish
+        revision = 'a' * 40
+        source = self.root / 'publish-source'
+        for folder in ('web', 'server'):
+            (source / folder).mkdir(parents=True)
+            (source / folder / 'version.txt').write_text(revision)
+        (source / 'web/index.html').write_text('test')
+        (source / 'server/GameServer.x86_64').write_text('test')
+        def advance(_):
+            self.pool.step()
+            self.ready(revision)
+        with patch('publish_release.time.sleep', side_effect=advance):
+            publish(self.root, revision, source / 'web', source / 'server')
+        self.assertEqual(self.pool.active, revision)
+        (source / 'server/version.txt').write_text('different')
+        with self.assertRaises(ValueError):
+            publish(self.root, revision, source / 'web', source / 'server')
+        self.assertEqual(self.pool.active, revision)
 
     def test_modified_or_overwritten_release_is_rejected(self):
         self.release('old')

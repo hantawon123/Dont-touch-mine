@@ -140,8 +140,17 @@ class ReleaseHandler(Handler):
                 return
             self.send_response(302)
             query = urlsplit(self.path).query
-            self.send_header('Location', '/releases/' + active + '/web/' + ('?' + query if query else ''))
+            self.send_header('Location', getattr(self.server, 'path_prefix', '') + '/releases/' + active + '/web/' + ('?' + query if query else ''))
             self.end_headers()
+        elif path == '/current.json':
+            active = read_json(self.server.root / 'active.json', {}).get('release')
+            manifest = read_json(release_path(self.server.root, active) / 'release.json', {}) if active else {}
+            data = json.dumps({'revision': manifest.get('version'), 'release': active}).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
         elif path.startswith('/api/v1/'):
             self.api()
         elif path.startswith('/releases/'):
@@ -174,6 +183,7 @@ def main():
     server = create_server(pool.root, config.get('bind', '127.0.0.1'), config.get('port', 4291),
                            config.get('origin', 'http://localhost:4291'),
                            config.get('api_origin', 'https://j15d205.p.ssafy.io'), ReleaseHandler)
+    server.path_prefix = config.get('path_prefix', '').rstrip('/')
     worker = threading.Thread(target=pool.run)
     worker.start()
     def stop(*_):

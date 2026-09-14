@@ -115,3 +115,34 @@ python -m unittest discover -s Tools/network/server-flow -p 'test_release_host.p
 준비 전 교체 차단, 후보 실패·버전 충돌 시 기존 경로 보존, 기존 프로세스 유지와 종료 후 정책, 두 프로세스 상한, 롤백, 실제 HTTP의 버전별 파일 보존·비공개 경로 차단, 릴리스 무결성을 검사한다. 모형 프로세스 검사는 실제 EC2의 WebGL 접속·교체 검증과 구분한다.
 
 2026-09-14 실제 실행 결과와 범위는 [교체 검증 기록](../../../docs/planning/server-release-host-988.md)에 있다.
+
+
+## CI 배포 환경 — S15P21D205-989 / 990
+
+기존 EC2에 `d205-game-release.service`를 부팅 시 시작하도록 설치했다. 사용자/그룹은 `jenkins`, 작업 루트는 `/var/www/d205-game`, runtime은 `/var/www/d205-game/runtime`이다. `host.json`은 `bind=127.0.0.1`, `port=4292`, `origin=https://j15d205.p.ssafy.io`, `path_prefix=/play`, `region=kr`, `startup_timeout=120`을 사용한다. 기존 시험용 `d205-game-release-test.service`와 4291 포트는 유지한다.
+
+nginx는 `Tools/webgl/nginx.conf`처럼 `/play/`를 loopback4292로 전달한다. 호스트는 `/play/releases/<SHA>/web/`로 이동시키고 `/play/current.json`으로 활성 버전을 알려 준다. 웹 파일만 읽을 수 있으며 서버 실행 파일·계정 상태·관리 제어 파일은 HTTP로 열지 않는다. API는 기존 HTTPS 백엔드를 사용하고 로컬 시험 중계도 `X-Account-Token`을 전달한다.
+
+기존 Jenkins 작업을 재개하면 다음 순서로 실행한다. `TEST_ONLY`는 두 플레이어 빌드·배포를 생략하며 `FAST_BUILD`와 기능 브랜치는 자동 게시하지 않는다.
+
+1. 기존 Git LFS·NuGet·네트워크 계약 검사.
+2. 동일 Git SHA로 WebGL과 Linux Dedicated Server 순차 빌드. Linux 빌드에는 `Game.Editor.DedicatedServerBuild.Build`를 사용한다.
+3. 기존 버전 안내·전체화면 HTML 처리를 공통 `prepare_release.py`로 적용.
+4. 두 `version.txt`가 SHA와 같은지 확인하고 불변 릴리스에 저장.
+5. 실행 중인 호스트가 새 서버의 실제 Ready를 확인하면 활성 경로 교체. 실패 시 Jenkins도 실패하며 이전 경기를 강제로 종료하지 않는다.
+
+```bash
+python3 Tools/network/server-flow/publish_release.py /var/www/d205-game/runtime <40자리SHA> --web Builds/WebGL --server Builds/Server
+python3 /var/www/d205-game/tools/releases.py /var/www/d205-game/runtime status
+# 이전 정상 서버/WebGL 쌍 복구; 서비스 재시작하지 않음
+python3 /var/www/d205-game/tools/releases.py /var/www/d205-game/runtime activate <이전릴리스ID>
+```
+
+같은 SHA를 재빌드해도 이미 게시한 릴리스는 덮어쓰지 않는다. 새로운 소스에는 새 SHA를 사용한다. 빌드 중 서비스는 기존 파일과 서버를 유지한다. 두 버전이 같은 Photon AppVersion으로 섞이는 활성화는 거절한다. 배포를 기다리는 동안 구버전에서의 새 방 생성은 실패할 수 있으므로 버전 안내에서 게임 종료 후 최신 `/play/`로 이동한다.
+
+다른 Linux x86_64 서버로 옮길 때에는 tools·runtime과 host.json을 함께 옮기고 루트, origin, 서비스 User/Group/WorkingDirectory/ExecStart, HTTPS upstream을 맞춘다. 실행 계정이 runtime에 쓸 수 있어야 한다. 기존 방을 종료한 뒤 이전한다. Photon 설정과 백엔드 주소를 유지하면 게임 프로토콜을 바꾸지 않는다.
+
+현재 Jenkins 작업 활성화와 공개 `/play/` 유지보수 해제는 하지 않았다. 배포 호스트는 active/enabled이며 첫 일치 빌드 쌍 게시 전에는 503이다. 실제 최종 CI 빌드와 공개 실기 검증은 사용자 요청에 따라 S15P21D205-1007에서 진행한다. 이전 988 EC2 교체/롤백 실험과 새 배포 환경 준비를 구분한다.
+
+
+2026-09-15 환경 검사: Linux Dedicated Server Mono 모듈이 포함된 CI 이미지를 기존 EC2에 설치하고 digest를 고정했다. nginx 설정 검사 통과, 신규 서비스 active/enabled, 최초 릴리스 없는 내부 루트 503, 유지보수 공개 경로 503, 기존 시험 서비스 active와 WebGL Jenkins disabled=true를 확인했다. 실제 Linux에서 배포/헤더/버전 격리 7개 검사, 빌드 제어 검사, 기존 게시/롤백 검사와 변경 범위 3개 검사가 통과했다. 최신 develop 통합 Unity EditMode는 1470개 중 headless에서 1467 통과·2 제외·RenderTexture 1 실패였으며 해당 1개는 그래픽 활성 환경에서 재실행해 통과했다. WebGL 실제 신규 빌드·공개 실기는 이 결과에 포함하지 않는다.

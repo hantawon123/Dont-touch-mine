@@ -38,7 +38,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             payload = self.rfile.read(size) if size else None
             headers = {key: self.headers[key] for key in
-                       ('Content-Type', 'Authorization', 'Accept', 'X-User-Id', 'X-Device-Id')
+                       ('Content-Type', 'Authorization', 'Accept', 'X-User-Id', 'X-Device-Id', 'X-Account-Token')
                        if key in self.headers}
             request = Request(self.server.api_origin + self.path,
                               data=payload, headers=headers, method=self.command)

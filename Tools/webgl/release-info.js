@@ -1,5 +1,6 @@
 (() => {
-  const revision = location.pathname.split('/').filter(Boolean).at(-1);
+  const parts = location.pathname.split('/').filter(Boolean);
+  const revision = parts[parts.indexOf('releases') + 1];
   const notice = document.createElement('button');
   notice.textContent = '새 버전이 있습니다. 게임을 나가고 업데이트';
   notice.style.cssText = 'position:fixed;top:8px;left:8px;z-index:2147483647;padding:12px;display:none';
