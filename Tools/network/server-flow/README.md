@@ -86,6 +86,12 @@ python Tools/network/server-flow/verify.py '<logs-directory>' --server-location 
 
 ## WebGL 포인터 잠금 회귀 확인
 
-[오류 원인·실행 결과·수동 절차](../../../docs/planning/webgl-pointer-lock-988.md)를 따른다. `pointer-lock-check.js`는 검증 빌드의 index.html에서 Unity loader보다 먼저 삽입하는 진단 도구다. 제품 패키지에는 포함하지 않는다. Escape 요청 없음과 실제 클릭 후 잠금·이동 복구를 모두 확인한다.
+[오류 원인·실행 결과·수동 절차](../../../docs/planning/webgl-pointer-lock-988.md)를 따른다. `pointer-lock-check.js`는 검증 빌드의 index.html에서 Unity loader보다 먼저 삽입하는 진단 도구다. 제품 패키지에는 포함하지 않는다. 일반 창에서는 첫 Escape의 설정 열기와 클릭 후 조작 복귀를 확인한다. 게임 하단 버튼으로 진입한 전체화면에서는 키보드/마우스 권한을 허용한 뒤 Escape로 설정을 닫았을 때 추가 클릭 없이 조작이 복구되는지 확인한다. F11은 이 실험의 전체화면 진입 방법이 아니다. Escape를 약 2초 이상 누르면 전체화면에서 나올 수 있다.
 
 프리뷰 페이지 HTTP 200만으로 접속 준비를 판단하지 않는다. `serve.py` 실행 환경에서 기존 HTTPS 백엔드 통신이 허용돼야 한다. 계정 발급 502 이후 Photon의 `Authentication type None not supported`가 나타나면 인증 중계 실패부터 확인한다. 승인된 실험용 계정 발급 성공을 확인하고 페이지를 새로고침한다. 인증을 끄거나 토큰을 로그에 남기지 않는다. 이미 방 하나에 할당된 시험 서버 한 개로는 새 방을 더 만들 수 없으므로 기존 방 찾기로 참가한다.
+
+공통 브라우저 연동 계약은 다음 명령으로 확인한다. 격리된 DOM 모형 검사이므로 실제 Chrome 권한·시점·공격 검증을 대신하지 않는다.
+
+```powershell
+node Tools/network/server-flow/pointer-bridge.test.cjs Assets/_Game/Client/Common/WebTextInput.jslib
+```

@@ -148,9 +148,8 @@ namespace Game.Client.Cameras
 
         private void OnDisable()
         {
-            Game.Client.Common.WebPointerInput.Arm(false);
             playerMap?.Disable();
-            SetCursorLocked(false);
+            Game.Client.Common.WebPointerInput.Release();
         }
 
         private void Update()
@@ -176,7 +175,7 @@ namespace Game.Client.Cameras
 
             if (!cursorCaptureEnabled) return;
 
-            if (Cursor.lockState == CursorLockMode.Locked && !IsPointerOverUi() && toggleViewAction.WasPressedThisFrame())
+            if (Game.Client.Common.WebPointerInput.IsLocked && !IsPointerOverUi() && toggleViewAction.WasPressedThisFrame())
             {
                 isFirstPerson = !isFirstPerson;
                 ApplyView();
@@ -193,14 +192,14 @@ namespace Game.Client.Cameras
             {
                 SetCursorLocked(false);
             }
-            else if (Cursor.lockState != CursorLockMode.Locked
+            else if (!Game.Client.Common.WebPointerInput.IsLocked
                      && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame
                      && !IsPointerOverUi())
             {
                 SetCursorLocked(true);
             }
 
-            if (Cursor.lockState == CursorLockMode.Locked)
+            if (Game.Client.Common.WebPointerInput.IsLocked)
             {
                 var look = lookAction.ReadValue<Vector2>();
                 var settings = controls?.Current ?? ControlCatalog.Defaults;
@@ -347,12 +346,12 @@ namespace Game.Client.Cameras
 #if UNITY_WEBGL && !UNITY_EDITOR
             // Unity queues lock requests from Update/scene activation until a later
             // DOM event, which can be Escape. WebPointerInput owns acquisition in
-            // the actual gameplay pointerdown; Unity observes pointerlockchange.
-            if (locked) return;
-            Game.Client.Common.WebPointerInput.Arm(false);
-#endif
+            // the actual gameplay pointerdown; gameplay observes browser capture.
+            if (!locked) Game.Client.Common.WebPointerInput.Release(allowFullscreenResume: true);
+#else
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !locked;
+#endif
         }
     }
 }

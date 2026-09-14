@@ -222,7 +222,7 @@ namespace Game.Client.Interactions
             UpdateAim();
 
             // 커서가 풀린 상태(메뉴 조작 등)의 클릭만 게임 입력에서 제외한다.
-            if (Cursor.lockState != CursorLockMode.Locked || IsInputLocked)
+            if (!Game.Client.Common.WebPointerInput.IsLocked || IsInputLocked)
             {
                 CancelThrowAim();
                 return;
@@ -468,7 +468,7 @@ namespace Game.Client.Interactions
             var nextHighlight = CanShowWorldPrompt(
                                     HudVisible,
                                     interactionPromptVisible,
-                                    Cursor.lockState == CursorLockMode.Locked) &&
+                                    Game.Client.Common.WebPointerInput.IsLocked) &&
                                 aimedTarget is CarryableItem item &&
                                 CarriedItem == null &&
                                 item.CanInteract(this)
@@ -507,7 +507,7 @@ namespace Game.Client.Interactions
             if (!CanShowWorldPrompt(
                     HudVisible,
                     interactionPromptVisible,
-                    Cursor.lockState == CursorLockMode.Locked) ||
+                    Game.Client.Common.WebPointerInput.IsLocked) ||
                 placementController is { IsPlacing: true } ||
                 aimedTarget is not IInteractable interactable ||
                 !interactable.CanInteract(this) ||

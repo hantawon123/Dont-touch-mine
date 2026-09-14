@@ -1,48 +1,55 @@
-# 988 WebGL 포인터 잠금 오류 수정
+# 988 WebGL 마우스·Escape 입력 수정 검증
 
-## 원인
+## 현재 판정
 
-로비에서 Escape로 설정을 열 때 보였던 Chromium UnknownError는 포인터 잠금 요청 경로의 오류다. Chromium 소스에 같은 오류 문구가 PointerLockResult의 예외로 정의돼 있다. 이번 재현에서는 같은 경로에서 WrongDocumentError도 발생했다. [Chromium 포인터 잠금 오류 처리](https://chromium.googlesource.com/chromium/src/+/0a8c7ee1034e43691c810ab4dcc9b72eef8dc951%5E%21/)
+v3 실제 Chrome 게임에서 이동·시점·마우스 입력 복구를 사용자가 확인했다. 전체화면 + Keyboard Lock 실험 페이지에서도 Escape로 메뉴를 열고 닫은 뒤 추가 클릭 없이 실제 잠금과 마우스 이동이 복구됨을 확인했다. 이를 실제 게임에 연결한 v5는 빌드에 성공했으며(505.56초), 게임 설정창에서 같은 동작을 재검증해야 한다. 아직 최종 완료 판정이 아니다.
 
-기존 코드는 두 경로에서 잠금을 요청했다. 카메라의 C# `Cursor.lockState = Locked`와 브라우저 `pointerdown`의 `requestPointerLock`이다. C# 경로는 씬 활성화/Update에서도 호출됐고, navigator.userActivation.isActive가 참이어도 Unity/Emscripten의 현재 DOM 이벤트 처리 중이라는 뜻은 아니었다. 이때 잠금 요청이 예약되었다가 나중의 Escape 이벤트에서 실행됐다. Emscripten 경로는 반환된 Promise의 거절을 처리하지 않아 Unity 전역 오류 창까지 전파했다.
+## 원인과 수정
 
-2026-09-14 11:46:16 UTC, 기존 빌드의 실제 브라우저 호출 추적:
+기존 WebGL은 C# Cursor.lockState 요청과 JavaScript pointerdown 요청이 섞여 있었다. Unity/Emscripten은 DOM 이벤트 밖의 C# 요청을 예약했고, 후속 Escape에서 실행된 요청의 Promise 거절이 전역 오류 팝업까지 전파됐다. 실제 추적에서 Object.runDeferredCalls → requestPointerLock, activation=false, WrongDocumentError를 확인했다. 사용자가 보낸 UnknownError 역시 Chromium 포인터 잠금 오류 경로의 문구다.
 
-```text
-[PointerQA] Escape
-[PointerQA] request activation=false locked=false
-Element.requestPointerLock
-  requestPointerLock
-  Object.runDeferredCalls
-  HTMLCanvasElement.jsEventHandler
-[PointerQA] rejected WrongDocumentError: The root document of this element is not valid for pointer lock.
-```
+C#의 WebGL 잠금 요청을 제거한 v2는 팝업을 없앴지만, 실제 잠금과 Unity의 요청 상태가 달라 마우스 입력 차단 조건이 남았다. 따라서 v2는 완료 빌드가 아니다. 공통 WebPointerInput.IsLocked가 WebGL에서는 document.pointerLockElement를 읽도록 바꾸고 카메라·공격·상호작용·경기 UI가 같은 상태를 보도록 했다. 해제도 document.exitPointerLock을 호출한다. 네이티브의 기존 Cursor 경로는 유지한다.
 
-## 수정
+Chrome이 첫 Escape를 소비해 Unity에 키 입력을 전달하지 않는 경우를 위해 브라우저의 자발적 잠금 해제를 설정창 열기로 연결했다. 코드에 의한 해제·중복 해제·포커스 손실과 구분하고 로비/경기 UI에는 한 프레임의 동일한 이벤트를 제공한다.
 
-PlayerCameraController의 WebGL 경로에서 C#의 잠금 요청을 없앴다. 이미 존재하던 WebPointerInput의 게임 화면 pointerdown 처리만 잠금을 요청한다. 설정·채팅·씬 종료로 잠금을 해제할 때는 클릭 처리도 즉시 비활성화한다. 브라우저가 잠금을 승인하면 Unity가 기존 pointerlockchange 콜백으로 상태를 받는다. 사용하지 않게 된 WebCursor.jslib와 meta를 함께 제거했다.
+전체화면에서는 기존 게임 전체화면 버튼을 사용하고 Keyboard Lock으로 Escape만 요청한다. 설정·채팅이 잠금을 해제한 경우에만 게임 입력 재활성화 시 한 번 재잠금을 시도한다. 홈 복귀·연결 종료·포커스 손실은 이 복귀 요청을 취소한다. 권한 거절은 처리하며 반복 잠금 요청이나 전역 오류 무시는 하지 않는다.
 
-Windows/Linux/에디터 경로는 기존 Cursor 처리를 유지한다. 오류 전역 무시나 브라우저 보안 설정 변경은 하지 않았다. WebGL에서 씬 입장이나 Escape로 설정을 닫은 직후에는 게임 화면을 클릭해 마우스를 다시 잡는다.
+## 검증 범위
 
-## 반복 확인 방법
+| 확인 | 결과 |
+| --- | --- |
+| v3 WebGL 빌드 | 성공, 532.20초 |
+| v3 실제 Chrome 게임 | 사용자: 이동·시점·마우스 입력 동작 |
+| 기존 에디터 입력 테스트 | 1 passed / 1 skipped / 0 failed; 화면 없는 에디터의 실제 잠금 테스트 제외 |
+| 브라우저 연동 계약 테스트 | 실제 상태 조회, Escape, 중복/코드 해제, 포커스 손실, 이벤트 소비 통과 |
+| 전체화면 연동 계약 테스트 | 한 번 복귀, 종료 시 취소, 포커스 손실, 전체화면 종료, 권한 거절 통과 |
+| 별도 전체화면 실험 페이지 | 사용자: Esc 메뉴 닫기 → locked=true → 잠금 상태 마우스 이동 확인 |
+| v5 WebGL 빌드 | 성공, 505.56초; 최종 framework의 잠금 연동 함수 포함 확인 |
+| v5 실제 게임 설정창 | 재검증 대기 |
+| 서로 다른 PC의 WebGL 6인 경기 | 별도 수동 검증 대기 |
 
-같은 EC2 linux-v2 서버와 호환 버전 988-local-v1 WebGL을 사용한다. 새로 빌드한 페이지에만 Tools/network/server-flow/pointer-lock-check.js를 Unity loader 이전에 삽입하면 요청 시점 assertion과 실제 잠금/해제 이벤트를 확인할 수 있다. 이 파일은 제품 Assets 밖의 검증 도구이며 배포 패키지에는 넣지 않는다.
+Node 테스트는 격리된 DOM 모형의 계약 검증이다. 실제 브라우저 권한이나 게임 입력 성공의 대체 증거로 사용하지 않는다. 인앱 브라우저는 Unity 없는 기본 HTML에서도 잠금을 거절했으므로 실제 잠금 검증은 일반 Chrome에서 한다.
 
-1. 홈 설정에 들어갔다가 나온다.
-2. 방 생성 후 화면 클릭 없이 Escape로 설정을 열고 닫는다. Escape에서 잠금을 요청하거나 Unity 오류 창이 나오면 실패다.
-3. 게임 화면 클릭으로 잠금을 잡고 이동/시점을 확인한 뒤 Escape로 해제한다. 반복한다.
-4. 채팅 입력 중에는 잠금이 풀리고, 입력 종료 후 게임 화면 클릭으로 다시 잡혀야 한다.
-5. 로비 단축키의 캐릭터/플레이어 화면을 열고 닫는다. UI 클릭이 잠금을 잡으면 실패다.
-6. 게임 나가기 확인 후 홈으로 복귀하고 EC2 서버가 종료되는지 확인한다.
+## 실제 게임 재검증 절차
 
-pointer-lock-check.js의 `FAIL` 또는 처리되지 않은 Promise 오류가 없어야 한다. 오류 없음만으로 통과시키지 않고 실제 locked=true/false와 게임 입력 복구까지 확인한다.
+1. 새 빌드를 Ctrl+Shift+R로 불러온다. 빈 시험 서버가 준비됐으면 방 만들기, 이미 할당된 방이면 게임 찾기로 입장한다.
+2. 일반 창에서 화면 클릭 → 시점·공격 → Escape 한 번으로 설정창이 열리는지 확인한다. 일반 창의 재잠금에는 화면 클릭이 필요할 수 있다.
+3. 게임 하단의 전체화면 버튼을 클릭한다. F11 대신 게임 버튼을 사용하고 브라우저의 키보드/마우스 권한 요청을 허용한다.
+4. 화면 클릭으로 게임 입력을 시작한다. 짧은 Escape로 설정을 열고 5초 이상 기다린 뒤 Escape로 닫는다. 추가 클릭 없이 커서가 사라지고 시점이 움직여야 한다. 여러 번 반복한다.
+5. 채팅·다른 UI를 열 때 게임 조작이 차단되는지 확인한다. 홈 복귀·연결 종료 화면에서는 커서가 풀려 있어야 한다.
+6. Escape를 약 2초 이상 눌러 전체화면을 종료한다. 권한 거절이나 전체화면 종료 후에는 화면 클릭으로 돌아갈 수 있어야 한다.
 
-## 이번 실행 결과와 남은 확인
+Tools/network/server-flow/pointer-lock-check.js를 Unity loader보다 먼저 삽입하면 요청 시점과 실제 잠금 이벤트를 확인할 수 있다. 전체화면의 활성 사용자 동작에 따른 복귀 요청은 정상이다. 제품 패키지에는 진단 스크립트를 포함하지 않는다.
 
-- 새 WebGL 빌드 성공: Unity 6000.3.22f1, 988-local-v1, 빌드 단계 495.34초. 출력은 `.build/server-988-webgl-cursor-v2`.
-- 12:02 UTC EC2 linux-v2 방 접속. Escape로 설정 열기·닫기에서 예약된 requestPointerLock 호출과 Unity 오류 창이 재현되지 않았다. 화면 클릭 요청은 pointerdown / userActivation=true로만 기록됐다.
-- 인앱 브라우저는 Unity 없는 기본 HTML에서도 focused=true, connected=true, userActivation=true인데 WrongDocumentError로 잠금을 거절했다. 실제 마우스 잠금·이동·시점 복구는 일반 Chrome 수동 확인이 남아 있다. 이것을 게임 실행 검증 전체 통과로 처리하지 않는다.
-- 사용자 Chrome 접속에서 Authentication type None not supported 발생. 프리뷰 인증 중계가 제한된 실행 권한으로 시작돼 외부 HTTPS 요청이 차단되고 계정 발급이 502로 실패한 것을 확인했다. 기존 승인 범위에서 정상 네트워크 권한으로 중계를 재실행했다. 새 실험용 UUID의 계정 발급 HTTP 201 및 비어 있지 않은 Photon 토큰 반환 확인. 기기 ID/토큰은 기록하지 않는다.
-- 시험 서버는 1개이며 이미 생성된 988EC2 방에 배정돼 있다. 추가 빈 서버가 없으므로 새 방 만들기 실패는 별도 용량 조건이다. 수동 확인자는 새로고침 후 게임 찾기로 기존 방에 참가한다.
+## 접속·presence의 별도 문제
 
-인증 중계 실행 시 로컬 페이지 200만으로 준비 완료라 하지 않는다. 중계 프로세스가 기존 HTTPS 백엔드에 접근할 수 있고 계정 발급이 성공하는지 확인한 뒤 사용자 접속을 안내한다.
+프리뷰가 제한된 네트워크 권한으로 실행되면 계정 API 중계가 502로 실패하고 Photon Authentication type None 오류가 뒤따랐다. 기존 승인 범위에서 중계를 정상 네트워크 권한으로 다시 실행한 뒤 실험 계정 발급 201·Photon 토큰 반환과 방 접속을 확인했다. 페이지 HTTP 200만으로 준비 완료라 하지 않는다. 계정·토큰 값은 기록하지 않는다.
+
+presence는 동일한 실험 계정으로 HTTPS와 내부 8080 모두 401 UNAUTHORIZED였다. 따라서 초기의 외부 라우팅 원인 추정은 철회한다. 추가 기기 ID 헤더와 Photon 토큰의 Bearer 전달도 해결하지 못했다. 승인된 배포 SecurityConfig / PresenceController / SuspensionInterceptor 비교에서는 로컬과 같은 기본 계약을 확인했고 제한된 최근 로그에는 예외 종류가 나오지 않았다. 추가 배포 클래스 탐색은 자동 승인 검토가 비공개 아티팩트 접근 범위를 이유로 차단해 중단했다. presence 해결이나 운영 인증 변경은 하지 않았다.
+
+## 공식 근거
+
+- [Chromium 포인터 잠금 오류 처리](https://chromium.googlesource.com/chromium/src/+/0a8c7ee1034e43691c810ab4dcc9b72eef8dc951%5E%21/)
+- [Pointer Lock 요청 조건](https://developer.mozilla.org/en-US/docs/Web/API/Element/requestPointerLock)
+- [사용자 활성화 입력 종류](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/User_activation)
+- [Chrome Keyboard Lock: 전체화면·권한·Escape 종료](https://developer.chrome.com/docs/capabilities/web-apis/keyboard-lock)

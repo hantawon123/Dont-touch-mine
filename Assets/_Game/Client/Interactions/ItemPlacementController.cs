@@ -126,7 +126,7 @@ namespace Game.Client.Interactions
                 suppressAttackUntilRelease = false;
             }
 
-            if (Cursor.lockState != CursorLockMode.Locked || IsInputLocked)
+            if (!Game.Client.Common.WebPointerInput.IsLocked || IsInputLocked)
             {
                 ExitPlacementMode();
                 return;
@@ -459,7 +459,7 @@ namespace Game.Client.Interactions
                 !PlayerInteractor.CanShowWorldPrompt(
                     interactor.HudVisible,
                     interactor.InteractionPromptsAllowed,
-                    Cursor.lockState == CursorLockMode.Locked))
+                    Game.Client.Common.WebPointerInput.IsLocked))
             {
                 promptView?.Hide();
                 return;

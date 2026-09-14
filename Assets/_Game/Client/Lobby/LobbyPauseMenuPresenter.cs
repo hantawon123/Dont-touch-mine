@@ -141,6 +141,7 @@ namespace Game.Client.Lobby
 
         public void Tick()
         {
+            var browserReleased = Game.Client.Common.WebPointerInput.ReleasedByBrowserThisFrame;
             // The avatar can arrive after the menu is already open, and an open
             // menu the player can walk away from is not open in any useful
             // sense.
@@ -190,7 +191,8 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (WasPressed(keyboard.escapeKey))
+            if (WasPressed(keyboard.escapeKey) ||
+                (browserReleased && !view.IsOpen && closeOpenScreen == null))
             {
                 HandleEscape();
             }
