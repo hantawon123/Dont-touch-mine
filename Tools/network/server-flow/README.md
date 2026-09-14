@@ -83,3 +83,9 @@ python Tools/network/server-flow/verify.py '<logs-directory>' --server-location 
 ```
 
 [EC2 실제 검증 결과](../../../docs/planning/server-ec2-trial-988.md)에 6인 흐름, WebGL 접속, 자원 관측과 남은 문제를 기록했다. 별도 PC의 WebGL 6인 수동 검증은 아직 남아 있다.
+
+## WebGL 포인터 잠금 회귀 확인
+
+[오류 원인·실행 결과·수동 절차](../../../docs/planning/webgl-pointer-lock-988.md)를 따른다. `pointer-lock-check.js`는 검증 빌드의 index.html에서 Unity loader보다 먼저 삽입하는 진단 도구다. 제품 패키지에는 포함하지 않는다. Escape 요청 없음과 실제 클릭 후 잠금·이동 복구를 모두 확인한다.
+
+프리뷰 페이지 HTTP 200만으로 접속 준비를 판단하지 않는다. `serve.py` 실행 환경에서 기존 HTTPS 백엔드 통신이 허용돼야 한다. 계정 발급 502 이후 Photon의 `Authentication type None not supported`가 나타나면 인증 중계 실패부터 확인한다. 승인된 실험용 계정 발급 성공을 확인하고 페이지를 새로고침한다. 인증을 끄거나 토큰을 로그에 남기지 않는다. 이미 방 하나에 할당된 시험 서버 한 개로는 새 방을 더 만들 수 없으므로 기존 방 찾기로 참가한다.
