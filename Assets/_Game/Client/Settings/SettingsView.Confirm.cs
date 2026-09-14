@@ -46,6 +46,19 @@ namespace Game.Client.Settings
 
         public event Action ConfirmDismissed;
 
+        /// <summary>
+        /// True while a confirmation or the feedback panel is up, so Esc
+        /// belongs to that panel rather than to the overlay that opened this
+        /// screen.
+        /// </summary>
+        public bool BlocksEscape => isConfirmOpen || isFeedbackOpen;
+
+        /// <summary>
+        /// True after this view ate Esc on this frame, so a LateTick overlay
+        /// does not also close the whole screen.
+        /// </summary>
+        public bool ConsumedEscapeThisFrame { get; private set; }
+
         public void ShowConfirm(SettingsConfirmKind kind, SettingsTab tab)
         {
             if (confirmRoot == null)
@@ -109,6 +122,7 @@ namespace Game.Client.Settings
         /// </remarks>
         private void Update()
         {
+            ConsumedEscapeThisFrame = false;
             if (!isConfirmOpen && !isFeedbackOpen)
             {
                 return;
@@ -120,6 +134,7 @@ namespace Game.Client.Settings
                 return;
             }
 
+            ConsumedEscapeThisFrame = true;
             if (isConfirmOpen)
             {
                 ConfirmDismissed?.Invoke();

@@ -52,6 +52,9 @@ namespace Game.Bootstrap
         [Tooltip("Pixel of the cursor picture that clicks, from its top-left. An arrow's tip, a hand's fingertip.")]
         private Vector2 _cursorHotspot;
 
+        [SerializeField]
+        private AudioClip _menuBgm;
+
         protected override void Configure(IContainerBuilder builder)
         {
             // Built here rather than in RegisterServices: it reads this
@@ -110,6 +113,17 @@ namespace Game.Bootstrap
             // put on an action, so only the application has one.
             builder.Register<IKeyCapture, UnityKeyCapture>(Lifetime.Singleton);
             builder.RegisterEntryPoint<SoundSettingsStartup>();
+            if (_menuBgm != null)
+            {
+                var musicObject = new GameObject("Menu BGM");
+                musicObject.transform.SetParent(transform, false);
+                var music = musicObject.AddComponent<AudioSource>();
+                music.playOnAwake = false;
+                music.loop = true;
+                music.spatialBlend = 0f;
+                music.clip = _menuBgm;
+                builder.RegisterEntryPoint<MenuBgmController>().WithParameter(music);
+            }
 
             // Makes a saved choice real. Registered here rather than in
             // RegisterServices because only the application has a window to
@@ -244,7 +258,10 @@ namespace Game.Bootstrap
             // things that wait on it resolve it. One registration, so they wait
             // on the sign-in that actually ran rather than on a second instance
             // that never started.
-            builder.RegisterEntryPoint<BackendSignIn>().AsSelf();
+            builder.RegisterEntryPoint<BackendSignIn>()
+                .AsSelf()
+                .As<IAccountReady>()
+                .As<BackendSignIn>();
             builder.RegisterEntryPoint<PresenceHeartbeat>();
 
             // Waits on that sign-in and dresses the player in what the account
@@ -416,7 +433,14 @@ namespace Game.Bootstrap
                         c.Resolve<PlayerProfile>(),
                         networkScenes,
                         c.Resolve<ServerRegionSystem>(),
-                        c.Resolve<PublishedPlayerName>()),
+                        c.Resolve<PublishedPlayerName>(),
+
+                        // Photon 접속이 로그인을 기다리게 합니다(S15P21D205-928).
+                        // 이것이 없으면 토큰이 도착하기 전에 붙어 인증값 없이
+                        // 접속하고, Photon 이 익명을 막고 있으면 거절당합니다.
+                        c.TryResolve<IAccountReady>(out var accountReady)
+                            ? accountReady
+                            : null),
                     Lifetime.Singleton)
                 .AsSelf()
                 .As<IRoomSessionProbe>()

@@ -75,5 +75,24 @@ namespace Game.Tests.EditMode
                 Is.False);
             Assert.That(validator.IsValid("unknown", Pose.identity), Is.False);
         }
+
+        [Test]
+        public void IsValid_TiltedItemRestingOnCornerIsSupported()
+        {
+            // 45도 기울인 정육면체는 모서리로 바닥에 닿는다. 회전한 반높이는 0.5*(cos45+sin45) ≈ 0.707.
+            // 예전 검사는 회전을 무시한 0.5 + 0.05만 내려 봐서 바닥을 못 찾고 거부했다.
+            var tilt = Quaternion.AngleAxis(45f, Vector3.right);
+            var restingHeight = PhysicsPlacementValidator.RotatedVerticalExtent(tilt, Vector3.one * 0.5f);
+            Assert.That(restingHeight, Is.EqualTo(0.7071f).Within(0.001f));
+
+            Assert.That(
+                validator.IsValid("apple", new Pose(new Vector3(0f, restingHeight + 0.01f, 0f), tilt)),
+                Is.True,
+                "모서리가 바닥에 닿은 기울인 물건은 받침이 있다.");
+            Assert.That(
+                validator.IsValid("apple", new Pose(new Vector3(0f, restingHeight + 0.3f, 0f), tilt)),
+                Is.False,
+                "바닥에서 떠 있으면 거부한다.");
+        }
     }
 }

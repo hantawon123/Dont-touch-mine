@@ -21,7 +21,9 @@ namespace Game.Client.Settings
         private MatchChatView chat;
         private bool chatSuppressed, chatWasEnabled;
         private Func<double?> ping;
+        private Func<string> category;
         private TMP_Text counters;
+        private TMP_Text categoryLabel;
         private GameObject counterRoot;
         private readonly Dictionary<TMP_Text, (float baseline, float applied)> fonts = new();
         private readonly Dictionary<Text, (int baseline, int applied)> legacyFonts = new();
@@ -30,9 +32,29 @@ namespace Game.Client.Settings
         private float elapsed;
         private int frames;
 
-        public void Bind(InterfaceSettingsSystem value, Func<double?> readPing)
+        public const float CategoryFontSize = 24f;
+        private const float CounterFontSize = 20f;
+
+        public static string FormatCounters(string fpsText, string pingText)
         {
-            settings = value; ping = readPing;
+            var fps = string.IsNullOrEmpty(fpsText) ? "" : fpsText;
+            var ping = string.IsNullOrEmpty(pingText) ? "" : pingText;
+            return fps + (fps.Length > 0 && ping.Length > 0 ? "\n" : "") + ping;
+        }
+
+        public static int PerformanceLineCount(string fpsText, string pingText)
+        {
+            return (string.IsNullOrEmpty(fpsText) ? 0 : 1) + (string.IsNullOrEmpty(pingText) ? 0 : 1);
+        }
+
+        public static float CategoryTopOffset(int performanceLines, float fontScale)
+        {
+            return 16f + performanceLines * (CounterFontSize * fontScale + 4f);
+        }
+
+        public void Bind(InterfaceSettingsSystem value, Func<double?> readPing, Func<string> readCategory = null)
+        {
+            settings = value; ping = readPing; category = readCategory;
             var canvas = GetComponentInParent<Canvas>();
             scaler = canvas == null ? null : canvas.GetComponent<CanvasScaler>();
             if (scaler != null) referenceResolution = scaler.referenceResolution;
@@ -48,11 +70,23 @@ namespace Game.Client.Settings
             var text = new GameObject("FPS Ping", typeof(RectTransform), typeof(TextMeshProUGUI));
             text.transform.SetParent(counterRoot.transform, false);
             counters = text.GetComponent<TextMeshProUGUI>();
-            counters.font = HomeUiFonts.Apply(); counters.fontSize = 20; counters.raycastTarget = false;
+            counters.font = HomeUiFonts.Apply(); counters.fontSize = CounterFontSize; counters.raycastTarget = false;
             var rect = counters.rectTransform;
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(1, 1);
             rect.anchoredPosition = new Vector2(-16, -16); rect.sizeDelta = new Vector2(240, 60);
             counters.alignment = TextAlignmentOptions.TopRight;
+            if (category != null)
+            {
+                var categoryObject = new GameObject("Match Category", typeof(RectTransform), typeof(TextMeshProUGUI));
+                categoryObject.transform.SetParent(counterRoot.transform, false);
+                categoryLabel = categoryObject.GetComponent<TextMeshProUGUI>();
+                categoryLabel.font = HomeUiFonts.Apply(); categoryLabel.fontSize = CategoryFontSize;
+                categoryLabel.raycastTarget = false;
+                var categoryRect = categoryLabel.rectTransform;
+                categoryRect.anchorMin = categoryRect.anchorMax = categoryRect.pivot = new Vector2(1, 1);
+                categoryRect.anchoredPosition = new Vector2(-16, -16); categoryRect.sizeDelta = new Vector2(240, 40);
+                categoryLabel.alignment = TextAlignmentOptions.TopRight;
+            }
         }
         public static float Scale(string code) => code == InterfaceCatalog.Small ? 0.85f : code == InterfaceCatalog.Large ? 1.15f : 1f;
         private void LateUpdate()
@@ -82,7 +116,7 @@ namespace Game.Client.Settings
             {
                 nextScan = Time.unscaledTimeAsDouble + 0.5;
                 foreach (var text in GetComponentsInChildren<TMP_Text>(true))
-                    if (text != counters && !fonts.ContainsKey(text)) fonts[text] = (text.fontSize, text.fontSize);
+                    if (text != counters && text != categoryLabel && !fonts.ContainsKey(text)) fonts[text] = (text.fontSize, text.fontSize);
                 foreach (var text in GetComponentsInChildren<Text>(true))
                     if (!legacyFonts.ContainsKey(text)) legacyFonts[text] = (text.fontSize, text.fontSize);
                 guides = GetComponentsInChildren<KeySettingGuideView>(true);
@@ -120,8 +154,18 @@ namespace Game.Client.Settings
             var fpsText = current.IsOn(InterfaceOption.FpsCounter) ? $"{frames / Mathf.Max(elapsed, 0.001f):F0} FPS" : "";
             var rtt = current.IsOn(InterfaceOption.PingCounter) ? ping?.Invoke() : null;
             var pingText = current.IsOn(InterfaceOption.PingCounter) ? rtt.HasValue ? $"{rtt.Value:F0} ms" : "Ping —" : "";
-            counters.text = fpsText + (fpsText.Length > 0 && pingText.Length > 0 ? "\n" : "") + pingText;
-            counters.fontSize = 20 * scale;
+            counters.text = FormatCounters(fpsText, pingText);
+            counters.fontSize = CounterFontSize * scale;
+            if (categoryLabel != null)
+            {
+                var categoryText = category?.Invoke()?.Trim() ?? "";
+                categoryLabel.text = categoryText;
+                categoryLabel.gameObject.SetActive(categoryText.Length > 0);
+                categoryLabel.fontSize = CategoryFontSize * scale;
+                categoryLabel.rectTransform.anchoredPosition = new Vector2(
+                    -16,
+                    -CategoryTopOffset(PerformanceLineCount(fpsText, pingText), scale));
+            }
             elapsed = 0; frames = 0;
         }
         private readonly List<TMP_Text> deadTmp = new(), tmpKeys = new();

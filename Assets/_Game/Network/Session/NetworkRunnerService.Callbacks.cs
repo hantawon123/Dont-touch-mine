@@ -394,6 +394,11 @@ namespace Game.Network.Session
                 // another runner and voice rig on the same frame as teardown.
                 await UniTask.NextFrame(PlayerLoopTiming.Update);
                 if (migrationRevision != _hostMigrationRevision) return;
+                // Migration builds a fresh connection, so it authenticates again
+                // (S15P21D205-928). Normally the account is long since in, but the
+                // host leaving is not a moment to assume anything about timing.
+                await WaitForAccountAsync(CancellationToken.None);
+
                 var connectionStartedAt = Time.realtimeSinceStartupAsDouble;
                 var sceneManager = CreateRunner(
                     hostMigrationToken.GameMode != GameMode.Server);

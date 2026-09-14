@@ -208,6 +208,7 @@ namespace Game.Client.Settings
 
         public void Dispose()
         {
+            if (soundDraft != soundApplied) sound.ApplyToAudio();
             view.Opened -= Open;
             view.BackRequested -= OnBackRequested;
             view.ResetAllRequested -= OnResetAllRequested;
@@ -408,6 +409,7 @@ namespace Game.Client.Settings
             }
 
             soundDraft = next;
+            sound.Preview(soundDraft);
             ShowDraft();
         }
 
@@ -734,12 +736,13 @@ namespace Game.Client.Settings
                     ResetTab(shownTab);
                     break;
                 case SettingsConfirmKind.ResetAll:
-                    generalDraft = general.Defaults;
-                    graphicsDraft = graphics.Defaults;
-                    uiDraft = ui.Defaults;
-                    soundDraft = sound.Defaults;
-                    controlDraft = controls.Defaults;
-                    noticeDraft = notifications.Defaults;
+                    generalDraft = general.Current;
+                    graphicsDraft = graphics.Current;
+                    uiDraft = ui.Current;
+                    soundDraft = sound.Current;
+                    sound.Preview(soundDraft);
+                    controlDraft = controls.Current;
+                    noticeDraft = notifications.Current;
                     ShowDraft();
                     break;
                 case SettingsConfirmKind.Discard:
@@ -830,25 +833,26 @@ namespace Game.Client.Settings
             switch (tab)
             {
                 case SettingsTab.General:
-                    generalDraft = general.Defaults;
+                    generalDraft = general.Current;
                     break;
                 case SettingsTab.Graphics:
-                    graphicsDraft = graphics.Defaults;
+                    graphicsDraft = graphics.Current;
                     break;
                 case SettingsTab.Interface:
-                    uiDraft = ui.Defaults;
+                    uiDraft = ui.Current;
                     break;
                 case SettingsTab.Sound:
-                    soundDraft = sound.Defaults;
+                    soundDraft = sound.Current;
+                    sound.Preview(soundDraft);
                     break;
                 case SettingsTab.Controls:
                     // A row left waiting for a press would still be lit over
                     // a key it no longer holds.
                     StopListening();
-                    controlDraft = controls.Defaults;
+                    controlDraft = controls.Current;
                     break;
                 case SettingsTab.Notifications:
-                    noticeDraft = notifications.Defaults;
+                    noticeDraft = notifications.Current;
                     break;
                 default:
                     return;
@@ -953,6 +957,7 @@ namespace Game.Client.Settings
 
         private void Leave()
         {
+            sound.ApplyToAudio();
             StopMicrophoneTest();
             StopListening();
 

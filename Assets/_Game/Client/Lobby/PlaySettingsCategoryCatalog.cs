@@ -62,6 +62,17 @@ namespace Game.Client.Lobby
         }
 
         public static bool Contains(string categoryId) => IndexOf(categoryId) >= 0;
+
+        public static string LabelOf(string categoryId)
+        {
+            var index = IndexOf(categoryId);
+            if (index < 0)
+            {
+                return string.IsNullOrWhiteSpace(categoryId) ? string.Empty : categoryId.Trim();
+            }
+
+            return GetOption(index).Label;
+        }
     }
 
     public readonly struct PlaySettingsMapOption

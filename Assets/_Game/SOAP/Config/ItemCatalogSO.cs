@@ -46,6 +46,35 @@ namespace Game.SOAP.Config
                     .Select(i => new ItemDefinition(i.id, c.id, i.displayName))));
         }
 
+        public GameObject PrefabOf(string itemId)
+        {
+            var id = itemId?.Trim();
+            if (string.IsNullOrEmpty(id))
+            {
+                return null;
+            }
+
+            for (var categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
+            {
+                var items = categories[categoryIndex]?.items;
+                if (items == null)
+                {
+                    continue;
+                }
+
+                for (var itemIndex = 0; itemIndex < items.Count; itemIndex++)
+                {
+                    var item = items[itemIndex];
+                    if (item != null && string.Equals(item.id, id, StringComparison.Ordinal))
+                    {
+                        return item.prefab;
+                    }
+                }
+            }
+
+            return null;
+        }
+
         public void Validate()
         {
             var categoryIds = new HashSet<string>(StringComparer.Ordinal);

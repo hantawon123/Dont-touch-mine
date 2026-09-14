@@ -79,6 +79,7 @@ namespace Game.Client.Match
         public event Action<string> SendRequested;
         public static bool BlocksPlayerInput { get; private set; }
         public bool IsActivated => activated;
+        public bool ConsumedEscapeThisFrame { get; private set; }
         public MatchChatHudMode Mode => mode;
         public bool KeepChromeVisible => keepChromeVisible;
         public bool IsInputFocused =>
@@ -319,8 +320,10 @@ namespace Game.Client.Match
 
         private void Update()
         {
+            ConsumedEscapeThisFrame = false;
             if (activated && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
+                ConsumedEscapeThisFrame = true;
                 Deactivate();
                 return;
             }
