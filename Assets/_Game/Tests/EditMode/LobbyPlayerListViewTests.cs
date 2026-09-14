@@ -4,6 +4,8 @@ using Game.Client.Home;
 using Game.Client.Lobby;
 using Game.Core.Home;
 using Game.Core.Lobby;
+using Game.Core.Rooms;
+using Game.Core.Settings;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -271,6 +273,101 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     hostRow.Find("Name").GetComponent<TMP_Text>().color,
                     Is.EqualTo(Color.white));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetParticipants_HoldsTheListUntilNamesAreReady()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.EnsureLayout();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1",
+                    namesReady: false);
+
+                Assert.That(FindRow(canvas, "Row_host-1"), Is.Null);
+                Assert.That(
+                    Array.Exists(
+                        canvas.GetComponentsInChildren<TMP_Text>(true),
+                        label => label.text == "참가자가 없습니다."),
+                    Is.False);
+
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1",
+                    namesReady: true);
+
+                Assert.That(FindRow(canvas, "Row_host-1"), Is.Not.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetParticipants_HidesOthersUntilTheyPublishVisibility()
+        {
+            using var room = new RoomBrowserSystem();
+            room.SetLocalPlayer("host-1");
+            room.SetParticipants(new[]
+            {
+                new RoomParticipant("host-1", 0, true, "방장닉"),
+                new RoomParticipant("player-2", 1, false, "게스트닉"),
+            });
+            using var presentation = new InterfacePresentation(
+                new InterfaceSettingsSystem(new InMemoryInterfaceSettingsStore()),
+                new FriendListSystem(),
+                room);
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.BindPresentation(presentation);
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true),
+                        new LobbyParticipant("player-2", "게스트닉", false),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1");
+
+                Assert.That(FindRow(canvas, "Row_host-1"), Is.Not.Null);
+                Assert.That(FindRow(canvas, "Row_player-2"), Is.Null);
+                Assert.That(
+                    Array.Exists(
+                        canvas.GetComponentsInChildren<TMP_Text>(true),
+                        label => label.text == "게스트닉"),
+                    Is.False,
+                    "The real nickname must not appear before visibility is known.");
+
+                presentation.SetPublishedName("player-2", real: false, "익명손님");
+                Assert.That(
+                    canvas.transform.Find("Columns/Participants/Scroll/RowRoot/Row_player-2/Name")
+                        .GetComponent<TMP_Text>().text,
+                    Is.EqualTo("익명손님"));
+                Assert.That(
+                    Array.Exists(
+                        canvas.GetComponentsInChildren<TMP_Text>(true),
+                        label => label.text == "게스트닉"),
+                    Is.False);
             }
             finally
             {

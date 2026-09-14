@@ -7,6 +7,8 @@ using Game.Core.Backend;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Ports;
+using Game.Core.Rooms;
+using Game.Core.Settings;
 using NUnit.Framework;
 using R3;
 
@@ -278,6 +280,44 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Start_HidesParticipantsUntilInitialVisibilityIsReady()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+                new LobbyParticipant("player-2", "게스트", false),
+            });
+            var view = new FakePlayerListView();
+            var count = new FakeCountView();
+            using var room = new RoomBrowserSystem();
+            using var presentation = new InterfacePresentation(
+                new InterfaceSettingsSystem(new InMemoryInterfaceSettingsStore()),
+                new FriendListSystem(),
+                room);
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                new FriendListSystem(),
+                new FakeInviteGateway(),
+                new FakeReportGateway(),
+                view,
+                count,
+                new FakeConfirmView());
+            presenter.BindPresentation(presentation);
+
+            presenter.Start();
+
+            Assert.That(view.Participants, Is.Empty);
+            Assert.That(view.NamesReady, Is.False);
+            Assert.That(count.Current, Is.EqualTo(2));
+
+            presentation.MarkInitialVisibilityReady();
+
+            Assert.That(view.Participants.Count, Is.EqualTo(2));
+            Assert.That(view.NamesReady, Is.True);
+        }
+
+        [Test]
         public void Participant_RejectsEmptyValues()
         {
             Assert.That(
@@ -352,6 +392,7 @@ namespace Game.Tests.EditMode
             public IReadOnlyList<FriendSummary> Friends { get; private set; } =
                 Array.Empty<FriendSummary>();
             public bool LocalIsHost { get; private set; }
+            public bool NamesReady { get; private set; } = true;
             public int UpdateCount { get; private set; }
 
             public event Action<string, string> KickClicked;
@@ -361,10 +402,12 @@ namespace Game.Tests.EditMode
             public void SetParticipants(
                 IReadOnlyList<LobbyParticipant> participants,
                 bool localIsHost,
-                string localPlayerId)
+                string localPlayerId,
+                bool namesReady = true)
             {
                 Participants = participants;
                 LocalIsHost = localIsHost;
+                NamesReady = namesReady;
                 UpdateCount++;
             }
 

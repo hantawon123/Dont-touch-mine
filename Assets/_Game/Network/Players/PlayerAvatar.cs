@@ -136,19 +136,28 @@ namespace Game.Network.Players
 
         private bool _publishedIsHost;
         private bool _publishedMuted;
+        private string _publishedNickname;
+        private string _publishedUserId;
         private bool pendingMutePublish;
         private bool pendingMuteValue;
 
         public override void Render()
         {
             PublishLocalMuteIfOwner();
-            if (_publishedIsHost == IsHost && _publishedMuted == IsMuted)
+            var nickname = Nickname.ToString();
+            var userId = UserId.ToString();
+            if (_publishedIsHost == IsHost
+                && _publishedMuted == IsMuted
+                && string.Equals(_publishedNickname, nickname, StringComparison.Ordinal)
+                && string.Equals(_publishedUserId, userId, StringComparison.Ordinal))
             {
                 return;
             }
 
             _publishedIsHost = IsHost;
             _publishedMuted = IsMuted;
+            _publishedNickname = nickname;
+            _publishedUserId = userId;
             RosterOf(Runner)?.Refresh(Runner);
         }
 
@@ -156,6 +165,8 @@ namespace Game.Network.Players
         {
             _publishedIsHost = IsHost;
             _publishedMuted = IsMuted;
+            _publishedNickname = Nickname.ToString();
+            _publishedUserId = UserId.ToString();
             SetOwnerOnlyEnabled(IsOwner);
 
             // The movement component is kept only as the shared input/config

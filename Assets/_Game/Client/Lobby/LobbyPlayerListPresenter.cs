@@ -129,10 +129,12 @@ namespace Game.Client.Lobby
 
             var state = latest.Value;
             var people = WithLocalMute(state.Participants ?? Array.Empty<LobbyParticipant>());
+            var namesReady = presentation == null || presentation.InitialVisibilityReady;
             view.SetParticipants(
-                people,
+                namesReady ? people : Array.Empty<LobbyParticipant>(),
                 state.IsLocalHost,
-                hostSession.LocalPlayerId);
+                hostSession.LocalPlayerId,
+                namesReady);
             countView.SetCount(people.Count, state.Settings.MaxPlayers);
             BindFriends();
         }

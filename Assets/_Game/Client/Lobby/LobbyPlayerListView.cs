@@ -92,6 +92,7 @@ namespace Game.Client.Lobby
         private IReadOnlyList<LobbyParticipant> lastParticipants;
         private bool lastHost;
         private string lastLocal;
+        private bool lastNamesReady = true;
 
         [VContainer.Inject]
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value)
@@ -111,7 +112,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            SetParticipants(lastParticipants, lastHost, lastLocal);
+            SetParticipants(lastParticipants, lastHost, lastLocal, lastNamesReady);
         }
 
         private void OnEnable()
@@ -176,16 +177,25 @@ namespace Game.Client.Lobby
         public void SetParticipants(
             IReadOnlyList<LobbyParticipant> participants,
             bool localIsHost,
-            string localPlayerId)
+            string localPlayerId,
+            bool namesReady = true)
         {
             if (this == null)
             {
                 return;
             }
 
-            lastParticipants = participants; lastHost = localIsHost; lastLocal = localPlayerId;
+            lastParticipants = participants;
+            lastHost = localIsHost;
+            lastLocal = localPlayerId;
+            lastNamesReady = namesReady;
             EnsureLayout();
             ClearRows(participantRows);
+
+            if (!namesReady)
+            {
+                return;
+            }
 
             if (participants == null || participants.Count == 0)
             {
@@ -197,10 +207,13 @@ namespace Game.Client.Lobby
             {
                 var participant = participants[index];
                 var isSelf = string.Equals(participant.Id, localPlayerId, StringComparison.Ordinal);
+                if (!CanShowParticipant(participant.Id, isSelf))
+                {
+                    continue;
+                }
+
                 var canKick = localIsHost && !isSelf;
-                var shownName = presentation == null
-                    ? participant.DisplayName
-                    : presentation.Name(participant.Id, participant.DisplayName);
+                var shownName = ShownParticipantName(participant.Id, participant.DisplayName);
                 var row = CreateRow(
                     participantRowRoot,
                     participantRows,
@@ -212,7 +225,7 @@ namespace Game.Client.Lobby
                     isSelf: isSelf,
                     isMuted: participant.IsMuted);
                 var playerId = participant.Id;
-                var displayName = participant.DisplayName;
+                var displayName = shownName;
 
                 // Reporting names the backend account, kicking names the Photon
                 // player. They are different identifiers with different readers,
@@ -235,6 +248,24 @@ namespace Game.Client.Lobby
                 }
             }
         }
+
+        /// <summary>
+        /// Other people stay off the list until they have said whether the
+        /// room may use their own name. Showing the roster name first would
+        /// give away a streamer before their 익명 설정 arrived.
+        /// </summary>
+        private bool CanShowParticipant(string playerId, bool isSelf) =>
+            presentation == null
+            || isSelf
+            || presentation.HasPublishedName(playerId);
+
+        /// <summary>
+        /// Fail closed: an unpublished name is nothing, not the roster name.
+        /// </summary>
+        private string ShownParticipantName(string playerId, string displayName) =>
+            presentation == null
+                ? displayName
+                : presentation.Name(playerId, displayName);
 
         public void SetInviteClock(Func<float> clock)
         {

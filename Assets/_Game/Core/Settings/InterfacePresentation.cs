@@ -36,6 +36,15 @@ namespace Game.Core.Settings
         private readonly FriendListSystem friends;
         private readonly RoomBrowserSystem room;
         private readonly Dictionary<string, Published> published = new();
+
+        /// <summary>
+        /// True after the first lobby visit has heard how everyone already
+        /// there wants to be named. The participant list stays empty until
+        /// then, so a first glance does not flash ids or blanks. Later
+        /// joiners are not held: the gate opens once per room.
+        /// </summary>
+        public bool InitialVisibilityReady { get; private set; }
+
         public event Action Changed;
         public InterfacePresentation(InterfaceSettingsSystem settings, FriendListSystem friends, RoomBrowserSystem room)
         {
@@ -123,11 +132,30 @@ namespace Game.Core.Settings
             Refresh();
         }
 
+        public bool HasPublishedName(string playerId) =>
+            !string.IsNullOrEmpty(playerId) && published.ContainsKey(playerId);
+
+        /// <summary>
+        /// The first naming pass for this room is done. The participant list
+        /// may be shown; later joiners are not gated again.
+        /// </summary>
+        public void MarkInitialVisibilityReady()
+        {
+            if (InitialVisibilityReady)
+            {
+                return;
+            }
+
+            InitialVisibilityReady = true;
+            Refresh();
+        }
+
         public void ClearPermissions() => ClearPermissions(notify: true);
 
         public void ClearPermissions(bool notify)
         {
             published.Clear();
+            InitialVisibilityReady = false;
             if (notify)
             {
                 Refresh();
