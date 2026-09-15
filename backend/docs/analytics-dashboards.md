@@ -50,6 +50,14 @@ WHERE upload_complete = 1
 호스트가 바뀐 경기는 **다른 경기 UUID 의 부분 구간**으로 들어옵니다. v2 는 그것들을 하나로 합치지
 않으므로, 한 판이 두 행으로 보이는 것이 정상입니다.
 
+**`/* @filter */` 표식.** 번호 절의 SQL 마다 경기를 고르는 `WHERE` 끝에 이 주석이 정확히 하나 있습니다.
+관리 화면의 분석 조회 API(S15P21D205-976)가 이 문서를 그대로 읽어 그 자리에 기간·경기 조건
+(`AND started_at_utc >= ? AND started_at_utc < ? AND match_id = ?`)을 끼워 넣고 실행합니다. 조건이 없으면
+빈 문자열로 바뀌므로 Metabase 와 API 는 같은 SQL 을 돕니다. 표식은 `match_analysis_summary` 를 읽는
+절에만 둘 수 있습니다 - 끼워 넣는 조건이 그 뷰의 컬럼이기 때문입니다. 1 번 절처럼 `WHERE` 가 없던
+쿼리는 `WHERE 1 = 1` 뒤에 둡니다. 표식을 지우거나 둘 이상 두면 수집 서비스가 기동하지 않고 그 이유를
+로그에 남기며, `AnalyticsQueryDocTest` 가 먼저 잡습니다.
+
 ---
 
 ## 1. 경기 목록과 수집 상태
@@ -69,6 +77,7 @@ SELECT match_id                    AS `경기`,
        upload_complete             AS `완전 수신`,
        dropped_samples             AS `생략 샘플`
 FROM match_analysis_summary
+WHERE 1 = 1 /* @filter */
 ORDER BY started_at_utc DESC
 LIMIT 100
 ```
@@ -92,7 +101,7 @@ v1 은 `item_hidden` 이벤트를 셌습니다. v2 에는 그 이벤트가 없�
 WITH good AS (
     SELECT match_id, hide_seconds_per_player
     FROM match_analysis_summary
-    WHERE upload_complete = 1
+    WHERE upload_complete = 1 /* @filter */
 ),
 seats AS (
     -- 그 경기에 실제로 샘플이 있는 자리. player_count 로 나누지 않는 이유는 중간에
@@ -137,7 +146,7 @@ ORDER BY 1
 
 ```sql
 WITH good AS (
-    SELECT match_id FROM match_analysis_summary WHERE upload_complete = 1
+    SELECT match_id FROM match_analysis_summary WHERE upload_complete = 1 /* @filter */
 ),
 placed AS (
     SELECT p.match_id, p.player_seat, MIN(p.elapsed_seconds) AS hidden_at_sec
@@ -197,7 +206,7 @@ ORDER BY `숨긴 횟수` DESC
 ```sql
 WITH good AS (
     SELECT match_id FROM match_analysis_summary
-    WHERE upload_complete = 1 AND dropped_samples = 0
+    WHERE upload_complete = 1 AND dropped_samples = 0 /* @filter */
 )
 SELECT p.map_id                  AS `맵`,
        p.phase                   AS `단계`,
@@ -227,7 +236,7 @@ ORDER BY `체류 샘플` DESC
 WITH good AS (
     SELECT match_id, seek_seconds
     FROM match_analysis_summary
-    WHERE upload_complete = 1
+    WHERE upload_complete = 1 /* @filter */
 ),
 started AS (
     SELECT match_id, MIN(elapsed_seconds) AS seek_start_sec
@@ -272,7 +281,7 @@ ORDER BY 1
 WITH good AS (
     SELECT match_id, stun_hits
     FROM match_analysis_summary
-    WHERE upload_complete = 1
+    WHERE upload_complete = 1 /* @filter */
 )
 SELECT g.stun_hits                                                     AS `설정된 기절 펀치`,
        COUNT(*)                                                        AS `사람-경기 수`,
@@ -311,7 +320,7 @@ ORDER BY 1
 
 ```sql
 WITH good AS (
-    SELECT match_id FROM match_analysis_summary WHERE upload_complete = 1
+    SELECT match_id FROM match_analysis_summary WHERE upload_complete = 1 /* @filter */
 ),
 item AS (
     SELECT p.match_id, p.player_seat,
@@ -352,7 +361,7 @@ ORDER BY `물건 수` DESC
 WITH good AS (
     SELECT match_id, duration_seconds
     FROM match_analysis_summary
-    WHERE upload_complete = 1
+    WHERE upload_complete = 1 /* @filter */
 ),
 last_seen AS (
     SELECT p.match_id, p.player_seat, MAX(p.elapsed_seconds) AS last_sec

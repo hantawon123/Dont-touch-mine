@@ -141,6 +141,47 @@
   .stat.dim .value { color: var(--muted); font-size: 14px; font-weight: 400; }
   .chart { position: relative; height: 240px; }
   .chart-title { font-weight: 600; margin-bottom: 6px; }
+  /* 분석 탭(977). 표는 문서 SQL 의 별칭이 그대로 헤더라 열 수가 질문마다 다릅니다. 좁은 창에서는
+     표만 가로로 밀리게 두고 카드 자체는 밀리지 않게 합니다. */
+  .an-table { overflow-x: auto; }
+
+  /*
+   * 분석 탭 탐색(1010). 왼쪽 목록 + 오른쪽 한 장.
+   *
+   * 카드 아홉 장을 세로로 쌓으면 스크롤이 끝없고, 하나만 보려 해도 아홉 개를 다 기다려야
+   * 합니다. 한 장만 그리면 요청도 한 개만 나갑니다.
+   */
+  .an-split { display: flex; gap: 14px; align-items: flex-start; }
+  .an-nav { flex: 0 0 214px; display: flex; flex-direction: column; gap: 3px; position: sticky; top: 12px; }
+  .an-nav button {
+    text-align: left; padding: 7px 10px; border: 1px solid transparent; border-radius: 6px;
+    background: none; color: var(--ink); font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .an-nav button:hover { background: #f3f4f6; }
+  .an-nav button.on { background: var(--ink); color: #fff; }
+  .an-main { flex: 1; min-width: 0; }
+  /* 좁으면 목록이 위로 올라가 가로로 접힙니다. */
+  @media (max-width: 900px) {
+    .an-split { flex-direction: column; }
+    .an-nav { position: static; flex-direction: row; flex-wrap: wrap; flex-basis: auto; width: 100%; }
+  }
+  table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.grid th, table.grid td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  table.grid th { color: var(--muted); font-weight: 600; }
+  table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.grid tr.pick { cursor: pointer; }
+  table.grid tr.pick:hover { background: #f3f4f6; }
+  table.grid tr.sel { background: #eef2ff; }
+  /* 완전 수신이 아닌 경기. 아래 카드들에서 빠지는 줄이라는 것을 색으로 말합니다. */
+  table.grid tr.dim td { color: var(--muted); }
+  .an-note { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+  .an-note.bad { color: var(--warn); }
+  .bar input[type="datetime-local"] { width: auto; padding: 6px 8px; font-size: 13px; }
+  /* 히트맵(978). canvas 는 카드 폭에 맞추고 높이는 맵의 가로세로비를 따릅니다. */
+  .bar.hm-bar { margin: 6px 0 8px; flex-wrap: wrap; row-gap: 6px; }
+  .bar.hm-bar label { display: flex; align-items: center; gap: 4px; margin: 0; font-size: 13px; color: var(--ink); }
+  .bar.hm-bar input[type="checkbox"] { width: auto; margin: 0; }
+  .hm-wrap canvas { display: block; width: 100%; border: 1px solid var(--line); border-radius: 6px; cursor: crosshair; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -169,6 +210,8 @@
       <button id="tabReports" class="tab" type="button">신고 검토</button>
       <button id="tabFeedback" class="tab" type="button">피드백</button>
       <button id="tabUsers" class="tab" type="button">사용자</button>
+      <button id="tabSuspensions" class="tab" type="button">정지</button>
+      <button id="tabAnalytics" class="tab" type="button">분석</button>
       <span class="grow"></span>
       <button id="logout">로그아웃</button>
     </div>
@@ -253,6 +296,53 @@
         <button id="searchUsers" class="primary">검색</button>
       </div>
       <div class="card"><div id="userRows"></div></div>
+    </div>
+
+    <!-- 정지 -->
+    <div id="suspensionsView" hidden>
+      <!--
+        여기서 바로 해제하지 않습니다. 해제는 그 사람의 신고 이력과 정지 이력을 보고 판단할
+        일이지 목록에서 이름만 보고 누를 일이 아닙니다. 줄을 누르면 사용자 탭에서 그 사람이
+        펼쳐집니다.
+      -->
+      <div class="warnbar">
+        지금 정지된 계정과 최근 해제 이력입니다. 줄을 누르면 사용자 탭에서 그 사람이 열립니다.
+        정지와 해제는 거기서 합니다.
+      </div>
+      <div class="bar">
+        <button id="refreshSuspensions" class="primary">새로고침</button>
+      </div>
+      <div class="card"><div id="suspensionRows"></div></div>
+    </div>
+
+    <!-- 분석 -->
+    <div id="analyticsView" hidden>
+      <!--
+        카드 여덟 개는 docs/analytics-dashboards.md 의 번호 절과 같고, SQL 도 그 문서 것입니다.
+        Metabase(8443)와 같은 숫자가 나와야 하며, 다르면 둘 중 하나가 문서를 떠난 것입니다.
+        즉석 SQL 은 여기 없습니다 - 그건 Metabase 에 남겨 둔 일입니다.
+      -->
+      <div class="warnbar">
+        <b>완전히 수신된 경기만</b> 집계합니다. 경기 목록에서 <b>완전 수신</b>이 0 인 줄(회색)은 아래 카드에서
+        빠집니다. 경기 수가 5 미만인 막대는 믿지 마세요. 경기 목록의 줄을 누르면 그 경기 하나로 좁혀집니다.
+      </div>
+      <div class="bar">
+        <select id="anPeriod">
+          <option value="all">전체 기간</option>
+          <option value="7d">최근 7일</option>
+          <option value="30d">최근 30일</option>
+          <option value="custom">직접 입력</option>
+        </select>
+        <input id="anFrom" type="datetime-local" hidden>
+        <input id="anTo" type="datetime-local" hidden>
+        <button id="anClearMatch" hidden>경기 선택 해제</button>
+        <span class="grow"></span>
+        <button id="refreshAnalytics">새로고침</button>
+      </div>
+      <div class="an-split">
+        <nav id="anNav" class="an-nav"></nav>
+        <div id="anCards" class="an-main"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -668,6 +758,8 @@
       reports: ['reportsView', 'tabReports', '신고 검토'],
       feedback: ['feedbackView', 'tabFeedback', '피드백'],
       users: ['usersView', 'tabUsers', '사용자'],
+      suspensions: ['suspensionsView', 'tabSuspensions', '정지'],
+      analytics: ['analyticsView', 'tabAnalytics', '분석'],
     };
     for (const key of Object.keys(tabs)) {
       const on = key === name;
@@ -886,6 +978,848 @@
     }
   }
 
+  /*
+   * 분석 탭 (S15P21D205-977).
+   *
+   * 카드 정의의 질문 이름(id)은 /api/v1/admin/analytics/{id} 이고, 축 컬럼(x·y)은 문서 SQL 의 별칭입니다.
+   * 응답에 그 별칭이 없으면 - 문서에서 컬럼 이름을 바꾼 경우 - 차트를 비워 두지 않고 표로 떨어지며
+   * 그 사실을 카드에 적습니다. 빈 차트는 "데이터가 없다"로 읽혀서 어긋남이 묻힙니다.
+   * 시각화 종류는 deploy/metabase/provision_dashboards.py 의 VIEWS 와 같습니다.
+   */
+  const QUESTIONS = [
+    { id: 'matches', title: '1. 경기 목록과 수집 상태', kind: 'matches',
+      note: '값을 읽기 전에 데이터를 믿을 수 있는지 보는 표입니다. 도착이 예정보다 작으면 유실, 크면 중복 업로드입니다.' },
+    { id: 'hiding-time', title: '2. 숨는 시간 적정성', kind: 'bar', x: '숨는 시간(초)', y: ['못 숨긴 인원 %'],
+      note: '방 설정(한 사람당 숨는 시간)별로, 숨기기가 끝날 때까지 물건을 두지 못한 인원의 비율입니다.' },
+    { id: 'hideouts', title: '3. 은신처 분포', kind: 'table',
+      note: '물건이 처음 멈춘 자리를 2m 격자로 묶었습니다. 숨긴 횟수가 많고 끝까지 안 들킨 비율이 높은 칸이 "너무 좋은 자리"입니다.' },
+    { id: 'dwell', title: '4. 체류 구역', kind: 'table',
+      note: '사람이 머문 자리입니다. 샘플 하나가 대략 1초이지만 정확한 초는 아니라 구역 사이의 비교로만 읽습니다.' },
+    { id: 'seeking-time', title: '5. 찾는 시간 적정성', kind: 'bar', x: '찾기 시작 후(초)', y: ['발견 건수'],
+      note: '남의 물건이 들린 시각의 분포, 30초 구간입니다. 뒤쪽에 몰리면 찾는 시간이 짧고 앞쪽에 몰리면 긴 것입니다.' },
+    { id: 'combat', title: '6. 전투 적정성', kind: 'bar', x: '설정된 기절 펀치', y: ['평균 휘두름', '평균 피격', '평균 기절'],
+      note: '기절까지 필요한 명중 수 설정별 평균입니다. 명중률은 개인이 아니라 경기 전체의 비율입니다.' },
+    { id: 'item-life', title: '7. 물건 생애', kind: 'bar', x: '결말', y: ['물건 수'],
+      note: '물건 하나가 어떻게 끝났는가입니다. "끝까지 제자리"가 절반을 넘으면 찾는 쪽이 너무 어렵거나 시간이 짧은 것입니다.' },
+    { id: 'dropout', title: '8. 경기 중 이탈', kind: 'bar', x: '마지막 단계', y: ['이탈 인원'],
+      note: '기록이 종료보다 5초 넘게 일찍 끊긴 자리를 이탈로 봅니다. 경기 시작 뒤의 이탈만 보이고, 호스트 이탈 경기는 1번 표에서 셉니다.' },
+    // 문서의 번호 절이 아니라 좌표 API(positions)를 그립니다. 3·4번 표가 "어디인지"를 못 보여 주는 것을 채웁니다.
+    { id: 'heatmap', title: '9. 맵 위 히트맵', kind: 'heatmap',
+      note: '한 경기의 위치 샘플을 격자로 묶어 그립니다. 가로 x, 세로 z, 위가 +z 로 문서·Python 도구와 같은 방향입니다. 경기 목록에서 경기를 고르면 그려집니다.' },
+  ];
+
+  /*
+   * 평면도를 못 읽었을 때 쓸 맵별 월드 범위 [x0, z0, x1, z1] (S15P21D205-978, 1010).
+   *
+   * 평면도는 유니티의 Game/Match Map/Bake Analytics Floorplan 이 구워 maps/<mapId>.png 로
+   * 넣습니다. 그 도구가 같은 이름의 .json 에 그림이 덮는 사각형을 함께 쓰고, 화면은 그 값을
+   * 격자에도 그대로 씁니다. 그래서 그림과 격자가 어긋날 수 없습니다.
+   *
+   * 아래 표는 아직 굽지 않은 맵을 위한 것입니다. extent 만 있으면 그 사각형을 경계로 그리고,
+   * 둘 다 없으면 데이터의 최소·최대로 범위를 잡습니다. 마트의 값은
+   * docs/design/match-map/README.md 의 도달 영역 측정값(46×37 m)입니다.
+   */
+  const MAPS = {
+    /*
+     * 2026-09-15 정정: 여기 있던 x[-133.5, -87.5] z[-27, 9.5] 는 <b>옛 좌표계</b>였습니다.
+     * 2026-09-10 에 씬 루트를 (+108.49, -0.98) 옮겨 원점을 마트 안으로 넣었는데
+     * (docs/design/match-map/README.md), 이 값이 따라가지 않았습니다. 그래서 모든 좌표가
+     * 범위 밖으로 걸러져 히트맵이 빈 격자로 보였습니다.
+     *
+     * 지금 값은 Supermarket 씬의 경계 벽 안쪽 면입니다. 바깥 벽 넷이
+     * 서 x -25.51, 동 x 21.49, 남 z -41.20, 북 z 9.02 이고 여기에 반 칸씩 여유를 뒀습니다.
+     * 경계 콜라이더를 통째로 합치면 바닥·천장 판이 실내보다 커서 z 가 75 m 로 나오는데,
+     * 그 값이 아니라 벽만 본 값입니다.
+     *
+     * <b>대기실은 일부러 뺐습니다.</b> 같은 씬의 서쪽(x -48 ~ -40)에 있는 별도의 방이고,
+     * 숨기기 단계에는 자기 차례가 아닌 사람이 거기 서 있어 좌표가 남습니다. 넣으면 사람들이
+     * 몇 분씩 가만히 서 있는 그 방이 제일 뜨거워져 마트 안의 차이가 색으로 안 보입니다.
+     * 그 좌표는 경계 밖으로 버려지고, 몇 개를 버렸는지는 카드 아래 범례에 적힙니다.
+     */
+    supermarket: { extent: [-26, -42, 22, 9.5], image: null, source: '경계 벽 안쪽 면' },
+    playground: { extent: null, image: null, source: null },
+  };
+  /* 굽기 도구의 출력 자리. 페이지가 /admin 로도 /admin/ 로도 열리므로 절대 경로로 씁니다. */
+  const MAP_DIR = '/admin/maps/';
+  const mapMeta = {};  // mapId -> 구운 평면도 정보, 또는 null(굽지 않았음을 확인함)
+  const HEAT_STOPS = [[255, 255, 204], [254, 217, 118], [253, 141, 60], [227, 26, 28], [128, 0, 38]];  // YlOrRd
+  const HEAT_MARGIN = { l: 52, r: 10, t: 8, b: 28 };
+  const POSITION_CAP = 20000;  // 분석 서비스의 POSITION_LIMIT 과 같은 값
+
+  let heatmapData = null;   // { columns, rows, mapId } - 마지막으로 받은 좌표
+  let heatmapImage = null;  // 깔 평면도. 없으면 null
+  let heatmapGeom = null;   // 마우스 위치 → 칸 계산용
+  const BAR_COLORS = ['#1d4ed8', '#b91c1c', '#15803d', '#d97706'];
+  const TABLE_ROW_CAP = 200;
+
+  const analyticsCharts = {};
+  let selectedMatch = null;
+  let currentQuestion = 'matches';  // 지금 펴 놓은 질문 (1010)
+
+  /** 카드 여덟 개의 틀. 한 번만 만들고 불러올 때는 안쪽만 갈아 끼웁니다. */
+  function buildAnalyticsCards() {
+    const box = el('anCards');
+    for (const q of QUESTIONS) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.id = 'an-' + q.id;
+
+      const title = document.createElement('div');
+      title.className = 'chart-title';
+      title.textContent = q.title;
+
+      const note = document.createElement('div');
+      note.className = 'an-note';
+      note.id = 'anNote-' + q.id;
+      note.textContent = q.note;
+
+      const body = document.createElement('div');
+      body.id = 'anBody-' + q.id;
+      body.className = 'an-table';
+
+      card.append(title, note, body);
+      if (q.kind === 'heatmap') {
+        card.appendChild(heatmapControls());
+      }
+      if (q.kind === 'bar') {
+        const chart = document.createElement('div');
+        chart.className = 'chart';
+        chart.id = 'anChartBox-' + q.id;
+        const canvas = document.createElement('canvas');
+        canvas.id = 'anChart-' + q.id;
+        chart.appendChild(canvas);
+        card.appendChild(chart);
+      }
+      // 만들어만 두고 숨깁니다. 보이는 것은 고른 하나뿐입니다.
+      card.hidden = q.id !== currentQuestion;
+      box.appendChild(card);
+    }
+  }
+
+  /**
+   * 왼쪽 질문 목록 (1010).
+   *
+   * 카드를 접었다 펴는 방식도 되지만, 아홉 장 중 몇 개만 펴도 스크롤이 그대로 돌아옵니다.
+   * 한 장만 그리면 화면이 짧아지는 것과 별개로 요청도 한 개만 나갑니다.
+   */
+  function buildAnalyticsNav() {
+    const nav = el('anNav');
+    nav.textContent = '';
+    for (const q of QUESTIONS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.id = 'anNav-' + q.id;
+      button.textContent = q.title;
+      button.classList.toggle('on', q.id === currentQuestion);
+      button.addEventListener('click', () => showQuestion(q.id).catch(() => {}));
+      nav.appendChild(button);
+    }
+  }
+
+  /**
+   * 질문 하나를 펴고 그것만 불러옵니다.
+   *
+   * 주소에 남겨 두면 새로고침해도 보던 자리로 돌아오고, 창을 두 개 띄워 나란히 볼 수도
+   * 있습니다. 기간과 경기 선택은 위쪽 공통 바에 있어 질문을 바꿔도 유지됩니다.
+   */
+  async function showQuestion(id, keepHash) {
+    if (!QUESTIONS.some((q) => q.id === id)) id = QUESTIONS[0].id;
+    currentQuestion = id;
+
+    for (const q of QUESTIONS) {
+      el('an-' + q.id).hidden = q.id !== id;
+      el('anNav-' + q.id).classList.toggle('on', q.id === id);
+    }
+    if (!keepHash) location.hash = 'analytics/' + id;
+
+    await loadAnalyticsCard(QUESTIONS.find((q) => q.id === id));
+  }
+
+  /** 주소의 #analytics/<질문> 을 읽습니다. 없거나 모르는 값이면 첫 질문입니다. */
+  function questionFromHash() {
+    const hit = /^#analytics[/](.+)$/.exec(location.hash || '');
+    const id = hit ? decodeURIComponent(hit[1]) : '';
+    return QUESTIONS.some((q) => q.id === id) ? id : QUESTIONS[0].id;
+  }
+
+  buildAnalyticsCards();
+  buildAnalyticsNav();
+
+  /** Date → UTC yyyyMMddHHmmss. 서버가 다른 API 와 같은 형식으로 받습니다. */
+  function stampOf(date) {
+    const p = (n) => String(n).padStart(2, '0');
+    return date.getUTCFullYear() + p(date.getUTCMonth() + 1) + p(date.getUTCDate())
+      + p(date.getUTCHours()) + p(date.getUTCMinutes()) + p(date.getUTCSeconds());
+  }
+
+  /** 상단 바의 기간을 from·to 로. 전체 기간이면 둘 다 없습니다. */
+  function analyticsPeriod() {
+    const period = el('anPeriod').value;
+    const custom = period === 'custom';
+    el('anFrom').hidden = !custom;
+    el('anTo').hidden = !custom;
+    if (period === 'all') return {};
+    if (custom) {
+      const out = {};
+      if (el('anFrom').value) out.from = stampOf(new Date(el('anFrom').value));
+      if (el('anTo').value) out.to = stampOf(new Date(el('anTo').value));
+      return out;
+    }
+    const days = period === '7d' ? 7 : 30;
+    return { from: stampOf(new Date(Date.now() - days * 86400000)) };
+  }
+
+  function analyticsQuery(q) {
+    const params = new URLSearchParams(analyticsPeriod());
+    // 경기 목록은 기간만 받습니다. 여기서 경기를 고르는 것이라 그 경기로 좁히면 고를 것이 없어집니다.
+    if (selectedMatch && q.kind !== 'matches') params.set('matchId', selectedMatch);
+    const s = params.toString();
+    return s ? '?' + s : '';
+  }
+
+  /**
+   * 지금 펴 놓은 질문 하나만 불러옵니다 (1010).
+   *
+   * 전에는 아홉 개를 한꺼번에 불렀습니다. 탭을 여는 순간 질의가 아홉 개 나가서 첫 화면이
+   * 느렸고, 하나만 보고 싶어도 전부 기다려야 했습니다. 다른 질문은 그리로 옮길 때 부릅니다.
+   */
+  async function loadAnalytics() {
+    say('');
+    el('anClearMatch').hidden = !selectedMatch;
+    el('anClearMatch').textContent = selectedMatch ? '경기 선택 해제 (' + selectedMatch.slice(0, 8) + '…)' : '';
+    await loadAnalyticsCard(QUESTIONS.find((q) => q.id === currentQuestion) || QUESTIONS[0]);
+  }
+
+  async function loadAnalyticsCard(q) {
+    const body = el('anBody-' + q.id);
+    try {
+      if (q.kind === 'heatmap' && !selectedMatch) {
+        body.textContent = '';
+        body.appendChild(emptyBox('경기 목록에서 경기를 고르면 그 경기의 좌표를 그립니다.'));
+        el('hmBox').hidden = true;
+        setNote(q, q.note, false);
+        return;
+      }
+      const path = q.kind === 'heatmap'
+        ? '/analytics/positions?matchId=' + encodeURIComponent(selectedMatch)
+        : '/analytics/' + q.id + analyticsQuery(q);
+      const table = await call(path);
+      await renderAnalyticsCard(q, table);
+    } catch (e) {
+      // call() 이 401 은 로그인 화면으로, 나머지는 위쪽 알림으로 보냈습니다. 카드에는 자리만 남깁니다.
+      body.textContent = '';
+      body.appendChild(emptyBox('불러오지 못했습니다.'));
+      hideChart(q);
+      if (q.kind === 'heatmap') el('hmBox').hidden = true;
+    }
+  }
+
+  function emptyBox(text) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = text;
+    return empty;
+  }
+
+  function hideChart(q) {
+    const box = el('anChartBox-' + q.id);
+    if (box) box.hidden = true;
+  }
+
+  /* ---- 히트맵 (978) ---- */
+
+  function option(value, text) {
+    const o = document.createElement('option');
+    o.value = value;
+    o.textContent = text;
+    return o;
+  }
+
+  /** 카드 안의 조작부와 canvas. 한 번 만들고 데이터가 바뀌면 select 의 항목만 갈아 끼웁니다. */
+  function heatmapControls() {
+    const box = document.createElement('div');
+    box.id = 'hmBox';
+    box.hidden = true;
+
+    const bar = document.createElement('div');
+    bar.className = 'bar hm-bar';
+
+    const phase = document.createElement('select');
+    phase.id = 'hmPhase';
+    const seat = document.createElement('select');
+    seat.id = 'hmSeat';
+    const cell = document.createElement('select');
+    cell.id = 'hmCell';
+    cell.append(option('1', '1 m 격자'), option('2', '2 m 격자'), option('4', '4 m 격자'));
+    cell.value = '2';
+    const logLabel = document.createElement('label');
+    const log = document.createElement('input');
+    log.type = 'checkbox';
+    log.id = 'hmLog';
+    logLabel.append(log, document.createTextNode('로그 눈금'));
+    const grow = document.createElement('span');
+    grow.className = 'grow';
+    const read = document.createElement('span');
+    read.id = 'hmRead';
+    read.className = 'when';
+    bar.append(phase, seat, cell, logLabel, grow, read);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'hm-wrap';
+    const canvas = document.createElement('canvas');
+    canvas.id = 'hmCanvas';
+    wrap.appendChild(canvas);
+
+    const legend = document.createElement('div');
+    legend.id = 'hmLegend';
+    legend.className = 'an-note';
+    legend.style.marginTop = '8px';
+
+    box.append(bar, wrap, legend);
+
+    for (const control of [phase, seat, cell, log]) {
+      control.addEventListener('change', () => drawHeatmap());
+    }
+    canvas.addEventListener('mousemove', (event) => readHeatmapCell(event));
+    canvas.addEventListener('mouseleave', () => { el('hmRead').textContent = ''; });
+    return box;
+  }
+
+  /**
+   * 굽기 도구가 PNG 옆에 써 둔 JSON 을 읽습니다 (1010).
+   *
+   * 그림이 덮는 사각형을 여기서 받아 격자에도 그대로 씁니다. 두 곳에 같은 숫자를 손으로
+   * 적으면 언젠가 어긋나고, 어긋나면 사람이 벽 안에 서 있는 것처럼 보이는데 그건 틀렸다는
+   * 티가 안 나서 더 나쁩니다.
+   *
+   * 한 번 물어본 맵은 기억합니다. 없다는 답도 기억합니다 - 굽지 않은 맵마다 매번 404 를
+   * 받을 이유가 없습니다.
+   */
+  async function bakedMapOf(mapId) {
+    if (mapId in mapMeta) return mapMeta[mapId];
+    mapMeta[mapId] = null;
+    try {
+      const res = await fetch(MAP_DIR + encodeURIComponent(mapId) + '.json', { cache: 'no-cache' });
+      if (!res.ok) return null;
+      const meta = await res.json();
+      const extent = Array.isArray(meta.extent) ? meta.extent.map(Number) : [];
+      if (extent.length !== 4 || extent.some((v) => !isFinite(v))) return null;
+      mapMeta[mapId] = {
+        extent: extent,
+        image: MAP_DIR + encodeURIComponent(mapId) + '.png',
+        source: '구운 평면도(' + (meta.bakedAt || '시각 없음') + ')',
+      };
+    } catch (ignored) {
+      // 아직 굽지 않은 맵입니다. 경계만 그립니다.
+    }
+    return mapMeta[mapId];
+  }
+
+  /** 좌표를 받았습니다. 필터 항목을 데이터에서 뽑고, 평면도가 있으면 읽은 뒤 그립니다. */
+  async function showHeatmap(q, table) {
+    const mi = table.columns.indexOf('map_id');
+    const mapId = mi >= 0 && table.rows.length ? String(table.rows[0][mi]) : '';
+    // 구운 평면도가 있으면 그 사각형이 그림과 격자 양쪽의 기준입니다.
+    const map = (await bakedMapOf(mapId)) || MAPS[mapId] || {};
+    heatmapData = { columns: table.columns, rows: table.rows, mapId, map };
+
+    const pi = table.columns.indexOf('phase');
+    const si = table.columns.indexOf('player_seat');
+    refill(el('hmPhase'), [...new Set(table.rows.map((r) => String(r[pi])))].sort(), '전체 단계', (v) => v);
+    refill(el('hmSeat'), [...new Set(table.rows.map((r) => r[si]))].sort((a, b) => a - b).map(String), '전체 자리', (v) => '자리 ' + v);
+
+    const where = map.image ? '평면도 위에 그립니다.'
+      : map.extent ? '평면도가 없어 ' + map.source + '으로 경계만 그립니다. 그림이 생기면 MAPS 에 적으면 됩니다.'
+        : '맵 "' + mapId + '" 의 평면도와 경계값이 없어 샘플의 범위로 그립니다.';
+    // 서버가 경기당 20,000 행에서 자릅니다(AnalyticsQueryService.POSITION_LIMIT). 딱 그 수가 왔으면 뒤쪽 시간대가
+    // 빠진 것이고, 그걸 모른 채 보면 "후반에 아무도 안 갔다"로 읽힙니다.
+    const capped = table.rows.length >= POSITION_CAP
+      ? ' 좌표가 상한 ' + POSITION_CAP.toLocaleString('ko-KR') + '행에 걸려 경기 뒷부분이 빠졌습니다. 시간순이라 앞부분만 보입니다.'
+      : '';
+    setNote(q, q.note + ' ' + where + capped, !!capped);
+
+    el('anBody-' + q.id).textContent = '';
+    el('hmBox').hidden = false;
+
+    heatmapImage = null;
+    if (map.image) {
+      const img = new Image();
+      img.onload = () => { heatmapImage = img; drawHeatmap(); };
+      img.onerror = () => { setNote(q, q.note + ' 평면도 파일(' + map.image + ')을 읽지 못해 경계만 그립니다.', true); drawHeatmap(); };
+      img.src = map.image;
+    }
+    drawHeatmap();
+  }
+
+  /** select 의 항목을 갈아 끼웁니다. 고르고 있던 값이 새 목록에 있으면 유지합니다. */
+  function refill(select, values, allText, label) {
+    const keep = select.value;
+    select.textContent = '';
+    select.appendChild(option('all', allText));
+    for (const v of values) select.appendChild(option(v, label(v)));
+    select.value = values.includes(keep) ? keep : 'all';
+  }
+
+  function heatColor(t, alpha) {
+    const pos = Math.min(1, Math.max(0, t)) * (HEAT_STOPS.length - 1);
+    const i = Math.min(HEAT_STOPS.length - 2, Math.floor(pos));
+    const f = pos - i;
+    const c = HEAT_STOPS[i].map((v, k) => Math.round(v + (HEAT_STOPS[i + 1][k] - v) * f));
+    return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + alpha + ')';
+  }
+
+  /** 눈금 간격. 축 하나에 눈금이 5~10 개쯤 오도록 1·2·5·10… 중에서 고릅니다. */
+  function niceStep(span) {
+    const raw = span / 8;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    for (const m of [1, 2, 5, 10]) {
+      if (m * mag >= raw) return m * mag;
+    }
+    return 10 * mag;
+  }
+
+  /** 등록된 경계가 없을 때. 샘플의 최소·최대를 칸에 맞춰 넓히고 한 칸씩 여유를 둡니다. */
+  function dataExtent(rows, xi, zi, cell) {
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const r of rows) {
+      if (r[xi] < minX) minX = r[xi];
+      if (r[xi] > maxX) maxX = r[xi];
+      if (r[zi] < minZ) minZ = r[zi];
+      if (r[zi] > maxZ) maxZ = r[zi];
+    }
+    return [Math.floor(minX / cell) * cell - cell, Math.floor(minZ / cell) * cell - cell,
+      Math.ceil(maxX / cell) * cell + cell, Math.ceil(maxZ / cell) * cell + cell];
+  }
+
+  function drawHeatmap() {
+    const data = heatmapData;
+    const canvas = el('hmCanvas');
+    if (!data || !canvas) return;
+    const col = (name) => data.columns.indexOf(name);
+    const xi = col('pos_x'), zi = col('pos_z'), pi = col('phase'), si = col('player_seat');
+    const phase = el('hmPhase').value;
+    const seat = el('hmSeat').value;
+    const cell = Number(el('hmCell').value);
+    const useLog = el('hmLog').checked;
+
+    const rows = data.rows.filter((r) => (phase === 'all' || String(r[pi]) === phase)
+      && (seat === 'all' || String(r[si]) === seat));
+
+    const map = data.map || {};
+    // 경계는 필터와 무관하게 경기 전체 샘플로 잡습니다. 단계를 바꿀 때 그림이 튀지 않게 하려는 것입니다.
+    const [x0, z0, x1, z1] = map.extent || dataExtent(data.rows, xi, zi, cell);
+    // 칸은 원점 기준 배수에 맞춥니다(FLOOR(pos / 2) * 2). 문서 3·4번 표와 같은 칸이라 숫자를 맞대 볼 수 있고,
+    // 경계가 -133.5 처럼 반 칸 어긋나 있어도 칸이 밀리지 않습니다. 경계 밖으로 나간 칸 조각은 그릴 때 잘라 냅니다.
+    const gx0 = Math.floor(x0 / cell) * cell;
+    const gz0 = Math.floor(z0 / cell) * cell;
+    const nx = Math.max(1, Math.ceil((x1 - gx0) / cell));
+    const nz = Math.max(1, Math.ceil((z1 - gz0) / cell));
+
+    // 격자 집계. 점을 하나씩 그리지 않고 칸에 모은 뒤 칸만 그리므로 20,000 점이어도 그리는 양은 칸 수입니다.
+    const counts = new Uint32Array(nx * nz);
+    let max = 0, inside = 0;
+    for (const r of rows) {
+      if (r[xi] < x0 || r[xi] >= x1 || r[zi] < z0 || r[zi] >= z1) continue;
+      const i = Math.floor((r[xi] - gx0) / cell);
+      const j = Math.floor((r[zi] - gz0) / cell);
+      const v = ++counts[j * nx + i];
+      if (v > max) max = v;
+      inside++;
+    }
+
+    const M = HEAT_MARGIN;
+    const cssW = canvas.parentElement.clientWidth || 700;
+    const plotW = cssW - M.l - M.r;
+    const plotH = Math.min(520, Math.max(160, plotW * (z1 - z0) / (x1 - x0)));
+    const cssH = plotH + M.t + M.b;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    canvas.style.height = cssH + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    const sx = plotW / (x1 - x0);
+    const sz = plotH / (z1 - z0);
+    const px = (x) => M.l + (x - x0) * sx;
+    const pz = (z) => M.t + (z1 - z) * sz;  // 위가 +z
+
+    ctx.fillStyle = '#f7f8fa';
+    ctx.fillRect(M.l, M.t, plotW, plotH);
+    const hasImage = heatmapImage && heatmapImage.complete && heatmapImage.naturalWidth > 0;
+    if (hasImage) ctx.drawImage(heatmapImage, M.l, M.t, plotW, plotH);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(M.l, M.t, plotW, plotH);
+    ctx.clip();
+    for (let j = 0; j < nz; j++) {
+      for (let i = 0; i < nx; i++) {
+        const v = counts[j * nx + i];
+        if (!v) continue;
+        const t = useLog ? Math.log1p(v) / Math.log1p(max) : v / max;
+        ctx.fillStyle = heatColor(t, hasImage ? 0.8 : 0.95);
+        ctx.fillRect(px(gx0 + i * cell), pz(gz0 + (j + 1) * cell), cell * sx + 0.5, cell * sz + 0.5);
+      }
+    }
+    ctx.restore();
+
+    // 경계와 눈금
+    ctx.strokeStyle = '#9ca3af';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(M.l + 0.5, M.t + 0.5, plotW - 1, plotH - 1);
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    const stepX = niceStep(x1 - x0);
+    for (let x = Math.ceil(x0 / stepX) * stepX; x <= x1 + 1e-9; x += stepX) {
+      ctx.fillRect(px(x), M.t + plotH, 1, 4);
+      ctx.fillText(String(Math.round(x * 100) / 100), px(x), M.t + plotH + 6);
+    }
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    const stepZ = niceStep(z1 - z0);
+    for (let z = Math.ceil(z0 / stepZ) * stepZ; z <= z1 + 1e-9; z += stepZ) {
+      ctx.fillRect(M.l - 4, pz(z), 4, 1);
+      ctx.fillText(String(Math.round(z * 100) / 100), M.l - 7, pz(z));
+    }
+    // 축 이름은 canvas 에 적지 않습니다. 오른쪽 끝 눈금과 겹칩니다. 방향(가로 x, 세로 z, 위가 +z)은 카드 설명에 있습니다.
+
+    heatmapGeom = { x0, z0, x1, z1, gx0, gz0, cell, nx, nz, counts, sx, sz, M };
+
+    const outside = rows.length - inside;
+    el('hmLegend').textContent = inside.toLocaleString('ko-KR') + '개 샘플을 ' + cell + ' m 칸에 모았습니다. 가장 진한 칸 '
+      + max.toLocaleString('ko-KR') + '개' + (useLog ? ' (로그 눈금)' : '')
+      + (outside ? '. 경계 밖 샘플 ' + outside.toLocaleString('ko-KR') + '개는 그리지 않았습니다 - 경계값이 맵과 다르거나 맵 밖 좌표입니다' : '')
+      + '. 범위 x ' + x0 + '~' + x1 + ', z ' + z0 + '~' + z1 + ' m.';
+  }
+
+  function readHeatmapCell(event) {
+    const g = heatmapGeom;
+    if (!g) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const mx = event.clientX - rect.left;
+    const my = event.clientY - rect.top;
+    const x = g.x0 + (mx - g.M.l) / g.sx;
+    const z = g.z1 - (my - g.M.t) / g.sz;
+    if (x < g.x0 || x >= g.x1 || z < g.z0 || z >= g.z1) {
+      el('hmRead').textContent = '';
+      return;
+    }
+    const i = Math.floor((x - g.gx0) / g.cell);
+    const j = Math.floor((z - g.gz0) / g.cell);
+    const cx = g.gx0 + i * g.cell, cz = g.gz0 + j * g.cell;
+    el('hmRead').textContent = 'x ' + cx + '~' + (cx + g.cell) + ', z ' + cz + '~' + (cz + g.cell) + ' m: '
+      + g.counts[j * g.nx + i].toLocaleString('ko-KR') + '개';
+  }
+
+  let heatmapResizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (!heatmapData || el('hmBox').hidden) return;
+    clearTimeout(heatmapResizeTimer);
+    heatmapResizeTimer = setTimeout(drawHeatmap, 150);
+  });
+
+  function setNote(q, text, bad) {
+    const note = el('anNote-' + q.id);
+    note.textContent = text;
+    note.className = 'an-note' + (bad ? ' bad' : '');
+  }
+
+  async function renderAnalyticsCard(q, table) {
+    const body = el('anBody-' + q.id);
+    body.textContent = '';
+    setNote(q, q.note, false);
+
+    if (table.unavailable) {
+      body.appendChild(emptyBox('수집 서비스에 연결할 수 없습니다. 게임과 계정 기능은 영향이 없습니다.'));
+      hideChart(q);
+      if (q.kind === 'heatmap') el('hmBox').hidden = true;
+      return;
+    }
+    if (q.kind === 'heatmap') {
+      if (!table.rows.length) {
+        body.appendChild(emptyBox('이 경기에는 위치 샘플이 없습니다.'));
+        el('hmBox').hidden = true;
+        return;
+      }
+      await showHeatmap(q, table);
+      return;
+    }
+    if (!table.rows.length) {
+      const scoped = selectedMatch && q.kind !== 'matches';
+      body.appendChild(emptyBox(scoped ? '이 경기에는 해당 값이 없습니다.'
+        : (el('anPeriod').value === 'all' ? '아직 경기가 없습니다.' : '이 기간에 경기가 없습니다.')));
+      hideChart(q);
+      return;
+    }
+
+    if (q.kind === 'bar') {
+      const xi = table.columns.indexOf(q.x);
+      const yi = q.y.map((name) => table.columns.indexOf(name));
+      if (xi < 0 || yi.some((i) => i < 0)) {
+        setNote(q, '문서의 컬럼 이름이 화면의 축 이름과 다릅니다. 차트 대신 표로 보입니다. '
+          + '(찾은 컬럼: ' + table.columns.join(', ') + ')', true);
+        hideChart(q);
+        body.appendChild(gridOf(table.columns, table.rows, {}));
+        return;
+      }
+      el('anChartBox-' + q.id).hidden = false;
+      barChart(q, table, xi, yi);
+      return;
+    }
+
+    // 경기 선택은 "경기" 컬럼의 값으로 합니다. 첫 컬럼이라고 가정하면 문서에서 순서를 바꿨을 때 다른 값을
+    // 경기 ID 로 잡고도 아무 말이 없습니다. 컬럼이 없으면 선택 기능만 끄고 그 사실을 적습니다.
+    const pickable = q.kind === 'matches' && table.columns.includes('경기');
+    if (q.kind === 'matches' && !pickable) {
+      setNote(q, q.note + ' 표에 "경기" 컬럼이 없어 경기 선택이 꺼졌습니다. 문서의 1번 절 별칭을 확인하세요.', true);
+    }
+    body.appendChild(gridOf(table.columns, table.rows, {
+      pickColumn: pickable ? '경기' : null,
+      dimWhen: q.kind === 'matches' ? '완전 수신' : null,
+    }));
+  }
+
+  function barChart(q, table, xi, yi) {
+    const labels = table.rows.map((row) => String(row[xi]));
+    const datasets = yi.map((i, n) => ({
+      label: table.columns[i],
+      data: table.rows.map((row) => row[i]),
+      backgroundColor: BAR_COLORS[n % BAR_COLORS.length] + 'cc',
+      borderColor: BAR_COLORS[n % BAR_COLORS.length],
+      borderWidth: 1,
+    }));
+    const existing = analyticsCharts[q.id];
+    if (existing) {
+      existing.data.labels = labels;
+      existing.data.datasets = datasets;
+      existing.update();
+      return;
+    }
+    analyticsCharts[q.id] = new Chart(el('anChart-' + q.id), {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { position: 'bottom', display: yi.length > 1 } },
+        scales: {
+          x: { title: { display: true, text: q.x } },
+          y: { beginAtZero: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * 응답의 columns 를 헤더로, rows 를 그대로 표로. 숫자는 오른쪽 정렬, null 은 대시,
+   * "(UTC)" 가 붙은 컬럼의 14자 시각은 이 브라우저의 시각으로 바꿉니다.
+   */
+  function gridOf(columns, rows, opts) {
+    const table = document.createElement('table');
+    table.className = 'grid';
+    const numeric = columns.map((c, i) => rows.some((row) => typeof row[i] === 'number'));
+    const utc = columns.map((c) => c.includes('(UTC)'));
+    const dimAt = opts.dimWhen ? columns.indexOf(opts.dimWhen) : -1;
+    const pickAt = opts.pickColumn ? columns.indexOf(opts.pickColumn) : -1;
+
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+    for (let i = 0; i < columns.length; i++) {
+      const th = document.createElement('th');
+      th.textContent = utc[i] ? columns[i].replace('(UTC)', '') : columns[i];
+      if (numeric[i]) th.className = 'num';
+      hr.appendChild(th);
+    }
+    thead.appendChild(hr);
+
+    const tbody = document.createElement('tbody');
+    const shown = rows.slice(0, TABLE_ROW_CAP);
+    for (const row of shown) {
+      const tr = document.createElement('tr');
+      if (pickAt >= 0) {
+        tr.className = 'pick';
+        const id = String(row[pickAt]);
+        if (id === selectedMatch) tr.classList.add('sel');
+        tr.addEventListener('click', () => {
+          selectedMatch = selectedMatch === id ? null : id;
+          for (const sib of tbody.children) sib.classList.toggle('sel', sib === tr && selectedMatch !== null);
+          loadAnalytics().catch(() => {});
+        });
+      }
+      if (dimAt >= 0 && Number(row[dimAt]) === 0) tr.classList.add('dim');
+      for (let i = 0; i < columns.length; i++) {
+        const td = document.createElement('td');
+        const v = row[i];
+        if (v === null || v === undefined) {
+          td.textContent = '–';
+        } else if (utc[i] && typeof v === 'string' && v.length === 14) {
+          td.textContent = labelOf(v);
+          td.title = v + ' UTC';
+        } else {
+          td.textContent = typeof v === 'number' ? String(v) : v;
+        }
+        if (numeric[i]) td.className = 'num';
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    table.append(thead, tbody);
+
+    if (rows.length > shown.length) {
+      const more = document.createElement('div');
+      more.className = 'an-note';
+      more.textContent = rows.length + '행 중 앞의 ' + shown.length + '행만 보입니다. 기간이나 경기로 좁히세요.';
+      const wrap = document.createElement('div');
+      wrap.append(table, more);
+      return wrap;
+    }
+    return table;
+  }
+
+  /**
+   * 정지 탭. 지금 정지된 계정과 최근 해제 이력을 한 응답으로 받습니다.
+   *
+   * 지금 정지 상태인지는 users 가 압니다. 감사 로그의 마지막 행으로 추정하지 않는 이유는
+   * 그 테이블이 생기기 전에 정지된 계정이 빠지기 때문입니다.
+   */
+  async function loadSuspensions() {
+    say('');
+    const data = await call('/suspensions');
+    const box = el('suspensionRows');
+    box.textContent = '';
+
+    suspensionGrid(box, '지금 정지됨 ' + data.suspended.length + '명',
+      ['닉네임', 'ID', '정지', '사유', '처리자'],
+      data.suspended,
+      (item) => [
+        cellOf(item.nickname),
+        idCellOf(item.userId),
+        timeCellOf(item.suspendedAt),
+        cellOf(item.reason),
+        // 감사 로그가 생기기 전의 정지는 처리자를 모릅니다. 빈 칸으로 두면 "아무도 안
+        // 눌렀다"로 읽히므로 그렇게 적습니다.
+        cellOf(item.adminUsername, '기록 이전'),
+      ]);
+
+    suspensionGrid(box, '최근 해제 ' + data.recentLifts.length + '건',
+      ['닉네임', 'ID', '해제', '처리자'],
+      data.recentLifts,
+      (item) => [
+        // 닉네임은 해제한 시점의 값입니다. 그 뒤 개명했으면 지금 이름과 다릅니다.
+        nicknameCellOf(item),
+        idCellOf(item.userId),
+        timeCellOf(item.actedAt),
+        cellOf(item.adminUsername),
+      ]);
+  }
+
+  /**
+   * 정지 탭의 표 하나. 각 줄을 누르면 사용자 탭으로 넘어갑니다.
+   */
+  function suspensionGrid(box, title, columns, items, cellsOf) {
+    const head = document.createElement('div');
+    head.className = 'section';
+    head.textContent = title;
+    box.appendChild(head);
+
+    if (!items.length) {
+      const none = document.createElement('div');
+      none.className = 'gone';
+      none.textContent = '없음';
+      box.appendChild(none);
+      return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'grid';
+
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+    for (const column of columns) {
+      const th = document.createElement('th');
+      th.textContent = column;
+      hr.appendChild(th);
+    }
+    thead.appendChild(hr);
+
+    const tbody = document.createElement('tbody');
+    for (const item of items) {
+      const tr = document.createElement('tr');
+      tr.className = 'pick';
+      tr.addEventListener('click', () => openUserFromSuspension(item.userId).catch(() => {}));
+      for (const cell of cellsOf(item)) tr.appendChild(cell);
+      tbody.appendChild(tr);
+    }
+
+    table.append(thead, tbody);
+    const wrap = document.createElement('div');
+    wrap.className = 'an-table';
+    wrap.appendChild(table);
+    box.appendChild(wrap);
+  }
+
+  /** 값이 없으면 대시를 흐리게. empty 는 없을 때 대신 적을 말입니다. */
+  function cellOf(text, empty) {
+    const td = document.createElement('td');
+    const blank = text === null || text === undefined || text === '';
+    td.textContent = blank ? (empty || '–') : text;
+    if (blank) td.classList.add('gone');
+    return td;
+  }
+
+  /** userId 는 앞 8자만 보입니다. 전체는 마우스를 올리면 나옵니다. */
+  function idCellOf(userId) {
+    const td = document.createElement('td');
+    td.textContent = userId.slice(0, 8);
+    td.title = userId;
+    return td;
+  }
+
+  function timeCellOf(stamp) {
+    const td = cellOf(when(stamp));
+    if (stamp) td.title = stamp + ' UTC';
+    return td;
+  }
+
+  /** 감사 행의 닉네임. 대상이 탈퇴했으면 그 사실을 함께 적습니다. */
+  function nicknameCellOf(entry) {
+    const td = document.createElement('td');
+    td.textContent = entry.nickname;
+    if (entry.accountDeleted) {
+      const gone = document.createElement('span');
+      gone.className = 'gone';
+      gone.textContent = ' (탈퇴)';
+      td.appendChild(gone);
+    }
+    return td;
+  }
+
+  /**
+   * 정지 탭에서 한 사람을 눌렀을 때. 사용자 탭으로 옮겨 그 사람만 띄우고 상세를 펼칩니다.
+   *
+   * 검색어에 userId 전체를 넣습니다. 닉네임으로 넣으면 같은 글자가 든 다른 사람까지 나와
+   * 어느 줄이 방금 누른 사람인지 알 수 없습니다.
+   */
+  async function openUserFromSuspension(userId) {
+    el('userQuery').value = userId;
+    showTab('users');
+
+    const users = (await call('/users?q=' + encodeURIComponent(userId))).users;
+    renderUsers(users);
+
+    // 탈퇴한 계정의 해제 이력을 눌렀을 때입니다. 목록이 비는 것이 정상입니다.
+    if (!users.length) {
+      say('그 계정은 지금 없습니다. 탈퇴한 뒤에도 이력은 남습니다.', 'good');
+      return;
+    }
+
+    const row = el('userRows').querySelector('[data-user-id="' + CSS.escape(userId) + '"]');
+    if (row) await toggleUserDetail(row, users[0], row.querySelector('.detail-toggle'));
+  }
+
   async function loadUsers() {
     say('');
     const q = el('userQuery').value.trim();
@@ -1005,6 +1939,10 @@
     const box = document.createElement('div');
     box.className = 'detail';
 
+    // 맨 위에 둡니다. 이 화면에서 운영자가 내리는 판단은 "정지할까, 풀까"이고, 요약의
+    // 정지 배지는 지금 상태 하나뿐이라 "전에도 그랬나"에 답하지 못합니다.
+    section(box, '정지 이력 ' + detail.suspensions.length + '건', detail.suspensions, suspensionLine);
+
     section(box, '받은 신고 ' + detail.receivedReports.length + '건', detail.receivedReports,
       (r) => reportLine(r, '신고한 사람'));
     section(box, '한 신고 ' + detail.madeReports.length + '건', detail.madeReports,
@@ -1038,6 +1976,32 @@
     for (const item of items) {
       box.appendChild(lineOf(item));
     }
+  }
+
+  /**
+   * 정지·해제 한 줄. 닉네임은 다시 적지 않습니다 - 이미 그 사람을 펼쳐 놓은 자리입니다.
+   *
+   * 해제에는 사유가 없습니다. 빈 자리로 두는 대신 아무것도 적지 않는 이유는, 신고 메모처럼
+   * "안 적었다"가 판단 재료인 경우와 달리 여기는 애초에 받지 않는 값이기 때문입니다.
+   */
+  function suspensionLine(entry) {
+    const line = document.createElement('div');
+
+    const what = document.createElement('b');
+    what.textContent = entry.action === 'SUSPEND' ? '정지' : '해제';
+    line.appendChild(what);
+
+    line.appendChild(document.createTextNode(
+      ' · ' + when(entry.actedAt) + ' · ' + entry.adminUsername));
+
+    if (entry.action === 'SUSPEND') {
+      const reason = document.createElement('span');
+      reason.className = 'memo';
+      reason.textContent = ' — ' + entry.reason;
+      line.appendChild(reason);
+    }
+
+    return line;
   }
 
   function reportLine(report, role) {
@@ -1128,6 +2092,38 @@
     loadUsers().catch(() => {});
   });
 
+  el('tabSuspensions').addEventListener('click', () => {
+    showTab('suspensions');
+    loadSuspensions().catch(() => {});
+  });
+  el('refreshSuspensions').addEventListener('click', () => loadSuspensions().catch(() => {}));
+
+  el('tabAnalytics').addEventListener('click', () => {
+    showTab('analytics');
+    // 주소에 남아 있던 질문으로 돌아갑니다. 처음 누르면 1번입니다.
+    showQuestion(questionFromHash()).catch(() => {});
+  });
+
+  // 뒤로·앞으로 가기로 질문이 바뀝니다. 우리가 주소를 쓴 경우에도 이 이벤트가 오므로
+  // 같은 질문이면 아무것도 하지 않습니다. 안 그러면 누를 때마다 두 번 부릅니다.
+  window.addEventListener('hashchange', () => {
+    if (el('analyticsView').hidden) return;
+    const id = questionFromHash();
+    if (id !== currentQuestion) showQuestion(id, true).catch(() => {});
+  });
+  el('refreshAnalytics').addEventListener('click', () => loadAnalytics().catch(() => {}));
+  el('anPeriod').addEventListener('change', () => {
+    analyticsPeriod();
+    // 직접 입력은 날짜를 채운 뒤에 불러옵니다. 빈 칸으로 한 번 더 부를 이유가 없습니다.
+    if (el('anPeriod').value !== 'custom') loadAnalytics().catch(() => {});
+  });
+  el('anFrom').addEventListener('change', () => loadAnalytics().catch(() => {}));
+  el('anTo').addEventListener('change', () => loadAnalytics().catch(() => {}));
+  el('anClearMatch').addEventListener('click', () => {
+    selectedMatch = null;
+    loadAnalytics().catch(() => {});
+  });
+
   el('searchUsers').addEventListener('click', () => loadUsers().catch(() => {}));
   el('userQuery').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
@@ -1148,6 +2144,13 @@
     // 개요로 시작합니다. 지금 몇 명이 붙어 있고 서버가 멀쩡한지가 열자마자 보여야 합니다.
     // 신고와 피드백은 눌러서 갑니다. 마지막에 본 탭을 기억하려면 저장할 곳이 필요한데
     // 그만한 값은 아닙니다.
+    // 주소에 분석 질문이 적혀 있으면 그리로 엽니다. 링크로 건네준 화면이 그대로 열립니다.
+    if (/^#analytics[/]/.test(location.hash || '')) {
+      showTab('analytics');
+      await showQuestion(questionFromHash(), true);
+      return;
+    }
+
     showTab('overview');
     await loadOverview();
   }

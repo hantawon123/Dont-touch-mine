@@ -5,12 +5,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 import java.util.stream.Collectors;
 
+import com.ssafy.d205.domain.analytics.query.InvalidAnalyticsFilterException;
+import com.ssafy.d205.domain.analytics.query.UnknownAnalyticsQuestionException;
 import com.ssafy.d205.global.exception.ErrorResponse;
 
 /**
@@ -20,11 +23,35 @@ import com.ssafy.d205.global.exception.ErrorResponse;
  * 어느 서비스가 답했는지 모르고 code 로만 분기하므로, 두 핸들러가 다른 모양을 내면 그 약속이 깨집니다.
  * 모양은 common 이 들고 있고, 어떤 예외를 어떤 코드로 옮기는지는 서비스마다 자기 것만 적습니다.
  *
- * <p>코드는 셋뿐입니다. INVALID_REQUEST(형식·내용 위반), RATE_LIMITED(분당 상한), 그리고 나머지는
- * 스프링 기본 처리에 맡깁니다. 이 서비스에는 계정도 세션도 없어 그 밖의 코드가 나올 자리가 없습니다.
+ * <p>코드는 넷뿐입니다. INVALID_REQUEST(형식·내용 위반), RATE_LIMITED(분당 상한), 내부 조회의
+ * QUESTION_NOT_FOUND(문서에 없는 질문 이름), 그리고 나머지는 스프링 기본 처리에 맡깁니다. 이 서비스에는
+ * 계정도 세션도 없어 그 밖의 코드가 나올 자리가 없습니다.
  */
 @RestControllerAdvice
 public class AnalyticsExceptionHandler {
+
+    /** 내부 조회의 필수 쿼리(positions 의 matchId)가 빠진 경우입니다. 스프링 기본 400 은 모양이 다릅니다. */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException e) {
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse("INVALID_REQUEST", "필수 값 " + e.getParameterName() + " 이 없습니다."));
+    }
+
+    /** 자릿수는 맞지만 날짜가 아닌 필터 값(13월 등)입니다. */
+    @ExceptionHandler(InvalidAnalyticsFilterException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidFilter(InvalidAnalyticsFilterException e) {
+        return ResponseEntity.badRequest().body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
+    }
+
+    /**
+     * 문서에 없는 질문 이름입니다. 부르는 쪽은 계정 서비스의 프록시이고 그 이름은 관리 화면이 고정으로
+     * 갖고 있으므로, 여기 오면 화면과 문서가 어긋난 것입니다.
+     */
+    @ExceptionHandler(UnknownAnalyticsQuestionException.class)
+    public ResponseEntity<ErrorResponse> handleUnknownQuestion(UnknownAnalyticsQuestionException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse("QUESTION_NOT_FOUND", e.getMessage()));
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e) {

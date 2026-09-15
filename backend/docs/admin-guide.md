@@ -411,6 +411,10 @@ GET /api/v1/admin/users/{userId}
   ],
   "feedback": [
     { "id": 3, "message": "...", "buildVer": "0.9.1", "platform": "WINDOWS", "createdAt": "..." }
+  ],
+  "suspensions": [
+    { "userId": "...", "nickname": "그때 닉네임", "action": "SUSPEND", "reason": "욕설",
+      "adminUsername": "admin", "actedAt": "20260915T...", "accountDeleted": false }
   ]
 }
 ```
@@ -425,9 +429,58 @@ GET /api/v1/admin/users/{userId}
 숨긴 신고와 피드백은 어디에도 나오지 않습니다. 각각 최근 순 최대 200건, 100건입니다.
 없는 계정은 `404 TARGET_NOT_FOUND` 입니다.
 
+`suspensions` 는 이 사람의 정지·해제 이력입니다(최근 순, 최대 200건). `user.suspended` 는 지금
+상태 하나뿐이라 "전에도 정지된 적이 있나"에 답하지 못합니다. 해제해도 될지 판단하려면 그 답이
+필요해서 함께 냅니다. 화면은 이것을 상세의 맨 위에 그립니다.
+
+`nickname` 은 **누른 시점의 닉네임**이고 지금 이름이 아닙니다. 그때 운영자가 무엇을 보고
+눌렀는지를 남기는 값이라 개명해도 바뀌지 않습니다. `reason` 은 `SUSPEND` 에만 있습니다.
+
 ---
 
-## 10. 개요
+## 10. 정지 목록
+
+관리 화면의 정지 탭입니다. 지금 막혀 있는 사람과 최근에 푼 기록을 한 번에 봅니다.
+
+```
+GET /api/v1/admin/suspensions
+```
+
+```json
+{
+  "suspended": [
+    { "userId": "...", "nickname": "지금 닉네임", "suspendedAt": "...",
+      "reason": "욕설", "adminUsername": "admin" }
+  ],
+  "recentLifts": [
+    { "userId": "...", "nickname": "그때 닉네임", "action": "LIFT", "reason": null,
+      "adminUsername": "admin", "actedAt": "...", "accountDeleted": true }
+  ]
+}
+```
+
+둘을 한 응답에 담습니다. 정지된 목록만 보면 "왜 풀렸나"에 답할 수 없고, 해제 이력만 보면 지금
+누가 막혀 있는지 모릅니다. 각각 최대 200건, 50건입니다.
+
+`suspended` 는 감사 로그가 아니라 `users` 를 기준으로 셉니다. 지금 정지 상태인지는 그쪽만이
+알기 때문이고, 감사 로그의 마지막 행으로 추정하면 이 기능이 생기기 전에 정지된 계정이
+빠집니다. 그 계정들은 `adminUsername` 이 `null` 입니다. 누가 눌렀는지 기록이 없다는 뜻이지
+아무도 안 눌렀다는 뜻이 아닙니다.
+
+`recentLifts` 의 `accountDeleted` 가 `true` 면 그 사이 탈퇴한 계정입니다. 기록은 남습니다.
+대상이 사라져도 "누가 무엇을 했다"는 사실은 남아야 하기 때문입니다.
+
+**해제는 이 경로에 없습니다.** 정지와 해제는 9절의 사용자 경로에서 합니다. 해제는 그 사람의
+신고 이력과 정지 이력을 보고 판단할 일이지 목록에서 이름만 보고 누를 일이 아니라, 화면도
+줄을 누르면 사용자 탭으로 넘어갑니다.
+
+정지·해제를 누를 때마다 감사 행이 한 줄 쌓입니다. 이미 정지된 계정에 사유만 고쳐 다시 누른
+것도 남습니다. 남기지 않으면 사유가 언제 왜 바뀌었는지 추적이 끊깁니다. 행은 추가만 하고
+고치거나 지우지 않습니다.
+
+---
+
+## 11. 개요
 
 관리 화면의 첫 탭입니다. 지금 숫자와 최근 추이를 한 화면에 둡니다.
 
@@ -469,7 +522,60 @@ GET /api/v1/admin/overview?range=24h
 
 ---
 
-## 11. 알고 있어야 할 것
+## 12. 분석 조회
+
+관리 화면 분석 탭이 쓰는 표입니다. 플레이 로그는 수집 서비스의 DB 에 있으므로 이 서버는 관리자
+세션만 확인하고 수집 서비스의 내부 API 를 그대로 대신 부릅니다.
+
+```
+GET /api/v1/admin/analytics/{question}?from=20260901000000&to=20260915000000&matchId=<경기 UUID>
+GET /api/v1/admin/analytics/positions?matchId=<경기 UUID>
+```
+
+`question` 은 `docs/analytics-dashboards.md` 의 번호 절에 붙인 이름입니다. SQL 은 그 문서가 원본이고
+Metabase 화면도 같은 문서로 만들어지므로, 두 화면의 숫자는 같은 경기·기간에서 같아야 합니다.
+
+| `question` | 문서의 절 |
+| --- | --- |
+| `matches` | 1. 경기 목록과 수집 상태 |
+| `hiding-time` | 2. 숨는 시간 적정성 |
+| `hideouts` | 3. 은신처 분포 |
+| `dwell` | 4. 체류 구역 |
+| `seeking-time` | 5. 찾는 시간 적정성 |
+| `combat` | 6. 전투 적정성 |
+| `item-life` | 7. 물건 생애 |
+| `dropout` | 8. 경기 중 이탈 |
+
+필터는 셋이고 전부 선택입니다. `from`·`to` 는 UTC `yyyyMMddHHmmss` 14자로 경기의 **시작 시각**을
+자르고(`to` 는 미포함), `matchId` 는 그 경기 하나입니다. 문서의 SQL 이 `upload_complete = 1` 로 경기를
+고르는 자리에 이 조건이 들어가므로, 집계는 좁힌 경기 집합 위에서 다시 계산됩니다.
+
+```json
+{
+  "columns": ["숨는 시간(초)", "경기 수", "못 숨긴 인원 %"],
+  "rows": [[30, 12, 8.3], [60, 3, 0.0]],
+  "unavailable": false
+}
+```
+
+| 필드 | 뜻 |
+| --- | --- |
+| `columns` | 문서 SQL 의 컬럼 별칭 그대로(한글). 화면은 이것을 헤더로 씁니다. 문서를 고치면 같이 바뀝니다 |
+| `rows` | 행마다 `columns` 와 같은 길이의 값. 시각은 UTC `yyyyMMddHHmmss` 문자열, 숫자는 그대로 |
+| `unavailable` | 수집 서비스가 답하지 않았습니다. `true` 면 `columns`·`rows` 가 비어 있고 화면은 "연결할 수 없음"을 보입니다. `false` 인데 `rows` 가 비면 데이터가 정말 없는 것입니다 |
+
+`positions` 는 히트맵용 좌표입니다. 컬럼은 `map_id`, `player_seat`, `phase`, `elapsed_seconds`, `pos_x`,
+`pos_z` 로 고정이고, 한 경기의 위치 샘플을 시간순으로 최대 20,000 행 줍니다. `matchId` 가 없으면 400
+`INVALID_REQUEST` 입니다.
+
+`from`·`to` 가 14자가 아니면 400 `INVALID_REQUEST` 이고 수집 서비스에 묻지 않습니다. 문서에 없는
+`question` 은 수집 서비스가 404 로 거절하는데, 이 서버는 그것을 `unavailable: true` 로 돌려줍니다 -
+질문 목록은 화면이 고정으로 갖고 있어 사람이 URL 을 손으로 칠 때만 생기는 일이고, 그때 서버 로그에
+경고가 남습니다.
+
+---
+
+## 13. 알고 있어야 할 것
 
 **계정이 하나이고 팀이 공유합니다.** 누가 무엇을 했는지 구분할 수 없습니다. 사람마다
 계정을 나눌 일이 생기면 그때 계정 테이블을 만들어야 합니다.

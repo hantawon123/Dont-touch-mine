@@ -17,9 +17,13 @@
 #
 # 백업이 먼저이고 실패하면 거기서 멈춥니다. 백업 없이 옮기는 경로는 없습니다.
 #
-# 분석 DB 의 Flyway 이력도 함께 옮깁니다. 새 컨테이너에는 수집 서비스가 이미 V1~V4 를 돌려 놓았을 텐데,
-# 덤프의 flyway_schema_history 가 그것을 덮습니다. 같은 파일들의 이력이라 내용이 같고, 덮지 않으면 테이블
-# 데이터와 이력이 서로 다른 출처가 됩니다.
+# Flyway 이력(flyway_schema_history)은 옮기지 않습니다. 새 컨테이너에는 수집 서비스가 이미 V1~V4 를
+# 돌려 놓았고, 그것이 지금 코드와 맞는 유일한 이력입니다.
+#
+# 처음에는 이 이력도 덮었고 그래서 사고가 났습니다(2026-09-15). 분리 커밋에서 V1 의 주석 한 줄이 바뀌었는데
+# Flyway 는 주석까지 체크섬에 넣습니다. 옛 이력으로 덮으니 분리 전 체크섬이 남았고, 수집 서비스는 기동할
+# 때마다 검증에 실패했습니다. 스키마가 같아도 체크섬은 파일을 따라가므로 "같은 파일들의 이력이니 내용도
+# 같다"는 전제가 틀렸습니다. 이미 덮어 버렸다면 deploy/repair-analytics-flyway.sh 로 되돌립니다.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -52,7 +56,10 @@ for schema in d205_analytics metabase; do
     file="$BACKUP_DIR/${STAMP}-${schema}-before-split.sql.gz"
     # --single-transaction: InnoDB 라 잠금 없이 일관된 스냅샷을 뜹니다. 게임 API 는 계속 돕니다.
     # --databases: 덤프에 CREATE DATABASE/USE 가 들어가 새 컨테이너에서 그대로 실행됩니다.
-    docker exec "$OLD" sh -c "MYSQL_PWD='$MYSQL_ROOT_PASSWORD' mysqldump -uroot --single-transaction --routines --triggers --databases $schema" \
+    # 이력 테이블은 뺍니다. 위 주석에 적은 이유입니다.
+    ignore=""
+    [ "$schema" = d205_analytics ] && ignore="--ignore-table=$schema.flyway_schema_history"
+    docker exec "$OLD" sh -c "MYSQL_PWD='$MYSQL_ROOT_PASSWORD' mysqldump -uroot --single-transaction --routines --triggers $ignore --databases $schema" \
         | gzip > "$file"
     chmod 600 "$file"
     echo "  $file ($(du -h "$file" | cut -f1))"
@@ -66,7 +73,7 @@ for schema in d205_analytics metabase; do
 done
 
 echo "[3/4] 행 수 비교"
-for table in "d205_analytics.game_event" "d205_analytics.flyway_schema_history" "metabase.report_dashboard" "metabase.report_card"; do
+for table in "d205_analytics.game_event" "metabase.report_dashboard" "metabase.report_card"; do
     old_n=$(docker exec "$OLD" sh -c "MYSQL_PWD='$MYSQL_ROOT_PASSWORD' mysql -uroot -N -e 'SELECT COUNT(*) FROM $table'" 2>/dev/null || echo "?")
     new_n=$(docker exec "$NEW" sh -c "MYSQL_PWD='$ANALYTICS_MYSQL_ROOT_PASSWORD' mysql -uroot -N -e 'SELECT COUNT(*) FROM $table'" 2>/dev/null || echo "?")
     mark="OK"; [ "$old_n" != "$new_n" ] && mark="다름!"
