@@ -30,6 +30,27 @@
         },
         "type" : "object"
       },
+      "AdminAnalyticsTable" : {
+        "properties" : {
+          "columns" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "rows" : {
+            "items" : {
+              "items" : { },
+              "type" : "array"
+            },
+            "type" : "array"
+          },
+          "unavailable" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "AdminOverview" : {
         "properties" : {
           "matches" : {
@@ -1054,6 +1075,97 @@
         },
         "tags" : [
           "account-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/analytics/positions" : {
+      "get" : {
+        "operationId" : "positions",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "matchId",
+            "required" : true,
+            "schema" : {
+              "maxLength" : 64,
+              "minLength" : 0,
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminAnalyticsTable"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-analytics-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/analytics/{question}" : {
+      "get" : {
+        "operationId" : "question",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "question",
+            "required" : true,
+            "schema" : {
+              "pattern" : "[a-z][a-z-]{0,31}",
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "from",
+            "required" : false,
+            "schema" : {
+              "pattern" : "\\d{14}",
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "to",
+            "required" : false,
+            "schema" : {
+              "pattern" : "\\d{14}",
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "matchId",
+            "required" : false,
+            "schema" : {
+              "maxLength" : 64,
+              "minLength" : 0,
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminAnalyticsTable"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-analytics-controller"
         ]
       }
     },

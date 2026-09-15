@@ -108,7 +108,7 @@ backend/
 ## 패키지 구조
 
 두 실행 모듈 모두 `global`과 `domain`으로 나누고, 각 도메인 안에서 계층으로 한 번 더 나눕니다. 아래는
-`app` 의 것이고, `analytics` 는 `domain/analytics` 하나와 그 안의 `internalapi/` 로 이뤄집니다.
+`app` 의 것이고, `analytics` 는 `domain/analytics` 하나와 그 안의 `internalapi/`·`query/`(관리 화면 분석 탭이 읽는 문서 SQL 실행) 로 이뤄집니다.
 
 ```
 com.ssafy.d205
@@ -120,7 +120,7 @@ com.ssafy.d205
 │  └─ web/           요청 앞의 토큰·정지 검사, /admin 관리 화면 정적 파일 연결
 └─ domain/
    ├─ admin/         운영자 세션 조회와 신고 검토 API
-   ├─ ops/           운영 지표 샘플러, 분석 서비스 내부 API 호출(익명화 재시도, 경기 통계)
+   ├─ ops/           운영 지표 샘플러, 분석 서비스 내부 API 호출(익명화 재시도, 경기 통계, 분석 탭 표)
    ├─ friend/        친구 요청과 친구 관계
    ├─ invite/        친구에게 방 코드 전달, 만료 정리
    ├─ notification/  알림 WebSocket 연결과 커밋 뒤 실시간 발송
