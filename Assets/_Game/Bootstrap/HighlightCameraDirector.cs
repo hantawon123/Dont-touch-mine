@@ -279,6 +279,7 @@ namespace Game.Bootstrap
                     FindObjectsInactive.Include)?.HighlightOcclusionGroups ??
                 Array.Empty<SceneHighlightOcclusionReference>();
             replayCameraRig = HighlightReplayCameraRig.TryCreate(cameraTransform);
+            CaptureCctvOccluders();
         }
 
         public Transform CurrentTarget => currentTarget;
@@ -410,7 +411,8 @@ namespace Game.Bootstrap
                 HighlightShotFraming.Medium => (closeDistance + wideDistance) * 0.5f,
                 _ => closeDistance,
             };
-            ApplyTargetPose(shot.HardCut ? 1f : 0f);
+            // CCTV pans and zooms continuously; only its initial setup is an immediate cut.
+            ApplyTargetPose(shot.HardCut && activeCctv == null ? 1f : 0f);
         }
 
         private Transform FindNearestPlayer(Transform target)
