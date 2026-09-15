@@ -674,9 +674,21 @@ namespace Game.Bootstrap
             return references.ToArray();
         }
 
+        private bool NeedsPlayerVisuals()
+        {
+            // A replay copy survives despawning. Search only until every known
+            // participant has one, including an avatar that arrives after scene load.
+            var participants = room.Participants.CurrentValue;
+            if (participants.Count == 0) return true;
+            foreach (var participant in participants)
+                if (participant.PlayerId == null || !playerVisuals.ContainsKey(participant.PlayerId)) return true;
+            return false;
+        }
+
         private void CaptureVisuals()
         {
             if (phase == MatchPhase.Waiting) return;
+            if (NeedsPlayerVisuals())
             using (CapturePlayersMarker.Auto())
             {
                 foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(

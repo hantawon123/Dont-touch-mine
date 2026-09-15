@@ -74,3 +74,20 @@ CPU/렌더/물리/GC 할당의 원인은 Unity Profiler로, 실제 Web 실행은
 검증: NetworkMatchHudPresenterTests와 HighlightMapReadinessTests 총 42개 통과. 초기 새 테스트의 에디터 씬 생성 방식은 수정 후 재실행했다. 검증 자료는 작업 공간 `.build/performance-995-ab`의 trial-0~6.csv, environment.json, cpu.raw, markers.csv, game.png 및 `performance-995-highlight-tests-v3.xml`이다. 원시 프로파일은 저장소에 포함하지 않는다.
 
 앞선 수동 30초 기록은 평균 약 30.33FPS였지만 interrupted=true였고 해상도도 1528×819여서 이 비교의 기준선으로 사용하지 않았다. 전원 연결 전후의 순수 개선율이나 실제 GPU 교체를 입증하는 자료로도 사용하지 않는다. 서로 다른 PC의 6인, PC Player, WebGL, 하이라이트/재경기 장시간 시나리오는 별도 검증이 필요하다.
+## 캐릭터 준비 비용 추가 개선
+
+추가 프로파일에서 `Highlight.CapturePlayers`가 약 2.46ms였다. 방 참가자별 리플레이 복사본이 모두 준비되면 캐릭터 전역 검색을 멈춘다. 참가자 명단보다 아바타가 늦게 도착하거나 같은 인원수에서 참가자가 교체되면 다시 검색하며, 퇴장한 참가자의 기존 복사본은 보존한다.
+
+이번 실행 환경은 RTX 4070 Laptop / D3D12 / 2880×1418 / 약 120Hz였다. 앞선 60Hz 실행과 절대 수치를 직접 비교하지 않는다. 같은 경기 안에서 검색 유지·검색 생략·GPU Resident Drawer 시험을 각 30초씩 세 차례 교차했다.
+
+| 방식 | 평균 FPS 3회 | p95 ms 3회 |
+| --- | --- | --- |
+| 물건 개선만 적용, 캐릭터 검색 유지 | 75.94 / 71.26 / 67.91 | 16.22 / 17.44 / 19.16 |
+| 캐릭터 준비 완료 후 검색 생략 | 83.49 / 78.43 / 79.69 | 15.67 / 16.89 / 16.37 |
+| 검색 생략 + Forward+ / GPU Resident Drawer 시험 | 83.58 / 81.64 / 79.91 | 15.24 / 15.50 / 15.76 |
+
+검색 생략의 평균 FPS 중앙값 개선은 약 11.8%다. GPU 시험은 추가 이득이 작고 그리기 작업 수가 늘어 원본 설정에 적용하지 않았다. 앞선 BRG Keep All 미설정 시험은 실제 GPU Resident Drawer가 비활성 상태여서 해당 기능의 결과에서 제외했다. 수정한 시험에서는 GPUResidentDrawer 프로파일 마커로 실행을 확인했다.
+
+마지막 별도 Profiler 구간에서 VContainerUpdate는 약 0.75ms, 물건 참조 조회는 약 0.008ms였다. 이 구간은 FPS 비교에서 제외했다. HUD LateUpdate의 약 16KB/frame 할당과 에디터 ItemCollectionBuilder의 플레이 중 요청 파일 조회가 후속 분석 대상이다. **평균·p95 모두 120FPS 목표 미달이며 995는 진행 중이다.**
+
+검증: 최종 소스의 NetworkMatchHudPresenterTests + Game.Tests.EditMode.HighlightMapReadinessTests 43개 통과. 자료: 작업 공간 `.build/performance-995-players-gpu` 및 `performance-995-players-final-tests.xml`. 동일 PC 서버/클라이언트 한 명의 자동 이동 결과로, 6인·모든 구역·하이라이트 전환의 성능 보증이 아니다.

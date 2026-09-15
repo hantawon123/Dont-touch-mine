@@ -69,6 +69,31 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void PlayerCapture_RetriesMissingParticipants_AndRetainsDepartedVisuals()
+        {
+            using var room = new RoomBrowserSystem();
+            var network = new FakeNetwork();
+            using var playback = new NetworkHighlightPlaybackController(network, room, network, new FakeTransition());
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var needsCapture = typeof(NetworkHighlightPlaybackController).GetMethod("NeedsPlayerVisuals", flags);
+            var visuals = (Dictionary<string, Game.Client.Players.ReplayVisual>)typeof(NetworkHighlightPlaybackController).GetField("playerVisuals", flags).GetValue(playback);
+            var source = new GameObject("Recorded player");
+            try
+            {
+                Assert.That(needsCapture.Invoke(playback, null), Is.True);
+                room.SetParticipants(new[] { new RoomParticipant("P1", 0, true) });
+                Assert.That(needsCapture.Invoke(playback, null), Is.True, "Roster can arrive before its avatar.");
+                visuals.Add("P1", new Game.Client.Players.ReplayVisual(source.transform, null));
+                Assert.That(needsCapture.Invoke(playback, null), Is.False);
+                room.SetParticipants(new[] { new RoomParticipant("P2", 0, true) });
+                Assert.That(needsCapture.Invoke(playback, null), Is.True, "An equal-sized roster can contain a different player.");
+                visuals.Add("P2", new Game.Client.Players.ReplayVisual(source.transform, null));
+                Assert.That(needsCapture.Invoke(playback, null), Is.False);
+                Assert.That(visuals.ContainsKey("P1"), Is.True, "Departure must not erase recorded highlights.");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(source); }
+        }
         private sealed class ReplayCaptureContext : IMatchRuntimeContext
         {
             public double ServerTime => 0;
