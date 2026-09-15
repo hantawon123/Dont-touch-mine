@@ -16,7 +16,8 @@ namespace Game.Client.Voice
     /// and the HUD mic button are the same on/off. The speaker button and T
     /// decide whether this machine hears the room, without leaving voice.
     /// Closing the speaker also mutes the microphone so a silent room is
-    /// not still sending.
+    /// not still sending. While the speaker stays off the microphone cannot
+    /// be opened again.
     /// </remarks>
     public sealed class VoicePresenter : IStartable, ITickable, IDisposable
     {
@@ -91,7 +92,7 @@ namespace Game.Client.Voice
             // to the message being typed then, not to the microphone.
             if (PlayerMovement.IsTextInputFocused())
             {
-                voice.SetTalking(latched);
+                voice.SetTalking(voice.IsListening.CurrentValue && latched);
                 return;
             }
 
@@ -105,7 +106,8 @@ namespace Game.Client.Voice
                 HandleSpeakerToggle();
             }
 
-            voice.SetTalking(latched || holdAction.IsPressed());
+            voice.SetTalking(
+                voice.IsListening.CurrentValue && (latched || holdAction.IsPressed()));
         }
 
         /// <summary>
@@ -123,6 +125,14 @@ namespace Game.Client.Voice
         /// </remarks>
         private void ToggleMute()
         {
+            if (!voice.IsListening.CurrentValue)
+            {
+                latched = false;
+                voice.SetTalking(false);
+                voice.SetMuted(true);
+                return;
+            }
+
             var muted = !voice.IsMuted.CurrentValue;
             if (muted)
             {

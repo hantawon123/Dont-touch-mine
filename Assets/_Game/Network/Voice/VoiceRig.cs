@@ -157,6 +157,7 @@ namespace Game.Network.Voice
 
             this.listening.Value = listening;
             ApplyListenState();
+            ApplyTransmitState();
         }
 
         /// <remarks>
@@ -251,7 +252,8 @@ namespace Game.Network.Voice
 
             // Mute wins. The talk key is a request to be heard, and a muted
             // player has already answered that.
-            boundRecorder.TransmitEnabled = talking && !muted.Value;
+            boundRecorder.TransmitEnabled =
+                talking && !muted.Value && listening.Value;
         }
 
         /// <summary>

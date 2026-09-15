@@ -70,6 +70,11 @@ namespace Game.Bootstrap
         public void SetMuted(bool muted)
         {
             if (disposed) return;
+            if (!muted && !preferences.Listening)
+            {
+                return;
+            }
+
             preferences.Muted = muted;
             PublishEffectiveMute();
         }
@@ -90,6 +95,12 @@ namespace Game.Bootstrap
             {
                 SetMuted(true);
             }
+            else
+            {
+                PublishEffectiveMute();
+            }
+
+            PublishTalking();
         }
 
         /// <remarks>
@@ -135,10 +146,12 @@ namespace Game.Bootstrap
         }
 
         private bool EffectiveMute =>
-            VoiceMutePolicy.IsMuted(preferences.Muted, sound.Current.InputMode);
+            VoiceMutePolicy.IsMuted(
+                preferences.Muted, sound.Current.InputMode, preferences.Listening);
 
         private bool EffectiveTalking =>
-            VoiceMutePolicy.IsTalking(talking, sound.Current.InputMode);
+            VoiceMutePolicy.IsTalking(
+                talking, sound.Current.InputMode, preferences.Listening);
 
         private void OnSoundChanged(SoundSettings _)
         {
