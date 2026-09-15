@@ -19,8 +19,17 @@ namespace Game.Bootstrap
         private bool inMenu;
         private bool ducked;
         public const float FadeSeconds = 1f;
+
+        /// <summary>
+        /// How long to stay silent after a microphone test. Closing the
+        /// capture device leaves the output noisy for a couple of seconds,
+        /// so the track stays out of the mixer until that has passed.
+        /// </summary>
+        public const float MicReleaseSeconds = 3f;
+
         private float musicVolume;
         private float fadeGain = 1f;
+        private float releaseHold;
         private bool fading;
         private bool playing;
 
@@ -68,6 +77,7 @@ namespace Game.Bootstrap
                 fading = false;
                 playing = false;
                 fadeGain = 0f;
+                releaseHold = 0f;
                 source.volume = 0f;
                 source.Stop();
                 return;
@@ -75,7 +85,7 @@ namespace Game.Bootstrap
             var next = ShouldPlay(state);
             if (next == inMenu) return;
             inMenu = next;
-            if (inMenu && !playing)
+            if (inMenu && !playing && !ducked && releaseHold <= 0f)
             {
                 source.Play();
                 playing = true;
@@ -97,18 +107,50 @@ namespace Game.Bootstrap
             {
                 ducked = nextDucked;
                 fading = true;
+                if (ducked)
+                {
+                    releaseHold = 0f;
+                }
+                else
+                {
+                    fadeGain = 0f;
+                    source.volume = 0f;
+                    source.Stop();
+                    playing = false;
+                    releaseHold = MicReleaseSeconds;
+                }
+            }
+
+            if (releaseHold > 0f)
+            {
+                releaseHold = Mathf.Max(0f, releaseHold - Mathf.Max(0f, deltaTime));
+                source.volume = 0f;
+                if (releaseHold > 0f)
+                {
+                    return;
+                }
+
+                if (inMenu && !playing)
+                {
+                    source.Play();
+                    playing = true;
+                }
+
+                fading = true;
+                return;
             }
 
             if (!fading) return;
 
             // A running microphone test only mutes the track. Leaving the
-            // menu still stops it once the fade finishes.
+            // menu still stops it once the fade finishes. Fade-in waits
+            // until the capture device has left the mixer.
             var target = inMenu && !ducked ? 1f : 0f;
             fadeGain = Mathf.MoveTowards(fadeGain, target, Mathf.Max(0f, deltaTime) / FadeSeconds);
             source.volume = musicVolume * fadeGain;
             if (fadeGain != target) return;
             fading = false;
-            if (!inMenu)
+            if (!inMenu || ducked)
             {
                 source.Stop();
                 playing = false;
@@ -122,6 +164,7 @@ namespace Game.Bootstrap
             inMenu = false;
             fading = false;
             playing = false;
+            releaseHold = 0f;
             flow.StateChanged -= OnStateChanged;
             SceneManager.activeSceneChanged -= OnActiveSceneChanged;
             sound.AudioChanged -= ApplyVolume;

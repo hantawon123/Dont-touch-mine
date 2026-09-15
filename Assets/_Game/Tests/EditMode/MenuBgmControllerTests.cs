@@ -79,6 +79,8 @@ namespace Game.Architecture.Tests
                 Assert.That(source.volume, Is.Zero);
 
                 microphoneTest.Stop();
+                advance.Invoke(controller, new object[] { MenuBgmController.MicReleaseSeconds });
+                Assert.That(source.volume, Is.Zero, "Stay muted until the capture device is released.");
                 advance.Invoke(controller, new object[] { 0.5f });
                 Assert.That(source.volume, Is.EqualTo(initial * 0.5f).Within(0.001f));
                 advance.Invoke(controller, new object[] { 1f });

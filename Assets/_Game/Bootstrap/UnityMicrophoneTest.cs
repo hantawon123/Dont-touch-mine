@@ -141,6 +141,7 @@ namespace Game.Bootstrap
 #if !UNITY_WEBGL || UNITY_EDITOR
             if (source != null)
             {
+                source.volume = 0f;
                 source.Stop();
                 source.clip = null;
             }
@@ -162,15 +163,10 @@ namespace Game.Bootstrap
 #endif
             if (host != null)
             {
-                if (Application.isPlaying)
-                {
-                    UnityEngine.Object.Destroy(host);
-                }
-                else
-                {
-                    UnityEngine.Object.DestroyImmediate(host);
-                }
-
+                // Immediate: a deferred Destroy leaves the loopback in the
+                // mixer for the rest of the frame, which is heard as noise
+                // on the BGM as it fades back in.
+                UnityEngine.Object.DestroyImmediate(host);
                 host = null;
             }
 
