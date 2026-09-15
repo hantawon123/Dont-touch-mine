@@ -155,7 +155,7 @@ namespace Game.Bootstrap
                 builder.RegisterBuildCallback(c =>
                 {
                     c.Resolve<NetworkInteractionSceneBridge>().BindSceneItems(lobbyItems);
-                    c.Resolve<NetworkRunnerService>().RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
+                    PrepareLobbyPhysics(c.Resolve<NetworkRunnerService>());
                 });
                 return;
             }
@@ -319,7 +319,7 @@ namespace Game.Bootstrap
                 // The avatar is created in Room before Lobby's floor exists.
                 // UI scene changes do not pass through Fusion's scene loader,
                 // so hand the scene-owned points over once this scene is ready.
-                network.RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
+                PrepareLobbyPhysics(network);
                 if (network.IsHighlightInProgress)
                     PrepareHighlightStaging(network);
                 EnsurePlayerCameraRig(container.Resolve<ControlSettingsSystem>());
@@ -357,6 +357,29 @@ namespace Game.Bootstrap
             // Apply outgoing visibility once at the handoff, after replay cleanup.
         }
 
+
+        private void PrepareLobbyPhysics(NetworkRunnerService network)
+        {
+            if (network.IsServer && network.IsHighlightInProgress)
+            {
+                // The replay keeps the match scene loaded, but skipped players are
+                // already simulated in Lobby. Both maps occupy the same world space.
+                // Remove the old collision world on authority as well as on the
+                // skipped client; otherwise server corrections pin players to walls
+                // they cannot see until the match scene finally unloads.
+                var playground = FindFirstObjectByType<PlaygroundLifetimeScope>(FindObjectsInactive.Include);
+                if (playground != null)
+                {
+                    foreach (var root in playground.SceneRoots)
+                    {
+                        if (root == null) continue;
+                        foreach (var collider in root.GetComponentsInChildren<Collider>(true))
+                            collider.enabled = false;
+                    }
+                }
+            }
+            network.RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
+        }
 
         private void PrepareHighlightStaging(NetworkRunnerService network)
         {
