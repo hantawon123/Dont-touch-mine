@@ -91,3 +91,14 @@ CPU/렌더/물리/GC 할당의 원인은 Unity Profiler로, 실제 Web 실행은
 마지막 별도 Profiler 구간에서 VContainerUpdate는 약 0.75ms, 물건 참조 조회는 약 0.008ms였다. 이 구간은 FPS 비교에서 제외했다. HUD LateUpdate의 약 16KB/frame 할당과 에디터 ItemCollectionBuilder의 플레이 중 요청 파일 조회가 후속 분석 대상이다. **평균·p95 모두 120FPS 목표 미달이며 995는 진행 중이다.**
 
 검증: 최종 소스의 NetworkMatchHudPresenterTests + Game.Tests.EditMode.HighlightMapReadinessTests 43개 통과. 자료: 작업 공간 `.build/performance-995-players-gpu` 및 `performance-995-players-final-tests.xml`. 동일 PC 서버/클라이언트 한 명의 자동 이동 결과로, 6인·모든 구역·하이라이트 전환의 성능 보증이 아니다.
+## HUD 카테고리 조회와 에디터 요청 감시 개선
+
+`InterfaceHudView`의 카테고리 표시는 0.5초 간격이지만, `LabelOf → IndexOf/GetOption → Options → ItemCatalogSO.Load → Apply`에서 전체 상품 검증·정의 재구성이 여러 번 발생했다. LabelOf는 에셋만 읽고, 초기화·배정용 Load는 기존대로 정의를 적용한다. 다른 목록 조회도 호출 안에서 Options를 한 번만 생성한다. 카테고리 추가/비활성화와 기존 배정 동작은 유지한다.
+
+Profiler에서 불러온 마지막 2000프레임의 주 스레드 기준으로 HUD 관련 할당은 약 18,801B/frame → 24B/frame(HUD.Scan 포함), HUD LateUpdate 시간은 약 0.22ms → 0.067ms였다. 텍스트·UI 기능을 비활성화하지 않았다. 플레이 중 ItemCollectionBuilder가 요청 파일을 조회하지 않도록 기존 조건 순서를 바꿔 해당 콜백은 약 0.27ms → 0.001ms가 됐다.
+
+수정 후 자동 탐색 3회: 평균 100.98 / 88.75 / 90.52FPS, p95 13.14 / 14.10 / 14.02ms, p99 15.38 / 15.64 / 15.90ms. GPU·해상도·품질은 같은 설정이지만 별도 실행이므로 이 수치 전체를 해당 수정의 개선율로 환산하지 않는다. **120FPS 목표 미달**이며 렌더링·물리 비용 분석을 계속한다. 마지막 Profiler 구간은 일반 FPS에서 제외했다.
+
+검증: ItemCatalogIntegrationTests + ItemAssignmentSystemTests 21개, InterfaceHudViewTests 3개 통과. HUD 라벨 조회가 배정 정의를 재생성하지 않는 회귀 검사를 추가했다. 자료는 `.build/performance-995-hud`(수정 전), `.build/performance-995-catalog`(수정 후), `performance-995-catalog-tests.xml`, `performance-995-hud-label-tests.xml`이다.
+
+반복 실행 도구는 [Tools/performance/README.md](../../Tools/performance/README.md)에 정리했다. 원본에 설치하지 않고, 별도 프로젝트 복사본 두 개를 사용한다. 자동 탐색 실행·기록은 확인했으며 다른 PC 6인·PC Player·WebGL 검증은 아직 별도다.

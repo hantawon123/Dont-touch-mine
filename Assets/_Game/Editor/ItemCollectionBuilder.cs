@@ -59,7 +59,7 @@ namespace Game.Editor
 
         private static void CheckRequest()
         {
-            if (!File.Exists(Request) || EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode) return;
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode || !File.Exists(Request)) return;
             try { File.Delete(Request); } catch (IOException) { return; }
             Build();
         }
