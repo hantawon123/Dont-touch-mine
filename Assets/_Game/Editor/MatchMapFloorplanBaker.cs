@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -134,35 +135,95 @@ namespace Game.Editor
         /// </summary>
         private void Measure()
         {
-            var renderers = (root != null
-                    ? root.GetComponentsInChildren<Renderer>(true)
-                    : EditorSceneManager.GetActiveScene().GetRootGameObjects()
-                        .SelectMany(go => go.GetComponentsInChildren<Renderer>(true)).ToArray())
-                .Where(r => r.enabled && r.gameObject.activeInHierarchy)
-                .Where(r => !IsUnder(r.transform, BoundaryName))
-                .ToArray();
-
-            if (renderers.Length == 0)
+            // 1순위: 경계 콜라이더. 도달 영역을 따라 세운 것이라 놀 수 있는 곳과 같은 모양이다
+            // (docs/design/match-map/README.md). 소품이 어느 하이어라키에 있든 상관없다.
+            if (TryMeasureBoundary(out var bounds, out var source)
+                || TryMeasureRenderers(out bounds, out source))
             {
-                measured = false;
-                EditorUtility.DisplayDialog("Analytics Floorplan", "잴 렌더러가 없습니다. 환경 루트를 고르세요.", "확인");
+                x0 = bounds.min.x;
+                x1 = bounds.max.x;
+                z0 = bounds.min.z;
+                z1 = bounds.max.z;
+                floorY = bounds.min.y;
+                roofY = bounds.max.y;
+                measured = true;
+                measureNote = $"{source} 기준입니다. 잘라 낼 높이는 지붕({roofY:F1})보다 낮아야 합니다.";
+
+                // 처음 열었을 때 쓸 만한 값을 넣어 준다. 사람이 보고 고치면 된다.
+                if (cutHeight <= floorY || cutHeight >= roofY) cutHeight = Mathf.Round((floorY + roofY) * 0.5f);
                 return;
             }
 
-            var bounds = renderers[0].bounds;
+            measured = false;
+            EditorUtility.DisplayDialog(
+                "Analytics Floorplan",
+                "잴 것을 찾지 못했습니다. '" + BoundaryName + "' 오브젝트가 있는 루트를 고르거나, "
+                + "렌더러가 딸린 오브젝트를 고르세요.",
+                "확인");
+        }
+
+        /// <summary>
+        /// 경계 콜라이더의 범위.
+        ///
+        /// <para>
+        /// 마트는 소품이 씬 루트에 평평하게 놓여 있고 환경 루트 아래에는 경계와 조명만 있다.
+        /// 그래서 루트 아래 렌더러를 재면 아무것도 안 나온다. 경계는 도달 영역의 껍질을 따라
+        /// 세운 것이라 오히려 이쪽이 <b>놀 수 있는 곳</b>에 더 가깝다.
+        /// </para>
+        /// </summary>
+        private bool TryMeasureBoundary(out Bounds bounds, out string source)
+        {
+            bounds = default;
+            source = string.Empty;
+
+            var boundary = root != null ? root.transform.Find(BoundaryName) : null;
+            if (boundary == null)
+            {
+                var found = GameObject.Find(BoundaryName);
+                boundary = found != null ? found.transform : null;
+            }
+            if (boundary == null) return false;
+
+            var colliders = boundary.GetComponentsInChildren<Collider>(true);
+            if (colliders.Length == 0) return false;
+
+            bounds = colliders[0].bounds;
+            foreach (var c in colliders) bounds.Encapsulate(c.bounds);
+            source = $"경계 콜라이더 {colliders.Length:N0}개";
+            return true;
+        }
+
+        /// <summary>
+        /// 경계가 없을 때 쓰는 폴백. 루트 아래 렌더러, 그것도 없으면 씬 전체 렌더러.
+        ///
+        /// <para>
+        /// 씬 전체로 가면 놀 수 있는 곳 밖의 데모 구조물까지 들어와 범위가 넓어질 수 있다.
+        /// 넓은 것은 여백이 생길 뿐이지만, 너무 넓으면 히트맵이 구석에 몰려 작아진다. 그때는
+        /// 경계를 먼저 만드는 편이 낫다.
+        /// </para>
+        /// </summary>
+        private bool TryMeasureRenderers(out Bounds bounds, out string source)
+        {
+            bounds = default;
+            source = string.Empty;
+
+            var renderers = Scoped(root).Where(r => r.enabled && r.gameObject.activeInHierarchy).ToArray();
+            if (renderers.Length == 0 && root != null) renderers = Scoped(null).Where(r => r.enabled && r.gameObject.activeInHierarchy).ToArray();
+            if (renderers.Length == 0) return false;
+
+            bounds = renderers[0].bounds;
             foreach (var r in renderers) bounds.Encapsulate(r.bounds);
+            source = $"렌더러 {renderers.Length:N0}개";
+            return true;
+        }
 
-            x0 = bounds.min.x;
-            x1 = bounds.max.x;
-            z0 = bounds.min.z;
-            z1 = bounds.max.z;
-            floorY = bounds.min.y;
-            roofY = bounds.max.y;
-            measured = true;
-            measureNote = $"렌더러 {renderers.Length:N0}개 기준입니다. 잘라 낼 높이는 지붕({roofY:F1})보다 낮아야 합니다.";
-
-            // 처음 열었을 때 쓸 만한 값을 넣어 준다. 사람이 보고 고치면 된다.
-            if (cutHeight <= floorY || cutHeight >= roofY) cutHeight = Mathf.Round((floorY + roofY) * 0.5f);
+        private static IEnumerable<Renderer> Scoped(GameObject scope)
+        {
+            var all = scope != null
+                ? scope.GetComponentsInChildren<Renderer>(true)
+                : EditorSceneManager.GetActiveScene().GetRootGameObjects()
+                    .SelectMany(go => go.GetComponentsInChildren<Renderer>(true)).ToArray();
+            return all.Where(r => !IsUnder(r.transform, BoundaryName));
         }
 
         private static bool IsUnder(Transform node, string ancestorName)
