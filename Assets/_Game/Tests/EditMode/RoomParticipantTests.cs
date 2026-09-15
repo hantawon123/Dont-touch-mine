@@ -67,5 +67,14 @@ namespace Game.Tests.EditMode
 
             Assert.That(participant.IsMuted, Is.True);
         }
+
+        [Test]
+        public void IsTalking_IsCarriedWhenSupplied()
+        {
+            var participant = new RoomParticipant("P3", 4, true, "방장", isTalking: true);
+
+            Assert.That(participant.IsTalking, Is.True);
+            Assert.That(participant.IsMuted, Is.False);
+        }
     }
 }

@@ -54,13 +54,21 @@ namespace Game.Core.Rooms
         /// </summary>
         public readonly bool IsMuted;
 
+        /// <summary>
+        /// Whether this person's microphone is sending voice right now.
+        /// Replicated so every peer can light the same nameplate, including
+        /// when this machine has its own speaker off.
+        /// </summary>
+        public readonly bool IsTalking;
+
         public RoomParticipant(
             string playerId,
             int seat,
             bool isHost,
             string nickname = null,
             string userId = null,
-            bool isMuted = false)
+            bool isMuted = false,
+            bool isTalking = false)
         {
             PlayerId = playerId;
             Seat = seat;
@@ -71,6 +79,7 @@ namespace Game.Core.Rooms
             Nickname = string.IsNullOrWhiteSpace(nickname) ? string.Empty : nickname.Trim();
             UserId = string.IsNullOrWhiteSpace(userId) ? string.Empty : userId.Trim();
             IsMuted = isMuted;
+            IsTalking = isTalking;
         }
     }
 }

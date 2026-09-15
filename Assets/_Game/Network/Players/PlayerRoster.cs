@@ -106,7 +106,8 @@ namespace Game.Network.Players
                     avatar.IsHost,
                     avatar.Nickname.ToString(),
                     avatar.UserId.ToString(),
-                    avatar.IsMuted));
+                    avatar.IsMuted,
+                    avatar.IsTalking));
             }
 
             // Seat order, not arrival order. Characters replicate in whatever

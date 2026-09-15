@@ -95,6 +95,16 @@ namespace Game.Network.Players
         [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
         public void RPC_SetMuted(bool muted) => IsMuted = muted;
 
+        /// <summary>
+        /// Whether the owner's voice is leaving right now. Replicated so every
+        /// peer can light the same nickname icon, including a late joiner.
+        /// </summary>
+        [Networked]
+        public bool IsTalking { get; set; }
+
+        [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+        public void RPC_SetTalking(bool talking) => IsTalking = talking;
+
         // Hidden until the owner publishes its preference, including late joins.
         [Networked] public int NicknameVisibility { get; set; }
         [Networked] public NetworkString<_512> NicknameViewers { get; set; }
@@ -136,18 +146,22 @@ namespace Game.Network.Players
 
         private bool _publishedIsHost;
         private bool _publishedMuted;
+        private bool _publishedTalking;
         private string _publishedNickname;
         private string _publishedUserId;
         private bool pendingMutePublish;
         private bool pendingMuteValue;
+        private bool pendingTalkPublish;
+        private bool pendingTalkValue;
 
         public override void Render()
         {
-            PublishLocalMuteIfOwner();
+            PublishLocalVoiceIfOwner();
             var nickname = Nickname.ToString();
             var userId = UserId.ToString();
             if (_publishedIsHost == IsHost
                 && _publishedMuted == IsMuted
+                && _publishedTalking == IsTalking
                 && string.Equals(_publishedNickname, nickname, StringComparison.Ordinal)
                 && string.Equals(_publishedUserId, userId, StringComparison.Ordinal))
             {
@@ -156,6 +170,7 @@ namespace Game.Network.Players
 
             _publishedIsHost = IsHost;
             _publishedMuted = IsMuted;
+            _publishedTalking = IsTalking;
             _publishedNickname = nickname;
             _publishedUserId = userId;
             RosterOf(Runner)?.Refresh(Runner);
@@ -165,6 +180,7 @@ namespace Game.Network.Players
         {
             _publishedIsHost = IsHost;
             _publishedMuted = IsMuted;
+            _publishedTalking = IsTalking;
             _publishedNickname = Nickname.ToString();
             _publishedUserId = UserId.ToString();
             SetOwnerOnlyEnabled(IsOwner);
@@ -195,7 +211,7 @@ namespace Game.Network.Players
         /// The roster sits on the runner object, which is the one place a
         /// Fusion-spawned object can reach without being injected.
         /// </summary>
-        private void PublishLocalMuteIfOwner()
+        private void PublishLocalVoiceIfOwner()
         {
             if (!IsOwner || Runner == null)
             {
@@ -208,27 +224,50 @@ namespace Game.Network.Players
                 return;
             }
 
-            var muted = voice.IsMuted.CurrentValue;
-            if (IsMuted == muted)
+            PublishFlag(
+                voice.IsMuted.CurrentValue,
+                () => IsMuted,
+                value => IsMuted = value,
+                RPC_SetMuted,
+                ref pendingMutePublish,
+                ref pendingMuteValue);
+            PublishFlag(
+                voice.IsTransmitting.CurrentValue,
+                () => IsTalking,
+                value => IsTalking = value,
+                RPC_SetTalking,
+                ref pendingTalkPublish,
+                ref pendingTalkValue);
+        }
+
+        private void PublishFlag(
+            bool wanted,
+            Func<bool> read,
+            Action<bool> write,
+            Action<bool> rpc,
+            ref bool pending,
+            ref bool pendingValue)
+        {
+            if (read() == wanted)
             {
-                pendingMutePublish = false;
+                pending = false;
                 return;
             }
 
             if (Object.HasStateAuthority)
             {
-                IsMuted = muted;
+                write(wanted);
                 return;
             }
 
-            if (pendingMutePublish && pendingMuteValue == muted)
+            if (pending && pendingValue == wanted)
             {
                 return;
             }
 
-            pendingMutePublish = true;
-            pendingMuteValue = muted;
-            RPC_SetMuted(muted);
+            pending = true;
+            pendingValue = wanted;
+            rpc(wanted);
         }
 
         private static PlayerRoster RosterOf(NetworkRunner runner)
