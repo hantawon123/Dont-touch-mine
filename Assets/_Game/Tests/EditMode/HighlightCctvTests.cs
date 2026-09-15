@@ -118,6 +118,9 @@ namespace Game.Tests.EditMode
                     new SceneWorldObjectReference[0], cctvCameras: new[] { blocked, clear });
                 director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
                 Assert.That(director.CctvLocation, Is.EqualTo("clear"));
+                Assert.That(shelf.GetComponent<Renderer>().enabled, Is.True);
+                Assert.That(shelf.GetComponent<Renderer>().forceRenderingOff, Is.False);
+                Assert.That(shelf.activeSelf, Is.True);
             }
             finally { Object.DestroyImmediate(root); }
         }
@@ -185,6 +188,44 @@ namespace Game.Tests.EditMode
                 director.Tick(0.21f);
                 Assert.That(director.CctvLocation, Is.EqualTo("B"));
                 Assert.That(Quaternion.Angle(output.rotation, b.transform.rotation), Is.LessThan(0.01f));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_AcceptsVisibleUpperBodyAndLeavesTheShelfVisible()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                var actor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                actor.transform.SetParent(root.transform);
+                actor.transform.position = Vector3.up;
+                actor.transform.localScale = new Vector3(1, 2, 1);
+                var shelf = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                shelf.transform.SetParent(root.transform);
+                shelf.transform.position = new Vector3(0, 0.65f, -2.5f);
+                shelf.transform.localScale = new Vector3(2, 1.3f, 1);
+                HighlightCctvCamera Mount(string name, Vector3 position)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = position;
+                    camera.transform.LookAt(Vector3.up);
+                    camera.Configure(name);
+                    return camera;
+                }
+                var partial = Mount("partial", new Vector3(0, 1.5f, -5));
+                var clear = Mount("clear", new Vector3(8, 3, 0));
+                var output = new GameObject("output").transform;
+                output.SetParent(root.transform);
+                using var director = new HighlightCameraDirector(output, output, new[] { actor.transform },
+                    new SceneWorldObjectReference[0], cctvCameras: new[] { partial, clear });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                director.Tick(1f);
+                Assert.That(director.CctvLocation, Is.EqualTo("partial"));
+                Assert.That(shelf.GetComponent<Renderer>().enabled, Is.True);
+                Assert.That(shelf.GetComponent<Renderer>().forceRenderingOff, Is.False);
             }
             finally { Object.DestroyImmediate(root); }
         }

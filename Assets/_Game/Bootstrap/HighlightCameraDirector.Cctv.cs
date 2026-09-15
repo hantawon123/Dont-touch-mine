@@ -36,7 +36,7 @@ namespace Game.Bootstrap
             }
         }
 
-        private bool IsCctvOccluded(Vector3 origin, Vector3 focus)
+        private bool IsCctvOccluded(Vector3 origin, Vector3 focus, Transform subject)
         {
             if (collisionLayerMask == 0) return false;
             // Judge what is rendered, not hidden live-avatar or invisible gameplay colliders.
@@ -48,7 +48,7 @@ namespace Game.Bootstrap
             // Replay actors and objects move, so evaluate their current rendered bounds on each check.
             foreach (var pair in replayRenderers)
             {
-                if (pair.Key == null || pair.Key == cctvTarget || pair.Key == supportingPlayer ||
+                if (pair.Key == null || pair.Key == subject ||
                     !pair.Key.gameObject.activeInHierarchy) continue;
                 foreach (var renderer in pair.Value)
                     if (renderer != null && renderer.enabled && !renderer.forceRenderingOff &&
@@ -98,22 +98,26 @@ namespace Game.Bootstrap
             if (activeCctv == null || cctvCheck <= 0f && pendingCctv == null)
             {
                 cctvCheck = 0.25f;
-                HighlightCctvCamera best = null;
-                var bestScore = float.NegativeInfinity;
-                foreach (var camera in cctvCameras)
+                // Keep a readable view; only scan all mounts when an obstruction needs a switch.
+                if (activeCctv == null || !CanCctvSeeSubjects(activeCctv))
                 {
-                    if (camera == null) continue;
-                    var score = CctvScore(camera, focus);
-                    if (score > bestScore) { best = camera; bestScore = score; }
-                }
-                if (best != null && best != activeCctv)
-                {
-                    if (activeCctv == null) SetCctv(best);
-                    else if (cctvHold >= 0.5f && !CanCctvSeeSubjects(activeCctv) &&
-                        CanCctvSeeSubjects(best))
+                    HighlightCctvCamera best = null;
+                    var bestScore = float.NegativeInfinity;
+                    foreach (var camera in cctvCameras)
                     {
-                        pendingCctv = best;
-                        cctvFade = 0.4f;
+                        if (camera == null) continue;
+                        var score = CctvScore(camera, focus);
+                        if (score > bestScore) { best = camera; bestScore = score; }
+                    }
+                    if (best != null && best != activeCctv)
+                    {
+                        if (activeCctv == null) SetCctv(best);
+                        else if (cctvHold >= 0.5f && !CanCctvSeeSubjects(activeCctv) &&
+                            bestScore > CctvScore(activeCctv, focus) + 100f)
+                        {
+                            pendingCctv = best;
+                            cctvFade = 0.4f;
+                        }
                     }
                 }
             }
@@ -133,13 +137,30 @@ namespace Game.Bootstrap
         private bool CanCctvSee(HighlightCctvCamera camera, Transform target)
         {
             if (target == null) return false;
-            var point = target.position + Vector3.up * 0.5f;
+            // Feet need not be visible: a clear body centre or upper body is enough.
+            // Sample actual bounds so small carried objects are not tested above their mesh.
+            var bounds = new Bounds(target.position + Vector3.up * 0.5f, Vector3.zero);
+            var found = false;
+            if (replayRenderers.TryGetValue(target, out var renderers))
+                foreach (var renderer in renderers)
+                {
+                    if (renderer == null || !renderer.enabled || renderer.forceRenderingOff ||
+                        !renderer.gameObject.activeInHierarchy || renderer.bounds.size.sqrMagnitude < 0.001f) continue;
+                    if (!found) { bounds = renderer.bounds; found = true; }
+                    else bounds.Encapsulate(renderer.bounds);
+                }
+            return CanCctvSeePoint(camera, target, bounds.center) ||
+                CanCctvSeePoint(camera, target, bounds.center + Vector3.up * bounds.extents.y * 0.6f);
+        }
+
+        private bool CanCctvSeePoint(HighlightCctvCamera camera, Transform target, Vector3 point)
+        {
             var local = camera.transform.InverseTransformPoint(point);
             if (local.z <= 0f) return false;
             var aspect = cameraTransform.TryGetComponent<Camera>(out var output) ? output.aspect : 16f / 9f;
             var halfHeight = local.z * Mathf.Tan(camera.FieldOfView * Mathf.Deg2Rad * 0.5f) * 0.9f;
             return Mathf.Abs(local.y) <= halfHeight && Mathf.Abs(local.x) <= halfHeight * aspect &&
-                !IsCctvOccluded(camera.transform.position, point);
+                !IsCctvOccluded(camera.transform.position, point, target);
         }
 
         private float CctvScore(HighlightCctvCamera camera, Vector3 focus)
@@ -147,7 +168,9 @@ namespace Game.Bootstrap
             var direction = focus - camera.transform.position;
             var angle = Vector3.Angle(camera.transform.forward, direction);
             var score = 100f - direction.magnitude - angle * 0.5f;
-            if (!CanCctvSeeSubjects(camera)) score -= 1000f;
+            if (!CanCctvSee(camera, cctvTarget)) score -= 600f;
+            if (supportingPlayer != null && supportingPlayer != cctvTarget &&
+                !CanCctvSee(camera, supportingPlayer)) score -= 300f;
             return score;
         }
     }
