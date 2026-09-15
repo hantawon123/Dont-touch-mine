@@ -231,6 +231,68 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Camera_SwitchesToMuchCloserVisibleMountEvenWhenCurrentViewIsClear()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                Transform Child(string name, Vector3 position)
+                {
+                    var t = new GameObject(name).transform;
+                    t.SetParent(root.transform); t.position = position; return t;
+                }
+                var actor = Child("actor", Vector3.zero);
+                var output = Child("output", Vector3.zero);
+                var far = Child("far", new Vector3(0, 3, -12)).gameObject.AddComponent<HighlightCctvCamera>();
+                var near = Child("near", new Vector3(10, 3, -4)).gameObject.AddComponent<HighlightCctvCamera>();
+                far.Configure("far"); near.Configure("near");
+                far.transform.LookAt(Vector3.up * 0.5f);
+                near.transform.LookAt(new Vector3(10, 0.5f, 0));
+                using var director = new HighlightCameraDirector(output, output, new[] { actor },
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0, cctvCameras: new[] { far, near });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                Assert.That(director.CctvLocation, Is.EqualTo("far"));
+                director.Tick(2f);
+                actor.position = Vector3.right * 8;
+                director.Tick(0.3f);
+                director.Tick(0.21f);
+                Assert.That(director.CctvLocation, Is.EqualTo("near"));
+                Assert.That(output.position, Is.EqualTo(near.transform.position));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_PrefersNearbyOffCentreViewOverDistantCentredView()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                var actor = new GameObject("actor").transform;
+                actor.SetParent(root.transform);
+                var output = new GameObject("output").transform;
+                output.SetParent(root.transform);
+                HighlightCctvCamera Mount(string name, Vector3 position, float yaw)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = position;
+                    camera.transform.LookAt(Vector3.up * 0.5f);
+                    camera.transform.Rotate(0, yaw, 0, Space.Self);
+                    camera.Configure(name);
+                    return camera;
+                }
+                var far = Mount("far", new Vector3(0, 3, -15), 0);
+                var near = Mount("near", new Vector3(0, 3, -5), 25);
+                using var director = new HighlightCameraDirector(output, output, new[] { actor },
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0, cctvCameras: new[] { far, near });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                Assert.That(director.CctvLocation, Is.EqualTo("near"));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
         public void Hud_PreservesHeaderAndAddsFourCornersAndSourceClock()
         {
             var root = new GameObject("test", typeof(RectTransform));

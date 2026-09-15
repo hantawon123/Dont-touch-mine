@@ -98,22 +98,29 @@ namespace Game.Bootstrap
             if (activeCctv == null || cctvCheck <= 0f && pendingCctv == null)
             {
                 cctvCheck = 0.25f;
-                // Keep a readable view; only scan all mounts when an obstruction needs a switch.
-                if (activeCctv == null || !CanCctvSeeSubjects(activeCctv))
+                HighlightCctvCamera best = null;
+                var bestScore = float.NegativeInfinity;
+                foreach (var camera in cctvCameras)
                 {
-                    HighlightCctvCamera best = null;
-                    var bestScore = float.NegativeInfinity;
-                    foreach (var camera in cctvCameras)
+                    if (camera == null) continue;
+                    var score = CctvScore(camera, focus);
+                    if (score > bestScore) { best = camera; bestScore = score; }
+                }
+                if (best != null && best != activeCctv)
+                {
+                    if (activeCctv == null) SetCctv(best);
+                    else
                     {
-                        if (camera == null) continue;
-                        var score = CctvScore(camera, focus);
-                        if (score > bestScore) { best = camera; bestScore = score; }
-                    }
-                    if (best != null && best != activeCctv)
-                    {
-                        if (activeCctv == null) SetCctv(best);
-                        else if (cctvHold >= 0.5f && !CanCctvSeeSubjects(activeCctv) &&
-                            bestScore > CctvScore(activeCctv, focus) + 100f)
+                        var improvement = bestScore - CctvScore(activeCctv, focus);
+                        var currentDistance = Vector3.Distance(activeCctv.transform.position, focus);
+                        var bestDistance = Vector3.Distance(best.transform.position, focus);
+                        // Recover blocked views quickly. For distance alone, require a sustained shot
+                        // and a substantial gain so adjacent mounts do not oscillate while walking.
+                        var clearer = cctvHold >= 0.5f && improvement > 100f;
+                        var closer = cctvHold >= 1.5f && improvement > 0f &&
+                            CanCctvSeeSubjects(best) && bestDistance <= currentDistance * 0.75f &&
+                            currentDistance - bestDistance >= 2f;
+                        if (clearer || closer)
                         {
                             pendingCctv = best;
                             cctvFade = 0.4f;
@@ -121,6 +128,7 @@ namespace Game.Bootstrap
                     }
                 }
             }
+
             if (activeCctv == null) return;
             // A CCTV keeps its authored position, direction and lens throughout the shot.
             var position = activeCctv.transform.position;
@@ -167,7 +175,9 @@ namespace Game.Bootstrap
         {
             var direction = focus - camera.transform.position;
             var angle = Vector3.Angle(camera.transform.forward, direction);
-            var score = 100f - direction.magnitude - angle * 0.5f;
+            // Visibility penalties dominate; among readable views favour proximity.
+            // Framing angle only breaks close ties, rather than rewarding a distant centred view.
+            var score = 100f / (1f + direction.magnitude) - angle * 0.01f;
             if (!CanCctvSee(camera, cctvTarget)) score -= 600f;
             if (supportingPlayer != null && supportingPlayer != cctvTarget &&
                 !CanCctvSee(camera, supportingPlayer)) score -= 300f;
