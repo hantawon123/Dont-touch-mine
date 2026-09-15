@@ -9,6 +9,18 @@ plugins {
 
 description = 'D205 play-log ingestion and analysis'
 
+// 대시보드 쿼리 문서를 그대로 리소스로 싣습니다 (S15P21D205-976).
+//
+// 관리 화면의 분석 조회 API 는 docs/analytics-dashboards.md 의 SQL 을 실행합니다. 문서가 원본이고
+// 코드에 사본이 없습니다. 사본을 두면 문서를 고친 사람이 코드를 잊거나 그 반대가 되고, 그 어긋남은
+// Metabase 와 관리 화면이 다른 숫자를 보일 때에야 드러납니다. 파싱 규칙은 DashboardQueryDocument 에,
+// 문서 쪽 규칙은 그 문서의 "공통" 절에 있습니다.
+processResources {
+	from(rootProject.file('docs/analytics-dashboards.md')) {
+		into 'docs'
+	}
+}
+
 dependencies {
 	implementation project(':common')
 
