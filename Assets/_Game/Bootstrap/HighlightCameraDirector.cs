@@ -210,6 +210,7 @@ namespace Game.Bootstrap
         private readonly Dictionary<Transform, Renderer[]> replayRenderers = new();
         private readonly HighlightReplayCameraRig replayCameraRig;
         private Transform currentTarget;
+        private Vector3 followDirection = Vector3.forward;
         private float currentDistance;
         private HighlightType currentType;
         private Vector3 overviewAnchor;
@@ -308,6 +309,12 @@ namespace Game.Bootstrap
             }
 
             overviewAnchor = currentTarget.position;
+            // Select one azimuth per highlight. Looking around during gameplay must not orbit the replay camera.
+            var heading = objectTargets.ContainsKey(highlight.TargetId)
+                ? ResolvePlayer(highlight.ActorPlayerIndex) : currentTarget;
+            followDirection = Vector3.ProjectOnPlane(
+                heading != null ? heading.forward : fallbackTransform.forward, Vector3.up).normalized;
+            if (followDirection.sqrMagnitude < 0.01f) followDirection = Vector3.forward;
             if (shots.Length == 0)
             {
                 ApplyFallback();
@@ -464,10 +471,7 @@ namespace Game.Bootstrap
                     focusPosition = companion.position + Vector3.up * 0.5f;
                 }
             }
-            var heading = targetIsItem ? actor : anchor;
-            var forward = Vector3.ProjectOnPlane(heading != null ? heading.forward : fallbackTransform.forward, Vector3.up).normalized;
-            if (forward.sqrMagnitude < 0.01f) forward = Vector3.forward;
-            var desiredPosition = focusPosition - forward * distance + Vector3.up * height;
+            var desiredPosition = focusPosition - followDirection * distance + Vector3.up * height;
             var desiredRotation = Quaternion.LookRotation(
                 focusPosition - desiredPosition,
                 Vector3.up);
