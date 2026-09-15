@@ -863,10 +863,8 @@ namespace Game.Server.Match
             var searchingStartedAt = state.PhaseEndsAt.CurrentValue - flow.SearchingDurationSeconds;
             var canRecordSearching = phase == MatchPhase.Searching && state.PhaseEndsAt.CurrentValue > 0d &&
                                      now >= searchingStartedAt + HighlightRecordingDelaySeconds;
-            var canRecordPostRoll = phase == MatchPhase.Highlight && result.HasValue &&
-                                    now <= result.Value.EndedAt + HighlightPostRollSeconds +
-                                    HighlightReplaySampleIntervalSeconds;
-            if (!canRecordSearching && !canRecordPostRoll)
+            // Result-stage teleports are presentation, never replay footage.
+            if (!canRecordSearching || result.HasValue)
             {
                 return false;
             }

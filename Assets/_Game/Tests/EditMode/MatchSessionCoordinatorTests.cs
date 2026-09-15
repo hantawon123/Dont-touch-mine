@@ -980,17 +980,21 @@ namespace Game.Tests.EditMode
                         searchingAt + 2d,
                         poses,
                         System.Array.Empty<WorldObjectState>()),
-                    Is.True);
+                    Is.False);
                 Assert.That(
                     solo.TryRecordReplayFrame(
                         searchingAt + 5d,
                         poses,
                         System.Array.Empty<WorldObjectState>()),
-                    Is.True);
+                    Is.False);
 
                 Assert.That(solo.TryCaptureHighlightReplay(out var replay), Is.True);
                 Assert.That(replay, Has.Length.EqualTo(1));
                 Assert.That(replay[0].Candidate.Type, Is.EqualTo(HighlightType.FirstBlood));
+                Assert.That(replay[0].Candidate.EndedAt, Is.EqualTo(searchingAt + 2d));
+                foreach (var clip in replay[0].Clips)
+                    foreach (var frame in clip.Frames)
+                        Assert.That(frame.RecordedAt, Is.LessThan(searchingAt + 2d));
                 Assert.That(replay[0].Clips, Has.All.Matches<HighlightReplayClip>(
                     clip => clip.Frames.Count > 0));
             }

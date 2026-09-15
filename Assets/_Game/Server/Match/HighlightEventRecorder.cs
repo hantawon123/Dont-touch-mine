@@ -272,7 +272,7 @@ namespace Game.Server.Match
                         Math.Max(
                             Math.Max(0d, recordingStartedAt >= 0d ? recordingStartedAt : searchingStartedAt),
                             gameEvent.OccurredAt - 7d),
-                        gameEvent.OccurredAt + 3d),
+                        Math.Min(matchEndedAt, gameEvent.OccurredAt + 3d)),
                 },
                 gameEvent.TargetId,
                 gameEvent.OccurredAt,
@@ -413,7 +413,7 @@ namespace Game.Server.Match
                     ? 0
                     : index * (eventTimes.Count - 1) / (segmentCount - 1);
                 var startedAt = Math.Max(Math.Max(0d, recordingStartedAt >= 0d ? recordingStartedAt : searchingStartedAt), eventTimes[eventIndex] - radiusSeconds);
-                var segmentEndedAt = Math.Min(endedAt + 3d, eventTimes[eventIndex] + radiusSeconds);
+                var segmentEndedAt = Math.Min(endedAt, eventTimes[eventIndex] + radiusSeconds);
                 if (segments.Count > 0)
                     startedAt = Math.Max(startedAt, segments[segments.Count - 1].EndedAt);
                 if (segmentEndedAt <= startedAt) continue;
