@@ -1559,19 +1559,24 @@
 
     const mapCol = table.columns.indexOf(points ? 'map_id' : '맵');
     const mapId = mapCol >= 0 && table.rows.length ? String(table.rows[0][mapCol]) : '';
+    // 은신처는 기간 안의 모든 맵을 한 번에 돌려줍니다(질의가 맵별로 묶습니다). 거르지 않으면
+    // 다른 맵의 칸이 이 맵의 평면도 위에 그려집니다 - 좌표가 겹치는 자리면 티도 안 납니다.
+    const rows = mapCol >= 0 ? table.rows.filter((r) => String(r[mapCol]) === mapId) : table.rows;
     // 구운 평면도가 있으면 그 사각형이 그림과 격자 양쪽의 기준입니다.
     const map = (await bakedMapOf(mapId)) || MAPS[mapId] || {};
-    heatmapData = { columns: table.columns, rows: table.rows, mapId, map, points, source };
+    heatmapData = { columns: table.columns, rows, mapId, map, points, source };
 
     // 단계와 플레이어는 점일 때만 거를 수 있습니다. 은신처는 이미 묶여 와서 그 안을 못 나눕니다.
+    // 셋 다 hidden 으로 여닫습니다. 하나만 disabled 로 두면 경기를 고르기 전에 숨긴 것을
+    // 되돌리는 곳이 없어 영영 사라집니다.
     el('hmPhase').hidden = !points;
     el('hmSeat').hidden = !points;
-    el('hmCell').disabled = !points;
+    el('hmCell').hidden = !points;
     if (points) {
       const pi = table.columns.indexOf('phase');
       const si = table.columns.indexOf('player_seat');
-      refill(el('hmPhase'), [...new Set(table.rows.map((r) => String(r[pi])))].sort(), '전체 단계', (v) => v);
-      refill(el('hmSeat'), [...new Set(table.rows.map((r) => r[si]))].sort((a, b) => a - b).map(String), '전체 플레이어', (v) => '플레이어 ' + v);
+      refill(el('hmPhase'), [...new Set(rows.map((r) => String(r[pi])))].sort(), '전체 단계', (v) => v);
+      refill(el('hmSeat'), [...new Set(rows.map((r) => r[si]))].sort((a, b) => a - b).map(String), '전체 플레이어', (v) => '플레이어 ' + v);
     } else {
       el('hmCell').value = '2';
     }
@@ -1581,7 +1586,7 @@
         : '맵 "' + mapId + '" 의 평면도와 경계값이 없어 샘플의 범위로 그립니다.';
     // 서버가 경기당 20,000 행에서 자릅니다(AnalyticsQueryService.POSITION_LIMIT). 딱 그 수가 왔으면 뒤쪽 시간대가
     // 빠진 것이고, 그걸 모른 채 보면 "후반에 아무도 안 갔다"로 읽힙니다.
-    const capped = points && table.rows.length >= POSITION_CAP
+    const capped = points && rows.length >= POSITION_CAP
       ? ' 좌표가 상한 ' + POSITION_CAP.toLocaleString('ko-KR') + '행에 걸려 경기 뒷부분이 빠졌습니다. 시간순이라 앞부분만 보입니다.'
       : '';
     const scope = points ? ''
