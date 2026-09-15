@@ -65,15 +65,15 @@ namespace Game.Bootstrap
                 return;
             }
 
-#if UNITY_WEBGL
-            return;
-#elif UNITY_EDITOR
+#if UNITY_EDITOR
             if (!Application.isPlaying)
             {
                 return;
             }
 
             ApplyEditorGameView?.Invoke(width, height);
+#elif UNITY_WEBGL
+            return;
 #else
             var mode = string.Equals(
                 settings.Get(GraphicsOption.DisplayMode),
