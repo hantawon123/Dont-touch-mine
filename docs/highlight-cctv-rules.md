@@ -35,3 +35,21 @@ Server/Match: 후보·점수·구간·플레이어/물건 상태. Network: 압�
 회귀: 마트 준비 판정, 구간 보존, 중복 제거, 빈 은닉 제외, 누락/파괴/재생성 복원, CCTV 위치/전환, HUD 기존 요소 유지, 재경기 시 데이터 해제. 실제 Unity 경기와 화면을 별도로 확인한다. 공개 WebGL 6인 실기는 사용자 지시에 따라 후속 검증이며 자동 테스트 통과로 대체하지 않는다.
 
 참고: https://overwatch.blizzard.com/en-us/news/23000187/ 및 https://www.callofduty.com/au/en/blog/2024/10/call-of-duty-black-ops-6-launch-comms-multiplayer-modes-maps-operators-intel (공개 리플레이 연출 원칙 참고, 내부 점수 알고리즘을 복제한 문서가 아님).
+
+## 대표 경기 예시
+
+| 기록된 상황 | 선정·재생 결과 |
+| --- | --- |
+| A가 42초에 첫 물건을 파괴 | 최대 35~45초를 재생한다. 운반→투입→파괴를 같은 장면에서 확인한다. 같은 사건을 마지막 사건으로 다시 보여주지 않는다. |
+| 같은 물건을 A→B→C가 획득 | 첫·중간·마지막 획득 구간을 이어 보여준다. 시간 생략에 맞춰 REC 시간이 이동한다. |
+| 오래 숨은 물건 옆을 다른 사람이 지나감 | 접근이 기록된 물건만 은닉 후보가 된다. 근처에 아무도 없었던 정지 물건은 제외한다. |
+| 아무 사건 없이 제한 시간 종료 | 빈 하이라이트 목록을 허용한다. 결과 무대를 보여주고 준비 확인 후 로비로 돌아간다. |
+| 일부 시청자만 Space/Tab 사용 | 해당 시청자의 재생 위치/완료 상태만 변경한다. 다른 시청자의 서버 타임라인은 유지한다. |
+
+## 구현 연결점
+
+- `HighlightEventRecorder`가 사건 후보, `HighlightCandidateSelector`가 최종 목록을 만든다.
+- `HighlightReplayBuffer.CaptureWithBoundary`는 구간 경계 직전/직후의 인접 샘플을 포함한다. 오래 떨어진 상태를 끌어오지 않는다.
+- `NetworkRunnerService`는 실제 경기 맵과 로비의 준비 여부를 판정한다. 마트에서 기본 Playground만 검사하던 조건을 수정했다.
+- `Content/Resources/CCTV/Supermarket.prefab`의 15개 지점은 기존 벽면 카메라 모델 위치를 기준으로 생성한다. 모델 이동 시 `Game > Highlight > Rebuild Supermarket CCTV Points`에서 다시 만든다.
+- CCTV 전환은 0.4초 페이드, 최소 지점 유지 2초, 결정적 사건 전후 1.2초 전환 억제를 적용한다. 같은 CCTV에서는 위치가 고정되고 회전만 제한적으로 따라간다.
