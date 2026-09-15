@@ -167,10 +167,15 @@
   .an-nav button:hover { background: #f3f4f6; }
   .an-nav button.on { background: var(--ink); color: #fff; }
   .an-main { flex: 1; min-width: 0; }
+  .an-nav-head { font-size: 11px; color: var(--muted); padding: 0 10px; margin: 12px 0 3px; }
+  .an-nav-head:first-child { margin-top: 0; }
+  .an-doc { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 8px; }
   /* 좁으면 목록이 위로 올라가 가로로 접힙니다. */
   @media (max-width: 900px) {
     .an-split { flex-direction: column; }
     .an-nav { position: static; flex-direction: row; flex-wrap: wrap; flex-basis: auto; width: 100%; }
+    /* 가로로 접힐 때 묶음 이름이 줄을 끊어 줍니다. 안 그러면 버튼 사이에 끼어 읽히지 않습니다. */
+    .an-nav-head { flex-basis: 100%; margin: 8px 0 0; }
   }
   table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
   table.grid th, table.grid td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
@@ -325,12 +330,14 @@
     <!-- 분석 -->
     <div id="analyticsView" hidden>
       <!--
-        카드 여덟 개는 docs/analytics-dashboards.md 의 번호 절과 같고, SQL 도 그 문서 것입니다.
+        왼쪽 목록은 GROUPS 와 QUESTIONS 가 만듭니다. 대부분의 카드는 SQL 이
+        docs/analytics-dashboards.md 의 것이고, 카드 제목 옆에 몇 번 절인지 적혀 있습니다.
         Metabase(8443)와 같은 숫자가 나와야 하며, 다르면 둘 중 하나가 문서를 떠난 것입니다.
+        맵 위 히트맵과 물건 움직임은 문서 절이 아니라 좌표 API 를 직접 그립니다.
         즉석 SQL 은 여기 없습니다 - 그건 Metabase 에 남겨 둔 일입니다.
       -->
       <div class="warnbar">
-        <b>완전히 수신된 경기만</b> 집계합니다. 경기 목록에서 <b>완전 수신</b>이 0 인 줄(회색)은 아래 카드에서
+        <b>완전히 수신된 경기만</b> 집계합니다. 경기 목록에서 <b>완전 수신</b>이 0 인 줄(회색)은 다른 카드에서
         빠집니다. 경기 수가 5 미만인 막대는 믿지 마세요. 경기 목록의 줄을 누르면 그 경기 하나로 좁혀집니다.
       </div>
       <div class="bar">
@@ -993,28 +1000,51 @@
    * 그 사실을 카드에 적습니다. 빈 차트는 "데이터가 없다"로 읽혀서 어긋남이 묻힙니다.
    * 시각화 종류는 deploy/metabase/provision_dashboards.py 의 VIEWS 와 같습니다.
    */
+  /*
+   * 질문을 성격으로 묶습니다.
+   *
+   * 열 장을 번호순으로만 늘어놓으면 은신처 표와 맵 위 히트맵이 같은 데이터의 두 가지 보기라는
+   * 것이 드러나지 않습니다. 묶음이 그 관계를 대신 말해 줍니다.
+   *
+   * 신뢰를 맨 위에 둡니다. 숫자를 믿을 수 있는지 먼저 보라는 뜻이 순서로 드러납니다.
+   */
+  const GROUPS = [
+    { id: 'trust', label: '데이터 신뢰' },
+    { id: 'balance', label: '규칙 밸런스' },
+    { id: 'space', label: '맵 공간' },
+    { id: 'time', label: '경기 시간' },
+  ];
+
+  /*
+   * doc 은 docs/analytics-dashboards.md 의 절 번호입니다. 화면 제목에 번호를 두지 않는 이유는
+   * 문서가 바뀌면 곧바로 어긋나기 때문입니다. 히트맵과 물건 움직임은 문서 절이 아니라 좌표
+   * API 를 직접 그리므로 번호가 없습니다.
+   */
   const QUESTIONS = [
-    { id: 'matches', title: '1. 경기 목록과 수집 상태', kind: 'matches',
+    { id: 'matches', title: '경기 목록과 수집 상태', group: 'trust', doc: 1, kind: 'matches',
       note: '값을 읽기 전에 데이터를 믿을 수 있는지 보는 표입니다. 도착이 예정보다 작으면 유실, 크면 중복 업로드입니다.' },
-    { id: 'hiding-time', title: '2. 숨는 시간 적정성', kind: 'bar', x: '숨는 시간(초)', y: ['못 숨긴 인원 %'],
+
+    { id: 'hiding-time', title: '숨는 시간 적정성', group: 'balance', doc: 2, kind: 'bar', x: '숨는 시간(초)', y: ['못 숨긴 인원 %'],
       note: '방 설정(한 사람당 숨는 시간)별로, 숨기기가 끝날 때까지 물건을 두지 못한 인원의 비율입니다.' },
-    { id: 'hideouts', title: '3. 은신처 분포', kind: 'table',
-      note: '물건이 처음 멈춘 자리를 2m 격자로 묶었습니다. 숨긴 횟수가 많고 끝까지 안 들킨 비율이 높은 칸이 "너무 좋은 자리"입니다.' },
-    { id: 'dwell', title: '4. 체류 구역', kind: 'table',
-      note: '사람이 머문 자리입니다. 샘플 하나가 대략 1초이지만 정확한 초는 아니라 구역 사이의 비교로만 읽습니다.' },
-    { id: 'seeking-time', title: '5. 찾는 시간 적정성', kind: 'bar', x: '찾기 시작 후(초)', y: ['발견 건수'],
+    { id: 'seeking-time', title: '찾는 시간 적정성', group: 'balance', doc: 5, kind: 'bar', x: '찾기 시작 후(초)', y: ['발견 건수'],
       note: '남의 물건이 들린 시각의 분포, 30초 구간입니다. 뒤쪽에 몰리면 찾는 시간이 짧고 앞쪽에 몰리면 긴 것입니다.' },
-    { id: 'combat', title: '6. 전투 적정성', kind: 'bar', x: '설정된 기절 펀치', y: ['평균 휘두름', '평균 피격', '평균 기절'],
+    { id: 'combat', title: '전투 적정성', group: 'balance', doc: 6, kind: 'bar', x: '설정된 기절 펀치', y: ['평균 휘두름', '평균 피격', '평균 기절'],
       note: '기절까지 필요한 명중 수 설정별 평균입니다. 명중률은 개인이 아니라 경기 전체의 비율입니다.' },
-    { id: 'item-life', title: '7. 물건 생애', kind: 'bar', x: '결말', y: ['물건 수'],
+    { id: 'item-life', title: '물건 생애', group: 'balance', doc: 7, kind: 'bar', x: '결말', y: ['물건 수'],
       note: '물건 하나가 어떻게 끝났는가입니다. "끝까지 제자리"가 절반을 넘으면 찾는 쪽이 너무 어렵거나 시간이 짧은 것입니다.' },
-    { id: 'dropout', title: '8. 경기 중 이탈', kind: 'bar', x: '마지막 단계', y: ['이탈 인원'],
-      note: '기록이 종료보다 5초 넘게 일찍 끊긴 자리를 이탈로 봅니다. 경기 시작 뒤의 이탈만 보이고, 호스트 이탈 경기는 1번 표에서 셉니다.' },
-    // 문서의 번호 절이 아니라 좌표 API(positions)를 그립니다. 3·4번 표가 "어디인지"를 못 보여 주는 것을 채웁니다.
-    { id: 'heatmap', title: '9. 맵 위 히트맵', kind: 'heatmap',
-      note: '한 경기의 위치 샘플을 격자로 묶어 그립니다. 가로 x, 세로 z, 위가 +z 로 문서·Python 도구와 같은 방향입니다. 경기 목록에서 경기를 고르면 그려집니다.' },
+    { id: 'dropout', title: '경기 중 이탈', group: 'balance', doc: 8, kind: 'bar', x: '마지막 단계', y: ['이탈 인원'],
+      note: '기록이 종료보다 5초 넘게 일찍 끊긴 자리를 이탈로 봅니다. 경기 시작 뒤의 이탈만 보이고, 호스트 이탈 경기는 경기 목록에서 셉니다.' },
+
+    // 표 둘과 히트맵은 같은 질문의 다른 보기입니다. 표는 숫자가 큰 칸을, 히트맵은 그게 어디인지를 알려줍니다.
+    { id: 'hideouts', title: '은신처 분포', group: 'space', doc: 3, kind: 'table',
+      note: '물건이 처음 멈춘 자리를 2m 격자로 묶었습니다. 숨긴 횟수가 많고 끝까지 안 들킨 비율이 높은 칸이 "너무 좋은 자리"입니다. 맵 위 히트맵에서 같은 값을 그림으로 볼 수 있습니다.' },
+    { id: 'dwell', title: '체류 구역', group: 'space', doc: 4, kind: 'table',
+      note: '사람이 머문 자리입니다. 샘플 하나가 대략 1초이지만 정확한 초는 아니라 구역 사이의 비교로만 읽습니다.' },
+    { id: 'heatmap', title: '맵 위 히트맵', group: 'space', kind: 'heatmap',
+      note: '위 두 표를 맵 위에 그립니다. 가로 x, 세로 z, 위가 +z 로 문서·Python 도구와 같은 방향입니다. 사람 체류는 경기를 골라야 하고 은신처는 기간 전체를 겹칩니다.' },
+
     // 히트맵은 공간이고 이쪽은 시간입니다. 축이 달라 한 카드에 넣지 않았습니다.
-    { id: 'item-motion', title: '10. 물건 움직임 시간', kind: 'motion',
+    { id: 'item-motion', title: '물건 움직임 시간', group: 'time', kind: 'motion',
       note: '경기 시간을 따라 물건이 움직인 구간입니다. 한 줄이 플레이어 한 명이고, 진한 구간이 그 사람의 물건이 움직이던 때입니다. 숨긴 뒤에는 멈춰 있다가 누군가 집어 들면 다시 움직입니다. 경기 목록에서 경기를 고르면 그려집니다.' },
   ];
 
@@ -1102,6 +1132,14 @@
       const title = document.createElement('div');
       title.className = 'chart-title';
       title.textContent = q.title;
+      // 근거가 문서에 있는 카드만. 제목이 아니라 옆에 붙여 두면 문서 번호가 바뀌어도
+      // 화면 제목은 그대로입니다.
+      if (q.doc) {
+        const doc = document.createElement('span');
+        doc.className = 'an-doc';
+        doc.textContent = '문서 ' + q.doc + '번 절';
+        title.appendChild(doc);
+      }
 
       const note = document.createElement('div');
       note.className = 'an-note';
@@ -1143,14 +1181,24 @@
   function buildAnalyticsNav() {
     const nav = el('anNav');
     nav.textContent = '';
-    for (const q of QUESTIONS) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.id = 'anNav-' + q.id;
-      button.textContent = q.title;
-      button.classList.toggle('on', q.id === currentQuestion);
-      button.addEventListener('click', () => showQuestion(q.id).catch(() => {}));
-      nav.appendChild(button);
+    for (const group of GROUPS) {
+      const inGroup = QUESTIONS.filter((q) => q.group === group.id);
+      if (!inGroup.length) continue;
+
+      const head = document.createElement('div');
+      head.className = 'an-nav-head';
+      head.textContent = group.label;
+      nav.appendChild(head);
+
+      for (const q of inGroup) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.id = 'anNav-' + q.id;
+        button.textContent = q.title;
+        button.classList.toggle('on', q.id === currentQuestion);
+        button.addEventListener('click', () => showQuestion(q.id).catch(() => {}));
+        nav.appendChild(button);
+      }
     }
   }
 
