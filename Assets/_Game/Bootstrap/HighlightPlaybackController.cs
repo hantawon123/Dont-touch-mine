@@ -704,7 +704,8 @@ namespace Game.Bootstrap
             using (CaptureIdsMarker.Auto())
             {
                 recordedObjectIds.Clear();
-                if (sceneContext != null)
+                if (sceneContext != null &&
+                    !PlaygroundMatchScene.TryCollectReplayObjectIds(sceneContext, recordedObjectIds))
                     foreach (var state in sceneContext.ReplayObjects) recordedObjectIds.Add(state.ObjectId);
                 foreach (var data in replay)
                     foreach (var clip in data.Clips)

@@ -131,6 +131,24 @@ namespace Game.Architecture.Tests
                             Game.Network.Match.MatchSessionState.MaxObjectIdLength),
                         $"{item.name}: 물건 ID가 네트워크 제한보다 깁니다.");
                 }
+                var replayIds = new HashSet<string>();
+                Assert.That(PlaygroundMatchScene.TryCollectReplayObjectIds(captured.RuntimeContext, replayIds), Is.True);
+                Assert.That(replayIds, Is.EquivalentTo(captured.RuntimeContext.ReplayObjects.Select(o => o.ObjectId)));
+                var activeItem = carryableItems.First(i => replayIds.Contains(i.ObjectId));
+                try
+                {
+                    activeItem.gameObject.SetActive(false);
+                    replayIds.Clear();
+                    PlaygroundMatchScene.TryCollectReplayObjectIds(captured.RuntimeContext, replayIds);
+                    Assert.That(replayIds, Does.Not.Contain(activeItem.ObjectId));
+                    Assert.That(replayIds, Is.EquivalentTo(captured.RuntimeContext.ReplayObjects.Select(o => o.ObjectId)));
+                }
+                finally { activeItem.gameObject.SetActive(true); }
+                replayIds.Clear();
+                PlaygroundMatchScene.TryCollectReplayObjectIds(captured.RuntimeContext, replayIds);
+                Assert.That(replayIds, Does.Contain(activeItem.ObjectId));
+                Assert.That(replayIds, Is.EquivalentTo(captured.RuntimeContext.ReplayObjects.Select(o => o.ObjectId)));
+
                 Assert.That(
                     captured.RuntimeContext.ReplayObjects.Count,
                     Is.LessThanOrEqualTo(PlaygroundMatchScene.MaxReplayObjectCount),
