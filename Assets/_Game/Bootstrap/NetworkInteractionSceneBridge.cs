@@ -136,7 +136,7 @@ namespace Game.Bootstrap
                 return;
             }
 
-            if (network.IsWaitingForMatch) return;
+            if (network.IsWaitingForMatch || network.IsLocalHighlightComplete) return;
 
             // Request after scene subscribers are installed; retry until an assignment actually arrives.
             // The host only resends assignments already published for this sender's current match.
@@ -408,6 +408,11 @@ namespace Game.Bootstrap
                 }
                 else
                 {
+                    // Play the throw only after the authority actually releases the held object.
+                    if (state.IsPhysicsActive && state.InitialVelocity.sqrMagnitude > 0f)
+                        foreach (var holder in interactors.Values)
+                            if (holder != null && holder.CarriedItem == item)
+                                holder.GetComponent<PlayerAnimationDriver>()?.PlayThrow();
                     ForgetItem(item);
                     if (!network.IsServer)
                     {

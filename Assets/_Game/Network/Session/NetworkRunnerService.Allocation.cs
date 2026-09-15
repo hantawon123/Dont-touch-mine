@@ -65,27 +65,24 @@ namespace Game.Network.Session
 
         private void OnRoomClaimRequested(PlayerRef source, RoomCreateRequest request, string nickname)
         {
-            var accepted = false;
-            if (IsDedicatedServer && _awaitingRoomClaim && PlayerSpawner.IsRoomOwner(_runner, source) &&
+            var properties = new Dictionary<string, SessionProperty>
+            {
+                [SessionPropertyKeys.AvailableServer] = false,
+                [SessionPropertyKeys.Locked] = request.IsLocked,
+                [SessionPropertyKeys.HostNickname] = nickname,
+                [SessionPropertyKeys.OpenedAt] = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            };
+            // Publish claim and settings together: a second update can reuse stale session properties.
+            var accepted = IsDedicatedServer && _awaitingRoomClaim && PlayerSpawner.IsRoomOwner(_runner, source) &&
                 request.TryCreateSettings(RoomSettings.MaxPlayerCount, out var settings, out _) &&
                 MapCatalog.IsLobbyChoice(settings.MapId) &&
                 ApplyLobbySettings(settings.MaxPlayers, PlaySettingsDraft.DefaultDestructionLimit,
-                    settings.MapId, MatchRuleSettings.Default, settings.Title))
+                    settings.MapId, MatchRuleSettings.Default, settings.Title, properties);
+            if (accepted)
             {
-                var properties = new Dictionary<string, SessionProperty>
-                {
-                    [SessionPropertyKeys.AvailableServer] = false,
-                    [SessionPropertyKeys.Locked] = request.IsLocked,
-                    [SessionPropertyKeys.HostNickname] = nickname,
-                    [SessionPropertyKeys.OpenedAt] = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-                };
-                if (_runner.SessionInfo.UpdateCustomProperties(properties))
-                {
-                    _expectedPassword = request.IsLocked ? request.Password : null;
-                    _runner.SessionInfo.IsVisible = !request.IsPrivate;
-                    _awaitingRoomClaim = false;
-                    accepted = true;
-                }
+                _expectedPassword = request.IsLocked ? request.Password : null;
+                _runner.SessionInfo.IsVisible = !request.IsPrivate;
+                _awaitingRoomClaim = false;
             }
             if (source.IsRealPlayer) _matchStarter.AnswerRoomClaim(source, accepted);
         }

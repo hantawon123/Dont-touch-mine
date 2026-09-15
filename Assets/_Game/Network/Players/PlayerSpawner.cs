@@ -36,6 +36,7 @@ namespace Game.Network.Players
 
         private IReadOnlyList<Pose> _spawnPoses = Array.Empty<Pose>();
         private PlayerRef _roomOwner;
+        public bool IsAssignedRoomOwner(PlayerRef player) => player.IsRealPlayer && player == _roomOwner;
 
         public static bool IsRoomOwner(NetworkRunner runner, PlayerRef player)
         {

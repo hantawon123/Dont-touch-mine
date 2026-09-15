@@ -354,15 +354,9 @@ namespace Game.Bootstrap
 
             var visible = stagingNetwork.IsLocalHighlightComplete;
             if (visible != stagingVisible) SetStagingVisible(visible);
-            // Replay camera cleanup can restore occluders after the local skip.
-            // This peer owns lobby visibility until the shared timeline finishes.
-            if (visible) HideOutgoingGeometry();
+            // Apply outgoing visibility once at the handoff, after replay cleanup.
         }
 
-        private void LateUpdate()
-        {
-            if (highlightStaging && stagingVisible) HideOutgoingGeometry();
-        }
 
         private void PrepareHighlightStaging(NetworkRunnerService network)
         {
@@ -756,6 +750,7 @@ namespace Game.Bootstrap
                 var motor = avatars[i].GetComponent<NetworkPlayerMotor>();
                 if (motor == null || !motor.IsScenePlacementReady) continue;
 
+                motor.LocalPresentationInputBlocked = false;
                 cameraRig.SetFollowTarget(avatars[i].transform,
                     boundRig == cameraRig && !ReferenceEquals(boundAvatar, null));
                 boundAvatar = avatars[i];

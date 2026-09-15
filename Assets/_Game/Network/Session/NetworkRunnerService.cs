@@ -81,6 +81,13 @@ namespace Game.Network.Session
         public bool IsHighlightInProgress =>
             _matchStarter != null && _matchStarter.CurrentPhase == MatchPhase.Highlight;
         public bool IsLocalHighlightComplete => _localHighlightComplete;
+        public bool HasCompletedHighlight(int playerIndex)
+        {
+            if (_matchStarter == null) return false;
+            foreach (var player in _highlightCompletedPlayers)
+                if (_matchStarter.TryGetPlayerIndex(player, out var index) && index == playerIndex) return true;
+            return false;
+        }
 
         public bool TryConfirmPhaseIntroReady(MatchPhase phase) =>
             _matchStarter != null && _matchStarter.RequestPhaseIntroReady(phase);
@@ -1143,7 +1150,7 @@ namespace Game.Network.Session
         }
 
         private bool ApplyLobbySettings(int maxPlayers, int destructionLimit, string mapId,
-            MatchRuleSettings matchRules, string title)
+            MatchRuleSettings matchRules, string title, Dictionary<string, SessionProperty> claimProperties = null)
         {
             if ((title != null && !RoomSettings.IsValidTitle(title)) ||
                 !IsRuntimeReady || _browsingLobby || _runner.IsSceneManagerBusy ||
@@ -1168,6 +1175,8 @@ namespace Game.Network.Session
                 mapId,
                 normalizedMatchRules);
             if (title != null) properties[SessionPropertyKeys.DisplayName] = title.Trim();
+            if (claimProperties != null)
+                foreach (var property in claimProperties) properties[property.Key] = property.Value;
 
             if (!_runner.SessionInfo.UpdateCustomProperties(properties))
             {

@@ -46,7 +46,7 @@ namespace Game.Network.Session
 
             Debug.Log($"[Network] Player left: {player}.");
             var ownerLeft = runner.IsServer && !runner.LocalPlayer.IsRealPlayer &&
-                PlayerSpawner.IsRoomOwner(runner, player);
+                (_spawner?.IsAssignedRoomOwner(player) == true || PlayerSpawner.IsRoomOwner(runner, player));
             if (runner.IsServer)
             {
                 _pendingKicks.Remove(player);

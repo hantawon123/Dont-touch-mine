@@ -98,6 +98,8 @@ namespace Game.Bootstrap
                 var startedAt = emptySince;
                 while (network.IsRunning)
                 {
+                    // Claimed rooms with no remaining players must recycle even if their avatar was already removed.
+                    if (!network.IsAwaitingRoomClaim && network.PlayerCount == 0) break;
                     if (!editorServer && network.IsAwaitingRoomClaim && Time.realtimeSinceStartupAsDouble - startedAt > 120d) break;
                     if (network.PlayerCount > 0) emptySince = Time.realtimeSinceStartupAsDouble;
                     if (!editorServer && Time.realtimeSinceStartupAsDouble - emptySince > 120d) break;
