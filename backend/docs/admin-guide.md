@@ -469,7 +469,60 @@ GET /api/v1/admin/overview?range=24h
 
 ---
 
-## 11. 알고 있어야 할 것
+## 11. 분석 조회
+
+관리 화면 분석 탭이 쓰는 표입니다. 플레이 로그는 수집 서비스의 DB 에 있으므로 이 서버는 관리자
+세션만 확인하고 수집 서비스의 내부 API 를 그대로 대신 부릅니다.
+
+```
+GET /api/v1/admin/analytics/{question}?from=20260901000000&to=20260915000000&matchId=<경기 UUID>
+GET /api/v1/admin/analytics/positions?matchId=<경기 UUID>
+```
+
+`question` 은 `docs/analytics-dashboards.md` 의 번호 절에 붙인 이름입니다. SQL 은 그 문서가 원본이고
+Metabase 화면도 같은 문서로 만들어지므로, 두 화면의 숫자는 같은 경기·기간에서 같아야 합니다.
+
+| `question` | 문서의 절 |
+| --- | --- |
+| `matches` | 1. 경기 목록과 수집 상태 |
+| `hiding-time` | 2. 숨는 시간 적정성 |
+| `hideouts` | 3. 은신처 분포 |
+| `dwell` | 4. 체류 구역 |
+| `seeking-time` | 5. 찾는 시간 적정성 |
+| `combat` | 6. 전투 적정성 |
+| `item-life` | 7. 물건 생애 |
+| `dropout` | 8. 경기 중 이탈 |
+
+필터는 셋이고 전부 선택입니다. `from`·`to` 는 UTC `yyyyMMddHHmmss` 14자로 경기의 **시작 시각**을
+자르고(`to` 는 미포함), `matchId` 는 그 경기 하나입니다. 문서의 SQL 이 `upload_complete = 1` 로 경기를
+고르는 자리에 이 조건이 들어가므로, 집계는 좁힌 경기 집합 위에서 다시 계산됩니다.
+
+```json
+{
+  "columns": ["숨는 시간(초)", "경기 수", "못 숨긴 인원 %"],
+  "rows": [[30, 12, 8.3], [60, 3, 0.0]],
+  "unavailable": false
+}
+```
+
+| 필드 | 뜻 |
+| --- | --- |
+| `columns` | 문서 SQL 의 컬럼 별칭 그대로(한글). 화면은 이것을 헤더로 씁니다. 문서를 고치면 같이 바뀝니다 |
+| `rows` | 행마다 `columns` 와 같은 길이의 값. 시각은 UTC `yyyyMMddHHmmss` 문자열, 숫자는 그대로 |
+| `unavailable` | 수집 서비스가 답하지 않았습니다. `true` 면 `columns`·`rows` 가 비어 있고 화면은 "연결할 수 없음"을 보입니다. `false` 인데 `rows` 가 비면 데이터가 정말 없는 것입니다 |
+
+`positions` 는 히트맵용 좌표입니다. 컬럼은 `map_id`, `player_seat`, `phase`, `elapsed_seconds`, `pos_x`,
+`pos_z` 로 고정이고, 한 경기의 위치 샘플을 시간순으로 최대 20,000 행 줍니다. `matchId` 가 없으면 400
+`INVALID_REQUEST` 입니다.
+
+`from`·`to` 가 14자가 아니면 400 `INVALID_REQUEST` 이고 수집 서비스에 묻지 않습니다. 문서에 없는
+`question` 은 수집 서비스가 404 로 거절하는데, 이 서버는 그것을 `unavailable: true` 로 돌려줍니다 -
+질문 목록은 화면이 고정으로 갖고 있어 사람이 URL 을 손으로 칠 때만 생기는 일이고, 그때 서버 로그에
+경고가 남습니다.
+
+---
+
+## 12. 알고 있어야 할 것
 
 **계정이 하나이고 팀이 공유합니다.** 누가 무엇을 했는지 구분할 수 없습니다. 사람마다
 계정을 나눌 일이 생기면 그때 계정 테이블을 만들어야 합니다.
