@@ -343,9 +343,9 @@ namespace Game.Editor
                 return;
             }
 
-            HideNamed("PlayerCapsule");
-            HideNamed("PlayerCapsule_BakedIdle");
-            HideNamed("BlenderPreview");
+            DestroyNamed("PlayerCapsule");
+            DestroyNamed("PlayerCapsule_BakedIdle");
+            DestroyNamed("BlenderPreview");
 
             var preview = FindNamed(PreviewName);
             if (preview != null &&
@@ -389,8 +389,59 @@ namespace Game.Editor
             driver.ConfigureMotions(new[] { IdleState }.Concat(MotionDefinitions.Select(motion => motion.State)).ToArray());
             EditorUtility.SetDirty(driver);
             PrefabUtility.RecordPrefabInstancePropertyModifications(animator);
+            ApplyProjectMaterials(preview);
 
             EditorSceneManager.MarkSceneDirty(scene);
+        }
+
+        private static void ApplyProjectMaterials(GameObject preview)
+        {
+            var body = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/_Game/Content/Materials/MAT_Capsule_Character.mat");
+            var outline = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/_Game/Content/Materials/MAT_Outline.mat");
+            var hood = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/_Game/Content/Materials/MAT_Hood.mat");
+            var eyeWhite = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/_Game/Content/Materials/MAT_EyeWhite.mat");
+            var eyePupil = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/_Game/Content/Materials/MAT_EyePupil.mat");
+            var mouth = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/_Game/Content/Materials/MAT_Mouth.mat");
+
+            foreach (var renderer in preview.GetComponentsInChildren<Renderer>(true))
+            {
+                switch (renderer.name)
+                {
+                    case "Body" when body != null:
+                        renderer.sharedMaterials = outline != null
+                            ? new[] { body, outline }
+                            : new[] { body };
+                        break;
+                    case "Hood" when hood != null:
+                        renderer.sharedMaterial = hood;
+                        break;
+                    case "Eye_White_L":
+                    case "Eye_White_R":
+                        if (eyeWhite != null)
+                        {
+                            renderer.sharedMaterial = eyeWhite;
+                        }
+                        break;
+                    case "Eye_Pupil_L":
+                    case "Eye_Pupil_R":
+                        if (eyePupil != null)
+                        {
+                            renderer.sharedMaterial = eyePupil;
+                        }
+                        break;
+                    case "Mouth_Smile" when mouth != null:
+                        renderer.sharedMaterial = mouth;
+                        break;
+                }
+
+                EditorUtility.SetDirty(renderer);
+            }
         }
 
         private static GameObject FindNamed(string name)
@@ -406,12 +457,12 @@ namespace Game.Editor
             return null;
         }
 
-        private static void HideNamed(string name)
+        private static void DestroyNamed(string name)
         {
             var found = FindNamed(name);
             if (found != null)
             {
-                found.SetActive(false);
+                Object.DestroyImmediate(found);
             }
         }
 

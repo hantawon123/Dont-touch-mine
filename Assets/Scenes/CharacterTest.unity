@@ -365,6 +365,16 @@ MonoBehaviour:
   - Punch_Run
   - Punch_Crouch
   - Punch_Crouch_Walk
+  - Punch_Left
+  - Punch_Left_Walk
+  - Punch_Left_Run
+  - Punch_Left_Crouch
+  - Punch_Left_Crouch_Walk
+  - Punch_Combo
+  - Punch_Combo_Walk
+  - Punch_Combo_Run
+  - Punch_Combo_Crouch
+  - Punch_Combo_Crouch_Walk
   - Hit
   - Hit_Walk
   - Hit_Run
@@ -373,205 +383,6 @@ MonoBehaviour:
   - Stun_Start
   - Stun_Idle
   - Stun_End
---- !u!1001 &869939381
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: -9014240502128281670, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 1249363011734355403, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-    - target: {fileID: -8679921383154817045, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -3.59
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -7521562461588578538, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: -4181402736191017933, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-    - target: {fileID: -5299717192893935892, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: -4181402736191017933, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-    - target: {fileID: 919132149155446097, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_Name
-      value: PlayerCapsule_BakedIdle
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1630794972795428178, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: -3283186895336563053, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-    - target: {fileID: 3712378456733884894, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 1249363011734355403, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-    - target: {fileID: 5866666021909216657, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_Controller
-      value: 
-      objectReference: {fileID: 9100000, guid: 32574bf9dff064efe95e41d6a03e9a19, type: 2}
-    - target: {fileID: 5866666021909216657, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: m_CullingMode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6325615965168804638, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 7242261315399882646, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 869939383}
-  m_SourcePrefab: {fileID: 100100000, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
---- !u!1 &869939382 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 2ed01bb1bcfd14e78a599c8571ab2e91, type: 3}
-  m_PrefabInstance: {fileID: 869939381}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &869939383
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 869939382}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 60b3d60c4d774902b67b82a3285053f6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Client::Game.Client.CharacterTestPreviewDriver
-  stateNames:
-  - Idle_Breathing
-  - Walk_Wide_Clean
-  - Run_SideArms
-  - Jump_Cute
-  - Fall_Flutter
-  - Land_Matched
-  - Crouch_Idle_KneesUp
-  - Crouch_Walk_Forward_KneesUp
-  - Stand_To_Crouch_KneesUp
-  - Crouch_To_Stand_KneesUp
-  - Crouch_Walk_Left_KneesUp
-  - Crouch_Walk_Right_KneesUp
-  - Crouch_Walk_Back_KneesUp
---- !u!1001 &978768860
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: -8679921383154817045, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -3.59
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_Name
-      value: BlenderPreview
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5866666021909216657, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_Controller
-      value: 
-      objectReference: {fileID: 9100000, guid: c80a351e70764c2a84e0d33ed164ebfb, type: 2}
-    - target: {fileID: 5866666021909216657, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      propertyPath: m_CullingMode
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1545680388}
-  m_SourcePrefab: {fileID: 100100000, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
 --- !u!1 &1088367009
 GameObject:
   m_ObjectHideFlags: 0
@@ -717,6 +528,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: -9014240502128281670, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 079fe8414a4c35149a0ff186aa2a2fba, type: 2}
+    - target: {fileID: -8878417978148305209, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 20a9855f915a63e40bd4586364538623, type: 2}
     - target: {fileID: -8679921383154817045, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -757,10 +576,34 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7521562461588578538, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: de571c2b67b932e448787a75b0004caa, type: 2}
+    - target: {fileID: -5299717192893935892, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: de571c2b67b932e448787a75b0004caa, type: 2}
     - target: {fileID: 919132149155446097, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
       propertyPath: m_Name
       value: FirstPlayerCapsule
       objectReference: {fileID: 0}
+    - target: {fileID: 1630794972795428178, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_Materials.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1630794972795428178, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 9c4e1a7b2d3f4058a6e0b1c2d3e4f5a6, type: 2}
+    - target: {fileID: 1630794972795428178, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 1d2e3f4a5b6c708192a3b4c5d6e7f809, type: 2}
+    - target: {fileID: 3712378456733884894, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 079fe8414a4c35149a0ff186aa2a2fba, type: 2}
     - target: {fileID: 5866666021909216657, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
       propertyPath: m_Controller
       value: 
@@ -769,6 +612,10 @@ PrefabInstance:
       propertyPath: m_CullingMode
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6325615965168804638, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 2ba4c4a432e4ce24ba7d1ba54b200521, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -777,152 +624,6 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 498373257}
   m_SourcePrefab: {fileID: 100100000, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
---- !u!1 &1545680387 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
-  m_PrefabInstance: {fileID: 978768860}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1545680388
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1545680387}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 60b3d60c4d774902b67b82a3285053f6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Client::Game.Client.CharacterTestPreviewDriver
-  stateNames:
-  - Idle_Breathing
-  - Walk_Wide_Clean
-  - Run_SideArms
-  - Jump_Cute
-  - Fall_Flutter
-  - Land_Matched
-  - Crouch_Idle_KneesUp
-  - Crouch_Walk_Forward_KneesUp
-  - Stand_To_Crouch_KneesUp
-  - Crouch_To_Stand_KneesUp
-  - Crouch_Walk_Left_KneesUp
-  - Crouch_Walk_Right_KneesUp
-  - Crouch_Walk_Back_KneesUp
---- !u!1001 &1749797335
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: -8679921383154817045, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -3.59
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_Name
-      value: PlayerCapsule
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5866666021909216657, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_Enabled
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5866666021909216657, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_Controller
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 5866666021909216657, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_CullingMode
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5866666021909216657, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_WarningMessage
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 5866666021909216657, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      propertyPath: m_ApplyRootMotion
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1955805494}
-  m_SourcePrefab: {fileID: 100100000, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
---- !u!1 &1955805493 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 63b25885e304c134faa51e5cdb570b57, type: 3}
-  m_PrefabInstance: {fileID: 1749797335}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1955805494
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1955805493}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 60b3d60c4d774902b67b82a3285053f6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Client::Game.Client.CharacterTestPreviewDriver
-  stateNames:
-  - Idle_Breathing
-  - Walk_Wide_Clean
-  - Run_SideArms
-  - Jump_Cute
-  - Fall_Flutter
-  - Land_Matched
-  - Crouch_Idle_KneesUp
-  - Crouch_Walk_Forward_KneesUp
-  - Stand_To_Crouch_KneesUp
-  - Crouch_To_Stand_KneesUp
-  - Crouch_Walk_Left_KneesUp
-  - Crouch_Walk_Right_KneesUp
-  - Crouch_Walk_Back_KneesUp
 --- !u!1 &2040571902
 GameObject:
   m_ObjectHideFlags: 0
@@ -1043,7 +744,4 @@ SceneRoots:
   - {fileID: 1088367012}
   - {fileID: 239371781}
   - {fileID: 2040571906}
-  - {fileID: 1749797335}
-  - {fileID: 869939381}
-  - {fileID: 978768860}
   - {fileID: 1262939302}

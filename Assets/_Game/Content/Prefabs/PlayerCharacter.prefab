@@ -144,6 +144,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Players.PlayerAnimationDriver
   punchDurationSeconds: 0.9
+  locomotionPlaybackScale: 1
 --- !u!114 &3812345678901234567
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -169,6 +170,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 140694730116804973}
     m_Modifications:
+    - target: {fileID: -9014240502128281670, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 079fe8414a4c35149a0ff186aa2a2fba, type: 2}
+    - target: {fileID: -8878417978148305209, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 20a9855f915a63e40bd4586364538623, type: 2}
     - target: {fileID: -8679921383154817045, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.55
@@ -221,22 +230,50 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7521562461588578538, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: de571c2b67b932e448787a75b0004caa, type: 2}
+    - target: {fileID: -5299717192893935892, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: de571c2b67b932e448787a75b0004caa, type: 2}
     - target: {fileID: 919132149155446097, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
       propertyPath: m_Name
       value: Visual
       objectReference: {fileID: 0}
+    - target: {fileID: 1630794972795428178, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_Materials.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1630794972795428178, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 9c4e1a7b2d3f4058a6e0b1c2d3e4f5a6, type: 2}
+    - target: {fileID: 1630794972795428178, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 1d2e3f4a5b6c708192a3b4c5d6e7f809, type: 2}
+    - target: {fileID: 3712378456733884894, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 079fe8414a4c35149a0ff186aa2a2fba, type: 2}
     - target: {fileID: 5866666021909216657, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
       propertyPath: m_Controller
       value: 
       objectReference: {fileID: 9100000, guid: 7f054e1fcf3c476f9df2f840a66d26bd, type: 2}
     - target: {fileID: 5866666021909216657, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
-      propertyPath: m_ApplyRootMotion
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5866666021909216657, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
       propertyPath: m_CullingMode
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6325615965168804638, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 2ba4c4a432e4ce24ba7d1ba54b200521, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

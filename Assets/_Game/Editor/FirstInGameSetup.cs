@@ -220,11 +220,9 @@ namespace Game.Editor
             }
 
             var machine = controller.layers[0].stateMachine;
-            if (IsControllerReady(machine, idle))
-            {
-                return true;
-            }
-
+            // Rebind every state on reload so replaced FBX sub-assets (including
+            // crawl blend-shape curves) cannot leave the controller pointing at
+            // an older imported clip.
             BindState(machine, IdleState, idle);
             foreach (var motion in Motions)
             {
@@ -323,6 +321,8 @@ namespace Game.Editor
                     HasBodyColorTarget(root) &&
                     visual.localScale == VisualScale)
                 {
+                    ApplyProjectMaterials(visual.gameObject);
+                    PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
                     return true;
                 }
 
@@ -331,6 +331,7 @@ namespace Game.Editor
                     visual.localScale = VisualScale;
                     BindAnimator(visual.gameObject, controller);
                     WireAppearance(root, visual.gameObject, catalog);
+                    ApplyProjectMaterials(visual.gameObject);
                     PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
                     return true;
                 }
@@ -346,6 +347,7 @@ namespace Game.Editor
                 instance.transform.localScale = VisualScale;
                 BindAnimator(instance, controller);
                 WireAppearance(root, instance, catalog);
+                ApplyProjectMaterials(instance);
                 PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
                 return true;
             }
@@ -425,6 +427,54 @@ namespace Game.Editor
             animator.applyRootMotion = false;
             animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             animator.runtimeAnimatorController = controller;
+        }
+
+        private static void ApplyProjectMaterials(GameObject visual)
+        {
+            var body = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/_Game/Content/Materials/MAT_Capsule_Character.mat");
+            var outline = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/_Game/Content/Materials/MAT_Outline.mat");
+            var hood = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/_Game/Content/Materials/MAT_Hood.mat");
+            var eyeWhite = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/_Game/Content/Materials/MAT_EyeWhite.mat");
+            var eyePupil = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/_Game/Content/Materials/MAT_EyePupil.mat");
+            var mouth = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/_Game/Content/Materials/MAT_Mouth.mat");
+
+            foreach (var renderer in visual.GetComponentsInChildren<Renderer>(true))
+            {
+                switch (renderer.name)
+                {
+                    case "Body" when body != null:
+                        renderer.sharedMaterials = outline != null
+                            ? new[] { body, outline }
+                            : new[] { body };
+                        break;
+                    case "Hood" when hood != null:
+                        renderer.sharedMaterial = hood;
+                        break;
+                    case "Eye_White_L":
+                    case "Eye_White_R":
+                        if (eyeWhite != null)
+                        {
+                            renderer.sharedMaterial = eyeWhite;
+                        }
+                        break;
+                    case "Eye_Pupil_L":
+                    case "Eye_Pupil_R":
+                        if (eyePupil != null)
+                        {
+                            renderer.sharedMaterial = eyePupil;
+                        }
+                        break;
+                    case "Mouth_Smile" when mouth != null:
+                        renderer.sharedMaterial = mouth;
+                        break;
+                }
+            }
         }
 
         private readonly struct MotionDefinition
