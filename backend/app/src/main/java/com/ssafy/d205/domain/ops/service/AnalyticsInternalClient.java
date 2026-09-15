@@ -37,15 +37,22 @@ public class AnalyticsInternalClient {
     static final String KEY_HEADER = "X-Internal-Key";
     private static final Duration TIMEOUT = Duration.ofSeconds(3);
 
+    /**
+     * 분석 탭의 표는 따로 더 기다립니다. 개요 카드의 3초는 "화면이 멈추면 안 된다"에서 나온 값인데, 체류 구역
+     * 같은 집계는 경기가 수백 판 쌓이면 그보다 오래 걸릴 수 있고 좌표 응답은 1MB 입니다. 3초로 끊으면 살아 있는
+     * 분석 서비스를 "연결할 수 없음"으로 보이게 됩니다. 분석 쪽 SQL 타임아웃(AnalyticsQueryService)보다 길게 두어
+     * 그쪽이 먼저 400/500 으로 답하게 합니다.
+     */
+    private static final Duration TABLE_TIMEOUT = Duration.ofSeconds(20);
+
     private final RestClient client;
+    private final RestClient tableClient;
     private final String key;
 
     public AnalyticsInternalClient(@Value("${analytics.internal-url:http://localhost:8081}") String baseUrl,
                                    @Value("${analytics.internal-key:}") String key) {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(TIMEOUT);
-        factory.setReadTimeout(TIMEOUT);
-        this.client = RestClient.builder().baseUrl(baseUrl).requestFactory(factory).build();
+        this.client = RestClient.builder().baseUrl(baseUrl).requestFactory(factory(TIMEOUT)).build();
+        this.tableClient = RestClient.builder().baseUrl(baseUrl).requestFactory(factory(TABLE_TIMEOUT)).build();
         this.key = key == null ? "" : key;
         if (this.key.isBlank()) {
             log.warn("analytics.internal-key 가 비어 있습니다. 분석 서비스가 내부 요청을 전부 404 로 거절하므로 "
@@ -83,9 +90,16 @@ public class AnalyticsInternalClient {
      * @return 분석 서비스가 없거나 거절하면 비어 있고, 화면은 "연결할 수 없음"을 보입니다. 404 도 여기 들어가는데
      *         그건 질문 이름이 문서에 없거나 INTERNAL_KEY 가 두 서비스에서 다른 것이라 경고를 남깁니다
      */
+    private static SimpleClientHttpRequestFactory factory(Duration readTimeout) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(TIMEOUT);
+        factory.setReadTimeout(readTimeout);
+        return factory;
+    }
+
     public Optional<AdminAnalyticsTable> fetchTable(String path, MultiValueMap<String, String> query) {
         try {
-            Table table = client.get()
+            Table table = tableClient.get()
                     .uri(builder -> builder.path("/internal/admin/analytics/" + path).queryParams(query).build())
                     .header(KEY_HEADER, key)
                     .retrieve()

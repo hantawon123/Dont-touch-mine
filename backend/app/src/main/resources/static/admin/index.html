@@ -979,6 +979,7 @@
   };
   const HEAT_STOPS = [[255, 255, 204], [254, 217, 118], [253, 141, 60], [227, 26, 28], [128, 0, 38]];  // YlOrRd
   const HEAT_MARGIN = { l: 52, r: 10, t: 8, b: 28 };
+  const POSITION_CAP = 20000;  // 분석 서비스의 POSITION_LIMIT 과 같은 값
 
   let heatmapData = null;   // { columns, rows, mapId } - 마지막으로 받은 좌표
   let heatmapImage = null;  // 깔 평면도. 없으면 null
@@ -1179,7 +1180,12 @@
     const where = map.image ? '평면도 위에 그립니다.'
       : map.extent ? '평면도가 없어 ' + map.source + '으로 경계만 그립니다. 그림이 생기면 MAPS 에 적으면 됩니다.'
         : '맵 "' + mapId + '" 의 평면도와 경계값이 없어 샘플의 범위로 그립니다.';
-    setNote(q, q.note + ' ' + where, false);
+    // 서버가 경기당 20,000 행에서 자릅니다(AnalyticsQueryService.POSITION_LIMIT). 딱 그 수가 왔으면 뒤쪽 시간대가
+    // 빠진 것이고, 그걸 모른 채 보면 "후반에 아무도 안 갔다"로 읽힙니다.
+    const capped = table.rows.length >= POSITION_CAP
+      ? ' 좌표가 상한 ' + POSITION_CAP.toLocaleString('ko-KR') + '행에 걸려 경기 뒷부분이 빠졌습니다. 시간순이라 앞부분만 보입니다.'
+      : '';
+    setNote(q, q.note + ' ' + where + capped, !!capped);
 
     el('anBody-' + q.id).textContent = '';
     el('hmBox').hidden = false;
@@ -1414,8 +1420,14 @@
       return;
     }
 
+    // 경기 선택은 "경기" 컬럼의 값으로 합니다. 첫 컬럼이라고 가정하면 문서에서 순서를 바꿨을 때 다른 값을
+    // 경기 ID 로 잡고도 아무 말이 없습니다. 컬럼이 없으면 선택 기능만 끄고 그 사실을 적습니다.
+    const pickable = q.kind === 'matches' && table.columns.includes('경기');
+    if (q.kind === 'matches' && !pickable) {
+      setNote(q, q.note + ' 표에 "경기" 컬럼이 없어 경기 선택이 꺼졌습니다. 문서의 1번 절 별칭을 확인하세요.', true);
+    }
     body.appendChild(gridOf(table.columns, table.rows, {
-      pick: q.kind === 'matches',
+      pickColumn: pickable ? '경기' : null,
       dimWhen: q.kind === 'matches' ? '완전 수신' : null,
     }));
   }
@@ -1460,6 +1472,7 @@
     const numeric = columns.map((c, i) => rows.some((row) => typeof row[i] === 'number'));
     const utc = columns.map((c) => c.includes('(UTC)'));
     const dimAt = opts.dimWhen ? columns.indexOf(opts.dimWhen) : -1;
+    const pickAt = opts.pickColumn ? columns.indexOf(opts.pickColumn) : -1;
 
     const thead = document.createElement('thead');
     const hr = document.createElement('tr');
@@ -1475,9 +1488,9 @@
     const shown = rows.slice(0, TABLE_ROW_CAP);
     for (const row of shown) {
       const tr = document.createElement('tr');
-      if (opts.pick) {
+      if (pickAt >= 0) {
         tr.className = 'pick';
-        const id = String(row[0]);
+        const id = String(row[pickAt]);
         if (id === selectedMatch) tr.classList.add('sel');
         tr.addEventListener('click', () => {
           selectedMatch = selectedMatch === id ? null : id;

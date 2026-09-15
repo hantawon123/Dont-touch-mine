@@ -1,10 +1,10 @@
 package com.ssafy.d205.domain.analytics.query;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.stereotype.Service;
 
+import javax.sql.DataSource;
 import java.sql.ResultSetMetaData;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -22,14 +22,21 @@ import com.ssafy.d205.global.common.Timestamps;
  * canvas 가 그리는 것이라 문서의 "질문"이 아니기 때문입니다.
  */
 @Service
-@RequiredArgsConstructor
 public class AnalyticsQueryService {
 
     /**
      * 경기 하나의 좌표 상한. 4 인 경기가 20 분이면 샘플이 4,800 개이고, 수집 쪽 상한(경기당 약 20,000 건)과
-     * 같은 값입니다. 그 위로는 브라우저가 격자로 묶어 그려도 응답이 무거워집니다.
+     * 같은 값입니다. 그 위로는 브라우저가 격자로 묶어 그려도 응답이 무거워집니다. 딱 이 수만큼 오면 화면이
+     * "뒷부분이 잘렸다"고 적습니다.
      */
-    static final int POSITION_LIMIT = 20_000;
+    public static final int POSITION_LIMIT = 20_000;
+
+    /**
+     * 질문 하나의 SQL 상한(초). 관리 화면이 질문 여덟 개를 한꺼번에 던지는데 풀은 다섯이라, 무거운 쿼리
+     * 하나가 오래 붙잡으면 수집(flush) 까지 커넥션을 기다립니다. 계정 서비스의 프록시 대기(20초)보다 짧아
+     * 여기서 끊긴 것이 저쪽에 "타임아웃"이 아니라 오류 응답으로 보입니다.
+     */
+    static final int QUERY_TIMEOUT_SECONDS = 15;
 
     private static final String POSITIONS_SQL = """
             SELECT map_id, player_seat, phase, elapsed_seconds, pos_x, pos_z
@@ -41,6 +48,13 @@ public class AnalyticsQueryService {
 
     private final DashboardQueryDocument document;
     private final JdbcTemplate jdbcTemplate;
+
+    /** 공용 JdbcTemplate 이 아니라 자기 것을 만듭니다. 쿼리 타임아웃을 수집 쪽 INSERT 에까지 걸 이유가 없습니다. */
+    public AnalyticsQueryService(DashboardQueryDocument document, DataSource dataSource) {
+        this.document = document;
+        this.jdbcTemplate = new JdbcTemplate(dataSource);
+        this.jdbcTemplate.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+    }
 
     public AnalyticsTable question(String slug, AnalyticsQueryFilter filter) {
         DashboardQueryDocument.Question question = document.find(slug)
