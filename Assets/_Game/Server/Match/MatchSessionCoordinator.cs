@@ -360,10 +360,8 @@ namespace Game.Server.Match
 
             var changed = flow.AdvanceIfExpired(now);
             RaiseFinalWarningIfNeeded(now);
-            if (state.CurrentPhase.CurrentValue == MatchPhase.Highlight && highlights.IsComplete)
-            {
-                changed |= flow.CompleteHighlight();
-            }
+            // Empty selections still pass through the result-stage/readiness
+            // schedule. Completing here bypassed result presentation entirely.
 
             return changed;
         }

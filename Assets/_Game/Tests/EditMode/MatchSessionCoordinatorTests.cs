@@ -663,6 +663,9 @@ namespace Game.Tests.EditMode
             context.ServerTime = 550d;
             controller.Tick();
 
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
+            context.ServerTime = state.PhaseEndsAt.CurrentValue;
+            controller.Tick();
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Result));
             Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Result));
             Assert.That(
@@ -756,6 +759,9 @@ namespace Game.Tests.EditMode
                 session.SetHighlightCandidates(new HighlightCandidate[0]),
                 Is.True);
             context.ServerTime = 550d;
+            matchRuntime.Tick();
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Highlight));
+            context.ServerTime = session.CaptureStateSnapshot().PhaseEndsAt;
             matchRuntime.Tick();
             Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Result));
 
