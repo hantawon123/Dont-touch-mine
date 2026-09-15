@@ -75,15 +75,40 @@ namespace Game.Editor
             outputFolder = EditorGUILayout.TextField("출력 폴더", outputFolder);
 
             EditorGUILayout.Space();
-            if (GUILayout.Button("범위 재기")) Measure();
+            EditorGUILayout.LabelField("굽는 범위", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "이 사각형이 그림의 범위이면서 히트맵 격자의 범위가 됩니다. "
+                + "좁으면 그 밖의 좌표가 조용히 버려지고 화면에는 '거기 아무도 안 갔다'로 보입니다. "
+                + "넓으면 여백이 생길 뿐이니 넓은 쪽이 안전합니다.",
+                MessageType.None);
 
-            if (measured)
+            using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("가로(x)", $"{x0:F2} ~ {x1:F2}  ({x1 - x0:F1} m)");
-                EditorGUILayout.LabelField("세로(z)", $"{z0:F2} ~ {z1:F2}  ({z1 - z0:F1} m)");
-                EditorGUILayout.LabelField("바닥 / 지붕", $"y {floorY:F2} ~ {roofY:F2}");
-                if (!string.IsNullOrEmpty(measureNote)) EditorGUILayout.HelpBox(measureNote, MessageType.Info);
+                if (GUILayout.Button("경계로 재기")) Measure(false);
+                if (GUILayout.Button("씬 전체로 재기")) Measure(true);
             }
+            if (!string.IsNullOrEmpty(measureNote)) EditorGUILayout.HelpBox(measureNote, MessageType.Info);
+
+            // 재기는 출발점일 뿐이고 최종 값은 사람이 정합니다. 맵마다 경계 오브젝트가 무엇을
+            // 감싸고 있는지가 달라서, 잰 값을 그대로 믿으면 반쪽만 구워집니다.
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.PrefixLabel("가로 x");
+                x0 = EditorGUILayout.FloatField(x0);
+                EditorGUILayout.LabelField("~", GUILayout.Width(12));
+                x1 = EditorGUILayout.FloatField(x1);
+                EditorGUILayout.LabelField($"{x1 - x0:F1} m", GUILayout.Width(60));
+            }
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.PrefixLabel("세로 z");
+                z0 = EditorGUILayout.FloatField(z0);
+                EditorGUILayout.LabelField("~", GUILayout.Width(12));
+                z1 = EditorGUILayout.FloatField(z1);
+                EditorGUILayout.LabelField($"{z1 - z0:F1} m", GUILayout.Width(60));
+            }
+            measured = x1 > x0 && z1 > z0;
+            if (!measured) EditorGUILayout.HelpBox("가로와 세로 모두 오른쪽 값이 더 커야 합니다.", MessageType.Warning);
 
             EditorGUILayout.Space();
             cutHeight = EditorGUILayout.FloatField(
@@ -133,11 +158,11 @@ namespace Game.Editor
         /// "거기 아무도 안 갔다"로 보인다.
         /// </para>
         /// </summary>
-        private void Measure()
+        private void Measure(bool wholeScene)
         {
-            // 1순위: 경계 콜라이더. 도달 영역을 따라 세운 것이라 놀 수 있는 곳과 같은 모양이다
-            // (docs/design/match-map/README.md). 소품이 어느 하이어라키에 있든 상관없다.
-            if (TryMeasureBoundary(out var bounds, out var source)
+            // 경계 오브젝트는 맵마다 감싸는 것이 다르다. 마트에서는 대기 구역만 감싸고 있어서
+            // 그대로 믿으면 반쪽만 구워진다. 그래서 잰 값은 출발점이고 최종 값은 사람이 정한다.
+            if ((!wholeScene && TryMeasureBoundary(out var bounds, out var source))
                 || TryMeasureRenderers(out bounds, out source))
             {
                 x0 = bounds.min.x;
@@ -147,7 +172,8 @@ namespace Game.Editor
                 floorY = bounds.min.y;
                 roofY = bounds.max.y;
                 measured = true;
-                measureNote = $"{source} 기준입니다. 잘라 낼 높이는 지붕({roofY:F1})보다 낮아야 합니다.";
+                measureNote = $"{source} 기준으로 채웠습니다. 아는 지점과 맞는지 보고 고치세요. "
+                              + $"이 씬의 렌더러는 y {floorY:F1} ~ {roofY:F1} 에 있습니다.";
 
                 // 처음 열었을 때 쓸 만한 값을 넣어 준다. 사람이 보고 고치면 된다.
                 if (cutHeight <= floorY || cutHeight >= roofY) cutHeight = Mathf.Round((floorY + roofY) * 0.5f);
@@ -262,7 +288,11 @@ namespace Game.Editor
             var (width, height) = PixelSize();
             var centerX = (x0 + x1) * 0.5f;
             var centerZ = (z0 + z1) * 0.5f;
-            var top = roofY + 10f;
+            // 카메라 높이는 잰 지붕이 아니라 잘라 낼 높이로 정한다. 범위를 손으로 넓히면 잰 값이
+            // 더 이상 맞지 않는데, 어차피 잘라 낼 높이 위는 안 찍으므로 그 기준만 있으면 된다.
+            const float Above = 50f;
+            const float Below = 300f;
+            var top = cutHeight + Above;
 
             var holder = new GameObject("~AnalyticsFloorplanCamera") { hideFlags = HideFlags.HideAndDontSave };
             RenderTexture texture = null;
@@ -277,8 +307,8 @@ namespace Game.Editor
                 // 직교 크기는 세로(z) 반지름이다. 가로는 aspect 가 정한다.
                 camera.orthographicSize = (z1 - z0) * 0.5f;
                 camera.aspect = (x1 - x0) / (z1 - z0);
-                camera.nearClipPlane = Mathf.Max(0.01f, top - cutHeight);
-                camera.farClipPlane = top - floorY + 10f;
+                camera.nearClipPlane = Above;
+                camera.farClipPlane = Above + Below;
                 camera.clearFlags = CameraClearFlags.SolidColor;
                 camera.backgroundColor = background;
                 camera.allowHDR = false;
