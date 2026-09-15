@@ -85,6 +85,12 @@ namespace Game.Client.Lobby
             if (mapPreviewImage != null)
             {
                 mapPreviewImage.color = PlaySettingsStyle.Palette.MapPreview;
+                if (mapPreviewPhoto == null)
+                {
+                    mapPreviewPhoto = MapPreviewSprites.FindPhoto(mapPreviewImage);
+                }
+
+                MapPreviewSprites.Apply(mapPreviewPhoto, MapPreviewSprites.For(selected.Id));
             }
 
             for (var i = 0; i < mapSlotImages.Count; i++)
@@ -99,6 +105,12 @@ namespace Game.Client.Lobby
                 image.color = selectedSlot
                     ? PlaySettingsStyle.MapSlotPalette.Selected
                     : PlaySettingsStyle.MapSlotPalette.Normal;
+
+                // 슬롯에도 같은 사진을 작게 넣는다. 선택 안 된 슬롯은 살짝 어둡게 해 선택 슬롯과 구분한다.
+                MapPreviewSprites.Apply(
+                    MapPreviewSprites.FindPhoto(image),
+                    MapPreviewSprites.For(mapOptions[i].Id),
+                    selectedSlot ? Color.white : MapPreviewSprites.DimmedTint);
 
                 var outline = image.transform.Find("Selection");
                 if (outline != null)
@@ -209,7 +221,10 @@ namespace Game.Client.Lobby
             rect.pivot = new Vector2(0f, 0.5f);
             rect.sizeDelta = new Vector2(slotSize, slotSize);
             rect.anchoredPosition = new Vector2(index * (slotSize + slotSpacing), 0f);
-            go.GetComponent<Image>().color = PlaySettingsStyle.MapSlotPalette.Normal;
+            var slotImage = go.GetComponent<Image>();
+            slotImage.color = PlaySettingsStyle.MapSlotPalette.Normal;
+            // 정사각 슬롯 안에 4:3 사진을 늘리지 않고 가운데 맞춘다. 위아래 남는 띠는 슬롯 색이 채운다.
+            MapPreviewSprites.AttachPhoto(slotImage, new Vector2(slotSize, slotSize / MapPreviewSprites.Aspect));
 
             var selectionGo = new GameObject("Selection", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             selectionGo.transform.SetParent(go.transform, false);

@@ -130,6 +130,11 @@ namespace Game.Client.Lobby
             EnsureMatchInfo()?.SetInfo(categoryLabel, mapLabel);
         }
 
+        public void SetMatchInfo(string categoryLabel, string mapLabel, Sprite mapPreview)
+        {
+            EnsureMatchInfo()?.SetInfo(categoryLabel, mapLabel, mapPreview);
+        }
+
         /// <summary>
         /// The talk keys still run through <c>VoicePresenter</c>. The corner
         /// button is gone because a captured cursor cannot reach it.
