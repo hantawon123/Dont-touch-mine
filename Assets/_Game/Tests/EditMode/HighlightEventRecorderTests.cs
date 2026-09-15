@@ -89,7 +89,7 @@ namespace Game.Tests.EditMode
             Assert.That(candidate.TargetId, Is.EqualTo("item-d"));
             Assert.That(candidate.EndedAt, Is.EqualTo(140d));
             Assert.That(candidate.Score, Is.EqualTo(70d));
-            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(6d));
+            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(4d));
             Assert.That(candidate.Segments.All(segment => segment.PlaybackSpeed == 1d), Is.True);
         }
 
@@ -226,7 +226,12 @@ namespace Game.Tests.EditMode
 
         private HighlightCandidate Candidate(HighlightType type, double endedAt)
         {
-            return recorder.CaptureCandidates(endedAt).Single(candidate => candidate.Type == type);
+            var frames = new[]
+            {
+                new HighlightReplayFrame(120, new[] { Pose.identity, Pose.identity, Pose.identity, Pose.identity },
+                    new[] { new WorldObjectState("item-d", Pose.identity) })
+            };
+            return recorder.CaptureCandidates(endedAt, frames: frames).Single(candidate => candidate.Type == type);
         }
 
         private static PlayerItemAssignment Assignment(int playerIndex, string itemId)

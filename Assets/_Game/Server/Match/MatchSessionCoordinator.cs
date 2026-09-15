@@ -1009,7 +1009,7 @@ namespace Game.Server.Match
 
         private HighlightReplayFrame[] CaptureReplayFrames(HighlightSegment segment)
         {
-            var captured = highlightReplayBuffer.Capture(
+            var captured = highlightReplayBuffer.CaptureWithBoundary(
                 segment.StartedAt,
                 segment.EndedAt);
             var maxFrameCount = Math.Max(

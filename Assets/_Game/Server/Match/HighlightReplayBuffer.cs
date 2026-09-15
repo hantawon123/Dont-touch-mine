@@ -202,6 +202,26 @@ namespace Game.Server.Match
             return true;
         }
 
+        // Include neighboring samples only when contiguous, so a cut does not
+        // borrow a distant stale state or start with an already-destroyed item.
+        public HighlightReplayFrame[] CaptureWithBoundary(double startedAt, double endedAt)
+        {
+            var result = new List<HighlightReplayFrame>(Capture(startedAt, endedAt));
+            HighlightReplayFrame? previous = null;
+            foreach (var frame in frames)
+            {
+                if (frame.RecordedAt < startedAt) previous = frame;
+                if (frame.RecordedAt > endedAt)
+                {
+                    if (frame.RecordedAt - endedAt <= sampleIntervalSeconds * 2d) result.Add(frame);
+                    break;
+                }
+            }
+            if (previous.HasValue && startedAt - previous.Value.RecordedAt <= sampleIntervalSeconds * 2d)
+                result.Insert(0, previous.Value);
+            return result.ToArray();
+        }
+
         public HighlightReplayFrame[] Capture(double startedAt, double endedAt)
         {
             if (startedAt < 0d || endedAt < startedAt)
