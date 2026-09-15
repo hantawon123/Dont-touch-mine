@@ -73,16 +73,51 @@ scp backend/deploy/verify.sh d205:/tmp/verify.sh
 ssh d205 'bash /tmp/verify.sh'
 ```
 
+### 서비스 분리 배포 순서 (2026-09-14 에 한 번 겪은 순서)
+
+새 compose 가 요구하는 `.env` 키와 nginx 설정은 **Jenkins 가 만들어 주지 않습니다.** 순서를 지키지
+않으면 아래처럼 됩니다. 실제로 겪은 일입니다.
+
+1. **머지 전에** `.env` 두 곳(서버 `/home/ubuntu/d205/.env`, Jenkins 비밀 파일 `d205-backend-env`)에
+   새 키를 넣습니다. `ANALYTICS_MYSQL_ROOT_PASSWORD`, `ANALYTICS_DB_NAME`(`d205_analytics`),
+   `ANALYTICS_DB_USERNAME`, `ANALYTICS_DB_PASSWORD`, 그리고 `INTERNAL_KEY`. 빠지면 빌드가 `docker compose build`
+   의 변수 치환 단계에서 `required variable ... is missing a value` 로 멈춥니다. 운영 컨테이너는 그대로라
+   서비스는 살아 있지만 배포가 안 됩니다. Jenkins 쪽은 Secret file 의 Update 화면에서 **파일 선택 버튼으로
+   새 파일을 고른 뒤** Save 해야 합니다. 파일을 고르지 않고 Save 만 누르면 옛 파일이 남습니다.
+   서버에서 값을 만들어 붙이고 그 파일을 내려받아 올리는 순서가 안전합니다. 명령은 한 줄씩 따옴표 없이
+   씁니다(PowerShell 이 안쪽 큰따옴표를 벗겨 버립니다).
+
+   ```
+   ssh d205 'cd /home/ubuntu/d205 && cp .env .env.bak && echo ANALYTICS_MYSQL_ROOT_PASSWORD=$(openssl rand -hex 24) >> .env && echo ANALYTICS_DB_NAME=d205_analytics >> .env && echo ANALYTICS_DB_USERNAME=d205_analytics >> .env && echo ANALYTICS_DB_PASSWORD=$(openssl rand -hex 24) >> .env && echo INTERNAL_KEY=$(openssl rand -hex 32) >> .env'
+   scp d205:/home/ubuntu/d205/.env $env:USERPROFILE\Downloads\d205-backend-env
+   ```
+
+   올린 뒤 내려받은 사본은 지웁니다.
+
+2. 머지하면 Jenkins 가 두 이미지를 빌드해 컨테이너 다섯을 교체합니다. 이때 **nginx 는 아직 옛 설정**이라
+   `/api/v1/events` 가 8080(계정 서비스)으로 가는데, 새 계정 서비스에는 수집 컨트롤러가 없어 404 가 납니다.
+   반대로 nginx 를 먼저 올리면 분석 컨테이너가 뜨기 전까지 502 입니다. 어느 쪽이든 그 사이 수집이 끊기고
+   클라이언트 스풀이 버텨 줍니다. 배포 완료 신호는 `ssh d205 'docker ps | grep d205-analytics'` 에
+   컨테이너가 보이고 `curl http://localhost:8081/actuator/health` 가 UP 인 것입니다.
+
+3. 배포가 끝나는 **즉시** "적용 방법" 절의 nginx 설정을 올립니다. 그러면 `/api/v1/events` 가 400
+   INVALID_REQUEST(빈 본문에 대한 정상 응답)로 돌아옵니다.
+
+4. 아래 이관을 한 번 실행합니다.
+
 ### 분석 DB 이관 (서비스 분리 배포 뒤 **한 번**)
 
 분리 전의 플레이 로그와 Metabase 설정은 `d205-mysql` 의 `d205_analytics`·`metabase` 스키마에 있습니다.
 새 compose 가 올라가면 `d205-mysql-analytics` 는 빈 채로 뜨고 수집 서비스가 거기에 Flyway 를 돌립니다.
-그 뒤 옛 데이터를 옮깁니다.
+그 뒤 옛 데이터를 옮깁니다. 서버의 `/home/ubuntu/d205` 에는 `.env` 만 있고 `deploy/` 폴더가 없으므로
+먼저 만듭니다. compose 파일도 그 경로에 없으니(Jenkins 작업 디렉터리에서 돕니다) Metabase 재시작은
+컨테이너 이름으로 합니다.
 
 ```
+ssh d205 'mkdir -p /home/ubuntu/d205/deploy'
 scp backend/deploy/migrate-analytics.sh d205:/home/ubuntu/d205/deploy/migrate-analytics.sh
 ssh d205 'cd /home/ubuntu/d205 && bash deploy/migrate-analytics.sh'
-ssh d205 'cd /home/ubuntu/d205 && docker compose -f compose.prod.yml restart metabase'
+ssh d205 'docker restart d205-metabase'
 ```
 
 백업이 먼저이고 실패하면 거기서 멈춥니다. 스크립트가 끝에 옛·새 컨테이너의 행 수를 나란히 찍으니
@@ -93,6 +128,37 @@ ssh d205 'cd /home/ubuntu/d205 && docker compose -f compose.prod.yml restart met
 읽기 계정(`d205_reader`)과 Metabase 계정은 `d205-mysql-analytics` 볼륨이 처음 만들어질 때
 `deploy/mysql-analytics/init/01-accounts.sh` 가 자동으로 만듭니다. 손으로 할 것이 없습니다. 볼륨이 이미
 있는데 계정만 다시 만들어야 하면 그 스크립트를 `docker cp` 로 넣어 `docker exec -e ANALYTICS_READER_PASSWORD -e METABASE_DB_PASSWORD d205-mysql-analytics bash /tmp/01-accounts.sh` 로 실행합니다. 두 번 실행해도 무해합니다.
+
+### 분석 DB Flyway 이력 복구 (2026-09-15, 한 번)
+
+위 이관을 **이미 옛 방식으로 돌렸다면** 분석 DB 의 `flyway_schema_history` 에 분리 전 체크섬이 남아
+있습니다. 그러면 수집 서비스가 기동할 때마다 이렇게 죽습니다.
+
+```
+Migration checksum mismatch for migration version 1
+-> Applied to database : -1736482106
+-> Resolved locally    : -1060353966
+```
+
+분리 커밋에서 `V1__create_game_event.sql` 의 주석 한 줄이 바뀌었는데 Flyway 는 주석까지 체크섬에
+넣습니다. 옛 이력으로 덮으면 그 값이 남습니다. 스키마는 이미 올바른 모양이라 다시 돌릴 것은 없고
+이력의 체크섬만 맞추면 됩니다. `flyway repair` 가 하는 일과 같습니다.
+
+**이미 떠 있는 컨테이너는 재검증을 하지 않으므로 살아 있습니다.** 그래서 눈에 안 띄다가 다음 배포의
+기동 검증에서 터집니다. 젠킨스의 그 단계는 운영 분석 DB 에 임시 컨테이너를 붙이기 때문에, 고치기
+전까지 백엔드 파이프라인이 매번 같은 자리에서 실패합니다.
+
+```
+scp backend/deploy/repair-analytics-flyway.sh d205:/home/ubuntu/d205/deploy/repair-analytics-flyway.sh
+ssh d205 'cd /home/ubuntu/d205 && bash deploy/repair-analytics-flyway.sh'
+```
+
+스크립트가 이력 테이블을 먼저 백업하고, **분리 전 값일 때만** 코드값으로 바꾸고, V1~V4 를 기대값과
+대조합니다. 다른 값이 들어 있으면 손대지 않고 멈춥니다. 여러 번 돌려도 무해합니다. 끝나면 젠킨스에서
+develop 잡을 다시 실행합니다.
+
+마이그레이션 파일을 고치면 스크립트 안의 기대 체크섬 표도 같이 고쳐야 합니다.
+
 
 ### 계정 DB 일일 백업 (한 번 설치)
 
@@ -115,7 +181,7 @@ ssh d205 'crontab -l'
 ```
 ssh d205 'cd /home/ubuntu/d205 && bash deploy/backup-game-db.sh'
 ssh d205 "set -a; . /home/ubuntu/d205/.env; set +a; gunzip -c /home/ubuntu/d205-backups/<파일>.sql.gz | docker exec -i d205-mysql sh -c 'MYSQL_PWD=\$MYSQL_ROOT_PASSWORD mysql -uroot'"
-ssh d205 'cd /home/ubuntu/d205 && docker compose -f compose.prod.yml restart app'
+ssh d205 'docker restart d205-app'
 ```
 
 복구 뒤 앱을 재시작하는 이유는 Flyway 가 `flyway_schema_history` 를 다시 읽어 덤프 시점 이후의
@@ -517,6 +583,16 @@ MR이 자동으로 재검증되지 않습니다. 그러면 MR은 "이전 develop
 **이전 버전이 아직 살아 있습니다.** 컬럼 추가처럼 덧붙이는 변경은 안전하지만
 `DROP COLUMN` 같은 파괴적 변경은 그 사이 이전 버전이 에러를 낼 수 있습니다.
 먼저 코드에서 그 컬럼 사용을 없애 배포하고, 그다음 배포에서 컬럼을 지웁니다.
+
+### 적용된 마이그레이션은 주석도 고치지 마세요
+
+Flyway 체크섬은 SQL 본문이 아니라 **파일 전체**로 냅니다. 주석 한 줄만 바꿔도 값이 달라지고, 그 파일이
+이미 어느 DB 에 적용돼 있었다면 그 DB 에 붙는 서비스가 기동 검증에서 죽습니다. 2026-09-15 에
+이것으로 develop 파이프라인이 멈췄습니다(S15P21D205-1009).
+
+설명을 고치고 싶으면 파일이 아니라 `docs/` 에 씁니다. 파일을 꼭 고쳐야 하면 새 버전을 추가하거나,
+바꾼 뒤 위의 복구 절차로 이력을 맞춥니다.
+
 
 ### 다운타임
 
