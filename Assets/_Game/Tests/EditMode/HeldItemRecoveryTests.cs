@@ -110,6 +110,46 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void HighlightHandoff_FreezesLivePropsAndIgnoresLateStateWithoutHidingVisuals()
+        {
+            using var room = new RoomBrowserSystem();
+            var network = new NetworkRunnerService(null, null, null, null, null, null);
+            var itemObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var lobbyObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            try
+            {
+                var body = itemObject.AddComponent<Rigidbody>();
+                var item = itemObject.AddComponent<CarryableItem>();
+                typeof(CarryableItem).GetMethod("Awake", Private).Invoke(item, null);
+                var lobbyBody = lobbyObject.AddComponent<Rigidbody>();
+                var bridge = new NetworkInteractionSceneBridge(network, room, false, itemObject.scene);
+                Field<Dictionary<string, CarryableItem>>(bridge, "items").Add(item.ObjectId, item);
+                var state = new[] { new MatchObjectStateSnapshot(item.ObjectId, -1,
+                    new Pose(Vector3.one * 10, Quaternion.identity), default, false, 9) };
+                typeof(NetworkInteractionSceneBridge).GetField("objectStates", Private).SetValue(bridge, state);
+                bridge.SuspendForHighlights();
+                bridge.SuspendForHighlights();
+                typeof(NetworkInteractionSceneBridge).GetMethod("ApplyObjectStates", Private).Invoke(bridge, null);
+                typeof(NetworkInteractionSceneBridge).GetMethod("OnObjectStatesReceived", Private).Invoke(bridge, new object[] { state });
+                bridge.Tick();
+                Assert.That(itemObject.transform.position, Is.EqualTo(Vector3.zero));
+                Assert.That(body.isKinematic, Is.True);
+                Assert.That(body.detectCollisions, Is.False);
+                Assert.That(item.enabled, Is.False);
+                Assert.That(item.GetComponent<Collider>().enabled, Is.False);
+                Assert.That(item.GetComponent<Renderer>().enabled, Is.True);
+                Assert.That(item.GetComponent<Renderer>().forceRenderingOff, Is.False);
+                Assert.That(lobbyBody.isKinematic, Is.False);
+                Assert.That(lobbyObject.GetComponent<Collider>().enabled, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(itemObject);
+                Object.DestroyImmediate(lobbyObject);
+            }
+        }
+
         private static T Field<T>(object owner, string name) =>
             (T)owner.GetType().GetField(name, Private).GetValue(owner);
     }

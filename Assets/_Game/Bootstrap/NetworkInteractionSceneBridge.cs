@@ -29,6 +29,7 @@ namespace Game.Bootstrap
         private readonly bool lobbyMode;
         private readonly UnityEngine.SceneManagement.Scene scene;
         private bool lobbyReady;
+        private bool suspendedForHighlights;
         private readonly Dictionary<string, CarryableItem> items =
             new(StringComparer.Ordinal);
         private readonly Dictionary<int, PlayerInteractor> interactors = new();
@@ -101,8 +102,29 @@ namespace Game.Bootstrap
             SetHighlightedAssignment(null);
         }
 
+        internal void SuspendForHighlights()
+        {
+            if (lobbyMode || suspendedForHighlights) return;
+            suspendedForHighlights = true;
+            // Replay uses separate visual copies. The retained live map must neither
+            // simulate falling props nor re-enable their colliders through state updates.
+            foreach (var item in items.Values)
+            {
+                if (item == null) continue;
+                item.enabled = false;
+                if (item.TryGetComponent<Rigidbody>(out var body))
+                {
+                    body.isKinematic = true;
+                    body.detectCollisions = false;
+                }
+                foreach (var collider in item.GetComponentsInChildren<Collider>(true))
+                    collider.enabled = false;
+            }
+        }
+
         public void Tick()
         {
+            if (suspendedForHighlights) return;
             if (Time.realtimeSinceStartupAsDouble >= cameraDiagnosticAt)
             {
                 cameraDiagnosticAt = double.PositiveInfinity;
@@ -351,7 +373,7 @@ namespace Game.Bootstrap
         private void ApplyObjectStates()
         {
             // Result presentation detaches held items. Frozen match snapshots must not reattach them.
-            if (network.IsResultSceneLoaded) return;
+            if (suspendedForHighlights || network.IsResultSceneLoaded) return;
 
             var checkHeldState = Time.unscaledTimeAsDouble >= nextHeldStateCheckAt;
             if (checkHeldState) nextHeldStateCheckAt = Time.unscaledTimeAsDouble + 0.5d;
@@ -512,7 +534,7 @@ namespace Game.Bootstrap
 
         private void OnItemAssignmentReceived(string itemId)
         {
-            if (lobbyMode) return;
+            if (lobbyMode || suspendedForHighlights) return;
             assignedItemId = string.IsNullOrWhiteSpace(itemId) ? null : itemId.Trim();
             SetHighlightedAssignment(
                 assignedItemId != null && items.TryGetValue(assignedItemId, out var item)
@@ -542,6 +564,7 @@ namespace Game.Bootstrap
         private void OnObjectStatesReceived(
             IReadOnlyList<MatchObjectStateSnapshot> states)
         {
+            if (suspendedForHighlights) return;
             objectStates = states == null
                 ? Array.Empty<MatchObjectStateSnapshot>()
                 : Copy(states);
@@ -550,6 +573,7 @@ namespace Game.Bootstrap
         private void OnPlayerStatesReceived(
             IReadOnlyList<PlayerInteractionStateSnapshot> states)
         {
+            if (suspendedForHighlights) return;
             if (states == null)
             {
                 playerStates = Array.Empty<PlayerInteractionStateSnapshot>();

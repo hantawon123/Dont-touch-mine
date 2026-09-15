@@ -360,7 +360,7 @@ namespace Game.Bootstrap
 
         private void PrepareLobbyPhysics(NetworkRunnerService network)
         {
-            if (network.IsServer && network.IsHighlightInProgress)
+            if (network.IsHighlightInProgress)
             {
                 // The replay keeps the match scene loaded, but skipped players are
                 // already simulated in Lobby. Both maps occupy the same world space.
@@ -370,6 +370,7 @@ namespace Game.Bootstrap
                 var playground = FindFirstObjectByType<PlaygroundLifetimeScope>(FindObjectsInactive.Include);
                 if (playground != null)
                 {
+                    playground.SuspendLiveInteractionsForHighlights();
                     foreach (var root in playground.SceneRoots)
                     {
                         if (root == null) continue;

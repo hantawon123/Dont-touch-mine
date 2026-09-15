@@ -33,6 +33,9 @@ namespace Game.Bootstrap
     public sealed class PlaygroundLifetimeScope : LifetimeScope
     {
         private bool waitingForSceneLoad;
+        private NetworkInteractionSceneBridge interactionBridge;
+
+        internal void SuspendLiveInteractionsForHighlights() => interactionBridge?.SuspendForHighlights();
         private GameObject[] sceneRoots = Array.Empty<GameObject>();
 
         internal IReadOnlyList<GameObject> SceneRoots => sceneRoots;
@@ -105,6 +108,7 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
                 .WithParameter(false).WithParameter(gameObject.scene).AsSelf();
+            builder.RegisterBuildCallback(c => interactionBridge = c.Resolve<NetworkInteractionSceneBridge>());
             if (DedicatedServerStartup.IsRequested) return;
             var cctvPrefab = Resources.Load<GameObject>("CCTV/" + gameObject.scene.name);
             if (cctvPrefab != null) Instantiate(cctvPrefab, transform, false);
