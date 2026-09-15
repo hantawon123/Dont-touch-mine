@@ -403,7 +403,7 @@ namespace Game.Bootstrap
             PublishHighlightHud(index, elapsed);
             cameraDirector.SetPlaybackTime(playbackTime);
             cameraDirector.Tick(Time.unscaledDeltaTime);
-            if (cctvHud != null) cctvHud.SetCctvInfo(cameraDirector.CctvLocation, replayPlayer.SourceTime);
+            if (cctvHud != null) cctvHud.SetCctvInfo("3인칭 추적", replayPlayer.SourceTime);
             transition.SetOpacity(Mathf.Max(
                 HighlightPresentationTiming.Opacity(elapsed, duration),
                 Mathf.Max(cameraDirector.CctvOpacity, HighlightReplayPlayer.CutOpacity(replay[index].Clips, playbackTime))));
@@ -584,7 +584,7 @@ namespace Game.Bootstrap
                 fallbackObject.transform,
                 playerTargets,
                 objectTargets,
-                occlusionGroups: sceneOcclusionGroups, cctvCameras: cctvCameras);
+                occlusionGroups: sceneOcclusionGroups);
             cameraDirector.Focus(current.Candidate);
             Debug.Log($"[Highlight] Playback ready: type={current.Candidate.Type}, players={playerTargets.Length}, objects={objectTargets.Length}, camera={output.name}.");
             return true;

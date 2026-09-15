@@ -223,9 +223,9 @@ namespace Game.Bootstrap
             Transform fallbackTransform,
             IReadOnlyList<Transform> playerTargets,
             IReadOnlyList<SceneWorldObjectReference> objectTargets,
-            float closeDistance = 10f,
-            float wideDistance = 14f,
-            float height = 7.5f,
+            float closeDistance = 7f,
+            float wideDistance = 7f,
+            float height = 3f,
             float followSharpness = 10f,
             int collisionLayerMask = Physics.DefaultRaycastLayers,
             IReadOnlyList<SceneHighlightOcclusionReference> occlusionGroups = null,
@@ -279,6 +279,11 @@ namespace Game.Bootstrap
                     FindObjectsInactive.Include)?.HighlightOcclusionGroups ??
                 Array.Empty<SceneHighlightOcclusionReference>();
             replayCameraRig = HighlightReplayCameraRig.TryCreate(cameraTransform);
+            if (this.cctvCameras.Count == 0)
+            {
+                if (replayCameraRig != null) replayCameraRig.SetFieldOfView(65f);
+                else if (cameraTransform.TryGetComponent<Camera>(out var output)) output.fieldOfView = 65f;
+            }
             CaptureCctvOccluders();
         }
 
@@ -410,8 +415,8 @@ namespace Game.Bootstrap
                 HighlightShotFraming.Medium => (closeDistance + wideDistance) * 0.5f,
                 _ => closeDistance,
             };
-            // CCTV ignores shot framing and keeps the authored pose and lens.
-            ApplyTargetPose(shot.HardCut && activeCctv == null ? 1f : 0f);
+            // Establish once; later event beats keep the same continuous follow camera.
+            ApplyTargetPose(currentShotIndex == 0 && activeCctv == null ? 1f : 0f);
         }
 
         private Transform FindNearestPlayer(Transform target)
@@ -433,21 +438,36 @@ namespace Game.Bootstrap
         private void ApplyTargetPose(float t)
         {
             if (cctvCameras.Count > 0) { ApplyCctvPose(); return; }
-            if (currentType == HighlightType.LongestHidden && currentTarget.gameObject.activeInHierarchy &&
-                Vector3.Distance(currentTarget.position, overviewAnchor) > 4f)
-                overviewAnchor = currentTarget.position;
-            var subjectPosition = currentType == HighlightType.LongestHidden ? overviewAnchor : currentTarget.position;
+            // Follow a player from behind, while keeping the highlighted item in frame.
+            // An item's rotation can tumble during a throw, so it never drives camera heading.
+            var actor = ResolvePlayer(currentHighlight.ActorPlayerIndex);
+            var targetIsItem = objectTargets.TryGetValue(currentHighlight.TargetId, out var item);
+            var anchor = targetIsItem ? actor : currentTarget;
+            if (anchor == null || !anchor.gameObject.activeInHierarchy)
+                anchor = currentTarget.gameObject.activeInHierarchy ? currentTarget : actor;
+            if (anchor == null) { ApplyFallback(); return; }
+            var subjectPosition = anchor.position;
             var focusPosition = subjectPosition + Vector3.up;
             var distance = currentDistance;
-            if (currentType != HighlightType.LongestHidden && supportingPlayer != null &&
-                Vector3.Distance(subjectPosition, supportingPlayer.position) < 6f)
+            var companion = targetIsItem && item.gameObject.activeInHierarchy ? item : supportingPlayer;
+            if (companion != null && companion != anchor && companion.gameObject.activeInHierarchy)
             {
-                focusPosition = (subjectPosition + supportingPlayer.position) * 0.5f + Vector3.up;
-                distance = Mathf.Max(distance, Vector3.Distance(subjectPosition, supportingPlayer.position) * 1.5f);
+                var separation = Vector3.Distance(subjectPosition, companion.position);
+                if (separation <= 12f)
+                {
+                    focusPosition = (subjectPosition + companion.position) * 0.5f + Vector3.up;
+                    distance = Mathf.Max(distance, separation * 0.85f + 3f);
+                }
+                else if (targetIsItem)
+                {
+                    // A distant thrown item becomes the focus instead of shrinking the whole map.
+                    focusPosition = companion.position + Vector3.up * 0.5f;
+                }
             }
-            var desiredPosition = focusPosition +
-                                  (Vector3.back * distance) +
-                                  (Vector3.up * height);
+            var heading = targetIsItem ? actor : anchor;
+            var forward = Vector3.ProjectOnPlane(heading != null ? heading.forward : fallbackTransform.forward, Vector3.up).normalized;
+            if (forward.sqrMagnitude < 0.01f) forward = Vector3.forward;
+            var desiredPosition = focusPosition - forward * distance + Vector3.up * height;
             var desiredRotation = Quaternion.LookRotation(
                 focusPosition - desiredPosition,
                 Vector3.up);
