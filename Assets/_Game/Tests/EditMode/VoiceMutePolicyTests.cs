@@ -26,5 +26,22 @@ namespace Game.Tests.EditMode
             Assert.That(VoiceMutePolicy.IsTalking(false, SoundCatalog.MicOff), Is.False);
             Assert.That(VoiceMutePolicy.IsTalking(true, SoundCatalog.MicOff), Is.True);
         }
+
+        [Test]
+        public void SpeakerOff_KeepsTheMicrophoneClosed()
+        {
+            Assert.That(
+                VoiceMutePolicy.IsMuted(false, SoundCatalog.PushToTalk, listening: false),
+                Is.True);
+            Assert.That(
+                VoiceMutePolicy.IsMuted(false, SoundCatalog.OpenMic, listening: false),
+                Is.True);
+            Assert.That(
+                VoiceMutePolicy.IsTalking(true, SoundCatalog.PushToTalk, listening: false),
+                Is.False);
+            Assert.That(
+                VoiceMutePolicy.IsTalking(false, SoundCatalog.OpenMic, listening: false),
+                Is.False);
+        }
     }
 }

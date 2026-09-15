@@ -191,6 +191,27 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void SpeakerOff_IgnoresMicrophoneUnmute()
+        {
+            var view = new FakeVoiceView();
+            var voice = new FakeVoiceControl(muted: false);
+            var asset = ScriptableObject.CreateInstance<InputActionAsset>();
+            try
+            {
+                var presenter = new VoicePresenter(view, voice, asset);
+                presenter.HandleSpeakerToggle();
+                presenter.HandleVoiceToggle();
+
+                Assert.That(voice.IsListening.CurrentValue, Is.False);
+                Assert.That(voice.IsMuted.CurrentValue, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(asset);
+            }
+        }
+
         private sealed class FakeVoiceView : IVoiceView
         {
             public event System.Action MuteToggleRequested;
@@ -224,13 +245,28 @@ namespace Game.Architecture.Tests
             public R3.ReadOnlyReactiveProperty<bool> IsTransmitting => transmitting;
             public R3.ReadOnlyReactiveProperty<bool> IsListening => listening;
 
-            public void SetMuted(bool value) => muted.Value = value;
+            public void SetMuted(bool value)
+            {
+                if (!value && !listening.Value)
+                {
+                    return;
+                }
+
+                muted.Value = value;
+            }
 
             public void SetTalking(bool talking)
             {
             }
 
-            public void SetListening(bool value) => listening.Value = value;
+            public void SetListening(bool value)
+            {
+                listening.Value = value;
+                if (!value)
+                {
+                    muted.Value = true;
+                }
+            }
         }
     }
 }
