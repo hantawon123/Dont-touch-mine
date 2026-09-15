@@ -102,3 +102,28 @@ Profiler에서 불러온 마지막 2000프레임의 주 스레드 기준으로 H
 검증: ItemCatalogIntegrationTests + ItemAssignmentSystemTests 21개, InterfaceHudViewTests 3개 통과. HUD 라벨 조회가 배정 정의를 재생성하지 않는 회귀 검사를 추가했다. 자료는 `.build/performance-995-hud`(수정 전), `.build/performance-995-catalog`(수정 후), `performance-995-catalog-tests.xml`, `performance-995-hud-label-tests.xml`이다.
 
 반복 실행 도구는 [Tools/performance/README.md](../../Tools/performance/README.md)에 정리했다. 원본에 설치하지 않고, 별도 프로젝트 복사본 두 개를 사용한다. 자동 탐색 실행·기록은 확인했으며 다른 PC 6인·PC Player·WebGL 검증은 아직 별도다.
+## 추가 렌더링 실험: 전통적 GPU 인스턴싱
+
+RTX 4070 Laptop / D3D12 / 2880×1418 / 약 120Hz / 렌더 스케일 1.0에서 같은 경기 내 3회씩 교차 비교했다. 두 방식 모두 상한을 144FPS로 설정해 120FPS 이상의 여유를 확인했다. Profiler 구간은 제외했다.
+
+| 방식 | 평균 FPS 3회 | p95 ms 3회 | 평균 batch 수 대략 |
+| --- | --- | --- | --- |
+| 현재 SRP Batcher | 88.32 / 86.51 / 86.72 | 14.56 / 15.07 / 14.32 | 1,712–1,743 |
+| SRP Batcher 해제 + 머티리얼 GPU 인스턴싱 | 80.10 / 81.83 / 79.31 | 15.98 / 16.09 / 15.54 | 1,212–1,222 |
+
+batch 수는 줄었지만 평균 FPS 중앙값은 86.72 → 80.10으로 하락했다. 제출 삼각형 수도 약 38–40만 → 60–61만으로 늘어 채택하지 않았다. 시험 설정을 원본에 적용하지 않았다. 자료: 작업 공간 `.build/performance-995-instancing`. 맵의 런타임 활성 MeshRenderer는 약 13,520개이며, 422개 Mesh와 66개 머티리얼을 사용했다. 이 개수 자체가 전부 매 프레임 화면에 그려진다는 뜻은 아니다.
+
+## 고정 구조물 오클루전 시험 — 미채택
+
+독립된 클라이언트 맵에서 움직이지 않는 벽·바닥·기둥 등 804개를 가림막 후보로 사용했다. Rigidbody/CarryableItem/Animator를 가진 계층과 투명 재질은 제외했다. 알파 테스트 재질은 셰이더의 알파 경로와 불투명 팔레트 텍스처를 확인한 경우만 허용했다. 생성된 데이터 파일은 98,996바이트지만 베이크 종료 시 API의 umbraDataSize는 0으로 보고됐다. 따라서 데이터가 실제 네트워크 씬에서 유효하게 사용됐다고 단정하지 않는다.
+
+| Camera.useOcclusionCulling | 평균 FPS 3회 | p95 ms 3회 |
+| --- | --- | --- |
+| false | 87.83 / 78.39 / 68.88 | 15.68 / 17.26 / 17.86 |
+| true | 85.20 / 69.22 / 68.83 | 15.59 / 17.56 / 18.22 |
+
+같은 경기에서 교대로 실행했지만 시간이 흐르며 양쪽 모두 하락하고 batch 수도 증가했다. 차이를 오클루전의 순수 효과로 해석하지 않는다. 마지막 별도 Profiler 구간은 제외했다. 자동 실행 완료와 마지막 경기 화면은 확인했으나, 모든 구역/CCTV/이동 물건의 가시성은 검증하지 않았으며 이 설정과 맵은 원본에 적용하지 않았다. 자료: `.build/performance-995-occlusion` 및 `performance-995-occlusion-bake4.log`.
+
+현재 Fusion Multiple Peer 경로는 로드한 씬을 MultiPeerScene으로 MergeScenes한다. Unity의 [다중 씬 오클루전 문서](https://docs.unity3d.com/cn/2023.2/Manual/bakemultiplescenes.html)는 활성 씬과 추가 씬의 데이터 참조 조건을 명시한다. 현재 로딩 방식에서의 유효성 확인 없이 단일 맵 베이크만 제품에 넣지 않는다.
+
+120FPS 달성은 여전히 미완료다. 채택한 코드의 최근 3회 탐색 결과는 앞 절의 100.98 / 88.75 / 90.52FPS이며, 실험 맵의 하락 수치를 제품 성능으로 혼합하지 않는다. 다음 분석은 같은 카메라/동선의 시간 경과별 renderer·batch 증가와 물리 비용을 분리하고, 1920×1080 및 PC Player를 별도 조건으로 측정하는 것이다. 해상도나 전원 조건 변경을 코드 개선율로 보고하지 않는다.
