@@ -32,7 +32,7 @@ namespace Game.Client.Lobby
 
         private void Apply(PlaySettingsDraft draft)
         {
-            hud.SetMatchInfo(CategoryLabel(draft), MapLabel(draft));
+            hud.SetMatchInfo(CategoryLabel(draft), MapLabel(draft), MapPreviewSprites.For(draft.MapId));
         }
 
         private static string CategoryLabel(PlaySettingsDraft draft)
