@@ -127,3 +127,38 @@ batch 수는 줄었지만 평균 FPS 중앙값은 86.72 → 80.10으로 하락�
 현재 Fusion Multiple Peer 경로는 로드한 씬을 MultiPeerScene으로 MergeScenes한다. Unity의 [다중 씬 오클루전 문서](https://docs.unity3d.com/cn/2023.2/Manual/bakemultiplescenes.html)는 활성 씬과 추가 씬의 데이터 참조 조건을 명시한다. 현재 로딩 방식에서의 유효성 확인 없이 단일 맵 베이크만 제품에 넣지 않는다.
 
 120FPS 달성은 여전히 미완료다. 채택한 코드의 최근 3회 탐색 결과는 앞 절의 100.98 / 88.75 / 90.52FPS이며, 실험 맵의 하락 수치를 제품 성능으로 혼합하지 않는다. 다음 분석은 같은 카메라/동선의 시간 경과별 renderer·batch 증가와 물리 비용을 분리하고, 1920×1080 및 PC Player를 별도 조건으로 측정하는 것이다. 해상도나 전원 조건 변경을 코드 개선율로 보고하지 않는다.
+## 정지 원격 물건 보간 중단
+
+원격 물건은 마지막 위치에 도착하면 CarryableItem.FixedUpdate를 중단했지만 Rigidbody.interpolation은 Interpolate로 남아 있었다. 최종 보간이 끝나면 None으로 전환하며, 다음 OnNetworkPose가 도착하면 기존 경로에서 Interpolate와 스크립트 실행을 다시 켠다. 물건·충돌체를 숨기거나 서버의 동적 물리 판정을 중단하지 않는다.
+
+정지한 물건 6,140개가 있는 마트의 (-20, 0, -13) 위치에서 카메라/입력을 고정하고 기존 → 수정 → 수정 → 기존 순서로 각 20초씩 비교했다. RTX 4070 Laptop / D3D12 / 2880×1418 / 렌더 스케일 1.0 / 상한 144FPS. 마지막 Profiler 구간은 제외했다.
+
+| 방식 | 평균 FPS | p95 ms | p99 ms |
+| --- | --- | --- | --- |
+| 기존 1회 | 80.63 | 15.21 | 16.85 |
+| 수정 1회 | 97.47 | 12.94 | 14.84 |
+| 수정 2회 | 93.22 | 13.58 | 15.23 |
+| 기존 2회 | 80.58 | 15.09 | 16.48 |
+
+두 측정 평균은 80.61 → 95.35FPS로 약 18.3% 개선됐다. 고정 시야의 짧은 비교이며 기존 30초×3회 이동 기준선과 구분한다. **120FPS는 미달**이다. 자료: `.build/performance-995-idle-fixed`. physicsNs 열은 ProfilerRecorder의 최신 샘플이므로 고정 갱신이 없던 프레임을 포함한 프레임별 물리 비용으로 해석하지 않는다.
+
+PlayMode의 CarryableTickTests와 CarryablePreparationTests 4개 통과. 원격 이동 재개 후 Rigidbody와 표시 Transform의 목표 위치 도달, 줍기, 던지기, 배치, 비활성 보관 후 복귀를 검사했다. 결과: `performance-995-idle-tests.xml`. 수정 커밋: `07fb1a0b`.
+## Web 대상 에디터의 선택 해상도 적용
+
+UnityGraphicsSettingsApplier.ApplyWindow가 UNITY_WEBGL을 UNITY_EDITOR보다 먼저 검사해, Web 빌드 대상의 에디터 Play에서도 해상도 적용을 건너뛰었다. 에디터 분기를 먼저 처리하도록 수정했다. 실제 WebGL 플레이어는 기존대로 페이지가 캔버스를 관리한다. 선택 옵션이나 기본 해상도 자체를 낮추지 않았다.
+
+Web 대상 PlayMode 회귀 검사 1개 통과(`performance-995-editor-resolution-tests.xml`). 실제 자동 경기에서 selectedResolution=1920x1080, width=1920, height=1080, buildTarget=WebGL, batch=false가 함께 기록돼 에디터 출력 반영을 확인했다. 수정 커밋: `4b99b1f2`.
+
+물건 보간 수정과 해상도 적용 수정을 포함한 자동 이동 30초×3회 결과:
+
+| 회차 | 평균 FPS | p95 ms | p99 ms |
+| --- | --- | --- | --- |
+| 1 | 98.99 | 13.68 | 16.45 |
+| 2 | 90.64 | 16.19 | 18.99 |
+| 3 | 94.61 | 14.34 | 15.92 |
+
+환경은 동일 PC 서버+클라이언트 1명, RTX 4070 Laptop/D3D12, 1920×1080, 렌더 스케일 1.0, 상한 144FPS다. 마지막 Profiler 실행은 표에서 제외했다. 자동 입장·이동·종료 완료 파일과 최종 게임 화면을 확인했다. 자료: `.build/performance-995-default-resolution`.
+
+앞선 2880×1418 고정 시야 A/B와 해상도·입력 조건이 다르므로 둘 사이를 코드 개선율로 계산하지 않는다. **평균과 p95 모두 120FPS 기준에 미달한다.** 이번 변경으로 안정적인 120FPS 또는 6인/WebGL/PC Player 성능이 검증됐다고 보고하지 않는다. 994/995 완료 및 MR 생성은 진행하지 않았다.
+
+저장된 마지막 2000프레임의 후속 프로파일에서 렌더 파이프라인 경로는 약 3.91ms(inclusive), 에디터 OnGUI 자체 비용은 약 1.13ms(self), Physics.UpdateRigidbodies는 약 0.71ms였다. Profiler 측정 비용을 포함하며 서로 중첩된 시간을 합산하지 않는다. 파일은 같은 결과 폴더의 markers.csv/self.csv에 보관했다.
