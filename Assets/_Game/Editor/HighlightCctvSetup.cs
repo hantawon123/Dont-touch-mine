@@ -35,6 +35,13 @@ namespace Game.Editor
                     var marker = new GameObject("CCTV " + (i + 1).ToString("00"));
                     marker.transform.SetParent(root.transform, false);
                     marker.transform.SetPositionAndRotation(position + direction * 0.5f, Quaternion.LookRotation(direction));
+                    // The north-east mount must cover the shredder aisle, not the nearby spawn behind it.
+                    if (position.x > 5f && position.z > 0f)
+                    {
+                        var shredder = all.Where(t => t.name == "ShredderSpot")
+                            .OrderBy(t => (t.position - position).sqrMagnitude).First();
+                        marker.transform.LookAt(shredder.position + Vector3.up * 0.5f);
+                    }
                     var area = position.x < -20f ? "서측 통로" : position.x > 5f ? "동측 통로" : position.z < -15f ? "안쪽 매대" : "중앙 통로";
                     marker.AddComponent<HighlightCctvCamera>().Configure($"CAM {i + 1:00} · {area}");
                 }

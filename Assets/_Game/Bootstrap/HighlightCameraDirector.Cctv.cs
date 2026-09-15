@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Game.Client.Cameras;
 using Game.Client.Interactions;
@@ -11,9 +10,7 @@ namespace Game.Bootstrap
         private readonly IReadOnlyList<HighlightCctvCamera> cctvCameras;
         private HighlightCctvCamera activeCctv, pendingCctv;
         private float cctvHold, cctvCheck, cctvFade;
-        private double cctvPlaybackTime;
-        private Quaternion cctvRotation;
-        private float cctvFieldOfView;
+        private Transform cctvTarget;
         private readonly List<Bounds> cctvOccluders = new();
         public string CctvLocation => activeCctv == null ? "" : activeCctv.LocationName;
         public float CctvOpacity => cctvFade <= 0f ? 0f : 1f - Mathf.Abs(cctvFade - 0.2f) / 0.2f;
@@ -48,6 +45,16 @@ namespace Game.Bootstrap
             foreach (var bounds in cctvOccluders)
                 if (!bounds.Contains(origin) && bounds.IntersectRay(ray, out var entry) &&
                     entry > 0.05f && entry < distance - 0.1f) return true;
+            // Replay actors and objects move, so evaluate their current rendered bounds on each check.
+            foreach (var pair in replayRenderers)
+            {
+                if (pair.Key == null || pair.Key == cctvTarget || pair.Key == supportingPlayer ||
+                    !pair.Key.gameObject.activeInHierarchy) continue;
+                foreach (var renderer in pair.Value)
+                    if (renderer != null && renderer.enabled && !renderer.forceRenderingOff &&
+                        renderer.bounds.IntersectRay(ray, out var entry) &&
+                        entry > 0.05f && entry < distance - 0.1f) return true;
+            }
             return false;
         }
 
@@ -73,20 +80,18 @@ namespace Game.Bootstrap
         private void SetCctv(HighlightCctvCamera camera)
         {
             activeCctv = camera;
-            cctvRotation = camera.transform.rotation;
-            cctvFieldOfView = camera.FieldOfView;
             cctvHold = 0f;
             if (replayCameraRig != null) replayCameraRig.SetFieldOfView(camera.FieldOfView);
             else if (cameraTransform.TryGetComponent<Camera>(out var output)) output.fieldOfView = camera.FieldOfView;
         }
 
-        private void ApplyCctvPose(float interpolation)
+        private void ApplyCctvPose()
         {
             if (currentTarget == null) return;
             // A destroyed replay item is inactive; keep the actor in view for the consequence.
-            var target = currentTarget.gameObject.activeInHierarchy
+            cctvTarget = currentTarget.gameObject.activeInHierarchy
                 ? currentTarget : ResolvePlayer(currentHighlight.ActorPlayerIndex) ?? currentTarget;
-            var subject = target.position + Vector3.up * 0.5f;
+            var subject = cctvTarget.position + Vector3.up * 0.5f;
             var focus = subject;
             if (supportingPlayer != null && Vector3.Distance(subject, supportingPlayer.position) < 8f)
                 focus = (subject + supportingPlayer.position + Vector3.up) * 0.5f;
@@ -104,8 +109,8 @@ namespace Game.Bootstrap
                 if (best != null && best != activeCctv)
                 {
                     if (activeCctv == null) SetCctv(best);
-                    else if (cctvHold >= 2f && NeedsCctvSwitch(focus) && bestScore > CctvScore(activeCctv, focus) + 5f &&
-                        Math.Abs(cctvPlaybackTime - HighlightShotPlanner.PlaybackTimeOf(currentHighlight, currentHighlight.EventAt)) > 1.2d)
+                    else if (cctvHold >= 0.5f && !CanCctvSeeSubjects(activeCctv) &&
+                        CanCctvSeeSubjects(best))
                     {
                         pendingCctv = best;
                         cctvFade = 0.4f;
@@ -113,39 +118,28 @@ namespace Game.Bootstrap
                 }
             }
             if (activeCctv == null) return;
+            // A CCTV keeps its authored position, direction and lens throughout the shot.
             var position = activeCctv.transform.position;
-            var direction = focus - position;
-            if (direction.sqrMagnitude > 0.001f)
-            {
-                var limited = Quaternion.RotateTowards(activeCctv.transform.rotation,
-                    Quaternion.LookRotation(direction), 75f);
-                cctvRotation = Quaternion.Slerp(cctvRotation, limited, interpolation);
-            }
-            // Optical framing keeps the installed camera fixed while making the action readable.
-            var radius = CurrentShot?.Framing switch
-            {
-                HighlightShotFraming.Close => 2f,
-                HighlightShotFraming.Medium => 3f,
-                _ => 5f,
-            };
-            if (supportingPlayer != null && Vector3.Distance(subject, supportingPlayer.position) < 8f)
-                radius = Mathf.Max(radius, Vector3.Distance(subject, supportingPlayer.position) * 0.5f + 1.5f);
-            var fieldOfView = Mathf.Clamp(2f * Mathf.Atan2(radius, direction.magnitude) * Mathf.Rad2Deg,
-                22f, activeCctv.FieldOfView);
-            cctvFieldOfView = Mathf.Lerp(cctvFieldOfView, fieldOfView, interpolation);
-            if (replayCameraRig != null) replayCameraRig.SetFieldOfView(cctvFieldOfView);
-            else if (cameraTransform.TryGetComponent<Camera>(out var output)) output.fieldOfView = cctvFieldOfView;
-            // Switch mounting points behind the fade, never fly through the map.
-            if (replayCameraRig != null) replayCameraRig.SetPose(position, cctvRotation, 1f, true);
-            else cameraTransform.SetPositionAndRotation(position, cctvRotation);
+            var rotation = activeCctv.transform.rotation;
+            if (replayCameraRig != null) replayCameraRig.SetPose(position, rotation, 1f, true);
+            else cameraTransform.SetPositionAndRotation(position, rotation);
         }
 
-        private bool NeedsCctvSwitch(Vector3 focus)
+        private bool CanCctvSeeSubjects(HighlightCctvCamera camera) =>
+            CanCctvSee(camera, cctvTarget) &&
+            (supportingPlayer == null || supportingPlayer == cctvTarget ||
+             CanCctvSee(camera, supportingPlayer));
+
+        private bool CanCctvSee(HighlightCctvCamera camera, Transform target)
         {
-            var direction = focus - activeCctv.transform.position;
-            return direction.magnitude > 30f ||
-                Vector3.Angle(activeCctv.transform.forward, direction) > 75f ||
-                IsCctvOccluded(activeCctv.transform.position, focus);
+            if (target == null) return false;
+            var point = target.position + Vector3.up * 0.5f;
+            var local = camera.transform.InverseTransformPoint(point);
+            if (local.z <= 0f) return false;
+            var aspect = cameraTransform.TryGetComponent<Camera>(out var output) ? output.aspect : 16f / 9f;
+            var halfHeight = local.z * Mathf.Tan(camera.FieldOfView * Mathf.Deg2Rad * 0.5f) * 0.9f;
+            return Mathf.Abs(local.y) <= halfHeight && Mathf.Abs(local.x) <= halfHeight * aspect &&
+                !IsCctvOccluded(camera.transform.position, point);
         }
 
         private float CctvScore(HighlightCctvCamera camera, Vector3 focus)
@@ -153,8 +147,7 @@ namespace Game.Bootstrap
             var direction = focus - camera.transform.position;
             var angle = Vector3.Angle(camera.transform.forward, direction);
             var score = 100f - direction.magnitude - angle * 0.5f;
-            if (angle > 75f) score -= 200f;
-            if (IsCctvOccluded(camera.transform.position, focus)) score -= 300f;
+            if (!CanCctvSeeSubjects(camera)) score -= 1000f;
             return score;
         }
     }

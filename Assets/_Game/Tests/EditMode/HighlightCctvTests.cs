@@ -47,7 +47,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Camera_ZoomsIntoActionAndFollowsActorAfterItemDisappears()
+        public void Camera_KeepsAuthoredPoseAndLensThroughActionAndItemRemoval()
         {
             var root = new GameObject("test");
             try
@@ -72,14 +72,14 @@ namespace Game.Tests.EditMode
                 director.SetPlaybackTime(4.5);
                 Assert.That(output.fieldOfView, Is.EqualTo(wideFov), "Shot changes must not snap the lens.");
                 director.Tick(1f);
-                Assert.That(output.fieldOfView, Is.LessThan(wideFov));
+                Assert.That(output.fieldOfView, Is.EqualTo(mount.FieldOfView));
                 item.gameObject.SetActive(false);
                 item.position = Vector3.left * 100;
                 director.SetPlaybackTime(6);
                 director.Tick(1f);
                 Assert.That(output.transform.position, Is.EqualTo(mount.transform.position));
-                Assert.That(Vector3.Angle(output.transform.forward,
-                    actor.position + Vector3.up * 0.5f - mount.transform.position), Is.LessThan(3f));
+                Assert.That(Quaternion.Angle(output.transform.rotation, mount.transform.rotation), Is.LessThan(0.01f));
+                Assert.That(output.fieldOfView, Is.EqualTo(mount.FieldOfView));
             }
             finally { Object.DestroyImmediate(root); }
         }
@@ -144,10 +144,47 @@ namespace Game.Tests.EditMode
                 director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
                 director.Tick(2.1f);
                 director.SetPlaybackTime(3);
-                player.position = Vector3.right * 8;
+                player.position = Vector3.right * 6;
                 director.Tick(0.3f); director.Tick(0.3f);
                 Assert.That(director.CctvLocation, Is.EqualTo("A"));
                 Assert.That(director.CctvOpacity, Is.Zero);
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_SwitchesOnlyAfterMovingReplayObjectBlocksTheSubject()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                Transform Child(string name, Vector3 position)
+                {
+                    var t = new GameObject(name).transform;
+                    t.SetParent(root.transform); t.position = position; return t;
+                }
+                var target = Child("target", Vector3.zero);
+                var output = Child("output", Vector3.zero);
+                var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                blocker.transform.SetParent(root.transform);
+                blocker.transform.position = Vector3.right * 50;
+                blocker.transform.localScale = new Vector3(2, 3, 1);
+                blocker.GetComponent<Collider>().enabled = false;
+                var a = Child("a", new Vector3(0, 3, -5)).gameObject.AddComponent<HighlightCctvCamera>();
+                var b = Child("b", new Vector3(8, 3, 0)).gameObject.AddComponent<HighlightCctvCamera>();
+                a.Configure("A"); b.Configure("B");
+                a.transform.LookAt(Vector3.up * 0.5f); b.transform.LookAt(Vector3.up * 0.5f);
+                using var director = new HighlightCameraDirector(output, output, new[] { target },
+                    new[] { new SceneWorldObjectReference("blocker", blocker.transform) }, cctvCameras: new[] { a, b });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                director.Tick(1f);
+                Assert.That(director.CctvLocation, Is.EqualTo("A"));
+                blocker.transform.position = new Vector3(0, 1.5f, -2.5f);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("A"));
+                director.Tick(0.21f);
+                Assert.That(director.CctvLocation, Is.EqualTo("B"));
+                Assert.That(Quaternion.Angle(output.rotation, b.transform.rotation), Is.LessThan(0.01f));
             }
             finally { Object.DestroyImmediate(root); }
         }

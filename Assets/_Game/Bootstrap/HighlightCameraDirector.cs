@@ -317,7 +317,6 @@ namespace Game.Bootstrap
         {
             if (!double.IsFinite(playbackTime) || playbackTime < 0d)
                 throw new ArgumentOutOfRangeException(nameof(playbackTime));
-            cctvPlaybackTime = playbackTime;
             if (shots.Length == 0) return;
             var next = shots.Length - 1;
             for (var index = 0; index < shots.Length; index++)
@@ -411,7 +410,7 @@ namespace Game.Bootstrap
                 HighlightShotFraming.Medium => (closeDistance + wideDistance) * 0.5f,
                 _ => closeDistance,
             };
-            // CCTV pans and zooms continuously; only its initial setup is an immediate cut.
+            // CCTV ignores shot framing and keeps the authored pose and lens.
             ApplyTargetPose(shot.HardCut && activeCctv == null ? 1f : 0f);
         }
 
@@ -433,7 +432,7 @@ namespace Game.Bootstrap
 
         private void ApplyTargetPose(float t)
         {
-            if (cctvCameras.Count > 0) { ApplyCctvPose(t); return; }
+            if (cctvCameras.Count > 0) { ApplyCctvPose(); return; }
             if (currentType == HighlightType.LongestHidden && currentTarget.gameObject.activeInHierarchy &&
                 Vector3.Distance(currentTarget.position, overviewAnchor) > 4f)
                 overviewAnchor = currentTarget.position;
