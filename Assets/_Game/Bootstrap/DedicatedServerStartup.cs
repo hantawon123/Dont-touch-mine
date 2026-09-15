@@ -98,6 +98,12 @@ namespace Game.Bootstrap
                 var startedAt = emptySince;
                 while (network.IsRunning)
                 {
+#if UNITY_EDITOR
+                    if (editorServer)
+                        EditorDevelopmentSession.Report(network.IsRoomExitPending ? "연결 종료 대기 중" :
+                            network.IsAwaitingRoomClaim ? $"새 방 배정 대기: {code} (접속 {network.PlayerCount}명)" :
+                            $"방 사용 중: {code} (접속 {network.PlayerCount}명)");
+#endif
                     // Claimed rooms with no remaining players must recycle even if their avatar was already removed.
                     if (!network.IsAwaitingRoomClaim && network.PlayerCount == 0) break;
                     if (!editorServer && network.IsAwaitingRoomClaim && Time.realtimeSinceStartupAsDouble - startedAt > 120d) break;
@@ -105,6 +111,9 @@ namespace Game.Bootstrap
                     if (!editorServer && Time.realtimeSinceStartupAsDouble - emptySince > 120d) break;
                     await UniTask.Delay(250, DelayType.Realtime, cancellationToken: cancellation);
                 }
+#if UNITY_EDITOR
+                if (editorServer) EditorDevelopmentSession.Report("이전 연결 종료 및 다음 방 준비 중");
+#endif
                 network.Shutdown();
                 await UniTask.WaitUntil(() => !network.IsRoomExitPending, cancellationToken: cancellation);
                 Debug.Log("[Server] Session closed.");

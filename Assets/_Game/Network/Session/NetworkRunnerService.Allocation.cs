@@ -25,13 +25,17 @@ namespace Game.Network.Session
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
             using var timer = timeout.CancelAfterSlim(TimeSpan.FromSeconds(30), DelayType.Realtime);
             await UniTask.WaitUntil(() => _receivedLobbySnapshot, cancellationToken: timeout.Token);
+            // Availability is published by the authority. Lobby player counts lag joins/leaves;
+            // admission and room-claim checks on the server prevent double allocation.
             // A small test pool replaces a finished room asynchronously. Keep
             // waiting for lobby updates instead of failing between processes.
             string availableRoom = null;
-            await UniTask.WaitUntil(() =>
+            try
+            {
+                await UniTask.WaitUntil(() =>
             {
                 foreach (var info in _realtimeRooms.Values)
-                    if (info.IsOpen && info.PlayerCount == 1 &&
+                    if (info.IsOpen &&
                         info.CustomProperties[SessionPropertyKeys.AvailableServer] is bool available && available)
                     {
                         availableRoom = info.Name;
@@ -39,6 +43,19 @@ namespace Game.Network.Session
                     }
                 return false;
             }, cancellationToken: timeout.Token);
+            }
+            catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
+            {
+                var open = 0;
+                var available = 0;
+                foreach (var info in _realtimeRooms.Values)
+                {
+                    if (info.IsOpen) open++;
+                    if (info.CustomProperties[SessionPropertyKeys.AvailableServer] is bool ready && ready) available++;
+                }
+                Debug.LogWarning($"[Rooms] Server allocation timed out: listed={_realtimeRooms.Count}, open={open}, available={available}.");
+                throw;
+            }
             return availableRoom;
         }
 
