@@ -78,7 +78,7 @@ namespace Game.Bootstrap
         {
             if (disposed) return;
             this.talking = talking;
-            network.Voice?.SetTalking(talking);
+            PublishTalking();
         }
 
         public void SetListening(bool listening)
@@ -115,7 +115,7 @@ namespace Game.Bootstrap
                 // nothing, so it hears what the player already decided.
                 current = voice;
                 voice.SetMuted(EffectiveMute);
-                voice.SetTalking(talking);
+                voice.SetTalking(EffectiveTalking);
                 voice.SetListening(preferences.Listening);
             }
 
@@ -137,12 +137,18 @@ namespace Game.Bootstrap
         private bool EffectiveMute =>
             VoiceMutePolicy.IsMuted(preferences.Muted, sound.Current.InputMode);
 
+        private bool EffectiveTalking =>
+            VoiceMutePolicy.IsTalking(talking, sound.Current.InputMode);
+
         private void OnSoundChanged(SoundSettings _)
         {
-            if (!disposed)
+            if (disposed)
             {
-                PublishEffectiveMute();
+                return;
             }
+
+            PublishEffectiveMute();
+            PublishTalking();
         }
 
         private void PublishEffectiveMute()
@@ -150,6 +156,11 @@ namespace Game.Bootstrap
             var next = EffectiveMute;
             muted.Value = next;
             network.Voice?.SetMuted(next);
+        }
+
+        private void PublishTalking()
+        {
+            network.Voice?.SetTalking(EffectiveTalking);
         }
 
         private void PublishListening()

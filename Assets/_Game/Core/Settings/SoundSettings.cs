@@ -187,6 +187,13 @@ namespace Game.Core.Settings
             string.Equals(inputMode, MicOff, StringComparison.Ordinal);
 
         /// <summary>
+        /// Whether 입력 모드 is 오픈 마이크. The microphone stays open without
+        /// a talk key, until mute or 끄기 close it.
+        /// </summary>
+        public static bool IsOpenMicrophone(string inputMode) =>
+            string.Equals(inputMode, OpenMic, StringComparison.Ordinal);
+
+        /// <summary>
         /// How the microphone decides when to listen.
         /// </summary>
         /// <remarks>
