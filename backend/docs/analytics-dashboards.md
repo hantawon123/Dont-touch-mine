@@ -135,8 +135,21 @@ ORDER BY 1
 
 ## 3. 은신처 분포 (질문 2·3)
 
-물건이 **멈춘 자리**를 2m 격자로 묶어 건수와, 그 자리에서 **남에게 들리기까지 걸린 시간**을
-붙입니다. 건수가 많고 오래 버티는 칸이 "너무 좋은 자리", 아무도 안 쓰는 칸이 "죽은 구역"입니다.
+물건이 **멈춘 자리**를 2m 격자로 묶어 건수와, 그 자리에서 **버틴 시간**을 붙입니다. 건수가 많고
+오래 버티는 칸이 "너무 좋은 자리", 아무도 안 쓰는 칸이 "죽은 구역"입니다.
+
+**시간 컬럼이 둘이고 뜻이 다릅니다. 섞으면 결론이 뒤집힙니다.**
+
+`발견까지 평균(초)` 은 **들킨 물건만** 셉니다. 좋은 자리일수록 안 들키니 평균에 남는 것은 그중
+재수 없게 들킨 몇 개뿐이고, 그래서 **제일 좋은 자리가 제일 짧아 보입니다.** 한 번도 안 들킨 칸은
+아예 빈칸입니다. 이 값으로 자리를 줄 세우면 안 됩니다.
+
+`버틴 시간 평균(초)` 은 안 들킨 물건을 **경기 끝까지 버틴 것**으로 셉니다. 모든 물건이 들어가고
+안 들킨 자리가 가장 긴 시간을 받습니다. "어디에 숨기면 오래 가는가"에 답하는 값은 이쪽입니다.
+맵 위 히트맵도 이 컬럼으로 칠합니다.
+
+둘을 나란히 두는 이유는 차이 자체가 정보이기 때문입니다. 두 값이 크게 벌어진 칸은 들킬 때는 금방
+들키지만 대개는 안 들키는 자리입니다.
 
 발견 판정은 소지자입니다. `item_holder_seat` 가 주인(`player_seat`)이 아닌 값으로 바뀌면 남이
 가져간 것이고, 주인 자신이 들고 있는 것은 되찾음이라 세지 않습니다.
@@ -146,12 +159,15 @@ ORDER BY 1
 
 ```sql
 WITH good AS (
-    SELECT match_id FROM match_analysis_summary WHERE upload_complete = 1 /* @filter */
+    -- duration_seconds 를 함께 듭니다. 끝까지 안 들킨 물건의 버틴 시간을 재려면 경기가 언제
+    -- 끝났는지가 있어야 합니다.
+    SELECT match_id, duration_seconds FROM match_analysis_summary WHERE upload_complete = 1 /* @filter */
 ),
 placed AS (
-    SELECT p.match_id, p.player_seat, MIN(p.elapsed_seconds) AS hidden_at_sec
+    SELECT p.match_id, p.player_seat, MIN(p.elapsed_seconds) AS hidden_at_sec,
+           MIN(g.duration_seconds) AS match_end_sec
     FROM match_analysis_positions p
-    JOIN good USING (match_id)
+    JOIN good g USING (match_id)
     WHERE p.item_known = 1 AND p.item_in_motion = 0 AND p.item_destroyed = 0
     GROUP BY p.match_id, p.player_seat
 ),
@@ -162,7 +178,7 @@ spot AS (
     -- 들어오면(중복 업로드) 이 조인이 두 줄을 내고 숨긴 횟수가 부풀기 때문입니다.
     -- 중복 업로드는 upload_complete 가 걸러 주지만, 세는 쿼리가 그 필터에만 기대지
     -- 않게 둡니다 - 이 화면에서 이미 같은 모양의 오류를 두 번 냈습니다.
-    SELECT pl.match_id, pl.player_seat, pl.hidden_at_sec,
+    SELECT pl.match_id, pl.player_seat, pl.hidden_at_sec, pl.match_end_sec,
            MIN(p.map_id)                       AS map_id,
            MIN(FLOOR(p.item_last_x / 2) * 2)   AS gx,
            MIN(FLOOR(p.item_last_z / 2) * 2)   AS gz
@@ -171,7 +187,7 @@ spot AS (
       ON p.match_id = pl.match_id
      AND p.player_seat = pl.player_seat
      AND p.elapsed_seconds = pl.hidden_at_sec
-    GROUP BY pl.match_id, pl.player_seat, pl.hidden_at_sec
+    GROUP BY pl.match_id, pl.player_seat, pl.hidden_at_sec, pl.match_end_sec
 ),
 taken AS (
     SELECT match_id, player_seat, MIN(elapsed_seconds) AS taken_at_sec
@@ -185,6 +201,9 @@ SELECT s.map_id                                          AS `맵`,
        COUNT(*)                                          AS `숨긴 횟수`,
        COUNT(t.taken_at_sec)                             AS `발견된 횟수`,
        ROUND(AVG(t.taken_at_sec - s.hidden_at_sec))      AS `발견까지 평균(초)`,
+       ROUND(AVG(GREATEST(0,
+           COALESCE(t.taken_at_sec, s.match_end_sec) - s.hidden_at_sec)))
+                                                         AS `버틴 시간 평균(초)`,
        ROUND(100 * (1 - COUNT(t.taken_at_sec) / COUNT(*))) AS `끝까지 안 들킨 %`
 FROM spot s
 LEFT JOIN taken t USING (match_id, player_seat)

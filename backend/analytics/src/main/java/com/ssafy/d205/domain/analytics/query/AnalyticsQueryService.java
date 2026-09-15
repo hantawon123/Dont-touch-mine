@@ -39,7 +39,8 @@ public class AnalyticsQueryService {
     static final int QUERY_TIMEOUT_SECONDS = 15;
 
     private static final String POSITIONS_SQL = """
-            SELECT map_id, player_seat, phase, elapsed_seconds, pos_x, pos_z
+            SELECT map_id, player_seat, phase, elapsed_seconds, pos_x, pos_z,
+                   item_in_motion, item_known
               FROM match_analysis_positions
              WHERE match_id = ?
              ORDER BY elapsed_seconds, player_seat

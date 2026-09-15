@@ -1013,6 +1013,9 @@
     // 문서의 번호 절이 아니라 좌표 API(positions)를 그립니다. 3·4번 표가 "어디인지"를 못 보여 주는 것을 채웁니다.
     { id: 'heatmap', title: '9. 맵 위 히트맵', kind: 'heatmap',
       note: '한 경기의 위치 샘플을 격자로 묶어 그립니다. 가로 x, 세로 z, 위가 +z 로 문서·Python 도구와 같은 방향입니다. 경기 목록에서 경기를 고르면 그려집니다.' },
+    // 히트맵은 공간이고 이쪽은 시간입니다. 축이 달라 한 카드에 넣지 않았습니다.
+    { id: 'item-motion', title: '10. 물건 움직임 시간', kind: 'motion',
+      note: '경기 시간을 따라 물건이 움직인 구간입니다. 한 줄이 플레이어 한 명이고, 진한 구간이 그 사람의 물건이 움직이던 때입니다. 숨긴 뒤에는 멈춰 있다가 누군가 집어 들면 다시 움직입니다. 경기 목록에서 경기를 고르면 그려집니다.' },
   ];
 
   /*
@@ -1049,6 +1052,31 @@
   /* 굽기 도구의 출력 자리. 페이지가 /admin 로도 /admin/ 로도 열리므로 절대 경로로 씁니다. */
   const MAP_DIR = '/admin/maps/';
   const mapMeta = {};  // mapId -> 구운 평면도 정보, 또는 null(굽지 않았음을 확인함)
+  /*
+   * 히트맵에 무엇을 그릴지.
+   *
+   * 사람 체류는 고른 경기의 위치 샘플을 점으로 받아 칸에 모읍니다. 은신처 셋은 3번 표의 질의를
+   * 그대로 씁니다 - 표와 그림이 다른 숫자를 보이면 안 되기 때문입니다. 그쪽은 이미 2 m 칸으로
+   * 묶여 오므로 칸 크기를 고를 수 없고, 단계·플레이어 필터도 걸리지 않습니다.
+   *
+   * 발견까지 평균(초)은 일부러 뺐습니다. 들킨 물건만 세는 값이라 좋은 자리일수록 짧아 보입니다.
+   * 색으로 칠하면 결론이 뒤집히므로 표에만 둡니다.
+   */
+  const HEAT_SOURCES = [
+    { id: 'players', label: '사람 체류', path: 'positions', needsMatch: true, unit: '개',
+      short: '샘플 수', caption: '칸 안의 샘플 수' },
+    { id: 'hide-count', label: '은신처 · 숨긴 횟수', path: 'hideouts', value: '숨긴 횟수', unit: '회',
+      short: '숨긴 횟수', caption: '그 칸에 숨긴 횟수' },
+    { id: 'hide-survive', label: '은신처 · 버틴 시간', path: 'hideouts', value: '버틴 시간 평균(초)', unit: '초',
+      short: '버틴 시간 평균',
+      caption: '버틴 시간 평균. 안 들킨 물건은 경기 끝까지 버틴 것으로 셉니다' },
+    { id: 'hide-safe', label: '은신처 · 끝까지 안 들킨 비율', path: 'hideouts', value: '끝까지 안 들킨 %', unit: '%',
+      short: '끝까지 안 들킨 비율', caption: '끝까지 안 들킨 비율' },
+  ];
+
+  /** 이만큼 숨기지 않은 칸은 흐리게 그립니다. 한 번 숨겨 안 들켰다고 안전한 자리가 아닙니다. */
+  const HIDE_MIN_SAMPLES = 3;
+
   const HEAT_STOPS = [[255, 255, 204], [254, 217, 118], [253, 141, 60], [227, 26, 28], [128, 0, 38]];  // YlOrRd
   const HEAT_MARGIN = { l: 52, r: 10, t: 8, b: 28 };
   const POSITION_CAP = 20000;  // 분석 서비스의 POSITION_LIMIT 과 같은 값
@@ -1087,6 +1115,9 @@
       card.append(title, note, body);
       if (q.kind === 'heatmap') {
         card.appendChild(heatmapControls());
+      }
+      if (q.kind === 'motion') {
+        card.appendChild(motionBox());
       }
       if (q.kind === 'bar') {
         const chart = document.createElement('div');
@@ -1200,16 +1231,31 @@
   async function loadAnalyticsCard(q) {
     const body = el('anBody-' + q.id);
     try {
-      if (q.kind === 'heatmap' && !selectedMatch) {
+      // 사람 체류만 경기 하나가 필요합니다. 은신처는 기간 전체를 겹쳐 봅니다 - 한 경기의
+      // 물건은 사람 수만큼뿐이라 그것만으로는 분포가 되지 않습니다.
+      if (q.kind === 'heatmap' && heatSource().needsMatch && !selectedMatch) {
         body.textContent = '';
-        body.appendChild(emptyBox('경기 목록에서 경기를 고르면 그 경기의 좌표를 그립니다.'));
+        body.appendChild(emptyBox('경기 목록에서 경기를 고르면 그 경기의 좌표를 그립니다. 은신처는 경기를 고르지 않아도 됩니다.'));
         el('hmBox').hidden = true;
+        // 항목만 남기고 나머지는 숨깁니다. 고를 데이터가 없는데 필터만 떠 있으면 헷갈립니다.
+        for (const id of ['hmPhase', 'hmSeat', 'hmCell']) el(id).hidden = true;
         setNote(q, q.note, false);
         return;
       }
-      const path = q.kind === 'heatmap'
+      if (q.kind === 'motion' && !selectedMatch) {
+        body.textContent = '';
+        body.appendChild(emptyBox('경기 목록에서 경기를 고르면 그 경기의 물건 움직임을 그립니다.'));
+        el('imBox').hidden = true;
+        setNote(q, q.note, false);
+        return;
+      }
+      const path = q.kind === 'motion'
         ? '/analytics/positions?matchId=' + encodeURIComponent(selectedMatch)
-        : '/analytics/' + q.id + analyticsQuery(q);
+        : q.kind === 'heatmap'
+          ? (heatSource().needsMatch
+            ? '/analytics/positions?matchId=' + encodeURIComponent(selectedMatch)
+            : '/analytics/hideouts' + analyticsQuery(q))
+          : '/analytics/' + q.id + analyticsQuery(q);
       const table = await call(path);
       await renderAnalyticsCard(q, table);
     } catch (e) {
@@ -1218,6 +1264,7 @@
       body.appendChild(emptyBox('불러오지 못했습니다.'));
       hideChart(q);
       if (q.kind === 'heatmap') el('hmBox').hidden = true;
+      if (q.kind === 'motion') el('imBox').hidden = true;
     }
   }
 
@@ -1233,6 +1280,137 @@
     if (box) box.hidden = true;
   }
 
+  /* ---- 물건 움직임 시간 ---- */
+
+  /** 카드 안의 canvas 와 범례. 히트맵과 달리 고를 것이 없어 조작부가 없습니다. */
+  function motionBox() {
+    const box = document.createElement('div');
+    box.id = 'imBox';
+    box.hidden = true;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'hm-wrap';
+    const canvas = document.createElement('canvas');
+    canvas.id = 'imCanvas';
+    wrap.appendChild(canvas);
+
+    const legend = document.createElement('div');
+    legend.id = 'imLegend';
+    legend.className = 'an-note';
+    legend.style.marginTop = '8px';
+
+    box.append(wrap, legend);
+    return box;
+  }
+
+  /**
+   * 경기 시간축을 따라 플레이어마다 한 줄.
+   *
+   * 샘플이 1 초에 한 번이므로 한 샘플이 1 초 구간입니다. 세 가지로 칠합니다 - 움직임, 멈춤,
+   * 그리고 <b>모름</b>. 물건이 서버 시야에 없던 순간은 움직였는지 알 수 없는데, 그걸 멈춤으로
+   * 칠하면 없는 사실을 지어내는 것입니다.
+   */
+  function showMotion(q, table) {
+    const col = (name) => table.columns.indexOf(name);
+    const si = col('player_seat'), ti = col('elapsed_seconds');
+    const mi = col('item_in_motion'), ki = col('item_known'), pi = col('phase');
+
+    const seats = [...new Set(table.rows.map((r) => Number(r[si])))].sort((a, b) => a - b);
+    let maxT = 0, seekAt = null;
+    const cells = new Map();   // seat -> Map(초 -> 'move' | 'rest' | 'unknown')
+    for (const seat of seats) cells.set(seat, new Map());
+
+    for (const r of table.rows) {
+      const seat = Number(r[si]);
+      const t = Math.floor(Number(r[ti]));
+      if (!isFinite(t)) continue;
+      if (t > maxT) maxT = t;
+      if (seekAt === null && String(r[pi]) === 'Searching') seekAt = t;
+      const known = r[ki] === 1 || r[ki] === true;
+      cells.get(seat).set(t, !known ? 'unknown' : (r[mi] === 1 || r[mi] === true) ? 'move' : 'rest');
+    }
+
+    el('anBody-' + q.id).textContent = '';
+    el('imBox').hidden = false;
+    drawMotion(seats, cells, maxT, seekAt);
+
+    let moving = 0, unknown = 0;
+    for (const perSeat of cells.values()) {
+      for (const state of perSeat.values()) {
+        if (state === 'move') moving++;
+        else if (state === 'unknown') unknown++;
+      }
+    }
+    el('imLegend').textContent = '샘플 하나가 1 초입니다. 움직인 시간 합계 ' + moving.toLocaleString('ko-KR') + '초'
+      + (unknown ? ', 물건이 서버 시야에 없어 알 수 없는 시간 ' + unknown.toLocaleString('ko-KR') + '초' : '')
+      + '. 경기 길이 ' + maxT.toLocaleString('ko-KR') + '초'
+      + (seekAt === null ? '' : ', 찾기 시작 ' + seekAt.toLocaleString('ko-KR') + '초') + '.';
+  }
+
+  const MOTION_FILL = { move: '#1d4ed8', rest: '#d1d5db', unknown: '#f1f2f4' };
+  const MOTION_ROW = 16;
+  const MOTION_GAP = 6;
+  const MOTION_MARGIN = { l: 74, r: 10, t: 8, b: 26 };
+
+  function drawMotion(seats, cells, maxT, seekAt) {
+    const canvas = el('imCanvas');
+    if (!canvas) return;
+    const M = MOTION_MARGIN;
+    const cssW = canvas.parentElement.clientWidth || 700;
+    const plotW = Math.max(80, cssW - M.l - M.r);
+    const plotH = seats.length * MOTION_ROW + Math.max(0, seats.length - 1) * MOTION_GAP;
+    const cssH = plotH + M.t + M.b;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    canvas.style.height = cssH + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    const span = Math.max(1, maxT + 1);
+    const pxOf = (t) => M.l + t / span * plotW;
+
+    ctx.font = '11px sans-serif';
+    for (let n = 0; n < seats.length; n++) {
+      const top = M.t + n * (MOTION_ROW + MOTION_GAP);
+      ctx.fillStyle = '#6b7280';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('플레이어 ' + seats[n], M.l - 8, top + MOTION_ROW / 2);
+
+      // 샘플이 없는 초는 아예 칠하지 않습니다. 빈 자리가 "기록이 없다"는 뜻입니다.
+      const perSeat = cells.get(seats[n]);
+      for (const [t, state] of perSeat) {
+        ctx.fillStyle = MOTION_FILL[state];
+        ctx.fillRect(pxOf(t), top, Math.max(1, plotW / span) + 0.5, MOTION_ROW);
+      }
+    }
+
+    // 찾기 시작 경계. 이 선 왼쪽이 숨기기입니다.
+    if (seekAt !== null) {
+      ctx.strokeStyle = '#111827';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pxOf(seekAt) + 0.5, M.t - 4);
+      ctx.lineTo(pxOf(seekAt) + 0.5, M.t + plotH + 4);
+      ctx.stroke();
+      ctx.fillStyle = '#111827';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('찾기 시작', pxOf(seekAt) + 3, M.t - 2);
+    }
+
+    ctx.fillStyle = '#6b7280';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    const step = niceStep(span);
+    for (let t = 0; t <= maxT + 1e-9; t += step) {
+      ctx.fillRect(pxOf(t), M.t + plotH, 1, 4);
+      ctx.fillText(Math.round(t) + '초', pxOf(t), M.t + plotH + 6);
+    }
+  }
+
   /* ---- 히트맵 (978) ---- */
 
   function option(value, text) {
@@ -1244,12 +1422,20 @@
 
   /** 카드 안의 조작부와 canvas. 한 번 만들고 데이터가 바뀌면 select 의 항목만 갈아 끼웁니다. */
   function heatmapControls() {
+    // 조작부는 상자 밖에 둡니다. 안에 두면 경기를 고르기 전에 상자가 숨겨져 있어서 항목을
+    // 은신처로 바꿀 수가 없습니다 - 은신처는 경기를 고를 필요가 없는데도 말입니다.
+    const outer = document.createElement('div');
+
     const box = document.createElement('div');
     box.id = 'hmBox';
     box.hidden = true;
 
     const bar = document.createElement('div');
     bar.className = 'bar hm-bar';
+
+    const source = document.createElement('select');
+    source.id = 'hmSource';
+    for (const h of HEAT_SOURCES) source.appendChild(option(h.id, h.label));
 
     const phase = document.createElement('select');
     phase.id = 'hmPhase';
@@ -1277,7 +1463,7 @@
     const read = document.createElement('span');
     read.id = 'hmRead';
     read.className = 'when';
-    bar.append(phase, seat, cell, logLabel, plainLabel, grow, read);
+    bar.append(source, phase, seat, cell, logLabel, plainLabel, grow, read);
 
     const wrap = document.createElement('div');
     wrap.className = 'hm-wrap';
@@ -1309,14 +1495,20 @@
     legend.className = 'an-note';
     legend.style.marginTop = '8px';
 
-    box.append(bar, wrap, scale, legend);
+    box.append(wrap, scale, legend);
+    outer.append(bar, box);
 
     for (const control of [phase, seat, cell, log, plain]) {
       control.addEventListener('change', () => drawHeatmap());
     }
+    // 항목은 부르는 경로가 달라서 다시 그리는 것이 아니라 다시 불러옵니다.
+    source.addEventListener('change', () => {
+      const q = QUESTIONS.find((item) => item.kind === 'heatmap');
+      if (q) loadAnalyticsCard(q).catch(() => {});
+    });
     canvas.addEventListener('mousemove', (event) => readHeatmapCell(event));
     canvas.addEventListener('mouseleave', () => { el('hmRead').textContent = ''; });
-    return box;
+    return outer;
   }
 
   /**
@@ -1349,28 +1541,52 @@
     return mapMeta[mapId];
   }
 
-  /** 좌표를 받았습니다. 필터 항목을 데이터에서 뽑고, 평면도가 있으면 읽은 뒤 그립니다. */
+  function heatSource() {
+    const box = el('hmSource');
+    const id = box ? box.value : 'players';
+    return HEAT_SOURCES.find((h) => h.id === id) || HEAT_SOURCES[0];
+  }
+
+  /**
+   * 표를 받았습니다. 항목에 따라 두 가지 모양이 옵니다.
+   *
+   * 사람 체류는 점(pos_x, pos_z)이고 화면이 칸에 모읍니다. 은신처는 이미 2 m 칸으로 묶여
+   * 값 하나씩 옵니다. 두 경우 모두 아래에서 같은 격자 그림이 됩니다.
+   */
   async function showHeatmap(q, table) {
-    const mi = table.columns.indexOf('map_id');
-    const mapId = mi >= 0 && table.rows.length ? String(table.rows[0][mi]) : '';
+    const source = heatSource();
+    const points = source.needsMatch;
+
+    const mapCol = table.columns.indexOf(points ? 'map_id' : '맵');
+    const mapId = mapCol >= 0 && table.rows.length ? String(table.rows[0][mapCol]) : '';
     // 구운 평면도가 있으면 그 사각형이 그림과 격자 양쪽의 기준입니다.
     const map = (await bakedMapOf(mapId)) || MAPS[mapId] || {};
-    heatmapData = { columns: table.columns, rows: table.rows, mapId, map };
+    heatmapData = { columns: table.columns, rows: table.rows, mapId, map, points, source };
 
-    const pi = table.columns.indexOf('phase');
-    const si = table.columns.indexOf('player_seat');
-    refill(el('hmPhase'), [...new Set(table.rows.map((r) => String(r[pi])))].sort(), '전체 단계', (v) => v);
-    refill(el('hmSeat'), [...new Set(table.rows.map((r) => r[si]))].sort((a, b) => a - b).map(String), '전체 자리', (v) => '자리 ' + v);
+    // 단계와 플레이어는 점일 때만 거를 수 있습니다. 은신처는 이미 묶여 와서 그 안을 못 나눕니다.
+    el('hmPhase').hidden = !points;
+    el('hmSeat').hidden = !points;
+    el('hmCell').disabled = !points;
+    if (points) {
+      const pi = table.columns.indexOf('phase');
+      const si = table.columns.indexOf('player_seat');
+      refill(el('hmPhase'), [...new Set(table.rows.map((r) => String(r[pi])))].sort(), '전체 단계', (v) => v);
+      refill(el('hmSeat'), [...new Set(table.rows.map((r) => r[si]))].sort((a, b) => a - b).map(String), '전체 플레이어', (v) => '플레이어 ' + v);
+    } else {
+      el('hmCell').value = '2';
+    }
 
     const where = map.image ? '평면도 위에 그립니다.'
       : map.extent ? '평면도가 없어 ' + map.source + '으로 경계만 그립니다. 그림이 생기면 MAPS 에 적으면 됩니다.'
         : '맵 "' + mapId + '" 의 평면도와 경계값이 없어 샘플의 범위로 그립니다.';
     // 서버가 경기당 20,000 행에서 자릅니다(AnalyticsQueryService.POSITION_LIMIT). 딱 그 수가 왔으면 뒤쪽 시간대가
     // 빠진 것이고, 그걸 모른 채 보면 "후반에 아무도 안 갔다"로 읽힙니다.
-    const capped = table.rows.length >= POSITION_CAP
+    const capped = points && table.rows.length >= POSITION_CAP
       ? ' 좌표가 상한 ' + POSITION_CAP.toLocaleString('ko-KR') + '행에 걸려 경기 뒷부분이 빠졌습니다. 시간순이라 앞부분만 보입니다.'
       : '';
-    setNote(q, q.note + ' ' + where + capped, !!capped);
+    const scope = points ? ''
+      : ' 기간 안의 경기를 모두 겹쳤습니다. 경기를 고르면 그 경기만 봅니다.';
+    setNote(q, q.note + ' ' + where + scope + capped, !!capped);
 
     el('anBody-' + q.id).textContent = '';
     el('hmBox').hidden = false;
@@ -1402,7 +1618,7 @@
    *
    * 숫자가 없으면 히트맵을 처음 보는 사람은 진한 칸이 몇 개를 뜻하는지 알 수 없습니다.
    */
-  function drawHeatScale(max, useLog) {
+  function drawHeatScale(max, useLog, source) {
     const scale = el('hmScale');
     if (!scale) return;
     if (!max) {
@@ -1410,6 +1626,10 @@
       return;
     }
     scale.hidden = false;
+    // 같은 색이 항목마다 다른 뜻입니다. 사람 체류에서는 오래 머문 자리이고, 버틴 시간에서는
+    // 좋은 은신처입니다. 설명을 고른 항목에 맞춰 바꿉니다.
+    scale.querySelector('.caption').textContent = (source && source.caption) || '칸 안의 샘플 수';
+    const unit = (source && source.unit) || '';
 
     const stops = HEAT_STOPS.map((c, i) =>
       'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ') '
@@ -1423,7 +1643,7 @@
     ticks.textContent = '';
     for (const t of [0, 0.25, 0.5, 0.75, 1]) {
       const label = document.createElement('span');
-      label.textContent = Math.max(0, Math.round(valueAt(t))).toLocaleString('ko-KR');
+      label.textContent = Math.max(0, Math.round(valueAt(t))).toLocaleString('ko-KR') + unit;
       ticks.appendChild(label);
     }
   }
@@ -1464,14 +1684,20 @@
     const canvas = el('hmCanvas');
     if (!data || !canvas) return;
     const col = (name) => data.columns.indexOf(name);
-    const xi = col('pos_x'), zi = col('pos_z'), pi = col('phase'), si = col('player_seat');
-    const phase = el('hmPhase').value;
-    const seat = el('hmSeat').value;
-    const cell = Number(el('hmCell').value);
+    const source = data.source || HEAT_SOURCES[0];
+    const points = data.points;
+    const xi = points ? col('pos_x') : col('x(2m)');
+    const zi = points ? col('pos_z') : col('z(2m)');
+    const pi = col('phase'), si = col('player_seat');
+    const vi = points ? -1 : col(source.value);
+    const ni = points ? -1 : col('숨긴 횟수');
+    const cell = points ? Number(el('hmCell').value) : 2;
     const useLog = el('hmLog').checked;
 
-    const rows = data.rows.filter((r) => (phase === 'all' || String(r[pi]) === phase)
-      && (seat === 'all' || String(r[si]) === seat));
+    const rows = points
+      ? data.rows.filter((r) => (el('hmPhase').value === 'all' || String(r[pi]) === el('hmPhase').value)
+        && (el('hmSeat').value === 'all' || String(r[si]) === el('hmSeat').value))
+      : data.rows;
 
     const map = data.map || {};
     // 경계는 필터와 무관하게 경기 전체 샘플로 잡습니다. 단계를 바꿀 때 그림이 튀지 않게 하려는 것입니다.
@@ -1483,14 +1709,33 @@
     const nx = Math.max(1, Math.ceil((x1 - gx0) / cell));
     const nz = Math.max(1, Math.ceil((z1 - gz0) / cell));
 
-    // 격자 집계. 점을 하나씩 그리지 않고 칸에 모은 뒤 칸만 그리므로 20,000 점이어도 그리는 양은 칸 수입니다.
-    const counts = new Uint32Array(nx * nz);
+    // 격자 집계.
+    //
+    // 점일 때는 하나씩 그리지 않고 칸에 모은 뒤 칸만 그리므로 20,000 점이어도 그리는 양은 칸
+    // 수입니다. 은신처는 이미 칸으로 묶여 오므로 값을 그 자리에 놓기만 합니다.
+    //
+    // 값이 0 인 칸과 값이 없는 칸은 다릅니다. 끝까지 안 들킨 비율 0 % 는 "한 번도 못 버틴
+    // 자리"라는 뜻이고 빈칸이 아닙니다. 그래서 있음 여부를 따로 듭니다.
+    const values = new Float64Array(nx * nz);
+    const present = new Uint8Array(nx * nz);
+    const weight = new Float64Array(nx * nz);   // 은신처의 숨긴 횟수. 흐리게 그릴지 판단합니다
     let max = 0, inside = 0;
     for (const r of rows) {
-      if (r[xi] < x0 || r[xi] >= x1 || r[zi] < z0 || r[zi] >= z1) continue;
-      const i = Math.floor((r[xi] - gx0) / cell);
-      const j = Math.floor((r[zi] - gz0) / cell);
-      const v = ++counts[j * nx + i];
+      const x = Number(r[xi]), z = Number(r[zi]);
+      if (!(x >= x0 && x < x1 && z >= z0 && z < z1)) continue;
+      const i = Math.floor((x - gx0) / cell);
+      const j = Math.floor((z - gz0) / cell);
+      const at = j * nx + i;
+      let v;
+      if (points) {
+        v = ++values[at];
+      } else {
+        v = Number(r[vi]);
+        if (r[vi] === null || r[vi] === undefined || !isFinite(v)) continue;
+        values[at] = v;
+        weight[at] = ni >= 0 ? Number(r[ni]) || 0 : 0;
+      }
+      present[at] = 1;
       if (v > max) max = v;
       inside++;
     }
@@ -1539,12 +1784,16 @@
     ctx.beginPath();
     ctx.rect(M.l, M.t, plotW, plotH);
     ctx.clip();
+    const solid = hasImage ? (plainMap ? 0.8 : 0.88) : 0.95;
     for (let j = 0; j < nz; j++) {
       for (let i = 0; i < nx; i++) {
-        const v = counts[j * nx + i];
-        if (!v) continue;
-        const t = useLog ? Math.log1p(v) / Math.log1p(max) : v / max;
-        ctx.fillStyle = heatColor(t, hasImage ? (plainMap ? 0.8 : 0.88) : 0.95);
+        const at = j * nx + i;
+        if (!present[at]) continue;
+        const v = values[at];
+        const t = max <= 0 ? 0 : (useLog ? Math.log1p(v) / Math.log1p(max) : v / max);
+        // 몇 번 안 숨긴 칸은 흐리게. 한 번 숨겨 안 들켰다고 안전한 자리가 아닙니다.
+        const thin = !points && ni >= 0 && weight[at] < HIDE_MIN_SAMPLES;
+        ctx.fillStyle = heatColor(t, thin ? solid * 0.45 : solid);
         ctx.fillRect(px(gx0 + i * cell), pz(gz0 + (j + 1) * cell), cell * sx + 0.5, cell * sz + 0.5);
       }
     }
@@ -1572,20 +1821,32 @@
     }
     // 축 이름은 canvas 에 적지 않습니다. 오른쪽 끝 눈금과 겹칩니다. 방향(가로 x, 세로 z, 위가 +z)은 카드 설명에 있습니다.
 
-    heatmapGeom = { x0, z0, x1, z1, gx0, gz0, cell, nx, nz, counts, sx, sz, M };
+    heatmapGeom = { x0, z0, x1, z1, gx0, gz0, cell, nx, nz, values, present, sx, sz, M, unit: source.unit };
 
     const outside = rows.length - inside;
-    drawHeatScale(max, useLog);
+    drawHeatScale(max, useLog, source);
 
-    el('hmLegend').textContent = inside.toLocaleString('ko-KR') + '개 샘플을 ' + cell + ' m 칸에 모았습니다. 가장 진한 칸 '
-      + max.toLocaleString('ko-KR') + '개' + (useLog ? ' (로그 눈금)' : '')
-      // 범위 밖은 대개 잘못된 값이 아니라 대기실입니다. 숨기기 단계에는 자기 차례가 아닌
-      // 사람이 마트 밖 대기실에 서 있고, 그 방은 일부러 범위에서 뺐습니다. 전에는 이 문구가
-      // "경계값이 맵과 다르거나"라고 말해서 설정이 틀린 줄 오해하게 만들었습니다.
-      + (outside ? '. 범위 밖 샘플 ' + outside.toLocaleString('ko-KR')
-          + '개는 그리지 않았습니다 - 대부분 숨기기 단계에 대기실에 있던 사람입니다' : '')
-      + '. 범위 x ' + x0 + '~' + x1 + ', z ' + z0 + '~' + z1 + ' m.';
+    const thinNote = !points && ni >= 0 && rows.some((r) => (Number(r[ni]) || 0) < HIDE_MIN_SAMPLES)
+      ? ' 숨긴 횟수가 ' + HIDE_MIN_SAMPLES + '회 미만인 칸은 흐리게 그렸습니다 - 우연일 수 있습니다.'
+      : '';
+
+    if (points) {
+      el('hmLegend').textContent = inside.toLocaleString('ko-KR') + '개 샘플을 ' + cell + ' m 칸에 모았습니다. 가장 진한 칸 '
+        + max.toLocaleString('ko-KR') + '개' + (useLog ? ' (로그 눈금)' : '')
+        // 범위 밖은 대개 잘못된 값이 아니라 대기실입니다. 숨기기 단계에는 자기 차례가 아닌
+        // 사람이 마트 밖 대기실에 서 있고, 그 방은 일부러 범위에서 뺐습니다.
+        + (outside ? '. 범위 밖 샘플 ' + outside.toLocaleString('ko-KR')
+            + '개는 그리지 않았습니다 - 대부분 숨기기 단계에 대기실에 있던 사람입니다' : '')
+        + '. 범위 x ' + x0 + '~' + x1 + ', z ' + z0 + '~' + z1 + ' m.';
+    } else {
+      el('hmLegend').textContent = inside.toLocaleString('ko-KR') + '개 칸을 그렸습니다. ' + source.short
+        + ' 기준, 가장 진한 칸 ' + max.toLocaleString('ko-KR') + source.unit + (useLog ? ' (로그 눈금)' : '')
+        + (outside ? '. 범위 밖 칸 ' + outside.toLocaleString('ko-KR') + '개는 그리지 않았습니다' : '')
+        + '.' + thinNote;
+    }
   }
+
+
 
   function readHeatmapCell(event) {
     const g = heatmapGeom;
@@ -1602,15 +1863,22 @@
     const i = Math.floor((x - g.gx0) / g.cell);
     const j = Math.floor((z - g.gz0) / g.cell);
     const cx = g.gx0 + i * g.cell, cz = g.gz0 + j * g.cell;
+    const at = j * g.nx + i;
     el('hmRead').textContent = 'x ' + cx + '~' + (cx + g.cell) + ', z ' + cz + '~' + (cz + g.cell) + ' m: '
-      + g.counts[j * g.nx + i].toLocaleString('ko-KR') + '개';
+      + (g.present[at] ? g.values[at].toLocaleString('ko-KR') + g.unit : '없음');
   }
 
   let heatmapResizeTimer = null;
   window.addEventListener('resize', () => {
-    if (!heatmapData || el('hmBox').hidden) return;
+    // 물건 움직임 띠는 다시 불러 그립니다. 그린 값을 들고 있지 않아 창 크기만으로는 못 고칩니다.
+    const motion = QUESTIONS.find((q) => q.kind === 'motion');
+    const redrawMotion = motion && currentQuestion === motion.id && !el('imBox').hidden;
+    if ((!heatmapData || el('hmBox').hidden) && !redrawMotion) return;
     clearTimeout(heatmapResizeTimer);
-    heatmapResizeTimer = setTimeout(drawHeatmap, 150);
+    heatmapResizeTimer = setTimeout(() => {
+      if (redrawMotion) loadAnalyticsCard(motion).catch(() => {});
+      else drawHeatmap();
+    }, 150);
   });
 
   function setNote(q, text, bad) {
@@ -1628,6 +1896,15 @@
       body.appendChild(emptyBox('수집 서비스에 연결할 수 없습니다. 게임과 계정 기능은 영향이 없습니다.'));
       hideChart(q);
       if (q.kind === 'heatmap') el('hmBox').hidden = true;
+      return;
+    }
+    if (q.kind === 'motion') {
+      if (!table.rows.length) {
+        body.appendChild(emptyBox('이 경기에는 위치 샘플이 없습니다.'));
+        el('imBox').hidden = true;
+        return;
+      }
+      showMotion(q, table);
       return;
     }
     if (q.kind === 'heatmap') {
