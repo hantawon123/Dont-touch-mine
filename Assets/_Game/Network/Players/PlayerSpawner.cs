@@ -42,7 +42,13 @@ namespace Game.Network.Players
             if (runner == null || !player.IsRealPlayer) return false;
             var playerObject = runner.GetPlayerObject(player);
             return playerObject != null && playerObject.IsValid &&
-                   playerObject.TryGetBehaviour<PlayerAvatar>(out var avatar) && avatar.IsHost;
+                   playerObject.TryGetBehaviour<PlayerAvatar>(out var avatar) &&
+                   IsHostAvatar(avatar);
+        }
+
+        internal static bool IsHostAvatar(PlayerAvatar avatar)
+        {
+            return avatar != null && avatar.HasNetworkState && avatar.IsHost;
         }
 
         public PlayerSpawner(NetworkPrefabs prefabs, PlayerRegistry players)

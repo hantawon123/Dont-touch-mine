@@ -42,6 +42,31 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void IsHostAvatar_IsFalseUntilFusionAttachesNetworkState()
+        {
+            var root = new GameObject("unspawned-host-check");
+            try
+            {
+                var avatar = root.AddComponent<PlayerAvatar>();
+                Assert.That(avatar.HasNetworkState, Is.False);
+                Assert.That(PlayerSpawner.IsHostAvatar(avatar), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void PlayerAvatar_DoesNotReplicateTalkingAsNetworkState()
+        {
+            Assert.That(
+                typeof(PlayerAvatar).GetProperty("IsTalking"),
+                Is.Null,
+                "Talking must stay a local Photon Voice read. A [Networked] bool changes the player prefab word count and remote peers fail to attach.");
+        }
+
+        [Test]
         public void PlayerRoster_CaptureSkipsAvatarWithoutNetworkState()
         {
             var root = new GameObject("avatar-without-network-state");
