@@ -141,6 +141,21 @@
   .stat.dim .value { color: var(--muted); font-size: 14px; font-weight: 400; }
   .chart { position: relative; height: 240px; }
   .chart-title { font-weight: 600; margin-bottom: 6px; }
+  /* 분석 탭(977). 표는 문서 SQL 의 별칭이 그대로 헤더라 열 수가 질문마다 다릅니다. 좁은 창에서는
+     표만 가로로 밀리게 두고 카드 자체는 밀리지 않게 합니다. */
+  .an-table { overflow-x: auto; }
+  table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.grid th, table.grid td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  table.grid th { color: var(--muted); font-weight: 600; }
+  table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.grid tr.pick { cursor: pointer; }
+  table.grid tr.pick:hover { background: #f3f4f6; }
+  table.grid tr.sel { background: #eef2ff; }
+  /* 완전 수신이 아닌 경기. 아래 카드들에서 빠지는 줄이라는 것을 색으로 말합니다. */
+  table.grid tr.dim td { color: var(--muted); }
+  .an-note { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+  .an-note.bad { color: var(--warn); }
+  .bar input[type="datetime-local"] { width: auto; padding: 6px 8px; font-size: 13px; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -169,6 +184,7 @@
       <button id="tabReports" class="tab" type="button">신고 검토</button>
       <button id="tabFeedback" class="tab" type="button">피드백</button>
       <button id="tabUsers" class="tab" type="button">사용자</button>
+      <button id="tabAnalytics" class="tab" type="button">분석</button>
       <span class="grow"></span>
       <button id="logout">로그아웃</button>
     </div>
@@ -253,6 +269,33 @@
         <button id="searchUsers" class="primary">검색</button>
       </div>
       <div class="card"><div id="userRows"></div></div>
+    </div>
+
+    <!-- 분석 -->
+    <div id="analyticsView" hidden>
+      <!--
+        카드 여덟 개는 docs/analytics-dashboards.md 의 번호 절과 같고, SQL 도 그 문서 것입니다.
+        Metabase(8443)와 같은 숫자가 나와야 하며, 다르면 둘 중 하나가 문서를 떠난 것입니다.
+        즉석 SQL 은 여기 없습니다 - 그건 Metabase 에 남겨 둔 일입니다.
+      -->
+      <div class="warnbar">
+        <b>완전히 수신된 경기만</b> 집계합니다. 경기 목록에서 <b>완전 수신</b>이 0 인 줄(회색)은 아래 카드에서
+        빠집니다. 경기 수가 5 미만인 막대는 믿지 마세요. 경기 목록의 줄을 누르면 그 경기 하나로 좁혀집니다.
+      </div>
+      <div class="bar">
+        <select id="anPeriod">
+          <option value="all">전체 기간</option>
+          <option value="7d">최근 7일</option>
+          <option value="30d">최근 30일</option>
+          <option value="custom">직접 입력</option>
+        </select>
+        <input id="anFrom" type="datetime-local" hidden>
+        <input id="anTo" type="datetime-local" hidden>
+        <button id="anClearMatch" hidden>경기 선택 해제</button>
+        <span class="grow"></span>
+        <button id="refreshAnalytics">새로고침</button>
+      </div>
+      <div id="anCards"></div>
     </div>
   </div>
 </div>
@@ -668,6 +711,7 @@
       reports: ['reportsView', 'tabReports', '신고 검토'],
       feedback: ['feedbackView', 'tabFeedback', '피드백'],
       users: ['usersView', 'tabUsers', '사용자'],
+      analytics: ['analyticsView', 'tabAnalytics', '분석'],
     };
     for (const key of Object.keys(tabs)) {
       const on = key === name;
@@ -884,6 +928,280 @@
     if (!points.length) {
       say(range === '7d' ? '최근 7일 샘플이 없습니다. 서버가 1분마다 남깁니다.' : '최근 24시간 샘플이 없습니다. 서버가 1분마다 남깁니다.');
     }
+  }
+
+  /*
+   * 분석 탭 (S15P21D205-977).
+   *
+   * 카드 정의의 질문 이름(id)은 /api/v1/admin/analytics/{id} 이고, 축 컬럼(x·y)은 문서 SQL 의 별칭입니다.
+   * 응답에 그 별칭이 없으면 - 문서에서 컬럼 이름을 바꾼 경우 - 차트를 비워 두지 않고 표로 떨어지며
+   * 그 사실을 카드에 적습니다. 빈 차트는 "데이터가 없다"로 읽혀서 어긋남이 묻힙니다.
+   * 시각화 종류는 deploy/metabase/provision_dashboards.py 의 VIEWS 와 같습니다.
+   */
+  const QUESTIONS = [
+    { id: 'matches', title: '1. 경기 목록과 수집 상태', kind: 'matches',
+      note: '값을 읽기 전에 데이터를 믿을 수 있는지 보는 표입니다. 도착이 예정보다 작으면 유실, 크면 중복 업로드입니다.' },
+    { id: 'hiding-time', title: '2. 숨는 시간 적정성', kind: 'bar', x: '숨는 시간(초)', y: ['못 숨긴 인원 %'],
+      note: '방 설정(한 사람당 숨는 시간)별로, 숨기기가 끝날 때까지 물건을 두지 못한 인원의 비율입니다.' },
+    { id: 'hideouts', title: '3. 은신처 분포', kind: 'table',
+      note: '물건이 처음 멈춘 자리를 2m 격자로 묶었습니다. 숨긴 횟수가 많고 끝까지 안 들킨 비율이 높은 칸이 "너무 좋은 자리"입니다.' },
+    { id: 'dwell', title: '4. 체류 구역', kind: 'table',
+      note: '사람이 머문 자리입니다. 샘플 하나가 대략 1초이지만 정확한 초는 아니라 구역 사이의 비교로만 읽습니다.' },
+    { id: 'seeking-time', title: '5. 찾는 시간 적정성', kind: 'bar', x: '찾기 시작 후(초)', y: ['발견 건수'],
+      note: '남의 물건이 들린 시각의 분포, 30초 구간입니다. 뒤쪽에 몰리면 찾는 시간이 짧고 앞쪽에 몰리면 긴 것입니다.' },
+    { id: 'combat', title: '6. 전투 적정성', kind: 'bar', x: '설정된 기절 펀치', y: ['평균 휘두름', '평균 피격', '평균 기절'],
+      note: '기절까지 필요한 명중 수 설정별 평균입니다. 명중률은 개인이 아니라 경기 전체의 비율입니다.' },
+    { id: 'item-life', title: '7. 물건 생애', kind: 'bar', x: '결말', y: ['물건 수'],
+      note: '물건 하나가 어떻게 끝났는가입니다. "끝까지 제자리"가 절반을 넘으면 찾는 쪽이 너무 어렵거나 시간이 짧은 것입니다.' },
+    { id: 'dropout', title: '8. 경기 중 이탈', kind: 'bar', x: '마지막 단계', y: ['이탈 인원'],
+      note: '기록이 종료보다 5초 넘게 일찍 끊긴 자리를 이탈로 봅니다. 경기 시작 뒤의 이탈만 보이고, 호스트 이탈 경기는 1번 표에서 셉니다.' },
+  ];
+  const BAR_COLORS = ['#1d4ed8', '#b91c1c', '#15803d', '#d97706'];
+  const TABLE_ROW_CAP = 200;
+
+  const analyticsCharts = {};
+  let selectedMatch = null;
+
+  /** 카드 여덟 개의 틀. 한 번만 만들고 불러올 때는 안쪽만 갈아 끼웁니다. */
+  function buildAnalyticsCards() {
+    const box = el('anCards');
+    for (const q of QUESTIONS) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.id = 'an-' + q.id;
+
+      const title = document.createElement('div');
+      title.className = 'chart-title';
+      title.textContent = q.title;
+
+      const note = document.createElement('div');
+      note.className = 'an-note';
+      note.id = 'anNote-' + q.id;
+      note.textContent = q.note;
+
+      const body = document.createElement('div');
+      body.id = 'anBody-' + q.id;
+      body.className = 'an-table';
+
+      card.append(title, note, body);
+      if (q.kind === 'bar') {
+        const chart = document.createElement('div');
+        chart.className = 'chart';
+        chart.id = 'anChartBox-' + q.id;
+        const canvas = document.createElement('canvas');
+        canvas.id = 'anChart-' + q.id;
+        chart.appendChild(canvas);
+        card.appendChild(chart);
+      }
+      box.appendChild(card);
+    }
+  }
+  buildAnalyticsCards();
+
+  /** Date → UTC yyyyMMddHHmmss. 서버가 다른 API 와 같은 형식으로 받습니다. */
+  function stampOf(date) {
+    const p = (n) => String(n).padStart(2, '0');
+    return date.getUTCFullYear() + p(date.getUTCMonth() + 1) + p(date.getUTCDate())
+      + p(date.getUTCHours()) + p(date.getUTCMinutes()) + p(date.getUTCSeconds());
+  }
+
+  /** 상단 바의 기간을 from·to 로. 전체 기간이면 둘 다 없습니다. */
+  function analyticsPeriod() {
+    const period = el('anPeriod').value;
+    const custom = period === 'custom';
+    el('anFrom').hidden = !custom;
+    el('anTo').hidden = !custom;
+    if (period === 'all') return {};
+    if (custom) {
+      const out = {};
+      if (el('anFrom').value) out.from = stampOf(new Date(el('anFrom').value));
+      if (el('anTo').value) out.to = stampOf(new Date(el('anTo').value));
+      return out;
+    }
+    const days = period === '7d' ? 7 : 30;
+    return { from: stampOf(new Date(Date.now() - days * 86400000)) };
+  }
+
+  function analyticsQuery(q) {
+    const params = new URLSearchParams(analyticsPeriod());
+    // 경기 목록은 기간만 받습니다. 여기서 경기를 고르는 것이라 그 경기로 좁히면 고를 것이 없어집니다.
+    if (selectedMatch && q.kind !== 'matches') params.set('matchId', selectedMatch);
+    const s = params.toString();
+    return s ? '?' + s : '';
+  }
+
+  /** 카드 여덟 개를 한 번에. 하나가 느리거나 실패해도 나머지는 그려집니다. */
+  async function loadAnalytics(onlyFiltered) {
+    say('');
+    el('anClearMatch').hidden = !selectedMatch;
+    el('anClearMatch').textContent = selectedMatch ? '경기 선택 해제 (' + selectedMatch.slice(0, 8) + '…)' : '';
+    const targets = QUESTIONS.filter((q) => !onlyFiltered || q.kind !== 'matches');
+    await Promise.allSettled(targets.map((q) => loadAnalyticsCard(q)));
+  }
+
+  async function loadAnalyticsCard(q) {
+    const body = el('anBody-' + q.id);
+    try {
+      const table = await call('/analytics/' + q.id + analyticsQuery(q));
+      renderAnalyticsCard(q, table);
+    } catch (e) {
+      // call() 이 401 은 로그인 화면으로, 나머지는 위쪽 알림으로 보냈습니다. 카드에는 자리만 남깁니다.
+      body.textContent = '';
+      body.appendChild(emptyBox('불러오지 못했습니다.'));
+      hideChart(q);
+    }
+  }
+
+  function emptyBox(text) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = text;
+    return empty;
+  }
+
+  function hideChart(q) {
+    const box = el('anChartBox-' + q.id);
+    if (box) box.hidden = true;
+  }
+
+  function setNote(q, text, bad) {
+    const note = el('anNote-' + q.id);
+    note.textContent = text;
+    note.className = 'an-note' + (bad ? ' bad' : '');
+  }
+
+  function renderAnalyticsCard(q, table) {
+    const body = el('anBody-' + q.id);
+    body.textContent = '';
+    setNote(q, q.note, false);
+
+    if (table.unavailable) {
+      body.appendChild(emptyBox('수집 서비스에 연결할 수 없습니다. 게임과 계정 기능은 영향이 없습니다.'));
+      hideChart(q);
+      return;
+    }
+    if (!table.rows.length) {
+      const scoped = selectedMatch && q.kind !== 'matches';
+      body.appendChild(emptyBox(scoped ? '이 경기에는 해당 값이 없습니다.'
+        : (el('anPeriod').value === 'all' ? '아직 경기가 없습니다.' : '이 기간에 경기가 없습니다.')));
+      hideChart(q);
+      return;
+    }
+
+    if (q.kind === 'bar') {
+      const xi = table.columns.indexOf(q.x);
+      const yi = q.y.map((name) => table.columns.indexOf(name));
+      if (xi < 0 || yi.some((i) => i < 0)) {
+        setNote(q, '문서의 컬럼 이름이 화면의 축 이름과 다릅니다. 차트 대신 표로 보입니다. '
+          + '(찾은 컬럼: ' + table.columns.join(', ') + ')', true);
+        hideChart(q);
+        body.appendChild(gridOf(table.columns, table.rows, {}));
+        return;
+      }
+      el('anChartBox-' + q.id).hidden = false;
+      barChart(q, table, xi, yi);
+      return;
+    }
+
+    body.appendChild(gridOf(table.columns, table.rows, {
+      pick: q.kind === 'matches',
+      dimWhen: q.kind === 'matches' ? '완전 수신' : null,
+    }));
+  }
+
+  function barChart(q, table, xi, yi) {
+    const labels = table.rows.map((row) => String(row[xi]));
+    const datasets = yi.map((i, n) => ({
+      label: table.columns[i],
+      data: table.rows.map((row) => row[i]),
+      backgroundColor: BAR_COLORS[n % BAR_COLORS.length] + 'cc',
+      borderColor: BAR_COLORS[n % BAR_COLORS.length],
+      borderWidth: 1,
+    }));
+    const existing = analyticsCharts[q.id];
+    if (existing) {
+      existing.data.labels = labels;
+      existing.data.datasets = datasets;
+      existing.update();
+      return;
+    }
+    analyticsCharts[q.id] = new Chart(el('anChart-' + q.id), {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { position: 'bottom', display: yi.length > 1 } },
+        scales: {
+          x: { title: { display: true, text: q.x } },
+          y: { beginAtZero: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * 응답의 columns 를 헤더로, rows 를 그대로 표로. 숫자는 오른쪽 정렬, null 은 대시,
+   * "(UTC)" 가 붙은 컬럼의 14자 시각은 이 브라우저의 시각으로 바꿉니다.
+   */
+  function gridOf(columns, rows, opts) {
+    const table = document.createElement('table');
+    table.className = 'grid';
+    const numeric = columns.map((c, i) => rows.some((row) => typeof row[i] === 'number'));
+    const utc = columns.map((c) => c.includes('(UTC)'));
+    const dimAt = opts.dimWhen ? columns.indexOf(opts.dimWhen) : -1;
+
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+    for (let i = 0; i < columns.length; i++) {
+      const th = document.createElement('th');
+      th.textContent = utc[i] ? columns[i].replace('(UTC)', '') : columns[i];
+      if (numeric[i]) th.className = 'num';
+      hr.appendChild(th);
+    }
+    thead.appendChild(hr);
+
+    const tbody = document.createElement('tbody');
+    const shown = rows.slice(0, TABLE_ROW_CAP);
+    for (const row of shown) {
+      const tr = document.createElement('tr');
+      if (opts.pick) {
+        tr.className = 'pick';
+        const id = String(row[0]);
+        if (id === selectedMatch) tr.classList.add('sel');
+        tr.addEventListener('click', () => {
+          selectedMatch = selectedMatch === id ? null : id;
+          for (const sib of tbody.children) sib.classList.toggle('sel', sib === tr && selectedMatch !== null);
+          loadAnalytics(true).catch(() => {});
+        });
+      }
+      if (dimAt >= 0 && Number(row[dimAt]) === 0) tr.classList.add('dim');
+      for (let i = 0; i < columns.length; i++) {
+        const td = document.createElement('td');
+        const v = row[i];
+        if (v === null || v === undefined) {
+          td.textContent = '–';
+        } else if (utc[i] && typeof v === 'string' && v.length === 14) {
+          td.textContent = labelOf(v);
+          td.title = v + ' UTC';
+        } else {
+          td.textContent = typeof v === 'number' ? String(v) : v;
+        }
+        if (numeric[i]) td.className = 'num';
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    table.append(thead, tbody);
+
+    if (rows.length > shown.length) {
+      const more = document.createElement('div');
+      more.className = 'an-note';
+      more.textContent = rows.length + '행 중 앞의 ' + shown.length + '행만 보입니다. 기간이나 경기로 좁히세요.';
+      const wrap = document.createElement('div');
+      wrap.append(table, more);
+      return wrap;
+    }
+    return table;
   }
 
   async function loadUsers() {
@@ -1126,6 +1444,23 @@
   el('tabUsers').addEventListener('click', () => {
     showTab('users');
     loadUsers().catch(() => {});
+  });
+
+  el('tabAnalytics').addEventListener('click', () => {
+    showTab('analytics');
+    loadAnalytics().catch(() => {});
+  });
+  el('refreshAnalytics').addEventListener('click', () => loadAnalytics().catch(() => {}));
+  el('anPeriod').addEventListener('change', () => {
+    analyticsPeriod();
+    // 직접 입력은 날짜를 채운 뒤에 불러옵니다. 빈 칸으로 한 번 더 부를 이유가 없습니다.
+    if (el('anPeriod').value !== 'custom') loadAnalytics().catch(() => {});
+  });
+  el('anFrom').addEventListener('change', () => loadAnalytics().catch(() => {}));
+  el('anTo').addEventListener('change', () => loadAnalytics().catch(() => {}));
+  el('anClearMatch').addEventListener('click', () => {
+    selectedMatch = null;
+    loadAnalytics().catch(() => {});
   });
 
   el('searchUsers').addEventListener('click', () => loadUsers().catch(() => {}));
