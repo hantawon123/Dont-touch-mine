@@ -251,7 +251,10 @@ namespace Game.Network.Voice
             }
 
             // Mute wins. The talk key is a request to be heard, and a muted
-            // player has already answered that.
+            // player has already answered that. Voice detection keeps silence
+            // from looking like a live send: the HUD turns green only while
+            // audio is actually leaving.
+            boundRecorder.VoiceDetection = true;
             boundRecorder.TransmitEnabled =
                 talking && !muted.Value && listening.Value;
         }

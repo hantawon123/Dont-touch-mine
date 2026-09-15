@@ -13,8 +13,9 @@ namespace Game.Client.Voice
         event Action SpeakerToggleRequested;
 
         /// <summary>
-        /// Paints the two plates: a white mic or grey slash, and a white
-        /// headset or grey slash. Latch and transmit do not get a third picture.
+        /// Paints the two plates: a white mic, a green mic while voice is
+        /// leaving, or a grey slash when muted; and a white headset or grey
+        /// slash.
         /// </summary>
         void SetState(bool available, bool muted, bool latched, bool transmitting, bool listening);
     }
@@ -29,6 +30,7 @@ namespace Game.Client.Voice
         public const string SpeakerButtonName = "SpeakerButton";
         public const string IconName = "Icon";
         public const string MicOnResource = "UI/Icon_Mic_White";
+        public const string MicTalkResource = "UI/Icon_Mic_Green";
         public const string MicOffResource = "UI/Icon_Mic_Off_Gray";
         public const string SpeakerOnResource = "UI/Icon_Headset_White";
         public const string SpeakerOffResource = "UI/Icon_Headset_Off_Gray";
@@ -41,6 +43,7 @@ namespace Game.Client.Voice
         public static readonly Color PlateColor = new Color(0f, 0f, 0f, 0.6f);
 
         private static Sprite micOn;
+        private static Sprite micTalk;
         private static Sprite micOff;
         private static Sprite speakerOn;
         private static Sprite speakerOff;
@@ -390,7 +393,9 @@ namespace Game.Client.Voice
         {
             if (icon != null)
             {
-                icon.sprite = muted ? MicOffSprite : MicOnSprite;
+                icon.sprite = muted
+                    ? MicOffSprite
+                    : transmitting ? MicTalkSprite : MicOnSprite;
             }
 
             if (speakerIcon != null)
@@ -468,6 +473,9 @@ namespace Game.Client.Voice
 
         public static Sprite MicOnSprite =>
             micOn ??= Resources.Load<Sprite>(MicOnResource);
+
+        public static Sprite MicTalkSprite =>
+            micTalk ??= Resources.Load<Sprite>(MicTalkResource);
 
         public static Sprite MicOffSprite =>
             micOff ??= Resources.Load<Sprite>(MicOffResource);

@@ -10,7 +10,7 @@ namespace Game.Architecture.Tests
     public sealed class VoiceViewTests
     {
         [Test]
-        public void SetState_UsesOnlyWhiteMicAndGreySlash()
+        public void SetState_UsesWhiteIdle_GreenTalk_AndGreyMute()
         {
             var root = new GameObject("Voice", typeof(RectTransform));
             try
@@ -23,14 +23,19 @@ namespace Game.Architecture.Tests
                 root.SetActive(true);
 
                 Assert.That(VoiceView.MicOnSprite, Is.Not.Null);
+                Assert.That(VoiceView.MicTalkSprite, Is.Not.Null);
                 Assert.That(VoiceView.MicOffSprite, Is.Not.Null);
                 Assert.That(VoiceView.MicOnResource, Is.EqualTo("UI/Icon_Mic_White"));
+                Assert.That(VoiceView.MicTalkResource, Is.EqualTo("UI/Icon_Mic_Green"));
                 Assert.That(VoiceView.MicOffResource, Is.EqualTo("UI/Icon_Mic_Off_Gray"));
                 Assert.That(VoiceView.SpeakerOnResource, Is.EqualTo("UI/Icon_Headset_White"));
                 Assert.That(VoiceView.SpeakerOffResource, Is.EqualTo("UI/Icon_Headset_Off_Gray"));
 
-                view.SetState(available: true, muted: false, latched: true, transmitting: true, listening: true);
+                view.SetState(available: true, muted: false, latched: true, transmitting: false, listening: true);
                 Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOnSprite));
+
+                view.SetState(available: true, muted: false, latched: true, transmitting: true, listening: true);
+                Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicTalkSprite));
 
                 view.SetState(available: true, muted: true, latched: false, transmitting: false, listening: true);
                 Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOffSprite));
