@@ -36,7 +36,7 @@ namespace Game.Editor
                 // frontend-only scopes are removed; gameplay scopes remain active.
                 if (component is HomeMenuView || component is CharacterClosetView ||
                     component is ResultView || component is SettingsView ||
-                    component is MatchChatBubbleView || component is EndingStage ||
+                    component is MatchChatBubbleView ||
                     component is RoomBrowserLifetimeScope || component is SettingsLifetimeScope ||
                     component is CharacterClosetLifetimeScope)
                 {
