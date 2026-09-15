@@ -1,5 +1,6 @@
 using System;
 using Game.Core.Flow;
+using Game.Core.Ports;
 using Game.Core.Settings;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -13,19 +14,26 @@ namespace Game.Bootstrap
         private readonly AppFlowSystem flow;
         private readonly SoundSettingsSystem sound;
         private readonly AudioSource source;
+        private readonly IMicrophoneTest microphoneTest;
         private bool started;
         private bool inMenu;
+        private bool ducked;
         public const float FadeSeconds = 1f;
         private float musicVolume;
         private float fadeGain = 1f;
         private bool fading;
         private bool playing;
 
-        public MenuBgmController(AppFlowSystem flow, SoundSettingsSystem sound, AudioSource source)
+        public MenuBgmController(
+            AppFlowSystem flow,
+            SoundSettingsSystem sound,
+            AudioSource source,
+            IMicrophoneTest microphoneTest = null)
         {
             this.flow = flow;
             this.sound = sound;
             this.source = source;
+            this.microphoneTest = microphoneTest;
         }
 
         public static bool ShouldPlay(AppFlowState state) =>
@@ -82,8 +90,20 @@ namespace Game.Bootstrap
 
         private void AdvanceFade(float deltaTime)
         {
-            if (!started || !fading || source == null) return;
-            var target = inMenu ? 1f : 0f;
+            if (!started || source == null) return;
+
+            var nextDucked = microphoneTest != null && microphoneTest.IsRunning;
+            if (nextDucked != ducked)
+            {
+                ducked = nextDucked;
+                fading = true;
+            }
+
+            if (!fading) return;
+
+            // A running microphone test only mutes the track. Leaving the
+            // menu still stops it once the fade finishes.
+            var target = inMenu && !ducked ? 1f : 0f;
             fadeGain = Mathf.MoveTowards(fadeGain, target, Mathf.Max(0f, deltaTime) / FadeSeconds);
             source.volume = musicVolume * fadeGain;
             if (fadeGain != target) return;

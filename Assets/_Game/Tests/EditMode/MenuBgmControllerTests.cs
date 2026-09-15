@@ -56,6 +56,42 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void MicrophoneTest_FadesOut_AndStoppingRestoresTheSavedVolume()
+        {
+            var host = new GameObject("BGM Mic Test");
+            MenuBgmController controller = null;
+            try
+            {
+                var source = host.AddComponent<AudioSource>();
+                var flow = new AppFlowSystem();
+                var sound = new SoundSettingsSystem(new InMemorySoundSettingsStore());
+                var microphoneTest = new NullMicrophoneTest();
+                controller = new MenuBgmController(flow, sound, source, microphoneTest);
+                controller.Start();
+                var initial = source.volume;
+                var advance = typeof(MenuBgmController).GetMethod("AdvanceFade",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+                microphoneTest.Start(SoundCatalog.DefaultDevice);
+                advance.Invoke(controller, new object[] { 0.5f });
+                Assert.That(source.volume, Is.EqualTo(initial * 0.5f).Within(0.001f));
+                advance.Invoke(controller, new object[] { 0.5f });
+                Assert.That(source.volume, Is.Zero);
+
+                microphoneTest.Stop();
+                advance.Invoke(controller, new object[] { 0.5f });
+                Assert.That(source.volume, Is.EqualTo(initial * 0.5f).Within(0.001f));
+                advance.Invoke(controller, new object[] { 1f });
+                Assert.That(source.volume, Is.EqualTo(initial).Within(0.001f));
+            }
+            finally
+            {
+                controller?.Dispose();
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
         public void Volume_UsesSavedMusicAndAppliedChangesWithoutMultiplyingMaster()
         {
             var host = new GameObject("BGM Test");
