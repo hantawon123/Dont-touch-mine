@@ -44,6 +44,11 @@ namespace Game.Editor
                     removed++;
                 }
             }
+            // Signage video is presentation-only. Strip the component before Awake
+            // so headless/development servers never open a media decoder at all.
+            var videos = roots.SelectMany(root =>
+                root.GetComponentsInChildren<UnityEngine.Video.VideoPlayer>(true)).ToArray();
+            foreach (var video in videos) Object.DestroyImmediate(video);
             var canvases = roots.SelectMany(root => root.GetComponentsInChildren<Canvas>(true)).ToArray();
             foreach (var canvas in canvases)
             {
@@ -55,7 +60,7 @@ namespace Game.Editor
                 canvas.gameObject.SetActive(false);
             }
 
-            Debug.Log($"[ServerBuild] {scene.name}: disabled {canvases.Length} canvases, removed {removed} UI components.");
+            Debug.Log($"[ServerBuild] {scene.name}: disabled {canvases.Length} canvases, removed {removed} UI components and {videos.Length} video players.");
         }
     }
 }
