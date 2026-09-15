@@ -289,6 +289,7 @@ namespace Game.Bootstrap
                 view.SetNickname(IsLocalAvatar(avatar)
                     ? string.Empty
                     : presentation.Name(avatar.PlayerId, avatar.Nickname.ToString()));
+                view.SetVoice(avatar.IsMuted, avatar.IsTalking);
             }
         }
 

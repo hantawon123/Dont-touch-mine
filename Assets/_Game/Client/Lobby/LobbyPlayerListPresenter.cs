@@ -36,6 +36,7 @@ namespace Game.Client.Lobby
         private IVoiceControl voice;
         private IDisposable refreshSubscription;
         private IDisposable muteSubscription;
+        private IDisposable talkSubscription;
 
         /// <summary>
         /// The last thing the room said about itself, so that a name arriving
@@ -82,6 +83,7 @@ namespace Game.Client.Lobby
             if (voice != null)
             {
                 muteSubscription = voice.IsMuted.Subscribe(_ => Draw());
+                talkSubscription = voice.IsTransmitting.Subscribe(_ => Draw());
             }
 
             refreshSubscription = Observable.CombineLatest(
@@ -127,7 +129,7 @@ namespace Game.Client.Lobby
             }
 
             var state = latest.Value;
-            var people = WithLocalMute(state.Participants ?? Array.Empty<LobbyParticipant>());
+            var people = WithLocalVoice(state.Participants ?? Array.Empty<LobbyParticipant>());
             var namesReady = presentation == null || presentation.InitialVisibilityReady;
             view.SetParticipants(
                 namesReady ? people : Array.Empty<LobbyParticipant>(),
@@ -150,15 +152,17 @@ namespace Game.Client.Lobby
             confirmView.Cancelled -= CancelPending;
             friends.FriendsChanged -= BindFriends;
             muteSubscription?.Dispose();
+            talkSubscription?.Dispose();
             refreshSubscription?.Dispose();
         }
 
         /// <summary>
         /// The local microphone is the source of truth for this machine. The
         /// roster's copy can lag a frame, or never land if the avatar has not
-        /// published yet, and then the owner would not see their own mute.
+        /// published yet, and then the owner would not see their own mute or
+        /// talk icon.
         /// </summary>
-        private IReadOnlyList<LobbyParticipant> WithLocalMute(
+        private IReadOnlyList<LobbyParticipant> WithLocalVoice(
             IReadOnlyList<LobbyParticipant> people)
         {
             var localId = hostSession.LocalPlayerId;
@@ -168,11 +172,12 @@ namespace Game.Client.Lobby
             }
 
             var localMuted = voice.IsMuted.CurrentValue;
+            var localTalking = !localMuted && voice.IsTransmitting.CurrentValue;
             for (var index = 0; index < people.Count; index++)
             {
                 var person = people[index];
                 if (!string.Equals(person.Id, localId, StringComparison.Ordinal)
-                    || person.IsMuted == localMuted)
+                    || (person.IsMuted == localMuted && person.IsTalking == localTalking))
                 {
                     continue;
                 }
@@ -188,7 +193,8 @@ namespace Game.Client.Lobby
                     person.DisplayName,
                     person.IsHost,
                     person.UserId,
-                    localMuted);
+                    localMuted,
+                    localTalking);
                 return copy;
             }
 

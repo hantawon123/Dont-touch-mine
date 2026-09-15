@@ -114,6 +114,38 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Start_ShowsTheLocalPlayersOwnTalkingOnTheirRow()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+                new LobbyParticipant("player-2", "게스트", false, isTalking: true),
+            });
+            var view = new FakePlayerListView();
+            var voice = new FakeVoiceControl(muted: false);
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                new FriendListSystem(),
+                new FakeInviteGateway(),
+                new FakeReportGateway(),
+                view,
+                new FakeCountView(),
+                new FakeConfirmView());
+            presenter.BindVoice(voice);
+
+            presenter.Start();
+            voice.SetTransmitting(true);
+
+            Assert.That(view.Participants[0].IsTalking, Is.True);
+            Assert.That(view.Participants[1].IsTalking, Is.True);
+
+            voice.SetTransmitting(false);
+            Assert.That(view.Participants[0].IsTalking, Is.False);
+            Assert.That(view.Participants[1].IsTalking, Is.True);
+        }
+
+        [Test]
         public void Start_HidesFriendsWhoAreAlreadyInTheRoom()
         {
             var list = new LobbyParticipantList(new[]
@@ -520,6 +552,8 @@ namespace Game.Tests.EditMode
             public ReadOnlyReactiveProperty<bool> IsListening => listening;
 
             public void SetMuted(bool value) => muted.Value = value;
+
+            public void SetTransmitting(bool value) => transmitting.Value = value;
 
             public void SetTalking(bool talking)
             {

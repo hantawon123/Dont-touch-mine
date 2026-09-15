@@ -35,7 +35,10 @@ namespace Game.Client.Lobby
         public const float MuteIconSize = 16f;
         public const string AvatarDimName = "Dim";
         public const string MuteIconName = "Mute";
+        public const string VoiceIconName = "Voice";
         public const float NicknameLeft = 10f;
+        public const float VoiceIconGap = 6f;
+        public const float VoiceIconSize = 16f;
         public const float LeaderIconGap = 6f;
         public const float LeaderIconSize = 16f;
         public const float ActionRight = 16f;
@@ -223,7 +226,8 @@ namespace Game.Client.Lobby
                     canKick,
                     showAdd: false,
                     isSelf: isSelf,
-                    isMuted: participant.IsMuted);
+                    isMuted: participant.IsMuted,
+                    isTalking: participant.IsTalking);
                 var playerId = participant.Id;
                 var rosterName = participant.DisplayName;
                 var displayName = shownName;
@@ -937,7 +941,8 @@ namespace Game.Client.Lobby
             bool showKick,
             bool showAdd,
             bool isSelf = false,
-            bool isMuted = false)
+            bool isMuted = false,
+            bool isTalking = false)
         {
             var row = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             row.SetParent(parent, false);
@@ -948,7 +953,8 @@ namespace Game.Client.Lobby
 
             CreateAvatar(row, isMuted);
             var nameLabel = CreateNickname(row, nickname, isSelf);
-            CreateLeader(row, nameLabel, showLeader);
+            var voice = CreateVoice(row, nameLabel, isMuted, isTalking);
+            CreateLeader(row, voice, showLeader);
             if (showKick)
             {
                 CreateKick(row);
@@ -1039,13 +1045,30 @@ namespace Game.Client.Lobby
             return name;
         }
 
-        private static void CreateLeader(RectTransform parent, TextMeshProUGUI name, bool showLeader)
+        private static RectTransform CreateVoice(
+            RectTransform parent, TextMeshProUGUI name, bool muted, bool talking)
+        {
+            var voice = new GameObject(
+                    VoiceIconName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
+                .GetComponent<RectTransform>();
+            voice.SetParent(parent, false);
+            var nameRight = name.rectTransform.anchoredPosition.x + name.rectTransform.sizeDelta.x;
+            PinLeft(voice, nameRight + VoiceIconGap, new Vector2(VoiceIconSize, VoiceIconSize));
+            var icon = voice.GetComponent<Image>();
+            icon.sprite = LobbyPlayerListSprites.SoundOf(muted, talking);
+            icon.color = Color.white;
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            return voice;
+        }
+
+        private static void CreateLeader(RectTransform parent, RectTransform after, bool showLeader)
         {
             var leader = new GameObject("Leader", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
                 .GetComponent<RectTransform>();
             leader.SetParent(parent, false);
-            var nameRight = name.rectTransform.anchoredPosition.x + name.rectTransform.sizeDelta.x;
-            PinLeft(leader, nameRight + LeaderIconGap, new Vector2(LeaderIconSize, LeaderIconSize));
+            var afterRight = after.anchoredPosition.x + after.sizeDelta.x;
+            PinLeft(leader, afterRight + LeaderIconGap, new Vector2(LeaderIconSize, LeaderIconSize));
             var icon = leader.GetComponent<Image>();
             icon.sprite = LobbyPlayerListSprites.Leader;
             icon.color = Color.white;

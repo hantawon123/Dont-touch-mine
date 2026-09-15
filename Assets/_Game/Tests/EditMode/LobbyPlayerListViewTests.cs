@@ -236,9 +236,21 @@ namespace Game.Architecture.Tests
 
                 var leader = hostRow.Find("Leader") as RectTransform;
                 var hostName = hostRow.Find("Name") as RectTransform;
+                var hostVoice = hostRow.Find(LobbyPlayerListView.VoiceIconName) as RectTransform;
+                Assert.That(hostVoice, Is.Not.Null);
+                Assert.That(
+                    hostVoice.anchoredPosition.x,
+                    Is.EqualTo(
+                            hostName.anchoredPosition.x
+                            + hostName.sizeDelta.x
+                            + LobbyPlayerListView.VoiceIconGap)
+                        .Within(0.5f));
                 Assert.That(
                     leader.anchoredPosition.x,
-                    Is.EqualTo(hostName.anchoredPosition.x + hostName.sizeDelta.x + LobbyPlayerListView.LeaderIconGap)
+                    Is.EqualTo(
+                            hostVoice.anchoredPosition.x
+                            + hostVoice.sizeDelta.x
+                            + LobbyPlayerListView.LeaderIconGap)
                         .Within(0.5f));
             }
             finally
@@ -418,6 +430,39 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     mute.GetComponent<Image>().sprite,
                     Is.EqualTo(LobbyPlayerListSprites.MicOffWhite));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetParticipants_NicknameVoiceIcon_ShowsIdleTalkAndMute()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true, isTalking: true),
+                        new LobbyParticipant("player-2", "게스트닉", false, isMuted: true),
+                        new LobbyParticipant("player-3", "대기닉", false),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1");
+
+                Sprite Icon(string row) =>
+                    canvas.transform.Find(
+                            $"Columns/Participants/Scroll/RowRoot/{row}/{LobbyPlayerListView.VoiceIconName}")
+                        .GetComponent<Image>()
+                        .sprite;
+
+                Assert.That(Icon("Row_host-1"), Is.EqualTo(LobbyPlayerListSprites.SoundGreen));
+                Assert.That(Icon("Row_player-2"), Is.EqualTo(LobbyPlayerListSprites.SoundMute));
+                Assert.That(Icon("Row_player-3"), Is.EqualTo(LobbyPlayerListSprites.SoundWhite));
             }
             finally
             {

@@ -1,3 +1,4 @@
+using Game.Client.Lobby;
 using Game.Client.Players;
 using NUnit.Framework;
 using UnityEngine;
@@ -76,6 +77,32 @@ namespace Game.Tests.EditMode
                     view.transform.position.y,
                     Is.EqualTo(controller.bounds.max.y + PlayerNameplateView.HeadClearance)
                         .Within(0.05f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+            }
+        }
+
+        [Test]
+        public void SetVoice_ShowsGreenWhileTalking_WhiteIdle_AndGreyWhenMuted()
+        {
+            var player = new GameObject("Player");
+            try
+            {
+                var view = PlayerNameplateView.Attach(player.transform);
+                view.SetNickname("민수");
+                view.SetVoice(muted: false, talking: true);
+                var icon = view.transform.Find(PlayerNameplateView.VoiceIconName)
+                    .GetComponent<SpriteRenderer>();
+                Assert.That(icon.enabled, Is.True);
+                Assert.That(icon.sprite, Is.EqualTo(LobbyPlayerListSprites.SoundGreen));
+
+                view.SetVoice(muted: false, talking: false);
+                Assert.That(icon.sprite, Is.EqualTo(LobbyPlayerListSprites.SoundWhite));
+
+                view.SetVoice(muted: true, talking: true);
+                Assert.That(icon.sprite, Is.EqualTo(LobbyPlayerListSprites.SoundMute));
             }
             finally
             {

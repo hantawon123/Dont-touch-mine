@@ -1,5 +1,6 @@
 using System;
 using Game.Client.Home;
+using Game.Client.Lobby;
 using TMPro;
 using UnityEngine;
 
@@ -10,10 +11,14 @@ namespace Game.Client.Players
     {
         private const string ObjectName = "PlayerNameplate";
         private const string VisualName = "Visual";
+        public const string VoiceIconName = "Voice";
+        internal const float VoiceIconLocalSize = 1.2f;
+        internal const float VoiceIconGap = 0.2f;
         internal const float HeadClearance = 0.22f;
         private const float FallbackHeightOffset = 1.7f;
 
         private TextMeshPro label;
+        private SpriteRenderer voiceIcon;
         private string displayedName = string.Empty;
         private Transform followAnchor;
         private CharacterController bodyController;
@@ -69,6 +74,26 @@ namespace Game.Client.Players
             displayedName = trimmed;
             label.text = displayedName;
             label.enabled = displayedName.Length > 0;
+            LayoutVoiceIcon();
+        }
+
+        public void SetVoice(bool muted, bool talking)
+        {
+            EnsureVoiceIcon();
+            if (voiceIcon == null)
+            {
+                return;
+            }
+
+            var show = displayedName.Length > 0;
+            voiceIcon.enabled = show;
+            if (!show)
+            {
+                return;
+            }
+
+            voiceIcon.sprite = LobbyPlayerListSprites.SoundOf(muted, talking);
+            LayoutVoiceIcon();
         }
 
         private void Awake() => EnsureLabel();
@@ -223,6 +248,69 @@ namespace Game.Client.Players
             label.outlineWidth = 0.2f;
             label.rectTransform.sizeDelta = new Vector2(8f, 1.2f);
             label.enabled = displayedName.Length > 0;
+            EnsureVoiceIcon();
+        }
+
+        private void EnsureVoiceIcon()
+        {
+            if (voiceIcon != null)
+            {
+                return;
+            }
+
+            var child = transform.Find(VoiceIconName);
+            if (child == null)
+            {
+                var created = new GameObject(VoiceIconName);
+                child = created.transform;
+                child.SetParent(transform, false);
+            }
+
+            voiceIcon = child.GetComponent<SpriteRenderer>();
+            if (voiceIcon == null)
+            {
+                voiceIcon = child.gameObject.AddComponent<SpriteRenderer>();
+            }
+
+            voiceIcon.sprite = LobbyPlayerListSprites.SoundWhite;
+            voiceIcon.color = Color.white;
+            voiceIcon.enabled = displayedName.Length > 0;
+            var tmpRenderer = label != null ? label.GetComponent<Renderer>() : null;
+            if (tmpRenderer != null)
+            {
+                voiceIcon.sortingLayerID = tmpRenderer.sortingLayerID;
+                voiceIcon.sortingOrder = tmpRenderer.sortingOrder + 1;
+            }
+
+            LayoutVoiceIcon();
+        }
+
+        private void LayoutVoiceIcon()
+        {
+            if (voiceIcon == null || label == null)
+            {
+                return;
+            }
+
+            var sprite = voiceIcon.sprite;
+            if (sprite != null && sprite.pixelsPerUnit > 0f)
+            {
+                var native = sprite.rect.width / sprite.pixelsPerUnit;
+                if (native > 0f)
+                {
+                    var scale = VoiceIconLocalSize / native;
+                    voiceIcon.transform.localScale = new Vector3(scale, scale, 1f);
+                }
+            }
+
+            label.ForceMeshUpdate();
+            var width = displayedName.Length == 0
+                ? 0f
+                : label.GetPreferredValues(displayedName).x;
+            voiceIcon.transform.localPosition = new Vector3(
+                (width * 0.5f) + VoiceIconGap + (VoiceIconLocalSize * 0.5f),
+                0f,
+                0f);
         }
     }
 }
