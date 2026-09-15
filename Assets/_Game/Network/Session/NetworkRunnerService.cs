@@ -1076,6 +1076,11 @@ namespace Game.Network.Session
 
         internal static NetworkProjectConfig ConfigureSession(NetworkProjectConfig config)
         {
+#if UNITY_EDITOR
+            // Development Play reloads the domain; large Editor scenes can exceed the normal 10 seconds.
+            if (EditorDevelopmentSession.Enabled)
+                config.Network.ConnectionTimeout = Math.Max(config.Network.ConnectionTimeout, 60f);
+#endif
 #if UNITY_WEBGL
             // Fusion also checks this in the Editor when WebGL is the active build target.
             config.AllowClientServerModesInWebGL = true;
