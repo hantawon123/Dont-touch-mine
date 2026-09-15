@@ -53,6 +53,9 @@ namespace Game.Client.Home
         [SerializeField]
         private TMP_FontAsset fontAsset;
 
+        [SerializeField]
+        private TMP_FontAsset titleFont;
+
         /// <summary>
         /// The menu is drawn in SemiBold where the rest of the screen is not,
         /// so it is a second asset rather than a style flag: TextMeshPro fakes a

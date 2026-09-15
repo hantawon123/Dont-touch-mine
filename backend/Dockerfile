@@ -27,6 +27,10 @@ RUN chmod +x gradlew && ./gradlew --no-daemon :${MODULE}:dependencies > /dev/nul
 # common 은 두 모듈이 다 쓰므로 늘 복사합니다. 상대 모듈은 복사하지 않아 그쪽 소스가 바뀌어도
 # 이 이미지의 캐시가 깨지지 않습니다.
 COPY common common
+# 분석 서비스는 docs/analytics-dashboards.md 를 빌드 때 리소스로 싣습니다(S15P21D205-976). 빠지면
+# 이미지는 만들어지고 컨테이너가 기동에서 죽습니다. analytics/build.gradle 이 파일이 없으면 빌드를 멈추게
+# 검사하지만, 그 검사가 도는 것도 이 COPY 가 있어야 합니다.
+COPY docs docs
 COPY ${MODULE} ${MODULE}
 # 테스트는 CI에서 돌립니다. 배포 이미지 빌드는 산출물을 만드는 단계입니다.
 RUN ./gradlew --no-daemon :${MODULE}:bootJar -x test

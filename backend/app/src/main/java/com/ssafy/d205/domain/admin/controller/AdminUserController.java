@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.Principal;
+
 import com.ssafy.d205.domain.admin.dto.AdminUserDetail;
 import com.ssafy.d205.domain.admin.dto.AdminUserListResponse;
 import com.ssafy.d205.domain.admin.service.AccountSuspensionService;
@@ -72,12 +74,19 @@ public class AdminUserController {
      * <p>PUT 입니다. 같은 요청을 두 번 보내면 같은 상태가 되는 일이라 POST 보다 맞습니다.
      * 사유를 고쳐 적으려고 다시 부르는 경우도 그대로 처리됩니다.
      *
+     * <p>처리자 이름은 관리자 세션에서 읽어 서비스에 넘깁니다(S15P21D205-974). 서비스가
+     * SecurityContextHolder 를 직접 읽게 하면 그 서비스를 부르는 테스트마다 세션을 흉내
+     * 내야 하고, 세션이 없는 경로에서 조용히 null 이 됩니다. adminChain 이 이 경로에
+     * 인증을 요구하므로 여기서 Principal 은 null 이 될 수 없습니다.
+     *
      * @return 이번 요청이 새로 정지했는지. false 면 이미 정지돼 있었다는 뜻입니다.
      */
     @PutMapping("/{userId}/suspension")
     public SuspensionResult suspend(@PathVariable String userId,
-                                    @Valid @RequestBody SuspendRequest request) {
-        return new SuspensionResult(accountSuspensionService.suspend(userId, request.reason()));
+                                    @Valid @RequestBody SuspendRequest request,
+                                    Principal admin) {
+        return new SuspensionResult(
+                accountSuspensionService.suspend(userId, request.reason(), admin.getName()));
     }
 
     /**
@@ -86,8 +95,8 @@ public class AdminUserController {
      * @return 이번 요청이 실제로 해제했는지. false 면 이미 정상이었다는 뜻입니다.
      */
     @DeleteMapping("/{userId}/suspension")
-    public SuspensionResult lift(@PathVariable String userId) {
-        return new SuspensionResult(accountSuspensionService.lift(userId));
+    public SuspensionResult lift(@PathVariable String userId, Principal admin) {
+        return new SuspensionResult(accountSuspensionService.lift(userId, admin.getName()));
     }
 
     /**
