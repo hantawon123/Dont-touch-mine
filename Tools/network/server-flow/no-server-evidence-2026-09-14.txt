@@ -1,0 +1,4 @@
+PASS: No running server => creation refused; no Host runner was started.
+[Rooms] No running game server is available.
+[Flow988] peer=1 FAIL InvalidOperationException: Client entry/role failed: ConnectionFailed
+The driver FAIL above is the expected negative-path result, not a successful game-flow run.

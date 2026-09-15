@@ -1,0 +1,89 @@
+1789368281.181 peer=1 room=T9870914C CONNECTED
+1789368281.223 peer=1 room=T9870914C RUNNING role=Client tick=1780 requests=0 players=1 height=0.500 echo=0 wrongEcho=0 survivedPeerExit=False
+1789368281.289 peer=2 room=T9870914C CONNECTED
+1789368281.338 peer=2 room=T9870914C RUNNING role=Client tick=1788 requests=0 players=2 height=0.500 echo=0 wrongEcho=0 survivedPeerExit=False
+1789368283.230 peer=1 room=T9870914C PASS role=Client tick=1910 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368283.347 peer=2 room=T9870914C PASS role=Client tick=1920 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368285.231 peer=1 room=T9870914C PASS role=Client tick=2039 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368285.346 peer=2 room=T9870914C PASS role=Client tick=2047 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368287.230 peer=1 room=T9870914C PASS role=Client tick=2168 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368287.347 peer=2 room=T9870914C PASS role=Client tick=2176 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368289.231 peer=1 room=T9870914C PASS role=Client tick=2294 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368289.347 peer=2 room=T9870914C PASS role=Client tick=2303 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368291.249 peer=1 room=T9870914C PASS role=Client tick=2424 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368291.348 peer=2 room=T9870914C PASS role=Client tick=2430 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368293.264 peer=1 room=T9870914C PASS role=Client tick=2554 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368293.363 peer=2 room=T9870914C PASS role=Client tick=2560 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368295.271 peer=1 room=T9870914C PASS role=Client tick=2682 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368295.371 peer=2 room=T9870914C PASS role=Client tick=2688 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368297.270 peer=1 room=T9870914C PASS role=Client tick=2811 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368297.386 peer=2 room=T9870914C PASS role=Client tick=2817 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368299.278 peer=1 room=T9870914C PASS role=Client tick=2939 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368299.388 peer=2 room=T9870914C PASS role=Client tick=2945 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368301.292 peer=1 room=T9870914C PASS role=Client tick=3068 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368301.389 peer=2 room=T9870914C PASS role=Client tick=3072 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368303.296 peer=1 room=T9870914C PASS role=Client tick=3196 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368303.397 peer=2 room=T9870914C PASS role=Client tick=3202 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368303.547 peer=4 room=T9870914C CONNECT_FAILED GameNotFound
+1789368303.824 peer=5 room=T987MISSING0914 CONNECT_FAILED GameNotFound
+1789368305.312 peer=1 room=T9870914C PASS role=Client tick=3324 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368305.396 peer=2 room=T9870914C PASS role=Client tick=3331 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368307.313 peer=1 room=T9870914C PASS role=Client tick=3453 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368307.396 peer=2 room=T9870914C PASS role=Client tick=3459 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368309.313 peer=1 room=T9870914C PASS role=Client tick=3581 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368309.396 peer=2 room=T9870914C PASS role=Client tick=3587 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368311.330 peer=1 room=T9870914C PASS role=Client tick=3710 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368311.413 peer=2 room=T9870914C PASS role=Client tick=3716 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368313.347 peer=1 room=T9870914C PASS role=Client tick=3839 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368313.412 peer=2 room=T9870914C PASS role=Client tick=3843 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368315.347 peer=1 room=T9870914C PASS role=Client tick=3967 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368315.413 peer=2 room=T9870914C PASS role=Client tick=3971 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368317.348 peer=1 room=T9870914C PASS role=Client tick=4096 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368317.413 peer=2 room=T9870914C PASS role=Client tick=4100 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368319.363 peer=1 room=T9870914C PASS role=Client tick=4224 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368319.429 peer=2 room=T9870914C PASS role=Client tick=4228 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368321.363 peer=1 room=T9870914C PASS role=Client tick=4353 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368321.430 peer=2 room=T9870914C PASS role=Client tick=4357 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368323.362 peer=1 room=T9870914C PASS role=Client tick=4481 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368323.430 peer=2 room=T9870914C PASS role=Client tick=4485 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368325.363 peer=1 room=T9870914C PASS role=Client tick=4609 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368325.430 peer=2 room=T9870914C PASS role=Client tick=4613 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368326.298 peer=1 room=T9870914C STOPPED cleanly; last=PASS role=Client tick=4609 requests=2 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368327.445 peer=2 room=T9870914C PASS role=Client tick=4742 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368329.448 peer=2 room=T9870914C PASS role=Client tick=4870 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368331.463 peer=2 room=T9870914C PASS role=Client tick=4998 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368333.462 peer=2 room=T9870914C PASS role=Client tick=5126 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368335.463 peer=2 room=T9870914C PASS role=Client tick=5254 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368337.462 peer=2 room=T9870914C PASS role=Client tick=5383 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368339.462 peer=2 room=T9870914C PASS role=Client tick=5511 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368341.480 peer=2 room=T9870914C PASS role=Client tick=5640 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368343.479 peer=2 room=T9870914C PASS role=Client tick=5768 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368345.497 peer=2 room=T9870914C PASS role=Client tick=5896 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368347.496 peer=2 room=T9870914C PASS role=Client tick=6025 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368349.496 peer=2 room=T9870914C PASS role=Client tick=6153 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368351.514 peer=2 room=T9870914C PASS role=Client tick=6283 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368353.529 peer=2 room=T9870914C PASS role=Client tick=6412 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368355.546 peer=2 room=T9870914C PASS role=Client tick=6541 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368357.561 peer=2 room=T9870914C PASS role=Client tick=6669 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368359.562 peer=2 room=T9870914C PASS role=Client tick=6798 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368361.562 peer=2 room=T9870914C PASS role=Client tick=6926 requests=2 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368362.850 peer=1 room=T9870914C CONNECTED
+1789368362.863 peer=1 room=T9870914C RUNNING role=Client tick=7008 requests=2 players=2 height=0.500 echo=0 wrongEcho=0 survivedPeerExit=False
+1789368363.562 peer=2 room=T9870914C PASS role=Client tick=7054 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368364.881 peer=1 room=T9870914C PASS role=Client tick=7138 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368365.578 peer=2 room=T9870914C PASS role=Client tick=7182 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368366.896 peer=1 room=T9870914C PASS role=Client tick=7267 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368367.579 peer=2 room=T9870914C PASS role=Client tick=7311 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368368.896 peer=1 room=T9870914C PASS role=Client tick=7394 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368369.596 peer=2 room=T9870914C PASS role=Client tick=7440 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368370.896 peer=1 room=T9870914C PASS role=Client tick=7522 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368371.597 peer=2 room=T9870914C PASS role=Client tick=7566 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368372.896 peer=1 room=T9870914C PASS role=Client tick=7650 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368373.612 peer=2 room=T9870914C PASS role=Client tick=7696 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368374.897 peer=1 room=T9870914C PASS role=Client tick=7779 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368375.611 peer=2 room=T9870914C PASS role=Client tick=7823 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368376.896 peer=1 room=T9870914C PASS role=Client tick=7907 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368377.629 peer=2 room=T9870914C PASS role=Client tick=7953 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368378.246 peer=1 room=T9870914C STOPPED cleanly; last=PASS role=Client tick=7907 requests=3 players=2 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=False
+1789368379.645 peer=2 room=T9870914C PASS role=Client tick=8079 requests=3 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True
+1789368381.464 peer=2 room=T9870914C STOPPED cleanly; last=PASS role=Client tick=8079 requests=3 players=1 height=0.500 echo=1 wrongEcho=0 survivedPeerExit=True

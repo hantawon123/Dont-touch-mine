@@ -1,0 +1,9 @@
+{
+  "root": "/srv/d205-test/runtime",
+  "bind": "127.0.0.1",
+  "port": 4291,
+  "origin": "http://localhost:4291",
+  "api_origin": "https://j15d205.p.ssafy.io",
+  "region": "kr",
+  "startup_timeout": 90
+}

@@ -17,6 +17,10 @@ Unity 버전과 렌더 파이프라인을 맞추지 않으면 씬, 프리팹, �
 
 R3의 코어 DLL은 NuGetForUnity가 `Assets/Packages`에 복원합니다. DLL이 없다면 Unity 메뉴에서 `NuGet > Restore Packages`를 실행합니다. `Assets/Packages`는 생성 결과이므로 직접 수정하지 않습니다.
 
+## 에디터 멀티플레이 개발
+
+배포용 빌드 없이 팀원이 함께 테스트하려면 [개발 서버 실행 절차](Tools/network/server-flow/development-server.md)를 따른다. Game > Network > Development Server에서 한 명은 서버, 나머지는 같은 테스트 코드의 클라이언트로 Play한다.
+
 ## 기본 구조
 
 ```text

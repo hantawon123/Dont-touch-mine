@@ -1,11 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 project=$(pwd -P)
+support=$(cd "$(dirname "$0")" && pwd)
 revision=$(git rev-parse HEAD)
 cache="$project/Library/WebGLCiCache"
 mkdir -p Logs "$cache/bee" "$cache/nuget" "$cache/tools"
 # Clear reports before even validating credentials so a failed run cannot archive old success.
-rm -f Logs/webgl-build.log Logs/webgl-tests.log Logs/webgl-contract-results.xml Logs/webgl-build-report.json
+rm -f Logs/webgl-build.log Logs/server-build.log Logs/webgl-tests.log Logs/webgl-contract-results.xml Logs/webgl-build-report.json
 printf 'phase\tseconds\texit_code\n' > Logs/webgl-timings.tsv
 build_started=$SECONDS
 trap 'status=$?; printf "total\t%s\t%s\n" "$((SECONDS-build_started))" "$status" >> Logs/webgl-timings.tsv' EXIT
@@ -38,6 +39,8 @@ timed restore docker run --rm --cpus=1 --memory=1g --user "$uid:$gid" \
 # Never copy another computer's machine-id or change the license XML.
 # The nested license bind mount creates root-owned parents; keep preferences writable.
 run_unity() {
+local target=$1 image=$2
+shift 2
 docker run --rm --cpus=3 --cpu-shares=1024 --memory=8g --memory-swap=8g \
     --user "$uid:$gid" -e HOME=/home/unity -e WEBGL_REVISION="$revision" \
     -e BEE_CACHE_DIRECTORY=/cache/bee -e WEBGL_FAST_BUILD="${WEBGL_FAST_BUILD:-0}" \
@@ -47,15 +50,25 @@ docker run --rm --cpus=3 --cpu-shares=1024 --memory=8g --memory-swap=8g \
     --mount type=bind,src=/etc/machine-id,dst=/etc/machine-id,readonly \
     --mount "type=bind,src=$unity_home,dst=/home/unity/.config/unity3d/Unity" \
     --mount "type=bind,src=$project,dst=/workspace" -w /workspace \
-    unityci/editor:ubuntu-6000.3.22f1-webgl-3@sha256:509149d9a3bf36e84ce6e2916f7de6168d3cded05502c3129fc511de6768a42a \
-    unity-editor -batchmode -nographics -projectPath /workspace -buildTarget WebGL "$@"
+    "$image" \
+    unity-editor -batchmode -nographics -projectPath /workspace -buildTarget "$target" "$@"
 }
 
-timed tests run_unity -runTests -testPlatform EditMode \
+web_image=unityci/editor:ubuntu-6000.3.22f1-webgl-3@sha256:509149d9a3bf36e84ce6e2916f7de6168d3cded05502c3129fc511de6768a42a
+server_image=unityci/editor:ubuntu-6000.3.22f1-linux-il2cpp-3.2.2@sha256:bd9f0c77473bc842423236ec1498f180380f734dde521397e0fac2319865e87a
+timed tests run_unity WebGL "$web_image" -runTests -testPlatform EditMode \
     -testFilter Game.Architecture.Tests.NetworkContractTests \
     -testResults /workspace/Logs/webgl-contract-results.xml -logFile - 2>&1 | tee Logs/webgl-tests.log
 python3 -c 'import xml.etree.ElementTree as ET; result = ET.parse("Logs/webgl-contract-results.xml").getroot(); assert result.get("result") == "Passed" and int(result.get("total", "0")) > 0, "Unity contract tests did not pass"'
 if [ "${WEBGL_TEST_ONLY:-0}" = 1 ]; then exit 0; fi
-timed build run_unity -quit -executeMethod Game.Editor.WebBuild.Build -logFile - 2>&1 | tee Logs/webgl-build.log
+timed build run_unity WebGL "$web_image" -quit -executeMethod Game.Editor.WebBuild.Build -logFile - 2>&1 | tee Logs/webgl-build.log
 test -f Builds/WebGL/index.html
 test "$(cat Builds/WebGL/version.txt)" = "$revision"
+
+# A release always contains both targets from this exact source revision.
+timed server run_unity Linux64 "$server_image" -standaloneBuildSubtarget Server \
+    -quit -executeMethod Game.Editor.DedicatedServerBuild.Build -logFile - 2>&1 | tee Logs/server-build.log
+test -f Builds/Server/GameServer.x86_64
+test "$(cat Builds/Server/version.txt)" = "$revision"
+
+python3 "$support/prepare_release.py" Builds/WebGL

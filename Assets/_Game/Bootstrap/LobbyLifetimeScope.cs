@@ -148,6 +148,17 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
+            if (DedicatedServerStartup.IsRequested)
+            {
+                builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
+                    .WithParameter(true).WithParameter(gameObject.scene).AsSelf();
+                builder.RegisterBuildCallback(c =>
+                {
+                    c.Resolve<NetworkInteractionSceneBridge>().BindSceneItems(lobbyItems);
+                    c.Resolve<NetworkRunnerService>().RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
+                });
+                return;
+            }
             var configureStartedAt = Time.realtimeSinceStartupAsDouble;
             if (hudView == null)
             {

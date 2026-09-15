@@ -8,6 +8,7 @@ namespace Game.Network.Session
     /// </summary>
     public static class SessionPropertyKeys
     {
+        public const string AvailableServer = "available";
         /// <summary>Display name shown in the room list. May be duplicated.</summary>
         public const string DisplayName = "name";
 
@@ -100,6 +101,7 @@ namespace Game.Network.Session
         /// </summary>
         public readonly bool AllowCreate;
         public readonly bool IsVisible;
+        public readonly bool IsAvailableServer;
 
         private SessionRequest(
             GameMode mode,
@@ -109,7 +111,8 @@ namespace Game.Network.Session
             int maxPlayers,
             string password,
             bool allowCreate,
-            bool isVisible = true)
+            bool isVisible = true,
+            bool isAvailableServer = false)
         {
             Mode = mode;
             RoomCode = roomCode;
@@ -119,6 +122,7 @@ namespace Game.Network.Session
             Password = password;
             AllowCreate = allowCreate;
             IsVisible = isVisible;
+            IsAvailableServer = isAvailableServer;
         }
 
         /// <summary>Opens a new room as the authority.</summary>
@@ -154,5 +158,8 @@ namespace Game.Network.Session
             return new SessionRequest(
                 GameMode.Client, roomCode, null, null, 0, password, false);
         }
+
+        public static SessionRequest AvailableServer(string roomCode, string mapId) =>
+            new(GameMode.Server, roomCode, "Available server", mapId, 6, null, true, true, true);
     }
 }

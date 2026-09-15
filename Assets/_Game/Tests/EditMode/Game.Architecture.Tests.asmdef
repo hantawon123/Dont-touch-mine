@@ -14,6 +14,7 @@
         "UniTask",
         "VContainer",
         "Unity.InputSystem",
+        "Unity.InputSystem.TestFramework",
         "UnityEngine.TestRunner",
         "Unity.TextMeshPro",
         "UnityEditor.TestRunner",

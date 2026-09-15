@@ -10,7 +10,7 @@
 # SQL을 명령줄에 인라인하지 않는 이유는 verify.sh 와 같습니다. PowerShell에서 ssh로
 # 넘기면 홑따옴표 안의 겹따옴표가 벗겨져 bash 가 SELECT COUNT(*) 를 두 단어로 읽습니다.
 #
-# 지우는 것은 d205_analytics.game_event 한 테이블뿐입니다. 같은 스키마의
+# 지우는 것은 d205_analytics.game_event 한 테이블뿐입니다(컨테이너 d205-mysql-analytics, S15P21D205-980 이후). 같은 스키마의
 # flyway_schema_history 는 건드리지 않습니다 - 지우면 다음 배포가 V1~V4 를 처음부터
 # 다시 실행하려다 실패합니다. 뷰(match_analysis_*)는 실체화가 아니라 원본을 그때그때
 # 읽으므로 따로 비울 것이 없습니다.
@@ -38,9 +38,9 @@ fi
 
 # -f2- 입니다. verify.sh 는 -f2 를 쓰는데 비밀번호에 = 가 들어가면 거기서 잘립니다.
 # 여기서는 잘린 비밀번호로 붙지 못하는 것이 백업 실패로 이어지므로 뒤를 다 가져옵니다.
-PW=$(grep '^MYSQL_ROOT_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
+PW=$(grep '^ANALYTICS_MYSQL_ROOT_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
 if [ -z "$PW" ]; then
-    echo "$ENV_FILE 에 MYSQL_ROOT_PASSWORD 가 없습니다." >&2
+    echo "$ENV_FILE 에 ANALYTICS_MYSQL_ROOT_PASSWORD 가 없습니다." >&2
     exit 1
 fi
 
@@ -48,7 +48,7 @@ fi
 # 실패 사유를 지어내지 않습니다). SQL 안에 한글을 쓰지 않습니다 - docker exec 로 넘긴
 # UTF-8 식별자를 컨테이너 안 클라이언트가 다른 문자셋으로 읽어 구문 오류가 납니다.
 ask() {
-    docker exec d205-mysql mysql -uroot -p"$PW" --default-character-set=utf8mb4 \
+    docker exec d205-mysql-analytics mysql -uroot -p"$PW" --default-character-set=utf8mb4 \
         -t "$SCHEMA" -e "$1" 2>"$ERR" && return 0
     echo "  조회 실패:"
     grep -v 'Using a password' "$ERR" | sed 's/^/    /'
@@ -57,7 +57,7 @@ ask() {
 
 # 값 하나만 받습니다. -N -B 라 헤더도 표 테두리도 없습니다.
 value() {
-    docker exec d205-mysql mysql -uroot -p"$PW" -N -B "$SCHEMA" -e "$1" 2>/dev/null
+    docker exec d205-mysql-analytics mysql -uroot -p"$PW" -N -B "$SCHEMA" -e "$1" 2>/dev/null
 }
 
 echo "=== 지금 쌓인 것 ($SCHEMA.game_event) ==="
@@ -67,7 +67,7 @@ ask 'SELECT schema_ver, COUNT(*) AS rows_in, COUNT(DISTINCT match_id) AS matches
   || { echo "게임 로그 테이블을 읽지 못했습니다. 중단합니다." >&2; exit 1; }
 
 echo "--- 용량 ---"
-docker exec d205-mysql mysql -uroot -p"$PW" -t -e \
+docker exec d205-mysql-analytics mysql -uroot -p"$PW" -t -e \
   "SELECT table_name, table_rows, ROUND((data_length+index_length)/1024/1024,1) AS mb
      FROM information_schema.tables WHERE table_schema='$SCHEMA';" 2>/dev/null
 
@@ -102,7 +102,7 @@ BACKUP="$BACKUP_DIR/game_event_$(date +%Y%m%d_%H%M).sql.gz"
 # --single-transaction 은 덤프 중 들어오는 이벤트가 쓰기를 기다리지 않게 합니다.
 # InnoDB 라 일관된 스냅샷을 잠금 없이 뜹니다.
 # pipefail 이 켜져 있어 mysqldump 가 죽으면 gzip 이 성공해도 실패로 잡힙니다.
-docker exec d205-mysql mysqldump -uroot -p"$PW" --default-character-set=utf8mb4 \
+docker exec d205-mysql-analytics mysqldump -uroot -p"$PW" --default-character-set=utf8mb4 \
     --single-transaction "$SCHEMA" game_event 2>"$ERR" | gzip > "$BACKUP"
 if [ $? -ne 0 ]; then
     echo "덤프에 실패했습니다. 지우지 않고 멈춥니다:" >&2
@@ -138,7 +138,7 @@ if [ "${INSERTS:-0}" -eq 0 ]; then
 fi
 
 ls -lh "$BACKUP"
-echo "복원: gunzip -c $BACKUP | docker exec -i d205-mysql mysql -uroot -p'<암호>' $SCHEMA"
+echo "복원: gunzip -c $BACKUP | docker exec -i d205-mysql-analytics mysql -uroot -p'<암호>' $SCHEMA"
 
 if [ "$ASSUME_YES" -eq 0 ]; then
     if [ ! -t 0 ]; then
@@ -160,7 +160,7 @@ fi
 echo
 echo "=== 삭제 ==="
 # TRUNCATE 입니다. DELETE 는 InnoDB 가 디스크를 돌려주지 않고 AUTO_INCREMENT 도 그대로입니다.
-docker exec d205-mysql mysql -uroot -p"$PW" "$SCHEMA" -e 'TRUNCATE TABLE game_event;' 2>"$ERR"
+docker exec d205-mysql-analytics mysql -uroot -p"$PW" "$SCHEMA" -e 'TRUNCATE TABLE game_event;' 2>"$ERR"
 if [ $? -ne 0 ]; then
     echo "삭제에 실패했습니다:" >&2
     grep -v 'Using a password' "$ERR" | sed 's/^/  /' >&2

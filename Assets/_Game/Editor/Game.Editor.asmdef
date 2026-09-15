@@ -10,7 +10,8 @@
         "Game.Core",
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.RenderPipelines.Core.Runtime",
-        "Game.SOAP"
+        "Game.SOAP",
+        "Game.Network"
     ],
     "includePlatforms": [
         "Editor"

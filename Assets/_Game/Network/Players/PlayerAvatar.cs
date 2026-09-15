@@ -78,7 +78,7 @@ namespace Game.Network.Players
         public NetworkString<_64> UserId { get; set; }
 
         /// <summary>
-        /// Whether the owner holds authority over the room. Replicated rather
+        /// Whether this player manages the lobby; this does not grant simulation authority. Replicated rather
         /// than derived: a peer can tell whether it is itself the host, but not
         /// which of the others is.
         /// </summary>

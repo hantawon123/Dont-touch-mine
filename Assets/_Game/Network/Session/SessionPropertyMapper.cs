@@ -56,6 +56,8 @@ namespace Game.Network.Session
             // room list and every room stays "waiting" there.
             properties[SessionPropertyKeys.Playing] = false;
             AddMatchRules(properties, MatchRuleSettings.Default);
+            if (request.Mode == GameMode.Server)
+                properties[SessionPropertyKeys.AvailableServer] = request.IsAvailableServer;
             return properties;
         }
 

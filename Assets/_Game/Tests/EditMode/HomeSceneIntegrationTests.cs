@@ -12,14 +12,20 @@ namespace Game.Tests.EditMode
     public sealed class HomeSceneIntegrationTests
     {
         private const string HomeScenePath = "Assets/_Game/Content/Scenes/Home.unity";
+        private const string IntroScenePath = "Assets/_Game/Content/Scenes/Intro.unity";
 
         [Test]
         public void HomeScene_WiresMenuViewToGameSystems()
         {
+            // The build opens on the intro, which hands off to Home after one
+            // loop (IntroSceneExit). Home must therefore sit right behind it,
+            // enabled, so the hand-off has somewhere to land.
             var buildScenes = EditorBuildSettings.scenes;
-            Assert.That(buildScenes, Is.Not.Empty);
+            Assert.That(buildScenes, Has.Length.GreaterThanOrEqualTo(2));
             Assert.That(buildScenes[0].enabled, Is.True);
-            Assert.That(buildScenes[0].path, Is.EqualTo(HomeScenePath));
+            Assert.That(buildScenes[0].path, Is.EqualTo(IntroScenePath));
+            Assert.That(buildScenes[1].enabled, Is.True);
+            Assert.That(buildScenes[1].path, Is.EqualTo(HomeScenePath));
 
             var scene = SceneManager.GetSceneByPath(HomeScenePath);
             var openedForTest = !scene.isLoaded;

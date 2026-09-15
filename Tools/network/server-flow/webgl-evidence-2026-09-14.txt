@@ -1,0 +1,28 @@
+S15P21D205-988 actual WebGL smoke, 2026-09-14
+Version: 988-local-v1; WEBGL_FAST_BUILD=1 (functional validation only)
+One native game server + one actual WebGL browser client.
+Observed through normal Home/Create Room/Lobby/Settings/Leave UI.
+
+2026-09-14T08:24:15.459Z [Network] Session '988ABC' started as Client. IsServer=False
+2026-09-14T08:24:16.349Z [Rooms] Claimed server room as Client. Code=988ABC
+Visual: Lobby loaded, participant count 1/6, local player rendered.
+2026-09-14T08:26:14.329Z [Network] Left the room: Left
+2026-09-14T08:26:15.468Z [Network] Joined matchmaking lobby.
+Visual: Returned to Home after confirming Settings > Leave.
+Server log: [Network] Player left: [Player:2].
+Server log: [Network] Left the room: HostClosed
+Server log: [Network] Shutdown: Ok
+Server log: [Server] Session closed.
+Native server process exited.
+
+Limitations and unresolved observations:
+- Not a six-PC WebGL match, interaction, voice or performance test.
+- Preview header omission initially caused HTTP 400 MissingHeader; fixed to
+  forward the existing X-User-Id and X-Device-Id headers without logging them.
+- Existing presence/friends backend requests returned HTTP 401 in both native
+  and WebGL runs. Social/presence integration is not certified by this test.
+- At 08:25:32.868Z the in-app browser reported Chromium UnknownError:
+  "If you see this error we have a bug. Please report this bug to chromium."
+  Subsequent normal UI exit and Home return completed. Root cause unconfirmed;
+  record any recurrence during the separate-PC standard-browser check.
+- No credentials, account IDs, device IDs or response bodies are included.

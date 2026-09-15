@@ -7,7 +7,7 @@ const vm = require('node:vm');
   const current = 'a'.repeat(40);
   let latest = current, offline = false, confirmed = false, poll;
   const notice = {style: {}};
-  const location = {pathname: '/play/releases/' + current + '/', href: 'unchanged'};
+  const location = {pathname: '/play/releases/' + current + '/web/', href: 'unchanged'};
   vm.runInNewContext(fs.readFileSync(__dirname + '/release-info.js', 'utf8'), {
     location,
     document: {createElement: () => notice, body: {appendChild() {}}},

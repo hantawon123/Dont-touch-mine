@@ -68,11 +68,13 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
+            var browserReleased = Game.Client.Common.WebPointerInput.ReleasedByBrowserThisFrame;
             if (ownsGameplayCursor && !IsOpen && network.IsRuntimeReady &&
                 !network.IsWaitingForMatch && !network.IsHighlightInProgress && !network.IsResultSceneLoaded &&
                 Application.isFocused && !PlayerMovement.IsTextInputFocused() &&
                 (Keyboard.current == null || !Keyboard.current.escapeKey.isPressed) &&
-                (Cursor.lockState != CursorLockMode.Locked || Cursor.visible) && camera != null)
+                (!Game.Client.Common.WebPointerInput.IsLocked ||
+                 (Application.platform != RuntimePlatform.WebGLPlayer && Cursor.visible)) && camera != null)
             {
                 camera.SetCursorCaptureEnabled(true);
                 if (Time.unscaledTime >= nextCursorDiagnostic)
@@ -91,8 +93,10 @@ namespace Game.Bootstrap
                     if (camera != null)
                     {
                         camera.SetEscapeReleasesCursor(false);
+#if !UNITY_WEBGL || UNITY_EDITOR
                         // Force a fresh native capture after the Escape event has finished.
                         Cursor.lockState = CursorLockMode.None;
+#endif
                         camera.SetCursorCaptureEnabled(true);
                     }
                     Debug.Log($"[QA-Cursor] deferred restore frame={Time.frameCount} lock={Cursor.lockState} focus={Application.isFocused} rig={(camera == null ? 0 : camera.GetInstanceID())}");
@@ -111,8 +115,8 @@ namespace Game.Bootstrap
                 return;
             }
             if (!network.IsRuntimeReady ||
-                Keyboard.current == null ||
-                !Keyboard.current.escapeKey.wasPressedThisFrame ||
+                (!browserReleased && (Keyboard.current == null ||
+                 !Keyboard.current.escapeKey.wasPressedThisFrame)) ||
                 !ShouldHandleEscape(
                     PlayerMovement.IsTextInputFocused() ||
                     (chat != null && chat.ConsumedEscapeThisFrame),

@@ -1,0 +1,16 @@
+// 두 서비스가 함께 쓰는 라이브러리. 실행 파일이 아니라 bootJar 가 없습니다.
+//
+// 여기 들어오는 것의 기준: 두 모듈이 같은 규약으로 다뤄야 하는 값. 시각 문자열 형식, 오류 응답
+// 모양, 계정 토큰 서명. 한쪽만 쓰는 것은 그 모듈에 둡니다. 편하다고 여기에 쌓으면 common 이 바뀔
+// 때마다 두 이미지를 다시 배포하게 됩니다.
+plugins {
+	id 'java-library'
+}
+
+description = 'D205 shared: timestamps, error response, account token signing'
+
+dependencies {
+	api 'org.springframework:spring-context'
+	api 'org.springframework.boot:spring-boot'
+	api 'org.slf4j:slf4j-api'
+}

@@ -124,6 +124,7 @@ namespace Game.Client.Home
         private int shownOfflineCount;
         private Button dismissButton;
         private GameObject profileSettingsRoot;
+        private RectTransform profilePanel;
         private GameObject serverSettingsRoot;
         private GameObject createRoomRoot;
         private TMP_InputField roomNameInput;

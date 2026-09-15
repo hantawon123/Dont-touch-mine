@@ -23,8 +23,13 @@ docker images d205-app --format '이미지: {{.Repository}}:{{.Tag}}  {{.Created
 
 echo
 echo "=== 애플리케이션 ==="
-printf '내부 8080: '
+printf '내부 8080 (계정): '
 curl -sS --max-time 5 http://localhost:8080/actuator/health || echo '응답 없음'
+echo
+printf '내부 8081 (수집): '
+curl -sS --max-time 5 http://localhost:8081/actuator/health || echo '응답 없음'
+echo
+docker images d205-analytics --format '수집 이미지: {{.Repository}}:{{.Tag}}  {{.CreatedSince}}  {{.Size}}' | head -1
 echo
 printf 'HTTPS    : '
 curl -sS --max-time 5 https://j15d205.p.ssafy.io/actuator/health || echo '응답 없음'
@@ -62,6 +67,8 @@ fi
 
 PW=$(grep '^MYSQL_ROOT_PASSWORD=' "$ENV_FILE" | cut -d= -f2)
 DB=$(grep '^DB_NAME=' "$ENV_FILE" | cut -d= -f2)
+# 분석 DB 는 다른 컨테이너, 다른 root 비밀번호입니다(S15P21D205-980).
+APW=$(grep '^ANALYTICS_MYSQL_ROOT_PASSWORD=' "$ENV_FILE" | cut -d= -f2)
 
 echo
 echo "=== 테이블 ($DB) ==="
@@ -98,25 +105,34 @@ ask() {
     grep -v 'Using a password' /tmp/verify-sql.err | sed 's/^/    /'
 }
 
+# 같은 것을 분석 DB 컨테이너에 대고 합니다. d205_analytics 와 metabase 스키마는 그쪽에 있습니다.
+ask_analytics() {
+    local schema=$1 sql=$2
+    docker exec d205-mysql-analytics mysql -uroot -p"$APW" --default-character-set=utf8mb4 \
+        -t "$schema" -e "$sql" 2>/tmp/verify-sql.err && return 0
+    echo "  조회 실패:"
+    grep -v 'Using a password' /tmp/verify-sql.err | sed 's/^/    /'
+}
+
 echo
 echo "=== 분석 스키마 (d205_analytics) ==="
-# 게임 DB 와 같은 인스턴스의 다른 스키마입니다. 여기가 비어 있어도 게임은 멀쩡히
+# 별도 컨테이너(d205-mysql-analytics)입니다. 여기가 비어 있어도 게임은 멀쩡히
 # 돌아가므로, 보러 오지 않으면 수집이 멎은 것을 아무도 모릅니다.
 echo "[Flyway]"
-ask d205_analytics \
+ask_analytics d205_analytics \
   'SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;'
 
 # 뷰 셋은 V2·V3·V4 가 만듭니다. 대시보드 여덟 화면이 전부 이 뷰를 읽으므로, 없으면
 # 화면은 떠도 값이 나오지 않습니다.
 echo "[뷰]"
-ask d205_analytics \
+ask_analytics d205_analytics \
   "SELECT table_name FROM information_schema.views WHERE table_schema = 'd205_analytics';"
 
 echo
 echo "--- 수집된 이벤트 (rows=행, matches=경기) ---"
 # schema_ver 로 나눠 셉니다. v2 가 없으면 새 Unity 빌드가 아직 배포되지 않은 것이고,
 # 그때는 대시보드가 비어 있는 것이 정상입니다. 뷰가 schema_ver = 2 만 읽습니다.
-ask d205_analytics \
+ask_analytics d205_analytics \
   'SELECT schema_ver, COUNT(*) AS rows_in, COUNT(DISTINCT match_id) AS matches,
           MIN(received_at) AS first_at, MAX(received_at) AS last_at
      FROM game_event GROUP BY schema_ver ORDER BY schema_ver;'
@@ -124,13 +140,13 @@ ask d205_analytics \
 # 분석에 실제로 쓸 수 있는 경기 수. 시작·종료가 다 있고 예정 건수와 맞고 중단이
 # 아닌 것만 셉니다. 받은 경기가 있는데 complete 가 0 이면 전송이 중간에 끊기고 있습니다.
 echo "--- 완전 수신된 경기 ---"
-ask d205_analytics \
+ask_analytics d205_analytics \
   'SELECT SUM(upload_complete) AS complete, COUNT(*) AS total
      FROM match_analysis_summary;'
 
 echo
 echo "=== 대시보드 질문 (Metabase) ==="
-# Metabase 는 자기 설정을 같은 MySQL 의 metabase 스키마에 둡니다. API 로 물으면 관리자
+# Metabase 는 자기 설정을 분석 DB 컨테이너의 metabase 스키마에 둡니다. API 로 물으면 관리자
 # 로그인이 필요하지만 여기서는 이미 root 로 붙어 있으므로 그냥 읽습니다.
 #
 # provision_dashboards.py 가 만드는 것은 대시보드 하나와 질문 여덟 개입니다. 카드 수가
@@ -138,7 +154,7 @@ echo "=== 대시보드 질문 (Metabase) ==="
 #
 # 테이블 이름은 Metabase 버전에 딸린 것이라 우리가 정하지 않습니다. 못 찾으면 실패가
 # 그대로 찍히므로, 그때는 SHOW TABLES 로 이름부터 확인하면 됩니다.
-ask metabase \
+ask_analytics metabase \
   'SELECT d.name AS dashboard, COUNT(c.id) AS cards, d.updated_at AS updated
      FROM report_dashboard d
      LEFT JOIN report_dashboardcard c ON c.dashboard_id = d.id

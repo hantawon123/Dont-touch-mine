@@ -30,9 +30,103 @@
         },
         "type" : "object"
       },
+      "AdminOverview" : {
+        "properties" : {
+          "matches" : {
+            "$ref" : "#/components/schemas/MatchStats"
+          },
+          "now" : {
+            "$ref" : "#/components/schemas/Now"
+          },
+          "range" : {
+            "type" : "string"
+          },
+          "series" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Point"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "AdminSession" : {
         "properties" : {
           "username" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminUserDetail" : {
+        "properties" : {
+          "feedback" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FeedbackEntry"
+            },
+            "type" : "array"
+          },
+          "madeReports" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReportEntry"
+            },
+            "type" : "array"
+          },
+          "receivedReports" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReportEntry"
+            },
+            "type" : "array"
+          },
+          "user" : {
+            "$ref" : "#/components/schemas/AdminUserSummary"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminUserListResponse" : {
+        "properties" : {
+          "users" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AdminUserSummary"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminUserSummary" : {
+        "properties" : {
+          "createdAt" : {
+            "type" : "string"
+          },
+          "friendCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "lastSeenAt" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "presence" : {
+            "type" : "string"
+          },
+          "reportCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "suspended" : {
+            "type" : "boolean"
+          },
+          "suspendedAt" : {
+            "type" : "string"
+          },
+          "suspendedReason" : {
+            "type" : "string"
+          },
+          "userId" : {
             "type" : "string"
           }
         },
@@ -60,6 +154,27 @@
           "affected" : {
             "format" : "int32",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "FeedbackEntry" : {
+        "properties" : {
+          "buildVer" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "platform" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -158,91 +273,6 @@
         },
         "type" : "object"
       },
-      "GameEventRequest" : {
-        "properties" : {
-          "clientSeq" : {
-            "format" : "int64",
-            "maximum" : 4294967295,
-            "minimum" : 0,
-            "type" : "integer"
-          },
-          "clientSessionId" : {
-            "minLength" : 1,
-            "pattern" : "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
-            "type" : "string"
-          },
-          "eventName" : {
-            "maxLength" : 64,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "fromHost" : {
-            "type" : "boolean"
-          },
-          "mapId" : {
-            "maxLength" : 32,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "matchId" : {
-            "pattern" : "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
-            "type" : "string"
-          },
-          "matchTimeMs" : {
-            "format" : "int64",
-            "maximum" : 4294967295,
-            "minimum" : 0,
-            "type" : "integer"
-          },
-          "occurredAt" : {
-            "format" : "int64",
-            "type" : "integer"
-          },
-          "params" : {
-            "$ref" : "#/components/schemas/JsonNode"
-          },
-          "phase" : {
-            "maxLength" : 16,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "posX" : {
-            "format" : "float",
-            "type" : "number"
-          },
-          "posY" : {
-            "format" : "float",
-            "type" : "number"
-          },
-          "posZ" : {
-            "format" : "float",
-            "type" : "number"
-          },
-          "roomCode" : {
-            "maxLength" : 6,
-            "minLength" : 6,
-            "type" : "string"
-          },
-          "schemaVer" : {
-            "format" : "int32",
-            "minimum" : 1,
-            "type" : "integer"
-          },
-          "userPublicId" : {
-            "pattern" : "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
-            "type" : "string"
-          }
-        },
-        "required" : [
-          "clientSeq",
-          "clientSessionId",
-          "eventName",
-          "fromHost",
-          "occurredAt",
-          "schemaVer"
-        ],
-        "type" : "object"
-      },
       "HideResult" : {
         "properties" : {
           "affected" : {
@@ -293,95 +323,6 @@
         ],
         "type" : "object"
       },
-      "JsonNode" : {
-        "properties" : {
-          "array" : {
-            "type" : "boolean"
-          },
-          "bigDecimal" : {
-            "type" : "boolean"
-          },
-          "bigInteger" : {
-            "type" : "boolean"
-          },
-          "binary" : {
-            "type" : "boolean"
-          },
-          "boolean" : {
-            "type" : "boolean"
-          },
-          "container" : {
-            "type" : "boolean"
-          },
-          "double" : {
-            "type" : "boolean"
-          },
-          "embeddedValue" : {
-            "type" : "boolean"
-          },
-          "empty" : {
-            "type" : "boolean"
-          },
-          "float" : {
-            "type" : "boolean"
-          },
-          "floatingPointNumber" : {
-            "type" : "boolean"
-          },
-          "int" : {
-            "type" : "boolean"
-          },
-          "integralNumber" : {
-            "type" : "boolean"
-          },
-          "long" : {
-            "type" : "boolean"
-          },
-          "missingNode" : {
-            "type" : "boolean"
-          },
-          "nodeType" : {
-            "enum" : [
-              "ARRAY",
-              "BINARY",
-              "BOOLEAN",
-              "MISSING",
-              "NULL",
-              "NUMBER",
-              "OBJECT",
-              "POJO",
-              "STRING"
-            ],
-            "type" : "string"
-          },
-          "null" : {
-            "type" : "boolean"
-          },
-          "number" : {
-            "type" : "boolean"
-          },
-          "object" : {
-            "type" : "boolean"
-          },
-          "pojo" : {
-            "type" : "boolean"
-          },
-          "short" : {
-            "type" : "boolean"
-          },
-          "string" : {
-            "type" : "boolean"
-          },
-          "textual" : {
-            "deprecated" : true,
-            "type" : "boolean"
-          },
-          "valueNode" : {
-            "type" : "boolean"
-          }
-        },
-        "type" : "object"
-      },
       "ListResponse" : {
         "properties" : {
           "reports" : {
@@ -389,6 +330,92 @@
               "$ref" : "#/components/schemas/ReportDetail"
             },
             "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "MatchStats" : {
+        "properties" : {
+          "avgDurationSec" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "dropoutRate" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "inProgress" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "matchesToday" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "Now" : {
+        "properties" : {
+          "cpuPct" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "dbPoolActive" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "dbPoolMax" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "deletionsToday" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "feedbackToday" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "heapMaxMb" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "heapUsedMb" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inGame" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inLobby" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "online" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "pendingReports" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "signupsToday" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "socketConnections" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "suspendedUsers" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalUsers" : {
+            "format" : "int64",
+            "type" : "integer"
           }
         },
         "type" : "object"
@@ -408,8 +435,79 @@
         },
         "type" : "object"
       },
+      "Point" : {
+        "properties" : {
+          "at" : {
+            "type" : "string"
+          },
+          "cpuPct" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "dbPoolActive" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "deletions" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "heapUsedMb" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inGame" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inLobby" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "online" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "signups" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "socketConnections" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "ReportDetail" : {
         "properties" : {
+          "createdAt" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "memo" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ReportEntry" : {
+        "properties" : {
+          "counterpartNickname" : {
+            "type" : "string"
+          },
+          "counterpartUserId" : {
+            "type" : "string"
+          },
           "createdAt" : {
             "type" : "string"
           },
@@ -1052,6 +1150,37 @@
         ]
       }
     },
+    "/api/v1/admin/overview" : {
+      "get" : {
+        "operationId" : "overview",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "range",
+            "required" : false,
+            "schema" : {
+              "default" : "24h",
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminOverview"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-overview-controller"
+        ]
+      }
+    },
     "/api/v1/admin/reports" : {
       "get" : {
         "operationId" : "list_2",
@@ -1335,6 +1464,75 @@
         ]
       }
     },
+    "/api/v1/admin/users" : {
+      "get" : {
+        "operationId" : "search_1",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "q",
+            "required" : false,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "limit",
+            "required" : false,
+            "schema" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminUserListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-user-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{userId}" : {
+      "get" : {
+        "operationId" : "detail_1",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminUserDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-user-controller"
+        ]
+      }
+    },
     "/api/v1/admin/users/{userId}/suspension" : {
       "delete" : {
         "operationId" : "lift",
@@ -1400,32 +1598,6 @@
         },
         "tags" : [
           "admin-user-controller"
-        ]
-      }
-    },
-    "/api/v1/events" : {
-      "post" : {
-        "operationId" : "ingest",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "items" : {
-                  "$ref" : "#/components/schemas/GameEventRequest"
-                },
-                "type" : "array"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "202" : {
-            "description" : "Accepted"
-          }
-        },
-        "tags" : [
-          "game-event-controller"
         ]
       }
     },
