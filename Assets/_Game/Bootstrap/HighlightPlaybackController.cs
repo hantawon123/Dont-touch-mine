@@ -188,7 +188,11 @@ namespace Game.Bootstrap
             this.transition = transition ?? throw new ArgumentNullException(nameof(transition));
         }
 
+        private static readonly Unity.Profiling.ProfilerMarker CapturePlayersMarker = new("Highlight.CapturePlayers");
+        private static readonly Unity.Profiling.ProfilerMarker CaptureIdsMarker = new("Highlight.CaptureIds");
+        private static readonly Unity.Profiling.ProfilerMarker CaptureItemsMarker = new("Highlight.CaptureItems");
         private IMatchRuntimeContext sceneContext;
+        private readonly Dictionary<string, CarryableItem> sceneItems = new(StringComparer.Ordinal);
         private HighlightHudView cctvHud;
         private readonly List<HighlightCctvCamera> cctvCameras = new();
         private IReadOnlyList<SceneHighlightOcclusionReference> sceneOcclusionGroups;
@@ -200,9 +204,18 @@ namespace Game.Bootstrap
             sceneBound = true;
             hud = null;
             cctvCameras.Clear();
+            sceneItems.Clear();
             var groups = new List<SceneHighlightOcclusionReference>();
+            var lobbies = UnityEngine.Object.FindObjectsByType<LobbyLifetimeScope>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var root in scene.GetRootGameObjects())
             {
+                foreach (var item in root.GetComponentsInChildren<CarryableItem>(true))
+                {
+                    var belongsToLobby = false;
+                    foreach (var lobby in lobbies) if (lobby.OwnsItem(item)) { belongsToLobby = true; break; }
+                    if (!belongsToLobby) sceneItems.TryAdd(item.ObjectId, item);
+                }
                 if (hud == null) hud = root.GetComponentInChildren<NetworkMatchHudView>(true);
                 cctvCameras.AddRange(root.GetComponentsInChildren<HighlightCctvCamera>(true));
                 if (cctvHud == null) cctvHud = root.GetComponentInChildren<HighlightHudView>(true);
@@ -236,6 +249,7 @@ namespace Game.Bootstrap
             foreach (var visual in itemVisuals.Values) visual.Dispose();
             playerVisuals.Clear();
             itemVisuals.Clear();
+            sceneItems.Clear();
             if (fallbackObject != null)
             {
                 UnityEngine.Object.Destroy(fallbackObject);
@@ -663,22 +677,40 @@ namespace Game.Bootstrap
         private void CaptureVisuals()
         {
             if (phase == MatchPhase.Waiting) return;
-            foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
-                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            using (CapturePlayersMarker.Auto())
             {
-                var id = avatar.PlayerId;
-                if (id == null) continue;
-                if (!playerVisuals.ContainsKey(id))
-                    playerVisuals.Add(id, new ReplayVisual(avatar.transform, null));
+                foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
+                             FindObjectsInactive.Include, FindObjectsSortMode.None))
+                {
+                    var id = avatar.PlayerId;
+                    if (id == null) continue;
+                    if (!playerVisuals.ContainsKey(id))
+                        playerVisuals.Add(id, new ReplayVisual(avatar.transform, null));
+                }
             }
             // A large map can contain thousands of products, but only recorded objects need copies.
-            recordedObjectIds.Clear();
-            if (sceneContext != null)
-                foreach (var state in sceneContext.ReplayObjects) recordedObjectIds.Add(state.ObjectId);
-            foreach (var data in replay)
-                foreach (var clip in data.Clips)
-                    foreach (var frame in clip.Frames)
-                        foreach (var state in frame.WorldObjects) recordedObjectIds.Add(state.ObjectId);
+            using (CaptureIdsMarker.Auto())
+            {
+                recordedObjectIds.Clear();
+                if (sceneContext != null)
+                    foreach (var state in sceneContext.ReplayObjects) recordedObjectIds.Add(state.ObjectId);
+                foreach (var data in replay)
+                    foreach (var clip in data.Clips)
+                        foreach (var frame in clip.Frames)
+                            foreach (var state in frame.WorldObjects) recordedObjectIds.Add(state.ObjectId);
+            }
+            using var captureItems = CaptureItemsMarker.Auto();
+            // Scene capture creates all assignment copies before BindScene. The runtime
+            // replay list prioritizes active assignments, then tracked world props.
+            // Keep their references even after Fusion merges scenes or items are carried;
+            // rediscovering every prop each rendered frame is unrelated to replay sampling.
+            if (sceneBound && sceneContext != null)
+            {
+                foreach (var id in recordedObjectIds)
+                    if (!itemVisuals.ContainsKey(id) && sceneItems.TryGetValue(id, out var item) && item != null)
+                        itemVisuals.Add(id, new ReplayVisual(item.transform, null));
+                return;
+            }
             var lobbies = UnityEngine.Object.FindObjectsByType<LobbyLifetimeScope>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var item in UnityEngine.Object.FindObjectsByType<CarryableItem>(

@@ -17,6 +17,65 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkMatchHudPresenterTests
     {
+        [Test]
+        public void BoundReplay_CapturesNewlyTrackedItemAfterSceneMove_AndKeepsDestroyedVisual()
+        {
+            var map = UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
+            var scenePath = UnityEditor.AssetDatabase.GenerateUniqueAssetPath("Assets/ReplayCaptureTest.unity");
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(map, scenePath);
+            var other = UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Additive);
+            using var room = new RoomBrowserSystem();
+            var network = new FakeNetwork();
+            var playback = new NetworkHighlightPlaybackController(network, room, network, new FakeTransition());
+            try
+            {
+                var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                source.SetActive(false);
+                var item = source.AddComponent<Game.Client.Interactions.CarryableItem>();
+                item.UseObjectId("Soda_01");
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(source, map);
+                var lobbyRoot = new GameObject("Staged lobby");
+                lobbyRoot.SetActive(false);
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(lobbyRoot, map);
+                var lobby = lobbyRoot.AddComponent<LobbyLifetimeScope>();
+                var lobbyItem = lobbyRoot.AddComponent<Game.Client.Interactions.CarryableItem>();
+                lobbyItem.UseObjectId("Burger_01");
+                ((HashSet<Game.Client.Interactions.CarryableItem>)typeof(LobbyLifetimeScope).GetField("lobbyItems", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(lobby)).Add(lobbyItem);
+                var context = new ReplayCaptureContext();
+                playback.BindScene(map, context);
+                playback.Start();
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 100d));
+                playback.Tick();
+                var visuals = (Dictionary<string, Game.Client.Players.ReplayVisual>)typeof(NetworkHighlightPlaybackController)
+                    .GetField("itemVisuals", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(playback);
+                Assert.That(visuals, Is.Empty, "Unrecorded map props must remain live rather than being copied.");
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(source, other);
+                context.ReplayObjects = new[] { new WorldObjectState("Soda_01", new Pose(Vector3.zero, Quaternion.identity)), new WorldObjectState("Burger_01", new Pose(Vector3.zero, Quaternion.identity)) };
+                playback.Tick();
+                Assert.That(visuals.Count, Is.EqualTo(1), "Staged Lobby objects must not become gameplay replay objects.");
+                var visual = visuals["Soda_01"];
+                Assert.That(source.GetComponent<Renderer>().enabled, Is.True);
+                Assert.That(source.GetComponent<Renderer>().forceRenderingOff, Is.False);
+                UnityEngine.Object.DestroyImmediate(source);
+                Assert.DoesNotThrow(playback.Tick);
+                Assert.That(visuals["Soda_01"], Is.SameAs(visual));
+                Assert.That(visual.Target != null, Is.True, "Destruction must not erase a recorded highlight object.");
+            }
+            finally
+            {
+                playback.Dispose();
+                UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
+                UnityEditor.AssetDatabase.DeleteAsset(scenePath);
+            }
+        }
+
+        private sealed class ReplayCaptureContext : IMatchRuntimeContext
+        {
+            public double ServerTime => 0;
+            public IReadOnlyList<Vector3> PlayerPositions => Array.Empty<Vector3>();
+            public IReadOnlyList<Pose> PlayerPoses => Array.Empty<Pose>();
+            public IReadOnlyList<WorldObjectState> ReplayObjects { get; set; } = Array.Empty<WorldObjectState>();
+        }
         private IReadOnlyList<Game.Core.Items.ItemDefinition> previousCatalog;
 
         [SetUp]
