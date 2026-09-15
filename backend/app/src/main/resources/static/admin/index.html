@@ -145,6 +145,13 @@
      표만 가로로 밀리게 두고 카드 자체는 밀리지 않게 합니다. */
   .an-table { overflow-x: auto; }
 
+  /* 히트맵 색 눈금(1011). 어느 색이 몇 개인지 숫자로 읽히게 합니다. */
+  .hm-scale { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .hm-scale .caption { white-space: nowrap; }
+  .hm-scale .track { flex: 1; min-width: 140px; max-width: 420px; }
+  .hm-scale .bar { height: 10px; border-radius: 3px; border: 1px solid var(--line); }
+  .hm-scale .ticks { display: flex; justify-content: space-between; margin-top: 3px; font-variant-numeric: tabular-nums; }
+
   /*
    * 분석 탭 탐색(1010). 왼쪽 목록 + 오른쪽 한 장.
    *
@@ -1257,12 +1264,20 @@
     log.type = 'checkbox';
     log.id = 'hmLog';
     logLabel.append(log, document.createTextNode('로그 눈금'));
+
+    // 기본은 회색조입니다. 평면도의 주황 과일과 노란 상자가 열과 같은 색이라, 바탕이
+    // 총천연색이면 어디까지가 열인지 구분되지 않습니다. 원래 색은 지형을 확인할 때 씁니다.
+    const plainLabel = document.createElement('label');
+    const plain = document.createElement('input');
+    plain.type = 'checkbox';
+    plain.id = 'hmPlain';
+    plainLabel.append(plain, document.createTextNode('평면도 원래 색'));
     const grow = document.createElement('span');
     grow.className = 'grow';
     const read = document.createElement('span');
     read.id = 'hmRead';
     read.className = 'when';
-    bar.append(phase, seat, cell, logLabel, grow, read);
+    bar.append(phase, seat, cell, logLabel, plainLabel, grow, read);
 
     const wrap = document.createElement('div');
     wrap.className = 'hm-wrap';
@@ -1270,14 +1285,33 @@
     canvas.id = 'hmCanvas';
     wrap.appendChild(canvas);
 
+    // 색 눈금. 히트맵을 처음 보는 사람은 진한 칸이 몇 개를 뜻하는지 알 수 없습니다.
+    const scale = document.createElement('div');
+    scale.id = 'hmScale';
+    scale.className = 'hm-scale';
+    scale.hidden = true;
+    const caption = document.createElement('span');
+    caption.className = 'caption';
+    caption.textContent = '칸 안의 샘플 수';
+    const track = document.createElement('div');
+    track.className = 'track';
+    const gradient = document.createElement('div');
+    gradient.className = 'bar';
+    gradient.id = 'hmScaleBar';
+    const ticks = document.createElement('div');
+    ticks.className = 'ticks';
+    ticks.id = 'hmScaleTicks';
+    track.append(gradient, ticks);
+    scale.append(caption, track);
+
     const legend = document.createElement('div');
     legend.id = 'hmLegend';
     legend.className = 'an-note';
     legend.style.marginTop = '8px';
 
-    box.append(bar, wrap, legend);
+    box.append(bar, wrap, scale, legend);
 
-    for (const control of [phase, seat, cell, log]) {
+    for (const control of [phase, seat, cell, log, plain]) {
       control.addEventListener('change', () => drawHeatmap());
     }
     canvas.addEventListener('mousemove', (event) => readHeatmapCell(event));
@@ -1358,6 +1392,40 @@
     select.appendChild(option('all', allText));
     for (const v of values) select.appendChild(option(v, label(v)));
     select.value = values.includes(keep) ? keep : 'all';
+  }
+
+  /**
+   * 색 눈금 (1011).
+   *
+   * 색 띠는 언제나 같습니다. t 가 0 에서 1 로 갈 때의 색이고, 그 t 를 몇 개로 읽을지가
+   * 로그 눈금 켬·끔에 따라 달라집니다. 그래서 띠는 그대로 두고 아래 숫자만 바꿉니다.
+   *
+   * 숫자가 없으면 히트맵을 처음 보는 사람은 진한 칸이 몇 개를 뜻하는지 알 수 없습니다.
+   */
+  function drawHeatScale(max, useLog) {
+    const scale = el('hmScale');
+    if (!scale) return;
+    if (!max) {
+      scale.hidden = true;
+      return;
+    }
+    scale.hidden = false;
+
+    const stops = HEAT_STOPS.map((c, i) =>
+      'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ') '
+      + Math.round(i / (HEAT_STOPS.length - 1) * 100) + '%').join(', ');
+    el('hmScaleBar').style.background = 'linear-gradient(to right, ' + stops + ')';
+
+    // 그리는 쪽과 같은 식을 거꾸로 씁니다. 선형은 t = v / max, 로그는 t = log1p(v) / log1p(max).
+    const valueAt = (t) => useLog ? Math.expm1(t * Math.log1p(max)) : t * max;
+
+    const ticks = el('hmScaleTicks');
+    ticks.textContent = '';
+    for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+      const label = document.createElement('span');
+      label.textContent = Math.max(0, Math.round(valueAt(t))).toLocaleString('ko-KR');
+      ticks.appendChild(label);
+    }
   }
 
   function heatColor(t, alpha) {
@@ -1448,7 +1516,24 @@
     ctx.fillStyle = '#f7f8fa';
     ctx.fillRect(M.l, M.t, plotW, plotH);
     const hasImage = heatmapImage && heatmapImage.complete && heatmapImage.naturalWidth > 0;
-    if (hasImage) ctx.drawImage(heatmapImage, M.l, M.t, plotW, plotH);
+    // 평면도에서 색을 뺍니다. 매대의 주황 과일과 노란 상자가 열과 같은 색이라, 바탕이
+    // 총천연색이면 어디까지가 열이고 어디부터가 상품인지 구분되지 않습니다. 회색 바탕이면
+    // 화면에 남는 유일한 색이 열입니다.
+    //
+    // canvas 의 filter 를 못 쓰는 브라우저에서는 그냥 원래 색으로 깝니다. 읽기 어려울 뿐
+    // 그림이 안 나오는 것보다 낫습니다.
+    const plainMap = el('hmPlain').checked;
+    if (hasImage) {
+      const canFilter = typeof ctx.filter === 'string';
+      if (!plainMap && canFilter) {
+        ctx.save();
+        ctx.filter = 'grayscale(1) brightness(1.14) contrast(0.78)';
+        ctx.drawImage(heatmapImage, M.l, M.t, plotW, plotH);
+        ctx.restore();
+      } else {
+        ctx.drawImage(heatmapImage, M.l, M.t, plotW, plotH);
+      }
+    }
 
     ctx.save();
     ctx.beginPath();
@@ -1459,7 +1544,7 @@
         const v = counts[j * nx + i];
         if (!v) continue;
         const t = useLog ? Math.log1p(v) / Math.log1p(max) : v / max;
-        ctx.fillStyle = heatColor(t, hasImage ? 0.8 : 0.95);
+        ctx.fillStyle = heatColor(t, hasImage ? (plainMap ? 0.8 : 0.88) : 0.95);
         ctx.fillRect(px(gx0 + i * cell), pz(gz0 + (j + 1) * cell), cell * sx + 0.5, cell * sz + 0.5);
       }
     }
@@ -1490,9 +1575,15 @@
     heatmapGeom = { x0, z0, x1, z1, gx0, gz0, cell, nx, nz, counts, sx, sz, M };
 
     const outside = rows.length - inside;
+    drawHeatScale(max, useLog);
+
     el('hmLegend').textContent = inside.toLocaleString('ko-KR') + '개 샘플을 ' + cell + ' m 칸에 모았습니다. 가장 진한 칸 '
       + max.toLocaleString('ko-KR') + '개' + (useLog ? ' (로그 눈금)' : '')
-      + (outside ? '. 경계 밖 샘플 ' + outside.toLocaleString('ko-KR') + '개는 그리지 않았습니다 - 경계값이 맵과 다르거나 맵 밖 좌표입니다' : '')
+      // 범위 밖은 대개 잘못된 값이 아니라 대기실입니다. 숨기기 단계에는 자기 차례가 아닌
+      // 사람이 마트 밖 대기실에 서 있고, 그 방은 일부러 범위에서 뺐습니다. 전에는 이 문구가
+      // "경계값이 맵과 다르거나"라고 말해서 설정이 틀린 줄 오해하게 만들었습니다.
+      + (outside ? '. 범위 밖 샘플 ' + outside.toLocaleString('ko-KR')
+          + '개는 그리지 않았습니다 - 대부분 숨기기 단계에 대기실에 있던 사람입니다' : '')
       + '. 범위 x ' + x0 + '~' + x1 + ', z ' + z0 + '~' + z1 + ' m.';
   }
 
