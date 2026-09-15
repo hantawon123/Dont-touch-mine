@@ -413,7 +413,7 @@ namespace Game.Bootstrap
                 foreach (var behaviour in root.GetComponentsInChildren<Behaviour>(true))
                 {
                     if (behaviour is Camera or Canvas or AudioListener or AudioSource or
-                        EventSystem or Light)
+                        UnityEngine.Video.VideoPlayer or EventSystem or Light)
                         outgoing.Add(behaviour);
                 }
             }

@@ -1567,6 +1567,12 @@ namespace Game.Network.Session
 
         public void Shutdown()
         {
+            if (_disposed) return;
+            ShutdownCore();
+        }
+
+        private void ShutdownCore()
+        {
             _hostMigrationRevision++;
             _hostMigrationInProgress = false;
             var runner = _runner;
@@ -1700,7 +1706,7 @@ namespace Game.Network.Session
             }
 
             _disposed = true;
-            Shutdown();
+            ShutdownCore();
         }
 
         /// <summary>

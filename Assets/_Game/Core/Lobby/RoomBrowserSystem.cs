@@ -34,6 +34,7 @@ namespace Game.Core.Lobby
         private readonly ReactiveProperty<RoomStartResult?> lastStartRefusal = new(null);
 
         private int activeOperations;
+        private bool disposed;
 
         public ReadOnlyReactiveProperty<IReadOnlyList<RoomSummary>> Rooms => rooms;
         public ReadOnlyReactiveProperty<bool> IsBusy => isBusy;
@@ -95,6 +96,7 @@ namespace Game.Core.Lobby
 
         public void MatchStarted(IReadOnlyList<MatchParticipant> participants)
         {
+            if (disposed) return;
             if (participants == null)
             {
                 throw new ArgumentNullException(nameof(participants));
@@ -122,6 +124,7 @@ namespace Game.Core.Lobby
 
         public void SetParticipants(IReadOnlyList<RoomParticipant> refreshed)
         {
+            if (disposed) return;
             if (refreshed == null)
             {
                 throw new ArgumentNullException(nameof(refreshed));
@@ -139,11 +142,13 @@ namespace Game.Core.Lobby
 
         public void SetLocalPlayer(string playerId)
         {
+            if (disposed) return;
             localPlayerId.Value = playerId;
         }
 
         public void SetRooms(IReadOnlyList<RoomSummary> refreshedRooms)
         {
+            if (disposed) return;
             if (refreshedRooms == null)
             {
                 throw new ArgumentNullException(nameof(refreshedRooms));
@@ -293,6 +298,7 @@ namespace Game.Core.Lobby
 
         public void PlayerCountChanged(int current, int max)
         {
+            if (disposed) return;
             playerCount.Value = current;
             maxPlayers.Value = max;
             lastExit.Value = null;
@@ -300,6 +306,7 @@ namespace Game.Core.Lobby
 
         public void RoomClosed(RoomExitReason reason)
         {
+            if (disposed) return;
             isInRoom.Value = false;
             playerCount.Value = 0;
             maxPlayers.Value = 0;
@@ -307,10 +314,11 @@ namespace Game.Core.Lobby
             lastExit.Value = reason;
         }
 
-        public void AcknowledgeExit() => lastExit.Value = null;
+        public void AcknowledgeExit() { if (!disposed) lastExit.Value = null; }
 
         internal void BeginOperation()
         {
+            if (disposed) return;
             activeOperations++;
             isBusy.Value = true;
             lastFailure.Value = RoomEntryFailure.None;
@@ -318,12 +326,14 @@ namespace Game.Core.Lobby
 
         internal void EndOperation()
         {
+            if (disposed) return;
             activeOperations--;
             isBusy.Value = activeOperations > 0;
         }
 
         internal RoomEntryResult Record(RoomEntryResult result)
         {
+            if (disposed) return result;
             lastFailure.Value = result.Failure;
             roomCode.Value = result.Ok ? result.RoomCode : null;
 
@@ -338,12 +348,15 @@ namespace Game.Core.Lobby
 
         internal RoomEntryFailure Record(RoomEntryFailure failure)
         {
+            if (disposed) return failure;
             lastFailure.Value = failure;
             return failure;
         }
 
         public void Dispose()
         {
+            if (disposed) return;
+            disposed = true;
             rooms.Dispose();
             isBusy.Dispose();
             lastFailure.Dispose();

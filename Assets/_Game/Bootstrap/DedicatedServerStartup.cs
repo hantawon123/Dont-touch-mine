@@ -104,8 +104,7 @@ namespace Game.Bootstrap
                             network.IsAwaitingRoomClaim ? $"새 방 배정 대기: {code} (접속 {network.PlayerCount}명)" :
                             $"방 사용 중: {code} (접속 {network.PlayerCount}명)");
 #endif
-                    // Claimed rooms with no remaining players must recycle even if their avatar was already removed.
-                    if (!network.IsAwaitingRoomClaim && network.PlayerCount == 0) break;
+                    // Owner departure is handled by the network callback, not a transient room-list count.
                     if (!editorServer && network.IsAwaitingRoomClaim && Time.realtimeSinceStartupAsDouble - startedAt > 120d) break;
                     if (network.PlayerCount > 0) emptySince = Time.realtimeSinceStartupAsDouble;
                     if (!editorServer && Time.realtimeSinceStartupAsDouble - emptySince > 120d) break;
@@ -126,7 +125,8 @@ namespace Game.Bootstrap
                 }
 #endif
             }
-            catch (OperationCanceledException) { network.Shutdown(); }
+            // Scope disposal owns network cleanup. Its canceled startup continuation must not shut down twice.
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
             catch (Exception exception)
             {
                 network.Shutdown();
