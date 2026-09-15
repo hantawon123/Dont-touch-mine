@@ -35,9 +35,9 @@ namespace Game.Core.Ports
         ReadOnlyReactiveProperty<bool> IsTransmitting { get; }
 
         /// <summary>
-        /// Whether this machine plays other people's voice. Independent of
-        /// mute: a silenced microphone can still hear the room, and a closed
-        /// speaker can still talk.
+        /// Whether this machine plays other people's voice. A silenced
+        /// microphone can still hear the room. Closing the speaker also mutes
+        /// the microphone; turning the speaker back on does not unmute it.
         /// </summary>
         ReadOnlyReactiveProperty<bool> IsListening { get; }
 

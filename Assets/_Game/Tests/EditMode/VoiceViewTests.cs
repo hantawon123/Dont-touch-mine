@@ -168,6 +168,29 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void SpeakerOff_AlsoMutesTheMicrophone()
+        {
+            var view = new FakeVoiceView();
+            var voice = new FakeVoiceControl(muted: false);
+            var asset = ScriptableObject.CreateInstance<InputActionAsset>();
+            try
+            {
+                var presenter = new VoicePresenter(view, voice, asset);
+                presenter.HandleSpeakerToggle();
+                Assert.That(voice.IsListening.CurrentValue, Is.False);
+                Assert.That(voice.IsMuted.CurrentValue, Is.True);
+
+                presenter.HandleSpeakerToggle();
+                Assert.That(voice.IsListening.CurrentValue, Is.True);
+                Assert.That(voice.IsMuted.CurrentValue, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(asset);
+            }
+        }
+
         private sealed class FakeVoiceView : IVoiceView
         {
             public event System.Action MuteToggleRequested;

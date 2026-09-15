@@ -86,6 +86,10 @@ namespace Game.Bootstrap
             if (disposed) return;
             preferences.Listening = listening;
             PublishListening();
+            if (!listening)
+            {
+                SetMuted(true);
+            }
         }
 
         /// <remarks>
