@@ -695,6 +695,7 @@ MonoBehaviour:
   closeIcon: {fileID: 21300000, guid: 145a6f57902c6644198a09641d23817c, type: 3}
   alertIcon: {fileID: 21300000, guid: 7587284cd1eefb844b72eed010569c33, type: 3}
   fontAsset: {fileID: 11400000, guid: eadaa4b688ac33740865e8d730c1339e, type: 2}
+  titleFont: {fileID: 11400000, guid: a0daab1b1518d4b428343619c3a4058a, type: 2}
   semiBoldFont: {fileID: 11400000, guid: 274d1eadfdbd87444b3da6ea0c708488, type: 2}
   nicknameText: {fileID: 0}
 --- !u!1 &1531221437

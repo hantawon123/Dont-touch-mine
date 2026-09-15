@@ -135,12 +135,18 @@ namespace Game.Client.Home
         public static class Layout
         {
             /// <summary>
-            /// The left edge of the menu and the top of its first line, both
-            /// measured from the top-left corner of the mock-up.
+            /// Title bounds and menu position in the 1920 x 1080 mock-up,
+            /// measured from its top-left corner.
             /// </summary>
-            public const float MenuLeft = 212f;
+            public const float TitleLeft = 269f;
+            public const float TitleTop = 228f;
+            public const float TitleWidth = 600f;
+            public const float TitleHeight = 240f;
+            public const float TitleFontSize = 90f;
 
-            public const float MenuTop = 399f;
+            public const float MenuLeft = 269f;
+
+            public const float MenuTop = 510f;
 
             /// <summary>
             /// The design gives 30 between one line's box and the next, not
