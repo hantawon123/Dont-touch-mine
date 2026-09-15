@@ -56,7 +56,8 @@ namespace Game.Network.Match
             return IsValidRelease(playerPose, releasePose) &&
                    IsFinite(initialVelocity) &&
                    initialVelocity.sqrMagnitude > 0f &&
-                   initialVelocity.sqrMagnitude <= maxThrowSpeedSquared;
+                   // Normalizing a direction and multiplying by the exact cap can round a few ULPs above it.
+                   initialVelocity.sqrMagnitude <= maxThrowSpeedSquared + 0.0001f;
         }
 
         private static bool IsValidRotation(Quaternion rotation)

@@ -36,6 +36,7 @@ namespace Game.Network.Players
 
         private IReadOnlyList<Pose> _spawnPoses = Array.Empty<Pose>();
         private PlayerRef _roomOwner;
+        public bool IsAssignedRoomOwner(PlayerRef player) => player.IsRealPlayer && player == _roomOwner;
 
         public static bool IsRoomOwner(NetworkRunner runner, PlayerRef player)
         {
@@ -98,8 +99,9 @@ namespace Game.Network.Players
             var pageShift = (int)runner.Config.Heap.PageShift;
             ValidateRoomObjectStateSize(NetworkObject.GetWordCount(sessionPrefab), pageShift);
             ValidateRoomObjectStateSize(NetworkObject.GetWordCount(checkpointPrefab), pageShift);
-            var session = runner.Spawn(sessionPrefab);
-            var checkpoint = runner.Spawn(checkpointPrefab);
+            // Preserve room state on every peer, not only the authority's scene.
+            var session = runner.Spawn(sessionPrefab, flags: NetworkSpawnFlags.DontDestroyOnLoad);
+            var checkpoint = runner.Spawn(checkpointPrefab, flags: NetworkSpawnFlags.DontDestroyOnLoad);
 
             if (session == null || checkpoint == null)
             {
@@ -107,13 +109,6 @@ namespace Game.Network.Players
                 if (checkpoint != null) runner.Despawn(checkpoint);
                 throw new InvalidOperationException("[Spawn] Could not spawn the room state objects.");
             }
-
-            // Belongs to the room, not to a scene. Fusion in single-peer mode
-            // leaves a spawned object in whichever scene was active, so loading
-            // the match scene would destroy the room's record of the match along
-            // with its confirmed line-up.
-            runner.MakeDontDestroyOnLoad(session.gameObject);
-            runner.MakeDontDestroyOnLoad(checkpoint.gameObject);
         }
 
         internal static void ValidateRoomObjectStateSize(int wordCount, int pageShift)
@@ -166,12 +161,15 @@ namespace Game.Network.Players
             // Networked values are set here, not after Spawn returns. Fusion
             // replicates the object as it is created, and a value written
             // afterwards would reach clients a tick late behind its default.
+            // Replicate scene persistence; moving only the server instance leaves
+            // client avatars destroyed/recreated when the outgoing scene unloads.
             var avatar = runner.Spawn(
                 prefab,
                 pose.position,
                 pose.rotation,
                 player,
-                (_, spawned) => Describe(spawned, seat, isHost, nickname, userId));
+                (_, spawned) => Describe(spawned, seat, isHost, nickname, userId),
+                flags: NetworkSpawnFlags.DontDestroyOnLoad);
 
             if (avatar == null)
             {
@@ -186,13 +184,6 @@ namespace Game.Network.Players
             // character finds it without a second table to keep in step.
             runner.SetPlayerObject(player, avatar);
             _roomOwner = owner;
-
-            // A character belongs to the room, which outlives any one scene.
-            // Fusion in single-peer mode leaves spawned objects in whichever
-            // scene was active, so without this the match scene load destroys
-            // everyone as it replaces the lobby scene. This is the same call
-            // Fusion makes for objects it is told to keep.
-            runner.MakeDontDestroyOnLoad(avatar.gameObject);
 
             // Spawned() keeps KCC inactive while the room is still changing
             // scenes. A player joining an already-loaded lobby does not receive

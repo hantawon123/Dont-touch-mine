@@ -184,9 +184,9 @@ namespace Game.Server.Match
             foreach (var candidate in candidates)
             {
                 if (candidate.Score <= 0d) continue;
-                if (!candidatesByType.TryGetValue(candidate.Type, out var selected) ||
-                    candidate.Score > selected.Score ||
-                    candidate.Score == selected.Score && candidate.EventAt > selected.EventAt)
+                if (!candidatesByType.TryGetValue(candidate.Type, out var existing) ||
+                    candidate.Score > existing.Score ||
+                    candidate.Score == existing.Score && candidate.EventAt > existing.EventAt)
                 {
                     candidatesByType[candidate.Type] = candidate;
                 }
@@ -201,47 +201,19 @@ namespace Game.Server.Match
                     : left.Type.CompareTo(right.Type);
             });
 
-            if (ranked.Count > Game.SOAP.Config.MatchRulesSO.MaxHighlightCount)
+            var selected = new List<HighlightCandidate>();
+            foreach (var candidate in ranked)
             {
-                ranked.RemoveRange(
-                    Game.SOAP.Config.MatchRulesSO.MaxHighlightCount,
-                    ranked.Count - Game.SOAP.Config.MatchRulesSO.MaxHighlightCount);
+                var duplicate = selected.Exists(previous =>
+                    candidate.ActorPlayerIndex >= 0 &&
+                    previous.ActorPlayerIndex == candidate.ActorPlayerIndex &&
+                    previous.TargetId == candidate.TargetId &&
+                    Math.Abs(previous.EventAt - candidate.EventAt) < 0.1d);
+                if (duplicate) continue;
+                selected.Add(candidate);
+                if (selected.Count == Game.SOAP.Config.MatchRulesSO.MaxHighlightCount) break;
             }
-
-            for (var index = 0; index < ranked.Count; index++)
-                ranked[index] = KeepEventSegment(ranked[index]);
-
-            return ranked.ToArray();
-        }
-
-        private static HighlightCandidate KeepEventSegment(HighlightCandidate candidate)
-        {
-            var selected = candidate.Segments[0];
-            var selectedDistance = DistanceFrom(candidate.EventAt, selected);
-            for (var index = 1; index < candidate.Segments.Count; index++)
-            {
-                var segment = candidate.Segments[index];
-                var distance = DistanceFrom(candidate.EventAt, segment);
-                if (distance >= selectedDistance) continue;
-                selected = segment;
-                selectedDistance = distance;
-            }
-
-            return new HighlightCandidate(
-                candidate.Type,
-                new[] { selected },
-                candidate.TargetId,
-                Math.Clamp(candidate.EventAt, selected.StartedAt, selected.EndedAt),
-                candidate.Score,
-                candidate.ActorPlayerIndex,
-                candidate.SecondaryPlayerIndex);
-        }
-
-        private static double DistanceFrom(double eventAt, HighlightSegment segment)
-        {
-            if (eventAt < segment.StartedAt) return segment.StartedAt - eventAt;
-            if (eventAt > segment.EndedAt) return eventAt - segment.EndedAt;
-            return 0d;
+            return selected.ToArray();
         }
     }
 }

@@ -189,6 +189,8 @@ namespace Game.Bootstrap
         }
 
         private IMatchRuntimeContext sceneContext;
+        private HighlightHudView cctvHud;
+        private readonly List<HighlightCctvCamera> cctvCameras = new();
         private IReadOnlyList<SceneHighlightOcclusionReference> sceneOcclusionGroups;
         private readonly HashSet<string> recordedObjectIds = new(StringComparer.Ordinal);
 
@@ -197,10 +199,13 @@ namespace Game.Bootstrap
             sceneContext = context;
             sceneBound = true;
             hud = null;
+            cctvCameras.Clear();
             var groups = new List<SceneHighlightOcclusionReference>();
             foreach (var root in scene.GetRootGameObjects())
             {
                 if (hud == null) hud = root.GetComponentInChildren<NetworkMatchHudView>(true);
+                cctvCameras.AddRange(root.GetComponentsInChildren<HighlightCctvCamera>(true));
+                if (cctvHud == null) cctvHud = root.GetComponentInChildren<HighlightHudView>(true);
                 foreach (var config in root.GetComponentsInChildren<MatchSceneConfiguration>(true))
                     groups.AddRange(config.HighlightOcclusionGroups);
             }
@@ -398,9 +403,11 @@ namespace Game.Bootstrap
             PublishHighlightHud(index, elapsed);
             cameraDirector.SetPlaybackTime(playbackTime);
             cameraDirector.Tick(Time.unscaledDeltaTime);
+            if (cctvHud != null) cctvHud.SetCctvInfo(string.IsNullOrEmpty(cameraDirector.CctvLocation)
+                ? "3인칭 추적" : cameraDirector.CctvLocation, replayPlayer.SourceTime);
             transition.SetOpacity(Mathf.Max(
                 HighlightPresentationTiming.Opacity(elapsed, duration),
-                HighlightReplayPlayer.CutOpacity(replay[index].Clips, playbackTime)));
+                Mathf.Max(cameraDirector.CctvOpacity, HighlightReplayPlayer.CutOpacity(replay[index].Clips, playbackTime))));
         }
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
@@ -578,7 +585,8 @@ namespace Game.Bootstrap
                 fallbackObject.transform,
                 playerTargets,
                 objectTargets,
-                occlusionGroups: sceneOcclusionGroups);
+                occlusionGroups: sceneOcclusionGroups,
+                cctvCameras: cctvCameras);
             cameraDirector.Focus(current.Candidate);
             Debug.Log($"[Highlight] Playback ready: type={current.Candidate.Type}, players={playerTargets.Length}, objects={objectTargets.Length}, camera={output.name}.");
             return true;
@@ -586,11 +594,11 @@ namespace Game.Bootstrap
 
         internal static string TitleOf(HighlightType type) => type switch
         {
-            HighlightType.FirstBlood => "FIRST BLOOD",
-            HighlightType.TteTanMulgun => "HOT ITEM",
-            HighlightType.FinalMoment => "FINAL MOMENT",
-            HighlightType.LongestHidden => "LONGEST HIDDEN",
-            HighlightType.MostStunned => "MOST STUNNED",
+            HighlightType.FirstBlood => "첫 물건 파괴",
+            HighlightType.TteTanMulgun => "물건 쟁탈전",
+            HighlightType.FinalMoment => "마지막 결정적 순간",
+            HighlightType.LongestHidden => "아슬아슬한 은닉",
+            HighlightType.MostStunned => "기절 장면",
             _ => type.ToString().ToUpperInvariant(),
         };
 

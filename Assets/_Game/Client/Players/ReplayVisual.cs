@@ -78,7 +78,7 @@ namespace Game.Client.Players
             }
             copies = Target.GetComponentsInChildren<Renderer>(true);
             foreach (var copy in copies) copy.forceRenderingOff = true;
-            Target.gameObject.SetActive(Animator != null);
+            Target.gameObject.SetActive(false);
         }
 
         public void SetPlaying(bool playing)
@@ -94,7 +94,8 @@ namespace Game.Client.Players
             hidden = playing;
             if (Target == null) return;
             foreach (var copy in copies) copy.forceRenderingOff = !playing;
-            Target.gameObject.SetActive(playing || Animator != null);
+            // Hidden replay copies must not keep animating while the player uses Lobby.
+            Target.gameObject.SetActive(playing);
         }
 
         public void Dispose()

@@ -45,6 +45,11 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
+            if (endingStage != null)
+            {
+                builder.RegisterComponent(endingStage);
+                builder.RegisterEntryPoint<EndingStagePlacementController>();
+            }
             if (DedicatedServerStartup.IsRequested) return;
             var configureStartedAt = Time.realtimeSinceStartupAsDouble;
             if (view == null) throw new InvalidOperationException("ResultLifetimeScope: ResultView를 연결하세요.");
@@ -53,8 +58,7 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<ResultPresenter>();
             if (endingStage != null)
             {
-                // 유치장 무대: 승자는 철창 앞, 패자는 철창 안에 아바타 복제본을 세운다.
-                builder.RegisterComponent(endingStage);
+                // 클라이언트는 무대 카메라와 로컬 입력·표시만 담당한다.
                 builder.RegisterEntryPoint<EndingStagePresenter>();
             }
             builder.RegisterBuildCallback(_ => Debug.Log(

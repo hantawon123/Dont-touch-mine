@@ -55,6 +55,19 @@ namespace Game.Tests.EditMode
             Assert.That(captured[1].RecordedAt, Is.EqualTo(3d));
         }
 
+        [Test]
+        public void CaptureBoundary_PreservesStateBeforeDestructionWithoutBorrowingDistantFrames()
+        {
+            var buffer = new HighlightReplayBuffer(0.1d, 10d);
+            buffer.TryRecord(1, new[] { Pose.identity }, new[] { new WorldObjectState("item", Pose.identity) });
+            buffer.TryRecord(1.11, new[] { Pose.identity }, EmptyObjects());
+            var frames = buffer.CaptureWithBoundary(1.05, 1.15);
+            Assert.That(frames, Has.Length.EqualTo(2));
+            Assert.That(frames[0].WorldObjects, Has.Count.EqualTo(1));
+            Assert.That(frames[1].WorldObjects, Is.Empty);
+            Assert.That(buffer.CaptureWithBoundary(4, 5), Is.Empty);
+        }
+
         private static Pose[] EmptyPoses()
         {
             return new Pose[0];

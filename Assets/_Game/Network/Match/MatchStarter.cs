@@ -1273,7 +1273,7 @@ namespace Game.Network.Match
         internal static Vector3 CalculateShredderEjectionVelocity(Quaternion rotation) =>
             rotation * ShredderEjectionLocalVelocity;
 
-        private bool TryGetPlayerIndex(PlayerRef source, out int playerIndex)
+        internal bool TryGetPlayerIndex(PlayerRef source, out int playerIndex)
         {
             if (_session == null || _state == null || _state.Runner == null)
             {

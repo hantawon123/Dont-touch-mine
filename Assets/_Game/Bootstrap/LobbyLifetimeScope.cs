@@ -155,7 +155,7 @@ namespace Game.Bootstrap
                 builder.RegisterBuildCallback(c =>
                 {
                     c.Resolve<NetworkInteractionSceneBridge>().BindSceneItems(lobbyItems);
-                    c.Resolve<NetworkRunnerService>().RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
+                    PrepareLobbyPhysics(c.Resolve<NetworkRunnerService>());
                 });
                 return;
             }
@@ -319,7 +319,7 @@ namespace Game.Bootstrap
                 // The avatar is created in Room before Lobby's floor exists.
                 // UI scene changes do not pass through Fusion's scene loader,
                 // so hand the scene-owned points over once this scene is ready.
-                network.RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
+                PrepareLobbyPhysics(network);
                 if (network.IsHighlightInProgress)
                     PrepareHighlightStaging(network);
                 EnsurePlayerCameraRig(container.Resolve<ControlSettingsSystem>());
@@ -345,23 +345,43 @@ namespace Game.Bootstrap
             if (!highlightStaging || stagingNetwork == null) return;
             if (!stagingNetwork.IsHighlightInProgress)
             {
-                // The phase reset can happen after this lobby was already shown.
-                // Repeat the cover handoff before ending staging ownership.
-                SetStagingVisible(true);
+                // A skipped viewer already completed this handoff. Do not scan
+                // every outgoing renderer/collider again at the shared boundary.
+                if (!stagingVisible) SetStagingVisible(true);
                 highlightStaging = false;
                 return;
             }
 
             var visible = stagingNetwork.IsLocalHighlightComplete;
             if (visible != stagingVisible) SetStagingVisible(visible);
-            // Replay camera cleanup can restore occluders after the local skip.
-            // This peer owns lobby visibility until the shared timeline finishes.
-            if (visible) HideOutgoingGeometry();
+            // Apply outgoing visibility once at the handoff, after replay cleanup.
         }
 
-        private void LateUpdate()
+
+        private void PrepareLobbyPhysics(NetworkRunnerService network)
         {
-            if (highlightStaging && stagingVisible) HideOutgoingGeometry();
+            if (network.IsHighlightInProgress)
+            {
+                // The replay keeps the match scene loaded, but skipped players are
+                // already simulated in Lobby. Both maps occupy the same world space.
+                // Remove the old collision world on authority as well as on the
+                // skipped client; otherwise server corrections pin players to walls
+                // they cannot see until the match scene finally unloads.
+                var playground = FindFirstObjectByType<PlaygroundLifetimeScope>(FindObjectsInactive.Include);
+                if (playground != null)
+                {
+                    playground.SuspendLiveInteractionsForHighlights();
+                    if (network.IsServer && DedicatedServerStartup.IsRequested)
+                        playground.BeginRetiredMapCleanup();
+                    foreach (var root in playground.SceneRoots)
+                    {
+                        if (root == null) continue;
+                        foreach (var collider in root.GetComponentsInChildren<Collider>(true))
+                            collider.enabled = false;
+                    }
+                }
+            }
+            network.RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
         }
 
         private void PrepareHighlightStaging(NetworkRunnerService network)
@@ -419,7 +439,7 @@ namespace Game.Bootstrap
                 foreach (var behaviour in root.GetComponentsInChildren<Behaviour>(true))
                 {
                     if (behaviour is Camera or Canvas or AudioListener or AudioSource or
-                        EventSystem or Light)
+                        UnityEngine.Video.VideoPlayer or EventSystem or Light)
                         outgoing.Add(behaviour);
                 }
             }
@@ -483,6 +503,9 @@ namespace Game.Bootstrap
                 // The outgoing scene can stay loaded until every peer finishes.
                 // Hide its geometry and collisions before revealing the lobby.
                 HideOutgoingGeometry();
+                // This peer has finished viewing; other clients keep their own map intact.
+                FindFirstObjectByType<PlaygroundLifetimeScope>(FindObjectsInactive.Include)
+                    ?.BeginRetiredMapCleanup();
                 SceneManager.SetActiveScene(gameObject.scene);
                 foreach (var cover in FindObjectsByType<HighlightTransitionView>(
                              FindObjectsInactive.Include,
@@ -756,6 +779,7 @@ namespace Game.Bootstrap
                 var motor = avatars[i].GetComponent<NetworkPlayerMotor>();
                 if (motor == null || !motor.IsScenePlacementReady) continue;
 
+                motor.LocalPresentationInputBlocked = false;
                 cameraRig.SetFollowTarget(avatars[i].transform,
                     boundRig == cameraRig && !ReferenceEquals(boundAvatar, null));
                 boundAvatar = avatars[i];

@@ -74,12 +74,12 @@ namespace Game.Tests.EditMode
             Assert.That(sequence.TryGetCurrent(out _), Is.False);
         }
 
-        [TestCase(HighlightType.FirstBlood, "FIRST BLOOD")]
-        [TestCase(HighlightType.TteTanMulgun, "HOT ITEM")]
-        [TestCase(HighlightType.FinalMoment, "FINAL MOMENT")]
-        [TestCase(HighlightType.LongestHidden, "LONGEST HIDDEN")]
-        [TestCase(HighlightType.MostStunned, "MOST STUNNED")]
-        public void HighlightTitle_UsesReadableEnglishLabel(
+        [TestCase(HighlightType.FirstBlood, "첫 물건 파괴")]
+        [TestCase(HighlightType.TteTanMulgun, "물건 쟁탈전")]
+        [TestCase(HighlightType.FinalMoment, "마지막 결정적 순간")]
+        [TestCase(HighlightType.LongestHidden, "아슬아슬한 은닉")]
+        [TestCase(HighlightType.MostStunned, "기절 장면")]
+        public void HighlightTitle_ExplainsTheRecordedEvent(
             HighlightType type,
             string expected)
         {
@@ -111,7 +111,7 @@ namespace Game.Tests.EditMode
                         new RoomParticipant("p1", 0, true, "방장"),
                         new RoomParticipant("p2", 1, false, "민수"),
                     }),
-                Is.EqualTo("FIRST BLOOD : 민수"));
+                Is.EqualTo("첫 물건 파괴 : 민수"));
         }
 
         private static HighlightCandidate Candidate(HighlightType type)

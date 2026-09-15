@@ -1,0 +1,1866 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &566257718786058480
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4392804249684357082}
+  - component: {fileID: 4594238551770639359}
+  m_Layer: 0
+  m_Name: CCTV 26
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4392804249684357082
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 566257718786058480}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.07343242, y: 0.9067109, z: -0.17728156, w: -0.37557197}
+  m_LocalPosition: {x: -10, y: 3.2, z: 1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4594238551770639359
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 566257718786058480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 26 \xB7 \uC911\uC559 \uB3D9\uCABD"
+  fieldOfView: 65
+--- !u!1 &1049764496701688858
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 543393489713570565}
+  - component: {fileID: 8478535053553845318}
+  m_Layer: 0
+  m_Name: CCTV 24
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &543393489713570565
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1049764496701688858}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.054056864, y: 0.94592696, z: -0.22898854, w: -0.22330308}
+  m_LocalPosition: {x: -27, y: 3.2, z: 1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8478535053553845318
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1049764496701688858}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 24 \xB7 \uCE74\uD398 \uCD9C\uC785\uAD6C"
+  fieldOfView: 65
+--- !u!1 &1078825979122762819
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3617420441278461958}
+  - component: {fileID: 9009337716737894996}
+  m_Layer: 0
+  m_Name: CCTV 34
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3617420441278461958
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1078825979122762819}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.06764228, y: 0.9267258, z: -0.20292684, w: 0.3089086}
+  m_LocalPosition: {x: -20, y: 3.2, z: -17}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &9009337716737894996
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1078825979122762819}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 34 \xB7 \uC911\uC559 \uB0A8\uC11C\uCABD"
+  fieldOfView: 65
+--- !u!1 &1275785456493081124
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4901771318813401017}
+  - component: {fileID: 77631325428105043}
+  m_Layer: 0
+  m_Name: CCTV 25
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4901771318813401017
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1275785456493081124}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.07343242, y: 0.9067109, z: -0.17728156, w: 0.37557197}
+  m_LocalPosition: {x: -19, y: 3.2, z: 2}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &77631325428105043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1275785456493081124}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 25 \xB7 \uC911\uC559 \uBD81\uCABD"
+  fieldOfView: 65
+--- !u!1 &1397771584711889794
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7373196621187567288}
+  - component: {fileID: 2641800262459717443}
+  m_Layer: 0
+  m_Name: CCTV 36
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7373196621187567288
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1397771584711889794}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.0811726, y: 0.9187765, z: -0.26809487, w: 0.27818313}
+  m_LocalPosition: {x: -49, y: 3.2, z: -31}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2641800262459717443
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1397771584711889794}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 36 \xB7 \uC804\uC790\uC81C\uD488\uC810"
+  fieldOfView: 65
+--- !u!1 &1408411349328265443
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6006700465000508726}
+  - component: {fileID: 5672122514925497421}
+  m_Layer: 0
+  m_Name: CCTV 22
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6006700465000508726
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1408411349328265443}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.037907816, y: 0.9620253, z: -0.19683944, w: 0.18526916}
+  m_LocalPosition: {x: -33, y: 3.2, z: -7}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5672122514925497421
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1408411349328265443}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 22 \xB7 \uC624\uB77D\uC2E4"
+  fieldOfView: 65
+--- !u!1 &1415982127723711274
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3738377608526647061}
+  - component: {fileID: 8620230947519687898}
+  m_Layer: 0
+  m_Name: CCTV 07
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3738377608526647061
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1415982127723711274}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.10810034, y: 0.63056594, z: -0.08929452, w: 0.7633659}
+  m_LocalPosition: {x: -25.675646, y: 4.609515, z: -13.386241}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8620230947519687898
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1415982127723711274}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 07 \xB7 \uC11C\uCE21 \uD1B5\uB85C"
+  fieldOfView: 65
+--- !u!1 &1497938741846306789
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4934335370511966915}
+  - component: {fileID: 858125591192047218}
+  m_Layer: 0
+  m_Name: CCTV 27
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4934335370511966915
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1497938741846306789}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.11238161, y: 0.8112596, z: -0.16599134, w: 0.54924953}
+  m_LocalPosition: {x: -2, y: 3.2, z: 8}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &858125591192047218
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1497938741846306789}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 27 \xB7 \uACC4\uC0B0\uB300 \uBD81\uCABD"
+  fieldOfView: 65
+--- !u!1 &1572492166448423885
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 319014269723643092}
+  - component: {fileID: 4652615888258796267}
+  m_Layer: 0
+  m_Name: CCTV 20
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &319014269723643092
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1572492166448423885}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.09407837, y: 0.8955264, z: -0.22712526, w: 0.37093917}
+  m_LocalPosition: {x: -49, y: 3.2, z: -12}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4652615888258796267
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1572492166448423885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 20 \xB7 \uD5EC\uC2A4\uC7A5"
+  fieldOfView: 65
+--- !u!1 &1707642562048720092
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3067285116044683277}
+  - component: {fileID: 6269640869209251207}
+  m_Layer: 0
+  m_Name: CCTV 11
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3067285116044683277
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1707642562048720092}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.030796837, y: 0.96898454, z: -0.18351941, w: 0.16260765}
+  m_LocalPosition: {x: -6.523235, y: 4.5655065, z: -1.4168212}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6269640869209251207
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1707642562048720092}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 11 \xB7 \uC911\uC559 \uD1B5\uB85C"
+  fieldOfView: 65
+--- !u!1 &2099384331450961633
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8214391187205471966}
+  - component: {fileID: 6793657181330896601}
+  m_Layer: 0
+  m_Name: CCTV 02
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8214391187205471966
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2099384331450961633}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.027717985, y: 0.73546445, z: -0.030141724, w: 0.6763248}
+  m_LocalPosition: {x: -53.16467, y: 4.707427, z: -8.254719}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6793657181330896601
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2099384331450961633}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 02 \xB7 \uC11C\uCE21 \uD1B5\uB85C"
+  fieldOfView: 65
+--- !u!1 &2192270293968872194
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5816042233125188919}
+  - component: {fileID: 5917702669367292299}
+  m_Layer: 0
+  m_Name: CCTV 21
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5816042233125188919
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2192270293968872194}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.1548884, y: -0.762833, z: 0.19837742, w: 0.59560204}
+  m_LocalPosition: {x: -42, y: 3.2, z: -11}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5917702669367292299
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2192270293968872194}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 21 \xB7 \uC11C\uCABD \uC5F0\uACB0\uBD80"
+  fieldOfView: 65
+--- !u!1 &2473361643173869802
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1347742739448303127}
+  - component: {fileID: 4228803259439064767}
+  m_Layer: 0
+  m_Name: CCTV 14
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1347742739448303127
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2473361643173869802}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.006095863, y: 0.9923559, z: -0.110413186, w: 0.054787528}
+  m_LocalPosition: {x: 8.191843, y: 4.5552845, z: 9.052029}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4228803259439064767
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2473361643173869802}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 14 \xB7 \uB3D9\uCE21 \uD1B5\uB85C"
+  fieldOfView: 65
+--- !u!1 &2546085820966827251
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6112839447213519588}
+  - component: {fileID: 247269111632154624}
+  m_Layer: 0
+  m_Name: CCTV 10
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6112839447213519588
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2546085820966827251}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.12512684, y: 0.714303, z: -0.13226825, w: 0.67573637}
+  m_LocalPosition: {x: -6.2090173, y: 4.569309, z: -18.502827}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &247269111632154624
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2546085820966827251}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 10 \xB7 \uC548\uCABD \uB9E4\uB300"
+  fieldOfView: 65
+--- !u!1 &2660098234139694730
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5887904729373510016}
+  - component: {fileID: 1852779784444268255}
+  m_Layer: 0
+  m_Name: CCTV 09
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5887904729373510016
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2660098234139694730}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.08196568, y: 0.7242974, z: -0.0874348, w: 0.67899203}
+  m_LocalPosition: {x: -8.690521, y: 4.629359, z: 6.4917336}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1852779784444268255
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2660098234139694730}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 09 \xB7 \uC911\uC559 \uD1B5\uB85C"
+  fieldOfView: 65
+--- !u!1 &3293158892207836395
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4673173009256533678}
+  - component: {fileID: 1628750336387726625}
+  m_Layer: 0
+  m_Name: CCTV 12
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4673173009256533678
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3293158892207836395}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.07781912, y: -0.5957663, z: 0.058151603, w: 0.797261}
+  m_LocalPosition: {x: 3.382197, y: 4.6516547, z: -34.337936}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1628750336387726625
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3293158892207836395}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 12 \xB7 \uC548\uCABD \uB9E4\uB300"
+  fieldOfView: 65
+--- !u!1 &3314538966168789030
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2804955708266508779}
+  - component: {fileID: 2926873484123094408}
+  m_Layer: 0
+  m_Name: CCTV 28
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2804955708266508779
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3314538966168789030}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.020721376, y: 0.97288144, z: -0.20926556, w: -0.09633426}
+  m_LocalPosition: {x: 4, y: 3.2, z: 5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2926873484123094408
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3314538966168789030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 28 \xB7 \uACC4\uC0B0\uB300 \uC0AC\uC774"
+  fieldOfView: 65
+--- !u!1 &3857937406272393428
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9187154368828701607}
+  - component: {fileID: 7995561136935245063}
+  m_Layer: 0
+  m_Name: CCTV 31
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9187154368828701607
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3857937406272393428}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.123695396, y: 0.82677054, z: -0.20014334, w: 0.51097226}
+  m_LocalPosition: {x: -3, y: 3.2, z: -14}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7995561136935245063
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3857937406272393428}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 31 \xB7 \uB9E4\uB300 \uB0A8\uCABD"
+  fieldOfView: 65
+--- !u!1 &4046360392698285946
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8929294579604127397}
+  m_Layer: 0
+  m_Name: Supermarket
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8929294579604127397
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4046360392698285946}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 4582666971376901332}
+  - {fileID: 8214391187205471966}
+  - {fileID: 3315181757655804825}
+  - {fileID: 1521929213701882502}
+  - {fileID: 5552310923394475288}
+  - {fileID: 3965520027509699901}
+  - {fileID: 3738377608526647061}
+  - {fileID: 7547818196900464345}
+  - {fileID: 5887904729373510016}
+  - {fileID: 6112839447213519588}
+  - {fileID: 3067285116044683277}
+  - {fileID: 4673173009256533678}
+  - {fileID: 3636815810981030637}
+  - {fileID: 1347742739448303127}
+  - {fileID: 6775722552260174435}
+  - {fileID: 8690173181549472286}
+  - {fileID: 8877927665687177329}
+  - {fileID: 4638676942551070828}
+  - {fileID: 9169246101375140920}
+  - {fileID: 319014269723643092}
+  - {fileID: 5816042233125188919}
+  - {fileID: 6006700465000508726}
+  - {fileID: 8431788555180782253}
+  - {fileID: 543393489713570565}
+  - {fileID: 4901771318813401017}
+  - {fileID: 4392804249684357082}
+  - {fileID: 4934335370511966915}
+  - {fileID: 2804955708266508779}
+  - {fileID: 3469415542384065148}
+  - {fileID: 8446855649300334828}
+  - {fileID: 9187154368828701607}
+  - {fileID: 2292220367000333588}
+  - {fileID: 2957955095910573809}
+  - {fileID: 3617420441278461958}
+  - {fileID: 4441408257214231277}
+  - {fileID: 7373196621187567288}
+  - {fileID: 8455456311848532657}
+  - {fileID: 6897210940392118058}
+  - {fileID: 2524838167584764973}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &4241407613008272194
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2957955095910573809}
+  - component: {fileID: 4558251511051239928}
+  m_Layer: 0
+  m_Name: CCTV 33
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2957955095910573809
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4241407613008272194}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.09566064, y: 0.8737255, z: -0.19132128, w: -0.43686277}
+  m_LocalPosition: {x: 18, y: 3.2, z: -7}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4558251511051239928
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4241407613008272194}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 33 \xB7 \uB3D9\uCABD \uBCC4\uC2E4"
+  fieldOfView: 65
+--- !u!1 &4287196534080674316
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8431788555180782253}
+  - component: {fileID: 3893460642348322660}
+  m_Layer: 0
+  m_Name: CCTV 23
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8431788555180782253
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4287196534080674316}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.18241006, y: 0.6831739, z: -0.18241006, w: 0.6831739}
+  m_LocalPosition: {x: -34, y: 3.2, z: 5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3893460642348322660
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4287196534080674316}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 23 \xB7 \uCE74\uD398 \uBD81\uCABD"
+  fieldOfView: 65
+--- !u!1 &4605414930101422487
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3636815810981030637}
+  - component: {fileID: 7913997854469321282}
+  m_Layer: 0
+  m_Name: CCTV 13
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3636815810981030637
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4605414930101422487}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.14675114, y: -0.5780511, z: 0.10662582, w: 0.7955828}
+  m_LocalPosition: {x: 7.6445127, y: 4.569954, z: -21.096521}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7913997854469321282
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4605414930101422487}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 13 \xB7 \uB3D9\uCE21 \uD1B5\uB85C"
+  fieldOfView: 65
+--- !u!1 &4719195729854113980
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3315181757655804825}
+  - component: {fileID: 6350901400605792220}
+  m_Layer: 0
+  m_Name: CCTV 03
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3315181757655804825
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4719195729854113980}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.03876117, y: 0.53834635, z: -0.024798296, w: 0.8414665}
+  m_LocalPosition: {x: -45.95921, y: 4.7023754, z: -25.50436}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6350901400605792220
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4719195729854113980}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 03 \xB7 \uC11C\uCE21 \uD1B5\uB85C"
+  fieldOfView: 65
+--- !u!1 &4873668452932007276
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1521929213701882502}
+  - component: {fileID: 4428305020472958051}
+  m_Layer: 0
+  m_Name: CCTV 04
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1521929213701882502
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4873668452932007276}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.038662393, y: 0.6196863, z: -0.030586699, w: 0.7832998}
+  m_LocalPosition: {x: -45.92703, y: 4.6991034, z: -18.626348}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4428305020472958051
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4873668452932007276}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 04 \xB7 \uC11C\uCE21 \uD1B5\uB85C"
+  fieldOfView: 65
+--- !u!1 &5508435122456814579
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7547818196900464345}
+  - component: {fileID: 3777835251433320736}
+  m_Layer: 0
+  m_Name: CCTV 08
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7547818196900464345
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5508435122456814579}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.05030054, y: 0.34363133, z: -0.018435683, w: 0.93757534}
+  m_LocalPosition: {x: -18.326094, y: 3.194846, z: -39.847557}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3777835251433320736
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5508435122456814579}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 08 \xB7 \uC548\uCABD \uB9E4\uB300"
+  fieldOfView: 65
+--- !u!1 &5815653590719059559
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4638676942551070828}
+  - component: {fileID: 5049381287813827788}
+  m_Layer: 0
+  m_Name: CCTV 18
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4638676942551070828
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5815653590719059559}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.087316185, y: 0.9053125, z: -0.22701395, w: 0.34820962}
+  m_LocalPosition: {x: 7, y: 3.2, z: -3}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5049381287813827788
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5815653590719059559}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 18 \xB7 \uD30C\uC1C4\uAE30 2 \uBD81\uC11C"
+  fieldOfView: 65
+--- !u!1 &6082661033193898744
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4441408257214231277}
+  - component: {fileID: 6543843554270710634}
+  m_Layer: 0
+  m_Name: CCTV 35
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4441408257214231277
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6082661033193898744}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.17728156, y: -0.37557197, z: 0.07343242, w: 0.9067109}
+  m_LocalPosition: {x: -13, y: 3.2, z: -24}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6543843554270710634
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6082661033193898744}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 35 \xB7 \uC911\uC559 \uB0A8\uCABD"
+  fieldOfView: 65
+--- !u!1 &6122321179275987718
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5552310923394475288}
+  - component: {fileID: 7904800176192363499}
+  m_Layer: 0
+  m_Name: CCTV 05
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5552310923394475288
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6122321179275987718}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.0211122, y: 0.90663385, z: -0.045693003, w: 0.41890523}
+  m_LocalPosition: {x: -38.796318, y: 4.6980705, z: 8.450627}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7904800176192363499
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6122321179275987718}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 05 \xB7 \uC11C\uCE21 \uD1B5\uB85C"
+  fieldOfView: 65
+--- !u!1 &6276605031919012578
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8877927665687177329}
+  - component: {fileID: 3902280547350495751}
+  m_Layer: 0
+  m_Name: CCTV 17
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8877927665687177329
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6276605031919012578}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.21704282, y: -0.43444157, z: 0.10871039, w: 0.8673725}
+  m_LocalPosition: {x: -12, y: 3.2, z: -14}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3902280547350495751
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6276605031919012578}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 17 \xB7 \uD30C\uC1C4\uAE30 1 \uB0A8\uB3D9"
+  fieldOfView: 65
+--- !u!1 &6476201332828168909
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3965520027509699901}
+  - component: {fileID: 3775872647619977313}
+  m_Layer: 0
+  m_Name: CCTV 06
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3965520027509699901
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6476201332828168909}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.043536227, y: 0.7381134, z: -0.047850214, w: 0.67156804}
+  m_LocalPosition: {x: -31.917637, y: 4.683785, z: -28.259748}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3775872647619977313
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6476201332828168909}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 06 \xB7 \uC11C\uCE21 \uD1B5\uB85C"
+  fieldOfView: 65
+--- !u!1 &6685197614826198322
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4582666971376901332}
+  - component: {fileID: 8089970088716303185}
+  m_Layer: 0
+  m_Name: CCTV 01
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4582666971376901332
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6685197614826198322}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.030387303, y: 0.6520489, z: -0.026170384, w: 0.75711554}
+  m_LocalPosition: {x: -53.682266, y: 4.7082705, z: -17.153032}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8089970088716303185
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6685197614826198322}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 01 \xB7 \uC11C\uCE21 \uD1B5\uB85C"
+  fieldOfView: 65
+--- !u!1 &6745891203701327006
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8690173181549472286}
+  - component: {fileID: 9120339297091053372}
+  m_Layer: 0
+  m_Name: CCTV 16
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8690173181549472286
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6745891203701327006}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.14995798, y: 0.7978949, z: -0.22149289, w: 0.5402012}
+  m_LocalPosition: {x: -19, y: 3.2, z: -10}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &9120339297091053372
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6745891203701327006}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 16 \xB7 \uD30C\uC1C4\uAE30 1 \uC11C\uCABD"
+  fieldOfView: 65
+--- !u!1 &7433978419713998845
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2292220367000333588}
+  - component: {fileID: 4628642671074882833}
+  m_Layer: 0
+  m_Name: CCTV 32
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2292220367000333588
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7433978419713998845}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.22715287, y: -0.66962796, z: 0.22715287, w: 0.6696279}
+  m_LocalPosition: {x: 4, y: 3.2, z: -17}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4628642671074882833
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7433978419713998845}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 32 \xB7 \uB3D9\uCABD \uD558\uB2E8 \uB9E4\uB300"
+  fieldOfView: 65
+--- !u!1 &7890497427621600455
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2524838167584764973}
+  - component: {fileID: 5095946180348538617}
+  m_Layer: 0
+  m_Name: CCTV 39
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2524838167584764973
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7890497427621600455}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.20292684, y: 0.3089086, z: -0.06764228, w: 0.9267258}
+  m_LocalPosition: {x: -8, y: 3.2, z: -36}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5095946180348538617
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7890497427621600455}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 39 \xB7 \uB0A8\uB3D9\uCABD \uCC3D\uACE0"
+  fieldOfView: 65
+--- !u!1 &8138102097817854304
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6897210940392118058}
+  - component: {fileID: 6468584443665722750}
+  m_Layer: 0
+  m_Name: CCTV 38
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6897210940392118058
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8138102097817854304}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.13217403, y: 0.84637827, z: -0.24696943, w: -0.45296794}
+  m_LocalPosition: {x: -26, y: 3.2, z: -34}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6468584443665722750
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8138102097817854304}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 38 \xB7 \uC758\uB958 \uB9E4\uC7A5"
+  fieldOfView: 65
+--- !u!1 &8325375245702412138
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8455456311848532657}
+  - component: {fileID: 5170939322419508511}
+  m_Layer: 0
+  m_Name: CCTV 37
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8455456311848532657
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8325375245702412138}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.22712526, y: -0.37093917, z: 0.09407837, w: 0.8955264}
+  m_LocalPosition: {x: -40, y: 3.2, z: -34}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5170939322419508511
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8325375245702412138}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 37 \xB7 \uB0A8\uC11C\uCABD \uC548\uCABD"
+  fieldOfView: 65
+--- !u!1 &8387266658653079086
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9169246101375140920}
+  - component: {fileID: 4778592721433151825}
+  m_Layer: 0
+  m_Name: CCTV 19
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9169246101375140920
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8387266658653079086}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.23658164, y: 0.37534198, z: -0.09970455, w: 0.8906215}
+  m_LocalPosition: {x: 7, y: 3.2, z: -9}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4778592721433151825
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8387266658653079086}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 19 \xB7 \uD30C\uC1C4\uAE30 2 \uB0A8\uC11C"
+  fieldOfView: 65
+--- !u!1 &8413148028360303671
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6775722552260174435}
+  - component: {fileID: 7541027018320846113}
+  m_Layer: 0
+  m_Name: CCTV 15
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6775722552260174435
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8413148028360303671}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.09936237, y: -0.70088166, z: 0.0995919, w: 0.6992664}
+  m_LocalPosition: {x: 21.512438, y: 4.609059, z: -10.978051}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7541027018320846113
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8413148028360303671}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 15 \xB7 \uB3D9\uCE21 \uD1B5\uB85C"
+  fieldOfView: 65
+--- !u!1 &8711350609578536131
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8446855649300334828}
+  - component: {fileID: 8236775043625903229}
+  m_Layer: 0
+  m_Name: CCTV 30
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8446855649300334828
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8711350609578536131}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.09407837, y: 0.8955264, z: -0.22712526, w: 0.37093917}
+  m_LocalPosition: {x: 4, y: 3.2, z: -7}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8236775043625903229
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8711350609578536131}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 30 \xB7 \uB9E4\uB300 \uB3D9\uCABD"
+  fieldOfView: 65
+--- !u!1 &8983010290624812180
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3469415542384065148}
+  - component: {fileID: 8791379381078970711}
+  m_Layer: 0
+  m_Name: CCTV 29
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3469415542384065148
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8983010290624812180}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.030751375, y: 0.96055865, z: -0.24979667, w: 0.118250184}
+  m_LocalPosition: {x: -3, y: 3.2, z: -7}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8929294579604127397}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8791379381078970711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8983010290624812180}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 29 \xB7 \uB9E4\uB300 \uC11C\uCABD"
+  fieldOfView: 65

@@ -533,7 +533,7 @@ namespace Game.Bootstrap
                                (phase == MatchPhase.Searching &&
                                 !session.IsPlayerStunned(playerIndex, now)) ||
                                isEndCountdown ||
-                               stageOpen);
+                               stageOpen || (phase == MatchPhase.Highlight && network.HasCompletedHighlight(playerIndex)));
                 if (hasSynchronizedPlayers &&
                     synchronizedControls[playerIndex] == enabled)
                 {

@@ -48,7 +48,14 @@ namespace Game.Tests.EditMode
             {
                 visual = new ReplayVisual(source.transform, null);
                 Assert.That(visual.Animator, Is.Not.Null);
+                Assert.That(visual.Target.gameObject.activeSelf, Is.False);
+                visual.SetPlaying(true);
                 Assert.That(visual.Animator.isInitialized, Is.True);
+                visual.SetPlaying(false);
+                Assert.That(visual.Target.gameObject.activeSelf, Is.False);
+                visual.SetPlaying(true);
+                Assert.That(visual.Animator.isInitialized, Is.True);
+                Assert.That(visual.Target.gameObject.activeSelf, Is.True);
             }
             finally
             {

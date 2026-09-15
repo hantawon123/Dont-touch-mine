@@ -6,6 +6,18 @@ namespace Game.Architecture.Tests
 {
     public sealed class InteractionAuthorityRulesTests
     {
+        [Test]
+        public void Throw_AcceptsNormalizedDirectionsAtSpeedCap()
+        {
+            for (var x = -9; x <= 9; x++)
+            for (var y = -9; y <= 9; y++)
+            {
+                var velocity = new Vector3(x, y, 3f).normalized * 8f;
+                Assert.That(rules.IsValidThrow(Pose.identity, Pose.identity, velocity), Is.True,
+                    $"The legal normalized velocity {velocity} must not be rejected by rounding.");
+            }
+            Assert.That(rules.IsValidThrow(Pose.identity, Pose.identity, Vector3.forward * 8.01f), Is.False);
+        }
         private readonly InteractionAuthorityRules rules =
             new InteractionAuthorityRules();
 
