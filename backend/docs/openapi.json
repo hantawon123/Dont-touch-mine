@@ -79,6 +79,69 @@
         },
         "type" : "object"
       },
+      "AdminSuspendedAccount" : {
+        "properties" : {
+          "adminUsername" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "suspendedAt" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminSuspensionEntry" : {
+        "properties" : {
+          "accountDeleted" : {
+            "type" : "boolean"
+          },
+          "actedAt" : {
+            "type" : "string"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "adminUsername" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminSuspensionListResponse" : {
+        "properties" : {
+          "recentLifts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AdminSuspensionEntry"
+            },
+            "type" : "array"
+          },
+          "suspended" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AdminSuspendedAccount"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "AdminUserDetail" : {
         "properties" : {
           "feedback" : {
@@ -96,6 +159,12 @@
           "receivedReports" : {
             "items" : {
               "$ref" : "#/components/schemas/ReportEntry"
+            },
+            "type" : "array"
+          },
+          "suspensions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AdminSuspensionEntry"
             },
             "type" : "array"
           },
@@ -1171,7 +1240,7 @@
     },
     "/api/v1/admin/feedback" : {
       "get" : {
-        "operationId" : "list_3",
+        "operationId" : "list_4",
         "parameters" : [
           {
             "in" : "query",
@@ -1295,7 +1364,7 @@
     },
     "/api/v1/admin/reports" : {
       "get" : {
-        "operationId" : "list_2",
+        "operationId" : "list_3",
         "parameters" : [
           {
             "in" : "query",
@@ -1573,6 +1642,26 @@
         },
         "tags" : [
           "admin-session-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/suspensions" : {
+      "get" : {
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminSuspensionListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-suspension-controller"
         ]
       }
     },

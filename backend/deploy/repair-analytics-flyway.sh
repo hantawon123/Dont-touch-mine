@@ -136,6 +136,6 @@ cat <<EOS
 
 이력이 코드와 맞습니다. 다음 할 일:
   젠킨스에서 d205-backend/develop 잡을 다시 실행 (기동 검증 단계를 지나야 배포가 진행됩니다)
-  배포 뒤 확인: bash deploy/verify.sh
+  배포 뒤 확인: 로컬에서 scp backend/deploy/verify.sh d205:/tmp/verify.sh 뒤 ssh d205 'bash /tmp/verify.sh'
 백업: $backup
 EOS
