@@ -507,6 +507,7 @@ namespace Game.Tests.EditMode
             private readonly ReactiveProperty<bool> muted;
             private readonly ReactiveProperty<bool> available = new(true);
             private readonly ReactiveProperty<bool> transmitting = new(false);
+            private readonly ReactiveProperty<bool> listening = new(true);
 
             public FakeVoiceControl(bool muted)
             {
@@ -516,12 +517,15 @@ namespace Game.Tests.EditMode
             public ReadOnlyReactiveProperty<bool> IsAvailable => available;
             public ReadOnlyReactiveProperty<bool> IsMuted => muted;
             public ReadOnlyReactiveProperty<bool> IsTransmitting => transmitting;
+            public ReadOnlyReactiveProperty<bool> IsListening => listening;
 
             public void SetMuted(bool value) => muted.Value = value;
 
             public void SetTalking(bool talking)
             {
             }
+
+            public void SetListening(bool value) => listening.Value = value;
         }
 
         private sealed class FakeInviteGateway : IInviteGateway

@@ -153,6 +153,7 @@ namespace Game.Architecture.Tests
             private readonly R3.ReactiveProperty<bool> muted;
             private readonly R3.ReactiveProperty<bool> available = new(true);
             private readonly R3.ReactiveProperty<bool> transmitting = new(false);
+            private readonly R3.ReactiveProperty<bool> listening = new(true);
 
             public FakeVoiceControl(bool muted)
             {
@@ -162,12 +163,15 @@ namespace Game.Architecture.Tests
             public R3.ReadOnlyReactiveProperty<bool> IsAvailable => available;
             public R3.ReadOnlyReactiveProperty<bool> IsMuted => muted;
             public R3.ReadOnlyReactiveProperty<bool> IsTransmitting => transmitting;
+            public R3.ReadOnlyReactiveProperty<bool> IsListening => listening;
 
             public void SetMuted(bool value) => muted.Value = value;
 
             public void SetTalking(bool talking)
             {
             }
+
+            public void SetListening(bool value) => listening.Value = value;
         }
     }
 }
