@@ -194,7 +194,7 @@ namespace Game.Bootstrap
             start + (end - start) * t;
     }
 
-    public sealed class HighlightCameraDirector : IDisposable
+    public sealed partial class HighlightCameraDirector : IDisposable
     {
         private readonly Transform cameraTransform;
         private readonly Transform fallbackTransform;
@@ -228,7 +228,8 @@ namespace Game.Bootstrap
             float height = 7.5f,
             float followSharpness = 10f,
             int collisionLayerMask = Physics.DefaultRaycastLayers,
-            IReadOnlyList<SceneHighlightOcclusionReference> occlusionGroups = null)
+            IReadOnlyList<SceneHighlightOcclusionReference> occlusionGroups = null,
+            IReadOnlyList<HighlightCctvCamera> cctvCameras = null)
         {
             this.cameraTransform = cameraTransform ??
                 throw new ArgumentNullException(nameof(cameraTransform));
@@ -267,6 +268,7 @@ namespace Game.Bootstrap
             foreach (var target in this.objectTargets.Values)
                 CacheReplayRenderers(target);
 
+            this.cctvCameras = cctvCameras ?? Array.Empty<HighlightCctvCamera>();
             this.closeDistance = closeDistance;
             this.wideDistance = wideDistance;
             this.height = height;
@@ -287,6 +289,7 @@ namespace Game.Bootstrap
         public bool Focus(HighlightCandidate highlight)
         {
             ClearOccluders();
+            ResetCctv();
             currentType = highlight.Type;
             currentHighlight = highlight;
             shots = HighlightShotPlanner.Build(highlight);
@@ -313,6 +316,7 @@ namespace Game.Bootstrap
         {
             if (!double.IsFinite(playbackTime) || playbackTime < 0d)
                 throw new ArgumentOutOfRangeException(nameof(playbackTime));
+            cctvPlaybackTime = playbackTime;
             if (shots.Length == 0) return;
             var next = shots.Length - 1;
             for (var index = 0; index < shots.Length; index++)
@@ -344,6 +348,7 @@ namespace Game.Bootstrap
 
         public void Tick(float deltaSeconds)
         {
+            if (float.IsFinite(deltaSeconds) && deltaSeconds >= 0f) AdvanceCctv(deltaSeconds);
             if (!float.IsFinite(deltaSeconds) || deltaSeconds < 0f)
             {
                 throw new ArgumentOutOfRangeException(nameof(deltaSeconds));
@@ -426,6 +431,7 @@ namespace Game.Bootstrap
 
         private void ApplyTargetPose(float t)
         {
+            if (cctvCameras.Count > 0) { ApplyCctvPose(t); return; }
             if (currentType == HighlightType.LongestHidden && currentTarget.gameObject.activeInHierarchy &&
                 Vector3.Distance(currentTarget.position, overviewAnchor) > 4f)
                 overviewAnchor = currentTarget.position;

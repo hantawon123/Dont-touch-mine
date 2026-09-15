@@ -37,6 +37,13 @@ namespace Game.Client.Cameras
             return new HighlightReplayCameraRig(output);
         }
 
+        public void SetFieldOfView(float value)
+        {
+            var lens = replayCamera.Lens;
+            lens.FieldOfView = value;
+            replayCamera.Lens = lens;
+        }
+
         public void SetPose(
             Vector3 desiredPosition,
             Quaternion desiredRotation,

@@ -106,6 +106,8 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
                 .WithParameter(false).WithParameter(gameObject.scene).AsSelf();
             if (DedicatedServerStartup.IsRequested) return;
+            var cctvPrefab = Resources.Load<GameObject>("CCTV/" + gameObject.scene.name);
+            if (cctvPrefab != null) Instantiate(cctvPrefab, transform, false);
             builder.RegisterEntryPoint<NetworkHighlightPlaybackController>().AsSelf();
             builder.RegisterBuildCallback(c => c.Resolve<NetworkHighlightPlaybackController>()
                 .BindScene(gameObject.scene, matchScene.RuntimeContext));
