@@ -215,6 +215,38 @@ namespace Game.Client.Settings
             public const int GlowSpread = 1;
 
             public const int GlowBlur = 22;
+
+            /// <summary>
+            /// Lobby overlays keep the 1600×876 layout and shrink the drawn
+            /// frame so type, icons and gaps stay in proportion.
+            /// </summary>
+            public const float LobbyScale = 0.8f;
+
+            /// <summary>
+            /// Shrinks <paramref name="rect"/> about its centre. Pivot and
+            /// anchored position move so the frame stays where it was; children
+            /// keep their pixel layout.
+            /// </summary>
+            public static void ApplyLobbyScale(RectTransform rect)
+            {
+                if (rect == null)
+                {
+                    return;
+                }
+
+                var size = rect.rect.size;
+                if (size.x <= 0f || size.y <= 0f)
+                {
+                    size = rect.sizeDelta;
+                }
+
+                var toCenter = new Vector2(
+                    (0.5f - rect.pivot.x) * size.x,
+                    (0.5f - rect.pivot.y) * size.y);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition += toCenter;
+                rect.localScale = Vector3.one * LobbyScale;
+            }
         }
 
         /// <summary>The same arrow the room browser draws, in the same place.</summary>
