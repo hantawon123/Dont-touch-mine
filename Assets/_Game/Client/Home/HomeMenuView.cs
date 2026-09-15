@@ -48,6 +48,7 @@ namespace Game.Client.Home
             koreanFont = HomeUiFonts.Apply(fontAsset);
             var canvas = CreateCanvas();
             CreateBackground(canvas);
+            CreateTitle(canvas);
             CreateLeftMenu(canvas);
             CreateQuitButton(canvas);
 
@@ -317,6 +318,38 @@ namespace Game.Client.Home
             // Kept so the panels can point back at the button that opens them.
             // Rebuilding the layout re-registers over the same key.
             actionHighlights[action] = highlight;
+        }
+
+        /// <summary>
+        /// The two-line game title above the home menu.
+        /// </summary>
+        private void CreateTitle(RectTransform canvas)
+        {
+            if (titleFont == null)
+            {
+                Debug.LogWarning("Home title font is not assigned.", this);
+                return;
+            }
+
+            var rect = CreateRect("Title", canvas);
+            SetAnchor(rect, Vector2.up, Vector2.up, Vector2.up);
+            rect.anchoredPosition = new Vector2(HomeStyle.Layout.TitleLeft, -HomeStyle.Layout.TitleTop);
+            rect.sizeDelta = new Vector2(HomeStyle.Layout.TitleWidth, HomeStyle.Layout.TitleHeight);
+
+            var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
+            text.font = titleFont;
+            text.fontSharedMaterial = titleFont.material;
+            text.text = "Don't Touch\nMine";
+            text.fontSize = HomeStyle.Layout.TitleFontSize;
+            text.fontStyle = FontStyles.Italic;
+            text.alignment = TextAlignmentOptions.TopLeft;
+            text.color = new Color32(255, 112, 50, 255);
+            text.enableAutoSizing = false;
+            text.lineSpacing = 0f;
+            text.characterSpacing = 0f;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Overflow;
+            text.raycastTarget = false;
         }
 
         /// <summary>
