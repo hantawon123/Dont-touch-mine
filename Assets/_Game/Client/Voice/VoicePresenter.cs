@@ -8,13 +8,13 @@ using VContainer.Unity;
 namespace Game.Client.Voice
 {
     /// <summary>
-    /// Turns the two talk keys and the microphone button into what the voice
-    /// layer hears.
+    /// Turns the talk keys, the microphone button, and the speaker button into
+    /// what the voice layer hears and plays.
     /// </summary>
     /// <remarks>
     /// Holding 마이크 송출 suits a sentence thrown across the room. 마이크 고정
-    /// and the HUD button are the same on/off: they mute, or they take mute off,
-    /// and the white mic / grey slash follows either one.
+    /// and the HUD mic button are the same on/off. The speaker button and T
+    /// decide whether this machine hears the room, without leaving voice.
     /// </remarks>
     public sealed class VoicePresenter : IStartable, ITickable, IDisposable
     {
@@ -24,6 +24,7 @@ namespace Game.Client.Voice
         private IDisposable stateSubscription;
         private InputAction holdAction;
         private InputAction toggleAction;
+        private InputAction listenAction;
 
         /// <summary>
         /// Whether the microphone was latched open, as opposed to held open.
@@ -44,10 +45,12 @@ namespace Game.Client.Voice
         public void Start()
         {
             view.MuteToggleRequested += ToggleMute;
+            view.SpeakerToggleRequested += ToggleListen;
 
             var player = inputActions.FindActionMap("Player", throwIfNotFound: true);
             holdAction = player.FindAction("PushToTalk", throwIfNotFound: true);
             toggleAction = player.FindAction("VoiceToggle", throwIfNotFound: true);
+            listenAction = player.FindAction("VoiceListen", throwIfNotFound: true);
 
             stateSubscription = voice.IsAvailable
                 .CombineLatest(
@@ -55,13 +58,18 @@ namespace Game.Client.Voice
                     voice.IsTransmitting,
                     (available, muted, transmitting) =>
                         (available, muted, transmitting))
+                .CombineLatest(
+                    voice.IsListening,
+                    (state, listening) =>
+                        (state.available, state.muted, state.transmitting, listening))
                 .Subscribe(state => Paint(
-                    state.available, state.muted, state.transmitting));
+                    state.available, state.muted, state.transmitting, state.listening));
         }
 
         public void Dispose()
         {
             view.MuteToggleRequested -= ToggleMute;
+            view.SpeakerToggleRequested -= ToggleListen;
             stateSubscription?.Dispose();
 
             // A key could be down, or the latch on, as the screen goes away, and
@@ -72,7 +80,7 @@ namespace Game.Client.Voice
 
         public void Tick()
         {
-            if (holdAction == null || toggleAction == null)
+            if (holdAction == null || toggleAction == null || listenAction == null)
             {
                 return;
             }
@@ -90,6 +98,11 @@ namespace Game.Client.Voice
                 HandleVoiceToggle();
             }
 
+            if (listenAction.WasPressedThisFrame())
+            {
+                HandleSpeakerToggle();
+            }
+
             voice.SetTalking(latched || holdAction.IsPressed());
         }
 
@@ -98,6 +111,8 @@ namespace Game.Client.Voice
         /// the white mic and the grey slash follow the key as well as the click.
         /// </summary>
         internal void HandleVoiceToggle() => ToggleMute();
+
+        internal void HandleSpeakerToggle() => ToggleListen();
 
         /// <remarks>
         /// Muting drops the latch rather than overruling it. Unmuting would
@@ -116,7 +131,12 @@ namespace Game.Client.Voice
             voice.SetMuted(muted);
         }
 
-        private void Paint(bool available, bool muted, bool transmitting) =>
-            view.SetState(available, muted, latched, transmitting);
+        private void ToggleListen()
+        {
+            voice.SetListening(!voice.IsListening.CurrentValue);
+        }
+
+        private void Paint(bool available, bool muted, bool transmitting, bool listening) =>
+            view.SetState(available, muted, latched, transmitting, listening);
     }
 }

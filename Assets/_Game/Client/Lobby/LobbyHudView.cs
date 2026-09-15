@@ -116,6 +116,10 @@ namespace Game.Client.Lobby
                     guide.VoiceMuteButton,
                     guide.VoiceBackground,
                     guide.VoiceIcon);
+                voice.BindSpeakerControl(
+                    guide.VoiceSpeakerButton,
+                    guide.VoiceSpeakerBackground,
+                    guide.VoiceSpeakerIcon);
             }
 
             return guide;

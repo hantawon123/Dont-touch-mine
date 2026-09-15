@@ -105,6 +105,11 @@ namespace Game.Architecture.Tests
                     view.VoiceIcon.rectTransform.sizeDelta,
                     Is.EqualTo(new Vector2(VoiceView.IconSize, VoiceView.IconSize)));
                 Assert.That(view.VoiceIcon.sprite, Is.EqualTo(VoiceView.MicOnSprite));
+                var speaker = view.transform.Find(LobbyShortcutGuideView.SpeakerButtonName);
+                Assert.That(speaker, Is.Not.Null);
+                Assert.That(speaker.GetSiblingIndex(), Is.GreaterThan(mic.GetSiblingIndex()));
+                Assert.That(view.VoiceSpeakerButton, Is.Not.Null);
+                Assert.That(view.VoiceSpeakerIcon.sprite, Is.EqualTo(VoiceView.SpeakerOnSprite));
             }
             finally
             {
@@ -124,12 +129,16 @@ namespace Game.Architecture.Tests
                 var raised = 0;
                 voice.MuteToggleRequested += () => raised++;
                 guide.VoiceMuteButton.onClick.Invoke();
+                var speakerRaised = 0;
+                voice.SpeakerToggleRequested += () => speakerRaised++;
+                guide.VoiceSpeakerButton.onClick.Invoke();
 
                 Assert.That(guide.VoiceMuteButton, Is.SameAs(
                     canvas.transform.Find(
                         $"{LobbyShortcutGuideView.RootName}/{LobbyShortcutGuideView.VoiceButtonName}")
                         .GetComponent<Button>()));
                 Assert.That(raised, Is.EqualTo(1));
+                Assert.That(speakerRaised, Is.EqualTo(1));
             }
             finally
             {

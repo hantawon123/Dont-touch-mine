@@ -27,12 +27,41 @@ namespace Game.Architecture.Tests
                 Assert.That(VoiceView.MicOnResource, Is.EqualTo("UI/Icon_Mic_White"));
                 Assert.That(VoiceView.MicOffResource, Is.EqualTo("UI/Icon_Mic_Off_Gray"));
 
-                view.SetState(available: true, muted: false, latched: true, transmitting: true);
+                view.SetState(available: true, muted: false, latched: true, transmitting: true, listening: true);
                 Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOnSprite));
 
-                view.SetState(available: true, muted: true, latched: false, transmitting: false);
+                view.SetState(available: true, muted: true, latched: false, transmitting: false, listening: true);
                 Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOffSprite));
                 Assert.That(button.interactable, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void SpeakerButton_RaisesToggle()
+        {
+            var root = new GameObject("Voice", typeof(RectTransform));
+            try
+            {
+                root.SetActive(false);
+                var view = root.AddComponent<VoiceView>();
+                var bar = VoiceView.EnsureBar(root.transform);
+                view.BindBar(bar);
+                root.SetActive(true);
+
+                var speaker = bar.Find(VoiceView.SpeakerButtonName).GetComponent<Button>();
+                var raised = 0;
+                view.SpeakerToggleRequested += () => raised++;
+                speaker.onClick.Invoke();
+                Assert.That(raised, Is.EqualTo(1));
+
+                view.SetState(true, false, false, false, false);
+                Assert.That(
+                    speaker.transform.Find(VoiceView.IconName).GetComponent<Image>().sprite,
+                    Is.EqualTo(VoiceView.SpeakerOffSprite));
             }
             finally
             {
@@ -73,15 +102,19 @@ namespace Game.Architecture.Tests
             {
                 var hud = canvas.AddComponent<NetworkMatchHudView>();
                 var voice = hud.EnsureVoiceControl();
-                var slot = canvas.transform.Find(VoiceView.ButtonName) as RectTransform;
+                var bar = canvas.transform.Find(VoiceView.BarName) as RectTransform;
+                var slot = bar.Find(VoiceView.ButtonName) as RectTransform;
+                var speaker = bar.Find(VoiceView.SpeakerButtonName) as RectTransform;
                 var icon = slot.Find(VoiceView.IconName).GetComponent<Image>();
 
                 Assert.That(voice, Is.Not.Null);
-                Assert.That(slot.gameObject.activeSelf, Is.True);
+                Assert.That(bar.gameObject.activeSelf, Is.True);
                 Assert.That(slot.GetComponent<Image>().color, Is.EqualTo(VoiceView.PlateColor));
                 Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOnSprite));
+                Assert.That(speaker, Is.Not.Null);
+                Assert.That(speaker.GetSiblingIndex(), Is.GreaterThan(slot.GetSiblingIndex()));
                 Assert.That(
-                    slot.anchoredPosition,
+                    bar.anchoredPosition,
                     Is.EqualTo(new Vector2(
                         -VoiceView.CornerMarginRight,
                         VoiceView.CornerMarginBottom)));
@@ -138,11 +171,14 @@ namespace Game.Architecture.Tests
         private sealed class FakeVoiceView : IVoiceView
         {
             public event System.Action MuteToggleRequested;
+            public event System.Action SpeakerToggleRequested;
             public bool PaintedMuted { get; set; }
+            public bool PaintedListening { get; set; }
 
-            public void SetState(bool available, bool muted, bool latched, bool transmitting)
+            public void SetState(bool available, bool muted, bool latched, bool transmitting, bool listening)
             {
                 PaintedMuted = muted;
+                PaintedListening = listening;
             }
 
             public void Raise() => MuteToggleRequested?.Invoke();

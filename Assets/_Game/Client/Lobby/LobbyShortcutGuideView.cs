@@ -36,12 +36,16 @@ namespace Game.Client.Lobby
         };
 
         public const string VoiceButtonName = VoiceView.ButtonName;
+        public const string SpeakerButtonName = VoiceView.SpeakerButtonName;
         public const string VoiceIconName = VoiceView.IconName;
         public const float VoiceIconSize = VoiceView.IconSize;
 
         public Button VoiceMuteButton { get; private set; }
         public Image VoiceBackground { get; private set; }
         public Image VoiceIcon { get; private set; }
+        public Button VoiceSpeakerButton { get; private set; }
+        public Image VoiceSpeakerBackground { get; private set; }
+        public Image VoiceSpeakerIcon { get; private set; }
 
         public static LobbyShortcutGuideView Create(Transform parent)
         {
@@ -87,6 +91,7 @@ namespace Game.Client.Lobby
                 PlacePanel();
                 ApplyStyle();
                 EnsureVoiceButton();
+                EnsureSpeakerButton();
                 return;
             }
 
@@ -139,6 +144,7 @@ namespace Game.Client.Lobby
             PlacePanel();
             ApplyStyle();
             EnsureVoiceButton();
+            EnsureSpeakerButton();
         }
 
         private void CreateItem(int index)
@@ -253,6 +259,23 @@ namespace Game.Client.Lobby
             VoiceBackground = slot.GetComponent<Image>();
             VoiceMuteButton = slot.GetComponent<Button>();
             VoiceIcon = slot.Find(VoiceView.IconName)?.GetComponent<Image>();
+            VoiceView.SizeSlot(slot);
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
+        }
+
+        /// <summary>
+        /// The listen toggle sits to the right of the microphone.
+        /// </summary>
+        private void EnsureSpeakerButton()
+        {
+            var slot = VoiceView.EnsureSpeakerSlot(transform);
+            slot.SetAsLastSibling();
+            VoiceView.SizeSlot(slot);
+
+            VoiceSpeakerBackground = slot.GetComponent<Image>();
+            VoiceSpeakerButton = slot.GetComponent<Button>();
+            VoiceSpeakerIcon = slot.Find(VoiceView.IconName)?.GetComponent<Image>();
 
             LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
         }

@@ -130,6 +130,12 @@ namespace Game.Editor
                 shortcutGuide != null ? shortcutGuide.VoiceBackground : null;
             voiceSo.FindProperty("icon").objectReferenceValue =
                 shortcutGuide != null ? shortcutGuide.VoiceIcon : null;
+            voiceSo.FindProperty("speakerButton").objectReferenceValue =
+                shortcutGuide != null ? shortcutGuide.VoiceSpeakerButton : null;
+            voiceSo.FindProperty("speakerBackground").objectReferenceValue =
+                shortcutGuide != null ? shortcutGuide.VoiceSpeakerBackground : null;
+            voiceSo.FindProperty("speakerIcon").objectReferenceValue =
+                shortcutGuide != null ? shortcutGuide.VoiceSpeakerIcon : null;
             voiceSo.FindProperty("label").objectReferenceValue = null;
             voiceSo.FindProperty("tmpLabel").objectReferenceValue = null;
             voiceSo.ApplyModifiedPropertiesWithoutUndo();

@@ -716,10 +716,10 @@ namespace Game.Client.Match
                 view = gameObject.AddComponent<VoiceView>();
             }
 
-            var slot = VoiceView.EnsureSlot(transform);
-            VoiceView.PlaceInCorner(slot);
-            slot.gameObject.SetActive(true);
-            view.BindSlot(slot);
+            var bar = VoiceView.EnsureBar(transform);
+            VoiceView.PlaceBarInCorner(bar);
+            bar.gameObject.SetActive(true);
+            view.BindBar(bar);
             return view;
         }
 
