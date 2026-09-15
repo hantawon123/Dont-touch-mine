@@ -1,6 +1,7 @@
 using Game.Client.Lobby;
 using Game.Client.Players;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 
 namespace Game.Tests.EditMode
@@ -77,6 +78,35 @@ namespace Game.Tests.EditMode
                     view.transform.position.y,
                     Is.EqualTo(controller.bounds.max.y + PlayerNameplateView.HeadClearance)
                         .Within(0.05f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+            }
+        }
+
+        [Test]
+        public void SetVoice_IconHeightMatchesNickname()
+        {
+            var player = new GameObject("Player");
+            try
+            {
+                var view = PlayerNameplateView.Attach(player.transform);
+                view.SetNickname("민수");
+                view.SetVoice(muted: false, talking: false);
+
+                var label = view.GetComponent<TextMeshPro>();
+                var icon = view.transform.Find(PlayerNameplateView.VoiceIconName)
+                    .GetComponent<SpriteRenderer>();
+                Assert.That(label, Is.Not.Null);
+                Assert.That(icon, Is.Not.Null);
+                Assert.That(icon.sprite, Is.Not.Null);
+
+                label.ForceMeshUpdate();
+                var textHeight = label.GetPreferredValues("민수").y;
+                var native = icon.sprite.rect.height / icon.sprite.pixelsPerUnit;
+                var iconHeight = native * icon.transform.localScale.y;
+                Assert.That(iconHeight, Is.EqualTo(textHeight).Within(0.05f));
             }
             finally
             {

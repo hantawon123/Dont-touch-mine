@@ -12,7 +12,7 @@ namespace Game.Client.Players
         private const string ObjectName = "PlayerNameplate";
         private const string VisualName = "Visual";
         public const string VoiceIconName = "Voice";
-        internal const float VoiceIconLocalSize = 1.2f;
+        internal const float NicknameFontSize = 3f;
         internal const float VoiceIconGap = 0.2f;
         internal const float HeadClearance = 0.22f;
         private const float FallbackHeightOffset = 1.7f;
@@ -239,7 +239,7 @@ namespace Game.Client.Players
 
             label.font = HomeUiFonts.Apply();
             label.alignment = TextAlignmentOptions.Center;
-            label.fontSize = 3f;
+            label.fontSize = NicknameFontSize;
             label.fontStyle = FontStyles.Bold;
             label.color = Color.white;
             label.textWrappingMode = TextWrappingModes.NoWrap;
@@ -292,23 +292,25 @@ namespace Game.Client.Players
                 return;
             }
 
+            label.ForceMeshUpdate();
+            var textSize = label.GetPreferredValues(
+                displayedName.Length == 0 ? "가" : displayedName);
+            var iconSize = textSize.y > 0f ? textSize.y : NicknameFontSize;
+
             var sprite = voiceIcon.sprite;
             if (sprite != null && sprite.pixelsPerUnit > 0f)
             {
-                var native = sprite.rect.width / sprite.pixelsPerUnit;
+                var native = sprite.rect.height / sprite.pixelsPerUnit;
                 if (native > 0f)
                 {
-                    var scale = VoiceIconLocalSize / native;
+                    var scale = iconSize / native;
                     voiceIcon.transform.localScale = new Vector3(scale, scale, 1f);
                 }
             }
 
-            label.ForceMeshUpdate();
-            var width = displayedName.Length == 0
-                ? 0f
-                : label.GetPreferredValues(displayedName).x;
+            var width = displayedName.Length == 0 ? 0f : textSize.x;
             voiceIcon.transform.localPosition = new Vector3(
-                (width * 0.5f) + VoiceIconGap + (VoiceIconLocalSize * 0.5f),
+                (width * 0.5f) + VoiceIconGap + (iconSize * 0.5f),
                 0f,
                 0f);
         }
