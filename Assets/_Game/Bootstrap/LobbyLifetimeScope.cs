@@ -345,9 +345,9 @@ namespace Game.Bootstrap
             if (!highlightStaging || stagingNetwork == null) return;
             if (!stagingNetwork.IsHighlightInProgress)
             {
-                // The phase reset can happen after this lobby was already shown.
-                // Repeat the cover handoff before ending staging ownership.
-                SetStagingVisible(true);
+                // A skipped viewer already completed this handoff. Do not scan
+                // every outgoing renderer/collider again at the shared boundary.
+                if (!stagingVisible) SetStagingVisible(true);
                 highlightStaging = false;
                 return;
             }
@@ -657,47 +657,8 @@ namespace Game.Bootstrap
                         boundRig.FollowTarget == boundAvatar.transform;
             UpdateEntryTransition(!network.HasRoomSession || ready, Time.frameCount, Time.unscaledDeltaTime);
             CoverForMatchStart();
-            ObserveLocalVisibility();
         }
 
-#if UNITY_EDITOR
-        private Renderer[] observedRenderers;
-        private int lastVisibility = -1;
-        private int visibilityReports;
-        private double observeUntil;
-#endif
-
-        [System.Diagnostics.Conditional("UNITY_EDITOR")]
-        private void ObserveLocalVisibility()
-        {
-#if UNITY_EDITOR
-            if (boundAvatar == null || !entryComplete || (observedRenderers == null && !network.IsLocalHighlightComplete)) return;
-            if (observedRenderers == null)
-            {
-                observedRenderers = boundAvatar.GetComponentsInChildren<Renderer>(true);
-                observeUntil = Time.realtimeSinceStartupAsDouble + 60d;
-            }
-            if (visibilityReports >= 20 || Time.realtimeSinceStartupAsDouble > observeUntil) return;
-            var state = 17;
-            foreach (var renderer in observedRenderers)
-            {
-                var flags = renderer == null ? 0 :
-                    (renderer.enabled ? 1 : 0) | (renderer.forceRenderingOff ? 2 : 0) |
-                    (renderer.gameObject.activeInHierarchy ? 4 : 0) | (renderer.isVisible ? 8 : 0) |
-                    ((int)renderer.shadowCastingMode << 4);
-                state = unchecked(state * 31 + flags);
-            }
-            if (state == lastVisibility) return;
-            lastVisibility = state;
-            visibilityReports++;
-            var camera = Camera.main;
-            var message = new System.Text.StringBuilder($"[LobbyVisual] frame={Time.frameCount} avatar={boundAvatar.transform.position} camera={(camera == null ? Vector3.zero : camera.transform.position)} highlight={network.IsHighlightInProgress} complete={network.IsLocalHighlightComplete}");
-            foreach (var renderer in observedRenderers)
-                if (renderer != null)
-                    message.Append($"\n {renderer.name}: enabled={renderer.enabled} hidden={renderer.forceRenderingOff} active={renderer.gameObject.activeInHierarchy} visible={renderer.isVisible} shadows={renderer.shadowCastingMode} bounds={renderer.bounds}");
-            Debug.Log(message.ToString());
-#endif
-        }
         internal void UpdateEntryTransition(bool ready, int frame, float deltaSeconds = 0f)
         {
             if (entryComplete) return;
