@@ -144,6 +144,27 @@
   /* 분석 탭(977). 표는 문서 SQL 의 별칭이 그대로 헤더라 열 수가 질문마다 다릅니다. 좁은 창에서는
      표만 가로로 밀리게 두고 카드 자체는 밀리지 않게 합니다. */
   .an-table { overflow-x: auto; }
+
+  /*
+   * 분석 탭 탐색(1010). 왼쪽 목록 + 오른쪽 한 장.
+   *
+   * 카드 아홉 장을 세로로 쌓으면 스크롤이 끝없고, 하나만 보려 해도 아홉 개를 다 기다려야
+   * 합니다. 한 장만 그리면 요청도 한 개만 나갑니다.
+   */
+  .an-split { display: flex; gap: 14px; align-items: flex-start; }
+  .an-nav { flex: 0 0 214px; display: flex; flex-direction: column; gap: 3px; position: sticky; top: 12px; }
+  .an-nav button {
+    text-align: left; padding: 7px 10px; border: 1px solid transparent; border-radius: 6px;
+    background: none; color: var(--ink); font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .an-nav button:hover { background: #f3f4f6; }
+  .an-nav button.on { background: var(--ink); color: #fff; }
+  .an-main { flex: 1; min-width: 0; }
+  /* 좁으면 목록이 위로 올라가 가로로 접힙니다. */
+  @media (max-width: 900px) {
+    .an-split { flex-direction: column; }
+    .an-nav { position: static; flex-direction: row; flex-wrap: wrap; flex-basis: auto; width: 100%; }
+  }
   table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
   table.grid th, table.grid td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
   table.grid th { color: var(--muted); font-weight: 600; }
@@ -318,7 +339,10 @@
         <span class="grow"></span>
         <button id="refreshAnalytics">새로고침</button>
       </div>
-      <div id="anCards"></div>
+      <div class="an-split">
+        <nav id="anNav" class="an-nav"></nav>
+        <div id="anCards" class="an-main"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -985,17 +1009,39 @@
   ];
 
   /*
-   * 맵별 평면도와 그 그림이 덮는 월드 범위 [x0, z0, x1, z1] (S15P21D205-978).
+   * 평면도를 못 읽었을 때 쓸 맵별 월드 범위 [x0, z0, x1, z1] (S15P21D205-978, 1010).
    *
-   * 정사영 평면도는 아직 없습니다(docs/design 의 overview 들은 원근 스크린샷). 그림이 생기면
-   * static/admin/maps/<mapId>.png 에 두고 여기 image 와 extent 를 적으면 격자 아래에 깔립니다.
-   * extent 만 있으면 그 사각형을 경계로 그리고, 둘 다 없으면 데이터의 최소·최대로 범위를 잡습니다.
-   * 마트의 범위는 docs/design/match-map/README.md 의 도달 영역 측정값(46×37 m)입니다.
+   * 평면도는 유니티의 Game/Match Map/Bake Analytics Floorplan 이 구워 maps/<mapId>.png 로
+   * 넣습니다. 그 도구가 같은 이름의 .json 에 그림이 덮는 사각형을 함께 쓰고, 화면은 그 값을
+   * 격자에도 그대로 씁니다. 그래서 그림과 격자가 어긋날 수 없습니다.
+   *
+   * 아래 표는 아직 굽지 않은 맵을 위한 것입니다. extent 만 있으면 그 사각형을 경계로 그리고,
+   * 둘 다 없으면 데이터의 최소·최대로 범위를 잡습니다. 마트의 값은
+   * docs/design/match-map/README.md 의 도달 영역 측정값(46×37 m)입니다.
    */
   const MAPS = {
-    supermarket: { extent: [-133.5, -27, -87.5, 9.5], image: null, source: '문서의 도달 영역 측정값' },
+    /*
+     * 2026-09-15 정정: 여기 있던 x[-133.5, -87.5] z[-27, 9.5] 는 <b>옛 좌표계</b>였습니다.
+     * 2026-09-10 에 씬 루트를 (+108.49, -0.98) 옮겨 원점을 마트 안으로 넣었는데
+     * (docs/design/match-map/README.md), 이 값이 따라가지 않았습니다. 그래서 모든 좌표가
+     * 범위 밖으로 걸러져 히트맵이 빈 격자로 보였습니다.
+     *
+     * 지금 값은 Supermarket 씬의 경계 벽 안쪽 면입니다. 바깥 벽 넷이
+     * 서 x -25.51, 동 x 21.49, 남 z -41.20, 북 z 9.02 이고 여기에 반 칸씩 여유를 뒀습니다.
+     * 경계 콜라이더를 통째로 합치면 바닥·천장 판이 실내보다 커서 z 가 75 m 로 나오는데,
+     * 그 값이 아니라 벽만 본 값입니다.
+     *
+     * <b>대기실은 일부러 뺐습니다.</b> 같은 씬의 서쪽(x -48 ~ -40)에 있는 별도의 방이고,
+     * 숨기기 단계에는 자기 차례가 아닌 사람이 거기 서 있어 좌표가 남습니다. 넣으면 사람들이
+     * 몇 분씩 가만히 서 있는 그 방이 제일 뜨거워져 마트 안의 차이가 색으로 안 보입니다.
+     * 그 좌표는 경계 밖으로 버려지고, 몇 개를 버렸는지는 카드 아래 범례에 적힙니다.
+     */
+    supermarket: { extent: [-26, -42, 22, 9.5], image: null, source: '경계 벽 안쪽 면' },
     playground: { extent: null, image: null, source: null },
   };
+  /* 굽기 도구의 출력 자리. 페이지가 /admin 로도 /admin/ 로도 열리므로 절대 경로로 씁니다. */
+  const MAP_DIR = '/admin/maps/';
+  const mapMeta = {};  // mapId -> 구운 평면도 정보, 또는 null(굽지 않았음을 확인함)
   const HEAT_STOPS = [[255, 255, 204], [254, 217, 118], [253, 141, 60], [227, 26, 28], [128, 0, 38]];  // YlOrRd
   const HEAT_MARGIN = { l: 52, r: 10, t: 8, b: 28 };
   const POSITION_CAP = 20000;  // 분석 서비스의 POSITION_LIMIT 과 같은 값
@@ -1008,6 +1054,7 @@
 
   const analyticsCharts = {};
   let selectedMatch = null;
+  let currentQuestion = 'matches';  // 지금 펴 놓은 질문 (1010)
 
   /** 카드 여덟 개의 틀. 한 번만 만들고 불러올 때는 안쪽만 갈아 끼웁니다. */
   function buildAnalyticsCards() {
@@ -1043,10 +1090,60 @@
         chart.appendChild(canvas);
         card.appendChild(chart);
       }
+      // 만들어만 두고 숨깁니다. 보이는 것은 고른 하나뿐입니다.
+      card.hidden = q.id !== currentQuestion;
       box.appendChild(card);
     }
   }
+
+  /**
+   * 왼쪽 질문 목록 (1010).
+   *
+   * 카드를 접었다 펴는 방식도 되지만, 아홉 장 중 몇 개만 펴도 스크롤이 그대로 돌아옵니다.
+   * 한 장만 그리면 화면이 짧아지는 것과 별개로 요청도 한 개만 나갑니다.
+   */
+  function buildAnalyticsNav() {
+    const nav = el('anNav');
+    nav.textContent = '';
+    for (const q of QUESTIONS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.id = 'anNav-' + q.id;
+      button.textContent = q.title;
+      button.classList.toggle('on', q.id === currentQuestion);
+      button.addEventListener('click', () => showQuestion(q.id).catch(() => {}));
+      nav.appendChild(button);
+    }
+  }
+
+  /**
+   * 질문 하나를 펴고 그것만 불러옵니다.
+   *
+   * 주소에 남겨 두면 새로고침해도 보던 자리로 돌아오고, 창을 두 개 띄워 나란히 볼 수도
+   * 있습니다. 기간과 경기 선택은 위쪽 공통 바에 있어 질문을 바꿔도 유지됩니다.
+   */
+  async function showQuestion(id, keepHash) {
+    if (!QUESTIONS.some((q) => q.id === id)) id = QUESTIONS[0].id;
+    currentQuestion = id;
+
+    for (const q of QUESTIONS) {
+      el('an-' + q.id).hidden = q.id !== id;
+      el('anNav-' + q.id).classList.toggle('on', q.id === id);
+    }
+    if (!keepHash) location.hash = 'analytics/' + id;
+
+    await loadAnalyticsCard(QUESTIONS.find((q) => q.id === id));
+  }
+
+  /** 주소의 #analytics/<질문> 을 읽습니다. 없거나 모르는 값이면 첫 질문입니다. */
+  function questionFromHash() {
+    const hit = /^#analytics[/](.+)$/.exec(location.hash || '');
+    const id = hit ? decodeURIComponent(hit[1]) : '';
+    return QUESTIONS.some((q) => q.id === id) ? id : QUESTIONS[0].id;
+  }
+
   buildAnalyticsCards();
+  buildAnalyticsNav();
 
   /** Date → UTC yyyyMMddHHmmss. 서버가 다른 API 와 같은 형식으로 받습니다. */
   function stampOf(date) {
@@ -1080,13 +1177,17 @@
     return s ? '?' + s : '';
   }
 
-  /** 카드 여덟 개를 한 번에. 하나가 느리거나 실패해도 나머지는 그려집니다. */
-  async function loadAnalytics(onlyFiltered) {
+  /**
+   * 지금 펴 놓은 질문 하나만 불러옵니다 (1010).
+   *
+   * 전에는 아홉 개를 한꺼번에 불렀습니다. 탭을 여는 순간 질의가 아홉 개 나가서 첫 화면이
+   * 느렸고, 하나만 보고 싶어도 전부 기다려야 했습니다. 다른 질문은 그리로 옮길 때 부릅니다.
+   */
+  async function loadAnalytics() {
     say('');
     el('anClearMatch').hidden = !selectedMatch;
     el('anClearMatch').textContent = selectedMatch ? '경기 선택 해제 (' + selectedMatch.slice(0, 8) + '…)' : '';
-    const targets = QUESTIONS.filter((q) => !onlyFiltered || q.kind !== 'matches');
-    await Promise.allSettled(targets.map((q) => loadAnalyticsCard(q)));
+    await loadAnalyticsCard(QUESTIONS.find((q) => q.id === currentQuestion) || QUESTIONS[0]);
   }
 
   async function loadAnalyticsCard(q) {
@@ -1103,7 +1204,7 @@
         ? '/analytics/positions?matchId=' + encodeURIComponent(selectedMatch)
         : '/analytics/' + q.id + analyticsQuery(q);
       const table = await call(path);
-      renderAnalyticsCard(q, table);
+      await renderAnalyticsCard(q, table);
     } catch (e) {
       // call() 이 401 은 로그인 화면으로, 나머지는 위쪽 알림으로 보냈습니다. 카드에는 자리만 남깁니다.
       body.textContent = '';
@@ -1184,18 +1285,49 @@
     return box;
   }
 
+  /**
+   * 굽기 도구가 PNG 옆에 써 둔 JSON 을 읽습니다 (1010).
+   *
+   * 그림이 덮는 사각형을 여기서 받아 격자에도 그대로 씁니다. 두 곳에 같은 숫자를 손으로
+   * 적으면 언젠가 어긋나고, 어긋나면 사람이 벽 안에 서 있는 것처럼 보이는데 그건 틀렸다는
+   * 티가 안 나서 더 나쁩니다.
+   *
+   * 한 번 물어본 맵은 기억합니다. 없다는 답도 기억합니다 - 굽지 않은 맵마다 매번 404 를
+   * 받을 이유가 없습니다.
+   */
+  async function bakedMapOf(mapId) {
+    if (mapId in mapMeta) return mapMeta[mapId];
+    mapMeta[mapId] = null;
+    try {
+      const res = await fetch(MAP_DIR + encodeURIComponent(mapId) + '.json', { cache: 'no-cache' });
+      if (!res.ok) return null;
+      const meta = await res.json();
+      const extent = Array.isArray(meta.extent) ? meta.extent.map(Number) : [];
+      if (extent.length !== 4 || extent.some((v) => !isFinite(v))) return null;
+      mapMeta[mapId] = {
+        extent: extent,
+        image: MAP_DIR + encodeURIComponent(mapId) + '.png',
+        source: '구운 평면도(' + (meta.bakedAt || '시각 없음') + ')',
+      };
+    } catch (ignored) {
+      // 아직 굽지 않은 맵입니다. 경계만 그립니다.
+    }
+    return mapMeta[mapId];
+  }
+
   /** 좌표를 받았습니다. 필터 항목을 데이터에서 뽑고, 평면도가 있으면 읽은 뒤 그립니다. */
-  function showHeatmap(q, table) {
+  async function showHeatmap(q, table) {
     const mi = table.columns.indexOf('map_id');
     const mapId = mi >= 0 && table.rows.length ? String(table.rows[0][mi]) : '';
-    heatmapData = { columns: table.columns, rows: table.rows, mapId };
+    // 구운 평면도가 있으면 그 사각형이 그림과 격자 양쪽의 기준입니다.
+    const map = (await bakedMapOf(mapId)) || MAPS[mapId] || {};
+    heatmapData = { columns: table.columns, rows: table.rows, mapId, map };
 
     const pi = table.columns.indexOf('phase');
     const si = table.columns.indexOf('player_seat');
     refill(el('hmPhase'), [...new Set(table.rows.map((r) => String(r[pi])))].sort(), '전체 단계', (v) => v);
     refill(el('hmSeat'), [...new Set(table.rows.map((r) => r[si]))].sort((a, b) => a - b).map(String), '전체 자리', (v) => '자리 ' + v);
 
-    const map = MAPS[mapId] || {};
     const where = map.image ? '평면도 위에 그립니다.'
       : map.extent ? '평면도가 없어 ' + map.source + '으로 경계만 그립니다. 그림이 생기면 MAPS 에 적으면 됩니다.'
         : '맵 "' + mapId + '" 의 평면도와 경계값이 없어 샘플의 범위로 그립니다.';
@@ -1273,7 +1405,7 @@
     const rows = data.rows.filter((r) => (phase === 'all' || String(r[pi]) === phase)
       && (seat === 'all' || String(r[si]) === seat));
 
-    const map = MAPS[data.mapId] || {};
+    const map = data.map || {};
     // 경계는 필터와 무관하게 경기 전체 샘플로 잡습니다. 단계를 바꿀 때 그림이 튀지 않게 하려는 것입니다.
     const [x0, z0, x1, z1] = map.extent || dataExtent(data.rows, xi, zi, cell);
     // 칸은 원점 기준 배수에 맞춥니다(FLOOR(pos / 2) * 2). 문서 3·4번 표와 같은 칸이라 숫자를 맞대 볼 수 있고,
@@ -1396,7 +1528,7 @@
     note.className = 'an-note' + (bad ? ' bad' : '');
   }
 
-  function renderAnalyticsCard(q, table) {
+  async function renderAnalyticsCard(q, table) {
     const body = el('anBody-' + q.id);
     body.textContent = '';
     setNote(q, q.note, false);
@@ -1413,7 +1545,7 @@
         el('hmBox').hidden = true;
         return;
       }
-      showHeatmap(q, table);
+      await showHeatmap(q, table);
       return;
     }
     if (!table.rows.length) {
@@ -1514,7 +1646,7 @@
         tr.addEventListener('click', () => {
           selectedMatch = selectedMatch === id ? null : id;
           for (const sib of tbody.children) sib.classList.toggle('sel', sib === tr && selectedMatch !== null);
-          loadAnalytics(true).catch(() => {});
+          loadAnalytics().catch(() => {});
         });
       }
       if (dimAt >= 0 && Number(row[dimAt]) === 0) tr.classList.add('dim');
@@ -1968,7 +2100,16 @@
 
   el('tabAnalytics').addEventListener('click', () => {
     showTab('analytics');
-    loadAnalytics().catch(() => {});
+    // 주소에 남아 있던 질문으로 돌아갑니다. 처음 누르면 1번입니다.
+    showQuestion(questionFromHash()).catch(() => {});
+  });
+
+  // 뒤로·앞으로 가기로 질문이 바뀝니다. 우리가 주소를 쓴 경우에도 이 이벤트가 오므로
+  // 같은 질문이면 아무것도 하지 않습니다. 안 그러면 누를 때마다 두 번 부릅니다.
+  window.addEventListener('hashchange', () => {
+    if (el('analyticsView').hidden) return;
+    const id = questionFromHash();
+    if (id !== currentQuestion) showQuestion(id, true).catch(() => {});
   });
   el('refreshAnalytics').addEventListener('click', () => loadAnalytics().catch(() => {}));
   el('anPeriod').addEventListener('change', () => {
@@ -2003,6 +2144,13 @@
     // 개요로 시작합니다. 지금 몇 명이 붙어 있고 서버가 멀쩡한지가 열자마자 보여야 합니다.
     // 신고와 피드백은 눌러서 갑니다. 마지막에 본 탭을 기억하려면 저장할 곳이 필요한데
     // 그만한 값은 아닙니다.
+    // 주소에 분석 질문이 적혀 있으면 그리로 엽니다. 링크로 건네준 화면이 그대로 열립니다.
+    if (/^#analytics[/]/.test(location.hash || '')) {
+      showTab('analytics');
+      await showQuestion(questionFromHash(), true);
+      return;
+    }
+
     showTab('overview');
     await loadOverview();
   }
