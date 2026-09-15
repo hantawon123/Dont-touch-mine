@@ -189,6 +189,7 @@
       <button id="tabReports" class="tab" type="button">신고 검토</button>
       <button id="tabFeedback" class="tab" type="button">피드백</button>
       <button id="tabUsers" class="tab" type="button">사용자</button>
+      <button id="tabSuspensions" class="tab" type="button">정지</button>
       <button id="tabAnalytics" class="tab" type="button">분석</button>
       <span class="grow"></span>
       <button id="logout">로그아웃</button>
@@ -274,6 +275,23 @@
         <button id="searchUsers" class="primary">검색</button>
       </div>
       <div class="card"><div id="userRows"></div></div>
+    </div>
+
+    <!-- 정지 -->
+    <div id="suspensionsView" hidden>
+      <!--
+        여기서 바로 해제하지 않습니다. 해제는 그 사람의 신고 이력과 정지 이력을 보고 판단할
+        일이지 목록에서 이름만 보고 누를 일이 아닙니다. 줄을 누르면 사용자 탭에서 그 사람이
+        펼쳐집니다.
+      -->
+      <div class="warnbar">
+        지금 정지된 계정과 최근 해제 이력입니다. 줄을 누르면 사용자 탭에서 그 사람이 열립니다.
+        정지와 해제는 거기서 합니다.
+      </div>
+      <div class="bar">
+        <button id="refreshSuspensions" class="primary">새로고침</button>
+      </div>
+      <div class="card"><div id="suspensionRows"></div></div>
     </div>
 
     <!-- 분석 -->
@@ -716,6 +734,7 @@
       reports: ['reportsView', 'tabReports', '신고 검토'],
       feedback: ['feedbackView', 'tabFeedback', '피드백'],
       users: ['usersView', 'tabUsers', '사용자'],
+      suspensions: ['suspensionsView', 'tabSuspensions', '정지'],
       analytics: ['analyticsView', 'tabAnalytics', '분석'],
     };
     for (const key of Object.keys(tabs)) {
@@ -1528,6 +1547,147 @@
     return table;
   }
 
+  /**
+   * 정지 탭. 지금 정지된 계정과 최근 해제 이력을 한 응답으로 받습니다.
+   *
+   * 지금 정지 상태인지는 users 가 압니다. 감사 로그의 마지막 행으로 추정하지 않는 이유는
+   * 그 테이블이 생기기 전에 정지된 계정이 빠지기 때문입니다.
+   */
+  async function loadSuspensions() {
+    say('');
+    const data = await call('/suspensions');
+    const box = el('suspensionRows');
+    box.textContent = '';
+
+    suspensionGrid(box, '지금 정지됨 ' + data.suspended.length + '명',
+      ['닉네임', 'ID', '정지', '사유', '처리자'],
+      data.suspended,
+      (item) => [
+        cellOf(item.nickname),
+        idCellOf(item.userId),
+        timeCellOf(item.suspendedAt),
+        cellOf(item.reason),
+        // 감사 로그가 생기기 전의 정지는 처리자를 모릅니다. 빈 칸으로 두면 "아무도 안
+        // 눌렀다"로 읽히므로 그렇게 적습니다.
+        cellOf(item.adminUsername, '기록 이전'),
+      ]);
+
+    suspensionGrid(box, '최근 해제 ' + data.recentLifts.length + '건',
+      ['닉네임', 'ID', '해제', '처리자'],
+      data.recentLifts,
+      (item) => [
+        // 닉네임은 해제한 시점의 값입니다. 그 뒤 개명했으면 지금 이름과 다릅니다.
+        nicknameCellOf(item),
+        idCellOf(item.userId),
+        timeCellOf(item.actedAt),
+        cellOf(item.adminUsername),
+      ]);
+  }
+
+  /**
+   * 정지 탭의 표 하나. 각 줄을 누르면 사용자 탭으로 넘어갑니다.
+   */
+  function suspensionGrid(box, title, columns, items, cellsOf) {
+    const head = document.createElement('div');
+    head.className = 'section';
+    head.textContent = title;
+    box.appendChild(head);
+
+    if (!items.length) {
+      const none = document.createElement('div');
+      none.className = 'gone';
+      none.textContent = '없음';
+      box.appendChild(none);
+      return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'grid';
+
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+    for (const column of columns) {
+      const th = document.createElement('th');
+      th.textContent = column;
+      hr.appendChild(th);
+    }
+    thead.appendChild(hr);
+
+    const tbody = document.createElement('tbody');
+    for (const item of items) {
+      const tr = document.createElement('tr');
+      tr.className = 'pick';
+      tr.addEventListener('click', () => openUserFromSuspension(item.userId).catch(() => {}));
+      for (const cell of cellsOf(item)) tr.appendChild(cell);
+      tbody.appendChild(tr);
+    }
+
+    table.append(thead, tbody);
+    const wrap = document.createElement('div');
+    wrap.className = 'an-table';
+    wrap.appendChild(table);
+    box.appendChild(wrap);
+  }
+
+  /** 값이 없으면 대시를 흐리게. empty 는 없을 때 대신 적을 말입니다. */
+  function cellOf(text, empty) {
+    const td = document.createElement('td');
+    const blank = text === null || text === undefined || text === '';
+    td.textContent = blank ? (empty || '–') : text;
+    if (blank) td.classList.add('gone');
+    return td;
+  }
+
+  /** userId 는 앞 8자만 보입니다. 전체는 마우스를 올리면 나옵니다. */
+  function idCellOf(userId) {
+    const td = document.createElement('td');
+    td.textContent = userId.slice(0, 8);
+    td.title = userId;
+    return td;
+  }
+
+  function timeCellOf(stamp) {
+    const td = cellOf(when(stamp));
+    if (stamp) td.title = stamp + ' UTC';
+    return td;
+  }
+
+  /** 감사 행의 닉네임. 대상이 탈퇴했으면 그 사실을 함께 적습니다. */
+  function nicknameCellOf(entry) {
+    const td = document.createElement('td');
+    td.textContent = entry.nickname;
+    if (entry.accountDeleted) {
+      const gone = document.createElement('span');
+      gone.className = 'gone';
+      gone.textContent = ' (탈퇴)';
+      td.appendChild(gone);
+    }
+    return td;
+  }
+
+  /**
+   * 정지 탭에서 한 사람을 눌렀을 때. 사용자 탭으로 옮겨 그 사람만 띄우고 상세를 펼칩니다.
+   *
+   * 검색어에 userId 전체를 넣습니다. 닉네임으로 넣으면 같은 글자가 든 다른 사람까지 나와
+   * 어느 줄이 방금 누른 사람인지 알 수 없습니다.
+   */
+  async function openUserFromSuspension(userId) {
+    el('userQuery').value = userId;
+    showTab('users');
+
+    const users = (await call('/users?q=' + encodeURIComponent(userId))).users;
+    renderUsers(users);
+
+    // 탈퇴한 계정의 해제 이력을 눌렀을 때입니다. 목록이 비는 것이 정상입니다.
+    if (!users.length) {
+      say('그 계정은 지금 없습니다. 탈퇴한 뒤에도 이력은 남습니다.', 'good');
+      return;
+    }
+
+    const row = el('userRows').querySelector('[data-user-id="' + CSS.escape(userId) + '"]');
+    if (row) await toggleUserDetail(row, users[0], row.querySelector('.detail-toggle'));
+  }
+
   async function loadUsers() {
     say('');
     const q = el('userQuery').value.trim();
@@ -1647,6 +1807,10 @@
     const box = document.createElement('div');
     box.className = 'detail';
 
+    // 맨 위에 둡니다. 이 화면에서 운영자가 내리는 판단은 "정지할까, 풀까"이고, 요약의
+    // 정지 배지는 지금 상태 하나뿐이라 "전에도 그랬나"에 답하지 못합니다.
+    section(box, '정지 이력 ' + detail.suspensions.length + '건', detail.suspensions, suspensionLine);
+
     section(box, '받은 신고 ' + detail.receivedReports.length + '건', detail.receivedReports,
       (r) => reportLine(r, '신고한 사람'));
     section(box, '한 신고 ' + detail.madeReports.length + '건', detail.madeReports,
@@ -1680,6 +1844,32 @@
     for (const item of items) {
       box.appendChild(lineOf(item));
     }
+  }
+
+  /**
+   * 정지·해제 한 줄. 닉네임은 다시 적지 않습니다 - 이미 그 사람을 펼쳐 놓은 자리입니다.
+   *
+   * 해제에는 사유가 없습니다. 빈 자리로 두는 대신 아무것도 적지 않는 이유는, 신고 메모처럼
+   * "안 적었다"가 판단 재료인 경우와 달리 여기는 애초에 받지 않는 값이기 때문입니다.
+   */
+  function suspensionLine(entry) {
+    const line = document.createElement('div');
+
+    const what = document.createElement('b');
+    what.textContent = entry.action === 'SUSPEND' ? '정지' : '해제';
+    line.appendChild(what);
+
+    line.appendChild(document.createTextNode(
+      ' · ' + when(entry.actedAt) + ' · ' + entry.adminUsername));
+
+    if (entry.action === 'SUSPEND') {
+      const reason = document.createElement('span');
+      reason.className = 'memo';
+      reason.textContent = ' — ' + entry.reason;
+      line.appendChild(reason);
+    }
+
+    return line;
   }
 
   function reportLine(report, role) {
@@ -1769,6 +1959,12 @@
     showTab('users');
     loadUsers().catch(() => {});
   });
+
+  el('tabSuspensions').addEventListener('click', () => {
+    showTab('suspensions');
+    loadSuspensions().catch(() => {});
+  });
+  el('refreshSuspensions').addEventListener('click', () => loadSuspensions().catch(() => {}));
 
   el('tabAnalytics').addEventListener('click', () => {
     showTab('analytics');
