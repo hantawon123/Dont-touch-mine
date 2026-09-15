@@ -716,11 +716,12 @@ namespace Game.Architecture.Tests
         {
             using var presenter = Started();
 
-            Assert.That(view.Bindings.Count, Is.EqualTo(19));
+            Assert.That(view.Bindings.Count, Is.EqualTo(20));
             Assert.That(view.Bindings[ControlAction.MoveForward], Is.EqualTo("W"));
             Assert.That(view.Bindings[ControlAction.Interact], Is.EqualTo("F"));
             Assert.That(view.Bindings[ControlAction.PrimaryAction], Is.EqualTo("좌클릭"));
             Assert.That(view.Bindings[ControlAction.VoiceToggle], Is.EqualTo("B"));
+            Assert.That(view.Bindings[ControlAction.ToggleSpeaker], Is.EqualTo("T"));
             Assert.That(view.Bindings[ControlAction.Jump], Is.EqualTo("SPACE"));
             Assert.That(view.Bindings[ControlAction.RaiseObject], Is.EqualTo("스크롤 ↑"));
             Assert.That(view.Bindings[ControlAction.LowerObject], Is.EqualTo("스크롤 ↓"));

@@ -462,6 +462,8 @@ namespace Game.Client.Settings
                         return "마이크 송출";
                     case Core.Settings.ControlAction.VoiceToggle:
                         return "마이크 고정";
+                    case Core.Settings.ControlAction.ToggleSpeaker:
+                        return "음성 듣기";
                     case Core.Settings.ControlAction.MoveForward:
                         return "앞으로 이동";
                     case Core.Settings.ControlAction.MoveLeft:

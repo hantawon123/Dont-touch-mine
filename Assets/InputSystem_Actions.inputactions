@@ -175,6 +175,16 @@
                     "interactions": "",
                     "initialStateCheck": false,
                     "priority": 0
+                },
+                {
+                    "name": "VoiceListen",
+                    "type": "Button",
+                    "id": "8e3c1a50-6b24-4d91-9c17-4a2f8e0b7d35",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false,
+                    "priority": 0
                 }
             ],
             "bindings": [
@@ -681,6 +691,17 @@
                     "processors": "",
                     "groups": "Keyboard&Mouse",
                     "action": "ToggleKeyGuide",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "c4d8e91a-2f17-4b6c-8a03-9e5d1c7f2a84",
+                    "path": "<Keyboard>/t",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "VoiceListen",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }
