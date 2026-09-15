@@ -26,6 +26,8 @@ namespace Game.Architecture.Tests
                 Assert.That(VoiceView.MicOffSprite, Is.Not.Null);
                 Assert.That(VoiceView.MicOnResource, Is.EqualTo("UI/Icon_Mic_White"));
                 Assert.That(VoiceView.MicOffResource, Is.EqualTo("UI/Icon_Mic_Off_Gray"));
+                Assert.That(VoiceView.SpeakerOnResource, Is.EqualTo("UI/Icon_Headset_White"));
+                Assert.That(VoiceView.SpeakerOffResource, Is.EqualTo("UI/Icon_Headset_Off_Gray"));
 
                 view.SetState(available: true, muted: false, latched: true, transmitting: true, listening: true);
                 Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOnSprite));
