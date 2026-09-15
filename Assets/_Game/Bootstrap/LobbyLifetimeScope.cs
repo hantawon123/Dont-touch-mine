@@ -371,6 +371,8 @@ namespace Game.Bootstrap
                 if (playground != null)
                 {
                     playground.SuspendLiveInteractionsForHighlights();
+                    if (network.IsServer && DedicatedServerStartup.IsRequested)
+                        playground.BeginRetiredMapCleanup();
                     foreach (var root in playground.SceneRoots)
                     {
                         if (root == null) continue;
@@ -501,6 +503,9 @@ namespace Game.Bootstrap
                 // The outgoing scene can stay loaded until every peer finishes.
                 // Hide its geometry and collisions before revealing the lobby.
                 HideOutgoingGeometry();
+                // This peer has finished viewing; other clients keep their own map intact.
+                FindFirstObjectByType<PlaygroundLifetimeScope>(FindObjectsInactive.Include)
+                    ?.BeginRetiredMapCleanup();
                 SceneManager.SetActiveScene(gameObject.scene);
                 foreach (var cover in FindObjectsByType<HighlightTransitionView>(
                              FindObjectsInactive.Include,

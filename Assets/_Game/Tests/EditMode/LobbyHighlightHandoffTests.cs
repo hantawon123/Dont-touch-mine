@@ -111,6 +111,36 @@ namespace Game.Tests.EditMode
             }
         }
 
+        [Test]
+        public void RetiredMapCleanup_IsBoundedAndPreservesProtectedSubtreesAndLobby()
+        {
+            var root = new GameObject("Retired map");
+            var lobby = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            try
+            {
+                for (var i = 0; i < 150; i++)
+                {
+                    var prop = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    prop.transform.SetParent(root.transform);
+                }
+                var protectedRoot = new GameObject("Protected camera", typeof(Camera));
+                protectedRoot.transform.SetParent(root.transform);
+                var protectedChild = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                protectedChild.transform.SetParent(protectedRoot.transform);
+                var cleanup = new RetiredMapCleanup(new[] { root }, root.scene);
+                var destroyed = 0;
+                void Destroy(GameObject target) { destroyed++; Object.DestroyImmediate(target); }
+                cleanup.Tick(Destroy);
+                Assert.That(destroyed, Is.LessThanOrEqualTo(64));
+                for (var i = 0; i < 1000 && !cleanup.IsComplete; i++) cleanup.Tick(Destroy);
+                Assert.That(cleanup.IsComplete, Is.True);
+                Assert.That(destroyed, Is.EqualTo(150));
+                Assert.That(protectedRoot != null && protectedChild != null, Is.True);
+                Assert.That(lobby != null && lobby.GetComponent<Renderer>().enabled, Is.True);
+            }
+            finally { Object.DestroyImmediate(root); Object.DestroyImmediate(lobby); }
+        }
+
         private static void Set(LobbyLifetimeScope scope, string name, object value) =>
             typeof(LobbyLifetimeScope).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
                 .SetValue(scope, value);

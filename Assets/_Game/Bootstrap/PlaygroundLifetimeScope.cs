@@ -34,6 +34,14 @@ namespace Game.Bootstrap
     {
         private bool waitingForSceneLoad;
         private NetworkInteractionSceneBridge interactionBridge;
+        private RetiredMapCleanup retiredMapCleanup;
+
+        internal void BeginRetiredMapCleanup()
+        {
+            retiredMapCleanup ??= new RetiredMapCleanup(sceneRoots, gameObject.scene);
+        }
+
+        private void Update() => retiredMapCleanup?.Tick();
 
         internal void SuspendLiveInteractionsForHighlights() => interactionBridge?.SuspendForHighlights();
         private GameObject[] sceneRoots = Array.Empty<GameObject>();
