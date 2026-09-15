@@ -712,6 +712,20 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void MicrophoneTest_ShowsNoticeWhenTheDeviceCannotOpen()
+        {
+            using var presenter = new SettingsPresenter(
+                view, general, graphics, ui, sound, new ClosedMicrophoneTest(),
+                controls, keyCapture, notifications, host, flow);
+            presenter.Start();
+
+            view.ToggleTest();
+
+            Assert.That(view.TestRunning, Is.False);
+            Assert.That(view.Notices, Does.Contain(SettingsStyle.MicrophoneTest.UnavailableMessage));
+        }
+
+        [Test]
         public void Opening_ShowsEveryKey_SensitivityAndReversal()
         {
             using var presenter = Started();
@@ -1354,6 +1368,19 @@ namespace Game.Architecture.Tests
                 notifications, host, flow);
             presenter.Start();
             return presenter;
+        }
+
+        private sealed class ClosedMicrophoneTest : IMicrophoneTest
+        {
+            public bool IsRunning => false;
+
+            public void Start(string deviceName)
+            {
+            }
+
+            public void Stop()
+            {
+            }
         }
     }
 }

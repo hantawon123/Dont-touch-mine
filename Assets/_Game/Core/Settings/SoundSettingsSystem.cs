@@ -46,8 +46,7 @@ namespace Game.Core.Settings
 
     /// <summary>
     /// A microphone test that tests nothing but remembers being asked. For
-    /// containers with no audio, and for the game until the test's behaviour is
-    /// decided — see <see cref="IMicrophoneTest"/>.
+    /// containers with no audio: every test, and the dedicated server.
     /// </summary>
     public sealed class NullMicrophoneTest : IMicrophoneTest
     {

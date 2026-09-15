@@ -391,6 +391,8 @@ namespace Game.Client.Settings
         {
             public const string IdleLabel = "테스트 해보기";
             public const string RunningLabel = "테스트 중...";
+            public const string UnavailableTitle = "마이크 테스트";
+            public const string UnavailableMessage = "이 컴퓨터에서 마이크를 열 수 없습니다.";
         }
 
         /// <summary>

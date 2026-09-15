@@ -5,11 +5,9 @@ namespace Game.Core.Ports
     /// it: 마이크 테스트 on the 사운드 tab.
     /// </summary>
     /// <remarks>
-    /// What "hearing whether it works" means — playing the voice straight
-    /// back, or showing how loud it is — has not been decided, so this only
-    /// says when the test runs and on which device. The screen's button is
-    /// wired to it either way, and the decision changes the implementation
-    /// rather than the screen.
+    /// The application plays the voice straight back through the speakers.
+    /// Tests and the dedicated server keep a no-op, because those containers
+    /// have no microphone to open.
     /// </remarks>
     public interface IMicrophoneTest
     {

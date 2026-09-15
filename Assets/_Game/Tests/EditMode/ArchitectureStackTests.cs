@@ -5,6 +5,7 @@ using Game.Core.Flow;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using Game.Network.Match;
 using Game.Network.Session;
 using NUnit.Framework;
@@ -59,6 +60,7 @@ namespace Game.Architecture.Tests
             Assert.That(container.Resolve<FriendListSystem>(), Is.Not.Null);
             Assert.That(container.Resolve<FriendSearchSystem>(), Is.Not.Null);
             Assert.That(container.Resolve<PlayerProfile>(), Is.Not.Null);
+            Assert.That(container.Resolve<IMicrophoneTest>(), Is.TypeOf<NullMicrophoneTest>());
         }
     }
 }
