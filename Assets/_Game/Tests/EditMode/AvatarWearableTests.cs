@@ -20,6 +20,23 @@ namespace Game.Architecture.Tests
             applier=avatar.GetComponent<AvatarAppearanceApplier>();
         }
         [TearDown] public void TearDown(){Object.DestroyImmediate(avatar);Object.DestroyImmediate(other);}
+        [Test] public void NewPlayerAndOlderSavedAppearanceWearDefaultShoes()
+        {
+            var fresh = applier.ResolvePlayerAppearance(AvatarAppearance.Default);
+            Assert.That(fresh, Is.EqualTo(catalog.Default));
+            Assert.That(fresh.ShoesId, Is.EqualTo("shoes_blue"));
+            applier.Apply(fresh);
+            Assert.That(avatar.GetComponentsInChildren<Renderer>()
+                .Count(r => r.name.StartsWith("Wearable_CompactShoes")), Is.EqualTo(2));
+
+            var saved = catalog.Default.With(AvatarPartCategory.BodyColor, "body_orange_vivid")
+                .With(AvatarPartCategory.Shoes, AvatarAppearance.NoPart);
+            var completed = applier.ResolvePlayerAppearance(saved);
+            Assert.That(completed.ShoesId, Is.EqualTo("shoes_blue"));
+            Assert.That(completed.BodyColorId, Is.EqualTo(saved.BodyColorId));
+            Assert.That(completed.HoodId, Is.EqualTo(saved.HoodId));
+            Assert.That(completed.FaceId, Is.EqualTo(saved.FaceId));
+        }
         [Test] public void NetworkedPlayerSupportsEveryClosetSelection()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Content/Prefabs/NetworkedPlayer.prefab");

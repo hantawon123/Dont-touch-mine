@@ -24,13 +24,13 @@ namespace Game.Bootstrap
                 if (avatar == null || !avatar.HasNetworkState) continue;
                 var applier = avatar.GetComponentInChildren<AvatarAppearanceApplier>(true);
                 if (applier == null) continue;
-                if (avatar.IsOwner) avatar.PublishAppearance(appearance.Current);
+                if (avatar.IsOwner) avatar.PublishAppearance(applier.ResolvePlayerAppearance(appearance.Current));
                 if (!avatar.IsOwner && !avatar.HasAppearance) continue;
 
                 // Local changes (including a failed-save rollback) show immediately.
                 // Remote players use replicated state, including on late join.
                 var selected = avatar.IsOwner ? appearance.Current : avatar.Appearance;
-
+                selected = applier.ResolvePlayerAppearance(selected);
                 if (applier.Current != selected) applier.Apply(selected);
             }
         }
