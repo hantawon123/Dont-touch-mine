@@ -15,7 +15,7 @@ namespace Game.Network.Session
         private const int Magic = 0x4852504C;
         private const byte Version = 5;
         private const int MaxPayloadBytes = 8 * 1024 * 1024;
-        private const int MaxHighlightCount = 3;
+        private const int MaxHighlightCount = 2;
         private const int MaxSegmentsPerHighlight = 8;
         private const int MaxFramesPerClip = 1024;
         private const int MaxIdLength = 64;
@@ -69,7 +69,7 @@ namespace Game.Network.Session
                 replay.Count > MaxHighlightCount)
             {
                 throw new ArgumentException(
-                    "At most three highlights can be transferred.",
+                    "At most two highlights can be transferred.",
                     nameof(replay));
             }
 

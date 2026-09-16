@@ -25,7 +25,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Constructor_SelectsAtMostThreeUniqueHighlights()
+        public void Constructor_SelectsAtMostTwoUniqueHighlights()
         {
             var sequence = new HighlightSequence(
                 new[]
@@ -37,8 +37,8 @@ namespace Game.Tests.EditMode
                 },
                 rules);
 
-            Assert.That(sequence.Count, Is.EqualTo(3));
-            Assert.That(sequence.TotalDurationSeconds, Is.EqualTo(30f));
+            Assert.That(sequence.Count, Is.EqualTo(2));
+            Assert.That(sequence.TotalDurationSeconds, Is.EqualTo(20f));
             Assert.That(sequence.TryGetCurrent(out var current), Is.True);
             Assert.That(current.Type, Is.EqualTo(HighlightType.FirstBlood));
         }
