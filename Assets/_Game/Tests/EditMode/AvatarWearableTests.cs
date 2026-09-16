@@ -20,6 +20,56 @@ namespace Game.Architecture.Tests
             applier=avatar.GetComponent<AvatarAppearanceApplier>();
         }
         [TearDown] public void TearDown(){Object.DestroyImmediate(avatar);Object.DestroyImmediate(other);}
+        [Test] public void NewPlayerAndOlderSavedAppearanceWearDefaultShoes()
+        {
+            var fresh = applier.ResolvePlayerAppearance(AvatarAppearance.Default);
+            Assert.That(fresh, Is.EqualTo(catalog.Default));
+            Assert.That(fresh.ShoesId, Is.EqualTo("shoes_blue"));
+            applier.Apply(fresh);
+            Assert.That(avatar.GetComponentsInChildren<Renderer>()
+                .Count(r => r.name.StartsWith("Wearable_CompactShoes")), Is.EqualTo(2));
+
+            var saved = catalog.Default.With(AvatarPartCategory.BodyColor, "body_orange_vivid")
+                .With(AvatarPartCategory.Shoes, AvatarAppearance.NoPart);
+            var completed = applier.ResolvePlayerAppearance(saved);
+            Assert.That(completed.ShoesId, Is.EqualTo("shoes_blue"));
+            Assert.That(completed.BodyColorId, Is.EqualTo(saved.BodyColorId));
+            Assert.That(completed.HoodId, Is.EqualTo(saved.HoodId));
+            Assert.That(completed.FaceId, Is.EqualTo(saved.FaceId));
+        }
+        [Test] public void NetworkedPlayerSupportsEveryClosetSelection()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Content/Prefabs/NetworkedPlayer.prefab");
+            var player = Object.Instantiate(prefab);
+            try
+            {
+                var dresser = player.GetComponentInChildren<AvatarAppearanceApplier>(true);
+                Assert.That(dresser, Is.Not.Null);
+                foreach (var category in new[] { AvatarPartCategory.BodyColor, AvatarPartCategory.Hood,
+                    AvatarPartCategory.HoodColor, AvatarPartCategory.Shoes, AvatarPartCategory.Face })
+                foreach (var part in catalog.Find(category).Parts)
+                {
+                    var selected = catalog.Default.With(category, part.Id);
+                    Assert.That(new[] { selected.BodyColorId, selected.HoodId, selected.ShoesId, selected.FaceId }
+                        .All(id => id.Length <= 64), Is.True, "Part id must fit replicated state");
+                    dresser.Apply(selected);
+                    Assert.That(dresser.Current, Is.EqualTo(selected));
+                    Assert.That(player.GetComponentsInChildren<Renderer>(true)
+                        .Any(r => r.name.StartsWith("Wearable_CompactShoes") && r.enabled), Is.True);
+                    if (category == AvatarPartCategory.Hood)
+                        Assert.That(player.GetComponentsInChildren<MeshFilter>(true).Single(m => m.name == "Hood").sharedMesh,
+                            Is.EqualTo(part.Mesh));
+                    if (category == AvatarPartCategory.BodyColor)
+                    {
+                        var body = player.GetComponentsInChildren<Renderer>(true).Single(r => r.name == "Body");
+                        var properties = new MaterialPropertyBlock();
+                        body.GetPropertyBlock(properties, 0);
+                        Assert.That(Vector4.Distance(properties.GetColor("_BaseColor"), part.Swatch), Is.LessThan(.00001f));
+                    }
+                }
+            }
+            finally { Object.DestroyImmediate(player); }
+        }
         [Test] public void FaceSwitch_RestoresEyes_AndDoesNotAffectAnotherAvatar()
         {
             foreach(var face in new[]{"face_sparkle","face_sleepy","face_fierce","face_brown","face_default"})

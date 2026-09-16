@@ -44,6 +44,17 @@ namespace Game.Client.Character
         /// <summary>What this character is wearing now.</summary>
         public AvatarAppearance Current { get; private set; }
 
+        /// <summary>Completes an unset or older account selection with wardrobe defaults.</summary>
+        public AvatarAppearance ResolvePlayerAppearance(AvatarAppearance appearance)
+        {
+            if (catalog == null) return appearance;
+            var resolved = catalog.Normalise(appearance);
+            foreach (var group in catalog.Groups)
+                if (group != null && string.IsNullOrEmpty(resolved.Get(group.Category)))
+                    resolved = resolved.With(group.Category, group.DefaultPartId);
+            return resolved;
+        }
+
         /// <summary>
         /// Wears the appearance, out of the catalogue on this character.
         /// </summary>
