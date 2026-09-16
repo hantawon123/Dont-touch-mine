@@ -196,6 +196,99 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             stage(self.root, 'old', source / 'web', source / 'server', 'game')
 
+    def test_multiple_rooms_have_isolated_identity_and_only_finished_slot_restarts(self):
+        self.pool = Pool({'root': str(self.root), 'rooms_per_release': 3, 'max_processes': 6})
+        self.release('one')
+        with patch('release_host.subprocess.Popen', side_effect=Child) as spawn:
+            self.request('one')
+            self.assertEqual(len(self.pool.processes), 1)
+            self.ready('one')
+            self.assertEqual(len(self.pool.processes), 2)
+            self.ready('one#1')
+            self.ready('one#2')
+            homes = [call.kwargs['env']['HOME'] for call in spawn.call_args_list]
+            self.assertEqual(len(set(homes)), 3)
+            self.assertEqual(len({p['room'] for p in self.pool.processes.values()}), 3)
+            self.assertEqual(len({p['slot'] for p in self.pool.processes.values()}), 3)
+            survivors = {k: p['process'] for k, p in self.pool.processes.items() if k != 'one#1'}
+            self.pool.processes['one#1']['process'].returncode = 0
+            self.pool.step()
+            self.pool.retry_at['one#1'] = 0
+            self.pool.step()
+            self.assertEqual(len(self.pool.processes), 3)
+            for key, child in survivors.items():
+                self.assertIs(self.pool.processes[key]['process'], child)
+                self.assertFalse(child.terminated)
+            self.assertIn(spawn.call_args.kwargs['env']['HOME'], homes)
+
+    def test_multiroom_rollout_drains_each_old_room_without_replenishing_it(self):
+        self.pool = Pool({'root': str(self.root), 'rooms_per_release': 2, 'max_processes': 4})
+        self.release('old'); self.release('new')
+        self.request('old'); self.ready('old'); self.ready('old#1')
+        old = [p['process'] for p in self.pool.processes.values()]
+        self.request('new')
+        self.assertEqual(self.pool.active, 'old')
+        self.ready('new'); self.ready('new#1')
+        self.assertEqual(len(self.pool.processes), 4)
+        status = read_json(self.root/'status.json')['processes']
+        self.assertTrue(status['old']['draining'])
+        self.assertTrue(status['old#1']['draining'])
+        self.assertFalse(status['new#1']['draining'])
+        for child in old:
+            self.assertFalse(child.terminated)
+            child.returncode = 0
+        self.pool.step()
+        self.assertEqual(set(self.pool.processes), {'new', 'new#1'})
+
+    def test_multiroom_cap_preserves_games_and_rollback_reuses_surviving_room(self):
+        self.pool = Pool({'root': str(self.root), 'rooms_per_release': 2, 'max_processes': 3,
+                          'startup_timeout': 2})
+        for name in ('old', 'new', 'third'):
+            self.release(name)
+        self.request('old'); self.ready('old'); self.ready('old#1')
+        survivor = self.pool.processes['old#1']['process']
+        self.request('new'); self.ready('new')
+        self.request('third'); self.pool.request_at -= 3; self.pool.step()
+        self.assertEqual(self.pool.active, 'new')
+        self.assertEqual(len(self.pool.processes), 3)
+        self.assertFalse(survivor.terminated)
+        self.pool.processes['old']['process'].returncode = 0
+        # Request rollback in the same tick the slot is freed.
+        self.request('old')
+        self.assertEqual(self.pool.active, 'old')
+        self.assertIs(self.pool.processes['old#1']['process'], survivor)
+        self.assertLessEqual(len(self.pool.processes), 3)
+
+    def test_stalled_warm_room_is_recycled_without_stopping_healthy_room(self):
+        self.pool = Pool({'root': str(self.root), 'rooms_per_release': 2, 'max_processes': 4,
+                          'startup_timeout': 2})
+        self.release('one'); self.request('one'); self.ready('one')
+        healthy = self.pool.processes['one']['process']
+        stalled = self.pool.processes['one#1']
+        stalled['started'] -= 3
+        self.pool.step()
+        self.assertTrue(stalled['process'].terminated)
+        self.assertFalse(healthy.terminated)
+        self.pool.step(); self.pool.retry_at['one#1'] = 0; self.pool.step()
+        self.assertNotEqual(self.pool.processes['one#1']['process'].pid, stalled['process'].pid)
+
+    def test_twenty_room_configuration_fills_exactly_twenty_slots(self):
+        self.pool = Pool({'root': str(self.root), 'rooms_per_release': 20, 'max_processes': 40})
+        self.release('twenty'); self.request('twenty')
+        for index in range(20):
+            self.ready(self.pool.key('twenty', index))
+        for _ in range(5):
+            self.pool.step()
+        self.assertEqual(len(self.pool.processes), 20)
+        self.assertEqual(len({p['slot'] for p in self.pool.processes.values()}), 20)
+        self.assertTrue(all(p['ready'] for p in self.pool.processes.values()))
+
+    def test_invalid_pool_limits_are_rejected_before_spawning(self):
+        for rooms, cap in ((0, 2), (2, 2), (True, 2), (65, 128), (2, 129), ('2', 4)):
+            with self.subTest(rooms=rooms, cap=cap), self.assertRaises(ValueError):
+                Pool({'root': str(self.root), 'rooms_per_release': rooms, 'max_processes': cap})
+
+
 
 if __name__ == '__main__':
     unittest.main()

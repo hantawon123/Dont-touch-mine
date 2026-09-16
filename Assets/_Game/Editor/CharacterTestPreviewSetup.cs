@@ -140,6 +140,8 @@ namespace Game.Editor
         [InitializeOnLoadMethod]
         private static void BuildAfterReload()
         {
+            // CI must build committed assets, not run interactive authoring setup.
+            if (Application.isBatchMode) return;
             EditorSceneManager.sceneOpened -= OnSceneOpened;
             EditorSceneManager.sceneOpened += OnSceneOpened;
             EditorApplication.delayCall += () =>
