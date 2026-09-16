@@ -16,5 +16,31 @@ namespace Game.Architecture.Tests
             Assert.That(EditorGameViewCursor.AllowCursorLockAndHide, Is.Not.Null);
             Assert.That(EditorGameViewCursor.AllowCursorLockAndHide.ReturnType, Is.EqualTo(typeof(void)));
         }
+
+        [Test]
+        public void InstalledEditor_ExposesGameViewNoCameraWarningToggle()
+        {
+            Assert.That(EditorGameViewNoCameraWarning.Field, Is.Not.Null);
+            Assert.That(EditorGameViewNoCameraWarning.Field.FieldType, Is.EqualTo(typeof(bool)));
+            EditorGameViewNoCameraWarning.Suppress();
+            var windows = UnityEngine.Resources.FindObjectsOfTypeAll(EditorGameViewCursor.GameViewType);
+            for (var index = 0; index < windows.Length; index++)
+            {
+                if (windows[index] is not EditorWindow window)
+                {
+                    continue;
+                }
+
+                var serialized = new SerializedObject(window);
+                var property = serialized.FindProperty(EditorGameViewNoCameraWarning.FieldName);
+                if (property != null)
+                {
+                    Assert.That(property.boolValue, Is.False);
+                    continue;
+                }
+
+                Assert.That(EditorGameViewNoCameraWarning.Field.GetValue(window), Is.False);
+            }
+        }
     }
 }

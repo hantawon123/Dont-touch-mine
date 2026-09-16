@@ -11119,6 +11119,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Client::Game.Client.Lobby.VoiceView
   muteButton: {fileID: 1180236510}
   background: {fileID: 1180236508}
+  icon: {fileID: 0}
+  speakerButton: {fileID: 0}
+  speakerBackground: {fileID: 0}
+  speakerIcon: {fileID: 0}
   label: {fileID: 872920110}
   tmpLabel: {fileID: 0}
 --- !u!1 &1647516527

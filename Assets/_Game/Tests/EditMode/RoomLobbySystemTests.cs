@@ -451,6 +451,10 @@ namespace Game.Tests.EditMode
                 lobby.TryStart("host"),
                 Is.EqualTo(RoomStartResult.NotEnoughPlayers));
 
+            Assert.That(RoomSettings.CanStartMatch(0), Is.False);
+            Assert.That(RoomSettings.CanStartMatch(1), Is.False);
+            Assert.That(RoomSettings.CanStartMatch(2), Is.True);
+
             lobby.UpdatePlayerCount(2);
 
             Assert.That(lobby.TryStart("host"), Is.EqualTo(RoomStartResult.Started));

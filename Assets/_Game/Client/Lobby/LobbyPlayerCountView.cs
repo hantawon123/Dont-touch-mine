@@ -17,8 +17,12 @@ namespace Game.Client.Lobby
         public const float GapBelowMatchInfo = 24f;
         public const float CaptionCountGap = 8f;
 
-        public static float TopOffset =>
-            LobbyMatchInfoView.MarginTop + LobbyMatchInfoView.PanelHeight + GapBelowMatchInfo;
+        public static float TopOffset => TopOffsetAt(1f);
+
+        public static float TopOffsetAt(float matchInfoScale) =>
+            LobbyMatchInfoView.MarginTop
+            + (LobbyMatchInfoView.PanelHeight * matchInfoScale)
+            + GapBelowMatchInfo;
 
         private TextMeshProUGUI caption;
         private TextMeshProUGUI count;
@@ -124,12 +128,18 @@ namespace Game.Client.Lobby
             ApplyStyle();
         }
 
+        public void RefreshPlacement(float matchInfoScale = 1f)
+        {
+            var rect = (RectTransform)transform;
+            rect.anchoredPosition = new Vector2(LobbyMatchInfoView.MarginLeft, -TopOffsetAt(matchInfoScale));
+        }
+
         private void PlacePanel()
         {
             var rect = (RectTransform)transform;
             rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(LobbyMatchInfoView.MarginLeft, -TopOffset);
+            RefreshPlacement();
         }
 
         private void ApplyStyle()

@@ -70,6 +70,19 @@ namespace Game.Client.Players
         private PlayerInteractor interactor;
         private Animator animator;
         private string currentState;
+
+        /// <summary>지금 재생 중인 클립(상태) 이름. 1인칭 팔 뷰가 동작별 자세 프로필을 고를 때 읽는다.</summary>
+        public string CurrentState => currentState;
+
+        /// <summary>펀치 모션이 재생 중인가. 1인칭 팔이 때리는 팔을 조준점 쪽으로 보정할 때 쓴다.</summary>
+        public bool IsPunching => punchUntilTime > 0f && Time.time < punchUntilTime;
+
+        /// <summary>이번 펀치가 왼손인가.</summary>
+        public bool IsLeftPunch => leftPunch;
+
+        /// <summary>펀치 진행도 0(시작)~1(끝). 펀치 중이 아니면 -1.</summary>
+        public float PunchProgress =>
+            IsPunching ? Mathf.Clamp01((Time.time - punchStartedTime) / Mathf.Max(0.01f, PunchDuration)) : -1f;
         private float punchUntilTime;
         private float punchStartedTime;
         private bool leftPunch;
