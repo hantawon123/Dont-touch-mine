@@ -24,6 +24,11 @@ class DeliveryTests(unittest.TestCase):
                 path.write_text('fixture')
             (client/'version.txt').write_text(revision)
             archive = package(client, root/'download', revision)
+            html = (archive.parent/'index.html').read_text(encoding='utf-8')
+            self.assertIn(f'href="{archive.name}" download', html)
+            self.assertNotIn('@@', html)
+            self.assertTrue((archive.parent/'hero.png').is_file())
+            self.assertIn(revision[:12], html)
             with zipfile.ZipFile(archive) as z:
                 self.assertIn('Game_Data/globalgamemanagers', z.namelist())
                 self.assertFalse(any('.env' in p or 'BackUp' in p for p in z.namelist()))

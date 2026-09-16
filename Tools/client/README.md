@@ -8,7 +8,7 @@
 
 1. 기능 MR을 develop에 병합하고 검증한 내용을 release로 병합한다.
 2. Jenkins의 계약 테스트 → Windows 빌드 → Linux 서버 빌드 → ZIP 생성 → 서버 준비 확인을 기다린다.
-3. `https://j15d205.p.ssafy.io/download/`에서 ZIP을 받고 모두 압축 해제한 뒤 `Game.exe`를 실행한다.
+3. `https://j15d205.p.ssafy.io/play/`에서 ZIP을 받고 모두 압축 해제한 뒤 `Game.exe`를 실행한다.
 4. 기존 파일은 자동 패치되지 않는다. 새 버전 공개 후에는 참가자 모두 최신 ZIP을 사용한다.
 
 각 ZIP과 서버의 `version.txt`는 동일한 전체 커밋 SHA다. 이전 버전은 Photon 매칭 영역이 달라 최신 방에 입장하지 않는다.
@@ -37,7 +37,7 @@ release 이외의 브랜치를 검증용으로 연결하면 빌드·아티팩트
 ## 호스트 이동과 복구
 
 기존 [release host 설치 절차](../network/server-flow/release-host.md)를 따른다. 현재 호스트 루트는 `/var/www/d205-game/runtime`, HTTP는 loopback 4292, path_prefix는 `/download`다.
-Nginx [다운로드 설정](nginx-download.conf)을 `/etc/nginx/snippets/d205-client-download.conf`로 설치하고 `nginx -t` 성공 후 reload한다. `backend/deploy/nginx/d205.conf`의 `d205-client*.conf` include가 이를 읽는다. `/download/`만 해당 loopback으로 프록시한다. API와 Jenkins 경로는 기존 설정을 유지한다.
+Nginx [다운로드 설정](nginx-download.conf)을 `/etc/nginx/snippets/d205-client-download.conf`로 설치하고 `nginx -t` 성공 후 reload한다. `backend/deploy/nginx/d205.conf`의 `d205-client*.conf` include가 이를 읽는다. `/download/`와 `/play/`를 해당 loopback으로 프록시한다. 기존 `/play/` 설정 교체는 아래 최초 공개 절차를 따른다. API와 Jenkins 경로는 기존 설정을 유지한다.
 새 서버에서는 유효한 Unity 라이선스를 다시 준비하고 설정 경로·도메인·서비스 계정을 맞춘다.
 
 ```bash
@@ -54,3 +54,16 @@ python3 Tools/network/server-flow/releases.py /var/www/d205-game/runtime activat
 python3 -m unittest discover -s Tools/client -p 'test_*.py'
 python3 -m unittest discover -s Tools/network/server-flow -p 'test_*.py'
 ```
+
+## 게임 소개·다운로드 페이지
+
+`Tools/client/site/index.html`은 정적 소개·설치 페이지다. 별도 프런트엔드 빌드나 외부 로그인은 필요 없다.
+패키징 시 ZIP 이름·크기, 압축 해제 크기, Git 버전, 한국 시간 기준 생성일을 넣고
+저장소의 `docs/design/concept/main-screen-concept.png`를 `hero.png`로 복사한다.
+검증된 서버와 같은 릴리스의 페이지·ZIP이 함께 공개된다. `/download/`도 호환 경로로 유지한다.
+
+최초 `/play/` 공개 전에는 실제 서버 Ready와 다운로드 검증을 완료해야 한다.
+기존 Nginx `d205-webgl*.conf`의 `/play` location과 유지보수 차단을 백업한 뒤
+활성 include 밖으로 옮기고 `nginx-download.conf`를 설치한다. 중복 location을 두지 않는다.
+`nginx -t` 성공 후 reload하고 `/play/`의 리다이렉트가 `/play/releases/<SHA>/web/`로
+향하는지, 이미지와 ZIP이 같은 릴리스로 응답하는지 확인한다. WebGL 플레이어는 재개하지 않는다.

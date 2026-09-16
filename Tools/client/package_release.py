@@ -1,8 +1,10 @@
 """Package only Windows runtime artifacts as a download site for the paired host."""
 import argparse
+from datetime import datetime, timedelta, timezone
 import hashlib
 from pathlib import Path
 import re
+import shutil
 import zipfile
 
 
@@ -36,16 +38,20 @@ def package(client, output, revision):
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     (output / 'SHA256SUMS.txt').write_text(f'{digest}  {name}\n', encoding='utf-8')
     (output / 'version.txt').write_text(revision + '\n', encoding='utf-8')
-    (output / 'index.html').write_text(f'''<!doctype html>
-<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>KEEP IT · Windows 다운로드</title>
-<style>body{{font:18px system-ui;background:#111827;color:#eee;max-width:720px;margin:12vh auto;padding:24px}}a{{color:#7dd3fc}}code{{overflow-wrap:anywhere}}</style>
-<h1>KEEP IT</h1><p>Windows 64비트 클라이언트</p>
-<p><a href="{name}" download>게임 다운로드 (ZIP)</a></p>
-<p>압축을 모두 푼 뒤 Game.exe를 실행하세요. 최신 서버와 같은 버전입니다.</p>
-<p>이전 버전에서 방을 찾을 수 없다면 최신 파일을 다시 받아주세요.</p>
-<p>버전: <code>{revision}</code></p><a href="SHA256SUMS.txt">SHA-256 확인</a>
-</html>''', encoding='utf-8')
+    template = Path(__file__).with_name('site') / 'index.html'
+    html = template.read_text(encoding='utf-8')
+    values = {
+        'ARCHIVE': name,
+        'VERSION': revision[:12],
+        'ZIP_SIZE': f'{(output / name).stat().st_size / 1024**2:,.1f} MiB',
+        'INSTALL_SIZE': f'{sum(file.stat().st_size for file in files) / 1024**2:,.1f} MiB',
+        'DATE': datetime.now(timezone(timedelta(hours=9))).strftime('%Y.%m.%d'),
+    }
+    for key, value in values.items():
+        html = html.replace('@@' + key + '@@', value)
+    (output / 'index.html').write_text(html, encoding='utf-8')
+    hero = Path(__file__).resolve().parents[2] / 'docs/design/concept/main-screen-concept.png'
+    shutil.copyfile(hero, output / 'hero.png')
     return output / name
 
 
