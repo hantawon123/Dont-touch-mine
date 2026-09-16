@@ -42,6 +42,16 @@ namespace Game.Client.Players
 
         private PlayerFootstepAudio footstepAudio;
 
+        [SerializeField, Tooltip("펀치를 휘두를 때 재생하는 효과음 (명중 여부와 무관)")]
+        private AudioClip punchSwingClip;
+
+        private AudioSource punchAudioSource;
+
+        [SerializeField, Tooltip("펀치가 실제로 명중해 피격 알림을 받았을 때 재생하는 효과음")]
+        private AudioClip punchHitClip;
+
+        private AudioSource hitAudioSource;
+
         private float PunchDuration =>
             combatant != null && combatant.Config != null
                 ? combatant.Config.PunchMotionSeconds
@@ -85,6 +95,12 @@ namespace Game.Client.Players
             animator.applyRootMotion = false;
             lastPosture = movement.Posture;
 #if !UNITY_SERVER
+            if (punchSwingClip != null)
+            {
+                punchAudioSource = CreateCombatAudioSource("PunchSwingAudio");
+            }
+            if (punchHitClip != null)
+                hitAudioSource = CreateCombatAudioSource("PunchHitAudio");
             if (footstepClips != null && footstepClips.Length > 0)
             {
                 footstepAudio = gameObject.AddComponent<PlayerFootstepAudio>();
@@ -105,6 +121,8 @@ namespace Game.Client.Players
         private void OnDisable()
         {
             footstepAudio?.Stop();
+            if (punchAudioSource != null) punchAudioSource.Stop();
+            if (hitAudioSource != null) hitAudioSource.Stop();
             if (combatant != null)
             {
                 combatant.AttackPerformed -= OnAttackPerformed;
@@ -127,10 +145,40 @@ namespace Game.Client.Players
             PlayPunch();
         }
 
-        private void OnHitReceived() => PlayHit();
+        private void OnHitReceived()
+        {
+            // Play even on the hit that stuns the victim (PlayHit skips that animation).
+            if (hitAudioSource != null && hitAudioSource.isActiveAndEnabled)
+            {
+                hitAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                hitAudioSource.PlayOneShot(punchHitClip);
+            }
+            PlayHit();
+        }
+
+        private AudioSource CreateCombatAudioSource(string objectName)
+        {
+            var audioObject = new GameObject(objectName);
+            audioObject.transform.SetParent(transform, false);
+            // Never reuse footsteps or network voice sources.
+            var source = audioObject.AddComponent<AudioSource>();
+            source.playOnAwake = false;
+            source.loop = false;
+            source.spatialBlend = 1f;
+            source.rolloffMode = AudioRolloffMode.Linear;
+            source.minDistance = 2f;
+            source.maxDistance = 15f;
+            source.dopplerLevel = 0f;
+            return source;
+        }
 
         private void PlayPunch()
         {
+            if (punchAudioSource != null && punchAudioSource.isActiveAndEnabled)
+            {
+                punchAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                punchAudioSource.PlayOneShot(punchSwingClip);
+            }
             // Network peers choose the same hand, even if an attack update was skipped.
             leftPunch = usesNetworkState
                 ? (networkAttackSequence & 1) == 0
@@ -296,6 +344,10 @@ namespace Game.Client.Players
 
         private void LateUpdate()
         {
+            if (punchAudioSource != null)
+                punchAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (hitAudioSource != null)
+                hitAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             footstepAudio?.Tick(animator, currentState,
                 usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
         }
