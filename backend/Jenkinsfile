@@ -2,8 +2,8 @@
 //
 // 하나의 파일이 두 경로를 처리합니다.
 //
-//   develop   대상 확인 → 빌드 → 테스트 → 기동 검증(운영 DB) → 배포 → 헬스체크
-//   MR / 그 외  대상 확인 → 빌드 → 테스트 → 기동 검증(일회용 DB), 배포하지 않음
+//   release       대상 확인 → 빌드 → 테스트 → 기동 검증(운영 DB) → 배포 → 헬스체크
+//   develop / MR  대상 확인 → 빌드 → 테스트 → 기동 검증(일회용 DB), 배포하지 않음
 //
 // 살아 있는 컨테이너를 교체하기 전에 새 이미지가 실제로 기동하는지 먼저 확인합니다.
 // compose up 은 컨테이너를 먼저 교체하고 앱은 그 뒤에 뜨기 때문에, 곧바로 배포하면
@@ -37,15 +37,35 @@ pipeline {
         GITLAB_API      = 'https://lab.ssafy.com/api/v4'
         GITLAB_PROJECT  = 's15-metaverse-game-sub1%2FS15P21D205'
 
-        // 배포 여부. BRANCH_NAME은 Multibranch에서만 설정되므로, 없으면 단독 Job이
-        // Branch Specifier가 가리키는 develop을 빌드한다고 보고 배포합니다.
+        // 통합 브랜치인지. develop과 release는 자기 히스토리가 곧 기준선이므로
+        // 이전 성공 빌드 이후의 변경만 봅니다. MR은 대상 브랜치와 비교합니다.
         //
-        // when { branch 'develop' } 를 쓰면 단독 Job에서 조건이 false가 되어 배포가
-        // 조용히 멈춥니다. 빌드는 초록불인데 배포가 안 되는 상태라 찾기 어렵습니다.
-        DEPLOY = "${env.BRANCH_NAME == null || env.BRANCH_NAME == 'develop'}"
+        // 이 값과 DEPLOY를 나눈 이유가 있습니다. 예전에는 develop 하나가 '통합 브랜치'와
+        // '배포 대상'을 겸해서 DEPLOY 한 개로 둘 다 판별했습니다. 배포를 release로 옮기면
+        // 그 둘이 갈라지므로, 묶어 두면 develop 빌드가 자기 자신과 비교해 변경 파일 0개로
+        // 매번 건너뛰고 테스트가 한 번도 돌지 않습니다.
+        TRUNK = "${env.BRANCH_NAME == null || env.BRANCH_NAME == 'develop' || env.BRANCH_NAME == 'release'}"
 
-        // MR이면 대상 브랜치, 아니면 develop. 대상 확인의 비교 기준입니다.
+        // 배포 여부. release만 운영 컨테이너를 교체합니다. develop은 빌드·테스트·기동
+        // 검증까지만 하고 살아 있는 컨테이너를 건드리지 않습니다. 배포판을 쓰는 사람이
+        // 그 컨테이너에 붙어 있기 때문입니다(S15P21D205-1020).
+        //
+        // BRANCH_NAME은 Multibranch에서만 설정되므로, 없으면 단독 Job이 Branch Specifier가
+        // 가리키는 브랜치를 빌드한다고 보고 배포합니다. 그 Job의 Branch Specifier는
+        // release여야 합니다. develop을 가리킨 채 두면 develop이 그대로 배포됩니다.
+        //
+        // when { branch 'release' } 를 쓰면 단독 Job에서 조건이 false가 되어 배포가
+        // 조용히 멈춥니다. 빌드는 초록불인데 배포가 안 되는 상태라 찾기 어렵습니다.
+        DEPLOY = "${env.BRANCH_NAME == null || env.BRANCH_NAME == 'release'}"
+
+        // MR이면 대상 브랜치. 통합 브랜치는 '대상 확인'이 이전 성공 커밋을 기준으로
+        // 삼으므로 이 값을 읽지 않습니다.
         DIFF_BASE = "${env.CHANGE_TARGET ?: 'develop'}"
+
+        // 이 빌드가 갱신하는 통합 브랜치. 재검증할 열린 MR을 고르는 기준입니다.
+        // 단독 Job(BRANCH_NAME이 없음)은 MR Job을 찾지 못해 재검증 자체를 건너뛰므로
+        // 그 경우 이 값은 쓰이지 않습니다.
+        MR_TARGET = "${env.BRANCH_NAME ?: 'develop'}"
 
         // 검증 경로에서 만드는 자원들. BUILD_TAG는 Job 이름까지 포함해 전역적으로
         // 유일합니다. BUILD_NUMBER는 Job 단위라, 서로 다른 MR Job이 모두 빌드 #1이면
@@ -89,16 +109,16 @@ pipeline {
 
         stage('대상 확인') {
             steps {
-                // 배포 경로에도 적용합니다. Multibranch에는 Git 플러그인의 경로 필터
-                // (Included Regions)가 없어서, 이게 없으면 Unity 커밋이 develop에
-                // 머지될 때마다 백엔드가 빌드되고 컨테이너가 교체됩니다.
+                // 통합 브랜치에도 적용합니다. Multibranch에는 Git 플러그인의 경로 필터
+                // (Included Regions)가 없어서, 이게 없으면 Unity 커밋이 머지될 때마다
+                // 백엔드가 빌드되고, release라면 컨테이너까지 교체됩니다.
                 //
                 // 판별 결과를 파일로 주고받지 않습니다. 워크스페이스는 빌드 사이에
                 // 재사용되므로, 남은 표시 파일이 다음 빌드를 조용히 건너뛰게 만듭니다.
                 // 실제로 그렇게 배포가 멈춘 적이 있습니다. 표준 출력으로 넘깁니다.
                 script {
                     def verdict = sh(returnStdout: true, script: '''
-                        if [ "$DEPLOY" = true ]; then
+                        if [ "$TRUNK" = true ]; then
                             # 이전 성공 빌드 이후의 변경만 봅니다. Jenkins가
                             # GIT_PREVIOUS_SUCCESSFUL_COMMIT을 주입합니다.
                             if [ -z "$GIT_PREVIOUS_SUCCESSFUL_COMMIT" ]; then
@@ -134,8 +154,9 @@ pipeline {
                         echo 'backend/ 변경이 있어 빌드를 진행합니다.'
                     }
 
-                    // develop이 갱신되면 열려 있는 MR들의 초록불은 낡은 것이 됩니다.
-                    // 그 MR은 "이전 develop에 합친 결과"로 검증받았기 때문입니다.
+                    // 통합 브랜치가 갱신되면 그 브랜치를 대상으로 열려 있는 MR들의
+                    // 초록불은 낡은 것이 됩니다. 그 MR은 "이전 대상 브랜치에 합친 결과"로
+                    // 검증받았기 때문입니다.
                     // GitLab Free에는 merged results pipeline과 merge train이 없어
                     // 자동 재검증이 일어나지 않습니다. 그래서 여기서 직접 요청합니다.
                     //
@@ -154,7 +175,7 @@ pipeline {
                     //
                     // backend/ 변경이 없어 건너뛴 빌드에서는 하지 않습니다. MR의 백엔드
                     // 검증 결과가 달라질 이유가 없기 때문입니다.
-                    if (env.DEPLOY == 'true' && env.SKIP_ALL != 'true') {
+                    if (env.TRUNK == 'true' && env.SKIP_ALL != 'true') {
                         // gitlab-api-token 이 아니라 -text 입니다. GitLab 플러그인의 토큰
                         // 크리덴셜은 StringCredentials가 아니어서 파이프라인의 string()
                         // 바인딩으로 읽을 수 없습니다. 같은 토큰을 Secret text로 한 번 더
@@ -163,12 +184,12 @@ pipeline {
                             withCredentials([string(credentialsId: 'gitlab-api-token-text', variable: 'GL_TOKEN')]) {
                                 def raw = sh(returnStdout: true, script: '''
                                     set +x
-                                    curl -fsS -H "PRIVATE-TOKEN: $GL_TOKEN" "$GITLAB_API/projects/$GITLAB_PROJECT/merge_requests?state=opened&target_branch=develop&per_page=100" | jq -r '.[].iid'
+                                    curl -fsS -H "PRIVATE-TOKEN: $GL_TOKEN" "$GITLAB_API/projects/$GITLAB_PROJECT/merge_requests?state=opened&target_branch=$MR_TARGET&per_page=100" | jq -r '.[].iid'
                                 ''').trim()
 
                                 def folder = env.JOB_NAME.contains('/') ? env.JOB_NAME.split('/')[0] : null
                                 def iids = raw ? raw.split('\\s+') : []
-                                echo "develop 대상 열린 MR: ${iids.size()} 개"
+                                echo "${env.MR_TARGET} 대상 열린 MR: ${iids.size()} 개"
 
                                 if (folder == null) {
                                     echo '단독 Job이라 MR Job을 찾을 수 없어 재검증 요청을 생략합니다.'
@@ -177,7 +198,7 @@ pipeline {
                                         def target = "${folder}/MR-${iid}"
                                         try {
                                             build job: target, wait: false, propagate: false
-                                            echo "  ${target} 재빌드 요청 (develop 갱신 반영)"
+                                            echo "  ${target} 재빌드 요청 (${env.MR_TARGET} 갱신 반영)"
                                         } catch (err) {
                                             echo "  ${target} 트리거 실패: ${err.message}"
                                         }
@@ -639,7 +660,7 @@ pipeline {
   대상 확인 / 빌드 / 테스트 / 기동 검증  -> 운영 컨테이너를 교체하지 않았으므로 서비스는 정상입니다.
   배포 / 헬스체크                        -> 컨테이너가 이미 교체되었으므로 서비스가 내려간 상태일 수 있습니다.
 
-확인: ssh d205 'bash /var/lib/jenkins/workspace/d205-backend_develop/backend/deploy/verify.sh'
+확인: ssh d205 'bash /var/lib/jenkins/workspace/d205-backend_release/backend/deploy/verify.sh'
 복구 절차는 backend/deploy/README.md 를 참고하세요.'''
         }
     }
