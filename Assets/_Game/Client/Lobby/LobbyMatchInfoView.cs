@@ -8,7 +8,8 @@ namespace Game.Client.Lobby
     /// <summary>
     /// Read-only map and category cards in the lobby's top-left, lined up with
     /// the chat input. The map is a preview stacked over its name; the
-    /// category option sits in a white inner card on the same-sized outer card.
+    /// category shows a title on the black card and the option in a translucent
+    /// white inner card underneath.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LobbyMatchInfoView : MonoBehaviour
@@ -22,11 +23,15 @@ namespace Game.Client.Lobby
         /// <summary>Previous card width 320, scaled 1.8x to match the stacked preview.</summary>
         public const float Width = 576f;
         public const float FontSize = 32f;
+        public const float CaptionFontSize = 24f;
+        public const string CategoryCaption = "카테고리";
         public const float Padding = 0f;
         public const float ContentSpacing = 22f;
         public const float MapRowPadding = 18f;
         public const float MapNameSpacing = 22f;
         public const float LabelHeight = 68f;
+        public const float CaptionHeight = 36f;
+        public const float CaptionGap = 8f;
         public const float InnerCardInset = 12f;
         public const float PlayerListGap = 24f;
         public const int PanelRadius = 16;
@@ -38,13 +43,16 @@ namespace Game.Client.Lobby
         public static readonly Color PanelFill = Color.clear;
         public static readonly Color MapRowFill = Color.black;
         public static readonly Color MapPreviewFill = PlaySettingsStyle.Palette.MapPreview;
-        public static readonly Color CategoryInnerFill = Color.white;
+        public static readonly Color CategoryInnerFill = new Color(1f, 1f, 1f, 0.7f);
         public static readonly Color CategoryValueColor = Color.black;
 
         public static float MapCardHeight =>
             MapRowPadding + MapPreviewSize.y + MapNameSpacing + LabelHeight + MapRowPadding;
 
-        public static float CategoryCardHeight => MapRowPadding + LabelHeight + MapRowPadding;
+        public static float InnerCardTop => MapRowPadding + CaptionHeight + CaptionGap;
+
+        public static float CategoryCardHeight =>
+            InnerCardTop + LabelHeight + InnerCardInset;
 
         public static float MapRowHeight => MapCardHeight;
 
@@ -53,6 +61,7 @@ namespace Game.Client.Lobby
 
         public static float PlayerListTopOffset => MarginTop + PanelHeight + PlayerListGap;
 
+        private TextMeshProUGUI categoryCaption;
         private TextMeshProUGUI categoryValue;
         private TextMeshProUGUI mapName;
         private Image mapPreviewPhoto;
@@ -132,6 +141,7 @@ namespace Game.Client.Lobby
             if (HasStackedLayout())
             {
                 PlacePanel();
+                PlaceCards();
                 ApplyChrome();
                 return;
             }
@@ -147,13 +157,14 @@ namespace Game.Client.Lobby
                 && preview != null
                 && preview.sizeDelta == MapPreviewSize
                 && transform.Find("CategoryRow/CategoryPreview") == null
-                && transform.Find("CategoryRow/CategoryCaption") == null
-                && transform.Find("CategoryRow/CategoryValueCard") != null
+                && transform.Find("CategoryRow/CategoryCaption") != null
+                && transform.Find("CategoryRow/CategoryValueCard/Fill") != null
                 && transform.Find("CategoryRow/Divider") == null;
         }
 
         private void CacheRefs()
         {
+            categoryCaption = transform.Find("CategoryRow/CategoryCaption")?.GetComponent<TextMeshProUGUI>();
             categoryValue = transform.Find("CategoryRow/CategoryValueCard/CategoryValue")
                 ?.GetComponent<TextMeshProUGUI>()
                 ?? transform.Find("CategoryRow/CategoryValue")?.GetComponent<TextMeshProUGUI>();
@@ -176,6 +187,7 @@ namespace Game.Client.Lobby
                 DestroyImmediate(transform.GetChild(i).gameObject);
             }
 
+            categoryCaption = null;
             categoryValue = null;
             mapName = null;
             mapPreviewPhoto = null;
@@ -193,13 +205,8 @@ namespace Game.Client.Lobby
             PlacePanel();
 
             mapName = CreateMapCard(out mapPreviewPhoto);
-            PlaceTopRow((RectTransform)mapName.transform.parent, 0f, MapCardHeight);
-
             categoryValue = CreateCategoryCard();
-            PlaceTopRow(
-                (RectTransform)categoryValue.transform.parent,
-                MapCardHeight + ContentSpacing,
-                CategoryCardHeight);
+            PlaceCards();
         }
 
         private TextMeshProUGUI CreateMapCard(out Image previewPhoto)
@@ -237,16 +244,35 @@ namespace Game.Client.Lobby
         private TextMeshProUGUI CreateCategoryCard()
         {
             var row = CreateCardRow("CategoryRow");
+            var caption = CreateLabel(
+                row,
+                "CategoryCaption",
+                CategoryCaption,
+                HomeUiFonts.Apply(),
+                TextAlignmentOptions.Center,
+                CaptionFontSize,
+                Color.white);
+            PlaceTopBand(caption.rectTransform, MapRowPadding, CaptionHeight, MapRowPadding);
+
             var inner = CreateRect("CategoryValueCard", row);
-            inner.anchorMin = Vector2.zero;
-            inner.anchorMax = Vector2.one;
-            inner.offsetMin = new Vector2(InnerCardInset, InnerCardInset);
-            inner.offsetMax = new Vector2(-InnerCardInset, -InnerCardInset);
-            var innerImage = inner.gameObject.AddComponent<Image>();
-            innerImage.sprite = HomeUiFonts.Rounded(InnerCardRadius);
-            innerImage.type = Image.Type.Sliced;
-            innerImage.color = CategoryInnerFill;
-            innerImage.raycastTarget = false;
+            var maskImage = inner.gameObject.AddComponent<Image>();
+            maskImage.sprite = HomeUiFonts.Rounded(InnerCardRadius);
+            maskImage.type = Image.Type.Sliced;
+            maskImage.color = Color.white;
+            maskImage.raycastTarget = false;
+            var mask = inner.gameObject.AddComponent<Mask>();
+            mask.showMaskGraphic = false;
+
+            var fill = CreateRect("Fill", inner);
+            fill.anchorMin = Vector2.zero;
+            fill.anchorMax = Vector2.one;
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
+            var fillImage = fill.gameObject.AddComponent<Image>();
+            fillImage.sprite = HomeUiFonts.WhiteSprite;
+            fillImage.type = Image.Type.Simple;
+            fillImage.raycastTarget = false;
+            ApplyInnerFill(fillImage);
 
             var label = CreateLabel(
                 inner,
@@ -261,7 +287,41 @@ namespace Game.Client.Lobby
             labelRect.anchorMax = Vector2.one;
             labelRect.offsetMin = Vector2.zero;
             labelRect.offsetMax = Vector2.zero;
+            categoryCaption = caption;
             return label;
+        }
+
+        private void PlaceCards()
+        {
+            var mapRow = transform.Find("MapRow") as RectTransform;
+            if (mapRow != null)
+            {
+                PlaceTopRow(mapRow, 0f, MapCardHeight);
+            }
+
+            var categoryRow = transform.Find("CategoryRow") as RectTransform;
+            if (categoryRow != null)
+            {
+                PlaceTopRow(categoryRow, MapCardHeight + ContentSpacing, CategoryCardHeight);
+            }
+
+            var captionRect = transform.Find("CategoryRow/CategoryCaption") as RectTransform;
+            if (captionRect != null)
+            {
+                PlaceTopBand(captionRect, MapRowPadding, CaptionHeight, MapRowPadding);
+            }
+
+            var inner = transform.Find("CategoryRow/CategoryValueCard") as RectTransform;
+            if (inner == null)
+            {
+                return;
+            }
+
+            inner.anchorMin = Vector2.zero;
+            inner.anchorMax = Vector2.one;
+            inner.pivot = new Vector2(0.5f, 0.5f);
+            inner.offsetMin = new Vector2(InnerCardInset, InnerCardInset);
+            inner.offsetMax = new Vector2(-InnerCardInset, -InnerCardTop);
         }
 
         private RectTransform CreateCardRow(string rowName)
@@ -279,14 +339,25 @@ namespace Game.Client.Lobby
         {
             ApplyCardFill("MapRow");
             ApplyCardFill("CategoryRow");
-            var inner = transform.Find("CategoryRow/CategoryValueCard")?.GetComponent<Image>();
-            if (inner != null)
-            {
-                inner.color = CategoryInnerFill;
-            }
+            ApplyInnerFill(
+                transform.Find("CategoryRow/CategoryValueCard/Fill")?.GetComponent<Image>());
 
+            ApplyLabelFace(categoryCaption, CaptionFontSize, Color.white);
             ApplyLabelFace(mapName, FontSize, Color.white);
             ApplyLabelFace(categoryValue, FontSize, CategoryValueColor);
+        }
+
+        private static void ApplyInnerFill(Image image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            image.color = CategoryInnerFill;
+            image.canvasRenderer.SetColor(CategoryInnerFill);
+            image.canvasRenderer.SetAlpha(CategoryInnerFill.a);
+            image.canvasRenderer.cullTransparentMesh = false;
         }
 
         private void ApplyCardFill(string path)
@@ -326,6 +397,15 @@ namespace Game.Client.Lobby
             row.pivot = new Vector2(0.5f, 1f);
             row.offsetMin = new Vector2(Padding, -(top + height));
             row.offsetMax = new Vector2(-Padding, -top);
+        }
+
+        private static void PlaceTopBand(RectTransform rect, float top, float height, float inset)
+        {
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.offsetMin = new Vector2(inset, -(top + height));
+            rect.offsetMax = new Vector2(-inset, -top);
         }
 
         private void PlacePanel()
