@@ -8,12 +8,11 @@ namespace Game.Bootstrap
     public sealed partial class HighlightCameraDirector
     {
         private readonly IReadOnlyList<HighlightCctvCamera> cctvCameras;
-        private HighlightCctvCamera activeCctv, pendingCctv;
-        private float cctvHold, cctvCheck, cctvFade;
+        private HighlightCctvCamera activeCctv;
+        private float cctvHold, cctvCheck;
         private Transform cctvTarget;
         private readonly List<Bounds> cctvOccluders = new();
         public string CctvLocation => activeCctv == null ? "" : activeCctv.LocationName;
-        public float CctvOpacity => cctvFade <= 0f ? 0f : 1f - Mathf.Abs(cctvFade - 0.2f) / 0.2f;
         public Vector3? CctvPosition => activeCctv == null ? null : activeCctv.transform.position;
 
         private void CaptureCctvOccluders()
@@ -60,21 +59,14 @@ namespace Game.Bootstrap
 
         private void ResetCctv()
         {
-            activeCctv = pendingCctv = null;
-            cctvHold = cctvCheck = cctvFade = 0f;
+            activeCctv = null;
+            cctvHold = cctvCheck = 0f;
         }
 
         private void AdvanceCctv(float delta)
         {
             cctvHold += delta;
             cctvCheck -= delta;
-            if (cctvFade <= 0f) return;
-            cctvFade = Mathf.Max(0f, cctvFade - delta);
-            if (pendingCctv != null && cctvFade <= 0.2f)
-            {
-                SetCctv(pendingCctv);
-                pendingCctv = null;
-            }
         }
 
         private void SetCctv(HighlightCctvCamera camera)
@@ -95,7 +87,7 @@ namespace Game.Bootstrap
             var focus = subject;
             if (supportingPlayer != null && Vector3.Distance(subject, supportingPlayer.position) < 8f)
                 focus = (subject + supportingPlayer.position + Vector3.up) * 0.5f;
-            if (activeCctv == null || cctvCheck <= 0f && pendingCctv == null)
+            if (activeCctv == null || cctvCheck <= 0f)
             {
                 cctvCheck = 0.25f;
                 HighlightCctvCamera best = null;
@@ -122,8 +114,7 @@ namespace Game.Bootstrap
                             currentDistance - bestDistance >= 2f;
                         if (clearer || closer)
                         {
-                            pendingCctv = best;
-                            cctvFade = 0.4f;
+                            SetCctv(best);
                         }
                     }
                 }

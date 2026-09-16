@@ -1,0 +1,172 @@
+{
+  "parts": [
+    {
+      "name": "Part_Eye_Sparkle_Lash1_L",
+      "bone": "Head",
+      "materials": [
+        {
+          "name": "MAT_Eyes_Sparkle_Liner",
+          "texture": "",
+          "color": [
+            0.016807375475764275,
+            0.016807375475764275,
+            0.024157632142305374,
+            1.0
+          ],
+          "roughness": 0.6000000238418579,
+          "tint": 0
+        }
+      ]
+    },
+    {
+      "name": "Part_Eye_Sparkle_Lash1_R",
+      "bone": "Head",
+      "materials": [
+        {
+          "name": "MAT_Eyes_Sparkle_Liner",
+          "texture": "",
+          "color": [
+            0.016807375475764275,
+            0.016807375475764275,
+            0.024157632142305374,
+            1.0
+          ],
+          "roughness": 0.6000000238418579,
+          "tint": 0
+        }
+      ]
+    },
+    {
+      "name": "Part_Eye_Sparkle_Lash2_L",
+      "bone": "Head",
+      "materials": [
+        {
+          "name": "MAT_Eyes_Sparkle_Liner",
+          "texture": "",
+          "color": [
+            0.016807375475764275,
+            0.016807375475764275,
+            0.024157632142305374,
+            1.0
+          ],
+          "roughness": 0.6000000238418579,
+          "tint": 0
+        }
+      ]
+    },
+    {
+      "name": "Part_Eye_Sparkle_Lash2_R",
+      "bone": "Head",
+      "materials": [
+        {
+          "name": "MAT_Eyes_Sparkle_Liner",
+          "texture": "",
+          "color": [
+            0.016807375475764275,
+            0.016807375475764275,
+            0.024157632142305374,
+            1.0
+          ],
+          "roughness": 0.6000000238418579,
+          "tint": 0
+        }
+      ]
+    },
+    {
+      "name": "Part_Eye_Sparkle_UpperLid_L",
+      "bone": "Head",
+      "materials": [
+        {
+          "name": "MAT_Eyes_Sparkle_Liner",
+          "texture": "",
+          "color": [
+            0.016807375475764275,
+            0.016807375475764275,
+            0.024157632142305374,
+            1.0
+          ],
+          "roughness": 0.6000000238418579,
+          "tint": 0
+        }
+      ]
+    },
+    {
+      "name": "Part_Eye_Sparkle_UpperLid_R",
+      "bone": "Head",
+      "materials": [
+        {
+          "name": "MAT_Eyes_Sparkle_Liner",
+          "texture": "",
+          "color": [
+            0.016807375475764275,
+            0.016807375475764275,
+            0.024157632142305374,
+            1.0
+          ],
+          "roughness": 0.6000000238418579,
+          "tint": 0
+        }
+      ]
+    },
+    {
+      "name": "Part_Eye_White_L",
+      "bone": "Head",
+      "materials": [
+        {
+          "name": "Preview_Eye_White_L",
+          "texture": "",
+          "color": [
+            0.9559733271598816,
+            0.9559733271598816,
+            0.9130986332893372,
+            1.0
+          ],
+          "roughness": 0.5799999833106995,
+          "tint": 0
+        },
+        {
+          "name": "MAT_Eye_Sparkle_Print_L",
+          "texture": "Sparkle_SparkleEyes_Print_BaseColor.png",
+          "color": [
+            0.800000011920929,
+            0.800000011920929,
+            0.800000011920929,
+            1.0
+          ],
+          "roughness": 0.3400000035762787,
+          "tint": 0
+        }
+      ]
+    },
+    {
+      "name": "Part_Eye_White_R",
+      "bone": "Head",
+      "materials": [
+        {
+          "name": "Preview_Eye_White_R",
+          "texture": "",
+          "color": [
+            0.9559733271598816,
+            0.9559733271598816,
+            0.9130986332893372,
+            1.0
+          ],
+          "roughness": 0.5799999833106995,
+          "tint": 0
+        },
+        {
+          "name": "MAT_Eye_Sparkle_Print_R",
+          "texture": "Sparkle_SparkleEyes_Print_BaseColor.png",
+          "color": [
+            0.800000011920929,
+            0.800000011920929,
+            0.800000011920929,
+            1.0
+          ],
+          "roughness": 0.3400000035762787,
+          "tint": 0
+        }
+      ]
+    }
+  ]
+}

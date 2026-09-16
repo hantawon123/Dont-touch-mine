@@ -40,18 +40,29 @@ namespace Game.Client.Character
                 return;
             }
 
+            hasHoodColor = false;
+            var visibleCount = 0;
+            foreach (var group in groups)
+            {
+                if (group == null) continue;
+                if (group.Category == AvatarPartCategory.HoodColor) hasHoodColor = true;
+                else visibleCount++;
+            }
             var origin = TabsOrigin;
-            var step = CharacterClosetStyle.Tabs.Size.y + CharacterClosetStyle.Tabs.Gap;
+            var height = Mathf.Min(CharacterClosetStyle.Tabs.Size.y,
+                (CharacterClosetStyle.Locker.Size.y - CharacterClosetStyle.Tabs.Gap * (visibleCount - 1)) / Mathf.Max(1, visibleCount));
+            var step = height + CharacterClosetStyle.Tabs.Gap;
+            var visibleIndex = 0;
             for (var index = 0; index < groups.Count; index++)
             {
                 var group = groups[index];
-                if (group == null)
+                if (group == null || group.Category == AvatarPartCategory.HoodColor)
                 {
                     continue;
                 }
 
                 tabs.Add(CreateTab(
-                    group, new Vector2(origin.x, origin.y - (step * index))));
+                    group, new Vector2(origin.x, origin.y - (step * visibleIndex++)), height));
             }
 
             if (hasShownCategory)
@@ -68,6 +79,7 @@ namespace Game.Client.Character
             }
 
             ClearCells();
+            UpdateHoodTabs(group?.Category);
             if (group == null)
             {
                 return;
@@ -120,12 +132,12 @@ namespace Game.Client.Character
             tabRail.sizeDelta = CharacterClosetStyle.Tabs.Size;
         }
 
-        private CategoryTab CreateTab(AvatarPartGroup group, Vector2 position)
+        private CategoryTab CreateTab(AvatarPartGroup group, Vector2 position, float height)
         {
             var rect = CreateRect($"Tab_{group.Category}", tabRail);
             SetAnchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
             rect.anchoredPosition = position;
-            rect.sizeDelta = CharacterClosetStyle.Tabs.Size;
+            rect.sizeDelta = new Vector2(CharacterClosetStyle.Tabs.Size.x, height);
 
             var fill = AddImage(
                 rect,
@@ -166,7 +178,7 @@ namespace Game.Client.Character
             var label = CreateText(
                 "Label",
                 rect,
-                group.Label,
+                group.Category == AvatarPartCategory.Hood ? "후드" : group.Label,
                 CharacterClosetStyle.Tabs.FontSize,
                 CharacterClosetStyle.Palette.TextPrimary,
                 TextAlignmentOptions.Left);
@@ -252,16 +264,16 @@ namespace Game.Client.Character
             lockerScroll.scrollSensitivity = 24f;
             lockerScroll.verticalScrollbar = CreateLockerScrollbar(panel);
             lockerScroll.verticalScrollbarVisibility =
-                ScrollRect.ScrollbarVisibility.Permanent;
+                ScrollRect.ScrollbarVisibility.AutoHide;
+            CreateHoodTabs(panel);
         }
 
         /// <summary>
         /// The handle down the inside of the locker's right edge.
         /// </summary>
         /// <remarks>
-        /// Always on, as in the mock-up, rather than appearing only when the
-        /// parts overflow: it doubles as the line that closes the panel, and a
-        /// line that comes and went with the part count would read as a glitch.
+        /// ScrollRect hides the track when every part fits in the viewport.
+        /// Keep the viewport width fixed so toggling visibility does not move the grid.
         /// </remarks>
         private Scrollbar CreateLockerScrollbar(RectTransform panel)
         {
@@ -327,6 +339,20 @@ namespace Game.Client.Character
             SetAnchor(content, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
             content.offsetMin = new Vector2(inset, inset);
             content.offsetMax = new Vector2(-inset, -inset);
+
+            if (part.Thumbnail != null && group.Category == AvatarPartCategory.Face)
+            {
+                // An inset rounded rectangle shares the selection ring's corner centres.
+                var radius = Mathf.Max(1, Mathf.RoundToInt(CharacterClosetStyle.Radius.Cell - inset));
+                AddImage(content, Color.white, HomeUiFonts.Rounded(radius));
+                content.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+
+                var picture = CreateRect("Picture", content);
+                SetAnchor(picture, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+                picture.offsetMin = Vector2.zero;
+                picture.offsetMax = Vector2.zero;
+                content = picture;
+            }
 
             var image = AddImage(content, part.Swatch);
             if (part.Thumbnail != null)
@@ -399,6 +425,7 @@ namespace Game.Client.Character
 
         private void MarkActiveTab(AvatarPartCategory category)
         {
+            if (category == AvatarPartCategory.HoodColor) category = AvatarPartCategory.Hood;
             foreach (var tab in tabs)
             {
                 var selected = tab.Category == category;

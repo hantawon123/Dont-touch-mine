@@ -40,6 +40,7 @@ namespace Game.Tests.EditMode
         {
             var catalog = ItemCatalogSO.Load();
             var category = catalog.categories.First(c => c.enabled);
+            var definitions = ItemCatalog.Definitions;
             Assert.That(
                 Game.Client.Lobby.PlaySettingsCategoryCatalog.LabelOf(category.id),
                 Is.EqualTo(category.label));
@@ -49,6 +50,7 @@ namespace Game.Tests.EditMode
             Assert.That(
                 Game.Client.Lobby.PlaySettingsCategoryCatalog.LabelOf("missing_category"),
                 Is.EqualTo("missing_category"));
+            Assert.That(ItemCatalog.Definitions, Is.SameAs(definitions), "HUD label reads must not rebuild assignment definitions.");
         }
 
         [Test]

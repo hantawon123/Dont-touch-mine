@@ -102,16 +102,20 @@ namespace Game.Tests.EditMode
             Assert.That(HighlightPresentationTiming.Opacity(11.6, 10), Is.EqualTo(1f));
         }
 
-        [Test]
-        public void FirstBlood_KeepsThreeSecondTail_AndIsNotRepeatedAsFinalMoment()
+        [TestCase(110d, 110d)]
+        [TestCase(111d, 111d)]
+        [TestCase(113d, 113d)]
+        [TestCase(120d, 113d)]
+        public void FirstBlood_LimitsTailToMatchEnd_AndIsNotRepeatedAsFinalMoment(
+            double matchEndedAt, double expectedClipEnd)
         {
             WithRecorder(recorder =>
             {
                 recorder.RecordItemDestroyed(1, "a", 110);
-                var candidates = recorder.CaptureCandidates(110);
+                var candidates = recorder.CaptureCandidates(matchEndedAt);
                 var first = candidates.Single(c => c.Type == HighlightType.FirstBlood);
                 Assert.That(first.StartedAt, Is.EqualTo(103));
-                Assert.That(first.EndedAt, Is.EqualTo(113));
+                Assert.That(first.EndedAt, Is.EqualTo(expectedClipEnd));
                 Assert.That(candidates.Any(c => c.Type == HighlightType.FinalMoment), Is.False);
             });
         }

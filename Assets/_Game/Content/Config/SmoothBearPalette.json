@@ -1,0 +1,428 @@
+{
+  "body": [
+    {
+      "id": "body_orange_vivid",
+      "label": "선명한 주황",
+      "hex": "#FF8A24"
+    },
+    {
+      "id": "body_lemon",
+      "label": "노랑",
+      "hex": "#FFCB77"
+    },
+    {
+      "id": "body_yellow_vivid",
+      "label": "선명한 노랑",
+      "hex": "#FFE033"
+    },
+    {
+      "id": "body_apple",
+      "label": "라임 연두",
+      "hex": "#D9ED92"
+    },
+    {
+      "id": "body_pistachio",
+      "label": "세이지 연두",
+      "hex": "#CCD5AE"
+    },
+    {
+      "id": "body_mint",
+      "label": "민트 연두",
+      "hex": "#95D5B2"
+    },
+    {
+      "id": "body_green_vivid",
+      "label": "선명한 초록",
+      "hex": "#27D85F"
+    },
+    {
+      "id": "body_green",
+      "label": "초록",
+      "hex": "#43AA8B"
+    },
+    {
+      "id": "body_cyan_vivid",
+      "label": "선명한 청록",
+      "hex": "#20CDF5"
+    },
+    {
+      "id": "body_skyblue",
+      "label": "하늘",
+      "hex": "#BDE0FE"
+    },
+    {
+      "id": "body_periwinkle",
+      "label": "하늘 보라",
+      "hex": "#BBD0FF"
+    },
+    {
+      "id": "body_blue_vivid",
+      "label": "선명한 파랑",
+      "hex": "#3478FF"
+    },
+    {
+      "id": "body_blue",
+      "label": "파랑",
+      "hex": "#0466C8"
+    },
+    {
+      "id": "body_navy",
+      "label": "남색",
+      "hex": "#002855"
+    },
+    {
+      "id": "body_slate",
+      "label": "회빛 보라",
+      "hex": "#8E9AAF"
+    },
+    {
+      "id": "body_lilac_light",
+      "label": "라일락 크림",
+      "hex": "#E4CCFF"
+    },
+    {
+      "id": "body_lavender",
+      "label": "연보라",
+      "hex": "#CDB4DB"
+    },
+    {
+      "id": "body_purple",
+      "label": "보라",
+      "hex": "#9381FF"
+    },
+    {
+      "id": "body_purple_vivid",
+      "label": "선명한 보라",
+      "hex": "#8B4DFF"
+    },
+    {
+      "id": "body_pink",
+      "label": "연분홍",
+      "hex": "#FFCAD4"
+    },
+    {
+      "id": "body_pink_vivid",
+      "label": "선명한 핑크",
+      "hex": "#FF4FA3"
+    },
+    {
+      "id": "body_rose",
+      "label": "진분홍",
+      "hex": "#DA627D"
+    },
+    {
+      "id": "body_red_vivid",
+      "label": "선명한 빨강",
+      "hex": "#FF3B3B"
+    },
+    {
+      "id": "body_red",
+      "label": "빨강",
+      "hex": "#E63946"
+    },
+    {
+      "id": "body_white",
+      "label": "오프화이트",
+      "hex": "#F8F9FA"
+    },
+    {
+      "id": "body_grey",
+      "label": "라이트 그레이",
+      "hex": "#CED4DA"
+    },
+    {
+      "id": "body_charcoal",
+      "label": "차콜",
+      "hex": "#495057"
+    },
+    {
+      "id": "body_black",
+      "label": "딥 차콜",
+      "hex": "#212529"
+    }
+  ],
+  "hood": [
+    {
+      "id": "hood_orange_vivid",
+      "label": "선명한 주황",
+      "hex": "#FF8A24"
+    },
+    {
+      "id": "hood_butter",
+      "label": "노랑",
+      "hex": "#FFCB77"
+    },
+    {
+      "id": "hood_yellow_vivid",
+      "label": "선명한 노랑",
+      "hex": "#FFE033"
+    },
+    {
+      "id": "hood_apple",
+      "label": "라임 연두",
+      "hex": "#D9ED92"
+    },
+    {
+      "id": "hood_sage",
+      "label": "세이지 연두",
+      "hex": "#CCD5AE"
+    },
+    {
+      "id": "hood_mint",
+      "label": "민트 연두",
+      "hex": "#95D5B2"
+    },
+    {
+      "id": "hood_green_vivid",
+      "label": "선명한 초록",
+      "hex": "#27D85F"
+    },
+    {
+      "id": "hood_green",
+      "label": "초록",
+      "hex": "#43AA8B"
+    },
+    {
+      "id": "hood_cyan_vivid",
+      "label": "선명한 청록",
+      "hex": "#20CDF5"
+    },
+    {
+      "id": "hood_ice",
+      "label": "하늘",
+      "hex": "#BDE0FE"
+    },
+    {
+      "id": "hood_periwinkle",
+      "label": "하늘 보라",
+      "hex": "#BBD0FF"
+    },
+    {
+      "id": "hood_blue_vivid",
+      "label": "선명한 파랑",
+      "hex": "#3478FF"
+    },
+    {
+      "id": "hood_blue",
+      "label": "파랑",
+      "hex": "#0466C8"
+    },
+    {
+      "id": "hood_navy",
+      "label": "남색",
+      "hex": "#002855"
+    },
+    {
+      "id": "hood_slate",
+      "label": "회빛 보라",
+      "hex": "#8E9AAF"
+    },
+    {
+      "id": "hood_lilac_light",
+      "label": "라일락 크림",
+      "hex": "#E4CCFF"
+    },
+    {
+      "id": "hood_lavender",
+      "label": "연보라",
+      "hex": "#CDB4DB"
+    },
+    {
+      "id": "hood_purple",
+      "label": "보라",
+      "hex": "#9381FF"
+    },
+    {
+      "id": "hood_purple_vivid",
+      "label": "선명한 보라",
+      "hex": "#8B4DFF"
+    },
+    {
+      "id": "hood_pink",
+      "label": "연분홍",
+      "hex": "#FFCAD4"
+    },
+    {
+      "id": "hood_pink_vivid",
+      "label": "선명한 핑크",
+      "hex": "#FF4FA3"
+    },
+    {
+      "id": "hood_rose",
+      "label": "진분홍",
+      "hex": "#DA627D"
+    },
+    {
+      "id": "hood_red_vivid",
+      "label": "선명한 빨강",
+      "hex": "#FF3B3B"
+    },
+    {
+      "id": "hood_red",
+      "label": "빨강",
+      "hex": "#E63946"
+    },
+    {
+      "id": "hood_ivory",
+      "label": "오프화이트",
+      "hex": "#F8F9FA"
+    },
+    {
+      "id": "hood_grey",
+      "label": "라이트 그레이",
+      "hex": "#CED4DA"
+    },
+    {
+      "id": "hood_charcoal",
+      "label": "차콜",
+      "hex": "#495057"
+    },
+    {
+      "id": "hood_black",
+      "label": "딥 차콜",
+      "hex": "#212529"
+    }
+  ],
+  "shoes": [
+    {
+      "id": "shoes_orange_vivid",
+      "label": "선명한 주황",
+      "hex": "#FF8A24"
+    },
+    {
+      "id": "shoes_yellow",
+      "label": "노랑",
+      "hex": "#FFCB77"
+    },
+    {
+      "id": "shoes_yellow_vivid",
+      "label": "선명한 노랑",
+      "hex": "#FFE033"
+    },
+    {
+      "id": "shoes_apple",
+      "label": "라임 연두",
+      "hex": "#D9ED92"
+    },
+    {
+      "id": "shoes_sage",
+      "label": "세이지 연두",
+      "hex": "#CCD5AE"
+    },
+    {
+      "id": "shoes_mint",
+      "label": "민트 연두",
+      "hex": "#95D5B2"
+    },
+    {
+      "id": "shoes_green_vivid",
+      "label": "선명한 초록",
+      "hex": "#27D85F"
+    },
+    {
+      "id": "shoes_green",
+      "label": "초록",
+      "hex": "#43AA8B"
+    },
+    {
+      "id": "shoes_cyan_vivid",
+      "label": "선명한 청록",
+      "hex": "#20CDF5"
+    },
+    {
+      "id": "shoes_babyblue",
+      "label": "하늘",
+      "hex": "#BDE0FE"
+    },
+    {
+      "id": "shoes_periwinkle",
+      "label": "하늘 보라",
+      "hex": "#BBD0FF"
+    },
+    {
+      "id": "shoes_blue_vivid",
+      "label": "선명한 파랑",
+      "hex": "#3478FF"
+    },
+    {
+      "id": "shoes_blue",
+      "label": "파랑",
+      "hex": "#0466C8"
+    },
+    {
+      "id": "shoes_navy",
+      "label": "남색",
+      "hex": "#002855"
+    },
+    {
+      "id": "shoes_slate",
+      "label": "회빛 보라",
+      "hex": "#8E9AAF"
+    },
+    {
+      "id": "shoes_lilac_light",
+      "label": "라일락 크림",
+      "hex": "#E4CCFF"
+    },
+    {
+      "id": "shoes_lavender",
+      "label": "연보라",
+      "hex": "#CDB4DB"
+    },
+    {
+      "id": "shoes_purple",
+      "label": "보라",
+      "hex": "#9381FF"
+    },
+    {
+      "id": "shoes_purple_vivid",
+      "label": "선명한 보라",
+      "hex": "#8B4DFF"
+    },
+    {
+      "id": "shoes_cotton",
+      "label": "연분홍",
+      "hex": "#FFCAD4"
+    },
+    {
+      "id": "shoes_pink_vivid",
+      "label": "선명한 핑크",
+      "hex": "#FF4FA3"
+    },
+    {
+      "id": "shoes_rose",
+      "label": "진분홍",
+      "hex": "#DA627D"
+    },
+    {
+      "id": "shoes_red_vivid",
+      "label": "선명한 빨강",
+      "hex": "#FF3B3B"
+    },
+    {
+      "id": "shoes_red",
+      "label": "빨강",
+      "hex": "#E63946"
+    },
+    {
+      "id": "shoes_white",
+      "label": "오프화이트",
+      "hex": "#F8F9FA"
+    },
+    {
+      "id": "shoes_grey",
+      "label": "라이트 그레이",
+      "hex": "#CED4DA"
+    },
+    {
+      "id": "shoes_charcoal",
+      "label": "차콜",
+      "hex": "#495057"
+    },
+    {
+      "id": "shoes_black",
+      "label": "딥 차콜",
+      "hex": "#212529"
+    }
+  ]
+}

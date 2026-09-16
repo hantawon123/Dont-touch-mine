@@ -76,8 +76,7 @@ namespace Game.Client.Character
         }
 
         /// <summary>
-        /// What a player who has never opened the closet wears: the first part
-        /// of every category.
+        /// What a new player wears. A configured default stays stable when the grid is reordered.
         /// </summary>
         public AvatarAppearance Default
         {
@@ -91,7 +90,7 @@ namespace Game.Client.Character
                         continue;
                     }
 
-                    appearance = appearance.With(group.Category, group.Parts[0].Id);
+                    appearance = appearance.With(group.Category, group.DefaultPartId);
                 }
 
                 return appearance;
@@ -124,7 +123,7 @@ namespace Game.Client.Character
                 result = result.With(
                     category,
                     group != null && group.Parts.Count > 0
-                        ? group.Parts[0].Id
+                        ? group.DefaultPartId
                         : AvatarAppearance.NoPart);
             }
 
@@ -149,6 +148,18 @@ namespace Game.Client.Character
 
         [SerializeField]
         private AvatarPart[] parts = Array.Empty<AvatarPart>();
+
+        [SerializeField] private string defaultPartId = string.Empty;
+
+        public string DefaultPartId
+        {
+            get
+            {
+                foreach (var part in Parts)
+                    if (part != null && part.Id == defaultPartId) return defaultPartId;
+                return Parts.Count > 0 ? Parts[0].Id : AvatarAppearance.NoPart;
+            }
+        }
 
         public AvatarPartCategory Category => category;
 
@@ -201,6 +212,12 @@ namespace Game.Client.Character
         [Tooltip("Kept on the authored material and swapped into _BaseMap.")]
         private Texture texture;
 
+        [SerializeField]
+        [Tooltip("Hood mesh in the authored hood's local coordinates.")]
+        private Mesh mesh;
+
+        [SerializeField] private AvatarWearable wearable;
+
         public string Id => id;
 
         public string Label => string.IsNullOrEmpty(label) ? id : label;
@@ -212,5 +229,7 @@ namespace Game.Client.Character
         public Material Material => material;
 
         public Texture Texture => texture;
+        public Mesh Mesh => mesh;
+        public AvatarWearable Wearable => wearable;
     }
 }

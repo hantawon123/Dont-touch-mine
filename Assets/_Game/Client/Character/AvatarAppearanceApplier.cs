@@ -20,7 +20,7 @@ namespace Game.Client.Character
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class AvatarAppearanceApplier : MonoBehaviour
+    public sealed partial class AvatarAppearanceApplier : MonoBehaviour
     {
         private static readonly int BaseMap = Shader.PropertyToID("_BaseMap");
         private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
@@ -34,6 +34,9 @@ namespace Game.Client.Character
         [Tooltip("Which renderer each category dresses. A category with no " +
                  "target here is picked on screen and worn nowhere.")]
         private AvatarPartTarget[] targets = Array.Empty<AvatarPartTarget>();
+
+        [SerializeField] private MeshFilter hoodMesh;
+        private Mesh authoredHoodMesh;
 
         private MaterialPropertyBlock block;
         private Material[][] authoredMaterials;
@@ -63,6 +66,12 @@ namespace Game.Client.Character
             }
 
             EnsureCaptured();
+            if (hoodMesh != null)
+            {
+                if (authoredHoodMesh == null) authoredHoodMesh = hoodMesh.sharedMesh;
+                catalog.TryFind(AvatarPartCategory.Hood, appearance.HoodShapeId, out var hood);
+                hoodMesh.sharedMesh = hood?.Mesh != null ? hood.Mesh : authoredHoodMesh;
+            }
             for (var index = 0; index < targets.Length; index++)
             {
                 var target = targets[index];
@@ -74,6 +83,7 @@ namespace Game.Client.Character
                 catalog.TryFind(target.Category, appearance.Get(target.Category), out var part);
                 Wear(target, authoredMaterials[index], part);
             }
+            ApplyWearables(appearance, catalog);
         }
 
         private void Wear(AvatarPartTarget target, Material[] authored, AvatarPart part)
@@ -102,6 +112,10 @@ namespace Game.Client.Character
             if (part != null && part.Texture != null)
             {
                 block.SetTexture(BaseMap, part.Texture);
+                // Texture parts still need an explicit neutral tint. This
+                // clears a stale dark _BaseColor left by a combat tint or an
+                // imported FBX material while preserving the authored texture.
+                block.SetColor(BaseColor, Color.white);
             }
 
             if (part != null && part.Material == null && part.Texture == null)

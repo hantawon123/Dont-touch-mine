@@ -53,6 +53,8 @@ namespace Game.Core.Players
         public string BodyColorId => Normalise(bodyColorId);
 
         public string HoodId => Normalise(hoodId);
+        public string HoodShapeId => AvatarHoodSelection.Shape(HoodId);
+        public string HoodColorId => AvatarHoodSelection.Color(HoodId);
 
         public string ShoesId => Normalise(shoesId);
 
@@ -72,7 +74,9 @@ namespace Game.Core.Players
                 case AvatarPartCategory.BodyColor:
                     return BodyColorId;
                 case AvatarPartCategory.Hood:
-                    return HoodId;
+                    return HoodShapeId;
+                case AvatarPartCategory.HoodColor:
+                    return HoodColorId;
                 case AvatarPartCategory.Shoes:
                     return ShoesId;
                 case AvatarPartCategory.Face:
@@ -93,7 +97,13 @@ namespace Game.Core.Players
                 case AvatarPartCategory.BodyColor:
                     return new AvatarAppearance(partId, HoodId, ShoesId, FaceId);
                 case AvatarPartCategory.Hood:
-                    return new AvatarAppearance(BodyColorId, partId, ShoesId, FaceId);
+                    return new AvatarAppearance(BodyColorId,
+                        AvatarHoodSelection.IsShape(partId)
+                            ? AvatarHoodSelection.Compose(partId, HoodColorId)
+                            : partId, ShoesId, FaceId);
+                case AvatarPartCategory.HoodColor:
+                    return new AvatarAppearance(BodyColorId,
+                        AvatarHoodSelection.Compose(HoodShapeId, partId), ShoesId, FaceId);
                 case AvatarPartCategory.Shoes:
                     return new AvatarAppearance(BodyColorId, HoodId, partId, FaceId);
                 case AvatarPartCategory.Face:
