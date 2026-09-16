@@ -821,8 +821,8 @@ MR을 **머지 결과로 빌드**하고, **develop이 갱신되면 열린 MR에 
 
 ## GMS 공용 연결 (S15P21D205-1015)
 
-GMS_KEY와 GMS_GENERATE_URL은 서버의 `/home/ubuntu/d205/gms.env`에만 둡니다.
-`compose.prod.yml`의 app이 이 파일을 읽습니다. 소유자 ubuntu, 그룹 jenkins, 권한 640으로
+GMS_KEY와 GMS_GENERATE_URL은 서버의 `/etc/d205/gms.env`에만 둡니다.
+`compose.prod.yml`의 app이 이 파일을 읽습니다. 소유자 root, 그룹 jenkins, 파일 권한 640(디렉터리 750)으로
 설정해 수동 배포와 Jenkins 재배포에서 같은 파일을 사용합니다. Jenkins 비밀 파일의
 기존 DB 설정을 수정하거나 팀원에게 GMS 키를 배포할 필요는 없습니다.
 서버를 옮기면 비밀 파일도 안전하게 옮기고, 경로가 다르면 `GMS_ENV_FILE`로 지정합니다.

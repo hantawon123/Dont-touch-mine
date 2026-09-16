@@ -735,7 +735,7 @@ remainingSeconds,involvedPlayers,ruleScore}]}`, 응답은 `{available,picks:[{id
 - 로컬: backend 디렉터리에서 실행한다. `gms.env.properties.example`을 `.env.properties`로
   복사하고 `GMS_KEY`, `GMS_GENERATE_URL`(전체 generateContent 주소)을 직접 입력한다.
   `.env.properties`는 Git 제외 대상이며 application.yml이 선택적으로 읽는다.
-- 운영: 서버 전용 `/home/ubuntu/d205/gms.env`에 두 값을 설정하고 app을 재생성한다.
+- 운영: 서버 전용 `/etc/d205/gms.env`에 두 값을 설정하고 app을 재생성한다.
   Compose가 직접 읽으므로 Jenkins 비밀 파일과 분리해 재배포에도 유지된다(배포 README 참조).
 - 기존 `PHOTON_AUTH_SECRET`이 설정되어 계정 토큰 검증이 활성화되어야 AI가 동작한다.
 - 키·공급자 주소는 Unity 프로젝트/클라이언트 빌드/Photon 데이터에 넣지 않는다.

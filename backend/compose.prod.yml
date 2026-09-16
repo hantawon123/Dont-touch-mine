@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
     # Server-only file survives Jenkins workspaces; clients never receive the GMS key.
     env_file:
-      - path: ${GMS_ENV_FILE:-/home/ubuntu/d205/gms.env}
+      - path: ${GMS_ENV_FILE:-/etc/d205/gms.env}
         required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
