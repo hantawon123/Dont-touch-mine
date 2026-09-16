@@ -13,5 +13,7 @@ MonoBehaviour:
   m_Name: InteractionConfig
   m_EditorClassIdentifier: Game.SOAP::Game.SOAP.Config.InteractionConfigSO
   interactionDistance: 2
+  throwSpeed: 4.5
+  throwUpwardBias: 0
   placementMaxDistance: 1.5
   aimedHighlightIntensity: 1.35
