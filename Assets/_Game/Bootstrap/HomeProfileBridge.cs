@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Client.Home;
@@ -253,6 +253,9 @@ namespace Game.Bootstrap
             {
                 case BackendFailure.NicknameTaken:
                     return "이미 사용 중인 이름입니다";
+
+                case BackendFailure.NicknameForbidden:
+                    return "쓸 수 없는 이름입니다";
 
                 case BackendFailure.InvalidRequest:
                     return "한글, 영문, 숫자로 2~12글자여야 합니다";

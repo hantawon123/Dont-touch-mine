@@ -49,9 +49,11 @@ namespace Game.Core.Ports
     /// Promising more would be a lie.
     /// </para>
     /// <para>
-    /// There is no way to list or undo a report. The server does not offer one,
-    /// which also means a screen cannot show "already reported" — reporting the
-    /// same person twice simply writes a second record.
+    /// One report per person per match (S15P21D205-1017). The second attempt
+    /// in the same match answers <see cref="BackendFailure.ReportAlreadySent"/>,
+    /// which is the one moment a screen may say "이미 신고했습니다". Which
+    /// match it is comes from <see cref="IReportContext"/>. There is still no
+    /// way to list or undo a report.
     /// </para>
     /// </remarks>
     public interface IReportGateway
@@ -65,6 +67,12 @@ namespace Game.Core.Ports
         /// <see cref="BackendFailure.InvalidRequest"/>. Null and blank are the
         /// same thing to the server.
         /// </param>
+        /// <param name="contextKey">
+        /// Which match this is about — <see cref="IReportContext.CurrentKey"/>.
+        /// Null or blank is sent as nothing, and the server then allows one
+        /// report per person per 24 hours instead. Always pass the real key
+        /// from a screen; the fallback is for builds that predate it.
+        /// </param>
         /// <remarks>
         /// Friendship is not required. The common case is reporting someone met
         /// in a room, so requiring it would rule out the reason this exists.
@@ -74,6 +82,7 @@ namespace Game.Core.Ports
         /// </para>
         /// </remarks>
         UniTask<BackendResult> ReportAsync(
-            string playerId, ReportReason reason, string note, CancellationToken cancellation);
+            string playerId, ReportReason reason, string note, string contextKey,
+            CancellationToken cancellation);
     }
 }

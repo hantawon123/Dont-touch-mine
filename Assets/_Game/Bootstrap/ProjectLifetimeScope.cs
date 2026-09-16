@@ -432,6 +432,10 @@ namespace Game.Bootstrap
                 .As<IRoomParticipantSink>()
                 .As<IMatchStartSink>();
 
+            // Which match a report is about, read off the room above. One for
+            // the application because the room is (S15P21D205-1018).
+            builder.Register<RoomReportContext>(Lifetime.Singleton).As<IReportContext>();
+
             // One instance for the whole application, for the same reason the
             // profile is: the closet writes what was applied and the lobby
             // reads it, and a copy per screen would dress the player
