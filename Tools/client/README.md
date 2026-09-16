@@ -27,7 +27,7 @@ release 이외의 브랜치를 검증용으로 연결하면 빌드·아티팩트
 ## 빌드 머신
 
 - Unity 6000.3.22f1 GameCI Windows Mono / Linux 이미지, Docker, Python 3.11+, Git LFS.
-- 기존 Jenkins Unity 실행 슬롯을 재사용하며 두 타깃을 순차 실행한다. Unity 컨테이너당 CPU 3개·메모리 8GB 제한.
+- 기존 Jenkins Unity 실행 슬롯을 재사용하며 두 타깃을 순차 실행한다. Unity 컨테이너당 CPU 3개·메모리 8GB 제한. Jenkins 에이전트 서비스는 Git 체크아웃을 포함하여 MemoryMax=2G를 사용한다(512MB에서는 신규 클론 중 OOM 종료 확인).
 - `CLIENT_CONFIG_DIR` 기본 `/var/lib/jenkins/.config/unity-webgl`의 `PhotonAppSettings.asset`를 주입한다.
 - `CLIENT_UNITY_HOME` 기본 `/var/lib/jenkins/.config/unity3d/Unity`의 해당 EC2에서 정상 활성화한 Unity 라이선스를 사용한다. 다른 PC의 machine-id/라이선스를 복사하지 않는다.
 - GMS 키는 공용 백엔드에만 둔다. ZIP에 소스·백업·환경변수 파일을 포함하지 않는다.

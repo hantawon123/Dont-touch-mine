@@ -18,7 +18,8 @@ pipeline {
                 script {
                     withEnv(['GIT_LFS_SKIP_SMUDGE=1']) {
                         checkout([$class: 'GitSCM', branches: scm.branches,
-                            userRemoteConfigs: scm.userRemoteConfigs, extensions: []])
+                            userRemoteConfigs: scm.userRemoteConfigs, extensions: [
+                                [$class: 'CloneOption', shallow: true, depth: 1, noTags: true, timeout: 30]]])
                     }
                 }
                 withCredentials([gitUsernamePassword(credentialsId: 'gitlab-deploy-token', gitToolName: 'Default')]) {
