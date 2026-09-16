@@ -274,13 +274,13 @@ v2 에는 클라이언트 발행 경로 자체가 없습니다:
 
 ### 5.4 질문 ↔ 화면
 
-쿼리는 [`analytics-dashboards.md`](analytics-dashboards.md)가 원본이고, 그 문서를
-`deploy/metabase/provision_dashboards.py`가 읽어 Metabase 화면을 만듭니다.
+쿼리는 [`analytics-dashboards.md`](analytics-dashboards.md)가 원본이고, 관리 화면 분석 탭의
+조회 API 가 그 문서를 읽어 실행합니다.
 
 | 질문 | 화면 | 답이 나오나 |
 | --- | --- | --- |
 | 1 숨는 시간 | 2 | ✅ 숨긴 시점을 `item_in_motion = 0`으로 잡는다 |
-| 2 죽은 구역 | 3·4 | ✅ 좌표 히트맵. 맵 그림 위에 겹치는 것은 Metabase 로 안 되고 따로 만든다 |
+| 2 죽은 구역 | 3·4 | ✅ 좌표 히트맵. 맵 그림 위에 겹치는 것은 관리 화면의 「맵 위 히트맵」 카드 |
 | 3 은신처 품질 | 3 | ✅ |
 | 4 찾는 시간 | 5 | ✅ `item_holder_seat` 변화로 |
 | 5 기절 3회 | 6 | ✅ 명중률까지. 분모(`swings`)가 `attack_sequence`다 |

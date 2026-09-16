@@ -39,9 +39,10 @@
 - 브라우저 강제 종료 전의 미완료 경기는 전송을 보장하지 않습니다. WebGL 파일의 브라우저 재시작 후
   영속성도 검증하지 않았으므로 파일 보관을 완전한 유실 방지 장치로 보지 않습니다.
 
-## Metabase에서 보기
+## SQL 로 직접 보기
 
-백엔드 배포 후 분석 DB의 스키마를 다시 동기화하고 아래 SQL을 질문으로 저장합니다.
+정해진 질문은 관리 화면 분석 탭에 있습니다(`analytics-dashboards.md`). 그 밖의 것을 한 번 보려면 EC2 에서
+읽기 계정으로 분석 DB 에 붙어 아래 SQL 을 돌립니다(`deploy/README.md` 의 "즉석 SQL 은 읽기 계정으로").
 기존 v1 대시보드의 세부 행동 지표는 이 5종 이벤트만으로 계산할 수 없습니다.
 
 경기 목록과 수집 상태:
@@ -57,7 +58,7 @@ ORDER BY started_at_utc DESC
 LIMIT 100;
 ```
 
-특정 경기 이동·물건 타임라인(`{{match_id}}`는 Metabase 텍스트 변수):
+특정 경기 이동·물건 타임라인(`<match_id>` 자리에 경기 UUID 를 문자열로 넣습니다):
 
 ```sql
 SELECT elapsed_seconds AS 경과초, phase AS 페이즈, player_seat AS 참가자리,
@@ -66,7 +67,7 @@ SELECT elapsed_seconds AS 경과초, phase AS 페이즈, player_seat AS 참가�
        item_destroyed AS 파괴, item_in_motion AS 이동중,
        item_last_x AS 물건X, item_last_y AS 물건Y, item_last_z AS 물건Z
 FROM d205_analytics.match_analysis_positions
-WHERE match_id = {{match_id}}
+WHERE match_id = '<match_id>'
 ORDER BY elapsed_seconds, player_seat;
 ```
 
@@ -90,7 +91,7 @@ GROUP BY p.map_id, p.phase, FLOOR(p.pos_x / 2) * 2, FLOOR(p.pos_z / 2) * 2;
 - MySQL 8.4 임시 스키마에서 V1/V2 실행과 누락 배치·완전 수신·중단 구분, 물건 좌표 변환을 검증했습니다.
   운영 원본 테이블에는 테스트 데이터를 넣지 않았습니다.
 - 실제 수집에는 새 Unity 빌드 배포가 필요합니다. 뷰에는 백엔드 배포가 필요합니다.
-  실제 멀티플레이 경기 종료 → HTTP 202 → DB 건수 일치 → Metabase 조회까지의 운영 검증은 별도입니다.
+  실제 멀티플레이 경기 종료 → HTTP 202 → DB 건수 일치 → 분석 탭 조회까지의 운영 검증은 별도입니다.
 
 ## 누적 피격·기절 횟수
 
