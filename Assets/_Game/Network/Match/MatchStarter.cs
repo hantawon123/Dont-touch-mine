@@ -30,7 +30,7 @@ namespace Game.Network.Match
     public sealed partial class MatchStarter : MonoBehaviour
     {
         private static readonly Vector3 ShredderEjectionLocalVelocity =
-            new(0f, 1.5f, 4f);
+            new(4f, 1.5f, 0f);
 
         private readonly List<RoomParticipant> _room = new List<RoomParticipant>();
         private readonly List<MatchParticipant> _playing = new List<MatchParticipant>();
