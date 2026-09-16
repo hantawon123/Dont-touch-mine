@@ -14,6 +14,36 @@ namespace Game.Tests.EditMode
 {
     public sealed class PlayerAnimationDriverTests
     {
+        [UnityTest]
+        public IEnumerator ThrowStartsAfterWindupForLocalAndReplicatedPlayers()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
+                UnityEditor.SceneManagement.NewSceneMode.Single);
+            yield return new EnterPlayMode();
+            foreach (var replicated in new[] { false, true })
+            {
+                var player = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab"));
+                try
+                {
+                    var driver = player.GetComponent<PlayerAnimationDriver>();
+                    var animator = player.GetComponentInChildren<Animator>();
+                    animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                    if (replicated) driver.ApplyNetworkState(0f, true, 0, Vector2.zero, false);
+                    animator.Play("Carry_TwoHands", 0, 0f);
+                    animator.Update(0f);
+                    driver.PlayThrow();
+                    animator.Update(.06f);
+                    var state = animator.GetCurrentAnimatorStateInfo(0);
+                    Assert.That(state.IsName("Throw_TwoHands"), Is.True);
+                    Assert.That(state.normalizedTime * state.length, Is.GreaterThanOrEqualTo(10f / 30f));
+                }
+                finally { Object.DestroyImmediate(player); }
+            }
+            yield return new ExitPlayMode();
+        }
+
         [TestCase(PlayerPosture.Standing, 0f, "Punch_Left")]
         [TestCase(PlayerPosture.Standing, 4f, "Punch_Left_Walk")]
         [TestCase(PlayerPosture.Standing, 7f, "Punch_Left_Run")]
@@ -39,6 +69,59 @@ namespace Game.Tests.EditMode
             Assert.That(
                 PlayerAnimationDriver.ResolveDirection(new Vector2(0f, -1f)),
                 Is.EqualTo(PlayerAnimationDriver.MoveDirection.Back));
+        }
+
+        [TestCase(1f, 1f, "Forward")]
+        [TestCase(-1f, 1f, "Forward")]
+        [TestCase(1f, -1f, "Back")]
+        [TestCase(-1f, -1f, "Back")]
+        public void Direction_UsesStableForwardOrBackClipForInitialDiagonalInput(
+            float x,
+            float y,
+            string expected)
+        {
+            Assert.That(
+                PlayerAnimationDriver.ResolveDirection(new Vector2(x, y)).ToString(),
+                Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void Direction_KeepsPreviousDirectionWhenDiagonalInputJitters()
+        {
+            Assert.That(
+                PlayerAnimationDriver.ResolveDirection(
+                    new Vector2(0.74f, 0.68f),
+                    PlayerAnimationDriver.MoveDirection.Forward),
+                Is.EqualTo(PlayerAnimationDriver.MoveDirection.Forward));
+            Assert.That(
+                PlayerAnimationDriver.ResolveDirection(
+                    new Vector2(0.68f, 0.74f),
+                    PlayerAnimationDriver.MoveDirection.Left),
+                Is.EqualTo(PlayerAnimationDriver.MoveDirection.Left));
+        }
+
+        [Test]
+        public void Locomotion_UsesWalkAndRunForEveryDiagonal()
+        {
+            foreach (var diagonal in new[]
+            {
+                new Vector2(1f, 1f), new Vector2(-1f, 1f),
+                new Vector2(1f, -1f), new Vector2(-1f, -1f)
+            })
+            {
+                Assert.That(
+                    PlayerAnimationDriver.ResolveLocomotionClip(
+                        PlayerPosture.Standing, false, 4f, diagonal, 4f, 7f),
+                    Does.StartWith("Walk_"));
+                Assert.That(
+                    PlayerAnimationDriver.ResolveLocomotionClip(
+                        PlayerPosture.Standing, false, 7f, diagonal, 4f, 7f),
+                    Does.StartWith("Run_"));
+                Assert.That(
+                    PlayerAnimationDriver.ResolveLocomotionClip(
+                        PlayerPosture.Standing, true, 7f, diagonal, 4f, 7f),
+                    Does.StartWith("Carry_TwoHands_Run_"));
+            }
         }
 
         [Test]

@@ -437,7 +437,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void TryStart_AllowsHostWhenOnePlayerIsPresent()
+        public void TryStart_RequiresAtLeastTwoPlayers()
         {
             var lobby = new RoomLobbySystem(CreateSettings(), "host", 0);
 
@@ -446,6 +446,12 @@ namespace Game.Tests.EditMode
                 Is.EqualTo(RoomStartResult.NotEnoughPlayers));
 
             lobby.UpdatePlayerCount(1);
+
+            Assert.That(
+                lobby.TryStart("host"),
+                Is.EqualTo(RoomStartResult.NotEnoughPlayers));
+
+            lobby.UpdatePlayerCount(2);
 
             Assert.That(lobby.TryStart("host"), Is.EqualTo(RoomStartResult.Started));
         }

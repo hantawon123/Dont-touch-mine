@@ -40,10 +40,10 @@ namespace Game.Core.Lobby
 
         private static IReadOnlyList<LobbyMapOption> CreateMaps()
         {
-            var options = new LobbyMapOption[MapCatalog.MapIds.Count];
+            var options = new LobbyMapOption[MapCatalog.LobbyMapIds.Count];
             for (var i = 0; i < options.Length; i++)
             {
-                var mapId = MapCatalog.MapIds[i];
+                var mapId = MapCatalog.LobbyMapIds[i];
                 options[i] = new LobbyMapOption(mapId, mapId);
             }
 

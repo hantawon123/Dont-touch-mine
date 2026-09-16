@@ -24,6 +24,9 @@ namespace Game.Client.Interactions
         private const float PlacementSkinWidth = 0.01f;
         private const float MaxSupportDistance = 0.05f;
 
+        /// <summary>조준점을 찾는 광선 길이. 배치 가능 거리와는 별개로, 홀로그램은 항상 조준한 자리에 그린다.</summary>
+        private const float AimRayMaxDistance = 8f;
+
         /// <summary>법선의 y가 이 값보다 크면 윗면, 작으면(절댓값) 수직면으로 본다.</summary>
         private const float VerticalFaceNormalLimit = 0.5f;
 
@@ -240,15 +243,16 @@ namespace Game.Client.Interactions
             // 크로스헤어가 가리키는 표면을 기준점으로 삼는다. 광선은 카메라에서 나가므로 카메라-플레이어 거리를 더한다.
             var cameraToPlayer = Vector3.Distance(cameraTransform.position, transform.position);
             var ray = new Ray(cameraTransform.position, cameraTransform.forward);
-            var maxRayDistance = interactionConfig.PlacementMaxDistance + cameraToPlayer;
+            var maxRayDistance = AimRayMaxDistance + cameraToPlayer;
 
             // 수직면(선반 앞면·상품 옆면)을 조준했으면 그 안쪽 윗면(선반 판)을 기준점으로 삼는다.
             var surfacePoint = TryFindNearestSurface(ray, maxRayDistance, out var aimed)
                 ? ResolveSurfacePoint(ray, aimed)
                 : ray.GetPoint(maxRayDistance);
 
-            // 최대 배치 거리(수평)를 넘어가면 한계선 안쪽으로 끌어당긴다.
-            // 홀로그램은 항상 "지금 놓을 수 있는 자리"를 보여준다.
+            // 최대 배치 거리(플레이어 기준 수평)를 넘게 조준하면, 조준 방향의 한계 지점으로 끌어당긴다.
+            // 높이는 조준한 표면 높이를 유지하고 아래에서 바닥을 다시 찾으므로, 결과는
+            // "그 방향으로 지금 놓을 수 있는 가장 먼 자리"가 된다(세탁기 앞 바닥, 또는 세탁기 윗면 앞쪽).
             var flatOffset = surfacePoint - transform.position;
             var height = flatOffset.y;
             flatOffset.y = 0f;
@@ -259,7 +263,7 @@ namespace Game.Client.Interactions
                     + Vector3.up * height;
             }
 
-            // 허공이라면 어차피 떨어질 것이므로 바로 아래 표면에 투영한다.
+            // 조준한 자리(또는 끌어당긴 자리) 바로 아래 표면, 즉 그 공간의 바닥에 투영한다. 허공이면 어차피 떨어질 자리다.
             if (TryFindNearestSurface(new Ray(surfacePoint + Vector3.up * 0.05f, Vector3.down), 20f, out var ground))
             {
                 surfacePoint = ground.point;
@@ -290,7 +294,7 @@ namespace Game.Client.Interactions
 
             previewPosition = ghost.transform.position;
 
-            // 보정 한도까지 올려도 겹치면 그때만 배치 불가(빨간색).
+            // 보정 한도까지 올려도 겹치거나 받쳐 줄 바닥이 없으면 그때만 배치 불가(빨간색).
             isCurrentPoseValid = !IsOverlapping() && HasSupport();
             if (lastGhostValid != isCurrentPoseValid)
             {
@@ -345,7 +349,29 @@ namespace Game.Client.Interactions
                 return top.point;
             }
 
-            return aimed.point;
+            // 안쪽에 선반 판이 없는 진짜 벽(장 안쪽 벽·방 벽)이다. 벽 표면 점을 그대로 쓰면 상자 절반이 벽에
+            // 파묻혀 빨간색이 되므로, 벽 법선 방향으로 상자 폭만큼 앞으로 밀어 벽에 붙여 놓을 자리를 잡는다.
+            var away = aimed.normal;
+            away.y = 0f;
+            if (away.sqrMagnitude < 1e-6f)
+            {
+                return aimed.point;
+            }
+
+            away.Normalize();
+            var standoff = HorizontalExtentAlong(ghostRotation, placementHalfExtents, away) + PlacementSkinWidth * 2f;
+            return aimed.point + away * standoff;
+        }
+
+        /// <summary>회전한 상자가 수평 방향 <paramref name="direction"/>으로 차지하는 반폭.</summary>
+        private static float HorizontalExtentAlong(Quaternion rotation, Vector3 halfExtents, Vector3 direction)
+        {
+            var x = rotation * new Vector3(halfExtents.x, 0f, 0f);
+            var y = rotation * new Vector3(0f, halfExtents.y, 0f);
+            var z = rotation * new Vector3(0f, 0f, halfExtents.z);
+            return Mathf.Abs(Vector3.Dot(x, direction)) +
+                   Mathf.Abs(Vector3.Dot(y, direction)) +
+                   Mathf.Abs(Vector3.Dot(z, direction));
         }
 
         // 고스트가 차지할 공간에 다른 물체가 있는지 검사한다.
