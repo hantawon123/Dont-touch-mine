@@ -1326,6 +1326,39 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ShredderMarker_OnlyAppearsWhenApproaching()
+        {
+            var shredder = new Vector3(0f, 0f, 0f);
+            Assert.That(
+                NetworkMatchHudPresenter.IsWithinShredderMarkerRange(new Vector3(0f, 0f, 5f), shredder),
+                Is.True);
+            Assert.That(
+                NetworkMatchHudPresenter.IsWithinShredderMarkerRange(new Vector3(0f, 0f, 6f), shredder),
+                Is.True);
+            Assert.That(
+                NetworkMatchHudPresenter.IsWithinShredderMarkerRange(new Vector3(0f, 0f, 6.1f), shredder),
+                Is.False);
+        }
+
+        [Test]
+        public void ShredderMarkerLabel_WritesRemainingUsesOverFive()
+        {
+            Assert.That(
+                NetworkMatchHudView.FormatShredderMarkerLabel(5),
+                Is.EqualTo("파쇄기 (5/5)"));
+            Assert.That(
+                NetworkMatchHudView.FormatShredderMarkerLabel(3),
+                Is.EqualTo("파쇄기 (3/5)"));
+            Assert.That(
+                NetworkMatchHudView.FormatShredderMarkerLabel(-1),
+                Is.EqualTo("파쇄기"));
+            Assert.That(
+                NetworkMatchHudView.FormatShredderMarkerLabel(
+                    PlaySettingsDraft.UnlimitedDestructionUses),
+                Is.EqualTo("파쇄기 (무한)"));
+        }
+
+        [Test]
         public void ShredderMarker_HidesWhenAWallBlocksLineOfSight()
         {
             var shredder = new GameObject("Shredder");

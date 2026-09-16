@@ -19,8 +19,8 @@ namespace Game.Client.Match
         /// Landscape slot above the two briefing lines. Wide props were
         /// cropped in the old 360×360 square.
         /// </summary>
-        public static readonly Vector2 IntroImageSize = new(2200f, 680f);
-        public const float IntroCenterOffsetY = 282f;
+        public static readonly Vector2 IntroImageSize = new(2200f, 600f);
+        public const float IntroCenterOffsetY = 242f;
         public const int IntroTextureSize = 1024;
         private const string PreviewLayerName = "Item Preview";
         private const float RotationDegreesPerSecond = 28f;

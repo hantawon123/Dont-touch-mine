@@ -186,6 +186,43 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void NetworkHud_MovesDestructionUsesOntoTheShredderMarker()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            canvas.SetActive(false);
+            var marker = new GameObject(
+                "ShredderMarker",
+                typeof(RectTransform),
+                typeof(Image));
+            marker.transform.SetParent(canvas.transform, false);
+            var labelObject = new GameObject(
+                NetworkMatchHudView.ShredderMarkerLabelName,
+                typeof(RectTransform),
+                typeof(TextMeshProUGUI));
+            labelObject.transform.SetParent(marker.transform, false);
+            try
+            {
+                var hud = canvas.AddComponent<NetworkMatchHudView>();
+                typeof(NetworkMatchHudView)
+                    .GetField("shredderMarker", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(hud, marker.GetComponent<RectTransform>());
+                canvas.SetActive(true);
+
+                hud.SetRemainingDestructionUses(4);
+                Assert.That(
+                    labelObject.GetComponent<TMP_Text>().text,
+                    Is.EqualTo("파쇄기 (4/5)"));
+                Assert.That(
+                    marker.GetComponent<RectTransform>().sizeDelta.x,
+                    Is.EqualTo(NetworkMatchHudView.ShredderMarkerWidth));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
         private static MatchTimerView CreateView(Transform parent)
         {
             var textObject = new GameObject(

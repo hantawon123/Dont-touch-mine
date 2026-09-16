@@ -18685,8 +18685,6 @@ MonoBehaviour:
   phaseView: {fileID: 66822267}
   timerView: {fileID: 678286605}
   highlightHudView: {fileID: 0}
-  assignedItemText: {fileID: 1415982663}
-  playerItemStatusesText: {fileID: 0}
   destructionNoticeRoot: {fileID: 2012388352}
   destructionNoticeText: {fileID: 1214886624}
   shredderMarker: {fileID: 139750695}

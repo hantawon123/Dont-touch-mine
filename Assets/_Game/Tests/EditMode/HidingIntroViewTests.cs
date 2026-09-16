@@ -53,10 +53,12 @@ namespace Game.Architecture.Tests
         {
             var wide = new Vector3(2f, 0.2f, 0.3f);
             var square = HidingIntroItemPreview.OrthographicSizeForBounds(wide, 1f);
-            var landscape = HidingIntroItemPreview.OrthographicSizeForBounds(wide, 2200f / 680f);
+            var aspect = HidingIntroItemPreview.IntroImageSize.x /
+                         HidingIntroItemPreview.IntroImageSize.y;
+            var landscape = HidingIntroItemPreview.OrthographicSizeForBounds(wide, aspect);
             Assert.That(landscape, Is.LessThan(square));
             Assert.That(
-                landscape * (2200f / 680f),
+                landscape * aspect,
                 Is.GreaterThanOrEqualTo(Mathf.Sqrt((wide.x * wide.x) + (wide.z * wide.z))));
         }
 
