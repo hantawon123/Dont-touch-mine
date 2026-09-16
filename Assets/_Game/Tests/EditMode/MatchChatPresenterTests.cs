@@ -4,6 +4,7 @@ using Game.Client.Match;
 using Game.Client.Players;
 using Game.Core.Lobby;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Tests.EditMode
 {
