@@ -109,7 +109,8 @@ namespace Game.Bootstrap
             }
 
             QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate = fps;
+            // Give the 120 FPS performance target headroom; lower selections remain capped.
+            Application.targetFrameRate = fps >= 120 ? 144 : fps;
         }
 
         /// <summary>
