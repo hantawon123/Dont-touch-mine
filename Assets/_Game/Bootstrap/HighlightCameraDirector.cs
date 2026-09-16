@@ -296,9 +296,7 @@ namespace Game.Bootstrap
         public bool Focus(HighlightCandidate highlight)
         {
             ClearOccluders();
-            // Keep the active CCTV and its switch budget across every selected
-            // highlight so the complete presentation has at most two cuts.
-            PrepareCctvForHighlight();
+            ResetCctv();
             currentType = highlight.Type;
             currentHighlight = highlight;
             shots = HighlightShotPlanner.Build(highlight);

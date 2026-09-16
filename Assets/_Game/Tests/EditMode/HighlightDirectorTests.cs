@@ -16,7 +16,9 @@ namespace Game.Architecture.Tests
         [Test] public void InvalidSelectionCannotReplaceFallback()
         {
             Assert.That(Reply(2,0).IsUsable(5),Is.True);
-            Assert.That(Reply(2,0,1).IsUsable(5),Is.False);
+            Assert.That(Reply(2,0,1).IsUsable(5),Is.True,
+                "The deployed legacy backend may still return three ranked picks.");
+            Assert.That(Reply(2,0,1).UsablePickCount(5),Is.EqualTo(2));
             Assert.That(Reply(0,0).IsUsable(5),Is.False);
             Assert.That(Reply(0,9).IsUsable(5),Is.False);
             Assert.That(Reply(0).IsUsable(5),Is.False);

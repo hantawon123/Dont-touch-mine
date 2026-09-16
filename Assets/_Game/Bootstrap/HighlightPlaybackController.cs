@@ -378,6 +378,10 @@ namespace Game.Bootstrap
             if (replayPlayer == null || replayIndex != index)
             {
                 var changedHighlight = replayPlayer != null && replayIndex != index;
+                // Each highlight is a separate scene with its own target and
+                // at most two CCTV switches.
+                cameraDirector?.Dispose();
+                cameraDirector = null;
                 replayPlayer = null;
                 replayIndex = index;
                 appliedBodyTime = 0d;
@@ -589,13 +593,13 @@ namespace Game.Bootstrap
                 output.position,
                 output.rotation);
             replayPlayer = candidatePlayer;
-            cameraDirector ??= new HighlightCameraDirector(
-                    output,
-                    fallbackObject.transform,
-                    playerTargets,
-                    objectTargets,
-                    occlusionGroups: sceneOcclusionGroups,
-                    cctvCameras: cctvCameras);
+            cameraDirector = new HighlightCameraDirector(
+                output,
+                fallbackObject.transform,
+                playerTargets,
+                objectTargets,
+                occlusionGroups: sceneOcclusionGroups,
+                cctvCameras: cctvCameras);
             cameraDirector.Focus(current.Candidate);
             Debug.Log($"[Highlight] Playback ready: type={current.Candidate.Type}, players={playerTargets.Length}, objects={objectTargets.Length}, camera={output.name}.");
             return true;

@@ -259,7 +259,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Camera_AllowsAtMostTwoVisibilitySwitchesPerSequence()
+        public void Camera_AllowsAtMostTwoVisibilitySwitchesPerHighlight()
         {
             var root = new GameObject("test");
             try
@@ -318,11 +318,11 @@ namespace Game.Tests.EditMode
                 blockC.SetActive(true);
                 director.Tick(0.3f);
                 Assert.That(director.CctvLocation, Is.EqualTo("C"),
-                    "A third CCTV switch would make the presentation difficult to follow.");
+                    "A third CCTV switch would make one highlight difficult to follow.");
 
                 director.Focus(new HighlightCandidate(HighlightType.LongestHidden, 0, 10, "0"));
-                Assert.That(director.CctvLocation, Is.EqualTo("C"),
-                    "Starting the next highlight must not reset the presentation-wide switch budget.");
+                Assert.That(director.CctvLocation, Is.EqualTo("A"),
+                    "A new highlight must choose its own opening view and switch budget.");
             }
             finally { Object.DestroyImmediate(root); }
         }
