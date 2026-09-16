@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using Game.Core.Ports;
 using Game.Bootstrap;
 using Game.Core.Flow;
 using Game.Core.Items;
@@ -222,9 +225,13 @@ namespace Game.Architecture.Tests
             finally { UnityEngine.Object.DestroyImmediate(rules); }
         }
 
-        [TestCase(false)]
-        [TestCase(true)]
-        public void Authority_StartsTicksPublishesAndReleasesMatchRuntime(bool readinessTimeout)
+        [TestCase(false,0)]
+        [TestCase(true,0)]
+        [TestCase(false,1)]
+        [TestCase(false,2)]
+        [TestCase(false,3)]
+        [TestCase(false,4)]
+        public void Authority_StartsTicksPublishesAndReleasesMatchRuntime(bool readinessTimeout,int aiMode)
         {
             var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
 
@@ -239,6 +246,7 @@ namespace Game.Architecture.Tests
                 var appFlow = new AppFlowSystem();
                 Assert.That(appFlow.TryTransitionTo(AppFlowState.Lobby), Is.True);
                 Assert.That(appFlow.TryTransitionTo(AppFlowState.InGame), Is.True);
+                var ai=new FakeDirector(aiMode);
                 var coordinator = new NetworkMatchRuntimeCoordinator(
                     network,
                     new MatchRuntimeFactory(rules),
@@ -251,7 +259,7 @@ namespace Game.Architecture.Tests
                         Array.Empty<WorldObjectState>(),
                         new Pose(Vector3.forward, Quaternion.identity),
                         CreateWaitingPoints()),
-                    roomState);
+                    roomState,aiMode==0 ? null : ai);
 
                 coordinator.Start();
                 network.PublishLineUp(new[]
@@ -399,6 +407,14 @@ namespace Game.Architecture.Tests
                 Assert.That(network.Controls[0], Is.False);
                 Assert.That(network.Controls[1], Is.False);
                 Assert.That(network.HighlightReplay.Count, Is.EqualTo(1));
+                Assert.That(ai.Calls,Is.EqualTo(aiMode==0 ? 0 : 1));
+                Assert.That(network.HighlightReplay[0].Title,aiMode==1 ? Is.EqualTo("AI 장면") : Is.Null);
+                if(aiMode==2)
+                {
+                    ai.Pending.TrySetResult(FakeDirector.Success());
+                    network.PublishSimulationTick();
+                    Assert.That(network.HighlightReplay[0].Title,Is.Null,"Late response must not change published replay.");
+                }
                 Assert.That(
                     network.HighlightReplay[0].Candidate.Type,
                     Is.EqualTo(HighlightType.FirstBlood));
@@ -434,6 +450,7 @@ namespace Game.Architecture.Tests
                 Assert.That(network.Snapshots, Has.Count.EqualTo(readinessTimeout ? 6 : 7));
                 Assert.That(network.Snapshots[network.Snapshots.Count - 1].Phase, Is.EqualTo(MatchPhase.Result));
 
+                Assert.That(ai.Calls,Is.EqualTo(aiMode==0 ? 0 : 1),"No second AI call during playback.");
                 coordinator.Dispose();
 
                 Assert.That(network.BoundSession, Is.Null);
@@ -445,6 +462,24 @@ namespace Game.Architecture.Tests
             finally
             {
                 UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        private sealed class FakeDirector : IHighlightDirectorGateway
+        {
+            private readonly int mode;
+            public int Calls;
+            public readonly UniTaskCompletionSource<HighlightDirectorReply> Pending=new();
+            public FakeDirector(int mode) => this.mode=mode;
+            public static HighlightDirectorReply Success() => new() {available=true,picks=new[]{
+                new HighlightDirectorPick {id=0,title="AI 장면",summary="첫 물건 파괴 장면입니다."}}};
+            public UniTask<HighlightDirectorReply> DirectAsync(HighlightDirectorCandidate[] candidates,CancellationToken cancellation)
+            {
+                Calls++;
+                Assert.That(candidates.Length,Is.EqualTo(1));
+                if(mode==2) return Pending.Task;
+                if(mode==3) { var invalid=Success(); invalid.picks[0].id=9; return UniTask.FromResult(invalid); }
+                return UniTask.FromResult(mode==1 ? Success() : null);
             }
         }
 

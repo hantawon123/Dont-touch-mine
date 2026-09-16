@@ -782,7 +782,12 @@ namespace Game.Bootstrap
                     room.Participants.CurrentValue,
                     presentation)
                 : null;
+            var current=index>=0 && index<replay.Count ? replay[index] : null;
+            if(!string.IsNullOrEmpty(current?.Title)) subtitle=current.Summary;
             hud.SetHighlightHud(true, subtitle, highlightBarFills);
+            if(cctvHud==null && hud is Component component)
+                cctvHud=component.GetComponentInChildren<HighlightHudView>(true);
+            if(cctvHud!=null) cctvHud.SetGeneratedCaption(current?.Title,current?.Summary);
         }
 
         private static int GetRecordedPlayerCount(

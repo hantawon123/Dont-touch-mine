@@ -16,6 +16,8 @@ namespace Game.Server.Match
             new(StringComparer.Ordinal);
         private readonly List<double>[] stunnedAtByPlayer;
         private readonly int[] lastStunnerByPlayer;
+        private readonly List<(HighlightType type, GameEvent item, double start)> aiEvents = new();
+        private readonly Dictionary<string,double> aiThefts = new();
         private GameEvent? firstDestroyedEvent;
         private GameEvent? lastGameEvent;
         private double searchingStartedAt = -1d;
@@ -33,6 +35,12 @@ namespace Game.Server.Match
             if (!items.TryGetValue(itemId, out var item)) return;
             if (item.LastHolder != playerIndex)
             {
+                if(playerIndex != item.OwnerPlayerIndex) aiThefts.TryAdd(itemId,now);
+                else if(aiThefts.TryGetValue(itemId,out var stolenAt))
+                {
+                    RecordAiEvent(HighlightType.ItemRecovered,new GameEvent(playerIndex,itemId,now),stolenAt);
+                    aiThefts.Remove(itemId);
+                }
                 item.PickedUpAt.Add(now);
                 item.Holders.Add(playerIndex);
                 item.LastHolder = playerIndex;
@@ -100,6 +108,7 @@ namespace Game.Server.Match
             {
                 destroyedItem.Destroyed = true;
                 lastGameEvent = new GameEvent(destroyerPlayerIndex, itemId, now);
+                RecordAiEvent(HighlightType.ItemDestroyed,lastGameEvent.Value);
             }
             if (!firstDestroyedEvent.HasValue && items.ContainsKey(itemId))
             {
@@ -123,6 +132,42 @@ namespace Game.Server.Match
                 attackerPlayerIndex,
                 targetPlayerIndex.ToString(CultureInfo.InvariantCulture),
                 now);
+            RecordAiEvent(HighlightType.PlayerStunned,lastGameEvent.Value);
+        }
+
+        private void RecordAiEvent(HighlightType type, GameEvent item, double start = -1d)
+        {
+            if(aiEvents.Count == 10) aiEvents.RemoveAt(0);
+            aiEvents.Add((type,item,start));
+        }
+
+        public HighlightCandidate[] ExpandAiCandidates(IReadOnlyList<HighlightCandidate> baseline,double endedAt)
+        {
+            var candidates=new List<HighlightCandidate>(baseline);
+            for(int i=aiEvents.Count-1; i>=0 && candidates.Count<10; i--)
+            {
+                var entry=aiEvents[i];
+                if(entry.item.OccurredAt < Math.Max(searchingStartedAt,recordingStartedAt) || entry.item.OccurredAt>endedAt) continue;
+                var duplicate=candidates.FindIndex(c => c.TargetId==entry.item.TargetId && Math.Abs(c.EventAt-entry.item.OccurredAt)<0.1d);
+                if(duplicate>=0)
+                {
+                    if(entry.type!=HighlightType.ItemRecovered) continue;
+                    candidates.RemoveAt(duplicate);
+                }
+                if(entry.type==HighlightType.ItemRecovered && entry.start>=Math.Max(searchingStartedAt,recordingStartedAt))
+                {
+                    // Show both the theft and recovery without fast-forwarding a long uneventful interval.
+                    double start=Math.Max(Math.Max(searchingStartedAt,recordingStartedAt),entry.start-1d);
+                    double firstEnd=Math.Min(endedAt,entry.start+2d);
+                    double secondStart=Math.Max(start,entry.item.OccurredAt-3d);
+                    double end=Math.Min(endedAt,entry.item.OccurredAt+2d);
+                    var segments=secondStart<=firstEnd ? new[]{new HighlightSegment(start,end)} :
+                        new[]{new HighlightSegment(start,firstEnd),new HighlightSegment(secondStart,end)};
+                    candidates.Add(new HighlightCandidate(entry.type,segments,entry.item.TargetId,entry.item.OccurredAt,50,entry.item.ActorPlayerIndex));
+                }
+                else candidates.Add(CreateEventCandidate(entry.type,entry.item,endedAt));
+            }
+            return candidates.ToArray();
         }
 
         public HighlightCandidate[] CaptureCandidates(double endedAt, MatchEndReason? endReason = null,
@@ -287,6 +332,7 @@ namespace Game.Server.Match
         private double ScoreEvent(HighlightType type, GameEvent gameEvent, double matchEndedAt)
         {
             if (type == HighlightType.FirstBlood) return 60d;
+            if (type == HighlightType.ItemDestroyed || type == HighlightType.PlayerStunned || type == HighlightType.ItemRecovered) return 50d;
             if (type != HighlightType.FinalMoment) return 0d;
             if (firstDestroyedEvent.HasValue &&
                 gameEvent.OccurredAt == firstDestroyedEvent.Value.OccurredAt &&

@@ -251,6 +251,7 @@ namespace Game.Bootstrap
             builder.RegisterInstance(new MatchAnalyticsUpload(new UnityWebRequestTransport(), endpoint,
                 System.IO.Path.Combine(Application.persistentDataPath, "match-analytics")));
             builder.RegisterEntryPoint<MatchAnalyticsRecorder>();
+            builder.RegisterInstance<IHighlightDirectorGateway>(new HighlightDirectorGateway(client));
             if (DedicatedServerStartup.IsRequested)
             {
                 builder.RegisterInstance<IAccountGateway>(new AccountGateway(client));

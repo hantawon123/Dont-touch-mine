@@ -175,6 +175,20 @@ namespace Game.Client.Match
             SetSectionsVisible(false);
         }
 
+        public void SetGeneratedCaption(string title,string summary)
+        {
+            bool generated=!string.IsNullOrEmpty(title);
+            string next=generated ? title : TitleText;
+            if(titleText!=null && (titleText.text!=next || titleText.enableAutoSizing!=generated))
+            {
+                titleText.enableAutoSizing=generated;
+                titleText.fontSizeMin=22; titleText.fontSizeMax=TitleFontSize;
+                if(!generated) titleText.fontSize=TitleFontSize;
+                titleText.text=next;
+            }
+            if(!string.IsNullOrEmpty(title)) SetSubtitle(summary);
+        }
+
         public void SetSubtitle(string subtitle)
         {
             if (subtitleText == null)

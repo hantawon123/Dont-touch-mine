@@ -11,7 +11,7 @@ namespace Game.Server.Match
 
         public HighlightSequence(
             IReadOnlyList<HighlightCandidate> candidates,
-            MatchRulesSO rules)
+            MatchRulesSO rules, bool preserveOrder = false)
         {
             if (candidates == null)
             {
@@ -23,7 +23,13 @@ namespace Game.Server.Match
                 throw new ArgumentNullException(nameof(rules));
             }
 
-            highlights = HighlightCandidateSelector.Select(candidates);
+            if(preserveOrder)
+            {
+                if(candidates.Count > MatchRulesSO.MaxHighlightCount) throw new ArgumentException("Too many selected highlights.");
+                highlights=new HighlightCandidate[candidates.Count];
+                for(int i=0;i<candidates.Count;i++) highlights[i]=candidates[i];
+            }
+            else highlights = HighlightCandidateSelector.Select(candidates);
             var totalDurationSeconds = 0f;
             foreach (var highlight in highlights)
             {
