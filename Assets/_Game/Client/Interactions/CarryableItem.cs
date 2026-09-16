@@ -97,7 +97,12 @@ namespace Game.Client.Interactions
             remoteProgress = Mathf.Min(1f, remoteProgress + Time.fixedDeltaTime / 0.1f);
             body.MovePosition(Vector3.Lerp(remoteFrom.position, remoteTo.position, remoteProgress));
             body.MoveRotation(Quaternion.Slerp(remoteFrom.rotation, remoteTo.rotation, remoteProgress));
-            if (remoteProgress >= 1f) enabled = false;
+            if (remoteProgress >= 1f)
+            {
+                // Settled remote props need neither script ticks nor physics render interpolation.
+                body.interpolation = RigidbodyInterpolation.None;
+                enabled = false;
+            }
         }
 
         public bool TryGetPhysicsPose(out Pose pose, out Vector3 velocity, out bool moving)

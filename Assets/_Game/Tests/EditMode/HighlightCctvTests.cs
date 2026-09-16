@@ -12,7 +12,7 @@ namespace Game.Tests.EditMode
     public sealed class HighlightCctvTests
     {
         [Test]
-        public void Camera_StaysAtMountAndSwitchesUnderFade()
+        public void Camera_SwitchesToClearMountInTheSameTick()
         {
             var root = new GameObject("test");
             try
@@ -35,13 +35,11 @@ namespace Game.Tests.EditMode
                 director.Tick(2.1f);
                 player.position = Vector3.right * 40;
                 director.Tick(0.3f);
-                Assert.That(output.position, Is.EqualTo(a.transform.position));
-                director.Tick(0.1f);
-                Assert.That(director.CctvOpacity, Is.GreaterThan(0f));
-                director.Tick(0.11f);
                 Assert.That(output.position, Is.EqualTo(b.transform.position));
+                Assert.That(Quaternion.Angle(output.rotation, b.transform.rotation), Is.LessThan(0.001f));
+                Assert.That(director.CctvLocation, Is.EqualTo("CAM B"));
                 director.Tick(0.3f);
-                Assert.That(director.CctvOpacity, Is.Zero);
+                Assert.That(output.position, Is.EqualTo(b.transform.position));
             }
             finally { Object.DestroyImmediate(root); }
         }
@@ -150,7 +148,6 @@ namespace Game.Tests.EditMode
                 player.position = Vector3.right * 6;
                 director.Tick(0.3f); director.Tick(0.3f);
                 Assert.That(director.CctvLocation, Is.EqualTo("A"));
-                Assert.That(director.CctvOpacity, Is.Zero);
             }
             finally { Object.DestroyImmediate(root); }
         }
@@ -184,9 +181,8 @@ namespace Game.Tests.EditMode
                 Assert.That(director.CctvLocation, Is.EqualTo("A"));
                 blocker.transform.position = new Vector3(0, 1.5f, -2.5f);
                 director.Tick(0.3f);
-                Assert.That(director.CctvLocation, Is.EqualTo("A"));
-                director.Tick(0.21f);
                 Assert.That(director.CctvLocation, Is.EqualTo("B"));
+                Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.False);
                 Assert.That(Quaternion.Angle(output.rotation, b.transform.rotation), Is.LessThan(0.01f));
             }
             finally { Object.DestroyImmediate(root); }

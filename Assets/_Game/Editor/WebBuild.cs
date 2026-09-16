@@ -93,7 +93,8 @@ namespace Game.Editor
                     scenes = scenes,
                     locationPathName = output,
                     target = BuildTarget.WebGL,
-                    options = BuildOptions.None
+                    options = Environment.GetEnvironmentVariable("WEBGL_PROFILE_BUILD") == "1"
+                        ? BuildOptions.Development : BuildOptions.None
                 });
                 Directory.CreateDirectory("Logs");
                 File.WriteAllText("Logs/webgl-build-report.json", JsonUtility.ToJson(new BuildMetrics

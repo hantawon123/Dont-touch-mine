@@ -27,11 +27,11 @@ namespace Game.SOAP.Config
         }
         public List<Category> categories = new();
 
-        public static ItemCatalogSO Load()
+        public static ItemCatalogSO Load(bool applyDefinitions = true)
         {
             var catalog = Resources.Load<ItemCatalogSO>(ResourcePath);
             if (catalog == null) throw new InvalidOperationException("Missing Resources/Items/ItemCatalog asset.");
-            catalog.Apply();
+            if (applyDefinitions) catalog.Apply();
             return catalog;
         }
 

@@ -186,8 +186,12 @@ namespace Game.Bootstrap
             var webText = new GameObject("Web Text Input").AddComponent<Game.Client.Common.WebTextInput>();
             webText.transform.SetParent(transform, false);
             builder.RegisterComponent(webText);
-            builder.RegisterComponent(webText.gameObject.AddComponent<Game.Client.Common.WebFrameCapture>());
+
 #endif
+
+            var performance = new GameObject("Frame Capture");
+            performance.transform.SetParent(transform, false);
+            builder.RegisterComponent(performance.AddComponent<Game.Client.Common.WebFrameCapture>());
 
             builder.Register<UnityHomeApplicationHost>(Lifetime.Singleton).As<IHomeApplicationHost>();
             builder.RegisterEntryPoint<FrontendSceneCoordinator>().AsSelf();
