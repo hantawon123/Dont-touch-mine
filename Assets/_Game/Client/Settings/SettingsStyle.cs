@@ -63,10 +63,10 @@ namespace Game.Client.Settings
             public static readonly Color BackgroundFallback = FromHex(0x0B1018);
 
             /// <summary>
-            /// Lobby and in-match overlay: a half-strength black over the
-            /// room, instead of the Home picture the standalone screen uses.
+            /// Lobby and in-match overlay: 80% black over the room, instead
+            /// of the Home picture the standalone screen uses.
             /// </summary>
-            public static readonly Color OverlayDim = FromHex(0x000000, 0.5f);
+            public static readonly Color OverlayDim = FromHex(0x000000, 0.8f);
 
             public static readonly Color PanelFill = FromHex(0x231818);
             /// <summary>

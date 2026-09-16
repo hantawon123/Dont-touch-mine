@@ -94,7 +94,7 @@ namespace Game.Architecture.Tests
                 Assert.That(close.GetComponent<Image>().sprite, Is.Not.Null);
                 var background = Find(root, "Background").GetComponent<Image>();
                 Assert.That(background.color, Is.EqualTo(SettingsStyle.Palette.OverlayDim));
-                Assert.That(background.color.a, Is.EqualTo(0.5f));
+                Assert.That(background.color.a, Is.EqualTo(0.8f));
             }
             finally
             {
