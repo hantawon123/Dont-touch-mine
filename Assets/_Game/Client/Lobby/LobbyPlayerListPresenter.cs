@@ -37,6 +37,7 @@ namespace Game.Client.Lobby
         private IDisposable refreshSubscription;
         private IDisposable muteSubscription;
         private IDisposable talkSubscription;
+        private IDisposable listenSubscription;
 
         /// <summary>
         /// The last thing the room said about itself, so that a name arriving
@@ -84,6 +85,7 @@ namespace Game.Client.Lobby
             {
                 muteSubscription = voice.IsMuted.Subscribe(_ => Draw());
                 talkSubscription = voice.IsTransmitting.Subscribe(_ => Draw());
+                listenSubscription = voice.IsListening.Subscribe(_ => Draw());
             }
 
             refreshSubscription = Observable.CombineLatest(
@@ -153,6 +155,7 @@ namespace Game.Client.Lobby
             friends.FriendsChanged -= BindFriends;
             muteSubscription?.Dispose();
             talkSubscription?.Dispose();
+            listenSubscription?.Dispose();
             refreshSubscription?.Dispose();
         }
 
@@ -172,12 +175,15 @@ namespace Game.Client.Lobby
             }
 
             var localMuted = voice.IsMuted.CurrentValue;
+            var localListening = voice.IsListening.CurrentValue;
             var localTalking = !localMuted && voice.IsTransmitting.CurrentValue;
             for (var index = 0; index < people.Count; index++)
             {
                 var person = people[index];
                 if (!string.Equals(person.Id, localId, StringComparison.Ordinal)
-                    || (person.IsMuted == localMuted && person.IsTalking == localTalking))
+                    || (person.IsMuted == localMuted
+                        && person.IsTalking == localTalking
+                        && person.IsListening == localListening))
                 {
                     continue;
                 }
@@ -194,7 +200,8 @@ namespace Game.Client.Lobby
                     person.IsHost,
                     person.UserId,
                     localMuted,
-                    localTalking);
+                    localTalking,
+                    localListening);
                 return copy;
             }
 
@@ -219,7 +226,9 @@ namespace Game.Client.Lobby
             var online = friends.OnlineFriends;
             var invitable = new List<FriendSummary>(online.Count);
             AppendInvitable(invitable, online, inRoom);
-            view.SetFriends(invitable);
+            var speakerOff = voice != null && !voice.IsListening.CurrentValue;
+            var micOff = voice != null && voice.IsMuted.CurrentValue;
+            view.SetFriends(invitable, speakerOff, micOff);
         }
 
         private static void AppendInvitable(

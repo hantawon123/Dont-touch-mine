@@ -12,7 +12,8 @@ namespace Game.Core.Lobby
             bool isHost,
             string userId = null,
             bool isMuted = false,
-            bool isTalking = false)
+            bool isTalking = false,
+            bool isListening = true)
         {
             if (string.IsNullOrWhiteSpace(id))
             {
@@ -30,6 +31,7 @@ namespace Game.Core.Lobby
             UserId = string.IsNullOrWhiteSpace(userId) ? string.Empty : userId.Trim();
             IsMuted = isMuted;
             IsTalking = isTalking;
+            IsListening = isListening;
         }
 
         public string Id { get; }
@@ -48,19 +50,23 @@ namespace Game.Core.Lobby
         /// <summary>Whether this person's voice is leaving right now.</summary>
         public bool IsTalking { get; }
 
+        /// <summary>Whether this person is listening. Speaker off wins over mic off.</summary>
+        public bool IsListening { get; }
+
         public bool Equals(LobbyParticipant other) =>
             string.Equals(Id, other.Id, StringComparison.Ordinal) &&
             string.Equals(DisplayName, other.DisplayName, StringComparison.Ordinal) &&
             IsHost == other.IsHost &&
             string.Equals(UserId, other.UserId, StringComparison.Ordinal) &&
             IsMuted == other.IsMuted &&
-            IsTalking == other.IsTalking;
+            IsTalking == other.IsTalking &&
+            IsListening == other.IsListening;
 
         public override bool Equals(object obj) =>
             obj is LobbyParticipant other && Equals(other);
 
         public override int GetHashCode() =>
-            HashCode.Combine(Id, DisplayName, IsHost, UserId, IsMuted, IsTalking);
+            HashCode.Combine(Id, DisplayName, IsHost, UserId, IsMuted, IsTalking, IsListening);
     }
 
     public interface ILobbyParticipantList

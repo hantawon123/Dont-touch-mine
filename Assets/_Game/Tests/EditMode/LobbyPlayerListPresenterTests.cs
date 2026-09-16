@@ -146,6 +146,40 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Start_MarksFriendProfilesWithLocalSpeakerThenMic()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+            });
+            var friends = new FriendListSystem();
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("f-1", "친구", FriendPresence.Online),
+            });
+            var view = new FakePlayerListView();
+            var voice = new FakeVoiceControl(muted: true);
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                friends,
+                new FakeInviteGateway(),
+                new FakeReportGateway(),
+                view,
+                new FakeCountView(),
+                new FakeConfirmView());
+            presenter.BindVoice(voice);
+
+            presenter.Start();
+            Assert.That(view.FriendSpeakerOff, Is.False);
+            Assert.That(view.FriendMicOff, Is.True);
+
+            voice.SetListening(false);
+            Assert.That(view.FriendSpeakerOff, Is.True);
+            Assert.That(view.FriendMicOff, Is.True);
+        }
+
+        [Test]
         public void Start_HidesFriendsWhoAreAlreadyInTheRoom()
         {
             var list = new LobbyParticipantList(new[]
@@ -522,9 +556,17 @@ namespace Game.Tests.EditMode
                 UpdateCount++;
             }
 
-            public void SetFriends(IReadOnlyList<FriendSummary> friends)
+            public bool FriendSpeakerOff { get; private set; }
+            public bool FriendMicOff { get; private set; }
+
+            public void SetFriends(
+                IReadOnlyList<FriendSummary> friends,
+                bool speakerOff = false,
+                bool micOff = false)
             {
                 Friends = friends;
+                FriendSpeakerOff = speakerOff;
+                FriendMicOff = micOff;
             }
 
             public void RaiseKick(string id, string name) => KickClicked?.Invoke(id, name);

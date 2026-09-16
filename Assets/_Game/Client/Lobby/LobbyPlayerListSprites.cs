@@ -12,6 +12,7 @@ namespace Game.Client.Lobby
         public const string PlusGrayResource = "UI/Icon_Plus_Gray";
         public const string LeaderResource = "UI/Icon_Leader";
         public const string MicOffWhiteResource = "UI/Icon_Mic_Off_White";
+        public const string MicOffGrayResource = "UI/Icon_Mic_Off_Gray";
         public const string SoundWhiteResource = "UI/Icon_Sound_White";
         public const string SoundGreenResource = "UI/Icon_Sound_Green";
         public const string SoundMuteResource = "UI/Icon_Sound_Mute_Gray";
@@ -20,6 +21,7 @@ namespace Game.Client.Lobby
         private static Sprite plusGray;
         private static Sprite leader;
         private static Sprite micOffWhite;
+        private static Sprite micOffGray;
         private static Sprite soundWhite;
         private static Sprite soundGreen;
         private static Sprite soundMute;
@@ -33,6 +35,9 @@ namespace Game.Client.Lobby
 
         public static Sprite MicOffWhite =>
             micOffWhite ??= Resources.Load<Sprite>(MicOffWhiteResource);
+
+        public static Sprite MicOffGray =>
+            micOffGray ??= Resources.Load<Sprite>(MicOffGrayResource);
 
         public static Sprite SoundWhite =>
             soundWhite ??= Resources.Load<Sprite>(SoundWhiteResource);
@@ -54,6 +59,19 @@ namespace Game.Client.Lobby
             }
 
             return talking ? SoundGreen : SoundWhite;
+        }
+
+        /// <summary>
+        /// Portrait badge: speaker off first, then microphone off.
+        /// </summary>
+        public static Sprite MuteOnProfile(bool speakerOff, bool micOff)
+        {
+            if (speakerOff)
+            {
+                return SoundMute;
+            }
+
+            return micOff ? MicOffGray : null;
         }
 
         private static Sprite BuildPlus()

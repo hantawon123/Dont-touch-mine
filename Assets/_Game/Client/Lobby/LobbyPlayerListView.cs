@@ -227,7 +227,8 @@ namespace Game.Client.Lobby
                     showAdd: false,
                     isSelf: isSelf,
                     isMuted: participant.IsMuted,
-                    isTalking: participant.IsTalking);
+                    isTalking: participant.IsTalking,
+                    isListening: participant.IsListening);
                 var playerId = participant.Id;
                 var rosterName = participant.DisplayName;
                 var displayName = shownName;
@@ -298,7 +299,10 @@ namespace Game.Client.Lobby
             }
         }
 
-        public void SetFriends(IReadOnlyList<FriendSummary> friends)
+        public void SetFriends(
+            IReadOnlyList<FriendSummary> friends,
+            bool speakerOff = false,
+            bool micOff = false)
         {
             EnsureLayout();
             EnsureFriendSections();
@@ -330,9 +334,9 @@ namespace Game.Client.Lobby
                 }
             }
 
-            AppendFriends(onlineItemsRoot, online, canInvite: true);
-            AppendFriends(waitingItemsRoot, waiting, canInvite: false);
-            AppendFriends(inGameItemsRoot, playing, canInvite: false);
+            AppendFriends(onlineItemsRoot, online, canInvite: true, speakerOff, micOff);
+            AppendFriends(waitingItemsRoot, waiting, canInvite: false, speakerOff, micOff);
+            AppendFriends(inGameItemsRoot, playing, canInvite: false, speakerOff, micOff);
             SetSectionVisible(onlineSection, onlineItemsRoot, online.Count > 0);
             SetSectionVisible(waitingSection, waitingItemsRoot, waiting.Count > 0);
             SetSectionVisible(inGameSection, inGameItemsRoot, playing.Count > 0);
@@ -430,7 +434,11 @@ namespace Game.Client.Lobby
         }
 
         private void AppendFriends(
-            RectTransform parent, IReadOnlyList<FriendSummary> friends, bool canInvite)
+            RectTransform parent,
+            IReadOnlyList<FriendSummary> friends,
+            bool canInvite,
+            bool speakerOff,
+            bool micOff)
         {
             if (parent == null)
             {
@@ -448,7 +456,10 @@ namespace Game.Client.Lobby
                     showLeader: false,
                     showKick: false,
                     showAdd: true,
-                    showVoice: false);
+                    isMuted: micOff,
+                    isTalking: false,
+                    showVoice: false,
+                    isListening: !speakerOff);
                 BindInvite(row, friend.PlayerId, friend.Nickname, canInvite);
             }
         }
@@ -944,7 +955,8 @@ namespace Game.Client.Lobby
             bool isSelf = false,
             bool isMuted = false,
             bool isTalking = false,
-            bool showVoice = true)
+            bool showVoice = true,
+            bool isListening = true)
         {
             var row = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             row.SetParent(parent, false);
@@ -953,7 +965,7 @@ namespace Game.Client.Lobby
             element.minHeight = RowHeight;
             element.flexibleWidth = 1f;
 
-            CreateAvatar(row, isMuted);
+            CreateAvatar(row, isMuted, isListening);
             var nameLabel = CreateNickname(row, nickname, isSelf);
             var afterName = showVoice
                 ? CreateVoice(row, nameLabel, isMuted, isTalking)
@@ -986,7 +998,7 @@ namespace Game.Client.Lobby
             bucket.Add(row.gameObject);
         }
 
-        private static void CreateAvatar(RectTransform parent, bool muted)
+        private static void CreateAvatar(RectTransform parent, bool muted, bool listening)
         {
             var avatar = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
                 .GetComponent<RectTransform>();
@@ -997,13 +1009,14 @@ namespace Game.Client.Lobby
             image.color = AvatarColor;
             image.raycastTarget = false;
             image.preserveAspect = true;
-            if (muted)
+            var badge = LobbyPlayerListSprites.MuteOnProfile(!listening, muted);
+            if (badge != null)
             {
-                CreateMutedOverlay(avatar);
+                CreateMutedOverlay(avatar, badge);
             }
         }
 
-        private static void CreateMutedOverlay(RectTransform avatar)
+        private static void CreateMutedOverlay(RectTransform avatar, Sprite badge)
         {
             var dim = new GameObject(
                     AvatarDimName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
@@ -1025,7 +1038,7 @@ namespace Game.Client.Lobby
             mute.anchoredPosition = Vector2.zero;
             mute.sizeDelta = new Vector2(MuteIconSize, MuteIconSize);
             var muteImage = mute.GetComponent<Image>();
-            muteImage.sprite = LobbyPlayerListSprites.MicOffWhite;
+            muteImage.sprite = badge;
             muteImage.color = Color.white;
             muteImage.preserveAspect = true;
             muteImage.raycastTarget = false;
