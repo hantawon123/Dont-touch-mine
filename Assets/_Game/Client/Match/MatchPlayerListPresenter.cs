@@ -22,6 +22,7 @@ namespace Game.Client.Match
         private readonly RoomBrowserSystem room;
         private readonly ILobbyPlayerListView view;
         private readonly IReportGateway reports;
+        private readonly IReportContext reportContext;
         private readonly ILobbyConfirmView confirmView;
         private readonly CancellationTokenSource lifetime = new();
         private IDisposable refreshSubscription;
@@ -38,6 +39,7 @@ namespace Game.Client.Match
             RoomBrowserSystem room,
             ILobbyPlayerListView view,
             IReportGateway reports,
+            IReportContext reportContext,
             ILobbyConfirmView confirmView,
             IVoiceControl voice = null)
         {
@@ -46,6 +48,8 @@ namespace Game.Client.Match
             this.room = room ?? throw new ArgumentNullException(nameof(room));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.reports = reports ?? throw new ArgumentNullException(nameof(reports));
+            this.reportContext = reportContext
+                ?? throw new ArgumentNullException(nameof(reportContext));
             this.confirmView = confirmView
                 ?? throw new ArgumentNullException(nameof(confirmView));
             this.voice = voice;
@@ -146,9 +150,16 @@ namespace Game.Client.Match
         private async UniTaskVoid ReportAsync(
             string userId, ReportReason reason, string note, CancellationToken cancellation)
         {
-            var result = await reports.ReportAsync(userId, reason, note, cancellation);
+            var result = await reports.ReportAsync(
+                userId, reason, note, reportContext.CurrentKey, cancellation);
             if (result.Ok || result.Failure == BackendFailure.Cancelled)
             {
+                return;
+            }
+
+            if (result.Failure == BackendFailure.ReportAlreadySent)
+            {
+                Debug.Log($"[Report] {userId} was already reported in this match.");
                 return;
             }
 
