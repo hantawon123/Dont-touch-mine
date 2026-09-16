@@ -49,6 +49,11 @@ namespace Game.Architecture.Tests
                 Assert.That(nextTurn.color, Is.EqualTo(HidingWaitHudView.AccentColor));
                 Assert.That(nextTurn.gameObject.activeSelf, Is.True);
 
+                Assert.That(
+                    (view.transform.Find("PlayerList") as RectTransform).sizeDelta,
+                    Is.EqualTo(new Vector2(
+                        HidingWaitHudView.ListWidth,
+                        HidingWaitHudView.ListHeight)));
                 var currentName = view.transform.Find("PlayerList/Row2/Name")?.GetComponent<TMPro.TMP_Text>();
                 Assert.That(currentName.text, Is.EqualTo("민수"));
                 Assert.That(currentName.fontSize, Is.EqualTo(HidingWaitHudView.NameFontSize));
@@ -116,9 +121,9 @@ namespace Game.Architecture.Tests
             Assert.That(HidingWaitHudView.RingFillAmount(30d, 30d), Is.EqualTo(0f));
             Assert.That(HidingWaitHudView.RingFillAmount(15d, 30d), Is.EqualTo(0.5f));
             Assert.That(HidingWaitHudView.RingFillAmount(0d, 30d), Is.EqualTo(1f));
-            Assert.That(HidingWaitHudView.RingGap, Is.EqualTo(2f));
-            Assert.That(HidingWaitHudView.NameFontSize, Is.EqualTo(16f));
-            Assert.That(HidingWaitHudView.AvatarSize, Is.EqualTo(36f));
+            Assert.That(HidingWaitHudView.RingGap, Is.EqualTo(3f));
+            Assert.That(HidingWaitHudView.NameFontSize, Is.EqualTo(24f));
+            Assert.That(HidingWaitHudView.AvatarSize, Is.EqualTo(54f));
         }
     }
 }
