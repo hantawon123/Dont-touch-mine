@@ -24,6 +24,8 @@ class DeliveryTests(unittest.TestCase):
                 path.write_text('fixture')
             (client/'version.txt').write_text(revision)
             archive = package(client, root/'download', revision)
+            self.assertEqual((archive.parent/'version.txt').read_bytes(), (revision + '\n').encode())
+            self.assertNotIn(b'\r', (archive.parent/'SHA256SUMS.txt').read_bytes())
             html = (archive.parent/'index.html').read_text(encoding='utf-8')
             self.assertIn(f'href="{archive.name}" download', html)
             self.assertNotIn('@@', html)

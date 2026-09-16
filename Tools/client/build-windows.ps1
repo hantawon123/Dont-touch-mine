@@ -1,6 +1,8 @@
 ﻿$ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $project = (Get-Location).Path
+& python -m unittest discover -s Tools/client -p 'test_*.py'
+if ($LASTEXITCODE -ne 0) { throw 'Windows packaging tests failed.' }
 $revision = (& git rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $revision -notmatch '^[a-f0-9]{40}$' -or $revision -ne $env:RELEASE_REVISION) {
     throw 'Windows checkout does not match the resolved release revision.'

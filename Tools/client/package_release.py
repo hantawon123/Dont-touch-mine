@@ -36,8 +36,8 @@ def package(client, output, revision):
             archive.write(file, file.relative_to(client).as_posix())
     with (output / name).open('rb') as stream:
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
-    (output / 'SHA256SUMS.txt').write_text(f'{digest}  {name}\n', encoding='utf-8')
-    (output / 'version.txt').write_text(revision + '\n', encoding='utf-8')
+    (output / 'SHA256SUMS.txt').write_text(f'{digest}  {name}\n', encoding='utf-8', newline='\n')
+    (output / 'version.txt').write_text(revision + '\n', encoding='utf-8', newline='\n')
     template = Path(__file__).with_name('site') / 'index.html'
     html = template.read_text(encoding='utf-8')
     values = {
