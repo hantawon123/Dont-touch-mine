@@ -18,6 +18,7 @@
         --surface-hover: #27272d;
         --accent-hover: #a3d0fa;
         --on-accent: #111820;
+        --heading: hsl(214, 100%, 83%);
       }
       * {
         box-sizing: border-box;
@@ -320,6 +321,7 @@
         line-height: 1.4;
         font-weight: 600;
         margin: 0 0 22px;
+        color: var(--heading);
       }
       h3 {
         font-size: 15px;
@@ -407,6 +409,28 @@
         margin-bottom: 3px;
         font-weight: 600;
       }
+
+      /* ── 목표 한 줄 (단계 목록보다 먼저 읽히는 자리) ── */
+      .goal {
+        background: var(--panel);
+        border-left: 3px solid var(--blue);
+        border-radius: 8px;
+        padding: 22px 26px;
+        margin: 0 0 30px;
+      }
+      .goal strong {
+        display: block;
+        font-size: 17px;
+        line-height: 1.65;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+      }
+      .goal p {
+        margin: 12px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
       .steps {
         list-style: none;
         padding: 0;
@@ -432,6 +456,69 @@
         color: var(--muted);
         font-size: 14px;
       }
+      /* ── 단계별 페이즈 표시 · 요약/규칙/팁 3층 구조 ── */
+      .phase-tag {
+        display: inline-block;
+        font-size: 11px;
+        letter-spacing: 1.4px;
+        color: var(--blue);
+        border: 1px solid #3d4b5c;
+        border-radius: 4px;
+        padding: 2px 9px;
+        margin-bottom: 9px;
+      }
+      .steps li strong {
+        display: block;
+        font-size: 16px;
+        letter-spacing: -0.3px;
+      }
+      .step-sum {
+        margin: 7px 0 0;
+        color: #c6c6cd;
+        font-size: 14.5px;
+      }
+      .step-rule,
+      .step-tip {
+        margin: 9px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .step-rule b,
+      .step-tip b {
+        font-weight: 600;
+        margin-right: 7px;
+      }
+      .step-rule b {
+        color: #dcdce3;
+      }
+      .step-tip b {
+        color: var(--blue);
+      }
+
+      /* ── 승리 / 패배 조건 요약 ── */
+      .outcome {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-top: 28px;
+      }
+      .outcome > div {
+        background: var(--panel);
+        border-radius: 8px;
+        padding: 19px 22px;
+      }
+      .outcome h3 {
+        margin: 0 0 9px;
+        font-size: 14px;
+      }
+      .outcome ul {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+        font-size: 13.5px;
+        line-height: 1.8;
+      }
+
       /* 스텝 이미지: step-1.png ~ step-4.png 파일만 교체하면 됩니다. */
       .step-shot {
         display: block;
@@ -439,7 +526,7 @@
         max-width: 560px;
         aspect-ratio: 16/9;
         object-fit: cover;
-        margin-top: 14px;
+        margin-top: 16px;
         border-radius: 8px;
         border: 1px solid var(--line);
         background: #17171c;
@@ -650,6 +737,15 @@
         .media-arrow.next {
           right: 10px;
         }
+        .goal {
+          padding: 18px 20px;
+        }
+        .goal strong {
+          font-size: 16px;
+        }
+        .outcome {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
@@ -743,7 +839,7 @@
               플레이하고, 여러분의 경험과 의견을 들려주세요.
             </p>
             <section id="beta">
-              <h2 style="color: hsl(214, 100%, 83%)">베타테스트 안내</h2>
+              <h2>베타테스트 안내</h2>
               <p class="copy">
                 이번 테스트에서는 플레이 경험과 게임의 안정성을 확인합니다. 진행
                 중 불편했던 점이나 개선되었으면 하는 부분을 피드백으로
@@ -751,74 +847,140 @@
               </p>
             </section>
             <section id="info">
-              <h2 style="color: hsl(214, 100%, 83%)">이렇게 플레이해요</h2>
+              <h2>이렇게 플레이해요</h2>
+
+              <div class="goal">
+                <strong>
+                  내 물건은 지키고, 남의 물건은 부순다.<br />
+                  경찰이 오기 전에 내 물건을 손에 들고 나가면 승리합니다.
+                </strong>
+                <p>
+                  2~6명이 함께 플레이합니다 · 한 판 길이와 파괴 가능 횟수는
+                  방장이 설정합니다
+                </p>
+              </div>
+
               <ol class="steps">
                 <li>
                   <div>
-                    <strong>내 물건을 숨겨요</strong>
-                    <p>
-                      다른 플레이어가 쉽게 찾지 못할 장소를 골라보세요. 너무
-                      뻔한 곳도, 내 행동 때문에 들킬 만한 곳도 위험합니다.
+                    <span class="phase-tag">준비</span>
+                    <strong>내 물건을 숨기세요</strong>
+                    <p class="step-sum">
+                      게임이 시작되면 나에게만 배정된 물건 하나가 주어집니다.
+                      아지트 안 어딘가에 숨기세요.
+                    </p>
+                    <p class="step-rule">
+                      <b>규칙</b>마지막에 내가 직접 다시 들고 나가야 하는
+                      물건입니다.
+                    </p>
+                    <p class="step-tip">
+                      <b>첫 판이라면</b>출구에서 걸어서 10초 안쪽에 숨기세요.
+                      너무 깊거나 복잡한 곳은 나조차 돌아갈 수 없습니다.
                     </p>
                     <img
                       class="step-shot"
                       src="step-1.png"
-                      alt="1단계: 내 물건을 숨기는 장면"
+                      alt="1단계: 아지트 구석에 자신의 물건을 숨기는 장면"
                       loading="lazy"
                     />
                   </div>
                 </li>
                 <li>
                   <div>
-                    <strong>아무렇지 않은 척, 주변을 살펴요</strong>
-                    <p>
-                      내 물건의 위치를 들키지 않도록 자연스럽게 움직이세요.
-                      동시에 다른 플레이어가 어디를 자꾸 확인하는지 눈여겨보세요.
+                    <span class="phase-tag">약탈</span>
+                    <strong>남의 물건을 찾아 부수세요</strong>
+                    <p class="step-sum">
+                      숨기기가 끝나면 전원이 서로의 적입니다. 수상한 움직임을
+                      따라가 다른 도둑의 물건을 찾아내고, 부수거나 빼앗으세요.
+                    </p>
+                    <p class="step-rule">
+                      <b>규칙</b>파괴된 물건의 주인은 그 판을 되돌릴 수
+                      없습니다. 단, 파괴할 수 있는 횟수는 방장이 정한 만큼으로
+                      제한됩니다.
+                    </p>
+                    <p class="step-tip">
+                      <b>첫 판이라면</b>아무 데나 뒤지지 말고 사람을 보세요.
+                      같은 자리를 두 번 지나는 상대가 있다면 그 근처에 물건이
+                      있습니다.
                     </p>
                     <img
                       class="step-shot"
                       src="step-2.png"
-                      alt="2단계: 자연스럽게 움직이며 주변을 살피는 장면"
+                      alt="2단계: 다른 도둑의 물건을 찾아내 부수는 장면"
                       loading="lazy"
                     />
                   </div>
                 </li>
                 <li>
                   <div>
-                    <strong>빈틈을 노려 상대의 물건을 찾아요</strong>
-                    <p>
-                      수상한 움직임을 따라가고, 상대가 자리를 비운 순간을
-                      노려보세요. 하지만 탐색에 몰두하는 동안 내 물건도 위험해질
-                      수 있습니다.
+                    <span class="phase-tag">약탈</span>
+                    <strong>마주치면 때려서 빼앗으세요</strong>
+                    <p class="step-sum">
+                      탐색 중 마주친 상대는 펀치로 기절시킬 수 있습니다. 물건을
+                      들고 이동하던 상대를 노리면 그대로 탈취할 수 있습니다.
+                    </p>
+                    <p class="step-rule">
+                      <b>규칙</b>반대로 내가 기절하면, 내가 들고 있던 것도 그
+                      순간 남의 것이 됩니다.
+                    </p>
+                    <p class="step-tip">
+                      <b>첫 판이라면</b>물건을 손에 든 채로 돌아다니지 마세요.
+                      그 순간이 가장 위험합니다.
                     </p>
                     <img
                       class="step-shot"
                       src="step-3.png"
-                      alt="3단계: 상대의 물건을 찾아 탐색하는 장면"
+                      alt="3단계: 마주친 상대를 펀치로 기절시키고 물건을 빼앗는 장면"
                       loading="lazy"
                     />
                   </div>
                 </li>
                 <li>
                   <div>
-                    <strong>끝까지 내 물건을 지켜요</strong>
-                    <p>
-                      계속 지키고 있을지, 과감하게 다른 물건을 노릴지 선택하세요.
-                      누군가 다가온다면, 우연인지 내 물건을 발견한 건지
-                      의심해보세요!
+                    <span class="phase-tag">종료 · 마지막 30초</span>
+                    <strong>경찰이 오기 전에 탈출하세요</strong>
+                    <p class="step-sum">
+                      마지막 30초, 경찰이 아지트를 포위합니다. 이제 숨기고
+                      빼앗을 시간은 없습니다.
+                    </p>
+                    <p class="step-rule">
+                      <b>규칙</b>내 물건을 직접 손에 들고 있어야 탈출 성공,
+                      그렇지 않으면 체포입니다.
+                    </p>
+                    <p class="step-tip">
+                      <b>첫 판이라면</b>알림이 뜨기 전에 미리 내 물건 쪽으로
+                      붙으세요. 모두가 동시에 자기 물건으로 달려가는 이 30초가,
+                      서로의 은닉처가 전부 드러나는 순간입니다.
                     </p>
                     <img
                       class="step-shot"
                       src="step-4.png"
-                      alt="4단계: 끝까지 내 물건을 지키는 장면"
+                      alt="4단계: 경찰이 도착하기 전 물건을 들고 아지트를 빠져나가는 장면"
                       loading="lazy"
                     />
                   </div>
                 </li>
               </ol>
+
+              <div class="outcome">
+                <div>
+                  <h3>✅ 승리</h3>
+                  <ul>
+                    <li>경찰이 도착할 때 내 물건을 손에 들고 탈출</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3>❌ 패배</h3>
+                  <ul>
+                    <li>내 물건이 파괴됨</li>
+                    <li>탈출 전에 물건을 빼앗김</li>
+                    <li>빈손으로 체포됨</li>
+                  </ul>
+                </div>
+              </div>
             </section>
             <section id="install">
-              <h2 style="color: hsl(214, 100%, 83%)">설치 및 실행 방법</h2>
+              <h2>설치 및 실행 방법</h2>
               <ol class="steps">
                 <li>
                   <div>
@@ -850,7 +1012,7 @@
               </ol>
             </section>
             <section id="updates">
-              <h2 style="color: hsl(214, 100%, 83%)">업데이트 내역</h2>
+              <h2>업데이트 내역</h2>
               <div class="panel update">
                 <span class="badge">배포 준비</span>
                 <div>
@@ -863,7 +1025,7 @@
               </div>
             </section>
             <section id="feedback">
-              <h2 style="color: hsl(214, 100%, 83%)">플레이 설문</h2>
+              <h2>플레이 설문</h2>
               <p class="copy">
                 플레이하면서 좋았던 점과 불편했던 점을 설문으로 들려주세요.
                 여러분의 의견은 게임을 다듬는 데 활용됩니다.
@@ -879,24 +1041,31 @@
               </div>
             </section>
             <section id="faq">
-              <h2 style="color: hsl(214, 100%, 83%)">참여 전 확인해주세요</h2>
+              <h2>참여 전 확인해주세요</h2>
+              <details>
+                <summary>몇 명이 함께 플레이할 수 있나요?</summary>
+                <p>
+                  2인부터 6인까지 플레이할 수 있습니다. 한 판 길이와 파괴 가능
+                  횟수는 방장이 방을 만들 때 설정합니다.
+                </p>
+              </details>
               <details>
                 <summary>테스트가 끝나도 계속 플레이할 수 있나요?</summary>
                 <p>
-                  테스트 종료 후 이용 가능 여부와 서버 운영 시간은 별도로 안내할 예정입니다.
+                  테스트 종료 후 이용 가능 여부와 서버 운영 시간은 별도로 안내할
+                  예정입니다.
                 </p>
               </details>
               <details>
                 <summary>플레이 데이터는 정식 버전으로 이어지나요?</summary>
                 <p>
-                  데이터 유지 정책은 아직 확정되지 않았습니다. 추후 공지를 통해 확인해주세요.
+                  데이터 유지 정책은 아직 확정되지 않았습니다. 추후 공지를 통해
+                  확인해주세요.
                 </p>
               </details>
               <details>
                 <summary>게임이 실행되지 않으면 어떻게 하나요?</summary>
-                <p>
-                  문의 주시면 빠르게 해결해드리겠습니다.
-                </p>
+                <p>문의 주시면 빠르게 해결해드리겠습니다.</p>
               </details>
             </section>
           </div>
@@ -915,6 +1084,7 @@
             Windows 64비트 · ZIP 전체를 압축 해제한 뒤 Game.exe를 실행하세요.
             업데이트 후에는 최신 ZIP을 다시 받아주세요.
           </p>
+          <div class="info-row"><span>인원</span><span>2~6명</span></div>
           <div class="info-row"><span>버전</span><span>@@VERSION@@</span></div>
           <div class="info-row">
             <span>파일 크기</span><span>@@ZIP_SIZE@@</span>
