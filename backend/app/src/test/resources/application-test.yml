@@ -70,3 +70,8 @@ spring:
       hibernate:
         session_factory:
           statement_inspector: com.ssafy.d205.support.StatementRecorder
+
+# 게임 서버가 부르는 내부 경로의 키 (S15P21D205-1027). 비워 두면 그 경로가 전부 404 라
+# 정상 경로를 시험할 수 없습니다. 틀린 키도 404 라는 것을 함께 확인하려면 맞는 값이 있어야 합니다.
+chat:
+  internal-key: test-chat-internal-key

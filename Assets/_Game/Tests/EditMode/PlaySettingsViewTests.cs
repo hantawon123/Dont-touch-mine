@@ -231,7 +231,8 @@ namespace Game.Architecture.Tests
             try
             {
                 view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, string.Empty));
-                Assert.That(Find(panel.transform, "MapSlot0"), Is.Not.Null);
+                Assert.That(Find(panel.transform, "MapStack"), Is.Not.Null);
+                Assert.That(Find(panel.transform, "MapSlot0"), Is.Null);
                 Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
                 Assert.That(
                     Find(panel.transform, "MapName").GetComponent<Text>().text,

@@ -296,6 +296,15 @@ namespace Game.Client.Character
             /// <summary>Full screen uses 60; the panel is shorter.</summary>
             public const float ButtonsBottom = 40f;
 
+            /// <summary>Keeps the pair flush with the locker right inset.</summary>
+            public const float ButtonsRightInset = InsetX;
+
+            /// <summary>초기화 and 적용 as one block.</summary>
+            public static Vector2 ActionBarSize =>
+                new Vector2(
+                    (Buttons.Size.x * 2f) + Buttons.Gap,
+                    Buttons.Size.y);
+
             /// <summary>Same dim the other lobby overlays sit on.</summary>
             public static readonly Color Scrim = new Color(0f, 0f, 0f, 200f / 255f);
         }

@@ -134,7 +134,8 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
                    r.reason           AS reason,
                    r.memo             AS memo,
                    r.created_at       AS createdAt,
-                   r.status           AS status
+                   r.status           AS status,
+                   r.context_key      AS contextKey
               FROM user_reports r
               JOIN users u ON u.users_seq = r.reported_seq
              WHERE u.public_id = :userId

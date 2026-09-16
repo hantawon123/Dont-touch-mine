@@ -1074,14 +1074,15 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void ShredderEjectionVelocity_UsesSpotForwardAndAddsLift()
+        public void ShredderEjectionVelocity_UsesSpotRightAndAddsLift()
         {
             var rotation = Quaternion.Euler(0f, 90f, 0f);
 
             var velocity = MatchStarter.CalculateShredderEjectionVelocity(rotation);
 
             Assert.That(velocity.y, Is.GreaterThan(0f));
-            Assert.That(Vector3.Dot(velocity, rotation * Vector3.forward), Is.GreaterThan(0f));
+            Assert.That(Vector3.Dot(velocity, rotation * Vector3.right), Is.GreaterThan(0f));
+            Assert.That(Vector3.Dot(velocity, rotation * Vector3.forward), Is.EqualTo(0f).Within(0.001f));
         }
 
         [Test]

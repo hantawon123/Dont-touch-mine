@@ -60,11 +60,25 @@ namespace Game.Architecture.Tests
 
                 Assert.That(Find(root, "BackButton"), Is.Null);
 
-                var reset = Find(root, "ResetButton").GetComponent<RectTransform>();
-                Assert.That(reset.parent.name, Is.EqualTo("Panel"));
+                var actionBar = Find(root, "ActionBar").GetComponent<RectTransform>();
+                Assert.That(actionBar.parent.name, Is.EqualTo("Panel"));
+                Assert.That(actionBar.anchorMin, Is.EqualTo(new Vector2(1f, 0f)));
+                Assert.That(actionBar.anchorMax, Is.EqualTo(new Vector2(1f, 0f)));
+                Assert.That(actionBar.pivot, Is.EqualTo(new Vector2(1f, 0f)));
                 Assert.That(
-                    reset.anchoredPosition.y,
-                    Is.EqualTo(CharacterClosetStyle.Overlay.ButtonsBottom));
+                    actionBar.anchoredPosition,
+                    Is.EqualTo(new Vector2(
+                        -CharacterClosetStyle.Overlay.ButtonsRightInset,
+                        CharacterClosetStyle.Overlay.ButtonsBottom)));
+                Assert.That(
+                    actionBar.sizeDelta,
+                    Is.EqualTo(CharacterClosetStyle.Overlay.ActionBarSize));
+
+                var reset = Find(root, "ResetButton").GetComponent<RectTransform>();
+                var apply = Find(root, "ApplyButton").GetComponent<RectTransform>();
+                Assert.That(reset.parent, Is.EqualTo(actionBar));
+                Assert.That(apply.parent, Is.EqualTo(actionBar));
+                Assert.That(apply.anchoredPosition.x, Is.GreaterThan(reset.anchoredPosition.x));
             }
             finally
             {

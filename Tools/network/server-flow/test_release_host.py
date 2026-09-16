@@ -283,6 +283,32 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(len({p['slot'] for p in self.pool.processes.values()}), 20)
         self.assertTrue(all(p['ready'] for p in self.pool.processes.values()))
 
+    def test_chat_key_reaches_the_server_and_is_omitted_when_unset(self):
+        """채팅 금칙어 목록과 기록 경로의 키 전달 (S15P21D205-1027).
+
+        키는 환경으로 넘긴다. 명령줄 인자는 같은 장비의 누구나 ps 로 읽으므로 거기 두지 않는다.
+
+        키가 없으면 주소도 넘기지 않는다. 빈 값을 넘기면 게임 서버가 그것을 키로 들고 404 를
+        받으며 경고를 남기는데, 설정하지 않은 것과 잘못 설정한 것은 다른 상태다.
+        """
+        self.pool = Pool({'root': str(self.root), 'chat_internal_key': 'secret',
+                          'internal_api_origin': 'http://127.0.0.1:9999'})
+        self.release('keyed')
+        with patch('release_host.subprocess.Popen', side_effect=Child) as spawn:
+            self.request('keyed')
+            command, env = spawn.call_args.args[0], spawn.call_args.kwargs['env']
+        self.assertEqual(env['D205_CHAT_KEY'], 'secret')
+        self.assertNotIn('secret', command)
+        self.assertEqual(command[command.index('-internalUrl') + 1], 'http://127.0.0.1:9999')
+
+        self.pool = Pool({'root': str(self.root)})
+        self.release('plain')
+        with patch('release_host.subprocess.Popen', side_effect=Child) as spawn:
+            self.request('plain')
+            command, env = spawn.call_args.args[0], spawn.call_args.kwargs['env']
+        self.assertNotIn('D205_CHAT_KEY', env)
+        self.assertNotIn('-internalUrl', command)
+
     def test_invalid_pool_limits_are_rejected_before_spawning(self):
         for rooms, cap in ((0, 2), (2, 2), (True, 2), (65, 128), (2, 129), ('2', 4)):
             with self.subTest(rooms=rooms, cap=cap), self.assertRaises(ValueError):

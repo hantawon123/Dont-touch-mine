@@ -1,6 +1,7 @@
 package com.ssafy.d205.global.common;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
@@ -27,5 +28,15 @@ public final class Timestamps {
 
     public static String format(Instant instant) {
         return FORMAT.format(instant);
+    }
+
+    /**
+     * 저장된 문자열을 다시 시각으로. 관리 화면이 "이 신고 앞뒤 N분"을 계산할 때 씁니다.
+     *
+     * <p>형식 변환이 여기 모여 있는 이유가 그대로 적용됩니다 - 읽는 쪽에서 타임존을 잘못 붙이면
+     * 아무 오류 없이 다른 구간을 열어 줍니다.
+     */
+    public static Instant parse(String value) {
+        return LocalDateTime.parse(value, FORMAT).toInstant(ZoneOffset.UTC);
     }
 }

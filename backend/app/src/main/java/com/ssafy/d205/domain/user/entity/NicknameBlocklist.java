@@ -1,14 +1,10 @@
 package com.ssafy.d205.domain.user.entity;
 
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
+
+import com.ssafy.d205.global.common.WordMatcher;
 
 /**
  * 닉네임에 들어가면 안 되는 말 (S15P21D205-1017).
@@ -42,13 +38,13 @@ public class NicknameBlocklist {
     private final List<String> allowed;
 
     public NicknameBlocklist() {
-        this(read(BLOCKLIST), read(ALLOWLIST));
+        this(WordMatcher.read(BLOCKLIST), WordMatcher.read(ALLOWLIST));
     }
 
     /** 테스트가 목록을 직접 넣을 수 있게 열어 둡니다. 소문자로 맞춰 저장합니다. */
     NicknameBlocklist(List<String> blocked, List<String> allowed) {
-        this.blocked = blocked.stream().map(NicknameBlocklist::lower).toList();
-        this.allowed = allowed.stream().map(NicknameBlocklist::lower).toList();
+        this.blocked = blocked.stream().map(WordMatcher::lower).toList();
+        this.allowed = allowed.stream().map(WordMatcher::lower).toList();
     }
 
     /** 이 닉네임을 거절해야 하는가. 정규식 검사를 통과한 값을 받는다고 가정합니다. */
@@ -56,48 +52,21 @@ public class NicknameBlocklist {
         if (nickname == null || nickname.isEmpty()) {
             return false;
         }
-        String lower = lower(nickname);
+        String lower = WordMatcher.lower(nickname);
         return hits(lower) || hits(lower.replaceAll("[0-9]", "")) || hits(leet(lower));
     }
 
+    /**
+     * 포함 검사입니다. 닉네임에는 공백이 없어 단어 경계가 없으므로 이 방법뿐이고, 그래서 허용
+     * 목록이 필요합니다. 채팅은 경계를 볼 수 있어 다른 방법을 씁니다
+     * ({@link WordMatcher#containsWord}).
+     */
     private boolean hits(String candidate) {
-        String stripped = candidate;
-        for (String ok : allowed) {
-            stripped = stripped.replace(ok, "");
-        }
-        for (String bad : blocked) {
-            if (stripped.contains(bad)) {
-                return true;
-            }
-        }
-        return false;
+        return WordMatcher.contains(candidate, blocked, allowed);
     }
 
-    /** 숫자를 모양이 비슷한 글자로. 사람이 욕을 숨길 때 실제로 쓰는 여섯 가지만 다룹니다. */
+    /** 숫자를 모양이 비슷한 글자로. 구현은 {@link WordMatcher} 에 있고 여기서는 이름만 빌려 씁니다. */
     static String leet(String lower) {
-        return lower.replace('0', 'o').replace('1', 'i').replace('3', 'e')
-                .replace('4', 'a').replace('5', 's').replace('7', 't');
-    }
-
-    private static String lower(String value) {
-        return value.toLowerCase(Locale.ROOT);
-    }
-
-    private static List<String> read(String resource) {
-        try {
-            String text = new ClassPathResource(resource).getContentAsString(StandardCharsets.UTF_8);
-            List<String> words = new ArrayList<>();
-            for (String raw : text.split("\\R")) {
-                int hash = raw.indexOf('#');
-                String line = (hash >= 0 ? raw.substring(0, hash) : raw).strip();
-                if (!line.isEmpty()) {
-                    words.add(line);
-                }
-            }
-            return words;
-        } catch (IOException e) {
-            // 파일이 없으면 검사가 조용히 꺼진 채로 떠서 아무도 모릅니다. 기동을 막는 편이 낫습니다.
-            throw new UncheckedIOException("닉네임 목록을 읽을 수 없습니다: " + resource, e);
-        }
+        return WordMatcher.leet(lower);
     }
 }
