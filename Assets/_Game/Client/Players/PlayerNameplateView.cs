@@ -244,8 +244,11 @@ namespace Game.Client.Players
             label.color = Color.white;
             label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Overflow;
-            label.outlineColor = Color.black;
-            label.outlineWidth = 0.2f;
+            if (Application.isPlaying)
+            {
+                label.outlineColor = Color.black;
+                label.outlineWidth = 0.2f;
+            }
             label.rectTransform.sizeDelta = new Vector2(8f, 1.2f);
             label.enabled = displayedName.Length > 0;
             EnsureVoiceIcon();

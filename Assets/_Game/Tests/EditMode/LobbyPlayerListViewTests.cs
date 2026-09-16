@@ -236,20 +236,12 @@ namespace Game.Architecture.Tests
 
                 var leader = hostRow.Find("Leader") as RectTransform;
                 var hostName = hostRow.Find("Name") as RectTransform;
-                var hostVoice = hostRow.Find(LobbyPlayerListView.VoiceIconName) as RectTransform;
-                Assert.That(hostVoice, Is.Not.Null);
-                Assert.That(
-                    hostVoice.anchoredPosition.x,
-                    Is.EqualTo(
-                            hostName.anchoredPosition.x
-                            + hostName.sizeDelta.x
-                            + LobbyPlayerListView.VoiceIconGap)
-                        .Within(0.5f));
+                Assert.That(hostRow.Find(LobbyPlayerListView.VoiceIconName), Is.Null);
                 Assert.That(
                     leader.anchoredPosition.x,
                     Is.EqualTo(
-                            hostVoice.anchoredPosition.x
-                            + hostVoice.sizeDelta.x
+                            hostName.anchoredPosition.x
+                            + hostName.sizeDelta.x
                             + LobbyPlayerListView.LeaderIconGap)
                         .Within(0.5f));
             }

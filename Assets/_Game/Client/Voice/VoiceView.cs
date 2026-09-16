@@ -75,6 +75,18 @@ namespace Game.Client.Voice
         [SerializeField]
         private TMP_Text tmpLabel;
 
+        [NonSerialized]
+        private Button wiredMuteButton;
+
+        [NonSerialized]
+        private Image wiredIcon;
+
+        [NonSerialized]
+        private Button wiredSpeakerButton;
+
+        [NonSerialized]
+        private Image wiredSpeakerIcon;
+
         public event Action MuteToggleRequested;
 
         public event Action SpeakerToggleRequested;
@@ -290,39 +302,25 @@ namespace Game.Client.Voice
         /// </summary>
         public void BindMuteControl(Button button, Image backgroundImage, Image iconImage)
         {
-            var listening = isActiveAndEnabled;
-            if (listening)
-            {
-                UnbindClick();
-            }
-
+            UnbindClick();
             muteButton = button;
             background = backgroundImage;
             icon = iconImage;
+            wiredMuteButton = button;
+            wiredIcon = iconImage;
             HideCaptions();
-
-            if (listening)
-            {
-                BindClick();
-            }
+            BindClick();
         }
 
         public void BindSpeakerControl(Button button, Image backgroundImage, Image iconImage)
         {
-            var listening = isActiveAndEnabled;
-            if (listening)
-            {
-                UnbindSpeakerClick();
-            }
-
+            UnbindSpeakerClick();
             speakerButton = button;
             speakerBackground = backgroundImage;
             speakerIcon = iconImage;
-
-            if (listening)
-            {
-                BindSpeakerClick();
-            }
+            wiredSpeakerButton = button;
+            wiredSpeakerIcon = iconImage;
+            BindSpeakerClick();
         }
 
         public void BindSlot(RectTransform slot)
@@ -364,6 +362,7 @@ namespace Game.Client.Voice
 
         private void OnEnable()
         {
+            HydrateWiredControls();
             BindClick();
             BindSpeakerClick();
             HideCaptions();
@@ -391,28 +390,28 @@ namespace Game.Client.Voice
             bool transmitting,
             bool listening)
         {
-            if (icon != null)
+            if (wiredIcon != null)
             {
-                icon.sprite = muted
+                wiredIcon.sprite = muted
                     ? MicOffSprite
                     : transmitting ? MicTalkSprite : MicOnSprite;
             }
 
-            if (speakerIcon != null)
+            if (wiredSpeakerIcon != null)
             {
-                speakerIcon.sprite = listening ? SpeakerOnSprite : SpeakerOffSprite;
+                wiredSpeakerIcon.sprite = listening ? SpeakerOnSprite : SpeakerOffSprite;
             }
 
             HideCaptions();
 
-            if (muteButton != null)
+            if (wiredMuteButton != null)
             {
-                muteButton.interactable = true;
+                wiredMuteButton.interactable = true;
             }
 
-            if (speakerButton != null)
+            if (wiredSpeakerButton != null)
             {
-                speakerButton.interactable = true;
+                wiredSpeakerButton.interactable = true;
             }
         }
 
@@ -429,41 +428,49 @@ namespace Game.Client.Voice
             }
         }
 
+        private void HydrateWiredControls()
+        {
+            wiredMuteButton ??= muteButton;
+            wiredIcon ??= icon;
+            wiredSpeakerButton ??= speakerButton;
+            wiredSpeakerIcon ??= speakerIcon;
+        }
+
         private void BindClick()
         {
-            if (muteButton == null)
+            if (wiredMuteButton == null)
             {
                 return;
             }
 
-            muteButton.onClick.RemoveListener(HandleMuteClicked);
-            muteButton.onClick.AddListener(HandleMuteClicked);
+            wiredMuteButton.onClick.RemoveListener(HandleMuteClicked);
+            wiredMuteButton.onClick.AddListener(HandleMuteClicked);
         }
 
         private void UnbindClick()
         {
-            if (muteButton != null)
+            if (wiredMuteButton != null)
             {
-                muteButton.onClick.RemoveListener(HandleMuteClicked);
+                wiredMuteButton.onClick.RemoveListener(HandleMuteClicked);
             }
         }
 
         private void BindSpeakerClick()
         {
-            if (speakerButton == null)
+            if (wiredSpeakerButton == null)
             {
                 return;
             }
 
-            speakerButton.onClick.RemoveListener(HandleSpeakerClicked);
-            speakerButton.onClick.AddListener(HandleSpeakerClicked);
+            wiredSpeakerButton.onClick.RemoveListener(HandleSpeakerClicked);
+            wiredSpeakerButton.onClick.AddListener(HandleSpeakerClicked);
         }
 
         private void UnbindSpeakerClick()
         {
-            if (speakerButton != null)
+            if (wiredSpeakerButton != null)
             {
-                speakerButton.onClick.RemoveListener(HandleSpeakerClicked);
+                wiredSpeakerButton.onClick.RemoveListener(HandleSpeakerClicked);
             }
         }
 
