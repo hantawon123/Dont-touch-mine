@@ -407,6 +407,7 @@ namespace Game.Bootstrap
 
         private void ApplyShot(HighlightShot shot)
         {
+            ResetCctvPrediction();
             currentTarget = ResolveTarget(currentHighlight.TargetId);
             supportingPlayer = shot.Subject == HighlightShotSubject.Overview
                 ? null

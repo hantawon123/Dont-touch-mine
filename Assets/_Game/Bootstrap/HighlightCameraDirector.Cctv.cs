@@ -7,9 +7,14 @@ namespace Game.Bootstrap
 {
     public sealed partial class HighlightCameraDirector
     {
+        private const int MaxCctvSwitches = 2;
+        private const float CctvLookAheadSeconds = 0.75f;
         private readonly IReadOnlyList<HighlightCctvCamera> cctvCameras;
         private HighlightCctvCamera activeCctv;
-        private float cctvHold, cctvCheck;
+        private float cctvHold, cctvCheck, cctvSampleElapsed;
+        private int cctvSwitchCount;
+        private Vector3 previousCctvFocus;
+        private bool hasPreviousCctvFocus;
         private Transform cctvTarget;
         private readonly List<Bounds> cctvOccluders = new();
         public string CctvLocation => activeCctv == null ? "" : activeCctv.LocationName;
@@ -60,17 +65,27 @@ namespace Game.Bootstrap
         private void ResetCctv()
         {
             activeCctv = null;
-            cctvHold = cctvCheck = 0f;
+            cctvHold = cctvCheck = cctvSampleElapsed = 0f;
+            cctvSwitchCount = 0;
+            hasPreviousCctvFocus = false;
         }
 
         private void AdvanceCctv(float delta)
         {
             cctvHold += delta;
             cctvCheck -= delta;
+            cctvSampleElapsed += delta;
+        }
+
+        private void ResetCctvPrediction()
+        {
+            cctvSampleElapsed = 0f;
+            hasPreviousCctvFocus = false;
         }
 
         private void SetCctv(HighlightCctvCamera camera)
         {
+            if (activeCctv != null) cctvSwitchCount++;
             activeCctv = camera;
             cctvHold = 0f;
             if (replayCameraRig != null) replayCameraRig.SetFieldOfView(camera.FieldOfView);
@@ -90,32 +105,38 @@ namespace Game.Bootstrap
             if (activeCctv == null || cctvCheck <= 0f)
             {
                 cctvCheck = 0.25f;
+                var velocity = hasPreviousCctvFocus && cctvSampleElapsed > 0f
+                    ? (focus - previousCctvFocus) / cctvSampleElapsed
+                    : Vector3.zero;
+                var predictedFocus = focus + velocity * CctvLookAheadSeconds;
+                previousCctvFocus = focus;
+                hasPreviousCctvFocus = true;
+                cctvSampleElapsed = 0f;
                 HighlightCctvCamera best = null;
                 var bestScore = float.NegativeInfinity;
                 foreach (var camera in cctvCameras)
                 {
                     if (camera == null) continue;
                     var score = CctvScore(camera, focus);
+                    if (velocity.sqrMagnitude > 0.01f &&
+                        !CanCctvSeePoint(camera, cctvTarget, predictedFocus)) score -= 600f;
                     if (score > bestScore) { best = camera; bestScore = score; }
                 }
                 if (best != null && best != activeCctv)
                 {
                     if (activeCctv == null) SetCctv(best);
-                    else
+                    else if (cctvSwitchCount < MaxCctvSwitches)
                     {
-                        var improvement = bestScore - CctvScore(activeCctv, focus);
-                        var currentDistance = Vector3.Distance(activeCctv.transform.position, focus);
-                        var bestDistance = Vector3.Distance(best.transform.position, focus);
-                        // Recover blocked views quickly. For distance alone, require a sustained shot
-                        // and a substantial gain so adjacent mounts do not oscillate while walking.
-                        var clearer = cctvHold >= 0.5f && improvement > 100f;
-                        var closer = cctvHold >= 1.5f && improvement > 0f &&
-                            CanCctvSeeSubjects(best) && bestDistance <= currentDistance * 0.75f &&
-                            currentDistance - bestDistance >= 2f;
-                        if (clearer || closer)
-                        {
-                            SetCctv(best);
-                        }
+                        var currentVisible = CanCctvSeeSubjects(activeCctv);
+                        var currentWillStayVisible = velocity.sqrMagnitude <= 0.01f ||
+                            CanCctvSeePoint(activeCctv, cctvTarget, predictedFocus);
+                        var bestVisible = CanCctvSeeSubjects(best) &&
+                            (velocity.sqrMagnitude <= 0.01f ||
+                             CanCctvSeePoint(best, cctvTarget, predictedFocus));
+                        // Cut immediately when the shot is blocked. A stable movement trend may
+                        // trigger the same hard cut shortly before the subject leaves the view.
+                        if (bestVisible && (!currentVisible ||
+                            cctvHold >= 0.5f && !currentWillStayVisible)) SetCctv(best);
                     }
                 }
             }

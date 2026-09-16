@@ -227,7 +227,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Camera_SwitchesToMuchCloserVisibleMountEvenWhenCurrentViewIsClear()
+        public void Camera_DoesNotSwitchSolelyForDistance()
         {
             var root = new GameObject("test");
             try
@@ -252,8 +252,73 @@ namespace Game.Tests.EditMode
                 actor.position = Vector3.right * 8;
                 director.Tick(0.3f);
                 director.Tick(0.21f);
-                Assert.That(director.CctvLocation, Is.EqualTo("near"));
-                Assert.That(output.position, Is.EqualTo(near.transform.position));
+                Assert.That(director.CctvLocation, Is.EqualTo("far"));
+                Assert.That(output.position, Is.EqualTo(far.transform.position));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_AllowsAtMostTwoVisibilitySwitchesPerHighlight()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                var actor = new GameObject("actor").transform;
+                actor.SetParent(root.transform);
+                var output = new GameObject("output").transform;
+                output.SetParent(root.transform);
+                HighlightCctvCamera Mount(string name, Vector3 position)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = position;
+                    camera.transform.LookAt(Vector3.up * 0.5f);
+                    camera.Configure(name);
+                    return camera;
+                }
+                GameObject Blocker(string name)
+                {
+                    var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    blocker.name = name;
+                    blocker.transform.SetParent(root.transform);
+                    blocker.transform.localScale = new Vector3(2f, 3f, 1f);
+                    blocker.GetComponent<Collider>().enabled = false;
+                    blocker.SetActive(false);
+                    return blocker;
+                }
+                var a = Mount("A", new Vector3(0, 3, -6));
+                var b = Mount("B", new Vector3(6, 3, 0));
+                var c = Mount("C", new Vector3(0, 3, 6));
+                var blockA = Blocker("block A");
+                var blockB = Blocker("block B");
+                var blockC = Blocker("block C");
+                using var director = new HighlightCameraDirector(output, output, new[] { actor },
+                    new[]
+                    {
+                        new SceneWorldObjectReference("block-a", blockA.transform),
+                        new SceneWorldObjectReference("block-b", blockB.transform),
+                        new SceneWorldObjectReference("block-c", blockC.transform),
+                    }, cctvCameras: new[] { a, b, c });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                Assert.That(director.CctvLocation, Is.EqualTo("A"));
+
+                blockA.transform.position = new Vector3(0, 1.5f, -3);
+                blockA.SetActive(true);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("B"));
+
+                blockB.transform.position = new Vector3(3, 1.5f, 0);
+                blockB.SetActive(true);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("C"));
+
+                blockA.SetActive(false);
+                blockC.transform.position = new Vector3(0, 1.5f, 3);
+                blockC.SetActive(true);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("C"),
+                    "A third CCTV switch would make one highlight difficult to follow.");
             }
             finally { Object.DestroyImmediate(root); }
         }
