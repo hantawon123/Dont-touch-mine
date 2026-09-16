@@ -200,6 +200,26 @@ namespace Game.Client.Lobby
                     categoryNextButton = button;
                 }
             }
+
+            var mapPrev = FindDeepChild(mapArea, "MapPrev");
+            if (mapPrev != null)
+            {
+                var button = mapPrev.GetComponent<Button>();
+                if (button != null)
+                {
+                    mapPrevButton = button;
+                }
+            }
+
+            var mapNext = FindDeepChild(mapArea, "MapNext");
+            if (mapNext != null)
+            {
+                var button = mapNext.GetComponent<Button>();
+                if (button != null)
+                {
+                    mapNextButton = button;
+                }
+            }
         }
 
         private void RebuildSettingsScrollLayout()
@@ -883,11 +903,14 @@ namespace Game.Client.Lobby
             Stretch(mapPicker);
             AddFlexibleSpacer(mapPicker);
             mapPrevButton = CreateLayoutArrowButton(mapPicker, isLeft: true);
+            mapPrevButton.gameObject.name = "MapPrev";
             AddFlexibleSpacer(mapPicker);
             CreateMapStack(mapPicker);
             AddFlexibleSpacer(mapPicker);
             mapNextButton = CreateLayoutArrowButton(mapPicker, isLeft: false);
+            mapNextButton.gameObject.name = "MapNext";
             AddFlexibleSpacer(mapPicker);
+            RefreshMapArrows();
 
             var categoryPicker = CreateHorizontalPickerRow(
                 CreateSplitCell(pickerRow, "CategorySelect"),
@@ -897,10 +920,7 @@ namespace Game.Client.Lobby
             categoryPrevButton = CreateLayoutArrowButton(categoryPicker, isLeft: true);
             categoryPrevButton.gameObject.name = "CategoryPrev";
             AddFlexibleSpacer(categoryPicker);
-            categoryText = CreatePickerValueText(
-                categoryPicker,
-                PlaySettingsCategoryCatalog.Default.Label,
-                selectionHeight);
+            CreateCategoryStack(categoryPicker);
             AddFlexibleSpacer(categoryPicker);
             categoryNextButton = CreateLayoutArrowButton(categoryPicker, isLeft: false);
             categoryNextButton.gameObject.name = "CategoryNext";
@@ -941,12 +961,43 @@ namespace Game.Client.Lobby
 
         private void CreateMapStack(RectTransform parent)
         {
+            mapPreviewImage = CreatePreviewStack(
+                parent,
+                "MapStack",
+                "MapPreview",
+                "MapName",
+                string.Empty,
+                out mapNameText,
+                out mapPreviewPhoto);
+        }
+
+        private void CreateCategoryStack(RectTransform parent)
+        {
+            CreatePreviewStack(
+                parent,
+                "CategoryStack",
+                "CategoryPreview",
+                "CategoryValue",
+                PlaySettingsCategoryCatalog.Default.Label,
+                out categoryText,
+                out _);
+        }
+
+        private Image CreatePreviewStack(
+            RectTransform parent,
+            string stackName,
+            string previewName,
+            string nameNodeName,
+            string defaultLabel,
+            out Text nameText,
+            out Image previewPhoto)
+        {
             var previewSize = PlaySettingsStyle.Layout.MapPreviewSize;
             var nameHeight = PlaySettingsStyle.Layout.MapNameHeight;
             var spacing = PlaySettingsStyle.Layout.MapNameSpacing;
             var stackHeight = previewSize.y + spacing + nameHeight;
 
-            var stack = CreateRect("MapStack", parent);
+            var stack = CreateRect(stackName, parent);
             stack.sizeDelta = new Vector2(previewSize.x, stackHeight);
             var element = stack.gameObject.AddComponent<LayoutElement>();
             element.preferredWidth = previewSize.x;
@@ -962,13 +1013,19 @@ namespace Game.Client.Lobby
             layout.childForceExpandHeight = false;
             layout.spacing = spacing;
 
-            mapPreviewImage = CreateMapPreviewImage(stack);
-            mapNameText = CreateMapNameText(stack, previewSize.x, nameHeight);
+            var preview = CreatePreviewImage(stack, previewName, out previewPhoto);
+            nameText = CreatePreviewNameText(stack, nameNodeName, defaultLabel, previewSize.x, nameHeight);
+            return preview;
         }
 
-        private static Text CreateMapNameText(RectTransform parent, float width, float height)
+        private static Text CreatePreviewNameText(
+            RectTransform parent,
+            string name,
+            string text,
+            float width,
+            float height)
         {
-            var row = CreateRect("MapName", parent);
+            var row = CreateRect(name, parent);
             var element = row.gameObject.AddComponent<LayoutElement>();
             element.preferredWidth = width;
             element.minWidth = width;
@@ -976,7 +1033,7 @@ namespace Game.Client.Lobby
             element.minHeight = height;
 
             var label = row.gameObject.AddComponent<Text>();
-            label.text = string.Empty;
+            label.text = text;
             label.font = BodyFont();
             label.fontSize = PlaySettingsStyle.FontSize.MapName;
             label.color = PlaySettingsStyle.Palette.Text;
@@ -1027,31 +1084,9 @@ namespace Game.Client.Lobby
             return row;
         }
 
-        private static Text CreatePickerValueText(RectTransform parent, string text, float rowHeight)
+        private static Image CreatePreviewImage(RectTransform parent, string name, out Image previewPhoto)
         {
-            var row = CreateRect("CategoryValue", parent);
-            var element = row.gameObject.AddComponent<LayoutElement>();
-            element.preferredHeight = rowHeight;
-            element.minHeight = rowHeight;
-            element.minWidth = PlaySettingsStyle.Layout.CategoryValueMinWidth;
-            element.preferredWidth = PlaySettingsStyle.Layout.CategoryValueMinWidth;
-
-            var labelRect = CreateRect("Text", row);
-            Stretch(labelRect);
-            var label = labelRect.gameObject.AddComponent<Text>();
-            label.text = text;
-            label.font = BodyFont();
-            label.fontSize = PlaySettingsStyle.FontSize.Body;
-            label.color = PlaySettingsStyle.Palette.Text;
-            label.alignment = TextAnchor.MiddleCenter;
-            label.raycastTarget = false;
-            ApplySingleLine(label);
-            return label;
-        }
-
-        private Image CreateMapPreviewImage(RectTransform parent)
-        {
-            var preview = CreateRect("MapPreview", parent);
+            var preview = CreateRect(name, parent);
             var element = preview.gameObject.AddComponent<LayoutElement>();
             var size = PlaySettingsStyle.Layout.MapPreviewSize;
             element.preferredWidth = size.x;
@@ -1065,8 +1100,8 @@ namespace Game.Client.Lobby
             image.color = PlaySettingsStyle.Palette.MapPreview;
             image.preserveAspect = false;
             image.raycastTarget = false;
-            // 맵 사진은 둥근 상자를 마스크로 삼는 자식에 넣는다. 사진이 없는 맵·랜덤은 상자 색만 보인다.
-            mapPreviewPhoto = MapPreviewSprites.AttachPhoto(image);
+            // 사진은 둥근 상자를 마스크로 삼는 자식에 넣는다. 사진이 없으면 상자 색만 보인다.
+            previewPhoto = MapPreviewSprites.AttachPhoto(image);
             return image;
         }
 

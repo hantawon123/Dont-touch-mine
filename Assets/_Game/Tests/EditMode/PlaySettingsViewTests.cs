@@ -1,6 +1,7 @@
 using System.Reflection;
 using Game.Client.Lobby;
 using Game.Core.Lobby;
+using Game.Core.Maps;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -74,6 +75,12 @@ namespace Game.Architecture.Tests
                 view.CloseRequested += () => raised++;
                 close.GetComponent<Button>().onClick.Invoke();
                 Assert.That(raised, Is.EqualTo(1));
+
+                view.SetDraft(new PlaySettingsDraft(string.Empty, "CODE", false, null, 4, 3, "supermarket"));
+                view.SetEditable(true);
+                view.SetVisible(true);
+                close.GetComponent<Button>().onClick.Invoke();
+                Assert.That(raised, Is.EqualTo(2));
             }
             finally
             {
@@ -210,6 +217,45 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     Find(footer, "ApplyButton").gameObject.activeInHierarchy,
                     Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void MapPicker_ShowsOnlySupermarket()
+        {
+            var root = CreateView(out var panel, out var view);
+            try
+            {
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, string.Empty));
+                Assert.That(Find(panel.transform, "MapSlot0"), Is.Not.Null);
+                Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
+                Assert.That(
+                    Find(panel.transform, "MapName").GetComponent<Text>().text,
+                    Is.EqualTo(MapCatalog.SupermarketId));
+                var categoryPreview = Find(panel.transform, "CategoryPreview") as RectTransform;
+                Assert.That(categoryPreview, Is.Not.Null);
+                var categoryPreviewLayout = categoryPreview.GetComponent<LayoutElement>();
+                Assert.That(categoryPreviewLayout, Is.Not.Null);
+                Assert.That(
+                    categoryPreviewLayout.preferredWidth,
+                    Is.EqualTo(PlaySettingsStyle.Layout.MapPreviewSize.x));
+                Assert.That(
+                    categoryPreviewLayout.preferredHeight,
+                    Is.EqualTo(PlaySettingsStyle.Layout.MapPreviewSize.y));
+                Assert.That(
+                    Find(panel.transform, "CategoryValue").GetComponent<Text>().fontSize,
+                    Is.EqualTo(PlaySettingsStyle.FontSize.MapName));
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.SupermarketId));
+
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, MapCatalog.PlaygroundId));
+                Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.SupermarketId));
+                Assert.That(Find(panel.transform, "MapPrev").gameObject.activeSelf, Is.False);
+                Assert.That(Find(panel.transform, "MapNext").gameObject.activeSelf, Is.False);
             }
             finally
             {

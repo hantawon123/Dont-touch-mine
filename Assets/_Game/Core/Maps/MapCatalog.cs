@@ -5,7 +5,8 @@ namespace Game.Core.Maps
 {
     /// <summary>
     /// Maps currently available to room creation and match startup.
-    /// Add a map id here when another playable map is ready.
+    /// Add a map id here when another playable map is ready. Lobby settings
+    /// only list <see cref="LobbyMapIds"/>.
     /// </summary>
     public static class MapCatalog
     {
@@ -20,12 +21,21 @@ namespace Game.Core.Maps
             SupermarketId
         };
 
+        private static readonly string[] LobbyMapIdValues =
+        {
+            SupermarketId
+        };
+
         private static readonly Random RandomPicker = new();
 
         public static IReadOnlyList<string> MapIds { get; } =
             Array.AsReadOnly(MapIdValues);
 
-        public static string DefaultMapId => MapIds[0];
+        /// <summary>Maps offered in lobby room settings. Playground stays playable, but is not listed.</summary>
+        public static IReadOnlyList<string> LobbyMapIds { get; } =
+            Array.AsReadOnly(LobbyMapIdValues);
+
+        public static string DefaultMapId => LobbyMapIds[0];
 
         public static bool Contains(string mapId)
         {
@@ -57,32 +67,38 @@ namespace Game.Core.Maps
 
         public static string NormalizeLobbyMapId(string mapId, string fallback)
         {
-            if (IsRandom(mapId))
+            if (Contains(mapId))
             {
-                return string.Empty;
+                return mapId.Trim();
             }
 
-            return Contains(mapId) ? mapId.Trim() : fallback?.Trim() ?? string.Empty;
-        }
-
-        /// <summary>
-        /// Picks one of the playable maps. Used when the lobby map choice is random.
-        /// </summary>
-        public static string PickRandom()
-        {
-            if (MapIdValues.Length == 0)
+            if (IsRandom(mapId))
             {
                 return DefaultMapId;
             }
 
-            if (MapIdValues.Length == 1)
+            return Contains(fallback) ? fallback.Trim() : DefaultMapId;
+        }
+
+        /// <summary>
+        /// Picks one of the lobby maps. Used when the lobby map choice is random.
+        /// </summary>
+        public static string PickRandom()
+        {
+            var pool = LobbyMapIdValues.Length > 0 ? LobbyMapIdValues : MapIdValues;
+            if (pool.Length == 0)
             {
-                return MapIdValues[0];
+                return DefaultMapId;
+            }
+
+            if (pool.Length == 1)
+            {
+                return pool[0];
             }
 
             lock (RandomPicker)
             {
-                return MapIdValues[RandomPicker.Next(MapIdValues.Length)];
+                return pool[RandomPicker.Next(pool.Length)];
             }
         }
     }

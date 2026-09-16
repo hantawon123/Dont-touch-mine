@@ -19,6 +19,12 @@ namespace Game.Client.Common
         public const float OverallSize = 0.8f;
 
         /// <summary>
+        /// HUD chrome at 인터페이스 중간, relative to the previous default.
+        /// Lobby map and category cards keep the designed size.
+        /// </summary>
+        public const float DefaultScale = 1.3f;
+
+        /// <summary>
         /// Halfway between width and height. Every shipped resolution is 16:9,
         /// so both sides agree; a free-aspect Game view still keeps the HUD
         /// from stretching.

@@ -1,6 +1,8 @@
 using Game.Client.Match;
 using Game.Client.Voice;
+using Game.Core.Settings;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -9,6 +11,38 @@ namespace Game.Architecture.Tests
 {
     public sealed class VoiceViewTests
     {
+        [TearDown]
+        public void UnbindSettings() => VoiceView.UseSettings(null);
+
+        [Test]
+        public void KeyLabels_UseShippedKeysWhenSettingsAreUnbound()
+        {
+            Assert.That(VoiceView.MuteKeyLabel(), Is.EqualTo("B"));
+            Assert.That(VoiceView.SpeakerKeyLabel(), Is.EqualTo("T"));
+        }
+
+        [Test]
+        public void KeyLabels_FollowAppliedControlBindings()
+        {
+            var system = new ControlSettingsSystem(new InMemoryControlSettingsStore());
+            try
+            {
+                VoiceView.UseSettings(system);
+                Assert.That(VoiceView.MuteKeyLabel(), Is.EqualTo("B"));
+                Assert.That(VoiceView.SpeakerKeyLabel(), Is.EqualTo("T"));
+
+                system.Apply(system.Current
+                    .With(ControlAction.VoiceToggle, "m")
+                    .With(ControlAction.ToggleSpeaker, "n"));
+                Assert.That(VoiceView.MuteKeyLabel(), Is.EqualTo("M"));
+                Assert.That(VoiceView.SpeakerKeyLabel(), Is.EqualTo("N"));
+            }
+            finally
+            {
+                VoiceView.UseSettings(null);
+            }
+        }
+
         [Test]
         public void SetState_UsesWhiteIdle_GreenTalk_AndGreyMute()
         {
@@ -59,7 +93,7 @@ namespace Game.Architecture.Tests
                 view.BindBar(bar);
                 root.SetActive(true);
 
-                var speaker = bar.Find(VoiceView.SpeakerButtonName).GetComponent<Button>();
+                var speaker = VoiceView.FindSpeakerSlot(bar).GetComponent<Button>();
                 var raised = 0;
                 view.SpeakerToggleRequested += () => raised++;
                 speaker.onClick.Invoke();
@@ -110,16 +144,20 @@ namespace Game.Architecture.Tests
                 var hud = canvas.AddComponent<NetworkMatchHudView>();
                 var voice = hud.EnsureVoiceControl();
                 var bar = canvas.transform.Find(VoiceView.BarName) as RectTransform;
-                var slot = bar.Find(VoiceView.ButtonName) as RectTransform;
-                var speaker = bar.Find(VoiceView.SpeakerButtonName) as RectTransform;
+                var slot = VoiceView.FindMuteSlot(bar);
+                var speaker = VoiceView.FindSpeakerSlot(bar);
                 var icon = slot.Find(VoiceView.IconName).GetComponent<Image>();
+                var muteHint = slot.parent.Find(VoiceView.KeyHintName).GetComponent<TMP_Text>();
+                var speakerHint = speaker.parent.Find(VoiceView.KeyHintName).GetComponent<TMP_Text>();
 
                 Assert.That(voice, Is.Not.Null);
                 Assert.That(bar.gameObject.activeSelf, Is.True);
                 Assert.That(slot.GetComponent<Image>().color, Is.EqualTo(VoiceView.PlateColor));
                 Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOnSprite));
                 Assert.That(speaker, Is.Not.Null);
-                Assert.That(speaker.GetSiblingIndex(), Is.GreaterThan(slot.GetSiblingIndex()));
+                Assert.That(speaker.parent.GetSiblingIndex(), Is.GreaterThan(slot.parent.GetSiblingIndex()));
+                Assert.That(muteHint.text, Is.EqualTo(VoiceView.MuteKeyLabel()));
+                Assert.That(speakerHint.text, Is.EqualTo(VoiceView.SpeakerKeyLabel()));
                 Assert.That(
                     bar.anchoredPosition,
                     Is.EqualTo(new Vector2(
@@ -128,6 +166,39 @@ namespace Game.Architecture.Tests
             }
             finally
             {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void KeyHints_FollowAppliedControlBindings()
+        {
+            var canvas = new GameObject(
+                "MatchHud", typeof(RectTransform), typeof(Canvas));
+            var system = new ControlSettingsSystem(new InMemoryControlSettingsStore());
+            try
+            {
+                VoiceView.UseSettings(system);
+                var hud = canvas.AddComponent<NetworkMatchHudView>();
+                hud.EnsureVoiceControl();
+                var bar = canvas.transform.Find(VoiceView.BarName);
+                var muteHint = VoiceView.FindMuteSlot(bar).parent.Find(VoiceView.KeyHintName)
+                    .GetComponent<TMP_Text>();
+                var speakerHint = VoiceView.FindSpeakerSlot(bar).parent.Find(VoiceView.KeyHintName)
+                    .GetComponent<TMP_Text>();
+
+                Assert.That(muteHint.text, Is.EqualTo("B"));
+                Assert.That(speakerHint.text, Is.EqualTo("T"));
+
+                system.Apply(system.Current
+                    .With(ControlAction.VoiceToggle, "m")
+                    .With(ControlAction.ToggleSpeaker, "n"));
+                Assert.That(muteHint.text, Is.EqualTo("M"));
+                Assert.That(speakerHint.text, Is.EqualTo("N"));
+            }
+            finally
+            {
+                VoiceView.UseSettings(null);
                 Object.DestroyImmediate(canvas);
             }
         }

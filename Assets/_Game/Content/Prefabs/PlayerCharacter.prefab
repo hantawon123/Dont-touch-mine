@@ -57,13 +57,13 @@ CharacterController:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Height: 1.8
-  m_Radius: 0.3
+  m_Height: 1.3
+  m_Radius: 0.21
   m_SlopeLimit: 45
   m_StepOffset: 0.2
-  m_SkinWidth: 0.08
+  m_SkinWidth: 0.05
   m_MinMoveDistance: 0.001
-  m_Center: {x: 0, y: 0.9, z: 0}
+  m_Center: {x: 0, y: 0.65, z: 0}
 --- !u!114 &61083888703512790
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -94,9 +94,12 @@ MonoBehaviour:
   inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   interactionConfig: {fileID: 11400000, guid: e026359dfb4a0154e8cad2eb84545595, type: 2}
   holdPoint: {fileID: 0}
-  holdForwardOffset: 0.45
-  holdHeightBelowEyes: 0.55
+  holdForwardOffset: 0.25
+  holdHeightStanding: 2.25
+  holdHeightCrouching: 0.82
+  holdHeightProne: 0.36
   holdSideOffset: 0
+  holdAboveHeadOffset: 0.8
 --- !u!114 &1754785993224845459
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -145,6 +148,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Client::Game.Client.Players.PlayerAnimationDriver
   punchDurationSeconds: 0.9
   locomotionPlaybackScale: 1
+  footstepClips:
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa01, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa02, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa03, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa04, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa05, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa06, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa07, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa08, type: 3}
+  punchSwingClip: {fileID: 8300000, guid: 41a4764f3e0125c4b846dc3d0e38eacc, type: 3}
+  punchHitClip: {fileID: 8300000, guid: da70e43c6d834dc9924e632dc04b0d25, type: 3}
+  jumpClip: {fileID: 8300000, guid: f6a2d81dd2814af1a3b10f97ddc70e38, type: 3}
 --- !u!114 &3812345678901234567
 MonoBehaviour:
   m_ObjectHideFlags: 0

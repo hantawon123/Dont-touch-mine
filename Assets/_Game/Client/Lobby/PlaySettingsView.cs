@@ -26,6 +26,7 @@ namespace Game.Client.Lobby
         void SetVisible(bool visible);
         void SetEditable(bool editable);
         void SetDraft(PlaySettingsDraft draft);
+        void SetParticipantCount(int count);
         PlaySettingsDraft ReadDraft();
         void SetUnappliedWarningVisible(bool visible);
 
@@ -99,6 +100,7 @@ namespace Game.Client.Lobby
         private int destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
         private int selectedMapIndex;
         private bool editable;
+        private int participantCount = 1;
         private MatchRuleSettings matchRules = MatchRuleSettings.Default;
         private IReadOnlyList<PlaySettingsMapOption> mapOptions = PlaySettingsMapCatalog.All;
         private readonly Dictionary<Button, UnityEngine.Events.UnityAction> boundActions = new();
@@ -221,7 +223,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (!editable || RoomSettings.IsValidTitle(ReadDraft().Title)) CloseRequested?.Invoke();
+            CloseRequested?.Invoke();
         }
 
         private void RequestApply()
@@ -241,6 +243,11 @@ namespace Game.Client.Lobby
 
         private void RequestStart()
         {
+            if (!CanStartMatch)
+            {
+                return;
+            }
+
             if (HasUnappliedChanges)
             {
                 SetUnappliedWarningVisible(true);
@@ -249,6 +256,15 @@ namespace Game.Client.Lobby
 
             if (!editable || RoomSettings.IsValidTitle(ReadDraft().Title)) StartRequested?.Invoke();
         }
+
+        public void SetParticipantCount(int count)
+        {
+            participantCount = Math.Max(0, count);
+            RefreshGameStartChrome();
+        }
+
+        private bool CanStartMatch =>
+            editable && RoomSettings.CanStartMatch(participantCount);
 
         public void SetUnappliedWarningVisible(bool visible)
         {
@@ -432,6 +448,7 @@ namespace Game.Client.Lobby
         public void SetDraft(PlaySettingsDraft draft)
         {
             EnsureLayout();
+            EnsureCloseButton();
             title = draft.Title;
             if (titleInput != null) titleInput.SetTextWithoutNotify(title);
             RefreshTitleCounter();
@@ -1064,6 +1081,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
+            var previousClose = closeButton;
             var panelRect = (RectTransform)panel.transform;
             var rect = panelRect.Find("CloseButton") as RectTransform;
             if (rect == null && overlayRoot != null)
@@ -1102,7 +1120,14 @@ namespace Game.Client.Lobby
             closeButton = rect.GetComponent<Button>() ?? rect.gameObject.AddComponent<Button>();
             closeButton.targetGraphic = image;
             closeButton.transition = Selectable.Transition.None;
+            closeButton.interactable = true;
             rect.SetAsLastSibling();
+            if (previousClose != null && previousClose != closeButton)
+            {
+                Unbind(previousClose);
+            }
+
+            Bind(closeButton, RequestClose);
         }
 
         private static void HideNamed(Transform parent, string name)
@@ -1149,6 +1174,7 @@ namespace Game.Client.Lobby
             }
 
             Bind(gameStartButton, RequestStart);
+            RefreshGameStartChrome();
         }
 
         private static void RemoveLegacyGameStartLabel(RectTransform overlay, RectTransform hudRoot)
@@ -1271,6 +1297,7 @@ namespace Game.Client.Lobby
                 rect,
                 PlaySettingsStyle.Overlay.GameStartHoverScale,
                 PlaySettingsStyle.Overlay.GameStartHoverSeconds);
+            RefreshGameStartChrome();
         }
 
         private void RefreshGameStartVisible()
@@ -1279,6 +1306,63 @@ namespace Game.Client.Lobby
                         ((overlayRoot != null && overlayRoot.activeSelf) ||
                          (panel != null && panel.activeSelf));
             SetGameStartLabelVisible(shown);
+            RefreshGameStartChrome();
+        }
+
+        private void RefreshGameStartChrome()
+        {
+            if (gameStartButton == null)
+            {
+                return;
+            }
+
+            var canStart = CanStartMatch;
+            gameStartButton.interactable = canStart;
+
+            var fill = gameStartButton.GetComponent<Image>();
+            var gradient = gameStartButton.GetComponent<UiLinearGradient>();
+            if (canStart)
+            {
+                if (fill != null)
+                {
+                    fill.color = Color.white;
+                }
+
+                gradient?.Bind(
+                    SettingsStyle.Palette.LeaveGameStart,
+                    SettingsStyle.Palette.LeaveGameEnd,
+                    alongVertical: false);
+            }
+            else
+            {
+                var gray = PlaySettingsStyle.Palette.GameStartOffFill;
+                if (fill != null)
+                {
+                    fill.color = gray;
+                }
+
+                gradient?.Bind(gray, gray, alongVertical: false);
+            }
+
+            if (gameStartLabel != null)
+            {
+                gameStartLabel.color = canStart
+                    ? SettingsStyle.Palette.ApplyOnLabel
+                    : PlaySettingsStyle.Palette.GameStartOffLabel;
+            }
+
+            var pop = gameStartButton.GetComponent<HomeLabelPop>();
+            if (pop == null)
+            {
+                return;
+            }
+
+            if (!canStart)
+            {
+                pop.Release();
+            }
+
+            pop.enabled = canStart;
         }
 
         private void SetGameStartLabelVisible(bool visible)

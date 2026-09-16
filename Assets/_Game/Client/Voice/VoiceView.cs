@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -21,14 +23,18 @@ namespace Game.Client.Voice
     }
 
     /// <summary>
-    /// Paints the mute and speaker buttons the lobby and the match HUD share.
+    /// Paints the mute and speaker buttons the lobby and the match HUD share,
+    /// with the 컨트롤 tab's toggle keys to the right of each plate.
     /// </summary>
     public sealed class VoiceView : MonoBehaviour, IVoiceView
     {
         public const string BarName = "VoiceBar";
         public const string ButtonName = "VoiceButton";
         public const string SpeakerButtonName = "SpeakerButton";
+        public const string MuteItemName = "VoiceMuteItem";
+        public const string SpeakerItemName = "VoiceSpeakerItem";
         public const string IconName = "Icon";
+        public const string KeyHintName = "KeyHint";
         public const string MicOnResource = "UI/Icon_Mic_White";
         public const string MicTalkResource = "UI/Icon_Mic_Green";
         public const string MicOffResource = "UI/Icon_Mic_Off_Gray";
@@ -38,6 +44,8 @@ namespace Game.Client.Voice
         public const int ButtonRadius = 10;
         public const float IconSize = 28f;
         public const float ButtonSpacing = 12f;
+        public const float KeyHintGap = 12f;
+        public const float KeyHintFontSize = 20f;
         public const float CornerMarginRight = 48f;
         public const float CornerMarginBottom = 34f;
         public static readonly Color PlateColor = new Color(0f, 0f, 0f, 0.6f);
@@ -47,6 +55,9 @@ namespace Game.Client.Voice
         private static Sprite micOff;
         private static Sprite speakerOn;
         private static Sprite speakerOff;
+        private static ControlSettingsSystem sharedSettings;
+        private static readonly List<TMP_Text> muteHints = new List<TMP_Text>();
+        private static readonly List<TMP_Text> speakerHints = new List<TMP_Text>();
 
         [SerializeField]
         private Button muteButton;
@@ -102,6 +113,7 @@ namespace Game.Client.Voice
             }
 
             var leftover = parent.Find(ButtonName) as RectTransform;
+            var leftoverSpeaker = parent.Find(SpeakerButtonName) as RectTransform;
             var bar = parent.Find(BarName) as RectTransform;
             if (bar == null)
             {
@@ -110,10 +122,8 @@ namespace Game.Client.Voice
                 bar = root.GetComponent<RectTransform>();
             }
 
-            if (leftover != null && leftover.parent != bar)
-            {
-                leftover.SetParent(bar, false);
-            }
+            AdoptLeftoverSlot(leftover, bar);
+            AdoptLeftoverSlot(leftoverSpeaker, bar);
 
             var layout = bar.GetComponent<HorizontalLayoutGroup>();
             if (layout == null)
@@ -138,12 +148,10 @@ namespace Game.Client.Voice
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            var mic = EnsureSlot(bar);
-            mic.SetSiblingIndex(0);
-            SizeSlot(mic);
-            var speaker = EnsureSpeakerSlot(bar);
-            speaker.SetAsLastSibling();
-            SizeSlot(speaker);
+            var mic = EnsureKeyedMuteItem(bar);
+            mic.parent.SetSiblingIndex(0);
+            var speaker = EnsureKeyedSpeakerItem(bar);
+            speaker.parent.SetAsLastSibling();
             return bar;
         }
 
@@ -159,6 +167,199 @@ namespace Game.Client.Voice
         public static RectTransform EnsureSpeakerSlot(Transform parent)
         {
             return EnsureIconSlot(parent, SpeakerButtonName, SpeakerOnSprite);
+        }
+
+        /// <summary>
+        /// Icon plate plus the 마이크 고정 key, as one row item.
+        /// </summary>
+        public static RectTransform EnsureKeyedMuteItem(Transform parent)
+        {
+            return EnsureKeyedItem(
+                parent, MuteItemName, ButtonName, MicOnSprite, ControlAction.VoiceToggle);
+        }
+
+        /// <summary>
+        /// Icon plate plus the 음성 듣기 key, as one row item.
+        /// </summary>
+        public static RectTransform EnsureKeyedSpeakerItem(Transform parent)
+        {
+            return EnsureKeyedItem(
+                parent, SpeakerItemName, SpeakerButtonName, SpeakerOnSprite, ControlAction.ToggleSpeaker);
+        }
+
+        public static RectTransform FindMuteSlot(Transform parent)
+        {
+            return FindSlot(parent, MuteItemName, ButtonName);
+        }
+
+        public static RectTransform FindSpeakerSlot(Transform parent)
+        {
+            return FindSlot(parent, SpeakerItemName, SpeakerButtonName);
+        }
+
+        /// <summary>
+        /// Hands the 컨트롤 tab's applied keys to every mic/speaker hint.
+        /// Pass null to fall back to the shipped defaults, as tests do.
+        /// </summary>
+        public static void UseSettings(ControlSettingsSystem settings)
+        {
+            if (sharedSettings != null)
+            {
+                sharedSettings.Changed -= OnSharedSettingsChanged;
+            }
+
+            sharedSettings = settings;
+            if (sharedSettings != null)
+            {
+                sharedSettings.Changed += OnSharedSettingsChanged;
+            }
+
+            RefreshBoundHints();
+        }
+
+        public static string MuteKeyLabel() => KeyLabelFor(ControlAction.VoiceToggle);
+
+        public static string SpeakerKeyLabel() => KeyLabelFor(ControlAction.ToggleSpeaker);
+
+        private static RectTransform EnsureKeyedItem(
+            Transform parent,
+            string itemName,
+            string slotName,
+            Sprite fallbackIcon,
+            ControlAction action)
+        {
+            if (parent == null)
+            {
+                return null;
+            }
+
+            var item = parent.Find(itemName) as RectTransform;
+            if (item == null)
+            {
+                var root = new GameObject(itemName, typeof(RectTransform));
+                root.transform.SetParent(parent, false);
+                item = root.GetComponent<RectTransform>();
+            }
+
+            var layout = item.GetComponent<HorizontalLayoutGroup>();
+            if (layout == null)
+            {
+                layout = item.gameObject.AddComponent<HorizontalLayoutGroup>();
+            }
+
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+            layout.spacing = KeyHintGap;
+            layout.padding = new RectOffset(0, 0, 0, 0);
+
+            AdoptLeftoverSlot(parent.Find(slotName) as RectTransform, item);
+
+            var slot = EnsureIconSlot(item, slotName, fallbackIcon);
+            SizeSlot(slot);
+            slot.SetSiblingIndex(0);
+            EnsureKeyHint(item, action);
+            return slot;
+        }
+
+        private static void AdoptLeftoverSlot(RectTransform leftover, Transform parent)
+        {
+            if (leftover == null || parent == null || leftover.parent == parent)
+            {
+                return;
+            }
+
+            leftover.SetParent(parent, false);
+        }
+
+        private static RectTransform FindSlot(Transform parent, string itemName, string slotName)
+        {
+            if (parent == null)
+            {
+                return null;
+            }
+
+            return parent.Find($"{itemName}/{slotName}") as RectTransform
+                ?? parent.Find(slotName) as RectTransform;
+        }
+
+        private static void EnsureKeyHint(RectTransform item, ControlAction action)
+        {
+            var hint = item.Find(KeyHintName) as RectTransform;
+            if (hint == null)
+            {
+                var root = new GameObject(
+                    KeyHintName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(TextMeshProUGUI));
+                root.transform.SetParent(item, false);
+                hint = root.GetComponent<RectTransform>();
+            }
+
+            hint.SetAsLastSibling();
+            var label = hint.GetComponent<TextMeshProUGUI>();
+            label.text = KeyLabelFor(action);
+            label.font = HomeUiFonts.ApplyMedium();
+            label.fontSize = KeyHintFontSize;
+            label.fontStyle = FontStyles.Normal;
+            label.color = Color.white;
+            label.alignment = TextAlignmentOptions.MidlineLeft;
+            label.raycastTarget = false;
+            label.richText = false;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.overflowMode = TextOverflowModes.Overflow;
+
+            var fitter = hint.GetComponent<ContentSizeFitter>();
+            if (fitter == null)
+            {
+                fitter = hint.gameObject.AddComponent<ContentSizeFitter>();
+            }
+
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            RememberHint(label, action);
+        }
+
+        private static void RememberHint(TMP_Text label, ControlAction action)
+        {
+            var hints = action == ControlAction.ToggleSpeaker ? speakerHints : muteHints;
+            if (!hints.Contains(label))
+            {
+                hints.Add(label);
+            }
+        }
+
+        private static string KeyLabelFor(ControlAction action)
+        {
+            var code = sharedSettings != null
+                ? sharedSettings.Current.Get(action)
+                : ControlCatalog.Defaults.Get(action);
+            return ControlCatalog.KeyLabel(code);
+        }
+
+        private static void OnSharedSettingsChanged(ControlSettings _) => RefreshBoundHints();
+
+        private static void RefreshBoundHints()
+        {
+            ApplyHints(muteHints, MuteKeyLabel());
+            ApplyHints(speakerHints, SpeakerKeyLabel());
+        }
+
+        private static void ApplyHints(List<TMP_Text> hints, string text)
+        {
+            for (var index = hints.Count - 1; index >= 0; index--)
+            {
+                if (hints[index] == null)
+                {
+                    hints.RemoveAt(index);
+                    continue;
+                }
+
+                hints[index].text = text;
+            }
         }
 
         private static RectTransform EnsureIconSlot(Transform parent, string name, Sprite fallback)
@@ -310,6 +511,7 @@ namespace Game.Client.Voice
             wiredIcon = iconImage;
             HideCaptions();
             BindClick();
+            RefreshBoundHints();
         }
 
         public void BindSpeakerControl(Button button, Image backgroundImage, Image iconImage)
@@ -321,6 +523,7 @@ namespace Game.Client.Voice
             wiredSpeakerButton = button;
             wiredSpeakerIcon = iconImage;
             BindSpeakerClick();
+            RefreshBoundHints();
         }
 
         public void BindSlot(RectTransform slot)
@@ -356,8 +559,8 @@ namespace Game.Client.Voice
                 return;
             }
 
-            BindSlot(bar.Find(ButtonName) as RectTransform);
-            BindSpeakerSlot(bar.Find(SpeakerButtonName) as RectTransform);
+            BindSlot(FindMuteSlot(bar));
+            BindSpeakerSlot(FindSpeakerSlot(bar));
         }
 
         private void OnEnable()
@@ -366,6 +569,7 @@ namespace Game.Client.Voice
             BindClick();
             BindSpeakerClick();
             HideCaptions();
+            RefreshBoundHints();
             if (label != null && HomeUiFonts.Legacy() != null)
             {
                 label.font = HomeUiFonts.Legacy();

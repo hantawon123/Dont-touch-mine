@@ -17,13 +17,16 @@ namespace Game.Core.Lobby
 
     public readonly struct RoomSettings
     {
-        public const int MinMatchPlayerCount = 1;
+        public const int MinMatchPlayerCount = 2;
         public const int MinPlayerCount = 2;
         public const int MaxPlayerCount = 6;
         public const int MaxTitleLength = 20;
 
         public static bool IsValidTitle(string title) =>
             !string.IsNullOrWhiteSpace(title) && title.Length <= MaxTitleLength;
+
+        public static bool CanStartMatch(int playerCount) =>
+            playerCount >= MinMatchPlayerCount;
 
         internal RoomSettings(string title, bool isLocked, int maxPlayers, string mapId)
         {

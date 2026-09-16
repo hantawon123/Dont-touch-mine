@@ -119,19 +119,27 @@ namespace Game.Client.Lobby
                 }
             }
 
-            if (mapPrevButton != null)
-            {
-                mapPrevButton.interactable = editable && mapOptions.Count > 1;
-            }
-
-            if (mapNextButton != null)
-            {
-                mapNextButton.interactable = editable && mapOptions.Count > 1;
-            }
+            RefreshMapArrows();
 
             if (scrollIntoView)
             {
                 ScrollSelectedIntoView();
+            }
+        }
+
+        private void RefreshMapArrows()
+        {
+            var showArrows = mapOptions.Count > 1;
+            if (mapPrevButton != null)
+            {
+                mapPrevButton.gameObject.SetActive(showArrows);
+                mapPrevButton.interactable = editable && showArrows;
+            }
+
+            if (mapNextButton != null)
+            {
+                mapNextButton.gameObject.SetActive(showArrows);
+                mapNextButton.interactable = editable && showArrows;
             }
         }
 

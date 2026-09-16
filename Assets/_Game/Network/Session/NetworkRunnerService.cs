@@ -45,6 +45,7 @@ namespace Game.Network.Session
         INetworkPlayerReplayStateSource,
         INetworkMatchAuthority,
         INetworkMatchEvents,
+        IMatchAnalyticsSource,
         INetworkHighlightReady,
         INetworkPhaseIntroReady,
         INetworkResultNavigation,
@@ -1012,6 +1013,7 @@ namespace Game.Network.Session
                 throw new OperationCanceledException("The session start was superseded or stopped.");
             }
 
+            ApplyServerFrameRate(request.Mode, runner.TickRate);
             _roomInitializationInProgress = true;
             try
             {
@@ -1081,6 +1083,15 @@ namespace Game.Network.Session
             }
 
             return args;
+        }
+
+        internal static void ApplyServerFrameRate(GameMode mode, int tickRate)
+        {
+            if (mode != GameMode.Server) return;
+            // Dedicated players have no display to pace the loop. Match Fusion's
+            // simulation rate instead of running thousands of empty Updates.
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = tickRate;
         }
 
         internal static NetworkProjectConfig ConfigureSession(NetworkProjectConfig config)

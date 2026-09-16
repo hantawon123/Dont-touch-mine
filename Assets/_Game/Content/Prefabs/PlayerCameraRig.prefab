@@ -166,10 +166,189 @@ MonoBehaviour:
   thirdPersonCamera: {fileID: 4822653204359190710}
   firstPersonCamera: {fileID: 4337833082676909515}
   followTarget: {fileID: 0}
-  headOffset: {x: 0, y: 1.6, z: 0}
+  headOffset: {x: 0, y: 1.04, z: 0}
   lookSensitivity: 0.12
   minPitch: -60
   maxPitch: 85
+  eyeHeightLerpSpeed: 8
+  firstPersonArms:
+    showArms: 1
+    modelResourcePath: FirstPerson/SmoothBear_FirstPersonArms
+    eyeAnchor: {x: 0, y: -0.02, z: 0.06}
+    scale: 1
+    rootTilt: {x: 0, y: 0, z: 0}
+    upperArmLength: 0.85
+    overlayLayerName: FirstPersonView
+    armsFieldOfView: 0
+    blendSeconds: 0.15
+    locomotion:
+      poseWeight: 0.7
+      upperArmLift: 80
+      upperArmSpread: 20
+      forearmBend: 20
+      forearmSpread: 0
+      handBend: -3
+      handSpread: 62
+    punch:
+      poseWeight: 0.8
+      upperArmLift: 0
+      upperArmSpread: 5
+      forearmBend: -10
+      forearmSpread: 0
+      handBend: 0
+      handSpread: 0
+    punchAimWeight: 0.4
+    punchAimDistance: 0.5
+    punchHandDistance: 0
+    punchStraighten: 0
+    punchElbowIn: 0
+    punchReachCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.4
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.5166718
+        value: 0.9988098
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: -1.5
+        outSlope: -1.5
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    punchStartOffset: {x: 30, y: -0.03, z: -0.03}
+    punchStartCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: -2.5
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.4
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    punchClenchCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 12
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.08
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.85
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: -6
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    carry:
+      poseWeight: 1
+      upperArmLift: 70
+      upperArmSpread: 20
+      forearmBend: 20
+      forearmSpread: 0
+      handBend: 0
+      handSpread: 0
+    crouch:
+      poseWeight: 1
+      upperArmLift: 70
+      upperArmSpread: 20
+      forearmBend: 20
+      forearmSpread: 0
+      handBend: 0
+      handSpread: 0
+    prone:
+      poseWeight: 1
+      upperArmLift: 70
+      upperArmSpread: 20
+      forearmBend: 20
+      forearmSpread: 0
+      handBend: 0
+      handSpread: 0
+  firstPersonHold:
+    enabled: 1
+    offset: {x: 0.05, y: -0.28, z: 0.6}
+    tilt: {x: 10, y: -15, z: 0}
+    maxScreenFraction: 0.35
 --- !u!1 &9001102983196606390
 GameObject:
   m_ObjectHideFlags: 0
