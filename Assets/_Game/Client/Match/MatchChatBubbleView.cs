@@ -21,7 +21,8 @@ namespace Game.Client.Match
     {
         public const float FontSize = 8f;
         public const int CornerRadius = 4;
-        public static readonly Color BubbleColor = new(0f, 0f, 0f, 0.27f);
+        public static readonly Color TextColor = Color.white;
+        public static readonly Color BubbleColor = new(0f, 0f, 0f, 0.8f);
         public const float MaxBubbleWidth = 210f;
         public const float MaxBubbleHeight = 80f;
         internal const float NameplateClearance = 0.04f;
@@ -172,7 +173,10 @@ namespace Game.Client.Match
             EnsureFont();
             text.font = font;
             text.fontSize = FontSize;
-            text.color = Color.white;
+            text.color = TextColor;
+            text.faceColor = TextColor;
+            text.enableVertexGradient = false;
+            text.outlineWidth = 0f;
             text.alignment = TextAlignmentOptions.Center;
             text.textWrappingMode = TextWrappingModes.Normal;
             text.overflowMode = TextOverflowModes.Ellipsis;

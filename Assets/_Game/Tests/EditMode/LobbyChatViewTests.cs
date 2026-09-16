@@ -74,10 +74,13 @@ namespace Game.Architecture.Tests
                     Is.LessThanOrEqualTo(MatchChatBubbleView.MaxBubbleWidth));
                 var bubbleText = bubble.GetComponentInChildren<TMP_Text>();
                 Assert.That(bubbleText.fontSize, Is.EqualTo(MatchChatBubbleView.FontSize));
+                Assert.That(bubbleText.color, Is.EqualTo(MatchChatBubbleView.TextColor));
+                Assert.That(bubbleText.color, Is.EqualTo(Color.white));
                 var panel = bubble.Find("Panel")?.GetComponent<Image>();
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.type, Is.EqualTo(Image.Type.Sliced));
                 Assert.That(panel.color, Is.EqualTo(MatchChatBubbleView.BubbleColor));
+                Assert.That(panel.color.a, Is.EqualTo(0.8f));
             }
             finally
             {
