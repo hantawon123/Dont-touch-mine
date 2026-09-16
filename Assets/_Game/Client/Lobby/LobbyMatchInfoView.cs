@@ -6,14 +6,13 @@ using UnityEngine.UI;
 namespace Game.Client.Lobby
 {
     /// <summary>
-    /// Read-only category and map card in the lobby's top-left, lined up with
-    /// the chat input.
+    /// Read-only category and map cards in the lobby's top-left, lined up with
+    /// the chat input. Each choice is a rounded box with a preview and a name.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LobbyMatchInfoView : MonoBehaviour
     {
         public const string RootName = "MatchInfo";
-        public const string CategoryCaption = "카테고리";
         public const float MarginTop = 60f;
 
         /// <summary>Same left inset as <see cref="Match.MatchChatView.Margin"/>.</summary>
@@ -21,7 +20,6 @@ namespace Game.Client.Lobby
         public const float Width = 320f;
         public const float FontSize = 18f;
         public const float Padding = 16f;
-        public const float CategoryRowHeight = 28f;
         public const float ContentSpacing = 12f;
         public const float MapRowPadding = 10f;
         public const float MapNameSpacing = 12f;
@@ -38,13 +36,13 @@ namespace Game.Client.Lobby
         public static float MapRowHeight => MapPreviewSize.y + (MapRowPadding * 2f);
 
         public static float PanelHeight =>
-            Padding + CategoryRowHeight + ContentSpacing + MapRowHeight + Padding;
+            Padding + MapRowHeight + ContentSpacing + MapRowHeight + Padding;
 
         public static float PlayerListTopOffset => MarginTop + PanelHeight + PlayerListGap;
 
-        private TextMeshProUGUI categoryCaption;
         private TextMeshProUGUI categoryValue;
         private TextMeshProUGUI mapName;
+        private Image categoryPreviewPhoto;
         private Image mapPreviewPhoto;
 
         public string CategoryLabel => categoryValue != null ? categoryValue.text : string.Empty;
@@ -54,6 +52,12 @@ namespace Game.Client.Lobby
         /// <summary>지금 보이는 맵 사진. 사진이 없는 맵·랜덤이면 null.</summary>
         public Sprite MapPreviewSprite =>
             mapPreviewPhoto != null && mapPreviewPhoto.gameObject.activeSelf ? mapPreviewPhoto.sprite : null;
+
+        /// <summary>지금 보이는 카테고리 사진. 사진이 없으면 null.</summary>
+        public Sprite CategoryPreviewSprite =>
+            categoryPreviewPhoto != null && categoryPreviewPhoto.gameObject.activeSelf
+                ? categoryPreviewPhoto.sprite
+                : null;
 
         public static LobbyMatchInfoView Create(Transform parent)
         {
@@ -97,6 +101,17 @@ namespace Game.Client.Lobby
         /// <param name="mapPreview">맵 사진. null이면 기존 단색 상자만 보인다.</param>
         public void SetInfo(string categoryLabel, string mapLabel, Sprite mapPreview)
         {
+            SetInfo(categoryLabel, mapLabel, mapPreview, categoryPreview: null);
+        }
+
+        /// <param name="mapPreview">맵 사진. null이면 기존 단색 상자만 보인다.</param>
+        /// <param name="categoryPreview">카테고리 사진. null이면 기존 단색 상자만 보인다.</param>
+        public void SetInfo(
+            string categoryLabel,
+            string mapLabel,
+            Sprite mapPreview,
+            Sprite categoryPreview)
+        {
             EnsureLayout();
             if (categoryValue != null)
             {
@@ -109,6 +124,7 @@ namespace Game.Client.Lobby
             }
 
             MapPreviewSprites.Apply(mapPreviewPhoto, mapPreview);
+            MapPreviewSprites.Apply(categoryPreviewPhoto, categoryPreview);
         }
 
         private void Awake()
@@ -118,14 +134,8 @@ namespace Game.Client.Lobby
 
         private void EnsureLayout()
         {
-            if (categoryCaption != null && categoryValue != null && mapName != null)
-            {
-                PlacePanel();
-                return;
-            }
-
             CacheRefs();
-            if (categoryCaption != null && categoryValue != null && mapName != null)
+            if (HasBoxedLayout())
             {
                 PlacePanel();
                 return;
@@ -134,14 +144,26 @@ namespace Game.Client.Lobby
             BuildLayout();
         }
 
+        private bool HasBoxedLayout()
+        {
+            return categoryValue != null
+                && mapName != null
+                && transform.Find("CategoryRow/CategoryPreview") != null
+                && transform.Find("MapRow/MapPreview") != null;
+        }
+
         private void CacheRefs()
         {
-            categoryCaption = transform.Find("CategoryRow/CategoryCaption")?.GetComponent<TextMeshProUGUI>();
             categoryValue = transform.Find("CategoryRow/CategoryValue")?.GetComponent<TextMeshProUGUI>();
             mapName = transform.Find("MapRow/MapName")?.GetComponent<TextMeshProUGUI>();
-            // 이미 만들어진 카드(사진 자식이 없던 예전 레이아웃 포함)에도 사진 자리를 붙인다.
-            var preview = transform.Find("MapRow/MapPreview")?.GetComponent<Image>();
-            mapPreviewPhoto = preview != null
+            categoryPreviewPhoto = FindPreviewPhoto("CategoryRow/CategoryPreview");
+            mapPreviewPhoto = FindPreviewPhoto("MapRow/MapPreview");
+        }
+
+        private Image FindPreviewPhoto(string path)
+        {
+            var preview = transform.Find(path)?.GetComponent<Image>();
+            return preview != null
                 ? MapPreviewSprites.FindPhoto(preview) ?? MapPreviewSprites.AttachPhoto(preview)
                 : null;
         }
@@ -150,16 +172,13 @@ namespace Game.Client.Lobby
         {
             for (var i = transform.childCount - 1; i >= 0; i--)
             {
-                var child = transform.GetChild(i).gameObject;
-                if (Application.isPlaying)
-                {
-                    Destroy(child);
-                }
-                else
-                {
-                    DestroyImmediate(child);
-                }
+                DestroyImmediate(transform.GetChild(i).gameObject);
             }
+
+            categoryValue = null;
+            mapName = null;
+            categoryPreviewPhoto = null;
+            mapPreviewPhoto = null;
 
             var panelImage = gameObject.GetComponent<Image>();
             if (panelImage == null)
@@ -173,46 +192,41 @@ namespace Game.Client.Lobby
             panelImage.raycastTarget = false;
             PlacePanel();
 
-            var categoryRow = CreateRect("CategoryRow", (RectTransform)transform);
-            categoryRow.anchorMin = new Vector2(0f, 1f);
-            categoryRow.anchorMax = new Vector2(1f, 1f);
-            categoryRow.pivot = new Vector2(0.5f, 1f);
-            categoryRow.offsetMin = new Vector2(Padding, -(Padding + CategoryRowHeight));
-            categoryRow.offsetMax = new Vector2(-Padding, -Padding);
-
-            categoryCaption = CreateLabel(
-                categoryRow,
-                "CategoryCaption",
-                CategoryCaption,
-                HomeUiFonts.ApplyRegular(),
-                TextAlignmentOptions.MidlineLeft);
-            Stretch(categoryCaption.rectTransform);
-            categoryCaption.rectTransform.offsetMax = new Vector2(-80f, 0f);
-
-            categoryValue = CreateLabel(
-                categoryRow,
+            categoryValue = CreateBoxedRow(
+                "CategoryRow",
+                "CategoryPreview",
                 "CategoryValue",
                 PlaySettingsCategoryCatalog.Default.Label,
-                HomeUiFonts.Apply(),
-                TextAlignmentOptions.MidlineRight);
-            Stretch(categoryValue.rectTransform);
-            categoryValue.rectTransform.offsetMin = new Vector2(80f, 0f);
+                out categoryPreviewPhoto);
+            PlaceTopRow((RectTransform)categoryValue.transform.parent, Padding, MapRowHeight);
 
-            var mapRow = CreateRect("MapRow", (RectTransform)transform);
-            mapRow.anchorMin = Vector2.zero;
-            mapRow.anchorMax = Vector2.one;
-            mapRow.pivot = new Vector2(0.5f, 0.5f);
-            mapRow.offsetMin = new Vector2(Padding, Padding);
-            mapRow.offsetMax = new Vector2(
-                -Padding,
-                -(Padding + CategoryRowHeight + ContentSpacing));
-            var mapRowImage = mapRow.gameObject.AddComponent<Image>();
-            mapRowImage.sprite = HomeUiFonts.Rounded(MapRowRadius);
-            mapRowImage.type = Image.Type.Sliced;
-            mapRowImage.color = MapRowFill;
-            mapRowImage.raycastTarget = false;
+            mapName = CreateBoxedRow(
+                "MapRow",
+                "MapPreview",
+                "MapName",
+                PlaySettingsMapCatalog.Default.Label,
+                out mapPreviewPhoto);
+            PlaceFillRow(
+                (RectTransform)mapName.transform.parent,
+                new Vector2(Padding, Padding),
+                new Vector2(-Padding, -(Padding + MapRowHeight + ContentSpacing)));
+        }
 
-            var preview = CreateRect("MapPreview", mapRow);
+        private TextMeshProUGUI CreateBoxedRow(
+            string rowName,
+            string previewName,
+            string labelName,
+            string defaultLabel,
+            out Image previewPhoto)
+        {
+            var row = CreateRect(rowName, (RectTransform)transform);
+            var rowImage = row.gameObject.AddComponent<Image>();
+            rowImage.sprite = HomeUiFonts.Rounded(MapRowRadius);
+            rowImage.type = Image.Type.Sliced;
+            rowImage.color = MapRowFill;
+            rowImage.raycastTarget = false;
+
+            var preview = CreateRect(previewName, row);
             preview.anchorMin = preview.anchorMax = new Vector2(0f, 0.5f);
             preview.pivot = new Vector2(0f, 0.5f);
             preview.sizeDelta = MapPreviewSize;
@@ -222,21 +236,40 @@ namespace Game.Client.Lobby
             previewImage.type = Image.Type.Sliced;
             previewImage.color = MapPreviewFill;
             previewImage.raycastTarget = false;
-            mapPreviewPhoto = MapPreviewSprites.FindPhoto(previewImage) ?? MapPreviewSprites.AttachPhoto(previewImage);
+            previewPhoto = MapPreviewSprites.FindPhoto(previewImage) ?? MapPreviewSprites.AttachPhoto(previewImage);
 
-            mapName = CreateLabel(
-                mapRow,
-                "MapName",
-                PlaySettingsMapCatalog.Default.Label,
+            var label = CreateLabel(
+                row,
+                labelName,
+                defaultLabel,
                 HomeUiFonts.ApplyRegular(),
                 TextAlignmentOptions.MidlineLeft);
-            var mapNameRect = mapName.rectTransform;
-            mapNameRect.anchorMin = Vector2.zero;
-            mapNameRect.anchorMax = Vector2.one;
-            mapNameRect.offsetMin = new Vector2(
+            var labelRect = label.rectTransform;
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = new Vector2(
                 MapRowPadding + MapPreviewSize.x + MapNameSpacing,
                 0f);
-            mapNameRect.offsetMax = new Vector2(-MapRowPadding, 0f);
+            labelRect.offsetMax = new Vector2(-MapRowPadding, 0f);
+            return label;
+        }
+
+        private static void PlaceTopRow(RectTransform row, float top, float height)
+        {
+            row.anchorMin = new Vector2(0f, 1f);
+            row.anchorMax = new Vector2(1f, 1f);
+            row.pivot = new Vector2(0.5f, 1f);
+            row.offsetMin = new Vector2(Padding, -(top + height));
+            row.offsetMax = new Vector2(-Padding, -top);
+        }
+
+        private static void PlaceFillRow(RectTransform row, Vector2 offsetMin, Vector2 offsetMax)
+        {
+            row.anchorMin = Vector2.zero;
+            row.anchorMax = Vector2.one;
+            row.pivot = new Vector2(0.5f, 0.5f);
+            row.offsetMin = offsetMin;
+            row.offsetMax = offsetMax;
         }
 
         private void PlacePanel()
@@ -282,15 +315,6 @@ namespace Game.Client.Lobby
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
             return go.GetComponent<RectTransform>();
-        }
-
-        private static void Stretch(RectTransform rect)
-        {
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            rect.pivot = new Vector2(0.5f, 0.5f);
         }
     }
 }
