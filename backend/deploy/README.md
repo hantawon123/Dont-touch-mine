@@ -219,10 +219,15 @@ compose 는 `.env` 를 치환에만 쓰고 컨테이너에 전달하는 것은 `
 
 정해진 질문은 관리 화면 분석 탭에 있습니다. 거기 없는 것을 한 번 보고 싶을 때는 분석 DB 컨테이너에
 읽기 계정으로 붙습니다. 이 계정은 `SELECT` 만 되므로 SQL 을 잘못 써도 로그가 지워지지 않습니다.
-비밀번호는 `.env` 의 `ANALYTICS_READER_PASSWORD` 이고, 프롬프트가 떠야 하므로 `-t` 가 필요합니다.
+비밀번호를 손으로 치지 않습니다. 컨테이너 안에 `.env` 에서 온 환경변수가 이미 있으므로 컨테이너 셸로
+들어가서 그 값을 씁니다. ssh 명령줄 한 줄에 다 넣으면 PowerShell 이 안쪽 따옴표를 벗겨 실패합니다.
 
 ```
-ssh -t d205 'docker exec -it d205-mysql-analytics mysql -ud205_reader -p d205_analytics'
+ssh -t d205 'docker exec -it d205-mysql-analytics bash'
+```
+
+```
+mysql -ud205_reader -p"$ANALYTICS_READER_PASSWORD" d205_analytics
 ```
 
 문서 `docs/analytics-dashboards.md` 의 절을 그대로 붙여 넣으면 분석 탭과 같은 숫자가 나와야 합니다.
@@ -247,27 +252,37 @@ ssh d205 'docker rm -f d205-metabase && docker image rm metabase/metabase:v0.63.
 그 뒤 Basic Auth 파일과 방화벽 규칙을 지웁니다.
 
 ```
-ssh d205 'sudo rm -f /etc/nginx/.htpasswd-analytics && sudo ufw delete allow 8443/tcp'
+ssh d205 'sudo rm -f /etc/nginx/.htpasswd-analytics && sudo ufw delete allow 8443'
 ```
+
+ufw 규칙은 `8443/tcp` 가 아니라 프로토콜 없는 `8443` 으로 들어가 있었습니다. 표기가 다르면
+`Could not delete non-existent rule` 이 나오니 `sudo ufw status` 로 실제 표기를 보고 맞춥니다.
 
 EC2 보안 그룹의 8443 인바운드 규칙은 콘솔에서 지웁니다. 남겨 두어도 뒤에 아무것도 없어 위험하지는
 않지만, 열린 포트 목록이 실제와 달라지면 다음 사람이 헷갈립니다.
 
 **3. DB.** 분석 DB 컨테이너의 `metabase` 스키마와 계정, 그리고 분리 전 게임 DB 컨테이너에 남아 있던
-같은 이름의 스키마입니다. SQL 을 ssh 명령줄에 인라인하면 PowerShell 이 안쪽 따옴표를 벗기므로, 클라이언트를
-먼저 열고 프롬프트에서 입력합니다. 비밀번호는 `.env` 의 `ANALYTICS_MYSQL_ROOT_PASSWORD` 입니다.
+같은 이름의 스키마입니다. 컨테이너 셸로 들어가 컨테이너의 환경변수로 로그인합니다. 두 DB 의 root
+비밀번호가 다른데(`ANALYTICS_MYSQL_ROOT_PASSWORD` / `MYSQL_ROOT_PASSWORD`) 손으로 옮겨 적다 틀리면
+`Access denied` 만 나옵니다. 환경변수 이름은 두 컨테이너에서 똑같이 `MYSQL_ROOT_PASSWORD` 입니다.
 
 ```
-ssh -t d205 'docker exec -it d205-mysql-analytics mysql -uroot -p'
+ssh -t d205 'docker exec -it d205-mysql-analytics bash'
+```
+
+```
+mysql -uroot -p"$MYSQL_ROOT_PASSWORD"
 ```
 
 ```sql
 DROP DATABASE IF EXISTS metabase;
 DROP USER IF EXISTS 'metabase'@'%';
+SHOW DATABASES;
 ```
 
-게임 DB 컨테이너도 같은 방법으로(`d205-mysql`, 비밀번호는 `MYSQL_ROOT_PASSWORD`) `DROP DATABASE IF EXISTS
-metabase;` 한 줄입니다. 플레이 로그(`d205_analytics`)는 어느 쪽에서도 건드리지 않습니다.
+`d205_analytics` 만 남으면 됩니다. 게임 DB 컨테이너(`d205-mysql`)도 같은 두 단계로 들어가
+`DROP DATABASE IF EXISTS metabase;` 를 실행합니다. 09-14 이관 전 사본인 옛 `d205_analytics` 도 이때 함께
+지웠습니다(2026-09-16). 분석 DB 컨테이너의 플레이 로그는 건드리지 않습니다.
 
 **4. `.env`.** `METABASE_DB_PASSWORD` 줄은 서버의 `/home/ubuntu/d205/.env` 와 Jenkins 비밀 파일
 `d205-backend-env` 어디에도 더 필요하지 않습니다. 남아 있어도 compose 가 읽지 않으니 해롭지 않고, 지우려면
