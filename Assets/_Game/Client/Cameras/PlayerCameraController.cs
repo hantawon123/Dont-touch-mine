@@ -69,7 +69,12 @@ namespace Game.Client.Cameras
         private InputAction lookAction;
         private InputAction toggleViewAction;
         private PlayerMovement followMovement;
+        private Transform followVisual;
         private Renderer[] bodyRenderers;
+        private float nextBodyRendererScan;
+        // 표정(눈)·후드·신발은 외형 적용기가 게임 중에 늦게 만들어 붙이므로, 한 번 수집한 목록만 숨기면
+        // 엎드려 카메라가 머리 근처로 내려왔을 때 내 눈이 보인다. 주기적으로 다시 수집한다.
+        private const float BodyRendererScanInterval = 0.5f;
         private float currentEyeHeight;
         private float yaw;
         private float pitch;
@@ -246,6 +251,12 @@ namespace Game.Client.Cameras
             currentEyeHeight = Mathf.Lerp(
                 currentEyeHeight, targetEyeHeight, eyeHeightLerpSpeed * Time.deltaTime);
 
+            if (Time.time >= nextBodyRendererScan)
+            {
+                nextBodyRendererScan = Time.time + BodyRendererScanInterval;
+                RefreshBodyRenderers();
+            }
+
             var offset = new Vector3(headOffset.x, currentEyeHeight, headOffset.z);
             followCorrection = Vector3.Lerp(followCorrection, Vector3.zero,
                 1f - Mathf.Exp(-Time.unscaledDeltaTime / 0.08f));
@@ -307,9 +318,20 @@ namespace Game.Client.Cameras
             }
 
             // 1인칭 몸 숨김 대상 렌더러와 1인칭 팔의 포즈 원본을 새 대상 기준으로 다시 수집한다.
-            var visual = target.Find("Visual");
-            bodyRenderers = visual != null ? visual.GetComponentsInChildren<Renderer>() : new Renderer[0];
-            armsView.Bind(visual, transform, firstPersonArms);
+            followVisual = target.Find("Visual");
+            RefreshBodyRenderers();
+            armsView.Bind(followVisual, transform, firstPersonArms);
+        }
+
+        /// <summary>
+        /// Visual 아래 렌더러를 다시 수집하고 현재 시점에 맞는 표시 상태를 적용한다.
+        /// 비활성 렌더러도 포함해, 나중에 켜지는 기본 눈 같은 것도 잡는다.
+        /// </summary>
+        private void RefreshBodyRenderers()
+        {
+            bodyRenderers = followVisual != null
+                ? followVisual.GetComponentsInChildren<Renderer>(true)
+                : System.Array.Empty<Renderer>();
             ApplyView();
         }
 

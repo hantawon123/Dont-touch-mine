@@ -193,11 +193,37 @@ namespace Game.Client.Cameras
                 break;
             }
 
-            if (bodyRenderer != null)
+            SyncAppearance();
+        }
+
+        /// <summary>
+        /// 몸 렌더러의 재질과 슬롯별 MaterialPropertyBlock(몸 색·피격 틴트)을 팔에 복사한다.
+        /// AvatarAppearanceApplier는 슬롯 인덱스를 붙여 블록을 쓰므로 슬롯 없는 GetPropertyBlock은 빈 값을 돌려준다.
+        /// </summary>
+        private void SyncAppearance()
+        {
+            if (bodyRenderer == null) return;
+            var bodyMaterials = bodyRenderer.sharedMaterials;
+            block ??= new MaterialPropertyBlock();
+            foreach (var renderer in armsRenderers)
             {
-                foreach (var renderer in armsRenderers)
-                    renderer.sharedMaterials = bodyRenderer.sharedMaterials;
+                if (renderer == null) continue;
+                if (!SameMaterials(renderer.sharedMaterials, bodyMaterials))
+                    renderer.sharedMaterials = bodyMaterials;
+                for (var slot = 0; slot < bodyMaterials.Length; slot++)
+                {
+                    bodyRenderer.GetPropertyBlock(block, slot);
+                    renderer.SetPropertyBlock(block, slot);
+                }
             }
+        }
+
+        private static bool SameMaterials(Material[] a, Material[] b)
+        {
+            if (a == null || b == null || a.Length != b.Length) return false;
+            for (var i = 0; i < a.Length; i++)
+                if (!ReferenceEquals(a[i], b[i])) return false;
+            return true;
         }
 
         /// <summary>
@@ -233,12 +259,7 @@ namespace Game.Client.Cameras
                 PoseArm(upperArmLeft, forearmLeft, handLeft, -1f, settings, weight, camera);
             }
 
-            if (bodyRenderer != null)
-            {
-                block ??= new MaterialPropertyBlock();
-                bodyRenderer.GetPropertyBlock(block);
-                foreach (var renderer in armsRenderers) renderer.SetPropertyBlock(block);
-            }
+            SyncAppearance();
         }
 
         public void Hide()
