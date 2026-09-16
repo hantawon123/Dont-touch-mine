@@ -49,6 +49,23 @@ namespace Game.Bootstrap
 #endif
         }
 
+        /// <summary>
+        /// A secret the host handed this process, or null.
+        /// </summary>
+        /// <remarks>
+        /// Through the environment rather than the command line, because arguments are readable
+        /// by anyone who can run <c>ps</c> on the box. Addresses and room codes go on the command
+        /// line; keys do not.
+        /// </remarks>
+        internal static string Secret(string name)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            return null;
+#else
+            return Environment.GetEnvironmentVariable(name);
+#endif
+        }
+
         internal static string DeviceId()
         {
             const string key = "game.server.deviceId";
@@ -128,7 +145,7 @@ namespace Game.Bootstrap
 #endif
                 network.Shutdown();
                 await UniTask.WaitUntil(() => !network.IsRoomExitPending, cancellationToken: cancellation);
-                await DrainAnalyticsAsync(cancellation);
+                await DrainUploadsAsync(cancellation);
                 Debug.Log("[Server] Session closed.");
                 if (!Application.isEditor) Application.Quit(0);
 #if UNITY_EDITOR
@@ -162,9 +179,16 @@ namespace Game.Bootstrap
         /// waits a frame before asking. A server's outbox lives in the container
         /// and does not survive it, so a match left here is a match lost.
         /// </summary>
-        private async UniTask DrainAnalyticsAsync(CancellationToken cancellation)
+        private async UniTask DrainUploadsAsync(CancellationToken cancellation)
         {
             await UniTask.NextFrame(cancellation);
+
+            // Chat first: it is a handful of small requests, and the last seconds of a match are
+            // what a report will be about.
+            await chat.DrainAsync(cancellation);
+            if (chat.HasPending)
+                Debug.LogWarning("[Chat] Shutting down with chat still queued; those lines are lost.");
+
             analytics.Retry();
             var deadline = Time.realtimeSinceStartupAsDouble + AnalyticsDrainSeconds;
             while (analytics.IsSending && Time.realtimeSinceStartupAsDouble < deadline)

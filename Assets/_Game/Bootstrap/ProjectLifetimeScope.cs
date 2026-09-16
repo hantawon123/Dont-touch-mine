@@ -260,7 +260,7 @@ namespace Game.Bootstrap
                         new UnityWebRequestTransport(),
                         new BackendEndpoint(DedicatedServerStartup.Argument(
                             "-internalUrl", "http://127.0.0.1:8080")),
-                        DedicatedServerStartup.Argument("-chatKey")))
+                        DedicatedServerStartup.Secret("D205_CHAT_KEY")))
                     .AsSelf()
                     .As<IChatModeration>();
             }

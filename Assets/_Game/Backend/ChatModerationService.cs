@@ -62,7 +62,18 @@ namespace Game.Backend
             this.key = key;
         }
 
-        public bool IsFiltering => blocklist.IsLoaded;
+        /// <summary>
+        /// Whether anything will actually be covered.
+        /// </summary>
+        /// <remarks>
+        /// Having received an answer is not the same as having words: an empty list reads as
+        /// loaded while nothing is ever masked, which is exactly the state someone would waste
+        /// an afternoon on.
+        /// </remarks>
+        public bool IsFiltering => blocklist.WordCount > 0;
+
+        /// <summary>Anything still waiting to reach the backend.</summary>
+        public bool HasPending => pending.Count > 0;
 
         /// <summary>
         /// Fetches the word list. Call once before the room opens.
@@ -124,6 +135,23 @@ namespace Game.Backend
 
             pending.Enqueue(record);
             if (!flushing) FlushLoopAsync().Forget(e => Debug.LogWarning($"[Chat] Upload stopped: {e.Message}"));
+        }
+
+        /// <summary>
+        /// Sends what is queued right now instead of waiting for the next tick.
+        /// </summary>
+        /// <remarks>
+        /// Called once as the server shuts down. Without it the last couple of seconds of a
+        /// conversation go with the process, and those are the seconds a report is most likely
+        /// to be about — people report at the end of a match.
+        /// </remarks>
+        public async UniTask DrainAsync(CancellationToken cancellation)
+        {
+            while (pending.Count > 0 && !cancellation.IsCancellationRequested)
+            {
+                await SendOnceAsync();
+                ReportDrops();
+            }
         }
 
         private async UniTask FlushLoopAsync()

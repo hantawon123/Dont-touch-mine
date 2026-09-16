@@ -58,6 +58,11 @@ CREATE TABLE chat_logs
     -- 다른 판단이 되므로 운영자가 반드시 보게 됩니다.
     KEY ix_chat_logs_sender (sender_seq, sent_at),
 
+    -- 보관 기간이 지난 행을 지우는 조회(S15P21D205-1031). 위의 두 인덱스는 선두가 방과 사람이라
+    -- 시각만으로 훑을 때 쓰이지 않습니다. 3일치면 표가 작아 지금은 전체 훑기도 견디지만, 그건
+    -- 보관 기간이 짧다는 전제에 기대는 것이고 그 전제는 바뀔 수 있습니다.
+    KEY ix_chat_logs_sent (sent_at),
+
     CONSTRAINT fk_chat_logs_sender
         FOREIGN KEY (sender_seq) REFERENCES users (users_seq) ON DELETE SET NULL
 );

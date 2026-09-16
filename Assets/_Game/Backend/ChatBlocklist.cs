@@ -33,6 +33,9 @@ namespace Game.Backend
         /// </remarks>
         public bool IsLoaded { get; private set; }
 
+        /// <summary>How many words came back. Zero means an answer arrived with nothing in it.</summary>
+        public int WordCount => blocked.Count;
+
         public void Load(IEnumerable<string> words, IEnumerable<string> exceptions)
         {
             blocked.Clear();

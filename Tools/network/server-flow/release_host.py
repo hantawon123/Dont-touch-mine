@@ -74,8 +74,9 @@ class Pool:
         # 필터와 기록만 빠집니다.
         chat_key = self.config.get('chat_internal_key', '')
         if chat_key:
-            command += ['-internalUrl', self.config.get('internal_api_origin', 'http://127.0.0.1:8080'),
-                        '-chatKey', chat_key]
+            command += ['-internalUrl', self.config.get('internal_api_origin', 'http://127.0.0.1:8080')]
+            # 키는 명령줄이 아니라 환경으로 넘깁니다. 명령줄 인자는 같은 장비의 누구나 ps 로 읽습니다.
+            env['D205_CHAT_KEY'] = chat_key
         process = subprocess.Popen(command, cwd=path, env=env, stdin=subprocess.DEVNULL,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.processes[key] = dict(process=process, log=log, ready=False, started=time.monotonic(),
