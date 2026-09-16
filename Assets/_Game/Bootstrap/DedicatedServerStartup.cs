@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Backend;
 using Game.Core.Home;
 using Game.Core.Flow;
 using Game.Core.Maps;
@@ -13,6 +14,8 @@ namespace Game.Bootstrap
     // Explicit local/server process entry. A browser can never select this role.
     public sealed class DedicatedServerStartup : IAsyncStartable
     {
+        private const double AnalyticsDrainSeconds = 60d;
+
         public static bool IsRequested
         {
             get
@@ -60,11 +63,14 @@ namespace Game.Bootstrap
         private readonly NetworkRunnerService network;
         private readonly PlayerProfile profile;
         private readonly AppFlowSystem appFlow;
-        public DedicatedServerStartup(NetworkRunnerService network, PlayerProfile profile, AppFlowSystem appFlow)
+        private readonly MatchAnalyticsUpload analytics;
+        public DedicatedServerStartup(NetworkRunnerService network, PlayerProfile profile, AppFlowSystem appFlow,
+            MatchAnalyticsUpload analytics)
         {
             this.network = network;
             this.profile = profile;
             this.appFlow = appFlow;
+            this.analytics = analytics;
         }
 
         public async UniTask StartAsync(CancellationToken cancellation)
@@ -115,6 +121,7 @@ namespace Game.Bootstrap
 #endif
                 network.Shutdown();
                 await UniTask.WaitUntil(() => !network.IsRoomExitPending, cancellationToken: cancellation);
+                await DrainAnalyticsAsync(cancellation);
                 Debug.Log("[Server] Session closed.");
                 if (!Application.isEditor) Application.Quit(0);
 #if UNITY_EDITOR
@@ -140,6 +147,23 @@ namespace Game.Bootstrap
 #endif
                 if (!Application.isEditor) Application.Quit(1);
             }
+        }
+
+        /// <summary>
+        /// Sends the finished match before the process ends. The recorder only
+        /// closes the match on its first tick after the shutdown above, so this
+        /// waits a frame before asking. A server's outbox lives in the container
+        /// and does not survive it, so a match left here is a match lost.
+        /// </summary>
+        private async UniTask DrainAnalyticsAsync(CancellationToken cancellation)
+        {
+            await UniTask.NextFrame(cancellation);
+            analytics.Retry();
+            var deadline = Time.realtimeSinceStartupAsDouble + AnalyticsDrainSeconds;
+            while (analytics.IsSending && Time.realtimeSinceStartupAsDouble < deadline)
+                await UniTask.Delay(250, DelayType.Realtime, cancellationToken: cancellation);
+            if (analytics.IsSending)
+                Debug.LogWarning("[Analytics] Shutting down with the match still uploading; it will be incomplete.");
         }
     }
 }
