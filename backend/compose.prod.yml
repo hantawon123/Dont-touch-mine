@@ -67,6 +67,10 @@ services:
       # 분석 서비스의 내부 API 주소와 공유 키. 서비스 이름으로 부르므로 compose 네트워크 안에서만 통합니다.
       ANALYTICS_INTERNAL_URL: http://analytics:8080
       INTERNAL_KEY: ${INTERNAL_KEY:-}
+      # 게임 서버가 채팅 금칙어 목록을 받고 채팅 기록을 보낼 때 내미는 키 (S15P21D205-1027).
+      # 위의 INTERNAL_KEY 와 일부러 나눕니다. 그쪽은 이 서비스가 분석 서비스를 부를 때 내미는
+      # 값이라, 같은 키를 게임 서버에 주면 분석 쪽 내부 경로(탈퇴 익명화)까지 열 수 있게 됩니다.
+      CHAT_INTERNAL_KEY: ${CHAT_INTERNAL_KEY:-}
       TZ: Asia/Seoul
     depends_on:
       mysql:

@@ -309,6 +309,8 @@ namespace Game.Server.Match
             GameEvent gameEvent,
             double matchEndedAt)
         {
+            var leadSeconds = rules.HighlightClipDurationSeconds * 0.7d;
+            var tailSeconds = rules.HighlightClipDurationSeconds - leadSeconds;
             return new HighlightCandidate(
                 type,
                 new[]
@@ -316,8 +318,8 @@ namespace Game.Server.Match
                     new HighlightSegment(
                         Math.Max(
                             Math.Max(0d, recordingStartedAt >= 0d ? recordingStartedAt : searchingStartedAt),
-                            gameEvent.OccurredAt - 7d),
-                        Math.Min(matchEndedAt, gameEvent.OccurredAt + 3d)),
+                            gameEvent.OccurredAt - leadSeconds),
+                        Math.Min(matchEndedAt, gameEvent.OccurredAt + tailSeconds)),
                 },
                 gameEvent.TargetId,
                 gameEvent.OccurredAt,
@@ -467,7 +469,7 @@ namespace Game.Server.Match
                 totalSourceDuration += segmentEndedAt - startedAt;
             }
 
-            var playbackSpeed = Math.Max(1d, totalSourceDuration / Math.Min(10d, rules.HighlightClipDurationSeconds));
+            var playbackSpeed = Math.Max(1d, totalSourceDuration / rules.HighlightClipDurationSeconds);
             if (playbackSpeed > 1d)
             {
                 for (var index = 0; index < segments.Count; index++)

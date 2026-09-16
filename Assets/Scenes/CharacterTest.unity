@@ -497,6 +497,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.CharacterTestPreviewDriver
   stateNames:
+  - Carry_TwoHands_Hit
+  - Carry_TwoHands_Hit_Walk
+  - Carry_TwoHands_Hit_Run
+  - Carry_TwoHands_Hit_Crouch
+  - Carry_TwoHands_Hit_Crouch_Walk
+  - Carry_TwoHands_Hit_Prone
+  - Carry_TwoHands_Hit_Crawl
   - Idle
   - Walk_Forward
   - Walk_Back
@@ -593,6 +600,8 @@ MonoBehaviour:
   - PutDown_Crouch
   - PutDown_Prone
   - Throw
+  - Hit_Prone
+  - Hit_Crawl
   - Punch
   - Punch_Walk
   - Punch_Run

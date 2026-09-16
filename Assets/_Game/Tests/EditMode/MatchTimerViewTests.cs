@@ -40,6 +40,9 @@ namespace Game.Architecture.Tests
                 var timer = view.GetComponent<TMP_Text>();
                 Assert.That(timer.text, Is.EqualTo("03:05"));
                 Assert.That(timer.fontSize, Is.EqualTo(HidingActiveHudView.TimerFontSize));
+                Assert.That(HidingActiveHudView.TimerFontSize, Is.EqualTo(58.5f));
+                Assert.That(MatchTimerView.TimerFontSize, Is.EqualTo(83.2f));
+                Assert.That(MatchTimerView.TimerHeight, Is.EqualTo(104f));
                 Assert.That(timer.color, Is.EqualTo(Color.white));
 
                 var hint = view.transform.Find("Hint");

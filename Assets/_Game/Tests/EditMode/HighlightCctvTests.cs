@@ -227,7 +227,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Camera_SwitchesToMuchCloserVisibleMountEvenWhenCurrentViewIsClear()
+        public void Camera_DoesNotSwitchSolelyForDistance()
         {
             var root = new GameObject("test");
             try
@@ -252,8 +252,127 @@ namespace Game.Tests.EditMode
                 actor.position = Vector3.right * 8;
                 director.Tick(0.3f);
                 director.Tick(0.21f);
-                Assert.That(director.CctvLocation, Is.EqualTo("near"));
-                Assert.That(output.position, Is.EqualTo(near.transform.position));
+                Assert.That(director.CctvLocation, Is.EqualTo("far"));
+                Assert.That(output.position, Is.EqualTo(far.transform.position));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_AllowsAtMostTwoVisibilitySwitchesPerHighlight()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                var actor = new GameObject("actor").transform;
+                actor.SetParent(root.transform);
+                var output = new GameObject("output").transform;
+                output.SetParent(root.transform);
+                HighlightCctvCamera Mount(string name, Vector3 position)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = position;
+                    camera.transform.LookAt(Vector3.up * 0.5f);
+                    camera.Configure(name);
+                    return camera;
+                }
+                GameObject Blocker(string name)
+                {
+                    var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    blocker.name = name;
+                    blocker.transform.SetParent(root.transform);
+                    blocker.transform.localScale = new Vector3(2f, 3f, 1f);
+                    blocker.GetComponent<Collider>().enabled = false;
+                    blocker.SetActive(false);
+                    return blocker;
+                }
+                var a = Mount("A", new Vector3(0, 3, -6));
+                var b = Mount("B", new Vector3(6, 3, 0));
+                var c = Mount("C", new Vector3(0, 3, 6));
+                var blockA = Blocker("block A");
+                var blockB = Blocker("block B");
+                var blockC = Blocker("block C");
+                using var director = new HighlightCameraDirector(output, output, new[] { actor },
+                    new[]
+                    {
+                        new SceneWorldObjectReference("block-a", blockA.transform),
+                        new SceneWorldObjectReference("block-b", blockB.transform),
+                        new SceneWorldObjectReference("block-c", blockC.transform),
+                    }, cctvCameras: new[] { a, b, c });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                Assert.That(director.CctvLocation, Is.EqualTo("A"));
+
+                blockA.transform.position = new Vector3(0, 1.5f, -3);
+                blockA.SetActive(true);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("B"));
+
+                blockB.transform.position = new Vector3(3, 1.5f, 0);
+                blockB.SetActive(true);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("B"),
+                    "The second switch must remain available for the final part of the highlight.");
+
+                director.SetPlaybackTime(6);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("C"));
+
+                blockA.SetActive(false);
+                blockC.transform.position = new Vector3(0, 1.5f, 3);
+                blockC.SetActive(true);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("C"),
+                    "A third CCTV switch would make one highlight difficult to follow.");
+
+                director.Focus(new HighlightCandidate(HighlightType.LongestHidden, 0, 10, "0"));
+                Assert.That(director.CctvLocation, Is.EqualTo("A"),
+                    "A new highlight must choose its own opening view and switch budget.");
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_PlansBestViewsFromTheWholeReplayBeforePlayback()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                HighlightCctvCamera Mount(string name, float x)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = new Vector3(x, 3f, -6f);
+                    camera.transform.LookAt(new Vector3(x, 0.8f, 0f));
+                    camera.Configure(name, 40f);
+                    return camera;
+                }
+
+                var actor = new GameObject("actor").transform;
+                actor.SetParent(root.transform);
+                var output = new GameObject("output", typeof(Camera)).transform;
+                output.SetParent(root.transform);
+                var candidate = new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0");
+                var frames = new List<HighlightReplayFrame>();
+                for (var second = 0; second <= 10; second++)
+                {
+                    var x = second < 3 ? -8f : second < 7 ? 0f : 8f;
+                    frames.Add(new HighlightReplayFrame(second,
+                        new[] { new Pose(new Vector3(x, 0f, 0f), Quaternion.identity) },
+                        System.Array.Empty<Game.Server.Items.WorldObjectState>()));
+                }
+                var clips = new[] { new HighlightReplayClip(candidate.Segments[0], frames) };
+                using var director = new HighlightCameraDirector(output, output, new[] { actor },
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0,
+                    cctvCameras: new[] { Mount("A", -8f), Mount("B", 0f), Mount("C", 8f) },
+                    replayClips: clips);
+
+                director.Focus(candidate);
+                Assert.That(director.CctvLocation, Is.EqualTo("A"));
+                director.SetPlaybackTime(4d);
+                Assert.That(director.CctvLocation, Is.EqualTo("B"));
+                director.SetPlaybackTime(8d);
+                Assert.That(director.CctvLocation, Is.EqualTo("C"));
             }
             finally { Object.DestroyImmediate(root); }
         }

@@ -40,7 +40,7 @@ public class HighlightDirectorService {
         try {
             String prompt="""
                     숨바꼭질/물건 찾기 게임의 하이라이트 편집자다. 후보에서 재미와 사건의 명확성을 기준으로
-                    최대 3개(후보가 3개 미만이면 전부)를 순서대로 선택하라. 제공된 사건 외의 행동/승패/인물을
+                    최대 2개(후보가 2개 미만이면 전부)를 순서대로 선택하라. 제공된 사건 외의 행동/승패/인물을
                     지어내지 말 것. FirstBlood=첫 물건 파괴, TteTanMulgun=여러 사람이 만진 물건,
                     FinalMoment=종료 직전 사건, LongestHidden=오래 숨겨진 물건, MostStunned=반복 기절,
                     ItemDestroyed=물건 파괴, PlayerStunned=기절, ItemRecovered=원주인의 물건 회수.
@@ -79,7 +79,7 @@ public class HighlightDirectorService {
                 if(rating.path("blocked").asBoolean() || Set.of("MEDIUM","HIGH").contains(rating.path("probability").asText()))
                     return DirectorReply.unavailable();
             var picks=json.readTree(response.path("content").path("parts").path(0).path("text").asText()).path("picks");
-            if(!picks.isArray() || picks.size()!=Math.min(3,candidates.size())) return DirectorReply.unavailable();
+            if(!picks.isArray() || picks.size()!=Math.min(2,candidates.size())) return DirectorReply.unavailable();
             Set<Integer> valid=new HashSet<>(); candidates.forEach(c -> valid.add(c.id()));
             Set<Integer> used=new HashSet<>(); List<Pick> result=new ArrayList<>();
             for(var pick:picks) {

@@ -68,6 +68,15 @@ class Pool:
                    '-roomCode', room, '-region', self.config.get('region', 'kr'),
                    '-backendUrl', self.config.get('api_origin', 'https://j15d205.p.ssafy.io'),
                    '-job-worker-count', '1', '-logFile', str(log)]
+        # 채팅 금칙어 목록과 기록 경로(S15P21D205-1027)는 내부 전용이라 nginx 에 없습니다. 게임
+        # 서버가 같은 장비에서 돌므로 루프백으로 직접 붙고, 공유 키가 없으면 그 경로는 404 입니다.
+        # 키가 설정에 없으면 두 인자를 아예 넘기지 않아 예전과 똑같이 뜹니다. 채팅은 그대로 돌고
+        # 필터와 기록만 빠집니다.
+        chat_key = self.config.get('chat_internal_key', '')
+        if chat_key:
+            command += ['-internalUrl', self.config.get('internal_api_origin', 'http://127.0.0.1:8080')]
+            # 키는 명령줄이 아니라 환경으로 넘깁니다. 명령줄 인자는 같은 장비의 누구나 ps 로 읽습니다.
+            env['D205_CHAT_KEY'] = chat_key
         process = subprocess.Popen(command, cwd=path, env=env, stdin=subprocess.DEVNULL,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.processes[key] = dict(process=process, log=log, ready=False, started=time.monotonic(),

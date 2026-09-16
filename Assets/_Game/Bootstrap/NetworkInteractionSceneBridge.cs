@@ -34,6 +34,11 @@ namespace Game.Bootstrap
             new(StringComparer.Ordinal);
         private readonly Dictionary<int, PlayerInteractor> interactors = new();
         private readonly Dictionary<int, PlayerCombatant> combatants = new();
+        // 붙이기 실패를 물건별로 한 번만 경고하기 위한 기록(성공하면 지운다)
+        private readonly HashSet<string> attachWarnings = new();
+        private double nextAssignmentItemScanAt;
+        private bool objectStatesReceived;
+        private readonly HashSet<string> replicatedIds = new();
         private readonly Dictionary<string, int> appliedVersions =
             new(StringComparer.Ordinal);
 
@@ -191,20 +196,48 @@ namespace Game.Bootstrap
 
         public bool RequestUseShredder() => network.RequestUseShredder();
 
+        /// <summary>
+        /// 이 씬의 물건 목록을 갱신한다. 기존 등록은 유지하고(파괴된 것만 정리) 새 물건만 더한다.
+        /// </summary>
+        /// <remarks>
+        /// 들고 있는 물건은 플레이어 오브젝트(다른 씬) 아래에 붙어 있어 <c>gameObject.scene</c>이 이 씬이 아니다.
+        /// 예전처럼 목록을 비우고 현재 씬 소속만 다시 담으면 들고 있는 물건이 목록에서 빠지고, 그 뒤 그 물건의
+        /// 상태 변화(놓임·파괴)가 전부 무시된다. 그러면 이 클라이언트는 그 플레이어가 "이미 놓은 물건을 계속 들고
+        /// 있다"고 믿어 이후 그 플레이어가 집는 모든 물건을 붙이지 못한다(팀 테스트 2026-09-17: 물건이 머리 위에
+        /// 남고 놓기가 안 되던 버그). 그래서 소속 판단은 <see cref="CarryableItem.OwningScene"/>로 한다.
+        /// </remarks>
         private void RefreshItems()
         {
-            items.Clear();
+            var stale = new List<string>();
+            foreach (var pair in items)
+            {
+                if (pair.Value == null) stale.Add(pair.Key);
+            }
+
+            foreach (var key in stale) items.Remove(key);
+
             var candidates = sceneItems ?? UnityEngine.Object.FindObjectsByType<CarryableItem>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var item in candidates)
             {
-                if (item == null || (sceneItems == null && item.gameObject.scene != scene)) continue;
-                if (!items.TryAdd(item.ObjectId, item))
+                if (item == null) continue;
+                if (sceneItems == null && item.OwningScene != scene && item.gameObject.scene != scene) continue;
+                if (items.TryGetValue(item.ObjectId, out var existing))
                 {
-                    Debug.LogError(
-                        $"[Match] Duplicate carryable object id '{item.ObjectId}'.",
-                        item);
+                    if (ReferenceEquals(existing, item)) continue;
+                    if (existing != null)
+                    {
+                        Debug.LogError(
+                            $"[Match] Duplicate carryable object id '{item.ObjectId}'.",
+                            item);
+                        continue;
+                    }
+
+                    items[item.ObjectId] = item;
+                    continue;
                 }
+
+                items.Add(item.ObjectId, item);
             }
         }
 
@@ -359,6 +392,9 @@ namespace Game.Bootstrap
 
             if (!items.TryGetValue(assignedItemId, out var item) || item == null)
             {
+                // 배정 물건이 아직 없으면 목록을 다시 훑되, 매 틱 씬 전체를 뒤지지는 않는다.
+                if (Time.unscaledTimeAsDouble < nextAssignmentItemScanAt) return;
+                nextAssignmentItemScanAt = Time.unscaledTimeAsDouble + 1d;
                 RefreshItems();
                 if (!items.TryGetValue(assignedItemId, out item) || item == null)
                 {
@@ -419,14 +455,24 @@ namespace Game.Bootstrap
                             state.HolderPlayerIndex,
                             out var holder))
                     {
+                        if (attachWarnings.Add(state.ObjectId))
+                            Debug.LogWarning(
+                                $"[Interaction] '{state.ObjectId}' is held by player {state.HolderPlayerIndex} on authority " +
+                                $"but that player has no avatar here (known indices: {string.Join(",", interactors.Keys)}).");
                         continue;
                     }
 
                     ForgetItem(item);
                     if (!holder.ApplyConfirmedPickup(item))
                     {
+                        if (attachWarnings.Add(state.ObjectId))
+                            Debug.LogWarning(
+                                $"[Interaction] could not attach '{state.ObjectId}' to player {state.HolderPlayerIndex}: " +
+                                $"already carrying '{holder.CarriedItem?.ObjectId}'.");
                         continue;
                     }
+
+                    attachWarnings.Remove(state.ObjectId);
                 }
                 else
                 {
@@ -451,6 +497,29 @@ namespace Game.Bootstrap
                 }
 
                 appliedVersions[state.ObjectId] = state.Version;
+            }
+
+            DetachItemsMissingFromAuthority();
+        }
+
+        /// <summary>
+        /// 복제 배열에 더는 없는 물건을 누가 들고 있으면 손에서 뗀다. 매치가 끝나 호스트가 배열을 비웠거나 상태가
+        /// 사라진 경우, 예전엔 그 물건이 플레이어에 붙은 채 남아 로비까지 따라왔다.
+        /// </summary>
+        private void DetachItemsMissingFromAuthority()
+        {
+            if (!objectStatesReceived) return;
+            replicatedIds.Clear();
+            for (var index = 0; index < objectStates.Length; index++) replicatedIds.Add(objectStates[index].ObjectId);
+
+            foreach (var interactor in interactors.Values)
+            {
+                var carried = interactor != null ? interactor.CarriedItem : null;
+                if (carried == null || replicatedIds.Contains(carried.ObjectId)) continue;
+                Debug.LogWarning(
+                    $"[Interaction] '{carried.ObjectId}' is carried by {interactor.name} but authority no longer tracks it; detaching.");
+                interactor.ForgetConfirmedItem(carried);
+                carried.OnNetworkPose(new Pose(carried.transform.position, carried.transform.rotation));
             }
         }
 
@@ -518,6 +587,11 @@ namespace Game.Bootstrap
             }
         }
 
+        /// <summary>
+        /// 매치 씬을 떠날 때 손에 남은 물건을 모두 지운다. 들고 있던 물건은 플레이어(씬을 넘어 살아남는
+        /// 네트워크 오브젝트) 아래에 붙어 있어, 여기서 지우지 않으면 로비까지 따라온다. 등록된 물건뿐 아니라
+        /// 각 플레이어의 CarriedItem과 HoldPoint 아래에 남은 것도 함께 정리한다.
+        /// </summary>
         private void DestroyCarriedSceneItems()
         {
             foreach (var item in items.Values)
@@ -529,6 +603,24 @@ namespace Game.Bootstrap
 
                 ForgetItem(item);
                 UnityEngine.Object.Destroy(item.gameObject);
+            }
+
+            foreach (var interactor in interactors.Values)
+            {
+                if (interactor == null) continue;
+                var carried = interactor.CarriedItem;
+                if (carried != null)
+                {
+                    interactor.ForgetConfirmedItem(carried);
+                    UnityEngine.Object.Destroy(carried.gameObject);
+                }
+
+                var holdPoint = interactor.HoldPoint;
+                if (holdPoint == null) continue;
+                foreach (var stray in holdPoint.GetComponentsInChildren<CarryableItem>(true))
+                {
+                    if (stray != null) UnityEngine.Object.Destroy(stray.gameObject);
+                }
             }
         }
 
@@ -565,6 +657,7 @@ namespace Game.Bootstrap
             IReadOnlyList<MatchObjectStateSnapshot> states)
         {
             if (suspendedForHighlights) return;
+            objectStatesReceived = true;
             objectStates = states == null
                 ? Array.Empty<MatchObjectStateSnapshot>()
                 : Copy(states);

@@ -218,6 +218,7 @@ namespace Game.Bootstrap
         private HighlightCandidate currentHighlight;
         private HighlightShot[] shots = Array.Empty<HighlightShot>();
         private int currentShotIndex = -1;
+        private double currentPlaybackTime;
 
         public HighlightCameraDirector(
             Transform cameraTransform,
@@ -230,7 +231,8 @@ namespace Game.Bootstrap
             float followSharpness = 10f,
             int collisionLayerMask = Physics.DefaultRaycastLayers,
             IReadOnlyList<SceneHighlightOcclusionReference> occlusionGroups = null,
-            IReadOnlyList<HighlightCctvCamera> cctvCameras = null)
+            IReadOnlyList<HighlightCctvCamera> cctvCameras = null,
+            IReadOnlyList<HighlightReplayClip> replayClips = null)
         {
             this.cameraTransform = cameraTransform ??
                 throw new ArgumentNullException(nameof(cameraTransform));
@@ -270,6 +272,7 @@ namespace Game.Bootstrap
                 CacheReplayRenderers(target);
 
             this.cctvCameras = cctvCameras ?? Array.Empty<HighlightCctvCamera>();
+            this.replayClips = replayClips ?? Array.Empty<HighlightReplayClip>();
             this.closeDistance = closeDistance;
             this.wideDistance = wideDistance;
             this.height = height;
@@ -321,6 +324,7 @@ namespace Game.Bootstrap
                 return false;
             }
 
+            BuildCctvPlan(highlight);
             SetPlaybackTime(0d);
             return true;
         }
@@ -329,6 +333,8 @@ namespace Game.Bootstrap
         {
             if (!double.IsFinite(playbackTime) || playbackTime < 0d)
                 throw new ArgumentOutOfRangeException(nameof(playbackTime));
+            currentPlaybackTime = playbackTime;
+            ApplyCctvPlan(playbackTime);
             if (shots.Length == 0) return;
             var next = shots.Length - 1;
             for (var index = 0; index < shots.Length; index++)
@@ -407,6 +413,7 @@ namespace Game.Bootstrap
 
         private void ApplyShot(HighlightShot shot)
         {
+            ResetCctvPrediction();
             currentTarget = ResolveTarget(currentHighlight.TargetId);
             supportingPlayer = shot.Subject == HighlightShotSubject.Overview
                 ? null

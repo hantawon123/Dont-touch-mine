@@ -15,7 +15,8 @@ namespace Game.Client.Match
     {
         Hidden,
         Full,
-        Searching
+        Searching,
+        HidingWait
     }
 
     public interface IChatView
@@ -186,12 +187,17 @@ namespace Game.Client.Match
 
         public static bool ShowsHistory(MatchChatHudMode hudMode)
         {
-            return hudMode == MatchChatHudMode.Full;
+            return hudMode == MatchChatHudMode.Full || hudMode == MatchChatHudMode.HidingWait;
         }
 
         public static bool ShowsInput(MatchChatHudMode hudMode, bool isActivated)
         {
-            return hudMode != MatchChatHudMode.Hidden && isActivated;
+            if (hudMode == MatchChatHudMode.Hidden)
+            {
+                return false;
+            }
+
+            return hudMode == MatchChatHudMode.HidingWait || isActivated;
         }
 
         public void SetMode(MatchChatHudMode value)

@@ -29,6 +29,8 @@ namespace Game.Tests.EditMode
             Assert.That(HighlightReplaySerializer.TryDeserializeCompressed(packed, out var restored), Is.True);
             Assert.That(restored[0].Clips[0].Frames.Count, Is.EqualTo(101));
             Assert.That(restored[0].Clips[0].Frames[100].WorldObjects.Count, Is.EqualTo(32));
+            Assert.That(() => HighlightReplaySerializer.Serialize(new[] { replay[0], replay[0], replay[0] }),
+                Throws.TypeOf<System.ArgumentException>());
             Assert.That(HighlightReplaySerializer.TryDeserializeCompressed(new byte[] { 1, 2, 3 }, out _), Is.False);
             Assert.That(HighlightReplaySerializer.TryDeserializeCompressed(raw, out _), Is.False);
         }
@@ -105,7 +107,7 @@ namespace Game.Tests.EditMode
         [TestCase(110d, 110d)]
         [TestCase(111d, 111d)]
         [TestCase(113d, 113d)]
-        [TestCase(120d, 113d)]
+        [TestCase(120d, 114.5d)]
         public void FirstBlood_LimitsTailToMatchEnd_AndIsNotRepeatedAsFinalMoment(
             double matchEndedAt, double expectedClipEnd)
         {
@@ -114,7 +116,7 @@ namespace Game.Tests.EditMode
                 recorder.RecordItemDestroyed(1, "a", 110);
                 var candidates = recorder.CaptureCandidates(matchEndedAt);
                 var first = candidates.Single(c => c.Type == HighlightType.FirstBlood);
-                Assert.That(first.StartedAt, Is.EqualTo(103));
+                Assert.That(first.StartedAt, Is.EqualTo(100));
                 Assert.That(first.EndedAt, Is.EqualTo(expectedClipEnd));
                 Assert.That(candidates.Any(c => c.Type == HighlightType.FinalMoment), Is.False);
             });

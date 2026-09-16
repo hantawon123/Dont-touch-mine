@@ -134,6 +134,15 @@ namespace Game.Client
             "Hit_Run",
             "Hit_Crouch",
             "Hit_Crouch_Walk",
+            "Hit_Prone",
+            "Hit_Crawl",
+            "Carry_TwoHands_Hit",
+            "Carry_TwoHands_Hit_Walk",
+            "Carry_TwoHands_Hit_Run",
+            "Carry_TwoHands_Hit_Crouch",
+            "Carry_TwoHands_Hit_Crouch_Walk",
+            "Carry_TwoHands_Hit_Prone",
+            "Carry_TwoHands_Hit_Crawl",
             "Stun_Start",
             "Stun_Idle",
             "Stun_End",
@@ -141,6 +150,7 @@ namespace Game.Client
 
         private static readonly string[] GroupOrder =
         {
+            "들고 Hit",
             "서기",
             "공중",
             "웅크리기",
@@ -191,7 +201,12 @@ namespace Game.Client
                 throw new System.ArgumentException("At least one preview motion is required.", nameof(names));
             }
 
-            stateNames = SortByCategory(names);
+            if (animator == null)
+            {
+                animator = GetComponent<Animator>() ?? GetComponentInChildren<Animator>(true);
+            }
+
+            stateNames = WithControllerMotions(animator, WithDefaultMotions(names));
             index = 0;
             EnsureGroupExpanded(CategoryOf(stateNames[0]));
         }
@@ -213,18 +228,11 @@ namespace Game.Client
 
             CacheFeet(transform);
             CacheCrouchGroin();
-            if (stateNames == null || stateNames.Length < DefaultMotions.Length)
-            {
-                stateNames = (string[])DefaultMotions.Clone();
-            }
-            else
-            {
-                stateNames = SortByCategory(stateNames);
-            }
+            stateNames = WithControllerMotions(animator, WithDefaultMotions(stateNames));
 
             foreach (var title in GroupOrder)
             {
-                groupExpanded[title] = title is "서기" or "전투";
+                groupExpanded[title] = title is "들고 Hit" or "전투";
             }
 
             standRotation = transform.rotation;
@@ -678,6 +686,18 @@ namespace Game.Client
                 return "기타";
             }
 
+            if (state.StartsWith("Carry_TwoHands_Hit", System.StringComparison.Ordinal))
+            {
+                return "들고 Hit";
+            }
+
+            if (state.StartsWith("Punch", System.StringComparison.Ordinal) ||
+                state.StartsWith("Hit", System.StringComparison.Ordinal) ||
+                state.StartsWith("Stun", System.StringComparison.Ordinal))
+            {
+                return "전투";
+            }
+
             if (state.StartsWith("Carry_TwoHands", System.StringComparison.Ordinal) ||
                 state.StartsWith("PutUp_TwoHands", System.StringComparison.Ordinal) ||
                 state.StartsWith("PutDown_TwoHands", System.StringComparison.Ordinal) ||
@@ -689,13 +709,6 @@ namespace Game.Client
             if (state.StartsWith("Carry", System.StringComparison.Ordinal))
             {
                 return "들기";
-            }
-
-            if (state.StartsWith("Punch", System.StringComparison.Ordinal) ||
-                state.StartsWith("Hit", System.StringComparison.Ordinal) ||
-                state.StartsWith("Stun", System.StringComparison.Ordinal))
-            {
-                return "전투";
             }
 
             if (state.StartsWith("Pickup", System.StringComparison.Ordinal) ||
@@ -764,6 +777,68 @@ namespace Game.Client
                     : string.CompareOrdinal(a, b);
             });
             return copy;
+        }
+
+        private static string[] WithDefaultMotions(string[] names)
+        {
+            var merged = new List<string>();
+            var seen = new HashSet<string>();
+            if (names != null)
+            {
+                for (var i = 0; i < names.Length; i++)
+                {
+                    var name = names[i];
+                    if (string.IsNullOrEmpty(name) || !seen.Add(name))
+                    {
+                        continue;
+                    }
+
+                    merged.Add(name);
+                }
+            }
+
+            for (var i = 0; i < DefaultMotions.Length; i++)
+            {
+                var name = DefaultMotions[i];
+                if (seen.Add(name))
+                {
+                    merged.Add(name);
+                }
+            }
+
+            return SortByCategory(merged.ToArray());
+        }
+
+        private static string[] WithControllerMotions(Animator target, string[] names)
+        {
+            if (target == null || target.runtimeAnimatorController == null)
+            {
+                return names;
+            }
+
+            var clips = target.runtimeAnimatorController.animationClips;
+            if (clips == null || clips.Length == 0)
+            {
+                return names;
+            }
+
+            var merged = new List<string>(names);
+            var seen = new HashSet<string>(names);
+            for (var i = 0; i < clips.Length; i++)
+            {
+                var clip = clips[i];
+                if (clip == null || !clip.name.StartsWith("Carry_TwoHands_Hit", System.StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (seen.Add(clip.name))
+                {
+                    merged.Add(clip.name);
+                }
+            }
+
+            return SortByCategory(merged.ToArray());
         }
     }
 }

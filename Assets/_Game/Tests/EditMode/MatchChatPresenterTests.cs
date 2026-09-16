@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Home;
 using Game.Client.Match;
 using Game.Client.Players;
 using Game.Core.Lobby;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Tests.EditMode
 {
@@ -86,12 +88,17 @@ namespace Game.Tests.EditMode
                     Is.LessThanOrEqualTo(MatchChatBubbleView.MaxBubbleWidth));
                 var bubbleText = bubble.GetComponentInChildren<TMPro.TMP_Text>();
                 Assert.That(bubbleText.fontSize, Is.EqualTo(MatchChatBubbleView.FontSize));
-                Assert.That(bubbleText.font.name, Does.Contain("Regular").IgnoreCase);
+                Assert.That(bubbleText.color, Is.EqualTo(MatchChatBubbleView.TextColor));
+                Assert.That(bubbleText.color, Is.EqualTo(Color.white));
                 var panel = bubble.Find("Panel")?.GetComponent<UnityEngine.UI.Image>();
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.type, Is.EqualTo(UnityEngine.UI.Image.Type.Sliced));
+                Assert.That(panel.sprite, Is.EqualTo(HomeUiFonts.RoundedSprite));
+                Assert.That(
+                    panel.pixelsPerUnitMultiplier,
+                    Is.EqualTo(MatchChatBubbleView.SlicePixelsPerUnitMultiplier));
                 Assert.That(panel.color, Is.EqualTo(MatchChatBubbleView.BubbleColor));
-                Assert.That(panel.color.a, Is.EqualTo(0.27f));
+                Assert.That(panel.color.a, Is.EqualTo(0.8f));
             }
             finally
             {

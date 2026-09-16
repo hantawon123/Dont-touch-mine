@@ -614,6 +614,39 @@ namespace Game.Server.Match
             return true;
         }
 
+        /// <summary>
+        /// 놓기·던지기·배치가 왜 거부됐는지 사람이 읽을 수 있는 한 줄로 설명한다. 호스트 로그와 요청한
+        /// 클라이언트의 경고에 붙여, 팀 테스트에서 "물건이 손에 붙어 안 떨어진다"의 원인을 바로 볼 수 있게 한다.
+        /// </summary>
+        /// <param name="requirePlacementValidity">배치(release)처럼 겹침·받침 검사가 필요한 요청이면 true.</param>
+        public string DescribeReleaseBlock(int playerIndex, Pose pose, double now, bool requirePlacementValidity)
+        {
+            if (playerIndex < 0 || playerIndex >= Players.Players.Count) return "unknown player index";
+            if (!Players.IsActive(playerIndex)) return "player is not active in this match";
+
+            var phase = state.CurrentPhase.CurrentValue;
+            if (phase == MatchPhase.Hiding)
+            {
+                var turn = flow.GetCurrentHidingTurnIndex(now);
+                if (turn != playerIndex) return $"hiding phase: not this player's turn (current turn={turn})";
+                if (flow.GetHidingTurnRemainingSeconds(now) <= 0d) return "hiding phase: turn time is over";
+                if (completedHidingTurns[playerIndex]) return "hiding phase: turn already completed";
+            }
+            else if (!IsSearchingAt(now))
+            {
+                return $"phase={phase}: interactions are closed";
+            }
+            else if (interactions.IsStunned(playerIndex, now))
+            {
+                return "player is stunned";
+            }
+
+            if (!TryGetHeldObjectId(playerIndex, out var objectId)) return "authority has no held object for this player";
+            if (requirePlacementValidity && !placementValidator.IsValid(objectId, pose))
+                return $"placement pose invalid on authority (overlap or no support) at {pose.position}";
+            return "unknown";
+        }
+
         public bool TryGetHeldObjectId(int playerIndex, out string objectId)
         {
             var heldItemOwner = outcome.GetHeldItemOwner(playerIndex);
@@ -949,12 +982,13 @@ namespace Game.Server.Match
 
         public bool TryApplyDirectorSelection(Game.Core.Ports.HighlightDirectorReply reply)
         {
-            if(CurrentPhase!=MatchPhase.Highlight || highlightSelectionFrozen || reply?.IsUsable(aiCandidates.Length)!=true) return false;
+            var pickCount=reply?.UsablePickCount(aiCandidates.Length) ?? 0;
+            if(CurrentPhase!=MatchPhase.Highlight || highlightSelectionFrozen || pickCount==0) return false;
             var selected=new List<HighlightCandidate>();
-            foreach(var pick in reply.picks) selected.Add(aiCandidates[pick.id]);
+            for(int i=0;i<pickCount;i++) selected.Add(aiCandidates[reply.picks[i].id]);
             highlights=new HighlightSequence(selected,rules,true);
             aiCaptions.Clear();
-            for(int i=0;i<selected.Count;i++) aiCaptions.Add(selected[i],reply.picks[i]);
+            for(int i=0;i<pickCount;i++) aiCaptions.Add(selected[i],reply.picks[i]);
             return true;
         }
 

@@ -169,6 +169,7 @@ namespace Game.Network.Session
         private readonly PlayerProfile _profile;
         private readonly PublishedPlayerName _publishedName;
         private readonly IAccountReady _accountReady;
+        private readonly IChatModeration _chatModeration;
 
         /// <summary>Where the authority's decision about starting is reported.</summary>
         private readonly IMatchStartSink _matchStartSink;
@@ -322,7 +323,8 @@ namespace Game.Network.Session
             NetworkScenes scenes = null,
             ServerRegionSystem regions = null,
             PublishedPlayerName publishedName = null,
-            IAccountReady accountReady = null)
+            IAccountReady accountReady = null,
+            IChatModeration chatModeration = null)
         {
             _roomListSink = roomListSink;
             _sessionSink = sessionSink;
@@ -338,6 +340,10 @@ namespace Game.Network.Session
             // supply one. Null means no wait, which is what those tests expect -
             // they never sign in.
             _accountReady = accountReady;
+
+            // Only a dedicated server is given one. Null leaves chat exactly as it was, which
+            // is what a player's build and the tests want.
+            _chatModeration = chatModeration;
         }
 
         /// <summary>
@@ -1761,7 +1767,7 @@ namespace Game.Network.Session
             // This service is the scene director: it already owns the runner's
             // scene manager, the initial scene and the scene callbacks, so the
             // starter can confirm a line-up without learning what a scene is.
-            _matchStarter.Bind(_matchStartSink, _roster, this);
+            _matchStarter.Bind(_matchStartSink, _roster, this, _chatModeration);
             _matchStarter.LobbyKickRequested += OnLobbyKickRequested;
             _matchStarter.LobbySettingsRequested += OnLobbySettingsRequested;
             _matchStarter.RoomClaimRequested += OnRoomClaimRequested;

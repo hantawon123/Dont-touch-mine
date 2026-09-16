@@ -9,7 +9,7 @@ namespace Game.SOAP.Config
         public const int MinPlayerCount = 1;
         public const int MaxPlayerCount = 6;
         public const int PlayerCount = MaxPlayerCount;
-        public const int MaxHighlightCount = 3;
+        public const int MaxHighlightCount = 2;
 
         [SerializeField, Min(1f)]
         private float hidingTurnDurationSeconds = 30f;

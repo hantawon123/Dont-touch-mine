@@ -19,6 +19,12 @@ namespace Game.Architecture.Tests
                 Assert.That(timer, Is.Not.Null);
                 Assert.That(timer.text, Is.EqualTo("00:30"));
                 Assert.That(timer.fontSize, Is.EqualTo(HidingActiveHudView.TimerFontSize));
+                Assert.That(HidingActiveHudView.TimerFontSize, Is.EqualTo(58.5f));
+                Assert.That(
+                    timer.rectTransform.sizeDelta,
+                    Is.EqualTo(new Vector2(
+                        HidingActiveHudView.TimerWidth,
+                        HidingActiveHudView.TimerHeight)));
 
                 var hint = view.transform.Find("TopPrompt/Hint")?.GetComponent<TMPro.TMP_Text>();
                 Assert.That(hint, Is.Not.Null);

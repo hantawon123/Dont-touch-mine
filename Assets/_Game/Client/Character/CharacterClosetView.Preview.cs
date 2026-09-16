@@ -73,7 +73,8 @@ namespace Game.Client.Character
             image.raycastTarget = true;
             portrait.gameObject.AddComponent<AvatarPreviewOrbit>().Initialize(camera,generatedPreviewRoot.transform);
             var hint=CreateText("PortraitControlsHint",portrait,"좌우 드래그로 회전 · 두 번 클릭해 정면",20,
-                Color.black,TMPro.TextAlignmentOptions.Center);
+                lobbyOverlay ? CharacterClosetStyle.Palette.TextPrimary : Color.black,
+                TMPro.TextAlignmentOptions.Center);
             SetAnchor(hint,new Vector2(.5f,0),new Vector2(.5f,0),new Vector2(.5f,1));
             hint.anchoredPosition=new Vector2(0,-8);hint.sizeDelta=new Vector2(560,32);
             generatedPreviewRoot.SetActive(isActiveAndEnabled);

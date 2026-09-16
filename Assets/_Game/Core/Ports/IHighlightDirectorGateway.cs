@@ -13,11 +13,17 @@ namespace Game.Core.Ports
     [Serializable] public sealed class HighlightDirectorPick { public int id; public string title, summary; }
     [Serializable] public sealed class HighlightDirectorReply
     {
+        public const int MaxPickCount = 2;
+        private const int LegacyMaxPickCount = 3;
+
         public bool available;
         public HighlightDirectorPick[] picks;
         public bool IsUsable(int count)
         {
-            if(!available || picks == null || picks.Length != Math.Min(3,count)) return false;
+            var currentCount=Math.Min(MaxPickCount,count);
+            var legacyCount=Math.Min(LegacyMaxPickCount,count);
+            if(!available || picks == null ||
+                picks.Length != currentCount && picks.Length != legacyCount) return false;
             int used = 0;
             foreach(var pick in picks)
             {
@@ -27,6 +33,9 @@ namespace Game.Core.Ports
             }
             return count > 0 && count <= 10;
         }
+
+        public int UsablePickCount(int candidateCount) =>
+            IsUsable(candidateCount) ? Math.Min(MaxPickCount,picks.Length) : 0;
         public static bool ValidText(string value,int limit)
         {
             if(string.IsNullOrWhiteSpace(value) || value.Length > limit || value != value.Trim()) return false;
