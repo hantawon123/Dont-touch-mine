@@ -28,4 +28,13 @@ public interface ReportDetailRow {
     String getCreatedAt();
 
     String getStatus();
+
+    /**
+     * 어느 경기에서 한 신고인지 (예: {@code 7K2M9P#2}). 옛 클라이언트가 보내지 않았으면 null 입니다.
+     *
+     * <p><b>'#' 앞이 방 코드입니다.</b> 그 값으로 그 방 그 시간대의 대화를 찾습니다
+     * (S15P21D205-1030). 뒤의 숫자는 피어마다 자기가 본 경기 수를 센 것이라 전역 식별자가
+     * 아니고, 그래서 조인 키로 쓰지 않습니다.
+     */
+    String getContextKey();
 }
