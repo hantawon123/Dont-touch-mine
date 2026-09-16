@@ -207,6 +207,9 @@ namespace Game.Architecture.Tests
                 Assert.That(MatchChatView.ShowsHistory(MatchChatHudMode.Full), Is.True);
                 Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Full, false), Is.False);
                 Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Full, true), Is.True);
+                Assert.That(MatchChatView.ShowsHistory(MatchChatHudMode.HidingWait), Is.True);
+                Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.HidingWait, false), Is.True);
+                Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.HidingWait, true), Is.True);
 
                 view.SetMode(MatchChatHudMode.Full);
                 Assert.That(
@@ -220,6 +223,39 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     view.transform.Find("InputPanel").gameObject.activeSelf,
                     Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void HidingWaitMode_ShowsHistoryAndInputWhileDeactivated()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform);
+                view.SetMessages(new[]
+                {
+                    new LobbyChatMessage("a", "싸피생1", "하나")
+                });
+                view.SetMode(MatchChatHudMode.HidingWait);
+
+                Assert.That(view.Mode, Is.EqualTo(MatchChatHudMode.HidingWait));
+                Assert.That(view.IsActivated, Is.False);
+                Assert.That(
+                    view.transform.Find("HistoryPanel").gameObject.activeSelf,
+                    Is.True);
+                Assert.That(
+                    view.transform.Find("InputPanel").gameObject.activeSelf,
+                    Is.True);
+                view.Deactivate();
+                Assert.That(view.IsActivated, Is.False);
+                Assert.That(
+                    view.transform.Find("InputPanel").gameObject.activeSelf,
+                    Is.True);
             }
             finally
             {

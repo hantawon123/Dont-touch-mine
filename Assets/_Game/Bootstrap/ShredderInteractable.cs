@@ -104,11 +104,13 @@ namespace Game.Bootstrap
                 return;
             }
 
-            var ejectionDirection = Vector3.ProjectOnPlane(
-                    ejectionTarget.position - ejectionPoint.position,
-                    Vector3.up)
-                .normalized;
+            var ejectionDirection = Vector3.ProjectOnPlane(ejectionPoint.right, Vector3.up);
+            if (ejectionDirection.sqrMagnitude <= 0.0001f)
+            {
+                ejectionDirection = ejectionPoint.right;
+            }
 
+            ejectionDirection.Normalize();
             item.transform.SetPositionAndRotation(
                 ejectionPoint.position,
                 ejectionPoint.rotation);

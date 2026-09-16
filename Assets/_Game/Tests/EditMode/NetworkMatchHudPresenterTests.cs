@@ -942,7 +942,7 @@ namespace Game.Architecture.Tests
                 Assert.That(view.HidingWaitNextTurn, Is.True);
                 Assert.That(view.HidingWaitRemaining, Is.EqualTo(20d).Within(0.001d));
                 Assert.That(view.MatchChatVisible, Is.True);
-                Assert.That(view.MatchChatMode, Is.EqualTo(MatchChatHudMode.Full));
+                Assert.That(view.MatchChatMode, Is.EqualTo(MatchChatHudMode.HidingWait));
                 Assert.That(view.HidingActiveTopPromptVisible, Is.False);
                 Assert.That(view.TopHudVisible, Is.False);
             }
@@ -1263,6 +1263,52 @@ namespace Game.Architecture.Tests
                     new PlayerInteractionStateSnapshot(1, 202d, 5, 0),
                 });
                 Assert.That(view.VitalsHits, Is.EqualTo(3));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void Searching_UsesMatchRuleStunHitCountForHitBar()
+        {
+            Assert.That(
+                MatchRuleSettings.TryCreate(30, 5, 1f, 5, null, out var matchRules, out _),
+                Is.True);
+            var network = new FakeNetwork
+            {
+                ServerTime = 100d,
+                HasLocalStamina = true,
+                LocalStamina = 100f,
+                LocalMaxStamina = 100f,
+                MatchRules = matchRules,
+            };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            room.SetLocalPlayer("client");
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 460d));
+                Assert.That(view.VitalsHits, Is.EqualTo(5));
+                Assert.That(view.VitalsMaxHits, Is.EqualTo(5));
+
+                network.Publish(new[]
+                {
+                    new PlayerInteractionStateSnapshot(0, 0d, 5, 0),
+                    new PlayerInteractionStateSnapshot(1, 0d, 5, 2),
+                });
+                Assert.That(view.VitalsHits, Is.EqualTo(3));
+                Assert.That(view.VitalsMaxHits, Is.EqualTo(5));
             }
             finally
             {

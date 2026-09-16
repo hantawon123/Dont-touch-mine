@@ -557,7 +557,7 @@ namespace Game.Bootstrap
             if (snapshot.Phase == MatchPhase.Hiding)
             {
                 view.SetMatchChatMode(
-                    showHidingWaitChat ? MatchChatHudMode.Full : MatchChatHudMode.Hidden);
+                    showHidingWaitChat ? MatchChatHudMode.HidingWait : MatchChatHudMode.Hidden);
                 return;
             }
 

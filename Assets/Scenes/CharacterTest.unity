@@ -502,8 +502,6 @@ MonoBehaviour:
   - Carry_TwoHands_Hit_Run
   - Carry_TwoHands_Hit_Crouch
   - Carry_TwoHands_Hit_Crouch_Walk
-  - Hit_Prone
-  - Hit_Crawl
   - Carry_TwoHands_Hit_Prone
   - Carry_TwoHands_Hit_Crawl
   - Idle
@@ -602,6 +600,8 @@ MonoBehaviour:
   - PutDown_Crouch
   - PutDown_Prone
   - Throw
+  - Hit_Prone
+  - Hit_Crawl
   - Punch
   - Punch_Walk
   - Punch_Run
