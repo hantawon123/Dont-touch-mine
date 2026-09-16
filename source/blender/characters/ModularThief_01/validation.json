@@ -1,0 +1,93 @@
+{
+  "rig": "DGN_Armature",
+  "bones": 28,
+  "checks": [
+    {
+      "clip": "Walk_Forward",
+      "rest_matrix_max_error": 8.674012497067451e-05
+    },
+    {
+      "clip": "Run_Forward",
+      "rest_matrix_max_error": 8.674012497067451e-05
+    },
+    {
+      "clip": "Jump",
+      "rest_matrix_max_error": 8.528819307684898e-06
+    },
+    {
+      "clip": "Land",
+      "rest_matrix_max_error": 8.674012497067451e-05
+    },
+    {
+      "clip": "Crouch_Idle",
+      "rest_matrix_max_error": 2.1051964722573757e-05
+    },
+    {
+      "clip": "Crawl_Forward",
+      "rest_matrix_max_error": 8.528819307684898e-06
+    },
+    {
+      "clip": "Carry_TwoHands",
+      "rest_matrix_max_error": 8.528819307684898e-06
+    },
+    {
+      "clip": "Carry_TwoHands_Crouch_Idle",
+      "rest_matrix_max_error": 1.6450881958007812e-05
+    },
+    {
+      "clip": "Throw_TwoHands",
+      "rest_matrix_max_error": 8.528819307684898e-06
+    },
+    {
+      "clip": "Punch",
+      "rest_matrix_max_error": 8.528819307684898e-06
+    },
+    {
+      "clip": "Stun_Idle",
+      "rest_matrix_max_error": 8.528819307684898e-06
+    }
+  ],
+  "limitations": [
+    "Blender prototype; Unity runtime and wardrobe integration not executed.",
+    "Procedural Blender bump materials need baking for Unity.",
+    "Corrective keys retained and deformed with the surface; final pose sculpting may still be needed.",
+    "Body proportions remain constrained by First joint positions; this is not the exact short-limbed concept silhouette."
+  ],
+  "sampled_clips": [
+    "Idle",
+    "Walk_Forward",
+    "Run_Forward",
+    "Jump",
+    "Land",
+    "Crouch_Idle",
+    "Crawl_Forward",
+    "Carry_TwoHands",
+    "Carry_TwoHands_Crouch_Idle",
+    "Throw_TwoHands",
+    "Punch",
+    "Stun_Idle"
+  ],
+  "parts": {
+    "Hood": "Hood",
+    "Eye_White_L": "Eyes",
+    "Eye_Pupil_L": "Eyes",
+    "Eye_Glint_L": "Eyes",
+    "Eye_White_R": "Eyes",
+    "Eye_Pupil_R": "Eyes",
+    "Eye_Glint_R": "Eyes",
+    "Mouth_Smile": "Mouth",
+    "Feet_L": "Feet",
+    "Feet_R": "Feet",
+    "Backpack": "Body",
+    "Body": "Body"
+  },
+  "shape_keys": [
+    "Basis",
+    "Belly_Breath",
+    "Crouch_Groin_Flat",
+    "Crawl_Waist_Round",
+    "Crawl_Follow_R",
+    "Crawl_Follow_L",
+    "Custom_Belly"
+  ]
+}
