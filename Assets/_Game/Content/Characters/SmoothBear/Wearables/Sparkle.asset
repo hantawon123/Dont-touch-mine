@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a59d7ca632d97746ba4e86d31bf355a, type: 3}
+  m_Name: Sparkle
+  m_EditorClassIdentifier: Game.Client::Game.Client.Character.AvatarWearable
+  attachments:
+  - name: Part_Eye_Sparkle_Lash1_L
+    bone: Head
+    mesh: {fileID: 4300000, guid: e25c55cd82064224e9906b26bf1069b9, type: 2}
+    materials:
+    - {fileID: 2100000, guid: 4e5c40697f04422418ac9f7ff2b5e1e4, type: 2}
+    tintModes: 00000000
+  - name: Part_Eye_Sparkle_Lash1_R
+    bone: Head
+    mesh: {fileID: 4300000, guid: cab27ef1405cbbc4f8810fd3b363ac06, type: 2}
+    materials:
+    - {fileID: 2100000, guid: e7eeaf1b671aef3479623ef16d4b2063, type: 2}
+    tintModes: 00000000
+  - name: Part_Eye_Sparkle_Lash2_L
+    bone: Head
+    mesh: {fileID: 4300000, guid: 60b8d9949137fd94db7069cd4eb3a4a7, type: 2}
+    materials:
+    - {fileID: 2100000, guid: dff235f0f7cfc1245a11e4c63c48a5f3, type: 2}
+    tintModes: 00000000
+  - name: Part_Eye_Sparkle_Lash2_R
+    bone: Head
+    mesh: {fileID: 4300000, guid: 3347928a6529f6f48b65846cedb8acc0, type: 2}
+    materials:
+    - {fileID: 2100000, guid: 2955ca991be931749b5cc2ec432f78f6, type: 2}
+    tintModes: 00000000
+  - name: Part_Eye_Sparkle_UpperLid_L
+    bone: Head
+    mesh: {fileID: 4300000, guid: 1172dd376ad1bc4468c2d9f856f20344, type: 2}
+    materials:
+    - {fileID: 2100000, guid: c3d7898033469374289f13340b944c81, type: 2}
+    tintModes: 00000000
+  - name: Part_Eye_Sparkle_UpperLid_R
+    bone: Head
+    mesh: {fileID: 4300000, guid: a9c8e34b4d3ae9643b17912945594361, type: 2}
+    materials:
+    - {fileID: 2100000, guid: a7472a4e7c737a847928b84d36d875ca, type: 2}
+    tintModes: 00000000
+  - name: Part_Eye_White_L
+    bone: Head
+    mesh: {fileID: 4300000, guid: 32f7eb130a5cf204ea8e162f525e43ca, type: 2}
+    materials:
+    - {fileID: 2100000, guid: e76a4ec3b8882914f8119a70d7b8305d, type: 2}
+    - {fileID: 2100000, guid: 8c8ecdb627eb3354da0a37634e0a44bb, type: 2}
+    tintModes: 0000000000000000
+  - name: Part_Eye_White_R
+    bone: Head
+    mesh: {fileID: 4300000, guid: 1b34cac89d1bc43468af1cdc3bd42ec2, type: 2}
+    materials:
+    - {fileID: 2100000, guid: 435d853b67a6d0941be0790e8e0833c1, type: 2}
+    - {fileID: 2100000, guid: f14fc8adcad5e644ab213df8955abd3d, type: 2}
+    tintModes: 0000000000000000
