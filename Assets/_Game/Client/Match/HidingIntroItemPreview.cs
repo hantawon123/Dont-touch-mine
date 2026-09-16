@@ -15,8 +15,13 @@ namespace Game.Client.Match
     internal sealed class HidingIntroItemPreview
     {
         public const string IntroSlotName = "ItemPreview";
-        public const float IntroImageSize = 360f;
-        public const float IntroCenterOffsetY = 118f;
+        /// <summary>
+        /// Landscape slot above the two briefing lines. Wide props were
+        /// cropped in the old 360×360 square.
+        /// </summary>
+        public static readonly Vector2 IntroImageSize = new(2200f, 680f);
+        public const float IntroCenterOffsetY = 282f;
+        public const int IntroTextureSize = 1024;
         private const string PreviewLayerName = "Item Preview";
         private const float RotationDegreesPerSecond = 28f;
         private static readonly Vector3 StagePosition = new(0f, -2500f, 0f);
@@ -42,7 +47,7 @@ namespace Game.Client.Match
             bool rotates = true)
         {
             this.target = target;
-            this.textureSize = Mathf.Clamp(textureSize, 64, 512);
+            this.textureSize = Mathf.Clamp(textureSize, 64, 1024);
             this.backgroundColor = backgroundColor ?? Color.black;
             this.stageOffset = stageOffset ?? Vector3.zero;
             this.rotates = rotates;
@@ -87,7 +92,7 @@ namespace Game.Client.Match
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = new Vector2(0f, IntroCenterOffsetY);
-            rect.sizeDelta = new Vector2(IntroImageSize, IntroImageSize);
+            rect.sizeDelta = IntroImageSize;
         }
 
         public void Show(string itemId)
@@ -214,11 +219,7 @@ namespace Game.Client.Match
             stage.transform.position = StagePosition + stageOffset;
             ApplyPreviewLayer(stage);
 
-            texture = new RenderTexture(textureSize, textureSize, 16)
-            {
-                name = "Hiding Intro Preview",
-                antiAliasing = 1
-            };
+            texture = CreatePreviewTexture();
 
             var cameraObject = new GameObject("Preview Camera");
             cameraObject.transform.SetParent(stage.transform, false);
@@ -444,6 +445,61 @@ namespace Game.Client.Match
             return stageLight;
         }
 
+        private RenderTexture CreatePreviewTexture()
+        {
+            var size = PreviewTexturePixelSize();
+            return new RenderTexture(size.x, size.y, 16)
+            {
+                name = "Hiding Intro Preview",
+                antiAliasing = 1
+            };
+        }
+
+        private Vector2Int PreviewTexturePixelSize()
+        {
+            var aspect = PreviewAspect;
+            if (aspect >= 1f)
+            {
+                return new Vector2Int(
+                    textureSize,
+                    Mathf.Max(64, Mathf.RoundToInt(textureSize / aspect)));
+            }
+
+            return new Vector2Int(
+                Mathf.Max(64, Mathf.RoundToInt(textureSize * aspect)),
+                textureSize);
+        }
+
+        private float PreviewAspect
+        {
+            get
+            {
+                if (target != null)
+                {
+                    var ui = target.rectTransform.sizeDelta;
+                    if (ui.y > 0.01f && ui.x > 0.01f)
+                    {
+                        return ui.x / ui.y;
+                    }
+                }
+
+                return 1f;
+            }
+        }
+
+        /// <summary>
+        /// Ortho size is half the vertical view. A wide slot must still fit the
+        /// spinning xz footprint, so wide props are no longer cropped.
+        /// </summary>
+        internal static float OrthographicSizeForBounds(Vector3 extents, float aspect)
+        {
+            var horizontal = Mathf.Sqrt(
+                (extents.x * extents.x) + (extents.z * extents.z));
+            var vertical = Mathf.Max(extents.y, 0.01f);
+            aspect = Mathf.Max(aspect, 0.01f);
+            return Mathf.Max(vertical, horizontal / aspect) * 1.2f + 0.04f;
+        }
+
         private void FitCamera(Transform preview)
         {
             var stageOrigin = stage != null ? stage.transform.position : StagePosition;
@@ -454,7 +510,7 @@ namespace Game.Client.Match
             var radius = Mathf.Max(0.12f, bounds.extents.magnitude);
             camera.transform.position = bounds.center + new Vector3(0.55f, 0.4f, -1f).normalized * (radius * 2.6f);
             camera.transform.LookAt(bounds.center);
-            camera.orthographicSize = Mathf.Max(bounds.extents.x, bounds.extents.y) * 1.2f + 0.04f;
+            camera.orthographicSize = OrthographicSizeForBounds(bounds.extents, PreviewAspect);
         }
 
         private static Bounds Encapsulate(Transform root)
