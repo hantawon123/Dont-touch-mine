@@ -1164,6 +1164,11 @@ namespace Game.Network.Match
             state = default;
             if (!CanTrackObject(objectId))
             {
+                // 여기서 false가 나면 도메인은 이미 바뀌었는데 복제 상태는 그대로 남아, 모든 클라이언트가
+                // 옛 상태(예: 누가 들고 있음)를 계속 보게 된다. 원인이 남도록 반드시 기록한다.
+                Debug.LogWarning(
+                    $"[Interaction] replicated object state write refused for '{objectId}': " +
+                    $"authority={Object != null && Object.HasStateAuthority}, tracked={ObjectStateCount}/{MaxReplicatedObjects}");
                 return false;
             }
 

@@ -34,6 +34,8 @@ namespace Game.Bootstrap
             new(StringComparer.Ordinal);
         private readonly Dictionary<int, PlayerInteractor> interactors = new();
         private readonly Dictionary<int, PlayerCombatant> combatants = new();
+        // 붙이기 실패를 물건별로 한 번만 경고하기 위한 기록(성공하면 지운다)
+        private readonly HashSet<string> attachWarnings = new();
         private readonly Dictionary<string, int> appliedVersions =
             new(StringComparer.Ordinal);
 
@@ -419,14 +421,24 @@ namespace Game.Bootstrap
                             state.HolderPlayerIndex,
                             out var holder))
                     {
+                        if (attachWarnings.Add(state.ObjectId))
+                            Debug.LogWarning(
+                                $"[Interaction] '{state.ObjectId}' is held by player {state.HolderPlayerIndex} on authority " +
+                                $"but that player has no avatar here (known indices: {string.Join(",", interactors.Keys)}).");
                         continue;
                     }
 
                     ForgetItem(item);
                     if (!holder.ApplyConfirmedPickup(item))
                     {
+                        if (attachWarnings.Add(state.ObjectId))
+                            Debug.LogWarning(
+                                $"[Interaction] could not attach '{state.ObjectId}' to player {state.HolderPlayerIndex}: " +
+                                $"already carrying '{holder.CarriedItem?.ObjectId}'.");
                         continue;
                     }
+
+                    attachWarnings.Remove(state.ObjectId);
                 }
                 else
                 {
