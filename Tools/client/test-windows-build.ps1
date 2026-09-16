@@ -18,7 +18,7 @@ try {
     if (!(Get-Process -Id $process.Id -ErrorAction SilentlyContinue)) { throw 'Unowned process was stopped.' }
     @{ Id=$process.Id; Started=$process.StartTime.ToUniversalTime().Ticks.ToString(); Path=$exe } | ConvertTo-Json | Set-Content Logs/windows-unity-process.json
     & "$PSScriptRoot/stop-windows-build.ps1"
-    if (Get-Process -Id $process.Id -ErrorAction SilentlyContinue) { throw 'Owned process survived cleanup.' }
+    if (!$process.WaitForExit(10000)) { throw 'Owned process survived cleanup.' }
     Write-Output 'PASS: PowerShell syntax, PID reuse guard, owned process cleanup'
 } finally {
     if ($process -and (Get-Process -Id $process.Id -ErrorAction SilentlyContinue)) { Stop-Process -Id $process.Id -Force }
