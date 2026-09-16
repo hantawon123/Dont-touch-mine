@@ -135,6 +135,7 @@ namespace Game.Client.Settings
             top = AddSection(page, SettingsStyle.Controls.MicrophoneHeading, top);
             top = AddKeyRow(page, ControlAction.MicrophoneTalk, top);
             top = AddKeyRow(page, ControlAction.VoiceToggle, top);
+            top = AddKeyRow(page, ControlAction.ToggleSpeaker, top);
 
             top = AddSection(page, SettingsStyle.Controls.KeyboardMoveHeading, top);
             foreach (var action in MovementRows)

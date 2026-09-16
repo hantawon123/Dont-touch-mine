@@ -33,6 +33,7 @@ namespace Game.Bootstrap
         private readonly ReactiveProperty<bool> available = new(false);
         private readonly ReactiveProperty<bool> muted;
         private readonly ReactiveProperty<bool> transmitting = new(false);
+        private readonly ReactiveProperty<bool> listening;
 
         /// <summary>
         /// The rig these choices were last handed to, so a replacement can be
@@ -57,16 +58,23 @@ namespace Game.Bootstrap
             // in the lobby survives the walk into the match. 입력 모드 끄기 is
             // the same silence, from the sound tab.
             muted = new ReactiveProperty<bool>(EffectiveMute);
+            listening = new ReactiveProperty<bool>(preferences.Listening);
             this.sound.Changed += OnSoundChanged;
         }
 
         public ReadOnlyReactiveProperty<bool> IsAvailable => available;
         public ReadOnlyReactiveProperty<bool> IsMuted => muted;
         public ReadOnlyReactiveProperty<bool> IsTransmitting => transmitting;
+        public ReadOnlyReactiveProperty<bool> IsListening => listening;
 
         public void SetMuted(bool muted)
         {
             if (disposed) return;
+            if (!muted && !preferences.Listening)
+            {
+                return;
+            }
+
             preferences.Muted = muted;
             PublishEffectiveMute();
         }
@@ -75,7 +83,18 @@ namespace Game.Bootstrap
         {
             if (disposed) return;
             this.talking = talking;
-            network.Voice?.SetTalking(talking);
+            PublishTalking();
+        }
+
+        public void SetListening(bool listening)
+        {
+            if (disposed) return;
+            preferences.Listening = listening;
+            PublishListening();
+            // Effective mute follows the speaker, but the saved microphone
+            // choice is left alone so turning the speaker back on restores it.
+            PublishEffectiveMute();
+            PublishTalking();
         }
 
         /// <remarks>
@@ -101,7 +120,8 @@ namespace Game.Bootstrap
                 // nothing, so it hears what the player already decided.
                 current = voice;
                 voice.SetMuted(EffectiveMute);
-                voice.SetTalking(talking);
+                voice.SetTalking(EffectiveTalking);
+                voice.SetListening(preferences.Listening);
             }
 
             available.Value = voice.IsAvailable.CurrentValue;
@@ -116,17 +136,26 @@ namespace Game.Bootstrap
             available.Dispose();
             muted.Dispose();
             transmitting.Dispose();
+            listening.Dispose();
         }
 
         private bool EffectiveMute =>
-            VoiceMutePolicy.IsMuted(preferences.Muted, sound.Current.InputMode);
+            VoiceMutePolicy.IsMuted(
+                preferences.Muted, sound.Current.InputMode, preferences.Listening);
+
+        private bool EffectiveTalking =>
+            VoiceMutePolicy.IsTalking(
+                talking, sound.Current.InputMode, preferences.Listening);
 
         private void OnSoundChanged(SoundSettings _)
         {
-            if (!disposed)
+            if (disposed)
             {
-                PublishEffectiveMute();
+                return;
             }
+
+            PublishEffectiveMute();
+            PublishTalking();
         }
 
         private void PublishEffectiveMute()
@@ -134,6 +163,18 @@ namespace Game.Bootstrap
             var next = EffectiveMute;
             muted.Value = next;
             network.Voice?.SetMuted(next);
+        }
+
+        private void PublishTalking()
+        {
+            network.Voice?.SetTalking(EffectiveTalking);
+        }
+
+        private void PublishListening()
+        {
+            var next = preferences.Listening;
+            listening.Value = next;
+            network.Voice?.SetListening(next);
         }
     }
 }

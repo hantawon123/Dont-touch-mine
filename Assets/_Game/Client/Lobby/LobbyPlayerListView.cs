@@ -35,7 +35,10 @@ namespace Game.Client.Lobby
         public const float MuteIconSize = 16f;
         public const string AvatarDimName = "Dim";
         public const string MuteIconName = "Mute";
+        public const string VoiceIconName = "Voice";
         public const float NicknameLeft = 10f;
+        public const float VoiceIconGap = 6f;
+        public const float VoiceIconSize = 16f;
         public const float LeaderIconGap = 6f;
         public const float LeaderIconSize = 16f;
         public const float ActionRight = 16f;
@@ -223,7 +226,10 @@ namespace Game.Client.Lobby
                     canKick,
                     showAdd: false,
                     isSelf: isSelf,
-                    isMuted: participant.IsMuted);
+                    isMuted: participant.IsMuted,
+                    isTalking: participant.IsTalking,
+                    showVoice: false,
+                    isListening: participant.IsListening);
                 var playerId = participant.Id;
                 var rosterName = participant.DisplayName;
                 var displayName = shownName;
@@ -443,7 +449,8 @@ namespace Game.Client.Lobby
                     friend.Nickname,
                     showLeader: false,
                     showKick: false,
-                    showAdd: true);
+                    showAdd: true,
+                    showVoice: false);
                 BindInvite(row, friend.PlayerId, friend.Nickname, canInvite);
             }
         }
@@ -937,7 +944,10 @@ namespace Game.Client.Lobby
             bool showKick,
             bool showAdd,
             bool isSelf = false,
-            bool isMuted = false)
+            bool isMuted = false,
+            bool isTalking = false,
+            bool showVoice = true,
+            bool isListening = true)
         {
             var row = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             row.SetParent(parent, false);
@@ -946,9 +956,12 @@ namespace Game.Client.Lobby
             element.minHeight = RowHeight;
             element.flexibleWidth = 1f;
 
-            CreateAvatar(row, isMuted);
+            CreateAvatar(row, isMuted, isListening);
             var nameLabel = CreateNickname(row, nickname, isSelf);
-            CreateLeader(row, nameLabel, showLeader);
+            var afterName = showVoice
+                ? CreateVoice(row, nameLabel, isMuted, isTalking)
+                : nameLabel.rectTransform;
+            CreateLeader(row, afterName, showLeader);
             if (showKick)
             {
                 CreateKick(row);
@@ -976,7 +989,7 @@ namespace Game.Client.Lobby
             bucket.Add(row.gameObject);
         }
 
-        private static void CreateAvatar(RectTransform parent, bool muted)
+        private static void CreateAvatar(RectTransform parent, bool muted, bool listening)
         {
             var avatar = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
                 .GetComponent<RectTransform>();
@@ -987,13 +1000,14 @@ namespace Game.Client.Lobby
             image.color = AvatarColor;
             image.raycastTarget = false;
             image.preserveAspect = true;
-            if (muted)
+            var badge = LobbyPlayerListSprites.MuteOnProfile(!listening, muted);
+            if (badge != null)
             {
-                CreateMutedOverlay(avatar);
+                CreateMutedOverlay(avatar, badge);
             }
         }
 
-        private static void CreateMutedOverlay(RectTransform avatar)
+        private static void CreateMutedOverlay(RectTransform avatar, Sprite badge)
         {
             var dim = new GameObject(
                     AvatarDimName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
@@ -1015,7 +1029,7 @@ namespace Game.Client.Lobby
             mute.anchoredPosition = Vector2.zero;
             mute.sizeDelta = new Vector2(MuteIconSize, MuteIconSize);
             var muteImage = mute.GetComponent<Image>();
-            muteImage.sprite = LobbyPlayerListSprites.MicOffWhite;
+            muteImage.sprite = badge;
             muteImage.color = Color.white;
             muteImage.preserveAspect = true;
             muteImage.raycastTarget = false;
@@ -1039,13 +1053,30 @@ namespace Game.Client.Lobby
             return name;
         }
 
-        private static void CreateLeader(RectTransform parent, TextMeshProUGUI name, bool showLeader)
+        private static RectTransform CreateVoice(
+            RectTransform parent, TextMeshProUGUI name, bool muted, bool talking)
+        {
+            var voice = new GameObject(
+                    VoiceIconName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
+                .GetComponent<RectTransform>();
+            voice.SetParent(parent, false);
+            var nameRight = name.rectTransform.anchoredPosition.x + name.rectTransform.sizeDelta.x;
+            PinLeft(voice, nameRight + VoiceIconGap, new Vector2(VoiceIconSize, VoiceIconSize));
+            var icon = voice.GetComponent<Image>();
+            icon.sprite = LobbyPlayerListSprites.SoundOf(muted, talking);
+            icon.color = Color.white;
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            return voice;
+        }
+
+        private static void CreateLeader(RectTransform parent, RectTransform after, bool showLeader)
         {
             var leader = new GameObject("Leader", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
                 .GetComponent<RectTransform>();
             leader.SetParent(parent, false);
-            var nameRight = name.rectTransform.anchoredPosition.x + name.rectTransform.sizeDelta.x;
-            PinLeft(leader, nameRight + LeaderIconGap, new Vector2(LeaderIconSize, LeaderIconSize));
+            var afterRight = after.anchoredPosition.x + after.sizeDelta.x;
+            PinLeft(leader, afterRight + LeaderIconGap, new Vector2(LeaderIconSize, LeaderIconSize));
             var icon = leader.GetComponent<Image>();
             icon.sprite = LobbyPlayerListSprites.Leader;
             icon.color = Color.white;

@@ -34,9 +34,19 @@ namespace Game.Core.Ports
         /// <summary>True while audio is actually leaving this machine.</summary>
         ReadOnlyReactiveProperty<bool> IsTransmitting { get; }
 
+        /// <summary>
+        /// Whether this machine plays other people's voice. A silenced
+        /// microphone can still hear the room. While the speaker is off the
+        /// microphone stays closed and cannot be opened; turning the speaker
+        /// back on restores the microphone choice from before it closed.
+        /// </summary>
+        ReadOnlyReactiveProperty<bool> IsListening { get; }
+
         void SetMuted(bool muted);
 
         /// <summary>Reports whether the talk key is held down.</summary>
         void SetTalking(bool talking);
+
+        void SetListening(bool listening);
     }
 }

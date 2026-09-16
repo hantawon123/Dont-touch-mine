@@ -78,6 +78,11 @@ namespace Game.Architecture.Tests
                 Assert.That(Find(root, "FeedbackRow"), Is.Null);
                 Assert.That(Find(root, "BackButton"), Is.Null);
                 Assert.That(Find(root, "LeaveGameButton"), Is.Null);
+                var panel = Find(root, "Panel") as RectTransform;
+                Assert.That(panel, Is.Not.Null);
+                Assert.That(
+                    panel.localScale,
+                    Is.EqualTo(Vector3.one * SettingsStyle.Frame.LobbyScale));
                 var leave = Find(root, "LeaveGameLabel");
                 Assert.That(leave, Is.Not.Null);
                 var rect = leave.GetComponent<RectTransform>();
@@ -109,6 +114,9 @@ namespace Game.Architecture.Tests
                 Assert.That(Find(root, "LeaveGameButton"), Is.Null);
                 Assert.That(Find(root, "LeaveGameLabel"), Is.Null);
                 Assert.That(Find(root, "BackButton"), Is.Not.Null);
+                var panel = Find(root, "Panel") as RectTransform;
+                Assert.That(panel, Is.Not.Null);
+                Assert.That(panel.localScale, Is.EqualTo(Vector3.one));
             }
             finally
             {

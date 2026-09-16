@@ -11,8 +11,8 @@ namespace Game.Core.Voice
     /// microphone button. This outlives all of them: a player who muted
     /// themselves in the lobby meant it for the match as well.
     /// <para>
-    /// Only mute so far. A chosen input device or an output volume would belong
-    /// here too.
+        /// Mute and listen so far. A chosen input device or an output volume
+        /// would belong here too.
     /// </para>
     /// </remarks>
     public sealed class VoicePreferences
@@ -22,5 +22,12 @@ namespace Game.Core.Voice
         /// the lobby into a match and back.
         /// </summary>
         public bool Muted { get; set; }
+
+        /// <summary>
+        /// True while other people's voice should play. Starts on because the
+        /// room already joins voice; this only decides whether this machine
+        /// hears it.
+        /// </summary>
+        public bool Listening { get; set; } = true;
     }
 }

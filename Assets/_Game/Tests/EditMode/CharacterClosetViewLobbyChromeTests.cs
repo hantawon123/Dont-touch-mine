@@ -26,8 +26,15 @@ namespace Game.Architecture.Tests
                 Assert.That(frame, Is.Not.Null);
                 Assert.That(frame.sizeDelta, Is.EqualTo(SettingsStyle.Frame.Size));
                 Assert.That(
+                    frame.localScale,
+                    Is.EqualTo(Vector3.one * SettingsStyle.Frame.LobbyScale));
+                Assert.That(
                     frame.anchoredPosition,
-                    Is.EqualTo(SettingsStyle.Frame.Position));
+                    Is.EqualTo(
+                        SettingsStyle.Frame.Position
+                        + new Vector2(
+                            SettingsStyle.Frame.Size.x * 0.5f,
+                            -SettingsStyle.Frame.Size.y * 0.5f)));
 
                 Assert.That(Find(root, "Background"), Is.Null);
                 Assert.That(Find(root, "Glow"), Is.Null);

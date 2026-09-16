@@ -10,36 +10,43 @@ namespace Game.Client.Voice
     {
         event Action MuteToggleRequested;
 
+        event Action SpeakerToggleRequested;
+
         /// <summary>
-        /// Paints the microphone button: whether there is a room to talk to,
-        /// whether the player muted themselves, whether the microphone is
-        /// latched open, and whether audio is leaving right now.
+        /// Paints the two plates: a white mic, a green mic while voice is
+        /// leaving, or a grey slash when muted; and a white headset or grey
+        /// slash.
         /// </summary>
-        void SetState(bool available, bool muted, bool latched, bool transmitting);
+        void SetState(bool available, bool muted, bool latched, bool transmitting, bool listening);
     }
 
     /// <summary>
-    /// Paints a microphone button when one is wired. The lobby HUD no longer
-    /// keeps that button — talk keys still reach this view's presenter.
+    /// Paints the mute and speaker buttons the lobby and the match HUD share.
     /// </summary>
-    /// <remarks>
-    /// The lobby no longer shows this control. Talk keys still go through
-    /// <c>VoicePresenter</c>; the button refs stay optional so a match HUD
-    /// can keep painting one.
-    /// </remarks>
     public sealed class VoiceView : MonoBehaviour, IVoiceView
     {
-        /// <summary>Muted, and saying so before the player wonders.</summary>
-        private static readonly Color MutedColor = new(0.55f, 0.2f, 0.22f, 0.95f);
+        public const string BarName = "VoiceBar";
+        public const string ButtonName = "VoiceButton";
+        public const string SpeakerButtonName = "SpeakerButton";
+        public const string IconName = "Icon";
+        public const string MicOnResource = "UI/Icon_Mic_White";
+        public const string MicTalkResource = "UI/Icon_Mic_Green";
+        public const string MicOffResource = "UI/Icon_Mic_Off_Gray";
+        public const string SpeakerOnResource = "UI/Icon_Headset_White";
+        public const string SpeakerOffResource = "UI/Icon_Headset_Off_Gray";
+        public const float ButtonSize = 50f;
+        public const int ButtonRadius = 10;
+        public const float IconSize = 28f;
+        public const float ButtonSpacing = 12f;
+        public const float CornerMarginRight = 48f;
+        public const float CornerMarginBottom = 34f;
+        public static readonly Color PlateColor = new Color(0f, 0f, 0f, 0.6f);
 
-        /// <summary>Audio is leaving this machine right now.</summary>
-        private static readonly Color TalkingColor = new(0.25f, 0.65f, 0.35f, 0.95f);
-
-        /// <summary>Live, but silent.</summary>
-        private static readonly Color IdleColor = new(0.25f, 0.25f, 0.28f, 0.9f);
-
-        /// <summary>No room to talk to yet.</summary>
-        private static readonly Color OfflineColor = new(0.25f, 0.25f, 0.28f, 0.45f);
+        private static Sprite micOn;
+        private static Sprite micTalk;
+        private static Sprite micOff;
+        private static Sprite speakerOn;
+        private static Sprite speakerOff;
 
         [SerializeField]
         private Button muteButton;
@@ -48,32 +55,317 @@ namespace Game.Client.Voice
         private Image background;
 
         [SerializeField]
+        private Image icon;
+
+        [SerializeField]
+        private Button speakerButton;
+
+        [SerializeField]
+        private Image speakerBackground;
+
+        [SerializeField]
+        private Image speakerIcon;
+
+        [SerializeField]
         private Text label;
 
         /// <summary>
         /// The same label where the screen was built with TextMeshPro.
         /// </summary>
-        /// <remarks>
-        /// Two fields because the two screens that show this button were laid
-        /// out with different text stacks: the lobby with Unity's own Text and
-        /// the match HUD with TextMeshPro. Only one is ever filled. Converting
-        /// either screen wholesale is a bigger change than this button, and a
-        /// legacy Text in the match HUD would need its Korean font wired by hand
-        /// where TextMeshPro already has one.
-        /// </remarks>
         [SerializeField]
         private TMP_Text tmpLabel;
 
+        [NonSerialized]
+        private Button wiredMuteButton;
+
+        [NonSerialized]
+        private Image wiredIcon;
+
+        [NonSerialized]
+        private Button wiredSpeakerButton;
+
+        [NonSerialized]
+        private Image wiredSpeakerIcon;
+
         public event Action MuteToggleRequested;
 
-        private void OnEnable()
+        public event Action SpeakerToggleRequested;
+
+        /// <summary>
+        /// Mic then speaker, as one row the match HUD pins to the corner.
+        /// </summary>
+        public static RectTransform EnsureBar(Transform parent)
         {
-            if (muteButton == null)
+            if (parent == null)
+            {
+                return null;
+            }
+
+            var leftover = parent.Find(ButtonName) as RectTransform;
+            var bar = parent.Find(BarName) as RectTransform;
+            if (bar == null)
+            {
+                var root = new GameObject(BarName, typeof(RectTransform));
+                root.transform.SetParent(parent, false);
+                bar = root.GetComponent<RectTransform>();
+            }
+
+            if (leftover != null && leftover.parent != bar)
+            {
+                leftover.SetParent(bar, false);
+            }
+
+            var layout = bar.GetComponent<HorizontalLayoutGroup>();
+            if (layout == null)
+            {
+                layout = bar.gameObject.AddComponent<HorizontalLayoutGroup>();
+            }
+
+            layout.childAlignment = TextAnchor.MiddleRight;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+            layout.spacing = ButtonSpacing;
+            layout.padding = new RectOffset(0, 0, 0, 0);
+
+            var fitter = bar.GetComponent<ContentSizeFitter>();
+            if (fitter == null)
+            {
+                fitter = bar.gameObject.AddComponent<ContentSizeFitter>();
+            }
+
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var mic = EnsureSlot(bar);
+            mic.SetSiblingIndex(0);
+            SizeSlot(mic);
+            var speaker = EnsureSpeakerSlot(bar);
+            speaker.SetAsLastSibling();
+            SizeSlot(speaker);
+            return bar;
+        }
+
+        /// <summary>
+        /// Builds or restyles the icon-only mute control under
+        /// <paramref name="parent"/>.
+        /// </summary>
+        public static RectTransform EnsureSlot(Transform parent)
+        {
+            return EnsureIconSlot(parent, ButtonName, MicOnSprite);
+        }
+
+        public static RectTransform EnsureSpeakerSlot(Transform parent)
+        {
+            return EnsureIconSlot(parent, SpeakerButtonName, SpeakerOnSprite);
+        }
+
+        private static RectTransform EnsureIconSlot(Transform parent, string name, Sprite fallback)
+        {
+            if (parent == null)
+            {
+                return null;
+            }
+
+            var slot = parent.Find(name) as RectTransform;
+            if (slot == null)
+            {
+                var root = new GameObject(
+                    name,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image),
+                    typeof(Button));
+                root.transform.SetParent(parent, false);
+                slot = root.GetComponent<RectTransform>();
+            }
+
+            if (slot.Find(IconName) == null)
+            {
+                var iconGo = new GameObject(
+                    IconName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image));
+                iconGo.transform.SetParent(slot, false);
+            }
+
+            StyleSlot(slot, fallback);
+            return slot;
+        }
+
+        /// <summary>
+        /// Pins the standalone match-HUD copy to the same bottom-right corner
+        /// the lobby uses, to the right of 환경설정.
+        /// </summary>
+        public static void PlaceInCorner(RectTransform slot)
+        {
+            if (slot == null)
             {
                 return;
             }
 
-            muteButton.onClick.AddListener(HandleMuteClicked);
+            slot.anchorMin = slot.anchorMax = new Vector2(1f, 0f);
+            slot.pivot = new Vector2(1f, 0f);
+            slot.anchoredPosition = new Vector2(-CornerMarginRight, CornerMarginBottom);
+            slot.sizeDelta = new Vector2(ButtonSize, ButtonSize);
+        }
+
+        public static void PlaceBarInCorner(RectTransform bar)
+        {
+            if (bar == null)
+            {
+                return;
+            }
+
+            bar.anchorMin = bar.anchorMax = new Vector2(1f, 0f);
+            bar.pivot = new Vector2(1f, 0f);
+            bar.anchoredPosition = new Vector2(-CornerMarginRight, CornerMarginBottom);
+        }
+
+        public static void StyleSlot(RectTransform slot) => StyleSlot(slot, MicOnSprite);
+
+        public static void StyleSlot(RectTransform slot, Sprite fallbackIcon)
+        {
+            if (slot == null)
+            {
+                return;
+            }
+
+            var backgroundImage = slot.GetComponent<Image>();
+            if (backgroundImage != null)
+            {
+                backgroundImage.sprite = HomeUiFonts.Rounded(ButtonRadius);
+                backgroundImage.type = Image.Type.Sliced;
+                backgroundImage.pixelsPerUnitMultiplier = 1f;
+                backgroundImage.color = PlateColor;
+                backgroundImage.raycastTarget = true;
+            }
+
+            var button = slot.GetComponent<Button>();
+            if (button != null)
+            {
+                button.transition = Selectable.Transition.None;
+                button.targetGraphic = backgroundImage;
+                button.navigation = new Navigation { mode = Navigation.Mode.None };
+            }
+
+            var caption = slot.Find("Label");
+            if (caption != null)
+            {
+                caption.gameObject.SetActive(false);
+            }
+
+            var iconImage = slot.Find(IconName)?.GetComponent<Image>();
+            if (iconImage == null)
+            {
+                return;
+            }
+
+            iconImage.preserveAspect = true;
+            iconImage.raycastTarget = false;
+            iconImage.color = Color.white;
+            if (iconImage.sprite == null)
+            {
+                iconImage.sprite = fallbackIcon;
+            }
+
+            var iconRect = iconImage.rectTransform;
+            iconRect.anchorMin = iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+            iconRect.pivot = new Vector2(0.5f, 0.5f);
+            iconRect.anchoredPosition = Vector2.zero;
+            iconRect.sizeDelta = new Vector2(IconSize, IconSize);
+        }
+
+        public static void SizeSlot(RectTransform slot)
+        {
+            if (slot == null)
+            {
+                return;
+            }
+
+            var size = slot.GetComponent<LayoutElement>();
+            if (size == null)
+            {
+                size = slot.gameObject.AddComponent<LayoutElement>();
+            }
+
+            size.minWidth = size.preferredWidth = ButtonSize;
+            size.minHeight = size.preferredHeight = ButtonSize;
+            size.flexibleWidth = 0f;
+        }
+
+        /// <summary>
+        /// Points this view at a mute control built elsewhere, such as the
+        /// lobby shortcut row. Safe to call more than once.
+        /// </summary>
+        public void BindMuteControl(Button button, Image backgroundImage, Image iconImage)
+        {
+            UnbindClick();
+            muteButton = button;
+            background = backgroundImage;
+            icon = iconImage;
+            wiredMuteButton = button;
+            wiredIcon = iconImage;
+            HideCaptions();
+            BindClick();
+        }
+
+        public void BindSpeakerControl(Button button, Image backgroundImage, Image iconImage)
+        {
+            UnbindSpeakerClick();
+            speakerButton = button;
+            speakerBackground = backgroundImage;
+            speakerIcon = iconImage;
+            wiredSpeakerButton = button;
+            wiredSpeakerIcon = iconImage;
+            BindSpeakerClick();
+        }
+
+        public void BindSlot(RectTransform slot)
+        {
+            if (slot == null)
+            {
+                return;
+            }
+
+            BindMuteControl(
+                slot.GetComponent<Button>(),
+                slot.GetComponent<Image>(),
+                slot.Find(IconName)?.GetComponent<Image>());
+        }
+
+        public void BindSpeakerSlot(RectTransform slot)
+        {
+            if (slot == null)
+            {
+                return;
+            }
+
+            BindSpeakerControl(
+                slot.GetComponent<Button>(),
+                slot.GetComponent<Image>(),
+                slot.Find(IconName)?.GetComponent<Image>());
+        }
+
+        public void BindBar(RectTransform bar)
+        {
+            if (bar == null)
+            {
+                return;
+            }
+
+            BindSlot(bar.Find(ButtonName) as RectTransform);
+            BindSpeakerSlot(bar.Find(SpeakerButtonName) as RectTransform);
+        }
+
+        private void OnEnable()
+        {
+            HydrateWiredControls();
+            BindClick();
+            BindSpeakerClick();
+            HideCaptions();
             if (label != null && HomeUiFonts.Legacy() != null)
             {
                 label.font = HomeUiFonts.Legacy();
@@ -87,57 +379,118 @@ namespace Game.Client.Voice
 
         private void OnDisable()
         {
-            if (muteButton != null)
-            {
-                muteButton.onClick.RemoveListener(HandleMuteClicked);
-            }
+            UnbindClick();
+            UnbindSpeakerClick();
         }
 
         public void SetState(
             bool available,
             bool muted,
             bool latched,
-            bool transmitting)
+            bool transmitting,
+            bool listening)
         {
-            if (background != null)
+            if (wiredIcon != null)
             {
-                background.color = !available
-                    ? OfflineColor
-                    : muted
-                        ? MutedColor
-                        : transmitting || latched
-                            ? TalkingColor
-                            : IdleColor;
+                wiredIcon.sprite = muted
+                    ? MicOffSprite
+                    : transmitting ? MicTalkSprite : MicOnSprite;
             }
 
-            // The latch is called out by name. A microphone left open is the
-            // one state a player can be in without meaning to be, and a colour
-            // alone is easy to stop noticing.
-            var caption = muted
-                ? "음소거"
-                : latched
-                    ? "ON"
-                    : "MIC";
+            if (wiredSpeakerIcon != null)
+            {
+                wiredSpeakerIcon.sprite = listening ? SpeakerOnSprite : SpeakerOffSprite;
+            }
 
+            HideCaptions();
+
+            if (wiredMuteButton != null)
+            {
+                wiredMuteButton.interactable = true;
+            }
+
+            if (wiredSpeakerButton != null)
+            {
+                wiredSpeakerButton.interactable = true;
+            }
+        }
+
+        private void HideCaptions()
+        {
             if (label != null)
             {
-                label.text = caption;
+                label.gameObject.SetActive(false);
             }
 
             if (tmpLabel != null)
             {
-                tmpLabel.text = caption;
+                tmpLabel.gameObject.SetActive(false);
+            }
+        }
+
+        private void HydrateWiredControls()
+        {
+            wiredMuteButton ??= muteButton;
+            wiredIcon ??= icon;
+            wiredSpeakerButton ??= speakerButton;
+            wiredSpeakerIcon ??= speakerIcon;
+        }
+
+        private void BindClick()
+        {
+            if (wiredMuteButton == null)
+            {
+                return;
             }
 
-            if (muteButton != null)
+            wiredMuteButton.onClick.RemoveListener(HandleMuteClicked);
+            wiredMuteButton.onClick.AddListener(HandleMuteClicked);
+        }
+
+        private void UnbindClick()
+        {
+            if (wiredMuteButton != null)
             {
-                // Nothing to mute before a room is joined, and a button that
-                // answers then would leave the player wondering why the colour
-                // did not change.
-                muteButton.interactable = available;
+                wiredMuteButton.onClick.RemoveListener(HandleMuteClicked);
+            }
+        }
+
+        private void BindSpeakerClick()
+        {
+            if (wiredSpeakerButton == null)
+            {
+                return;
+            }
+
+            wiredSpeakerButton.onClick.RemoveListener(HandleSpeakerClicked);
+            wiredSpeakerButton.onClick.AddListener(HandleSpeakerClicked);
+        }
+
+        private void UnbindSpeakerClick()
+        {
+            if (wiredSpeakerButton != null)
+            {
+                wiredSpeakerButton.onClick.RemoveListener(HandleSpeakerClicked);
             }
         }
 
         private void HandleMuteClicked() => MuteToggleRequested?.Invoke();
+
+        private void HandleSpeakerClicked() => SpeakerToggleRequested?.Invoke();
+
+        public static Sprite MicOnSprite =>
+            micOn ??= Resources.Load<Sprite>(MicOnResource);
+
+        public static Sprite MicTalkSprite =>
+            micTalk ??= Resources.Load<Sprite>(MicTalkResource);
+
+        public static Sprite MicOffSprite =>
+            micOff ??= Resources.Load<Sprite>(MicOffResource);
+
+        public static Sprite SpeakerOnSprite =>
+            speakerOn ??= Resources.Load<Sprite>(SpeakerOnResource);
+
+        public static Sprite SpeakerOffSprite =>
+            speakerOff ??= Resources.Load<Sprite>(SpeakerOffResource);
     }
 }
