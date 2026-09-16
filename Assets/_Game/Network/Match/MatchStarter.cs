@@ -38,6 +38,7 @@ namespace Game.Network.Match
             new InteractionAuthorityRules();
 
         private IMatchStartSink _sink;
+        private IChatModeration _moderation;
         private PlayerRoster _roster;
 
         /// <summary>
@@ -138,11 +139,43 @@ namespace Game.Network.Match
         public void Bind(
             IMatchStartSink sink,
             PlayerRoster roster,
-            IMatchSceneDirector sceneDirector)
+            IMatchSceneDirector sceneDirector,
+            IChatModeration moderation = null)
         {
             _sink = sink;
             _roster = roster;
             _sceneDirector = sceneDirector;
+            _moderation = moderation;
+        }
+
+        /// <summary>
+        /// Covers forbidden words and keeps the original for report investigation
+        /// (S15P21D205-1028).
+        /// </summary>
+        /// <remarks>
+        /// Sits between deciding who spoke and telling everyone, because that is the one place
+        /// a message passes through once. Neither step waits on the backend: the judgement is
+        /// made from a list already in memory and the record is queued, so a backend that is
+        /// down costs the filtering and the record, never the conversation.
+        /// <para>
+        /// The room code is the session name, which is what a report's context key carries
+        /// before its '#'. Without one there is nothing to find the conversation by later, so
+        /// the record is skipped and the message still goes out covered.
+        /// </para>
+        /// </remarks>
+        private string Moderate(ChatScope scope, string playerId, string userId, string text)
+        {
+            var said = LobbyChatMessage.ClampText(text.Trim());
+            if (_moderation == null) return said;
+
+            var info = _state.Runner.SessionInfo;
+            if (info.IsValid && !string.IsNullOrWhiteSpace(info.Name))
+            {
+                _moderation.Record(new ChatLogRecord(
+                    info.Name, scope, userId, playerId, said, DateTimeOffset.UtcNow));
+            }
+
+            return _moderation.Mask(said);
         }
 
         /// <summary>
@@ -498,6 +531,47 @@ namespace Game.Network.Match
                     if (!_session.Players.IsActive(i)) _state.TrySetParticipantInactive(i);
                 // Host migration suspended; retain the checkpoint component/schema but do not record it.
                 // _checkpoint?.Capture(_session, _state, _roster);
+                ReconcileHeldObjectStates();
+            }
+        }
+
+        private int _reconcileCountdown;
+        private const int ReconcileEveryTicks = 30;
+
+        /// <summary>
+        /// 도메인(누가 무엇을 들고 있나)과 복제 배열(클라이언트가 보는 소지 상태)이 어긋나면 복제 쪽을 도메인에 맞춘다.
+        /// 어느 경로든 도메인만 바뀌고 복제 갱신이 빠지면, 모든 클라이언트가 이미 놓은 물건을 계속 '들고 있음'으로
+        /// 보고 당사자의 놓기·던지기는 "authority has no held object"로 거부된다(2026-09-17 팀 테스트). 원인 경로를
+        /// 하나씩 막는 것과 별개로, 여기서 주기적으로 바로잡아 영구 불일치를 없앤다.
+        /// </summary>
+        private void ReconcileHeldObjectStates()
+        {
+            if (IsLobby || !_state.IsStarted || _state.Phase == MatchPhase.Result) return;
+            if (++_reconcileCountdown < ReconcileEveryTicks) return;
+            _reconcileCountdown = 0;
+
+            var count = Mathf.Min(_state.ObjectStateCount, MatchSessionState.MaxReplicatedObjects);
+            for (var index = 0; index < count; index++)
+            {
+                var replicated = _state.ObjectStates.Get(index);
+                var holder = replicated.HolderPlayerIndex;
+                if (holder < 0 || replicated.IsDestroyed || replicated.IsPendingEjection) continue;
+
+                var objectId = replicated.ObjectId.ToString();
+                if (_session.TryGetHeldObjectId(holder, out var domainObjectId) &&
+                    string.Equals(domainObjectId, objectId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                // 복제는 '들고 있음', 도메인은 아님 → 들고 있던 사람 자리에 놓인 것으로 복제를 맞춘다.
+                var pose = TryGetPlayerPose(holder, out var playerPose)
+                    ? new Pose(playerPose.position, Quaternion.identity)
+                    : new Pose(replicated.Position, replicated.Rotation);
+                var fixedUp = _state.TrySetObjectReleased(objectId, pose);
+                Debug.LogWarning(
+                    $"[Interaction] reconcile: replicated says player {holder} holds '{objectId}' but authority domain says " +
+                    $"'{domainObjectId ?? "nothing"}' → released at {pose.position} (ok={fixedUp})");
             }
         }
 
@@ -739,7 +813,7 @@ namespace Game.Network.Match
                 _state.RPC_NotifyLobbyChat(
                     participant.PlayerId,
                     nickname,
-                    LobbyChatMessage.ClampText(text.Trim()));
+                    Moderate(ChatScope.Lobby, participant.PlayerId, participant.UserId, text));
                 return true;
             }
 
@@ -779,7 +853,7 @@ namespace Game.Network.Match
                 _state.RPC_NotifyMatchChat(
                     participant.PlayerId,
                     ResolveNickname(participant.PlayerId),
-                    LobbyChatMessage.ClampText(text.Trim()));
+                    Moderate(ChatScope.Match, participant.PlayerId, participant.UserId, text));
                 return true;
             }
 
@@ -849,58 +923,101 @@ namespace Game.Network.Match
             return _state.TrySetObjectHeld(objectId, playerIndex);
         }
 
-        public bool TryReleaseHeldObject(PlayerRef source, Pose pose)
+        public bool TryReleaseHeldObject(PlayerRef source, Pose pose) => TryReleaseHeldObject(source, pose, out _);
+
+        /// <param name="reason">거부됐을 때 그 이유. 호스트 로그와 요청 클라이언트 경고에 붙인다.</param>
+        public bool TryReleaseHeldObject(PlayerRef source, Pose pose, out string reason)
         {
+            reason = null;
             if (IsLobby) return TryReleaseLobbyObject(source, pose, default, false);
-            if (!TryGetPlayerIndex(source, out var playerIndex) ||
-                !TryGetPlayerPose(playerIndex, out var playerPose) ||
-                !_interactionRules.IsValidRelease(playerPose, pose) ||
-                !_session.TryGetHeldObjectId(playerIndex, out var objectId) ||
-                !_state.CanTrackObject(objectId) ||
-                !_session.TryReleaseHeldObject(playerIndex, pose, ServerTime))
+            if (!TryPrepareRelease(source, pose, out var playerIndex, out var objectId, out reason)) return false;
+            if (!_session.TryReleaseHeldObject(playerIndex, pose, ServerTime))
             {
+                reason = _session.DescribeReleaseBlock(playerIndex, pose, ServerTime, requirePlacementValidity: true);
                 return false;
             }
 
             return _state.TrySetObjectReleased(objectId, pose);
         }
 
-        public bool TryDropHeldObject(PlayerRef source, Pose pose)
+        public bool TryDropHeldObject(PlayerRef source, Pose pose) => TryDropHeldObject(source, pose, out _);
+
+        public bool TryDropHeldObject(PlayerRef source, Pose pose, out string reason)
         {
+            reason = null;
             if (IsLobby) return TryReleaseLobbyObject(source, pose, default, false);
-            if (!TryGetPlayerIndex(source, out var playerIndex) ||
-                !TryGetPlayerPose(playerIndex, out var playerPose) ||
-                !_interactionRules.IsValidRelease(playerPose, pose) ||
-                !_session.TryGetHeldObjectId(playerIndex, out var objectId) ||
-                !_state.CanTrackObject(objectId) ||
-                !_session.TryDropHeldObject(playerIndex, pose, ServerTime))
+            if (!TryPrepareRelease(source, pose, out var playerIndex, out var objectId, out reason)) return false;
+            if (!_session.TryDropHeldObject(playerIndex, pose, ServerTime))
             {
+                reason = _session.DescribeReleaseBlock(playerIndex, pose, ServerTime, requirePlacementValidity: false);
                 return false;
             }
 
             return _state.TrySetObjectReleased(objectId, pose);
         }
 
-        public bool TryThrowHeldObject(
-            PlayerRef source,
-            Pose pose,
-            Vector3 initialVelocity)
+        /// <summary>
+        /// 놓기·던지기 공통 전제(플레이어 식별, 위치 조회, 거리·회전 검사, 들고 있는 물건 조회, 추적 가능)를 확인하고
+        /// 실패하면 이유를 남긴다.
+        /// </summary>
+        private bool TryPrepareRelease(
+            PlayerRef source, Pose pose, out int playerIndex, out string objectId, out string reason)
         {
+            objectId = null;
+            reason = null;
+            if (!TryGetPlayerIndex(source, out playerIndex))
+            {
+                reason = "unknown player";
+                return false;
+            }
+
+            if (!TryGetPlayerPose(playerIndex, out var playerPose))
+            {
+                reason = "player pose unavailable on authority";
+                return false;
+            }
+
+            if (!_interactionRules.IsValidRelease(playerPose, pose))
+            {
+                reason = $"release pose {Vector3.Distance(playerPose.position, pose.position):F2} m from player " +
+                         $"(limit {InteractionAuthorityRules.DefaultInteractionDistance:F1} m) or rotation not normalized";
+                return false;
+            }
+
+            if (!_session.TryGetHeldObjectId(playerIndex, out objectId))
+            {
+                reason = "authority has no held object for this player";
+                return false;
+            }
+
+            if (!_state.CanTrackObject(objectId))
+            {
+                reason = $"object '{objectId}' is not tracked by authority";
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool TryThrowHeldObject(PlayerRef source, Pose pose, Vector3 initialVelocity) =>
+            TryThrowHeldObject(source, pose, initialVelocity, out _);
+
+        public bool TryThrowHeldObject(PlayerRef source, Pose pose, Vector3 initialVelocity, out string reason)
+        {
+            reason = null;
             if (IsLobby) return TryReleaseLobbyObject(source, pose, initialVelocity, true);
-            if (!TryGetPlayerIndex(source, out var playerIndex) ||
-                !TryGetPlayerPose(playerIndex, out var playerPose) ||
-                !_interactionRules.IsValidThrow(
-                    playerPose,
-                    pose,
-                    initialVelocity) ||
-                !_session.TryGetHeldObjectId(playerIndex, out var objectId) ||
-                !_state.CanTrackObject(objectId) ||
-                !_session.TryThrowHeldObject(
-                    playerIndex,
-                    pose,
-                    initialVelocity,
-                    ServerTime))
+            if (!TryPrepareRelease(source, pose, out var playerIndex, out var objectId, out reason)) return false;
+            if (!float.IsFinite(initialVelocity.x) || !float.IsFinite(initialVelocity.y) || !float.IsFinite(initialVelocity.z) ||
+                initialVelocity.sqrMagnitude <= 0f ||
+                initialVelocity.sqrMagnitude > InteractionAuthorityRules.DefaultMaxThrowSpeed * InteractionAuthorityRules.DefaultMaxThrowSpeed + 0.0001f)
             {
+                reason = $"throw speed {initialVelocity.magnitude:F2} m/s outside (0, {InteractionAuthorityRules.DefaultMaxThrowSpeed:F1}]";
+                return false;
+            }
+
+            if (!_session.TryThrowHeldObject(playerIndex, pose, initialVelocity, ServerTime))
+            {
+                reason = _session.DescribeReleaseBlock(playerIndex, pose, ServerTime, requirePlacementValidity: false);
                 return false;
             }
 
@@ -1208,9 +1325,12 @@ namespace Game.Network.Match
 
         private void OnObjectAutoReleased(ObjectAutoReleasedEvent confirmedEvent)
         {
-            _state?.TrySetObjectReleased(
-                confirmedEvent.ObjectId,
-                confirmedEvent.Pose);
+            if (_state == null || !_state.TrySetObjectReleased(confirmedEvent.ObjectId, confirmedEvent.Pose))
+            {
+                Debug.LogWarning(
+                    $"[Interaction] auto release of '{confirmedEvent.ObjectId}' could not be replicated " +
+                    $"(state={(_state == null ? "null" : "refused")}); reconcile will retry.");
+            }
         }
 
         private void OnMapObjectEjected(MapObjectEjectedEvent confirmedEvent)

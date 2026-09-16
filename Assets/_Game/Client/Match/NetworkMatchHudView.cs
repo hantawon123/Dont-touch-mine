@@ -117,6 +117,8 @@ namespace Game.Client.Match
         [SerializeField]
         private MatchUrgencyBorderView urgencyBorderView;
 
+        private MatchUrgencyAudio urgencyAudio;
+
         private LobbyPlayerListView participantListView;
 
         private MatchPhase currentPhase;
@@ -166,6 +168,8 @@ namespace Game.Client.Match
             destroyedItemsHudView?.Hide();
             EnsureUrgencyBorder();
             urgencyBorderView?.Hide();
+            EnsureUrgencyAudio();
+            urgencyAudio?.Hide();
             EnsureHighlightHud();
             EnsureVoiceControl();
             RefreshKeyGuide(MatchPhase.Waiting);
@@ -182,7 +186,7 @@ namespace Game.Client.Match
 
             phaseView?.SetPhase(phase, hidingPlayerName);
             RefreshKeyGuide(phase);
-            RefreshUrgencyBorder();
+            RefreshUrgency();
             ApplyDestroyedItems();
         }
 
@@ -254,6 +258,7 @@ namespace Game.Client.Match
             EnsureTimer();
             timerView?.SetResult(headline, subtitle);
             urgencyBorderView?.Hide();
+            urgencyAudio?.Hide();
             LateUpdate();
         }
 
@@ -274,7 +279,7 @@ namespace Game.Client.Match
             lastRemainingSeconds = remainingSeconds;
             EnsureTimer();
             timerView?.SetRemainingSeconds(remainingSeconds);
-            RefreshUrgencyBorder();
+            RefreshUrgency();
         }
 
         public void SetHighlightHud(bool visible, string subtitle, IReadOnlyList<float> barFills)
@@ -597,21 +602,21 @@ namespace Game.Client.Match
             return phase == MatchPhase.Searching;
         }
 
-        private void RefreshUrgencyBorder()
+        private void RefreshUrgency()
         {
             EnsureUrgencyBorder();
-            if (urgencyBorderView == null)
+            EnsureUrgencyAudio();
+            // The border and the sound answer the same question, so they are
+            // driven together: the last thirty seconds of searching, nothing else.
+            if (MatchUrgencyAudio.ShouldPlay(currentPhase, lastRemainingSeconds))
             {
+                urgencyBorderView?.Show();
+                urgencyAudio?.Show();
                 return;
             }
 
-            if (currentPhase == MatchPhase.Searching && MatchTimerView.IsWarning(lastRemainingSeconds))
-            {
-                urgencyBorderView.Show();
-                return;
-            }
-
-            urgencyBorderView.Hide();
+            urgencyBorderView?.Hide();
+            urgencyAudio?.Hide();
         }
 
         private void EnsureTimer()
@@ -637,6 +642,19 @@ namespace Game.Client.Match
             if (urgencyBorderView == null)
             {
                 urgencyBorderView = MatchUrgencyBorderView.Create(transform);
+            }
+        }
+
+        private void EnsureUrgencyAudio()
+        {
+            if (urgencyAudio == null)
+            {
+                urgencyAudio = GetComponentInChildren<MatchUrgencyAudio>(true);
+            }
+
+            if (urgencyAudio == null)
+            {
+                urgencyAudio = MatchUrgencyAudio.Create(transform);
             }
         }
 

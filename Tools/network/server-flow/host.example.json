@@ -7,5 +7,7 @@
   "region": "kr",
   "startup_timeout": 90,
   "rooms_per_release": 20,
-  "max_processes": 40
+  "max_processes": 40,
+  "internal_api_origin": "http://127.0.0.1:8080",
+  "chat_internal_key": ""
 }

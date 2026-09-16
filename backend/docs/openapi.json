@@ -718,6 +718,9 @@
       },
       "ReportDetail" : {
         "properties" : {
+          "contextKey" : {
+            "type" : "string"
+          },
           "createdAt" : {
             "type" : "string"
           },
@@ -1437,6 +1440,95 @@
         },
         "tags" : [
           "admin-analytics-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/chat/around" : {
+      "get" : {
+        "operationId" : "around",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "contextKey",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "reportedAt",
+            "required" : true,
+            "schema" : {
+              "pattern" : "^[0-9]{14}$",
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "minutes",
+            "required" : false,
+            "schema" : {
+              "default" : 15,
+              "format" : "int32",
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-chat-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/chat/by/{userId}" : {
+      "get" : {
+        "operationId" : "bySpeaker",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "days",
+            "required" : false,
+            "schema" : {
+              "default" : 3,
+              "format" : "int32",
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-chat-controller"
         ]
       }
     },
