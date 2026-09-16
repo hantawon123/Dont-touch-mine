@@ -381,15 +381,8 @@ namespace Game.Bootstrap
             /// </summary>
             public void OpenLobby()
             {
-                OpenLobbyAsync().Forget(exception => Debug.LogException(exception));
-            }
-
-            private async UniTask OpenLobbyAsync()
-            {
-                Debug.Log("[SceneTiming] Open lobby requested from Home.");
-                await loading.ShowPainted();
-                await SceneLoadSlicer.YieldFrame();
-                Debug.Log("[SceneTiming] Open lobby: cover painted, entering lobby scene.");
+                // The request already painted the cover before connecting. Fusion may
+                // have finished the lobby and hidden it before this callback arrives.
                 if (!network.EnterLobbyScene())
                 {
                     loading.HideImmediate();
