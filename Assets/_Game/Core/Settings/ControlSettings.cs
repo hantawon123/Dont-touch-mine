@@ -28,7 +28,8 @@ namespace Game.Core.Settings
         RotateRight,
         RaiseObject,
         LowerObject,
-        ToggleKeyGuide
+        ToggleKeyGuide,
+        ToggleSpeaker
     }
 
     /// <summary>The 컨트롤 tab's sliders, in the order they are drawn.</summary>
@@ -362,7 +363,8 @@ namespace Game.Core.Settings
             (ControlAction.RotateRight, "e"),
             (ControlAction.RaiseObject, ScrollUp),
             (ControlAction.LowerObject, ScrollDown),
-            (ControlAction.ToggleKeyGuide, "l")
+            (ControlAction.ToggleKeyGuide, "l"),
+            (ControlAction.ToggleSpeaker, "t")
         };
 
         /// <summary>

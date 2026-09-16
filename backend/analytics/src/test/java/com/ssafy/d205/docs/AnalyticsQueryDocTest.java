@@ -91,15 +91,4 @@ class AnalyticsQueryDocTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("API 이름이 없습니다");
     }
-
-    @Test
-    @DisplayName("Metabase 만드는 스크립트와 같은 절을 본다 - 스크립트의 VIEWS 번호가 문서의 절과 같다")
-    void provisioningScriptCoversTheSameSections() throws IOException {
-        String script = Files.readString(Path.of("deploy", "metabase", "provision_dashboards.py"), UTF_8);
-        List<String> numbers = java.util.regex.Pattern.compile("^    \"([1-9])\": \\{", java.util.regex.Pattern.MULTILINE)
-                .matcher(script).results().map(m -> m.group(1)).toList();
-
-        assertThat(numbers).as("provision_dashboards.py 의 VIEWS 에 절 번호가 여덟 개 있어야 합니다")
-                .containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
-    }
 }

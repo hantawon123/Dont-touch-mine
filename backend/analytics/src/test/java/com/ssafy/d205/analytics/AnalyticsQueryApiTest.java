@@ -134,12 +134,19 @@ class AnalyticsQueryApiTest extends AnalyticsIntegrationTest {
         insertHostEvent(match, "position_sample", start.plusSeconds(1), 1_000, 1.0f, 2.0f, 0, "{\"seat\":0}");
         insertHostEvent(match, "position_sample", start.plusSeconds(1), 1_000, 4.0f, 5.0f, 1, "{\"seat\":1}");
         insertHostEvent(other, "position_sample", start.plusSeconds(1), 1_000, 9.0f, 9.0f, 0, "{\"seat\":0}");
+        // 물건 움직임 띠(10번 카드)가 쓰는 컬럼입니다. 이 줄만 물건이 움직이는 중입니다.
+        insertHostEvent(match, "position_sample", start.plusSeconds(3), 3_000, 7.0f, 8.0f, 0,
+                "{\"seat\":0,\"item_known\":true,\"item_in_motion\":true}");
 
         JsonNode table = table(get("/internal/admin/analytics/positions").param("matchId", match));
 
         assertThat(table.get("columns")).extracting(JsonNode::asText)
-                .containsExactly("map_id", "player_seat", "phase", "elapsed_seconds", "pos_x", "pos_z");
-        assertThat(table.get("rows").size()).isEqualTo(3);
+                .containsExactly("map_id", "player_seat", "phase", "elapsed_seconds", "pos_x", "pos_z",
+                        "item_in_motion", "item_known");
+        assertThat(table.get("rows").size()).isEqualTo(4);
+        // 마지막 줄만 움직이는 중입니다. 앞의 셋은 물건 정보가 없어 비어 있습니다.
+        assertThat(table.get("rows").get(3).get(6).asInt()).isEqualTo(1);
+        assertThat(table.get("rows").get(0).get(6).isNull()).isTrue();
         // 1초의 자리 0, 1초의 자리 1, 2초의 자리 1 순서.
         assertThat(table.get("rows").get(0).get(1).asInt()).isZero();
         assertThat(table.get("rows").get(0).get(4).asDouble()).isEqualTo(1.0);

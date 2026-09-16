@@ -220,6 +220,8 @@ namespace Game.Client.Character
                 HomeUiFonts.Outline(
                     CharacterClosetStyle.Overlay.FrameRadius,
                     CharacterClosetStyle.Overlay.BorderWidth));
+
+            SettingsStyle.Frame.ApplyLobbyScale(panel);
         }
 
         private void CreateDim(RectTransform canvas)

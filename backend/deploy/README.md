@@ -8,13 +8,12 @@ EC2가 날아가면 같이 사라집니다.
 
 | 파일 | 배치 위치 | 역할 |
 | --- | --- | --- |
-| `nginx/d205.conf` | `/etc/nginx/sites-available/d205` | 443에서 받아 앱(`/`, 알림 WebSocket `/ws/`)과 Jenkins(`/jenkins/`)로 프록시. 8443은 Basic Auth 뒤에 Metabase |
+| `nginx/d205.conf` | `/etc/nginx/sites-available/d205` | 443에서 받아 앱(`/`, 알림 WebSocket `/ws/`)과 Jenkins(`/jenkins/`)로 프록시 |
 | `install-jenkins.sh` | (서버에서 실행) | Jenkins 설치, docker 그룹 등록 |
 | `jenkins/override.conf` | `/etc/systemd/system/jenkins.service.d/` | Jenkins 포트·바인딩·프리픽스 |
 | `verify.sh` | (서버에서 실행) | 배포 상태 한 번에 확인 |
 | `mysql/init/01-analytics-grant.sh` | (compose.local 이 마운트, 테스트가 복사) | 앱 계정에 분석 스키마 권한 |
-| `mysql/init/02-analytics-accounts.sh` | (같음) | Metabase 용 읽기 계정 `d205_reader` 와 설정 저장용 `metabase` 계정 |
-| `metabase/provision_dashboards.py` | (서버에서 실행) | `docs/analytics-dashboards.md` 의 쿼리로 Metabase 질문·대시보드 생성 |
+| `mysql-analytics/init/01-accounts.sh` | (compose 가 마운트, 테스트가 복사) | 즉석 SQL 용 읽기 계정 `d205_reader` |
 | `reset-analytics.sh` | (서버에서 실행) | 쌓인 플레이 로그를 백업하고 비웁니다 |
 
 파이프라인 정의는 이 디렉터리가 아니라 `../Jenkinsfile`에 있습니다.
@@ -29,18 +28,16 @@ EC2가 날아가면 같이 사라집니다.
         ├─ :443 ──▶ nginx ─┬─ /jenkins/        ─▶ 127.0.0.1:9090  Jenkins
                             ├─ /api/v1/events   ─▶ 127.0.0.1:8081  d205-analytics (수집)
                             │                                        └▶ d205-mysql-analytics
-                            │                                            ├─ d205_analytics  플레이 로그
-                            │                                            └─ metabase        대시보드 설정
+                            │                                            └─ d205_analytics  플레이 로그
                             ├─ /ws/             ─▶ 127.0.0.1:8080  d205-app (WebSocket, 알림)
                             └─ /                ─▶ 127.0.0.1:8080  d205-app (계정·친구·신고·관리 화면)
                                                                      ├▶ d205-mysql (d205 게임 스키마)
                                                                      └▶ analytics:8080/internal/… (compose 안에서만)
-        └─ :8443 ──▶ nginx (Basic Auth) ─▶ 127.0.0.1:3000  Metabase ─▶ d205-mysql-analytics (d205_reader, SELECT 만)
 ```
 
-컨테이너 다섯입니다(`compose.prod.yml`). 대시보드가 `/analytics/` 가 아니라 8443 포트인 이유는
-`nginx/d205.conf` 의 8443 블록 주석에 있습니다. 한 줄로 요약하면 Metabase 는 하위 경로 아래에서
-동작하지 못합니다.
+컨테이너 넷입니다(`compose.prod.yml`). 플레이 로그 화면은 관리 화면(`/admin/`)의 분석 탭이고, 그 표가
+부르는 조회 API 는 계정 서비스가 분석 서비스의 내부 API 로 넘깁니다. 2026-09-16 까지는 8443 에 Metabase
+대시보드가 따로 있었는데 분석 탭이 같은 질문을 전부 덮어 내렸습니다(아래 "Metabase 내리기").
 
 플레이 로그 수집은 2026-09-14 부터 **별도 서비스와 별도 DB 컨테이너**입니다(S15P21D205-980). 그 전에는
 한 앱, 한 MySQL 에 스키마만 갈라 두었는데, 분석 쪽 메모리 폭주나 배포 재시작이 게임 API 를 같이
@@ -107,27 +104,25 @@ ssh d205 'bash /tmp/verify.sh'
 
 ### 분석 DB 이관 (서비스 분리 배포 뒤 **한 번**)
 
-분리 전의 플레이 로그와 Metabase 설정은 `d205-mysql` 의 `d205_analytics`·`metabase` 스키마에 있습니다.
+분리 전의 플레이 로그는 `d205-mysql` 의 `d205_analytics` 스키마에 있습니다.
 새 compose 가 올라가면 `d205-mysql-analytics` 는 빈 채로 뜨고 수집 서비스가 거기에 Flyway 를 돌립니다.
 그 뒤 옛 데이터를 옮깁니다. 서버의 `/home/ubuntu/d205` 에는 `.env` 만 있고 `deploy/` 폴더가 없으므로
-먼저 만듭니다. compose 파일도 그 경로에 없으니(Jenkins 작업 디렉터리에서 돕니다) Metabase 재시작은
-컨테이너 이름으로 합니다.
+먼저 만듭니다.
 
 ```
 ssh d205 'mkdir -p /home/ubuntu/d205/deploy'
 scp backend/deploy/migrate-analytics.sh d205:/home/ubuntu/d205/deploy/migrate-analytics.sh
 ssh d205 'cd /home/ubuntu/d205 && bash deploy/migrate-analytics.sh'
-ssh d205 'docker restart d205-metabase'
 ```
 
 백업이 먼저이고 실패하면 거기서 멈춥니다. 스크립트가 끝에 옛·새 컨테이너의 행 수를 나란히 찍으니
-`다름!` 이 없는지 보고, Metabase 대시보드가 옮기기 전과 같은 숫자를 보이는지 확인합니다. 옛 스키마는
-지우지 않습니다. 며칠 문제가 없으면 `d205-mysql` 에서 `DROP DATABASE d205_analytics; DROP DATABASE metabase;`
-를 손으로 실행합니다.
+`다름!` 이 없는지 보고, 관리 화면 분석 탭의 경기 목록이 옮기기 전과 같은 수를 보이는지 확인합니다.
+옛 스키마는 지우지 않습니다. 며칠 문제가 없으면 `d205-mysql` 에서 `DROP DATABASE d205_analytics;` 를
+손으로 실행합니다(2026-09-14 이관 때 함께 옮긴 `metabase` 스키마는 "Metabase 내리기" 절에서 지웁니다).
 
-읽기 계정(`d205_reader`)과 Metabase 계정은 `d205-mysql-analytics` 볼륨이 처음 만들어질 때
+읽기 계정(`d205_reader`)은 `d205-mysql-analytics` 볼륨이 처음 만들어질 때
 `deploy/mysql-analytics/init/01-accounts.sh` 가 자동으로 만듭니다. 손으로 할 것이 없습니다. 볼륨이 이미
-있는데 계정만 다시 만들어야 하면 그 스크립트를 `docker cp` 로 넣어 `docker exec -e ANALYTICS_READER_PASSWORD -e METABASE_DB_PASSWORD d205-mysql-analytics bash /tmp/01-accounts.sh` 로 실행합니다. 두 번 실행해도 무해합니다.
+있는데 계정만 다시 만들어야 하면 그 스크립트를 `docker cp` 로 넣어 `docker exec -e ANALYTICS_READER_PASSWORD d205-mysql-analytics bash /tmp/01-accounts.sh` 로 실행합니다. 두 번 실행해도 무해합니다.
 
 ### 분석 DB Flyway 이력 복구 (2026-09-15, 한 번)
 
@@ -199,10 +194,9 @@ ssh d205 'docker restart d205-app'
 | `DB_USERNAME` | mysql(`MYSQL_USER`), app. 컨테이너의 `MYSQL_USER` 와 앱의 `DB_USERNAME` 은 같은 계정입니다 |
 | `DB_PASSWORD` | mysql(`MYSQL_PASSWORD`), app |
 | `ANALYTICS_MYSQL_ROOT_PASSWORD` | mysql-analytics 컨테이너, `reset-analytics.sh`, `migrate-analytics.sh` |
-| `ANALYTICS_DB_NAME` | mysql-analytics(`MYSQL_DATABASE`), analytics. `d205_analytics` 로 두세요. 이관 스크립트와 Metabase 가 그 이름을 씁니다 |
+| `ANALYTICS_DB_NAME` | mysql-analytics(`MYSQL_DATABASE`), analytics. `d205_analytics` 로 두세요. 이관 스크립트와 문서의 SQL 이 그 이름을 씁니다 |
 | `ANALYTICS_DB_USERNAME` / `ANALYTICS_DB_PASSWORD` | mysql-analytics(`MYSQL_USER`/`MYSQL_PASSWORD`), analytics |
-| `ANALYTICS_READER_PASSWORD` | mysql-analytics 초기화 스크립트가 만드는 읽기 계정. Metabase 가 데이터를 볼 때 이 계정 |
-| `METABASE_DB_PASSWORD` | metabase(`MB_DB_PASS`), mysql-analytics 초기화 스크립트 |
+| `ANALYTICS_READER_PASSWORD` | mysql-analytics 초기화 스크립트가 만드는 읽기 계정. 사람이 즉석 SQL 을 볼 때 이 계정 |
 
 `INTERNAL_KEY` 는 `:?` 가 아니지만 **비우면 두 기능이 조용히 멈춥니다**(S15P21D205-1002). 계정 서비스가
 분석 서비스의 `/internal/...` 을 부를 때 쓰는 공유 키인데, 분석 서비스는 키가 없거나 틀리면 404 로
@@ -221,88 +215,81 @@ compose 는 `.env` 를 치환에만 쓰고 컨테이너에 전달하는 것은 `
 
 같은 내용이 서버의 `/home/ubuntu/d205/.env` 와 Jenkins 의 비밀 파일 `d205-backend-env` 두 곳에 있어야 합니다.
 
-### 대시보드 (Metabase) 처음 올리기
+### 즉석 SQL 은 읽기 계정으로
 
-순서가 중요합니다. `.env` 가 먼저고, 계정이 그다음이고, 배포는 마지막입니다.
-`compose.prod.yml` 이 `METABASE_DB_PASSWORD` 를 `:?` 로 요구하므로 `.env` 에 없으면
-Jenkins 의 compose 단계가 그 자리에서 멈춥니다.
-
-**1. `.env` 에 두 줄 추가. 두 곳에.** 값은 길고 무작위로, 그리고 **두 곳이 같아야** 합니다.
-
-```
-ANALYTICS_READER_PASSWORD=...
-METABASE_DB_PASSWORD=...
-```
-
-- 서버의 `/home/ubuntu/d205/.env`: `mysql-analytics` 컨테이너가 이 두 줄로 계정을 만듭니다. `verify.sh` 도
-  이 파일을 읽지만 `MYSQL_ROOT_PASSWORD` 와 `DB_NAME` 만 씁니다.
-- **Jenkins 의 비밀 파일 `d205-backend-env`**: 배포의 compose 가 읽습니다. `Jenkins 관리 → Credentials
-  → d205-backend-env → Update` 에서 두 줄을 더한 파일을 올립니다. 이걸 빠뜨리면 develop 빌드가
-  `required variable METABASE_DB_PASSWORD is missing a value` 로 멈춥니다(2026-09-07 #79). 서비스는
-  교체 전이라 멀쩡하고, 파일을 올린 뒤 "지금 빌드" 를 누르면 됩니다.
-- 두 곳의 값이 다르면 Metabase 가 자기 DB 에 못 붙어 재시작을 반복합니다. 해시로 비교하려면
-  `ssh d205 'set -a; . /home/ubuntu/d205/.env; set +a; printf %s $METABASE_DB_PASSWORD | md5sum; printf %s $(docker exec d205-metabase printenv MB_DB_PASS) | md5sum'`
-  두 줄이 같아야 합니다.
-
-**2. MySQL 계정.** 손으로 할 것이 없습니다. `d205-mysql-analytics` 볼륨이 처음 만들어질 때
-`deploy/mysql-analytics/init/01-accounts.sh` 가 `.env` 의 두 값으로 읽기 계정과 Metabase 계정을 만듭니다.
-`docker logs d205-mysql-analytics 2>&1 | grep analytics-init` 에 두 줄이 찍혀 있으면 된 것입니다.
-볼륨이 이미 있는 상태에서 비밀번호를 바꿨다면 위 "분석 DB 이관" 절 끝의 `docker exec` 한 줄로 다시 만듭니다.
-
-**3. nginx 8443 과 Basic Auth**
+정해진 질문은 관리 화면 분석 탭에 있습니다. 거기 없는 것을 한 번 보고 싶을 때는 분석 DB 컨테이너에
+읽기 계정으로 붙습니다. 이 계정은 `SELECT` 만 되므로 SQL 을 잘못 써도 로그가 지워지지 않습니다.
+비밀번호를 손으로 치지 않습니다. 컨테이너 안에 `.env` 에서 온 환경변수가 이미 있으므로 컨테이너 셸로
+들어가서 그 값을 씁니다. ssh 명령줄 한 줄에 다 넣으면 PowerShell 이 안쪽 따옴표를 벗겨 실패합니다.
 
 ```
-ssh -t d205 "sudo apt-get install -y apache2-utils && sudo htpasswd -c /etc/nginx/.htpasswd-analytics d205"
-ssh d205 "sudo ufw allow 8443/tcp"
-scp backend/deploy/nginx/d205.conf d205:/tmp/d205.conf
-ssh d205 "sudo install -o root -g root -m 644 /tmp/d205.conf /etc/nginx/sites-available/d205 && sudo ln -sfn /etc/nginx/sites-available/d205 /etc/nginx/sites-enabled/d205 && sudo rm -f /etc/nginx/sites-enabled/default && sudo nginx -t && sudo systemctl reload nginx"
+ssh -t d205 'docker exec -it d205-mysql-analytics bash'
 ```
 
-넷째 줄은 위 "nginx 설정" 과 같은 명령입니다. `sites-enabled/default` 를 내리는 부분을 빼면
-같은 `server_name` 의 443 블록이 둘이 되어 nginx 가 먼저 나온 쪽만 씁니다(`d205.conf` 머리 주석).
-
-첫 줄은 비밀번호를 물어봅니다. 프롬프트가 떠야 하므로 PowerShell 에서는 `ssh -t` 로 실행하고,
-명령은 한 번만 붙여 넣습니다(두 번 붙으면 htpasswd 가 인자를 잘못 받아 사용법만 출력합니다).
-그 계정과 비밀번호를 팀에 공유합니다. 저장소에는 두지 않습니다.
-EC2 보안 그룹의 8443 은 2026-09-07 에 열었습니다. 다른 계정으로 EC2 를 새로 받으면 다시 열어야 합니다.
-
-8443 에서 **어떤 계정을 넣어도 403** 이면 비밀번호 파일이 없는 것입니다. nginx 는 `auth_basic_user_file`
-이 없으면 401 대신 403 을 냅니다. `ls -l /etc/nginx/.htpasswd-analytics` 로 확인하고 위 첫 줄을 다시
-실행하세요. 파일은 요청마다 읽으므로 nginx 재시작은 필요 없습니다.
-
-Basic Auth 를 통과했는데 **502** 면 Metabase 컨테이너가 3000 에서 응답하지 않는 것입니다.
-`docker logs d205-metabase 2>&1 | grep -E 'Initialization (FAILED|COMPLETE)'` 로 봅니다. FAILED 가
-반복되면 자기 DB 에 못 붙는 것이고, 원인은 셋 중 하나입니다. 계정 스크립트(2번) 미실행, 두 `.env`
-값 불일치(1번), 또는 compose 의 `MB_DB_CONNECTION_URI` 에서 `allowPublicKeyRetrieval=true` 가 빠짐.
-Metabase 는 원인 예외를 로그에 남기지 않아 이 셋을 순서대로 확인해야 합니다.
-
-**4. 배포.** develop 에 머지하면 Jenkins 가 `compose up` 으로 Metabase 컨테이너까지 올립니다.
-첫 기동은 자기 스키마에 마이그레이션을 돌려 1분 넘게 걸리고 메모리를 1GB 가까이 씁니다.
-`bash /tmp/verify.sh` 의 "대시보드" 절에서 내부 3000 이 응답하고 8443 이 401 이면 정상입니다.
-
-**5. Metabase 첫 설정** (브라우저, `https://j15d205.p.ssafy.io:8443`, Basic Auth 뒤에 Metabase
-자체 관리자 계정을 만드는 화면이 뜹니다):
-
-- 관리자 계정을 만들고 그 정보를 팀에 공유합니다.
-- "데이터베이스 추가" 에서 MySQL, 호스트 `mysql-analytics`, 포트 `3306`, 데이터베이스 `d205_analytics`,
-  사용자 `d205_reader`, 비밀번호는 `.env` 의 `ANALYTICS_READER_PASSWORD`. 이름은 "플레이 로그".
-- 게임 DB 는 등록하지 않습니다. 분석 DB 컨테이너에는 게임 스키마가 없고, 읽기 계정도 그쪽에 권한이 없습니다.
-  플레이 로그에는 닉네임이 없어 `userId` 문자열만 보이는데, 그것이 의도입니다(개인정보). 이름이 필요한
-  조회는 관리 화면(사용자 탭)에서 합니다.
-- 앱 계정(`ANALYTICS_DB_USERNAME`)을 넣지 마세요. 그 계정은 쓸 수 있는 계정이라 Metabase 의 SQL 창이
-  로그를 지우는 창이 됩니다.
-
-**6. 기본 대시보드.** 데이터베이스를 등록했으면 화면은 스크립트가 만듭니다. 문서의 쿼리를 읽어
-질문 다섯 개와 대시보드 하나를 만들고, 여러 번 돌려도 이름으로 찾아 갱신합니다.
-
 ```
-scp backend/docs/analytics-dashboards.md backend/deploy/metabase/provision_dashboards.py d205:/tmp/
-ssh -t d205 "MB_USER=<Metabase 관리자 이메일> python3 /tmp/provision_dashboards.py --doc /tmp/analytics-dashboards.md"
+mysql -ud205_reader -p"$ANALYTICS_READER_PASSWORD" d205_analytics
 ```
 
-비밀번호는 물어봅니다. 8443 이 아니라 컨테이너 옆 `127.0.0.1:3000` 으로 붙으므로 Basic Auth 는
-지나지 않습니다. 무엇을 만들지 먼저 보려면 `--dry-run`, 화면을 읽는 법은
-`docs/analytics-dashboards.md` 입니다.
+문서 `docs/analytics-dashboards.md` 의 절을 그대로 붙여 넣으면 분석 탭과 같은 숫자가 나와야 합니다.
+`/* @filter */` 표식은 주석이라 그대로 두어도 됩니다. 앱 계정(`ANALYTICS_DB_USERNAME`)으로 붙지 마세요.
+그 계정은 쓸 수 있는 계정입니다.
+
+### Metabase 내리기 (2026-09-16, 한 번)
+
+2026-09-07 부터 8443 에 Metabase 대시보드가 있었습니다. 관리 화면 분석 탭(S15P21D205-976~978, 1010)이
+같은 여덟 질문과 맵 위 히트맵을 전부 덮게 되어 내렸습니다(S15P21D205-979). 저장소에서는 compose 의
+`metabase` 서비스, nginx 의 8443 블록, 초기화 스크립트의 `metabase` 계정, `provision_dashboards.py` 가
+빠졌습니다. **서버에는 아래 잔재가 남습니다.** Jenkins 의 `compose up` 은 정의에서 빠진 서비스를 내리지
+않으므로 머지 뒤 한 번 손으로 지웁니다. 한 줄씩 실행합니다.
+
+**1. 컨테이너와 이미지.**
+
+```
+ssh d205 'docker rm -f d205-metabase && docker image rm metabase/metabase:v0.63.16.6'
+```
+
+**2. nginx.** "적용 방법" 절의 nginx 설정 두 줄을 그대로 올리면 8443 블록이 빠진 설정이 적용됩니다.
+그 뒤 Basic Auth 파일과 방화벽 규칙을 지웁니다.
+
+```
+ssh d205 'sudo rm -f /etc/nginx/.htpasswd-analytics && sudo ufw delete allow 8443'
+```
+
+ufw 규칙은 `8443/tcp` 가 아니라 프로토콜 없는 `8443` 으로 들어가 있었습니다. 표기가 다르면
+`Could not delete non-existent rule` 이 나오니 `sudo ufw status` 로 실제 표기를 보고 맞춥니다.
+
+EC2 보안 그룹의 8443 인바운드 규칙은 콘솔에서 지웁니다. 남겨 두어도 뒤에 아무것도 없어 위험하지는
+않지만, 열린 포트 목록이 실제와 달라지면 다음 사람이 헷갈립니다.
+
+**3. DB.** 분석 DB 컨테이너의 `metabase` 스키마와 계정, 그리고 분리 전 게임 DB 컨테이너에 남아 있던
+같은 이름의 스키마입니다. 컨테이너 셸로 들어가 컨테이너의 환경변수로 로그인합니다. 두 DB 의 root
+비밀번호가 다른데(`ANALYTICS_MYSQL_ROOT_PASSWORD` / `MYSQL_ROOT_PASSWORD`) 손으로 옮겨 적다 틀리면
+`Access denied` 만 나옵니다. 환경변수 이름은 두 컨테이너에서 똑같이 `MYSQL_ROOT_PASSWORD` 입니다.
+
+```
+ssh -t d205 'docker exec -it d205-mysql-analytics bash'
+```
+
+```
+mysql -uroot -p"$MYSQL_ROOT_PASSWORD"
+```
+
+```sql
+DROP DATABASE IF EXISTS metabase;
+DROP USER IF EXISTS 'metabase'@'%';
+SHOW DATABASES;
+```
+
+`d205_analytics` 만 남으면 됩니다. 게임 DB 컨테이너(`d205-mysql`)도 같은 두 단계로 들어가
+`DROP DATABASE IF EXISTS metabase;` 를 실행합니다. 09-14 이관 전 사본인 옛 `d205_analytics` 도 이때 함께
+지웠습니다(2026-09-16). 분석 DB 컨테이너의 플레이 로그는 건드리지 않습니다.
+
+**4. `.env`.** `METABASE_DB_PASSWORD` 줄은 서버의 `/home/ubuntu/d205/.env` 와 Jenkins 비밀 파일
+`d205-backend-env` 어디에도 더 필요하지 않습니다. 남아 있어도 compose 가 읽지 않으니 해롭지 않고, 지우려면
+Jenkins 쪽은 Secret file 의 Update 화면에서 파일을 다시 골라 올려야 합니다("서비스 분리 배포 순서" 1번).
+
+**5. 확인.** `bash /tmp/verify.sh` 의 "Metabase 잔재" 절 셋이 모두 `없음` 이고, 분석 DB 절의
+"Metabase 스키마·계정 잔재" 조회가 비어 있으면 끝입니다.
 
 ### 플레이 로그 지우기
 
@@ -324,8 +311,7 @@ ssh -t d205 'bash /tmp/reset-analytics.sh'
 
 지우는 것은 `game_event` 한 테이블뿐입니다. `flyway_schema_history` 를 같이 지우면 다음
 배포가 V1~V4 를 처음부터 다시 실행하려다 실패합니다. 뷰는 실체화가 아니라 원본을 그때그때
-읽으므로 따로 비울 것이 없고, Metabase 의 질문·대시보드는 `metabase` 스키마에 따로 있어
-그대로 남습니다.
+읽으므로 따로 비울 것이 없습니다.
 
 Jenkins 설치:
 
@@ -352,6 +338,15 @@ EC2 전체가 넘어갑니다. 그래서 9090을 루프백에만 바인딩하고
 
 **인증서는 certbot이 관리합니다.** `certbot.timer`가 자동 갱신하고 갱신에는
 80번이 열려 있어야 합니다. ufw에서 80을 닫으면 90일 뒤에 만료됩니다.
+
+### 백엔드가 죽으면 새 게임 서버가 뜨지 못합니다
+
+전용 게임 서버는 백엔드 계정으로 Photon 인증을 받습니다. 백엔드가 응답하지 못하면 토큰을 받지 못하고,
+서버는 토큰 없이 시작하지 않습니다. 자세한 것은 `backend/README.md` 의 「게임 서버도 계정을 하나
+씁니다」 절에 있습니다.
+
+이미 떠 있는 서버와 진행 중인 경기는 영향이 없습니다. 새로 띄우는 것만 막힙니다. 배포로 계정 서비스가
+잠깐 내려가는 동안 새 방이 안 열린다는 뜻이므로, 게임을 돌리는 시간대의 배포는 피하는 편이 좋습니다.
 
 ### 알림 WebSocket 은 nginx 에 별도 블록이 필요합니다
 

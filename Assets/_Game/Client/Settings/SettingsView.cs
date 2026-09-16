@@ -401,6 +401,12 @@ namespace Game.Client.Settings
                 SettingsStyle.Palette.PanelFill,
                 HomeUiFonts.Rounded(SettingsStyle.Frame.Radius),
                 raycastTarget: true);
+
+            if (lobbyOverlay)
+            {
+                SettingsStyle.Frame.ApplyLobbyScale(glow);
+                SettingsStyle.Frame.ApplyLobbyScale(panel);
+            }
         }
 
         private void CreateBackButton(RectTransform canvas)

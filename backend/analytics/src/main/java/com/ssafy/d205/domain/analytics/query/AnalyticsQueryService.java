@@ -18,7 +18,7 @@ import com.ssafy.d205.global.common.Timestamps;
  * 관리 화면 분석 탭이 보는 표 둘 - 문서의 질문과 히트맵용 좌표 (S15P21D205-976).
  *
  * <p>질문은 {@link DashboardQueryDocument} 의 SQL 에 필터를 끼워 그대로 실행합니다. 이 클래스는 SQL 을
- * 알지 못하고 결과의 모양만 정합니다. 좌표 쿼리만 여기 있습니다. 그건 Metabase 화면이 아니라 브라우저의
+ * 알지 못하고 결과의 모양만 정합니다. 좌표 쿼리만 여기 있습니다. 그건 표가 아니라 브라우저의
  * canvas 가 그리는 것이라 문서의 "질문"이 아니기 때문입니다.
  */
 @Service
@@ -39,7 +39,8 @@ public class AnalyticsQueryService {
     static final int QUERY_TIMEOUT_SECONDS = 15;
 
     private static final String POSITIONS_SQL = """
-            SELECT map_id, player_seat, phase, elapsed_seconds, pos_x, pos_z
+            SELECT map_id, player_seat, phase, elapsed_seconds, pos_x, pos_z,
+                   item_in_motion, item_known
               FROM match_analysis_positions
              WHERE match_id = ?
              ORDER BY elapsed_seconds, player_seat

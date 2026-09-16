@@ -36,15 +36,13 @@ curl -sS --max-time 5 https://j15d205.p.ssafy.io/actuator/health || echo '응답
 echo
 
 echo
-echo "=== 대시보드 (Metabase) ==="
-printf '내부 3000: '
-curl -sS --max-time 5 http://localhost:3000/api/health || echo '응답 없음 (첫 기동은 1분 넘게 걸립니다)'
-echo
-# 8443 은 Basic Auth 뒤라 401 이 정상입니다. 000 이면 nginx 나 방화벽, 502 면 Metabase 가 없는 것입니다.
-printf 'HTTPS 8443 (401 이 정상): '
-curl -sS --max-time 5 -o /dev/null -w '%{http_code}\n' https://j15d205.p.ssafy.io:8443/api/health || echo '응답 없음'
-printf '분석 DB 준비 로그: '
-docker logs d205-app --tail 500 2>&1 | grep -E '분석 DB' | tail -1 || echo '없음'
+echo "=== Metabase 잔재 (2026-09-16 에 내렸습니다. 셋 다 '없음' 이어야 합니다) ==="
+printf '컨테이너: '
+docker ps -a --filter name=d205-metabase --format '{{.Names}} {{.Status}}' | grep . || echo '없음'
+printf '8443 리슨: '
+(ss -ltn 2>/dev/null || netstat -ltn) | grep -E ':8443\b' || echo '없음'
+printf 'Basic Auth 파일: '
+ls -l /etc/nginx/.htpasswd-analytics 2>/dev/null || echo '없음'
 
 echo
 echo "=== 상시 연결 (알림 WebSocket) ==="
@@ -105,7 +103,7 @@ ask() {
     grep -v 'Using a password' /tmp/verify-sql.err | sed 's/^/    /'
 }
 
-# 같은 것을 분석 DB 컨테이너에 대고 합니다. d205_analytics 와 metabase 스키마는 그쪽에 있습니다.
+# 같은 것을 분석 DB 컨테이너에 대고 합니다. d205_analytics 스키마는 그쪽에 있습니다.
 ask_analytics() {
     local schema=$1 sql=$2
     docker exec d205-mysql-analytics mysql -uroot -p"$APW" --default-character-set=utf8mb4 \
@@ -132,10 +130,13 @@ echo
 echo "--- 수집된 이벤트 (rows=행, matches=경기) ---"
 # schema_ver 로 나눠 셉니다. v2 가 없으면 새 Unity 빌드가 아직 배포되지 않은 것이고,
 # 그때는 대시보드가 비어 있는 것이 정상입니다. 뷰가 schema_ver = 2 만 읽습니다.
+# 비어 있으면 mysql -t 는 아무것도 찍지 않습니다. 그게 "조회 실패"로 읽히지 않게 한 줄 남깁니다.
+# reset-analytics.sh 로 비운 직후가 그 상태이고, 백업은 /home/ubuntu/d205-backups/game_event_*.sql.gz 입니다.
 ask_analytics d205_analytics \
   'SELECT schema_ver, COUNT(*) AS rows_in, COUNT(DISTINCT match_id) AS matches,
           MIN(received_at) AS first_at, MAX(received_at) AS last_at
-     FROM game_event GROUP BY schema_ver ORDER BY schema_ver;'
+     FROM game_event GROUP BY schema_ver ORDER BY schema_ver;' | grep . \
+  || echo '  (game_event 가 비어 있습니다. reset-analytics.sh 직후면 정상입니다)'
 
 # 분석에 실제로 쓸 수 있는 경기 수. 시작·종료가 다 있고 예정 건수와 맞고 중단이
 # 아닌 것만 셉니다. 받은 경기가 있는데 complete 가 0 이면 전송이 중간에 끊기고 있습니다.
@@ -145,20 +146,11 @@ ask_analytics d205_analytics \
      FROM match_analysis_summary;'
 
 echo
-echo "=== 대시보드 질문 (Metabase) ==="
-# Metabase 는 자기 설정을 분석 DB 컨테이너의 metabase 스키마에 둡니다. API 로 물으면 관리자
-# 로그인이 필요하지만 여기서는 이미 root 로 붙어 있으므로 그냥 읽습니다.
-#
-# provision_dashboards.py 가 만드는 것은 대시보드 하나와 질문 여덟 개입니다. 카드 수가
-# 여덟보다 적으면 스크립트가 도중에 멈춘 것입니다.
-#
-# 테이블 이름은 Metabase 버전에 딸린 것이라 우리가 정하지 않습니다. 못 찾으면 실패가
-# 그대로 찍히므로, 그때는 SHOW TABLES 로 이름부터 확인하면 됩니다.
-ask_analytics metabase \
-  'SELECT d.name AS dashboard, COUNT(c.id) AS cards, d.updated_at AS updated
-     FROM report_dashboard d
-     LEFT JOIN report_dashboardcard c ON c.dashboard_id = d.id
-    WHERE d.archived = 0 GROUP BY d.id, d.name, d.updated_at;'
+echo "--- Metabase 스키마·계정 잔재 (비어 있어야 합니다) ---"
+ask_analytics mysql \
+  "SELECT SCHEMA_NAME AS leftover FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = 'metabase'
+    UNION ALL
+   SELECT CONCAT('user:', user) FROM mysql.user WHERE user = 'metabase';"
 
 echo
 echo "=== Photon 커스텀 인증 (S15P21D205-925) ==="

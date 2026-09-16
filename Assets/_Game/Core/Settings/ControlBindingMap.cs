@@ -99,7 +99,8 @@ namespace Game.Core.Settings
             (ControlAction.RotateRight, "RotateObject", "positive"),
             (ControlAction.RaiseObject, "AdjustHeight", "positive"),
             (ControlAction.LowerObject, "AdjustHeight", "negative"),
-            (ControlAction.ToggleKeyGuide, "ToggleKeyGuide", null)
+            (ControlAction.ToggleKeyGuide, "ToggleKeyGuide", null),
+            (ControlAction.ToggleSpeaker, "VoiceListen", null)
         };
 
         /// <summary>

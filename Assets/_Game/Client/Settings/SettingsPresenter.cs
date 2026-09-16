@@ -466,6 +466,12 @@ namespace Game.Client.Settings
             else
             {
                 microphoneTest.Start(soundDraft.DeviceName);
+                if (!microphoneTest.IsRunning)
+                {
+                    view.ShowNotice(
+                        SettingsStyle.MicrophoneTest.UnavailableTitle,
+                        SettingsStyle.MicrophoneTest.UnavailableMessage);
+                }
             }
 
             view.ShowMicrophoneTest(microphoneTest.IsRunning);

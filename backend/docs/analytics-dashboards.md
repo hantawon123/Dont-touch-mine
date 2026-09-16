@@ -1,8 +1,9 @@
 # 플레이 로그 대시보드 쿼리 (812·895)
 
-Metabase 의 "플레이 로그"(`d205_analytics`)를 읽는 여덟 화면의 SQL 입니다. 각 화면이 답하는 것은
-[`analytics-events.md`](analytics-events.md) 1절의 질문 번호를 따릅니다. 화면은 손으로 만들지 않고
-[아래](#화면-만들기) 스크립트가 이 문서를 읽어 만듭니다.
+플레이 로그(`d205_analytics`)를 읽는 여덟 질문의 SQL 입니다. 각 질문이 답하는 것은
+[`analytics-events.md`](analytics-events.md) 1절의 질문 번호를 따릅니다. 화면은 관리 화면의 분석 탭이고,
+그 조회 API 가 [이 문서를 그대로 읽어](#화면은-이-문서를-읽습니다) 실행합니다. 사람이 mysql 클라이언트로
+같은 절을 붙여 넣어도 같은 숫자가 나와야 합니다.
 
 **전부 v2 수집(매초 기록) 위에 서 있습니다.** 클라이언트가 실제로 보내는 것은 다섯 종류
 (`match_start`, `phase_change`, `position_sample`, `player_result`, `match_end`)이고, 그 구조는
@@ -15,10 +16,11 @@ Metabase 의 "플레이 로그"(`d205_analytics`)를 읽는 여덟 화면의 SQL
 안 오는 기록을 기다리는 쿼리를 남겨 두면 다음 사람이 "왜 비어 있나"를 처음부터 다시 조사합니다.
 필요하면 git 히스토리에 있습니다(812).
 
-**여기 없는 것** — 맵 그림 위에 겹치는 히트맵. Metabase 로 안 되고 데이터가 며칠 쌓인 뒤 따로
-만듭니다. 그리고 로비·화면 단위 이탈 — 그건 `client_quit` 이 필요하고 v2 에는 없습니다.
+**여기 없는 것** — 맵 그림 위에 겹치는 히트맵. 그건 질문이 아니라 좌표 API 를 브라우저가 직접 그리는
+것이라 분석 탭의 「맵 위 히트맵」 카드에 있습니다([`analytics-heatmap.md`](analytics-heatmap.md)). 그리고
+로비·화면 단위 이탈 — 그건 `client_quit` 이 필요하고 v2 에는 없습니다.
 
-**어디까지 확인했나** (2026-09-09). 운영과 같은 조합(로컬 MySQL 8.4 + Metabase v0.63.16.6)에 손으로
+**어디까지 확인했나** (2026-09-09). 운영과 같은 MySQL 8.4 에 손으로
 만든 v2 모양 경기 둘 — 완전히 수신된 4인 경기 하나, 예정 건수가 모자란 끊긴 경기 하나 — 을 넣고
 여덟 화면의 값을 손계산과 대조했습니다. 실제 플레이 데이터로는 아직 확인하지 않았습니다.
 
@@ -53,7 +55,7 @@ WHERE upload_complete = 1
 **`/* @filter */` 표식.** 번호 절의 SQL 마다 경기를 고르는 `WHERE` 끝에 이 주석이 정확히 하나 있습니다.
 관리 화면의 분석 조회 API(S15P21D205-976)가 이 문서를 그대로 읽어 그 자리에 기간·경기 조건
 (`AND started_at_utc >= ? AND started_at_utc < ? AND match_id = ?`)을 끼워 넣고 실행합니다. 조건이 없으면
-빈 문자열로 바뀌므로 Metabase 와 API 는 같은 SQL 을 돕니다. 표식은 `match_analysis_summary` 를 읽는
+빈 문자열로 바뀌므로 문서의 SQL 을 손으로 돌린 것과 API 는 같은 SQL 을 돕니다. 표식은 `match_analysis_summary` 를 읽는
 절에만 둘 수 있습니다 - 끼워 넣는 조건이 그 뷰의 컬럼이기 때문입니다. 1 번 절처럼 `WHERE` 가 없던
 쿼리는 `WHERE 1 = 1` 뒤에 둡니다. 표식을 지우거나 둘 이상 두면 수집 서비스가 기동하지 않고 그 이유를
 로그에 남기며, `AnalyticsQueryDocTest` 가 먼저 잡습니다.
@@ -135,8 +137,21 @@ ORDER BY 1
 
 ## 3. 은신처 분포 (질문 2·3)
 
-물건이 **멈춘 자리**를 2m 격자로 묶어 건수와, 그 자리에서 **남에게 들리기까지 걸린 시간**을
-붙입니다. 건수가 많고 오래 버티는 칸이 "너무 좋은 자리", 아무도 안 쓰는 칸이 "죽은 구역"입니다.
+물건이 **멈춘 자리**를 2m 격자로 묶어 건수와, 그 자리에서 **버틴 시간**을 붙입니다. 건수가 많고
+오래 버티는 칸이 "너무 좋은 자리", 아무도 안 쓰는 칸이 "죽은 구역"입니다.
+
+**시간 컬럼이 둘이고 뜻이 다릅니다. 섞으면 결론이 뒤집힙니다.**
+
+`발견까지 평균(초)` 은 **들킨 물건만** 셉니다. 좋은 자리일수록 안 들키니 평균에 남는 것은 그중
+재수 없게 들킨 몇 개뿐이고, 그래서 **제일 좋은 자리가 제일 짧아 보입니다.** 한 번도 안 들킨 칸은
+아예 빈칸입니다. 이 값으로 자리를 줄 세우면 안 됩니다.
+
+`버틴 시간 평균(초)` 은 안 들킨 물건을 **경기 끝까지 버틴 것**으로 셉니다. 모든 물건이 들어가고
+안 들킨 자리가 가장 긴 시간을 받습니다. "어디에 숨기면 오래 가는가"에 답하는 값은 이쪽입니다.
+맵 위 히트맵도 이 컬럼으로 칠합니다.
+
+둘을 나란히 두는 이유는 차이 자체가 정보이기 때문입니다. 두 값이 크게 벌어진 칸은 들킬 때는 금방
+들키지만 대개는 안 들키는 자리입니다.
 
 발견 판정은 소지자입니다. `item_holder_seat` 가 주인(`player_seat`)이 아닌 값으로 바뀌면 남이
 가져간 것이고, 주인 자신이 들고 있는 것은 되찾음이라 세지 않습니다.
@@ -146,12 +161,15 @@ ORDER BY 1
 
 ```sql
 WITH good AS (
-    SELECT match_id FROM match_analysis_summary WHERE upload_complete = 1 /* @filter */
+    -- duration_seconds 를 함께 듭니다. 끝까지 안 들킨 물건의 버틴 시간을 재려면 경기가 언제
+    -- 끝났는지가 있어야 합니다.
+    SELECT match_id, duration_seconds FROM match_analysis_summary WHERE upload_complete = 1 /* @filter */
 ),
 placed AS (
-    SELECT p.match_id, p.player_seat, MIN(p.elapsed_seconds) AS hidden_at_sec
+    SELECT p.match_id, p.player_seat, MIN(p.elapsed_seconds) AS hidden_at_sec,
+           MIN(g.duration_seconds) AS match_end_sec
     FROM match_analysis_positions p
-    JOIN good USING (match_id)
+    JOIN good g USING (match_id)
     WHERE p.item_known = 1 AND p.item_in_motion = 0 AND p.item_destroyed = 0
     GROUP BY p.match_id, p.player_seat
 ),
@@ -162,7 +180,7 @@ spot AS (
     -- 들어오면(중복 업로드) 이 조인이 두 줄을 내고 숨긴 횟수가 부풀기 때문입니다.
     -- 중복 업로드는 upload_complete 가 걸러 주지만, 세는 쿼리가 그 필터에만 기대지
     -- 않게 둡니다 - 이 화면에서 이미 같은 모양의 오류를 두 번 냈습니다.
-    SELECT pl.match_id, pl.player_seat, pl.hidden_at_sec,
+    SELECT pl.match_id, pl.player_seat, pl.hidden_at_sec, pl.match_end_sec,
            MIN(p.map_id)                       AS map_id,
            MIN(FLOOR(p.item_last_x / 2) * 2)   AS gx,
            MIN(FLOOR(p.item_last_z / 2) * 2)   AS gz
@@ -171,7 +189,7 @@ spot AS (
       ON p.match_id = pl.match_id
      AND p.player_seat = pl.player_seat
      AND p.elapsed_seconds = pl.hidden_at_sec
-    GROUP BY pl.match_id, pl.player_seat, pl.hidden_at_sec
+    GROUP BY pl.match_id, pl.player_seat, pl.hidden_at_sec, pl.match_end_sec
 ),
 taken AS (
     SELECT match_id, player_seat, MIN(elapsed_seconds) AS taken_at_sec
@@ -185,6 +203,9 @@ SELECT s.map_id                                          AS `맵`,
        COUNT(*)                                          AS `숨긴 횟수`,
        COUNT(t.taken_at_sec)                             AS `발견된 횟수`,
        ROUND(AVG(t.taken_at_sec - s.hidden_at_sec))      AS `발견까지 평균(초)`,
+       ROUND(AVG(GREATEST(0,
+           COALESCE(t.taken_at_sec, s.match_end_sec) - s.hidden_at_sec)))
+                                                         AS `버틴 시간 평균(초)`,
        ROUND(100 * (1 - COUNT(t.taken_at_sec) / COUNT(*))) AS `끝까지 안 들킨 %`
 FROM spot s
 LEFT JOIN taken t USING (match_id, player_seat)
@@ -192,8 +213,8 @@ GROUP BY s.map_id, s.gx, s.gz
 ORDER BY `숨긴 횟수` DESC
 ```
 
-**시각화**: 표로 시작. Metabase 의 피벗(행 z, 열 x, 값 숨긴 횟수)이 맵 위 히트맵의 임시
-대용입니다. `끝까지 안 들킨 %` 가 높으면서 `숨긴 횟수` 도 많은 칸을 먼저 보세요. MySQL 에
+**시각화**: 표. 어디인지는 분석 탭의 「맵 위 히트맵」 카드가 같은 질의로 그립니다.
+`끝까지 안 들킨 %` 가 높으면서 `숨긴 횟수` 도 많은 칸을 먼저 보세요. MySQL 에
 중앙값 함수가 없어 평균을 썼습니다.
 
 ---
@@ -405,50 +426,28 @@ ORDER BY `이탈 인원` DESC
 
 ## 히트맵으로 보기
 
-3·4번 화면은 표입니다. 표는 "숫자가 큰 칸"만 보여 주고 **어디인지는 못 보여 줍니다.**
-같은 CSV 를 그림으로 바꾸는 도구가 `Tools/analytics/heatmap.py` 입니다. 로컬에서 돌립니다.
-
-```
-pip install matplotlib
-python Tools/analytics/heatmap.py 체류구역.csv --split-by 단계 --log -o dwell.png
-```
-
-CSV 는 Metabase 화면 오른쪽 아래 내려받기로 받고, 한글 헤더를 그대로 읽으므로 손볼 것이
-없습니다. 옵션·읽는 법·막혔을 때는 [`analytics-heatmap.md`](analytics-heatmap.md) 에 있습니다.
-
-**맵 그림 위에 겹치는 것은 아직 못 합니다.** 맵을 위에서 찍은 그림과 그 그림이 덮는 월드
-좌표가 있어야 합니다. 받을 자리(`--map`·`--extent`)는 뚫어 두었습니다.
+3·4번 절은 표입니다. 표는 "숫자가 큰 칸"만 보여 주고 **어디인지는 못 보여 줍니다.** 관리 화면 분석
+탭의 「맵 위 히트맵」 카드가 구운 평면도 위에 같은 값을 그립니다. 은신처 셋(숨긴 횟수·버틴 시간·
+안 들킨 비율)은 3번 절의 질의를 그대로 쓰고, 사람 체류는 좌표 API 를 씁니다. 평면도 굽는 법과
+읽는 법은 [`analytics-heatmap.md`](analytics-heatmap.md) 입니다.
 
 ---
 
-## 화면 만들기
+## 화면은 이 문서를 읽습니다
 
-`deploy/metabase/provision_dashboards.py` 가 **이 문서를 읽어** 질문 여덟 개와 그것을 묶은
-대시보드("플레이 로그 기본 대시보드")를 만듭니다. SQL 은 이 문서가 원본이고 스크립트는 시각화
-종류와 대시보드 배치만 압니다. 손으로 붙여 넣으면 문서와 화면이 조용히 갈라집니다.
+관리 화면 분석 탭의 조회 API(`GET /api/v1/admin/analytics/{question}`, S15P21D205-976)가 **이 문서를
+리소스로 싣고** `## N.` 절의 첫 ```` ```sql ```` 블록을 그 질문의 SQL 로 씁니다. 화면에 붙여 넣은 SQL
+사본이 없으므로 문서를 고치면 다음 배포에서 화면이 따라옵니다. 규칙은 셋입니다.
 
-서버에서 돌립니다. Metabase 는 8443(Basic Auth) 뒤에 있지만 스크립트는 컨테이너 옆
-`127.0.0.1:3000` 으로 붙어서 Basic Auth 와 인증서를 지나지 않습니다.
+- 절 번호 1~8 이 모두 있어야 하고, 각 절에 `/* @filter */` 표식이 정확히 하나 있어야 합니다. 어긋나면
+  수집 서비스가 **기동하지 않고** 이유를 로그에 남깁니다. `AnalyticsQueryDocTest` 가 먼저 잡습니다.
+- 컬럼 별칭(한글)이 화면의 헤더와 차트 축입니다. 별칭을 바꾸면 그 카드는 차트 대신 표로 떨어지고
+  카드에 그 사실이 적힙니다. 축 이름은 `static/admin/index.html` 의 카드 정의에 있습니다.
+- 뷰(`match_analysis_summary`·`match_analysis_positions`·`match_analysis_combat`)는 분석 스키마의
+  Flyway 마이그레이션이 만듭니다. 문서가 새 컬럼을 읽으려면 마이그레이션이 먼저입니다.
 
-```
-scp backend/docs/analytics-dashboards.md backend/deploy/metabase/provision_dashboards.py d205:/tmp/
-ssh -t d205 "MB_USER=<Metabase 관리자 이메일> python3 /tmp/provision_dashboards.py --doc /tmp/analytics-dashboards.md"
-```
+데이터가 없으면 카드는 빈 채로 뜹니다. 경기가 한 판도 안 올라온 상태에서는 그게 정상입니다.
 
-비밀번호는 물어봅니다(`MB_PASS` 로 줄 수도 있습니다). 무엇을 만들지만 보려면 `--dry-run` 입니다.
-표준 라이브러리만 쓰므로 서버에 설치할 것은 없습니다.
-
-여러 번 돌려도 안전합니다. 질문·대시보드를 이름으로 찾아 있으면 갱신합니다. 뒤집어 말하면
-**Metabase 화면에서 손으로 고친 SQL·시각화·배치는 다음 실행에서 문서의 값으로 되돌아갑니다.**
-화면에서 고친 것이 마음에 들면 이 문서에 옮겨 적고 다시 돌리세요.
-
-- **뷰가 먼저 있어야 합니다.** `match_analysis_summary`·`match_analysis_positions` 는 분석 스키마의
-  Flyway 마이그레이션(V2·V3)이 만듭니다. 백엔드를 배포한 뒤 Metabase 의 관리자 → 데이터베이스에서
-  **스키마 동기화**를 한 번 눌러야 새 뷰와 컬럼이 보입니다.
-- 질문과 대시보드는 **"우리의 분석"** 에 놓입니다. 그건 우리가 만든 컬렉션이 아니라 Metabase 의
-  루트 컬렉션이고, 한국어 화면에서 이름이 그렇게 나옵니다. API 에서는 `collection_id` 가 빈 값입니다.
-- `'플레이 로그' 데이터베이스가 Metabase 에 없습니다` 로 멈추면 `deploy/README.md` 의
-  "Metabase 첫 설정" 을 아직 하지 않은 것입니다. 스크립트는 데이터베이스 연결을 만들지 않습니다.
-  거기에는 `d205_reader` 비밀번호가 들어가고, 그건 저장소에 없습니다.
-- 데이터가 없으면 화면은 빈 채로 만들어집니다. 경기가 한 판도 안 올라온 상태에서는 그게 정상입니다.
-- 무거운 쿼리는 게임과 같은 MySQL 을 때립니다. 대시보드 자동 새로 고침은 켜지 않습니다.
+2026-09-16 까지는 같은 문서를 `provision_dashboards.py` 가 읽어 Metabase 대시보드도 만들었습니다.
+분석 탭이 여덟 질문을 전부 덮어 Metabase 와 그 스크립트를 내렸습니다(S15P21D205-979). 즉석 SQL 은
+EC2 에서 읽기 계정으로 직접 봅니다(`deploy/README.md` 의 "즉석 SQL 은 읽기 계정으로").
