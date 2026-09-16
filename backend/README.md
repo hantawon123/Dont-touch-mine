@@ -9,6 +9,19 @@ Unity 클라이언트의 계정·프로필·친구·방 초대·접속 상태·�
 하나를 유지하고, 서버는 그 연결로 친구·초대 알림을 밀어 주며 접속 상태는 연결이 살아
 있는지에서 얻습니다.
 
+## 문서
+
+| 문서 | 무엇 |
+| --- | --- |
+| [`docs/client-guide.md`](docs/client-guide.md) | Unity 클라이언트가 부르는 API. 서명 헤더와 오류 코드 |
+| [`docs/admin-guide.md`](docs/admin-guide.md) | 관리 화면 API 와 화면 읽는 법 |
+| [`docs/analytics-events.md`](docs/analytics-events.md) | 플레이 로그 이벤트 규격 |
+| [`docs/match-analytics.md`](docs/match-analytics.md) | 경기 수집 v2. 클라이언트가 무엇을 언제 모아 보내는가 |
+| [`docs/analytics-dashboards.md`](docs/analytics-dashboards.md) | 분석 질문의 SQL 원본. 화면과 Metabase 가 같이 씁니다 |
+| [`docs/analytics-heatmap.md`](docs/analytics-heatmap.md) | 히트맵 읽는 법과 맵 평면도 굽기 |
+| [`docs/analytics-load-test.md`](docs/analytics-load-test.md) | 수집 부하 테스트 결과. 서비스를 나눈 근거 |
+| [`deploy/README.md`](deploy/README.md) | 서버 구성, 배포, 수동 단계, 배포가 깨졌을 때 |
+
 ## 개발 환경
 
 - Java 21 (LTS)
@@ -168,6 +181,31 @@ X-User-Id 의 토큰을 대조하고 정지 계정을 거르는 인터셉터와 
 `AdminPageConfig`)에 둡니다. `AccountTokens` 가 domain 이 아니라 global 에 있는 이유는
 Photon 인증(`domain/photon`)과 게임 API 인터셉터가 같은 서명을 보기 때문입니다. 한 도메인에
 두면 global 이 domain 을 의존하게 되어 방향이 뒤집힙니다.
+
+## 게임 서버도 계정을 하나 씁니다
+
+전용 게임 서버(Unity 프로세스)가 Photon 에 붙을 때 **백엔드 계정으로 인증합니다.** 플레이어와 같은
+발급 경로를 타고, 받은 서명 토큰으로 Photon 커스텀 인증을 통과합니다. 서버 프로세스마다 기기
+식별자가 따로 있어 계정도 프로세스마다 하나입니다.
+
+백엔드에서 보이는 결과는 이렇습니다.
+
+| 어디 | 무엇 |
+| --- | --- |
+| `users` | 서버 프로세스마다 한 행. 닉네임은 자동 생성, `searchable` 기본값은 참 |
+| 친구 검색 | 그 닉네임으로 검색하면 나옵니다 |
+| 관리 화면 사용자 탭 | 사람 계정과 섞여 나옵니다. 랜덤 닉네임이라 눈으로 구분되지 않습니다 |
+| 개요 탭 신규 가입 | 서버를 새로 띄우면 가입 한 건으로 잡힙니다 |
+| 접속자 수 | **안 잡힙니다.** 서버는 접속 상태 게이트웨이와 심장박동을 등록하지 않습니다 |
+
+**두 가지를 조심해야 합니다.**
+
+서버 계정을 정지하면 그 서버가 뜨지 않습니다. 정지된 계정은 발급이 거절되고, 서버는 토큰이 없으면
+시작을 거부합니다. 관리 화면에서 랜덤 닉네임을 보고 무심코 정지하면 게임 서버가 죽습니다.
+
+백엔드가 응답하지 못하면 **새 게임 서버가 뜨지 못합니다.** 플레이어는 지난 실행에서 저장한 토큰으로
+버티지만 서버는 그 폴백을 일부러 쓰지 않습니다(남의 자격증명을 쓰면 안 되므로). 백엔드가 죽어도
+게임은 계속 돈다는 원칙의 예외이고, 이미 떠 있는 서버와 진행 중인 경기는 영향이 없습니다.
 
 ## 협업 규칙
 
