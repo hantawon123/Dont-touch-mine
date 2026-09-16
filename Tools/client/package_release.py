@@ -30,7 +30,7 @@ def package(client, output, revision):
                     raise ValueError('Unexpected credential file in player')
                 files.append(file)
     output.mkdir(parents=True, exist_ok=False)
-    name = f'KeepIt-Windows-{revision[:12]}.zip'
+    name = f"Don't-Touch-Mine-Windows-{revision[:12]}.zip"
     with zipfile.ZipFile(output / name, 'w', zipfile.ZIP_DEFLATED, compresslevel=1) as archive:
         for file in sorted(files):
             archive.write(file, file.relative_to(client).as_posix())
