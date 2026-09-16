@@ -14,156 +14,771 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   groups:
   - category: 0
-    label: 몸 색상
+    label: "\uBAB8 \uC0C9\uC0C1"
     icon: {fileID: 21300000, guid: 8eb0ca68a04a2d64d8aa8e1e577c3cc4, type: 3}
     parts:
-    - id: body_coral
-      label: 코랄
+    - id: body_orange_vivid
+      label: "\uC120\uBA85\uD55C \uC8FC\uD669"
       thumbnail: {fileID: 0}
-      swatch: {r: 0.98, g: 0.608, b: 0.49, a: 1}
+      swatch: {r: 1, g: 0.5411765, b: 0.14117648, a: 1}
       material: {fileID: 0}
-      texture: {fileID: 2800000, guid: 7c083af4a90c80941b35532163860bb8, type: 3}
-    - id: body_lavender
-      label: 라벤더
-      thumbnail: {fileID: 0}
-      swatch: {r: 0.725, g: 0.62, b: 0.922, a: 1}
-      material: {fileID: 0}
-      texture: {fileID: 2800000, guid: ae9cc10eaf9e09048beb54b4395c9081, type: 3}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
     - id: body_lemon
-      label: 레몬
+      label: "\uB178\uB791"
       thumbnail: {fileID: 0}
-      swatch: {r: 0.98, g: 0.863, b: 0.471, a: 1}
+      swatch: {r: 1, g: 0.79607844, b: 0.46666667, a: 1}
       material: {fileID: 0}
-      texture: {fileID: 2800000, guid: 4968b40bce949504faf890bc6b11074c, type: 3}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_yellow_vivid
+      label: "\uC120\uBA85\uD55C \uB178\uB791"
+      thumbnail: {fileID: 0}
+      swatch: {r: 1, g: 0.8784314, b: 0.2, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_apple
+      label: "\uB77C\uC784 \uC5F0\uB450"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.8509804, g: 0.92941177, b: 0.57254905, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_pistachio
+      label: "\uC138\uC774\uC9C0 \uC5F0\uB450"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.8, g: 0.8352941, b: 0.68235296, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
     - id: body_mint
-      label: 민트
+      label: "\uBBFC\uD2B8 \uC5F0\uB450"
       thumbnail: {fileID: 0}
-      swatch: {r: 0.596, g: 0.871, b: 0.769, a: 1}
+      swatch: {r: 0.58431375, g: 0.8352941, b: 0.69803923, a: 1}
       material: {fileID: 0}
-      texture: {fileID: 2800000, guid: 3327bad86f487a84ea353224ccbb0924, type: 3}
-    - id: body_pink
-      label: 핑크
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_green_vivid
+      label: "\uC120\uBA85\uD55C \uCD08\uB85D"
       thumbnail: {fileID: 0}
-      swatch: {r: 0.961, g: 0.663, b: 0.784, a: 1}
+      swatch: {r: 0.15294118, g: 0.84705883, b: 0.37254903, a: 1}
       material: {fileID: 0}
-      texture: {fileID: 2800000, guid: 788282810062ef94cac55e38c733dc8a, type: 3}
-    - id: body_purple
-      label: 퍼플
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_green
+      label: "\uCD08\uB85D"
       thumbnail: {fileID: 0}
-      swatch: {r: 0.588, g: 0.439, b: 0.824, a: 1}
+      swatch: {r: 0.2627451, g: 0.6666667, b: 0.54509807, a: 1}
       material: {fileID: 0}
-      texture: {fileID: 2800000, guid: e37e82f9f6ba61b43b3ea823c2108c8e, type: 3}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_cyan_vivid
+      label: "\uC120\uBA85\uD55C \uCCAD\uB85D"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.1254902, g: 0.8039216, b: 0.9607843, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
     - id: body_skyblue
-      label: 스카이블루
+      label: "\uD558\uB298"
       thumbnail: {fileID: 0}
-      swatch: {r: 0.529, g: 0.808, b: 0.922, a: 1}
+      swatch: {r: 0.7411765, g: 0.8784314, b: 0.99607843, a: 1}
       material: {fileID: 0}
-      texture: {fileID: 2800000, guid: 72f8b249013e6cb4c906c58440ed980d, type: 3}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_periwinkle
+      label: "\uD558\uB298 \uBCF4\uB77C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.73333335, g: 0.8156863, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_blue_vivid
+      label: "\uC120\uBA85\uD55C \uD30C\uB791"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.20392157, g: 0.47058824, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_blue
+      label: "\uD30C\uB791"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.015686275, g: 0.4, b: 0.78431374, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_navy
+      label: "\uB0A8\uC0C9"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0, g: 0.15686275, b: 0.33333334, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_slate
+      label: "\uD68C\uBE5B \uBCF4\uB77C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.5568628, g: 0.6039216, b: 0.6862745, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_lilac_light
+      label: "\uB77C\uC77C\uB77D \uD06C\uB9BC"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.89411765, g: 0.8, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_lavender
+      label: "\uC5F0\uBCF4\uB77C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.8039216, g: 0.7058824, b: 0.85882354, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_purple
+      label: "\uBCF4\uB77C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.5764706, g: 0.5058824, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_purple_vivid
+      label: "\uC120\uBA85\uD55C \uBCF4\uB77C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.54509807, g: 0.3019608, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_pink
+      label: "\uC5F0\uBD84\uD64D"
+      thumbnail: {fileID: 0}
+      swatch: {r: 1, g: 0.7921569, b: 0.83137256, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_pink_vivid
+      label: "\uC120\uBA85\uD55C \uD551\uD06C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 1, g: 0.30980393, b: 0.6392157, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_rose
+      label: "\uC9C4\uBD84\uD64D"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.85490197, g: 0.38431373, b: 0.49019608, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_red_vivid
+      label: "\uC120\uBA85\uD55C \uBE68\uAC15"
+      thumbnail: {fileID: 0}
+      swatch: {r: 1, g: 0.23137255, b: 0.23137255, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_red
+      label: "\uBE68\uAC15"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.9019608, g: 0.22352941, b: 0.27450982, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_white
+      label: "\uC624\uD504\uD654\uC774\uD2B8"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.972549, g: 0.9764706, b: 0.98039216, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_grey
+      label: "\uB77C\uC774\uD2B8 \uADF8\uB808\uC774"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.80784315, g: 0.83137256, b: 0.85490197, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_charcoal
+      label: "\uCC28\uCF5C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.28627452, g: 0.3137255, b: 0.34117648, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: body_black
+      label: "\uB525 \uCC28\uCF5C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.12941177, g: 0.14509805, b: 0.16078432, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    defaultPartId: body_lemon
   - category: 1
-    label: 후드
+    label: "\uD6C4\uB4DC \uBAA8\uC591"
     icon: {fileID: 21300000, guid: 99e3019848c5f124fb335ec60cf70cf3, type: 3}
     parts:
-    - id: hood_cream
-      label: 크림
-      thumbnail: {fileID: 0}
-      swatch: {r: 0.961, g: 0.902, b: 0.784, a: 1}
+    - id: hood_bear
+      label: "\uACF0"
+      thumbnail: {fileID: 21300000, guid: b6734036899bc5f4489ebdab81259c96, type: 3}
+      swatch: {r: 0.83137256, g: 0.9254902, b: 1, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
-    - id: hood_pink
-      label: 핑크
-      thumbnail: {fileID: 0}
-      swatch: {r: 0.949, g: 0.655, b: 0.765, a: 1}
+      mesh: {fileID: -3137129725661375301, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      wearable: {fileID: 0}
+    - id: hood_cat
+      label: "\uACE0\uC591\uC774"
+      thumbnail: {fileID: 21300000, guid: 3a50f8a26ab09834fa9ff9cdc6fd39fd, type: 3}
+      swatch: {r: 0.83137256, g: 0.9254902, b: 1, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
-    - id: hood_sky
-      label: 하늘
-      thumbnail: {fileID: 0}
-      swatch: {r: 0.659, g: 0.796, b: 0.91, a: 1}
+      mesh: {fileID: 7293372488581800650, guid: 88592d6de07a54447821f6896d4f66a9, type: 3}
+      wearable: {fileID: 0}
+    - id: hood_dog
+      label: "\uAC15\uC544\uC9C0"
+      thumbnail: {fileID: 21300000, guid: fb37a16c26d52884f888dc89e4e1cfe0, type: 3}
+      swatch: {r: 0.83137256, g: 0.9254902, b: 1, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
+      mesh: {fileID: 4466147416138417999, guid: 88592d6de07a54447821f6896d4f66a9, type: 3}
+      wearable: {fileID: 0}
+    - id: hood_rabbit
+      label: "\uD1A0\uB07C"
+      thumbnail: {fileID: 21300000, guid: 13ea4e25f8181ed4f901a98963d2cf92, type: 3}
+      swatch: {r: 0.83137256, g: 0.9254902, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 9149556935877087812, guid: 88592d6de07a54447821f6896d4f66a9, type: 3}
+      wearable: {fileID: 0}
+    defaultPartId: 
+  - category: 4
+    label: "\uD6C4\uB4DC \uC0C9\uC0C1"
+    icon: {fileID: 21300000, guid: 99e3019848c5f124fb335ec60cf70cf3, type: 3}
+    parts:
+    - id: hood_orange_vivid
+      label: "\uC120\uBA85\uD55C \uC8FC\uD669"
+      thumbnail: {fileID: 0}
+      swatch: {r: 1, g: 0.5411765, b: 0.14117648, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_butter
+      label: "\uB178\uB791"
+      thumbnail: {fileID: 0}
+      swatch: {r: 1, g: 0.79607844, b: 0.46666667, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_yellow_vivid
+      label: "\uC120\uBA85\uD55C \uB178\uB791"
+      thumbnail: {fileID: 0}
+      swatch: {r: 1, g: 0.8784314, b: 0.2, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_apple
+      label: "\uB77C\uC784 \uC5F0\uB450"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.8509804, g: 0.92941177, b: 0.57254905, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_sage
+      label: "\uC138\uC774\uC9C0 \uC5F0\uB450"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.8, g: 0.8352941, b: 0.68235296, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
     - id: hood_mint
-      label: 민트
+      label: "\uBBFC\uD2B8 \uC5F0\uB450"
       thumbnail: {fileID: 0}
-      swatch: {r: 0.663, g: 0.878, b: 0.808, a: 1}
+      swatch: {r: 0.58431375, g: 0.8352941, b: 0.69803923, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
-    - id: hood_grey
-      label: 그레이
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_green_vivid
+      label: "\uC120\uBA85\uD55C \uCD08\uB85D"
       thumbnail: {fileID: 0}
-      swatch: {r: 0.788, g: 0.8, b: 0.82, a: 1}
+      swatch: {r: 0.15294118, g: 0.84705883, b: 0.37254903, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_green
+      label: "\uCD08\uB85D"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.2627451, g: 0.6666667, b: 0.54509807, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_cyan_vivid
+      label: "\uC120\uBA85\uD55C \uCCAD\uB85D"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.1254902, g: 0.8039216, b: 0.9607843, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_ice
+      label: "\uD558\uB298"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.7411765, g: 0.8784314, b: 0.99607843, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_periwinkle
+      label: "\uD558\uB298 \uBCF4\uB77C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.73333335, g: 0.8156863, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_blue_vivid
+      label: "\uC120\uBA85\uD55C \uD30C\uB791"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.20392157, g: 0.47058824, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_blue
+      label: "\uD30C\uB791"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.015686275, g: 0.4, b: 0.78431374, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_navy
+      label: "\uB0A8\uC0C9"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0, g: 0.15686275, b: 0.33333334, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_slate
+      label: "\uD68C\uBE5B \uBCF4\uB77C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.5568628, g: 0.6039216, b: 0.6862745, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_lilac_light
+      label: "\uB77C\uC77C\uB77D \uD06C\uB9BC"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.89411765, g: 0.8, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
     - id: hood_lavender
-      label: 라벤더
+      label: "\uC5F0\uBCF4\uB77C"
       thumbnail: {fileID: 0}
-      swatch: {r: 0.765, g: 0.702, b: 0.91, a: 1}
+      swatch: {r: 0.8039216, g: 0.7058824, b: 0.85882354, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_purple
+      label: "\uBCF4\uB77C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.5764706, g: 0.5058824, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_purple_vivid
+      label: "\uC120\uBA85\uD55C \uBCF4\uB77C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.54509807, g: 0.3019608, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_pink
+      label: "\uC5F0\uBD84\uD64D"
+      thumbnail: {fileID: 0}
+      swatch: {r: 1, g: 0.7921569, b: 0.83137256, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_pink_vivid
+      label: "\uC120\uBA85\uD55C \uD551\uD06C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 1, g: 0.30980393, b: 0.6392157, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_rose
+      label: "\uC9C4\uBD84\uD64D"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.85490197, g: 0.38431373, b: 0.49019608, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_red_vivid
+      label: "\uC120\uBA85\uD55C \uBE68\uAC15"
+      thumbnail: {fileID: 0}
+      swatch: {r: 1, g: 0.23137255, b: 0.23137255, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_red
+      label: "\uBE68\uAC15"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.9019608, g: 0.22352941, b: 0.27450982, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_ivory
+      label: "\uC624\uD504\uD654\uC774\uD2B8"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.972549, g: 0.9764706, b: 0.98039216, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_grey
+      label: "\uB77C\uC774\uD2B8 \uADF8\uB808\uC774"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.80784315, g: 0.83137256, b: 0.85490197, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_charcoal
+      label: "\uCC28\uCF5C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.28627452, g: 0.3137255, b: 0.34117648, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: hood_black
+      label: "\uB525 \uCC28\uCF5C"
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.12941177, g: 0.14509805, b: 0.16078432, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    defaultPartId: hood_ice
   - category: 2
-    label: 신발
+    label: "\uC2E0\uBC1C"
     icon: {fileID: 21300000, guid: 96070b8ff9657ef4bbe9d404e7796d12, type: 3}
     parts:
-    - id: shoes_orange
-      label: 오렌지
-      thumbnail: {fileID: 0}
-      swatch: {r: 1.0, g: 0.541, b: 0.239, a: 1}
+    - id: shoes_orange_vivid
+      label: "\uC120\uBA85\uD55C \uC8FC\uD669"
+      thumbnail: {fileID: 21300000, guid: d11a05f15183a304e997c9fc9c73511c, type: 3}
+      swatch: {r: 1, g: 0.5411765, b: 0.14117648, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
-    - id: shoes_lavender
-      label: 라벤더
-      thumbnail: {fileID: 0}
-      swatch: {r: 0.765, g: 0.702, b: 0.91, a: 1}
-      material: {fileID: 0}
-      texture: {fileID: 0}
-    - id: shoes_blue
-      label: 블루
-      thumbnail: {fileID: 0}
-      swatch: {r: 0.306, g: 0.498, b: 0.878, a: 1}
-      material: {fileID: 0}
-      texture: {fileID: 0}
-    - id: shoes_mint
-      label: 민트
-      thumbnail: {fileID: 0}
-      swatch: {r: 0.663, g: 0.878, b: 0.808, a: 1}
-      material: {fileID: 0}
-      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
     - id: shoes_yellow
-      label: 옐로
-      thumbnail: {fileID: 0}
-      swatch: {r: 0.961, g: 0.824, b: 0.29, a: 1}
+      label: "\uB178\uB791"
+      thumbnail: {fileID: 21300000, guid: 7cd3bb8d8b599f94dbefd14c697d8770, type: 3}
+      swatch: {r: 1, g: 0.79607844, b: 0.46666667, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
-    - id: shoes_hotpink
-      label: 핫핑크
-      thumbnail: {fileID: 0}
-      swatch: {r: 1.0, g: 0.373, b: 0.635, a: 1}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_yellow_vivid
+      label: "\uC120\uBA85\uD55C \uB178\uB791"
+      thumbnail: {fileID: 21300000, guid: de66f9e924d14aa419265be22123bee7, type: 3}
+      swatch: {r: 1, g: 0.8784314, b: 0.2, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_apple
+      label: "\uB77C\uC784 \uC5F0\uB450"
+      thumbnail: {fileID: 21300000, guid: b0ad18200d305db45b8e42f1a5d6ec6a, type: 3}
+      swatch: {r: 0.8509804, g: 0.92941177, b: 0.57254905, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_sage
+      label: "\uC138\uC774\uC9C0 \uC5F0\uB450"
+      thumbnail: {fileID: 21300000, guid: 08a460cf10569944f8cdf74a07fdb727, type: 3}
+      swatch: {r: 0.8, g: 0.8352941, b: 0.68235296, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_mint
+      label: "\uBBFC\uD2B8 \uC5F0\uB450"
+      thumbnail: {fileID: 21300000, guid: 8c0fa1d6aaa5141438b429619c123db3, type: 3}
+      swatch: {r: 0.58431375, g: 0.8352941, b: 0.69803923, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_green_vivid
+      label: "\uC120\uBA85\uD55C \uCD08\uB85D"
+      thumbnail: {fileID: 21300000, guid: c040ac30e90783b44a49c57c0beb7e9b, type: 3}
+      swatch: {r: 0.15294118, g: 0.84705883, b: 0.37254903, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_green
+      label: "\uCD08\uB85D"
+      thumbnail: {fileID: 21300000, guid: 427afad152acf6b46adff11a872f0f21, type: 3}
+      swatch: {r: 0.2627451, g: 0.6666667, b: 0.54509807, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_cyan_vivid
+      label: "\uC120\uBA85\uD55C \uCCAD\uB85D"
+      thumbnail: {fileID: 21300000, guid: a05b12f9b982d85429332ecadc64a34d, type: 3}
+      swatch: {r: 0.1254902, g: 0.8039216, b: 0.9607843, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_babyblue
+      label: "\uD558\uB298"
+      thumbnail: {fileID: 21300000, guid: b0e59ae24a0054643a1cc74a89e30159, type: 3}
+      swatch: {r: 0.7411765, g: 0.8784314, b: 0.99607843, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_periwinkle
+      label: "\uD558\uB298 \uBCF4\uB77C"
+      thumbnail: {fileID: 21300000, guid: dc316d29193e1f34a87c961105bd2f80, type: 3}
+      swatch: {r: 0.73333335, g: 0.8156863, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_blue_vivid
+      label: "\uC120\uBA85\uD55C \uD30C\uB791"
+      thumbnail: {fileID: 21300000, guid: e8827887004473342b0d3c33ab42254e, type: 3}
+      swatch: {r: 0.20392157, g: 0.47058824, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_blue
+      label: "\uD30C\uB791"
+      thumbnail: {fileID: 21300000, guid: f1ae8e39218cbb442974f7eed3a49dd8, type: 3}
+      swatch: {r: 0.015686275, g: 0.4, b: 0.78431374, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_navy
+      label: "\uB0A8\uC0C9"
+      thumbnail: {fileID: 21300000, guid: 69f7f8181280aea4d94e355c71823937, type: 3}
+      swatch: {r: 0, g: 0.15686275, b: 0.33333334, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_slate
+      label: "\uD68C\uBE5B \uBCF4\uB77C"
+      thumbnail: {fileID: 21300000, guid: fe3dea9f29b8518438818e3f91b39492, type: 3}
+      swatch: {r: 0.5568628, g: 0.6039216, b: 0.6862745, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_lilac_light
+      label: "\uB77C\uC77C\uB77D \uD06C\uB9BC"
+      thumbnail: {fileID: 21300000, guid: 851dd720d142b244aafc9115cfafc571, type: 3}
+      swatch: {r: 0.89411765, g: 0.8, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_lavender
+      label: "\uC5F0\uBCF4\uB77C"
+      thumbnail: {fileID: 21300000, guid: 69612e70fa5f4f54a9d18292d1a07029, type: 3}
+      swatch: {r: 0.8039216, g: 0.7058824, b: 0.85882354, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_purple
+      label: "\uBCF4\uB77C"
+      thumbnail: {fileID: 21300000, guid: 87c07397e4f824746a01e8639cc72e91, type: 3}
+      swatch: {r: 0.5764706, g: 0.5058824, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_purple_vivid
+      label: "\uC120\uBA85\uD55C \uBCF4\uB77C"
+      thumbnail: {fileID: 21300000, guid: 306822b2d1d05834fab2dc68fdb43bb1, type: 3}
+      swatch: {r: 0.54509807, g: 0.3019608, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_cotton
+      label: "\uC5F0\uBD84\uD64D"
+      thumbnail: {fileID: 21300000, guid: c0c14331e09f70947858984d786f60c4, type: 3}
+      swatch: {r: 1, g: 0.7921569, b: 0.83137256, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_pink_vivid
+      label: "\uC120\uBA85\uD55C \uD551\uD06C"
+      thumbnail: {fileID: 21300000, guid: 84351392ebb935e4aacd4f60cf0cc1ba, type: 3}
+      swatch: {r: 1, g: 0.30980393, b: 0.6392157, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_rose
+      label: "\uC9C4\uBD84\uD64D"
+      thumbnail: {fileID: 21300000, guid: 52506e602de36374891da76c1be4d5e2, type: 3}
+      swatch: {r: 0.85490197, g: 0.38431373, b: 0.49019608, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_red_vivid
+      label: "\uC120\uBA85\uD55C \uBE68\uAC15"
+      thumbnail: {fileID: 21300000, guid: 8818177944e26a94aa694a0ae0ece0d5, type: 3}
+      swatch: {r: 1, g: 0.23137255, b: 0.23137255, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_red
+      label: "\uBE68\uAC15"
+      thumbnail: {fileID: 21300000, guid: 65cc25e144db1984e8a6ac92eee2d712, type: 3}
+      swatch: {r: 0.9019608, g: 0.22352941, b: 0.27450982, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_white
+      label: "\uC624\uD504\uD654\uC774\uD2B8"
+      thumbnail: {fileID: 21300000, guid: 384027723c538cb4dbd8be1a3b3012d6, type: 3}
+      swatch: {r: 0.972549, g: 0.9764706, b: 0.98039216, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_grey
+      label: "\uB77C\uC774\uD2B8 \uADF8\uB808\uC774"
+      thumbnail: {fileID: 21300000, guid: ef60b6f09c326364e980e675446a1d74, type: 3}
+      swatch: {r: 0.80784315, g: 0.83137256, b: 0.85490197, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_charcoal
+      label: "\uCC28\uCF5C"
+      thumbnail: {fileID: 21300000, guid: 9b9340fe0ca51234a8a267b821cb7817, type: 3}
+      swatch: {r: 0.28627452, g: 0.3137255, b: 0.34117648, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    - id: shoes_black
+      label: "\uB525 \uCC28\uCF5C"
+      thumbnail: {fileID: 21300000, guid: 489b4679760fc8645bb8642fe3b5945a, type: 3}
+      swatch: {r: 0.12941177, g: 0.14509805, b: 0.16078432, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
+    defaultPartId: shoes_blue
   - category: 3
-    label: 표정
+    label: "\uD45C\uC815"
     icon: {fileID: 21300000, guid: f4f89123c01c4ba4b987af38122601f0, type: 3}
     parts:
     - id: face_default
-      label: 기본
-      thumbnail: {fileID: 0}
-      swatch: {r: 0.851, g: 0.851, b: 0.851, a: 1}
+      label: "\uAE30\uBCF8"
+      thumbnail: {fileID: 21300000, guid: 56e8119cc5d9bb34ab0160f50efce693, type: 3}
+      swatch: {r: 1, g: 1, b: 1, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
-    - id: face_smile
-      label: 미소
-      thumbnail: {fileID: 0}
-      swatch: {r: 0.851, g: 0.851, b: 0.851, a: 1}
+      mesh: {fileID: 0}
+      wearable: {fileID: 0}
+    - id: face_sparkle
+      label: "\uBC18\uC9DD\uBC18\uC9DD"
+      thumbnail: {fileID: 21300000, guid: b7f2301ead0cb52418cb401449022815, type: 3}
+      swatch: {r: 1, g: 1, b: 1, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
-    - id: face_surprised
-      label: 놀람
-      thumbnail: {fileID: 0}
-      swatch: {r: 0.851, g: 0.851, b: 0.851, a: 1}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: 1ac45455550e1644db1980a4da054c5c, type: 2}
+    - id: face_sleepy
+      label: "\uB098\uB978\uD55C \uB208"
+      thumbnail: {fileID: 21300000, guid: 3f9c814ce05c9a04290c0d772b747e42, type: 3}
+      swatch: {r: 1, g: 1, b: 1, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
-    - id: face_wink
-      label: 윙크
-      thumbnail: {fileID: 0}
-      swatch: {r: 0.851, g: 0.851, b: 0.851, a: 1}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: dee8337781e3b444b867e2077405db1a, type: 2}
+    - id: face_fierce
+      label: "\uC0AC\uB098\uC6B4 \uB208"
+      thumbnail: {fileID: 21300000, guid: 66eafaacc338ba84a80138e3a55ce7de, type: 3}
+      swatch: {r: 1, g: 1, b: 1, a: 1}
       material: {fileID: 0}
       texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: aeb4b97be7ed40d4fb0a3d1f942a1932, type: 2}
+    - id: face_brown
+      label: "\uAC08\uC0C9 \uB208\uB9DD\uC6B8"
+      thumbnail: {fileID: 21300000, guid: cadadd602614afe458fa4e3841555f11, type: 3}
+      swatch: {r: 1, g: 1, b: 1, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+      mesh: {fileID: 0}
+      wearable: {fileID: 11400000, guid: 9a8ca9297fbf5164a9ae42bb8e4cba3a, type: 2}
+    defaultPartId: 

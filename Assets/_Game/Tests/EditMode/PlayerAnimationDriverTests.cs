@@ -250,7 +250,7 @@ namespace Game.Tests.EditMode
             Assert.That(visual, Is.Not.Null);
             var source = PrefabUtility.GetCorrespondingObjectFromOriginalSource(visual.gameObject);
             Assert.That(source, Is.Not.Null);
-            Assert.That(AssetDatabase.GetAssetPath(source), Does.Contain("FirstPlayerCapsule_Idle.fbx"));
+            Assert.That(AssetDatabase.GetAssetPath(source), Does.Contain("SmoothBear.fbx"));
 
             var animator = visual.GetComponentInChildren<Animator>(true);
             Assert.That(animator, Is.Not.Null);

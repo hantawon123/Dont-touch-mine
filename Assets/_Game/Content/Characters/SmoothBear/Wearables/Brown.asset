@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a59d7ca632d97746ba4e86d31bf355a, type: 3}
+  m_Name: Brown
+  m_EditorClassIdentifier: Game.Client::Game.Client.Character.AvatarWearable
+  attachments:
+  - name: Part_Eye_Brown_LowerLid_L
+    bone: Head
+    mesh: {fileID: 4300000, guid: 7d3de765a77484848a27160ee07ae438, type: 2}
+    materials:
+    - {fileID: 2100000, guid: d494dba0439d46841b498a35a7cd12da, type: 2}
+    tintModes: 01000000
+  - name: Part_Eye_Brown_LowerLid_R
+    bone: Head
+    mesh: {fileID: 4300000, guid: 448a0b4592f8e244dae7e448da59aff5, type: 2}
+    materials:
+    - {fileID: 2100000, guid: c54756ee18420b64fb292a5c58089e2e, type: 2}
+    tintModes: 01000000
+  - name: Part_Eye_Brown_UpperLid_L
+    bone: Head
+    mesh: {fileID: 4300000, guid: ab513e3bcc9ce42438112fd40a34789b, type: 2}
+    materials:
+    - {fileID: 2100000, guid: 5f7f33f04658d704e97407fa21e09b3f, type: 2}
+    tintModes: 01000000
+  - name: Part_Eye_Brown_UpperLid_R
+    bone: Head
+    mesh: {fileID: 4300000, guid: 3e7a9e22db1f67c4081908193c9da334, type: 2}
+    materials:
+    - {fileID: 2100000, guid: 6b8704fe7391f0f43a3718b53bee1cd9, type: 2}
+    tintModes: 01000000
+  - name: Part_Eye_White_L
+    bone: Head
+    mesh: {fileID: 4300000, guid: b8315c96d26b38c4ab4f0f2e6af74d5e, type: 2}
+    materials:
+    - {fileID: 2100000, guid: 31460fa452b0c7b409f1a9240745ef71, type: 2}
+    - {fileID: 2100000, guid: 243183a0fc0829b4ebf60cf6c45bf788, type: 2}
+    tintModes: 0000000000000000
+  - name: Part_Eye_White_R
+    bone: Head
+    mesh: {fileID: 4300000, guid: dd7adfe33facf424c818b6899a2d0cec, type: 2}
+    materials:
+    - {fileID: 2100000, guid: 48bea7746a432eb409f86d55e0a7f8b1, type: 2}
+    - {fileID: 2100000, guid: 0c746ffd9892d1648a91d28b1430b2a6, type: 2}
+    tintModes: 0000000000000000

@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a59d7ca632d97746ba4e86d31bf355a, type: 3}
+  m_Name: CompactShoes
+  m_EditorClassIdentifier: Game.Client::Game.Client.Character.AvatarWearable
+  attachments:
+  - name: Part_Shoes.L
+    bone: Foot.L
+    mesh: {fileID: 4300000, guid: 935e75b22bad6ed4fa752896e890a870, type: 2}
+    materials:
+    - {fileID: 2100000, guid: 91f6cd72b21a8e7479b494ea3e16d4de, type: 2}
+    - {fileID: 2100000, guid: c95948a71b547e14f8bad0b9e92808a4, type: 2}
+    tintModes: 0200000003000000
+  - name: Part_Shoes.R
+    bone: Foot.R
+    mesh: {fileID: 4300000, guid: 22ce6f337811cd645b46928d01a0aa1e, type: 2}
+    materials:
+    - {fileID: 2100000, guid: d6896ffad9ef97a42a1af3962ecf0973, type: 2}
+    - {fileID: 2100000, guid: 0cc9422e8f0eb5a4682cc601f1353b9b, type: 2}
+    tintModes: 0200000003000000
