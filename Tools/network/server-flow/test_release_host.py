@@ -272,6 +272,17 @@ class ReleaseTests(unittest.TestCase):
         self.pool.step(); self.pool.retry_at['one#1'] = 0; self.pool.step()
         self.assertNotEqual(self.pool.processes['one#1']['process'].pid, stalled['process'].pid)
 
+    def test_ten_room_configuration_fills_exactly_ten_slots(self):
+        self.pool = Pool({'root': str(self.root), 'rooms_per_release': 10, 'max_processes': 20})
+        self.release('ten'); self.request('ten')
+        for index in range(10):
+            self.ready(self.pool.key('ten', index))
+        for _ in range(5):
+            self.pool.step()
+        self.assertEqual(len(self.pool.processes), 10)
+        self.assertEqual(len({p['slot'] for p in self.pool.processes.values()}), 10)
+        self.assertTrue(all(p['ready'] for p in self.pool.processes.values()))
+
     def test_invalid_pool_limits_are_rejected_before_spawning(self):
         for rooms, cap in ((0, 2), (2, 2), (True, 2), (65, 128), (2, 129), ('2', 4)):
             with self.subTest(rooms=rooms, cap=cap), self.assertRaises(ValueError):
