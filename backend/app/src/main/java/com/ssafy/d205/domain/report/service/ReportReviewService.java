@@ -107,7 +107,7 @@ public class ReportReviewService {
                         .stream()
                         .map(row -> new ReportDetail(
                                 row.getId(), row.getReason(), row.getMemo(),
-                                row.getCreatedAt(), row.getStatus()))
+                                row.getCreatedAt(), row.getStatus(), row.getContextKey()))
                         .toList());
     }
 
