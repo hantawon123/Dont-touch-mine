@@ -29,7 +29,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.9116169, y: 1.9116169, z: 1.9116169}
+  m_LocalScale: {x: 2.503071, y: 2.503071, z: 2.503071}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1915323175619697699}
@@ -99,6 +99,10 @@ MonoBehaviour:
   objectId: 
   isPlayerItem: 0
   ownerPlayerIndex: -1
+  preparedForBuild: 0
+  preparedCenter: {x: 0, y: 0, z: 0}
+  preparedExtents: {x: 0, y: 0, z: 0}
+  preparedScale: {x: 0, y: 0, z: 0}
 --- !u!1001 &2726288392800066326
 PrefabInstance:
   m_ObjectHideFlags: 0
