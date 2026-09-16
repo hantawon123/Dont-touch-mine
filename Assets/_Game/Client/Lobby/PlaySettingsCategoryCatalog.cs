@@ -39,20 +39,22 @@ namespace Game.Client.Lobby
 
         public static PlaySettingsCategoryOption GetOption(int index)
         {
-            if (Options.Length == 0)
+            var options = Options;
+            if (options.Length == 0)
             {
                 return default;
             }
 
-            return Options[Math.Clamp(index, 0, Options.Length - 1)];
+            return options[Math.Clamp(index, 0, options.Length - 1)];
         }
 
         public static int IndexOf(string categoryId)
         {
             var normalized = categoryId?.Trim() ?? string.Empty;
-            for (var i = 0; i < Options.Length; i++)
+            var options = Options;
+            for (var i = 0; i < options.Length; i++)
             {
-                if (string.Equals(Options[i].Id, normalized, StringComparison.Ordinal))
+                if (string.Equals(options[i].Id, normalized, StringComparison.Ordinal))
                 {
                     return i;
                 }
@@ -65,13 +67,13 @@ namespace Game.Client.Lobby
 
         public static string LabelOf(string categoryId)
         {
-            var index = IndexOf(categoryId);
-            if (index < 0)
-            {
-                return string.IsNullOrWhiteSpace(categoryId) ? string.Empty : categoryId.Trim();
-            }
-
-            return GetOption(index).Label;
+            var normalized = categoryId?.Trim() ?? string.Empty;
+            if (normalized.Length == 0) return "랜덤";
+            // Displaying a label must not validate and rebuild every item definition.
+            foreach (var category in ItemCatalogSO.Load(applyDefinitions: false).categories)
+                if (category.enabled && string.Equals(category.id?.Trim(), normalized, StringComparison.Ordinal))
+                    return category.label ?? string.Empty;
+            return normalized;
         }
     }
 

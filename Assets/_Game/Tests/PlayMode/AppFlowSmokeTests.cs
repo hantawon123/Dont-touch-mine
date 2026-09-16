@@ -83,6 +83,17 @@ namespace Game.Tests.PlayMode
                 Assert.That(match.Session.AllItemsPlaced, Is.True);
                 Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.InGame));
 
+                // LongestHidden requires a recorded item with a nearby opposing player.
+                // An empty replay world no longer produces an arbitrary highlight.
+                var replayObjects = new List<WorldObjectState>();
+                for (var index = 0; index < playerIds.Length; index++)
+                {
+                    Assert.That(match.Session.TryGetItemPlacement(index, out var placement), Is.True);
+                    replayObjects.Add(new WorldObjectState(
+                        match.Session.Assignments[index].Item.ItemId, placement.Pose));
+                }
+                context.ReplayObjects = replayObjects;
+
                 yield return null;
 
                 context.ServerTime = 420d;
