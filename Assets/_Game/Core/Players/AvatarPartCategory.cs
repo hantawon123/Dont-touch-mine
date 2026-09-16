@@ -14,6 +14,7 @@ namespace Game.Core.Players
         BodyColor,
         Hood,
         Shoes,
-        Face
+        Face,
+        HoodColor
     }
 }

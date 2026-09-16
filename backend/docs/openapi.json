@@ -150,6 +150,42 @@
         },
         "type" : "object"
       },
+      "AdminCountTable" : {
+        "properties" : {
+          "columns" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "rows" : {
+            "items" : {
+              "items" : { },
+              "type" : "array"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminFeedbackStats" : {
+        "properties" : {
+          "byBuild" : {
+            "$ref" : "#/components/schemas/AdminCountTable"
+          },
+          "byPlatform" : {
+            "$ref" : "#/components/schemas/AdminCountTable"
+          },
+          "daily" : {
+            "$ref" : "#/components/schemas/AdminCountTable"
+          },
+          "days" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "AdminOverview" : {
         "properties" : {
           "matches" : {
@@ -166,6 +202,24 @@
               "$ref" : "#/components/schemas/Point"
             },
             "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminReportStats" : {
+        "properties" : {
+          "byReason" : {
+            "$ref" : "#/components/schemas/AdminCountTable"
+          },
+          "byStatus" : {
+            "$ref" : "#/components/schemas/AdminCountTable"
+          },
+          "daily" : {
+            "$ref" : "#/components/schemas/AdminCountTable"
+          },
+          "days" : {
+            "format" : "int32",
+            "type" : "integer"
           }
         },
         "type" : "object"
@@ -849,6 +903,55 @@
           },
           "suspended" : {
             "type" : "boolean"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ReporterListResponse" : {
+        "properties" : {
+          "reporters" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReporterSummary"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "ReporterSummary" : {
+        "properties" : {
+          "actionedCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "dismissedCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "dismissedPercent" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "lastReportedAt" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "pendingCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "reportCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "targetCount" : {
+            "format" : "int32",
+            "type" : "integer"
           },
           "userId" : {
             "type" : "string"
@@ -1541,6 +1644,14 @@
               "format" : "int32",
               "type" : "integer"
             }
+          },
+          {
+            "in" : "query",
+            "name" : "q",
+            "required" : false,
+            "schema" : {
+              "type" : "string"
+            }
           }
         ],
         "responses" : {
@@ -1549,6 +1660,37 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/FeedbackListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-feedback-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/feedback/stats" : {
+      "get" : {
+        "operationId" : "stats_1",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "days",
+            "required" : false,
+            "schema" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminFeedbackStats"
                 }
               }
             },
@@ -1740,6 +1882,57 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/HideResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-report-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/reports/reporters" : {
+      "get" : {
+        "operationId" : "reporters",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReporterListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-report-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/reports/stats" : {
+      "get" : {
+        "operationId" : "stats",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "days",
+            "required" : false,
+            "schema" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminReportStats"
                 }
               }
             },
