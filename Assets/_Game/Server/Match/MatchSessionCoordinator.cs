@@ -982,12 +982,13 @@ namespace Game.Server.Match
 
         public bool TryApplyDirectorSelection(Game.Core.Ports.HighlightDirectorReply reply)
         {
-            if(CurrentPhase!=MatchPhase.Highlight || highlightSelectionFrozen || reply?.IsUsable(aiCandidates.Length)!=true) return false;
+            var pickCount=reply?.UsablePickCount(aiCandidates.Length) ?? 0;
+            if(CurrentPhase!=MatchPhase.Highlight || highlightSelectionFrozen || pickCount==0) return false;
             var selected=new List<HighlightCandidate>();
-            foreach(var pick in reply.picks) selected.Add(aiCandidates[pick.id]);
+            for(int i=0;i<pickCount;i++) selected.Add(aiCandidates[reply.picks[i].id]);
             highlights=new HighlightSequence(selected,rules,true);
             aiCaptions.Clear();
-            for(int i=0;i<selected.Count;i++) aiCaptions.Add(selected[i],reply.picks[i]);
+            for(int i=0;i<pickCount;i++) aiCaptions.Add(selected[i],reply.picks[i]);
             return true;
         }
 

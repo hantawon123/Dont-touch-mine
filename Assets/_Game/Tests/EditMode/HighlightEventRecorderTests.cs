@@ -66,8 +66,8 @@ namespace Game.Tests.EditMode
             Assert.That(candidate.ActorPlayerIndex, Is.EqualTo(1));
             Assert.That(candidate.EventAt, Is.EqualTo(110d));
             Assert.That(candidate.Score, Is.EqualTo(60d));
-            Assert.That(candidate.StartedAt, Is.EqualTo(103d));
-            Assert.That(candidate.EndedAt, Is.EqualTo(113d));
+            Assert.That(candidate.StartedAt, Is.EqualTo(100d));
+            Assert.That(candidate.EndedAt, Is.EqualTo(114.5d));
         }
 
         [Test]
@@ -145,7 +145,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void CaptureCandidates_UsesUpToThreeStunSegmentsWithinTenSeconds()
+        public void CaptureCandidates_UsesUpToThreeStunSegmentsWithinFifteenSeconds()
         {
             recorder.RecordPlayerStunned(1, 104d);
             recorder.RecordPlayerStunned(1, 108d);
@@ -155,7 +155,7 @@ namespace Game.Tests.EditMode
             var candidate = Candidate(HighlightType.MostStunned, 120d);
 
             Assert.That(candidate.Segments, Has.Count.EqualTo(3));
-            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(10d).Within(0.001d));
+            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(12d).Within(0.001d));
         }
 
         [Test]

@@ -378,7 +378,8 @@ namespace Game.Bootstrap
             if (replayPlayer == null || replayIndex != index)
             {
                 var changedHighlight = replayPlayer != null && replayIndex != index;
-                // Dispose the previous high-priority replay camera before replacing its owner.
+                // Each highlight is a separate scene with its own target and
+                // at most two CCTV switches.
                 cameraDirector?.Dispose();
                 cameraDirector = null;
                 replayPlayer = null;
@@ -598,7 +599,8 @@ namespace Game.Bootstrap
                 playerTargets,
                 objectTargets,
                 occlusionGroups: sceneOcclusionGroups,
-                cctvCameras: cctvCameras);
+                cctvCameras: cctvCameras,
+                replayClips: current.Clips);
             cameraDirector.Focus(current.Candidate);
             Debug.Log($"[Highlight] Playback ready: type={current.Candidate.Type}, players={playerTargets.Length}, objects={objectTargets.Length}, camera={output.name}.");
             return true;
@@ -693,7 +695,7 @@ namespace Game.Bootstrap
                              FindObjectsInactive.Include, FindObjectsSortMode.None))
                 {
                     var id = avatar.PlayerId;
-                    if (id == null) continue;
+                    if (id == null || !IsAppearanceReadyForReplay(avatar)) continue;
                     if (!playerVisuals.ContainsKey(id))
                         playerVisuals.Add(id, new ReplayVisual(avatar.transform, null));
                 }
@@ -734,6 +736,13 @@ namespace Game.Bootstrap
                 if (!itemVisuals.ContainsKey(item.ObjectId))
                     itemVisuals.Add(item.ObjectId, new ReplayVisual(item.transform, null));
             }
+        }
+
+        private static bool IsAppearanceReadyForReplay(PlayerAvatar avatar)
+        {
+            if (!avatar.HasAppearance) return false;
+            var applier = avatar.GetComponentInChildren<Game.Client.Character.AvatarAppearanceApplier>(true);
+            return applier == null || applier.Current == applier.ResolvePlayerAppearance(avatar.Appearance);
         }
 
         private void HideHighlightHud()

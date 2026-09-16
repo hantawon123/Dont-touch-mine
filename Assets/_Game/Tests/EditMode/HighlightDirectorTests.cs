@@ -15,9 +15,12 @@ namespace Game.Architecture.Tests
             picks=ids.Select(id=>new HighlightDirectorPick {id=id,title="주요 순간",summary="물건을 회수했습니다."}).ToArray() };
         [Test] public void InvalidSelectionCannotReplaceFallback()
         {
-            Assert.That(Reply(2,0,1).IsUsable(5),Is.True);
-            Assert.That(Reply(0,0,1).IsUsable(5),Is.False);
-            Assert.That(Reply(0,1,9).IsUsable(5),Is.False);
+            Assert.That(Reply(2,0).IsUsable(5),Is.True);
+            Assert.That(Reply(2,0,1).IsUsable(5),Is.True,
+                "The deployed legacy backend may still return three ranked picks.");
+            Assert.That(Reply(2,0,1).UsablePickCount(5),Is.EqualTo(2));
+            Assert.That(Reply(0,0).IsUsable(5),Is.False);
+            Assert.That(Reply(0,9).IsUsable(5),Is.False);
             Assert.That(Reply(0).IsUsable(5),Is.False);
             var unsafeReply=Reply(0); unsafeReply.picks[0].title="<b>잘못된 문구</b>";
             Assert.That(unsafeReply.IsUsable(1),Is.False);

@@ -6,7 +6,7 @@ namespace Game.Tests.EditMode
     public sealed class HighlightCandidateSelectorTests
     {
         [Test]
-        public void Select_UsesFixedPriorityAndLimitsResultToThree()
+        public void Select_UsesFixedPriorityAndLimitsResultToTwo()
         {
             var selected = HighlightCandidateSelector.Select(new[]
             {
@@ -17,10 +17,9 @@ namespace Game.Tests.EditMode
                 Candidate(HighlightType.TteTanMulgun)
             });
 
-            Assert.That(selected, Has.Length.EqualTo(3));
+            Assert.That(selected, Has.Length.EqualTo(2));
             Assert.That(selected[0].Type, Is.EqualTo(HighlightType.FirstBlood));
             Assert.That(selected[1].Type, Is.EqualTo(HighlightType.TteTanMulgun));
-            Assert.That(selected[2].Type, Is.EqualTo(HighlightType.FinalMoment));
         }
 
         [Test]
@@ -33,10 +32,9 @@ namespace Game.Tests.EditMode
                 Candidate(HighlightType.LongestHidden)
             });
 
-            Assert.That(selected, Has.Length.EqualTo(3));
+            Assert.That(selected, Has.Length.EqualTo(2));
             Assert.That(selected[0].Type, Is.EqualTo(HighlightType.FinalMoment));
             Assert.That(selected[1].Type, Is.EqualTo(HighlightType.LongestHidden));
-            Assert.That(selected[2].Type, Is.EqualTo(HighlightType.MostStunned));
         }
 
         [Test]
@@ -63,10 +61,9 @@ namespace Game.Tests.EditMode
                 Candidate(HighlightType.FinalMoment, "final", 90d),
             });
 
-            Assert.That(selected, Has.Length.EqualTo(3));
+            Assert.That(selected, Has.Length.EqualTo(2));
             Assert.That(selected[0].TargetId, Is.EqualTo("hidden"));
             Assert.That(selected[1].TargetId, Is.EqualTo("final"));
-            Assert.That(selected[2].TargetId, Is.EqualTo("stunned"));
         }
 
         [Test]

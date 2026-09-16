@@ -30,7 +30,7 @@ def package(client, output, revision):
                     raise ValueError('Unexpected credential file in player')
                 files.append(file)
     output.mkdir(parents=True, exist_ok=False)
-    name = f'KeepIt-Windows-{revision[:12]}.zip'
+    name = f"Don't-Touch-Mine-Windows-{revision[:12]}.zip"
     with zipfile.ZipFile(output / name, 'w', zipfile.ZIP_DEFLATED, compresslevel=1) as archive:
         for file in sorted(files):
             archive.write(file, file.relative_to(client).as_posix())
@@ -38,7 +38,7 @@ def package(client, output, revision):
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     (output / 'SHA256SUMS.txt').write_text(f'{digest}  {name}\n', encoding='utf-8', newline='\n')
     (output / 'version.txt').write_text(revision + '\n', encoding='utf-8', newline='\n')
-    template = Path(__file__).with_name('site') / 'index.html'
+    template = Path(__file__).with_name('site') / 'play.html'
     html = template.read_text(encoding='utf-8')
     values = {
         'ARCHIVE': name,
@@ -52,6 +52,10 @@ def package(client, output, revision):
     (output / 'index.html').write_text(html, encoding='utf-8')
     hero = Path(__file__).resolve().parents[2] / 'docs/design/concept/main-screen-concept.png'
     shutil.copyfile(hero, output / 'hero.png')
+    shutil.copyfile(template.with_name('beta-test-favicon.png'), output / 'beta-test-favicon.png')
+    for step in range(1, 5):
+        asset_name = f'step-{step}.png'
+        shutil.copyfile(template.with_name(asset_name), output / asset_name)
     return output / name
 
 

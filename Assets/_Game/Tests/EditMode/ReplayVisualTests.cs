@@ -11,6 +11,32 @@ namespace Game.Tests.EditMode
     public sealed class ReplayVisualTests
     {
         [Test]
+        public void ReplayCopy_PreservesPerMaterialSlotColour()
+        {
+            var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var sourceRenderer = source.GetComponent<Renderer>();
+            var expected = new Color(0.18f, 0.67f, 0.42f, 1f);
+            var properties = new MaterialPropertyBlock();
+            properties.SetColor("_BaseColor", expected);
+            sourceRenderer.SetPropertyBlock(properties, 0);
+            var visual = new ReplayVisual(source.transform, null);
+            try
+            {
+                visual.SetPlaying(true);
+                var replayRenderer = visual.Target.GetComponentInChildren<Renderer>();
+                properties.Clear();
+                replayRenderer.GetPropertyBlock(properties, 0);
+                Assert.That(properties.GetColor("_BaseColor"), Is.EqualTo(expected),
+                    "Replay avatars must retain colours stored on individual material slots.");
+            }
+            finally
+            {
+                visual.Dispose();
+                Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
         public void PlayerReplay_DoesNotRestoreHeldItemOwnedByItemReplay()
         {
             var player = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -60,6 +86,32 @@ namespace Game.Tests.EditMode
             finally
             {
                 visual?.Dispose();
+                Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
+        public void ReplayCopy_PreservesInactiveCustomizationParts()
+        {
+            var source = new GameObject("Player");
+            var equipped = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            equipped.name = "Equipped";
+            equipped.transform.SetParent(source.transform);
+            var unequipped = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            unequipped.name = "Unequipped";
+            unequipped.transform.SetParent(source.transform);
+            unequipped.SetActive(false);
+            var visual = new ReplayVisual(source.transform, null);
+            try
+            {
+                visual.SetPlaying(true);
+                Assert.That(visual.Target.Find("Equipped").gameObject.activeSelf, Is.True);
+                Assert.That(visual.Target.Find("Unequipped").gameObject.activeSelf, Is.False,
+                    "A replay must not show customization parts that the live avatar is not wearing.");
+            }
+            finally
+            {
+                visual.Dispose();
                 Object.DestroyImmediate(source);
             }
         }

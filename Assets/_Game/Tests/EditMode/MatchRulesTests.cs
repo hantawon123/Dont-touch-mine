@@ -63,8 +63,8 @@ namespace Game.Tests.EditMode
                 Assert.That(rules.HitsRequiredToStun, Is.EqualTo(3));
                 Assert.That(rules.StunDurationSeconds, Is.EqualTo(2f));
                 Assert.That(rules.InvulnerabilityDurationSeconds, Is.Zero);
-                Assert.That(MatchRulesSO.MaxHighlightCount, Is.EqualTo(3));
-                Assert.That(rules.HighlightClipDurationSeconds, Is.EqualTo(10f));
+                Assert.That(MatchRulesSO.MaxHighlightCount, Is.EqualTo(2));
+                Assert.That(rules.HighlightClipDurationSeconds, Is.EqualTo(15f));
             }
             finally
             {

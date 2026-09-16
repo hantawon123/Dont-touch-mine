@@ -20,12 +20,11 @@ class HighlightDirectorTest {
     }
     private String picks() { return """
       [{"id":2,"title":"다시 내 손에","summary":"원주인이 물건을 회수했습니다."},
-       {"id":0,"title":"첫 파괴","summary":"첫 물건이 파괴됐습니다."},
-       {"id":1,"title":"잠깐의 빈틈","summary":"기절이 발생했습니다."}]
+       {"id":0,"title":"첫 파괴","summary":"첫 물건이 파괴됐습니다."}]
       """; }
     @Test void validJsonPreservesAiRankingAndCaptions() {
         var answer=service.parse(body(picks(),"STOP"),candidates);
-        assertTrue(answer.available()); assertEquals(List.of(2,0,1),answer.picks().stream().map(HighlightDirectorService.Pick::id).toList());
+        assertTrue(answer.available()); assertEquals(List.of(2,0),answer.picks().stream().map(HighlightDirectorService.Pick::id).toList());
     }
     @Test void invalidDuplicateMissingIdsOrUnsafeCaptionsFallBack() {
         for(String value:List.of(picks().replace("\"id\":2","\"id\":9"),
