@@ -849,58 +849,101 @@ namespace Game.Network.Match
             return _state.TrySetObjectHeld(objectId, playerIndex);
         }
 
-        public bool TryReleaseHeldObject(PlayerRef source, Pose pose)
+        public bool TryReleaseHeldObject(PlayerRef source, Pose pose) => TryReleaseHeldObject(source, pose, out _);
+
+        /// <param name="reason">거부됐을 때 그 이유. 호스트 로그와 요청 클라이언트 경고에 붙인다.</param>
+        public bool TryReleaseHeldObject(PlayerRef source, Pose pose, out string reason)
         {
+            reason = null;
             if (IsLobby) return TryReleaseLobbyObject(source, pose, default, false);
-            if (!TryGetPlayerIndex(source, out var playerIndex) ||
-                !TryGetPlayerPose(playerIndex, out var playerPose) ||
-                !_interactionRules.IsValidRelease(playerPose, pose) ||
-                !_session.TryGetHeldObjectId(playerIndex, out var objectId) ||
-                !_state.CanTrackObject(objectId) ||
-                !_session.TryReleaseHeldObject(playerIndex, pose, ServerTime))
+            if (!TryPrepareRelease(source, pose, out var playerIndex, out var objectId, out reason)) return false;
+            if (!_session.TryReleaseHeldObject(playerIndex, pose, ServerTime))
             {
+                reason = _session.DescribeReleaseBlock(playerIndex, pose, ServerTime, requirePlacementValidity: true);
                 return false;
             }
 
             return _state.TrySetObjectReleased(objectId, pose);
         }
 
-        public bool TryDropHeldObject(PlayerRef source, Pose pose)
+        public bool TryDropHeldObject(PlayerRef source, Pose pose) => TryDropHeldObject(source, pose, out _);
+
+        public bool TryDropHeldObject(PlayerRef source, Pose pose, out string reason)
         {
+            reason = null;
             if (IsLobby) return TryReleaseLobbyObject(source, pose, default, false);
-            if (!TryGetPlayerIndex(source, out var playerIndex) ||
-                !TryGetPlayerPose(playerIndex, out var playerPose) ||
-                !_interactionRules.IsValidRelease(playerPose, pose) ||
-                !_session.TryGetHeldObjectId(playerIndex, out var objectId) ||
-                !_state.CanTrackObject(objectId) ||
-                !_session.TryDropHeldObject(playerIndex, pose, ServerTime))
+            if (!TryPrepareRelease(source, pose, out var playerIndex, out var objectId, out reason)) return false;
+            if (!_session.TryDropHeldObject(playerIndex, pose, ServerTime))
             {
+                reason = _session.DescribeReleaseBlock(playerIndex, pose, ServerTime, requirePlacementValidity: false);
                 return false;
             }
 
             return _state.TrySetObjectReleased(objectId, pose);
         }
 
-        public bool TryThrowHeldObject(
-            PlayerRef source,
-            Pose pose,
-            Vector3 initialVelocity)
+        /// <summary>
+        /// 놓기·던지기 공통 전제(플레이어 식별, 위치 조회, 거리·회전 검사, 들고 있는 물건 조회, 추적 가능)를 확인하고
+        /// 실패하면 이유를 남긴다.
+        /// </summary>
+        private bool TryPrepareRelease(
+            PlayerRef source, Pose pose, out int playerIndex, out string objectId, out string reason)
         {
+            objectId = null;
+            reason = null;
+            if (!TryGetPlayerIndex(source, out playerIndex))
+            {
+                reason = "unknown player";
+                return false;
+            }
+
+            if (!TryGetPlayerPose(playerIndex, out var playerPose))
+            {
+                reason = "player pose unavailable on authority";
+                return false;
+            }
+
+            if (!_interactionRules.IsValidRelease(playerPose, pose))
+            {
+                reason = $"release pose {Vector3.Distance(playerPose.position, pose.position):F2} m from player " +
+                         $"(limit {InteractionAuthorityRules.DefaultInteractionDistance:F1} m) or rotation not normalized";
+                return false;
+            }
+
+            if (!_session.TryGetHeldObjectId(playerIndex, out objectId))
+            {
+                reason = "authority has no held object for this player";
+                return false;
+            }
+
+            if (!_state.CanTrackObject(objectId))
+            {
+                reason = $"object '{objectId}' is not tracked by authority";
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool TryThrowHeldObject(PlayerRef source, Pose pose, Vector3 initialVelocity) =>
+            TryThrowHeldObject(source, pose, initialVelocity, out _);
+
+        public bool TryThrowHeldObject(PlayerRef source, Pose pose, Vector3 initialVelocity, out string reason)
+        {
+            reason = null;
             if (IsLobby) return TryReleaseLobbyObject(source, pose, initialVelocity, true);
-            if (!TryGetPlayerIndex(source, out var playerIndex) ||
-                !TryGetPlayerPose(playerIndex, out var playerPose) ||
-                !_interactionRules.IsValidThrow(
-                    playerPose,
-                    pose,
-                    initialVelocity) ||
-                !_session.TryGetHeldObjectId(playerIndex, out var objectId) ||
-                !_state.CanTrackObject(objectId) ||
-                !_session.TryThrowHeldObject(
-                    playerIndex,
-                    pose,
-                    initialVelocity,
-                    ServerTime))
+            if (!TryPrepareRelease(source, pose, out var playerIndex, out var objectId, out reason)) return false;
+            if (!float.IsFinite(initialVelocity.x) || !float.IsFinite(initialVelocity.y) || !float.IsFinite(initialVelocity.z) ||
+                initialVelocity.sqrMagnitude <= 0f ||
+                initialVelocity.sqrMagnitude > InteractionAuthorityRules.DefaultMaxThrowSpeed * InteractionAuthorityRules.DefaultMaxThrowSpeed + 0.0001f)
             {
+                reason = $"throw speed {initialVelocity.magnitude:F2} m/s outside (0, {InteractionAuthorityRules.DefaultMaxThrowSpeed:F1}]";
+                return false;
+            }
+
+            if (!_session.TryThrowHeldObject(playerIndex, pose, initialVelocity, ServerTime))
+            {
+                reason = _session.DescribeReleaseBlock(playerIndex, pose, ServerTime, requirePlacementValidity: false);
                 return false;
             }
 

@@ -791,10 +791,11 @@ namespace Game.Network.Match
             Quaternion rotation,
             RpcInfo info = default)
         {
+            string reason = null;
             if (StarterOf(Runner)?.TryReleaseHeldObject(
                 info.Source,
-                new Pose(position, rotation)) != true)
-                RPC_InteractionRejected(info.Source, "release");
+                new Pose(position, rotation), out reason) != true)
+                RejectInteraction(info.Source, "release", reason);
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
@@ -803,10 +804,11 @@ namespace Game.Network.Match
             Quaternion rotation,
             RpcInfo info = default)
         {
+            string reason = null;
             if (StarterOf(Runner)?.TryDropHeldObject(
                 info.Source,
-                new Pose(position, rotation)) != true)
-                RPC_InteractionRejected(info.Source, "drop");
+                new Pose(position, rotation), out reason) != true)
+                RejectInteraction(info.Source, "drop", reason);
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
@@ -816,11 +818,20 @@ namespace Game.Network.Match
             Vector3 initialVelocity,
             RpcInfo info = default)
         {
+            string reason = null;
             if (StarterOf(Runner)?.TryThrowHeldObject(
                 info.Source,
                 new Pose(position, rotation),
-                initialVelocity) != true)
-                RPC_InteractionRejected(info.Source, "throw");
+                initialVelocity, out reason) != true)
+                RejectInteraction(info.Source, "throw", reason);
+        }
+
+        /// <summary>호스트에 이유를 남기고, 요청한 클라이언트에는 이유가 붙은 경고를 보낸다.</summary>
+        private void RejectInteraction(PlayerRef source, string action, string reason)
+        {
+            var detail = string.IsNullOrEmpty(reason) ? action : $"{action} ({reason})";
+            Debug.LogWarning($"[Interaction] authority rejected {detail} from player {source}");
+            RPC_InteractionRejected(source, detail);
         }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]

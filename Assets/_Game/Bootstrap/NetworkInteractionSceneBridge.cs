@@ -518,6 +518,11 @@ namespace Game.Bootstrap
             }
         }
 
+        /// <summary>
+        /// 매치 씬을 떠날 때 손에 남은 물건을 모두 지운다. 들고 있던 물건은 플레이어(씬을 넘어 살아남는
+        /// 네트워크 오브젝트) 아래에 붙어 있어, 여기서 지우지 않으면 로비까지 따라온다. 등록된 물건뿐 아니라
+        /// 각 플레이어의 CarriedItem과 HoldPoint 아래에 남은 것도 함께 정리한다.
+        /// </summary>
         private void DestroyCarriedSceneItems()
         {
             foreach (var item in items.Values)
@@ -529,6 +534,24 @@ namespace Game.Bootstrap
 
                 ForgetItem(item);
                 UnityEngine.Object.Destroy(item.gameObject);
+            }
+
+            foreach (var interactor in interactors.Values)
+            {
+                if (interactor == null) continue;
+                var carried = interactor.CarriedItem;
+                if (carried != null)
+                {
+                    interactor.ForgetConfirmedItem(carried);
+                    UnityEngine.Object.Destroy(carried.gameObject);
+                }
+
+                var holdPoint = interactor.HoldPoint;
+                if (holdPoint == null) continue;
+                foreach (var stray in holdPoint.GetComponentsInChildren<CarryableItem>(true))
+                {
+                    if (stray != null) UnityEngine.Object.Destroy(stray.gameObject);
+                }
             }
         }
 
