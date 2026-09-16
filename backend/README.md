@@ -17,7 +17,7 @@ Unity 클라이언트의 계정·프로필·친구·방 초대·접속 상태·�
 | [`docs/admin-guide.md`](docs/admin-guide.md) | 관리 화면 API 와 화면 읽는 법 |
 | [`docs/analytics-events.md`](docs/analytics-events.md) | 플레이 로그 이벤트 규격 |
 | [`docs/match-analytics.md`](docs/match-analytics.md) | 경기 수집 v2. 클라이언트가 무엇을 언제 모아 보내는가 |
-| [`docs/analytics-dashboards.md`](docs/analytics-dashboards.md) | 분석 질문의 SQL 원본. 화면과 Metabase 가 같이 씁니다 |
+| [`docs/analytics-dashboards.md`](docs/analytics-dashboards.md) | 분석 질문의 SQL 원본. 관리 화면 분석 탭이 이 문서를 읽어 실행합니다 |
 | [`docs/analytics-heatmap.md`](docs/analytics-heatmap.md) | 히트맵 읽는 법과 맵 평면도 굽기 |
 | [`docs/analytics-load-test.md`](docs/analytics-load-test.md) | 수집 부하 테스트 결과. 서비스를 나눈 근거 |
 | [`deploy/README.md`](deploy/README.md) | 서버 구성, 배포, 수동 단계, 배포가 깨졌을 때 |
