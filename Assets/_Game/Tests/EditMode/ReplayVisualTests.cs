@@ -11,6 +11,32 @@ namespace Game.Tests.EditMode
     public sealed class ReplayVisualTests
     {
         [Test]
+        public void ReplayCopy_PreservesPerMaterialSlotColour()
+        {
+            var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var sourceRenderer = source.GetComponent<Renderer>();
+            var expected = new Color(0.18f, 0.67f, 0.42f, 1f);
+            var properties = new MaterialPropertyBlock();
+            properties.SetColor("_BaseColor", expected);
+            sourceRenderer.SetPropertyBlock(properties, 0);
+            var visual = new ReplayVisual(source.transform, null);
+            try
+            {
+                visual.SetPlaying(true);
+                var replayRenderer = visual.Target.GetComponentInChildren<Renderer>();
+                properties.Clear();
+                replayRenderer.GetPropertyBlock(properties, 0);
+                Assert.That(properties.GetColor("_BaseColor"), Is.EqualTo(expected),
+                    "Replay avatars must retain colours stored on individual material slots.");
+            }
+            finally
+            {
+                visual.Dispose();
+                Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
         public void PlayerReplay_DoesNotRestoreHeldItemOwnedByItemReplay()
         {
             var player = GameObject.CreatePrimitive(PrimitiveType.Cube);

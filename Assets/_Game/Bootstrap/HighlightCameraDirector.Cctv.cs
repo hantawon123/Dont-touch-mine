@@ -62,12 +62,11 @@ namespace Game.Bootstrap
             return false;
         }
 
-        private void ResetCctv()
+        private void PrepareCctvForHighlight()
         {
-            activeCctv = null;
             cctvHold = cctvCheck = cctvSampleElapsed = 0f;
-            cctvSwitchCount = 0;
             hasPreviousCctvFocus = false;
+            cctvTarget = null;
         }
 
         private void AdvanceCctv(float delta)

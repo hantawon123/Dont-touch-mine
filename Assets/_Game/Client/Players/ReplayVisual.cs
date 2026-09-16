@@ -55,9 +55,7 @@ namespace Game.Client.Players
                 }
                 else continue;
                 copy.sharedMaterials = original.sharedMaterials;
-                var properties = new MaterialPropertyBlock();
-                original.GetPropertyBlock(properties);
-                copy.SetPropertyBlock(properties);
+                CopyMaterialProperties(original, copy);
                 copy.shadowCastingMode = ShadowCastingMode.On;
                 copy.receiveShadows = original.receiveShadows;
                 copy.enabled = original.enabled;
@@ -79,6 +77,20 @@ namespace Game.Client.Players
             copies = Target.GetComponentsInChildren<Renderer>(true);
             foreach (var copy in copies) copy.forceRenderingOff = true;
             Target.gameObject.SetActive(false);
+        }
+
+        private static void CopyMaterialProperties(Renderer source, Renderer target)
+        {
+            var properties = new MaterialPropertyBlock();
+            source.GetPropertyBlock(properties);
+            if (!properties.isEmpty) target.SetPropertyBlock(properties);
+
+            for (var index = 0; index < source.sharedMaterials.Length; index++)
+            {
+                properties.Clear();
+                source.GetPropertyBlock(properties, index);
+                if (!properties.isEmpty) target.SetPropertyBlock(properties, index);
+            }
         }
 
         public void SetPlaying(bool playing)
