@@ -1,4 +1,5 @@
 using Game.Client.Common;
+using Game.Client.Match;
 using Game.Client.Settings;
 using Game.Core.Items;
 using Game.Core.Settings;
@@ -31,12 +32,19 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void CategoryTopOffset_SitsBelowPingWhenCountersAreVisible()
+        public void Category_SitsBelowDestroyedItemSlots()
         {
-            Assert.That(InterfaceHudView.CategoryFontSize, Is.EqualTo(24f));
+            Assert.That(DestroyedItemsHudView.CategoryFontSize, Is.EqualTo(36f));
             Assert.That(
-                InterfaceHudView.CategoryTopOffset(2, 1f),
-                Is.GreaterThan(InterfaceHudView.CategoryTopOffset(1, 1f)));
+                DestroyedItemsHudView.CategoryAnchoredPosition,
+                Is.EqualTo(new UnityEngine.Vector2(
+                    DestroyedItemsHudView.LeftPadding,
+                    -(DestroyedItemsHudView.TopPadding
+                        + DestroyedItemsHudView.SlotSize
+                        + DestroyedItemsHudView.CategoryGap))));
+            Assert.That(
+                InterfaceHudView.CategoryFontSize,
+                Is.EqualTo(DestroyedItemsHudView.CategoryFontSize));
             Assert.That(
                 InterfaceHudView.PerformanceLineCount("60 FPS", "24 ms"),
                 Is.EqualTo(2));
