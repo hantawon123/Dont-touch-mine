@@ -269,8 +269,6 @@ namespace Game.Bootstrap
             // reason to hold it, and a container that hands it out is one where
             // a presenter can send its own request and skip the ports entirely.
             builder.RegisterInstance<IAccountGateway>(new AccountGateway(client));
-            builder.RegisterInstance<IAccountSettingsGateway>(new AccountSettingsGateway(client));
-            builder.RegisterEntryPoint<AccountSettingsSync>();
             builder.RegisterInstance<IFriendGateway>(new FriendGateway(client));
             builder.RegisterInstance<IPresenceGateway>(new PresenceGateway(client, frames));
             builder.RegisterInstance<IInviteGateway>(new InviteGateway(client));

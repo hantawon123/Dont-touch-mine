@@ -833,3 +833,5 @@ GMS 값을 compose의 `environment`에 빈 값으로 추가하면 env_file 값�
 개발 클라이언트를 실행합니다. 기본 BackendEndpoint는 기존 공용 HTTPS 백엔드입니다.
 Unity 프로젝트에 GMS 설정 파일은 필요 없습니다. 각자 Spring 백엔드까지 실행할 때만
 로컬 `backend/.env.properties`에 별도 키가 필요합니다. 운영 배포 이미지에는 키를 넣지 않습니다.
+
+환경설정은 각 PC의 기존 PlayerPrefs 로컬 저장만 사용합니다. 계정 설정 API나 DB 테이블을 추가하지 않습니다.
