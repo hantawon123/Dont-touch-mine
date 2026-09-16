@@ -59,6 +59,7 @@ namespace Game.Client.Cameras
 
         private readonly FirstPersonArmsView armsView = new();
         private Game.Client.Interactions.PlayerInteractor followInteractor;
+        private PlayerAnimationDriver followAnimationDriver;
 
         private ControlSettingsSystem controls;
 
@@ -266,7 +267,11 @@ namespace Game.Client.Cameras
 
             // 몸 Animator가 이 프레임 본을 다 쓴 뒤라, 1인칭 팔이 그 포즈를 복사할 수 있다.
             var firstPersonView = isFirstPerson && !bodyVisibleOverride;
-            armsView.Apply(firstPersonView && firstPersonArms.showArms, firstPersonArms, transform);
+            armsView.Apply(firstPersonView && firstPersonArms.showArms, firstPersonArms, transform,
+                followAnimationDriver != null ? followAnimationDriver.CurrentState : null,
+                followAnimationDriver != null && followAnimationDriver.IsPunching,
+                followAnimationDriver != null && followAnimationDriver.IsLeftPunch,
+                followAnimationDriver != null ? followAnimationDriver.PunchProgress : 0.35f);
 
             // 들고 있는 물건도 1인칭에서는 카메라 기준 자리에 보인다.
             if (followInteractor != null)
@@ -299,6 +304,7 @@ namespace Game.Client.Cameras
             followMovement = target.GetComponent<PlayerMovement>();
             followInteractor?.ClearFirstPersonHold();
             followInteractor = target.GetComponent<Game.Client.Interactions.PlayerInteractor>();
+            followAnimationDriver = target.GetComponent<PlayerAnimationDriver>();
             if (preserveView)
             {
                 followCorrection = transform.position - target.position -

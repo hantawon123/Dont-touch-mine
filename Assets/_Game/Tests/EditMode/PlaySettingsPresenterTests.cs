@@ -66,6 +66,28 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Host_PushesParticipantCountToView()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(true);
+            using var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("1", "방장", true),
+            });
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu, list);
+            presenter.Start();
+            Assert.That(view.ParticipantCount, Is.EqualTo(1));
+            list.Replace(new[]
+            {
+                new LobbyParticipant("1", "방장", true),
+                new LobbyParticipant("2", "게스트", false),
+            });
+            Assert.That(view.ParticipantCount, Is.EqualTo(2));
+        }
+
+        [Test]
         public void Host_StartOrCloseWithUnappliedChanges_WarnsAndDoesNotApply()
         {
             using var session = new HostSession();
@@ -494,6 +516,50 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void RealView_GameStartDisabledWhenAlone()
+        {
+            var root = new GameObject("Game start disabled test", typeof(RectTransform));
+            var panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
+            panel.transform.SetParent(root.transform, false);
+            root.SetActive(false);
+            try
+            {
+                var view = root.AddComponent<PlaySettingsView>();
+                var serialized = new SerializedObject(view);
+                serialized.FindProperty("panel").objectReferenceValue = panel;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                root.SetActive(true);
+                typeof(PlaySettingsView).GetMethod("OnEnable",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
+                view.SetDraft(Draft(4));
+                view.SetEditable(true);
+                view.SetVisible(true);
+                view.SetParticipantCount(1);
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var start = (Button)typeof(PlaySettingsView).GetField("gameStartButton", flags).GetValue(view);
+                Assert.That(start, Is.Not.Null);
+                Assert.That(start.interactable, Is.False);
+                Assert.That(
+                    start.GetComponent<Image>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.GameStartOffFill));
+                var label = start.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+                Assert.That(label.color, Is.EqualTo(PlaySettingsStyle.Palette.GameStartOffLabel));
+                var started = 0;
+                view.StartRequested += () => started++;
+                start.onClick.Invoke();
+                Assert.That(started, Is.Zero);
+
+                view.SetParticipantCount(2);
+                Assert.That(start.interactable, Is.True);
+                Assert.That(start.GetComponent<Image>().color, Is.EqualTo(Color.white));
+                start.onClick.Invoke();
+                Assert.That(started, Is.EqualTo(1));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        [Test]
         public void DurationLabels_FollowSliderSteps()
         {
             Assert.That(PlaySettingsView.FormatHidingDuration(30), Is.EqualTo("30초"));
@@ -560,6 +626,8 @@ namespace Game.Tests.EditMode
                 Applied = value;
                 WarningVisible = false;
             }
+            public void SetParticipantCount(int count) => ParticipantCount = count;
+            public int ParticipantCount;
             public void SetUnappliedWarningVisible(bool value) => WarningVisible = value;
             public PlaySettingsDraft ReadDraft() => Draft;
             public void RequestClose() => CloseRequested?.Invoke();
@@ -575,6 +643,7 @@ namespace Game.Tests.EditMode
             public bool IsOpen => true;
             public void SetVisible(bool value) { }
             public void SetStartVisible(bool value) { }
+            public void SetStartEnabled(bool value) { }
             public void SetPlaySettingsVisible(bool value) { }
             public void OpenSettings() => PlaySettingsClicked?.Invoke();
         }

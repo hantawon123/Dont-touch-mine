@@ -144,13 +144,17 @@ namespace Game.Client.Combat
         public void SetNetworkStunned(bool stunned)
         {
             usesNetworkState = true;
+            var enteredStun = hasNetworkHitCount && stunned && !networkStunned;
             networkStunned = stunned;
+            // The authoritative hit counter resets to zero on a stunning hit.
+            // Treat this transition as a confirmed hit, but not an initial snapshot.
+            if (enteredStun) NotifyHitReceived();
         }
 
         public void SetNetworkHitCount(int hitCount)
         {
             usesNetworkState = true;
-            if (hasNetworkHitCount && hitCount > networkHitCount)
+            if (hasNetworkHitCount && !networkStunned && hitCount > networkHitCount)
             {
                 NotifyHitReceived();
             }

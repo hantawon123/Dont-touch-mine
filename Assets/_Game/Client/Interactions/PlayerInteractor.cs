@@ -200,9 +200,15 @@ namespace Game.Client.Interactions
             return visualForScale != null ? visualForScale.localScale.y : ReferenceVisualScale;
         }
 
+        /// <summary>큰 물건을 멀리 밀 수 있는 최대 배율. 이 이상 밀면 손에 든 게 아니라 바닥에 놓인 것처럼 보인다.</summary>
+        private const float FirstPersonMaxPushFactor = 1.6f;
+
+        /// <summary>물건 윗면을 크로스헤어보다 이만큼 아래(화면 반높이 대비 비율)에 둔다.</summary>
+        private const float FirstPersonTopMargin = 0.12f;
+
         /// <summary>
-        /// 큰 물건은 화면을 가리므로, 화면 높이의 일정 비율을 넘는 만큼 카메라에서 멀리 민다.
-        /// 옆·아래 오프셋도 같은 비율로 키워 화면상의 자리는 그대로 둔다.
+        /// 큰 물건이 시야를 가리지 않게 한다. 거리는 조금만 늘리고(최대 1.6배), 그래도 크면 물건을 아래로 내려
+        /// 윗면이 크로스헤어 아래에 오게 한다 — 큰 화분은 화면 아래쪽에 윗부분만 보이고, 작은 물건은 그대로다.
         /// </summary>
         private Vector3 FitFirstPersonOffset(Vector3 offset)
         {
@@ -217,11 +223,19 @@ namespace Game.Client.Interactions
 
             var cam = Camera.main;
             var fov = cam != null ? cam.fieldOfView : 60f;
-            var visibleHeightPerMeter = 2f * Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
-            var neededDistance = measuredItemSize / (visibleHeightPerMeter * firstPersonMaxScreenFraction);
-            if (neededDistance <= offset.z) return offset;
-            return offset * (neededDistance / offset.z);
+            var tanHalf = Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
+            var neededDistance = measuredItemSize / (2f * tanHalf * firstPersonMaxScreenFraction);
+            var distance = Mathf.Clamp(neededDistance, offset.z, offset.z * FirstPersonMaxPushFactor);
+            var ratio = distance / offset.z;
+            var fitted = new Vector3(offset.x * ratio, offset.y * ratio, distance);
+
+            // 윗면이 크로스헤어 아래에 오도록 내린다(작은 물건은 원래 값이 더 낮아 그대로).
+            var halfSize = measuredItemSize * 0.5f;
+            var topBelowCenter = -(halfSize + FirstPersonTopMargin * distance * tanHalf);
+            fitted.y = Mathf.Min(fitted.y, topBelowCenter);
+            return fitted;
         }
+
 
         private static float MeasureItemSize(CarryableItem item)
         {

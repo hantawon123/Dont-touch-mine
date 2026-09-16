@@ -2,7 +2,9 @@
 
 `release` 변경을 Jenkins `d205-unity-release`가 5분 간격으로 감지한다.
 `Tools/client/Jenkinsfile`은 Windows 에이전트의 Windows x64 Mono 클라이언트와 EC2의 Linux 전용 서버를 같은 Git SHA로 병렬 빌드한다.
-기존 `d205-unity-webgl` 작업은 비활성 상태를 유지한다. 실행 노드의 `unity-webgl`은 기존 슬롯 이름일 뿐 WebGL을 빌드하지 않는다.
+Linux 서버 빌드·배포는 `d205-unity-linux` 노드의 `unity-linux` 라벨을 사용한다. WebGL 작업이나 노드는 필요하지 않다. 이전 Jenkinsfile과의 호환을 위해 이 노드에 `unity-webgl` 라벨도 남겨 두며 WebGL 빌드는 실행하지 않는다. 기존 캐시·라이선스·설정 경로는 유지한다.
+
+원격 `release`에 이 Jenkinsfile과 빌드 도구가 포함된 변경사항을 push 또는 병합하면 최대 약 5분 이내 SCM polling으로 실행한다. 로컬 커밋만으로는 실행되지 않으며, 어느 PC에서 push했는지와 관계없이 Windows 빌드는 등록된 개발 PC에서 수행한다. 개발 PC가 꺼져 있거나 절전 상태이면 Windows 단계가 대기하므로 전원·네트워크와 에이전트 연결을 유지한다. 현재 release에 Jenkinsfile이 없다면 CI 변경사항부터 release에 포함해야 한다.
 
 ## 팀 사용 흐름
 
@@ -26,7 +28,7 @@ release 이외의 브랜치를 검증용으로 연결하면 빌드·아티팩트
 ## 빌드 머신
 
 - Windows: Unity 6000.3.22f1, Java 21, .NET SDK, Python 3.11+, Git LFS. `unity-windows` 라벨의 에이전트에서 네이티브 빌드한다.
-- EC2: 기존 `unity-webgl` 라벨, GameCI Linux 이미지, Docker, Python 3.11+, Git LFS.
+- EC2: `unity-linux` 라벨, GameCI Linux 이미지, Docker, Python 3.11+, Git LFS.
 - Linux 서버는 기존 Jenkins Unity 실행 슬롯을 사용한다. Unity 컨테이너당 CPU 3개·메모리 8GB 제한. Jenkins 에이전트 서비스는 Git 체크아웃을 포함하여 MemoryMax=2G를 사용한다(512MB에서는 신규 클론 중 OOM 종료 확인).
 - `CLIENT_CONFIG_DIR` 기본 `/var/lib/jenkins/.config/unity-webgl`의 `PhotonAppSettings.asset`를 주입한다.
 - `CLIENT_UNITY_HOME` 기본 `/var/lib/jenkins/.config/unity3d/Unity`의 해당 EC2에서 정상 활성화한 Unity 라이선스를 사용한다. 다른 PC의 machine-id/라이선스를 복사하지 않는다.
@@ -88,7 +90,7 @@ Linux의 첫 실행은 새 캐시를 만들기 때문에 빨라지지 않으며 
 `CLIENT_UNITY_EXE`와 `CLIENT_CONFIG_DIR`로 설치 경로를 바꿀 수 있다.
 라이선스는 Windows PC에 정상 활성화된 Unity 라이선스를 사용하며 EC2 라이선스를 복사하지 않는다.
 현재 PC에서 `powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE/.d205-unity-ci/start-agent.ps1"`로 연결한다.
-이 PC가 꺼지거나 절전/로그아웃되면 빌드할 수 없다. 시작 프로그램·서비스 등록은 하지 않았다.
+현재 PC에는 `D205 Unity Jenkins Agent` 예약 작업을 등록해 사용자 로그인 시 자동 연결한다. 작업은 현재 사용자 권한으로 실행하며 서비스는 설치하지 않는다. 이 PC가 꺼지거나 절전/로그아웃되면 Windows 빌드를 수행할 수 없다.
 기존 에이전트가 연결 중이면 중복 실행하지 않는다. 연결 인증 파일은 Git에 넣거나 팀에 공유하지 않는다.
 
 Linux 체크아웃에서 확정한 전체 SHA를 Windows도 체크아웃한다. Windows 테스트 실패 시 서버 빌드도 중단한다.

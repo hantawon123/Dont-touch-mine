@@ -26,7 +26,7 @@ namespace Game.Client.Lobby
         public const float ApplyPaddingHorizontal = 80f;
         public const float ApplyPaddingVertical = 11f;
         public const int ApplyButtonRadius = 32;
-        public const int LayoutVersion = 42;
+            public const int LayoutVersion = 43;
 
         public const string RegularFontResource = "Fonts/Paperlogy-4Regular";
         public const string MediumFontResource = "Fonts/Paperlogy-5Medium";
@@ -61,6 +61,8 @@ namespace Game.Client.Lobby
             public static readonly Color Divider = FromHex(0xF5F3F1, 0.16f);
             public static readonly Color DefaultMark = FromHex(0xF5F3F1, 0.85f);
             public static readonly Color ScrollbarHandle = FromHex(0xF5F3F1, 0.5f);
+            public static readonly Color GameStartOffFill = FromHex(0x8E8E8E);
+            public static readonly Color GameStartOffLabel = Color.white;
         }
 
         public static class FontSize
@@ -119,7 +121,6 @@ namespace Game.Client.Lobby
             public const float MapNameHeight = 52f;
             public const float MapSectionBottomSpacing = 20f;
             public const float SectionTitleHeight = 36f;
-            public const float CategoryValueMinWidth = 200f;
             public const float ActionSpacing = 24f;
             public const string ResetLabel = "초기화";
             public const float ScrollbarWidth = 8f;

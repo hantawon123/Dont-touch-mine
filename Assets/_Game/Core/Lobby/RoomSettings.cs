@@ -25,6 +25,9 @@ namespace Game.Core.Lobby
         public static bool IsValidTitle(string title) =>
             !string.IsNullOrWhiteSpace(title) && title.Length <= MaxTitleLength;
 
+        public static bool CanStartMatch(int playerCount) =>
+            playerCount >= MinMatchPlayerCount;
+
         internal RoomSettings(string title, bool isLocked, int maxPlayers, string mapId)
         {
             Title = title;

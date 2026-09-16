@@ -410,6 +410,7 @@ namespace Game.Tests.EditMode
             public bool IsOpen { get; private set; }
             public void SetVisible(bool visible) { IsOpen = visible; VisibleCalls.Add(visible); }
             public void SetStartVisible(bool visible) { }
+            public void SetStartEnabled(bool enabled) { }
             public void SetPlaySettingsVisible(bool visible) { }
             public void ClickPlaySettings() => PlaySettingsClicked?.Invoke();
             public void ClickSettings() => SettingsClicked?.Invoke();
@@ -451,6 +452,7 @@ namespace Game.Tests.EditMode
             public void SetVisible(bool visible) { }
             public void SetEditable(bool editable) { }
             public void SetDraft(PlaySettingsDraft draft) { }
+            public void SetParticipantCount(int count) { }
             public void SetUnappliedWarningVisible(bool visible) { }
             public PlaySettingsDraft ReadDraft() =>
                 new("방", "CODE", false, null, 6, 3, "playground");

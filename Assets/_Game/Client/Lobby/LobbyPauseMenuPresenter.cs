@@ -41,9 +41,11 @@ namespace Game.Client.Lobby
         private readonly ILobbyHostSession hostSession;
         private readonly LobbyExitPresenter exit;
         private readonly ILobbyShortcutOverlay shortcuts;
+        private readonly ILobbyParticipantList participants;
         private readonly Action shortcutClose;
         private readonly Action playSettingsClose;
         private IDisposable hostSubscription;
+        private IDisposable participantSubscription;
         private PlayerCameraController cameraRig;
         private PlayerMovement lockedMovement;
 
@@ -87,6 +89,18 @@ namespace Game.Client.Lobby
             ILobbyHostSession hostSession,
             LobbyExitPresenter exit,
             ILobbyShortcutOverlay shortcuts)
+            : this(view, playSettings, hostSession, exit, shortcuts, null)
+        {
+        }
+
+        [VContainer.Inject]
+        public LobbyPauseMenuPresenter(
+            ILobbyPauseMenuView view,
+            IPlaySettingsView playSettings,
+            ILobbyHostSession hostSession,
+            LobbyExitPresenter exit,
+            ILobbyShortcutOverlay shortcuts,
+            ILobbyParticipantList participants)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.playSettings = playSettings
@@ -96,6 +110,7 @@ namespace Game.Client.Lobby
             this.exit = exit ?? throw new ArgumentNullException(nameof(exit));
             this.shortcuts = shortcuts
                 ?? throw new ArgumentNullException(nameof(shortcuts));
+            this.participants = participants;
             shortcutClose = this.shortcuts.RequestClose;
             playSettingsClose = this.playSettings.RequestClose;
         }
@@ -117,6 +132,11 @@ namespace Game.Client.Lobby
             // Starting and changing the room are the host's to ask for, so
             // neither entry is there for anyone else.
             hostSubscription = hostSession.IsLocalHost.Subscribe(ApplyHostControls);
+            if (participants != null)
+            {
+                participantSubscription = participants.Participants.Subscribe(_ =>
+                    ApplyHostControls(hostSession.IsLocalHost.CurrentValue));
+            }
 
             Close();
         }
@@ -131,6 +151,7 @@ namespace Game.Client.Lobby
             shortcuts.CloseRequested -= OnScreenClosed;
             hostSession.StartRequested -= DismissForMatchStart;
             hostSubscription?.Dispose();
+            participantSubscription?.Dispose();
 
             // A frozen avatar and a rig that no longer answers Esc would both
             // outlive this screen otherwise. The rig is shared with the match,
@@ -227,7 +248,13 @@ namespace Game.Client.Lobby
         {
             view.SetStartVisible(isHost);
             view.SetPlaySettingsVisible(true);
+            view.SetStartEnabled(
+                isHost &&
+                (participants == null || RoomSettings.CanStartMatch(ParticipantCount)));
         }
+
+        private int ParticipantCount =>
+            participants?.Participants.CurrentValue?.Count ?? 0;
 
         private void Open()
         {
@@ -435,6 +462,11 @@ namespace Game.Client.Lobby
         /// </remarks>
         private void OnStartClicked()
         {
+            if (participants != null && !RoomSettings.CanStartMatch(ParticipantCount))
+            {
+                return;
+            }
+
             Close();
             hostSession.RequestStart();
         }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Common;
 using Game.Client.Home;
+using Game.Client.Lobby;
 using Game.Client.Match;
 using Game.Core.Settings;
 using TMPro;
@@ -90,6 +91,29 @@ namespace Game.Client.Settings
             }
         }
         public static float Scale(string code) => code == InterfaceCatalog.Small ? 0.85f : code == InterfaceCatalog.Large ? 1.15f : 1f;
+
+        public static float HudScale(string code) =>
+            Scale(code) * HudScreenScale.DefaultScale;
+
+        private void ApplyLobbyMatchInfoSize()
+        {
+            var lobby = GetComponent<LobbyHudView>();
+            if (lobby == null)
+            {
+                return;
+            }
+
+            var info = lobby.transform.Find(LobbyMatchInfoView.RootName) as RectTransform;
+            if (info != null)
+            {
+                info.localScale = Vector3.one / HudScreenScale.DefaultScale;
+            }
+
+            var count = lobby.transform.Find(LobbyPlayerCountView.RootName)
+                ?.GetComponent<LobbyPlayerCountView>();
+            count?.RefreshPlacement(1f / HudScreenScale.DefaultScale);
+        }
+
         private void LateUpdate()
         {
             if (settings == null) return;
@@ -98,7 +122,8 @@ namespace Game.Client.Settings
             {
                 HudScreenScale.Apply(scaler);
                 scaler.referenceResolution =
-                    HudScreenScale.ScaledReference / Scale(current.Get(InterfaceOption.UiScale));
+                    HudScreenScale.ScaledReference / HudScale(current.Get(InterfaceOption.UiScale));
+                ApplyLobbyMatchInfoSize();
             }
             if (visibility != null)
             {

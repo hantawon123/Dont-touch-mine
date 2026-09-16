@@ -1,6 +1,6 @@
 // Windows client on the native agent; Linux server and publication on EC2.
 pipeline {
-    agent { label 'unity-webgl' }
+    agent { label 'unity-linux' }
     parameters {
         booleanParam(name: 'TEST_ONLY', defaultValue: false, description: '계약 테스트만 실행하며 배포하지 않습니다.')
     }

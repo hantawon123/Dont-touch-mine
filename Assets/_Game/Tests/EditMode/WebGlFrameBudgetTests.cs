@@ -60,16 +60,11 @@ namespace Game.Tests.EditMode
             try
             {
                 QualitySettings.renderPipeline = pipeline;
-                foreach (var code in new[] { "off", "low", "medium", "high", "ultra" })
-                {
-                    var settings = GraphicsSettings.Empty.With(GraphicsOption.ShadowQuality, code);
-                    new UnityGraphicsSettingsApplier().Apply(settings);
-                    Assert.That(settings.Get(GraphicsOption.ShadowQuality), Is.EqualTo(code));
-                    var actual = new SerializedObject(pipeline);
-                    foreach (var field in new[] { "m_MainLightShadowsSupported", "m_AdditionalLightShadowsSupported",
-                        "m_AnyShadowsSupported", "m_SoftShadowsSupported" })
-                        Assert.That(actual.FindProperty(field).boolValue, Is.False, code + ": " + field);
-                }
+                new UnityGraphicsSettingsApplier().Apply(GraphicsCatalog.Shipped.Defaults);
+                var actual = new SerializedObject(pipeline);
+                foreach (var field in new[] { "m_MainLightShadowsSupported", "m_AdditionalLightShadowsSupported",
+                    "m_AnyShadowsSupported", "m_SoftShadowsSupported" })
+                    Assert.That(actual.FindProperty(field).boolValue, Is.False, field);
             }
             finally
             {

@@ -77,8 +77,12 @@ namespace Game.Tests.EditMode
             return view;
         }
 
-        private static FirstPersonArmsSettings Settings(float weight = 0f) =>
-            new() { poseWeight = weight, eyeAnchor = new Vector3(0f, -0.02f, 0.06f) };
+        private static FirstPersonArmsSettings Settings(float weight = 0f)
+        {
+            var settings = new FirstPersonArmsSettings { eyeAnchor = new Vector3(0f, -0.02f, 0.06f), blendSeconds = 0f };
+            settings.locomotion.poseWeight = weight;
+            return settings;
+        }
 
         [Test]
         public void Bind_ParentsUnderCameraRig_MatchesBodyScale_AndStartsHidden()
@@ -148,13 +152,141 @@ namespace Game.Tests.EditMode
         {
             var view = BoundView();
             var settings = Settings(weight: 1f);
-            settings.upperArmLift = 90f; settings.upperArmSpread = 0f; settings.forearmBend = 0f;
+            settings.locomotion.upperArmLift = 90f; settings.locomotion.upperArmSpread = 0f; settings.locomotion.forearmBend = 0f;
 
             view.Apply(true, settings, cameraRig);
 
             // 몸 기준으로 늘어진 팔(-up)이 카메라 앞을 향한다.
             var upper = Find(armsInstance, "UpperArm.L");
             Assert.Greater(Vector3.Dot(upper.rotation * Vector3.down, cameraRig.forward), 0.95f);
+        }
+
+        [Test]
+        public void Apply_PunchState_UsesPunchProfileInsteadOfLocomotion()
+        {
+            var view = BoundView();
+            var settings = Settings(weight: 1f);
+            settings.locomotion.upperArmLift = 90f; settings.locomotion.upperArmSpread = 0f; settings.locomotion.forearmBend = 0f;
+            settings.punch.poseWeight = 1f; settings.punch.upperArmLift = 0f; settings.punch.upperArmSpread = 0f; settings.punch.forearmBend = 0f;
+            settings.punchAimWeight = 0f;
+            var upper = Find(armsInstance, "UpperArm.L");
+
+            view.Apply(true, settings, cameraRig, "Punch_Walk");
+            Assert.Less(Vector3.Dot(upper.rotation * Vector3.down, cameraRig.forward), 0.05f, "punch profile leaves the arm as animated");
+
+            view.Apply(true, settings, cameraRig, "Run_Forward");
+            Assert.Greater(Vector3.Dot(upper.rotation * Vector3.down, cameraRig.forward), 0.95f, "locomotion profile lifts it again");
+        }
+
+        [Test]
+        public void Apply_WhilePunching_AimsPunchingArmAtCrosshairOnly()
+        {
+            var view = BoundView();
+            var settings = Settings(weight: 0f);
+            settings.punchAimWeight = 1f;
+            settings.punchAimDistance = 1f;
+            settings.punchHandDistance = 0f;
+            settings.punchStraighten = 0f;
+            settings.punchElbowIn = 0f;
+            var upperRight = Find(armsInstance, "UpperArm.R");
+            var handRight = Find(armsInstance, "Hand.R");
+            var upperLeft = Find(armsInstance, "UpperArm.L");
+            var handLeft = Find(armsInstance, "Hand.L");
+
+            view.Apply(true, settings, cameraRig, "Punch", punching: true, punchLeft: false);
+
+            var target = cameraRig.position + cameraRig.forward * 1f;
+            var aimed = (handRight.position - upperRight.position).normalized;
+            var wanted = (target - upperRight.position).normalized;
+            Assert.Greater(Vector3.Dot(aimed, wanted), 0.999f, "right arm points at the crosshair point");
+            var leftDir = (handLeft.position - upperLeft.position).normalized;
+            Assert.Less(Vector3.Dot(leftDir, (target - upperLeft.position).normalized), 0.95f, "left arm is left alone");
+        }
+
+        [Test]
+        public void Apply_WhilePunching_PushesPunchingHandToTargetDistance()
+        {
+            var view = BoundView();
+            var settings = Settings(weight: 0f);
+            settings.punchAimWeight = 0f;
+            settings.punchStraighten = 0f;
+            settings.punchElbowIn = 0f;
+            settings.punchHandDistance = 0.9f;
+            var upperLeft = Find(armsInstance, "UpperArm.L");
+            var handRight = Find(armsInstance, "Hand.R");
+
+            view.Apply(true, settings, cameraRig, "Idle");
+            var restLeft = cameraRig.InverseTransformPoint(upperLeft.position);
+
+            // 절정(0.45, 곡선 유지 구간)에서 오른손 본이 카메라 앞 목표 거리에 닿고, 왼팔은 그대로다.
+            view.Apply(true, settings, cameraRig, "Punch", punching: true, punchLeft: false, punchProgress: 0.45f);
+            var handForward = Vector3.Dot(handRight.position - cameraRig.position, cameraRig.forward);
+            Assert.AreEqual(0.9f, handForward, 1e-3f, "right hand reaches the target distance");
+            Assert.Less((cameraRig.InverseTransformPoint(upperLeft.position) - restLeft).magnitude, 1e-4f);
+
+            // 진행도 1(끝)에서는 밀지 않는다.
+            view.Apply(true, settings, cameraRig, "Idle");
+            var restHand = Vector3.Dot(handRight.position - cameraRig.position, cameraRig.forward);
+            view.Apply(true, settings, cameraRig, "Punch", punching: true, punchLeft: false, punchProgress: 1f);
+            Assert.AreEqual(restHand, Vector3.Dot(handRight.position - cameraRig.position, cameraRig.forward), 1e-3f);
+        }
+
+        [Test]
+        public void Apply_PunchStart_OffsetsPunchingArmOutwardThenConverges()
+        {
+            var view = BoundView();
+            var settings = Settings(weight: 0f);
+            settings.punchAimWeight = 0f;
+            settings.punchStraighten = 0f;
+            settings.punchElbowIn = 0f;
+            settings.punchHandDistance = 0f;
+            settings.punchStartOffset = new Vector3(0.2f, 0f, 0f);
+            var upperLeft = Find(armsInstance, "UpperArm.L");
+            var upperRight = Find(armsInstance, "UpperArm.R");
+
+            view.Apply(true, settings, cameraRig, "Idle");
+            var restLeft = cameraRig.InverseTransformPoint(upperLeft.position);
+            var restRight = cameraRig.InverseTransformPoint(upperRight.position);
+
+            // 왼손 펀치 시작(0): 왼팔 뿌리가 카메라 기준 왼쪽(-x)으로 0.2 m, 오른팔은 그대로.
+            view.Apply(true, settings, cameraRig, "Punch_Left", punching: true, punchLeft: true, punchProgress: 0f);
+            Assert.AreEqual(-0.2f, cameraRig.InverseTransformPoint(upperLeft.position).x - restLeft.x, 1e-3f);
+            Assert.Less((cameraRig.InverseTransformPoint(upperRight.position) - restRight).magnitude, 1e-4f);
+
+            // 절정 이후(0.45)에는 시작 오프셋이 사라진다.
+            view.Apply(true, settings, cameraRig, "Punch_Left", punching: true, punchLeft: true, punchProgress: 0.45f);
+            Assert.Less((cameraRig.InverseTransformPoint(upperLeft.position) - restLeft).magnitude, 1e-3f);
+        }
+
+        [Test]
+        public void UpperArmLength_PullsForearmTowardShoulder()
+        {
+            var view = BoundView();
+            var settings = Settings(weight: 0f);
+            settings.upperArmLength = 0.5f;
+            var bodyFore = Find(visual, "Arm.L");
+            var armsFore = Find(armsInstance, "Arm.L");
+
+            view.Apply(true, settings, cameraRig, "Idle");
+
+            Assert.Less((armsFore.localPosition - bodyFore.localPosition * 0.5f).magnitude, 1e-5f);
+            Assert.Less((Find(armsInstance, "Hand.L").localPosition - Find(visual, "Hand.L").localPosition).magnitude, 1e-5f,
+                "hand keeps its own length");
+        }
+
+        [Test]
+        public void Select_MapsStatesToProfiles()
+        {
+            var settings = new FirstPersonArmsSettings();
+            Assert.AreSame(settings.locomotion, settings.Select(null));
+            Assert.AreSame(settings.locomotion, settings.Select("Run_Forward"));
+            Assert.AreSame(settings.locomotion, settings.Select("Jump"));
+            Assert.AreSame(settings.punch, settings.Select("Punch_Left_Crouch_Walk"));
+            Assert.AreSame(settings.carry, settings.Select("Carry_TwoHands_Crouch_Idle"));
+            Assert.AreSame(settings.carry, settings.Select("Throw"));
+            Assert.AreSame(settings.crouch, settings.Select("Crouch_Walk_Forward"));
+            Assert.AreSame(settings.prone, settings.Select("Crawl_Left"));
+            Assert.AreSame(settings.prone, settings.Select("Prone_Idle"));
         }
 
         [Test]
