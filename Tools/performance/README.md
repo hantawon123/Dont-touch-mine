@@ -67,3 +67,30 @@ WebGL 크기 보정 후 인스턴싱 2회는 34.97~35.97FPS, SSAO 끄기는 45.2
 모든 측정은 빌드 작업이 종료된 뒤 순차 실행했다. 시험용 서버/클라이언트와 미리보기를 종료하고 검증 복사본을 복원했다. 사용자의 원본 에셋·품질 설정은 변경하지 않았다.
 
 시험 인자 의미는 [Unity Player 명령줄 문서](https://docs.unity3d.com/kr/6000.0/Manual/PlayerCommandLineArguments.html)를 따른다. WebGL의 C/C++ 스레드 지원과 C# 스레드는 서로 다른 제약이 있으므로 단순히 스레드 옵션 하나로 해결된다고 결론내리지 않는다([Unity Web 기술 제약](https://docs.unity3d.com/ja/6000.0/Manual/webgl-technical-overview.html)).
+
+## 2026-09-16 WebGL 최적화 포함 여부와 그래픽 API 계측
+
+사용자가 철회한 어제의 약 70FPS 관찰은 분석 근거에서 제외한다. 확인 대상은 로컬 `.build/web-batch-995` 시험 빌드이며 공개 EC2 배포본을 확인했다는 의미가 아니다.
+
+최적화 관련 소스 13개의 원본/검증 복사본 SHA256을 비교하고, WebGL IL2CPP 생성 코드에서도 다음을 확인했다: 하이라이트의 TryCollectReplayObjectIds 호출, HUD 카탈로그의 Load(false), 정지 물건의 Rigidbody interpolation=None. 따라서 주요 클라이언트 최적화가 WebGL에 통째로 빠진 상태는 아니다. 감사 결과는 작업 공간 `.build/web-optimization-source-audit.json`에 보관한다.
+
+예외: 이 WebGL 빌드는 ecf39977 이전에 생성되어 최신 ‘메뉴 120 선택 → 내부 제한 144’ 수정은 포함하지 않는다. 생성된 ApplyFrameCap은 이전 Mathf.Min(fps, 144) 구현이다. 이번 시험 실행기는 별도로 144를 지정했으므로 비교 조건에는 영향이 없다. 최신 설정 동작 배포에는 재빌드가 필요하다. 시험 WASM은 `134a6d2593b5613817ce34cb56cd138f.wasm.gz`다.
+
+동일 Intel ANGLE/960×600/렌더 스케일 0.5/마트 고정 시점에서 기본 모드의 WebGL API를 8.017초, Unity 메인 루프 320회 동안 계측했다. 측정 중 모드 전환은 없었다. API 인자나 텍스처 내용은 수집하지 않았다.
+
+| API | 프레임당 호출 | 측정된 동기 호출 시간 ms/프레임 |
+| --- | ---: | ---: |
+| vertexAttribPointer | 3390 | 1.035 |
+| drawElements | 2302 | 0.674 |
+| bindBuffer | 1753.15 | 0.619 |
+| bindBufferRange | 977 | 0.340 |
+| bufferSubData | 21.15 | 0.311 |
+| clientWaitSync | 2 | 0.006 |
+
+전체 약 9995회/프레임, 측정 시간 합계 3.773ms/프레임이다. 이 값에는 래퍼와 타이머 오버헤드가 포함되며 GPU 실행 시간이 아니다. 타이머 두 번의 교정 평균은 약 0.00046ms이고 개별 시간의 정밀도에도 한계가 있어 순수 API 비용으로 해석하지 않는다. 해당 CSV의 첫 기본 구간은 계측이 겹치므로 성능 개선 비교에서 제외한다. Unity 배치 수와 GL drawElements 호출은 서로 다른 카운터이며 이 차이만으로 이중 렌더링을 판정하지 않는다.
+
+이 구간에는 readPixels가 관측되지 않았고 큰 동기 GPU 대기 증거도 없었다. 다수의 정점/버퍼 상태 설정과 그리기 호출이 관측됐지만, 이 계측만으로 네이티브와의 전체 격차 또는 WASM 비용을 확정할 수 없다.
+
+추가 확인: Supermarket.unity의 OcclusionCullingSettings는 m_OcclusionCullingData=fileID:0이며 SceneGUID도 0이다. 다음 후보는 고정 벽·구조물의 베이크된 가림 판정을 통해 불필요한 제출을 줄이는 것이다. 아직 적용하거나 효과를 검증하지 않았다. 움직이는 물건을 정적 가림막으로 지정하지 않고, 물건/캐릭터/하이라이트 CCTV/외곽선 가시성을 함께 검증해야 한다. [Unity 동적 객체 오클루전 설명](https://docs.unity3d.com/cn/6000.0/Manual/occlusion-culling-dynamic-gameobjects.html)을 참고한다.
+
+완료 마커, 6개 CSV/이미지와 gl-profile.json은 `.build/performance-995-web-gl-profile`에 보관한다. 시험 서버는 완료 후 종료됐으며 미리보기와 시험 탭을 닫고 검증 실행기를 복원했다. 제품 렌더링 코드나 사용자 에셋은 변경하지 않았다. 120FPS 달성은 아직 검증되지 않았다.
