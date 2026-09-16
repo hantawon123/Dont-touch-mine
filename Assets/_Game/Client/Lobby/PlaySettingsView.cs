@@ -221,7 +221,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (!editable || RoomSettings.IsValidTitle(ReadDraft().Title)) CloseRequested?.Invoke();
+            CloseRequested?.Invoke();
         }
 
         private void RequestApply()
@@ -432,6 +432,7 @@ namespace Game.Client.Lobby
         public void SetDraft(PlaySettingsDraft draft)
         {
             EnsureLayout();
+            EnsureCloseButton();
             title = draft.Title;
             if (titleInput != null) titleInput.SetTextWithoutNotify(title);
             RefreshTitleCounter();
@@ -1064,6 +1065,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
+            var previousClose = closeButton;
             var panelRect = (RectTransform)panel.transform;
             var rect = panelRect.Find("CloseButton") as RectTransform;
             if (rect == null && overlayRoot != null)
@@ -1102,7 +1104,14 @@ namespace Game.Client.Lobby
             closeButton = rect.GetComponent<Button>() ?? rect.gameObject.AddComponent<Button>();
             closeButton.targetGraphic = image;
             closeButton.transition = Selectable.Transition.None;
+            closeButton.interactable = true;
             rect.SetAsLastSibling();
+            if (previousClose != null && previousClose != closeButton)
+            {
+                Unbind(previousClose);
+            }
+
+            Bind(closeButton, RequestClose);
         }
 
         private static void HideNamed(Transform parent, string name)

@@ -75,6 +75,12 @@ namespace Game.Architecture.Tests
                 view.CloseRequested += () => raised++;
                 close.GetComponent<Button>().onClick.Invoke();
                 Assert.That(raised, Is.EqualTo(1));
+
+                view.SetDraft(new PlaySettingsDraft(string.Empty, "CODE", false, null, 4, 3, "supermarket"));
+                view.SetEditable(true);
+                view.SetVisible(true);
+                close.GetComponent<Button>().onClick.Invoke();
+                Assert.That(raised, Is.EqualTo(2));
             }
             finally
             {
@@ -235,6 +241,8 @@ namespace Game.Architecture.Tests
                 view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, MapCatalog.PlaygroundId));
                 Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
                 Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.SupermarketId));
+                Assert.That(Find(panel.transform, "MapPrev").gameObject.activeSelf, Is.False);
+                Assert.That(Find(panel.transform, "MapNext").gameObject.activeSelf, Is.False);
             }
             finally
             {
