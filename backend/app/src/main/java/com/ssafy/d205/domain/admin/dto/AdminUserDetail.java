@@ -12,16 +12,21 @@ import com.ssafy.d205.domain.report.repository.AdminReportRow;
  * 보낸 피드백을 따로 담습니다. 세 목록을 한 응답에 넣는 이유는 운영자가 사람 하나를 판단할
  * 때 세 가지를 같이 보기 때문입니다. 따로 부르게 하면 화면이 세 번 묻고 세 번 기다립니다.
  *
+ * <p>정지 이력이 네 번째로 붙습니다(S15P21D205-974). 요약의 정지 여부는 지금 상태 하나뿐이라
+ * "전에도 정지된 적이 있나"에 답하지 못합니다. 해제해도 될지 판단하려면 그 답이 필요합니다.
+ *
  * @param user            목록과 같은 요약
  * @param receivedReports 이 사람이 받은 신고. 최근 순, 최대 200건
  * @param madeReports     이 사람이 한 신고. 최근 순, 최대 200건
  * @param feedback        이 사람이 보낸 피드백. 최근 순, 최대 100건
+ * @param suspensions     정지·해제 이력. 최근 순, 최대 200건
  */
 public record AdminUserDetail(
         AdminUserSummary user,
         List<ReportEntry> receivedReports,
         List<ReportEntry> madeReports,
-        List<FeedbackEntry> feedback
+        List<FeedbackEntry> feedback,
+        List<AdminSuspensionEntry> suspensions
 ) {
 
     /**

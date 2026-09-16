@@ -6,9 +6,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+import com.ssafy.d205.domain.admin.dto.AdminSuspensionEntry;
 import com.ssafy.d205.domain.admin.dto.AdminUserDetail;
 import com.ssafy.d205.domain.admin.dto.AdminUserListResponse;
 import com.ssafy.d205.domain.admin.dto.AdminUserSummary;
+import com.ssafy.d205.domain.admin.repository.SuspensionAuditRepository;
 import com.ssafy.d205.domain.feedback.repository.UserFeedbackRepository;
 import com.ssafy.d205.domain.report.repository.UserReportRepository;
 import com.ssafy.d205.domain.user.repository.AdminUserRow;
@@ -36,6 +38,7 @@ public class AdminUserQueryService {
     private final UserRepository userRepository;
     private final UserReportRepository userReportRepository;
     private final UserFeedbackRepository userFeedbackRepository;
+    private final SuspensionAuditRepository suspensionAuditRepository;
 
     /**
      * 닉네임 부분 일치 또는 userId 정확 일치로 찾습니다. q 가 비면 최근 가입순입니다.
@@ -57,7 +60,7 @@ public class AdminUserQueryService {
     }
 
     /**
-     * 사용자 한 명의 요약과 받은 신고, 한 신고, 보낸 피드백.
+     * 사용자 한 명의 요약과 받은 신고, 한 신고, 보낸 피드백, 정지 이력.
      *
      * <p>없는 계정은 TARGET_NOT_FOUND 입니다. ACCOUNT_NOT_FOUND 가 아닙니다 - 그쪽은 부르는
      * 사람이 없다는 뜻이고, 여기서 부르는 사람은 로그인한 운영자입니다.
@@ -76,7 +79,9 @@ public class AdminUserQueryService {
                 userReportRepository.findMadeForAdmin(userId).stream()
                         .map(AdminUserDetail.ReportEntry::from).toList(),
                 userFeedbackRepository.findByAuthorForAdmin(userId).stream()
-                        .map(AdminUserDetail.FeedbackEntry::from).toList());
+                        .map(AdminUserDetail.FeedbackEntry::from).toList(),
+                suspensionAuditRepository.findHistoryFor(userId).stream()
+                        .map(AdminSuspensionEntry::from).toList());
     }
 
     /**

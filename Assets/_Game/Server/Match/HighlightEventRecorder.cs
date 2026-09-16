@@ -16,7 +16,6 @@ namespace Game.Server.Match
             new(StringComparer.Ordinal);
         private readonly List<double>[] stunnedAtByPlayer;
         private readonly int[] lastStunnerByPlayer;
-        private readonly bool isSolo;
         private GameEvent? firstDestroyedEvent;
         private GameEvent? lastGameEvent;
         private double searchingStartedAt = -1d;
@@ -51,7 +50,6 @@ namespace Game.Server.Match
             }
 
             MatchRulesSO.ValidatePlayerCount(assignments.Count);
-            isSolo = assignments.Count == 1;
             stunnedAtByPlayer = CreateStunRecords(assignments.Count);
             lastStunnerByPlayer = new int[assignments.Count];
             Array.Fill(lastStunnerByPlayer, -1);
@@ -181,11 +179,9 @@ namespace Game.Server.Match
             if (TryGetLongestHiddenItem(endedAt, out var longestHiddenItemId, out var hiddenUntil))
             {
                 var startedAt = recordingStartedAt >= 0d ? recordingStartedAt : searchingStartedAt;
-                var hiddenSegments = frames == null || isSolo
-                    ? CreateHiddenSummarySegments(startedAt, endedAt)
+                var hiddenSegments = frames == null
+                    ? Array.Empty<HighlightSegment>()
                     : CreateHiddenSegments(longestHiddenItemId, startedAt, endedAt, frames);
-                if (hiddenSegments.Length == 0)
-                    hiddenSegments = CreateHiddenSummarySegments(startedAt, endedAt);
                 if (hiddenSegments.Length > 0)
                     candidates.Add(new HighlightCandidate(HighlightType.LongestHidden,
                         hiddenSegments,
@@ -197,28 +193,6 @@ namespace Game.Server.Match
                             0d,
                             1d),
                         items[longestHiddenItemId].OwnerPlayerIndex));
-            }
-
-            if (endReason == MatchEndReason.TimeExpired &&
-                !candidates.Exists(candidate => candidate.Type == HighlightType.FinalMoment))
-            {
-                string survivor = null;
-                var longest = -1d;
-                foreach (var pair in items)
-                {
-                    if (pair.Value.Destroyed ||
-                        pair.Value.LastInteractedAt < searchingStartedAt) continue;
-                    var candidateHiddenUntil = pair.Value.FirstOtherPlayerInteractionAt ?? endedAt;
-                    if (candidateHiddenUntil > longest ||
-                        candidateHiddenUntil == longest && string.CompareOrdinal(pair.Key, survivor) < 0)
-                    {
-                        survivor = pair.Key;
-                        longest = candidateHiddenUntil;
-                    }
-                }
-                if (survivor != null)
-                    candidates.Add(CreateEventCandidate(HighlightType.FinalMoment,
-                        new GameEvent(items[survivor].OwnerPlayerIndex, survivor, endedAt), endedAt));
             }
 
             if (TryGetMostStunnedPlayer(out var mostStunnedPlayerIndex))
@@ -285,20 +259,6 @@ namespace Game.Server.Match
             return merged.ToArray();
         }
 
-        private static HighlightSegment[] CreateHiddenSummarySegments(double start, double end)
-        {
-            if (end <= start) return Array.Empty<HighlightSegment>();
-            var introEnd = Math.Min(end, start + 2d);
-            var endingStart = Math.Max(introEnd, end - 4d);
-            return endingStart <= introEnd
-                ? new[] { new HighlightSegment(start, end) }
-                : new[]
-                {
-                    new HighlightSegment(start, introEnd),
-                    new HighlightSegment(endingStart, end),
-                };
-        }
-
         private HighlightCandidate CreateEventCandidate(
             HighlightType type,
             GameEvent gameEvent,
@@ -312,7 +272,7 @@ namespace Game.Server.Match
                         Math.Max(
                             Math.Max(0d, recordingStartedAt >= 0d ? recordingStartedAt : searchingStartedAt),
                             gameEvent.OccurredAt - 7d),
-                        gameEvent.OccurredAt + 3d),
+                        Math.Min(matchEndedAt, gameEvent.OccurredAt + 3d)),
                 },
                 gameEvent.TargetId,
                 gameEvent.OccurredAt,
@@ -453,7 +413,7 @@ namespace Game.Server.Match
                     ? 0
                     : index * (eventTimes.Count - 1) / (segmentCount - 1);
                 var startedAt = Math.Max(Math.Max(0d, recordingStartedAt >= 0d ? recordingStartedAt : searchingStartedAt), eventTimes[eventIndex] - radiusSeconds);
-                var segmentEndedAt = Math.Min(endedAt + 3d, eventTimes[eventIndex] + radiusSeconds);
+                var segmentEndedAt = Math.Min(endedAt, eventTimes[eventIndex] + radiusSeconds);
                 if (segments.Count > 0)
                     startedAt = Math.Max(startedAt, segments[segments.Count - 1].EndedAt);
                 if (segmentEndedAt <= startedAt) continue;

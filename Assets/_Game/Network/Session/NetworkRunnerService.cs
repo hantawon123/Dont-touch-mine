@@ -81,6 +81,13 @@ namespace Game.Network.Session
         public bool IsHighlightInProgress =>
             _matchStarter != null && _matchStarter.CurrentPhase == MatchPhase.Highlight;
         public bool IsLocalHighlightComplete => _localHighlightComplete;
+        public bool HasCompletedHighlight(int playerIndex)
+        {
+            if (_matchStarter == null) return false;
+            foreach (var player in _highlightCompletedPlayers)
+                if (_matchStarter.TryGetPlayerIndex(player, out var index) && index == playerIndex) return true;
+            return false;
+        }
 
         public bool TryConfirmPhaseIntroReady(MatchPhase phase) =>
             _matchStarter != null && _matchStarter.RequestPhaseIntroReady(phase);
@@ -1076,6 +1083,11 @@ namespace Game.Network.Session
 
         internal static NetworkProjectConfig ConfigureSession(NetworkProjectConfig config)
         {
+#if UNITY_EDITOR
+            // Development Play reloads the domain; large Editor scenes can exceed the normal 10 seconds.
+            if (EditorDevelopmentSession.Enabled)
+                config.Network.ConnectionTimeout = Math.Max(config.Network.ConnectionTimeout, 60f);
+#endif
 #if UNITY_WEBGL
             // Fusion also checks this in the Editor when WebGL is the active build target.
             config.AllowClientServerModesInWebGL = true;
@@ -1138,7 +1150,7 @@ namespace Game.Network.Session
         }
 
         private bool ApplyLobbySettings(int maxPlayers, int destructionLimit, string mapId,
-            MatchRuleSettings matchRules, string title)
+            MatchRuleSettings matchRules, string title, Dictionary<string, SessionProperty> claimProperties = null)
         {
             if ((title != null && !RoomSettings.IsValidTitle(title)) ||
                 !IsRuntimeReady || _browsingLobby || _runner.IsSceneManagerBusy ||
@@ -1163,6 +1175,8 @@ namespace Game.Network.Session
                 mapId,
                 normalizedMatchRules);
             if (title != null) properties[SessionPropertyKeys.DisplayName] = title.Trim();
+            if (claimProperties != null)
+                foreach (var property in claimProperties) properties[property.Key] = property.Value;
 
             if (!_runner.SessionInfo.UpdateCustomProperties(properties))
             {
@@ -1553,6 +1567,12 @@ namespace Game.Network.Session
 
         public void Shutdown()
         {
+            if (_disposed) return;
+            ShutdownCore();
+        }
+
+        private void ShutdownCore()
+        {
             _hostMigrationRevision++;
             _hostMigrationInProgress = false;
             var runner = _runner;
@@ -1686,7 +1706,7 @@ namespace Game.Network.Session
             }
 
             _disposed = true;
-            Shutdown();
+            ShutdownCore();
         }
 
         /// <summary>

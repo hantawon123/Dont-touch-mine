@@ -306,7 +306,6 @@ namespace Game.Client.Interactions
             EnsureSafeReleasePosition(thrown);
             var velocity = GetThrowVelocity();
 
-            GetComponent<PlayerAnimationDriver>()?.PlayThrow();
             if (commands != null)
             {
                 commands.RequestThrow(
@@ -315,6 +314,7 @@ namespace Game.Client.Interactions
                 return;
             }
 
+            GetComponent<PlayerAnimationDriver>()?.PlayThrow();
             CarriedItem = null;
             thrown.OnThrown(velocity);
         }

@@ -149,6 +149,11 @@ namespace Game.Client.Lobby
             EnsureMatchInfo()?.SetInfo(categoryLabel, mapLabel);
         }
 
+        public void SetMatchInfo(string categoryLabel, string mapLabel, Sprite mapPreview)
+        {
+            EnsureMatchInfo()?.SetInfo(categoryLabel, mapLabel, mapPreview);
+        }
+
         /// <summary>
         /// A leftover corner slot from before the microphone sat beside
         /// 환경설정. Direct children only, so the shortcut-row button stays.

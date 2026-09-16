@@ -12,6 +12,24 @@ namespace Game.Tests.EditMode
 {
     public sealed class RoomLobbySystemTests
     {
+        [NUnit.Framework.Test]
+        public void DisposedRoomState_IgnoresLateNetworkShutdown()
+        {
+            var state = new Game.Core.Lobby.RoomBrowserSystem();
+            var network = new Game.Network.Session.NetworkRunnerService(state, state, state, state, null, null);
+            state.Dispose();
+            NUnit.Framework.Assert.DoesNotThrow(() =>
+            {
+                network.Dispose();
+                network.Shutdown();
+                state.SetParticipants(System.Array.Empty<Game.Core.Rooms.RoomParticipant>());
+                state.SetLocalPlayer(null);
+                state.MatchStarted(System.Array.Empty<Game.Core.Match.MatchParticipant>());
+                state.RoomClosed(Game.Core.Rooms.RoomExitReason.Left);
+                state.Dispose();
+            });
+        }
+
         [Test]
         public void MatchRuleSettings_DefaultsMatchTheSpecification()
         {

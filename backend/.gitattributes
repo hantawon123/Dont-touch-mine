@@ -11,3 +11,14 @@
 *.bat text eol=crlf
 
 *.jar binary
+
+# 관리 화면이 서빙하는 평면도. LFS 에 넣지 않고 일반 git 으로 둡니다.
+#
+# 저장소 루트 규칙이 *.png 를 LFS 로 보내는데, 젠킨스가 `git lfs install --skip-smudge` 로
+# 체크아웃하므로 LFS 파일은 포인터 텍스트로 남습니다. 그대로 도커 빌드에 들어가면 jar 안에
+# 이미지 대신 130 바이트짜리 포인터가 실리고 브라우저는 깨진 그림을 받습니다. 게다가 빌드도
+# 배포도 성공했다고 나옵니다.
+#
+# 유니티 에셋이 아니라 백엔드가 그대로 내보내는 정적 파일이고 1 MB 미만입니다.
+# 위의 `* text=auto eol=lf` 가 이 디렉터리 전체에 걸리므로 binary 도 함께 못박습니다.
+app/src/main/resources/static/admin/maps/*.png   !filter !diff !merge binary

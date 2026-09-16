@@ -83,7 +83,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Select_KeepsOnlyTheSegmentClosestToEachHighlightEvent()
+        public void Select_PreservesContextAndPayoffSegments()
         {
             var selected = HighlightCandidateSelector.Select(new[]
             {
@@ -101,9 +101,9 @@ namespace Game.Tests.EditMode
             });
 
             Assert.That(selected, Has.Length.EqualTo(1));
-            Assert.That(selected[0].Segments, Has.Count.EqualTo(1));
-            Assert.That(selected[0].Segments[0].StartedAt, Is.EqualTo(20d));
-            Assert.That(selected[0].Segments[0].EndedAt, Is.EqualTo(22d));
+            Assert.That(selected[0].Segments, Has.Count.EqualTo(3));
+            Assert.That(selected[0].Segments[0].StartedAt, Is.EqualTo(10d));
+            Assert.That(selected[0].Segments[2].EndedAt, Is.EqualTo(32d));
         }
 
         private static HighlightCandidate Candidate(

@@ -35,7 +35,7 @@ import com.ssafy.d205.domain.ops.service.AnalyticsErasureRelay;
 import com.ssafy.d205.support.IntegrationTest;
 
 /**
- * 계정 서비스가 분석 서비스의 내부 API 를 부르는 두 경로 (S15P21D205-1002).
+ * 계정 서비스가 분석 서비스의 내부 API 를 부르는 세 경로 (S15P21D205-1002, 분석 탭은 976).
  *
  * <p>분석 서비스 대신 JDK 내장 HttpServer 가 받습니다. 진짜 분석 서비스를 띄우면 테스트가 두 컨테이너에
  * 걸리고, 여기서 보려는 것은 "계정 서비스가 무엇을 언제 보내고 실패하면 어떻게 하는가"입니다. 분석
@@ -62,7 +62,9 @@ class AnalyticsInternalRelayTest extends IntegrationTest {
         }
         FAKE_ANALYTICS.createContext("/internal/", exchange -> {
             String key = exchange.getRequestHeaders().getFirst("X-Internal-Key");
-            RECEIVED.add(exchange.getRequestMethod() + " " + exchange.getRequestURI().getPath() + " key=" + key);
+            String query = exchange.getRequestURI().getRawQuery();
+            RECEIVED.add(exchange.getRequestMethod() + " " + exchange.getRequestURI().getPath()
+                    + (query == null ? "" : "?" + query) + " key=" + key);
             byte[] body;
             int status;
             if (DOWN.get()) {
@@ -71,6 +73,10 @@ class AnalyticsInternalRelayTest extends IntegrationTest {
             } else if (!KEY.equals(key)) {
                 status = 404;
                 body = new byte[0];
+            } else if (exchange.getRequestURI().getPath().startsWith("/internal/admin/analytics/")) {
+                // 분석 탭의 표. 질문이 무엇이든 같은 표를 줍니다 - 여기서 보는 것은 전달이지 내용이 아닙니다.
+                status = 200;
+                body = "{\"columns\":[\"경기\",\"인원\"],\"rows\":[[\"m-1\",4]]}".getBytes(StandardCharsets.UTF_8);
             } else if (exchange.getRequestURI().getPath().endsWith("/summary")) {
                 status = 200;
                 body = "{\"matchesToday\":7,\"inProgress\":1,\"avgDurationSec\":412.5,\"dropoutRate\":0.125}"
@@ -170,6 +176,78 @@ class AnalyticsInternalRelayTest extends IntegrationTest {
 
         assertThat(body.get("matches").isNull()).isTrue();
         assertThat(body.get("now").get("totalUsers").asLong()).isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("분석 탭의 표는 질문 이름과 필터를 그대로 넘겨 분석 서비스의 표를 받아 온다")
+    void analyticsTableIsProxiedWithFilters() throws Exception {
+        Admin admin = login();
+
+        JsonNode table = analyticsTable(get("/api/v1/admin/analytics/hideouts")
+                .param("from", "20260901000000")
+                .param("to", "20260915000000")
+                .param("matchId", "m-1")
+                .session(admin.session()));
+
+        assertThat(table.get("unavailable").asBoolean()).isFalse();
+        assertThat(table.get("columns").get(0).asText()).isEqualTo("경기");
+        assertThat(table.get("rows").get(0).get(0).asText()).isEqualTo("m-1");
+        assertThat(table.get("rows").get(0).get(1).asInt()).isEqualTo(4);
+        assertThat(RECEIVED).contains(
+                "GET /internal/admin/analytics/hideouts?from=20260901000000&to=20260915000000&matchId=m-1 key=" + KEY);
+    }
+
+    @Test
+    @DisplayName("좌표는 matchId 를 그대로 넘긴다")
+    void positionsPassTheMatchThrough() throws Exception {
+        Admin admin = login();
+
+        analyticsTable(get("/api/v1/admin/analytics/positions").param("matchId", "m-1").session(admin.session()));
+
+        assertThat(RECEIVED).contains("GET /internal/admin/analytics/positions?matchId=m-1 key=" + KEY);
+    }
+
+    @Test
+    @DisplayName("분석 탭은 관리자 세션이 없으면 401 이고 분석 서비스를 부르지 않는다")
+    void analyticsTabNeedsAnAdminSession() throws Exception {
+        mvc.perform(get("/api/v1/admin/analytics/matches")).andExpect(status().isUnauthorized());
+
+        assertThat(RECEIVED).isEmpty();
+    }
+
+    @Test
+    @DisplayName("분석 서비스가 죽어 있으면 200 에 unavailable 과 빈 표다")
+    void analyticsTabShowsUnavailableWhenAnalyticsIsDown() throws Exception {
+        Admin admin = login();
+        DOWN.set(true);
+
+        JsonNode table = analyticsTable(get("/api/v1/admin/analytics/matches").session(admin.session()));
+
+        assertThat(table.get("unavailable").asBoolean()).isTrue();
+        assertThat(table.get("columns").size()).isZero();
+        assertThat(table.get("rows").size()).isZero();
+    }
+
+    @Test
+    @DisplayName("필터 형식이 틀리면 분석 서비스에 묻지 않고 400 이다")
+    void badFiltersAreRejectedBeforeAskingAnalytics() throws Exception {
+        Admin admin = login();
+
+        mvc.perform(get("/api/v1/admin/analytics/matches").param("from", "abc").session(admin.session()))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/admin/analytics/positions").session(admin.session()))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/admin/analytics/Not_A_Question").session(admin.session()))
+                .andExpect(status().isBadRequest());
+
+        assertThat(RECEIVED).isEmpty();
+    }
+
+    private JsonNode analyticsTable(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request)
+            throws Exception {
+        // 한글 컬럼 이름이 있어 바이트로 받아 UTF-8 로 읽습니다. getContentAsString 은 charset 이 없으면 ISO-8859-1 입니다.
+        byte[] body = mvc.perform(request).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        return objectMapper.readTree(body);
     }
 
     private JsonNode overview(Admin admin) throws Exception {

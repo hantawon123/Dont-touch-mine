@@ -26,6 +26,7 @@ namespace Game.Client.Lobby
         private Image revertStroke;
         private bool resetHovered;
         private Image mapPreviewImage;
+        private Image mapPreviewPhoto;
         private RectTransform settingsContent;
         private ScrollRect bodyScroll;
 
@@ -1064,6 +1065,8 @@ namespace Game.Client.Lobby
             image.color = PlaySettingsStyle.Palette.MapPreview;
             image.preserveAspect = false;
             image.raycastTarget = false;
+            // 맵 사진은 둥근 상자를 마스크로 삼는 자식에 넣는다. 사진이 없는 맵·랜덤은 상자 색만 보인다.
+            mapPreviewPhoto = MapPreviewSprites.AttachPhoto(image);
             return image;
         }
 

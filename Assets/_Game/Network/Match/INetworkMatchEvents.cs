@@ -56,6 +56,7 @@ namespace Game.Network.Match
         bool IsServer { get; }
         // Final forward tick, with no remaining simulation backlog in later frames.
         bool IsFinalForwardTick { get; }
+        bool HasCompletedHighlight(int playerIndex) => false;
         MatchMigrationState MatchMigration { get; }
         bool IsMatchRuntimeRestorePending { get; }
         void ReportMatchRuntimeRestored(Exception failure);

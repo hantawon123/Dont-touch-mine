@@ -1,10 +1,9 @@
-# 운영 구성 (EC2 한 대). 컨테이너 다섯입니다 (S15P21D205-980).
+# 운영 구성 (EC2 한 대). 컨테이너 넷입니다 (S15P21D205-980).
 #
 #   mysql            계정 서비스의 DB (users, friendships, user_reports, ...)
 #   app              계정 서비스. 게임 API, 알림 WebSocket, 관리 화면.        호스트 8080
-#   mysql-analytics  플레이 로그 DB (d205_analytics) 와 Metabase 자신의 저장소
+#   mysql-analytics  플레이 로그 DB (d205_analytics)
 #   analytics        수집 서비스. /api/v1/events 만 받습니다.                호스트 8081
-#   metabase         대시보드. 분석 DB 만 봅니다.                             호스트 3000
 #
 # 두 서비스가 서로의 DB 에 붙지 않습니다. app 이 analytics 에 물을 것이 있으면(탈퇴 익명화, 관리 화면
 # 경기 통계) compose 네트워크 안에서 http://analytics:8080/internal/... 을 부릅니다. nginx 에는 그
@@ -83,10 +82,9 @@ services:
       MYSQL_DATABASE: ${ANALYTICS_DB_NAME:?}
       MYSQL_USER: ${ANALYTICS_DB_USERNAME:?}
       MYSQL_PASSWORD: ${ANALYTICS_DB_PASSWORD:?}
-      # 초기화 스크립트(deploy/mysql-analytics/init)가 읽기 계정과 Metabase 계정을 만듭니다.
+      # 초기화 스크립트(deploy/mysql-analytics/init)가 읽기 계정을 만듭니다.
       # 볼륨이 이미 초기화된 뒤에는 돌지 않으므로 계정을 뒤늦게 바꾸려면 deploy/README.md 의 수동 절차입니다.
       ANALYTICS_READER_PASSWORD: ${ANALYTICS_READER_PASSWORD:?}
-      METABASE_DB_PASSWORD: ${METABASE_DB_PASSWORD:?}
       TZ: Asia/Seoul
     command:
       - --character-set-server=utf8mb4
@@ -128,40 +126,6 @@ services:
     # 폭주해도 여기까지입니다. 이 상한이 곧 "분석이 죽어도 게임은 산다"의 실체입니다.
     mem_limit: 1024m
     cpus: 1.0
-
-  metabase:
-    image: metabase/metabase:v0.63.16.6
-    container_name: d205-metabase
-    restart: unless-stopped
-    environment:
-      MB_DB_TYPE: mysql
-      # 호스트·포트·DB 를 따로 주지 않고 URI 로 주는 이유는 allowPublicKeyRetrieval 때문입니다.
-      # MySQL 8.4 계정의 기본 인증은 caching_sha2_password 인데 Metabase 의 MariaDB 드라이버는 평문
-      # 연결에서 서버 공개키를 받아야 하고 기본값은 그걸 거부합니다. 2026-09-07 첫 배포가 그래서 죽었습니다.
-      # compose 네트워크 안의 평문 연결이라 허용해도 노출되는 것이 없습니다.
-      # Metabase 자신의 저장소도 분석 DB 컨테이너에 둡니다. 분석 스택이 그 안에서 끝나야 게임 DB 를
-      # 내려도 대시보드가 삽니다.
-      MB_DB_CONNECTION_URI: mysql://mysql-analytics:3306/metabase?allowPublicKeyRetrieval=true
-      MB_DB_USER: metabase
-      MB_DB_PASS: ${METABASE_DB_PASSWORD:?}
-      MB_SITE_URL: https://j15d205.p.ssafy.io:8443
-      JAVA_OPTS: -Xmx1g
-      TZ: Asia/Seoul
-    depends_on:
-      mysql-analytics:
-        condition: service_healthy
-    ports:
-      # 루프백에만. nginx 가 8443 에서 Basic Auth 뒤로 프록시합니다.
-      - "127.0.0.1:3000:3000"
-    mem_limit: 1536m
-    cpus: 1.0
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      # 첫 기동은 마이그레이션 때문에 1분 넘게 걸립니다. 그 전에 실패로 보면 restart 가 반복됩니다.
-      start_period: 180s
 
 volumes:
   d205-mysql-data:

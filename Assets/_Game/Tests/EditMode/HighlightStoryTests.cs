@@ -131,15 +131,13 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Timeout_FinalMomentShowsSurvivingItem_NotAnArbitraryDrop()
+        public void Timeout_DoesNotInventAnEventForAStaticSurvivingItem()
         {
             WithRecorder(recorder =>
             {
                 recorder.RecordItemInteraction(0, "a", 119);
-                var final = recorder.CaptureCandidates(120, MatchEndReason.TimeExpired)
-                    .Single(c => c.Type == HighlightType.FinalMoment);
-                Assert.That(final.StartedAt, Is.EqualTo(113));
-                Assert.That(final.EndedAt, Is.EqualTo(123));
+                Assert.That(recorder.CaptureCandidates(120, MatchEndReason.TimeExpired)
+                    .Any(c => c.Type == HighlightType.FinalMoment), Is.False);
             });
         }
 
@@ -170,6 +168,25 @@ namespace Game.Tests.EditMode
                 var stun = recorder.CaptureCandidates(120).Single(c => c.Type == HighlightType.MostStunned);
                 for (var i = 1; i < stun.Segments.Count; i++)
                     Assert.That(stun.Segments[i].StartedAt, Is.GreaterThanOrEqualTo(stun.Segments[i - 1].EndedAt));
+            });
+        }
+
+        [Test]
+        public void Hidden_RequiresAnActualNearbyOpponent()
+        {
+            WithRecorder(recorder => Assert.That(recorder.CaptureCandidates(140, null,
+                new[] { Frame(100, 20), Frame(140, 20) }).Any(c => c.Type == HighlightType.LongestHidden), Is.False));
+        }
+
+        [Test]
+        public void Selection_DoesNotRepeatTheSameStunAsTwoAwards()
+        {
+            WithRecorder(recorder =>
+            {
+                recorder.RecordPlayerStunned(0, 1, 119);
+                var selected = HighlightCandidateSelector.Select(recorder.CaptureCandidates(120));
+                Assert.That(selected.Count(c => c.TargetId == "1"), Is.EqualTo(1));
+                Assert.That(selected[0].Type, Is.EqualTo(HighlightType.FinalMoment));
             });
         }
 

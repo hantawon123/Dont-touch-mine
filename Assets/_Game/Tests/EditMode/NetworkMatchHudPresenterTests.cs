@@ -175,6 +175,25 @@ namespace Game.Architecture.Tests
             Assert.That(transition.Opacity, Is.Zero);
         }
 
+        [TestCase(false, 1f)]
+        [TestCase(true, 0f)]
+        public void SharedHighlightEnd_CoversNormalViewerButLeavesSkippedLobbyVisible(bool skip, float expectedCover)
+        {
+            var network = new FakeNetwork { ServerTime = 10d };
+            var transition = new FakeTransition();
+            using var room = new RoomBrowserSystem();
+            using var playback = new NetworkHighlightPlaybackController(network, room, network, transition);
+            playback.Start();
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 0d, new[] { 0 }));
+            network.PublishReplay(CreateReplay(HighlightType.FirstBlood));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 30d));
+            if (skip) Assert.That(playback.SkipAll(), Is.True);
+            transition.SetOpacity(0f); // The skipped viewer's lobby has already faded in.
+            network.ServerTime = 30d;
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            Assert.That(transition.Opacity, Is.EqualTo(expectedCover));
+        }
+
         [Test]
         public void HighlightSkip_AffectsOnlyTheLocalPlayback()
         {

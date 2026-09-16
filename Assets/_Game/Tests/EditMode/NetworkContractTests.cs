@@ -359,6 +359,22 @@ namespace Game.Architecture.Tests
 #endif
         }
 
+        [Test]
+        public void DevelopmentSceneLoadingTimeout_LeavesNormalSessionDefaultsUnchanged()
+        {
+            var source = new Fusion.NetworkProjectConfig();
+            source.Network.ConnectionTimeout = 10f;
+            try
+            {
+                EditorDevelopmentSession.Configure(EditorDevelopmentSession.PeerRole.Client, "CCTV99");
+                Assert.That(NetworkRunnerService.ConfigureSession(source).Network.ConnectionTimeout, Is.EqualTo(60f));
+
+                EditorDevelopmentSession.Configure(EditorDevelopmentSession.PeerRole.Normal, "CCTV99");
+                Assert.That(NetworkRunnerService.ConfigureSession(new Fusion.NetworkProjectConfig()).Network.ConnectionTimeout, Is.EqualTo(10f));
+            }
+            finally { EditorDevelopmentSession.Configure(EditorDevelopmentSession.PeerRole.Normal, "DEV001"); }
+        }
+
         private sealed class DisconnectApplicationSpy : Game.Client.Home.IHomeApplicationHost
         {
             public int OpenCount { get; private set; }
