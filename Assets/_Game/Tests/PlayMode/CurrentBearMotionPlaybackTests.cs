@@ -14,9 +14,9 @@ namespace Game.Tests.PlayMode
         [UnityTest]
         public IEnumerator AllCharacterTestStatesEvaluateOnCurrentBear()
         {
-            const string directory = "Assets/Scenes/CharacterTest/First/";
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(directory + "FirstPlayerCapsule_Idle.fbx");
-            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(directory + "FirstCharacterPreview.controller");
+            const string directory = "Assets/_Game/Content/Characters/SmoothBear/";
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(directory + "SmoothBear.fbx");
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(directory + "SmoothBearPreview.controller");
             Assert.That(prefab, Is.Not.Null);
             Assert.That(controller, Is.Not.Null);
             var character = Object.Instantiate(prefab);
@@ -29,7 +29,7 @@ namespace Game.Tests.PlayMode
                 var states = controller.layers[0].stateMachine.states.Select(s => s.state).ToArray();
                 Assert.That(states.Length, Is.EqualTo(139));
                 var body = character.GetComponentsInChildren<SkinnedMeshRenderer>().Single(s => s.name == "Body");
-                Assert.That(body.sharedMesh.blendShapeCount, Is.EqualTo(5));
+                Assert.That(body.sharedMesh.blendShapeCount, Is.EqualTo(2));
                 var transforms = character.GetComponentsInChildren<Transform>();
                 yield return null;
                 foreach (var state in states)

@@ -35,7 +35,7 @@ namespace Game.Editor
                 var scene = EditorSceneManager.OpenScene("Assets/Scenes/CharacterTest.unity");
                 if (!CharacterTestPreviewSetup.ApplyBlenderPreview())
                     throw new InvalidOperationException("Could not configure CharacterTest.");
-                var original = scene.GetRootGameObjects().Single(o => o.name == "FirstPlayerCapsule");
+                var original = scene.GetRootGameObjects().Single(o => o.name == "SmoothBear");
                 var controller = (AnimatorController)original.GetComponentInChildren<Animator>().runtimeAnimatorController;
                 var states = controller.layers[0].stateMachine.states.Select(s => s.state).ToArray();
                 result.states = states.Length;
@@ -50,7 +50,7 @@ namespace Game.Editor
                 result.bodyVertices = body.sharedMesh.vertexCount;
                 if (result.bodyVertices < 1537)
                     result.errors.Add("Unexpected body vertex count.");
-                foreach (var name in new[] { "Belly_Breath", "Crouch_Groin_Flat", "Crawl_Waist_Round", "Crawl_Follow_R", "Crawl_Follow_L" })
+                foreach (var name in new[] { "Belly_Breath", "Crouch_Groin_Flat" })
                     if (body.sharedMesh.GetBlendShapeIndex(name) < 0)
                         result.errors.Add("Missing corrective shape: " + name);
                 var baked = new Mesh();

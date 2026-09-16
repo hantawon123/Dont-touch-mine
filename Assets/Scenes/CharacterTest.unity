@@ -246,143 +246,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 40, y: 120, z: 0}
---- !u!1 &498373256 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
-  m_PrefabInstance: {fileID: 1262939302}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &498373257
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 498373256}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 60b3d60c4d774902b67b82a3285053f6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Client::Game.Client.CharacterTestPreviewDriver
-  stateNames:
-  - Idle
-  - Walk_Forward
-  - Walk_Back
-  - Walk_Left
-  - Walk_Right
-  - Run_Forward
-  - Run_Back
-  - Run_Left
-  - Run_Right
-  - Jump
-  - Fall
-  - Land
-  - Crouch_Idle
-  - Crouch_Start
-  - Crouch_End
-  - Crouch_Walk_Forward
-  - Crouch_Walk_Back
-  - Crouch_Walk_Left
-  - Crouch_Walk_Right
-  - Crouch_To_Prone
-  - Prone_Idle
-  - Prone_Start
-  - Prone_End
-  - Crawl_Forward
-  - Crawl_Back
-  - Crawl_Left
-  - Crawl_Right
-  - Prone_To_Crouch
-  - Carry_Idle
-  - Carry_Walk_Forward
-  - Carry_Walk_Back
-  - Carry_Walk_Left
-  - Carry_Walk_Right
-  - Carry_Run_Forward
-  - Carry_Run_Back
-  - Carry_Run_Left
-  - Carry_Run_Right
-  - Carry_Crouch_Idle
-  - Carry_Crouch_Walk_Forward
-  - Carry_Crouch_Walk_Back
-  - Carry_Crouch_Walk_Left
-  - Carry_Crouch_Walk_Right
-  - Carry_Prone_Idle
-  - Carry_Crawl_Forward
-  - Carry_Crawl_Back
-  - Carry_Crawl_Left
-  - Carry_Crawl_Right
-  - Carry_Jump
-  - Carry_Land
-  - PutUp_TwoHands
-  - Carry_TwoHands
-  - Carry_TwoHands_Walk_Forward
-  - Carry_TwoHands_Walk_Back
-  - Carry_TwoHands_Walk_Left
-  - Carry_TwoHands_Walk_Right
-  - Carry_TwoHands_Run_Forward
-  - Carry_TwoHands_Run_Back
-  - Carry_TwoHands_Run_Left
-  - Carry_TwoHands_Run_Right
-  - Carry_TwoHands_Crouch_Idle
-  - Carry_TwoHands_Crouch_Walk_Forward
-  - Carry_TwoHands_Crouch_Walk_Back
-  - Carry_TwoHands_Crouch_Walk_Left
-  - Carry_TwoHands_Crouch_Walk_Right
-  - Carry_TwoHands_Prone_Idle
-  - Carry_TwoHands_Crawl_Forward
-  - Carry_TwoHands_Crawl_Back
-  - Carry_TwoHands_Crawl_Left
-  - Carry_TwoHands_Crawl_Right
-  - Carry_TwoHands_Jump
-  - Carry_TwoHands_Land
-  - Throw_TwoHands
-  - Throw_TwoHands_Walk
-  - Throw_TwoHands_Run
-  - Throw_TwoHands_Crouch
-  - Throw_TwoHands_Crouch_Walk
-  - Throw_TwoHands_Prone
-  - Throw_TwoHands_Crawl
-  - Carry_TwoHands_Crouch_Start
-  - Carry_TwoHands_Crouch_End
-  - Carry_TwoHands_Prone_Start
-  - Carry_TwoHands_Prone_End
-  - Carry_TwoHands_Crouch_To_Prone
-  - Carry_TwoHands_Prone_To_Crouch
-  - PutUp_TwoHands_Crouch
-  - PutDown_TwoHands_Crouch
-  - PutUp_TwoHands_Prone
-  - PutDown_TwoHands_Prone
-  - PutDown_TwoHands
-  - Pickup_Low
-  - Pickup_Crouch
-  - Pickup_Prone
-  - PutDown_Low
-  - PutDown_Crouch
-  - PutDown_Prone
-  - Throw
-  - Punch
-  - Punch_Walk
-  - Punch_Run
-  - Punch_Crouch
-  - Punch_Crouch_Walk
-  - Punch_Left
-  - Punch_Left_Walk
-  - Punch_Left_Run
-  - Punch_Left_Crouch
-  - Punch_Left_Crouch_Walk
-  - Punch_Combo
-  - Punch_Combo_Walk
-  - Punch_Combo_Run
-  - Punch_Combo_Crouch
-  - Punch_Combo_Crouch_Walk
-  - Hit
-  - Hit_Walk
-  - Hit_Run
-  - Hit_Crouch
-  - Hit_Crouch_Walk
-  - Stun_Start
-  - Stun_Idle
-  - Stun_End
 --- !u!1 &1088367009
 GameObject:
   m_ObjectHideFlags: 0
@@ -520,7 +383,7 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
---- !u!1001 &1262939302
+--- !u!1001 &1671755008
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -586,20 +449,12 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: de571c2b67b932e448787a75b0004caa, type: 2}
     - target: {fileID: 919132149155446097, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
       propertyPath: m_Name
-      value: FirstPlayerCapsule
-      objectReference: {fileID: 0}
-    - target: {fileID: 1630794972795428178, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
-      propertyPath: m_Materials.Array.size
-      value: 2
+      value: SmoothBear
       objectReference: {fileID: 0}
     - target: {fileID: 1630794972795428178, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 9c4e1a7b2d3f4058a6e0b1c2d3e4f5a6, type: 2}
-    - target: {fileID: 1630794972795428178, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
-      propertyPath: 'm_Materials.Array.data[1]'
-      value: 
-      objectReference: {fileID: 2100000, guid: 1d2e3f4a5b6c708192a3b4c5d6e7f809, type: 2}
     - target: {fileID: 3712378456733884894, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
@@ -622,8 +477,145 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 498373257}
+      addedObject: {fileID: 1671755010}
   m_SourcePrefab: {fileID: 100100000, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+--- !u!1 &1671755009 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+  m_PrefabInstance: {fileID: 1671755008}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1671755010
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1671755009}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 60b3d60c4d774902b67b82a3285053f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.CharacterTestPreviewDriver
+  stateNames:
+  - Idle
+  - Walk_Forward
+  - Walk_Back
+  - Walk_Left
+  - Walk_Right
+  - Run_Forward
+  - Run_Back
+  - Run_Left
+  - Run_Right
+  - Jump
+  - Fall
+  - Land
+  - Crouch_Idle
+  - Crouch_Start
+  - Crouch_End
+  - Crouch_Walk_Forward
+  - Crouch_Walk_Back
+  - Crouch_Walk_Left
+  - Crouch_Walk_Right
+  - Crouch_To_Prone
+  - Prone_Idle
+  - Prone_Start
+  - Prone_End
+  - Crawl_Forward
+  - Crawl_Back
+  - Crawl_Left
+  - Crawl_Right
+  - Prone_To_Crouch
+  - Carry_Idle
+  - Carry_Walk_Forward
+  - Carry_Walk_Back
+  - Carry_Walk_Left
+  - Carry_Walk_Right
+  - Carry_Run_Forward
+  - Carry_Run_Back
+  - Carry_Run_Left
+  - Carry_Run_Right
+  - Carry_Crouch_Idle
+  - Carry_Crouch_Walk_Forward
+  - Carry_Crouch_Walk_Back
+  - Carry_Crouch_Walk_Left
+  - Carry_Crouch_Walk_Right
+  - Carry_Prone_Idle
+  - Carry_Crawl_Forward
+  - Carry_Crawl_Back
+  - Carry_Crawl_Left
+  - Carry_Crawl_Right
+  - Carry_Jump
+  - Carry_Land
+  - PutUp_TwoHands
+  - Carry_TwoHands
+  - Carry_TwoHands_Walk_Forward
+  - Carry_TwoHands_Walk_Back
+  - Carry_TwoHands_Walk_Left
+  - Carry_TwoHands_Walk_Right
+  - Carry_TwoHands_Run_Forward
+  - Carry_TwoHands_Run_Back
+  - Carry_TwoHands_Run_Left
+  - Carry_TwoHands_Run_Right
+  - Carry_TwoHands_Crouch_Idle
+  - Carry_TwoHands_Crouch_Walk_Forward
+  - Carry_TwoHands_Crouch_Walk_Back
+  - Carry_TwoHands_Crouch_Walk_Left
+  - Carry_TwoHands_Crouch_Walk_Right
+  - Carry_TwoHands_Prone_Idle
+  - Carry_TwoHands_Crawl_Forward
+  - Carry_TwoHands_Crawl_Back
+  - Carry_TwoHands_Crawl_Left
+  - Carry_TwoHands_Crawl_Right
+  - Carry_TwoHands_Jump
+  - Carry_TwoHands_Land
+  - Throw_TwoHands
+  - Throw_TwoHands_Walk
+  - Throw_TwoHands_Run
+  - Throw_TwoHands_Crouch
+  - Throw_TwoHands_Crouch_Walk
+  - Throw_TwoHands_Prone
+  - Throw_TwoHands_Crawl
+  - Carry_TwoHands_Crouch_Start
+  - Carry_TwoHands_Crouch_End
+  - Carry_TwoHands_Prone_Start
+  - Carry_TwoHands_Prone_End
+  - Carry_TwoHands_Crouch_To_Prone
+  - Carry_TwoHands_Prone_To_Crouch
+  - PutUp_TwoHands_Crouch
+  - PutDown_TwoHands_Crouch
+  - PutUp_TwoHands_Prone
+  - PutDown_TwoHands_Prone
+  - PutDown_TwoHands
+  - Pickup_Low
+  - Pickup_Crouch
+  - Pickup_Prone
+  - PutDown_Low
+  - PutDown_Crouch
+  - PutDown_Prone
+  - Throw
+  - Punch
+  - Punch_Walk
+  - Punch_Run
+  - Punch_Crouch
+  - Punch_Crouch_Walk
+  - Punch_Left
+  - Punch_Left_Walk
+  - Punch_Left_Run
+  - Punch_Left_Crouch
+  - Punch_Left_Crouch_Walk
+  - Punch_Combo
+  - Punch_Combo_Walk
+  - Punch_Combo_Run
+  - Punch_Combo_Crouch
+  - Punch_Combo_Crouch_Walk
+  - Hit
+  - Hit_Walk
+  - Hit_Run
+  - Hit_Crouch
+  - Hit_Crouch_Walk
+  - Stun_Start
+  - Stun_Idle
+  - Stun_End
 --- !u!1 &2040571902
 GameObject:
   m_ObjectHideFlags: 0
@@ -744,4 +736,4 @@ SceneRoots:
   - {fileID: 1088367012}
   - {fileID: 239371781}
   - {fileID: 2040571906}
-  - {fileID: 1262939302}
+  - {fileID: 1671755008}
