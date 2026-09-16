@@ -47,7 +47,7 @@ wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28);
 wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
 wav.write('data', 36); wav.writeUInt32LE(frames * 2, 40);
 for (let frame = 0; frame < frames; frame++) {
-  const value = Math.round(samples[frame] / peak * .7 * 32767);
+  const value = Math.round(samples[frame] / peak * .841 * 32767);
   assert.ok(Number.isFinite(value) && Math.abs(value) < 32767);
   wav.writeInt16LE(value, 44 + frame * 2);
 }
@@ -56,4 +56,4 @@ const output = process.argv[2]
   : path.resolve(__dirname, '../../audio-previews/warning-chime.wav');
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, wav);
-console.log(`Created ${output}: ${seconds}s mono PCM; peak -3.1 dBFS, no clipping.`);
+console.log(`Created ${output}: ${seconds}s mono PCM; peak -1.5 dBFS, no clipping.`);
