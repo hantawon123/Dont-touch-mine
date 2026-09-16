@@ -129,6 +129,9 @@ namespace Game.Client.Interactions
         private Vector3 firstPersonHoldOffset;
         private Quaternion firstPersonHoldTilt = Quaternion.identity;
         private bool firstPersonHoldActive;
+        private float firstPersonMaxScreenFraction;
+        private CarryableItem measuredItem;
+        private float measuredItemSize;
 
         /// <summary>
         /// 1인칭 동안 손 위치를 카메라 기준으로 둔다. 카메라 컨트롤러가 자기 위치를 정한 직후 매 프레임 부른다.
@@ -137,13 +140,47 @@ namespace Game.Client.Interactions
         /// <param name="camera">1인칭 카메라(리그) 트랜스폼</param>
         /// <param name="offset">카메라 기준 위치(m): x=오른쪽, y=위, z=앞</param>
         /// <param name="tiltEuler">카메라 기준 물건 기울기(도)</param>
-        public void SetFirstPersonHold(Transform camera, Vector3 offset, Vector3 tiltEuler)
+        /// <param name="maxScreenFraction">물건이 화면 높이에서 차지할 최대 비율. 넘으면 그만큼 앞으로 민다. 0이면 끔</param>
+        public void SetFirstPersonHold(Transform camera, Vector3 offset, Vector3 tiltEuler, float maxScreenFraction = 0f)
         {
             firstPersonCamera = camera;
             firstPersonHoldOffset = offset;
             firstPersonHoldTilt = Quaternion.Euler(tiltEuler);
+            firstPersonMaxScreenFraction = maxScreenFraction;
             firstPersonHoldActive = camera != null;
             RefreshHoldPoint();
+        }
+
+        /// <summary>
+        /// 큰 물건은 화면을 가리므로, 화면 높이의 일정 비율을 넘는 만큼 카메라에서 멀리 민다.
+        /// 옆·아래 오프셋도 같은 비율로 키워 화면상의 자리는 그대로 둔다.
+        /// </summary>
+        private Vector3 FitFirstPersonOffset(Vector3 offset)
+        {
+            var item = CarriedItem;
+            if (item == null || firstPersonMaxScreenFraction <= 0f || offset.z <= 0.01f) return offset;
+
+            if (!ReferenceEquals(item, measuredItem))
+            {
+                measuredItem = item;
+                measuredItemSize = MeasureItemSize(item);
+            }
+
+            var cam = Camera.main;
+            var fov = cam != null ? cam.fieldOfView : 60f;
+            var visibleHeightPerMeter = 2f * Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
+            var neededDistance = measuredItemSize / (visibleHeightPerMeter * firstPersonMaxScreenFraction);
+            if (neededDistance <= offset.z) return offset;
+            return offset * (neededDistance / offset.z);
+        }
+
+        private static float MeasureItemSize(CarryableItem item)
+        {
+            var renderers = item.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) return 0f;
+            var bounds = renderers[0].bounds;
+            for (var i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            return Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
         }
 
         /// <summary>3인칭으로 돌아오면 손 위치를 다시 몸 기준으로 둔다.</summary>
@@ -236,7 +273,7 @@ namespace Game.Client.Interactions
 
                 // 1인칭: 시선을 따라 화면의 같은 자리에 보이도록 카메라 기준으로 즉시 놓는다(지연 없음).
                 holdPoint.SetPositionAndRotation(
-                    firstPersonCamera.TransformPoint(firstPersonHoldOffset),
+                    firstPersonCamera.TransformPoint(FitFirstPersonOffset(firstPersonHoldOffset)),
                     firstPersonCamera.rotation * firstPersonHoldTilt);
                 return;
             }
