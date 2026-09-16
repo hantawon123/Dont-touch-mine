@@ -12,12 +12,14 @@ namespace Game.Bootstrap
     /// <remarks>
     /// Master volume is applied through AudioListener.volume. MenuBgmController
     /// separately applies Music to its AudioSource when settings change, so the
-    /// master gain is not multiplied twice. Other sound categories are not wired here.
+    /// master gain is not multiplied twice. Footsteps separately use Effects.
     /// </remarks>
     public sealed class UnitySoundSettingsApplier : ISoundSettingsApplier
     {
         public void Apply(SoundSettings settings)
         {
+            Game.Client.Players.PlayerFootstepAudio.EffectsVolume = Mathf.Clamp01(
+                settings.Get(SoundVolume.Effects) / (float)SoundCatalog.MaxVolume);
             AudioListener.volume = Mathf.Clamp01(
                 settings.Get(SoundVolume.Master) / (float)SoundCatalog.MaxVolume);
         }
