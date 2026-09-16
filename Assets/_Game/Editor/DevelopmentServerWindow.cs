@@ -98,6 +98,16 @@ namespace Game.Editor
                 throw new System.InvalidOperationException("Wait for Unity compilation and asset import before starting a development session.");
             var home = AssetDatabase.LoadAssetAtPath<SceneAsset>("Assets/_Game/Content/Scenes/Home.unity");
             if (home == null) throw new System.InvalidOperationException("Home scene is missing.");
+            // Clients see the same Intro -> Home flow as normal Play, while the
+            // headless development server starts at Home without cinematic UI.
+            var startScene = home;
+            if (role == EditorDevelopmentSession.PeerRole.Client)
+            {
+                startScene = AssetDatabase.LoadAssetAtPath<SceneAsset>(
+                    "Assets/_Game/Content/Scenes/Intro.unity");
+                if (startScene == null)
+                    throw new System.InvalidOperationException("Intro scene is missing.");
+            }
             EditorDevelopmentSession.Configure(role, testCode);
             EditorDevelopmentSession.RestartRequested = false;
             SessionState.SetString(RestoreKey + ".Scene", AssetDatabase.GetAssetPath(EditorSceneManager.playModeStartScene));
@@ -106,7 +116,7 @@ namespace Game.Editor
             // Server scene preparation requires scene reload; restore the user's
             // fast-enter settings and start scene when this Play session ends.
             EditorSettings.enterPlayModeOptionsEnabled = false;
-            EditorSceneManager.playModeStartScene = home;
+            EditorSceneManager.playModeStartScene = startScene;
             EditorApplication.isPlaying = true;
         }
     }
