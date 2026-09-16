@@ -155,6 +155,7 @@ namespace Game.Editor
                         material.name=key+"_"+part.name+"_"+i;
                         material.SetColor("_BaseColor",m.tint!=0||!string.IsNullOrEmpty(m.texture)?Color.white:new Color(m.color[0],m.color[1],m.color[2],m.color[3]).gamma);
                         material.SetFloat("_Smoothness",1-m.roughness);
+                        if(key=="CompactShoes")SmoothBearKnitSetup.ApplyToMaterial(material,bone.localToWorldMatrix);
                         if(!string.IsNullOrEmpty(m.texture))
                         {
                             string tp=Root+"/"+m.texture;AssetDatabase.ImportAsset(tp,ImportAssetOptions.ForceSynchronousImport);
