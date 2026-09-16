@@ -56,18 +56,30 @@ public class ChatBlocklist {
     /**
      * 이 말에 금칙어가 들어 있는가.
      *
-     * <p>소문자로 바꾼 것, 숫자를 뺀 것, 숫자를 글자로 바꾼 것, 공백과 구두점을 지운 것 넷 중
-     * 하나에라도 걸리면 참입니다. 각각 "시발", "시1발", "sh1t", "시 발" 을 잡습니다.
+     * <p>우회 수단이 서로 <b>겹쳐서</b> 들어옵니다. 숫자만 끼우거나 공백만 끼우는 것은 각각
+     * 한 번의 변환으로 풀리지만, "시1 발" 처럼 둘을 같이 쓰면 한쪽만 푼 판본에는 아무것도
+     * 걸리지 않습니다. 그래서 조합까지 만들어 봅니다.
+     *
+     * <ul>
+     *   <li>소문자 그대로 - "시발"</li>
+     *   <li>숫자를 뺀 것 - "시1발"</li>
+     *   <li>숫자를 글자로 바꾼 것 - "sh1t"</li>
+     *   <li>숫자를 빼고 기호까지 지운 것 - "시1 발"</li>
+     *   <li>숫자를 글자로 바꾸고 기호까지 지운 것 - "s.h.1.t"</li>
+     * </ul>
      */
     public boolean isForbidden(String message) {
         if (message == null || message.isEmpty()) {
             return false;
         }
         String lower = WordMatcher.lower(message);
+        String withoutDigits = lower.replaceAll("[0-9]", "");
+        String leet = WordMatcher.leet(lower);
         return hits(lower)
-                || hits(lower.replaceAll("[0-9]", ""))
-                || hits(WordMatcher.leet(lower))
-                || hits(WordMatcher.stripSymbols(WordMatcher.leet(lower)));
+                || hits(withoutDigits)
+                || hits(leet)
+                || hits(WordMatcher.stripSymbols(withoutDigits))
+                || hits(WordMatcher.stripSymbols(leet));
     }
 
     /**
@@ -84,7 +96,7 @@ public class ChatBlocklist {
         if (!isForbidden(message)) {
             return message;
         }
-        String lower = WordMatcher.lower(message);
+        String lower = alignedLower(message);
         StringBuilder masked = new StringBuilder(message);
         boolean maskedAny = false;
         for (String bad : blocked) {
@@ -112,6 +124,24 @@ public class ChatBlocklist {
 
     public List<String> allowed() {
         return allowed;
+    }
+
+    /**
+     * 글자 하나를 글자 하나로 낮춥니다. 자리를 세는 데만 씁니다.
+     *
+     * <p>{@code String.toLowerCase} 를 쓰면 안 됩니다. 글자에 따라 <b>길이가 변합니다</b> -
+     * U+0130(İ)은 두 글자가 됩니다. 그 문자열에서 찾은 위치로 원문을 가리면 자리가 밀려
+     * 엉뚱한 글자를 지우거나 StringIndexOutOfBoundsException 이 납니다. 사람이 채팅에 넣을 수
+     * 있는 글자이므로 실제로 터집니다.
+     *
+     * <p>찾는 데(=isForbidden)에는 길이가 변해도 상관없으므로 거기서는 그대로 씁니다.
+     */
+    private static String alignedLower(String message) {
+        char[] letters = message.toCharArray();
+        for (int index = 0; index < letters.length; index++) {
+            letters[index] = Character.toLowerCase(letters[index]);
+        }
+        return new String(letters);
     }
 
     /** 채팅은 영문 낱말 경계를 볼 수 있으므로 닉네임과 다른 방법을 씁니다. */

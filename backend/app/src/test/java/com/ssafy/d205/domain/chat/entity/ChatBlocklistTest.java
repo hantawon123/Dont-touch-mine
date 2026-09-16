@@ -88,6 +88,23 @@ class ChatBlocklistTest {
     }
 
     @Test
+    @DisplayName("숫자와 공백을 겹쳐 끼워도 걸린다")
+    void combinedEvasionStillHits() {
+        // 한쪽만 푼 판본에는 아무것도 걸리지 않습니다. 조합을 만들어 봐야 잡힙니다.
+        assertThat(list.isForbidden("시1 발")).isTrue();
+        assertThat(list.isForbidden("s.h.1.t")).isTrue();
+    }
+
+    @Test
+    @DisplayName("소문자로 바꿀 때 길이가 변하는 글자가 섞여도 터지지 않는다")
+    void maskSurvivesLengthChangingLowercase() {
+        // U+0130(İ)은 String.toLowerCase 에서 두 글자가 됩니다. 그 문자열의 위치로 원문을
+        // 가리면 자리가 밀려 예외가 납니다. 사람이 채팅에 넣을 수 있는 글자입니다.
+        assertThat(list.mask("\u0130 시발")).isEqualTo("\u0130 **");
+        assertThat(list.mask("\u0130\u0130\u0130")).isEqualTo("\u0130\u0130\u0130");
+    }
+
+    @Test
     @DisplayName("가린 뒤에도 길이가 같아 몇 글자였는지는 남는다")
     void maskKeepsLength() {
         String masked = list.mask("병신아");
