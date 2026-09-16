@@ -21,9 +21,15 @@ namespace Game.Tests.PlayMode
     item.OnNetworkPose(new Pose(Vector3.right,Quaternion.identity));
     for(var i=0;i<12;i++) yield return new WaitForFixedUpdate();
     Assert.That(item.enabled,Is.False);
+    Assert.That(body.interpolation,Is.EqualTo(RigidbodyInterpolation.None));
     Assert.That(Vector3.Distance(body.position,Vector3.right),Is.LessThan(.01f));
     item.OnNetworkPose(new Pose(Vector3.right*2,Quaternion.identity));
+    Assert.That(body.interpolation,Is.EqualTo(RigidbodyInterpolation.Interpolate));
     Assert.That(item.enabled,Is.True);
+    for(var i=0;i<12;i++) yield return new WaitForFixedUpdate();
+    Assert.That(Vector3.Distance(body.position,Vector3.right*2),Is.LessThan(.01f));
+    Assert.That(Vector3.Distance(item.transform.position,Vector3.right*2),Is.LessThan(.01f));
+    Assert.That(item.enabled,Is.False);
     item.OnPickedUp(holder.transform);
     Assert.That(item.enabled,Is.False); Assert.That(item.IsCarried,Is.True);
     holder.transform.position=Vector3.up*2; yield return new WaitForFixedUpdate();

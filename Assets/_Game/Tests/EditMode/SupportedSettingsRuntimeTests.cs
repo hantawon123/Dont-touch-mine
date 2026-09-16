@@ -25,7 +25,9 @@ namespace Game.Architecture.Tests
             QualitySettings.globalTextureMipmapLimit = texture;
             AudioListener.volume = volume;
         }
-        [TestCase("120", 120)]
+        [TestCase("144", 144)]
+        [TestCase("240", 144)]
+        [TestCase("120", 144)]
         [TestCase("60", 60)]
         [TestCase("40", 40)]
         [TestCase("30", 30)]

@@ -1,4 +1,3 @@
-using Cysharp.Threading.Tasks;
 using Game.Client.Home;
 using Game.Client.Match;
 using Game.Client.Rooms;
@@ -100,13 +99,8 @@ namespace Game.Bootstrap
 
             public void OpenLobby()
             {
-                OpenLobbyAsync().Forget(exception => Debug.LogException(exception));
-            }
-
-            private async UniTask OpenLobbyAsync()
-            {
-                await loading.ShowPainted();
-                await SceneLoadSlicer.YieldFrame();
+                // The request already painted the cover before connecting. Fusion may
+                // have finished the lobby and hidden it before this callback arrives.
                 if (!network.EnterLobbyScene())
                 {
                     loading.HideImmediate();

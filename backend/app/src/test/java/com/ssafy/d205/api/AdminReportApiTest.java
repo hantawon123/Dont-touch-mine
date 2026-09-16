@@ -10,6 +10,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.Map;
@@ -313,6 +314,204 @@ class AdminReportApiTest extends IntegrationTest {
     }
 
     // --- 도우미 -------------------------------------------------------------
+
+    // --- 신고자 관점과 통계 (S15P21D205-1004) -----------------------------------
+
+    @Test
+    @DisplayName("신고한 사람 목록은 누가 얼마나 신고하고 얼마나 기각되는지 보여준다")
+    void reportersShowWhoReportsAndHowOftenTheyAreDismissed() throws Exception {
+        // 이 목록의 존재 이유입니다. 신고당한 사람 목록에서는 세 사람이 각각 "1건 기각" 으로
+        // 흩어져 보여, 그 셋을 전부 한 사람이 신고했다는 사실이 드러나지 않습니다.
+        String serial = createUser();
+        String first = createUser();
+        String second = createUser();
+        String third = createUser();
+        report(serial, first, "ABUSE", null);
+        report(serial, second, "SPAM", null);
+        report(serial, third, "CHEATING", null);
+
+        String cautious = createUser();
+        report(cautious, createUser(), "ABUSE", null);
+
+        Admin admin = login();
+        review(admin, first, "DISMISSED").andExpect(status().isOk());
+        review(admin, second, "DISMISSED").andExpect(status().isOk());
+        review(admin, third, "ACTIONED").andExpect(status().isOk());
+
+        JsonNode serialRow = reporterRow(admin, serial);
+        assertThat(serialRow.get("reportCount").asInt()).isEqualTo(3);
+        assertThat(serialRow.get("targetCount").asInt()).isEqualTo(3);
+        assertThat(serialRow.get("pendingCount").asInt()).isEqualTo(0);
+        assertThat(serialRow.get("dismissedCount").asInt()).isEqualTo(2);
+        assertThat(serialRow.get("actionedCount").asInt()).isEqualTo(1);
+        assertThat(serialRow.get("dismissedPercent").asDouble()).isEqualTo(66.7);
+
+        // 아직 검토된 것이 없으면 비율은 0 이 아니라 없음입니다. 0 은 "전부 인정됐다" 로 읽힙니다.
+        JsonNode cautiousRow = reporterRow(admin, cautious);
+        assertThat(cautiousRow.get("pendingCount").asInt()).isEqualTo(1);
+        assertThat(cautiousRow.get("dismissedPercent").isNull()).isTrue();
+
+        // 많이 신고한 사람이 위입니다. 이 목록의 질문이 "누가 많이 신고하나" 이기 때문입니다.
+        JsonNode all = reporters(admin);
+        int serialAt = indexOf(all, serial);
+        int cautiousAt = indexOf(all, cautious);
+        assertThat(serialAt).isLessThan(cautiousAt);
+    }
+
+    @Test
+    @DisplayName("탈퇴한 신고자들은 userId 가 없는 한 줄로 묶인다")
+    void deletedReportersCollapseIntoOneRow() throws Exception {
+        // reporter_seq 가 전부 NULL 이라 몇 명이었는지 알 수 없습니다. 나눌 수 없으니 한 줄이고,
+        // 그 줄이 둘 이상 생기면 "탈퇴한 계정" 이 여러 사람처럼 보입니다.
+        Admin admin = login();
+        int before = deletedBucketCount(admin);
+
+        String deviceId = UUID.randomUUID().toString();
+        String leaving = createUser(deviceId);
+        report(leaving, createUser(), "OTHER", "떠나며 남긴 신고");
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/v1/accounts/me")
+                        .header(USER_ID_HEADER, leaving)
+                        .header("X-Device-Id", deviceId))
+                .andExpect(status().isNoContent());
+
+        JsonNode all = reporters(admin);
+        long bucketRows = 0;
+        for (JsonNode row : all) {
+            if (row.get("userId").isNull()) {
+                bucketRows++;
+                assertThat(row.get("nickname").isNull()).isTrue();
+            }
+        }
+        assertThat(bucketRows).isEqualTo(1);
+        assertThat(deletedBucketCount(admin)).isEqualTo(before + 1);
+    }
+
+    @Test
+    @DisplayName("숨긴 신고는 신고자 목록과 통계에서도 빠진다")
+    void hiddenReportsLeaveTheReporterListAndTheStats() throws Exception {
+        // 조회를 새로 만들 때마다 지켜야 하는 규칙입니다(S15P21D205-900). 여기서 빠뜨리면 운영자가
+        // 목록에서 치운 신고가 통계 막대에만 남아 두 화면이 다른 말을 합니다.
+        Admin admin = login();
+        int reasonBefore = countIn(stats(admin, 1).get("byReason"), "INAPPROPRIATE_NAME");
+
+        String reporter = createUser();
+        String target = createUser();
+        report(reporter, target, "INAPPROPRIATE_NAME", null);
+        report(reporter, target, "INAPPROPRIATE_NAME", null);
+
+        assertThat(reporterRow(admin, reporter).get("reportCount").asInt()).isEqualTo(2);
+        assertThat(countIn(stats(admin, 1).get("byReason"), "INAPPROPRIATE_NAME")).isEqualTo(reasonBefore + 2);
+
+        mvc.perform(patch(REPORTS + "/{userId}/hidden", target)
+                        .param("status", "PENDING")
+                        .session(admin.session())
+                        .cookie(admin.csrf())
+                        .header("X-XSRF-TOKEN", admin.csrf().getValue()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.affected").value(2));
+
+        assertThat(reporterRow(admin, reporter)).as("숨긴 뒤에도 신고자 목록에 남아 있습니다").isNull();
+        assertThat(countIn(stats(admin, 1).get("byReason"), "INAPPROPRIATE_NAME")).isEqualTo(reasonBefore);
+    }
+
+    @Test
+    @DisplayName("통계는 기간의 모든 날을 채우고 세 표의 합이 같다")
+    void statsFillEveryDayAndAgreeWithEachOther() throws Exception {
+        // 없는 날을 빼고 주면 선 차트가 그 날을 건너뛰어 잇고, "0건" 이 "없었다" 로 보이지 않습니다.
+        // 세 표는 같은 신고를 다르게 묶은 것이라 합이 다르면 어느 하나가 조건을 빠뜨린 것입니다.
+        String reporter = createUser();
+        report(reporter, createUser(), "SPAM", null);
+
+        Admin admin = login();
+        JsonNode stats = stats(admin, 7);
+
+        assertThat(stats.get("days").asInt()).isEqualTo(7);
+        JsonNode daily = stats.get("daily").get("rows");
+        assertThat(daily.size()).isEqualTo(7);
+        assertThat(daily.get(6).get(0).asText()).isEqualTo(java.time.LocalDate.now(java.time.ZoneOffset.ofHours(9)).toString());
+        assertThat(daily.get(6).get(1).asInt()).isGreaterThanOrEqualTo(1);
+
+        JsonNode byStatus = stats.get("byStatus").get("rows");
+        assertThat(byStatus.size()).isEqualTo(3);
+        assertThat(byStatus.get(0).get(0).asText()).isEqualTo("PENDING");
+        assertThat(byStatus.get(1).get(0).asText()).isEqualTo("ACTIONED");
+        assertThat(byStatus.get(2).get(0).asText()).isEqualTo("DISMISSED");
+
+        assertThat(sumOf(byStatus)).isEqualTo(sumOf(stats.get("byReason").get("rows")));
+        assertThat(sumOf(byStatus)).isEqualTo(sumOf(daily));
+
+        // 범위 밖 일수는 거절하지 않고 깎습니다. 큰 값은 "다 보고 싶다" 입니다.
+        assertThat(stats(admin, 9999).get("days").asInt()).isEqualTo(365);
+        assertThat(stats(admin, 0).get("days").asInt()).isEqualTo(1);
+        assertThat(stats(admin, null).get("days").asInt()).isEqualTo(30);
+    }
+
+    private JsonNode reporters(Admin admin) throws Exception {
+        String body = mvc.perform(get(REPORTS + "/reporters").session(admin.session()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("reporters");
+    }
+
+    /** 신고자 목록에서 그 사람의 줄. 없으면 null 입니다. */
+    private JsonNode reporterRow(Admin admin, String userId) throws Exception {
+        for (JsonNode row : reporters(admin)) {
+            if (!row.get("userId").isNull() && userId.equals(row.get("userId").asText())) {
+                return row;
+            }
+        }
+        return null;
+    }
+
+    private int indexOf(JsonNode reporters, String userId) {
+        for (int i = 0; i < reporters.size(); i++) {
+            JsonNode id = reporters.get(i).get("userId");
+            if (!id.isNull() && userId.equals(id.asText())) {
+                return i;
+            }
+        }
+        throw new AssertionError("신고자 목록에 없습니다: " + userId);
+    }
+
+    /** 탈퇴한 신고자 묶음 줄의 건수. 줄이 없으면 0 입니다. */
+    private int deletedBucketCount(Admin admin) throws Exception {
+        for (JsonNode row : reporters(admin)) {
+            if (row.get("userId").isNull()) {
+                return row.get("reportCount").asInt();
+            }
+        }
+        return 0;
+    }
+
+    private JsonNode stats(Admin admin, Integer days) throws Exception {
+        var request = get(REPORTS + "/stats").session(admin.session());
+        if (days != null) {
+            request = request.param("days", String.valueOf(days));
+        }
+        String body = mvc.perform(request)
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body);
+    }
+
+    /** 이름·건수 표에서 그 이름의 건수. 없으면 0 입니다. */
+    private static int countIn(JsonNode table, String label) {
+        for (JsonNode row : table.get("rows")) {
+            if (label.equals(row.get(0).asText())) {
+                return row.get(1).asInt();
+            }
+        }
+        return 0;
+    }
+
+    private static int sumOf(JsonNode rows) {
+        int sum = 0;
+        for (JsonNode row : rows) {
+            sum += row.get(1).asInt();
+        }
+        return sum;
+    }
 
     private ResultActions review(Admin admin, String userId, String status) throws Exception {
         // 화면이 하는 것과 같게 보냅니다 - 쿠키는 자동으로 실려 가고, 화면이 그 쿠키를

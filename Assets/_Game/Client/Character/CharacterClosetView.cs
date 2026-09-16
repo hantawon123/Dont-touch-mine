@@ -86,9 +86,17 @@ namespace Game.Client.Character
 
         public void RequestBack() => BackRequested?.Invoke();
 
-        private void OnEnable() => Opened?.Invoke();
+        private void OnEnable()
+        {
+            if (generatedPreviewRoot != null) generatedPreviewRoot.SetActive(true);
+            Opened?.Invoke();
+        }
 
-        private void OnDisable() => Closed?.Invoke();
+        private void OnDisable()
+        {
+            if (generatedPreviewRoot != null) generatedPreviewRoot.SetActive(false);
+            Closed?.Invoke();
+        }
 
         public event Action<AvatarPartCategory> CategorySelected;
 
@@ -150,6 +158,7 @@ namespace Game.Client.Character
 
         private void OnDestroy()
         {
+            ReleaseGeneratedPreview();
             ReleaseBackdrop();
 
             foreach (var button in buttons)
@@ -186,6 +195,7 @@ namespace Game.Client.Character
                 CreateActionBar(controlsRoot);
             }
 
+            CreateGeneratedPreview(lobbyOverlay ? panel : controlsRoot);
             // Over the screen but under the confirmations, and it never takes a
             // click, so being on top costs the controls beneath it nothing.
             toast = ConnectionToast.AttachTo(controlsRoot);

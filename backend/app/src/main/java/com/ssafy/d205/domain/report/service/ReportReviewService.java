@@ -12,6 +12,8 @@ import java.util.Map;
 import com.ssafy.d205.domain.report.dto.ReportDetail;
 import com.ssafy.d205.domain.report.dto.ReportedUserListResponse;
 import com.ssafy.d205.domain.report.dto.ReportedUserSummary;
+import com.ssafy.d205.domain.report.dto.ReporterListResponse;
+import com.ssafy.d205.domain.report.dto.ReporterSummary;
 import com.ssafy.d205.domain.report.entity.ReportStatus;
 import com.ssafy.d205.domain.report.entity.UserReport;
 import com.ssafy.d205.domain.report.repository.ReasonCountRow;
@@ -57,6 +59,31 @@ public class ReportReviewService {
                                 reasons.getOrDefault(row.getUserId(), Map.of()),
                                 row.getLastReportedAt(),
                                 row.getSuspendedAt() != null))
+                        .toList());
+    }
+
+    /**
+     * 신고<b>한</b> 사람들을 묶어서 돌려줍니다. 신고자 관점 목록입니다 (S15P21D205-1004).
+     *
+     * <p>{@link #list} 가 "누가 신고당했나"라면 이쪽은 "누가 신고하나"입니다. 기각된 비율이 높은
+     * 사람은 근거 없는 신고를 반복하는 사람이고, 그것은 신고당한 사람 목록에서는 보이지 않습니다.
+     *
+     * <p>탈퇴한 신고자들은 userId 가 null 인 한 줄입니다. 저장소 주석에 이유가 있습니다.
+     */
+    @Transactional(readOnly = true)
+    public ReporterListResponse reporters() {
+        return new ReporterListResponse(
+                userReportRepository.summarizeReporters().stream()
+                        .map(row -> new ReporterSummary(
+                                row.getUserId(),
+                                row.getNickname(),
+                                row.getReportCount(),
+                                row.getPendingCount(),
+                                row.getActionedCount(),
+                                row.getDismissedCount(),
+                                ReporterSummary.dismissedPercentOf(row.getActionedCount(), row.getDismissedCount()),
+                                row.getTargetCount(),
+                                row.getLastReportedAt()))
                         .toList());
     }
 

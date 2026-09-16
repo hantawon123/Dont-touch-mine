@@ -241,4 +241,79 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
              LIMIT 200
             """, nativeQuery = true)
     List<AdminReportRow> findMadeForAdmin(@Param("userId") String userId);
+
+    /**
+     * 신고<b>한</b> 사람들을 묶어서 돌려줍니다. 신고자 관점 목록이 쓰는 조회입니다 (S15P21D205-1004).
+     *
+     * <p>{@link #summarizeByStatus} 를 reporter_seq 축으로 뒤집은 것입니다. 그쪽은 "누가 신고당했나"만
+     * 답하므로 무고성 신고를 반복하는 사람은 거기서 보이지 않습니다. 기각된 건수가 많은 신고자를
+     * 찾는 것이 이 조회의 목적이라 상태별 건수를 한 줄에 같이 셉니다.
+     *
+     * <p><b>탈퇴한 신고자는 한 줄로 묶입니다.</b> LEFT JOIN 뒤 reporter_seq 로 묶으면 NULL 이 한 그룹이
+     * 되고, 그 줄은 userId·nickname 이 null 로 옵니다. 몇 명이었는지는 복원할 수 없으므로 나누지
+     * 않고 "탈퇴한 계정" 하나로 보여줍니다.
+     *
+     * <p>상태를 거르지 않습니다. 기각 비율을 보려면 검토된 것과 안 된 것이 한 줄에 있어야 합니다.
+     * 그래서 ix_user_reports_pending 을 못 타고 전체를 읽는데, 신고는 하루 수십 건 규모라 문제가
+     * 되지 않습니다. 커지면 그때 기간 조건을 받습니다.
+     *
+     * <p>정렬은 건수 많은 순입니다. 이 목록의 질문이 "누가 많이 신고하나"이기 때문입니다.
+     */
+    @Query(value = """
+            SELECT u.public_id                    AS userId,
+                   u.nickname                     AS nickname,
+                   COUNT(*)                       AS reportCount,
+                   SUM(r.status = 'PENDING')      AS pendingCount,
+                   SUM(r.status = 'ACTIONED')     AS actionedCount,
+                   SUM(r.status = 'DISMISSED')    AS dismissedCount,
+                   COUNT(DISTINCT r.reported_seq) AS targetCount,
+                   MAX(r.created_at)              AS lastReportedAt
+              FROM user_reports r
+              LEFT JOIN users u ON u.users_seq = r.reporter_seq
+             WHERE r.deleted_at IS NULL
+             GROUP BY r.reporter_seq, u.public_id, u.nickname
+             ORDER BY COUNT(*) DESC, MAX(r.created_at) DESC
+            """, nativeQuery = true)
+    List<ReporterRow> summarizeReporters();
+
+    /** since(포함) 이후 들어온 보이는 신고의 사유별 건수. 많은 순 (S15P21D205-1004). */
+    @Query(value = """
+            SELECT r.reason AS label, COUNT(*) AS count
+              FROM user_reports r
+             WHERE r.created_at >= :since
+               AND r.deleted_at IS NULL
+             GROUP BY r.reason
+             ORDER BY COUNT(*) DESC, r.reason
+            """, nativeQuery = true)
+    List<LabelCountRow> countByReasonSince(@Param("since") String since);
+
+    /** since(포함) 이후 들어온 보이는 신고의 처리 상태별 건수. 들어온 시각 기준이고 검토 시각이 아닙니다. */
+    @Query(value = """
+            SELECT r.status AS label, COUNT(*) AS count
+              FROM user_reports r
+             WHERE r.created_at >= :since
+               AND r.deleted_at IS NULL
+             GROUP BY r.status
+            """, nativeQuery = true)
+    List<LabelCountRow> countByStatusSince(@Param("since") String since);
+
+    /**
+     * since(포함) 이후 들어온 보이는 신고의 날짜별 건수. <b>날짜는 한국 시간</b>입니다.
+     *
+     * <p>created_at 은 UTC 문자열이라 그대로 앞 8자를 자르면 UTC 날짜가 되고, 그러면 한국의 저녁
+     * 9시 이후 신고가 다음 날로 넘어갑니다. 운영자가 보는 달력과 맞추려고 9시간을 더해 자릅니다.
+     * 서버가 한 곳(한국)에서만 운영되므로 시간대를 매개변수로 받지 않았습니다.
+     *
+     * <p>없는 날은 행이 없습니다. 0 으로 채우는 것은 서비스가 합니다.
+     */
+    @Query(value = """
+            SELECT DATE_FORMAT(DATE_ADD(STR_TO_DATE(r.created_at, '%Y%m%d%H%i%s'), INTERVAL 9 HOUR), '%Y-%m-%d') AS label,
+                   COUNT(*) AS count
+              FROM user_reports r
+             WHERE r.created_at >= :since
+               AND r.deleted_at IS NULL
+             GROUP BY label
+             ORDER BY label
+            """, nativeQuery = true)
+    List<LabelCountRow> countByDaySince(@Param("since") String since);
 }

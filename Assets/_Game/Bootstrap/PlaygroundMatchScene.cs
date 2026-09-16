@@ -32,6 +32,13 @@ namespace Game.Bootstrap
         public IMatchRuntimeContext RuntimeContext { get; }
         public NetworkMatchRuntimeConfiguration NetworkConfiguration { get; }
 
+        internal static bool TryCollectReplayObjectIds(IMatchRuntimeContext context, ISet<string> destination)
+        {
+            if (context is not PlaygroundRuntimeContext runtime) return false;
+            foreach (var item in runtime.ActiveReplayItems) destination.Add(item.ObjectId);
+            return true;
+        }
+
         public static PlaygroundMatchScene Capture(Scene scene)
         {
             // isLoaded는 씬 오브젝트들의 Awake 시점에는 아직 false라서 검사할 수 없다.
@@ -250,6 +257,7 @@ namespace Game.Bootstrap
             private static readonly Pose[] NoPlayerPoses = Array.Empty<Pose>();
             private readonly IReadOnlyList<CarryableItem> replayItems;
             private readonly List<WorldObjectState> replayObjects = new();
+            private readonly List<CarryableItem> activeReplayItems = new(MaxReplayObjectCount);
 
             public PlaygroundRuntimeContext(IReadOnlyList<CarryableItem> replayItems)
             {
@@ -260,22 +268,31 @@ namespace Game.Bootstrap
             public IReadOnlyList<Vector3> PlayerPositions => NoPlayerPositions;
             public IReadOnlyList<Pose> PlayerPoses => NoPlayerPoses;
 
+            // Identity collection and pose sampling must select exactly the same active objects.
+            public List<CarryableItem> ActiveReplayItems
+            {
+                get
+                {
+                    activeReplayItems.Clear();
+                    for (var index = 0; index < replayItems.Count; index++)
+                    {
+                        var item = replayItems[index];
+                        if (item == null || !item.gameObject.activeInHierarchy) continue;
+                        activeReplayItems.Add(item);
+                        if (activeReplayItems.Count == MaxReplayObjectCount) break;
+                    }
+                    return activeReplayItems;
+                }
+            }
+
             public IReadOnlyList<WorldObjectState> ReplayObjects
             {
                 get
                 {
                     replayObjects.Clear();
-                    foreach (var item in replayItems)
-                    {
-                        if (item != null && item.gameObject.activeInHierarchy)
-                        {
-                            replayObjects.Add(new WorldObjectState(
-                                item.ObjectId,
-                                new Pose(item.transform.position, item.transform.rotation)));
-                            if (replayObjects.Count == MaxReplayObjectCount) break;
-                        }
-                    }
-
+                    foreach (var item in ActiveReplayItems)
+                        replayObjects.Add(new WorldObjectState(item.ObjectId,
+                            new Pose(item.transform.position, item.transform.rotation)));
                     return replayObjects;
                 }
             }
