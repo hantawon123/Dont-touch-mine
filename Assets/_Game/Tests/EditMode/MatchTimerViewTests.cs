@@ -175,6 +175,7 @@ namespace Game.Architecture.Tests
                     .GetField("shredderMarker", BindingFlags.Instance | BindingFlags.NonPublic)
                     .SetValue(hud, marker.GetComponent<RectTransform>());
                 canvas.SetActive(true);
+                hud.ApplyShredderMarkerChrome();
 
                 var image = marker.GetComponent<Image>();
                 Assert.That(image.sprite, Is.EqualTo(HomeUiFonts.Rounded(NetworkMatchHudView.ShredderMarkerCornerRadius)));
@@ -208,6 +209,7 @@ namespace Game.Architecture.Tests
                     .GetField("shredderMarker", BindingFlags.Instance | BindingFlags.NonPublic)
                     .SetValue(hud, marker.GetComponent<RectTransform>());
                 canvas.SetActive(true);
+                hud.ApplyShredderMarkerChrome();
 
                 hud.SetRemainingDestructionUses(4);
                 Assert.That(

@@ -323,7 +323,7 @@ namespace Game.Client.Match
         public void SetRemainingDestructionUses(int remainingUses)
         {
             remainingDestructionUses = remainingUses;
-            RefreshShredderMarkerLabel();
+            ApplyShredderMarkerChrome();
         }
 
         public void ShowDestructionNotice(string message)
