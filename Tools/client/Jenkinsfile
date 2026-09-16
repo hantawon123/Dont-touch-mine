@@ -1,0 +1,60 @@
+// Independent release-only desktop delivery; reuse the existing Unity executor.
+pipeline {
+    agent { label 'unity-webgl' }
+    parameters {
+        booleanParam(name: 'TEST_ONLY', defaultValue: false, description: '계약 테스트만 실행하며 배포하지 않습니다.')
+    }
+    options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+        timeout(time: 120, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '15', artifactNumToKeepStr: '3'))
+        timestamps()
+    }
+    triggers { pollSCM('H/5 * * * *') }
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    withEnv(['GIT_LFS_SKIP_SMUDGE=1']) {
+                        checkout([$class: 'GitSCM', branches: scm.branches,
+                            userRemoteConfigs: scm.userRemoteConfigs, extensions: []])
+                    }
+                }
+                withCredentials([gitUsernamePassword(credentialsId: 'gitlab-deploy-token', gitToolName: 'Default')]) {
+                    sh 'git lfs pull'
+                }
+            }
+        }
+        stage('Delivery checks') {
+            steps {
+                sh "python3 -m unittest discover -s Tools/client -p 'test_*.py'"
+                sh "python3 -m unittest discover -s Tools/network/server-flow -p 'test_*.py'"
+            }
+        }
+        stage('Matched Windows client and Linux server') {
+            steps {
+                dir('Builds/Client') { deleteDir() }
+                dir('Builds/Server') { deleteDir() }
+                dir('Builds/Download') { deleteDir() }
+                withEnv(["CLIENT_TEST_ONLY=${params.TEST_ONLY ? '1' : '0'}"]) {
+                    sh 'bash Tools/client/build.sh'
+                }
+            }
+        }
+        stage('Publish ready release') {
+            when { expression { env.GIT_BRANCH == 'origin/release' && !params.TEST_ONLY } }
+            steps {
+                sh 'python3 Tools/network/server-flow/publish_release.py /var/www/d205-game/runtime "$(git rev-parse HEAD)" --web Builds/Download --server Builds/Server'
+            }
+        }
+    }
+    post {
+        always {
+            archiveArtifacts artifacts: 'Logs/client-*.log,Logs/server-build.log,Logs/client-contract-results.xml,Logs/client-timings.tsv', allowEmptyArchive: true
+        }
+        success {
+            archiveArtifacts artifacts: 'Builds/Download/*', allowEmptyArchive: true
+        }
+    }
+}
