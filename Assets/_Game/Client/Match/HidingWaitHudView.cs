@@ -45,15 +45,20 @@ namespace Game.Client.Match
         public const float StatusFontSize = 28f;
         public const float NextTurnFontSize = 40f;
         public const string NextTurnText = "다음 숨길 차례입니다";
-        public const float NameFontSize = 16f;
+        public const float NameFontSize = 24f;
         public const float TopPadding = 20f;
         public const float PersonIconSize = 40f;
-        public const float AvatarSize = 36f;
-        public const float RingGap = 2f;
-        public const float RingThickness = 2f;
-        public const float RowHeight = 56f;
-        public const float RowPitch = 60f;
-        public const float CheckIconWidth = 14f;
+        public const float AvatarSize = 54f;
+        public const float RingGap = 3f;
+        public const float RingThickness = 3f;
+        public const float RowHeight = 84f;
+        public const float RowPitch = 90f;
+        public const float CheckIconWidth = 21f;
+        public const float ListWidth = 630f;
+        public const float ListHeight = 630f;
+        private const float NameWidth = 480f;
+        private const float NameHeight = 60f;
+        private const float NameGap = 12f;
         public const int MaxPlayers = 6;
         public static readonly Color AccentColor = new Color(1f, 0.54f, 0.24f, 1f);
         public static readonly Color DoneNameColor = new Color(0.72f, 0.72f, 0.72f, 1f);
@@ -372,7 +377,7 @@ namespace Game.Client.Match
                     rowRect,
                     new Vector2(0f, 1f),
                     new Vector2(0f, -row.GetSiblingIndex() * RowPitch),
-                    new Vector2(420f, RowHeight),
+                    new Vector2(ListWidth, RowHeight),
                     new Vector2(0f, 1f));
             }
 
@@ -424,8 +429,8 @@ namespace Game.Client.Match
                 Place(
                     name,
                     new Vector2(0f, 0.5f),
-                    new Vector2(RingOuterSize + 8f, 0f),
-                    new Vector2(320f, 40f),
+                    new Vector2(RingOuterSize + NameGap, 0f),
+                    new Vector2(NameWidth, NameHeight),
                     new Vector2(0f, 0.5f));
             }
         }
@@ -607,7 +612,23 @@ namespace Game.Client.Match
                 playerList = transform.Find("PlayerList")?.gameObject;
             }
 
+            EnsurePlayerList();
             EnsureNextTurn();
+        }
+
+        private void EnsurePlayerList()
+        {
+            if (playerList == null)
+            {
+                return;
+            }
+
+            Place(
+                playerList.GetComponent<RectTransform>(),
+                new Vector2(0f, 1f),
+                new Vector2(48f, -TopPadding),
+                new Vector2(ListWidth, ListHeight),
+                new Vector2(0f, 1f));
         }
 
         private void EnsureNextTurn()
@@ -694,7 +715,7 @@ namespace Game.Client.Match
                 playerList.GetComponent<RectTransform>(),
                 new Vector2(0f, 1f),
                 new Vector2(48f, -TopPadding),
-                new Vector2(420f, 420f),
+                new Vector2(ListWidth, ListHeight),
                 new Vector2(0f, 1f));
 
             for (var index = 0; index < MaxPlayers; index++)
@@ -710,7 +731,7 @@ namespace Game.Client.Match
                 row,
                 new Vector2(0f, 1f),
                 new Vector2(0f, -index * RowPitch),
-                new Vector2(420f, RowHeight),
+                new Vector2(ListWidth, RowHeight),
                 new Vector2(0f, 1f));
 
             var avatar = CreateRect(row, "Avatar");
@@ -786,8 +807,8 @@ namespace Game.Client.Match
             Place(
                 name.rectTransform,
                 new Vector2(0f, 0.5f),
-                new Vector2(RingOuterSize + 8f, 0f),
-                new Vector2(320f, 40f),
+                new Vector2(RingOuterSize + NameGap, 0f),
+                new Vector2(NameWidth, NameHeight),
                 new Vector2(0f, 0.5f));
         }
 
