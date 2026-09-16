@@ -36,6 +36,7 @@ namespace Game.Bootstrap
         private readonly Dictionary<int, PlayerCombatant> combatants = new();
         // 붙이기 실패를 물건별로 한 번만 경고하기 위한 기록(성공하면 지운다)
         private readonly HashSet<string> attachWarnings = new();
+        private double nextAssignmentItemScanAt;
         private readonly Dictionary<string, int> appliedVersions =
             new(StringComparer.Ordinal);
 
@@ -193,20 +194,48 @@ namespace Game.Bootstrap
 
         public bool RequestUseShredder() => network.RequestUseShredder();
 
+        /// <summary>
+        /// 이 씬의 물건 목록을 갱신한다. 기존 등록은 유지하고(파괴된 것만 정리) 새 물건만 더한다.
+        /// </summary>
+        /// <remarks>
+        /// 들고 있는 물건은 플레이어 오브젝트(다른 씬) 아래에 붙어 있어 <c>gameObject.scene</c>이 이 씬이 아니다.
+        /// 예전처럼 목록을 비우고 현재 씬 소속만 다시 담으면 들고 있는 물건이 목록에서 빠지고, 그 뒤 그 물건의
+        /// 상태 변화(놓임·파괴)가 전부 무시된다. 그러면 이 클라이언트는 그 플레이어가 "이미 놓은 물건을 계속 들고
+        /// 있다"고 믿어 이후 그 플레이어가 집는 모든 물건을 붙이지 못한다(팀 테스트 2026-09-17: 물건이 머리 위에
+        /// 남고 놓기가 안 되던 버그). 그래서 소속 판단은 <see cref="CarryableItem.OwningScene"/>로 한다.
+        /// </remarks>
         private void RefreshItems()
         {
-            items.Clear();
+            var stale = new List<string>();
+            foreach (var pair in items)
+            {
+                if (pair.Value == null) stale.Add(pair.Key);
+            }
+
+            foreach (var key in stale) items.Remove(key);
+
             var candidates = sceneItems ?? UnityEngine.Object.FindObjectsByType<CarryableItem>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var item in candidates)
             {
-                if (item == null || (sceneItems == null && item.gameObject.scene != scene)) continue;
-                if (!items.TryAdd(item.ObjectId, item))
+                if (item == null) continue;
+                if (sceneItems == null && item.OwningScene != scene && item.gameObject.scene != scene) continue;
+                if (items.TryGetValue(item.ObjectId, out var existing))
                 {
-                    Debug.LogError(
-                        $"[Match] Duplicate carryable object id '{item.ObjectId}'.",
-                        item);
+                    if (ReferenceEquals(existing, item)) continue;
+                    if (existing != null)
+                    {
+                        Debug.LogError(
+                            $"[Match] Duplicate carryable object id '{item.ObjectId}'.",
+                            item);
+                        continue;
+                    }
+
+                    items[item.ObjectId] = item;
+                    continue;
                 }
+
+                items.Add(item.ObjectId, item);
             }
         }
 
@@ -361,6 +390,9 @@ namespace Game.Bootstrap
 
             if (!items.TryGetValue(assignedItemId, out var item) || item == null)
             {
+                // 배정 물건이 아직 없으면 목록을 다시 훑되, 매 틱 씬 전체를 뒤지지는 않는다.
+                if (Time.unscaledTimeAsDouble < nextAssignmentItemScanAt) return;
+                nextAssignmentItemScanAt = Time.unscaledTimeAsDouble + 1d;
                 RefreshItems();
                 if (!items.TryGetValue(assignedItemId, out item) || item == null)
                 {
