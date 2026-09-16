@@ -1,0 +1,67 @@
+# 닉네임 금칙어 (S15P21D205-1017). NicknameBlocklist 가 기동 때 읽습니다.
+#
+# 한 줄에 하나. 소문자로 비교하고, 숫자를 뺀 것과 숫자를 글자로 치환한 것(0→o 1→i 3→e 4→a 5→s 7→t)도
+# 같이 봅니다. 그러니 "f4ck" 같은 변형은 적지 않아도 됩니다. 포함 검사라 짧은 말은 오탐이 납니다 -
+# 세 글자짜리는 넣지 말고, 넣어야 하면 nickname-allowlist.txt 에 예외를 함께 적습니다.
+#
+# 추가할 일이 생기면 여기 줄을 더하고 배포합니다. 기존 닉네임에는 적용되지 않습니다.
+
+# --- 한국어 ---
+시발
+씨발
+씨빨
+쉬발
+시빨
+병신
+븅신
+빙신
+지랄
+개새끼
+개세끼
+개색기
+새끼
+미친놈
+미친년
+씹
+썅
+니애미
+니엄마
+느금마
+엠창
+호로
+창녀
+창놈
+걸레
+보지
+자지
+강간
+섹스
+야동
+좆
+
+# --- 영어 ---
+fuck
+fck
+fuk
+shit
+bitch
+asshole
+bastard
+cunt
+pussy
+nigger
+nigga
+faggot
+retard
+whore
+slut
+motherfucker
+wanker
+twat
+blowjob
+porn
+rapist
+nazi
+hitler
+anal
+sex
