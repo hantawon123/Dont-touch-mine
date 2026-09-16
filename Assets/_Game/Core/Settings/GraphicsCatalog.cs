@@ -18,11 +18,9 @@ namespace Game.Core.Settings
     /// </remarks>
     public sealed class GraphicsCatalog
     {
-        public const string Off = "off";
         public const string Low = "low";
         public const string Medium = "medium";
         public const string High = "high";
-        public const string Ultra = "ultra";
 
         public const string Fullscreen = "fullscreen";
         public const string Windowed = "windowed";
@@ -75,46 +73,11 @@ namespace Game.Core.Settings
                     new OptionChoice("40", "40"),
                     new OptionChoice("30", "30")),
 
-                [GraphicsOption.AntiAliasing] = new OptionChoices(
-                    new OptionChoice("taa", "TAA"),
-                    new OptionChoice("smaa", "SMAA"),
-                    new OptionChoice("fxaa", "FXAA"),
-                    new OptionChoice(Off, "끄기")),
-
-                [GraphicsOption.Hbao] = new OptionChoices(
-                    Medium,
-                    new OptionChoice(High, "높음"),
-                    new OptionChoice(Medium, "중간"),
-                    new OptionChoice(Low, "낮음"),
-                    new OptionChoice(Off, "끄기")),
-
                 [GraphicsOption.TextureQuality] = new OptionChoices(
                     Medium,
                     new OptionChoice(High, "높음"),
                     new OptionChoice(Medium, "중간"),
-                    new OptionChoice(Low, "낮음")),
-
-                [GraphicsOption.ShadowQuality] = new OptionChoices(
-                    High,
-                    new OptionChoice(Ultra, "울트라"),
-                    new OptionChoice(High, "높음"),
-                    new OptionChoice(Medium, "중간"),
-                    new OptionChoice(Low, "낮음"),
-                    new OptionChoice(Off, "끄기")),
-
-                [GraphicsOption.DepthOfField] = new OptionChoices(
-                    Medium,
-                    new OptionChoice(High, "높음"),
-                    new OptionChoice(Medium, "중간"),
-                    new OptionChoice(Low, "낮음"),
-                    new OptionChoice(Off, "끄기")),
-
-                [GraphicsOption.Volumetrics] = new OptionChoices(
-                    Medium,
-                    new OptionChoice(High, "높음"),
-                    new OptionChoice(Medium, "중간"),
-                    new OptionChoice(Low, "낮음"),
-                    new OptionChoice(Off, "끄기"))
+                    new OptionChoice(Low, "낮음"))
             });
 
         public OptionChoices For(GraphicsOption option) => rows.For((int)option);

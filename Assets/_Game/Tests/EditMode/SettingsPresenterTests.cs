@@ -364,9 +364,9 @@ namespace Game.Architecture.Tests
         {
             using var presenter = Started();
 
-            Assert.That(view.GraphicsLabels.Count, Is.EqualTo(9));
+            Assert.That(view.GraphicsLabels.Count, Is.EqualTo(4));
             Assert.That(view.GraphicsLabels[GraphicsOption.Resolution], Is.EqualTo("1920x1080"));
-            Assert.That(view.GraphicsLabels[GraphicsOption.ShadowQuality], Is.EqualTo("높음"));
+            Assert.That(view.GraphicsLabels[GraphicsOption.TextureQuality], Is.EqualTo("중간"));
         }
 
         [Test]
@@ -374,12 +374,12 @@ namespace Game.Architecture.Tests
         {
             using var presenter = Started();
 
-            view.StepGraphics(GraphicsOption.ShadowQuality, 1);
+            view.StepGraphics(GraphicsOption.TextureQuality, 1);
 
             Assert.That(
-                presenter.GraphicsDraft.Get(GraphicsOption.ShadowQuality),
-                Is.EqualTo("medium"));
-            Assert.That(view.GraphicsLabels[GraphicsOption.ShadowQuality], Is.EqualTo("중간"));
+                presenter.GraphicsDraft.Get(GraphicsOption.TextureQuality),
+                Is.EqualTo("low"));
+            Assert.That(view.GraphicsLabels[GraphicsOption.TextureQuality], Is.EqualTo("낮음"));
             Assert.That(view.ActionsEnabled, Is.True);
             Assert.That(graphics.Current, Is.EqualTo(graphics.Defaults), "Nothing is settled until apply.");
             Assert.That(graphicsStore.Saved, Is.Null);
@@ -397,17 +397,17 @@ namespace Game.Architecture.Tests
                 presenter.GraphicsDraft.Get(GraphicsOption.Resolution),
                 Is.EqualTo("2560x1440"));
             Assert.That(
-                presenter.GraphicsDraft.Get(GraphicsOption.ShadowQuality),
-                Is.EqualTo("high"));
+                presenter.GraphicsDraft.Get(GraphicsOption.TextureQuality),
+                Is.EqualTo("medium"));
         }
 
         [Test]
         public void SteppingBack_ToTheAppliedValue_DarkensTheButtonsAgain()
         {
             using var presenter = Started();
-            view.StepGraphics(GraphicsOption.Hbao, 1);
+            view.StepGraphics(GraphicsOption.TextureQuality, 1);
 
-            view.StepGraphics(GraphicsOption.Hbao, -1);
+            view.StepGraphics(GraphicsOption.TextureQuality, -1);
 
             Assert.That(view.ActionsEnabled, Is.False);
         }
@@ -459,7 +459,7 @@ namespace Game.Architecture.Tests
         {
             using var presenter = Started();
             view.StepLanguage(1);
-            view.StepGraphics(GraphicsOption.ShadowQuality, 1);
+            view.StepGraphics(GraphicsOption.TextureQuality, 1);
 
             view.ResetAll();
             view.Accept();
@@ -473,7 +473,7 @@ namespace Game.Architecture.Tests
         public void Back_WithOnlyAGraphicsChange_AsksFirst()
         {
             using var presenter = Started();
-            view.StepGraphics(GraphicsOption.Volumetrics, 1);
+            view.StepGraphics(GraphicsOption.TextureQuality, 1);
 
             view.Back();
 
@@ -485,12 +485,12 @@ namespace Game.Architecture.Tests
         public void Back_SaveAndLeave_SettlesTheGraphicsToo()
         {
             using var presenter = Started();
-            view.StepGraphics(GraphicsOption.Volumetrics, 1);
+            view.StepGraphics(GraphicsOption.TextureQuality, 1);
             view.Back();
 
             view.Accept();
 
-            Assert.That(graphics.Current.Get(GraphicsOption.Volumetrics), Is.EqualTo("low"));
+            Assert.That(graphics.Current.Get(GraphicsOption.TextureQuality), Is.EqualTo("low"));
             Assert.That(host.HomeOpenCount, Is.EqualTo(1));
         }
 
@@ -538,7 +538,7 @@ namespace Game.Architecture.Tests
         public void Reset_OnTheInterfaceTab_LeavesTheOtherTabsAlone()
         {
             using var presenter = Started();
-            view.StepGraphics(GraphicsOption.Hbao, 1);
+            view.StepGraphics(GraphicsOption.TextureQuality, 1);
             view.StepInterface(InterfaceOption.InGameUi, 1);
             view.SelectTab(SettingsTab.Interface);
 
@@ -548,7 +548,7 @@ namespace Game.Architecture.Tests
 
             Assert.That(presenter.InterfaceDraft, Is.EqualTo(ui.Defaults));
             Assert.That(
-                presenter.GraphicsDraft.Get(GraphicsOption.Hbao),
+                presenter.GraphicsDraft.Get(GraphicsOption.TextureQuality),
                 Is.EqualTo("low"),
                 "The graphics change is still waiting.");
             Assert.That(view.ActionsEnabled, Is.True);

@@ -902,18 +902,8 @@ namespace Game.Client.Settings
                     return "해상도";
                 case Core.Settings.GraphicsOption.FpsLimit:
                     return "FPS 제한";
-                case Core.Settings.GraphicsOption.AntiAliasing:
-                    return "안티앨리어싱";
-                case Core.Settings.GraphicsOption.Hbao:
-                    return "HBAO";
                 case Core.Settings.GraphicsOption.TextureQuality:
                     return "텍스처 품질";
-                case Core.Settings.GraphicsOption.ShadowQuality:
-                    return "그림자 품질";
-                case Core.Settings.GraphicsOption.DepthOfField:
-                    return "피사계 심도";
-                case Core.Settings.GraphicsOption.Volumetrics:
-                    return "볼륨";
                 default:
                     return option.ToString();
             }

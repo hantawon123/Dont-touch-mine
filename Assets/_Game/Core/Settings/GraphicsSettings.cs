@@ -10,12 +10,7 @@ namespace Game.Core.Settings
         DisplayMode,
         Resolution,
         FpsLimit,
-        AntiAliasing,
-        Hbao,
-        TextureQuality,
-        ShadowQuality,
-        DepthOfField,
-        Volumetrics
+        TextureQuality
     }
 
     /// <summary>
@@ -26,7 +21,7 @@ namespace Game.Core.Settings
     /// A value type, so the screen can hold two of them — what is applied and
     /// what is being edited — and tell them apart with a single comparison.
     /// <para>
-    /// A named type over <see cref="OptionValues"/> rather than a bag of nine
+    /// A named type over <see cref="OptionValues"/> rather than a bag of four
     /// fields: the row-keeping is shared with every other tab, and the name is
     /// what stops one tab's values being handed to another.
     /// </para>

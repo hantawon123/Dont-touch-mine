@@ -11,20 +11,9 @@ namespace Game.Bootstrap
     /// Carries the 그래픽 settings into Unity.
     /// </summary>
     /// <remarks>
-    /// Four of the nine rows reach the picture today: the window's mode and
-    /// size, the frame cap, and texture detail. Those are properties of the
-    /// player and of <see cref="QualitySettings"/>, which exist wherever the
-    /// game runs.
-    /// <para>
-    /// The other five — anti-aliasing, HBAO, shadow quality, depth of field
-    /// and volumetrics — are not wired up here, and this class is deliberately
-    /// the only place that says so. Each needs something this project has not
-    /// set up yet: anti-aliasing is a property of the camera that renders the
-    /// match, not of any camera in the settings scene; HBAO and volumetrics
-    /// are renderer features; shadow quality and depth of field live on the
-    /// URP asset and on a Volume profile. They are saved and shown correctly,
-    /// and turning one has no effect on the picture until those are added.
-    /// </para>
+    /// The remaining rows reach the picture: the window's mode and size, the
+    /// frame cap, and texture detail. Those are properties of the player and
+    /// of <see cref="QualitySettings"/>, which exist wherever the game runs.
     /// </remarks>
     public sealed class UnityGraphicsSettingsApplier : IGraphicsSettingsApplier
     {
@@ -36,8 +25,6 @@ namespace Game.Bootstrap
 
         public void Apply(GraphicsSettings settings)
         {
-            // ShadowQuality remains a saved/displayed preference only.
-            // WebGL intentionally disables realtime shadows in its pipeline asset.
             ApplyWindow(settings);
             ApplyFrameCap(settings.Get(GraphicsOption.FpsLimit));
             ApplyTextureQuality(settings.Get(GraphicsOption.TextureQuality));
