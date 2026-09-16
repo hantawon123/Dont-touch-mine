@@ -1271,6 +1271,52 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Searching_UsesMatchRuleStunHitCountForHitBar()
+        {
+            Assert.That(
+                MatchRuleSettings.TryCreate(30, 5, 1f, 5, null, out var matchRules, out _),
+                Is.True);
+            var network = new FakeNetwork
+            {
+                ServerTime = 100d,
+                HasLocalStamina = true,
+                LocalStamina = 100f,
+                LocalMaxStamina = 100f,
+                MatchRules = matchRules,
+            };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            room.SetLocalPlayer("client");
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 460d));
+                Assert.That(view.VitalsHits, Is.EqualTo(5));
+                Assert.That(view.VitalsMaxHits, Is.EqualTo(5));
+
+                network.Publish(new[]
+                {
+                    new PlayerInteractionStateSnapshot(0, 0d, 5, 0),
+                    new PlayerInteractionStateSnapshot(1, 0d, 5, 2),
+                });
+                Assert.That(view.VitalsHits, Is.EqualTo(3));
+                Assert.That(view.VitalsMaxHits, Is.EqualTo(5));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
         public void MatchChat_ReturnsWhenSearchingStarts()
         {
             var network = new FakeNetwork { ServerTime = 100d };

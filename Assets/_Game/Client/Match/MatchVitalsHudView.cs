@@ -37,10 +37,16 @@ namespace Game.Client.Match
         public static float BarRightInset => IconPadding;
         public static float TrackWidth =>
             PanelWidth - (RowInset * 2f) - BarStart - BarRightInset;
-        public static float SegmentWidth =>
-            (TrackWidth - (SegmentGap * (DefaultHits - 1))) / DefaultHits;
+        public static float SegmentWidth => SegmentWidthFor(DefaultHits);
         public static float BarWidth =>
             (SegmentWidth * DefaultHits) + (SegmentGap * (DefaultHits - 1));
+
+        public static float SegmentWidthFor(int hits)
+        {
+            var count = Mathf.Max(1, hits);
+            return (TrackWidth - (SegmentGap * (count - 1))) / count;
+        }
+
         public const string FlashIconResource = "UI/ic_flash";
         public const string HeartIconResource = "UI/ic_heart";
 
@@ -237,6 +243,7 @@ namespace Game.Client.Match
 
             lastStamina = stamina;
 
+            EnsureHealthSegments(Mathf.Max(1, maxHits));
             if (healthSegments == null)
             {
                 return;
@@ -327,12 +334,7 @@ namespace Game.Client.Match
 
             if (healthSegments == null || healthSegments.Length == 0)
             {
-                healthSegments = new RectTransform[DefaultHits];
-                for (var index = 0; index < DefaultHits; index++)
-                {
-                    healthSegments[index] =
-                        transform.Find($"Panel/Health/BarTrack/Segment{index}") as RectTransform;
-                }
+                healthSegments = CollectHealthSegments();
             }
 
             ApplyBarMetrics();
@@ -355,7 +357,6 @@ namespace Game.Client.Match
                    transform.Find("Panel/Stamina/Value") == null &&
                    transform.Find("Panel/Health/Value") == null &&
                    segment != null &&
-                   Mathf.Approximately(segment.preferredWidth, SegmentWidth) &&
                    Mathf.Approximately(segment.flexibleWidth, 0f);
         }
 
@@ -466,6 +467,93 @@ namespace Game.Client.Match
             return bar.rectTransform;
         }
 
+        private void EnsureHealthSegments(int count)
+        {
+            var track = transform.Find("Panel/Health/BarTrack") as RectTransform;
+            if (track == null)
+            {
+                return;
+            }
+
+            if (healthSegments == null || healthSegments.Length != count)
+            {
+                RebuildHealthSegments(track, count);
+            }
+
+            ApplyHealthSegmentMetrics(count);
+        }
+
+        private void RebuildHealthSegments(RectTransform track, int count)
+        {
+            for (var index = track.childCount - 1; index >= 0; index--)
+            {
+                DestroyImmediate(track.GetChild(index).gameObject);
+            }
+
+            healthSegments = CreateHealthSegmentsOn(track, count);
+        }
+
+        private RectTransform[] CollectHealthSegments()
+        {
+            var track = transform.Find("Panel/Health/BarTrack");
+            if (track == null)
+            {
+                return null;
+            }
+
+            var count = 0;
+            while (track.Find($"Segment{count}") != null)
+            {
+                count++;
+            }
+
+            if (count == 0)
+            {
+                return null;
+            }
+
+            var segments = new RectTransform[count];
+            for (var index = 0; index < count; index++)
+            {
+                segments[index] = track.Find($"Segment{index}") as RectTransform;
+            }
+
+            return segments;
+        }
+
+        private void ApplyHealthSegmentMetrics(int count)
+        {
+            if (healthSegments == null)
+            {
+                return;
+            }
+
+            var width = SegmentWidthFor(count);
+            for (var index = 0; index < healthSegments.Length; index++)
+            {
+                var segment = healthSegments[index];
+                if (segment == null)
+                {
+                    continue;
+                }
+
+                var element = segment.GetComponent<LayoutElement>();
+                if (element != null)
+                {
+                    element.minWidth = width;
+                    element.preferredWidth = width;
+                    element.flexibleWidth = 0f;
+                    element.preferredHeight = BarHeight;
+                }
+
+                var image = segment.GetComponent<Image>();
+                if (image != null)
+                {
+                    image.color = HealthColorAt(index, count);
+                }
+            }
+        }
+
         private static RectTransform[] CreateHealthSegments(Transform parent)
         {
             var track = CreateRect(parent, "BarTrack");
@@ -478,20 +566,25 @@ namespace Game.Client.Match
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = true;
             layout.padding = new RectOffset(0, 0, 0, 0);
+            return CreateHealthSegmentsOn(track, DefaultHits);
+        }
 
-            var segments = new RectTransform[DefaultHits];
-            for (var index = 0; index < DefaultHits; index++)
+        private static RectTransform[] CreateHealthSegmentsOn(RectTransform track, int count)
+        {
+            var width = SegmentWidthFor(count);
+            var segments = new RectTransform[count];
+            for (var index = 0; index < count; index++)
             {
                 var bar = CreateImage(
                     track,
                     $"Segment{index}",
-                    HealthColorAt(index, DefaultHits),
+                    HealthColorAt(index, count),
                     HomeUiFonts.WhiteSprite);
                 bar.preserveAspect = false;
                 bar.gameObject.AddComponent<ParallelogramShear>();
                 var element = bar.gameObject.AddComponent<LayoutElement>();
-                element.minWidth = SegmentWidth;
-                element.preferredWidth = SegmentWidth;
+                element.minWidth = width;
+                element.preferredWidth = width;
                 element.flexibleWidth = 0f;
                 element.preferredHeight = BarHeight;
                 segments[index] = bar.rectTransform;
