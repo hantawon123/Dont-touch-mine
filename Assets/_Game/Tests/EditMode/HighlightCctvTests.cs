@@ -289,22 +289,22 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Hud_PreservesHeaderAndAddsFourCornersAndSourceClock()
+        public void Hud_PreservesHeaderAndAddsFourCornersAndKoreaClock()
         {
             var root = new GameObject("test", typeof(RectTransform));
             try
             {
                 var hud = HighlightHudView.Create(root.transform);
                 hud.Show("물건 쟁탈전 : 민수", new[] { 0.3f, 0f });
-                hud.SetCctvInfo("CAM 03 · 중앙 통로", 154);
+                hud.SetCctvInfo("CAM 03 · 중앙 통로", new System.DateTimeOffset(2026, 9, 16, 14, 34, 56, System.TimeSpan.Zero));
                 Assert.That(hud.transform.Find("Header/Title").GetComponent<TMP_Text>().text, Is.EqualTo("HIGHLIGHT"));
                 for (var i = 0; i < 4; i++) Assert.That(hud.transform.Find("CCTV/Corner" + i), Is.Not.Null);
-                Assert.That(hud.transform.Find("CCTV/RecordingTime").GetComponent<TMP_Text>().text, Does.Contain("02:34"));
+                Assert.That(hud.transform.Find("CCTV/RecordingTime").GetComponent<TMP_Text>().text, Is.EqualTo("<color=#E74C3C>●</color> REC  23:34"));
                 hud.Hide();
                 Assert.That(hud.transform.Find("CCTV").gameObject.activeSelf, Is.False);
                 hud.Show("다음", new[] { 0f });
-                hud.SetCctvInfo("CAM 04", 12);
-                Assert.That(hud.transform.Find("CCTV/RecordingTime").GetComponent<TMP_Text>().text, Does.Contain("00:12"));
+                hud.SetCctvInfo("CAM 04", new System.DateTimeOffset(2026, 9, 16, 15, 12, 0, System.TimeSpan.Zero));
+                Assert.That(hud.transform.Find("CCTV/RecordingTime").GetComponent<TMP_Text>().text, Is.EqualTo("<color=#E74C3C>●</color> REC  00:12"));
             }
             finally { Object.DestroyImmediate(root); }
         }

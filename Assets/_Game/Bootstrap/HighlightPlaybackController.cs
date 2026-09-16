@@ -418,7 +418,7 @@ namespace Game.Bootstrap
             cameraDirector.SetPlaybackTime(playbackTime);
             cameraDirector.Tick(Time.unscaledDeltaTime);
             if (cctvHud != null) cctvHud.SetCctvInfo(string.IsNullOrEmpty(cameraDirector.CctvLocation)
-                ? "3인칭 추적" : cameraDirector.CctvLocation, replayPlayer.SourceTime);
+                ? "3인칭 추적" : cameraDirector.CctvLocation, DateTimeOffset.UtcNow);
             transition.SetOpacity(HighlightPresentationTiming.Opacity(elapsed, duration));
         }
 
