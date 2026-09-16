@@ -41,28 +41,51 @@ namespace Game.Architecture.Tests
             try
             {
                 var view = LobbyMatchInfoView.Create(canvas.transform);
-                var category = view.transform.Find("CategoryRow/CategoryValue")
+                var innerCard = view.transform.Find("CategoryRow/CategoryValueCard") as RectTransform;
+                var category = view.transform.Find("CategoryRow/CategoryValueCard/CategoryValue")
                     .GetComponent<TMP_Text>();
-                var categoryPreview = view.transform.Find("CategoryRow/CategoryPreview") as RectTransform;
                 var mapName = view.transform.Find("MapRow/MapName").GetComponent<TMP_Text>();
                 var preview = view.transform.Find("MapRow/MapPreview") as RectTransform;
+                var mapRow = view.transform.Find("MapRow") as RectTransform;
+                var categoryRow = view.transform.Find("CategoryRow") as RectTransform;
 
                 Assert.That(view.transform.Find("CategoryRow/CategoryCaption"), Is.Null);
+                Assert.That(view.transform.Find("CategoryRow/CategoryPreview"), Is.Null);
+                Assert.That(view.transform.Find("CategoryRow/Divider"), Is.Null);
+                Assert.That(innerCard, Is.Not.Null);
+                Assert.That(
+                    innerCard.GetComponent<Image>().color,
+                    Is.EqualTo(Color.white));
+                Assert.That(LobbyMatchInfoView.CategoryInnerFill, Is.EqualTo(Color.white));
                 Assert.That(category.fontSize, Is.EqualTo(LobbyMatchInfoView.FontSize));
-                Assert.That(category.font, Is.EqualTo(HomeUiFonts.ApplyRegular()));
+                Assert.That(category.color, Is.EqualTo(Color.black));
+                Assert.That(category.font, Is.EqualTo(HomeUiFonts.Apply()));
+                Assert.That(category.alignment, Is.EqualTo(TextAlignmentOptions.Center));
                 Assert.That(mapName.fontSize, Is.EqualTo(LobbyMatchInfoView.FontSize));
-                Assert.That(mapName.font, Is.EqualTo(HomeUiFonts.ApplyRegular()));
-                Assert.That(categoryPreview.sizeDelta, Is.EqualTo(LobbyMatchInfoView.MapPreviewSize));
+                Assert.That(mapName.font, Is.EqualTo(HomeUiFonts.Apply()));
+                Assert.That(mapName.alignment, Is.EqualTo(TextAlignmentOptions.Center));
+                Assert.That(
+                    mapRow.GetComponent<Image>().color,
+                    Is.EqualTo(LobbyMatchInfoView.MapRowFill));
+                Assert.That(
+                    categoryRow.GetComponent<Image>().color,
+                    Is.EqualTo(LobbyMatchInfoView.MapRowFill));
+                Assert.That(LobbyMatchInfoView.MapRowFill, Is.EqualTo(Color.black));
+                Assert.That(LobbyMatchInfoView.MapRowFill.a, Is.EqualTo(1f));
                 Assert.That(preview.sizeDelta, Is.EqualTo(LobbyMatchInfoView.MapPreviewSize));
                 Assert.That(
-                    view.transform.Find("CategoryRow").GetComponent<Image>(),
-                    Is.Not.Null);
+                    LobbyMatchInfoView.MapPreviewSize.x,
+                    Is.EqualTo(LobbyMatchInfoView.Width - (LobbyMatchInfoView.MapRowPadding * 2f)));
                 Assert.That(
-                    LobbyMatchInfoView.MapPreviewSize,
-                    Is.EqualTo(PlaySettingsStyle.Layout.MapPreviewSize * 0.5f));
+                    mapRow.GetSiblingIndex(),
+                    Is.LessThan(categoryRow.GetSiblingIndex()));
+                Assert.That(categoryRow.GetComponent<Image>(), Is.Not.Null);
+                Assert.That(mapRow.GetComponent<Image>(), Is.Not.Null);
                 Assert.That(
-                    view.GetComponent<RectTransform>().sizeDelta.y,
-                    Is.EqualTo(LobbyMatchInfoView.PanelHeight));
+                    view.GetComponent<RectTransform>().sizeDelta,
+                    Is.EqualTo(new Vector2(LobbyMatchInfoView.Width, LobbyMatchInfoView.PanelHeight)));
+                Assert.That(LobbyMatchInfoView.Width, Is.EqualTo(320f * 1.8f));
+                Assert.That(LobbyMatchInfoView.FontSize, Is.EqualTo(32f));
             }
             finally
             {
@@ -92,9 +115,16 @@ namespace Game.Architecture.Tests
                 var view = LobbyMatchInfoView.Ensure(canvas.transform);
 
                 Assert.That(view.transform.Find("CategoryRow/CategoryCaption"), Is.Null);
-                Assert.That(view.transform.Find("CategoryRow/CategoryPreview"), Is.Not.Null);
-                Assert.That(view.transform.Find("CategoryRow/CategoryValue"), Is.Not.Null);
+                Assert.That(view.transform.Find("CategoryRow/Divider"), Is.Null);
+                Assert.That(view.transform.Find("CategoryRow/CategoryValueCard"), Is.Not.Null);
+                Assert.That(view.transform.Find("CategoryRow/CategoryPreview"), Is.Null);
+                Assert.That(
+                    view.transform.Find("CategoryRow/CategoryValueCard/CategoryValue"),
+                    Is.Not.Null);
                 Assert.That(view.transform.Find("MapRow/MapPreview"), Is.Not.Null);
+                Assert.That(
+                    (view.transform.Find("MapRow/MapPreview") as RectTransform).sizeDelta,
+                    Is.EqualTo(LobbyMatchInfoView.MapPreviewSize));
             }
             finally
             {

@@ -65,17 +65,10 @@ namespace Game.Tests.EditMode
                 Assert.That(view.MapPreviewSprite, Is.SameAs(sprite));
                 Assert.That(view.MapLabel, Is.EqualTo("supermarket"));
 
-                var categoryPreview = view.transform.Find("CategoryRow/CategoryPreview");
-                Assert.That(categoryPreview.Find(MapPreviewSprites.PhotoChildName), Is.Not.Null);
-                Assert.That(view.CategoryPreviewSprite, Is.Null);
-
-                var categorySprite = Sprite.Create(new Texture2D(4, 3), new Rect(0, 0, 4, 3), new Vector2(0.5f, 0.5f));
-                view.SetInfo("랜덤", "supermarket", sprite, categorySprite);
-                Assert.That(view.CategoryPreviewSprite, Is.SameAs(categorySprite));
+                Assert.That(view.transform.Find("CategoryRow/CategoryPreview"), Is.Null);
 
                 view.SetInfo("랜덤", "랜덤");
                 Assert.That(view.MapPreviewSprite, Is.Null, "사진 없이 호출하면 다시 단색 상자로 돌아간다.");
-                Assert.That(view.CategoryPreviewSprite, Is.Null);
             }
             finally
             {
