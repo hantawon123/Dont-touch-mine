@@ -26,8 +26,7 @@ namespace Game.Tests.EditMode
             room.SetLocalPlayer("player-2");
             var view = new FakePlayerListView();
             using var presenter = new MatchPlayerListPresenter(
-                list, room, view, new FakeReportGateway(), new FakeReportContext(),
-                new FakeConfirmView());
+                list, room, view, new FakeReportGateway(), new FakeConfirmView());
 
             presenter.Start();
 
@@ -48,8 +47,7 @@ namespace Game.Tests.EditMode
             room.SetLocalPlayer("host-1");
             var view = new FakePlayerListView();
             using var presenter = new MatchPlayerListPresenter(
-                list, room, view, new FakeReportGateway(), new FakeReportContext(),
-                new FakeConfirmView());
+                list, room, view, new FakeReportGateway(), new FakeConfirmView());
             presenter.Start();
 
             list.Replace(new[]
@@ -76,7 +74,7 @@ namespace Game.Tests.EditMode
             var view = new FakePlayerListView();
             var confirm = new FakeConfirmView();
             using var presenter = new MatchPlayerListPresenter(
-                list, room, view, reports, new FakeReportContext(), confirm);
+                list, room, view, reports, confirm);
 
             presenter.Start();
             view.RaiseReport("account-2", "게스트");
@@ -93,7 +91,6 @@ namespace Game.Tests.EditMode
             Assert.That(
                 reports.Sent,
                 Is.EqualTo(new[] { ("account-2", ReportReason.Cheating, "채팅으로 욕설을 했습니다") }));
-            Assert.That(reports.Keys, Is.EqualTo(new[] { FakeReportContext.Key }));
             Assert.That(confirm.IsVisible, Is.False);
         }
 
@@ -133,26 +130,15 @@ namespace Game.Tests.EditMode
         {
             public List<(string PlayerId, ReportReason Reason, string Note)> Sent { get; } = new();
 
-            public List<string> Keys { get; } = new();
-
             public UniTask<BackendResult> ReportAsync(
                 string playerId,
                 ReportReason reason,
                 string note,
-                string contextKey,
                 CancellationToken cancellation)
             {
                 Sent.Add((playerId, reason, note));
-                Keys.Add(contextKey);
                 return UniTask.FromResult(BackendResult.Success());
             }
-        }
-
-        private sealed class FakeReportContext : IReportContext
-        {
-            public const string Key = "ROOM#0";
-
-            public string CurrentKey => Key;
         }
 
         private sealed class FakeConfirmView : ILobbyConfirmView

@@ -12,9 +12,8 @@ namespace Game.Editor
     {
         public static void Build()
         {
-            var revision = Environment.GetEnvironmentVariable("GAME_REVISION")
-                ?? Environment.GetEnvironmentVariable("WEBGL_REVISION");
-            if (string.IsNullOrWhiteSpace(revision)) throw new BuildFailedException("GAME_REVISION is required for a matching server/client pair.");
+            var revision = Environment.GetEnvironmentVariable("WEBGL_REVISION");
+            if (string.IsNullOrWhiteSpace(revision)) throw new BuildFailedException("WEBGL_REVISION is required for a matching server/client pair.");
             var output = Environment.GetEnvironmentVariable("GAME_SERVER_OUTPUT") ?? "Builds/Server";
             var oldVersion = PlayerSettings.bundleVersion;
             var oldBackend = PlayerSettings.GetScriptingBackend(NamedBuildTarget.Server);

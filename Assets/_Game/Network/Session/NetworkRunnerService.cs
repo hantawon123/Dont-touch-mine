@@ -45,7 +45,6 @@ namespace Game.Network.Session
         INetworkPlayerReplayStateSource,
         INetworkMatchAuthority,
         INetworkMatchEvents,
-        IMatchAnalyticsSource,
         INetworkHighlightReady,
         INetworkPhaseIntroReady,
         INetworkResultNavigation,

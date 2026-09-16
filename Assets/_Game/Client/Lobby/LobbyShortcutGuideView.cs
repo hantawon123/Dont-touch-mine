@@ -8,7 +8,7 @@ namespace Game.Client.Lobby
 {
     /// <summary>
     /// Always-on 1 / 2 / Esc shortcut row in the lobby's bottom-right corner,
-    /// with the local microphone and speaker toggles to the right of 환경설정.
+    /// with the local microphone toggle to the right of 환경설정.
     /// Right edge lines up with <see cref="KeySettingGuideView"/>; the keys
     /// themselves are handled by <see cref="LobbyPauseMenuPresenter"/>.
     /// </summary>
@@ -239,28 +239,39 @@ namespace Game.Client.Lobby
 
         /// <summary>
         /// The mute toggle sits to the right of 환경설정: a white mic or a
-        /// grey slash, with the 마이크 고정 key beside it.
+        /// grey slash, nothing else.
         /// </summary>
         private void EnsureVoiceButton()
         {
-            var slot = VoiceView.EnsureKeyedMuteItem(transform);
-            slot.parent.SetAsLastSibling();
+            var slot = VoiceView.EnsureSlot(transform);
+            slot.SetAsLastSibling();
+
+            var size = slot.GetComponent<LayoutElement>();
+            if (size == null)
+            {
+                size = slot.gameObject.AddComponent<LayoutElement>();
+            }
+
+            size.minWidth = size.preferredWidth = VoiceView.ButtonSize;
+            size.minHeight = size.preferredHeight = VoiceView.ButtonSize;
+            size.flexibleWidth = 0f;
 
             VoiceBackground = slot.GetComponent<Image>();
             VoiceMuteButton = slot.GetComponent<Button>();
             VoiceIcon = slot.Find(VoiceView.IconName)?.GetComponent<Image>();
+            VoiceView.SizeSlot(slot);
 
             LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
         }
 
         /// <summary>
-        /// The listen toggle sits to the right of the microphone, with the
-        /// 음성 듣기 key beside it.
+        /// The listen toggle sits to the right of the microphone.
         /// </summary>
         private void EnsureSpeakerButton()
         {
-            var slot = VoiceView.EnsureKeyedSpeakerItem(transform);
-            slot.parent.SetAsLastSibling();
+            var slot = VoiceView.EnsureSpeakerSlot(transform);
+            slot.SetAsLastSibling();
+            VoiceView.SizeSlot(slot);
 
             VoiceSpeakerBackground = slot.GetComponent<Image>();
             VoiceSpeakerButton = slot.GetComponent<Button>();

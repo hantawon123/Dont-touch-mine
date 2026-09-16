@@ -62,8 +62,6 @@ namespace Game.Client.Character
             var bounce=bounceObject.AddComponent<Light>();
             bounce.type=LightType.Point;bounce.range=10;bounce.intensity=3;bounce.cullingMask=1<<31;
 
-            cameraObject.AddComponent<AvatarPreviewLighting>();
-
             var portrait = CreateRect("CharacterPortrait", parent);
             SetAnchor(portrait, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(.5f, .5f));
             portrait.anchoredPosition = new Vector2(-30, lobbyOverlay ? 10 : 25);

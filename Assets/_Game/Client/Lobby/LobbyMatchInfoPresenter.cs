@@ -45,15 +45,8 @@ namespace Game.Client.Lobby
         private static string MapLabel(PlaySettingsDraft draft)
         {
             var index = PlaySettingsMapCatalog.IndexOf(draft.MapId);
-            if (index >= 0)
-            {
-                return PlaySettingsMapCatalog.GetOption(index).Label;
-            }
-
-            var mapId = draft.MapId?.Trim() ?? string.Empty;
-            return mapId.Length == 0
-                ? PlaySettingsMapCatalog.Default.Label
-                : mapId;
+            return PlaySettingsMapCatalog.GetOption(
+                index < 0 ? PlaySettingsMapCatalog.DefaultIndex : index).Label;
         }
     }
 }

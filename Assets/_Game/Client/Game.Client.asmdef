@@ -8,8 +8,6 @@
         "Unity.InputSystem",
         "Unity.TextMeshPro",
         "UnityEngine.UI",
-        "Unity.RenderPipelines.Universal.Runtime",
-        "Unity.RenderPipelines.Core.Runtime",
         "Unity.Cinemachine",
         "UniTask",
         "VContainer"
