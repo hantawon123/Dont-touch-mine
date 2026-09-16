@@ -529,7 +529,7 @@ namespace Game.Architecture.Tests
 
             view.Apply();
 
-            Assert.That(ui.Current.Get(InterfaceOption.UiScale), Is.EqualTo("small"));
+            Assert.That(ui.Current.Get(InterfaceOption.UiScale), Is.EqualTo("large"));
             Assert.That(uiStore.Saved, Is.EqualTo(ui.Current));
             Assert.That(view.ActionsEnabled, Is.False);
         }

@@ -36,6 +36,18 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ScaleRows_WalkFromSmallToLarge()
+        {
+            var scale = InterfaceCatalog.Shipped.For(InterfaceOption.UiScale);
+            Assert.That(scale.Step(InterfaceCatalog.Small, 1).Code, Is.EqualTo(InterfaceCatalog.Medium));
+            Assert.That(scale.Step(InterfaceCatalog.Medium, 1).Code, Is.EqualTo(InterfaceCatalog.Large));
+            Assert.That(scale.Step(InterfaceCatalog.Medium, -1).Code, Is.EqualTo(InterfaceCatalog.Small));
+            Assert.That(
+                InterfaceCatalog.Shipped.For(InterfaceOption.FontScale).All,
+                Is.EqualTo(scale.All));
+        }
+
+        [Test]
         public void ShippedDefaults_ShowEverythingAtMiddleAndUnrestricted()
         {
             var defaults = InterfaceCatalog.Shipped.Defaults;
