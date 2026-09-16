@@ -9,6 +9,7 @@
         "Game.Network",
         "Game.Server",
         "Game.SOAP",
+        "Game.Editor",
         "Fusion.Addons.KCC",
         "R3.Unity",
         "UniTask",

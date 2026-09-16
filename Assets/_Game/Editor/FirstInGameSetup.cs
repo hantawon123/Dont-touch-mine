@@ -140,6 +140,8 @@ namespace Game.Editor
                    states.Any(state => state.name == "Throw_TwoHands") &&
                    states.Any(state => state.name == "Throw_TwoHands_Walk") &&
                    states.Any(state => state.name == "Throw_TwoHands_Prone") &&
+                   states.Any(state => state.name == "Hit_Prone") &&
+                   states.Any(state => state.name == "Carry_TwoHands_Hit_Prone") &&
                    states.Any(state => state.name == "Walk_Left") &&
                    states.Any(state => state.name == "Jump") &&
                    states.Any(state => state.name == "Carry_TwoHands") &&
