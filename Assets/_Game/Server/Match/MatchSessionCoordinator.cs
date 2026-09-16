@@ -360,10 +360,8 @@ namespace Game.Server.Match
 
             var changed = flow.AdvanceIfExpired(now);
             RaiseFinalWarningIfNeeded(now);
-            if (state.CurrentPhase.CurrentValue == MatchPhase.Highlight && highlights.IsComplete)
-            {
-                changed |= flow.CompleteHighlight();
-            }
+            // Empty selections still pass through the result-stage/readiness
+            // schedule. Completing here bypassed result presentation entirely.
 
             return changed;
         }
@@ -865,10 +863,8 @@ namespace Game.Server.Match
             var searchingStartedAt = state.PhaseEndsAt.CurrentValue - flow.SearchingDurationSeconds;
             var canRecordSearching = phase == MatchPhase.Searching && state.PhaseEndsAt.CurrentValue > 0d &&
                                      now >= searchingStartedAt + HighlightRecordingDelaySeconds;
-            var canRecordPostRoll = phase == MatchPhase.Highlight && result.HasValue &&
-                                    now <= result.Value.EndedAt + HighlightPostRollSeconds +
-                                    HighlightReplaySampleIntervalSeconds;
-            if (!canRecordSearching && !canRecordPostRoll)
+            // Result-stage teleports are presentation, never replay footage.
+            if (!canRecordSearching || result.HasValue)
             {
                 return false;
             }
@@ -1009,7 +1005,7 @@ namespace Game.Server.Match
 
         private HighlightReplayFrame[] CaptureReplayFrames(HighlightSegment segment)
         {
-            var captured = highlightReplayBuffer.Capture(
+            var captured = highlightReplayBuffer.CaptureWithBoundary(
                 segment.StartedAt,
                 segment.EndedAt);
             var maxFrameCount = Math.Max(

@@ -663,6 +663,9 @@ namespace Game.Tests.EditMode
             context.ServerTime = 550d;
             controller.Tick();
 
+            Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
+            context.ServerTime = state.PhaseEndsAt.CurrentValue;
+            controller.Tick();
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Result));
             Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Result));
             Assert.That(
@@ -756,6 +759,9 @@ namespace Game.Tests.EditMode
                 session.SetHighlightCandidates(new HighlightCandidate[0]),
                 Is.True);
             context.ServerTime = 550d;
+            matchRuntime.Tick();
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Highlight));
+            context.ServerTime = session.CaptureStateSnapshot().PhaseEndsAt;
             matchRuntime.Tick();
             Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Result));
 
@@ -974,17 +980,21 @@ namespace Game.Tests.EditMode
                         searchingAt + 2d,
                         poses,
                         System.Array.Empty<WorldObjectState>()),
-                    Is.True);
+                    Is.False);
                 Assert.That(
                     solo.TryRecordReplayFrame(
                         searchingAt + 5d,
                         poses,
                         System.Array.Empty<WorldObjectState>()),
-                    Is.True);
+                    Is.False);
 
                 Assert.That(solo.TryCaptureHighlightReplay(out var replay), Is.True);
                 Assert.That(replay, Has.Length.EqualTo(1));
                 Assert.That(replay[0].Candidate.Type, Is.EqualTo(HighlightType.FirstBlood));
+                Assert.That(replay[0].Candidate.EndedAt, Is.EqualTo(searchingAt + 2d));
+                foreach (var clip in replay[0].Clips)
+                    foreach (var frame in clip.Frames)
+                        Assert.That(frame.RecordedAt, Is.LessThan(searchingAt + 2d));
                 Assert.That(replay[0].Clips, Has.All.Matches<HighlightReplayClip>(
                     clip => clip.Frames.Count > 0));
             }

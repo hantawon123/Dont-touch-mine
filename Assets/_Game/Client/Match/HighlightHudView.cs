@@ -20,7 +20,7 @@ namespace Game.Client.Match
     /// Input wiring belongs to the playback controller; this view only paints.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class HighlightHudView : MonoBehaviour, IHighlightHudView
+    public sealed partial class HighlightHudView : MonoBehaviour, IHighlightHudView
     {
         public const string RootName = "HighlightHud";
         public const string TitleText = "HIGHLIGHT";
@@ -221,6 +221,7 @@ namespace Game.Client.Match
 
         private void SetSectionsVisible(bool visible)
         {
+            if (cctvOverlay != null) cctvOverlay.gameObject.SetActive(visible);
             if (header != null)
             {
                 header.SetActive(visible);
@@ -234,6 +235,7 @@ namespace Game.Client.Match
 
         private void EnsureLayout()
         {
+            EnsureCctvLayout();
             var rect = transform as RectTransform;
             if (rect != null)
             {

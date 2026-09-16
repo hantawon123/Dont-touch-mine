@@ -45,10 +45,15 @@ namespace Game.Client.Lobby
         private TextMeshProUGUI categoryCaption;
         private TextMeshProUGUI categoryValue;
         private TextMeshProUGUI mapName;
+        private Image mapPreviewPhoto;
 
         public string CategoryLabel => categoryValue != null ? categoryValue.text : string.Empty;
 
         public string MapLabel => mapName != null ? mapName.text : string.Empty;
+
+        /// <summary>지금 보이는 맵 사진. 사진이 없는 맵·랜덤이면 null.</summary>
+        public Sprite MapPreviewSprite =>
+            mapPreviewPhoto != null && mapPreviewPhoto.gameObject.activeSelf ? mapPreviewPhoto.sprite : null;
 
         public static LobbyMatchInfoView Create(Transform parent)
         {
@@ -86,6 +91,12 @@ namespace Game.Client.Lobby
 
         public void SetInfo(string categoryLabel, string mapLabel)
         {
+            SetInfo(categoryLabel, mapLabel, mapPreview: null);
+        }
+
+        /// <param name="mapPreview">맵 사진. null이면 기존 단색 상자만 보인다.</param>
+        public void SetInfo(string categoryLabel, string mapLabel, Sprite mapPreview)
+        {
             EnsureLayout();
             if (categoryValue != null)
             {
@@ -96,6 +107,8 @@ namespace Game.Client.Lobby
             {
                 mapName.text = mapLabel ?? string.Empty;
             }
+
+            MapPreviewSprites.Apply(mapPreviewPhoto, mapPreview);
         }
 
         private void Awake()
@@ -126,6 +139,11 @@ namespace Game.Client.Lobby
             categoryCaption = transform.Find("CategoryRow/CategoryCaption")?.GetComponent<TextMeshProUGUI>();
             categoryValue = transform.Find("CategoryRow/CategoryValue")?.GetComponent<TextMeshProUGUI>();
             mapName = transform.Find("MapRow/MapName")?.GetComponent<TextMeshProUGUI>();
+            // 이미 만들어진 카드(사진 자식이 없던 예전 레이아웃 포함)에도 사진 자리를 붙인다.
+            var preview = transform.Find("MapRow/MapPreview")?.GetComponent<Image>();
+            mapPreviewPhoto = preview != null
+                ? MapPreviewSprites.FindPhoto(preview) ?? MapPreviewSprites.AttachPhoto(preview)
+                : null;
         }
 
         private void BuildLayout()
@@ -204,6 +222,7 @@ namespace Game.Client.Lobby
             previewImage.type = Image.Type.Sliced;
             previewImage.color = MapPreviewFill;
             previewImage.raycastTarget = false;
+            mapPreviewPhoto = MapPreviewSprites.FindPhoto(previewImage) ?? MapPreviewSprites.AttachPhoto(previewImage);
 
             mapName = CreateLabel(
                 mapRow,

@@ -25,13 +25,17 @@ namespace Game.Network.Session
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
             using var timer = timeout.CancelAfterSlim(TimeSpan.FromSeconds(30), DelayType.Realtime);
             await UniTask.WaitUntil(() => _receivedLobbySnapshot, cancellationToken: timeout.Token);
+            // Availability is published by the authority. Lobby player counts lag joins/leaves;
+            // admission and room-claim checks on the server prevent double allocation.
             // A small test pool replaces a finished room asynchronously. Keep
             // waiting for lobby updates instead of failing between processes.
             string availableRoom = null;
-            await UniTask.WaitUntil(() =>
+            try
+            {
+                await UniTask.WaitUntil(() =>
             {
                 foreach (var info in _realtimeRooms.Values)
-                    if (info.IsOpen && info.PlayerCount == 1 &&
+                    if (info.IsOpen &&
                         info.CustomProperties[SessionPropertyKeys.AvailableServer] is bool available && available)
                     {
                         availableRoom = info.Name;
@@ -39,6 +43,19 @@ namespace Game.Network.Session
                     }
                 return false;
             }, cancellationToken: timeout.Token);
+            }
+            catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
+            {
+                var open = 0;
+                var available = 0;
+                foreach (var info in _realtimeRooms.Values)
+                {
+                    if (info.IsOpen) open++;
+                    if (info.CustomProperties[SessionPropertyKeys.AvailableServer] is bool ready && ready) available++;
+                }
+                Debug.LogWarning($"[Rooms] Server allocation timed out: listed={_realtimeRooms.Count}, open={open}, available={available}.");
+                throw;
+            }
             return availableRoom;
         }
 
@@ -65,27 +82,24 @@ namespace Game.Network.Session
 
         private void OnRoomClaimRequested(PlayerRef source, RoomCreateRequest request, string nickname)
         {
-            var accepted = false;
-            if (IsDedicatedServer && _awaitingRoomClaim && PlayerSpawner.IsRoomOwner(_runner, source) &&
+            var properties = new Dictionary<string, SessionProperty>
+            {
+                [SessionPropertyKeys.AvailableServer] = false,
+                [SessionPropertyKeys.Locked] = request.IsLocked,
+                [SessionPropertyKeys.HostNickname] = nickname,
+                [SessionPropertyKeys.OpenedAt] = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            };
+            // Publish claim and settings together: a second update can reuse stale session properties.
+            var accepted = IsDedicatedServer && _awaitingRoomClaim && PlayerSpawner.IsRoomOwner(_runner, source) &&
                 request.TryCreateSettings(RoomSettings.MaxPlayerCount, out var settings, out _) &&
                 MapCatalog.IsLobbyChoice(settings.MapId) &&
                 ApplyLobbySettings(settings.MaxPlayers, PlaySettingsDraft.DefaultDestructionLimit,
-                    settings.MapId, MatchRuleSettings.Default, settings.Title))
+                    settings.MapId, MatchRuleSettings.Default, settings.Title, properties);
+            if (accepted)
             {
-                var properties = new Dictionary<string, SessionProperty>
-                {
-                    [SessionPropertyKeys.AvailableServer] = false,
-                    [SessionPropertyKeys.Locked] = request.IsLocked,
-                    [SessionPropertyKeys.HostNickname] = nickname,
-                    [SessionPropertyKeys.OpenedAt] = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-                };
-                if (_runner.SessionInfo.UpdateCustomProperties(properties))
-                {
-                    _expectedPassword = request.IsLocked ? request.Password : null;
-                    _runner.SessionInfo.IsVisible = !request.IsPrivate;
-                    _awaitingRoomClaim = false;
-                    accepted = true;
-                }
+                _expectedPassword = request.IsLocked ? request.Password : null;
+                _runner.SessionInfo.IsVisible = !request.IsPrivate;
+                _awaitingRoomClaim = false;
             }
             if (source.IsRealPlayer) _matchStarter.AnswerRoomClaim(source, accepted);
         }

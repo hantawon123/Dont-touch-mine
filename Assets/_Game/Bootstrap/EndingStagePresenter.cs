@@ -32,9 +32,7 @@ namespace Game.Bootstrap
         private readonly RoomBrowserSystem room;
         private readonly EndingStage stage;
         private readonly IResultView view;
-        private readonly HashSet<int> teleported = new();
         private bool backdropHidden;
-        private bool staged;
         private PlayerInteractor lockedInteractor;
         private ItemPlacementController lockedPlacement;
         private PlayerMovement stagedMovement;
@@ -71,16 +69,12 @@ namespace Game.Bootstrap
             stage.ShowCamera();
             LockLocalInteraction();
             ShowLocalBody();
-            TryStage();
             HideCarriedItems();
         }
 
         public void Tick()
         {
             if (!stage.IsWired) return;
-            // Avatars and the result can arrive after Start; keep trying until
-            // everyone the authority knows about has been placed.
-            if (!staged) TryStage();
             if (lockedInteractor == null) LockLocalInteraction();
             if (bodyShownRig == null) ShowLocalBody();
             HideCarriedItems();
@@ -171,44 +165,6 @@ namespace Game.Bootstrap
             return map;
         }
 
-        private void TryStage()
-        {
-            if (!network.IsServer || !result.HasMatchResult) return;
-            var participants = room.MatchParticipants.CurrentValue;
-            if (participants == null || participants.Count == 0) return;
-
-            var placements = EndingStageLayout.Assign(
-                participants,
-                result.LastWinnerPlayerIndices,
-                stage.EscapeSlotCount,
-                stage.ArrestSlotCount);
-
-            foreach (var placement in placements)
-            {
-                if (teleported.Contains(placement.PlayerIndex)) continue;
-                var slot = stage.Slot(placement.Escaped, placement.Slot);
-                if (slot == null) continue;
-                if (network.TryTeleportPlayer(placement.PlayerIndex, new Pose(slot.position, slot.rotation)))
-                {
-                    teleported.Add(placement.PlayerIndex);
-                }
-            }
-
-            staged = teleported.Count >= placements.Count;
-            if (staged)
-            {
-                Debug.Log($"[Ending] Staged {teleported.Count} of {participants.Count} players " +
-                          $"(escaped {CountEscaped(placements)}).");
-            }
-        }
-
-        private static int CountEscaped(IReadOnlyList<EndingStagePlacement> placements)
-        {
-            var count = 0;
-            foreach (var p in placements) if (p.Escaped) count++;
-            return count;
-        }
-
         /// <remarks>
         /// Picking things up or aiming at objects makes no sense on the stage,
         /// and a stray F would grab the match's items from a distance. Walking
@@ -245,5 +201,65 @@ namespace Game.Bootstrap
             if (stagedMovement != null) stagedMovement.ClearStageControl();
             stagedMovement = null;
         }
+    }
+
+    // Scene-scoped authority work must run even when the dedicated server skips UI.
+    public sealed class EndingStagePlacementController : ITickable
+    {
+        private readonly NetworkResultLobbyReturnController result;
+        private readonly NetworkRunnerService network;
+        private readonly RoomBrowserSystem room;
+        private readonly EndingStage stage;
+        private readonly HashSet<int> teleported = new();
+        private bool staged;
+
+        public EndingStagePlacementController(NetworkResultLobbyReturnController result,
+            NetworkRunnerService network, RoomBrowserSystem room, EndingStage stage)
+        {
+            this.result = result;
+            this.network = network;
+            this.room = room;
+            this.stage = stage;
+        }
+
+        public void Tick()
+        {
+            if (staged || !network.IsServer || !network.IsResultSceneLoaded ||
+                !network.IsSceneLoadComplete || !result.HasMatchResult) return;
+            var participants = room.MatchParticipants.CurrentValue;
+            if (participants == null || participants.Count == 0) return;
+
+            var placements = EndingStageLayout.Assign(
+                participants,
+                result.LastWinnerPlayerIndices,
+                stage.EscapeSlotCount,
+                stage.ArrestSlotCount);
+
+            foreach (var placement in placements)
+            {
+                if (teleported.Contains(placement.PlayerIndex)) continue;
+                var slot = stage.Slot(placement.Escaped, placement.Slot);
+                if (slot == null) continue;
+                if (network.TryTeleportPlayer(placement.PlayerIndex, new Pose(slot.position, slot.rotation)))
+                {
+                    teleported.Add(placement.PlayerIndex);
+                }
+            }
+
+            staged = teleported.Count >= placements.Count;
+            if (staged)
+            {
+                Debug.Log($"[Ending] Staged {teleported.Count} of {participants.Count} players " +
+                          $"(escaped {CountEscaped(placements)}).");
+            }
+        }
+
+        private static int CountEscaped(IReadOnlyList<EndingStagePlacement> placements)
+        {
+            var count = 0;
+            foreach (var p in placements) if (p.Escaped) count++;
+            return count;
+        }
+
     }
 }

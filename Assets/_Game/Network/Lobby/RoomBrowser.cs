@@ -126,10 +126,10 @@ namespace Game.Network.Lobby
         /// <see cref="IRoomSessionSink.RoomClosed"/> by the shutdown callback, so
         /// presentation sees a voluntary exit the same way as any other.
         /// </summary>
-        public UniTask LeaveAsync(CancellationToken cancellation)
+        public async UniTask LeaveAsync(CancellationToken cancellation)
         {
             _network.Shutdown();
-            return UniTask.CompletedTask;
+            await UniTask.WaitUntil(() => !_network.IsRoomExitPending, cancellationToken: cancellation);
         }
 
         private async UniTask<RoomEntryResult> Enter(
