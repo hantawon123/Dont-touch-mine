@@ -38,13 +38,14 @@ namespace Game.Editor.Intro
         const float GlowDiam = 16.50f;
 
         const float LoopWidth = 27.20f;
-        const float LoopDur   =  5.00f;
+        const float LoopDur   =  5.00f;   // 원본 이동/애니메이션 속도 유지
+        const float IntroDuration = 4.50f; // 원본의 뒷부분만 잘라 일찍 종료
         const float SpawnEdge = 13.40f;   // 오른쪽 바깥에서 등장
         const int   Direction = -1;       // 오른쪽 -> 왼쪽
 
         const int OrderGlow = 0, OrderMoon = 10, OrderBack = 20,
                   OrderThief = 30, OrderFront = 40, OrderVignette = 90, OrderFade = 100;
-        const float FadeDur   = 0.70f;    // 마지막 0.7초 동안 배경색으로 페이드아웃 (총 길이 5초에 포함)
+        const float FadeDur   = 0.35f;    // 마지막 0.35초 동안 배경색으로 페이드아웃 (총 길이 4.5초에 포함)
 
         static readonly Color BgColor    = new Color32(0x03, 0x08, 0x13, 0xFF);
         static readonly Color BackGround = new Color32(0x0D, 0x16, 0x2A, 0xFF);
@@ -222,7 +223,7 @@ namespace Game.Editor.Intro
 
             var root = new GameObject("IntroScene");
             var ctrl = root.AddComponent<IntroLoopController>();
-            ctrl.loopDuration = LoopDur;
+            ctrl.loopDuration = IntroDuration;
             ctrl.autoFinish   = true;      // 한 바퀴(5초) 돌면 종료
             ctrl.loopCount    = 1;
             ctrl.allowSkip    = false;     // 스킵 불가 — 항상 5초를 다 본다
@@ -232,17 +233,19 @@ namespace Game.Editor.Intro
             exit.nextSceneName = NextScene;
 
             // 영상 두 바퀴(10초)에 맞춰 만든 밤 앰비언스 + 발소리 믹스.
-            // 현재 인트로는 첫 바퀴(5초)만 재생하고, 마지막 FadeDur 동안 화면과 함께 소리를 줄인다.
+            // 원본 속도로 재생하되 뒷부분을 잘라 4.5초에 종료하고, 3.7~4.0초에 소리를 줄인다.
             var audioGo = NewChild(root, "IntroAudio", Vector3.zero);
             var audio = audioGo.AddComponent<AudioSource>();
             audio.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(AudioPath);
             audio.playOnAwake = true;
             audio.loop = true;
+            audio.pitch = 1f; // 재생 속도는 유지하고 뒤쪽 재생 시간만 줄인다.
             audio.spatialBlend = 0f;
             audio.volume = 0.8f;
             var audioFade = audioGo.AddComponent<IntroAudioFade>();
             audioFade.baseVolume = 0.8f;
-            audioFade.fadeDuration = FadeDur;
+            audioFade.fadeDuration = 0.3f;
+            audioFade.fadeEndLeadTime = 0.5f;
 
             // ── 카메라 ──
             var camGo = new GameObject("IntroCamera");
@@ -295,7 +298,7 @@ namespace Game.Editor.Intro
 
                 var an = go.AddComponent<SpriteSheetAnimator>();
                 an.frames      = frames;
-                an.fps         = 8 * 12 / LoopDur;   // 19.2fps = 5초에 12사이클
+                an.fps         = 8 * 12 / LoopDur;   // 19.2fps = 원본 5초에 12사이클
                 an.phaseOffset = phase;
 
                 var rn = go.AddComponent<ThiefRunner>();
