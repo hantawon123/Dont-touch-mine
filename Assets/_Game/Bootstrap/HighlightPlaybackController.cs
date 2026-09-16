@@ -419,9 +419,7 @@ namespace Game.Bootstrap
             cameraDirector.Tick(Time.unscaledDeltaTime);
             if (cctvHud != null) cctvHud.SetCctvInfo(string.IsNullOrEmpty(cameraDirector.CctvLocation)
                 ? "3인칭 추적" : cameraDirector.CctvLocation, replayPlayer.SourceTime);
-            transition.SetOpacity(Mathf.Max(
-                HighlightPresentationTiming.Opacity(elapsed, duration),
-                Mathf.Max(cameraDirector.CctvOpacity, HighlightReplayPlayer.CutOpacity(replay[index].Clips, playbackTime))));
+            transition.SetOpacity(HighlightPresentationTiming.Opacity(elapsed, duration));
         }
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
