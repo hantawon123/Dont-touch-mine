@@ -5,9 +5,10 @@ $owned = Get-Content -LiteralPath $record -Raw | ConvertFrom-Json
 $process = Get-Process -Id $owned.Id -ErrorAction SilentlyContinue
 # PID may have been recycled: require exact start time and executable identity.
 if ($process -and $process.StartTime.ToUniversalTime().Ticks.ToString() -eq $owned.Started -and $process.Path -eq $owned.Path) {
+    $null = $process.Handle
     & taskkill.exe /PID $owned.Id /T /F | Out-Null
-    if ($LASTEXITCODE -ne 0 -and (Get-Process -Id $owned.Id -ErrorAction SilentlyContinue)) {
-        throw 'Could not stop this build process tree.'
+    if (!$process.WaitForExit(10000)) {
+        throw 'Build process did not exit after the stop request.'
     }
 }
 Remove-Item -LiteralPath $record -Force
