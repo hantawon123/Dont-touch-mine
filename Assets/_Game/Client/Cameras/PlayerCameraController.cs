@@ -272,7 +272,8 @@ namespace Game.Client.Cameras
             if (followInteractor != null)
             {
                 if (firstPersonView && firstPersonHold.enabled)
-                    followInteractor.SetFirstPersonHold(transform, firstPersonHold.offset, firstPersonHold.tilt);
+                    followInteractor.SetFirstPersonHold(
+                        transform, firstPersonHold.offset, firstPersonHold.tilt, firstPersonHold.maxScreenFraction);
                 else
                     followInteractor.ClearFirstPersonHold();
             }

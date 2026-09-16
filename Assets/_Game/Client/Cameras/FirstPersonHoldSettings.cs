@@ -18,5 +18,9 @@ namespace Game.Client.Cameras
 
         [Tooltip("카메라 기준 물건 기울기(도). x=앞으로 숙임, y=좌우 돌림, z=좌우 기울임")]
         public Vector3 tilt = new(10f, -15f, 0f);
+
+        [Tooltip("물건이 화면 높이의 이 비율보다 크게 보이면 그만큼 앞으로 밀어 작게 보이게 한다. 0이면 끔. 큰 물건이 시야를 가리는 것을 막는다")]
+        [Range(0f, 1f)]
+        public float maxScreenFraction = 0.35f;
     }
 }
