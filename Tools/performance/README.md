@@ -94,3 +94,21 @@ WebGL 크기 보정 후 인스턴싱 2회는 34.97~35.97FPS, SSAO 끄기는 45.2
 추가 확인: Supermarket.unity의 OcclusionCullingSettings는 m_OcclusionCullingData=fileID:0이며 SceneGUID도 0이다. 다음 후보는 고정 벽·구조물의 베이크된 가림 판정을 통해 불필요한 제출을 줄이는 것이다. 아직 적용하거나 효과를 검증하지 않았다. 움직이는 물건을 정적 가림막으로 지정하지 않고, 물건/캐릭터/하이라이트 CCTV/외곽선 가시성을 함께 검증해야 한다. [Unity 동적 객체 오클루전 설명](https://docs.unity3d.com/cn/6000.0/Manual/occlusion-culling-dynamic-gameobjects.html)을 참고한다.
 
 완료 마커, 6개 CSV/이미지와 gl-profile.json은 `.build/performance-995-web-gl-profile`에 보관한다. 시험 서버는 완료 후 종료됐으며 미리보기와 시험 탭을 닫고 검증 실행기를 복원했다. 제품 렌더링 코드나 사용자 에셋은 변경하지 않았다. 120FPS 달성은 아직 검증되지 않았다.
+
+## 2026-09-16 최종 오클루전 WebGL 대조: 채택하지 않음
+
+고정 불투명 구조물 804개를 대상으로 검증 복사본에서 베이크하고 Supermarket 씬에 데이터 참조가 저장된 것을 확인했다. 생성 에셋은 98,996바이트이며 PVS/씬 참조를 포함한다. 앞선 umbraDataSize=0 로그만으로 파일 자체가 0바이트였다고 해석한 것은 부정확하다. API 값 대신 실제 에셋과 씬 연결을 확인했다. 움직이는 물건·Rigidbody·Animator는 가림막 선정에서 제외했다.
+
+최적화 WebGL 재빌드는 성공(OptimizeSpeed/RuntimeSpeed, 786.69초)했다. 새 빌드 내에서 모든 현재 카메라의 useOcclusionCulling을 OFF/ON으로 번갈아 바꾸며 예열 5초+측정 30초씩 3쌍을 완료했다. Intel Arc ANGLE, 실제 캔버스/Unity 960×600, 렌더 스케일 0.5, 내부 제한 144, 동일 마트 고정 시점, 로컬 서버 1인 조건이다. 빌드와 측정은 겹치지 않았고 API 계측 래퍼도 사용하지 않았다.
+
+| 회차 | OFF 평균 FPS | ON 평균 FPS | OFF/ON p95 ms | OFF/ON 배치 수 |
+| --- | ---: | ---: | --- | --- |
+| 1 | 47.69 | 43.51 | 26 / 29 | 1025 / 1025 |
+| 2 | 46.13 | 45.58 | 27 / 28 | 1025 / 1025 |
+| 3 | 48.21 | 44.22 | 26 / 29 | 1025 / 1025 |
+
+구간 FPS의 산술 평균은 OFF 47.35, ON 44.44로 약 6.2% 악화됐다. 이 시험 시점에서는 그리기 감소가 없었으며 120FPS 목표를 해결하지 못했다. 가림 데이터 부재가 성능 격차의 주원인이라는 증거도 얻지 못했다. 다른 시점의 효과까지 부정하는 결과는 아니다. 실패한 후보를 제품에 적용하지 않는다.
+
+별도 에디터에서 CCTV 39개 시점의 정적 화면을 예열 후 OFF/ON 비교했고 모두 픽셀이 일치했다. 실제 이동/외곽선/6인 하이라이트 가시성을 보증하는 검사는 아니다. WebGL 실행 중 기존 presence 401 경고가 있었지만 경기 진입과 6개 구간 완료 마커를 확인했다. 일반 Chrome, 외장 GPU, 6인 성능으로 일반화하지 않는다.
+
+자료: 작업 공간 `.build/performance-995-final-occlusion`의 환경/CSV/스크린샷/summary.json/client-done.txt, `.build/final-occlusion-views/comparison.csv`. 제품 코드·씬은 변경하지 않았고 시험 인증/실행 설정을 복원했다. 주간 사용량 39% 상한에서 추가 실험을 중단한다. 현재 검증으로 WebGL 120FPS를 약속할 근거가 없으므로, 현 일정에서는 네이티브를 우선하는 판단이 타당하다.
