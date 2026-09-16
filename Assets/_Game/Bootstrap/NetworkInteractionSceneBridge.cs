@@ -37,6 +37,8 @@ namespace Game.Bootstrap
         // 붙이기 실패를 물건별로 한 번만 경고하기 위한 기록(성공하면 지운다)
         private readonly HashSet<string> attachWarnings = new();
         private double nextAssignmentItemScanAt;
+        private bool objectStatesReceived;
+        private readonly HashSet<string> replicatedIds = new();
         private readonly Dictionary<string, int> appliedVersions =
             new(StringComparer.Ordinal);
 
@@ -496,6 +498,29 @@ namespace Game.Bootstrap
 
                 appliedVersions[state.ObjectId] = state.Version;
             }
+
+            DetachItemsMissingFromAuthority();
+        }
+
+        /// <summary>
+        /// 복제 배열에 더는 없는 물건을 누가 들고 있으면 손에서 뗀다. 매치가 끝나 호스트가 배열을 비웠거나 상태가
+        /// 사라진 경우, 예전엔 그 물건이 플레이어에 붙은 채 남아 로비까지 따라왔다.
+        /// </summary>
+        private void DetachItemsMissingFromAuthority()
+        {
+            if (!objectStatesReceived) return;
+            replicatedIds.Clear();
+            for (var index = 0; index < objectStates.Length; index++) replicatedIds.Add(objectStates[index].ObjectId);
+
+            foreach (var interactor in interactors.Values)
+            {
+                var carried = interactor != null ? interactor.CarriedItem : null;
+                if (carried == null || replicatedIds.Contains(carried.ObjectId)) continue;
+                Debug.LogWarning(
+                    $"[Interaction] '{carried.ObjectId}' is carried by {interactor.name} but authority no longer tracks it; detaching.");
+                interactor.ForgetConfirmedItem(carried);
+                carried.OnNetworkPose(new Pose(carried.transform.position, carried.transform.rotation));
+            }
         }
 
         private bool IsHeldStateAligned(MatchObjectStateSnapshot state, CarryableItem item)
@@ -632,6 +657,7 @@ namespace Game.Bootstrap
             IReadOnlyList<MatchObjectStateSnapshot> states)
         {
             if (suspendedForHighlights) return;
+            objectStatesReceived = true;
             objectStates = states == null
                 ? Array.Empty<MatchObjectStateSnapshot>()
                 : Copy(states);

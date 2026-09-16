@@ -498,6 +498,47 @@ namespace Game.Network.Match
                     if (!_session.Players.IsActive(i)) _state.TrySetParticipantInactive(i);
                 // Host migration suspended; retain the checkpoint component/schema but do not record it.
                 // _checkpoint?.Capture(_session, _state, _roster);
+                ReconcileHeldObjectStates();
+            }
+        }
+
+        private int _reconcileCountdown;
+        private const int ReconcileEveryTicks = 30;
+
+        /// <summary>
+        /// 도메인(누가 무엇을 들고 있나)과 복제 배열(클라이언트가 보는 소지 상태)이 어긋나면 복제 쪽을 도메인에 맞춘다.
+        /// 어느 경로든 도메인만 바뀌고 복제 갱신이 빠지면, 모든 클라이언트가 이미 놓은 물건을 계속 '들고 있음'으로
+        /// 보고 당사자의 놓기·던지기는 "authority has no held object"로 거부된다(2026-09-17 팀 테스트). 원인 경로를
+        /// 하나씩 막는 것과 별개로, 여기서 주기적으로 바로잡아 영구 불일치를 없앤다.
+        /// </summary>
+        private void ReconcileHeldObjectStates()
+        {
+            if (IsLobby || !_state.IsStarted || _state.Phase == MatchPhase.Result) return;
+            if (++_reconcileCountdown < ReconcileEveryTicks) return;
+            _reconcileCountdown = 0;
+
+            var count = Mathf.Min(_state.ObjectStateCount, MatchSessionState.MaxReplicatedObjects);
+            for (var index = 0; index < count; index++)
+            {
+                var replicated = _state.ObjectStates.Get(index);
+                var holder = replicated.HolderPlayerIndex;
+                if (holder < 0 || replicated.IsDestroyed || replicated.IsPendingEjection) continue;
+
+                var objectId = replicated.ObjectId.ToString();
+                if (_session.TryGetHeldObjectId(holder, out var domainObjectId) &&
+                    string.Equals(domainObjectId, objectId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                // 복제는 '들고 있음', 도메인은 아님 → 들고 있던 사람 자리에 놓인 것으로 복제를 맞춘다.
+                var pose = TryGetPlayerPose(holder, out var playerPose)
+                    ? new Pose(playerPose.position, Quaternion.identity)
+                    : new Pose(replicated.Position, replicated.Rotation);
+                var fixedUp = _state.TrySetObjectReleased(objectId, pose);
+                Debug.LogWarning(
+                    $"[Interaction] reconcile: replicated says player {holder} holds '{objectId}' but authority domain says " +
+                    $"'{domainObjectId ?? "nothing"}' → released at {pose.position} (ok={fixedUp})");
             }
         }
 
@@ -1251,9 +1292,12 @@ namespace Game.Network.Match
 
         private void OnObjectAutoReleased(ObjectAutoReleasedEvent confirmedEvent)
         {
-            _state?.TrySetObjectReleased(
-                confirmedEvent.ObjectId,
-                confirmedEvent.Pose);
+            if (_state == null || !_state.TrySetObjectReleased(confirmedEvent.ObjectId, confirmedEvent.Pose))
+            {
+                Debug.LogWarning(
+                    $"[Interaction] auto release of '{confirmedEvent.ObjectId}' could not be replicated " +
+                    $"(state={(_state == null ? "null" : "refused")}); reconcile will retry.");
+            }
         }
 
         private void OnMapObjectEjected(MapObjectEjectedEvent confirmedEvent)

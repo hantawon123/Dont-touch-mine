@@ -245,8 +245,13 @@ namespace Game.Client.Interactions
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
             transform.SetPositionAndRotation(pose.position, pose.rotation);
-            body.linearVelocity = default;
-            body.angularVelocity = default;
+            // 들고 있던 몸은 이미 kinematic이라 속도를 쓰면 Unity가 경고한다. 움직이는 몸일 때만 멈춘다.
+            if (!body.isKinematic)
+            {
+                body.linearVelocity = default;
+                body.angularVelocity = default;
+            }
+
             body.isKinematic = true;
             SetCollidersEnabled(false);
             IsCarried = false;
