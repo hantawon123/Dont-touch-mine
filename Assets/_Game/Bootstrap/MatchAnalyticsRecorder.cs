@@ -14,7 +14,7 @@ namespace Game.Bootstrap
     /// <summary>Only the host samples the confirmed match. Independent of highlight recording.</summary>
     public sealed class MatchAnalyticsRecorder : IStartable, ITickable, IDisposable
     {
-        private readonly NetworkRunnerService network;
+        private readonly IMatchAnalyticsSource network;
         private readonly RoomBrowserSystem room;
         private readonly MatchAnalyticsUpload upload;
         private readonly Dictionary<string, MatchObjectStateSnapshot> objects = new();
@@ -26,7 +26,7 @@ namespace Game.Bootstrap
         private string roomCode, mapId;
         private double lastTime;
 
-        public MatchAnalyticsRecorder(NetworkRunnerService network, RoomBrowserSystem room, MatchAnalyticsUpload upload)
+        public MatchAnalyticsRecorder(IMatchAnalyticsSource network, RoomBrowserSystem room, MatchAnalyticsUpload upload)
         {
             this.network = network;
             this.room = room;
