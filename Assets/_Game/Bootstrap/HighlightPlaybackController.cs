@@ -787,7 +787,6 @@ namespace Game.Bootstrap
             hud.SetHighlightHud(true, subtitle, highlightBarFills);
             if(cctvHud==null && hud is Component component)
                 cctvHud=component.GetComponentInChildren<HighlightHudView>(true);
-            if(cctvHud!=null) cctvHud.SetGeneratedCaption(current?.Title,current?.Summary);
         }
 
         private static int GetRecordedPlayerCount(
