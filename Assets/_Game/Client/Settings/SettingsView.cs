@@ -347,6 +347,15 @@ namespace Game.Client.Settings
         private void CreateBackground(RectTransform canvas)
         {
             var art = CreateRect("Background", canvas);
+            if (lobbyOverlay)
+            {
+                Stretch(art);
+                var dim = art.gameObject.AddComponent<Image>();
+                dim.color = SettingsStyle.Palette.OverlayDim;
+                dim.raycastTarget = true;
+                return;
+            }
+
             SetAnchor(art, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
             art.anchoredPosition = Vector2.zero;
             art.sizeDelta = SettingsStyle.ReferenceResolution;

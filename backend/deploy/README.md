@@ -150,7 +150,7 @@ ssh d205 'cd /home/ubuntu/d205 && bash deploy/repair-analytics-flyway.sh'
 
 스크립트가 이력 테이블을 먼저 백업하고, **분리 전 값일 때만** 코드값으로 바꾸고, V1~V4 를 기대값과
 대조합니다. 다른 값이 들어 있으면 손대지 않고 멈춥니다. 여러 번 돌려도 무해합니다. 끝나면 젠킨스에서
-develop 잡을 다시 실행합니다.
+release 잡을 다시 실행합니다. 배포하는 잡은 release 입니다.
 
 마이그레이션 파일을 고치면 스크립트 안의 기대 체크섬 표도 같이 고쳐야 합니다.
 
@@ -417,7 +417,7 @@ Job 이름 `d205-backend`, 종류 **Multibranch Pipeline**.
 | Branch Sources | Owner | `s15-metaverse-game-sub1` |
 | Branch Sources | Projects | `S15P21D205` |
 | Behaviours | Discover merge requests from origin | **`Merging the merge request with the current target branch revision`** |
-| Behaviours | Filter by name (with wildcards) → Include | **`develop MR-*`** |
+| Behaviours | Filter by name (with wildcards) → Include | **`develop release MR-*`** |
 | Build Configuration | Mode | `by Jenkinsfile` |
 | Build Configuration | Script Path | `backend/Jenkinsfile` |
 | Scan Triggers | Periodically if not otherwise run | `1 day` (웹훅이 주 트리거. 웹훅이 죽었을 때의 안전망은 `Jenkinsfile` 의 `pollSCM('H/10 * * * *')`) |
@@ -426,13 +426,16 @@ Job 이름 `d205-backend`, 종류 **Multibranch Pipeline**.
 두 값이 특히 중요합니다.
 
 **MR 발견 전략**을 `Merging the merge request with the current target branch revision`
-으로 둬야 합니다. 이게 "MR을 develop에 합친 결과"를 빌드하는 설정이고, 각각은
+으로 둬야 합니다. 이게 "MR을 대상 브랜치에 합친 결과"를 빌드하는 설정이고, 각각은
 깨끗하게 머지되는데 합치면 깨지는 의미 충돌을 잡는 유일한 장치입니다.
 
-**이름 필터 `develop MR-*`**가 없으면 낡은 브랜치가 배포합니다. Multibranch는
+**이름 필터 `develop release MR-*`**가 없으면 낡은 브랜치가 배포합니다. Multibranch는
 각 브랜치의 Jenkinsfile을 읽으므로, 분기 시점이 오래된 브랜치는 DEPLOY 가드가
 없던 시절의 파이프라인을 실행하고 곧바로 배포로 갑니다. 실제로 문서 브랜치가
 운영에 배포한 일이 있었습니다. MR은 `MR-<번호>` 형태라 `MR-*`로 잡힙니다.
+
+반대로 **`release`가 필터에서 빠지면 배포 자체가 조용히 멈춥니다.** Job이 생기지
+않으므로 빨간불도 뜨지 않고, develop은 정상으로 초록불이라 아무도 모릅니다.
 
 ### GitLab 서버 연결
 
@@ -484,17 +487,42 @@ URL은 Job과 무관한 고정 주소입니다. GitLab Branch Source 플러그�
 
 GitLab → Settings → Merge requests → Merge checks → `Pipelines must succeed`.
 
-**`main`을 대상으로 하는 MR에 주의하세요.** `main`과 `release`에는 `backend/`가
-없어서, 머지 결과에 `backend/Jenkinsfile`이 없으면 Job이 생기지 않고 파이프라인도
-없습니다. 그 상태로는 머지가 막힙니다. `develop → release → main` 순서를 지키면
-`release`에 `backend/`가 들어온 뒤이므로 문제가 없습니다.
+**`main`을 대상으로 하는 MR에 주의하세요.** `main`에는 `backend/`가 없어서, 머지
+결과에 `backend/Jenkinsfile`이 없으면 Job이 생기지 않고 파이프라인도 없습니다. 그
+상태로는 머지가 막힙니다. `release`는 2026-09-16에 develop 기준으로 전진하면서
+`backend/`를 갖게 됐으므로(S15P21D205-1020) `develop → release`는 괜찮고, 남은
+것은 `release → main` 뿐입니다.
+
+## 배포 브랜치
+
+**배포는 `release` 머지로만 일어납니다**(2026-09-16, S15P21D205-1020). 그 전에는
+develop 머지가 곧바로 운영 컨테이너를 교체했는데, 배포판이 나간 뒤에는 개발 중의
+머지가 그대로 플레이어의 접속을 끊습니다. EC2가 한 대라 서버를 나누는 대신
+파이프라인에 이미 있던 두 경로의 진입로를 옮겼습니다.
+
+| | develop 머지 | release 머지 |
+| --- | --- | --- |
+| 빌드·테스트 | O | O |
+| 기동 검증 | 일회용 DB | 운영 DB |
+| 배포·헬스체크 | X | O |
+
+평소 개발은 그대로 develop에 머지하고, 배포판에 반영할 때만 `develop → release` MR을
+올립니다. 그 머지 버튼이 곧 배포 버튼입니다.
+
+두 가지를 주의하세요.
+
+- **release 머지는 그동안 쌓인 것을 한꺼번에 내보냅니다.** develop에 사흘치가 쌓였다면
+  그 사흘치가 한 번에 배포됩니다. develop 빌드가 빌드·테스트·기동 검증을 계속 돌려주므로
+  깨진 상태로 쌓이지는 않지만, 마이그레이션이 끼어 있으면 양이 많을 때 더 조심하세요.
+- **클라이언트 배포판은 release 머지가 끝난 뒤에 뽑습니다.** 순서가 반대면 배포판이
+  서버에 아직 없는 API를 부릅니다.
 
 ## 배포 파이프라인
 
 `../Jenkinsfile`이 정의합니다. 하나의 파일이 두 경로를 처리합니다.
 
 ```
-                      develop            MR / 그 외
+                      release            develop / MR
   체크아웃              O                    O
   대상 확인             O                    O
   빌드                  O (compose)          -
@@ -510,25 +538,32 @@ GitLab → Settings → Merge requests → Merge checks → `Pipelines must succ
 LFS 스머지를 생략한 채 직접 받기 때문입니다. 자세한 것은 "Jenkins 체크아웃이 10분 타임아웃으로
 죽으면" 에 있습니다.
 
-`DEPLOY` 판정은 `BRANCH_NAME` 기준입니다. `when { branch 'develop' }` 는
+`DEPLOY` 판정은 `BRANCH_NAME` 기준입니다. `when { branch 'release' }` 는
 Multibranch에서만 동작하고 단독 Job에는 `BRANCH_NAME`이 없어 조건이 false가 되므로,
 그대로 쓰면 빌드는 초록불인데 배포가 멈추는 상태가 됩니다.
 
+플래그가 `DEPLOY` 하나가 아니라 **`TRUNK`와 둘인 이유가 있습니다.** 예전에는
+develop 하나가 '통합 브랜치'와 '배포 대상'을 겸해서 한 개로 둘 다 판별했습니다.
+배포가 release로 옮겨지면서 그 둘이 갈라졌습니다. 묶어 두면 develop 빌드가
+`origin/develop`과 자기 자신을 비교해 변경 파일 0개로 매번 건너뛰고, 테스트가 한
+번도 돌지 않습니다. 초록불만 뜨고 검증은 없는 상태라 눈에 띄지 않습니다.
+
 **대상 확인**이 `backend/` 변경 여부를 판별해 없으면 성공으로 보고하고 나머지를
 건너뜁니다. 실패로 끝내면 머지 차단을 켰을 때 백엔드와 무관한 MR이 전부 막힙니다.
-비교 기준은 경로별로 다릅니다. MR은 `origin/$CHANGE_TARGET...HEAD`, develop은
-`GIT_PREVIOUS_SUCCESSFUL_COMMIT..HEAD`입니다. develop을 하드코딩하면 `release`
-대상 MR에서 엉뚱한 비교를 합니다.
+비교 기준은 경로별로 다릅니다. MR은 `origin/$CHANGE_TARGET...HEAD`, 통합
+브랜치(`TRUNK`, 즉 develop과 release)는 `GIT_PREVIOUS_SUCCESSFUL_COMMIT..HEAD`
+입니다. develop을 하드코딩하면 `release` 대상 MR에서 엉뚱한 비교를 합니다.
 
 **기동 검증**이 핵심입니다. `docker compose up`은 컨테이너를 먼저 교체하고 앱은
 그 뒤에 뜹니다. 곧바로 배포하면 마이그레이션 오류나 설정 오류가 그대로 서비스
 다운이 됩니다. 임시 컨테이너를 먼저 띄워 `/actuator/health`가 UP인지 확인하면
 그런 실패가 살아 있는 서비스를 건드리기 전에 드러납니다.
 
-검증 DB가 경로별로 다른 이유가 있습니다. **MR은 일회용 MySQL**을 쓰고 운영
-크리덴셜을 받지 않습니다. 남의 브랜치가 운영 DB나 비밀번호를 만질 이유가 없습니다.
-**develop은 운영 DB**를 씁니다. 빈 DB에서는 통과하지만 기존 데이터가 있으면
-실패하는 마이그레이션이 있어서, 실제 스키마 상태에 대고 확인해야 합니다.
+검증 DB가 경로별로 다른 이유가 있습니다. **MR과 develop은 일회용 MySQL**을 쓰고
+운영 크리덴셜을 받지 않습니다. 배포하지 않는 경로가 운영 DB나 비밀번호를 만질
+이유가 없습니다. **release는 운영 DB**를 씁니다. 빈 DB에서는 통과하지만 기존
+데이터가 있으면 실패하는 마이그레이션이 있어서, 살아 있는 컨테이너를 교체하기
+직전에는 실제 스키마 상태에 대고 확인해야 합니다.
 
 임시 컨테이너의 호스트 포트는 `0`으로 두어 도커가 빈 포트를 고르게 합니다.
 MR Job들은 서로 병렬로 돌기 때문에 고정 포트는 충돌합니다.
@@ -547,10 +582,11 @@ MR Job들은 서로 병렬로 돌기 때문에 고정 포트는 충돌합니다.
 지웁니다. 정리에 쓰는 `docker rmi`에는 `-f`를 붙이지 않습니다. 돌고 있는
 컨테이너가 쓰는 이미지는 도커가 거부하므로 실수로 지울 수 없습니다.
 
-**develop 빌드는 대상 확인의 판별 직후에 열려 있는 MR의 재빌드를 요청합니다.**
-GitLab Free에는 merged results pipeline과 merge train이 없어 대상 브랜치가 움직여도
-MR이 자동으로 재검증되지 않습니다. 그러면 MR은 "이전 develop에 합친 결과"로 받은
-초록불을 그대로 들고 있게 되고, 그 상태로 머지하면 검증되지 않은 조합이 들어갑니다.
+**통합 브랜치(develop·release) 빌드는 대상 확인의 판별 직후에, 그 브랜치를 대상으로
+열려 있는 MR의 재빌드를 요청합니다.** GitLab Free에는 merged results pipeline과
+merge train이 없어 대상 브랜치가 움직여도 MR이 자동으로 재검증되지 않습니다.
+그러면 MR은 "이전 대상 브랜치에 합친 결과"로 받은 초록불을 그대로 들고 있게 되고,
+그 상태로 머지하면 검증되지 않은 조합이 들어갑니다.
 
 **빌드 마지막이 아니라 맨 앞에서 하는 이유는 그 낡은 초록불이 보이는 시간을 줄이는
 것입니다.** 처음에는 `post success`에 뒀는데, 그러면 develop 빌드가 끝날 때까지 MR은
@@ -622,7 +658,7 @@ ssh d205 'bash /tmp/verify.sh'
 
 ```
 git fetch origin
-git checkout -b revert/broken-deploy origin/develop
+git checkout -b revert/broken-deploy origin/release
 git revert -m 1 <머지커밋SHA>
 ```
 
@@ -641,7 +677,7 @@ ssh d205 'docker images d205-app --format "{{.Tag}}  {{.ID}}" | sort -r'
 골라 이렇게 합니다.
 
 ```
-W=/var/lib/jenkins/workspace/d205-backend_develop/backend
+W=/var/lib/jenkins/workspace/d205-backend_release/backend
 sudo cp /home/ubuntu/d205/.env $W/.env
 cd $W
 docker tag d205-app:<고른-이름표> d205-app:latest
@@ -680,12 +716,12 @@ DB를 띄우고 `bootRun`으로 확인하면 됩니다. 이 습관이 파이프�
 
 ### 4. 낡은 브랜치가 배포한 경우
 
-Multibranch는 **각 브랜치의 Jenkinsfile을 읽습니다.** 이름 필터(`develop MR-*`)가
+Multibranch는 **각 브랜치의 Jenkinsfile을 읽습니다.** 이름 필터(`develop release MR-*`)가
 풀리면 분기 시점이 오래된 브랜치가 DEPLOY 가드 없는 옛 파이프라인을 실행해
 운영에 배포할 수 있습니다. 그 브랜치의 backend 소스가 낡았으면 운영이 롤백됩니다.
 
 빌드 로그의 단계 목록이 지금 파이프라인과 다르면(예: `배포`와 `헬스체크`만 있으면)
-이 경우입니다. Job 설정의 이름 필터를 먼저 복원하고, 그다음 `develop`을 수동
+이 경우입니다. Job 설정의 이름 필터를 먼저 복원하고, 그다음 `release`를 수동
 빌드해 정상 버전으로 되돌리세요.
 
 ### 5. 짧은 틈에 두 MR을 연달아 머지한 경우
@@ -759,8 +795,8 @@ MR일 때만 이 습관을 의식적으로 지키면 충분합니다.
 
 - **머지 차단이 파이프라인 없는 MR을 막는지.** `main` 대상 MR은 머지 결과에
   `backend/Jenkinsfile`이 없어 Job이 생기지 않습니다. 그 상태를 실제로 시험하지
-  않았습니다. `develop → release → main` 순서를 지키면 `release`에 `backend/`가
-  들어온 뒤이므로 문제가 없다고 보고 넘어갔습니다.
+  않았습니다. `release`는 backend/ 를 갖게 되었으므로 남은 것은 `release → main`
+  뿐입니다.
 - **이미지 이름표로 되돌리는 절차를 실제로 해본 적은 없습니다.** 태그는 배포마다
   남고 있지만, 그것으로 서비스를 이전 버전으로 되돌리는 것을 시험하지 않았습니다.
   운영이 살아 있는 상태에서 일부러 되돌려볼 만한 가치가 있습니다.
@@ -817,3 +853,21 @@ MR을 **머지 결과로 빌드**하고, **develop이 갱신되면 열린 MR에 
 빌드와 테스트가 운영 서버와 같은 EC2에서 돕니다. 4 vCPU / 15GB이고 앱 CPU가
 0.2% 수준이라 지금은 경합이 없습니다. Jenkins 실행기가 2개로 제한돼 있어 동시
 빌드도 두 개까지입니다. 트래픽이 생기면 빌드용 인스턴스를 분리해야 합니다.
+
+
+## GMS 공용 연결 (S15P21D205-1015)
+
+GMS_KEY와 GMS_GENERATE_URL은 서버의 `/etc/d205/gms.env`에만 둡니다.
+`compose.prod.yml`의 app이 이 파일을 읽습니다. 소유자 root, 그룹 jenkins, 파일 권한 640(디렉터리 750)으로
+설정해 수동 배포와 Jenkins 재배포에서 같은 파일을 사용합니다. Jenkins 비밀 파일의
+기존 DB 설정을 수정하거나 팀원에게 GMS 키를 배포할 필요는 없습니다.
+서버를 옮기면 비밀 파일도 안전하게 옮기고, 경로가 다르면 `GMS_ENV_FILE`로 지정합니다.
+Compose 2.24 이상이 필요하며 파일이 없으면 AI 없이 기존 하이라이트를 사용합니다.
+GMS 값을 compose의 `environment`에 빈 값으로 추가하면 env_file 값을 덮으므로 넣지 않습니다.
+
+팀 테스트: 모두 같은 feature 브랜치 버전을 받은 뒤 한 명은 Unity 개발 서버, 나머지는
+개발 클라이언트를 실행합니다. 기본 BackendEndpoint는 기존 공용 HTTPS 백엔드입니다.
+Unity 프로젝트에 GMS 설정 파일은 필요 없습니다. 각자 Spring 백엔드까지 실행할 때만
+로컬 `backend/.env.properties`에 별도 키가 필요합니다. 운영 배포 이미지에는 키를 넣지 않습니다.
+
+환경설정은 각 PC의 기존 PlayerPrefs 로컬 저장만 사용합니다. 계정 설정 API나 DB 테이블을 추가하지 않습니다.

@@ -92,11 +92,25 @@ namespace Game.Core.Backend
         /// <summary>Someone else already uses that nickname.</summary>
         NicknameTaken,
 
+        /// <summary>
+        /// The nickname contains a word the server does not allow
+        /// (S15P21D205-1017). Which word is not said, on purpose. Distinct from
+        /// <see cref="InvalidRequest"/> so a screen can tell "fix the letters"
+        /// from "that word cannot be used".
+        /// </summary>
+        NicknameForbidden,
+
         /// <summary>Already friends. The list is stale.</summary>
         AlreadyFriends,
 
         /// <summary>That friend request was already sent.</summary>
         RequestAlreadySent,
+
+        /// <summary>
+        /// This person was already reported in this match (S15P21D205-1017).
+        /// One per person per match; the next match allows another.
+        /// </summary>
+        ReportAlreadySent,
 
         /// <summary>Two requests collided. Trying again usually works.</summary>
         Conflict,

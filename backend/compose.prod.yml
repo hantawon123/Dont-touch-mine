@@ -49,6 +49,10 @@ services:
     image: d205-app:latest
     container_name: d205-app
     restart: unless-stopped
+    # Server-only file survives Jenkins workspaces; clients never receive the GMS key.
+    env_file:
+      - path: ${GMS_ENV_FILE:-/etc/d205/gms.env}
+        required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
       DB_HOST: mysql

@@ -13,15 +13,18 @@ namespace Game.Architecture.Tests
         }
 
         /// <summary>
-        /// A name that could pass for a real one would leave the room unable to
-        /// tell, and somebody would address a person by a name not theirs.
+        /// The whole point (S15P21D205-1018): a pseudonym must look exactly like
+        /// the nickname a new account is given, so the room cannot pick the
+        /// streamer out. Same shape, same length ceiling as a real nickname.
         /// </summary>
         [Test]
-        public void EveryName_SaysThatItIsOne()
+        public void EveryName_LooksLikeADefaultNickname()
         {
             for (var seed = -1000; seed < 1000; seed++)
             {
-                Assert.That(Pseudonym.IsOne(Pseudonym.From(seed)), Is.True, $"seed {seed}");
+                var name = Pseudonym.From(seed);
+                Assert.That(name, Does.Match(Pseudonym.Shape), $"seed {seed}");
+                Assert.That(name.Length, Is.LessThanOrEqualTo(12), $"seed {seed}");
             }
         }
 
@@ -32,8 +35,8 @@ namespace Game.Architecture.Tests
         [Test]
         public void ANegativeSeed_IsAName_LikeAnyOther()
         {
-            Assert.That(Pseudonym.From(int.MinValue), Is.Not.Empty);
-            Assert.That(Pseudonym.From(-1), Is.Not.Empty);
+            Assert.That(Pseudonym.From(int.MinValue), Does.Match(Pseudonym.Shape));
+            Assert.That(Pseudonym.From(-1), Does.Match(Pseudonym.Shape));
         }
 
         [Test]
@@ -47,16 +50,8 @@ namespace Game.Architecture.Tests
 
             Assert.That(
                 seen.Count,
-                Is.GreaterThan(Pseudonym.NounCount * 50),
+                Is.GreaterThan(Pseudonym.NounCount * Pseudonym.AdjectiveCount * 5),
                 "A generator that keeps landing on the same few names is one people notice.");
-        }
-
-        [Test]
-        public void ARealNickname_IsNotMistakenForOne()
-        {
-            Assert.That(Pseudonym.IsOne("길드마스터"), Is.False);
-            Assert.That(Pseudonym.IsOne(""), Is.False);
-            Assert.That(Pseudonym.IsOne(null), Is.False);
         }
     }
 }

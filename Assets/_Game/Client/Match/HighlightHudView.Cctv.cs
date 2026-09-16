@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Game.Client.Home;
 using TMPro;
 using UnityEngine;
@@ -9,13 +10,13 @@ namespace Game.Client.Match
     {
         private RectTransform cctvOverlay;
         private TMP_Text cctvLocation, cctvTime;
-        public void SetCctvInfo(string location, double? sourceTime)
+        public void SetCctvInfo(string location, DateTimeOffset currentTime)
         {
             EnsureCctvLayout();
             cctvLocation.text = string.IsNullOrEmpty(location) ? "CCTV" : location;
-            var seconds = sourceTime.HasValue && double.IsFinite(sourceTime.Value)
-                ? (long)Math.Max(0d, sourceTime.Value) : 0L;
-            cctvTime.text = $"<color=#E74C3C>●</color> REC  {seconds / 60:00}:{seconds % 60:00}";
+            var koreaTime = currentTime.ToOffset(TimeSpan.FromHours(9));
+            cctvTime.text = "<color=#E74C3C>●</color> REC  " +
+                koreaTime.ToString("HH:mm", CultureInfo.InvariantCulture);
         }
 
         private void EnsureCctvLayout()

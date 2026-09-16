@@ -13,7 +13,7 @@ namespace Game.Network.Session
     internal static class HighlightReplaySerializer
     {
         private const int Magic = 0x4852504C;
-        private const byte Version = 4;
+        private const byte Version = 5;
         private const int MaxPayloadBytes = 8 * 1024 * 1024;
         private const int MaxHighlightCount = 3;
         private const int MaxSegmentsPerHighlight = 8;
@@ -157,6 +157,8 @@ namespace Game.Network.Session
                 throw new ArgumentException("Highlight replay is invalid.", nameof(replay));
             }
 
+            writer.Write(replay.Title ?? string.Empty);
+            writer.Write(replay.Summary ?? string.Empty);
             writer.Write((byte)replay.Candidate.Type);
             WriteId(writer, replay.Candidate.TargetId);
             writer.Write(replay.Candidate.EventAt);
@@ -185,6 +187,9 @@ namespace Game.Network.Session
 
         private static HighlightReplayData ReadHighlight(BinaryReader reader)
         {
+            var title=reader.ReadString(); var summary=reader.ReadString();
+            if(title.Length>24 || summary.Length>70 || (title.Length==0 && summary.Length!=0))
+                throw new InvalidDataException("Invalid highlight caption.");
             var type = (HighlightType)reader.ReadByte();
             var targetId = ReadId(reader);
             var eventAt = reader.ReadDouble();
@@ -225,7 +230,7 @@ namespace Game.Network.Session
                     score,
                     actorPlayerIndex,
                     secondaryPlayerIndex),
-                clips);
+                clips,title.Length==0 ? null : title,summary.Length==0 ? null : summary);
         }
 
         private static void WriteSegment(BinaryWriter writer, HighlightSegment segment)

@@ -49,7 +49,7 @@ namespace Game.Tests.PlayMode
                     foreach (ReportReason reason in Enum.GetValues(typeof(ReportReason)))
                     {
                         var sent = await reporter.Reports.ReportAsync(
-                            target.UserId, reason, "스모크 테스트", Token);
+                            target.UserId, reason, "스모크 테스트", "smoke#" + (int)reason, Token);
 
                         Assert.That(sent.Ok, Is.True, reason.ToString());
                     }
@@ -81,7 +81,7 @@ namespace Game.Tests.PlayMode
                     await target.SignInAsync();
 
                     var sent = await reporter.Reports.ReportAsync(
-                        target.UserId, ReportReason.Abuse, null, Token);
+                        target.UserId, ReportReason.Abuse, null, "smoke#1", Token);
                     Assert.That(sent.Ok, Is.True, "report");
 
                     var found = await reporter.Friends.SearchAsync(target.Nickname, Token);
@@ -124,11 +124,11 @@ namespace Game.Tests.PlayMode
                     await target.SignInAsync();
 
                     var atTheLimit = await reporter.Reports.ReportAsync(
-                        target.UserId, ReportReason.Other, new string('가', 500), Token);
+                        target.UserId, ReportReason.Other, new string('가', 500), "smoke#1", Token);
                     Assert.That(atTheLimit.Ok, Is.True, "500 characters should be accepted");
 
                     var overIt = await reporter.Reports.ReportAsync(
-                        target.UserId, ReportReason.Other, new string('가', 501), Token);
+                        target.UserId, ReportReason.Other, new string('가', 501), "smoke#1", Token);
                     Assert.That(overIt.Ok, Is.False, "501 characters should be refused");
                     Assert.That(overIt.Failure, Is.EqualTo(BackendFailure.InvalidRequest));
                 }
@@ -153,7 +153,7 @@ namespace Game.Tests.PlayMode
                     await me.SignInAsync();
 
                     var sent = await me.Reports.ReportAsync(
-                        me.UserId, ReportReason.Abuse, null, Token);
+                        me.UserId, ReportReason.Abuse, null, "smoke#1", Token);
 
                     Assert.That(sent.Ok, Is.False);
                     Assert.That(sent.Failure, Is.EqualTo(BackendFailure.TargetNotFound));

@@ -33,7 +33,7 @@ namespace Game.Architecture.Tests
 
             Assert.That(name.IsPseudonymous, Is.True);
             Assert.That(name.Current, Is.Not.EqualTo("진짜닉네임"));
-            Assert.That(Pseudonym.IsOne(name.Current), Is.True);
+            Assert.That(name.Current, Does.Match(Pseudonym.Shape), "It looks like any default nickname.");
         }
 
         /// <summary>

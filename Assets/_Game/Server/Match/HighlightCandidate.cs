@@ -39,7 +39,10 @@ namespace Game.Server.Match
         TteTanMulgun,
         FinalMoment,
         LongestHidden,
-        MostStunned
+        MostStunned,
+        ItemDestroyed,
+        PlayerStunned,
+        ItemRecovered
     }
 
     public readonly struct HighlightCandidate

@@ -1,0 +1,16 @@
+# 금칙어에 걸리지만 허용하는 말 (S15P21D205-1017). NicknameBlocklist 가 금칙어를 찾기 전에 이 말들을
+# 먼저 지웁니다. 포함 검사가 낸 오탐을 여기서 갚습니다.
+#
+# 한 줄에 하나, 소문자로 비교합니다. "anal" 때문에 걸리는 평범한 말이 대부분입니다. 새 금칙어를 넣고
+# 멀쩡한 닉네임이 거절되기 시작하면 그 말을 여기 적습니다.
+
+analysis
+analyst
+analytic
+canal
+banal
+sussex
+essex
+middlesex
+sextet
+sexton

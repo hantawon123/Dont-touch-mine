@@ -32,7 +32,7 @@ namespace Game.Architecture.Tests
             var reports = new ReportGateway(SignedIn(transport));
 
             var sent = await reports.ReportAsync(
-                "other", ReportReason.Abuse, "욕설", CancellationToken.None);
+                "other", ReportReason.Abuse, "욕설", "ROOM#1", CancellationToken.None);
 
             Assert.That(sent.Ok, Is.True);
             Assert.That(transport.LastCall.Method, Is.EqualTo(HttpMethod.Post));
@@ -51,10 +51,11 @@ namespace Game.Architecture.Tests
             var reports = new ReportGateway(SignedIn(transport));
 
             await reports.ReportAsync(
-                "other", ReportReason.Cheating, "핵을 씁니다", CancellationToken.None);
+                "other", ReportReason.Cheating, "핵을 씁니다", "ROOM#1", CancellationToken.None);
 
             Assert.That(transport.LastCall.JsonBody, Does.Contain("\"userId\":\"other\""));
             Assert.That(transport.LastCall.JsonBody, Does.Contain("\"reason\":\"CHEATING\""));
+            Assert.That(transport.LastCall.JsonBody, Does.Contain("\"contextKey\":\"ROOM#1\""));
             Assert.That(transport.LastCall.JsonBody, Does.Contain("\"memo\":\"핵을 씁니다\""));
         }
 
@@ -73,7 +74,7 @@ namespace Game.Architecture.Tests
             var seen = new List<string>();
             foreach (ReportReason reason in Enum.GetValues(typeof(ReportReason)))
             {
-                await reports.ReportAsync("other", reason, null, CancellationToken.None);
+                await reports.ReportAsync("other", reason, null, "ROOM#1", CancellationToken.None);
 
                 var body = transport.LastCall.JsonBody;
                 var start = body.IndexOf("\"reason\":\"", StringComparison.Ordinal) + 10;
@@ -99,7 +100,7 @@ namespace Game.Architecture.Tests
             transport.Answer(201, string.Empty);
             var reports = new ReportGateway(SignedIn(transport));
 
-            await reports.ReportAsync("other", ReportReason.Spam, null, CancellationToken.None);
+            await reports.ReportAsync("other", ReportReason.Spam, null, "ROOM#1", CancellationToken.None);
 
             Assert.That(transport.LastCall.JsonBody, Does.Contain("\"memo\":\"\""));
         }
@@ -112,7 +113,7 @@ namespace Game.Architecture.Tests
             var reports = new ReportGateway(SignedIn(transport));
 
             var sent = await reports.ReportAsync(
-                "other", ReportReason.Other, new string('가', 201), CancellationToken.None);
+                "other", ReportReason.Other, new string('가', 201), "ROOM#1", CancellationToken.None);
 
             Assert.That(sent.Ok, Is.False);
             Assert.That(sent.Failure, Is.EqualTo(BackendFailure.InvalidRequest));

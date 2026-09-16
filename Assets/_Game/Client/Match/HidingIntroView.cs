@@ -178,7 +178,10 @@ namespace Game.Client.Match
             itemPreview = HidingIntroItemPreview.EnsureIntroSlot(transform);
             if (preview == null && itemPreview != null)
             {
-                preview = new HidingIntroItemPreview(itemPreview, rotates: true);
+                preview = new HidingIntroItemPreview(
+                    itemPreview,
+                    HidingIntroItemPreview.IntroTextureSize,
+                    rotates: true);
             }
 
             ApplyCenteredPlacement();

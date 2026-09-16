@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using Game.Core.Ports;
 using Game.Core.Flow;
 using Game.Core.Items;
 using Game.Core.Lobby;
@@ -108,6 +111,10 @@ namespace Game.Bootstrap
         private bool hasPublishedAssignmentNotices;
         private bool hasSynchronizedPlayers;
         private bool hasPublishedSnapshot;
+        private readonly IHighlightDirectorGateway director;
+        private CancellationTokenSource directorCancellation;
+        private HighlightDirectorReply directorReply;
+        private bool directorStarted;
         private bool hasPublishedHighlightReplay;
         private bool waitingForHighlightReady;
         private double highlightReadyDeadline;
@@ -120,8 +127,9 @@ namespace Game.Bootstrap
             IMatchRuntimeContext sceneContext,
             AppFlowSystem appFlow,
             NetworkMatchRuntimeConfiguration configuration,
-            RoomBrowserSystem roomState)
+            RoomBrowserSystem roomState, IHighlightDirectorGateway director = null)
         {
+            this.director=director;
             this.network = network ?? throw new ArgumentNullException(nameof(network));
             this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
             this.sceneContext = sceneContext ??
@@ -593,6 +601,20 @@ namespace Game.Bootstrap
             return network.TryPublishPlayerItemStatuses(session.CapturePlayerItemStatuses());
         }
 
+        private async UniTask RequestDirector(MatchSessionCoordinator session,CancellationToken cancellation)
+        {
+            try
+            {
+                var candidates=session.CaptureDirectorCandidates();
+                if(candidates.Length==0) return;
+                var reply=await director.DirectAsync(candidates,cancellation);
+                if(!cancellation.IsCancellationRequested && composition?.Session==session && !hasPublishedHighlightReplay)
+                    directorReply=reply;
+            }
+            catch(OperationCanceledException) { }
+            catch(Exception) { Debug.LogWarning("[Highlight] AI unavailable; using rule-based highlights."); }
+        }
+
         private void PublishSnapshotIfChanged()
         {
             var session = composition.Session;
@@ -603,11 +625,24 @@ namespace Game.Bootstrap
                 waitingForHighlightReady = true;
                 highlightReadyDeadline = network.ServerTime + 30d;
             }
+            if(session.CurrentPhase==MatchPhase.Highlight && !directorStarted)
+            {
+                directorStarted=true;
+                if(director!=null)
+                {
+                    directorCancellation=new CancellationTokenSource();
+                    directorCancellation.CancelAfterSlim(TimeSpan.FromMilliseconds(2800),DelayType.Realtime);
+                    RequestDirector(session,directorCancellation.Token).Forget();
+                }
+            }
             var snapshot = composition.Session.CaptureStateSnapshot();
             if (snapshot.Phase == MatchPhase.Highlight && !hasPublishedHighlightReplay &&
                 composition.Session.TryGetResult(out var result) &&
                 network.ServerTime >= result.EndedAt + MatchSessionCoordinator.HighlightPostRollSeconds)
             {
+                // Freeze before publishing. A late response never changes an in-flight replay or its schedule.
+                if(directorReply!=null) session.TryApplyDirectorSelection(directorReply);
+                directorCancellation?.Cancel();
                 if (!composition.Session.TryCaptureHighlightReplay(out var replay) ||
                     !network.TryPublishHighlightReplay(replay))
                     throw new InvalidOperationException("The authority could not publish the highlight replay.");
@@ -681,6 +716,8 @@ namespace Game.Bootstrap
             hidingInitialPlacementDone = false;
             hasSynchronizedPlayers = false;
             hasPublishedSnapshot = false;
+            directorCancellation?.Cancel(); directorCancellation?.Dispose(); directorCancellation=null;
+            directorReply=null; directorStarted=false;
             hasPublishedHighlightReplay = false;
             waitingForHighlightReady = false;
         }

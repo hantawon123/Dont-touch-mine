@@ -75,8 +75,14 @@ X-Account-Token: <photonToken>
 
 ### 임시 닉네임
 
-발급 시 서버가 닉네임을 지어 줍니다. 응답의 `nicknameSet` 이 `false` 면 아직 임시입니다.
+발급 시 서버가 닉네임을 지어 줍니다. `BoldFox4821` 처럼 영문 두 단어와 숫자 넷입니다(2026-09-16 까지는
+한글이었습니다). 응답의 `nicknameSet` 이 `false` 면 아직 임시입니다.
 **첫 실행에서 닉네임 입력 화면을 띄울지 판단하는 값입니다.** 이름 자체를 비교하지 마세요.
+
+닉네임을 바꿀 때 서버가 **금칙어**를 봅니다. 걸리면 `400 NICKNAME_FORBIDDEN` 이고 어느 말에 걸렸는지는
+알려주지 않습니다. 글자 규칙 위반(`INVALID_REQUEST`)과 코드가 다르므로 안내 문구를 나눠 주세요 -
+"한글, 영문, 숫자로 2~12글자" 와 "쓸 수 없는 이름입니다". 목록은 서버에만 있고 클라이언트가 미리
+검사할 방법은 없습니다.
 
 닉네임은 **대소문자를 구분합니다.** `player` 와 `Player` 는 서로 다른 이름이라 둘 다
 존재할 수 있습니다. 중복 확인을 클라이언트에서 대소문자 무시로 하면 서버 결과와 어긋납니다.
@@ -84,10 +90,10 @@ X-Account-Token: <photonToken>
 ### 검색은 정확히 일치입니다
 
 ```
-GET /api/v1/users?nickname=나그네9821
+GET /api/v1/users?nickname=BoldFox4821
 ```
 
-**앞글자로는 찾히지 않습니다.** `나그` 로는 아무도 안 나옵니다. 닉네임을 통째로
+**앞글자로는 찾히지 않습니다.** `BoldFox` 로는 아무도 안 나옵니다. 닉네임을 통째로
 알고 있어야 찾을 수 있습니다.
 
 **대소문자를 구분합니다.** `player` 로 검색하면 `Player` 는 나오지 않습니다.
@@ -255,6 +261,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 | --- | --- | --- | --- |
 | `MISSING_HEADER` | 400 | 필수 헤더가 없음 | 버그입니다. 헤더를 확인하세요 |
 | `INVALID_REQUEST` | 400 | 값이 형식에 안 맞음 | 입력값을 고쳐 다시 보냅니다 |
+| `NICKNAME_FORBIDDEN` | 400 | 닉네임에 금칙어가 있음 | "쓸 수 없는 이름입니다". 어느 말인지는 알려주지 않습니다 |
 | `SELF_FRIEND_REQUEST` | 400 | 자기에게 친구 요청 | UI 에서 미리 막습니다 |
 | `UNAUTHORIZED` | 401 | `X-User-Id` 는 있는데 `X-Account-Token` 이 없거나 그 계정의 것이 아님 | 헤더를 확인하세요. 서버 비밀이 바뀐 뒤라면 계정을 다시 읽어 새 토큰을 받습니다 |
 | `ACCOUNT_NOT_FOUND` | 404 | 부르는 사람의 계정이 없음 | **계정을 다시 발급받아야 합니다** |
@@ -265,6 +272,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 | `NICKNAME_TAKEN` | 409 | 닉네임이 이미 쓰임 | 다른 이름을 받습니다 |
 | `ALREADY_FRIENDS` | 409 | 이미 친구 | 목록을 다시 불러옵니다 |
 | `REQUEST_ALREADY_SENT` | 409 | 이미 보낸 요청 | 목록을 다시 불러옵니다 |
+| `REPORT_ALREADY_SENT` | 409 | 이 경기에서 그 사람을 이미 신고함 | "이미 신고했습니다" |
 | `TARGET_IN_GAME` | 409 | 초대할 친구가 로비나 경기 중 | "게임 중인 친구입니다". 홈으로 나오면 다시 부를 수 있습니다 |
 | `CONFLICT` | 409 | 동시 요청이 겹침 | 다시 시도하면 대개 됩니다 |
 | `RATE_LIMITED` | 429 | 한 IP 가 플레이 로그를 분당 허용량 넘게 보냄 | 그 배치를 스풀에 두고 다음 flush 에 다시 보냅니다 |
@@ -451,7 +459,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 `POST /api/v1/reports` 로 보냅니다.
 
 ```json
-{ "userId": "...", "reason": "ABUSE", "memo": "채팅으로 욕설을 했습니다" }
+{ "userId": "...", "reason": "ABUSE", "memo": "채팅으로 욕설을 했습니다", "contextKey": "7K2M9P#2" }
 ```
 
 ### 신고해도 아무 일도 일어나지 않습니다
@@ -484,10 +492,21 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 `OTHER` 를 고른 경우에는 메모가 사실상 필수입니다. 서버가 강제하지는 않지만 메모 없는
 `OTHER` 는 운영자가 판단할 근거가 없습니다. 화면에서 유도해 주세요.
 
-### 같은 사람을 여러 번 신고할 수 있습니다
+### 한 경기에 같은 사람은 한 번입니다
 
-막지 않습니다. 그래서 **"이미 신고했습니다" 를 보여줄 수 없습니다** — 서버가 그 상태를
-알려주지 않습니다. 자기가 낸 신고를 조회하는 API 도, 취소하는 API 도 없습니다.
+`contextKey` 가 "어느 경기인가" 입니다. **방 코드 + `#` + 그 방에서 본 경기 수**로 만듭니다 -
+`7K2M9P#0` 은 아직 한 판도 안 뛴 방, `7K2M9P#2` 는 두 번째 판이 끝난 뒤입니다. 방을 나가면 0 부터
+다시 셉니다. 서버는 값의 뜻을 보지 않고 **같은 신고자·같은 상대·같은 키**만 막으므로 다른 사람의
+키와 같아도 상관없습니다.
+
+같은 키로 같은 사람을 다시 신고하면 `409 REPORT_ALREADY_SENT` 입니다. 그때 "이미 신고했습니다" 를
+보여주면 됩니다. 다음 판이 끝나면 키가 바뀌어 다시 신고할 수 있습니다. 5명과 뛰었으면 5명 각각 한
+번씩입니다.
+
+키를 보내지 않으면(옛 빌드) **24시간 안에 같은 사람 한 번**으로 대신 막습니다. 새 빌드는 항상 보내세요.
+64자 이내, 영문·숫자·`#:._-` 만 됩니다.
+
+자기가 낸 신고를 조회하는 API 도, 취소하는 API 도 없습니다.
 
 ### 신고한 뒤 탈퇴해도 그 신고는 남습니다
 
@@ -687,3 +706,39 @@ API 도, 취소하는 API 도 없습니다.
 전송이 실패했는데 입력창을 비우면 플레이어가 애써 쓴 글이 사라집니다. 4xx 든 5xx 든
 내용을 그대로 두고 다시 보낼 수 있게 하세요. 지금 화면이 전송 준비 전에도 그렇게 하고
 있습니다.
+
+
+## 선택적 AI 하이라이트 디렉터 (S15P21D205-1015)
+
+게임 서버만 경기당 한 번 `POST /api/v1/highlights/director`를 호출한다. 인증은 기존
+X-User-Id / X-Account-Token이다. 요청은 `{candidates:[{id,eventType,seconds,segments,
+remainingSeconds,involvedPlayers,ruleScore}]}`, 응답은 `{available,picks:[{id,title,summary}]}`.
+영상·계정 ID·닉네임·원본 물건 ID는 AI 공급자에게 보내지 않는다.
+
+기존 5개 유형 대표 후보에 최근 파괴·기절·원주인 회수를 보태 최대 10개를 만든다.
+실제로 재생 가능한 사건이 적으면 그만큼만 보낸다. 회수 후보는 탈취와 회수 주변 두 구간을
+연결하여 긴 대기 구간을 생략한다. AI 미사용 시 기존 후보/선정 규칙은 변경하지 않는다.
+
+게임 서버는 기존 3초 준비 시간 동안 요청을 병렬 실행한다. 클라이언트에는 최종 선정된
+최대 3개와 문구만 리플레이에 함께 배포한다. 공급자 응답 제한은 2.6초, 게임 서버 요청
+기한은 2.8초다. 재생 준비 기한이 먼저 오면 취소한다. 미설정·인증 오류·통신 실패·기한
+초과·유효하지 않은 후보·중복 선택·잘못된 문구는 기존 방식으로 돌아간다. 재시도하지 않는다.
+공급자 안전성 차단/중간 이상 위험 판정, 제어문자/태그/URL/기본 금칙어도 거절한다.
+금칙어 검사는 완전한 의미 기반 유해성 판별기가 아니므로 실제 문구 품질 검증이 필요하다.
+
+### GMS 설정
+
+- 로컬: backend 디렉터리에서 실행한다. `gms.env.properties.example`을 `.env.properties`로
+  복사하고 `GMS_KEY`, `GMS_GENERATE_URL`(전체 generateContent 주소)을 직접 입력한다.
+  `.env.properties`는 Git 제외 대상이며 application.yml이 선택적으로 읽는다.
+- 운영: 서버 전용 `/etc/d205/gms.env`에 두 값을 설정하고 app을 재생성한다.
+  Compose가 직접 읽으므로 Jenkins 비밀 파일과 분리해 재배포에도 유지된다(배포 README 참조).
+- 기존 `PHOTON_AUTH_SECRET`이 설정되어 계정 토큰 검증이 활성화되어야 AI가 동작한다.
+- 키·공급자 주소는 Unity 프로젝트/클라이언트 빌드/Photon 데이터에 넣지 않는다.
+- 미설정은 정상적인 비활성 상태다. 공급자 오류 상세/응답/키/주소는 로그에 출력하지 않는다.
+- 응답 파싱은 [Gemini generateContent 규격](https://ai.google.dev/api/generate-content)을 따른다.
+
+리플레이 전송 형식은 v5다. 게임 서버와 테스트 참여자는 모두 이 변경이 포함된 동일 버전을
+받아야 한다. 개인 스킵은 기존 로컬 처리 경로를 유지하며 AI 선택은 스킵 여부에 관여하지 않는다.
+
+GMS 생성은 `thinkingLevel=minimal`, `includeThoughts=false`로 요청해 추론이 짧은 문구의 출력 예산을 소진하지 않도록 한다. 기존 3초 준비 시간은 늘리지 않는다.

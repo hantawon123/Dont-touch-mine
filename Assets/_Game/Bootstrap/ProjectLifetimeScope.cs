@@ -251,6 +251,7 @@ namespace Game.Bootstrap
             builder.RegisterInstance(new MatchAnalyticsUpload(new UnityWebRequestTransport(), endpoint,
                 System.IO.Path.Combine(Application.persistentDataPath, "match-analytics")));
             builder.RegisterEntryPoint<MatchAnalyticsRecorder>();
+            builder.RegisterInstance<IHighlightDirectorGateway>(new HighlightDirectorGateway(client));
             if (DedicatedServerStartup.IsRequested)
             {
                 builder.RegisterInstance<IAccountGateway>(new AccountGateway(client));
@@ -435,6 +436,10 @@ namespace Game.Bootstrap
                 .As<IRoomSessionSink>()
                 .As<IRoomParticipantSink>()
                 .As<IMatchStartSink>();
+
+            // Which match a report is about, read off the room above. One for
+            // the application because the room is (S15P21D205-1018).
+            builder.Register<RoomReportContext>(Lifetime.Singleton).As<IReportContext>();
 
             // One instance for the whole application, for the same reason the
             // profile is: the closet writes what was applied and the lobby

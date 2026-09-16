@@ -21,7 +21,8 @@ namespace Game.Backend
         }
 
         public UniTask<BackendResult> ReportAsync(
-            string playerId, ReportReason reason, string note, CancellationToken cancellation)
+            string playerId, ReportReason reason, string note, string contextKey,
+            CancellationToken cancellation)
         {
             var body = new SendReportRequestDto
             {
@@ -30,7 +31,10 @@ namespace Game.Backend
 
                 // JsonUtility writes a null string as "", and the server reads ""
                 // and absent the same way, so nothing is lost by not omitting it.
-                memo = note
+                // The same holds for the match key: "" means "no key", and the
+                // server falls back to its time window.
+                memo = note,
+                contextKey = contextKey
             };
 
             return client.CallAsync(

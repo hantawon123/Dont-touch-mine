@@ -63,6 +63,14 @@ public class UserReport {
     private String memo;
 
     /** 신고한 시각. yyyyMMddHHmmss, UTC. */
+    /**
+     * 어느 경기에서 한 신고인지 가리키는 클라이언트의 표식 (S15P21D205-1017). 방 코드와 그 방에서 본
+     * 경기 수로 만들며 서버는 뜻을 해석하지 않습니다. 같은 신고자·같은 상대·같은 키는 유니크 키가
+     * 막습니다. 옛 클라이언트가 안 보내면 null 이고, 그때는 서비스가 24시간 규칙으로 대신 막습니다.
+     */
+    @Column(name = "context_key", length = 64)
+    private String contextKey;
+
     @Column(name = "created_at", nullable = false, length = 14)
     private String createdAt;
 
@@ -98,18 +106,19 @@ public class UserReport {
     private String deletedAt;
 
     private UserReport(Integer reporterSeq, Integer reportedSeq,
-                       ReportReason reason, String memo, String now) {
+                       ReportReason reason, String memo, String contextKey, String now) {
         this.reporterSeq = reporterSeq;
         this.reportedSeq = reportedSeq;
         this.reason = reason;
         this.memo = memo;
+        this.contextKey = contextKey;
         this.createdAt = now;
         this.status = ReportStatus.PENDING;
     }
 
     public static UserReport of(Integer reporterSeq, Integer reportedSeq,
-                                ReportReason reason, String memo, String now) {
-        return new UserReport(reporterSeq, reportedSeq, reason, memo, now);
+                                ReportReason reason, String memo, String contextKey, String now) {
+        return new UserReport(reporterSeq, reportedSeq, reason, memo, contextKey, now);
     }
 
     /**

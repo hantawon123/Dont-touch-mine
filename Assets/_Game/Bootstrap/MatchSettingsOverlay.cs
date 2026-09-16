@@ -20,6 +20,7 @@ namespace Game.Bootstrap
         private readonly LobbyExitPresenter exit;
         private readonly MatchChatView chat;
         private readonly NetworkRunnerService network;
+        private readonly MatchParticipantListOverlay participants;
         private PlayerCameraController camera;
         private bool chatWasEnabled;
         private bool layoutConfigured;
@@ -30,13 +31,15 @@ namespace Game.Bootstrap
         public bool IsOpen { get; private set; }
 
         public MatchSettingsOverlay(SettingsView view, SettingsPresenter presenter,
-            LobbyExitPresenter exit, MatchChatView chat, NetworkRunnerService network)
+            LobbyExitPresenter exit, MatchChatView chat, NetworkRunnerService network,
+            MatchParticipantListOverlay participants = null)
         {
             this.view = view;
             this.presenter = presenter;
             this.exit = exit;
             this.chat = chat;
             this.network = network;
+            this.participants = participants;
         }
 
         public static bool BlocksEscapeDuringPresentation(MatchPhase phase)
@@ -119,9 +122,10 @@ namespace Game.Bootstrap
                  !Keyboard.current.escapeKey.wasPressedThisFrame)) ||
                 !ShouldHandleEscape(
                     PlayerMovement.IsTextInputFocused() ||
-                    (chat != null && chat.ConsumedEscapeThisFrame),
+                    (chat != null && chat.ConsumedEscapeThisFrame) ||
+                    (participants != null && participants.ConsumedEscapeThisFrame),
                     false,
-                    view.BlocksEscape,
+                    view.BlocksEscape || (participants != null && participants.IsOpen),
                     view.ConsumedEscapeThisFrame))
             {
                 return;
@@ -156,13 +160,21 @@ namespace Game.Bootstrap
 
         internal static void ConfigureCanvas(Canvas canvas)
         {
-            Game.Client.Common.HudScreenScale.EnsureOn(canvas);
+            // The overlay is the lobby settings screen, which already shrinks
+            // its frame with LobbyScale. HudScreenScale is the in-game HUD
+            // scale; stacking it here made the panel smaller than the lobby.
+            var scaler = canvas.GetComponent<CanvasScaler>()
+                ?? canvas.gameObject.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = SettingsStyle.ReferenceResolution;
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
             canvas.sortingOrder = 10000;
             var content = new GameObject("Match Settings Content", typeof(RectTransform))
                 .GetComponent<RectTransform>();
             content.SetParent(canvas.transform, false);
             content.anchorMin = content.anchorMax = content.pivot = new Vector2(0.5f, 0.5f);
-            content.sizeDelta = new Vector2(1920f, 1080f);
+            content.sizeDelta = SettingsStyle.ReferenceResolution;
             // Preserve sibling order: the background must remain behind the menu.
             while (canvas.transform.GetChild(0) != content)
                 canvas.transform.GetChild(0).SetParent(content, false);

@@ -156,8 +156,14 @@ namespace Game.Backend
         /// <summary>ReportReason 의 서버 이름. ReportGateway 가 옮깁니다.</summary>
         public string reason;
 
-        /// <summary>선택. 200자까지. 빈 문자열과 없음을 서버가 같게 봅니다.</summary>
+        /// <summary>선택. 500자까지. 빈 문자열과 없음을 서버가 같게 봅니다.</summary>
         public string memo;
+
+        /// <summary>
+        /// 어느 경기의 신고인지 (S15P21D205-1017). 방 코드 + "#" + 그 방에서 본 경기 수.
+        /// 64자, 영문·숫자·#:._- 만. 비우면 서버가 24시간 규칙으로 대신 막습니다.
+        /// </summary>
+        public string contextKey;
     }
 
     [Serializable]

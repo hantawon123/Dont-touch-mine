@@ -293,6 +293,54 @@
         },
         "type" : "object"
       },
+      "Candidate" : {
+        "properties" : {
+          "eventType" : {
+            "pattern" : "FirstBlood|TteTanMulgun|FinalMoment|LongestHidden|MostStunned|ItemDestroyed|PlayerStunned|ItemRecovered",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int32",
+            "maximum" : 9,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "involvedPlayers" : {
+            "format" : "int32",
+            "maximum" : 6,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "remainingSeconds" : {
+            "format" : "double",
+            "maximum" : 86400,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "ruleScore" : {
+            "format" : "double",
+            "maximum" : 1000,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "seconds" : {
+            "format" : "double",
+            "maximum" : 120,
+            "minimum" : 0.01,
+            "type" : "number"
+          },
+          "segments" : {
+            "format" : "int32",
+            "maximum" : 8,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "eventType"
+        ],
+        "type" : "object"
+      },
       "CleanupResult" : {
         "properties" : {
           "affected" : {
@@ -300,6 +348,36 @@
             "type" : "integer"
           }
         },
+        "type" : "object"
+      },
+      "DirectorReply" : {
+        "properties" : {
+          "available" : {
+            "type" : "boolean"
+          },
+          "picks" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Pick"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "DirectorRequest" : {
+        "properties" : {
+          "candidates" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Candidate"
+            },
+            "maxItems" : 10,
+            "minItems" : 1,
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "candidates"
+        ],
         "type" : "object"
       },
       "FeedbackEntry" : {
@@ -574,6 +652,21 @@
             "type" : "integer"
           },
           "UserId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Pick" : {
+        "properties" : {
+          "id" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "title" : {
             "type" : "string"
           }
         },
@@ -864,6 +957,12 @@
       },
       "SendReportRequest" : {
         "properties" : {
+          "contextKey" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "pattern" : "^[A-Za-z0-9#:._-]*$",
+            "type" : "string"
+          },
           "memo" : {
             "maxLength" : 500,
             "minLength" : 0,
@@ -2226,6 +2325,55 @@
         },
         "tags" : [
           "friend-controller"
+        ]
+      }
+    },
+    "/api/v1/highlights/director" : {
+      "post" : {
+        "operationId" : "direct",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "header",
+            "name" : "X-Account-Token",
+            "required" : false,
+            "schema" : {
+              "default" : "",
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DirectorRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DirectorReply"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "highlight-director-controller"
         ]
       }
     },

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Client.Interactions;
+using Game.Client.Lobby;
 using Game.Client.Voice;
 using Game.Core.Lobby;
 using Game.Core.Match;
@@ -64,7 +65,10 @@ namespace Game.Client.Match
     /// </summary>
     public sealed class NetworkMatchHudView : MonoBehaviour, INetworkMatchHudView
     {
-        public const float DestructionUsesFontSize = 30f;
+        public const int ShredderMarkerCornerRadius = 12;
+        public const float ShredderMarkerWidth = 240f;
+        public const float ShredderMarkerHeight = 52f;
+        public const string ShredderMarkerLabelName = "Label";
         [SerializeField]
         private MatchPhaseView phaseView;
 
@@ -73,12 +77,6 @@ namespace Game.Client.Match
 
         [SerializeField]
         private HighlightHudView highlightHudView;
-
-        [SerializeField]
-        private TMP_Text assignedItemText;
-
-        [SerializeField, Tooltip("Optional public item status text. Leave empty until the scene UI is laid out.")]
-        private TMP_Text playerItemStatusesText;
 
         [SerializeField]
         private GameObject destructionNoticeRoot;
@@ -119,6 +117,8 @@ namespace Game.Client.Match
         [SerializeField]
         private MatchUrgencyBorderView urgencyBorderView;
 
+        private LobbyPlayerListView participantListView;
+
         private MatchPhase currentPhase;
         private double lastRemainingSeconds = 999d;
         private int remainingDestructionUses = -1;
@@ -127,7 +127,6 @@ namespace Game.Client.Match
             Array.Empty<PlayerItemStatusSnapshot>();
         private string destroyedItemLocalId;
         private IReadOnlyList<string> destroyedItemOrder = Array.Empty<string>();
-        private bool playerStatusVisible = true;
         private bool highlightOnly;
         private bool hidingPresentation, searchingPresentation;
         public bool HasEssentialPresentation => hidingPresentation || searchingPresentation || highlightOnly || showEndCountdown;
@@ -145,6 +144,7 @@ namespace Game.Client.Match
             Game.Client.Common.HudScreenScale.EnsureOn(rootCanvas);
 
             HideDestructionNotice();
+            ApplyShredderMarkerChrome();
             SetShredderMarker(default, false);
             SetHighlightHud(false, null, Array.Empty<float>());
             SetAssignedItem(null);
@@ -166,7 +166,6 @@ namespace Game.Client.Match
             destroyedItemsHudView?.Hide();
             EnsureUrgencyBorder();
             urgencyBorderView?.Hide();
-            EnsureDestructionUsesText();
             EnsureHighlightHud();
             EnsureVoiceControl();
             RefreshKeyGuide(MatchPhase.Waiting);
@@ -210,7 +209,8 @@ namespace Game.Client.Match
                     (hidingWaitHudView != null && graphic.transform.IsChildOf(hidingWaitHudView.transform)) ||
                     (vitalsHudView != null && graphic.transform.IsChildOf(vitalsHudView.transform)) ||
                     (keySettingGuideView != null && graphic.transform.IsChildOf(keySettingGuideView.transform)) ||
-                    (urgencyBorderView != null && graphic.transform.IsChildOf(urgencyBorderView.transform)))
+                    (urgencyBorderView != null && graphic.transform.IsChildOf(urgencyBorderView.transform)) ||
+                    (participantListView != null && graphic.transform.IsChildOf(participantListView.transform)))
                     continue;
                 hiddenGraphics[graphic] = graphic.enabled;
                 graphic.enabled = false;
@@ -300,11 +300,6 @@ namespace Game.Client.Match
 
         public void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses)
         {
-            if (playerItemStatusesText != null)
-            {
-                playerItemStatusesText.gameObject.SetActive(false);
-            }
-
             SetDestroyedItems(
                 statuses == null ? 0 : statuses.Count,
                 statuses,
@@ -328,7 +323,7 @@ namespace Game.Client.Match
         public void SetRemainingDestructionUses(int remainingUses)
         {
             remainingDestructionUses = remainingUses;
-            RefreshPlayerStatus();
+            ApplyShredderMarkerChrome();
         }
 
         public void ShowDestructionNotice(string message)
@@ -353,6 +348,64 @@ namespace Game.Client.Match
             }
         }
 
+        internal void ApplyShredderMarkerChrome()
+        {
+            if (shredderMarker == null)
+            {
+                return;
+            }
+
+            shredderMarker.sizeDelta = new Vector2(ShredderMarkerWidth, ShredderMarkerHeight);
+            var image = shredderMarker.GetComponent<Image>();
+            if (image != null)
+            {
+                image.sprite = HomeUiFonts.Rounded(ShredderMarkerCornerRadius);
+                image.type = Image.Type.Sliced;
+                image.pixelsPerUnitMultiplier = 1f;
+            }
+
+            RefreshShredderMarkerLabel();
+        }
+
+        public static string FormatShredderMarkerLabel(
+            int remainingUses,
+            int maxUses = PlaySettingsDraft.DefaultDestructionLimit)
+        {
+            if (remainingUses == PlaySettingsDraft.UnlimitedDestructionUses ||
+                maxUses == PlaySettingsDraft.UnlimitedDestructionLimit)
+            {
+                return "파쇄기 (무한)";
+            }
+
+            if (remainingUses < 0)
+            {
+                return "파쇄기";
+            }
+
+            if (maxUses < PlaySettingsDraft.MinDestructionLimit)
+            {
+                maxUses = PlaySettingsDraft.DefaultDestructionLimit;
+            }
+
+            return $"파쇄기 ({remainingUses}/{maxUses})";
+        }
+
+        private void RefreshShredderMarkerLabel()
+        {
+            if (shredderMarker == null)
+            {
+                return;
+            }
+
+            var label = shredderMarker.Find(ShredderMarkerLabelName)?.GetComponent<TMP_Text>();
+            if (label == null)
+            {
+                return;
+            }
+
+            label.text = FormatShredderMarkerLabel(remainingDestructionUses);
+        }
+
         public void SetShredderMarker(Vector2 screenPosition, bool visible)
         {
             if (shredderMarker == null)
@@ -360,6 +413,7 @@ namespace Game.Client.Match
                 return;
             }
 
+            RefreshShredderMarkerLabel();
             shredderMarker.gameObject.SetActive(visible);
             if (!visible)
             {
@@ -514,8 +568,6 @@ namespace Game.Client.Match
 
         public void SetPlayerStatusVisible(bool visible)
         {
-            playerStatusVisible = visible;
-            RefreshPlayerStatus();
             ApplyDestroyedItems();
         }
 
@@ -703,6 +755,24 @@ namespace Game.Client.Match
             }
         }
 
+        public LobbyPlayerListView EnsureParticipantList()
+        {
+            if (participantListView == null)
+            {
+                participantListView = GetComponentInChildren<LobbyPlayerListView>(true);
+            }
+
+            if (participantListView != null)
+            {
+                participantListView.ConfigureForMatch();
+                participantListView.gameObject.SetActive(false);
+                return participantListView;
+            }
+
+            participantListView = LobbyPlayerListView.CreateMatchList(transform);
+            return participantListView;
+        }
+
         /// <summary>
         /// The same white / grey-slash mute control the lobby keeps beside
         /// 환경설정. Built here so a match that never ran the layout menu
@@ -723,32 +793,24 @@ namespace Game.Client.Match
             return view;
         }
 
-        private void EnsureDestructionUsesText()
+        private void StripLegacyHud()
         {
-            if (assignedItemText == null)
-            {
-                assignedItemText = transform.Find("AssignedItemText")?.GetComponent<TMP_Text>();
-            }
+            StripLegacy("HighlightTitleText");
+            StripLegacy("AssignedItemText");
+        }
 
-            if (assignedItemText == null)
+        private void StripLegacy(string childName)
+        {
+            var leftover = transform.Find(childName);
+            if (leftover != null)
             {
-                var gameObject = new GameObject(
-                    "AssignedItemText",
-                    typeof(RectTransform),
-                    typeof(CanvasRenderer),
-                    typeof(TextMeshProUGUI));
-                gameObject.transform.SetParent(transform, false);
-                assignedItemText = gameObject.GetComponent<TextMeshProUGUI>();
-                assignedItemText.color = Color.white;
-                assignedItemText.raycastTarget = false;
+                leftover.gameObject.SetActive(false);
             }
-
-            ApplyDestructionUsesStyle(assignedItemText);
         }
 
         private void EnsureHighlightHud()
         {
-            StripLegacyHighlightTitle();
+            StripLegacyHud();
             if (highlightHudView == null)
             {
                 highlightHudView = GetComponentInChildren<HighlightHudView>(true);
@@ -757,15 +819,6 @@ namespace Game.Client.Match
             if (highlightHudView == null)
             {
                 highlightHudView = HighlightHudView.Create(transform);
-            }
-        }
-
-        private void StripLegacyHighlightTitle()
-        {
-            var leftover = transform.Find("HighlightTitleText");
-            if (leftover != null)
-            {
-                leftover.gameObject.SetActive(false);
             }
         }
 
@@ -779,42 +832,6 @@ namespace Game.Client.Match
 
             text.font = font;
             text.fontSharedMaterial = font.material;
-        }
-
-        public static void ApplyDestructionUsesStyle(TMP_Text text)
-        {
-            if (text == null)
-            {
-                return;
-            }
-
-            text.font = HomeUiFonts.Apply();
-            text.fontSize = DestructionUsesFontSize;
-            text.alignment = TextAlignmentOptions.TopRight;
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Overflow;
-            var rect = text.rectTransform;
-            rect.anchorMin = new Vector2(1f, 1f);
-            rect.anchorMax = new Vector2(1f, 1f);
-            rect.pivot = new Vector2(1f, 1f);
-            rect.anchoredPosition = new Vector2(-36f, -36f);
-            rect.sizeDelta = new Vector2(360f, 48f);
-        }
-
-        private void RefreshPlayerStatus()
-        {
-            EnsureDestructionUsesText();
-            if (assignedItemText == null)
-            {
-                return;
-            }
-
-            var hasUses = remainingDestructionUses >= 0;
-            var uses = remainingDestructionUses == PlaySettingsDraft.UnlimitedDestructionUses
-                ? "무한"
-                : $"{remainingDestructionUses}회";
-            assignedItemText.gameObject.SetActive(playerStatusVisible && hasUses);
-            assignedItemText.text = hasUses ? $"파쇄기: {uses}" : string.Empty;
         }
     }
 }
