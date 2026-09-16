@@ -22,6 +22,8 @@ assert.ok(data.length >= 3.6 * 44100 * 4);
 const output = path.resolve(__dirname, '../../Assets/_Game/Content/Audio/Footsteps');
 fs.mkdirSync(output, { recursive: true });
 const starts = [0, .43, .92, 1.38, 1.86, 2.31, 2.76, 3.25];
+// +13.54 dB for this quiet recording; preserve relative footstep dynamics.
+const gain = 4 * Math.pow(10, 1.5 / 20);
 starts.forEach((start, index) => {
   const frames = Math.round(.28 * 44100);
   const wav = Buffer.alloc(44 + frames * 2);
@@ -34,12 +36,13 @@ starts.forEach((start, index) => {
   for (let frame = 0; frame < frames; frame++) {
     const offset = (Math.round(start * 44100) + frame) * 4;
     const sample = (data.readInt16LE(offset) + data.readInt16LE(offset + 2)) / 2;
-    // Preserve recording levels and soften cut boundaries (1 ms in, 10 ms out).
+    // Boost recording levels and soften cut boundaries (1 ms in, 10 ms out).
     const fade = Math.min(1, frame / 44, (frames - 1 - frame) / 441);
-    const value = Math.round(sample * fade);
+    const value = Math.round(sample * fade * gain);
+    assert.ok(value >= -32768 && value <= 32767, 'Footstep gain would clip');
     wav.writeInt16LE(value, 44 + frame * 2); energy += value * value;
   }
   assert.ok(energy > 0);
   fs.writeFileSync(path.join(output, `Footstep_${String(index + 1).padStart(2, '0')}.wav`), wav);
 });
-console.log('Generated 8 mono PCM footsteps (0.28 seconds each).');
+console.log('Generated 8 mono PCM footsteps (0.28 seconds each, +13.54 dB gain, no clipping).');
