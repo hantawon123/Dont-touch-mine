@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ssafy.d205.domain.admin.dto.AdminFeedbackStats;
+import com.ssafy.d205.domain.admin.service.AdminFeedbackStatsService;
 import com.ssafy.d205.domain.feedback.dto.FeedbackListResponse;
 import com.ssafy.d205.domain.feedback.service.FeedbackCleanupService;
 import com.ssafy.d205.domain.feedback.service.FeedbackReadService;
@@ -30,19 +32,36 @@ public class AdminFeedbackController {
 
     private final FeedbackReadService feedbackReadService;
     private final FeedbackCleanupService feedbackCleanupService;
+    private final AdminFeedbackStatsService adminFeedbackStatsService;
 
     /**
-     * 최근 피드백. 한 건씩 그대로 봅니다.
+     * 최근 피드백. 한 건씩 그대로 봅니다. q 를 주면 본문에 그 말이 든 것만 (S15P21D205-1004).
      *
      * <p>신고 목록처럼 사람 단위로 묶지 않습니다. 신고는 "이 사람이 몇 번 신고당했나"가
      * 판단 단위지만 피드백은 한 건 한 건이 읽을 내용이라, 묶으면 정작 본문이 사라집니다.
      *
      * <p>limit 을 크게 줘도 상한(200)으로 깎입니다. 400 을 주지 않는 이유는
      * FeedbackReadService 의 상수 주석에 있습니다.
+     *
+     * <p>q 는 본문 부분 일치이고 대소문자를 가리지 않습니다. 비우면 검색이 아니라 전체 목록입니다.
+     * 검색 결과도 limit 으로 잘리므로, 흔한 말을 검색하면 최근 것부터 limit 건만 옵니다.
      */
     @GetMapping
-    public FeedbackListResponse list(@RequestParam(required = false) Integer limit) {
-        return feedbackReadService.recent(limit);
+    public FeedbackListResponse list(@RequestParam(required = false) Integer limit,
+                                     @RequestParam(required = false) String q) {
+        return feedbackReadService.recent(limit, q);
+    }
+
+    /**
+     * 최근 n 일의 피드백 분포 - 날짜별, 플랫폼별, 빌드 버전별 (S15P21D205-1004).
+     *
+     * <p>days 는 생략하면 30, 1~365 로 깎습니다. 날짜는 한국 시간이고 신고 통계와 같은 기간 규칙입니다.
+     * 빌드 버전 분포에서 옛 버전이 계속 보이면 업데이트가 안 된 사람이 있다는 뜻이라, 그 버전의
+     * 피드백은 이미 고친 문제일 수 있습니다.
+     */
+    @GetMapping("/stats")
+    public AdminFeedbackStats stats(@RequestParam(required = false) Integer days) {
+        return adminFeedbackStatsService.stats(days);
     }
 
     /**
