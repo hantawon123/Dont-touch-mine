@@ -64,13 +64,15 @@ namespace Game.Bootstrap
         private readonly PlayerProfile profile;
         private readonly AppFlowSystem appFlow;
         private readonly MatchAnalyticsUpload analytics;
+        private readonly ChatModerationService chat;
         public DedicatedServerStartup(NetworkRunnerService network, PlayerProfile profile, AppFlowSystem appFlow,
-            MatchAnalyticsUpload analytics)
+            MatchAnalyticsUpload analytics, ChatModerationService chat)
         {
             this.network = network;
             this.profile = profile;
             this.appFlow = appFlow;
             this.analytics = analytics;
+            this.chat = chat;
         }
 
         public async UniTask StartAsync(CancellationToken cancellation)
@@ -86,6 +88,11 @@ namespace Game.Bootstrap
                 Application.runInBackground = true;
                 if ((!Application.isBatchMode && !editorServer) || !Game.Network.Lobby.RoomCodeGenerator.IsWellFormed(code))
                     throw new InvalidOperationException("Use -batchmode -gameServer -roomCode <6-character code>.");
+                // Before the room opens, so the first message is already filtered. A failure
+                // here logs and carries on: a room that will not open over a word list is worse
+                // than a room without one.
+                await chat.LoadAsync(cancellation);
+
                 var request = SessionRequest.AvailableServer(code, MapCatalog.DefaultMapId);
                 var result = await network.StartAsync(request, cancellation);
                 if (!result.Ok) throw new InvalidOperationException("Server session could not start: " + result.Failure);

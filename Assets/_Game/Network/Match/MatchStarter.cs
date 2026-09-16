@@ -38,6 +38,7 @@ namespace Game.Network.Match
             new InteractionAuthorityRules();
 
         private IMatchStartSink _sink;
+        private IChatModeration _moderation;
         private PlayerRoster _roster;
 
         /// <summary>
@@ -138,11 +139,43 @@ namespace Game.Network.Match
         public void Bind(
             IMatchStartSink sink,
             PlayerRoster roster,
-            IMatchSceneDirector sceneDirector)
+            IMatchSceneDirector sceneDirector,
+            IChatModeration moderation = null)
         {
             _sink = sink;
             _roster = roster;
             _sceneDirector = sceneDirector;
+            _moderation = moderation;
+        }
+
+        /// <summary>
+        /// Covers forbidden words and keeps the original for report investigation
+        /// (S15P21D205-1028).
+        /// </summary>
+        /// <remarks>
+        /// Sits between deciding who spoke and telling everyone, because that is the one place
+        /// a message passes through once. Neither step waits on the backend: the judgement is
+        /// made from a list already in memory and the record is queued, so a backend that is
+        /// down costs the filtering and the record, never the conversation.
+        /// <para>
+        /// The room code is the session name, which is what a report's context key carries
+        /// before its '#'. Without one there is nothing to find the conversation by later, so
+        /// the record is skipped and the message still goes out covered.
+        /// </para>
+        /// </remarks>
+        private string Moderate(ChatScope scope, string playerId, string userId, string text)
+        {
+            var said = LobbyChatMessage.ClampText(text.Trim());
+            if (_moderation == null) return said;
+
+            var info = _state.Runner.SessionInfo;
+            if (info.IsValid && !string.IsNullOrWhiteSpace(info.Name))
+            {
+                _moderation.Record(new ChatLogRecord(
+                    info.Name, scope, userId, playerId, said, DateTimeOffset.UtcNow));
+            }
+
+            return _moderation.Mask(said);
         }
 
         /// <summary>
@@ -739,7 +772,7 @@ namespace Game.Network.Match
                 _state.RPC_NotifyLobbyChat(
                     participant.PlayerId,
                     nickname,
-                    LobbyChatMessage.ClampText(text.Trim()));
+                    Moderate(ChatScope.Lobby, participant.PlayerId, participant.UserId, text));
                 return true;
             }
 
@@ -779,7 +812,7 @@ namespace Game.Network.Match
                 _state.RPC_NotifyMatchChat(
                     participant.PlayerId,
                     ResolveNickname(participant.PlayerId),
-                    LobbyChatMessage.ClampText(text.Trim()));
+                    Moderate(ChatScope.Match, participant.PlayerId, participant.UserId, text));
                 return true;
             }
 

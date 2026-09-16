@@ -250,6 +250,20 @@ namespace Game.Bootstrap
             var client = new BackendClient(new UnityWebRequestTransport(), endpoint, session);
             builder.RegisterInstance(new MatchAnalyticsUpload(new UnityWebRequestTransport(), endpoint,
                 System.IO.Path.Combine(Application.persistentDataPath, "match-analytics")));
+
+            // Only a dedicated server relays chat, so only it needs the word list or posts the
+            // records. A player's build never learns the internal address and never holds the
+            // key, which is what keeps the list off the machines that would type around it.
+            if (DedicatedServerStartup.IsRequested)
+            {
+                builder.RegisterInstance(new ChatModerationService(
+                        new UnityWebRequestTransport(),
+                        new BackendEndpoint(DedicatedServerStartup.Argument(
+                            "-internalUrl", "http://127.0.0.1:8080")),
+                        DedicatedServerStartup.Argument("-chatKey")))
+                    .AsSelf()
+                    .As<IChatModeration>();
+            }
             builder.RegisterEntryPoint<MatchAnalyticsRecorder>();
             builder.RegisterInstance<IHighlightDirectorGateway>(new HighlightDirectorGateway(client));
             if (DedicatedServerStartup.IsRequested)
@@ -481,6 +495,11 @@ namespace Game.Bootstrap
                         // 접속하고, Photon 이 익명을 막고 있으면 거절당합니다.
                         c.TryResolve<IAccountReady>(out var accountReady)
                             ? accountReady
+                            : null,
+
+                        // 전용 서버에만 등록됩니다. 없으면 채팅은 지금과 똑같이 지나갑니다.
+                        c.TryResolve<IChatModeration>(out var chatModeration)
+                            ? chatModeration
                             : null),
                     Lifetime.Singleton)
                 .AsSelf()
