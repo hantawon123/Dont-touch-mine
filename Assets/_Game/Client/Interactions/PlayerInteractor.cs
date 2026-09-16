@@ -456,44 +456,52 @@ namespace Game.Client.Interactions
         private const float ThrowAimFallbackDistance = 12f;
         private readonly RaycastHit[] throwAimHits = new RaycastHit[8];
 
-        /// <summary>던질 때 물건을 눈높이 앞으로 옮기는 거리(m). 여기가 궤적의 최고점이 된다.</summary>
-        private const float ThrowReleaseForward = 0.35f;
-
-        /// <summary>
-        /// 던지는 순간 물건을 눈높이(머리)에서 시선 방향으로 조금 앞에 옮긴다. 손은 시선보다 아래라
-        /// 손에서 던지면 조준점과 어긋나므로, 눈에서 시선 그대로 나가게 한다. 정면을 보고 던지면 눈높이가
-        /// 최고점이고 거기서 떨어지기만 하며, 위를 보고 던지면 그대로 위로 날아간다.
-        /// 눈과 놓는 점 사이에 벽이 있으면 벽 앞에서 놓는다.
-        /// </summary>
-        private void MoveToThrowRelease(CarryableItem item)
+        /// <summary>던질 때 물건을 놓는 자리: 머리 본 위(3인칭 들기 위치). 머리 본이 없으면 현재 위치 그대로.</summary>
+        private Vector3 GetThrowReleasePosition(Vector3 fallback)
         {
-            var eyeHeight = playerMovement != null ? playerMovement.CurrentEyeHeight : 1.3f;
-            var eye = transform.position + Vector3.up * eyeHeight;
-            var forward = cameraTransform.forward;
-            var release = eye + forward * ThrowReleaseForward;
-            if (Physics.Raycast(eye, forward, out var blocked, ThrowReleaseForward,
-                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
-            {
-                release = blocked.point - forward * 0.1f;
-            }
-
-            item.transform.position = release;
+            if (!TryGetHeadBone(out var head)) return fallback;
+            var scale = VisualScale();
+            var forward = transform.forward;
+            forward.y = 0f;
+            return head.position + head.up * (holdAboveHeadOffset * scale)
+                   + forward.normalized * (holdForwardOffset * scale)
+                   + transform.right * (holdSideOffset * scale);
         }
 
         /// <summary>
-        /// 시선(크로스헤어) 방향 그대로 던진다. 인위적인 위쪽 보정은 없다 — 중력만 작용하므로 정면 던지기는
-        /// 놓는 점이 최고점이 되고, 천장을 보고 던지면 위로 날아간다. 속도 크기는 서버 상한(ThrowSpeed) 이하.
+        /// 머리 위 놓는 자리에서 크로스헤어가 가리키는 지점을 **통과하도록** 던진다(탄도 계산).
+        /// 단 출발점보다 위로 솟지는 않는다 — 머리가 최고점. 속도로 닿을 수 없는 먼 조준점이면 수평으로 최대한 멀리.
+        /// 조준점이 머리보다 높으면(천장 등) 그쪽으로 곧장 던진다. 속도 크기는 서버 상한(ThrowSpeed) 이하.
         /// </summary>
         private Vector3 GetThrowVelocity(Vector3 releasePosition)
         {
             var speed = Mathf.Max(0.1f, interactionConfig.ThrowSpeed);
-            var direction = FindThrowAimPoint() - releasePosition;
-            if (direction.sqrMagnitude < 0.01f)
+            var toTarget = FindThrowAimPoint() - releasePosition;
+            var flat = new Vector3(toTarget.x, 0f, toTarget.z);
+            var distance = flat.magnitude;
+            var height = toTarget.y;
+
+            if (distance < 0.05f || height > 0f)
             {
-                direction = cameraTransform.forward;
+                // 바로 앞/아래를 겨누거나 머리보다 높은 곳을 겨누면 곧장 그쪽으로.
+                var direct = toTarget.sqrMagnitude < 0.0001f ? cameraTransform.forward : toTarget;
+                return direct.normalized * speed;
             }
 
-            return direction.normalized * speed;
+            // 낮은 궤적 해: tanθ = (v² − √(v⁴ − g(g·d² + 2·h·v²))) / (g·d)
+            var g = Physics.gravity.magnitude;
+            var v2 = speed * speed;
+            var discriminant = v2 * v2 - g * (g * distance * distance + 2f * height * v2);
+            var angle = 0f;
+            if (discriminant >= 0f)
+            {
+                angle = Mathf.Atan((v2 - Mathf.Sqrt(discriminant)) / (g * distance));
+            }
+
+            // 출발점(머리) 위로는 솟지 않는다. 닿을 수 없으면 수평으로 던져 최대한 멀리 보낸다.
+            angle = Mathf.Min(angle, 0f);
+            var direction = flat.normalized * Mathf.Cos(angle) + Vector3.up * Mathf.Sin(angle);
+            return direction * speed;
         }
 
         private Vector3 FindThrowAimPoint()
@@ -523,7 +531,10 @@ namespace Game.Client.Interactions
             }
 
             var thrown = CarriedItem;
-            MoveToThrowRelease(thrown);
+            // 1인칭·3인칭 모두 머리 위(3인칭 들기 위치)에서 던진다. 머리가 궤적의 최고점이 되고,
+            // 1인칭에서 손(눈 아래) 위치에서 던져 낮게 출발하던 것도 같아진다.
+            thrown.transform.position = GetThrowReleasePosition(thrown.transform.position);
+            EnsureSafeReleasePosition(thrown);
             var velocity = GetThrowVelocity(thrown.transform.position);
 
             if (commands != null)
