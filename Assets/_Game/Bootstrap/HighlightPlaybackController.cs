@@ -418,7 +418,7 @@ namespace Game.Bootstrap
             cameraDirector.SetPlaybackTime(playbackTime);
             cameraDirector.Tick(Time.unscaledDeltaTime);
             if (cctvHud != null) cctvHud.SetCctvInfo(string.IsNullOrEmpty(cameraDirector.CctvLocation)
-                ? "3인칭 추적" : cameraDirector.CctvLocation, replayPlayer.SourceTime);
+                ? "3인칭 추적" : cameraDirector.CctvLocation, DateTimeOffset.UtcNow);
             transition.SetOpacity(HighlightPresentationTiming.Opacity(elapsed, duration));
         }
 
@@ -782,7 +782,11 @@ namespace Game.Bootstrap
                     room.Participants.CurrentValue,
                     presentation)
                 : null;
+            var current=index>=0 && index<replay.Count ? replay[index] : null;
+            if(!string.IsNullOrEmpty(current?.Title)) subtitle=current.Title + "\n" + current.Summary;
             hud.SetHighlightHud(true, subtitle, highlightBarFills);
+            if(cctvHud==null && hud is Component component)
+                cctvHud=component.GetComponentInChildren<HighlightHudView>(true);
         }
 
         private static int GetRecordedPlayerCount(

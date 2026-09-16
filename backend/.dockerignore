@@ -5,6 +5,8 @@ build/
 
 # 비밀번호가 들어 있습니다. 이미지에 절대 들어가면 안 됩니다.
 .env
+.env.*
+*.env
 
 .git/
 .gitignore

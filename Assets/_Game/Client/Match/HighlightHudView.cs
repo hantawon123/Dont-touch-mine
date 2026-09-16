@@ -70,6 +70,7 @@ namespace Game.Client.Match
         private bool previewOnAwake;
 
         private bool shown;
+        private bool hasTwoSubtitleLines;
         private int visibleBarCount = BarCount;
 
         public static HighlightHudView Create(Transform parent)
@@ -184,6 +185,16 @@ namespace Game.Client.Match
 
             var visible = !string.IsNullOrWhiteSpace(subtitle);
             subtitleText.text = visible ? subtitle.Trim() : string.Empty;
+            var twoLines = visible && subtitle.IndexOf('\n') >= 0;
+            if (hasTwoSubtitleLines != twoLines)
+            {
+                hasTwoSubtitleLines = twoLines;
+                subtitleText.enableAutoSizing = twoLines;
+                subtitleText.fontSizeMin = 12f;
+                subtitleText.fontSizeMax = SubtitleFontSize;
+                if (!twoLines) subtitleText.fontSize = SubtitleFontSize;
+                ApplyHeaderLayout();
+            }
         }
 
         public void SetBarFills(IReadOnlyList<float> fills)
@@ -348,7 +359,7 @@ namespace Game.Client.Match
                     header.GetComponent<RectTransform>(),
                     new Vector2(0.5f, 1f),
                     new Vector2(0f, -TopPadding),
-                    new Vector2(HeaderWidth, HeaderHeight),
+                    new Vector2(HeaderWidth, HeaderHeight + (hasTwoSubtitleLines ? SubtitleHeight : 0f)),
                     new Vector2(0.5f, 1f));
             }
 
@@ -368,7 +379,7 @@ namespace Game.Client.Match
                     subtitleText.rectTransform,
                     new Vector2(0.5f, 1f),
                     new Vector2(0f, -TitleHeight),
-                    new Vector2(HeaderWidth, SubtitleHeight),
+                    new Vector2(HeaderWidth, SubtitleHeight * (hasTwoSubtitleLines ? 2f : 1f)),
                     new Vector2(0.5f, 1f));
             }
 
@@ -389,7 +400,7 @@ namespace Game.Client.Match
             Place(
                 bars,
                 new Vector2(0.5f, 1f),
-                new Vector2(0f, -BarRowOffset),
+                new Vector2(0f, -BarRowOffset - (hasTwoSubtitleLines ? SubtitleHeight : 0f)),
                 new Vector2(rowWidth, BarHeight),
                 new Vector2(0.5f, 1f));
             bars.gameObject.SetActive(visibleBarCount > 0);

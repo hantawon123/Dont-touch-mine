@@ -34,6 +34,27 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void AiPoolAddsRecentEventsWithoutChangingRuleBasedCandidates()
+        {
+            recorder.RecordItemDestroyed(0,"item-a",108);
+            for(int i=0;i<15;i++) recorder.RecordPlayerStunned(0,1,110+i);
+            var baseline=recorder.CaptureCandidates(130);
+            var expanded=recorder.ExpandAiCandidates(baseline,130);
+            Assert.That(expanded.Length,Is.LessThanOrEqualTo(10));
+            Assert.That(expanded.Any(c=>c.Type==HighlightType.PlayerStunned),Is.True);
+            Assert.That(recorder.CaptureCandidates(130).Select(c=>c.Type),Is.EqualTo(baseline.Select(c=>c.Type)));
+        }
+
+        [Test]
+        public void AiPoolRecordsOwnerRecovery()
+        {
+            recorder.RecordItemPickup(1,"item-a",108);
+            recorder.RecordItemPickup(0,"item-a",117);
+            Assert.That(recorder.ExpandAiCandidates(recorder.CaptureCandidates(120),120)
+                .Any(c=>c.Type==HighlightType.ItemRecovered),Is.True);
+        }
+
+        [Test]
         public void CaptureCandidates_RecordsFirstDestroyedItemOnly()
         {
             recorder.RecordItemDestroyed(1, "item-a", 110d);

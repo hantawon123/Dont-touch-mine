@@ -817,3 +817,21 @@ MR을 **머지 결과로 빌드**하고, **develop이 갱신되면 열린 MR에 
 빌드와 테스트가 운영 서버와 같은 EC2에서 돕니다. 4 vCPU / 15GB이고 앱 CPU가
 0.2% 수준이라 지금은 경합이 없습니다. Jenkins 실행기가 2개로 제한돼 있어 동시
 빌드도 두 개까지입니다. 트래픽이 생기면 빌드용 인스턴스를 분리해야 합니다.
+
+
+## GMS 공용 연결 (S15P21D205-1015)
+
+GMS_KEY와 GMS_GENERATE_URL은 서버의 `/etc/d205/gms.env`에만 둡니다.
+`compose.prod.yml`의 app이 이 파일을 읽습니다. 소유자 root, 그룹 jenkins, 파일 권한 640(디렉터리 750)으로
+설정해 수동 배포와 Jenkins 재배포에서 같은 파일을 사용합니다. Jenkins 비밀 파일의
+기존 DB 설정을 수정하거나 팀원에게 GMS 키를 배포할 필요는 없습니다.
+서버를 옮기면 비밀 파일도 안전하게 옮기고, 경로가 다르면 `GMS_ENV_FILE`로 지정합니다.
+Compose 2.24 이상이 필요하며 파일이 없으면 AI 없이 기존 하이라이트를 사용합니다.
+GMS 값을 compose의 `environment`에 빈 값으로 추가하면 env_file 값을 덮으므로 넣지 않습니다.
+
+팀 테스트: 모두 같은 feature 브랜치 버전을 받은 뒤 한 명은 Unity 개발 서버, 나머지는
+개발 클라이언트를 실행합니다. 기본 BackendEndpoint는 기존 공용 HTTPS 백엔드입니다.
+Unity 프로젝트에 GMS 설정 파일은 필요 없습니다. 각자 Spring 백엔드까지 실행할 때만
+로컬 `backend/.env.properties`에 별도 키가 필요합니다. 운영 배포 이미지에는 키를 넣지 않습니다.
+
+환경설정은 각 PC의 기존 PlayerPrefs 로컬 저장만 사용합니다. 계정 설정 API나 DB 테이블을 추가하지 않습니다.

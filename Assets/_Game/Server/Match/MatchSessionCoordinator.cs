@@ -168,6 +168,9 @@ namespace Game.Server.Match
         private HighlightSequence highlights;
         private MatchResult? result;
         private bool finalWarningStarted;
+        private HighlightCandidate[] aiCandidates=Array.Empty<HighlightCandidate>();
+        private readonly Dictionary<HighlightCandidate, Game.Core.Ports.HighlightDirectorPick> aiCaptions=new();
+        private bool highlightSelectionFrozen;
         private bool hasExplicitHighlightCandidates;
         private bool replayUnavailable;
 
@@ -837,6 +840,8 @@ namespace Game.Server.Match
             }
 
             highlights = new HighlightSequence(candidates, rules);
+            aiCandidates=new HighlightCandidate[candidates.Count];
+            for(int i=0;i<candidates.Count;i++) aiCandidates[i]=candidates[i];
             hasExplicitHighlightCandidates = true;
             return true;
         }
@@ -914,6 +919,45 @@ namespace Game.Server.Match
             return true;
         }
 
+        private bool HasCandidateFrames(HighlightCandidate candidate)
+        {
+            foreach(var segment in candidate.Segments)
+                if(!highlightReplayBuffer.HasFramesWithBoundary(segment.StartedAt,segment.EndedAt)) return false;
+            return candidate.Segments.Count>0;
+        }
+
+        public Game.Core.Ports.HighlightDirectorCandidate[] CaptureDirectorCandidates()
+        {
+            if(!result.HasValue || highlightSelectionFrozen) return Array.Empty<Game.Core.Ports.HighlightDirectorCandidate>();
+            var playable=new List<HighlightCandidate>();
+            foreach(var candidate in aiCandidates)
+                if(playable.Count<10 && HasCandidateFrames(candidate)) playable.Add(candidate);
+            aiCandidates=playable.ToArray();
+            var request=new Game.Core.Ports.HighlightDirectorCandidate[aiCandidates.Length];
+            for(int i=0;i<request.Length;i++)
+            {
+                var candidate=aiCandidates[i];
+                request[i]=new Game.Core.Ports.HighlightDirectorCandidate {
+                    id=i,eventType=candidate.Type.ToString(),seconds=candidate.PlaybackDurationSeconds,
+                    segments=candidate.Segments.Count,remainingSeconds=Math.Max(0,result.Value.EndedAt-candidate.EventAt),
+                    involvedPlayers=(candidate.ActorPlayerIndex>=0 ? 1 : 0)+(candidate.SecondaryPlayerIndex>=0 ? 1 : 0),
+                    ruleScore=candidate.Score
+                };
+            }
+            return request;
+        }
+
+        public bool TryApplyDirectorSelection(Game.Core.Ports.HighlightDirectorReply reply)
+        {
+            if(CurrentPhase!=MatchPhase.Highlight || highlightSelectionFrozen || reply?.IsUsable(aiCandidates.Length)!=true) return false;
+            var selected=new List<HighlightCandidate>();
+            foreach(var pick in reply.picks) selected.Add(aiCandidates[pick.id]);
+            highlights=new HighlightSequence(selected,rules,true);
+            aiCaptions.Clear();
+            for(int i=0;i<selected.Count;i++) aiCaptions.Add(selected[i],reply.picks[i]);
+            return true;
+        }
+
         public bool TryCaptureHighlightReplay(out HighlightReplayData[] replay)
         {
             if (!result.HasValue)
@@ -922,6 +966,7 @@ namespace Game.Server.Match
                 return false;
             }
 
+            highlightSelectionFrozen=true;
             var selected = highlights.Capture();
             var playableCandidates = new List<HighlightCandidate>(selected.Length);
             var playableReplay = new List<HighlightReplayData>(selected.Length);
@@ -930,12 +975,13 @@ namespace Game.Server.Match
                 var clips = CaptureReplay(selected[index]);
                 if (!HasPlayableFrames(clips)) continue;
                 playableCandidates.Add(selected[index]);
-                playableReplay.Add(new HighlightReplayData(selected[index], clips));
+                aiCaptions.TryGetValue(selected[index],out var caption);
+                playableReplay.Add(new HighlightReplayData(selected[index],clips,caption?.title,caption?.summary));
             }
 
             // The shared schedule must describe the payload clients can actually play.
             // Otherwise an empty clip still consumes highlight time behind a black cover.
-            highlights = new HighlightSequence(playableCandidates, rules);
+            highlights = new HighlightSequence(playableCandidates, rules, true);
             replay = playableReplay.ToArray();
             return true;
         }
@@ -1349,10 +1395,9 @@ namespace Game.Server.Match
                 winnerPlayerIndices ?? GetWinnerPlayerIndices());
             if (captureHighlights && !hasExplicitHighlightCandidates)
             {
-                highlights = new HighlightSequence(
-                    highlightRecorder.CaptureCandidates(endedAt, endReason,
-                        highlightReplayBuffer.Capture(0d, endedAt)),
-                    rules);
+                var candidates=highlightRecorder.CaptureCandidates(endedAt,endReason,highlightReplayBuffer.Capture(0d,endedAt));
+                highlights=new HighlightSequence(candidates,rules);
+                aiCandidates=highlightRecorder.ExpandAiCandidates(candidates,endedAt);
             }
             result = capturedResult;
             flow.SetHighlightPresentationDuration(highlights.TotalDurationSeconds +

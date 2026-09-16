@@ -42,7 +42,7 @@ namespace Game.Server.Match
     {
         public HighlightReplayData(
             HighlightCandidate candidate,
-            IReadOnlyList<HighlightReplayClip> clips)
+            IReadOnlyList<HighlightReplayClip> clips, string title = null, string summary = null)
         {
             if (candidate.Segments == null)
             {
@@ -78,10 +78,15 @@ namespace Game.Server.Match
                 copiedClips[index] = clips[index];
             }
 
+            if(title != null && (!Game.Core.Ports.HighlightDirectorReply.ValidText(title,24) ||
+                !Game.Core.Ports.HighlightDirectorReply.ValidText(summary,70))) throw new ArgumentException("Invalid highlight caption.");
+            Title=title; Summary=summary;
             Candidate = candidate;
             Clips = Array.AsReadOnly(copiedClips);
         }
 
+        public string Title { get; }
+        public string Summary { get; }
         public HighlightCandidate Candidate { get; }
         public IReadOnlyList<HighlightReplayClip> Clips { get; }
     }
@@ -204,6 +209,16 @@ namespace Game.Server.Match
 
         // Include neighboring samples only when contiguous, so a cut does not
         // borrow a distant stale state or start with an already-destroyed item.
+        public bool HasFramesWithBoundary(double startedAt,double endedAt)
+        {
+            foreach(var frame in frames)
+            {
+                if(frame.RecordedAt>endedAt+sampleIntervalSeconds*2d) return false;
+                if(frame.RecordedAt>=startedAt-sampleIntervalSeconds*2d) return true;
+            }
+            return false;
+        }
+
         public HighlightReplayFrame[] CaptureWithBoundary(double startedAt, double endedAt)
         {
             var result = new List<HighlightReplayFrame>(Capture(startedAt, endedAt));
