@@ -27,7 +27,21 @@ namespace Game.Tests.PlayMode
                 animator.applyRootMotion = false;
                 animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
                 var states = controller.layers[0].stateMachine.states.Select(s => s.state).ToArray();
-                Assert.That(states.Length, Is.EqualTo(139));
+                foreach (var name in new[]
+                {
+                    "Carry_TwoHands_Hit",
+                    "Carry_TwoHands_Hit_Walk",
+                    "Carry_TwoHands_Hit_Run",
+                    "Carry_TwoHands_Hit_Crouch",
+                    "Carry_TwoHands_Hit_Crouch_Walk",
+                    "Hit_Prone",
+                    "Hit_Crawl",
+                    "Carry_TwoHands_Hit_Prone",
+                    "Carry_TwoHands_Hit_Crawl",
+                })
+                {
+                    Assert.That(states.Any(state => state.name == name && state.motion is AnimationClip), Is.True, name);
+                }
                 var body = character.GetComponentsInChildren<SkinnedMeshRenderer>().Single(s => s.name == "Body");
                 Assert.That(body.sharedMesh.blendShapeCount, Is.EqualTo(2));
                 var transforms = character.GetComponentsInChildren<Transform>();

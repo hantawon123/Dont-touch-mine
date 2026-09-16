@@ -272,6 +272,33 @@ namespace Game.Tests.EditMode
                 PlayerAnimationDriver.ResolveHitClip(PlayerPosture.Crouching, 0f, 4f, 7f),
                 Is.EqualTo("Hit_Crouch"));
             Assert.That(
+                PlayerAnimationDriver.ResolveHitClip(PlayerPosture.Standing, 0f, 4f, 7f, true),
+                Is.EqualTo("Carry_TwoHands_Hit"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveHitClip(PlayerPosture.Standing, 4f, 4f, 7f, true),
+                Is.EqualTo("Carry_TwoHands_Hit_Walk"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveHitClip(PlayerPosture.Standing, 7f, 4f, 7f, true),
+                Is.EqualTo("Carry_TwoHands_Hit_Run"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveHitClip(PlayerPosture.Crouching, 0f, 4f, 7f, true),
+                Is.EqualTo("Carry_TwoHands_Hit_Crouch"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveHitClip(PlayerPosture.Crouching, 2f, 4f, 7f, true),
+                Is.EqualTo("Carry_TwoHands_Hit_Crouch_Walk"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveHitClip(PlayerPosture.Prone, 0f, 4f, 7f),
+                Is.EqualTo("Hit_Prone"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveHitClip(PlayerPosture.Prone, 0.8f, 4f, 7f),
+                Is.EqualTo("Hit_Crawl"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveHitClip(PlayerPosture.Prone, 0f, 4f, 7f, true),
+                Is.EqualTo("Carry_TwoHands_Hit_Prone"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveHitClip(PlayerPosture.Prone, 0.8f, 4f, 7f, true),
+                Is.EqualTo("Carry_TwoHands_Hit_Crawl"));
+            Assert.That(
                 PlayerAnimationDriver.ResolvePlaybackSpeed("Punch_Walk", 7f, 4f, 7f, 2f, 0.8f),
                 Is.EqualTo(1f));
             Assert.That(
