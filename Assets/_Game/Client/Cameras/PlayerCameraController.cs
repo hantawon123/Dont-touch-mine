@@ -54,7 +54,11 @@ namespace Game.Client.Cameras
         [SerializeField]
         private FirstPersonArmsSettings firstPersonArms = new();
 
+        [SerializeField]
+        private FirstPersonHoldSettings firstPersonHold = new();
+
         private readonly FirstPersonArmsView armsView = new();
+        private Game.Client.Interactions.PlayerInteractor followInteractor;
 
         private ControlSettingsSystem controls;
 
@@ -159,7 +163,11 @@ namespace Game.Client.Cameras
             Game.Client.Common.WebPointerInput.Release();
         }
 
-        private void OnDestroy() => armsView.Dispose();
+        private void OnDestroy()
+        {
+            followInteractor?.ClearFirstPersonHold();
+            armsView.Dispose();
+        }
 
         private void Update()
         {
@@ -246,7 +254,17 @@ namespace Game.Client.Cameras
                 Quaternion.Euler(pitch, yaw, 0f));
 
             // 몸 Animator가 이 프레임 본을 다 쓴 뒤라, 1인칭 팔이 그 포즈를 복사할 수 있다.
-            armsView.Apply(isFirstPerson && !bodyVisibleOverride && firstPersonArms.showArms, firstPersonArms, transform);
+            var firstPersonView = isFirstPerson && !bodyVisibleOverride;
+            armsView.Apply(firstPersonView && firstPersonArms.showArms, firstPersonArms, transform);
+
+            // 들고 있는 물건도 1인칭에서는 카메라 기준 자리에 보인다.
+            if (followInteractor != null)
+            {
+                if (firstPersonView && firstPersonHold.enabled)
+                    followInteractor.SetFirstPersonHold(transform, firstPersonHold.offset, firstPersonHold.tilt);
+                else
+                    followInteractor.ClearFirstPersonHold();
+            }
         }
 
         /// <summary>
@@ -267,6 +285,8 @@ namespace Game.Client.Cameras
 
             followTarget = target;
             followMovement = target.GetComponent<PlayerMovement>();
+            followInteractor?.ClearFirstPersonHold();
+            followInteractor = target.GetComponent<Game.Client.Interactions.PlayerInteractor>();
             if (preserveView)
             {
                 followCorrection = transform.position - target.position -

@@ -125,6 +125,36 @@ namespace Game.Client.Interactions
 
         public Transform HoldPoint => holdPoint;
 
+        private Transform firstPersonCamera;
+        private Vector3 firstPersonHoldOffset;
+        private Quaternion firstPersonHoldTilt = Quaternion.identity;
+        private bool firstPersonHoldActive;
+
+        /// <summary>
+        /// 1인칭 동안 손 위치를 카메라 기준으로 둔다. 카메라 컨트롤러가 자기 위치를 정한 직후 매 프레임 부른다.
+        /// 다른 클라이언트는 각자 자기 HoldPoint에 물건을 붙이므로 내 화면에만 영향이 있다.
+        /// </summary>
+        /// <param name="camera">1인칭 카메라(리그) 트랜스폼</param>
+        /// <param name="offset">카메라 기준 위치(m): x=오른쪽, y=위, z=앞</param>
+        /// <param name="tiltEuler">카메라 기준 물건 기울기(도)</param>
+        public void SetFirstPersonHold(Transform camera, Vector3 offset, Vector3 tiltEuler)
+        {
+            firstPersonCamera = camera;
+            firstPersonHoldOffset = offset;
+            firstPersonHoldTilt = Quaternion.Euler(tiltEuler);
+            firstPersonHoldActive = camera != null;
+            RefreshHoldPoint();
+        }
+
+        /// <summary>3인칭으로 돌아오면 손 위치를 다시 몸 기준으로 둔다.</summary>
+        public void ClearFirstPersonHold()
+        {
+            if (!firstPersonHoldActive) return;
+            firstPersonHoldActive = false;
+            firstPersonCamera = null;
+            if (holdPoint != null) holdPoint.localRotation = Quaternion.identity;
+        }
+
         public bool UsesAuthoritativeCommands => commands != null;
 
         /// <summary>배치 모드 등 좌클릭을 다른 용도로 쓰는 동안 던지기를 막는다.</summary>
@@ -196,7 +226,22 @@ namespace Game.Client.Interactions
 
         public void RefreshHoldPoint()
         {
-            // 손 위치가 자세(서기/앉기/엎드리기)의 눈높이를 따라가게 한다.
+            if (firstPersonHoldActive)
+            {
+                if (firstPersonCamera == null)
+                {
+                    ClearFirstPersonHold();
+                    return;
+                }
+
+                // 1인칭: 시선을 따라 화면의 같은 자리에 보이도록 카메라 기준으로 즉시 놓는다(지연 없음).
+                holdPoint.SetPositionAndRotation(
+                    firstPersonCamera.TransformPoint(firstPersonHoldOffset),
+                    firstPersonCamera.rotation * firstPersonHoldTilt);
+                return;
+            }
+
+            // 3인칭: 손 위치가 자세(서기/앉기/엎드리기)의 눈높이를 따라가게 한다.
             if (playerMovement != null)
             {
                 var target = new Vector3(
