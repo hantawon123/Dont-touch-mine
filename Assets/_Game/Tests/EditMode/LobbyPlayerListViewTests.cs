@@ -884,15 +884,34 @@ namespace Game.Architecture.Tests
                 Assert.That(rect.anchoredPosition, Is.EqualTo(new Vector2(
                     LobbyPlayerListView.MatchLeftMargin, 0f)));
                 Assert.That(rect.sizeDelta, Is.EqualTo(LobbyPlayerListView.MatchModalSize));
+                Assert.That(
+                    view.GetComponent<Image>().sprite,
+                    Is.EqualTo(HomeUiFonts.Rounded(LobbyPlayerListView.ColumnRadius)));
+
+                var outline = canvas.transform.Find(
+                    LobbyPlayerListView.MatchRootName + "/Outline") as RectTransform;
+                Assert.That(outline, Is.Not.Null);
+                Assert.That(outline.anchorMin, Is.EqualTo(Vector2.zero));
+                Assert.That(outline.anchorMax, Is.EqualTo(Vector2.one));
+                Assert.That(outline.offsetMin, Is.EqualTo(Vector2.zero));
+                Assert.That(outline.offsetMax, Is.EqualTo(Vector2.zero));
+                Assert.That(
+                    outline.GetComponent<Image>().sprite,
+                    Is.EqualTo(HomeUiFonts.Outline(LobbyPlayerListView.ColumnRadius)));
 
                 var friends = canvas.transform.Find(
                     LobbyPlayerListView.MatchRootName + "/Columns/Friends");
                 Assert.That(friends.gameObject.activeSelf, Is.False);
+                var columns = canvas.transform.Find(
+                    LobbyPlayerListView.MatchRootName + "/Columns") as RectTransform;
+                Assert.That(columns.offsetMin, Is.EqualTo(Vector2.zero));
+                Assert.That(columns.offsetMax, Is.EqualTo(Vector2.zero));
                 var participants = canvas.transform.Find(
                     LobbyPlayerListView.MatchRootName + "/Columns/Participants") as RectTransform;
                 Assert.That(participants, Is.Not.Null);
                 Assert.That(participants.anchorMin, Is.EqualTo(Vector2.zero));
                 Assert.That(participants.anchorMax, Is.EqualTo(Vector2.one));
+                Assert.That(participants.GetComponent<Image>().enabled, Is.False);
                 Assert.That(view.ParticipantsTitleText, Is.EqualTo(LobbyPlayerListView.ParticipantsTitle));
 
                 var hostRow = FindRow(canvas, "Row_host-1");
@@ -901,7 +920,12 @@ namespace Game.Architecture.Tests
                 Assert.That(guestRow, Is.Not.Null);
                 Assert.That(hostRow.Find("Kick"), Is.Null);
                 Assert.That(guestRow.Find("Kick"), Is.Null);
-                Assert.That(FindReport(canvas, "Row_player-2"), Is.Null);
+                Assert.That(FindReport(canvas, "Row_host-1"), Is.Null);
+                Assert.That(FindReport(canvas, "Row_player-2"), Is.Not.Null);
+                string reported = null;
+                view.ReportClicked += (id, _) => reported = id;
+                ClickReportOn(canvas, "Row_player-2");
+                Assert.That(reported, Is.EqualTo("22222222-2222-2222-2222-222222222222"));
             }
             finally
             {

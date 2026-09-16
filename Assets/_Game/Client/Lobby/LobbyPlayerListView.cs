@@ -51,7 +51,7 @@ namespace Game.Client.Lobby
         public const float ModalWidth = 800f;
         public const float ModalHeight = 420f;
         public const float ColumnWidthRatio = 0.4f;
-        public const float MatchModalWidth = ModalWidth * ColumnWidthRatio + (PanelPadding * 2f);
+        public const float MatchModalWidth = ModalWidth * ColumnWidthRatio;
         public const float MatchModalHeight = ModalHeight;
         public const float MatchLeftMargin = 36f;
         public const string MatchRootName = "MatchParticipantList";
@@ -275,7 +275,7 @@ namespace Game.Client.Lobby
                 // participant who joined without one has nothing the server can
                 // be told about, and a blank id would only turn the 404 into a
                 // 400.
-                if (!matchLayout && !isSelf && !string.IsNullOrWhiteSpace(participant.UserId))
+                if (!isSelf && !string.IsNullOrWhiteSpace(participant.UserId))
                 {
                     BindReport(row, participant.UserId, displayName, below: participant.IsHost);
                 }
@@ -550,11 +550,44 @@ namespace Game.Client.Lobby
                 fill = gameObject.AddComponent<Image>();
             }
 
-            fill.sprite = HomeUiFonts.Rounded(PanelRadius);
+            fill.sprite = HomeUiFonts.Rounded(matchLayout ? ColumnRadius : PanelRadius);
             fill.type = Image.Type.Sliced;
             fill.pixelsPerUnitMultiplier = 1f;
             fill.color = PlaySettingsStyle.Palette.PanelFill;
             fill.raycastTarget = true;
+            ApplyMatchOutline();
+        }
+
+        private void ApplyMatchOutline()
+        {
+            var outline = transform.Find("Outline") as RectTransform;
+            if (!matchLayout)
+            {
+                if (outline != null)
+                {
+                    outline.gameObject.SetActive(false);
+                }
+
+                return;
+            }
+
+            if (outline == null)
+            {
+                var go = new GameObject(
+                    "Outline", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(transform, false);
+                outline = go.GetComponent<RectTransform>();
+            }
+
+            outline.gameObject.SetActive(true);
+            Stretch(outline, 0f, 0f, 0f, 0f);
+            outline.SetAsFirstSibling();
+            var image = outline.GetComponent<Image>();
+            image.sprite = HomeUiFonts.Outline(ColumnRadius);
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = 1f;
+            image.color = new Color(1f, 1f, 1f, 0.45f);
+            image.raycastTarget = false;
         }
 
         private void BuildLayout()
@@ -589,7 +622,12 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            Stretch(columns, 0f, PanelPadding, 0f, -PanelPadding);
+            Stretch(
+                columns,
+                0f,
+                matchLayout ? 0f : PanelPadding,
+                0f,
+                matchLayout ? 0f : -PanelPadding);
             var participants = columns.Find("Participants") as RectTransform;
             var friends = columns.Find("Friends") as RectTransform;
             if (matchLayout)
@@ -600,6 +638,7 @@ namespace Game.Client.Lobby
                 }
 
                 PlaceFullColumn(participants);
+                SetColumnOutlineVisible(participants, false);
                 InsetColumnContent(participants);
                 return;
             }
@@ -611,8 +650,24 @@ namespace Game.Client.Lobby
 
             PlaceColumn(participants, isLeft: true);
             PlaceColumn(friends, isLeft: false);
+            SetColumnOutlineVisible(participants, true);
+            SetColumnOutlineVisible(friends, true);
             InsetColumnContent(participants);
             InsetColumnContent(friends);
+        }
+
+        private static void SetColumnOutlineVisible(RectTransform column, bool visible)
+        {
+            if (column == null)
+            {
+                return;
+            }
+
+            var outline = column.GetComponent<Image>();
+            if (outline != null)
+            {
+                outline.enabled = visible;
+            }
         }
 
         private static void PlaceFullColumn(RectTransform column)

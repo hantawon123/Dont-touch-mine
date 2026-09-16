@@ -25,6 +25,9 @@ namespace Game.Architecture.Tests
             Assert.That(
                 MatchParticipantListOverlay.ShouldHandleToggle(false, false, true),
                 Is.False);
+            Assert.That(
+                MatchParticipantListOverlay.ShouldHandleToggle(false, false, false, true),
+                Is.False);
         }
     }
 }

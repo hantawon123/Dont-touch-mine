@@ -149,8 +149,9 @@ namespace Game.Bootstrap
                     var loading = c.Resolve<ILoadingOverlay>();
                     presenter.BindGameplayReadiness(() => interactions.IsLocalPresentationReady, loading);
                     var settings = c.Resolve<MatchSettingsOverlay>();
+                    var participants = c.Resolve<MatchParticipantListOverlay>();
                     c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(
-                        () => presenter.BlocksGameplayInput || settings.IsOpen);
+                        () => presenter.BlocksGameplayInput || settings.IsOpen || participants.IsOpen);
                 });
             }
 
@@ -180,7 +181,15 @@ namespace Game.Bootstrap
             var playerList = matchHudView != null
                 ? matchHudView.EnsureParticipantList()
                 : LobbyPlayerListView.CreateMatchList(transform);
+            var confirmHost = matchHudView != null ? matchHudView.gameObject : playerList.gameObject;
+            var confirmView = confirmHost.GetComponent<KickConfirmView>();
+            if (confirmView == null)
+            {
+                confirmView = confirmHost.AddComponent<KickConfirmView>();
+            }
+
             builder.RegisterComponent(playerList).As<ILobbyPlayerListView>().AsSelf();
+            builder.RegisterComponent(confirmView).As<ILobbyConfirmView>().AsSelf();
             builder.Register<NetworkLobbyParticipantList>(Lifetime.Scoped)
                 .As<ILobbyParticipantList>();
             builder.RegisterEntryPoint<MatchPlayerListPresenter>();
@@ -192,7 +201,9 @@ namespace Game.Bootstrap
                 builder.RegisterBuildCallback(c =>
                 {
                     var settings = c.Resolve<MatchSettingsOverlay>();
-                    c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(() => settings.IsOpen);
+                    var participants = c.Resolve<MatchParticipantListOverlay>();
+                    c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(
+                        () => settings.IsOpen || participants.IsOpen);
                 });
             }
             builder.RegisterEntryPoint<MatchChatPresenter>();

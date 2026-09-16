@@ -1,4 +1,5 @@
 using System;
+using Game.Client.Cameras;
 using Game.Client.Lobby;
 using Game.Client.Match;
 using Game.Client.Players;
@@ -20,17 +21,21 @@ namespace Game.Bootstrap
         private readonly MatchChatView chat;
         private readonly NetworkRunnerService network;
         private readonly SettingsView settings;
+        private readonly KickConfirmView confirm;
+        private PlayerCameraController camera;
 
         public MatchParticipantListOverlay(
             LobbyPlayerListView list,
             MatchChatView chat,
             NetworkRunnerService network,
-            SettingsView settings)
+            SettingsView settings,
+            KickConfirmView confirm = null)
         {
             this.list = list ?? throw new ArgumentNullException(nameof(list));
             this.chat = chat;
             this.network = network ?? throw new ArgumentNullException(nameof(network));
             this.settings = settings;
+            this.confirm = confirm;
             list.ConfigureForMatch();
             Hide();
         }
@@ -42,9 +47,10 @@ namespace Game.Bootstrap
         public static bool ShouldHandleToggle(
             bool textFocused,
             bool settingsOpen,
-            bool presentationBlocks)
+            bool presentationBlocks,
+            bool confirmOpen = false)
         {
-            return !textFocused && !settingsOpen && !presentationBlocks;
+            return !textFocused && !settingsOpen && !presentationBlocks && !confirmOpen;
         }
 
         public void Tick()
@@ -68,11 +74,17 @@ namespace Game.Bootstrap
             }
 
             var keyboard = Keyboard.current;
+            var confirmOpen = confirm != null && confirm.IsShown;
             var escapePressed = WasPressed(keyboard.escapeKey);
-            if (IsOpen && escapePressed)
+            if (IsOpen && escapePressed && !confirmOpen)
             {
                 Hide();
                 ConsumedEscapeThisFrame = true;
+                return;
+            }
+
+            if (confirmOpen)
+            {
                 return;
             }
 
@@ -87,7 +99,8 @@ namespace Game.Bootstrap
                     PlayerMovement.IsTextInputFocused() ||
                     (chat != null && chat.IsInputFocused),
                     settings != null && settings.gameObject.activeSelf,
-                    !network.IsRuntimeReady))
+                    !network.IsRuntimeReady,
+                    confirmOpen))
             {
                 return;
             }
@@ -112,16 +125,31 @@ namespace Game.Bootstrap
             list.transform.SetAsLastSibling();
             list.gameObject.SetActive(true);
             IsOpen = true;
+            camera = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(
+                FindObjectsInactive.Include);
+            if (camera != null)
+            {
+                camera.SetEscapeReleasesCursor(false);
+                camera.SetCursorCaptureEnabled(false);
+            }
         }
 
         private void Hide()
         {
+            confirm?.Hide();
             if (list != null)
             {
                 list.gameObject.SetActive(false);
             }
 
             IsOpen = false;
+            if (camera != null &&
+                (settings == null || !settings.gameObject.activeSelf) &&
+                !network.IsResultSceneLoaded &&
+                !network.IsHighlightInProgress)
+            {
+                camera.SetCursorCaptureEnabled(true);
+            }
         }
 
         private static bool WasPressed(UnityEngine.InputSystem.Controls.KeyControl key)
