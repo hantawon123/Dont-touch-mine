@@ -942,7 +942,7 @@ namespace Game.Architecture.Tests
                 Assert.That(view.HidingWaitNextTurn, Is.True);
                 Assert.That(view.HidingWaitRemaining, Is.EqualTo(20d).Within(0.001d));
                 Assert.That(view.MatchChatVisible, Is.True);
-                Assert.That(view.MatchChatMode, Is.EqualTo(MatchChatHudMode.Full));
+                Assert.That(view.MatchChatMode, Is.EqualTo(MatchChatHudMode.HidingWait));
                 Assert.That(view.HidingActiveTopPromptVisible, Is.False);
                 Assert.That(view.TopHudVisible, Is.False);
             }
