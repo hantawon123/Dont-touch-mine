@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Backend;
@@ -165,6 +166,33 @@ namespace Game.Architecture.Tests
 
             Assert.That(transport.Calls, Is.Empty);
             Assert.That(service.Mask("시발"), Is.EqualTo("시발"));
+        }
+
+        [UnityTest]
+        public IEnumerator Service_StampsTimeInTheGregorianCalendar_WhateverTheLocale()
+        {
+            // A calendar-shifting culture would write 2569 for 2026. Fourteen digits either way,
+            // so the backend accepts it and the record lands 543 years out: the retention sweep
+            // never reaches it and the report lookup never finds it.
+            var before = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo("th-TH");
+            try
+            {
+                var transport = new FakeTransport { Body = "{\"blocked\":[],\"allowed\":[]}" };
+                using var service = new ChatModerationService(
+                    transport, new BackendEndpoint("http://127.0.0.1:8080"), "key");
+                service.LoadAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+                service.Record(new ChatLogRecord("7K2M9P", ChatScope.Match, null, "p1", "안녕",
+                    new DateTimeOffset(2026, 9, 17, 1, 2, 3, TimeSpan.Zero)));
+
+                var deadline = DateTime.UtcNow.AddSeconds(15);
+                while (transport.Calls.Count < 2 && DateTime.UtcNow < deadline) yield return null;
+
+                Assert.That(transport.Calls.Count, Is.EqualTo(2));
+                Assert.That(transport.Calls[1].JsonBody, Does.Contain("\"sentAt\":\"20260917010203\""));
+            }
+            finally { CultureInfo.CurrentCulture = before; }
         }
 
         private sealed class FakeTransport : IHttpTransport
