@@ -71,6 +71,59 @@ namespace Game.Tests.EditMode
                 Is.EqualTo(PlayerAnimationDriver.MoveDirection.Back));
         }
 
+        [TestCase(1f, 1f, "Forward")]
+        [TestCase(-1f, 1f, "Forward")]
+        [TestCase(1f, -1f, "Back")]
+        [TestCase(-1f, -1f, "Back")]
+        public void Direction_UsesStableForwardOrBackClipForInitialDiagonalInput(
+            float x,
+            float y,
+            string expected)
+        {
+            Assert.That(
+                PlayerAnimationDriver.ResolveDirection(new Vector2(x, y)).ToString(),
+                Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void Direction_KeepsPreviousDirectionWhenDiagonalInputJitters()
+        {
+            Assert.That(
+                PlayerAnimationDriver.ResolveDirection(
+                    new Vector2(0.74f, 0.68f),
+                    PlayerAnimationDriver.MoveDirection.Forward),
+                Is.EqualTo(PlayerAnimationDriver.MoveDirection.Forward));
+            Assert.That(
+                PlayerAnimationDriver.ResolveDirection(
+                    new Vector2(0.68f, 0.74f),
+                    PlayerAnimationDriver.MoveDirection.Left),
+                Is.EqualTo(PlayerAnimationDriver.MoveDirection.Left));
+        }
+
+        [Test]
+        public void Locomotion_UsesWalkAndRunForEveryDiagonal()
+        {
+            foreach (var diagonal in new[]
+            {
+                new Vector2(1f, 1f), new Vector2(-1f, 1f),
+                new Vector2(1f, -1f), new Vector2(-1f, -1f)
+            })
+            {
+                Assert.That(
+                    PlayerAnimationDriver.ResolveLocomotionClip(
+                        PlayerPosture.Standing, false, 4f, diagonal, 4f, 7f),
+                    Does.StartWith("Walk_"));
+                Assert.That(
+                    PlayerAnimationDriver.ResolveLocomotionClip(
+                        PlayerPosture.Standing, false, 7f, diagonal, 4f, 7f),
+                    Does.StartWith("Run_"));
+                Assert.That(
+                    PlayerAnimationDriver.ResolveLocomotionClip(
+                        PlayerPosture.Standing, true, 7f, diagonal, 4f, 7f),
+                    Does.StartWith("Carry_TwoHands_Run_"));
+            }
+        }
+
         [Test]
         public void Locomotion_PicksCarryAndStrafeClips()
         {
