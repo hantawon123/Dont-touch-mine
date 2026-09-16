@@ -599,7 +599,8 @@ namespace Game.Bootstrap
                 playerTargets,
                 objectTargets,
                 occlusionGroups: sceneOcclusionGroups,
-                cctvCameras: cctvCameras);
+                cctvCameras: cctvCameras,
+                replayClips: current.Clips);
             cameraDirector.Focus(current.Candidate);
             Debug.Log($"[Highlight] Playback ready: type={current.Candidate.Type}, players={playerTargets.Length}, objects={objectTargets.Length}, camera={output.name}.");
             return true;

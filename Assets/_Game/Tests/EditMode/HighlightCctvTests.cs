@@ -333,6 +333,51 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Camera_PlansBestViewsFromTheWholeReplayBeforePlayback()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                HighlightCctvCamera Mount(string name, float x)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = new Vector3(x, 3f, -6f);
+                    camera.transform.LookAt(new Vector3(x, 0.8f, 0f));
+                    camera.Configure(name, 40f);
+                    return camera;
+                }
+
+                var actor = new GameObject("actor").transform;
+                actor.SetParent(root.transform);
+                var output = new GameObject("output", typeof(Camera)).transform;
+                output.SetParent(root.transform);
+                var candidate = new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0");
+                var frames = new List<HighlightReplayFrame>();
+                for (var second = 0; second <= 10; second++)
+                {
+                    var x = second < 3 ? -8f : second < 7 ? 0f : 8f;
+                    frames.Add(new HighlightReplayFrame(second,
+                        new[] { new Pose(new Vector3(x, 0f, 0f), Quaternion.identity) },
+                        System.Array.Empty<Game.Server.Items.WorldObjectState>()));
+                }
+                var clips = new[] { new HighlightReplayClip(candidate.Segments[0], frames) };
+                using var director = new HighlightCameraDirector(output, output, new[] { actor },
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0,
+                    cctvCameras: new[] { Mount("A", -8f), Mount("B", 0f), Mount("C", 8f) },
+                    replayClips: clips);
+
+                director.Focus(candidate);
+                Assert.That(director.CctvLocation, Is.EqualTo("A"));
+                director.SetPlaybackTime(4d);
+                Assert.That(director.CctvLocation, Is.EqualTo("B"));
+                director.SetPlaybackTime(8d);
+                Assert.That(director.CctvLocation, Is.EqualTo("C"));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
         public void Camera_PrefersNearbyOffCentreViewOverDistantCentredView()
         {
             var root = new GameObject("test");
