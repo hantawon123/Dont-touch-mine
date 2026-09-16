@@ -10,6 +10,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,6 +19,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ssafy.d205.global.common.Timestamps;
 import com.ssafy.d205.support.IntegrationTest;
 
 /**
@@ -129,13 +132,16 @@ class AdminChatApiTest extends IntegrationTest {
         var speaker = createUser();
         var first = room();
         var second = room();
-        send(first, "MATCH", speaker, "p1", "시발", "20260917030000");
-        send(second, "MATCH", speaker, "p1", "병신", "20260917040000");
-        send(second, "MATCH", null, "p2", "그만해", "20260917040100");
+        // 고정 날짜를 쓰면 이 테스트는 오늘에 기댑니다. 조회 구간은 지금부터 거슬러 세고
+        // 컨트롤러가 최대 30일로 깎으므로, 한 달만 지나면 고정 날짜가 구간 밖으로 밀려
+        // 코드가 멀쩡한데도 깨집니다.
+        send(first, "MATCH", speaker, "p1", "시발", ago(Duration.ofHours(2)));
+        send(second, "MATCH", speaker, "p1", "병신", ago(Duration.ofHours(1)));
+        send(second, "MATCH", null, "p2", "그만해", ago(Duration.ofMinutes(59)));
 
         var admin = login();
         var body = mvc.perform(get("/api/v1/admin/chat/by/" + speaker)
-                        .param("days", "3650")
+                        .param("days", "7")
                         .session(admin.session()))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
@@ -144,6 +150,25 @@ class AdminChatApiTest extends IntegrationTest {
         assertThat(lines).hasSize(2);
         // 한 방에서 한 번은 실수일 수 있어도 여러 방에서 반복하면 다른 판단이 됩니다.
         assertThat(lines.get(0).get("roomCode").asText()).isNotEqualTo(lines.get(1).get("roomCode").asText());
+    }
+
+    @Test
+    @DisplayName("없는 계정을 물으면 404 다. 말한 적 없는 사람과 구분된다")
+    void unknownAccountIsNotFound() throws Exception {
+        var admin = login();
+        mvc.perform(get("/api/v1/admin/chat/by/" + UUID.randomUUID()).session(admin.session()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("시각 형식이 아니면 400 이다. 500 으로 터지지 않는다")
+    void malformedTimeIsRejected() throws Exception {
+        var admin = login();
+        mvc.perform(get(AROUND)
+                        .param("contextKey", "7K2M9P#1")
+                        .param("reportedAt", "어제쯤")
+                        .session(admin.session()))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -188,6 +213,11 @@ class AdminChatApiTest extends IntegrationTest {
                         .content("{\"userId\":\"" + target + "\",\"reason\":\"ABUSE\","
                                 + "\"contextKey\":\"" + contextKey + "\"}"))
                 .andExpect(status().isCreated());
+    }
+
+    /** 지금으로부터 얼마 전. 고정 날짜를 쓰면 테스트가 달력에 기댑니다. */
+    private static String ago(Duration duration) {
+        return Timestamps.format(Instant.now().minus(duration));
     }
 
     private static String room() {

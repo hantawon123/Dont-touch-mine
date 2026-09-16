@@ -13,6 +13,8 @@ import java.util.Map;
 import com.ssafy.d205.domain.chat.dto.AdminChatLine;
 import com.ssafy.d205.domain.chat.repository.AdminChatRow;
 import com.ssafy.d205.domain.chat.repository.ChatLogRepository;
+import com.ssafy.d205.domain.user.repository.UserRepository;
+import com.ssafy.d205.global.exception.TargetUserNotFoundException;
 import com.ssafy.d205.global.common.TimeProvider;
 import com.ssafy.d205.global.common.Timestamps;
 
@@ -30,6 +32,7 @@ public class AdminChatService {
     private static final String UNKNOWN_SPEAKER = "참가자 ";
 
     private final ChatLogRepository chatLogs;
+    private final UserRepository users;
     private final TimeProvider timeProvider;
 
     /**
@@ -65,6 +68,13 @@ public class AdminChatService {
      */
     @Transactional(readOnly = true)
     public AdminChatLine.ListResponse bySpeaker(String userId, int days) {
+        // 말한 적이 없는 사람과 없는 계정을 구분합니다. 구분하지 않으면 운영자가 id 를 잘못
+        // 눌렀을 때와 정상 조회가 똑같이 빈 목록으로 보입니다. 신고 상세가 같은 이유로 404 를
+        // 냅니다(ReportReviewService.target).
+        if (users.findByPublicId(userId).isEmpty()) {
+            throw new TargetUserNotFoundException(userId);
+        }
+
         var from = timeProvider.minus(Duration.ofDays(days));
         return response(chatLogs.findBySpeaker(userId, from), from, timeProvider.now());
     }

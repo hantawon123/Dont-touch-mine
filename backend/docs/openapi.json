@@ -1460,6 +1460,7 @@
             "name" : "reportedAt",
             "required" : true,
             "schema" : {
+              "pattern" : "^[0-9]{14}$",
               "type" : "string"
             }
           },

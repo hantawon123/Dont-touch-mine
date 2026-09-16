@@ -1,5 +1,6 @@
 package com.ssafy.d205.domain.chat.controller;
 
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,7 +47,9 @@ public class AdminChatController {
     @GetMapping("/around")
     public AdminChatLine.ListResponse around(
             @RequestParam String contextKey,
-            @RequestParam String reportedAt,
+            @RequestParam
+            @Pattern(regexp = "^[0-9]{14}$", message = "reportedAt은 yyyyMMddHHmmss 형식이어야 합니다.")
+            String reportedAt,
             @RequestParam(defaultValue = "" + DEFAULT_MINUTES) int minutes) {
         return adminChatService.around(contextKey, reportedAt, Math.clamp(minutes, 1, MAX_MINUTES));
     }
