@@ -66,6 +66,7 @@ namespace Game.Client.Match
     public sealed class NetworkMatchHudView : MonoBehaviour, INetworkMatchHudView
     {
         public const float DestructionUsesFontSize = 30f;
+        public const int ShredderMarkerCornerRadius = 12;
         [SerializeField]
         private MatchPhaseView phaseView;
 
@@ -148,6 +149,7 @@ namespace Game.Client.Match
             Game.Client.Common.HudScreenScale.EnsureOn(rootCanvas);
 
             HideDestructionNotice();
+            ApplyShredderMarkerChrome();
             SetShredderMarker(default, false);
             SetHighlightHud(false, null, Array.Empty<float>());
             SetAssignedItem(null);
@@ -355,6 +357,24 @@ namespace Game.Client.Match
             {
                 destructionNoticeRoot.SetActive(false);
             }
+        }
+
+        internal void ApplyShredderMarkerChrome()
+        {
+            if (shredderMarker == null)
+            {
+                return;
+            }
+
+            var image = shredderMarker.GetComponent<Image>();
+            if (image == null)
+            {
+                return;
+            }
+
+            image.sprite = HomeUiFonts.Rounded(ShredderMarkerCornerRadius);
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = 1f;
         }
 
         public void SetShredderMarker(Vector2 screenPosition, bool visible)

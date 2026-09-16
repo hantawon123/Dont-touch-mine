@@ -214,6 +214,9 @@ namespace Game.Editor
                 "ShredderMarker",
                 new Color(0.75f, 0.08f, 0.08f, 0.9f));
             marker.sizeDelta = new Vector2(150f, 52f);
+            var markerFill = marker.GetComponent<Image>();
+            markerFill.sprite = HomeUiFonts.Rounded(NetworkMatchHudView.ShredderMarkerCornerRadius);
+            markerFill.type = Image.Type.Sliced;
             var markerText = CreateText(
                 marker,
                 "Label",

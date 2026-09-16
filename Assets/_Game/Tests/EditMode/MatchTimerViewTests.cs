@@ -4,6 +4,7 @@ using Game.Client.Match;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Architecture.Tests
 {
@@ -150,6 +151,34 @@ namespace Game.Architecture.Tests
                 view.SetHintVisible(false);
 
                 Assert.That(view.transform.Find("Hint").gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void NetworkHud_RoundsTheShredderMarkerCorners()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            canvas.SetActive(false);
+            var marker = new GameObject(
+                "ShredderMarker",
+                typeof(RectTransform),
+                typeof(Image));
+            marker.transform.SetParent(canvas.transform, false);
+            try
+            {
+                var hud = canvas.AddComponent<NetworkMatchHudView>();
+                typeof(NetworkMatchHudView)
+                    .GetField("shredderMarker", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(hud, marker.GetComponent<RectTransform>());
+                canvas.SetActive(true);
+
+                var image = marker.GetComponent<Image>();
+                Assert.That(image.sprite, Is.EqualTo(HomeUiFonts.Rounded(NetworkMatchHudView.ShredderMarkerCornerRadius)));
+                Assert.That(image.type, Is.EqualTo(Image.Type.Sliced));
             }
             finally
             {
