@@ -559,10 +559,13 @@ namespace Game.Client.Settings
             public const int Radius = 4;
 
             /// <summary>
-            /// How far a notch of the wheel moves the page. Not given by the
-            /// design; near a row's height, so one notch reads as one row.
+            /// Wheel movement scale, kept below a row height so scrolling
+            /// through settings allows smaller adjustments.
             /// </summary>
-            public const float Sensitivity = 90f;
+            public const float Sensitivity = 30f;
+
+            // About 95% of the wheel distance is covered in 0.15 seconds.
+            public const float SmoothingTime = 0.05f;
         }
 
         public static class LanguageRow

@@ -105,6 +105,7 @@ namespace Game.Client.Settings
                 return;
             }
 
+            contentScroll.StopMovement();
             contentScroll.content = shown;
             if (shown != null)
             {
@@ -134,7 +135,7 @@ namespace Game.Client.Settings
             AddImage(window, Color.clear, raycastTarget: true);
             window.gameObject.AddComponent<RectMask2D>();
 
-            contentScroll = window.gameObject.AddComponent<ScrollRect>();
+            contentScroll = window.gameObject.AddComponent<SettingsScrollRect>();
             contentScroll.horizontal = false;
             contentScroll.vertical = true;
             contentScroll.movementType = ScrollRect.MovementType.Clamped;
