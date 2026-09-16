@@ -261,10 +261,25 @@
         신고당한 사람은 아무것도 알지 못합니다.
       </div>
       <div class="bar">
+        <!--
+          세 보기가 한 자리를 씁니다(S15P21D205-1004). 신고당한 사람은 판단하는 자리, 신고한 사람은
+          무고성 신고를 찾는 자리, 통계는 추이를 보는 자리입니다. 탭을 셋으로 늘리지 않은 이유는
+          전부 같은 신고를 다른 축으로 본 것이라 한 탭 안에서 갈아 보는 것이 맞기 때문입니다.
+        -->
+        <select id="reportMode">
+          <option value="reported">신고당한 사람</option>
+          <option value="reporters">신고한 사람</option>
+          <option value="stats">통계</option>
+        </select>
         <select id="status">
           <option value="PENDING">아직 안 본 신고</option>
           <option value="ACTIONED">문제 있다고 본 것</option>
           <option value="DISMISSED">문제 없다고 본 것</option>
+        </select>
+        <select id="reportDays" hidden>
+          <option value="7">최근 7일</option>
+          <option value="30" selected>최근 30일</option>
+          <option value="90">최근 90일</option>
         </select>
         <button id="refresh">새로고침</button>
       </div>
@@ -282,10 +297,21 @@
         읽음 표시도 없습니다 — 처리한 척하게 되기 때문입니다.
       </div>
       <div class="bar">
+        <select id="feedbackMode">
+          <option value="list">목록</option>
+          <option value="stats">통계</option>
+        </select>
+        <!-- 본문 부분 일치. 대소문자를 가리지 않고, %·_ 는 글자 그대로 찾습니다(S15P21D205-1004). -->
+        <input id="feedbackQuery" class="grow" placeholder="본문에서 찾을 말 (비우면 전체)" autocomplete="off">
         <select id="limit">
           <option value="50">최근 50건</option>
           <option value="100">최근 100건</option>
           <option value="200">최근 200건</option>
+        </select>
+        <select id="feedbackDays" hidden>
+          <option value="7">최근 7일</option>
+          <option value="30" selected>최근 30일</option>
+          <option value="90">최근 90일</option>
         </select>
         <button id="refreshFeedback">새로고침</button>
       </div>
@@ -335,6 +361,7 @@
         문서의 SQL 을 mysql 클라이언트로 돌린 것과 같은 숫자가 나와야 하며, 다르면 둘 중 하나가 문서를 떠난 것입니다.
         맵 위 히트맵과 물건 움직임은 문서 절이 아니라 좌표 API 를 직접 그립니다.
         즉석 SQL 은 여기 없습니다 - 그건 EC2 에서 읽기 계정(d205_reader)으로 직접 하는 일입니다.
+        신고·피드백 탭의 통계(1004)는 이 문서와 무관하게 계정 서비스의 DB 를 바로 셉니다.
       -->
       <div class="warnbar">
         <b>완전히 수신된 경기만</b> 집계합니다. 경기 목록에서 <b>완전 수신</b>이 0 인 줄(회색)은 다른 카드에서
@@ -756,8 +783,157 @@
 
   async function load() {
     say('');
+    const mode = el('reportMode').value;
+    // 보기마다 쓰는 조작이 다릅니다. 상태 고르기는 신고당한 사람 목록만, 기간은 통계만 씁니다.
+    // 안 쓰는 것을 남겨 두면 바꿔도 아무 일이 없어 고장처럼 보입니다.
+    el('status').hidden = mode !== 'reported';
+    el('reportDays').hidden = mode !== 'stats';
+
+    if (mode === 'reporters') {
+      renderReporters((await call('/reports/reporters')).reporters);
+      return;
+    }
+    if (mode === 'stats') {
+      renderReportStats(await call('/reports/stats?days=' + el('reportDays').value));
+      return;
+    }
     const status = el('status').value;
     render((await call('/reports?status=' + status)).users);
+  }
+
+  /*
+   * 신고한 사람 목록 (S15P21D205-1004).
+   *
+   * 신고당한 사람 목록을 뒤집은 것입니다. 거기서는 세 사람이 각각 "1건 기각" 으로 흩어져 보여
+   * 그 셋을 한 사람이 신고했다는 사실이 드러나지 않습니다. 여기서는 그 한 사람이 "3건, 상대 3명,
+   * 기각 100%" 로 한 줄입니다.
+   *
+   * 분석 탭의 표 그리기(gridOf)를 그대로 씁니다. 줄을 누르면 사용자 탭에서 그 사람이 열립니다 -
+   * 무고성 신고자를 찾은 다음 할 일이 그 사람을 보는 것이기 때문입니다.
+   */
+  const REPORTER_COLUMNS = ['신고자', '건수', '아직 안 봄', '문제 있음', '문제 없음', '기각 %', '상대 수', '최근 신고(UTC)'];
+
+  function renderReporters(reporters) {
+    const box = el('rows');
+    box.textContent = '';
+
+    if (!reporters.length) {
+      box.appendChild(emptyBox('신고한 사람이 없습니다.'));
+      return;
+    }
+
+    const note = document.createElement('div');
+    note.className = 'an-note';
+    note.textContent = '많이 신고한 사람이 위입니다. 기각 % 는 검토된 것 중 문제 없음의 비율이고, 검토된 것이 없으면 비어 있습니다. '
+      + '줄을 누르면 사용자 탭에서 그 사람이 열립니다. 탈퇴한 계정 줄은 여러 사람이 섞여 있어 열리지 않습니다.';
+    box.appendChild(note);
+
+    const rows = reporters.map((r) => [
+      r.nickname === null ? '탈퇴한 계정' : r.nickname,
+      r.reportCount, r.pendingCount, r.actionedCount, r.dismissedCount,
+      r.dismissedPercent, r.targetCount, r.lastReportedAt,
+    ]);
+    const table = gridOf(REPORTER_COLUMNS, rows, {});
+    const trs = table.querySelectorAll('tbody tr');
+    for (let i = 0; i < trs.length && i < reporters.length; i++) {
+      const userId = reporters[i].userId;
+      if (!userId) {
+        trs[i].classList.add('dim');
+        continue;
+      }
+      trs[i].classList.add('pick');
+      trs[i].title = userId;
+      trs[i].addEventListener('click', () => openUserFromSuspension(userId).catch(() => {}));
+    }
+    box.appendChild(table);
+  }
+
+  /*
+   * 신고 통계 (S15P21D205-1004). 사유·처리 상태는 막대, 날짜는 선입니다.
+   *
+   * 표를 다시 그릴 때 캔버스가 새로 만들어지므로 차트 객체도 버리고 새로 만듭니다. 개요 탭처럼
+   * 데이터만 갈아 끼우지 않는 이유는 그쪽은 캔버스가 마크업에 박혀 있고 여기는 같은 상자를 세 보기가
+   * 번갈아 쓰기 때문입니다. 버리지 않으면 Chart.js 가 사라진 캔버스를 붙들고 있습니다.
+   */
+  const STATUS_LABELS = { PENDING: '아직 안 봄', ACTIONED: '문제 있음', DISMISSED: '문제 없음' };
+  let countCharts = [];
+
+  function dropCountCharts() {
+    for (const chart of countCharts) chart.destroy();
+    countCharts = [];
+  }
+
+  function chartBlock(box, title, height) {
+    const head = document.createElement('div');
+    head.className = 'chart-title';
+    head.textContent = title;
+    const wrap = document.createElement('div');
+    wrap.className = 'chart';
+    if (height) wrap.style.height = height + 'px';
+    const canvas = document.createElement('canvas');
+    wrap.appendChild(canvas);
+    box.append(head, wrap);
+    return canvas;
+  }
+
+  /** 이름·건수 표를 막대로. 이름을 바꿔 보여줄 때는 labelOf 로 옮깁니다. */
+  function countBar(canvas, table, color, labelMap) {
+    const rows = table.rows;
+    countCharts.push(new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: rows.map((row) => (labelMap && labelMap[row[0]]) || String(row[0])),
+        datasets: [{ label: table.columns[1], data: rows.map((row) => row[1]),
+          backgroundColor: color + 'cc', borderColor: color, borderWidth: 1 }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    }));
+  }
+
+  /** 날짜별 표를 선으로. 날짜 라벨은 "월-일" 만 남깁니다. 연도는 같고 자리만 차지합니다. */
+  function countLine(canvas, table, color) {
+    const rows = table.rows;
+    countCharts.push(new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: rows.map((row) => String(row[0]).slice(5)),
+        datasets: [series(table.columns[1], rows.map((row) => row[1]), color, true)],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 10, maxRotation: 0 } },
+          y: { beginAtZero: true, ticks: { precision: 0 } },
+        },
+      },
+    }));
+  }
+
+  function renderReportStats(stats) {
+    const box = el('rows');
+    dropCountCharts();
+    box.textContent = '';
+
+    const note = document.createElement('div');
+    note.className = 'an-note';
+    note.textContent = '최근 ' + stats.days + '일에 들어온 신고입니다. 들어온 시각 기준이라 옛 미검토 신고는 여기 없고, '
+      + '날짜는 한국 시간, 숨긴 신고는 빠집니다.';
+    box.appendChild(note);
+
+    if (!stats.byReason.rows.length) {
+      box.appendChild(emptyBox('이 기간에 들어온 신고가 없습니다.'));
+      return;
+    }
+
+    countLine(chartBlock(box, '날짜별 건수'), stats.daily, '#1d4ed8');
+    countBar(chartBlock(box, '사유별 건수', 200), stats.byReason, '#b91c1c');
+    countBar(chartBlock(box, '처리 상태별 건수', 200), stats.byStatus, '#15803d', STATUS_LABELS);
   }
 
   /**
@@ -792,17 +968,70 @@
 
   async function loadFeedback() {
     say('');
-    renderFeedback((await call('/feedback?limit=' + el('limit').value)).feedback);
+    const mode = el('feedbackMode').value;
+    el('feedbackQuery').hidden = mode !== 'list';
+    el('limit').hidden = mode !== 'list';
+    el('feedbackDays').hidden = mode !== 'stats';
+
+    if (mode === 'stats') {
+      renderFeedbackStats(await call('/feedback/stats?days=' + el('feedbackDays').value));
+      return;
+    }
+
+    // 검색어는 본문 부분 일치입니다(S15P21D205-1004). 비우면 전체 목록이고, 검색 결과도 limit 으로
+    // 잘리므로 흔한 말을 찾으면 최근 것부터 limit 건만 옵니다.
+    const q = el('feedbackQuery').value.trim();
+    const path = '/feedback?limit=' + el('limit').value + (q ? '&q=' + encodeURIComponent(q) : '');
+    renderFeedback((await call(path)).feedback, q ? '그 말이 든 피드백이 없습니다.' : '들어온 피드백이 없습니다.');
   }
 
-  function renderFeedback(items) {
+  /*
+   * 피드백 통계 (S15P21D205-1004). 날짜는 선, 플랫폼과 빌드는 표입니다.
+   *
+   * 플랫폼·빌드를 막대가 아니라 표로 두는 이유는 값이 문자열이고 종류가 몇 개 안 되어 숫자를 그대로
+   * 읽는 편이 빠르기 때문입니다. 옛 빌드가 계속 보이면 업데이트가 안 된 사람이 있다는 뜻이고,
+   * 그 빌드의 피드백은 이미 고친 문제일 수 있습니다.
+   */
+  function renderFeedbackStats(stats) {
+    const box = el('feedbackRows');
+    dropCountCharts();
+    box.textContent = '';
+
+    const note = document.createElement('div');
+    note.className = 'an-note';
+    note.textContent = '최근 ' + stats.days + '일에 들어온 피드백입니다. 날짜는 한국 시간, 숨긴 피드백은 빠집니다. '
+      + '"(없음)" 은 클라이언트가 그 값을 보내지 않은 것입니다.';
+    box.appendChild(note);
+
+    if (!stats.byPlatform.rows.length) {
+      box.appendChild(emptyBox('이 기간에 들어온 피드백이 없습니다.'));
+      return;
+    }
+
+    countLine(chartBlock(box, '날짜별 건수'), stats.daily, '#d97706');
+
+    const split = document.createElement('div');
+    split.className = 'an-split';
+    for (const [title, table] of [['플랫폼', stats.byPlatform], ['빌드 버전', stats.byBuild]]) {
+      const part = document.createElement('div');
+      part.className = 'an-main';
+      const head = document.createElement('div');
+      head.className = 'chart-title';
+      head.textContent = title;
+      part.append(head, gridOf(table.columns, table.rows, {}));
+      split.appendChild(part);
+    }
+    box.appendChild(split);
+  }
+
+  function renderFeedback(items, emptyText) {
     const box = el('feedbackRows');
     box.textContent = '';
 
     if (!items.length) {
       const empty = document.createElement('div');
       empty.className = 'empty';
-      empty.textContent = '들어온 피드백이 없습니다.';
+      empty.textContent = emptyText || '들어온 피드백이 없습니다.';
       box.appendChild(empty);
       return;
     }
@@ -2487,6 +2716,8 @@
 
   el('refresh').addEventListener('click', () => load().catch(() => {}));
   el('status').addEventListener('change', () => load().catch(() => {}));
+  el('reportMode').addEventListener('change', () => load().catch(() => {}));
+  el('reportDays').addEventListener('change', () => load().catch(() => {}));
 
   el('tabOverview').addEventListener('click', () => {
     showTab('overview');
@@ -2507,6 +2738,15 @@
 
   el('refreshFeedback').addEventListener('click', () => loadFeedback().catch(() => {}));
   el('limit').addEventListener('change', () => loadFeedback().catch(() => {}));
+  el('feedbackMode').addEventListener('change', () => loadFeedback().catch(() => {}));
+  el('feedbackDays').addEventListener('change', () => loadFeedback().catch(() => {}));
+  // 검색은 Enter 로 합니다. 사용자 탭과 같은 조작입니다. 새로고침 버튼도 같은 일을 합니다.
+  el('feedbackQuery').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      loadFeedback().catch(() => {});
+    }
+  });
 
   el('tabUsers').addEventListener('click', () => {
     showTab('users');
