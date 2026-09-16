@@ -612,6 +612,7 @@ namespace Game.Architecture.Tests
                 Assert.That(add.anchorMin.x, Is.EqualTo(1f));
                 Assert.That(add.anchoredPosition.x, Is.EqualTo(-LobbyPlayerListView.ActionRight));
                 Assert.That(add.GetComponent<Button>().interactable, Is.True);
+                Assert.That(online.Find($"Friend_f-1/{LobbyPlayerListView.VoiceIconName}"), Is.Null);
 
                 var invited = new List<(string Id, string Name)>();
                 view.InviteClicked += (id, name) => invited.Add((id, name));

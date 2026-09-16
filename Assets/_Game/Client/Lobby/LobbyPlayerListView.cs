@@ -447,7 +447,8 @@ namespace Game.Client.Lobby
                     friend.Nickname,
                     showLeader: false,
                     showKick: false,
-                    showAdd: true);
+                    showAdd: true,
+                    showVoice: false);
                 BindInvite(row, friend.PlayerId, friend.Nickname, canInvite);
             }
         }
@@ -942,7 +943,8 @@ namespace Game.Client.Lobby
             bool showAdd,
             bool isSelf = false,
             bool isMuted = false,
-            bool isTalking = false)
+            bool isTalking = false,
+            bool showVoice = true)
         {
             var row = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             row.SetParent(parent, false);
@@ -953,8 +955,10 @@ namespace Game.Client.Lobby
 
             CreateAvatar(row, isMuted);
             var nameLabel = CreateNickname(row, nickname, isSelf);
-            var voice = CreateVoice(row, nameLabel, isMuted, isTalking);
-            CreateLeader(row, voice, showLeader);
+            var afterName = showVoice
+                ? CreateVoice(row, nameLabel, isMuted, isTalking)
+                : nameLabel.rectTransform;
+            CreateLeader(row, afterName, showLeader);
             if (showKick)
             {
                 CreateKick(row);
