@@ -9,6 +9,7 @@ namespace Game.Bootstrap
     {
         private const int MaxCctvSwitches = 2;
         private const float CctvLookAheadSeconds = 0.75f;
+        private const double FinalCctvSwitchStartRatio = 0.6d;
         private readonly IReadOnlyList<HighlightCctvCamera> cctvCameras;
         private HighlightCctvCamera activeCctv;
         private float cctvHold, cctvCheck, cctvSampleElapsed;
@@ -125,7 +126,7 @@ namespace Game.Bootstrap
                 if (best != null && best != activeCctv)
                 {
                     if (activeCctv == null) SetCctv(best);
-                    else if (cctvSwitchCount < MaxCctvSwitches)
+                    else if (CanSwitchCctv())
                     {
                         var currentVisible = CanCctvSeeSubjects(activeCctv);
                         var currentWillStayVisible = velocity.sqrMagnitude <= 0.01f ||
@@ -147,6 +148,15 @@ namespace Game.Bootstrap
             var rotation = activeCctv.transform.rotation;
             if (replayCameraRig != null) replayCameraRig.SetPose(position, rotation, 1f, true);
             else cameraTransform.SetPositionAndRotation(position, rotation);
+        }
+
+        private bool CanSwitchCctv()
+        {
+            if (cctvSwitchCount >= MaxCctvSwitches) return false;
+            if (cctvSwitchCount == 0) return true;
+
+            return currentPlaybackTime >=
+                   currentHighlight.PlaybackDurationSeconds * FinalCctvSwitchStartRatio;
         }
 
         private bool CanCctvSeeSubjects(HighlightCctvCamera camera) =>

@@ -218,6 +218,7 @@ namespace Game.Bootstrap
         private HighlightCandidate currentHighlight;
         private HighlightShot[] shots = Array.Empty<HighlightShot>();
         private int currentShotIndex = -1;
+        private double currentPlaybackTime;
 
         public HighlightCameraDirector(
             Transform cameraTransform,
@@ -329,6 +330,7 @@ namespace Game.Bootstrap
         {
             if (!double.IsFinite(playbackTime) || playbackTime < 0d)
                 throw new ArgumentOutOfRangeException(nameof(playbackTime));
+            currentPlaybackTime = playbackTime;
             if (shots.Length == 0) return;
             var next = shots.Length - 1;
             for (var index = 0; index < shots.Length; index++)

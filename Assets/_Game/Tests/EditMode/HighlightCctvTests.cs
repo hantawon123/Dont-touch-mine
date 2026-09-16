@@ -311,6 +311,11 @@ namespace Game.Tests.EditMode
                 blockB.transform.position = new Vector3(3, 1.5f, 0);
                 blockB.SetActive(true);
                 director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("B"),
+                    "The second switch must remain available for the final part of the highlight.");
+
+                director.SetPlaybackTime(6);
+                director.Tick(0.3f);
                 Assert.That(director.CctvLocation, Is.EqualTo("C"));
 
                 blockA.SetActive(false);
