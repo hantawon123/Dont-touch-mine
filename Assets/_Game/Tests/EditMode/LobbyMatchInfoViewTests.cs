@@ -61,9 +61,9 @@ namespace Game.Architecture.Tests
                 Assert.That(innerCard, Is.Not.Null);
                 var fill = innerCard.Find("Fill")?.GetComponent<Image>();
                 Assert.That(fill, Is.Not.Null);
-                Assert.That(fill.color, Is.EqualTo(LobbyMatchInfoView.CategoryInnerFill));
-                Assert.That(fill.color.a, Is.EqualTo(0.7f));
-                Assert.That(LobbyMatchInfoView.CategoryInnerFill.a, Is.EqualTo(0.7f));
+                Assert.That(fill.color, Is.EqualTo(Color.white));
+                Assert.That(fill.color.a, Is.EqualTo(1f));
+                Assert.That(LobbyMatchInfoView.CategoryInnerFill, Is.EqualTo(Color.white));
                 Assert.That(category.fontSize, Is.EqualTo(LobbyMatchInfoView.FontSize));
                 Assert.That(category.color, Is.EqualTo(Color.black));
                 Assert.That(category.font, Is.EqualTo(HomeUiFonts.Apply()));
@@ -72,11 +72,12 @@ namespace Game.Architecture.Tests
                 Assert.That(mapName.font, Is.EqualTo(HomeUiFonts.Apply()));
                 Assert.That(mapName.alignment, Is.EqualTo(TextAlignmentOptions.Center));
                 Assert.That(
-                    mapRow.GetComponent<Image>().color,
+                    mapRow.Find("Fill").GetComponent<Image>().color,
                     Is.EqualTo(LobbyMatchInfoView.MapRowFill));
                 Assert.That(
-                    categoryRow.GetComponent<Image>().color,
+                    categoryRow.Find("Fill").GetComponent<Image>().color,
                     Is.EqualTo(LobbyMatchInfoView.MapRowFill));
+                Assert.That(LobbyMatchInfoView.MapRowFill.a, Is.EqualTo(0.8f));
                 Assert.That(innerCard.parent, Is.EqualTo(categoryRow));
                 Assert.That(innerCard.anchorMin, Is.EqualTo(Vector2.zero));
                 Assert.That(innerCard.anchorMax, Is.EqualTo(Vector2.one));

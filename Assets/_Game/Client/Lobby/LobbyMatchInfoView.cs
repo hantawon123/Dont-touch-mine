@@ -41,9 +41,9 @@ namespace Game.Client.Lobby
         public static readonly Vector2 MapPreviewSize = new Vector2(540f, 405f);
 
         public static readonly Color PanelFill = Color.clear;
-        public static readonly Color MapRowFill = Color.black;
+        public static readonly Color MapRowFill = new Color(0f, 0f, 0f, 0.8f);
         public static readonly Color MapPreviewFill = PlaySettingsStyle.Palette.MapPreview;
-        public static readonly Color CategoryInnerFill = new Color(1f, 1f, 1f, 0.7f);
+        public static readonly Color CategoryInnerFill = Color.white;
         public static readonly Color CategoryValueColor = Color.black;
 
         public static float MapCardHeight =>
@@ -157,7 +157,9 @@ namespace Game.Client.Lobby
                 && preview != null
                 && preview.sizeDelta == MapPreviewSize
                 && transform.Find("CategoryRow/CategoryPreview") == null
+                && transform.Find("MapRow/Fill") != null
                 && transform.Find("CategoryRow/CategoryCaption") != null
+                && transform.Find("CategoryRow/Fill") != null
                 && transform.Find("CategoryRow/CategoryValueCard/Fill") != null
                 && transform.Find("CategoryRow/Divider") == null;
         }
@@ -272,7 +274,7 @@ namespace Game.Client.Lobby
             fillImage.sprite = HomeUiFonts.WhiteSprite;
             fillImage.type = Image.Type.Simple;
             fillImage.raycastTarget = false;
-            ApplyInnerFill(fillImage);
+            ApplyFill(fillImage, CategoryInnerFill);
 
             var label = CreateLabel(
                 inner,
@@ -327,46 +329,52 @@ namespace Game.Client.Lobby
         private RectTransform CreateCardRow(string rowName)
         {
             var row = CreateRect(rowName, (RectTransform)transform);
-            var rowImage = row.gameObject.AddComponent<Image>();
-            rowImage.sprite = HomeUiFonts.Rounded(MapRowRadius);
-            rowImage.type = Image.Type.Sliced;
-            rowImage.color = MapRowFill;
-            rowImage.raycastTarget = false;
+            var maskImage = row.gameObject.AddComponent<Image>();
+            maskImage.sprite = HomeUiFonts.Rounded(MapRowRadius);
+            maskImage.type = Image.Type.Sliced;
+            maskImage.color = Color.white;
+            maskImage.raycastTarget = false;
+            var mask = row.gameObject.AddComponent<Mask>();
+            mask.showMaskGraphic = false;
+
+            var fill = CreateRect("Fill", row);
+            fill.anchorMin = Vector2.zero;
+            fill.anchorMax = Vector2.one;
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
+            fill.SetAsFirstSibling();
+            var fillImage = fill.gameObject.AddComponent<Image>();
+            fillImage.sprite = HomeUiFonts.WhiteSprite;
+            fillImage.type = Image.Type.Simple;
+            fillImage.raycastTarget = false;
+            ApplyFill(fillImage, MapRowFill);
             return row;
         }
 
         private void ApplyChrome()
         {
-            ApplyCardFill("MapRow");
-            ApplyCardFill("CategoryRow");
-            ApplyInnerFill(
-                transform.Find("CategoryRow/CategoryValueCard/Fill")?.GetComponent<Image>());
+            ApplyFill(transform.Find("MapRow/Fill")?.GetComponent<Image>(), MapRowFill);
+            ApplyFill(transform.Find("CategoryRow/Fill")?.GetComponent<Image>(), MapRowFill);
+            ApplyFill(
+                transform.Find("CategoryRow/CategoryValueCard/Fill")?.GetComponent<Image>(),
+                CategoryInnerFill);
 
             ApplyLabelFace(categoryCaption, CaptionFontSize, Color.white);
             ApplyLabelFace(mapName, FontSize, Color.white);
             ApplyLabelFace(categoryValue, FontSize, CategoryValueColor);
         }
 
-        private static void ApplyInnerFill(Image image)
+        private static void ApplyFill(Image image, Color color)
         {
             if (image == null)
             {
                 return;
             }
 
-            image.color = CategoryInnerFill;
-            image.canvasRenderer.SetColor(CategoryInnerFill);
-            image.canvasRenderer.SetAlpha(CategoryInnerFill.a);
+            image.color = color;
+            image.canvasRenderer.SetColor(color);
+            image.canvasRenderer.SetAlpha(color.a);
             image.canvasRenderer.cullTransparentMesh = false;
-        }
-
-        private void ApplyCardFill(string path)
-        {
-            var image = transform.Find(path)?.GetComponent<Image>();
-            if (image != null)
-            {
-                image.color = MapRowFill;
-            }
         }
 
         private static void ApplyLabelFace(TextMeshProUGUI label, float fontSize, Color color)
