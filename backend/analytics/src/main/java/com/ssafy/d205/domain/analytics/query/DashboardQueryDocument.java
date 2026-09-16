@@ -16,10 +16,9 @@ import java.util.regex.Pattern;
 /**
  * {@code docs/analytics-dashboards.md} 에서 질문별 SQL 을 읽습니다 (S15P21D205-976).
  *
- * <p>그 문서가 SQL 의 원본입니다. Metabase 화면은 {@code deploy/metabase/provision_dashboards.py} 가
- * 같은 문서를 읽어 만들고, 관리 화면의 분석 탭은 이 클래스를 지나 같은 SQL 을 실행합니다. 두 화면이
- * 다른 숫자를 보이면 둘 중 하나가 문서를 떠난 것입니다. 파싱 규칙도 그 스크립트와 같습니다 -
- * {@code ## N.} 으로 시작하는 절의 첫 {@code ```sql} 블록.
+ * <p>그 문서가 SQL 의 원본입니다. 관리 화면의 분석 탭은 이 클래스를 지나 그 SQL 을 실행하고, 사람이
+ * mysql 클라이언트로 같은 절을 붙여 넣어도 같은 숫자가 나와야 합니다. 다르면 둘 중 하나가 문서를 떠난
+ * 것입니다. 파싱 규칙은 {@code ## N.} 으로 시작하는 절의 첫 {@code ```sql} 블록입니다.
  *
  * <p>문서의 SQL 에는 매개변수가 없습니다. 기간·경기 조건은 각 절이 경기를 고르는 {@code WHERE} 끝에 둔
  * {@link #MARKER} 자리에 끼워 넣습니다. 표식이 정확히 하나가 아닌 절이 있으면 <b>기동에 실패</b>합니다.

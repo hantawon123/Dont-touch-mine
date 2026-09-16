@@ -532,8 +532,8 @@ GET /api/v1/admin/analytics/{question}?from=20260901000000&to=20260915000000&mat
 GET /api/v1/admin/analytics/positions?matchId=<경기 UUID>
 ```
 
-`question` 은 `docs/analytics-dashboards.md` 의 번호 절에 붙인 이름입니다. SQL 은 그 문서가 원본이고
-Metabase 화면도 같은 문서로 만들어지므로, 두 화면의 숫자는 같은 경기·기간에서 같아야 합니다.
+`question` 은 `docs/analytics-dashboards.md` 의 번호 절에 붙인 이름입니다. SQL 은 그 문서가 원본이므로,
+같은 절을 mysql 클라이언트로 돌린 것과 이 표의 숫자는 같은 경기·기간에서 같아야 합니다.
 
 | `question` | 문서의 절 |
 | --- | --- |

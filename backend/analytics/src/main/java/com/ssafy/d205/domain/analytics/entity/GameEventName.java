@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
  * 없는 이름이 들어오면 배치 전체가 400 이라, 클라이언트가 이벤트를 하나 더 만들려면 명세를
  * 먼저 고쳐야 합니다. AnalyticsEventsDocTest 가 이 목록과 문서가 같은지 봅니다.
  *
- * <p>DB 에는 enum 이름이 아니라 {@link #wire} 문자열이 들어갑니다. Metabase 에서 쿼리를 쓰는
+ * <p>DB 에는 enum 이름이 아니라 {@link #wire} 문자열이 들어갑니다. SQL 을 쓰는
  * 사람이 보는 값이라 문서와 같은 snake_case 여야 합니다.
  */
 public enum GameEventName {

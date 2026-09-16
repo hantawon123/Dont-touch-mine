@@ -21,13 +21,11 @@ Unity 클라이언트의 계정·프로필·친구·방 초대·접속 상태·�
 ## 실행
 
 서비스가 둘, DB 도 둘입니다(아래 "모듈"). DB 를 먼저 띄웁니다. Docker Desktop이 실행 중이어야 합니다.
-`compose.local.yml` 에는 게임 DB(3307), 분석 DB(3308), Metabase 대시보드가 있습니다. 대시보드
-(<http://localhost:3000>)까지 보려면 전체를 띄웁니다. Metabase 는 첫 기동에 1분쯤 걸리고 메모리를 1GB
-가까이 씁니다.
+`compose.local.yml` 에는 게임 DB(3307)와 분석 DB(3308)가 있습니다. 플레이 로그 화면은 따로 없고
+관리 화면(`/admin/`)의 분석 탭이 그 역할입니다.
 
 ```bash
-docker compose -f compose.local.yml up -d mysql mysql-analytics   # DB 둘만
-docker compose -f compose.local.yml up -d                          # DB 둘 + Metabase
+docker compose -f compose.local.yml up -d
 ```
 
 애플리케이션을 실행합니다. 계정 서비스만 필요하면 첫 줄만 띄워도 됩니다. 플레이 로그를 받거나 관리

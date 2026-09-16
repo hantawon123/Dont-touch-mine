@@ -172,8 +172,7 @@ ask 'SELECT (SELECT COUNT(*) FROM game_event)             AS game_event_rows,
             (SELECT COUNT(*) FROM match_analysis_summary) AS summary_view_rows;'
 
 echo
-echo "끝났습니다. 앱은 다시 띄우지 않아도 되고, Metabase 는 새로 고침만 하면 됩니다."
-echo "대시보드와 질문은 metabase 스키마에 따로 있어 그대로 남아 있습니다."
+echo "끝났습니다. 서비스는 다시 띄우지 않아도 되고, 관리 화면 분석 탭은 새로 고침만 하면 됩니다."
 echo
 echo "백업을 로컬로 내려받으려면:"
 echo "  scp d205:$BACKUP ."
