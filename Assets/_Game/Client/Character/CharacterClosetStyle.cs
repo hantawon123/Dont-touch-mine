@@ -178,6 +178,18 @@ namespace Game.Client.Character
             public const float ScrollbarInset = 0f;
         }
 
+        public static class HoodTabs
+        {
+            public const float Top = 28f;
+            public const float Height = 64f;
+            public const float Inset = 5f;
+            public const float GridGap = 24f;
+            public const float Bottom = 36f;
+            public const float FontSize = 24f;
+            public const int Radius = 18;
+            public const float Stroke = 2f;
+        }
+
         public static class Buttons
         {
             public static readonly Vector2 Size = new Vector2(281f, 80f);
