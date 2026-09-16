@@ -378,8 +378,8 @@ namespace Game.Architecture.Tests
 
             Assert.That(
                 presenter.GraphicsDraft.Get(GraphicsOption.TextureQuality),
-                Is.EqualTo("low"));
-            Assert.That(view.GraphicsLabels[GraphicsOption.TextureQuality], Is.EqualTo("낮음"));
+                Is.EqualTo("high"));
+            Assert.That(view.GraphicsLabels[GraphicsOption.TextureQuality], Is.EqualTo("높음"));
             Assert.That(view.ActionsEnabled, Is.True);
             Assert.That(graphics.Current, Is.EqualTo(graphics.Defaults), "Nothing is settled until apply.");
             Assert.That(graphicsStore.Saved, Is.Null);
@@ -490,7 +490,7 @@ namespace Game.Architecture.Tests
 
             view.Accept();
 
-            Assert.That(graphics.Current.Get(GraphicsOption.TextureQuality), Is.EqualTo("low"));
+            Assert.That(graphics.Current.Get(GraphicsOption.TextureQuality), Is.EqualTo("high"));
             Assert.That(host.HomeOpenCount, Is.EqualTo(1));
         }
 
@@ -549,7 +549,7 @@ namespace Game.Architecture.Tests
             Assert.That(presenter.InterfaceDraft, Is.EqualTo(ui.Defaults));
             Assert.That(
                 presenter.GraphicsDraft.Get(GraphicsOption.TextureQuality),
-                Is.EqualTo("low"),
+                Is.EqualTo("high"),
                 "The graphics change is still waiting.");
             Assert.That(view.ActionsEnabled, Is.True);
         }

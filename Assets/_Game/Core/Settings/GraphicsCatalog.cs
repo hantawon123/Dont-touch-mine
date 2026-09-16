@@ -75,9 +75,9 @@ namespace Game.Core.Settings
 
                 [GraphicsOption.TextureQuality] = new OptionChoices(
                     Medium,
-                    new OptionChoice(High, "높음"),
+                    new OptionChoice(Low, "낮음"),
                     new OptionChoice(Medium, "중간"),
-                    new OptionChoice(Low, "낮음"))
+                    new OptionChoice(High, "높음"))
             });
 
         public OptionChoices For(GraphicsOption option) => rows.For((int)option);
