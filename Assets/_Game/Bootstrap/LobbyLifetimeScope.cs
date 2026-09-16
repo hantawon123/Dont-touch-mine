@@ -143,7 +143,25 @@ namespace Game.Bootstrap
                 if (root == null) continue;
                 foreach (var item in root.GetComponentsInChildren<CarryableItem>(true)) lobbyItems.Add(item);
             }
+            DestroyItemsCarriedInFromMatch();
             base.Awake();
+        }
+
+        /// <summary>
+        /// 매치에서 놓지 못한 물건이 플레이어 손(HoldPoint)에 붙은 채 로비까지 따라오면 지운다.
+        /// 로비 자체의 물건(lobbyItems)은 건드리지 않는다.
+        /// </summary>
+        private void DestroyItemsCarriedInFromMatch()
+        {
+            foreach (var item in FindObjectsByType<CarryableItem>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (item == null || lobbyItems.Contains(item)) continue;
+                var holder = item.GetComponentInParent<Game.Client.Interactions.PlayerInteractor>();
+                if (holder == null) continue;
+                holder.ForgetConfirmedItem(item);
+                Debug.LogWarning($"[Lobby] 매치에서 따라온 물건 '{item.name}'을 {holder.name}의 손에서 제거했습니다.");
+                Destroy(item.gameObject);
+            }
         }
 
         protected override void Configure(IContainerBuilder builder)
