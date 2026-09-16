@@ -4,12 +4,23 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace Game.Editor
 {
     public static class ClientBuild
     {
+        // Batch test runs cannot answer the save prompt for an initial unsaved scene.
+        // Invoked explicitly by CI only, after import and before Test Runner starts.
+        public static void PrepareTests()
+        {
+            if (!Application.isBatchMode)
+                throw new InvalidOperationException("Test scene preparation is batch-only.");
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            Debug.Log($"[CI] Empty test scene ready; dirty={scene.isDirty}.");
+        }
+
         public static void Build()
         {
             var revision = Environment.GetEnvironmentVariable("CLIENT_REVISION");

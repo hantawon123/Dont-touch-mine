@@ -94,9 +94,12 @@ MonoBehaviour:
   inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   interactionConfig: {fileID: 11400000, guid: e026359dfb4a0154e8cad2eb84545595, type: 2}
   holdPoint: {fileID: 0}
-  holdForwardOffset: 0.45
-  holdHeightBelowEyes: 0.55
+  holdForwardOffset: 0.25
+  holdHeightStanding: 2.25
+  holdHeightCrouching: 0.82
+  holdHeightProne: 0.36
   holdSideOffset: 0
+  holdAboveHeadOffset: 0.8
 --- !u!114 &1754785993224845459
 MonoBehaviour:
   m_ObjectHideFlags: 0
