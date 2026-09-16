@@ -61,6 +61,12 @@ namespace Game.Core.Rooms
         /// </summary>
         public readonly bool IsTalking;
 
+        /// <summary>
+        /// Whether this person is playing other people's voice. Speaker off
+        /// is shown on their portrait ahead of a muted microphone.
+        /// </summary>
+        public readonly bool IsListening;
+
         public RoomParticipant(
             string playerId,
             int seat,
@@ -68,7 +74,8 @@ namespace Game.Core.Rooms
             string nickname = null,
             string userId = null,
             bool isMuted = false,
-            bool isTalking = false)
+            bool isTalking = false,
+            bool isListening = true)
         {
             PlayerId = playerId;
             Seat = seat;
@@ -80,6 +87,7 @@ namespace Game.Core.Rooms
             UserId = string.IsNullOrWhiteSpace(userId) ? string.Empty : userId.Trim();
             IsMuted = isMuted;
             IsTalking = isTalking;
+            IsListening = isListening;
         }
     }
 }

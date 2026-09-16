@@ -76,5 +76,15 @@ namespace Game.Tests.EditMode
             Assert.That(participant.IsTalking, Is.True);
             Assert.That(participant.IsMuted, Is.False);
         }
+
+        [Test]
+        public void IsListening_DefaultsOnAndCanBeCleared()
+        {
+            var open = new RoomParticipant("P3", 4, true, "방장");
+            var closed = new RoomParticipant("P3", 4, true, "방장", isListening: false);
+
+            Assert.That(open.IsListening, Is.True);
+            Assert.That(closed.IsListening, Is.False);
+        }
     }
 }

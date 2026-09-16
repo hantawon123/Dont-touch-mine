@@ -17,9 +17,6 @@ namespace Game.Client.Lobby
             string localPlayerId,
             bool namesReady = true);
 
-        void SetFriends(
-            IReadOnlyList<FriendSummary> friends,
-            bool speakerOff = false,
-            bool micOff = false);
+        void SetFriends(IReadOnlyList<FriendSummary> friends);
     }
 }

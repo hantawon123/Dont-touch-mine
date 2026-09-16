@@ -176,7 +176,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void SpeakerOff_AlsoMutesTheMicrophone()
+        public void SpeakerOff_RestoresThePreviousMicrophoneState()
         {
             var view = new FakeVoiceView();
             var voice = new FakeVoiceControl(muted: false);
@@ -190,7 +190,7 @@ namespace Game.Architecture.Tests
 
                 presenter.HandleSpeakerToggle();
                 Assert.That(voice.IsListening.CurrentValue, Is.True);
-                Assert.That(voice.IsMuted.CurrentValue, Is.True);
+                Assert.That(voice.IsMuted.CurrentValue, Is.False);
             }
             finally
             {
@@ -238,12 +238,14 @@ namespace Game.Architecture.Tests
         private sealed class FakeVoiceControl : Game.Core.Ports.IVoiceControl
         {
             private readonly R3.ReactiveProperty<bool> muted;
+            private bool preferenceMuted;
             private readonly R3.ReactiveProperty<bool> available = new(true);
             private readonly R3.ReactiveProperty<bool> transmitting = new(false);
             private readonly R3.ReactiveProperty<bool> listening = new(true);
 
             public FakeVoiceControl(bool muted)
             {
+                preferenceMuted = muted;
                 this.muted = new R3.ReactiveProperty<bool>(muted);
             }
 
@@ -259,7 +261,8 @@ namespace Game.Architecture.Tests
                     return;
                 }
 
-                muted.Value = value;
+                preferenceMuted = value;
+                muted.Value = !listening.Value || preferenceMuted;
             }
 
             public void SetTalking(bool talking)
@@ -269,10 +272,7 @@ namespace Game.Architecture.Tests
             public void SetListening(bool value)
             {
                 listening.Value = value;
-                if (!value)
-                {
-                    muted.Value = true;
-                }
+                muted.Value = !value || preferenceMuted;
             }
         }
     }

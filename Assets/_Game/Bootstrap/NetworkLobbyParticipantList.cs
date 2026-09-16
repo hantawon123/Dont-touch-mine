@@ -73,7 +73,8 @@ namespace Game.Bootstrap
                     one.IsHost,
                     one.UserId,
                     one.IsMuted,
-                    one.IsTalking));
+                    one.IsTalking,
+                    one.IsListening));
             }
 
             projected.Replace(rows);

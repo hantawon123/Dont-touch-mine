@@ -91,15 +91,9 @@ namespace Game.Bootstrap
             if (disposed) return;
             preferences.Listening = listening;
             PublishListening();
-            if (!listening)
-            {
-                SetMuted(true);
-            }
-            else
-            {
-                PublishEffectiveMute();
-            }
-
+            // Effective mute follows the speaker, but the saved microphone
+            // choice is left alone so turning the speaker back on restores it.
+            PublishEffectiveMute();
             PublishTalking();
         }
 

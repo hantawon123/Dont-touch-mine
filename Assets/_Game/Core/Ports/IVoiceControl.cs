@@ -37,8 +37,8 @@ namespace Game.Core.Ports
         /// <summary>
         /// Whether this machine plays other people's voice. A silenced
         /// microphone can still hear the room. While the speaker is off the
-        /// microphone stays muted: it cannot be unmuted, and turning the
-        /// speaker back on does not unmute it.
+        /// microphone stays closed and cannot be opened; turning the speaker
+        /// back on restores the microphone choice from before it closed.
         /// </summary>
         ReadOnlyReactiveProperty<bool> IsListening { get; }
 

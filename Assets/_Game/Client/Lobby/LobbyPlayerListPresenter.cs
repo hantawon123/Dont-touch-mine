@@ -226,9 +226,7 @@ namespace Game.Client.Lobby
             var online = friends.OnlineFriends;
             var invitable = new List<FriendSummary>(online.Count);
             AppendInvitable(invitable, online, inRoom);
-            var speakerOff = voice != null && !voice.IsListening.CurrentValue;
-            var micOff = voice != null && voice.IsMuted.CurrentValue;
-            view.SetFriends(invitable, speakerOff, micOff);
+            view.SetFriends(invitable);
         }
 
         private static void AppendInvitable(

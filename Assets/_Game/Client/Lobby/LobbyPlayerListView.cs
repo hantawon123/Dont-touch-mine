@@ -228,6 +228,7 @@ namespace Game.Client.Lobby
                     isSelf: isSelf,
                     isMuted: participant.IsMuted,
                     isTalking: participant.IsTalking,
+                    showVoice: false,
                     isListening: participant.IsListening);
                 var playerId = participant.Id;
                 var rosterName = participant.DisplayName;
@@ -299,10 +300,7 @@ namespace Game.Client.Lobby
             }
         }
 
-        public void SetFriends(
-            IReadOnlyList<FriendSummary> friends,
-            bool speakerOff = false,
-            bool micOff = false)
+        public void SetFriends(IReadOnlyList<FriendSummary> friends)
         {
             EnsureLayout();
             EnsureFriendSections();
@@ -334,9 +332,9 @@ namespace Game.Client.Lobby
                 }
             }
 
-            AppendFriends(onlineItemsRoot, online, canInvite: true, speakerOff, micOff);
-            AppendFriends(waitingItemsRoot, waiting, canInvite: false, speakerOff, micOff);
-            AppendFriends(inGameItemsRoot, playing, canInvite: false, speakerOff, micOff);
+            AppendFriends(onlineItemsRoot, online, canInvite: true);
+            AppendFriends(waitingItemsRoot, waiting, canInvite: false);
+            AppendFriends(inGameItemsRoot, playing, canInvite: false);
             SetSectionVisible(onlineSection, onlineItemsRoot, online.Count > 0);
             SetSectionVisible(waitingSection, waitingItemsRoot, waiting.Count > 0);
             SetSectionVisible(inGameSection, inGameItemsRoot, playing.Count > 0);
@@ -434,11 +432,7 @@ namespace Game.Client.Lobby
         }
 
         private void AppendFriends(
-            RectTransform parent,
-            IReadOnlyList<FriendSummary> friends,
-            bool canInvite,
-            bool speakerOff,
-            bool micOff)
+            RectTransform parent, IReadOnlyList<FriendSummary> friends, bool canInvite)
         {
             if (parent == null)
             {
@@ -456,10 +450,7 @@ namespace Game.Client.Lobby
                     showLeader: false,
                     showKick: false,
                     showAdd: true,
-                    isMuted: micOff,
-                    isTalking: false,
-                    showVoice: false,
-                    isListening: !speakerOff);
+                    showVoice: false);
                 BindInvite(row, friend.PlayerId, friend.Nickname, canInvite);
             }
         }

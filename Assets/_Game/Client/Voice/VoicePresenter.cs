@@ -15,9 +15,9 @@ namespace Game.Client.Voice
     /// Holding 마이크 송출 suits a sentence thrown across the room. 마이크 고정
     /// and the HUD mic button are the same on/off. The speaker button and T
     /// decide whether this machine hears the room, without leaving voice.
-    /// Closing the speaker also mutes the microphone so a silent room is
-    /// not still sending. While the speaker stays off the microphone cannot
-    /// be opened again.
+        /// Closing the speaker also closes the microphone so a silent room is
+        /// not still sending. Turning the speaker back on restores the
+        /// microphone choice from before it closed.
     /// </remarks>
     public sealed class VoicePresenter : IStartable, ITickable, IDisposable
     {
@@ -33,6 +33,12 @@ namespace Game.Client.Voice
         /// Whether the microphone was latched open, as opposed to held open.
         /// </summary>
         private bool latched;
+
+        /// <summary>
+        /// Latch at the moment the speaker closed, so opening it again can
+        /// put the microphone back where it was.
+        /// </summary>
+        private bool latchedBeforeSpeakerOff;
 
         public VoicePresenter(
             IVoiceView view,
@@ -148,12 +154,13 @@ namespace Game.Client.Voice
             var next = !voice.IsListening.CurrentValue;
             if (!next)
             {
-                // Leaving the room's playback also stops talking. The latch
-                // drops the same way a mute does, so turning the speaker back
-                // on does not reopen a microphone the player just closed.
+                latchedBeforeSpeakerOff = latched;
                 latched = false;
                 voice.SetTalking(false);
-                voice.SetMuted(true);
+            }
+            else
+            {
+                latched = latchedBeforeSpeakerOff;
             }
 
             voice.SetListening(next);
