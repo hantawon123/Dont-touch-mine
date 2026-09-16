@@ -589,14 +589,22 @@ class AdminReportApiTest extends IntegrationTest {
     private void report(String reporter, String reported, String reason, String memo)
             throws Exception {
         String body = memo == null
-                ? "{\"userId\":\"" + reported + "\",\"reason\":\"" + reason + "\"}"
+                ? "{\"userId\":\"" + reported + "\",\"reason\":\"" + reason + "\",\"contextKey\":\"" + freshKey() + "\"}"
                 : "{\"userId\":\"" + reported + "\",\"reason\":\"" + reason
-                        + "\",\"memo\":\"" + memo + "\"}";
+                        + "\",\"memo\":\"" + memo + "\",\"contextKey\":\"" + freshKey() + "\"}";
 
         mvc.perform(post("/api/v1/reports")
                         .header(USER_ID_HEADER, reporter)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated());
+    }
+
+    /**
+     * 신고마다 다른 경기 키. 이 테스트들은 같은 쌍의 신고를 여러 건 쌓아 집계를 보는데, 서버가 한 경기에
+     * 같은 상대를 한 번만 받게 되어(S15P21D205-1017) 건마다 다른 경기에서 온 것처럼 보내야 합니다.
+     */
+    private static String freshKey() {
+        return "T#" + UUID.randomUUID().toString().substring(0, 8);
     }
 }

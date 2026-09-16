@@ -33,6 +33,7 @@ namespace Game.Tests.EditMode
                 new FriendListSystem(),
                 new FakeInviteGateway(),
                 new FakeReportGateway(),
+                new FakeReportContext(),
                 view,
                 count,
                 new FakeConfirmView());
@@ -64,6 +65,7 @@ namespace Game.Tests.EditMode
                 friends,
                 new FakeInviteGateway(),
                 new FakeReportGateway(),
+                new FakeReportContext(),
                 view,
                 new FakeCountView(),
                 new FakeConfirmView());
@@ -97,6 +99,7 @@ namespace Game.Tests.EditMode
                 new FriendListSystem(),
                 new FakeInviteGateway(),
                 new FakeReportGateway(),
+                new FakeReportContext(),
                 view,
                 new FakeCountView(),
                 new FakeConfirmView());
@@ -129,6 +132,7 @@ namespace Game.Tests.EditMode
                 new FriendListSystem(),
                 new FakeInviteGateway(),
                 new FakeReportGateway(),
+                new FakeReportContext(),
                 view,
                 new FakeCountView(),
                 new FakeConfirmView());
@@ -166,6 +170,7 @@ namespace Game.Tests.EditMode
                 friends,
                 new FakeInviteGateway(),
                 new FakeReportGateway(),
+                new FakeReportContext(),
                 view,
                 new FakeCountView(),
                 new FakeConfirmView());
@@ -205,6 +210,7 @@ namespace Game.Tests.EditMode
                 friends,
                 new FakeInviteGateway(),
                 new FakeReportGateway(),
+                new FakeReportContext(),
                 view,
                 new FakeCountView(),
                 new FakeConfirmView());
@@ -238,6 +244,7 @@ namespace Game.Tests.EditMode
                 new FriendListSystem(),
                 new FakeInviteGateway(),
                 new FakeReportGateway(),
+                new FakeReportContext(),
                 view,
                 new FakeCountView(),
                 kickConfirm);
@@ -275,6 +282,7 @@ namespace Game.Tests.EditMode
                 friends,
                 new FakeInviteGateway(),
                 new FakeReportGateway(),
+                new FakeReportContext(),
                 view,
                 new FakeCountView(),
                 kickConfirm);
@@ -312,6 +320,7 @@ namespace Game.Tests.EditMode
                 new FriendListSystem(),
                 new FakeInviteGateway(),
                 new FakeReportGateway(),
+                new FakeReportContext(),
                 view,
                 new FakeCountView(),
                 kickConfirm);
@@ -341,6 +350,7 @@ namespace Game.Tests.EditMode
                 new FriendListSystem(),
                 invites,
                 new FakeReportGateway(),
+                new FakeReportContext(),
                 view,
                 new FakeCountView(),
                 new FakeConfirmView());
@@ -368,6 +378,7 @@ namespace Game.Tests.EditMode
                 new FriendListSystem(),
                 new FakeInviteGateway(),
                 reports,
+                new FakeReportContext(),
                 view,
                 new FakeCountView(),
                 confirm);
@@ -387,6 +398,7 @@ namespace Game.Tests.EditMode
             Assert.That(
                 reports.Sent,
                 Is.EqualTo(new[] { ("player-2", ReportReason.Cheating, "채팅으로 욕설을 했습니다") }));
+            Assert.That(reports.Keys, Is.EqualTo(new[] { FakeReportContext.Key }), "The match key travels with it.");
             Assert.That(confirm.IsVisible, Is.False);
         }
 
@@ -411,6 +423,7 @@ namespace Game.Tests.EditMode
                 new FriendListSystem(),
                 new FakeInviteGateway(),
                 new FakeReportGateway(),
+                new FakeReportContext(),
                 view,
                 count,
                 new FakeConfirmView());
@@ -592,15 +605,26 @@ namespace Game.Tests.EditMode
         {
             public List<(string PlayerId, ReportReason Reason, string Note)> Sent { get; } = new();
 
+            public List<string> Keys { get; } = new();
+
             public UniTask<BackendResult> ReportAsync(
                 string playerId,
                 ReportReason reason,
                 string note,
+                string contextKey,
                 CancellationToken cancellation)
             {
                 Sent.Add((playerId, reason, note));
+                Keys.Add(contextKey);
                 return UniTask.FromResult(BackendResult.Success());
             }
+        }
+
+        private sealed class FakeReportContext : IReportContext
+        {
+            public const string Key = "ROOM#0";
+
+            public string CurrentKey => Key;
         }
 
         private sealed class FakeCountView : ILobbyPlayerCountView

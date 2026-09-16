@@ -175,6 +175,24 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 닉네임에 금칙어가 있습니다 (S15P21D205-1017). 400 인 이유는 입력을 고치면 되는 문제이기 때문이고,
+     * INVALID_REQUEST 와 코드를 나눈 이유는 화면이 "글자 규칙" 과 "쓸 수 없는 말" 을 다르게 안내해야
+     * 하기 때문입니다. 어느 말에 걸렸는지는 담지 않습니다 - 담으면 목록을 알아내는 데 쓰입니다.
+     */
+    @ExceptionHandler(NicknameForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleNicknameForbidden(NicknameForbiddenException e) {
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse("NICKNAME_FORBIDDEN", "쓸 수 없는 닉네임입니다."));
+    }
+
+    /** 같은 경기에서 같은 사람을 이미 신고했습니다 (S15P21D205-1017). 화면은 "이미 신고했습니다" 로 안내합니다. */
+    @ExceptionHandler(ReportAlreadySentException.class)
+    public ResponseEntity<ErrorResponse> handleReportAlreadySent(ReportAlreadySentException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("REPORT_ALREADY_SENT", "이 경기에서 그 사람을 이미 신고했습니다."));
+    }
+
+    /**
      * 닉네임 변경이 uk_users_nickname에 걸린 경우입니다.
      *
      * <p>서비스가 미리 조회해 확인하지만 그 사이에 다른 요청이 같은 닉네임을 차지할 수

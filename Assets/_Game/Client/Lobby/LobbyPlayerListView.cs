@@ -293,7 +293,7 @@ namespace Game.Client.Lobby
         /// <summary>
         /// Other people stay off the list until they have said whether the
         /// room may use their own name. Showing the roster name first would
-        /// give away a streamer before their 익명 설정 arrived.
+        /// give away a streamer before their 스트리머 모드 설정 arrived.
         /// </summary>
         private bool CanShowParticipant(string playerId, bool isSelf) =>
             presentation == null

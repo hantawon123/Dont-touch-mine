@@ -19,6 +19,7 @@ namespace Game.Client.Lobby
         private readonly FriendListSystem friends;
         private readonly IInviteGateway invites;
         private readonly IReportGateway reports;
+        private readonly IReportContext reportContext;
         private readonly ILobbyPlayerListView view;
         private readonly ILobbyPlayerCountView countView;
         private readonly ILobbyConfirmView confirmView;
@@ -54,6 +55,7 @@ namespace Game.Client.Lobby
             FriendListSystem friends,
             IInviteGateway invites,
             IReportGateway reports,
+            IReportContext reportContext,
             ILobbyPlayerListView view,
             ILobbyPlayerCountView countView,
             ILobbyConfirmView confirmView)
@@ -64,6 +66,7 @@ namespace Game.Client.Lobby
             this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
             this.invites = invites ?? throw new ArgumentNullException(nameof(invites));
             this.reports = reports ?? throw new ArgumentNullException(nameof(reports));
+            this.reportContext = reportContext ?? throw new ArgumentNullException(nameof(reportContext));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.countView = countView ?? throw new ArgumentNullException(nameof(countView));
             this.confirmView = confirmView
@@ -370,10 +373,21 @@ namespace Game.Client.Lobby
         private async UniTaskVoid ReportAsync(
             string userId, ReportReason reason, string note, CancellationToken cancellation)
         {
-            var result = await reports.ReportAsync(userId, reason, note, cancellation);
+            // Which match this is about. Null when there is no room, which
+            // cannot happen from this screen, but the gateway tolerates it.
+            var result = await reports.ReportAsync(
+                userId, reason, note, reportContext.CurrentKey, cancellation);
 
             if (result.Ok || result.Failure == BackendFailure.Cancelled)
             {
+                return;
+            }
+
+            if (result.Failure == BackendFailure.ReportAlreadySent)
+            {
+                // Not a fault. One report per person per match is the rule
+                // (S15P21D205-1017); the player pressed twice in one match.
+                Debug.Log($"[Report] {userId} was already reported in this match.");
                 return;
             }
 

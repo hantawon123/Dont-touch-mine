@@ -864,6 +864,12 @@
       },
       "SendReportRequest" : {
         "properties" : {
+          "contextKey" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "pattern" : "^[A-Za-z0-9#:._-]*$",
+            "type" : "string"
+          },
           "memo" : {
             "maxLength" : 500,
             "minLength" : 0,

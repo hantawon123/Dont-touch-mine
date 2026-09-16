@@ -150,18 +150,62 @@ class ReportApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("같은 사람을 여러 번 신고하면 기록이 여러 개 남는다")
-    void repeatedReportsAreSeparateRows() throws Exception {
-        // 막지 않는 것이 의도입니다. 횟수가 운영자에게 신호가 됩니다. 한 사람이 부풀릴
-        // 수 있다는 대가는 알고 있고, 운영자 도구에서 신고 건수와 신고한 사람 수를
-        // 나눠 보는 것으로 갚습니다.
+    @DisplayName("한 경기에 같은 사람은 한 번만 신고할 수 있다")
+    void sameTargetInSameMatchIsRefusedTheSecondTime() throws Exception {
+        // 같은 상대를 연타해 건수를 부풀리는 것을 막습니다(S15P21D205-1017). 경기가 바뀌면 다시 됩니다 -
+        // 여러 경기에 걸친 횟수는 여전히 운영자에게 신호입니다.
         String me = createUser();
         String other = createUser();
 
-        report(me, other, "ABUSE", "한 번").andExpect(status().isCreated());
-        report(me, other, "SPAM", "두 번").andExpect(status().isCreated());
+        report(me, other, "ABUSE", "한 번", "ROOM1#1").andExpect(status().isCreated());
+        report(me, other, "SPAM", "두 번", "ROOM1#1")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("REPORT_ALREADY_SENT"));
+        report(me, other, "SPAM", "다음 판", "ROOM1#2").andExpect(status().isCreated());
 
         assertThat(reportsAbout(seqOf(other))).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("경기 키는 신고자마다 달라도 된다 - 유니크가 신고자를 포함한다")
+    void differentReportersMayShareAKey() throws Exception {
+        String first = createUser();
+        String second = createUser();
+        String target = createUser();
+
+        report(first, target, "ABUSE", null, "ROOM9#1").andExpect(status().isCreated());
+        report(second, target, "ABUSE", null, "ROOM9#1").andExpect(status().isCreated());
+
+        assertThat(reportsAbout(seqOf(target))).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("경기 키가 없으면 24시간 안에 같은 사람은 한 번이다")
+    void withoutAKeyOnePerDayPerTarget() throws Exception {
+        // 옛 클라이언트의 요청입니다. NULL 은 유니크 인덱스에 잡히지 않으므로 서비스가 시간으로 가릅니다.
+        String me = createUser();
+        String other = createUser();
+        String another = createUser();
+
+        report(me, other, "ABUSE", null, null).andExpect(status().isCreated());
+        report(me, other, "SPAM", null, null)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("REPORT_ALREADY_SENT"));
+        report(me, another, "SPAM", null, null).andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("경기 키가 64자를 넘거나 허용 밖 글자를 쓰면 400")
+    void keyIsValidated() throws Exception {
+        String me = createUser();
+        String other = createUser();
+
+        report(me, other, "ABUSE", null, "K".repeat(65))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        report(me, other, "ABUSE", null, "방 코드 공백")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
     }
 
     @Test
@@ -325,17 +369,29 @@ class ReportApiTest extends IntegrationTest {
         assertThat(reportsAbout(reportedSeq)).isZero();
     }
 
+    /** 경기 키를 정하지 않는 테스트는 매번 다른 경기에서 온 것처럼 보냅니다(S15P21D205-1017). */
     private ResultActions report(String caller, String target, String reason, String memo)
             throws Exception {
-        String body = memo == null
-                ? "{\"userId\":\"" + target + "\",\"reason\":\"" + reason + "\"}"
-                : "{\"userId\":\"" + target + "\",\"reason\":\"" + reason
-                        + "\",\"memo\":\"" + memo + "\"}";
+        return report(caller, target, reason, memo, "T#" + UUID.randomUUID().toString().substring(0, 8));
+    }
+
+    /** contextKey 가 null 이면 필드를 아예 보내지 않습니다 - 옛 클라이언트의 요청 모양입니다. */
+    private ResultActions report(String caller, String target, String reason, String memo, String contextKey)
+            throws Exception {
+        StringBuilder body = new StringBuilder("{\"userId\":\"").append(target)
+                .append("\",\"reason\":\"").append(reason).append("\"");
+        if (memo != null) {
+            body.append(",\"memo\":\"").append(memo).append("\"");
+        }
+        if (contextKey != null) {
+            body.append(",\"contextKey\":\"").append(contextKey).append("\"");
+        }
+        body.append("}");
 
         return mvc.perform(post("/api/v1/reports")
                 .header(USER_ID_HEADER, caller)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(body));
+                .content(body.toString()));
     }
 
     private void deleteAccount(String userId, String deviceId) throws Exception {

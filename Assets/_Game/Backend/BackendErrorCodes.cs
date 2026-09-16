@@ -42,8 +42,10 @@ namespace Game.Backend
                 case "NOT_FRIENDS": return BackendFailure.NotFriends;
                 case "TARGET_IN_GAME": return BackendFailure.TargetInGame;
                 case "NICKNAME_TAKEN": return BackendFailure.NicknameTaken;
+                case "NICKNAME_FORBIDDEN": return BackendFailure.NicknameForbidden;
                 case "ALREADY_FRIENDS": return BackendFailure.AlreadyFriends;
                 case "REQUEST_ALREADY_SENT": return BackendFailure.RequestAlreadySent;
+                case "REPORT_ALREADY_SENT": return BackendFailure.ReportAlreadySent;
                 case "CONFLICT": return BackendFailure.Conflict;
 
                 // The server failed to invent a temporary nickname. Nothing the
