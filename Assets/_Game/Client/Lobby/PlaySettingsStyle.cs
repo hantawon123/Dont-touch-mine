@@ -61,6 +61,8 @@ namespace Game.Client.Lobby
             public static readonly Color Divider = FromHex(0xF5F3F1, 0.16f);
             public static readonly Color DefaultMark = FromHex(0xF5F3F1, 0.85f);
             public static readonly Color ScrollbarHandle = FromHex(0xF5F3F1, 0.5f);
+            public static readonly Color GameStartOffFill = FromHex(0x8E8E8E);
+            public static readonly Color GameStartOffLabel = Color.white;
         }
 
         public static class FontSize

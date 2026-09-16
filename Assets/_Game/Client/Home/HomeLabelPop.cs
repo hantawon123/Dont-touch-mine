@@ -42,7 +42,15 @@ namespace Game.Client.Home
             Apply();
         }
 
-        public void OnPointerEnter(PointerEventData eventData) => hovered = true;
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (!CanHover())
+            {
+                return;
+            }
+
+            hovered = true;
+        }
 
         public void OnPointerExit(PointerEventData eventData) => hovered = false;
 
@@ -65,6 +73,12 @@ namespace Game.Client.Home
             var step = Mathf.Abs(hoverScale - 1f) / seconds * Mathf.Max(deltaSeconds, 0f);
             current = Mathf.MoveTowards(current, wanted, step);
             Apply();
+        }
+
+        private bool CanHover()
+        {
+            var selectable = GetComponent<UnityEngine.UI.Selectable>();
+            return selectable == null || selectable.IsInteractable();
         }
 
         private void Update()

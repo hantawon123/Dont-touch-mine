@@ -11,8 +11,10 @@ namespace Game.Client.Lobby
         private readonly ILobbyHostSession hostSession;
         private readonly IPlaySettingsView view;
         private readonly ILobbyPauseMenuView pauseMenu;
+        private readonly ILobbyParticipantList participants;
         private IDisposable hostSubscription;
         private IDisposable settingsSubscription;
+        private IDisposable participantSubscription;
         private bool isOpen;
         private PlaySettingsDraft displayedSettings;
 
@@ -20,10 +22,21 @@ namespace Game.Client.Lobby
             ILobbyHostSession hostSession,
             IPlaySettingsView view,
             ILobbyPauseMenuView pauseMenu)
+            : this(hostSession, view, pauseMenu, null)
+        {
+        }
+
+        [VContainer.Inject]
+        public PlaySettingsPresenter(
+            ILobbyHostSession hostSession,
+            IPlaySettingsView view,
+            ILobbyPauseMenuView pauseMenu,
+            ILobbyParticipantList participants)
         {
             this.hostSession = hostSession ?? throw new ArgumentNullException(nameof(hostSession));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.pauseMenu = pauseMenu ?? throw new ArgumentNullException(nameof(pauseMenu));
+            this.participants = participants;
         }
 
         public void Start()
@@ -39,6 +52,11 @@ namespace Game.Client.Lobby
             pauseMenu.PlaySettingsClicked += Open;
             hostSubscription = hostSession.IsLocalHost.Subscribe(HandleHostChanged);
             settingsSubscription = hostSession.Settings.Subscribe(HandleSettingsChanged);
+            if (participants != null)
+            {
+                participantSubscription = participants.Participants.Subscribe(list =>
+                    view.SetParticipantCount(list == null ? 0 : list.Count));
+            }
         }
 
         public void Dispose()
@@ -53,6 +71,7 @@ namespace Game.Client.Lobby
             pauseMenu.PlaySettingsClicked -= Open;
             hostSubscription?.Dispose();
             settingsSubscription?.Dispose();
+            participantSubscription?.Dispose();
             if (isOpen)
             {
                 SetInteractionPromptVisible(true);
