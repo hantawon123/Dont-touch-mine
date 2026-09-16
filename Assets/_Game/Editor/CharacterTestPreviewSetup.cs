@@ -12,7 +12,7 @@ namespace Game.Editor
     {
         private const string PreviewPath = SmoothBearAssets.ModelPath;
         private const string ControllerPath = SmoothBearAssets.PreviewControllerPath;
-        private const string ScenePath = "Assets/Scenes/CharacterTest.unity";
+        internal const string ScenePath = "Assets/Scenes/CharacterTest.unity";
         private const string PreviewName = "SmoothBear";
         private const string IdleState = "Idle";
         private static readonly string[] MotionNames =
@@ -132,6 +132,15 @@ namespace Game.Editor
             "Hit_Run",
             "Hit_Crouch",
             "Hit_Crouch_Walk",
+            "Hit_Prone",
+            "Hit_Crawl",
+            "Carry_TwoHands_Hit",
+            "Carry_TwoHands_Hit_Walk",
+            "Carry_TwoHands_Hit_Run",
+            "Carry_TwoHands_Hit_Crouch",
+            "Carry_TwoHands_Hit_Crouch_Walk",
+            "Carry_TwoHands_Hit_Prone",
+            "Carry_TwoHands_Hit_Crawl",
             "Stun_Start",
             "Stun_Idle",
             "Stun_End",
@@ -164,6 +173,11 @@ namespace Game.Editor
         [MenuItem("Game/Setup/Apply CharacterTest Blender Preview")]
         public static void ApplyFromMenu()
         {
+            if (EditorSceneManager.GetActiveScene().path != ScenePath)
+            {
+                EditorSceneManager.OpenScene(ScenePath);
+            }
+
             if (!ApplyBlenderPreview())
             {
                 EditorUtility.DisplayDialog(
@@ -182,10 +196,19 @@ namespace Game.Editor
         public static bool ApplyBlenderPreview()
         {
             if (AssetDatabase.LoadAssetAtPath<GameObject>(PreviewPath) == null ||
-                MotionNames.Any(name => SmoothBearAssets.LoadClip(name) == null) ||
-                SmoothBearAssets.LoadClip(IdleState) == null) return false;
+                SmoothBearAssets.LoadClip(IdleState) == null)
+            {
+                return false;
+            }
+
             ConfigureController();
             AssignToScene();
+            var scene = EditorSceneManager.GetActiveScene();
+            if (scene.IsValid() && scene.path == ScenePath && scene.isDirty)
+            {
+                EditorSceneManager.SaveScene(scene);
+            }
+
             return true;
         }
 
@@ -298,7 +321,12 @@ namespace Game.Editor
 
             driver.ConfigureMotions(new[] { IdleState }.Concat(MotionNames).ToArray());
             EditorUtility.SetDirty(driver);
-            PrefabUtility.RecordPrefabInstancePropertyModifications(animator);
+            if (animator != null)
+            {
+                PrefabUtility.RecordPrefabInstancePropertyModifications(animator);
+            }
+
+            PrefabUtility.RecordPrefabInstancePropertyModifications(driver);
             ApplyProjectMaterials(preview);
 
             EditorSceneManager.MarkSceneDirty(scene);

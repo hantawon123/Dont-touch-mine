@@ -69,6 +69,18 @@ MaterialPropertyBlock으로 바꾼다. 후드의 니트 질감은 유지한다.
 - 네트워크 플레이어: 기존 `NetworkedPlayer.prefab`이 위 플레이어의 새 Visual을 사용
 - Unity용 Blender 원본: `source/blender/characters/SmoothBear/SmoothBear.blend`
 
+### 엄지 끝 메시 수정
+
+`Tools/refine_smooth_bear_thumb_source.py`는 원본 `.blend`의 양쪽 `Finger_T2` 방향을
+기준으로 끝부분 정점만 둥글게 만든다. 정점 수, 면 연결, 웨이트, UV, 리그를 유지하고
+동일한 위치 보정을 모든 셰이프키에 더해 기존 변형량을 보존한다.
+내보내기 옵션은 `hold_crawl_torso.FBX_KW`에 애니메이션/텍스처 임베딩을 끈 설정이다.
+현재 원본의 **저장된 포즈를 유지해야 한다**. 뼈 포즈를 identity로 초기화하면 기존
+Unity FBX와 몸 스킨 및 머리 부속 위치가 달라진다.
+`Tools/validate_smooth_bear_thumb_export.py`로 교체 전 FBX와 뼈 기본 행렬, 웨이트,
+UV, 셰이프키 변형량 및 기본/손가락 굽힘/관절 굽힘 포즈를 비교한다.
+검토 결과와 교체 전 백업은 `artifacts/smooth-bear-unity/thumb-source-round/`에 보관한다.
+
 ## 구성
 
 사용자가 승인한 매끈한 곰 캐릭터의 기본 메시와 팔 실루엣을 사용한다.

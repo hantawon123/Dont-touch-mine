@@ -1,5 +1,6 @@
 using System.Linq;
 using Game.Client.Character;
+using Game.Client.Players;
 using Game.Core.Players;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -23,9 +24,15 @@ namespace Game.Editor
         /// 크기는 PlayerCharacter 프리팹에서 팀이 조정하는 값이고(2026-09-16 0.85 확정), 이 스크립트가
         /// 도메인 리로드마다 되돌리면 그 조정이 계속 사라진다.
         /// </summary>
-        private static readonly Vector3 VisualScale = new(0.85f, 0.85f, 0.85f);
+        private static readonly Vector3 VisualScale = Vector3.one * PlayerVisualScale.Value;
         private static bool appliedThisDomain;
 
+        /// <summary>
+        /// 리로드마다 자동 실행되지만, 이미 다 연결돼 있으면 어떤 에셋도 저장하지 않는다.
+        /// 예전에는 매번 프리팹·컨트롤러를 다시 저장해 팀원마다 PlayerCharacter.prefab이 바뀌고,
+        /// 옛 스크립트를 가진 머신에서는 Visual 스케일까지 되돌려 머지 때 크기가 튀는 원인이 됐다.
+        /// 고칠 것이 있을 때만 쓰고, 전체 재적용은 메뉴(Game/Setup)에서 명시적으로 한다.
+        /// </summary>
         [InitializeOnLoadMethod]
         private static void BuildAfterReload()
         {
@@ -35,7 +42,7 @@ namespace Game.Editor
             {
                 if (!EditorApplication.isPlayingOrWillChangePlaymode)
                 {
-                    Apply();
+                    Apply(autoRun: true);
                 }
             };
         }
@@ -63,7 +70,10 @@ namespace Game.Editor
             }
         }
 
-        public static bool Apply()
+        public static bool Apply() => Apply(autoRun: false);
+
+        /// <param name="autoRun">true면 이미 연결된 상태를 확인만 하고 쓰지 않는다(리로드 자동 실행).</param>
+        public static bool Apply(bool autoRun)
         {
             if (appliedThisDomain)
             {
@@ -76,7 +86,18 @@ namespace Game.Editor
             }
 
             var idle = SmoothBearAssets.LoadClip(IdleState);
-            if (idle == null || !ConfigureController(idle))
+            if (idle == null)
+            {
+                return false;
+            }
+
+            if (autoRun && IsAlreadyApplied(idle))
+            {
+                appliedThisDomain = true;
+                return true;
+            }
+
+            if (!ConfigureController(idle))
             {
                 return false;
             }
@@ -89,6 +110,24 @@ namespace Game.Editor
             SmoothBearAssets.SaveCharacterPrefab();
             appliedThisDomain = true;
             return true;
+        }
+
+        /// <summary>컨트롤러와 프리팹이 이미 연결되어 있는지 읽기만으로 확인한다(저장 없음).</summary>
+        private static bool IsAlreadyApplied(AnimationClip idle)
+        {
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
+            if (controller == null || controller.layers.Length == 0 ||
+                !IsControllerReady(controller.layers[0].stateMachine, idle))
+            {
+                return false;
+            }
+
+            var model = AssetDatabase.LoadAssetAtPath<GameObject>(IdlePath);
+            var runtimeController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(ControllerPath);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            if (model == null || runtimeController == null || prefab == null) return false;
+            var visual = prefab.transform.Find("Visual");
+            return IsFirstVisual(visual, model, runtimeController) && HasBodyColorTarget(prefab);
         }
 
         private static bool ConfigureController(AnimationClip idle)
@@ -140,6 +179,8 @@ namespace Game.Editor
                    states.Any(state => state.name == "Throw_TwoHands") &&
                    states.Any(state => state.name == "Throw_TwoHands_Walk") &&
                    states.Any(state => state.name == "Throw_TwoHands_Prone") &&
+                   states.Any(state => state.name == "Hit_Prone") &&
+                   states.Any(state => state.name == "Carry_TwoHands_Hit_Prone") &&
                    states.Any(state => state.name == "Walk_Left") &&
                    states.Any(state => state.name == "Jump") &&
                    states.Any(state => state.name == "Carry_TwoHands") &&

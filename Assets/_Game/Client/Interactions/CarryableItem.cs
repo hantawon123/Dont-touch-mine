@@ -32,6 +32,12 @@ namespace Game.Client.Interactions
 
         public string ObjectId => resolvedObjectId ??= ResolveObjectId();
 
+        /// <summary>
+        /// 이 물건이 원래 속한(놓이면 돌아가는) 씬. 들고 있는 동안은 플레이어 아래에 붙어 다른 씬에 있으므로,
+        /// 매치 씬의 물건인지 판단할 때는 <c>gameObject.scene</c>이 아니라 이것을 봐야 한다.
+        /// </summary>
+        public Scene OwningScene => owningScene.IsValid() ? owningScene : gameObject.scene;
+
         public bool HasExplicitObjectId => !string.IsNullOrWhiteSpace(objectId);
 
         public bool IsPlayerItem => isPlayerItem;
@@ -239,8 +245,13 @@ namespace Game.Client.Interactions
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
             transform.SetPositionAndRotation(pose.position, pose.rotation);
-            body.linearVelocity = default;
-            body.angularVelocity = default;
+            // 들고 있던 몸은 이미 kinematic이라 속도를 쓰면 Unity가 경고한다. 움직이는 몸일 때만 멈춘다.
+            if (!body.isKinematic)
+            {
+                body.linearVelocity = default;
+                body.angularVelocity = default;
+            }
+
             body.isKinematic = true;
             SetCollidersEnabled(false);
             IsCarried = false;
