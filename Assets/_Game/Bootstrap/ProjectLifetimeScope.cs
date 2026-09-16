@@ -101,7 +101,9 @@ namespace Game.Bootstrap
                 new InterfaceSettingsSystem(interfaceSettingsStore),
                 new SoundSettingsSystem(soundSettingsStore, soundSettingsApplier, microphones),
                 new ControlSettingsSystem(controlSettingsStore),
-                new NotificationSettingsSystem(notificationSettingsStore));
+                new NotificationSettingsSystem(notificationSettingsStore),
+                registerNullMicrophoneTest: false);
+            builder.RegisterEntryPoint<UnityMicrophoneTest>().As<IMicrophoneTest>();
             builder.RegisterInstance<IServerRegionStore>(regionStore);
 
             // Lets BackendSignIn fall back to the pair saved by an earlier launch
@@ -351,6 +353,11 @@ namespace Game.Bootstrap
         /// null: sign-in replaces it with the account's nickname as soon as the
         /// server answers, and until then the default stands in.
         /// </param>
+        /// <param name="registerNullMicrophoneTest">
+        /// True for tests and the dedicated server, which must not open a
+        /// microphone. The client passes false and registers the loopback
+        /// itself.
+        /// </param>
         public static void RegisterServices(
             IContainerBuilder builder,
             NetworkPrefabs networkPrefabs = null,
@@ -362,7 +369,8 @@ namespace Game.Bootstrap
             InterfaceSettingsSystem interfaceSettings = null,
             SoundSettingsSystem soundSettings = null,
             ControlSettingsSystem controlSettings = null,
-            NotificationSettingsSystem notificationSettings = null)
+            NotificationSettingsSystem notificationSettings = null,
+            bool registerNullMicrophoneTest = true)
         {
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
@@ -404,9 +412,13 @@ namespace Game.Bootstrap
                 notificationSettings
                     ?? new NotificationSettingsSystem(new InMemoryNotificationSettingsStore()));
 
-            // Tests nothing yet: what a microphone test does has not been
-            // decided. The screen's button is wired to this either way.
-            builder.Register<IMicrophoneTest, NullMicrophoneTest>(Lifetime.Singleton);
+            // The application registers the loopback after this method so
+            // only a client with speakers opens the microphone. Tests and
+            // the dedicated server keep the no-op.
+            if (registerNullMicrophoneTest)
+            {
+                builder.Register<IMicrophoneTest, NullMicrophoneTest>(Lifetime.Singleton);
+            }
 
             // One instance for the whole application. The home screen edits this
             // one and the network reads this one, so a rename is visible in both

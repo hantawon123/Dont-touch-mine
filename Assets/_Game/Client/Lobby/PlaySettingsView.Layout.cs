@@ -4,6 +4,7 @@ using Game.Client.Settings;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Game.Client.Lobby
@@ -21,6 +22,9 @@ namespace Game.Client.Lobby
         private Button applyButton;
         private Button revertButton;
         private Text revertLabel;
+        private Image revertFill;
+        private Image revertStroke;
+        private bool resetHovered;
         private Image mapPreviewImage;
         private Image mapPreviewPhoto;
         private RectTransform settingsContent;
@@ -260,14 +264,13 @@ namespace Game.Client.Lobby
             header.offsetMin = new Vector2(0f, -PlaySettingsStyle.HeaderHeight);
             header.offsetMax = Vector2.zero;
             CreateModalTitle(header, "게임 설정");
-            revertButton = CreateRevertButton(header);
 
             var footer = CreateRect("Footer", root);
             Anchor(footer, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f));
             footer.offsetMin = Vector2.zero;
             footer.offsetMax = new Vector2(0f, PlaySettingsStyle.FooterHeight);
             applyWarning = CreateApplyWarning(footer);
-            applyButton = CreateApplyButton(footer);
+            CreateFooterActions(footer);
 
             var body = CreateRect("Body", root);
             Anchor(body, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
@@ -283,6 +286,35 @@ namespace Game.Client.Lobby
             stamp.gameObject.SetActive(false);
             stamp.gameObject.AddComponent<PlaySettingsLayoutVersion>().Version =
                 PlaySettingsStyle.LayoutVersion;
+
+            RefreshFooterSpace();
+        }
+
+        private void RefreshFooterSpace()
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            var footer = panel.transform.Find("Footer") as RectTransform;
+            var body = panel.transform.Find("Body") as RectTransform;
+            var bottom = editable ? PlaySettingsStyle.FooterHeight : 0f;
+            if (footer != null)
+            {
+                footer.gameObject.SetActive(editable);
+            }
+
+            if (body == null || Mathf.Approximately(body.offsetMin.y, bottom))
+            {
+                return;
+            }
+
+            body.offsetMin = new Vector2(0f, bottom);
+            if (panel.activeInHierarchy)
+            {
+                RebuildSettingsScrollLayout();
+            }
         }
 
         private void BuildBody(RectTransform body)
@@ -306,6 +338,8 @@ namespace Game.Client.Lobby
             viewportImage.color = Color.clear;
             viewport.gameObject.AddComponent<RectMask2D>();
             bodyScroll.viewport = viewport;
+            bodyScroll.verticalScrollbar = CreateBodyScrollbar(scrollArea);
+            bodyScroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
 
             settingsContent = CreateRect("Content", viewport);
             settingsContent.anchorMin = new Vector2(0f, 1f);
@@ -365,6 +399,47 @@ namespace Game.Client.Lobby
             BuildRuleRow(settingsContent, "기절 펀치 횟수", 3);
         }
 
+        /// <summary>
+        /// The handle down the body's right padding, so the wheel already
+        /// had somewhere to go and now the thumb does too.
+        /// </summary>
+        private Scrollbar CreateBodyScrollbar(RectTransform scrollArea)
+        {
+            var track = CreateRect("Scrollbar", scrollArea);
+            Anchor(track, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0.5f));
+            track.anchoredPosition = new Vector2(
+                -PlaySettingsStyle.Layout.ScrollbarRightInset, 0f);
+            track.sizeDelta = new Vector2(
+                PlaySettingsStyle.Layout.ScrollbarWidth,
+                -PlaySettingsStyle.Layout.ScrollbarVerticalInset * 2f);
+
+            var trackImage = track.gameObject.AddComponent<Image>();
+            trackImage.color = Color.clear;
+            trackImage.raycastTarget = true;
+
+            var area = CreateRect("SlidingArea", track);
+            Stretch(area);
+
+            var handle = CreateRect("Handle", area);
+            Stretch(handle);
+            handle.sizeDelta = Vector2.zero;
+
+            var handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.sprite = HomeUiFonts.Rounded(PlaySettingsStyle.Layout.ScrollbarRadius);
+            handleImage.type = Image.Type.Sliced;
+            handleImage.color = PlaySettingsStyle.Palette.ScrollbarHandle;
+            handleImage.raycastTarget = true;
+
+            var bar = track.gameObject.AddComponent<Scrollbar>();
+            bar.direction = Scrollbar.Direction.BottomToTop;
+            bar.handleRect = handle;
+            bar.targetGraphic = handleImage;
+            bar.transition = Selectable.Transition.None;
+            bar.navigation = new Navigation { mode = Navigation.Mode.None };
+            track.SetAsLastSibling();
+            return bar;
+        }
+
         private void AddLayoutDivider(RectTransform parent)
         {
             var divider = CreateLayoutRow(parent, 1f);
@@ -405,6 +480,7 @@ namespace Game.Client.Lobby
         private void BuildTitleRow(RectTransform parent)
         {
             var row = CreateLayoutRow(parent, PlaySettingsStyle.RowHeight);
+            row.name = "TitleRow";
             CreateBodyText(row, "방 제목", new Vector2(0f, 0f),
                 new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 1f), Vector2.zero, Vector2.zero);
 
@@ -415,20 +491,16 @@ namespace Game.Client.Lobby
             field.offsetMax = Vector2.zero;
 
             var underline = CreateRect("Underline", field);
-            Anchor(underline, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f));
-            underline.sizeDelta = new Vector2(0f, 1f);
+            Anchor(underline, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 0f));
+            underline.sizeDelta = new Vector2(-PlaySettingsStyle.Layout.TitleInputRightPadding, 1f);
             underline.anchoredPosition = new Vector2(0f, 6f);
             underline.gameObject.AddComponent<Image>().color = PlaySettingsStyle.Palette.Underline;
-
-            titleCounterText = CreateBodyText(field, "0/20", new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
-                new Vector2(-4f, -14f), new Vector2(80f, 28f));
-            titleCounterText.alignment = TextAnchor.MiddleRight;
-            titleCounterText.fontSize = PlaySettingsStyle.FontSize.Counter;
 
             var inputRect = CreateRect("TitleInput", field);
             Anchor(inputRect, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0.5f, 0.5f));
             inputRect.offsetMin = new Vector2(0f, 12f);
-            inputRect.offsetMax = Vector2.zero;
+            inputRect.offsetMax = new Vector2(-PlaySettingsStyle.Layout.TitleInputRightPadding, 0f);
+            inputRect.gameObject.AddComponent<RectMask2D>();
             var inputBg = inputRect.gameObject.AddComponent<Image>();
             inputBg.color = Color.clear;
             titleText = CreateBodyText(inputRect, string.Empty, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -437,6 +509,15 @@ namespace Game.Client.Lobby
             titleInput.textComponent = titleText;
             titleInput.targetGraphic = inputBg;
             titleInput.characterLimit = RoomSettings.MaxTitleLength;
+
+            titleCounterText = CreateBodyText(field, "0/20", new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                new Vector2(-PlaySettingsStyle.Layout.TitleCounterRightInset, -14f),
+                new Vector2(
+                    PlaySettingsStyle.Layout.TitleCounterWidth,
+                    PlaySettingsStyle.Layout.TitleCounterHeight));
+            titleCounterText.gameObject.name = "TitleCounter";
+            titleCounterText.alignment = TextAnchor.MiddleRight;
+            titleCounterText.fontSize = PlaySettingsStyle.FontSize.Counter;
         }
 
         private void BuildRoomCodeRow(RectTransform parent)
@@ -1002,7 +1083,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            var buttonTransform = footer.Find("ApplyButton");
+            var buttonTransform = footer.Find("ActionRow/ApplyButton") ?? footer.Find("ApplyButton");
             if (buttonTransform != null)
             {
                 applyButton = buttonTransform.GetComponent<Button>();
@@ -1013,7 +1094,9 @@ namespace Game.Client.Lobby
                     applyLabel = labelTransform.GetComponent<Text>();
                     if (applyLabel != null)
                     {
-                        applyLabel.font = MediumFont();
+                        applyLabel.font = ActionFont();
+                        applyLabel.fontSize = PlaySettingsStyle.FontSize.Apply;
+                        applyLabel.fontStyle = FontStyle.Normal;
                     }
                 }
             }
@@ -1034,67 +1117,118 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            var header = panel.transform.Find("Header");
-            if (header == null)
+            var footer = panel.transform.Find("Footer");
+            if (footer == null)
             {
                 return;
             }
 
-            var buttonTransform = header.Find("RevertButton");
+            var buttonTransform = footer.Find("ActionRow/ResetButton") ?? footer.Find("ResetButton");
             if (buttonTransform == null)
             {
                 return;
             }
 
             revertButton = buttonTransform.GetComponent<Button>();
+            revertFill = buttonTransform.GetComponent<Image>();
+            var strokeTransform = buttonTransform.Find("Stroke");
+            if (strokeTransform != null)
+            {
+                revertStroke = strokeTransform.GetComponent<Image>();
+            }
+
             var labelTransform = buttonTransform.Find("Text");
             if (labelTransform != null)
             {
                 revertLabel = labelTransform.GetComponent<Text>();
+                if (revertLabel != null)
+                {
+                    revertLabel.font = ActionFont();
+                    revertLabel.fontSize = PlaySettingsStyle.FontSize.Apply;
+                    revertLabel.fontStyle = FontStyle.Normal;
+                }
             }
 
             RefreshRevertChrome();
         }
 
-        private Button CreateRevertButton(RectTransform header)
+        private void CreateFooterActions(RectTransform footer)
         {
-            var rect = CreateRect("RevertButton", header);
-            rect.anchorMin = rect.anchorMax = new Vector2(1f, 0.5f);
-            rect.pivot = new Vector2(1f, 0.5f);
-            rect.anchoredPosition = new Vector2(-PlaySettingsStyle.Layout.RevertRightMargin, 0f);
-            rect.sizeDelta = new Vector2(0f, PlaySettingsStyle.Layout.RevertHeight);
+            var row = CreateRect("ActionRow", footer);
+            row.anchorMin = row.anchorMax = new Vector2(0.5f, 0.5f);
+            row.pivot = new Vector2(0.5f, 0.5f);
+            row.anchoredPosition = Vector2.zero;
 
-            var hit = rect.gameObject.AddComponent<Image>();
-            hit.color = Color.clear;
-            hit.raycastTarget = true;
+            var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+            layout.spacing = PlaySettingsStyle.Layout.ActionSpacing;
+
+            var fitter = row.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            revertButton = CreateResetButton(row);
+            applyButton = CreateApplyButton(row);
+        }
+
+        private Button CreateResetButton(RectTransform parent)
+        {
+            var paddingX = PlaySettingsStyle.ApplyPaddingHorizontal;
+            var paddingY = PlaySettingsStyle.ApplyPaddingVertical;
+            var fontSize = PlaySettingsStyle.FontSize.Apply;
+
+            var rect = CreateRect("ResetButton", parent);
+            revertFill = rect.gameObject.AddComponent<Image>();
+            revertFill.type = Image.Type.Sliced;
+            revertFill.color = PlaySettingsStyle.Palette.ResetFill;
+
+            var stroke = CreateRect("Stroke", rect);
+            Stretch(stroke);
+            var strokeImage = stroke.gameObject.AddComponent<Image>();
+            strokeImage.type = Image.Type.Sliced;
+            strokeImage.color = PlaySettingsStyle.Palette.ResetOffStroke;
+            strokeImage.raycastTarget = false;
+            revertStroke = strokeImage;
 
             var labelRect = CreateRect("Text", rect);
             Stretch(labelRect);
-
             revertLabel = labelRect.gameObject.AddComponent<Text>();
-            revertLabel.text = PlaySettingsStyle.Layout.RevertLabel;
-            revertLabel.font = BodyFont();
-            revertLabel.fontSize = PlaySettingsStyle.FontSize.Revert;
-            revertLabel.color = Color.white;
-            revertLabel.alignment = TextAnchor.MiddleRight;
+            revertLabel.text = PlaySettingsStyle.Layout.ResetLabel;
+            revertLabel.font = ActionFont();
+            revertLabel.fontSize = fontSize;
+            revertLabel.fontStyle = FontStyle.Normal;
+            revertLabel.color = PlaySettingsStyle.Palette.ResetOffLabel;
+            revertLabel.alignment = TextAnchor.MiddleCenter;
             revertLabel.raycastTarget = false;
             revertLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
             revertLabel.verticalOverflow = VerticalWrapMode.Overflow;
 
-            var textWidth = Mathf.Max(revertLabel.preferredWidth, 64f);
-            rect.sizeDelta = new Vector2(textWidth, PlaySettingsStyle.Layout.RevertHeight);
+            var textWidth = Mathf.Max(revertLabel.preferredWidth, 128f);
+            var textHeight = Mathf.Max(revertLabel.preferredHeight, fontSize);
+            var height = textHeight + (paddingY * 2f);
+            rect.sizeDelta = new Vector2(textWidth + (paddingX * 2f), height);
+
+            var radius = Mathf.Min(
+                PlaySettingsStyle.ApplyButtonRadius,
+                Mathf.Max(8, Mathf.FloorToInt((height * 0.5f) - 1f)));
+            revertFill.sprite = HomeUiFonts.Rounded(radius);
+            strokeImage.sprite = HomeUiFonts.Outline(radius, PlaySettingsStyle.BorderWidth);
+
+            var slot = rect.gameObject.AddComponent<LayoutElement>();
+            slot.preferredWidth = rect.sizeDelta.x;
+            slot.preferredHeight = rect.sizeDelta.y;
+            slot.minWidth = rect.sizeDelta.x;
+            slot.minHeight = rect.sizeDelta.y;
 
             var button = rect.gameObject.AddComponent<Button>();
-            button.targetGraphic = revertLabel;
-            button.transition = Selectable.Transition.ColorTint;
-            var colors = button.colors;
-            colors.normalColor = PlaySettingsStyle.Palette.RevertLabel;
-            colors.highlightedColor = PlaySettingsStyle.Palette.TextHover;
-            colors.pressedColor = PlaySettingsStyle.Palette.TextHover;
-            colors.selectedColor = PlaySettingsStyle.Palette.RevertLabel;
-            colors.disabledColor = PlaySettingsStyle.Palette.ApplyOffLabel;
-            colors.fadeDuration = 0.08f;
-            button.colors = colors;
+            button.targetGraphic = revertFill;
+            button.transition = Selectable.Transition.None;
+            button.interactable = false;
+            BindResetHover(button);
             return button;
         }
 
@@ -1143,8 +1277,9 @@ namespace Game.Client.Lobby
 
             applyLabel = labelRect.gameObject.AddComponent<Text>();
             applyLabel.text = "적용하기";
-            applyLabel.font = MediumFont();
+            applyLabel.font = ActionFont();
             applyLabel.fontSize = fontSize;
+            applyLabel.fontStyle = FontStyle.Normal;
             applyLabel.color = PlaySettingsStyle.Palette.ApplyOffLabel;
             applyLabel.alignment = TextAnchor.MiddleCenter;
             applyLabel.raycastTarget = false;
@@ -1161,6 +1296,12 @@ namespace Game.Client.Lobby
                 PlaySettingsStyle.ApplyButtonRadius,
                 Mathf.Max(8, Mathf.FloorToInt((height * 0.5f) - 1f)));
             applyFill.sprite = HomeUiFonts.Rounded(radius);
+
+            var slot = rect.gameObject.AddComponent<LayoutElement>();
+            slot.preferredWidth = rect.sizeDelta.x;
+            slot.preferredHeight = rect.sizeDelta.y;
+            slot.minWidth = rect.sizeDelta.x;
+            slot.minHeight = rect.sizeDelta.y;
             return button;
         }
 
@@ -1231,7 +1372,6 @@ namespace Game.Client.Lobby
         private static Font bodyFont;
         private static Font headerFont;
         private static Font extraBoldFont;
-        private static Font mediumFont;
         private static Sprite copyIcon;
         private static Sprite copyCheckIcon;
         private static Sprite arrowLeftIcon;
@@ -1248,23 +1388,7 @@ namespace Game.Client.Lobby
             extraBoldFont ??= Resources.Load<Font>(PlaySettingsStyle.GameStartFontResource)
             ?? HeaderFont();
 
-        private static Font MediumFont()
-        {
-            if (mediumFont != null)
-            {
-                return mediumFont;
-            }
-
-            mediumFont = Resources.Load<Font>(PlaySettingsStyle.MediumFontResource);
-#if UNITY_EDITOR
-            if (mediumFont == null)
-            {
-                mediumFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
-                    "Assets/_Game/Content/Fonts/Paperlogy-5Medium.ttf");
-            }
-#endif
-            return mediumFont ?? BodyFont();
-        }
+        private static Font ActionFont() => BodyFont();
 
         private static Sprite LoadCopyIcon()
         {
@@ -1348,6 +1472,57 @@ namespace Game.Client.Lobby
             rect.anchorMin = anchorMin;
             rect.anchorMax = anchorMax;
             rect.pivot = pivot;
+        }
+
+        private void BindResetHover(Button button)
+        {
+            var trigger = button.gameObject.GetComponent<EventTrigger>()
+                ?? button.gameObject.AddComponent<EventTrigger>();
+            trigger.triggers.Clear();
+            AddResetHoverTrigger(trigger, EventTriggerType.PointerEnter, true);
+            AddResetHoverTrigger(trigger, EventTriggerType.PointerExit, false);
+            PaintResetHover();
+        }
+
+        private void AddResetHoverTrigger(EventTrigger trigger, EventTriggerType type, bool hovered)
+        {
+            var entry = new EventTrigger.Entry { eventID = type };
+            entry.callback.AddListener(_ =>
+            {
+                resetHovered = hovered;
+                PaintResetHover();
+            });
+            trigger.triggers.Add(entry);
+        }
+
+        private void PaintResetHover()
+        {
+            var enabled = revertButton != null && revertButton.interactable;
+            var lit = enabled && resetHovered;
+            if (revertFill != null)
+            {
+                revertFill.color = lit
+                    ? PlaySettingsStyle.Palette.ResetHoverFill
+                    : PlaySettingsStyle.Palette.ResetFill;
+            }
+
+            if (revertLabel != null)
+            {
+                revertLabel.color = !enabled
+                    ? PlaySettingsStyle.Palette.ResetOffLabel
+                    : lit
+                        ? PlaySettingsStyle.Palette.ResetHoverLabel
+                        : PlaySettingsStyle.Palette.ResetLabel;
+            }
+
+            if (revertStroke != null)
+            {
+                revertStroke.color = !enabled
+                    ? PlaySettingsStyle.Palette.ResetOffStroke
+                    : lit
+                        ? PlaySettingsStyle.Palette.ResetHoverStroke
+                        : PlaySettingsStyle.Palette.ResetStroke;
+            }
         }
     }
 }

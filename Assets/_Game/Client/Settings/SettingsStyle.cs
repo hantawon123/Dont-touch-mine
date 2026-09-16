@@ -215,6 +215,38 @@ namespace Game.Client.Settings
             public const int GlowSpread = 1;
 
             public const int GlowBlur = 22;
+
+            /// <summary>
+            /// Lobby overlays keep the 1600×876 layout and shrink the drawn
+            /// frame so type, icons and gaps stay in proportion.
+            /// </summary>
+            public const float LobbyScale = 0.8f;
+
+            /// <summary>
+            /// Shrinks <paramref name="rect"/> about its centre. Pivot and
+            /// anchored position move so the frame stays where it was; children
+            /// keep their pixel layout.
+            /// </summary>
+            public static void ApplyLobbyScale(RectTransform rect)
+            {
+                if (rect == null)
+                {
+                    return;
+                }
+
+                var size = rect.rect.size;
+                if (size.x <= 0f || size.y <= 0f)
+                {
+                    size = rect.sizeDelta;
+                }
+
+                var toCenter = new Vector2(
+                    (0.5f - rect.pivot.x) * size.x,
+                    (0.5f - rect.pivot.y) * size.y);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition += toCenter;
+                rect.localScale = Vector3.one * LobbyScale;
+            }
         }
 
         /// <summary>The same arrow the room browser draws, in the same place.</summary>
@@ -391,6 +423,8 @@ namespace Game.Client.Settings
         {
             public const string IdleLabel = "테스트 해보기";
             public const string RunningLabel = "테스트 중...";
+            public const string UnavailableTitle = "마이크 테스트";
+            public const string UnavailableMessage = "이 컴퓨터에서 마이크를 열 수 없습니다.";
         }
 
         /// <summary>
@@ -462,6 +496,8 @@ namespace Game.Client.Settings
                         return "마이크 송출";
                     case Core.Settings.ControlAction.VoiceToggle:
                         return "마이크 고정";
+                    case Core.Settings.ControlAction.ToggleSpeaker:
+                        return "음성 듣기";
                     case Core.Settings.ControlAction.MoveForward:
                         return "앞으로 이동";
                     case Core.Settings.ControlAction.MoveLeft:

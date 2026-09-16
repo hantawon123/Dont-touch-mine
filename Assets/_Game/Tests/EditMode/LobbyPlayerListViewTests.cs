@@ -236,9 +236,13 @@ namespace Game.Architecture.Tests
 
                 var leader = hostRow.Find("Leader") as RectTransform;
                 var hostName = hostRow.Find("Name") as RectTransform;
+                Assert.That(hostRow.Find(LobbyPlayerListView.VoiceIconName), Is.Null);
                 Assert.That(
                     leader.anchoredPosition.x,
-                    Is.EqualTo(hostName.anchoredPosition.x + hostName.sizeDelta.x + LobbyPlayerListView.LeaderIconGap)
+                    Is.EqualTo(
+                            hostName.anchoredPosition.x
+                            + hostName.sizeDelta.x
+                            + LobbyPlayerListView.LeaderIconGap)
                         .Within(0.5f));
             }
             finally
@@ -385,6 +389,85 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void SetParticipants_AvatarBadgeIsPerPlayer()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true),
+                        new LobbyParticipant(
+                            "player-2",
+                            "게스트닉",
+                            false,
+                            isMuted: true,
+                            isListening: false),
+                        new LobbyParticipant("player-3", "대기닉", false, isMuted: true),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1");
+
+                Assert.That(
+                    canvas.transform.Find(
+                        "Columns/Participants/Scroll/RowRoot/Row_host-1/Avatar/"
+                        + LobbyPlayerListView.MuteIconName),
+                    Is.Null);
+                Assert.That(
+                    canvas.transform.Find(
+                        "Columns/Participants/Scroll/RowRoot/Row_player-2/Avatar/"
+                        + LobbyPlayerListView.MuteIconName)
+                        .GetComponent<Image>().sprite,
+                    Is.EqualTo(LobbyPlayerListSprites.SoundMute));
+                Assert.That(
+                    canvas.transform.Find(
+                        "Columns/Participants/Scroll/RowRoot/Row_player-3/Avatar/"
+                        + LobbyPlayerListView.MuteIconName)
+                        .GetComponent<Image>().sprite,
+                    Is.EqualTo(LobbyPlayerListSprites.MicOffGray));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetParticipants_SpeakerOffOnAvatarBeatsMicOff()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant(
+                            "host-1",
+                            "방장닉",
+                            true,
+                            isMuted: true,
+                            isListening: false),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1");
+
+                var mute = canvas.transform.Find(
+                    "Columns/Participants/Scroll/RowRoot/Row_host-1/Avatar/"
+                    + LobbyPlayerListView.MuteIconName);
+                Assert.That(
+                    mute.GetComponent<Image>().sprite,
+                    Is.EqualTo(LobbyPlayerListSprites.SoundMute));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void SetParticipants_MutedPlayerDimsAvatarAndShowsMuteIcon()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
@@ -417,7 +500,40 @@ namespace Game.Architecture.Tests
                     LobbyPlayerListView.MuteIconSize)));
                 Assert.That(
                     mute.GetComponent<Image>().sprite,
-                    Is.EqualTo(LobbyPlayerListSprites.MicOffWhite));
+                    Is.EqualTo(LobbyPlayerListSprites.MicOffGray));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetParticipants_OmitsNicknameVoiceIcon()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true, isTalking: true),
+                        new LobbyParticipant("player-2", "게스트닉", false, isMuted: true),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1");
+
+                Assert.That(
+                    canvas.transform.Find(
+                        "Columns/Participants/Scroll/RowRoot/Row_host-1/"
+                        + LobbyPlayerListView.VoiceIconName),
+                    Is.Null);
+                Assert.That(
+                    canvas.transform.Find(
+                        "Columns/Participants/Scroll/RowRoot/Row_player-2/"
+                        + LobbyPlayerListView.VoiceIconName),
+                    Is.Null);
             }
             finally
             {
@@ -567,6 +683,8 @@ namespace Game.Architecture.Tests
                 Assert.That(add.anchorMin.x, Is.EqualTo(1f));
                 Assert.That(add.anchoredPosition.x, Is.EqualTo(-LobbyPlayerListView.ActionRight));
                 Assert.That(add.GetComponent<Button>().interactable, Is.True);
+                Assert.That(online.Find($"Friend_f-1/{LobbyPlayerListView.VoiceIconName}"), Is.Null);
+                Assert.That(online.Find($"Friend_f-1/Avatar/{LobbyPlayerListView.MuteIconName}"), Is.Null);
 
                 var invited = new List<(string Id, string Name)>();
                 view.InviteClicked += (id, name) => invited.Add((id, name));

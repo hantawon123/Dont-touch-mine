@@ -32,6 +32,7 @@ namespace Game.Network.Voice
         private readonly ReactiveProperty<bool> available = new(false);
         private readonly ReactiveProperty<bool> muted = new(false);
         private readonly ReactiveProperty<bool> transmitting = new(false);
+        private readonly ReactiveProperty<bool> listening = new(true);
 
         private FusionVoiceClient client;
 
@@ -48,6 +49,7 @@ namespace Game.Network.Voice
         public ReadOnlyReactiveProperty<bool> IsAvailable => available;
         public ReadOnlyReactiveProperty<bool> IsMuted => muted;
         public ReadOnlyReactiveProperty<bool> IsTransmitting => transmitting;
+        public ReadOnlyReactiveProperty<bool> IsListening => listening;
 
         internal static void AttachServer(NetworkRunner runner)
         {
@@ -146,6 +148,18 @@ namespace Game.Network.Voice
             ApplyTransmitState();
         }
 
+        public void SetListening(bool listening)
+        {
+            if (this.listening.Value == listening)
+            {
+                return;
+            }
+
+            this.listening.Value = listening;
+            ApplyListenState();
+            ApplyTransmitState();
+        }
+
         /// <remarks>
         /// Polled rather than subscribed: the SDK reports the room it is in
         /// through a state enum and whether audio is leaving through a flag on
@@ -169,6 +183,7 @@ namespace Game.Network.Voice
 
             available.Value = client.ClientState == ClientState.Joined;
             transmitting.Value = recorder != null && recorder.IsCurrentlyTransmitting;
+            ApplyListenState();
 
             PumpTransport();
         }
@@ -236,8 +251,29 @@ namespace Game.Network.Voice
             }
 
             // Mute wins. The talk key is a request to be heard, and a muted
-            // player has already answered that.
-            boundRecorder.TransmitEnabled = talking && !muted.Value;
+            // player has already answered that. Voice detection keeps silence
+            // from looking like a live send: the HUD turns green only while
+            // audio is actually leaving.
+            boundRecorder.VoiceDetection = true;
+            boundRecorder.TransmitEnabled =
+                talking && !muted.Value && listening.Value;
+        }
+
+        /// <summary>
+        /// The voice room stays joined. This only mutes playback on this
+        /// machine, so leaving the speaker off does not drop the session.
+        /// </summary>
+        private void ApplyListenState()
+        {
+            var hear = listening.Value;
+            foreach (var speaker in FindObjectsByType<Speaker>(FindObjectsSortMode.None))
+            {
+                var source = speaker.GetComponent<AudioSource>();
+                if (source != null)
+                {
+                    source.mute = !hear;
+                }
+            }
         }
 
         private void OnDestroy()
@@ -245,6 +281,7 @@ namespace Game.Network.Voice
             available.Dispose();
             muted.Dispose();
             transmitting.Dispose();
+            listening.Dispose();
         }
     }
 }

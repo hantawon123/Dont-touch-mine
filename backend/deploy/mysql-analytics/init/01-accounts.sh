@@ -1,12 +1,14 @@
 #!/bin/bash
 # 분석 DB 컨테이너(mysql-analytics)의 첫 기동에서 한 번 도는 초기화 (S15P21D205-980).
 #
-# 이 컨테이너에는 스키마가 둘입니다. MYSQL_DATABASE 로 만들어지는 d205_analytics(플레이 로그) 와
-# Metabase 가 자기 설정을 저장하는 metabase. 여기서는 그 둘에 붙는 계정을 만듭니다.
+# 스키마는 MYSQL_DATABASE 로 만들어지는 d205_analytics(플레이 로그) 하나입니다. 여기서는 거기에 붙는
+# 읽기 계정을 만듭니다.
 #
-#   d205_reader  d205_analytics 를 읽기만 하는 계정. Metabase 가 데이터를 볼 때 이 계정으로 붙습니다.
-#                쓰기 권한이 없어 대시보드 SQL 을 잘못 써도 로그가 지워지지 않습니다.
-#   metabase     Metabase 자신의 저장소. 자기 스키마만 갖고 플레이 로그는 못 봅니다.
+#   d205_reader  d205_analytics 를 읽기만 하는 계정. 사람이 mysql 클라이언트로 즉석 SQL 을 볼 때 이 계정으로
+#                붙습니다. 쓰기 권한이 없어 SQL 을 잘못 써도 로그가 지워지지 않습니다.
+#
+# 2026-09-16 까지는 Metabase 의 설정 저장용 metabase 스키마·계정도 여기서 만들었습니다. Metabase 를 내리면서
+# 뺐고, 운영에 남은 것은 deploy/README.md 의 "Metabase 내리기" 절차로 지웁니다.
 #
 # 앱 계정(MYSQL_USER)은 MySQL 이미지가 MYSQL_DATABASE 에 대한 전체 권한을 알아서 줍니다.
 #
@@ -35,18 +37,5 @@ EOSQL
         echo "[analytics-init] d205_reader 에게 ${MYSQL_DATABASE} 의 SELECT 권한을 주었습니다."
     else
         echo "[analytics-init] ANALYTICS_READER_PASSWORD 가 없어 d205_reader 를 만들지 않습니다." >&2
-    fi
-
-    if [ -n "${METABASE_DB_PASSWORD:-}" ]; then
-        sql <<EOSQL
-    CREATE DATABASE IF NOT EXISTS \`metabase\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-    CREATE USER IF NOT EXISTS 'metabase'@'%' IDENTIFIED BY '${METABASE_DB_PASSWORD}';
-    ALTER USER 'metabase'@'%' IDENTIFIED BY '${METABASE_DB_PASSWORD}';
-    GRANT ALL PRIVILEGES ON \`metabase\`.* TO 'metabase'@'%';
-    FLUSH PRIVILEGES;
-EOSQL
-        echo "[analytics-init] metabase 스키마와 계정을 준비했습니다."
-    else
-        echo "[analytics-init] METABASE_DB_PASSWORD 가 없어 metabase 계정을 만들지 않습니다." >&2
     fi
 )

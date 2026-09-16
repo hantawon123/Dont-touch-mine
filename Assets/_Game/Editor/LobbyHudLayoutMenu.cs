@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using Game.Bootstrap;
 using Game.Client;
 using Game.Client.Lobby;
-using Game.Client.Rooms;
 using Game.Client.Match;
 using Game.Client.Voice;
 using UnityEditor;
@@ -114,6 +113,10 @@ namespace Game.Editor
             var playSettingsView = EnsurePlaySettingsView(root, pausePlaySettings);
             var kickConfirm = EnsureKickConfirmView(root);
             DestroyIfExists(root, "HostTransferConfirmPanel");
+
+            var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
+            KeySettingGuideView.Ensure(root);
+            var shortcutGuide = LobbyShortcutGuideView.Ensure(root);
             var voiceView = hud.GetComponent<VoiceView>();
             if (voiceView == null)
             {
@@ -121,14 +124,21 @@ namespace Game.Editor
             }
 
             var voiceSo = new SerializedObject(voiceView);
-            voiceSo.FindProperty("muteButton").objectReferenceValue = null;
-            voiceSo.FindProperty("background").objectReferenceValue = null;
+            voiceSo.FindProperty("muteButton").objectReferenceValue =
+                shortcutGuide != null ? shortcutGuide.VoiceMuteButton : null;
+            voiceSo.FindProperty("background").objectReferenceValue =
+                shortcutGuide != null ? shortcutGuide.VoiceBackground : null;
+            voiceSo.FindProperty("icon").objectReferenceValue =
+                shortcutGuide != null ? shortcutGuide.VoiceIcon : null;
+            voiceSo.FindProperty("speakerButton").objectReferenceValue =
+                shortcutGuide != null ? shortcutGuide.VoiceSpeakerButton : null;
+            voiceSo.FindProperty("speakerBackground").objectReferenceValue =
+                shortcutGuide != null ? shortcutGuide.VoiceSpeakerBackground : null;
+            voiceSo.FindProperty("speakerIcon").objectReferenceValue =
+                shortcutGuide != null ? shortcutGuide.VoiceSpeakerIcon : null;
             voiceSo.FindProperty("label").objectReferenceValue = null;
+            voiceSo.FindProperty("tmpLabel").objectReferenceValue = null;
             voiceSo.ApplyModifiedPropertiesWithoutUndo();
-
-            var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
-            KeySettingGuideView.Ensure(root);
-            LobbyShortcutGuideView.Ensure(root);
             var shortcutOverlay = LobbyShortcutOverlayView.Ensure(root);
             shortcutOverlay?.BindPlayerList(playerListView);
             shortcutOverlay?.Hide();
@@ -190,13 +200,12 @@ namespace Game.Editor
             }
 
             EnsurePlaySettingsChildren(panel);
-            var back = EnsureBackButton(root);
-            Place(back, Anchor.TopLeft, RoomBrowserStyle.Layout.BackButtonPosition, RoomBrowserStyle.Layout.BackButtonSize);
+            DisableIfExists(root, "BackButton");
 
             var so = new SerializedObject(view);
             so.FindProperty("openButton").objectReferenceValue =
                 openButtonSlot.GetComponent<Button>();
-            so.FindProperty("closeButton").objectReferenceValue = back.GetComponent<Button>();
+            so.FindProperty("closeButton").objectReferenceValue = null;
             so.FindProperty("panel").objectReferenceValue = panel.gameObject;
 
             so.ApplyModifiedPropertiesWithoutUndo();
@@ -210,28 +219,6 @@ namespace Game.Editor
             {
                 DisableIfExists(panel, panel.GetChild(i).name);
             }
-        }
-
-        private static RectTransform EnsureBackButton(RectTransform parent)
-        {
-            DisableIfExists(parent, "CloseButton");
-
-            var slot = parent.Find("BackButton") as RectTransform;
-            if (slot == null)
-            {
-                slot = GetOrCreateSlot(parent, "BackButton", Color.clear);
-            }
-
-            EnsureButton(slot.gameObject);
-            EnsureLabel(slot.gameObject);
-            SetLabel(slot, "← 이전", Mathf.RoundToInt(RoomBrowserStyle.FontSize.Back));
-            var label = slot.Find("Label")?.GetComponent<Text>();
-            if (label != null)
-            {
-                label.alignment = TextAnchor.MiddleLeft;
-            }
-
-            return slot;
         }
 
         private static void EnsureMapScroll(RectTransform panel, float left, float width)
