@@ -14,7 +14,7 @@ namespace Game.Bootstrap
     /// <summary>Only the host samples the confirmed match. Independent of highlight recording.</summary>
     public sealed class MatchAnalyticsRecorder : IStartable, ITickable, IDisposable
     {
-        private readonly IMatchAnalyticsSource network;
+        private readonly NetworkRunnerService network;
         private readonly RoomBrowserSystem room;
         private readonly MatchAnalyticsUpload upload;
         private readonly Dictionary<string, MatchObjectStateSnapshot> objects = new();
@@ -26,7 +26,7 @@ namespace Game.Bootstrap
         private string roomCode, mapId;
         private double lastTime;
 
-        public MatchAnalyticsRecorder(IMatchAnalyticsSource network, RoomBrowserSystem room, MatchAnalyticsUpload upload)
+        public MatchAnalyticsRecorder(NetworkRunnerService network, RoomBrowserSystem room, MatchAnalyticsUpload upload)
         {
             this.network = network;
             this.room = room;
@@ -43,9 +43,7 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
-            // A dedicated server opens the session itself and never enters through the
-            // room browser, so its IsInRoom stays false for the whole match.
-            if (!network.IsRuntimeReady || (!network.IsDedicatedServer && !room.IsInRoom.CurrentValue))
+            if (!network.IsRuntimeReady || !room.IsInRoom.CurrentValue)
             {
                 if (buffer != null) Finish("Interrupted", true);
                 phase = MatchPhase.Waiting;
@@ -67,7 +65,7 @@ namespace Game.Bootstrap
                 if (lineUp.Count == 0) return;
                 players = new MatchParticipant[lineUp.Count];
                 for (var i = 0; i < players.Length; i++) players[i] = lineUp[i];
-                roomCode = network.RoomCode;
+                roomCode = room.RoomCode.CurrentValue;
                 mapId = network.AnalyticsMapId;
                 partial = phase != MatchPhase.Hiding || network.MatchMigration != null;
                 buffer = new MatchAnalyticsBuffer(lastTime);

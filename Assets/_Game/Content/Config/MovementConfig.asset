@@ -21,9 +21,3 @@ MonoBehaviour:
   jumpHeight: 0.85
   gravityMultiplier: 2
   crouchSpeed: 1.5
-  standHeight: 1.3
-  crouchHeight: 0.86
-  proneHeight: 0.44
-  standEyeHeight: 1.04
-  crouchEyeHeight: 0.65
-  proneEyeHeight: 0.35

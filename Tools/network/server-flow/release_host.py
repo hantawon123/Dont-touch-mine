@@ -1,4 +1,4 @@
-"""Bounded, single-machine room pool with ready-gated release switching."""
+"""Small test release host: one room per version, at most two game processes."""
 import argparse
 import json
 import os
@@ -19,12 +19,6 @@ READY = '[Server] Ready; waiting for first room owner.'
 class Pool:
     def __init__(self, config):
         self.config = config
-        self.rooms_per_release = config.get('rooms_per_release', 1)
-        self.max_processes = config.get('max_processes', self.rooms_per_release * 2)
-        if (type(self.rooms_per_release) is not int or not 1 <= self.rooms_per_release <= 64 or
-                type(self.max_processes) is not int or
-                not self.rooms_per_release < self.max_processes <= 128):
-            raise ValueError('Use 1..64 rooms_per_release and rooms_per_release < max_processes <= 128')
         self.root = Path(config['root']).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / 'logs').mkdir(exist_ok=True)
@@ -43,24 +37,20 @@ class Pool:
             self.checked[name] = validate(self.root, name)
         return self.checked[name]
 
-    @staticmethod
-    def key(name, room_index):
-        # Preserve the first-room identifier used by existing status consumers.
-        return name if room_index == 0 else f'{name}#{room_index}'
-
-    def start(self, name, room_index=0):
-        key = self.key(name, room_index)
-        if key in self.processes or time.monotonic() < self.retry_at.get(key, 0):
+    def start(self, name):
+        if name in self.processes or time.monotonic() < self.retry_at.get(name, 0):
             return
-        if len(self.processes) >= self.max_processes:
+        # ponytail: one current room plus one draining/candidate room;
+        # use a measured fleet allocator when more concurrent rooms are needed.
+        if len(self.processes) >= 2:
             return
         manifest = self.manifest(name)
         room = ''.join(secrets.choice('0123456789ABCDEFGHJKMNPQRSTVWXYZ') for _ in range(6))
         path = release_path(self.root, name) / 'server'
         log = self.root / 'logs' / f'{name}-{time.time_ns()}.log'
-        # Stable physical slots, never shared by concurrent processes. Restarts do
+        # Two stable identities, never shared by concurrent processes. Restarts do
         # not create another backend account for every room.
-        slot = next(i for i in range(self.max_processes) if i not in {p['slot'] for p in self.processes.values()})
+        slot = next(i for i in range(2) if i not in {p['slot'] for p in self.processes.values()})
         home = self.root / 'state' / f'slot-{slot}'
         home.mkdir(parents=True, exist_ok=True)
         env = dict(os.environ, HOME=str(home), USERPROFILE=str(home))
@@ -70,20 +60,7 @@ class Pool:
                    '-job-worker-count', '1', '-logFile', str(log)]
         process = subprocess.Popen(command, cwd=path, env=env, stdin=subprocess.DEVNULL,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        self.processes[key] = dict(process=process, log=log, ready=False, started=time.monotonic(),
-                                   room=room, slot=slot, release=name, room_index=room_index)
-
-    def replenish(self):
-        if not self.active:
-            return
-        # Start one room at a time; don't import multiple Unity scenes at once.
-        if any(p['release'] == self.active and not p['ready'] for p in self.processes.values()):
-            return
-        for room_index in range(self.rooms_per_release):
-            key = self.key(self.active, room_index)
-            if key not in self.processes and time.monotonic() >= self.retry_at.get(key, 0):
-                self.start(self.active, room_index)
-                break
+        self.processes[name] = dict(process=process, log=log, ready=False, started=time.monotonic(), room=room, slot=slot)
 
     def step(self):
         for name, item in list(self.processes.items()):
@@ -95,13 +72,6 @@ class Pool:
                 # Never print account or authentication log content into host status.
                 with item['log'].open(encoding='utf-8', errors='replace') as stream:
                     item['ready'] = any(line.rstrip() == READY for line in stream)
-            if not item['ready'] and time.monotonic() - item['started'] > self.config.get('startup_timeout', 90):
-                # A hung warm-up must not permanently consume all free slots.
-                if 'stop_at' not in item:
-                    item['process'].terminate()
-                    item['stop_at'] = time.monotonic()
-                elif time.monotonic() - item['stop_at'] > 10:
-                    item['process'].kill()
 
         incoming = read_json(self.root / 'request.json')
         if incoming and incoming.get('nonce') != (self.request or {}).get('nonce'):
@@ -111,39 +81,32 @@ class Pool:
             else:
                 self.request, self.request_at = incoming, time.monotonic()
                 self.outcome, self.reason = 'pending', None
+        if self.active:
+            self.start(self.active)
         if self.request and self.outcome == 'pending':
             name = self.request['release']
             try:
                 manifest = self.manifest(name)
                 # Photon uses Application.version in AppVersion. Concurrent incompatible
                 # releases must not share a matchmaking partition.
-                for running in {p['release'] for p in self.processes.values()} | ({self.active} if self.active else set()):
+                for running in set(self.processes) | ({self.active} if self.active else set()):
                     if running != name and self.manifest(running)['version'] == manifest['version']:
                         raise ValueError('Use a distinct build version for each concurrent release')
-                # Reuse any living room on rollback, even if room zero ended.
-                item = next((p for p in self.processes.values()
-                             if p['release'] == name and p['ready'] and p['process'].poll() is None), None)
-                if item is None:
-                    self.start(name)
-                    item = self.processes.get(name)
+                self.start(name)
+                item = self.processes.get(name)
                 if item and item['ready'] and item['process'].poll() is None:
                     atomic_json(self.root / 'active.json', {'release': name})
                     self.active, self.outcome = name, 'activated'
                 elif time.monotonic() - self.request_at > self.config.get('startup_timeout', 90):
                     self.outcome, self.reason = 'failed', 'Candidate did not become ready; previous release retained'
-                    if item and name != self.active and not item['ready'] and 'stop_at' not in item:
+                    if item and name != self.active and not item['ready']:
                         item['process'].terminate()
-                        item['stop_at'] = time.monotonic()
             except (ValueError, OSError, KeyError) as error:
                 self.outcome, self.reason = 'failed', type(error).__name__ + ': ' + str(error)
-        self.replenish()
         atomic_json(self.root / 'status.json', {
             'active': self.active, 'request': self.request, 'outcome': self.outcome, 'reason': self.reason,
-            'rooms_per_release': self.rooms_per_release, 'max_processes': self.max_processes,
             'processes': {name: {'pid': item['process'].pid, 'ready': item['ready'], 'room': item['room'],
-                                  'release': item['release'], 'room_index': item['room_index'], 'slot': item['slot'],
-                                  'draining': item['release'] != self.active and
-                                      not (self.outcome == 'pending' and self.request['release'] == item['release'])}
+                                  'draining': name != self.active and self.outcome != 'pending'}
                           for name, item in self.processes.items()}})
 
     def run(self):

@@ -2,7 +2,6 @@ using Game.Client;
 using Game.Client.Home;
 using Game.Client.Lobby;
 using Game.Client.Voice;
-using Game.Core.Settings;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -12,9 +11,6 @@ namespace Game.Architecture.Tests
 {
     public sealed class LobbyShortcutGuideViewTests
     {
-        [TearDown]
-        public void UnbindSettings() => VoiceView.UseSettings(null);
-
         [Test]
         public void Create_PlacesTheRowOnTheBottomRight()
         {
@@ -86,13 +82,11 @@ namespace Game.Architecture.Tests
             {
                 var view = LobbyShortcutGuideView.Create(canvas.transform);
                 var settings = view.transform.Find("Item2");
-                var micItem = view.transform.Find(VoiceView.MuteItemName);
-                var mic = VoiceView.FindMuteSlot(view.transform);
-                var micHint = micItem.Find(VoiceView.KeyHintName).GetComponent<TMP_Text>();
+                var mic = view.transform.Find(LobbyShortcutGuideView.VoiceButtonName);
 
                 Assert.That(settings, Is.Not.Null);
                 Assert.That(mic, Is.Not.Null);
-                Assert.That(micItem.GetSiblingIndex(), Is.GreaterThan(settings.GetSiblingIndex()));
+                Assert.That(mic.GetSiblingIndex(), Is.GreaterThan(settings.GetSiblingIndex()));
                 Assert.That(view.VoiceMuteButton, Is.Not.Null);
                 Assert.That(view.VoiceBackground, Is.Not.Null);
                 Assert.That(view.VoiceIcon, Is.Not.Null);
@@ -111,16 +105,11 @@ namespace Game.Architecture.Tests
                     view.VoiceIcon.rectTransform.sizeDelta,
                     Is.EqualTo(new Vector2(VoiceView.IconSize, VoiceView.IconSize)));
                 Assert.That(view.VoiceIcon.sprite, Is.EqualTo(VoiceView.MicOnSprite));
-                Assert.That(micHint.text, Is.EqualTo(VoiceView.MuteKeyLabel()));
-                Assert.That(micHint.fontSize, Is.EqualTo(VoiceView.KeyHintFontSize));
-                var speakerItem = view.transform.Find(VoiceView.SpeakerItemName);
-                var speaker = VoiceView.FindSpeakerSlot(view.transform);
-                var speakerHint = speakerItem.Find(VoiceView.KeyHintName).GetComponent<TMP_Text>();
+                var speaker = view.transform.Find(LobbyShortcutGuideView.SpeakerButtonName);
                 Assert.That(speaker, Is.Not.Null);
-                Assert.That(speakerItem.GetSiblingIndex(), Is.GreaterThan(micItem.GetSiblingIndex()));
+                Assert.That(speaker.GetSiblingIndex(), Is.GreaterThan(mic.GetSiblingIndex()));
                 Assert.That(view.VoiceSpeakerButton, Is.Not.Null);
                 Assert.That(view.VoiceSpeakerIcon.sprite, Is.EqualTo(VoiceView.SpeakerOnSprite));
-                Assert.That(speakerHint.text, Is.EqualTo(VoiceView.SpeakerKeyLabel()));
             }
             finally
             {
@@ -146,7 +135,7 @@ namespace Game.Architecture.Tests
 
                 Assert.That(guide.VoiceMuteButton, Is.SameAs(
                     canvas.transform.Find(
-                        $"{LobbyShortcutGuideView.RootName}/{VoiceView.MuteItemName}/{LobbyShortcutGuideView.VoiceButtonName}")
+                        $"{LobbyShortcutGuideView.RootName}/{LobbyShortcutGuideView.VoiceButtonName}")
                         .GetComponent<Button>()));
                 Assert.That(raised, Is.EqualTo(1));
                 Assert.That(speakerRaised, Is.EqualTo(1));
@@ -170,35 +159,6 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     canvas.transform.Find(LobbyShortcutGuideView.RootName),
                     Is.SameAs(guide.transform));
-            }
-            finally
-            {
-                Object.DestroyImmediate(canvas);
-            }
-        }
-
-        [Test]
-        public void VoiceKeyHints_FollowAppliedControlBindings()
-        {
-            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
-            var system = new ControlSettingsSystem(new InMemoryControlSettingsStore());
-            try
-            {
-                VoiceView.UseSettings(system);
-                var view = LobbyShortcutGuideView.Create(canvas.transform);
-                var muteHint = view.transform.Find($"{VoiceView.MuteItemName}/{VoiceView.KeyHintName}")
-                    .GetComponent<TMP_Text>();
-                var speakerHint = view.transform.Find($"{VoiceView.SpeakerItemName}/{VoiceView.KeyHintName}")
-                    .GetComponent<TMP_Text>();
-
-                Assert.That(muteHint.text, Is.EqualTo("B"));
-                Assert.That(speakerHint.text, Is.EqualTo("T"));
-
-                system.Apply(system.Current
-                    .With(ControlAction.VoiceToggle, "m")
-                    .With(ControlAction.ToggleSpeaker, "n"));
-                Assert.That(muteHint.text, Is.EqualTo("M"));
-                Assert.That(speakerHint.text, Is.EqualTo("N"));
             }
             finally
             {

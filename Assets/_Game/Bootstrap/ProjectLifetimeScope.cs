@@ -488,7 +488,6 @@ namespace Game.Bootstrap
                 .As<INetworkMatchRuntimeSource>()
                 .As<INetworkMatchAuthority>()
                 .As<INetworkMatchEvents>()
-                .As<IMatchAnalyticsSource>()
                 .As<INetworkResultNavigation>()
                 .As<ILobbyChatTransport>()
                 .As<IMatchChatTransport>();

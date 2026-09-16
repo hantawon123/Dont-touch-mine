@@ -200,26 +200,6 @@ namespace Game.Client.Lobby
                     categoryNextButton = button;
                 }
             }
-
-            var mapPrev = FindDeepChild(mapArea, "MapPrev");
-            if (mapPrev != null)
-            {
-                var button = mapPrev.GetComponent<Button>();
-                if (button != null)
-                {
-                    mapPrevButton = button;
-                }
-            }
-
-            var mapNext = FindDeepChild(mapArea, "MapNext");
-            if (mapNext != null)
-            {
-                var button = mapNext.GetComponent<Button>();
-                if (button != null)
-                {
-                    mapNextButton = button;
-                }
-            }
         }
 
         private void RebuildSettingsScrollLayout()
@@ -903,14 +883,11 @@ namespace Game.Client.Lobby
             Stretch(mapPicker);
             AddFlexibleSpacer(mapPicker);
             mapPrevButton = CreateLayoutArrowButton(mapPicker, isLeft: true);
-            mapPrevButton.gameObject.name = "MapPrev";
             AddFlexibleSpacer(mapPicker);
             CreateMapStack(mapPicker);
             AddFlexibleSpacer(mapPicker);
             mapNextButton = CreateLayoutArrowButton(mapPicker, isLeft: false);
-            mapNextButton.gameObject.name = "MapNext";
             AddFlexibleSpacer(mapPicker);
-            RefreshMapArrows();
 
             var categoryPicker = CreateHorizontalPickerRow(
                 CreateSplitCell(pickerRow, "CategorySelect"),
