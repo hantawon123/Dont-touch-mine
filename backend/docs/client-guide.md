@@ -710,3 +710,38 @@ Unity는 로그인 후 복원하고, 적용·초기화 이벤트를 모아 직�
 
 배포 시 백엔드의 Flyway V20 마이그레이션이 필요하다. 기존 백엔드에는 API가 없으므로
 클라이언트 코드만 갱신하면 계정 동기화는 대기 상태이며 로컬 설정은 계속 동작한다.
+
+
+## 선택적 AI 하이라이트 디렉터 (S15P21D205-1015)
+
+게임 서버만 경기당 한 번 `POST /api/v1/highlights/director`를 호출한다. 인증은 기존
+X-User-Id / X-Account-Token이다. 요청은 `{candidates:[{id,eventType,seconds,segments,
+remainingSeconds,involvedPlayers,ruleScore}]}`, 응답은 `{available,picks:[{id,title,summary}]}`.
+영상·계정 ID·닉네임·원본 물건 ID는 AI 공급자에게 보내지 않는다.
+
+기존 5개 유형 대표 후보에 최근 파괴·기절·원주인 회수를 보태 최대 10개를 만든다.
+실제로 재생 가능한 사건이 적으면 그만큼만 보낸다. 회수 후보는 탈취와 회수 주변 두 구간을
+연결하여 긴 대기 구간을 생략한다. AI 미사용 시 기존 후보/선정 규칙은 변경하지 않는다.
+
+게임 서버는 기존 3초 준비 시간 동안 요청을 병렬 실행한다. 클라이언트에는 최종 선정된
+최대 3개와 문구만 리플레이에 함께 배포한다. 공급자 응답 제한은 2.6초, 게임 서버 요청
+기한은 2.8초다. 재생 준비 기한이 먼저 오면 취소한다. 미설정·인증 오류·통신 실패·기한
+초과·유효하지 않은 후보·중복 선택·잘못된 문구는 기존 방식으로 돌아간다. 재시도하지 않는다.
+공급자 안전성 차단/중간 이상 위험 판정, 제어문자/태그/URL/기본 금칙어도 거절한다.
+금칙어 검사는 완전한 의미 기반 유해성 판별기가 아니므로 실제 문구 품질 검증이 필요하다.
+
+### GMS 설정
+
+- 로컬: backend 디렉터리에서 실행한다. `gms.env.properties.example`을 `.env.properties`로
+  복사하고 `GMS_KEY`, `GMS_GENERATE_URL`(전체 generateContent 주소)을 직접 입력한다.
+  `.env.properties`는 Git 제외 대상이며 application.yml이 선택적으로 읽는다.
+- 운영: 서버의 Git 제외 compose `.env`에 같은 두 값을 설정하고 백엔드 앱을 재시작한다.
+- 기존 `PHOTON_AUTH_SECRET`이 설정되어 계정 토큰 검증이 활성화되어야 AI가 동작한다.
+- 키·공급자 주소는 Unity 프로젝트/클라이언트 빌드/Photon 데이터에 넣지 않는다.
+- 미설정은 정상적인 비활성 상태다. 공급자 오류 상세/응답/키/주소는 로그에 출력하지 않는다.
+- 응답 파싱은 [Gemini generateContent 규격](https://ai.google.dev/api/generate-content)을 따른다.
+
+리플레이 전송 형식은 v5다. 게임 서버와 테스트 참여자는 모두 이 변경이 포함된 동일 버전을
+받아야 한다. 개인 스킵은 기존 로컬 처리 경로를 유지하며 AI 선택은 스킵 여부에 관여하지 않는다.
+
+GMS 생성은 `thinkingLevel=minimal`, `includeThoughts=false`로 요청해 추론이 짧은 문구의 출력 예산을 소진하지 않도록 한다. 기존 3초 준비 시간은 늘리지 않는다.

@@ -60,6 +60,8 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       PHOTON_AUTH_SECRET: ${PHOTON_AUTH_SECRET:-}
       PHOTON_AUTH_KEY: ${PHOTON_AUTH_KEY:-}
+      GMS_KEY: ${GMS_KEY:-}
+      GMS_GENERATE_URL: ${GMS_GENERATE_URL:-}
       # 분석 서비스의 내부 API 주소와 공유 키. 서비스 이름으로 부르므로 compose 네트워크 안에서만 통합니다.
       ANALYTICS_INTERNAL_URL: http://analytics:8080
       INTERNAL_KEY: ${INTERNAL_KEY:-}
