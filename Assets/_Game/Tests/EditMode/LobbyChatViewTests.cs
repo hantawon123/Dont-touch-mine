@@ -1,3 +1,4 @@
+using Game.Client.Home;
 using Game.Client.Match;
 using Game.Core.Lobby;
 using NUnit.Framework;
@@ -79,6 +80,10 @@ namespace Game.Architecture.Tests
                 var panel = bubble.Find("Panel")?.GetComponent<Image>();
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.type, Is.EqualTo(Image.Type.Sliced));
+                Assert.That(panel.sprite, Is.EqualTo(HomeUiFonts.RoundedSprite));
+                Assert.That(
+                    panel.pixelsPerUnitMultiplier,
+                    Is.EqualTo(MatchChatBubbleView.SlicePixelsPerUnitMultiplier));
                 Assert.That(panel.color, Is.EqualTo(MatchChatBubbleView.BubbleColor));
                 Assert.That(panel.color.a, Is.EqualTo(0.8f));
             }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Home;
 using Game.Client.Match;
 using Game.Client.Players;
 using Game.Core.Lobby;
@@ -92,6 +93,10 @@ namespace Game.Tests.EditMode
                 var panel = bubble.Find("Panel")?.GetComponent<UnityEngine.UI.Image>();
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.type, Is.EqualTo(UnityEngine.UI.Image.Type.Sliced));
+                Assert.That(panel.sprite, Is.EqualTo(HomeUiFonts.RoundedSprite));
+                Assert.That(
+                    panel.pixelsPerUnitMultiplier,
+                    Is.EqualTo(MatchChatBubbleView.SlicePixelsPerUnitMultiplier));
                 Assert.That(panel.color, Is.EqualTo(MatchChatBubbleView.BubbleColor));
                 Assert.That(panel.color.a, Is.EqualTo(0.8f));
             }

@@ -20,17 +20,18 @@ namespace Game.Client.Match
     public sealed class MatchChatBubbleView : MonoBehaviour, IMatchChatBubbleView
     {
         public const float FontSize = 8f;
-        public const int CornerRadius = 4;
         public static readonly Color TextColor = Color.white;
         public static readonly Color BubbleColor = new(0f, 0f, 0f, 0.8f);
         public const float MaxBubbleWidth = 210f;
         public const float MaxBubbleHeight = 80f;
+        // World canvas is 0.01 scale; 0.02 keeps the 256px 9-slice ~8 units wide.
+        public const float SlicePixelsPerUnitMultiplier = 0.02f;
         internal const float NameplateClearance = 0.04f;
         private const float FallbackHeightOffset = 2f;
         private const float VisibleSeconds = 3.5f;
         private const float CanvasScale = 0.01f;
-        private const float HorizontalPadding = 3f;
-        private const float VerticalPadding = 2f;
+        private const float HorizontalPadding = 8f;
+        private const float VerticalPadding = 5f;
 
         private readonly Dictionary<string, Bubble> bubbles = new(StringComparer.Ordinal);
         private readonly Dictionary<string, LobbyChatMessage> pending =
@@ -153,9 +154,9 @@ namespace Game.Client.Match
             panelRect.offsetMin = Vector2.zero;
             panelRect.offsetMax = Vector2.zero;
             var panel = panelObject.GetComponent<Image>();
-            panel.sprite = HomeUiFonts.Rounded(CornerRadius);
+            panel.sprite = HomeUiFonts.RoundedSprite;
             panel.type = Image.Type.Sliced;
-            panel.pixelsPerUnitMultiplier = 1f;
+            panel.pixelsPerUnitMultiplier = SlicePixelsPerUnitMultiplier;
             panel.color = BubbleColor;
             panel.raycastTarget = false;
 
