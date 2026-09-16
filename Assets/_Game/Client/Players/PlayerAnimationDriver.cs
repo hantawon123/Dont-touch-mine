@@ -52,6 +52,14 @@ namespace Game.Client.Players
 
         private AudioSource hitAudioSource;
 
+        [SerializeField, Tooltip("지면에서 위로 뛰어오를 때 한 번 재생하는 효과음")]
+        private AudioClip jumpClip;
+
+        private AudioSource jumpAudioSource;
+        private float previousJumpHeight;
+        private bool jumpGroundedSeen;
+        private bool jumpSoundPlayed;
+
         private float PunchDuration =>
             combatant != null && combatant.Config != null
                 ? combatant.Config.PunchMotionSeconds
@@ -94,6 +102,7 @@ namespace Game.Client.Players
 
             animator.applyRootMotion = false;
             lastPosture = movement.Posture;
+            previousJumpHeight = transform.position.y;
 #if !UNITY_SERVER
             if (punchSwingClip != null)
             {
@@ -101,6 +110,8 @@ namespace Game.Client.Players
             }
             if (punchHitClip != null)
                 hitAudioSource = CreateCombatAudioSource("PunchHitAudio");
+            if (jumpClip != null)
+                jumpAudioSource = CreateCombatAudioSource("JumpAudio");
             if (footstepClips != null && footstepClips.Length > 0)
             {
                 footstepAudio = gameObject.AddComponent<PlayerFootstepAudio>();
@@ -123,6 +134,9 @@ namespace Game.Client.Players
             footstepAudio?.Stop();
             if (punchAudioSource != null) punchAudioSource.Stop();
             if (hitAudioSource != null) hitAudioSource.Stop();
+            if (jumpAudioSource != null) jumpAudioSource.Stop();
+            jumpGroundedSeen = false;
+            jumpSoundPlayed = false;
             if (combatant != null)
             {
                 combatant.AttackPerformed -= OnAttackPerformed;
@@ -308,6 +322,7 @@ namespace Game.Client.Players
 
         private void Update()
         {
+            UpdateJumpAudio();
             if (animator.runtimeAnimatorController != null &&
                 HasParameter(animator, "Speed"))
             {
@@ -348,9 +363,40 @@ namespace Game.Client.Players
                 punchAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             if (hitAudioSource != null)
                 hitAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (jumpAudioSource != null)
+                jumpAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             footstepAudio?.Tick(animator, currentState,
                 usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
         }
+
+        private void UpdateJumpAudio()
+        {
+            var height = transform.position.y;
+            var rise = height - previousJumpHeight;
+            previousJumpHeight = height;
+            var grounded = usesNetworkState ? networkGrounded : movement.IsGrounded;
+            if (grounded)
+            {
+                jumpGroundedSeen = true;
+                jumpSoundPlayed = false;
+                return;
+            }
+            // Observe actual upward movement, not input: avoids sounds for rejected
+            // jump inputs, walking off a ledge, and spawning in mid-air.
+            if (!ShouldPlayJumpSound(jumpGroundedSeen, jumpSoundPlayed, grounded, rise, movement.Posture) ||
+                (combatant != null && combatant.IsStunned)) return;
+            jumpSoundPlayed = true;
+            if (jumpAudioSource != null && jumpAudioSource.isActiveAndEnabled)
+            {
+                jumpAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                jumpAudioSource.PlayOneShot(jumpClip);
+            }
+        }
+
+        internal static bool ShouldPlayJumpSound(bool groundedSeen, bool alreadyPlayed,
+            bool grounded, float rise, PlayerPosture posture) =>
+            groundedSeen && !alreadyPlayed && !grounded && rise > .001f && rise < 1f &&
+            posture == PlayerPosture.Standing;
 
         private string ResolveDesiredState()
         {

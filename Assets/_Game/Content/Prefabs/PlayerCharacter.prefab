@@ -156,6 +156,7 @@ MonoBehaviour:
   - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa08, type: 3}
   punchSwingClip: {fileID: 8300000, guid: 41a4764f3e0125c4b846dc3d0e38eacc, type: 3}
   punchHitClip: {fileID: 8300000, guid: da70e43c6d834dc9924e632dc04b0d25, type: 3}
+  jumpClip: {fileID: 8300000, guid: f6a2d81dd2814af1a3b10f97ddc70e38, type: 3}
 --- !u!114 &3812345678901234567
 MonoBehaviour:
   m_ObjectHideFlags: 0

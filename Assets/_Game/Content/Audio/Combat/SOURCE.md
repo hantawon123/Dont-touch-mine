@@ -15,3 +15,12 @@
 - Length: 0.22 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -3.1 dBFS.
 - Regenerate: `node Tools/audio/create-soft-punch.cjs Assets/_Game/Content/Audio/Combat/SoftPunchHit.wav`.
 - Used only on confirmed player hit notifications, including the hit that causes stun.
+
+# Jump (Jump.wav)
+
+- Original procedural synthesis; no third-party recordings, samples or AI audio generation service used.
+- Generator: `Tools/audio/create-cute-jump.cjs` (rising sine tone, harmonic, pitch wobble and filtered noise).
+- Length: 0.28 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -3.1 dBFS.
+- Approved preview: `audio-previews/cute-jump.wav`; runtime asset is byte-identical.
+- Regenerate: `node Tools/audio/create-cute-jump.cjs Assets/_Game/Content/Audio/Combat/Jump.wav`.
+- Played once on upward airborne movement after grounding; not on falling, initial airborne spawning, or repeated airborne inputs.
