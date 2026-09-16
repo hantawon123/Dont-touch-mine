@@ -27,6 +27,7 @@ pipeline {
                 withCredentials([gitUsernamePassword(credentialsId: 'gitlab-deploy-token', gitToolName: 'Default')]) {
                     sh 'git lfs pull'
                 }
+                sh 'mkdir -p Logs; rm -f Logs/server-build.log Logs/client-timings.tsv'
                 sh 'bash Tools/client/test_build.sh'
                 sh "python3 -m unittest discover -s Tools/client -p 'test_*.py'"
                 sh "python3 -m unittest discover -s Tools/network/server-flow -p 'test_*.py'"

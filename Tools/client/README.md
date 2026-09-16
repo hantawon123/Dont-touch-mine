@@ -87,7 +87,7 @@ Linux의 첫 실행은 새 캐시를 만들기 때문에 빨라지지 않으며 
 루트는 `%USERPROFILE%\.d205-unity-ci\agent`, Photon 설정은 `..\config\PhotonAppSettings.asset`다.
 `CLIENT_UNITY_EXE`와 `CLIENT_CONFIG_DIR`로 설치 경로를 바꿀 수 있다.
 라이선스는 Windows PC에 정상 활성화된 Unity 라이선스를 사용하며 EC2 라이선스를 복사하지 않는다.
-현재 PC에서 `powershell -File "$env:USERPROFILE/.d205-unity-ci/start-agent.ps1"`로 연결한다.
+현재 PC에서 `powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE/.d205-unity-ci/start-agent.ps1"`로 연결한다.
 이 PC가 꺼지거나 절전/로그아웃되면 빌드할 수 없다. 시작 프로그램·서비스 등록은 하지 않았다.
 기존 에이전트가 연결 중이면 중복 실행하지 않는다. 연결 인증 파일은 Git에 넣거나 팀에 공유하지 않는다.
 
@@ -97,4 +97,4 @@ Jenkins 컨트롤러 I/O 비용이 있으므로 전송 시간이 병목이 되�
 TEST_ONLY는 Windows 계약 테스트만 수행하고 Linux 서버 빌드/배포는 하지 않는다.
 첫 Windows 작업 폴더는 전체 에셋을 임포트해야 한다. 이후 이 폴더의 Library를 재사용한다.
 Windows 종료 정리는 PID와 시작 시간·실행 경로가 일치하는 해당 빌드 프로세스 트리만 대상으로 한다.
-PowerShell 검증: `powershell -File Tools/client/test-windows-build.ps1`.
+PowerShell 검증: `powershell -NoProfile -ExecutionPolicy Bypass -File Tools/client/test-windows-build.ps1`.

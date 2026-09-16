@@ -32,12 +32,15 @@ $env:BEE_CACHE_DIRECTORY = Join-Path $cache 'bee'
 function Invoke-Unity([string]$phase, [string[]]$arguments) {
     $timer = [Diagnostics.Stopwatch]::StartNew()
     $log = Join-Path $project "Logs/client-$phase.log"
+    Write-Output "[CI] Unity $phase started; log=$log"
     $process = Start-Process -FilePath $unity -ArgumentList (@('-batchmode','-nographics','-projectPath',"`"$project`"",'-buildTarget','Win64','-logFile',"`"$log`"") + $arguments) -WindowStyle Hidden -PassThru
     $null = $process.Handle
     try {
         @{ Id=$process.Id; Started=$process.StartTime.ToUniversalTime().Ticks.ToString(); Path=$unity } |
             ConvertTo-Json | Set-Content Logs/windows-unity-process.json
-        $process.WaitForExit()
+        while (!$process.WaitForExit(60000)) {
+            Write-Output "[CI] Unity $phase running: $([math]::Round($timer.Elapsed.TotalSeconds)) seconds"
+        }
         $process.Refresh()
         if ($process.ExitCode -ne 0) { throw "Unity $phase failed ($($process.ExitCode)); see $log" }
     } finally {
