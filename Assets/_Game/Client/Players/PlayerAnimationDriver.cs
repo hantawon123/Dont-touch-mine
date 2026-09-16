@@ -238,9 +238,14 @@ namespace Game.Client.Players
         {
             var settings = movement.MovementSettings;
             var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
+            var carrying = usesNetworkState
+                ? networkCarrying
+                : interactor != null && interactor.CarriedItem != null;
             return isHit
-                ? ResolveHitClip(movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed)
-                : ResolvePunchClip(movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed, leftPunch);
+                ? ResolveHitClip(
+                    movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed, carrying)
+                : ResolvePunchClip(
+                    movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed, leftPunch);
         }
 
         public void PlayPickup()
@@ -558,8 +563,28 @@ namespace Game.Client.Players
             PlayerPosture posture,
             float planarSpeed,
             float walkSpeed,
-            float sprintSpeed) =>
-            ResolveCombatLocomotionClip("Hit", posture, planarSpeed, walkSpeed, sprintSpeed);
+            float sprintSpeed,
+            bool carrying = false)
+        {
+            if (posture == PlayerPosture.Prone)
+            {
+                var crawling = planarSpeed > 0.15f;
+                if (carrying)
+                {
+                    return crawling ? "Carry_TwoHands_Hit_Crawl" : "Carry_TwoHands_Hit_Prone";
+                }
+
+                return crawling ? "Hit_Crawl" : "Hit_Prone";
+            }
+
+            if (carrying)
+            {
+                return ResolveCombatLocomotionClip(
+                    "Carry_TwoHands_Hit", posture, planarSpeed, walkSpeed, sprintSpeed);
+            }
+
+            return ResolveCombatLocomotionClip("Hit", posture, planarSpeed, walkSpeed, sprintSpeed);
+        }
 
         internal static string ResolveCombatLocomotionClip(
             string prefix,
