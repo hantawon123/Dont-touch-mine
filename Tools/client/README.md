@@ -37,7 +37,7 @@ release 이외의 브랜치를 검증용으로 연결하면 빌드·아티팩트
 ## 호스트 이동과 복구
 
 기존 [release host 설치 절차](../network/server-flow/release-host.md)를 따른다. 현재 호스트 루트는 `/var/www/d205-game/runtime`, HTTP는 loopback 4292, path_prefix는 `/download`다.
-Nginx `/download/`만 해당 loopback으로 프록시한다. API와 Jenkins 경로는 기존 설정을 유지한다.
+Nginx [다운로드 설정](nginx-download.conf)을 `/etc/nginx/snippets/d205-client-download.conf`로 설치하고 `nginx -t` 성공 후 reload한다. `backend/deploy/nginx/d205.conf`의 `d205-client*.conf` include가 이를 읽는다. `/download/`만 해당 loopback으로 프록시한다. API와 Jenkins 경로는 기존 설정을 유지한다.
 새 서버에서는 유효한 Unity 라이선스를 다시 준비하고 설정 경로·도메인·서비스 계정을 맞춘다.
 
 ```bash

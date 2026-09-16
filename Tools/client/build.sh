@@ -57,7 +57,7 @@ docker run --rm --cpus=3 --cpu-shares=1024 --memory=8g --memory-swap=8g \
 client_image=unityci/editor:ubuntu-6000.3.22f1-windows-mono-3.2.2@sha256:937d7f6d141770c103b1673e0732e1c63d337136e21674df3931e03574663704
 server_image=unityci/editor:ubuntu-6000.3.22f1-linux-il2cpp-3.2.2@sha256:bd9f0c77473bc842423236ec1498f180380f734dde521397e0fac2319865e87a
 
-timed tests run_unity Win64 "$client_image" -runTests -testPlatform EditMode \
+timed tests run_unity Win64 "$client_image" -executeMethod Game.Editor.ClientBuild.PrepareTests -runTests -testPlatform EditMode \
     -testFilter Game.Architecture.Tests.NetworkContractTests \
     -testResults /workspace/Logs/client-contract-results.xml -logFile - 2>&1 | tee Logs/client-tests.log
 python3 -c 'import xml.etree.ElementTree as ET; result = ET.parse("Logs/client-contract-results.xml").getroot(); assert result.get("result") == "Passed" and int(result.get("total", "0")) > 0, "Unity contract tests did not pass"'
