@@ -20,6 +20,7 @@ namespace Game.Bootstrap
         private readonly LobbyExitPresenter exit;
         private readonly MatchChatView chat;
         private readonly NetworkRunnerService network;
+        private readonly MatchParticipantListOverlay participants;
         private PlayerCameraController camera;
         private bool chatWasEnabled;
         private bool layoutConfigured;
@@ -30,13 +31,15 @@ namespace Game.Bootstrap
         public bool IsOpen { get; private set; }
 
         public MatchSettingsOverlay(SettingsView view, SettingsPresenter presenter,
-            LobbyExitPresenter exit, MatchChatView chat, NetworkRunnerService network)
+            LobbyExitPresenter exit, MatchChatView chat, NetworkRunnerService network,
+            MatchParticipantListOverlay participants = null)
         {
             this.view = view;
             this.presenter = presenter;
             this.exit = exit;
             this.chat = chat;
             this.network = network;
+            this.participants = participants;
         }
 
         public static bool BlocksEscapeDuringPresentation(MatchPhase phase)
@@ -119,9 +122,10 @@ namespace Game.Bootstrap
                  !Keyboard.current.escapeKey.wasPressedThisFrame)) ||
                 !ShouldHandleEscape(
                     PlayerMovement.IsTextInputFocused() ||
-                    (chat != null && chat.ConsumedEscapeThisFrame),
+                    (chat != null && chat.ConsumedEscapeThisFrame) ||
+                    (participants != null && participants.ConsumedEscapeThisFrame),
                     false,
-                    view.BlocksEscape,
+                    view.BlocksEscape || (participants != null && participants.IsOpen),
                     view.ConsumedEscapeThisFrame))
             {
                 return;

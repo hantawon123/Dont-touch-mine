@@ -51,6 +51,10 @@ namespace Game.Client.Lobby
         public const float ModalWidth = 800f;
         public const float ModalHeight = 420f;
         public const float ColumnWidthRatio = 0.4f;
+        public const float MatchModalWidth = ModalWidth * ColumnWidthRatio + (PanelPadding * 2f);
+        public const float MatchModalHeight = ModalHeight;
+        public const float MatchLeftMargin = 36f;
+        public const string MatchRootName = "MatchParticipantList";
         public const int PanelRadius = 30;
         public const int ColumnRadius = 16;
         public const int ReportTooltipRadius = 10;
@@ -73,6 +77,7 @@ namespace Game.Client.Lobby
         public static readonly Color InGameSectionColor = new Color(1f, 0.28f, 0.28f, 1f);
 
         public static readonly Vector2 ModalSize = new Vector2(ModalWidth, ModalHeight);
+        public static readonly Vector2 MatchModalSize = new Vector2(MatchModalWidth, MatchModalHeight);
 
         private RectTransform participantRowRoot;
         private RectTransform friendRowRoot;
@@ -96,6 +101,7 @@ namespace Game.Client.Lobby
         private bool lastHost;
         private string lastLocal;
         private bool lastNamesReady = true;
+        private bool matchLayout;
 
         [VContainer.Inject]
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value)
@@ -167,6 +173,32 @@ namespace Game.Client.Lobby
         public string FriendsTitleText =>
             friendsTitle != null ? friendsTitle.text : string.Empty;
 
+        public bool IsMatchLayout => matchLayout;
+
+        public static LobbyPlayerListView CreateMatchList(Transform parent)
+        {
+            var root = new GameObject(MatchRootName, typeof(RectTransform));
+            if (parent != null)
+            {
+                root.transform.SetParent(parent, false);
+            }
+
+            var view = root.AddComponent<LobbyPlayerListView>();
+            view.ConfigureForMatch();
+            root.SetActive(false);
+            return view;
+        }
+
+        /// <summary>
+        /// In-match 2-key roster: the left column only, pinned left-centre.
+        /// Kick, report and the friend invite list stay on the lobby modal.
+        /// </summary>
+        public void ConfigureForMatch()
+        {
+            matchLayout = true;
+            EnsureLayout();
+        }
+
         private void Awake()
         {
             EnsureLayout();
@@ -215,7 +247,7 @@ namespace Game.Client.Lobby
                     continue;
                 }
 
-                var canKick = localIsHost && !isSelf;
+                var canKick = !matchLayout && localIsHost && !isSelf;
                 var shownName = ShownParticipantName(participant.Id, participant.DisplayName);
                 var row = CreateRow(
                     participantRowRoot,
@@ -243,7 +275,7 @@ namespace Game.Client.Lobby
                 // participant who joined without one has nothing the server can
                 // be told about, and a blank id would only turn the 404 into a
                 // 400.
-                if (!isSelf && !string.IsNullOrWhiteSpace(participant.UserId))
+                if (!matchLayout && !isSelf && !string.IsNullOrWhiteSpace(participant.UserId))
                 {
                     BindReport(row, participant.UserId, displayName, below: participant.IsHost);
                 }
@@ -500,7 +532,17 @@ namespace Game.Client.Lobby
         private void ApplyPanelChrome()
         {
             var rect = (RectTransform)transform;
-            rect.sizeDelta = ModalSize;
+            if (matchLayout)
+            {
+                rect.anchorMin = rect.anchorMax = new Vector2(0f, 0.5f);
+                rect.pivot = new Vector2(0f, 0.5f);
+                rect.anchoredPosition = new Vector2(MatchLeftMargin, 0f);
+                rect.sizeDelta = MatchModalSize;
+            }
+            else
+            {
+                rect.sizeDelta = ModalSize;
+            }
 
             var fill = GetComponent<Image>();
             if (fill == null)
@@ -548,10 +590,45 @@ namespace Game.Client.Lobby
             }
 
             Stretch(columns, 0f, PanelPadding, 0f, -PanelPadding);
-            PlaceColumn(columns.Find("Participants") as RectTransform, isLeft: true);
-            PlaceColumn(columns.Find("Friends") as RectTransform, isLeft: false);
-            InsetColumnContent(columns.Find("Participants") as RectTransform);
-            InsetColumnContent(columns.Find("Friends") as RectTransform);
+            var participants = columns.Find("Participants") as RectTransform;
+            var friends = columns.Find("Friends") as RectTransform;
+            if (matchLayout)
+            {
+                if (friends != null)
+                {
+                    friends.gameObject.SetActive(false);
+                }
+
+                PlaceFullColumn(participants);
+                InsetColumnContent(participants);
+                return;
+            }
+
+            if (friends != null)
+            {
+                friends.gameObject.SetActive(true);
+            }
+
+            PlaceColumn(participants, isLeft: true);
+            PlaceColumn(friends, isLeft: false);
+            InsetColumnContent(participants);
+            InsetColumnContent(friends);
+        }
+
+        private static void PlaceFullColumn(RectTransform column)
+        {
+            if (column == null)
+            {
+                return;
+            }
+
+            column.anchorMin = Vector2.zero;
+            column.anchorMax = Vector2.one;
+            column.pivot = new Vector2(0.5f, 0.5f);
+            column.offsetMin = Vector2.zero;
+            column.offsetMax = Vector2.zero;
+            column.anchoredPosition = Vector2.zero;
+            column.sizeDelta = Vector2.zero;
         }
 
         private static void PlaceColumn(RectTransform column, bool isLeft)

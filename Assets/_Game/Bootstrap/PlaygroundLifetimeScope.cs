@@ -177,6 +177,15 @@ namespace Game.Bootstrap
                 .WithParameter<Action>(() => settingsObject.SetActive(false));
             builder.Register<LobbyExitPresenter>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkLobbyExitBridge>();
+            var playerList = matchHudView != null
+                ? matchHudView.EnsureParticipantList()
+                : LobbyPlayerListView.CreateMatchList(transform);
+            builder.RegisterComponent(playerList).As<ILobbyPlayerListView>().AsSelf();
+            builder.Register<NetworkLobbyParticipantList>(Lifetime.Scoped)
+                .As<ILobbyParticipantList>();
+            builder.RegisterEntryPoint<MatchPlayerListPresenter>();
+            builder.RegisterEntryPoint<MatchParticipantListOverlay>().AsSelf()
+                .WithParameter(chatView);
             builder.RegisterEntryPoint<MatchSettingsOverlay>().AsSelf().WithParameter(chatView);
             if (matchHudView == null)
             {

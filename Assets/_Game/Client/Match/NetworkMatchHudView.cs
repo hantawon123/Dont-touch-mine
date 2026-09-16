@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Client.Interactions;
+using Game.Client.Lobby;
 using Game.Client.Voice;
 using Game.Core.Lobby;
 using Game.Core.Match;
@@ -119,6 +120,8 @@ namespace Game.Client.Match
         [SerializeField]
         private MatchUrgencyBorderView urgencyBorderView;
 
+        private LobbyPlayerListView participantListView;
+
         private MatchPhase currentPhase;
         private double lastRemainingSeconds = 999d;
         private int remainingDestructionUses = -1;
@@ -210,7 +213,8 @@ namespace Game.Client.Match
                     (hidingWaitHudView != null && graphic.transform.IsChildOf(hidingWaitHudView.transform)) ||
                     (vitalsHudView != null && graphic.transform.IsChildOf(vitalsHudView.transform)) ||
                     (keySettingGuideView != null && graphic.transform.IsChildOf(keySettingGuideView.transform)) ||
-                    (urgencyBorderView != null && graphic.transform.IsChildOf(urgencyBorderView.transform)))
+                    (urgencyBorderView != null && graphic.transform.IsChildOf(urgencyBorderView.transform)) ||
+                    (participantListView != null && graphic.transform.IsChildOf(participantListView.transform)))
                     continue;
                 hiddenGraphics[graphic] = graphic.enabled;
                 graphic.enabled = false;
@@ -701,6 +705,24 @@ namespace Game.Client.Match
             {
                 keySettingGuideView = KeySettingGuideView.Ensure(transform);
             }
+        }
+
+        public LobbyPlayerListView EnsureParticipantList()
+        {
+            if (participantListView == null)
+            {
+                participantListView = GetComponentInChildren<LobbyPlayerListView>(true);
+            }
+
+            if (participantListView != null)
+            {
+                participantListView.ConfigureForMatch();
+                participantListView.gameObject.SetActive(false);
+                return participantListView;
+            }
+
+            participantListView = LobbyPlayerListView.CreateMatchList(transform);
+            return participantListView;
         }
 
         /// <summary>
