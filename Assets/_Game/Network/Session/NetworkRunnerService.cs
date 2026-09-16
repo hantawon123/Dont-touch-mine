@@ -209,6 +209,8 @@ namespace Game.Network.Session
         private bool _joiningMatchmakingLobby;
         private GameObject _runnerObject;
         private PlayerRoster _roster;
+        public System.Collections.Generic.IReadOnlyList<PlayerAvatar> SpawnedAvatars =>
+            _roster != null ? _roster.Avatars : System.Array.Empty<PlayerAvatar>();
         private MatchStarter _matchStarter;
         private NetworkPlayerMotor _localInputMotor;
         private double _networkSceneLoadStartedAt = -1d;

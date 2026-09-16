@@ -442,6 +442,7 @@ namespace Game.Bootstrap
             // reads it, and a copy per screen would dress the player
             // differently depending on where they were looked at.
             builder.Register<AvatarAppearanceState>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<NetworkAvatarAppearancePresenter>();
 
             builder.Register<LoadingOverlay>(Lifetime.Singleton).As<ILoadingOverlay>().AsSelf();
 
