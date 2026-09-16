@@ -43,7 +43,9 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
-            if (!network.IsRuntimeReady || !room.IsInRoom.CurrentValue)
+            // A dedicated server opens the session itself and never enters through the
+            // room browser, so its IsInRoom stays false for the whole match.
+            if (!network.IsRuntimeReady || (!network.IsDedicatedServer && !room.IsInRoom.CurrentValue))
             {
                 if (buffer != null) Finish("Interrupted", true);
                 phase = MatchPhase.Waiting;
@@ -65,7 +67,7 @@ namespace Game.Bootstrap
                 if (lineUp.Count == 0) return;
                 players = new MatchParticipant[lineUp.Count];
                 for (var i = 0; i < players.Length; i++) players[i] = lineUp[i];
-                roomCode = room.RoomCode.CurrentValue;
+                roomCode = network.RoomCode;
                 mapId = network.AnalyticsMapId;
                 partial = phase != MatchPhase.Hiding || network.MatchMigration != null;
                 buffer = new MatchAnalyticsBuffer(lastTime);
