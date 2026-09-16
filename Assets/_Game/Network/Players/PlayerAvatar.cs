@@ -1,6 +1,7 @@
 using System;
 using Fusion;
 using Game.Network.Voice;
+using Game.Core.Players;
 using UnityEngine;
 
 namespace Game.Network.Players
@@ -76,6 +77,49 @@ namespace Game.Network.Players
         /// </remarks>
         [Networked]
         public NetworkString<_64> UserId { get; set; }
+
+        [Networked] public NetworkString<_64> BodyColorId { get; set; }
+        [Networked] public NetworkString<_64> HoodId { get; set; }
+        [Networked] public NetworkString<_64> ShoesId { get; set; }
+        [Networked] public NetworkString<_64> FaceId { get; set; }
+        [Networked] public NetworkBool AppearanceReady { get; set; }
+
+        public bool HasAppearance => HasNetworkState && AppearanceReady;
+        public AvatarAppearance Appearance => new AvatarAppearance(
+            BodyColorId.ToString(), HoodId.ToString(), ShoesId.ToString(), FaceId.ToString());
+
+        private bool appearanceSent;
+        private AvatarAppearance lastSentAppearance;
+
+        public void PublishAppearance(AvatarAppearance appearance)
+        {
+            if (!HasNetworkState || !IsOwner) return;
+            if (appearanceSent && lastSentAppearance == appearance) return;
+            if (Object.HasStateAuthority)
+                StoreAppearance(appearance.BodyColorId, appearance.HoodId, appearance.ShoesId, appearance.FaceId);
+            else
+                RPC_SetAppearance(appearance.BodyColorId, appearance.HoodId, appearance.ShoesId, appearance.FaceId);
+            lastSentAppearance = appearance;
+            appearanceSent = true;
+        }
+
+        [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+        public void RPC_SetAppearance(string body, string hood, string shoes, string face)
+        {
+            StoreAppearance(body, hood, shoes, face);
+        }
+
+        private void StoreAppearance(string body, string hood, string shoes, string face)
+        {
+            // Reject the whole update rather than silently truncating a part id.
+            if (body == null || hood == null || shoes == null || face == null ||
+                body.Length > 64 || hood.Length > 64 || shoes.Length > 64 || face.Length > 64) return;
+            BodyColorId = body;
+            HoodId = hood;
+            ShoesId = shoes;
+            FaceId = face;
+            AppearanceReady = true;
+        }
 
         /// <summary>
         /// Whether this player manages the lobby; this does not grant simulation authority. Replicated rather
@@ -202,6 +246,7 @@ namespace Game.Network.Players
 
         public override void Spawned()
         {
+            appearanceSent = false;
             _publishedIsHost = IsHost;
             _publishedMuted = IsMuted;
             _publishedListening = IsListening;
