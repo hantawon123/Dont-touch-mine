@@ -23,6 +23,8 @@ namespace Game.Client.Players
         private const float SpeedDampTime = 0.1f;
         private const float CrossFadeSeconds = 0.15f;
         private const float DirectionDeadZone = 0.2f;
+        // 대각선 입력의 두 축이 거의 같을 때 프레임마다 전후/좌우가 바뀌는 것을 막는다.
+        private const float DirectionDominanceHysteresis = 0.12f;
         private const float JumpSeconds = 32f / 30f;
         private const float LandSeconds = 20f / 30f;
         private const float HitSeconds = 30f / 30f;
@@ -59,6 +61,7 @@ namespace Game.Client.Players
         private int networkAttackSequence;
         private Vector2 networkMoveLocal;
         private bool networkCarrying;
+        private MoveDirection lastLocomotionDirection;
 
         private void Awake()
         {
@@ -355,11 +358,13 @@ namespace Game.Client.Players
                 }
             }
 
+            var direction = ResolveDirection(move, lastLocomotionDirection);
+            lastLocomotionDirection = direction;
             var locomotion = ResolveLocomotionClip(
                 posture,
                 carrying,
                 speed,
-                move,
+                direction,
                 settings.WalkSpeed,
                 settings.SprintSpeed);
 
@@ -476,9 +481,22 @@ namespace Game.Client.Players
             float speed,
             Vector2 localMove,
             float walkSpeed,
+            float sprintSpeed) => ResolveLocomotionClip(
+                posture,
+                carrying,
+                speed,
+                ResolveDirection(localMove),
+                walkSpeed,
+                sprintSpeed);
+
+        private static string ResolveLocomotionClip(
+            PlayerPosture posture,
+            bool carrying,
+            float speed,
+            MoveDirection direction,
+            float walkSpeed,
             float sprintSpeed)
         {
-            var direction = ResolveDirection(localMove);
             var moving = direction != MoveDirection.Neutral && speed >= 0.35f;
 
             if (posture == PlayerPosture.Prone)
@@ -547,19 +565,35 @@ namespace Game.Client.Players
                 : DirectionClip("Walk_Forward", "Walk_Back", "Walk_Left", "Walk_Right", direction);
         }
 
-        internal static MoveDirection ResolveDirection(Vector2 localMove)
+        internal static MoveDirection ResolveDirection(
+            Vector2 localMove,
+            MoveDirection previousDirection = MoveDirection.Neutral)
         {
             if (localMove.sqrMagnitude < DirectionDeadZone * DirectionDeadZone)
             {
                 return MoveDirection.Neutral;
             }
 
-            if (Mathf.Abs(localMove.x) > Mathf.Abs(localMove.y))
+            var horizontal = Mathf.Abs(localMove.x);
+            var vertical = Mathf.Abs(localMove.y);
+            if (horizontal > vertical + DirectionDominanceHysteresis)
             {
                 return localMove.x > 0f ? MoveDirection.Left : MoveDirection.Right;
             }
 
-            return localMove.y > 0f ? MoveDirection.Forward : MoveDirection.Back;
+            if (vertical > horizontal + DirectionDominanceHysteresis)
+            {
+                return localMove.y > 0f ? MoveDirection.Forward : MoveDirection.Back;
+            }
+
+            // 대각선은 별도 클립이 없으므로 직전 방향을 유지한다. 처음 누른 대각선은
+            // 앞/뒤 축을 우선해 Walk/Run 계열의 전후 이동 모션을 일관되게 사용한다.
+            if (previousDirection != MoveDirection.Neutral)
+            {
+                return previousDirection;
+            }
+
+            return localMove.y >= 0f ? MoveDirection.Forward : MoveDirection.Back;
         }
 
         private static string DirectionClip(
