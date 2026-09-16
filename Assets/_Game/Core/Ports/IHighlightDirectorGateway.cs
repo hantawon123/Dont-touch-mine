@@ -13,11 +13,13 @@ namespace Game.Core.Ports
     [Serializable] public sealed class HighlightDirectorPick { public int id; public string title, summary; }
     [Serializable] public sealed class HighlightDirectorReply
     {
+        private const int MaxPickCount = 2;
+
         public bool available;
         public HighlightDirectorPick[] picks;
         public bool IsUsable(int count)
         {
-            if(!available || picks == null || picks.Length != Math.Min(3,count)) return false;
+            if(!available || picks == null || picks.Length != Math.Min(MaxPickCount,count)) return false;
             int used = 0;
             foreach(var pick in picks)
             {
