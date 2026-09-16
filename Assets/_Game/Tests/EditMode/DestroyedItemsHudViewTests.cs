@@ -1,6 +1,7 @@
 using Game.Client.Match;
 using Game.Core.Match;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -53,6 +54,21 @@ namespace Game.Architecture.Tests
                     Is.True);
                 Assert.That(panel.Find("Slot5"), Is.Not.Null);
                 Assert.That(panel.Find("Slot6"), Is.Null);
+
+                view.SetCategory("과일");
+                var category = view.transform.Find(DestroyedItemsHudView.CategoryName)
+                    ?.GetComponent<TMP_Text>();
+                Assert.That(category, Is.Not.Null);
+                Assert.That(category.gameObject.activeSelf, Is.True);
+                Assert.That(category.text, Is.EqualTo("과일"));
+                Assert.That(category.fontSize, Is.EqualTo(DestroyedItemsHudView.CategoryFontSize));
+                Assert.That(category.alignment, Is.EqualTo(TextAlignmentOptions.TopLeft));
+                Assert.That(
+                    category.rectTransform.anchoredPosition,
+                    Is.EqualTo(DestroyedItemsHudView.CategoryAnchoredPosition));
+                Assert.That(
+                    category.rectTransform.anchorMin,
+                    Is.EqualTo(new Vector2(0f, 1f)));
             }
             finally
             {
@@ -287,6 +303,8 @@ namespace Game.Architecture.Tests
 
                 hud.SetPhase(phase, string.Empty);
                 Assert.That(panel.gameObject.activeSelf, Is.False);
+                var category = hud.transform.Find("DestroyedItems/" + DestroyedItemsHudView.CategoryName);
+                Assert.That(category == null || !category.gameObject.activeSelf, Is.True);
             }
             finally
             {

@@ -30,7 +30,9 @@ namespace Game.Client.Match
         public static readonly Color WarningColor = new Color(1f, 0.54f, 0.24f, 1f);
         public const string CompleteText = "숨기기 완료";
         public const string CompleteKey = "Y";
-        public const float TimerFontSize = 45f;
+        public const float TimerFontSize = 58.5f;
+        public const float TimerWidth = 468f;
+        public const float TimerHeight = 72.8f;
         public const float HintFontSize = 28f;
         public const float GuideFontSize = 24f;
         public const float ActionFontSize = 18f;
@@ -325,7 +327,7 @@ namespace Game.Client.Match
                     topPrompt.GetComponent<RectTransform>(),
                     new Vector2(0.5f, 1f),
                     new Vector2(0f, -TopPadding),
-                    new Vector2(980f, 110f),
+                    new Vector2(980f, TimerHeight + 54f),
                     new Vector2(0.5f, 1f));
             }
 
@@ -335,7 +337,7 @@ namespace Game.Client.Match
                     timerText.rectTransform,
                     new Vector2(0.5f, 1f),
                     Vector2.zero,
-                    new Vector2(360f, 56f),
+                    new Vector2(TimerWidth, TimerHeight),
                     new Vector2(0.5f, 1f));
             }
 
@@ -344,7 +346,7 @@ namespace Game.Client.Match
                 Place(
                     hintText.rectTransform,
                     new Vector2(0.5f, 1f),
-                    new Vector2(0f, -56f),
+                    new Vector2(0f, -TimerHeight),
                     new Vector2(920f, 40f),
                     new Vector2(0.5f, 1f));
             }

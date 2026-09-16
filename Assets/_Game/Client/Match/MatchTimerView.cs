@@ -14,16 +14,17 @@ namespace Game.Client.Match
 
     /// <summary>
     /// Top-of-screen searching clock. Matches the hiding timer until the last
-    /// thirty seconds, then grows to orange 64 Black type, shows an orange
+    /// thirty seconds, then grows to orange Black type, shows an orange
     /// prompt, and pulses both lines.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class MatchTimerView : MonoBehaviour, IMatchTimerView
     {
-        public const float TimerFontSize = 64f;
+        public const float TimerFontSize = 83.2f;
         public const float HintFontSize = 36f;
         public const float WarningSeconds = 30f;
-        public const float TimerHeight = 80f;
+        public const float TimerWidth = 546f;
+        public const float TimerHeight = 104f;
         public const float HintHeight = 48f;
         public const string HintText = "서둘러 자신의 물건을 확보하세요 !";
         public const string WinHeadline = "YOU WIN!";
@@ -225,7 +226,7 @@ namespace Game.Client.Match
                     viewRect,
                     new Vector2(0.5f, 1f),
                     new Vector2(0f, -HidingActiveHudView.TopPadding),
-                    new Vector2(resultActive ? 980f : 420f, TimerHeight),
+                    new Vector2(resultActive ? 980f : TimerWidth, TimerHeight),
                     new Vector2(0.5f, 1f));
             }
             else
@@ -242,7 +243,7 @@ namespace Game.Client.Match
                         timerText.rectTransform,
                         new Vector2(0.5f, 1f),
                         Vector2.zero,
-                        new Vector2(resultActive ? 980f : 420f, TimerHeight),
+                        new Vector2(resultActive ? 980f : TimerWidth, TimerHeight),
                         new Vector2(0.5f, 1f));
                 }
             }
