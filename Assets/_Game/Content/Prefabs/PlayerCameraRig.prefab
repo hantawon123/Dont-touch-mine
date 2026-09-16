@@ -166,7 +166,7 @@ MonoBehaviour:
   thirdPersonCamera: {fileID: 4822653204359190710}
   firstPersonCamera: {fileID: 4337833082676909515}
   followTarget: {fileID: 0}
-  headOffset: {x: 0, y: 1.04, z: 0}
+  headOffset: {x: 0, y: 1.42, z: 0}
   lookSensitivity: 0.12
   minPitch: -60
   maxPitch: 85

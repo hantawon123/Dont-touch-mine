@@ -20,10 +20,10 @@ namespace Game.Editor
         private const string IdleState = "Idle";
         /// <summary>
         /// Visual을 새로 끼울 때만 쓰는 기본 크기. 이미 붙어 있는 Visual의 크기는 건드리지 않는다 —
-        /// 크기는 PlayerCharacter 프리팹에서 팀이 조정하는 값이고(2026-09-16 0.65 확정), 이 스크립트가
+        /// 크기는 PlayerCharacter 프리팹에서 팀이 조정하는 값이고(2026-09-16 0.85 확정), 이 스크립트가
         /// 도메인 리로드마다 되돌리면 그 조정이 계속 사라진다.
         /// </summary>
-        private static readonly Vector3 VisualScale = new(0.65f, 0.65f, 0.65f);
+        private static readonly Vector3 VisualScale = new(0.85f, 0.85f, 0.85f);
         private static bool appliedThisDomain;
 
         [InitializeOnLoadMethod]
