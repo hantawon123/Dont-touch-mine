@@ -1158,9 +1158,11 @@ namespace Game.Tests.EditMode
 
             Assert.That(session.AllPlayerItemsDestroyed, Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
-            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(228.2d).Within(0.001d));
+            // Both event clips end at the match boundary, without a three-second prison tail.
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(222.2d).Within(0.001d));
             Assert.That(session.TryGetCurrentHighlight(out var highlight), Is.True);
             Assert.That(highlight.Type, Is.EqualTo(HighlightType.FirstBlood));
+            Assert.That(highlight.EndedAt, Is.EqualTo(200d));
             Assert.That(session.TryGetResult(out var result), Is.True);
             Assert.That(result.EndReason, Is.EqualTo(MatchEndReason.AllPlayerItemsDestroyed));
             Assert.That(result.EndedAt, Is.EqualTo(200d));
