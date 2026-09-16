@@ -62,6 +62,12 @@ namespace Game.Client.Settings
             /// <summary>Shown only while the background art is missing.</summary>
             public static readonly Color BackgroundFallback = FromHex(0x0B1018);
 
+            /// <summary>
+            /// Lobby and in-match overlay: a half-strength black over the
+            /// room, instead of the Home picture the standalone screen uses.
+            /// </summary>
+            public static readonly Color OverlayDim = FromHex(0x000000, 0.5f);
+
             public static readonly Color PanelFill = FromHex(0x231818);
             /// <summary>
             /// The accent, held well back. At full strength the halo competes
