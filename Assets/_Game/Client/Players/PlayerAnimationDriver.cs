@@ -170,8 +170,16 @@ namespace Game.Client.Players
             var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
             var clip = ResolveThrowClip(
                 movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed);
-            PlayOneShot(clip, 24f / 30f);
+            var offset = ThrowForwardStartSeconds(movement.Posture);
+            PlayOneShot(clip, 24f / 30f - offset);
+            // The item is released now. Skip the authored wind-up on every peer.
+            currentState = clip;
+            animator.speed = 1f;
+            animator.CrossFadeInFixedTime(clip, 0.05f, 0, offset);
         }
+
+        internal static float ThrowForwardStartSeconds(PlayerPosture posture) =>
+            (posture == PlayerPosture.Prone ? 8f : 10f) / 30f;
 
         internal static string ResolvePickupClip(PlayerPosture posture) => posture switch
         {
