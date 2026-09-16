@@ -37,6 +37,11 @@ namespace Game.Client.Players
         [SerializeField, Min(0.1f), Tooltip("이동 모션 재생 배율. 1이면 설정 걷기/달리기 속도에서 1배")]
         private float locomotionPlaybackScale = 1f;
 
+        [SerializeField, Tooltip("한 걸음씩 분리한 발소리. 순서대로 번갈아 재생한다")]
+        private AudioClip[] footstepClips;
+
+        private PlayerFootstepAudio footstepAudio;
+
         private float PunchDuration =>
             combatant != null && combatant.Config != null
                 ? combatant.Config.PunchMotionSeconds
@@ -79,6 +84,13 @@ namespace Game.Client.Players
 
             animator.applyRootMotion = false;
             lastPosture = movement.Posture;
+#if !UNITY_SERVER
+            if (footstepClips != null && footstepClips.Length > 0)
+            {
+                footstepAudio = gameObject.AddComponent<PlayerFootstepAudio>();
+                footstepAudio.Initialize(footstepClips);
+            }
+#endif
         }
 
         private void OnEnable()
@@ -92,6 +104,7 @@ namespace Game.Client.Players
 
         private void OnDisable()
         {
+            footstepAudio?.Stop();
             if (combatant != null)
             {
                 combatant.AttackPerformed -= OnAttackPerformed;
@@ -279,6 +292,12 @@ namespace Game.Client.Players
                 settings.CrouchSpeed,
                 settings.ProneSpeed,
                 locomotionPlaybackScale);
+        }
+
+        private void LateUpdate()
+        {
+            footstepAudio?.Tick(animator, currentState,
+                usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
         }
 
         private string ResolveDesiredState()

@@ -145,6 +145,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Client::Game.Client.Players.PlayerAnimationDriver
   punchDurationSeconds: 0.9
   locomotionPlaybackScale: 1
+  footstepClips:
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa01, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa02, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa03, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa04, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa05, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa06, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa07, type: 3}
+  - {fileID: 8300000, guid: c6b58e9df80d4bc3b3ce3754dd01aa08, type: 3}
 --- !u!114 &3812345678901234567
 MonoBehaviour:
   m_ObjectHideFlags: 0
