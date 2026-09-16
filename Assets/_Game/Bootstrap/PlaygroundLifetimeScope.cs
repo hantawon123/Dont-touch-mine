@@ -289,7 +289,7 @@ namespace Game.Bootstrap
             for (var index = 0; index < avatars.Count; index++)
             {
                 var avatar = avatars[index];
-                if (avatar == null)
+                if (avatar == null || !avatar.HasNetworkState)
                 {
                     continue;
                 }
@@ -303,6 +303,7 @@ namespace Game.Bootstrap
                 view.SetNickname(IsLocalAvatar(avatar)
                     ? string.Empty
                     : presentation.Name(avatar.PlayerId, avatar.Nickname.ToString()));
+                view.SetVoice(avatar.IsMuted, avatar.IsSendingVoice());
             }
         }
 

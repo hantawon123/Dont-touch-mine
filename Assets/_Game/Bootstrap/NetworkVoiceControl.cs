@@ -70,6 +70,11 @@ namespace Game.Bootstrap
         public void SetMuted(bool muted)
         {
             if (disposed) return;
+            if (!muted && !preferences.Listening)
+            {
+                return;
+            }
+
             preferences.Muted = muted;
             PublishEffectiveMute();
         }
@@ -78,7 +83,7 @@ namespace Game.Bootstrap
         {
             if (disposed) return;
             this.talking = talking;
-            network.Voice?.SetTalking(talking);
+            PublishTalking();
         }
 
         public void SetListening(bool listening)
@@ -86,10 +91,10 @@ namespace Game.Bootstrap
             if (disposed) return;
             preferences.Listening = listening;
             PublishListening();
-            if (!listening)
-            {
-                SetMuted(true);
-            }
+            // Effective mute follows the speaker, but the saved microphone
+            // choice is left alone so turning the speaker back on restores it.
+            PublishEffectiveMute();
+            PublishTalking();
         }
 
         /// <remarks>
@@ -115,7 +120,7 @@ namespace Game.Bootstrap
                 // nothing, so it hears what the player already decided.
                 current = voice;
                 voice.SetMuted(EffectiveMute);
-                voice.SetTalking(talking);
+                voice.SetTalking(EffectiveTalking);
                 voice.SetListening(preferences.Listening);
             }
 
@@ -135,14 +140,22 @@ namespace Game.Bootstrap
         }
 
         private bool EffectiveMute =>
-            VoiceMutePolicy.IsMuted(preferences.Muted, sound.Current.InputMode);
+            VoiceMutePolicy.IsMuted(
+                preferences.Muted, sound.Current.InputMode, preferences.Listening);
+
+        private bool EffectiveTalking =>
+            VoiceMutePolicy.IsTalking(
+                talking, sound.Current.InputMode, preferences.Listening);
 
         private void OnSoundChanged(SoundSettings _)
         {
-            if (!disposed)
+            if (disposed)
             {
-                PublishEffectiveMute();
+                return;
             }
+
+            PublishEffectiveMute();
+            PublishTalking();
         }
 
         private void PublishEffectiveMute()
@@ -150,6 +163,11 @@ namespace Game.Bootstrap
             var next = EffectiveMute;
             muted.Value = next;
             network.Voice?.SetMuted(next);
+        }
+
+        private void PublishTalking()
+        {
+            network.Voice?.SetTalking(EffectiveTalking);
         }
 
         private void PublishListening()

@@ -130,10 +130,13 @@ echo
 echo "--- 수집된 이벤트 (rows=행, matches=경기) ---"
 # schema_ver 로 나눠 셉니다. v2 가 없으면 새 Unity 빌드가 아직 배포되지 않은 것이고,
 # 그때는 대시보드가 비어 있는 것이 정상입니다. 뷰가 schema_ver = 2 만 읽습니다.
+# 비어 있으면 mysql -t 는 아무것도 찍지 않습니다. 그게 "조회 실패"로 읽히지 않게 한 줄 남깁니다.
+# reset-analytics.sh 로 비운 직후가 그 상태이고, 백업은 /home/ubuntu/d205-backups/game_event_*.sql.gz 입니다.
 ask_analytics d205_analytics \
   'SELECT schema_ver, COUNT(*) AS rows_in, COUNT(DISTINCT match_id) AS matches,
           MIN(received_at) AS first_at, MAX(received_at) AS last_at
-     FROM game_event GROUP BY schema_ver ORDER BY schema_ver;'
+     FROM game_event GROUP BY schema_ver ORDER BY schema_ver;' | grep . \
+  || echo '  (game_event 가 비어 있습니다. reset-analytics.sh 직후면 정상입니다)'
 
 # 분석에 실제로 쓸 수 있는 경기 수. 시작·종료가 다 있고 예정 건수와 맞고 중단이
 # 아닌 것만 셉니다. 받은 경기가 있는데 complete 가 0 이면 전송이 중간에 끊기고 있습니다.

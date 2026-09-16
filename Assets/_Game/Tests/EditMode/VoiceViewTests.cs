@@ -10,7 +10,7 @@ namespace Game.Architecture.Tests
     public sealed class VoiceViewTests
     {
         [Test]
-        public void SetState_UsesOnlyWhiteMicAndGreySlash()
+        public void SetState_UsesWhiteIdle_GreenTalk_AndGreyMute()
         {
             var root = new GameObject("Voice", typeof(RectTransform));
             try
@@ -23,12 +23,19 @@ namespace Game.Architecture.Tests
                 root.SetActive(true);
 
                 Assert.That(VoiceView.MicOnSprite, Is.Not.Null);
+                Assert.That(VoiceView.MicTalkSprite, Is.Not.Null);
                 Assert.That(VoiceView.MicOffSprite, Is.Not.Null);
                 Assert.That(VoiceView.MicOnResource, Is.EqualTo("UI/Icon_Mic_White"));
+                Assert.That(VoiceView.MicTalkResource, Is.EqualTo("UI/Icon_Mic_Green"));
                 Assert.That(VoiceView.MicOffResource, Is.EqualTo("UI/Icon_Mic_Off_Gray"));
+                Assert.That(VoiceView.SpeakerOnResource, Is.EqualTo("UI/Icon_Headset_White"));
+                Assert.That(VoiceView.SpeakerOffResource, Is.EqualTo("UI/Icon_Headset_Off_Gray"));
+
+                view.SetState(available: true, muted: false, latched: true, transmitting: false, listening: true);
+                Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOnSprite));
 
                 view.SetState(available: true, muted: false, latched: true, transmitting: true, listening: true);
-                Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOnSprite));
+                Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicTalkSprite));
 
                 view.SetState(available: true, muted: true, latched: false, transmitting: false, listening: true);
                 Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOffSprite));
@@ -169,7 +176,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void SpeakerOff_AlsoMutesTheMicrophone()
+        public void SpeakerOff_RestoresThePreviousMicrophoneState()
         {
             var view = new FakeVoiceView();
             var voice = new FakeVoiceControl(muted: false);
@@ -183,6 +190,27 @@ namespace Game.Architecture.Tests
 
                 presenter.HandleSpeakerToggle();
                 Assert.That(voice.IsListening.CurrentValue, Is.True);
+                Assert.That(voice.IsMuted.CurrentValue, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(asset);
+            }
+        }
+
+        [Test]
+        public void SpeakerOff_IgnoresMicrophoneUnmute()
+        {
+            var view = new FakeVoiceView();
+            var voice = new FakeVoiceControl(muted: false);
+            var asset = ScriptableObject.CreateInstance<InputActionAsset>();
+            try
+            {
+                var presenter = new VoicePresenter(view, voice, asset);
+                presenter.HandleSpeakerToggle();
+                presenter.HandleVoiceToggle();
+
+                Assert.That(voice.IsListening.CurrentValue, Is.False);
                 Assert.That(voice.IsMuted.CurrentValue, Is.True);
             }
             finally
@@ -210,12 +238,14 @@ namespace Game.Architecture.Tests
         private sealed class FakeVoiceControl : Game.Core.Ports.IVoiceControl
         {
             private readonly R3.ReactiveProperty<bool> muted;
+            private bool preferenceMuted;
             private readonly R3.ReactiveProperty<bool> available = new(true);
             private readonly R3.ReactiveProperty<bool> transmitting = new(false);
             private readonly R3.ReactiveProperty<bool> listening = new(true);
 
             public FakeVoiceControl(bool muted)
             {
+                preferenceMuted = muted;
                 this.muted = new R3.ReactiveProperty<bool>(muted);
             }
 
@@ -224,13 +254,26 @@ namespace Game.Architecture.Tests
             public R3.ReadOnlyReactiveProperty<bool> IsTransmitting => transmitting;
             public R3.ReadOnlyReactiveProperty<bool> IsListening => listening;
 
-            public void SetMuted(bool value) => muted.Value = value;
+            public void SetMuted(bool value)
+            {
+                if (!value && !listening.Value)
+                {
+                    return;
+                }
+
+                preferenceMuted = value;
+                muted.Value = !listening.Value || preferenceMuted;
+            }
 
             public void SetTalking(bool talking)
             {
             }
 
-            public void SetListening(bool value) => listening.Value = value;
+            public void SetListening(bool value)
+            {
+                listening.Value = value;
+                muted.Value = !value || preferenceMuted;
+            }
         }
     }
 }

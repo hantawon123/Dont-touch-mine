@@ -13,8 +13,9 @@ namespace Game.Client.Voice
         event Action SpeakerToggleRequested;
 
         /// <summary>
-        /// Paints the two plates: a white mic or grey slash, and a white
-        /// speaker or grey slash. Latch and transmit do not get a third picture.
+        /// Paints the two plates: a white mic, a green mic while voice is
+        /// leaving, or a grey slash when muted; and a white headset or grey
+        /// slash.
         /// </summary>
         void SetState(bool available, bool muted, bool latched, bool transmitting, bool listening);
     }
@@ -29,7 +30,10 @@ namespace Game.Client.Voice
         public const string SpeakerButtonName = "SpeakerButton";
         public const string IconName = "Icon";
         public const string MicOnResource = "UI/Icon_Mic_White";
+        public const string MicTalkResource = "UI/Icon_Mic_Green";
         public const string MicOffResource = "UI/Icon_Mic_Off_Gray";
+        public const string SpeakerOnResource = "UI/Icon_Headset_White";
+        public const string SpeakerOffResource = "UI/Icon_Headset_Off_Gray";
         public const float ButtonSize = 50f;
         public const int ButtonRadius = 10;
         public const float IconSize = 28f;
@@ -39,6 +43,7 @@ namespace Game.Client.Voice
         public static readonly Color PlateColor = new Color(0f, 0f, 0f, 0.6f);
 
         private static Sprite micOn;
+        private static Sprite micTalk;
         private static Sprite micOff;
         private static Sprite speakerOn;
         private static Sprite speakerOff;
@@ -69,6 +74,18 @@ namespace Game.Client.Voice
         /// </summary>
         [SerializeField]
         private TMP_Text tmpLabel;
+
+        [NonSerialized]
+        private Button wiredMuteButton;
+
+        [NonSerialized]
+        private Image wiredIcon;
+
+        [NonSerialized]
+        private Button wiredSpeakerButton;
+
+        [NonSerialized]
+        private Image wiredSpeakerIcon;
 
         public event Action MuteToggleRequested;
 
@@ -285,39 +302,25 @@ namespace Game.Client.Voice
         /// </summary>
         public void BindMuteControl(Button button, Image backgroundImage, Image iconImage)
         {
-            var listening = isActiveAndEnabled;
-            if (listening)
-            {
-                UnbindClick();
-            }
-
+            UnbindClick();
             muteButton = button;
             background = backgroundImage;
             icon = iconImage;
+            wiredMuteButton = button;
+            wiredIcon = iconImage;
             HideCaptions();
-
-            if (listening)
-            {
-                BindClick();
-            }
+            BindClick();
         }
 
         public void BindSpeakerControl(Button button, Image backgroundImage, Image iconImage)
         {
-            var listening = isActiveAndEnabled;
-            if (listening)
-            {
-                UnbindSpeakerClick();
-            }
-
+            UnbindSpeakerClick();
             speakerButton = button;
             speakerBackground = backgroundImage;
             speakerIcon = iconImage;
-
-            if (listening)
-            {
-                BindSpeakerClick();
-            }
+            wiredSpeakerButton = button;
+            wiredSpeakerIcon = iconImage;
+            BindSpeakerClick();
         }
 
         public void BindSlot(RectTransform slot)
@@ -359,6 +362,7 @@ namespace Game.Client.Voice
 
         private void OnEnable()
         {
+            HydrateWiredControls();
             BindClick();
             BindSpeakerClick();
             HideCaptions();
@@ -386,26 +390,28 @@ namespace Game.Client.Voice
             bool transmitting,
             bool listening)
         {
-            if (icon != null)
+            if (wiredIcon != null)
             {
-                icon.sprite = muted ? MicOffSprite : MicOnSprite;
+                wiredIcon.sprite = muted
+                    ? MicOffSprite
+                    : transmitting ? MicTalkSprite : MicOnSprite;
             }
 
-            if (speakerIcon != null)
+            if (wiredSpeakerIcon != null)
             {
-                speakerIcon.sprite = listening ? SpeakerOnSprite : SpeakerOffSprite;
+                wiredSpeakerIcon.sprite = listening ? SpeakerOnSprite : SpeakerOffSprite;
             }
 
             HideCaptions();
 
-            if (muteButton != null)
+            if (wiredMuteButton != null)
             {
-                muteButton.interactable = true;
+                wiredMuteButton.interactable = true;
             }
 
-            if (speakerButton != null)
+            if (wiredSpeakerButton != null)
             {
-                speakerButton.interactable = true;
+                wiredSpeakerButton.interactable = true;
             }
         }
 
@@ -422,41 +428,49 @@ namespace Game.Client.Voice
             }
         }
 
+        private void HydrateWiredControls()
+        {
+            wiredMuteButton ??= muteButton;
+            wiredIcon ??= icon;
+            wiredSpeakerButton ??= speakerButton;
+            wiredSpeakerIcon ??= speakerIcon;
+        }
+
         private void BindClick()
         {
-            if (muteButton == null)
+            if (wiredMuteButton == null)
             {
                 return;
             }
 
-            muteButton.onClick.RemoveListener(HandleMuteClicked);
-            muteButton.onClick.AddListener(HandleMuteClicked);
+            wiredMuteButton.onClick.RemoveListener(HandleMuteClicked);
+            wiredMuteButton.onClick.AddListener(HandleMuteClicked);
         }
 
         private void UnbindClick()
         {
-            if (muteButton != null)
+            if (wiredMuteButton != null)
             {
-                muteButton.onClick.RemoveListener(HandleMuteClicked);
+                wiredMuteButton.onClick.RemoveListener(HandleMuteClicked);
             }
         }
 
         private void BindSpeakerClick()
         {
-            if (speakerButton == null)
+            if (wiredSpeakerButton == null)
             {
                 return;
             }
 
-            speakerButton.onClick.RemoveListener(HandleSpeakerClicked);
-            speakerButton.onClick.AddListener(HandleSpeakerClicked);
+            wiredSpeakerButton.onClick.RemoveListener(HandleSpeakerClicked);
+            wiredSpeakerButton.onClick.AddListener(HandleSpeakerClicked);
         }
 
         private void UnbindSpeakerClick()
         {
-            if (speakerButton != null)
+            if (wiredSpeakerButton != null)
             {
-                speakerButton.onClick.RemoveListener(HandleSpeakerClicked);
+                wiredSpeakerButton.onClick.RemoveListener(HandleSpeakerClicked);
             }
         }
 
@@ -467,95 +481,16 @@ namespace Game.Client.Voice
         public static Sprite MicOnSprite =>
             micOn ??= Resources.Load<Sprite>(MicOnResource);
 
+        public static Sprite MicTalkSprite =>
+            micTalk ??= Resources.Load<Sprite>(MicTalkResource);
+
         public static Sprite MicOffSprite =>
             micOff ??= Resources.Load<Sprite>(MicOffResource);
 
         public static Sprite SpeakerOnSprite =>
-            speakerOn ??= BuildSpeakerSprite(slashed: false);
+            speakerOn ??= Resources.Load<Sprite>(SpeakerOnResource);
 
         public static Sprite SpeakerOffSprite =>
-            speakerOff ??= BuildSpeakerSprite(slashed: true);
-
-        /// <summary>
-        /// A speaker cone and one sound wave, or the same glyph with a slash
-        /// when the room is not being heard.
-        /// </summary>
-        private static Sprite BuildSpeakerSprite(bool slashed)
-        {
-            const int size = 64;
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-            {
-                hideFlags = HideFlags.HideAndDontSave,
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp
-            };
-
-            var ink = slashed
-                ? new Color(0.66f, 0.68f, 0.7f, 1f)
-                : Color.white;
-            var clear = Color.clear;
-            var pixels = new Color[size * size];
-            for (var i = 0; i < pixels.Length; i++)
-            {
-                pixels[i] = clear;
-            }
-
-            void Plot(int x, int y)
-            {
-                if (x < 0 || x >= size || y < 0 || y >= size)
-                {
-                    return;
-                }
-
-                pixels[y * size + x] = ink;
-            }
-
-            for (var y = 22; y <= 41; y++)
-            {
-                for (var x = 12; x <= 22; x++)
-                {
-                    Plot(x, y);
-                }
-            }
-
-            for (var y = 14; y <= 49; y++)
-            {
-                var t = (y - 14) / 35f;
-                var inset = Mathf.RoundToInt(Mathf.Abs(t - 0.5f) * 18f);
-                var left = 22;
-                var right = 36 - inset;
-                for (var x = left; x <= right; x++)
-                {
-                    Plot(x, y);
-                }
-            }
-
-            for (var y = 18; y <= 45; y++)
-            {
-                var mid = 31.5f;
-                var rise = Mathf.Abs(y - mid);
-                var x = 42 + Mathf.RoundToInt(rise * 0.12f);
-                Plot(x, y);
-                Plot(x + 1, y);
-            }
-
-            if (slashed)
-            {
-                for (var i = 10; i <= 52; i++)
-                {
-                    Plot(i, i - 4);
-                    Plot(i, i - 3);
-                    Plot(i + 1, i - 4);
-                }
-            }
-
-            texture.SetPixels(pixels);
-            texture.Apply(false, true);
-            return Sprite.Create(
-                texture,
-                new Rect(0f, 0f, size, size),
-                new Vector2(0.5f, 0.5f),
-                100f);
-        }
+            speakerOff ??= Resources.Load<Sprite>(SpeakerOffResource);
     }
 }

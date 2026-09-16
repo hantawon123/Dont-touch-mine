@@ -75,6 +75,7 @@ namespace Game.Client.Common
         {
             overlay.Show();
             await SceneLoadSlicer.YieldFrame();
+            await UniTask.WaitUntil(() => WebLoadingAnimation.IsReady);
         }
     }
 }

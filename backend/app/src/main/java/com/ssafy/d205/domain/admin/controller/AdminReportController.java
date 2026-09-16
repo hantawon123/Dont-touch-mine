@@ -12,8 +12,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ssafy.d205.domain.admin.dto.AdminReportStats;
+import com.ssafy.d205.domain.admin.service.AdminReportStatsService;
 import com.ssafy.d205.domain.report.dto.ReportDetail;
 import com.ssafy.d205.domain.report.dto.ReportedUserListResponse;
+import com.ssafy.d205.domain.report.dto.ReporterListResponse;
 import com.ssafy.d205.domain.report.dto.ReviewReportRequest;
 import com.ssafy.d205.domain.report.entity.ReportStatus;
 import com.ssafy.d205.domain.report.service.ReportReviewService;
@@ -34,6 +37,7 @@ import com.ssafy.d205.domain.report.service.ReportReviewService;
 public class AdminReportController {
 
     private final ReportReviewService reportReviewService;
+    private final AdminReportStatsService adminReportStatsService;
 
     /**
      * 신고당한 사람 목록. 기본은 아직 보지 않은 것입니다.
@@ -49,6 +53,37 @@ public class AdminReportController {
     public ReportedUserListResponse list(
             @RequestParam(defaultValue = "PENDING") ReportStatus status) {
         return reportReviewService.list(status);
+    }
+
+    /**
+     * 신고<b>한</b> 사람 목록. 무고성 신고를 반복하는 사람을 찾는 자리입니다 (S15P21D205-1004).
+     *
+     * <p>위 목록을 뒤집은 것입니다. 사람마다 신고 건수, 상태별 건수, 검토된 것 중 기각 비율, 신고한
+     * 상대 수가 옵니다. "10건 중 9건 기각, 상대 1명" 이면 한 사람을 집요하게 무고하는 것이고, 그건
+     * 신고당한 사람 목록에서는 그 상대가 "9건 기각" 으로만 보여 알아볼 수 없습니다.
+     *
+     * <p>탈퇴한 신고자들은 userId 가 null 인 한 줄로 묶여 옵니다. 몇 명이었는지 알 수 없어 나누지
+     * 않습니다.
+     *
+     * <p>경로가 {@code /reporters} 인 이유는 {@code /{userId}} 상세와 갈라놓기 위해서입니다. 사용자 UUID
+     * 에는 이 글자열이 나올 수 없습니다.
+     */
+    @GetMapping("/reporters")
+    public ReporterListResponse reporters() {
+        return reportReviewService.reporters();
+    }
+
+    /**
+     * 최근 n 일의 신고 분포 - 사유별, 처리 상태별, 날짜별 (S15P21D205-1004).
+     *
+     * <p>기간은 <b>들어온 시각</b> 기준이고 날짜는 한국 시간입니다. days 는 생략하면 30, 1~365 로
+     * 깎습니다. 범위 밖이라고 400 을 주지 않는 이유는 피드백 limit 과 같습니다.
+     *
+     * <p>세 표가 모두 {@code columns}·{@code rows} 모양이라 화면이 분석 탭과 같은 코드로 그립니다.
+     */
+    @GetMapping("/stats")
+    public AdminReportStats stats(@RequestParam(required = false) Integer days) {
+        return adminReportStatsService.stats(days);
     }
 
     /**

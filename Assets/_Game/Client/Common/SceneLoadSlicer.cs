@@ -66,7 +66,7 @@ namespace Game.Client.Common
             }
 
             var previous = Application.backgroundLoadingPriority;
-            Application.backgroundLoadingPriority = ThreadPriority.High;
+            Application.backgroundLoadingPriority = ThreadPriority.BelowNormal;
             try
             {
                 var operation = SceneManager.LoadSceneAsync(sceneName);

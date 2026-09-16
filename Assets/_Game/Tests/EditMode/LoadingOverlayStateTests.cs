@@ -1,3 +1,10 @@
+using System;
+using System.Reflection;
+using Game.Bootstrap;
+using Game.Client.Home;
+using Game.Network.Session;
+using UnityEngine;
+using UnityEngine.TestTools;
 using Game.Client.Common;
 using NUnit.Framework;
 
@@ -31,6 +38,30 @@ namespace Game.Architecture.Tests
             public void HideImmediate() => IsPresented = false;
         }
 
+        [TestCase(typeof(HomeLifetimeScope), "NetworkHomeApplicationHost")]
+        [TestCase(typeof(RoomBrowserLifetimeScope), "NetworkRoomApplicationHost")]
+        public void EntryCompletion_DoesNotRepaintAnAlreadyDismissedCover(Type scope, string hostName)
+        {
+            var overlay = new LoadingOverlay();
+            var view = new SpyView();
+            overlay.Attach(view);
+            overlay.Show();
+            overlay.Hide(); // Lobby readiness can finish before the room response.
+            var network = new NetworkRunnerService(null, null, null, null, null, null);
+            var hostType = scope.GetNestedType(hostName, BindingFlags.NonPublic);
+            var args = scope == typeof(HomeLifetimeScope)
+                ? new object[] { null, null, network, null, null, overlay }
+                : new object[] { network, null, overlay };
+            var host = (IHomeApplicationHost)Activator.CreateInstance(hostType, args);
+
+            // Also exercise the session-lost path: it must dismiss, never repaint.
+            LogAssert.Expect(LogType.Error,
+                "[Session] Cannot enter Lobby without a running room session.");
+            host.OpenLobby();
+
+            Assert.That(view.Shows, Is.EqualTo(1), "Only the original entry request may show the cover.");
+            Assert.That(view.IsPresented, Is.False);
+        }
         [Test]
         public void AShowWithNoView_IsAppliedToTheNextOne()
         {

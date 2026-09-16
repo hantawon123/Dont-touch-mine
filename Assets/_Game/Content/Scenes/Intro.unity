@@ -616,7 +616,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 262208370a7cb9e43ad13ac640f14336, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Intro.IntroFadeOut
-  fadeDuration: 0.7
+  fadeDuration: 0.35
   color: {r: 0.011764706, g: 0.03137255, b: 0.07450981, a: 1}
 --- !u!212 &1229999410
 SpriteRenderer:
@@ -903,7 +903,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c44229c7f9518e94f8a7feed2ac2931e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Intro.IntroLoopController
-  loopDuration: 5
+  loopDuration: 4.5
   useUnscaledTime: 1
   autoFinish: 1
   loopCount: 1
@@ -1077,7 +1077,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Intro.IntroAudioFade
   baseVolume: 0.8
-  fadeDuration: 0.7
+  fadeDuration: 0.3
+  fadeEndLeadTime: 0.5
 --- !u!1 &1502820611
 GameObject:
   m_ObjectHideFlags: 0

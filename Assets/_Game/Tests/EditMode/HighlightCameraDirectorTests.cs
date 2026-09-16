@@ -22,7 +22,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Focus_UsesWideEstablishingShotThenClosesOnEvent()
+        public void Focus_KeepsDefaultFollowDistanceAcrossEventShots()
         {
             var camera = Create("Camera", Vector3.zero);
             var fallback = Create("Fallback", Vector3.left);
@@ -37,14 +37,17 @@ namespace Game.Tests.EditMode
                 director.Focus(Candidate(HighlightType.FirstBlood, "item", eventAt: 7d)),
                 Is.True);
 
-            Assert.That(camera.transform.position.z, Is.EqualTo(-14f));
-            Assert.That(camera.transform.position.y, Is.EqualTo(8.5f));
+            Assert.That(camera.transform.position.z, Is.EqualTo(-7f));
+            Assert.That(camera.transform.position.y, Is.EqualTo(4f));
+            var initialPosition = camera.transform.position;
             director.SetPlaybackTime(6.5d);
-            Assert.That(camera.transform.position.z, Is.EqualTo(-10f));
+            director.Tick(1f);
+            Assert.That(director.CurrentShot.Value.Framing, Is.EqualTo(HighlightShotFraming.Close));
+            Assert.That(camera.transform.position, Is.EqualTo(initialPosition));
         }
 
         [Test]
-        public void Focus_UsesWideDistanceForJourneyHighlights()
+        public void Focus_UsesDefaultFollowDistanceForJourneyHighlights()
         {
             var camera = Create("Camera", Vector3.zero);
             var fallback = Create("Fallback", Vector3.left);
@@ -57,7 +60,7 @@ namespace Game.Tests.EditMode
 
             director.Focus(Candidate(HighlightType.LongestHidden, "item"));
 
-            Assert.That(camera.transform.position.z, Is.EqualTo(-14f));
+            Assert.That(camera.transform.position.z, Is.EqualTo(-7f));
         }
 
         [Test]
@@ -80,7 +83,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Focus_KeepsTheSameTopViewDirectionRegardlessOfActorFacing()
+        public void Focus_HoldsInitialActorHeadingUntilTheNextHighlight()
         {
             var camera = Create("Camera", Vector3.zero);
             var fallback = Create("Fallback", Vector3.left);
@@ -100,12 +103,16 @@ namespace Game.Tests.EditMode
             var firstRotation = camera.transform.rotation;
 
             player.transform.rotation = Quaternion.Euler(0f, 120f, 0f);
-            director.Focus(Candidate(
-                HighlightType.FirstBlood, "item", eventAt: 7d, actorPlayerIndex: 0));
             director.SetPlaybackTime(6.5d);
+            director.Tick(1f);
 
             Assert.That(camera.transform.position, Is.EqualTo(firstPosition));
             Assert.That(Quaternion.Angle(camera.transform.rotation, firstRotation), Is.LessThan(0.001f));
+
+            director.Focus(Candidate(
+                HighlightType.FirstBlood, "item", eventAt: 7d, actorPlayerIndex: 0));
+            Assert.That(Vector3.Distance(camera.transform.position, firstPosition), Is.GreaterThan(1f));
+            Assert.That(Quaternion.Angle(camera.transform.rotation, firstRotation), Is.GreaterThan(90f));
         }
 
         [Test]

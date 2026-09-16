@@ -121,6 +121,123 @@ class AdminFeedbackApiTest extends IntegrationTest {
         assertThat(list(admin, 1).size()).isEqualTo(1);
     }
 
+    // --- 검색과 분포 (S15P21D205-1004) --------------------------------------------
+
+    @Test
+    @DisplayName("검색은 본문에 그 말이 든 것만 돌려준다")
+    void searchReturnsOnlyMessagesContainingTheKeyword() throws Exception {
+        String me = createUser();
+        String marker = UUID.randomUUID().toString().substring(0, 8);
+        send(me, "숨는 시간이 짧아요 " + marker);
+        send(me, "찾는 시간이 길어요 " + marker);
+        send(me, "이 줄은 표식이 없습니다");
+
+        MockHttpSession admin = login();
+        JsonNode hits = search(admin, "짧아요 " + marker);
+
+        assertThat(hits.size()).isEqualTo(1);
+        assertThat(hits.get(0).get("message").asText()).contains("숨는 시간이 짧아요");
+
+        // 비우면 검색이 아니라 전체 목록입니다. 운영자가 검색칸을 비우고 누르는 것은 "다 보여 달라" 입니다.
+        assertThat(onlyWith(search(admin, "   "), marker).size()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("퍼센트와 밑줄은 와일드카드가 아니라 글자로 찾는다")
+    void likeWildcardsAreSearchedLiterally() throws Exception {
+        // 이스케이프하지 않으면 "100%" 를 찾는 운영자가 전체 목록을 받고 왜 그런지 알 수 없습니다.
+        String me = createUser();
+        String marker = UUID.randomUUID().toString().substring(0, 8);
+        send(me, "진행률 100% 에서 멈춤 " + marker);
+        send(me, "진행률 1000 에서 멈춤 " + marker);
+
+        MockHttpSession admin = login();
+        assertThat(search(admin, "100% 에서").size()).isEqualTo(1);
+        assertThat(search(admin, "10_% 에서")).isEmpty();
+        assertThat(onlyWith(search(admin, "진행률 100"), marker).size()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("분포는 플랫폼·빌드별로 세고, 안 보낸 것은 한 줄로 묶이며, 숨긴 것은 빠진다")
+    void statsCountPlatformAndBuildAndDropHiddenRows() throws Exception {
+        String me = createUser();
+        String marker = UUID.randomUUID().toString().substring(0, 8);
+        String platform = "P-" + marker;
+        String build = "b-" + marker;
+
+        mvc.perform(post("/api/v1/feedback")
+                        .header(USER_ID_HEADER, me)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"분포 확인 " + marker
+                                + "\",\"buildVer\":\"" + build + "\",\"platform\":\"" + platform + "\"}"))
+                .andExpect(status().isCreated());
+        send(me, "플랫폼 없이 보낸 것 " + marker);
+
+        Admin admin = loginWithCsrf();
+        JsonNode stats = stats(admin.session(), 1);
+
+        assertThat(stats.get("days").asInt()).isEqualTo(1);
+        assertThat(stats.get("daily").get("rows").size()).isEqualTo(1);
+        assertThat(countIn(stats.get("byPlatform"), platform)).isEqualTo(1);
+        assertThat(countIn(stats.get("byBuild"), build)).isEqualTo(1);
+        assertThat(countIn(stats.get("byPlatform"), "(없음)")).isGreaterThanOrEqualTo(1);
+
+        // 숨기면 분포에서도 빠져야 합니다. 목록에서 치운 것이 막대에만 남으면 두 화면이 다른 말을 합니다.
+        int id = onlyWith(search(admin.session(), "분포 확인 " + marker), marker).get(0).get("id").asInt();
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch(ADMIN_FEEDBACK + "/" + id + "/hidden")
+                        .session(admin.session())
+                        .cookie(admin.csrf())
+                        .header("X-XSRF-TOKEN", admin.csrf().getValue()))
+                .andExpect(status().isOk());
+
+        assertThat(countIn(stats(admin.session(), 1).get("byPlatform"), platform)).isEqualTo(0);
+        assertThat(search(admin.session(), "분포 확인 " + marker)).isEmpty();
+    }
+
+    private JsonNode search(MockHttpSession admin, String q) throws Exception {
+        String body = mvc.perform(get(ADMIN_FEEDBACK).session(admin).param("q", q))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("feedback");
+    }
+
+    private JsonNode stats(MockHttpSession admin, int days) throws Exception {
+        String body = mvc.perform(get(ADMIN_FEEDBACK + "/stats").session(admin).param("days", String.valueOf(days)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body);
+    }
+
+    /** 이름·건수 표에서 그 이름의 건수. 없으면 0 입니다. */
+    private static int countIn(JsonNode table, String label) {
+        for (JsonNode row : table.get("rows")) {
+            if (label.equals(row.get(0).asText())) {
+                return row.get(1).asInt();
+            }
+        }
+        return 0;
+    }
+
+    /** 숨김처럼 상태를 바꾸는 요청에는 CSRF 토큰이 필요합니다. 읽기만 하는 테스트는 {@link #login()} 으로 충분합니다. */
+    private Admin loginWithCsrf() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+
+        MvcResult result = mvc.perform(post(LOGIN)
+                        .session(session)
+                        .param("username", "test-admin")
+                        .param("password", "test-password"))
+                .andExpect(status().isNoContent())
+                .andReturn();
+
+        jakarta.servlet.http.Cookie token = result.getResponse().getCookie("XSRF-TOKEN");
+        assertThat(token).as("로그인 응답에 CSRF 토큰 쿠키가 없습니다").isNotNull();
+        return new Admin(session, token);
+    }
+
+    private record Admin(MockHttpSession session, jakarta.servlet.http.Cookie csrf) {
+    }
+
     /** 이 테스트가 만든 것만 골라 냅니다. 컨텍스트를 공유하므로 다른 테스트의 행이 섞입니다. */
     private JsonNode onlyWith(JsonNode list, String marker) {
         var filtered = objectMapper.createArrayNode();

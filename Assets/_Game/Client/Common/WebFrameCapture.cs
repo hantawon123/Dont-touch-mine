@@ -1,80 +1,143 @@
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.Scripting;
 
 namespace Game.Client.Common
 {
-    /// <summary>Opt-in, local-only frame timing capture for WebGL playtests (?perf=1).</summary>
+    /// <summary>Opt-in local capture shared by Editor, desktop (-perf, F8) and WebGL (?perf=1).</summary>
     public sealed class WebFrameCapture : MonoBehaviour
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")] private static extern void GamePerfInstall(string target);
         [DllImport("__Internal")] private static extern void GamePerfReport(string json);
-
-        [Serializable] private sealed class Report
+#endif
+        [Serializable] internal sealed class Report
         {
-            public string revision, scene, quality, graphicsDevice;
-            public int width, height, frames, slow50ms, gcCollections;
-            public double seconds, averageFps, p50ms, p95ms, p99ms, maxMs;
-            public long managedHeapBytes;
-            public bool interrupted;
+            public string revision, scene, endScene, quality, graphicsDevice, processor, platform, unityVersion, utc;
+            public int width, height, endWidth, endHeight, frameCap, vSync, frames, slow50ms, overBudget120, gcCollections;
+            public double seconds, averageFps, p50ms, p95ms, p99ms, maxMs, overBudget120Percent, refreshHz;
+            public long managedHeapBytes, initialManagedHeapBytes;
+            public bool interrupted, editor, developmentBuild;
         }
 
         private float[] samples;
-        private int count, slow, initialGc;
+        private int count, initialGc, initialQuality;
         private double startedAt, previousFrame;
-        private string scene;
-        private bool interrupted;
+        private bool capturing, hotkey;
+        private Report report;
 
-        private void Start() => GamePerfInstall(gameObject.name);
+        private void Start()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            GamePerfInstall(gameObject.name);
+#else
+            hotkey = Array.IndexOf(Environment.GetCommandLineArgs(), "-perf") >= 0;
+#endif
+            enabled = capturing || hotkey;
+        }
 
-        [Preserve]
+        [Preserve, ContextMenu("Capture 30 Seconds")]
         public void BeginCapture()
         {
+            if (capturing) return;
             samples ??= new float[32768];
-            count = slow = 0;
+            count = 0;
+            initialQuality = QualitySettings.GetQualityLevel();
+            report = new Report
+            {
+                revision = Application.version, scene = SceneManager.GetActiveScene().name,
+                quality = QualitySettings.names[initialQuality],
+                graphicsDevice = SystemInfo.graphicsDeviceName, processor = SystemInfo.processorType,
+                platform = Application.platform.ToString(), unityVersion = Application.unityVersion,
+                editor = Application.isEditor, developmentBuild = Debug.isDebugBuild,
+                utc = DateTime.UtcNow.ToString("O"), refreshHz = Screen.currentResolution.refreshRateRatio.value,
+                width = Screen.width, height = Screen.height, frameCap = Application.targetFrameRate,
+                vSync = QualitySettings.vSyncCount, initialManagedHeapBytes = GC.GetTotalMemory(false),
+                interrupted = !Application.isFocused
+            };
+            SceneManager.activeSceneChanged += OnSceneChanged;
             initialGc = GC.CollectionCount(0);
             startedAt = previousFrame = Time.realtimeSinceStartupAsDouble;
-            scene = SceneManager.GetActiveScene().name;
-            interrupted = !Application.isFocused;
+            capturing = enabled = true;
         }
 
         private void Update()
         {
-            if (startedAt <= 0d) return;
-            var now = Time.realtimeSinceStartupAsDouble;
-            var milliseconds = (float)((now - previousFrame) * 1000d);
-            previousFrame = now;
-            samples[count++] = milliseconds;
-            if (milliseconds > 50f) slow++;
-            interrupted |= !Application.isFocused || SceneManager.GetActiveScene().name != scene;
-            if (now - startedAt < 30d && count < samples.Length) return;
-
-            Array.Sort(samples, 0, count);
-            var seconds = now - startedAt;
-            startedAt = 0d;
-            GamePerfReport(JsonUtility.ToJson(new Report
+            if (hotkey && Keyboard.current != null && Keyboard.current.f8Key.wasPressedThisFrame)
             {
-                revision = Application.version, scene = scene,
-                quality = QualitySettings.names[QualitySettings.GetQualityLevel()],
-                graphicsDevice = SystemInfo.graphicsDeviceName,
-                width = Screen.width, height = Screen.height, frames = count,
-                seconds = seconds, averageFps = count / seconds,
-                p50ms = Percentile(.50), p95ms = Percentile(.95), p99ms = Percentile(.99),
-                maxMs = samples[count - 1], slow50ms = slow,
-                gcCollections = GC.CollectionCount(0) - initialGc,
-                managedHeapBytes = GC.GetTotalMemory(false), interrupted = interrupted
-            }, true));
+                BeginCapture();
+                return;
+            }
+            if (!capturing) return;
+            var now = Time.realtimeSinceStartupAsDouble;
+            samples[count++] = (float)((now - previousFrame) * 1000d);
+            previousFrame = now;
+            report.interrupted |= !Application.isFocused ||
+                Screen.width != report.width || Screen.height != report.height ||
+                Application.targetFrameRate != report.frameCap || QualitySettings.vSyncCount != report.vSync ||
+                QualitySettings.GetQualityLevel() != initialQuality;
+            if (now - startedAt >= 30d || count == samples.Length) FinishCapture(now);
         }
 
-        private double Percentile(double fraction) => samples[Math.Max(0, (int)Math.Ceiling(count * fraction) - 1)];
+        private void FinishCapture(double now)
+        {
+            SceneManager.activeSceneChanged -= OnSceneChanged;
+            capturing = false;
+            enabled = hotkey;
+            Summarize(samples, count, now - startedAt, report);
+            report.endScene = SceneManager.GetActiveScene().name;
+            report.endWidth = Screen.width;
+            report.endHeight = Screen.height;
+            report.gcCollections = GC.CollectionCount(0) - initialGc;
+            report.managedHeapBytes = GC.GetTotalMemory(false);
+            var json = JsonUtility.ToJson(report, true);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            GamePerfReport(json);
+#else
+            try
+            {
+                var directory = Path.Combine(Application.persistentDataPath, "Performance");
+                Directory.CreateDirectory(directory);
+                var path = Path.Combine(directory, "frames-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + ".json");
+                File.WriteAllText(path, json);
+                Debug.Log("[Performance] " + path + "\n" + json);
+            }
+            catch (Exception error) { Debug.LogWarning("[Performance] Save failed: " + error.Message + "\n" + json); }
+#endif
+        }
+
+        internal static void Summarize(float[] values, int length, double seconds, Report result)
+        {
+            if (values == null || length <= 0 || length > values.Length || seconds <= 0)
+                throw new ArgumentOutOfRangeException(nameof(length));
+            result.frames = length;
+            result.seconds = seconds;
+            result.averageFps = length / seconds;
+            result.slow50ms = result.overBudget120 = 0;
+            for (var i = 0; i < length; i++)
+            {
+                if (values[i] > 50f) result.slow50ms++;
+                if (values[i] > 1000d / 120d) result.overBudget120++;
+            }
+            result.overBudget120Percent = 100d * result.overBudget120 / length;
+            Array.Sort(values, 0, length);
+            result.p50ms = values[Math.Max(0, (int)Math.Ceiling(length * .50) - 1)];
+            result.p95ms = values[Math.Max(0, (int)Math.Ceiling(length * .95) - 1)];
+            result.p99ms = values[Math.Max(0, (int)Math.Ceiling(length * .99) - 1)];
+            result.maxMs = values[length - 1];
+        }
+
+        private void OnSceneChanged(Scene before, Scene after) => report.interrupted = true;
+
+        private void OnDestroy() => SceneManager.activeSceneChanged -= OnSceneChanged;
 
         private void OnApplicationFocus(bool focused)
         {
-            if (startedAt > 0d && !focused) interrupted = true;
+            if (capturing && !focused) report.interrupted = true;
         }
-#endif
     }
 }
