@@ -205,6 +205,49 @@ class AccountApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
     }
 
+    @ParameterizedTest
+    @DisplayName("금칙어가 든 닉네임은 400 NICKNAME_FORBIDDEN")
+    @ValueSource(strings = {
+            "fuck123",
+            "Sh1tHead",
+            "BadShit",
+            "시발이다",
+            "씨1발",
+            "AnalBoy"
+    })
+    void rejectsForbiddenNickname(String nickname) throws Exception {
+        // 글자 규칙(INVALID_REQUEST)과 코드를 나눕니다. 화면이 "글자를 고치세요" 와 "그 말은 못 씁니다" 를
+        // 다르게 안내해야 하고, 어느 말에 걸렸는지는 응답에 없습니다.
+        String userId = issueAndGetUserId();
+
+        mvc.perform(renameRequest(userId, nickname))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("NICKNAME_FORBIDDEN"));
+    }
+
+    @ParameterizedTest
+    @DisplayName("금칙어를 품은 평범한 말은 허용 목록으로 통과한다")
+    @ValueSource(strings = {"Analyst01", "Sussex7", "GrandCanal"})
+    void allowlistedWordsPass(String nickname) throws Exception {
+        String userId = issueAndGetUserId();
+
+        mvc.perform(renameRequest(userId, nickname + UUID.randomUUID().toString().substring(0, 2)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("서버가 만든 닉네임은 영문 두 단어와 숫자 넷이다")
+    void generatedNicknameIsEnglish() throws Exception {
+        // 영어 사용자가 첫 화면에서 읽을 수 있어야 합니다(S15P21D205-1017). 모양만 봅니다 - 단어 목록은
+        // NicknameGeneratorTest 가 전수로 봅니다.
+        String body = mvc.perform(issueRequest(newDeviceId()))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String nickname = objectMapper.readTree(body).get("nickname").asText();
+        assertThat(nickname).matches("^[A-Z][a-z]{2,3}[A-Z][a-z]{2,3}[0-9]{4}$");
+    }
+
     @Test
     @DisplayName("한글, 영문, 숫자를 섞은 12글자는 통과한다")
     void acceptsBoundaryNickname() throws Exception {

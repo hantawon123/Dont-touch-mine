@@ -13,6 +13,7 @@ import com.ssafy.d205.domain.user.dto.AccountResponse;
 import com.ssafy.d205.domain.user.dto.IssuedAccount;
 import com.ssafy.d205.domain.user.dto.UpdateAppearanceRequest;
 import com.ssafy.d205.domain.user.entity.AuthProvider;
+import com.ssafy.d205.domain.user.entity.NicknameBlocklist;
 import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.entity.UserAppearance;
 import com.ssafy.d205.domain.user.event.AccountDeletedEvent;
@@ -21,6 +22,7 @@ import com.ssafy.d205.domain.user.repository.UserIdentityRepository;
 import com.ssafy.d205.global.security.AccountTokens;
 import com.ssafy.d205.domain.user.repository.UserRepository;
 import com.ssafy.d205.global.common.TimeProvider;
+import com.ssafy.d205.global.exception.NicknameForbiddenException;
 import com.ssafy.d205.global.exception.NicknameGenerationFailedException;
 import com.ssafy.d205.global.exception.NicknameTakenException;
 import com.ssafy.d205.global.exception.SuspendedAccountException;
@@ -44,6 +46,7 @@ public class AccountService {
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher events;
     private final AccountTokens accountTokens;
+    private final NicknameBlocklist nicknameBlocklist;
 
     /**
      * 기기 식별자로 계정을 발급합니다. <b>멱등합니다.</b>
@@ -174,9 +177,20 @@ public class AccountService {
         return respond(user);
     }
 
+    /**
+     * 닉네임을 바꿉니다. 글자 규칙은 DTO 애너테이션이 먼저 보고, 여기서는 금칙어를 봅니다(S15P21D205-1017).
+     *
+     * <p>금칙어를 중복보다 먼저 보는 이유는 순서를 바꾸면 "그 욕설은 이미 누가 쓰고 있다" 는 사실이
+     * 드러나기 때문입니다. 서버가 지어 준 임시 닉네임은 여기를 지나지 않으므로 목록에 걸릴 일이 없고,
+     * 그 조합이 걸리지 않는다는 것은 NicknameGeneratorTest 가 확인합니다.
+     */
     @Transactional
     public AccountResponse rename(String userId, String nickname) {
         User user = caller(userId);
+
+        if (nicknameBlocklist.isForbidden(nickname)) {
+            throw new NicknameForbiddenException();
+        }
 
         if (!user.getNickname().equals(nickname) && userRepository.existsByNickname(nickname)) {
             throw new NicknameTakenException(nickname);

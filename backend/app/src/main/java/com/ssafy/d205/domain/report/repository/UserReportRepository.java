@@ -27,6 +27,40 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
     long countByStatusAndDeletedAtIsNull(ReportStatus status);
 
     /**
+     * 이 신고자가 이 상대를 이 경기 키로 이미 신고했는가 (S15P21D205-1017).
+     *
+     * <p>숨긴 것(deleted_at)도 셉니다. 유니크 키와 같은 범위여야 "미리 확인" 과 "제약 위반" 이 같은
+     * 답을 냅니다. 운영자가 숨겼다고 같은 경기에 다시 신고할 수 있으면 숨김이 다시 신고해 달라는
+     * 신호가 됩니다.
+     */
+    @Query("""
+            SELECT COUNT(r) > 0 FROM UserReport r
+             WHERE r.reporterSeq = :reporterSeq
+               AND r.reportedSeq = :reportedSeq
+               AND r.contextKey = :contextKey
+            """)
+    boolean existsPairInContext(@Param("reporterSeq") Integer reporterSeq,
+                                @Param("reportedSeq") Integer reportedSeq,
+                                @Param("contextKey") String contextKey);
+
+    /**
+     * 경기 키 없이 온 신고의 대체 규칙 - since(포함) 이후 같은 상대를 이미 신고했는가.
+     *
+     * <p>키가 있는 행은 세지 않습니다. 새 클라이언트로 오늘 경기에서 신고한 사람을, 옛 클라이언트로
+     * 다시 신고하는 경우는 실제로 없고, 섞어 세면 규칙이 둘 중 무엇인지 설명할 수 없습니다.
+     */
+    @Query("""
+            SELECT COUNT(r) > 0 FROM UserReport r
+             WHERE r.reporterSeq = :reporterSeq
+               AND r.reportedSeq = :reportedSeq
+               AND r.contextKey IS NULL
+               AND r.createdAt >= :since
+            """)
+    boolean existsPairWithoutContextSince(@Param("reporterSeq") Integer reporterSeq,
+                                          @Param("reportedSeq") Integer reportedSeq,
+                                          @Param("since") String since);
+
+    /**
      * 신고당한 사람들을 묶어서 돌려줍니다. 목록 화면이 쓰는 조회입니다.
      *
      * <p><b>왜 사람 단위로 묶는가.</b> 신고를 한 건씩 나열하면 운영자가 판단할 수

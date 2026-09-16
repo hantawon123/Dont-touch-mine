@@ -75,8 +75,14 @@ X-Account-Token: <photonToken>
 
 ### 임시 닉네임
 
-발급 시 서버가 닉네임을 지어 줍니다. 응답의 `nicknameSet` 이 `false` 면 아직 임시입니다.
+발급 시 서버가 닉네임을 지어 줍니다. `BoldFox4821` 처럼 영문 두 단어와 숫자 넷입니다(2026-09-16 까지는
+한글이었습니다). 응답의 `nicknameSet` 이 `false` 면 아직 임시입니다.
 **첫 실행에서 닉네임 입력 화면을 띄울지 판단하는 값입니다.** 이름 자체를 비교하지 마세요.
+
+닉네임을 바꿀 때 서버가 **금칙어**를 봅니다. 걸리면 `400 NICKNAME_FORBIDDEN` 이고 어느 말에 걸렸는지는
+알려주지 않습니다. 글자 규칙 위반(`INVALID_REQUEST`)과 코드가 다르므로 안내 문구를 나눠 주세요 -
+"한글, 영문, 숫자로 2~12글자" 와 "쓸 수 없는 이름입니다". 목록은 서버에만 있고 클라이언트가 미리
+검사할 방법은 없습니다.
 
 닉네임은 **대소문자를 구분합니다.** `player` 와 `Player` 는 서로 다른 이름이라 둘 다
 존재할 수 있습니다. 중복 확인을 클라이언트에서 대소문자 무시로 하면 서버 결과와 어긋납니다.
@@ -84,10 +90,10 @@ X-Account-Token: <photonToken>
 ### 검색은 정확히 일치입니다
 
 ```
-GET /api/v1/users?nickname=나그네9821
+GET /api/v1/users?nickname=BoldFox4821
 ```
 
-**앞글자로는 찾히지 않습니다.** `나그` 로는 아무도 안 나옵니다. 닉네임을 통째로
+**앞글자로는 찾히지 않습니다.** `BoldFox` 로는 아무도 안 나옵니다. 닉네임을 통째로
 알고 있어야 찾을 수 있습니다.
 
 **대소문자를 구분합니다.** `player` 로 검색하면 `Player` 는 나오지 않습니다.
@@ -255,6 +261,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 | --- | --- | --- | --- |
 | `MISSING_HEADER` | 400 | 필수 헤더가 없음 | 버그입니다. 헤더를 확인하세요 |
 | `INVALID_REQUEST` | 400 | 값이 형식에 안 맞음 | 입력값을 고쳐 다시 보냅니다 |
+| `NICKNAME_FORBIDDEN` | 400 | 닉네임에 금칙어가 있음 | "쓸 수 없는 이름입니다". 어느 말인지는 알려주지 않습니다 |
 | `SELF_FRIEND_REQUEST` | 400 | 자기에게 친구 요청 | UI 에서 미리 막습니다 |
 | `UNAUTHORIZED` | 401 | `X-User-Id` 는 있는데 `X-Account-Token` 이 없거나 그 계정의 것이 아님 | 헤더를 확인하세요. 서버 비밀이 바뀐 뒤라면 계정을 다시 읽어 새 토큰을 받습니다 |
 | `ACCOUNT_NOT_FOUND` | 404 | 부르는 사람의 계정이 없음 | **계정을 다시 발급받아야 합니다** |
@@ -265,6 +272,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 | `NICKNAME_TAKEN` | 409 | 닉네임이 이미 쓰임 | 다른 이름을 받습니다 |
 | `ALREADY_FRIENDS` | 409 | 이미 친구 | 목록을 다시 불러옵니다 |
 | `REQUEST_ALREADY_SENT` | 409 | 이미 보낸 요청 | 목록을 다시 불러옵니다 |
+| `REPORT_ALREADY_SENT` | 409 | 이 경기에서 그 사람을 이미 신고함 | "이미 신고했습니다" |
 | `TARGET_IN_GAME` | 409 | 초대할 친구가 로비나 경기 중 | "게임 중인 친구입니다". 홈으로 나오면 다시 부를 수 있습니다 |
 | `CONFLICT` | 409 | 동시 요청이 겹침 | 다시 시도하면 대개 됩니다 |
 | `RATE_LIMITED` | 429 | 한 IP 가 플레이 로그를 분당 허용량 넘게 보냄 | 그 배치를 스풀에 두고 다음 flush 에 다시 보냅니다 |
@@ -451,7 +459,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 `POST /api/v1/reports` 로 보냅니다.
 
 ```json
-{ "userId": "...", "reason": "ABUSE", "memo": "채팅으로 욕설을 했습니다" }
+{ "userId": "...", "reason": "ABUSE", "memo": "채팅으로 욕설을 했습니다", "contextKey": "7K2M9P#2" }
 ```
 
 ### 신고해도 아무 일도 일어나지 않습니다
@@ -484,10 +492,21 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 `OTHER` 를 고른 경우에는 메모가 사실상 필수입니다. 서버가 강제하지는 않지만 메모 없는
 `OTHER` 는 운영자가 판단할 근거가 없습니다. 화면에서 유도해 주세요.
 
-### 같은 사람을 여러 번 신고할 수 있습니다
+### 한 경기에 같은 사람은 한 번입니다
 
-막지 않습니다. 그래서 **"이미 신고했습니다" 를 보여줄 수 없습니다** — 서버가 그 상태를
-알려주지 않습니다. 자기가 낸 신고를 조회하는 API 도, 취소하는 API 도 없습니다.
+`contextKey` 가 "어느 경기인가" 입니다. **방 코드 + `#` + 그 방에서 본 경기 수**로 만듭니다 -
+`7K2M9P#0` 은 아직 한 판도 안 뛴 방, `7K2M9P#2` 는 두 번째 판이 끝난 뒤입니다. 방을 나가면 0 부터
+다시 셉니다. 서버는 값의 뜻을 보지 않고 **같은 신고자·같은 상대·같은 키**만 막으므로 다른 사람의
+키와 같아도 상관없습니다.
+
+같은 키로 같은 사람을 다시 신고하면 `409 REPORT_ALREADY_SENT` 입니다. 그때 "이미 신고했습니다" 를
+보여주면 됩니다. 다음 판이 끝나면 키가 바뀌어 다시 신고할 수 있습니다. 5명과 뛰었으면 5명 각각 한
+번씩입니다.
+
+키를 보내지 않으면(옛 빌드) **24시간 안에 같은 사람 한 번**으로 대신 막습니다. 새 빌드는 항상 보내세요.
+64자 이내, 영문·숫자·`#:._-` 만 됩니다.
+
+자기가 낸 신고를 조회하는 API 도, 취소하는 API 도 없습니다.
 
 ### 신고한 뒤 탈퇴해도 그 신고는 남습니다
 
