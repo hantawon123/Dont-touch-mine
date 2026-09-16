@@ -115,6 +115,7 @@ namespace Game.Client.Players
             copy.localPosition = source.localPosition;
             copy.localRotation = source.localRotation;
             copy.localScale = source.localScale;
+            copy.gameObject.SetActive(source.gameObject.activeSelf);
             transforms.Add(source, copy);
             foreach (Transform child in source)
             {

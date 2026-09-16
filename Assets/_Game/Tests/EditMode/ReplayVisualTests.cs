@@ -65,6 +65,32 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void ReplayCopy_PreservesInactiveCustomizationParts()
+        {
+            var source = new GameObject("Player");
+            var equipped = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            equipped.name = "Equipped";
+            equipped.transform.SetParent(source.transform);
+            var unequipped = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            unequipped.name = "Unequipped";
+            unequipped.transform.SetParent(source.transform);
+            unequipped.SetActive(false);
+            var visual = new ReplayVisual(source.transform, null);
+            try
+            {
+                visual.SetPlaying(true);
+                Assert.That(visual.Target.Find("Equipped").gameObject.activeSelf, Is.True);
+                Assert.That(visual.Target.Find("Unequipped").gameObject.activeSelf, Is.False,
+                    "A replay must not show customization parts that the live avatar is not wearing.");
+            }
+            finally
+            {
+                visual.Dispose();
+                Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
         public void MigrationFrame_PreparesHiddenAndReusesBufferUntilRoomExit()
         {
             if (Application.isBatchMode || Screen.width <= 0 || Screen.height <= 0)

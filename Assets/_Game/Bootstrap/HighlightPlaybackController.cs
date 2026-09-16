@@ -693,7 +693,7 @@ namespace Game.Bootstrap
                              FindObjectsInactive.Include, FindObjectsSortMode.None))
                 {
                     var id = avatar.PlayerId;
-                    if (id == null) continue;
+                    if (id == null || !IsAppearanceReadyForReplay(avatar)) continue;
                     if (!playerVisuals.ContainsKey(id))
                         playerVisuals.Add(id, new ReplayVisual(avatar.transform, null));
                 }
@@ -734,6 +734,13 @@ namespace Game.Bootstrap
                 if (!itemVisuals.ContainsKey(item.ObjectId))
                     itemVisuals.Add(item.ObjectId, new ReplayVisual(item.transform, null));
             }
+        }
+
+        private static bool IsAppearanceReadyForReplay(PlayerAvatar avatar)
+        {
+            if (!avatar.HasAppearance) return false;
+            var applier = avatar.GetComponentInChildren<Game.Client.Character.AvatarAppearanceApplier>(true);
+            return applier == null || applier.Current == applier.ResolvePlayerAppearance(avatar.Appearance);
         }
 
         private void HideHighlightHud()
