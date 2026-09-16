@@ -20,7 +20,6 @@ namespace Game.Bootstrap
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value) => presentation = value;
         private const double NoticeDurationSeconds = 3d;
         private static readonly Vector3 ShredderMarkerWorldOffset = Vector3.up * 1.5f;
-        private const float ShredderMarkerRevealDistance = 6f;
 
         private readonly INetworkMatchEvents events;
         private readonly INetworkMatchRuntimeSource clock;
@@ -47,8 +46,8 @@ namespace Game.Bootstrap
         }
         private double noticeEndsAt;
         private double gameEndNoticeEndsAt = -1d;
-        // 맵에 파쇄기가 여러 대일 수 있으므로 전부 모아 두고, 다가가서 화면에 보이고 벽이 가리지 않는
-        // 것 중 카메라에 가장 가까운 것만 표시한다.
+        // 맵에 파쇄기가 여러 대일 수 있으므로 전부 모아 두고, 화면에 보이고 벽이 가리지 않는 것 중
+        // 카메라에 가장 가까운 것만 표시한다.
         private readonly List<Transform> shredders = new();
         private Camera worldCamera;
 
@@ -895,8 +894,7 @@ namespace Game.Bootstrap
                 }
 
                 var world = candidate.position + ShredderMarkerWorldOffset;
-                if (!IsWithinShredderMarkerRange(origin, candidate.position) ||
-                    !IsShredderMarkerOnScreen(camera.WorldToViewportPoint(world)) ||
+                if (!IsShredderMarkerOnScreen(camera.WorldToViewportPoint(world)) ||
                     IsWorldOccluded(origin, world, candidate))
                 {
                     continue;
@@ -938,14 +936,6 @@ namespace Game.Bootstrap
             view.SetShredderMarker(
                 worldCamera.WorldToScreenPoint(shredder.position + ShredderMarkerWorldOffset),
                 true);
-        }
-
-        internal static bool IsWithinShredderMarkerRange(
-            Vector3 from,
-            Vector3 shredder,
-            float range = ShredderMarkerRevealDistance)
-        {
-            return (shredder - from).sqrMagnitude <= range * range;
         }
 
         /// <summary>

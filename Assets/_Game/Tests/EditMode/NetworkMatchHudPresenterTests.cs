@@ -1326,21 +1326,6 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void ShredderMarker_OnlyAppearsWhenApproaching()
-        {
-            var shredder = new Vector3(0f, 0f, 0f);
-            Assert.That(
-                NetworkMatchHudPresenter.IsWithinShredderMarkerRange(new Vector3(0f, 0f, 5f), shredder),
-                Is.True);
-            Assert.That(
-                NetworkMatchHudPresenter.IsWithinShredderMarkerRange(new Vector3(0f, 0f, 6f), shredder),
-                Is.True);
-            Assert.That(
-                NetworkMatchHudPresenter.IsWithinShredderMarkerRange(new Vector3(0f, 0f, 6.1f), shredder),
-                Is.False);
-        }
-
-        [Test]
         public void ShredderMarkerLabel_WritesRemainingUsesOverFive()
         {
             Assert.That(
