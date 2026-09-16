@@ -95,9 +95,9 @@ namespace Game.Core.Settings
 
         private static OptionChoices Scale => new OptionChoices(
             Medium,
-            new OptionChoice(Large, "크게"),
+            new OptionChoice(Small, "작게"),
             new OptionChoice(Medium, "중간"),
-            new OptionChoice(Small, "작게"));
+            new OptionChoice(Large, "크게"));
 
         /// <summary>
         /// 스트리머 모드, which is off unless a player turns it on.

@@ -29,12 +29,7 @@ namespace Game.Architecture.Tests
             Assert.That(counts[GraphicsOption.DisplayMode], Is.EqualTo(2));
             Assert.That(counts[GraphicsOption.Resolution], Is.EqualTo(5));
             Assert.That(counts[GraphicsOption.FpsLimit], Is.EqualTo(4));
-            Assert.That(counts[GraphicsOption.AntiAliasing], Is.EqualTo(4));
-            Assert.That(counts[GraphicsOption.Hbao], Is.EqualTo(4));
             Assert.That(counts[GraphicsOption.TextureQuality], Is.EqualTo(3));
-            Assert.That(counts[GraphicsOption.ShadowQuality], Is.EqualTo(5));
-            Assert.That(counts[GraphicsOption.DepthOfField], Is.EqualTo(4));
-            Assert.That(counts[GraphicsOption.Volumetrics], Is.EqualTo(4));
 
             foreach (var option in AllOptions)
             {
@@ -53,12 +48,7 @@ namespace Game.Architecture.Tests
             Assert.That(defaults.Get(GraphicsOption.DisplayMode), Is.EqualTo("fullscreen"));
             Assert.That(defaults.Get(GraphicsOption.Resolution), Is.EqualTo("1920x1080"));
             Assert.That(defaults.Get(GraphicsOption.FpsLimit), Is.EqualTo("120"));
-            Assert.That(defaults.Get(GraphicsOption.AntiAliasing), Is.EqualTo("taa"));
-            Assert.That(defaults.Get(GraphicsOption.Hbao), Is.EqualTo("medium"));
             Assert.That(defaults.Get(GraphicsOption.TextureQuality), Is.EqualTo("medium"));
-            Assert.That(defaults.Get(GraphicsOption.ShadowQuality), Is.EqualTo("high"));
-            Assert.That(defaults.Get(GraphicsOption.DepthOfField), Is.EqualTo("medium"));
-            Assert.That(defaults.Get(GraphicsOption.Volumetrics), Is.EqualTo("medium"));
         }
 
         [Test]
@@ -69,7 +59,7 @@ namespace Game.Architecture.Tests
             Assert.That(defaults, Is.EqualTo(GraphicsCatalog.Shipped.Defaults));
             Assert.That(defaults.GetHashCode(), Is.EqualTo(GraphicsCatalog.Shipped.Defaults.GetHashCode()));
 
-            var moved = defaults.With(GraphicsOption.ShadowQuality, "off");
+            var moved = defaults.With(GraphicsOption.TextureQuality, "low");
             Assert.That(moved, Is.Not.EqualTo(defaults));
             Assert.That(
                 moved.Get(GraphicsOption.Resolution),
@@ -106,11 +96,11 @@ namespace Game.Architecture.Tests
             var store = new InMemoryGraphicsSettingsStore();
 
             // What a save written before a row existed looks like.
-            store.Save(GraphicsSettings.Empty.With(GraphicsOption.ShadowQuality, "off"));
+            store.Save(GraphicsSettings.Empty.With(GraphicsOption.TextureQuality, "low"));
 
             var system = new GraphicsSettingsSystem(store);
 
-            Assert.That(system.Current.Get(GraphicsOption.ShadowQuality), Is.EqualTo("off"));
+            Assert.That(system.Current.Get(GraphicsOption.TextureQuality), Is.EqualTo("low"));
             Assert.That(
                 system.Current.Get(GraphicsOption.Resolution),
                 Is.EqualTo("1920x1080"),
@@ -150,7 +140,7 @@ namespace Game.Architecture.Tests
             var changes = new List<GraphicsSettings>();
             system.Changed += changes.Add;
 
-            var wanted = system.Defaults.With(GraphicsOption.ShadowQuality, "off");
+            var wanted = system.Defaults.With(GraphicsOption.TextureQuality, "low");
             system.Apply(wanted);
 
             Assert.That(system.Current, Is.EqualTo(wanted));

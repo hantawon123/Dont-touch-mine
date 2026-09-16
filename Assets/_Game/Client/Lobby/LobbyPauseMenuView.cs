@@ -17,6 +17,7 @@ namespace Game.Client.Lobby
 
         void SetVisible(bool visible);
         void SetStartVisible(bool visible);
+        void SetStartEnabled(bool enabled);
         void SetPlaySettingsVisible(bool visible);
     }
 
@@ -129,6 +130,31 @@ namespace Game.Client.Lobby
             if (startButton != null)
             {
                 startButton.gameObject.SetActive(visible);
+            }
+        }
+
+        public void SetStartEnabled(bool enabled)
+        {
+            if (startButton == null)
+            {
+                return;
+            }
+
+            startButton.interactable = enabled;
+            var fill = startButton.GetComponent<Image>();
+            if (fill != null)
+            {
+                fill.color = enabled
+                    ? new Color(1f, 0.85f, 0.2f, 0.95f)
+                    : PlaySettingsStyle.Palette.GameStartOffFill;
+            }
+
+            var label = startButton.GetComponentInChildren<Text>(true);
+            if (label != null)
+            {
+                label.color = enabled
+                    ? Color.white
+                    : PlaySettingsStyle.Palette.GameStartOffLabel;
             }
         }
 

@@ -23,6 +23,7 @@ namespace Game.Architecture.Tests
                 Assert.That(scaler.screenMatchMode, Is.EqualTo(CanvasScaler.ScreenMatchMode.MatchWidthOrHeight));
                 Assert.That(scaler.matchWidthOrHeight, Is.EqualTo(HudScreenScale.WidthOrHeight));
                 Assert.That(HudScreenScale.OverallSize, Is.EqualTo(0.8f));
+                Assert.That(HudScreenScale.DefaultScale, Is.EqualTo(1.3f));
             }
             finally
             {
