@@ -1389,6 +1389,97 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void ShredderMarker_OnlyShowsWhenInFrontAndOnScreen()
+        {
+            Assert.That(
+                NetworkMatchHudPresenter.IsShredderMarkerOnScreen(new Vector3(0.5f, 0.5f, 4f)),
+                Is.True);
+            Assert.That(
+                NetworkMatchHudPresenter.IsShredderMarkerOnScreen(new Vector3(0.5f, 0.5f, -1f)),
+                Is.False,
+                "behind the camera");
+            Assert.That(
+                NetworkMatchHudPresenter.IsShredderMarkerOnScreen(new Vector3(-0.1f, 0.5f, 4f)),
+                Is.False,
+                "off the left edge");
+            Assert.That(
+                NetworkMatchHudPresenter.IsShredderMarkerOnScreen(new Vector3(1.1f, 0.5f, 4f)),
+                Is.False,
+                "off the right edge");
+        }
+
+        [Test]
+        public void ShredderMarkerLabel_WritesRemainingUsesOverFive()
+        {
+            Assert.That(
+                NetworkMatchHudView.FormatShredderMarkerLabel(5),
+                Is.EqualTo("파쇄기 (5/5)"));
+            Assert.That(
+                NetworkMatchHudView.FormatShredderMarkerLabel(3),
+                Is.EqualTo("파쇄기 (3/5)"));
+            Assert.That(
+                NetworkMatchHudView.FormatShredderMarkerLabel(-1),
+                Is.EqualTo("파쇄기"));
+            Assert.That(
+                NetworkMatchHudView.FormatShredderMarkerLabel(
+                    PlaySettingsDraft.UnlimitedDestructionUses),
+                Is.EqualTo("파쇄기 (무한)"));
+        }
+
+        [Test]
+        public void ShredderMarker_HidesWhenAWallBlocksLineOfSight()
+        {
+            var shredder = new GameObject("Shredder");
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            try
+            {
+                shredder.transform.position = new Vector3(0f, 0f, 8f);
+                wall.transform.position = new Vector3(0f, 1f, 4f);
+                wall.transform.localScale = new Vector3(4f, 3f, 0.4f);
+                Physics.SyncTransforms();
+
+                var origin = new Vector3(0f, 1.5f, 0f);
+                var target = shredder.transform.position + (Vector3.up * 1.5f);
+                Assert.That(
+                    NetworkMatchHudPresenter.IsWorldOccluded(origin, target, shredder.transform),
+                    Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(wall);
+                UnityEngine.Object.DestroyImmediate(shredder);
+            }
+        }
+
+        [Test]
+        public void ShredderMarker_ShowsWhenPathIsClearAndIgnoresOwnCollider()
+        {
+            var shredder = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            try
+            {
+                shredder.transform.position = new Vector3(0f, 0.5f, 6f);
+                Physics.SyncTransforms();
+
+                var origin = new Vector3(0f, 1.5f, 0f);
+                var above = shredder.transform.position + (Vector3.up * 1.5f);
+                Assert.That(
+                    NetworkMatchHudPresenter.IsWorldOccluded(origin, above, shredder.transform),
+                    Is.False,
+                    "open air to the label point");
+
+                var intoBody = shredder.transform.position + (Vector3.up * 0.5f);
+                Assert.That(
+                    NetworkMatchHudPresenter.IsWorldOccluded(origin, intoBody, shredder.transform),
+                    Is.False,
+                    "hitting the shredder itself is not occlusion");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(shredder);
+            }
+        }
+
         private sealed class FakeView : INetworkMatchHudView
         {
             public bool IntroPresented { get; set; } = true;

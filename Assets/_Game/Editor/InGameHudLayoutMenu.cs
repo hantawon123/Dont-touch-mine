@@ -87,7 +87,6 @@ namespace Game.Editor
                     hud = CreateHud(scene);
                 }
 
-                EnsureAssignedItem(hud);
                 EnsureHighlightHud(hud);
                 EnsureHidingIntro(hud);
                 EnsureSearchingIntro(hud);
@@ -213,11 +212,16 @@ namespace Game.Editor
                 canvasObject.transform,
                 "ShredderMarker",
                 new Color(0.75f, 0.08f, 0.08f, 0.9f));
-            marker.sizeDelta = new Vector2(150f, 52f);
+            marker.sizeDelta = new Vector2(
+                NetworkMatchHudView.ShredderMarkerWidth,
+                NetworkMatchHudView.ShredderMarkerHeight);
+            var markerFill = marker.GetComponent<Image>();
+            markerFill.sprite = HomeUiFonts.Rounded(NetworkMatchHudView.ShredderMarkerCornerRadius);
+            markerFill.type = Image.Type.Sliced;
             var markerText = CreateText(
                 marker,
                 "Label",
-                "파쇄기",
+                "파쇄기 (5/5)",
                 26f,
                 TextAlignmentOptions.Center);
             Stretch(markerText.rectTransform, 8f);
@@ -466,35 +470,10 @@ namespace Game.Editor
             view.Hide();
         }
 
-        private static void EnsureAssignedItem(NetworkMatchHudView hud)
-        {
-            var serialized = new SerializedObject(hud);
-            var property = serialized.FindProperty("assignedItemText");
-            var text = property.objectReferenceValue as TMP_Text ??
-                       hud.transform.Find("AssignedItemText")?.GetComponent<TMP_Text>();
-            if (text == null)
-            {
-                text = CreateText(
-                    hud.transform,
-                    "AssignedItemText",
-                    "파쇄기: 3회",
-                    NetworkMatchHudView.DestructionUsesFontSize,
-                    TextAlignmentOptions.TopRight);
-            }
-
-            NetworkMatchHudView.ApplyDestructionUsesStyle(text);
-            property.objectReferenceValue = text;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-            text.gameObject.SetActive(false);
-        }
-
         private static void EnsureHighlightHud(NetworkMatchHudView hud)
         {
-            var leftover = hud.transform.Find("HighlightTitleText");
-            if (leftover != null)
-            {
-                Object.DestroyImmediate(leftover.gameObject);
-            }
+            DestroyChild(hud.transform, "HighlightTitleText");
+            DestroyChild(hud.transform, "AssignedItemText");
 
             var serialized = new SerializedObject(hud);
             var property = serialized.FindProperty("highlightHudView");
@@ -611,6 +590,15 @@ namespace Game.Editor
             rect.anchorMax = Vector2.one;
             rect.offsetMin = new Vector2(padding, padding);
             rect.offsetMax = new Vector2(-padding, -padding);
+        }
+
+        private static void DestroyChild(Transform parent, string childName)
+        {
+            var leftover = parent.Find(childName);
+            if (leftover != null)
+            {
+                Object.DestroyImmediate(leftover.gameObject);
+            }
         }
 
         private static void Assign(Object target, string propertyName, Object value)

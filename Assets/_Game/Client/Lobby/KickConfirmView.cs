@@ -170,6 +170,8 @@ namespace Game.Client.Lobby
             EndBackdrop();
         }
 
+        public bool IsShown => root != null && root.activeSelf;
+
         private void OnDestroy()
         {
             EndBackdrop();

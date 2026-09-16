@@ -92,6 +92,9 @@ namespace Game.Architecture.Tests
                 var close = Find(root, "CloseButton");
                 Assert.That(close, Is.Not.Null);
                 Assert.That(close.GetComponent<Image>().sprite, Is.Not.Null);
+                var background = Find(root, "Background").GetComponent<Image>();
+                Assert.That(background.color, Is.EqualTo(SettingsStyle.Palette.OverlayDim));
+                Assert.That(background.color.a, Is.EqualTo(0.8f));
             }
             finally
             {

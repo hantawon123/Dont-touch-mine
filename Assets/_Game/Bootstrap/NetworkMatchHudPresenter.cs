@@ -19,7 +19,7 @@ namespace Game.Bootstrap
         [VContainer.Inject]
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value) => presentation = value;
         private const double NoticeDurationSeconds = 3d;
-        private const float MarkerScreenMargin = 32f;
+        private static readonly Vector3 ShredderMarkerWorldOffset = Vector3.up * 1.5f;
 
         private readonly INetworkMatchEvents events;
         private readonly INetworkMatchRuntimeSource clock;
@@ -46,7 +46,8 @@ namespace Game.Bootstrap
         }
         private double noticeEndsAt;
         private double gameEndNoticeEndsAt = -1d;
-        // 맵에 파쇄기가 여러 대일 수 있으므로 전부 모아 두고, 카메라(=로컬 플레이어)에 가장 가까운 것을 표시한다.
+        // 맵에 파쇄기가 여러 대일 수 있으므로 전부 모아 두고, 화면에 보이고 벽이 가리지 않는 것 중
+        // 카메라에 가장 가까운 것만 표시한다.
         private readonly List<Transform> shredders = new();
         private Camera worldCamera;
 
@@ -878,9 +879,10 @@ namespace Game.Bootstrap
             worldCamera = Camera.main;
         }
 
-        private bool TryGetNearestShredder(Vector3 from, out Transform nearest)
+        private bool TryGetVisibleShredder(Camera camera, out Transform nearest)
         {
             nearest = null;
+            var origin = camera.transform.position;
             var bestDistance = float.MaxValue;
             for (var index = shredders.Count - 1; index >= 0; index--)
             {
@@ -891,7 +893,14 @@ namespace Game.Bootstrap
                     continue;
                 }
 
-                var distance = (candidate.position - from).sqrMagnitude;
+                var world = candidate.position + ShredderMarkerWorldOffset;
+                if (!IsShredderMarkerOnScreen(camera.WorldToViewportPoint(world)) ||
+                    IsWorldOccluded(origin, world, candidate))
+                {
+                    continue;
+                }
+
+                var distance = (world - origin).sqrMagnitude;
                 if (distance < bestDistance)
                 {
                     bestDistance = distance;
@@ -918,23 +927,57 @@ namespace Game.Bootstrap
             }
 
             if (worldCamera == null ||
-                !TryGetNearestShredder(worldCamera.transform.position, out var shredder))
+                !TryGetVisibleShredder(worldCamera, out var shredder))
             {
                 view.SetShredderMarker(default, false);
                 return;
             }
 
-            var screen = worldCamera.WorldToScreenPoint(
-                shredder.position + (Vector3.up * 1.5f));
-            if (screen.z <= 0f)
+            view.SetShredderMarker(
+                worldCamera.WorldToScreenPoint(shredder.position + ShredderMarkerWorldOffset),
+                true);
+        }
+
+        /// <summary>
+        /// Viewport 좌표가 카메라 앞이고 화면 안일 때만 라벨을 붙인다.
+        /// 화면 가장자리에 고정하지 않아서, 다른 방에 있는 파쇄기가 가장자리 마커로 남지 않는다.
+        /// </summary>
+        internal static bool IsShredderMarkerOnScreen(Vector3 viewportPoint) =>
+            viewportPoint.z > 0f &&
+            viewportPoint.x >= 0f && viewportPoint.x <= 1f &&
+            viewportPoint.y >= 0f && viewportPoint.y <= 1f;
+
+        /// <summary>
+        /// 카메라에서 파쇄기 위 라벨 지점까지 벽이 가로막으면 숨긴다.
+        /// 파쇄기 자신의 콜라이더는 가림으로 보지 않는다.
+        /// </summary>
+        internal static bool IsWorldOccluded(Vector3 origin, Vector3 target, Transform shredder)
+        {
+            var toTarget = target - origin;
+            var distance = toTarget.magnitude;
+            if (distance <= 0.001f)
             {
-                view.SetShredderMarker(default, false);
-                return;
+                return false;
             }
 
-            screen.x = Mathf.Clamp(screen.x, MarkerScreenMargin, Screen.width - MarkerScreenMargin);
-            screen.y = Mathf.Clamp(screen.y, MarkerScreenMargin, Screen.height - MarkerScreenMargin);
-            view.SetShredderMarker(screen, true);
+            if (!Physics.Raycast(
+                    origin,
+                    toTarget / distance,
+                    out var hit,
+                    distance,
+                    Physics.DefaultRaycastLayers,
+                    QueryTriggerInteraction.Ignore))
+            {
+                return false;
+            }
+
+            if (shredder != null &&
+                (hit.transform == shredder || hit.transform.IsChildOf(shredder)))
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }

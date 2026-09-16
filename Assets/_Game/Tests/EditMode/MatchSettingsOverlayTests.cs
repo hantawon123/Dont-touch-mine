@@ -41,6 +41,17 @@ namespace Game.Architecture.Tests
                 Is.False);
         }
 
+        [Test]
+        public void ShouldHandleEscape_IgnoresAnOpenParticipantList()
+        {
+            Assert.That(
+                MatchSettingsOverlay.ShouldHandleEscape(false, false, true, false),
+                Is.False);
+            Assert.That(
+                MatchSettingsOverlay.ShouldHandleEscape(true, false, false, false),
+                Is.False);
+        }
+
         [TestCase(MatchPhase.Hiding)]
         [TestCase(MatchPhase.Searching)]
         public void ShouldHandleEscape_AllowsGameplayPhases(MatchPhase phase)

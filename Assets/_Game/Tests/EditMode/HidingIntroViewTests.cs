@@ -49,6 +49,20 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void OrthographicSize_FitsWidePropsInALandscapeSlot()
+        {
+            var wide = new Vector3(2f, 0.2f, 0.3f);
+            var square = HidingIntroItemPreview.OrthographicSizeForBounds(wide, 1f);
+            var aspect = HidingIntroItemPreview.IntroImageSize.x /
+                         HidingIntroItemPreview.IntroImageSize.y;
+            var landscape = HidingIntroItemPreview.OrthographicSizeForBounds(wide, aspect);
+            Assert.That(landscape, Is.LessThan(square));
+            Assert.That(
+                landscape * aspect,
+                Is.GreaterThanOrEqualTo(Mathf.Sqrt((wide.x * wide.x) + (wide.z * wide.z))));
+        }
+
+        [Test]
         public void FormatMessage_UsesAssignedItemName()
         {
             Assert.That(
@@ -109,7 +123,14 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     preview.rectTransform.anchoredPosition.y,
                     Is.EqualTo(HidingIntroItemPreview.IntroCenterOffsetY));
-                Assert.That(preview.rectTransform.sizeDelta, Is.EqualTo(new Vector2(360f, 360f)));
+                Assert.That(preview.rectTransform.sizeDelta, Is.EqualTo(HidingIntroItemPreview.IntroImageSize));
+                Assert.That(preview.rectTransform.sizeDelta.x, Is.GreaterThan(preview.rectTransform.sizeDelta.y));
+                var messageTop = HidingIntroView.ContentAnchoredY +
+                                 HidingIntroView.MessageAnchoredY +
+                                 (message.rectTransform.sizeDelta.y * 0.5f);
+                var previewBottom = preview.rectTransform.anchoredPosition.y -
+                                    (preview.rectTransform.sizeDelta.y * 0.5f);
+                Assert.That(previewBottom, Is.GreaterThan(messageTop));
             }
             finally
             {
