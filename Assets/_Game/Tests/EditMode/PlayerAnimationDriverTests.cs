@@ -14,6 +14,36 @@ namespace Game.Tests.EditMode
 {
     public sealed class PlayerAnimationDriverTests
     {
+        [UnityTest]
+        public IEnumerator ThrowStartsAfterWindupForLocalAndReplicatedPlayers()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
+                UnityEditor.SceneManagement.NewSceneMode.Single);
+            yield return new EnterPlayMode();
+            foreach (var replicated in new[] { false, true })
+            {
+                var player = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab"));
+                try
+                {
+                    var driver = player.GetComponent<PlayerAnimationDriver>();
+                    var animator = player.GetComponentInChildren<Animator>();
+                    animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                    if (replicated) driver.ApplyNetworkState(0f, true, 0, Vector2.zero, false);
+                    animator.Play("Carry_TwoHands", 0, 0f);
+                    animator.Update(0f);
+                    driver.PlayThrow();
+                    animator.Update(.06f);
+                    var state = animator.GetCurrentAnimatorStateInfo(0);
+                    Assert.That(state.IsName("Throw_TwoHands"), Is.True);
+                    Assert.That(state.normalizedTime * state.length, Is.GreaterThanOrEqualTo(10f / 30f));
+                }
+                finally { Object.DestroyImmediate(player); }
+            }
+            yield return new ExitPlayMode();
+        }
+
         [TestCase(PlayerPosture.Standing, 0f, "Punch_Left")]
         [TestCase(PlayerPosture.Standing, 4f, "Punch_Left_Walk")]
         [TestCase(PlayerPosture.Standing, 7f, "Punch_Left_Run")]

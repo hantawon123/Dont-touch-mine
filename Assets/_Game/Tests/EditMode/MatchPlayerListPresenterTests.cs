@@ -26,7 +26,8 @@ namespace Game.Tests.EditMode
             room.SetLocalPlayer("player-2");
             var view = new FakePlayerListView();
             using var presenter = new MatchPlayerListPresenter(
-                list, room, view, new FakeReportGateway(), new FakeReportContext(), new FakeConfirmView());
+                list, room, view, new FakeReportGateway(), new FakeReportContext(),
+                new FakeConfirmView());
 
             presenter.Start();
 
@@ -47,7 +48,8 @@ namespace Game.Tests.EditMode
             room.SetLocalPlayer("host-1");
             var view = new FakePlayerListView();
             using var presenter = new MatchPlayerListPresenter(
-                list, room, view, new FakeReportGateway(), new FakeReportContext(), new FakeConfirmView());
+                list, room, view, new FakeReportGateway(), new FakeReportContext(),
+                new FakeConfirmView());
             presenter.Start();
 
             list.Replace(new[]
@@ -73,9 +75,8 @@ namespace Game.Tests.EditMode
             var reports = new FakeReportGateway();
             var view = new FakePlayerListView();
             var confirm = new FakeConfirmView();
-            var context = new FakeReportContext { CurrentKey = "ROOM#1" };
             using var presenter = new MatchPlayerListPresenter(
-                list, room, view, reports, context, confirm);
+                list, room, view, reports, new FakeReportContext(), confirm);
 
             presenter.Start();
             view.RaiseReport("account-2", "게스트");
@@ -91,13 +92,9 @@ namespace Game.Tests.EditMode
 
             Assert.That(
                 reports.Sent,
-                Is.EqualTo(new[] { ("account-2", ReportReason.Cheating, "채팅으로 욕설을 했습니다", "ROOM#1") }));
+                Is.EqualTo(new[] { ("account-2", ReportReason.Cheating, "채팅으로 욕설을 했습니다") }));
+            Assert.That(reports.Keys, Is.EqualTo(new[] { FakeReportContext.Key }));
             Assert.That(confirm.IsVisible, Is.False);
-
-            context.CurrentKey = "ROOM#2";
-            view.RaiseReport("account-2", "게스트");
-            confirm.RaiseConfirm();
-            Assert.That(reports.Sent[1].ContextKey, Is.EqualTo("ROOM#2"));
         }
 
         private sealed class FakePlayerListView : ILobbyPlayerListView
@@ -132,14 +129,11 @@ namespace Game.Tests.EditMode
             public void RaiseReport(string id, string name) => ReportClicked?.Invoke(id, name);
         }
 
-        private sealed class FakeReportContext : IReportContext
-        {
-            public string CurrentKey { get; set; } = "ROOM#1";
-        }
-
         private sealed class FakeReportGateway : IReportGateway
         {
-            public List<(string PlayerId, ReportReason Reason, string Note, string ContextKey)> Sent { get; } = new();
+            public List<(string PlayerId, ReportReason Reason, string Note)> Sent { get; } = new();
+
+            public List<string> Keys { get; } = new();
 
             public UniTask<BackendResult> ReportAsync(
                 string playerId,
@@ -148,9 +142,17 @@ namespace Game.Tests.EditMode
                 string contextKey,
                 CancellationToken cancellation)
             {
-                Sent.Add((playerId, reason, note, contextKey));
+                Sent.Add((playerId, reason, note));
+                Keys.Add(contextKey);
                 return UniTask.FromResult(BackendResult.Success());
             }
+        }
+
+        private sealed class FakeReportContext : IReportContext
+        {
+            public const string Key = "ROOM#0";
+
+            public string CurrentKey => Key;
         }
 
         private sealed class FakeConfirmView : ILobbyConfirmView

@@ -51,6 +51,15 @@ namespace Game.Client.Cameras
         [SerializeField, Min(0.1f)]
         private float eyeHeightLerpSpeed = 8f;
 
+        [SerializeField]
+        private FirstPersonArmsSettings firstPersonArms = new();
+
+        [SerializeField]
+        private FirstPersonHoldSettings firstPersonHold = new();
+
+        private readonly FirstPersonArmsView armsView = new();
+        private Game.Client.Interactions.PlayerInteractor followInteractor;
+
         private ControlSettingsSystem controls;
 
         [Inject]
@@ -60,7 +69,12 @@ namespace Game.Client.Cameras
         private InputAction lookAction;
         private InputAction toggleViewAction;
         private PlayerMovement followMovement;
+        private Transform followVisual;
         private Renderer[] bodyRenderers;
+        private float nextBodyRendererScan;
+        // 표정(눈)·후드·신발은 외형 적용기가 게임 중에 늦게 만들어 붙이므로, 한 번 수집한 목록만 숨기면
+        // 엎드려 카메라가 머리 근처로 내려왔을 때 내 눈이 보인다. 주기적으로 다시 수집한다.
+        private const float BodyRendererScanInterval = 0.5f;
         private float currentEyeHeight;
         private float yaw;
         private float pitch;
@@ -89,6 +103,7 @@ namespace Game.Client.Cameras
             replayRigEnabled = enabled;
             if (replayBrain != null) replayBrain.enabled = true;
             enabled = false;
+            armsView.Hide();
             return output.transform;
         }
 
@@ -149,7 +164,14 @@ namespace Game.Client.Cameras
         private void OnDisable()
         {
             playerMap?.Disable();
+            armsView.Hide();
             Game.Client.Common.WebPointerInput.Release();
+        }
+
+        private void OnDestroy()
+        {
+            followInteractor?.ClearFirstPersonHold();
+            armsView.Dispose();
         }
 
         private void Update()
@@ -229,12 +251,31 @@ namespace Game.Client.Cameras
             currentEyeHeight = Mathf.Lerp(
                 currentEyeHeight, targetEyeHeight, eyeHeightLerpSpeed * Time.deltaTime);
 
+            if (Time.time >= nextBodyRendererScan)
+            {
+                nextBodyRendererScan = Time.time + BodyRendererScanInterval;
+                RefreshBodyRenderers();
+            }
+
             var offset = new Vector3(headOffset.x, currentEyeHeight, headOffset.z);
             followCorrection = Vector3.Lerp(followCorrection, Vector3.zero,
                 1f - Mathf.Exp(-Time.unscaledDeltaTime / 0.08f));
             transform.SetPositionAndRotation(
                 followTarget.position + offset + followCorrection,
                 Quaternion.Euler(pitch, yaw, 0f));
+
+            // 몸 Animator가 이 프레임 본을 다 쓴 뒤라, 1인칭 팔이 그 포즈를 복사할 수 있다.
+            var firstPersonView = isFirstPerson && !bodyVisibleOverride;
+            armsView.Apply(firstPersonView && firstPersonArms.showArms, firstPersonArms, transform);
+
+            // 들고 있는 물건도 1인칭에서는 카메라 기준 자리에 보인다.
+            if (followInteractor != null)
+            {
+                if (firstPersonView && firstPersonHold.enabled)
+                    followInteractor.SetFirstPersonHold(transform, firstPersonHold.offset, firstPersonHold.tilt);
+                else
+                    followInteractor.ClearFirstPersonHold();
+            }
         }
 
         /// <summary>
@@ -255,6 +296,8 @@ namespace Game.Client.Cameras
 
             followTarget = target;
             followMovement = target.GetComponent<PlayerMovement>();
+            followInteractor?.ClearFirstPersonHold();
+            followInteractor = target.GetComponent<Game.Client.Interactions.PlayerInteractor>();
             if (preserveView)
             {
                 followCorrection = transform.position - target.position -
@@ -274,9 +317,21 @@ namespace Game.Client.Cameras
                 firstPersonCamera.PreviousStateIsValid = false;
             }
 
-            // 1인칭 몸 숨김 대상 렌더러를 새 대상 기준으로 다시 수집한다.
-            var visual = target.Find("Visual");
-            bodyRenderers = visual != null ? visual.GetComponentsInChildren<Renderer>() : new Renderer[0];
+            // 1인칭 몸 숨김 대상 렌더러와 1인칭 팔의 포즈 원본을 새 대상 기준으로 다시 수집한다.
+            followVisual = target.Find("Visual");
+            RefreshBodyRenderers();
+            armsView.Bind(followVisual, transform, firstPersonArms);
+        }
+
+        /// <summary>
+        /// Visual 아래 렌더러를 다시 수집하고 현재 시점에 맞는 표시 상태를 적용한다.
+        /// 비활성 렌더러도 포함해, 나중에 켜지는 기본 눈 같은 것도 잡는다.
+        /// </summary>
+        private void RefreshBodyRenderers()
+        {
+            bodyRenderers = followVisual != null
+                ? followVisual.GetComponentsInChildren<Renderer>(true)
+                : System.Array.Empty<Renderer>();
             ApplyView();
         }
 
@@ -343,6 +398,7 @@ namespace Game.Client.Cameras
             firstPersonCamera.Priority = isFirstPerson ? ActivePriority : InactivePriority;
 
             // 1인칭에서는 내 몸이 화면을 가리지 않게 숨긴다. 그림자는 남겨 존재감을 유지한다.
+            // 손은 별도의 1인칭 팔 모델(FirstPersonArmsView)이 카메라에 붙어 그린다.
             // 무대 카메라가 나를 비출 때는 오버라이드로 몸을 그린다.
             var hideBody = isFirstPerson && !bodyVisibleOverride;
             if (bodyRenderers != null)

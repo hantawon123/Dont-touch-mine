@@ -32,7 +32,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void SettingsChange_WritesRandomAndPlaygroundLabels()
+        public void SettingsChange_KeepsPlaygroundLabelAndMapsRandomToSupermarket()
         {
             using var session = new HostSession();
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
@@ -70,7 +70,7 @@ namespace Game.Tests.EditMode
                     string.Empty,
                     MatchRuleSettings.Default));
                 Assert.That(info.CategoryLabel, Is.EqualTo("랜덤"));
-                Assert.That(info.MapLabel, Is.EqualTo("랜덤"));
+                Assert.That(info.MapLabel, Is.EqualTo("supermarket"));
             }
             finally
             {

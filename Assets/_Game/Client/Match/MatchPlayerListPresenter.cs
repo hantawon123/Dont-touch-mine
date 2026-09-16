@@ -48,7 +48,8 @@ namespace Game.Client.Match
             this.room = room ?? throw new ArgumentNullException(nameof(room));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.reports = reports ?? throw new ArgumentNullException(nameof(reports));
-            this.reportContext = reportContext ?? throw new ArgumentNullException(nameof(reportContext));
+            this.reportContext = reportContext
+                ?? throw new ArgumentNullException(nameof(reportContext));
             this.confirmView = confirmView
                 ?? throw new ArgumentNullException(nameof(confirmView));
             this.voice = voice;
