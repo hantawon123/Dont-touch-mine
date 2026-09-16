@@ -30,6 +30,105 @@
         },
         "type" : "object"
       },
+      "AccountSettings" : {
+        "properties" : {
+          "bindings" : {
+            "items" : {
+              "maxLength" : 128,
+              "minLength" : 0,
+              "type" : "string"
+            },
+            "maxItems" : 20,
+            "minItems" : 20,
+            "type" : "array"
+          },
+          "deviceName" : {
+            "maxLength" : 256,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "inputMode" : {
+            "minLength" : 1,
+            "pattern" : "push|open|off",
+            "type" : "string"
+          },
+          "interfaceOptions" : {
+            "items" : {
+              "maxLength" : 32,
+              "minLength" : 0,
+              "type" : "string"
+            },
+            "maxItems" : 9,
+            "minItems" : 9,
+            "type" : "array"
+          },
+          "languageCode" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "notifications" : {
+            "items" : {
+              "maxLength" : 32,
+              "minLength" : 0,
+              "type" : "string"
+            },
+            "maxItems" : 1,
+            "minItems" : 1,
+            "type" : "array"
+          },
+          "schemaVersion" : {
+            "format" : "int32",
+            "maximum" : 1,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "sensitivities" : {
+            "items" : {
+              "format" : "int32",
+              "maximum" : 1000,
+              "minimum" : 0,
+              "type" : "integer"
+            },
+            "maxItems" : 3,
+            "minItems" : 3,
+            "type" : "array"
+          },
+          "toggles" : {
+            "items" : {
+              "maxLength" : 32,
+              "minLength" : 0,
+              "type" : "string"
+            },
+            "maxItems" : 4,
+            "minItems" : 4,
+            "type" : "array"
+          },
+          "volumes" : {
+            "items" : {
+              "format" : "int32",
+              "maximum" : 100,
+              "minimum" : 0,
+              "type" : "integer"
+            },
+            "maxItems" : 5,
+            "minItems" : 5,
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "bindings",
+          "deviceName",
+          "inputMode",
+          "interfaceOptions",
+          "languageCode",
+          "notifications",
+          "sensitivities",
+          "toggles",
+          "volumes"
+        ],
+        "type" : "object"
+      },
       "AdminAnalyticsTable" : {
         "properties" : {
           "columns" : {
@@ -692,6 +791,22 @@
         },
         "type" : "object"
       },
+      "SaveRequest" : {
+        "properties" : {
+          "expectedRevision" : {
+            "format" : "int64",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "settings" : {
+            "$ref" : "#/components/schemas/AccountSettings"
+          }
+        },
+        "required" : [
+          "settings"
+        ],
+        "type" : "object"
+      },
       "SendFeedbackRequest" : {
         "properties" : {
           "buildVer" : {
@@ -786,6 +901,21 @@
           "reason",
           "userId"
         ],
+        "type" : "object"
+      },
+      "Snapshot" : {
+        "properties" : {
+          "accepted" : {
+            "type" : "boolean"
+          },
+          "revision" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "settings" : {
+            "$ref" : "#/components/schemas/AccountSettings"
+          }
+        },
         "type" : "object"
       },
       "SuspendRequest" : {
@@ -1144,6 +1274,74 @@
         },
         "tags" : [
           "account-controller"
+        ]
+      }
+    },
+    "/api/v1/accounts/me/settings" : {
+      "get" : {
+        "operationId" : "get",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "settings-controller"
+        ]
+      },
+      "put" : {
+        "operationId" : "put",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "settings-controller"
         ]
       }
     },

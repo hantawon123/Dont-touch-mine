@@ -687,3 +687,26 @@ API 도, 취소하는 API 도 없습니다.
 전송이 실패했는데 입력창을 비우면 플레이어가 애써 쓴 글이 사라집니다. 4xx 든 5xx 든
 내용을 그대로 두고 다시 보낼 수 있게 하세요. 지금 화면이 전송 준비 전에도 그렇게 하고
 있습니다.
+
+
+## 계정 환경설정 (S15P21D205-1016)
+
+`GET /api/v1/accounts/me/settings`, `PUT /api/v1/accounts/me/settings`는 기존
+`X-User-Id` / `X-Account-Token` 인증을 사용한다. 신규 계정의 GET은 `revision: 0`,
+`settings: null`이다. PUT 본문은 `{expectedRevision, settings}`이며, 응답은
+`{accepted, revision, settings}`다. 다른 PC가 먼저 저장하면 `accepted: false`와 최신
+스냅샷을 반환한다. 클라이언트는 자신의 미저장 섹션만 유지하고 새 revision으로 재시도한다.
+
+schemaVersion 1은 언어, 키 바인딩/감도/반전, 인터페이스, 사운드, 알림을 저장한다.
+그래픽·프레임 제한·해상도·화면 모드는 PC 로컬이다. 선택한 마이크가 다른 PC에 없으면
+기존 SoundCatalog 규칙대로 기본 장치를 사용한다. 키 바인딩의 빈 문자열은 해제 상태다.
+현재 enum 순서에 따른 배열 길이는 bindings 20, toggles 4, sensitivities 3,
+interfaceOptions 9, notifications 1, volumes 5다. 규격 변경은 schemaVersion을 올린다.
+
+Unity는 로그인 후 복원하고, 적용·초기화 이벤트를 모아 직렬 저장한다. 조회 중 적용한
+설정은 유지하며 미저장 변경은 계정별 로컬 캐시에 남긴다. 네트워크 실패 시 로컬 동작은
+유지하고 10초 간격으로 재시도한다. 로그인 자체가 실패한 세션의 변경은 다음 로그인에
+복원한다. 전용 게임 서버는 플레이어 설정을 적용하지 않는다.
+
+배포 시 백엔드의 Flyway V20 마이그레이션이 필요하다. 기존 백엔드에는 API가 없으므로
+클라이언트 코드만 갱신하면 계정 동기화는 대기 상태이며 로컬 설정은 계속 동작한다.
