@@ -22,7 +22,7 @@ assert.ok(data.length >= 3.6 * 44100 * 4);
 const output = path.resolve(__dirname, '../../Assets/_Game/Content/Audio/Footsteps');
 fs.mkdirSync(output, { recursive: true });
 const starts = [0, .43, .92, 1.38, 1.86, 2.31, 2.76, 3.25];
-// +13.54 dB for this quiet recording; preserve relative footstep dynamics.
+// Input boost followed by soft peak compression and per-step level matching.
 const gain = 4 * Math.pow(10, 1.5 / 20);
 starts.forEach((start, index) => {
   const frames = Math.round(.28 * 44100);
@@ -32,17 +32,26 @@ starts.forEach((start, index) => {
   wav.writeUInt32LE(44100, 24); wav.writeUInt32LE(88200, 28);
   wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
   wav.write('data', 36); wav.writeUInt32LE(frames * 2, 40);
-  let energy = 0;
+  const processed = new Float64Array(frames);
+  let peak = 0;
   for (let frame = 0; frame < frames; frame++) {
     const offset = (Math.round(start * 44100) + frame) * 4;
     const sample = (data.readInt16LE(offset) + data.readInt16LE(offset + 2)) / 2;
     // Boost recording levels and soften cut boundaries (1 ms in, 10 ms out).
     const fade = Math.min(1, frame / 44, (frames - 1 - frame) / 441);
-    const value = Math.round(sample * fade * gain);
+    const value = Math.tanh(sample / 32768 * gain * 2) * fade;
+    processed[frame] = value;
+    peak = Math.max(peak, Math.abs(value));
+  }
+  assert.ok(peak > 0);
+  let energy = 0;
+  for (let frame = 0; frame < frames; frame++) {
+    // Leave 15% sample headroom while making quiet steps easier to hear.
+    const value = Math.round(processed[frame] / peak * .85 * 32767);
     assert.ok(value >= -32768 && value <= 32767, 'Footstep gain would clip');
     wav.writeInt16LE(value, 44 + frame * 2); energy += value * value;
   }
   assert.ok(energy > 0);
   fs.writeFileSync(path.join(output, `Footstep_${String(index + 1).padStart(2, '0')}.wav`), wav);
 });
-console.log('Generated 8 mono PCM footsteps (0.28 seconds each, +13.54 dB gain, no clipping).');
+console.log('Generated 8 mono PCM footsteps (0.28 seconds each, soft peak compression, matched peaks -1.4 dBFS, no clipping).');

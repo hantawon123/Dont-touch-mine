@@ -37,7 +37,7 @@ namespace Game.Client.Players
             previousPosition = transform.position;
             displacement.y = 0f;
             if (source == null) return;
-            source.volume = .8f * Mathf.Clamp01(EffectsVolume);
+            source.volume = Mathf.Clamp01(EffectsVolume);
             var speed = Time.deltaTime > 0f ? displacement.magnitude / Time.deltaTime : 0f;
             if (!source.isActiveAndEnabled || animator == null || animator.runtimeAnimatorController == null ||
                 !CanPlay(state, grounded, posture, speed) || displacement.magnitude > 2f)
