@@ -32,6 +32,8 @@
 - **스케일이 0.55로 자꾸 되돌아가던 원인(2026-09-16)**: `Assets/_Game/Editor/FirstInGameSetup.cs`가 도메인 리로드마다 `[InitializeOnLoadMethod]`로 실행되며 Visual 스케일이 0.55가 아니면 0.55로 고쳐 프리팹을 저장했음. 기존 Visual의 크기는 건드리지 않도록 수정(새로 끼울 때만 0.65).
 - 던지기: 눈높이 앞 0.35 m에서 놓고 조준점을 향해 수평 이하로만 던짐(머리가 최고점, 위로 솟는 포물선 없음). 속도 8→6, 위쪽 편향 0.
 - **1인칭 팔 2차(2026-09-16)**: 동작별 자세 프로필(Locomotion/Carry/Crouch/Prone, 0.15s 블렌드) + 펀치 연출(조준점 보정·목표 손 거리·주먹 쥠 곡선(클립 샘플링)·시작 오프셋·팔꿈치 안쪽·위팔 길이) + **오버레이 카메라**(레이어 `FirstPersonView`(9), URP 카메라 스택, 벽 근접 시 팔 가림 해결). Play 중 조정값은 메뉴 `Game > First Person > Save Arm And Hold Settings To Prefab`으로 PlayerCameraRig 프리팹에 저장(Play 중 Inspector 값은 Stop 시 사라짐). 지환 조정값 프리팹 커밋.
+- **캐릭터 크기 0.85 (2026-09-16, 지환 재조정 0.8→0.85; 브랜치 feature/client/character-item-fixes)**: sound-effect 머지가 프리팹 스케일을 0.55로 되돌린 것을 발견 → 0.85로 확정. 캡슐 1.67/0.27(중심 0.835, KCC 동일), 키 1.67/1.10/0.56, 눈높이 1.42/0.85/0.46(모델 눈 1.60×0.85=1.36에 지환이 원한 '살짝 위' 비율 반영, 앉기·엎드리기는 이전 비율), 카메라 폴백 1.42, FirstInGameSetup 기본 0.85.
+- **Playground 씬 = 마트 복제본(2026-09-16, 지환 결정)**: 단독 Play 테스트를 마트 환경에서 하기 위해 `Playground.unity`를 `Supermarket.unity` 복제 + 테스트용 `PlayerCharacter`(SpawnPoint_9)로 교체. 기존 집 맵 Playground는 git 이력(333602c3 이전)에 있음. 마트 씬 원본은 건드리지 않음. 맵 id `playground`도 이제 마트 환경을 보여줌. 씬 파일 37 MB.
 - 남은 것: 물건이 1인칭에서 커 보임(기본 거리·크기별 보정), 동작별 팔 프로필, Unity에서 실제 확인(지환), 각도 기본값 확정, 펀치·들기 모션 1인칭 확인(T4), CCTV·리플레이 카메라에 팔이 찍히지 않는지(현재는 1인칭 아닐 때·리플레이·리그 비활성 시 숨김으로 처리).
 
 ## 2. 접근 방식 비교
