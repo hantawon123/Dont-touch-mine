@@ -1,0 +1,257 @@
+{
+  "parts": {
+    "Backpack": {
+      "vertices": 922,
+      "shape_keys": [
+        "Basis",
+        "Custom_BackpackScale"
+      ],
+      "unweighted": 0
+    },
+    "Body": {
+      "vertices": 8400,
+      "shape_keys": [
+        "Basis",
+        "Belly_Breath",
+        "Crawl_Follow_L",
+        "Crawl_Follow_R",
+        "Crawl_Waist_Round",
+        "Crouch_Groin_Flat",
+        "Custom_Belly"
+      ],
+      "unweighted": 0
+    },
+    "Eye_Glint_L": {
+      "vertices": 922,
+      "shape_keys": [
+        "Basis",
+        "Custom_EyeSize"
+      ],
+      "unweighted": 0
+    },
+    "Eye_Glint_R": {
+      "vertices": 922,
+      "shape_keys": [
+        "Basis",
+        "Custom_EyeSize"
+      ],
+      "unweighted": 0
+    },
+    "Eye_Pupil_L": {
+      "vertices": 922,
+      "shape_keys": [
+        "Basis",
+        "Custom_EyeSize"
+      ],
+      "unweighted": 0
+    },
+    "Eye_Pupil_R": {
+      "vertices": 922,
+      "shape_keys": [
+        "Basis",
+        "Custom_EyeSize"
+      ],
+      "unweighted": 0
+    },
+    "Eye_White_L": {
+      "vertices": 922,
+      "shape_keys": [
+        "Basis",
+        "Custom_EyeSize"
+      ],
+      "unweighted": 0
+    },
+    "Eye_White_R": {
+      "vertices": 922,
+      "shape_keys": [
+        "Basis",
+        "Custom_EyeSize"
+      ],
+      "unweighted": 0
+    },
+    "Feet_L": {
+      "vertices": 2420,
+      "shape_keys": [
+        "Basis",
+        "Custom_RoundFeet"
+      ],
+      "unweighted": 0
+    },
+    "Feet_R": {
+      "vertices": 2420,
+      "shape_keys": [
+        "Basis",
+        "Custom_RoundFeet"
+      ],
+      "unweighted": 0
+    },
+    "Hood": {
+      "vertices": 27368,
+      "shape_keys": [
+        "Basis",
+        "Custom_SmallEars"
+      ],
+      "unweighted": 0
+    },
+    "Mouth_Smile": {
+      "vertices": 588,
+      "shape_keys": [
+        "Basis",
+        "Custom_WideSmile"
+      ],
+      "unweighted": 0
+    }
+  },
+  "clips": {
+    "Carry_TwoHands": {
+      "evaluated_mesh_frames": [
+        1,
+        11,
+        21,
+        31,
+        41,
+        51,
+        61
+      ],
+      "finite_vertices": true
+    },
+    "Carry_TwoHands_Crouch_Idle": {
+      "evaluated_mesh_frames": [
+        1,
+        11,
+        21,
+        31,
+        41,
+        51,
+        61
+      ],
+      "finite_vertices": true
+    },
+    "Crawl_Forward": {
+      "evaluated_mesh_frames": [
+        1,
+        7,
+        13,
+        19,
+        25,
+        31,
+        37
+      ],
+      "finite_vertices": true
+    },
+    "Crouch_Idle": {
+      "evaluated_mesh_frames": [
+        1,
+        11,
+        21,
+        31,
+        41,
+        51,
+        61
+      ],
+      "finite_vertices": true
+    },
+    "Idle": {
+      "evaluated_mesh_frames": [
+        1,
+        11,
+        21,
+        31,
+        41,
+        51,
+        61
+      ],
+      "finite_vertices": true
+    },
+    "Jump": {
+      "evaluated_mesh_frames": [
+        1,
+        6,
+        12,
+        17,
+        22,
+        28,
+        33
+      ],
+      "finite_vertices": true
+    },
+    "Land": {
+      "evaluated_mesh_frames": [
+        1,
+        4,
+        8,
+        11,
+        14,
+        18,
+        21
+      ],
+      "finite_vertices": true
+    },
+    "Punch": {
+      "evaluated_mesh_frames": [
+        1,
+        5,
+        9,
+        13,
+        17,
+        21,
+        25
+      ],
+      "finite_vertices": true
+    },
+    "Run_Forward": {
+      "evaluated_mesh_frames": [
+        1,
+        4,
+        8,
+        11,
+        14,
+        18,
+        21
+      ],
+      "finite_vertices": true
+    },
+    "Stun_Idle": {
+      "evaluated_mesh_frames": [
+        1,
+        11,
+        21,
+        31,
+        41,
+        51,
+        61
+      ],
+      "finite_vertices": true
+    },
+    "Throw_TwoHands": {
+      "evaluated_mesh_frames": [
+        1,
+        5,
+        9,
+        13,
+        17,
+        21,
+        25
+      ],
+      "finite_vertices": true
+    },
+    "Walk_Forward": {
+      "evaluated_mesh_frames": [
+        1,
+        5,
+        9,
+        13,
+        17,
+        21,
+        25
+      ],
+      "finite_vertices": true
+    }
+  },
+  "fbx": {
+    "round_trip": true,
+    "bone_count": 28,
+    "max_rest_matrix_error": 8.528819307684898e-06,
+    "all_part_names_keys_and_skin_bindings_preserved": true
+  }
+}
