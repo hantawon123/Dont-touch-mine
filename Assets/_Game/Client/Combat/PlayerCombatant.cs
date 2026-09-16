@@ -66,6 +66,9 @@ namespace Game.Client.Combat
         /// <summary>표현 계층(애니메이션)이 참조하는 전투 설정.</summary>
         public CombatConfigSO Config => combatConfig;
 
+        /// <summary>전투 규칙이 주입됐는가. 씬 복제 등으로 Auto Inject 목록에서 빠진 캐릭터를 LifetimeScope가 찾아 보충할 때 쓴다.</summary>
+        public bool HasCombatRules => combatRules != null;
+
         public bool IsStunned =>
             usesNetworkState
                 ? networkStunned

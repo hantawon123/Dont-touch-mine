@@ -407,8 +407,8 @@ MonoBehaviour:
   _settings:
     Shape: 1
     IsTrigger: 0
-    Radius: 0.21
-    Height: 1.3
+    Radius: 0.27
+    Height: 1.67
     Extent: 0.035
     ColliderLayer: 6
     CollisionLayerMask:

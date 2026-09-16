@@ -169,7 +169,7 @@ namespace Game.Editor
                 }
                 report.prefabMaterialsValid=report.noLegacyDependencies=true;
                 report.clips=SmoothBearAssets.LoadClips().Length;
-                if(report.clips!=119)throw new Exception("Expected 119 unique native clips");
+                if(report.clips!=128)throw new Exception("Expected 128 unique native clips");
                 foreach(var clip in SmoothBearAssets.LoadClips())
                 {
                     int supportPaths=AnimationUtility.GetCurveBindings(clip)
