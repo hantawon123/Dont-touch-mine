@@ -54,7 +54,7 @@ docker run --rm --cpus=3 --cpu-shares=1024 --memory=8g --memory-swap=8g \
     unity-editor -batchmode -nographics -projectPath /workspace -buildTarget "$target" "$@"
 }
 
-client_image=unityci/editor:ubuntu-6000.3.22f1-windows-mono-3.2.2
+client_image=unityci/editor:ubuntu-6000.3.22f1-windows-mono-3.2.2@sha256:937d7f6d141770c103b1673e0732e1c63d337136e21674df3931e03574663704
 server_image=unityci/editor:ubuntu-6000.3.22f1-linux-il2cpp-3.2.2@sha256:bd9f0c77473bc842423236ec1498f180380f734dde521397e0fac2319865e87a
 
 timed tests run_unity Win64 "$client_image" -runTests -testPlatform EditMode \
