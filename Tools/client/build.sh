@@ -3,6 +3,7 @@ set -euo pipefail
 project=$(pwd -P)
 support=$(cd "$(dirname "$0")" && pwd)
 revision=$(git rev-parse HEAD)
+test "$revision" = "${RELEASE_REVISION:?Resolved source revision is required}"
 cache="$project/Library/ClientCiCache"
 mkdir -p Logs "$cache/bee" "$cache/nuget" "$cache/tools"
 # Clear reports before even validating credentials so a failed run cannot archive old success.
@@ -62,18 +63,10 @@ bash "$support/container.sh" --cpus=3 --cpu-shares=1024 --memory=8g --memory-swa
     unity-editor -batchmode -nographics -projectPath /workspace -buildTarget "$target" "$@"
 }
 
-client_image=unityci/editor:ubuntu-6000.3.22f1-windows-mono-3.2.2@sha256:937d7f6d141770c103b1673e0732e1c63d337136e21674df3931e03574663704
 server_image=unityci/editor:ubuntu-6000.3.22f1-linux-il2cpp-3.2.2@sha256:bd9f0c77473bc842423236ec1498f180380f734dde521397e0fac2319865e87a
 
-timed tests run_unity Win64 "$client_image" -executeMethod Game.Editor.ClientBuild.PrepareTests -runTests -testPlatform EditMode \
-    -testFilter Game.Architecture.Tests.NetworkContractTests \
-    -testResults /workspace/Logs/client-contract-results.xml -logFile - 2>&1 | tee Logs/client-tests.log
-python3 -c 'import xml.etree.ElementTree as ET; result = ET.parse("Logs/client-contract-results.xml").getroot(); assert result.get("result") == "Passed" and int(result.get("total", "0")) > 0, "Unity contract tests did not pass"'
-if [ "${CLIENT_TEST_ONLY:-0}" = 1 ]; then exit 0; fi
 
-timed client run_unity Win64 "$client_image" -quit -executeMethod Game.Editor.ClientBuild.Build -logFile - 2>&1 | tee Logs/client-build.log
 timed server run_unity Linux64 "$server_image" -standaloneBuildSubtarget Server \
     -quit -executeMethod Game.Editor.DedicatedServerBuild.Build -logFile - 2>&1 | tee Logs/server-build.log
 test -f Builds/Server/GameServer.x86_64
 test "$(cat Builds/Server/version.txt)" = "$revision"
-python3 "$support/package_release.py" Builds/Client Builds/Download "$revision"

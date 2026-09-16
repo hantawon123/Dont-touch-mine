@@ -23,27 +23,22 @@ case "$*" in
 esac
 SH
 chmod +x bin/git bin/docker
-TEST_RESULT=Failed bash "$support/build.sh" >/dev/null 2>&1 && exit 1
-! grep -q Game.Editor.ClientBuild.Build calls.log
+export RELEASE_REVISION=$(git rev-parse HEAD)
 mkdir -p Library/ShaderCache
 touch Library/ShaderCache/retained
-: > calls.log
-CLIENT_TEST_ONLY=1 bash "$support/build.sh" >/dev/null
-! grep -q Game.Editor.ClientBuild.Build calls.log
-test -f Library/ShaderCache/retained
-: > calls.log
 status=0
 bash "$support/build.sh" >/dev/null 2>&1 || status=$?
 test "$status" = 9
-grep -Fq "src=$fixture/Library,dst=/workspace/Library" calls.log
+! grep -q -- '-buildTarget Win64' calls.log
 grep -Fq "src=${fixture}@server-library,dst=/workspace/Library" calls.log
 grep -q BEE_CACHE_DIRECTORY=/cache/bee-server calls.log
-grep -q BEE_CACHE_DIRECTORY=/cache/bee calls.log
 grep -q 'stop -t 10 d205-ci-' calls.log
 grep -q $'total\t' Logs/client-timings.tsv
 test -f Library/ShaderCache/retained
 : > calls.log
+RELEASE_REVISION=bad bash "$support/build.sh" >/dev/null 2>&1 && exit 1
+test ! -s calls.log
 bash "$support/container.sh" cleanup
 grep -q 'ps -aq --filter label=d205.client-ci=' calls.log
 grep -q 'stop -t 10 own-container' calls.log
-echo 'PASS: test gating, isolated target caches, exit status, scoped cleanup'
+echo 'PASS: revision gate, Linux-only build, retained cache, exit status, scoped cleanup'

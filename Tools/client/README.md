@@ -1,7 +1,7 @@
 # Windows 클라이언트·Linux 게임 서버 배포
 
 `release` 변경을 Jenkins `d205-unity-release`가 5분 간격으로 감지한다.
-`Tools/client/Jenkinsfile`은 Windows x64 Mono 클라이언트와 Linux 전용 서버를 같은 Git SHA로 빌드한다.
+`Tools/client/Jenkinsfile`은 Windows 에이전트의 Windows x64 Mono 클라이언트와 EC2의 Linux 전용 서버를 같은 Git SHA로 병렬 빌드한다.
 기존 `d205-unity-webgl` 작업은 비활성 상태를 유지한다. 실행 노드의 `unity-webgl`은 기존 슬롯 이름일 뿐 WebGL을 빌드하지 않는다.
 
 ## 팀 사용 흐름
@@ -25,8 +25,9 @@ release 이외의 브랜치를 검증용으로 연결하면 빌드·아티팩트
 
 ## 빌드 머신
 
-- Unity 6000.3.22f1 GameCI Windows Mono / Linux 이미지, Docker, Python 3.11+, Git LFS.
-- 기존 Jenkins Unity 실행 슬롯을 재사용하며 두 타깃을 순차 실행한다. Unity 컨테이너당 CPU 3개·메모리 8GB 제한. Jenkins 에이전트 서비스는 Git 체크아웃을 포함하여 MemoryMax=2G를 사용한다(512MB에서는 신규 클론 중 OOM 종료 확인).
+- Windows: Unity 6000.3.22f1, Java 21, .NET SDK, Python 3.11+, Git LFS. `unity-windows` 라벨의 에이전트에서 네이티브 빌드한다.
+- EC2: 기존 `unity-webgl` 라벨, GameCI Linux 이미지, Docker, Python 3.11+, Git LFS.
+- Linux 서버는 기존 Jenkins Unity 실행 슬롯을 사용한다. Unity 컨테이너당 CPU 3개·메모리 8GB 제한. Jenkins 에이전트 서비스는 Git 체크아웃을 포함하여 MemoryMax=2G를 사용한다(512MB에서는 신규 클론 중 OOM 종료 확인).
 - `CLIENT_CONFIG_DIR` 기본 `/var/lib/jenkins/.config/unity-webgl`의 `PhotonAppSettings.asset`를 주입한다.
 - `CLIENT_UNITY_HOME` 기본 `/var/lib/jenkins/.config/unity3d/Unity`의 해당 EC2에서 정상 활성화한 Unity 라이선스를 사용한다. 다른 PC의 machine-id/라이선스를 복사하지 않는다.
 - GMS 키는 공용 백엔드에만 둔다. ZIP에 소스·백업·환경변수 파일을 포함하지 않는다.
@@ -79,3 +80,21 @@ Linux의 첫 실행은 새 캐시를 만들기 때문에 빨라지지 않으며 
 정상 종료·TERM/INT에는 해당 컨테이너를 정리하고, Jenkins post에서도 같은 작업의 잔여 컨테이너만 정리한다.
 게임 서버·백엔드 컨테이너를 전체 종료하거나 prune하지 않는다.
 구성 검증: `bash Tools/client/test_build.sh`.
+
+## Windows 에이전트
+
+`d205-unity-windows`는 현재 개발 PC의 빌드 전용 에이전트이며 동시 실행은 1개다.
+루트는 `%USERPROFILE%\.d205-unity-ci\agent`, Photon 설정은 `..\config\PhotonAppSettings.asset`다.
+`CLIENT_UNITY_EXE`와 `CLIENT_CONFIG_DIR`로 설치 경로를 바꿀 수 있다.
+라이선스는 Windows PC에 정상 활성화된 Unity 라이선스를 사용하며 EC2 라이선스를 복사하지 않는다.
+현재 PC에서 `powershell -File "$env:USERPROFILE/.d205-unity-ci/start-agent.ps1"`로 연결한다.
+이 PC가 꺼지거나 절전/로그아웃되면 빌드할 수 없다. 시작 프로그램·서비스 등록은 하지 않았다.
+기존 에이전트가 연결 중이면 중복 실행하지 않는다. 연결 인증 파일은 Git에 넣거나 팀에 공유하지 않는다.
+
+Linux 체크아웃에서 확정한 전체 SHA를 Windows도 체크아웃한다. Windows 테스트 실패 시 서버 빌드도 중단한다.
+성공한 Windows 압축 파일만 stash로 전달하고 SHA·체크섬을 재검사한다. 대형 압축 파일 전달은
+Jenkins 컨트롤러 I/O 비용이 있으므로 전송 시간이 병목이 되면 외부 아티팩트 저장소로 전환한다.
+TEST_ONLY는 Windows 계약 테스트만 수행하고 Linux 서버 빌드/배포는 하지 않는다.
+첫 Windows 작업 폴더는 전체 에셋을 임포트해야 한다. 이후 이 폴더의 Library를 재사용한다.
+Windows 종료 정리는 PID와 시작 시간·실행 경로가 일치하는 해당 빌드 프로세스 트리만 대상으로 한다.
+PowerShell 검증: `powershell -File Tools/client/test-windows-build.ps1`.
