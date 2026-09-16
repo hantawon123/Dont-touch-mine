@@ -189,7 +189,7 @@ namespace Game.Editor
                 TextAlignmentOptions.Center);
             timerText.color = Color.white;
             Place(timerText.rectTransform, new Vector2(0.5f, 1f),
-                new Vector2(0f, -HidingActiveHudView.TopPadding), new Vector2(420f, MatchTimerView.TimerHeight));
+                new Vector2(0f, -HidingActiveHudView.TopPadding), new Vector2(MatchTimerView.TimerWidth, MatchTimerView.TimerHeight));
             var timerView = timerText.gameObject.AddComponent<MatchTimerView>();
             Assign(timerView, "timerText", timerText);
 

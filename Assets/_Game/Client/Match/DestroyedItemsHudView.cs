@@ -33,9 +33,17 @@ namespace Game.Client.Match
         public const float LeftPadding = 36f;
         public const float TopPadding = 36f;
         public const float OwnBorderThickness = 6f;
+        public const float CategoryFontSize = 36f;
+        public const float CategoryGap = 12f;
+        public const float CategoryWidth = 360f;
+        public const float CategoryHeight = 60f;
         public const string QuestionMark = "?";
         public const string OwnBorderName = "OwnBorder";
         public const string FillName = "Fill";
+        public const string CategoryName = "Category";
+
+        public static Vector2 CategoryAnchoredPosition =>
+            new Vector2(LeftPadding, -(TopPadding + SlotSize + CategoryGap));
 
         public static readonly Color SlotColor = new Color(0f, 0f, 0f, 0.6f);
         public static readonly Color QuestionColor = new Color(200f / 255f, 200f / 255f, 200f / 255f, 1f);
@@ -47,9 +55,13 @@ namespace Game.Client.Match
         [SerializeField]
         private RectTransform slotRoot;
 
+        [SerializeField]
+        private TMP_Text categoryLabel;
+
         private Slot[] slots = System.Array.Empty<Slot>();
         private DestroyedItemHudSlot[] laidOutSlots = System.Array.Empty<DestroyedItemHudSlot>();
         private bool retryPreviews;
+        private string categoryText = string.Empty;
         private static Sprite ownBorderSprite;
 
         public static DestroyedItemsHudView Create(Transform parent)
@@ -137,7 +149,23 @@ namespace Game.Client.Match
                 panel.SetActive(true);
             }
 
+            ApplyCategory();
             transform.SetAsLastSibling();
+        }
+
+        public void SetCategory(string label)
+        {
+            var next = label?.Trim() ?? string.Empty;
+            if (string.Equals(categoryText, next, StringComparison.Ordinal) &&
+                categoryLabel != null)
+            {
+                ApplyCategory();
+                return;
+            }
+
+            categoryText = next;
+            EnsureLayout();
+            ApplyCategory();
         }
 
         public void Hide()
@@ -146,6 +174,8 @@ namespace Game.Client.Match
             {
                 panel.SetActive(false);
             }
+
+            ApplyCategory();
         }
 
         private void EnsureLayout()
@@ -172,6 +202,57 @@ namespace Game.Client.Match
             slotRoot.sizeDelta = new Vector2(
                 (SlotSize * RoomSettings.MaxPlayerCount) + (SlotGap * (RoomSettings.MaxPlayerCount - 1)),
                 SlotSize);
+            EnsureCategory();
+        }
+
+        private void EnsureCategory()
+        {
+            if (categoryLabel == null)
+            {
+                categoryLabel = transform.Find(CategoryName)?.GetComponent<TMP_Text>();
+            }
+
+            if (categoryLabel == null)
+            {
+                var categoryObject = new GameObject(
+                    CategoryName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(TextMeshProUGUI));
+                categoryObject.transform.SetParent(transform, false);
+                categoryLabel = categoryObject.GetComponent<TextMeshProUGUI>();
+                categoryLabel.font = HomeUiFonts.Apply();
+                categoryLabel.fontSize = CategoryFontSize;
+                categoryLabel.fontStyle = FontStyles.Normal;
+                categoryLabel.alignment = TextAlignmentOptions.TopLeft;
+                categoryLabel.color = Color.white;
+                categoryLabel.raycastTarget = false;
+                categoryLabel.textWrappingMode = TextWrappingModes.NoWrap;
+                categoryLabel.overflowMode = TextOverflowModes.Ellipsis;
+                categoryLabel.gameObject.SetActive(false);
+            }
+
+            var rect = categoryLabel.rectTransform;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = CategoryAnchoredPosition;
+            rect.sizeDelta = new Vector2(CategoryWidth, CategoryHeight);
+        }
+
+        private void ApplyCategory()
+        {
+            if (categoryLabel == null)
+            {
+                return;
+            }
+
+            var visible = panel != null && panel.activeSelf && categoryText.Length > 0;
+            categoryLabel.gameObject.SetActive(visible);
+            if (visible)
+            {
+                categoryLabel.text = categoryText;
+            }
         }
 
         private void EnsureSlots(int count)
