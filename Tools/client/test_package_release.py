@@ -30,6 +30,10 @@ class DeliveryTests(unittest.TestCase):
             self.assertIn(f'href="{archive.name}" download', html)
             self.assertNotIn('@@', html)
             self.assertTrue((archive.parent/'hero.png').is_file())
+            self.assertTrue((archive.parent/'beta-test-favicon.png').is_file())
+            self.assertTrue(all((archive.parent/f'step-{step}.png').is_file() for step in range(1, 5)))
+            self.assertIn('게임 다운로드</a>', html)
+            self.assertIn('<section id="info">', html)
             self.assertIn(revision[:12], html)
             with zipfile.ZipFile(archive) as z:
                 self.assertIn('Game_Data/globalgamemanagers', z.namelist())
