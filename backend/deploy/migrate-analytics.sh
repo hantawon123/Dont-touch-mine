@@ -1,9 +1,10 @@
 #!/bin/bash
-# 플레이 로그와 Metabase 설정을 게임 DB 컨테이너에서 분석 DB 컨테이너로 옮깁니다 (S15P21D205-980).
+# 플레이 로그를 게임 DB 컨테이너에서 분석 DB 컨테이너로 옮깁니다 (S15P21D205-980).
 #
-# 서비스를 나누기 전에는 d205-mysql 한 컨테이너에 스키마 셋(d205, d205_analytics, metabase)이 있었습니다.
-# 나눈 뒤 d205_analytics 와 metabase 는 d205-mysql-analytics 의 것입니다. 이 스크립트는 그 둘을 덤프해
-# 새 컨테이너에 넣습니다. 게임 스키마(d205)는 건드리지 않습니다.
+# 서비스를 나누기 전에는 d205-mysql 한 컨테이너에 게임 스키마(d205)와 d205_analytics 가 같이 있었습니다.
+# 나눈 뒤 d205_analytics 는 d205-mysql-analytics 의 것입니다. 이 스크립트는 그것을 덤프해 새 컨테이너에
+# 넣습니다. 게임 스키마는 건드리지 않습니다. (2026-09-14 실제 이관 때는 Metabase 설정 스키마도 함께
+# 옮겼는데, Metabase 는 09-16 에 내렸으므로 스크립트에서 뺐습니다.)
 #
 # 서버에서, 배포 디렉터리(/home/ubuntu/d205)에서, 새 compose 가 올라온 뒤에 한 번 실행합니다.
 #
@@ -12,8 +13,7 @@
 # 순서가 중요합니다.
 #   1. 새 compose 로 배포되어 d205-mysql-analytics 가 떠 있어야 합니다(빈 스키마에 Flyway 가 돌아 있음).
 #   2. 이 스크립트를 돌립니다. 백업 → 덤프 → 새 컨테이너에 넣기 → 행 수 비교.
-#   3. Metabase 를 재시작합니다. 옮긴 설정으로 붙게 하려는 것입니다.
-#   4. 옛 스키마는 지우지 않습니다. 며칠 지나 문제가 없으면 deploy/README.md 의 절차로 지웁니다.
+#   3. 옛 스키마는 지우지 않습니다. 며칠 지나 문제가 없으면 deploy/README.md 의 절차로 지웁니다.
 #
 # 백업이 먼저이고 실패하면 거기서 멈춥니다. 백업 없이 옮기는 경로는 없습니다.
 #
@@ -51,8 +51,8 @@ done
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 
-echo "[1/4] 백업: 옛 컨테이너의 d205_analytics 와 metabase 스키마"
-for schema in d205_analytics metabase; do
+echo "[1/4] 백업: 옛 컨테이너의 d205_analytics 스키마"
+for schema in d205_analytics; do
     file="$BACKUP_DIR/${STAMP}-${schema}-before-split.sql.gz"
     # --single-transaction: InnoDB 라 잠금 없이 일관된 스냅샷을 뜹니다. 게임 API 는 계속 돕니다.
     # --databases: 덤프에 CREATE DATABASE/USE 가 들어가 새 컨테이너에서 그대로 실행됩니다.
@@ -66,14 +66,14 @@ for schema in d205_analytics metabase; do
 done
 
 echo "[2/4] 새 컨테이너에 넣기"
-for schema in d205_analytics metabase; do
+for schema in d205_analytics; do
     file="$BACKUP_DIR/${STAMP}-${schema}-before-split.sql.gz"
     gunzip -c "$file" | docker exec -i "$NEW" sh -c "MYSQL_PWD='$ANALYTICS_MYSQL_ROOT_PASSWORD' mysql -uroot"
     echo "  $schema 완료"
 done
 
 echo "[3/4] 행 수 비교"
-for table in "d205_analytics.game_event" "metabase.report_dashboard" "metabase.report_card"; do
+for table in "d205_analytics.game_event"; do
     old_n=$(docker exec "$OLD" sh -c "MYSQL_PWD='$MYSQL_ROOT_PASSWORD' mysql -uroot -N -e 'SELECT COUNT(*) FROM $table'" 2>/dev/null || echo "?")
     new_n=$(docker exec "$NEW" sh -c "MYSQL_PWD='$ANALYTICS_MYSQL_ROOT_PASSWORD' mysql -uroot -N -e 'SELECT COUNT(*) FROM $table'" 2>/dev/null || echo "?")
     mark="OK"; [ "$old_n" != "$new_n" ] && mark="다름!"
@@ -88,8 +88,7 @@ docker exec "$NEW" sh -c "MYSQL_PWD='$ANALYTICS_MYSQL_ROOT_PASSWORD' mysql -uroo
 cat <<EOF
 
 다음 할 일:
-  docker compose -f compose.prod.yml restart metabase
-  브라우저에서 Metabase 대시보드가 옮기기 전과 같은 숫자를 보이는지 확인
-  며칠 뒤 문제가 없으면 옛 스키마 정리(README): DROP DATABASE d205_analytics; DROP DATABASE metabase; (d205-mysql 에서)
+  관리 화면 분석 탭의 경기 목록이 옮기기 전과 같은 수를 보이는지 확인
+  며칠 뒤 문제가 없으면 옛 스키마 정리(README): DROP DATABASE d205_analytics; (d205-mysql 에서)
 백업: $BACKUP_DIR/${STAMP}-*
 EOF
