@@ -294,8 +294,12 @@ namespace Game.Client.Interactions
 
             previewPosition = ghost.transform.position;
 
-            // 보정 한도까지 올려도 겹치거나 받쳐 줄 바닥이 없으면 그때만 배치 불가(빨간색).
-            isCurrentPoseValid = !IsOverlapping() && HasSupport();
+            // 보정 한도까지 올려도 겹치거나, 받쳐 줄 바닥이 없거나, 호스트 거리 규칙(플레이어에서 상호작용 거리 안,
+            // 높이 포함 3D 거리)을 넘으면 배치 불가(빨간색). 호스트는 같은 거리로 놓기를 검증하므로 여기서 미리 걸러야
+            // "파란색인데 실제로는 안 놓이는" 일이 없다.
+            var withinAuthorityReach = Vector3.Distance(transform.position, previewPosition) <=
+                                       interactionConfig.InteractionDistance - 0.05f;
+            isCurrentPoseValid = withinAuthorityReach && !IsOverlapping() && HasSupport();
             if (lastGhostValid != isCurrentPoseValid)
             {
                 ApplyGhostMaterial(isCurrentPoseValid ? ghostValidMaterial : ghostInvalidMaterial);
