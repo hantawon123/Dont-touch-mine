@@ -18,7 +18,12 @@ namespace Game.Editor
         private const string PlayerPrefabPath = "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab";
         private const string CatalogPath = "Assets/_Game/Content/Config/AvatarPartCatalog.asset";
         private const string IdleState = "Idle";
-        private static readonly Vector3 VisualScale = new(0.55f, 0.55f, 0.55f);
+        /// <summary>
+        /// Visual을 새로 끼울 때만 쓰는 기본 크기. 이미 붙어 있는 Visual의 크기는 건드리지 않는다 —
+        /// 크기는 PlayerCharacter 프리팹에서 팀이 조정하는 값이고(2026-09-16 0.65 확정), 이 스크립트가
+        /// 도메인 리로드마다 되돌리면 그 조정이 계속 사라진다.
+        /// </summary>
+        private static readonly Vector3 VisualScale = new(0.65f, 0.65f, 0.65f);
         private static bool appliedThisDomain;
 
         [InitializeOnLoadMethod]
@@ -175,8 +180,7 @@ namespace Game.Editor
             {
                 var visual = root.transform.Find("Visual");
                 if (IsFirstVisual(visual, model, controller) &&
-                    HasBodyColorTarget(root) &&
-                    visual.localScale == VisualScale)
+                    HasBodyColorTarget(root))
                 {
                     WireAppearance(root, visual.gameObject, catalog);
                     ApplyProjectMaterials(visual.gameObject);
@@ -186,7 +190,6 @@ namespace Game.Editor
 
                 if (IsFirstVisual(visual, model, null))
                 {
-                    visual.localScale = VisualScale;
                     BindAnimator(visual.gameObject, controller);
                     WireAppearance(root, visual.gameObject, catalog);
                     ApplyProjectMaterials(visual.gameObject);
