@@ -182,6 +182,7 @@ namespace Game.Client.Common
             transform.SetAsLastSibling();
             animationElapsed = 0f;
             SetVisualsVisible(true);
+            WebLoadingAnimation.Show(label);
         }
 
         // The caller owns readiness. Never keep a completed load covered for a timer.
@@ -203,9 +204,18 @@ namespace Game.Client.Common
             AnimateLetters();
         }
 
+        private void OnDisable()
+        {
+            if (presentedView == this) Close();
+        }
+
         private void Close()
         {
-            if (presentedView == this) presentedView = null;
+            if (presentedView == this)
+            {
+                WebLoadingAnimation.Hide();
+                presentedView = null;
+            }
             shown = false;
             animationElapsed = 0f;
             hasRestPose = false;
