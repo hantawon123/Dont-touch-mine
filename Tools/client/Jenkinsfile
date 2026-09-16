@@ -29,6 +29,7 @@ pipeline {
         }
         stage('Delivery checks') {
             steps {
+                sh 'bash Tools/client/test_build.sh'
                 sh "python3 -m unittest discover -s Tools/client -p 'test_*.py'"
                 sh "python3 -m unittest discover -s Tools/network/server-flow -p 'test_*.py'"
             }
@@ -52,6 +53,7 @@ pipeline {
     }
     post {
         always {
+            sh 'bash Tools/client/container.sh cleanup'
             archiveArtifacts artifacts: 'Logs/client-*.log,Logs/server-build.log,Logs/client-contract-results.xml,Logs/client-timings.tsv', allowEmptyArchive: true
         }
         success {

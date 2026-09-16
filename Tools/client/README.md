@@ -66,3 +66,16 @@ python3 -m unittest discover -s Tools/network/server-flow -p 'test_*.py'
 활성 include 밖으로 옮기고 `nginx-download.conf`를 설치한다. 중복 location을 두지 않는다.
 `nginx -t` 성공 후 reload하고 `/play/`의 리다이렉트가 `/play/releases/<SHA>/web/`로
 향하는지, 이미지와 ZIP이 같은 릴리스로 응답하는지 확인한다. WebGL 플레이어는 재개하지 않는다.
+
+## 빌드 캐시와 중단 처리
+
+Windows는 기존 작업 디렉터리의 `Library`와 `Library/ClientCiCache/bee`를 재사용한다.
+Linux 서버는 작업 디렉터리 옆 `<workspace>@server-library`를 별도 마운트하고
+`Library/ClientCiCache/bee-server`를 사용한다. 두 타깃의 Library 전환으로 발생하는 재임포트를 피한다.
+Linux의 첫 실행은 새 캐시를 만들기 때문에 빨라지지 않으며 디스크 공간이 추가로 필요하다.
+캐시는 빌드 중단 시에도 삭제하지 않는다. 첫 Windows 셰이더 컴파일 시간은 별도 병목이다.
+
+`container.sh`는 컨테이너에 작업 디렉터리별 소유 라벨을 붙인다.
+정상 종료·TERM/INT에는 해당 컨테이너를 정리하고, Jenkins post에서도 같은 작업의 잔여 컨테이너만 정리한다.
+게임 서버·백엔드 컨테이너를 전체 종료하거나 prune하지 않는다.
+구성 검증: `bash Tools/client/test_build.sh`.

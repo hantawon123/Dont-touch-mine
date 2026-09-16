@@ -28,7 +28,7 @@ uid=$(id -u)
 gid=$(id -g)
 
 # Restore R3 before Unity attempts to compile scripts on a fresh checkout.
-timed restore docker run --rm --cpus=1 --memory=1g --user "$uid:$gid" \
+timed restore bash "$support/container.sh" --cpus=1 --memory=1g --user "$uid:$gid" \
     -e HOME=/tmp/dotnet-home -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_ROLL_FORWARD=Major \
     -e NUGET_PACKAGES=/cache/nuget -v "$cache:/cache" \
     -v "$project:/workspace" -w /workspace \
@@ -41,15 +41,23 @@ timed restore docker run --rm --cpus=1 --memory=1g --user "$uid:$gid" \
 run_unity() {
 local target=$1 image=$2
 shift 2
-docker run --rm --cpus=3 --cpu-shares=1024 --memory=8g --memory-swap=8g \
+# Keep the existing Windows Library/cache. Linux must never switch its target.
+local library="$project/Library" bee=bee
+if [ "$target" = Linux64 ]; then
+    library="${project}@server-library"
+    bee=bee-server
+fi
+mkdir -p "$library" "$cache/$bee"
+bash "$support/container.sh" --cpus=3 --cpu-shares=1024 --memory=8g --memory-swap=8g \
     --user "$uid:$gid" -e HOME=/home/unity -e CLIENT_REVISION="$revision" -e GAME_REVISION="$revision" \
-    -e BEE_CACHE_DIRECTORY=/cache/bee \
+    -e BEE_CACHE_DIRECTORY="/cache/$bee" \
     --mount "type=bind,src=$cache,dst=/cache" \
     --tmpfs "/home/unity:uid=$uid,gid=$gid,mode=700" \
     --tmpfs "/home/unity/.config/unity3d:uid=$uid,gid=$gid,mode=700" \
     --mount type=bind,src=/etc/machine-id,dst=/etc/machine-id,readonly \
     --mount "type=bind,src=$unity_home,dst=/home/unity/.config/unity3d/Unity" \
-    --mount "type=bind,src=$project,dst=/workspace" -w /workspace \
+    --mount "type=bind,src=$project,dst=/workspace" \
+    --mount "type=bind,src=$library,dst=/workspace/Library" -w /workspace \
     "$image" \
     unity-editor -batchmode -nographics -projectPath /workspace -buildTarget "$target" "$@"
 }
