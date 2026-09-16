@@ -37,6 +37,29 @@ namespace Game.Client.Players
         [SerializeField, Min(0.1f), Tooltip("이동 모션 재생 배율. 1이면 설정 걷기/달리기 속도에서 1배")]
         private float locomotionPlaybackScale = 1f;
 
+        [SerializeField, Tooltip("한 걸음씩 분리한 발소리. 순서대로 번갈아 재생한다")]
+        private AudioClip[] footstepClips;
+
+        private PlayerFootstepAudio footstepAudio;
+
+        [SerializeField, Tooltip("펀치를 휘두를 때 재생하는 효과음 (명중 여부와 무관)")]
+        private AudioClip punchSwingClip;
+
+        private AudioSource punchAudioSource;
+
+        [SerializeField, Tooltip("펀치가 실제로 명중해 피격 알림을 받았을 때 재생하는 효과음")]
+        private AudioClip punchHitClip;
+
+        private AudioSource hitAudioSource;
+
+        [SerializeField, Tooltip("지면에서 위로 뛰어오를 때 한 번 재생하는 효과음")]
+        private AudioClip jumpClip;
+
+        private AudioSource jumpAudioSource;
+        private float previousJumpHeight;
+        private bool jumpGroundedSeen;
+        private bool jumpSoundPlayed;
+
         private float PunchDuration =>
             combatant != null && combatant.Config != null
                 ? combatant.Config.PunchMotionSeconds
@@ -92,6 +115,22 @@ namespace Game.Client.Players
 
             animator.applyRootMotion = false;
             lastPosture = movement.Posture;
+            previousJumpHeight = transform.position.y;
+#if !UNITY_SERVER
+            if (punchSwingClip != null)
+            {
+                punchAudioSource = CreateCombatAudioSource("PunchSwingAudio");
+            }
+            if (punchHitClip != null)
+                hitAudioSource = CreateCombatAudioSource("PunchHitAudio");
+            if (jumpClip != null)
+                jumpAudioSource = CreateCombatAudioSource("JumpAudio");
+            if (footstepClips != null && footstepClips.Length > 0)
+            {
+                footstepAudio = gameObject.AddComponent<PlayerFootstepAudio>();
+                footstepAudio.Initialize(footstepClips);
+            }
+#endif
         }
 
         private void OnEnable()
@@ -105,6 +144,12 @@ namespace Game.Client.Players
 
         private void OnDisable()
         {
+            footstepAudio?.Stop();
+            if (punchAudioSource != null) punchAudioSource.Stop();
+            if (hitAudioSource != null) hitAudioSource.Stop();
+            if (jumpAudioSource != null) jumpAudioSource.Stop();
+            jumpGroundedSeen = false;
+            jumpSoundPlayed = false;
             if (combatant != null)
             {
                 combatant.AttackPerformed -= OnAttackPerformed;
@@ -127,10 +172,40 @@ namespace Game.Client.Players
             PlayPunch();
         }
 
-        private void OnHitReceived() => PlayHit();
+        private void OnHitReceived()
+        {
+            // Play even on the hit that stuns the victim (PlayHit skips that animation).
+            if (hitAudioSource != null && hitAudioSource.isActiveAndEnabled)
+            {
+                hitAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                hitAudioSource.PlayOneShot(punchHitClip);
+            }
+            PlayHit();
+        }
+
+        private AudioSource CreateCombatAudioSource(string objectName)
+        {
+            var audioObject = new GameObject(objectName);
+            audioObject.transform.SetParent(transform, false);
+            // Never reuse footsteps or network voice sources.
+            var source = audioObject.AddComponent<AudioSource>();
+            source.playOnAwake = false;
+            source.loop = false;
+            source.spatialBlend = 1f;
+            source.rolloffMode = AudioRolloffMode.Linear;
+            source.minDistance = 2f;
+            source.maxDistance = 15f;
+            source.dopplerLevel = 0f;
+            return source;
+        }
 
         private void PlayPunch()
         {
+            if (punchAudioSource != null && punchAudioSource.isActiveAndEnabled)
+            {
+                punchAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                punchAudioSource.PlayOneShot(punchSwingClip);
+            }
             // Network peers choose the same hand, even if an attack update was skipped.
             leftPunch = usesNetworkState
                 ? (networkAttackSequence & 1) == 0
@@ -260,6 +335,7 @@ namespace Game.Client.Players
 
         private void Update()
         {
+            UpdateJumpAudio();
             if (animator.runtimeAnimatorController != null &&
                 HasParameter(animator, "Speed"))
             {
@@ -293,6 +369,47 @@ namespace Game.Client.Players
                 settings.ProneSpeed,
                 locomotionPlaybackScale);
         }
+
+        private void LateUpdate()
+        {
+            if (punchAudioSource != null)
+                punchAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (hitAudioSource != null)
+                hitAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (jumpAudioSource != null)
+                jumpAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            footstepAudio?.Tick(animator, currentState,
+                usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
+        }
+
+        private void UpdateJumpAudio()
+        {
+            var height = transform.position.y;
+            var rise = height - previousJumpHeight;
+            previousJumpHeight = height;
+            var grounded = usesNetworkState ? networkGrounded : movement.IsGrounded;
+            if (grounded)
+            {
+                jumpGroundedSeen = true;
+                jumpSoundPlayed = false;
+                return;
+            }
+            // Observe actual upward movement, not input: avoids sounds for rejected
+            // jump inputs, walking off a ledge, and spawning in mid-air.
+            if (!ShouldPlayJumpSound(jumpGroundedSeen, jumpSoundPlayed, grounded, rise, movement.Posture) ||
+                (combatant != null && combatant.IsStunned)) return;
+            jumpSoundPlayed = true;
+            if (jumpAudioSource != null && jumpAudioSource.isActiveAndEnabled)
+            {
+                jumpAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                jumpAudioSource.PlayOneShot(jumpClip);
+            }
+        }
+
+        internal static bool ShouldPlayJumpSound(bool groundedSeen, bool alreadyPlayed,
+            bool grounded, float rise, PlayerPosture posture) =>
+            groundedSeen && !alreadyPlayed && !grounded && rise > .001f && rise < 1f &&
+            posture == PlayerPosture.Standing;
 
         private string ResolveDesiredState()
         {
