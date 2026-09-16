@@ -110,20 +110,136 @@ namespace Game.Client.Interactions
         [SerializeField]
         private Transform holdPoint;
 
-        [SerializeField, Min(0f), Tooltip("소지 물건이 몸에서 앞으로 떨어진 거리")]
-        private float holdForwardOffset = 0.45f;
+        [Header("3인칭 소지 물건 위치 — 모델(스케일 1) 기준 미터. Visual 스케일을 곱해 실제 위치가 된다")]
+        [SerializeField, Min(0f), Tooltip("몸에서 앞으로. 머리 위에 드는 모션이라 거의 0. (0.65 스케일에서 0.16 m)")]
+        private float holdForwardOffset = 0.25f;
 
-        [SerializeField, Min(0f), Tooltip("소지 물건이 눈높이에서 아래로 내려간 거리")]
-        private float holdHeightBelowEyes = 0.55f;
+        [SerializeField, Min(0f), Tooltip("서기 높이. 정수리(모델 1.96) 위 손 사이. (0.65 스케일에서 1.46 m)")]
+        private float holdHeightStanding = 2.25f;
 
-        [SerializeField, Tooltip("소지 물건의 좌우 치우침 (+ 오른쪽)")]
+        [SerializeField, Min(0f), Tooltip("앉기 높이. 0.82 × 0.55 = 0.45 m(원래 값)")]
+        private float holdHeightCrouching = 0.82f;
+
+        [SerializeField, Min(0f), Tooltip("엎드리기 높이. 0.36 × 0.55 = 0.2 m(원래 값)")]
+        private float holdHeightProne = 0.36f;
+
+        [SerializeField, Tooltip("좌우 치우침 (+ 오른쪽)")]
         private float holdSideOffset = 0f;
+
+        [SerializeField, Min(0f), Tooltip("머리 본에서 위로(머리 본의 위 방향). 정수리(머리 본 위 0.68)보다 조금 높게. 모델 단위, Visual 스케일을 곱한다")]
+        private float holdAboveHeadOffset = 0.8f;
+
+        private Transform headBone;
+        private bool searchedHeadBone;
+
+        private const float ReferenceVisualScale = 0.55f;
+        private Transform visualForScale;
 
         public CarryableItem CarriedItem { get; private set; }
 
         public bool IsCarrying => CarriedItem != null;
 
         public Transform HoldPoint => holdPoint;
+
+        private Transform firstPersonCamera;
+        private Vector3 firstPersonHoldOffset;
+        private Quaternion firstPersonHoldTilt = Quaternion.identity;
+        private bool firstPersonHoldActive;
+        private float firstPersonMaxScreenFraction;
+        private CarryableItem measuredItem;
+        private float measuredItemSize;
+
+        /// <summary>
+        /// 1인칭 동안 손 위치를 카메라 기준으로 둔다. 카메라 컨트롤러가 자기 위치를 정한 직후 매 프레임 부른다.
+        /// 다른 클라이언트는 각자 자기 HoldPoint에 물건을 붙이므로 내 화면에만 영향이 있다.
+        /// </summary>
+        /// <param name="camera">1인칭 카메라(리그) 트랜스폼</param>
+        /// <param name="offset">카메라 기준 위치(m): x=오른쪽, y=위, z=앞</param>
+        /// <param name="tiltEuler">카메라 기준 물건 기울기(도)</param>
+        /// <param name="maxScreenFraction">물건이 화면 높이에서 차지할 최대 비율. 넘으면 그만큼 앞으로 민다. 0이면 끔</param>
+        public void SetFirstPersonHold(Transform camera, Vector3 offset, Vector3 tiltEuler, float maxScreenFraction = 0f)
+        {
+            firstPersonCamera = camera;
+            firstPersonHoldOffset = offset;
+            firstPersonHoldTilt = Quaternion.Euler(tiltEuler);
+            firstPersonMaxScreenFraction = maxScreenFraction;
+            firstPersonHoldActive = camera != null;
+            RefreshHoldPoint();
+        }
+
+        private bool TryGetHeadBone(out Transform head)
+        {
+            if (!searchedHeadBone || headBone == null)
+            {
+                searchedHeadBone = true;
+                headBone = null;
+                var visual = transform.Find("Visual");
+                if (visual != null)
+                {
+                    foreach (var t in visual.GetComponentsInChildren<Transform>(true))
+                    {
+                        if (t.name != "Head") continue;
+                        headBone = t;
+                        break;
+                    }
+                }
+            }
+
+            head = headBone;
+            return head != null;
+        }
+
+
+        /// <summary>
+        /// Visual의 실제 스케일. 캐릭터 크기를 바꿔도 물건이 머리 위에 남도록 손 위치 값에 곱한다.
+        /// 원래 값(0.55 스케일에서 1.05 m 등)은 필드 툴팁에 남겨 두었다.
+        /// </summary>
+        private float VisualScale()
+        {
+            if (visualForScale == null) visualForScale = transform.Find("Visual");
+            return visualForScale != null ? visualForScale.localScale.y : ReferenceVisualScale;
+        }
+
+        /// <summary>
+        /// 큰 물건은 화면을 가리므로, 화면 높이의 일정 비율을 넘는 만큼 카메라에서 멀리 민다.
+        /// 옆·아래 오프셋도 같은 비율로 키워 화면상의 자리는 그대로 둔다.
+        /// </summary>
+        private Vector3 FitFirstPersonOffset(Vector3 offset)
+        {
+            var item = CarriedItem;
+            if (item == null || firstPersonMaxScreenFraction <= 0f || offset.z <= 0.01f) return offset;
+
+            if (!ReferenceEquals(item, measuredItem))
+            {
+                measuredItem = item;
+                measuredItemSize = MeasureItemSize(item);
+            }
+
+            var cam = Camera.main;
+            var fov = cam != null ? cam.fieldOfView : 60f;
+            var visibleHeightPerMeter = 2f * Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
+            var neededDistance = measuredItemSize / (visibleHeightPerMeter * firstPersonMaxScreenFraction);
+            if (neededDistance <= offset.z) return offset;
+            return offset * (neededDistance / offset.z);
+        }
+
+        private static float MeasureItemSize(CarryableItem item)
+        {
+            var renderers = item.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) return 0f;
+            var bounds = renderers[0].bounds;
+            for (var i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            return Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
+        }
+
+        /// <summary>3인칭으로 돌아오면 손 위치를 다시 몸 기준으로 둔다.</summary>
+        public void ClearFirstPersonHold()
+        {
+            if (!firstPersonHoldActive) return;
+            firstPersonHoldActive = false;
+            firstPersonCamera = null;
+            if (holdPoint != null) holdPoint.localRotation = Quaternion.identity;
+        }
 
         public bool UsesAuthoritativeCommands => commands != null;
 
@@ -196,13 +312,46 @@ namespace Game.Client.Interactions
 
         public void RefreshHoldPoint()
         {
-            // 손 위치가 자세(서기/앉기/엎드리기)의 눈높이를 따라가게 한다.
+            if (firstPersonHoldActive)
+            {
+                if (firstPersonCamera == null)
+                {
+                    ClearFirstPersonHold();
+                    return;
+                }
+
+                // 1인칭: 시선을 따라 화면의 같은 자리에 보이도록 카메라 기준으로 즉시 놓는다(지연 없음).
+                holdPoint.SetPositionAndRotation(
+                    firstPersonCamera.TransformPoint(FitFirstPersonOffset(firstPersonHoldOffset)),
+                    firstPersonCamera.rotation * firstPersonHoldTilt);
+                return;
+            }
+
+            // 3인칭(및 다른 플레이어): 머리 본 기준 정수리 위. 머리 본은 애니메이션(서기·앉기·엎드리기·걷기)에
+            // 따라 움직이므로 물건이 항상 머리 위를 따라간다. Animator가 본을 쓴 뒤(LateUpdate)라 이 프레임 값이다.
+            if (TryGetHeadBone(out var head))
+            {
+                var scale = VisualScale();
+                var above = head.position + head.up * (holdAboveHeadOffset * scale);
+                var forward = transform.forward;
+                forward.y = 0f;
+                var target = above + forward.normalized * (holdForwardOffset * scale)
+                             + transform.right * (holdSideOffset * scale);
+                holdPoint.SetPositionAndRotation(target, transform.rotation);
+                return;
+            }
+
+            // 머리 본이 없는 모델: 자세별 고정 높이. 카메라 눈높이에는 묶지 않는다.
             if (playerMovement != null)
             {
-                var target = new Vector3(
-                    holdSideOffset,
-                    Mathf.Max(0.2f, playerMovement.CurrentEyeHeight - holdHeightBelowEyes),
-                    holdForwardOffset);
+                var scale = VisualScale();
+                var height = playerMovement.Posture switch
+                {
+                    PlayerPosture.Crouching => holdHeightCrouching,
+                    PlayerPosture.Prone => holdHeightProne,
+                    _ => holdHeightStanding,
+                };
+                var target = new Vector3(holdSideOffset * scale, height * scale, holdForwardOffset * scale);
                 holdPoint.localPosition = Vector3.Lerp(holdPoint.localPosition, target, 10f * Time.deltaTime);
             }
         }
@@ -289,10 +438,67 @@ namespace Game.Client.Interactions
             isAimingThrow = false;
         }
 
-        private Vector3 GetThrowVelocity()
+        /// <summary>크로스헤어가 맞는 곳이 없을 때 조준점으로 삼는 앞 거리(m).</summary>
+        private const float ThrowAimFallbackDistance = 12f;
+        private readonly RaycastHit[] throwAimHits = new RaycastHit[8];
+
+        /// <summary>던질 때 물건을 눈높이 앞으로 옮기는 거리(m). 여기가 궤적의 최고점이 된다.</summary>
+        private const float ThrowReleaseForward = 0.35f;
+
+        /// <summary>
+        /// 던지는 순간 물건을 눈높이(머리)에서 시선 방향으로 조금 앞에 옮긴다. 손은 시선보다 아래라
+        /// 손에서 던지면 조준점과 어긋나므로, 눈에서 시선 그대로 나가게 한다. 정면을 보고 던지면 눈높이가
+        /// 최고점이고 거기서 떨어지기만 하며, 위를 보고 던지면 그대로 위로 날아간다.
+        /// 눈과 놓는 점 사이에 벽이 있으면 벽 앞에서 놓는다.
+        /// </summary>
+        private void MoveToThrowRelease(CarryableItem item)
         {
-            var direction = (cameraTransform.forward + Vector3.up * interactionConfig.ThrowUpwardBias).normalized;
-            return direction * interactionConfig.ThrowSpeed;
+            var eyeHeight = playerMovement != null ? playerMovement.CurrentEyeHeight : 1.3f;
+            var eye = transform.position + Vector3.up * eyeHeight;
+            var forward = cameraTransform.forward;
+            var release = eye + forward * ThrowReleaseForward;
+            if (Physics.Raycast(eye, forward, out var blocked, ThrowReleaseForward,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            {
+                release = blocked.point - forward * 0.1f;
+            }
+
+            item.transform.position = release;
+        }
+
+        /// <summary>
+        /// 시선(크로스헤어) 방향 그대로 던진다. 인위적인 위쪽 보정은 없다 — 중력만 작용하므로 정면 던지기는
+        /// 놓는 점이 최고점이 되고, 천장을 보고 던지면 위로 날아간다. 속도 크기는 서버 상한(ThrowSpeed) 이하.
+        /// </summary>
+        private Vector3 GetThrowVelocity(Vector3 releasePosition)
+        {
+            var speed = Mathf.Max(0.1f, interactionConfig.ThrowSpeed);
+            var direction = FindThrowAimPoint() - releasePosition;
+            if (direction.sqrMagnitude < 0.01f)
+            {
+                direction = cameraTransform.forward;
+            }
+
+            return direction.normalized * speed;
+        }
+
+        private Vector3 FindThrowAimPoint()
+        {
+            var ray = new Ray(cameraTransform.position, cameraTransform.forward);
+            var count = Physics.RaycastNonAlloc(ray, throwAimHits, ThrowAimFallbackDistance,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            var nearest = float.MaxValue;
+            var point = ray.GetPoint(ThrowAimFallbackDistance);
+            for (var i = 0; i < count; i++)
+            {
+                var hit = throwAimHits[i];
+                if (hit.distance >= nearest || hit.transform.IsChildOf(transform)) continue;
+                if (CarriedItem != null && hit.transform.IsChildOf(CarriedItem.transform)) continue;
+                nearest = hit.distance;
+                point = hit.point;
+            }
+
+            return point;
         }
 
         private void ThrowCarried()
@@ -303,8 +509,8 @@ namespace Game.Client.Interactions
             }
 
             var thrown = CarriedItem;
-            EnsureSafeReleasePosition(thrown);
-            var velocity = GetThrowVelocity();
+            MoveToThrowRelease(thrown);
+            var velocity = GetThrowVelocity(thrown.transform.position);
 
             if (commands != null)
             {
