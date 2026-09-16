@@ -129,6 +129,59 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Show_RebuildsHitSegmentsToMatchMaxHitsWithoutChangingBarWidth()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchVitalsHudView.Create(canvas.transform);
+                view.Show(
+                    MatchVitalsHudView.DefaultStamina,
+                    MatchVitalsHudView.DefaultStamina,
+                    5,
+                    5);
+
+                var track = view.transform.Find("Panel/Health/BarTrack") as RectTransform;
+                Assert.That(track.sizeDelta.x, Is.EqualTo(MatchVitalsHudView.BarWidth));
+                Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment4"), Is.Not.Null);
+                Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment5"), Is.Null);
+
+                var expectedWidth = MatchVitalsHudView.SegmentWidthFor(5);
+                Assert.That(expectedWidth, Is.LessThan(MatchVitalsHudView.SegmentWidth));
+                Assert.That(
+                    (expectedWidth * 5) + (MatchVitalsHudView.SegmentGap * 4),
+                    Is.EqualTo(MatchVitalsHudView.BarWidth).Within(0.001f));
+                for (var index = 0; index < 5; index++)
+                {
+                    var segment = view.transform.Find($"Panel/Health/BarTrack/Segment{index}");
+                    Assert.That(segment, Is.Not.Null);
+                    Assert.That(segment.gameObject.activeSelf, Is.True);
+                    Assert.That(
+                        segment.GetComponent<LayoutElement>().preferredWidth,
+                        Is.EqualTo(expectedWidth).Within(0.001f));
+                }
+
+                view.SetValues(
+                    MatchVitalsHudView.DefaultStamina,
+                    MatchVitalsHudView.DefaultStamina,
+                    3,
+                    5);
+                Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment2").gameObject.activeSelf, Is.True);
+                Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment3").gameObject.activeSelf, Is.False);
+                Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment4").gameObject.activeSelf, Is.False);
+                Assert.That(
+                    view.transform.Find("Panel/Health/BarTrack/Segment0")
+                        .GetComponent<LayoutElement>().preferredWidth,
+                    Is.EqualTo(expectedWidth).Within(0.001f));
+                Assert.That(track.sizeDelta.x, Is.EqualTo(MatchVitalsHudView.BarWidth));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void SetValues_FillsStaminaBarToCurrentRatio()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
@@ -259,6 +312,8 @@ namespace Game.Architecture.Tests
             Assert.That(MatchVitalsHudView.RemainingHits(0, 3), Is.EqualTo(3));
             Assert.That(MatchVitalsHudView.RemainingHits(1, 3), Is.EqualTo(2));
             Assert.That(MatchVitalsHudView.RemainingHits(3, 3), Is.Zero);
+            Assert.That(MatchVitalsHudView.RemainingHits(0, 5), Is.EqualTo(5));
+            Assert.That(MatchVitalsHudView.RemainingHits(2, 5), Is.EqualTo(3));
         }
 
         private static void InvokeLateUpdate(MatchVitalsHudView view)
