@@ -391,7 +391,8 @@ namespace Game.Client.Character
         }
 
         /// <summary>
-        /// Reset and apply, under the character.
+        /// Reset and apply, under the character on Home and in the
+        /// bottom-right of the lobby overlay.
         /// </summary>
         /// <remarks>
         /// Both start off. Whether there is anything to apply is the
@@ -402,11 +403,18 @@ namespace Game.Client.Character
         {
             var size = CharacterClosetStyle.Buttons.Size;
             var half = (size.x + CharacterClosetStyle.Buttons.Gap) * 0.5f;
+            var host = canvas;
+            var y = ButtonsBottom;
+            if (lobbyOverlay)
+            {
+                host = CreateLobbyActionBar(canvas);
+                y = 0f;
+            }
 
             var reset = CreateButtonPlate(
                 "ResetButton",
-                canvas,
-                new Vector2(-half, ButtonsBottom),
+                host,
+                new Vector2(-half, y),
                 CharacterClosetStyle.Buttons.ResetLabel,
                 CharacterClosetStyle.Palette.ResetFill,
                 CharacterClosetStyle.Palette.ResetLabel,
@@ -418,8 +426,8 @@ namespace Game.Client.Character
 
             var apply = CreateButtonPlate(
                 "ApplyButton",
-                canvas,
-                new Vector2(half, ButtonsBottom),
+                host,
+                new Vector2(half, y),
                 CharacterClosetStyle.Buttons.ApplyLabel,
                 CharacterClosetStyle.Palette.ApplyOffFill,
                 CharacterClosetStyle.Palette.ApplyOffLabel,
@@ -430,6 +438,17 @@ namespace Game.Client.Character
             applyButton = AddPlateButton(apply, applyFill, () => ApplyRequested?.Invoke());
 
             SetActionsEnabled(false);
+        }
+
+        private RectTransform CreateLobbyActionBar(RectTransform canvas)
+        {
+            var bar = CreateRect("ActionBar", canvas);
+            SetAnchor(bar, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f));
+            bar.anchoredPosition = new Vector2(
+                -CharacterClosetStyle.Overlay.ButtonsRightInset,
+                CharacterClosetStyle.Overlay.ButtonsBottom);
+            bar.sizeDelta = CharacterClosetStyle.Overlay.ActionBarSize;
+            return bar;
         }
 
         private Button AddPlateButton(RectTransform plate, Image fill, Action clicked)
