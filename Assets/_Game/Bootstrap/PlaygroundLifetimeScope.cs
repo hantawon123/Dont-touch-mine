@@ -11,6 +11,7 @@ using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Core.Players;
 using Game.Core.Ports;
+using Game.Client.Combat;
 using Game.Network.Players;
 using Game.Network.Session;
 using Game.Server.Match;
@@ -238,11 +239,26 @@ namespace Game.Bootstrap
 
             builder.RegisterBuildCallback(container =>
             {
+                InjectSceneCombatants(container);
                 if (matchHudView == null) container.Resolve<ILoadingOverlay>().Hide();
                 Debug.Log(
                 $"[SceneTiming] Playground scope ready, " +
                 $"elapsed={Time.realtimeSinceStartupAsDouble - configureStartedAt:F3}s.");
             });
+        }
+
+        /// <summary>
+        /// 씬에 놓인 단독 테스트 캐릭터가 Auto Inject Game Objects 목록에 없어도 전투 규칙을 받게 한다.
+        /// 매치 씬을 복제해 테스트 씬을 만들 때 목록이 비어 펀치가 막히는 일을 막는다. 이미 주입된 캐릭터와
+        /// 나중에 스폰되는 네트워크 아바타는 건드리지 않는다.
+        /// </summary>
+        private void InjectSceneCombatants(IObjectResolver container)
+        {
+            foreach (var combatant in FindObjectsByType<PlayerCombatant>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (combatant.gameObject.scene != gameObject.scene || combatant.HasCombatRules) continue;
+                container.InjectGameObject(combatant.gameObject);
+            }
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
