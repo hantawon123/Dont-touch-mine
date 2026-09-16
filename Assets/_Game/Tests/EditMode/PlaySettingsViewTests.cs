@@ -1,6 +1,7 @@
 using System.Reflection;
 using Game.Client.Lobby;
 using Game.Core.Lobby;
+using Game.Core.Maps;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -210,6 +211,30 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     Find(footer, "ApplyButton").gameObject.activeInHierarchy,
                     Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void MapPicker_ShowsOnlySupermarket()
+        {
+            var root = CreateView(out var panel, out var view);
+            try
+            {
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, string.Empty));
+                Assert.That(Find(panel.transform, "MapSlot0"), Is.Not.Null);
+                Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
+                Assert.That(
+                    Find(panel.transform, "MapName").GetComponent<Text>().text,
+                    Is.EqualTo(MapCatalog.SupermarketId));
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.SupermarketId));
+
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, MapCatalog.PlaygroundId));
+                Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.SupermarketId));
             }
             finally
             {
