@@ -208,8 +208,10 @@ namespace Game.Network.Players
                                   direction.sqrMagnitude > 0f &&
                                   input.IsPressed(NetworkPlayerButton.Sprint);
             if (matchStarter == null) matchStarter = Runner.GetComponent<Game.Network.Match.MatchStarter>();
-            var unlimitedSprint = matchStarter != null && !matchStarter.HasStartedMatch &&
-                matchStarter.CurrentPhase == Game.Core.Match.MatchPhase.Waiting;
+            // 로비·대기실·엔딩 무대에서는 스태미나 없이 계속 달린다. 숨기·찾기 페이즈에서만 소모된다.
+            // 매치 시작 시점에 권위가 스태미나를 가득 채우므로(TryResetStamina) 로비에서의 상태는 매치에 이어지지 않는다.
+            var unlimitedSprint = matchStarter == null ||
+                PlayerStaminaRules.IsUnlimitedInPhase(matchStarter.CurrentPhase);
             if (Object.HasStateAuthority)
             {
                 var stamina = PlayerStaminaRules.Step(
