@@ -33,6 +33,7 @@
 - Approved preview: `audio-previews/cute-land.wav`; runtime asset is byte-identical.
 - Regenerate: `node Tools/audio/create-cute-land.cjs Assets/_Game/Content/Audio/Combat/Land.wav`.
 - Played once when landing after a jump that already played the takeoff cue. Walking off a ledge, spawning in mid-air, crouch/prone landings, and stunned landings do not play it.
+- Playback is delayed `LandImpactSeconds` (4 frames at 30 fps) after physics grounded, matching the Land clip's hip squash / foot plant. Volume is 80% of the other combat one-shots.
 
 # Stun (StunTwang.wav)
 

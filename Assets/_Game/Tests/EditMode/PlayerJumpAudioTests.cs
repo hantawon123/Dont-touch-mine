@@ -65,5 +65,14 @@ namespace Game.Tests.EditMode
             Assert.That(clip.length, Is.EqualTo(.22f).Within(.001f));
             Assert.That(clip.frequency, Is.EqualTo(44100));
         }
+
+        [Test]
+        public void LandSoundIsQuieterAndWaitsForTheFootPlant()
+        {
+            Assert.That(PlayerAnimationDriver.LandAudioVolume, Is.EqualTo(.64f).Within(.001f));
+            Assert.That(
+                PlayerAnimationDriver.LandImpactSeconds,
+                Is.EqualTo(4f / 30f).Within(.001f));
+        }
     }
 }

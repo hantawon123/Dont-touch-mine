@@ -27,6 +27,10 @@ namespace Game.Client.Players
         private const float DirectionDominanceHysteresis = 0.12f;
         private const float JumpSeconds = 32f / 30f;
         private const float LandSeconds = 20f / 30f;
+        // Land.anim hip Y bottoms at frame 4 (30 fps) — the visual foot plant.
+        internal const float LandImpactSeconds = 4f / 30f;
+        // 80% of the other combat one-shots (.8 * Effects).
+        internal const float LandAudioVolume = .64f;
         private const float HitSeconds = 30f / 30f;
         private const float MinLocomotionPlayback = 0.5f;
         private const float MaxLocomotionPlayback = 2f;
@@ -90,6 +94,7 @@ namespace Game.Client.Players
         private bool jumpGroundedSeen;
         private bool jumpSoundPlayed;
         private bool jumpWasAirborne;
+        private float landSoundAt = -1f;
 
         private float PunchDuration =>
             combatant != null && combatant.Config != null
@@ -201,6 +206,7 @@ namespace Game.Client.Players
             jumpGroundedSeen = false;
             jumpSoundPlayed = false;
             jumpWasAirborne = false;
+            landSoundAt = -1f;
             if (combatant != null)
             {
                 combatant.AttackPerformed -= OnAttackPerformed;
@@ -468,7 +474,7 @@ namespace Game.Client.Players
             if (stunAudioSource != null)
                 stunAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             if (landAudioSource != null)
-                landAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                landAudioSource.volume = LandAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             if (postureSwooshAudioSource != null)
                 postureSwooshAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             footstepAudio?.Tick(animator, currentState,
@@ -487,9 +493,18 @@ namespace Game.Client.Players
                 if (ShouldPlayLandSound(jumpWasAirborne, jumpSoundPlayed, grounded, movement.Posture) &&
                     !stunned)
                 {
-                    if (landAudioSource != null && landAudioSource.isActiveAndEnabled)
+                    // Physics reports grounded before the land clip's foot plant.
+                    landSoundAt = Time.time + LandImpactSeconds;
+                }
+
+                if (landSoundAt >= 0f && Time.time >= landSoundAt)
+                {
+                    landSoundAt = -1f;
+                    if (!stunned &&
+                        landAudioSource != null && landAudioSource.isActiveAndEnabled)
                     {
-                        landAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                        landAudioSource.volume =
+                            LandAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
                         landAudioSource.PlayOneShot(landClip);
                     }
                 }
@@ -500,6 +515,7 @@ namespace Game.Client.Players
                 return;
             }
 
+            landSoundAt = -1f;
             jumpWasAirborne = true;
             // Observe actual upward movement, not input: avoids sounds for rejected
             // jump inputs, walking off a ledge, and spawning in mid-air.
