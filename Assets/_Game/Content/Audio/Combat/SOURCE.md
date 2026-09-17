@@ -25,6 +25,15 @@
 - Regenerate: `node Tools/audio/create-cute-jump.cjs Assets/_Game/Content/Audio/Combat/Jump.wav`.
 - Played once on upward airborne movement after grounding; not on falling, initial airborne spawning, or repeated airborne inputs.
 
+# Land (Land.wav)
+
+- Original procedural synthesis; no third-party recordings, samples or AI audio generation service used.
+- Generator: `Tools/audio/create-cute-land.cjs` (descending sine tone, harmonic, filtered-noise contact and a small settle bounce).
+- Length: 0.22 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -3.1 dBFS.
+- Approved preview: `audio-previews/cute-land.wav`; runtime asset is byte-identical.
+- Regenerate: `node Tools/audio/create-cute-land.cjs Assets/_Game/Content/Audio/Combat/Land.wav`.
+- Played once when landing after a jump that already played the takeoff cue. Walking off a ledge, spawning in mid-air, crouch/prone landings, and stunned landings do not play it.
+
 # Stun (StunTwang.wav)
 
 - Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.

@@ -76,9 +76,15 @@ namespace Game.Client.Players
         private AudioClip stunSoundClip;
 
         private AudioSource stunAudioSource;
+
+        [SerializeField, Tooltip("점프 후 착지할 때 한 번 재생하는 효과음")]
+        private AudioClip landClip;
+
+        private AudioSource landAudioSource;
         private float previousJumpHeight;
         private bool jumpGroundedSeen;
         private bool jumpSoundPlayed;
+        private bool jumpWasAirborne;
 
         private float PunchDuration =>
             combatant != null && combatant.Config != null
@@ -153,6 +159,8 @@ namespace Game.Client.Players
                 throwAudioSource = CreateCombatAudioSource("ThrowAudio");
             if (stunSoundClip != null)
                 stunAudioSource = CreateCombatAudioSource("StunAudio");
+            if (landClip != null)
+                landAudioSource = CreateCombatAudioSource("LandAudio");
             if (footstepClips != null && footstepClips.Length > 0)
             {
                 footstepAudio = gameObject.AddComponent<PlayerFootstepAudio>();
@@ -181,8 +189,10 @@ namespace Game.Client.Players
             if (putDownAudioSource != null) putDownAudioSource.Stop();
             if (throwAudioSource != null) throwAudioSource.Stop();
             if (stunAudioSource != null) stunAudioSource.Stop();
+            if (landAudioSource != null) landAudioSource.Stop();
             jumpGroundedSeen = false;
             jumpSoundPlayed = false;
+            jumpWasAirborne = false;
             if (combatant != null)
             {
                 combatant.AttackPerformed -= OnAttackPerformed;
@@ -449,6 +459,8 @@ namespace Game.Client.Players
                 throwAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             if (stunAudioSource != null)
                 stunAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (landAudioSource != null)
+                landAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             footstepAudio?.Tick(animator, currentState,
                 usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
         }
@@ -459,16 +471,30 @@ namespace Game.Client.Players
             var rise = height - previousJumpHeight;
             previousJumpHeight = height;
             var grounded = usesNetworkState ? networkGrounded : movement.IsGrounded;
+            var stunned = combatant != null && combatant.IsStunned;
             if (grounded)
             {
+                if (ShouldPlayLandSound(jumpWasAirborne, jumpSoundPlayed, grounded, movement.Posture) &&
+                    !stunned)
+                {
+                    if (landAudioSource != null && landAudioSource.isActiveAndEnabled)
+                    {
+                        landAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                        landAudioSource.PlayOneShot(landClip);
+                    }
+                }
+
                 jumpGroundedSeen = true;
                 jumpSoundPlayed = false;
+                jumpWasAirborne = false;
                 return;
             }
+
+            jumpWasAirborne = true;
             // Observe actual upward movement, not input: avoids sounds for rejected
             // jump inputs, walking off a ledge, and spawning in mid-air.
             if (!ShouldPlayJumpSound(jumpGroundedSeen, jumpSoundPlayed, grounded, rise, movement.Posture) ||
-                (combatant != null && combatant.IsStunned)) return;
+                stunned) return;
             jumpSoundPlayed = true;
             if (jumpAudioSource != null && jumpAudioSource.isActiveAndEnabled)
             {
@@ -481,6 +507,10 @@ namespace Game.Client.Players
             bool grounded, float rise, PlayerPosture posture) =>
             groundedSeen && !alreadyPlayed && !grounded && rise > .001f && rise < 1f &&
             posture == PlayerPosture.Standing;
+
+        internal static bool ShouldPlayLandSound(bool wasAirborne, bool jumped,
+            bool grounded, PlayerPosture posture) =>
+            wasAirborne && jumped && grounded && posture == PlayerPosture.Standing;
 
         private string ResolveDesiredState()
         {
