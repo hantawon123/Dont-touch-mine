@@ -31,4 +31,13 @@
 - Regenerate: `node Tools/audio/create-timer-tick.cjs Assets/_Game/Content/Resources/Audio/SearchingTimerTick.wav`.
 - Played once per second during the last `MatchTimerView.WarningSeconds` (30) seconds of the searching phase, the same window `MatchUrgencyAudio` uses for the border, chime and tension bed; uses the Effects volume.
 
-All four clips live under `Resources` because the match HUD is built in the scene rather than from a prefab, so `MatchUrgencyAudio`, `HidingTimerTickAudio` and `SearchingTimerTickAudio` load them by path.
+# Match end bell (MatchEndBell.wav)
+
+- Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.
+- Generator: `Tools/audio/create-match-end-bell.cjs` (four even metallic bell strokes at 932 Hz with inharmonic partials — boxing/school-bell "땡땡땡땡").
+- Length: 1.42 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -1.5 dBFS.
+- Approved preview: `audio-previews/match-end-bell.wav`; runtime asset is byte-identical.
+- Regenerate: `node Tools/audio/create-match-end-bell.cjs Assets/_Game/Content/Resources/Audio/MatchEndBell.wav`.
+- Played once when a match result is confirmed, including last-player-standing; uses the Effects volume. A republished result does not ring again until the next hiding or waiting phase.
+
+All five clips live under `Resources` because the match HUD is built in the scene rather than from a prefab, so `MatchUrgencyAudio`, `HidingTimerTickAudio`, `SearchingTimerTickAudio` and `MatchEndBellAudio` load them by path.
