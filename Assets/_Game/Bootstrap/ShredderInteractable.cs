@@ -1,6 +1,7 @@
 using System;
 using Cysharp.Threading.Tasks;
 using Game.Client.Interactions;
+using Game.Client.Players;
 using Game.Core.Match;
 using Game.Server.Match;
 using UnityEngine;
@@ -12,6 +13,20 @@ namespace Game.Bootstrap
     public sealed class ShredderInteractable : MonoBehaviour, IInteractable
     {
         private const int EjectionDelayMilliseconds = 500;
+
+        // A plain C# service (NetworkInteractionSceneBridge) confirms this machine's state for
+        // remote players and has no Inspector, so these clips are loaded by path like
+        // MatchUrgencyAudio's — not serialized fields on this component.
+        public const string FeedResource = "Audio/Shredder/ShredderFeed";
+        public const string RunResource = "Audio/Shredder/ShredderRun";
+        public const string EjectResource = "Audio/Shredder/ShredderEject";
+        public const string SuccessResource = "Audio/Shredder/ShredderSuccess";
+
+        private AudioSource audioSource;
+        private AudioClip feedClip;
+        private AudioClip runClip;
+        private AudioClip ejectClip;
+        private AudioClip successClip;
 
         [SerializeField]
         private Transform ejectionPoint;
@@ -30,6 +45,31 @@ namespace Game.Bootstrap
         private int playerIndex;
 
         public string InteractionPrompt => "파괴하기";
+
+#if !UNITY_SERVER
+        private void Awake()
+        {
+            feedClip = Resources.Load<AudioClip>(FeedResource);
+            runClip = Resources.Load<AudioClip>(RunResource);
+            ejectClip = Resources.Load<AudioClip>(EjectResource);
+            successClip = Resources.Load<AudioClip>(SuccessResource);
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+            audioSource.loop = false;
+            audioSource.spatialBlend = 1f;
+            audioSource.rolloffMode = AudioRolloffMode.Linear;
+            audioSource.minDistance = 2f;
+            audioSource.maxDistance = 15f;
+            audioSource.dopplerLevel = 0f;
+        }
+#endif
+
+        private void PlayClip(AudioClip clip)
+        {
+            if (audioSource == null || clip == null) return;
+            audioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            audioSource.PlayOneShot(clip);
+        }
 
         public void Bind(
             MatchSessionCoordinator matchSession,
@@ -68,6 +108,7 @@ namespace Game.Bootstrap
                 if (session.TryDestroyHeldPlayerItem(playerIndex, now))
                 {
                     interactor.ReleaseCarriedItem();
+                    PlayClip(successClip);
                     Destroy(item.gameObject);
                     return;
                 }
@@ -81,6 +122,7 @@ namespace Game.Bootstrap
             else if (item.IsPlayerItem)
             {
                 interactor.ReleaseCarriedItem();
+                PlayClip(successClip);
                 Destroy(item.gameObject);
                 return;
             }
@@ -88,6 +130,8 @@ namespace Game.Bootstrap
             interactor.ReleaseCarriedItem();
             item.transform.SetParent(transform, true);
             item.gameObject.SetActive(false);
+            PlayClip(feedClip);
+            PlayClip(runClip);
             EjectAfterDelay(item, this.GetCancellationTokenOnDestroy()).Forget();
         }
 
@@ -115,6 +159,7 @@ namespace Game.Bootstrap
                 ejectionPoint.position,
                 ejectionPoint.rotation);
             item.gameObject.SetActive(true);
+            PlayClip(ejectClip);
             item.OnThrown(
                 (ejectionDirection * ejectionSpeed) +
                 (Vector3.up * ejectionUpwardSpeed));
