@@ -572,7 +572,11 @@ namespace Game.Architecture.Tests
         {
             using var presenter = Started();
 
-            Assert.That(view.Volumes.Count, Is.EqualTo(5));
+            // 열거형에서 세어 온다. 숫자를 박아 두면 행이 늘거나 줄 때마다
+            // 이 줄이 뒤처진다 - 환경소리를 뺐을 때 실제로 그랬다.
+            Assert.That(
+                view.Volumes.Count,
+                Is.EqualTo(Enum.GetValues(typeof(SoundVolume)).Length));
             Assert.That(view.Volumes[SoundVolume.Master], Is.EqualTo(50));
             Assert.That(view.DeviceLabel, Is.EqualTo("기본 장치"));
             Assert.That(view.DeviceCanStep, Is.True, "Two microphones to choose between.");
