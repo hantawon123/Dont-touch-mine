@@ -58,6 +58,10 @@ namespace Game.Client.Interactions
         public static bool CanShowCrosshair(bool hudVisible, bool cursorLocked, bool osCursorVisible) =>
             hudVisible && cursorLocked && !osCursorVisible;
 
+        public const float CrosshairSize = 40f;
+        public const float CrosshairThickness = 4f;
+        public static float CrosshairOutlineThickness => CrosshairThickness * 0.5f;
+
         /// <summary>
         /// Hands the 컨트롤 tab's applied 물건 상호작용 key to world prompts.
         /// Pass null to fall back to the shipped key, as tests do.
@@ -692,9 +696,35 @@ namespace Game.Client.Interactions
                 return;
             }
 
-            var center = new Rect(Screen.width * 0.5f - 4f, Screen.height * 0.5f - 12f, 20f, 20f);
-            GUI.Label(center, aimedTarget != null ? "<color=yellow><b>+</b></color>" : "+",
-                new GUIStyle(GUI.skin.label) { fontSize = 20, richText = true });
+            DrawCrosshair(
+                Screen.width * 0.5f,
+                Screen.height * 0.5f,
+                aimedTarget != null ? Color.yellow : Color.white);
+        }
+
+        private static void DrawCrosshair(float centerX, float centerY, Color fill)
+        {
+            var outline = CrosshairOutlineThickness;
+            DrawPlus(
+                centerX,
+                centerY,
+                CrosshairSize + outline * 2f,
+                CrosshairThickness + outline * 2f,
+                Color.black);
+            DrawPlus(centerX, centerY, CrosshairSize, CrosshairThickness, fill);
+        }
+
+        private static void DrawPlus(float centerX, float centerY, float size, float thickness, Color color)
+        {
+            var previous = GUI.color;
+            GUI.color = color;
+            GUI.DrawTexture(
+                new Rect(centerX - size * 0.5f, centerY - thickness * 0.5f, size, thickness),
+                Texture2D.whiteTexture);
+            GUI.DrawTexture(
+                new Rect(centerX - thickness * 0.5f, centerY - size * 0.5f, thickness, size),
+                Texture2D.whiteTexture);
+            GUI.color = previous;
         }
 
         private void UpdateAim()

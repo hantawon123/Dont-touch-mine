@@ -185,6 +185,15 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Crosshair_IsTwiceTheOriginalSizeWithHalfThicknessOutline()
+        {
+            Assert.That(PlayerInteractor.CrosshairSize, Is.EqualTo(40f));
+            Assert.That(
+                PlayerInteractor.CrosshairOutlineThickness,
+                Is.EqualTo(PlayerInteractor.CrosshairThickness * 0.5f));
+        }
+
+        [Test]
         public void InteractKeyLabel_UsesShippedKeyWhenSettingsAreUnbound()
         {
             Assert.That(PlayerInteractor.InteractKeyLabel(), Is.EqualTo("F"));
