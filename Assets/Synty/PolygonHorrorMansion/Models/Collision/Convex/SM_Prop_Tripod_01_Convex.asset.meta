@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 2193721e7d1d792449784f938e259434
+timeCreated: 1644463296
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43489898822957018
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Tripod_01_Convex.asset
+  uploadId: 987938

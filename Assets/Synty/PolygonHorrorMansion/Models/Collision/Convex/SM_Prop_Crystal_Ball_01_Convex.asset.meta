@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 7556a9688d5ba06448d1c424783cce51
+timeCreated: 1644463098
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43648934316065244
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Crystal_Ball_01_Convex.asset
+  uploadId: 987938

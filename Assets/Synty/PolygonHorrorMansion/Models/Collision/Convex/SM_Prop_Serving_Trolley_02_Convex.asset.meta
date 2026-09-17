@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: dd149926ee93caf47bc5f0efd58094c0
+timeCreated: 1644463286
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43811467240871216
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Serving_Trolley_02_Convex.asset
+  uploadId: 987938

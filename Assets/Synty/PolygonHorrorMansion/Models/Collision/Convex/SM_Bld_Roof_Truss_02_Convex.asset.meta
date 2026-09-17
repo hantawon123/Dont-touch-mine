@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 8f0d971a7e0981d4dab2fc7641388c41
+timeCreated: 1644529318
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43489762716670154
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Bld_Roof_Truss_02_Convex.asset
+  uploadId: 987938

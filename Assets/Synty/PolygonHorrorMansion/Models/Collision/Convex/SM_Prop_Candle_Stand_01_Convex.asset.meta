@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: e3a26b75b4e92634398320364dedfe8d
+timeCreated: 1644463081
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43633333656874442
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Candle_Stand_01_Convex.asset
+  uploadId: 987938

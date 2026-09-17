@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 833a213246a44464398acb2d62bdb8f3
+timeCreated: 1644463276
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43722629136915172
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Rocking_Chair_02_Convex.asset
+  uploadId: 987938

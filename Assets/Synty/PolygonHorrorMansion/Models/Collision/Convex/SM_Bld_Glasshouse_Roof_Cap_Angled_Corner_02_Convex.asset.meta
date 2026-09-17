@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: bb3f7b628ce92bc4fa04eb3e2450f100
+timeCreated: 1644529011
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43912350758430474
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Bld_Glasshouse_Roof_Cap_Angled_Corner_02_Convex.asset
+  uploadId: 987938

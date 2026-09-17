@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: cb6f78ef35efa7743988b192e9921f33
+timeCreated: 1644529074
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43866820790666218
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Bld_Roof_Tower_Cap_01_Convex.asset
+  uploadId: 987938
