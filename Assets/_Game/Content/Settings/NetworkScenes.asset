@@ -25,3 +25,10 @@ MonoBehaviour:
   - mapId: supermarket
     scene: {fileID: 102900000, guid: cad9a7fd93ff6a9428b283457c72aacb, type: 3}
     scenePath: Assets/_Game/Content/Scenes/Supermarket.unity
+  - mapId: mansion
+    scene: {fileID: 102900000, guid: f4a98e0b0680411d860337ffc00841fa, type: 3}
+    scenePath: Assets/_Game/Content/Scenes/Mansion.unity
+  _mapResultScenes:
+  - mapId: mansion
+    scene: {fileID: 102900000, guid: 8db70533803e46c78699b7d7a7a8b600, type: 3}
+    scenePath: Assets/_Game/Content/Scenes/MansionResult.unity

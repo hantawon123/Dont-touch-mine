@@ -1183,6 +1183,27 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void NetworkScenes_MansionUsesItsOwnResultSceneAndOtherMapsFallBackToDefault()
+        {
+            // 저택은 지하실 엔딩(MansionResult), 나머지 맵은 기본 결과 씬(유치장)으로 간다.
+            var scenes = AssetDatabase.LoadAssetAtPath<NetworkScenes>(
+                "Assets/_Game/Content/Settings/NetworkScenes.asset");
+
+            Assert.That(scenes.HasMappedResultScene(Game.Core.Maps.MapCatalog.MansionId), Is.True);
+            var mansionResult = scenes.ResultSceneFor(Game.Core.Maps.MapCatalog.MansionId);
+            Assert.That(mansionResult.IsValid, Is.True, "MansionResult is not in the build list");
+            Assert.That(mansionResult, Is.Not.EqualTo(scenes.ResultScene));
+            Assert.That(scenes.IsResultScene(mansionResult), Is.True);
+            Assert.That(scenes.IsResultScene(scenes.ResultScene), Is.True);
+            Assert.That(scenes.IsResultScene(scenes.MatchSceneFor(Game.Core.Maps.MapCatalog.MansionId)), Is.False);
+
+            Assert.That(scenes.HasMappedResultScene(Game.Core.Maps.MapCatalog.SupermarketId), Is.False);
+            Assert.That(scenes.ResultSceneFor(Game.Core.Maps.MapCatalog.SupermarketId), Is.EqualTo(scenes.ResultScene));
+            Assert.That(scenes.ResultSceneFor(string.Empty), Is.EqualTo(scenes.ResultScene), "랜덤/미정 맵은 기본 결과 씬");
+            Assert.That(scenes.ResultSceneFor(null), Is.EqualTo(scenes.ResultScene));
+        }
+
+        [Test]
         public void NetworkScenes_MapsEveryCatalogMapToItsOwnBuildListedScene()
         {
             // 방장이 고를 수 있는 맵마다 씬이 하나씩 있어야 하고, 서로 다른 씬이어야 한다.

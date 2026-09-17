@@ -24,6 +24,12 @@ EditorBuildSettings:
     path: Assets/_Game/Content/Scenes/Supermarket.unity
     guid: cad9a7fd93ff6a9428b283457c72aacb
   - enabled: 1
+    path: Assets/_Game/Content/Scenes/Mansion.unity
+    guid: f4a98e0b0680411d860337ffc00841fa
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/MansionResult.unity
+    guid: 8db70533803e46c78699b7d7a7a8b600
+  - enabled: 1
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 1

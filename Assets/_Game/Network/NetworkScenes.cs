@@ -75,6 +75,11 @@ namespace Game.Network
         [Tooltip("맵 id별 매치 씬. 여기 없는 맵 id는 위의 Match Scene(기본 맵)으로 간다.")]
         private MapSceneEntry[] _mapScenes = Array.Empty<MapSceneEntry>();
 
+        [SerializeField]
+        [Tooltip("맵 id별 결과(엔딩) 씬. 여기 없는 맵은 위의 Result Scene(기본 엔딩)으로 간다. " +
+                 "예: mansion → MansionResult(지하실 엔딩).")]
+        private MapSceneEntry[] _mapResultScenes = Array.Empty<MapSceneEntry>();
+
         public string ResultScenePath => _resultScenePath;
 
         /// <summary>
@@ -126,7 +131,46 @@ namespace Game.Network
         /// <summary>맵 id가 이 에셋에 씬으로 연결되어 있는지(기본 매치 씬 fallback은 세지 않는다).</summary>
         public bool HasMappedScene(string mapId) => FindEntry(mapId) != null;
 
-        private MapSceneEntry FindEntry(string mapId)
+        /// <summary>
+        /// 이 맵의 결과(엔딩) 씬. 맵 전용 엔딩이 없으면 기본 결과 씬. 매치 씬과 달리 없는 것이 정상이라 경고하지 않는다.
+        /// </summary>
+        public SceneRef ResultSceneFor(string mapId)
+        {
+            var entry = FindEntry(_mapResultScenes, mapId);
+            return entry != null
+                ? Resolve(entry.scenePath, $"result scene for map '{entry.mapId}'")
+                : ResultScene;
+        }
+
+        /// <summary>기본 결과 씬이든 맵 전용 결과 씬이든, 올라와 있는 씬이 결과 씬인지.</summary>
+        public bool IsResultScene(SceneRef scene)
+        {
+            if (!scene.IsValid)
+            {
+                return false;
+            }
+
+            if (TryResolve(_resultScenePath, out var defaultScene) && defaultScene == scene)
+            {
+                return true;
+            }
+
+            foreach (var entry in _mapResultScenes)
+            {
+                if (entry != null && TryResolve(entry.scenePath, out var mapped) && mapped == scene)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public bool HasMappedResultScene(string mapId) => FindEntry(_mapResultScenes, mapId) != null;
+
+        private MapSceneEntry FindEntry(string mapId) => FindEntry(_mapScenes, mapId);
+
+        private static MapSceneEntry FindEntry(MapSceneEntry[] entries, string mapId)
         {
             if (string.IsNullOrWhiteSpace(mapId))
             {
@@ -134,7 +178,7 @@ namespace Game.Network
             }
 
             var candidate = mapId.Trim();
-            foreach (var entry in _mapScenes)
+            foreach (var entry in entries)
             {
                 if (entry != null && string.Equals(entry.mapId?.Trim(), candidate, StringComparison.Ordinal))
                 {
@@ -238,7 +282,13 @@ namespace Game.Network
             WarnIfMissingFromBuild(lobbyPath, _lobbyScene);
             WarnIfMissingFromBuild(resultPath, _resultScene);
 
-            foreach (var entry in _mapScenes)
+            SyncEntryPaths(_mapScenes);
+            SyncEntryPaths(_mapResultScenes);
+        }
+
+        private void SyncEntryPaths(MapSceneEntry[] entries)
+        {
+            foreach (var entry in entries)
             {
                 if (entry == null)
                 {

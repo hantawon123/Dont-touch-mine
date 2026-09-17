@@ -15,15 +15,20 @@ namespace Game.Core.Maps
         /// <summary>마트 맵(Synty Shops 팩, 씬 <c>Supermarket</c>). 맵 id → 씬은 <c>NetworkScenes</c>가 잇는다.</summary>
         public const string SupermarketId = "supermarket";
 
+        /// <summary>저택 맵(Synty Horror Mansion 팩, 씬 <c>Mansion</c>). 2층 저택 본관과 앞뜰이 플레이 구역.</summary>
+        public const string MansionId = "mansion";
+
         private static readonly string[] MapIdValues =
         {
             PlaygroundId,
-            SupermarketId
+            SupermarketId,
+            MansionId
         };
 
         private static readonly string[] LobbyMapIdValues =
         {
-            SupermarketId
+            SupermarketId,
+            MansionId
         };
 
         private static readonly Random RandomPicker = new();
