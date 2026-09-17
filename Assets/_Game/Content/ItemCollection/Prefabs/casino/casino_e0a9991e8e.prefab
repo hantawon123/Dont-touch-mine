@@ -1,0 +1,172 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1981443488418682859
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4880217873320221324}
+  - component: {fileID: 8816258332172037905}
+  - component: {fileID: 737130320786893870}
+  - component: {fileID: 4351322975685507083}
+  m_Layer: 0
+  m_Name: casino_e0a9991e8e
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4880217873320221324
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1981443488418682859}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 474330171375661853}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &8816258332172037905
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1981443488418682859}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.43641296, y: 0.350223, z: 0.3935249}
+  m_Center: {x: 0, y: 0.1751115, z: 0}
+--- !u!54 &737130320786893870
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1981443488418682859}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!114 &4351322975685507083
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1981443488418682859}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35eb5ffe1d38b2743a322e143ad7820d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.CarryableItem
+  displayName: "\uD604\uAE08 \uACC4\uC218\uAE30"
+  objectId: 
+  isPlayerItem: 0
+  ownerPlayerIndex: -1
+  preparedForBuild: 0
+  preparedCenter: {x: 0, y: 0, z: 0}
+  preparedExtents: {x: 0, y: 0, z: 0}
+  preparedScale: {x: 0, y: 0, z: 0}
+--- !u!1001 &458483059669828070
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 4880217873320221324}
+    m_Modifications:
+    - target: {fileID: 56843853377778427, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.000030517578
+      objectReference: {fileID: 0}
+    - target: {fileID: 56843853377778427, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.000000029802322
+      objectReference: {fileID: 0}
+    - target: {fileID: 56843853377778427, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.008263774
+      objectReference: {fileID: 0}
+    - target: {fileID: 56843853377778427, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 56843853377778427, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 56843853377778427, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 56843853377778427, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 56843853377778427, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 56843853377778427, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 56843853377778427, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 829264324295878721, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+      propertyPath: m_Name
+      value: Cash_Machine_01
+      objectReference: {fileID: 0}
+    - target: {fileID: 1189759483465746836, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: e8ec79236a55f6c4eb1f2b26a3a0c767, type: 2}
+    m_RemovedComponents:
+    - {fileID: -6070621166291462148, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+--- !u!4 &474330171375661853 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 56843853377778427, guid: e4e1e140df404141837852bcbd2ffb06, type: 3}
+  m_PrefabInstance: {fileID: 458483059669828070}
+  m_PrefabAsset: {fileID: 0}
