@@ -499,11 +499,11 @@ namespace Game.Client.Settings
                 switch (action)
                 {
                     case Core.Settings.ControlAction.MicrophoneTalk:
-                        return "마이크 송출";
+                        return "눌러서 말하기";
                     case Core.Settings.ControlAction.VoiceToggle:
-                        return "마이크 고정";
+                        return "마이크 켜기/끄기";
                     case Core.Settings.ControlAction.ToggleSpeaker:
-                        return "음성 듣기";
+                        return "스피커 켜기/끄기";
                     case Core.Settings.ControlAction.MoveForward:
                         return "앞으로 이동";
                     case Core.Settings.ControlAction.MoveLeft:
