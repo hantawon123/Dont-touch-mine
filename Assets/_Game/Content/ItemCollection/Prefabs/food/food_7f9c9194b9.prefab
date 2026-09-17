@@ -95,7 +95,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 35eb5ffe1d38b2743a322e143ad7820d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.CarryableItem
-  displayName: "\uCC28 003"
+  displayName: "\uCC28"
   objectId: 
   isPlayerItem: 0
   ownerPlayerIndex: -1
