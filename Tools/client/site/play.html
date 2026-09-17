@@ -200,11 +200,19 @@
         border-radius: 50%;
         background: #101014cc;
         color: #fff;
-        font-size: 29px;
-        line-height: 1;
         display: grid;
         place-items: center;
         box-shadow: 0 3px 16px #0008;
+      }
+      /* 문자 글리프는 폰트마다 원 중심에서 어긋나므로 SVG 로 그립니다. */
+      .media-arrow svg {
+        width: 21px;
+        height: 21px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
       }
       .media-arrow:hover {
         background: #f3f3f5;
@@ -850,14 +858,18 @@
                 data-direction="prev"
                 aria-label="이전 미디어"
               >
-                ‹</button
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15.5 5 8.5 12l7 7" />
+                </svg></button
               ><button
                 class="media-arrow next"
                 type="button"
                 data-direction="next"
                 aria-label="다음 미디어"
               >
-                ›
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8.5 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
             <div class="media-thumbs" role="tablist" aria-label="게임 미디어">
