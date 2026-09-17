@@ -53,9 +53,9 @@ namespace Game.Core.Lobby
             new("배치 왼쪽 회전", "Q", "Player/Previous"),
             new("배치 오른쪽 회전", "E", "Player/Next"),
             new("배치 위아래", "마우스 스크롤", "UI/ScrollWheel"),
-            new("음성 대화 (누르는 동안)", "G", "Player/PushToTalk"),
+            new("눌러서 말하기", "G", "Player/PushToTalk"),
             new("마이크 켜기/끄기", "B", "Player/VoiceToggle"),
-            new("음성 듣기 켜기/끄기", "T", "Player/VoiceListen"),
+            new("스피커 켜기/끄기", "T", "Player/VoiceListen"),
         };
 
         public static IReadOnlyList<ControlKeyBinding> Bindings => DefaultBindings;
