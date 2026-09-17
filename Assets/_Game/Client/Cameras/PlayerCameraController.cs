@@ -58,6 +58,7 @@ namespace Game.Client.Cameras
         private FirstPersonHoldSettings firstPersonHold = new();
 
         private readonly FirstPersonArmsView armsView = new();
+        private readonly HeldItemVisibility heldItemView = new();
         private Game.Client.Interactions.PlayerInteractor followInteractor;
         private PlayerAnimationDriver followAnimationDriver;
 
@@ -166,12 +167,14 @@ namespace Game.Client.Cameras
         {
             playerMap?.Disable();
             armsView.Hide();
+            heldItemView.Reveal();
             Game.Client.Common.WebPointerInput.Release();
         }
 
         private void OnDestroy()
         {
             followInteractor?.ClearFirstPersonHold();
+            heldItemView.Reveal();
             armsView.Dispose();
         }
 
@@ -252,10 +255,12 @@ namespace Game.Client.Cameras
             currentEyeHeight = Mathf.Lerp(
                 currentEyeHeight, targetEyeHeight, eyeHeightLerpSpeed * Time.deltaTime);
 
+            var rescanRenderers = false;
             if (Time.time >= nextBodyRendererScan)
             {
                 nextBodyRendererScan = Time.time + BodyRendererScanInterval;
                 RefreshBodyRenderers();
+                rescanRenderers = true;
             }
 
             var offset = new Vector3(headOffset.x, currentEyeHeight, headOffset.z);
@@ -273,7 +278,7 @@ namespace Game.Client.Cameras
                 followAnimationDriver != null && followAnimationDriver.IsLeftPunch,
                 followAnimationDriver != null ? followAnimationDriver.PunchProgress : 0.35f);
 
-            // 들고 있는 물건도 1인칭에서는 카메라 기준 자리에 보인다.
+            // 들고 있는 물건도 1인칭에서는 카메라 기준 자리에 둔다(던지기·놓기·배치 원점).
             if (followInteractor != null)
             {
                 if (firstPersonView && firstPersonHold.enabled)
@@ -282,6 +287,13 @@ namespace Game.Client.Cameras
                 else
                     followInteractor.ClearFirstPersonHold();
             }
+
+            // 1인칭에서는 들고 있는 물건을 내 화면에서 지운다(몸처럼). 자리와 상태는 그대로라
+            // 다른 플레이어에게는 계속 보이고, 3인칭으로 돌아오거나 놓으면 바로 다시 그린다.
+            heldItemView.Apply(
+                followInteractor != null ? followInteractor.CarriedItem : null,
+                firstPersonView && firstPersonHold.hideItem,
+                rescanRenderers);
         }
 
         /// <summary>
@@ -303,6 +315,7 @@ namespace Game.Client.Cameras
             followTarget = target;
             followMovement = target.GetComponent<PlayerMovement>();
             followInteractor?.ClearFirstPersonHold();
+            heldItemView.Reveal();
             followInteractor = target.GetComponent<Game.Client.Interactions.PlayerInteractor>();
             followAnimationDriver = target.GetComponent<PlayerAnimationDriver>();
             if (preserveView)
