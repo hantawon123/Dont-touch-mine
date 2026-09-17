@@ -237,19 +237,11 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     Find(panel.transform, "MapName").GetComponent<Text>().text,
                     Is.EqualTo(MapCatalog.SupermarketId));
-                var categoryPreview = Find(panel.transform, "CategoryPreview") as RectTransform;
-                Assert.That(categoryPreview, Is.Not.Null);
-                var categoryPreviewLayout = categoryPreview.GetComponent<LayoutElement>();
-                Assert.That(categoryPreviewLayout, Is.Not.Null);
-                Assert.That(
-                    categoryPreviewLayout.preferredWidth,
-                    Is.EqualTo(PlaySettingsStyle.Layout.MapPreviewSize.x));
-                Assert.That(
-                    categoryPreviewLayout.preferredHeight,
-                    Is.EqualTo(PlaySettingsStyle.Layout.MapPreviewSize.y));
-                Assert.That(
-                    Find(panel.transform, "CategoryValue").GetComponent<Text>().fontSize,
-                    Is.EqualTo(PlaySettingsStyle.FontSize.MapName));
+                Assert.That(Find(panel.transform, "CategoryPreview"), Is.Null);
+                var categoryValue = Find(panel.transform, "CategoryValue").GetComponent<Text>();
+                Assert.That(categoryValue, Is.Not.Null);
+                Assert.That(categoryValue.fontSize, Is.EqualTo(PlaySettingsStyle.FontSize.CategoryName));
+                Assert.That(categoryValue.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
                 Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.SupermarketId));
 
                 view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, MapCatalog.PlaygroundId));

@@ -45,6 +45,7 @@ namespace Game.Client.Match
         public const float SkipPanelWidth = 280f;
         public const float SkipPanelHeight = 112f;
         public const float SkipRowHeight = 40f;
+        public const float SkipGuideScale = 1.5f;
 
         public static readonly Color BarFillColor = new Color(1f, 0.54f, 0.24f, 1f);
         public static readonly Color BarTrackColor = new Color(1f, 1f, 1f, 0.28f);
@@ -461,12 +462,14 @@ namespace Game.Client.Match
                 return;
             }
 
+            var skipRect = skipGuide.GetComponent<RectTransform>();
             Place(
-                skipGuide.GetComponent<RectTransform>(),
+                skipRect,
                 new Vector2(1f, 0f),
                 new Vector2(-KeySettingGuideView.MarginRight, MarginBottom),
                 new Vector2(SkipPanelWidth, SkipPanelHeight),
                 new Vector2(1f, 0f));
+            skipRect.localScale = new Vector3(SkipGuideScale, SkipGuideScale, 1f);
 
             ApplySkipRow(0, SkipAction, SkipKey);
             ApplySkipRow(1, SkipAllAction, SkipAllKey);
