@@ -82,7 +82,7 @@ namespace Game.Bootstrap
             source.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             source.clip = clip;
             source.Play();
-            Object.Destroy(audioObject, clip.length + .05f);
+            UnityEngine.Object.Destroy(audioObject, clip.length + .05f);
 #endif
         }
 
@@ -106,7 +106,7 @@ namespace Game.Bootstrap
             source.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             source.clip = clip;
             source.Play();
-            Object.Destroy(audioObject, clip.length + .05f);
+            UnityEngine.Object.Destroy(audioObject, clip.length + .05f);
 #endif
         }
 
