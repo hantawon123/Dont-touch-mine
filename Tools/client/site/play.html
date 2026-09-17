@@ -1273,6 +1273,23 @@
         { rootMargin: "200px 0px" },
       );
       stepShots.forEach((video) => stepWatcher.observe(video));
+
+      // 소리 없는 영상은 탭을 벗어나면 브라우저가 절전을 위해 멈춥니다.
+      // 돌아왔을 때 보이는 영상만 다시 재생합니다.
+      function isOnScreen(element) {
+        const box = element.getBoundingClientRect();
+        return box.top < innerHeight && box.bottom > 0;
+      }
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) return;
+        const current = mediaSlides[activeMedia];
+        if (current.tagName === "VIDEO" && current.src && isOnScreen(current)) {
+          current.play().catch(() => {});
+        }
+        stepShots.forEach((video) => {
+          if (video.src && isOnScreen(video)) video.play().catch(() => {});
+        });
+      });
     </script>
   </body>
 </html>
