@@ -184,41 +184,10 @@
         height: 100%;
         object-fit: cover;
         display: block;
+        background: #08080b;
       }
-      .video-empty {
-        position: absolute;
-        inset: 0;
-        display: grid;
-        place-items: center;
-        text-align: center;
-        background: radial-gradient(circle at 50% 40%, #292930, #101014 70%);
-        padding: 30px;
-      }
-      .video-empty[hidden] {
+      .cover[hidden] {
         display: none;
-      }
-      .video-empty strong {
-        display: block;
-        font-size: 19px;
-        margin-top: 15px;
-      }
-      .video-empty span {
-        display: block;
-        color: var(--muted);
-        font-size: 13px;
-        margin-top: 5px;
-      }
-      .play-disc {
-        width: 72px;
-        height: 72px;
-        border-radius: 50%;
-        display: grid;
-        place-items: center;
-        margin: auto;
-        background: #f4f4f6;
-        color: #111;
-        font-size: 24px;
-        padding-left: 4px;
       }
       .media-arrow {
         position: absolute;
@@ -279,17 +248,21 @@
       .media-thumb[aria-selected="true"] img {
         opacity: 1;
       }
-      .media-thumb.video-thumb {
+      .media-thumb.is-video:after {
+        content: "▶";
+        position: absolute;
+        right: 5px;
+        bottom: 4px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
         display: grid;
         place-items: center;
-        font-size: 12px;
-        color: #d0d0d6;
-      }
-      .media-thumb.video-thumb:before {
-        content: "▶";
-        display: block;
-        font-size: 20px;
+        background: #101014cc;
+        color: #fff;
+        font-size: 8px;
         line-height: 1;
+        padding-left: 1px;
       }
       .caption {
         font-size: 12px;
@@ -798,20 +771,65 @@
             <div class="media-stage">
               <img
                 class="cover"
-                id="main-art"
-                src="hero.png"
-                alt="보라색 복면과 가방을 착용한 Don't Touch Mine 캐릭터가 밤 골목의 가로등 아래 서 있는 메인 이미지"
+                data-slide
+                src="banner.jpg"
+                alt="밤 골목에서 보라색 곰 후드를 쓴 도둑이 자루와 자명종을 안고 있고, 뒤로 세 명의 도둑이 각자 훔친 물건을 든 채 따라오는 메인 키 아트"
               />
-              <div class="video-empty" id="video-empty" hidden>
-                <div>
-                  <div class="play-disc" aria-hidden="true">▶</div>
-                  <strong>게임 영상 준비 중</strong
-                  ><span
-                    >영상 파일 또는 링크를 연결하면 이곳에서 바로
-                    재생됩니다.</span
-                  >
-                </div>
-              </div>
+              <img
+                class="cover"
+                data-slide
+                src="custom.jpg"
+                alt="은신처에서 몸 색상, 후드, 신발, 표정을 골라 캐릭터를 꾸미는 커스터마이징 화면"
+                hidden
+              />
+              <video
+                class="cover"
+                data-slide
+                data-src="step-1.mp4"
+                poster="step-1-poster.jpg"
+                aria-label="1단계: 자기 차례에 맵 구석으로 들어가 물건을 숨기는 장면"
+                muted
+                loop
+                playsinline
+                preload="none"
+                hidden
+              ></video>
+              <video
+                class="cover"
+                data-slide
+                data-src="step-2.mp4"
+                poster="step-2-poster.jpg"
+                aria-label="2단계: 찾아낸 다른 도둑의 물건을 파쇄기로 가져가 파괴하는 장면"
+                muted
+                loop
+                playsinline
+                preload="none"
+                hidden
+              ></video>
+              <video
+                class="cover"
+                data-slide
+                data-src="step-3.mp4"
+                poster="step-3-poster.jpg"
+                aria-label="3단계: 마주친 상대를 펀치로 기절시켜 물건을 떨어뜨리게 하는 장면"
+                muted
+                loop
+                playsinline
+                preload="none"
+                hidden
+              ></video>
+              <video
+                class="cover"
+                data-slide
+                data-src="step-4.mp4"
+                poster="step-4-poster.jpg"
+                aria-label="4단계: 마지막 30초에 자기 물건을 손에 들고 버티는 장면"
+                muted
+                loop
+                playsinline
+                preload="none"
+                hidden
+              ></video>
               <button
                 class="media-arrow prev"
                 type="button"
@@ -834,21 +852,60 @@
                 type="button"
                 role="tab"
                 aria-selected="true"
-                data-media="image"
                 data-caption="Don't Touch Mine · 메인 아트워크"
-                aria-label="메인 이미지 보기"
+                aria-label="Don't Touch Mine · 메인 아트워크 보기"
               >
-                <img src="hero.png" alt="" /></button
+                <img src="banner.jpg" alt="" />
+              </button
               ><button
-                class="media-thumb video-thumb"
+                class="media-thumb"
                 type="button"
                 role="tab"
                 aria-selected="false"
-                data-media="video"
-                data-caption="게임 플레이 영상 · 준비 중"
-                aria-label="게임 영상 보기"
+                data-caption="캐릭터 커스터마이징"
+                aria-label="캐릭터 커스터마이징 보기"
               >
-                영상
+                <img src="custom.jpg" alt="" />
+              </button
+              ><button
+                class="media-thumb is-video"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-caption="1단계 · 내 차례에 혼자 들어가 숨기기"
+                aria-label="1단계 · 내 차례에 혼자 들어가 숨기기 보기"
+              >
+                <img src="step-1-poster.jpg" alt="" />
+              </button
+              ><button
+                class="media-thumb is-video"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-caption="2단계 · 찾은 물건을 파쇄기로"
+                aria-label="2단계 · 찾은 물건을 파쇄기로 보기"
+              >
+                <img src="step-2-poster.jpg" alt="" />
+              </button
+              ><button
+                class="media-thumb is-video"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-caption="3단계 · 펀치로 기절시키고 빼앗기"
+                aria-label="3단계 · 펀치로 기절시키고 빼앗기 보기"
+              >
+                <img src="step-3-poster.jpg" alt="" />
+              </button
+              ><button
+                class="media-thumb is-video"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-caption="4단계 · 마지막 30초"
+                aria-label="4단계 · 마지막 30초 보기"
+              >
+                <img src="step-4-poster.jpg" alt="" />
               </button>
             </div>
             <p class="caption" id="media-caption">
@@ -1170,16 +1227,21 @@
       </div>
     </footer>
     <script>
-      const art = document.getElementById("main-art");
-      const videoEmpty = document.getElementById("video-empty");
       const mediaCaption = document.getElementById("media-caption");
-      const mediaTabs = [...document.querySelectorAll("[data-media]")];
+      const mediaSlides = [...document.querySelectorAll("[data-slide]")];
+      const mediaTabs = [...document.querySelectorAll(".media-thumb")];
       let activeMedia = 0;
       function showMedia(index) {
-        activeMedia = (index + mediaTabs.length) % mediaTabs.length;
-        const showVideo = mediaTabs[activeMedia].dataset.media === "video";
-        art.hidden = showVideo;
-        videoEmpty.hidden = !showVideo;
+        activeMedia = (index + mediaSlides.length) % mediaSlides.length;
+        mediaSlides.forEach((slide, slideIndex) => {
+          const isActive = slideIndex === activeMedia;
+          slide.hidden = !isActive;
+          if (slide.tagName !== "VIDEO") return;
+          if (!isActive) return slide.pause();
+          // 선택된 순간에만 내려받습니다.
+          if (!slide.src) slide.src = slide.dataset.src;
+          slide.play().catch(() => {});
+        });
         mediaCaption.textContent = mediaTabs[activeMedia].dataset.caption;
         mediaTabs.forEach((item, itemIndex) =>
           item.setAttribute("aria-selected", String(itemIndex === activeMedia)),
