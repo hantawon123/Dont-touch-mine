@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0b38c542be6a98949a814eb707ed7be6
+timeCreated: 1644530108
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43665651600523818
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Bld_Basement_Entrance_01_Convex.asset
+  uploadId: 987938

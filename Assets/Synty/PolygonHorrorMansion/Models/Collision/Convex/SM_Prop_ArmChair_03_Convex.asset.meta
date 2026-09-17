@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: abbc01358558b7542b2e477676c739d0
+timeCreated: 1644463044
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43260126244966854
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_ArmChair_03_Convex.asset
+  uploadId: 987938

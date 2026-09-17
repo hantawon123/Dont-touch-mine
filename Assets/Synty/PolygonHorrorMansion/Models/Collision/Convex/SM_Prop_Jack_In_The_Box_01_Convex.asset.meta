@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: af89f517ea3e7c643a1a44337adf29be
+timeCreated: 1644463222
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43297639831917668
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Jack_In_The_Box_01_Convex.asset
+  uploadId: 987938

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 9dc9260503005f149ac1065e263c9431
+timeCreated: 1644463040
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43905113740276746
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Shower_Curtain_Open_01_Convex.asset
+  uploadId: 987938

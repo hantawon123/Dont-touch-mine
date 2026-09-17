@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 301ce72800913764782ea425887d77e7
+timeCreated: 1644463176
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43856806487071430
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Exorcist_Stake_01_Convex.asset
+  uploadId: 987938

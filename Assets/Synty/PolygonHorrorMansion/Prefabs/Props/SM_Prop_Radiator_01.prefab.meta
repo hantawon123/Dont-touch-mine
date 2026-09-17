@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 767a9821c3fdecd40ac33324d5c27709
+timeCreated: 1642728761
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Prefabs/Props/SM_Prop_Radiator_01.prefab
+  uploadId: 987938

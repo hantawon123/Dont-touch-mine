@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: cf292b2fc65af364c832183ba423cf50
+timeCreated: 1644463480
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43286312618622660
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Light_Chandelier_01_Convex
+    1.asset
+  uploadId: 987938

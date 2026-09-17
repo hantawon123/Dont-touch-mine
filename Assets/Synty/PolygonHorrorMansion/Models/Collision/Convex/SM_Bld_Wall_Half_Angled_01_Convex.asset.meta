@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0f1198e65853d0342b9fd4a0d7cc5611
+timeCreated: 1644529447
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43301085416762506
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Bld_Wall_Half_Angled_01_Convex.asset
+  uploadId: 987938

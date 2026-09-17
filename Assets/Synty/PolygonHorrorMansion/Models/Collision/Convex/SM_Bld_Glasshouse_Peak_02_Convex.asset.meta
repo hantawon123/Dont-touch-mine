@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 67094c9dc51b41549a611ef4ad2e7ac6
+timeCreated: 1644465572
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43505989578745638
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Bld_Glasshouse_Peak_02_Convex.asset
+  uploadId: 987938

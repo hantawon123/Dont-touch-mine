@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: f00b10dddcf7a794a87b74ed56b36570
+timeCreated: 1644463051
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43083296395707520
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Bench_Seat_02_Convex.asset
+  uploadId: 987938

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: e0baee75b018b15419007dad78344939
+timeCreated: 1644462892
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43676933788810506
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Wep_Knife_Butcher_01_Convex.asset
+  uploadId: 987938

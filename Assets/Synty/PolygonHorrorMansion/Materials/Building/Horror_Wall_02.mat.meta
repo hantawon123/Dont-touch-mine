@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 92f2f770b2cc5984b941811cec7b946a
+timeCreated: 1635900409
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Materials/Building/Horror_Wall_02.mat
+  uploadId: 987938
