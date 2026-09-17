@@ -24,8 +24,7 @@ namespace Game.Client.Match
         public static readonly Color BubbleColor = new(0f, 0f, 0f, 0.8f);
         public const float MaxBubbleWidth = 210f;
         public const float MaxBubbleHeight = 80f;
-        // World canvas is 0.01 scale; 0.02 keeps the 256px 9-slice ~8 units wide.
-        public const float SlicePixelsPerUnitMultiplier = 0.02f;
+        public const int BubbleRadius = 6;
         internal const float NameplateClearance = 0.04f;
         private const float FallbackHeightOffset = 2f;
         private const float VisibleSeconds = 3.5f;
@@ -154,9 +153,9 @@ namespace Game.Client.Match
             panelRect.offsetMin = Vector2.zero;
             panelRect.offsetMax = Vector2.zero;
             var panel = panelObject.GetComponent<Image>();
-            panel.sprite = HomeUiFonts.RoundedSprite;
+            panel.sprite = HomeUiFonts.Rounded(BubbleRadius);
             panel.type = Image.Type.Sliced;
-            panel.pixelsPerUnitMultiplier = SlicePixelsPerUnitMultiplier;
+            panel.pixelsPerUnitMultiplier = 1f;
             panel.color = BubbleColor;
             panel.raycastTarget = false;
 
