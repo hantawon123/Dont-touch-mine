@@ -10,8 +10,10 @@ namespace Game.Core.Ports
     public interface IMatchStartSink
     {
         /// <summary>
-        /// The confirmed line-up, in play order. A participant's position in
-        /// this list is their <c>playerIndex</c> for the whole match.
+        /// The confirmed line-up, in this match's play order. A participant's
+        /// position in this list is their <c>playerIndex</c> for the whole match,
+        /// including hiding turns. The authority shuffles it at start so it is
+        /// not join or seat order.
         /// </summary>
         /// <remarks>
         /// Called on every peer once the decision replicates, and again with an

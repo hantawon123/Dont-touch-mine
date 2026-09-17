@@ -52,6 +52,11 @@ namespace Game.Core.Match
         /// </remarks>
         public string UserId { get; }
 
+        /// <summary>
+        /// Converts the room roster to a contiguous line-up in seat order.
+        /// Play order is shuffled later, at match confirm, so hiding turns
+        /// are not join or seat order.
+        /// </summary>
         public static MatchParticipant[] FromRoomParticipants(
             IReadOnlyList<RoomParticipant> roomParticipants)
         {
@@ -98,6 +103,42 @@ namespace Game.Core.Match
             }
 
             return matchParticipants;
+        }
+
+        /// <summary>
+        /// Randomizes play order so hiding turns are not join/seat order.
+        /// Each player's id stays paired with the same user id.
+        /// </summary>
+        public static void ShufflePlayOrder(string[] playerIds, string[] userIds, Random random)
+        {
+            if (playerIds == null)
+            {
+                throw new ArgumentNullException(nameof(playerIds));
+            }
+
+            if (userIds == null)
+            {
+                throw new ArgumentNullException(nameof(userIds));
+            }
+
+            if (playerIds.Length != userIds.Length)
+            {
+                throw new ArgumentException(
+                    "Player ids and user ids must be the same length.",
+                    nameof(userIds));
+            }
+
+            if (random == null)
+            {
+                throw new ArgumentNullException(nameof(random));
+            }
+
+            for (var index = playerIds.Length - 1; index > 0; index--)
+            {
+                var swap = random.Next(index + 1);
+                (playerIds[index], playerIds[swap]) = (playerIds[swap], playerIds[index]);
+                (userIds[index], userIds[swap]) = (userIds[swap], userIds[index]);
+            }
         }
     }
 }
