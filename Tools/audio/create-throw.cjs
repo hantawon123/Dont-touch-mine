@@ -1,36 +1,36 @@
-// Original procedural item-hit preview: no external recordings or audio models.
+// Original procedural throw preview: no external recordings or audio models.
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const rate = 44100;
-const seconds = .26;
+const seconds = .32;
 const frames = Math.round(rate * seconds);
 const samples = new Float64Array(frames);
 let phase = 0;
 let seed = 205;
-let clackNoise = 0;
-// A harmless comedic "bonk": a hollow knock, not a punch-weight "pon".
-// A bright clack marks the object's edge, then a light boing wobble as it
-// bounces off — the player takes no damage, so nothing here should read heavy.
+let airNoise = 0;
+// A clear whistling glide ("휘융"): quick rise then a longer, breathy fall,
+// mostly tone rather than noise, unlike the punch swing's air-heavy fwoop.
+const riseFraction = .28;
 for (let frame = 0; frame < frames; frame++) {
   const t = frame / rate;
-  const attack = 1 - Math.exp(-t / .0015);
-  const frequency = 220 + 180 * Math.exp(-t / .016);
+  const u = t / seconds;
+  const sweep = u <= riseFraction
+    ? Math.sin(Math.PI / 2 * (u / riseFraction))
+    : Math.cos(Math.PI / 2 * ((u - riseFraction) / (1 - riseFraction)));
+  const vibrato = 16 * Math.sin(2 * Math.PI * 7 * t) * Math.exp(-t / .22);
+  const frequency = 480 + 900 * sweep + vibrato;
   phase += 2 * Math.PI * frequency / rate;
-  const body = Math.sin(phase) * Math.exp(-t / .055);
-  const overtone = .16 * Math.sin(phase * 2.4) * Math.exp(-t / .03);
+  const tone = Math.sin(phase) + .15 * Math.sin(phase * 2);
   seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
   const noise = seed / 2147483648 - 1;
-  clackNoise += .35 * (noise - clackNoise);
-  const clack = .4 * clackNoise * Math.exp(-t / .005);
-  // A short, decaying "boing" wobble starting right after the knock.
-  const boingStart = .028;
-  const boingT = Math.max(0, t - boingStart);
-  const boingAttack = boingT > 0 ? 1 - Math.exp(-boingT / .003) : 0;
-  const boingFrequency = 95 + 40 * Math.exp(-boingT / .05);
-  const boing = .22 * boingAttack * Math.sin(2 * Math.PI * boingFrequency * boingT) * Math.exp(-boingT / .09);
+  airNoise += .15 * (noise - airNoise);
+  const ampAttack = 1 - Math.exp(-t / .006);
+  const envelope = ampAttack * Math.exp(-t / .14);
+  // A brief release tick right as the item leaves the hand.
+  const pop = .18 * noise * Math.exp(-t / .003);
   const tailFade = Math.min(1, (frames - 1 - frame) / (rate * .02));
-  samples[frame] = attack * tailFade * (body + overtone + clack + boing);
+  samples[frame] = tailFade * (envelope * (.75 * tone + .12 * airNoise) + pop);
 }
 const peak = samples.reduce((largest, sample) => Math.max(largest, Math.abs(sample)), 0);
 const wav = Buffer.alloc(44 + frames * 2);
@@ -46,7 +46,7 @@ for (let frame = 0; frame < frames; frame++) {
 }
 const output = process.argv[2]
   ? path.resolve(process.argv[2])
-  : path.resolve(__dirname, '../../audio-previews/cute-item-hit.wav');
+  : path.resolve(__dirname, '../../audio-previews/item-throw.wav');
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, wav);
 console.log(`Created ${output}: ${seconds}s mono PCM; peak -3.1 dBFS, no clipping.`);

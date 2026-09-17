@@ -41,7 +41,7 @@ for (let frame = 0; frame < frames; frame++) {
 }
 const output = process.argv[2]
   ? path.resolve(process.argv[2])
-  : path.resolve(__dirname, '../../audio-previews/cute-item-pickup.wav');
+  : path.resolve(__dirname, '../../audio-previews/item-pickup.wav');
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, wav);
 console.log(`Created ${output}: ${seconds}s mono PCM; peak -3.1 dBFS, no clipping.`);

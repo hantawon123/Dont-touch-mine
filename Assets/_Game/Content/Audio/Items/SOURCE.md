@@ -1,10 +1,10 @@
 # Item pickup (ItemPickup.wav)
 
 - Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.
-- Generator: `Tools/audio/create-cute-pickup.cjs` (quick rising chirp with a bright second harmonic and a brief finger-contact puff).
+- Generator: `Tools/audio/create-pickup.cjs` (quick rising chirp with a bright second harmonic and a brief finger-contact puff).
 - Length: 0.16 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -3.1 dBFS.
-- Approved preview: `audio-previews/cute-item-pickup.wav`; runtime asset is byte-identical.
-- Regenerate: `node Tools/audio/create-cute-pickup.cjs Assets/_Game/Content/Audio/Items/ItemPickup.wav`.
+- Approved preview: `audio-previews/item-pickup.wav`; runtime asset is byte-identical.
+- Regenerate: `node Tools/audio/create-pickup.cjs Assets/_Game/Content/Audio/Items/ItemPickup.wav`.
 - Played once when a carryable item is picked up (local and confirmed-network pickups).
 
 # Item place (ItemPlace.wav)
@@ -19,8 +19,8 @@
 # Item throw (ItemThrow.wav)
 
 - Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.
-- Generator: `Tools/audio/create-cute-throw.cjs` (a release tick followed by a tonal whistling glide — quick rise, longer fade-out — "휘융").
+- Generator: `Tools/audio/create-throw.cjs` (a release tick followed by a tonal whistling glide — quick rise, longer fade-out — "휘융").
 - Length: 0.32 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -3.1 dBFS.
-- Approved preview: `audio-previews/cute-item-throw.wav`; runtime asset is byte-identical.
-- Regenerate: `node Tools/audio/create-cute-throw.cjs Assets/_Game/Content/Audio/Items/ItemThrow.wav`.
+- Approved preview: `audio-previews/item-throw.wav`; runtime asset is byte-identical.
+- Regenerate: `node Tools/audio/create-throw.cjs Assets/_Game/Content/Audio/Items/ItemThrow.wav`.
 - Played once when a carried item is thrown (local throw only; see PlayerAnimationDriver.PlayThrow).
