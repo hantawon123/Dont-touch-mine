@@ -39,6 +39,8 @@ namespace Game.Client.Match
         public const float InputWidth = 320f;
         public const int PanelRadius = 10;
         public const float ContentPadding = 16f;
+        public const float ItemSpacing = 10f;
+        public const float NameBodySpacing = 2f;
         public const float SendIconGap = 8f;
         public const float OpenCooldownSeconds = 0.12f;
         public static readonly Color NameColor = new Color32(0xC1, 0xC1, 0xC1, 0xFF);
@@ -73,6 +75,7 @@ namespace Game.Client.Match
         private MatchChatHudMode mode = MatchChatHudMode.Full;
         private bool keepChromeVisible;
         private bool layoutReady;
+        private float appliedListScale = 1f;
         private bool fontPrewarmed;
         private Coroutine prewarmRoutine;
         private static bool pendingKeepChromeVisible;
@@ -171,6 +174,19 @@ namespace Game.Client.Match
         {
             return Mathf.Clamp01(normalizedFromTop);
         }
+
+        /// <summary>
+        /// UI 크기와 글자 크기가 커질 때 목록 간격도 같은 비율로 키운다.
+        /// CanvasScaler만으로는 행 높이와 간격이 따라가지 않아 메시지가 겹친다.
+        /// </summary>
+        public static float ListScale(float uiScale, float fontScale) =>
+            Mathf.Max(0.01f, uiScale) * Mathf.Max(0.01f, fontScale);
+
+        public static float ScaledItemSpacing(float uiScale, float fontScale = 1f) =>
+            ItemSpacing * ListScale(uiScale, fontScale);
+
+        public static float ScaledNameBodySpacing(float uiScale, float fontScale = 1f) =>
+            NameBodySpacing * ListScale(uiScale, fontScale);
 
         public static bool ShouldOpenOnEnter(
             bool isActivated,
@@ -482,6 +498,63 @@ namespace Game.Client.Match
                 ApplyLine(nameTexts[index], presentation == null ? message.SenderName : presentation.Name(message.SenderId, message.SenderName), font, NameFontSize, NameColor);
                 ApplyLine(bodyTexts[index], message.Text, font, BodyFontSize, Color.white);
                 bodyTexts[index]?.ForceMeshUpdate();
+            }
+
+            ApplyListMetrics(appliedListScale);
+        }
+
+        /// <summary>
+        /// Scales the gap between chat rows (and name/body inside a row) so a
+        /// larger UI or font size cannot stack messages on top of each other.
+        /// </summary>
+        public void ApplyListMetrics(float scale)
+        {
+            EnsureLayout();
+            var safe = Mathf.Max(0.01f, scale);
+            if (itemRoot == null)
+            {
+                appliedListScale = safe;
+                return;
+            }
+
+            var itemSpacing = ItemSpacing * safe;
+            var nameBodySpacing = NameBodySpacing * safe;
+            var changed = !Mathf.Approximately(appliedListScale, safe);
+            var items = itemRoot.GetComponent<VerticalLayoutGroup>();
+            if (items != null && !Mathf.Approximately(items.spacing, itemSpacing))
+            {
+                items.spacing = itemSpacing;
+                changed = true;
+            }
+
+            for (var index = 0; index < VisibleMessageCount; index++)
+            {
+                var row = rows[index];
+                if (row == null)
+                {
+                    continue;
+                }
+
+                var rowLayout = row.GetComponent<VerticalLayoutGroup>();
+                if (rowLayout != null && !Mathf.Approximately(rowLayout.spacing, nameBodySpacing))
+                {
+                    rowLayout.spacing = nameBodySpacing;
+                    changed = true;
+                }
+
+                changed |= ApplyWrap(nameTexts[index]);
+                changed |= ApplyWrap(bodyTexts[index]);
+            }
+
+            appliedListScale = safe;
+            if (!changed)
+            {
+                return;
+            }
+
+            if (itemRoot is RectTransform itemsRect)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(itemsRect);
             }
 
             ApplyRowFade();
@@ -1025,25 +1098,70 @@ namespace Game.Client.Match
             }
         }
 
-        private static void ApplyWrap(TMP_Text text)
+        private static bool ApplyWrap(TMP_Text text)
         {
             if (text == null)
             {
-                return;
+                return false;
             }
 
-            text.textWrappingMode = TextWrappingModes.Normal;
-            text.overflowMode = TextOverflowModes.Overflow;
-            text.enableAutoSizing = false;
-            var layout = text.GetComponent<LayoutElement>();
-            if (layout != null)
+            var changed = false;
+            if (text.textWrappingMode != TextWrappingModes.Normal)
             {
-                layout.minHeight = text.fontSize + 4f;
-                layout.preferredHeight = -1f;
-                layout.preferredWidth = -1f;
-                layout.flexibleWidth = 1f;
-                layout.flexibleHeight = -1f;
+                text.textWrappingMode = TextWrappingModes.Normal;
+                changed = true;
             }
+
+            if (text.overflowMode != TextOverflowModes.Overflow)
+            {
+                text.overflowMode = TextOverflowModes.Overflow;
+                changed = true;
+            }
+
+            if (text.enableAutoSizing)
+            {
+                text.enableAutoSizing = false;
+                changed = true;
+            }
+
+            var layout = text.GetComponent<LayoutElement>();
+            if (layout == null)
+            {
+                return changed;
+            }
+
+            var minHeight = text.fontSize + 4f;
+            if (!Mathf.Approximately(layout.minHeight, minHeight))
+            {
+                layout.minHeight = minHeight;
+                changed = true;
+            }
+
+            if (!Mathf.Approximately(layout.preferredHeight, -1f))
+            {
+                layout.preferredHeight = -1f;
+                changed = true;
+            }
+
+            if (!Mathf.Approximately(layout.preferredWidth, -1f))
+            {
+                layout.preferredWidth = -1f;
+                changed = true;
+            }
+
+            if (!Mathf.Approximately(layout.flexibleWidth, 1f))
+            {
+                layout.flexibleWidth = 1f;
+                changed = true;
+            }
+
+            if (!Mathf.Approximately(layout.flexibleHeight, -1f))
+            {
+                layout.flexibleHeight = -1f;
+                changed = true;
+            }
+
+            return changed;
         }
 
         private void EnsureHistoryFade()
@@ -1212,7 +1330,7 @@ namespace Game.Client.Match
             var itemsRect = (RectTransform)items.transform;
             Stretch(itemsRect, ContentPadding);
             var layout = items.GetComponent<VerticalLayoutGroup>();
-            layout.spacing = 10f;
+            layout.spacing = ItemSpacing;
             layout.childAlignment = TextAnchor.LowerLeft;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
@@ -1306,7 +1424,7 @@ namespace Game.Client.Match
                 typeof(ContentSizeFitter));
             row.transform.SetParent(parent, false);
             var layout = row.GetComponent<VerticalLayoutGroup>();
-            layout.spacing = 2f;
+            layout.spacing = NameBodySpacing;
             layout.childAlignment = TextAnchor.UpperLeft;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
