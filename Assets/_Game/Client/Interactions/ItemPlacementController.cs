@@ -458,6 +458,12 @@ namespace Game.Client.Interactions
             }
 
             ghostRenderers = ghost.GetComponentsInChildren<Renderer>();
+            foreach (var ghostRenderer in ghostRenderers)
+            {
+                // 1인칭에서는 들고 있는 원본이 화면에서 숨겨져(forceRenderingOff) 있다. Instantiate가 이 플래그를
+                // 복사하지는 않지만, 미리보기 복제본은 반드시 보여야 하므로 명시적으로 켠다.
+                ghostRenderer.forceRenderingOff = false;
+            }
             ApplyGhostMaterial(ghostValidMaterial);
         }
 

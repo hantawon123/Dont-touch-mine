@@ -1,4 +1,5 @@
 using System;
+using Game.Core.Match;
 using Game.Core.Players;
 using Game.Server.Players;
 using NUnit.Framework;
@@ -65,6 +66,16 @@ namespace Game.Tests.EditMode
 
             Assert.That(recovered.Value, Is.EqualTo(100f));
             Assert.That(recovered.IsExhausted, Is.False);
+        }
+
+        [TestCase(MatchPhase.Waiting, true, TestName = "Unlimited_InLobbyAndWaitingRoom")]
+        [TestCase(MatchPhase.Result, true, TestName = "Unlimited_OnEndingStage")]
+        [TestCase(MatchPhase.Highlight, true, TestName = "Unlimited_DuringHighlight")]
+        [TestCase(MatchPhase.Hiding, false, TestName = "Limited_WhileHiding")]
+        [TestCase(MatchPhase.Searching, false, TestName = "Limited_WhileSearching")]
+        public void StaminaOnlyDrainsDuringHidingAndSearching(MatchPhase phase, bool unlimited)
+        {
+            Assert.That(PlayerStaminaRules.IsUnlimitedInPhase(phase), Is.EqualTo(unlimited));
         }
 
         [TestCase(-1f, 0f)]
