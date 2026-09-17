@@ -2,7 +2,7 @@
 
 `release` 변경을 Jenkins `d205-unity-release`가 5분 간격으로 감지한다.
 `Tools/client/Jenkinsfile`은 Windows 에이전트의 Windows x64 Mono 클라이언트와 EC2의 Linux 전용 서버를 같은 Git SHA로 병렬 빌드한다.
-Linux 서버 빌드·배포는 `d205-unity-linux` 노드의 `unity-linux` 라벨을 사용한다. WebGL 작업이나 노드는 필요하지 않다. 이전 Jenkinsfile과의 호환을 위해 이 노드에 `unity-webgl` 라벨도 남겨 두며 WebGL 빌드는 실행하지 않는다. 기존 캐시·라이선스·설정 경로는 유지한다.
+Linux 서버 빌드·배포는 `d205-unity-linux` 노드의 `unity-linux` 라벨을 사용한다. WebGL 작업과 `unity-webgl` 라벨은 사용하지 않는다. 기존 캐시·라이선스·설정 경로는 유지한다.
 
 원격 `release`에 이 Jenkinsfile과 빌드 도구가 포함된 변경사항을 push 또는 병합하면 최대 약 5분 이내 SCM polling으로 실행한다. 로컬 커밋만으로는 실행되지 않으며, 어느 PC에서 push했는지와 관계없이 Windows 빌드는 등록된 개발 PC에서 수행한다. 개발 PC가 꺼져 있거나 절전 상태이면 Windows 단계가 대기하므로 전원·네트워크와 에이전트 연결을 유지한다. 현재 release에 Jenkinsfile이 없다면 CI 변경사항부터 release에 포함해야 한다.
 
