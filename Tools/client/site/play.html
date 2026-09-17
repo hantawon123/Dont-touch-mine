@@ -231,6 +231,27 @@
         overflow-x: auto;
         padding: 2px 2px 7px;
       }
+      /* Chrome 은 scrollbar-width 가 지정되면 아래 규칙을 무시하므로,
+         표준 속성은 ::-webkit-scrollbar 가 없는 브라우저에만 적용합니다. */
+      @supports not selector(::-webkit-scrollbar) {
+        .media-thumbs {
+          scrollbar-width: thin;
+          scrollbar-color: #4a4a51 transparent;
+        }
+      }
+      .media-thumbs::-webkit-scrollbar {
+        height: 6px;
+      }
+      .media-thumbs::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .media-thumbs::-webkit-scrollbar-thumb {
+        background: #4a4a51;
+        border-radius: 3px;
+      }
+      .media-thumbs::-webkit-scrollbar-thumb:hover {
+        background: var(--muted);
+      }
       .media-thumb {
         position: relative;
         flex: 0 0 116px;
