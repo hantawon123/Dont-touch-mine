@@ -10,8 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.ssafy.d205.domain.chat.dto.ChatLogBatchRequest;
-import com.ssafy.d205.domain.chat.entity.ChatLog;
-import com.ssafy.d205.domain.chat.repository.ChatLogRepository;
+import com.ssafy.d205.domain.chat.repository.ChatLogBatchWriter;
 import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.repository.UserRepository;
 
@@ -21,12 +20,15 @@ import com.ssafy.d205.domain.user.repository.UserRepository;
  * <p>{@link ChatLogService} 에서 떼어 낸 이유는 트랜잭션 경계 하나뿐입니다. 금칙어 판정은 DB 를
  * 쓰지 않으므로 트랜잭션 밖에서 끝내고, 여기서는 DB 를 쓰는 일만 합니다. 같은 클래스의 메서드를
  * 부르면 프록시를 타지 않아 {@code @Transactional} 이 걸리지 않으므로 클래스를 나눕니다.
+ *
+ * <p>넣는 일 자체는 {@link ChatLogBatchWriter} 가 합니다. JPA 로 넣으면 200줄 묶음이 문장 200개가
+ * 되기 때문인데, 이유는 그쪽 주석에 적었습니다.
  */
 @Component
 @RequiredArgsConstructor
 class ChatLogWriter {
 
-    private final ChatLogRepository chatLogs;
+    private final ChatLogBatchWriter chatLogs;
     private final UserRepository users;
 
     /**
@@ -45,11 +47,11 @@ class ChatLogWriter {
         // 한 묶음 안에 같은 사람이 여러 줄을 말하는 것이 보통입니다. 줄마다 조회하면 같은 질문을
         // 반복합니다.
         Map<String, Integer> resolved = new HashMap<>();
-        List<ChatLog> rows = new ArrayList<>(entries.size());
+        List<ChatLogBatchWriter.Row> rows = new ArrayList<>(entries.size());
 
         for (int index = 0; index < entries.size(); index++) {
             ChatLogBatchRequest.Entry entry = entries.get(index);
-            rows.add(ChatLog.of(
+            rows.add(new ChatLogBatchWriter.Row(
                     entry.roomCode(),
                     entry.scope(),
                     senderSeq(entry.userPublicId(), resolved),
@@ -60,8 +62,7 @@ class ChatLogWriter {
                     now));
         }
 
-        chatLogs.saveAll(rows);
-        return rows.size();
+        return chatLogs.insertAll(rows);
     }
 
     /**
