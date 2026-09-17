@@ -1,6 +1,8 @@
+using System;
 using Fusion;
 using Game.Core.Ports;
 using Photon.Realtime;
+using Photon.Voice;
 using Photon.Voice.Fusion;
 using Photon.Voice.Unity;
 using R3;
@@ -44,6 +46,20 @@ namespace Game.Network.Voice
 
         private VoiceNetworkObject localVoice;
         private bool talking;
+
+        /// <summary>
+        /// The microphone the player picked in 사운드, by name. Empty means
+        /// whichever one the machine calls default.
+        /// </summary>
+        private string requestedDevice = string.Empty;
+
+        /// <summary>
+        /// The name <see cref="boundRecorder"/> was last set from, so a
+        /// choice that has not moved does not restart the capture. Null
+        /// while no recorder has been told, which is how a fresh avatar is
+        /// made to hear the choice again.
+        /// </summary>
+        private string appliedDevice;
 
 
         public ReadOnlyReactiveProperty<bool> IsAvailable => available;
@@ -178,7 +194,12 @@ namespace Game.Network.Voice
                 // A new avatar brought a new microphone. It comes up knowing
                 // nothing, so it hears what the player already decided.
                 boundRecorder = recorder;
+
+                // Null rather than the name, so the device is set again on
+                // the new recorder even though the choice never moved.
+                appliedDevice = null;
                 ApplyTransmitState();
+                ApplyCaptureDevice();
             }
 
             available.Value = client.ClientState == ClientState.Joined;
@@ -242,6 +263,84 @@ namespace Game.Network.Voice
 
             return localVoice != null ? localVoice.RecorderInUse : null;
         }
+
+        /// <summary>
+        /// Hands the chosen microphone to the recorder.
+        /// </summary>
+        /// <remarks>
+        /// Setting <c>MicrophoneDevice</c> restarts the capture, so it is
+        /// only written when the name has actually changed.
+        /// </remarks>
+        public void SetCaptureDevice(string deviceName)
+        {
+            requestedDevice = deviceName ?? string.Empty;
+            ApplyCaptureDevice();
+        }
+
+        private void ApplyCaptureDevice()
+        {
+            if (boundRecorder == null
+                || string.Equals(appliedDevice, requestedDevice, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            boundRecorder.MicrophoneDevice = ResolveDevice(requestedDevice);
+            appliedDevice = requestedDevice;
+        }
+
+        /// <summary>
+        /// A name from the 사운드 tab as a device the recorder can open.
+        /// </summary>
+        /// <remarks>
+        /// Which list the name is looked up in depends on the back end the
+        /// recorder captures with, and the two do not share ids. Unity names
+        /// its microphones by the same string it opens them with, so a name
+        /// is a device there. The Photon back end enumerates the platform's
+        /// own devices, whose ids are numeric on Windows, so the name has to
+        /// be looked up to find the id beside it.
+        /// <para>
+        /// A name nothing answers to falls back to the default device. The
+        /// machine may have had the microphone unplugged since it was
+        /// chosen, and being heard on the wrong microphone beats not being
+        /// heard at all.
+        /// </para>
+        /// </remarks>
+        private DeviceInfo ResolveDevice(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return DeviceInfo.Default;
+            }
+
+            if (boundRecorder.MicrophoneType == Recorder.MicType.Unity)
+            {
+                return new DeviceInfo(name);
+            }
+
+            try
+            {
+                using var devices = Platform.CreateAudioInEnumerator(DeviceLogger);
+                foreach (var device in devices)
+                {
+                    if (string.Equals(device.Name, name, StringComparison.Ordinal))
+                    {
+                        return device;
+                    }
+                }
+            }
+            catch (Exception error)
+            {
+                // Enumerating goes through a native library, and a platform
+                // without one throws rather than answering empty.
+                Debug.LogWarning($"[Voice] 마이크 목록을 읽지 못했습니다: {error.Message}");
+            }
+
+            return DeviceInfo.Default;
+        }
+
+        private static readonly Photon.Voice.Unity.Logger DeviceLogger =
+            new Photon.Voice.Unity.Logger(Photon.Voice.LogLevel.Warning);
 
         private void ApplyTransmitState()
         {

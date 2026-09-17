@@ -97,6 +97,17 @@ namespace Game.Bootstrap
             PublishTalking();
         }
 
+        /// <inheritdoc />
+        /// <remarks>
+        /// Forwarded rather than remembered: the choice already lives in the
+        /// 사운드 settings, which outlive both this and the rig.
+        /// </remarks>
+        public void SetCaptureDevice(string deviceName)
+        {
+            if (disposed) return;
+            network.Voice?.SetCaptureDevice(deviceName);
+        }
+
         /// <remarks>
         /// Mirrors rather than forwards the rig's own properties: they belong to
         /// the rig and go away with it, and a screen that subscribed to them
@@ -122,6 +133,7 @@ namespace Game.Bootstrap
                 voice.SetMuted(EffectiveMute);
                 voice.SetTalking(EffectiveTalking);
                 voice.SetListening(preferences.Listening);
+                voice.SetCaptureDevice(EffectiveDevice);
             }
 
             available.Value = voice.IsAvailable.CurrentValue;
@@ -156,6 +168,25 @@ namespace Game.Bootstrap
 
             PublishEffectiveMute();
             PublishTalking();
+            PublishCaptureDevice();
+        }
+
+        /// <summary>
+        /// The microphone the 사운드 tab has applied, as a name the rig can
+        /// resolve. The default entry is a code rather than a device, so it
+        /// is sent as nothing at all.
+        /// </summary>
+        private string EffectiveDevice => VoiceCaptureDevice.Requested(sound.Current);
+
+        /// <remarks>
+        /// Sent on every apply rather than only when the name moves. The rig
+        /// remembers what it gave the recorder and ignores a repeat, and it
+        /// is the only side that knows whether the recorder it has is still
+        /// the one that was told.
+        /// </remarks>
+        private void PublishCaptureDevice()
+        {
+            network.Voice?.SetCaptureDevice(EffectiveDevice);
         }
 
         private void PublishEffectiveMute()

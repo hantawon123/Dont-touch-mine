@@ -573,6 +573,10 @@ namespace Game.Tests.EditMode
             }
 
             public void SetListening(bool value) => listening.Value = value;
+
+            public string CaptureDevice { get; private set; }
+
+            public void SetCaptureDevice(string deviceName) => CaptureDevice = deviceName;
         }
 
         private sealed class FakeInviteGateway : IInviteGateway

@@ -345,6 +345,10 @@ namespace Game.Architecture.Tests
                 listening.Value = value;
                 muted.Value = !value || preferenceMuted;
             }
+
+            public string CaptureDevice { get; private set; }
+
+            public void SetCaptureDevice(string deviceName) => CaptureDevice = deviceName;
         }
     }
 }
