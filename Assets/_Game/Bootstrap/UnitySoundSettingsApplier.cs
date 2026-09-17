@@ -12,8 +12,8 @@ namespace Game.Bootstrap
     /// <remarks>
     /// Master volume is applied through AudioListener.volume. MenuBgmController
     /// separately applies Music to its AudioSource when settings change, so the
-    /// master gain is not multiplied twice. Footsteps, the warning chime and the hiding-timer tick
-    /// separately use Effects; the last-thirty-seconds bed uses Music, so muting
+    /// master gain is not multiplied twice. Footsteps, the warning chime, the hiding-timer tick
+    /// and the searching-timer tick separately use Effects; the last-thirty-seconds bed uses Music, so muting
     /// music silences it without taking the chime with it.
     /// </remarks>
     public sealed class UnitySoundSettingsApplier : ISoundSettingsApplier
@@ -25,6 +25,7 @@ namespace Game.Bootstrap
             Game.Client.Players.PlayerFootstepAudio.EffectsVolume = effects;
             Game.Client.Match.MatchUrgencyAudio.EffectsVolume = effects;
             Game.Client.Match.HidingTimerTickAudio.EffectsVolume = effects;
+            Game.Client.Match.SearchingTimerTickAudio.EffectsVolume = effects;
             Game.Client.Match.MatchUrgencyAudio.MusicVolume = Mathf.Clamp01(
                 settings.Get(SoundVolume.Music) / (float)SoundCatalog.MaxVolume);
             AudioListener.volume = Mathf.Clamp01(

@@ -119,6 +119,7 @@ namespace Game.Client.Match
 
         private MatchUrgencyAudio urgencyAudio;
         private HidingTimerTickAudio timerTickAudio;
+        private SearchingTimerTickAudio searchingTimerTickAudio;
 
         private LobbyPlayerListView participantListView;
 
@@ -162,6 +163,7 @@ namespace Game.Client.Match
             EnsureHidingActiveHud();
             HideHidingActiveHud();
             EnsureTimerTickAudio();
+            EnsureSearchingTimerTickAudio();
             EnsureHidingWaitHud();
             HideHidingWaitHud();
             EnsureVitalsHud();
@@ -261,6 +263,7 @@ namespace Game.Client.Match
             timerView?.SetResult(headline, subtitle);
             urgencyBorderView?.Hide();
             urgencyAudio?.Hide();
+            searchingTimerTickAudio?.Hide();
             LateUpdate();
         }
 
@@ -281,6 +284,8 @@ namespace Game.Client.Match
             lastRemainingSeconds = remainingSeconds;
             EnsureTimer();
             timerView?.SetRemainingSeconds(remainingSeconds);
+            EnsureSearchingTimerTickAudio();
+            searchingTimerTickAudio?.SetRemainingSeconds(currentPhase, remainingSeconds);
             RefreshUrgency();
         }
 
@@ -673,6 +678,19 @@ namespace Game.Client.Match
             if (timerTickAudio == null)
             {
                 timerTickAudio = HidingTimerTickAudio.Create(transform);
+            }
+        }
+
+        private void EnsureSearchingTimerTickAudio()
+        {
+            if (searchingTimerTickAudio == null)
+            {
+                searchingTimerTickAudio = GetComponentInChildren<SearchingTimerTickAudio>(true);
+            }
+
+            if (searchingTimerTickAudio == null)
+            {
+                searchingTimerTickAudio = SearchingTimerTickAudio.Create(transform);
             }
         }
 

@@ -23,4 +23,12 @@
 - Regenerate: `node Tools/audio/create-timer-tick.cjs Assets/_Game/Content/Resources/Audio/HidingTimerTick.wav`.
 - Played once per second during the last `HidingActiveHudView.WarningSeconds` (10) seconds of the hiding phase countdown; uses the Effects volume.
 
-All three clips live under `Resources` because the match HUD is built in the scene rather than from a prefab, so `MatchUrgencyAudio` and `HidingTimerTickAudio` load them by path.
+# Searching timer tick (SearchingTimerTick.wav)
+
+- Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.
+- Generator: `Tools/audio/create-timer-tick.cjs` (same generator and settings as `HidingTimerTick.wav`; a separate render so the two phases can diverge later without one file backing both).
+- Length: 0.08 seconds; mono 44.1 kHz, 16-bit PCM; peak -3.1 dBFS, no clipping.
+- Regenerate: `node Tools/audio/create-timer-tick.cjs Assets/_Game/Content/Resources/Audio/SearchingTimerTick.wav`.
+- Played once per second during the last `MatchTimerView.WarningSeconds` (30) seconds of the searching phase, the same window `MatchUrgencyAudio` uses for the border, chime and tension bed; uses the Effects volume.
+
+All four clips live under `Resources` because the match HUD is built in the scene rather than from a prefab, so `MatchUrgencyAudio`, `HidingTimerTickAudio` and `SearchingTimerTickAudio` load them by path.
