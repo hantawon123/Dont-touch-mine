@@ -100,6 +100,7 @@ namespace Game.Network.Session
                 _expectedPassword = request.IsLocked ? request.Password : null;
                 _runner.SessionInfo.IsVisible = !request.IsPrivate;
                 _awaitingRoomClaim = false;
+                Debug.Log("[Server] Room claimed.");
             }
             if (source.IsRealPlayer) _matchStarter.AnswerRoomClaim(source, accepted);
         }

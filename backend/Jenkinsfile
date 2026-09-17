@@ -15,7 +15,8 @@ pipeline {
         timeout(time: 30, unit: 'MINUTES')
         // 같은 compose 프로젝트를 두 빌드가 동시에 건드리면 컨테이너가 꼬입니다.
         // Job 단위이므로 MR Job들끼리는 병렬로 돕니다. 검증 경로의 자원 이름에
-        // BUILD_TAG를 넣어 서로 격리합니다.
+        // BUILD_TAG를 넣어 서로 격리하고, 무거운 단계는 Unity Linux 빌드와 같은
+        // /tmp/d205-ec2-build.lock을 잡아 EC2 메모리 경합을 막습니다.
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '30'))
         timestamps()
@@ -231,6 +232,8 @@ pipeline {
                 withCredentials([file(credentialsId: 'd205-backend-env', variable: 'ENV_FILE')]) {
                     dir('backend') {
                         sh '''
+                            exec 9>/tmp/d205-ec2-build.lock
+                            flock -x 9
                             cp "$ENV_FILE" .env
                             chmod 600 .env
                             docker compose -f "$COMPOSE_FILE" build
@@ -257,6 +260,8 @@ pipeline {
                     // 그리고 d205-app:latest 를 덮어쓰면 운영 태그가 오염됩니다.
                     // 이미지가 둘입니다. Dockerfile 은 하나고 MODULE 인자가 갈라 줍니다.
                     sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
                         docker build --build-arg MODULE=app -t "d205-app:$VERIFY_TAG" .
                         docker build --build-arg MODULE=analytics -t "d205-analytics:$VERIFY_TAG" .
                     '''
@@ -271,14 +276,26 @@ pipeline {
                     // Testcontainers가 mysql:8.4 컨테이너를 띄웁니다. 호스트 포트를
                     // 무작위로 잡고 Ryuk가 회수하므로 동시 빌드에서 충돌하지 않습니다.
                     sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
                         chmod +x gradlew
+
+                        # 모듈 분리(S15P21D205-980) 이전에는 산출물이 backend/build/ 에 생겼습니다.
+                        # 워크스페이스는 빌드 사이에 재사용되므로 그때의 XML 이 남아 있을 수 있고,
+                        # 남아 있으면 아래 junit 이 이번 빌드와 무관한 낡은 결과를 함께 집계합니다.
+                        # 지금은 어떤 태스크도 이 경로에 쓰지 않으니 통째로 지웁니다.
+                        rm -rf build/test-results
+
                         ./gradlew test --no-daemon --console=plain
                     '''
                 }
             }
             post {
                 always {
-                    junit allowEmptyResults: true, testResults: 'backend/build/test-results/test/*.xml'
+                    // 모듈별 경로입니다. 단일 모듈 시절의 backend/build/test-results/ 를 그대로
+                    // 두었더니 파일을 하나도 찾지 못했고, allowEmptyResults 때문에 그 사실이
+                    // 조용히 넘어가 테스트를 5분 넘게 돌리고도 Jenkins 에 결과가 없었습니다.
+                    junit allowEmptyResults: true, testResults: 'backend/*/build/test-results/test/*.xml'
                 }
             }
         }
@@ -293,6 +310,8 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
                         docker rm -f "$VERIFY_PFX-app" >/dev/null 2>&1 || true
 
                         NET=$(docker network ls --filter label=com.docker.compose.project=d205 --format '{{.Name}}' | head -1)
@@ -400,6 +419,8 @@ pipeline {
                     // 운영 DB를 건드릴 수 없으므로 MySQL을 새로 띄웁니다. 접속 정보도
                     // 여기서 만들어 씁니다. 운영 크리덴셜은 이 경로에 들어오지 않습니다.
                     sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
                         NET="$VERIFY_PFX-net"
                         DB="$VERIFY_PFX-mysql"
                         APP="$VERIFY_PFX-app"
@@ -408,8 +429,15 @@ pipeline {
                         PW=$(tr -dc A-Za-z0-9 < /dev/urandom | head -c 24)
                         set -x
 
+                        # 분석 DB 도 일회용으로. 수집 서비스가 Flyway 를 빈 DB 에 돌릴 수 있는지 봅니다.
+                        ADB="$VERIFY_PFX-mysql-analytics"
+
                         docker network create "$NET"
 
+                        # 둘을 먼저 다 띄우고 그다음에 기다립니다. 예전에는 하나를 띄워 준비될 때까지
+                        # 기다린 뒤에야 두 번째를 시작해서, 서로 관계도 없는 MySQL 두 개의 기동 시간이
+                        # 그대로 더해졌습니다(빌드당 25~30초). 둘은 같은 이미지를 쓰고 서로를 참조하지
+                        # 않으므로 동시에 떠도 됩니다.
                         set +x
                         docker run -d --name "$DB" --network "$NET" \
                             -e MYSQL_ROOT_PASSWORD="$PW" \
@@ -420,28 +448,6 @@ pipeline {
                             mysql:8.4 \
                             --character-set-server=utf8mb4 \
                             --collation-server=utf8mb4_0900_ai_ci > /dev/null
-                        set -x
-
-                        set +x
-                        echo "MySQL 준비 대기"
-                        db_ok=0
-                        for i in $(seq 1 40); do
-                            if docker exec "$DB" mysqladmin ping -h 127.0.0.1 --silent >/dev/null 2>&1; then
-                                echo "MySQL 준비됨 (${i}회 시도)"
-                                db_ok=1
-                                break
-                            fi
-                            sleep 2
-                        done
-                        if [ "$db_ok" != 1 ]; then
-                            echo "일회용 MySQL이 준비되지 않았습니다"
-                            docker logs "$DB" --tail 50 2>&1 || true
-                            exit 1
-                        fi
-
-                        # 분석 DB 도 일회용으로. 수집 서비스가 Flyway 를 빈 DB 에 돌릴 수 있는지 봅니다.
-                        ADB="$VERIFY_PFX-mysql-analytics"
-                        set +x
                         docker run -d --name "$ADB" --network "$NET" \
                             -e MYSQL_ROOT_PASSWORD="$PW" \
                             -e MYSQL_DATABASE=d205_analytics \
@@ -451,15 +457,35 @@ pipeline {
                             mysql:8.4 \
                             --character-set-server=utf8mb4 \
                             --collation-server=utf8mb4_0900_ai_ci > /dev/null
+                        set -x
+
+                        # 대기도 한 바퀴에서 둘 다 봅니다. 한쪽씩 차례로 기다리면 동시에 띄운 의미가
+                        # 없어집니다. 상한 40회(80초)는 예전 한쪽 기준 그대로입니다.
+                        set +x
+                        echo "MySQL 두 개 준비 대기"
+                        db_ok=0
                         adb_ok=0
                         for i in $(seq 1 40); do
-                            if docker exec "$ADB" mysqladmin ping -h 127.0.0.1 --silent >/dev/null 2>&1; then
+                            if [ "$db_ok" != 1 ] && docker exec "$DB" mysqladmin ping -h 127.0.0.1 --silent >/dev/null 2>&1; then
+                                echo "MySQL 준비됨 (${i}회 시도)"
+                                db_ok=1
+                            fi
+                            if [ "$adb_ok" != 1 ] && docker exec "$ADB" mysqladmin ping -h 127.0.0.1 --silent >/dev/null 2>&1; then
                                 echo "분석 MySQL 준비됨 (${i}회 시도)"
                                 adb_ok=1
+                            fi
+                            if [ "$db_ok" = 1 ] && [ "$adb_ok" = 1 ]; then
                                 break
                             fi
                             sleep 2
                         done
+                        set -x
+
+                        if [ "$db_ok" != 1 ]; then
+                            echo "일회용 MySQL이 준비되지 않았습니다"
+                            docker logs "$DB" --tail 50 2>&1 || true
+                            exit 1
+                        fi
                         if [ "$adb_ok" != 1 ]; then
                             echo "일회용 분석 MySQL이 준비되지 않았습니다"
                             docker logs "$ADB" --tail 50 2>&1 || true
@@ -556,6 +582,8 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
                         # 임시 컨테이너를 먼저 치웁니다. 남겨두면 같은 DB에 계속 붙어 있습니다.
                         docker rm -f "$VERIFY_PFX-app" "$VERIFY_PFX-analytics" >/dev/null 2>&1 || true
 

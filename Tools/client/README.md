@@ -2,7 +2,7 @@
 
 `release` 변경을 Jenkins `d205-unity-release`가 5분 간격으로 감지한다.
 `Tools/client/Jenkinsfile`은 Windows 에이전트의 Windows x64 Mono 클라이언트와 EC2의 Linux 전용 서버를 같은 Git SHA로 병렬 빌드한다.
-Linux 서버 빌드·배포는 `d205-unity-linux` 노드의 `unity-linux` 라벨을 사용한다. WebGL 작업이나 노드는 필요하지 않다. 이전 Jenkinsfile과의 호환을 위해 이 노드에 `unity-webgl` 라벨도 남겨 두며 WebGL 빌드는 실행하지 않는다. 기존 캐시·라이선스·설정 경로는 유지한다.
+Linux 서버 빌드·배포는 `d205-unity-linux` 노드의 `unity-linux` 라벨을 사용한다. WebGL 작업과 `unity-webgl` 라벨은 사용하지 않는다. 기존 캐시·라이선스·설정 경로는 유지한다.
 
 원격 `release`에 이 Jenkinsfile과 빌드 도구가 포함된 변경사항을 push 또는 병합하면 최대 약 5분 이내 SCM polling으로 실행한다. 로컬 커밋만으로는 실행되지 않으며, 어느 PC에서 push했는지와 관계없이 Windows 빌드는 등록된 개발 PC에서 수행한다. 개발 PC가 꺼져 있거나 절전 상태이면 Windows 단계가 대기하므로 전원·네트워크와 에이전트 연결을 유지한다. 현재 release에 Jenkinsfile이 없다면 CI 변경사항부터 release에 포함해야 한다.
 
@@ -23,13 +23,14 @@ release 이외의 브랜치를 검증용으로 연결하면 빌드·아티팩트
 `Builds/Download`의 HTML·ZIP·SHA256SUMS를 기존 release host의 `web` 디렉터리에 저장한다. 이는 다운로드용 정적 파일이며 WebGL 플레이어가 아니다.
 빌드 중에는 기존 게임 서버를 유지한다. 새 서버가 준비된 뒤 `active.json`을 원자적으로 교체하므로 다운로드 버전도 함께 전환된다.
 실패 시 기존 버전을 유지한다. 기존 경기 서버는 해당 방이 비고 종료될 때까지 유지된다.
-호스트의 `rooms_per_release`만큼 독립 방을 준비한다(방당 최대 6인). 기존 설정은 1방, 배포 예제 설정은 20방/총 40프로세스다. 실제 EC2 적용은 배포 시 자원 한도를 확인한 뒤 수행한다. `max_processes`는 이전 버전과 후보 서버까지 포함한 전체 상한이다. 상한에 도달하면 기존 방을 강제 종료하지 않고 자리가 생기기를 기다린다. 한 장비 내 고정 슬롯 방식이며 여러 장비의 자동 증설은 포함하지 않는다. 상세 설정과 검증 범위는 [방 풀 운영 안내](../network/server-flow/release-host.md)를 따른다.
+호스트는 `warm_rooms`개의 빈 방을 준비하고 선점될 때 `room_capacity`까지 확장한다(방당 최대 6인). 배포 예제는 대기 2방·동시 최대 20방·이전 릴리스 포함 총 40프로세스다. 실제 EC2 적용은 배포 시 자원 한도를 확인한 뒤 수행한다. `max_processes`는 이전 버전과 후보 서버까지 포함한 전체 상한이다. 상한에 도달하면 기존 방을 강제 종료하지 않고 자리가 생기기를 기다린다. 한 장비 내 고정 슬롯 방식이며 여러 장비의 자동 증설은 포함하지 않는다. 상세 설정과 검증 범위는 [방 풀 운영 안내](../network/server-flow/release-host.md)를 따른다.
 
 ## 빌드 머신
 
 - Windows: Unity 6000.3.22f1, Java 21, .NET SDK, Python 3.11+, Git LFS. `unity-windows` 라벨의 에이전트에서 네이티브 빌드한다.
 - EC2: `unity-linux` 라벨, GameCI Linux 이미지, Docker, Python 3.11+, Git LFS.
 - Linux 서버는 기존 Jenkins Unity 실행 슬롯을 사용한다. Unity 컨테이너당 CPU 3개·메모리 8GB 제한. Jenkins 에이전트 서비스는 Git 체크아웃을 포함하여 MemoryMax=2G를 사용한다(512MB에서는 신규 클론 중 OOM 종료 확인).
+- Linux 서버 빌드는 `/tmp/d205-ec2-build.lock`을 사용한다. 같은 EC2에서 실행되는 백엔드 Docker·Gradle 단계와 겹치지 않아 Jenkins와 게임 서버의 메모리를 보호한다. Windows 빌드는 별도 PC에서 계속 병렬 실행된다.
 - `CLIENT_CONFIG_DIR` 기본 `/var/lib/jenkins/.config/unity-webgl`의 `PhotonAppSettings.asset`를 주입한다.
 - `CLIENT_UNITY_HOME` 기본 `/var/lib/jenkins/.config/unity3d/Unity`의 해당 EC2에서 정상 활성화한 Unity 라이선스를 사용한다. 다른 PC의 machine-id/라이선스를 복사하지 않는다.
 - GMS 키는 공용 백엔드에만 둔다. ZIP에 소스·백업·환경변수 파일을 포함하지 않는다.

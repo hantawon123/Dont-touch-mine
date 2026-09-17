@@ -10,7 +10,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from release_host import Pool, READY, ReleaseHandler
+from release_host import CLAIMED, Pool, READY, ReleaseHandler
 from releases import atomic_json, read_json, stage, validate
 from serve import create_server
 from sync_editor import main as sync_editor
@@ -56,6 +56,11 @@ class ReleaseTests(unittest.TestCase):
 
     def ready(self, name):
         self.pool.processes[name]['log'].write_text(READY + '\n')
+        self.pool.step()
+
+    def claim(self, name):
+        with self.pool.processes[name]['log'].open('a') as stream:
+            stream.write(CLAIMED + '\n')
         self.pool.step()
 
     def test_ready_switch_preserves_old_process_and_retired_is_not_respawned(self):
@@ -283,6 +288,22 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(len({p['slot'] for p in self.pool.processes.values()}), 20)
         self.assertTrue(all(p['ready'] for p in self.pool.processes.values()))
 
+    def test_two_warm_rooms_expand_on_claim_up_to_twenty_room_capacity(self):
+        self.pool = Pool({'root': str(self.root), 'room_capacity': 20, 'warm_rooms': 2,
+                          'max_processes': 40})
+        self.release('twenty'); self.request('twenty')
+        for index in range(20):
+            key = self.pool.key('twenty', index)
+            self.ready(key)
+            self.claim(key)
+        for _ in range(3):
+            self.pool.step()
+        self.assertEqual(len(self.pool.processes), 20)
+        self.assertTrue(all(p['claimed'] for p in self.pool.processes.values()))
+        status = read_json(self.root/'status.json')
+        self.assertEqual(status['room_capacity'], 20)
+        self.assertEqual(status['warm_rooms'], 2)
+
     def test_chat_key_reaches_the_server_and_is_omitted_when_unset(self):
         """채팅 금칙어 목록과 기록 경로의 키 전달 (S15P21D205-1027).
 
@@ -313,6 +334,10 @@ class ReleaseTests(unittest.TestCase):
         for rooms, cap in ((0, 2), (2, 2), (True, 2), (65, 128), (2, 129), ('2', 4)):
             with self.subTest(rooms=rooms, cap=cap), self.assertRaises(ValueError):
                 Pool({'root': str(self.root), 'rooms_per_release': rooms, 'max_processes': cap})
+        for capacity, warm, cap in ((20, 0, 40), (20, 21, 40), (True, 1, 2), (20, True, 40)):
+            with self.subTest(capacity=capacity, warm=warm, cap=cap), self.assertRaises(ValueError):
+                Pool({'root': str(self.root), 'room_capacity': capacity, 'warm_rooms': warm,
+                      'max_processes': cap})
 
 
 

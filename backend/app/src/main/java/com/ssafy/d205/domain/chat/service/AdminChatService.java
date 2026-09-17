@@ -25,6 +25,15 @@ import com.ssafy.d205.global.common.Timestamps;
 @RequiredArgsConstructor
 public class AdminChatService {
 
+    /**
+     * 운영자가 열 수 있는 가장 넓은 구간.
+     *
+     * <p><b>보관 청소가 지키는 구간과 같은 값이어야 합니다</b>({@link ChatLogSweeper}). 청소가 더
+     * 좁게 지키면 운영자가 넓혀 읽던 줄이 다음 청소에 사라집니다 - 화면에 보이던 것이 다음 날
+     * 없어지는데 아무 신호가 없습니다. 그래서 두 곳이 같은 숫자를 따로 적지 않고 이것을 씁니다.
+     */
+    public static final int MAX_WINDOW_MINUTES = 180;
+
     /** 방 코드와 경기 수를 가르는 글자. 신고의 context_key 가 {@code 7K2M9P#2} 꼴입니다. */
     private static final char CONTEXT_SEPARATOR = '#';
 

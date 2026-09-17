@@ -78,6 +78,36 @@ namespace Game.Client.Settings
         public static float HudScale(string code) =>
             Scale(code) * HudScreenScale.DefaultScale;
 
+        private void ApplyChatCanvasScale(InterfaceSettings current)
+        {
+            if (chat == null)
+            {
+                return;
+            }
+
+            var chatScaler = chat.GetComponent<CanvasScaler>();
+            if (chatScaler == null)
+            {
+                return;
+            }
+
+            HudScreenScale.Apply(chatScaler);
+            chatScaler.referenceResolution =
+                HudScreenScale.ScaledReference / HudScale(current.Get(InterfaceOption.UiScale));
+        }
+
+        private void ApplyChatListScale(InterfaceSettings current)
+        {
+            if (chat == null)
+            {
+                return;
+            }
+
+            chat.ApplyListMetrics(MatchChatView.ListScale(
+                Scale(current.Get(InterfaceOption.UiScale)),
+                Scale(current.Get(InterfaceOption.FontScale))));
+        }
+
         private void ApplyLobbyMatchInfoSize()
         {
             var lobby = GetComponent<LobbyHudView>();
@@ -108,6 +138,8 @@ namespace Game.Client.Settings
                     HudScreenScale.ScaledReference / HudScale(current.Get(InterfaceOption.UiScale));
                 ApplyLobbyMatchInfoSize();
             }
+
+            ApplyChatCanvasScale(current);
             if (visibility != null)
             {
                 var visible = current.IsOn(InterfaceOption.InGameUi) || match.HasEssentialPresentation;
@@ -161,6 +193,7 @@ namespace Game.Client.Settings
                 if (text.fontSize != size) text.fontSize = size;
                 legacyFonts[text] = (state.baseline, size);
             }
+            ApplyChatListScale(current);
             foreach (var guide in guides) if (guide != null) guide.AlwaysVisible = current.IsOn(InterfaceOption.BeginnerGuide);
             ApplyCategory();
             elapsed += Time.unscaledDeltaTime; frames++;

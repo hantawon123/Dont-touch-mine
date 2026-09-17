@@ -93,6 +93,28 @@
   .entry > span:first-child { flex: 1; min-width: 0; }
   .entry button { padding: 4px 9px; font-size: 13px; }
   .memo { color: var(--muted); }
+
+  /* 대화록. 신고 한 건 아래에 펼칩니다 (S15P21D205-1036). 줄이 많아도 한 화면을 넘지
+     않게 세로로 잘라 두는 편이, 판단하려는 사람이 위아래 맥락을 같이 보기에 낫습니다. */
+  .chat { margin: 6px 0 10px; padding: 10px 12px; background: #fff;
+          border: 1px solid var(--line); border-radius: 8px; }
+  .chat-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+               padding-bottom: 8px; margin-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .chat-head .grow { flex: 1; color: var(--muted); font-size: 13px; }
+  .chat-head button { padding: 3px 8px; font-size: 12px; }
+  .chat-body { max-height: 320px; overflow-y: auto; }
+  .chat-line { display: flex; align-items: baseline; gap: 8px; padding: 3px 0;
+               border-bottom: 0; font-size: 13px; }
+  .chat-line .at { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .chat-line .who { font-weight: 600; white-space: nowrap; }
+  .chat-line .said { flex: 1; min-width: 0; word-break: break-word; }
+  .chat-line .keep { padding: 1px 6px; font-size: 11px; visibility: hidden; }
+  .chat-line:hover .keep { visibility: visible; }
+  /* 금칙어에 걸린 줄. 운영자가 훑으면서 몇 번인지 세는 자리라 눈에 띄어야 합니다. */
+  .chat-line.flagged .said { background: #fdf2f2; border-radius: 4px; padding: 0 4px; }
+  /* 신고당한 사람의 말. 맥락을 같이 보되 누구 말인지 바로 찾히게 합니다. */
+  .chat-line.subject .who { color: var(--danger, #c0392b); }
+  .chat-empty { color: var(--muted); font-size: 13px; padding: 6px 0; }
   .notice { padding: 10px 12px; border-radius: 7px; font-size: 14px; margin-bottom: 12px; }
   .notice.bad { background: #fef2f2; color: var(--warn); }
   .notice.good { background: #f0fdf4; color: var(--ok); }
@@ -649,7 +671,10 @@
       if (!suspended) {
         // 사유는 서버가 필수로 받습니다. 비워 보내면 400 이므로 여기서 먼저 막습니다.
         // 나중에 이 정지를 본 사람이 해제해도 되는지 판단할 유일한 근거이기도 합니다.
-        reason = window.prompt(user.nickname + ' 계정을 정지합니다. 사유를 적으세요.');
+        // 대화록에서 담아 둔 줄이 있으면 채워 줍니다. 채팅은 3일 뒤 지워지지만 정지 기록은
+        // 남으므로, 근거를 여기 옮겨 적지 않으면 나중에 그 판단을 설명할 방법이 없습니다.
+        reason = window.prompt(user.nickname + ' 계정을 정지합니다. 사유를 적으세요.',
+          evidence.length ? evidence.join(' / ') : '');
         if (reason === null) return;
         if (!reason.trim()) {
           say('사유를 적어야 정지할 수 있습니다.', 'bad');
@@ -717,6 +742,240 @@
     return button;
   }
 
+  /**
+   * 대화록의 시각. when() 은 "3시간 전"이라 대화에는 못 씁니다 - 줄과 줄 사이 간격이
+   * 보여야 무슨 일이 있었는지 읽힙니다.
+   */
+  function clock(stamp) {
+    if (!stamp || stamp.length !== 14) return '';
+    const iso = stamp.slice(0, 4) + '-' + stamp.slice(4, 6) + '-' + stamp.slice(6, 8)
+      + 'T' + stamp.slice(8, 10) + ':' + stamp.slice(10, 12) + ':' + stamp.slice(12, 14) + 'Z';
+    // toLocaleTimeString 은 ko-KR 에서 "9시 14분 21초" 를 줍니다. 자릿수가 들쭉날쭉해
+    // 세로로 안 맞고, 대화록은 줄이 쌓이는 화면이라 그 어긋남이 읽기를 방해합니다.
+    const at = new Date(iso);
+    const two = (value) => String(value).padStart(2, '0');
+    return two(at.getHours()) + ':' + two(at.getMinutes()) + ':' + two(at.getSeconds());
+  }
+
+  /**
+   * 정지 사유에 붙일 대화 줄. 담아 둔 것은 정지 버튼이 프롬프트에 채워 줍니다.
+   *
+   * 채팅은 3일 뒤 지워지는데 정지 기록은 남습니다. 나중에 "그때 왜 정지했나"를 묻는
+   * 사람에게 답할 근거가 사유 말고는 남지 않으므로, 본 김에 옮겨 적을 수 있게 합니다.
+   */
+  const evidence = [];
+
+  /**
+   * 신고 한 건에서 그 방의 대화를 여는 버튼.
+   *
+   * 경기 키가 없는 옛 신고는 어느 방인지 알 수 없습니다. 그때는 누르지 못하게 하고
+   * 이유를 붙입니다 - 대화가 없었던 것과 방을 모르는 것은 다릅니다.
+   */
+  function conversationButton(user, report) {
+    const button = document.createElement('button');
+    button.textContent = '대화';
+
+    if (!report.contextKey) {
+      button.disabled = true;
+      button.title = '이 신고에는 경기 키가 없어 어느 방인지 알 수 없습니다.';
+      return button;
+    }
+
+    button.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      const line = button.closest('.entry');
+      const open = line.nextElementSibling;
+      if (open && open.classList.contains('chat')) {
+        open.remove();
+        button.textContent = '대화';
+        return;
+      }
+      button.textContent = '대화 닫기';
+      await showConversation(line, user, report, { minutes: 15, onlySubject: false });
+    });
+
+    return button;
+  }
+
+  /**
+   * 그 방 그 시간대의 대화를 신고 줄 아래에 그립니다.
+   *
+   * @param state minutes 는 신고 시각 앞뒤로 열 폭, onlySubject 는 신고당한 사람 말만 볼지.
+   *              맥락이 없으면 판단이 안 되고 전체만 보면 누구 말인지 찾기 어려워서 둘 다 둡니다.
+   */
+  async function showConversation(anchor, user, report, state) {
+    const existing = anchor.nextElementSibling;
+    if (existing && existing.classList.contains('chat')) existing.remove();
+
+    const box = document.createElement('div');
+    box.className = 'chat';
+    box.textContent = '불러오는 중...';
+    anchor.after(box);
+
+    const answer = await call('/chat/around?contextKey=' + encodeURIComponent(report.contextKey)
+      + '&reportedAt=' + encodeURIComponent(report.createdAt)
+      + '&minutes=' + state.minutes);
+
+    const shown = state.onlySubject
+      ? answer.lines.filter((line) => line.userId === user.userId)
+      : answer.lines;
+
+    box.textContent = '';
+    box.appendChild(conversationHead(anchor, user, report, state, answer, shown));
+
+    const body = document.createElement('div');
+    body.className = 'chat-body';
+
+    // 서버가 구간을 null 로 주면 방을 특정하지 못한 것입니다. 이것을 "대화 없음"으로
+    // 보여주면 운영자가 조용한 경기였다고 잘못 읽습니다.
+    if (!answer.from) {
+      body.appendChild(note('이 신고에는 경기 키가 없어 어느 방인지 알 수 없습니다.'));
+      box.appendChild(body);
+      return;
+    }
+
+    const lines = shown;
+
+    if (!lines.length) {
+      body.appendChild(note(state.onlySubject
+        ? '이 구간에 이 사람의 말이 없습니다.'
+        : '이 구간에 남은 대화가 없습니다. 채팅은 3일 뒤 지워집니다.'));
+    }
+
+    for (const line of lines) {
+      body.appendChild(conversationLine(line, user));
+    }
+
+    box.appendChild(body);
+  }
+
+  function conversationHead(anchor, user, report, state, answer, shown) {
+    const head = document.createElement('div');
+    head.className = 'chat-head';
+
+    const summary = document.createElement('span');
+    summary.className = 'grow';
+    // 세는 것은 보이는 줄입니다. 걸러낸 화면에서 전체 수를 적으면 두 줄만 보이는데
+    // "5줄" 이라고 적혀 운영자가 무엇을 세는 숫자인지 헷갈립니다.
+    summary.textContent = answer.from
+      ? '앞뒤 ' + state.minutes + '분 · ' + shown.length + '줄 · 금칙어 '
+        + shown.filter((line) => line.masked).length + '줄'
+      : '방을 특정할 수 없음';
+    head.appendChild(summary);
+
+    if (answer.from) {
+      // 사람은 대화가 끝난 뒤에 신고를 누릅니다. 기본 구간으로 부족한 경우가 있습니다.
+      const wider = document.createElement('button');
+      wider.textContent = '넓게';
+      wider.disabled = state.minutes >= 180;
+      wider.addEventListener('click', (event) => {
+        event.stopPropagation();
+        showConversation(anchor, user, report,
+          { minutes: Math.min(state.minutes * 4, 180), onlySubject: state.onlySubject });
+      });
+      head.appendChild(wider);
+
+      const only = document.createElement('button');
+      only.textContent = state.onlySubject ? '전체 보기' : '이 사람만';
+      only.addEventListener('click', (event) => {
+        event.stopPropagation();
+        showConversation(anchor, user, report,
+          { minutes: state.minutes, onlySubject: !state.onlySubject });
+      });
+      head.appendChild(only);
+    }
+
+    const recent = document.createElement('button');
+    recent.textContent = '다른 방까지';
+    recent.title = '이 사람이 최근에 여러 방에서 한 말을 봅니다.';
+    recent.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      await showRecent(anchor, user);
+    });
+    head.appendChild(recent);
+
+    return head;
+  }
+
+  /**
+   * 이 사람이 최근에 여러 방에서 한 말.
+   *
+   * 한 방에서 한 번은 실수일 수 있어도 여러 방에서 반복하면 다른 판단이 됩니다.
+   */
+  async function showRecent(anchor, user) {
+    const existing = anchor.nextElementSibling;
+    if (existing && existing.classList.contains('chat')) existing.remove();
+
+    const box = document.createElement('div');
+    box.className = 'chat';
+    box.textContent = '불러오는 중...';
+    anchor.after(box);
+
+    const answer = await call('/chat/by/' + encodeURIComponent(user.userId));
+
+    box.textContent = '';
+    const head = document.createElement('div');
+    head.className = 'chat-head';
+    const summary = document.createElement('span');
+    summary.className = 'grow';
+    summary.textContent = '최근 · ' + answer.lines.length + '줄 · 금칙어 '
+      + answer.maskedCount + '줄';
+    head.appendChild(summary);
+    box.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'chat-body';
+    if (!answer.lines.length) {
+      body.appendChild(note('남아 있는 말이 없습니다. 채팅은 3일 뒤 지워집니다.'));
+    }
+    for (const line of answer.lines) {
+      body.appendChild(conversationLine(line, user, true));
+    }
+    box.appendChild(body);
+  }
+
+  function conversationLine(line, user, withRoom = false) {
+    const row = document.createElement('div');
+    row.className = 'chat-line';
+    if (line.masked) row.classList.add('flagged');
+    if (line.userId && line.userId === user.userId) row.classList.add('subject');
+
+    const at = document.createElement('span');
+    at.className = 'at';
+    at.textContent = withRoom ? line.roomCode + ' ' + clock(line.sentAt) : clock(line.sentAt);
+    row.appendChild(at);
+
+    const who = document.createElement('span');
+    who.className = 'who';
+    who.textContent = line.speaker;
+    row.appendChild(who);
+
+    const said = document.createElement('span');
+    said.className = 'said';
+    said.textContent = line.message;
+    row.appendChild(said);
+
+    const keep = document.createElement('button');
+    keep.className = 'keep';
+    keep.textContent = '사유에';
+    keep.title = '정지 사유에 이 줄을 담아 둡니다.';
+    keep.addEventListener('click', (event) => {
+      event.stopPropagation();
+      evidence.push(clock(line.sentAt) + ' ' + line.speaker + ': ' + line.message);
+      say('사유에 담았습니다(' + evidence.length + '줄). 정지 버튼에서 쓰입니다.');
+    });
+    row.appendChild(keep);
+
+    return row;
+  }
+
+  function note(text) {
+    const empty = document.createElement('div');
+    empty.className = 'chat-empty';
+    empty.textContent = text;
+    return empty;
+  }
+
   async function toggleDetail(row, user, button) {
     const open = row.nextElementSibling;
     if (open && open.classList.contains('detail')) {
@@ -747,6 +1006,7 @@
       const redraw = () => reopenDetail(user);
       const actions = document.createElement('span');
       actions.className = 'actions';
+      actions.appendChild(conversationButton(user, report));
       actions.appendChild(cleanup('숨김', entry + '/hidden', 'PATCH', redraw, false));
       actions.appendChild(cleanup('삭제', entry, 'DELETE', redraw, true));
       line.appendChild(actions);
