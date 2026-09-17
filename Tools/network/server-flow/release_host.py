@@ -14,17 +14,22 @@ from releases import atomic_json, read_json, release_path, validate
 from serve import Handler, create_server
 
 READY = '[Server] Ready; waiting for first room owner.'
+CLAIMED = '[Server] Room claimed.'
 
 
 class Pool:
     def __init__(self, config):
         self.config = config
-        self.rooms_per_release = config.get('rooms_per_release', 1)
-        self.max_processes = config.get('max_processes', self.rooms_per_release * 2)
-        if (type(self.rooms_per_release) is not int or not 1 <= self.rooms_per_release <= 64 or
+        # rooms_per_release remains the fallback for already-installed configs.
+        self.room_capacity = config.get('room_capacity', config.get('rooms_per_release', 1))
+        self.warm_rooms = config.get('warm_rooms', self.room_capacity)
+        self.rooms_per_release = self.room_capacity
+        self.max_processes = config.get('max_processes', self.room_capacity * 2)
+        if (type(self.room_capacity) is not int or not 1 <= self.room_capacity <= 64 or
+                type(self.warm_rooms) is not int or not 1 <= self.warm_rooms <= self.room_capacity or
                 type(self.max_processes) is not int or
-                not self.rooms_per_release < self.max_processes <= 128):
-            raise ValueError('Use 1..64 rooms_per_release and rooms_per_release < max_processes <= 128')
+                not self.room_capacity < self.max_processes <= 128):
+            raise ValueError('Use 1..64 room_capacity, 1..room_capacity warm_rooms, and room_capacity < max_processes <= 128')
         self.root = Path(config['root']).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / 'logs').mkdir(exist_ok=True)
@@ -79,8 +84,25 @@ class Pool:
             env['D205_CHAT_KEY'] = chat_key
         process = subprocess.Popen(command, cwd=path, env=env, stdin=subprocess.DEVNULL,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        self.processes[key] = dict(process=process, log=log, ready=False, started=time.monotonic(),
+        self.processes[key] = dict(process=process, log=log, ready=False, claimed=False, log_position=0,
+                                   started=time.monotonic(),
                                    room=room, slot=slot, release=name, room_index=room_index)
+
+    @staticmethod
+    def refresh_state(item):
+        if not item['log'].exists():
+            return
+        with item['log'].open(encoding='utf-8', errors='replace') as stream:
+            stream.seek(item['log_position'])
+            for line in stream:
+                message = line.rstrip()
+                if message == READY:
+                    item['ready'] = True
+                # Older deployed servers do not emit CLAIMED yet. A real player join is
+                # the earliest safe fallback signal and may only over-provision one room.
+                if message == CLAIMED or message.startswith('[Network] Player joined:'):
+                    item['claimed'] = True
+            item['log_position'] = stream.tell()
 
     def replenish(self):
         if not self.active:
@@ -88,7 +110,10 @@ class Pool:
         # Start one room at a time; don't import multiple Unity scenes at once.
         if any(p['release'] == self.active and not p['ready'] for p in self.processes.values()):
             return
-        for room_index in range(self.rooms_per_release):
+        active = [p for p in self.processes.values() if p['release'] == self.active]
+        if len(active) >= self.room_capacity or sum(not p['claimed'] for p in active) >= self.warm_rooms:
+            return
+        for room_index in range(self.room_capacity):
             key = self.key(self.active, room_index)
             if key not in self.processes and time.monotonic() >= self.retry_at.get(key, 0):
                 self.start(self.active, room_index)
@@ -100,10 +125,7 @@ class Pool:
                 del self.processes[name]
                 self.retry_at[name] = time.monotonic() + 3
                 continue
-            if not item['ready'] and item['log'].exists():
-                # Never print account or authentication log content into host status.
-                with item['log'].open(encoding='utf-8', errors='replace') as stream:
-                    item['ready'] = any(line.rstrip() == READY for line in stream)
+            self.refresh_state(item)
             if not item['ready'] and time.monotonic() - item['started'] > self.config.get('startup_timeout', 90):
                 # A hung warm-up must not permanently consume all free slots.
                 if 'stop_at' not in item:
@@ -148,9 +170,11 @@ class Pool:
         self.replenish()
         atomic_json(self.root / 'status.json', {
             'active': self.active, 'request': self.request, 'outcome': self.outcome, 'reason': self.reason,
-            'rooms_per_release': self.rooms_per_release, 'max_processes': self.max_processes,
+            'rooms_per_release': self.room_capacity, 'room_capacity': self.room_capacity,
+            'warm_rooms': self.warm_rooms, 'max_processes': self.max_processes,
             'processes': {name: {'pid': item['process'].pid, 'ready': item['ready'], 'room': item['room'],
                                   'release': item['release'], 'room_index': item['room_index'], 'slot': item['slot'],
+                                  'claimed': item['claimed'],
                                   'draining': item['release'] != self.active and
                                       not (self.outcome == 'pending' and self.request['release'] == item['release'])}
                           for name, item in self.processes.items()}})

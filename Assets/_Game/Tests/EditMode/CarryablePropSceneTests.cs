@@ -154,9 +154,13 @@ namespace Game.Architecture.Tests
                     Is.LessThanOrEqualTo(PlaygroundMatchScene.MaxReplayObjectCount),
                     "하이라이트 샘플 수는 라이브 동기화 용량과 별도로 제한해야 합니다.");
 
+                var catalog = ItemCatalogSO.Load(applyDefinitions: false);
                 foreach (var assigned in captured.NetworkConfiguration.ItemDefinitions)
                 {
                     var instance = carryableItems.Single(i => i.ObjectId == assigned.ItemId);
+                    var prefab = catalog.PrefabOf(assigned.ItemId);
+                    Assert.That(prefab, Is.Not.Null, assigned.ItemId);
+                    AssertTransformScalesMatch(prefab.transform, instance.transform, assigned.ItemId);
                     Assert.That(instance.gameObject.activeSelf, Is.False);
                     Assert.That(ContainsWorldObject(captured.NetworkConfiguration.InitialWorldObjects, assigned.ItemId), Is.False);
                 }
@@ -237,6 +241,25 @@ namespace Game.Architecture.Tests
             }
 
             return false;
+        }
+
+        private static void AssertTransformScalesMatch(
+            Transform expected,
+            Transform actual,
+            string itemId)
+        {
+            Assert.That(actual.localScale, Is.EqualTo(expected.localScale),
+                $"{itemId}/{expected.name}: 프리팹 스케일이 런타임 복사본에 유지되어야 합니다.");
+            Assert.That(actual.childCount, Is.EqualTo(expected.childCount),
+                $"{itemId}/{expected.name}: 프리팹 Transform 계층이 런타임 복사본과 다릅니다.");
+
+            for (var index = 0; index < expected.childCount; index++)
+            {
+                AssertTransformScalesMatch(
+                    expected.GetChild(index),
+                    actual.GetChild(index),
+                    itemId);
+            }
         }
     }
 }

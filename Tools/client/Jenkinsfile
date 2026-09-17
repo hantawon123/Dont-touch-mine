@@ -71,7 +71,9 @@ pipeline {
                     when { expression { !params.TEST_ONLY } }
                     steps {
                         dir('Builds/Server') { deleteDir() }
-                        sh 'bash Tools/client/build.sh'
+                        // 백엔드 CI와 같은 EC2를 쓰므로 Linux 빌드만 공용 잠금으로 직렬화한다.
+                        // Windows 클라이언트는 별도 PC에서 계속 병렬로 빌드한다.
+                        sh 'flock -x /tmp/d205-ec2-build.lock bash Tools/client/build.sh'
                     }
                 }
             }

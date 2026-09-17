@@ -15,7 +15,8 @@ pipeline {
         timeout(time: 30, unit: 'MINUTES')
         // 같은 compose 프로젝트를 두 빌드가 동시에 건드리면 컨테이너가 꼬입니다.
         // Job 단위이므로 MR Job들끼리는 병렬로 돕니다. 검증 경로의 자원 이름에
-        // BUILD_TAG를 넣어 서로 격리합니다.
+        // BUILD_TAG를 넣어 서로 격리하고, 무거운 단계는 Unity Linux 빌드와 같은
+        // /tmp/d205-ec2-build.lock을 잡아 EC2 메모리 경합을 막습니다.
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '30'))
         timestamps()
@@ -231,6 +232,8 @@ pipeline {
                 withCredentials([file(credentialsId: 'd205-backend-env', variable: 'ENV_FILE')]) {
                     dir('backend') {
                         sh '''
+                            exec 9>/tmp/d205-ec2-build.lock
+                            flock -x 9
                             cp "$ENV_FILE" .env
                             chmod 600 .env
                             docker compose -f "$COMPOSE_FILE" build
@@ -257,6 +260,8 @@ pipeline {
                     // 그리고 d205-app:latest 를 덮어쓰면 운영 태그가 오염됩니다.
                     // 이미지가 둘입니다. Dockerfile 은 하나고 MODULE 인자가 갈라 줍니다.
                     sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
                         docker build --build-arg MODULE=app -t "d205-app:$VERIFY_TAG" .
                         docker build --build-arg MODULE=analytics -t "d205-analytics:$VERIFY_TAG" .
                     '''
@@ -271,6 +276,8 @@ pipeline {
                     // Testcontainers가 mysql:8.4 컨테이너를 띄웁니다. 호스트 포트를
                     // 무작위로 잡고 Ryuk가 회수하므로 동시 빌드에서 충돌하지 않습니다.
                     sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
                         chmod +x gradlew
 
                         # 모듈 분리(S15P21D205-980) 이전에는 산출물이 backend/build/ 에 생겼습니다.
@@ -303,6 +310,8 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
                         docker rm -f "$VERIFY_PFX-app" >/dev/null 2>&1 || true
 
                         NET=$(docker network ls --filter label=com.docker.compose.project=d205 --format '{{.Name}}' | head -1)
@@ -410,6 +419,8 @@ pipeline {
                     // 운영 DB를 건드릴 수 없으므로 MySQL을 새로 띄웁니다. 접속 정보도
                     // 여기서 만들어 씁니다. 운영 크리덴셜은 이 경로에 들어오지 않습니다.
                     sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
                         NET="$VERIFY_PFX-net"
                         DB="$VERIFY_PFX-mysql"
                         APP="$VERIFY_PFX-app"
@@ -571,6 +582,8 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
                         # 임시 컨테이너를 먼저 치웁니다. 남겨두면 같은 DB에 계속 붙어 있습니다.
                         docker rm -f "$VERIFY_PFX-app" "$VERIFY_PFX-analytics" >/dev/null 2>&1 || true
 
