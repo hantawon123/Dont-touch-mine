@@ -25,6 +25,7 @@ namespace Game.Client.Match
         public const float MaxBubbleWidth = 210f;
         public const float MaxBubbleHeight = 80f;
         public const int BubbleRadius = 6;
+        public const int BubbleSupersample = 8;
         internal const float NameplateClearance = 0.04f;
         private const float FallbackHeightOffset = 2f;
         private const float VisibleSeconds = 3.5f;
@@ -153,7 +154,7 @@ namespace Game.Client.Match
             panelRect.offsetMin = Vector2.zero;
             panelRect.offsetMax = Vector2.zero;
             var panel = panelObject.GetComponent<Image>();
-            panel.sprite = HomeUiFonts.Rounded(BubbleRadius);
+            panel.sprite = HomeUiFonts.Rounded(BubbleRadius, BubbleSupersample);
             panel.type = Image.Type.Sliced;
             panel.pixelsPerUnitMultiplier = 1f;
             panel.color = BubbleColor;
