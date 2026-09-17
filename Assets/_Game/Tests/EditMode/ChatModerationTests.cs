@@ -31,6 +31,83 @@ namespace Game.Architecture.Tests
             return list;
         }
 
+        /// <summary>
+        /// The automaton and the plain per-word scan have to answer identically.
+        /// </summary>
+        /// <remarks>
+        /// This is the test that matters for the automaton. Speed is not the risk — a rule that
+        /// drifts is. The backend judges the same message again when it stores it, so a
+        /// disagreement shows up as a line recorded as masked that the players read in the
+        /// clear, or the other way round.
+        /// </remarks>
+        private static void AssertSameJudgement(ChatBlocklist list, string message)
+        {
+            var byAutomaton = list.IsForbidden(message);
+            var byScan = false;
+            if (!string.IsNullOrEmpty(message))
+                foreach (var variant in ChatBlocklist.Variants(message))
+                    if (list.HitsByScan(variant)) { byScan = true; break; }
+
+            Assert.That(byAutomaton, Is.EqualTo(byScan),
+                $"판정이 갈립니다: [{message}] 자동자={byAutomaton} 훑기={byScan}");
+        }
+
+        private static ChatBlocklist Wide()
+        {
+            var list = new ChatBlocklist();
+            list.Load(
+                new[]
+                {
+                    "시발", "씨발", "병신", "새끼", "지랄", "개새끼", "ㅅㅂ", "좆", "꺼져", "닥쳐",
+                    "shit", "fuck", "fucking", "bitch", "anal", "ass", "b17ch", "@sshole",
+                    "carpet muncher", "aa", "abab", "dick"
+                },
+                new[] { "시발점", "shiitake", "강아지새끼" });
+            return list;
+        }
+
+        [Test]
+        public void Automaton_AgreesWithScan_OnSamples()
+        {
+            var list = Wide();
+            var samples = new[]
+            {
+                "", " ", "어디 숨었어", "야 이 시발아", "시 발", "시.발", "시1발", "sh1t", "s.h.1.t",
+                "this game sucks", "analyst 모드", "shiitake 버섯", "강아지새끼 귀여워",
+                "시발점이 어디야", "b17ch", "@sshole", "carpet muncher", "xxfuckxx", "fuck",
+                "FUCK YOU", "aaa", "ababab", "ㅅㅂ 렉", "개새끼야", "dickhead", "dick head",
+                "1234567890", "....", "좆같네", "닥쳐라"
+            };
+            foreach (var sample in samples) AssertSameJudgement(list, sample);
+        }
+
+        [Test]
+        public void Automaton_AgreesWithScan_OnRandomMixtures()
+        {
+            var list = Wide();
+            var pieces = new[]
+            {
+                "시발", "씨발", "병신", "새끼", "shit", "fuck", "anal", "ass", "aa", "abab",
+                "가나다", " ", ".", "1", "0", "analyst", "시발점", "강아지", "ㅋㅋ", "abc"
+            };
+            // 씨앗을 고정합니다. 실패하면 같은 입력으로 다시 돌려 볼 수 있어야 합니다.
+            var random = new System.Random(1048);
+            for (var round = 0; round < 3000; round++)
+            {
+                var text = new System.Text.StringBuilder();
+                var parts = 1 + random.Next(5);
+                for (var part = 0; part < parts; part++)
+                {
+                    var piece = pieces[random.Next(pieces.Length)];
+                    // 통째로 넣기도 하고 잘라 넣기도 합니다. 잘린 조각은 걸리면 안 됩니다.
+                    text.Append(random.Next(3) == 0 && piece.Length > 1
+                        ? piece.Substring(0, piece.Length - 1)
+                        : piece);
+                }
+                AssertSameJudgement(list, text.ToString());
+            }
+        }
+
         [Test]
         public void PlainMessage_Passes()
         {
