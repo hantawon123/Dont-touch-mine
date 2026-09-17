@@ -60,6 +60,8 @@ namespace Game.Client.Interactions
 
         public const float CrosshairSize = 40f;
         public const float CrosshairThickness = 4f;
+        public const float CrosshairGap = 16f;
+        public const float CrosshairDotSize = 4f;
         public static float CrosshairOutlineThickness => CrosshairThickness * 0.5f;
 
         /// <summary>
@@ -696,35 +698,136 @@ namespace Game.Client.Interactions
                 return;
             }
 
-            DrawCrosshair(
-                Screen.width * 0.5f,
-                Screen.height * 0.5f,
-                aimedTarget != null ? Color.yellow : Color.white);
+            DrawCrosshair(Screen.width * 0.5f, Screen.height * 0.5f);
         }
 
-        private static void DrawCrosshair(float centerX, float centerY, Color fill)
+        private static Texture2D crosshairCircle;
+
+        private static void DrawCrosshair(float centerX, float centerY)
         {
+            var previous = GUI.color;
             var outline = CrosshairOutlineThickness;
-            DrawPlus(
+            DrawCrosshairMark(
                 centerX,
                 centerY,
                 CrosshairSize + outline * 2f,
+                Mathf.Max(0f, CrosshairGap - outline * 2f),
                 CrosshairThickness + outline * 2f,
+                CrosshairDotSize + outline * 2f,
                 Color.black);
-            DrawPlus(centerX, centerY, CrosshairSize, CrosshairThickness, fill);
+            DrawCrosshairMark(
+                centerX,
+                centerY,
+                CrosshairSize,
+                CrosshairGap,
+                CrosshairThickness,
+                CrosshairDotSize,
+                Color.white);
+            GUI.color = previous;
         }
 
-        private static void DrawPlus(float centerX, float centerY, float size, float thickness, Color color)
+        private static void DrawCrosshairMark(
+            float centerX,
+            float centerY,
+            float size,
+            float gap,
+            float thickness,
+            float dotSize,
+            Color color)
         {
-            var previous = GUI.color;
             GUI.color = color;
+            var outer = size * 0.5f;
+            var inner = gap * 0.5f;
+            DrawVerticalBar(centerX, centerY - outer, centerY - inner, thickness);
+            DrawVerticalBar(centerX, centerY + inner, centerY + outer, thickness);
+            DrawHorizontalBar(centerY, centerX - outer, centerX - inner, thickness);
+            DrawHorizontalBar(centerY, centerX + inner, centerX + outer, thickness);
+            DrawCircle(centerX, centerY, dotSize);
+        }
+
+        private static void DrawVerticalBar(float x, float y0, float y1, float thickness)
+        {
+            var top = Mathf.Min(y0, y1);
+            var height = Mathf.Abs(y1 - y0);
+            if (height <= 0f || thickness <= 0f)
+            {
+                return;
+            }
+
+            var half = thickness * 0.5f;
+            DrawCircle(x, top + half, thickness);
+            DrawCircle(x, top + height - half, thickness);
+            if (height > thickness)
+            {
+                GUI.DrawTexture(
+                    new Rect(x - half, top + half, thickness, height - thickness),
+                    Texture2D.whiteTexture);
+            }
+        }
+
+        private static void DrawHorizontalBar(float y, float x0, float x1, float thickness)
+        {
+            var left = Mathf.Min(x0, x1);
+            var width = Mathf.Abs(x1 - x0);
+            if (width <= 0f || thickness <= 0f)
+            {
+                return;
+            }
+
+            var half = thickness * 0.5f;
+            DrawCircle(left + half, y, thickness);
+            DrawCircle(left + width - half, y, thickness);
+            if (width > thickness)
+            {
+                GUI.DrawTexture(
+                    new Rect(left + half, y - half, width - thickness, thickness),
+                    Texture2D.whiteTexture);
+            }
+        }
+
+        private static void DrawCircle(float centerX, float centerY, float size)
+        {
+            if (size <= 0f)
+            {
+                return;
+            }
+
             GUI.DrawTexture(
-                new Rect(centerX - size * 0.5f, centerY - thickness * 0.5f, size, thickness),
-                Texture2D.whiteTexture);
-            GUI.DrawTexture(
-                new Rect(centerX - thickness * 0.5f, centerY - size * 0.5f, thickness, size),
-                Texture2D.whiteTexture);
-            GUI.color = previous;
+                new Rect(centerX - size * 0.5f, centerY - size * 0.5f, size, size),
+                CircleTexture());
+        }
+
+        private static Texture2D CircleTexture()
+        {
+            if (crosshairCircle != null)
+            {
+                return crosshairCircle;
+            }
+
+            const int resolution = 64;
+            var texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false)
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            var pixels = new Color32[resolution * resolution];
+            var radius = (resolution - 1) * 0.5f;
+            for (var y = 0; y < resolution; y++)
+            {
+                for (var x = 0; x < resolution; x++)
+                {
+                    var dx = x - radius;
+                    var dy = y - radius;
+                    var alpha = Mathf.Clamp01(radius - Mathf.Sqrt(dx * dx + dy * dy) + 0.5f);
+                    pixels[y * resolution + x] = new Color(1f, 1f, 1f, alpha);
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            crosshairCircle = texture;
+            return crosshairCircle;
         }
 
         private void UpdateAim()

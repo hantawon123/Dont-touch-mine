@@ -185,9 +185,10 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Crosshair_IsTwiceTheOriginalSizeWithHalfThicknessOutline()
+        public void Crosshair_UsesOpenPlusWithHalfThicknessOutline()
         {
             Assert.That(PlayerInteractor.CrosshairSize, Is.EqualTo(40f));
+            Assert.That(PlayerInteractor.CrosshairGap, Is.GreaterThan(PlayerInteractor.CrosshairDotSize));
             Assert.That(
                 PlayerInteractor.CrosshairOutlineThickness,
                 Is.EqualTo(PlayerInteractor.CrosshairThickness * 0.5f));
