@@ -13,6 +13,8 @@ import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ssafy.d205.domain.chat.service.AdminChatService;
+
 /**
  * docs/chat-moderation.md 가 코드와 어긋나지 않는지 봅니다.
  *
@@ -97,8 +99,22 @@ class ChatModerationDocTest {
     private static List<Setting> settingsIn(Path source) throws IOException {
         Matcher matcher = SETTING.matcher(Files.readString(source, StandardCharsets.UTF_8));
         return matcher.results()
-                .map(result -> new Setting(result.group(1), result.group(2)))
+                .map(result -> new Setting(result.group(1), effective(result.group(2))))
                 .toList();
+    }
+
+    /**
+     * 기본값이 숫자가 아니라 상수 참조일 때 실제 값으로 바꿉니다.
+     *
+     * <p>보호 구간의 기본값은 관리 화면 상한과 한 상수로 묶여 있습니다(S15P21D205-1031). 원본에는
+     * 그 결합이 식으로 적혀 있으므로, 문서와 비교할 값은 그 식이 아니라 굳은 숫자입니다. 여기서
+     * 식을 그대로 문서에서 찾으면 문서가 멀쩡한데도 깨집니다.
+     */
+    private static String effective(String defaultValue) {
+        if (defaultValue.contains("MAX_WINDOW_MINUTES")) {
+            return String.valueOf(AdminChatService.MAX_WINDOW_MINUTES);
+        }
+        return defaultValue;
     }
 
     private record Setting(String name, String defaultValue) {

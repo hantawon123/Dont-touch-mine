@@ -36,11 +36,21 @@ public class ChatLogSweeper {
     public ChatLogSweeper(ChatLogRepository chatLogs,
                           TimeProvider timeProvider,
                           @Value("${chat.retention-days:3}") int retentionDays,
-                          @Value("${chat.protect-window-minutes:180}") int protectWindowMinutes) {
+                          @Value("${chat.protect-window-minutes:" + AdminChatService.MAX_WINDOW_MINUTES + "}")
+                          int protectWindowMinutes) {
         this.chatLogs = chatLogs;
         this.timeProvider = timeProvider;
         this.retention = Duration.ofDays(retentionDays);
         this.protectWindowMinutes = protectWindowMinutes;
+
+        // 설정으로 더 좁게 덮어쓴 경우입니다. 기본값은 상수로 묶여 있어 어긋날 수 없지만
+        // 프로퍼티는 무엇이든 넣을 수 있고, 좁으면 운영자가 화면에서 읽던 줄이 다음 청소에
+        // 사라집니다. 조용히 지나가면 안 되는 종류라 기동 때 알립니다.
+        if (protectWindowMinutes < AdminChatService.MAX_WINDOW_MINUTES) {
+            log.warn("chat.protect-window-minutes({})가 관리 화면이 열 수 있는 구간({})보다 좁습니다. "
+                            + "운영자가 넓혀 본 대화가 다음 청소에 지워집니다.",
+                    protectWindowMinutes, AdminChatService.MAX_WINDOW_MINUTES);
+        }
     }
 
     /**
