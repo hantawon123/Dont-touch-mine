@@ -31,8 +31,6 @@ public class AdminChatController {
      */
     private static final int DEFAULT_MINUTES = 15;
 
-    private static final int MAX_MINUTES = 180;
-
     private static final int DEFAULT_DAYS = 3;
 
     private final AdminChatService adminChatService;
@@ -51,7 +49,7 @@ public class AdminChatController {
             @Pattern(regexp = "^[0-9]{14}$", message = "reportedAt은 yyyyMMddHHmmss 형식이어야 합니다.")
             String reportedAt,
             @RequestParam(defaultValue = "" + DEFAULT_MINUTES) int minutes) {
-        return adminChatService.around(contextKey, reportedAt, Math.clamp(minutes, 1, MAX_MINUTES));
+        return adminChatService.around(contextKey, reportedAt, Math.clamp(minutes, 1, AdminChatService.MAX_WINDOW_MINUTES));
     }
 
     /** 이 사람이 최근에 한 말 전부. 여러 방에서 반복하는지가 여기서 보입니다. */

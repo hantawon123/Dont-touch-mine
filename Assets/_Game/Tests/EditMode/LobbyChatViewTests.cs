@@ -31,9 +31,9 @@ namespace Game.Architecture.Tests
                 Assert.That(view.transform.Find("InputPanel").gameObject.activeSelf, Is.True);
                 Assert.That(
                     view.transform.Find("HistoryPanel/Items/Row0/Name").GetComponent<TMP_Text>().text,
-                    Is.EqualTo("싸피생2"));
+                    Is.EqualTo("싸피생1"));
                 Assert.That(
-                    view.transform.Find("HistoryPanel/Items/Row3/Body").GetComponent<TMP_Text>().text,
+                    view.transform.Find("HistoryPanel/Items/Row4/Body").GetComponent<TMP_Text>().text,
                     Is.EqualTo("안녕하십니까 여러분"));
                 var input = view.transform.Find("InputPanel").GetComponent<TMP_InputField>();
                 Assert.That(input.placeholder is TMP_Text placeholder
@@ -80,10 +80,13 @@ namespace Game.Architecture.Tests
                 var panel = bubble.Find("Panel")?.GetComponent<Image>();
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.type, Is.EqualTo(Image.Type.Sliced));
-                Assert.That(panel.sprite, Is.EqualTo(HomeUiFonts.RoundedSprite));
+                Assert.That(MatchChatBubbleView.BubbleRadius, Is.EqualTo(6));
                 Assert.That(
-                    panel.pixelsPerUnitMultiplier,
-                    Is.EqualTo(MatchChatBubbleView.SlicePixelsPerUnitMultiplier));
+                    panel.sprite,
+                    Is.EqualTo(HomeUiFonts.Rounded(
+                        MatchChatBubbleView.BubbleRadius,
+                        MatchChatBubbleView.BubbleSupersample)));
+                Assert.That(panel.pixelsPerUnitMultiplier, Is.EqualTo(1f));
                 Assert.That(panel.color, Is.EqualTo(MatchChatBubbleView.BubbleColor));
                 Assert.That(panel.color.a, Is.EqualTo(0.8f));
             }
