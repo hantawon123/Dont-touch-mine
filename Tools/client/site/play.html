@@ -184,41 +184,10 @@
         height: 100%;
         object-fit: cover;
         display: block;
+        background: #08080b;
       }
-      .video-empty {
-        position: absolute;
-        inset: 0;
-        display: grid;
-        place-items: center;
-        text-align: center;
-        background: radial-gradient(circle at 50% 40%, #292930, #101014 70%);
-        padding: 30px;
-      }
-      .video-empty[hidden] {
+      .cover[hidden] {
         display: none;
-      }
-      .video-empty strong {
-        display: block;
-        font-size: 19px;
-        margin-top: 15px;
-      }
-      .video-empty span {
-        display: block;
-        color: var(--muted);
-        font-size: 13px;
-        margin-top: 5px;
-      }
-      .play-disc {
-        width: 72px;
-        height: 72px;
-        border-radius: 50%;
-        display: grid;
-        place-items: center;
-        margin: auto;
-        background: #f4f4f6;
-        color: #111;
-        font-size: 24px;
-        padding-left: 4px;
       }
       .media-arrow {
         position: absolute;
@@ -231,11 +200,19 @@
         border-radius: 50%;
         background: #101014cc;
         color: #fff;
-        font-size: 29px;
-        line-height: 1;
         display: grid;
         place-items: center;
         box-shadow: 0 3px 16px #0008;
+      }
+      /* 문자 글리프는 폰트마다 원 중심에서 어긋나므로 SVG 로 그립니다. */
+      .media-arrow svg {
+        width: 21px;
+        height: 21px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
       }
       .media-arrow:hover {
         background: #f3f3f5;
@@ -253,6 +230,27 @@
         margin-top: 12px;
         overflow-x: auto;
         padding: 2px 2px 7px;
+      }
+      /* Chrome 은 scrollbar-width 가 지정되면 아래 규칙을 무시하므로,
+         표준 속성은 ::-webkit-scrollbar 가 없는 브라우저에만 적용합니다. */
+      @supports not selector(::-webkit-scrollbar) {
+        .media-thumbs {
+          scrollbar-width: thin;
+          scrollbar-color: #4a4a51 transparent;
+        }
+      }
+      .media-thumbs::-webkit-scrollbar {
+        height: 6px;
+      }
+      .media-thumbs::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .media-thumbs::-webkit-scrollbar-thumb {
+        background: #4a4a51;
+        border-radius: 3px;
+      }
+      .media-thumbs::-webkit-scrollbar-thumb:hover {
+        background: var(--muted);
       }
       .media-thumb {
         position: relative;
@@ -279,17 +277,21 @@
       .media-thumb[aria-selected="true"] img {
         opacity: 1;
       }
-      .media-thumb.video-thumb {
+      .media-thumb.is-video:after {
+        content: "▶";
+        position: absolute;
+        right: 5px;
+        bottom: 4px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
         display: grid;
         place-items: center;
-        font-size: 12px;
-        color: #d0d0d6;
-      }
-      .media-thumb.video-thumb:before {
-        content: "▶";
-        display: block;
-        font-size: 20px;
+        background: #101014cc;
+        color: #fff;
+        font-size: 8px;
         line-height: 1;
+        padding-left: 1px;
       }
       .caption {
         font-size: 12px;
@@ -541,8 +543,8 @@
         line-height: 1.8;
       }
 
-      /* 스텝 이미지: step-1.png ~ step-4.png 파일만 교체하면 됩니다. */
-      .step-shot {
+      /* 스텝 영상: step-1.mp4 ~ step-4.mp4 파일만 교체하면 됩니다. */
+      video.step-shot {
         display: block;
         width: 100%;
         max-width: 560px;
@@ -776,7 +778,7 @@
       <a href="#" class="brand">DTM <span>GAMES</span></a
       ><span class="divider"></span><a class="sub" href="#overview">게임</a
       ><a class="sub" href="#feedback">지원</a
-      ><a class="primary small right" href="#download">다운로드</a>
+      ><a class="primary small right" href="@@ARCHIVE@@" download>다운로드</a>
     </header>
     <main class="wrap">
       <nav class="browse" aria-label="사이트 메뉴">
@@ -798,34 +800,97 @@
             <div class="media-stage">
               <img
                 class="cover"
-                id="main-art"
-                src="hero.png"
-                alt="보라색 복면과 가방을 착용한 Don't Touch Mine 캐릭터가 밤 골목의 가로등 아래 서 있는 메인 이미지"
+                data-slide
+                src="banner.jpg"
+                alt="밤 골목에서 보라색 곰 후드를 쓴 도둑이 자루와 자명종을 안고 있고, 뒤로 세 명의 도둑이 각자 훔친 물건을 든 채 따라오는 메인 키 아트"
               />
-              <div class="video-empty" id="video-empty" hidden>
-                <div>
-                  <div class="play-disc" aria-hidden="true">▶</div>
-                  <strong>게임 영상 준비 중</strong
-                  ><span
-                    >영상 파일 또는 링크를 연결하면 이곳에서 바로
-                    재생됩니다.</span
-                  >
-                </div>
-              </div>
+              <img
+                class="cover"
+                data-slide
+                src="custom.jpg"
+                alt="은신처에서 몸 색상, 후드, 신발, 표정을 골라 캐릭터를 꾸미는 커스터마이징 화면"
+                hidden
+              />
+              <video
+                class="cover"
+                data-slide
+                data-src="step-1.mp4"
+                poster="step-1-poster.jpg"
+                aria-label="1단계: 자기 차례에 맵 구석으로 들어가 물건을 숨기는 장면"
+                muted
+                loop
+                playsinline
+                preload="none"
+                hidden
+              ></video>
+              <video
+                class="cover"
+                data-slide
+                data-src="step-2.mp4"
+                poster="step-2-poster.jpg"
+                aria-label="2단계: 찾아낸 다른 도둑의 물건을 파쇄기로 가져가 파괴하는 장면"
+                muted
+                loop
+                playsinline
+                preload="none"
+                hidden
+              ></video>
+              <video
+                class="cover"
+                data-slide
+                data-src="step-3.mp4"
+                poster="step-3-poster.jpg"
+                aria-label="3단계: 마주친 상대를 펀치로 기절시켜 물건을 떨어뜨리게 하는 장면"
+                muted
+                loop
+                playsinline
+                preload="none"
+                hidden
+              ></video>
+              <video
+                class="cover"
+                data-slide
+                data-src="step-4.mp4"
+                poster="step-4-poster.jpg"
+                aria-label="4단계: 마지막 30초에 자기 물건을 손에 들고 버티는 장면"
+                muted
+                loop
+                playsinline
+                preload="none"
+                hidden
+              ></video>
+              <img
+                class="cover"
+                data-slide
+                src="win.jpg"
+                alt="감옥 앞에서 두 캐릭터가 반짝이는 눈으로 서 있고 YOU WIN! 과 "숨겼던 물건을 끝까지 지켜냈어요!" 문구가 뜬 승리 화면"
+                hidden
+              />
+              <img
+                class="cover"
+                data-slide
+                src="highlight.jpg"
+                alt="마트 매대를 비추는 CAM 32 감시 카메라 화면 위에 HIGHLIGHT 와 명장면 설명이 뜬 다시보기 화면"
+                hidden
+              />
               <button
                 class="media-arrow prev"
                 type="button"
                 data-direction="prev"
                 aria-label="이전 미디어"
               >
-                ‹</button
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15.5 5 8.5 12l7 7" />
+                </svg></button
               ><button
                 class="media-arrow next"
                 type="button"
                 data-direction="next"
                 aria-label="다음 미디어"
               >
-                ›
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8.5 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
             <div class="media-thumbs" role="tablist" aria-label="게임 미디어">
@@ -834,21 +899,80 @@
                 type="button"
                 role="tab"
                 aria-selected="true"
-                data-media="image"
                 data-caption="Don't Touch Mine · 메인 아트워크"
-                aria-label="메인 이미지 보기"
+                aria-label="Don't Touch Mine · 메인 아트워크 보기"
               >
-                <img src="hero.png" alt="" /></button
+                <img src="banner.jpg" alt="" />
+              </button
               ><button
-                class="media-thumb video-thumb"
+                class="media-thumb"
                 type="button"
                 role="tab"
                 aria-selected="false"
-                data-media="video"
-                data-caption="게임 플레이 영상 · 준비 중"
-                aria-label="게임 영상 보기"
+                data-caption="캐릭터 커스터마이징"
+                aria-label="캐릭터 커스터마이징 보기"
               >
-                영상
+                <img src="custom.jpg" alt="" />
+              </button
+              ><button
+                class="media-thumb is-video"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-caption="1단계 · 내 차례에 혼자 들어가 숨기기"
+                aria-label="1단계 · 내 차례에 혼자 들어가 숨기기 보기"
+              >
+                <img src="step-1-poster.jpg" alt="" />
+              </button
+              ><button
+                class="media-thumb is-video"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-caption="2단계 · 찾은 물건을 파쇄기로"
+                aria-label="2단계 · 찾은 물건을 파쇄기로 보기"
+              >
+                <img src="step-2-poster.jpg" alt="" />
+              </button
+              ><button
+                class="media-thumb is-video"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-caption="3단계 · 펀치로 기절시키고 빼앗기"
+                aria-label="3단계 · 펀치로 기절시키고 빼앗기 보기"
+              >
+                <img src="step-3-poster.jpg" alt="" />
+              </button
+              ><button
+                class="media-thumb is-video"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-caption="4단계 · 마지막 30초"
+                aria-label="4단계 · 마지막 30초 보기"
+              >
+                <img src="step-4-poster.jpg" alt="" />
+              </button
+              ><button
+                class="media-thumb"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-caption="승리 연출"
+                aria-label="승리 연출 보기"
+              >
+                <img src="win.jpg" alt="" />
+              </button
+              ><button
+                class="media-thumb"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-caption="하이라이트 다시보기"
+                aria-label="하이라이트 다시보기 보기"
+              >
+                <img src="highlight.jpg" alt="" />
               </button>
             </div>
             <p class="caption" id="media-caption">
@@ -857,8 +981,8 @@
           </div>
           <div class="details-content">
             <p class="intro">
-              Don't Touch Mine의 베타테스트에 여러분을 초대합니다. 게임을
-              플레이하고, 여러분의 경험과 의견을 들려주세요.
+              Don't Touch Mine의 베타테스트에 여러분을 초대합니다.<br />
+              게임을 플레이하고, 여러분의 경험과 의견을 들려주세요.
             </p>
             <section id="beta">
               <h2>베타테스트 안내</h2>
@@ -908,12 +1032,17 @@
                       시작되면 전원이 새 위치에서 출발하니, 내 물건 근처에서 시작할
                       거라는 계산은 하지 마세요.
                     </p>
-                    <img
+                    <video
                       class="step-shot"
-                      src="step-1.png"
-                      alt="1단계: 자기 차례에 맵 구석으로 들어가 물건을 숨기는 장면"
-                      loading="lazy"
-                    />
+                      data-src="step-1.mp4"
+                      poster="step-1-poster.jpg"
+                      aria-label="1단계: 자기 차례에 맵 구석으로 들어가 물건을 숨기는 장면"
+                      autoplay
+                      muted
+                      loop
+                      playsinline
+                      preload="none"
+                    ></video>
                   </div>
                 </li>
                 <li>
@@ -935,12 +1064,17 @@
                       위험합니다. 남이 그 모습을 보면 그게 무슨 물건이든 일단 뺏고
                       봅니다.
                     </p>
-                    <img
+                    <video
                       class="step-shot"
-                      src="step-2.png"
-                      alt="2단계: 찾아낸 다른 도둑의 물건을 파쇄기로 가져가 파괴하는 장면"
-                      loading="lazy"
-                    />
+                      data-src="step-2.mp4"
+                      poster="step-2-poster.jpg"
+                      aria-label="2단계: 찾아낸 다른 도둑의 물건을 파쇄기로 가져가 파괴하는 장면"
+                      autoplay
+                      muted
+                      loop
+                      playsinline
+                      preload="none"
+                    ></video>
                   </div>
                 </li>
                 <li>
@@ -963,12 +1097,17 @@
                       뛸 수 없으니, 도망칠 자신이 없다면 물건을 손에 들고 돌아다니지
                       마세요.
                     </p>
-                    <img
+                    <video
                       class="step-shot"
-                      src="step-3.png"
-                      alt="3단계: 마주친 상대를 펀치로 기절시켜 물건을 떨어뜨리게 하는 장면"
-                      loading="lazy"
-                    />
+                      data-src="step-3.mp4"
+                      poster="step-3-poster.jpg"
+                      aria-label="3단계: 마주친 상대를 펀치로 기절시켜 물건을 떨어뜨리게 하는 장면"
+                      autoplay
+                      muted
+                      loop
+                      playsinline
+                      preload="none"
+                    ></video>
                   </div>
                 </li>
                 <li>
@@ -988,12 +1127,17 @@
                       구간이라, 이때 서로의 은닉처가 전부 드러납니다. 너무 일찍 들면
                       표적이 되고, 너무 늦으면 도착하지 못합니다.
                     </p>
-                    <img
+                    <video
                       class="step-shot"
-                      src="step-4.png"
-                      alt="4단계: 마지막 30초에 자기 물건을 손에 들고 버티는 장면"
-                      loading="lazy"
-                    />
+                      data-src="step-4.mp4"
+                      poster="step-4-poster.jpg"
+                      aria-label="4단계: 마지막 30초에 자기 물건을 손에 들고 버티는 장면"
+                      autoplay
+                      muted
+                      loop
+                      playsinline
+                      preload="none"
+                    ></video>
                   </div>
                 </li>
               </ol>
@@ -1150,16 +1294,21 @@
       </div>
     </footer>
     <script>
-      const art = document.getElementById("main-art");
-      const videoEmpty = document.getElementById("video-empty");
       const mediaCaption = document.getElementById("media-caption");
-      const mediaTabs = [...document.querySelectorAll("[data-media]")];
+      const mediaSlides = [...document.querySelectorAll("[data-slide]")];
+      const mediaTabs = [...document.querySelectorAll(".media-thumb")];
       let activeMedia = 0;
       function showMedia(index) {
-        activeMedia = (index + mediaTabs.length) % mediaTabs.length;
-        const showVideo = mediaTabs[activeMedia].dataset.media === "video";
-        art.hidden = showVideo;
-        videoEmpty.hidden = !showVideo;
+        activeMedia = (index + mediaSlides.length) % mediaSlides.length;
+        mediaSlides.forEach((slide, slideIndex) => {
+          const isActive = slideIndex === activeMedia;
+          slide.hidden = !isActive;
+          if (slide.tagName !== "VIDEO") return;
+          if (!isActive) return slide.pause();
+          // 선택된 순간에만 내려받습니다.
+          if (!slide.src) slide.src = slide.dataset.src;
+          slide.play().catch(() => {});
+        });
         mediaCaption.textContent = mediaTabs[activeMedia].dataset.caption;
         mediaTabs.forEach((item, itemIndex) =>
           item.setAttribute("aria-selected", String(itemIndex === activeMedia)),
@@ -1177,6 +1326,37 @@
             ),
           ),
         );
+
+      // 스텝 영상: 화면에 들어올 때 내려받고, 벗어나면 멈춥니다.
+      const stepShots = [...document.querySelectorAll("video.step-shot")];
+      const stepWatcher = new IntersectionObserver(
+        (entries) =>
+          entries.forEach((entry) => {
+            const video = entry.target;
+            if (!entry.isIntersecting) return video.pause();
+            if (!video.src) video.src = video.dataset.src;
+            video.play().catch(() => {});
+          }),
+        { rootMargin: "200px 0px" },
+      );
+      stepShots.forEach((video) => stepWatcher.observe(video));
+
+      // 소리 없는 영상은 탭을 벗어나면 브라우저가 절전을 위해 멈춥니다.
+      // 돌아왔을 때 보이는 영상만 다시 재생합니다.
+      function isOnScreen(element) {
+        const box = element.getBoundingClientRect();
+        return box.top < innerHeight && box.bottom > 0;
+      }
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) return;
+        const current = mediaSlides[activeMedia];
+        if (current.tagName === "VIDEO" && current.src && isOnScreen(current)) {
+          current.play().catch(() => {});
+        }
+        stepShots.forEach((video) => {
+          if (video.src && isOnScreen(video)) video.play().catch(() => {});
+        });
+      });
     </script>
   </body>
 </html>

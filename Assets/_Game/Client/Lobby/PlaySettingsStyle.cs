@@ -26,7 +26,7 @@ namespace Game.Client.Lobby
         public const float ApplyPaddingHorizontal = 80f;
         public const float ApplyPaddingVertical = 11f;
         public const int ApplyButtonRadius = 32;
-            public const int LayoutVersion = 43;
+            public const int LayoutVersion = 44;
 
         public const string RegularFontResource = "Fonts/Paperlogy-4Regular";
         public const string MediumFontResource = "Fonts/Paperlogy-5Medium";
@@ -72,6 +72,7 @@ namespace Game.Client.Lobby
             public const int Body = 28;
             public const int Counter = 24;
             public const int MapName = 18;
+            public const int CategoryName = 36;
             public const int Apply = 28;
             public const int ApplyWarning = 20;
             public const int GameStart = 32;
@@ -119,6 +120,7 @@ namespace Game.Client.Lobby
             public const float MapColumnSpacing = 8f;
             public const float MapNameSpacing = 8f;
             public const float MapNameHeight = 52f;
+            public static float CategoryNameHeight => MapNameHeight * 2f;
             public const float MapSectionBottomSpacing = 20f;
             public const float SectionTitleHeight = 36f;
             public const float ActionSpacing = 24f;

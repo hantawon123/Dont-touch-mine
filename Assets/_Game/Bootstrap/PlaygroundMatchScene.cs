@@ -55,9 +55,17 @@ namespace Game.Bootstrap
             var sources = catalog.categories.Where(c => c.enabled).SelectMany(c => c.items.Where(i => i.enabled));
             foreach (var source in sources)
             {
-                if (items.ContainsKey(source.id)) continue;
                 var sourceItem = source.prefab.GetComponent<CarryableItem>();
                 if (sourceItem == null) throw new InvalidOperationException($"{source.id}: prefab requires CarryableItem.");
+
+                // Assigned-item copies can remain serialized in a scene after an editor play session.
+                // They are detached snapshots, so later prefab scale and visual changes never reach them.
+                // Always rebuild catalog items from their authored prefab when the match scene is captured.
+                if (items.Remove(source.id, out var staleCopy))
+                {
+                    RemoveStaleAssignedCopy(staleCopy);
+                }
+
                 var copy = CreateAssignedCopy(sourceItem, source.id);
                 SceneManager.MoveGameObjectToScene(copy.gameObject, scene);
                 items.Add(source.id, copy);
@@ -146,6 +154,26 @@ namespace Game.Bootstrap
             // visible when the replicated held state attaches it to a HoldPoint.
             copyObject.SetActive(false);
             return copy;
+        }
+
+        private static void RemoveStaleAssignedCopy(CarryableItem staleCopy)
+        {
+            if (staleCopy == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                // Destroy is deferred in play mode. Give the outgoing object a non-catalog ID so
+                // same-frame scene scanners cannot confuse it with the fresh assignment copy.
+                staleCopy.UseSceneInstanceObjectId();
+                staleCopy.gameObject.SetActive(false);
+                UnityEngine.Object.Destroy(staleCopy.gameObject);
+                return;
+            }
+
+            UnityEngine.Object.DestroyImmediate(staleCopy.gameObject);
         }
 
         private static SortedDictionary<string, CarryableItem> CaptureUniqueItems(Scene scene)

@@ -753,6 +753,67 @@ namespace Game.Architecture.Tests
                 Is.EqualTo(new[] { 0, 1, 2 }));
         }
 
+        [Test]
+        public void ShufflePlayOrder_KeepsIdPairsAndIsDeterministicForASeed()
+        {
+            var originalIds = new[] { "host", "guest", "late" };
+            var originalUsers = new[] { "host-account", "", "late-account" };
+            var firstIds = (string[])originalIds.Clone();
+            var firstUsers = (string[])originalUsers.Clone();
+            var secondIds = (string[])originalIds.Clone();
+            var secondUsers = (string[])originalUsers.Clone();
+
+            MatchParticipant.ShufflePlayOrder(firstIds, firstUsers, new System.Random(42));
+            MatchParticipant.ShufflePlayOrder(secondIds, secondUsers, new System.Random(42));
+
+            Assert.That(firstIds, Is.EqualTo(secondIds));
+            Assert.That(firstUsers, Is.EqualTo(secondUsers));
+            Assert.That(firstIds, Is.EquivalentTo(originalIds));
+            for (var index = 0; index < firstIds.Length; index++)
+            {
+                var user = firstIds[index] switch
+                {
+                    "host" => "host-account",
+                    "guest" => "",
+                    _ => "late-account"
+                };
+                Assert.That(firstUsers[index], Is.EqualTo(user));
+            }
+
+            var leftSeatOrder = false;
+            for (var seed = 0; seed < 40; seed++)
+            {
+                var ids = (string[])originalIds.Clone();
+                var users = (string[])originalUsers.Clone();
+                MatchParticipant.ShufflePlayOrder(ids, users, new System.Random(seed));
+                if (!EqualSequence(ids, originalIds))
+                {
+                    leftSeatOrder = true;
+                    break;
+                }
+            }
+
+            Assert.That(leftSeatOrder, Is.True);
+        }
+
+        private static bool EqualSequence(string[] left, string[] right)
+        {
+            if (left.Length != right.Length)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < left.Length; index++)
+            {
+                if (!string.Equals(left[index], right[index], StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         [TestCase(2, 0)]
         [TestCase(3, 0)]
         [TestCase(3, 1)]

@@ -67,9 +67,14 @@ namespace Game.Architecture.Tests
                 Assert.That(skipAll.text, Is.EqualTo(HighlightHudView.SkipAllAction));
                 var skipAllKey = view.transform.Find("SkipGuide/Row1/Key/Label")?.GetComponent<TMPro.TMP_Text>();
                 Assert.That(skipAllKey?.text, Is.EqualTo(HighlightHudView.SkipAllKey));
+                var skipGuide = view.transform.Find("SkipGuide").GetComponent<RectTransform>();
                 Assert.That(
-                    view.transform.Find("SkipGuide").GetComponent<RectTransform>().anchoredPosition,
+                    skipGuide.anchoredPosition,
                     Is.EqualTo(new Vector2(-Game.Client.KeySettingGuideView.MarginRight, HighlightHudView.MarginBottom)));
+                Assert.That(skipGuide.localScale, Is.EqualTo(new Vector3(
+                    HighlightHudView.SkipGuideScale,
+                    HighlightHudView.SkipGuideScale,
+                    1f)));
             }
             finally
             {
