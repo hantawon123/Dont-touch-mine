@@ -541,8 +541,8 @@
         line-height: 1.8;
       }
 
-      /* 스텝 이미지: step-1.png ~ step-4.png 파일만 교체하면 됩니다. */
-      .step-shot {
+      /* 스텝 영상: step-1.mp4 ~ step-4.mp4 파일만 교체하면 됩니다. */
+      video.step-shot {
         display: block;
         width: 100%;
         max-width: 560px;
@@ -908,12 +908,17 @@
                       시작되면 전원이 새 위치에서 출발하니, 내 물건 근처에서 시작할
                       거라는 계산은 하지 마세요.
                     </p>
-                    <img
+                    <video
                       class="step-shot"
-                      src="step-1.png"
-                      alt="1단계: 자기 차례에 맵 구석으로 들어가 물건을 숨기는 장면"
-                      loading="lazy"
-                    />
+                      data-src="step-1.mp4"
+                      poster="step-1-poster.jpg"
+                      aria-label="1단계: 자기 차례에 맵 구석으로 들어가 물건을 숨기는 장면"
+                      autoplay
+                      muted
+                      loop
+                      playsinline
+                      preload="none"
+                    ></video>
                   </div>
                 </li>
                 <li>
@@ -935,12 +940,17 @@
                       위험합니다. 남이 그 모습을 보면 그게 무슨 물건이든 일단 뺏고
                       봅니다.
                     </p>
-                    <img
+                    <video
                       class="step-shot"
-                      src="step-2.png"
-                      alt="2단계: 찾아낸 다른 도둑의 물건을 파쇄기로 가져가 파괴하는 장면"
-                      loading="lazy"
-                    />
+                      data-src="step-2.mp4"
+                      poster="step-2-poster.jpg"
+                      aria-label="2단계: 찾아낸 다른 도둑의 물건을 파쇄기로 가져가 파괴하는 장면"
+                      autoplay
+                      muted
+                      loop
+                      playsinline
+                      preload="none"
+                    ></video>
                   </div>
                 </li>
                 <li>
@@ -963,12 +973,17 @@
                       뛸 수 없으니, 도망칠 자신이 없다면 물건을 손에 들고 돌아다니지
                       마세요.
                     </p>
-                    <img
+                    <video
                       class="step-shot"
-                      src="step-3.png"
-                      alt="3단계: 마주친 상대를 펀치로 기절시켜 물건을 떨어뜨리게 하는 장면"
-                      loading="lazy"
-                    />
+                      data-src="step-3.mp4"
+                      poster="step-3-poster.jpg"
+                      aria-label="3단계: 마주친 상대를 펀치로 기절시켜 물건을 떨어뜨리게 하는 장면"
+                      autoplay
+                      muted
+                      loop
+                      playsinline
+                      preload="none"
+                    ></video>
                   </div>
                 </li>
                 <li>
@@ -988,12 +1003,17 @@
                       구간이라, 이때 서로의 은닉처가 전부 드러납니다. 너무 일찍 들면
                       표적이 되고, 너무 늦으면 도착하지 못합니다.
                     </p>
-                    <img
+                    <video
                       class="step-shot"
-                      src="step-4.png"
-                      alt="4단계: 마지막 30초에 자기 물건을 손에 들고 버티는 장면"
-                      loading="lazy"
-                    />
+                      data-src="step-4.mp4"
+                      poster="step-4-poster.jpg"
+                      aria-label="4단계: 마지막 30초에 자기 물건을 손에 들고 버티는 장면"
+                      autoplay
+                      muted
+                      loop
+                      playsinline
+                      preload="none"
+                    ></video>
                   </div>
                 </li>
               </ol>
@@ -1177,6 +1197,20 @@
             ),
           ),
         );
+
+      // 스텝 영상: 화면에 들어올 때 내려받고, 벗어나면 멈춥니다.
+      const stepShots = [...document.querySelectorAll("video.step-shot")];
+      const stepWatcher = new IntersectionObserver(
+        (entries) =>
+          entries.forEach((entry) => {
+            const video = entry.target;
+            if (!entry.isIntersecting) return video.pause();
+            if (!video.src) video.src = video.dataset.src;
+            video.play().catch(() => {});
+          }),
+        { rootMargin: "200px 0px" },
+      );
+      stepShots.forEach((video) => stepWatcher.observe(video));
     </script>
   </body>
 </html>
