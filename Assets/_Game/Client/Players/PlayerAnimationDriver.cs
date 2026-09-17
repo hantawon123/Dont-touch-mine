@@ -81,6 +81,11 @@ namespace Game.Client.Players
         private AudioClip landClip;
 
         private AudioSource landAudioSource;
+
+        [SerializeField, Tooltip("앉기·일어나기·눕기·일어나기처럼 자세가 바뀔 때 재생하는 효과음")]
+        private AudioClip postureSwooshClip;
+
+        private AudioSource postureSwooshAudioSource;
         private float previousJumpHeight;
         private bool jumpGroundedSeen;
         private bool jumpSoundPlayed;
@@ -161,6 +166,8 @@ namespace Game.Client.Players
                 stunAudioSource = CreateCombatAudioSource("StunAudio");
             if (landClip != null)
                 landAudioSource = CreateCombatAudioSource("LandAudio");
+            if (postureSwooshClip != null)
+                postureSwooshAudioSource = CreateCombatAudioSource("PostureSwooshAudio");
             if (footstepClips != null && footstepClips.Length > 0)
             {
                 footstepAudio = gameObject.AddComponent<PlayerFootstepAudio>();
@@ -190,6 +197,7 @@ namespace Game.Client.Players
             if (throwAudioSource != null) throwAudioSource.Stop();
             if (stunAudioSource != null) stunAudioSource.Stop();
             if (landAudioSource != null) landAudioSource.Stop();
+            if (postureSwooshAudioSource != null) postureSwooshAudioSource.Stop();
             jumpGroundedSeen = false;
             jumpSoundPlayed = false;
             jumpWasAirborne = false;
@@ -461,6 +469,8 @@ namespace Game.Client.Players
                 stunAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             if (landAudioSource != null)
                 landAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (postureSwooshAudioSource != null)
+                postureSwooshAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             footstepAudio?.Tick(animator, currentState,
                 usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
         }
@@ -581,11 +591,16 @@ namespace Game.Client.Players
 
             if (posture != lastPosture)
             {
-                var transition = TransitionClip(lastPosture, posture, carrying);
+                var from = lastPosture;
+                var transition = TransitionClip(from, posture, carrying);
                 lastPosture = posture;
                 if (transition != null)
                 {
                     PlayOneShot(transition, TransitionSeconds(transition));
+                    if (ShouldPlayPostureSwoosh(from, posture))
+                    {
+                        PlayPostureSwoosh();
+                    }
                 }
             }
 
@@ -925,6 +940,18 @@ namespace Game.Client.Players
             }
 
             return 0f;
+        }
+
+        internal static bool ShouldPlayPostureSwoosh(PlayerPosture from, PlayerPosture to) =>
+            from != to && TransitionClip(from, to, false) != null;
+
+        private void PlayPostureSwoosh()
+        {
+            if (postureSwooshAudioSource != null && postureSwooshAudioSource.isActiveAndEnabled)
+            {
+                postureSwooshAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                postureSwooshAudioSource.PlayOneShot(postureSwooshClip);
+            }
         }
 
         internal static string TransitionClip(PlayerPosture from, PlayerPosture to, bool carrying) => (from, to) switch

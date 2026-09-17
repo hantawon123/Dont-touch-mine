@@ -165,6 +165,7 @@ MonoBehaviour:
   throwSoundClip: {fileID: 8300000, guid: 9cabb6d1ce62e13748a539be80019f5d, type: 3}
   stunSoundClip: {fileID: 8300000, guid: 8f3a1c6e9b2d47a0b5e4c8d1f0a6b392, type: 3}
   landClip: {fileID: 8300000, guid: a1d8e4c27b5f4093a6c0d9e2b4f8c175, type: 3}
+  postureSwooshClip: {fileID: 8300000, guid: d4b7e2c19a8f4e05b3c6d0a7e1f5b842, type: 3}
 --- !u!114 &3812345678901234567
 MonoBehaviour:
   m_ObjectHideFlags: 0

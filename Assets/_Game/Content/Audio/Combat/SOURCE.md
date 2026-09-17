@@ -42,3 +42,12 @@
 - Approved preview: `audio-previews/stun-twang.wav`; runtime asset is byte-identical.
 - Regenerate: `node Tools/audio/create-stun-twang.cjs Assets/_Game/Content/Audio/Combat/StunTwang.wav`.
 - Played once when a player actually enters stun. Initial stunned snapshots, repeated stun flags, and hits that do not stun do not play it. The stunning blow still also plays the punch hit cue.
+
+# Posture swoosh (PostureSwoosh.wav)
+
+- Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.
+- Generator: `Tools/audio/create-posture-swoosh.cjs` (band-limited air and a short downward rustle — cloth "스윽").
+- Length: 0.24 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -3.1 dBFS.
+- Approved preview: `audio-previews/posture-swoosh.wav`; runtime asset is byte-identical.
+- Regenerate: `node Tools/audio/create-posture-swoosh.cjs Assets/_Game/Content/Audio/Combat/PostureSwoosh.wav`.
+- Played once on crouch/stand and prone/stand (and crouch↔prone) transitions that already have a posture animation. Spawning in a pose, stunned pose tracking, and airborne collider bounce do not play it.
