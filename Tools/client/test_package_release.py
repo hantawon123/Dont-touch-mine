@@ -1,5 +1,6 @@
 import hashlib
 from pathlib import Path
+import re
 import sys
 import tempfile
 import unittest
@@ -30,9 +31,13 @@ class DeliveryTests(unittest.TestCase):
             html = (archive.parent/'index.html').read_text(encoding='utf-8')
             self.assertIn(f'href="{archive.name}" download', html)
             self.assertNotIn('@@', html)
-            self.assertTrue((archive.parent/'hero.png').is_file())
             self.assertTrue((archive.parent/'beta-test-favicon.png').is_file())
-            self.assertTrue(all((archive.parent/f'step-{step}.png').is_file() for step in range(1, 5)))
+            self.assertTrue(all((archive.parent/name).is_file()
+                                for name in ('banner.jpg', 'custom.jpg', 'win.jpg', 'highlight.jpg')))
+            self.assertTrue(all((archive.parent/f'step-{step}{suffix}').is_file()
+                                for step in range(1, 5) for suffix in ('.mp4', '-poster.jpg')))
+            for reference in re.findall(r'(?:src|poster|data-src)="([^"#:]+\.(?:png|jpg|mp4))"', html):
+                self.assertTrue((archive.parent/reference).is_file(), reference)
             self.assertIn('게임 다운로드</a>', html)
             self.assertIn('<section id="info">', html)
             self.assertIn(revision[:12], html)
