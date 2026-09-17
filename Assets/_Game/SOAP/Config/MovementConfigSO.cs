@@ -9,7 +9,7 @@ namespace Game.SOAP.Config
         private float walkSpeed = 2.5f;
 
         [SerializeField, Min(0f)]
-        private float sprintSpeed = 4.5f;
+        private float sprintSpeed = 6.3f;
 
         [Header("스태미나")]
         [SerializeField, Min(0.1f)]

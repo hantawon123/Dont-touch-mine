@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: MovementConfig
   m_EditorClassIdentifier: Game.SOAP::Game.SOAP.Config.MovementConfigSO
   walkSpeed: 2.5
-  sprintSpeed: 4.5
+  sprintSpeed: 6.3
   maxStamina: 100
   staminaDrainPerSecond: 20
   staminaRecoveryPerSecond: 15
