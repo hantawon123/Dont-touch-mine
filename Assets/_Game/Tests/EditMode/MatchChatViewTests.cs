@@ -77,7 +77,9 @@ namespace Game.Architecture.Tests
                 var body = view.transform.Find("HistoryPanel/Items/Row3/Body").GetComponent<TMP_Text>();
                 Assert.That(body.textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
                 Assert.That(body.overflowMode, Is.Not.EqualTo(TextOverflowModes.Ellipsis));
-                Assert.That(body.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(-1f));
+                Assert.That(
+                    body.GetComponent<LayoutElement>().preferredHeight,
+                    Is.GreaterThan(0f));
             }
             finally
             {
@@ -102,7 +104,9 @@ namespace Game.Architecture.Tests
 
                 var body = view.transform.Find("HistoryPanel/Items/Row0/Body").GetComponent<TMP_Text>();
                 Assert.That(body.textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
-                Assert.That(body.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(-1f));
+                Assert.That(
+                    body.GetComponent<LayoutElement>().preferredHeight,
+                    Is.GreaterThan(MatchChatView.BodyFontSize + 8f));
                 Assert.That(
                     body.rectTransform.rect.height,
                     Is.GreaterThan(MatchChatView.BodyFontSize + 8f));
@@ -346,6 +350,61 @@ namespace Game.Architecture.Tests
             Assert.That(
                 MatchChatView.ScaledNameBodySpacing(1.15f),
                 Is.EqualTo(2.3f).Within(0.0001f));
+        }
+
+        [Test]
+        public void ContentHeightForRows_GrowsWithWrappedRows()
+        {
+            Assert.That(
+                MatchChatView.ContentHeightForRows(new[] { 40f }, 1f),
+                Is.EqualTo(MatchChatView.ContentPadding * 2f + 40f).Within(0.0001f));
+            Assert.That(
+                MatchChatView.ContentHeightForRows(new[] { 120f, 120f, 120f, 120f }, 1f),
+                Is.EqualTo(
+                    (MatchChatView.ContentPadding * 2f)
+                    + 480f
+                    + (MatchChatView.ItemSpacing * 3f)).Within(0.0001f));
+        }
+
+        [Test]
+        public void SetMessages_KeepsHistoryFixed_AndScrollsToLatest()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform, keepChromeVisible: true);
+                var longText = new string('가', LobbyChatMessage.MaxTextLength);
+                view.SetMessages(new[]
+                {
+                    new LobbyChatMessage("a", "싸피생1", longText),
+                    new LobbyChatMessage("b", "싸피생2", longText),
+                    new LobbyChatMessage("c", "싸피생3", longText),
+                    new LobbyChatMessage("d", "싸피생4", longText)
+                });
+
+                var history = view.transform.Find("HistoryPanel") as RectTransform;
+                Assert.That(history.sizeDelta.y, Is.EqualTo(MatchChatView.MinHistoryHeight));
+                var scroll = history.GetComponent<ScrollRect>();
+                Assert.That(scroll, Is.Not.Null);
+                Assert.That(scroll.vertical, Is.True);
+                Assert.That(scroll.horizontal, Is.False);
+                Assert.That(scroll.content, Is.SameAs(view.transform.Find("HistoryPanel/Items")));
+                Assert.That(scroll.verticalNormalizedPosition, Is.EqualTo(0f).Within(0.001f));
+                var items = view.transform.Find("HistoryPanel/Items");
+                Assert.That(
+                    (items as RectTransform).rect.height,
+                    Is.GreaterThan(MatchChatView.MinHistoryHeight));
+                for (var index = 0; index < MatchChatView.VisibleMessageCount - 1; index++)
+                {
+                    var upper = items.Find($"Row{index}") as RectTransform;
+                    var lower = items.Find($"Row{index + 1}") as RectTransform;
+                    Assert.That(RowsOverlapVertically(upper, lower), Is.False);
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
         }
 
         [Test]

@@ -45,7 +45,7 @@ namespace Game.Client.Match
         public const float OpenCooldownSeconds = 0.12f;
         public static readonly Color NameColor = new Color32(0xC1, 0xC1, 0xC1, 0xFF);
         public static readonly Color PanelColor = new Color(0f, 0f, 0f, 0.62f);
-        private const float HistoryHeight = 248f;
+        public const float MinHistoryHeight = 248f;
         private const float InputHeight = 48f;
         private const float PanelGap = 10f;
         public const float Margin = 24f;
@@ -60,6 +60,7 @@ namespace Game.Client.Match
         private Button sendButton;
         private Transform itemRoot;
         private RectTransform historyRect;
+        private ScrollRect scrollRect;
         private readonly RectTransform[] rows = new RectTransform[VisibleMessageCount];
         private readonly TMP_Text[] nameTexts = new TMP_Text[VisibleMessageCount];
         private readonly TMP_Text[] bodyTexts = new TMP_Text[VisibleMessageCount];
@@ -187,6 +188,56 @@ namespace Game.Client.Match
 
         public static float ScaledNameBodySpacing(float uiScale, float fontScale = 1f) =>
             NameBodySpacing * ListScale(uiScale, fontScale);
+
+        public static float TextColumnWidth => InputWidth - (ContentPadding * 2f);
+
+        public static float MeasuredLineHeight(TMP_Text text, float width)
+        {
+            if (text == null)
+            {
+                return 0f;
+            }
+
+            var value = text.text ?? string.Empty;
+            if (value.Length == 0)
+            {
+                return text.fontSize + 4f;
+            }
+
+            var preferred = text.GetPreferredValues(value, Mathf.Max(1f, width), 0f);
+            return Mathf.Max(text.fontSize + 4f, preferred.y);
+        }
+
+        public static float RowHeight(float nameHeight, float bodyHeight, float scale) =>
+            nameHeight + (NameBodySpacing * Mathf.Max(0.01f, scale)) + bodyHeight;
+
+        public static float ContentHeightForRows(IReadOnlyList<float> rowHeights, float scale)
+        {
+            var total = ContentPadding * 2f;
+            var added = 0;
+            if (rowHeights == null)
+            {
+                return total;
+            }
+
+            for (var index = 0; index < rowHeights.Count; index++)
+            {
+                if (rowHeights[index] <= 0f)
+                {
+                    continue;
+                }
+
+                if (added > 0)
+                {
+                    total += ItemSpacing * Mathf.Max(0.01f, scale);
+                }
+
+                total += rowHeights[index];
+                added++;
+            }
+
+            return total;
+        }
 
         public static bool ShouldOpenOnEnter(
             bool isActivated,
@@ -500,33 +551,25 @@ namespace Game.Client.Match
                 bodyTexts[index]?.ForceMeshUpdate();
             }
 
-            ApplyListMetrics(appliedListScale);
+            ApplyListMetrics(appliedListScale, scrollToLatest: true);
         }
 
         /// <summary>
-        /// Scales the gap between chat rows (and name/body inside a row) so a
-        /// larger UI or font size cannot stack messages on top of each other.
+        /// Measures wrapped lines and sizes each row to that height inside a
+        /// fixed panel. Overflow is scrolled; a new message jumps to the bottom.
         /// </summary>
-        public void ApplyListMetrics(float scale)
+        public void ApplyListMetrics(float scale, bool scrollToLatest = false)
         {
             EnsureLayout();
             var safe = Mathf.Max(0.01f, scale);
+            appliedListScale = safe;
             if (itemRoot == null)
             {
-                appliedListScale = safe;
                 return;
             }
 
-            var itemSpacing = ItemSpacing * safe;
-            var nameBodySpacing = NameBodySpacing * safe;
-            var changed = !Mathf.Approximately(appliedListScale, safe);
-            var items = itemRoot.GetComponent<VerticalLayoutGroup>();
-            if (items != null && !Mathf.Approximately(items.spacing, itemSpacing))
-            {
-                items.spacing = itemSpacing;
-                changed = true;
-            }
-
+            ConfigureItemList(safe);
+            var width = TextColumnWidth;
             for (var index = 0; index < VisibleMessageCount; index++)
             {
                 var row = rows[index];
@@ -536,20 +579,20 @@ namespace Game.Client.Match
                 }
 
                 var rowLayout = row.GetComponent<VerticalLayoutGroup>();
-                if (rowLayout != null && !Mathf.Approximately(rowLayout.spacing, nameBodySpacing))
+                if (rowLayout != null)
                 {
-                    rowLayout.spacing = nameBodySpacing;
-                    changed = true;
+                    rowLayout.spacing = NameBodySpacing * safe;
                 }
 
-                changed |= ApplyWrap(nameTexts[index]);
-                changed |= ApplyWrap(bodyTexts[index]);
-            }
+                if (!row.gameObject.activeSelf)
+                {
+                    ApplyRowHeight(row, 0f);
+                    continue;
+                }
 
-            appliedListScale = safe;
-            if (!changed)
-            {
-                return;
+                var nameHeight = ApplyMeasuredHeight(nameTexts[index], width);
+                var bodyHeight = ApplyMeasuredHeight(bodyTexts[index], width);
+                ApplyRowHeight(row, RowHeight(nameHeight, bodyHeight, safe));
             }
 
             if (itemRoot is RectTransform itemsRect)
@@ -557,7 +600,74 @@ namespace Game.Client.Match
                 LayoutRebuilder.ForceRebuildLayoutImmediate(itemsRect);
             }
 
+            if (scrollToLatest)
+            {
+                ScrollToLatest();
+            }
+
             ApplyRowFade();
+        }
+
+        public void ScrollToLatest()
+        {
+            if (scrollRect == null)
+            {
+                return;
+            }
+
+            Canvas.ForceUpdateCanvases();
+            scrollRect.verticalNormalizedPosition = 0f;
+        }
+
+        private void ConfigureItemList(float scale)
+        {
+            var layout = itemRoot.GetComponent<VerticalLayoutGroup>();
+            if (layout == null)
+            {
+                return;
+            }
+
+            layout.spacing = ItemSpacing * scale;
+            layout.padding = new RectOffset(0, 0, Mathf.RoundToInt(ContentPadding), Mathf.RoundToInt(ContentPadding));
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+        }
+
+        private static float ApplyMeasuredHeight(TMP_Text text, float width)
+        {
+            if (text == null)
+            {
+                return 0f;
+            }
+
+            ApplyWrap(text);
+            text.ForceMeshUpdate();
+            var height = MeasuredLineHeight(text, width);
+            var layout = text.GetComponent<LayoutElement>();
+            if (layout != null)
+            {
+                layout.minHeight = height;
+                layout.preferredHeight = height;
+                layout.flexibleHeight = -1f;
+            }
+
+            return height;
+        }
+
+        private static void ApplyRowHeight(RectTransform row, float height)
+        {
+            var layout = row.GetComponent<LayoutElement>();
+            if (layout == null)
+            {
+                return;
+            }
+
+            layout.minHeight = height;
+            layout.preferredHeight = height;
+            layout.flexibleHeight = -1f;
         }
 
         public void ClearInput()
@@ -722,7 +832,7 @@ namespace Game.Client.Match
             var height = 0f;
             if (showHistory)
             {
-                height += HistoryHeight;
+                height += MinHistoryHeight;
             }
 
             if (showHistory && showInput)
@@ -781,6 +891,7 @@ namespace Game.Client.Match
             BindRefs();
             BindRows();
             FitPanels();
+            EnsureScroll();
             FitTextViewport();
             IsolateCanvases();
             EnsureHistoryFade();
@@ -956,6 +1067,48 @@ namespace Game.Client.Match
 
             sendOrange ??= Resources.Load<Sprite>(SendOrangeResource);
             sendGray ??= Resources.Load<Sprite>(SendGrayResource);
+            scrollRect = historyRect != null
+                ? historyRect.GetComponent<ScrollRect>()
+                : null;
+        }
+
+        private void EnsureScroll()
+        {
+            if (historyRect == null || itemRoot == null)
+            {
+                return;
+            }
+
+            var scroll = historyRect.GetComponent<ScrollRect>() ??
+                         historyRect.gameObject.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.inertia = true;
+            scroll.scrollSensitivity = 24f;
+            scroll.viewport = historyRect;
+            ConfigureScrollContent();
+            scroll.content = itemRoot as RectTransform;
+            scrollRect = scroll;
+        }
+
+        private void ConfigureScrollContent()
+        {
+            if (itemRoot is not RectTransform items)
+            {
+                return;
+            }
+
+            items.anchorMin = new Vector2(0f, 0f);
+            items.anchorMax = new Vector2(1f, 0f);
+            items.pivot = new Vector2(0.5f, 0f);
+            items.offsetMin = new Vector2(ContentPadding, 0f);
+            items.offsetMax = new Vector2(-ContentPadding, 0f);
+            items.anchoredPosition = Vector2.zero;
+            var fitter = items.GetComponent<ContentSizeFitter>() ??
+                         items.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         }
 
         private void BindRows()
@@ -965,6 +1118,7 @@ namespace Game.Client.Match
                 return;
             }
 
+            ConfigureItemList(appliedListScale);
             for (var index = 0; index < VisibleMessageCount; index++)
             {
                 var row = itemRoot.Find($"Row{index}") as RectTransform;
@@ -977,6 +1131,11 @@ namespace Game.Client.Match
                 {
                     rowFades[index] = null;
                     continue;
+                }
+
+                if (row.GetComponent<LayoutElement>() == null)
+                {
+                    row.gameObject.AddComponent<LayoutElement>();
                 }
 
                 var group = row.GetComponent<CanvasGroup>();
@@ -995,7 +1154,7 @@ namespace Game.Client.Match
             var root = transform as RectTransform;
             if (root != null)
             {
-                root.sizeDelta = new Vector2(InputWidth, HistoryHeight + PanelGap + InputHeight);
+                root.sizeDelta = new Vector2(InputWidth, MinHistoryHeight + PanelGap + InputHeight);
             }
 
             var history = transform.Find("HistoryPanel") as RectTransform;
@@ -1005,7 +1164,7 @@ namespace Game.Client.Match
                     history,
                     new Vector2(0f, 1f),
                     new Vector2(0f, 0f),
-                    new Vector2(InputWidth, HistoryHeight),
+                    new Vector2(InputWidth, MinHistoryHeight),
                     new Vector2(0f, 1f));
             }
 
@@ -1230,7 +1389,7 @@ namespace Game.Client.Match
             image.sprite = HistoryFadeSprite;
             image.type = Image.Type.Simple;
             image.color = PanelColor;
-            image.raycastTarget = false;
+            image.raycastTarget = true;
             image.preserveAspect = false;
         }
 
@@ -1244,7 +1403,7 @@ namespace Game.Client.Match
                 }
 
                 var width = Mathf.RoundToInt(InputWidth);
-                var height = Mathf.RoundToInt(HistoryHeight);
+                var height = Mathf.RoundToInt(MinHistoryHeight);
                 var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
                 {
                     hideFlags = HideFlags.HideAndDontSave,
@@ -1315,28 +1474,25 @@ namespace Game.Client.Match
             root.anchorMax = Vector2.zero;
             root.pivot = Vector2.zero;
             root.anchoredPosition = new Vector2(Margin, Margin);
-            root.sizeDelta = new Vector2(InputWidth, HistoryHeight + PanelGap + InputHeight);
+            root.sizeDelta = new Vector2(InputWidth, MinHistoryHeight + PanelGap + InputHeight);
 
             var history = CreatePanel(root, "HistoryPanel");
             Place(
                 history,
                 new Vector2(0f, 1f),
                 new Vector2(0f, 0f),
-                new Vector2(InputWidth, HistoryHeight),
+                new Vector2(InputWidth, MinHistoryHeight),
                 new Vector2(0f, 1f));
 
-            var items = new GameObject("Items", typeof(RectTransform), typeof(VerticalLayoutGroup));
+            var items = new GameObject(
+                "Items",
+                typeof(RectTransform),
+                typeof(VerticalLayoutGroup),
+                typeof(ContentSizeFitter));
             items.transform.SetParent(history, false);
-            var itemsRect = (RectTransform)items.transform;
-            Stretch(itemsRect, ContentPadding);
-            var layout = items.GetComponent<VerticalLayoutGroup>();
-            layout.spacing = ItemSpacing;
-            layout.childAlignment = TextAnchor.LowerLeft;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
             itemRoot = items.transform;
+            ConfigureItemList(1f);
+            ConfigureScrollContent();
 
             for (var index = 0; index < VisibleMessageCount; index++)
             {
@@ -1432,6 +1588,7 @@ namespace Game.Client.Match
             layout.childForceExpandHeight = false;
             var fitter = row.GetComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            row.AddComponent<LayoutElement>();
 
             var name = CreateText(row.transform, "Name", string.Empty, NameFontSize, NameColor);
             name.alignment = TextAlignmentOptions.TopLeft;
