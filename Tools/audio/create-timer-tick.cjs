@@ -1,31 +1,42 @@
-// Original procedural timer-tick preview: no external recordings or audio models.
+// Original procedural clock-tick preview: no external recordings or audio models.
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const rate = 44100;
-const seconds = .08;
+const seconds = .12;
 const frames = Math.round(rate * seconds);
 const samples = new Float64Array(frames);
 let seed = 205;
-let resonator1 = 0, resonator2 = 0;
-const resonance = .9;
-// A single dry mechanical click — a clock escapement, not a soft UI beep.
-// Meant to be triggered once per second by a code timer, the way a single
-// footstep clip is triggered per step rather than baked as a loop.
-const frequency = 2800;
-const decay = .018;
+let clickResonator1 = 0, clickResonator2 = 0;
+const clickResonance = .88;
+let bodyPhase = 0;
+let wood = 0;
+// One analog-clock second. A wooden case thock plus a bright escapement click,
+// triggered once per second by the hiding/searching countdown — not a UI beep,
+// and not a baked tick-tock pair (that would double at the one-second interval).
+const bodyFrequency = 920;
+const clickFrequency = 3550;
 for (let frame = 0; frame < frames; frame++) {
   const t = frame / rate;
   seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
   const noise = seed / 2147483648 - 1;
-  const angle = 2 * Math.PI * frequency / rate;
-  const resonated = noise + 2 * resonance * Math.cos(angle) * resonator1 - resonance * resonance * resonator2;
-  resonator2 = resonator1;
-  resonator1 = resonated;
-  const attack = 1 - Math.exp(-t / .0008);
-  const envelope = attack * Math.exp(-t / decay);
-  const tailFade = Math.min(1, (frames - 1 - frame) / (rate * .01));
-  samples[frame] = tailFade * envelope * resonated * .8;
+  wood += .22 * (noise - wood);
+
+  const clickAngle = 2 * Math.PI * clickFrequency / rate;
+  const clicked = noise + 2 * clickResonance * Math.cos(clickAngle) * clickResonator1
+    - clickResonance * clickResonance * clickResonator2;
+  clickResonator2 = clickResonator1;
+  clickResonator1 = clicked;
+  const clickAttack = 1 - Math.exp(-t / .0005);
+  const click = clicked * clickAttack * Math.exp(-t / .007);
+
+  bodyPhase += 2 * Math.PI * bodyFrequency / rate;
+  const bodyTone = Math.sin(bodyPhase) + .18 * Math.sin(bodyPhase * 2);
+  const bodyAttack = 1 - Math.exp(-t / .0012);
+  const body = (bodyTone + .12 * wood) * bodyAttack * Math.exp(-t / .032);
+
+  const tailFade = Math.min(1, (frames - 1 - frame) / (rate * .012));
+  samples[frame] = tailFade * (body * .72 + click * .55);
 }
 const peak = samples.reduce((largest, sample) => Math.max(largest, Math.abs(sample)), 0);
 const wav = Buffer.alloc(44 + frames * 2);

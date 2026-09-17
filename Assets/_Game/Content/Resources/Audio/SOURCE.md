@@ -18,8 +18,8 @@
 # Hiding timer tick (HidingTimerTick.wav)
 
 - Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.
-- Generator: `Tools/audio/create-timer-tick.cjs` (a single dry mechanical click, a 2800 Hz resonated burst with an 18 ms decay).
-- Length: 0.08 seconds; mono 44.1 kHz, 16-bit PCM; peak -3.1 dBFS, no clipping.
+- Generator: `Tools/audio/create-timer-tick.cjs` (analog-clock second: wooden case thock at 920 Hz plus a 3550 Hz escapement click).
+- Length: 0.12 seconds; mono 44.1 kHz, 16-bit PCM; peak -3.1 dBFS, no clipping.
 - Regenerate: `node Tools/audio/create-timer-tick.cjs Assets/_Game/Content/Resources/Audio/HidingTimerTick.wav`.
 - Played once per second during the last `HidingActiveHudView.WarningSeconds` (10) seconds of the hiding phase countdown; uses the Effects volume.
 
@@ -27,7 +27,7 @@
 
 - Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.
 - Generator: `Tools/audio/create-timer-tick.cjs` (same generator and settings as `HidingTimerTick.wav`; a separate render so the two phases can diverge later without one file backing both).
-- Length: 0.08 seconds; mono 44.1 kHz, 16-bit PCM; peak -3.1 dBFS, no clipping.
+- Length: 0.12 seconds; mono 44.1 kHz, 16-bit PCM; peak -3.1 dBFS, no clipping.
 - Regenerate: `node Tools/audio/create-timer-tick.cjs Assets/_Game/Content/Resources/Audio/SearchingTimerTick.wav`.
 - Played once per second during the last `MatchTimerView.WarningSeconds` (30) seconds of the searching phase, the same window `MatchUrgencyAudio` uses for the border, chime and tension bed; uses the Effects volume.
 

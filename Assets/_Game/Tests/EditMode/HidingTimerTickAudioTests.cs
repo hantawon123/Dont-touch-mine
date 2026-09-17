@@ -41,7 +41,7 @@ namespace Game.Tests.EditMode
                 "Assets/_Game/Content/Resources/Audio/HidingTimerTick.wav"));
             Assert.That(clip.channels, Is.EqualTo(1));
             Assert.That(clip.frequency, Is.EqualTo(44100));
-            Assert.That(clip.length, Is.EqualTo(.08f).Within(.001f));
+            Assert.That(clip.length, Is.EqualTo(.12f).Within(.001f));
         }
     }
 }
