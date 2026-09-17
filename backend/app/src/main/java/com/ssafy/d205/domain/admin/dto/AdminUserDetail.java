@@ -20,13 +20,16 @@ import com.ssafy.d205.domain.report.repository.AdminReportRow;
  * @param madeReports     이 사람이 한 신고. 최근 순, 최대 200건
  * @param feedback        이 사람이 보낸 피드백. 최근 순, 최대 100건
  * @param suspensions     정지·해제 이력. 최근 순, 최대 200건
+ * @param renames         운영자가 닉네임을 바꾼 이력. 최근 순, 최대 200건 (S15P21D205-1047).
+ *                        본인이 바꾼 개명은 여기 없습니다 - 운영자가 한 행위의 기록입니다
  */
 public record AdminUserDetail(
         AdminUserSummary user,
         List<ReportEntry> receivedReports,
         List<ReportEntry> madeReports,
         List<FeedbackEntry> feedback,
-        List<AdminSuspensionEntry> suspensions
+        List<AdminSuspensionEntry> suspensions,
+        List<AdminNicknameEntry> renames
 ) {
 
     /**
