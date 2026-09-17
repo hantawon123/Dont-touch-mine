@@ -63,6 +63,7 @@ namespace Game.Client.Interactions
         public const float CrosshairGap = 16f;
         public const float CrosshairDotSize = 4f;
         public static float CrosshairOutlineThickness => CrosshairThickness * 0.5f;
+        public static readonly Color CrosshairFill = new Color(1f, 1f, 1f, 0.8f);
 
         /// <summary>
         /// Hands the 컨트롤 tab's applied 물건 상호작용 key to world prompts.
@@ -722,7 +723,7 @@ namespace Game.Client.Interactions
                 CrosshairGap,
                 CrosshairThickness,
                 CrosshairDotSize,
-                Color.white);
+                CrosshairFill);
             GUI.color = previous;
         }
 

@@ -192,6 +192,7 @@ namespace Game.Architecture.Tests
             Assert.That(
                 PlayerInteractor.CrosshairOutlineThickness,
                 Is.EqualTo(PlayerInteractor.CrosshairThickness * 0.5f));
+            Assert.That(PlayerInteractor.CrosshairFill, Is.EqualTo(new Color(1f, 1f, 1f, 0.8f)));
         }
 
         [Test]
