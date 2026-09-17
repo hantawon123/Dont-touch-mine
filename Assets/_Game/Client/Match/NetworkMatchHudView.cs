@@ -118,6 +118,7 @@ namespace Game.Client.Match
         private MatchUrgencyBorderView urgencyBorderView;
 
         private MatchUrgencyAudio urgencyAudio;
+        private HidingTimerTickAudio timerTickAudio;
 
         private LobbyPlayerListView participantListView;
 
@@ -160,6 +161,7 @@ namespace Game.Client.Match
             HideHidingTurnStart();
             EnsureHidingActiveHud();
             HideHidingActiveHud();
+            EnsureTimerTickAudio();
             EnsureHidingWaitHud();
             HideHidingWaitHud();
             EnsureVitalsHud();
@@ -495,11 +497,14 @@ namespace Game.Client.Match
         public void HideHidingActiveHud()
         {
             hidingActiveHudView?.Hide();
+            timerTickAudio?.Hide();
         }
 
         public void SetHidingActiveHudSeconds(double remainingSeconds)
         {
             hidingActiveHudView?.SetRemainingSeconds(remainingSeconds);
+            EnsureTimerTickAudio();
+            timerTickAudio?.SetRemainingSeconds(remainingSeconds);
         }
 
         public void ShowHidingWaitHud(
@@ -655,6 +660,19 @@ namespace Game.Client.Match
             if (urgencyAudio == null)
             {
                 urgencyAudio = MatchUrgencyAudio.Create(transform);
+            }
+        }
+
+        private void EnsureTimerTickAudio()
+        {
+            if (timerTickAudio == null)
+            {
+                timerTickAudio = GetComponentInChildren<HidingTimerTickAudio>(true);
+            }
+
+            if (timerTickAudio == null)
+            {
+                timerTickAudio = HidingTimerTickAudio.Create(transform);
             }
         }
 
