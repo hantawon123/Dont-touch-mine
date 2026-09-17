@@ -5,7 +5,7 @@
 - Length: 0.16 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -3.1 dBFS.
 - Approved preview: `audio-previews/item-pickup.wav`; runtime asset is byte-identical.
 - Regenerate: `node Tools/audio/create-pickup.cjs Assets/_Game/Content/Audio/Items/ItemPickup.wav`.
-- Played once when a carryable item is picked up (local and confirmed-network pickups).
+- Played once when a carryable item is first attached to a player for that hold. Re-applying the same hold from replicated state does not play it again.
 
 # Item place (ItemPlace.wav)
 
@@ -14,7 +14,7 @@
 - Length: 0.24 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -3.1 dBFS.
 - Approved preview: `audio-previews/soft-item-place.wav`; runtime asset is byte-identical.
 - Regenerate: `node Tools/audio/create-soft-place.cjs Assets/_Game/Content/Audio/Items/ItemPlace.wav`.
-- Played once on both a plain drop and a confirmed precise placement — the same sound covers both.
+- Played once on a drop or precise placement for that hold. Requesting place or drop again before the item actually leaves the hand does not play it again.
 
 # Item throw (ItemThrow.wav)
 
@@ -23,4 +23,4 @@
 - Length: 0.32 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -3.1 dBFS.
 - Approved preview: `audio-previews/item-throw.wav`; runtime asset is byte-identical.
 - Regenerate: `node Tools/audio/create-throw.cjs Assets/_Game/Content/Audio/Items/ItemThrow.wav`.
-- Played once when a carried item is thrown (local throw only; see PlayerAnimationDriver.PlayThrow).
+- Played once when a carried item is thrown. Local offline throws and replicated releases share `PlayConfirmedThrow`, which will not play twice for the same hold.

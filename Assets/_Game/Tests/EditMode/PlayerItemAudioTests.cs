@@ -1,3 +1,4 @@
+using Game.Client.Interactions;
 using Game.Client.Players;
 using NUnit.Framework;
 using UnityEditor;
@@ -50,6 +51,31 @@ namespace Game.Tests.EditMode
             Assert.That(clip.channels, Is.EqualTo(1));
             Assert.That(clip.length, Is.EqualTo(.32f).Within(.001f));
             Assert.That(clip.frequency, Is.EqualTo(44100));
+        }
+
+        [Test]
+        public void ItemCues_PlayOncePerHold()
+        {
+            Assert.That(PlayerInteractor.ShouldPlayItemCue(null, null), Is.False);
+            var item = new GameObject("CueItem", typeof(Rigidbody)).AddComponent<CarryableItem>();
+            try
+            {
+                Assert.That(PlayerInteractor.ShouldPlayItemCue(null, item), Is.True);
+                Assert.That(PlayerInteractor.ShouldPlayItemCue(item, item), Is.False);
+                var other = new GameObject("OtherCueItem", typeof(Rigidbody)).AddComponent<CarryableItem>();
+                try
+                {
+                    Assert.That(PlayerInteractor.ShouldPlayItemCue(item, other), Is.True);
+                }
+                finally
+                {
+                    Object.DestroyImmediate(other.gameObject);
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(item.gameObject);
+            }
         }
     }
 }

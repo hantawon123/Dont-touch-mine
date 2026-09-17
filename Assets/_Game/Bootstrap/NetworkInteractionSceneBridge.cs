@@ -451,9 +451,12 @@ namespace Game.Bootstrap
                 if (state.IsPendingEjection)
                 {
                     ForgetItem(item);
-                    pendingShredderEjectionIds.Add(state.ObjectId);
-                    PlayShredderClip(shredderFeedClip, item.transform.position);
-                    PlayShredderClip(shredderRunClip, item.transform.position);
+                    var firstEjection = pendingShredderEjectionIds.Add(state.ObjectId);
+                    if (firstEjection)
+                    {
+                        PlayShredderClip(shredderFeedClip, item.transform.position);
+                        PlayShredderClip(shredderRunClip, item.transform.position);
+                    }
                     item.OnStored(state.Pose);
                     appliedVersions[state.ObjectId] = state.Version;
                     continue;
@@ -487,6 +490,13 @@ namespace Game.Bootstrap
                         continue;
                     }
 
+                    if (holder.CarriedItem == item && item.IsCarried)
+                    {
+                        appliedVersions[state.ObjectId] = state.Version;
+                        attachWarnings.Remove(state.ObjectId);
+                        continue;
+                    }
+
                     ForgetItem(item);
                     if (!holder.ApplyConfirmedPickup(item))
                     {
@@ -513,8 +523,8 @@ namespace Game.Bootstrap
                         else
                         {
                             foreach (var holder in interactors.Values)
-                                if (holder != null && holder.CarriedItem == item)
-                                    holder.GetComponent<PlayerAnimationDriver>()?.PlayThrow();
+                                if (holder != null)
+                                    holder.PlayConfirmedThrow(item);
                         }
                     }
                     ForgetItem(item);
