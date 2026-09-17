@@ -71,6 +71,11 @@ namespace Game.Client.Players
         private AudioClip throwSoundClip;
 
         private AudioSource throwAudioSource;
+
+        [SerializeField, Tooltip("기절에 들어가는 순간 재생하는 효과음")]
+        private AudioClip stunSoundClip;
+
+        private AudioSource stunAudioSource;
         private float previousJumpHeight;
         private bool jumpGroundedSeen;
         private bool jumpSoundPlayed;
@@ -146,6 +151,8 @@ namespace Game.Client.Players
                 putDownAudioSource = CreateCombatAudioSource("PutDownAudio");
             if (throwSoundClip != null)
                 throwAudioSource = CreateCombatAudioSource("ThrowAudio");
+            if (stunSoundClip != null)
+                stunAudioSource = CreateCombatAudioSource("StunAudio");
             if (footstepClips != null && footstepClips.Length > 0)
             {
                 footstepAudio = gameObject.AddComponent<PlayerFootstepAudio>();
@@ -160,6 +167,7 @@ namespace Game.Client.Players
             {
                 combatant.AttackPerformed += OnAttackPerformed;
                 combatant.HitReceived += OnHitReceived;
+                combatant.Stunned += OnStunned;
             }
         }
 
@@ -172,12 +180,14 @@ namespace Game.Client.Players
             if (pickupAudioSource != null) pickupAudioSource.Stop();
             if (putDownAudioSource != null) putDownAudioSource.Stop();
             if (throwAudioSource != null) throwAudioSource.Stop();
+            if (stunAudioSource != null) stunAudioSource.Stop();
             jumpGroundedSeen = false;
             jumpSoundPlayed = false;
             if (combatant != null)
             {
                 combatant.AttackPerformed -= OnAttackPerformed;
                 combatant.HitReceived -= OnHitReceived;
+                combatant.Stunned -= OnStunned;
             }
 
             if (animator != null)
@@ -205,6 +215,15 @@ namespace Game.Client.Players
                 hitAudioSource.PlayOneShot(punchHitClip);
             }
             PlayHit();
+        }
+
+        private void OnStunned()
+        {
+            if (stunAudioSource != null && stunAudioSource.isActiveAndEnabled)
+            {
+                stunAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                stunAudioSource.PlayOneShot(stunSoundClip);
+            }
         }
 
         private AudioSource CreateCombatAudioSource(string objectName)
@@ -428,6 +447,8 @@ namespace Game.Client.Players
                 putDownAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             if (throwAudioSource != null)
                 throwAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (stunAudioSource != null)
+                stunAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             footstepAudio?.Tick(animator, currentState,
                 usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
         }

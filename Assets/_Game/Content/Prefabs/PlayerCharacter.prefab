@@ -163,6 +163,7 @@ MonoBehaviour:
   pickupSoundClip: {fileID: 8300000, guid: 95eeb02f0dd7223d1051f55473717e4c, type: 3}
   putDownSoundClip: {fileID: 8300000, guid: 2cd8bce0594ce81fa7727c3021ed5278, type: 3}
   throwSoundClip: {fileID: 8300000, guid: 9cabb6d1ce62e13748a539be80019f5d, type: 3}
+  stunSoundClip: {fileID: 8300000, guid: 8f3a1c6e9b2d47a0b5e4c8d1f0a6b392, type: 3}
 --- !u!114 &3812345678901234567
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -24,3 +24,12 @@
 - Approved preview: `audio-previews/cute-jump.wav`; runtime asset is byte-identical.
 - Regenerate: `node Tools/audio/create-cute-jump.cjs Assets/_Game/Content/Audio/Combat/Jump.wav`.
 - Played once on upward airborne movement after grounding; not on falling, initial airborne spawning, or repeated airborne inputs.
+
+# Stun (StunTwang.wav)
+
+- Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.
+- Generator: `Tools/audio/create-stun-twang.cjs` (five descending springy notes with a pitch slide and a short wobble — cartoon dizzy "띠용용용용").
+- Length: 0.92 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -3.1 dBFS.
+- Approved preview: `audio-previews/stun-twang.wav`; runtime asset is byte-identical.
+- Regenerate: `node Tools/audio/create-stun-twang.cjs Assets/_Game/Content/Audio/Combat/StunTwang.wav`.
+- Played once when a player actually enters stun. Initial stunned snapshots, repeated stun flags, and hits that do not stun do not play it. The stunning blow still also plays the punch hit cue.
