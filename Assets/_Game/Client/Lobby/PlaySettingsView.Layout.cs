@@ -973,14 +973,31 @@ namespace Game.Client.Lobby
 
         private void CreateCategoryStack(RectTransform parent)
         {
-            CreatePreviewStack(
-                parent,
-                "CategoryStack",
-                "CategoryPreview",
+            var width = PlaySettingsStyle.Layout.MapPreviewSize.x;
+            var height = PlaySettingsStyle.Layout.CategoryNameHeight;
+            var stack = CreateRect("CategoryStack", parent);
+            stack.sizeDelta = new Vector2(width, height);
+            var element = stack.gameObject.AddComponent<LayoutElement>();
+            element.preferredWidth = width;
+            element.minWidth = width;
+            element.preferredHeight = height;
+            element.minHeight = height;
+
+            var layout = stack.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = true;
+
+            categoryText = CreatePreviewNameText(
+                stack,
                 "CategoryValue",
                 PlaySettingsCategoryCatalog.Default.Label,
-                out categoryText,
-                out _);
+                width,
+                height,
+                PlaySettingsStyle.FontSize.CategoryName,
+                TextAnchor.MiddleCenter);
         }
 
         private Image CreatePreviewStack(
@@ -1023,7 +1040,9 @@ namespace Game.Client.Lobby
             string name,
             string text,
             float width,
-            float height)
+            float height,
+            int fontSize = PlaySettingsStyle.FontSize.MapName,
+            TextAnchor alignment = TextAnchor.UpperCenter)
         {
             var row = CreateRect(name, parent);
             var element = row.gameObject.AddComponent<LayoutElement>();
@@ -1035,9 +1054,9 @@ namespace Game.Client.Lobby
             var label = row.gameObject.AddComponent<Text>();
             label.text = text;
             label.font = BodyFont();
-            label.fontSize = PlaySettingsStyle.FontSize.MapName;
+            label.fontSize = fontSize;
             label.color = PlaySettingsStyle.Palette.Text;
-            label.alignment = TextAnchor.UpperCenter;
+            label.alignment = alignment;
             label.raycastTarget = false;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Overflow;
