@@ -328,6 +328,14 @@ namespace Game.Editor
                 go.transform.SetParent(environment, worldPositionStays: true);
             }
 
+            // 결과 씬은 매치 씬 위에 추가 로드된다. 방을 원래 좌표(저택 1층과 겹침)에 두면 엔딩 카메라가 저택 복도 안에
+            // 서서 1층 벽을 찍는다(2026-09-17 확인). 유치장 무대(EndingStageSetupMenu.StageOffset)처럼 y −300으로 내린다.
+            // 아래 앵커·자리 계산은 옮긴 뒤의 월드 좌표를 쓴다.
+            var stageOffset = new Vector3(0f, -300f, 0f);
+            stageGo.transform.position = stageOffset;
+            anchorPose = new Pose(anchorPose.position + stageOffset, anchorPose.rotation);
+            Physics.SyncTransforms();
+
             var forward = Vector3.ProjectOnPlane(anchorPose.rotation * Vector3.forward, Vector3.up).normalized;
             if (forward.sqrMagnitude < 0.001f)
             {

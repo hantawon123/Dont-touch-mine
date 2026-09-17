@@ -35,7 +35,8 @@
 - 결과 흐름은 매치 씬 위에 결과 씬을 추가 로드하고 `EndingStage`를 전용 카메라로 찍는 방식(`docs/design/ending/README.md`). 저택은 유치장 대신 **지하실**을 무대로 쓰기 위해 맵별 결과 씬을 도입했다.
 - 코드: `NetworkScenes._mapResultScenes`(mapId → 씬) + `ResultSceneFor(mapId)`(없으면 기본 `ResultScene`)·`IsResultScene(SceneRef)`. `NetworkRunnerService.EnterResultScene`은 `AnalyticsMapId`의 결과 씬을 올리고, 하이라이트 전 언로드와 `OnSceneLoadDone`의 결과 단계 판정(`IsResultSceneLoaded`), 호스트 이관 시 결과 단계 복원도 맵별 씬을 본다. 마트·놀이터는 기본 결과 씬 그대로.
 - 씬: `MansionResult.unity`는 `Result.unity` 복제본(`Result Lifetime Scope`·`Main Camera` 유지)에 **사용자가 지하실 조각(프리팹 78개)·스포트라이트 4개를 직접 옮겨 방을 꾸민 것**이다(높이 판정 자동 분리 도구는 뜰 나무·1층 바닥과 경계가 애매해 쓰지 않고 지움). `Game/Match Map/Mansion/3. Wire Ending Stage In MansionResult`가 유치장 무대를 지우고, 스코프·Main Camera를 제외한 모든 루트를 `EndingStage/Basement` 아래로 묶고, 사용자가 놓은 Main Camera 자리를 카메라 앵커로 삼아 전용 `EndingCamera`(같은 화각)를 만들고, 카메라 정면 4 m·7 m 바닥에 탈출 자리 6·체포 자리 6을 임시로 놓은 뒤 스코프에 연결한다. 자리·앵커는 씬에서 옮긴다.
-- 스코프가 결과 씬의 다른 카메라·라이트를 끄므로 지하 조명은 반드시 `EndingStage` 아래에 있어야 한다(위 메뉴가 함께 묶는다). 플레이 씬 `Mansion.unity`의 지하는 그대로 두었고(지하 계단·출입구 막음은 사용자 결정), 결과 씬의 방은 별도 복사본이다.
+- 스코프가 결과 씬의 다른 카메라·라이트를 끄므로 지하 조명은 반드시 `EndingStage` 아래에 있어야 한다(위 메뉴가 함께 묶는다).
+- **무대는 y −300에 둔다**(유치장 무대와 같은 오프셋). 결과 씬은 매치 씬 위에 추가 로드되므로 방을 원래 좌표(저택 1층과 겹침)에 두면 엔딩 카메라가 1층 복도 벽을 찍는다(2026-09-17 개발 서버 테스트에서 확인: `MansionResult` 로드·스코프 준비는 정상, 화면만 1층 소품). 연결 메뉴가 묶은 뒤 `EndingStage`를 −300으로 내리고, 앵커·자리는 그 기준으로 놓는다. 최종 구도: 카메라 서쪽 홀 (−5.0, 2.22, −23.2)+오프셋에서 동쪽 철창을 8° 내려봄(화각 55), 탈출 줄 복도 x −2.2, 체포 줄 감방 안 x 0.75(사용자 조정 후 저장). 플레이 씬 `Mansion.unity`의 지하는 그대로 두었고(지하 계단·출입구 막음은 사용자 결정), 결과 씬의 방은 별도 복사본이다.
 - 빌드 목록·`NetworkScenes.asset`에 `MansionResult` 추가. 테스트 `NetworkScenes_MansionUsesItsOwnResultSceneAndOtherMapsFallBackToDefault`.
 
 ### 5. 들 수 있는 소품 전환 준비 (2026-09-17)
