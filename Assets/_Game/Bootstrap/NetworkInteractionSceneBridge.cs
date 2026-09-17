@@ -123,8 +123,7 @@ namespace Game.Bootstrap
 
         private void PlayShredderClip(AudioClip clip, Vector3 position)
         {
-            if (clip == null) return;
-            AudioSource.PlayClipAtPoint(clip, position, .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume));
+            ShredderInteractable.PlaySpatial(clip, position);
         }
 
         internal void SuspendForHighlights()

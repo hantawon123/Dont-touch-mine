@@ -21,6 +21,8 @@ namespace Game.Bootstrap
         public const string RunResource = "Audio/Shredder/ShredderRun";
         public const string EjectResource = "Audio/Shredder/ShredderEject";
         public const string SuccessResource = "Audio/Shredder/ShredderSuccess";
+        public const float MinDistance = 2f;
+        public const float MaxDistance = 15f;
 
         private AudioSource audioSource;
         private AudioClip feedClip;
@@ -54,15 +56,51 @@ namespace Game.Bootstrap
             ejectClip = Resources.Load<AudioClip>(EjectResource);
             successClip = Resources.Load<AudioClip>(SuccessResource);
             audioSource = gameObject.AddComponent<AudioSource>();
-            audioSource.playOnAwake = false;
-            audioSource.loop = false;
-            audioSource.spatialBlend = 1f;
-            audioSource.rolloffMode = AudioRolloffMode.Linear;
-            audioSource.minDistance = 2f;
-            audioSource.maxDistance = 15f;
-            audioSource.dopplerLevel = 0f;
+            ConfigureSpatial(audioSource);
         }
 #endif
+
+        /// <summary>
+        /// Plays at a world point with linear falloff, the same 2–15 m range as
+        /// footsteps and combat one-shots. <c>PlayClipAtPoint</c> would keep the
+        /// clip audible across the whole map.
+        /// </summary>
+        public static void PlaySpatial(AudioClip clip, Vector3 position)
+        {
+            if (clip == null)
+            {
+                return;
+            }
+
+#if UNITY_SERVER
+            return;
+#else
+            var audioObject = new GameObject("ShredderAudio");
+            audioObject.transform.position = position;
+            var source = audioObject.AddComponent<AudioSource>();
+            ConfigureSpatial(source);
+            source.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            source.clip = clip;
+            source.Play();
+            Object.Destroy(audioObject, clip.length + .05f);
+#endif
+        }
+
+        public static void ConfigureSpatial(AudioSource source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            source.playOnAwake = false;
+            source.loop = false;
+            source.spatialBlend = 1f;
+            source.rolloffMode = AudioRolloffMode.Linear;
+            source.minDistance = MinDistance;
+            source.maxDistance = MaxDistance;
+            source.dopplerLevel = 0f;
+        }
 
         private void PlayClip(AudioClip clip)
         {

@@ -1,6 +1,7 @@
 Lives under `Resources` because `ShredderInteractable` sits in each map scene rather than a
 shared prefab, and `NetworkInteractionSceneBridge` is a plain C# service (no Inspector) that
-confirms shredder state for remote players — both load these clips by path.
+confirms shredder state for remote players — both load these clips by path. Playback is 3D
+with linear rolloff from 2 m to 15 m, the same range as footsteps, so a far shredder is quieter.
 
 # Feed (ShredderFeed.wav)
 
