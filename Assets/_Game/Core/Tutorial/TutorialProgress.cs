@@ -18,6 +18,15 @@ namespace Game.Core.Tutorial
         Complete
     }
 
+    public enum TutorialInteractionAction : byte
+    {
+        PickUp,
+        Drop,
+        Throw,
+        Place,
+        UseShredder
+    }
+
     public readonly struct TutorialMovementObservation
     {
         public TutorialMovementObservation(
@@ -111,6 +120,21 @@ namespace Game.Core.Tutorial
             lookDegrees = 0f;
             jumpWasGrounded = false;
             jumpWasAirborne = false;
+        }
+
+        public bool ObserveInteraction(TutorialInteractionAction action)
+        {
+            var expected = CurrentStep switch
+            {
+                TutorialStep.PickUp => TutorialInteractionAction.PickUp,
+                TutorialStep.Drop => TutorialInteractionAction.Drop,
+                TutorialStep.Throw => TutorialInteractionAction.Throw,
+                TutorialStep.Place => TutorialInteractionAction.Place,
+                TutorialStep.UseShredder => TutorialInteractionAction.UseShredder,
+                _ => (TutorialInteractionAction?)null
+            };
+
+            return expected == action && Advance();
         }
 
         internal bool Advance()

@@ -21,5 +21,13 @@ namespace Game.Client.Tutorial
         }
 
         public void RetryCurrentStep() => progress.RetryCurrentStep();
+
+        public bool ObserveInteraction(TutorialInteractionAction action)
+        {
+            if (!progress.ObserveInteraction(action)) return false;
+            StepChanged?.Invoke(progress.CurrentStep);
+            Debug.Log($"[Tutorial] Step advanced: {progress.CurrentStep}", this);
+            return true;
+        }
     }
 }

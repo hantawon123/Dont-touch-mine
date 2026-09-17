@@ -39,6 +39,8 @@ namespace Game.Client.Tutorial
 
         private void Update()
         {
+            if (session.CurrentStep > TutorialStep.Prone) return;
+
             if (player.transform.position.y < FallHeight ||
                 (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame))
             {

@@ -11,6 +11,7 @@ namespace Game.Bootstrap
     [RequireComponent(typeof(Collider))]
     public sealed class ShredderInteractable : MonoBehaviour, IInteractable
     {
+        public event Action<CarryableItem> ItemProcessed;
         private const int EjectionDelayMilliseconds = 500;
 
         [SerializeField]
@@ -68,6 +69,7 @@ namespace Game.Bootstrap
                 if (session.TryDestroyHeldPlayerItem(playerIndex, now))
                 {
                     interactor.ReleaseCarriedItem();
+                    ItemProcessed?.Invoke(item);
                     Destroy(item.gameObject);
                     return;
                 }
@@ -81,6 +83,7 @@ namespace Game.Bootstrap
             else if (item.IsPlayerItem)
             {
                 interactor.ReleaseCarriedItem();
+                ItemProcessed?.Invoke(item);
                 Destroy(item.gameObject);
                 return;
             }
@@ -118,6 +121,7 @@ namespace Game.Bootstrap
             item.OnThrown(
                 (ejectionDirection * ejectionSpeed) +
                 (Vector3.up * ejectionUpwardSpeed));
+            ItemProcessed?.Invoke(item);
         }
     }
 }

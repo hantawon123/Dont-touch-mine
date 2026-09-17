@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Game.Client.Combat;
+using Game.Client.Interactions;
 using Game.Client.Players;
 using Game.Client.Tutorial;
+using Game.Bootstrap;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -23,6 +25,8 @@ namespace Game.Editor.Tutorial
         private const string MaterialFolder = "Assets/_Game/Content/Materials/Tutorial";
         private const string PlayerPrefabPath = "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab";
         private const string CameraPrefabPath = "Assets/_Game/Content/Prefabs/PlayerCameraRig.prefab";
+        private const string TrainingItemPrefabPath =
+            "Assets/_Game/Content/Prefabs/Carryable/Basement_CardboardBox1 Carryable.prefab";
         private const float CeilingHeight = 7.5f;
         private const float MapWidth = 46f;
         private const float MapDepth = 30f;
@@ -150,10 +154,12 @@ namespace Game.Editor.Tutorial
             }
             var runtime = Require(root.transform, "Runtime");
             if (runtime.GetComponent<TutorialSession>() == null ||
-                runtime.GetComponent<TutorialMovementCourse>() == null)
+                runtime.GetComponent<TutorialMovementCourse>() == null ||
+                runtime.GetComponent<TutorialItemCourse>() == null)
             {
-                throw new InvalidOperationException("Tutorial movement runtime is not wired.");
+                throw new InvalidOperationException("Tutorial runtime courses are not wired.");
             }
+            Require(root.transform, "Zones/03_Items/PickupDrop/TrainingItem");
 
             var ceiling = root.transform.Find("Architecture/Ceiling");
             if (Mathf.Abs(ceiling.position.y - CeilingHeight) > 0.01f)
@@ -283,6 +289,11 @@ namespace Game.Editor.Tutorial
             PlaceProp(pickup, "Basement_CardboardBox2.prefab", "PickupBoxB", new Vector3(1.2f, 0f, 0.7f), new Vector3(0f, 25f, 0f));
             PlaceProp(pickup, "Basement_PlasticBox_Blue.prefab", "PickupBin", new Vector3(-3.5f, 0f, 1.7f), new Vector3(0f, 10f, 0f));
             Cube(pickup, "DropPad", new Vector3(2.8f, 0.04f, -1.4f), new Vector3(2.5f, 0.08f, 2.5f), Mat("Pad", new Color32(96, 177, 159, 255)));
+            InstantiateRuntimePrefab(
+                TrainingItemPrefabPath,
+                pickup,
+                "TrainingItem",
+                pickup.TransformPoint(new Vector3(0f, 1f, -1f)));
 
             var throwing = Child(items, "Throw");
             throwing.localPosition = new Vector3(-8f, 0f, -8.5f);
@@ -312,6 +323,25 @@ namespace Game.Editor.Tutorial
             shredder.name = "PurpleBear_Shredder";
             shredder.transform.localPosition = new Vector3(0.5f, 0f, 0.4f);
             shredder.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+
+            var interactionCollider = shredder.GetComponent<Collider>();
+            if (interactionCollider == null) interactionCollider = shredder.AddComponent<BoxCollider>();
+            interactionCollider.isTrigger = false;
+            if (interactionCollider is BoxCollider box)
+            {
+                box.center = new Vector3(0f, 1.1f, 0f);
+                box.size = new Vector3(2.4f, 2.2f, 2.4f);
+            }
+
+            var ejectionPoint = Child(shredder.transform, "TutorialEjectionPoint");
+            ejectionPoint.localPosition = new Vector3(0.8f, 1.2f, 0f);
+            var ejectionTarget = Child(shredder.transform, "TutorialEjectionTarget");
+            ejectionTarget.localPosition = new Vector3(3f, 1f, 0f);
+            var interactable = shredder.AddComponent<ShredderInteractable>();
+            var shredderObject = new SerializedObject(interactable);
+            shredderObject.FindProperty("ejectionPoint").objectReferenceValue = ejectionPoint;
+            shredderObject.FindProperty("ejectionTarget").objectReferenceValue = ejectionTarget;
+            shredderObject.ApplyModifiedPropertiesWithoutUndo();
 
             Cube(zone, "SafetyPad", new Vector3(0.5f, 0.03f, 0.4f), new Vector3(5.4f, 0.06f, 4.6f), Mat("ShredderPad", new Color32(115, 77, 150, 255)));
             PlaceProp(zone, "Basement_PlasticBox_Blue.prefab", "InputBin", new Vector3(-3.1f, 0f, 0.4f), new Vector3(0f, 15f, 0f));
@@ -395,6 +425,21 @@ namespace Game.Editor.Tutorial
             movementObject.FindProperty("session").objectReferenceValue = session;
             movementObject.FindProperty("player").objectReferenceValue = player;
             movementObject.ApplyModifiedPropertiesWithoutUndo();
+
+            var itemCourse = runtime.gameObject.AddComponent<TutorialItemCourse>();
+            var itemObject = new SerializedObject(itemCourse);
+            itemObject.FindProperty("session").objectReferenceValue = session;
+            itemObject.FindProperty("interactor").objectReferenceValue =
+                playerObject.GetComponent<PlayerInteractor>();
+            itemObject.FindProperty("trainingItem").objectReferenceValue =
+                root.Find("Zones/03_Items/PickupDrop/TrainingItem").GetComponent<CarryableItem>();
+            itemObject.FindProperty("trainingItemPrefab").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<GameObject>(TrainingItemPrefabPath)
+                    .GetComponent<CarryableItem>();
+            itemObject.FindProperty("shredder").objectReferenceValue =
+                root.Find("Zones/04_Shredder/PurpleBear_Shredder")
+                    .GetComponent<ShredderInteractable>();
+            itemObject.ApplyModifiedPropertiesWithoutUndo();
 
             var exitMarker = root.Find("Zones/05_Exit/TutorialComplete");
             if (exitMarker == null)

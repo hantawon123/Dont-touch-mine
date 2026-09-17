@@ -1,3 +1,4 @@
+using System;
 using Game.Client.Players;
 using Game.Core.Players;
 using Game.Core.Settings;
@@ -26,6 +27,7 @@ namespace Game.Client.Interactions
     /// </summary>
     public sealed class PlayerInteractor : MonoBehaviour, ICarriedItemDropper, ICarryingState
     {
+        public event Action<LocalItemAction, CarryableItem> LocalItemActionPerformed;
         private const int MaxAimHits = 8;
         private bool hudVisible = true;
         private bool interfaceHudVisible = true;
@@ -555,6 +557,7 @@ namespace Game.Client.Interactions
             GetComponent<PlayerAnimationDriver>()?.PlayThrow();
             CarriedItem = null;
             thrown.OnThrown(velocity);
+            LocalItemActionPerformed?.Invoke(LocalItemAction.Thrown, thrown);
         }
 
         public bool TryPickUp(CarryableItem item)
@@ -572,6 +575,7 @@ namespace Game.Client.Interactions
             CarriedItem = item;
             item.OnPickedUp(holdPoint);
             GetComponent<PlayerAnimationDriver>()?.PlayPickup();
+            LocalItemActionPerformed?.Invoke(LocalItemAction.PickedUp, item);
             return true;
         }
 
@@ -591,6 +595,7 @@ namespace Game.Client.Interactions
             GetComponent<PlayerAnimationDriver>()?.PlayPutDown();
             var item = ReleaseCarriedItem();
             item.OnPlaced(position, rotation);
+            LocalItemActionPerformed?.Invoke(LocalItemAction.Placed, item);
             return true;
         }
 
@@ -670,6 +675,7 @@ namespace Game.Client.Interactions
             GetComponent<PlayerAnimationDriver>()?.PlayPutDown();
             CarriedItem = null;
             dropped.OnDropped();
+            LocalItemActionPerformed?.Invoke(LocalItemAction.Dropped, dropped);
         }
 
         // 벽에 붙어 놓거나 던질 때 손 위치가 벽 너머라면 시작점을 벽 앞으로 당긴다.
