@@ -264,6 +264,9 @@ namespace Game.Network.Match
             _countdownParticipants = null;
             _countdownUserIds = null;
             _state.StartCountdownEndsAt = 0d;
+            // Countdown still checks the seat-ordered roster. Shuffle after
+            // that freeze so hiding turns are a new random order each match.
+            MatchParticipant.ShufflePlayOrder(participantIds, participantUserIds, new System.Random());
             _state.Confirm(participantIds, participantUserIds);
             Debug.Log($"[Match] Started with {participantIds.Length} players.");
 
