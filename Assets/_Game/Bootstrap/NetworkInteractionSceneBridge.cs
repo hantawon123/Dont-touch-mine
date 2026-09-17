@@ -464,7 +464,7 @@ namespace Game.Bootstrap
                 {
                     ForgetItem(item);
                     pendingShredderEjectionIds.Remove(state.ObjectId);
-                    PlayShredderClip(shredderSuccessClip, item.transform.position);
+                    ShredderInteractable.PlayGlobal(shredderSuccessClip);
                     if (ReferenceEquals(highlightedAssignment, item))
                     {
                         highlightedAssignment = null;

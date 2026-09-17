@@ -86,6 +86,30 @@ namespace Game.Bootstrap
 #endif
         }
 
+        /// <summary>
+        /// HUD-style 2D playback so every peer hears the success chime at the
+        /// same loudness, regardless of how far they are from the shredder.
+        /// </summary>
+        public static void PlayGlobal(AudioClip clip)
+        {
+            if (clip == null)
+            {
+                return;
+            }
+
+#if UNITY_SERVER
+            return;
+#else
+            var audioObject = new GameObject("ShredderSuccessAudio");
+            var source = audioObject.AddComponent<AudioSource>();
+            ConfigureGlobal(source);
+            source.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            source.clip = clip;
+            source.Play();
+            Object.Destroy(audioObject, clip.length + .05f);
+#endif
+        }
+
         public static void ConfigureSpatial(AudioSource source)
         {
             if (source == null)
@@ -99,6 +123,19 @@ namespace Game.Bootstrap
             source.rolloffMode = AudioRolloffMode.Linear;
             source.minDistance = MinDistance;
             source.maxDistance = MaxDistance;
+            source.dopplerLevel = 0f;
+        }
+
+        public static void ConfigureGlobal(AudioSource source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            source.playOnAwake = false;
+            source.loop = false;
+            source.spatialBlend = 0f;
             source.dopplerLevel = 0f;
         }
 
@@ -146,7 +183,7 @@ namespace Game.Bootstrap
                 if (session.TryDestroyHeldPlayerItem(playerIndex, now))
                 {
                     interactor.ReleaseCarriedItem();
-                    PlayClip(successClip);
+                    PlayGlobal(successClip);
                     Destroy(item.gameObject);
                     return;
                 }
@@ -160,7 +197,7 @@ namespace Game.Bootstrap
             else if (item.IsPlayerItem)
             {
                 interactor.ReleaseCarriedItem();
-                PlayClip(successClip);
+                PlayGlobal(successClip);
                 Destroy(item.gameObject);
                 return;
             }

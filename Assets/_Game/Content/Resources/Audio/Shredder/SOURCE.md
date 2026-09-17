@@ -1,7 +1,8 @@
 Lives under `Resources` because `ShredderInteractable` sits in each map scene rather than a
 shared prefab, and `NetworkInteractionSceneBridge` is a plain C# service (no Inspector) that
-confirms shredder state for remote players — both load these clips by path. Playback is 3D
-with linear rolloff from 2 m to 15 m, the same range as footsteps, so a far shredder is quieter.
+confirms shredder state for remote players — both load these clips by path. Feed, run and
+eject are 3D with linear rolloff from 2 m to 15 m, the same range as footsteps, so a far
+shredder is quieter. Success is 2D, so every player hears the chime at the same loudness.
 
 # Feed (ShredderFeed.wav)
 
@@ -38,4 +39,4 @@ with linear rolloff from 2 m to 15 m, the same range as footsteps, so a far shre
 - Length: 0.46 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -3.1 dBFS.
 - Approved preview: `audio-previews/success-chime.wav`; runtime asset is byte-identical.
 - Regenerate: `node Tools/audio/create-success-chime.cjs Assets/_Game/Content/Resources/Audio/Shredder/ShredderSuccess.wav`.
-- Played once when the player's own hidden item is destroyed in the shredder (a match, not a regular map object).
+- Played once when the player's own hidden item is destroyed in the shredder (a match, not a regular map object). 2D, so every peer hears it at the same volume.

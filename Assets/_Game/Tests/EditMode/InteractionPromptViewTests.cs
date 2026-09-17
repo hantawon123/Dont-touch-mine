@@ -70,6 +70,23 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ShredderSuccessAudio_IsTheSameLoudnessForEveryone()
+        {
+            var audioObject = new GameObject("ShredderSuccessAudio");
+            try
+            {
+                var source = audioObject.AddComponent<AudioSource>();
+                ShredderInteractable.ConfigureGlobal(source);
+                Assert.That(source.spatialBlend, Is.EqualTo(0f));
+                Assert.That(source.dopplerLevel, Is.EqualTo(0f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(audioObject);
+            }
+        }
+
+        [Test]
         public void Prompt_UsesOpaqueKeyBoxAndSemibold18Label()
         {
             InteractionPromptView view = null;
