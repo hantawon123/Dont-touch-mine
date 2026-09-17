@@ -1374,7 +1374,7 @@ namespace Game.Architecture.Tests
         {
             public bool IsRunning => false;
 
-            public void Start(string deviceName)
+            public void Start(string deviceName, float gain = 1f)
             {
             }
 

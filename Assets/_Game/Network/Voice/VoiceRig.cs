@@ -5,6 +5,7 @@ using Photon.Realtime;
 using Photon.Voice;
 using Photon.Voice.Fusion;
 using Photon.Voice.Unity;
+using Photon.Voice.Unity.UtilityScripts;
 using R3;
 using UnityEngine;
 
@@ -60,6 +61,12 @@ namespace Game.Network.Voice
         /// made to hear the choice again.
         /// </summary>
         private string appliedDevice;
+
+        /// <summary>
+        /// The 마이크 볼륨 slider as a multiplier. 1 until the settings say
+        /// otherwise, which is the microphone untouched.
+        /// </summary>
+        private float requestedGain = 1f;
 
 
         public ReadOnlyReactiveProperty<bool> IsAvailable => available;
@@ -200,6 +207,7 @@ namespace Game.Network.Voice
                 appliedDevice = null;
                 ApplyTransmitState();
                 ApplyCaptureDevice();
+                ApplyCaptureGain();
             }
 
             available.Value = client.ClientState == ClientState.Joined;
@@ -275,6 +283,40 @@ namespace Game.Network.Voice
         {
             requestedDevice = deviceName ?? string.Empty;
             ApplyCaptureDevice();
+        }
+
+        /// <summary>
+        /// Hands the 마이크 볼륨 slider to the recorder.
+        /// </summary>
+        /// <remarks>
+        /// Through <see cref="MicAmplifier"/>, an SDK component that hangs a
+        /// post-processor on the outgoing stream. It has to be on the recorder's
+        /// own object before the voice is created, because the recorder tells it
+        /// so with <c>SendMessage</c> — which is why it sits on the prefab
+        /// rather than being added here.
+        /// </remarks>
+        public void SetCaptureGain(float gain)
+        {
+            requestedGain = gain;
+            ApplyCaptureGain();
+        }
+
+        private void ApplyCaptureGain()
+        {
+            if (boundRecorder == null)
+            {
+                return;
+            }
+
+            var amplifier = boundRecorder.GetComponent<MicAmplifier>();
+            if (amplifier == null)
+            {
+                return;
+            }
+
+            // Its own setter ignores a value that has not moved, so there is
+            // nothing to remember on this side.
+            amplifier.AmplificationFactor = requestedGain;
         }
 
         private void ApplyCaptureDevice()

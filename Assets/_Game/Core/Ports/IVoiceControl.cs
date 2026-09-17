@@ -66,5 +66,15 @@ namespace Game.Core.Ports
         /// </para>
         /// </remarks>
         void SetCaptureDevice(string deviceName);
+
+        /// <summary>
+        /// How much to scale the captured signal by, where 1 is the microphone
+        /// as it comes in. See <c>VoiceCaptureGain</c>.
+        /// </summary>
+        /// <remarks>
+        /// A number rather than the slider's percentage, so the meaning of the
+        /// slider stays in one place and the implementer only has to multiply.
+        /// </remarks>
+        void SetCaptureGain(float gain);
     }
 }

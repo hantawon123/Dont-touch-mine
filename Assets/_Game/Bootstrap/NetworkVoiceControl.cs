@@ -108,6 +108,13 @@ namespace Game.Bootstrap
             network.Voice?.SetCaptureDevice(deviceName);
         }
 
+        /// <inheritdoc />
+        public void SetCaptureGain(float gain)
+        {
+            if (disposed) return;
+            network.Voice?.SetCaptureGain(gain);
+        }
+
         /// <remarks>
         /// Mirrors rather than forwards the rig's own properties: they belong to
         /// the rig and go away with it, and a screen that subscribed to them
@@ -134,6 +141,7 @@ namespace Game.Bootstrap
                 voice.SetTalking(EffectiveTalking);
                 voice.SetListening(preferences.Listening);
                 voice.SetCaptureDevice(EffectiveDevice);
+                voice.SetCaptureGain(EffectiveGain);
             }
 
             available.Value = voice.IsAvailable.CurrentValue;
@@ -169,6 +177,7 @@ namespace Game.Bootstrap
             PublishEffectiveMute();
             PublishTalking();
             PublishCaptureDevice();
+            PublishCaptureGain();
         }
 
         /// <summary>
@@ -184,6 +193,15 @@ namespace Game.Bootstrap
         /// is the only side that knows whether the recorder it has is still
         /// the one that was told.
         /// </remarks>
+        /// <summary>The 마이크 볼륨 slider as a multiplier.</summary>
+        private float EffectiveGain => VoiceCaptureGain.From(sound.Current);
+
+        /// <inheritdoc cref="PublishCaptureDevice" />
+        private void PublishCaptureGain()
+        {
+            network.Voice?.SetCaptureGain(EffectiveGain);
+        }
+
         private void PublishCaptureDevice()
         {
             network.Voice?.SetCaptureDevice(EffectiveDevice);
