@@ -581,8 +581,6 @@ namespace Game.Client.Settings
                         return "마스터 볼륨";
                     case Core.Settings.SoundVolume.Music:
                         return "배경음악 볼륨";
-                    case Core.Settings.SoundVolume.Ambience:
-                        return "환경소리 볼륨";
                     case Core.Settings.SoundVolume.Effects:
                         return "효과음 볼륨";
                     case Core.Settings.SoundVolume.Microphone:

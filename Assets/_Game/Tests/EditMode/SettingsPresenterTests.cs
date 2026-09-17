@@ -656,7 +656,7 @@ namespace Game.Architecture.Tests
         public void Reset_OnTheSoundTab_PutsEverySliderBackToHalf()
         {
             using var presenter = Started();
-            view.DragVolume(SoundVolume.Ambience, 5);
+            view.DragVolume(SoundVolume.Music, 5);
             view.StepDevice(1);
             view.SelectTab(SettingsTab.Sound);
 
@@ -665,7 +665,7 @@ namespace Game.Architecture.Tests
             view.Accept();
 
             Assert.That(presenter.SoundDraft, Is.EqualTo(sound.Defaults));
-            Assert.That(view.Volumes[SoundVolume.Ambience], Is.EqualTo(50));
+            Assert.That(view.Volumes[SoundVolume.Music], Is.EqualTo(50));
             Assert.That(view.DeviceLabel, Is.EqualTo("기본 장치"));
         }
 

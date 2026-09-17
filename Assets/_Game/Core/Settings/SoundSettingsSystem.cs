@@ -144,7 +144,6 @@ namespace Game.Core.Settings
             var preview = Current
                 .With(SoundVolume.Master, SoundCatalog.Clamp(draft.Get(SoundVolume.Master)))
                 .With(SoundVolume.Music, SoundCatalog.Clamp(draft.Get(SoundVolume.Music)))
-                .With(SoundVolume.Ambience, SoundCatalog.Clamp(draft.Get(SoundVolume.Ambience)))
                 .With(SoundVolume.Effects, SoundCatalog.Clamp(draft.Get(SoundVolume.Effects)));
             applier.Apply(preview);
             AudioChanged?.Invoke(preview);
