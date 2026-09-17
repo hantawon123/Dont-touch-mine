@@ -56,6 +56,21 @@ namespace Game.Client.Players
         private AudioClip jumpClip;
 
         private AudioSource jumpAudioSource;
+
+        [SerializeField, Tooltip("물건을 집을 때 재생하는 효과음")]
+        private AudioClip pickupSoundClip;
+
+        private AudioSource pickupAudioSource;
+
+        [SerializeField, Tooltip("물건을 내려놓을 때 재생하는 효과음 (일반 드롭과 정밀 배치 확정 모두)")]
+        private AudioClip putDownSoundClip;
+
+        private AudioSource putDownAudioSource;
+
+        [SerializeField, Tooltip("물건을 던질 때 재생하는 효과음")]
+        private AudioClip throwSoundClip;
+
+        private AudioSource throwAudioSource;
         private float previousJumpHeight;
         private bool jumpGroundedSeen;
         private bool jumpSoundPlayed;
@@ -125,6 +140,12 @@ namespace Game.Client.Players
                 hitAudioSource = CreateCombatAudioSource("PunchHitAudio");
             if (jumpClip != null)
                 jumpAudioSource = CreateCombatAudioSource("JumpAudio");
+            if (pickupSoundClip != null)
+                pickupAudioSource = CreateCombatAudioSource("PickupAudio");
+            if (putDownSoundClip != null)
+                putDownAudioSource = CreateCombatAudioSource("PutDownAudio");
+            if (throwSoundClip != null)
+                throwAudioSource = CreateCombatAudioSource("ThrowAudio");
             if (footstepClips != null && footstepClips.Length > 0)
             {
                 footstepAudio = gameObject.AddComponent<PlayerFootstepAudio>();
@@ -148,6 +169,9 @@ namespace Game.Client.Players
             if (punchAudioSource != null) punchAudioSource.Stop();
             if (hitAudioSource != null) hitAudioSource.Stop();
             if (jumpAudioSource != null) jumpAudioSource.Stop();
+            if (pickupAudioSource != null) pickupAudioSource.Stop();
+            if (putDownAudioSource != null) putDownAudioSource.Stop();
+            if (throwAudioSource != null) throwAudioSource.Stop();
             jumpGroundedSeen = false;
             jumpSoundPlayed = false;
             if (combatant != null)
@@ -250,18 +274,33 @@ namespace Game.Client.Players
 
         public void PlayPickup()
         {
+            if (pickupAudioSource != null && pickupAudioSource.isActiveAndEnabled)
+            {
+                pickupAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                pickupAudioSource.PlayOneShot(pickupSoundClip);
+            }
             var clip = ResolvePickupClip(movement.Posture);
             PlayOneShot(clip, ClipSeconds(clip));
         }
 
         public void PlayPutDown()
         {
+            if (putDownAudioSource != null && putDownAudioSource.isActiveAndEnabled)
+            {
+                putDownAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                putDownAudioSource.PlayOneShot(putDownSoundClip);
+            }
             var clip = ResolvePutDownClip(movement.Posture);
             PlayOneShot(clip, ClipSeconds(clip));
         }
 
         public void PlayThrow()
         {
+            if (throwAudioSource != null && throwAudioSource.isActiveAndEnabled)
+            {
+                throwAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                throwAudioSource.PlayOneShot(throwSoundClip);
+            }
             var settings = movement.MovementSettings;
             var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
             var clip = ResolveThrowClip(
@@ -383,6 +422,12 @@ namespace Game.Client.Players
                 hitAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             if (jumpAudioSource != null)
                 jumpAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (pickupAudioSource != null)
+                pickupAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (putDownAudioSource != null)
+                putDownAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (throwAudioSource != null)
+                throwAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             footstepAudio?.Tick(animator, currentState,
                 usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
         }
