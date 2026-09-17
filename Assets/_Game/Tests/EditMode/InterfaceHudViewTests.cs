@@ -32,6 +32,18 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ChatListScale_FollowsUiAndFontSize()
+        {
+            var large = InterfaceHudView.Scale(InterfaceCatalog.Large);
+            Assert.That(
+                MatchChatView.ListScale(large, InterfaceHudView.Scale(InterfaceCatalog.Medium)),
+                Is.EqualTo(large).Within(0.0001f));
+            Assert.That(
+                MatchChatView.ScaledItemSpacing(large, large),
+                Is.EqualTo(MatchChatView.ItemSpacing * large * large).Within(0.0001f));
+        }
+
+        [Test]
         public void Category_SitsBelowDestroyedItemSlots()
         {
             Assert.That(DestroyedItemsHudView.CategoryFontSize, Is.EqualTo(36f));

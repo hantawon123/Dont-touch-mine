@@ -41,15 +41,27 @@ namespace Game.Client.Home
         /// sprite costs a few kilobytes and no repository space, and it cannot
         /// drift from <see cref="HomeStyle"/> the way an exported PNG does.
         /// </remarks>
-        public static Sprite Rounded(int radius, SquareCorner squareCorner = SquareCorner.None)
+        public static Sprite Rounded(int radius, SquareCorner squareCorner = SquareCorner.None) =>
+            Rounded(radius, 1, squareCorner);
+
+        /// <summary>
+        /// Same visual radius, drawn on a larger atlas. A world-space bubble
+        /// at radius 6 looks stepped on a 16px slice; supersample 8 keeps the
+        /// corner 6 units wide and only adds pixels to the curve.
+        /// </summary>
+        public static Sprite Rounded(
+            int radius,
+            int supersample,
+            SquareCorner squareCorner = SquareCorner.None)
         {
-            var key = (radius * 10) + (int)squareCorner;
+            var scale = Mathf.Max(1, supersample);
+            var key = (radius * 1000) + (scale * 10) + (int)squareCorner;
             if (RoundedSprites.TryGetValue(key, out var cached) && cached != null)
             {
                 return cached;
             }
 
-            var sprite = BuildRoundedSprite(radius, 0f, squareCorner);
+            var sprite = BuildRoundedSprite(radius * scale, 0f, squareCorner, 100f * scale);
             RoundedSprites[key] = sprite;
             return sprite;
         }
@@ -81,7 +93,10 @@ namespace Game.Client.Home
         /// corner shows its steps at chip size.
         /// </remarks>
         private static Sprite BuildRoundedSprite(
-            int radius, float thickness, SquareCorner squareCorner = SquareCorner.None)
+            int radius,
+            float thickness,
+            SquareCorner squareCorner = SquareCorner.None,
+            float pixelsPerUnit = 100f)
         {
             var size = Mathf.Max((radius * 2) + 4, 8);
             var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
@@ -124,7 +139,7 @@ namespace Game.Client.Home
                 texture,
                 new Rect(0f, 0f, size, size),
                 new Vector2(0.5f, 0.5f),
-                100f,
+                pixelsPerUnit,
                 0,
                 SpriteMeshType.FullRect,
                 new Vector4(border, border, border, border));
