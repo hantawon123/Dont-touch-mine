@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using Game.Client.Tutorial;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -17,6 +19,8 @@ namespace Game.Editor.Tutorial
         private const string MenuRoot = "Game/Tutorial/";
         private const string ScenePath = "Assets/_Game/Content/Scenes/Tutorial.unity";
         private const string MaterialFolder = "Assets/_Game/Content/Materials/Tutorial";
+        private const string PlayerPrefabPath = "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab";
+        private const string CameraPrefabPath = "Assets/_Game/Content/Prefabs/PlayerCameraRig.prefab";
         private const float CeilingHeight = 7.5f;
         private const float MapWidth = 46f;
         private const float MapDepth = 30f;
@@ -48,6 +52,7 @@ namespace Game.Editor.Tutorial
             BuildAuthoringMarkers(root.transform);
 
             StaticBatchingUtility.Combine(root);
+            BuildRuntime(root.transform);
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene, ScenePath))
             {
@@ -56,6 +61,7 @@ namespace Game.Editor.Tutorial
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+            EnsureSceneInBuildSettings();
             ValidateScene(logSuccess: true);
             Debug.Log($"[Tutorial] Hideout built and saved: {ScenePath}");
         }
@@ -133,6 +139,13 @@ namespace Game.Editor.Tutorial
             Require(root.transform, "Zones/03_Items/Placement");
             Require(root.transform, "Zones/04_Shredder");
             Require(root.transform, "Zones/05_Exit");
+            Require(root.transform, "Runtime/PlayerCharacter");
+            Require(root.transform, "Runtime/PlayerCameraRig");
+            var completion = Require(root.transform, "Runtime/TutorialCompletion");
+            if (completion.GetComponent<TutorialCompletionTrigger>() == null)
+            {
+                throw new InvalidOperationException("Tutorial completion trigger is not wired.");
+            }
 
             var ceiling = root.transform.Find("Architecture/Ceiling");
             if (Mathf.Abs(ceiling.position.y - CeilingHeight) > 0.01f)
@@ -348,6 +361,66 @@ namespace Game.Editor.Tutorial
             Marker(markers, "RouteEnd", new Vector3(0f, 0.1f, -13f));
         }
 
+        private static void BuildRuntime(Transform root)
+        {
+            var runtime = Child(root, "Runtime");
+            var start = root.Find("Zones/01_Briefing/PlayerStart");
+            if (start == null)
+            {
+                throw new InvalidOperationException("Tutorial player start marker is missing.");
+            }
+
+            InstantiateRuntimePrefab(PlayerPrefabPath, runtime, "PlayerCharacter", start.position);
+            InstantiateRuntimePrefab(CameraPrefabPath, runtime, "PlayerCameraRig", Vector3.zero);
+
+            var exitMarker = root.Find("Zones/05_Exit/TutorialComplete");
+            if (exitMarker == null)
+            {
+                throw new InvalidOperationException("Tutorial completion marker is missing.");
+            }
+
+            var completion = new GameObject("TutorialCompletion");
+            completion.transform.SetParent(runtime, false);
+            completion.transform.position = exitMarker.position;
+            var trigger = completion.AddComponent<BoxCollider>();
+            trigger.isTrigger = true;
+            trigger.size = new Vector3(4.2f, 2.4f, 2.4f);
+            completion.AddComponent<TutorialCompletionTrigger>();
+        }
+
+        private static void InstantiateRuntimePrefab(
+            string assetPath,
+            Transform parent,
+            string instanceName,
+            Vector3 worldPosition)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            if (prefab == null)
+            {
+                throw new FileNotFoundException($"Tutorial runtime prefab not found: {assetPath}");
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            instance.name = instanceName;
+            instance.transform.SetPositionAndRotation(worldPosition, Quaternion.identity);
+        }
+
+        private static void EnsureSceneInBuildSettings()
+        {
+            var scenes = EditorBuildSettings.scenes.ToList();
+            var existing = scenes.FindIndex(scene => scene.path == ScenePath);
+            if (existing >= 0)
+            {
+                scenes[existing].enabled = true;
+            }
+            else
+            {
+                scenes.Add(new EditorBuildSettingsScene(ScenePath, true));
+            }
+
+            EditorBuildSettings.scenes = scenes.ToArray();
+        }
+
         private static Transform Zone(Transform root, string name, Vector3 localPosition)
         {
             var zones = root.Find("Zones") ?? Child(root, "Zones");
@@ -435,9 +508,8 @@ namespace Game.Editor.Tutorial
                 AssetDatabase.CreateAsset(material, path);
             }
 
-            material.color = color;
             if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
-            if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+            else if (material.HasProperty("_Color")) material.SetColor("_Color", color);
             material.SetFloat("_Smoothness", 0.15f);
             material.enableInstancing = true;
             EditorUtility.SetDirty(material);
@@ -457,12 +529,15 @@ namespace Game.Editor.Tutorial
             }
         }
 
-        private static void Require(Transform root, string path)
+        private static Transform Require(Transform root, string path)
         {
-            if (root.Find(path) == null)
+            var found = root.Find(path);
+            if (found == null)
             {
                 throw new InvalidOperationException($"Tutorial object is missing: {path}");
             }
+
+            return found;
         }
     }
 }

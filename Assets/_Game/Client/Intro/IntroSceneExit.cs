@@ -1,3 +1,4 @@
+using Game.Client.Tutorial;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -36,11 +37,14 @@ namespace Game.Client.Intro
                 return;
             }
 
-            var op = SceneManager.LoadSceneAsync(nextSceneName, LoadSceneMode.Single);
+            var destination = TutorialEntryRoute.Resolve(
+                nextSceneName,
+                new PlayerPrefsTutorialCompletionStore());
+            var op = SceneManager.LoadSceneAsync(destination, LoadSceneMode.Single);
             if (op == null)
             {
                 // Unity 는 Build Settings 에 없는 씬이면 예외 대신 null 을 돌려준다.
-                Debug.LogError($"[Intro] '{nextSceneName}' 씬을 로드할 수 없습니다. " +
+                Debug.LogError($"[Intro] '{destination}' 씬을 로드할 수 없습니다. " +
                                "File > Build Settings 의 Scenes In Build 에 들어 있는지 확인하세요.");
                 _loading = false;
             }
