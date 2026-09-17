@@ -61,9 +61,11 @@ python3 -m unittest discover -s Tools/network/server-flow -p 'test_*.py'
 ## 게임 소개·다운로드 페이지
 
 `Tools/client/site/play.html`은 정적 소개·설치 페이지의 배포 템플릿이다. 별도 프런트엔드 빌드나 외부 로그인은 필요 없다.
-패키징 시 ZIP 이름·크기, 압축 해제 크기, Git 버전, 한국 시간 기준 생성일을 넣고
-저장소의 `docs/design/concept/main-screen-concept.png`를 `hero.png`로 복사한다.
-완성된 페이지는 `Builds/Download/index.html`로 출력하며, 파비콘도 함께 복사한다.
+패키징 시 ZIP 이름·크기, 압축 해제 크기, Git 버전, 한국 시간 기준 생성일을 넣는다.
+완성된 페이지는 `Builds/Download/index.html`로 출력하며, 파비콘과 `site/`의 페이지 에셋
+(`banner.jpg`, `custom.jpg`, `win.jpg`, `highlight.jpg`, 스텝별 `step-N.mp4`·`step-N-poster.jpg`)을
+함께 복사한다. 에셋이 하나라도 없으면 패키징이 실패한다. 페이지에 새 이미지나 영상을 추가하면
+`package_release.py`의 `assets` 목록에도 넣어야 한다.
 게임 다운로드 버튼은 같은 릴리스의 ZIP을 상대 경로로 연결한다. `@@ARCHIVE@@` 등의 값은
 `package_release.py`가 채우므로 원본 `play.html`을 그대로 서버에 업로드하지 않는다.
 검증된 서버와 같은 릴리스의 페이지·ZIP이 함께 공개된다. `/download/`도 호환 경로로 유지한다.
