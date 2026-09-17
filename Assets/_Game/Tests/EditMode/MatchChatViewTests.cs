@@ -35,7 +35,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void SetMessages_ShowsLastFour_NewestAtBottom()
+        public void SetMessages_ShowsAll_NewestAtBottom()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
@@ -55,14 +55,14 @@ namespace Game.Architecture.Tests
                     Is.True);
                 Assert.That(
                     view.transform.Find("HistoryPanel/Items/Row0/Name").GetComponent<TMP_Text>().text,
-                    Is.EqualTo("싸피생2"));
+                    Is.EqualTo("싸피생1"));
                 Assert.That(
-                    view.transform.Find("HistoryPanel/Items/Row3/Name").GetComponent<TMP_Text>().text,
+                    view.transform.Find("HistoryPanel/Items/Row4/Name").GetComponent<TMP_Text>().text,
                     Is.EqualTo("금오산냥냥이"));
                 Assert.That(
-                    view.transform.Find("HistoryPanel/Items/Row3/Body").GetComponent<TMP_Text>().text,
+                    view.transform.Find("HistoryPanel/Items/Row4/Body").GetComponent<TMP_Text>().text,
                     Is.EqualTo("안녕하십니까 여러분"));
-                Assert.That(view.transform.Find("HistoryPanel/Items").childCount, Is.EqualTo(4));
+                Assert.That(view.transform.Find("HistoryPanel/Items").childCount, Is.EqualTo(5));
                 var history = view.transform.Find("HistoryPanel");
                 Assert.That(history.GetComponent<Mask>(), Is.Null);
                 Assert.That(history.Find("Background"), Is.Not.Null);
@@ -74,7 +74,7 @@ namespace Game.Architecture.Tests
                     Is.Not.EqualTo(HomeUiFonts.Rounded(MatchChatView.PanelRadius)));
                 Assert.That(historyBackground.sprite.border, Is.EqualTo(Vector4.zero));
                 Assert.That(MatchChatView.PanelRadius, Is.EqualTo(10));
-                var body = view.transform.Find("HistoryPanel/Items/Row3/Body").GetComponent<TMP_Text>();
+                var body = view.transform.Find("HistoryPanel/Items/Row4/Body").GetComponent<TMP_Text>();
                 Assert.That(body.textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
                 Assert.That(body.overflowMode, Is.Not.EqualTo(TextOverflowModes.Ellipsis));
                 Assert.That(
@@ -394,7 +394,7 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     (items as RectTransform).rect.height,
                     Is.GreaterThan(MatchChatView.MinHistoryHeight));
-                for (var index = 0; index < MatchChatView.VisibleMessageCount - 1; index++)
+                for (var index = 0; index < items.childCount - 1; index++)
                 {
                     var upper = items.Find($"Row{index}") as RectTransform;
                     var lower = items.Find($"Row{index + 1}") as RectTransform;
@@ -431,10 +431,16 @@ namespace Game.Architecture.Tests
                     items.Find("Row0").GetComponent<VerticalLayoutGroup>().spacing,
                     Is.EqualTo(MatchChatView.ScaledNameBodySpacing(1.15f)).Within(0.0001f));
 
-                for (var index = 0; index < MatchChatView.VisibleMessageCount - 1; index++)
+                for (var index = 0; index < items.childCount - 1; index++)
                 {
                     var upper = items.Find($"Row{index}") as RectTransform;
                     var lower = items.Find($"Row{index + 1}") as RectTransform;
+                    if (upper == null || lower == null ||
+                        !upper.gameObject.activeSelf || !lower.gameObject.activeSelf)
+                    {
+                        continue;
+                    }
+
                     Assert.That(RowsOverlapVertically(upper, lower), Is.False);
                 }
             }
@@ -445,7 +451,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void VisibleMessages_KeepsOldestOfWindowFirst()
+        public void VisibleMessages_KeepsOldestFirst()
         {
             var messages = new[]
             {
@@ -457,9 +463,9 @@ namespace Game.Architecture.Tests
             };
 
             var visible = MatchChatView.VisibleMessages(messages);
-            Assert.That(visible.Count, Is.EqualTo(4));
-            Assert.That(visible[0].Text, Is.EqualTo("2"));
-            Assert.That(visible[3].Text, Is.EqualTo("5"));
+            Assert.That(visible.Count, Is.EqualTo(5));
+            Assert.That(visible[0].Text, Is.EqualTo("1"));
+            Assert.That(visible[4].Text, Is.EqualTo("5"));
         }
 
         private static bool RowsOverlapVertically(RectTransform upper, RectTransform lower)

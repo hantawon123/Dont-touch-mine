@@ -31,9 +31,9 @@ namespace Game.Architecture.Tests
                 Assert.That(view.transform.Find("InputPanel").gameObject.activeSelf, Is.True);
                 Assert.That(
                     view.transform.Find("HistoryPanel/Items/Row0/Name").GetComponent<TMP_Text>().text,
-                    Is.EqualTo("싸피생2"));
+                    Is.EqualTo("싸피생1"));
                 Assert.That(
-                    view.transform.Find("HistoryPanel/Items/Row3/Body").GetComponent<TMP_Text>().text,
+                    view.transform.Find("HistoryPanel/Items/Row4/Body").GetComponent<TMP_Text>().text,
                     Is.EqualTo("안녕하십니까 여러분"));
                 var input = view.transform.Find("InputPanel").GetComponent<TMP_InputField>();
                 Assert.That(input.placeholder is TMP_Text placeholder

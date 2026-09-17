@@ -61,10 +61,10 @@ namespace Game.Client.Match
         private Transform itemRoot;
         private RectTransform historyRect;
         private ScrollRect scrollRect;
-        private readonly RectTransform[] rows = new RectTransform[VisibleMessageCount];
-        private readonly TMP_Text[] nameTexts = new TMP_Text[VisibleMessageCount];
-        private readonly TMP_Text[] bodyTexts = new TMP_Text[VisibleMessageCount];
-        private readonly CanvasGroup[] rowFades = new CanvasGroup[VisibleMessageCount];
+        private readonly List<RectTransform> rows = new();
+        private readonly List<TMP_Text> nameTexts = new();
+        private readonly List<TMP_Text> bodyTexts = new();
+        private readonly List<CanvasGroup> rowFades = new();
         private static Sprite historyFadeSprite;
         private TMP_FontAsset cachedFont;
         private Sprite lastSendIcon;
@@ -153,23 +153,8 @@ namespace Game.Client.Match
         }
 
         public static IReadOnlyList<LobbyChatMessage> VisibleMessages(
-            IReadOnlyList<LobbyChatMessage> messages)
-        {
-            var list = messages ?? Array.Empty<LobbyChatMessage>();
-            var first = Mathf.Max(0, list.Count - VisibleMessageCount);
-            if (first == 0)
-            {
-                return list;
-            }
-
-            var visible = new LobbyChatMessage[list.Count - first];
-            for (var index = 0; index < visible.Length; index++)
-            {
-                visible[index] = list[first + index];
-            }
-
-            return visible;
-        }
+            IReadOnlyList<LobbyChatMessage> messages) =>
+            messages ?? Array.Empty<LobbyChatMessage>();
 
         public static float HistoryFadeAlpha(float normalizedFromTop)
         {
@@ -519,10 +504,9 @@ namespace Game.Client.Match
             EnsureLayout();
             var list = messages ?? Array.Empty<LobbyChatMessage>();
             shown = list;
-            var first = Mathf.Max(0, list.Count - VisibleMessageCount);
-            var visibleCount = list.Count - first;
+            EnsureRowCount(list.Count);
             var font = ResolveFont();
-            for (var index = 0; index < VisibleMessageCount; index++)
+            for (var index = 0; index < rows.Count; index++)
             {
                 var row = rows[index];
                 if (row == null)
@@ -530,7 +514,7 @@ namespace Game.Client.Match
                     continue;
                 }
 
-                if (index >= visibleCount)
+                if (index >= list.Count)
                 {
                     if (row.gameObject.activeSelf)
                     {
@@ -545,7 +529,7 @@ namespace Game.Client.Match
                     row.gameObject.SetActive(true);
                 }
 
-                var message = list[first + index];
+                var message = list[index];
                 ApplyLine(nameTexts[index], presentation == null ? message.SenderName : presentation.Name(message.SenderId, message.SenderName), font, NameFontSize, NameColor);
                 ApplyLine(bodyTexts[index], message.Text, font, BodyFontSize, Color.white);
                 bodyTexts[index]?.ForceMeshUpdate();
@@ -570,7 +554,7 @@ namespace Game.Client.Match
 
             ConfigureItemList(safe);
             var width = TextColumnWidth;
-            for (var index = 0; index < VisibleMessageCount; index++)
+            for (var index = 0; index < rows.Count; index++)
             {
                 var row = rows[index];
                 if (row == null)
@@ -1113,40 +1097,74 @@ namespace Game.Client.Match
 
         private void BindRows()
         {
+            rows.Clear();
+            nameTexts.Clear();
+            bodyTexts.Clear();
+            rowFades.Clear();
             if (itemRoot == null)
             {
                 return;
             }
 
             ConfigureItemList(appliedListScale);
-            for (var index = 0; index < VisibleMessageCount; index++)
+            for (var index = 0; ; index++)
             {
                 var row = itemRoot.Find($"Row{index}") as RectTransform;
-                rows[index] = row;
-                nameTexts[index] = row != null ? row.Find("Name")?.GetComponent<TMP_Text>() : null;
-                bodyTexts[index] = row != null ? row.Find("Body")?.GetComponent<TMP_Text>() : null;
-                ApplyWrap(nameTexts[index]);
-                ApplyWrap(bodyTexts[index]);
                 if (row == null)
                 {
-                    rowFades[index] = null;
-                    continue;
+                    break;
                 }
 
-                if (row.GetComponent<LayoutElement>() == null)
-                {
-                    row.gameObject.AddComponent<LayoutElement>();
-                }
-
-                var group = row.GetComponent<CanvasGroup>();
-                if (group == null)
-                {
-                    group = row.gameObject.AddComponent<CanvasGroup>();
-                    group.blocksRaycasts = false;
-                }
-
-                rowFades[index] = group;
+                BindRow(row);
             }
+        }
+
+        private void EnsureRowCount(int count)
+        {
+            if (itemRoot == null)
+            {
+                return;
+            }
+
+            while (rows.Count < count)
+            {
+                var index = rows.Count;
+                var row = itemRoot.Find($"Row{index}") as RectTransform;
+                if (row == null)
+                {
+                    BuildRow(itemRoot, index);
+                    row = itemRoot.Find($"Row{index}") as RectTransform;
+                }
+
+                if (row == null)
+                {
+                    break;
+                }
+
+                BindRow(row);
+            }
+        }
+
+        private void BindRow(RectTransform row)
+        {
+            nameTexts.Add(row.Find("Name")?.GetComponent<TMP_Text>());
+            bodyTexts.Add(row.Find("Body")?.GetComponent<TMP_Text>());
+            ApplyWrap(nameTexts[nameTexts.Count - 1]);
+            ApplyWrap(bodyTexts[bodyTexts.Count - 1]);
+            if (row.GetComponent<LayoutElement>() == null)
+            {
+                row.gameObject.AddComponent<LayoutElement>();
+            }
+
+            var group = row.GetComponent<CanvasGroup>();
+            if (group == null)
+            {
+                group = row.gameObject.AddComponent<CanvasGroup>();
+                group.blocksRaycasts = false;
+            }
+
+            rowFades.Add(group);
+            rows.Add(row);
         }
 
         private void FitPanels()
@@ -1241,7 +1259,7 @@ namespace Game.Client.Match
                 return;
             }
 
-            for (var index = 0; index < VisibleMessageCount; index++)
+            for (var index = 0; index < rows.Count; index++)
             {
                 var row = rows[index];
                 var group = rowFades[index];
@@ -1493,11 +1511,6 @@ namespace Game.Client.Match
             itemRoot = items.transform;
             ConfigureItemList(1f);
             ConfigureScrollContent();
-
-            for (var index = 0; index < VisibleMessageCount; index++)
-            {
-                BuildRow(itemRoot, index);
-            }
 
             var inputPanel = CreatePanel(root, "InputPanel");
             Place(
