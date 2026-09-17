@@ -12,9 +12,11 @@ namespace Game.Client.Tutorial
         private string destinationScene = "Home";
 
         private bool isLoading;
+        private TutorialSession session;
 
         private void Awake()
         {
+            session = FindAnyObjectByType<TutorialSession>();
             var trigger = GetComponent<Collider>();
             if (!trigger.isTrigger)
             {
@@ -27,6 +29,12 @@ namespace Game.Client.Tutorial
         {
             if (isLoading || other.GetComponentInParent<PlayerMovement>() == null)
             {
+                return;
+            }
+
+            if (session != null && !session.IsComplete)
+            {
+                Debug.Log($"[Tutorial] Exit locked at step: {session.CurrentStep}", this);
                 return;
             }
 

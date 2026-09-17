@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Game.Client.Combat;
+using Game.Client.Players;
 using Game.Client.Tutorial;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -145,6 +147,12 @@ namespace Game.Editor.Tutorial
             if (completion.GetComponent<TutorialCompletionTrigger>() == null)
             {
                 throw new InvalidOperationException("Tutorial completion trigger is not wired.");
+            }
+            var runtime = Require(root.transform, "Runtime");
+            if (runtime.GetComponent<TutorialSession>() == null ||
+                runtime.GetComponent<TutorialMovementCourse>() == null)
+            {
+                throw new InvalidOperationException("Tutorial movement runtime is not wired.");
             }
 
             var ceiling = root.transform.Find("Architecture/Ceiling");
@@ -370,8 +378,23 @@ namespace Game.Editor.Tutorial
                 throw new InvalidOperationException("Tutorial player start marker is missing.");
             }
 
-            InstantiateRuntimePrefab(PlayerPrefabPath, runtime, "PlayerCharacter", start.position);
+            var playerObject = InstantiateRuntimePrefab(
+                PlayerPrefabPath,
+                runtime,
+                "PlayerCharacter",
+                start.position);
+            var player = playerObject.GetComponent<PlayerMovement>();
+            var combat = playerObject.GetComponent<PlayerCombatant>();
+            if (combat != null) combat.enabled = false;
             InstantiateRuntimePrefab(CameraPrefabPath, runtime, "PlayerCameraRig", Vector3.zero);
+            BuildMainCamera(runtime);
+
+            var session = runtime.gameObject.AddComponent<TutorialSession>();
+            var movement = runtime.gameObject.AddComponent<TutorialMovementCourse>();
+            var movementObject = new SerializedObject(movement);
+            movementObject.FindProperty("session").objectReferenceValue = session;
+            movementObject.FindProperty("player").objectReferenceValue = player;
+            movementObject.ApplyModifiedPropertiesWithoutUndo();
 
             var exitMarker = root.Find("Zones/05_Exit/TutorialComplete");
             if (exitMarker == null)
@@ -388,7 +411,7 @@ namespace Game.Editor.Tutorial
             completion.AddComponent<TutorialCompletionTrigger>();
         }
 
-        private static void InstantiateRuntimePrefab(
+        private static GameObject InstantiateRuntimePrefab(
             string assetPath,
             Transform parent,
             string instanceName,
@@ -403,6 +426,24 @@ namespace Game.Editor.Tutorial
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
             instance.name = instanceName;
             instance.transform.SetPositionAndRotation(worldPosition, Quaternion.identity);
+            return instance;
+        }
+
+        private static void BuildMainCamera(Transform parent)
+        {
+            var output = new GameObject("Main Camera");
+            output.transform.SetParent(parent, false);
+            output.tag = "MainCamera";
+            output.AddComponent<Camera>();
+            output.AddComponent<AudioListener>();
+
+            var brainType = Type.GetType("Unity.Cinemachine.CinemachineBrain, Unity.Cinemachine");
+            if (brainType == null)
+            {
+                throw new InvalidOperationException("CinemachineBrain type could not be resolved.");
+            }
+
+            output.AddComponent(brainType);
         }
 
         private static void EnsureSceneInBuildSettings()
