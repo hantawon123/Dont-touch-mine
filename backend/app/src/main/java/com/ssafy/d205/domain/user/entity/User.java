@@ -154,6 +154,36 @@ public class User {
         }
     }
 
+    /**
+     * 운영자가 닉네임을 바꿉니다 (S15P21D205-1047).
+     *
+     * <p>{@link #rename(String, String)} 과 갈라놓은 것은 {@code nicknameSetAt} 때문입니다. 그쪽은
+     * 첫 변경에서 그 값을 채워 "스스로 이름을 정한 사람"으로 표시하는데, 클라이언트는 그 표시를 보고
+     * 닉네임 입력 칸을 영구히 잠급니다. 운영자가 바꿨다고 그 표시를 세우면, 서버가 지어 준 임시
+     * 닉네임을 쓰던 사람이 자기 이름을 한 번도 못 정한 채 잠깁니다.
+     *
+     * <p>그래서 이 메서드는 이름과 갱신 시각만 건드립니다. 변경권을 돌려주는 것은
+     * {@link #reopenNicknameChange()} 의 일이고, 운영자가 이름을 지정한 경우와 부적절한 닉네임을
+     * 치운 경우에 따로 판단합니다.
+     */
+    public void renameByAdmin(String nickname, String now) {
+        this.nickname = nickname;
+        this.updatedAt = now;
+    }
+
+    /**
+     * 닉네임 변경권을 돌려줍니다 (S15P21D205-1047).
+     *
+     * <p>닉네임 변경은 한 번뿐이라, 이미 이름을 정한 사람은 클라이언트에서 입력 칸이 잠겨 있습니다.
+     * 운영자가 부적절한 닉네임을 치운 뒤 이 값을 비우면 그 칸이 다시 열려, 본인이 멀쩡한 이름으로
+     * 한 번 정할 수 있습니다. 치운 이름을 그대로 두는 것보다 이쪽이 제재의 목적에 맞습니다.
+     *
+     * <p>이미 비어 있으면(임시 닉네임을 쓰던 사람) 아무 일도 일어나지 않습니다.
+     */
+    public void reopenNicknameChange() {
+        this.nicknameSetAt = null;
+    }
+
     /** 서버가 지어준 임시 닉네임을 그대로 쓰고 있으면 false입니다. */
     public boolean isNicknameSet() {
         return nicknameSetAt != null;
