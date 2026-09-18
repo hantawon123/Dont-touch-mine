@@ -424,6 +424,34 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ResultScene_LeavesTheCoverForTheEndingStage()
+        {
+            var network = new FakeNetwork { ServerTime = 100.3d };
+            var transition = new FakeTransition();
+            using var room = new RoomBrowserSystem();
+            using var playback = new NetworkHighlightPlaybackController(
+                network, room, network, transition);
+            playback.Start();
+
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 100d, new[] { 0 }));
+            network.PublishReplay(CreateReplay(HighlightType.FirstBlood));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 0d));
+            playback.Tick();
+            Assert.That(transition.Opacity, Is.EqualTo(1f));
+            Assert.That(network.HighlightReadyCalls, Is.Zero);
+
+            network.IsResultSceneLoaded = true;
+            transition.SetOpacity(0.25f);
+            playback.Tick();
+
+            Assert.That(transition.Opacity, Is.EqualTo(0.25f));
+            Assert.That(network.HighlightReadyCalls, Is.Zero);
+            Assert.That(
+                NetworkHighlightPlaybackController.ShouldYieldCoverToResult(false, true),
+                Is.True);
+        }
+
+        [Test]
         public void EmptyHighlightReplay_ConfirmsReadinessWithoutStartingPlayback()
         {
             var network = new FakeNetwork { ServerTime = 3d };
