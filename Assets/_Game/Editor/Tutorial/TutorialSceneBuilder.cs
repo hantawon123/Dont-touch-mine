@@ -291,6 +291,25 @@ namespace Game.Editor.Tutorial
             EditorSceneManager.SaveScene(scene);
         }
 
+        public static void AuditLobbyMaterials()
+        {
+            var scene = EditorSceneManager.OpenScene("Assets/_Game/Content/Scenes/Lobby.unity");
+            var materials = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<Renderer>(true))
+                .SelectMany(r => r.sharedMaterials).Where(m => m != null)
+                .GroupBy(m => AssetDatabase.GetAssetPath(m)).OrderByDescending(g => g.Count());
+            foreach (var group in materials)
+                Debug.Log($"[LobbyMaterial] {group.Count()} {group.Key}");
+        }
+
+        public static void RepairLobbySurfaces()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath);
+            TutorialHideoutArt.ApplyLobbySurfaces(GameObject.Find("TutorialHideout").transform);
+            AssetDatabase.SaveAssets();
+            EditorSceneManager.SaveScene(scene);
+            RenderPreview();
+        }
+
         [MenuItem("Game/Tutorial/Repair Training Box")]
         public static void RepairTrainingBox()
         {

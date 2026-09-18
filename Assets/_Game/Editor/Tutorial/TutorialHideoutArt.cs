@@ -37,6 +37,57 @@ namespace Game.Editor.Tutorial
             Workshop();
             Disposal();
             Lighting();
+            ApplyLobbySurfaces(root);
+        }
+
+        internal static void ApplyLobbySurfaces(Transform root)
+        {
+            const string source = "Assets/PolyWorkshop_BasementWorkshop/Modular/Materials/";
+            const string meshPath = Folder + "/TutorialSurfaceMeshes.asset";
+            var meshes = AssetDatabase.LoadAllAssetsAtPath(meshPath).OfType<Mesh>()
+                .ToDictionary(m => m.name);
+            foreach (var filter in root.GetComponentsInChildren<MeshFilter>(true))
+            {
+                var materialName = filter.name switch
+                {
+                    "SolidWall" or "UpperWall" or "Lintel" => "Basement_BrickWall_Material",
+                    "WallPier" or "WallCap" or "BaseRail" or "CeilingJoist" => "Basement_WoodenPillar_Material",
+                    "Ceiling" => "Basement_WoodenCeiling_Material",
+                    "TunnelSide" or "LowLintel" or "PitFace" => "Basement_Concrete_Material",
+                    _ => null
+                };
+                if (filter.name.StartsWith("ConcreteSlabs_"))
+                {
+                    filter.GetComponent<Renderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+                        source + "Basement_Concrete_Material.mat");
+                    continue;
+                }
+                if (materialName == null) continue;
+                filter.GetComponent<Renderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>(source + materialName + ".mat");
+                var size = filter.transform.localScale;
+                var key = FormattableString.Invariant($"Surface_{filter.sharedMesh.vertexCount}_{size.x:F3}_{size.y:F3}_{size.z:F3}");
+                if (!meshes.TryGetValue(key, out var mesh))
+                {
+                    mesh = UnityEngine.Object.Instantiate(filter.sharedMesh);
+                    mesh.name = key;
+                    var vertices = mesh.vertices;
+                    var normals = mesh.normals;
+                    var uv = new Vector2[vertices.Length];
+                    for (var i = 0; i < vertices.Length; i++)
+                    {
+                        var v = Vector3.Scale(vertices[i], size);
+                        var n = normals[i];
+                        uv[i] = Mathf.Abs(n.y) > .7f ? new Vector2(v.x, v.z) / 3f
+                            : Mathf.Abs(n.x) > .7f ? new Vector2(v.z, v.y) / 3f
+                            : new Vector2(v.x, v.y) / 3f;
+                    }
+                    mesh.uv = uv;
+                    if (meshes.Count == 0) AssetDatabase.CreateAsset(mesh, meshPath);
+                    else AssetDatabase.AddObjectToAsset(mesh, meshPath);
+                    meshes.Add(key, mesh);
+                }
+                filter.sharedMesh = mesh;
+            }
         }
 
         private void Architecture()
