@@ -12,7 +12,7 @@ namespace Game.Client.Voice
     /// what the voice layer hears and plays.
     /// </summary>
     /// <remarks>
-    /// Holding 마이크 송출 suits a sentence thrown across the room. 마이크 고정
+    /// Holding 눌러서 말하기 suits a sentence thrown across the room. 마이크 켜기/끄기
     /// and the HUD mic button are the same on/off. The speaker button and T
     /// decide whether this machine hears the room, without leaving voice.
         /// Closing the speaker also closes the microphone so a silent room is
@@ -117,7 +117,7 @@ namespace Game.Client.Voice
         }
 
         /// <summary>
-        /// 마이크 고정 (VoiceToggle) is the same on/off as the HUD button, so
+        /// 마이크 켜기/끄기 (VoiceToggle) is the same on/off as the HUD button, so
         /// the white mic and the grey slash follow the key as well as the click.
         /// </summary>
         internal void HandleVoiceToggle() => ToggleMute();

@@ -19,7 +19,12 @@ namespace Game.Core.Ports
         /// draft rather than the applied one: the point is to try before
         /// applying.
         /// </param>
-        void Start(string deviceName);
+        /// <param name="gain">
+        /// How much to scale what is played back, so the test is as loud as the
+        /// room will hear this player rather than always at full. 1 is the
+        /// microphone untouched. See <c>VoiceCaptureGain</c>.
+        /// </param>
+        void Start(string deviceName, float gain = 1f);
 
         void Stop();
     }

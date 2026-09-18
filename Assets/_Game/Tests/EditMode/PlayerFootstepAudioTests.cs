@@ -24,19 +24,53 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void FootfallsFollowHalfCyclesWithoutDuplicatesOrTransitionBursts()
+        public void WalkPlantsMatchTheAuthoredHipSquash()
+        {
+            Assert.That(
+                PlayerFootstepAudio.PlantStep(.08f, PlayerFootstepAudio.WalkPlantA, PlayerFootstepAudio.WalkPlantB),
+                Is.EqualTo(-1));
+            Assert.That(
+                PlayerFootstepAudio.PlantStep(.09f, PlayerFootstepAudio.WalkPlantA, PlayerFootstepAudio.WalkPlantB),
+                Is.EqualTo(0));
+            Assert.That(
+                PlayerFootstepAudio.PlantStep(.58f, PlayerFootstepAudio.WalkPlantA, PlayerFootstepAudio.WalkPlantB),
+                Is.EqualTo(0));
+            Assert.That(
+                PlayerFootstepAudio.PlantStep(.59f, PlayerFootstepAudio.WalkPlantA, PlayerFootstepAudio.WalkPlantB),
+                Is.EqualTo(1));
+            Assert.That(
+                PlayerFootstepAudio.PlantStep(1.09f, PlayerFootstepAudio.WalkPlantA, PlayerFootstepAudio.WalkPlantB),
+                Is.EqualTo(2));
+        }
+
+        [Test]
+        public void CrouchWalkKeepsHalfCyclePlantsAndRunUsesItsOwn()
+        {
+            PlayerFootstepAudio.ResolvePlants("Crouch_Walk_Forward", out var crouchA, out var crouchB);
+            Assert.That(crouchA, Is.EqualTo(0f));
+            Assert.That(crouchB, Is.EqualTo(.5f));
+            PlayerFootstepAudio.ResolvePlants("Run_Forward", out var runA, out var runB);
+            Assert.That(runA, Is.EqualTo(PlayerFootstepAudio.RunPlantA));
+            Assert.That(runB, Is.EqualTo(PlayerFootstepAudio.RunPlantB));
+            PlayerFootstepAudio.ResolvePlants("Walk_Forward", out var walkA, out var walkB);
+            Assert.That(walkA, Is.EqualTo(PlayerFootstepAudio.WalkPlantA));
+            Assert.That(walkB, Is.EqualTo(PlayerFootstepAudio.WalkPlantB));
+        }
+
+        [Test]
+        public void FootfallsFollowPlantCrossingsWithoutDuplicatesOrTransitionBursts()
         {
             var host = new GameObject("FootstepTest");
             try
             {
                 var audio = host.AddComponent<PlayerFootstepAudio>();
                 Assert.That(audio.AdvanceStep(1, 0f), Is.False);
-                Assert.That(audio.AdvanceStep(1, .49f), Is.False);
-                Assert.That(audio.AdvanceStep(1, .5f), Is.True);
-                Assert.That(audio.AdvanceStep(1, .6f), Is.False);
-                Assert.That(audio.AdvanceStep(1, 1f), Is.True);
+                Assert.That(audio.AdvanceStep(1, .08f), Is.False);
+                Assert.That(audio.AdvanceStep(1, .09f), Is.True);
+                Assert.That(audio.AdvanceStep(1, .4f), Is.False);
+                Assert.That(audio.AdvanceStep(1, .59f), Is.True);
                 Assert.That(audio.AdvanceStep(2, 0f), Is.False);
-                Assert.That(audio.AdvanceStep(2, .5f), Is.True);
+                Assert.That(audio.AdvanceStep(2, .09f), Is.True);
                 audio.Stop();
                 Assert.That(audio.AdvanceStep(2, 2f), Is.False);
                 // A stalled frame should emit one step, not a catch-up burst.
@@ -47,20 +81,17 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void CharacterHasEightImportedOneShots()
+        public void CharacterUsesTheApprovedSoftPlasticClick()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab");
             var clips = new SerializedObject(prefab.GetComponent<PlayerAnimationDriver>())
                 .FindProperty("footstepClips");
-            Assert.That(clips.arraySize, Is.EqualTo(8));
-            for (var index = 0; index < clips.arraySize; index++)
-            {
-                var clip = clips.GetArrayElementAtIndex(index).objectReferenceValue as AudioClip;
-                Assert.That(clip, Is.Not.Null);
-                Assert.That(clip.channels, Is.EqualTo(1));
-                Assert.That(clip.length, Is.EqualTo(.28f).Within(.001f));
-            }
+            Assert.That(clips.arraySize, Is.EqualTo(1));
+            var clip = clips.GetArrayElementAtIndex(0).objectReferenceValue as AudioClip;
+            Assert.That(clip, Is.Not.Null);
+            Assert.That(AssetDatabase.GetAssetPath(clip), Is.EqualTo(PlayerFootstepAudio.ClipAssetPath));
+            Assert.That(clip.name, Is.EqualTo("SFX_UI_Click_Organic_Plastic_Soft_Generic_1"));
         }
     }
 }

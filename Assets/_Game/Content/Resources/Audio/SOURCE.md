@@ -15,4 +15,37 @@
 - Regenerate: `node Tools/audio/create-tension-loop.cjs Assets/_Game/Content/Resources/Audio/TensionLoop.wav`.
 - Loops under the last thirty seconds of searching and fades out over 0.6 s; uses the Music volume, so muting music silences the bed without taking the chime with it.
 
-Both clips live under `Resources` because the match HUD is built in the scene rather than from a prefab, so `MatchUrgencyAudio` loads them by path.
+# Hiding timer tick (HidingTimerTick.wav)
+
+- Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.
+- Generator: `Tools/audio/create-timer-tick.cjs` (analog-clock second: wooden case thock at 920 Hz plus a 3550 Hz escapement click).
+- Length: 0.12 seconds; mono 44.1 kHz, 16-bit PCM; peak -3.1 dBFS, no clipping.
+- Regenerate: `node Tools/audio/create-timer-tick.cjs Assets/_Game/Content/Resources/Audio/HidingTimerTick.wav`.
+- Played once per second during the last `HidingActiveHudView.WarningSeconds` (10) seconds of the hiding phase countdown; uses the Effects volume.
+
+# Searching timer tick (SearchingTimerTick.wav)
+
+- Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.
+- Generator: `Tools/audio/create-timer-tick.cjs` (same generator and settings as `HidingTimerTick.wav`; a separate render so the two phases can diverge later without one file backing both).
+- Length: 0.12 seconds; mono 44.1 kHz, 16-bit PCM; peak -3.1 dBFS, no clipping.
+- Regenerate: `node Tools/audio/create-timer-tick.cjs Assets/_Game/Content/Resources/Audio/SearchingTimerTick.wav`.
+- Played once per second during the last `MatchTimerView.WarningSeconds` (30) seconds of the searching phase, the same window `MatchUrgencyAudio` uses for the border, chime and tension bed; uses the Effects volume.
+
+# Lobby start countdown tick (LobbyStartCountdownTick.wav)
+
+- Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.
+- Generator: `Tools/audio/create-timer-tick.cjs` (same analog-clock second as the hiding and searching ticks; a separate render so the lobby cue can diverge later without sharing a file).
+- Length: 0.12 seconds; mono 44.1 kHz, 16-bit PCM; peak -3.1 dBFS, no clipping.
+- Regenerate: `node Tools/audio/create-timer-tick.cjs Assets/_Game/Content/Resources/Audio/LobbyStartCountdownTick.wav`.
+- Played once per second during the 10-second lobby countdown after 게임 시작; uses the Effects volume.
+
+# Match end bell (MatchEndBell.wav)
+
+- Original procedural synthesis created for this project; no third-party recordings, samples, or AI audio generation service used.
+- Generator: `Tools/audio/create-match-end-bell.cjs` (four even metallic bell strokes at 932 Hz with inharmonic partials — boxing/school-bell "땡땡땡땡").
+- Length: 1.42 seconds; mono 44.1 kHz, 16-bit PCM; peak at most -1.5 dBFS.
+- Approved preview: `audio-previews/match-end-bell.wav`; runtime asset is byte-identical.
+- Regenerate: `node Tools/audio/create-match-end-bell.cjs Assets/_Game/Content/Resources/Audio/MatchEndBell.wav`.
+- Played once when a match result is confirmed, including last-player-standing; uses the Effects volume. A republished result does not ring again until the next hiding or waiting phase.
+
+All six clips live under `Resources` because the match HUD and lobby HUD are built in the scene rather than from a prefab, so `MatchUrgencyAudio`, `HidingTimerTickAudio`, `SearchingTimerTickAudio`, `LobbyStartCountdownTickAudio` and `MatchEndBellAudio` load them by path.

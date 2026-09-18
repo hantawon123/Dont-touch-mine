@@ -465,7 +465,11 @@ namespace Game.Client.Settings
             }
             else
             {
-                microphoneTest.Start(soundDraft.DeviceName);
+                // The draft, not what is applied: the point of the button is
+                // to hear a choice before committing to it, and that goes for
+                // the 마이크 볼륨 slider as much as for the device.
+                microphoneTest.Start(
+                    soundDraft.DeviceName, Game.Core.Voice.VoiceCaptureGain.From(soundDraft));
                 if (!microphoneTest.IsRunning)
                 {
                     view.ShowNotice(

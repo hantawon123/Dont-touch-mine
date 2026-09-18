@@ -57,6 +57,41 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void SameHolderNewerVersion_KeepsTheItemAttached()
+        {
+            using var room = new RoomBrowserSystem();
+            var network = new NetworkRunnerService(null, null, null, null, null, null);
+            var itemObject = new GameObject("HeldItem", typeof(Rigidbody), typeof(BoxCollider));
+            var player0 = new GameObject("Holder");
+            try
+            {
+                var item = itemObject.AddComponent<CarryableItem>();
+                typeof(CarryableItem).GetMethod("Awake", Private).Invoke(item, null);
+                var holder = player0.AddComponent<PlayerInteractor>();
+                typeof(PlayerInteractor).GetField("holdPoint", Private).SetValue(holder, player0.transform);
+                Assert.That(holder.ApplyConfirmedPickup(item), Is.True);
+
+                var bridge = new NetworkInteractionSceneBridge(network, room, false, itemObject.scene);
+                Field<Dictionary<string, CarryableItem>>(bridge, "items").Add(item.ObjectId, item);
+                Field<Dictionary<int, PlayerInteractor>>(bridge, "interactors").Add(0, holder);
+                Field<Dictionary<string, int>>(bridge, "appliedVersions").Add(item.ObjectId, 5);
+                var pose = new Pose(item.transform.position, item.transform.rotation);
+                typeof(NetworkInteractionSceneBridge).GetField("objectStates", Private).SetValue(bridge,
+                    new[] { new MatchObjectStateSnapshot(item.ObjectId, 0, pose, default, false, 6) });
+                typeof(NetworkInteractionSceneBridge).GetMethod("ApplyObjectStates", Private).Invoke(bridge, null);
+
+                Assert.That(holder.CarriedItem, Is.SameAs(item));
+                Assert.That(item.IsCarried, Is.True);
+                Assert.That(Field<Dictionary<string, int>>(bridge, "appliedVersions")[item.ObjectId], Is.EqualTo(6));
+            }
+            finally
+            {
+                Object.DestroyImmediate(itemObject);
+                Object.DestroyImmediate(player0);
+            }
+        }
+
         [TestCase(true)]
         [TestCase(false)]
         public void DestroyedSceneItem_HudRefreshClearsStaleReferences(bool hudVisible)

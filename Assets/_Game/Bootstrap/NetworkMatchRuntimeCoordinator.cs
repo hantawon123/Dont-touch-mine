@@ -572,7 +572,17 @@ namespace Game.Bootstrap
                 }
 
                 assignmentBuffer[0] = session.Assignments[playerIndex];
-                network.TryPublishItemAssignments(assignmentBuffer);
+                if (!network.TryPublishItemAssignments(assignmentBuffer))
+                {
+                    // The avatar has no PlayerId in the roster at this instant -
+                    // usually mid-respawn on a slow scene load. Not retried here:
+                    // that player's scene asks for its assignment every second,
+                    // and the server publishes it then. Said out loud because
+                    // the alternative was a minute of silence on that screen.
+                    Debug.LogWarning(
+                        $"[Match] Assignment publish skipped for player #{playerIndex}: " +
+                        "not resolvable in the roster yet; will be published when that client asks.");
+                }
             }
         }
 

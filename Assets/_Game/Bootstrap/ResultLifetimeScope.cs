@@ -18,6 +18,8 @@ namespace Game.Bootstrap
 
         protected override void Awake()
         {
+            if (parentReference.Type == null)
+                parentReference = ParentReference.Create<ProjectLifetimeScope>();
             sceneRoots = gameObject.scene.GetRootGameObjects();
             DisableAdditiveSceneOutputs();
             if (gameObject.scene.isLoaded) base.Awake();

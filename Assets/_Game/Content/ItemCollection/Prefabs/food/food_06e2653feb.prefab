@@ -29,7 +29,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3715685977883161709}
@@ -95,14 +95,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 35eb5ffe1d38b2743a322e143ad7820d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.CarryableItem
-  displayName: "\uACE0\uCD94"
+  displayName: "\uACE0\uCD94 002"
   objectId: 
   isPlayerItem: 0
   ownerPlayerIndex: -1
-  preparedForBuild: 0
-  preparedCenter: {x: 0, y: 0, z: 0}
-  preparedExtents: {x: 0, y: 0, z: 0}
-  preparedScale: {x: 0, y: 0, z: 0}
 --- !u!1001 &7887379202090276629
 PrefabInstance:
   m_ObjectHideFlags: 0
