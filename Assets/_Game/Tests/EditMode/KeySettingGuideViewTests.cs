@@ -184,7 +184,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void SetMode_ShowsPlacementRowsWithCompactQEAndScroll()
+        public void SetMode_ShowsPlacementRowsWithCompactQE()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
@@ -197,13 +197,19 @@ namespace Game.Architecture.Tests
                 Assert.That(guide.sizeDelta, Is.EqualTo(KeySettingGuideView.PlacingPanelSize));
                 Assert.That(
                     guide.Find("Row0/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("배치 모드 끄기"));
+                    Is.EqualTo("배치하기"));
                 Assert.That(
                     guide.Find("Row0/Key/Label").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo(KeySettingGuideView.RightClickKeyLabel));
+                    Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
                 Assert.That(
                     guide.Find("Row1/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("배치하기"));
+                    Is.EqualTo("회전"));
+                Assert.That(
+                    guide.Find("Row1/Key/Label").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.RightClickKeyLabel));
+                Assert.That(
+                    guide.Find("Row2/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo("좌우 회전"));
                 Assert.That(
                     guide.Find("Row2/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.RotateYawKeyLabel));
@@ -212,10 +218,10 @@ namespace Game.Architecture.Tests
                     Is.EqualTo(KeySettingGuideView.CompactKeyChipFontSize));
                 Assert.That(
                     guide.Find("Row3/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("세로축 회전"));
+                    Is.EqualTo("놓기"));
                 Assert.That(
                     guide.Find("Row3/Key/Label").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo(KeySettingGuideView.ScrollKeyLabel));
+                    Is.EqualTo("F"));
                 Assert.That(
                     guide.Find("Row9/Action").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.ToggleAction));
