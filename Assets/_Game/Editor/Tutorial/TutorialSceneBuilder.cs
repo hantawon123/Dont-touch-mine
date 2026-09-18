@@ -160,7 +160,8 @@ namespace Game.Editor.Tutorial
             {
                 Directory.CreateDirectory("Logs/TutorialPreview");
                 Require(root, "Runtime").gameObject.SetActive(false);
-                Capture(new Vector3(-15.8f, 2.8f, 6.3f), new Vector3(-18, 1.5f, 12), false, 70, "Interior");
+                  Capture(new Vector3(-15.8f, 2.8f, 6.3f), new Vector3(-18, 1.5f, 12), false, 70, "Interior");
+                  Capture(new Vector3(13.3f, 1.65f, 10), new Vector3(17.7f, .8f, 10), false, 70, "Jump");
                 Capture(new Vector3(20, 1.1f, 4.2f), new Vector3(20, .8f, 1.5f), false, 70, "CrouchPassage");
                 Capture(new Vector3(20, .6f, .5f), new Vector3(20, .4f, -2), false, 70, "PronePassage");
                 // Presentation cutaway only. Restore every object's state even if capture fails.
@@ -306,6 +307,14 @@ namespace Game.Editor.Tutorial
             var scene = EditorSceneManager.OpenScene(ScenePath);
             TutorialHideoutArt.ApplyLobbySurfaces(GameObject.Find("TutorialHideout").transform);
             AssetDatabase.SaveAssets();
+            EditorSceneManager.SaveScene(scene);
+            RenderPreview();
+        }
+
+        public static void RepairSafetyMarkings()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath);
+            new TutorialHideoutArt(GameObject.Find("TutorialHideout").transform).RepairSafetyMarkings();
             EditorSceneManager.SaveScene(scene);
             RenderPreview();
         }

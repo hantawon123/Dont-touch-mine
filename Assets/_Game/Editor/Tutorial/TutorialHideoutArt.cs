@@ -702,13 +702,35 @@ namespace Game.Editor.Tutorial
         private void Hazard(Transform p, Vector3 pos, Vector2 size)
         {
             var g = Group(p, "SafetyMarking", pos);
-            foreach (float side in new[] { -1f, 1f })
+            FillSafetyMarking(g, size);
+        }
+
+        internal void RepairSafetyMarkings()
+        {
+            foreach (var group in root.GetComponentsInChildren<Transform>().Where(t => t.name == "SafetyMarking").ToArray())
             {
-                for (float z = -size.y * .5f + .15f; z < size.y * .5f; z += .5f)
+                var end = group.Find("EndStripe");
+                var size = new Vector2(end.localScale.x, Mathf.Abs(end.localPosition.z) * 2f);
+                foreach (Transform child in group.Cast<Transform>().ToArray())
+                    UnityEngine.Object.DestroyImmediate(child.gameObject);
+                FillSafetyMarking(group, size);
+            }
+        }
+
+        private void FillSafetyMarking(Transform g, Vector2 size)
+        {
+            // Narrow pit-edge tape has one row. Two rows overlap at the same depth and flicker.
+            var narrow = size.x < .6f;
+            foreach (float side in narrow ? new[] { 0f } : new[] { -1f, 1f })
+            {
+                for (float z = -size.y * .5f + .4f; z < size.y * .5f - .35f; z += .5f)
                 {
-                    var stripe = B(g, "DiagonalStripe", V(side * size.x * .5f, 0, z), V(.46f, .014f, .19f), "E5B84E", false, false);
+                    var stripe = B(g, "DiagonalStripe", V(side * size.x * .5f, 0, z), V(narrow ? .25f : .46f, .014f, .19f), "E5B84E", false, false);
                     stripe.transform.localRotation = Quaternion.Euler(0, -40, 0);
                 }
+            }
+            foreach (float side in new[] { -1f, 1f })
+            {
                 B(g, "EndStripe", V(0, 0, side * size.y * .5f), V(size.x, .014f, .14f), "E5B84E", false, false);
             }
         }
