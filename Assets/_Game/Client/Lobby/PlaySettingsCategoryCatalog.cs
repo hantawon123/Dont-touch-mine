@@ -28,7 +28,7 @@ namespace Game.Client.Lobby
     public static class PlaySettingsCategoryCatalog
     {
         private static PlaySettingsCategoryOption[] Options => new[] { new PlaySettingsCategoryOption(string.Empty, "랜덤") }
-            .Concat(ItemCatalogSO.Load().categories.Where(c => c.enabled)
+            .Concat(ItemCatalogSO.Load(applyDefinitions: false).categories.Where(c => c.enabled)
                 .Select(c => new PlaySettingsCategoryOption(c.id, c.label))).ToArray();
 
         public static IReadOnlyList<PlaySettingsCategoryOption> All => Options;

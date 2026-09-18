@@ -58,6 +58,22 @@
 - **단독 테스트 구성**: `PlayerCharacter` 프리팹 인스턴스(1층 `SpawnPoint_1` 자리)와 `PlayerCameraRig` 프리팹 인스턴스를 두고, `MatchLifetimeScope`의 Auto Inject 목록에 캐릭터를 등록, `Game/InGame/Build HUD Layout`으로 `InGameHud`를 만들어 스코프의 HUD·보이스 뷰를 연결했다(없으면 스코프 조립이 `IVoiceControl` 미등록으로 실패하고 씬 카메라만 보인다). Playground·마트와 같은 구성이며 네트워크 매치에는 쓰이지 않는다. 플레이 확인: 1층→2층 계단 이동 정상.
 - 1층→2층 계단은 플레이로 정상 확인(탐색이 층계참에서 멈춘 것은 탐색 반지름 한계).
 
+### 7. 1층 하이라이트 CCTV (2026-09-18, S15P21D205-1082)
+
+- 마트처럼 `Resources/CCTV/Mansion.prefab` 을 씬 이름으로 자동 로드한다. 지점 15개, 전부 1층, 천장 0.3 m 아래(y 4.56~5.41), 시야각 65도, 허리 높이(바닥 위 0.7 m)를 내려보는 각 22~54도. **프리팹이 기준**이고 코드 좌표표(`MansionCctvPlanner.Mounts`)는 자동 배치 기록이다.
+- 도구 `Game > Highlight > Mansion CCTV` (`Assets/_Game/Editor/MansionCctvPlanner.cs`):
+  - `1. Bake 1F Map`: y 4.4 에서 내려 쏜 광선으로 0.25 m 격자를 바닥·가구·벽으로 나누고, 스폰·파쇄기·열어 둔 방 씨앗에서 걸어 닿는 칸을 표시해 `cctv-1f-map.png` 로 쓴다.
+  - `2. Auto Place`: 벽 0.75 m 안쪽 후보 × 방향 24 × 초점 거리(3·4.5·7 m) 가운데 사각을 가장 많이 줄이는 지점을 탐욕으로 고르고 교환으로 다듬어 코드의 `<auto-mounts>` 표식 사이에 좌표표를 써 넣는다(앞 2개 파쇄기 카메라는 고정). `2b` 는 좌표표를 고정한 채 채울 지점을 보고서로만, `2c` 는 **저장된 프리팹**을 고정한 채 빈 곳을 채우는 카메라를 프리팹에 바로 추가한다.
+  - `3. Check Coverage`(좌표표 기준) / `3b. Check Coverage (Saved Prefab)`(프리팹 기준): `cctv-1f-coverage.png/.md`. 빨강 = 사각, 주황 = 피아노·의자처럼 낮은 가구 상자 안쪽이라 규칙상 못 보는 칸.
+  - `4. Save Mansion CCTV Prefab`: 좌표표로 프리팹을 새로 만든다. 손으로 고친 뒤에는 누르지 않는다(덮어씀).
+  - `5. Toggle Prefab Preview In Scene`: 프리팹을 씬에 놓고 모든 지점에 시야 부채꼴·이름 기즈모를 그린다. 다시 누르면 지운다. 미리보기를 둔 채 씬을 저장하지 않는다.
+  - `6. Look Through Selected CCTV`(Ctrl+Shift+Alt+8) / `7. Next`(Ctrl+Shift+Alt+9): 선택한 지점 시점으로 Scene 뷰를 맞추고 임시 카메라 `CCTV Eye`(저장 안 됨)로 Game 뷰에 16:9 화면을 그린다. `6b. Move CCTV To Scene View`(Ctrl+Shift+Alt+7): Scene 뷰를 움직인 뒤 그 시점으로 지점을 옮긴다. `8.` 로 임시 카메라 제거.
+  - `9. Renumber Saved Prefab Cameras`: 남쪽→북쪽 순으로 `CAM 01..` 다시 매김.
+- 가림 판정은 런타임 `HighlightCameraDirector` 와 같은 정적 렌더러 경계 상자(높이 0.5 m 이상, 카메라 원점을 품은 상자는 무시)다. 하늘 돔처럼 맵 전체를 덮는 상자는 영향이 없고, 문틀 벽 모듈 상자는 문 구멍을 막는다.
+- 확정 배치(2026-09-18): 자동 배치 22대를 사용자가 시점 보기로 하나씩 확인하며 옮기고 9대를 지워 15대. 검사 결과 걸어 닿는 335 m² 중 86.2% 가 한 대 이상, 59.1% 가 두 대 이상에 보인다. 남은 사각 45 m²(남쪽 양문 방 전체, 계단 발치·서쪽, 동남쪽 방 책장 앞 등)는 **이 배치로 실전에서 먼저 써 보기로 한 사용자 결정**이며, 메우려면 `2c` 를 쓴다.
+- 전제: 1층 문은 전부 열어 두고 비밀 책장문은 통과 가능(사용자 결정). 2층은 임시 구조라 플레이 구역이 아니며 CCTV 도 없다. `Shredder_B` 는 2층에 남아 있다.
+- **카메라를 손으로 고치는 절차**: ① `5.` 로 프리팹을 씬에 놓는다. ② 지점을 선택하고 `6.` 으로 시점을 본다. ③ 핸들로 옮기거나, Scene 뷰를 원하는 구도로 움직인 뒤 `6b.` 로 지점을 그 시점에 맞춘다. 복제(Ctrl+D)로 추가, 삭제도 자유. 이름은 `HighlightCctvCamera > Location Name`. ④ `Mansion CCTV Preview` 루트에서 `Overrides > Apply All`. ⑤ `9.` 로 번호 정리, `3b.` 로 사각 확인. ⑥ `8.`·`5.` 로 임시 카메라·미리보기를 지운 뒤 씬 저장.
+
 ## 열어 둔 결정
 
 - 플레이 구역은 본관 1·2층(지하는 엔딩 무대, 다락은 대기 구역). 앞뜰까지 열지와 경계 콜라이더는 사용자가 배치.

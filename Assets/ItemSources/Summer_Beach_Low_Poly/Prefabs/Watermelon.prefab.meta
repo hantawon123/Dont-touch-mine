@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 01a08932d87824f4987f1eaa40ca1fad
+labels:
+- summer
+- beach
+- fruit
+timeCreated: 1430043791
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/Watermelon.prefab
+  uploadId: 466071

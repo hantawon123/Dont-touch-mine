@@ -983,7 +983,7 @@ namespace Game.Network.Match
             if (!_interactionRules.IsValidRelease(playerPose, pose))
             {
                 reason = $"release pose {Vector3.Distance(playerPose.position, pose.position):F2} m from player " +
-                         $"(limit {InteractionAuthorityRules.DefaultInteractionDistance:F1} m) or rotation not normalized";
+                         $"(limit {InteractionAuthorityRules.DefaultReleaseDistance:F1} m) or rotation not normalized";
                 return false;
             }
 
