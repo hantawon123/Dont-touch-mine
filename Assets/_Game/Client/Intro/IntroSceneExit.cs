@@ -40,6 +40,13 @@ namespace Game.Client.Intro
             var destination = TutorialEntryRoute.Resolve(
                 nextSceneName,
                 new PlayerPrefsTutorialCompletionStore());
+
+            var store = new PlayerPrefsTutorialCompletionStore();
+
+            Debug.Log(
+                $"[Intro] completed={store.IsCurrentVersionCompleted}, " +
+                $"destination={destination}");
+
             var op = SceneManager.LoadSceneAsync(destination, LoadSceneMode.Single);
             if (op == null)
             {
