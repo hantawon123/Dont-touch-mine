@@ -11,9 +11,11 @@ namespace Game.Client.Tutorial
         [SerializeField] private TutorialSession session;
         [SerializeField] private TMP_Text messageText;
         [SerializeField] private float followUpDelay = 1.5f;
+        [SerializeField] private float fadeDuration = 0.18f;
 
         private TutorialRadioPresenter presenter;
         private Coroutine sequence;
+        private CanvasGroup radioGroup;
 
         public string CurrentMessage => messageText != null ? messageText.text : string.Empty;
 
@@ -26,6 +28,10 @@ namespace Game.Client.Tutorial
                 return;
             }
 
+            var radioPanel = messageText.transform.parent.parent.gameObject;
+            radioGroup = radioPanel.GetComponent<CanvasGroup>() ?? radioPanel.AddComponent<CanvasGroup>();
+            radioGroup.alpha = 1f;
+
             presenter = new TutorialRadioPresenter(this, session);
             presenter.Start();
         }
@@ -37,6 +43,7 @@ namespace Game.Client.Tutorial
             if (sequence != null)
                 StopCoroutine(sequence);
             messageText.text = message;
+            radioGroup.alpha = 1f;
         }
 
         internal void ShowThen(string first, string next)
@@ -49,9 +56,29 @@ namespace Game.Client.Tutorial
         private IEnumerator ShowSequence(string first, string next)
         {
             messageText.text = first;
+            radioGroup.alpha = 1f;
             yield return new WaitForSecondsRealtime(followUpDelay);
+            yield return Fade(1f, 0f);
             messageText.text = next;
+            yield return Fade(0f, 1f);
             sequence = null;
+        }
+
+        private IEnumerator Fade(float from, float to)
+        {
+            if (fadeDuration <= 0f)
+            {
+                radioGroup.alpha = to;
+                yield break;
+            }
+
+            for (var elapsed = 0f; elapsed < fadeDuration; elapsed += Time.unscaledDeltaTime)
+            {
+                radioGroup.alpha = Mathf.Lerp(from, to, elapsed / fadeDuration);
+                yield return null;
+            }
+
+            radioGroup.alpha = to;
         }
     }
 

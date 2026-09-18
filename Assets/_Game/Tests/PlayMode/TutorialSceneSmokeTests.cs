@@ -50,12 +50,13 @@ namespace Game.Tests.PlayMode
             var radio = Object.FindAnyObjectByType<TutorialRadioView>();
             session.ObserveMovement(Observe(distance: 3f, look: 30f));
             Assert.That(radio.CurrentMessage, Does.Contain("벽을 보고 걷지는"));
-            yield return new WaitForSecondsRealtime(1.6f);
+            yield return new WaitForSecondsRealtime(2f);
             Assert.That(radio.CurrentMessage, Does.Contain("전력으로 달려"));
+            Assert.That(GameObject.Find("BossRadio").GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f).Within(.01f));
 
             session.RetryCurrentStep();
             Assert.That(radio.CurrentMessage, Does.Contain("같은 실수는 두 번"));
-            yield return new WaitForSecondsRealtime(1.6f);
+            yield return new WaitForSecondsRealtime(2f);
             Assert.That(radio.CurrentMessage, Does.Contain("전력으로 달려"));
         }
 
