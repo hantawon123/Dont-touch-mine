@@ -1362,13 +1362,102 @@ namespace Game.Network.Session
             return true;
         }
 
+        /// <summary>
+        /// One slot, reused: a request is answered with at most one assignment.
+        /// </summary>
+        private readonly PlayerItemAssignment[] _requestedAssignmentBuffer = new PlayerItemAssignment[1];
+
+        /// <remarks>
+        /// Answers from what was published at phase entry when it can. When it
+        /// cannot, it publishes now. The phase-entry publish runs once and skips
+        /// any player whose avatar has no PlayerId in the roster at that instant
+        /// - a player mid-respawn on a slow scene load - and it was never tried
+        /// again. That player's scene asks every second, and until this the
+        /// server answered every one of those with nothing: the briefing never
+        /// showed, the cover never dropped, the ready signal never went out, and
+        /// the whole room waited on one player who could not know why.
+        /// <para>
+        /// A player who is sending this request has an avatar in the roster, so
+        /// publishing at request time is what publishing at phase entry could
+        /// not be for them: on time.
+        /// </para>
+        /// </remarks>
         private bool ResendItemAssignment(PlayerRef requester)
         {
-            if (!IsRuntimeReady || !IsServer || _matchStarter == null || !requester.IsRealPlayer ||
-                !TryGetPublishedAssignment(_publishedItemAssignments, _matchStarter.PlayingParticipants,
-                    PlayerRegistry.IdOf(requester), out var itemId)) return false;
+            if (!IsRuntimeReady || !IsServer || _matchStarter == null || !requester.IsRealPlayer) return false;
+            var requesterId = PlayerRegistry.IdOf(requester);
+            if (!TryResolveAssignmentOnRequest(_publishedItemAssignments, _matchStarter.PlayingParticipants,
+                    _matchStarter.SessionAssignments, requesterId, out var itemId, out var publishIndex))
+            {
+                Debug.LogWarning(
+                    $"[Match] Assignment request from {requesterId} not answered: " +
+                    "not a playing participant, or the session has no assignment for them.");
+                return false;
+            }
+            if (publishIndex >= 0)
+            {
+                _requestedAssignmentBuffer[0] = _matchStarter.SessionAssignments[publishIndex];
+                if (!TryPublishItemAssignments(_requestedAssignmentBuffer))
+                {
+                    Debug.LogWarning(
+                        $"[Match] Assignment for {requesterId} still not publishable; " +
+                        "their scene asks again in a second.");
+                    return false;
+                }
+                // Publishing sends. Nothing more to do.
+                Debug.Log($"[Match] Assignment for {requesterId} published on request (missed at phase entry).");
+                return true;
+            }
             SendItemAssignment(requester, itemId);
             return true;
+        }
+
+        /// <summary>
+        /// What to send a player who asks for their assignment, and whether it
+        /// has to be published first.
+        /// </summary>
+        /// <param name="publishIndex">
+        /// The player index whose assignment must be published before it can be
+        /// sent, or -1 when it is already published. Never set without
+        /// <paramref name="itemId"/>.
+        /// </param>
+        /// <remarks>
+        /// Pure, so the two answers - already published, and known to the
+        /// session but skipped at phase entry - can be checked without a runner.
+        /// A player who is not in the line-up gets nothing even when the session
+        /// has an assignment at their index: the line-up is what says the index
+        /// is theirs.
+        /// </remarks>
+        internal static bool TryResolveAssignmentOnRequest(
+            IReadOnlyDictionary<string, string> published,
+            IReadOnlyList<MatchParticipant> playing,
+            IReadOnlyList<PlayerItemAssignment> sessionAssignments,
+            string requesterId,
+            out string itemId,
+            out int publishIndex)
+        {
+            publishIndex = -1;
+            if (TryGetPublishedAssignment(published, playing, requesterId, out itemId))
+            {
+                return true;
+            }
+            itemId = null;
+            if (string.IsNullOrEmpty(requesterId) || playing == null || sessionAssignments == null)
+            {
+                return false;
+            }
+            foreach (var participant in playing)
+            {
+                if (participant.PlayerId != requesterId) continue;
+                var index = participant.PlayerIndex;
+                if (index < 0 || index >= sessionAssignments.Count) return false;
+                var candidate = sessionAssignments[index].Item.ItemId?.Trim();
+                if (string.IsNullOrEmpty(candidate)) return false;
+                itemId = candidate;
+                publishIndex = index;
+                return true;
+            }
+            return false;
         }
 
         internal static bool TryGetPublishedAssignment(IReadOnlyDictionary<string, string> published,

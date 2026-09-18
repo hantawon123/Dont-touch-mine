@@ -48,5 +48,33 @@ namespace Game.Core.Ports
         void SetTalking(bool talking);
 
         void SetListening(bool listening);
+
+        /// <summary>
+        /// Which microphone to capture from, by the name the 사운드 tab lists,
+        /// or empty for whichever one the machine calls default.
+        /// </summary>
+        /// <remarks>
+        /// Here rather than read from the settings by whoever owns the
+        /// microphone, for the reason the rest of this port exists: the choice
+        /// is made in <c>Game.Client</c> and the capture happens in
+        /// <c>Game.Network</c>, and neither sees the other.
+        /// <para>
+        /// A name, not a device: what a name resolves to depends on which
+        /// microphone back end is capturing, and that is the implementer's to
+        /// know. An unknown name falls back to the default rather than
+        /// silencing the player.
+        /// </para>
+        /// </remarks>
+        void SetCaptureDevice(string deviceName);
+
+        /// <summary>
+        /// How much to scale the captured signal by, where 1 is the microphone
+        /// as it comes in. See <c>VoiceCaptureGain</c>.
+        /// </summary>
+        /// <remarks>
+        /// A number rather than the slider's percentage, so the meaning of the
+        /// slider stays in one place and the implementer only has to multiply.
+        /// </remarks>
+        void SetCaptureGain(float gain);
     }
 }

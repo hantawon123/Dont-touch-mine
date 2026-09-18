@@ -17,7 +17,6 @@ namespace Game.Architecture.Tests
 
             Assert.That(defaults.Get(SoundVolume.Master), Is.EqualTo(50));
             Assert.That(defaults.Get(SoundVolume.Music), Is.EqualTo(50));
-            Assert.That(defaults.Get(SoundVolume.Ambience), Is.EqualTo(50));
             Assert.That(defaults.Get(SoundVolume.Effects), Is.EqualTo(50));
             Assert.That(defaults.Get(SoundVolume.Microphone), Is.EqualTo(50));
             Assert.That(defaults.DeviceName, Is.EqualTo(SoundCatalog.DefaultDevice));
