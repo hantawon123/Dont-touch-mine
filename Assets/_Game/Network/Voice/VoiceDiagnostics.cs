@@ -3,6 +3,7 @@ using System.Text;
 using Photon.Realtime;
 using Photon.Voice.Fusion;
 using Photon.Voice.Unity;
+using Photon.Voice.Unity.UtilityScripts;
 using UnityEngine;
 
 namespace Game.Network.Voice
@@ -194,7 +195,58 @@ namespace Game.Network.Voice
             }
 
             line.Append(" | avatars mine=").Append(mine).Append(" remote=").Append(remote);
+            AppendCaptureChain();
             return line.ToString();
+        }
+
+        /// <summary>
+        /// What the local microphone is being put through, as flags.
+        /// </summary>
+        /// <remarks>
+        /// Written out because none of it can be read back from the SDK's own
+        /// logging: the processor names a parameter only when the value moves
+        /// off its default, so 자동 게인 — whose default is already on — leaves
+        /// no line at all and reads as missing. Whether it is running decides
+        /// how loud everyone hears each other, which is too central to be
+        /// inferred from an absence.
+        /// </remarks>
+        private void AppendCaptureChain()
+        {
+            var recorder = LocalRecorder();
+            if (recorder == null)
+            {
+                return;
+            }
+
+            var dsp = recorder.GetComponent<WebRtcAudioDsp>();
+            line.Append(" | dsp=");
+            if (dsp == null || !dsp.enabled)
+            {
+                line.Append("off");
+            }
+            else
+            {
+                line.Append("agc").Append(dsp.AGC ? 'Y' : 'N');
+                line.Append(" ns").Append(dsp.NoiseSuppression ? 'Y' : 'N');
+                line.Append(" aec").Append(dsp.AEC ? 'Y' : 'N');
+            }
+
+            var amplifier = recorder.GetComponent<MicAmplifier>();
+            line.Append(" gain=")
+                .Append(amplifier == null ? "-" : amplifier.AmplificationFactor.ToString("0.00"));
+        }
+
+        private Recorder LocalRecorder()
+        {
+            foreach (var voice in voices)
+            {
+                if (voice.IsLocal && voice.RecorderInUse != null)
+                {
+                    return voice.RecorderInUse;
+                }
+            }
+
+            return null;
         }
 
         /// <remarks>
