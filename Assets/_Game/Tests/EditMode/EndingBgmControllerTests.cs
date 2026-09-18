@@ -1,6 +1,7 @@
 using Game.Bootstrap;
 using Game.Core.Flow;
 using Game.Core.Settings;
+using Game.Network.Match;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -17,6 +18,48 @@ namespace Game.Architecture.Tests
         public void Playback_CoversHighlightOnly(AppFlowState state, bool expected)
         {
             Assert.That(EndingBgmController.ShouldPlay(state), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void ShouldPlay_StopsOnceTheLocalPlayerIsInTheLobby()
+        {
+            Assert.That(EndingBgmController.ShouldPlay(AppFlowState.Highlight), Is.True);
+            Assert.That(EndingBgmController.ShouldPlay(AppFlowState.Highlight, true), Is.False);
+        }
+
+        [Test]
+        public void FadesOutWhenLocalPlayerReachesLobbyBeforeHighlightEnds()
+        {
+            var host = new GameObject("Ending BGM Skip Lobby Test");
+            EndingBgmController controller = null;
+            try
+            {
+                var source = host.AddComponent<AudioSource>();
+                var flow = EnterHighlight();
+                var sound = new SoundSettingsSystem(new InMemorySoundSettingsStore());
+                var navigation = new FakeNavigation();
+                controller = new EndingBgmController(flow, sound, source, navigation);
+                controller.Start();
+                var full = sound.Current.Get(SoundVolume.Music) / 100f * EndingBgmController.PlaybackVolume;
+                var advance = typeof(EndingBgmController).GetMethod("AdvanceFade",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+                advance.Invoke(controller, new object[] { EndingBgmController.FadeSeconds });
+                Assert.That(source.isPlaying, Is.True);
+                Assert.That(source.volume, Is.EqualTo(full).Within(.001f));
+
+                navigation.IsLocalHighlightComplete = true;
+                controller.Tick();
+                advance.Invoke(controller, new object[] { EndingBgmController.FadeSeconds });
+                Assert.That(source.volume, Is.Zero);
+                Assert.That(source.isPlaying, Is.False);
+                Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Highlight));
+            }
+            finally
+            {
+                controller?.Dispose();
+                Object.DestroyImmediate(host);
+            }
         }
 
         [Test]
@@ -106,6 +149,18 @@ namespace Game.Architecture.Tests
             Assert.That(flow.TryTransitionTo(AppFlowState.InGame), Is.True);
             Assert.That(flow.TryTransitionTo(AppFlowState.Highlight), Is.True);
             return flow;
+        }
+
+        private sealed class FakeNavigation : INetworkResultNavigation
+        {
+            public bool IsServer => false;
+            public bool IsRuntimeReady => true;
+            public bool IsResultSceneLoaded => false;
+            public bool IsLocalHighlightComplete { get; set; }
+            public bool EnterResultScene() => false;
+            public bool PrepareLobbyForHighlights() => false;
+            public bool CompleteLocalHighlightViewing() => IsLocalHighlightComplete;
+            public bool RequestReturnToLobby() => false;
         }
     }
 }
