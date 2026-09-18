@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Game.Client;
 using Game.Client.Combat;
 using Game.Client.Common;
 using Game.Client.Interactions;
@@ -306,6 +307,9 @@ namespace Game.Editor.Tutorial
             serialized.FindProperty("session").objectReferenceValue = session;
             serialized.FindProperty("messageText").objectReferenceValue = message;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var keyGuide = KeySettingGuideView.Ensure(canvasObject.transform);
+            keyGuide.AlwaysVisible = true;
         }
 
         private static RectTransform UiRect(

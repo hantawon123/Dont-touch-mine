@@ -29,8 +29,13 @@ namespace Game.Client.Tutorial
             }
 
             var radioPanel = messageText.transform.parent.parent.gameObject;
-            radioGroup = radioPanel.GetComponent<CanvasGroup>() ?? radioPanel.AddComponent<CanvasGroup>();
+            radioGroup = radioPanel.GetComponent<CanvasGroup>();
+            if (radioGroup == null)
+                radioGroup = radioPanel.AddComponent<CanvasGroup>();
             radioGroup.alpha = 1f;
+
+            var keyGuide = KeySettingGuideView.Ensure(transform);
+            keyGuide.AlwaysVisible = true;
 
             presenter = new TutorialRadioPresenter(this, session);
             presenter.Start();

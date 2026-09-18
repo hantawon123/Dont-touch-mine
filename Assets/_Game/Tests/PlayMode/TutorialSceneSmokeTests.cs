@@ -48,6 +48,9 @@ namespace Game.Tests.PlayMode
 
             var session = Object.FindAnyObjectByType<TutorialSession>();
             var radio = Object.FindAnyObjectByType<TutorialRadioView>();
+            var keyGuide = Object.FindAnyObjectByType<Game.Client.KeySettingGuideView>();
+            Assert.That(keyGuide, Is.Not.Null);
+            Assert.That(keyGuide.AlwaysVisible, Is.True);
             session.ObserveMovement(Observe(distance: 3f, look: 30f));
             Assert.That(radio.CurrentMessage, Does.Contain("벽을 보고 걷지는"));
             yield return new WaitForSecondsRealtime(2f);
