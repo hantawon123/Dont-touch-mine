@@ -796,7 +796,7 @@ namespace Game.Editor
         /// <c>CCTV Eye</c>(저장 안 됨, depth 100)를 두어 Game 뷰가 16:9 로 그 화면을 그리게 한다.
         /// 지점을 옮기면 임시 카메라가 따라간다. 미리보기를 지우면 함께 사라진다.
         /// </summary>
-        [MenuItem(MenuRoot + "6. Look Through Selected CCTV _F8")]
+        [MenuItem(MenuRoot + "6. Look Through Selected CCTV %#&8")]
         public static void LookThroughSelected()
         {
             var selected = Selection.activeGameObject;
@@ -807,7 +807,7 @@ namespace Game.Editor
             LookThrough(camera);
         }
 
-        [MenuItem(MenuRoot + "7. Look Through Next CCTV _F9")]
+        [MenuItem(MenuRoot + "7. Look Through Next CCTV %#&9")]
         public static void LookThroughNext()
         {
             var all = AllCctv().ToList();
@@ -849,7 +849,7 @@ namespace Game.Editor
                 view.Repaint();
             }
             Selection.activeGameObject = camera.gameObject;
-            Debug.Log($"[MansionCctv] {camera.LocationName} 시점. Scene 뷰는 이 시점으로 맞췄고 Game 뷰는 CCTV Eye(16:9)가 그립니다. F9 로 다음 카메라, 8 번 메뉴로 끝냅니다.");
+            Debug.Log($"[MansionCctv] {camera.LocationName} 시점. Scene 뷰는 이 시점으로 맞췄고 Game 뷰는 CCTV Eye(16:9)가 그립니다. Ctrl+Shift+Alt+9 로 다음 카메라, 8 번 메뉴로 끝냅니다.");
         }
 
         private static void FollowEye()
