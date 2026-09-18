@@ -170,7 +170,7 @@ namespace Game.Client.Voice
         }
 
         /// <summary>
-        /// Icon plate plus the 마이크 고정 key, as one row item.
+        /// Icon plate plus the 마이크 켜기/끄기 key, as one row item.
         /// </summary>
         public static RectTransform EnsureKeyedMuteItem(Transform parent)
         {
@@ -179,7 +179,7 @@ namespace Game.Client.Voice
         }
 
         /// <summary>
-        /// Icon plate plus the 음성 듣기 key, as one row item.
+        /// Icon plate plus the 스피커 켜기/끄기 key, as one row item.
         /// </summary>
         public static RectTransform EnsureKeyedSpeakerItem(Transform parent)
         {

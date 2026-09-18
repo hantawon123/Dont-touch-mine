@@ -52,7 +52,7 @@ namespace Game.Architecture.Tests
         /// </summary>
         /// <remarks>
         /// The second half is what catches a default drifting away from the
-        /// asset — the state 마이크 송출 was in, showing T while the game
+        /// asset — the state 눌러서 말하기 was in, showing T while the game
         /// listened to G.
         /// </remarks>
         [Test]

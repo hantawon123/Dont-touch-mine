@@ -499,11 +499,11 @@ namespace Game.Client.Settings
                 switch (action)
                 {
                     case Core.Settings.ControlAction.MicrophoneTalk:
-                        return "마이크 송출";
+                        return "눌러서 말하기";
                     case Core.Settings.ControlAction.VoiceToggle:
-                        return "마이크 고정";
+                        return "마이크 켜기/끄기";
                     case Core.Settings.ControlAction.ToggleSpeaker:
-                        return "음성 듣기";
+                        return "스피커 켜기/끄기";
                     case Core.Settings.ControlAction.MoveForward:
                         return "앞으로 이동";
                     case Core.Settings.ControlAction.MoveLeft:
@@ -581,8 +581,6 @@ namespace Game.Client.Settings
                         return "마스터 볼륨";
                     case Core.Settings.SoundVolume.Music:
                         return "배경음악 볼륨";
-                    case Core.Settings.SoundVolume.Ambience:
-                        return "환경소리 볼륨";
                     case Core.Settings.SoundVolume.Effects:
                         return "효과음 볼륨";
                     case Core.Settings.SoundVolume.Microphone:

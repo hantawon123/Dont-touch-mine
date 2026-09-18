@@ -239,7 +239,7 @@ namespace Game.Client.Lobby
 
         /// <summary>
         /// The mute toggle sits to the right of 환경설정: a white mic or a
-        /// grey slash, with the 마이크 고정 key beside it.
+        /// grey slash, with the 마이크 켜기/끄기 key beside it.
         /// </summary>
         private void EnsureVoiceButton()
         {
@@ -255,7 +255,7 @@ namespace Game.Client.Lobby
 
         /// <summary>
         /// The listen toggle sits to the right of the microphone, with the
-        /// 음성 듣기 key beside it.
+        /// 스피커 켜기/끄기 key beside it.
         /// </summary>
         private void EnsureSpeakerButton()
         {

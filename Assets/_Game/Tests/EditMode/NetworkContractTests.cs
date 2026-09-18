@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using Game.Client.Combat;
 using Game.Client.Interactions;
 using Game.Client.Players;
+using Game.Core.Items;
 using Game.Core.Match;
 using Game.Core.Lobby;
 using Game.Core.Players;
@@ -583,6 +584,45 @@ namespace Game.Architecture.Tests
             Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, Array.Empty<MatchParticipant>(), "late", out _), Is.False);
             published.Clear(); // Runner replacement or rematch reset.
             Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, playing, "late", out _), Is.False);
+        }
+
+        /// <remarks>
+        /// 페이즈 진입 때의 한 번뿐인 발행은 그 순간 roster 에 PlayerId 가 없는 아바타를
+        /// 건너뛴다. 그 플레이어는 1초마다 배정을 요청해 오는데, 서버가 사전만 보면 영원히
+        /// 빈손이다 - 2026-09-18 두 명 테스트에서 로드가 느린 쪽이 매치 화면 앞에서 1분을
+        /// 기다린 이유. 요청 시점에는 세션 배정으로 다시 해석하고 발행이 필요하다고 알려야 한다.
+        /// </remarks>
+        [Test]
+        public void AssignmentRequest_MissedAtPhaseEntry_IsResolvedFromTheSessionAndMarkedForPublish()
+        {
+            var playing = new[] { new MatchParticipant("host", 0), new MatchParticipant("late", 1) };
+            var published = new Dictionary<string, string> { ["host"] = "host-item" }; // "late" 는 건너뛰어졌다
+            var session = new[]
+            {
+                new PlayerItemAssignment(0, new ItemDefinition("host-item", "category")),
+                new PlayerItemAssignment(1, new ItemDefinition(" late-item ", "category")),
+            };
+
+            Assert.That(NetworkRunnerService.TryResolveAssignmentOnRequest(
+                published, playing, session, "late", out var item, out var publishIndex), Is.True);
+            Assert.That(item, Is.EqualTo("late-item"), "세션 배정에서 다듬어서 꺼낸다.");
+            Assert.That(publishIndex, Is.EqualTo(1), "먼저 발행해야 한다고 알려야 한다.");
+
+            // 이미 발행된 쪽은 사전 그대로, 발행 불필요.
+            Assert.That(NetworkRunnerService.TryResolveAssignmentOnRequest(
+                published, playing, session, "host", out item, out publishIndex), Is.True);
+            Assert.That(item, Is.EqualTo("host-item"));
+            Assert.That(publishIndex, Is.EqualTo(-1));
+
+            // 라인업에 없으면 세션 그 인덱스에 배정이 있어도 주지 않는다.
+            Assert.That(NetworkRunnerService.TryResolveAssignmentOnRequest(
+                published, playing, session, "stranger", out _, out _), Is.False);
+            // 세션이 아직 없으면(런타임 전) 줄 것이 없다.
+            Assert.That(NetworkRunnerService.TryResolveAssignmentOnRequest(
+                published, playing, Array.Empty<PlayerItemAssignment>(), "late", out _, out _), Is.False);
+            // 배정 인덱스가 세션 범위를 벗어나면 못 준다.
+            Assert.That(NetworkRunnerService.TryResolveAssignmentOnRequest(
+                published, new[] { new MatchParticipant("far", 7) }, session, "far", out _, out _), Is.False);
         }
 
         [TestCase(false, false, false, false)]
