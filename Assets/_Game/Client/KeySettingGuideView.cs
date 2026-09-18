@@ -90,12 +90,13 @@ namespace Game.Client
             ToggleKeyLabel
         };
 
+        // 배치 모드: 좌클릭 배치, 우클릭 유지+마우스 회전, Q/E 좌우 회전, F 놓기(기존). 우클릭으로 모드를 끄는 키는 없다(손이 비면 꺼짐).
         public static readonly string[] PlacingActions =
         {
-            "배치 모드 끄기",
             "배치하기",
-            "가로축 회전",
-            "세로축 회전",
+            "회전",
+            "좌우 회전",
+            "놓기",
             "앉기",
             "엎드리기",
             "시점 변경",
@@ -106,10 +107,10 @@ namespace Game.Client
 
         public static readonly string[] PlacingLabels =
         {
-            RightClickKeyLabel,
             ClickKeyLabel,
+            RightClickKeyLabel,
             RotateYawKeyLabel,
-            ScrollKeyLabel,
+            "F",
             "C",
             "Z",
             "V",
@@ -142,10 +143,10 @@ namespace Game.Client
 
         private static readonly ControlAction[] PlacingBindings =
         {
-            ControlAction.PlacementMode,
             ControlAction.PrimaryAction,
+            ControlAction.PlacementMode,
             ControlAction.RotateLeft,
-            ControlAction.RaiseObject,
+            ControlAction.Interact,
             ControlAction.Crouch,
             ControlAction.Prone,
             ControlAction.ToggleView,
@@ -247,26 +248,11 @@ namespace Game.Client
                     settings.Get(ControlAction.RotateRight));
             }
 
-            if (guideMode == Mode.Placing && action == ControlAction.RaiseObject)
-            {
-                var raise = settings.Get(ControlAction.RaiseObject);
-                var lower = settings.Get(ControlAction.LowerObject);
-                if (IsScrollCode(raise) && IsScrollCode(lower))
-                {
-                    return ScrollKeyLabel;
-                }
-
-                return CombinedKeyLabel(raise, lower);
-            }
-
             return ControlCatalog.KeyLabel(settings.Get(action));
         }
 
         private static string CombinedKeyLabel(string leftCode, string rightCode) =>
             $"{ControlCatalog.KeyLabel(leftCode)} / {ControlCatalog.KeyLabel(rightCode)}";
-
-        private static bool IsScrollCode(string code) =>
-            code == ControlCatalog.ScrollUp || code == ControlCatalog.ScrollDown;
 
         private static void OnSharedSettingsChanged(ControlSettings _) => RefreshBoundGuides();
 

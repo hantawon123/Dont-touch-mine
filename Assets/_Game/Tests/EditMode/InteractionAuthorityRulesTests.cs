@@ -44,16 +44,20 @@ namespace Game.Architecture.Tests
         {
             var playerPose = Pose.identity;
 
+            // 놓기 한도(3 m)는 잡기 한도(2 m)보다 넉넉하다: 배치 모드가 발 기준 2.8 m까지 물건을 두기 때문
             Assert.That(
                 rules.IsValidRelease(
                     playerPose,
-                    new Pose(Vector3.right * 2f, Quaternion.identity)),
+                    new Pose(Vector3.right * 3f, Quaternion.identity)),
                 Is.True);
             Assert.That(
                 rules.IsValidRelease(
                     playerPose,
-                    new Pose(Vector3.right * 2.01f, Quaternion.identity)),
+                    new Pose(Vector3.right * 3.01f, Quaternion.identity)),
                 Is.False);
+            Assert.That(
+                rules.IsWithinInteractionDistance(Vector3.zero, Vector3.right * 2.5f),
+                Is.False, "잡기 거리는 그대로 2 m");
             Assert.That(
                 rules.IsValidRelease(
                     playerPose,

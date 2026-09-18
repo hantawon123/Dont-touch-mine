@@ -267,6 +267,9 @@ namespace Game.Client.Interactions
         /// <summary>배치 모드 등 좌클릭을 다른 용도로 쓰는 동안 던지기를 막는다.</summary>
         public bool IsThrowSuppressed { get; set; }
 
+        /// <summary>배치 모드에서 물건이 다른 물건·지형과 겹쳐 놓을 수 없는 동안 F 놓기를 막는다.</summary>
+        public bool IsDropSuppressed { get; set; }
+
         /// <summary>기절 등 외부에서 상호작용 입력을 잠글 때 사용한다.</summary>
         public bool IsInputLocked { get; set; }
 
@@ -275,6 +278,15 @@ namespace Game.Client.Interactions
         {
             CancelThrowAim();
             DropCarried();
+        }
+
+        /// <summary>
+        /// 배치 모드 확정: 물건이 이미 조준선 위의 빈 자리에 있으므로, 벽 뒤 보정 없이 지금 자세 그대로 놓는다(권위가 있으면 놓기 요청).
+        /// </summary>
+        public void PlaceCarriedItem()
+        {
+            CancelThrowAim();
+            DropCarried(adjustForWalls: false);
         }
 
         /// <summary>배치 확정 등 외부 시스템이 소지 물건을 가져갈 때 사용한다.</summary>
@@ -421,7 +433,7 @@ namespace Game.Client.Interactions
                     {
                         aimedInteractable.Interact(this);
                     }
-                    else
+                    else if (!IsDropSuppressed)
                     {
                         DropCarried();
                     }
@@ -714,7 +726,7 @@ namespace Game.Client.Interactions
             }
         }
 
-        private void DropCarried()
+        private void DropCarried(bool adjustForWalls = true)
         {
             if (CarriedItem == null)
             {
@@ -722,7 +734,7 @@ namespace Game.Client.Interactions
             }
 
             var dropped = CarriedItem;
-            EnsureSafeReleasePosition(dropped);
+            if (adjustForWalls) EnsureSafeReleasePosition(dropped);
 
             PlayPutDownCue(dropped);
             if (commands != null)
