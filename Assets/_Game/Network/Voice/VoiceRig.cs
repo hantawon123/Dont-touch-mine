@@ -205,6 +205,7 @@ namespace Game.Network.Voice
                 // Null rather than the name, so the device is set again on
                 // the new recorder even though the choice never moved.
                 appliedDevice = null;
+                EnsureCaptureChain();
                 ApplyTransmitState();
                 ApplyCaptureDevice();
                 ApplyCaptureGain();
@@ -299,6 +300,70 @@ namespace Game.Network.Voice
         {
             requestedGain = gain;
             ApplyCaptureGain();
+        }
+
+        /// <summary>
+        /// Puts the microphone processing this player asked for onto their own
+        /// recorder: automatic gain, noise suppression, and the 마이크 볼륨
+        /// slider's amplifier.
+        /// </summary>
+        /// <remarks>
+        /// Added here rather than left on <c>NetworkedPlayer.prefab</c>, which is
+        /// where they were until 2026-09-18. On the prefab they came up on every
+        /// avatar Fusion spawned - remote ones and the server's - because
+        /// <c>WebRtcAudioDsp.Awake</c> runs wherever the component sits, while
+        /// only the local avatar ever records. That made every spawn heavier: the
+        /// match scene took 13-18s instead of 8s to load, and both players sat
+        /// behind the loading cover until they gave up.
+        /// <para>
+        /// This rig only ever resolves the local player's recorder, so attaching
+        /// from here is the same as saying "on the microphone that is actually
+        /// used". The recorder reads its DSP with <c>GetComponent</c> at voice
+        /// creation and does not cache it, so restarting the recording is what
+        /// makes a freshly added component take effect.
+        /// </para>
+        /// <para>
+        /// AEC stays off. It is the half that costs latency - it hooks the
+        /// output through <c>AudioOutCapture</c> - and 8cb59fc7 turned this
+        /// whole component off to win that latency back. Automatic gain is the
+        /// half that makes a quiet microphone audible, and it costs nothing.
+        /// </para>
+        /// </remarks>
+        private void EnsureCaptureChain()
+        {
+            if (boundRecorder == null)
+            {
+                return;
+            }
+
+            var host = boundRecorder.gameObject;
+            var attached = false;
+
+            var dsp = host.GetComponent<WebRtcAudioDsp>();
+            if (dsp == null)
+            {
+                dsp = host.AddComponent<WebRtcAudioDsp>();
+                attached = true;
+            }
+
+            dsp.AEC = false;
+            dsp.AGC = true;
+            dsp.NoiseSuppression = true;
+            dsp.enabled = true;
+
+            if (host.GetComponent<MicAmplifier>() == null)
+            {
+                host.AddComponent<MicAmplifier>();
+                attached = true;
+            }
+
+            if (attached)
+            {
+                // The voice was created before these existed. Remaking it is what
+                // hands them the stream; without this the first match of a session
+                // records with neither.
+                boundRecorder.RestartRecording();
+            }
         }
 
         private void ApplyCaptureGain()
