@@ -17,6 +17,8 @@ namespace Game.Editor.Tutorial
         private const string Folder = "Assets/_Game/Content/Materials/Tutorial";
         private const string MeshPath = "Assets/_Game/Content/Materials/Tutorial/TutorialBeveledBox.asset";
         private const string Props = "Assets/PolyWorkshop_BasementWorkshop/Props/Prefabs/";
+        private const string LobbySkyboxPath = "Assets/PolyWorkshop_BasementWorkshop/Modular/Materials/Skybox1_Material.mat";
+        private const string LobbyPostProfilePath = "Assets/_Game/Content/Lighting/LobbyPostProcess.asset";
         private readonly Transform root;
         private readonly Dictionary<string, Material> materials = new();
         private readonly System.Random random = new(1072);
@@ -356,10 +358,8 @@ namespace Game.Editor.Tutorial
 
         private void Lighting()
         {
-            RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(.44f, .49f, .57f);
-            RenderSettings.fog = false;
             var p = Group(root, "Lighting");
+            ApplyLobbyLook(p);
             var key = Group(p, "Directional Light").gameObject.AddComponent<Light>();
             key.type = LightType.Directional;
             key.transform.rotation = Quaternion.Euler(65, -28, 0);
@@ -375,6 +375,34 @@ namespace Game.Editor.Tutorial
                 light.intensity = 6;
                 light.shadows = LightShadows.None;
             }
+        }
+
+        internal static void ApplyLobbyLook(Transform lightingRoot)
+        {
+            RenderSettings.fog = true;
+            RenderSettings.fogColor = new Color(.38f, .443f, .5f);
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogDensity = .03f;
+            RenderSettings.ambientMode = AmbientMode.Skybox;
+            RenderSettings.ambientSkyColor = new Color(.212f, .227f, .259f);
+            RenderSettings.ambientEquatorColor = new Color(.114f, .125f, .133f);
+            RenderSettings.ambientGroundColor = new Color(.047f, .043f, .035f);
+            RenderSettings.ambientIntensity = 1.5f;
+            RenderSettings.skybox = AssetDatabase.LoadAssetAtPath<Material>(LobbySkyboxPath);
+
+            var volumeTransform = lightingRoot.Find("Lobby Post Volume");
+            if (volumeTransform == null)
+            {
+                volumeTransform = new GameObject("Lobby Post Volume").transform;
+                volumeTransform.SetParent(lightingRoot, false);
+            }
+
+            var volume = volumeTransform.GetComponent<Volume>();
+            if (volume == null)
+                volume = volumeTransform.gameObject.AddComponent<Volume>();
+            volume.isGlobal = true;
+            volume.priority = 0f;
+            volume.sharedProfile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(LobbyPostProfilePath);
         }
 
         private void Sofa(Transform p, Vector3 pos, float yaw, int seats)

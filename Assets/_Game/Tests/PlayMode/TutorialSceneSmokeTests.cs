@@ -45,6 +45,9 @@ namespace Game.Tests.PlayMode
             Assert.That(session, Is.Not.Null);
             Assert.That(radio, Is.Not.Null);
             Assert.That(radio.CurrentMessage, Does.Contain("신입"));
+            Assert.That(RenderSettings.fog, Is.True);
+            Assert.That(RenderSettings.skybox, Is.Not.Null);
+            Assert.That(GameObject.Find("Lobby Post Volume"), Is.Not.Null);
         }
 
         [UnityTest]

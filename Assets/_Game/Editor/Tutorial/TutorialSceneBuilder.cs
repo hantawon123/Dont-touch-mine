@@ -85,6 +85,18 @@ namespace Game.Editor.Tutorial
             ValidateScene(true);
         }
 
+        [MenuItem("Game/Tutorial/Refresh Lobby Look", priority = 16)]
+        public static void RefreshLobbyLook()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath);
+            var root = GameObject.Find("TutorialHideout")?.transform ??
+                throw new InvalidOperationException("Tutorial root is missing.");
+            TutorialHideoutArt.ApplyLobbyLook(Require(root, "Lighting"));
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            ValidateScene(true);
+        }
+
         private static void BuildTrainingObjects(Transform root)
         {
             var pickup = Require(root, "Zones/03_Items/PickupDrop");
