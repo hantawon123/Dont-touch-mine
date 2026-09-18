@@ -424,13 +424,13 @@ namespace Game.Architecture.Tests
                         "Columns/Participants/Scroll/RowRoot/Row_player-2/Avatar/"
                         + LobbyPlayerListView.MuteIconName)
                         .GetComponent<Image>().sprite,
-                    Is.EqualTo(LobbyPlayerListSprites.SoundMute));
+                    Is.EqualTo(LobbyPlayerListSprites.SoundMuteWhite));
                 Assert.That(
                     canvas.transform.Find(
                         "Columns/Participants/Scroll/RowRoot/Row_player-3/Avatar/"
                         + LobbyPlayerListView.MuteIconName)
                         .GetComponent<Image>().sprite,
-                    Is.EqualTo(LobbyPlayerListSprites.MicOffGray));
+                    Is.EqualTo(LobbyPlayerListSprites.MicOffWhite));
             }
             finally
             {
@@ -463,7 +463,7 @@ namespace Game.Architecture.Tests
                     + LobbyPlayerListView.MuteIconName);
                 Assert.That(
                     mute.GetComponent<Image>().sprite,
-                    Is.EqualTo(LobbyPlayerListSprites.SoundMute));
+                    Is.EqualTo(LobbyPlayerListSprites.SoundMuteWhite));
             }
             finally
             {
@@ -496,6 +496,7 @@ namespace Game.Architecture.Tests
 
                 var dim = guestAvatar.Find(LobbyPlayerListView.AvatarDimName).GetComponent<Image>();
                 Assert.That(dim.color, Is.EqualTo(LobbyPlayerListView.MutedAvatarDim));
+                Assert.That(LobbyPlayerListView.MutedAvatarDim.a, Is.EqualTo(0.65f).Within(0.001f));
                 Assert.That(dim.sprite, Is.EqualTo(HomeUiFonts.CircleSprite));
                 var mute = guestAvatar.Find(LobbyPlayerListView.MuteIconName) as RectTransform;
                 Assert.That(mute, Is.Not.Null);
@@ -504,7 +505,7 @@ namespace Game.Architecture.Tests
                     LobbyPlayerListView.MuteIconSize)));
                 Assert.That(
                     mute.GetComponent<Image>().sprite,
-                    Is.EqualTo(LobbyPlayerListSprites.MicOffGray));
+                    Is.EqualTo(LobbyPlayerListSprites.MicOffWhite));
             }
             finally
             {

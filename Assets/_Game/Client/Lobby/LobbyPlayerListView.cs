@@ -73,7 +73,7 @@ namespace Game.Client.Lobby
         public static readonly Color ReportTooltipFill = Color.white;
         public static readonly Color ReportTooltipLabel = new Color(1f, 0f, 0f, 1f);
         public static readonly Color AvatarColor = new Color(0.62f, 0.62f, 0.62f, 1f);
-        public static readonly Color MutedAvatarDim = new Color(0f, 0f, 0f, 0.55f);
+        public static readonly Color MutedAvatarDim = new Color(0f, 0f, 0f, 0.65f);
         public static readonly Color OnlineSectionColor = Color.white;
         public static readonly Color WaitingSectionColor = new Color(0.35f, 0.85f, 0.4f, 1f);
         public static readonly Color InGameSectionColor = new Color(1f, 0.28f, 0.28f, 1f);
