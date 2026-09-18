@@ -58,6 +58,14 @@
 - **단독 테스트 구성**: `PlayerCharacter` 프리팹 인스턴스(1층 `SpawnPoint_1` 자리)와 `PlayerCameraRig` 프리팹 인스턴스를 두고, `MatchLifetimeScope`의 Auto Inject 목록에 캐릭터를 등록, `Game/InGame/Build HUD Layout`으로 `InGameHud`를 만들어 스코프의 HUD·보이스 뷰를 연결했다(없으면 스코프 조립이 `IVoiceControl` 미등록으로 실패하고 씬 카메라만 보인다). Playground·마트와 같은 구성이며 네트워크 매치에는 쓰이지 않는다. 플레이 확인: 1층→2층 계단 이동 정상.
 - 1층→2층 계단은 플레이로 정상 확인(탐색이 층계참에서 멈춘 것은 탐색 반지름 한계).
 
+### 7. 1층 하이라이트 CCTV (2026-09-18, S15P21D205-1082)
+
+- 마트처럼 `Resources/CCTV/Mansion.prefab` 을 씬 이름으로 자동 로드한다. 지점 24개, 전부 1층(y 4.01, 바닥 위 3.0 m), 시야각 65도, 허리 높이(바닥 위 0.7 m)를 내려보는 마트 각도.
+- 도구 `Game > Highlight > Mansion CCTV` (`Assets/_Game/Editor/MansionCctvPlanner.cs`): ① `1. Bake 1F Map` 이 y 4.4 에서 내려 쏜 광선으로 0.25 m 격자를 바닥·가구·벽으로 나누고 스폰·파쇄기·열어 둔 방 씨앗에서 걸어 닿는 칸을 표시해 `cctv-1f-map.png` 로 쓴다. ② `2. Auto Place` 가 벽 0.75 m 안쪽 후보 × 방향 24 × 초점 거리(3·4.5·7 m) 가운데 사각을 가장 많이 줄이는 지점을 탐욕으로 고르고 교환으로 다듬어 `cctv-1f-autoplace.md` 에 좌표표를 쓴다(앞 2개 파쇄기 카메라는 고정). ③ 좌표표를 `Mounts` 에 옮겨 이름을 붙이고 `3. Check Coverage` 로 `cctv-1f-coverage.png/.md` 를 뽑는다. ④ `4. Save Mansion CCTV Prefab`.
+- 가림 판정은 런타임 `HighlightCameraDirector` 와 같은 정적 렌더러 경계 상자(높이 0.5 m 이상, 카메라 원점을 품은 상자는 무시)라, 하늘 돔처럼 맵 전체를 덮는 상자는 영향이 없고 문틀 벽 모듈 상자는 문 구멍을 막는다.
+- 결과: 걸어 닿는 5,365칸(335 m²) 사각 0, 두 대 이상 62%. 피아노·책장 상자 안쪽 42칸은 규칙상 볼 수 없는 자리. 상세는 `../../../highlight-cctv-rules.md` 의 저택 절.
+- 전제: 1층 문은 전부 열어 두고 비밀 책장문은 통과 가능(사용자 결정). 2층은 임시 구조라 플레이 구역이 아니며 CCTV 도 없다. `Shredder_B` 는 2층에 남아 있다.
+
 ## 열어 둔 결정
 
 - 플레이 구역은 본관 1·2층(지하는 엔딩 무대, 다락은 대기 구역). 앞뜰까지 열지와 경계 콜라이더는 사용자가 배치.

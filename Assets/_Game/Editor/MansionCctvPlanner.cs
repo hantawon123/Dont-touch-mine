@@ -1,0 +1,1065 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
+using Game.Client.Cameras;
+using Game.Client.Interactions;
+using UnityEditor;
+using UnityEngine;
+
+namespace Game.Editor
+{
+    /// <summary>
+    /// 저택(Mansion) 1층 CCTV 설치 지점 계획 도구 (S15P21D205-1082).
+    ///
+    /// <para>
+    /// 마트는 벽면 카메라 모델 위치에서 지점을 만들었지만 저택 팩에는 카메라 소품이 없다.
+    /// 그래서 좌표표(<see cref="Mounts"/>)로 지점을 정하고, 그 표가 1층 어디를 비추는지
+    /// 격자로 검사한다. 설치 높이·초점 높이·시야각은 마트 규칙(바닥 위 3.0 m, 허리 높이,
+    /// 65도)을 저택 1층 바닥 높이에 옮긴 것이다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>가림 판정은 런타임과 같은 규칙을 쓴다.</b> <c>HighlightCameraDirector</c> 는 물리
+    /// 광선이 아니라 높이 0.5 m 이상인 정적 렌더러의 경계 상자로 가림을 본다. 문틀 벽 모듈의
+    /// 상자는 문 구멍까지 덮으므로 런타임은 문 너머를 못 본다고 판정한다. 여기서도 그렇게
+    /// 계산해야 "검사에서는 보였는데 재생에서는 안 잡히는" 지점이 생기지 않는다.
+    /// </para>
+    ///
+    /// <para>
+    /// 순서: <c>1. Bake 1F Map</c> 으로 구조를 보고, <c>2. Auto Place</c> 가 벽 가까운 후보 중
+    /// 사각을 가장 많이 줄이는 지점을 차례로 고른다(탐욕). 그 표를 <see cref="Mounts"/> 에
+    /// 옮겨 이름을 붙이고 <c>3. Check Coverage</c> 로 확인한 뒤 <c>4. Save Prefab</c> 으로 저장한다.
+    /// </para>
+    /// </summary>
+    public static class MansionCctvPlanner
+    {
+        private const string MenuRoot = "Game/Highlight/Mansion CCTV/";
+        private const string SceneName = "Mansion";
+        private const string OutputFolder = "docs/design/match-map/mansion";
+        private const string PrefabPath = "Assets/_Game/Content/Resources/CCTV/Mansion.prefab";
+
+        // 1층 경계 콜라이더 안쪽 면 (MansionEnvironment/Boundary). 여유를 조금 둔다.
+        private const float X0 = -13.0f, X1 = 13.5f, Z0 = -33.0f, Z1 = -8.5f;
+        private const float Cell = 0.25f;
+        private const int PixelsPerCell = 8;
+
+        /// <summary>1층 바닥. 스폰 y 1.4 는 캡슐 중심이고 바닥 자체는 약 1.01 이다.</summary>
+        private const float FloorY = 1.01f;
+        private const float FloorMin = 0.6f, FloorMax = 1.45f;
+        /// <summary>위에서 내려 쏘는 탐침 시작 높이. 1층 천장보다 낮아야 천장을 벽으로 오판하지 않는다.</summary>
+        private const float ProbeY = 4.4f;
+        /// <summary>이웃 칸 사이 이 높이 차까지는 걸어서 넘는 것으로 본다.</summary>
+        private const float StepHeight = 0.4f;
+
+        // 마트 규칙: 카메라는 바닥 위 3.0 m, 초점은 바닥 위 0.7 m(허리), 시야각 65도.
+        private const float MountAboveFloor = 3.0f;
+        private const float FocusAboveFloor = 0.7f;
+        private const float CeilingClearance = 0.3f;
+        private const float MinCeilingAboveFloor = 2.3f;
+        private const float DefaultFov = 65f;
+        private const float MaxViewDistance = 15f;
+        private const float Aspect = 16f / 9f;
+        /// <summary>런타임 <c>CanCctvSeePoint</c> 와 같은 프레임 여유.</summary>
+        private const float FrustumShrink = 0.9f;
+
+        // 자동 배치.
+        private const int AutoPlaceMaxCameras = 22;
+        /// <summary>좌표표 앞의 이만큼(파쇄기 카메라)은 자동 배치가 건드리지 않는다.</summary>
+        private const int PinnedMounts = 2;
+        private const int AutoPlaceMinGain = 4;
+        private const int AutoPlaceHeadings = 24;
+        /// <summary>초점 거리 3 m 는 내려보는 각 37도로 카메라 발밑 사각을 줄이고, 7 m 는 긴 복도용이다.</summary>
+        private static readonly float[] AutoPlaceFocusDistances = { 3f, 4.5f, 7f };
+
+        /// <summary>
+        /// 문이 닫혀 있어 걸어서 못 들어가도 플레이 구역으로 치는 방의 씨앗 (문은 전부 열어 두기로 함).
+        /// 남쪽 양문 방, 비밀 책장문 뒤, 계단 남서쪽 작은 방.
+        /// </summary>
+        private static readonly Vector2[] AssumedOpenSeeds =
+        {
+            new Vector2(1.3f, -30.9f), new Vector2(8.6f, -30.6f), new Vector2(-3.6f, -28.9f)
+        };
+
+        public readonly struct Mount
+        {
+            public Mount(float x, float z, float focusX, float focusZ, string area, float fov = DefaultFov)
+            {
+                X = x; Z = z; FocusX = focusX; FocusZ = focusZ; Area = area; Fov = fov;
+            }
+
+            public float X { get; }
+            public float Z { get; }
+            public float FocusX { get; }
+            public float FocusZ { get; }
+            public string Area { get; }
+            public float Fov { get; }
+        }
+
+        /// <summary>
+        /// 1층 설치 지점 좌표표. (x, z, 바라볼 x, 바라볼 z, 위치 이름).
+        /// 지점을 고치면 <c>3. Check Coverage</c> 로 사각을 다시 확인하고 <c>4. Save Prefab</c> 으로 저장한다.
+        /// </summary>
+        public static readonly Mount[] Mounts =
+        {
+            // 앞 PinnedMounts 개: 파쇄기(현관 홀 화로, ShredderSpot (-1.4, -10.7))는 파괴 장면의 중심이라 가까운 두 시점을 둔다.
+            new Mount(2.0f, -11.9f, -1.4f, -10.7f, "현관 홀 파쇄기 동쪽"),
+            new Mount(-4.6f, -11.9f, -1.4f, -10.7f, "현관 홀 파쇄기 서쪽"),
+            // 2. Auto Place (탐욕 + 교환, 2026-09-18) 결과 20개. 남쪽에서 북쪽 순.
+            new Mount(4.63f, -31.88f, 2.50f, -29.75f, "남쪽 양문 방 동쪽"),
+            new Mount(-11.38f, -31.38f, -9.25f, -29.25f, "남서쪽 방 남서 모서리"),
+            new Mount(-4.38f, -30.38f, -2.25f, -28.25f, "계단 남서쪽 작은 방"),
+            new Mount(12.13f, -29.88f, 9.13f, -29.88f, "비밀 책장문 방"),
+            new Mount(3.63f, -28.88f, 2.13f, -26.28f, "계단 남쪽 복도"),
+            new Mount(6.13f, -28.38f, 7.63f, -25.78f, "동남쪽 방 남서 모서리"),
+            new Mount(11.63f, -28.38f, 11.63f, -25.38f, "동남쪽 방 남동 모서리"),
+            new Mount(6.13f, -27.38f, 6.13f, -30.38f, "동남쪽 방 남쪽 출입구"),
+            new Mount(11.63f, -27.38f, 9.50f, -29.50f, "동남쪽 방 동쪽 벽"),
+            new Mount(-6.38f, -26.88f, -9.27f, -27.65f, "남서쪽 방 동쪽"),
+            new Mount(3.13f, -24.38f, 2.35f, -27.27f, "중앙 남동 복도"),
+            new Mount(6.13f, -21.88f, 6.13f, -18.88f, "동남쪽 방 북쪽 출입구"),
+            new Mount(-2.88f, -21.38f, -0.75f, -19.25f, "계단 서쪽"),
+            new Mount(6.13f, -20.38f, 7.63f, -22.97f, "동남쪽 방 북서 모서리"),
+            new Mount(-11.88f, -19.38f, -9.75f, -17.25f, "서쪽 복도"),
+            new Mount(0.63f, -19.38f, -6.14f, -17.56f, "중앙 홀 서향"),
+            new Mount(12.13f, -18.88f, 10.00f, -16.75f, "동북쪽 방 남동 모서리"),
+            new Mount(4.13f, -18.38f, 4.13f, -15.38f, "중앙 홀 동쪽"),
+            new Mount(5.63f, -15.88f, 8.52f, -15.10f, "동북쪽 방 서쪽"),
+            new Mount(-6.38f, -12.38f, -7.88f, -14.97f, "북서쪽 방"),
+            // 자동 배치가 남긴 카메라 발밑 사각 두 곳을 맞은편에서 받친다.
+            new Mount(-1.9f, -31.9f, 0.6f, -30.4f, "남쪽 양문 방 서쪽"),
+            new Mount(-3.1f, -27.6f, -4.0f, -29.6f, "계단 남서쪽 작은 방 북쪽"),
+        };
+
+        private enum CellKind : byte { Void, Wall, Blocked, Floor }
+
+        private sealed class Grid
+        {
+            public int Width, Height;
+            public CellKind[] Kind;
+            public bool[] Reachable;
+            /// <summary>가림 상자 안쪽 0.1 m 보다 깊이 있는 칸. 런타임 규칙상 어느 카메라도 볼 수 없다.</summary>
+            public bool[] Structural;
+            public float[] FloorHeight;
+            public float[] Ceiling;
+            public int[] Coverage;
+            public int Index(int cx, int cz) => cz * Width + cx;
+            public float WorldX(int cx) => X0 + (cx + 0.5f) * Cell;
+            public float WorldZ(int cz) => Z0 + (cz + 0.5f) * Cell;
+            public int Count(Func<int, bool> predicate)
+            {
+                var n = 0;
+                for (var i = 0; i < Kind.Length; i++) if (predicate(i)) n++;
+                return n;
+            }
+        }
+
+        private readonly struct Occluder
+        {
+            public Occluder(Bounds bounds, string name) { Bounds = bounds; Name = name; }
+            public Bounds Bounds { get; }
+            public string Name { get; }
+        }
+
+        [MenuItem(MenuRoot + "1. Bake 1F Map")]
+        public static void BakeMap()
+        {
+            RequireScene();
+            var grid = Scan();
+            var occluders = CollectOccluders();
+            var texture = Draw(grid, occluders, null, showCoverage: false);
+            var png = Save(texture, "cctv-1f-map.png");
+            Debug.Log($"[MansionCctv] 1층 지도 저장: {png} (닿는 칸 {grid.Count(i => grid.Reachable[i])}, 천장 {CeilingSummary(grid)})");
+        }
+
+        /// <summary>
+        /// 처음 <see cref="PinnedMounts"/>개(파쇄기 카메라)만 고정하고 나머지를 새로 고른다.
+        /// 탐욕으로 고른 뒤 카메라를 하나씩 다른 후보로 바꿔 보며 전체 사각을 줄이고, 혼자 보는 칸이 없는 카메라는 뺀다.
+        /// </summary>
+        [MenuItem(MenuRoot + "2. Auto Place (Greedy + Swap)")]
+        public static void AutoPlace() => AutoPlace(false);
+
+        /// <summary>좌표표(<see cref="Mounts"/>)는 그대로 두고, 그것이 못 보는 칸만 채우는 지점을 고른다.</summary>
+        [MenuItem(MenuRoot + "2b. Auto Fill From Mounts")]
+        public static void AutoFill() => AutoPlace(true);
+
+        private static void AutoPlace(bool keepMounts)
+        {
+            RequireScene();
+            var started = DateTime.Now;
+            var grid = Scan();
+            var occluders = CollectOccluders();
+            var fixedCount = keepMounts ? Mounts.Length : Math.Min(PinnedMounts, Mounts.Length);
+            var fixedRoot = BuildCameras(out _, fixedCount);
+            var fixedCameras = fixedRoot.GetComponentsInChildren<HighlightCctvCamera>();
+            List<Pick> picks;
+            int candidateCount;
+            try { picks = Greedy(grid, occluders, fixedCameras, out candidateCount); }
+            finally { UnityEngine.Object.DestroyImmediate(fixedRoot); }
+            MarkStructural(grid, occluders);
+            var sb = new StringBuilder();
+            var inv = CultureInfo.InvariantCulture;
+            var reachable = grid.Count(i => grid.Reachable[i]);
+            var remaining = grid.Count(i => grid.Reachable[i] && grid.Coverage[i] == 0);
+            sb.AppendLine(keepMounts ? "# 저택 1층 CCTV 자동 채움 (좌표표 고정)" : "# 저택 1층 CCTV 자동 배치 (탐욕 + 교환)");
+            sb.AppendLine();
+            sb.AppendLine($"생성: {started:yyyy-MM-dd HH:mm} · 고정 카메라 {fixedCameras.Length} · 후보 지점 {candidateCount} × 방향 {AutoPlaceHeadings} × 초점 거리 {AutoPlaceFocusDistances.Length} · 닿는 칸 {reachable} · 남은 사각 {remaining} ({100f * remaining / Math.Max(1, reachable):F1}%) · 소요 {(DateTime.Now - started).TotalSeconds:F0}초");
+            sb.AppendLine();
+            sb.AppendLine("| # | 설치 (x, y, z) | 초점 (x, z) | 방향 | 초점 거리 | 보이는 칸 | 이 카메라만 보는 칸 |");
+            sb.AppendLine("| --- | --- | --- | --- | --- | --- | --- |");
+            foreach (var p in picks)
+                sb.AppendLine($"| {p.index:00} | ({p.position.x.ToString("0.00", inv)}, {p.position.y.ToString("0.00", inv)}, {p.position.z.ToString("0.00", inv)}) | ({p.focus.x.ToString("0.00", inv)}, {p.focus.z.ToString("0.00", inv)}) | {p.heading:F0}° | {Vector3.Distance(new Vector3(p.position.x, 0f, p.position.z), new Vector3(p.focus.x, 0f, p.focus.z)):F1} m | {p.visible} | {p.gain} |");
+            sb.AppendLine();
+            sb.AppendLine(keepMounts ? "## Mounts 뒤에 덧붙일 표" : $"## Mounts 의 {fixedCount + 1}번째부터 바꿔 넣을 표");
+            sb.AppendLine();
+            sb.AppendLine("```csharp");
+            foreach (var p in picks)
+                sb.AppendLine($"            new Mount({p.position.x.ToString("0.00", inv)}f, {p.position.z.ToString("0.00", inv)}f, {p.focus.x.ToString("0.00", inv)}f, {p.focus.z.ToString("0.00", inv)}f, \"구역 {p.index}\"),");
+            sb.AppendLine("```");
+            sb.AppendLine();
+            sb.AppendLine("## 남은 사각 묶음");
+            sb.AppendLine();
+            var clusters = Clusters(grid, i => grid.Reachable[i] && grid.Coverage[i] == 0 && !grid.Structural[i]);
+            if (clusters.Count == 0) sb.AppendLine("없음.");
+            foreach (var cluster in clusters.Take(20))
+            {
+                var xs = cluster.Select(i => grid.WorldX(i % grid.Width)).ToArray();
+                var zs = cluster.Select(i => grid.WorldZ(i / grid.Width)).ToArray();
+                sb.AppendLine($"- {cluster.Count}칸 x {xs.Min():F1}~{xs.Max():F1} z {zs.Min():F1}~{zs.Max():F1}");
+            }
+            var md = Path.Combine(ProjectRoot(), OutputFolder, "cctv-1f-autoplace.md");
+            File.WriteAllText(md, sb.ToString(), new UTF8Encoding(false));
+            var cameras = Mounts.Take(fixedCount).Select(m => (new Vector3(m.X, FloorY + MountAboveFloor, m.Z), new Vector3(m.FocusX, FloorY + FocusAboveFloor, m.FocusZ), m.Fov))
+                .Concat(picks.Select(p => (p.position, p.focus, DefaultFov))).ToArray();
+            var root = BuildCameraObjects(cameras);
+            try
+            {
+                var texture = Draw(grid, occluders, root.GetComponentsInChildren<HighlightCctvCamera>(), showCoverage: true);
+                var png = Save(texture, "cctv-1f-autoplace.png");
+                Debug.Log($"[MansionCctv] 자동 {(keepMounts ? "채움" : "배치")} {picks.Count}대, 남은 사각 {remaining}/{reachable} -> {md}, {png}");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        [MenuItem(MenuRoot + "3. Check Coverage")]
+        public static void CheckCoverage()
+        {
+            RequireScene();
+            var grid = Scan();
+            var occluders = CollectOccluders();
+            var root = BuildCameras(out var notes);
+            try
+            {
+                var cameras = root.GetComponentsInChildren<HighlightCctvCamera>();
+                var perCamera = Evaluate(grid, occluders, cameras);
+                MarkStructural(grid, occluders);
+                var texture = Draw(grid, occluders, cameras, showCoverage: true);
+                var png = Save(texture, "cctv-1f-coverage.png");
+                var report = Report(grid, occluders, cameras, perCamera, notes);
+                var md = Path.Combine(ProjectRoot(), OutputFolder, "cctv-1f-coverage.md");
+                File.WriteAllText(md, report, new UTF8Encoding(false));
+                var reachable = grid.Count(i => grid.Reachable[i]);
+                var covered = grid.Count(i => grid.Reachable[i] && grid.Coverage[i] > 0);
+                Debug.Log($"[MansionCctv] 사각 검사: 카메라 {cameras.Length}, 닿는 칸 {reachable}, 보이는 칸 {covered} ({(reachable == 0 ? 0 : 100f * covered / reachable):F1}%) -> {png}, {md}");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        [MenuItem(MenuRoot + "4. Save Mansion CCTV Prefab")]
+        public static void SavePrefab()
+        {
+            RequireScene();
+            if (Mounts.Length == 0) throw new InvalidOperationException("좌표표(Mounts)가 비어 있습니다.");
+            var root = BuildCameras(out var notes);
+            try
+            {
+                foreach (var note in notes) Debug.LogWarning("[MansionCctv] " + note);
+                Directory.CreateDirectory(Path.GetDirectoryName(PrefabPath));
+                PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
+                Debug.Log($"[MansionCctv] 저택 CCTV 지점 {root.transform.childCount}개 저장: {PrefabPath}");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        private static void RequireScene()
+        {
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (scene.name != SceneName)
+                throw new InvalidOperationException($"{SceneName} 씬을 열고 실행하세요. (현재: {scene.name})");
+        }
+
+        private static int ProbeMask()
+        {
+            var mask = Physics.DefaultRaycastLayers;
+            foreach (var name in new[] { "Player", "Carryable", "Item Preview", "FirstPersonView" })
+            {
+                var layer = LayerMask.NameToLayer(name);
+                if (layer >= 0) mask &= ~(1 << layer);
+            }
+            return mask;
+        }
+
+        /// <summary>격자 칸마다 바닥·가구·벽을 나누고, 스폰에서 걸어 닿는 칸을 표시한다.</summary>
+        private static Grid Scan()
+        {
+            var grid = new Grid
+            {
+                Width = Mathf.RoundToInt((X1 - X0) / Cell),
+                Height = Mathf.RoundToInt((Z1 - Z0) / Cell)
+            };
+            grid.Kind = new CellKind[grid.Width * grid.Height];
+            grid.Reachable = new bool[grid.Kind.Length];
+            grid.Structural = new bool[grid.Kind.Length];
+            grid.FloorHeight = new float[grid.Kind.Length];
+            grid.Ceiling = new float[grid.Kind.Length];
+            grid.Coverage = new int[grid.Kind.Length];
+            var mask = ProbeMask();
+            var halfExtents = new Vector3(0.12f, 0.75f, 0.12f);
+            for (var cz = 0; cz < grid.Height; cz++)
+            for (var cx = 0; cx < grid.Width; cx++)
+            {
+                var i = grid.Index(cx, cz);
+                var origin = new Vector3(grid.WorldX(cx), ProbeY, grid.WorldZ(cz));
+                grid.Ceiling[i] = float.NaN;
+                if (!Physics.Raycast(origin, Vector3.down, out var hit, ProbeY - FloorMin + 0.5f, mask, QueryTriggerInteraction.Ignore))
+                {
+                    grid.Kind[i] = CellKind.Void;
+                    grid.FloorHeight[i] = float.NaN;
+                    continue;
+                }
+                grid.FloorHeight[i] = hit.point.y;
+                if (hit.point.y > FloorMax + 1.2f) { grid.Kind[i] = CellKind.Wall; continue; }
+                if (hit.point.y > FloorMax || hit.point.y < FloorMin) { grid.Kind[i] = CellKind.Blocked; continue; }
+                var centre = new Vector3(origin.x, hit.point.y + 1.0f, origin.z);
+                var blocked = Physics.OverlapBox(centre, halfExtents, Quaternion.identity, mask, QueryTriggerInteraction.Ignore).Length > 0;
+                grid.Kind[i] = blocked ? CellKind.Blocked : CellKind.Floor;
+                if (Physics.Raycast(new Vector3(origin.x, hit.point.y + 0.1f, origin.z), Vector3.up,
+                    out var ceiling, 8f, mask, QueryTriggerInteraction.Ignore)) grid.Ceiling[i] = ceiling.point.y;
+            }
+            MarkReachable(grid);
+            return grid;
+        }
+
+        /// <summary>스폰·파쇄기 자리와 열어 두기로 한 방의 씨앗에서 4방향으로 퍼져 닿는 바닥 칸을 표시한다.</summary>
+        private static void MarkReachable(Grid grid)
+        {
+            var seeds = Landmarks().Select(t => new Vector2(t.position.x, t.position.z)).Concat(AssumedOpenSeeds);
+            var stack = new Stack<int>();
+            foreach (var seed in seeds)
+            {
+                var start = NearestFloor(grid, seed);
+                if (start < 0 || grid.Reachable[start]) continue;
+                grid.Reachable[start] = true;
+                stack.Push(start);
+                while (stack.Count > 0)
+                {
+                    var i = stack.Pop();
+                    var cx = i % grid.Width; var cz = i / grid.Width;
+                    foreach (var (dx, dz) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                    {
+                        var nx = cx + dx; var nz = cz + dz;
+                        if (nx < 0 || nz < 0 || nx >= grid.Width || nz >= grid.Height) continue;
+                        var j = grid.Index(nx, nz);
+                        if (grid.Reachable[j] || grid.Kind[j] != CellKind.Floor ||
+                            Mathf.Abs(grid.FloorHeight[j] - grid.FloorHeight[i]) > StepHeight) continue;
+                        grid.Reachable[j] = true;
+                        stack.Push(j);
+                    }
+                }
+            }
+        }
+
+        private static int NearestFloor(Grid grid, Vector2 point)
+        {
+            var cx = Mathf.FloorToInt((point.x - X0) / Cell);
+            var cz = Mathf.FloorToInt((point.y - Z0) / Cell);
+            var best = -1; var bestDistance = int.MaxValue;
+            for (var dz = -6; dz <= 6; dz++)
+            for (var dx = -6; dx <= 6; dx++)
+            {
+                var nx = cx + dx; var nz = cz + dz;
+                if (nx < 0 || nz < 0 || nx >= grid.Width || nz >= grid.Height) continue;
+                var i = grid.Index(nx, nz);
+                if (grid.Kind[i] != CellKind.Floor) continue;
+                var d = dx * dx + dz * dz;
+                if (d < bestDistance) { bestDistance = d; best = i; }
+            }
+            return best;
+        }
+
+        /// <summary>런타임 <c>CaptureCctvOccluders</c> 와 같은 조건으로 정적 가림 상자를 모은다.</summary>
+        private static List<Occluder> CollectOccluders()
+        {
+            var result = new List<Occluder>();
+            var mask = Physics.DefaultRaycastLayers;
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            foreach (var root in scene.GetRootGameObjects())
+            foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>())
+            {
+                if (!renderer.enabled || renderer.forceRenderingOff || !renderer.gameObject.activeInHierarchy ||
+                    renderer.bounds.size.y < 0.5f ||
+                    (mask & (1 << renderer.gameObject.layer)) == 0 ||
+                    renderer.GetComponentInParent<CarryableItem>() != null ||
+                    renderer.GetComponentInParent<Animator>() != null ||
+                    renderer.sharedMaterial != null && renderer.sharedMaterial.renderQueue > 2500) continue;
+                var b = renderer.bounds;
+                // 1층 시선 높이와 겹치지 않는 상자(2층·다락·지하)는 어차피 광선에 닿지 않는다.
+                if (b.max.y < FloorY + 0.3f || b.min.y > FloorY + MountAboveFloor + 0.5f) continue;
+                if (b.max.x < X0 - 1f || b.min.x > X1 + 1f || b.max.z < Z0 - 1f || b.min.z > Z1 + 1f) continue;
+                result.Add(new Occluder(b, renderer.name));
+            }
+            return result;
+        }
+
+        private static Vector3 MountPosition(float x, float z, List<string> notes, string label)
+        {
+            var mask = ProbeMask();
+            var floor = FloorY;
+            if (Physics.Raycast(new Vector3(x, ProbeY, z), Vector3.down, out var floorHit, ProbeY - FloorMin + 0.5f, mask, QueryTriggerInteraction.Ignore)
+                && floorHit.point.y >= FloorMin && floorHit.point.y <= FloorMax) floor = floorHit.point.y;
+            var mountY = floor + MountAboveFloor;
+            if (Physics.Raycast(new Vector3(x, floor + 1f, z), Vector3.up, out var ceilingHit, 8f, mask, QueryTriggerInteraction.Ignore)
+                && ceilingHit.point.y - CeilingClearance < mountY)
+            {
+                mountY = ceilingHit.point.y - CeilingClearance;
+                notes?.Add($"{label}: 천장 {ceilingHit.point.y:F2} 에 맞춰 설치 높이를 {mountY:F2} 로 내림");
+            }
+            var position = new Vector3(x, mountY, z);
+            if (Physics.CheckSphere(position, 0.12f, mask, QueryTriggerInteraction.Ignore))
+                notes?.Add($"{label}: 설치 지점 ({x}, {mountY:F2}, {z}) 이 콜라이더 안에 있음");
+            return position;
+        }
+
+        /// <summary>좌표표를 실제 지점 트랜스폼으로 만든다. 저장과 검사가 같은 것을 본다.</summary>
+        private static GameObject BuildCameras(out List<string> notes, int count = -1)
+        {
+            notes = new List<string>();
+            if (count < 0 || count > Mounts.Length) count = Mounts.Length;
+            var cameras = new (Vector3 position, Vector3 focus, float fov)[count];
+            for (var i = 0; i < count; i++)
+            {
+                var m = Mounts[i];
+                var position = MountPosition(m.X, m.Z, notes, $"CAM {i + 1:00} {m.Area}");
+                var floor = position.y - MountAboveFloor;
+                if (floor < FloorMin || floor > FloorMax) floor = FloorY;
+                cameras[i] = (position, new Vector3(m.FocusX, floor + FocusAboveFloor, m.FocusZ), m.Fov);
+            }
+            var root = BuildCameraObjects(cameras);
+            var markers = root.GetComponentsInChildren<HighlightCctvCamera>();
+            for (var i = 0; i < markers.Length; i++) markers[i].Configure($"CAM {i + 1:00} · {Mounts[i].Area}", Mounts[i].Fov);
+            return root;
+        }
+
+        private static GameObject BuildCameraObjects((Vector3 position, Vector3 focus, float fov)[] cameras)
+        {
+            var root = new GameObject("Mansion CCTV");
+            for (var i = 0; i < cameras.Length; i++)
+            {
+                var marker = new GameObject($"CCTV {i + 1:00}");
+                marker.transform.SetParent(root.transform, false);
+                marker.transform.position = cameras[i].position;
+                marker.transform.LookAt(cameras[i].focus);
+                marker.AddComponent<HighlightCctvCamera>().Configure($"CAM {i + 1:00}", cameras[i].fov);
+            }
+            return root;
+        }
+
+        private static bool InFrustum(Vector3 origin, Quaternion inverseRotation, float fov, Vector3 point)
+        {
+            var local = inverseRotation * (point - origin);
+            if (local.z <= 0f || local.z > MaxViewDistance) return false;
+            var halfHeight = local.z * Mathf.Tan(fov * Mathf.Deg2Rad * 0.5f) * FrustumShrink;
+            return Mathf.Abs(local.y) <= halfHeight && Mathf.Abs(local.x) <= halfHeight * Aspect;
+        }
+
+        private static bool LineClear(Vector3 origin, Vector3 point, List<Occluder> occluders)
+        {
+            var ray = new Ray(origin, (point - origin).normalized);
+            var distance = Vector3.Distance(origin, point);
+            foreach (var o in occluders)
+            {
+                var bounds = o.Bounds;
+                if (!bounds.Contains(origin) && bounds.IntersectRay(ray, out var entry) &&
+                    entry > 0.05f && entry < distance - 0.1f) return false;
+            }
+            return true;
+        }
+
+        private static bool CanSee(HighlightCctvCamera camera, Vector3 point, List<Occluder> occluders)
+        {
+            var origin = camera.transform.position;
+            return InFrustum(origin, Quaternion.Inverse(camera.transform.rotation), camera.FieldOfView, point) &&
+                   LineClear(origin, point, occluders);
+        }
+
+        private static List<Occluder> Nearby(List<Occluder> occluders, Vector3 origin) =>
+            occluders.Where(o => o.Bounds.SqrDistance(origin) <= MaxViewDistance * MaxViewDistance).ToList();
+
+        private static Vector3 Centre(Grid grid, int i) =>
+            new Vector3(grid.WorldX(i % grid.Width), grid.FloorHeight[i] + 0.9f, grid.WorldZ(i / grid.Width));
+
+        /// <summary>카메라별로 보이는 칸 수를 세고 격자에 겹침 수를 적는다. 몸통 중심 또는 상체가 보이면 된다.</summary>
+        private static int[] Evaluate(Grid grid, List<Occluder> occluders, HighlightCctvCamera[] cameras)
+        {
+            var perCamera = new int[cameras.Length];
+            var nearby = cameras.Select(c => Nearby(occluders, c.transform.position)).ToArray();
+            for (var i = 0; i < grid.Kind.Length; i++)
+            {
+                if (!grid.Reachable[i]) continue;
+                var centre = Centre(grid, i);
+                var upper = centre + Vector3.up * 0.5f;
+                for (var c = 0; c < cameras.Length; c++)
+                {
+                    if (!CanSee(cameras[c], centre, nearby[c]) && !CanSee(cameras[c], upper, nearby[c])) continue;
+                    grid.Coverage[i]++;
+                    perCamera[c]++;
+                }
+            }
+            return perCamera;
+        }
+
+        /// <summary>
+        /// 못 보는 칸 가운데 몸통·상체 지점이 모두 어떤 가림 상자 안쪽(면에서 0.1 m 이상)에 있는 칸을 표시한다.
+        /// 런타임은 광선이 상자에 들어간 뒤 0.1 m 안에 대상이 없으면 가린 것으로 보므로, 이런 칸은 카메라를 더 놓아도 보이지 않는다.
+        /// </summary>
+        private static void MarkStructural(Grid grid, List<Occluder> occluders)
+        {
+            bool Inside(Vector3 point)
+            {
+                foreach (var o in occluders)
+                {
+                    var b = o.Bounds;
+                    if (b.size.x < 0.3f || b.size.z < 0.3f || b.Contains(new Vector3(point.x, b.center.y, point.z)) == false) continue;
+                    if (point.x - b.min.x > 0.1f && b.max.x - point.x > 0.1f && point.z - b.min.z > 0.1f && b.max.z - point.z > 0.1f &&
+                        point.y - b.min.y > 0.1f && b.max.y - point.y > 0.1f) return true;
+                }
+                return false;
+            }
+            for (var i = 0; i < grid.Kind.Length; i++)
+            {
+                grid.Structural[i] = false;
+                if (!grid.Reachable[i] || grid.Coverage[i] > 0) continue;
+                var centre = Centre(grid, i);
+                grid.Structural[i] = Inside(centre) && Inside(centre + Vector3.up * 0.5f);
+            }
+        }
+
+        // ---- 자동 배치 ----
+
+        private readonly struct Pick
+        {
+            public Pick(int index, Vector3 position, Vector3 focus, float heading, int visible, int gain)
+            {
+                this.index = index; this.position = position; this.focus = focus; this.heading = heading; this.visible = visible; this.gain = gain;
+            }
+            public readonly int index;
+            public readonly Vector3 position;
+            public readonly Vector3 focus;
+            public readonly float heading;
+            public readonly int visible;
+            public readonly int gain;
+        }
+
+        private sealed class Option
+        {
+            public Vector3 Position, Focus;
+            public float Heading;
+            public int[] Cells;
+        }
+
+        /// <summary>
+        /// 벽에서 0.75 m 안쪽의 닿는 칸을 0.5 m 간격으로 후보로 잡고, 남은 사각을 가장 많이 덮는
+        /// (후보, 방향, 초점 거리)를 차례로 고른다(탐욕). 그 뒤 카메라 하나를 다른 후보로 바꿔 사각이
+        /// 줄어들면 바꾸는 것을 반복하고(교환), 혼자 보는 칸이 없는 카메라는 뺀다.
+        /// 결과 겹침 수는 <see cref="Grid.Coverage"/> 에 남긴다(고정 카메라 포함).
+        /// </summary>
+        private static List<Pick> Greedy(Grid grid, List<Occluder> occluders, HighlightCctvCamera[] fixedCameras, out int candidateCount)
+        {
+            if (fixedCameras.Length > 0) Evaluate(grid, occluders, fixedCameras);
+            var candidates = new List<Vector3>();
+            for (var cz = 0; cz < grid.Height; cz += 2)
+            for (var cx = 0; cx < grid.Width; cx += 2)
+            {
+                var i = grid.Index(cx, cz);
+                if (!grid.Reachable[i] || !NearWall(grid, cx, cz)) continue;
+                var position = MountPosition(grid.WorldX(cx), grid.WorldZ(cz), null, null);
+                if (position.y - grid.FloorHeight[i] < MinCeilingAboveFloor) continue;
+                if (Physics.CheckSphere(position, 0.12f, ProbeMask(), QueryTriggerInteraction.Ignore)) continue;
+                candidates.Add(position);
+            }
+            candidateCount = candidates.Count;
+            var reachableCells = new List<int>();
+            for (var i = 0; i < grid.Kind.Length; i++) if (grid.Reachable[i]) reachableCells.Add(i);
+
+            // 시선 판정은 방향과 무관하니 후보 위치마다 한 번만 계산해 둔다. 1: 몸통, 2: 상체.
+            var options = new List<Option>();
+            var total = candidates.Count;
+            try
+            {
+                for (var c = 0; c < candidates.Count; c++)
+                {
+                    if (EditorUtility.DisplayCancelableProgressBar("Mansion CCTV", $"후보 {c + 1}/{total} 시선 계산", (float)c / total))
+                        throw new OperationCanceledException();
+                    var origin = candidates[c];
+                    var nearby = Nearby(occluders, origin);
+                    var visible = new Dictionary<int, byte>();
+                    foreach (var i in reachableCells)
+                    {
+                        var centre = Centre(grid, i);
+                        if ((centre - origin).sqrMagnitude > MaxViewDistance * MaxViewDistance) continue;
+                        var flags = (LineClear(origin, centre, nearby) ? 1 : 0) | (LineClear(origin, centre + Vector3.up * 0.5f, nearby) ? 2 : 0);
+                        if (flags != 0) visible[i] = (byte)flags;
+                    }
+                    var floor = origin.y - MountAboveFloor;
+                    foreach (var focusDistance in AutoPlaceFocusDistances)
+                    for (var h = 0; h < AutoPlaceHeadings; h++)
+                    {
+                        var heading = 360f * h / AutoPlaceHeadings;
+                        var direction = new Vector3(Mathf.Sin(heading * Mathf.Deg2Rad), 0f, Mathf.Cos(heading * Mathf.Deg2Rad));
+                        var focus = origin + direction * focusDistance;
+                        focus.y = floor + FocusAboveFloor;
+                        var inverse = Quaternion.Inverse(Quaternion.LookRotation(focus - origin));
+                        var cells = new List<int>();
+                        foreach (var pair in visible)
+                        {
+                            var centre = Centre(grid, pair.Key);
+                            if ((pair.Value & 1) != 0 && InFrustum(origin, inverse, DefaultFov, centre) ||
+                                (pair.Value & 2) != 0 && InFrustum(origin, inverse, DefaultFov, centre + Vector3.up * 0.5f))
+                                cells.Add(pair.Key);
+                        }
+                        if (cells.Count > 0) options.Add(new Option { Position = origin, Focus = focus, Heading = heading, Cells = cells.ToArray() });
+                    }
+                }
+            }
+            finally { EditorUtility.ClearProgressBar(); }
+
+            // 탐욕.
+            var coverage = grid.Coverage;
+            var chosen = new List<Option>();
+            int Gain(Option option)
+            {
+                var gain = 0;
+                foreach (var i in option.Cells) if (coverage[i] == 0) gain++;
+                return gain;
+            }
+            void Add(Option option) { foreach (var i in option.Cells) coverage[i]++; }
+            void Remove(Option option) { foreach (var i in option.Cells) coverage[i]--; }
+            while (chosen.Count + fixedCameras.Length < AutoPlaceMaxCameras)
+            {
+                Option best = null; var bestGain = 0;
+                foreach (var option in options)
+                {
+                    var gain = Gain(option);
+                    if (gain > bestGain) { bestGain = gain; best = option; }
+                }
+                if (best == null || bestGain < AutoPlaceMinGain) break;
+                Add(best);
+                chosen.Add(best);
+            }
+
+            // 교환: 카메라 하나를 빼고 그 자리에 가장 많이 덮는 후보를 넣는다. 사각이 줄지 않으면 원래대로 둔다.
+            try
+            {
+                for (var sweep = 0; sweep < 6; sweep++)
+                {
+                    var improved = false;
+                    for (var k = 0; k < chosen.Count; k++)
+                    {
+                        EditorUtility.DisplayProgressBar("Mansion CCTV", $"교환 {sweep + 1}회차 카메라 {k + 1}/{chosen.Count}", (float)k / chosen.Count);
+                        Remove(chosen[k]);
+                        var best = chosen[k]; var bestGain = Gain(chosen[k]);
+                        foreach (var option in options)
+                        {
+                            var gain = Gain(option);
+                            if (gain > bestGain) { bestGain = gain; best = option; }
+                        }
+                        Add(best);
+                        if (!ReferenceEquals(best, chosen[k])) { chosen[k] = best; improved = true; }
+                    }
+                    if (!improved) break;
+                }
+            }
+            finally { EditorUtility.ClearProgressBar(); }
+
+            // 혼자 보는 칸이 없는 카메라는 뺀다.
+            for (var k = chosen.Count - 1; k >= 0; k--)
+            {
+                var unique = 0;
+                foreach (var i in chosen[k].Cells) if (coverage[i] == 1) unique++;
+                if (unique > 0) continue;
+                Remove(chosen[k]);
+                chosen.RemoveAt(k);
+            }
+
+            var picks = new List<Pick>();
+            foreach (var option in chosen.OrderBy(o => o.Position.z).ThenBy(o => o.Position.x))
+            {
+                var unique = 0;
+                foreach (var i in option.Cells) if (coverage[i] == 1) unique++;
+                picks.Add(new Pick(fixedCameras.Length + picks.Count + 1, option.Position, option.Focus, option.Heading, option.Cells.Length, unique));
+            }
+            return picks;
+        }
+
+        private static bool NearWall(Grid grid, int cx, int cz)
+        {
+            for (var dz = -3; dz <= 3; dz++)
+            for (var dx = -3; dx <= 3; dx++)
+            {
+                var nx = cx + dx; var nz = cz + dz;
+                if (nx < 0 || nz < 0 || nx >= grid.Width || nz >= grid.Height) continue;
+                if (grid.Kind[grid.Index(nx, nz)] == CellKind.Wall) return true;
+            }
+            return false;
+        }
+
+        // ---- 보고서 ----
+
+        private static string Report(Grid grid, List<Occluder> occluders, HighlightCctvCamera[] cameras, int[] perCamera, List<string> notes)
+        {
+            var sb = new StringBuilder();
+            var inv = CultureInfo.InvariantCulture;
+            var reachable = grid.Count(i => grid.Reachable[i]);
+            var covered = grid.Count(i => grid.Reachable[i] && grid.Coverage[i] > 0);
+            var twice = grid.Count(i => grid.Reachable[i] && grid.Coverage[i] > 1);
+            var unreachable = grid.Count(i => grid.Kind[i] == CellKind.Floor && !grid.Reachable[i]);
+            var structural = grid.Count(i => grid.Reachable[i] && grid.Coverage[i] == 0 && grid.Structural[i]);
+            sb.AppendLine("# 저택 1층 CCTV 사각 검사");
+            sb.AppendLine();
+            sb.AppendLine($"생성: {DateTime.Now:yyyy-MM-dd HH:mm} · 격자 {Cell} m · 범위 x[{X0}, {X1}] z[{Z0}, {Z1}] · 가림 판정 = 런타임과 같은 정적 렌더러 경계 상자");
+            sb.AppendLine();
+            sb.AppendLine($"- 플레이 구역(스폰·파쇄기·열어 둔 방에서 걸어 닿는 칸): {reachable} ({reachable * Cell * Cell:F1} m²) · 닿지 않아 뺀 바닥 칸 {unreachable}");
+            sb.AppendLine($"- 카메라 1대 이상에 보이는 칸: {covered} ({(reachable == 0 ? 0 : 100f * covered / reachable):F1}%)");
+            sb.AppendLine($"- 2대 이상에 보이는 칸: {twice} ({(reachable == 0 ? 0 : 100f * twice / reachable):F1}%)");
+            sb.AppendLine($"- 사각 칸: {reachable - covered - structural} · 가림 상자 안이라 어느 카메라도 못 보는 칸: {structural} ({structural * Cell * Cell:F1} m²)");
+            sb.AppendLine($"- 1층 천장 높이: {CeilingSummary(grid)}");
+            sb.AppendLine();
+            sb.AppendLine("## 카메라");
+            sb.AppendLine();
+            sb.AppendLine("| CAM | 위치 | 설치 (x, y, z) | 초점 (x, z) | 내려보는 각 | 시야각 | 보이는 칸 | 이 카메라만 보는 칸 |");
+            sb.AppendLine("| --- | --- | --- | --- | --- | --- | --- | --- |");
+            for (var c = 0; c < cameras.Length; c++)
+            {
+                var t = cameras[c].transform;
+                var origin = t.position;
+                var m = Mounts[c];
+                var tilt = -Mathf.Asin(Mathf.Clamp(t.forward.y, -1f, 1f)) * Mathf.Rad2Deg;
+                var nearby = Nearby(occluders, origin);
+                var unique = 0;
+                for (var i = 0; i < grid.Kind.Length; i++)
+                {
+                    if (!grid.Reachable[i] || grid.Coverage[i] != 1) continue;
+                    var centre = Centre(grid, i);
+                    if (CanSee(cameras[c], centre, nearby) || CanSee(cameras[c], centre + Vector3.up * 0.5f, nearby)) unique++;
+                }
+                sb.AppendLine($"| {c + 1:00} | {m.Area} | ({origin.x.ToString("0.0", inv)}, {origin.y.ToString("0.00", inv)}, {origin.z.ToString("0.0", inv)}) | ({m.FocusX.ToString("0.0", inv)}, {m.FocusZ.ToString("0.0", inv)}) | {tilt:F0}° | {cameras[c].FieldOfView:F0}° | {perCamera[c]} | {unique} |");
+            }
+            if (notes.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("## 설치 지점 참고");
+                sb.AppendLine();
+                foreach (var note in notes) sb.AppendLine("- " + note);
+            }
+            sb.AppendLine();
+            sb.AppendLine("## 사각 묶음 (큰 것부터, 최대 40개)");
+            sb.AppendLine();
+            var clusters = Clusters(grid, i => grid.Reachable[i] && grid.Coverage[i] == 0 && !grid.Structural[i]);
+            if (clusters.Count == 0) sb.AppendLine("없음.");
+            else
+            {
+                sb.AppendLine("| # | 칸 | 면적 m² | x 범위 | z 범위 | 중심 (x, z) |");
+                sb.AppendLine("| --- | --- | --- | --- | --- | --- |");
+                var n = 0;
+                foreach (var cluster in clusters.Take(40))
+                {
+                    n++;
+                    var xs = cluster.Select(i => grid.WorldX(i % grid.Width)).ToArray();
+                    var zs = cluster.Select(i => grid.WorldZ(i / grid.Width)).ToArray();
+                    sb.AppendLine($"| {n} | {cluster.Count} | {cluster.Count * Cell * Cell:F2} | {xs.Min():F1} ~ {xs.Max():F1} | {zs.Min():F1} ~ {zs.Max():F1} | ({xs.Average():F1}, {zs.Average():F1}) |");
+                }
+            }
+            sb.AppendLine();
+            sb.AppendLine("## 가림 상자 안 사각 (카메라를 더 놓아도 안 보임)");
+            sb.AppendLine();
+            var inside = Clusters(grid, i => grid.Reachable[i] && grid.Coverage[i] == 0 && grid.Structural[i]);
+            if (inside.Count == 0) sb.AppendLine("없음.");
+            foreach (var cluster in inside.Take(15))
+            {
+                var xs = cluster.Select(i => grid.WorldX(i % grid.Width)).ToArray();
+                var zs = cluster.Select(i => grid.WorldZ(i / grid.Width)).ToArray();
+                var name = occluders.FirstOrDefault(o => o.Bounds.Contains(new Vector3(xs.Average(), o.Bounds.center.y, zs.Average())) && o.Bounds.size.x * o.Bounds.size.z < 100f).Name;
+                sb.AppendLine($"- {cluster.Count}칸 x {xs.Min():F1}~{xs.Max():F1} z {zs.Min():F1}~{zs.Max():F1} ({name ?? "?"})");
+            }
+            sb.AppendLine();
+            sb.AppendLine("## 닿지 않아 뺀 바닥 묶음 (큰 것부터, 최대 15개)");
+            sb.AppendLine();
+            var excluded = Clusters(grid, i => grid.Kind[i] == CellKind.Floor && !grid.Reachable[i]);
+            if (excluded.Count == 0) sb.AppendLine("없음.");
+            else
+            {
+                sb.AppendLine("| # | 칸 | x 범위 | z 범위 |");
+                sb.AppendLine("| --- | --- | --- | --- |");
+                var n = 0;
+                foreach (var cluster in excluded.Take(15))
+                {
+                    n++;
+                    var xs = cluster.Select(i => grid.WorldX(i % grid.Width)).ToArray();
+                    var zs = cluster.Select(i => grid.WorldZ(i / grid.Width)).ToArray();
+                    sb.AppendLine($"| {n} | {cluster.Count} | {xs.Min():F1} ~ {xs.Max():F1} | {zs.Min():F1} ~ {zs.Max():F1} |");
+                }
+            }
+            sb.AppendLine();
+            sb.AppendLine("## 발자국이 큰 가림 상자 (런타임이 시선을 막는다고 보는 것, 큰 것부터 12개)");
+            sb.AppendLine();
+            sb.AppendLine("| 이름 | x 범위 | z 범위 | y 범위 | 발자국 m² |");
+            sb.AppendLine("| --- | --- | --- | --- | --- |");
+            foreach (var o in occluders.OrderByDescending(o => o.Bounds.size.x * o.Bounds.size.z).Take(12))
+            {
+                var b = o.Bounds;
+                sb.AppendLine($"| {o.Name} | {b.min.x:F1} ~ {b.max.x:F1} | {b.min.z:F1} ~ {b.max.z:F1} | {b.min.y:F2} ~ {b.max.y:F2} | {b.size.x * b.size.z:F1} |");
+            }
+            sb.AppendLine();
+            sb.AppendLine("## 1층 기준점");
+            sb.AppendLine();
+            foreach (var t in Landmarks())
+                sb.AppendLine($"- {t.name}: ({t.position.x.ToString("0.0", inv)}, {t.position.y.ToString("0.0", inv)}, {t.position.z.ToString("0.0", inv)})");
+            return sb.ToString();
+        }
+
+        private static List<List<int>> Clusters(Grid grid, Func<int, bool> member)
+        {
+            var seen = new bool[grid.Kind.Length];
+            var clusters = new List<List<int>>();
+            var stack = new Stack<int>();
+            for (var start = 0; start < grid.Kind.Length; start++)
+            {
+                if (seen[start] || !member(start)) continue;
+                var cluster = new List<int>();
+                stack.Push(start); seen[start] = true;
+                while (stack.Count > 0)
+                {
+                    var i = stack.Pop();
+                    cluster.Add(i);
+                    var cx = i % grid.Width; var cz = i / grid.Width;
+                    foreach (var (dx, dz) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                    {
+                        var nx = cx + dx; var nz = cz + dz;
+                        if (nx < 0 || nz < 0 || nx >= grid.Width || nz >= grid.Height) continue;
+                        var j = grid.Index(nx, nz);
+                        if (seen[j] || !member(j)) continue;
+                        seen[j] = true; stack.Push(j);
+                    }
+                }
+                clusters.Add(cluster);
+            }
+            return clusters.OrderByDescending(c => c.Count).ToList();
+        }
+
+        private static IEnumerable<Transform> Landmarks()
+        {
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            return scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<Transform>(true))
+                .Where(t => (t.name.StartsWith("SpawnPoint_") || t.name == "ShredderSpot") && t.position.y < FloorY + 2.5f)
+                .OrderBy(t => t.name);
+        }
+
+        private static string CeilingSummary(Grid grid)
+        {
+            var heights = grid.Ceiling.Where((h, i) => grid.Reachable[i] && !float.IsNaN(h)).OrderBy(h => h).ToArray();
+            if (heights.Length == 0) return "천장을 찾지 못함";
+            return $"최저 {heights[0]:F2} · 중앙값 {heights[heights.Length / 2]:F2} · 최고 {heights[heights.Length - 1]:F2} (바닥 {FloorY})";
+        }
+
+        // ---- 그림 ----
+
+        private static Texture2D Draw(Grid grid, List<Occluder> occluders, HighlightCctvCamera[] cameras, bool showCoverage)
+        {
+            var w = grid.Width * PixelsPerCell;
+            var h = grid.Height * PixelsPerCell;
+            var texture = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            var pixels = new Color32[w * h];
+            for (var cz = 0; cz < grid.Height; cz++)
+            for (var cx = 0; cx < grid.Width; cx++)
+            {
+                var i = grid.Index(cx, cz);
+                Color32 colour = grid.Kind[i] switch
+                {
+                    CellKind.Void => new Color32(200, 210, 225, 255),
+                    CellKind.Wall => new Color32(40, 40, 45, 255),
+                    CellKind.Blocked => new Color32(160, 160, 160, 255),
+                    _ => grid.Reachable[i] ? new Color32(250, 250, 250, 255) : new Color32(225, 235, 215, 255)
+                };
+                if (showCoverage && grid.Reachable[i])
+                    colour = grid.Coverage[i] == 0 ? (grid.Structural[i] ? new Color32(240, 170, 60, 255) : new Color32(230, 60, 60, 255))
+                        : grid.Coverage[i] == 1 ? new Color32(190, 230, 150, 255)
+                        : new Color32(110, 200, 110, 255);
+                FillCell(pixels, w, cx, cz, colour);
+            }
+            // 가림 상자 발자국: 런타임이 시선을 막는다고 보는 범위를 연한 빗금으로 보인다. 큰 것은 보고서로 뺀다.
+            foreach (var o in occluders)
+            {
+                var b = o.Bounds;
+                if (b.min.y > FloorY + 1.6f || b.size.x * b.size.z > 30f) continue;
+                var cx0 = Mathf.Clamp(Mathf.FloorToInt((b.min.x - X0) / Cell), 0, grid.Width - 1);
+                var cx1 = Mathf.Clamp(Mathf.FloorToInt((b.max.x - X0) / Cell), 0, grid.Width - 1);
+                var cz0 = Mathf.Clamp(Mathf.FloorToInt((b.min.z - Z0) / Cell), 0, grid.Height - 1);
+                var cz1 = Mathf.Clamp(Mathf.FloorToInt((b.max.z - Z0) / Cell), 0, grid.Height - 1);
+                for (var cz = cz0; cz <= cz1; cz++)
+                for (var cx = cx0; cx <= cx1; cx++)
+                {
+                    if (grid.Kind[grid.Index(cx, cz)] != CellKind.Floor) continue;
+                    var px = cx * PixelsPerCell; var pz = cz * PixelsPerCell;
+                    for (var k = 0; k < PixelsPerCell; k++) Blend(pixels, w, px + k, pz + k, new Color32(90, 90, 120, 90));
+                }
+            }
+            // 1 m 격자, 5 m 굵은 선과 좌표 숫자.
+            for (var x = Mathf.CeilToInt(X0); x <= Mathf.FloorToInt(X1); x++)
+            {
+                var px = Mathf.RoundToInt((x - X0) / Cell * PixelsPerCell);
+                var major = x % 5 == 0;
+                for (var py = 0; py < h; py++) Blend(pixels, w, px, py, major ? new Color32(0, 0, 0, 140) : new Color32(0, 0, 0, 40));
+                if (major) DrawNumber(pixels, w, px + 3, 3, x, new Color32(0, 0, 0, 255));
+            }
+            for (var z = Mathf.CeilToInt(Z0); z <= Mathf.FloorToInt(Z1); z++)
+            {
+                var py = Mathf.RoundToInt((z - Z0) / Cell * PixelsPerCell);
+                var major = z % 5 == 0;
+                for (var px = 0; px < w; px++) Blend(pixels, w, px, py, major ? new Color32(0, 0, 0, 140) : new Color32(0, 0, 0, 40));
+                if (major) DrawNumber(pixels, w, 3, py + 3, z, new Color32(0, 0, 0, 255));
+            }
+            // 기준점: 스폰 노랑, 파쇄기 자홍.
+            foreach (var t in Landmarks())
+            {
+                var colour = t.name == "ShredderSpot" ? new Color32(220, 40, 200, 255) : new Color32(240, 200, 30, 255);
+                FillCircle(pixels, w, ToPixel(t.position), 5, colour);
+            }
+            if (cameras != null)
+            {
+                for (var c = 0; c < cameras.Length; c++)
+                {
+                    var t = cameras[c].transform;
+                    var origin = ToPixel(t.position);
+                    var flat = new Vector3(t.forward.x, 0f, t.forward.z);
+                    if (flat.sqrMagnitude < 1e-4f) flat = Vector3.forward;
+                    flat.Normalize();
+                    var halfHeight = Mathf.Tan(cameras[c].FieldOfView * Mathf.Deg2Rad * 0.5f) * FrustumShrink;
+                    var halfHorizontal = Mathf.Atan(halfHeight * Aspect) * Mathf.Rad2Deg;
+                    var reach = MaxViewDistance / Cell * PixelsPerCell;
+                    foreach (var sign in new[] { -1f, 1f })
+                    {
+                        var dir = Quaternion.Euler(0f, sign * halfHorizontal, 0f) * flat;
+                        DrawLine(pixels, w, origin, origin + new Vector2(dir.x, dir.z) * reach, new Color32(30, 90, 220, 150));
+                    }
+                    DrawLine(pixels, w, origin, origin + new Vector2(flat.x, flat.z) * (PixelsPerCell * 6), new Color32(30, 90, 220, 255));
+                    FillCircle(pixels, w, origin, 5, new Color32(30, 90, 220, 255));
+                    DrawNumber(pixels, w, Mathf.RoundToInt(origin.x) + 7, Mathf.RoundToInt(origin.y) + 4, c + 1, new Color32(10, 40, 160, 255));
+                }
+            }
+            texture.SetPixels32(pixels);
+            texture.Apply();
+            return texture;
+        }
+
+        private static Vector2 ToPixel(Vector3 world) =>
+            new Vector2((world.x - X0) / Cell * PixelsPerCell, (world.z - Z0) / Cell * PixelsPerCell);
+
+        private static void FillCell(Color32[] pixels, int w, int cx, int cz, Color32 colour)
+        {
+            for (var y = 0; y < PixelsPerCell; y++)
+            for (var x = 0; x < PixelsPerCell; x++)
+                pixels[(cz * PixelsPerCell + y) * w + cx * PixelsPerCell + x] = colour;
+        }
+
+        private static void Blend(Color32[] pixels, int w, int x, int y, Color32 colour)
+        {
+            var h = pixels.Length / w;
+            if (x < 0 || y < 0 || x >= w || y >= h) return;
+            var i = y * w + x;
+            var a = colour.a / 255f;
+            var p = pixels[i];
+            pixels[i] = new Color32(
+                (byte)Mathf.RoundToInt(p.r + (colour.r - p.r) * a),
+                (byte)Mathf.RoundToInt(p.g + (colour.g - p.g) * a),
+                (byte)Mathf.RoundToInt(p.b + (colour.b - p.b) * a), 255);
+        }
+
+        private static void FillCircle(Color32[] pixels, int w, Vector2 centre, int radius, Color32 colour)
+        {
+            for (var dy = -radius; dy <= radius; dy++)
+            for (var dx = -radius; dx <= radius; dx++)
+                if (dx * dx + dy * dy <= radius * radius)
+                    Blend(pixels, w, Mathf.RoundToInt(centre.x) + dx, Mathf.RoundToInt(centre.y) + dy, colour);
+        }
+
+        private static void DrawLine(Color32[] pixels, int w, Vector2 from, Vector2 to, Color32 colour)
+        {
+            var h = pixels.Length / w;
+            var steps = Mathf.CeilToInt(Vector2.Distance(from, to));
+            for (var s = 0; s <= steps; s++)
+            {
+                var p = Vector2.Lerp(from, to, steps == 0 ? 0f : (float)s / steps);
+                var x = Mathf.RoundToInt(p.x); var y = Mathf.RoundToInt(p.y);
+                if (x < 0 || y < 0 || x >= w || y >= h) return;
+                Blend(pixels, w, x, y, colour);
+            }
+        }
+
+        // 3x5 숫자 글꼴. 좌표와 카메라 번호를 그림에 적기 위한 최소한의 것이다.
+        private static readonly string[] Digits =
+        {
+            "111101101101111", "010110010010111", "111001111100111", "111001111001111", "101101111001001",
+            "111100111001111", "111100111101111", "111001001001001", "111101111101111", "111101111001111"
+        };
+
+        private static void DrawNumber(Color32[] pixels, int w, int x, int y, int value, Color32 colour)
+        {
+            const int scale = 2;
+            var text = value.ToString(CultureInfo.InvariantCulture);
+            var cursor = x;
+            foreach (var ch in text)
+            {
+                if (ch == '-')
+                {
+                    for (var k = 0; k < 3 * scale; k++)
+                    for (var s = 0; s < scale; s++) Blend(pixels, w, cursor + k, y + 2 * scale + s, colour);
+                    cursor += 4 * scale;
+                    continue;
+                }
+                var glyph = Digits[ch - '0'];
+                for (var row = 0; row < 5; row++)
+                for (var col = 0; col < 3; col++)
+                {
+                    if (glyph[row * 3 + col] != '1') continue;
+                    for (var sy = 0; sy < scale; sy++)
+                    for (var sx = 0; sx < scale; sx++)
+                        Blend(pixels, w, cursor + col * scale + sx, y + (4 - row) * scale + sy, colour);
+                }
+                cursor += 4 * scale;
+            }
+        }
+
+        private static string Save(Texture2D texture, string fileName)
+        {
+            var folder = Path.Combine(ProjectRoot(), OutputFolder);
+            Directory.CreateDirectory(folder);
+            var path = Path.Combine(folder, fileName);
+            var bytes = texture.EncodeToPNG();
+            UnityEngine.Object.DestroyImmediate(texture);
+            try { File.WriteAllBytes(path, bytes); }
+            catch (IOException e)
+            {
+                // 미리보기 프로그램이 그림을 메모리 매핑으로 잡고 있으면 덮어쓰기가 막힌다(Win32 1224). 다른 이름으로 쓴다.
+                var fallback = Path.Combine(folder, Path.GetFileNameWithoutExtension(fileName) + "-" + DateTime.Now.ToString("HHmmss") + ".png");
+                File.WriteAllBytes(fallback, bytes);
+                Debug.LogWarning($"[MansionCctv] {fileName} 을 덮어쓸 수 없어 {Path.GetFileName(fallback)} 으로 저장했습니다. ({e.Message})");
+                return fallback;
+            }
+            return path;
+        }
+
+        private static string ProjectRoot() => Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+    }
+}
