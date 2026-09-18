@@ -73,6 +73,63 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void CharacterUsesTheApprovedStunTwang()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab");
+            var clip = new SerializedObject(prefab.GetComponent<PlayerAnimationDriver>())
+                .FindProperty("stunSoundClip").objectReferenceValue as AudioClip;
+            Assert.That(clip, Is.Not.Null);
+            Assert.That(AssetDatabase.GetAssetPath(clip), Is.EqualTo(
+                "Assets/_Game/Content/Audio/Combat/StunTwang.wav"));
+            Assert.That(clip.channels, Is.EqualTo(1));
+            Assert.That(clip.length, Is.EqualTo(.92f).Within(.001f));
+            Assert.That(clip.frequency, Is.EqualTo(44100));
+        }
+
+        [Test]
+        public void ReplicatedStunNotifiesOnceOnEntry()
+        {
+            var player = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab"));
+            try
+            {
+                var combatant = player.GetComponent<PlayerCombatant>();
+                var stuns = 0;
+                combatant.Stunned += () => stuns++;
+                combatant.SetNetworkStunned(false);
+                combatant.SetNetworkHitCount(0);
+                combatant.SetNetworkHitCount(2);
+                Assert.That(stuns, Is.Zero);
+                combatant.SetNetworkStunned(true);
+                combatant.SetNetworkHitCount(0);
+                combatant.SetNetworkStunned(true);
+                Assert.That(stuns, Is.EqualTo(1));
+                combatant.SetNetworkStunned(false);
+                combatant.SetNetworkStunned(true);
+                Assert.That(stuns, Is.EqualTo(2));
+            }
+            finally { Object.DestroyImmediate(player); }
+        }
+
+        [Test]
+        public void InitialStunnedSnapshotDoesNotReplayStun()
+        {
+            var player = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab"));
+            try
+            {
+                var combatant = player.GetComponent<PlayerCombatant>();
+                var stuns = 0;
+                combatant.Stunned += () => stuns++;
+                combatant.SetNetworkStunned(true);
+                combatant.SetNetworkHitCount(0);
+                Assert.That(stuns, Is.Zero);
+            }
+            finally { Object.DestroyImmediate(player); }
+        }
+
+        [Test]
         public void CharacterUsesTheApprovedProceduralSwing()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(

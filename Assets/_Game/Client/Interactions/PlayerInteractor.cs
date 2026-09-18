@@ -295,6 +295,7 @@ namespace Game.Client.Interactions
             var released = CarriedItem;
             CarriedItem = null;
             CancelThrowAim();
+            ClearItemCues(released);
             return released;
         }
 
@@ -310,6 +311,8 @@ namespace Game.Client.Interactions
         private bool isAimingThrow;
         private IPlayerInteractionCommands commands;
         private readonly RaycastHit[] aimHits = new RaycastHit[MaxAimHits];
+        private CarryableItem putDownPlayedFor;
+        private CarryableItem throwPlayedFor;
 
         public void BindCommands(IPlayerInteractionCommands interactionCommands)
         {
@@ -564,7 +567,7 @@ namespace Game.Client.Interactions
                 return;
             }
 
-            GetComponent<PlayerAnimationDriver>()?.PlayThrow();
+            PlayConfirmedThrow(thrown);
             CarriedItem = null;
             thrown.OnThrown(velocity);
         }
@@ -583,6 +586,7 @@ namespace Game.Client.Interactions
 
             CarriedItem = item;
             item.OnPickedUp(holdPoint);
+            ClearItemCues(item);
             GetComponent<PlayerAnimationDriver>()?.PlayPickup();
             return true;
         }
@@ -594,13 +598,12 @@ namespace Game.Client.Interactions
                 return false;
             }
 
+            PlayPutDownCue(CarriedItem);
             if (commands != null)
             {
-                GetComponent<PlayerAnimationDriver>()?.PlayPutDown();
                 return commands.RequestRelease(new Pose(position, rotation));
             }
 
-            GetComponent<PlayerAnimationDriver>()?.PlayPutDown();
             var item = ReleaseCarriedItem();
             item.OnPlaced(position, rotation);
             return true;
@@ -629,9 +632,15 @@ namespace Game.Client.Interactions
                 return false;
             }
 
+            var alreadyHeld = CarriedItem == item;
             CarriedItem = item;
             item.OnPickedUp(holdPoint);
-            GetComponent<PlayerAnimationDriver>()?.PlayPickup();
+            if (!alreadyHeld)
+            {
+                ClearItemCues(item);
+                GetComponent<PlayerAnimationDriver>()?.PlayPickup();
+            }
+
             return true;
         }
 
@@ -651,6 +660,7 @@ namespace Game.Client.Interactions
             }
 
             item.OnReleased(pose, initialVelocity);
+            ClearItemCues(item);
         }
 
         public void ForgetConfirmedItem(CarryableItem item)
@@ -658,6 +668,61 @@ namespace Game.Client.Interactions
             if (CarriedItem == item)
             {
                 CarriedItem = null;
+            }
+        }
+
+        /// <summary>
+        /// Confirmed throw from replicated object state. Skips if this player
+        /// is not holding the item, or the throw cue already played for it.
+        /// </summary>
+        public void PlayConfirmedThrow(CarryableItem item)
+        {
+            if (item == null || CarriedItem != item)
+            {
+                return;
+            }
+
+            if (!ShouldPlayItemCue(throwPlayedFor, item))
+            {
+                return;
+            }
+
+            throwPlayedFor = item;
+            GetComponent<PlayerAnimationDriver>()?.PlayThrow();
+        }
+
+        /// <summary>
+        /// True when this item has not already used this cue during the current hold.
+        /// </summary>
+        internal static bool ShouldPlayItemCue(CarryableItem alreadyPlayedFor, CarryableItem item) =>
+            item != null && alreadyPlayedFor != item;
+
+        private void PlayPutDownCue(CarryableItem item)
+        {
+            if (!ShouldPlayItemCue(putDownPlayedFor, item))
+            {
+                return;
+            }
+
+            putDownPlayedFor = item;
+            GetComponent<PlayerAnimationDriver>()?.PlayPutDown();
+        }
+
+        private void ClearItemCues(CarryableItem item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            if (putDownPlayedFor == item)
+            {
+                putDownPlayedFor = null;
+            }
+
+            if (throwPlayedFor == item)
+            {
+                throwPlayedFor = null;
             }
         }
 
@@ -671,17 +736,17 @@ namespace Game.Client.Interactions
             var dropped = CarriedItem;
             if (adjustForWalls) EnsureSafeReleasePosition(dropped);
 
+            PlayPutDownCue(dropped);
             if (commands != null)
             {
-                GetComponent<PlayerAnimationDriver>()?.PlayPutDown();
                 commands.RequestDrop(
                     new Pose(dropped.transform.position, dropped.transform.rotation));
                 return;
             }
 
-            GetComponent<PlayerAnimationDriver>()?.PlayPutDown();
             CarriedItem = null;
             dropped.OnDropped();
+            ClearItemCues(dropped);
         }
 
         // 벽에 붙어 놓거나 던질 때 손 위치가 벽 너머라면 시작점을 벽 앞으로 당긴다.

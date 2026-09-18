@@ -11,13 +11,13 @@ namespace Game.Architecture.Tests
     public sealed class SoundSettingsTests
     {
         [Test]
-        public void Defaults_AreHalfVolume_TheMachinesMicrophone_AndPushToTalk()
+        public void Defaults_AreHalfVolume_ExceptEffectsAtForty()
         {
             var defaults = SoundCatalog.Defaults;
 
             Assert.That(defaults.Get(SoundVolume.Master), Is.EqualTo(50));
             Assert.That(defaults.Get(SoundVolume.Music), Is.EqualTo(50));
-            Assert.That(defaults.Get(SoundVolume.Effects), Is.EqualTo(50));
+            Assert.That(defaults.Get(SoundVolume.Effects), Is.EqualTo(40));
             Assert.That(defaults.Get(SoundVolume.Microphone), Is.EqualTo(50));
             Assert.That(defaults.DeviceName, Is.EqualTo(SoundCatalog.DefaultDevice));
             Assert.That(defaults.InputMode, Is.EqualTo(SoundCatalog.PushToTalk));
@@ -34,7 +34,7 @@ namespace Game.Architecture.Tests
 
             Assert.That(tidy.Get(SoundVolume.Master), Is.EqualTo(100));
             Assert.That(tidy.Get(SoundVolume.Music), Is.EqualTo(0));
-            Assert.That(tidy.Get(SoundVolume.Effects), Is.EqualTo(50), "Never set, so the default.");
+            Assert.That(tidy.Get(SoundVolume.Effects), Is.EqualTo(40), "Never set, so the default.");
             Assert.That(tidy.InputMode, Is.EqualTo(SoundCatalog.PushToTalk));
         }
 

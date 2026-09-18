@@ -36,9 +36,20 @@ namespace Game.Client.Lobby
         private RectTransform chatRoot;
         private TextMeshProUGUI countdown;
         private string lastCountdownText;
+        private LobbyStartCountdownTickAudio countdownTickAudio;
 
         public void SetStartCountdown(double remaining)
         {
+            if (remaining > 0d)
+            {
+                EnsureCountdownTickAudio();
+                countdownTickAudio?.SetRemainingSeconds(remaining);
+            }
+            else
+            {
+                countdownTickAudio?.Hide();
+            }
+
             if (remaining <= 0d)
             {
                 if (countdown != null && countdown.gameObject.activeSelf)
@@ -98,6 +109,19 @@ namespace Game.Client.Lobby
             label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Overflow;
             return label;
+        }
+
+        private void EnsureCountdownTickAudio()
+        {
+            if (countdownTickAudio == null)
+            {
+                countdownTickAudio = GetComponentInChildren<LobbyStartCountdownTickAudio>(true);
+            }
+
+            if (countdownTickAudio == null)
+            {
+                countdownTickAudio = LobbyStartCountdownTickAudio.Create(transform);
+            }
         }
 
         public void EnsureSharedGuide()

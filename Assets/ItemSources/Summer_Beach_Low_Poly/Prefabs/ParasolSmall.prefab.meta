@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 755078a48abbde94ca2d3b3d46d50aa5
+labels:
+- summer
+- beach
+- parasol
+timeCreated: 1429805660
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/ParasolSmall.prefab
+  uploadId: 466071
