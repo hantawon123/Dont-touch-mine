@@ -15,6 +15,9 @@ namespace Game.Bootstrap
     {
         private const float FallHeight = -2f;
         private const float MaxDistanceFromPlayer = 20f;
+        private const float PlacementPositionTolerance = 0.8f;
+        private const float PlacementRotationTolerance = 22f;
+        private static readonly Quaternion TargetRotation = Quaternion.Euler(15f, 90f, 0f);
 
         [SerializeField]
         private TutorialSession session;
@@ -35,6 +38,10 @@ namespace Game.Bootstrap
         private Transform[] recoveryPoints;
 
         private Pose spawnPose;
+        private Pose placementTargetPose;
+        private GameObject placementGuide;
+
+        public Pose PlacementTargetPose => placementTargetPose;
 
         private void Awake()
         {
@@ -47,6 +54,9 @@ namespace Game.Bootstrap
             }
 
             spawnPose = new Pose(trainingItem.transform.position, trainingItem.transform.rotation);
+            placementTargetPose = BuildPlacementTargetPose();
+            placementGuide = CreatePlacementGuide();
+            RefreshPlacementGuide(session.CurrentStep);
         }
 
         private void OnEnable()
@@ -55,6 +65,8 @@ namespace Game.Bootstrap
                 interactor.LocalItemActionPerformed += OnItemAction;
             if (shredder != null)
                 shredder.ItemProcessed += OnShredderProcessed;
+            if (session != null)
+                session.StepChanged += RefreshPlacementGuide;
         }
 
         private void OnDisable()
@@ -63,6 +75,8 @@ namespace Game.Bootstrap
                 interactor.LocalItemActionPerformed -= OnItemAction;
             if (shredder != null)
                 shredder.ItemProcessed -= OnShredderProcessed;
+            if (session != null)
+                session.StepChanged -= RefreshPlacementGuide;
         }
 
         private void Update()
@@ -120,6 +134,14 @@ namespace Game.Bootstrap
         {
             if (item != trainingItem)
                 return;
+
+            if (action == LocalItemAction.Placed && session.CurrentStep == TutorialStep.Place &&
+                !IsAtPlacementTarget(item.transform))
+            {
+                RecoverItem();
+                return;
+            }
+
             var tutorialAction = action switch
             {
                 LocalItemAction.PickedUp => TutorialInteractionAction.PickUp,
@@ -129,6 +151,60 @@ namespace Game.Bootstrap
                 _ => throw new System.ArgumentOutOfRangeException(nameof(action), action, null)
             };
             session.ObserveInteraction(tutorialAction);
+        }
+
+        private Pose BuildPlacementTargetPose()
+        {
+            var placementZone = recoveryPoints != null && recoveryPoints.Length > 3 && recoveryPoints[3] != null
+                ? recoveryPoints[3].parent
+                : transform;
+            var surface = placementZone.position + Vector3.up * 1.29f;
+            var verticalExtent = PlacementVolumeMath.RotatedVerticalExtent(
+                TargetRotation, trainingItem.PlacementHalfExtents);
+            var rootPosition = surface + Vector3.up * verticalExtent -
+                TargetRotation * trainingItem.PlacementCenterOffset;
+            return new Pose(rootPosition, TargetRotation);
+        }
+
+        private GameObject CreatePlacementGuide()
+        {
+            var guide = Instantiate(trainingItemPrefab.gameObject,
+                placementTargetPose.position, placementTargetPose.rotation);
+            guide.name = "PlacementTargetGhost";
+            foreach (var collider in guide.GetComponentsInChildren<Collider>())
+                collider.enabled = false;
+            if (guide.TryGetComponent<Rigidbody>(out var body))
+            {
+                body.isKinematic = true;
+                body.detectCollisions = false;
+            }
+            if (guide.TryGetComponent<CarryableItem>(out var carryable))
+                carryable.enabled = false;
+
+            var ghostMaterial = interactor.GetComponent<ItemPlacementController>()?.ValidGhostMaterial;
+            if (ghostMaterial != null)
+            {
+                foreach (var renderer in guide.GetComponentsInChildren<Renderer>())
+                {
+                    var materials = renderer.sharedMaterials;
+                    for (var i = 0; i < materials.Length; i++)
+                        materials[i] = ghostMaterial;
+                    renderer.sharedMaterials = materials;
+                    renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+            }
+
+            return guide;
+        }
+
+        private bool IsAtPlacementTarget(Transform itemTransform) =>
+            Vector3.Distance(itemTransform.position, placementTargetPose.position) <= PlacementPositionTolerance &&
+            Quaternion.Angle(itemTransform.rotation, placementTargetPose.rotation) <= PlacementRotationTolerance;
+
+        private void RefreshPlacementGuide(TutorialStep step)
+        {
+            if (placementGuide != null)
+                placementGuide.SetActive(step == TutorialStep.Place);
         }
 
         private void OnShredderProcessed(CarryableItem item)

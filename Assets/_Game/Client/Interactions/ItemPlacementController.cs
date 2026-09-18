@@ -52,6 +52,7 @@ namespace Game.Client.Interactions
         public const string PlaceActionLabel = "배치";
 
         public bool IsPlacing { get; private set; }
+        public Material ValidGhostMaterial => ghostValidMaterial;
 
         /// <summary>결과 화면 등 외부에서 배치 모드 진입을 막을 때 사용한다. 켜지면 진행 중인 배치도 끝낸다.</summary>
         public bool IsInputLocked { get; set; }

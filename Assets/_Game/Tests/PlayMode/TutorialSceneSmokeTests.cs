@@ -96,7 +96,13 @@ namespace Game.Tests.PlayMode
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
             interactor.SendMessage("ThrowCarried");
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
+            Assert.That(GameObject.Find("PlacementTargetGhost"), Is.Not.Null);
             Assert.That(interactor.TryPlaceCarried(spawn, Quaternion.identity), Is.True);
+            Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.Place), "An incorrect pose completed placement.");
+            Assert.That(interactor.TryPickUp(trainingItem), Is.True);
+            Assert.That(interactor.TryPlaceCarried(
+                itemCourse.PlacementTargetPose.position,
+                itemCourse.PlacementTargetPose.rotation), Is.True);
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
             shredder.Interact(interactor);
             yield return new WaitForSeconds(0.7f);
