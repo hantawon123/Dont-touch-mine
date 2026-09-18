@@ -238,6 +238,32 @@ namespace Game.Architecture.Tests
             finally { UnityEngine.Object.DestroyImmediate(rules); }
         }
 
+        [TestCase(MatchEndReason.TimeExpired)]
+        [TestCase(MatchEndReason.AllPlayerItemsDestroyed)]
+        [TestCase(MatchEndReason.LastPlayerStanding)]
+        public void GameEnd_RingsTheBellOnce(MatchEndReason reason)
+        {
+            var network = new FakeNetwork();
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(network, network, room, rules, view);
+                presenter.Start();
+                network.Publish(new MatchResult(reason, 0d, new[] { 0 }));
+                Assert.That(view.MatchEndBellPlays, Is.EqualTo(1));
+                network.Publish(new MatchResult(reason, 0d, new[] { 0 }));
+                Assert.That(view.MatchEndBellPlays, Is.EqualTo(1),
+                    "A republished result must not ring the end bell again.");
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 0d));
+                Assert.That(view.MatchEndBellPlays, Is.Zero);
+                network.Publish(new MatchResult(reason, 10d, new[] { 0 }));
+                Assert.That(view.MatchEndBellPlays, Is.EqualTo(1));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(rules); }
+        }
+
         [Test]
         public void ReturnToLobby_KeepsTransitionCoveredUntilLobbyTakesOwnership()
         {
@@ -395,6 +421,34 @@ namespace Game.Architecture.Tests
             Assert.That(network.CompleteHighlightCalls, Is.EqualTo(2));
             playback.Tick();
             Assert.That(network.CompleteHighlightCalls, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ResultScene_LeavesTheCoverForTheEndingStage()
+        {
+            var network = new FakeNetwork { ServerTime = 100.3d };
+            var transition = new FakeTransition();
+            using var room = new RoomBrowserSystem();
+            using var playback = new NetworkHighlightPlaybackController(
+                network, room, network, transition);
+            playback.Start();
+
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 100d, new[] { 0 }));
+            network.PublishReplay(CreateReplay(HighlightType.FirstBlood));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 0d));
+            playback.Tick();
+            Assert.That(transition.Opacity, Is.EqualTo(1f));
+            Assert.That(network.HighlightReadyCalls, Is.Zero);
+
+            network.IsResultSceneLoaded = true;
+            transition.SetOpacity(0.25f);
+            playback.Tick();
+
+            Assert.That(transition.Opacity, Is.EqualTo(0.25f));
+            Assert.That(network.HighlightReadyCalls, Is.Zero);
+            Assert.That(
+                NetworkHighlightPlaybackController.ShouldYieldCoverToResult(false, true),
+                Is.True);
         }
 
         [Test]
@@ -1552,6 +1606,12 @@ namespace Game.Architecture.Tests
                 EndHeadline = headline;
                 EndSubtitle = subtitle;
             }
+
+            public int MatchEndBellPlays { get; private set; }
+
+            public void PlayMatchEndBell() => MatchEndBellPlays++;
+
+            public void ResetMatchEndBell() => MatchEndBellPlays = 0;
             public string Notice { get; private set; }
             public bool NoticeVisible { get; private set; }
             public string AssignedItem { get; private set; }

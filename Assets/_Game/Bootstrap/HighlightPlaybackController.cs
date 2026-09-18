@@ -172,6 +172,7 @@ namespace Game.Bootstrap
         private PlayerCameraController cameraRig;
         private GameObject fallbackObject;
         private MatchPhase phase = MatchPhase.Waiting;
+        private bool yieldedToResult;
         private int replayIndex;
         private readonly Dictionary<string, ReplayVisual> playerVisuals = new(StringComparer.Ordinal);
         private readonly Dictionary<string, ReplayVisual> itemVisuals = new(StringComparer.Ordinal);
@@ -293,11 +294,22 @@ namespace Game.Bootstrap
 
             // Fade the live camera out, then let Result fade in over it.
             if (!clock.IsRuntimeReady) return;
-            if (network is INetworkResultNavigation { IsResultSceneLoaded: true })
+            if (IsResultPresentationActive())
             {
                 HideHighlightHud();
+                if (!yieldedToResult)
+                {
+                    yieldedToResult = true;
+                    if (replayPlayer != null || cameraDirector != null)
+                    {
+                        StopPlayback();
+                    }
+                }
+
                 return;
             }
+
+            yieldedToResult = false;
             if (clock.ServerTime < gameEndNoticeEndsAt)
             {
                 HideHighlightHud();
@@ -436,6 +448,7 @@ namespace Game.Bootstrap
                 replayIndex = 0;
                 localSkipOffset = 0d;
                 skippedAll = false;
+                yieldedToResult = false;
                 localViewingCompletionStarted = false;
                 localViewingComplete = false;
                 transition.SetOpacity(!clock.IsRuntimeReady || clock.ServerTime < gameEndNoticeEndsAt ? 0f : 1f);
@@ -796,6 +809,19 @@ namespace Game.Bootstrap
             hud.SetHighlightHud(true, subtitle, highlightBarFills);
             if(cctvHud==null && hud is Component component)
                 cctvHud=component.GetComponentInChildren<HighlightHudView>(true);
+        }
+
+        internal static bool ShouldYieldCoverToResult(
+            bool resultSceneLoaded,
+            bool resultScopePresent) =>
+            resultSceneLoaded || resultScopePresent;
+
+        private bool IsResultPresentationActive()
+        {
+            var resultSceneLoaded = network is INetworkResultNavigation { IsResultSceneLoaded: true };
+            var resultScopePresent = UnityEngine.Object.FindFirstObjectByType<ResultLifetimeScope>(
+                FindObjectsInactive.Exclude) != null;
+            return ShouldYieldCoverToResult(resultSceneLoaded, resultScopePresent);
         }
 
         private static int GetRecordedPlayerCount(

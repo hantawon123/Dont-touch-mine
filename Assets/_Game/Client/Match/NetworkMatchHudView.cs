@@ -19,6 +19,8 @@ namespace Game.Client.Match
         void SetRemainingSeconds(double remainingSeconds);
         void SetEndCountdown(double remainingSeconds);
         void SetEndResult(string headline, string subtitle);
+        void PlayMatchEndBell();
+        void ResetMatchEndBell();
         void SetHighlightHud(bool visible, string subtitle, IReadOnlyList<float> barFills);
         void SetAssignedItem(string displayName);
         void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses);
@@ -118,6 +120,9 @@ namespace Game.Client.Match
         private MatchUrgencyBorderView urgencyBorderView;
 
         private MatchUrgencyAudio urgencyAudio;
+        private HidingTimerTickAudio timerTickAudio;
+        private SearchingTimerTickAudio searchingTimerTickAudio;
+        private MatchEndBellAudio matchEndBellAudio;
 
         private LobbyPlayerListView participantListView;
 
@@ -160,6 +165,9 @@ namespace Game.Client.Match
             HideHidingTurnStart();
             EnsureHidingActiveHud();
             HideHidingActiveHud();
+            EnsureTimerTickAudio();
+            EnsureSearchingTimerTickAudio();
+            EnsureMatchEndBellAudio();
             EnsureHidingWaitHud();
             HideHidingWaitHud();
             EnsureVitalsHud();
@@ -179,6 +187,10 @@ namespace Game.Client.Match
         {
             currentPhase = phase;
             SetHighlightOnly(phase == MatchPhase.Highlight);
+            if (phase == MatchPhase.Hiding || phase == MatchPhase.Waiting)
+            {
+                ResetMatchEndBell();
+            }
             if (phase != MatchPhase.Highlight)
             {
                 SetHighlightHud(false, null, Array.Empty<float>());
@@ -259,7 +271,19 @@ namespace Game.Client.Match
             timerView?.SetResult(headline, subtitle);
             urgencyBorderView?.Hide();
             urgencyAudio?.Hide();
+            searchingTimerTickAudio?.Hide();
             LateUpdate();
+        }
+
+        public void PlayMatchEndBell()
+        {
+            EnsureMatchEndBellAudio();
+            matchEndBellAudio?.Play();
+        }
+
+        public void ResetMatchEndBell()
+        {
+            matchEndBellAudio?.Reset();
         }
 
         private void RestoreHud()
@@ -279,6 +303,8 @@ namespace Game.Client.Match
             lastRemainingSeconds = remainingSeconds;
             EnsureTimer();
             timerView?.SetRemainingSeconds(remainingSeconds);
+            EnsureSearchingTimerTickAudio();
+            searchingTimerTickAudio?.SetRemainingSeconds(currentPhase, remainingSeconds);
             RefreshUrgency();
         }
 
@@ -495,11 +521,14 @@ namespace Game.Client.Match
         public void HideHidingActiveHud()
         {
             hidingActiveHudView?.Hide();
+            timerTickAudio?.Hide();
         }
 
         public void SetHidingActiveHudSeconds(double remainingSeconds)
         {
             hidingActiveHudView?.SetRemainingSeconds(remainingSeconds);
+            EnsureTimerTickAudio();
+            timerTickAudio?.SetRemainingSeconds(remainingSeconds);
         }
 
         public void ShowHidingWaitHud(
@@ -655,6 +684,45 @@ namespace Game.Client.Match
             if (urgencyAudio == null)
             {
                 urgencyAudio = MatchUrgencyAudio.Create(transform);
+            }
+        }
+
+        private void EnsureTimerTickAudio()
+        {
+            if (timerTickAudio == null)
+            {
+                timerTickAudio = GetComponentInChildren<HidingTimerTickAudio>(true);
+            }
+
+            if (timerTickAudio == null)
+            {
+                timerTickAudio = HidingTimerTickAudio.Create(transform);
+            }
+        }
+
+        private void EnsureSearchingTimerTickAudio()
+        {
+            if (searchingTimerTickAudio == null)
+            {
+                searchingTimerTickAudio = GetComponentInChildren<SearchingTimerTickAudio>(true);
+            }
+
+            if (searchingTimerTickAudio == null)
+            {
+                searchingTimerTickAudio = SearchingTimerTickAudio.Create(transform);
+            }
+        }
+
+        private void EnsureMatchEndBellAudio()
+        {
+            if (matchEndBellAudio == null)
+            {
+                matchEndBellAudio = GetComponentInChildren<MatchEndBellAudio>(true);
+            }
+
+            if (matchEndBellAudio == null)
+            {
+                matchEndBellAudio = MatchEndBellAudio.Create(transform);
             }
         }
 
