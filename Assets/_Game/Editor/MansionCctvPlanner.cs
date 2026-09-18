@@ -772,6 +772,7 @@ namespace Game.Editor
             if (existing != null)
             {
                 Undo.DestroyObjectImmediate(existing);
+                RemoveEye();
                 Debug.Log("[MansionCctv] 미리보기를 지웠습니다.");
                 return;
             }
@@ -783,6 +784,89 @@ namespace Game.Editor
             Selection.activeGameObject = instance;
             SceneView.lastActiveSceneView?.FrameSelected();
             Debug.Log("[MansionCctv] 미리보기를 놓았습니다. 카메라를 옮겼으면 Overrides > Apply All 로 프리팹에 적용한 뒤 3b 로 검사하고, 씬을 저장하기 전에 이 메뉴로 미리보기를 지우세요.");
+        }
+
+        // ---- 카메라 시점으로 보기 ----
+
+        private const string EyeName = "CCTV Eye";
+        private static HighlightCctvCamera lookingThrough;
+
+        /// <summary>
+        /// 선택한 CCTV 지점(또는 그 부모/자식)의 위치·방향·시야각을 Scene 뷰에 맞추고, 같은 시점의 임시 카메라
+        /// <c>CCTV Eye</c>(저장 안 됨, depth 100)를 두어 Game 뷰가 16:9 로 그 화면을 그리게 한다.
+        /// 지점을 옮기면 임시 카메라가 따라간다. 미리보기를 지우면 함께 사라진다.
+        /// </summary>
+        [MenuItem(MenuRoot + "6. Look Through Selected CCTV _F8")]
+        public static void LookThroughSelected()
+        {
+            var selected = Selection.activeGameObject;
+            var camera = selected == null ? null
+                : selected.GetComponent<HighlightCctvCamera>() ?? selected.GetComponentInParent<HighlightCctvCamera>() ?? selected.GetComponentInChildren<HighlightCctvCamera>();
+            if (camera == null) camera = lookingThrough != null ? lookingThrough : AllCctv().FirstOrDefault();
+            if (camera == null) throw new InvalidOperationException("씬에 CCTV 지점이 없습니다. 5. Toggle Prefab Preview 로 먼저 놓으세요.");
+            LookThrough(camera);
+        }
+
+        [MenuItem(MenuRoot + "7. Look Through Next CCTV _F9")]
+        public static void LookThroughNext()
+        {
+            var all = AllCctv().ToList();
+            if (all.Count == 0) throw new InvalidOperationException("씬에 CCTV 지점이 없습니다. 5. Toggle Prefab Preview 로 먼저 놓으세요.");
+            var index = lookingThrough == null ? -1 : all.IndexOf(lookingThrough);
+            LookThrough(all[(index + 1) % all.Count]);
+        }
+
+        [MenuItem(MenuRoot + "8. Stop Looking Through (Remove Eye)")]
+        public static void StopLookingThrough() => RemoveEye();
+
+        private static IEnumerable<HighlightCctvCamera> AllCctv()
+        {
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            return scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<HighlightCctvCamera>(true)).OrderBy(c => c.name);
+        }
+
+        private static void LookThrough(HighlightCctvCamera camera)
+        {
+            lookingThrough = camera;
+            var eye = GameObject.Find(EyeName);
+            if (eye == null)
+            {
+                eye = new GameObject(EyeName) { hideFlags = HideFlags.DontSave };
+                var output = eye.AddComponent<Camera>();
+                output.depth = 100f;
+                output.nearClipPlane = 0.1f;
+                output.farClipPlane = 120f;
+                EditorApplication.update -= FollowEye;
+                EditorApplication.update += FollowEye;
+            }
+            eye.GetComponent<Camera>().fieldOfView = camera.FieldOfView;
+            eye.transform.SetPositionAndRotation(camera.transform.position, camera.transform.rotation);
+            var view = SceneView.lastActiveSceneView;
+            if (view != null)
+            {
+                view.AlignViewToObject(eye.transform);
+                view.cameraSettings.fieldOfView = camera.FieldOfView;
+                view.Repaint();
+            }
+            Selection.activeGameObject = camera.gameObject;
+            Debug.Log($"[MansionCctv] {camera.LocationName} 시점. Scene 뷰는 이 시점으로 맞췄고 Game 뷰는 CCTV Eye(16:9)가 그립니다. F9 로 다음 카메라, 8 번 메뉴로 끝냅니다.");
+        }
+
+        private static void FollowEye()
+        {
+            var eye = GameObject.Find(EyeName);
+            if (eye == null || lookingThrough == null) { EditorApplication.update -= FollowEye; return; }
+            if (eye.transform.position == lookingThrough.transform.position && eye.transform.rotation == lookingThrough.transform.rotation) return;
+            eye.transform.SetPositionAndRotation(lookingThrough.transform.position, lookingThrough.transform.rotation);
+            eye.GetComponent<Camera>().fieldOfView = lookingThrough.FieldOfView;
+        }
+
+        private static void RemoveEye()
+        {
+            EditorApplication.update -= FollowEye;
+            lookingThrough = null;
+            var eye = GameObject.Find(EyeName);
+            if (eye != null) UnityEngine.Object.DestroyImmediate(eye);
         }
 
         // ---- 보고서 ----
