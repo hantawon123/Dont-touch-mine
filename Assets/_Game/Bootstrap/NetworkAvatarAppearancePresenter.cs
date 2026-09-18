@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Client.Character;
 using Game.Core.Players;
 using Game.Network.Session;
@@ -10,6 +11,7 @@ namespace Game.Bootstrap
     {
         private readonly NetworkRunnerService network;
         private readonly AvatarAppearanceState appearance;
+        private readonly List<(string playerId, string userId, AvatarAppearance appearance)> published = new();
 
         public NetworkAvatarAppearancePresenter(NetworkRunnerService network, AvatarAppearanceState appearance)
         {
@@ -19,6 +21,8 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
+            published.Clear();
+            AvatarAppearanceBoard.SetLocal(appearance.Current);
             foreach (var avatar in network.SpawnedAvatars)
             {
                 if (avatar == null || !avatar.HasNetworkState) continue;
@@ -32,7 +36,10 @@ namespace Game.Bootstrap
                 var selected = avatar.IsOwner ? appearance.Current : avatar.Appearance;
                 selected = applier.ResolvePlayerAppearance(selected);
                 if (applier.Current != selected) applier.Apply(selected);
+                published.Add((avatar.PlayerId, avatar.UserId.ToString(), selected));
             }
+
+            AvatarAppearanceBoard.Replace(published);
         }
     }
 }
