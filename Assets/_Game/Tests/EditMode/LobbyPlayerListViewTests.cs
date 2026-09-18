@@ -156,6 +156,9 @@ namespace Game.Architecture.Tests
                 Assert.That(friendsTitle.fontSize, Is.EqualTo(LobbyPlayerListView.TitleFontSize));
                 Assert.That(friendsTitle.font, Is.EqualTo(HomeUiFonts.ApplyBold()));
                 Assert.That(view.GetComponent<RectTransform>().sizeDelta.x, Is.EqualTo(LobbyPlayerListView.ModalWidth));
+                Assert.That(LobbyPlayerListView.ModalScale, Is.EqualTo(1.3f));
+                Assert.That(LobbyPlayerListView.ModalWidth, Is.EqualTo(800f * 1.3f).Within(0.001f));
+                Assert.That(LobbyPlayerListView.ModalHeight, Is.EqualTo(420f * 1.3f).Within(0.001f));
                 var participants = canvas.transform.Find("Columns/Participants") as RectTransform;
                 var friends = canvas.transform.Find("Columns/Friends") as RectTransform;
                 Assert.That(
