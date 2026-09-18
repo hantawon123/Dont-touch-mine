@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Game.Core.Players;
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 namespace Game.Client.Character
@@ -18,12 +17,11 @@ namespace Game.Client.Character
         private const string PreviewLayerName = "Item Preview";
         private static readonly Vector3 StagePosition = new(0f, -2800f, 0f);
 
-        private static readonly Dictionary<string, RenderTexture> cache = new();
+        private static readonly Dictionary<string, Texture2D> cache = new();
         private static GameObject stage;
         private static AvatarAppearanceApplier character;
         private static Camera camera;
-        private static AvatarAppearance lastRendered;
-        private static bool hasLastRendered;
+        private static RenderTexture scratch;
 
         public static void Bind(RectTransform circle, AvatarAppearance appearance)
         {
@@ -38,6 +36,11 @@ namespace Game.Client.Character
             {
                 portrait.enabled = false;
                 SetMaskGraphicVisible(circle, true);
+                return;
+            }
+
+            if (portrait.texture == texture && portrait.enabled)
+            {
                 return;
             }
 
@@ -76,7 +79,7 @@ namespace Game.Client.Character
             return radius * FramePadding;
         }
 
-        private static bool TryRender(AvatarAppearance appearance, out RenderTexture texture)
+        private static bool TryRender(AvatarAppearance appearance, out Texture texture)
         {
             texture = null;
             if (!Application.isPlaying)
@@ -85,8 +88,9 @@ namespace Game.Client.Character
             }
 
             var key = appearance.ToString();
-            if (cache.TryGetValue(key, out texture) && texture != null)
+            if (cache.TryGetValue(key, out var still) && still != null)
             {
+                texture = still;
                 return true;
             }
 
@@ -95,17 +99,18 @@ namespace Game.Client.Character
                 return false;
             }
 
-            if (!hasLastRendered || lastRendered != appearance)
+            character.Apply(character.ResolvePlayerAppearance(appearance));
+            FreezePose();
+            FrameHead();
+            Submit(camera, ScratchTexture);
+            still = CaptureStill(ScratchTexture, key);
+            if (still == null)
             {
-                character.Apply(character.ResolvePlayerAppearance(appearance));
-                lastRendered = appearance;
-                hasLastRendered = true;
+                return false;
             }
 
-            FrameHead();
-            texture = CreateTexture(key);
-            Submit(camera, texture);
-            cache[key] = texture;
+            cache[key] = still;
+            texture = still;
             return true;
         }
 
@@ -138,9 +143,14 @@ namespace Game.Client.Character
                 return false;
             }
 
+            FreezePose();
+
             var cameraObject = new GameObject("FaceCamera");
             cameraObject.transform.SetParent(stage.transform, false);
             camera = cameraObject.AddComponent<Camera>();
+            // Bind/Submit render explicitly. An enabled Base camera with no RT
+            // survives into the match and clears the game view to black.
+            camera.enabled = false;
             camera.orthographic = true;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = Color.clear;
@@ -148,8 +158,11 @@ namespace Game.Client.Character
             camera.farClipPlane = 12f;
             camera.allowHDR = false;
             camera.allowMSAA = false;
+            camera.useOcclusionCulling = false;
             camera.cullingMask = PreviewLayerMask;
             camera.aspect = 1f;
+            camera.depth = -100;
+            camera.targetTexture = ScratchTexture;
             cameraObject.AddComponent<AvatarPreviewLighting>();
             ApplyPreviewLayer(cameraObject);
             return true;
@@ -179,17 +192,71 @@ namespace Game.Client.Character
             };
         }
 
-        private static void Submit(Camera previewCamera, RenderTexture destination)
+        private static void FreezePose()
         {
-            previewCamera.targetTexture = destination;
-            var request = new RenderPipeline.StandardRequest { destination = destination };
-            if (RenderPipeline.SupportsRenderRequest(previewCamera, request))
+            if (character == null)
             {
-                previewCamera.SubmitRenderRequest(request);
                 return;
             }
 
+            var animators = character.GetComponentsInChildren<Animator>(true);
+            for (var index = 0; index < animators.Length; index++)
+            {
+                var animator = animators[index];
+                animator.applyRootMotion = false;
+                animator.speed = 0f;
+                animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                if (animator.enabled && animator.gameObject.activeInHierarchy)
+                {
+                    animator.Update(0f);
+                }
+
+                animator.enabled = false;
+            }
+        }
+
+        private static void Submit(Camera previewCamera, RenderTexture destination)
+        {
+            previewCamera.enabled = false;
+            previewCamera.targetTexture = destination;
             previewCamera.Render();
+            previewCamera.targetTexture = ScratchTexture;
+        }
+
+        private static Texture2D CaptureStill(RenderTexture source, string key)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var previous = RenderTexture.active;
+            RenderTexture.active = source;
+            var still = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false)
+            {
+                name = $"AvatarFace {key}",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            still.ReadPixels(new Rect(0f, 0f, source.width, source.height), 0, 0, false);
+            still.Apply(false, false);
+            RenderTexture.active = previous;
+            return still;
+        }
+
+        private static RenderTexture ScratchTexture
+        {
+            get
+            {
+                if (scratch != null)
+                {
+                    return scratch;
+                }
+
+                scratch = CreateTexture("_scratch");
+                return scratch;
+            }
         }
 
         private static void EnsureCircleMask(RectTransform circle)

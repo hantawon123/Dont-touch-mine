@@ -72,7 +72,15 @@ namespace Game.Client.Character
             Apply(appearance, true);
         }
 
-        private void LateUpdate() => Refresh();
+        private void LateUpdate()
+        {
+            if (pinned || (hasShown && IsPortraitShowing() && BoardMatchesShown()))
+            {
+                return;
+            }
+
+            Refresh();
+        }
 
         private void OnDisable()
         {
@@ -126,6 +134,18 @@ namespace Game.Client.Character
             shown = appearance;
             hasShown = true;
             AvatarFacePortrait.Bind(transform as RectTransform, appearance);
+        }
+
+        private bool BoardMatchesShown()
+        {
+            if (followLocal)
+            {
+                return AvatarAppearanceBoard.HasLocal && shown == AvatarAppearanceBoard.Local;
+            }
+
+            return (AvatarAppearanceBoard.TryGet(playerId, out var appearance) ||
+                    AvatarAppearanceBoard.TryGet(userId, out appearance)) &&
+                   shown == appearance;
         }
 
         private bool IsPortraitShowing()
