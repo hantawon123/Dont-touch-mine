@@ -64,6 +64,9 @@ namespace Game.Architecture.Tests
                         HidingWaitHudView.AvatarSize,
                         HidingWaitHudView.AvatarSize)));
                 Assert.That(
+                    HidingWaitHudView.AvatarSize,
+                    Is.EqualTo(54f * HidingWaitHudView.AvatarScale).Within(0.001f));
+                Assert.That(
                     view.transform.Find("PlayerList/Row0/Avatar/CheckIcon").gameObject.activeSelf,
                     Is.True);
                 Assert.That(
@@ -107,6 +110,32 @@ namespace Game.Architecture.Tests
                     view.transform.Find("PlayerList/Row0/Avatar/RingTrack")
                         .GetComponent<UnityEngine.UI.Image>().enabled,
                     Is.False);
+                var currentTimer = view.transform.Find("PlayerList/Row2/Avatar/Timer")
+                    ?.GetComponent<TMPro.TMP_Text>();
+                Assert.That(currentTimer, Is.Not.Null);
+                Assert.That(currentTimer.gameObject.activeSelf, Is.True);
+                Assert.That(currentTimer.text, Is.EqualTo("15"));
+                Assert.That(currentTimer.fontSize, Is.EqualTo(HidingWaitHudView.AvatarTimerFontSize));
+                Assert.That(currentTimer.color, Is.EqualTo(HidingWaitHudView.AccentColor));
+                var currentVeil = view.transform.Find("PlayerList/Row2/Avatar/TimerVeil")
+                    ?.GetComponent<UnityEngine.UI.Image>();
+                Assert.That(currentVeil, Is.Not.Null);
+                Assert.That(currentVeil.gameObject.activeSelf, Is.True);
+                Assert.That(currentVeil.color, Is.EqualTo(HidingWaitHudView.AvatarTimerVeilColor));
+                Assert.That(
+                    (currentVeil.transform as RectTransform).sizeDelta,
+                    Is.EqualTo(new Vector2(
+                        HidingWaitHudView.AvatarSize,
+                        HidingWaitHudView.AvatarSize)));
+                Assert.That(
+                    currentVeil.transform.GetSiblingIndex(),
+                    Is.LessThan(currentTimer.transform.GetSiblingIndex()));
+                Assert.That(
+                    view.transform.Find("PlayerList/Row0/Avatar/Timer").gameObject.activeSelf,
+                    Is.False);
+                Assert.That(
+                    view.transform.Find("PlayerList/Row0/Avatar/TimerVeil").gameObject.activeSelf,
+                    Is.False);
                 Assert.That(view.transform.Find("PlayerList/Row4").gameObject.activeSelf, Is.False);
             }
             finally
@@ -125,9 +154,12 @@ namespace Game.Architecture.Tests
             Assert.That(HidingWaitHudView.RingFillAmount(30d, 30d), Is.EqualTo(0f));
             Assert.That(HidingWaitHudView.RingFillAmount(15d, 30d), Is.EqualTo(0.5f));
             Assert.That(HidingWaitHudView.RingFillAmount(0d, 30d), Is.EqualTo(1f));
+            Assert.That(HidingWaitHudView.FormatAvatarTimer(15.2d), Is.EqualTo("16"));
+            Assert.That(HidingWaitHudView.FormatAvatarTimer(0d), Is.EqualTo("0"));
             Assert.That(HidingWaitHudView.RingGap, Is.EqualTo(3f));
             Assert.That(HidingWaitHudView.NameFontSize, Is.EqualTo(24f));
-            Assert.That(HidingWaitHudView.AvatarSize, Is.EqualTo(54f));
+            Assert.That(HidingWaitHudView.AvatarScale, Is.EqualTo(1.2f));
+            Assert.That(HidingWaitHudView.AvatarSize, Is.EqualTo(54f * 1.2f).Within(0.001f));
         }
     }
 }
