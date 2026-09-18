@@ -51,6 +51,10 @@ namespace Game.Tests.PlayMode
             Assert.That(RenderSettings.fog, Is.True);
             Assert.That(RenderSettings.skybox, Is.Not.Null);
             Assert.That(GameObject.Find("Lobby Post Volume"), Is.Not.Null);
+            var attack = (UnityEngine.InputSystem.InputAction)typeof(Game.Client.Combat.PlayerCombatant)
+                .GetField("attackAction", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(combat);
+            Assert.That(attack.enabled, Is.True);
+            Assert.That(attack.bindings.Count, Is.GreaterThan(0));
         }
 
         [UnityTest]
@@ -142,19 +146,19 @@ namespace Game.Tests.PlayMode
             var controller = player.GetComponent<CharacterController>();
             var settings = player.MovementSettings;
 
-            SetControllerPose(controller, new Vector3(20, .2f, 3.8f), settings.StandHeight);
-            MoveController(controller, Vector3.back, 2.8f);
-            Assert.That(player.transform.position.z, Is.GreaterThan(2.8f), "Standing bypassed stage 05.");
-            SetControllerPose(controller, new Vector3(20, .2f, 3.8f), settings.CrouchHeight);
-            MoveController(controller, Vector3.back, 2.8f);
-            Assert.That(player.transform.position.z, Is.LessThan(1.4f), "Crouching cannot clear stage 05.");
+            SetControllerPose(controller, new Vector3(20, .2f, 5.2f), settings.StandHeight);
+            MoveController(controller, Vector3.back, 4.35f);
+            Assert.That(player.transform.position.z, Is.GreaterThan(4f), "Standing bypassed stage 05.");
+            SetControllerPose(controller, new Vector3(20, .2f, 5.2f), settings.CrouchHeight);
+            MoveController(controller, Vector3.back, 4.35f);
+            Assert.That(player.transform.position.z, Is.LessThan(1f), "Crouching cannot clear stage 05.");
 
-            SetControllerPose(controller, new Vector3(20, .2f, .5f), settings.CrouchHeight);
-            MoveController(controller, Vector3.back, 2.9f);
-            Assert.That(player.transform.position.z, Is.GreaterThan(-.5f), "Crouching bypassed stage 06.");
-            SetControllerPose(controller, new Vector3(20, .2f, .5f), settings.ProneHeight);
-            MoveController(controller, Vector3.back, 2.9f);
-            Assert.That(player.transform.position.z, Is.LessThan(-2f), "Prone cannot clear stage 06.");
+            SetControllerPose(controller, new Vector3(20, .2f, .85f), settings.CrouchHeight);
+            MoveController(controller, Vector3.back, 3.9f);
+            Assert.That(player.transform.position.z, Is.GreaterThan(.5f), "Crouching bypassed stage 06.");
+            SetControllerPose(controller, new Vector3(20, .2f, .85f), settings.ProneHeight);
+            MoveController(controller, Vector3.back, 3.9f);
+            Assert.That(player.transform.position.z, Is.LessThan(-2.7f), "Prone cannot clear stage 06.");
 
             SetControllerPose(controller, new Vector3(14, .2f, 10), settings.StandHeight);
             SimulateJump(controller, settings, false);
@@ -167,6 +171,44 @@ namespace Game.Tests.PlayMode
             SimulateJump(controller, settings, true);
             Assert.That(player.transform.position.x, Is.GreaterThan(17.5f), "Sprint jump did not reach the landing.");
             Assert.That(player.transform.position.y, Is.GreaterThan(-.1f), "Sprint jump fell through the landing.");
+        }
+
+        [UnityTest]
+        public IEnumerator PostureLessonsRequireTraversingTheirPassages()
+        {
+            var load = SceneManager.LoadSceneAsync("Tutorial", LoadSceneMode.Single);
+            while (!load.isDone) yield return null;
+            yield return null;
+            var player = Object.FindAnyObjectByType<PlayerMovement>();
+            var session = Object.FindAnyObjectByType<TutorialSession>();
+            var controller = player.GetComponent<CharacterController>();
+            player.enabled = false;
+            session.ObserveMovement(Observe(distance: 6f, look: 30f));
+            session.ObserveMovement(Observe(distance: 8f, speed: 6f));
+            session.ObserveMovement(Observe(grounded: true));
+            session.ObserveMovement(Observe(grounded: false));
+            session.ObserveMovement(Observe(grounded: true));
+            player.ApplyNetworkPosture(Game.Core.Players.PlayerPosture.Crouching);
+            yield return null;
+            Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.Crouch));
+            SetControllerPose(controller, new Vector3(20, .2f, 5.15f), player.MovementSettings.CrouchHeight);
+            yield return null;
+            for (var i = 0; i < 75; i++)
+            {
+                controller.Move(Vector3.back * (4.3f / 60) + Vector3.down * .015f);
+                yield return null;
+            }
+            Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.Prone), $"position={player.transform.position}, posture={player.Posture}, entered={typeof(TutorialMovementCourse).GetField("enteredPassage", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(Object.FindAnyObjectByType<TutorialMovementCourse>())}");
+            player.ApplyNetworkPosture(Game.Core.Players.PlayerPosture.Prone);
+            SetControllerPose(controller, controller.transform.position, player.MovementSettings.ProneHeight);
+            yield return null;
+            Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.Prone));
+            for (var i = 0; i < 75; i++)
+            {
+                controller.Move(Vector3.back * (4.3f / 60) + Vector3.down * .015f);
+                yield return null;
+            }
+            Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.PickUp));
         }
 
         [UnityTest]
@@ -200,7 +242,7 @@ namespace Game.Tests.PlayMode
             yield return null;
             Assert.That(door.IsLoading, Is.False, "Completion alone must not automatically leave.");
 
-            var loadingView = LoadingView.Create(null);
+            var loadingView = Object.FindAnyObjectByType<LoadingView>(FindObjectsInactive.Include) ?? LoadingView.Create(null);
             typeof(TutorialExitDoor).GetField("destinationScene", BindingFlags.Instance | BindingFlags.NonPublic)
                 ?.SetValue(door, string.Empty);
             door.Interact(interactor);
@@ -255,6 +297,6 @@ namespace Game.Tests.PlayMode
             float speed = 0f,
             bool grounded = true,
             Game.Core.Players.PlayerPosture posture = Game.Core.Players.PlayerPosture.Standing) =>
-            new(distance, look, speed, 5f, grounded, posture);
+            new(distance, look, speed, 5f, grounded, posture, passageCompleted: true);
     }
 }

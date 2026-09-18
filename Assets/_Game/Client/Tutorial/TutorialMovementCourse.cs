@@ -19,6 +19,12 @@ namespace Game.Client.Tutorial
         [SerializeField]
         private Transform fallCheckpoint;
 
+        [SerializeField] private Transform crouchEntrance;
+        [SerializeField] private Transform crouchExit;
+        [SerializeField] private Transform proneEntrance;
+        [SerializeField] private Transform proneExit;
+        private bool enteredPassage;
+
         private CharacterController characterController;
         private Vector3 previousPosition;
         private float previousYaw;
@@ -72,7 +78,8 @@ namespace Game.Client.Tutorial
                 player.PlanarSpeed,
                 settings.SprintSpeed * 0.8f,
                 player.IsGrounded,
-                player.Posture);
+                player.Posture,
+                ObservePassage(position));
 
             previousPosition = position;
             previousYaw = yaw;
@@ -82,6 +89,7 @@ namespace Game.Client.Tutorial
 
         public void Retry()
         {
+            enteredPassage = false;
             session.RetryCurrentStep();
             if (characterController != null)
                 characterController.enabled = false;
@@ -95,8 +103,33 @@ namespace Game.Client.Tutorial
 
         private void SaveCheckpoint()
         {
+            enteredPassage = false;
             checkpoint = new Pose(player.transform.position, player.transform.rotation);
             checkpointStep = session.CurrentStep;
+        }
+
+        private bool ObservePassage(Vector3 position)
+        {
+            var crouch = session.CurrentStep == TutorialStep.Crouch;
+            if (!crouch && session.CurrentStep != TutorialStep.Prone) return false;
+            var entrance = crouch ? crouchEntrance : proneEntrance;
+            var exit = crouch ? crouchExit : proneExit;
+            if (entrance == null || exit == null) return false;
+            var posture = crouch ? Game.Core.Players.PlayerPosture.Crouching : Game.Core.Players.PlayerPosture.Prone;
+            var direction = exit.position - entrance.position;
+            var length = direction.magnitude;
+            direction /= length;
+            var delta = position - entrance.position;
+            var along = Vector3.Dot(delta, direction);
+            var across = delta - direction * along;
+            if (player.Posture != posture || across.magnitude > .9f ||
+                (position - previousPosition).magnitude > MaxObservedDistancePerFrame)
+            {
+                enteredPassage = false;
+                return false;
+            }
+            if (along >= -.6f && along <= .3f) enteredPassage = true;
+            return enteredPassage && along >= length && along <= length + .6f;
         }
 
         private static float CurrentCameraYaw()

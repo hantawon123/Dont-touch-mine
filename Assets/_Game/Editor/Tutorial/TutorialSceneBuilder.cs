@@ -246,6 +246,7 @@ namespace Game.Editor.Tutorial
             movementObject.FindProperty("player").objectReferenceValue = player;
             movementObject.FindProperty("fallCheckpoint").objectReferenceValue = root.Find("Zones/02_Movement/JumpCheckpoint");
             movementObject.ApplyModifiedPropertiesWithoutUndo();
+            ConfigurePassages(root, movement);
 
             var itemCourse = runtime.gameObject.AddComponent<TutorialItemCourse>();
             var itemObject = new SerializedObject(itemCourse);
@@ -315,6 +316,28 @@ namespace Game.Editor.Tutorial
         {
             var scene = EditorSceneManager.OpenScene(ScenePath);
             new TutorialHideoutArt(GameObject.Find("TutorialHideout").transform).RepairSafetyMarkings();
+            EditorSceneManager.SaveScene(scene);
+            RenderPreview();
+        }
+
+        private static void ConfigurePassages(Transform root, TutorialMovementCourse course)
+        {
+            var serialized = new SerializedObject(course);
+            const string path = "Zones/02_Movement/CrouchCrawlLane/";
+            serialized.FindProperty("crouchEntrance").objectReferenceValue = root.Find(path + "05_Crouch/Entrance");
+            serialized.FindProperty("crouchExit").objectReferenceValue = root.Find(path + "05_Crouch/Exit");
+            serialized.FindProperty("proneEntrance").objectReferenceValue = root.Find(path + "06_Prone/Entrance");
+            serialized.FindProperty("proneExit").objectReferenceValue = root.Find(path + "06_Prone/Exit");
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        public static void RepairPosturePassages()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath);
+            var root = GameObject.Find("TutorialHideout").transform;
+            new TutorialHideoutArt(root).RepairPosturePassages();
+            ConfigurePassages(root, root.GetComponentInChildren<TutorialMovementCourse>());
+            AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene);
             RenderPreview();
         }

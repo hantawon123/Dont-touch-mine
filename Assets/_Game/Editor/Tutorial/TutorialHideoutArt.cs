@@ -318,8 +318,8 @@ namespace Game.Editor.Tutorial
             Pendant(p, V(20, 3.7f, 10));
             var crawl = Group(p, "CrouchCrawlLane");
             // Solid bulkheads extend to the ceiling: neither side-stepping nor jumping over bypasses the lesson.
-            PosturePassage(crawl, "05_Crouch", 2.2f, 1.32f);
-            PosturePassage(crawl, "06_Prone", -1.1f, .78f);
+            PosturePassage(crawl, "05_Crouch", 2.9f, 1.32f);
+            PosturePassage(crawl, "06_Prone", -1.3f, .78f);
             Duct(p, V(22.4f, 3.6f, 4.5f), V(22.4f, 3.6f, -3), .65f);
         }
 
@@ -327,11 +327,24 @@ namespace Game.Editor.Tutorial
         {
             var p = Group(parent, name, V(20, 0, z));
             foreach (float x in new[] { -2f, 2f })
-                B(p, "TunnelSide", V(x, 3.65f, 0), V(2f, 7.3f, 1.4f), "435B71", true, false);
+                  B(p, "TunnelSide", V(x, 3.65f, 0), V(2f, 7.3f, 3f), "435B71", true, false);
             B(p, "LowLintel", V(0, (7.3f + openingHeight) * .5f, 0),
-                V(2.1f, 7.3f - openingHeight, 1.4f), "7E909E", true, false);
-            B(p, "PurpleClearanceStrip", V(0, openingHeight + .04f, .73f), V(1.95f, .08f, .08f), "975ABC");
-            Hazard(p, V(0, .13f, 0), new Vector2(1.8f, 1.5f));
+                  V(2.1f, 7.3f - openingHeight, 3f), "7E909E", true, false);
+            B(p, "PurpleClearanceStrip", V(0, openingHeight + .04f, 1.53f), V(1.95f, .08f, .08f), "975ABC");
+            Hazard(p, V(0, .13f, 0), new Vector2(1.8f, 3f));
+            Group(p, "Entrance", V(0, .2f, 1.8f));
+            Group(p, "Exit", V(0, .2f, -2f));
+        }
+
+        internal void RepairPosturePassages()
+        {
+            beveledBox = BeveledBox();
+            var parent = root.Find("Zones/02_Movement/CrouchCrawlLane");
+            foreach (var child in parent.Cast<Transform>().ToArray())
+                UnityEngine.Object.DestroyImmediate(child.gameObject);
+            PosturePassage(parent, "05_Crouch", 2.9f, 1.32f);
+            PosturePassage(parent, "06_Prone", -1.3f, .78f);
+            ApplyLobbySurfaces(root);
         }
 
         private void RouteGuides()

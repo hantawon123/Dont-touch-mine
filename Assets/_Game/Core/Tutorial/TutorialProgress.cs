@@ -35,7 +35,8 @@ namespace Game.Core.Tutorial
             float speed,
             float sprintThreshold,
             bool grounded,
-            PlayerPosture posture)
+            PlayerPosture posture,
+            bool passageCompleted = false)
         {
             Distance = Math.Max(0f, distance);
             LookDegrees = Math.Max(0f, lookDegrees);
@@ -43,6 +44,7 @@ namespace Game.Core.Tutorial
             SprintThreshold = Math.Max(0f, sprintThreshold);
             Grounded = grounded;
             Posture = posture;
+            PassageCompleted = passageCompleted;
         }
 
         public float Distance { get; }
@@ -51,6 +53,7 @@ namespace Game.Core.Tutorial
         public float SprintThreshold { get; }
         public bool Grounded { get; }
         public PlayerPosture Posture { get; }
+        public bool PassageCompleted { get; }
     }
 
     /// <summary>
@@ -103,11 +106,11 @@ namespace Game.Core.Tutorial
                     break;
 
                 case TutorialStep.Crouch:
-                    if (observation.Posture == PlayerPosture.Crouching) return Advance();
+                    if (observation.Posture == PlayerPosture.Crouching && observation.PassageCompleted) return Advance();
                     break;
 
                 case TutorialStep.Prone:
-                    if (observation.Posture == PlayerPosture.Prone) return Advance();
+                    if (observation.Posture == PlayerPosture.Prone && observation.PassageCompleted) return Advance();
                     break;
             }
 

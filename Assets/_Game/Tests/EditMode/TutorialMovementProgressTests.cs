@@ -62,7 +62,11 @@ namespace Game.Tests.EditMode
             Assert.That(progress.CurrentStep, Is.EqualTo(TutorialStep.Crouch));
 
             progress.ObserveMovement(Observe(posture: PlayerPosture.Crouching));
+            Assert.That(progress.CurrentStep, Is.EqualTo(TutorialStep.Crouch), "Changing posture alone must not finish the passage.");
+            progress.ObserveMovement(Observe(posture: PlayerPosture.Crouching, passageCompleted: true));
             progress.ObserveMovement(Observe(posture: PlayerPosture.Prone));
+            Assert.That(progress.CurrentStep, Is.EqualTo(TutorialStep.Prone));
+            progress.ObserveMovement(Observe(posture: PlayerPosture.Prone, passageCompleted: true));
             Assert.That(progress.CurrentStep, Is.EqualTo(TutorialStep.PickUp));
         }
 
@@ -97,7 +101,7 @@ namespace Game.Tests.EditMode
             float look = 0f,
             float speed = 0f,
             bool grounded = true,
-            PlayerPosture posture = PlayerPosture.Standing) =>
-            new(distance, look, speed, 5f, grounded, posture);
+            PlayerPosture posture = PlayerPosture.Standing, bool passageCompleted = false) =>
+            new(distance, look, speed, 5f, grounded, posture, passageCompleted);
     }
 }
