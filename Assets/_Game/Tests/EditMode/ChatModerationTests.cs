@@ -108,6 +108,77 @@ namespace Game.Architecture.Tests
             }
         }
 
+        /// <summary>
+        /// Covering may grow but must never shrink.
+        /// </summary>
+        /// <remarks>
+        /// The automaton finds overlapping hits that the old scan skipped past, so the two are
+        /// not identical and cannot be asserted equal. What has to hold is that every character
+        /// the scan covered is still covered, and that nothing else was touched — a covering that
+        /// loses a character leaves part of the word readable, which is the thing covering exists
+        /// to prevent.
+        /// </remarks>
+        private static void AssertCoveringNeverShrinks(ChatBlocklist list, string message)
+        {
+            var byAutomaton = list.Mask(message);
+            var byScan = list.MaskByScan(message);
+
+            Assert.That(byAutomaton.Length, Is.EqualTo(message.Length), $"길이가 바뀝니다: [{message}]");
+            Assert.That(byScan.Length, Is.EqualTo(message.Length));
+            for (var index = 0; index < message.Length; index++)
+            {
+                if (byScan[index] == '*')
+                {
+                    Assert.That(byAutomaton[index], Is.EqualTo('*'),
+                        $"덜 가립니다: [{message}] 자리 {index} 자동자=[{byAutomaton}] 훑기=[{byScan}]");
+                }
+                else if (byAutomaton[index] != '*')
+                {
+                    Assert.That(byAutomaton[index], Is.EqualTo(message[index]),
+                        $"가리지도 않고 글자가 바뀝니다: [{message}] 자리 {index}");
+                }
+            }
+        }
+
+        [Test]
+        public void Mask_CoversOverlappingRepeats_ThatTheScanSkipped()
+        {
+            // "aa" 가 "aaa" 안에서 두 번 겹칩니다. 옛 코드는 한 번 가린 뒤 그 길이만큼 건너뛰어
+            // 마지막 글자를 남겼습니다. 자기와 겹칠 수 있는 말이 실제 목록에도 26개 있습니다.
+            var list = Wide();
+
+            // 가리기는 이미 걸린 메시지에만 돕니다. "aaa" 만으로는 낱말 경계 때문에 걸리지 않으므로
+            // 다른 말로 걸리게 한 뒤 가려지는 자리를 봅니다.
+            Assert.That(list.Mask("aaa 시발"), Is.EqualTo("*** **"));
+            Assert.That(list.MaskByScan("aaa 시발"), Is.EqualTo("**a **"));
+        }
+
+        [Test]
+        public void Mask_NeverCoversLessThanTheScan_OnRandomMixtures()
+        {
+            var list = Wide();
+            var pieces = new[]
+            {
+                "시발", "씨발", "병신", "새끼", "shit", "fuck", "anal", "ass", "aa", "abab",
+                "가나다", " ", ".", "1", "0", "analyst", "시발점", "강아지", "ㅋㅋ", "abc"
+            };
+            // 씨앗을 고정합니다. 실패하면 같은 입력으로 다시 돌려 볼 수 있어야 합니다.
+            var random = new System.Random(1078);
+            for (var round = 0; round < 3000; round++)
+            {
+                var text = new System.Text.StringBuilder();
+                var parts = 1 + random.Next(5);
+                for (var part = 0; part < parts; part++)
+                {
+                    var piece = pieces[random.Next(pieces.Length)];
+                    text.Append(random.Next(3) == 0 && piece.Length > 1
+                        ? piece.Substring(0, piece.Length - 1)
+                        : piece);
+                }
+                AssertCoveringNeverShrinks(list, text.ToString());
+            }
+        }
+
         [Test]
         public void PlainMessage_Passes()
         {
