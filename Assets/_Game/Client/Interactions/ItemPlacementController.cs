@@ -111,7 +111,6 @@ namespace Game.Client.Interactions
         private Transform belowPromptAnchor;
         private Sprite placeIcon;
         private Sprite dragIcon;
-        private float nextPromptDiagnosticAt;
 
         private float MaxReach => interactionConfig != null ? interactionConfig.PlacementMaxDistance : 2.8f;
         private float TwistSpeedDegrees => interactionConfig != null ? interactionConfig.PlacementRotateSpeedDegrees : 90f;
@@ -191,7 +190,7 @@ namespace Game.Client.Interactions
             if (held == null || !TryEnsureCamera())
             {
                 if (cameraRig != null) cameraRig.LookSuspended = false;
-                gizmo?.Hide();
+                if (gizmo != null) gizmo.Hide();
                 return;
             }
 
@@ -228,6 +227,7 @@ namespace Game.Client.Interactions
                 return;
             }
 
+            if (gizmo == null) gizmo = PlacementRotationGizmo.Create(transform); // 씬 전환으로 파괴됐으면 다시 만든다
             gizmo.Show(HeldCenter, cam, held.transform.rotation, rotating, twistingNow, dragYawDeg, dragPitchDeg, twistDeg);
         }
 
@@ -311,7 +311,7 @@ namespace Game.Client.Interactions
             if (held != null) EndHold(reattachToHoldPoint: interactor != null && interactor.CarriedItem == held);
             if (interactor != null) interactor.IsThrowSuppressed = false;
             if (cameraRig != null) { cameraRig.LookSuspended = false; cameraRig.HideHeldItemOverride = false; }
-            gizmo?.Hide();
+            if (gizmo != null) gizmo.Hide();
         }
 
         private void BeginHold(CarryableItem item)
@@ -464,9 +464,9 @@ namespace Game.Client.Interactions
 
         private void DestroyGhost()
         {
-            placePromptView?.Hide();
-            twistPromptView?.Hide();
-            yawPromptView?.Hide();
+            HidePrompt(placePromptView);
+            HidePrompt(twistPromptView);
+            HidePrompt(yawPromptView);
             if (ghost != null) Destroy(ghost);
             ghost = null;
             ghostTransform = null;
@@ -542,38 +542,30 @@ namespace Game.Client.Interactions
                                 Game.Client.Common.WebPointerInput.IsLocked);
             if (!hudAllows)
             {
-                placePromptView?.Hide();
-                twistPromptView?.Hide();
-                yawPromptView?.Hide();
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-                // 실제 매치 씬에서 안내가 안 보이는 원인을 찾기 위한 진단. 1초에 한 번만 남긴다.
-                if (Time.unscaledTime >= nextPromptDiagnosticAt)
-                {
-                    nextPromptDiagnosticAt = Time.unscaledTime + 1f;
-                    Debug.Log($"[Placement] 안내 숨김: ghost={(ghostTransform != null)} hudVisible={interactor.HudVisible} " +
-                              $"(presentation={interactor.PresentationHudVisible}, loading={Game.Client.Common.LoadingView.IsAnyPresented}) " +
-                              $"promptsAllowed={interactor.InteractionPromptsAllowed} cursorLocked={Game.Client.Common.WebPointerInput.IsLocked}", this);
-                }
-#endif
+                HidePrompt(placePromptView);
+                HidePrompt(twistPromptView);
+                HidePrompt(yawPromptView);
                 return;
             }
 
             var center = HeldCenter;
             var radius = PlacementRotationGizmo.RadiusAt(Vector3.Distance(cam.position, center));
-            abovePromptAnchor ??= CreateAnchor("PlacementPromptAbove");
-            belowPromptAnchor ??= CreateAnchor("PlacementPromptBelow");
+            // 안내 뷰·기준점은 매치 씬 전환(하이라이트·결과·로비 복귀)에서 파괴될 수 있다. 파괴됐으면(Unity null) 다시 만든다.
+            // C# null 조건(?., ??=)은 파괴된 UnityEngine.Object를 살아 있다고 보므로 여기서는 쓰지 않는다.
+            if (abovePromptAnchor == null) abovePromptAnchor = CreateAnchor("PlacementPromptAbove");
+            if (belowPromptAnchor == null) belowPromptAnchor = CreateAnchor("PlacementPromptBelow");
             var screenUp = cam.up;
             abovePromptAnchor.SetPositionAndRotation(center + screenUp * (radius + 0.04f), Quaternion.identity);
             belowPromptAnchor.SetPositionAndRotation(center - screenUp * (radius + 0.04f), Quaternion.identity);
 
             if (IsOverlapping)
             {
-                placePromptView?.Hide();
+                HidePrompt(placePromptView);
             }
             else if (placePromptView == null || !placePromptView.IsVisible)
             {
-                placePromptView ??= InteractionPromptView.Create();
-                placeIcon ??= InteractionPromptView.LoadLeftClickIcon();
+                if (placePromptView == null) placePromptView = InteractionPromptView.Create();
+                if (placeIcon == null) placeIcon = InteractionPromptView.LoadLeftClickIcon();
                 placePromptView.Show(string.Empty, PlaceActionLabel, abovePromptAnchor, placeIcon,
                     worldAnchor: abovePromptAnchor.position);
             }
@@ -597,11 +589,17 @@ namespace Game.Client.Interactions
                     yawPromptView = InteractionPromptView.Create();
                     yawPromptView.SetHangsBelowAnchor(true);
                     yawPromptView.ScreenOffset = new Vector2(PromptColumnPixels, 0f); // 오른쪽
-                    dragIcon = InteractionPromptView.LoadMouseDragIcon();
                 }
+                if (dragIcon == null) dragIcon = InteractionPromptView.LoadMouseDragIcon();
                 yawPromptView.Show(string.Empty, YawActionLabel, belowPromptAnchor, dragIcon,
                     worldAnchor: belowPromptAnchor.position);
             }
+        }
+
+        /// <summary>파괴된 뷰(Unity null)는 건너뛴다. C# null 조건은 파괴된 오브젝트를 잡지 못해 MissingReferenceException을 낸다.</summary>
+        private static void HidePrompt(InteractionPromptView view)
+        {
+            if (view != null) view.Hide();
         }
 
         private Transform CreateAnchor(string name)
