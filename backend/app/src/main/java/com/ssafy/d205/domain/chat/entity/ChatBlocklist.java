@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+import com.ssafy.d205.global.common.WordAutomaton;
 import com.ssafy.d205.global.common.WordMatcher;
 
 /**
@@ -54,6 +55,7 @@ public class ChatBlocklist {
 
     private final List<String> blocked;
     private final List<String> allowed;
+    private final WordAutomaton automaton;
 
     public ChatBlocklist() {
         this(WordMatcher.read(BLOCKLIST), WordMatcher.read(ALLOWLIST));
@@ -63,6 +65,8 @@ public class ChatBlocklist {
     ChatBlocklist(List<String> blocked, List<String> allowed) {
         this.blocked = blocked.stream().map(WordMatcher::lower).toList();
         this.allowed = allowed.stream().map(WordMatcher::lower).toList();
+        // 기동할 때 한 번 짓습니다. 목록은 기동 뒤에 바뀌지 않습니다.
+        this.automaton = WordAutomaton.of(this.blocked);
     }
 
     /**
@@ -108,8 +112,14 @@ public class ChatBlocklist {
         return allowed;
     }
 
-    /** 채팅은 영문 낱말 경계를 볼 수 있으므로 닉네임과 다른 방법을 씁니다. */
+    /**
+     * 채팅은 영문 낱말 경계를 볼 수 있으므로 닉네임과 다른 방법을 씁니다.
+     *
+     * <p>판정은 {@link WordAutomaton} 이 합니다. 목록이 3800개를 넘으면서 말마다 문자열을 훑는
+     * 방법이 메시지당 0.77ms 가 됐는데, 자동자는 메시지를 한 번만 훑으므로 목록 크기와 무관합니다.
+     * 허용 목록을 먼저 지우는 것은 그대로입니다.
+     */
     private boolean hits(String candidate) {
-        return WordMatcher.containsWord(candidate, blocked, allowed);
+        return automaton.containsWord(WordMatcher.strip(candidate, allowed));
     }
 }

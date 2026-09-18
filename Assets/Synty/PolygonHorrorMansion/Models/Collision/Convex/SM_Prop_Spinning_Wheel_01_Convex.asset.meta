@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 131fbe8d16b1cc74a9df8e59e9f53cc7
+timeCreated: 1644463233
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43235108326832238
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Spinning_Wheel_01_Convex.asset
+  uploadId: 987938

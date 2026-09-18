@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: fed81ff843a0d6b4c823d85428ef9e52
+timeCreated: 1644463180
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43354823432572616
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Dresser_02_Convex.asset
+  uploadId: 987938

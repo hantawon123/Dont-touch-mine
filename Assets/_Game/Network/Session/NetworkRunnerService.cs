@@ -2190,9 +2190,10 @@ namespace Game.Network.Session
                 Debug.LogError("[Session] NetworkScenes must be assigned to load results.");
                 return false;
             }
-            var scene = _scenes.ResultScene;
+            // 맵 전용 엔딩(예: 저택 지하실)이 있으면 그 씬, 없으면 기본 결과 씬.
+            var scene = _scenes.ResultSceneFor(AnalyticsMapId);
             if (!scene.IsValid) return false;
-            Debug.Log($"[SceneTiming] Result additive load requested: {scene}.");
+            Debug.Log($"[SceneTiming] Result additive load requested: {scene} (map {AnalyticsMapId}).");
             _runner.LoadScene(scene, LoadSceneMode.Additive);
             return true;
         }
@@ -2205,13 +2206,13 @@ namespace Game.Network.Session
             {
                 return false;
             }
-            if (ContainsScene(_runner.SceneInfo, _scenes.ResultScene))
+            if (TryFindLoadedResultScene(_runner.SceneInfo, out var loadedResultScene))
             {
                 if (!_highlightResultUnloadRequested)
                 {
                     _highlightResultUnloadRequested = true;
-                    Debug.Log("[SceneTiming] Result display completed; unloading Result.");
-                    _runner.UnloadScene(_scenes.ResultScene);
+                    Debug.Log($"[SceneTiming] Result display completed; unloading result scene {loadedResultScene}.");
+                    _runner.UnloadScene(loadedResultScene);
                 }
                 return false;
             }
@@ -2309,6 +2310,22 @@ namespace Game.Network.Session
             if (!scene.IsValid) return false;
             for (var index = 0; index < info.SceneCount; index++)
                 if (info.Scenes[index] == scene) return true;
+            return false;
+        }
+
+        /// <summary>지금 올라와 있는 씬 중 결과 씬(기본 또는 맵 전용)을 찾는다.</summary>
+        private bool TryFindLoadedResultScene(NetworkSceneInfo info, out SceneRef resultScene)
+        {
+            for (var index = 0; index < info.SceneCount; index++)
+            {
+                if (_scenes.IsResultScene(info.Scenes[index]))
+                {
+                    resultScene = info.Scenes[index];
+                    return true;
+                }
+            }
+
+            resultScene = default;
             return false;
         }
 

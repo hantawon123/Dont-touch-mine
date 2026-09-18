@@ -2825,10 +2825,102 @@
     open.addEventListener('click', () => toggleUserDetail(row, user, open));
     actions.appendChild(open);
 
+    actions.appendChild(rename(user, loadUsers));
+    actions.appendChild(forcedRename(user, loadUsers));
     actions.appendChild(suspension(user, loadUsers));
 
     row.append(who, counts, actions);
     return row;
+  }
+
+  /**
+   * 개명 버튼. 운영자가 이름을 직접 적어 바꿉니다.
+   *
+   * 글자 규칙(한글·영문·숫자 2~12자)을 여기서 검사하지 않습니다. 규칙을 화면에도 적어 두면
+   * 서버의 NicknamePolicy 와 두 벌이 되고, 한쪽만 고치면 화면이 통과시킨 이름이 서버에서
+   * 거절됩니다. 비었는지만 보고 나머지는 서버 답을 그대로 띄웁니다 - call() 이 응답의
+   * message 를 그 자리에 적습니다.
+   *
+   * 신고 탭에는 이 버튼이 없습니다. 그 줄은 이미 버튼이 여섯 개이고, 사람의 계정을 고치는
+   * 자리는 사용자 탭입니다.
+   */
+  function rename(user, done = loadUsers) {
+    const button = document.createElement('button');
+    button.textContent = '개명';
+
+    button.addEventListener('click', async (event) => {
+      event.stopPropagation();
+
+      const nickname = window.prompt(
+        user.nickname + ' 의 새 닉네임을 적으세요. 한글·영문·숫자 2~12자입니다.', '');
+      if (nickname === null) return;
+
+      // 사유는 서버가 필수로 받습니다. 남의 이름을 바꾼 일을 나중에 설명할 근거가 이것뿐입니다.
+      const reason = window.prompt(user.nickname + ' 의 이름을 바꾸는 이유를 적으세요.', '');
+      if (reason === null) return;
+      if (!reason.trim()) {
+        say('사유를 적어야 바꿀 수 있습니다.', 'bad');
+        return;
+      }
+
+      button.disabled = true;
+      try {
+        const result = await call('/users/' + encodeURIComponent(user.userId) + '/nickname', {
+          method: 'PUT',
+          body: JSON.stringify({ nickname: nickname, reason: reason }),
+        });
+
+        // 목록을 먼저 다시 그립니다. 그리는 쪽이 알림을 지우므로 순서가 반대면
+        // 방금 띄운 문구가 그 자리에서 사라집니다.
+        await done();
+
+        say(result.changed
+          ? user.nickname + ' 을 ' + result.nickname + ' 으로 바꿨습니다.'
+          : '이미 그 이름이었습니다.', 'good');
+      } catch (ignored) {
+        button.disabled = false;
+      }
+    });
+
+    return button;
+  }
+
+  /**
+   * 부적절한 닉네임을 치우는 버튼. 서버가 "부적절한닉네임123" 꼴의 이름을 지어 붙입니다.
+   *
+   * 운영자가 대체할 이름을 고민할 일이 아니라 한 번에 끝냅니다. 대신 confirm 을 한 번
+   * 끼웁니다 - 오클릭 한 번으로 남의 이름이 바뀌면 되돌릴 근거가 감사 기록뿐입니다.
+   *
+   * 붙는 이름을 미리 말해 주지 못합니다. 번호는 서버가 그때 뽑으므로 응답을 받고서야
+   * 압니다. 그래서 결과 문구에 실제로 붙은 이름을 적습니다.
+   */
+  function forcedRename(user, done = loadUsers) {
+    const button = document.createElement('button');
+    button.textContent = '부적절';
+    button.className = 'danger';
+    button.title = '닉네임을 부적절한닉네임123 꼴로 바꾸고, 본인이 한 번 다시 정할 수 있게 풀어 줍니다.';
+
+    button.addEventListener('click', async (event) => {
+      event.stopPropagation();
+
+      if (!window.confirm(user.nickname + ' 의 닉네임을 "부적절한닉네임000" 꼴로 바꿉니다.\n'
+        + '본인은 그 뒤에 한 번 스스로 이름을 정할 수 있습니다. 계속할까요?')) {
+        return;
+      }
+
+      button.disabled = true;
+      try {
+        const result = await call(
+          '/users/' + encodeURIComponent(user.userId) + '/nickname/reset', { method: 'POST' });
+
+        await done();
+        say(user.nickname + ' 의 이름을 치웠습니다. 지금 이름은 ' + result.nickname + ' 입니다.', 'good');
+      } catch (ignored) {
+        button.disabled = false;
+      }
+    });
+
+    return button;
   }
 
   /**
@@ -2852,6 +2944,10 @@
     // 맨 위에 둡니다. 이 화면에서 운영자가 내리는 판단은 "정지할까, 풀까"이고, 요약의
     // 정지 배지는 지금 상태 하나뿐이라 "전에도 그랬나"에 답하지 못합니다.
     section(box, '정지 이력 ' + detail.suspensions.length + '건', detail.suspensions, suspensionLine);
+
+    // 정지 이력 바로 아래입니다. 둘 다 "운영자가 이 계정에 무엇을 했나"이고, 지금 닉네임만
+    // 보면 운영자가 붙인 이름인지 본인이 정한 이름인지 구분할 수 없습니다.
+    section(box, '개명 이력 ' + detail.renames.length + '건', detail.renames, renameLine);
 
     section(box, '받은 신고 ' + detail.receivedReports.length + '건', detail.receivedReports,
       (r) => reportLine(r, '신고한 사람'));
@@ -2910,6 +3006,30 @@
       reason.textContent = ' — ' + entry.reason;
       line.appendChild(reason);
     }
+
+    return line;
+  }
+
+  /**
+   * 운영자가 닉네임을 바꾼 한 줄. 바꾸기 전 이름이 이 줄의 핵심입니다 - 부적절한 이름을
+   * 치운 경우 그 이름이 곧 판단의 근거이고, 지금 목록에는 남아 있지 않습니다.
+   *
+   * 본인이 바꾼 개명은 여기 없습니다. 이 이력은 운영자가 한 행위의 기록입니다.
+   */
+  function renameLine(entry) {
+    const line = document.createElement('div');
+
+    const what = document.createElement('b');
+    what.textContent = entry.beforeNickname + ' → ' + entry.afterNickname;
+    line.appendChild(what);
+
+    line.appendChild(document.createTextNode(
+      ' · ' + when(entry.actedAt) + ' · ' + entry.adminUsername));
+
+    const reason = document.createElement('span');
+    reason.className = 'memo';
+    reason.textContent = ' — ' + entry.reason;
+    line.appendChild(reason);
 
     return line;
   }

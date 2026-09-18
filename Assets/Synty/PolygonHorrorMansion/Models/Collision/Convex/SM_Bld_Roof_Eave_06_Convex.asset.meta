@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 867208a0571ad554e80f1ef745fc9d92
+timeCreated: 1644529071
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43029527669473508
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Bld_Roof_Eave_06_Convex.asset
+  uploadId: 987938

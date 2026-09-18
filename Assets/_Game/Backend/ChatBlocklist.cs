@@ -24,6 +24,7 @@ namespace Game.Backend
 
         private readonly List<string> blocked = new();
         private readonly List<string> allowed = new();
+        private Automaton automaton = Automaton.Of(new List<string>());
 
         /// <summary>Starts empty, which forbids nothing. The list arrives later.</summary>
         /// <remarks>
@@ -46,6 +47,9 @@ namespace Game.Backend
             if (exceptions != null)
                 foreach (var word in exceptions)
                     if (!string.IsNullOrWhiteSpace(word)) allowed.Add(word.Trim().ToLowerInvariant());
+            // Built once, here, because the list never changes after this: a room server fetches
+            // it before the room opens and quits when the room empties.
+            automaton = Automaton.Of(blocked);
             IsLoaded = true;
         }
 
@@ -61,15 +65,27 @@ namespace Game.Backend
         {
             if (blocked.Count == 0 || string.IsNullOrEmpty(message)) return false;
 
+            foreach (var variant in Variants(message))
+                if (Hits(variant)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// The five readings of a message the judgement is made against.
+        /// </summary>
+        /// <remarks>
+        /// Internal so the tests can build the same readings and put the two judgements —
+        /// the automaton's and the plain scan's — side by side without stating the list twice.
+        /// </remarks>
+        internal static string[] Variants(string message)
+        {
             var lower = message.ToLowerInvariant();
             var withoutDigits = RemoveDigits(lower);
             var leet = Leet(lower);
-
-            return Hits(lower)
-                || Hits(withoutDigits)
-                || Hits(leet)
-                || Hits(StripSymbols(withoutDigits))
-                || Hits(StripSymbols(leet));
+            return new[]
+            {
+                lower, withoutDigits, leet, StripSymbols(withoutDigits), StripSymbols(leet)
+            };
         }
 
         /// <summary>
@@ -108,7 +124,25 @@ namespace Game.Backend
             return covered ? masked.ToString() : new string(MaskChar, message.Length);
         }
 
+        /// <summary>
+        /// Is a forbidden word in this text, once the allowed words are taken out?
+        /// </summary>
+        /// <remarks>
+        /// The judgement is the automaton's, which walks the text once instead of searching it
+        /// for every word on the list. With 41 words either way costs nothing; at 3860 the
+        /// per-word scan reached 0.77ms a message and this is about 0.004ms. The rule itself is
+        /// unchanged — <see cref="HasStandaloneAscii"/> is kept as the plain statement of it,
+        /// and the EditMode tests hold the two against each other.
+        /// </remarks>
         private bool Hits(string candidate)
+        {
+            var stripped = candidate;
+            foreach (var ok in allowed) stripped = stripped.Replace(ok, string.Empty);
+            return automaton.ContainsWord(stripped);
+        }
+
+        /// <summary>The same judgement written the obvious way. Only the tests call it.</summary>
+        internal bool HitsByScan(string candidate)
         {
             var stripped = candidate;
             foreach (var ok in allowed) stripped = stripped.Replace(ok, string.Empty);
@@ -194,5 +228,132 @@ namespace Game.Backend
         private static bool IsAsciiLetterOrDigit(char letter) =>
             (letter >= 'a' && letter <= 'z') || (letter >= 'A' && letter <= 'Z')
             || (letter >= '0' && letter <= '9');
+
+        /// <summary>
+        /// Every forbidden word in one trie, walked once (Aho-Corasick).
+        /// </summary>
+        /// <remarks>
+        /// Searching the text once for each word costs time in proportion to the list; this
+        /// costs time in proportion to the message and nothing else. The backend has the same
+        /// structure in Java (WordAutomaton), and the two have to answer identically — a message
+        /// recorded as masked that the players read in the clear is worse than no record.
+        /// <para>
+        /// It lives in this file rather than its own so that the rule and the machine that runs
+        /// it stay in one place, and so the asset does not need a second meta file.
+        /// </para>
+        /// </remarks>
+        private sealed class Automaton
+        {
+            private static readonly int[] None = new int[0];
+
+            private readonly Node root = new();
+
+            public static Automaton Of(List<string> words)
+            {
+                var automaton = new Automaton();
+                foreach (var word in words)
+                    if (!string.IsNullOrEmpty(word)) automaton.Add(word);
+                automaton.Link();
+                return automaton;
+            }
+
+            /// <summary>Same answer as walking the list with the rule written out.</summary>
+            public bool ContainsWord(string candidate)
+            {
+                var node = root;
+                for (var index = 0; index < candidate.Length; index++)
+                {
+                    node = Step(node, candidate[index]);
+                    if (node.EndsFree) return true;
+                    foreach (var length in node.AsciiLengths)
+                    {
+                        var from = index - length + 1;
+                        var openLeft = from == 0 || !IsAsciiLetterOrDigit(candidate[from - 1]);
+                        var openRight = index + 1 == candidate.Length
+                            || !IsAsciiLetterOrDigit(candidate[index + 1]);
+                        if (openLeft && openRight) return true;
+                    }
+                }
+                return false;
+            }
+
+            private void Add(string word)
+            {
+                var node = root;
+                foreach (var letter in word)
+                {
+                    if (!node.Next.TryGetValue(letter, out var child))
+                    {
+                        child = new Node();
+                        node.Next[letter] = child;
+                    }
+                    node = child;
+                }
+                if (IsAscii(word)) node.OwnAscii.Add(word.Length);
+                else node.OwnFree = true;
+            }
+
+            /// <summary>
+            /// Adds the fail links, and folds what they reach into each node.
+            /// </summary>
+            /// <remarks>
+            /// Folding now means the judgement never has to climb the links. Breadth-first order
+            /// guarantees a node's fail target is already folded when its turn comes.
+            /// </remarks>
+            private void Link()
+            {
+                var queue = new Queue<Node>();
+                root.Fail = root;
+                foreach (var child in root.Next.Values)
+                {
+                    child.Fail = root;
+                    queue.Enqueue(child);
+                }
+                while (queue.Count > 0)
+                {
+                    var node = queue.Dequeue();
+                    node.EndsFree = node.OwnFree || node.Fail.EndsFree;
+                    node.AsciiLengths = Merge(node.OwnAscii, node.Fail.AsciiLengths);
+                    foreach (var pair in node.Next)
+                    {
+                        var fail = node.Fail;
+                        while (fail != root && !fail.Next.ContainsKey(pair.Key)) fail = fail.Fail;
+                        pair.Value.Fail = fail.Next.TryGetValue(pair.Key, out var target)
+                            && target != pair.Value ? target : root;
+                        queue.Enqueue(pair.Value);
+                    }
+                }
+            }
+
+            private Node Step(Node from, char letter)
+            {
+                var node = from;
+                while (node != root && !node.Next.ContainsKey(letter)) node = node.Fail;
+                return node.Next.TryGetValue(letter, out var target) ? target : root;
+            }
+
+            private static int[] Merge(List<int> own, int[] inherited)
+            {
+                if (own.Count == 0) return inherited;
+                var all = new List<int>(own);
+                foreach (var length in inherited)
+                    if (!all.Contains(length)) all.Add(length);
+                return all.ToArray();
+            }
+
+            private sealed class Node
+            {
+                public readonly Dictionary<char, Node> Next = new();
+                public readonly List<int> OwnAscii = new();
+                public Node Fail;
+                public bool OwnFree;
+
+                /// <summary>A word needing no boundary ends here, fail links included.</summary>
+                public bool EndsFree;
+
+                /// <summary>Lengths of the words that do need one, fail links included.</summary>
+                public int[] AsciiLengths = None;
+            }
+        }
     }
 }

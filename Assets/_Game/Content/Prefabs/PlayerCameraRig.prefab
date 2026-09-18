@@ -346,6 +346,7 @@ MonoBehaviour:
       handSpread: 0
   firstPersonHold:
     enabled: 1
+    hideItem: 1
     offset: {x: 0.05, y: -0.28, z: 0.6}
     tilt: {x: 10, y: -15, z: 0}
     maxScreenFraction: 0.35

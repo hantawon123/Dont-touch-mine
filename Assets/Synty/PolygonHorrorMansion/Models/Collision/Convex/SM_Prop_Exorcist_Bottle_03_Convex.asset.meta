@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 275fb5b61df6246408794ae024b8561c
+timeCreated: 1644463182
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43341476898998180
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Exorcist_Bottle_03_Convex.asset
+  uploadId: 987938

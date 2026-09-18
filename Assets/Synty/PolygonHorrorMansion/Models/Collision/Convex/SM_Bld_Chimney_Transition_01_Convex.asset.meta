@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 8a53bab2c0d0b2f48a8533d3bc5142fd
+timeCreated: 1644528984
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43440890737925086
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Bld_Chimney_Transition_01_Convex.asset
+  uploadId: 987938

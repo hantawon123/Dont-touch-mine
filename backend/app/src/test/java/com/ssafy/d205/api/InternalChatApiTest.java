@@ -161,6 +161,44 @@ class InternalChatApiTest extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("같은 말이 여러 줄 있어도 줄마다 제 발신자와 제 판정이 붙는다")
+    void repeatedMessagesKeepTheirOwnSenderAndVerdict() throws Exception {
+        // 묶음을 배치 insert 로 넣습니다(S15P21D205-1077). 줄과 값(발신자, 판정)을 자리로 맞추는
+        // 코드라, 어긋나면 남의 말이 남의 이름으로 남습니다. 정지의 근거가 되는 기록이므로
+        // 같은 말이 반복되는 흔한 경우로 고정해 둡니다.
+        String room = room();
+        String first = createUser();
+        String second = createUser();
+
+        mvc.perform(post(CHAT)
+                        .header(KEY_HEADER, KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"messages\":["
+                                 + entry(room, "MATCH", first, "p1", "ㅋㅋ", "20260916120010") + ","
+                                 + entry(room, "MATCH", second, "p2", "ㅋㅋ", "20260916120011") + ","
+                                 + entry(room, "MATCH", first, "p1", "시발", "20260916120012") + ","
+                                 + entry(room, "MATCH", second, "p2", "시발", "20260916120013") + "]}"))
+                .andExpect(status().isAccepted());
+
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT u.public_id AS speaker, c.sender_ref AS ref, c.message AS message, c.masked AS masked
+                  FROM chat_logs c JOIN users u ON u.users_seq = c.sender_seq
+                 WHERE c.room_code = ? ORDER BY c.sent_at
+                """, room);
+
+        assertThat(rows).hasSize(4);
+        assertThat(rows.get(0)).containsEntry("speaker", first).containsEntry("ref", "p1");
+        assertThat(rows.get(1)).containsEntry("speaker", second).containsEntry("ref", "p2");
+        assertThat(rows.get(2)).containsEntry("speaker", first);
+        assertThat(rows.get(3)).containsEntry("speaker", second);
+        // 같은 말이 반복돼도 판정은 줄마다 제 값입니다.
+        assertThat(rows.get(0).get("masked")).isEqualTo(false);
+        assertThat(rows.get(1).get("masked")).isEqualTo(false);
+        assertThat(rows.get(2).get("masked")).isEqualTo(true);
+        assertThat(rows.get(3).get("masked")).isEqualTo(true);
+    }
+
+    @Test
     @DisplayName("80자를 넘는 말은 400 이다. 클라이언트 상한과 같아야 한다")
     void rejectsTooLongMessage() throws Exception {
         mvc.perform(post(CHAT)

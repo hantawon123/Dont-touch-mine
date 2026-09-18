@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: efd09df1f6868fb459b73236f12feb9c
+timeCreated: 1642746101
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Prefabs/Props/SM_Prop_Fork_01.prefab
+  uploadId: 987938

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: c86882aea5149544094944ab628a6991
+timeCreated: 1643946775
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Materials/FX/FX_SunBeam_01.mat
+  uploadId: 987938

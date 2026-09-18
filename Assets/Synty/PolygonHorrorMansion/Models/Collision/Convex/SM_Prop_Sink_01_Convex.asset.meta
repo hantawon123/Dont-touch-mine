@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: b8f08db1d6f3466448ec64a4877b700a
+timeCreated: 1644463269
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43979339423817050
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Sink_01_Convex.asset
+  uploadId: 987938
