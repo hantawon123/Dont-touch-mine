@@ -228,6 +228,7 @@ Transform:
   - {fileID: 6541711912213902054}
   - {fileID: 261314427256376056}
   - {fileID: 759590751369219698}
+  - {fileID: 9153668142339512672}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &3205402314913701920
@@ -578,8 +579,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6857338791149679650}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.0692964, y: 0.9208443, z: -0.19210032, w: -0.33217657}
-  m_LocalPosition: {x: 1.8790245, y: 5.404143, z: -9.901299}
+  m_LocalRotation: {x: -0.020716136, y: 0.9789271, z: -0.15638551, w: -0.12967743}
+  m_LocalPosition: {x: 1.7781343, y: 5.23837, z: -9.7473545}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -644,6 +645,52 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
   locationName: "CAM 11 \xB7 \uC911\uC559 \uD640 \uBD81\uD5A5"
+  fieldOfView: 65
+--- !u!1 &7412949718626927187
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9153668142339512672}
+  - component: {fileID: 4125692010677956583}
+  m_Layer: 0
+  m_Name: CCTV 16
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9153668142339512672
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7412949718626927187}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.21992503, y: 0.45731765, z: -0.11782666, w: -0.85358685}
+  m_LocalPosition: {x: 2.3848896, y: 5.407591, z: -16.498861}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2012542901347926706}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4125692010677956583
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7412949718626927187}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
+  locationName: "CAM 15 \xB7 \uD604\uAD00 \uD640 \uD30C\uC1C4\uAE30 \uB3D9\uCABD"
   fieldOfView: 65
 --- !u!1 &7492493095131259104
 GameObject:
