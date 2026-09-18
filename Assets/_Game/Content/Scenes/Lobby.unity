@@ -434,7 +434,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uCC44\uD305 \uC785\uB825.."
+  m_text: "[Enter]\uB85C \uCC44\uD305 \uC2DC\uC791\uD558\uAE30"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 6f45b311ceead0e4e8b5c54959c76e27, type: 2}
   m_sharedMaterial: {fileID: -8786528499189704477, guid: 6f45b311ceead0e4e8b5c54959c76e27, type: 2}

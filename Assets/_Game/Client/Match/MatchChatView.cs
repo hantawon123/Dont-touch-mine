@@ -35,7 +35,7 @@ namespace Game.Client.Match
         public const float NameFontSize = 14f;
         public const float BodyFontSize = 20f;
         public const float InputFontSize = 16f;
-        public const string PlaceholderText = "채팅 입력..";
+        public const string PlaceholderText = "[Enter]로 채팅 시작하기";
         public const float InputWidth = 320f;
         public const int PanelRadius = 10;
         public const float ContentPadding = 16f;
@@ -1000,6 +1000,7 @@ namespace Game.Client.Match
                         placeholder.font = font;
                     }
 
+                    placeholder.text = PlaceholderText;
                     placeholder.richText = false;
                 }
             }

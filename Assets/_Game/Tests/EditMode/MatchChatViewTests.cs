@@ -150,6 +150,7 @@ namespace Game.Architecture.Tests
                 Assert.That(input.textComponent.rectTransform.anchorMax.x, Is.EqualTo(0f));
                 Assert.That(MatchChatView.SendIconGap, Is.EqualTo(8f));
                 Assert.That(input.placeholder, Is.Not.Null);
+                Assert.That(MatchChatView.PlaceholderText, Is.EqualTo("[Enter]로 채팅 시작하기"));
                 Assert.That(
                     (input.placeholder as TMP_Text).text,
                     Is.EqualTo(MatchChatView.PlaceholderText));
