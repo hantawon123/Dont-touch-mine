@@ -416,6 +416,8 @@ namespace Game.Architecture.Tests
             public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests) { }
 
             public void SetNicknameSettled(bool settled) { }
+
+            public void SetProfileAppearance(Game.Core.Players.AvatarAppearance appearance) { }
             public void SetRoomInvites(IReadOnlyList<RoomInvite> invites) { }
 
             public void SetServerSettingsVisible(bool visible) { }

@@ -808,6 +808,10 @@ namespace Game.Tests.EditMode
                 NicknameSettled = settled;
             }
 
+            public void SetProfileAppearance(Game.Core.Players.AvatarAppearance appearance)
+            {
+            }
+
             public void SetServerSettingsVisible(bool visible)
             {
                 ServerSettingsVisible = visible;

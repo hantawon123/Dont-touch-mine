@@ -645,6 +645,7 @@ namespace Game.Client.Home
             avatar.sizeDelta = new Vector2(
                 HomeStyle.Friends.AvatarDiameter, HomeStyle.Friends.AvatarDiameter);
             AddImage(avatar, AvatarColor, HomeUiFonts.CircleSprite);
+            Game.Client.Character.AvatarFaceSlot.Attach(avatar);
 
             var trailingWidth = withRequestActions
                 ? (HomeStyle.Friends.RowIconSize * 2f) + HomeStyle.Friends.RowIconGap
@@ -845,6 +846,9 @@ namespace Game.Client.Home
                 row.Name.color = online
                     ? HomeStyle.Palette.FriendOnline
                     : HomeStyle.Palette.FriendOffline;
+                var avatar = row.Rect.Find("Avatar") as RectTransform;
+                Game.Client.Character.AvatarFaceSlot.Attach(avatar)
+                    ?.Follow(friends[index].PlayerId);
                 row.Row.onClick.RemoveAllListeners();
                 var contextClick = row.Rect.GetComponent<HomeFriendContextClick>()
                     ?? row.Rect.gameObject.AddComponent<HomeFriendContextClick>();
@@ -928,6 +932,8 @@ namespace Game.Client.Home
                 var hit = results[index];
                 row.Name.text = hit.Nickname
                     + (hit.IsIncoming ? "  (받은 요청 · 수락)" : string.Empty);
+                Game.Client.Character.AvatarFaceSlot.Attach(row.Rect.Find("Avatar") as RectTransform)
+                    ?.Follow(hit.PlayerId);
 
                 // Pending requests cannot be sent again; their icon cancels them.
                 row.Name.color = hit.IsPending
@@ -1001,6 +1007,8 @@ namespace Game.Client.Home
                 var playerId = requests[index].PlayerId;
                 row.Name.text = requests[index].Nickname;
                 row.Name.color = HomeStyle.Palette.FriendOnline;
+                Game.Client.Character.AvatarFaceSlot.Attach(row.Rect.Find("Avatar") as RectTransform)
+                    ?.Follow(playerId);
                 row.Accept.enabled = acceptIcon != null;
                 row.Reject.enabled = rejectIcon != null;
 

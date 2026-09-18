@@ -192,6 +192,8 @@ namespace Game.Client.Home
             avatar.sizeDelta = new Vector2(
                 HomeStyle.Layout.ChipAvatarDiameter, HomeStyle.Layout.ChipAvatarDiameter);
             AddImage(avatar, AvatarColor, HomeUiFonts.CircleSprite);
+            profileAvatar = avatar;
+            Game.Client.Character.AvatarFaceSlot.Attach(avatar).FollowLocal();
 
             var nameRect = CreateRect("Nickname", chip);
             SetAnchor(nameRect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
