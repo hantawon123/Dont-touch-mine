@@ -1,10 +1,22 @@
 using Game.Client.Tutorial;
 using NUnit.Framework;
+using UnityEditor;
+using UnityEngine;
 
 namespace Game.Tests.EditMode
 {
     public sealed class TutorialEntryRouteTests
     {
+        [Test]
+        public void TrainingBoxRenderersMustNotBeStaticBatched()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/Carryable/Basement_CardboardBox1 Carryable.prefab");
+            foreach (var renderer in prefab.GetComponentsInChildren<Renderer>(true))
+                Assert.That(GameObjectUtility.GetStaticEditorFlags(renderer.gameObject) & StaticEditorFlags.BatchingStatic,
+                    Is.EqualTo((StaticEditorFlags)0), renderer.name + " cannot move while statically batched.");
+        }
+
         [Test]
         public void IncompleteVersionRoutesToTutorial()
         {

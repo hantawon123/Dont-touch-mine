@@ -274,6 +274,25 @@ namespace Game.Editor.Tutorial
             Require(root, "Zones/05_Exit/ExitDoor").gameObject.AddComponent<TutorialExitDoor>();
         }
 
+        [MenuItem("Game/Tutorial/Repair Training Box")]
+        public static void RepairTrainingBox()
+        {
+            var prefab = PrefabUtility.LoadPrefabContents(TrainingItemPrefabPath);
+            try
+            {
+                foreach (var child in prefab.GetComponentsInChildren<Transform>(true))
+                    GameObjectUtility.SetStaticEditorFlags(child.gameObject, 0);
+                PrefabUtility.SaveAsPrefabAsset(prefab, TrainingItemPrefabPath);
+            }
+            finally { PrefabUtility.UnloadPrefabContents(prefab); }
+
+            var scene = EditorSceneManager.OpenScene(ScenePath);
+            var item = GameObject.Find("TrainingItem");
+            foreach (var child in item.GetComponentsInChildren<Transform>(true))
+                GameObjectUtility.SetStaticEditorFlags(child.gameObject, 0);
+            EditorSceneManager.SaveScene(scene);
+        }
+
         private static void BuildRadioUi(Transform parent, TutorialSession session)
         {
             var canvasObject = new GameObject("TutorialRadioCanvas", typeof(RectTransform), typeof(Canvas),

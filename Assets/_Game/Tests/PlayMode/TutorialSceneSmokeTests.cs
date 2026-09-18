@@ -98,10 +98,14 @@ namespace Game.Tests.PlayMode
 
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
             Assert.That(trainingItem.transform.parent, Is.SameAs(interactor.HoldPoint));
-            trainingItem.transform.SetParent(null, true);
+            yield return new WaitForFixedUpdate();
             yield return null;
-            Assert.That(trainingItem.transform.parent, Is.SameAs(interactor.HoldPoint),
-                "Tutorial course did not repair a detached carried item.");
+            foreach (var renderer in trainingItem.GetComponentsInChildren<Renderer>())
+            {
+                Assert.That(renderer.isPartOfStaticBatch, Is.False, renderer.name);
+                Assert.That(Vector3.Distance(renderer.bounds.center, interactor.HoldPoint.position),
+                    Is.LessThan(2f), "The rendered box stayed behind after pickup.");
+            }
             interactor.DropCarriedItem();
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
             interactor.SendMessage("ThrowCarried");
