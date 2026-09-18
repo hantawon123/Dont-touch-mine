@@ -38,6 +38,9 @@ namespace Game.Tests.PlayMode
             var radio = Object.FindAnyObjectByType<TutorialRadioView>();
 
             Assert.That(player, Is.Not.Null);
+            var combat = player.GetComponent<Game.Client.Combat.PlayerCombatant>();
+            Assert.That(combat.enabled, Is.True);
+            Assert.That(combat.HasCombatRules, Is.True);
             Assert.That(player.GetComponent<CharacterController>().enabled, Is.True);
             Assert.That(camera, Is.Not.Null);
             Assert.That(course, Is.Not.Null);

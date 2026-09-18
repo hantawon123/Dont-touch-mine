@@ -59325,7 +59325,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9079316150982572114, guid: 287c3c0b1979ac546b68c007c8b3d0c8, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -103201,6 +103201,7 @@ GameObject:
   - component: {fileID: 1465719613}
   - component: {fileID: 1465719612}
   - component: {fileID: 1465719611}
+  - component: {fileID: 1465719614}
   m_Layer: 0
   m_Name: Runtime
   m_TagString: Untagged
@@ -103277,6 +103278,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3b84d7620683b2f4ab0f037cd751fe5d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Tutorial.TutorialSession
+--- !u!114 &1465719614
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1465719609}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48fef3c303f630c4586c23c3776e9540, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Bootstrap::Game.Bootstrap.TutorialLifetimeScope
+  parentReference:
+    TypeName: 
+  autoRun: 1
+  autoInjectGameObjects: []
+  matchRules: {fileID: 11400000, guid: c4abc5a68ff08154aa6cf40e21b69ae2, type: 2}
 --- !u!1 &1467171869
 GameObject:
   m_ObjectHideFlags: 0

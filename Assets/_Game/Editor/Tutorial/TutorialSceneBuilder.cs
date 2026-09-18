@@ -234,9 +234,7 @@ namespace Game.Editor.Tutorial
                 "PlayerCharacter",
                 start.position);
             var player = playerObject.GetComponent<PlayerMovement>();
-            var combat = playerObject.GetComponent<PlayerCombatant>();
-            if (combat != null)
-                combat.enabled = false;
+            ConfigureCombat(runtime.gameObject);
             InstantiateRuntimePrefab(CameraPrefabPath, runtime, "PlayerCameraRig", Vector3.zero);
             BuildMainCamera(runtime);
 
@@ -272,6 +270,25 @@ namespace Game.Editor.Tutorial
             BuildRadioUi(runtime, session);
 
             Require(root, "Zones/05_Exit/ExitDoor").gameObject.AddComponent<TutorialExitDoor>();
+        }
+
+        private static void ConfigureCombat(GameObject runtime)
+        {
+            var scope = runtime.GetComponent<TutorialLifetimeScope>()
+                ?? runtime.AddComponent<TutorialLifetimeScope>();
+            var serialized = new SerializedObject(scope);
+            serialized.FindProperty("matchRules").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Game.SOAP.Config.MatchRulesSO>(
+                    "Assets/_Game/Content/Config/MatchRules.asset");
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            runtime.GetComponentInChildren<PlayerCombatant>(true).enabled = true;
+        }
+
+        public static void RepairCombat()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath);
+            ConfigureCombat(GameObject.Find("TutorialHideout/Runtime"));
+            EditorSceneManager.SaveScene(scene);
         }
 
         [MenuItem("Game/Tutorial/Repair Training Box")]
