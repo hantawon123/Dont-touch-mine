@@ -92,10 +92,10 @@ namespace Game.Editor
                 MoveCollectionItem(catalog, entries, id, "modern", "총기·폭발물", modern, log);
             }
 
-            var bathroom = EnsureCategory(catalog, "bathroom", "욕실·위생", true);
+            var bathroom = EnsureCategory(catalog, "bathroom", "욕실용품", true);
             bathroom.items.Clear();
             foreach (var id in BathroomIds)
-                MoveCollectionItem(catalog, entries, id, "bathroom", "욕실·위생", bathroom, log);
+                MoveCollectionItem(catalog, entries, id, "bathroom", "욕실용품", bathroom, log);
 
             var plants = EnsureCategory(catalog, "plants", "화분·식물", true);
             plants.items.Clear();

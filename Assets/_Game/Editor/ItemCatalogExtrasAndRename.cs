@@ -45,7 +45,14 @@ namespace Game.Editor
             ("Assets/ithappy/Casino_Free/Prefabs/Assets/ATM_01.prefab", "ATM"),
             ("Assets/ithappy/Casino_Free/Prefabs/Assets/ATM_03.prefab", "ATM"),
             ("Assets/ithappy/Casino_Free/Prefabs/Assets/SafeBox_01.prefab", "금고"),
+            ("Assets/Smoking Pipes set/Prefab/Pipe01.prefab", "파이프"),
+            ("Assets/Smoking Pipes set/Prefab/Pipe02.prefab", "파이프"),
         };
+
+        private static string PackageForCasinoSource(string sourcePath) =>
+            sourcePath.StartsWith("Assets/Smoking Pipes set/", StringComparison.Ordinal)
+                ? "Low-poly smoking pipes set"
+                : "Casino FREE - Low Poly 3D Models Pack";
 
         [MenuItem("Tools/Game/Items/Add Extras And Clean Display Names")]
         public static void Run()
@@ -70,7 +77,7 @@ namespace Game.Editor
             var casino = EnsureCategory(catalog, "casino", "카지노", true);
             foreach (var (source, name) in CasinoExtras)
                 AddNewItem(catalog, entries, casino, "casino", name, source,
-                    "Casino FREE - Low Poly 3D Models Pack", maxSize, log);
+                    PackageForCasinoSource(source), maxSize, log);
 
             var renamed = 0;
             foreach (var category in catalog.categories)

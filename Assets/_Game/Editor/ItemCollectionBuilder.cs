@@ -21,7 +21,7 @@ namespace Game.Editor
         private const string Request = "Temp/BuildItemCollection.request";
         private const string Report = "docs/items";
         private static readonly string[] Categories = { "food", "household", "bathroom", "plants", "tools", "modern", "fantasy", "beach", "casino", "halloween", "toys", "reserve" };
-        private static readonly string[] Names = { "음식·음료", "생활용품", "욕실·위생", "화분·식물", "공구·작업용품", "총기·폭발물", "판타지 소품", "여름·해변", "카지노", "할로윈", "장난감", "보류·부품·모형" };
+        private static readonly string[] Names = { "음식·음료", "생활용품", "욕실용품", "화분·식물", "공구·작업용품", "총기·폭발물", "판타지 소품", "여름·해변", "카지노", "할로윈", "장난감", "보류·부품·모형" };
         private static readonly Color[] Colors =
         {
             new(.96f,.53f,.19f), new(.2f,.69f,.7f), new(.45f,.72f,.78f), new(.35f,.7f,.4f),
