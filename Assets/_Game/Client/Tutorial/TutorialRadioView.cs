@@ -95,7 +95,7 @@ namespace Game.Client.Tutorial
                 case TutorialStep.Crouch:
                     keyGuide.SetFocus("1인칭으로 앉아서 통로 끝까지", ControlAction.Crouch, ControlAction.ToggleView); break;
                 case TutorialStep.Prone:
-                    keyGuide.SetFocus("1인칭으로 기어서 통로 끝까지", ControlAction.Prone, ControlAction.ToggleView); break;
+                    keyGuide.SetFocus("Z로 기어서 통로 끝까지", ControlAction.Prone); break;
                 case TutorialStep.PickUp:
                     keyGuide.SetFocus("상자를 바라보고 들기", ControlAction.Interact); break;
                 case TutorialStep.Drop:
@@ -199,12 +199,12 @@ namespace Game.Client.Tutorial
             TutorialStep.MoveAndLook => "주변을 살피면서 앞으로 이동해. 좋은 도둑은 발보다 눈이 먼저 움직이는 법이지.",
             TutorialStep.Sprint => "일이 틀어지면 망설일 시간이 없다. 건너편까지 전력으로 달려.",
             TutorialStep.Jump => "앞이 끊겨 있군. 달려가서 뛰어넘어. 떨어지면 다시 올라오게 해주지. 한 번만.",
-            TutorialStep.Crouch => "통로가 낮다. V로 1인칭 시점으로 바꾸고 몸을 숙여 지나가. 앞이 보여야 잠입도 하지.",
-            TutorialStep.Prone => "이번 통로는 더 낮아. V로 1인칭 시점을 확인한 뒤 바닥에 엎드려서 통과해.",
+            TutorialStep.Crouch => "C를 눌러 앉은 채 통로 끝까지 지나가. 시야가 답답하면 V로 1인칭과 3인칭을 바꿀 수 있다.",
+            TutorialStep.Prone => "이번엔 Z를 눌러 엎드려. 낮은 통로를 끝까지 기어서 지나가면 된다.",
             TutorialStep.PickUp => "상자 하나가 보일 거다. 가까이 가서 들어 올려. 오늘부터 네가 지켜야 할 물건이다.",
             TutorialStep.Drop => "표시된 구역까지 운반한 다음 바닥에 내려놔. 던지지 말고 얌전히.",
             TutorialStep.Throw => "이번엔 표적을 봐. 힘을 조절해서 상자를 던져.",
-            TutorialStep.Place => "상자를 지정된 자리에 정확히 배치해. 현장에서는 몇 센티미터가 계획을 망치기도 한다.",
+            TutorialStep.Place => "우클릭으로 배치 모드. Q/E와 마우스 휠로 방향을 조정하고, 파란 목표 근처에 클릭해서 놓아. 모양이 똑같을 필요는 없다.",
             TutorialStep.UseShredder => "마지막 처리다. 상자를 들고 파쇄기에 넣어. 증거를 남기지 마.",
             TutorialStep.Complete => "훈련은 끝났다. 앞의 문을 직접 열어. 밖으로 나가면 실전이다.",
             _ => string.Empty

@@ -19,7 +19,10 @@ namespace Game.Tests.PlayMode
         public void LowPassageRadioRequestsFirstPersonView()
         {
             Assert.That(TutorialRadioPresenter.Instruction(TutorialStep.Crouch), Does.Contain("V로 1인칭"));
-            Assert.That(TutorialRadioPresenter.Instruction(TutorialStep.Prone), Does.Contain("V로 1인칭"));
+            Assert.That(TutorialRadioPresenter.Instruction(TutorialStep.Crouch), Does.Contain("C를"));
+            Assert.That(TutorialRadioPresenter.Instruction(TutorialStep.Prone), Does.Contain("Z를"));
+            Assert.That(TutorialRadioPresenter.Instruction(TutorialStep.Prone), Does.Not.Contain("V로"));
+            Assert.That(TutorialRadioPresenter.Instruction(TutorialStep.Place), Does.Contain("Q/E와 마우스 휠"));
         }
 
         [UnityTest]
@@ -145,13 +148,16 @@ namespace Game.Tests.PlayMode
             Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.Place));
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
             Assert.That(GameObject.Find("PlacementTargetGhost"), Is.Not.Null);
+            var targetColor = GameObject.Find("PlacementTargetGhost").GetComponentInChildren<Renderer>().sharedMaterial.GetColor("_BaseColor");
+            Assert.That(targetColor.b, Is.GreaterThan(targetColor.g), "Fixed target must be blue, distinct from the green live preview.");
             Assert.That(interactor.TryPlaceCarried(spawn, Quaternion.identity), Is.True);
             Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.Place), "An incorrect pose completed placement.");
             Assert.That(Vector3.Distance(trainingItem.transform.position, spawn), Is.LessThan(.01f), "Invalid placement teleported the item.");
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
             Assert.That(interactor.TryPlaceCarried(
-                itemCourse.PlacementTargetPose.position,
-                itemCourse.PlacementTargetPose.rotation), Is.True);
+                itemCourse.PlacementTargetPose.position + Vector3.right * .25f,
+                Quaternion.identity), Is.True);
+            Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.UseShredder), "A nearby placement with a different heading must pass.");
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
             shredder.Interact(interactor);
             yield return new WaitForSeconds(0.7f);

@@ -15,8 +15,7 @@ namespace Game.Bootstrap
     {
         private const float FallHeight = -2f;
 
-        private const float PlacementPositionTolerance = 0.8f;
-        private const float PlacementRotationTolerance = 22f;
+        private const float PlacementPositionTolerance = 0.9f;
         private static readonly Quaternion TargetRotation = Quaternion.Euler(0f, 90f, 0f);
 
         [SerializeField]
@@ -43,8 +42,10 @@ namespace Game.Bootstrap
         private Pose placementTargetPose;
         private GameObject placementGuide;
         private GameObject dropGuide;
+        private GameObject pickupGuide;
         private GameObject throwGuide;
         private GameObject placementLabel;
+        private Material targetMaterial;
         private bool waitingForDrop;
         private bool waitingForThrow;
         private Vector3 previousThrownPosition;
@@ -65,9 +66,14 @@ namespace Game.Bootstrap
 
             spawnPose = new Pose(trainingItem.transform.position, trainingItem.transform.rotation);
             placementTargetPose = BuildPlacementTargetPose();
+            targetMaterial = new Material(interactor.GetComponent<ItemPlacementController>().ValidGhostMaterial);
+            targetMaterial.SetColor("_BaseColor", new Color(.15f, .55f, 1f, .4f));
+            targetMaterial.SetColor("_Color", new Color(.15f, .55f, 1f, .4f));
             placementGuide = CreatePlacementGuide();
+            pickupGuide = CreateTargetOutline("PickupTarget", trainingItem.transform.position, Vector2.one, false,
+                "상자를 보고 " + Game.Client.KeySettingGuideView.CurrentKeyLabel(Game.Core.Settings.ControlAction.Interact) + "로 들기");
             var surfaceBounds = placementSurface.bounds;
-            placementLabel = CreateTargetOutline("PlacementTarget", new Vector3(surfaceBounds.center.x, surfaceBounds.max.y + .03f, surfaceBounds.center.z), new Vector2(1f, .85f), false, "이 모양으로 배치하기");
+            placementLabel = CreateTargetOutline("PlacementTarget", new Vector3(surfaceBounds.center.x, surfaceBounds.max.y + .03f, surfaceBounds.center.z), new Vector2(1f, .85f), false, "파란 목표 근처에 배치하기");
             dropGuide = CreateTargetOutline("DropTarget", new Vector3(DropTargetPosition.x, .16f, DropTargetPosition.z), new Vector2(2.5f, 2.5f), false, "여기에 내려놓기");
             var target = throwTarget.bounds;
             throwGuide = CreateTargetOutline("ThrowTarget", new Vector3(target.center.x, target.center.y, target.min.z - .08f), new Vector2(target.size.x, target.size.y), true, "이 표적에 던지기");
@@ -217,7 +223,7 @@ namespace Game.Bootstrap
             if (guide.TryGetComponent<CarryableItem>(out var carryable))
                 carryable.enabled = false;
 
-            var ghostMaterial = interactor.GetComponent<ItemPlacementController>()?.ValidGhostMaterial;
+            var ghostMaterial = targetMaterial;
             if (ghostMaterial != null)
             {
                 foreach (var renderer in guide.GetComponentsInChildren<Renderer>())
@@ -233,15 +239,31 @@ namespace Game.Bootstrap
             return guide;
         }
 
-        private bool IsAtPlacementTarget(Transform itemTransform) =>
-            Vector3.Distance(itemTransform.position, placementTargetPose.position) <= PlacementPositionTolerance &&
-            Quaternion.Angle(itemTransform.rotation, placementTargetPose.rotation) <= PlacementRotationTolerance;
+        private bool IsAtPlacementTarget(Transform itemTransform)
+        {
+            var center = itemTransform.position + itemTransform.rotation * trainingItem.PlacementCenterOffset;
+            var surface = placementSurface.bounds;
+            var bottom = center.y - PlacementVolumeMath.RotatedVerticalExtent(itemTransform.rotation, trainingItem.PlacementHalfExtents);
+            var offset = new Vector2(center.x - surface.center.x, center.z - surface.center.z);
+            // Teach placing on the desk, not matching the model's exact orientation.
+            return offset.magnitude <= PlacementPositionTolerance &&
+                center.x >= surface.min.x && center.x <= surface.max.x &&
+                center.z >= surface.min.z && center.z <= surface.max.z &&
+                Mathf.Abs(bottom - surface.max.y) <= .2f;
+        }
+
+        private void OnDestroy()
+        {
+            if (placementGuide != null) Destroy(placementGuide);
+            if (targetMaterial != null) Destroy(targetMaterial);
+        }
 
         private void RefreshPlacementGuide(TutorialStep step)
         {
             if (placementGuide != null)
                 placementGuide.SetActive(step == TutorialStep.Place);
             if (dropGuide != null) dropGuide.SetActive(step == TutorialStep.Drop);
+            if (pickupGuide != null) pickupGuide.SetActive(step == TutorialStep.PickUp);
             if (throwGuide != null) throwGuide.SetActive(step == TutorialStep.Throw);
             if (placementLabel != null) placementLabel.SetActive(step == TutorialStep.Place);
         }
@@ -257,7 +279,7 @@ namespace Game.Bootstrap
         private GameObject CreateTargetOutline(string name, Vector3 position, Vector2 size, bool vertical, string label)
         {
             return TutorialTargetView.Create(transform, name, position, size, vertical, label,
-                interactor.GetComponent<ItemPlacementController>().ValidGhostMaterial);
+                targetMaterial);
         }
 
         private void OnShredderProcessed(CarryableItem item)

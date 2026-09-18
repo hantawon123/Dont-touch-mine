@@ -33,7 +33,7 @@ namespace Game.Client.Tutorial
             text.transform.localPosition = Vector3.up * (vertical ? size.y * .5f + .35f : .65f);
             text.text = label;
             text.font = HomeUiFonts.Apply();
-            text.fontSize = .7f;
+            text.fontSize = 1.2f;
             text.alignment = TextAlignmentOptions.Center;
             text.color = new Color(1, .8f, .2f);
             root.AddComponent<TutorialTargetView>().caption = text.transform;
