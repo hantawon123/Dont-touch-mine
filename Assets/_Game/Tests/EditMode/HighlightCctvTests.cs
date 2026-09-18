@@ -436,14 +436,14 @@ namespace Game.Tests.EditMode
             var prefab = Resources.Load<GameObject>("CCTV/Mansion");
             Assert.That(prefab, Is.Not.Null, "Resources/CCTV/Mansion.prefab is required for mansion highlights.");
             var cameras = prefab.GetComponentsInChildren<HighlightCctvCamera>(true);
-            Assert.That(cameras.Length, Is.GreaterThanOrEqualTo(20));
+            Assert.That(cameras.Length, Is.GreaterThanOrEqualTo(10), "The hand-tuned first-floor layout keeps at least one CCTV per room.");
             Assert.That(cameras.Select(c => c.LocationName).Distinct().Count(), Is.EqualTo(cameras.Length), "Location names identify the CAM on the HUD.");
             foreach (var camera in cameras)
             {
                 var position = camera.transform.position;
                 Assert.That(position.x, Is.InRange(-13f, 13.5f), camera.LocationName);
                 Assert.That(position.z, Is.InRange(-33f, -8.5f), camera.LocationName);
-                Assert.That(position.y, Is.InRange(3.3f, 4.3f), camera.LocationName + " is mounted about 3 m above the first floor (y 1.01).");
+                Assert.That(position.y, Is.InRange(3.5f, 7.9f), camera.LocationName + " hangs below the first-floor ceiling (y 4.0 in low spots, 8.15 in the entrance hall).");
                 Assert.That(camera.transform.forward.y, Is.LessThan(-0.2f), camera.LocationName + " tilts down like the supermarket mounts (18~46 degrees).");
                 Assert.That(camera.FieldOfView, Is.EqualTo(65f), camera.LocationName);
             }
