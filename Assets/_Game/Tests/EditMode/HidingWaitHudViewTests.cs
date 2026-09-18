@@ -73,6 +73,10 @@ namespace Game.Architecture.Tests
                     view.transform.Find("PlayerList/Row0/Avatar/Dim").gameObject.activeSelf,
                     Is.True);
                 Assert.That(
+                    view.transform.Find("PlayerList/Row0/Avatar/Face")
+                        .GetComponent<Game.Client.Character.AvatarFaceSlot>(),
+                    Is.Not.Null);
+                Assert.That(
                     view.transform.Find("PlayerList/Row0/Avatar/Face").GetComponent<UnityEngine.UI.Image>().color,
                     Is.EqualTo(HidingWaitHudView.DoneAvatarColor));
                 Assert.That(

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Character;
 using Game.Client.Home;
 using TMPro;
 using UnityEngine;
@@ -9,16 +10,25 @@ namespace Game.Client.Match
 {
     public readonly struct HidingWaitPlayer
     {
-        public HidingWaitPlayer(string name, bool completed, bool current)
+        public HidingWaitPlayer(
+            string name,
+            bool completed,
+            bool current,
+            string playerId = null,
+            string userId = null)
         {
             Name = name ?? string.Empty;
             Completed = completed;
             Current = current;
+            PlayerId = playerId ?? string.Empty;
+            UserId = userId ?? string.Empty;
         }
 
         public string Name { get; }
         public bool Completed { get; }
         public bool Current { get; }
+        public string PlayerId { get; }
+        public string UserId { get; }
     }
 
     public interface IHidingWaitHudView
@@ -332,7 +342,10 @@ namespace Game.Client.Match
             }
 
             var avatar = row.Find("Avatar/Face")?.GetComponent<Image>();
-            if (avatar != null)
+            var portrait = row.Find($"Avatar/Face/{AvatarFacePortrait.PortraitName}");
+            var hasPortrait = portrait != null && portrait.gameObject.activeSelf &&
+                              portrait.GetComponent<RawImage>() is { enabled: true };
+            if (avatar != null && !hasPortrait)
             {
                 avatar.color = player.Current
                     ? Color.white
@@ -340,6 +353,13 @@ namespace Game.Client.Match
                         ? DoneAvatarColor
                         : PendingColor;
             }
+            else if (avatar != null)
+            {
+                avatar.color = Color.white;
+            }
+
+            AvatarFaceSlot.Attach(row.Find("Avatar/Face") as RectTransform)
+                ?.Follow(player.PlayerId, player.UserId);
 
             var dim = row.Find("Avatar/Dim")?.GetComponent<Image>();
             if (dim != null)

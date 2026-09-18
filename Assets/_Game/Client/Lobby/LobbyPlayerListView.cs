@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Character;
 using Game.Client.Home;
 using Game.Core.Home;
 using Game.Core.Lobby;
@@ -261,7 +262,9 @@ namespace Game.Client.Lobby
                     isMuted: participant.IsMuted,
                     isTalking: participant.IsTalking,
                     showVoice: false,
-                    isListening: participant.IsListening);
+                    isListening: participant.IsListening,
+                    playerId: participant.Id,
+                    userId: participant.UserId);
                 var playerId = participant.Id;
                 var rosterName = participant.DisplayName;
                 var displayName = shownName;
@@ -482,7 +485,8 @@ namespace Game.Client.Lobby
                     showLeader: false,
                     showKick: false,
                     showAdd: true,
-                    showVoice: false);
+                    showVoice: false,
+                    playerId: friend.PlayerId);
                 BindInvite(row, friend.PlayerId, friend.Nickname, canInvite);
             }
         }
@@ -1079,7 +1083,9 @@ namespace Game.Client.Lobby
             bool isMuted = false,
             bool isTalking = false,
             bool showVoice = true,
-            bool isListening = true)
+            bool isListening = true,
+            string playerId = null,
+            string userId = null)
         {
             var row = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             row.SetParent(parent, false);
@@ -1088,7 +1094,7 @@ namespace Game.Client.Lobby
             element.minHeight = RowHeight;
             element.flexibleWidth = 1f;
 
-            CreateAvatar(row, isMuted, isListening);
+            CreateAvatar(row, isMuted, isListening, playerId, userId);
             var nameLabel = CreateNickname(row, nickname, isSelf);
             var afterName = showVoice
                 ? CreateVoice(row, nameLabel, isMuted, isTalking)
@@ -1121,7 +1127,12 @@ namespace Game.Client.Lobby
             bucket.Add(row.gameObject);
         }
 
-        private static void CreateAvatar(RectTransform parent, bool muted, bool listening)
+        private static void CreateAvatar(
+            RectTransform parent,
+            bool muted,
+            bool listening,
+            string playerId,
+            string userId)
         {
             var avatar = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
                 .GetComponent<RectTransform>();
@@ -1132,6 +1143,7 @@ namespace Game.Client.Lobby
             image.color = AvatarColor;
             image.raycastTarget = false;
             image.preserveAspect = true;
+            AvatarFaceSlot.Attach(avatar).Follow(playerId, userId);
             var badge = LobbyPlayerListSprites.MuteOnProfile(!listening, muted);
             if (badge != null)
             {

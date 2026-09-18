@@ -743,7 +743,9 @@ namespace Game.Bootstrap
                 players[index] = new HidingWaitPlayer(
                     name,
                     turnIndex != HidingTurns.NoTurn && index < turnIndex,
-                    current);
+                    current,
+                    playing[index].PlayerId,
+                    playing[index].UserId);
                 if (current)
                 {
                     hidingName = name;
