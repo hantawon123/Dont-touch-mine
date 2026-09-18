@@ -98,6 +98,16 @@ namespace Game.Backend
         /// <para>
         /// The length is kept either way, so how much was said is still visible.
         /// </para>
+        /// <para>
+        /// The automaton finds the words, for the same reason the judgement uses it: searching
+        /// the text once per word costs time in proportion to the list. It also covers <b>more</b>
+        /// than the old scan did, in one narrow case — a word that can overlap itself, of which
+        /// the list has 26 (딸딸, tit, poop, …). The scan skipped past each hit by the word's
+        /// length, so "딸딸딸" came back "**딸"; the automaton sees the second hit too and covers
+        /// all three. Covering never shrinks, and leaving a piece of the word readable was never
+        /// the intent. <see cref="MaskByScan"/> keeps the old behaviour for the tests to compare
+        /// against.
+        /// </para>
         /// </remarks>
         public string Mask(string message)
         {
@@ -106,6 +116,18 @@ namespace Game.Backend
             // Not ToLowerInvariant: it changes length for some characters — U+0130 becomes two —
             // and a position found in that string then lands on the wrong character here, or
             // past the end. People can and do type those characters.
+            var lower = AlignedLower(message);
+            var masked = new StringBuilder(message);
+            var covered = automaton.CoverInto(lower, masked, MaskChar);
+
+            return covered ? masked.ToString() : new string(MaskChar, message.Length);
+        }
+
+        /// <summary>The same covering written the obvious way. Only the tests call it.</summary>
+        internal string MaskByScan(string message)
+        {
+            if (!IsForbidden(message)) return message;
+
             var lower = AlignedLower(message);
             var masked = new StringBuilder(message);
             var covered = false;
@@ -277,6 +299,36 @@ namespace Game.Backend
                 return false;
             }
 
+            /// <summary>
+            /// Covers every forbidden word found in <paramref name="candidate"/>, and says whether
+            /// anything was covered.
+            /// </summary>
+            /// <remarks>
+            /// <b>No word boundary here, unlike the judgement.</b> Covering runs only on a message
+            /// already judged forbidden, and at that point the question is which characters to
+            /// hide, not whether the message is clean — so "anal" inside a longer run of letters
+            /// is covered as the old scan covered it.
+            /// <para>
+            /// <paramref name="canvas"/> has to be the same length as <paramref name="candidate"/>,
+            /// which is why the caller lowercases one character to one character.
+            /// </para>
+            /// </remarks>
+            public bool CoverInto(string candidate, StringBuilder canvas, char mark)
+            {
+                var covered = false;
+                var node = root;
+                for (var index = 0; index < candidate.Length; index++)
+                {
+                    node = Step(node, candidate[index]);
+                    foreach (var length in node.AllLengths)
+                    {
+                        for (var at = index - length + 1; at <= index; at++) canvas[at] = mark;
+                        covered = true;
+                    }
+                }
+                return covered;
+            }
+
             private void Add(string word)
             {
                 var node = root;
@@ -289,6 +341,7 @@ namespace Game.Backend
                     }
                     node = child;
                 }
+                node.OwnAll.Add(word.Length);
                 if (IsAscii(word)) node.OwnAscii.Add(word.Length);
                 else node.OwnFree = true;
             }
@@ -314,6 +367,7 @@ namespace Game.Backend
                     var node = queue.Dequeue();
                     node.EndsFree = node.OwnFree || node.Fail.EndsFree;
                     node.AsciiLengths = Merge(node.OwnAscii, node.Fail.AsciiLengths);
+                    node.AllLengths = Merge(node.OwnAll, node.Fail.AllLengths);
                     foreach (var pair in node.Next)
                     {
                         var fail = node.Fail;
@@ -345,6 +399,7 @@ namespace Game.Backend
             {
                 public readonly Dictionary<char, Node> Next = new();
                 public readonly List<int> OwnAscii = new();
+                public readonly List<int> OwnAll = new();
                 public Node Fail;
                 public bool OwnFree;
 
@@ -353,6 +408,11 @@ namespace Game.Backend
 
                 /// <summary>Lengths of the words that do need one, fail links included.</summary>
                 public int[] AsciiLengths = None;
+
+                /// <summary>
+                /// Lengths of every word ending here, boundary or not. Covering uses this.
+                /// </summary>
+                public int[] AllLengths = None;
             }
         }
     }
