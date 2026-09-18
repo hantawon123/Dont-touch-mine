@@ -188,6 +188,34 @@ namespace Game.Client.Match
             PlaceBottom(bottomEdge);
             PlaceLeft(leftEdge);
             PlaceRight(rightEdge);
+            AssignFadeSprites();
+        }
+
+        private void AssignFadeSprites()
+        {
+            SetEdgeSprite(topEdge, VerticalEdgeSprite);
+            SetEdgeSprite(bottomEdge, VerticalEdgeSpriteFlipped);
+            SetEdgeSprite(leftEdge, HorizontalEdgeSprite);
+            SetEdgeSprite(rightEdge, HorizontalEdgeSpriteFlipped);
+        }
+
+        private static void SetEdgeSprite(RectTransform rect, Sprite sprite)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            var image = rect.GetComponent<Image>();
+            if (image == null)
+            {
+                return;
+            }
+
+            image.sprite = sprite;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = false;
+            image.raycastTarget = false;
         }
 
         private void CacheImages()
