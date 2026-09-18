@@ -31,6 +31,8 @@ namespace Game.Client.Players
         internal const float LandImpactSeconds = 4f / 30f;
         // 80% of the other combat one-shots (.8 * Effects).
         internal const float LandAudioVolume = .64f;
+        // 앉기·일어서기 스윽만 70% of the other combat one-shots (.8 * Effects).
+        internal const float PostureSwooshAudioVolume = .56f;
         private const float HitSeconds = 30f / 30f;
         private const float MinLocomotionPlayback = 0.5f;
         private const float MaxLocomotionPlayback = 2f;
@@ -476,7 +478,8 @@ namespace Game.Client.Players
             if (landAudioSource != null)
                 landAudioSource.volume = LandAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             if (postureSwooshAudioSource != null)
-                postureSwooshAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                postureSwooshAudioSource.volume =
+                    PostureSwooshAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             footstepAudio?.Tick(animator, currentState,
                 usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
         }
@@ -965,7 +968,8 @@ namespace Game.Client.Players
         {
             if (postureSwooshAudioSource != null && postureSwooshAudioSource.isActiveAndEnabled)
             {
-                postureSwooshAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                postureSwooshAudioSource.volume =
+                    PostureSwooshAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
                 postureSwooshAudioSource.PlayOneShot(postureSwooshClip);
             }
         }

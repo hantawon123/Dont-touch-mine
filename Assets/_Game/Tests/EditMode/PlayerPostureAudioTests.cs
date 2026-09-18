@@ -39,5 +39,13 @@ namespace Game.Tests.EditMode
             Assert.That(clip.length, Is.EqualTo(.24f).Within(.001f));
             Assert.That(clip.frequency, Is.EqualTo(44100));
         }
+
+        [Test]
+        public void SitAndStandSwooshIsSeventyPercentOfCombatOneShots()
+        {
+            Assert.That(
+                PlayerAnimationDriver.PostureSwooshAudioVolume,
+                Is.EqualTo(.8f * .7f).Within(.001f));
+        }
     }
 }
