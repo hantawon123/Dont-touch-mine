@@ -111,6 +111,7 @@ namespace Game.Client.Interactions
         private Transform belowPromptAnchor;
         private Sprite placeIcon;
         private Sprite dragIcon;
+        private float nextPromptDiagnosticAt;
 
         private float MaxReach => interactionConfig != null ? interactionConfig.PlacementMaxDistance : 2.8f;
         private float TwistSpeedDegrees => interactionConfig != null ? interactionConfig.PlacementRotateSpeedDegrees : 90f;
@@ -544,6 +545,16 @@ namespace Game.Client.Interactions
                 placePromptView?.Hide();
                 twistPromptView?.Hide();
                 yawPromptView?.Hide();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                // 실제 매치 씬에서 안내가 안 보이는 원인을 찾기 위한 진단. 1초에 한 번만 남긴다.
+                if (Time.unscaledTime >= nextPromptDiagnosticAt)
+                {
+                    nextPromptDiagnosticAt = Time.unscaledTime + 1f;
+                    Debug.Log($"[Placement] 안내 숨김: ghost={(ghostTransform != null)} hudVisible={interactor.HudVisible} " +
+                              $"(presentation={interactor.PresentationHudVisible}, loading={Game.Client.Common.LoadingView.IsAnyPresented}) " +
+                              $"promptsAllowed={interactor.InteractionPromptsAllowed} cursorLocked={Game.Client.Common.WebPointerInput.IsLocked}", this);
+                }
+#endif
                 return;
             }
 
