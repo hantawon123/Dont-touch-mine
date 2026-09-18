@@ -204,7 +204,7 @@ namespace Game.Client.Tutorial
             TutorialStep.PickUp => "상자 하나가 보일 거다. 가까이 가서 들어 올려. 오늘부터 네가 지켜야 할 물건이다.",
             TutorialStep.Drop => "표시된 구역까지 운반한 다음 바닥에 내려놔. 던지지 말고 얌전히.",
             TutorialStep.Throw => "이번엔 표적을 봐. 힘을 조절해서 상자를 던져.",
-            TutorialStep.Place => "우클릭으로 배치 모드. Q/E와 마우스 휠로 방향을 조정하고, 파란 목표 근처에 클릭해서 놓아. 모양이 똑같을 필요는 없다.",
+            TutorialStep.Place => "배치 모드를 사용해 봐. Q/E와 우클릭으로 방향을 조정하고, 파란 목표 근처에 클릭해서 놓아. 모양이 똑같을 필요는 없다.",
             TutorialStep.UseShredder => "마지막 처리다. 상자를 들고 파쇄기에 넣어. 증거를 남기지 마.",
             TutorialStep.Complete => "훈련은 끝났다. 앞의 문을 직접 열어. 밖으로 나가면 실전이다.",
             _ => string.Empty

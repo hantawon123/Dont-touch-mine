@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: b0b66b952ea5fe548ac58f0d937ad146
+labels:
+- summer
+- beach
+- towel
+timeCreated: 1430065994
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/Towel_red.prefab
+  uploadId: 466071

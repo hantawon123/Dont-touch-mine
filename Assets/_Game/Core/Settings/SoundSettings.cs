@@ -11,7 +11,6 @@ namespace Game.Core.Settings
     {
         Master,
         Music,
-        Ambience,
         Effects,
         Microphone
     }
@@ -21,10 +20,18 @@ namespace Game.Core.Settings
     /// </summary>
     /// <remarks>
     /// Not built on <see cref="OptionValues"/> like the 그래픽 and 인터페이스
-    /// tabs, because these rows are not all the same kind of thing: five are
+    /// tabs, because these rows are not all the same kind of thing: four are
     /// numbers on a slider, one is a device this machine happens to have, and
     /// one is a choice from a list. Writing them as what they are keeps the
     /// mixer and the microphone from parsing strings.
+    /// <para>
+    /// 환경소리 was here until 2026-09-17. Nothing in the game ever read it and
+    /// there is no ambience bed for it to have turned down, so it was a slider
+    /// that did nothing. The saved value stays in the player preferences under
+    /// its own name and is simply no longer loaded; a future ambience track
+    /// adds the row back rather than inheriting a number nobody chose
+    /// deliberately.
+    /// </para>
     /// </remarks>
     public readonly struct SoundSettings : IEquatable<SoundSettings>
     {
@@ -171,9 +178,22 @@ namespace Game.Core.Settings
         public const int MaxVolume = 100;
 
         /// <summary>
-        /// Half way, which is what the mock-up draws on every slider.
+        /// Half way, which is what the mock-up draws on every slider except
+        /// 효과음.
         /// </summary>
         public const int DefaultVolume = 50;
+
+        /// <summary>효과음 기본. 다른 슬라이더(50)보다 한 칸 낮다.</summary>
+        public const int DefaultEffectsVolume = 40;
+
+        /// <summary>
+        /// Baked-in BGM trim: a Music slider of 50 sounds like 40 on the raw
+        /// clip, so default 50 already includes about 10 quieter.
+        /// </summary>
+        public const float BgmPlaybackVolume = .8f;
+
+        public static int DefaultVolumeFor(SoundVolume volume) =>
+            volume == SoundVolume.Effects ? DefaultEffectsVolume : DefaultVolume;
 
         public const string PushToTalk = "push";
         public const string OpenMic = "open";
@@ -246,7 +266,8 @@ namespace Game.Core.Settings
 
         /// <summary>
         /// What a player who has never opened the tab gets, and what 초기화
-        /// puts back: every slider half way, the machine's own microphone, and
+        /// puts back: sliders at their defaults (효과음 40, the rest half way),
+        /// the machine's own microphone, and
         /// push-to-talk.
         /// </summary>
         public static SoundSettings Defaults
@@ -256,7 +277,7 @@ namespace Game.Core.Settings
                 var settings = SoundSettings.Empty;
                 foreach (SoundVolume volume in Enum.GetValues(typeof(SoundVolume)))
                 {
-                    settings = settings.With(volume, DefaultVolume);
+                    settings = settings.With(volume, DefaultVolumeFor(volume));
                 }
 
                 return settings
@@ -285,7 +306,7 @@ namespace Game.Core.Settings
                 var percent = settings.Get(volume);
                 result = result.With(
                     volume,
-                    percent == Unset ? DefaultVolume : Clamp(percent));
+                    percent == Unset ? DefaultVolumeFor(volume) : Clamp(percent));
             }
 
             if (!InputModes.TryFind(settings.InputMode, out var mode))

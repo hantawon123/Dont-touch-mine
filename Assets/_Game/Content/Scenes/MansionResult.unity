@@ -6100,7 +6100,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Bootstrap::Game.Bootstrap.ResultLifetimeScope
   parentReference:
-    TypeName: 
+    TypeName: Game.Bootstrap.ProjectLifetimeScope
   autoRun: 1
   autoInjectGameObjects: []
   view: {fileID: 2000000003}

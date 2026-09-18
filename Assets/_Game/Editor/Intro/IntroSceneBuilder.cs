@@ -119,6 +119,17 @@ namespace Game.Editor.Intro
             ti.alphaIsTransparency = true;
             ti.wrapMode            = tileable ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
 
+            // 세로만 Clamp. 바닥은 가로로만 타일링하는데 wrap 이 양축 Repeat 이면
+            // 쿼드 맨 윗줄(v=0)을 바이리니어로 뽑을 때 맞은편, 즉 텍스처 맨 아랫줄의
+            // 불투명한 땅이 섞여 들어온다. 그러면 지면보다 한참 위 허공에 가로선이
+            // 한 줄 그어진다. 창 높이에 따라 픽셀 중심이 쿼드 윗변에 얼마나 붙느냐가
+            // 달라져서, 바닥이 두 장이므로 선이 0~2개로 오락가락했다.
+            if (tileable)
+            {
+                ti.wrapModeU = TextureWrapMode.Repeat;
+                ti.wrapModeV = TextureWrapMode.Clamp;
+            }
+
             var ps = ti.GetDefaultPlatformTextureSettings();
             ps.textureCompression = TextureImporterCompression.Uncompressed;  // 실루엣 계단현상 방지
             ps.maxTextureSize     = 2048;

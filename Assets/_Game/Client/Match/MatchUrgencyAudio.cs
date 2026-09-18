@@ -1,4 +1,5 @@
 using Game.Core.Match;
+using Game.Core.Settings;
 using UnityEngine;
 
 namespace Game.Client.Match
@@ -103,7 +104,7 @@ namespace Game.Client.Match
 
             if (loopSource != null && loopSource.clip != null && !loopSource.isPlaying)
             {
-                loopSource.volume = Mathf.Clamp01(MusicVolume);
+                loopSource.volume = Mathf.Clamp01(MusicVolume) * SoundCatalog.BgmPlaybackVolume;
                 loopSource.Play();
             }
         }
@@ -118,7 +119,7 @@ namespace Game.Client.Match
         {
             fadeGain = AdvanceFade(fadeGain, active, deltaSeconds);
             if (loopSource == null) return;
-            loopSource.volume = Mathf.Clamp01(MusicVolume) * fadeGain;
+            loopSource.volume = Mathf.Clamp01(MusicVolume) * SoundCatalog.BgmPlaybackVolume * fadeGain;
             if (!active && fadeGain <= 0f && loopSource.isPlaying) loopSource.Stop();
         }
 

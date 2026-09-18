@@ -183,8 +183,20 @@ namespace Game.Bootstrap
                 previousThrownPosition = item.transform.position;
                 return;
             }
-            if (action == LocalItemAction.Placed && session.CurrentStep == TutorialStep.Place &&
-                !IsAtPlacementTarget(item.transform)) return;
+            if (session.CurrentStep == TutorialStep.Place &&
+    (action == LocalItemAction.Placed ||
+     action == LocalItemAction.Dropped))
+{
+    if (!IsAtPlacementTarget(item.transform))
+    {
+        return;
+    }
+
+    session.ObserveInteraction(
+        TutorialInteractionAction.Place);
+
+    return;
+}
 
             var tutorialAction = action switch
             {

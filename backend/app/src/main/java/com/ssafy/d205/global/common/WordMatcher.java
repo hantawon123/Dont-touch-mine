@@ -73,6 +73,11 @@ public final class WordMatcher {
      * 들어 있지만 그런 오탐은 허용 목록으로 막고, 영문은 경계를 요구해 "anal" 이 "Analyst" 에
      * 걸리지 않게 합니다. 경계 덕분에 닉네임 목록에서 오탐 때문에 뺐던 짧은 영어 욕설을
      * 채팅 목록에는 넣을 수 있습니다.
+     *
+     * <p><b>채팅 판정은 이제 {@link WordAutomaton} 이 합니다.</b> 목록이 3800개를 넘으면서 말마다
+     * 훑는 이 방법이 메시지당 0.77ms 가 됐기 때문입니다. 이 메서드는 지우지 않고 남겨 둡니다.
+     * 자동자가 같은 답을 내는지 확인하는 시험이 이것을 기준으로 삼습니다(WordAutomatonTest).
+     * 규칙을 고칠 일이 생기면 둘을 같이 고치고 그 시험으로 확인합니다.
      */
     public static boolean containsWord(String candidate, List<String> blocked, List<String> allowed) {
         String stripped = strip(candidate, allowed);
@@ -84,7 +89,8 @@ public final class WordMatcher {
         return false;
     }
 
-    private static String strip(String candidate, List<String> allowed) {
+    /** 허용 목록의 말을 먼저 지웁니다. 자동자를 쓰는 쪽도 이 단계는 그대로 거칩니다. */
+    public static String strip(String candidate, List<String> allowed) {
         String stripped = candidate;
         for (String ok : allowed) {
             stripped = stripped.replace(ok, "");

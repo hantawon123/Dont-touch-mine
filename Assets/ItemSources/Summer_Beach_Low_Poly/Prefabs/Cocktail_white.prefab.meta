@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: e11cf441a7f2a5240a8455afff91ce99
+labels:
+- summer
+- beach
+- cocktail
+timeCreated: 1430038338
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/Cocktail_white.prefab
+  uploadId: 466071

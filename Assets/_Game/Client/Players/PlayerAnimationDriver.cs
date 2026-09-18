@@ -27,6 +27,10 @@ namespace Game.Client.Players
         private const float DirectionDominanceHysteresis = 0.12f;
         private const float JumpSeconds = 32f / 30f;
         private const float LandSeconds = 20f / 30f;
+        // 80% of the other combat one-shots (.8 * Effects).
+        internal const float LandAudioVolume = .64f;
+        // 앉기·일어서기 스윽만 70% of the other combat one-shots (.8 * Effects).
+        internal const float PostureSwooshAudioVolume = .56f;
         private const float HitSeconds = 30f / 30f;
         private const float MinLocomotionPlayback = 0.5f;
         private const float MaxLocomotionPlayback = 2f;
@@ -56,9 +60,41 @@ namespace Game.Client.Players
         private AudioClip jumpClip;
 
         private AudioSource jumpAudioSource;
+
+        [SerializeField, Tooltip("물건을 집을 때 재생하는 효과음")]
+        private AudioClip pickupSoundClip;
+
+        private AudioSource pickupAudioSource;
+
+        [SerializeField, Tooltip("물건을 내려놓을 때 재생하는 효과음 (일반 드롭과 정밀 배치 확정 모두)")]
+        private AudioClip putDownSoundClip;
+
+        private AudioSource putDownAudioSource;
+
+        [SerializeField, Tooltip("물건을 던질 때 재생하는 효과음")]
+        private AudioClip throwSoundClip;
+
+        private AudioSource throwAudioSource;
+
+        [SerializeField, Tooltip("기절에 들어가는 순간 재생하는 효과음")]
+        private AudioClip stunSoundClip;
+
+        private AudioSource stunAudioSource;
+
+        [SerializeField, Tooltip("점프 후 착지할 때 한 번 재생하는 효과음")]
+        private AudioClip landClip;
+
+        private AudioSource landAudioSource;
+
+        [SerializeField, Tooltip("앉기·일어나기·눕기·일어나기처럼 자세가 바뀔 때 재생하는 효과음")]
+        private AudioClip postureSwooshClip;
+
+        private AudioSource postureSwooshAudioSource;
         private float previousJumpHeight;
         private bool jumpGroundedSeen;
         private bool jumpSoundPlayed;
+        private bool jumpWasAirborne;
+        private bool landSoundPending;
 
         private float PunchDuration =>
             combatant != null && combatant.Config != null
@@ -125,6 +161,18 @@ namespace Game.Client.Players
                 hitAudioSource = CreateCombatAudioSource("PunchHitAudio");
             if (jumpClip != null)
                 jumpAudioSource = CreateCombatAudioSource("JumpAudio");
+            if (pickupSoundClip != null)
+                pickupAudioSource = CreateCombatAudioSource("PickupAudio");
+            if (putDownSoundClip != null)
+                putDownAudioSource = CreateCombatAudioSource("PutDownAudio");
+            if (throwSoundClip != null)
+                throwAudioSource = CreateCombatAudioSource("ThrowAudio");
+            if (stunSoundClip != null)
+                stunAudioSource = CreateCombatAudioSource("StunAudio");
+            if (landClip != null)
+                landAudioSource = CreateCombatAudioSource("LandAudio");
+            if (postureSwooshClip != null)
+                postureSwooshAudioSource = CreateCombatAudioSource("PostureSwooshAudio");
             if (footstepClips != null && footstepClips.Length > 0)
             {
                 footstepAudio = gameObject.AddComponent<PlayerFootstepAudio>();
@@ -139,6 +187,7 @@ namespace Game.Client.Players
             {
                 combatant.AttackPerformed += OnAttackPerformed;
                 combatant.HitReceived += OnHitReceived;
+                combatant.Stunned += OnStunned;
             }
         }
 
@@ -148,12 +197,21 @@ namespace Game.Client.Players
             if (punchAudioSource != null) punchAudioSource.Stop();
             if (hitAudioSource != null) hitAudioSource.Stop();
             if (jumpAudioSource != null) jumpAudioSource.Stop();
+            if (pickupAudioSource != null) pickupAudioSource.Stop();
+            if (putDownAudioSource != null) putDownAudioSource.Stop();
+            if (throwAudioSource != null) throwAudioSource.Stop();
+            if (stunAudioSource != null) stunAudioSource.Stop();
+            if (landAudioSource != null) landAudioSource.Stop();
+            if (postureSwooshAudioSource != null) postureSwooshAudioSource.Stop();
             jumpGroundedSeen = false;
             jumpSoundPlayed = false;
+            jumpWasAirborne = false;
+            landSoundPending = false;
             if (combatant != null)
             {
                 combatant.AttackPerformed -= OnAttackPerformed;
                 combatant.HitReceived -= OnHitReceived;
+                combatant.Stunned -= OnStunned;
             }
 
             if (animator != null)
@@ -181,6 +239,15 @@ namespace Game.Client.Players
                 hitAudioSource.PlayOneShot(punchHitClip);
             }
             PlayHit();
+        }
+
+        private void OnStunned()
+        {
+            if (stunAudioSource != null && stunAudioSource.isActiveAndEnabled)
+            {
+                stunAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                stunAudioSource.PlayOneShot(stunSoundClip);
+            }
         }
 
         private AudioSource CreateCombatAudioSource(string objectName)
@@ -250,18 +317,33 @@ namespace Game.Client.Players
 
         public void PlayPickup()
         {
+            if (pickupAudioSource != null && pickupAudioSource.isActiveAndEnabled)
+            {
+                pickupAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                pickupAudioSource.PlayOneShot(pickupSoundClip);
+            }
             var clip = ResolvePickupClip(movement.Posture);
             PlayOneShot(clip, ClipSeconds(clip));
         }
 
         public void PlayPutDown()
         {
+            if (putDownAudioSource != null && putDownAudioSource.isActiveAndEnabled)
+            {
+                putDownAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                putDownAudioSource.PlayOneShot(putDownSoundClip);
+            }
             var clip = ResolvePutDownClip(movement.Posture);
             PlayOneShot(clip, ClipSeconds(clip));
         }
 
         public void PlayThrow()
         {
+            if (throwAudioSource != null && throwAudioSource.isActiveAndEnabled)
+            {
+                throwAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                throwAudioSource.PlayOneShot(throwSoundClip);
+            }
             var settings = movement.MovementSettings;
             var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
             var clip = ResolveThrowClip(
@@ -383,6 +465,20 @@ namespace Game.Client.Players
                 hitAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
             if (jumpAudioSource != null)
                 jumpAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (pickupAudioSource != null)
+                pickupAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (putDownAudioSource != null)
+                putDownAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (throwAudioSource != null)
+                throwAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (stunAudioSource != null)
+                stunAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (landAudioSource != null)
+                landAudioSource.volume = LandAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            if (postureSwooshAudioSource != null)
+                postureSwooshAudioSource.volume =
+                    PostureSwooshAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            TickLandAudio();
             footstepAudio?.Tick(animator, currentState,
                 usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
         }
@@ -393,16 +489,27 @@ namespace Game.Client.Players
             var rise = height - previousJumpHeight;
             previousJumpHeight = height;
             var grounded = usesNetworkState ? networkGrounded : movement.IsGrounded;
+            var stunned = combatant != null && combatant.IsStunned;
             if (grounded)
             {
+                if (ShouldPlayLandSound(jumpWasAirborne, jumpSoundPlayed, grounded, movement.Posture) &&
+                    !stunned)
+                {
+                    landSoundPending = true;
+                }
+
                 jumpGroundedSeen = true;
                 jumpSoundPlayed = false;
+                jumpWasAirborne = false;
                 return;
             }
+
+            landSoundPending = false;
+            jumpWasAirborne = true;
             // Observe actual upward movement, not input: avoids sounds for rejected
             // jump inputs, walking off a ledge, and spawning in mid-air.
             if (!ShouldPlayJumpSound(jumpGroundedSeen, jumpSoundPlayed, grounded, rise, movement.Posture) ||
-                (combatant != null && combatant.IsStunned)) return;
+                stunned) return;
             jumpSoundPlayed = true;
             if (jumpAudioSource != null && jumpAudioSource.isActiveAndEnabled)
             {
@@ -411,10 +518,37 @@ namespace Game.Client.Players
             }
         }
 
+        private void TickLandAudio()
+        {
+            if (!landSoundPending) return;
+            if (combatant != null && combatant.IsStunned)
+            {
+                landSoundPending = false;
+                return;
+            }
+
+            // Physics already grounded this frame; play once the land clip is the
+            // current pose so the thud matches the body hitting the floor.
+            if (!ShouldPlayPendingLandSound(landSoundPending, IsLandState(currentState)))
+                return;
+            landSoundPending = false;
+            if (landAudioSource == null || !landAudioSource.isActiveAndEnabled || landClip == null)
+                return;
+            landAudioSource.volume = LandAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            landAudioSource.PlayOneShot(landClip);
+        }
+
+        internal static bool ShouldPlayPendingLandSound(bool pending, bool landClipActive) =>
+            pending && landClipActive;
+
         internal static bool ShouldPlayJumpSound(bool groundedSeen, bool alreadyPlayed,
             bool grounded, float rise, PlayerPosture posture) =>
             groundedSeen && !alreadyPlayed && !grounded && rise > .001f && rise < 1f &&
             posture == PlayerPosture.Standing;
+
+        internal static bool ShouldPlayLandSound(bool wasAirborne, bool jumped,
+            bool grounded, PlayerPosture posture) =>
+            wasAirborne && jumped && grounded && posture == PlayerPosture.Standing;
 
         private string ResolveDesiredState()
         {
@@ -485,11 +619,16 @@ namespace Game.Client.Players
 
             if (posture != lastPosture)
             {
-                var transition = TransitionClip(lastPosture, posture, carrying);
+                var from = lastPosture;
+                var transition = TransitionClip(from, posture, carrying);
                 lastPosture = posture;
                 if (transition != null)
                 {
                     PlayOneShot(transition, TransitionSeconds(transition));
+                    if (ShouldPlayPostureSwoosh(from, posture))
+                    {
+                        PlayPostureSwoosh();
+                    }
                 }
             }
 
@@ -829,6 +968,19 @@ namespace Game.Client.Players
             }
 
             return 0f;
+        }
+
+        internal static bool ShouldPlayPostureSwoosh(PlayerPosture from, PlayerPosture to) =>
+            from != to && TransitionClip(from, to, false) != null;
+
+        private void PlayPostureSwoosh()
+        {
+            if (postureSwooshAudioSource != null && postureSwooshAudioSource.isActiveAndEnabled)
+            {
+                postureSwooshAudioSource.volume =
+                    PostureSwooshAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+                postureSwooshAudioSource.PlayOneShot(postureSwooshClip);
+            }
         }
 
         internal static string TransitionClip(PlayerPosture from, PlayerPosture to, bool carrying) => (from, to) switch

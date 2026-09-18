@@ -95,10 +95,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 35eb5ffe1d38b2743a322e143ad7820d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.CarryableItem
-  displayName: "\uD55C\uC190\uAC80 6"
+  displayName: "\uD55C\uC190\uAC80"
   objectId: 
   isPlayerItem: 0
   ownerPlayerIndex: -1
+  preparedForBuild: 0
+  preparedCenter: {x: 0, y: 0, z: 0}
+  preparedExtents: {x: 0, y: 0, z: 0}
+  preparedScale: {x: 0, y: 0, z: 0}
 --- !u!1001 &5364159426718453322
 PrefabInstance:
   m_ObjectHideFlags: 0

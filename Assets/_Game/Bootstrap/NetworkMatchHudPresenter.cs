@@ -46,6 +46,7 @@ namespace Game.Bootstrap
         }
         private double noticeEndsAt;
         private double gameEndNoticeEndsAt = -1d;
+        private bool matchEndBellPlayed;
         // 맵에 파쇄기가 여러 대일 수 있으므로 전부 모아 두고, 화면에 보이고 벽이 가리지 않는 것 중
         // 카메라에 가장 가까운 것만 표시한다.
         private readonly List<Transform> shredders = new();
@@ -225,6 +226,8 @@ namespace Game.Bootstrap
             if (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting)
             {
                 gameEndNoticeEndsAt = -1d;
+                matchEndBellPlayed = false;
+                view.ResetMatchEndBell();
             }
             if (received.Phase == MatchPhase.Highlight || received.Phase == MatchPhase.Result)
             {
@@ -268,6 +271,11 @@ namespace Game.Bootstrap
         private void OnMatchResultReceived(MatchResult result)
         {
             if (!CanUpdateView) { Dispose(); return; }
+            if (!matchEndBellPlayed)
+            {
+                matchEndBellPlayed = true;
+                view.PlayMatchEndBell();
+            }
             if (result.EndReason == MatchEndReason.LastPlayerStanding) return;
             gameEndNoticeEndsAt = result.EndedAt + HighlightPresentationTiming.FadeSeconds;
             UpdateGameEndNotice();

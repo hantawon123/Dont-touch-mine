@@ -64,7 +64,7 @@ namespace Game.Bootstrap
         {
             // Master is already applied through AudioListener.volume.
             musicVolume = Mathf.Clamp01(settings.Get(SoundVolume.Music) / (float)SoundCatalog.MaxVolume);
-            source.volume = musicVolume * fadeGain;
+            source.volume = ResolvedVolume();
         }
 
         private void OnStateChanged(AppFlowState state)
@@ -147,7 +147,7 @@ namespace Game.Bootstrap
             // until the capture device has left the mixer.
             var target = inMenu && !ducked ? 1f : 0f;
             fadeGain = Mathf.MoveTowards(fadeGain, target, Mathf.Max(0f, deltaTime) / FadeSeconds);
-            source.volume = musicVolume * fadeGain;
+            source.volume = ResolvedVolume();
             if (fadeGain != target) return;
             fading = false;
             if (!inMenu || ducked)
@@ -170,5 +170,7 @@ namespace Game.Bootstrap
             sound.AudioChanged -= ApplyVolume;
             if (source != null) source.Stop();
         }
+
+        private float ResolvedVolume() => musicVolume * fadeGain * SoundCatalog.BgmPlaybackVolume;
     }
 }
