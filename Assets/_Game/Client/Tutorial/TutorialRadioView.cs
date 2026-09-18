@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using Game.Core.Tutorial;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 
@@ -16,6 +17,7 @@ namespace Game.Client.Tutorial
         private TutorialRadioPresenter presenter;
         private Coroutine sequence;
         private CanvasGroup radioGroup;
+        private KeySettingGuideView keyGuide;
 
         public string CurrentMessage => messageText != null ? messageText.text : string.Empty;
 
@@ -34,7 +36,7 @@ namespace Game.Client.Tutorial
                 radioGroup = radioPanel.AddComponent<CanvasGroup>();
             radioGroup.alpha = 1f;
 
-            var keyGuide = KeySettingGuideView.Ensure(transform);
+            keyGuide = KeySettingGuideView.Ensure(transform);
             keyGuide.AlwaysVisible = true;
 
             presenter = new TutorialRadioPresenter(this, session);
@@ -42,6 +44,35 @@ namespace Game.Client.Tutorial
         }
 
         private void OnDestroy() => presenter?.Dispose();
+
+        internal void HighlightStep(TutorialStep step)
+        {
+            switch (step)
+            {
+                case TutorialStep.MoveAndLook:
+                    keyGuide.SetFocus("이동 · 마우스로 주변 살피기", ControlAction.MoveForward, ControlAction.MoveLeft, ControlAction.MoveBackward, ControlAction.MoveRight); break;
+                case TutorialStep.Sprint:
+                    keyGuide.SetFocus("이동하며 달리기", ControlAction.Sprint, ControlAction.MoveForward); break;
+                case TutorialStep.Jump:
+                    keyGuide.SetFocus("달려서 구덩이 뛰어넘기", ControlAction.Jump, ControlAction.Sprint); break;
+                case TutorialStep.Crouch:
+                    keyGuide.SetFocus("1인칭으로 앉아서 통로 끝까지", ControlAction.Crouch, ControlAction.ToggleView); break;
+                case TutorialStep.Prone:
+                    keyGuide.SetFocus("1인칭으로 기어서 통로 끝까지", ControlAction.Prone, ControlAction.ToggleView); break;
+                case TutorialStep.PickUp:
+                    keyGuide.SetFocus("상자를 바라보고 들기", ControlAction.Interact); break;
+                case TutorialStep.Drop:
+                    keyGuide.SetFocus("상자 내려놓기", ControlAction.Interact); break;
+                case TutorialStep.Throw:
+                    keyGuide.SetFocus("상자 던지기", ControlAction.PrimaryAction); break;
+                case TutorialStep.Place:
+                    keyGuide.SetFocus("배치 모드 · 회전 · 배치", ControlAction.PlacementMode, ControlAction.RotateLeft, ControlAction.RotateRight, ControlAction.RaiseObject, ControlAction.LowerObject, ControlAction.PrimaryAction); break;
+                case TutorialStep.UseShredder:
+                    keyGuide.SetFocus("상자를 들고 파쇄기 사용", ControlAction.Interact); break;
+                case TutorialStep.Complete:
+                    keyGuide.SetFocus("출구 문을 바라보고 열기", ControlAction.Interact); break;
+            }
+        }
 
         internal void Show(string message)
         {
@@ -106,6 +137,7 @@ namespace Game.Client.Tutorial
         {
             session.StepChanged += OnStepChanged;
             session.StepRetried += OnStepRetried;
+            view.HighlightStep(displayedStep);
             view.ShowThen(Intro, Instruction(displayedStep));
         }
 
@@ -119,6 +151,7 @@ namespace Game.Client.Tutorial
         {
             var completedStep = displayedStep;
             displayedStep = nextStep;
+            view.HighlightStep(nextStep);
             view.ShowThen(Completion(completedStep), Instruction(nextStep));
         }
 

@@ -70,7 +70,9 @@ namespace Game.Tests.PlayMode
             var keyGuide = Object.FindAnyObjectByType<Game.Client.KeySettingGuideView>();
             Assert.That(keyGuide, Is.Not.Null);
             Assert.That(keyGuide.AlwaysVisible, Is.True);
+            Assert.That(keyGuide.transform.Find("Focus").GetComponent<TMPro.TMP_Text>().text, Does.Contain("주변 살피기"));
             session.ObserveMovement(Observe(distance: 6f, look: 30f));
+            Assert.That(keyGuide.transform.Find("Row4/Action").GetComponent<TMPro.TMP_Text>().fontStyle, Is.EqualTo(TMPro.FontStyles.Bold));
             Assert.That(radio.CurrentMessage, Does.Contain("벽을 보고 걷지는"));
             yield return new WaitForSecondsRealtime(2f);
             Assert.That(radio.CurrentMessage, Does.Contain("전력으로 달려"));
