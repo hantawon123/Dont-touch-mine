@@ -51,6 +51,12 @@ namespace Game.Client.Interactions
 
         public const string PlaceActionLabel = "배치";
 
+        /// <summary>배치 가능 상태의 홀로그램 머티리얼. 물리 들기 테스트가 같은 실루엣을 쓴다.</summary>
+        public Material GhostValidMaterial => ghostValidMaterial;
+
+        /// <summary>배치 불가(겹침) 상태의 홀로그램 머티리얼.</summary>
+        public Material GhostInvalidMaterial => ghostInvalidMaterial;
+
         public bool IsPlacing { get; private set; }
 
         /// <summary>결과 화면 등 외부에서 배치 모드 진입을 막을 때 사용한다. 켜지면 진행 중인 배치도 끝낸다.</summary>
@@ -59,7 +65,10 @@ namespace Game.Client.Interactions
         /// <summary>
         /// 배치 확정 좌클릭이 손을 비운 뒤 같은 입력으로 펀치가 나가지 않게 한다.
         /// </summary>
-        public bool BlocksAttack => IsPlacing || suppressAttackUntilRelease;
+        public bool BlocksAttack => IsPlacing || suppressAttackUntilRelease || ExternalAttackBlock;
+
+        /// <summary>물리 들기 테스트처럼 좌클릭을 다른 용도(배치 확정)로 쓰는 동안 펀치가 나가지 않게 외부에서 켠다.</summary>
+        public bool ExternalAttackBlock { get; set; }
 
         private bool suppressAttackUntilRelease;
 
@@ -435,7 +444,16 @@ namespace Game.Client.Interactions
         {
             placementCenterOffset = item.PlacementCenterOffset;
             placementHalfExtents = item.PlacementHalfExtents;
-            ghost = Instantiate(item.gameObject);
+            ghost = CreateGhostObject(item, ghostValidMaterial, out ghostRenderers);
+        }
+
+        /// <summary>
+        /// 물건의 겉모습만 복제한 홀로그램을 만든다. 콜라이더·리지드바디·CarryableItem을 떼고 모든 렌더러를 한 머티리얼로 칠한다.
+        /// 배치 모드와 물리 들기 테스트가 함께 쓴다.
+        /// </summary>
+        public static GameObject CreateGhostObject(CarryableItem item, Material material, out Renderer[] renderers)
+        {
+            var ghost = Instantiate(item.gameObject);
             ghost.name = "PlacementGhost";
 
             foreach (var component in ghost.GetComponentsInChildren<Collider>())
@@ -457,24 +475,28 @@ namespace Game.Client.Interactions
                 Destroy(ghostBody);
             }
 
-            ghostRenderers = ghost.GetComponentsInChildren<Renderer>();
-            foreach (var ghostRenderer in ghostRenderers)
+            renderers = ghost.GetComponentsInChildren<Renderer>();
+            foreach (var ghostRenderer in renderers)
             {
                 // 1인칭에서는 들고 있는 원본이 화면에서 숨겨져(forceRenderingOff) 있다. Instantiate가 이 플래그를
                 // 복사하지는 않지만, 미리보기 복제본은 반드시 보여야 하므로 명시적으로 켠다.
                 ghostRenderer.forceRenderingOff = false;
+                ghostRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
-            ApplyGhostMaterial(ghostValidMaterial);
+            ApplyGhostMaterial(renderers, material);
+            return ghost;
         }
 
-        private void ApplyGhostMaterial(Material material)
+        private void ApplyGhostMaterial(Material material) => ApplyGhostMaterial(ghostRenderers, material);
+
+        public static void ApplyGhostMaterial(Renderer[] renderers, Material material)
         {
-            if (ghostRenderers == null)
+            if (renderers == null || material == null)
             {
                 return;
             }
 
-            foreach (var ghostRenderer in ghostRenderers)
+            foreach (var ghostRenderer in renderers)
             {
                 var materials = ghostRenderer.sharedMaterials;
                 for (var i = 0; i < materials.Length; i++)

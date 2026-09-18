@@ -232,7 +232,7 @@ namespace Game.Client.Cameras
                 SetCursorLocked(true);
             }
 
-            if (Game.Client.Common.WebPointerInput.IsLocked)
+            if (Game.Client.Common.WebPointerInput.IsLocked && !LookSuspended)
             {
                 var look = lookAction.ReadValue<Vector2>();
                 var settings = controls?.Current ?? ControlCatalog.Defaults;
@@ -292,7 +292,7 @@ namespace Game.Client.Cameras
             // 다른 플레이어에게는 계속 보이고, 3인칭으로 돌아오거나 놓으면 바로 다시 그린다.
             heldItemView.Apply(
                 followInteractor != null ? followInteractor.CarriedItem : null,
-                firstPersonView && firstPersonHold.hideItem,
+                HideHeldItemOverride || firstPersonView && firstPersonHold.hideItem && !ShowHeldItemOverride,
                 rescanRenderers);
         }
 
@@ -302,6 +302,25 @@ namespace Game.Client.Cameras
         /// </summary>
         public PlayerMovement FollowMovement => followMovement;
         public Transform FollowTarget => followTarget;
+
+        /// <summary>지금 1인칭 카메라가 활성인지. 물리 들기 테스트가 1인칭에서만 켜지도록 본다.</summary>
+        public bool IsFirstPerson => isFirstPerson;
+
+        /// <summary>
+        /// true인 동안 마우스 이동이 시선을 돌리지 않는다. 물리 들기 테스트가 우클릭 회전 중 마우스를 물건 쪽으로
+        /// 가져갈 때 켠다. 커서 잠금·토글 등 나머지 입력은 그대로다.
+        /// </summary>
+        public bool LookSuspended { get; set; }
+
+        /// <summary>
+        /// true면 1인칭이어도 들고 있는 물건을 숨기지 않는다. 물건을 눈앞에 물리 몸체로 띄우는 물리 들기 테스트가 켠다.
+        /// </summary>
+        public bool ShowHeldItemOverride { get; set; }
+
+        /// <summary>
+        /// true면 시점과 무관하게 들고 있는 물건을 내 화면에서 숨긴다. 배치 모드가 실루엣만 보이게 할 때 켠다(3인칭 포함).
+        /// </summary>
+        public bool HideHeldItemOverride { get; set; }
 
         public void SetMigrationSuspended(bool suspended) => migrationSuspended = suspended;
 

@@ -146,6 +146,11 @@ namespace Game.Client.Interactions
 
         public bool IsCarrying => CarriedItem != null;
 
+        /// <summary>같은 캐릭터에 런타임으로 붙는 보조 컴포넌트(물리 들기 테스트 등)가 같은 입력 에셋을 쓰게 한다.</summary>
+        public InputActionAsset InputActions => inputActions;
+
+        public InteractionConfigSO InteractionConfig => interactionConfig;
+
         public Transform HoldPoint => holdPoint;
 
         private Transform firstPersonCamera;
@@ -266,6 +271,15 @@ namespace Game.Client.Interactions
 
         /// <summary>배치 모드 등 좌클릭을 다른 용도로 쓰는 동안 던지기를 막는다.</summary>
         public bool IsThrowSuppressed { get; set; }
+
+        /// <summary>들고 있는 물건이 다른 물건과 겹쳐 놓을 수 없는 동안 F 놓기를 막는다(물리 들기 테스트).</summary>
+        public bool IsDropSuppressed { get; set; }
+
+        /// <summary>
+        /// 들고 있는 상태에서 조준한 상호작용 대상이 없을 때의 F를 가로챈다. true를 돌려주면 기본 동작(놓기)을 하지 않는다.
+        /// 물리 들기 테스트가 1인칭에서 F를 '배치 모드 켜기/끄기'로 쓰기 위해 등록한다.
+        /// </summary>
+        public System.Func<bool> InteractWhileCarryingOverride { get; set; }
 
         /// <summary>기절 등 외부에서 상호작용 입력을 잠글 때 사용한다.</summary>
         public bool IsInputLocked { get; set; }
@@ -418,9 +432,9 @@ namespace Game.Client.Interactions
                     {
                         aimedInteractable.Interact(this);
                     }
-                    else
+                    else if (InteractWhileCarryingOverride == null || !InteractWhileCarryingOverride())
                     {
-                        DropCarried();
+                        if (!IsDropSuppressed) DropCarried();
                     }
                 }
                 else if (aimedInteractable != null && aimedInteractable.CanInteract(this))

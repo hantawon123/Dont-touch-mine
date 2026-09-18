@@ -67,9 +67,27 @@ namespace Game.Bootstrap
         [SerializeField]
         private InputActionAsset inputActions;
 
+        /// <summary>
+        /// [테스트] Playground에 미리 놓인 단독 테스트 캐릭터에만 PLACE TO FIT 방식 물리 들기를 붙인다.
+        /// 네트워크로 스폰되는 아바타는 이 시점에 없으므로 영향이 없고, 다른 씬은 이 스코프를 쓰지 않는다.
+        /// </summary>
+        private void AttachPhysicalHoldTest()
+        {
+            foreach (var root in sceneRoots)
+            {
+                if (root == null) continue;
+                foreach (var interactor in root.GetComponentsInChildren<Game.Client.Interactions.PlayerInteractor>(true))
+                {
+                    if (interactor.GetComponent<Game.Client.Interactions.PhysicalHoldController>() == null)
+                        interactor.gameObject.AddComponent<Game.Client.Interactions.PhysicalHoldController>();
+                }
+            }
+        }
+
         protected override void Awake()
         {
             sceneRoots = gameObject.scene.GetRootGameObjects();
+            AttachPhysicalHoldTest();
             if (gameObject.scene.isLoaded)
             {
                 EnsureGameplayEventSystem();
