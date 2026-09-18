@@ -59,9 +59,9 @@ namespace Game.Core.Tutorial
     /// </summary>
     public sealed class TutorialProgress
     {
-        private const float RequiredMoveDistance = 2.5f;
+        internal const float RequiredMoveDistance = 6f;
         private const float RequiredLookDegrees = 30f;
-        private const float RequiredSprintDistance = 3f;
+        internal const float RequiredSprintDistance = 8f;
 
         private float distance;
         private float lookDegrees;

@@ -45,8 +45,8 @@ namespace Game.Tests.EditMode
         private static TutorialProgress AtItemLessons()
         {
             var progress = new TutorialProgress();
-            progress.ObserveMovement(Observe(distance: 3f, look: 30f));
-            progress.ObserveMovement(Observe(distance: 3f, speed: 6f));
+            progress.ObserveMovement(Observe(distance: 6f, look: 30f));
+            progress.ObserveMovement(Observe(distance: 8f, speed: 6f));
             progress.ObserveMovement(Observe(grounded: true));
             progress.ObserveMovement(Observe(grounded: false));
             progress.ObserveMovement(Observe(grounded: true));

@@ -15,6 +15,9 @@ namespace Game.Tests.EditMode
             Assert.That(progress.CurrentStep, Is.EqualTo(TutorialStep.MoveAndLook));
 
             progress.ObserveMovement(Observe(look: 30f));
+            Assert.That(progress.CurrentStep, Is.EqualTo(TutorialStep.MoveAndLook));
+
+            progress.ObserveMovement(Observe(distance: 3f));
             Assert.That(progress.CurrentStep, Is.EqualTo(TutorialStep.Sprint));
         }
 
@@ -26,7 +29,10 @@ namespace Game.Tests.EditMode
             progress.ObserveMovement(Observe(distance: 5f, speed: 3f));
             Assert.That(progress.CurrentStep, Is.EqualTo(TutorialStep.Sprint));
 
-            progress.ObserveMovement(Observe(distance: 3f, speed: 6f));
+            progress.ObserveMovement(Observe(distance: 7f, speed: 6f));
+            Assert.That(progress.CurrentStep, Is.EqualTo(TutorialStep.Sprint));
+
+            progress.ObserveMovement(Observe(distance: 1f, speed: 6f));
             Assert.That(progress.CurrentStep, Is.EqualTo(TutorialStep.Jump));
         }
 
@@ -75,14 +81,14 @@ namespace Game.Tests.EditMode
         private static TutorialProgress AtSprint()
         {
             var progress = new TutorialProgress();
-            progress.ObserveMovement(Observe(distance: 3f, look: 30f));
+            progress.ObserveMovement(Observe(distance: 6f, look: 30f));
             return progress;
         }
 
         private static TutorialProgress AtJump()
         {
             var progress = AtSprint();
-            progress.ObserveMovement(Observe(distance: 3f, speed: 6f));
+            progress.ObserveMovement(Observe(distance: 8f, speed: 6f));
             return progress;
         }
 
