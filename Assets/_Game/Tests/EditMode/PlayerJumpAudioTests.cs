@@ -67,12 +67,12 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void LandSoundIsQuieterAndWaitsForTheFootPlant()
+        public void LandSoundPlaysWhenTheLandClipStarts()
         {
             Assert.That(PlayerAnimationDriver.LandAudioVolume, Is.EqualTo(.64f).Within(.001f));
-            Assert.That(
-                PlayerAnimationDriver.LandImpactSeconds,
-                Is.EqualTo(4f / 30f).Within(.001f));
+            Assert.That(PlayerAnimationDriver.ShouldPlayPendingLandSound(true, false), Is.False);
+            Assert.That(PlayerAnimationDriver.ShouldPlayPendingLandSound(false, true), Is.False);
+            Assert.That(PlayerAnimationDriver.ShouldPlayPendingLandSound(true, true), Is.True);
         }
     }
 }
