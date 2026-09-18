@@ -15,6 +15,13 @@ namespace Game.Tests.PlayMode
 {
     public sealed class TutorialSceneSmokeTests
     {
+        [Test]
+        public void LowPassageRadioRequestsFirstPersonView()
+        {
+            Assert.That(TutorialRadioPresenter.Instruction(TutorialStep.Crouch), Does.Contain("V로 1인칭"));
+            Assert.That(TutorialRadioPresenter.Instruction(TutorialStep.Prone), Does.Contain("V로 1인칭"));
+        }
+
         [UnityTest]
         public IEnumerator TutorialStartsWithLocalPlayerCameraAndCourse()
         {

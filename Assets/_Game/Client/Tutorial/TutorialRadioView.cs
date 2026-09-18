@@ -124,13 +124,13 @@ namespace Game.Client.Tutorial
 
         private void OnStepRetried(TutorialStep step) => view.ShowThen(Retry(step), Instruction(step));
 
-        private static string Instruction(TutorialStep step) => step switch
+        internal static string Instruction(TutorialStep step) => step switch
         {
             TutorialStep.MoveAndLook => "주변을 살피면서 앞으로 이동해. 좋은 도둑은 발보다 눈이 먼저 움직이는 법이지.",
             TutorialStep.Sprint => "일이 틀어지면 망설일 시간이 없다. 건너편까지 전력으로 달려.",
             TutorialStep.Jump => "앞이 끊겨 있군. 달려가서 뛰어넘어. 떨어지면 다시 올라오게 해주지. 한 번만.",
-            TutorialStep.Crouch => "통로가 낮다. 몸을 숙이고 지나가. 머리를 부딪치면 네 책임이다.",
-            TutorialStep.Prone => "이번 통로는 더 낮아. 바닥에 엎드려서 통과해. 옷이 더러워지는 건 업무에 포함된다.",
+            TutorialStep.Crouch => "통로가 낮다. V로 1인칭 시점으로 바꾸고 몸을 숙여 지나가. 앞이 보여야 잠입도 하지.",
+            TutorialStep.Prone => "이번 통로는 더 낮아. V로 1인칭 시점을 확인한 뒤 바닥에 엎드려서 통과해.",
             TutorialStep.PickUp => "상자 하나가 보일 거다. 가까이 가서 들어 올려. 오늘부터 네가 지켜야 할 물건이다.",
             TutorialStep.Drop => "표시된 구역까지 운반한 다음 바닥에 내려놔. 던지지 말고 얌전히.",
             TutorialStep.Throw => "이번엔 표적을 봐. 힘을 조절해서 상자를 던져.",
