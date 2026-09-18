@@ -14,7 +14,7 @@ namespace Game.Bootstrap
     public sealed class TutorialItemCourse : MonoBehaviour
     {
         private const float FallHeight = -2f;
-        private const float MaxDistanceFromSpawn = 20f;
+        private const float MaxDistanceFromPlayer = 20f;
 
         [SerializeField]
         private TutorialSession session;
@@ -30,6 +30,9 @@ namespace Game.Bootstrap
 
         [SerializeField]
         private ShredderInteractable shredder;
+
+        [SerializeField]
+        private Transform[] recoveryPoints;
 
         private Pose spawnPose;
 
@@ -48,32 +51,42 @@ namespace Game.Bootstrap
 
         private void OnEnable()
         {
-            if (interactor != null) interactor.LocalItemActionPerformed += OnItemAction;
-            if (shredder != null) shredder.ItemProcessed += OnShredderProcessed;
+            if (interactor != null)
+                interactor.LocalItemActionPerformed += OnItemAction;
+            if (shredder != null)
+                shredder.ItemProcessed += OnShredderProcessed;
         }
 
         private void OnDisable()
         {
-            if (interactor != null) interactor.LocalItemActionPerformed -= OnItemAction;
-            if (shredder != null) shredder.ItemProcessed -= OnShredderProcessed;
+            if (interactor != null)
+                interactor.LocalItemActionPerformed -= OnItemAction;
+            if (shredder != null)
+                shredder.ItemProcessed -= OnShredderProcessed;
         }
 
         private void Update()
         {
-            if (session.CurrentStep < TutorialStep.PickUp || session.IsComplete) return;
+            if (session.CurrentStep < TutorialStep.PickUp || session.IsComplete)
+                return;
 
             var retryRequested = Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame;
             var itemMissing = trainingItem == null;
             var itemOutOfBounds = !itemMissing &&
                 (trainingItem.transform.position.y < FallHeight ||
-                 Vector3.Distance(trainingItem.transform.position, spawnPose.position) > MaxDistanceFromSpawn);
-            if (retryRequested || itemMissing || itemOutOfBounds) RecoverItem();
+                 Vector3.Distance(trainingItem.transform.position, interactor.transform.position) > MaxDistanceFromPlayer);
+            if (retryRequested || itemMissing || itemOutOfBounds)
+                RecoverItem();
         }
 
         public void RecoverItem()
         {
             session.RetryCurrentStep();
-            if (interactor.CarriedItem == trainingItem) interactor.ReleaseCarriedItem();
+            int stage = (int)session.CurrentStep - (int)TutorialStep.PickUp;
+            if (recoveryPoints != null && stage >= 0 && stage < recoveryPoints.Length && recoveryPoints[stage] != null)
+                spawnPose = new Pose(recoveryPoints[stage].position, recoveryPoints[stage].rotation);
+            if (interactor.CarriedItem == trainingItem)
+                interactor.ReleaseCarriedItem();
 
             if (trainingItem == null)
             {
@@ -91,7 +104,8 @@ namespace Game.Bootstrap
 
         private void OnItemAction(LocalItemAction action, CarryableItem item)
         {
-            if (item != trainingItem) return;
+            if (item != trainingItem)
+                return;
             var tutorialAction = action switch
             {
                 LocalItemAction.PickedUp => TutorialInteractionAction.PickUp,

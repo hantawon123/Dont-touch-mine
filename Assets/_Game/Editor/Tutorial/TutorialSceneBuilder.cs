@@ -80,7 +80,7 @@ namespace Game.Editor.Tutorial
             foreach (var path in new[] { "Architecture/Ceiling", "Zones/01_Briefing", "Zones/02_Movement/WalkRunLane",
                 "Zones/02_Movement/JumpLane", "Zones/02_Movement/CrouchCrawlLane", "Zones/03_Items/PickupDrop/TrainingItem",
                 "Zones/03_Items/Throw", "Zones/03_Items/Placement", "Zones/04_Shredder/PurpleBear_Shredder", "Zones/05_Exit",
-                "Runtime/PlayerCharacter", "Runtime/PlayerCameraRig", "Runtime/TutorialCompletion" })
+                "Runtime/PlayerCharacter", "Runtime/PlayerCameraRig", "Zones/05_Exit/ExitDoor" })
                 Require(root, path);
             if (Mathf.Abs(root.Find("Architecture/Ceiling").position.y - 7.5f) > .01f)
                 throw new InvalidOperationException("Tutorial ceiling clearance changed.");
@@ -105,6 +105,8 @@ namespace Game.Editor.Tutorial
                 Directory.CreateDirectory("Logs/TutorialPreview");
                 Require(root, "Runtime").gameObject.SetActive(false);
                 Capture(new Vector3(-15.8f, 2.8f, 6.3f), new Vector3(-18, 1.5f, 12), false, 70, "Interior");
+                Capture(new Vector3(20, 1.1f, 4.2f), new Vector3(20, .8f, 1.5f), false, 70, "CrouchPassage");
+                Capture(new Vector3(20, .6f, .5f), new Vector3(20, .4f, -2), false, 70, "PronePassage");
                 // Presentation cutaway only. Restore every object's state even if capture fails.
                 foreach (var path in new[] { "Architecture/Ceiling", "Architecture/CeilingBeams", "Architecture/UpperWalls" })
                     Require(root, path).gameObject.SetActive(false);
@@ -113,8 +115,8 @@ namespace Game.Editor.Tutorial
                         t.gameObject.SetActive(false);
                 Capture(new Vector3(0, 30, -24), new Vector3(0, 0, 0), true, 19.4f, "Overview");
                 Capture(new Vector3(-13, 9, 2), new Vector3(-17, 1, 11), false, 53, "Lounge");
-                Capture(new Vector3(-10, 8, -14), new Vector3(-10, 1, -6), false, 63, "Workshop");
-                Capture(new Vector3(5, 8, -15), new Vector3(11, 1, -9), false, 58, "Disposal");
+                Capture(new Vector3(3, 8, -14), new Vector3(-5, 1, -7), false, 63, "Workshop");
+                Capture(new Vector3(-14, 7, -5), new Vector3(-20, 1, 1), false, 58, "Disposal");
             }
             finally
             {
@@ -187,6 +189,7 @@ namespace Game.Editor.Tutorial
             var movementObject = new SerializedObject(movement);
             movementObject.FindProperty("session").objectReferenceValue = session;
             movementObject.FindProperty("player").objectReferenceValue = player;
+            movementObject.FindProperty("fallCheckpoint").objectReferenceValue = root.Find("Zones/02_Movement/JumpCheckpoint");
             movementObject.ApplyModifiedPropertiesWithoutUndo();
 
             var itemCourse = runtime.gameObject.AddComponent<TutorialItemCourse>();
@@ -202,21 +205,15 @@ namespace Game.Editor.Tutorial
             itemObject.FindProperty("shredder").objectReferenceValue =
                 root.Find("Zones/04_Shredder/PurpleBear_Shredder")
                     .GetComponent<ShredderInteractable>();
+            var recoveryPaths = new[] { "Zones/03_Items/PickupDrop/TrainingItemSpawn", "Zones/03_Items/DropRecovery",
+                "Zones/03_Items/Throw/Recovery", "Zones/03_Items/Placement/Recovery", "Zones/04_Shredder/Recovery" };
+            var points = itemObject.FindProperty("recoveryPoints");
+            points.arraySize = recoveryPaths.Length;
+            for (int i = 0; i < recoveryPaths.Length; i++)
+                points.GetArrayElementAtIndex(i).objectReferenceValue = Require(root, recoveryPaths[i]);
             itemObject.ApplyModifiedPropertiesWithoutUndo();
 
-            var exitMarker = root.Find("Zones/05_Exit/TutorialComplete");
-            if (exitMarker == null)
-            {
-                throw new InvalidOperationException("Tutorial completion marker is missing.");
-            }
-
-            var completion = new GameObject("TutorialCompletion");
-            completion.transform.SetParent(runtime, false);
-            completion.transform.position = exitMarker.position;
-            var trigger = completion.AddComponent<BoxCollider>();
-            trigger.isTrigger = true;
-            trigger.size = new Vector3(4.2f, 2.4f, 2.4f);
-            completion.AddComponent<TutorialCompletionTrigger>();
+            Require(root, "Zones/05_Exit/ExitDoor").gameObject.AddComponent<TutorialExitDoor>();
         }
 
         private static GameObject InstantiateRuntimePrefab(

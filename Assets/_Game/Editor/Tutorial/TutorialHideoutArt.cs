@@ -31,7 +31,7 @@ namespace Game.Editor.Tutorial
             Architecture();
             Lounge();
             Movement();
-            Corridor();
+            RouteGuides();
             Workshop();
             Disposal();
             Lighting();
@@ -40,21 +40,39 @@ namespace Game.Editor.Tutorial
         private void Architecture()
         {
             var p = Group(root, "Architecture");
-            B(p, "Foundation", V(0, -.25f, 0), V(47, .5f, 31), "243344", true, false);
-            B(p, "Floor", V(0, .01f, 0), V(46, .16f, 30), "898C8B", true, false);
+            // Three separate slabs leave a real 2m gap through both floor and foundation.
+            foreach (var slab in new[] { V(-4, 0, 0), V(20, 0, 0), V(16, 0, -5) })
+            {
+                var size = slab.x == -4 ? V(38, .6f, 30) : slab.x == 20 ? V(6, .6f, 30) : V(2, .6f, 20);
+                B(p, "FloorSlab", slab + V(0, -.21f, 0), size, "898C8B", true, false);
+            }
+            B(p, "PitBottom", V(16, -5, 10), V(2, .2f, 10), "243344", true, false);
+            foreach (float x in new[] { 14.96f, 17.04f })
+                B(p, "PitFace", V(x, -2.4f, 10), V(.08f, 4.8f, 10), "435365", false, false);
             StoneFloor(p);
             upperWalls = Group(p, "UpperWalls");
             Wall(p, "North", V(-23, 0, 15), V(23, 0, 15));
             Wall(p, "South", V(-23, 0, -15), V(23, 0, -15));
             Wall(p, "West", V(-23, 0, -15), V(-23, 0, 15));
             Wall(p, "East", V(23, 0, -15), V(23, 0, 15));
-            Wall(p, "NorthRooms", V(-23, 0, 5), V(23, 0, 5), 9, 20, 43);
-            Wall(p, "SouthRooms", V(-23, 0, -3.5f), V(23, 0, -3.5f), 8, 33);
-            Wall(p, "LoungeTraining", V(-10, 0, 5), V(-10, 0, 15), 3);
-            Wall(p, "TrainingTraversal", V(4, 0, 5), V(4, 0, 15), 3);
-            Wall(p, "WorkshopDisposal", V(4, 0, -15), V(4, 0, -3.5f), 6);
-            Wall(p, "DisposalService", V(17, 0, -15), V(17, 0, -3.5f), 4);
-            Wall(p, "ExitVestibule", V(17, 0, -8), V(23, 0, -8), 3);
+            Wall(p, "NorthRooms", V(-23, 0, 5), V(23, 0, 5), 43);
+            Wall(p, "SouthRooms", V(-23, 0, -3.5f), V(23, 0, -3.5f), 4, 43);
+            Wall(p, "BriefingWalk", V(-10, 0, 5), V(-10, 0, 15), 5);
+            Wall(p, "WalkSprint", V(0, 0, 5), V(0, 0, 15), 5);
+            Wall(p, "SprintJump", V(12, 0, 5), V(12, 0, 15), 5);
+            Wall(p, "PickupDrop", V(7, 0, -15), V(7, 0, -3.5f), 5);
+            Wall(p, "ThrowPlacement", V(-13, 0, -15), V(-13, 0, -3.5f), 5);
+            Wall(p, "CoreWest", V(-15, 0, -3.5f), V(-15, 0, 5));
+            Wall(p, "CoreEast", V(17, 0, -3.5f), V(17, 0, 5));
+            B(p, "SealedServiceCore", V(1, 1.7f, .75f), V(31.5f, 3.2f, 8), "35495E", true, false);
+            Vent(p, V(-1, 2, -3.86f), 3.5f, 2);
+            // Former corridor entrances remain visibly shut, backed by a continuous wall.
+            foreach (float x in new[] { -14f, -3f, 10f })
+            {
+                var closed = Group(p, "ClosedServiceDoor", V(x, 0, 5.39f));
+                B(closed, "Panel", V(0, 1.7f, 0), V(2.5f, 3.2f, .12f), "4F5D6C", true);
+                B(closed, "LockBar", V(0, 1.5f, .12f), V(2.6f, .12f, .12f), "B25F42");
+            }
 
             B(p, "Ceiling", V(0, 7.5f, 0), V(46.5f, .3f, 30.5f), "435365", true, false)
                 .GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
@@ -73,8 +91,8 @@ namespace Game.Editor.Tutorial
             for (int x = 0; x < 24; x++)
                 for (int z = 0; z < 16; z++)
                 {
-                    float dx = x == 0 || x == 23 ? 0 : (float)seed.NextDouble() * .95f - .475f;
-                    float dz = z == 0 || z == 15 ? 0 : (float)seed.NextDouble() * .95f - .475f;
+                    float dx = x == 0 || x == 19 || x == 20 || x == 23 ? 0 : (float)seed.NextDouble() * .95f - .475f;
+                    float dz = z == 0 || z == 10 || z == 15 ? 0 : (float)seed.NextDouble() * .95f - .475f;
                     corners[x, z] = V(-23 + x * 2 + dx, .11f, -15 + z * 2 + dz);
                 }
             var vertices = Enumerable.Range(0, 5).Select(_ => new List<Vector3>()).ToArray();
@@ -82,6 +100,8 @@ namespace Game.Editor.Tutorial
             for (int x = 0; x < 23; x++)
                 for (int z = 0; z < 15; z++)
                 {
+                    if (x == 19 && z >= 10)
+                        continue;
                     var points = new[] { corners[x, z], corners[x, z + 1], corners[x + 1, z + 1], corners[x + 1, z] };
                     var center = points.Aggregate(Vector3.zero, (sum, point) => sum + point) * .25f;
                     int shade = seed.Next(5);
@@ -206,7 +226,7 @@ namespace Game.Editor.Tutorial
             EvidenceBoard(p, V(-18.6f, 2.25f, 14.48f), 4.9f);
             Plant(p, V(-21.5f, .12f, 6.45f), 1.65f);
             Plant(p, V(-15.1f, .12f, 13.2f), 1.4f);
-            var desk = Group(p, "CommandStation", V(-12.2f, .12f, 11.4f));
+            var desk = Group(p, "CommandStation", V(-12.2f, .12f, 12.9f));
             desk.localRotation = Quaternion.Euler(0, 90, 0);
             Table(desk, "Desk", V(0, 0, 0), V(4.5f, 1.08f, 1.35f));
             for (int i = -1; i <= 1; i++)
@@ -227,145 +247,111 @@ namespace Game.Editor.Tutorial
         private void Movement()
         {
             var p = Zone("02_Movement");
-            Group(p, "WalkRunLane", V(-6, 0, 9));
-            var jump = Group(p, "JumpLane");
-            Rack(p, V(-2, .12f, 13.8f), 6.8f);
-            Barrel(p, V(-6.2f, .12f, 13.3f), "427B9E");
-            Prop(p, "Basement_Ladder.prefab", "TrainingLadder", V(-8.5f, .12f, 13.6f), 0, 2.6f);
-            foreach (var position in new[] { V(-6.5f, .12f, 10.1f), V(-1.9f, .12f, 10.1f), V(-4.1f, .12f, 7f) })
-                Crate(jump, position, V(1.8f, .85f, 1.25f), 0);
-            foreach (var position in new[] { V(-7.7f, .12f, 11.2f), V(-3.9f, .12f, 10.5f), V(.8f, .12f, 9.8f), V(-1.6f, .12f, 6.5f) })
-                Prop(p, "Basement_RoadCone.prefab", "Cone", position, 0, .72f);
-            Hazard(p, V(-6.6f, .13f, 7.4f), new Vector2(2.6f, 4.2f));
-            foreach (float x in new[] { -7.7f, -5.5f })
-            {
-                B(jump, "HurdlePost", V(x, .67f, 7.4f), V(.2f, 1.1f, .25f), "9B784B", true);
-                B(jump, "HurdleFoot", V(x, .22f, 7.4f), V(.5f, .2f, 1.1f), "435568", true);
-            }
-            B(jump, "Hurdle", V(-6.6f, .72f, 7.4f), V(2.4f, .24f, .18f), "D5AC61", true);
-            Pipe(p, "TrainingPipe", "9B4E37", .11f, V(2.9f, .5f, 5.7f), V(2.9f, 1.6f, 5.7f), V(-.9f, 1.6f, 5.7f));
-            Pendant(p, V(-6.6f, 3.6f, 11.5f));
-            Pendant(p, V(-.4f, 3.6f, 8.2f));
-
-            var traversal = Group(p, "TraversalRoom");
-            Pipe(traversal, "RedUtilities", "A9533F", .14f, V(4.6f, 2.3f, 14.1f), V(8, 2.3f, 14.1f), V(8, .5f, 14.1f));
-            Pipe(traversal, "SilverUtilities", "9BA8AF", .12f, V(4.6f, 3.05f, 14.1f), V(11.4f, 3.05f, 14.1f), V(11.4f, 1.2f, 14.1f));
-            B(traversal, "CoveredEquipment", V(7.2f, 1.05f, 12.3f), V(2.8f, 1.9f, 1.8f), "567D6B", true);
-            B(traversal, "EquipmentPallet", V(7.2f, .22f, 12.3f), V(3.1f, .3f, 2), "A48350", true);
-            Prop(traversal, "Basement_Fusebox.prefab", "PowerCabinet", V(11, .14f, 13.5f), 0, 1.7f);
-            B(traversal, "TrenchDarkFloor", V(16.5f, .13f, 10.1f), V(3.9f, .045f, 8), "28323C");
-            // Faceted broken edges and planks suggest a repair trench; the bottom is walkable for novice recovery.
-            for (int i = 0; i < 9; i++)
-            {
-                foreach (float x in new[] { 14.45f, 18.55f })
-                {
-                    var rubble = B(traversal, "BrokenSlab", V(x, .2f, 6.4f + i * .86f), V(.8f, .28f, .75f), "777F82", true);
-                    rubble.transform.localRotation = Quaternion.Euler(0, random.Next(-25, 25), 0);
-                }
-            }
-            PlankBridge(traversal, V(16.5f, .36f, 7.8f), -14);
-            PlankBridge(traversal, V(16.5f, .55f, 12.1f), 12);
-            Crate(traversal, V(13.2f, .12f, 8.3f), V(1.4f, 1.4f, 1.4f), -8);
-            Crate(traversal, V(20.6f, .12f, 13.2f), V(2, 2, 1.8f), 0);
-            Crate(traversal, V(20.5f, 2.12f, 13.2f), V(1.7f, 1.4f, 1.6f), -4);
-            Hazard(traversal, V(20.1f, .13f, 9.7f), new Vector2(2.2f, 4.5f));
-            Fixture(traversal, "TraversalLight", V(16, 3.05f, 14.43f), false);
-
-            var crawl = Group(p, "CrouchCrawlLane", V(20, 0, -5.1f));
-            crawl.localRotation = Quaternion.Euler(0, 90, 0);
-            B(crawl, "CrouchLintel", V(0, 1.65f, 0), V(2f, .24f, 1.25f), "7E909E", true);
-            B(crawl, "CrawlLintel", V(0, .9f, -1.4f), V(2f, .18f, 1.1f), "7E909E", true);
-            foreach (float x in new[] { -1.05f, 1.05f })
-                B(crawl, "TunnelRail", V(x, .85f, -.7f), V(.18f, 1.5f, 2.8f), "435B71", true);
+            Group(p, "WalkRunLane", V(-5, 0, 10));
+            Group(p, "JumpLane", V(16, 0, 10));
+            var checkpoint = Group(p, "JumpCheckpoint", V(13.6f, .2f, 10));
+            checkpoint.localRotation = Quaternion.Euler(0, 90, 0);
+            Rack(p, V(-5, .12f, 13.8f), 5.8f);
+            Barrel(p, V(-8.5f, .12f, 13.4f), "427B9E");
+            for (int i = 0; i < 4; i++)
+                Prop(p, "Basement_RoadCone.prefab", "WalkingCone", V(-8 + i * 1.8f, .12f, i % 2 == 0 ? 8.2f : 11.8f), 0, .7f);
+            Rack(p, V(5, .12f, 13.8f), 5);
+            Pipe(p, "SprintPipe", "A9533F", .12f, V(1, 2.8f, 14.3f), V(10.5f, 2.8f, 14.3f), V(10.5f, 1, 14.3f));
+            foreach (float x in new[] { 14.65f, 17.35f })
+                Hazard(p, V(x, .13f, 10), new Vector2(.25f, 8.8f));
+            Crate(p, V(20.7f, .12f, 13.4f), V(1.4f, 1.4f, 1.4f), 0);
+            Pendant(p, V(-5, 3.7f, 10));
+            Pendant(p, V(6, 3.7f, 10));
+            Pendant(p, V(20, 3.7f, 10));
+            var crawl = Group(p, "CrouchCrawlLane");
+            // Solid bulkheads extend to the ceiling: neither side-stepping nor jumping over bypasses the lesson.
+            PosturePassage(crawl, "05_Crouch", 2.2f, 1.32f);
+            PosturePassage(crawl, "06_Prone", -1.1f, .78f);
+            Duct(p, V(22.4f, 3.6f, 4.5f), V(22.4f, 3.6f, -3), .65f);
         }
 
-        private void Corridor()
+        private void PosturePassage(Transform parent, string name, float z, float openingHeight)
         {
-            var p = Group(root, "ServiceCorridor");
-            Pipe(p, "HeatingFeed", "B25F42", .16f, V(-11, .6f, 4.35f), V(-11, 2.9f, 4.35f), V(7, 2.9f, 4.35f), V(7, 1.2f, 4.35f), V(14, 1.2f, 4.35f));
-            Pipe(p, "ReturnPipe", "97A7B2", .11f, V(-22, 3.18f, 4.24f), V(21, 3.18f, 4.24f), V(21, 1.8f, 4.24f));
-            Prop(p, "Basement_ToolBoard.prefab", "ToolBoard", V(-10.8f, 1.75f, 4.35f), 180, 1.6f);
-            Prop(p, "Basement_Cable1.prefab", "CableCoil", V(-8.6f, 1.65f, 4.22f), 180, 1.1f);
-            ToolCart(p, V(-10.5f, .12f, 3));
-            Bench(p, V(-5.2f, .12f, 3.2f), 3.2f, "715786");
-            Vent(p, V(.5f, 1.4f, 4.43f), 2.8f, 2.4f);
-            for (int i = 0; i < 4; i++)
-                Locker(p, V(6 + i * .9f, .12f, 3.55f));
-            Prop(p, "Basement_Fusebox.prefab", "ServiceFusebox", V(13.5f, 1.1f, 4.4f), 180, 1.3f);
-            ToolCart(p, V(13.6f, .12f, 3.3f));
-            Barrel(p, V(-19.2f, .12f, 3.5f), "485E70");
-            Rack(p, V(-21.1f, .12f, 1.8f), 3.3f, 90);
-            Cardboard(p, V(-20, .12f, -1.7f), 1.2f, 12);
-            Fence(p, V(-18.6f, 0, -1.65f), 3.4f, 90);
-            Fence(p, V(-21, 0, -3.15f), 3.6f, 0);
-            Grate(p, V(0, .135f, -1), new Vector2(2.3f, 2.1f));
-            foreach (float x in new[] { -19f, -7f, 4.5f, 15f })
-                Fixture(p, "CorridorLight", V(x, 3.05f, 4.45f), false);
-            Duct(p, V(17.5f, 3.2f, 3.6f), V(17.5f, 3.2f, -5.8f), .85f);
-            Duct(p, V(17.5f, 3.2f, -5.8f), V(21.3f, 3.2f, -5.8f), .85f);
+            var p = Group(parent, name, V(20, 0, z));
+            foreach (float x in new[] { -2f, 2f })
+                B(p, "TunnelSide", V(x, 3.65f, 0), V(2f, 7.3f, 1.4f), "435B71", true, false);
+            B(p, "LowLintel", V(0, (7.3f + openingHeight) * .5f, 0),
+                V(2.1f, 7.3f - openingHeight, 1.4f), "7E909E", true, false);
+            B(p, "PurpleClearanceStrip", V(0, openingHeight + .04f, .73f), V(1.95f, .08f, .08f), "975ABC");
+            Hazard(p, V(0, .13f, 0), new Vector2(1.8f, 1.5f));
+        }
+
+        private void RouteGuides()
+        {
+            var p = Group(root, "RouteGuides");
+            var points = new[] { V(-15.8f,.14f,8.6f), V(-5,.14f,10), V(6,.14f,10), V(13.7f,.14f,10),
+                V(20,.14f,3.7f), V(20,.14f,.4f), V(18,.14f,-9), V(3,.14f,-10), V(-6,.14f,-10),
+                V(-18,.14f,-10), V(-19,.14f,-2), V(-19,.14f,2.4f) };
+            for (int i = 0; i < points.Length; i++)
+            {
+                var marker = Group(p, $"Stage{i + 1:00}", points[i]);
+                var text = Group(marker, "Number", V(0, .015f, 0)).gameObject.AddComponent<TextMesh>();
+                text.text = $"{i + 1:00}";
+                text.fontSize = 64;
+                text.characterSize = .12f;
+                text.anchor = TextAnchor.MiddleCenter;
+                text.color = new Color(1, .77f, .35f);
+                text.transform.localRotation = Quaternion.Euler(90, 0, 0);
+                float yaw = i < 4 ? 90 : i < 6 ? 180 : i < 9 ? -90 : 0;
+                var arrow = Group(marker, "Direction", V(0, 0, -1.2f));
+                arrow.localRotation = Quaternion.Euler(0, yaw, 0);
+                B(arrow, "Stem", V(0, 0, 0), V(.2f, .015f, 1), "975ABC", false, false);
+                foreach (float side in new[] { -1f, 1f })
+                {
+                    var tip = B(arrow, "Head", V(side * .18f, 0, .43f), V(.18f, .015f, .6f), "975ABC", false, false);
+                    tip.transform.localRotation = Quaternion.Euler(0, side * -40, 0);
+                }
+            }
         }
 
         private void Workshop()
         {
             var p = Zone("03_Items");
-            var pickup = Group(p, "PickupDrop", V(-9, 0, -10));
-            Group(pickup, "TrainingItemSpawn", V(3, 1, -.5f));
-            var throwing = Group(p, "Throw", V(-9, 0, -7.1f));
-            Hazard(throwing, V(0, .13f, -1.5f), new Vector2(4.8f, 3.8f));
-            B(throwing, "TargetBackboard", V(0, 1.75f, 2.86f), V(4.6f, 3.1f, .2f), "75664E", true);
-            Target(throwing, V(0, 2.15f, 2.68f), 1.15f);
+            var pickup = Group(p, "PickupDrop", V(18, 0, -10));
+            Group(pickup, "TrainingItemSpawn", V(0, 1.4f, 0));
+            Bench(p, V(18, .12f, -10), 3.4f, "667879");
+            Hazard(p, V(18, .13f, -10), new Vector2(4.8f, 3.5f));
+            Rack(p, V(14, .12f, -13.7f), 6);
+            Cardboard(p, V(21.5f, .12f, -12.5f), 1.1f, 10);
+            Group(p, "DropRecovery", V(3, 1, -10));
+            Hazard(p, V(3, .13f, -10), new Vector2(3.8f, 3.5f));
+            var throwing = Group(p, "Throw", V(-6, 0, -10));
+            Group(throwing, "Recovery", V(0, 1, 0));
+            B(throwing, "TargetBackboard", V(0, 1.75f, 4.6f), V(4.6f, 3.1f, .2f), "75664E", true);
+            Target(throwing, V(0, 2.15f, 4.45f), 1.15f);
             for (int i = -1; i <= 1; i++)
-                B(throwing, "CrashPad", V(i * 1.35f, .46f, 1.15f), V(1.3f, .64f, 1.6f), "4E78AE", true);
-            var placement = Group(p, "Placement", V(-9, 0, -11.9f));
-            Hazard(placement, V(0, .13f, 0), new Vector2(4.8f, 3.2f));
-            Bench(p, V(-18.4f, .12f, -9), 4.1f, "667879");
-            Crate(p, V(-18.3f, 1.32f, -9), V(.95f, .85f, .8f), 10);
+                B(throwing, "CrashPad", V(i * 1.35f, .46f, 3), V(1.3f, .64f, 1.6f), "4E78AE", true);
+            var placement = Group(p, "Placement", V(-18, 0, -10));
+            Group(placement, "Recovery", V(0, 1, -1.8f));
+            Bench(placement, V(0, .12f, 0), 3.8f, "777D76");
+            Hazard(placement, V(0, .13f, 0), new Vector2(4.8f, 3.5f));
+            Rack(p, V(-21.5f, .12f, -12.5f), 3, 90);
+            Pipe(p, "WorkshopPipe", "B26445", .14f, V(-11, 1, -4.2f), V(-11, 3, -4.2f), V(5, 3, -4.2f), V(5, 1, -4.2f));
             for (int i = 0; i < 3; i++)
-            {
-                B(p, "SilhouetteBoard", V(-21 + i * 1.55f, 2.2f, -4), V(1.35f, 1.8f, .07f), "DBCAA8");
-                B(p, "SilhouetteTorso", V(-21 + i * 1.55f, 2.04f, -4.05f), V(.55f, .8f, .045f), "4E5050");
-                Sphere(p, "SilhouetteHead", V(-21 + i * 1.55f, 2.63f, -4.06f), V(.38f, .38f, .045f), "4E5050");
-            }
-            Rack(p, V(-21.7f, .12f, -11.6f), 4.5f, 90);
-            Rack(p, V(-2.4f, .12f, -13.6f), 7.6f);
-            for (int i = 0; i < 4; i++)
-                Locker(p, V(-3.5f + i * 1.02f, .12f, -4.55f));
-            Prop(p, "Basement_ToolBoard.prefab", "WorkshopToolBoard", V(2.8f, 1.4f, -6), -90, 2.1f);
-            ToolCart(p, V(2.35f, .12f, -5.9f));
-            Prop(p, "Basement_GasCylinder.prefab", "WeldingCylinder", V(-13, .12f, -4.5f), 0, 1.5f);
-            Prop(p, "Basement_Ladder.prefab", "WorkshopLadder", V(-4.3f, .12f, -5.1f), 0, 2.2f);
-            Cardboard(p, V(-20.4f, .12f, -13.3f), 1.15f, 3);
-            Pipe(p, "WorkshopPipe", "B26445", .14f, V(-13, 1.2f, -4.25f), V(-13, 3, -4.25f), V(3, 3, -4.25f), V(3, 1, -4.25f));
-            Pendant(p, V(-20.4f, 3.6f, -7.7f));
-            Pendant(p, V(-15.6f, 3.6f, -7.7f));
-            Pendant(p, V(-8.9f, 3.6f, -7.2f));
-            Fixture(p, "WorkshopLight", V(-1.2f, 3.05f, -4.05f), false);
+                Locker(p, V(10 + i, .12f, -4.5f));
+            foreach (float x in new[] { 18f, 3f, -6f, -18f })
+                Pendant(p, V(x, 3.7f, -10));
         }
 
         private void Disposal()
         {
             var p = Zone("04_Shredder");
-            Group(p, "ShredderOrigin", V(10.7f, .12f, -10.1f));
-            Hazard(p, V(10.7f, .13f, -10.1f), new Vector2(6.6f, 6.4f));
-            Bench(p, V(6.2f, .12f, -11.2f), 2.2f, "777D76");
-            Rack(p, V(15.8f, .12f, -13.7f), 1.9f, 90);
-            Cardboard(p, V(6.1f, .12f, -6.3f), 1.05f, 0);
-            Cardboard(p, V(14.9f, .12f, -6), 1.15f, 8);
-            Prop(p, "Basement_Fusebox.prefab", "DisposalSwitch", V(14.5f, 1.1f, -4.08f), 180, 1.2f);
-            Pipe(p, "DisposalRedPipe", "B56041", .15f, V(5, 2.9f, -4.2f), V(7.3f, 2.9f, -4.2f), V(7.3f, 1, -4.2f));
-            Duct(p, V(15.9f, 3.15f, -4.4f), V(15.9f, 3.15f, -8.1f), .88f);
-            Fixture(p, "DisposalLight", V(12.5f, 3.05f, -4.05f), false);
-            Pendant(p, V(10.7f, 3.9f, -9.5f));
+            Group(p, "ShredderOrigin", V(-21, .12f, .5f));
+            Group(p, "Recovery", V(-17.7f, 1, -1.5f));
+            Hazard(p, V(-21, .13f, .5f), new Vector2(4.5f, 4.5f));
+            Pipe(p, "DisposalRedPipe", "B56041", .15f, V(-22.5f, 2.9f, -2.8f), V(-22.5f, 2.9f, 3.8f));
             var exit = Zone("05_Exit");
-            // Closed exterior entrance is a destination marker; all inter-room doors are open.
-            var door = Group(exit, "ExitDoor", V(20, 0, -14.62f));
-            B(door, "Frame", V(0, 1.8f, 0), V(2.6f, 3.6f, .18f), "D7A553");
-            B(door, "Panel", V(0, 1.7f, .12f), V(2.28f, 3.18f, .16f), "59626A", true);
-            B(door, "Handle", V(.75f, 1.5f, .3f), V(.32f, .07f, .12f), "D8CCAA");
-            Fixture(exit, "ExitLamp", V(20, 3.85f, -14.3f), false);
-            Prop(exit, "Basement_PlasticBox_Blue.prefab", "ExitBin", V(22, .12f, -13.5f), 0, .85f);
-            Pipe(exit, "ExitConduit", "A65E43", .09f, V(17.5f, 2.8f, -14.2f), V(18.2f, 2.8f, -14.2f), V(18.2f, .4f, -14.2f));
-            Group(exit, "TutorialComplete", V(20, .2f, -12.7f));
+            var door = Group(exit, "ExitDoor", V(-19, 0, 4.53f));
+            B(door, "Frame", V(0, 1.8f, 0), V(2.8f, 3.6f, .2f), "D7A553");
+            B(door, "Panel", V(0, 1.7f, -.12f), V(2.4f, 3.18f, .16f), "59626A", true);
+            B(door, "Handle", V(.75f, 1.5f, -.3f), V(.32f, .07f, .12f), "D8CCAA");
+            Fixture(exit, "ExitLamp", V(-19, 3.9f, 4.3f), false);
+            Group(exit, "TutorialComplete", V(-19, .2f, 2.8f));
         }
 
         private void Lighting()
@@ -848,20 +834,20 @@ namespace Game.Editor.Tutorial
                 var v = Vector3.Cross(normal, u);
                 int first = vertices.Count;
                 foreach (float y in steps)
-                foreach (float x in steps)
-                {
-                    var point = normal * .5f + u * x + v * y;
-                    var core = V(Mathf.Clamp(point.x, -.42f, .42f), Mathf.Clamp(point.y, -.42f, .42f), Mathf.Clamp(point.z, -.42f, .42f));
-                    var n = (point - core).normalized;
-                    vertices.Add(core + n * .08f);
-                    normals.Add(n);
-                }
+                    foreach (float x in steps)
+                    {
+                        var point = normal * .5f + u * x + v * y;
+                        var core = V(Mathf.Clamp(point.x, -.42f, .42f), Mathf.Clamp(point.y, -.42f, .42f), Mathf.Clamp(point.z, -.42f, .42f));
+                        var n = (point - core).normalized;
+                        vertices.Add(core + n * .08f);
+                        normals.Add(n);
+                    }
                 for (int y = 0; y < 5; y++)
-                for (int x = 0; x < 5; x++)
-                {
-                    int a = first + y * 6 + x;
-                    triangles.AddRange(new[] { a, a + 1, a + 7, a, a + 7, a + 6 });
-                }
+                    for (int x = 0; x < 5; x++)
+                    {
+                        int a = first + y * 6 + x;
+                        triangles.AddRange(new[] { a, a + 1, a + 7, a, a + 7, a + 6 });
+                    }
             }
             mesh = new Mesh { name = "TutorialBeveledBox" };
             mesh.SetVertices(vertices);

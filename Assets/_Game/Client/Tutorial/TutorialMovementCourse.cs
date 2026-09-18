@@ -16,6 +16,9 @@ namespace Game.Client.Tutorial
         [SerializeField]
         private PlayerMovement player;
 
+        [SerializeField]
+        private Transform fallCheckpoint;
+
         private CharacterController characterController;
         private Vector3 previousPosition;
         private float previousYaw;
@@ -39,10 +42,18 @@ namespace Game.Client.Tutorial
 
         private void Update()
         {
-            if (session.CurrentStep > TutorialStep.Prone) return;
+            // Falling must recover even if the player already finished the movement lessons.
+            if (player.transform.position.y < FallHeight)
+            {
+                if (fallCheckpoint != null)
+                    checkpoint = new Pose(fallCheckpoint.position, fallCheckpoint.rotation);
+                Retry();
+                return;
+            }
+            if (session.CurrentStep > TutorialStep.Prone)
+                return;
 
-            if (player.transform.position.y < FallHeight ||
-                (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame))
+            if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
             {
                 Retry();
                 return;
@@ -65,15 +76,18 @@ namespace Game.Client.Tutorial
 
             previousPosition = position;
             previousYaw = yaw;
-            if (session.ObserveMovement(observation)) SaveCheckpoint();
+            if (session.ObserveMovement(observation))
+                SaveCheckpoint();
         }
 
         public void Retry()
         {
             session.RetryCurrentStep();
-            if (characterController != null) characterController.enabled = false;
+            if (characterController != null)
+                characterController.enabled = false;
             player.transform.SetPositionAndRotation(checkpoint.position, checkpoint.rotation);
-            if (characterController != null) characterController.enabled = true;
+            if (characterController != null)
+                characterController.enabled = true;
             previousPosition = checkpoint.position;
             previousYaw = CurrentCameraYaw();
             Debug.Log($"[Tutorial] Retrying step: {checkpointStep}", this);
