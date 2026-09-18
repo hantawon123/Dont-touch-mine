@@ -18,6 +18,11 @@ namespace Game.Client.Tutorial
         private Coroutine sequence;
         private CanvasGroup radioGroup;
         private KeySettingGuideView keyGuide;
+        [SerializeField] private Game.Client.Interactions.PlayerInteractor interactor;
+        private Game.Client.Interactions.ItemPlacementController placement;
+        private TutorialChecklistView checklist;
+        private bool wasCarrying;
+        private bool wasPlacing;
 
         public string CurrentMessage => messageText != null ? messageText.text : string.Empty;
 
@@ -38,6 +43,10 @@ namespace Game.Client.Tutorial
 
             keyGuide = KeySettingGuideView.Ensure(transform);
             keyGuide.AlwaysVisible = true;
+            keyGuide.ShowFocusCaption = false;
+            keyGuide.transform.localScale = Vector3.one * 1.18f;
+            placement = interactor.GetComponent<Game.Client.Interactions.ItemPlacementController>();
+            checklist = TutorialChecklistView.Create(transform);
 
             presenter = new TutorialRadioPresenter(this, session);
             presenter.Start();
@@ -45,8 +54,36 @@ namespace Game.Client.Tutorial
 
         private void OnDestroy() => presenter?.Dispose();
 
+        private void Update()
+        {
+            var carrying = interactor.CarriedItem != null;
+            var placing = placement.IsPlacing;
+            if (carrying == wasCarrying && placing == wasPlacing) return;
+            wasCarrying = carrying;
+            wasPlacing = placing;
+            HighlightStep(session.CurrentStep);
+        }
+
         internal void HighlightStep(TutorialStep step)
         {
+            var carrying = interactor.CarriedItem != null;
+            var placing = placement.IsPlacing;
+            var hint = step >= TutorialStep.PickUp && step <= TutorialStep.UseShredder && !carrying
+                ? "먼저 물건 들기 · " + KeySettingGuideView.CurrentKeyLabel(ControlAction.Interact)
+                : step == TutorialStep.Place && !placing
+                    ? "배치 모드 · " + KeySettingGuideView.CurrentKeyLabel(ControlAction.PlacementMode)
+                    : step == TutorialStep.Place ? "회전 Q/E · 스크롤 / 클릭 배치" : string.Empty;
+            checklist.Show(step, hint);
+            if (step >= TutorialStep.PickUp && step <= TutorialStep.UseShredder && !carrying)
+            {
+                keyGuide.SetFocus("물건 들기", ControlAction.Interact);
+                return;
+            }
+            if (step == TutorialStep.Place && !placing)
+            {
+                keyGuide.SetFocus("배치 모드", ControlAction.PlacementMode);
+                return;
+            }
             switch (step)
             {
                 case TutorialStep.MoveAndLook:

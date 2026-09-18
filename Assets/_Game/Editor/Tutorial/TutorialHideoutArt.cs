@@ -471,32 +471,47 @@ namespace Game.Editor.Tutorial
 
         private void Sofa(Transform p, Vector3 pos, float yaw, int seats)
         {
-            var g = Group(p, "TuftedSofa", pos);
-            g.localRotation = Quaternion.Euler(0, yaw, 0);
-            float width = seats * 1.45f;
-            B(g, "Base", V(0, .4f, 0), V(width + .4f, .65f, 1.75f), "57326F", true);
-            for (int i = 0; i < seats; i++)
-            {
-                float x = (i - (seats - 1) * .5f) * 1.45f;
-                B(g, "SeatCushion", V(x, .8f, -.18f), V(1.4f, .4f, 1.4f), "8850B4");
-                B(g, "BackCushion", V(x, 1.45f, .63f), V(1.4f, 1.1f, .44f), "975ABC");
-                Sphere(g, "TuftButton", V(x, 1.4f, .39f), V(.08f, .08f, .03f), "744194");
-            }
-            foreach (float side in new[] { -1f, 1f })
-            {
-                B(g, "Arm", V(side * (width * .5f + .12f), 1, 0), V(.38f, 1.1f, 1.85f), "814BA9", true);
-                B(g, "Foot", V(side * (width * .5f - .15f), .16f, 0), V(.17f, .25f, 1.2f), "293442");
-            }
+            var group = Group(p, "BriefingSeats", pos);
+            group.localRotation = Quaternion.Euler(0, yaw, 0);
+            for (var i = 0; i < seats; i++)
+                Prop(group, "Basement_OfficeChair.prefab", "BriefingChair", V((i - (seats - 1) * .5f) * 1.45f, 0, 0), 180, 1.6f);
         }
 
         private void Table(Transform p, string name, Vector3 pos, Vector3 size)
         {
-            var g = Group(p, name, pos);
-            B(g, "Top", V(0, size.y, 0), V(size.x, .18f, size.z), "BA915E", true);
-            foreach (float x in new[] { -size.x * .42f, size.x * .42f })
-                foreach (float z in new[] { -size.z * .35f, size.z * .35f })
-                    B(g, "Leg", V(x, size.y * .5f, z), V(.15f, size.y, .15f), "4B4F51", true);
-            B(g, "Apron", V(0, size.y - .2f, size.z * .38f), V(size.x - .3f, .3f, .12f), "8D6A43");
+            var group = Group(p, name, pos);
+            var rotation = group.rotation;
+            group.rotation = Quaternion.identity;
+            var desk = Prop(group, "Basement_Desk.prefab", "LobbyDesk", Vector3.zero, 0, size.y + .09f);
+            foreach (var collider in desk.GetComponentsInChildren<Collider>())
+                UnityEngine.Object.DestroyImmediate(collider);
+            var renderers = desk.GetComponentsInChildren<Renderer>();
+            var bounds = renderers[0].bounds;
+            foreach (var renderer in renderers) bounds.Encapsulate(renderer.bounds);
+            desk.transform.localScale = Vector3.Scale(desk.transform.localScale,
+                V(size.x / bounds.size.x, 1, size.z / bounds.size.z));
+            bounds = renderers[0].bounds;
+            foreach (var renderer in renderers) bounds.Encapsulate(renderer.bounds);
+            desk.transform.position += group.position - V(bounds.center.x, bounds.min.y, bounds.center.z);
+            // This lobby desk has a lower side shelf. Only the actual highest
+            // tabletop is a placement target; do not bridge its empty space.
+            var topBounds = new Bounds();
+            var hasTop = false;
+            foreach (var filter in desk.GetComponentsInChildren<MeshFilter>())
+            {
+                filter.gameObject.AddComponent<MeshCollider>().sharedMesh = filter.sharedMesh;
+                foreach (var vertex in filter.sharedMesh.vertices)
+                {
+                    var point = group.InverseTransformPoint(filter.transform.TransformPoint(vertex));
+                    if (point.y < size.y + .07f) continue;
+                    if (!hasTop) { topBounds = new Bounds(point, Vector3.zero); hasTop = true; }
+                    else topBounds.Encapsulate(point);
+                }
+            }
+            if (!hasTop) throw new InvalidOperationException("Lobby desk tabletop vertices were not found.");
+            group.rotation = rotation;
+            var top = Group(group, "Top", V(topBounds.center.x, size.y, topBounds.center.z)).gameObject.AddComponent<BoxCollider>();
+            top.size = V(topBounds.size.x, .18f, topBounds.size.z);
         }
 
         private void Monitor(Transform p, Vector3 pos, float yaw)
@@ -569,32 +584,16 @@ namespace Game.Editor.Tutorial
 
         private void Rack(Transform p, Vector3 pos, float width, float yaw = 0)
         {
-            var g = Group(p, "StockRack", pos);
-            g.localRotation = Quaternion.Euler(0, yaw, 0);
-            foreach (float x in new[] { -width * .5f, width * .5f })
-                foreach (float z in new[] { -.5f, .5f })
-                    B(g, "Post", V(x, 1.55f, z), V(.12f, 3.1f, .12f), "4D6371", true);
-            for (int row = 0; row < 3; row++)
-            {
-                float y = .2f + row * 1.0f;
-                B(g, "Shelf", V(0, y, 0), V(width + .15f, .14f, 1.16f), "697C85", true);
-                int count = Mathf.FloorToInt(width / 1.05f);
-                for (int i = 0; i < count; i++)
-                {
-                    float x = -width * .5f + .55f + i * 1.05f;
-                    Cardboard(g, V(x, y + .07f, 0), .72f + random.Next(3) * .07f, 0);
-                }
-            }
-            Rod(g, "RearBrace", V(-width * .5f, .2f, .55f), V(width * .5f, 3, .55f), .045f, "405461");
+            var group = Group(p, "WorkshopStorage", pos);
+            group.localRotation = Quaternion.Euler(0, yaw, 0);
+            var count = Mathf.Max(1, Mathf.FloorToInt(width / 1.25f));
+            for (var i = 0; i < count; i++)
+                Prop(group, "Basement_Locker.prefab", "LobbyStorage", V((i - (count - 1) * .5f) * 1.25f, 0, 0), 0, 2.8f);
         }
 
         private void Cardboard(Transform p, Vector3 pos, float size, float yaw)
         {
-            var g = Group(p, "CardboardBox", pos);
-            g.localRotation = Quaternion.Euler(0, yaw, 0);
-            B(g, "Box", V(0, size * .43f, 0), V(size, size * .86f, size * .86f), "AF9169", true);
-            B(g, "Tape", V(0, size * .864f, 0), V(size * .17f, .014f, size * .84f), "D5BD88");
-            B(g, "Label", V(-size * .19f, size * .51f, -size * .434f), V(size * .27f, size * .2f, .016f), "D4CEB5");
+            Prop(p, "Basement_CardboardBox1.prefab", "CardboardBox", pos, yaw, size * .86f);
         }
 
         private void Crate(Transform p, Vector3 pos, Vector3 size, float yaw)
@@ -617,11 +616,10 @@ namespace Game.Editor.Tutorial
         {
             var g = Group(p, "Workbench", pos);
             Table(g, "Bench", Vector3.zero, V(width, 1.08f, 1.15f));
-            B(g, "DrawerCase", V(-width * .25f, .53f, 0), V(width * .36f, .9f, .88f), color, true);
-            for (int i = 0; i < 3; i++)
-                B(g, "DrawerHandle", V(-width * .25f, .35f + i * .24f, -.48f), V(width * .18f, .06f, .06f), "A2ADB0");
-            Prop(g, "Basement_Tools_Vise.prefab", "Vise", V(width * .27f, 1.2f, -.15f), 0, .43f);
-            Prop(g, "Basement_Tools_Hammer.prefab", "Hammer", V(-width * .1f, 1.2f, -.25f), 40, .42f);
+            var top = g.Find("Bench/Top").GetComponent<BoxCollider>();
+            var center = top.transform.localPosition;
+            Prop(g, "Basement_Tools_Vise.prefab", "Vise", center + V(top.size.x * .36f, .12f, -.15f), 0, .43f);
+            Prop(g, "Basement_Tools_Hammer.prefab", "Hammer", center + V(-top.size.x * .36f, .12f, -.25f), 40, .42f);
         }
 
         private void ToolCart(Transform p, Vector3 pos)
@@ -638,15 +636,8 @@ namespace Game.Editor.Tutorial
 
         private void Locker(Transform p, Vector3 pos)
         {
-            var g = Group(p, "Locker", pos);
-            B(g, "Body", V(0, 1.35f, 0), V(.86f, 2.7f, .8f), "5C726A", true);
-            B(g, "Door", V(0, 1.38f, -.43f), V(.72f, 2.49f, .04f), "718575");
-            for (int i = 0; i < 4; i++)
-                B(g, "VentSlot", V(0, 2.25f + i * .075f, -.459f), V(.4f, .025f, .018f), "394D4E");
-            B(g, "NameLabel", V(0, 2, -.47f), V(.28f, .15f, .025f), "C6CAB9");
-            B(g, "Pull", V(.23f, 1.25f, -.49f), V(.055f, .26f, .07f), "B5BAB3");
+            Prop(p, "Basement_Locker.prefab", "Locker", pos, 0, 2.7f);
         }
-
         private void Barrel(Transform p, Vector3 pos, string color)
         {
             var g = Group(p, "Drum", pos);

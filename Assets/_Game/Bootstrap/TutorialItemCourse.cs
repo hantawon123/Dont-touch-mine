@@ -8,16 +8,16 @@ namespace Game.Bootstrap
 {
     /// <summary>
     /// Connects the standalone tutorial to the real carry, placement and
-    /// shredder components. It contains recovery only; item behavior remains
-    /// owned by the existing gameplay components.
+    /// shredder components. Checks lesson targets and recovers lost items;
+    /// item behavior remains owned by the existing gameplay components.
     /// </summary>
     public sealed class TutorialItemCourse : MonoBehaviour
     {
         private const float FallHeight = -2f;
-        private const float MaxDistanceFromPlayer = 20f;
+
         private const float PlacementPositionTolerance = 0.8f;
         private const float PlacementRotationTolerance = 22f;
-        private static readonly Quaternion TargetRotation = Quaternion.Euler(15f, 90f, 0f);
+        private static readonly Quaternion TargetRotation = Quaternion.Euler(0f, 90f, 0f);
 
         [SerializeField]
         private TutorialSession session;
@@ -36,17 +36,27 @@ namespace Game.Bootstrap
 
         [SerializeField]
         private Transform[] recoveryPoints;
+        [SerializeField] private Collider placementSurface;
+        [SerializeField] private Collider throwTarget;
 
         private Pose spawnPose;
         private Pose placementTargetPose;
         private GameObject placementGuide;
+        private GameObject dropGuide;
+        private GameObject throwGuide;
+        private GameObject placementLabel;
+        private bool waitingForDrop;
+        private bool waitingForThrow;
+        private Vector3 previousThrownPosition;
+
+        public Vector3 DropTargetPosition => recoveryPoints[1].position;
 
         public Pose PlacementTargetPose => placementTargetPose;
 
         private void Awake()
         {
             if (session == null || interactor == null || trainingItem == null ||
-                trainingItemPrefab == null || shredder == null)
+                trainingItemPrefab == null || shredder == null || placementSurface == null || throwTarget == null)
             {
                 Debug.LogError("TutorialItemCourse references are incomplete.", this);
                 enabled = false;
@@ -56,6 +66,12 @@ namespace Game.Bootstrap
             spawnPose = new Pose(trainingItem.transform.position, trainingItem.transform.rotation);
             placementTargetPose = BuildPlacementTargetPose();
             placementGuide = CreatePlacementGuide();
+            var surfaceBounds = placementSurface.bounds;
+            placementLabel = CreateTargetOutline("PlacementTarget", new Vector3(surfaceBounds.center.x, surfaceBounds.max.y + .03f, surfaceBounds.center.z), new Vector2(1f, .85f), false, "이 모양으로 배치하기");
+            dropGuide = CreateTargetOutline("DropTarget", new Vector3(DropTargetPosition.x, .16f, DropTargetPosition.z), new Vector2(2.5f, 2.5f), false, "여기에 내려놓기");
+            var target = throwTarget.bounds;
+            throwGuide = CreateTargetOutline("ThrowTarget", new Vector3(target.center.x, target.center.y, target.min.z - .08f), new Vector2(target.size.x, target.size.y), true, "이 표적에 던지기");
+            MakeDynamic(trainingItem);
             RefreshPlacementGuide(session.CurrentStep);
         }
 
@@ -87,10 +103,36 @@ namespace Game.Bootstrap
             var retryRequested = Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame;
             var itemMissing = trainingItem == null;
             var itemOutOfBounds = !itemMissing &&
-                (trainingItem.transform.position.y < FallHeight ||
-                 Vector3.Distance(trainingItem.transform.position, interactor.transform.position) > MaxDistanceFromPlayer);
+                trainingItem.transform.position.y < FallHeight;
             if (retryRequested || itemMissing || itemOutOfBounds)
                 RecoverItem();
+            if (trainingItem == null || trainingItem.IsCarried) return;
+            var body = trainingItem.GetComponent<Rigidbody>();
+            if (waitingForDrop && session.CurrentStep == TutorialStep.Drop && body.linearVelocity.sqrMagnitude < .16f)
+            {
+                var offset = trainingItem.transform.position - DropTargetPosition;
+                offset.y = 0;
+                var bottom = trainingItem.transform.position.y + trainingItem.PlacementCenterOffset.y - trainingItem.PlacementHalfExtents.y;
+                if (offset.magnitude <= 1.25f && bottom < .3f)
+                {
+                    waitingForDrop = false;
+                    session.ObserveInteraction(TutorialInteractionAction.Drop);
+                }
+            }
+            if (waitingForThrow && session.CurrentStep == TutorialStep.Throw)
+            {
+                var bounds = throwTarget.bounds;
+                bounds.Expand(trainingItem.PlacementHalfExtents.magnitude * 2f);
+                var position = trainingItem.transform.position;
+                var delta = position - previousThrownPosition;
+                if (bounds.Contains(position) || (delta.sqrMagnitude > .0001f &&
+                    bounds.IntersectRay(new Ray(previousThrownPosition, delta.normalized), out var distance) && distance <= delta.magnitude))
+                {
+                    waitingForThrow = false;
+                    session.ObserveInteraction(TutorialInteractionAction.Throw);
+                }
+                previousThrownPosition = position;
+            }
         }
 
         public void RecoverItem()
@@ -112,7 +154,9 @@ namespace Game.Bootstrap
             }
 
             trainingItem.gameObject.SetActive(true);
-            trainingItem.OnSettled(spawnPose, keepDynamic: false);
+            waitingForDrop = waitingForThrow = false;
+            trainingItem.OnReleased(spawnPose, Vector3.zero);
+            MakeDynamic(trainingItem);
             Debug.Log($"[Tutorial] Recovered item for step: {session.CurrentStep}", this);
         }
 
@@ -121,12 +165,20 @@ namespace Game.Bootstrap
             if (item != trainingItem)
                 return;
 
-            if (action == LocalItemAction.Placed && session.CurrentStep == TutorialStep.Place &&
-                !IsAtPlacementTarget(item.transform))
+            if (action == LocalItemAction.PickedUp) waitingForDrop = waitingForThrow = false;
+            if (action == LocalItemAction.Dropped && session.CurrentStep == TutorialStep.Drop)
             {
-                RecoverItem();
+                waitingForDrop = true;
                 return;
             }
+            if (action == LocalItemAction.Thrown && session.CurrentStep == TutorialStep.Throw)
+            {
+                waitingForThrow = true;
+                previousThrownPosition = item.transform.position;
+                return;
+            }
+            if (action == LocalItemAction.Placed && session.CurrentStep == TutorialStep.Place &&
+                !IsAtPlacementTarget(item.transform)) return;
 
             var tutorialAction = action switch
             {
@@ -141,10 +193,8 @@ namespace Game.Bootstrap
 
         private Pose BuildPlacementTargetPose()
         {
-            var placementZone = recoveryPoints != null && recoveryPoints.Length > 3 && recoveryPoints[3] != null
-                ? recoveryPoints[3].parent
-                : transform;
-            var surface = placementZone.position + Vector3.up * 1.29f;
+            var bounds = placementSurface.bounds;
+            var surface = new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
             var verticalExtent = PlacementVolumeMath.RotatedVerticalExtent(
                 TargetRotation, trainingItem.PlacementHalfExtents);
             var rootPosition = surface + Vector3.up * verticalExtent -
@@ -191,6 +241,23 @@ namespace Game.Bootstrap
         {
             if (placementGuide != null)
                 placementGuide.SetActive(step == TutorialStep.Place);
+            if (dropGuide != null) dropGuide.SetActive(step == TutorialStep.Drop);
+            if (throwGuide != null) throwGuide.SetActive(step == TutorialStep.Throw);
+            if (placementLabel != null) placementLabel.SetActive(step == TutorialStep.Place);
+        }
+
+        private static void MakeDynamic(CarryableItem item)
+        {
+            var body = item.GetComponent<Rigidbody>();
+            body.useGravity = true;
+            body.isKinematic = false;
+            body.WakeUp();
+        }
+
+        private GameObject CreateTargetOutline(string name, Vector3 position, Vector2 size, bool vertical, string label)
+        {
+            return TutorialTargetView.Create(transform, name, position, size, vertical, label,
+                interactor.GetComponent<ItemPlacementController>().ValidGhostMaterial);
         }
 
         private void OnShredderProcessed(CarryableItem item)

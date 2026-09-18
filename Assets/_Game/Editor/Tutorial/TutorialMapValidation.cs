@@ -17,7 +17,8 @@ namespace Game.Editor.Tutorial
                 throw new InvalidOperationException($"Expected 8 route doorways, found {doors.Length}.");
             foreach (var door in doors)
             {
-                for (float offset = -1; offset <= 1; offset += .25f)
+                // Check the doorway throat; adjoining posture lessons intentionally block standing.
+                for (float offset = -.25f; offset <= .25f; offset += .25f)
                 {
                     var at = door.TransformPoint(new Vector3(0, 0, offset));
                     var hits = Physics.OverlapCapsule(at + Vector3.up * .53f, at + Vector3.up * 1.55f, .34f,

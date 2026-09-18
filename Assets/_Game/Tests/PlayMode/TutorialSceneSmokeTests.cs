@@ -70,13 +70,15 @@ namespace Game.Tests.PlayMode
             var keyGuide = Object.FindAnyObjectByType<Game.Client.KeySettingGuideView>();
             Assert.That(keyGuide, Is.Not.Null);
             Assert.That(keyGuide.AlwaysVisible, Is.True);
-            Assert.That(keyGuide.transform.Find("Focus").GetComponent<TMPro.TMP_Text>().text, Does.Contain("주변 살피기"));
+            Assert.That(Object.FindAnyObjectByType<TutorialChecklistView>().transform.Find("Step0").GetComponent<TMPro.TMP_Text>().text, Does.Contain("주변 살피기"));
             session.ObserveMovement(Observe(distance: 6f, look: 30f));
             Assert.That(keyGuide.transform.Find("Row4/Action").GetComponent<TMPro.TMP_Text>().fontStyle, Is.EqualTo(TMPro.FontStyles.Bold));
             Assert.That(radio.CurrentMessage, Does.Contain("벽을 보고 걷지는"));
             yield return new WaitForSecondsRealtime(2f);
             Assert.That(radio.CurrentMessage, Does.Contain("전력으로 달려"));
-            Assert.That(GameObject.Find("BossRadio").GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f).Within(.01f));
+            var radioGroup = (CanvasGroup)typeof(TutorialRadioView)
+                .GetField("radioGroup", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(radio);
+            Assert.That(radioGroup.alpha, Is.EqualTo(1f).Within(.01f));
 
             session.RetryCurrentStep();
             Assert.That(radio.CurrentMessage, Does.Contain("같은 실수는 두 번"));
@@ -101,9 +103,11 @@ namespace Game.Tests.PlayMode
             AdvanceToItemLessons(session);
 
             var spawn = trainingItem.transform.position;
-            trainingItem.transform.position = spawn + Vector3.right * 30f;
+            trainingItem.transform.position = new Vector3(spawn.x, -5, spawn.z);
             yield return null;
-            Assert.That(Vector3.Distance(trainingItem.transform.position, spawn), Is.LessThan(0.1f));
+            Assert.That(trainingItem.transform.position.y, Is.GreaterThan(0));
+            Assert.That(trainingItem.GetComponent<Rigidbody>().isKinematic, Is.False);
+            Assert.That(trainingItem.GetComponent<Rigidbody>().useGravity, Is.True);
 
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
             Assert.That(trainingItem.transform.parent, Is.SameAs(interactor.HoldPoint));
@@ -116,12 +120,34 @@ namespace Game.Tests.PlayMode
                     Is.LessThan(2f), "The rendered box stayed behind after pickup.");
             }
             interactor.DropCarriedItem();
+            yield return new WaitForSeconds(.5f);
+            Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.Drop), "Dropping away from the marked zone must not complete the lesson.");
+            trainingItem.OnReleased(new Pose(itemCourse.DropTargetPosition, Quaternion.identity), Vector3.zero);
+            yield return new WaitForSeconds(2f);
+            Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.Throw));
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
             interactor.SendMessage("ThrowCarried");
+            yield return null;
+            Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.Throw), "A throw that misses the target must not complete the lesson.");
+            var player = interactor.GetComponent<PlayerMovement>();
+            player.enabled = false;
+            SetControllerPose(player.GetComponent<CharacterController>(), new Vector3(-6, .2f, -8), player.MovementSettings.StandHeight);
+            interactor.transform.rotation = Quaternion.identity;
+            var throwAim = new GameObject("ThrowTestAim").transform;
+            throwAim.position = new Vector3(-6, 1.8f, -8);
+            throwAim.LookAt(new Vector3(-6, 1.75f, -5.4f));
+            typeof(PlayerInteractor).GetField("cameraTransform", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(interactor, throwAim);
+            Assert.That(interactor.TryPickUp(trainingItem), Is.True);
+            Physics.SyncTransforms();
+            interactor.SendMessage("ThrowCarried");
+            for (var elapsed = 0f; elapsed < 2f && session.CurrentStep == TutorialStep.Throw; elapsed += Time.deltaTime) yield return null;
+            Object.Destroy(throwAim.gameObject);
+            Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.Place));
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
             Assert.That(GameObject.Find("PlacementTargetGhost"), Is.Not.Null);
             Assert.That(interactor.TryPlaceCarried(spawn, Quaternion.identity), Is.True);
             Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.Place), "An incorrect pose completed placement.");
+            Assert.That(Vector3.Distance(trainingItem.transform.position, spawn), Is.LessThan(.01f), "Invalid placement teleported the item.");
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
             Assert.That(interactor.TryPlaceCarried(
                 itemCourse.PlacementTargetPose.position,
@@ -132,6 +158,94 @@ namespace Game.Tests.PlayMode
 
             Assert.That(itemCourse.enabled, Is.True);
             Assert.That(session.IsComplete, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator TablePlacementUsesRealPreviewAndPauseRestoresInput()
+        {
+            var load = SceneManager.LoadSceneAsync("Tutorial", LoadSceneMode.Single);
+            while (!load.isDone) yield return null;
+            yield return null;
+            var player = Object.FindAnyObjectByType<PlayerMovement>();
+            var pause = Object.FindAnyObjectByType<TutorialPauseController>();
+            pause.Toggle();
+            Assert.That(pause.IsOpen, Is.True);
+            Assert.That(player.IsMovementLocked, Is.True);
+            pause.Resume();
+            Assert.That(player.IsMovementLocked, Is.False);
+
+            player.enabled = false;
+            var session = Object.FindAnyObjectByType<TutorialSession>();
+            AdvanceToItemLessons(session);
+            session.ObserveInteraction(TutorialInteractionAction.PickUp);
+            session.ObserveInteraction(TutorialInteractionAction.Drop);
+            session.ObserveInteraction(TutorialInteractionAction.Throw);
+            var interactor = player.GetComponent<PlayerInteractor>();
+            var placement = player.GetComponent<ItemPlacementController>();
+            var course = Object.FindAnyObjectByType<Game.Bootstrap.TutorialItemCourse>();
+            var item = GameObject.Find("TrainingItem").GetComponent<CarryableItem>();
+            var desk = GameObject.Find("Placement").transform.Find("Workbench/Bench/LobbyDesk").GetComponentInChildren<Renderer>().bounds;
+            Assert.That(desk.center.x, Is.EqualTo(-18).Within(.02f));
+            Assert.That(desk.center.z, Is.EqualTo(-10).Within(.02f));
+            var tableTop = GameObject.Find("Placement").transform.Find("Workbench/Bench/Top").GetComponent<Collider>().bounds;
+            Assert.That(desk.max.y, Is.EqualTo(tableTop.max.y).Within(.02f), "Visible table and placement surface disagree.");
+            SetControllerPose(player.GetComponent<CharacterController>(), new Vector3(course.PlacementTargetPose.position.x, .2f, -11.6f), player.MovementSettings.StandHeight);
+            yield return null;
+            var guide = Object.FindAnyObjectByType<Game.Client.KeySettingGuideView>();
+            Assert.That(guide.transform.Find("Row0/Action").GetComponent<TMPro.TMP_Text>().text, Does.Contain("들기"));
+            Assert.That(interactor.TryPickUp(item), Is.True);
+            yield return null;
+            Assert.That(guide.transform.Find("Row0/Action").GetComponent<TMPro.TMP_Text>().text, Is.EqualTo("배치 모드"));
+            var aim = new GameObject("PlacementTestAim").transform;
+            aim.position = new Vector3(course.PlacementTargetPose.position.x, 2.7f, -12.3f);
+            aim.LookAt(course.PlacementTargetPose.position);
+            const BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Instance;
+            placement.enabled = false;
+            typeof(ItemPlacementController).GetField("cameraTransform", flags).SetValue(placement, aim);
+            placement.SendMessage("EnterPlacementMode");
+            typeof(ItemPlacementController).GetField("ghostRotation", flags).SetValue(placement, course.PlacementTargetPose.rotation);
+            Physics.SyncTransforms();
+            placement.SendMessage("UpdatePreviewPose");
+            var position = (Vector3)typeof(ItemPlacementController).GetField("previewPosition", flags).GetValue(placement);
+            Assert.That((bool)typeof(ItemPlacementController).GetField("isCurrentPoseValid", flags).GetValue(placement), Is.True, $"Preview rejected at {position}");
+            Assert.That(Vector3.Distance(position, course.PlacementTargetPose.position), Is.LessThan(.8f), $"Preview missed table: {position}");
+            Object.FindAnyObjectByType<TutorialRadioView>().SendMessage("Update");
+            guide.SetMode(Game.Client.KeySettingGuideView.Mode.Placing);
+            Assert.That(guide.transform.Find("Row1/Action").GetComponent<TMPro.TMP_Text>().fontStyle, Is.EqualTo(TMPro.FontStyles.Bold));
+            CaptureTutorialUi(aim.position, course.PlacementTargetPose.position);
+            placement.SendMessage("ConfirmPlacement");
+            Assert.That(session.CurrentStep, Is.EqualTo(TutorialStep.UseShredder));
+            yield return new WaitForSeconds(1f);
+            Assert.That(item.transform.position.y, Is.GreaterThan(1f), "Box fell through tabletop.");
+            Object.Destroy(aim.gameObject);
+        }
+
+        private static void CaptureTutorialUi(Vector3 position, Vector3 target)
+        {
+            var camera = Camera.main;
+            camera.transform.SetPositionAndRotation(position, Quaternion.LookRotation(target - position));
+            var render = new RenderTexture(1920, 1080, 24);
+            var previous = RenderTexture.active;
+            camera.targetTexture = render;
+            foreach (var canvas in Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+            {
+                if (canvas.renderMode != RenderMode.ScreenSpaceOverlay) continue;
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera;
+                canvas.planeDistance = .5f;
+            }
+            Canvas.ForceUpdateCanvases();
+            camera.Render();
+            RenderTexture.active = render;
+            var image = new Texture2D(1920, 1080, TextureFormat.RGB24, false);
+            image.ReadPixels(new Rect(0, 0, 1920, 1080), 0, 0);
+            image.Apply();
+            System.IO.Directory.CreateDirectory("Logs/TutorialPreview");
+            System.IO.File.WriteAllBytes("Logs/TutorialPreview/PlacementUI.png", image.EncodeToPNG());
+            camera.targetTexture = null;
+            RenderTexture.active = previous;
+            Object.Destroy(image);
+            Object.Destroy(render);
         }
 
         [UnityTest]

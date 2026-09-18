@@ -268,6 +268,7 @@ namespace Game.Editor.Tutorial
             for (int i = 0; i < recoveryPaths.Length; i++)
                 points.GetArrayElementAtIndex(i).objectReferenceValue = Require(root, recoveryPaths[i]);
             itemObject.ApplyModifiedPropertiesWithoutUndo();
+            ConfigureItemTargets(root, itemCourse);
 
             BuildRadioUi(runtime, session);
 
@@ -301,6 +302,27 @@ namespace Game.Editor.Tutorial
                 .GroupBy(m => AssetDatabase.GetAssetPath(m)).OrderByDescending(g => g.Count());
             foreach (var group in materials)
                 Debug.Log($"[LobbyMaterial] {group.Count()} {group.Key}");
+            foreach (var path in scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<Transform>(true))
+                .Select(t => PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(t.gameObject))
+                .Where(p => !string.IsNullOrEmpty(p)).Distinct()) Debug.Log("[LobbyPrefab] " + path);
+        }
+
+        private static void ConfigureItemTargets(Transform root, TutorialItemCourse course)
+        {
+            var serialized = new SerializedObject(course);
+            serialized.FindProperty("placementSurface").objectReferenceValue =
+                root.Find("Zones/03_Items/Placement/Workbench/Bench/Top").GetComponent<Collider>();
+            serialized.FindProperty("throwTarget").objectReferenceValue =
+                root.Find("Zones/03_Items/Throw/TargetBackboard").GetComponent<Collider>();
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        public static void RepairItemTargets()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath);
+            var root = GameObject.Find("TutorialHideout").transform;
+            ConfigureItemTargets(root, root.GetComponentInChildren<TutorialItemCourse>());
+            EditorSceneManager.SaveScene(scene);
         }
 
         public static void RepairLobbySurfaces()
@@ -405,10 +427,16 @@ namespace Game.Editor.Tutorial
             var serialized = new SerializedObject(view);
             serialized.FindProperty("session").objectReferenceValue = session;
             serialized.FindProperty("messageText").objectReferenceValue = message;
+            serialized.FindProperty("interactor").objectReferenceValue = parent.GetComponentInChildren<PlayerInteractor>();
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
             var keyGuide = KeySettingGuideView.Ensure(canvasObject.transform);
             keyGuide.AlwaysVisible = true;
+            var pause = parent.GetComponent<TutorialPauseController>() ?? parent.gameObject.AddComponent<TutorialPauseController>();
+            var pauseObject = new SerializedObject(pause);
+            pauseObject.FindProperty("player").objectReferenceValue = parent.GetComponentInChildren<PlayerMovement>();
+            pauseObject.FindProperty("cameraRig").objectReferenceValue = parent.GetComponentInChildren<Game.Client.Cameras.PlayerCameraController>();
+            pauseObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static RectTransform UiRect(
