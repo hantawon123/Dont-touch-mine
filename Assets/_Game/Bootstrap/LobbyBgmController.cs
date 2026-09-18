@@ -13,13 +13,14 @@ namespace Game.Bootstrap
     /// One looped track for <see cref="AppFlowState.Lobby"/> only. Menu BGM
     /// already fades out before this starts, and match/ending tracks take over
     /// after it fades out. Volume is the Music slider times
-    /// <see cref="PlaybackVolume"/> times the fade. Master is already on
+    /// <see cref="SoundCatalog.BgmPlaybackVolume"/> (default 50 already sounds
+    /// like 40 on the file) times the fade. Master is already on
     /// AudioListener. The clip is assigned on <c>ProjectLifetimeScope</c>.
     /// </remarks>
     public sealed class LobbyBgmController : IStartable, ITickable, IDisposable
     {
         public const float FadeSeconds = 1f;
-        public const float PlaybackVolume = .5f;
+        public const float PlaybackVolume = SoundCatalog.BgmPlaybackVolume;
         public const string ClipAssetPath = "Assets/_Game/Content/Audio/BGM/lobby_bgm.mp3";
 
         private readonly AppFlowSystem flow;

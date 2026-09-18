@@ -12,14 +12,14 @@ namespace Game.Bootstrap
     /// <remarks>
     /// One looped track for the post-match sequence. Highlight and Result share
     /// it so the cue does not restart between those two screens. Volume is the
-    /// Music slider times <see cref="PlaybackVolume"/> (half, so the file is
-    /// not played at full scale) times the fade. Master is already on
+    /// Music slider times <see cref="SoundCatalog.BgmPlaybackVolume"/> (default
+    /// 50 already sounds like 40 on the file) times the fade. Master is already on
     /// AudioListener. The clip is assigned on <c>ProjectLifetimeScope</c>.
     /// </remarks>
     public sealed class EndingBgmController : IStartable, ITickable, IDisposable
     {
         public const float FadeSeconds = 1f;
-        public const float PlaybackVolume = .5f;
+        public const float PlaybackVolume = SoundCatalog.BgmPlaybackVolume;
         public const string ClipAssetPath = "Assets/_Game/Content/Audio/BGM/ending_bgm.mp3";
 
         private readonly AppFlowSystem flow;

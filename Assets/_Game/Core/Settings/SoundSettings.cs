@@ -171,9 +171,22 @@ namespace Game.Core.Settings
         public const int MaxVolume = 100;
 
         /// <summary>
-        /// Half way, which is what the mock-up draws on every slider.
+        /// Half way, which is what the mock-up draws on every slider except
+        /// 효과음.
         /// </summary>
         public const int DefaultVolume = 50;
+
+        /// <summary>효과음 기본. 다른 슬라이더(50)보다 한 칸 낮다.</summary>
+        public const int DefaultEffectsVolume = 40;
+
+        /// <summary>
+        /// Baked-in BGM trim: a Music slider of 50 sounds like 40 on the raw
+        /// clip, so default 50 already includes about 10 quieter.
+        /// </summary>
+        public const float BgmPlaybackVolume = .8f;
+
+        public static int DefaultVolumeFor(SoundVolume volume) =>
+            volume == SoundVolume.Effects ? DefaultEffectsVolume : DefaultVolume;
 
         public const string PushToTalk = "push";
         public const string OpenMic = "open";
@@ -246,7 +259,8 @@ namespace Game.Core.Settings
 
         /// <summary>
         /// What a player who has never opened the tab gets, and what 초기화
-        /// puts back: every slider half way, the machine's own microphone, and
+        /// puts back: sliders at their defaults (효과음 40, the rest half way),
+        /// the machine's own microphone, and
         /// push-to-talk.
         /// </summary>
         public static SoundSettings Defaults
@@ -256,7 +270,7 @@ namespace Game.Core.Settings
                 var settings = SoundSettings.Empty;
                 foreach (SoundVolume volume in Enum.GetValues(typeof(SoundVolume)))
                 {
-                    settings = settings.With(volume, DefaultVolume);
+                    settings = settings.With(volume, DefaultVolumeFor(volume));
                 }
 
                 return settings
@@ -285,7 +299,7 @@ namespace Game.Core.Settings
                 var percent = settings.Get(volume);
                 result = result.With(
                     volume,
-                    percent == Unset ? DefaultVolume : Clamp(percent));
+                    percent == Unset ? DefaultVolumeFor(volume) : Clamp(percent));
             }
 
             if (!InputModes.TryFind(settings.InputMode, out var mode))

@@ -108,13 +108,13 @@ namespace Game.Architecture.Tests
                 var sound = new SoundSettingsSystem(store);
                 controller = new MenuBgmController(flow, sound, source);
                 controller.Start();
-                Assert.That(source.volume, Is.EqualTo(0.2f).Within(0.001f));
+                Assert.That(source.volume, Is.EqualTo(0.2f * SoundCatalog.BgmPlaybackVolume).Within(0.001f));
                 sound.Preview(sound.Current.With(SoundVolume.Music, 80));
-                Assert.That(source.volume, Is.EqualTo(0.8f).Within(0.001f));
+                Assert.That(source.volume, Is.EqualTo(0.8f * SoundCatalog.BgmPlaybackVolume).Within(0.001f));
                 Assert.That(sound.Current.Get(SoundVolume.Music), Is.EqualTo(20));
                 Assert.That(store.Saved.Value.Get(SoundVolume.Music), Is.EqualTo(20));
                 sound.ApplyToAudio();
-                Assert.That(source.volume, Is.EqualTo(0.2f).Within(0.001f));
+                Assert.That(source.volume, Is.EqualTo(0.2f * SoundCatalog.BgmPlaybackVolume).Within(0.001f));
                 sound.Apply(sound.Current.With(SoundVolume.Music, 0));
                 Assert.That(source.volume, Is.Zero);
                 controller.Dispose();
