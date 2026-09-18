@@ -71,7 +71,7 @@ namespace Game.Bootstrap
             return maxFreq > 0 ? maxFreq : minFreq;
         }
 
-        public void Start(string deviceName)
+        public void Start(string deviceName, float gain = 1f)
         {
             Stop();
 
@@ -103,7 +103,10 @@ namespace Game.Bootstrap
                 source.loop = true;
                 source.playOnAwake = false;
                 source.spatialBlend = 0f;
-                source.volume = 1f;
+                // The 마이크 볼륨 slider sits on this same tab and the test is
+                // what it is judged with, so playing back at full would hide
+                // exactly the change being made.
+                source.volume = Mathf.Clamp(gain, 0f, 1f);
                 waitingForBuffer = true;
                 IsRunning = true;
             }

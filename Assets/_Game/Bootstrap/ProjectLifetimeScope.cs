@@ -55,6 +55,14 @@ namespace Game.Bootstrap
         [SerializeField]
         private AudioClip _menuBgm;
 
+        [SerializeField]
+        [Tooltip("Played once for every UI button click.")]
+        private AudioClip _uiButtonClick;
+
+        [SerializeField]
+        [Tooltip("Looped only during highlight playback.")]
+        private AudioClip _endingBgm;
+
         protected override void Configure(IContainerBuilder builder)
         {
             if (DedicatedServerStartup.IsRequested)
@@ -137,6 +145,18 @@ namespace Game.Bootstrap
                 builder.RegisterEntryPoint<MenuBgmController>().WithParameter(music);
             }
 
+            if (_endingBgm != null)
+            {
+                var endingObject = new GameObject("Ending BGM");
+                endingObject.transform.SetParent(transform, false);
+                var ending = endingObject.AddComponent<AudioSource>();
+                ending.playOnAwake = false;
+                ending.loop = true;
+                ending.spatialBlend = 0f;
+                ending.clip = _endingBgm;
+                builder.RegisterEntryPoint<EndingBgmController>().WithParameter(ending);
+            }
+
             // Makes a saved choice real. Registered here rather than in
             // RegisterServices because only the application has a window to
             // resize; a test container must not touch one.
@@ -181,6 +201,7 @@ namespace Game.Bootstrap
             inputObject.AddComponent<SharedUiInputActions>().Bind(inputModule);
             inputObject.SetActive(true);
             builder.RegisterComponent(eventSystem);
+            UiButtonClickAudio.Create(transform, _uiButtonClick);
 
 #if UNITY_WEBGL && !UNITY_EDITOR
             var webText = new GameObject("Web Text Input").AddComponent<Game.Client.Common.WebTextInput>();

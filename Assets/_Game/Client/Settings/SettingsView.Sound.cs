@@ -22,7 +22,6 @@ namespace Game.Client.Settings
         {
             SoundVolume.Master,
             SoundVolume.Music,
-            SoundVolume.Ambience,
             SoundVolume.Effects
         };
 

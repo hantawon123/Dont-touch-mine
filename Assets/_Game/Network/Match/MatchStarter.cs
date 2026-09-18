@@ -1396,6 +1396,15 @@ namespace Game.Network.Match
         internal static Vector3 CalculateShredderEjectionVelocity(Quaternion rotation) =>
             rotation * ShredderEjectionLocalVelocity;
 
+        /// <summary>
+        /// The assignments the session decided, by player index. Empty while
+        /// there is no session, so a request that arrives before the runtime
+        /// starts is answered with nothing rather than with a null check left to
+        /// the caller.
+        /// </summary>
+        internal IReadOnlyList<PlayerItemAssignment> SessionAssignments =>
+            _session != null ? _session.Assignments : Array.Empty<PlayerItemAssignment>();
+
         internal bool TryGetPlayerIndex(PlayerRef source, out int playerIndex)
         {
             if (_session == null || _state == null || _state.Runner == null)
