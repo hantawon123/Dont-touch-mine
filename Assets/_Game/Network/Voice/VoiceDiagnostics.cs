@@ -205,7 +205,10 @@ namespace Game.Network.Voice
         private string BuildSpeakerLine(VoiceNetworkObject voice)
         {
             line.Clear();
-            line.Append("  spk#").Append(voice.Object.Id);
+            // ToString 을 거쳐야 한다. NetworkId 에 bool 암시적 변환이 있어서
+            // 그냥 넘기면 Append(bool) 이 골라지고 id 대신 True 가 찍힌다 -
+            // 스피커가 여럿이면 누가 누군지 구분할 수 없었다.
+            line.Append("  spk#").Append(voice.Object.Id.ToString());
 
             var speaker = voice.SpeakerInUse;
             if (speaker == null)
