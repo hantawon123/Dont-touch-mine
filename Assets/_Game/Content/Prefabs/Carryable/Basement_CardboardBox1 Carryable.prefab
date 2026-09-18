@@ -8,9 +8,21 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1490846632671198101, guid: 850d2744fbc93694988615efb4cf9655, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2262279067367258807, guid: 850d2744fbc93694988615efb4cf9655, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4649397506284541085, guid: 850d2744fbc93694988615efb4cf9655, type: 3}
       propertyPath: m_Name
       value: Basement_CardboardBox1 Carryable
+      objectReference: {fileID: 0}
+    - target: {fileID: 4649397506284541085, guid: 850d2744fbc93694988615efb4cf9655, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8565463573755307662, guid: 850d2744fbc93694988615efb4cf9655, type: 3}
       propertyPath: m_LocalPosition.x
@@ -111,3 +123,7 @@ MonoBehaviour:
   objectId: 
   isPlayerItem: 0
   ownerPlayerIndex: -1
+  preparedForBuild: 0
+  preparedCenter: {x: 0, y: 0, z: 0}
+  preparedExtents: {x: 0, y: 0, z: 0}
+  preparedScale: {x: 0, y: 0, z: 0}

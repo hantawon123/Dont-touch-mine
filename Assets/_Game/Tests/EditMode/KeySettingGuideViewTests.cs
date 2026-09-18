@@ -21,6 +21,29 @@ namespace Game.Architecture.Tests
         public void UnbindSettings() => KeySettingGuideView.UseSettings(null);
 
         [Test]
+        public void FocusFollowsModeAndClearsPreviousEmphasis()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var guide = KeySettingGuideView.Create(canvas.transform);
+                guide.SetFocus("앉아서 통과", ControlAction.Crouch);
+                var crouch = guide.transform.Find("Row1/Action").GetComponent<TMPro.TMP_Text>();
+                Assert.That(crouch.fontStyle, Is.EqualTo(TMPro.FontStyles.Bold));
+                Assert.That(guide.transform.Find("Focus").GetComponent<TMPro.TMP_Text>().text, Does.Contain("C"));
+                guide.SetFocus("상자 내려놓기", ControlAction.Interact);
+                Assert.That(crouch.fontStyle, Is.EqualTo(TMPro.FontStyles.Normal));
+                guide.SetMode(KeySettingGuideView.Mode.Carrying);
+                Assert.That(guide.transform.Find("Row2/Action").GetComponent<TMPro.TMP_Text>().fontStyle, Is.EqualTo(TMPro.FontStyles.Bold));
+                Assert.That(KeySettingGuideView.CarryingLabels[0], Is.EqualTo(KeySettingGuideView.RightClickKeyLabel));
+                Assert.That(KeySettingGuideView.CarryingLabels[1], Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
+                guide.SetFocus(null);
+                Assert.That(guide.transform.Find("Focus").gameObject.activeSelf, Is.False);
+            }
+            finally { Object.DestroyImmediate(canvas); }
+        }
+
+        [Test]
         public void ShouldToggle_IgnoresBlockedInput()
         {
             Assert.That(KeySettingGuideView.ShouldToggle(true, false), Is.True);
@@ -122,8 +145,8 @@ namespace Game.Architecture.Tests
             Assert.That(KeySettingGuideView.ActionsFor(true)[0], Is.EqualTo("배치 모드"));
             Assert.That(KeySettingGuideView.ActionsFor(true)[1], Is.EqualTo("던지기"));
             Assert.That(KeySettingGuideView.ActionsFor(true)[2], Is.EqualTo("놓기"));
-            Assert.That(KeySettingGuideView.LabelsFor(true)[0], Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
-            Assert.That(KeySettingGuideView.LabelsFor(true)[1], Is.EqualTo(KeySettingGuideView.RightClickKeyLabel));
+            Assert.That(KeySettingGuideView.LabelsFor(true)[0], Is.EqualTo(ControlCatalog.KeyLabel(ControlCatalog.Defaults.Get(ControlAction.PlacementMode))));
+            Assert.That(KeySettingGuideView.LabelsFor(true)[1], Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
             Assert.That(KeySettingGuideView.LabelsFor(true)[2], Is.EqualTo("F"));
             Assert.That(
                 KeySettingGuideView.ActionsFor(true)[KeySettingGuideView.CarryingActions.Length - 1],
@@ -154,7 +177,7 @@ namespace Game.Architecture.Tests
                     Is.EqualTo("던지기"));
                 Assert.That(
                     guide.Find("Row1/Key/Label").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo(KeySettingGuideView.RightClickKeyLabel));
+                    Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
                 Assert.That(
                     guide.Find("Row2/Action").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo("놓기"));
