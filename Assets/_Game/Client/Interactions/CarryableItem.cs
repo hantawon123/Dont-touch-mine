@@ -30,7 +30,7 @@ namespace Game.Client.Interactions
 
         /// <summary>
         /// 마지막으로 잡히기 직전의 세계 자세(놓여 있던 위치·회전). 잡히는 순간 HoldPoint에 붙으며 회전이 손 방향으로
-        /// 바뀌므로, "잡을 때 놓여 있던 방향 그대로" 시작해야 하는 물리 들기 미리보기가 이 값을 쓴다.
+        /// 바뀌므로, "잡을 때 놓여 있던 방향 그대로" 시작해야 하는 배치 모드 미리보기가 이 값을 쓴다.
         /// </summary>
         public Pose PoseBeforePickup { get; private set; }
 
@@ -232,8 +232,8 @@ namespace Game.Client.Interactions
         }
 
         /// <summary>
-        /// [테스트] 물리 들기: 손(HoldPoint)에서 떼어 조준점 앞에 독립된 몸체로 둔다. 콜라이더는 꺼진 채 두어
-        /// 미리보기 상태에서는 다른 물건을 밀거나 부딪히지 않는다(막힘·겹침은 컨트롤러가 광선·상자 검사로 판단).
+        /// 배치 모드 미리보기: 손(HoldPoint)에서 떼어 조준점 앞에 독립된 몸체로 둔다. 콜라이더는 꺼진 채 두어
+        /// 미리보기 상태에서는 다른 물건을 밀거나 부딪히지 않는다(막힘·겹침은 ItemPlacementController가 광선·상자 검사로 판단).
         /// <see cref="IsCarried"/>는 그대로 true라 다른 시스템은 여전히 '들고 있음'으로 본다. 놓기(OnDropped 등)가
         /// 콜라이더·물리를 되살린다. 그 전에 <see cref="EndPhysicalHold"/>로 중력을 되살린다.
         /// </summary>

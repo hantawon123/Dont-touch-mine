@@ -3,12 +3,12 @@ using UnityEngine;
 namespace Game.Client.Interactions
 {
     /// <summary>
-    /// [테스트] 물리 들기 회전 표시. PLACE TO FIT 예시 구성: 원 세 개(카메라를 향한 원·적도·세로 대원)는 기본 흰색이고,
+    /// 배치 모드 회전 표시. PLACE TO FIT 예시 구성: 원 세 개(카메라를 향한 원·적도·세로 대원)는 기본 흰색이고,
     /// 이번 조작으로 돌린 각도만큼 그 방향으로 원 자체가 색으로 찬다(180도 = 반, 360도 = 전부): 좌우 빨강, 앞뒤 파랑 + 위축 바늘,
     /// Q/E 비틀기 주황. 시작점은 시야에서 가장 가까운 점(카메라를 향한 원은 12시).
     /// 구 크기는 물건 크기와 무관하고, 카메라 거리에 비례해 키워 화면에서는 항상 같은 크기로 보인다. LineRenderer로 그린다.
     /// </summary>
-    public sealed class PhysicalHoldGizmo : MonoBehaviour
+    public sealed class PlacementRotationGizmo : MonoBehaviour
     {
         /// <summary>화면에서 보이는 크기를 유지하기 위한 기준: 카메라에서 1 m 떨어졌을 때의 반지름(m). 거리에 비례해 커진다.</summary>
         private const float RadiusPerMeter = 0.11f;
@@ -31,11 +31,11 @@ namespace Game.Client.Interactions
         private LineRenderer needle;        // 물건 '위' 축(파랑)
         private Material material;
 
-        public static PhysicalHoldGizmo Create(Transform owner)
+        public static PlacementRotationGizmo Create(Transform owner)
         {
-            var go = new GameObject("PhysicalHoldGizmo");
+            var go = new GameObject("PlacementRotationGizmo");
             go.transform.SetParent(owner, false);
-            var gizmo = go.AddComponent<PhysicalHoldGizmo>();
+            var gizmo = go.AddComponent<PlacementRotationGizmo>();
             gizmo.Build();
             return gizmo;
         }

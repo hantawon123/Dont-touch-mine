@@ -15,5 +15,5 @@ MonoBehaviour:
   interactionDistance: 2
   throwSpeed: 5.5
   throwUpwardBias: 0
-  placementMaxDistance: 1.5
+  placementMaxDistance: 2.8
   aimedHighlightIntensity: 1.35
