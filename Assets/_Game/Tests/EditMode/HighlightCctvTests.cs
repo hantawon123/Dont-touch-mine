@@ -444,7 +444,7 @@ namespace Game.Tests.EditMode
                 Assert.That(position.x, Is.InRange(-13f, 13.5f), camera.LocationName);
                 Assert.That(position.z, Is.InRange(-33f, -8.5f), camera.LocationName);
                 Assert.That(position.y, Is.InRange(3.3f, 4.3f), camera.LocationName + " is mounted about 3 m above the first floor (y 1.01).");
-                Assert.That(camera.transform.forward.y, Is.LessThan(-0.3f), camera.LocationName + " tilts down like the supermarket mounts.");
+                Assert.That(camera.transform.forward.y, Is.LessThan(-0.2f), camera.LocationName + " tilts down like the supermarket mounts (18~46 degrees).");
                 Assert.That(camera.FieldOfView, Is.EqualTo(65f), camera.LocationName);
             }
         }

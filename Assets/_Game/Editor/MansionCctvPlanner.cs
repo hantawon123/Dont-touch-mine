@@ -272,6 +272,8 @@ namespace Game.Editor
         {
             RequireScene();
             if (Mounts.Length == 0) throw new InvalidOperationException("좌표표(Mounts)가 비어 있습니다.");
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) != null)
+                Debug.LogWarning("[MansionCctv] 기존 " + PrefabPath + " 을 좌표표로 덮어씁니다. 씬에서 손으로 옮긴 카메라가 있었다면 사라집니다.");
             var root = BuildCameras(out var notes);
             try
             {
@@ -715,6 +717,74 @@ namespace Game.Editor
             return false;
         }
 
+        /// <summary>카메라 정면 광선이 허리 높이(바닥 위 0.7 m)와 만나는 점. 좌표표 없이도 초점을 보고서에 적기 위한 것이다.</summary>
+        private static Vector3 FocusOnFloor(Transform camera)
+        {
+            var forward = camera.forward;
+            if (forward.y >= -0.01f) return camera.position + forward * 5f;
+            var t = (camera.position.y - (FloorY + FocusAboveFloor)) / -forward.y;
+            return camera.position + forward * t;
+        }
+
+        private const string PreviewName = "Mansion CCTV Preview";
+
+        /// <summary>
+        /// 좌표표가 아니라 저장된 프리팹의 카메라로 사각을 검사한다. 씬 미리보기에서 카메라를 옮겨
+        /// 프리팹에 적용(Overrides > Apply)한 뒤 확인할 때 쓴다. 이 경우 프리팹이 기준이고 좌표표는 기록이다.
+        /// </summary>
+        [MenuItem(MenuRoot + "3b. Check Coverage (Saved Prefab)")]
+        public static void CheckPrefabCoverage()
+        {
+            RequireScene();
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            if (prefab == null) throw new InvalidOperationException(PrefabPath + " 이 없습니다. 4. Save 로 먼저 만드세요.");
+            var grid = Scan();
+            var occluders = CollectOccluders();
+            var root = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            try
+            {
+                var cameras = root.GetComponentsInChildren<HighlightCctvCamera>();
+                var perCamera = Evaluate(grid, occluders, cameras);
+                MarkStructural(grid, occluders);
+                var texture = Draw(grid, occluders, cameras, showCoverage: true);
+                var png = Save(texture, "cctv-1f-coverage.png");
+                var report = Report(grid, occluders, cameras, perCamera, new List<string> { "이 보고서는 좌표표가 아니라 저장된 프리팹 " + PrefabPath + " 기준이다." });
+                var md = Path.Combine(ProjectRoot(), OutputFolder, "cctv-1f-coverage.md");
+                File.WriteAllText(md, report, new UTF8Encoding(false));
+                var reachable = grid.Count(i => grid.Reachable[i]);
+                var covered = grid.Count(i => grid.Reachable[i] && grid.Coverage[i] > 0);
+                Debug.Log($"[MansionCctv] 프리팹 사각 검사: 카메라 {cameras.Length}, 닿는 칸 {reachable}, 보이는 칸 {covered} ({(reachable == 0 ? 0 : 100f * covered / reachable):F1}%) -> {png}, {md}");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        /// <summary>
+        /// 저장된 프리팹을 씬에 한 번 놓아 카메라 위치·방향을 눈으로 본다. 다시 누르면 지운다.
+        /// 씬 뷰에서 모든 지점에 시야 부채꼴과 이름이 그려진다(<see cref="HighlightCctvGizmos"/>).
+        /// 미리보기를 둔 채 씬을 저장하지 않는다. 런타임은 Resources 에서 따로 인스턴스화하므로 겹친다.
+        /// </summary>
+        [MenuItem(MenuRoot + "5. Toggle Prefab Preview In Scene")]
+        public static void TogglePreview()
+        {
+            RequireScene();
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            var existing = scene.GetRootGameObjects().FirstOrDefault(g => g.name == PreviewName);
+            if (existing != null)
+            {
+                Undo.DestroyObjectImmediate(existing);
+                Debug.Log("[MansionCctv] 미리보기를 지웠습니다.");
+                return;
+            }
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            if (prefab == null) throw new InvalidOperationException(PrefabPath + " 이 없습니다. 4. Save 로 먼저 만드세요.");
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
+            instance.name = PreviewName;
+            Undo.RegisterCreatedObjectUndo(instance, "Mansion CCTV Preview");
+            Selection.activeGameObject = instance;
+            SceneView.lastActiveSceneView?.FrameSelected();
+            Debug.Log("[MansionCctv] 미리보기를 놓았습니다. 카메라를 옮겼으면 Overrides > Apply All 로 프리팹에 적용한 뒤 3b 로 검사하고, 씬을 저장하기 전에 이 메뉴로 미리보기를 지우세요.");
+        }
+
         // ---- 보고서 ----
 
         private static string Report(Grid grid, List<Occluder> occluders, HighlightCctvCamera[] cameras, int[] perCamera, List<string> notes)
@@ -744,8 +814,8 @@ namespace Game.Editor
             {
                 var t = cameras[c].transform;
                 var origin = t.position;
-                var m = Mounts[c];
                 var tilt = -Mathf.Asin(Mathf.Clamp(t.forward.y, -1f, 1f)) * Mathf.Rad2Deg;
+                var focus = FocusOnFloor(t);
                 var nearby = Nearby(occluders, origin);
                 var unique = 0;
                 for (var i = 0; i < grid.Kind.Length; i++)
@@ -754,7 +824,7 @@ namespace Game.Editor
                     var centre = Centre(grid, i);
                     if (CanSee(cameras[c], centre, nearby) || CanSee(cameras[c], centre + Vector3.up * 0.5f, nearby)) unique++;
                 }
-                sb.AppendLine($"| {c + 1:00} | {m.Area} | ({origin.x.ToString("0.0", inv)}, {origin.y.ToString("0.00", inv)}, {origin.z.ToString("0.0", inv)}) | ({m.FocusX.ToString("0.0", inv)}, {m.FocusZ.ToString("0.0", inv)}) | {tilt:F0}° | {cameras[c].FieldOfView:F0}° | {perCamera[c]} | {unique} |");
+                sb.AppendLine($"| {c + 1:00} | {cameras[c].LocationName} | ({origin.x.ToString("0.0", inv)}, {origin.y.ToString("0.00", inv)}, {origin.z.ToString("0.0", inv)}) | ({focus.x.ToString("0.0", inv)}, {focus.z.ToString("0.0", inv)}) | {tilt:F0}° | {cameras[c].FieldOfView:F0}° | {perCamera[c]} | {unique} |");
             }
             if (notes.Count > 0)
             {
@@ -1061,5 +1131,37 @@ namespace Game.Editor
         }
 
         private static string ProjectRoot() => Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+    }
+
+    /// <summary>씬 뷰에 CCTV 지점의 시야 부채꼴과 이름을 항상 그린다. 저택 미리보기와 마트 프리팹 둘 다에 적용된다.</summary>
+    public static class HighlightCctvGizmos
+    {
+        [DrawGizmo(GizmoType.NonSelected | GizmoType.Selected | GizmoType.Pickable)]
+        private static void Draw(HighlightCctvCamera camera, GizmoType type)
+        {
+            var t = camera.transform;
+            var selected = (type & GizmoType.Selected) != 0;
+            var colour = selected ? new Color(1f, 0.6f, 0.1f) : new Color(0.1f, 0.8f, 1f);
+            const float depth = 4f;
+            var halfHeight = depth * Mathf.Tan(camera.FieldOfView * Mathf.Deg2Rad * 0.5f);
+            var halfWidth = halfHeight * 16f / 9f;
+            var centre = t.position + t.forward * depth;
+            var corners = new[]
+            {
+                centre + t.up * halfHeight - t.right * halfWidth, centre + t.up * halfHeight + t.right * halfWidth,
+                centre - t.up * halfHeight + t.right * halfWidth, centre - t.up * halfHeight - t.right * halfWidth
+            };
+            Gizmos.color = colour;
+            Gizmos.DrawSphere(t.position, 0.15f);
+            for (var i = 0; i < 4; i++)
+            {
+                Gizmos.DrawLine(t.position, corners[i]);
+                Gizmos.DrawLine(corners[i], corners[(i + 1) % 4]);
+            }
+            Gizmos.color = new Color(colour.r, colour.g, colour.b, 0.5f);
+            Gizmos.DrawLine(t.position, t.position + t.forward * 12f);
+            var style = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = colour } };
+            Handles.Label(t.position + Vector3.up * 0.3f, camera.LocationName, style);
+        }
     }
 }
