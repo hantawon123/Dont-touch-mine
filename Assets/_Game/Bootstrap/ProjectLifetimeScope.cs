@@ -60,12 +60,8 @@ namespace Game.Bootstrap
         private AudioClip _uiButtonClick;
 
         [SerializeField]
-        [Tooltip("Looped through the result screen and highlight playback.")]
+        [Tooltip("Looped only during highlight playback.")]
         private AudioClip _endingBgm;
-
-        [SerializeField]
-        [Tooltip("Looped while the player is in the lobby.")]
-        private AudioClip _lobbyBgm;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -159,18 +155,6 @@ namespace Game.Bootstrap
                 ending.spatialBlend = 0f;
                 ending.clip = _endingBgm;
                 builder.RegisterEntryPoint<EndingBgmController>().WithParameter(ending);
-            }
-
-            if (_lobbyBgm != null)
-            {
-                var lobbyObject = new GameObject("Lobby BGM");
-                lobbyObject.transform.SetParent(transform, false);
-                var lobby = lobbyObject.AddComponent<AudioSource>();
-                lobby.playOnAwake = false;
-                lobby.loop = true;
-                lobby.spatialBlend = 0f;
-                lobby.clip = _lobbyBgm;
-                builder.RegisterEntryPoint<LobbyBgmController>().WithParameter(lobby);
             }
 
             // Makes a saved choice real. Registered here rather than in

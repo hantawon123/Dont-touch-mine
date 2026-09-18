@@ -10,11 +10,11 @@ namespace Game.Architecture.Tests
     public sealed class EndingBgmControllerTests
     {
         [TestCase(AppFlowState.Highlight, true)]
-        [TestCase(AppFlowState.Result, true)]
+        [TestCase(AppFlowState.Result, false)]
         [TestCase(AppFlowState.InGame, false)]
         [TestCase(AppFlowState.Lobby, false)]
         [TestCase(AppFlowState.Home, false)]
-        public void Playback_CoversResultAndHighlight(AppFlowState state, bool expected)
+        public void Playback_CoversHighlightOnly(AppFlowState state, bool expected)
         {
             Assert.That(EndingBgmController.ShouldPlay(state), Is.EqualTo(expected));
         }
@@ -34,7 +34,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void FadesInOnHighlight_HoldsThroughResult_AndFadesOutToLobby()
+        public void FadesInOnHighlight_AndFadesOutOnResult()
         {
             var host = new GameObject("Ending BGM Fade Test");
             EndingBgmController controller = null;
@@ -57,11 +57,6 @@ namespace Game.Architecture.Tests
                 Assert.That(source.volume, Is.EqualTo(full).Within(.001f));
 
                 flow.TryTransitionTo(AppFlowState.Result);
-                advance.Invoke(controller, new object[] { 1f });
-                Assert.That(source.isPlaying, Is.True);
-                Assert.That(source.volume, Is.EqualTo(full).Within(.001f));
-
-                flow.TryTransitionTo(AppFlowState.Lobby);
                 advance.Invoke(controller, new object[] { .5f });
                 Assert.That(source.volume, Is.EqualTo(full * .5f).Within(.001f));
                 advance.Invoke(controller, new object[] { .5f });

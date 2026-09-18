@@ -10,9 +10,8 @@ namespace Game.Bootstrap
     /// Carries the 사운드 settings into Unity's audio.
     /// </summary>
     /// <remarks>
-    /// Master volume is applied through AudioListener.volume. MenuBgmController,
-    /// LobbyBgmController and EndingBgmController separately apply Music to their
-    /// AudioSources when
+    /// Master volume is applied through AudioListener.volume. MenuBgmController
+    /// and EndingBgmController separately apply Music to their AudioSources when
     /// settings change, so the
     /// master gain is not multiplied twice. Footsteps, the warning chime, the hiding-timer tick,
     /// the searching-timer tick, the lobby start-countdown tick, the match-end bell

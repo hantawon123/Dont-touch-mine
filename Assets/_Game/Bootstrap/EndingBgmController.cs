@@ -7,14 +7,14 @@ using VContainer.Unity;
 namespace Game.Bootstrap
 {
     /// <summary>
-    /// 결과 화면부터 하이라이트까지 이어지는 엔딩 BGM. 들어갈 때 페이드인, 나올 때 페이드아웃.
+    /// 하이라이트 구간만 재생하는 엔딩 BGM. 들어갈 때 페이드인, 나올 때 페이드아웃.
     /// </summary>
     /// <remarks>
-    /// One looped track for the post-match sequence. Highlight and Result share
-    /// it so the cue does not restart between those two screens. Volume is the
-    /// Music slider times <see cref="SoundCatalog.BgmPlaybackVolume"/> (default
-    /// 50 already sounds like 40 on the file) times the fade. Master is already on
-    /// AudioListener. The clip is assigned on <c>ProjectLifetimeScope</c>.
+    /// One looped track for highlight playback only. Result and lobby stay
+    /// silent. Volume is the Music slider times
+    /// <see cref="SoundCatalog.BgmPlaybackVolume"/> (default 50 already sounds
+    /// like 40 on the file) times the fade. Master is already on AudioListener.
+    /// The clip is assigned on <c>ProjectLifetimeScope</c>.
     /// </remarks>
     public sealed class EndingBgmController : IStartable, ITickable, IDisposable
     {
@@ -43,7 +43,7 @@ namespace Game.Bootstrap
         }
 
         public static bool ShouldPlay(AppFlowState state) =>
-            state is AppFlowState.Highlight or AppFlowState.Result;
+            state == AppFlowState.Highlight;
 
         public void Start()
         {
