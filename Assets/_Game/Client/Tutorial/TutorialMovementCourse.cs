@@ -23,6 +23,7 @@ namespace Game.Client.Tutorial
         [SerializeField] private Transform crouchExit;
         [SerializeField] private Transform proneEntrance;
         [SerializeField] private Transform proneExit;
+        [SerializeField] private Transform sprintJumpThreshold;
         private bool enteredPassage;
 
         private CharacterController characterController;
@@ -130,6 +131,22 @@ namespace Game.Client.Tutorial
             }
             if (along >= -.6f && along <= .3f) enteredPassage = true;
             return enteredPassage && along >= length && along <= length + .6f;
+        }
+
+        private bool ReachedSprintJumpThreshold(Vector3 previous, Vector3 current)
+        {
+            if (sprintJumpThreshold == null)
+                return false;
+
+            var previousSide = Vector3.Dot(
+                previous - sprintJumpThreshold.position,
+                sprintJumpThreshold.forward);
+
+            var currentSide = Vector3.Dot(
+                current - sprintJumpThreshold.position,
+                sprintJumpThreshold.forward);
+
+            return previousSide < 0f && currentSide >= 0f;
         }
 
         private static float CurrentCameraYaw()

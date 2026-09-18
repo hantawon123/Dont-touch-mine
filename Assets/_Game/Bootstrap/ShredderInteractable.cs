@@ -107,20 +107,27 @@ namespace Game.Bootstrap
                 return;
             }
 
-            var ejectionDirection = Vector3.ProjectOnPlane(ejectionPoint.right, Vector3.up);
+            var ejectionDirection = ejectionTarget != null
+     ? ejectionTarget.position - ejectionPoint.position
+     : ejectionPoint.right;
+
             if (ejectionDirection.sqrMagnitude <= 0.0001f)
             {
                 ejectionDirection = ejectionPoint.right;
             }
 
             ejectionDirection.Normalize();
+
             item.transform.SetPositionAndRotation(
                 ejectionPoint.position,
                 ejectionPoint.rotation);
+
             item.gameObject.SetActive(true);
+
             item.OnThrown(
                 (ejectionDirection * ejectionSpeed) +
                 (Vector3.up * ejectionUpwardSpeed));
+
             ItemProcessed?.Invoke(item);
         }
     }
