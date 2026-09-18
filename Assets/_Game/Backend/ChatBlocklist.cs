@@ -71,20 +71,37 @@ namespace Game.Backend
         }
 
         /// <summary>
-        /// The five readings of a message the judgement is made against.
+        /// The twelve readings of a message the judgement is made against.
         /// </summary>
         /// <remarks>
         /// Internal so the tests can build the same readings and put the two judgements —
         /// the automaton's and the plain scan's — side by side without stating the list twice.
+        /// <para>
+        /// <b>The backend builds the same twelve</b> (ChatBlocklist.variants, S15P21D205-1081).
+        /// The first five undo symbols and digits; the last seven undo jamo, which used to be a
+        /// hole wide enough that a single character walked through it — "시ㅣ발" went out in the
+        /// clear. <see cref="Hangul"/> says which jamo tricks are undone and which were measured
+        /// and left alone.
+        /// </para>
+        /// <para>
+        /// Only the digit-as-vowel reading starts from a string that still has its digits. There
+        /// is nothing left to read once they are gone.
+        /// </para>
         /// </remarks>
         internal static string[] Variants(string message)
         {
             var lower = message.ToLowerInvariant();
             var withoutDigits = RemoveDigits(lower);
             var leet = Leet(lower);
+            var plain = StripSymbols(withoutDigits);
+            var plainLeet = StripSymbols(leet);
             return new[]
             {
-                lower, withoutDigits, leet, StripSymbols(withoutDigits), StripSymbols(leet)
+                lower, withoutDigits, leet, plain, plainLeet,
+                Hangul.StripJamo(plain), Hangul.StripJamo(plainLeet),
+                Hangul.Rejoin(plain), Hangul.Rejoin(plainLeet),
+                Hangul.DigitAsVowel(StripSymbols(lower)),
+                Hangul.Unstretch(plain), Hangul.Unstretch(plainLeet)
             };
         }
 
@@ -250,6 +267,222 @@ namespace Game.Backend
         private static bool IsAsciiLetterOrDigit(char letter) =>
             (letter >= 'a' && letter <= 'z') || (letter >= 'A' && letter <= 'Z')
             || (letter >= '0' && letter <= '9');
+
+        /// <summary>
+        /// Puts a message written with jamo back into the shape the word list is written in.
+        /// </summary>
+        /// <remarks>
+        /// The backend has the same four in Java (HangulShapes, S15P21D205-1081) and the two have
+        /// to answer identically, so the rules are written out here rather than approximated.
+        /// <para>
+        /// Each one covers a different trick and none of them subsumes another. Dropping jamo
+        /// catches "시ㅣ발" and "시ㅋㅋ발" but not "ㅅㅣ발", where dropping leaves nothing but the
+        /// last syllable. Joining jamo back into syllables catches "ㅅㅣ발" and "ㅂㅕㅇ신" but not
+        /// "시ㅋㅋ발", where the stray ㅋ is taken as a final consonant and the word becomes
+        /// "싴발".
+        /// </para>
+        /// <para>
+        /// <b>Three more were built, measured and left out</b>, each against 16430 lines of Korean
+        /// prose: collapsing repeated jamo (12 lines newly flagged — "롤리팝" becomes "로리팝",
+        /// and the case for it is already covered by dropping jamo), collapsing a stretched vowel
+        /// the first time it repeats (no new lines, but it only adds "꺼어져" and "닥아쳐" —
+        /// the single-stretch words are caught by other readings already — while leaving "강아지"
+        /// reduced to "강지"), and reading Latin letters as jamo (80 lines — it would catch
+        /// "시bal" but puts every English word in range). Mixed spellings like "시bal" are listed
+        /// by hand instead.
+        /// </para>
+        /// <para>
+        /// It lives in this file for the same reason the automaton does: the rule and the code
+        /// that runs it stay together, and the asset needs no second meta file.
+        /// </para>
+        /// </remarks>
+        private static class Hangul
+        {
+            private const char SyllableFirst = (char)0xAC00;
+            private const char SyllableLast = (char)0xD7A3;
+
+            private const string Lead = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+            private const string Vowel = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ";
+
+            /// <summary>Final consonants. Slot 0 is "no final" and never read as a character.</summary>
+            private const string Tail = "_ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ";
+
+            /// <summary>Drops jamo standing on their own: "시ㅣㅣㅣ발" → "시발".</summary>
+            /// <remarks>
+            /// Composed first, so a word typed as conjoining jamo becomes syllables instead of
+            /// disappearing. ㅣ is a letter, not a symbol, which is why stripping symbols left it
+            /// in place and this is needed at all.
+            /// </remarks>
+            public static string StripJamo(string value)
+            {
+                var composed = value.Normalize(NormalizationForm.FormC);
+                var kept = new StringBuilder(composed.Length);
+                foreach (var letter in composed)
+                    if (!IsJamo(letter)) kept.Append(letter);
+                return kept.ToString();
+            }
+
+            /// <summary>Pulls syllables apart into jamo and puts them back: "ㅅㅣ발" → "시발".</summary>
+            public static string Rejoin(string value) => Join(Flatten(value));
+
+            /// <summary>
+            /// Reads a digit right after a lone consonant as a vowel: "ㅅ1발" → "시발".
+            /// </summary>
+            /// <remarks>
+            /// Only right after a lone consonant. Taking any digit next to Hangul turns "롤1인칭"
+            /// into "로리인칭", which trips on "로리"; after a consonant is exactly where someone
+            /// draws a vowel with a digit.
+            /// </remarks>
+            public static string DigitAsVowel(string value)
+            {
+                var letters = value.ToCharArray();
+                for (var index = 1; index < letters.Length; index++)
+                {
+                    var vowel = LookalikeVowel(letters[index]);
+                    if (vowel != 0 && Lead.IndexOf(letters[index - 1]) >= 0) letters[index] = vowel;
+                }
+                return Rejoin(new string(letters));
+            }
+
+            /// <summary>
+            /// Shortens a vowel drawn out with ㅇ: "시이이발" → "시발".
+            /// </summary>
+            /// <remarks>
+            /// Only from the second repeat. Shortening the first one turns "강아지" into "강지"
+            /// and buys almost nothing — the words people actually stretch once are caught by
+            /// other readings. A
+            /// syllable carrying a final consonant is never read as drawn out — removing it would
+            /// push that consonant onto the syllable before it and invent a word.
+            /// </remarks>
+            public static string Unstretch(string value)
+            {
+                var composed = value.Normalize(NormalizationForm.FormC);
+                var kept = new StringBuilder(composed.Length);
+                var held = new StringBuilder();
+                var previousVowel = (char)0;
+                foreach (var letter in composed)
+                {
+                    if (IsSyllable(letter))
+                    {
+                        var code = letter - SyllableFirst;
+                        var lead = Lead[code / 588];
+                        var vowel = Vowel[code % 588 / 28];
+                        if (lead == 'ㅇ' && vowel == previousVowel && code % 28 == 0)
+                        {
+                            held.Append(letter);
+                            continue;
+                        }
+                        previousVowel = vowel;
+                    }
+                    else
+                    {
+                        previousVowel = (char)0;
+                    }
+                    Flush(kept, held);
+                    kept.Append(letter);
+                }
+                Flush(kept, held);
+                return Rejoin(kept.ToString());
+            }
+
+            /// <summary>
+            /// Pulls syllables apart into jamo, leaving everything else alone.
+            /// </summary>
+            /// <remarks>
+            /// NFKC first, to pull full-width characters back to their plain forms. That turns
+            /// standalone jamo into their conjoining forms, so <see cref="ToCompat"/> puts them
+            /// back — otherwise the ㅅ a person typed and the ㅅ taken out of a syllable are two
+            /// different characters and never match.
+            /// </remarks>
+            private static string Flatten(string value)
+            {
+                var normalized = value.Normalize(NormalizationForm.FormKC);
+                var flat = new StringBuilder(normalized.Length * 3);
+                foreach (var raw in normalized)
+                {
+                    var letter = ToCompat(raw);
+                    if (IsSyllable(letter))
+                    {
+                        var code = letter - SyllableFirst;
+                        flat.Append(Lead[code / 588]);
+                        flat.Append(Vowel[code % 588 / 28]);
+                        var tail = code % 28;
+                        if (tail > 0) flat.Append(Tail[tail]);
+                    }
+                    else
+                    {
+                        flat.Append(letter);
+                    }
+                }
+                return flat.ToString();
+            }
+
+            /// <summary>
+            /// Builds syllables back out of jamo. Jamo that cannot join are dropped.
+            /// </summary>
+            /// <remarks>
+            /// Whether a consonant is taken as a final is decided by what follows it: a vowel
+            /// after it means it opens the next syllable instead. "ㅂㅏㄹㅏ" is "바라", not "발ㅏ".
+            /// </remarks>
+            private static string Join(string jamo)
+            {
+                var built = new StringBuilder(jamo.Length);
+                var index = 0;
+                while (index < jamo.Length)
+                {
+                    var letter = jamo[index];
+                    var lead = Lead.IndexOf(letter);
+                    var vowel = index + 1 < jamo.Length ? Vowel.IndexOf(jamo[index + 1]) : -1;
+                    if (lead >= 0 && vowel >= 0)
+                    {
+                        var tail = 0;
+                        if (index + 2 < jamo.Length)
+                        {
+                            var candidate = Tail.IndexOf(jamo[index + 2]);
+                            var nextIsVowel = index + 3 < jamo.Length && Vowel.IndexOf(jamo[index + 3]) >= 0;
+                            if (candidate > 0 && !nextIsVowel) tail = candidate;
+                        }
+                        built.Append((char)(SyllableFirst + (lead * 21 + vowel) * 28 + tail));
+                        index += tail > 0 ? 3 : 2;
+                        continue;
+                    }
+                    if (!IsJamo(letter)) built.Append(letter);
+                    index++;
+                }
+                return built.ToString();
+            }
+
+            /// <summary>Conjoining jamo back to the standalone forms, undoing what NFKC did.</summary>
+            private static char ToCompat(char letter)
+            {
+                if (letter >= 0x1100 && letter <= 0x1112) return Lead[letter - 0x1100];
+                if (letter >= 0x1161 && letter <= 0x1175) return Vowel[letter - 0x1161];
+                if (letter >= 0x11A8 && letter <= 0x11C2) return Tail[letter - 0x11A8 + 1];
+                return letter;
+            }
+
+            /// <summary>Digits and letters drawn as vowels, the ones people actually use.</summary>
+            private static char LookalikeVowel(char letter) => letter switch
+            {
+                '1' or 'l' or 'i' or '|' => 'ㅣ',
+                '0' or 'o' => 'ㅗ',
+                _ => (char)0
+            };
+
+            /// <summary>Fewer than two was not a drawn-out vowel after all, so put it back.</summary>
+            private static void Flush(StringBuilder kept, StringBuilder held)
+            {
+                if (held.Length < 2) kept.Append(held);
+                held.Length = 0;
+            }
+
+            private static bool IsSyllable(char letter) =>
+                letter >= SyllableFirst && letter <= SyllableLast;
+
+            private static bool IsJamo(char letter) =>
+                (letter >= 0x3131 && letter <= 0x318E) || (letter >= 0x1100 && letter <= 0x11FF)
+                || (letter >= 0xA960 && letter <= 0xA97C) || (letter >= 0xD7B0 && letter <= 0xD7FB);
+        }
 
         /// <summary>
         /// Every forbidden word in one trie, walked once (Aho-Corasick).
