@@ -2,8 +2,10 @@ package com.ssafy.d205.domain.chat.entity;
 
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import com.ssafy.d205.global.common.HangulShapes;
 import com.ssafy.d205.global.common.WordAutomaton;
 import com.ssafy.d205.global.common.WordMatcher;
 
@@ -24,9 +26,14 @@ import com.ssafy.d205.global.common.WordMatcher;
  * 여기서만 생기므로 그것을 지운 판본을 하나 더 만들어 봅니다. <b>둘째</b>, 영문은 낱말 경계를
  * 볼 수 있으므로 닉네임 목록에서 오탐 때문에 뺐던 짧은 영어 욕설을 이 목록에는 넣을 수 있습니다.
  *
- * <p>한글 자모만 쓴 욕("ㅅㅂ")은 정규화로 잡는 것이 아니라 목록에 그대로 한 줄 넣습니다. 자모를
- * 음절로 되돌리는 규칙은 사람이 실제로 쓰는 몇 개보다 훨씬 복잡하고, 되돌리다 멀쩡한 말을
- * 만들어 냅니다.
+ * <p>한글 자모만 쓴 욕("ㅅㅂ")은 목록에 그대로 한 줄 넣습니다. 자모를 <b>끼워 넣거나 풀어 쓴</b>
+ * 우회("시ㅣ발", "ㅅㅣ발")는 목록으로 감당할 수 없어 {@link HangulShapes} 가 되돌립니다
+ * (S15P21D205-1081). 어디까지 되돌리고 무엇을 두고 보는지는 그 클래스에 적었습니다 - 되돌리는
+ * 규칙은 세게 잡을수록 멀쩡한 말을 만들어 내므로 오탐을 재서 고른 선입니다.
+ *
+ * <p>한영 전환 없이 친 글("tlqkf")은 판정이 아니라 <b>목록</b>으로 막습니다. 되돌리는 쪽은
+ * 영문이 든 말을 통째로 사정권에 넣어 오탐이 57줄이었고, 금칙어를 자판 표기로 미리 만들어
+ * 두는 쪽은 오탐이 없었습니다({@code chat-blocklist-keyboard.txt}).
  *
  * <p><b>가리는 일은 여기서 하지 않습니다.</b> 게임 서버가 중계하면서 가린 말을 뿌리고 원문을
  * 여기로 보냅니다(S15P21D205-1028). 이 클래스는 저장할 때 masked 플래그를 다시 판정하는 데만
@@ -51,6 +58,7 @@ import com.ssafy.d205.global.common.WordMatcher;
 public class ChatBlocklist {
 
     static final String BLOCKLIST = "chat-blocklist.txt";
+    static final String KEYBOARD = "chat-blocklist-keyboard.txt";
     static final String ALLOWLIST = "chat-allowlist.txt";
 
     private final List<String> blocked;
@@ -58,7 +66,20 @@ public class ChatBlocklist {
     private final WordAutomaton automaton;
 
     public ChatBlocklist() {
-        this(WordMatcher.read(BLOCKLIST), WordMatcher.read(ALLOWLIST));
+        this(both(WordMatcher.read(BLOCKLIST), WordMatcher.read(KEYBOARD)), WordMatcher.read(ALLOWLIST));
+    }
+
+    /**
+     * 손으로 적는 목록과 만들어 둔 자판 표기를 합칩니다.
+     *
+     * <p>파일을 가르는 이유는 한쪽이 <b>생성물</b>이기 때문입니다. 섞어 두면 사람이 자판 표기를
+     * 손으로 고치고, 다음 생성 때 그 손질이 사라집니다. 만드는 쪽은 ChatKeyboardListTest 입니다.
+     */
+    private static List<String> both(List<String> typed, List<String> generated) {
+        List<String> all = new ArrayList<>(typed.size() + generated.size());
+        all.addAll(typed);
+        all.addAll(generated);
+        return all;
     }
 
     /** 테스트가 목록을 직접 넣을 수 있게 열어 둡니다. 소문자로 맞춰 저장합니다. */
@@ -75,27 +96,59 @@ public class ChatBlocklist {
      * <p>우회 수단이 서로 <b>겹쳐서</b> 들어옵니다. 숫자만 끼우거나 공백만 끼우는 것은 각각
      * 한 번의 변환으로 풀리지만, "시1 발" 처럼 둘을 같이 쓰면 한쪽만 푼 판본에는 아무것도
      * 걸리지 않습니다. 그래서 조합까지 만들어 봅니다.
-     *
-     * <ul>
-     *   <li>소문자 그대로 - "시발"</li>
-     *   <li>숫자를 뺀 것 - "시1발"</li>
-     *   <li>숫자를 글자로 바꾼 것 - "sh1t"</li>
-     *   <li>숫자를 빼고 기호까지 지운 것 - "시1 발"</li>
-     *   <li>숫자를 글자로 바꾸고 기호까지 지운 것 - "s.h.1.t"</li>
-     * </ul>
      */
     public boolean isForbidden(String message) {
         if (message == null || message.isEmpty()) {
             return false;
         }
+        for (String variant : variants(message)) {
+            if (hits(variant)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 판정이 보는 열두 판본. 게임 서버와 <b>같은 열둘</b>이어야 합니다(ChatBlocklist.cs).
+     *
+     * <table>
+     *   <tr><th>판본</th><th>막는 것</th></tr>
+     *   <tr><td>소문자 그대로</td><td>시발</td></tr>
+     *   <tr><td>숫자를 뺀 것</td><td>시1발</td></tr>
+     *   <tr><td>숫자를 글자로 바꾼 것</td><td>sh1t</td></tr>
+     *   <tr><td>기호까지 지운 것 둘</td><td>시1 발, s.h.1.t</td></tr>
+     *   <tr><td>자모를 지운 것 둘</td><td>시ㅣ발, 시ㅋㅋ발</td></tr>
+     *   <tr><td>자모를 음절로 붙인 것 둘</td><td>ㅅㅣ발, ㅂㅕㅇ신</td></tr>
+     *   <tr><td>숫자를 모음으로 본 것</td><td>ㅅ1발</td></tr>
+     *   <tr><td>늘인 모음을 줄인 것 둘</td><td>시이이발</td></tr>
+     * </table>
+     *
+     * <p>뒤쪽 일곱은 {@link HangulShapes} 가 만듭니다. 어느 계열을 왜 넣고 무엇을 뺐는지는
+     * 그 클래스에 적어 두었습니다. 자판 우회("tlqkf")만 여기가 아니라 목록 쪽에서 막습니다.
+     *
+     * <p>숫자를 모음으로 보는 판본만 숫자를 지우지 않은 쪽에서 출발합니다. 숫자가 이미 사라진
+     * 문자열에서는 볼 것이 남아 있지 않습니다.
+     */
+    private List<String> variants(String message) {
         String lower = WordMatcher.lower(message);
         String withoutDigits = lower.replaceAll("[0-9]", "");
         String leet = WordMatcher.leet(lower);
-        return hits(lower)
-                || hits(withoutDigits)
-                || hits(leet)
-                || hits(WordMatcher.stripSymbols(withoutDigits))
-                || hits(WordMatcher.stripSymbols(leet));
+        String plain = WordMatcher.stripSymbols(withoutDigits);
+        String plainLeet = WordMatcher.stripSymbols(leet);
+        return List.of(
+                lower,
+                withoutDigits,
+                leet,
+                plain,
+                plainLeet,
+                HangulShapes.stripJamo(plain),
+                HangulShapes.stripJamo(plainLeet),
+                HangulShapes.rejoin(plain),
+                HangulShapes.rejoin(plainLeet),
+                HangulShapes.digitAsVowel(WordMatcher.stripSymbols(lower)),
+                HangulShapes.unstretch(plain),
+                HangulShapes.unstretch(plainLeet));
     }
 
     /**
