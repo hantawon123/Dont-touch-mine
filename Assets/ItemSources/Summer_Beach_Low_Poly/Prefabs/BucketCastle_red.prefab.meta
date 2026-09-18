@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 2af886b04d03d2147b8d949a377afea4
+labels:
+- summer
+- beach
+- sand
+timeCreated: 1429792966
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/BucketCastle_red.prefab
+  uploadId: 466071

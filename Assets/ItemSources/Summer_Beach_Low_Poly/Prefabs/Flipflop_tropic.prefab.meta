@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: adfa985e98c9c13438dbb13cc4b6f656
+labels:
+- summer
+- beach
+- flipflop
+timeCreated: 1429793653
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/Flipflop_tropic.prefab
+  uploadId: 466071

@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 906c0b726970c7841b3f8a266f962c5d
+labels:
+- summer
+- beach
+- sand
+timeCreated: 1429809242
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/Shovel_blue.prefab
+  uploadId: 466071

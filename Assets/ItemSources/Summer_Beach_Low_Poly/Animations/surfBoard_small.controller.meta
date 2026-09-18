@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: eaf291dd8cf860f4e9266513fd3cc0f5
+timeCreated: 1429980390
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Animations/surfBoard_small.controller
+  uploadId: 466071

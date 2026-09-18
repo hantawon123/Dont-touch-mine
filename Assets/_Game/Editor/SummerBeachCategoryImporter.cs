@@ -20,7 +20,7 @@ namespace Game.Editor
         private const string CategoryId = "beach";
         private const string CategoryLabel = "여름·해변";
         private const string Package = "Summer Beach - Low Poly";
-        private const string SourceFolder = "Assets/Summer Beach - Low Poly/Prefabs";
+        private const string SourceFolder = "Assets/ItemSources/Summer_Beach_Low_Poly/Prefabs";
         private const string CharacterPrefab = "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab";
 
         // 들고 숨기기 적합한 소형·중형만. 캐빈/샤워/그물/대형 파라솔·윈드브레이크 등은 제외.
@@ -210,6 +210,8 @@ namespace Game.Editor
             out float scale)
         {
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(source);
+            PrefabUtility.UnpackPrefabInstance(
+                instance, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
             instance.transform.position = Vector3.zero;
             instance.transform.rotation = Quaternion.identity;
             originalSize = BoundsOf(instance).size;
@@ -229,6 +231,9 @@ namespace Game.Editor
                 UnityEngine.Object.DestroyImmediate(body);
             foreach (var collider in instance.GetComponentsInChildren<Collider>(true))
                 UnityEngine.Object.DestroyImmediate(collider);
+            foreach (var renderer in instance.GetComponentsInChildren<Renderer>(true))
+                renderer.sharedMaterials = renderer.sharedMaterials
+                    .Select(ItemCollectionBuilder.CompatibleMaterial).ToArray();
 
             var bounds = BoundsOf(wrapper);
             instance.transform.position -= new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
