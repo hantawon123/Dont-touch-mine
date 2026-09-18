@@ -79,6 +79,20 @@ namespace Game.Bootstrap
                 RecoverItem();
         }
 
+        private void LateUpdate()
+        {
+            if (trainingItem == null || interactor == null ||
+                interactor.CarriedItem != trainingItem || interactor.HoldPoint == null)
+                return;
+
+            // The standalone tutorial has no authority snapshot to repair a
+            // detached held prop. Keep the same invariant the network bridge
+            // provides in a match: a carried item lives under HoldPoint.
+            if (trainingItem.transform.parent != interactor.HoldPoint ||
+                trainingItem.transform.localPosition.sqrMagnitude > 0.0001f)
+                trainingItem.OnPickedUp(interactor.HoldPoint);
+        }
+
         public void RecoverItem()
         {
             session.RetryCurrentStep();

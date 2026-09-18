@@ -81,6 +81,11 @@ namespace Game.Tests.PlayMode
             Assert.That(Vector3.Distance(trainingItem.transform.position, spawn), Is.LessThan(0.1f));
 
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
+            Assert.That(trainingItem.transform.parent, Is.SameAs(interactor.HoldPoint));
+            trainingItem.transform.SetParent(null, true);
+            yield return null;
+            Assert.That(trainingItem.transform.parent, Is.SameAs(interactor.HoldPoint),
+                "Tutorial course did not repair a detached carried item.");
             interactor.DropCarriedItem();
             Assert.That(interactor.TryPickUp(trainingItem), Is.True);
             interactor.SendMessage("ThrowCarried");
