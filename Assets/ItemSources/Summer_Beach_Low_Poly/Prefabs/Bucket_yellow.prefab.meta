@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: f5af82a9e428d4e41b004780966d6571
+labels:
+- summer
+- beach
+- sand
+timeCreated: 1429792935
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/Bucket_yellow.prefab
+  uploadId: 466071

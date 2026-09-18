@@ -46,7 +46,7 @@ namespace Game.Editor
             var log = new StringBuilder();
 
             var household = EnsureCategory(catalog, "household", "생활용품", true);
-            var bathroom = EnsureCategory(catalog, "bathroom", "욕실·위생", true);
+            var bathroom = EnsureCategory(catalog, "bathroom", "욕실용품", true);
             var plants = EnsureCategory(catalog, "plants", "화분·식물", true);
 
             var missing = entries
@@ -91,7 +91,7 @@ namespace Game.Editor
 
             if (BathroomFamilies.Contains(entry.family) ||
                 entry.package.IndexOf("Bathroom", StringComparison.OrdinalIgnoreCase) >= 0)
-                return ("bathroom", "욕실·위생", bathroom);
+                return ("bathroom", "욕실용품", bathroom);
 
             return ("household", "생활용품", household);
         }
@@ -123,7 +123,7 @@ namespace Game.Editor
             entry.category = destCategory;
             entry.categoryName = destCategory switch
             {
-                "bathroom" => "욕실·위생",
+                "bathroom" => "욕실용품",
                 "plants" => "화분·식물",
                 _ => "생활용품",
             };

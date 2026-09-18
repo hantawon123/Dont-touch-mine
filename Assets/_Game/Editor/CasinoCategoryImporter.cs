@@ -20,7 +20,7 @@ namespace Game.Editor
         private const string CategoryId = "casino";
         private const string CategoryLabel = "카지노";
         private const string Package = "Casino FREE - Low Poly 3D Models Pack";
-        private const string SourceRoot = "Assets/ithappy/Casino_Free/Prefabs";
+        private const string SourceRoot = "Assets/ItemSources/ithappy/Casino_Free/Prefabs";
         private const string CharacterPrefab = "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab";
 
         // 들고 숨기기 적합한 소형·중형만. 슬롯머신/ATM/가구/기둥/바닥 등은 제외.
@@ -54,6 +54,119 @@ namespace Game.Editor
             ("Games/Slot_08", "슬롯 심볼 08"),
             ("Games/Slot_Machine_Aquarium_Fish_01", "수족관 물고기"),
         };
+
+        private static readonly (string sourcePath, string displayName, string package)[] ExtraSources =
+        {
+            ("Assets/ItemSources/Smoking_Pipes_set/Prefab/Pipe01.prefab", "파이프", "Low-poly smoking pipes set"),
+            ("Assets/ItemSources/Smoking_Pipes_set/Prefab/Pipe02.prefab", "파이프", "Low-poly smoking pipes set"),
+        };
+
+        [MenuItem("Tools/Game/Items/Add Casino Smoking Pipes")]
+        public static void ImportSmokingPipes()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Exit Play Mode first.");
+
+            var maxSize = MeasureCharacterSize();
+            EnsurePrefabFolder(CategoryId);
+            var prefabDir = $"{ItemCollectionBuilder.Folder}/Prefabs/{CategoryId}";
+
+            var manifestPath = ItemCollectionBuilder.Folder + "/ItemCollection.json";
+            var items = JsonUtility.FromJson<ItemCollectionBuilder.Manifest>(File.ReadAllText(manifestPath))
+                .items?.ToList() ?? new List<ItemCollectionBuilder.Entry>();
+
+            var catalog = AssetDatabase.LoadAssetAtPath<ItemCatalogSO>(ItemCatalogSetup.Path)
+                          ?? throw new InvalidOperationException("Missing ItemCatalog.asset");
+            var category = catalog.categories.FirstOrDefault(c => c.id == CategoryId)
+                           ?? throw new InvalidOperationException("Missing casino category — run Add Casino Category first.");
+
+            var created = new List<(ItemCollectionBuilder.Entry entry, string destPath, string catalogId)>();
+            try
+            {
+                AssetDatabase.StartAssetEditing();
+                foreach (var (sourcePath, displayName, package) in ExtraSources)
+                {
+                    if (items.Any(e => e.source == sourcePath && e.category == CategoryId))
+                        continue;
+
+                    var source = AssetDatabase.LoadAssetAtPath<GameObject>(sourcePath);
+                    if (source == null)
+                        throw new FileNotFoundException(sourcePath);
+
+                    var family = Path.GetFileNameWithoutExtension(sourcePath);
+                    var entryId = "casino_" + StableHash10(sourcePath);
+                    var catalogId = "i" + entryId.Substring(entryId.LastIndexOf('_') + 1);
+                    if (catalogId.Length > 16)
+                        throw new InvalidOperationException("Catalog ID too long: " + catalogId);
+                    if (category.items.Any(i => i != null && i.id == catalogId))
+                        continue;
+
+                    var destPath = $"{prefabDir}/{entryId}.prefab";
+                    var wrapper = BuildCarryable(source, displayName, maxSize, out var originalSize, out var finalSize, out var scale);
+                    PrefabUtility.SaveAsPrefabAsset(wrapper, destPath);
+                    UnityEngine.Object.DestroyImmediate(wrapper);
+
+                    created.Add((
+                        new ItemCollectionBuilder.Entry
+                        {
+                            id = entryId,
+                            source = sourcePath,
+                            originalSource = sourcePath,
+                            package = package,
+                            category = CategoryId,
+                            categoryName = CategoryLabel,
+                            displayName = displayName,
+                            note = "",
+                            family = family,
+                            prefab = destPath,
+                            originalSize = originalSize,
+                            finalSize = finalSize,
+                            scale = scale,
+                        },
+                        destPath,
+                        catalogId));
+                }
+            }
+            finally
+            {
+                AssetDatabase.StopAssetEditing();
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            foreach (var (entry, destPath, catalogId) in created)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(destPath);
+                if (prefab == null || prefab.GetComponent<CarryableItem>() == null)
+                    throw new InvalidOperationException("Missing carryable prefab after save: " + destPath);
+
+                category.items.Add(new ItemCatalogSO.Item
+                {
+                    id = catalogId,
+                    displayName = entry.displayName,
+                    enabled = true,
+                    prefab = prefab,
+                });
+                items.Add(entry);
+            }
+
+            if (created.Count > 0)
+            {
+                WriteManifest(manifestPath, items);
+                catalog.Apply();
+                EditorUtility.SetDirty(catalog);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+            }
+
+            Selection.activeObject = catalog;
+            var summary =
+                $"[CasinoCategoryImporter] smoking pipes added={created.Count}, casino enabled={category.items.Count(i => i.enabled)}";
+            Debug.Log(summary);
+            Directory.CreateDirectory("Temp");
+            File.WriteAllText("Temp/CasinoSmokingPipesImporter.log", summary);
+        }
 
         [MenuItem("Tools/Game/Items/Add Casino Category")]
         public static void Import()
