@@ -8,6 +8,9 @@ namespace Game.Client.Players
     {
         public static float EffectsVolume { get; set; } = 1f;
 
+        public const string ClipAssetPath =
+            "Assets/Free UI Click Sound Effects Pack/AUDIO/Plastic/SFX_UI_Click_Organic_Plastic_Soft_Generic_1.wav";
+
         // Walk_Forward hip Y minima: frame 2 and 14 of a 24-frame, 0.8s cycle.
         internal const float WalkPlantA = 1f / 12f;
         internal const float WalkPlantB = 7f / 12f;

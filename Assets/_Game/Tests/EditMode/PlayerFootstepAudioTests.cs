@@ -81,21 +81,17 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void CharacterHasEightImportedOneShots()
+        public void CharacterUsesTheApprovedSoftPlasticClick()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab");
             var clips = new SerializedObject(prefab.GetComponent<PlayerAnimationDriver>())
                 .FindProperty("footstepClips");
-            Assert.That(clips.arraySize, Is.EqualTo(8));
-            for (var index = 0; index < clips.arraySize; index++)
-            {
-                var clip = clips.GetArrayElementAtIndex(index).objectReferenceValue as AudioClip;
-                Assert.That(clip, Is.Not.Null);
-                Assert.That(clip.channels, Is.EqualTo(1));
-                Assert.That(clip.length, Is.EqualTo(.18f).Within(.001f));
-                Assert.That(clip.frequency, Is.EqualTo(44100));
-            }
+            Assert.That(clips.arraySize, Is.EqualTo(1));
+            var clip = clips.GetArrayElementAtIndex(0).objectReferenceValue as AudioClip;
+            Assert.That(clip, Is.Not.Null);
+            Assert.That(AssetDatabase.GetAssetPath(clip), Is.EqualTo(PlayerFootstepAudio.ClipAssetPath));
+            Assert.That(clip.name, Is.EqualTo("SFX_UI_Click_Organic_Plastic_Soft_Generic_1"));
         }
     }
 }
