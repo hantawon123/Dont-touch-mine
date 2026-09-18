@@ -20,7 +20,7 @@ namespace Game.Editor
         private const string CategoryId = "toys";
         private const string CategoryLabel = "장난감";
         private const string Package = "Casual Furniture - Low Poly 3D Models Pack";
-        private const string SourceFolder = "Assets/ithappy/Furniture_Casual/Prefabs/toy";
+        private const string SourceFolder = "Assets/ItemSources/ithappy/Furniture_Casual/Prefabs/toy";
         private const string CharacterPrefab = "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab";
 
         [MenuItem("Tools/Game/Items/Add Toys Category")]

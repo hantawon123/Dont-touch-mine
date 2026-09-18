@@ -23,34 +23,34 @@ namespace Game.Editor
 
         private static readonly (string sourcePath, string displayName, string package)[] HalloweenExtras =
         {
-            ("Assets/DestiaArt/LowPolyHalloweenPropsPack/Prefabs/Graveyard/SM_Coffin.prefab", "관", "Low Poly Halloween Props Pack"),
-            ("Assets/DestiaArt/LowPolyHalloweenPropsPack/Prefabs/Graveyard/SM_Tombstone_03.prefab", "묘비", "Low Poly Halloween Props Pack"),
-            ("Assets/DestiaArt/LowPolyHalloweenPropsPack/Prefabs/Graveyard/SM_Tombstone_05.prefab", "묘비", "Low Poly Halloween Props Pack"),
-            ("Assets/DestiaArt/LowPolyHalloweenPropsPack/Prefabs/Graveyard/SM_Tombstone_01.prefab", "묘비", "Low Poly Halloween Props Pack"),
-            ("Assets/DestiaArt/LowPolyHalloweenPropsPack/Prefabs/Graveyard/SM_Cross_02.prefab", "십자가", "Low Poly Halloween Props Pack"),
-            ("Assets/polyperfect/Poly Halloween/Prefabs/Halloween/Coffin_Old.prefab", "관", "Poly Halloween"),
-            ("Assets/polyperfect/Poly Halloween/Prefabs/Halloween/Coffin_New.prefab", "관", "Poly Halloween"),
-            ("Assets/polyperfect/Poly Halloween/Prefabs/Halloween/Gravestone_Old_Small_A.prefab", "묘비", "Poly Halloween"),
-            ("Assets/polyperfect/Poly Halloween/Prefabs/Halloween/Gravestone_Old_Small_B.prefab", "묘비", "Poly Halloween"),
-            ("Assets/polyperfect/Poly Halloween/Prefabs/Halloween/Gravestone_Old_Cross.prefab", "묘비", "Poly Halloween"),
-            ("Assets/polyperfect/Poly Halloween/Prefabs/Halloween/Scarecrow_A.prefab", "허수아비", "Poly Halloween"),
-            ("Assets/polyperfect/Poly Halloween/Prefabs/Halloween/Scarecrow_B.prefab", "허수아비", "Poly Halloween"),
-            ("Assets/polyperfect/Poly Halloween/Prefabs/Halloween/Spiderweb_A.prefab", "거미줄", "Poly Halloween"),
-            ("Assets/polyperfect/Poly Halloween/Prefabs/Halloween/Spiderweb_B.prefab", "거미줄", "Poly Halloween"),
-            ("Assets/polyperfect/Poly Halloween/Prefabs/Halloween/Spiderweb_C.prefab", "거미줄", "Poly Halloween"),
+            ("Assets/ItemSources/DestiaArt/LowPolyHalloweenPropsPack/Prefabs/Graveyard/SM_Coffin.prefab", "관", "Low Poly Halloween Props Pack"),
+            ("Assets/ItemSources/DestiaArt/LowPolyHalloweenPropsPack/Prefabs/Graveyard/SM_Tombstone_03.prefab", "묘비", "Low Poly Halloween Props Pack"),
+            ("Assets/ItemSources/DestiaArt/LowPolyHalloweenPropsPack/Prefabs/Graveyard/SM_Tombstone_05.prefab", "묘비", "Low Poly Halloween Props Pack"),
+            ("Assets/ItemSources/DestiaArt/LowPolyHalloweenPropsPack/Prefabs/Graveyard/SM_Tombstone_01.prefab", "묘비", "Low Poly Halloween Props Pack"),
+            ("Assets/ItemSources/DestiaArt/LowPolyHalloweenPropsPack/Prefabs/Graveyard/SM_Cross_02.prefab", "십자가", "Low Poly Halloween Props Pack"),
+            ("Assets/ItemSources/polyperfect/Poly Halloween/Prefabs/Halloween/Coffin_Old.prefab", "관", "Poly Halloween"),
+            ("Assets/ItemSources/polyperfect/Poly Halloween/Prefabs/Halloween/Coffin_New.prefab", "관", "Poly Halloween"),
+            ("Assets/ItemSources/polyperfect/Poly Halloween/Prefabs/Halloween/Gravestone_Old_Small_A.prefab", "묘비", "Poly Halloween"),
+            ("Assets/ItemSources/polyperfect/Poly Halloween/Prefabs/Halloween/Gravestone_Old_Small_B.prefab", "묘비", "Poly Halloween"),
+            ("Assets/ItemSources/polyperfect/Poly Halloween/Prefabs/Halloween/Gravestone_Old_Cross.prefab", "묘비", "Poly Halloween"),
+            ("Assets/ItemSources/polyperfect/Poly Halloween/Prefabs/Halloween/Scarecrow_A.prefab", "허수아비", "Poly Halloween"),
+            ("Assets/ItemSources/polyperfect/Poly Halloween/Prefabs/Halloween/Scarecrow_B.prefab", "허수아비", "Poly Halloween"),
+            ("Assets/ItemSources/polyperfect/Poly Halloween/Prefabs/Halloween/Spiderweb_A.prefab", "거미줄", "Poly Halloween"),
+            ("Assets/ItemSources/polyperfect/Poly Halloween/Prefabs/Halloween/Spiderweb_B.prefab", "거미줄", "Poly Halloween"),
+            ("Assets/ItemSources/polyperfect/Poly Halloween/Prefabs/Halloween/Spiderweb_C.prefab", "거미줄", "Poly Halloween"),
         };
 
         private static readonly (string sourcePath, string displayName)[] CasinoExtras =
         {
-            ("Assets/ithappy/Casino_Free/Prefabs/Assets/ATM_01.prefab", "ATM"),
-            ("Assets/ithappy/Casino_Free/Prefabs/Assets/ATM_03.prefab", "ATM"),
-            ("Assets/ithappy/Casino_Free/Prefabs/Assets/SafeBox_01.prefab", "금고"),
-            ("Assets/Smoking Pipes set/Prefab/Pipe01.prefab", "파이프"),
-            ("Assets/Smoking Pipes set/Prefab/Pipe02.prefab", "파이프"),
+            ("Assets/ItemSources/ithappy/Casino_Free/Prefabs/Assets/ATM_01.prefab", "ATM"),
+            ("Assets/ItemSources/ithappy/Casino_Free/Prefabs/Assets/ATM_03.prefab", "ATM"),
+            ("Assets/ItemSources/ithappy/Casino_Free/Prefabs/Assets/SafeBox_01.prefab", "금고"),
+            ("Assets/ItemSources/Smoking_Pipes_set/Prefab/Pipe01.prefab", "파이프"),
+            ("Assets/ItemSources/Smoking_Pipes_set/Prefab/Pipe02.prefab", "파이프"),
         };
 
         private static string PackageForCasinoSource(string sourcePath) =>
-            sourcePath.StartsWith("Assets/Smoking Pipes set/", StringComparison.Ordinal)
+            sourcePath.StartsWith("Assets/ItemSources/Smoking_Pipes_set/", StringComparison.Ordinal)
                 ? "Low-poly smoking pipes set"
                 : "Casino FREE - Low Poly 3D Models Pack";
 

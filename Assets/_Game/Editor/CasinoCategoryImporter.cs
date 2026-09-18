@@ -20,7 +20,7 @@ namespace Game.Editor
         private const string CategoryId = "casino";
         private const string CategoryLabel = "카지노";
         private const string Package = "Casino FREE - Low Poly 3D Models Pack";
-        private const string SourceRoot = "Assets/ithappy/Casino_Free/Prefabs";
+        private const string SourceRoot = "Assets/ItemSources/ithappy/Casino_Free/Prefabs";
         private const string CharacterPrefab = "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab";
 
         // 들고 숨기기 적합한 소형·중형만. 슬롯머신/ATM/가구/기둥/바닥 등은 제외.
@@ -57,8 +57,8 @@ namespace Game.Editor
 
         private static readonly (string sourcePath, string displayName, string package)[] ExtraSources =
         {
-            ("Assets/Smoking Pipes set/Prefab/Pipe01.prefab", "파이프", "Low-poly smoking pipes set"),
-            ("Assets/Smoking Pipes set/Prefab/Pipe02.prefab", "파이프", "Low-poly smoking pipes set"),
+            ("Assets/ItemSources/Smoking_Pipes_set/Prefab/Pipe01.prefab", "파이프", "Low-poly smoking pipes set"),
+            ("Assets/ItemSources/Smoking_Pipes_set/Prefab/Pipe02.prefab", "파이프", "Low-poly smoking pipes set"),
         };
 
         [MenuItem("Tools/Game/Items/Add Casino Smoking Pipes")]
