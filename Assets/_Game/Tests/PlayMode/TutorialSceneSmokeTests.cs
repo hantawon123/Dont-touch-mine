@@ -1,5 +1,7 @@
 using System.Collections;
+using System.Reflection;
 using Game.Client.Cameras;
+using Game.Client.Common;
 using Game.Client.Interactions;
 using Game.Client.Players;
 using Game.Client.Tutorial;
@@ -174,6 +176,14 @@ namespace Game.Tests.PlayMode
             Assert.That(door.CanInteract(interactor), Is.True);
             yield return null;
             Assert.That(door.IsLoading, Is.False, "Completion alone must not automatically leave.");
+
+            var loadingView = LoadingView.Create(null);
+            typeof(TutorialExitDoor).GetField("destinationScene", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.SetValue(door, string.Empty);
+            door.Interact(interactor);
+            yield return null;
+            Assert.That(loadingView.IsPresented, Is.True, "Exit did not present the shared loading view.");
+            Object.Destroy(loadingView.gameObject);
         }
 
         private static void SetControllerPose(CharacterController controller, Vector3 position, float height)

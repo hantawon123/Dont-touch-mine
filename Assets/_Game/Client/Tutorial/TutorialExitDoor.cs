@@ -34,6 +34,13 @@ namespace Game.Client.Tutorial
 
         private async UniTask LeaveAsync()
         {
+            var loadingView = FindAnyObjectByType<LoadingView>(FindObjectsInactive.Include);
+            if (loadingView != null)
+            {
+                loadingView.Show();
+                await SceneLoadSlicer.YieldFrame();
+            }
+
             // Record completion only after the destination actually loaded.
             await SceneLoadSlicer.LoadSingleAsync(destinationScene);
             new PlayerPrefsTutorialCompletionStore().MarkCurrentVersionCompleted();
