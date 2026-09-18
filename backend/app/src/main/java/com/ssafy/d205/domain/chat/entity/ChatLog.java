@@ -73,20 +73,8 @@ public class ChatLog {
     @Column(name = "created_at", nullable = false, length = 14)
     private String createdAt;
 
-    private ChatLog(String roomCode, ChatScope scope, Integer senderSeq, String senderRef,
-                    String message, boolean masked, String sentAt, String createdAt) {
-        this.roomCode = roomCode;
-        this.scope = scope;
-        this.senderSeq = senderSeq;
-        this.senderRef = senderRef;
-        this.message = message;
-        this.masked = masked;
-        this.sentAt = sentAt;
-        this.createdAt = createdAt;
-    }
-
-    public static ChatLog of(String roomCode, ChatScope scope, Integer senderSeq, String senderRef,
-                             String message, boolean masked, String sentAt, String createdAt) {
-        return new ChatLog(roomCode, scope, senderSeq, senderRef, message, masked, sentAt, createdAt);
-    }
+    // 넣는 코드가 없는 것은 일부러입니다. 쓰기는
+    // com.ssafy.d205.domain.chat.repository.ChatLogBatchWriter 가 JDBC 배치로 합니다 - 이 엔티티가
+    // IDENTITY 라 JPA 로 넣으면 묶음 하나가 문장 수백 개로 나갑니다(S15P21D205-1077).
+    // 이 클래스는 매핑 검증(ddl-auto: validate)과 리포지토리 타입으로 남습니다.
 }

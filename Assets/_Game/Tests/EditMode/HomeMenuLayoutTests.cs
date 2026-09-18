@@ -569,7 +569,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void SuspendedNotice_SaysWhatHappenedAndOffersNothingToPress()
+        public void SuspendedNotice_SaysWhatHappenedAndOffersOnlyTheWayOut()
         {
             using var home = new BuiltHome();
             home.View.SetSuspendedNoticeVisible(true);
@@ -584,13 +584,51 @@ namespace Game.Tests.EditMode
 
             Assert.That(lines, Contains.Item(HomeMenuView.SuspendedTitle));
             Assert.That(lines, Contains.Item(HomeMenuView.SuspendedBody));
+            Assert.That(lines, Contains.Item(HomeMenuView.SuspendedQuitLabel));
 
             // 닫기도 재시도도 두지 않습니다. 정지는 눌러서 풀리지 않고, 계정 발급을
-            // 다시 불러도 같은 403 입니다. 누를 수 있는 것이 있으면 눌러보게 됩니다.
+            // 다시 불러도 같은 403 입니다. 남는 것은 게임을 끄는 것 하나뿐이고,
+            // 안내가 구석의 게임 종료를 가리므로 그 하나는 여기 있어야 합니다.
             Assert.That(
-                notice.GetComponentsInChildren<Button>(true),
-                Is.Empty,
-                "정지 안내에는 누를 수 있는 것이 없어야 합니다.");
+                notice.GetComponentsInChildren<Button>(true).Length,
+                Is.EqualTo(1),
+                "정지 안내에는 게임 종료 말고 누를 수 있는 것이 없어야 합니다.");
+        }
+
+        [Test]
+        public void SuspendedNotice_QuitButton_ClosesTheGame()
+        {
+            using var home = new BuiltHome();
+            home.View.SetSuspendedNoticeVisible(true);
+
+            var raised = new List<HomeMenuAction>();
+            home.View.ActionClicked += raised.Add;
+            home.Rect("SuspendedQuitButton").GetComponent<Button>().onClick.Invoke();
+
+            Assert.That(raised, Is.EqualTo(new[] { HomeMenuAction.Quit }));
+        }
+
+        [Test]
+        public void SuspendedNotice_QuitButton_SitsInsideThePanel()
+        {
+            // 스크림이 뒤의 클릭을 삼키므로, 패널 밖으로 삐져나온 버튼은 눌리기는
+            // 해도 안내의 일부로 읽히지 않습니다.
+            using var home = new BuiltHome();
+
+            var panel = home.Rect("SuspendedNotice").Find("Panel") as RectTransform;
+            Assert.That(panel, Is.Not.Null);
+
+            var quit = home.Rect("SuspendedQuitButton");
+            Assert.That(quit.parent, Is.EqualTo(panel));
+            Assert.That(
+                quit.anchoredPosition.y,
+                Is.GreaterThan(0f),
+                "버튼이 패널 아래로 내려갔습니다.");
+            Assert.That(
+                quit.anchoredPosition.y + quit.sizeDelta.y,
+                Is.LessThan(panel.sizeDelta.y),
+                "버튼이 패널 위로 넘쳤습니다.");
+            Assert.That(quit.sizeDelta.x, Is.LessThan(panel.sizeDelta.x));
         }
 
         private static readonly Dictionary<string, Action<HomeMenuView, bool>> PanelButtons =
