@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: e86a6fb173c39124fbba0c7624d3d7d2
+timeCreated: 1642992311
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Materials/Paintings/Painting_Portrait_06.mat
+  uploadId: 987938

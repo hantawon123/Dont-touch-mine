@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 6ab5f0a78d864154d8a4518ec9628d90
+timeCreated: 1644463079
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43690972855054430
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Camera_Gimbal_01_Convex.asset
+  uploadId: 987938

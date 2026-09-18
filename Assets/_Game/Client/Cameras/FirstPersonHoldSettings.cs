@@ -13,6 +13,10 @@ namespace Game.Client.Cameras
         [Tooltip("1인칭에서 물건을 카메라 기준 자리에 둔다. 끄면 3인칭과 같은 몸 기준 위치")]
         public bool enabled = true;
 
+        [Tooltip("1인칭에서 들고 있는 물건을 내 화면에 그리지 않는다. 다른 플레이어에게는 그대로 보인다. " +
+                 "위치(offset)는 그대로 유지되어 던지기·놓기·배치 미리보기는 바뀌지 않는다")]
+        public bool hideItem = true;
+
         [Tooltip("카메라 기준 물건 위치(m). x=오른쪽, y=위(음수면 아래), z=앞. z를 줄이면 물건이 커 보인다")]
         public Vector3 offset = new(0.05f, -0.28f, 0.6f);
 

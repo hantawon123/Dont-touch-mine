@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: c6cbefa160e8e1c47ab4efb88ef03011
+timeCreated: 1644529817
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43248841576358880
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Bld_Fence_Top_Lamp_02_Convex.asset
+  uploadId: 987938

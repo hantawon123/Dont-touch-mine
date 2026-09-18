@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 94d7ddf5941e9b445abf83a8dc3a1106
+timeCreated: 1635913242
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Prefabs/Props/SM_Prop_Chair_03.prefab
+  uploadId: 987938

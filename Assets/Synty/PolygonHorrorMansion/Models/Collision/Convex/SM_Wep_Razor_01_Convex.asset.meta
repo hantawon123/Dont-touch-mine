@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 7664a9e2859f69949959f861040eb25e
+timeCreated: 1644462892
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43702497981427854
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Wep_Razor_01_Convex.asset
+  uploadId: 987938

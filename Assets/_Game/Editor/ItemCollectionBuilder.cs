@@ -20,9 +20,14 @@ namespace Game.Editor
         public const string ScenePath = "Assets/_Game/Content/Scenes/ItemGallery.unity";
         private const string Request = "Temp/BuildItemCollection.request";
         private const string Report = "docs/items";
-        private static readonly string[] Categories = { "food", "household", "tools", "modern", "fantasy", "reserve" };
-        private static readonly string[] Names = { "음식·음료", "생활용품", "공구·작업용품", "총기·폭발물", "판타지 소품", "보류·부품·모형" };
-        private static readonly Color[] Colors = { new(.96f,.53f,.19f),new(.2f,.69f,.7f),new(.93f,.71f,.2f),new(.37f,.53f,.83f),new(.66f,.4f,.82f),new(.5f,.55f,.6f) };
+        private static readonly string[] Categories = { "food", "household", "bathroom", "plants", "tools", "modern", "fantasy", "beach", "casino", "halloween", "toys", "reserve" };
+        private static readonly string[] Names = { "음식·음료", "생활용품", "욕실·위생", "화분·식물", "공구·작업용품", "총기·폭발물", "판타지 소품", "여름·해변", "카지노", "할로윈", "장난감", "보류·부품·모형" };
+        private static readonly Color[] Colors =
+        {
+            new(.96f,.53f,.19f), new(.2f,.69f,.7f), new(.45f,.72f,.78f), new(.35f,.7f,.4f),
+            new(.93f,.71f,.2f), new(.37f,.53f,.83f), new(.66f,.4f,.82f), new(.2f,.72f,.82f),
+            new(.85f,.25f,.35f), new(.95f,.55f,.15f), new(.95f,.7f,.25f), new(.5f,.55f,.6f),
+        };
 
         [Serializable] public class Entry
         {
@@ -276,7 +281,7 @@ namespace Game.Editor
             return bounds;
         }
 
-        private static Material CompatibleMaterial(Material original)
+        public static Material CompatibleMaterial(Material original)
         {
             if (original == null) throw new InvalidOperationException("Missing source material");
             var path = AssetDatabase.GetAssetPath(original);
@@ -287,8 +292,29 @@ namespace Game.Editor
                 material = new Material(original);
             else
             {
-                material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
                 var textureKey = original.HasProperty("_BaseMap") ? "_BaseMap" : "_MainTex";
+                var hasTexture = original.HasProperty(textureKey) && original.GetTexture(textureKey) != null;
+                var vertexColor = Shader.Find("Game/Item Collection/Vertex Color Simple Lit");
+                var useVertexColor = false;
+                if (!hasTexture && vertexColor != null)
+                {
+                    // Only when source meshes actually contain color attributes.
+                    useVertexColor = AssetDatabase.LoadAllAssetsAtPath(path)
+                        .OfType<Mesh>()
+                        .Any(mesh => mesh.isReadable && mesh.colors != null && mesh.colors.Length > 0
+                            && mesh.colors.Any(c => c.r < 0.98f || c.g < 0.98f || c.b < 0.98f));
+                }
+
+                if (useVertexColor)
+                {
+                    material = new Material(vertexColor);
+                    material.SetColor("_BaseColor", Color.white);
+                    material.SetFloat("_Smoothness", .25f);
+                    material.EnableKeyword("_SPECULAR_COLOR");
+                }
+                else
+                {
+                material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
                 if (original.HasProperty(textureKey))
                 {
                     material.SetTexture("_BaseMap",original.GetTexture(textureKey));
@@ -297,8 +323,15 @@ namespace Game.Editor
                 }
                 if (path.Contains("/Low_Poly_Weapons_VOL1/") && material.GetTexture("_BaseMap")==null)
                     material.SetTexture("_BaseMap",AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ItemSources/Low_Poly_Weapons_VOL1/Low Poly Weapons VOL.1/Textures_Guns.png"));
-                if (original.HasProperty("_BaseColor")) material.SetColor("_BaseColor",original.GetColor("_BaseColor"));
-                else if (original.HasProperty("_Color")) material.SetColor("_BaseColor",original.GetColor("_Color"));
+                Color baseColor = Color.white;
+                if (original.HasProperty("_BaseColor")) baseColor = original.GetColor("_BaseColor");
+                else if (original.HasProperty("_Color")) baseColor = original.GetColor("_Color");
+                if (!hasTexture && material.GetTexture("_BaseMap") == null
+                    && (original.name == "SimpleItems" || path.Contains("/HouseholdItems/")))
+                {
+                    baseColor = ItemCollectionMaterialFixer.ColorFromAssetName(Path.GetFileNameWithoutExtension(path));
+                }
+                material.SetColor("_BaseColor", baseColor);
                 if (original.HasProperty("_Metallic")) material.SetFloat("_Metallic",original.GetFloat("_Metallic"));
                 material.SetFloat("_Smoothness",original.HasProperty("_Smoothness")?original.GetFloat("_Smoothness"):original.HasProperty("_Glossiness")?original.GetFloat("_Glossiness"):.25f);
                 if (original.HasProperty("_Cull")) material.SetFloat("_Cull",original.GetFloat("_Cull"));
@@ -307,6 +340,7 @@ namespace Game.Editor
                 if (original.HasProperty("_EmissionColor")) material.SetColor("_EmissionColor",original.GetColor("_EmissionColor"));
                 if (original.HasProperty("_BumpMap") && original.GetTexture("_BumpMap") != null)
                 { material.SetTexture("_BumpMap",original.GetTexture("_BumpMap")); material.EnableKeyword("_NORMALMAP"); }
+                }
             }
             var dest = Folder+"/Materials/"+key+".mat";
             var existing = AssetDatabase.LoadAssetAtPath<Material>(dest);

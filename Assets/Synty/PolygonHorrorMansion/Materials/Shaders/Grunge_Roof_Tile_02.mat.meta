@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 1ea23c59a5477a441aec3d67dd6b0f1e
+timeCreated: 1635987821
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Materials/Shaders/Grunge_Roof_Tile_02.mat
+  uploadId: 987938

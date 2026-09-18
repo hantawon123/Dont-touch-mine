@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 1acd4455ab14ab04298092ddcd2b3857
+timeCreated: 1644463256
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43993550620340374
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Light_Switch_01_Convex.asset
+  uploadId: 987938

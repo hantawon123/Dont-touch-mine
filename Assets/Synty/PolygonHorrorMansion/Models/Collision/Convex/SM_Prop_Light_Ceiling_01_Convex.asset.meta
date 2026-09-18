@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ff3a617190fe9c947883bad831025bac
+timeCreated: 1644463283
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43242577648721932
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Light_Ceiling_01_Convex.asset
+  uploadId: 987938

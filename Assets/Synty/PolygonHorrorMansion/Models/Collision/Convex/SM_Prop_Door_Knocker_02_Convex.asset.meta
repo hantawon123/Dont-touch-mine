@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: cbe4da2f03faf2540ad8045d3732f6be
+timeCreated: 1644463186
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43787693816726926
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Door_Knocker_02_Convex.asset
+  uploadId: 987938

@@ -2,11 +2,13 @@ package com.ssafy.d205.domain.admin.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,10 +17,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
 
+import com.ssafy.d205.domain.admin.dto.AdminRenameResult;
 import com.ssafy.d205.domain.admin.dto.AdminUserDetail;
 import com.ssafy.d205.domain.admin.dto.AdminUserListResponse;
 import com.ssafy.d205.domain.admin.service.AccountSuspensionService;
+import com.ssafy.d205.domain.admin.service.AdminNicknameService;
 import com.ssafy.d205.domain.admin.service.AdminUserQueryService;
+import com.ssafy.d205.domain.user.entity.NicknamePolicy;
 
 /**
  * 운영자의 사용자 조회와 계정 제재.
@@ -41,6 +46,7 @@ public class AdminUserController {
 
     private final AccountSuspensionService accountSuspensionService;
     private final AdminUserQueryService adminUserQueryService;
+    private final AdminNicknameService adminNicknameService;
 
     /**
      * 사용자를 찾습니다. 닉네임 부분 일치(대소문자 구분) 또는 userId 정확 일치.
@@ -97,6 +103,56 @@ public class AdminUserController {
     @DeleteMapping("/{userId}/suspension")
     public SuspensionResult lift(@PathVariable String userId, Principal admin) {
         return new SuspensionResult(accountSuspensionService.lift(userId, admin.getName()));
+    }
+
+
+    /**
+     * 닉네임을 운영자가 지정한 이름으로 바꿉니다 (S15P21D205-1047).
+     *
+     * <p>PUT 입니다. 같은 이름을 두 번 보내면 같은 상태가 되고, 두 번째는 {@code changed=false}
+     * 입니다.
+     *
+     * <p>부적절한 이름을 치우는 것이 목적이면 아래의 초기화를 쓰는 편이 낫습니다. 운영자가 대체할
+     * 이름을 고민할 일이 아니고, 그쪽은 본인에게 변경권도 돌려줍니다.
+     */
+    @PutMapping("/{userId}/nickname")
+    public AdminRenameResult rename(@PathVariable String userId,
+                                    @Valid @RequestBody RenameRequest request,
+                                    Principal admin) {
+        return adminNicknameService.rename(userId, request.nickname(), request.reason(), admin.getName());
+    }
+
+    /**
+     * 부적절한 닉네임을 "부적절한닉네임123" 꼴로 치웁니다 (S15P21D205-1047).
+     *
+     * <p>POST 인 이유는 <b>멱등하지 않기 때문입니다.</b> 누를 때마다 서버가 다른 번호를 뽑습니다.
+     * 정지처럼 PUT 으로 두면 "같은 요청은 같은 결과"라는 약속을 깨뜨립니다.
+     *
+     * <p>사유를 받지 않습니다. 치운 이름이 감사 행에 남으므로 운영자가 적을 것이 없습니다.
+     *
+     * @return 붙은 이름. 서버가 지으므로 화면은 이 값으로 운영자에게 알립니다
+     */
+    @PostMapping("/{userId}/nickname/reset")
+    public AdminRenameResult resetNickname(@PathVariable String userId, Principal admin) {
+        return adminNicknameService.reset(userId, admin.getName());
+    }
+
+    /**
+     * @param nickname 새 닉네임. 글자 규칙은 사용자가 스스로 바꿀 때와 같습니다. 운영자에게만
+     *                 예외를 두면 그 이름을 받은 사람이 자기 이름을 고칠 수 없는 상태가 됩니다
+     * @param reason   바꾼 이유. 필수입니다. 남의 이름을 바꾸는 일은 나중에 반드시 물어보는 사람이
+     *                 생기고, 그때 답할 근거가 이 값뿐입니다. 길이는 정지 사유와 같은 200 자입니다
+     */
+    public record RenameRequest(
+            @NotBlank(message = "nickname은 필수입니다.")
+            @Pattern(regexp = NicknamePolicy.REGEX,
+                    message = "닉네임은 한글, 영문, 숫자만 써서 2~12글자여야 합니다. 공백과 특수문자는 쓸 수 없습니다.")
+            String nickname,
+
+            @NotBlank(message = "reason은 필수입니다.")
+            @Size(max = 200, message = "reason은 200자를 넘을 수 없습니다.")
+            String reason
+    ) {
     }
 
     /**

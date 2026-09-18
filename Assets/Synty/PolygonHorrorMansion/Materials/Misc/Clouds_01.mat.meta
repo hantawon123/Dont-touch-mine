@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 2fda57054a0c176418974082eec95767
+timeCreated: 1642559236
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Materials/Misc/Clouds_01.mat
+  uploadId: 987938

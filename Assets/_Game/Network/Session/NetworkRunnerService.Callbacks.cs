@@ -487,7 +487,7 @@ namespace Game.Network.Session
                     var scene = phase switch
                     {
                         MatchPhase.Waiting => _scenes.LobbyScene,
-                        MatchPhase.Result => _scenes.ResultScene,
+                        MatchPhase.Result => _scenes.ResultSceneFor(AnalyticsMapId),
                         _ => _scenes.MatchScene,
                     };
                     if (!scene.IsValid)
@@ -741,12 +741,12 @@ namespace Game.Network.Session
             // Fusion merges loaded scenes into its own scene in multi-peer mode.
             // Their original Unity scene path is no longer a loaded-scene identity.
             IsResultSceneLoaded = false;
-            if (_scenes != null && !string.IsNullOrEmpty(_scenes.ResultScenePath))
+            if (_scenes != null)
             {
-                var resultScene = _scenes.ResultScene;
+                // 기본 결과 씬과 맵 전용 결과 씬(저택 지하실 등) 어느 쪽이 올라와도 결과 단계다.
                 var info = runner.SceneInfo;
                 for (var index = 0; index < info.SceneCount; index++)
-                    if (info.Scenes[index] == resultScene) IsResultSceneLoaded = true;
+                    if (_scenes.IsResultScene(info.Scenes[index])) IsResultSceneLoaded = true;
             }
             var lobbyLoaded = _scenes != null &&
                               IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene);

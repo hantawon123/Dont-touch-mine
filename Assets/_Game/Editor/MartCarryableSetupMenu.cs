@@ -13,7 +13,8 @@ using Object = UnityEngine.Object;
 namespace Game.Editor
 {
     /// <summary>
-    /// 마트 맵의 "들 수 있는 소품" 전환. 진열 상품·봉지·꽃다발·상자류는 Carryable, 선반·냉장고·가구·카트는 고정.
+    /// 매치 맵의 "들 수 있는 소품" 전환. 마트: 진열 상품·봉지·꽃다발·상자류는 Carryable, 선반·냉장고·가구·카트는 고정.
+    /// 저택(<c>Mansion</c> 씬)에서도 같은 메뉴를 쓰며, 변형 프리팹 폴더·보고서 경로·키워드 일부가 씬 이름으로 갈린다.
     /// </summary>
     /// <remarks>
     /// <list type="bullet">
@@ -31,8 +32,17 @@ namespace Game.Editor
     public static class MartCarryableSetupMenu
     {
         private const string MenuRoot = "Game/Match Map/Carryable/";
-        private const string VariantFolder = "Assets/_Game/Content/Prefabs/Carryable/Mart";
-        private const string ReportPath = "docs/design/match-map/carryable-props.md";
+        private const string MartVariantFolder = "Assets/_Game/Content/Prefabs/Carryable/Mart";
+        private const string MansionVariantFolder = "Assets/_Game/Content/Prefabs/Carryable/Mansion";
+        private const string MartReportPath = "docs/design/match-map/carryable-props.md";
+        private const string MansionReportPath = "docs/design/match-map/mansion/carryable-props.md";
+        private const string MansionSceneName = "Mansion";
+
+        /// <summary>열린 씬이 저택이면 저택용 폴더·보고서·키워드를 쓴다. 그 외(마트·놀이터)는 마트 설정.</summary>
+        private static bool IsMansionScene => SceneManager.GetActiveScene().name == MansionSceneName;
+
+        private static string VariantFolder => IsMansionScene ? MansionVariantFolder : MartVariantFolder;
+        private static string ReportPath => IsMansionScene ? MansionReportPath : MartReportPath;
         private const string BoundaryName = "Boundary";
         private const float LooseSizeCap = 0.5f;
         private const int ItemsPerTick = 40;
@@ -52,6 +62,44 @@ namespace Game.Editor
         /// <summary>진열 그룹 안에 있어도 항상 고정인 것(선반에 붙은 가격표·라벨).</summary>
         private static readonly string[] AlwaysFixedKeywords = { "PriceTag", "Price_Tag", "Label" };
 
+        /// <summary>저택(Horror Mansion 팩)에서 추가로 고정하는 것: 벽 장식·천·데칼·가구·설비. 마트 제외 목록에 더해진다.</summary>
+        private static readonly string[] MansionExcludeKeywords =
+        {
+            "Painting", "Picture", "Curtain", "Rug", "Sheet_", "Decal", "Page", "Silhouette", "Keyhole", "Door_Mat",
+            "Power_Box", "Shackle", "Chandelier", "Torch", "Ladder", "Dresser", "Wardrobe", "Bed", "Ottoman", "Shower",
+            "Bath", "Fireplace", "Furnace", "Piano", "Coffin", "Gravestone", "Statue", "Wood_Stack", "Bookend",
+        };
+
+        /// <summary>
+        /// 저택에서 진열(분해 결과) 그룹 안에 있어도 항상 고정: 낙엽 조각, 종잇장(두께 1 mm라 받침 판정이 불안정), 데칼.
+        /// </summary>
+        private static readonly string[] MansionAlwaysFixedKeywords = { "Page", "Env_", "Leaves", "Decal" };
+
+        private static string[] ActiveAlwaysFixedKeywords => IsMansionScene
+            ? AlwaysFixedKeywords.Concat(MansionAlwaysFixedKeywords).ToArray()
+            : AlwaysFixedKeywords;
+
+        /// <summary>저택에서는 마트 제외 목록 중 이 낱말을 제외하지 않는다(책상 위 서류는 들 수 있게).</summary>
+        private static readonly string[] MansionUnexcludeKeywords = { "Papers" };
+
+        /// <summary>저택에서 크기와 무관하게 들 수 있는 것. 마트 포함 목록에 더해진다.</summary>
+        private static readonly string[] MansionIncludeKeywords =
+        {
+            "Book", "Candle_0", "Goblet", "Plate_0", "Can_", "Cardboard", "Bottle", "Jar", "Suitcase", "Mask", "Skull",
+            "Key_", "Spoon", "Kitchen_Pan", "Plant_Pot", "Doily", "Papers", "Paper_", "Bowl", "Cup", "Mug", "Lockbox",
+            "Music_Box", "Jack_In_The_Box", "Bone", "Teddy", "Doll", "Toilet_Roll",
+            // 보고서 '분류 불가'에서 손에 들 만한 것(2026-09-17): 수건·고양이 인형·장식 두상·십자가·소형 램프·탁상 시계·칼
+            "Towel", "Cat_Stuffed", "Ornamental_Head", "Exorcist_Cross", "Lamp_02", "Lamp_03", "Clock_02", "Wep_Knife",
+        };
+
+        private static string[] ActiveExcludeKeywords => IsMansionScene
+            ? ExcludeKeywords.Except(MansionUnexcludeKeywords).Concat(MansionExcludeKeywords).ToArray()
+            : ExcludeKeywords;
+
+        private static string[] ActiveIncludeKeywords => IsMansionScene
+            ? IncludeKeywords.Concat(MansionIncludeKeywords).ToArray()
+            : IncludeKeywords;
+
         /// <summary>낱개 프리팹 중 이 낱말이 있으면 크기와 무관하게 들 수 있음.</summary>
         private static readonly string[] IncludeKeywords =
         {
@@ -65,6 +113,15 @@ namespace Game.Editor
         {
             ("Lettuce", "양배추"), ("Flower", "꽃"), ("Bouquet", "꽃다발"), ("Cardboard", "상자"), ("Box", "상자"), ("Bag", "봉지"),
             ("Food_", "식품"), ("Shoe", "신발"), ("Safety_Step", "발판"), ("Product", "상품"), ("Gen_", "상품"),
+            // 저택
+            ("Book", "책"), ("Candle", "양초"), ("Goblet", "잔"), ("Plate", "접시"), ("Bottle", "병"), ("Jar", "병"),
+            ("Suitcase", "가방"), ("Mask", "가면"), ("Skull", "두개골"), ("Key_", "열쇠"), ("Spoon", "숟가락"),
+            ("Kitchen_Pan", "팬"), ("Plant_Pot", "화분"), ("Bowl", "그릇"), ("Paper", "종이"), ("Can_", "캔"),
+            ("Lockbox", "금고"), ("Music_Box", "오르골"), ("Toilet_Roll", "휴지"), ("Doily", "장식 천"),
+            ("Towel", "수건"), ("Cat_Stuffed", "고양이 인형"), ("Ornamental_Head", "장식 두상"), ("Cross", "십자가"),
+            ("Lamp", "램프"), ("Clock", "시계"), ("Knife", "칼"), ("Fork", "포크"), ("Vase", "꽃병"), ("Bible", "성경"),
+            ("Crystal_Ball", "수정구"), ("Phone", "전화기"), ("Radio", "라디오"), ("Toaster", "토스터"), ("Bucket", "양동이"),
+            ("Stake", "말뚝"), ("Mallet", "망치"), ("Burner", "버너"), ("Ghost_Meter", "탐지기"),
         };
 
         private sealed class Target
@@ -151,7 +208,7 @@ namespace Game.Editor
                 }
 
                 // 가격표·라벨은 진열 그룹에 섞여 있어도 선반에 붙은 것이라 항상 고정.
-                if (AlwaysFixedKeywords.Any(k => sourceName.Contains(k, StringComparison.Ordinal)))
+                if (ActiveAlwaysFixedKeywords.Any(k => sourceName.Contains(k, StringComparison.Ordinal)))
                 {
                     Count(result.Excluded, sourceName, size);
                     continue;
@@ -159,12 +216,12 @@ namespace Game.Editor
 
                 // 분해 결과 상품(Products)·채운 상품(Refill)은 이름에 진열대 이름이 들어 있어도(Gen_..._Aisle_Preset_...) 상품이다.
                 var isProductGroup = parentName == "Products" || parentName == "Refill";
-                if (!isProductGroup && ExcludeKeywords.Any(k => sourceName.Contains(k, StringComparison.Ordinal)))
+                if (!isProductGroup && ActiveExcludeKeywords.Any(k => sourceName.Contains(k, StringComparison.Ordinal)))
                 {
                     Count(result.Excluded, sourceName, size);
                     continue;
                 }
-                var byKeyword = IncludeKeywords.Any(k => sourceName.Contains(k, StringComparison.Ordinal));
+                var byKeyword = ActiveIncludeKeywords.Any(k => sourceName.Contains(k, StringComparison.Ordinal));
                 var bySize = Mathf.Max(size.x, size.y, size.z) <= LooseSizeCap;
                 if (isProductGroup || byKeyword || bySize)
                 {
@@ -492,7 +549,7 @@ namespace Game.Editor
 
         private static bool ConfigureCarryable(GameObject target, string sourceName)
         {
-            if (target.GetComponentsInChildren<Collider>(true).Length == 0)
+            if (target.GetComponentsInChildren<Collider>(true).Length == 0 && !TryAddBoundsCollider(target))
             {
                 return false;
             }
@@ -522,6 +579,51 @@ namespace Game.Editor
             var serialized = new SerializedObject(carryable);
             serialized.FindProperty("displayName").stringValue = DisplayNameFor(sourceName);
             serialized.ApplyModifiedPropertiesWithoutUndo();
+            return true;
+        }
+
+        /// <summary>
+        /// 콜라이더가 하나도 없는 팩 프리팹(저택 서류 `SM_Prop_Papers_01~03` 등)에 렌더러 경계 크기의 BoxCollider를 붙인다.
+        /// 종이처럼 얇은 것은 놓기·받침 판정이 흔들리지 않게 두께를 최소 2 cm로 올린다.
+        /// </summary>
+        private static bool TryAddBoundsCollider(GameObject target)
+        {
+            var renderers = target.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0)
+            {
+                return false;
+            }
+
+            Bounds? local = null;
+            foreach (var renderer in renderers)
+            {
+                var world = renderer.bounds;
+                for (var corner = 0; corner < 8; corner++)
+                {
+                    var point = world.center + Vector3.Scale(world.extents, new Vector3(
+                        (corner & 1) == 0 ? -1f : 1f,
+                        (corner & 2) == 0 ? -1f : 1f,
+                        (corner & 4) == 0 ? -1f : 1f));
+                    var localPoint = target.transform.InverseTransformPoint(point);
+                    if (local.HasValue)
+                    {
+                        var b = local.Value;
+                        b.Encapsulate(localPoint);
+                        local = b;
+                    }
+                    else
+                    {
+                        local = new Bounds(localPoint, Vector3.zero);
+                    }
+                }
+            }
+
+            const float minThickness = 0.02f;
+            var bounds = local.Value;
+            var size = Vector3.Max(bounds.size, Vector3.one * minThickness);
+            var box = target.AddComponent<BoxCollider>();
+            box.center = bounds.center + Vector3.up * Mathf.Max(0f, (size.y - bounds.size.y) * 0.5f);
+            box.size = size;
             return true;
         }
 

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 997b6bf0c5cb6ae4ea89b9ca7aa4f8d2
+timeCreated: 1644463255
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43066381552618522
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Rocking_Horse_01_Convex.asset
+  uploadId: 987938

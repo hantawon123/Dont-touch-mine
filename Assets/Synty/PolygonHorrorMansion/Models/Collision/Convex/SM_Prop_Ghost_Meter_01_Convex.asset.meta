@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 446ceff463b50f94088e69bb756ea25d
+timeCreated: 1644463187
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43146385334944942
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Ghost_Meter_01_Convex.asset
+  uploadId: 987938

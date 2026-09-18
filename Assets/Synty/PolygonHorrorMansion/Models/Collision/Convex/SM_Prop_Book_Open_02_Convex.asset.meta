@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0a503bea7b4b1044a939b049546b8e1b
+timeCreated: 1644463062
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43160397225684100
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Book_Open_02_Convex.asset
+  uploadId: 987938

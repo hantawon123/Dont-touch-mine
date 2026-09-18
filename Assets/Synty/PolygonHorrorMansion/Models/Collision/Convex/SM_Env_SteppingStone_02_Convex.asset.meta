@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 3c00d30b03096c24e94aef436d0938b1
+timeCreated: 1644463749
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43802870935959984
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Env_SteppingStone_02_Convex.asset
+  uploadId: 987938
