@@ -11,6 +11,7 @@ namespace Game.Client.Tutorial
         public TutorialStep CurrentStep => progress.CurrentStep;
         public bool IsComplete => progress.IsComplete;
         public event Action<TutorialStep> StepChanged;
+        public event Action<TutorialStep> StepRetried;
 
         public bool ObserveMovement(TutorialMovementObservation observation)
         {
@@ -20,7 +21,11 @@ namespace Game.Client.Tutorial
             return true;
         }
 
-        public void RetryCurrentStep() => progress.RetryCurrentStep();
+        public void RetryCurrentStep()
+        {
+            progress.RetryCurrentStep();
+            StepRetried?.Invoke(progress.CurrentStep);
+        }
 
         public bool ObserveInteraction(TutorialInteractionAction action)
         {

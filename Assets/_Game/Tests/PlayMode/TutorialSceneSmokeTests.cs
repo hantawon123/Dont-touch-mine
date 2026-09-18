@@ -26,6 +26,7 @@ namespace Game.Tests.PlayMode
             var camera = Object.FindAnyObjectByType<PlayerCameraController>();
             var course = Object.FindAnyObjectByType<TutorialMovementCourse>();
             var session = Object.FindAnyObjectByType<TutorialSession>();
+            var radio = Object.FindAnyObjectByType<TutorialRadioView>();
 
             Assert.That(player, Is.Not.Null);
             Assert.That(player.GetComponent<CharacterController>().enabled, Is.True);
@@ -33,6 +34,29 @@ namespace Game.Tests.PlayMode
             Assert.That(course, Is.Not.Null);
             Assert.That(course.enabled, Is.True);
             Assert.That(session, Is.Not.Null);
+            Assert.That(radio, Is.Not.Null);
+            Assert.That(radio.CurrentMessage, Does.Contain("신입"));
+        }
+
+        [UnityTest]
+        public IEnumerator BossRadioFollowsTutorialProgressAndRetry()
+        {
+            var load = SceneManager.LoadSceneAsync("Tutorial", LoadSceneMode.Single);
+            while (!load.isDone)
+                yield return null;
+            yield return null;
+
+            var session = Object.FindAnyObjectByType<TutorialSession>();
+            var radio = Object.FindAnyObjectByType<TutorialRadioView>();
+            session.ObserveMovement(Observe(distance: 3f, look: 30f));
+            Assert.That(radio.CurrentMessage, Does.Contain("벽을 보고 걷지는"));
+            yield return new WaitForSecondsRealtime(1.6f);
+            Assert.That(radio.CurrentMessage, Does.Contain("전력으로 달려"));
+
+            session.RetryCurrentStep();
+            Assert.That(radio.CurrentMessage, Does.Contain("같은 실수는 두 번"));
+            yield return new WaitForSecondsRealtime(1.6f);
+            Assert.That(radio.CurrentMessage, Does.Contain("전력으로 달려"));
         }
 
         [UnityTest]

@@ -2,13 +2,16 @@ using System;
 using System.IO;
 using System.Linq;
 using Game.Client.Combat;
+using Game.Client.Common;
 using Game.Client.Interactions;
 using Game.Client.Players;
 using Game.Client.Tutorial;
 using Game.Bootstrap;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Editor.Tutorial
 {
@@ -18,10 +21,29 @@ namespace Game.Editor.Tutorial
         private const string PlayerPrefabPath = "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab";
         private const string CameraPrefabPath = "Assets/_Game/Content/Prefabs/PlayerCameraRig.prefab";
         private const string TrainingItemPrefabPath = "Assets/_Game/Content/Prefabs/Carryable/Basement_CardboardBox1 Carryable.prefab";
+        private const string BossPortraitPath = "Assets/_Game/Content/UI/Tutorial/BossThief.png";
+        private const string RadioBubblePath = "Assets/_Game/Content/UI/Tutorial/BossRadioBubble.png";
+        private const string RadioFontPath = "Assets/_Game/Content/Fonts/Paperlogy-6SemiBold SDF.asset";
+
+        [MenuItem("Game/Tutorial/Play Tutorial", priority = 0)]
+        public static void PlayTutorial()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                return;
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                return;
+            if (!File.Exists(ScenePath))
+                BuildScene();
+            else
+                EditorSceneManager.OpenScene(ScenePath);
+            EditorApplication.isPlaying = true;
+        }
 
         [MenuItem("Game/Tutorial/Build Tutorial Hideout", priority = 10)]
         public static void BuildScene()
         {
+            PrepareUiSprite(BossPortraitPath);
+            PrepareUiSprite(RadioBubblePath);
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             scene.name = "Tutorial";
             var root = new GameObject("TutorialHideout").transform;
@@ -41,6 +63,25 @@ namespace Game.Editor.Tutorial
         {
             BuildScene();
             RenderPreview();
+        }
+
+        [MenuItem("Game/Tutorial/Refresh Boss Radio", priority = 15)]
+        public static void RefreshBossRadio()
+        {
+            PrepareUiSprite(BossPortraitPath);
+            PrepareUiSprite(RadioBubblePath);
+            var scene = EditorSceneManager.OpenScene(ScenePath);
+            var runtime = Require(GameObject.Find("TutorialHideout").transform, "Runtime");
+            var existing = runtime.Find("TutorialRadioCanvas");
+            if (existing != null)
+                UnityEngine.Object.DestroyImmediate(existing.gameObject);
+            var session = runtime.GetComponent<TutorialSession>();
+            if (session == null)
+                throw new InvalidOperationException("TutorialSession missing from tutorial runtime.");
+            BuildRadioUi(runtime, session);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            ValidateScene(true);
         }
 
         private static void BuildTrainingObjects(Transform root)
@@ -88,6 +129,8 @@ namespace Game.Editor.Tutorial
             if (runtime.GetComponent<TutorialSession>() == null || runtime.GetComponent<TutorialMovementCourse>() == null ||
                 runtime.GetComponent<TutorialItemCourse>() == null)
                 throw new InvalidOperationException("Tutorial courses missing.");
+            if (runtime.GetComponentInChildren<TutorialRadioView>(true) == null)
+                throw new InvalidOperationException("Tutorial boss radio UI missing.");
             TutorialMapValidation.Validate(root);
             if (logSuccess)
                 Debug.Log("[Tutorial] Validation passed: rooms, open doors, continuous walls, route and gameplay references.");
@@ -213,7 +256,97 @@ namespace Game.Editor.Tutorial
                 points.GetArrayElementAtIndex(i).objectReferenceValue = Require(root, recoveryPaths[i]);
             itemObject.ApplyModifiedPropertiesWithoutUndo();
 
+            BuildRadioUi(runtime, session);
+
             Require(root, "Zones/05_Exit/ExitDoor").gameObject.AddComponent<TutorialExitDoor>();
+        }
+
+        private static void BuildRadioUi(Transform parent, TutorialSession session)
+        {
+            var canvasObject = new GameObject("TutorialRadioCanvas", typeof(RectTransform), typeof(Canvas),
+                typeof(CanvasScaler));
+            canvasObject.transform.SetParent(parent, false);
+            var canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 200;
+            HudScreenScale.Apply(canvasObject.GetComponent<CanvasScaler>());
+
+            var panel = UiRect("BossRadio", canvasObject.transform, new Vector2(.5f, 1f),
+                new Vector2(1120, 260), new Vector2(0, -24));
+            panel.pivot = new Vector2(.5f, 1f);
+
+            var portrait = UiImage("BossPortrait", panel, AssetDatabase.LoadAssetAtPath<Sprite>(BossPortraitPath));
+            portrait.rectTransform.anchorMin = portrait.rectTransform.anchorMax = new Vector2(0, .5f);
+            portrait.rectTransform.pivot = new Vector2(0, .5f);
+            portrait.rectTransform.anchoredPosition = new Vector2(0, -2);
+            portrait.rectTransform.sizeDelta = new Vector2(185, 242);
+            portrait.preserveAspect = true;
+
+            var bubble = UiImage("RadioBubble", panel, AssetDatabase.LoadAssetAtPath<Sprite>(RadioBubblePath));
+            bubble.rectTransform.anchorMin = bubble.rectTransform.anchorMax = new Vector2(0, .5f);
+            bubble.rectTransform.pivot = new Vector2(0, .5f);
+            bubble.rectTransform.anchoredPosition = new Vector2(168, 0);
+            bubble.rectTransform.sizeDelta = new Vector2(950, 238);
+
+            var messageRect = UiRect("Message", bubble.transform, Vector2.zero, Vector2.zero, Vector2.zero);
+            messageRect.anchorMin = Vector2.zero;
+            messageRect.anchorMax = Vector2.one;
+            messageRect.offsetMin = new Vector2(145, 58);
+            messageRect.offsetMax = new Vector2(-88, -55);
+            var message = messageRect.gameObject.AddComponent<TextMeshProUGUI>();
+            message.font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(RadioFontPath);
+            message.fontSize = 30;
+            message.color = new Color(.96f, .95f, 1f);
+            message.alignment = TextAlignmentOptions.MidlineLeft;
+            message.textWrappingMode = TextWrappingModes.Normal;
+            message.raycastTarget = false;
+
+            var view = canvasObject.AddComponent<TutorialRadioView>();
+            var serialized = new SerializedObject(view);
+            serialized.FindProperty("session").objectReferenceValue = session;
+            serialized.FindProperty("messageText").objectReferenceValue = message;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static RectTransform UiRect(
+            string name,
+            Transform parent,
+            Vector2 anchor,
+            Vector2 size,
+            Vector2 position)
+        {
+            var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            rect.anchorMin = rect.anchorMax = anchor;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+            return rect;
+        }
+
+        private static Image UiImage(string name, Transform parent, Sprite sprite)
+        {
+            if (sprite == null)
+                throw new FileNotFoundException($"Tutorial UI sprite not found: {name}");
+            var image = new GameObject(name, typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            image.transform.SetParent(parent, false);
+            image.sprite = sprite;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private static void PrepareUiSprite(string path)
+        {
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+                throw new FileNotFoundException($"Tutorial UI texture not found: {path}");
+            if (importer.textureType == TextureImporterType.Sprite && !importer.mipmapEnabled && importer.alphaIsTransparency)
+                return;
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.mipmapEnabled = false;
+            importer.alphaIsTransparency = true;
+            importer.SaveAndReimport();
         }
 
         private static GameObject InstantiateRuntimePrefab(
