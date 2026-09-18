@@ -55,6 +55,10 @@ namespace Game.Bootstrap
         [SerializeField]
         private AudioClip _menuBgm;
 
+        [SerializeField]
+        [Tooltip("Played once for every UI button click.")]
+        private AudioClip _uiButtonClick;
+
         protected override void Configure(IContainerBuilder builder)
         {
             if (DedicatedServerStartup.IsRequested)
@@ -181,6 +185,7 @@ namespace Game.Bootstrap
             inputObject.AddComponent<SharedUiInputActions>().Bind(inputModule);
             inputObject.SetActive(true);
             builder.RegisterComponent(eventSystem);
+            UiButtonClickAudio.Create(transform, _uiButtonClick);
 
 #if UNITY_WEBGL && !UNITY_EDITOR
             var webText = new GameObject("Web Text Input").AddComponent<Game.Client.Common.WebTextInput>();
