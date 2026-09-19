@@ -48,6 +48,20 @@ namespace Game.Editor
         private int pixelsPerMeter = 24;
         private Color background = new Color(0.97f, 0.97f, 0.98f, 1f);
 
+        /// <summary>
+        /// 이 그림이 어느 층인지 (S15P21D205-1085). 저택처럼 층이 x·z 로 겹치는 맵에서만 켠다.
+        ///
+        /// <para>
+        /// 켜면 y 범위를 JSON 에 함께 쓰고, 관리 화면이 그 범위 밖의 좌표를 이 그림 위에 그리지
+        /// 않는다. 저택은 본관 1층 위에 2층이 있고 그 위 다락이 <b>대기 구역</b>이라, 층을 안 나누면
+        /// 자기 차례를 기다리며 몇 분씩 서 있는 다락이 제일 뜨거운 칸이 된다.
+        /// </para>
+        /// </summary>
+        private bool oneFloor;
+        private string floorLabel = "1층";
+        private float floorY0;
+        private float floorY1 = 5f;
+
         private bool measured;
         private float x0, z0, x1, z1, floorY, roofY;
         private string measureNote = string.Empty;
@@ -116,6 +130,32 @@ namespace Game.Editor
                 cutHeight);
             pixelsPerMeter = EditorGUILayout.IntSlider("1 m 당 픽셀", pixelsPerMeter, 4, 64);
             background = EditorGUILayout.ColorField("배경", background);
+
+            EditorGUILayout.Space();
+            oneFloor = EditorGUILayout.ToggleLeft(
+                new GUIContent("한 층만 담은 그림",
+                    "층이 x·z 로 겹치는 맵에서 켭니다. 이 y 범위 밖의 좌표는 히트맵이 버립니다."),
+                oneFloor);
+            if (oneFloor)
+            {
+                EditorGUILayout.HelpBox(
+                    "저택처럼 위아래로 겹치는 맵입니다. 여기 적은 y 범위를 JSON 에 함께 써서 다른 층의 "
+                    + "좌표가 이 그림 위에 얹히지 않게 합니다. 위층이 대기 구역이면 특히 중요합니다 - "
+                    + "가만히 서 있는 사람들이 제일 뜨거운 칸이 됩니다.",
+                    MessageType.None);
+                floorLabel = EditorGUILayout.TextField("층 이름", floorLabel);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.PrefixLabel("층 높이 y");
+                    floorY0 = EditorGUILayout.FloatField(floorY0);
+                    EditorGUILayout.LabelField("~", GUILayout.Width(12));
+                    floorY1 = EditorGUILayout.FloatField(floorY1);
+                }
+                if (floorY1 <= floorY0)
+                {
+                    EditorGUILayout.HelpBox("층 높이도 오른쪽 값이 더 커야 합니다.", MessageType.Warning);
+                }
+            }
 
             if (measured)
             {
@@ -373,10 +413,18 @@ namespace Game.Editor
             var bakedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
             var scene = EditorSceneManager.GetActiveScene().name;
 
+            // 층은 켰을 때만 씁니다. 없으면 관리 화면이 높이로 거르지 않습니다 - 한 층짜리 맵에서
+            // 0 ~ 0 같은 범위가 들어가면 모든 좌표가 버려져 빈 격자로 보입니다.
+            var floor = oneFloor && floorY1 > floorY0
+                ? "  \"floor\": { \"label\": \"" + floorLabel + "\", "
+                  + "\"y0\": " + n(floorY0) + ", \"y1\": " + n(floorY1) + " },\n"
+                : string.Empty;
+
             return "{\n"
                    + "  \"mapId\": \"" + mapId + "\",\n"
                    + "  \"extent\": [" + n(x0) + ", " + n(z0) + ", " + n(x1) + ", " + n(z1) + "],\n"
                    + "  \"cutHeight\": " + n(cutHeight) + ",\n"
+                   + floor
                    + "  \"pixels\": [" + width + ", " + height + "],\n"
                    + "  \"scene\": \"" + scene + "\",\n"
                    + "  \"bakedAt\": \"" + bakedAt + "\"\n"

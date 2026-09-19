@@ -53,12 +53,34 @@ WHERE upload_complete = 1
 않으므로, 한 판이 두 행으로 보이는 것이 정상입니다.
 
 **`/* @filter */` 표식.** 번호 절의 SQL 마다 경기를 고르는 `WHERE` 끝에 이 주석이 정확히 하나 있습니다.
-관리 화면의 분석 조회 API(S15P21D205-976)가 이 문서를 그대로 읽어 그 자리에 기간·경기 조건
-(`AND started_at_utc >= ? AND started_at_utc < ? AND match_id = ?`)을 끼워 넣고 실행합니다. 조건이 없으면
+관리 화면의 분석 조회 API(S15P21D205-976)가 이 문서를 그대로 읽어 그 자리에 기간·경기·맵 조건
+(`AND started_at_utc >= ? AND started_at_utc < ? AND match_id = ? AND map_id = ?`)을 끼워 넣고 실행합니다. 조건이 없으면
 빈 문자열로 바뀌므로 문서의 SQL 을 손으로 돌린 것과 API 는 같은 SQL 을 돕니다. 표식은 `match_analysis_summary` 를 읽는
 절에만 둘 수 있습니다 - 끼워 넣는 조건이 그 뷰의 컬럼이기 때문입니다. 1 번 절처럼 `WHERE` 가 없던
 쿼리는 `WHERE 1 = 1` 뒤에 둡니다. 표식을 지우거나 둘 이상 두면 수집 서비스가 기동하지 않고 그 이유를
 로그에 남기며, `AnalyticsQueryDocTest` 가 먼저 잡습니다.
+
+---
+
+## 공통: 맵과 층
+
+**맵을 섞지 마세요 (S15P21D205-1085).** 마트와 저택은 크기도 동선도 달라서 둘을 합친 평균은 어느 맵의
+값도 아닙니다. 화면 위쪽의 맵 고르는 칸이 `map_id` 를 위 표식 자리로 보내므로, 여덟 절 전부 한 맵으로
+좁혀집니다. 사람이 붙여 넣어 돌릴 때는 `good` 절에 `AND map_id = 'mansion'` 을 직접 넣으면 됩니다.
+
+**3·4번 절은 `y(5m)` 으로 층을 나눕니다.** 저택은 1층과 2층이 x·z 로 겹칩니다. 그대로 묶으면 2층 복도가
+1층 방과 한 칸이 되고, 더 나쁜 것은 **다락이 대기 구역**이라는 점입니다 - 자기 차례가 아닌 사람이 거기
+몇 분씩 서 있어서, 층을 안 나누면 그 칸이 제일 뜨거워지고 본관 안의 차이가 색으로 안 보입니다. 마트의
+대기실은 x 로 떨어져 있어 범위로 뺐지만(`analytics-heatmap.md`), 저택 다락은 본관 바로 위라 그 수가 안
+통합니다.
+
+밴드를 5 m 로 잡은 이유는 그 한 번의 나눔이면 되기 때문입니다. 저택은 1층 바닥 1.01, 2층 5.5, 다락 8.5
+이므로 1층이 밴드 0, 2층과 다락이 밴드 5 로 갈립니다. **마트는 한 층이라 전부 밴드 0 이고, 표도 그림도
+전과 같은 숫자입니다.** 한 칸이 두 밴드로 쪼개져 나올 수 있으므로(1층 물건이 높은 선반 위에 있는 경우),
+층을 합쳐 볼 때는 횟수는 더하고 버틴 시간은 숨긴 횟수로 가중평균, 안 들킨 비율은 합친 횟수로 다시
+계산합니다. 관리 화면이 그렇게 합칩니다.
+
+층별로 나눠 봐야 하는 값은 이 둘뿐입니다. 나머지 절은 경기 단위라 층이 없습니다.
 
 ---
 
@@ -182,6 +204,7 @@ spot AS (
     -- 않게 둡니다 - 이 화면에서 이미 같은 모양의 오류를 두 번 냈습니다.
     SELECT pl.match_id, pl.player_seat, pl.hidden_at_sec, pl.match_end_sec,
            MIN(p.map_id)                       AS map_id,
+           MIN(FLOOR(p.item_last_y / 5) * 5)   AS gy,
            MIN(FLOOR(p.item_last_x / 2) * 2)   AS gx,
            MIN(FLOOR(p.item_last_z / 2) * 2)   AS gz
     FROM placed pl
@@ -198,6 +221,7 @@ taken AS (
     GROUP BY match_id, player_seat
 )
 SELECT s.map_id                                          AS `맵`,
+       s.gy                                              AS `y(5m)`,
        s.gx                                              AS `x(2m)`,
        s.gz                                              AS `z(2m)`,
        COUNT(*)                                          AS `숨긴 횟수`,
@@ -209,11 +233,12 @@ SELECT s.map_id                                          AS `맵`,
        ROUND(100 * (1 - COUNT(t.taken_at_sec) / COUNT(*))) AS `끝까지 안 들킨 %`
 FROM spot s
 LEFT JOIN taken t USING (match_id, player_seat)
-GROUP BY s.map_id, s.gx, s.gz
+GROUP BY s.map_id, s.gy, s.gx, s.gz
 ORDER BY `숨긴 횟수` DESC
 ```
 
-**시각화**: 표. 어디인지는 분석 탭의 「맵 위 히트맵」 카드가 같은 질의로 그립니다.
+**시각화**: 표. 어디인지는 분석 탭의 「맵 위 히트맵」 카드가 같은 질의로 그립니다. `y(5m)` 은 층이고
+이유는 위의 「공통: 맵과 층」 에 있습니다 - 저택에서 1층·2층·다락이 한 칸으로 합쳐지는 것을 막습니다.
 `끝까지 안 들킨 %` 가 높으면서 `숨긴 횟수` 도 많은 칸을 먼저 보세요. MySQL 에
 중앙값 함수가 없어 평균을 썼습니다.
 
@@ -230,17 +255,21 @@ WITH good AS (
     WHERE upload_complete = 1 AND dropped_samples = 0 /* @filter */
 )
 SELECT p.map_id                  AS `맵`,
+       FLOOR(p.pos_y / 5) * 5    AS `y(5m)`,
        p.phase                   AS `단계`,
        FLOOR(p.pos_x / 2) * 2    AS `x(2m)`,
        FLOOR(p.pos_z / 2) * 2    AS `z(2m)`,
        COUNT(*)                  AS `체류 샘플`
 FROM match_analysis_positions p
 JOIN good USING (match_id)
-GROUP BY p.map_id, p.phase, FLOOR(p.pos_x / 2) * 2, FLOOR(p.pos_z / 2) * 2
+GROUP BY p.map_id, FLOOR(p.pos_y / 5) * 5, p.phase,
+         FLOOR(p.pos_x / 2) * 2, FLOOR(p.pos_z / 2) * 2
 ORDER BY `체류 샘플` DESC
 ```
 
-**시각화**: 표. 샘플 하나가 대략 1초이지만 **정확한 초가 아닙니다.** 프레임이 밀리면 샘플이
+**시각화**: 표. 「맵 위 히트맵」 의 '사람 체류 · 기간 전체' 가 이 질의를 그대로 그립니다(경기 하나만 볼
+때는 좌표 API 를 씁니다). `y(5m)` 은 층입니다 - 「공통: 맵과 층」 을 보세요.
+샘플 하나가 대략 1초이지만 **정확한 초가 아닙니다.** 프레임이 밀리면 샘플이
 빠지고, 이탈하면 그 사람의 샘플이 끊깁니다. 그래서 이 화면은 절대 시간이 아니라 구역 사이의
 비교로만 읽습니다. 여기서만 `dropped_samples = 0` 을 함께 거는 이유도 그것입니다 — 상한에서
 잘린 경기는 구역 비교를 왜곡합니다.
@@ -428,7 +457,8 @@ ORDER BY `이탈 인원` DESC
 
 3·4번 절은 표입니다. 표는 "숫자가 큰 칸"만 보여 주고 **어디인지는 못 보여 줍니다.** 관리 화면 분석
 탭의 「맵 위 히트맵」 카드가 구운 평면도 위에 같은 값을 그립니다. 은신처 셋(숨긴 횟수·버틴 시간·
-안 들킨 비율)은 3번 절의 질의를 그대로 쓰고, 사람 체류는 좌표 API 를 씁니다. 평면도 굽는 법과
+안 들킨 비율)은 3번 절, 사람 체류의 기간 전체는 4번 절의 질의를 그대로 쓰고, 경기 하나의 사람 체류만
+좌표 API 를 씁니다. 평면도 굽는 법과
 읽는 법은 [`analytics-heatmap.md`](analytics-heatmap.md) 입니다.
 
 ---

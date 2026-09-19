@@ -689,7 +689,7 @@ GET /api/v1/admin/overview?range=24h
 세션만 확인하고 수집 서비스의 내부 API 를 그대로 대신 부릅니다.
 
 ```
-GET /api/v1/admin/analytics/{question}?from=20260901000000&to=20260915000000&matchId=<경기 UUID>
+GET /api/v1/admin/analytics/{question}?from=20260901000000&to=20260915000000&matchId=<경기 UUID>&mapId=mansion
 GET /api/v1/admin/analytics/positions?matchId=<경기 UUID>
 ```
 
@@ -707,9 +707,13 @@ GET /api/v1/admin/analytics/positions?matchId=<경기 UUID>
 | `item-life` | 7. 물건 생애 |
 | `dropout` | 8. 경기 중 이탈 |
 
-필터는 셋이고 전부 선택입니다. `from`·`to` 는 UTC `yyyyMMddHHmmss` 14자로 경기의 **시작 시각**을
-자르고(`to` 는 미포함), `matchId` 는 그 경기 하나입니다. 문서의 SQL 이 `upload_complete = 1` 로 경기를
-고르는 자리에 이 조건이 들어가므로, 집계는 좁힌 경기 집합 위에서 다시 계산됩니다.
+필터는 넷이고 전부 선택입니다. `from`·`to` 는 UTC `yyyyMMddHHmmss` 14자로 경기의 **시작 시각**을
+자르고(`to` 는 미포함), `matchId` 는 그 경기 하나, `mapId` 는 그 맵에서 한 경기만입니다(`MapCatalog` 의
+소문자 이름 - `supermarket`, `mansion`). 문서의 SQL 이 `upload_complete = 1` 로 경기를 고르는 자리에 이
+조건이 들어가므로, 집계는 좁힌 경기 집합 위에서 다시 계산됩니다.
+
+**맵을 섞으면 안 됩니다 (S15P21D205-1085).** 맵마다 크기도 동선도 달라 둘을 합친 평균은 어느 맵의 값도
+아닙니다. 모르는 맵 이름은 빈 표이고, 소문자·숫자·하이픈이 아니면 400 `INVALID_REQUEST` 입니다.
 
 ```json
 {
@@ -726,8 +730,8 @@ GET /api/v1/admin/analytics/positions?matchId=<경기 UUID>
 | `unavailable` | 수집 서비스가 답하지 않았습니다. `true` 면 `columns`·`rows` 가 비어 있고 화면은 "연결할 수 없음"을 보입니다. `false` 인데 `rows` 가 비면 데이터가 정말 없는 것입니다 |
 
 `positions` 는 히트맵용 좌표입니다. 컬럼은 `map_id`, `player_seat`, `phase`, `elapsed_seconds`, `pos_x`,
-`pos_z` 로 고정이고, 한 경기의 위치 샘플을 시간순으로 최대 20,000 행 줍니다. `matchId` 가 없으면 400
-`INVALID_REQUEST` 입니다.
+`pos_y`, `pos_z` 로 고정이고, 한 경기의 위치 샘플을 시간순으로 최대 20,000 행 줍니다. `matchId` 가 없으면
+400 `INVALID_REQUEST` 입니다. `pos_y` 는 층을 가르는 데 씁니다 - 저택은 1층과 2층이 x·z 로 겹칩니다.
 
 `from`·`to` 가 14자가 아니면 400 `INVALID_REQUEST` 이고 수집 서비스에 묻지 않습니다. 문서에 없는
 `question` 은 수집 서비스가 404 로 거절하는데, 이 서버는 그것을 `unavailable: true` 로 돌려줍니다 -
@@ -751,8 +755,11 @@ GET /api/v1/admin/analytics/positions?matchId=<경기 UUID>
 작으면 유실이고, 그 상태의 숫자로 밸런스를 판단하면 안 됩니다.
 
 맵 공간의 세 카드는 같은 데이터의 다른 보기입니다. 표는 숫자가 큰 칸을 알려주고 히트맵은 그게
-어디인지 보여줍니다. 히트맵은 항목을 골라 사람 체류와 은신처 셋 중 하나를 그립니다. 사람 체류는
-경기를 골라야 하고 은신처는 기간 전체를 겹칩니다.
+어디인지 보여줍니다. 히트맵은 항목을 골라 사람 체류(경기 하나 또는 기간 전체)와 은신처 셋 중 하나를
+그립니다. 「사람 체류 · 경기 하나」만 경기를 골라야 하고 나머지는 기간 전체를 겹칩니다.
+
+**맵은 위쪽 기간 옆에서 고릅니다.** 고른 맵이 탭 전체에 걸립니다. 히트맵은 평면도 한 장 위에 그리는
+그림이라 여러 맵을 겹칠 수 없고, 층이 겹치는 맵(저택)은 구운 평면도가 담은 층만 그립니다.
 
 주소에 지금 보는 질문이 남습니다. 새로고침해도 그 자리로 돌아오고 링크로 건네줄 수 있습니다.
 

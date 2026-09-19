@@ -398,6 +398,11 @@
         </select>
         <input id="anFrom" type="datetime-local" hidden>
         <input id="anTo" type="datetime-local" hidden>
+        <!--
+          맵 고르기 (1085). 항목은 MAPS 가 채웁니다. 기간 옆에 둔 이유는 이것도 "무엇을 세는가"가 아니라
+          "어디까지 세는가"이기 때문입니다. 맵마다 크기도 동선도 달라 둘을 합친 평균은 어느 맵의 값도 아닙니다.
+        -->
+        <select id="anMap"></select>
         <button id="anClearMatch" hidden>경기 선택 해제</button>
         <span class="grow"></span>
         <button id="refreshAnalytics">새로고침</button>
@@ -1526,11 +1531,11 @@
 
     // 표 둘과 히트맵은 같은 질문의 다른 보기입니다. 표는 숫자가 큰 칸을, 히트맵은 그게 어디인지를 알려줍니다.
     { id: 'hideouts', title: '은신처 분포', group: 'space', doc: 3, kind: 'table',
-      note: '물건이 처음 멈춘 자리를 2m 격자로 묶었습니다. 숨긴 횟수가 많고 끝까지 안 들킨 비율이 높은 칸이 "너무 좋은 자리"입니다. 맵 위 히트맵에서 같은 값을 그림으로 볼 수 있습니다.' },
+      note: '물건이 처음 멈춘 자리를 2m 격자로 묶었습니다. 숨긴 횟수가 많고 끝까지 안 들킨 비율이 높은 칸이 "너무 좋은 자리"입니다. y(5m) 은 층이고, 층이 겹치는 맵에서 같은 x·z 가 두 줄로 나뉩니다. 맵 위 히트맵에서 같은 값을 그림으로 볼 수 있습니다.' },
     { id: 'dwell', title: '체류 구역', group: 'space', doc: 4, kind: 'table',
-      note: '사람이 머문 자리입니다. 샘플 하나가 대략 1초이지만 정확한 초는 아니라 구역 사이의 비교로만 읽습니다.' },
+      note: '사람이 머문 자리입니다. 샘플 하나가 대략 1초이지만 정확한 초는 아니라 구역 사이의 비교로만 읽습니다. y(5m) 은 층입니다.' },
     { id: 'heatmap', title: '맵 위 히트맵', group: 'space', kind: 'heatmap',
-      note: '위 두 표를 맵 위에 그립니다. 가로 x, 세로 z, 위가 +z 로 문서·Python 도구와 같은 방향입니다. 사람 체류는 경기를 골라야 하고 은신처는 기간 전체를 겹칩니다.' },
+      note: '위 두 표를 맵 위에 그립니다. 가로 x, 세로 z, 위가 +z 로 문서·Python 도구와 같은 방향입니다. 맵은 위에서 고르고, 「사람 체류 · 경기 하나」만 경기를 골라야 합니다.' },
 
     // 히트맵은 공간이고 이쪽은 시간입니다. 축이 달라 한 카드에 넣지 않았습니다.
     { id: 'item-motion', title: '물건 움직임 시간', group: 'time', kind: 'motion',
@@ -1565,8 +1570,19 @@
      * 몇 분씩 가만히 서 있는 그 방이 제일 뜨거워져 마트 안의 차이가 색으로 안 보입니다.
      * 그 좌표는 경계 밖으로 버려지고, 몇 개를 버렸는지는 카드 아래 범례에 적힙니다.
      */
-    supermarket: { extent: [-26, -42, 22, 9.5], image: null, source: '경계 벽 안쪽 면' },
-    playground: { extent: null, image: null, source: null },
+    supermarket: { label: '마트', extent: [-26, -42, 22, 9.5], image: null, source: '경계 벽 안쪽 면' },
+    /*
+     * 저택 (1085). 값은 docs/design/match-map/mansion/README.md 6절의 경계 콜라이더 실측이고,
+     * 안쪽 면이 서 x -12.5, 동 x 12.7, 남 z -32.2, 북 z -9.3 입니다. 여기에 반 칸씩 여유를 뒀습니다.
+     *
+     * <b>1층만 봅니다.</b> 본관은 1층과 2층이 x·z 로 겹치고, 그 위 다락이 대기 구역입니다. 층을 안
+     * 나누면 자기 차례를 기다리며 몇 분씩 서 있는 다락이 제일 뜨거운 칸이 되고 본관 안의 차이가
+     * 색으로 안 보입니다. floor 의 y 범위 밖은 마트 대기실과 같이 버리고 몇 개를 버렸는지 범례에
+     * 적습니다. 1층 바닥이 1.01, 2층 바닥이 5.5 라 5.0 에서 자릅니다.
+     */
+    mansion: { label: '저택', extent: [-13, -33, 13.5, -8.5], image: null, source: '경계 벽 안쪽 면',
+      floor: { label: '1층', y0: 0.7, y1: 5 } },
+    playground: { label: '놀이터', extent: null, image: null, source: null },
   };
   /* 굽기 도구의 출력 자리. 페이지가 /admin 로도 /admin/ 로도 열리므로 절대 경로로 씁니다. */
   const MAP_DIR = '/admin/maps/';
@@ -1574,16 +1590,25 @@
   /*
    * 히트맵에 무엇을 그릴지.
    *
-   * 사람 체류는 고른 경기의 위치 샘플을 점으로 받아 칸에 모읍니다. 은신처 셋은 3번 표의 질의를
-   * 그대로 씁니다 - 표와 그림이 다른 숫자를 보이면 안 되기 때문입니다. 그쪽은 이미 2 m 칸으로
-   * 묶여 오므로 칸 크기를 고를 수 없고, 단계·플레이어 필터도 걸리지 않습니다.
+   * 「사람 체류 · 경기 하나」만 점입니다. 고른 경기의 위치 샘플을 그대로 받아 화면이 칸에 모으므로
+   * 칸 크기와 단계·플레이어를 고를 수 있습니다.
+   *
+   * 나머지 셋 + 「사람 체류 · 기간 전체」는 문서 3·4번 절의 질의를 그대로 씁니다 - 표와 그림이 다른
+   * 숫자를 보이면 안 되기 때문입니다. 그쪽은 이미 2 m 칸으로 묶여 오므로 칸 크기를 고를 수 없습니다.
+   * 4번 절은 단계가 컬럼으로 오므로 단계만은 고를 수 있습니다.
+   *
+   * 기간 전체 체류(4번 절)는 `dropped_samples = 0` 도 걸립니다. 상한에서 잘린 경기는 구역 비교를
+   * 왜곡하기 때문인데, 그래서 경기 하나로 본 합과 기간 전체가 딱 맞아떨어지지 않을 수 있습니다.
    *
    * 발견까지 평균(초)은 일부러 뺐습니다. 들킨 물건만 세는 값이라 좋은 자리일수록 짧아 보입니다.
    * 색으로 칠하면 결론이 뒤집히므로 표에만 둡니다.
    */
   const HEAT_SOURCES = [
-    { id: 'players', label: '사람 체류', path: 'positions', needsMatch: true, unit: '개',
+    { id: 'players', label: '사람 체류 · 경기 하나', path: 'positions', needsMatch: true, unit: '개',
       short: '샘플 수', caption: '칸 안의 샘플 수' },
+    { id: 'dwell', label: '사람 체류 · 기간 전체', path: 'dwell', value: '체류 샘플', merge: 'sum',
+      phase: true, unit: '개', short: '체류 샘플',
+      caption: '칸 안의 샘플 수. 기간 안의 경기를 모두 더했습니다' },
     { id: 'hide-count', label: '은신처 · 숨긴 횟수', path: 'hideouts', value: '숨긴 횟수', unit: '회',
       short: '숨긴 횟수', caption: '그 칸에 숨긴 횟수' },
     { id: 'hide-survive', label: '은신처 · 버틴 시간', path: 'hideouts', value: '버틴 시간 평균(초)', unit: '초',
@@ -1592,6 +1617,16 @@
     { id: 'hide-safe', label: '은신처 · 끝까지 안 들킨 비율', path: 'hideouts', value: '끝까지 안 들킨 %', unit: '%',
       short: '끝까지 안 들킨 비율', caption: '끝까지 안 들킨 비율' },
   ];
+
+  /**
+   * 3·4번 절이 층을 나눠 주는 컬럼 (1085).
+   *
+   * 저택은 1층과 2층이 x·z 로 겹치고 그 위 다락이 대기 구역이라, 층을 안 나누면 대기자가 제일 뜨거운
+   * 칸이 됩니다. SQL 이 FLOOR(y / 5) * 5 로 묶어 주므로 값 b 는 y 가 b 이상 b + 5 미만이라는 뜻입니다.
+   * 마트는 한 층이라 전부 0 한 밴드이고 아무것도 달라지지 않습니다.
+   */
+  const Y_BAND_COLUMN = 'y(5m)';
+  const Y_BAND = 5;
 
   /** 이만큼 숨기지 않은 칸은 흐리게 그립니다. 한 번 숨겨 안 들켰다고 안전한 자리가 아닙니다. */
   const HIDE_MIN_SAMPLES = 3;
@@ -1719,6 +1754,7 @@
 
   buildAnalyticsCards();
   buildAnalyticsNav();
+  buildMapPicker();
 
   /** Date → UTC yyyyMMddHHmmss. 서버가 다른 API 와 같은 형식으로 받습니다. */
   function stampOf(date) {
@@ -1744,10 +1780,31 @@
     return { from: stampOf(new Date(Date.now() - days * 86400000)) };
   }
 
+  /**
+   * 상단 바의 맵 고르는 칸을 MAPS 로 채웁니다 (1085).
+   *
+   * 목록을 데이터에서 만들지 않고 MAPS 에서 만드는 이유는, 아직 한 판도 안 올라온 맵도 고를 수 있어야
+   * 하기 때문입니다. 고를 수 없으면 "빈 격자"와 "그 맵이 목록에 없음"을 구분할 수가 없습니다.
+   */
+  function buildMapPicker() {
+    const box = el('anMap');
+    box.appendChild(option('', '전체 맵'));
+    for (const [id, map] of Object.entries(MAPS)) box.appendChild(option(id, map.label || id));
+    box.value = '';
+  }
+
+  /** 고른 맵. 전체 맵이면 빈 문자열입니다. */
+  function selectedMap() {
+    const box = el('anMap');
+    return box ? box.value : '';
+  }
+
   function analyticsQuery(q) {
     const params = new URLSearchParams(analyticsPeriod());
     // 경기 목록은 기간만 받습니다. 여기서 경기를 고르는 것이라 그 경기로 좁히면 고를 것이 없어집니다.
     if (selectedMatch && q.kind !== 'matches') params.set('matchId', selectedMatch);
+    // 맵은 경기 목록에도 겁니다. 저택 히트맵을 보려다 마트 경기를 고르는 일이 없어집니다.
+    if (selectedMap()) params.set('mapId', selectedMap());
     const s = params.toString();
     return s ? '?' + s : '';
   }
@@ -1768,11 +1825,11 @@
   async function loadAnalyticsCard(q) {
     const body = el('anBody-' + q.id);
     try {
-      // 사람 체류만 경기 하나가 필요합니다. 은신처는 기간 전체를 겹쳐 봅니다 - 한 경기의
+      // 「사람 체류 · 경기 하나」만 경기가 필요합니다. 나머지는 기간 전체를 겹쳐 봅니다 - 한 경기의
       // 물건은 사람 수만큼뿐이라 그것만으로는 분포가 되지 않습니다.
       if (q.kind === 'heatmap' && heatSource().needsMatch && !selectedMatch) {
         body.textContent = '';
-        body.appendChild(emptyBox('경기 목록에서 경기를 고르면 그 경기의 좌표를 그립니다. 은신처는 경기를 고르지 않아도 됩니다.'));
+        body.appendChild(emptyBox('경기 목록에서 경기를 고르면 그 경기의 좌표를 그립니다. 기간 전체로 보려면 항목에서 「사람 체류 · 기간 전체」나 은신처를 고르세요.'));
         el('hmBox').hidden = true;
         // 항목만 남기고 나머지는 숨깁니다. 고를 데이터가 없는데 필터만 떠 있으면 헷갈립니다.
         for (const id of ['hmPhase', 'hmSeat', 'hmCell']) el(id).hidden = true;
@@ -1791,7 +1848,7 @@
         : q.kind === 'heatmap'
           ? (heatSource().needsMatch
             ? '/analytics/positions?matchId=' + encodeURIComponent(selectedMatch)
-            : '/analytics/hideouts' + analyticsQuery(q))
+            : '/analytics/' + heatSource().path + analyticsQuery(q))
           : '/analytics/' + q.id + analyticsQuery(q);
       const table = await call(path);
       await renderAnalyticsCard(q, table);
@@ -2069,6 +2126,8 @@
       if (extent.length !== 4 || extent.some((v) => !isFinite(v))) return null;
       mapMeta[mapId] = {
         extent: extent,
+        // 구운 층의 y 범위. 그림이 한 층만 담고 있으므로 다른 층의 좌표를 그 위에 그리면 안 됩니다.
+        floor: floorOf(meta.floor),
         image: MAP_DIR + encodeURIComponent(mapId) + '.png',
         source: '구운 평면도(' + (meta.bakedAt || '시각 없음') + ')',
       };
@@ -2078,48 +2137,104 @@
     return mapMeta[mapId];
   }
 
+  /** 굽기 도구가 쓴 층 정보. 숫자 둘이 제대로 있을 때만 씁니다. */
+  function floorOf(floor) {
+    if (!floor) return null;
+    const y0 = Number(floor.y0), y1 = Number(floor.y1);
+    if (!isFinite(y0) || !isFinite(y1) || y1 <= y0) return null;
+    return { label: floor.label || '', y0: y0, y1: y1 };
+  }
+
   function heatSource() {
     const box = el('hmSource');
     const id = box ? box.value : 'players';
     return HEAT_SOURCES.find((h) => h.id === id) || HEAT_SOURCES[0];
   }
 
+  /** 히트맵의 단계 컬럼. 좌표 API 는 phase, 문서 4번 절은 한글 별칭입니다. */
+  function phaseColumn(points) {
+    return points ? 'phase' : '단계';
+  }
+
+  function mapLabel(mapId) {
+    return (MAPS[mapId] && MAPS[mapId].label) || mapId || '이름 없는 맵';
+  }
+
+  /**
+   * 어느 맵을 그릴지 (1085).
+   *
+   * 평면도 한 장 위에 그리는 그림이라 여러 맵을 겹칠 수 없습니다. 상단에서 고른 맵이 있으면 그것이고,
+   * 전체 맵이면 행이 가장 많은 맵입니다. 전에는 첫 행의 맵을 말없이 골랐는데, 그러면 다른 맵의 값이
+   * 어디로 갔는지 화면에 아무 말이 없었습니다.
+   */
+  function pickHeatMap(table, mapCol) {
+    if (selectedMap()) return selectedMap();
+    if (mapCol < 0 || !table.rows.length) return '';
+    const count = new Map();
+    for (const r of table.rows) {
+      const id = String(r[mapCol]);
+      count.set(id, (count.get(id) || 0) + 1);
+    }
+    return [...count.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  }
+
   /**
    * 표를 받았습니다. 항목에 따라 두 가지 모양이 옵니다.
    *
-   * 사람 체류는 점(pos_x, pos_z)이고 화면이 칸에 모읍니다. 은신처는 이미 2 m 칸으로 묶여
-   * 값 하나씩 옵니다. 두 경우 모두 아래에서 같은 격자 그림이 됩니다.
+   * 「사람 체류 · 경기 하나」는 점(pos_x, pos_z)이고 화면이 칸에 모읍니다. 나머지는 문서 3·4번 절이
+   * 이미 2 m 칸으로 묶어 값 하나씩 줍니다. 두 경우 모두 아래에서 같은 격자 그림이 됩니다.
    */
   async function showHeatmap(q, table) {
     const source = heatSource();
     const points = source.needsMatch;
 
     const mapCol = table.columns.indexOf(points ? 'map_id' : '맵');
-    const mapId = mapCol >= 0 && table.rows.length ? String(table.rows[0][mapCol]) : '';
-    // 은신처는 기간 안의 모든 맵을 한 번에 돌려줍니다(질의가 맵별로 묶습니다). 거르지 않으면
+    const mapId = pickHeatMap(table, mapCol);
+    // 질의는 기간 안의 모든 맵을 한 번에 돌려줍니다(질의가 맵별로 묶습니다). 거르지 않으면
     // 다른 맵의 칸이 이 맵의 평면도 위에 그려집니다 - 좌표가 겹치는 자리면 티도 안 납니다.
-    const rows = mapCol >= 0 ? table.rows.filter((r) => String(r[mapCol]) === mapId) : table.rows;
+    const onMap = mapCol >= 0 ? table.rows.filter((r) => String(r[mapCol]) === mapId) : table.rows;
     // 구운 평면도가 있으면 그 사각형이 그림과 격자 양쪽의 기준입니다.
     const map = (await bakedMapOf(mapId)) || MAPS[mapId] || {};
-    heatmapData = { columns: table.columns, rows, mapId, map, points, source };
 
-    // 단계와 플레이어는 점일 때만 거를 수 있습니다. 은신처는 이미 묶여 와서 그 안을 못 나눕니다.
+    // 층 거르기 (1085). 그림은 한 층이므로 다른 층의 좌표를 그 위에 얹으면 안 됩니다. 저택 다락은
+    // 대기 구역이라 넣으면 몇 분씩 서 있는 그 방이 제일 뜨거워지고 본관 안의 차이가 안 보입니다.
+    // 구운 JSON 의 층이 기준이고, 없으면 MAPS 의 값입니다. 굽기 도구에서 층 칸을 안 켜고 구운
+    // 평면도라도 다락 대기자가 1층 그림 위에 얹히는 일은 없어야 합니다.
+    const floor = map.floor || (MAPS[mapId] && MAPS[mapId].floor) || null;
+    const yi = table.columns.indexOf(points ? 'pos_y' : Y_BAND_COLUMN);
+    let rows = onMap;
+    if (floor && yi >= 0) {
+      rows = onMap.filter((r) => {
+        const y = Number(r[yi]);
+        if (!isFinite(y)) return true;
+        // 밴드로 온 값은 "y 가 이 값부터 5 m 까지"라는 뜻입니다. 그 구간이 층에 걸치면 남깁니다.
+        return points ? (y >= floor.y0 && y < floor.y1) : (y + Y_BAND > floor.y0 && y < floor.y1);
+      });
+    }
+    const offFloor = onMap.length - rows.length;
+    heatmapData = { columns: table.columns, rows, mapId, map, points, source, offFloor, floor };
+
+    // 플레이어와 칸 크기는 점일 때만 고를 수 있습니다. 묶여 온 표는 그 안을 못 나눕니다. 단계는
+    // 4번 절이 컬럼으로 주므로 기간 전체 체류에서도 고를 수 있습니다.
     // 셋 다 hidden 으로 여닫습니다. 하나만 disabled 로 두면 경기를 고르기 전에 숨긴 것을
     // 되돌리는 곳이 없어 영영 사라집니다.
-    el('hmPhase').hidden = !points;
+    const hasPhase = points || !!source.phase;
+    el('hmPhase').hidden = !hasPhase;
     el('hmSeat').hidden = !points;
     el('hmCell').hidden = !points;
-    if (points) {
-      const pi = table.columns.indexOf('phase');
-      const si = table.columns.indexOf('player_seat');
+    if (hasPhase) {
+      const pi = table.columns.indexOf(phaseColumn(points));
       refill(el('hmPhase'), [...new Set(rows.map((r) => String(r[pi])))].sort(), '전체 단계', (v) => v);
+    }
+    if (points) {
+      const si = table.columns.indexOf('player_seat');
       refill(el('hmSeat'), [...new Set(rows.map((r) => r[si]))].sort((a, b) => a - b).map(String), '전체 플레이어', (v) => '플레이어 ' + v);
     } else {
       el('hmCell').value = '2';
     }
 
     const where = map.image ? '평면도 위에 그립니다.'
-      : map.extent ? '평면도가 없어 ' + map.source + '으로 경계만 그립니다. 그림이 생기면 MAPS 에 적으면 됩니다.'
+      : map.extent ? '평면도가 없어 ' + map.source + '으로 경계만 그립니다. 그림이 생기면 굽기 도구로 넣으면 됩니다.'
         : '맵 "' + mapId + '" 의 평면도와 경계값이 없어 샘플의 범위로 그립니다.';
     // 서버가 경기당 20,000 행에서 자릅니다(AnalyticsQueryService.POSITION_LIMIT). 딱 그 수가 왔으면 뒤쪽 시간대가
     // 빠진 것이고, 그걸 모른 채 보면 "후반에 아무도 안 갔다"로 읽힙니다.
@@ -2128,7 +2243,15 @@
       : '';
     const scope = points ? ''
       : ' 기간 안의 경기를 모두 겹쳤습니다. 경기를 고르면 그 경기만 봅니다.';
-    setNote(q, q.note + ' ' + where + scope + capped, !!capped);
+    // 여러 맵이 왔는데 위에서 고르지 않았으면 어느 맵을 그렸는지 말해 줍니다. 말없이 하나만
+    // 그리면 나머지 맵의 값이 어디로 갔는지 알 수가 없습니다.
+    const maps = mapCol >= 0 ? new Set(table.rows.map((r) => String(r[mapCol]))) : new Set();
+    const which = mapId ? ' 맵은 ' + mapLabel(mapId) + '입니다.' : '';
+    const multi = maps.size > 1
+      ? ' 기간 안에 맵이 ' + maps.size + '개라 행이 가장 많은 쪽만 그렸습니다 - 위에서 맵을 고르면 바뀝니다.'
+      : '';
+    const onFloor = floor ? ' ' + (floor.label || '구운 층') + '만 그립니다.' : '';
+    setNote(q, q.note + ' ' + where + which + onFloor + scope + multi + capped, !!capped);
 
     el('anBody-' + q.id).textContent = '';
     el('hmBox').hidden = false;
@@ -2230,16 +2353,21 @@
     const points = data.points;
     const xi = points ? col('pos_x') : col('x(2m)');
     const zi = points ? col('pos_z') : col('z(2m)');
-    const pi = col('phase'), si = col('player_seat');
+    const pi = col(phaseColumn(points)), si = col('player_seat');
     const vi = points ? -1 : col(source.value);
+    // 은신처를 합칠 때 쓰는 원 컬럼입니다. 평균을 다시 평균하면 틀리므로 횟수로 되돌려 계산합니다.
     const ni = points ? -1 : col('숨긴 횟수');
+    const ti = points ? -1 : col('발견된 횟수');
+    const svi = points ? -1 : col('버틴 시간 평균(초)');
     const cell = points ? Number(el('hmCell').value) : 2;
     const useLog = el('hmLog').checked;
 
+    // 단계는 좌표(phase)와 4번 절(단계) 양쪽에 있습니다. 칸이 숨어 있으면 고른 값이 남아 있어도 안 겁니다.
+    const phasePick = el('hmPhase').hidden ? 'all' : el('hmPhase').value;
     const rows = points
-      ? data.rows.filter((r) => (el('hmPhase').value === 'all' || String(r[pi]) === el('hmPhase').value)
+      ? data.rows.filter((r) => (phasePick === 'all' || String(r[pi]) === phasePick)
         && (el('hmSeat').value === 'all' || String(r[si]) === el('hmSeat').value))
-      : data.rows;
+      : (pi >= 0 ? data.rows.filter((r) => phasePick === 'all' || String(r[pi]) === phasePick) : data.rows);
 
     const map = data.map || {};
     // 경계는 필터와 무관하게 경기 전체 샘플로 잡습니다. 단계를 바꿀 때 그림이 튀지 않게 하려는 것입니다.
@@ -2254,32 +2382,58 @@
     // 격자 집계.
     //
     // 점일 때는 하나씩 그리지 않고 칸에 모은 뒤 칸만 그리므로 20,000 점이어도 그리는 양은 칸
-    // 수입니다. 은신처는 이미 칸으로 묶여 오므로 값을 그 자리에 놓기만 합니다.
+    // 수입니다. 묶여 온 표는 값을 그 자리에 놓습니다.
+    //
+    // <b>한 칸이 여러 줄로 올 수 있습니다 (1085).</b> 문서 3·4번 절이 y 밴드로도 묶고 4번 절은 단계로도
+    // 묶기 때문입니다. 그래서 값을 덮어쓰지 않고 더합니다. 평균을 그냥 더하면 틀리므로 은신처는 횟수와
+    // 버틴 시간의 합만 모아 두고 마지막에 나눕니다 - 그러면 SQL 이 한 줄로 냈을 값과 같습니다.
     //
     // 값이 0 인 칸과 값이 없는 칸은 다릅니다. 끝까지 안 들킨 비율 0 % 는 "한 번도 못 버틴
     // 자리"라는 뜻이고 빈칸이 아닙니다. 그래서 있음 여부를 따로 듭니다.
     const values = new Float64Array(nx * nz);
     const present = new Uint8Array(nx * nz);
-    const weight = new Float64Array(nx * nz);   // 은신처의 숨긴 횟수. 흐리게 그릴지 판단합니다
-    let max = 0, inside = 0;
+    const weight = new Float64Array(nx * nz);    // 은신처의 숨긴 횟수. 흐리게 그릴지도 이걸로 봅니다
+    const taken = new Float64Array(nx * nz);     // 은신처의 발견된 횟수
+    const survived = new Float64Array(nx * nz);  // 버틴 시간 × 숨긴 횟수. 마지막에 횟수로 나눕니다
+    let inside = 0;
     for (const r of rows) {
       const x = Number(r[xi]), z = Number(r[zi]);
       if (!(x >= x0 && x < x1 && z >= z0 && z < z1)) continue;
       const i = Math.floor((x - gx0) / cell);
       const j = Math.floor((z - gz0) / cell);
       const at = j * nx + i;
-      let v;
       if (points) {
-        v = ++values[at];
-      } else {
-        v = Number(r[vi]);
+        values[at]++;
+      } else if (source.merge === 'sum') {
+        const v = Number(r[vi]);
         if (r[vi] === null || r[vi] === undefined || !isFinite(v)) continue;
-        values[at] = v;
-        weight[at] = ni >= 0 ? Number(r[ni]) || 0 : 0;
+        values[at] += v;
+      } else {
+        const n = ni >= 0 ? Number(r[ni]) || 0 : 0;
+        const sv = svi >= 0 ? Number(r[svi]) : NaN;
+        weight[at] += n;
+        taken[at] += ti >= 0 ? Number(r[ti]) || 0 : 0;
+        if (isFinite(sv)) survived[at] += sv * n;
       }
       present[at] = 1;
-      if (v > max) max = v;
       inside++;
+    }
+
+    // 은신처의 값은 여기서 정합니다. 숨긴 횟수는 합, 버틴 시간은 횟수로 가중한 평균, 안 들킨 비율은
+    // 합친 횟수로 다시 센 비율입니다. ROUND 도 SQL 과 같은 자리에서 합니다.
+    if (!points && source.merge !== 'sum') {
+      for (let at = 0; at < values.length; at++) {
+        if (!present[at]) continue;
+        const n = weight[at];
+        values[at] = source.id === 'hide-count' ? n
+          : source.id === 'hide-survive' ? (n > 0 ? Math.round(survived[at] / n) : 0)
+            : (n > 0 ? Math.round(100 * (1 - taken[at] / n)) : 0);
+      }
+    }
+
+    let max = 0;
+    for (let at = 0; at < values.length; at++) {
+      if (present[at] && values[at] > max) max = values[at];
     }
 
     const M = HEAT_MARGIN;
@@ -2371,6 +2525,12 @@
     const thinNote = !points && ni >= 0 && rows.some((r) => (Number(r[ni]) || 0) < HIDE_MIN_SAMPLES)
       ? ' 숨긴 횟수가 ' + HIDE_MIN_SAMPLES + '회 미만인 칸은 흐리게 그렸습니다 - 우연일 수 있습니다.'
       : '';
+    // 다른 층을 몇 줄 뺐는지 (1085). 저택 다락은 대기 구역이라 그 수가 꽤 큽니다. 안 적으면
+    // "거기 아무도 안 갔다"로 읽힙니다.
+    const floorNote = data.offFloor
+      ? ' ' + ((data.floor && data.floor.label) || '이 층') + ' 밖 ' + data.offFloor.toLocaleString('ko-KR')
+        + '행은 뺐습니다 - 평면도가 한 층이라 다른 층은 이 그림 위에 그릴 수 없습니다.'
+      : '';
 
     if (points) {
       el('hmLegend').textContent = inside.toLocaleString('ko-KR') + '개 샘플을 ' + cell + ' m 칸에 모았습니다. 가장 진한 칸 '
@@ -2379,12 +2539,13 @@
         // 사람이 마트 밖 대기실에 서 있고, 그 방은 일부러 범위에서 뺐습니다.
         + (outside ? '. 범위 밖 샘플 ' + outside.toLocaleString('ko-KR')
             + '개는 그리지 않았습니다 - 대부분 숨기기 단계에 대기실에 있던 사람입니다' : '')
-        + '. 범위 x ' + x0 + '~' + x1 + ', z ' + z0 + '~' + z1 + ' m.';
+        + '. 범위 x ' + x0 + '~' + x1 + ', z ' + z0 + '~' + z1 + ' m.' + floorNote;
     } else {
-      el('hmLegend').textContent = inside.toLocaleString('ko-KR') + '개 칸을 그렸습니다. ' + source.short
-        + ' 기준, 가장 진한 칸 ' + max.toLocaleString('ko-KR') + source.unit + (useLog ? ' (로그 눈금)' : '')
-        + (outside ? '. 범위 밖 칸 ' + outside.toLocaleString('ko-KR') + '개는 그리지 않았습니다' : '')
-        + '.' + thinNote;
+      el('hmLegend').textContent = inside.toLocaleString('ko-KR') + '개 줄을 ' + cell + ' m 칸에 모았습니다. '
+        + source.short + ' 기준, 가장 진한 칸 ' + max.toLocaleString('ko-KR') + source.unit
+        + (useLog ? ' (로그 눈금)' : '')
+        + (outside ? '. 범위 밖 ' + outside.toLocaleString('ko-KR') + '줄은 그리지 않았습니다' : '')
+        + '.' + thinNote + floorNote;
     }
   }
 
@@ -3160,6 +3321,11 @@
   });
   el('anFrom').addEventListener('change', () => loadAnalytics().catch(() => {}));
   el('anTo').addEventListener('change', () => loadAnalytics().catch(() => {}));
+  // 고른 경기는 한 맵의 것이라, 맵을 바꾸면 그 경기로 좁힌 카드가 전부 빈 표가 됩니다. 같이 풉니다.
+  el('anMap').addEventListener('change', () => {
+    selectedMatch = null;
+    loadAnalytics().catch(() => {});
+  });
   el('anClearMatch').addEventListener('click', () => {
     selectedMatch = null;
     loadAnalytics().catch(() => {});

@@ -38,8 +38,12 @@ public class AnalyticsQueryService {
      */
     static final int QUERY_TIMEOUT_SECONDS = 15;
 
+    /**
+     * 좌표 하나의 컬럼. {@code pos_y} 는 층을 가르는 데 씁니다 (S15P21D205-1085) - 저택은 1층과 2층이
+     * x·z 로 겹치고 그 위 다락이 대기 구역이라, 높이가 없으면 화면이 세 층을 한 칸에 겹쳐 그립니다.
+     */
     private static final String POSITIONS_SQL = """
-            SELECT map_id, player_seat, phase, elapsed_seconds, pos_x, pos_z,
+            SELECT map_id, player_seat, phase, elapsed_seconds, pos_x, pos_y, pos_z,
                    item_in_motion, item_known
               FROM match_analysis_positions
              WHERE match_id = ?
