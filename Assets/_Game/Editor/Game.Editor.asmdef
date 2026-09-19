@@ -10,6 +10,7 @@
         "Game.Core",
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.GPUDriven.Runtime",
         "Game.SOAP",
         "Game.Network"
     ],

@@ -6,6 +6,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace Game.Editor
@@ -40,6 +41,17 @@ namespace Game.Editor
 
         /// <summary>한 변의 픽셀 상한. 넘으면 GPU 와 브라우저 양쪽에서 부담이 된다.</summary>
         private const int MaxPixels = 4096;
+
+        /// <summary>
+        /// 배경색과 다른 픽셀이 이 비율보다 적으면 <b>아무것도 안 찍힌 것</b>으로 본다 (S15P21D205-1085).
+        ///
+        /// <para>
+        /// 2026-09-19 저택 첫 굽기가 배경색 한 가지와 마젠타 180 픽셀뿐인 PNG 를 냈다. 셰이더가 아직
+        /// 컴파일 중이면 그 물건은 그려지지 않고 조용히 빠지는데, 결과가 "빈 맵"처럼 보여서 히트맵에
+        /// 깔고 나서야 이상한 줄 알게 된다. 그런 그림은 쓰지 않는 편이 낫다.
+        /// </para>
+        /// </summary>
+        private const float MinInkRatio = 0.01f;
 
         private GameObject root;
         private string mapId = "supermarket";
@@ -338,6 +350,18 @@ namespace Game.Editor
             RenderTexture texture = null;
             var previous = RenderTexture.active;
 
+            // GPU 상주 드로어를 굽는 동안만 끈다 (S15P21D205-1085).
+            //
+            // PC 품질 설정이 2026-09-16 에 이것을 켰고(S15P21D205-994), 그 뒤 처음 구운 저택 평면도가
+            // 배경색 한 가지뿐인 PNG 로 나왔다. 정적 소품을 GPU 가 직접 그리는 경로라, 여기처럼 손으로
+            // 만들어 Camera.Render() 로 한 장 찍는 카메라에는 그 배치가 따라오지 않는다. 그 그림에서
+            // 유일하게 찍힌 것이 이 경로를 타지 않는 오류 셰이더 물건 하나였다.
+            //
+            // 되돌려 놓으므로 에셋의 값은 그대로다. 마트를 구운 2026-09-15 에는 꺼져 있었다.
+            var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+            var drawerMode = pipeline != null ? pipeline.gpuResidentDrawerMode : GPUResidentDrawerMode.Disabled;
+            if (pipeline != null) pipeline.gpuResidentDrawerMode = GPUResidentDrawerMode.Disabled;
+
             try
             {
                 var camera = holder.AddComponent<Camera>();
@@ -367,12 +391,46 @@ namespace Game.Editor
                     antiAliasing = 4
                 };
                 camera.targetTexture = texture;
-                camera.Render();
+
+                // 셰이더 컴파일을 기다린다. 비동기로 두면 아직 준비 안 된 물건이 그냥 빠지고, 남는 것은
+                // 배경뿐인 PNG 다. 굽는 동안만 동기로 돌리고 원래대로 되돌린다.
+                var wasAsync = ShaderUtil.allowAsyncCompilation;
+                ShaderUtil.allowAsyncCompilation = false;
+                try
+                {
+                    camera.Render();
+                }
+                finally
+                {
+                    ShaderUtil.allowAsyncCompilation = wasAsync;
+                }
 
                 RenderTexture.active = texture;
                 var image = new Texture2D(width, height, TextureFormat.RGBA32, false);
                 image.ReadPixels(new Rect(0, 0, width, height), 0, 0);
                 image.Apply();
+
+                // 빈 그림은 쓰지 않는다. 쓰면 히트맵 바닥이 그냥 회색이 되는데, 그건 "이 맵은 원래
+                // 이렇게 생겼나"로 읽혀서 틀렸다는 티가 안 난다.
+                var ink = InkRatio(image, background);
+                if (ink < MinInkRatio)
+                {
+                    DestroyImmediate(image);
+                    var inView = CountRenderersInView();
+                    Debug.LogError(
+                        $"[Floorplan] {mapId}: 배경만 찍혔습니다(칠해진 픽셀 {ink:P2}). "
+                        + $"범위 안 렌더러 {inView:N0}개. 파일은 쓰지 않았습니다.");
+                    EditorUtility.DisplayDialog(
+                        "Analytics Floorplan",
+                        "아무것도 안 찍혀서 파일을 쓰지 않았습니다.\n\n"
+                        + $"칠해진 픽셀 {ink:P2}, 범위 안 렌더러 {inView:N0}개.\n\n"
+                        + (inView > 0
+                            ? "렌더러는 범위 안에 있습니다. 그리는 쪽 문제입니다 - 한 번 더 구워 보고, "
+                              + "그래도 같으면 씬 뷰 카메라로 이 범위가 보이는지 확인하세요."
+                            : "범위 안에 렌더러가 없습니다. 가로·세로 범위나 잘라 낼 높이를 확인하세요."),
+                        "확인");
+                    return;
+                }
 
                 var folder = Path.Combine(ProjectRoot(), outputFolder);
                 Directory.CreateDirectory(folder);
@@ -384,11 +442,13 @@ namespace Game.Editor
 
                 Debug.Log(
                     $"[Floorplan] {mapId}: {width}x{height} px, " +
-                    $"x[{x0:F2}, {x1:F2}] z[{z0:F2}, {z1:F2}], 잘라 낸 높이 {cutHeight:F2} -> {png}");
+                    $"x[{x0:F2}, {x1:F2}] z[{z0:F2}, {z1:F2}], 잘라 낸 높이 {cutHeight:F2}, " +
+                    $"칠해진 픽셀 {ink:P1} -> {png}");
                 EditorUtility.RevealInFinder(png);
             }
             finally
             {
+                if (pipeline != null) pipeline.gpuResidentDrawerMode = drawerMode;
                 RenderTexture.active = previous;
                 if (texture != null)
                 {
@@ -397,6 +457,49 @@ namespace Game.Editor
                 }
                 DestroyImmediate(holder);
             }
+        }
+
+        /// <summary>
+        /// 배경색과 다른 픽셀의 비율. 굽은 그림이 비었는지 보는 유일한 값이다.
+        ///
+        /// <para>
+        /// 안티에일리어싱 때문에 딱 맞아떨어지지 않으므로 채널마다 6 만큼은 같은 색으로 본다.
+        /// </para>
+        /// </summary>
+        private static float InkRatio(Texture2D image, Color background)
+        {
+            var pixels = image.GetPixels32();
+            if (pixels.Length == 0) return 0f;
+
+            var bg = (Color32)background;
+            var ink = 0;
+            foreach (var p in pixels)
+            {
+                if (Mathf.Abs(p.r - bg.r) > 6 || Mathf.Abs(p.g - bg.g) > 6 || Mathf.Abs(p.b - bg.b) > 6) ink++;
+            }
+            return ink / (float)pixels.Length;
+        }
+
+        /// <summary>
+        /// 범위 안, 잘라 낼 높이 아래에 있는 렌더러 수.
+        ///
+        /// <para>
+        /// 빈 그림이 나왔을 때 "범위가 틀렸나"와 "그리는 쪽이 틀렸나"를 가르는 값이다. 둘은 화면에서
+        /// 똑같이 회색 바닥으로 보이지만 고치는 곳이 다르다.
+        /// </para>
+        /// </summary>
+        private int CountRenderersInView()
+        {
+            var box = new Bounds();
+            box.SetMinMax(new Vector3(x0, -1000f, z0), new Vector3(x1, cutHeight, z1));
+
+            var seen = 0;
+            foreach (var r in Scoped(null))
+            {
+                if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
+                if (box.Intersects(r.bounds)) seen++;
+            }
+            return seen;
         }
 
         /// <summary>
