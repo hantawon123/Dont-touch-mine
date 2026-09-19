@@ -79,8 +79,8 @@ namespace Game.Client
 
         public static readonly string[] CarryingLabels =
         {
-            ClickKeyLabel,
             RightClickKeyLabel,
+            ClickKeyLabel,
             "F",
             "C",
             "Z",
@@ -159,9 +159,23 @@ namespace Game.Client
         private CanvasGroup fade;
         private PlayerInteractor localInteractor;
         private Mode mode;
+        private string focusLabel;
+        private ControlAction[] focusActions = System.Array.Empty<ControlAction>();
+        private static readonly Color FocusColor = new Color(1f, .79f, .28f);
+
+        public void SetFocus(string label, params ControlAction[] actions)
+        {
+            focusLabel = label;
+            focusActions = actions ?? System.Array.Empty<ControlAction>();
+            ApplyStyle();
+        }
+
+        public static string CurrentKeyLabel(ControlAction action) => ControlCatalog.KeyLabel(
+            (sharedSettings != null ? sharedSettings.Current : ControlCatalog.Defaults).Get(action));
 
         public static bool UserVisible { get; private set; } = true;
         public bool AlwaysVisible { get; set; }
+        public bool ShowFocusCaption { get; set; } = true;
         public bool IsCarrying => mode == Mode.Carrying;
         public bool IsPlacing => mode == Mode.Placing;
         public Mode CurrentMode => mode;
@@ -367,8 +381,11 @@ namespace Game.Client
             var actions = ActionsFor(mode);
             var labels = LabelsFor(mode);
             var light = HomeUiFonts.ApplyLight();
+            var bindings = BindingsFor(mode);
+            var interactionFocus = mode == Mode.Default && System.Array.IndexOf(focusActions, ControlAction.Interact) >= 0;
             for (var index = 0; index < actions.Length; index++)
             {
+                var focused = interactionFocus && index == 0 || index < bindings.Length && System.Array.IndexOf(focusActions, bindings[index]) >= 0;
                 var row = transform.Find($"Row{index}");
                 if (row == null)
                 {
@@ -379,11 +396,11 @@ namespace Game.Client
                 var action = row.Find("Action")?.GetComponent<TMP_Text>();
                 if (action != null)
                 {
-                    action.text = actions[index];
+                    action.text = interactionFocus && index == 0 ? "상호작용 · 들기" : actions[index];
                     action.font = light;
                     action.fontSize = ActionFontSize;
-                    action.fontStyle = FontStyles.Normal;
-                    action.color = Color.white;
+                    action.fontStyle = focused ? FontStyles.Bold : FontStyles.Normal;
+                    action.color = focused ? FocusColor : Color.white;
                     action.alignment = TextAlignmentOptions.MidlineRight;
                 }
 
@@ -391,13 +408,23 @@ namespace Game.Client
                 var keyLabel = row.Find("Key/Label")?.GetComponent<TMP_Text>();
                 if (keyLabel != null)
                 {
-                    keyLabel.text = labels[index];
+                    keyLabel.text = interactionFocus && index == 0 ? CurrentKeyLabel(ControlAction.Interact) : labels[index];
+                    keyLabel.fontStyle = focused ? FontStyles.Bold : FontStyles.Normal;
+                    keyLabel.color = focused ? FocusColor : Color.white;
                 }
 
                 if (chip != null)
                 {
                     ApplyKeyChipLook(chip.GetComponent<Image>());
                     FitKeyChip(chip, keyLabel);
+                    if (keyLabel != null)
+                    {
+                        keyLabel.fontStyle = focused ? FontStyles.Bold : FontStyles.Normal;
+                        keyLabel.color = focused ? FocusColor : Color.white;
+                    }
+                    if (focused) chip.GetComponent<Image>().color = new Color(.3f, .23f, .07f, .95f);
+                    var icon = chip.Find("Icon")?.GetComponent<Image>();
+                    if (icon != null) icon.color = focused ? FocusColor : Color.white;
                 }
 
                 if (action != null && chip != null)
@@ -407,6 +434,30 @@ namespace Game.Client
             }
 
             HideUnusedRows(actions.Length);
+            RefreshFocusLabel();
+        }
+
+        private void RefreshFocusLabel()
+        {
+            var caption = transform.Find("Focus")?.GetComponent<TMP_Text>();
+            if (!ShowFocusCaption || string.IsNullOrEmpty(focusLabel))
+            {
+                if (caption != null) caption.gameObject.SetActive(false);
+                return;
+            }
+            if (caption == null)
+                caption = CreateText(transform, "Focus", string.Empty, 20f, HomeUiFonts.ApplyLight());
+            caption.gameObject.SetActive(true);
+            var settings = sharedSettings != null ? sharedSettings.Current : ControlCatalog.Defaults;
+            var keys = new string[focusActions.Length];
+            for (var i = 0; i < keys.Length; i++)
+                keys[i] = ControlCatalog.KeyLabel(settings.Get(focusActions[i]));
+            caption.text = $"{focusLabel}\n<size=17>{string.Join(" / ", keys)}</size>";
+            caption.color = FocusColor;
+            caption.fontStyle = FontStyles.Bold;
+            caption.alignment = TextAlignmentOptions.BottomRight;
+            caption.textWrappingMode = TextWrappingModes.Normal;
+            Place(caption.rectTransform, Vector2.one, new Vector2(0, 12), new Vector2(360, 64), new Vector2(1, 0));
         }
 
         private void Awake()

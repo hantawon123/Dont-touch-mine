@@ -53,6 +53,8 @@ namespace Game.Client.Interactions
         /// <summary>배치 가능 상태의 실루엣 머티리얼.</summary>
         public Material GhostValidMaterial => ghostValidMaterial;
 
+        public Material ValidGhostMaterial => ghostValidMaterial;
+
         /// <summary>배치 불가(겹침) 상태의 실루엣 머티리얼.</summary>
         public Material GhostInvalidMaterial => ghostInvalidMaterial;
 

@@ -45,7 +45,7 @@ namespace Game.Editor.Intro
 
             if (Game.Network.Session.EditorDevelopmentSession.Enabled) return;
             SceneAsset start = null;
-            if (Enabled && SceneManager.GetActiveScene().name == HomeScene)
+            if (Enabled && !Game.Network.Session.EditorDevelopmentSession.Enabled)
                 start = AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath);   // 없으면 null → 평소처럼 Home
 
             if (EditorSceneManager.playModeStartScene != start)

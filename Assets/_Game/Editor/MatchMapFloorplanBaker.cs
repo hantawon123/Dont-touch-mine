@@ -6,6 +6,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace Game.Editor
@@ -41,12 +42,40 @@ namespace Game.Editor
         /// <summary>한 변의 픽셀 상한. 넘으면 GPU 와 브라우저 양쪽에서 부담이 된다.</summary>
         private const int MaxPixels = 4096;
 
+        /// <summary>
+        /// 배경색과 다른 픽셀이 이 비율보다 적으면 <b>아무것도 안 찍힌 것</b>으로 본다 (S15P21D205-1085).
+        ///
+        /// <para>
+        /// 2026-09-19 저택 첫 굽기가 배경색 한 가지와 마젠타 180 픽셀뿐인 PNG 를 냈다. 셰이더가 아직
+        /// 컴파일 중이면 그 물건은 그려지지 않고 조용히 빠지는데, 결과가 "빈 맵"처럼 보여서 히트맵에
+        /// 깔고 나서야 이상한 줄 알게 된다. 그런 그림은 쓰지 않는 편이 낫다.
+        /// </para>
+        /// </summary>
+        private const float MinInkRatio = 0.01f;
+
+        /// <summary>셰이더 컴파일을 기다리는 상한(초). 이 안에 안 끝나면 그냥 찍고 빈 그림 검사에 맡긴다.</summary>
+        private const double ShaderWaitSeconds = 120;
+
         private GameObject root;
         private string mapId = "supermarket";
         private string outputFolder = DefaultOutput;
         private float cutHeight = 3f;
         private int pixelsPerMeter = 24;
         private Color background = new Color(0.97f, 0.97f, 0.98f, 1f);
+
+        /// <summary>
+        /// 이 그림이 어느 층인지 (S15P21D205-1085). 저택처럼 층이 x·z 로 겹치는 맵에서만 켠다.
+        ///
+        /// <para>
+        /// 켜면 y 범위를 JSON 에 함께 쓰고, 관리 화면이 그 범위 밖의 좌표를 이 그림 위에 그리지
+        /// 않는다. 저택은 본관 1층 위에 2층이 있고 그 위 다락이 <b>대기 구역</b>이라, 층을 안 나누면
+        /// 자기 차례를 기다리며 몇 분씩 서 있는 다락이 제일 뜨거운 칸이 된다.
+        /// </para>
+        /// </summary>
+        private bool oneFloor;
+        private string floorLabel = "1층";
+        private float floorY0;
+        private float floorY1 = 5f;
 
         private bool measured;
         private float x0, z0, x1, z1, floorY, roofY;
@@ -116,6 +145,32 @@ namespace Game.Editor
                 cutHeight);
             pixelsPerMeter = EditorGUILayout.IntSlider("1 m 당 픽셀", pixelsPerMeter, 4, 64);
             background = EditorGUILayout.ColorField("배경", background);
+
+            EditorGUILayout.Space();
+            oneFloor = EditorGUILayout.ToggleLeft(
+                new GUIContent("한 층만 담은 그림",
+                    "층이 x·z 로 겹치는 맵에서 켭니다. 이 y 범위 밖의 좌표는 히트맵이 버립니다."),
+                oneFloor);
+            if (oneFloor)
+            {
+                EditorGUILayout.HelpBox(
+                    "저택처럼 위아래로 겹치는 맵입니다. 여기 적은 y 범위를 JSON 에 함께 써서 다른 층의 "
+                    + "좌표가 이 그림 위에 얹히지 않게 합니다. 위층이 대기 구역이면 특히 중요합니다 - "
+                    + "가만히 서 있는 사람들이 제일 뜨거운 칸이 됩니다.",
+                    MessageType.None);
+                floorLabel = EditorGUILayout.TextField("층 이름", floorLabel);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.PrefixLabel("층 높이 y");
+                    floorY0 = EditorGUILayout.FloatField(floorY0);
+                    EditorGUILayout.LabelField("~", GUILayout.Width(12));
+                    floorY1 = EditorGUILayout.FloatField(floorY1);
+                }
+                if (floorY1 <= floorY0)
+                {
+                    EditorGUILayout.HelpBox("층 높이도 오른쪽 값이 더 커야 합니다.", MessageType.Warning);
+                }
+            }
 
             if (measured)
             {
@@ -298,6 +353,18 @@ namespace Game.Editor
             RenderTexture texture = null;
             var previous = RenderTexture.active;
 
+            // GPU 상주 드로어를 굽는 동안만 끈다 (S15P21D205-1085).
+            //
+            // PC 품질 설정이 2026-09-16 에 이것을 켰다(S15P21D205-994). 정적 소품을 GPU 가 직접 그리는
+            // 경로라, 여기처럼 손으로 만들어 Camera.Render() 로 한 장 찍는 카메라에 그 배치가 따라오는지
+            // 확인하지 못했다. 마트를 멀쩡히 구운 2026-09-15 에는 꺼져 있었으므로, 굽는 동안만 끄고
+            // 되돌린다. 에셋의 값은 그대로다.
+            //
+            // <b>빈 그림의 원인은 이쪽이 아니었다.</b> 아래 셰이더 주석을 보라.
+            var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+            var drawerMode = pipeline != null ? pipeline.gpuResidentDrawerMode : GPUResidentDrawerMode.Disabled;
+            if (pipeline != null) pipeline.gpuResidentDrawerMode = GPUResidentDrawerMode.Disabled;
+
             try
             {
                 var camera = holder.AddComponent<Camera>();
@@ -327,12 +394,57 @@ namespace Game.Editor
                     antiAliasing = 4
                 };
                 camera.targetTexture = texture;
-                camera.Render();
+
+                // 두 번 찍는다 (S15P21D205-1085).
+                //
+                // 아직 컴파일되지 않은 셰이더를 쓰는 물건은 그려지지 않고 <b>조용히 빠진다.</b>
+                // 2026-09-19 에 스크립트가 다시 컴파일된 직후 구운 저택이 두 번 다 배경색뿐인 그림으로
+                // 나왔고, 로그를 보면 두 번 모두 그 직전에 셰이더 컴파일러가 여섯 개 떴다. 몇 분 뒤
+                // 같은 씬을 다시 구웠을 때는 컴파일러가 뜨지 않았고 98 % 가 칠해졌다.
+                //
+                // 동기 컴파일로 바꾸는 것만으로는 부족하다. 이미 비동기로 요청되어 큐에 들어간 변형은
+                // 그 순간 준비되지 않기 때문이다. 그래서 한 번 찍어 필요한 변형을 요청하게 만들고,
+                // 컴파일이 끝나기를 기다린 다음 진짜 한 장을 찍는다. 무엇이 필요한지는 한 번 찍어
+                // 보기 전에는 알 수 없어서 기다릴 대상도 알 수 없다.
+                var wasAsync = ShaderUtil.allowAsyncCompilation;
+                ShaderUtil.allowAsyncCompilation = false;
+                try
+                {
+                    camera.Render();
+                    WaitForShaders();
+                    camera.Render();
+                }
+                finally
+                {
+                    ShaderUtil.allowAsyncCompilation = wasAsync;
+                }
 
                 RenderTexture.active = texture;
                 var image = new Texture2D(width, height, TextureFormat.RGBA32, false);
                 image.ReadPixels(new Rect(0, 0, width, height), 0, 0);
                 image.Apply();
+
+                // 빈 그림은 쓰지 않는다. 쓰면 히트맵 바닥이 그냥 회색이 되는데, 그건 "이 맵은 원래
+                // 이렇게 생겼나"로 읽혀서 틀렸다는 티가 안 난다.
+                var ink = InkRatio(image, background);
+                if (ink < MinInkRatio)
+                {
+                    DestroyImmediate(image);
+                    var inView = CountRenderersInView();
+                    Debug.LogError(
+                        $"[Floorplan] {mapId}: 배경만 찍혔습니다(칠해진 픽셀 {ink:P2}). "
+                        + $"범위 안 렌더러 {inView:N0}개. 파일은 쓰지 않았습니다.");
+                    EditorUtility.DisplayDialog(
+                        "Analytics Floorplan",
+                        "아무것도 안 찍혀서 파일을 쓰지 않았습니다.\n\n"
+                        + $"칠해진 픽셀 {ink:P2}, 범위 안 렌더러 {inView:N0}개.\n\n"
+                        + (inView > 0
+                            ? "렌더러는 범위 안에 있습니다. 그리는 쪽 문제입니다 - 한 번 더 구워 보고, "
+                              + "그래도 같으면 씬 뷰 카메라로 이 범위가 보이는지 확인하세요."
+                            : "범위 안에 렌더러가 없습니다. 가로·세로 범위나 잘라 낼 높이를 확인하세요."),
+                        "확인");
+                    return;
+                }
 
                 var folder = Path.Combine(ProjectRoot(), outputFolder);
                 Directory.CreateDirectory(folder);
@@ -344,11 +456,13 @@ namespace Game.Editor
 
                 Debug.Log(
                     $"[Floorplan] {mapId}: {width}x{height} px, " +
-                    $"x[{x0:F2}, {x1:F2}] z[{z0:F2}, {z1:F2}], 잘라 낸 높이 {cutHeight:F2} -> {png}");
+                    $"x[{x0:F2}, {x1:F2}] z[{z0:F2}, {z1:F2}], 잘라 낸 높이 {cutHeight:F2}, " +
+                    $"칠해진 픽셀 {ink:P1} -> {png}");
                 EditorUtility.RevealInFinder(png);
             }
             finally
             {
+                if (pipeline != null) pipeline.gpuResidentDrawerMode = drawerMode;
                 RenderTexture.active = previous;
                 if (texture != null)
                 {
@@ -357,6 +471,62 @@ namespace Game.Editor
                 }
                 DestroyImmediate(holder);
             }
+        }
+
+        /// <summary>
+        /// 배경색과 다른 픽셀의 비율. 굽은 그림이 비었는지 보는 유일한 값이다.
+        ///
+        /// <para>
+        /// 안티에일리어싱 때문에 딱 맞아떨어지지 않으므로 채널마다 6 만큼은 같은 색으로 본다.
+        /// </para>
+        /// </summary>
+        /// <summary>
+        /// 남은 셰이더 컴파일을 기다린다. 에디터가 멈춰 있는 동안이므로 상한을 둔다 - 여기서 포기해도
+        /// 아래의 빈 그림 검사가 결과를 붙잡는다.
+        /// </summary>
+        private static void WaitForShaders()
+        {
+            var until = DateTime.UtcNow.AddSeconds(ShaderWaitSeconds);
+            while (ShaderUtil.anythingCompiling && DateTime.UtcNow < until)
+            {
+                System.Threading.Thread.Sleep(50);
+            }
+        }
+
+        private static float InkRatio(Texture2D image, Color background)
+        {
+            var pixels = image.GetPixels32();
+            if (pixels.Length == 0) return 0f;
+
+            var bg = (Color32)background;
+            var ink = 0;
+            foreach (var p in pixels)
+            {
+                if (Mathf.Abs(p.r - bg.r) > 6 || Mathf.Abs(p.g - bg.g) > 6 || Mathf.Abs(p.b - bg.b) > 6) ink++;
+            }
+            return ink / (float)pixels.Length;
+        }
+
+        /// <summary>
+        /// 범위 안, 잘라 낼 높이 아래에 있는 렌더러 수.
+        ///
+        /// <para>
+        /// 빈 그림이 나왔을 때 "범위가 틀렸나"와 "그리는 쪽이 틀렸나"를 가르는 값이다. 둘은 화면에서
+        /// 똑같이 회색 바닥으로 보이지만 고치는 곳이 다르다.
+        /// </para>
+        /// </summary>
+        private int CountRenderersInView()
+        {
+            var box = new Bounds();
+            box.SetMinMax(new Vector3(x0, -1000f, z0), new Vector3(x1, cutHeight, z1));
+
+            var seen = 0;
+            foreach (var r in Scoped(null))
+            {
+                if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
+                if (box.Intersects(r.bounds)) seen++;
+            }
+            return seen;
         }
 
         /// <summary>
@@ -373,10 +543,18 @@ namespace Game.Editor
             var bakedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
             var scene = EditorSceneManager.GetActiveScene().name;
 
+            // 층은 켰을 때만 씁니다. 없으면 관리 화면이 높이로 거르지 않습니다 - 한 층짜리 맵에서
+            // 0 ~ 0 같은 범위가 들어가면 모든 좌표가 버려져 빈 격자로 보입니다.
+            var floor = oneFloor && floorY1 > floorY0
+                ? "  \"floor\": { \"label\": \"" + floorLabel + "\", "
+                  + "\"y0\": " + n(floorY0) + ", \"y1\": " + n(floorY1) + " },\n"
+                : string.Empty;
+
             return "{\n"
                    + "  \"mapId\": \"" + mapId + "\",\n"
                    + "  \"extent\": [" + n(x0) + ", " + n(z0) + ", " + n(x1) + ", " + n(z1) + "],\n"
                    + "  \"cutHeight\": " + n(cutHeight) + ",\n"
+                   + floor
                    + "  \"pixels\": [" + width + ", " + height + "],\n"
                    + "  \"scene\": \"" + scene + "\",\n"
                    + "  \"bakedAt\": \"" + bakedAt + "\"\n"

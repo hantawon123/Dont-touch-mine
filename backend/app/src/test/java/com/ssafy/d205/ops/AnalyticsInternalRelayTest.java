@@ -187,6 +187,7 @@ class AnalyticsInternalRelayTest extends IntegrationTest {
                 .param("from", "20260901000000")
                 .param("to", "20260915000000")
                 .param("matchId", "m-1")
+                .param("mapId", "mansion")
                 .session(admin.session()));
 
         assertThat(table.get("unavailable").asBoolean()).isFalse();
@@ -194,7 +195,17 @@ class AnalyticsInternalRelayTest extends IntegrationTest {
         assertThat(table.get("rows").get(0).get(0).asText()).isEqualTo("m-1");
         assertThat(table.get("rows").get(0).get(1).asInt()).isEqualTo(4);
         assertThat(RECEIVED).contains(
-                "GET /internal/admin/analytics/hideouts?from=20260901000000&to=20260915000000&matchId=m-1 key=" + KEY);
+                "GET /internal/admin/analytics/hideouts?from=20260901000000&to=20260915000000&matchId=m-1"
+                        + "&mapId=mansion key=" + KEY);
+    }
+
+    @Test
+    @DisplayName("맵 이름 모양이 틀리면 분석 서비스에 묻지 않고 400 이다")
+    void badMapIdIsRejectedHere() throws Exception {
+        Admin admin = login();
+
+        mvc.perform(get("/api/v1/admin/analytics/hideouts").param("mapId", "Mansion!").session(admin.session()))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

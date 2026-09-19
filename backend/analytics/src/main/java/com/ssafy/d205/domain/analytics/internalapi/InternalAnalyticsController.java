@@ -29,6 +29,9 @@ public class InternalAnalyticsController {
 
     private static final String UTC_14 = "\\d{14}";
 
+    /** 맵 id 는 {@code MapCatalog} 의 소문자 이름입니다. 모르는 이름이면 빈 표가 나올 뿐입니다. */
+    private static final String MAP_ID = "[a-z][a-z0-9-]{0,31}";
+
     private final AnalyticsQueryService queries;
 
     /**
@@ -46,6 +49,7 @@ public class InternalAnalyticsController {
      * @param from     UTC yyyyMMddHHmmss. 이 시각 이후(포함)에 시작한 경기만
      * @param to       UTC yyyyMMddHHmmss. 이 시각 전(미포함)에 시작한 경기만
      * @param matchId  이 경기만
+     * @param mapId    이 맵에서 한 경기만 (S15P21D205-1085)
      */
     @GetMapping("/{question}")
     public AnalyticsTable question(@PathVariable String question,
@@ -55,7 +59,10 @@ public class InternalAnalyticsController {
                                    @RequestParam(required = false)
                                    @Pattern(regexp = UTC_14, message = "to 는 UTC yyyyMMddHHmmss 14자여야 합니다.")
                                    String to,
-                                   @RequestParam(required = false) @Size(max = 64) String matchId) {
-        return queries.question(question, AnalyticsQueryFilter.parse(from, to, matchId));
+                                   @RequestParam(required = false) @Size(max = 64) String matchId,
+                                   @RequestParam(required = false)
+                                   @Pattern(regexp = MAP_ID, message = "맵 id 는 소문자와 숫자, 하이픈입니다.")
+                                   String mapId) {
+        return queries.question(question, AnalyticsQueryFilter.parse(from, to, matchId, mapId));
     }
 }
