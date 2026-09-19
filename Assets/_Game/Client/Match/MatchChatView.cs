@@ -80,6 +80,7 @@ namespace Game.Client.Match
         private bool fontPrewarmed;
         private Coroutine prewarmRoutine;
         private static bool pendingKeepChromeVisible;
+        private string composingText = string.Empty;
 
         public event Action<string> SendRequested;
         public static bool BlocksPlayerInput { get; private set; }
@@ -224,6 +225,31 @@ namespace Game.Client.Match
             return total;
         }
 
+        /// <summary>
+        /// 커밋된 글자와 IME가 아직 조합 중인 음절을 한 문자열로 붙인다.
+        /// 한글 한 글자는 다음 키를 치기 전까지 <c>TMP_InputField.text</c>에 안 들어가서,
+        /// 엔터가 빈 칸으로 오인되면 전송이 아니라 창이 닫힌다.
+        /// </summary>
+        public static string CombinedDraft(string committed, string composing)
+        {
+            if (string.IsNullOrEmpty(composing))
+            {
+                return committed ?? string.Empty;
+            }
+
+            return (committed ?? string.Empty) + composing;
+        }
+
+        public static string ResolveSubmitText(string submitted, string committed, string composing)
+        {
+            if (!string.IsNullOrWhiteSpace(submitted))
+            {
+                return submitted.Trim();
+            }
+
+            return CombinedDraft(committed, composing).Trim();
+        }
+
         public static bool ShouldOpenOnEnter(
             bool isActivated,
             bool isOpening,
@@ -312,6 +338,8 @@ namespace Game.Client.Match
                 inputField.onSelect.AddListener(HandleInputSelected);
             }
 
+            Game.Client.Common.WebTextInput.ComposingChanged += OnBrowserComposing;
+
             if (sendButton != null)
             {
                 sendButton.onClick.AddListener(HandleSendClicked);
@@ -348,6 +376,9 @@ namespace Game.Client.Match
                 inputField.onSubmit.RemoveListener(HandleSubmit);
                 inputField.onSelect.RemoveListener(HandleInputSelected);
             }
+
+            Game.Client.Common.WebTextInput.ComposingChanged -= OnBrowserComposing;
+            composingText = string.Empty;
 
             if (sendButton != null)
             {
@@ -391,11 +422,7 @@ namespace Game.Client.Match
 
             if (activated)
             {
-                if (inputField != null && string.IsNullOrWhiteSpace(inputField.text))
-                {
-                    SetActivated(false);
-                }
-
+                HandleSubmit(ReadDraft());
                 return;
             }
 
@@ -732,7 +759,7 @@ namespace Game.Client.Match
 
         private void HandleSendClicked()
         {
-            HandleSubmit(inputField != null ? inputField.text : string.Empty);
+            HandleSubmit(ReadDraft());
         }
 
         private void HandleSubmit(string text)
@@ -742,16 +769,44 @@ namespace Game.Client.Match
                 return;
             }
 
+            var draft = ResolveSubmitText(
+                text,
+                inputField != null ? inputField.text : string.Empty,
+                ReadComposing());
             lastSendUnscaledTime = Time.unscaledTime;
-            if (string.IsNullOrWhiteSpace(text))
+            if (string.IsNullOrWhiteSpace(draft))
             {
                 SetActivated(false);
                 ApplyClearedInput(keepFocus: false);
                 return;
             }
 
-            SendRequested?.Invoke(text.Trim());
+            composingText = string.Empty;
+            SendRequested?.Invoke(draft);
             Deactivate();
+        }
+
+        private string ReadDraft() =>
+            CombinedDraft(inputField != null ? inputField.text : string.Empty, ReadComposing());
+
+        private string ReadComposing()
+        {
+            if (!string.IsNullOrEmpty(composingText))
+            {
+                return composingText;
+            }
+
+            return inputField != null && inputField.isFocused
+                ? Input.compositionString ?? string.Empty
+                : string.Empty;
+        }
+
+        private void OnBrowserComposing(TMP_InputField field, string composing)
+        {
+            if (field == inputField)
+            {
+                composingText = composing ?? string.Empty;
+            }
         }
 
         private void SetActivated(bool value)
@@ -762,6 +817,7 @@ namespace Game.Client.Match
             if (!value)
             {
                 lastDeactivateUnscaledTime = Time.unscaledTime;
+                composingText = string.Empty;
             }
 
             ApplyPresentation();

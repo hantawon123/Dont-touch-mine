@@ -304,6 +304,67 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ResolveSubmitText_SendsASingleImeCharacter()
+        {
+            Assert.That(MatchChatView.CombinedDraft(string.Empty, "ㅋ"), Is.EqualTo("ㅋ"));
+            Assert.That(MatchChatView.CombinedDraft("안", "녕"), Is.EqualTo("안녕"));
+            Assert.That(MatchChatView.ResolveSubmitText(string.Empty, string.Empty, "ㅋ"), Is.EqualTo("ㅋ"));
+            Assert.That(MatchChatView.ResolveSubmitText(string.Empty, "a", string.Empty), Is.EqualTo("a"));
+            Assert.That(MatchChatView.ResolveSubmitText("가", string.Empty, "가"), Is.EqualTo("가"));
+            Assert.That(MatchChatView.ResolveSubmitText("   ", string.Empty, string.Empty), Is.EqualTo(string.Empty));
+        }
+
+        [Test]
+        public void HandleSubmit_SendsASingleCharacter()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform, keepChromeVisible: true);
+                string sent = null;
+                view.SendRequested += text => sent = text;
+                typeof(MatchChatView).GetMethod("SetActivated",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { true });
+                typeof(MatchChatView).GetMethod("HandleSubmit",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { "ㅋ" });
+                Assert.That(sent, Is.EqualTo("ㅋ"));
+                Assert.That(view.IsActivated, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void HandleSubmit_SendsImeCompositionWhenCommittedTextIsEmpty()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform, keepChromeVisible: true);
+                string sent = null;
+                view.SendRequested += text => sent = text;
+                typeof(MatchChatView).GetField("composingText",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .SetValue(view, "가");
+                typeof(MatchChatView).GetMethod("SetActivated",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { true });
+                typeof(MatchChatView).GetMethod("HandleSubmit",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { string.Empty });
+                Assert.That(sent, Is.EqualTo("가"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void ShouldOpenOnEnter_IgnoresTheEnterThatClosedChat()
         {
             Assert.That(
