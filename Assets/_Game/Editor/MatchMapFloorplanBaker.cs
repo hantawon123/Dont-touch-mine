@@ -53,6 +53,9 @@ namespace Game.Editor
         /// </summary>
         private const float MinInkRatio = 0.01f;
 
+        /// <summary>셰이더 컴파일을 기다리는 상한(초). 이 안에 안 끝나면 그냥 찍고 빈 그림 검사에 맡긴다.</summary>
+        private const double ShaderWaitSeconds = 120;
+
         private GameObject root;
         private string mapId = "supermarket";
         private string outputFolder = DefaultOutput;
@@ -352,12 +355,12 @@ namespace Game.Editor
 
             // GPU 상주 드로어를 굽는 동안만 끈다 (S15P21D205-1085).
             //
-            // PC 품질 설정이 2026-09-16 에 이것을 켰고(S15P21D205-994), 그 뒤 처음 구운 저택 평면도가
-            // 배경색 한 가지뿐인 PNG 로 나왔다. 정적 소품을 GPU 가 직접 그리는 경로라, 여기처럼 손으로
-            // 만들어 Camera.Render() 로 한 장 찍는 카메라에는 그 배치가 따라오지 않는다. 그 그림에서
-            // 유일하게 찍힌 것이 이 경로를 타지 않는 오류 셰이더 물건 하나였다.
+            // PC 품질 설정이 2026-09-16 에 이것을 켰다(S15P21D205-994). 정적 소품을 GPU 가 직접 그리는
+            // 경로라, 여기처럼 손으로 만들어 Camera.Render() 로 한 장 찍는 카메라에 그 배치가 따라오는지
+            // 확인하지 못했다. 마트를 멀쩡히 구운 2026-09-15 에는 꺼져 있었으므로, 굽는 동안만 끄고
+            // 되돌린다. 에셋의 값은 그대로다.
             //
-            // 되돌려 놓으므로 에셋의 값은 그대로다. 마트를 구운 2026-09-15 에는 꺼져 있었다.
+            // <b>빈 그림의 원인은 이쪽이 아니었다.</b> 아래 셰이더 주석을 보라.
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
             var drawerMode = pipeline != null ? pipeline.gpuResidentDrawerMode : GPUResidentDrawerMode.Disabled;
             if (pipeline != null) pipeline.gpuResidentDrawerMode = GPUResidentDrawerMode.Disabled;
@@ -392,12 +395,23 @@ namespace Game.Editor
                 };
                 camera.targetTexture = texture;
 
-                // 셰이더 컴파일을 기다린다. 비동기로 두면 아직 준비 안 된 물건이 그냥 빠지고, 남는 것은
-                // 배경뿐인 PNG 다. 굽는 동안만 동기로 돌리고 원래대로 되돌린다.
+                // 두 번 찍는다 (S15P21D205-1085).
+                //
+                // 아직 컴파일되지 않은 셰이더를 쓰는 물건은 그려지지 않고 <b>조용히 빠진다.</b>
+                // 2026-09-19 에 스크립트가 다시 컴파일된 직후 구운 저택이 두 번 다 배경색뿐인 그림으로
+                // 나왔고, 로그를 보면 두 번 모두 그 직전에 셰이더 컴파일러가 여섯 개 떴다. 몇 분 뒤
+                // 같은 씬을 다시 구웠을 때는 컴파일러가 뜨지 않았고 98 % 가 칠해졌다.
+                //
+                // 동기 컴파일로 바꾸는 것만으로는 부족하다. 이미 비동기로 요청되어 큐에 들어간 변형은
+                // 그 순간 준비되지 않기 때문이다. 그래서 한 번 찍어 필요한 변형을 요청하게 만들고,
+                // 컴파일이 끝나기를 기다린 다음 진짜 한 장을 찍는다. 무엇이 필요한지는 한 번 찍어
+                // 보기 전에는 알 수 없어서 기다릴 대상도 알 수 없다.
                 var wasAsync = ShaderUtil.allowAsyncCompilation;
                 ShaderUtil.allowAsyncCompilation = false;
                 try
                 {
+                    camera.Render();
+                    WaitForShaders();
                     camera.Render();
                 }
                 finally
@@ -466,6 +480,19 @@ namespace Game.Editor
         /// 안티에일리어싱 때문에 딱 맞아떨어지지 않으므로 채널마다 6 만큼은 같은 색으로 본다.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// 남은 셰이더 컴파일을 기다린다. 에디터가 멈춰 있는 동안이므로 상한을 둔다 - 여기서 포기해도
+        /// 아래의 빈 그림 검사가 결과를 붙잡는다.
+        /// </summary>
+        private static void WaitForShaders()
+        {
+            var until = DateTime.UtcNow.AddSeconds(ShaderWaitSeconds);
+            while (ShaderUtil.anythingCompiling && DateTime.UtcNow < until)
+            {
+                System.Threading.Thread.Sleep(50);
+            }
+        }
+
         private static float InkRatio(Texture2D image, Color background)
         {
             var pixels = image.GetPixels32();
