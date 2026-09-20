@@ -413,6 +413,20 @@ namespace Game.Architecture.Tests
             Assert.That(
                 MatchChatView.ShouldOpenOnEnter(true, false, true, 10f, 0f),
                 Is.False);
+            Assert.That(
+                MatchChatView.ShouldOpenOnEnter(false, false, true, 10f, 0f, allowsActivation: false),
+                Is.False);
+        }
+
+        [TestCase(false, true)]
+        [TestCase(true, false)]
+        public void AllowsActivationOnScreen_BlocksResult(
+            bool resultSceneLoaded,
+            bool expected)
+        {
+            Assert.That(
+                MatchChatView.AllowsActivationOnScreen(resultSceneLoaded),
+                Is.EqualTo(expected));
         }
 
         [Test]

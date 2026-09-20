@@ -74,6 +74,7 @@ namespace Game.Bootstrap
         private AvatarPartCatalog partCatalog;
 
         private NetworkRunnerService stagingNetwork;
+        private NetworkRunnerService runtimeNetwork;
         private GameObject[] sceneRoots = Array.Empty<GameObject>();
         private readonly HashSet<CarryableItem> lobbyItems = new();
         internal bool OwnsItem(CarryableItem item) => lobbyItems.Contains(item);
@@ -328,6 +329,7 @@ namespace Game.Bootstrap
             builder.RegisterBuildCallback(container =>
             {
                 var network = container.Resolve<NetworkRunnerService>();
+                runtimeNetwork = network;
                 if (sceneConfiguration == null)
                 {
                     throw new InvalidOperationException(
@@ -354,6 +356,7 @@ namespace Game.Bootstrap
 
         private void Update()
         {
+            UpdateChatActivation();
             if (diagnosticSamples > 0 && Time.unscaledTime >= nextDiagnosticTime)
             {
                 diagnosticSamples--;
@@ -375,6 +378,16 @@ namespace Game.Bootstrap
             // Apply outgoing visibility once at the handoff, after replay cleanup.
         }
 
+        private void UpdateChatActivation()
+        {
+            if (chatView == null)
+            {
+                return;
+            }
+
+            chatView.SetAllowsActivation(MatchChatView.AllowsActivationOnScreen(
+                runtimeNetwork != null && runtimeNetwork.IsResultSceneLoaded));
+        }
 
         private void PrepareLobbyPhysics(NetworkRunnerService network)
         {

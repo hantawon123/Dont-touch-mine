@@ -575,6 +575,12 @@ namespace Game.Bootstrap
                 return;
             }
 
+            if (snapshot.Phase == MatchPhase.Result)
+            {
+                view.SetMatchChatMode(MatchChatHudMode.Hidden);
+                return;
+            }
+
             view.SetMatchChatMode(MatchChatHudMode.Full);
         }
 

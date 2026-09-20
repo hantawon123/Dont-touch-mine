@@ -75,6 +75,7 @@ namespace Game.Client.Match
         private bool activated;
         private MatchChatHudMode mode = MatchChatHudMode.Full;
         private bool keepChromeVisible;
+        private bool allowsActivation = true;
         private bool layoutReady;
         private float appliedListScale = 1f;
         private bool fontPrewarmed;
@@ -152,6 +153,31 @@ namespace Game.Client.Match
             keepChromeVisible = value;
             EnsureLayout();
             ApplyPresentation();
+        }
+
+        public void SetAllowsActivation(bool value)
+        {
+            allowsActivation = value;
+            if (!value && (activated || focusRoutine != null))
+            {
+                if (focusRoutine != null)
+                {
+                    StopCoroutine(focusRoutine);
+                    focusRoutine = null;
+                }
+
+                SetActivated(false);
+            }
+        }
+
+        public static void ApplyAllowsActivation(bool allowed)
+        {
+            var chats = FindObjectsByType<MatchChatView>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (var i = 0; i < chats.Length; i++)
+            {
+                chats[i].SetAllowsActivation(allowed);
+            }
         }
 
         public static IReadOnlyList<LobbyChatMessage> VisibleMessages(
@@ -293,14 +319,19 @@ namespace Game.Client.Match
             return CombinedDraft(committed, composing).Trim();
         }
 
+        public static bool AllowsActivationOnScreen(bool resultSceneLoaded) =>
+            !resultSceneLoaded;
+
         public static bool ShouldOpenOnEnter(
             bool isActivated,
             bool isOpening,
             bool enterPressed,
             float now,
-            float lastClosedAt)
+            float lastClosedAt,
+            bool allowsActivation = true)
         {
-            return enterPressed &&
+            return allowsActivation &&
+                   enterPressed &&
                    !isActivated &&
                    !isOpening &&
                    now - lastClosedAt >= OpenCooldownSeconds;
@@ -466,7 +497,7 @@ namespace Game.Client.Match
                 return;
             }
 
-            if (activated || !WasEnterPressedThisFrame())
+            if (!allowsActivation || activated || !WasEnterPressedThisFrame())
             {
                 return;
             }
@@ -476,7 +507,8 @@ namespace Game.Client.Match
                     focusRoutine != null,
                     true,
                     Time.unscaledTime,
-                    lastDeactivateUnscaledTime))
+                    lastDeactivateUnscaledTime,
+                    allowsActivation))
             {
                 return;
             }
@@ -807,6 +839,12 @@ namespace Game.Client.Match
 
         private void HandleInputSelected(string _)
         {
+            if (!allowsActivation)
+            {
+                inputField?.DeactivateInputField();
+                return;
+            }
+
             if (!activated && mode != MatchChatHudMode.Hidden)
             {
                 SetActivated(true);
