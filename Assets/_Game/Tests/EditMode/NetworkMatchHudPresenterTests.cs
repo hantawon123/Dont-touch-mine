@@ -1817,6 +1817,7 @@ namespace Game.Architecture.Tests
             public bool IsServer { get; set; }
             public bool IsResultSceneLoaded { get; set; }
             public bool IsLocalHighlightComplete { get; set; }
+            public bool HasLeftLocalHighlight { get; set; }
             public bool CompleteHighlightResult { get; set; } = true;
             public int CompleteHighlightCalls { get; private set; }
             public int HighlightReadyCalls { get; private set; }

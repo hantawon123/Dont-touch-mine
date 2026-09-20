@@ -82,6 +82,8 @@ namespace Game.Network.Session
         public bool IsHighlightInProgress =>
             _matchStarter != null && _matchStarter.CurrentPhase == MatchPhase.Highlight;
         public bool IsLocalHighlightComplete => _localHighlightComplete;
+        public bool HasLeftLocalHighlight =>
+            _localHighlightComplete || _highlightCompletionRequested;
         public bool HasCompletedHighlight(int playerIndex)
         {
             if (_matchStarter == null) return false;
@@ -141,6 +143,8 @@ namespace Game.Network.Session
                     0),
                     new byte[] { 1 });
                 _highlightCompletionRequested = true;
+                // 다른 사람이 하이라이트를 보는 동안에도, 건너뛴 사람은 즉시 로비 연출로 넘어간다.
+                _localHighlightComplete = true;
             }
 
             return _localHighlightComplete;

@@ -332,6 +332,7 @@ namespace Game.Architecture.Tests
             public bool IsRuntimeReady { get; set; } = true;
             public bool IsResultSceneLoaded { get; set; }
             public bool IsLocalHighlightComplete { get; set; }
+            public bool HasLeftLocalHighlight { get; set; }
             public int LoadCalls { get; private set; }
             public int PrepareLobbyCalls { get; private set; }
             public int CompleteHighlightCalls { get; private set; }

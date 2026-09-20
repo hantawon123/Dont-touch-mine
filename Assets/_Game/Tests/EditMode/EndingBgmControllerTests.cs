@@ -37,7 +37,7 @@ namespace Game.Architecture.Tests
                 var source = host.AddComponent<AudioSource>();
                 var flow = EnterHighlight();
                 var sound = new SoundSettingsSystem(new InMemorySoundSettingsStore());
-                var navigation = new FakeNavigation();
+                var navigation = new FakeNavigation { HasLeftLocalHighlight = false };
                 controller = new EndingBgmController(flow, sound, source, navigation);
                 controller.Start();
                 var full = sound.Current.Get(SoundVolume.Music) / 100f * EndingBgmController.PlaybackVolume;
@@ -48,7 +48,7 @@ namespace Game.Architecture.Tests
                 Assert.That(source.isPlaying, Is.True);
                 Assert.That(source.volume, Is.EqualTo(full).Within(.001f));
 
-                navigation.IsLocalHighlightComplete = true;
+                navigation.HasLeftLocalHighlight = true;
                 controller.Tick();
                 advance.Invoke(controller, new object[] { EndingBgmController.FadeSeconds });
                 Assert.That(source.volume, Is.Zero);
@@ -157,6 +157,7 @@ namespace Game.Architecture.Tests
             public bool IsRuntimeReady => true;
             public bool IsResultSceneLoaded => false;
             public bool IsLocalHighlightComplete { get; set; }
+            public bool HasLeftLocalHighlight { get; set; }
             public bool EnterResultScene() => false;
             public bool PrepareLobbyForHighlights() => false;
             public bool CompleteLocalHighlightViewing() => IsLocalHighlightComplete;
