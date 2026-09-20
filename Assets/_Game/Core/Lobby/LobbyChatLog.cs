@@ -27,12 +27,22 @@ namespace Game.Core.Lobby
 
             SenderId = senderId.Trim();
             SenderName = senderName.Trim();
-            Text = ClampText(text.Trim());
+            Text = NormalizeText(text);
         }
 
         public string SenderId { get; }
         public string SenderName { get; }
         public string Text { get; }
+
+        public static string NormalizeText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return string.Empty;
+            }
+
+            return ClampText(text.Trim());
+        }
 
         public static string ClampText(string text)
         {

@@ -937,6 +937,12 @@ namespace Game.Client.Match
 
         private void SendDraft(string draft)
         {
+            draft = LobbyChatMessage.NormalizeText(draft);
+            if (string.IsNullOrEmpty(draft))
+            {
+                return;
+            }
+
             if (Time.unscaledTime - lastSendUnscaledTime < 0.08f)
             {
                 return;

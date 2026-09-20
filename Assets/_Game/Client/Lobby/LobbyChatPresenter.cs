@@ -45,7 +45,8 @@ namespace Game.Client.Lobby
 
         private void HandleSend(string text)
         {
-            if (string.IsNullOrWhiteSpace(text) || transport.TrySendChat(text))
+            text = LobbyChatMessage.NormalizeText(text);
+            if (string.IsNullOrEmpty(text) || transport.TrySendChat(text))
             {
                 chatView.ClearInput();
                 chatView.Deactivate();

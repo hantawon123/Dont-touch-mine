@@ -165,7 +165,7 @@ namespace Game.Network.Match
         /// </remarks>
         private string Moderate(ChatScope scope, string playerId, string userId, string text)
         {
-            var said = LobbyChatMessage.ClampText(text.Trim());
+            var said = LobbyChatMessage.NormalizeText(text);
             if (_moderation == null) return said;
 
             var info = _state.Runner.SessionInfo;
@@ -766,7 +766,7 @@ namespace Game.Network.Match
                 return false;
             }
 
-            _state.RPC_RequestLobbyChat(LobbyChatMessage.ClampText(text.Trim()));
+            _state.RPC_RequestLobbyChat(LobbyChatMessage.NormalizeText(text));
             return true;
         }
 
@@ -778,7 +778,7 @@ namespace Game.Network.Match
                 return false;
             }
 
-            _state.RPC_RequestMatchChat(LobbyChatMessage.ClampText(text.Trim()));
+            _state.RPC_RequestMatchChat(LobbyChatMessage.NormalizeText(text));
             return true;
         }
 

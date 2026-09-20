@@ -312,6 +312,8 @@ namespace Game.Architecture.Tests
             Assert.That(MatchChatView.ResolveSubmitText(string.Empty, "a", string.Empty), Is.EqualTo("a"));
             Assert.That(MatchChatView.ResolveSubmitText("가", string.Empty, "가"), Is.EqualTo("가"));
             Assert.That(MatchChatView.ResolveSubmitText("   ", string.Empty, string.Empty), Is.EqualTo(string.Empty));
+            Assert.That(MatchChatView.ResolveSubmitText("  ㅋ  ", string.Empty, string.Empty), Is.EqualTo("ㅋ"));
+            Assert.That(MatchChatView.VisibleDraft("  안녕  ", string.Empty, string.Empty), Is.EqualTo("안녕"));
             Assert.That(MatchChatView.VisibleDraft(string.Empty, "가", string.Empty), Is.EqualTo("가"));
             Assert.That(MatchChatView.NextComposing(string.Empty, string.Empty, "가"), Is.EqualTo("가"));
             Assert.That(MatchChatView.NextComposing(string.Empty, "가", "가"), Is.EqualTo(string.Empty));
