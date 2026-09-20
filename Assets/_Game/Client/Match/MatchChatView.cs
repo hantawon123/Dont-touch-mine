@@ -79,6 +79,7 @@ namespace Game.Client.Match
         private float appliedListScale = 1f;
         private bool fontPrewarmed;
         private Coroutine prewarmRoutine;
+        private Coroutine pendingSubmit;
         private static bool pendingKeepChromeVisible;
         private string composingText = string.Empty;
 
@@ -242,9 +243,51 @@ namespace Game.Client.Match
 
         public static string ResolveSubmitText(string submitted, string committed, string composing)
         {
+            return ResolveSubmitText(submitted, committed, composing, string.Empty);
+        }
+
+        public static string ResolveSubmitText(
+            string submitted,
+            string committed,
+            string composing,
+            string label)
+        {
             if (!string.IsNullOrWhiteSpace(submitted))
             {
                 return submitted.Trim();
+            }
+
+            return VisibleDraft(committed, label, composing);
+        }
+
+        /// <summary>
+        /// 엔터가 조합을 커밋하면서 compositionString을 먼저 비운다.
+        /// 이미 입력칸에 들어간 음절만 버리고, 아직 안 들어간 마지막 글자는 남긴다.
+        /// </summary>
+        public static string NextComposing(string live, string committed, string held)
+        {
+            if (!string.IsNullOrEmpty(live))
+            {
+                return live;
+            }
+
+            if (!string.IsNullOrEmpty(held) &&
+                !string.IsNullOrEmpty(committed) &&
+                committed.EndsWith(held, StringComparison.Ordinal))
+            {
+                return string.Empty;
+            }
+
+            return held ?? string.Empty;
+        }
+
+        public static string VisibleDraft(string committed, string label, string composing)
+        {
+            committed ??= string.Empty;
+            label ??= string.Empty;
+            if (label.Length > committed.Length && !string.IsNullOrWhiteSpace(label))
+            {
+                return label.Trim();
             }
 
             return CombinedDraft(committed, composing).Trim();
@@ -403,11 +446,18 @@ namespace Game.Client.Match
                 prewarmRoutine = null;
             }
 
+            if (pendingSubmit != null)
+            {
+                StopCoroutine(pendingSubmit);
+                pendingSubmit = null;
+            }
+
             SetActivated(false);
         }
 
         private void Update()
         {
+            PollComposition();
             ConsumedEscapeThisFrame = false;
             if (activated && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
@@ -415,14 +465,9 @@ namespace Game.Client.Match
                 Deactivate();
                 return;
             }
-            if (!WasEnterPressedThisFrame())
-            {
-                return;
-            }
 
-            if (activated)
+            if (activated || !WasEnterPressedThisFrame())
             {
-                HandleSubmit(ReadDraft());
                 return;
             }
 
@@ -438,6 +483,17 @@ namespace Game.Client.Match
 
             // Open on the next frame so the key that opens chat cannot submit it.
             focusRoutine = StartCoroutine(FocusInputNextFrame());
+        }
+
+        private void LateUpdate()
+        {
+            PollComposition();
+            if (!activated || !WasEnterPressedThisFrame())
+            {
+                return;
+            }
+
+            HandleSubmit(ReadDraft());
         }
 
         private IEnumerator PrewarmChatFont()
@@ -764,30 +820,81 @@ namespace Game.Client.Match
 
         private void HandleSubmit(string text)
         {
+            var draft = ResolveSubmitText(
+                text,
+                inputField != null ? inputField.text : string.Empty,
+                ReadComposing(),
+                inputField != null && inputField.textComponent != null
+                    ? inputField.textComponent.text
+                    : string.Empty);
+            if (string.IsNullOrWhiteSpace(draft))
+            {
+                if (pendingSubmit == null && isActiveAndEnabled)
+                {
+                    pendingSubmit = StartCoroutine(SubmitAfterImeCommit());
+                }
+
+                return;
+            }
+
+            SendDraft(draft);
+        }
+
+        private IEnumerator SubmitAfterImeCommit()
+        {
+            yield return null;
+            pendingSubmit = null;
+            PollComposition();
+            var draft = ReadDraft();
+            if (string.IsNullOrWhiteSpace(draft))
+            {
+                SetActivated(false);
+                ApplyClearedInput(keepFocus: false);
+                yield break;
+            }
+
+            SendDraft(draft);
+        }
+
+        private void SendDraft(string draft)
+        {
             if (Time.unscaledTime - lastSendUnscaledTime < 0.08f)
             {
                 return;
             }
 
-            var draft = ResolveSubmitText(
-                text,
-                inputField != null ? inputField.text : string.Empty,
-                ReadComposing());
             lastSendUnscaledTime = Time.unscaledTime;
-            if (string.IsNullOrWhiteSpace(draft))
+            composingText = string.Empty;
+            if (pendingSubmit != null)
             {
-                SetActivated(false);
-                ApplyClearedInput(keepFocus: false);
-                return;
+                StopCoroutine(pendingSubmit);
+                pendingSubmit = null;
             }
 
-            composingText = string.Empty;
             SendRequested?.Invoke(draft);
             Deactivate();
         }
 
+        private void PollComposition()
+        {
+            if (inputField == null || !activated)
+            {
+                return;
+            }
+
+            composingText = NextComposing(
+                Input.compositionString ?? string.Empty,
+                inputField.text ?? string.Empty,
+                composingText);
+        }
+
         private string ReadDraft() =>
-            CombinedDraft(inputField != null ? inputField.text : string.Empty, ReadComposing());
+            VisibleDraft(
+                inputField != null ? inputField.text : string.Empty,
+                inputField != null && inputField.textComponent != null
+                    ? inputField.textComponent.text
+                    : string.Empty,
+                ReadComposing());
 
         private string ReadComposing()
         {
