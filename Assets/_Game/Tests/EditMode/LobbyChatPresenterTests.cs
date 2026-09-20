@@ -68,6 +68,19 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void NormalizeText_RejectsWhitespaceOnlyAndInvisibleCharacters()
+        {
+            Assert.That(LobbyChatMessage.HasVisibleText("   "), Is.False);
+            Assert.That(LobbyChatMessage.HasVisibleText("\t\n"), Is.False);
+            Assert.That(LobbyChatMessage.HasVisibleText("\u200B"), Is.False);
+            Assert.That(LobbyChatMessage.NormalizeText("   "), Is.EqualTo(string.Empty));
+            Assert.That(LobbyChatMessage.NormalizeText("\u200B안녕\u200B"), Is.EqualTo("안녕"));
+            Assert.That(
+                () => new LobbyChatMessage("host-1", "김말갈", "   "),
+                Throws.ArgumentException);
+        }
+
+        [Test]
         public void TryAppendLocal_IgnoresBlank()
         {
             var log = new LobbyChatLog("host-1", "김말갈");

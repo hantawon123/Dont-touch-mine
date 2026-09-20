@@ -761,24 +761,26 @@ namespace Game.Network.Match
 
         public bool RequestLobbyChat(string text)
         {
-            if (_state == null || string.IsNullOrWhiteSpace(text))
+            text = LobbyChatMessage.NormalizeText(text);
+            if (_state == null || string.IsNullOrEmpty(text))
             {
                 return false;
             }
 
-            _state.RPC_RequestLobbyChat(LobbyChatMessage.NormalizeText(text));
+            _state.RPC_RequestLobbyChat(text);
             return true;
         }
 
         /// <summary>Requests a chat message for the frozen match line-up.</summary>
         public bool RequestMatchChat(string text)
         {
-            if (_state == null || !_state.IsStarted || string.IsNullOrWhiteSpace(text))
+            text = LobbyChatMessage.NormalizeText(text);
+            if (_state == null || !_state.IsStarted || string.IsNullOrEmpty(text))
             {
                 return false;
             }
 
-            _state.RPC_RequestMatchChat(LobbyChatMessage.NormalizeText(text));
+            _state.RPC_RequestMatchChat(text);
             return true;
         }
 

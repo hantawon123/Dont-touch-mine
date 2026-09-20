@@ -278,12 +278,13 @@ namespace Game.Client.Match
             string composing,
             string label)
         {
-            if (!string.IsNullOrWhiteSpace(submitted))
+            var fromSubmit = LobbyChatMessage.NormalizeText(submitted);
+            if (fromSubmit.Length > 0)
             {
-                return submitted.Trim();
+                return fromSubmit;
             }
 
-            return VisibleDraft(committed, label, composing);
+            return LobbyChatMessage.NormalizeText(VisibleDraft(committed, label, composing));
         }
 
         /// <summary>
@@ -311,12 +312,16 @@ namespace Game.Client.Match
         {
             committed ??= string.Empty;
             label ??= string.Empty;
-            if (label.Length > committed.Length && !string.IsNullOrWhiteSpace(label))
+            if (label.Length > committed.Length)
             {
-                return label.Trim();
+                var fromLabel = LobbyChatMessage.NormalizeText(label);
+                if (fromLabel.Length > 0)
+                {
+                    return fromLabel;
+                }
             }
 
-            return CombinedDraft(committed, composing).Trim();
+            return LobbyChatMessage.NormalizeText(CombinedDraft(committed, composing));
         }
 
         public static bool AllowsActivationOnScreen(
@@ -879,11 +884,19 @@ namespace Game.Client.Match
                 inputField != null && inputField.textComponent != null
                     ? inputField.textComponent.text
                     : string.Empty);
-            if (string.IsNullOrWhiteSpace(draft))
+            if (!LobbyChatMessage.HasVisibleText(draft))
             {
-                if (pendingSubmit == null && isActiveAndEnabled)
+                if (HasPendingImeComposition() &&
+                    pendingSubmit == null &&
+                    isActiveAndEnabled)
                 {
                     pendingSubmit = StartCoroutine(SubmitAfterImeCommit());
+                    return;
+                }
+
+                if (inputField != null)
+                {
+                    ApplyClearedInput(keepFocus: true);
                 }
 
                 return;
@@ -922,7 +935,7 @@ namespace Game.Client.Match
         {
             PollComposition();
             var draft = ReadDraft();
-            if (string.IsNullOrWhiteSpace(draft))
+            if (!LobbyChatMessage.HasVisibleText(draft))
             {
                 return false;
             }
@@ -931,6 +944,10 @@ namespace Game.Client.Match
             SendDraft(draft);
             return true;
         }
+
+        private bool HasPendingImeComposition() =>
+            LobbyChatMessage.HasVisibleText(ReadComposing()) ||
+            LobbyChatMessage.HasVisibleText(Input.compositionString);
 
         private static bool EnterKeyIsHeld(Keyboard keyboard) =>
             keyboard.enterKey.isPressed || keyboard.numpadEnterKey.isPressed;

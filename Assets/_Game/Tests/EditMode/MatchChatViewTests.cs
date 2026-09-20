@@ -314,6 +314,8 @@ namespace Game.Architecture.Tests
             Assert.That(MatchChatView.ResolveSubmitText("   ", string.Empty, string.Empty), Is.EqualTo(string.Empty));
             Assert.That(MatchChatView.ResolveSubmitText("  ㅋ  ", string.Empty, string.Empty), Is.EqualTo("ㅋ"));
             Assert.That(MatchChatView.VisibleDraft("  안녕  ", string.Empty, string.Empty), Is.EqualTo("안녕"));
+            Assert.That(MatchChatView.ResolveSubmitText(" \t\n ", " \t ", string.Empty, " \t "), Is.EqualTo(string.Empty));
+            Assert.That(MatchChatView.ResolveSubmitText("\u200B", string.Empty, string.Empty), Is.EqualTo(string.Empty));
             Assert.That(MatchChatView.VisibleDraft(string.Empty, "가", string.Empty), Is.EqualTo("가"));
             Assert.That(MatchChatView.NextComposing(string.Empty, string.Empty, "가"), Is.EqualTo("가"));
             Assert.That(MatchChatView.NextComposing(string.Empty, "가", "가"), Is.EqualTo(string.Empty));
@@ -365,6 +367,33 @@ namespace Game.Architecture.Tests
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(view, new object[] { "ㅋ" });
                 Assert.That(sent, Is.EqualTo("ㅋ"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void HandleSubmit_DoesNotSendWhitespaceOnly()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform, keepChromeVisible: true);
+                string sent = null;
+                view.SendRequested += text => sent = text;
+                typeof(MatchChatView).GetMethod("SetActivated",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { true });
+                var input = view.GetComponentInChildren<TMP_InputField>(true);
+                input.text = "   ";
+                typeof(MatchChatView).GetMethod("HandleSubmit",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { "   " });
+                Assert.That(sent, Is.Null);
+                Assert.That(view.IsActivated, Is.True);
+                Assert.That(input.text, Is.Empty);
             }
             finally
             {
