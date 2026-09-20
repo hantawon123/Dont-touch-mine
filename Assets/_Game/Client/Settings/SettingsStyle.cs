@@ -197,6 +197,18 @@ namespace Game.Client.Settings
 
             /// <summary>Lobby-only 게임 나가기, right of the gradient.</summary>
             public static readonly Color LeaveGameEnd = FromHex(0xFF7032);
+
+            /// <summary>
+            /// The plate under the two words at the top of the screen
+            /// (S15P21D205-1086).
+            /// </summary>
+            /// <remarks>
+            /// 글자만 두면 뒤에 오는 것에 따라 읽히기도 하고 묻히기도 합니다. 로비에서는
+            /// 그 자리에 맵 미리보기 카드가 오는데 맵마다 밝기가 달라서, 마트처럼 밝은
+            /// 썸네일 위에서는 흰 글자가 사라집니다. 판을 깔면 배경이 무엇이든 대비가
+            /// 같습니다.
+            /// </remarks>
+            public static readonly Color ChromePlateFill = FromHex(0x0B1018, 0.62f);
         }
 
         /// <summary>The panel everything sits on, and the glow around it.</summary>
@@ -263,6 +275,37 @@ namespace Game.Client.Settings
             public static readonly Vector2 LeaveSize = new Vector2(220f, 44f);
             public const float FontSize = 30f;
             public const string Label = "← 이전";
+        }
+
+        /// <summary>
+        /// 화면 맨 위 양 끝의 두 글자가 깔고 앉는 판 (S15P21D205-1086). 왼쪽이 로비의
+        /// 게임 나가기, 오른쪽이 전체 변경 취소입니다.
+        /// </summary>
+        /// <remarks>
+        /// 둘의 높이를 여기서 한 번만 정합니다. 따로 적으면 같은 선 위에 앉아야 하는 둘이
+        /// 언젠가 몇 픽셀씩 어긋납니다.
+        /// <para>
+        /// <b>테두리는 게임 나가기에만 있습니다.</b> 둘 다 테두리를 두르면 서로 강조를
+        /// 빼앗습니다. 방을 나가는 쪽이 되돌릴 수 없는 행동이라 그쪽만 두릅니다 - 대신
+        /// 주황으로 가득 채우지는 않습니다. 화면에서 제일 밝은 것이 나가기 버튼일 이유는
+        /// 없고, 패널을 두른 주황 글로우와도 경쟁합니다.
+        /// </para>
+        /// </remarks>
+        public static class Chrome
+        {
+            public const float PlateHeight = 48f;
+            public const int PlateRadius = 24;
+
+            /// <summary>글자와 판 사이. 아이콘이 있는 쪽을 조금 좁게 잡습니다.</summary>
+            public const int PadLeft = 18;
+
+            public const int PadRight = 22;
+
+            /// <summary>게임 나가기에만: 테두리 두께와 아이콘.</summary>
+            public const float LeaveStroke = 2f;
+
+            public const float LeaveIconSize = 26f;
+            public const float LeaveIconGap = 12f;
         }
 
         /// <summary>The circling arrow and its words at the top right.</summary>

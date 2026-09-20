@@ -457,11 +457,20 @@ namespace Game.Client.Settings
             SetAnchor(rect, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0.5f));
             rect.anchoredPosition = new Vector2(
                 -SettingsStyle.ResetAll.RightMargin, -SettingsStyle.ResetAll.CentreY);
-            rect.sizeDelta = new Vector2(0f, SettingsStyle.ResetAll.Height);
-            AddImage(rect, Color.clear, raycastTarget: true);
+            rect.sizeDelta = new Vector2(0f, SettingsStyle.Chrome.PlateHeight);
+
+            // 판을 깝니다 (S15P21D205-1086). 글자만 두면 뒤에 오는 화면 밝기에 따라 묻힙니다.
+            // 테두리는 두지 않습니다 - 건너편 게임 나가기와 둘 다 두르면 서로 강조를 빼앗습니다.
+            AddImage(
+                rect,
+                SettingsStyle.Palette.ChromePlateFill,
+                HomeUiFonts.Rounded(SettingsStyle.Chrome.PlateRadius),
+                raycastTarget: true);
 
             var layout = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = SettingsStyle.ResetAll.IconGap;
+            layout.padding = new RectOffset(
+                SettingsStyle.Chrome.PadLeft, SettingsStyle.Chrome.PadRight, 0, 0);
             layout.childAlignment = TextAnchor.MiddleRight;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
@@ -577,6 +586,18 @@ namespace Game.Client.Settings
             applyButton = AddPlateButton(apply, applyFill, () => ApplyRequested?.Invoke());
         }
 
+        /// <summary>
+        /// 로비 오버레이의 게임 나가기 (S15P21D205-1086).
+        /// </summary>
+        /// <remarks>
+        /// 2026-09-20 까지는 투명한 사각형에 흰 글자뿐이었습니다. 그 자리 뒤에 오는 것이 방의
+        /// 맵 미리보기 카드라 맵마다 밝기가 달라서, 밝은 맵에서는 글자가 통째로 묻혔습니다.
+        /// 어두운 판을 깔면 뒤가 무엇이든 대비가 같습니다.
+        /// <para>
+        /// 건너편 <see cref="CreateResetAllButton"/> 와 같은 높이·같은 선에 앉습니다. 그래서
+        /// 위치를 <see cref="SettingsStyle.Back"/> 이 아니라 그쪽의 중심선으로 잡습니다.
+        /// </para>
+        /// </remarks>
         private void EnsureLeaveGameLabel()
         {
             if (leaveGameButton != null || canvasRoot == null)
@@ -585,20 +606,76 @@ namespace Game.Client.Settings
             }
 
             var rect = CreateRect("LeaveGameLabel", canvasRoot);
-            SetAnchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
-            rect.anchoredPosition = SettingsStyle.Back.Position;
-            rect.sizeDelta = SettingsStyle.Back.LeaveSize;
-            AddImage(rect, Color.clear, raycastTarget: true);
+            SetAnchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0.5f));
+            rect.anchoredPosition = new Vector2(
+                SettingsStyle.Back.Position.x, -SettingsStyle.ResetAll.CentreY);
+            rect.sizeDelta = new Vector2(0f, SettingsStyle.Chrome.PlateHeight);
 
-            var label = CreateText(
+            var fill = AddImage(
+                rect,
+                SettingsStyle.Palette.ChromePlateFill,
+                HomeUiFonts.Rounded(SettingsStyle.Chrome.PlateRadius),
+                raycastTarget: true);
+
+            // 포인터가 올라왔을 때만 칠하는 주황. 켜지면 판의 색 대신 이 그라데이션이
+            // 칠해지므로, 평소에는 꺼 둡니다.
+            var gradient = rect.gameObject.AddComponent<UiLinearGradient>();
+            gradient.Bind(
+                SettingsStyle.Palette.LeaveGameStart,
+                SettingsStyle.Palette.LeaveGameEnd,
+                alongVertical: false);
+            gradient.enabled = false;
+
+            var layout = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = SettingsStyle.Chrome.LeaveIconGap;
+            layout.padding = new RectOffset(
+                SettingsStyle.Chrome.PadLeft, SettingsStyle.Chrome.PadRight, 0, 0);
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            var fitter = rect.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+            // 테두리는 판 위에 따로 얹습니다. 한 이미지로 그리면 호버에서 채움만 바꿀 수가
+            // 없습니다. 자리는 판 전체이므로 가로 배치에서는 빼 둡니다.
+            var stroke = CreateRect("Stroke", rect);
+            Stretch(stroke);
+            stroke.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            var strokeImage = AddImage(
+                stroke,
+                SettingsStyle.Palette.Accent,
+                HomeUiFonts.Outline(
+                    SettingsStyle.Chrome.PlateRadius, SettingsStyle.Chrome.LeaveStroke));
+
+            // 나가기 전용 아이콘이 아직 없어 왼쪽 화살표를 씁니다. 문 모양이 생기면 여기만
+            // 바꾸면 됩니다.
+            var icon = CreateIcon(
+                rect,
+                leftIcon,
+                SettingsStyle.Chrome.LeaveIconSize,
+                SettingsStyle.Palette.TextHover);
+
+            CreateText(
                 "Label",
                 rect,
                 SettingsStyle.Buttons.LeaveLabel,
                 SettingsStyle.Back.FontSize,
                 Color.white,
                 TextAlignmentOptions.MidlineLeft);
-            Stretch(label.rectTransform);
-            AddTintButton(rect, label, Color.white, () => LeaveGameRequested?.Invoke());
+
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = fill;
+            button.transition = Selectable.Transition.None;
+            button.onClick.AddListener(() => LeaveGameRequested?.Invoke());
+            buttons.Add(button);
+
+            rect.gameObject.AddComponent<SettingsLeavePlateHover>()
+                .Bind(gradient, icon, strokeImage);
+
             leaveGameButton = rect;
         }
 
