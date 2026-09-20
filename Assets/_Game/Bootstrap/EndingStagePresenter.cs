@@ -40,6 +40,13 @@ namespace Game.Bootstrap
         private readonly HashSet<int> itemHiddenFor = new();
         private readonly List<Renderer> hiddenItemRenderers = new();
 
+        /// <summary>플레이어별로 손에 붙여 둔 전시용 복제본 (S15P21D205-1087).</summary>
+        private readonly Dictionary<int, GameObject> shownItems = new();
+
+        private MatchChatView chat;
+        private MatchChatBubbleView bubbles;
+        private bool chatChromeApplied;
+
         public EndingStagePresenter(
             NetworkResultLobbyReturnController result,
             NetworkRunnerService network,
@@ -70,6 +77,8 @@ namespace Game.Bootstrap
             LockLocalInteraction();
             ShowLocalBody();
             HideCarriedItems();
+            ShowOwnItems();
+            ShowChat();
         }
 
         public void Tick()
@@ -78,6 +87,8 @@ namespace Game.Bootstrap
             if (lockedInteractor == null) LockLocalInteraction();
             if (bodyShownRig == null) ShowLocalBody();
             HideCarriedItems();
+            ShowOwnItems();
+            ShowChat();
         }
 
         /// <remarks>
@@ -105,6 +116,144 @@ namespace Game.Bootstrap
                 if (renderer != null) renderer.forceRenderingOff = false;
             hiddenItemRenderers.Clear();
             itemHiddenFor.Clear();
+
+            foreach (var copy in shownItems.Values)
+                if (copy != null) UnityEngine.Object.Destroy(copy);
+            shownItems.Clear();
+
+            // 채팅과 말풍선은 매치 씬의 것이라 결과 씬보다 오래 산다. 빌려 쓴 상태를 돌려준다.
+            if (chat != null) chat.SetKeepChromeVisible(false);
+            chat = null;
+            chatChromeApplied = false;
+            if (bubbles != null) bubbles.PinCamera(null);
+            bubbles = null;
+        }
+
+        /// <summary>
+        /// 각자 <b>원래 자기 물건</b>을 손에 들려 준다 (S15P21D205-1087).
+        /// </summary>
+        /// <remarks>
+        /// 들려 주는 것은 복제본이고 원본은 <see cref="HideCarriedItems"/> 가 숨긴 그대로 둔다.
+        /// 결과가 확정된 뒤에 진짜 물건을 옮기면 권위가 쥐고 있는 소유·물리 상태를 건드리게 되고,
+        /// 하이라이트 복원과 분석 기록이 그 위에서 돈다. 여기서 바꾸는 것은 보이는 것뿐이다.
+        /// <para>
+        /// 누구 물건인지는 <see cref="NetworkRunnerService.LatestPlayerItemStatuses"/> 가 소유자
+        /// 인덱스 순으로 들고 있다. <see cref="CarryableItem.AssignToPlayer"/> 는 자기 것만 표시하므로
+        /// 남의 물건을 찾는 데는 쓸 수 없다.
+        /// </para>
+        /// <para>
+        /// 파괴된 물건도 그대로 들려 준다. 유치장에 선 사람이 빈손이면 "무엇을 잃었는지"가 화면에서
+        /// 사라진다.
+        /// </para>
+        /// </remarks>
+        private void ShowOwnItems()
+        {
+            if (!result.HasMatchResult) return;
+            var participants = room.MatchParticipants.CurrentValue;
+            if (participants == null || participants.Count == 0) return;
+            if (shownItems.Count >= participants.Count) return;
+
+            var statuses = network.LatestPlayerItemStatuses;
+            if (statuses == null || statuses.Count == 0) return;
+
+            var placements = EndingStageLayout.Assign(
+                participants,
+                result.LastWinnerPlayerIndices,
+                stage.EscapeSlotCount,
+                stage.ArrestSlotCount);
+
+            Dictionary<string, PlayerAvatar> avatars = null;
+            Dictionary<string, CarryableItem> items = null;
+            foreach (var placement in placements)
+            {
+                if (shownItems.ContainsKey(placement.PlayerIndex)) continue;
+                if (placement.PlayerIndex < 0 || placement.PlayerIndex >= statuses.Count) continue;
+                var itemId = statuses[placement.PlayerIndex].ItemId;
+                if (string.IsNullOrEmpty(itemId)) continue;
+
+                avatars ??= FindAvatars();
+                if (!avatars.TryGetValue(placement.PlayerId, out var avatar)) continue;
+                var holdPoint = avatar.GetComponent<PlayerInteractor>()?.HoldPoint;
+                if (holdPoint == null) continue;
+
+                items ??= FindItems();
+                if (!items.TryGetValue(itemId, out var source) || source == null) continue;
+
+                shownItems[placement.PlayerIndex] = CreateDisplayCopy(source, holdPoint);
+            }
+        }
+
+        /// <summary>
+        /// 보이는 것만 남긴 복제본. 스크립트와 물리를 지우는 이유는 결과 화면에서 할 일이 없기
+        /// 때문이고, 남겨 두면 복제본이 권위가 쥔 물건인 척하거나 아바타를 밀어낸다.
+        /// </summary>
+        private static GameObject CreateDisplayCopy(CarryableItem source, Transform holdPoint)
+        {
+            var copy = UnityEngine.Object.Instantiate(source.gameObject, holdPoint, false);
+            copy.name = source.ObjectId + " (Ending)";
+            copy.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+
+            foreach (var behaviour in copy.GetComponentsInChildren<MonoBehaviour>(true))
+                UnityEngine.Object.Destroy(behaviour);
+            foreach (var collider in copy.GetComponentsInChildren<Collider>(true))
+                UnityEngine.Object.Destroy(collider);
+            foreach (var body in copy.GetComponentsInChildren<Rigidbody>(true))
+                UnityEngine.Object.Destroy(body);
+
+            // 원본이 숨겨진 채 복제되었을 수 있다. 복제본은 보여야 한다.
+            foreach (var renderer in copy.GetComponentsInChildren<Renderer>(true))
+                renderer.forceRenderingOff = false;
+            copy.SetActive(true);
+            return copy;
+        }
+
+        private static Dictionary<string, CarryableItem> FindItems()
+        {
+            var map = new Dictionary<string, CarryableItem>(StringComparer.Ordinal);
+            // 파괴된 물건은 꺼져 있을 수 있는데 그것도 들려 주므로 꺼진 것까지 찾는다.
+            foreach (var item in UnityEngine.Object.FindObjectsByType<CarryableItem>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                var id = item.ObjectId;
+                if (!string.IsNullOrEmpty(id)) map.TryAdd(id, item);
+            }
+            return map;
+        }
+
+        /// <summary>
+        /// 유치장에서도 이야기할 수 있게 한다 (S15P21D205-1087).
+        /// </summary>
+        /// <remarks>
+        /// 채팅은 매치 씬의 것이고 그 모드는 단계 스냅샷이 정한다. 결과 화면의 주인은 이 무대이므로
+        /// 여기서 직접 켜 둔다 - 하이라이트가 화이트리스트 밖 그래픽을 전부 껐다 켜는 길을 지나오기
+        /// 때문에, 스냅샷이 한 번 더 오기를 기다리지 않는다.
+        /// <para>
+        /// 말풍선은 아바타 머리 위의 월드 캔버스라 무대 카메라를 보게 못 박는다.
+        /// </para>
+        /// </remarks>
+        private void ShowChat()
+        {
+            chat ??= UnityEngine.Object.FindFirstObjectByType<MatchChatView>(FindObjectsInactive.Include);
+            if (chat != null)
+            {
+                var wasHidden = !chat.gameObject.activeSelf;
+                chat.SetMode(MatchChatHudMode.Full);
+
+                // 크롬은 한 번만 켠다. 켜는 쪽이 레이아웃을 다시 그리므로 매 틱 부를 일이 아니다.
+                // 누가 채팅을 껐다 켜면 그때 다시 걸어 준다.
+                if (!chatChromeApplied || wasHidden)
+                {
+                    chat.SetKeepChromeVisible(true);
+                    chatChromeApplied = true;
+                }
+            }
+
+            bubbles ??= UnityEngine.Object.FindFirstObjectByType<MatchChatBubbleView>(
+                FindObjectsInactive.Include);
+            if (bubbles != null && stage.StageCamera != null)
+            {
+                bubbles.PinCamera(stage.StageCamera);
+            }
         }
 
         /// <remarks>
