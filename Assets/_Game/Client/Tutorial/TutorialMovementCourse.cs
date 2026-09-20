@@ -80,7 +80,8 @@ namespace Game.Client.Tutorial
                 settings.SprintSpeed * 0.8f,
                 player.IsGrounded,
                 player.Posture,
-                ObservePassage(position));
+                ObservePassage(position),
+                ReachedSprintJumpThreshold(previousPosition, position));
 
             previousPosition = position;
             previousYaw = yaw;
@@ -135,18 +136,24 @@ namespace Game.Client.Tutorial
 
         private bool ReachedSprintJumpThreshold(Vector3 previous, Vector3 current)
         {
-            if (sprintJumpThreshold == null)
+            return CrossedBoundary(sprintJumpThreshold, previous, current);
+        }
+
+        internal static bool CrossedBoundary(Transform boundary, Vector3 previous, Vector3 current)
+        {
+            if (boundary == null)
                 return false;
 
             var previousSide = Vector3.Dot(
-                previous - sprintJumpThreshold.position,
-                sprintJumpThreshold.forward);
+                previous - boundary.position,
+                boundary.forward);
 
             var currentSide = Vector3.Dot(
-                current - sprintJumpThreshold.position,
-                sprintJumpThreshold.forward);
+                current - boundary.position,
+                boundary.forward);
 
-            return previousSide < 0f && currentSide >= 0f;
+            return (previousSide < 0f && currentSide >= 0f) ||
+                   (previousSide > 0f && currentSide <= 0f);
         }
 
         private static float CurrentCameraYaw()
