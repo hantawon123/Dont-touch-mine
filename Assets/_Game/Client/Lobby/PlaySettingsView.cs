@@ -98,7 +98,7 @@ namespace Game.Client.Lobby
         private string password = string.Empty;
         private int maxPlayers = RoomSettings.MaxPlayerCount;
         private int destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
-        private int selectedMapIndex;
+        private int selectedMapIndex = PlaySettingsMapCatalog.DefaultIndex;
         private bool editable;
         private int participantCount = 1;
         private MatchRuleSettings matchRules = MatchRuleSettings.Default;
