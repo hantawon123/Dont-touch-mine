@@ -130,24 +130,28 @@ namespace Game.Network.Session
             if (IsServer)
             {
                 if (!TryCompleteHighlightViewing(_runner.LocalPlayer)) return false;
-                _localHighlightComplete = true;
             }
             else
             {
-                if (_receivedHighlightSequence == 0 || _highlightCompletionRequested)
+                if (_receivedHighlightSequence == 0)
+                {
                     return false;
-                _runner.SendReliableDataToServer(ReliableKey.FromInts(
-                    HighlightCompleteKeyType,
-                    HighlightReplayKeyVersion,
-                    _receivedHighlightSequence,
-                    0),
-                    new byte[] { 1 });
-                _highlightCompletionRequested = true;
-                // 다른 사람이 하이라이트를 보는 동안에도, 건너뛴 사람은 즉시 로비 연출로 넘어간다.
-                _localHighlightComplete = true;
+                }
+
+                if (!_highlightCompletionRequested)
+                {
+                    _runner.SendReliableDataToServer(ReliableKey.FromInts(
+                        HighlightCompleteKeyType,
+                        HighlightReplayKeyVersion,
+                        _receivedHighlightSequence,
+                        0),
+                        new byte[] { 1 });
+                }
             }
 
-            return _localHighlightComplete;
+            _highlightCompletionRequested = true;
+            _localHighlightComplete = true;
+            return true;
         }
 
         private readonly IRoomListSink _roomListSink;

@@ -30,7 +30,6 @@ namespace Game.Bootstrap
         private readonly AppFlowSystem flow;
         private readonly SoundSettingsSystem sound;
         private readonly AudioSource source;
-        private readonly IObjectResolver resolver;
         private INetworkResultNavigation navigation;
         private bool started;
         private bool inEnding;
@@ -43,14 +42,18 @@ namespace Game.Bootstrap
             AppFlowSystem flow,
             SoundSettingsSystem sound,
             AudioSource source,
-            INetworkResultNavigation navigation = null,
-            IObjectResolver resolver = null)
+            INetworkResultNavigation navigation)
         {
             this.flow = flow;
             this.sound = sound;
             this.source = source;
             this.navigation = navigation;
-            this.resolver = resolver;
+        }
+
+        [Inject]
+        public void BindNavigation(INetworkResultNavigation value)
+        {
+            navigation = value;
         }
 
         public static bool ShouldPlay(AppFlowState state, bool hasLeftLocalHighlight = false) =>
@@ -83,7 +86,6 @@ namespace Game.Bootstrap
 
         private void RefreshPlayback()
         {
-            EnsureNavigation();
             var next = ShouldPlay(flow.CurrentState, HasLeftLocalHighlight);
             if (next == inEnding) return;
             inEnding = next;
@@ -100,16 +102,6 @@ namespace Game.Bootstrap
 
         private bool HasLeftLocalHighlight =>
             navigation != null && navigation.HasLeftLocalHighlight;
-
-        private void EnsureNavigation()
-        {
-            if (navigation != null || resolver == null)
-            {
-                return;
-            }
-
-            resolver.TryResolve(out navigation);
-        }
 
         private void AdvanceFade(float deltaTime)
         {

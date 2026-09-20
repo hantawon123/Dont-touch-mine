@@ -63,6 +63,38 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void InjectedNavigation_StopsPlaybackAfterLocalSkip()
+        {
+            var host = new GameObject("Ending BGM Injected Navigation Test");
+            EndingBgmController controller = null;
+            try
+            {
+                var source = host.AddComponent<AudioSource>();
+                var flow = EnterHighlight();
+                var sound = new SoundSettingsSystem(new InMemorySoundSettingsStore());
+                controller = new EndingBgmController(flow, sound, source, null);
+                controller.Start();
+                var full = sound.Current.Get(SoundVolume.Music) / 100f * EndingBgmController.PlaybackVolume;
+                var advance = typeof(EndingBgmController).GetMethod("AdvanceFade",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                advance.Invoke(controller, new object[] { EndingBgmController.FadeSeconds });
+                Assert.That(source.isPlaying, Is.True);
+                Assert.That(source.volume, Is.EqualTo(full).Within(.001f));
+
+                controller.BindNavigation(new FakeNavigation { HasLeftLocalHighlight = true });
+                controller.Tick();
+                advance.Invoke(controller, new object[] { EndingBgmController.FadeSeconds });
+                Assert.That(source.volume, Is.Zero);
+                Assert.That(source.isPlaying, Is.False);
+            }
+            finally
+            {
+                controller?.Dispose();
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
         public void ProjectUsesTheApprovedEndingTrack()
         {
             var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(EndingBgmController.ClipAssetPath);
@@ -86,7 +118,7 @@ namespace Game.Architecture.Tests
                 var source = host.AddComponent<AudioSource>();
                 var flow = EnterHighlight();
                 var sound = new SoundSettingsSystem(new InMemorySoundSettingsStore());
-                controller = new EndingBgmController(flow, sound, source);
+                controller = new EndingBgmController(flow, sound, source, null);
                 controller.Start();
                 var full = sound.Current.Get(SoundVolume.Music) / 100f * EndingBgmController.PlaybackVolume;
                 var advance = typeof(EndingBgmController).GetMethod("AdvanceFade",
@@ -125,7 +157,7 @@ namespace Game.Architecture.Tests
                 store.Save(SoundCatalog.Defaults.With(SoundVolume.Music, 20).With(SoundVolume.Master, 40));
                 var sound = new SoundSettingsSystem(store);
                 var flow = EnterHighlight();
-                controller = new EndingBgmController(flow, sound, source);
+                controller = new EndingBgmController(flow, sound, source, null);
                 controller.Start();
                 var advance = typeof(EndingBgmController).GetMethod("AdvanceFade",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
