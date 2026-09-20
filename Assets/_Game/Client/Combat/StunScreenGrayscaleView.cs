@@ -39,6 +39,7 @@ namespace Game.Client.Combat
 
         public void Apply()
         {
+            combatant ??= GetComponent<PlayerCombatant>();
             var active = combatant != null && combatant.PresentsLocalScreen && combatant.IsStunned;
             SetActive(active);
         }

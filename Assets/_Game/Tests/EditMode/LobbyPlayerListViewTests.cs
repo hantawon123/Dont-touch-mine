@@ -586,7 +586,7 @@ namespace Game.Architecture.Tests
                         + LobbyPlayerListView.ReportTooltipOverlap));
                 var label = tooltip.Find("Label").GetComponent<TMP_Text>();
                 Assert.That(label.text, Is.EqualTo(LobbyPlayerListView.ReportLabel));
-                Assert.That(label.fontSize, Is.EqualTo(18f));
+                Assert.That(label.fontSize, Is.EqualTo(LobbyPlayerListView.ReportFontSize));
                 Assert.That(label.font, Is.EqualTo(HomeUiFonts.ApplyRegular()));
                 Assert.That(label.color, Is.EqualTo(LobbyPlayerListView.ReportTooltipLabel));
                 Assert.That(

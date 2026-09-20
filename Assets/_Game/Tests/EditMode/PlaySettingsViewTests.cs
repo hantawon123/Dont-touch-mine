@@ -225,7 +225,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void MapPicker_ShowsOnlySupermarket()
+        public void MapPicker_DefaultsToSupermarket_AndOffersMansion()
         {
             var root = CreateView(out var panel, out var view);
             try
@@ -247,8 +247,14 @@ namespace Game.Architecture.Tests
                 view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, MapCatalog.PlaygroundId));
                 Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
                 Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.SupermarketId));
-                Assert.That(Find(panel.transform, "MapPrev").gameObject.activeSelf, Is.False);
-                Assert.That(Find(panel.transform, "MapNext").gameObject.activeSelf, Is.False);
+                Assert.That(Find(panel.transform, "MapPrev").gameObject.activeSelf, Is.True);
+                Assert.That(Find(panel.transform, "MapNext").gameObject.activeSelf, Is.True);
+
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, MapCatalog.MansionId));
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.MansionId));
+                Assert.That(
+                    Find(panel.transform, "MapName").GetComponent<Text>().text,
+                    Is.EqualTo(MapCatalog.MansionId));
             }
             finally
             {

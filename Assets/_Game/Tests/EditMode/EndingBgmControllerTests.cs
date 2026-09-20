@@ -34,7 +34,7 @@ namespace Game.Architecture.Tests
             EndingBgmController controller = null;
             try
             {
-                var source = host.AddComponent<AudioSource>();
+                var source = AttachSource(host);
                 var flow = EnterHighlight();
                 var sound = new SoundSettingsSystem(new InMemorySoundSettingsStore());
                 var navigation = new FakeNavigation { HasLeftLocalHighlight = false };
@@ -69,7 +69,7 @@ namespace Game.Architecture.Tests
             EndingBgmController controller = null;
             try
             {
-                var source = host.AddComponent<AudioSource>();
+                var source = AttachSource(host);
                 var flow = EnterHighlight();
                 var sound = new SoundSettingsSystem(new InMemorySoundSettingsStore());
                 controller = new EndingBgmController(flow, sound, source, null);
@@ -115,7 +115,7 @@ namespace Game.Architecture.Tests
             EndingBgmController controller = null;
             try
             {
-                var source = host.AddComponent<AudioSource>();
+                var source = AttachSource(host);
                 var flow = EnterHighlight();
                 var sound = new SoundSettingsSystem(new InMemorySoundSettingsStore());
                 controller = new EndingBgmController(flow, sound, source, null);
@@ -124,9 +124,9 @@ namespace Game.Architecture.Tests
                 var advance = typeof(EndingBgmController).GetMethod("AdvanceFade",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
 
-                Assert.That(source.isPlaying, Is.True);
                 Assert.That(source.volume, Is.Zero);
                 advance.Invoke(controller, new object[] { .5f });
+                Assert.That(source.isPlaying, Is.True);
                 Assert.That(source.volume, Is.EqualTo(full * .5f).Within(.001f));
                 advance.Invoke(controller, new object[] { .5f });
                 Assert.That(source.volume, Is.EqualTo(full).Within(.001f));
@@ -152,7 +152,7 @@ namespace Game.Architecture.Tests
             EndingBgmController controller = null;
             try
             {
-                var source = host.AddComponent<AudioSource>();
+                var source = AttachSource(host);
                 var store = new InMemorySoundSettingsStore();
                 store.Save(SoundCatalog.Defaults.With(SoundVolume.Music, 20).With(SoundVolume.Master, 40));
                 var sound = new SoundSettingsSystem(store);
@@ -171,6 +171,15 @@ namespace Game.Architecture.Tests
                 controller?.Dispose();
                 Object.DestroyImmediate(host);
             }
+        }
+
+        private static AudioSource AttachSource(GameObject host)
+        {
+            var source = host.AddComponent<AudioSource>();
+            source.playOnAwake = false;
+            source.loop = true;
+            source.clip = AudioClip.Create("ending-test", 44100, 1, 44100, false);
+            return source;
         }
 
         private static AppFlowSystem EnterHighlight()

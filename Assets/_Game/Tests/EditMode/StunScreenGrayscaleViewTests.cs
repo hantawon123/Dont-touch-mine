@@ -41,6 +41,7 @@ namespace Game.Architecture.Tests
             {
                 var combatant = player.GetComponent<PlayerCombatant>();
                 var view = player.GetComponent<StunScreenGrayscaleView>();
+                Assert.That(view, Is.Not.Null);
                 combatant.ConfigureNetworkPlayer(0, false, false);
                 combatant.SetNetworkHitCount(0);
                 combatant.SetNetworkStunned(true);
@@ -55,8 +56,17 @@ namespace Game.Architecture.Tests
 
         private static GameObject InstantiateCharacter()
         {
-            return Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(
+            var player = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab"));
+            // Runtime adds this in PlayerCombatant.Awake. EditMode Instantiate
+            // does not always run Awake, so the remote case was calling Apply
+            // on a missing view.
+            if (player.GetComponent<StunScreenGrayscaleView>() == null)
+            {
+                player.AddComponent<StunScreenGrayscaleView>();
+            }
+
+            return player;
         }
     }
 }
