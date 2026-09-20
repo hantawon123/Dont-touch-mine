@@ -690,7 +690,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fbe44ac5499d4d42b639179068d3fa09, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Cameras.HighlightCctvCamera
-  locationName: "CAM 15 \xB7 \uD604\uAD00 \uD640 \uD30C\uC1C4\uAE30 \uB3D9\uCABD"
+  locationName: "CAM 16 \xB7 \uC911\uC559 \uD640 \uBD81\uC11C\uD5A5"
   fieldOfView: 65
 --- !u!1 &7492493095131259104
 GameObject:
