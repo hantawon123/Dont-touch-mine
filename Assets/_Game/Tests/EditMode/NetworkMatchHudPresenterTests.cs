@@ -1436,6 +1436,38 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void MatchChat_StaysClosedOnHighlight()
+        {
+            var network = new FakeNetwork { ServerTime = 100d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 460d));
+                presenter.Tick();
+                Assert.That(view.MatchChatMode, Is.EqualTo(MatchChatHudMode.Searching));
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 30d));
+                presenter.Tick();
+                Assert.That(view.MatchChatVisible, Is.False);
+                Assert.That(view.MatchChatMode, Is.EqualTo(MatchChatHudMode.Hidden));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
         public void Start_UsesCachedItemStatuses_AndDisposeUnsubscribes()
         {
             var network = new FakeNetwork

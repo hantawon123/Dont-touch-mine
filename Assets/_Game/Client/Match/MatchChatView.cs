@@ -319,8 +319,11 @@ namespace Game.Client.Match
             return CombinedDraft(committed, composing).Trim();
         }
 
-        public static bool AllowsActivationOnScreen(bool resultSceneLoaded) =>
-            !resultSceneLoaded;
+        public static bool AllowsActivationOnScreen(
+            bool highlightInProgress,
+            bool localHighlightComplete,
+            bool resultSceneLoaded) =>
+            !resultSceneLoaded && !(highlightInProgress && !localHighlightComplete);
 
         public static bool ShouldOpenOnEnter(
             bool isActivated,

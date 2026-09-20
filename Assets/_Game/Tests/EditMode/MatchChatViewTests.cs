@@ -425,7 +425,25 @@ namespace Game.Architecture.Tests
             bool expected)
         {
             Assert.That(
-                MatchChatView.AllowsActivationOnScreen(resultSceneLoaded),
+                MatchChatView.AllowsActivationOnScreen(false, false, resultSceneLoaded),
+                Is.EqualTo(expected));
+        }
+
+        [TestCase(false, false, false, true)]
+        [TestCase(true, false, false, false)]
+        [TestCase(true, true, false, true)]
+        [TestCase(true, true, true, false)]
+        public void AllowsActivationOnScreen_BlocksHighlight(
+            bool highlightInProgress,
+            bool localHighlightComplete,
+            bool resultSceneLoaded,
+            bool expected)
+        {
+            Assert.That(
+                MatchChatView.AllowsActivationOnScreen(
+                    highlightInProgress,
+                    localHighlightComplete,
+                    resultSceneLoaded),
                 Is.EqualTo(expected));
         }
 

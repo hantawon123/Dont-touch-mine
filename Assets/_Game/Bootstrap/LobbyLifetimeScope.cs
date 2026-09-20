@@ -386,6 +386,8 @@ namespace Game.Bootstrap
             }
 
             chatView.SetAllowsActivation(MatchChatView.AllowsActivationOnScreen(
+                runtimeNetwork != null && runtimeNetwork.IsHighlightInProgress,
+                runtimeNetwork != null && runtimeNetwork.IsLocalHighlightComplete,
                 runtimeNetwork != null && runtimeNetwork.IsResultSceneLoaded));
         }
 
