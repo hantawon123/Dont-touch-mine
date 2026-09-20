@@ -13,6 +13,7 @@ namespace Game.Client.Tutorial
 {
     public sealed class TutorialPauseController : MonoBehaviour
     {
+        [SerializeField] private string destinationScene = "Home";
         [SerializeField] private PlayerMovement player;
         [SerializeField] private PlayerCameraController cameraRig;
         private LobbyConfirmView modal;
@@ -73,7 +74,8 @@ namespace Game.Client.Tutorial
             var loading = FindAnyObjectByType<LoadingView>(FindObjectsInactive.Include) ?? LoadingView.Create(null);
             loading.Show();
             await SceneLoadSlicer.YieldFrame();
-            await SceneLoadSlicer.LoadSingleAsync("Home");
+            await SceneLoadSlicer.LoadSingleAsync(destinationScene);
+            new PlayerPrefsTutorialCompletionStore().MarkCurrentVersionCompleted();
         }
 
         private void OnDestroy()
