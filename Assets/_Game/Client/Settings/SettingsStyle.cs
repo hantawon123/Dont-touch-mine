@@ -293,19 +293,25 @@ namespace Game.Client.Settings
         /// </remarks>
         public static class Chrome
         {
-            public const float PlateHeight = 48f;
-            public const int PlateRadius = 24;
+            /// <summary>
+            /// 30 짜리 글자에 위아래로 15 씩 남습니다. 48 로 처음 잡았더니 글자가 테두리에
+            /// 붙어 빽빽해 보였습니다.
+            /// </summary>
+            public const float PlateHeight = 60f;
+
+            /// <summary>절반. 알약 모양이 되는 가장 큰 값입니다.</summary>
+            public const int PlateRadius = 30;
 
             /// <summary>글자와 판 사이. 아이콘이 있는 쪽을 조금 좁게 잡습니다.</summary>
-            public const int PadLeft = 18;
+            public const int PadLeft = 26;
 
-            public const int PadRight = 22;
+            public const int PadRight = 32;
 
             /// <summary>게임 나가기에만: 테두리 두께와 아이콘.</summary>
             public const float LeaveStroke = 2f;
 
-            public const float LeaveIconSize = 26f;
-            public const float LeaveIconGap = 12f;
+            public const float LeaveIconSize = 28f;
+            public const float LeaveIconGap = 14f;
         }
 
         /// <summary>The circling arrow and its words at the top right.</summary>

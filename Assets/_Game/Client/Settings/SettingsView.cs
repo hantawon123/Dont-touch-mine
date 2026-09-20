@@ -651,11 +651,11 @@ namespace Game.Client.Settings
                 HomeUiFonts.Outline(
                     SettingsStyle.Chrome.PlateRadius, SettingsStyle.Chrome.LeaveStroke));
 
-            // 나가기 전용 아이콘이 아직 없어 왼쪽 화살표를 씁니다. 문 모양이 생기면 여기만
-            // 바꾸면 됩니다.
+            // 문틀과 그 밖으로 나가는 화살표. 가져온 PNG 가 아니라 그린 것이고, 그 이유는
+            // SettingsSprites 에 적혀 있습니다.
             var icon = CreateIcon(
                 rect,
-                leftIcon,
+                SettingsSprites.ExitGlyph(),
                 SettingsStyle.Chrome.LeaveIconSize,
                 SettingsStyle.Palette.TextHover);
 
