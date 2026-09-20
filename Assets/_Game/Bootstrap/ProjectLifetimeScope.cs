@@ -98,6 +98,10 @@ namespace Game.Bootstrap
             var controlSettingsStore = new PlayerPrefsControlSettingsStore();
             var notificationSettingsStore = new PlayerPrefsNotificationSettingsStore();
 
+            // Likewise for the HUD microphone and speaker: a mute set in one
+            // room is what the next room should open with.
+            var voicePreferencesStore = new PlayerPrefsVoicePreferencesStore();
+
             RegisterServices(
                 builder,
                 _networkPrefabs,
@@ -127,6 +131,7 @@ namespace Game.Bootstrap
             builder.RegisterInstance<ISoundSettingsApplier>(soundSettingsApplier);
             builder.RegisterInstance<IMicrophoneDevices>(microphones);
             builder.RegisterInstance<IControlSettingsStore>(controlSettingsStore);
+            builder.RegisterInstance<IVoicePreferencesStore>(voicePreferencesStore);
             builder.RegisterInstance<INotificationSettingsStore>(notificationSettingsStore);
 
             // Listens to the whole keyboard and mouse while a key is being
@@ -536,8 +541,15 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<NetworkResultLobbyReturnController>().AsSelf();
             // Outlives every screen. The rig that opens the microphone is
             // rebuilt with each session and the control that drives it with each
-            // screen, but a player who muted themselves meant it to hold.
-            builder.Register<VoicePreferences>(Lifetime.Singleton);
+            // screen, but a player who muted themselves meant it to hold —
+            // including the next room. The store is this machine's when one is
+            // registered; tests and the dedicated server keep it in memory.
+            builder.Register(
+                c => new VoicePreferences(
+                    c.TryResolve<IVoicePreferencesStore>(out var store)
+                        ? store
+                        : new InMemoryVoicePreferencesStore()),
+                Lifetime.Singleton);
 
             builder.Register<RoomCodeGenerator>(Lifetime.Singleton);
             builder.Register<IRoomBrowser, RoomBrowser>(Lifetime.Singleton);
