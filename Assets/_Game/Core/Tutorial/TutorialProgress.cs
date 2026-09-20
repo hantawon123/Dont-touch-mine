@@ -37,7 +37,8 @@ namespace Game.Core.Tutorial
             bool grounded,
             PlayerPosture posture,
             bool passageCompleted = false,
-            bool sprintCourseCompleted = false)
+            bool sprintCourseCompleted = false,
+            bool jumpCourseCompleted = false)
         {
             Distance = Math.Max(0f, distance);
             LookDegrees = Math.Max(0f, lookDegrees);
@@ -47,6 +48,7 @@ namespace Game.Core.Tutorial
             Posture = posture;
             PassageCompleted = passageCompleted;
             SprintCourseCompleted = sprintCourseCompleted;
+            JumpCourseCompleted = jumpCourseCompleted;
         }
 
         public float Distance { get; }
@@ -57,6 +59,7 @@ namespace Game.Core.Tutorial
         public PlayerPosture Posture { get; }
         public bool PassageCompleted { get; }
         public bool SprintCourseCompleted { get; }
+        public bool JumpCourseCompleted { get; }
     }
 
     /// <summary>
@@ -105,7 +108,8 @@ namespace Game.Core.Tutorial
                 case TutorialStep.Jump:
                     if (observation.Grounded && !jumpWasAirborne) jumpWasGrounded = true;
                     if (jumpWasGrounded && !observation.Grounded) jumpWasAirborne = true;
-                    if (jumpWasAirborne && observation.Grounded) return Advance();
+                    if (jumpWasAirborne && observation.Grounded && observation.JumpCourseCompleted)
+                        return Advance();
                     break;
 
                 case TutorialStep.Crouch:

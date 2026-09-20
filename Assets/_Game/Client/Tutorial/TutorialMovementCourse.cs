@@ -24,6 +24,8 @@ namespace Game.Client.Tutorial
         [SerializeField] private Transform proneEntrance;
         [SerializeField] private Transform proneExit;
         [SerializeField] private Transform sprintJumpThreshold;
+        [SerializeField] private Transform jumpLandingTarget;
+        [SerializeField, Min(0f)] private float jumpLandingRadius = 2f;
         private bool enteredPassage;
 
         private CharacterController characterController;
@@ -81,7 +83,8 @@ namespace Game.Client.Tutorial
                 player.IsGrounded,
                 player.Posture,
                 ObservePassage(position),
-                ReachedSprintJumpThreshold(previousPosition, position));
+                ReachedSprintJumpThreshold(previousPosition, position),
+                ReachedHorizontalTarget(jumpLandingTarget, position, jumpLandingRadius));
 
             previousPosition = position;
             previousYaw = yaw;
@@ -154,6 +157,16 @@ namespace Game.Client.Tutorial
 
             return (previousSide < 0f && currentSide >= 0f) ||
                    (previousSide > 0f && currentSide <= 0f);
+        }
+
+        internal static bool ReachedHorizontalTarget(Transform target, Vector3 position, float radius)
+        {
+            if (target == null || radius < 0f)
+                return false;
+
+            var offset = position - target.position;
+            offset.y = 0f;
+            return offset.sqrMagnitude <= radius * radius;
         }
 
         private static float CurrentCameraYaw()
