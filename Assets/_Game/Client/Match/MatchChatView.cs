@@ -523,7 +523,18 @@ namespace Game.Client.Match
         private void LateUpdate()
         {
             PollComposition();
-            if (!activated || !WasEnterPressedThisFrame())
+            if (!activated)
+            {
+                return;
+            }
+
+            if (pendingSubmit != null)
+            {
+                TrySendPendingImeDraft();
+                return;
+            }
+
+            if (!WasEnterPressedThisFrame())
             {
                 return;
             }
@@ -883,19 +894,46 @@ namespace Game.Client.Match
 
         private IEnumerator SubmitAfterImeCommit()
         {
+            // 한글 IME는 엔터를 뗄 때 조합을 커밋하는 경우가 많다.
+            // onSubmit은 키를 누르는 순간에 빈 칸으로 와서, 한 프레임만 기다리면 글자가
+            // 아직 필드에 없고 채팅이 닫힌다.
+            var keyboard = Keyboard.current;
+            while (keyboard != null && EnterKeyIsHeld(keyboard))
+            {
+                if (TrySendPendingImeDraft())
+                {
+                    yield break;
+                }
+
+                yield return null;
+                keyboard = Keyboard.current;
+            }
+
             yield return null;
             pendingSubmit = null;
+            if (!TrySendPendingImeDraft())
+            {
+                SetActivated(false);
+                ApplyClearedInput(keepFocus: false);
+            }
+        }
+
+        private bool TrySendPendingImeDraft()
+        {
             PollComposition();
             var draft = ReadDraft();
             if (string.IsNullOrWhiteSpace(draft))
             {
-                SetActivated(false);
-                ApplyClearedInput(keepFocus: false);
-                yield break;
+                return false;
             }
 
+            pendingSubmit = null;
             SendDraft(draft);
+            return true;
         }
+
+        private static bool EnterKeyIsHeld(Keyboard keyboard) =>
+            keyboard.enterKey.isPressed || keyboard.numpadEnterKey.isPressed;
 
         private void SendDraft(string draft)
         {
@@ -979,6 +1017,7 @@ namespace Game.Client.Match
                 EventSystem.current?.SetSelectedGameObject(null);
                 inputField.Select();
                 inputField.ActivateInputField();
+                Keyboard.current?.SetIMEEnabled(true);
                 return;
             }
 
