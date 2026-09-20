@@ -620,7 +620,7 @@ namespace Game.Bootstrap
                 string.Empty,
                 RoomSettings.MaxPlayerCount,
                 PlaySettingsDraft.DefaultDestructionLimit,
-                MapCatalog.DefaultMapId);
+                string.Empty);
         }
 
         private static LobbyChatLog CreateChatLog(

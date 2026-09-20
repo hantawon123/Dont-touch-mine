@@ -304,7 +304,7 @@ namespace Game.Bootstrap
                     isLocked: false,
                     password: null,
                     maxPlayers: maxPlayers,
-                    mapId: MapCatalog.DefaultMapId,
+                    mapId: string.Empty,
                     isPrivate: !isPublic);
 
                 CreateThenOpenLobbyAsync(request)

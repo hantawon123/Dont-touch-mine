@@ -35,7 +35,8 @@ namespace Game.Tests.EditMode
             Assert.That(PlaySettingsMapCatalog.All.Count, Is.EqualTo(3));
             Assert.That(PlaySettingsMapCatalog.All[0].IsRandom, Is.True);
             Assert.That(PlaySettingsMapCatalog.All[0].Label, Is.EqualTo(PlaySettingsMapCatalog.RandomLabel));
-            Assert.That(PlaySettingsMapCatalog.Default.Id, Is.EqualTo(MapCatalog.SupermarketId));
+            Assert.That(PlaySettingsMapCatalog.Default.IsRandom, Is.True);
+            Assert.That(PlaySettingsMapCatalog.DefaultIndex, Is.EqualTo(0));
             Assert.That(PlaySettingsMapCatalog.Contains(""), Is.True);
             Assert.That(PlaySettingsMapCatalog.Contains(MapCatalog.PlaygroundId), Is.False);
             Assert.That(PlaySettingsMapCatalog.Contains(MapCatalog.SupermarketId), Is.True);

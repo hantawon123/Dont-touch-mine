@@ -105,14 +105,7 @@ namespace Game.Client.Lobby
 
         public static IReadOnlyList<PlaySettingsMapOption> All { get; } = Options;
 
-        public static int DefaultIndex
-        {
-            get
-            {
-                var index = IndexOf(MapCatalog.DefaultMapId);
-                return index >= 0 ? index : 0;
-            }
-        }
+        public static int DefaultIndex => 0;
 
         public static PlaySettingsMapOption Default => Options[DefaultIndex];
 

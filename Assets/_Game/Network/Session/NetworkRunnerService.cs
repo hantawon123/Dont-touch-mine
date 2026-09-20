@@ -917,8 +917,7 @@ namespace Game.Network.Session
             _awaitingRoomClaim = request.IsAvailableServer;
             _claimAdmissionPending = false;
             _configuredTitle = request.AllowCreate ? request.DisplayName?.Trim() : null;
-            _configuredMapId = string.IsNullOrWhiteSpace(request.MapId)
-                ? MapCatalog.DefaultMapId : request.MapId.Trim();
+            _configuredMapId = request.MapId?.Trim() ?? string.Empty;
             _configuredMaxPlayers = request.MaxPlayers > 0
                 ? request.MaxPlayers
                 : 0;
