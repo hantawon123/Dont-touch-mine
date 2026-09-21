@@ -42,9 +42,7 @@ namespace Game.Client.Common
     /// </remarks>
     public static class RoomEntryMessages
     {
-        public static string Title => Title("ko");
-
-        public static string Title(string language) =>
+        public static string Title(string language = "ko") =>
             UiTextCatalog.Shipped.Get(UiText.Home.ConnectionError, language);
 
         /// <summary>

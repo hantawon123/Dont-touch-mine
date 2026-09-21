@@ -152,25 +152,30 @@ namespace Game.Client.Settings
                 return;
             }
 
-            var modal = CharacterClosetStyle.Modal;
-            var minTitleHeight = modal.TitleFontSize * 1.4f;
-            var subtitleHeight = modal.SubtitleFontSize * 1.4f;
+            var minTitleHeight = CharacterClosetStyle.Modal.TitleFontSize * 1.4f;
+            var subtitleHeight = CharacterClosetStyle.Modal.SubtitleFontSize * 1.4f;
             confirmTitle.textWrappingMode = TextWrappingModes.Normal;
             confirmTitle.overflowMode = TextOverflowModes.Overflow;
             var titleHeight = Mathf.Max(
                 minTitleHeight,
-                confirmTitle.GetPreferredValues(confirmTitle.text, modal.PanelSize.x, 0f).y);
+                confirmTitle.GetPreferredValues(
+                    confirmTitle.text, CharacterClosetStyle.Modal.PanelSize.x, 0f).y);
 
             var title = confirmTitle.rectTransform;
             title.sizeDelta = new Vector2(0f, titleHeight);
 
-            var subtitleTop = modal.TitleTop + titleHeight + modal.SubtitleGap;
+            var subtitleTop = CharacterClosetStyle.Modal.TitleTop
+                              + titleHeight
+                              + CharacterClosetStyle.Modal.SubtitleGap;
             var subtitle = confirmSubtitle.rectTransform;
             subtitle.anchoredPosition = new Vector2(0f, -subtitleTop);
             subtitle.sizeDelta = new Vector2(0f, subtitleHeight);
 
-            var buttonTop = subtitleTop + subtitleHeight + modal.ButtonGapAbove;
-            var half = (modal.ButtonSize.x + modal.ButtonGap) * 0.5f;
+            var buttonTop = subtitleTop
+                            + subtitleHeight
+                            + CharacterClosetStyle.Modal.ButtonGapAbove;
+            var half = (CharacterClosetStyle.Modal.ButtonSize.x
+                        + CharacterClosetStyle.Modal.ButtonGap) * 0.5f;
             var decline = declineLabel != null
                 ? declineLabel.rectTransform.parent as RectTransform
                 : null;
@@ -188,8 +193,9 @@ namespace Game.Client.Settings
             }
 
             plate.sizeDelta = new Vector2(
-                modal.PanelSize.x,
-                buttonTop + modal.ButtonSize.y + modal.BottomPadding);
+                CharacterClosetStyle.Modal.PanelSize.x,
+                buttonTop + CharacterClosetStyle.Modal.ButtonSize.y
+                          + CharacterClosetStyle.Modal.BottomPadding);
         }
 
         private void OpenConfirm()
