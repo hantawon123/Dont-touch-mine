@@ -38,6 +38,9 @@ namespace Game.Network.Match
     /// </summary>
     public interface INetworkMatchEvents
     {
+        /// <summary>방 설정에서 고른 파쇄 한도. 라벨의 분모와 경기 시작 횟수가 이 값을 쓴다.</summary>
+        int DestructionLimit { get; }
+
         event Action<MatchStateSnapshot> MatchStateReceived;
         event Action<LobbyChatMessage> MatchChatReceived;
         event Action<string> ItemAssignmentReceived;

@@ -1,6 +1,7 @@
 using System.Reflection;
 using Game.Client.Home;
 using Game.Client.Match;
+using Game.Core.Lobby;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -214,10 +215,14 @@ namespace Game.Architecture.Tests
                 canvas.SetActive(true);
                 hud.ApplyShredderMarkerChrome();
 
-                hud.SetRemainingDestructionUses(4);
+                hud.SetRemainingDestructionUses(4, PlaySettingsDraft.DefaultDestructionLimit);
                 Assert.That(
                     labelObject.GetComponent<TMP_Text>().text,
                     Is.EqualTo("파쇄기 (4/5)"));
+                hud.SetRemainingDestructionUses(7, 10);
+                Assert.That(
+                    labelObject.GetComponent<TMP_Text>().text,
+                    Is.EqualTo("파쇄기 (7/10)"));
                 Assert.That(
                     marker.GetComponent<RectTransform>().sizeDelta.x,
                     Is.EqualTo(NetworkMatchHudView.ShredderMarkerWidth));

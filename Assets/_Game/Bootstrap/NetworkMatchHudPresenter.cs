@@ -101,7 +101,7 @@ namespace Game.Bootstrap
             events.PlayerItemStatusesReceived += OnPlayerItemStatusesReceived;
             events.PlayerInteractionStatesReceived += OnPlayerInteractionStatesReceived;
             view.HideDestructionNotice();
-            view.SetRemainingDestructionUses(-1);
+            view.SetRemainingDestructionUses(-1, events.DestructionLimit);
             RefreshDestroyedItems();
             view.SetShredderMarker(default, false);
             view.HideHidingIntro();
@@ -834,7 +834,8 @@ namespace Game.Bootstrap
                 {
                     localHitCount = states[index].HitCount;
                     view.SetRemainingDestructionUses(
-                        states[index].RemainingDestructionUses);
+                        states[index].RemainingDestructionUses,
+                        events.DestructionLimit);
                     UpdateVitals();
                     return;
                 }

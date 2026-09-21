@@ -528,12 +528,14 @@ namespace Game.Architecture.Tests
             Assert.That(view.RemainingSeconds, Is.EqualTo(30d));
             Assert.That(view.AssignedItem, Is.EqualTo("탄산음료"));
 
+            network.DestructionLimit = 8;
             network.Publish(new[]
             {
                 new PlayerInteractionStateSnapshot(0, 0d, 5),
                 new PlayerInteractionStateSnapshot(1, 0d, 3),
             });
             Assert.That(view.RemainingDestructionUses, Is.EqualTo(3));
+            Assert.That(view.DestructionLimit, Is.EqualTo(8));
 
             network.Publish(new PlayerItemDestroyedEvent(1, "SecretItem", 12d));
             Assert.That(view.Notice, Is.EqualTo("민수님이 물건을 파괴했습니다!"));
@@ -1574,7 +1576,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void ShredderMarkerLabel_WritesRemainingUsesOverFive()
+        public void ShredderMarkerLabel_WritesRemainingUsesOverTheRoomLimit()
         {
             Assert.That(
                 NetworkMatchHudView.FormatShredderMarkerLabel(5),
@@ -1582,6 +1584,14 @@ namespace Game.Architecture.Tests
             Assert.That(
                 NetworkMatchHudView.FormatShredderMarkerLabel(3),
                 Is.EqualTo("파쇄기 (3/5)"));
+            Assert.That(
+                NetworkMatchHudView.FormatShredderMarkerLabel(7, 10),
+                Is.EqualTo("파쇄기 (7/10)"));
+            Assert.That(
+                NetworkMatchHudView.FormatShredderMarkerLabel(
+                    3,
+                    PlaySettingsDraft.UnlimitedDestructionLimit),
+                Is.EqualTo("파쇄기 (무한)"));
             Assert.That(
                 NetworkMatchHudView.FormatShredderMarkerLabel(-1),
                 Is.EqualTo("파쇄기"));
@@ -1717,8 +1727,13 @@ namespace Game.Architecture.Tests
                     ? Array.Empty<string>()
                     : new List<string>(destroyedItemIdsInOrder);
             }
-            public void SetRemainingDestructionUses(int value) =>
-                RemainingDestructionUses = value;
+            public void SetRemainingDestructionUses(int remainingUses, int maxUses)
+            {
+                RemainingDestructionUses = remainingUses;
+                DestructionLimit = maxUses;
+            }
+
+            public int DestructionLimit { get; private set; } = PlaySettingsDraft.DefaultDestructionLimit;
 
             public void ShowDestructionNotice(string message)
             {
@@ -1886,6 +1901,7 @@ namespace Game.Architecture.Tests
             public int CompleteHighlightCalls { get; private set; }
             public int HighlightReadyCalls { get; private set; }
             public MatchRuleSettings MatchRules { get; set; } = MatchRuleSettings.Default;
+            public int DestructionLimit { get; set; } = PlaySettingsDraft.DefaultDestructionLimit;
             private double serverTime;
             public double ServerTime
             {

@@ -326,6 +326,7 @@ namespace Game.Architecture.Tests
 
         private sealed class FakeNetwork : INetworkMatchEvents, INetworkResultNavigation
         {
+            public int DestructionLimit { get; set; } = PlaySettingsDraft.DefaultDestructionLimit;
             public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses { get; } =
                 Array.Empty<PlayerItemStatusSnapshot>();
             public bool IsServer { get; set; } = true;

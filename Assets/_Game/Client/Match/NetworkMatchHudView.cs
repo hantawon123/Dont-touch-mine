@@ -29,7 +29,7 @@ namespace Game.Client.Match
             IReadOnlyList<PlayerItemStatusSnapshot> statuses,
             string localItemId = null,
             IReadOnlyList<string> destroyedItemIdsInOrder = null);
-        void SetRemainingDestructionUses(int remainingUses);
+        void SetRemainingDestructionUses(int remainingUses, int maxUses);
         void ShowDestructionNotice(string message);
         void HideDestructionNotice();
         void SetShredderMarker(Vector2 screenPosition, bool visible);
@@ -129,6 +129,7 @@ namespace Game.Client.Match
         private MatchPhase currentPhase;
         private double lastRemainingSeconds = 999d;
         private int remainingDestructionUses = -1;
+        private int destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
         private int destroyedItemPlayerCount;
         private IReadOnlyList<PlayerItemStatusSnapshot> destroyedItemStatuses =
             Array.Empty<PlayerItemStatusSnapshot>();
@@ -351,9 +352,10 @@ namespace Game.Client.Match
             ApplyDestroyedItems();
         }
 
-        public void SetRemainingDestructionUses(int remainingUses)
+        public void SetRemainingDestructionUses(int remainingUses, int maxUses)
         {
             remainingDestructionUses = remainingUses;
+            destructionLimit = maxUses;
             ApplyShredderMarkerChrome();
         }
 
@@ -434,7 +436,7 @@ namespace Game.Client.Match
                 return;
             }
 
-            label.text = FormatShredderMarkerLabel(remainingDestructionUses);
+            label.text = FormatShredderMarkerLabel(remainingDestructionUses, destructionLimit);
         }
 
         public void SetShredderMarker(Vector2 screenPosition, bool visible)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Bootstrap;
 using Game.Core.Flow;
+using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Match;
 using Game.Server.Match;
@@ -199,6 +200,7 @@ namespace Game.Architecture.Tests
 
         private sealed class FakeNetworkMatchEvents : INetworkMatchEvents
         {
+            public int DestructionLimit { get; set; } = PlaySettingsDraft.DefaultDestructionLimit;
             public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses { get; } =
                 Array.Empty<PlayerItemStatusSnapshot>();
             public event Action<MatchStateSnapshot> MatchStateReceived;
