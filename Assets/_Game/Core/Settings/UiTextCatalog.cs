@@ -212,7 +212,7 @@ namespace Game.Core.Settings
             new UiTextLine(UiText.Home.Unreachable, "확인하지 못했어요. 잠시 후 다시 시도해주세요", "Could not check. Try again shortly"),
             new UiTextLine(UiText.Home.NicknameTaken, "이미 사용 중인 이름입니다", "That name is already in use"),
             new UiTextLine(UiText.Home.NicknameForbidden, "쓸 수 없는 이름입니다", "That name cannot be used"),
-            new UiTextLine(UiText.Home.NicknameInvalid, "한글, 영문, 숫자로 2~12글자여야 합니다", "Use 2–12 Korean, English, or number characters"),
+            new UiTextLine(UiText.Home.NicknameInvalid, "한글, 영문, 숫자로 2~12글자여야 합니다", "Use 2-12 Korean, English, or number characters"),
             new UiTextLine(UiText.Home.AccountNotFound, "계정을 찾을 수 없습니다", "Account not found"),
             new UiTextLine(UiText.Home.RenameFailed, "이름을 바꾸지 못했습니다", "Could not change the name"),
             new UiTextLine(UiText.Home.Unfriend, "친구 끊기", "Unfriend"),
@@ -389,7 +389,7 @@ namespace Game.Core.Settings
             new UiTextLine(
                 UiText.Match.SearchingBody,
                 "이제부터 서로의 물건을 노리는 진짜 탐색전이 시작됩니다.",
-                "Now the real search begins — go after each other's items."),
+                "Now the real search begins. Go after each other's items."),
             new UiTextLine(
                 UiText.Match.SearchingHint,
                 "마지막 순간에 {0}{1} 꼭 손에 쥐고 계세요!",
