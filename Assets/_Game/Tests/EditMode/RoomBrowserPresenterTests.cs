@@ -375,6 +375,10 @@ namespace Game.Tests.EditMode
             public void OpenSettings()
             {
             }
+
+            public void OpenTutorial()
+            {
+            }
         }
     }
 }
