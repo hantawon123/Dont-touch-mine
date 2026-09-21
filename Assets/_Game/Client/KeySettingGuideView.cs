@@ -63,7 +63,7 @@ namespace Game.Client
             ToggleAction
         };
 
-        public static readonly string[] Labels =
+        public static string[] Labels => new[]
         {
             ClickKeyLabel,
             "C",
@@ -87,7 +87,7 @@ namespace Game.Client
             ToggleAction
         };
 
-        public static readonly string[] CarryingLabels =
+        public static string[] CarryingLabels => new[]
         {
             RightClickKeyLabel,
             ClickKeyLabel,
@@ -115,7 +115,7 @@ namespace Game.Client
             ToggleAction
         };
 
-        public static readonly string[] PlacingLabels =
+        public static string[] PlacingLabels => new[]
         {
             ClickKeyLabel,
             RightClickKeyLabel,

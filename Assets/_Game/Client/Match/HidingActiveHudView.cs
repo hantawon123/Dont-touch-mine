@@ -48,8 +48,8 @@ namespace Game.Client.Match
         public const float KeyIconSize = 24f;
         public static string ClickKeyLabel => KeySettingGuideView.ClickKeyLabel;
         public static readonly Color KeyChipColor = new Color(0f, 0f, 0f, 0.27f);
-        public static readonly string[] KeyGuideActions = KeySettingGuideView.Actions;
-        public static readonly string[] KeyGuideLabels = KeySettingGuideView.Labels;
+        public static string[] KeyGuideActions => KeySettingGuideView.Actions;
+        public static string[] KeyGuideLabels => KeySettingGuideView.Labels;
 
         private static Sprite keyChipSprite;
 

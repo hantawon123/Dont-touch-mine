@@ -481,8 +481,9 @@ namespace Game.Core.Settings
         /// direction at a time — roll it and the roll is what gets bound — two
         /// rows reading alike leaves no way to see which way round they went.
         /// </remarks>
-        public static string KeyLabel(string code, string languageCode = "ko")
+        public static string KeyLabel(string code, string languageCode = null)
         {
+            languageCode ??= UiLocale.AppliedLanguage;
             if (string.IsNullOrEmpty(code))
             {
                 return UiTextCatalog.Shipped.Get(UiText.Settings.Unbound, languageCode);

@@ -10,7 +10,10 @@ namespace Game.Architecture.Tests
         [Test]
         public void ShowChrome_RedrawsEnterByCodeInTheAppliedLanguage()
         {
-            var root = new GameObject("Room Browser");
+            var root = new GameObject(
+                "Room Browser",
+                typeof(RectTransform),
+                typeof(Canvas));
             try
             {
                 var view = root.AddComponent<RoomBrowserView>();

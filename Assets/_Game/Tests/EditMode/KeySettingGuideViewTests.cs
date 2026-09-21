@@ -142,10 +142,12 @@ namespace Game.Architecture.Tests
         public void ActionsFor_SwapsOnlyTheHeldItemRows()
         {
             Assert.That(KeySettingGuideView.ActionsFor(false), Is.EqualTo(KeySettingGuideView.Actions));
-            Assert.That(KeySettingGuideView.ActionsFor(true)[0], Is.EqualTo("배치 모드"));
-            Assert.That(KeySettingGuideView.ActionsFor(true)[1], Is.EqualTo("던지기"));
-            Assert.That(KeySettingGuideView.ActionsFor(true)[2], Is.EqualTo("놓기"));
-            Assert.That(KeySettingGuideView.LabelsFor(true)[0], Is.EqualTo(ControlCatalog.KeyLabel(ControlCatalog.Defaults.Get(ControlAction.PlacementMode))));
+            Assert.That(KeySettingGuideView.ActionsFor(true)[0], Is.EqualTo(UiLocale.Applied(UiText.Guide.Placement)));
+            Assert.That(KeySettingGuideView.ActionsFor(true)[1], Is.EqualTo(UiLocale.Applied(UiText.Guide.Throw)));
+            Assert.That(KeySettingGuideView.ActionsFor(true)[2], Is.EqualTo(UiLocale.Applied(UiText.Guide.Drop)));
+            Assert.That(
+                KeySettingGuideView.LabelsFor(true)[0],
+                Is.EqualTo(KeySettingGuideView.RightClickKeyLabel));
             Assert.That(KeySettingGuideView.LabelsFor(true)[1], Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
             Assert.That(KeySettingGuideView.LabelsFor(true)[2], Is.EqualTo("F"));
             Assert.That(
@@ -171,16 +173,16 @@ namespace Game.Architecture.Tests
                 Assert.That(guide.sizeDelta, Is.EqualTo(KeySettingGuideView.CarryingPanelSize));
                 Assert.That(
                     guide.Find("Row0/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("배치 모드"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Placement)));
                 Assert.That(
                     guide.Find("Row1/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("던지기"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Throw)));
                 Assert.That(
                     guide.Find("Row1/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
                 Assert.That(
                     guide.Find("Row2/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("놓기"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Drop)));
                 Assert.That(
                     guide.Find("Row2/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo("F"));
@@ -220,19 +222,19 @@ namespace Game.Architecture.Tests
                 Assert.That(guide.sizeDelta, Is.EqualTo(KeySettingGuideView.PlacingPanelSize));
                 Assert.That(
                     guide.Find("Row0/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("배치하기"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Place)));
                 Assert.That(
                     guide.Find("Row0/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
                 Assert.That(
                     guide.Find("Row1/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("회전"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Rotate)));
                 Assert.That(
                     guide.Find("Row1/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.RightClickKeyLabel));
                 Assert.That(
                     guide.Find("Row2/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("좌우 회전"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Twist)));
                 Assert.That(
                     guide.Find("Row2/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.RotateYawKeyLabel));
@@ -241,7 +243,7 @@ namespace Game.Architecture.Tests
                     Is.EqualTo(KeySettingGuideView.CompactKeyChipFontSize));
                 Assert.That(
                     guide.Find("Row3/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("놓기"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Drop)));
                 Assert.That(
                     guide.Find("Row3/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo("F"));
