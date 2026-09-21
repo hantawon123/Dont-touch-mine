@@ -708,7 +708,7 @@ namespace Game.Client.Settings
             var rect = CreateRect("LeaveGameLabel", canvasRoot);
             SetAnchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0.5f));
             rect.anchoredPosition = new Vector2(
-                SettingsStyle.Back.Position.x, -SettingsStyle.ResetAll.CentreY);
+                SettingsStyle.Back.Position.x, -SettingsStyle.Chrome.TopRowCentreY);
             rect.sizeDelta = new Vector2(0f, SettingsStyle.Chrome.PlateHeight);
 
             var fill = AddImage(

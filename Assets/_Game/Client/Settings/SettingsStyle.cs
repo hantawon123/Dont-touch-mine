@@ -367,19 +367,35 @@ namespace Game.Client.Settings
 
             public const float LeaveIconSize = 28f;
             public const float LeaveIconGap = 14f;
+
+            /// <summary>
+            /// 화면 맨 위 줄의 중심 높이(위에서 아래로). 왼쪽 게임 나가기가 이 줄에 앉습니다.
+            ///
+            /// <para>
+            /// 전에는 오른쪽 전체 변경 취소도 같은 줄이었습니다. 2026-09-21 에 그쪽만 한 줄
+            /// 내렸으므로(<see cref="ResetAll.DropFromTopRow"/>) 이 값은 왼쪽 것만 씁니다.
+            /// </para>
+            /// </summary>
+            public static float TopRowCentreY => -Back.Position.y + (Back.Size.y * 0.5f);
         }
 
         /// <summary>The circling arrow and its words at the top right.</summary>
         public static class ResetAll
         {
-            public const float RightMargin = 160f;
+            public const float RightMargin = 130f;
 
             /// <summary>
-            /// Down from the top of the screen to the middle of the line. Level
-            /// with the arrow opposite it rather than the 60 the design gives,
-            /// which leaves the two sitting on different lines.
+            /// 맨 위 줄에서 이만큼 내려앉습니다 (2026-09-21 사용자 지정).
+            ///
+            /// <para>
+            /// 전에는 건너편 게임 나가기와 같은 줄이었습니다. 한 줄 내려 방 제목(ROOM SETTING)
+            /// 오른쪽에 두기로 했습니다. 판 높이(60)보다 큰 값이라 두 줄이 겹치지 않습니다.
+            /// </para>
             /// </summary>
-            public static float CentreY => -Back.Position.y + (Back.Size.y * 0.5f);
+            public const float DropFromTopRow = 84f;
+
+            /// <summary>화면 위에서 이 줄의 중심까지.</summary>
+            public static float CentreY => Chrome.TopRowCentreY + DropFromTopRow;
 
             public const float Height = 44f;
             public const float FontSize = 30f;

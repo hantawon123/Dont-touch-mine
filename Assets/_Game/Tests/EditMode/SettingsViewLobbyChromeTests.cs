@@ -128,11 +128,20 @@ namespace Game.Architecture.Tests
                 Assert.That(gradient.enabled, Is.True, "포인터가 올라오면 주황으로 채웁니다.");
                 Assert.That(stroke.color, Is.EqualTo(SettingsStyle.Palette.TextPrimary));
 
-                // 건너편 전체 변경 취소와 같은 높이로 같은 선 위에 앉습니다.
+                // 건너편 전체 변경 취소와 판 높이는 같지만, 그쪽은 한 줄 아래에 앉습니다
+                // (2026-09-21). 게임 나가기는 맨 위 줄에 그대로 둡니다.
                 var resetAll = Find(root, "ResetAllButton").GetComponent<RectTransform>();
                 Assert.That(rect.rect.height, Is.EqualTo(SettingsStyle.Chrome.PlateHeight));
                 Assert.That(resetAll.rect.height, Is.EqualTo(SettingsStyle.Chrome.PlateHeight));
-                Assert.That(rect.anchoredPosition.y, Is.EqualTo(resetAll.anchoredPosition.y));
+                Assert.That(rect.anchoredPosition.y, Is.EqualTo(-SettingsStyle.Chrome.TopRowCentreY));
+                Assert.That(
+                    resetAll.anchoredPosition.y,
+                    Is.EqualTo(rect.anchoredPosition.y - SettingsStyle.ResetAll.DropFromTopRow),
+                    "전체 변경 취소는 맨 위 줄에서 한 줄 내려앉습니다.");
+                Assert.That(
+                    SettingsStyle.ResetAll.DropFromTopRow,
+                    Is.GreaterThan(SettingsStyle.Chrome.PlateHeight),
+                    "두 줄이 겹치면 안 됩니다.");
                 Assert.That(
                     resetAll.GetComponent<Image>().sprite,
                     Is.Not.Null,
