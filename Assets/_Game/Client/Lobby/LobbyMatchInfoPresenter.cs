@@ -1,5 +1,6 @@
 using System;
 using Game.Core.Lobby;
+using Game.Core.Maps;
 using R3;
 using VContainer.Unity;
 
@@ -32,7 +33,11 @@ namespace Game.Client.Lobby
 
         private void Apply(PlaySettingsDraft draft)
         {
-            hud.SetMatchInfo(CategoryLabel(draft), MapLabel(draft), MapPreviewSprites.For(draft.MapId));
+            hud.SetMatchInfo(
+                CategoryLabel(draft),
+                MapLabel(draft),
+                MapPreviewSprites.For(draft.MapId),
+                MapCatalog.IsRandom(draft.MapId));
         }
 
         private static string CategoryLabel(PlaySettingsDraft draft)
@@ -52,7 +57,7 @@ namespace Game.Client.Lobby
 
             var mapId = draft.MapId?.Trim() ?? string.Empty;
             return mapId.Length == 0
-                ? PlaySettingsMapCatalog.Default.Label
+                ? PlaySettingsMapCatalog.RandomLabel
                 : mapId;
         }
     }

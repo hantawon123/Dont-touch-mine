@@ -337,7 +337,7 @@ namespace Game.Bootstrap
                 var combatant = avatar.GetComponent<PlayerCombatant>();
                 if (!lobbyMode && combatant != null)
                 {
-                    combatant.ConfigureNetworkPlayer(playerIndex, acceptsLocalInput);
+                    combatant.ConfigureNetworkPlayer(playerIndex, acceptsLocalInput, avatar.IsOwner);
                     combatants[playerIndex] = combatant;
                 }
             }

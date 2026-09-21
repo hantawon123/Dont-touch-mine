@@ -94,11 +94,13 @@ namespace Game.Client.Lobby
     }
 
     /// <summary>
-    /// Map choices shown in play settings. Random and playground stay out of
-    /// this list; playable lobby maps come from <see cref="MapCatalog.LobbyMapIds"/>.
+    /// Map choices shown in play settings. Random comes first; playground stays
+    /// out. Playable lobby maps come from <see cref="MapCatalog.LobbyMapIds"/>.
     /// </summary>
     public static class PlaySettingsMapCatalog
     {
+        public const string RandomLabel = "랜덤";
+
         private static readonly PlaySettingsMapOption[] Options = CreateOptions();
 
         public static IReadOnlyList<PlaySettingsMapOption> All { get; } = Options;
@@ -136,10 +138,11 @@ namespace Game.Client.Lobby
         private static PlaySettingsMapOption[] CreateOptions()
         {
             var playableMaps = MapCatalog.LobbyMapIds;
-            var options = new PlaySettingsMapOption[playableMaps.Count];
+            var options = new PlaySettingsMapOption[playableMaps.Count + 1];
+            options[0] = new PlaySettingsMapOption(string.Empty, RandomLabel);
             for (var i = 0; i < playableMaps.Count; i++)
             {
-                options[i] = new PlaySettingsMapOption(playableMaps[i], playableMaps[i]);
+                options[i + 1] = new PlaySettingsMapOption(playableMaps[i], playableMaps[i]);
             }
 
             return options;

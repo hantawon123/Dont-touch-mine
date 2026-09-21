@@ -61,7 +61,8 @@ namespace Game.Client.Match
 
         private void HandleSend(string text)
         {
-            if (string.IsNullOrWhiteSpace(text))
+            text = LobbyChatMessage.NormalizeText(text);
+            if (string.IsNullOrEmpty(text))
             {
                 return;
             }

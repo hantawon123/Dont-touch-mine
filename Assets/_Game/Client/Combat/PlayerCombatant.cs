@@ -77,6 +77,12 @@ namespace Game.Client.Combat
                 ? networkStunned
                 : combatRules != null && combatRules.IsStunned(playerIndex, Time.timeAsDouble);
 
+        /// <summary>
+        /// 이 클라이언트가 그리는 로컬 캐릭터인가.
+        /// 다른 사람 복제본은 false라서 기절자 화면에만 흑백이 걸린다.
+        /// </summary>
+        public bool PresentsLocalScreen { get; private set; }
+
         public int PlayerIndex => playerIndex;
 
         [Inject]
@@ -108,6 +114,11 @@ namespace Game.Client.Combat
                 ? visualRoot.GetComponentsInChildren<Renderer>()
                 : new Renderer[0];
 
+            if (GetComponent<StunScreenGrayscaleView>() == null)
+            {
+                gameObject.AddComponent<StunScreenGrayscaleView>();
+            }
+
             if (isAttacker)
             {
                 if (inputActions == null)
@@ -124,6 +135,11 @@ namespace Game.Client.Combat
 
         private void Start()
         {
+            if (!usesNetworkState)
+            {
+                PresentsLocalScreen = isAttacker;
+            }
+
             if (combatRules == null && !usesNetworkState)
             {
                 Debug.LogError(
@@ -136,9 +152,15 @@ namespace Game.Client.Combat
 
         public void ConfigureNetworkPlayer(int index, bool acceptsLocalInput)
         {
+            ConfigureNetworkPlayer(index, acceptsLocalInput, acceptsLocalInput);
+        }
+
+        public void ConfigureNetworkPlayer(int index, bool acceptsLocalInput, bool presentsLocalScreen)
+        {
             playerIndex = index;
             usesNetworkState = true;
             isAttacker = acceptsLocalInput;
+            PresentsLocalScreen = presentsLocalScreen;
             enabled = true;
 
             if (acceptsLocalInput)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using R3;
 
 namespace Game.Core.Lobby
@@ -20,19 +21,70 @@ namespace Game.Core.Lobby
                 throw new ArgumentException("Sender name is required.", nameof(senderName));
             }
 
-            if (string.IsNullOrWhiteSpace(text))
+            var normalized = NormalizeText(text);
+            if (string.IsNullOrEmpty(normalized))
             {
                 throw new ArgumentException("Message text is required.", nameof(text));
             }
 
             SenderId = senderId.Trim();
             SenderName = senderName.Trim();
-            Text = ClampText(text.Trim());
+            Text = normalized;
         }
 
         public string SenderId { get; }
         public string SenderName { get; }
         public string Text { get; }
+
+        public static bool HasVisibleText(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < text.Length; i++)
+            {
+                if (!IsInvisible(text[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static string NormalizeText(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return string.Empty;
+            }
+
+            var start = 0;
+            var end = text.Length - 1;
+            while (start <= end && IsInvisible(text[start]))
+            {
+                start++;
+            }
+
+            while (end >= start && IsInvisible(text[end]))
+            {
+                end--;
+            }
+
+            if (start > end)
+            {
+                return string.Empty;
+            }
+
+            return ClampText(text.Substring(start, end - start + 1));
+        }
+
+        private static bool IsInvisible(char value) =>
+            char.IsWhiteSpace(value) ||
+            char.IsControl(value) ||
+            char.GetUnicodeCategory(value) == UnicodeCategory.Format;
 
         public static string ClampText(string text)
         {
@@ -112,7 +164,7 @@ namespace Game.Core.Lobby
         public bool TryAppendLocal(string text, out LobbyChatMessage message)
         {
             message = default;
-            if (string.IsNullOrWhiteSpace(text))
+            if (!LobbyChatMessage.HasVisibleText(text))
             {
                 return false;
             }

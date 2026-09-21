@@ -1,6 +1,7 @@
 using System.Reflection;
 using Game.Client.Home;
 using Game.Client.Match;
+using Game.Core.Lobby;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -191,6 +192,50 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void NetworkHud_PlacesNotificationIconInFrontOfDestructionNotice()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            canvas.SetActive(false);
+            var notice = new GameObject(
+                "DestructionNotice",
+                typeof(RectTransform),
+                typeof(Image));
+            notice.transform.SetParent(canvas.transform, false);
+            var noticeText = new GameObject(
+                "NoticeText",
+                typeof(RectTransform),
+                typeof(TextMeshProUGUI));
+            noticeText.transform.SetParent(notice.transform, false);
+            try
+            {
+                var hud = canvas.AddComponent<NetworkMatchHudView>();
+                typeof(NetworkMatchHudView)
+                    .GetField("destructionNoticeRoot", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(hud, notice);
+                typeof(NetworkMatchHudView)
+                    .GetField("destructionNoticeText", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(hud, noticeText.GetComponent<TMP_Text>());
+                canvas.SetActive(true);
+                hud.ShowDestructionNotice("민수님이 물건을 파괴했습니다!");
+
+                var icon = notice.transform.Find(NetworkMatchHudView.DestructionNoticeIconName);
+                Assert.That(icon, Is.Not.Null);
+                Assert.That(icon.GetSiblingIndex(), Is.EqualTo(0));
+                Assert.That(noticeText.transform.GetSiblingIndex(), Is.GreaterThan(0));
+                Assert.That(
+                    icon.GetComponent<Image>().sprite,
+                    Is.EqualTo(NetworkMatchHudView.DestructionNoticeIconSprite));
+                Assert.That(
+                    noticeText.GetComponent<TMP_Text>().text,
+                    Is.EqualTo("민수님이 물건을 파괴했습니다!"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void NetworkHud_MovesDestructionUsesOntoTheShredderMarker()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
@@ -214,10 +259,14 @@ namespace Game.Architecture.Tests
                 canvas.SetActive(true);
                 hud.ApplyShredderMarkerChrome();
 
-                hud.SetRemainingDestructionUses(4);
+                hud.SetRemainingDestructionUses(4, PlaySettingsDraft.DefaultDestructionLimit);
                 Assert.That(
                     labelObject.GetComponent<TMP_Text>().text,
                     Is.EqualTo("파쇄기 (4/5)"));
+                hud.SetRemainingDestructionUses(7, 10);
+                Assert.That(
+                    labelObject.GetComponent<TMP_Text>().text,
+                    Is.EqualTo("파쇄기 (7/10)"));
                 Assert.That(
                     marker.GetComponent<RectTransform>().sizeDelta.x,
                     Is.EqualTo(NetworkMatchHudView.ShredderMarkerWidth));

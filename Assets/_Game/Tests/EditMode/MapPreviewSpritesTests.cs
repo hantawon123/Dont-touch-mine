@@ -69,6 +69,15 @@ namespace Game.Tests.EditMode
 
                 view.SetInfo("랜덤", "랜덤");
                 Assert.That(view.MapPreviewSprite, Is.Null, "사진 없이 호출하면 다시 단색 상자로 돌아간다.");
+                Assert.That(
+                    preview.Find(MapPreviewSprites.RandomMarkName).gameObject.activeSelf,
+                    Is.False);
+
+                view.SetInfo("랜덤", PlaySettingsMapCatalog.RandomLabel, null, randomMap: true);
+                Assert.That(view.MapPreviewSprite, Is.Null);
+                var mark = preview.Find(MapPreviewSprites.RandomMarkName).GetComponent<Text>();
+                Assert.That(mark.text, Is.EqualTo(MapPreviewSprites.RandomMarkText));
+                Assert.That(mark.gameObject.activeSelf, Is.True);
             }
             finally
             {

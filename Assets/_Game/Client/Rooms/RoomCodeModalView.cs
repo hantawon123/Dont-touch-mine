@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using Game.Client.Home;
+using Game.Client.Settings;
 using Game.Core.Rooms;
 using TMPro;
 using UnityEngine;
@@ -116,6 +117,7 @@ namespace Game.Client.Rooms
         private void Awake()
         {
             HomeUiFonts.ApplyTmp(transform);
+            SettingsStyle.ApplyCloseButton(closeButton);
             closeButton.onClick.AddListener(OnCloseButtonClicked);
             codeInputField.onValueChanged.AddListener(OnCodeTextChanged);
 

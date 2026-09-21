@@ -47,7 +47,7 @@ namespace Game.Client.Character
             RenderPipelineManager.endCameraRendering += EndCamera;
         }
 
-        private void OnDisable()
+        internal void OnDisable()
         {
             RenderPipelineManager.beginCameraRendering -= BeginCamera;
             RenderPipelineManager.endCameraRendering -= EndCamera;

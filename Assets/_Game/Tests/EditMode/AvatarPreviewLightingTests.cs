@@ -40,10 +40,10 @@ namespace Game.Architecture.Tests
                             Is.EqualTo(originalProbe[channel, coefficient]).Within(.00001f));
 
                 // Closing the panel during rendering must also restore the world.
+                // EditMode does not run SendMessage, so the same callback is
+                // invoked directly.
                 lighting.ApplyLighting();
-                lighting.enabled = false;
-                // EditMode does not dispatch every runtime lifecycle callback.
-                lighting.SendMessage("OnDisable");
+                lighting.OnDisable();
                 Assert.That(world.GetComponent<Light>().enabled, Is.True);
             }
             finally
