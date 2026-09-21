@@ -34,6 +34,7 @@ namespace Game.Network.Session
             // Snapshot seats must be restored before a join can allocate a new one.
             if (_hostMigrationInProgress) return;
             _spawner?.Spawn(runner, player, NicknameOf(runner, player), UserIdOf(runner, player));
+            ApplyLobbySprintMultiplier(player, _matchRules.SprintMultiplier);
             ReportPlayerCount();
         }
 

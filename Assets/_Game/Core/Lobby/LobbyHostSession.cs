@@ -99,8 +99,8 @@ namespace Game.Core.Lobby
                 return Fail(MatchRuleSettingsError.InvalidSearchingDuration, out settings, out error);
             }
 
-            if (sprintMultiplier != 0.5f && sprintMultiplier != 1f &&
-                sprintMultiplier != 1.5f && sprintMultiplier != 2f && sprintMultiplier != 3f)
+            if (sprintMultiplier != 1f && sprintMultiplier != 1.5f &&
+                sprintMultiplier != 2f && sprintMultiplier != 3f)
             {
                 return Fail(MatchRuleSettingsError.InvalidSprintMultiplier, out settings, out error);
             }
