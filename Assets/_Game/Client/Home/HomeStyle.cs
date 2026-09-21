@@ -137,14 +137,14 @@ namespace Game.Client.Home
         public static class Layout
         {
             /// <summary>
-            /// Title bounds and menu position in the 1920 x 1080 mock-up,
-            /// measured from its top-left corner.
+            /// Logo and menu position in the 1920 x 1080 mock-up, measured from
+            /// its top-left corner. The logo shares the 60px inset used by the
+            /// server button on the opposite side.
             /// </summary>
-            public const float TitleLeft = 269f;
-            public const float TitleTop = 228f;
-            public const float TitleWidth = 600f;
-            public const float TitleHeight = 240f;
-            public const float TitleFontSize = 90f;
+            public const float LogoLeft = 60f;
+            public const float LogoTop = 60f;
+            public const float LogoWidth = 480f;
+            public const float LogoHeight = 256f;
 
             public const float MenuLeft = 269f;
 

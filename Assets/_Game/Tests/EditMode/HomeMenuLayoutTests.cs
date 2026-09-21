@@ -135,6 +135,29 @@ namespace Game.Tests.EditMode
             home.Rect($"Region_{code}").Find("Label").GetComponent<TMPro.TMP_Text>().text;
 
         [Test]
+        public void Logo_SitsInTheTopLeftWithoutTheOldTitle()
+        {
+            using var home = new BuiltHome();
+
+            var logo = home.Rect("Logo");
+            Assert.That(logo.anchorMin, Is.EqualTo(Vector2.up));
+            Assert.That(logo.anchorMax, Is.EqualTo(Vector2.up));
+            Assert.That(logo.pivot, Is.EqualTo(Vector2.up));
+            Assert.That(
+                logo.anchoredPosition,
+                Is.EqualTo(new Vector2(HomeStyle.Layout.LogoLeft, -HomeStyle.Layout.LogoTop)));
+            Assert.That(
+                logo.sizeDelta,
+                Is.EqualTo(new Vector2(HomeStyle.Layout.LogoWidth, HomeStyle.Layout.LogoHeight)));
+            Assert.That(logo.GetComponent<Image>(), Is.Not.Null);
+
+            foreach (var text in home.View.GetComponentsInChildren<TMPro.TMP_Text>(true))
+            {
+                Assert.That(text.text, Does.Not.Contain("Don't Touch"));
+            }
+        }
+
+        [Test]
         public void Menu_StacksEntriesAtTheDesignedPitch()
         {
             using var home = new BuiltHome();
