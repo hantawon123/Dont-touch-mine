@@ -204,9 +204,9 @@ namespace Game.Editor
                 "NoticeText",
                 "플레이어가 물건을 파괴했습니다!",
                 30f,
-                TextAlignmentOptions.Center);
-            Stretch(noticeText.rectTransform, 18f);
+                TextAlignmentOptions.MidlineLeft);
             noticeText.font = HomeUiFonts.Apply();
+            NetworkMatchHudView.ApplyDestructionNoticeLayout(noticeRoot.gameObject, noticeText);
 
             var marker = CreatePanel(
                 canvasObject.transform,
@@ -233,6 +233,8 @@ namespace Game.Editor
             serialized.FindProperty("destructionNoticeRoot").objectReferenceValue =
                 noticeRoot.gameObject;
             serialized.FindProperty("destructionNoticeText").objectReferenceValue = noticeText;
+            serialized.FindProperty("destructionNoticeIcon").objectReferenceValue =
+                noticeRoot.Find(NetworkMatchHudView.DestructionNoticeIconName)?.GetComponent<Image>();
             serialized.FindProperty("shredderMarker").objectReferenceValue = marker;
             serialized.FindProperty("rootCanvas").objectReferenceValue = canvas;
             serialized.ApplyModifiedPropertiesWithoutUndo();

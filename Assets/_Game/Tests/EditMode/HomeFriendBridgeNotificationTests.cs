@@ -572,6 +572,8 @@ namespace Game.Architecture.Tests
             public void SetSelectedRegion(string code) { }
             public void SetCreateRoomVisible(bool visible) { }
             public void SetNicknameSettled(bool settled) { }
+
+            public void SetProfileAppearance(Game.Core.Players.AvatarAppearance appearance) { }
         }
     }
 }

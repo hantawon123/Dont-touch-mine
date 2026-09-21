@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Game.Core.Players;
+using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Client.Common;
@@ -148,6 +149,7 @@ namespace Game.Client.Home
         private string listFilter = string.Empty;
         private bool isProfileSettingsVisible;
         private bool isServerSettingsVisible;
+        private AvatarAppearanceState appearance;
 
         public HomeMenuPresenter(
             PlayerProfile profile,
@@ -169,7 +171,22 @@ namespace Game.Client.Home
             this.search = search ?? throw new ArgumentNullException(nameof(search));
 
             this.regions = regions ?? throw new ArgumentNullException(nameof(regions));
+        }
 
+        [VContainer.Inject]
+        public void BindAppearance(AvatarAppearanceState value)
+        {
+            if (appearance != null)
+            {
+                appearance.Changed -= OnAppearanceChanged;
+            }
+
+            appearance = value;
+            if (appearance != null)
+            {
+                appearance.Changed += OnAppearanceChanged;
+                OnAppearanceChanged(appearance.Current);
+            }
         }
 
         public void Start()
@@ -215,6 +232,10 @@ namespace Game.Client.Home
             profile.Changed -= BindProfile;
             friends.FriendsChanged -= BindFriends;
             search.ResultsChanged -= BindSearchResults;
+            if (appearance != null)
+            {
+                appearance.Changed -= OnAppearanceChanged;
+            }
         }
 
         private void OnActionClicked(HomeMenuAction action)
@@ -590,6 +611,12 @@ namespace Game.Client.Home
         {
             view.SetNickname(source.Nickname);
             view.SetNicknameSettled(source.NicknameSet);
+        }
+
+        private void OnAppearanceChanged(AvatarAppearance worn)
+        {
+            AvatarAppearanceBoard.SetLocal(worn);
+            view.SetProfileAppearance(worn);
         }
     }
 }

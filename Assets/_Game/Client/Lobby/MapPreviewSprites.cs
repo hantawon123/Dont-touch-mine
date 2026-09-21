@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Client.Home;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -18,6 +19,11 @@ namespace Game.Client.Lobby
         public const string ResourceFolder = "UI/Maps/";
         public const string ResourcePrefix = "MapPreview_";
         public const string PhotoChildName = "Photo";
+        public const string RandomMarkName = "RandomMark";
+        public const string RandomMarkText = "?";
+        public const int RandomMarkFontSize = 80;
+        public const int RandomMarkSlotFontSize = 40;
+        public const int RandomMarkLobbyFontSize = 200;
 
         /// <summary>미리보기 사진의 가로:세로. 캡처 도구와 UI 상자 크기가 이 값을 공유한다.</summary>
         public const float Aspect = 4f / 3f;
@@ -102,6 +108,60 @@ namespace Game.Client.Lobby
             photo.sprite = sprite;
             photo.color = tint ?? Color.white;
             photo.gameObject.SetActive(sprite != null);
+        }
+
+        /// <summary>
+        /// 랜덤 선택일 때 프리뷰 상자 한가운데에 "?"를 켠다. 사진이 있는 맵에서는 끈다.
+        /// </summary>
+        public static void ApplyRandomMark(Component frame, bool visible, int fontSize = RandomMarkFontSize)
+        {
+            var mark = FindRandomMark(frame);
+            if (!visible)
+            {
+                if (mark != null)
+                {
+                    mark.gameObject.SetActive(false);
+                }
+
+                return;
+            }
+
+            mark ??= AttachRandomMark(frame, fontSize);
+            mark.fontSize = fontSize;
+            mark.gameObject.SetActive(true);
+        }
+
+        public static Text FindRandomMark(Component frame)
+        {
+            var child = frame != null ? frame.transform.Find(RandomMarkName) : null;
+            return child != null ? child.GetComponent<Text>() : null;
+        }
+
+        public static Text AttachRandomMark(Component frame, int fontSize = RandomMarkFontSize)
+        {
+            var existing = FindRandomMark(frame);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var markGo = new GameObject(RandomMarkName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            markGo.transform.SetParent(frame.transform, false);
+            var rect = (RectTransform)markGo.transform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            var mark = markGo.GetComponent<Text>();
+            mark.text = RandomMarkText;
+            mark.font = HomeUiFonts.Legacy();
+            mark.fontSize = fontSize;
+            mark.alignment = TextAnchor.MiddleCenter;
+            mark.color = Color.white;
+            mark.raycastTarget = false;
+            mark.horizontalOverflow = HorizontalWrapMode.Overflow;
+            mark.verticalOverflow = VerticalWrapMode.Overflow;
+            return mark;
         }
 
         /// <summary>이미 만들어진 상자에서 사진 자식을 찾는다(레이아웃 재사용 시).</summary>

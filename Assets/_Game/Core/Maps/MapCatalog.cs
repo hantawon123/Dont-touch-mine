@@ -79,7 +79,8 @@ namespace Game.Core.Maps
 
             if (IsRandom(mapId))
             {
-                return DefaultMapId;
+                // Kept empty until match start, where PickRandom chooses a lobby map.
+                return string.Empty;
             }
 
             return Contains(fallback) ? fallback.Trim() : DefaultMapId;

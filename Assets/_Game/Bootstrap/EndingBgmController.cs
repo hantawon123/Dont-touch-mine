@@ -1,13 +1,16 @@
 using System;
 using Game.Core.Flow;
 using Game.Core.Settings;
+using Game.Network.Match;
 using UnityEngine;
+using VContainer;
 using VContainer.Unity;
 
 namespace Game.Bootstrap
 {
     /// <summary>
     /// 하이라이트 구간만 재생하는 엔딩 BGM. 들어갈 때 페이드인, 나올 때 페이드아웃.
+    /// 하이라이트를 건너뛰어 로비에 먼저 나온 뒤에는 다른 참가자가 아직 보고 있어도 바로 페이드아웃한다.
     /// </summary>
     /// <remarks>
     /// One looped track for highlight playback only. Result and lobby stay
@@ -15,6 +18,8 @@ namespace Game.Bootstrap
     /// <see cref="SoundCatalog.BgmPlaybackVolume"/> (default 50 already sounds
     /// like 40 on the file) times the fade. Master is already on AudioListener.
     /// The clip is assigned on <c>ProjectLifetimeScope</c>.
+    /// App flow stays on Highlight until every peer finishes, so local lobby
+    /// arrival is <see cref="INetworkResultNavigation.HasLeftLocalHighlight"/>.
     /// </remarks>
     public sealed class EndingBgmController : IStartable, ITickable, IDisposable
     {
@@ -25,6 +30,7 @@ namespace Game.Bootstrap
         private readonly AppFlowSystem flow;
         private readonly SoundSettingsSystem sound;
         private readonly AudioSource source;
+        private INetworkResultNavigation navigation;
         private bool started;
         private bool inEnding;
         private bool fading;
@@ -35,15 +41,23 @@ namespace Game.Bootstrap
         public EndingBgmController(
             AppFlowSystem flow,
             SoundSettingsSystem sound,
-            AudioSource source)
+            AudioSource source,
+            INetworkResultNavigation navigation)
         {
             this.flow = flow;
             this.sound = sound;
             this.source = source;
+            this.navigation = navigation;
         }
 
-        public static bool ShouldPlay(AppFlowState state) =>
-            state == AppFlowState.Highlight;
+        [Inject]
+        public void BindNavigation(INetworkResultNavigation value)
+        {
+            navigation = value;
+        }
+
+        public static bool ShouldPlay(AppFlowState state, bool hasLeftLocalHighlight = false) =>
+            state == AppFlowState.Highlight && !hasLeftLocalHighlight;
 
         public void Start()
         {
@@ -62,9 +76,17 @@ namespace Game.Bootstrap
             source.volume = ResolvedVolume();
         }
 
-        private void OnStateChanged(AppFlowState state)
+        private void OnStateChanged(AppFlowState state) => RefreshPlayback();
+
+        public void Tick()
         {
-            var next = ShouldPlay(state);
+            RefreshPlayback();
+            AdvanceFade(Time.unscaledDeltaTime);
+        }
+
+        private void RefreshPlayback()
+        {
+            var next = ShouldPlay(flow.CurrentState, HasLeftLocalHighlight);
             if (next == inEnding) return;
             inEnding = next;
             if (inEnding && !playing)
@@ -78,7 +100,8 @@ namespace Game.Bootstrap
             fading = true;
         }
 
-        public void Tick() => AdvanceFade(Time.unscaledDeltaTime);
+        private bool HasLeftLocalHighlight =>
+            navigation != null && navigation.HasLeftLocalHighlight;
 
         private void AdvanceFade(float deltaTime)
         {
