@@ -372,7 +372,6 @@ namespace Game.Bootstrap
                 return;
             view.ShowDestructionNotice(
                 $"{DisplayNameOf(confirmed.DestroyerPlayerIndex)}님이 물건을 파괴했습니다!");
-            view.PlayDestructionNoticeAudio();
             noticeEndsAt = Math.Max(clock.IsRuntimeReady ? clock.ServerTime : confirmed.DestroyedAt, confirmed.DestroyedAt) +
                            NoticeDurationSeconds;
         }
