@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Client.Settings
 {
@@ -29,11 +30,12 @@ namespace Game.Client.Settings
         public const string ArrowLeftIconResource = "UI/Icon_Left";
         public const string ArrowRightIconResource = "UI/Icon_Right";
         public const string CloseIconResource = "UI/Icon_Close";
+        public const string CloseIconAssetPath = "Assets/_Game/Content/Resources/UI/Icon_Close.png";
 
         /// <summary>
         /// The X on a confirmation. The Settings / Closet scenes assign it in
         /// the inspector; a view built in code, as the lobby overlays are,
-        /// loads the Resources copy.
+        /// loads the Resources copy so player builds can find it.
         /// </summary>
         public static Sprite LoadCloseIcon(Sprite assigned = null)
         {
@@ -43,14 +45,64 @@ namespace Game.Client.Settings
             }
 
             var loaded = Resources.Load<Sprite>(CloseIconResource);
-#if UNITY_EDITOR
-            if (loaded == null)
+            if (loaded != null)
             {
-                loaded = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
-                    "Assets/_Game/Content/UI/Common/Icon_Close.png");
+                return loaded;
             }
+
+            var texture = Resources.Load<Texture2D>(CloseIconResource);
+            if (texture != null)
+            {
+                return Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, texture.width, texture.height),
+                    new Vector2(0.5f, 0.5f),
+                    100f);
+            }
+
+#if UNITY_EDITOR
+            return UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(CloseIconAssetPath);
+#else
+            return null;
 #endif
-            return loaded;
+        }
+
+        public static Sprite ApplyCloseIcon(Image image, Sprite assigned = null)
+        {
+            var sprite = LoadCloseIcon(assigned);
+            if (image == null)
+            {
+                return sprite;
+            }
+
+            image.sprite = sprite;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = true;
+            image.enabled = sprite != null;
+            return sprite;
+        }
+
+        public static Sprite ApplyCloseButton(Selectable button, Sprite assigned = null)
+        {
+            if (button == null)
+            {
+                return LoadCloseIcon(assigned);
+            }
+
+            var image = button.targetGraphic as Image ?? button.GetComponent<Image>();
+            var sprite = ApplyCloseIcon(image, assigned);
+            if (sprite == null)
+            {
+                return null;
+            }
+
+            var label = button.transform.Find("Text");
+            if (label != null)
+            {
+                label.gameObject.SetActive(false);
+            }
+
+            return sprite;
         }
 
         public static class Palette

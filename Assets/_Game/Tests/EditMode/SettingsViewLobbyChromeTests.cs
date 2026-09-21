@@ -7,6 +7,14 @@ namespace Game.Architecture.Tests
 {
     public sealed class SettingsViewLobbyChromeTests
     {
+        [Test]
+        public void CloseIcon_IsAvailableThroughPlayerResources()
+        {
+            var sprite = Resources.Load<Sprite>(SettingsStyle.CloseIconResource);
+            Assert.That(sprite, Is.Not.Null, "Player builds must load the close icon through Resources.");
+            Assert.That(SettingsStyle.LoadCloseIcon(), Is.EqualTo(sprite));
+        }
+
         [TestCase(0)]
         [TestCase(1)]
         [TestCase(5)]
@@ -91,7 +99,9 @@ namespace Game.Architecture.Tests
                 Assert.That(label.text, Is.EqualTo(SettingsStyle.Buttons.LeaveLabel));
                 var close = Find(root, "CloseButton");
                 Assert.That(close, Is.Not.Null);
-                Assert.That(close.GetComponent<Image>().sprite, Is.Not.Null);
+                Assert.That(
+                    close.GetComponent<Image>().sprite,
+                    Is.EqualTo(SettingsStyle.LoadCloseIcon()));
                 var background = Find(root, "Background").GetComponent<Image>();
                 Assert.That(background.color, Is.EqualTo(SettingsStyle.Palette.OverlayDim));
                 Assert.That(background.color.a, Is.EqualTo(0.8f));

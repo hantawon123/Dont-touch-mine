@@ -1,5 +1,6 @@
 using System;
 using Game.Client.Common;
+using Game.Client.Settings;
 using Game.Core.Home;
 using TMPro;
 using UnityEngine;
@@ -101,9 +102,8 @@ namespace Game.Client.Home
                 -HomeStyle.CreateRoom.SidePadding, -HomeStyle.CreateRoom.VerticalPadding);
             close.sizeDelta = new Vector2(
                 HomeStyle.CreateRoom.CloseIconSize, HomeStyle.CreateRoom.CloseIconSize);
-            var icon = AddImage(close, Color.white, closeIcon, raycastTarget: true);
-            icon.preserveAspect = true;
-            icon.enabled = closeIcon != null;
+            var icon = AddImage(close, Color.white, raycastTarget: true);
+            SettingsStyle.ApplyCloseIcon(icon, closeIcon);
 
             var button = close.gameObject.AddComponent<Button>();
             button.targetGraphic = icon;

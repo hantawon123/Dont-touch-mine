@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using Game.Client.Home;
+using Game.Client.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -291,12 +292,7 @@ namespace Game.Client.Character
 
             var image = AddImage(
                 rect, CharacterClosetStyle.Palette.CloseIcon, raycastTarget: true);
-            if (closeIcon != null)
-            {
-                image.sprite = closeIcon;
-                image.type = Image.Type.Simple;
-                image.preserveAspect = true;
-            }
+            SettingsStyle.ApplyCloseIcon(image, closeIcon);
 
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;

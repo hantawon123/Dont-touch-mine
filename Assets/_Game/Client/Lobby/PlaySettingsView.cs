@@ -1111,11 +1111,9 @@ namespace Game.Client.Lobby
                 PlaySettingsStyle.Overlay.CloseSize, PlaySettingsStyle.Overlay.CloseSize);
 
             var image = rect.GetComponent<Image>() ?? rect.gameObject.AddComponent<Image>();
-            image.sprite = SettingsStyle.LoadCloseIcon();
             image.color = PlaySettingsStyle.Palette.Text;
-            image.type = Image.Type.Simple;
-            image.preserveAspect = true;
             image.raycastTarget = true;
+            SettingsStyle.ApplyCloseIcon(image);
 
             closeButton = rect.GetComponent<Button>() ?? rect.gameObject.AddComponent<Button>();
             closeButton.targetGraphic = image;

@@ -1,5 +1,6 @@
 using System.Reflection;
 using Game.Client.Lobby;
+using Game.Client.Settings;
 using Game.Core.Lobby;
 using Game.Core.Maps;
 using NUnit.Framework;
@@ -64,7 +65,9 @@ namespace Game.Architecture.Tests
                     Is.EqualTo(new Vector2(
                         PlaySettingsStyle.Overlay.CloseSize,
                         PlaySettingsStyle.Overlay.CloseSize)));
-                Assert.That(close.GetComponent<Image>().sprite, Is.Not.Null);
+                Assert.That(
+                    close.GetComponent<Image>().sprite,
+                    Is.EqualTo(SettingsStyle.LoadCloseIcon()));
                 Assert.That(Find(root.transform, "BackButton"), Is.Null);
 
                 var overlay = Find(root.transform, "PlaySettingsOverlay");

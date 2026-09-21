@@ -71,6 +71,10 @@ namespace Game.Client.Match
         public const float ShredderMarkerWidth = 240f;
         public const float ShredderMarkerHeight = 52f;
         public const string ShredderMarkerLabelName = "Label";
+        public const string DestructionNoticeIconName = "NoticeIcon";
+        public const string DestructionNoticeIconResource = "UI/Icon_Notification";
+        public const float DestructionNoticeIconSize = 40f;
+        public const float DestructionNoticeIconGap = 10f;
         [SerializeField]
         private MatchPhaseView phaseView;
 
@@ -85,6 +89,9 @@ namespace Game.Client.Match
 
         [SerializeField]
         private TMP_Text destructionNoticeText;
+
+        [SerializeField]
+        private Image destructionNoticeIcon;
 
         [SerializeField]
         private RectTransform shredderMarker;
@@ -152,6 +159,7 @@ namespace Game.Client.Match
             Game.Client.Common.HudScreenScale.EnsureOn(rootCanvas);
 
             HideDestructionNotice();
+            ApplyDestructionNoticeChrome();
             ApplyShredderMarkerChrome();
             SetShredderMarker(default, false);
             SetHighlightHud(false, null, Array.Empty<float>());
@@ -361,6 +369,7 @@ namespace Game.Client.Match
 
         public void ShowDestructionNotice(string message)
         {
+            ApplyDestructionNoticeChrome();
             if (destructionNoticeText != null)
             {
                 ApplyPaperlogy(destructionNoticeText);
@@ -371,6 +380,107 @@ namespace Game.Client.Match
             {
                 destructionNoticeRoot.SetActive(true);
             }
+        }
+
+        public static Sprite DestructionNoticeIconSprite =>
+            Resources.Load<Sprite>(DestructionNoticeIconResource);
+
+        public static Image EnsureDestructionNoticeIcon(Transform root)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            var existing = root.Find(DestructionNoticeIconName);
+            var image = existing != null ? existing.GetComponent<Image>() : null;
+            if (image == null)
+            {
+                var iconObject = new GameObject(
+                    DestructionNoticeIconName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image));
+                iconObject.transform.SetParent(root, false);
+                image = iconObject.GetComponent<Image>();
+                image.raycastTarget = false;
+            }
+
+            image.sprite = DestructionNoticeIconSprite;
+            image.color = Color.white;
+            image.preserveAspect = true;
+            image.rectTransform.sizeDelta = new Vector2(
+                DestructionNoticeIconSize,
+                DestructionNoticeIconSize);
+            image.transform.SetSiblingIndex(0);
+
+            var layout = image.GetComponent<LayoutElement>()
+                ?? image.gameObject.AddComponent<LayoutElement>();
+            layout.minWidth = DestructionNoticeIconSize;
+            layout.minHeight = DestructionNoticeIconSize;
+            layout.preferredWidth = DestructionNoticeIconSize;
+            layout.preferredHeight = DestructionNoticeIconSize;
+            layout.flexibleWidth = 0f;
+            layout.flexibleHeight = 0f;
+            return image;
+        }
+
+        public static void ApplyDestructionNoticeLayout(GameObject root, TMP_Text text)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var group = root.GetComponent<HorizontalLayoutGroup>()
+                ?? root.AddComponent<HorizontalLayoutGroup>();
+            group.childAlignment = TextAnchor.MiddleCenter;
+            group.spacing = DestructionNoticeIconGap;
+            group.padding = new RectOffset(24, 24, 0, 0);
+            group.childControlWidth = true;
+            group.childControlHeight = true;
+            group.childForceExpandWidth = false;
+            group.childForceExpandHeight = false;
+            group.childScaleWidth = false;
+            group.childScaleHeight = false;
+
+            EnsureDestructionNoticeIcon(root.transform);
+
+            if (text == null)
+            {
+                return;
+            }
+
+            text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            var textRect = text.rectTransform;
+            textRect.anchorMin = new Vector2(0.5f, 0.5f);
+            textRect.anchorMax = new Vector2(0.5f, 0.5f);
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+
+            var textLayout = text.GetComponent<LayoutElement>()
+                ?? text.gameObject.AddComponent<LayoutElement>();
+            textLayout.flexibleWidth = 0f;
+            textLayout.minHeight = DestructionNoticeIconSize;
+        }
+
+        internal void ApplyDestructionNoticeChrome()
+        {
+            if (destructionNoticeRoot == null)
+            {
+                return;
+            }
+
+            if (destructionNoticeText == null)
+            {
+                destructionNoticeText = destructionNoticeRoot.GetComponentInChildren<TMP_Text>(true);
+            }
+
+            ApplyDestructionNoticeLayout(destructionNoticeRoot, destructionNoticeText);
+            destructionNoticeIcon = destructionNoticeRoot.transform
+                .Find(DestructionNoticeIconName)
+                ?.GetComponent<Image>();
         }
 
         public void HideDestructionNotice()
