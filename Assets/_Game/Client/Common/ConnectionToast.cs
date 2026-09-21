@@ -19,9 +19,8 @@ namespace Game.Client.Common
     /// two scenes.
     /// </para>
     /// <para>
-    /// A success uses the same plate with the hue rotated to green, and a check
-    /// to the left of the title, so thanks is not drawn in the same warmth as a
-    /// refusal.
+    /// A success is the green plate with a check; a refusal keeps the warm
+    /// plate and a caution mark. Both sit the icon to the left of the title.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
@@ -29,6 +28,8 @@ namespace Game.Client.Common
     {
         public const string CheckIconName = "CheckIcon";
         public const string CheckIconResource = "UI/Icon_Check";
+        public const string CautionIconName = "CautionIcon";
+        public const string CautionIconResource = "UI/Icon_Caution";
 
         public static class Style
         {
@@ -52,8 +53,8 @@ namespace Game.Client.Common
             public const float BodyOffsetY = -22f;
             public const float TitleSize = 30f;
             public const float BodySize = 20f;
-            public const float CheckIconSize = 40f;
-            public const float CheckIconGap = 10f;
+            public const float TitleIconSize = 40f;
+            public const float TitleIconGap = 10f;
 
             /// <summary>
             /// How long it stays up. Long enough to read a line, short enough
@@ -66,6 +67,7 @@ namespace Game.Client.Common
         private Image plate;
         private Image tint;
         private Image checkIcon;
+        private Image cautionIcon;
         private TMP_Text titleText;
         private TMP_Text bodyText;
         private float hidesAt;
@@ -115,15 +117,19 @@ namespace Game.Client.Common
 
         public string Body => bodyText == null ? string.Empty : bodyText.text;
 
-        public static Sprite LoadCheckIcon()
+        public static Sprite LoadCheckIcon() => LoadIcon(CheckIconResource);
+
+        public static Sprite LoadCautionIcon() => LoadIcon(CautionIconResource);
+
+        public static Sprite LoadIcon(string resource)
         {
-            var sprite = Resources.Load<Sprite>(CheckIconResource);
+            var sprite = Resources.Load<Sprite>(resource);
             if (sprite != null)
             {
                 return sprite;
             }
 
-            var texture = Resources.Load<Texture2D>(CheckIconResource);
+            var texture = Resources.Load<Texture2D>(resource);
             if (texture == null)
             {
                 return null;
@@ -163,7 +169,8 @@ namespace Game.Client.Common
             tint.rectTransform.offsetMin = Vector2.zero;
             tint.rectTransform.offsetMax = Vector2.zero;
 
-            checkIcon = CreateCheckIcon(root);
+            checkIcon = CreateTitleIcon(CheckIconName, root, LoadCheckIcon());
+            cautionIcon = CreateTitleIcon(CautionIconName, root, LoadCautionIcon());
             titleText = CreateText(
                 "Title", root, Style.TitleSize, Style.Title, Style.TitleOffsetY);
             bodyText = CreateText(
@@ -200,8 +207,8 @@ namespace Game.Client.Common
         }
 
         /// <summary>
-        /// A success sits the check to the left of the title and centres the
-        /// two as one line. A refusal keeps the title alone in the middle.
+        /// The check or the caution sits to the left of the title, and the two
+        /// are centred as one line.
         /// </summary>
         private void LayoutTitle(bool success)
         {
@@ -210,29 +217,34 @@ namespace Game.Client.Common
                 return;
             }
 
-            var titleRect = titleText.rectTransform;
-            if (!success || checkIcon == null)
+            if (checkIcon != null)
             {
-                if (checkIcon != null)
-                {
-                    checkIcon.gameObject.SetActive(false);
-                }
+                checkIcon.gameObject.SetActive(success);
+            }
 
+            if (cautionIcon != null)
+            {
+                cautionIcon.gameObject.SetActive(!success);
+            }
+
+            var icon = success ? checkIcon : cautionIcon;
+            var titleRect = titleText.rectTransform;
+            if (icon == null)
+            {
                 titleRect.anchoredPosition = new Vector2(0f, Style.TitleOffsetY);
                 titleRect.sizeDelta = new Vector2(Style.Size.x, 40f);
                 return;
             }
 
-            checkIcon.gameObject.SetActive(true);
             titleText.ForceMeshUpdate();
             var titleWidth = Mathf.Max(titleText.preferredWidth, 1f);
-            var cluster = Style.CheckIconSize + Style.CheckIconGap + titleWidth;
+            var cluster = Style.TitleIconSize + Style.TitleIconGap + titleWidth;
             var left = -cluster * 0.5f;
-            checkIcon.rectTransform.anchoredPosition = new Vector2(
-                left + Style.CheckIconSize * 0.5f,
+            icon.rectTransform.anchoredPosition = new Vector2(
+                left + Style.TitleIconSize * 0.5f,
                 Style.TitleOffsetY);
             titleRect.anchoredPosition = new Vector2(
-                left + Style.CheckIconSize + Style.CheckIconGap + titleWidth * 0.5f,
+                left + Style.TitleIconSize + Style.TitleIconGap + titleWidth * 0.5f,
                 Style.TitleOffsetY);
             titleRect.sizeDelta = new Vector2(titleWidth + 4f, 40f);
         }
@@ -255,19 +267,19 @@ namespace Game.Client.Common
             return image;
         }
 
-        private static Image CreateCheckIcon(Transform parent)
+        private static Image CreateTitleIcon(string name, Transform parent, Sprite sprite)
         {
-            var rect = new GameObject(CheckIconName, typeof(RectTransform))
+            var rect = new GameObject(name, typeof(RectTransform))
                 .GetComponent<RectTransform>();
             rect.SetParent(parent, false);
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(Style.CheckIconSize, Style.CheckIconSize);
+            rect.sizeDelta = new Vector2(Style.TitleIconSize, Style.TitleIconSize);
             rect.anchoredPosition = new Vector2(0f, Style.TitleOffsetY);
 
             var image = rect.gameObject.AddComponent<Image>();
-            image.sprite = LoadCheckIcon();
+            image.sprite = sprite;
             image.color = Color.white;
             image.type = Image.Type.Simple;
             image.preserveAspect = true;

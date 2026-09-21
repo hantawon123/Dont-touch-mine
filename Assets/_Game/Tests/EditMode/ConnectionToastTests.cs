@@ -17,6 +17,14 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void CautionIcon_IsAvailableThroughPlayerResources()
+        {
+            var sprite = Resources.Load<Sprite>(ConnectionToast.CautionIconResource);
+            Assert.That(sprite, Is.Not.Null, "Player builds must load the caution icon through Resources.");
+            Assert.That(ConnectionToast.LoadCautionIcon(), Is.EqualTo(sprite));
+        }
+
+        [Test]
         public void Success_UsesGreenAndShowsCheckToTheLeftOfTheTitle()
         {
             var canvas = new GameObject("Toast canvas", typeof(RectTransform), typeof(Canvas));
@@ -32,17 +40,19 @@ namespace Game.Architecture.Tests
                 var plate = root.GetComponent<Image>();
                 var tint = root.Find("Tint").GetComponent<Image>();
                 var title = root.Find("Title").GetComponent<TMP_Text>();
-                var icon = root.Find(ConnectionToast.CheckIconName).GetComponent<Image>();
+                var check = root.Find(ConnectionToast.CheckIconName).GetComponent<Image>();
+                var caution = root.Find(ConnectionToast.CautionIconName);
 
                 Assert.That(plate.color, Is.EqualTo(ConnectionToast.Style.SuccessFill));
                 Assert.That(plate.color.a, Is.EqualTo(0.2f).Within(0.001f));
                 Assert.That(tint.enabled, Is.False);
                 Assert.That(title.color, Is.EqualTo(ConnectionToast.Style.SuccessTitle));
                 Assert.That(title.text, Is.EqualTo("피드백 보내기"));
-                Assert.That(icon.gameObject.activeSelf, Is.True);
-                Assert.That(icon.rectTransform.sizeDelta.x, Is.EqualTo(ConnectionToast.Style.CheckIconSize));
+                Assert.That(check.gameObject.activeSelf, Is.True);
+                Assert.That(caution.gameObject.activeSelf, Is.False);
+                Assert.That(check.rectTransform.sizeDelta.x, Is.EqualTo(ConnectionToast.Style.TitleIconSize));
                 Assert.That(
-                    icon.rectTransform.anchoredPosition.x,
+                    check.rectTransform.anchoredPosition.x,
                     Is.LessThan(title.rectTransform.anchoredPosition.x),
                     "the check sits to the left of the title.");
             }
@@ -53,7 +63,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Failure_KeepsTheWarmPlateAndHidesTheCheck()
+        public void Failure_KeepsTheWarmPlateAndShowsCautionToTheLeftOfTheTitle()
         {
             var canvas = new GameObject("Toast canvas", typeof(RectTransform), typeof(Canvas));
             try
@@ -65,15 +75,20 @@ namespace Game.Architecture.Tests
                 var plate = root.GetComponent<Image>();
                 var tint = root.Find("Tint").GetComponent<Image>();
                 var title = root.Find("Title").GetComponent<TMP_Text>();
-                var icon = root.Find(ConnectionToast.CheckIconName);
+                var check = root.Find(ConnectionToast.CheckIconName);
+                var caution = root.Find(ConnectionToast.CautionIconName).GetComponent<Image>();
 
                 Assert.That(plate.color, Is.EqualTo(ConnectionToast.Style.Base));
                 Assert.That(tint.enabled, Is.True);
                 Assert.That(tint.color, Is.EqualTo(ConnectionToast.Style.Tint));
                 Assert.That(title.color, Is.EqualTo(ConnectionToast.Style.Title));
-                Assert.That(icon.gameObject.activeSelf, Is.False);
-                Assert.That(title.rectTransform.anchoredPosition, Is.EqualTo(
-                    new Vector2(0f, ConnectionToast.Style.TitleOffsetY)));
+                Assert.That(check.gameObject.activeSelf, Is.False);
+                Assert.That(caution.gameObject.activeSelf, Is.True);
+                Assert.That(caution.rectTransform.sizeDelta.x, Is.EqualTo(ConnectionToast.Style.TitleIconSize));
+                Assert.That(
+                    caution.rectTransform.anchoredPosition.x,
+                    Is.LessThan(title.rectTransform.anchoredPosition.x),
+                    "the caution sits to the left of the title.");
             }
             finally
             {
