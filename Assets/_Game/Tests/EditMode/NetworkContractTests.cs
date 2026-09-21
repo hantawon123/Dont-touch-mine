@@ -182,16 +182,16 @@ namespace Game.Architecture.Tests
             Assert.That(network.TryKickPlayer("P2"), Is.False);
         }
 
-        [TestCase(false, true, 2, 6, 5, "playground", "food", false)]
-        [TestCase(true, false, 2, 6, 5, "playground", "food", false)]
-        [TestCase(true, true, 3, 2, 5, "playground", "food", false)]
-        [TestCase(true, true, 2, 6, -1, "playground", "food", false)]
-        [TestCase(true, true, 2, 6, 0, "playground", "food", true)]
+        [TestCase(false, true, 2, 6, 5, "supermarket", "food", false)]
+        [TestCase(true, false, 2, 6, 5, "supermarket", "food", false)]
+        [TestCase(true, true, 3, 2, 5, "supermarket", "food", false)]
+        [TestCase(true, true, 2, 6, -1, "supermarket", "food", false)]
+        [TestCase(true, true, 2, 6, 0, "supermarket", "food", true)]
         [TestCase(true, true, 2, 6, 5, "missing", "food", false)]
-        [TestCase(true, true, 2, 6, 5, "playground", "unsupported", false)]
-        [TestCase(true, true, 2, 6, 5, "playground", "food", true)]
+        [TestCase(true, true, 2, 6, 5, "supermarket", "unsupported", false)]
+        [TestCase(true, true, 2, 6, 5, "supermarket", "food", true)]
         [TestCase(true, true, 2, 6, 5, "", "", true)]
-        [TestCase(true, true, 2, 6, 5, "playground", "", true)]
+        [TestCase(true, true, 2, 6, 5, "supermarket", "", true)]
         public void LobbySettingsValidation_EnforcesAuthorityRangesAndCategory(
             bool hasAuthority,
             bool hasValidSession,
@@ -408,6 +408,7 @@ namespace Game.Architecture.Tests
             public void OpenRoomBrowser() => OpenCount++;
             public void OpenCharacterCloset() { }
             public void OpenSettings() { }
+            public void OpenTutorial() { }
             public void Quit() { }
             public void OpenHome() => HomeCount++;
             public void CreateRoom(string title, bool isPublic, int maxPlayers)
@@ -1322,8 +1323,8 @@ namespace Game.Architecture.Tests
                 resolved.Add(scene);
             }
 
-            Assert.That(scenes.MatchSceneFor(Game.Core.Maps.MapCatalog.PlaygroundId), Is.EqualTo(scenes.MatchScene),
-                "The default match scene stays the playground for older callers.");
+            Assert.That(scenes.MatchSceneFor(Game.Core.Maps.MapCatalog.SupermarketId), Is.EqualTo(scenes.MatchScene),
+                "The supermarket is the default match scene.");
             Assert.That(scenes.IsMatchScene(scenes.LobbyScene), Is.False);
             Assert.That(scenes.IsMatchScene(default), Is.False);
         }

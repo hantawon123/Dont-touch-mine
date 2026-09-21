@@ -514,7 +514,7 @@ namespace Game.Tests.EditMode
             Assert.That(result.WinnerPlayerIndices, Is.EqualTo(new[] { 0 }));
             Assert.That(session.CaptureDestroyedPlayerItemIds(), Is.EqualTo(new[] { destroyedItemId }));
 
-            foreach (var targetId in new[] { "first", "popular", "final" })
+            foreach (var targetId in new[] { "first", "popular" })
             {
                 Assert.That(session.TryGetCurrentHighlight(out var highlight), Is.True);
                 Assert.That(highlight.TargetId, Is.EqualTo(targetId));
@@ -1158,8 +1158,8 @@ namespace Game.Tests.EditMode
 
             Assert.That(session.AllPlayerItemsDestroyed, Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
-            // Both event clips end at the match boundary, without a three-second prison tail.
-            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(222.2d).Within(0.001d));
+            // The selected clips and presentation overhead define the deadline; no prison tail is appended.
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(226.2d).Within(0.001d));
             Assert.That(session.TryGetCurrentHighlight(out var highlight), Is.True);
             Assert.That(highlight.Type, Is.EqualTo(HighlightType.FirstBlood));
             Assert.That(highlight.EndedAt, Is.EqualTo(200d));

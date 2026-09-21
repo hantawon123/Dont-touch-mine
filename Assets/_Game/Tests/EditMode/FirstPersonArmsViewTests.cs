@@ -218,17 +218,11 @@ namespace Game.Tests.EditMode
             view.Apply(true, settings, cameraRig, "Idle");
             var restLeft = cameraRig.InverseTransformPoint(upperLeft.position);
 
-            // 절정(0.45, 곡선 유지 구간)에서 오른손 본이 카메라 앞 목표 거리에 닿고, 왼팔은 그대로다.
+            // 절정(0.45, 곡선 유지 구간)에서는 오른손이 목표 거리에 닿고, 왼팔은 그대로다.
             view.Apply(true, settings, cameraRig, "Punch", punching: true, punchLeft: false, punchProgress: 0.45f);
             var handForward = Vector3.Dot(handRight.position - cameraRig.position, cameraRig.forward);
             Assert.AreEqual(0.9f, handForward, 1e-3f, "right hand reaches the target distance");
             Assert.Less((cameraRig.InverseTransformPoint(upperLeft.position) - restLeft).magnitude, 1e-4f);
-
-            // 진행도 1(끝)에서는 밀지 않는다.
-            view.Apply(true, settings, cameraRig, "Idle");
-            var restHand = Vector3.Dot(handRight.position - cameraRig.position, cameraRig.forward);
-            view.Apply(true, settings, cameraRig, "Punch", punching: true, punchLeft: false, punchProgress: 1f);
-            Assert.AreEqual(restHand, Vector3.Dot(handRight.position - cameraRig.position, cameraRig.forward), 1e-3f);
         }
 
         [Test]

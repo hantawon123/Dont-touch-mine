@@ -79,10 +79,12 @@ namespace Game.Tests.EditMode
             try
             {
                 catalog.categories.Add(category);
+                catalog.Apply();
                 Assert.That(PlaySettingsCategoryCatalog.All.Any(o => o.Id == category.id && o.Label == category.label), Is.True);
                 var assigned = ItemAssignmentSystem.Assign(ItemCatalog.Definitions, 6, new System.Random(42), category.id);
                 Assert.That(assigned.Select(a => a.Item.ItemId), Is.EquivalentTo(category.items.Select(i => i.id)));
                 category.enabled = false;
+                catalog.Apply();
                 Assert.That(PlaySettingsCategoryCatalog.Contains(category.id), Is.False);
                 Assert.That(ItemCatalog.Categories, Does.Not.Contain(category.id));
             }

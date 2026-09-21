@@ -85,6 +85,11 @@ namespace Game.Bootstrap
         private Func<bool> presentationBlocksInput;
         public void BindPresentationInput(Func<bool> blocksInput) => presentationBlocksInput = blocksInput;
 
+        internal static bool ShouldShowInteractionHud(
+            bool introBlocked,
+            bool highlightInProgress) =>
+            !introBlocked && !highlightInProgress;
+
         private IReadOnlyCollection<CarryableItem> sceneItems;
         public void BindSceneItems(IReadOnlyCollection<CarryableItem> value) => sceneItems = value;
 
@@ -317,7 +322,9 @@ namespace Game.Bootstrap
                     interactor.BindCommands(this);
                     interactor.enabled = acceptsLocalInput;
                     if (!acceptsLocalInput) interactor.RefreshHoldPoint();
-                    interactor.SetHudVisible(!introBlocked);
+                    interactor.SetHudVisible(ShouldShowInteractionHud(
+                        introBlocked,
+                        network.IsHighlightInProgress));
                     interactors[playerIndex] = interactor;
 
                     var placement = avatar.GetComponent<ItemPlacementController>();

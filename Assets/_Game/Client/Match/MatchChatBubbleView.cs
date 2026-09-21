@@ -38,6 +38,7 @@ namespace Game.Client.Match
             new(StringComparer.Ordinal);
         private TMP_FontAsset font;
         private Camera followCamera;
+        private bool presentationVisible = true;
 
         public static MatchChatBubbleView Create(Transform parent)
         {
@@ -66,7 +67,7 @@ namespace Game.Client.Match
                 bubble.SetPlayerRoot(playerRoot);
             }
 
-            if (pending.TryGetValue(id, out var message))
+            if (presentationVisible && pending.TryGetValue(id, out var message))
             {
                 pending.Remove(id);
                 bubble.Show(message.Text);
@@ -75,6 +76,11 @@ namespace Game.Client.Match
 
         public void Show(LobbyChatMessage message)
         {
+            if (!presentationVisible)
+            {
+                return;
+            }
+
             if (!bubbles.TryGetValue(message.SenderId, out var bubble) ||
                 bubble == null ||
                 bubble.IsDestroyed)
@@ -84,6 +90,15 @@ namespace Game.Client.Match
             }
 
             bubble.Show(message.Text);
+        }
+
+        public void SetPresentationVisible(bool visible)
+        {
+            presentationVisible = visible;
+            if (!visible)
+            {
+                Clear();
+            }
         }
 
         public void Clear()
@@ -105,7 +120,13 @@ namespace Game.Client.Match
             font ??= HomeUiFonts.ApplyRegular();
         }
 
-        private void LateUpdate() => RefreshPlacement();
+        private void LateUpdate()
+        {
+            if (presentationVisible)
+            {
+                RefreshPlacement();
+            }
+        }
 
         internal void RefreshPlacement()
         {

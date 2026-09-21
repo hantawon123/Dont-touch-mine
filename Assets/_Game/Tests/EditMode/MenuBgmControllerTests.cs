@@ -46,6 +46,7 @@ namespace Game.Architecture.Tests
         [TestCase(AppFlowState.Settings, true)]
         [TestCase(AppFlowState.CharacterCloset, true)]
         [TestCase(AppFlowState.RoomBrowser, true)]
+        [TestCase(AppFlowState.Tutorial, false)]
         [TestCase(AppFlowState.Lobby, false)]
         [TestCase(AppFlowState.InGame, false)]
         [TestCase(AppFlowState.Highlight, false)]

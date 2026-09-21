@@ -77,6 +77,17 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_Tutorial_OpensTutorialFromHome()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out var host, out var appFlow, out _, out _);
+
+            view.Raise(HomeMenuAction.Tutorial);
+
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Tutorial));
+            Assert.That(host.TutorialOpenCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void Presenter_FindRoom_OpensRoomBrowser()
         {
             using var presenter = CreateStartedPresenter(out var view, out var host, out var appFlow, out _, out _);
@@ -1002,6 +1013,8 @@ namespace Game.Tests.EditMode
 
             public int SettingsOpenCount { get; private set; }
 
+            public int TutorialOpenCount { get; private set; }
+
             public int LobbyOpenCount { get; private set; }
 
             public string CreatedTitle { get; private set; }
@@ -1052,6 +1065,11 @@ namespace Game.Tests.EditMode
             public void OpenSettings()
             {
                 SettingsOpenCount++;
+            }
+
+            public void OpenTutorial()
+            {
+                TutorialOpenCount++;
             }
         }
     }

@@ -49,7 +49,7 @@ namespace Game.Bootstrap
             if (target == null)
             {
                 var candidate = Camera.main;
-                if (candidate == null || candidate.gameObject.scene.name != "Playground") return;
+                if (candidate == null || candidate.gameObject.scene.name != "Supermarket") return;
                 target = candidate;
                 data = target.GetUniversalAdditionalCameraData();
                 postProcessing = data.renderPostProcessing;
