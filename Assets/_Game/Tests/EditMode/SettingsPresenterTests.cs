@@ -89,6 +89,9 @@ namespace Game.Architecture.Tests
             Assert.That(view.FeedbackVisible, Is.False);
             Assert.That(view.Chrome.Get(UiText.Settings.Apply), Is.EqualTo("Apply"));
             Assert.That(view.Chrome.Get(UiText.Settings.TabGeneral), Is.EqualTo("General"));
+            Assert.That(view.GraphicsLabels[GraphicsOption.DisplayMode], Is.EqualTo("Fullscreen"));
+            Assert.That(view.InterfaceLabels[InterfaceOption.FpsCounter], Is.EqualTo("On"));
+            Assert.That(view.InputModeLabel, Is.EqualTo("Push to Talk"));
         }
 
         [Test]
@@ -129,6 +132,7 @@ namespace Game.Architecture.Tests
             Assert.That(store.Saved, Is.Null);
             Assert.That(view.Chrome.Get(UiText.Settings.Apply), Is.EqualTo("적용하기"),
                 "The chrome waits for apply.");
+            Assert.That(view.GraphicsLabels[GraphicsOption.DisplayMode], Is.EqualTo("전체화면"));
         }
 
         [Test]
@@ -157,6 +161,10 @@ namespace Game.Architecture.Tests
             Assert.That(view.ConfirmVisible, Is.False, "Applying asks nothing.");
             Assert.That(view.Chrome.Get(UiText.Settings.Apply), Is.EqualTo("Apply"));
             Assert.That(view.Chrome.Get(UiText.Settings.Language), Is.EqualTo("Language"));
+            Assert.That(view.GraphicsLabels[GraphicsOption.DisplayMode], Is.EqualTo("Fullscreen"));
+            Assert.That(view.InterfaceLabels[InterfaceOption.FpsCounter], Is.EqualTo("On"));
+            Assert.That(view.InputModeLabel, Is.EqualTo("Push to Talk"));
+            Assert.That(view.Reversals[ControlToggle.FirstPersonInvertX], Is.EqualTo("Off"));
         }
 
         [Test]

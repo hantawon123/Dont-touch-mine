@@ -512,22 +512,26 @@ namespace Game.Client.Settings
         public static class Notifications
         {
             /// <inheritdoc cref="GraphicsRowLabel"/>
-            public static string RowLabel(Core.Settings.NotificationOption option)
+            public static string RowKey(NotificationOption option)
             {
                 switch (option)
                 {
-                    case Core.Settings.NotificationOption.GameInvite:
-                        return "게임 초대 알림";
+                    case NotificationOption.GameInvite:
+                        return UiText.Settings.GameInvite;
                     default:
                         return option.ToString();
                 }
             }
+
+            public static string RowLabel(NotificationOption option, string languageCode = "ko") =>
+                UiTextCatalog.Shipped.Get(RowKey(option), languageCode);
         }
 
         /// <summary>The 컨트롤 tab's headings and row names.</summary>
         public static class Controls
         {
-            public const string MicrophoneHeading = "마이크";
+            public static string MicrophoneHeading =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.MicrophoneHeading, "ko");
 
             /// <summary>
             /// The keyboard's two headings. One list of twenty rows read as a
@@ -541,66 +545,77 @@ namespace Game.Client.Settings
             /// homeless: the first is not about a thing the player is holding
             /// and the second is not about a thing at all.
             /// </remarks>
-            public const string KeyboardMoveHeading = "키보드(이동)";
+            public static string KeyboardMoveHeading =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.KeyboardMoveHeading, "ko");
 
-            public const string KeyboardActionHeading = "키보드(행동)";
+            public static string KeyboardActionHeading =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.KeyboardActionHeading, "ko");
 
-            public const string FirstPersonHeading = "1인칭";
-            public const string ThirdPersonHeading = "3인칭";
+            public static string FirstPersonHeading =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.FirstPersonHeading, "ko");
 
-            public static string ActionLabel(Core.Settings.ControlAction action)
+            public static string ThirdPersonHeading =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.ThirdPersonHeading, "ko");
+
+            public static string ActionKey(ControlAction action)
             {
                 switch (action)
                 {
-                    case Core.Settings.ControlAction.MicrophoneTalk:
-                        return "눌러서 말하기";
-                    case Core.Settings.ControlAction.VoiceToggle:
-                        return "마이크 켜기/끄기";
-                    case Core.Settings.ControlAction.ToggleSpeaker:
-                        return "스피커 켜기/끄기";
-                    case Core.Settings.ControlAction.MoveForward:
-                        return "앞으로 이동";
-                    case Core.Settings.ControlAction.MoveLeft:
-                        return "왼쪽으로 이동";
-                    case Core.Settings.ControlAction.MoveBackward:
-                        return "뒤로 이동";
-                    case Core.Settings.ControlAction.MoveRight:
-                        return "오른쪽으로 이동";
-                    case Core.Settings.ControlAction.PrimaryAction:
-                        return "공격/던지기/배치";
-                    case Core.Settings.ControlAction.Interact:
-                        return "물건 상호작용";
-                    case Core.Settings.ControlAction.PlacementMode:
-                        return "배치모드 활성화";
-                    case Core.Settings.ControlAction.RotateLeft:
-                        return "가로축 회전(좌방향)";
-                    case Core.Settings.ControlAction.RotateRight:
-                        return "가로축 회전(우방향)";
-                    case Core.Settings.ControlAction.RaiseObject:
-                        return "세로축 회전(상향)";
-                    case Core.Settings.ControlAction.LowerObject:
-                        return "세로축 회전(하향)";
-                    case Core.Settings.ControlAction.Jump:
-                        return "점프";
-                    case Core.Settings.ControlAction.Sprint:
-                        return "달리기";
-                    case Core.Settings.ControlAction.ToggleView:
-                        return "시점 변경(1인칭/3인칭)";
-                    case Core.Settings.ControlAction.Crouch:
-                        return "앉기";
-                    case Core.Settings.ControlAction.Prone:
-                        return "엎드리기";
-                    case Core.Settings.ControlAction.ToggleKeyGuide:
-                        return "키 가이드 on/off";
+                    case ControlAction.MicrophoneTalk:
+                        return UiText.Settings.PushToTalk;
+                    case ControlAction.VoiceToggle:
+                        return UiText.Settings.ActionVoiceToggle;
+                    case ControlAction.ToggleSpeaker:
+                        return UiText.Settings.ActionSpeakerToggle;
+                    case ControlAction.MoveForward:
+                        return UiText.Settings.ActionMoveForward;
+                    case ControlAction.MoveLeft:
+                        return UiText.Settings.ActionMoveLeft;
+                    case ControlAction.MoveBackward:
+                        return UiText.Settings.ActionMoveBackward;
+                    case ControlAction.MoveRight:
+                        return UiText.Settings.ActionMoveRight;
+                    case ControlAction.PrimaryAction:
+                        return UiText.Settings.ActionPrimary;
+                    case ControlAction.Interact:
+                        return UiText.Settings.ActionInteract;
+                    case ControlAction.PlacementMode:
+                        return UiText.Settings.ActionPlacement;
+                    case ControlAction.RotateLeft:
+                        return UiText.Settings.ActionRotateLeft;
+                    case ControlAction.RotateRight:
+                        return UiText.Settings.ActionRotateRight;
+                    case ControlAction.RaiseObject:
+                        return UiText.Settings.ActionRaise;
+                    case ControlAction.LowerObject:
+                        return UiText.Settings.ActionLower;
+                    case ControlAction.Jump:
+                        return UiText.Settings.ActionJump;
+                    case ControlAction.Sprint:
+                        return UiText.Settings.ActionSprint;
+                    case ControlAction.ToggleView:
+                        return UiText.Settings.ActionToggleView;
+                    case ControlAction.Crouch:
+                        return UiText.Settings.ActionCrouch;
+                    case ControlAction.Prone:
+                        return UiText.Settings.ActionProne;
+                    case ControlAction.ToggleKeyGuide:
+                        return UiText.Settings.ActionKeyGuide;
                     default:
                         return action.ToString();
                 }
             }
 
-            public static string SensitivityLabel(Core.Settings.ControlSensitivity sensitivity) =>
-                sensitivity == Core.Settings.ControlSensitivity.ThirdPersonCamera
-                    ? "카메라 감도"
-                    : "마우스 감도";
+            public static string ActionLabel(ControlAction action, string languageCode = "ko") =>
+                UiTextCatalog.Shipped.Get(ActionKey(action), languageCode);
+
+            public static string SensitivityKey(ControlSensitivity sensitivity) =>
+                sensitivity == ControlSensitivity.ThirdPersonCamera
+                    ? UiText.Settings.CameraSensitivity
+                    : UiText.Settings.MouseSensitivity;
+
+            public static string SensitivityLabel(ControlSensitivity sensitivity, string languageCode = "ko") =>
+                UiTextCatalog.Shipped.Get(SensitivityKey(sensitivity), languageCode);
 
             /// <summary>
             /// Said when a key could not be moved because something else has
@@ -611,38 +626,53 @@ namespace Game.Client.Settings
             public static string InUseMessage(string keyLabel, string action) =>
                 $"{keyLabel} 키는 이미 {action}에 사용 중입니다";
 
-            public static string ReversalLabel(Core.Settings.ControlToggle toggle) =>
-                toggle == Core.Settings.ControlToggle.FirstPersonInvertX
-                || toggle == Core.Settings.ControlToggle.ThirdPersonInvertX
-                    ? "X축 반전"
-                    : "Y축 반전";
+            public static string ReversalKey(ControlToggle toggle) =>
+                toggle == ControlToggle.FirstPersonInvertX
+                || toggle == ControlToggle.ThirdPersonInvertX
+                    ? UiText.Settings.InvertX
+                    : UiText.Settings.InvertY;
+
+            public static string ReversalLabel(ControlToggle toggle, string languageCode = "ko") =>
+                UiTextCatalog.Shipped.Get(ReversalKey(toggle), languageCode);
         }
 
         /// <summary>The 사운드 tab's headings and row names.</summary>
         public static class Sound
         {
-            public const string SpeakerHeading = "스피커";
-            public const string MicrophoneHeading = "마이크";
-            public const string DeviceLabel = "마이크 장치";
-            public const string InputModeLabel = "입력 모드";
-            public const string TestLabel = "마이크 테스트";
+            public static string SpeakerHeading =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.SpeakerHeading, "ko");
 
-            public static string VolumeLabel(Core.Settings.SoundVolume volume)
+            public static string MicrophoneHeading =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.MicrophoneHeading, "ko");
+
+            public static string DeviceLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.Device, "ko");
+
+            public static string InputModeLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.InputMode, "ko");
+
+            public static string TestLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.MicrophoneTest, "ko");
+
+            public static string VolumeKey(SoundVolume volume)
             {
                 switch (volume)
                 {
-                    case Core.Settings.SoundVolume.Master:
-                        return "마스터 볼륨";
-                    case Core.Settings.SoundVolume.Music:
-                        return "배경음악 볼륨";
-                    case Core.Settings.SoundVolume.Effects:
-                        return "효과음 볼륨";
-                    case Core.Settings.SoundVolume.Microphone:
-                        return "마이크 볼륨";
+                    case SoundVolume.Master:
+                        return UiText.Settings.VolumeMaster;
+                    case SoundVolume.Music:
+                        return UiText.Settings.VolumeMusic;
+                    case SoundVolume.Effects:
+                        return UiText.Settings.VolumeEffects;
+                    case SoundVolume.Microphone:
+                        return UiText.Settings.VolumeMicrophone;
                     default:
                         return volume.ToString();
                 }
             }
+
+            public static string VolumeLabel(SoundVolume volume, string languageCode = "ko") =>
+                UiTextCatalog.Shipped.Get(VolumeKey(volume), languageCode);
         }
 
         /// <summary>The handle down the panel's right edge.</summary>
@@ -949,50 +979,56 @@ namespace Game.Client.Settings
         /// than in the catalogue: the catalogue holds what a row offers, and
         /// this is what the row is called.
         /// </summary>
-        public static string GraphicsRowLabel(Core.Settings.GraphicsOption option)
+        public static string GraphicsRowKey(GraphicsOption option)
         {
             switch (option)
             {
-                case Core.Settings.GraphicsOption.DisplayMode:
-                    return "디스플레이 모드";
-                case Core.Settings.GraphicsOption.Resolution:
-                    return "해상도";
-                case Core.Settings.GraphicsOption.FpsLimit:
-                    return "FPS 제한";
-                case Core.Settings.GraphicsOption.TextureQuality:
-                    return "텍스처 품질";
+                case GraphicsOption.DisplayMode:
+                    return UiText.Settings.DisplayMode;
+                case GraphicsOption.Resolution:
+                    return UiText.Settings.Resolution;
+                case GraphicsOption.FpsLimit:
+                    return UiText.Settings.FpsLimit;
+                case GraphicsOption.TextureQuality:
+                    return UiText.Settings.TextureQuality;
                 default:
                     return option.ToString();
             }
         }
 
+        public static string GraphicsRowLabel(GraphicsOption option, string languageCode = "ko") =>
+            UiTextCatalog.Shipped.Get(GraphicsRowKey(option), languageCode);
+
         /// <inheritdoc cref="GraphicsRowLabel"/>
-        public static string InterfaceRowLabel(Core.Settings.InterfaceOption option)
+        public static string InterfaceRowKey(InterfaceOption option)
         {
             switch (option)
             {
-                case Core.Settings.InterfaceOption.UiScale:
-                    return "UI 크기";
-                case Core.Settings.InterfaceOption.FontScale:
-                    return "글자 크기";
-                case Core.Settings.InterfaceOption.InGameUi:
-                    return "게임 내 UI";
-                case Core.Settings.InterfaceOption.FpsCounter:
-                    return "FPS 표시";
-                case Core.Settings.InterfaceOption.PingCounter:
-                    return "핑 표시";
-                case Core.Settings.InterfaceOption.PlayerNames:
-                    return "다른 플레이어 이름 표시";
-                case Core.Settings.InterfaceOption.StreamerMode:
-                    return "스트리머 모드";
-                case Core.Settings.InterfaceOption.BeginnerGuide:
-                    return "초심자 가이드 항상 표시";
-                case Core.Settings.InterfaceOption.ChatScope:
-                    return "채팅 메시지 범위 제한";
+                case InterfaceOption.UiScale:
+                    return UiText.Settings.UiScale;
+                case InterfaceOption.FontScale:
+                    return UiText.Settings.FontScale;
+                case InterfaceOption.InGameUi:
+                    return UiText.Settings.InGameUi;
+                case InterfaceOption.FpsCounter:
+                    return UiText.Settings.FpsCounter;
+                case InterfaceOption.PingCounter:
+                    return UiText.Settings.PingCounter;
+                case InterfaceOption.PlayerNames:
+                    return UiText.Settings.PlayerNames;
+                case InterfaceOption.StreamerMode:
+                    return UiText.Settings.StreamerMode;
+                case InterfaceOption.BeginnerGuide:
+                    return UiText.Settings.BeginnerGuide;
+                case InterfaceOption.ChatScope:
+                    return UiText.Settings.ChatScope;
                 default:
                     return option.ToString();
             }
         }
+
+        public static string InterfaceRowLabel(InterfaceOption option, string languageCode = "ko") =>
+            UiTextCatalog.Shipped.Get(InterfaceRowKey(option), languageCode);
 
         public static string TabKey(SettingsTab tab)
         {

@@ -268,6 +268,7 @@ namespace Game.Client.Settings
         private void OnLocaleChanged()
         {
             view.ShowChrome(locale);
+            ShowDraft();
         }
 
         /// <inheritdoc cref="OnGeneralApplied"/>
@@ -893,7 +894,7 @@ namespace Game.Client.Settings
             {
                 view.ShowGraphics(
                     option,
-                    graphics.Catalog.Label(option, graphicsDraft.Get(option)),
+                    graphics.Catalog.Label(option, graphicsDraft.Get(option), locale.LanguageCode),
                     graphics.Catalog.For(option).CanStep);
             }
 
@@ -901,7 +902,7 @@ namespace Game.Client.Settings
             {
                 view.ShowInterface(
                     option,
-                    ui.Catalog.Label(option, uiDraft.Get(option)),
+                    ui.Catalog.Label(option, uiDraft.Get(option), locale.LanguageCode),
                     ui.Catalog.For(option).CanStep);
             }
 
@@ -912,14 +913,18 @@ namespace Game.Client.Settings
 
             var devices = sound.DeviceChoices;
             view.ShowMicrophoneDevice(
-                devices.TryFind(soundDraft.DeviceName, out var device)
-                    ? device.Label
-                    : devices.Default.Label,
+                locale.Get(
+                    devices.TryFind(soundDraft.DeviceName, out var device)
+                        ? device.Label
+                        : devices.Default.Label),
                 devices.CanStep);
 
             var modes = SoundCatalog.InputModes;
             view.ShowInputMode(
-                modes.TryFind(soundDraft.InputMode, out var mode) ? mode.Label : modes.Default.Label,
+                locale.Get(
+                    modes.TryFind(soundDraft.InputMode, out var mode)
+                        ? mode.Label
+                        : modes.Default.Label),
                 modes.CanStep);
 
             view.ShowMicrophoneTest(microphoneTest.IsRunning);
@@ -934,7 +939,7 @@ namespace Game.Client.Settings
             {
                 view.ShowNotification(
                     option,
-                    notifications.Catalog.Label(option, noticeDraft.Get(option)),
+                    notifications.Catalog.Label(option, noticeDraft.Get(option), locale.LanguageCode),
                     notifications.Catalog.For(option).CanStep);
             }
 
@@ -942,9 +947,10 @@ namespace Game.Client.Settings
             {
                 view.ShowReversal(
                     toggle,
-                    ControlCatalog.Reversals.TryFind(controlDraft.Get(toggle), out var reversal)
-                        ? reversal.Label
-                        : ControlCatalog.Reversals.Default.Label,
+                    locale.Get(
+                        ControlCatalog.Reversals.TryFind(controlDraft.Get(toggle), out var reversal)
+                            ? reversal.Label
+                            : ControlCatalog.Reversals.Default.Label),
                     ControlCatalog.Reversals.CanStep);
             }
 
@@ -970,7 +976,7 @@ namespace Game.Client.Settings
         {
             foreach (ControlAction action in Enum.GetValues(typeof(ControlAction)))
             {
-                view.ShowBinding(action, ControlCatalog.KeyLabel(controlDraft.Get(action)));
+                view.ShowBinding(action, ControlCatalog.KeyLabel(controlDraft.Get(action), locale.LanguageCode));
             }
 
             view.ShowRebinding(listening);

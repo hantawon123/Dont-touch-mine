@@ -59,6 +59,10 @@ namespace Game.Architecture.Tests
             Assert.That(shipped.Get(UiText.Settings.LeaveGame, "en"), Is.EqualTo("Leave Game"));
             Assert.That(shipped.Get(UiText.Settings.TabGeneral, "en"), Is.EqualTo("General"));
             Assert.That(shipped.Get(UiText.Settings.TabNotifications, "en"), Is.EqualTo("Notifications"));
+            Assert.That(shipped.Get(UiText.Settings.Fullscreen, "en"), Is.EqualTo("Fullscreen"));
+            Assert.That(shipped.Get(UiText.Settings.DisplayMode, "en"), Is.EqualTo("Display Mode"));
+            Assert.That(shipped.Get(UiText.Settings.On, "ko"), Is.EqualTo("켜기"));
+            Assert.That(shipped.Get(UiText.Settings.ChatOff, "en"), Is.EqualTo("Off (Everyone)"));
         }
     }
 }

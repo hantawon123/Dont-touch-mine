@@ -79,6 +79,7 @@ namespace Game.Client.Settings
 
         private readonly SettingsTabHover[] tabHovers = new SettingsTabHover[TabOrder.Length];
         private readonly TMP_Text[] tabLabels = new TMP_Text[TabOrder.Length];
+        private readonly List<(TMP_Text Text, string Key)> rowLabels = new List<(TMP_Text, string)>();
 
         private Button resetButton;
         private Button applyButton;
@@ -196,6 +197,14 @@ namespace Game.Client.Settings
             if (leaveGameLabel != null)
             {
                 leaveGameLabel.text = locale.Get(UiText.Settings.LeaveGame);
+            }
+
+            foreach (var pair in rowLabels)
+            {
+                if (pair.Text != null)
+                {
+                    pair.Text.text = locale.Get(pair.Key);
+                }
             }
         }
 

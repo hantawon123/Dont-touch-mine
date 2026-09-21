@@ -56,8 +56,8 @@ namespace Game.Core.Settings
             new Dictionary<GraphicsOption, OptionChoices>
             {
                 [GraphicsOption.DisplayMode] = new OptionChoices(
-                    new OptionChoice(Fullscreen, "전체화면"),
-                    new OptionChoice(Windowed, "창모드")),
+                    new OptionChoice(Fullscreen, UiText.Settings.Fullscreen),
+                    new OptionChoice(Windowed, UiText.Settings.Windowed)),
 
                 [GraphicsOption.Resolution] = new OptionChoices(
                     "1920x1080",
@@ -75,9 +75,9 @@ namespace Game.Core.Settings
 
                 [GraphicsOption.TextureQuality] = new OptionChoices(
                     Medium,
-                    new OptionChoice(Low, "낮음"),
-                    new OptionChoice(Medium, "중간"),
-                    new OptionChoice(High, "높음"))
+                    new OptionChoice(Low, UiText.Settings.Low),
+                    new OptionChoice(Medium, UiText.Settings.Medium),
+                    new OptionChoice(High, UiText.Settings.High))
             });
 
         public OptionChoices For(GraphicsOption option) => rows.For((int)option);
@@ -90,6 +90,7 @@ namespace Game.Core.Settings
             new GraphicsSettings(rows.Normalise(settings.Values));
 
         /// <inheritdoc cref="OptionCatalog.Label"/>
-        public string Label(GraphicsOption option, string code) => rows.Label((int)option, code);
+        public string Label(GraphicsOption option, string code, string languageCode = "ko") =>
+            UiTextCatalog.Shipped.Get(rows.Label((int)option, code), languageCode);
     }
 }

@@ -139,6 +139,10 @@ namespace Game.Architecture.Tests
                     Is.EqualTo("Apply"));
                 Assert.That(Find(root, "ResetButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
                     Is.EqualTo("Discard Changes"));
+                Assert.That(Find(root, "DisplayModeRow").Find("Label").GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Display Mode"));
+                Assert.That(Find(root, "DeviceRow").Find("Label").GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Microphone Device"));
             }
             finally
             {

@@ -89,22 +89,24 @@ namespace Game.Client.Settings
             var page = CreatePage(window, SettingsTab.Sound, 0f);
             var top = 0f;
 
-            top = AddSection(page, SettingsStyle.Sound.SpeakerHeading, top);
+            top = AddSection(page, UiText.Settings.SpeakerHeading, top);
             foreach (var volume in SpeakerVolumes)
             {
                 top = AddVolumeRow(page, volume, top);
             }
 
-            top = AddSection(page, SettingsStyle.Sound.MicrophoneHeading, top);
+            top = AddSection(page, UiText.Settings.MicrophoneHeading, top);
 
             var device = CreateRowAt(
                 page, "DeviceRow", top, SettingsStyle.Sound.DeviceLabel, SettingsStyle.Section.RowLabelLeft);
+            RememberRow(device, UiText.Settings.Device);
             deviceStepper = CreateStepper(
                 device, steps => MicrophoneDeviceStepRequested?.Invoke(steps), wrapValue: true);
             top += SettingsStyle.Rows.Pitch;
 
             var mode = CreateRowAt(
                 page, "InputModeRow", top, SettingsStyle.Sound.InputModeLabel, SettingsStyle.Section.RowLabelLeft);
+            RememberRow(mode, UiText.Settings.InputMode);
             inputModeStepper = CreateStepper(mode, steps => InputModeStepRequested?.Invoke(steps));
             top += SettingsStyle.Rows.Pitch;
 
@@ -112,6 +114,7 @@ namespace Game.Client.Settings
 
             var test = CreateRowAt(
                 page, "MicrophoneTestRow", top, SettingsStyle.Sound.TestLabel, SettingsStyle.Section.RowLabelLeft);
+            RememberRow(test, UiText.Settings.MicrophoneTest);
             CreateTestButton(test);
             top += SettingsStyle.Rows.Size.y;
 
@@ -122,8 +125,10 @@ namespace Game.Client.Settings
         /// A heading over the rows that follow. Returns where the first of
         /// them starts.
         /// </summary>
-        private float AddSection(RectTransform page, string heading, float top)
+        private float AddSection(RectTransform page, string key, float top)
         {
+            var heading = UiTextCatalog.Shipped.Get(key, "ko");
+
             // Every heading but the first sits a gap below whatever came before
             // it; the first is flush with the top of the page.
             if (top > 0f)
@@ -145,6 +150,7 @@ namespace Game.Client.Settings
                 TextAlignmentOptions.MidlineLeft);
             Stretch(text.rectTransform);
             text.rectTransform.offsetMin = new Vector2(SettingsStyle.Section.LabelLeft, 0f);
+            Remember(text, key);
 
             return top + SettingsStyle.Section.Height + SettingsStyle.Section.Gap;
         }
@@ -158,6 +164,7 @@ namespace Game.Client.Settings
                 top,
                 SettingsStyle.Sound.VolumeLabel(volume),
                 SettingsStyle.Section.RowLabelLeft);
+            RememberRow(row, SettingsStyle.Sound.VolumeKey(volume));
             volumeSliders[volume] = CreateSlider(
                 row,
                 SoundCatalog.MinVolume,

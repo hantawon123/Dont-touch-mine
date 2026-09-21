@@ -231,6 +231,7 @@ namespace Game.Client.Settings
                     option + "Row",
                     index,
                     SettingsStyle.GraphicsRowLabel(option));
+                RememberRow(row, SettingsStyle.GraphicsRowKey(option));
 
                 var captured = option;
                 graphicsSteppers[option] = CreateStepper(
@@ -250,6 +251,7 @@ namespace Game.Client.Settings
                     option + "Row",
                     index,
                     SettingsStyle.InterfaceRowLabel(option));
+                RememberRow(row, SettingsStyle.InterfaceRowKey(option));
 
                 var captured = option;
                 interfaceSteppers[option] = CreateStepper(
@@ -273,6 +275,7 @@ namespace Game.Client.Settings
                     option + "Row",
                     index,
                     SettingsStyle.Notifications.RowLabel(option));
+                RememberRow(row, SettingsStyle.Notifications.RowKey(option));
 
                 var captured = option;
                 notificationSteppers[option] = CreateStepper(
@@ -356,6 +359,28 @@ namespace Game.Client.Settings
             Stretch(text.rectTransform);
             text.rectTransform.offsetMin = new Vector2(labelLeft, 0f);
             return rect;
+        }
+
+        private void RememberRow(RectTransform row, string key)
+        {
+            if (row == null || string.IsNullOrEmpty(key))
+            {
+                return;
+            }
+
+            var text = row.Find("Label")?.GetComponent<TMP_Text>();
+            if (text != null)
+            {
+                rowLabels.Add((text, key));
+            }
+        }
+
+        private void Remember(TMP_Text text, string key)
+        {
+            if (text != null && !string.IsNullOrEmpty(key))
+            {
+                rowLabels.Add((text, key));
+            }
         }
 
         /// <summary>
