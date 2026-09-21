@@ -97,13 +97,14 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void ShippedCatalogue_HasKoreanOnly_AndCannotStep()
+        public void ShippedCatalogue_DefaultsToKorean_AndCanStep()
         {
             var shipped = LanguageCatalog.Shipped;
 
             Assert.That(shipped.Default.Code, Is.EqualTo("ko"));
-            Assert.That(shipped.CanStep, Is.False);
-            Assert.That(shipped.Step("ko", 1).Code, Is.EqualTo("ko"));
+            Assert.That(shipped.CanStep, Is.True);
+            Assert.That(shipped.Step("ko", 1).Code, Is.EqualTo("en"));
+            Assert.That(shipped.Step("en", 1).Code, Is.EqualTo("ko"));
         }
     }
 }

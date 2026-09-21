@@ -15,9 +15,8 @@ namespace Game.Architecture.Tests
     /// does, and how the three confirmations are answered.
     /// </summary>
     /// <remarks>
-    /// Two languages rather than the shipped one, so the picker has somewhere
-    /// to go; with Korean alone there would be no way to make a change to
-    /// apply, reset or throw away.
+        /// Two languages so the picker has somewhere to go; a catalogue of
+        /// Korean alone would leave no change to apply, reset or throw away.
     /// </remarks>
     public sealed class SettingsPresenterTests
     {
@@ -93,7 +92,9 @@ namespace Game.Architecture.Tests
         [Test]
         public void Opening_WithOneLanguage_DrawsTheArrowsUnavailable()
         {
-            general = new GeneralSettingsSystem(store, LanguageCatalog.Shipped);
+            general = new GeneralSettingsSystem(
+                store,
+                new LanguageCatalog(new Language("ko", "한국어")));
 
             using var presenter = Started();
 
