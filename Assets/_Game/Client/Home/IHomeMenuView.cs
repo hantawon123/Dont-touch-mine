@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Game.Core.Home;
+using Game.Core.Settings;
 
 namespace Game.Client.Home
 {
@@ -164,5 +165,7 @@ namespace Game.Client.Home
         /// stack has cards for; the caller holds the rest back.
         /// </summary>
         void SetRoomInvites(IReadOnlyList<RoomInvite> invites);
+
+        void ShowChrome(UiLocale locale);
     }
 }

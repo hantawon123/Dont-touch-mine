@@ -1,4 +1,5 @@
 using Game.Core.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,14 +23,18 @@ namespace Game.Client.Home
     /// </remarks>
     public sealed partial class HomeMenuView
     {
-        public const string SuspendedTitle = "이용이 제한된 계정입니다";
-        public const string SuspendedBody = "운영자가 이 계정의 이용을 중지했습니다.";
+        public static string SuspendedTitle =>
+            UiTextCatalog.Shipped.Get(UiText.Home.SuspendedTitle, "ko");
+
+        public static string SuspendedBody =>
+            UiTextCatalog.Shipped.Get(UiText.Home.SuspendedBody, "ko");
 
         /// <summary>
         /// The same words as the label in the corner, because it does the same
         /// thing — and that label is behind the scrim while this is up.
         /// </summary>
-        public const string SuspendedQuitLabel = "게임 종료";
+        public static string SuspendedQuitLabel =>
+            UiTextCatalog.Shipped.Get(UiText.Home.Quit, "ko");
 
         /// <summary>
         /// Darker than <see cref="HomeStyle.Palette.PanelFill"/> and covering the
@@ -113,7 +118,7 @@ namespace Game.Client.Home
             CreateSuspendedLine(
                 panel,
                 "Title",
-                SuspendedTitle,
+                UiText.Home.SuspendedTitle,
                 SuspendedTitleSize,
                 FontStyles.Bold,
                 HomeStyle.Palette.TextPrimary,
@@ -122,7 +127,7 @@ namespace Game.Client.Home
             CreateSuspendedLine(
                 panel,
                 "Body",
-                SuspendedBody,
+                UiText.Home.SuspendedBody,
                 SuspendedBodySize,
                 FontStyles.Normal,
                 HomeStyle.Palette.TextPrimary,
@@ -176,12 +181,13 @@ namespace Game.Client.Home
 
             var label = AddText(
                 labelRect,
-                SuspendedQuitLabel,
+                Copy(UiText.Home.Quit),
                 SuspendedQuitSize,
                 FontStyles.Normal,
                 TextAlignmentOptions.Center);
             ApplyMenuFont(label);
             label.color = HomeStyle.Palette.ApplyOnLabel;
+            Remember(label, UiText.Home.Quit);
 
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = fill;
@@ -196,7 +202,7 @@ namespace Game.Client.Home
         private void CreateSuspendedLine(
             RectTransform panel,
             string name,
-            string content,
+            string key,
             float fontSize,
             FontStyles style,
             Color color,
@@ -209,9 +215,10 @@ namespace Game.Client.Home
             rect.sizeDelta = new Vector2(rect.sizeDelta.x, fontSize * 1.6f);
             rect.anchoredPosition = new Vector2(0f, topOffset);
 
-            var text = AddText(rect, content, fontSize, style, TextAlignmentOptions.Center);
+            var text = AddText(rect, Copy(key), fontSize, style, TextAlignmentOptions.Center);
             text.color = color;
             text.gameObject.SetActive(true);
+            Remember(text, key);
         }
     }
 }

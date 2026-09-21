@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Common;
 using Game.Core.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -73,7 +74,8 @@ namespace Game.Client.Home
                 SetAnchor(label, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
                 label.offsetMin = Vector2.zero;
                 label.offsetMax = Vector2.zero;
-                var text = AddText(label, "친구 끊기", 18f, FontStyles.Normal, TextAlignmentOptions.Center);
+                var text = AddText(label, Copy(UiText.Home.Unfriend), 18f, FontStyles.Normal, TextAlignmentOptions.Center);
+                Remember(text, UiText.Home.Unfriend);
                 text.color = new Color(1f, 0.3f, 0.3f);
                 var remove = friendContextButton.gameObject.AddComponent<Button>();
                 remove.targetGraphic = fill;
@@ -113,7 +115,7 @@ namespace Game.Client.Home
             public Button Row;
         }
 
-        private const string FriendsEmptyMessage = "친구가 없어요";
+        private string FriendsEmptyMessage => Copy(UiText.Home.Empty);
 
         private void CreateFriendListRoot(RectTransform canvas)
         {
@@ -169,8 +171,10 @@ namespace Game.Client.Home
             tabs.anchoredPosition = new Vector2(0f, -HomeStyle.Friends.VerticalPadding);
             tabs.sizeDelta = new Vector2(0f, HomeStyle.Friends.TabHeight);
 
-            friendListTab = CreateTab(tabs, "친구 목록", 0f, 0.5f, () => FriendSearchClosed?.Invoke());
-            friendRequestTab = CreateTab(tabs, "친구 요청", 0.5f, 1f, () => FriendSearchOpened?.Invoke());
+            friendListTab = CreateTab(tabs, "친구 목록", Copy(UiText.Home.ListTab), 0f, 0.5f, () => FriendSearchClosed?.Invoke());
+            Remember(friendListTab, UiText.Home.ListTab);
+            friendRequestTab = CreateTab(tabs, "친구 요청", Copy(UiText.Home.RequestTab), 0.5f, 1f, () => FriendSearchOpened?.Invoke());
+            Remember(friendRequestTab, UiText.Home.RequestTab);
 
             var divider = CreateRect("Divider", tabs);
             SetAnchor(divider, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
@@ -198,9 +202,9 @@ namespace Game.Client.Home
         /// the label on its own when the badge is hidden.
         /// </remarks>
         private TMP_Text CreateTab(
-            RectTransform parent, string label, float min, float max, Action onClicked)
+            RectTransform parent, string name, string label, float min, float max, Action onClicked)
         {
-            var tab = CreateRect(label, parent);
+            var tab = CreateRect(name, parent);
             SetAnchor(tab, new Vector2(min, 0f), new Vector2(max, 1f), new Vector2(0.5f, 0.5f));
             tab.offsetMin = Vector2.zero;
             tab.offsetMax = Vector2.zero;
@@ -349,11 +353,12 @@ namespace Game.Client.Home
             placeholderRect.offsetMax = Vector2.zero;
             var placeholder = AddText(
                 placeholderRect,
-                "닉네임 검색",
+                Copy(UiText.Home.SearchPlaceholder),
                 HomeStyle.FontSize.FriendSearch,
                 FontStyles.Normal,
                 TextAlignmentOptions.MidlineLeft);
             placeholder.color = HomeStyle.Palette.Placeholder;
+            Remember(placeholder, UiText.Home.SearchPlaceholder);
 
             field.gameObject.SetActive(false);
             var input = field.gameObject.AddComponent<TMP_InputField>();
@@ -416,11 +421,12 @@ namespace Game.Client.Home
             var labelRect = CreateRect("Label", row);
             var label = AddText(
                 labelRect,
-                "새로고침",
+                Copy(UiText.Home.Refresh),
                 HomeStyle.FontSize.RefreshLabel,
                 FontStyles.Normal,
                 TextAlignmentOptions.MidlineLeft);
             label.color = HomeStyle.Palette.Refresh;
+            Remember(label, UiText.Home.Refresh);
 
             var button = row.gameObject.AddComponent<Button>();
             button.targetGraphic = hit;
@@ -435,22 +441,26 @@ namespace Game.Client.Home
         private void CreateFriendBodies(RectTransform panel)
         {
             friendListBody = CreateScrollBody(panel, "ListBody", out var listContent);
-            onlineSectionText = CreateSectionTitle(listContent, "온라인", true, leading: false);
+            onlineSectionText = CreateSectionTitle(listContent, Copy(UiText.Home.Online), true, leading: false);
+            Remember(onlineSectionText, UiText.Home.Online);
             onlineItemsRoot = CreateItemGroup(listContent, "OnlineItems");
             onlineEmptyText = CreateEmptyMessage(
                 listContent, "OnlineEmptyMessage", FriendsEmptyMessage);
-            offlineSectionText = CreateSectionTitle(listContent, "오프라인", false);
+            offlineSectionText = CreateSectionTitle(listContent, Copy(UiText.Home.Offline), false);
+            Remember(offlineSectionText, UiText.Home.Offline);
             offlineItemsRoot = CreateItemGroup(listContent, "OfflineItems");
             offlineEmptyText = CreateEmptyMessage(
                 listContent, "OfflineEmptyMessage", FriendsEmptyMessage);
             listContentRoot = listContent;
 
             friendSearchBody = CreateScrollBody(panel, "RequestBody", out var requestContent);
-            searchSectionText = CreateSectionTitle(requestContent, "검색된 친구", true, leading: false);
+            searchSectionText = CreateSectionTitle(requestContent, Copy(UiText.Home.SearchResults), true, leading: false);
+            Remember(searchSectionText, UiText.Home.SearchResults);
             searchItemsRoot = CreateItemGroup(requestContent, "SearchItems");
             searchEmptyText = CreateEmptyMessage(
-                requestContent, "SearchEmptyMessage", "플레이어를 찾을 수 없습니다.");
-            requestSectionText = CreateSectionTitle(requestContent, "요청이 온 친구 (0)", false);
+                requestContent, "SearchEmptyMessage", Copy(UiText.Home.SearchEmpty));
+            requestSectionText = CreateSectionTitle(
+                requestContent, string.Format(Copy(UiText.Home.IncomingRequests), 0), false);
             requestItemsRoot = CreateItemGroup(requestContent, "RequestItems");
             requestContentRoot = requestContent;
         }
@@ -890,7 +900,7 @@ namespace Game.Client.Home
         private void UpdateFriendSections()
         {
             var message = TypedFriendSearch.Length > 0
-                ? "플레이어를 찾을 수 없습니다."
+                ? Copy(UiText.Home.SearchEmpty)
                 : FriendsEmptyMessage;
 
             ShowSectionEmpty(onlineEmptyText, shownOnlineCount == 0, message);
@@ -974,7 +984,7 @@ namespace Game.Client.Home
             // exactly, so the answer is only ever one friend or none.
             if (searchSectionText != null)
             {
-                searchSectionText.text = "검색된 친구";
+                searchSectionText.text = Copy(UiText.Home.SearchResults);
             }
         }
 
@@ -1022,9 +1032,11 @@ namespace Game.Client.Home
                     () => FriendRequestDeclined?.Invoke(playerId));
             }
 
+            incomingRequestCount = requests.Count;
             if (requestSectionText != null)
             {
-                requestSectionText.text = $"요청이 온 친구 ({requests.Count})";
+                requestSectionText.text = string.Format(
+                    Copy(UiText.Home.IncomingRequests), incomingRequestCount);
             }
 
             SetIncomingRequestCount(requests.Count);
@@ -1085,7 +1097,7 @@ namespace Game.Client.Home
             }
 
             searchEmptyText.gameObject.SetActive(searched && results.Count == 0);
-            searchEmptyText.text = "플레이어를 찾을 수 없습니다.";
+            searchEmptyText.text = Copy(UiText.Home.SearchEmpty);
         }
 
         private void ApplyTabColours()

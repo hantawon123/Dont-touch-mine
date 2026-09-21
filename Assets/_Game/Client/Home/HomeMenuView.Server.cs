@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -97,12 +98,13 @@ namespace Game.Client.Home
 
             var text = AddText(
                 title,
-                "서버 설정",
+                Copy(UiText.Home.ServerTitle),
                 HomeStyle.FontSize.ServerTitle,
                 FontStyles.Normal,
                 TextAlignmentOptions.TopLeft);
             ApplyMenuFont(text);
             text.color = HomeStyle.Palette.TextPrimary;
+            Remember(text, UiText.Home.ServerTitle);
         }
 
         /// <summary>

@@ -132,5 +132,67 @@ namespace Game.Core.Settings
             public const string KeyInUseTitle = "settings.keyInUse.title";
             public const string KeyInUseMessage = "settings.keyInUse.message";
         }
+
+        public static class Home
+        {
+            public const string CreateRoom = "home.menu.createRoom";
+            public const string FindRoom = "home.menu.findRoom";
+            public const string Character = "home.menu.character";
+            public const string Settings = "home.menu.settings";
+            public const string Quit = "home.menu.quit";
+
+            public const string ConnectionError = "home.connectionError";
+            public const string HostDisconnected = "home.hostDisconnected";
+            public const string ServerDisconnected = "home.serverDisconnected";
+
+            public const string SearchAllow = "home.profile.searchAllow";
+            public const string ConfirmChange = "home.profile.confirmChange";
+            public const string ConfirmPrompt = "home.profile.confirmPrompt";
+            public const string SearchAllowFailed = "home.profile.searchAllowFailed";
+            public const string TooLong = "home.profile.tooLong";
+            public const string BadCharacter = "home.profile.badCharacter";
+            public const string Taken = "home.profile.taken";
+            public const string Available = "home.profile.available";
+            public const string OneChange = "home.profile.oneChange";
+            public const string AlreadySet = "home.profile.alreadySet";
+            public const string Unreachable = "home.profile.unreachable";
+            public const string NicknameTaken = "home.profile.nicknameTaken";
+            public const string NicknameForbidden = "home.profile.nicknameForbidden";
+            public const string NicknameInvalid = "home.profile.nicknameInvalid";
+            public const string AccountNotFound = "home.profile.accountNotFound";
+            public const string RenameFailed = "home.profile.renameFailed";
+
+            public const string Unfriend = "home.friends.unfriend";
+            public const string Empty = "home.friends.empty";
+            public const string ListTab = "home.friends.listTab";
+            public const string RequestTab = "home.friends.requestTab";
+            public const string SearchPlaceholder = "home.friends.searchPlaceholder";
+            public const string Refresh = "home.friends.refresh";
+            public const string Online = "home.friends.online";
+            public const string Offline = "home.friends.offline";
+            public const string SearchResults = "home.friends.searchResults";
+            public const string SearchEmpty = "home.friends.searchEmpty";
+            public const string IncomingRequests = "home.friends.incomingRequests";
+            public const string TargetNotFound = "home.friends.targetNotFound";
+            public const string AlreadyFriends = "home.friends.alreadyFriends";
+            public const string RequestAlreadySent = "home.friends.requestAlreadySent";
+            public const string RequestNotFound = "home.friends.requestNotFound";
+            public const string NotFriends = "home.friends.notFriends";
+            public const string TargetInGame = "home.friends.targetInGame";
+            public const string SelfRequest = "home.friends.selfRequest";
+            public const string Conflict = "home.friends.conflict";
+            public const string FriendFailed = "home.friends.failed";
+
+            public const string RoomScope = "home.createRoom.scope";
+            public const string RoomTitle = "home.createRoom.title";
+            public const string RoomPlayers = "home.createRoom.players";
+            public const string RoomSubmit = "home.createRoom.submit";
+            public const string RoomTitlePlaceholder = "home.createRoom.placeholder";
+
+            public const string ServerTitle = "home.server.title";
+
+            public const string SuspendedTitle = "home.suspended.title";
+            public const string SuspendedBody = "home.suspended.body";
+        }
     }
 }

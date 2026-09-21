@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Core.Flow;
 using Game.Core.Home;
+using Game.Core.Settings;
 using Game.Core.Ports;
 using NUnit.Framework;
 using UnityEngine;
@@ -850,6 +851,10 @@ namespace Game.Tests.EditMode
             public void ShowConnectionError(string message)
             {
                 ConnectionError = message ?? string.Empty;
+            }
+
+            public void ShowChrome(UiLocale locale)
+            {
             }
 
             public void RaiseRoomCreationRequested(string title, bool isPublic, int maxPlayers)

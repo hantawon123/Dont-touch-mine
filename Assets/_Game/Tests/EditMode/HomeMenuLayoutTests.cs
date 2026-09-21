@@ -4,6 +4,7 @@ using System.Reflection;
 using Game.Client.Common;
 using Game.Client.Home;
 using Game.Core.Home;
+using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -49,6 +50,31 @@ namespace Game.Tests.EditMode
             Assert.That(
                 labels,
                 Is.EqualTo(new[] { "방 만들기", "게임 찾기", "캐릭터", "환경 설정" }));
+        }
+
+        [Test]
+        public void ShowChrome_RedrawsMenuInTheAppliedLanguage()
+        {
+            using var home = new BuiltHome();
+            var store = new InMemoryGeneralSettingsStore();
+            store.Save(new GeneralSettings("en"));
+            var general = new GeneralSettingsSystem(store);
+            using var locale = new UiLocale(general);
+
+            home.View.ShowChrome(locale);
+
+            Assert.That(home.Label(HomeMenuAction.CreateRoom.ToString()), Is.EqualTo("Create Room"));
+            Assert.That(home.Label(HomeMenuAction.FindRoom.ToString()), Is.EqualTo("Find Game"));
+            Assert.That(home.Label(HomeMenuAction.Character.ToString()), Is.EqualTo("Character"));
+            Assert.That(home.Label(HomeMenuAction.Settings.ToString()), Is.EqualTo("Settings"));
+            Assert.That(home.Label("QuitButton"), Is.EqualTo("Quit"));
+
+            var view = (IHomeMenuView)home.View;
+            view.SetFriends(Array.Empty<FriendSummary>(), Array.Empty<FriendSummary>());
+            Assert.That(
+                home.Rect("OnlineEmptyMessage").GetComponent<TMPro.TMP_Text>().text,
+                Is.EqualTo("No friends yet"));
+            Assert.That(home.Section("Online"), Is.Not.Null);
         }
 
         [Test]

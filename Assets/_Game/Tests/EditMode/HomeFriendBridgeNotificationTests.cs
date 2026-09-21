@@ -560,6 +560,8 @@ namespace Game.Architecture.Tests
             public void SetNicknameSearchAllowed(bool allowed) { }
             public void SetNicknameSearchAllowedError(string message) { }
             public void ShowConnectionError(string message) { }
+
+            public void ShowChrome(UiLocale locale) { }
             public bool FriendListVisible { get; private set; }
             public void SetFriendListVisible(bool visible) { FriendListVisible = visible; }
             public void SetFriends(IReadOnlyList<FriendSummary> onlineFriends, IReadOnlyList<FriendSummary> offlineFriends) { }

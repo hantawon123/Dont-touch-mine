@@ -8,6 +8,7 @@ using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Maps;
 using Game.Core.Rooms;
+using Game.Core.Settings;
 using Game.Network.Session;
 using UnityEngine;
 using VContainer;
@@ -77,11 +78,13 @@ namespace Game.Bootstrap
         {
             private readonly HomeMenuView view;
             private readonly RoomBrowserSystem room;
+            private readonly UiLocale locale;
 
-            public HomeExitNotice(HomeMenuView view, RoomBrowserSystem room)
+            public HomeExitNotice(HomeMenuView view, RoomBrowserSystem room, UiLocale locale = null)
             {
                 this.view = view;
                 this.room = room;
+                this.locale = locale;
             }
 
             public void Start()
@@ -99,8 +102,13 @@ namespace Game.Bootstrap
                     return;
                 }
 
-                view.ShowConnectionError(reason == RoomExitReason.HostClosed
-                    ? "호스트의 연결이 끊어졌습니다" : "서버와의 연결이 끊어졌습니다");
+                var key = reason == RoomExitReason.HostClosed
+                    ? UiText.Home.HostDisconnected
+                    : UiText.Home.ServerDisconnected;
+                view.ShowConnectionError(
+                    locale != null
+                        ? locale.Get(key)
+                        : UiTextCatalog.Shipped.Get(key, "ko"));
 
                 // The game locked the cursor away. Home is a screen to click on.
                 Game.Client.Common.WebPointerInput.Release();

@@ -434,6 +434,8 @@ namespace Game.Architecture.Tests
 
             public void ShowConnectionError(string message) { }
 
+            public void ShowChrome(UiLocale locale) { }
+
             /// <remarks>Declared to satisfy the interface; this test raises one.</remarks>
             public void Unused()
             {
