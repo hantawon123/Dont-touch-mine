@@ -8,13 +8,19 @@ using UnityEngine;
 namespace Game.Editor
 {
     /// <summary>
-    /// Hit를 하체 베이스(Prone/Crawl/Carry_TwoHands*) 위에 얹어
-    /// Hit_Prone/Hit_Crawl 및 Carry_TwoHands_Hit* 클립을 만든다.
+    /// Hit를 자세 베이스 위에 얹어 자세별 Hit 클립을 만든다.
+    /// - Hit_Walk/Run/Crouch/Crouch_Walk: 상체는 Hit 그대로, 하체·골반은 이동 베이스
+    /// - Hit_Prone/Hit_Crawl, Carry_TwoHands_Hit*: 기존 부분 가중치 오버레이
+    /// Hit.anim이 바뀌면 SmoothBearEmoteClipImporter가 이 베이커를 다시 돌린다.
     /// </summary>
     public static class CarryTwoHandsHitClipBaker
     {
         private static readonly Job[] Jobs =
         {
+            new("Hit_Walk", "Hit", "Walk_Forward", false, fullUpperBody: true),
+            new("Hit_Run", "Hit", "Run_Forward", false, fullUpperBody: true),
+            new("Hit_Crouch", "Hit", "Crouch_Idle", false, fullUpperBody: true),
+            new("Hit_Crouch_Walk", "Hit", "Crouch_Walk_Forward", false, fullUpperBody: true),
             new("Hit_Prone", "Hit", "Prone_Idle", false),
             new("Hit_Crawl", "Hit", "Crawl_Forward", false),
             new("Carry_TwoHands_Hit", "Hit", "Carry_TwoHands", true),
@@ -117,7 +123,7 @@ namespace Game.Editor
             {
                 foreach (var job in Jobs)
                 {
-                    BakeClip(job.Output, job.Hit, job.Base, job.KeepCarryArms, instance, model);
+                    BakeClip(job.Output, job.Hit, job.Base, job.KeepCarryArms, job.FullUpperBody, instance, model);
                 }
             }
             finally
@@ -171,6 +177,7 @@ namespace Game.Editor
             string hitName,
             string baseName,
             bool keepCarryArms,
+            bool fullUpperBody,
             GameObject instance,
             GameObject model)
         {
@@ -222,7 +229,7 @@ namespace Game.Editor
 
                 for (var index = 0; index < bones.Length; index++)
                 {
-                    var mixed = Mix(bones[index].name, carryPose[index], hitPose[index], keepCarryArms);
+                    var mixed = Mix(bones[index].name, carryPose[index], hitPose[index], keepCarryArms, fullUpperBody);
                     if (frame > 0 && Quaternion.Dot(previous[index], mixed.Rotation) < 0f)
                     {
                         mixed = mixed.Flipped();
@@ -312,11 +319,17 @@ namespace Game.Editor
             return values;
         }
 
-        private static Pose Mix(string bone, Pose carry, Pose hit, bool keepCarryArms)
+        private static Pose Mix(string bone, Pose carry, Pose hit, bool keepCarryArms, bool fullUpperBody)
         {
             if (keepCarryArms && IsCarryArm(bone))
             {
                 return carry;
+            }
+
+            if (fullUpperBody && (HitOverlay.ContainsKey(bone) || IsCarryArm(bone)))
+            {
+                // Whole torso and both arms straight from Hit; hips and legs follow the base.
+                return hit;
             }
 
             if (!HitOverlay.TryGetValue(bone, out var weight))
@@ -429,18 +442,20 @@ namespace Game.Editor
 
         private readonly struct Job
         {
-            public Job(string output, string hit, string @base, bool keepCarryArms)
+            public Job(string output, string hit, string @base, bool keepCarryArms, bool fullUpperBody = false)
             {
                 Output = output;
                 Hit = hit;
                 Base = @base;
                 KeepCarryArms = keepCarryArms;
+                FullUpperBody = fullUpperBody;
             }
 
             public string Output { get; }
             public string Hit { get; }
             public string Base { get; }
             public bool KeepCarryArms { get; }
+            public bool FullUpperBody { get; }
         }
 
         private readonly struct Pose
