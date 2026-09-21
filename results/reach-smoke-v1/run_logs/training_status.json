@@ -1,0 +1,38 @@
+{
+    "Reach": {
+        "checkpoints": [
+            {
+                "steps": 19940,
+                "file_path": "results\\reach-smoke-v1\\Reach\\Reach-19940.onnx",
+                "reward": 0.5910713928086417,
+                "creation_time": 1789448440.8682666,
+                "auxillary_file_paths": [
+                    "results\\reach-smoke-v1\\Reach\\Reach-19940.pt"
+                ]
+            },
+            {
+                "steps": 33733,
+                "file_path": "results\\reach-smoke-v1\\Reach\\Reach-33733.onnx",
+                "reward": 0.8517857066222599,
+                "creation_time": 1789448562.77994,
+                "auxillary_file_paths": [
+                    "results\\reach-smoke-v1\\Reach\\Reach-33733.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 33733,
+            "file_path": "results\\reach-smoke-v1\\Reach.onnx",
+            "reward": 0.8517857066222599,
+            "creation_time": 1789448562.77994,
+            "auxillary_file_paths": [
+                "results\\reach-smoke-v1\\Reach\\Reach-33733.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.2.2+cu121"
+    }
+}
