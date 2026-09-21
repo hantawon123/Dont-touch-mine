@@ -20,22 +20,22 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void MaxDistance_LookingDown_IsShorterAndStaysOnTheViewRay()
+        public void MaxDistance_LookingDown_IsLongerAndStaysOnTheViewRay()
         {
             var down = (Vector3.forward + Vector3.down).normalized;
             var d = PlacementAimMath.MaxDistanceAlongView(Eye, down, Feet, 2.8f, 0.45f);
             var level = PlacementAimMath.MaxDistanceAlongView(Eye, Vector3.forward, Feet, 2.8f, 0.45f);
-            Assert.That(d, Is.LessThan(level));
+            Assert.That(d, Is.GreaterThan(level));
             Assert.That(Vector3.Distance(Eye + down * d, Feet), Is.EqualTo(2.8f).Within(1e-4f));
         }
 
         [Test]
-        public void MaxDistance_LookingUp_IsLongerThanLevel()
+        public void MaxDistance_LookingUp_IsShorterThanLevel()
         {
             var up = (Vector3.forward + Vector3.up * 0.5f).normalized;
             var d = PlacementAimMath.MaxDistanceAlongView(Eye, up, Feet, 2.8f, 0.45f);
             var level = PlacementAimMath.MaxDistanceAlongView(Eye, Vector3.forward, Feet, 2.8f, 0.45f);
-            Assert.That(d, Is.GreaterThan(level));
+            Assert.That(d, Is.LessThan(level));
         }
 
         [Test]

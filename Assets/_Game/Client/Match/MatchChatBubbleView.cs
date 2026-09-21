@@ -39,6 +39,7 @@ namespace Game.Client.Match
         private TMP_FontAsset font;
         private Camera followCamera;
         private Camera pinnedCamera;
+        private bool presentationVisible = true;
 
         public static MatchChatBubbleView Create(Transform parent)
         {
@@ -67,7 +68,7 @@ namespace Game.Client.Match
                 bubble.SetPlayerRoot(playerRoot);
             }
 
-            if (pending.TryGetValue(id, out var message))
+            if (presentationVisible && pending.TryGetValue(id, out var message))
             {
                 pending.Remove(id);
                 bubble.Show(message.Text);
@@ -76,6 +77,11 @@ namespace Game.Client.Match
 
         public void Show(LobbyChatMessage message)
         {
+            if (!presentationVisible)
+            {
+                return;
+            }
+
             if (!bubbles.TryGetValue(message.SenderId, out var bubble) ||
                 bubble == null ||
                 bubble.IsDestroyed)
@@ -85,6 +91,15 @@ namespace Game.Client.Match
             }
 
             bubble.Show(message.Text);
+        }
+
+        public void SetPresentationVisible(bool visible)
+        {
+            presentationVisible = visible;
+            if (!visible)
+            {
+                Clear();
+            }
         }
 
         public void Clear()
@@ -106,7 +121,13 @@ namespace Game.Client.Match
             font ??= HomeUiFonts.ApplyRegular();
         }
 
-        private void LateUpdate() => RefreshPlacement();
+        private void LateUpdate()
+        {
+            if (presentationVisible)
+            {
+                RefreshPlacement();
+            }
+        }
 
         /// <summary>
         /// 보는 카메라가 정해져 있는 화면에서 그 카메라를 못 박는다 (S15P21D205-1087).

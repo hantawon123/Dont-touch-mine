@@ -96,5 +96,36 @@ namespace Game.Architecture.Tests
                 Object.DestroyImmediate(player);
             }
         }
+
+        [Test]
+        public void Bubble_DoesNotReappearWhileHighlightPresentationIsHidden()
+        {
+            var parent = new GameObject("ChatRoot");
+            var player = new GameObject("Player");
+            try
+            {
+                var bubbles = MatchChatBubbleView.Create(parent.transform);
+                bubbles.BindPlayer("P1", player.transform);
+                var bubble = player.transform.Find("Match Chat Bubble").gameObject;
+
+                bubbles.Show(new LobbyChatMessage("P1", "플레이어", "하이라이트 전"));
+                Assert.That(bubble.activeSelf, Is.True);
+
+                bubbles.SetPresentationVisible(false);
+                Assert.That(bubble.activeSelf, Is.False);
+
+                bubbles.Show(new LobbyChatMessage("P1", "플레이어", "하이라이트 중"));
+                Assert.That(bubble.activeSelf, Is.False);
+
+                bubbles.SetPresentationVisible(true);
+                bubbles.Show(new LobbyChatMessage("P1", "플레이어", "하이라이트 후"));
+                Assert.That(bubble.activeSelf, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent);
+                Object.DestroyImmediate(player);
+            }
+        }
     }
 }

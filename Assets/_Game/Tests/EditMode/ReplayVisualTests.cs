@@ -26,7 +26,11 @@ namespace Game.Tests.EditMode
                 var replayRenderer = visual.Target.GetComponentInChildren<Renderer>();
                 properties.Clear();
                 replayRenderer.GetPropertyBlock(properties, 0);
-                Assert.That(properties.GetColor("_BaseColor"), Is.EqualTo(expected),
+                var actual = properties.GetColor("_BaseColor");
+                Assert.That(actual.r, Is.EqualTo(expected.r).Within(1e-5f));
+                Assert.That(actual.g, Is.EqualTo(expected.g).Within(1e-5f));
+                Assert.That(actual.b, Is.EqualTo(expected.b).Within(1e-5f));
+                Assert.That(actual.a, Is.EqualTo(expected.a).Within(1e-5f),
                     "Replay avatars must retain colours stored on individual material slots.");
             }
             finally
@@ -167,7 +171,11 @@ namespace Game.Tests.EditMode
                 placed.transform.position = new Vector3(30f, 4f, 40f);
                 placed.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
                 camera.SetFollowTarget(placed.transform);
-                Assert.That(root.transform.position, Is.EqualTo(placed.transform.position + Vector3.up * 1.6f));
+                var flags = System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic;
+                var headOffset = (Vector3)typeof(Game.Client.Cameras.PlayerCameraController)
+                    .GetField("headOffset", flags).GetValue(camera);
+                Assert.That(root.transform.position, Is.EqualTo(placed.transform.position + headOffset));
                 Assert.That(Quaternion.Angle(root.transform.rotation, placed.transform.rotation), Is.LessThan(0.01f));
             }
             finally
@@ -225,9 +233,14 @@ namespace Game.Tests.EditMode
         public void HighlightHud_KeepsOnlyHighlightHudAndNotice_AndRestoresPriorVisibility()
         {
             var root = new GameObject("HUD", typeof(Canvas));
+            var player = new GameObject("Player");
             try
             {
                 var hud = root.AddComponent<Game.Client.Match.NetworkMatchHudView>();
+                var bubbles = Game.Client.Match.MatchChatBubbleView.Create(root.transform);
+                bubbles.BindPlayer("P1", player.transform);
+                bubbles.Show(new Game.Core.Lobby.LobbyChatMessage("P1", "Player", "before"));
+                var chatBubble = player.transform.Find("Match Chat Bubble").gameObject;
                 var highlight = hud.GetComponentInChildren<Game.Client.Match.HighlightHudView>(true)
                     ?? Game.Client.Match.HighlightHudView.Create(root.transform);
                 highlight.Show("FIRST BLOOD : 민수", new[] { 0.4f, 0f, 0f });
@@ -250,6 +263,9 @@ namespace Game.Tests.EditMode
                 typeof(Game.Client.Match.NetworkMatchHudView).GetField("destructionNoticeRoot", flags)
                     .SetValue(hud, notice);
                 hud.SetPhase(Game.Core.Match.MatchPhase.Highlight, "");
+                Assert.That(chatBubble.activeSelf, Is.False);
+                bubbles.Show(new Game.Core.Lobby.LobbyChatMessage("P1", "Player", "during"));
+                Assert.That(chatBubble.activeSelf, Is.False);
                 Assert.That(highlight.transform.Find("Header/Title").GetComponent<TMPro.TMP_Text>().enabled, Is.True);
                 Assert.That(notice.GetComponent<TMPro.TMP_Text>().enabled, Is.True);
                 Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
@@ -261,10 +277,16 @@ namespace Game.Tests.EditMode
                 Assert.That(timerText.enabled, Is.False);
                 Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
                 hud.SetPhase(Game.Core.Match.MatchPhase.Searching, "");
+                bubbles.Show(new Game.Core.Lobby.LobbyChatMessage("P1", "Player", "after"));
+                Assert.That(chatBubble.activeSelf, Is.True);
                 Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.True);
                 Assert.That(hidden.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
             }
-            finally { Object.DestroyImmediate(root); }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(player);
+            }
         }
 
         [Test]

@@ -87,6 +87,8 @@ namespace Game.Bootstrap
 
             public void OpenSettings() => scenes.OpenSettings();
 
+            public void OpenTutorial() => fallback.OpenTutorial();
+
             /// <summary>
             /// Not from here. The room screen has its own way of opening a
             /// room; this host answers the Home presenter's interface only

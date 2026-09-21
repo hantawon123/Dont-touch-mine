@@ -32,11 +32,12 @@ namespace Game.Tests.EditMode
             HomeMenuAction.CreateRoom,
             HomeMenuAction.FindRoom,
             HomeMenuAction.Character,
-            HomeMenuAction.Settings
+            HomeMenuAction.Settings,
+            HomeMenuAction.Tutorial
         };
 
         [Test]
-        public void Menu_ListsTheFourEntriesTheMockUpDraws()
+        public void Menu_ListsTheHomeActionsInOrder()
         {
             using var home = new BuiltHome();
 
@@ -48,7 +49,20 @@ namespace Game.Tests.EditMode
 
             Assert.That(
                 labels,
-                Is.EqualTo(new[] { "방 만들기", "게임 찾기", "캐릭터", "환경 설정" }));
+                Is.EqualTo(new[] { "방 만들기", "게임 찾기", "캐릭터", "환경 설정", "튜토리얼" }));
+        }
+
+        [Test]
+        public void Tutorial_UsesTheSettingsTypography()
+        {
+            using var home = new BuiltHome();
+            var settings = home.Rect(HomeMenuAction.Settings.ToString()).GetComponent<TMPro.TMP_Text>();
+            var tutorial = home.Rect(HomeMenuAction.Tutorial.ToString()).GetComponent<TMPro.TMP_Text>();
+
+            Assert.That(tutorial.fontSize, Is.EqualTo(settings.fontSize));
+            Assert.That(tutorial.font, Is.SameAs(settings.font));
+            Assert.That(tutorial.fontSharedMaterial, Is.SameAs(settings.fontSharedMaterial));
+            Assert.That(tutorial.fontStyle, Is.EqualTo(settings.fontStyle));
         }
 
         [Test]
@@ -75,6 +89,7 @@ namespace Game.Tests.EditMode
                 { HomeMenuAction.FindRoom.ToString(), HomeMenuAction.FindRoom },
                 { HomeMenuAction.Character.ToString(), HomeMenuAction.Character },
                 { HomeMenuAction.Settings.ToString(), HomeMenuAction.Settings },
+                { HomeMenuAction.Tutorial.ToString(), HomeMenuAction.Tutorial },
                 { "QuitButton", HomeMenuAction.Quit },
                 { "ProfileChip", HomeMenuAction.ProfileSettings },
                 { "FriendButton", HomeMenuAction.Friends },
