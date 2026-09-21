@@ -122,6 +122,8 @@ namespace Game.Architecture.Tests
 
         public List<string> Notices { get; } = new List<string>();
 
+        public List<bool> NoticeIsSuccess { get; } = new List<bool>();
+
         public UiLocale Chrome { get; private set; }
 
         public void ShowTab(SettingsTab tab) => ShownTab = tab;
@@ -211,7 +213,11 @@ namespace Game.Architecture.Tests
             FeedbackDismissed?.Invoke();
         }
 
-        public void ShowNotice(string title, string message) => Notices.Add(message);
+        public void ShowNotice(string title, string message, bool success = false)
+        {
+            Notices.Add(message);
+            NoticeIsSuccess.Add(success);
+        }
 
         public void Back() => BackRequested?.Invoke();
 
