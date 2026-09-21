@@ -214,6 +214,22 @@ namespace Game.Architecture.Tests
             Assert.That(PlayerInteractor.CanShowWorldPrompt(false, true, true), Is.False);
         }
 
+        [TestCase(false, false, true)]
+        [TestCase(true, false, false)]
+        [TestCase(false, true, false)]
+        [TestCase(true, true, false)]
+        public void MatchInteractionHud_StaysOffDuringHighlights(
+            bool introBlocked,
+            bool highlightInProgress,
+            bool expected)
+        {
+            Assert.That(
+                NetworkInteractionSceneBridge.ShouldShowInteractionHud(
+                    introBlocked,
+                    highlightInProgress),
+                Is.EqualTo(expected));
+        }
+
         [Test]
         public void Crosshair_StaysOffWhenAModalOwnsTheCursor()
         {

@@ -66,6 +66,8 @@ namespace Game.Bootstrap
 
             public void OpenSettings() => scenes.OpenSettings();
 
+            public void OpenTutorial() => fallback.OpenTutorial();
+
             /// <summary>
             /// Not from here. The settings screen answers the Home presenter's
             /// interface only because leaving is the one thing every screen

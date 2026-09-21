@@ -8,27 +8,26 @@ namespace Game.Tests.EditMode
     public sealed class MapCatalogTests
     {
         [Test]
-        public void Catalog_KeepsPlaygroundAndOffersSupermarketAndMansionInLobby()
+        public void Catalog_OffersOnlySupermarketAndMansion()
         {
-            Assert.That(MapCatalog.MapIds, Is.EqualTo(new[] { MapCatalog.PlaygroundId, MapCatalog.SupermarketId, MapCatalog.MansionId }));
+            Assert.That(MapCatalog.MapIds, Is.EqualTo(new[] { MapCatalog.SupermarketId, MapCatalog.MansionId }));
             Assert.That(MapCatalog.LobbyMapIds, Is.EqualTo(new[] { MapCatalog.SupermarketId, MapCatalog.MansionId }));
             Assert.That(MapCatalog.DefaultMapId, Is.EqualTo(MapCatalog.SupermarketId), "기본 맵은 마트 그대로.");
-            Assert.That(MapCatalog.Contains(" playground "), Is.True);
             Assert.That(MapCatalog.Contains("supermarket"), Is.True);
             Assert.That(MapCatalog.Contains("mansion"), Is.True);
             Assert.That(MapCatalog.IsLobbyChoice("supermarket"), Is.True);
             Assert.That(MapCatalog.IsLobbyChoice("mansion"), Is.True);
+            Assert.That(MapCatalog.Contains("playground"), Is.False);
             Assert.That(MapCatalog.Contains("unknown"), Is.False);
             Assert.That(MapCatalog.Contains(""), Is.False);
             Assert.That(MapCatalog.IsRandom(null), Is.True);
             Assert.That(MapCatalog.IsRandom(""), Is.True);
             Assert.That(MapCatalog.IsLobbyChoice(""), Is.True);
-            Assert.That(MapCatalog.IsLobbyChoice("playground"), Is.True);
             Assert.That(MapCatalog.IsLobbyChoice("unknown"), Is.False);
-            Assert.That(MapCatalog.NormalizeLobbyMapId("", "playground"), Is.EqualTo(string.Empty));
-            Assert.That(MapCatalog.NormalizeLobbyMapId(" playground ", ""), Is.EqualTo("playground"));
+            Assert.That(MapCatalog.NormalizeLobbyMapId("", "supermarket"), Is.EqualTo(string.Empty));
+            Assert.That(MapCatalog.NormalizeLobbyMapId(" supermarket ", ""), Is.EqualTo("supermarket"));
             Assert.That(MapCatalog.NormalizeLobbyMapId(" mansion ", ""), Is.EqualTo("mansion"));
-            Assert.That(MapCatalog.NormalizeLobbyMapId("unknown", "playground"), Is.EqualTo("playground"));
+            Assert.That(MapCatalog.NormalizeLobbyMapId("unknown", "supermarket"), Is.EqualTo("supermarket"));
             Assert.That(LobbyMapCatalog.Maps.Count, Is.EqualTo(2));
             Assert.That(LobbyMapCatalog.Maps[0].Id, Is.EqualTo(MapCatalog.SupermarketId));
             Assert.That(LobbyMapCatalog.Maps[1].Id, Is.EqualTo(MapCatalog.MansionId));
@@ -38,7 +37,6 @@ namespace Game.Tests.EditMode
             Assert.That(PlaySettingsMapCatalog.Default.IsRandom, Is.True);
             Assert.That(PlaySettingsMapCatalog.DefaultIndex, Is.EqualTo(0));
             Assert.That(PlaySettingsMapCatalog.Contains(""), Is.True);
-            Assert.That(PlaySettingsMapCatalog.Contains(MapCatalog.PlaygroundId), Is.False);
             Assert.That(PlaySettingsMapCatalog.Contains(MapCatalog.SupermarketId), Is.True);
             Assert.That(PlaySettingsMapCatalog.Contains(MapCatalog.MansionId), Is.True);
             for (var attempt = 0; attempt < 20; attempt++)
