@@ -101,8 +101,9 @@ namespace Game.Bootstrap
 
             public void OpenLobby()
             {
-                // The request already painted the cover before connecting. Fusion may
-                // have finished the lobby and hidden it before this callback arrives.
+                // The presenter paints the cover only after the room accepts the
+                // player. Fusion may finish the lobby and hide it before this
+                // callback arrives.
                 if (!network.EnterLobbyScene())
                 {
                     loading.HideImmediate();

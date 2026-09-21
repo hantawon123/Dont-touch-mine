@@ -20,11 +20,11 @@ namespace Game.Server.Players
     public static class PlayerStaminaRules
     {
         /// <summary>
-        /// 스태미나가 실제로 소모되는 구간은 숨기·찾기 페이즈만이다. 로비·대기(Waiting, 시작 카운트다운·맵 로딩 포함),
-        /// 하이라이트, 엔딩 무대(Result)에서는 무제한으로 달릴 수 있다.
+        /// 스태미나가 실제로 소모되는 구간은 찾기 페이즈뿐이다. 로비·대기(Waiting, 시작 카운트다운·맵 로딩 포함),
+        /// 숨기기, 하이라이트, 엔딩 무대(Result)에서는 무제한으로 달릴 수 있다.
         /// </summary>
         public static bool IsUnlimitedInPhase(MatchPhase phase) =>
-            phase != MatchPhase.Hiding && phase != MatchPhase.Searching;
+            phase != MatchPhase.Searching;
 
         public static PlayerStaminaState Step(
             float current,
