@@ -74,6 +74,12 @@ namespace Game.Client.Match
             view.ReportClicked += OnReportClicked;
             confirmView.Confirmed += ConfirmPending;
             confirmView.Cancelled += CancelPending;
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+            }
+
+            view.ShowChrome(locale);
 
             if (voice != null)
             {
@@ -103,12 +109,23 @@ namespace Game.Client.Match
             view.ReportClicked -= OnReportClicked;
             confirmView.Confirmed -= ConfirmPending;
             confirmView.Cancelled -= CancelPending;
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
+
             lifetime.Cancel();
             lifetime.Dispose();
             muteSubscription?.Dispose();
             talkSubscription?.Dispose();
             listenSubscription?.Dispose();
             refreshSubscription?.Dispose();
+        }
+
+        private void OnLocaleChanged()
+        {
+            view.ShowChrome(locale);
+            Draw();
         }
 
         private void Draw()

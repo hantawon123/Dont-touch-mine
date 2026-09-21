@@ -18,19 +18,19 @@ namespace Game.Client.Lobby
     public sealed class LobbyPlayerListView : MonoBehaviour, ILobbyPlayerListView
     {
         public static string ParticipantsTitle =>
-            UiTextCatalog.Shipped.Get(UiText.Lobby.Participants, "ko");
+            UiLocale.Applied(UiText.Lobby.Participants);
 
         public static string FriendsTitle =>
-            UiTextCatalog.Shipped.Get(UiText.Lobby.Friends, "ko");
+            UiLocale.Applied(UiText.Lobby.Friends);
 
         public static string OnlineSectionTitle =>
-            UiTextCatalog.Shipped.Get(UiText.Lobby.Online, "ko");
+            UiLocale.Applied(UiText.Lobby.Online);
 
         public static string WaitingSectionTitle =>
-            UiTextCatalog.Shipped.Get(UiText.Lobby.Waiting, "ko");
+            UiLocale.Applied(UiText.Lobby.Waiting);
 
         public static string InGameSectionTitle =>
-            UiTextCatalog.Shipped.Get(UiText.Lobby.InGame, "ko");
+            UiLocale.Applied(UiText.Lobby.InGame);
         public const string OnlineItemsName = "OnlineItems";
         public const string WaitingItemsName = "WaitingItems";
         public const string InGameItemsName = "InGameItems";
@@ -72,11 +72,13 @@ namespace Game.Client.Lobby
         public const int ReportTooltipRadius = 13;
         public const float ReportTooltipGap = 8f * ModalScale;
         public const float ReportTooltipOverlap = 8f * ModalScale;
+        public static string KickLabel =>
+            UiLocale.Applied(UiText.Lobby.Kick);
         public static string ReportLabel =>
-            UiTextCatalog.Shipped.Get(UiText.Lobby.Report, "ko");
+            UiLocale.Applied(UiText.Lobby.Report);
         public const string ReportBridgeName = "Bridge";
         public static string ReportConfirmLabel =>
-            UiTextCatalog.Shipped.Get(UiText.Lobby.Confirm, "ko");
+            UiLocale.Applied(UiText.Lobby.Confirm);
         public const float InviteCooldownSeconds = 10f;
 
         public static readonly Color KickColor = new Color(177f / 255f, 177f / 255f, 177f / 255f, 1f);
@@ -111,11 +113,58 @@ namespace Game.Client.Lobby
         private readonly Dictionary<string, float> inviteReadyAt = new();
         private Func<float> inviteClock = () => Time.unscaledTime;
         private Game.Core.Settings.InterfacePresentation presentation;
+        private UiLocale chromeLocale;
+        private IReadOnlyList<FriendSummary> lastFriends;
         private IReadOnlyList<LobbyParticipant> lastParticipants;
         private bool lastHost;
         private string lastLocal;
         private bool lastNamesReady = true;
         private bool matchLayout;
+
+        /// <summary>
+        /// Redraws the words the modal owns in <paramref name="locale"/>. Player
+        /// names are what people typed and stay as they are.
+        /// </summary>
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureLayout();
+            if (participantsTitle != null)
+            {
+                participantsTitle.text = Copy(UiText.Lobby.Participants);
+            }
+
+            if (friendsTitle != null)
+            {
+                friendsTitle.text = Copy(UiText.Lobby.Friends);
+            }
+
+            // The rows carry words too — 강퇴, 신고, the empty-roster line — and
+            // they are only written while a row is built.
+            SetParticipants(lastParticipants, lastHost, lastLocal, lastNamesReady);
+            if (lastFriends != null)
+            {
+                SetFriends(lastFriends);
+            }
+
+            SetSectionTitle(onlineSection, UiText.Lobby.Online);
+            SetSectionTitle(waitingSection, UiText.Lobby.Waiting);
+            SetSectionTitle(inGameSection, UiText.Lobby.InGame);
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
+
+        private void SetSectionTitle(RectTransform section, string key)
+        {
+            var text = section != null ? section.GetComponent<TextMeshProUGUI>() : null;
+            if (text != null)
+            {
+                text.text = Copy(key);
+            }
+        }
 
         [VContainer.Inject]
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value)
@@ -179,7 +228,7 @@ namespace Game.Client.Lobby
         public event Action<string, string> ReportClicked;
 
         public static string FormatReportTitle(string displayName) =>
-            FormatReportTitle(displayName, "ko");
+            FormatReportTitle(displayName, UiLocale.AppliedLanguage);
 
         public static string FormatReportTitle(string displayName, string language) =>
             string.Format(UiTextCatalog.Shipped.Get(UiText.Lobby.ReportTitle, language), displayName);
@@ -251,7 +300,7 @@ namespace Game.Client.Lobby
 
             if (participants == null || participants.Count == 0)
             {
-                CreateInfoRow(participantRowRoot, participantRows, UiTextCatalog.Shipped.Get(UiText.Lobby.NoParticipants, "ko"));
+                CreateInfoRow(participantRowRoot, participantRows, Copy(UiText.Lobby.NoParticipants));
                 return;
             }
 
@@ -353,6 +402,7 @@ namespace Game.Client.Lobby
 
         public void SetFriends(IReadOnlyList<FriendSummary> friends)
         {
+            lastFriends = friends;
             EnsureLayout();
             EnsureFriendSections();
             inviteButtons.Clear();
@@ -1251,7 +1301,7 @@ namespace Game.Client.Lobby
                 .GetComponent<RectTransform>();
             kick.SetParent(parent, false);
             var label = kick.GetComponent<TextMeshProUGUI>();
-            ApplyBody(label, UiTextCatalog.Shipped.Get(UiText.Lobby.Kick, "ko"));
+            ApplyBody(label, KickLabel);
             label.color = KickColor;
             label.raycastTarget = true;
             label.alignment = TextAlignmentOptions.MidlineRight;

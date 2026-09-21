@@ -20,10 +20,10 @@ namespace Game.Client.Lobby
     {
         public const string RootName = "KickConfirm";
         public static string CancelLabel =>
-            UiTextCatalog.Shipped.Get(UiText.Settings.Cancel, "ko");
+            UiLocale.Applied(UiText.Settings.Cancel);
 
         public static string ConfirmLabel =>
-            UiTextCatalog.Shipped.Get(UiText.Lobby.KickAction, "ko");
+            UiLocale.Applied(UiText.Lobby.KickAction);
         public const float ReasonHeight = 48f;
         public const float ReasonGap = 20f;
         public const float ReasonWidth = 490f;
@@ -48,7 +48,7 @@ namespace Game.Client.Lobby
         public const string NoteRootName = "Note";
         public const string NoteCounterName = "Counter";
         public static string NotePlaceholder =>
-            UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackPlaceholder, "ko");
+            UiLocale.Applied(UiText.Settings.FeedbackPlaceholder);
         public const int SortingOrder = PlaySettingsStyle.Overlay.SortingOrder + 20;
 
         public static readonly ReportReason[] Reasons =
@@ -69,13 +69,13 @@ namespace Game.Client.Lobby
                 + NoteHeight);
 
         public static string FormatTitle(string displayName) =>
-            FormatTitle(displayName, "ko");
+            FormatTitle(displayName, UiLocale.AppliedLanguage);
 
         public static string FormatTitle(string displayName, string language) =>
             string.Format(UiTextCatalog.Shipped.Get(UiText.Lobby.KickTitle, language), displayName);
 
         public static string ReasonLabel(ReportReason reason) =>
-            ReasonLabel(reason, "ko");
+            ReasonLabel(reason, UiLocale.AppliedLanguage);
 
         public static string ReasonLabel(ReportReason reason, string language)
         {

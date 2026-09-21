@@ -20,9 +20,9 @@ namespace Game.Client.Lobby
         public static string[] Titles => new[]
         {
             string.Empty,
-            UiTextCatalog.Shipped.Get(UiText.Lobby.Closet, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Lobby.PlayersShortcut, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Lobby.Settings, "ko")
+            UiLocale.Applied(UiText.Lobby.Closet),
+            UiLocale.Applied(UiText.Lobby.PlayersShortcut),
+            UiLocale.Applied(UiText.Lobby.Settings)
         };
 
         private GameObject overlayRoot;

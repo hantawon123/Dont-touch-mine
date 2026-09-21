@@ -89,6 +89,12 @@ namespace Game.Client.Lobby
             confirmView.Confirmed += ConfirmPending;
             confirmView.Cancelled += CancelPending;
             friends.FriendsChanged += BindFriends;
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+            }
+
+            view.ShowChrome(locale);
             if (voice != null)
             {
                 muteSubscription = voice.IsMuted.Subscribe(_ => Draw());
@@ -131,6 +137,12 @@ namespace Game.Client.Lobby
             Draw();
         }
 
+        private void OnLocaleChanged()
+        {
+            view.ShowChrome(locale);
+            Draw();
+        }
+
         private void Draw()
         {
             if (!latest.HasValue)
@@ -161,6 +173,11 @@ namespace Game.Client.Lobby
             confirmView.Confirmed -= ConfirmPending;
             confirmView.Cancelled -= CancelPending;
             friends.FriendsChanged -= BindFriends;
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
+
             muteSubscription?.Dispose();
             talkSubscription?.Dispose();
             listenSubscription?.Dispose();
