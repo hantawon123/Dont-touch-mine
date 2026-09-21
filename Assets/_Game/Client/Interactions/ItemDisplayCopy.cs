@@ -13,6 +13,10 @@ namespace Game.Client.Interactions
     /// 외곽선 껍데기도 지운다 (S15P21D205-1097). 그것 때문에 결과 화면과 하이라이트에서 물건이
     /// 자홍색으로 보였다 - 아래 <see cref="RemoveOutlineShells"/> 를 보라.
     /// </para>
+    /// <para>
+    /// 지우는 것은 모드를 가려서 지운다(<see cref="Remove"/>). 편집 모드에서는 <c>Destroy</c> 가
+    /// 오류만 뱉고 아무것도 지우지 않아 검사가 성립하지 않는다.
+    /// </para>
     /// </remarks>
     public static class ItemDisplayCopy
     {
@@ -25,11 +29,11 @@ namespace Game.Client.Interactions
             copy.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 
             foreach (var behaviour in copy.GetComponentsInChildren<MonoBehaviour>(true))
-                Object.Destroy(behaviour);
+                Remove(behaviour);
             foreach (var collider in copy.GetComponentsInChildren<Collider>(true))
-                Object.Destroy(collider);
+                Remove(collider);
             foreach (var body in copy.GetComponentsInChildren<Rigidbody>(true))
-                Object.Destroy(body);
+                Remove(body);
 
             RemoveOutlineShells(copy);
 
@@ -68,12 +72,23 @@ namespace Game.Client.Interactions
                 if (renderer == null || !ItemOutlineRenderers.IsGenerated(renderer)) continue;
 
                 // 껍데기는 전용 자식이다. 혹시 물건 자신에게 붙어 있으면 렌더러만 지운다.
-                var target = renderer.gameObject == copy
-                    ? (Object)renderer
-                    : renderer.gameObject;
-                if (Application.isPlaying) Object.Destroy(target);
-                else Object.DestroyImmediate(target);
+                Remove(renderer.gameObject == copy ? (Object)renderer : renderer.gameObject);
             }
+        }
+
+        /// <summary>
+        /// 편집 모드에서는 즉시 지운다.
+        ///
+        /// <para>
+        /// <c>Object.Destroy</c> 는 편집 모드에서 오류를 뱉고 아무것도 지우지 않는다. 플레이 중에만
+        /// 쓰는 코드였지만 검사에서도 이 함수를 부르고, 그때 지워지지 않으면 검사가 볼 것이 없다.
+        /// </para>
+        /// </summary>
+        private static void Remove(Object target)
+        {
+            if (target == null) return;
+            if (Application.isPlaying) Object.Destroy(target);
+            else Object.DestroyImmediate(target);
         }
     }
 }
