@@ -158,7 +158,7 @@ namespace Game.Tests.EditMode
 
             foreach (var text in home.View.GetComponentsInChildren<TMPro.TMP_Text>(true))
             {
-                Assert.That(text.text, Does.Not.Contain("Don't Touch"));
+                Assert.That(text.text ?? string.Empty, Does.Not.Contain("Don't Touch"));
             }
         }
 
