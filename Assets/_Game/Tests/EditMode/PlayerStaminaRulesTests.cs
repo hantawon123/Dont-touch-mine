@@ -71,9 +71,9 @@ namespace Game.Tests.EditMode
         [TestCase(MatchPhase.Waiting, true, TestName = "Unlimited_InLobbyAndWaitingRoom")]
         [TestCase(MatchPhase.Result, true, TestName = "Unlimited_OnEndingStage")]
         [TestCase(MatchPhase.Highlight, true, TestName = "Unlimited_DuringHighlight")]
-        [TestCase(MatchPhase.Hiding, false, TestName = "Limited_WhileHiding")]
+        [TestCase(MatchPhase.Hiding, true, TestName = "Unlimited_WhileHiding")]
         [TestCase(MatchPhase.Searching, false, TestName = "Limited_WhileSearching")]
-        public void StaminaOnlyDrainsDuringHidingAndSearching(MatchPhase phase, bool unlimited)
+        public void StaminaOnlyDrainsDuringSearching(MatchPhase phase, bool unlimited)
         {
             Assert.That(PlayerStaminaRules.IsUnlimitedInPhase(phase), Is.EqualTo(unlimited));
         }
