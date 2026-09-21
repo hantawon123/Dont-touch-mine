@@ -136,10 +136,10 @@ namespace Game.Architecture.Tests
                 Assert.That(rect.anchoredPosition.y, Is.EqualTo(-SettingsStyle.Chrome.TopRowCentreY));
                 Assert.That(
                     resetAll.anchoredPosition.y,
-                    Is.EqualTo(rect.anchoredPosition.y - SettingsStyle.ResetAll.DropFromTopRow),
-                    "전체 변경 취소는 맨 위 줄에서 한 줄 내려앉습니다.");
+                    Is.EqualTo(rect.anchoredPosition.y - SettingsStyle.ResetAll.LobbyDropFromTopRow),
+                    "로비에서는 전체 변경 취소가 맨 위 줄에서 한 줄 내려앉습니다.");
                 Assert.That(
-                    SettingsStyle.ResetAll.DropFromTopRow,
+                    SettingsStyle.ResetAll.LobbyDropFromTopRow,
                     Is.GreaterThan(SettingsStyle.Chrome.PlateHeight),
                     "두 줄이 겹치면 안 됩니다.");
                 Assert.That(
@@ -256,6 +256,15 @@ namespace Game.Architecture.Tests
                 var resetAll = Find(root, "ResetAllButton").GetComponent<Image>();
                 Assert.That(resetAll.sprite, Is.Not.Null);
                 Assert.That(resetAll.color, Is.EqualTo(SettingsStyle.Palette.ChromePlateFill));
+
+                // 자리는 로비와 다릅니다 (S15P21D205-1098). 홈에서는 판이 화면을 거의 다 채워서
+                // 한 줄 내리면 단추가 판 안으로 들어가 겹칩니다. 그래서 맨 위 줄에 그대로 둡니다.
+                var resetRect = resetAll.GetComponent<RectTransform>();
+                Assert.That(
+                    resetRect.anchoredPosition,
+                    Is.EqualTo(new Vector2(
+                        -SettingsStyle.ResetAll.RightMargin, -SettingsStyle.Chrome.TopRowCentreY)),
+                    "홈에서는 전체 변경 취소가 맨 위 줄에 있어야 합니다.");
                 var panel = Find(root, "Panel") as RectTransform;
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.localScale, Is.EqualTo(Vector3.one));

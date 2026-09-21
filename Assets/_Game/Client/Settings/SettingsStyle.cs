@@ -382,20 +382,27 @@ namespace Game.Client.Settings
         /// <summary>The circling arrow and its words at the top right.</summary>
         public static class ResetAll
         {
-            public const float RightMargin = 130f;
+            public const float RightMargin = 160f;
+
+            /// <summary>로비에서는 판이 작아져 오른쪽에 여유가 생깁니다.</summary>
+            public const float LobbyRightMargin = 130f;
 
             /// <summary>
-            /// 맨 위 줄에서 이만큼 내려앉습니다 (2026-09-21 사용자 지정).
+            /// <b>로비에서만</b> 맨 위 줄에서 이만큼 내려앉습니다 (2026-09-21 사용자 지정).
             ///
             /// <para>
-            /// 전에는 건너편 게임 나가기와 같은 줄이었습니다. 한 줄 내려 방 제목(ROOM SETTING)
-            /// 오른쪽에 두기로 했습니다. 판 높이(60)보다 큰 값이라 두 줄이 겹치지 않습니다.
+            /// 로비에서는 방 제목(ROOM SETTING) 오른쪽 줄에 두기로 했습니다. 판 높이(60)보다 큰
+            /// 값이라 두 줄이 겹치지 않습니다. <b>시작화면(설정 화면)은 내리지 않습니다</b> - 거기서는
+            /// 판이 화면을 거의 다 채워서, 내리면 단추가 판 안으로 들어가 겹칩니다.
             /// </para>
             /// </summary>
-            public const float DropFromTopRow = 84f;
+            public const float LobbyDropFromTopRow = 84f;
 
-            /// <summary>화면 위에서 이 줄의 중심까지.</summary>
-            public static float CentreY => Chrome.TopRowCentreY + DropFromTopRow;
+            /// <summary>화면 위에서 이 줄의 중심까지. 시작화면은 맨 위 줄입니다.</summary>
+            public static float CentreY => Chrome.TopRowCentreY;
+
+            /// <summary>로비에서 쓰는 값.</summary>
+            public static float LobbyCentreY => Chrome.TopRowCentreY + LobbyDropFromTopRow;
 
             public const float Height = 44f;
             public const float FontSize = 30f;
