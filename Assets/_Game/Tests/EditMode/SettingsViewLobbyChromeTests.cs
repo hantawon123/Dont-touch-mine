@@ -2,6 +2,7 @@ using Game.Client.Character;
 using Game.Client.Settings;
 using Game.Core.Settings;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -239,6 +240,13 @@ namespace Game.Architecture.Tests
                     .Invoke(view, null);
 
                 Assert.That(Find(root, "FeedbackRow"), Is.Not.Null);
+                var feedbackField = Find(root, "FeedbackField");
+                Assert.That(feedbackField, Is.Not.Null);
+                var feedbackInput = feedbackField.GetComponent<TMP_InputField>();
+                Assert.That(feedbackInput, Is.Not.Null);
+                Assert.That(feedbackInput.richText, Is.False);
+                Assert.That(feedbackInput.textComponent.richText, Is.False);
+                Assert.That((feedbackInput.placeholder as TMP_Text).richText, Is.False);
                 Assert.That(Find(root, "LeaveGameButton"), Is.Null);
                 Assert.That(Find(root, "LeaveGameLabel"), Is.Null);
                 Assert.That(Find(root, "BackButton"), Is.Not.Null);
