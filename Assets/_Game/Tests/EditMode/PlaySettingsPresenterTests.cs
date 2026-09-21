@@ -273,7 +273,9 @@ namespace Game.Tests.EditMode
                 typeof(PlaySettingsView).GetMethod("OnEnable",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(view, null);
-                MatchRuleSettings.TryCreate(10, 1, 0.5f, 1, "fruit", out var rules, out _);
+                Assert.That(
+                    MatchRuleSettings.TryCreate(10, 1, 1f, 1, "fruit", out var rules, out _),
+                    Is.True);
                 view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground", rules));
                 var change = typeof(PlaySettingsView).GetMethod("ChangeRule",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
@@ -290,7 +292,7 @@ namespace Game.Tests.EditMode
                 Step(1, -1);
                 for (var field = 0; field < 4; field++) Step(field, -1);
                 Assert.That(view.ReadDraft().MatchRules, Is.EqualTo(rules));
-                foreach (var speed in new[] { 1f, 1.5f, 2f, 3f })
+                foreach (var speed in new[] { 1.5f, 2f, 3f })
                 {
                     Step(2, 1);
                     Assert.That(view.ReadDraft().MatchRules.SprintMultiplier, Is.EqualTo(speed));

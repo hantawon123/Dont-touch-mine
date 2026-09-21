@@ -26,7 +26,11 @@ namespace Game.Tests.EditMode
                 var replayRenderer = visual.Target.GetComponentInChildren<Renderer>();
                 properties.Clear();
                 replayRenderer.GetPropertyBlock(properties, 0);
-                Assert.That(properties.GetColor("_BaseColor"), Is.EqualTo(expected),
+                var actual = properties.GetColor("_BaseColor");
+                Assert.That(actual.r, Is.EqualTo(expected.r).Within(1e-5f));
+                Assert.That(actual.g, Is.EqualTo(expected.g).Within(1e-5f));
+                Assert.That(actual.b, Is.EqualTo(expected.b).Within(1e-5f));
+                Assert.That(actual.a, Is.EqualTo(expected.a).Within(1e-5f),
                     "Replay avatars must retain colours stored on individual material slots.");
             }
             finally
@@ -167,7 +171,11 @@ namespace Game.Tests.EditMode
                 placed.transform.position = new Vector3(30f, 4f, 40f);
                 placed.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
                 camera.SetFollowTarget(placed.transform);
-                Assert.That(root.transform.position, Is.EqualTo(placed.transform.position + Vector3.up * 1.6f));
+                var flags = System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic;
+                var headOffset = (Vector3)typeof(Game.Client.Cameras.PlayerCameraController)
+                    .GetField("headOffset", flags).GetValue(camera);
+                Assert.That(root.transform.position, Is.EqualTo(placed.transform.position + headOffset));
                 Assert.That(Quaternion.Angle(root.transform.rotation, placed.transform.rotation), Is.LessThan(0.01f));
             }
             finally

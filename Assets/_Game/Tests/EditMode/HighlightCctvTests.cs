@@ -36,6 +36,7 @@ namespace Game.Tests.EditMode
                 director.Tick(2.1f);
                 player.position = Vector3.right * 40;
                 director.Tick(0.3f);
+                director.Tick(0.3f); // Re-sample after the one-frame movement prediction settles.
                 Assert.That(output.position, Is.EqualTo(b.transform.position));
                 Assert.That(Quaternion.Angle(output.rotation, b.transform.rotation), Is.LessThan(0.001f));
                 Assert.That(director.CctvLocation, Is.EqualTo("CAM B"));

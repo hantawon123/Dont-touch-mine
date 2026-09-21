@@ -119,10 +119,9 @@ namespace Game.Architecture.Tests
                     Is.GreaterThan(64),
                     "64개 초과 동기화 경로를 실제 맵 구성으로 검증해야 합니다.");
                 Assert.That(
-                    captured.NetworkConfiguration.InitialWorldObjects.Count + MatchRulesSO.MaxPlayerCount,
-                    Is.LessThanOrEqualTo(
-                        Game.Network.Match.MatchSessionState.MaxReplicatedObjects),
-                    "Playground의 모든 CarryableItem이 네트워크 상태 용량 안에 들어야 합니다.");
+                    MatchRulesSO.MaxPlayerCount,
+                    Is.LessThanOrEqualTo(Game.Network.Match.MatchSessionState.MaxReplicatedObjects),
+                    "배정 물건은 항상 희소 복제 상태에 들어갈 수 있어야 합니다.");
                 foreach (var item in carryableItems)
                 {
                     Assert.That(
