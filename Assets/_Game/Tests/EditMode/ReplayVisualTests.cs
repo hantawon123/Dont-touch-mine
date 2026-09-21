@@ -225,9 +225,14 @@ namespace Game.Tests.EditMode
         public void HighlightHud_KeepsOnlyHighlightHudAndNotice_AndRestoresPriorVisibility()
         {
             var root = new GameObject("HUD", typeof(Canvas));
+            var player = new GameObject("Player");
             try
             {
                 var hud = root.AddComponent<Game.Client.Match.NetworkMatchHudView>();
+                var bubbles = Game.Client.Match.MatchChatBubbleView.Create(root.transform);
+                bubbles.BindPlayer("P1", player.transform);
+                bubbles.Show(new Game.Core.Lobby.LobbyChatMessage("P1", "Player", "before"));
+                var chatBubble = player.transform.Find("Match Chat Bubble").gameObject;
                 var highlight = hud.GetComponentInChildren<Game.Client.Match.HighlightHudView>(true)
                     ?? Game.Client.Match.HighlightHudView.Create(root.transform);
                 highlight.Show("FIRST BLOOD : 민수", new[] { 0.4f, 0f, 0f });
@@ -250,6 +255,9 @@ namespace Game.Tests.EditMode
                 typeof(Game.Client.Match.NetworkMatchHudView).GetField("destructionNoticeRoot", flags)
                     .SetValue(hud, notice);
                 hud.SetPhase(Game.Core.Match.MatchPhase.Highlight, "");
+                Assert.That(chatBubble.activeSelf, Is.False);
+                bubbles.Show(new Game.Core.Lobby.LobbyChatMessage("P1", "Player", "during"));
+                Assert.That(chatBubble.activeSelf, Is.False);
                 Assert.That(highlight.transform.Find("Header/Title").GetComponent<TMPro.TMP_Text>().enabled, Is.True);
                 Assert.That(notice.GetComponent<TMPro.TMP_Text>().enabled, Is.True);
                 Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
@@ -261,10 +269,16 @@ namespace Game.Tests.EditMode
                 Assert.That(timerText.enabled, Is.False);
                 Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
                 hud.SetPhase(Game.Core.Match.MatchPhase.Searching, "");
+                bubbles.Show(new Game.Core.Lobby.LobbyChatMessage("P1", "Player", "after"));
+                Assert.That(chatBubble.activeSelf, Is.True);
                 Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.True);
                 Assert.That(hidden.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
             }
-            finally { Object.DestroyImmediate(root); }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(player);
+            }
         }
 
         [Test]
