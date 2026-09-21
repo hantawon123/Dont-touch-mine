@@ -116,9 +116,10 @@ namespace Game.Tests.EditMode
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Crouching),
                 Is.EqualTo("Crouch_Idle"));
+            // 속도를 안 주면 제자리다. 엎드려 가만히 있으면 기어가는 동작이 아니라 Prone_Idle 이다.
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Prone),
-                Is.EqualTo("Crawl_Forward"));
+                Is.EqualTo("Prone_Idle"));
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Airborne),
                 Is.EqualTo("Fall"));
@@ -147,7 +148,11 @@ namespace Game.Tests.EditMode
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(
                     HighlightPlayerAction.Carrying | HighlightPlayerAction.Prone),
-                Is.EqualTo("Carry_TwoHands_Crawl_Forward"));
+                Is.EqualTo("Carry_TwoHands_Prone_Idle"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(
+                    HighlightPlayerAction.Carrying | HighlightPlayerAction.Prone, 2f),
+                Is.EqualTo("Carry_TwoHands_Crawl_Forward"), "들고 기어가면 두 손 기기 클립이다.");
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(
                     HighlightPlayerAction.Carrying | HighlightPlayerAction.Airborne),
@@ -180,10 +185,11 @@ namespace Game.Tests.EditMode
             foreach (var layer in controller.layers) Collect(layer.stateMachine, states);
             Assert.That(states.Count, Is.GreaterThan(20), "애니메이터에서 상태를 못 읽었습니다.");
 
-            // 플래그 조합을 전부 돌려 나오는 이름을 모은다. 여덟 개뿐이라 256 가지다.
+            // 플래그 조합(여덟 개라 256 가지)을 제자리·걷기·달리기 속도로 각각 돌려 이름을 모은다.
             var named = new HashSet<string>();
             for (var bits = 0; bits < 256; bits++)
-                named.Add(HighlightReplayPlayer.AnimationStateOf((HighlightPlayerAction)bits));
+            foreach (var speed in new[] { 0f, 2f, 6f })
+                named.Add(HighlightReplayPlayer.AnimationStateOf((HighlightPlayerAction)bits, speed));
 
             foreach (var name in named)
                 Assert.That(states, Does.Contain(name), $"애니메이터에 상태 '{name}' 가 없습니다.");
@@ -193,6 +199,62 @@ namespace Game.Tests.EditMode
         {
             foreach (var state in machine.states) into.Add(state.state.name);
             foreach (var child in machine.stateMachines) Collect(child.stateMachine, into);
+        }
+
+        /// <summary>
+        /// 움직이면 걷기·달리기 클립으로 간다 (2026-09-21).
+        ///
+        /// <para>
+        /// 전에는 속도를 보지 않아 뛰어가는 장면도 제자리 Idle 로 나왔다.
+        /// </para>
+        /// </summary>
+        [Test]
+        public void AnimationStateOf_WalksAndRunsWithSpeed()
+        {
+            Assert.That(HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.None, 0f),
+                Is.EqualTo("Idle"));
+            Assert.That(HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.None, 0.2f),
+                Is.EqualTo("Idle"), "걸음으로 안 볼 만큼 느리면 제자리다.");
+            Assert.That(HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.None, 2f),
+                Is.EqualTo("Walk_Forward"));
+            Assert.That(HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.None, 6f),
+                Is.EqualTo("Run_Forward"));
+            // 들고 뛰면 두 손 클립의 달리기다.
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Carrying, 6f),
+                Is.EqualTo("Carry_TwoHands_Run_Forward"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Carrying, 2f),
+                Is.EqualTo("Carry_TwoHands_Walk_Forward"));
+        }
+
+        /// <summary>웅크림·엎드림도 서 있는지 움직이는지로 갈린다.</summary>
+        [Test]
+        public void AnimationStateOf_SplitsCrouchAndProneByMovement()
+        {
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Crouching, 0f),
+                Is.EqualTo("Crouch_Idle"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Crouching, 2f),
+                Is.EqualTo("Crouch_Walk_Forward"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(
+                    HighlightPlayerAction.Crouching | HighlightPlayerAction.Carrying, 2f),
+                Is.EqualTo("Carry_TwoHands_Crouch_Walk_Forward"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Prone, 0f),
+                Is.EqualTo("Prone_Idle"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Prone, 2f),
+                Is.EqualTo("Crawl_Forward"));
+            // 순간 동작은 속도와 무관하게 먼저 본다.
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Punching, 6f),
+                Is.EqualTo("Punch"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Stunned, 6f),
+                Is.EqualTo("Stunned"));
         }
 
         /// <summary>던지기·내려놓기는 순간 동작이라 들기보다 먼저 본다.</summary>
