@@ -141,7 +141,7 @@ namespace Game.Network.Match
         /// <summary>Largest room the rules allow, so the array never resizes.</summary>
         public const int MaxParticipants = RoomSettings.MaxPlayerCount;
 
-        // Covers every carryable in Playground with room for later map props.
+        // Covers every replicated carryable in the largest match map with room for later props.
         // Fusion reserves this state capacity up front, so keep it close to the
         // real map maximum instead of treating it as an unbounded collection.
         public const int MaxReplicatedObjects = 256;

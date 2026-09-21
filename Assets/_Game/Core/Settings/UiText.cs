@@ -139,6 +139,7 @@ namespace Game.Core.Settings
             public const string FindRoom = "home.menu.findRoom";
             public const string Character = "home.menu.character";
             public const string Settings = "home.menu.settings";
+            public const string Tutorial = "home.menu.tutorial";
             public const string Quit = "home.menu.quit";
 
             public const string ConnectionError = "home.connectionError";

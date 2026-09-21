@@ -25,6 +25,9 @@ namespace Game.Client.Home
         /// <summary>Opens the settings screen.</summary>
         void OpenSettings();
 
+        /// <summary>Starts the tutorial from the beginning.</summary>
+        void OpenTutorial();
+
         /// <summary>
         /// Opens a room with these settings and, if it opens, goes to its
         /// lobby.
@@ -52,6 +55,7 @@ namespace Game.Client.Home
         public const string LobbySceneName = "Lobby";
         public const string CharacterClosetSceneName = "Character";
         public const string SettingsSceneName = "Settings";
+        public const string TutorialSceneName = "Tutorial";
 
         public void Quit()
         {
@@ -102,6 +106,13 @@ namespace Game.Client.Home
         public void OpenSettings()
         {
             SceneLoadSlicer.LoadSingleAsync(SettingsSceneName)
+                .Forget(exception => Debug.LogException(exception));
+        }
+
+        /// <inheritdoc cref="OpenHome"/>
+        public void OpenTutorial()
+        {
+            SceneLoadSlicer.LoadSingleAsync(TutorialSceneName)
                 .Forget(exception => Debug.LogException(exception));
         }
 
@@ -334,6 +345,16 @@ namespace Game.Client.Home
                 HideProfileSettings();
                 HideServerSettings();
                 applicationHost.OpenSettings();
+                return;
+            }
+
+            if (action == HomeMenuAction.Tutorial &&
+                Transition(action, AppFlowState.Tutorial))
+            {
+                HideFriendList();
+                HideProfileSettings();
+                HideServerSettings();
+                applicationHost.OpenTutorial();
                 return;
             }
 

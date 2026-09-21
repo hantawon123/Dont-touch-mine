@@ -164,10 +164,10 @@ namespace Game.Architecture.Tests
             try
             {
                 var view = LobbyMatchInfoView.Create(canvas.transform);
-                view.SetInfo("과일", "playground");
+                view.SetInfo("과일", "supermarket");
 
                 Assert.That(view.CategoryLabel, Is.EqualTo("과일"));
-                Assert.That(view.MapLabel, Is.EqualTo("playground"));
+                Assert.That(view.MapLabel, Is.EqualTo("supermarket"));
             }
             finally
             {

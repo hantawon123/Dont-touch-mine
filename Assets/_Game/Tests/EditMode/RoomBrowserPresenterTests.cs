@@ -214,7 +214,7 @@ namespace Game.Tests.EditMode
             return new RoomSummary(
                 new RoomId(title),
                 title,
-                "playground",
+                "supermarket",
                 1,
                 RoomSettings.MaxPlayerCount,
                 isLocked: false,
@@ -402,6 +402,10 @@ namespace Game.Tests.EditMode
             }
 
             public void OpenSettings()
+            {
+            }
+
+            public void OpenTutorial()
             {
             }
         }

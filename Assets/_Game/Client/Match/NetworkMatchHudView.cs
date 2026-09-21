@@ -251,6 +251,7 @@ namespace Game.Client.Match
                 RestoreHud();
                 return;
             }
+            SetChatBubblesVisible(false);
             // Hide presentation components, not HUD objects/presenters. Notices
             // must keep receiving events and updating at their original position.
             foreach (var graphic in FindObjectsByType<Graphic>(FindObjectsInactive.Include, FindObjectsSortMode.None))
@@ -334,6 +335,20 @@ namespace Game.Client.Match
                 if (pair.Key != null) pair.Key.SetHudVisible(pair.Value);
             hiddenGraphics.Clear();
             hiddenCrosshairs.Clear();
+            SetChatBubblesVisible(true);
+        }
+
+        private void SetChatBubblesVisible(bool visible)
+        {
+            foreach (var bubbles in FindObjectsByType<MatchChatBubbleView>(
+                         FindObjectsInactive.Include,
+                         FindObjectsSortMode.None))
+            {
+                if (bubbles.gameObject.scene == gameObject.scene)
+                {
+                    bubbles.SetPresentationVisible(visible);
+                }
+            }
         }
 
         private void OnDestroy() => RestoreHud();

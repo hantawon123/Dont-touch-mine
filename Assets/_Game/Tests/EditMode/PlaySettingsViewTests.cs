@@ -124,7 +124,7 @@ namespace Game.Architecture.Tests
                 Assert.That(Find(panel.transform, "Header").Find("ResetButton"), Is.Null);
                 Assert.That(Find(panel.transform, "Header").Find("RevertButton"), Is.Null);
 
-                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "playground"));
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "supermarket"));
                 view.SetEditable(true);
                 Assert.That(reset.GetComponent<Button>().interactable, Is.False);
                 Assert.That(
@@ -253,7 +253,7 @@ namespace Game.Architecture.Tests
                 Assert.That(categoryValue.fontSize, Is.EqualTo(PlaySettingsStyle.FontSize.CategoryName));
                 Assert.That(categoryValue.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
 
-                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, MapCatalog.PlaygroundId));
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "playground"));
                 Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
                 Assert.That(view.ReadDraft().MapId, Is.EqualTo(string.Empty));
                 Assert.That(randomMark.gameObject.activeSelf, Is.True);

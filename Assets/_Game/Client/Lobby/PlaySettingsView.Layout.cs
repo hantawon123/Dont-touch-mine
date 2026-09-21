@@ -347,11 +347,13 @@ namespace Game.Client.Lobby
 
         private void BuildSettingsScroll(RectTransform scrollArea)
         {
-            bodyScroll = scrollArea.gameObject.AddComponent<ScrollRect>();
+            // The settings screen's rect rather than the stock one: a wheel
+            // tick eases to where it lands instead of jumping there.
+            bodyScroll = scrollArea.gameObject.AddComponent<SettingsScrollRect>();
             bodyScroll.horizontal = false;
             bodyScroll.vertical = true;
             bodyScroll.movementType = ScrollRect.MovementType.Clamped;
-            bodyScroll.scrollSensitivity = 30f;
+            bodyScroll.scrollSensitivity = SettingsStyle.Scroll.Sensitivity;
 
             var viewport = CreateRect("Viewport", scrollArea);
             Stretch(viewport);

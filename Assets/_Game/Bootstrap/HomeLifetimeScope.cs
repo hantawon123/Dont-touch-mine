@@ -268,6 +268,8 @@ namespace Game.Bootstrap
 
             public void OpenSettings() => scenes.OpenSettings();
 
+            public void OpenTutorial() => fallback.OpenTutorial();
+
             /// <summary>
             /// Opens the room browser, and starts filling its list on the way.
             /// </summary>

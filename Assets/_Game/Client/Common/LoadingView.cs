@@ -50,6 +50,7 @@ namespace Game.Client.Common
 
         private bool shown;
         private float animationElapsed;
+        private double animationStartedAt;
         private Vector3[][] restVertices;
         private bool hasRestPose;
 
@@ -181,6 +182,7 @@ namespace Game.Client.Common
             EnsureLayout();
             transform.SetAsLastSibling();
             animationElapsed = 0f;
+            animationStartedAt = Time.realtimeSinceStartupAsDouble;
             SetVisualsVisible(true);
             WebLoadingAnimation.Show(label);
         }
@@ -200,7 +202,12 @@ namespace Game.Client.Common
                 return;
             }
 
-            animationElapsed += Mathf.Min(Time.unscaledDeltaTime, 0.04f);
+            // Scene integration can skip whole frames. Accumulating a capped
+            // delta made the animation remain behind after every stall, so it
+            // looked slow even after Unity started rendering again. Real time
+            // resumes at the phase the animation would have reached.
+            animationElapsed = (float)Math.Max(
+                0d, Time.realtimeSinceStartupAsDouble - animationStartedAt);
             AnimateLetters();
         }
 
@@ -218,6 +225,7 @@ namespace Game.Client.Common
             }
             shown = false;
             animationElapsed = 0f;
+            animationStartedAt = 0d;
             hasRestPose = false;
             SetVisualsVisible(false);
         }

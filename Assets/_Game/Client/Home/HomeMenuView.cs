@@ -408,7 +408,7 @@ namespace Game.Client.Home
         }
 
         /// <summary>
-        /// The four ways out of Home, stacked down the left of the character.
+        /// The ways out of Home, stacked down the left of the character.
         /// </summary>
         /// <remarks>
         /// Placed one by one off the top-left corner rather than through a
@@ -429,6 +429,7 @@ namespace Game.Client.Home
             CreateMenuItem(menu, UiText.Home.FindRoom, HomeMenuAction.FindRoom, 1);
             CreateMenuItem(menu, UiText.Home.Character, HomeMenuAction.Character, 2);
             CreateMenuItem(menu, UiText.Home.Settings, HomeMenuAction.Settings, 3);
+            CreateMenuItem(menu, UiText.Home.Tutorial, HomeMenuAction.Tutorial, 4);
         }
 
         /// <summary>

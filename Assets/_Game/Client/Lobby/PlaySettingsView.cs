@@ -85,7 +85,7 @@ namespace Game.Client.Lobby
         private UiLocale chromeLocale;
         private readonly List<(Text Text, string Key)> chromeTexts = new List<(Text, string)>();
 
-        private static readonly float[] SprintOptions = { 0.5f, 1f, 1.5f, 2f, 3f };
+        private static readonly float[] SprintOptions = { 1f, 1.5f, 2f, 3f };
         private readonly List<Text> ruleValues = new();
         private readonly List<Button> ruleMinus = new();
         private readonly List<Button> rulePlus = new();

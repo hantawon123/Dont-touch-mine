@@ -298,6 +298,10 @@ namespace Game.Architecture.Tests
         {
         }
 
+        public void OpenTutorial()
+        {
+        }
+
         public void CreateRoom(string title, bool isPublic, int maxPlayers)
         {
         }

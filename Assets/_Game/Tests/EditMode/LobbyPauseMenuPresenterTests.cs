@@ -455,7 +455,7 @@ namespace Game.Tests.EditMode
             public void SetParticipantCount(int count) { }
             public void SetUnappliedWarningVisible(bool visible) { }
             public PlaySettingsDraft ReadDraft() =>
-                new("방", "CODE", false, null, 6, 3, "playground");
+                new("방", "CODE", false, null, 6, 3, "supermarket");
             public void RequestClose()
             {
                 CloseRequests++;
@@ -472,7 +472,7 @@ namespace Game.Tests.EditMode
         {
             private readonly ReactiveProperty<bool> host = new(true);
             private readonly ReactiveProperty<PlaySettingsDraft> settings =
-                new(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground"));
+                new(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "supermarket"));
 
             public string LocalPlayerId => "me";
             public ReadOnlyReactiveProperty<bool> IsLocalHost => host;

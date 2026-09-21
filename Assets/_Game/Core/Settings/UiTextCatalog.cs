@@ -194,6 +194,7 @@ namespace Game.Core.Settings
             new UiTextLine(UiText.Home.FindRoom, "게임 찾기", "Find Game"),
             new UiTextLine(UiText.Home.Character, "캐릭터", "Character"),
             new UiTextLine(UiText.Home.Settings, "환경 설정", "Settings"),
+            new UiTextLine(UiText.Home.Tutorial, "튜토리얼", "Tutorial"),
             new UiTextLine(UiText.Home.Quit, "게임 종료", "Quit"),
             new UiTextLine(UiText.Home.ConnectionError, "게임 접속 오류", "Connection Error"),
             new UiTextLine(UiText.Home.HostDisconnected, "호스트의 연결이 끊어졌습니다", "The host disconnected"),

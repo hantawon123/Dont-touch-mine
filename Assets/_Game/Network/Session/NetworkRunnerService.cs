@@ -1214,8 +1214,37 @@ namespace Game.Network.Session
             _matchRules = normalizedMatchRules;
             _configuredMapId = mapId.Trim();
             if (title != null) _configuredTitle = title.Trim();
+            ApplyLobbySprintMultiplierToPlayers(_matchRules.SprintMultiplier);
             ReportPlayerCount();
             return true;
+        }
+
+        private void ApplyLobbySprintMultiplierToPlayers(float multiplier)
+        {
+            if (!IsServer || _runner == null || !_runner.IsRunning)
+            {
+                return;
+            }
+
+            foreach (var player in _runner.ActivePlayers)
+            {
+                ApplyLobbySprintMultiplier(player, multiplier);
+            }
+        }
+
+        private void ApplyLobbySprintMultiplier(PlayerRef player, float multiplier)
+        {
+            if (!IsServer || _runner == null || !_runner.IsRunning)
+            {
+                return;
+            }
+
+            var playerObject = _runner.GetPlayerObject(player);
+            if (playerObject != null &&
+                playerObject.TryGetBehaviour<NetworkPlayerMotor>(out var motor))
+            {
+                motor.TrySetSprintMultiplier(multiplier);
+            }
         }
 
         public bool TryReadLobbySettings(out PlaySettingsDraft settings)
@@ -2051,7 +2080,7 @@ namespace Game.Network.Session
             }
 
             _previousLoadingPriority = Application.backgroundLoadingPriority;
-            Application.backgroundLoadingPriority = UnityEngine.ThreadPriority.BelowNormal;
+            Application.backgroundLoadingPriority = UnityEngine.ThreadPriority.Low;
             _lobbyPreloadRaisedPriority = true;
             _lobbyPreload.priority = 100;
             // Read and deserialize in parallel with Photon, but do not run the
@@ -2217,7 +2246,7 @@ namespace Game.Network.Session
             _previousNetworkLoadingPriority =
                 Application.backgroundLoadingPriority;
             Application.backgroundLoadingPriority =
-                UnityEngine.ThreadPriority.BelowNormal;
+                UnityEngine.ThreadPriority.Low;
             _networkLoadRaisedPriority = true;
         }
 

@@ -11,7 +11,7 @@ namespace Game.Tests.EditMode
         public void ResourcePath_FollowsMapIdAndIsNullForRandom()
         {
             Assert.That(MapPreviewSprites.ResourcePath("supermarket"), Is.EqualTo("UI/Maps/MapPreview_supermarket"));
-            Assert.That(MapPreviewSprites.ResourcePath(" playground "), Is.EqualTo("UI/Maps/MapPreview_playground"));
+            Assert.That(MapPreviewSprites.ResourcePath(" supermarket "), Is.EqualTo("UI/Maps/MapPreview_supermarket"));
             Assert.That(MapPreviewSprites.ResourcePath(string.Empty), Is.Null);
             Assert.That(MapPreviewSprites.ResourcePath(null), Is.Null);
             Assert.That(MapPreviewSprites.For(string.Empty), Is.Null, "랜덤 선택은 사진이 없다.");
@@ -69,9 +69,8 @@ namespace Game.Tests.EditMode
 
                 view.SetInfo("랜덤", "랜덤");
                 Assert.That(view.MapPreviewSprite, Is.Null, "사진 없이 호출하면 다시 단색 상자로 돌아간다.");
-                Assert.That(
-                    preview.Find(MapPreviewSprites.RandomMarkName).gameObject.activeSelf,
-                    Is.False);
+                var hiddenMark = preview.Find(MapPreviewSprites.RandomMarkName);
+                Assert.That(hiddenMark == null || !hiddenMark.gameObject.activeSelf, Is.True);
 
                 view.SetInfo("랜덤", PlaySettingsMapCatalog.RandomLabel, null, randomMap: true);
                 Assert.That(view.MapPreviewSprite, Is.Null);

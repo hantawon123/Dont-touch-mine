@@ -141,7 +141,7 @@ namespace Game.Architecture.Tests
             finally { UnityEngine.Object.DestroyImmediate(rules); }
         }
 
-        [TestCase("Playground")]
+        [TestCase("Supermarket")]
         [TestCase("Supermarket")]
         [TestCase("FutureMap")]
         public void DestroyedSceneHud_DoesNotInterruptContainerDisposalOrReceiveNewRoomEvents(string mapName)

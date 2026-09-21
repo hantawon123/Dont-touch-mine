@@ -12,6 +12,13 @@ namespace Game.Client.Common
     {
         public const float ActivationGate = 0.9f;
 
+        /// <summary>
+        /// Keeps background scene integration inside a 120 FPS frame budget.
+        /// Unity still activates a scene on the main thread, but the work it
+        /// can spread over frames should not take half of an 8.3 ms frame.
+        /// </summary>
+        public const ThreadPriority BackgroundPriority = ThreadPriority.Low;
+
         public static bool IsReadyToActivate(float progress) =>
             progress >= ActivationGate;
 
@@ -66,7 +73,7 @@ namespace Game.Client.Common
             }
 
             var previous = Application.backgroundLoadingPriority;
-            Application.backgroundLoadingPriority = ThreadPriority.BelowNormal;
+            Application.backgroundLoadingPriority = BackgroundPriority;
             try
             {
                 var operation = SceneManager.LoadSceneAsync(sceneName);

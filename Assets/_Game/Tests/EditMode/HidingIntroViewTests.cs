@@ -15,6 +15,9 @@ namespace Game.Architecture.Tests
         [UnityTest]
         public IEnumerator Preview_RepeatedShowAndHideKeepsRenderingOffscreen()
         {
+            if (Application.isBatchMode)
+                Assert.Ignore("RenderTexture preview requires an Editor graphics context.");
+
             UnityEditor.SceneManagement.EditorSceneManager.NewScene(
                 UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
                 UnityEditor.SceneManagement.NewSceneMode.Single);

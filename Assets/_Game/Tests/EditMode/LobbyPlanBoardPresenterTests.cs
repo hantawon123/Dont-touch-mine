@@ -139,7 +139,7 @@ namespace Game.Tests.EditMode
         {
             private readonly ReactiveProperty<bool> host = new(false);
             private readonly ReactiveProperty<PlaySettingsDraft> settings =
-                new(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground"));
+                new(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "supermarket"));
 
             public string LocalPlayerId => "me";
             public ReadOnlyReactiveProperty<bool> IsLocalHost => host;
