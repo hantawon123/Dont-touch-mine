@@ -256,7 +256,6 @@ namespace Game.Core.Settings
 
         public static class Map
         {
-            public const string Playground = "map.playground";
             public const string Supermarket = "map.supermarket";
             public const string Mansion = "map.mansion";
         }

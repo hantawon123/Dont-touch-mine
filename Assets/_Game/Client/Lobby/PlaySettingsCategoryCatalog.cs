@@ -208,11 +208,6 @@ namespace Game.Client.Lobby
 
         private static string KeyFor(string mapId)
         {
-            if (string.Equals(mapId, MapCatalog.PlaygroundId, StringComparison.Ordinal))
-            {
-                return UiText.Map.Playground;
-            }
-
             if (string.Equals(mapId, MapCatalog.SupermarketId, StringComparison.Ordinal))
             {
                 return UiText.Map.Supermarket;
