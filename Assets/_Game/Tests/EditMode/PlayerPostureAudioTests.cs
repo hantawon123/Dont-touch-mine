@@ -47,5 +47,12 @@ namespace Game.Tests.EditMode
                 PlayerAnimationDriver.PostureSwooshAudioVolume,
                 Is.EqualTo(.8f * .7f).Within(.001f));
         }
+
+        [Test]
+        public void LocalActionAudioIsTwoDimensionalSoEffectsSliderMapsDirectly()
+        {
+            Assert.That(PlayerAnimationDriver.ActionSpatialBlend(true), Is.EqualTo(0f));
+            Assert.That(PlayerAnimationDriver.ActionSpatialBlend(false), Is.EqualTo(1f));
+        }
     }
 }

@@ -30,6 +30,7 @@ namespace Game.Architecture.Tests
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.gameObject.activeSelf, Is.True);
                 Assert.That(DestroyedItemsHudView.SlotSize, Is.EqualTo(100f));
+                Assert.That(DestroyedItemsHudView.OwnMarkerSize, Is.EqualTo(100f));
                 Assert.That(DestroyedItemsHudView.PreviewTextureSize, Is.EqualTo(256));
                 Assert.That(DestroyedItemsHudView.QuestionFontSize, Is.EqualTo(30f));
 
@@ -41,12 +42,12 @@ namespace Game.Architecture.Tests
                 Assert.That(slot.GetComponent<LayoutElement>().preferredWidth, Is.EqualTo(100f));
                 Assert.That(slot.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(100f));
                 Assert.That(
-                    slot.Find(DestroyedItemsHudView.OwnBorderName).gameObject.activeSelf,
+                    slot.Find(DestroyedItemsHudView.OwnMarkerName).gameObject.activeSelf,
                     Is.True);
                 var empty = panel.Find("Slot1");
                 Assert.That(empty, Is.Not.Null);
                 Assert.That(
-                    empty.Find(DestroyedItemsHudView.OwnBorderName).gameObject.activeSelf,
+                    empty.Find(DestroyedItemsHudView.OwnMarkerName).gameObject.activeSelf,
                     Is.False);
                 Assert.That(
                     empty.Find($"{DestroyedItemsHudView.FillName}/Question")
@@ -140,13 +141,13 @@ namespace Game.Architecture.Tests
                 Assert.That(slot1.GetSiblingIndex(), Is.EqualTo(1));
                 Assert.That(slot2.GetSiblingIndex(), Is.EqualTo(2));
                 Assert.That(
-                    slot0.Find(DestroyedItemsHudView.OwnBorderName).gameObject.activeSelf,
+                    slot0.Find(DestroyedItemsHudView.OwnMarkerName).gameObject.activeSelf,
                     Is.True);
                 Assert.That(
-                    slot1.Find(DestroyedItemsHudView.OwnBorderName).gameObject.activeSelf,
+                    slot1.Find(DestroyedItemsHudView.OwnMarkerName).gameObject.activeSelf,
                     Is.False);
                 Assert.That(
-                    slot2.Find(DestroyedItemsHudView.OwnBorderName).gameObject.activeSelf,
+                    slot2.Find(DestroyedItemsHudView.OwnMarkerName).gameObject.activeSelf,
                     Is.False);
                 Assert.That(view.transform.GetSiblingIndex(), Is.EqualTo(canvas.transform.childCount - 1));
             }
@@ -157,7 +158,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Show_MarksLocalSlotWithOrangeBorder()
+        public void Show_MarksLocalSlotWithOwnItemIcon()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
@@ -174,12 +175,17 @@ namespace Game.Architecture.Tests
                     "Soda_01",
                     new[] { "Burger_01" });
 
-                var ownBorder = view.transform.Find(
-                    $"Panel/Slot0/{DestroyedItemsHudView.OwnBorderName}")
+                var ownMarker = view.transform.Find(
+                    $"Panel/Slot0/{DestroyedItemsHudView.OwnMarkerName}")
                     ?.GetComponent<Image>();
-                Assert.That(ownBorder, Is.Not.Null);
-                Assert.That(ownBorder.gameObject.activeSelf, Is.True);
-                Assert.That(ownBorder.color, Is.EqualTo(DestroyedItemsHudView.OwnBorderColor));
+                Assert.That(ownMarker, Is.Not.Null);
+                Assert.That(ownMarker.gameObject.activeSelf, Is.True);
+                Assert.That(ownMarker.sprite, Is.EqualTo(DestroyedItemsHudView.OwnItemSprite));
+                Assert.That(ownMarker.preserveAspect, Is.False);
+                var markerRect = (RectTransform)ownMarker.transform;
+                Assert.That(markerRect.sizeDelta, Is.EqualTo(new Vector2(
+                    DestroyedItemsHudView.OwnMarkerSize,
+                    DestroyedItemsHudView.OwnMarkerSize)));
                 var ownFill = view.transform.Find(
                     $"Panel/Slot0/{DestroyedItemsHudView.FillName}")
                     ?.GetComponent<Image>();
@@ -190,7 +196,7 @@ namespace Game.Architecture.Tests
                 Assert.That(otherFill.color, Is.EqualTo(DestroyedItemsHudView.SlotColor));
                 Assert.That(((RectTransform)ownFill.transform).offsetMin, Is.EqualTo(Vector2.zero));
                 Assert.That(
-                    view.transform.Find($"Panel/Slot1/{DestroyedItemsHudView.OwnBorderName}")
+                    view.transform.Find($"Panel/Slot1/{DestroyedItemsHudView.OwnMarkerName}")
                         .gameObject.activeSelf,
                     Is.False);
                 Assert.That(view.transform.Find("Panel/Slot2"), Is.Not.Null);
@@ -233,6 +239,17 @@ namespace Game.Architecture.Tests
                 Assert.That(otherPreview, Is.Not.Null);
                 Assert.That(ownPreview.material, Is.EqualTo(ownPreview.defaultMaterial));
                 Assert.That(otherPreview.material, Is.EqualTo(otherPreview.defaultMaterial));
+                var ownMarker = view.transform.Find(
+                    $"Panel/Slot0/{DestroyedItemsHudView.OwnMarkerName}")
+                    ?.GetComponent<Image>();
+                Assert.That(ownMarker, Is.Not.Null);
+                Assert.That(ownMarker.gameObject.activeSelf, Is.True);
+                Assert.That(ownMarker.sprite, Is.EqualTo(DestroyedItemsHudView.OwnDestroyedItemSprite));
+                Assert.That(
+                    ((RectTransform)ownMarker.transform).sizeDelta,
+                    Is.EqualTo(new Vector2(
+                        DestroyedItemsHudView.OwnMarkerSize,
+                        DestroyedItemsHudView.OwnMarkerSize)));
             }
             finally
             {
@@ -263,7 +280,7 @@ namespace Game.Architecture.Tests
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.gameObject.activeSelf, Is.True);
                 Assert.That(
-                    panel.Find($"Slot0/{DestroyedItemsHudView.OwnBorderName}")
+                    panel.Find($"Slot0/{DestroyedItemsHudView.OwnMarkerName}")
                         .gameObject.activeSelf,
                     Is.True);
                 Assert.That(panel.Find("Slot1"), Is.Not.Null);

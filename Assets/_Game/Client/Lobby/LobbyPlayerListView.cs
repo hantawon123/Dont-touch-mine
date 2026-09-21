@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Character;
 using Game.Client.Home;
 using Game.Core.Home;
 using Game.Core.Lobby;
@@ -23,43 +24,44 @@ namespace Game.Client.Lobby
         public const string OnlineItemsName = "OnlineItems";
         public const string WaitingItemsName = "WaitingItems";
         public const string InGameItemsName = "InGameItems";
-        public const float TitleFontSize = 20f;
-        public const float SectionFontSize = 16f;
-        public const float SectionHeight = 28f;
-        public const float NicknameFontSize = 18f;
-        public const float KickFontSize = 16f;
-        public const float ReportFontSize = 18f;
-        public const float RowHeight = 42f;
-        public const float AvatarSize = 32f;
-        public const float AvatarLeft = 10f;
-        public const float MuteIconSize = 16f;
+        public const float ModalScale = 1.3f;
+        public const float TitleFontSize = 20f * ModalScale;
+        public const float SectionFontSize = 16f * ModalScale;
+        public const float SectionHeight = 28f * ModalScale;
+        public const float NicknameFontSize = 18f * ModalScale;
+        public const float KickFontSize = 16f * ModalScale;
+        public const float ReportFontSize = 18f * ModalScale;
+        public const float RowHeight = 42f * ModalScale;
+        public const float AvatarSize = 32f * ModalScale;
+        public const float AvatarLeft = 10f * ModalScale;
+        public const float MuteIconSize = 16f * ModalScale;
         public const string AvatarDimName = "Dim";
         public const string MuteIconName = "Mute";
         public const string VoiceIconName = "Voice";
-        public const float NicknameLeft = 10f;
-        public const float VoiceIconGap = 6f;
-        public const float VoiceIconSize = 16f;
-        public const float LeaderIconGap = 6f;
-        public const float LeaderIconSize = 16f;
-        public const float ActionRight = 16f;
-        public const float AddButtonSize = 26f;
-        public const float PanelPadding = 24f;
-        public const float ColumnInnerPadding = 10f;
+        public const float NicknameLeft = 10f * ModalScale;
+        public const float VoiceIconGap = 6f * ModalScale;
+        public const float VoiceIconSize = 16f * ModalScale;
+        public const float LeaderIconGap = 6f * ModalScale;
+        public const float LeaderIconSize = 16f * ModalScale;
+        public const float ActionRight = 16f * ModalScale;
+        public const float AddButtonSize = 26f * ModalScale;
+        public const float PanelPadding = 24f * ModalScale;
+        public const float ColumnInnerPadding = 10f * ModalScale;
         public const float TitleLeftPadding = ColumnInnerPadding + AvatarLeft;
-        public const float TitleHeight = 28f;
-        public const float TitleToRows = 12f;
-        public const float ModalWidth = 800f;
-        public const float ModalHeight = 420f;
+        public const float TitleHeight = 28f * ModalScale;
+        public const float TitleToRows = 12f * ModalScale;
+        public const float ModalWidth = 800f * ModalScale;
+        public const float ModalHeight = 420f * ModalScale;
         public const float ColumnWidthRatio = 0.4f;
         public const float MatchModalWidth = ModalWidth * ColumnWidthRatio;
         public const float MatchModalHeight = ModalHeight;
-        public const float MatchLeftMargin = 36f;
+        public const float MatchLeftMargin = 36f * ModalScale;
         public const string MatchRootName = "MatchParticipantList";
-        public const int PanelRadius = 30;
-        public const int ColumnRadius = 16;
-        public const int ReportTooltipRadius = 10;
-        public const float ReportTooltipGap = 8f;
-        public const float ReportTooltipOverlap = 8f;
+        public const int PanelRadius = 39;
+        public const int ColumnRadius = 21;
+        public const int ReportTooltipRadius = 13;
+        public const float ReportTooltipGap = 8f * ModalScale;
+        public const float ReportTooltipOverlap = 8f * ModalScale;
         public const string ReportLabel = "신고하기";
         public const string ReportBridgeName = "Bridge";
         public const string ReportConfirmLabel = "확인";
@@ -71,7 +73,7 @@ namespace Game.Client.Lobby
         public static readonly Color ReportTooltipFill = Color.white;
         public static readonly Color ReportTooltipLabel = new Color(1f, 0f, 0f, 1f);
         public static readonly Color AvatarColor = new Color(0.62f, 0.62f, 0.62f, 1f);
-        public static readonly Color MutedAvatarDim = new Color(0f, 0f, 0f, 0.55f);
+        public static readonly Color MutedAvatarDim = new Color(0f, 0f, 0f, 0.65f);
         public static readonly Color OnlineSectionColor = Color.white;
         public static readonly Color WaitingSectionColor = new Color(0.35f, 0.85f, 0.4f, 1f);
         public static readonly Color InGameSectionColor = new Color(1f, 0.28f, 0.28f, 1f);
@@ -261,7 +263,9 @@ namespace Game.Client.Lobby
                     isMuted: participant.IsMuted,
                     isTalking: participant.IsTalking,
                     showVoice: false,
-                    isListening: participant.IsListening);
+                    isListening: participant.IsListening,
+                    playerId: participant.Id,
+                    userId: participant.UserId);
                 var playerId = participant.Id;
                 var rosterName = participant.DisplayName;
                 var displayName = shownName;
@@ -482,7 +486,8 @@ namespace Game.Client.Lobby
                     showLeader: false,
                     showKick: false,
                     showAdd: true,
-                    showVoice: false);
+                    showVoice: false,
+                    playerId: friend.PlayerId);
                 BindInvite(row, friend.PlayerId, friend.Nickname, canInvite);
             }
         }
@@ -1079,7 +1084,9 @@ namespace Game.Client.Lobby
             bool isMuted = false,
             bool isTalking = false,
             bool showVoice = true,
-            bool isListening = true)
+            bool isListening = true,
+            string playerId = null,
+            string userId = null)
         {
             var row = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             row.SetParent(parent, false);
@@ -1088,7 +1095,7 @@ namespace Game.Client.Lobby
             element.minHeight = RowHeight;
             element.flexibleWidth = 1f;
 
-            CreateAvatar(row, isMuted, isListening);
+            CreateAvatar(row, isMuted, isListening, playerId, userId);
             var nameLabel = CreateNickname(row, nickname, isSelf);
             var afterName = showVoice
                 ? CreateVoice(row, nameLabel, isMuted, isTalking)
@@ -1121,7 +1128,12 @@ namespace Game.Client.Lobby
             bucket.Add(row.gameObject);
         }
 
-        private static void CreateAvatar(RectTransform parent, bool muted, bool listening)
+        private static void CreateAvatar(
+            RectTransform parent,
+            bool muted,
+            bool listening,
+            string playerId,
+            string userId)
         {
             var avatar = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
                 .GetComponent<RectTransform>();
@@ -1132,6 +1144,7 @@ namespace Game.Client.Lobby
             image.color = AvatarColor;
             image.raycastTarget = false;
             image.preserveAspect = true;
+            AvatarFaceSlot.Attach(avatar).Follow(playerId, userId);
             var badge = LobbyPlayerListSprites.MuteOnProfile(!listening, muted);
             if (badge != null)
             {

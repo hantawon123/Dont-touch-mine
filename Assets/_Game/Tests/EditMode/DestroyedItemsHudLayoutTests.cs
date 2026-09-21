@@ -7,7 +7,7 @@ namespace Game.Architecture.Tests
     public sealed class DestroyedItemsHudLayoutTests
     {
         [Test]
-        public void Build_PutsLocalItemFirstWithOrangeSlotAndOthersInDestroyOrder()
+        public void Build_PutsLocalItemFirstWithOwnMarkerAndOthersInDestroyOrder()
         {
             var slots = DestroyedItemsHudLayout.Build(
                 4,
@@ -25,7 +25,7 @@ namespace Game.Architecture.Tests
             Assert.That(slots[0].ItemId, Is.EqualTo("Soda_01"));
             Assert.That(slots[0].IsOwn, Is.True);
             Assert.That(slots[0].ShowPreview, Is.True);
-            Assert.That(slots[0].Grayscale, Is.False);
+            Assert.That(slots[0].Destroyed, Is.False);
             Assert.That(slots[1].ItemId, Is.EqualTo("Pineapple_01"));
             Assert.That(slots[1].IsOwn, Is.False);
             Assert.That(slots[1].ShowPreview, Is.True);
@@ -35,7 +35,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Build_GrayscalesLocalItemWhenDestroyed_AndKeepsItLeftmost()
+        public void Build_MarksLocalItemDestroyed_AndKeepsItLeftmost()
         {
             var slots = DestroyedItemsHudLayout.Build(
                 3,
@@ -52,9 +52,9 @@ namespace Game.Architecture.Tests
             Assert.That(slots[0].ItemId, Is.EqualTo("Soda_01"));
             Assert.That(slots[0].IsOwn, Is.True);
             Assert.That(slots[0].ShowPreview, Is.True);
-            Assert.That(slots[0].Grayscale, Is.True);
+            Assert.That(slots[0].Destroyed, Is.True);
             Assert.That(slots[1].ItemId, Is.EqualTo("Burger_01"));
-            Assert.That(slots[1].Grayscale, Is.False);
+            Assert.That(slots[1].Destroyed, Is.False);
             Assert.That(slots[2].ShowPreview, Is.False);
         }
 
@@ -96,7 +96,7 @@ namespace Game.Architecture.Tests
             Assert.That(slots.Length, Is.EqualTo(3));
             Assert.That(slots[0].ItemId, Is.EqualTo("Soda_01"));
             Assert.That(slots[0].IsOwn, Is.True);
-            Assert.That(slots[0].Grayscale, Is.True);
+            Assert.That(slots[0].Destroyed, Is.True);
             Assert.That(slots[1].ItemId, Is.EqualTo("Burger_01"));
             Assert.That(slots[2].ItemId, Is.EqualTo("Pineapple_01"));
         }
@@ -120,7 +120,7 @@ namespace Game.Architecture.Tests
             Assert.That(slots[0].ItemId, Is.EqualTo("Soda_01"));
             Assert.That(slots[0].IsOwn, Is.True);
             Assert.That(slots[0].ShowPreview, Is.True);
-            Assert.That(slots[0].Grayscale, Is.False);
+            Assert.That(slots[0].Destroyed, Is.False);
             Assert.That(slots[1].ShowPreview, Is.False);
             Assert.That(slots[2].ShowPreview, Is.False);
             Assert.That(slots[3].ShowPreview, Is.False);

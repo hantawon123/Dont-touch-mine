@@ -235,8 +235,7 @@ namespace Game.Client.Players
             // Play even on the hit that stuns the victim (PlayHit skips that animation).
             if (hitAudioSource != null && hitAudioSource.isActiveAndEnabled)
             {
-                hitAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                hitAudioSource.PlayOneShot(punchHitClip);
+                PlayActionClip(hitAudioSource, punchHitClip, .8f);
             }
             PlayHit();
         }
@@ -245,8 +244,7 @@ namespace Game.Client.Players
         {
             if (stunAudioSource != null && stunAudioSource.isActiveAndEnabled)
             {
-                stunAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                stunAudioSource.PlayOneShot(stunSoundClip);
+                PlayActionClip(stunAudioSource, stunSoundClip, .8f);
             }
         }
 
@@ -270,8 +268,7 @@ namespace Game.Client.Players
         {
             if (punchAudioSource != null && punchAudioSource.isActiveAndEnabled)
             {
-                punchAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                punchAudioSource.PlayOneShot(punchSwingClip);
+                PlayActionClip(punchAudioSource, punchSwingClip, .8f);
             }
             // Network peers choose the same hand, even if an attack update was skipped.
             leftPunch = usesNetworkState
@@ -319,8 +316,7 @@ namespace Game.Client.Players
         {
             if (pickupAudioSource != null && pickupAudioSource.isActiveAndEnabled)
             {
-                pickupAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                pickupAudioSource.PlayOneShot(pickupSoundClip);
+                PlayActionClip(pickupAudioSource, pickupSoundClip, .8f);
             }
             var clip = ResolvePickupClip(movement.Posture);
             PlayOneShot(clip, ClipSeconds(clip));
@@ -330,8 +326,7 @@ namespace Game.Client.Players
         {
             if (putDownAudioSource != null && putDownAudioSource.isActiveAndEnabled)
             {
-                putDownAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                putDownAudioSource.PlayOneShot(putDownSoundClip);
+                PlayActionClip(putDownAudioSource, putDownSoundClip, .8f);
             }
             var clip = ResolvePutDownClip(movement.Posture);
             PlayOneShot(clip, ClipSeconds(clip));
@@ -341,8 +336,7 @@ namespace Game.Client.Players
         {
             if (throwAudioSource != null && throwAudioSource.isActiveAndEnabled)
             {
-                throwAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                throwAudioSource.PlayOneShot(throwSoundClip);
+                PlayActionClip(throwAudioSource, throwSoundClip, .8f);
             }
             var settings = movement.MovementSettings;
             var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
@@ -459,28 +453,50 @@ namespace Game.Client.Players
 
         private void LateUpdate()
         {
-            if (punchAudioSource != null)
-                punchAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (hitAudioSource != null)
-                hitAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (jumpAudioSource != null)
-                jumpAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (pickupAudioSource != null)
-                pickupAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (putDownAudioSource != null)
-                putDownAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (throwAudioSource != null)
-                throwAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (stunAudioSource != null)
-                stunAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (landAudioSource != null)
-                landAudioSource.volume = LandAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (postureSwooshAudioSource != null)
-                postureSwooshAudioSource.volume =
-                    PostureSwooshAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            ApplyActionAudioPresentation();
             TickLandAudio();
             footstepAudio?.Tick(animator, currentState,
                 usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
+        }
+
+        private bool IsLocalPresentation =>
+            !usesNetworkState || (combatant != null && combatant.PresentsLocalScreen);
+
+        internal static float ActionSpatialBlend(bool localPresentation) =>
+            localPresentation ? 0f : 1f;
+
+        private void ApplyActionAudioPresentation()
+        {
+            var blend = ActionSpatialBlend(IsLocalPresentation);
+            SetSpatialBlend(punchAudioSource, blend);
+            SetSpatialBlend(hitAudioSource, blend);
+            SetSpatialBlend(jumpAudioSource, blend);
+            SetSpatialBlend(pickupAudioSource, blend);
+            SetSpatialBlend(putDownAudioSource, blend);
+            SetSpatialBlend(throwAudioSource, blend);
+            SetSpatialBlend(stunAudioSource, blend);
+            SetSpatialBlend(landAudioSource, blend);
+            SetSpatialBlend(postureSwooshAudioSource, blend);
+            footstepAudio?.SetSpatialBlend(blend);
+        }
+
+        private static void SetSpatialBlend(AudioSource source, float blend)
+        {
+            if (source != null)
+            {
+                source.spatialBlend = blend;
+            }
+        }
+
+        private void PlayActionClip(AudioSource source, AudioClip clip, float relativeVolume)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            source.spatialBlend = ActionSpatialBlend(IsLocalPresentation);
+            PlayerFootstepAudio.PlayEffects(source, clip, relativeVolume);
         }
 
         private void UpdateJumpAudio()
@@ -513,8 +529,7 @@ namespace Game.Client.Players
             jumpSoundPlayed = true;
             if (jumpAudioSource != null && jumpAudioSource.isActiveAndEnabled)
             {
-                jumpAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                jumpAudioSource.PlayOneShot(jumpClip);
+                PlayActionClip(jumpAudioSource, jumpClip, .8f);
             }
         }
 
@@ -534,8 +549,7 @@ namespace Game.Client.Players
             landSoundPending = false;
             if (landAudioSource == null || !landAudioSource.isActiveAndEnabled || landClip == null)
                 return;
-            landAudioSource.volume = LandAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            landAudioSource.PlayOneShot(landClip);
+            PlayActionClip(landAudioSource, landClip, LandAudioVolume);
         }
 
         internal static bool ShouldPlayPendingLandSound(bool pending, bool landClipActive) =>
@@ -977,9 +991,7 @@ namespace Game.Client.Players
         {
             if (postureSwooshAudioSource != null && postureSwooshAudioSource.isActiveAndEnabled)
             {
-                postureSwooshAudioSource.volume =
-                    PostureSwooshAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                postureSwooshAudioSource.PlayOneShot(postureSwooshClip);
+                PlayActionClip(postureSwooshAudioSource, postureSwooshClip, PostureSwooshAudioVolume);
             }
         }
 

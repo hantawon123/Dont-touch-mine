@@ -24,6 +24,8 @@ namespace Game.Client.Tutorial
         [SerializeField] private Transform proneEntrance;
         [SerializeField] private Transform proneExit;
         [SerializeField] private Transform sprintJumpThreshold;
+        [SerializeField] private Transform jumpLandingTarget;
+        [SerializeField, Min(0f)] private float jumpLandingRadius = 2f;
         private bool enteredPassage;
 
         private CharacterController characterController;
@@ -80,7 +82,9 @@ namespace Game.Client.Tutorial
                 settings.SprintSpeed * 0.8f,
                 player.IsGrounded,
                 player.Posture,
-                ObservePassage(position));
+                ObservePassage(position),
+                ReachedSprintJumpThreshold(previousPosition, position),
+                ReachedHorizontalTarget(jumpLandingTarget, position, jumpLandingRadius));
 
             previousPosition = position;
             previousYaw = yaw;
@@ -135,18 +139,34 @@ namespace Game.Client.Tutorial
 
         private bool ReachedSprintJumpThreshold(Vector3 previous, Vector3 current)
         {
-            if (sprintJumpThreshold == null)
+            return CrossedBoundary(sprintJumpThreshold, previous, current);
+        }
+
+        internal static bool CrossedBoundary(Transform boundary, Vector3 previous, Vector3 current)
+        {
+            if (boundary == null)
                 return false;
 
             var previousSide = Vector3.Dot(
-                previous - sprintJumpThreshold.position,
-                sprintJumpThreshold.forward);
+                previous - boundary.position,
+                boundary.forward);
 
             var currentSide = Vector3.Dot(
-                current - sprintJumpThreshold.position,
-                sprintJumpThreshold.forward);
+                current - boundary.position,
+                boundary.forward);
 
-            return previousSide < 0f && currentSide >= 0f;
+            return (previousSide < 0f && currentSide >= 0f) ||
+                   (previousSide > 0f && currentSide <= 0f);
+        }
+
+        internal static bool ReachedHorizontalTarget(Transform target, Vector3 position, float radius)
+        {
+            if (target == null || radius < 0f)
+                return false;
+
+            var offset = position - target.position;
+            offset.y = 0f;
+            return offset.sqrMagnitude <= radius * radius;
         }
 
         private static float CurrentCameraYaw()

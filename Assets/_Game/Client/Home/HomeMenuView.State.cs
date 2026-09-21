@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using Game.Client.Character;
 using Game.Core.Home;
+using Game.Core.Players;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -67,6 +69,7 @@ namespace Game.Client.Home
 
         [SerializeField]
         private TMP_Text nicknameText;
+        private RectTransform profileAvatar;
 
         private RectTransform profileChip;
 
@@ -285,6 +288,17 @@ namespace Game.Client.Home
             UpdateNicknameCounter(currentNickname);
             ClearNicknameMessage();
             UpdateNicknameApplyEnabled();
+        }
+
+        public void SetProfileAppearance(AvatarAppearance appearance)
+        {
+            if (profileAvatar == null)
+            {
+                return;
+            }
+
+            AvatarAppearanceBoard.SetLocal(appearance);
+            AvatarFaceSlot.Attach(profileAvatar).FollowLocal();
         }
 
         /// <summary>

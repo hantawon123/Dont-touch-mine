@@ -451,6 +451,7 @@ namespace Game.Bootstrap
                 yieldedToResult = false;
                 localViewingCompletionStarted = false;
                 localViewingComplete = false;
+                MatchChatView.ApplyAllowsActivation(false);
                 transition.SetOpacity(!clock.IsRuntimeReady || clock.ServerTime < gameEndNoticeEndsAt ? 0f : 1f);
                 return;
             }
@@ -554,6 +555,11 @@ namespace Game.Bootstrap
             }
             localViewingComplete = network is INetworkResultNavigation navigation &&
                                    navigation.CompleteLocalHighlightViewing();
+            if (localViewingComplete)
+            {
+                MatchChatView.ApplyAllowsActivation(true);
+            }
+
             return localViewingComplete;
         }
 

@@ -173,9 +173,13 @@ namespace Game.Client.Lobby
             EnsureMatchInfo()?.SetInfo(categoryLabel, mapLabel);
         }
 
-        public void SetMatchInfo(string categoryLabel, string mapLabel, Sprite mapPreview)
+        public void SetMatchInfo(
+            string categoryLabel,
+            string mapLabel,
+            Sprite mapPreview,
+            bool randomMap = false)
         {
-            EnsureMatchInfo()?.SetInfo(categoryLabel, mapLabel, mapPreview);
+            EnsureMatchInfo()?.SetInfo(categoryLabel, mapLabel, mapPreview, randomMap);
         }
 
         /// <summary>

@@ -114,7 +114,8 @@ namespace Game.Client.Lobby
         }
 
         /// <param name="mapPreview">맵 사진. null이면 기존 단색 상자만 보인다.</param>
-        public void SetInfo(string categoryLabel, string mapLabel, Sprite mapPreview)
+        /// <param name="randomMap">랜덤이면 상자 한가운데에 "?"를 켠다.</param>
+        public void SetInfo(string categoryLabel, string mapLabel, Sprite mapPreview, bool randomMap = false)
         {
             EnsureLayout();
             if (categoryValue != null)
@@ -127,7 +128,12 @@ namespace Game.Client.Lobby
                 mapName.text = mapLabel ?? string.Empty;
             }
 
-            MapPreviewSprites.Apply(mapPreviewPhoto, mapPreview);
+            MapPreviewSprites.Apply(mapPreviewPhoto, randomMap ? null : mapPreview);
+            var preview = transform.Find("MapRow/MapPreview");
+            MapPreviewSprites.ApplyRandomMark(
+                preview,
+                randomMap,
+                MapPreviewSprites.RandomMarkLobbyFontSize);
         }
 
         private void Awake()
