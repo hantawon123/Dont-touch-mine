@@ -193,6 +193,7 @@ namespace Game.Core.Settings
 
             public const string SuspendedTitle = "home.suspended.title";
             public const string SuspendedBody = "home.suspended.body";
+            public const string InviteBody = "home.invite.body";
         }
 
         public static class Play
@@ -249,6 +250,7 @@ namespace Game.Core.Settings
             public const string ReasonSpam = "lobby.reason.spam";
             public const string ReasonName = "lobby.reason.name";
             public const string ReasonOther = "lobby.reason.other";
+            public const string ReportTitle = "lobby.reportTitle";
         }
 
         public static class Rooms
@@ -279,6 +281,9 @@ namespace Game.Core.Settings
             public const string JoinFailed = "rooms.modal.joinFailed";
             public const string InvalidCodeModal = "rooms.modal.invalidCode";
             public const string HostRoom = "rooms.hostRoom";
+            public const string Back = "rooms.back";
+            public const string EnterByCode = "rooms.enterByCode";
+            public const string Enter = "rooms.enter";
         }
 
         public static class Match
@@ -336,6 +341,109 @@ namespace Game.Core.Settings
             public const string ShredderUnlimited = "match.shredder.unlimited";
             public const string ShredderUses = "match.shredder.uses";
             public const string Destroyed = "match.destroyed";
+        }
+
+        public static class Closet
+        {
+            public const string Back = "closet.back";
+            public const string Reset = "closet.reset";
+            public const string Apply = "closet.apply";
+            public const string SaveError = "closet.saveError";
+            public const string ResetTitle = "closet.modal.resetTitle";
+            public const string DiscardTitle = "closet.modal.discardTitle";
+            public const string Subtitle = "closet.modal.subtitle";
+            public const string Decline = "closet.modal.decline";
+            public const string Accept = "closet.modal.accept";
+            public const string PortraitHint = "closet.portraitHint";
+            public const string Hood = "closet.hood";
+            public const string HoodShape = "closet.hoodShape";
+            public const string HoodColor = "closet.hoodColor";
+        }
+
+        public static class Guide
+        {
+            public const string Click = "guide.click";
+            public const string RightClick = "guide.rightClick";
+            public const string Scroll = "guide.scroll";
+            public const string Toggle = "guide.toggle";
+            public const string Attack = "guide.attack";
+            public const string Crouch = "guide.crouch";
+            public const string Prone = "guide.prone";
+            public const string ToggleView = "guide.toggleView";
+            public const string Sprint = "guide.sprint";
+            public const string Jump = "guide.jump";
+            public const string Placement = "guide.placement";
+            public const string Throw = "guide.throw";
+            public const string Drop = "guide.drop";
+            public const string Place = "guide.place";
+            public const string Rotate = "guide.rotate";
+            public const string Twist = "guide.twist";
+            public const string InteractPickup = "guide.interactPickup";
+        }
+
+        public static class Interact
+        {
+            public const string PickUp = "interact.pickUp";
+            public const string Destroy = "interact.destroy";
+            public const string Place = "interact.place";
+        }
+
+        public static class Tutorial
+        {
+            public const string ExitTitle = "tutorial.exitTitle";
+            public const string ExitDoor = "tutorial.exitDoor";
+            public const string ChecklistTitle = "tutorial.checklist.title";
+            public const string StepMove = "tutorial.step.move";
+            public const string StepSprint = "tutorial.step.sprint";
+            public const string StepJump = "tutorial.step.jump";
+            public const string StepCrouch = "tutorial.step.crouch";
+            public const string StepProne = "tutorial.step.prone";
+            public const string StepPickUp = "tutorial.step.pickUp";
+            public const string StepDrop = "tutorial.step.drop";
+            public const string StepThrow = "tutorial.step.throw";
+            public const string StepPlace = "tutorial.step.place";
+            public const string StepShredder = "tutorial.step.shredder";
+            public const string StepExit = "tutorial.step.exit";
+            public const string Intro = "tutorial.radio.intro";
+            public const string InstructMove = "tutorial.instruct.move";
+            public const string InstructSprint = "tutorial.instruct.sprint";
+            public const string InstructJump = "tutorial.instruct.jump";
+            public const string InstructCrouch = "tutorial.instruct.crouch";
+            public const string InstructProne = "tutorial.instruct.prone";
+            public const string InstructPickUp = "tutorial.instruct.pickUp";
+            public const string InstructDrop = "tutorial.instruct.drop";
+            public const string InstructThrow = "tutorial.instruct.throw";
+            public const string InstructPlace = "tutorial.instruct.place";
+            public const string InstructShredder = "tutorial.instruct.shredder";
+            public const string InstructComplete = "tutorial.instruct.complete";
+            public const string CompleteMove = "tutorial.complete.move";
+            public const string CompleteSprint = "tutorial.complete.sprint";
+            public const string CompleteJump = "tutorial.complete.jump";
+            public const string CompleteCrouch = "tutorial.complete.crouch";
+            public const string CompleteProne = "tutorial.complete.prone";
+            public const string CompletePickUp = "tutorial.complete.pickUp";
+            public const string CompleteDrop = "tutorial.complete.drop";
+            public const string CompleteThrow = "tutorial.complete.throw";
+            public const string CompletePlace = "tutorial.complete.place";
+            public const string CompleteShredder = "tutorial.complete.shredder";
+            public const string RetryJump = "tutorial.retry.jump";
+            public const string RetryGeneric = "tutorial.retry.generic";
+            public const string HintPickUp = "tutorial.hint.pickUp";
+            public const string HintPlacement = "tutorial.hint.placement";
+            public const string HintPlace = "tutorial.hint.place";
+            public const string FocusPickUp = "tutorial.focus.pickUp";
+            public const string FocusPlacement = "tutorial.focus.placement";
+            public const string FocusMove = "tutorial.focus.move";
+            public const string FocusSprint = "tutorial.focus.sprint";
+            public const string FocusJump = "tutorial.focus.jump";
+            public const string FocusCrouch = "tutorial.focus.crouch";
+            public const string FocusProne = "tutorial.focus.prone";
+            public const string FocusLookPickUp = "tutorial.focus.lookPickUp";
+            public const string FocusDrop = "tutorial.focus.drop";
+            public const string FocusThrow = "tutorial.focus.throw";
+            public const string FocusPlace = "tutorial.focus.place";
+            public const string FocusShredder = "tutorial.focus.shredder";
+            public const string FocusExit = "tutorial.focus.exit";
         }
     }
 }

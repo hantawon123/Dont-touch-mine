@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Core.Players;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -178,7 +179,7 @@ namespace Game.Client.Character
             var label = CreateText(
                 "Label",
                 rect,
-                group.Category == AvatarPartCategory.Hood ? "후드" : group.Label,
+                group.Category == AvatarPartCategory.Hood ? Copy(UiText.Closet.Hood) : group.Label,
                 CharacterClosetStyle.Tabs.FontSize,
                 CharacterClosetStyle.Palette.TextPrimary,
                 TextAlignmentOptions.Left);

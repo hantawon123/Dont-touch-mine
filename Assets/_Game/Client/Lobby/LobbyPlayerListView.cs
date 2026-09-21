@@ -179,7 +179,10 @@ namespace Game.Client.Lobby
         public event Action<string, string> ReportClicked;
 
         public static string FormatReportTitle(string displayName) =>
-            $"{displayName}님을 신고하시겠습니까?";
+            FormatReportTitle(displayName, "ko");
+
+        public static string FormatReportTitle(string displayName, string language) =>
+            string.Format(UiTextCatalog.Shipped.Get(UiText.Lobby.ReportTitle, language), displayName);
 
         public string ParticipantsTitleText =>
             participantsTitle != null ? participantsTitle.text : string.Empty;

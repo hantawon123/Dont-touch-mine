@@ -61,11 +61,22 @@ namespace Game.Client.Rooms
             exitSubscription = rooms.LastExit.Subscribe(OnRoomExit);
             busySubscription = rooms.IsBusy.Subscribe(view.SetBusy);
             failureSubscription = rooms.LastFailure.Subscribe(view.ShowEntryFailure);
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+                view.ShowChrome(locale);
+            }
+
             Render();
         }
 
         public void Dispose()
         {
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
+
             view.BackRequested -= OnBackRequested;
             view.SearchTextChanged -= OnSearchTextChanged;
             view.DisconnectionAcknowledged -= OnDisconnectionAcknowledged;
@@ -157,6 +168,12 @@ namespace Game.Client.Rooms
             }
 
             return roomCount > 0 ? Copy(UiText.Rooms.NoSearchResults) : Copy(UiText.Rooms.NoRooms);
+        }
+
+        private void OnLocaleChanged()
+        {
+            view.ShowChrome(locale);
+            Render();
         }
 
         private string Copy(string key) =>

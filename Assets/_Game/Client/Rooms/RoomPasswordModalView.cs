@@ -40,6 +40,7 @@ namespace Game.Client.Rooms
         private const int PasswordMaxLength = 10;
 
         private bool isBusy;
+        private UiLocale chromeLocale;
 
         public event Action CloseRequested;
         public event Action<string> SubmitRequested;
@@ -113,26 +114,29 @@ namespace Game.Client.Rooms
         /// player cannot act on collapses into one neutral message, so a
         /// networking detail never reaches the screen.
         /// </summary>
-        private static string DescribeFailure(RoomEntryFailure failure)
+        public void ShowChrome(UiLocale locale) => chromeLocale = locale;
+
+        private string DescribeFailure(RoomEntryFailure failure)
         {
+            var language = chromeLocale != null ? chromeLocale.LanguageCode : "ko";
             switch (failure)
             {
                 case RoomEntryFailure.None:
                     return string.Empty;
                 case RoomEntryFailure.WrongPassword:
-                    return UiTextCatalog.Shipped.Get(UiText.Rooms.WrongPassword, "ko");
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.WrongPassword, language);
                 case RoomEntryFailure.Full:
-                    return UiTextCatalog.Shipped.Get(UiText.Rooms.FullModal, "ko");
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.FullModal, language);
                 case RoomEntryFailure.Closed:
-                    return UiTextCatalog.Shipped.Get(UiText.Rooms.ClosedModal, "ko");
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.ClosedModal, language);
                 case RoomEntryFailure.NotFound:
-                    return UiTextCatalog.Shipped.Get(UiText.Rooms.NotFoundModal, "ko");
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.NotFoundModal, language);
                 case RoomEntryFailure.AlreadyInRoom:
-                    return UiTextCatalog.Shipped.Get(UiText.Rooms.AlreadyInModal, "ko");
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.AlreadyInModal, language);
                 case RoomEntryFailure.ConnectionFailed:
-                    return UiTextCatalog.Shipped.Get(UiText.Rooms.ConnectFailed, "ko");
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.ConnectFailed, language);
                 default:
-                    return UiTextCatalog.Shipped.Get(UiText.Rooms.JoinFailed, "ko");
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.JoinFailed, language);
             }
         }
 

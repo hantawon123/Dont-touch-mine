@@ -46,7 +46,7 @@ namespace Game.Client.Match
         public const float KeyChipPaddingX = 10f;
         public const float KeyChipCornerRadius = 10f;
         public const float KeyIconSize = 24f;
-        public const string ClickKeyLabel = KeySettingGuideView.ClickKeyLabel;
+        public static string ClickKeyLabel => KeySettingGuideView.ClickKeyLabel;
         public static readonly Color KeyChipColor = new Color(0f, 0f, 0f, 0.27f);
         public static readonly string[] KeyGuideActions = KeySettingGuideView.Actions;
         public static readonly string[] KeyGuideLabels = KeySettingGuideView.Labels;

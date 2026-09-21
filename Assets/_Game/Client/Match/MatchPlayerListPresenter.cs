@@ -31,6 +31,7 @@ namespace Game.Client.Match
         private IDisposable listenSubscription;
         private readonly IVoiceControl voice;
         private Game.Core.Settings.InterfacePresentation presentation;
+        private Game.Core.Settings.UiLocale locale;
         private IReadOnlyList<LobbyParticipant> latest = Array.Empty<LobbyParticipant>();
         private string pendingUserId;
 
@@ -58,6 +59,9 @@ namespace Game.Client.Match
         [VContainer.Inject]
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value) =>
             presentation = value;
+
+        [VContainer.Inject]
+        public void BindLocale(Game.Core.Settings.UiLocale value) => locale = value;
 
         public void Start()
         {
@@ -126,7 +130,9 @@ namespace Game.Client.Match
 
             pendingUserId = userId;
             confirmView.Show(
-                LobbyPlayerListView.FormatReportTitle(displayName),
+                LobbyPlayerListView.FormatReportTitle(
+                    displayName,
+                    locale != null ? locale.LanguageCode : "ko"),
                 LobbyPlayerListView.ReportConfirmLabel,
                 chooseReason: true);
         }

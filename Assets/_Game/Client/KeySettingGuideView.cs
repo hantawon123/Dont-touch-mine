@@ -20,14 +20,18 @@ namespace Game.Client
         public const string RootName = "KeySettingGuide";
         public const float MarginRight = 48f;
         public const float ActionFontSize = 18f;
-        public const string ClickKeyLabel = "클릭";
-        public const string RightClickKeyLabel = "우클릭";
-        public const string ScrollKeyLabel = "스크롤";
+        public static string ClickKeyLabel =>
+            UiTextCatalog.Shipped.Get(UiText.Guide.Click, "ko");
+        public static string RightClickKeyLabel =>
+            UiTextCatalog.Shipped.Get(UiText.Guide.RightClick, "ko");
+        public static string ScrollKeyLabel =>
+            UiTextCatalog.Shipped.Get(UiText.Guide.Scroll, "ko");
         public const string RotateYawKeyLabel = "Q / E";
         public const string LeftClickIconResource = "UI/ic_left_click";
         public const string RightClickIconResource = "UI/ic_right_click";
         public const string ScrollIconResource = "UI/ic_mouse_scroll";
-        public const string ToggleAction = "키 가이드 on/off";
+        public static string ToggleAction =>
+            UiTextCatalog.Shipped.Get(UiText.Guide.Toggle, "ko");
         public const string ToggleKeyLabel = "L";
         public const float RowStep = 48f;
         public const float CompactKeyChipFontSize = 12f;
@@ -42,14 +46,14 @@ namespace Game.Client
             Placing
         }
 
-        public static readonly string[] Actions =
+        public static string[] Actions => new[]
         {
-            "공격",
-            "앉기",
-            "엎드리기",
-            "시점 변경",
-            "달리기",
-            "점프",
+            UiTextCatalog.Shipped.Get(UiText.Guide.Attack, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Crouch, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Prone, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.ToggleView, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Sprint, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Jump, "ko"),
             ToggleAction
         };
 
@@ -64,16 +68,16 @@ namespace Game.Client
             ToggleKeyLabel
         };
 
-        public static readonly string[] CarryingActions =
+        public static string[] CarryingActions => new[]
         {
-            "배치 모드",
-            "던지기",
-            "놓기",
-            "앉기",
-            "엎드리기",
-            "시점 변경",
-            "달리기",
-            "점프",
+            UiTextCatalog.Shipped.Get(UiText.Guide.Placement, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Throw, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Drop, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Crouch, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Prone, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.ToggleView, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Sprint, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Jump, "ko"),
             ToggleAction
         };
 
@@ -91,17 +95,17 @@ namespace Game.Client
         };
 
         // 배치 모드: 좌클릭 배치, 우클릭 유지+마우스 회전, Q/E 좌우 회전, F 놓기(기존). 우클릭으로 모드를 끄는 키는 없다(손이 비면 꺼짐).
-        public static readonly string[] PlacingActions =
+        public static string[] PlacingActions => new[]
         {
-            "배치하기",
-            "회전",
-            "좌우 회전",
-            "놓기",
-            "앉기",
-            "엎드리기",
-            "시점 변경",
-            "달리기",
-            "점프",
+            UiTextCatalog.Shipped.Get(UiText.Guide.Place, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Rotate, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Twist, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Drop, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Crouch, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Prone, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.ToggleView, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Sprint, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Guide.Jump, "ko"),
             ToggleAction
         };
 
@@ -161,7 +165,60 @@ namespace Game.Client
         private Mode mode;
         private string focusLabel;
         private ControlAction[] focusActions = System.Array.Empty<ControlAction>();
+        private UiLocale chromeLocale;
         private static readonly Color FocusColor = new Color(1f, .79f, .28f);
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            ApplyStyle();
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiTextCatalog.Shipped.Get(key, "ko");
+
+        private string[] PaintedActions()
+        {
+            return mode == Mode.Placing
+                ? new[]
+                {
+                    Copy(UiText.Guide.Place),
+                    Copy(UiText.Guide.Rotate),
+                    Copy(UiText.Guide.Twist),
+                    Copy(UiText.Guide.Drop),
+                    Copy(UiText.Guide.Crouch),
+                    Copy(UiText.Guide.Prone),
+                    Copy(UiText.Guide.ToggleView),
+                    Copy(UiText.Guide.Sprint),
+                    Copy(UiText.Guide.Jump),
+                    Copy(UiText.Guide.Toggle)
+                }
+                : mode == Mode.Carrying
+                    ? new[]
+                    {
+                        Copy(UiText.Guide.Placement),
+                        Copy(UiText.Guide.Throw),
+                        Copy(UiText.Guide.Drop),
+                        Copy(UiText.Guide.Crouch),
+                        Copy(UiText.Guide.Prone),
+                        Copy(UiText.Guide.ToggleView),
+                        Copy(UiText.Guide.Sprint),
+                        Copy(UiText.Guide.Jump),
+                        Copy(UiText.Guide.Toggle)
+                    }
+                    : new[]
+                    {
+                        Copy(UiText.Guide.Attack),
+                        Copy(UiText.Guide.Crouch),
+                        Copy(UiText.Guide.Prone),
+                        Copy(UiText.Guide.ToggleView),
+                        Copy(UiText.Guide.Sprint),
+                        Copy(UiText.Guide.Jump),
+                        Copy(UiText.Guide.Toggle)
+                    };
+        }
 
         public void SetFocus(string label, params ControlAction[] actions)
         {
@@ -378,7 +435,7 @@ namespace Game.Client
         public void ApplyStyle()
         {
             PlacePanel();
-            var actions = ActionsFor(mode);
+            var actions = PaintedActions();
             var labels = LabelsFor(mode);
             var light = HomeUiFonts.ApplyLight();
             var bindings = BindingsFor(mode);
@@ -396,7 +453,9 @@ namespace Game.Client
                 var action = row.Find("Action")?.GetComponent<TMP_Text>();
                 if (action != null)
                 {
-                    action.text = interactionFocus && index == 0 ? "상호작용 · 들기" : actions[index];
+                    action.text = interactionFocus && index == 0
+                        ? Copy(UiText.Guide.InteractPickup)
+                        : actions[index];
                     action.font = light;
                     action.fontSize = ActionFontSize;
                     action.fontStyle = focused ? FontStyles.Bold : FontStyles.Normal;

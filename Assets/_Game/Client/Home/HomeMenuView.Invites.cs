@@ -209,7 +209,9 @@ namespace Game.Client.Home
                 }
 
                 card.Id = invites[slot].Id;
-                card.Body.text = $"{invites[slot].FromNickname}님이\n함께 플레이하자고 합니다!";
+                card.Body.text = string.Format(
+                    Copy(UiText.Home.InviteBody),
+                    invites[slot].FromNickname);
             }
         }
     }

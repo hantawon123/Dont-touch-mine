@@ -65,7 +65,7 @@ namespace Game.Client.Rooms
             }
         }
 
-        public void Bind(RoomSummary room)
+        public void Bind(RoomSummary room, string language = "ko")
         {
             roomId = room.RoomId;
 
@@ -74,11 +74,11 @@ namespace Game.Client.Rooms
             playerCountText.text = $"{room.CurrentPlayerCount}/{room.Settings.MaxPlayers}";
             hostNicknameText.text = string.IsNullOrEmpty(room.HostNickname)
                 ? string.Empty
-                : string.Format(UiTextCatalog.Shipped.Get(UiText.Rooms.HostRoom, "ko"), room.HostNickname);
+                : string.Format(UiTextCatalog.Shipped.Get(UiText.Rooms.HostRoom, language), room.HostNickname);
 
             statusText.text = room.Status == RoomStatus.Waiting
-                ? UiTextCatalog.Shipped.Get(UiText.Rooms.Waiting, "ko")
-                : UiTextCatalog.Shipped.Get(UiText.Rooms.Playing, "ko");
+                ? UiTextCatalog.Shipped.Get(UiText.Rooms.Waiting, language)
+                : UiTextCatalog.Shipped.Get(UiText.Rooms.Playing, language);
 
             // What greys a row out is whether it can be entered, not what it is
             // doing: a waiting room with six of six players reads the same as one

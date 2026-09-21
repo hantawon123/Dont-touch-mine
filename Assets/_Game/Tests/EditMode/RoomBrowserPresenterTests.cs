@@ -8,6 +8,7 @@ using Game.Client.Rooms;
 using Game.Core.Flow;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
+using Game.Core.Settings;
 using NUnit.Framework;
 
 namespace Game.Tests.EditMode
@@ -26,6 +27,27 @@ namespace Game.Tests.EditMode
             Assert.That(view.DisconnectionMessage, Is.EqualTo("방장에 의해 강퇴되었습니다"));
             view.AcknowledgeDisconnection();
             Assert.That(rooms.LastExit.CurrentValue, Is.Null);
+        }
+
+        [Test]
+        public void Presenter_KickUsesTheAppliedLanguage()
+        {
+            using var rooms = new RoomBrowserSystem();
+            rooms.RoomClosed(RoomExitReason.Kicked);
+            var store = new InMemoryGeneralSettingsStore();
+            store.Save(new GeneralSettings("en"));
+            var general = new GeneralSettingsSystem(store);
+            using var locale = new UiLocale(general);
+            var view = new FakeRoomBrowserView();
+            using var presenter = new RoomBrowserPresenter(
+                view,
+                rooms,
+                new FakeHomeApplicationHost(),
+                new AppFlowSystem(),
+                locale);
+            presenter.Start();
+            Assert.That(view.DisconnectionMessage, Is.EqualTo("The host kicked you"));
+            Assert.That(view.ShownChrome, Is.SameAs(locale));
         }
 
         [Test]
@@ -324,6 +346,13 @@ namespace Game.Tests.EditMode
             public void ShowEntryFailure(RoomEntryFailure failure)
             {
                 LastFailure = failure;
+            }
+
+            public Game.Core.Settings.UiLocale ShownChrome { get; private set; }
+
+            public void ShowChrome(Game.Core.Settings.UiLocale locale)
+            {
+                ShownChrome = locale;
             }
 
             public void RaiseBack()

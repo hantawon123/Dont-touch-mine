@@ -1,4 +1,5 @@
 using Game.Client.Home;
+using Game.Core.Settings;
 using Game.Core.Tutorial;
 using TMPro;
 using UnityEngine;
@@ -8,9 +9,23 @@ namespace Game.Client.Tutorial
 {
     public sealed class TutorialChecklistView : MonoBehaviour
     {
-        private static readonly string[] Steps = { "이동 · 주변 살피기", "달리기", "점프", "앉아서 통과", "기어서 통과", "물건 들기", "지정 구역에 내려놓기", "표적에 던지기", "책상에 배치하기", "파쇄기 사용", "출구 문 열기" };
-        private readonly TMP_Text[] rows = new TMP_Text[Steps.Length];
+        private static readonly string[] StepKeys =
+        {
+            UiText.Tutorial.StepMove,
+            UiText.Tutorial.StepSprint,
+            UiText.Tutorial.StepJump,
+            UiText.Tutorial.StepCrouch,
+            UiText.Tutorial.StepProne,
+            UiText.Tutorial.StepPickUp,
+            UiText.Tutorial.StepDrop,
+            UiText.Tutorial.StepThrow,
+            UiText.Tutorial.StepPlace,
+            UiText.Tutorial.StepShredder,
+            UiText.Tutorial.StepExit
+        };
+        private readonly TMP_Text[] rows = new TMP_Text[StepKeys.Length];
         private TMP_Text actionHint;
+        private TMP_Text title;
 
         public static TutorialChecklistView Create(Transform canvas)
         {
@@ -24,21 +39,37 @@ namespace Game.Client.Tutorial
             root.GetComponent<Image>().color = new Color(.04f, .045f, .06f, .82f);
             root.GetComponent<Image>().raycastTarget = false;
             var view = root.AddComponent<TutorialChecklistView>();
-            view.Label("Title", "도둑의 기본 훈련", 26, 14);
-            for (var i = 0; i < Steps.Length; i++) view.rows[i] = view.Label("Step" + i, $"{i + 1:00}  {Steps[i]}", 25, 58 + i * 35);
+            view.title = view.Label(
+                "Title",
+                UiTextCatalog.Shipped.Get(UiText.Tutorial.ChecklistTitle, "ko"),
+                26,
+                14);
+            for (var i = 0; i < StepKeys.Length; i++)
+            {
+                view.rows[i] = view.Label(
+                    "Step" + i,
+                    $"{i + 1:00}  {UiTextCatalog.Shipped.Get(StepKeys[i], "ko")}",
+                    25,
+                    58 + i * 35);
+            }
             view.actionHint = view.Label("CurrentAction", string.Empty, 24, 450);
             view.actionHint.color = new Color(1, .8f, .25f);
             return view;
         }
 
-        public void Show(TutorialStep step, string hint)
+        public void Show(TutorialStep step, string hint, string language = "ko")
         {
+            if (title != null)
+            {
+                title.text = UiTextCatalog.Shipped.Get(UiText.Tutorial.ChecklistTitle, language);
+            }
+
             for (var i = 0; i < rows.Length; i++)
             {
                 rows[i].color = i < (int)step ? new Color(.6f, .6f, .6f, .55f)
                     : i == (int)step ? new Color(1, .8f, .25f) : new Color(.88f,.88f,.88f);
                 rows[i].fontStyle = i == (int)step ? FontStyles.Bold : FontStyles.Normal;
-                rows[i].text = $"{i + 1:00}  {Steps[i]}";
+                rows[i].text = $"{i + 1:00}  {UiTextCatalog.Shipped.Get(StepKeys[i], language)}";
             }
             actionHint.text = hint;
         }

@@ -47,7 +47,9 @@ namespace Game.Bootstrap
         private IMatchClock clock;
         private int playerIndex;
 
-        public string InteractionPrompt => "파괴하기";
+        public string InteractionPrompt =>
+            Game.Core.Settings.UiTextCatalog.Shipped.Get(
+                Game.Core.Settings.UiText.Interact.Destroy, "ko");
 
 #if !UNITY_SERVER
         private void Awake()

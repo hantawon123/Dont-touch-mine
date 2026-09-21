@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Game.Client.Common;
 using Game.Core.Rooms;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -55,6 +56,10 @@ namespace Game.Client.Rooms
         private Image enterButtonBackground;
         private TMP_Text enterButtonLabel;
         private Button enterButton;
+        private TMP_Text backLabel;
+        private TMP_Text codeTitle;
+        private TMP_Text searchPlaceholder;
+        private TMP_Text refreshLabel;
 
         private readonly List<TMP_Text> codeCellTexts = new List<TMP_Text>();
 
@@ -148,7 +153,8 @@ namespace Game.Client.Rooms
                 Color.white,
                 TextAlignmentOptions.MidlineLeft);
             label.rectTransform.Stretch();
-            label.text = "← 이전";
+            label.text = Copy(UiText.Rooms.Back);
+            backLabel = label;
             label.raycastTarget = false;
 
             backButton = rect.gameObject.AddComponent<Button>();
@@ -180,7 +186,8 @@ namespace Game.Client.Rooms
                 RoomBrowserStyle.FontSize.CodeTitle,
                 RoomBrowserStyle.Palette.TextPrimary,
                 TextAlignmentOptions.Center);
-            title.text = "방 코드로 입장";
+            title.text = Copy(UiText.Rooms.EnterByCode);
+            codeTitle = title;
             title.rectTransform.Anchor(
                 new Vector2(0.5f, 0.5f),
                 new Vector2(0f, RoomBrowserStyle.Layout.CodeTitleOffsetY),
@@ -403,7 +410,7 @@ namespace Game.Client.Rooms
                 RoomBrowserStyle.Palette.DisabledLabel,
                 TextAlignmentOptions.Center);
             enterButtonLabel.rectTransform.Stretch();
-            enterButtonLabel.text = "→ 입장";
+            enterButtonLabel.text = Copy(UiText.Rooms.Enter);
 
             enterButton = enterButtonBackground.gameObject.AddComponent<Button>();
             enterButton.targetGraphic = enterButtonBackground;
@@ -519,7 +526,8 @@ namespace Game.Client.Rooms
                 RoomBrowserStyle.Palette.TextMuted,
                 TextAlignmentOptions.MidlineLeft);
             placeholder.rectTransform.Stretch();
-            placeholder.text = "방 이름 입력";
+            placeholder.text = Copy(UiText.Home.RoomTitlePlaceholder);
+            searchPlaceholder = placeholder;
 
             var text = RoomBrowserUi.CreateText(
                 "Text",
@@ -591,7 +599,8 @@ namespace Game.Client.Rooms
                 RoomBrowserStyle.FontSize.Refresh,
                 RoomBrowserStyle.Palette.RefreshLabel,
                 TextAlignmentOptions.Midline);
-            label.text = "새로고침";
+            label.text = Copy(UiText.Home.Refresh);
+            refreshLabel = label;
 
             refreshButton = button.gameObject.AddComponent<Button>();
             refreshButton.targetGraphic = button;

@@ -68,7 +68,9 @@ namespace Game.Client.Interactions
             }
         }
 
-        public string InteractionPrompt => "물건 잡기";
+        public string InteractionPrompt =>
+            Game.Core.Settings.UiTextCatalog.Shipped.Get(
+                Game.Core.Settings.UiText.Interact.PickUp, "ko");
 
         private Rigidbody cachedBody;
         private Rigidbody body => cachedBody != null ? cachedBody : cachedBody = GetComponent<Rigidbody>();

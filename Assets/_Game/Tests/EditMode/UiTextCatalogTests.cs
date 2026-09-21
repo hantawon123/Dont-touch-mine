@@ -89,6 +89,13 @@ namespace Game.Architecture.Tests
             Assert.That(
                 string.Format(shipped.Get(UiText.Match.Destroyed, "en"), "Mina"),
                 Is.EqualTo("Mina destroyed an item!"));
+            Assert.That(shipped.Get(UiText.Closet.Apply, "en"), Is.EqualTo("Apply"));
+            Assert.That(shipped.Get(UiText.Rooms.EnterByCode, "en"), Is.EqualTo("Join by Code"));
+            Assert.That(shipped.Get(UiText.Tutorial.ChecklistTitle, "en"), Is.EqualTo("Thief Basics"));
+            Assert.That(shipped.Get(UiText.Guide.Attack, "en"), Is.EqualTo("Attack"));
+            Assert.That(
+                string.Format(shipped.Get(UiText.Lobby.ReportTitle, "en"), "Guest"),
+                Is.EqualTo("Report Guest?"));
         }
     }
 }

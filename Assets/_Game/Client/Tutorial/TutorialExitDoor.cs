@@ -1,6 +1,7 @@
 using Cysharp.Threading.Tasks;
 using Game.Client.Common;
 using Game.Client.Interactions;
+using Game.Core.Settings;
 using UnityEngine;
 
 namespace Game.Client.Tutorial
@@ -12,7 +13,8 @@ namespace Game.Client.Tutorial
         private TutorialSession session;
         private bool isLoading;
 
-        public string InteractionPrompt => "튜토리얼 종료";
+        public string InteractionPrompt =>
+            UiTextCatalog.Shipped.Get(UiText.Tutorial.ExitDoor, "ko");
         public bool IsLoading => isLoading;
 
         private void Awake() => session = FindAnyObjectByType<TutorialSession>();

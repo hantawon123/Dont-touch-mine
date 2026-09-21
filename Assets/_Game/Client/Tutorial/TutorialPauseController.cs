@@ -4,6 +4,7 @@ using Game.Client.Common;
 using Game.Client.Interactions;
 using Game.Client.Players;
 using Game.Client.Settings;
+using Game.Core.Settings;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -14,13 +15,17 @@ namespace Game.Client.Tutorial
     public sealed class TutorialPauseController : MonoBehaviour
     {
         [SerializeField] private string destinationScene = "Home";
-        [SerializeField] private string exitTitle = "튜토리얼을 종료하겠습니까?";
+        [SerializeField] private string exitTitle;
         [SerializeField] private PlayerMovement player;
         [SerializeField] private PlayerCameraController cameraRig;
         private SettingsView modal;
+        private UiLocale locale;
         private bool leaving;
         private int openedFrame = -1;
         public bool IsOpen { get; private set; }
+
+        [VContainer.Inject]
+        public void BindLocale(UiLocale value) => locale = value;
 
         private void Start()
         {
@@ -54,7 +59,12 @@ namespace Game.Client.Tutorial
             openedFrame = Time.frameCount;
             SetInputBlocked(true);
             modal.gameObject.SetActive(true);
-            modal.ShowLeaveConfirmation(exitTitle);
+            modal.ShowLeaveConfirmation(
+                string.IsNullOrWhiteSpace(exitTitle)
+                    ? locale != null
+                        ? locale.Get(UiText.Tutorial.ExitTitle)
+                        : UiTextCatalog.Shipped.Get(UiText.Tutorial.ExitTitle, "ko")
+                    : exitTitle);
         }
 
         public void Resume()

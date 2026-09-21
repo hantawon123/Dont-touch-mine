@@ -215,6 +215,7 @@ namespace Game.Client.Match
             hidingIntroView?.ShowChrome(locale);
             EnsureSearchingIntro();
             searchingIntroView?.ShowChrome(locale);
+            keySettingGuideView?.ShowChrome(locale);
             RefreshShredderMarkerLabel();
         }
 

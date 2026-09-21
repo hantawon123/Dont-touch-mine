@@ -31,6 +31,11 @@ namespace Game.Client.Lobby
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value) =>
             presentation = value;
 
+        private Game.Core.Settings.UiLocale locale;
+
+        [VContainer.Inject]
+        public void BindLocale(Game.Core.Settings.UiLocale value) => locale = value;
+
         [VContainer.Inject]
         public void BindVoice(IVoiceControl value) => voice = value;
 
@@ -327,7 +332,9 @@ namespace Game.Client.Lobby
             pending = PendingConfirm.Report;
             pendingPlayerId = userId;
             confirmView.Show(
-                LobbyPlayerListView.FormatReportTitle(displayName),
+                LobbyPlayerListView.FormatReportTitle(
+                    displayName,
+                    locale != null ? locale.LanguageCode : "ko"),
                 LobbyPlayerListView.ReportConfirmLabel,
                 chooseReason: true);
         }
