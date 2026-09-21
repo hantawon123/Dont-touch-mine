@@ -6,7 +6,7 @@ namespace Game.SOAP.Config
     public sealed class MovementConfigSO : ScriptableObject
     {
         [SerializeField, Min(0f)]
-        private float walkSpeed = 3f;
+        private float walkSpeed = 3.5f;
 
         [SerializeField, Min(0f)]
         private float sprintSpeed = 6.3f;
