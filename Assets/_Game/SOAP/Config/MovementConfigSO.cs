@@ -19,7 +19,7 @@ namespace Game.SOAP.Config
         private float staminaDrainPerSecond = 20f;
 
         [SerializeField, Min(0.1f)]
-        private float staminaRecoveryPerSecond = 15f;
+        private float staminaRecoveryPerSecond = 25f;
 
         [SerializeField, Min(0f)]
         private float rotationSpeedDegrees = 720f;
