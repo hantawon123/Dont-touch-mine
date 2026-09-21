@@ -1572,16 +1572,23 @@
      */
     supermarket: { label: '마트', extent: [-26, -42, 22, 9.5], image: null, source: '경계 벽 안쪽 면' },
     /*
-     * 저택 (1085). 값은 docs/design/match-map/mansion/README.md 6절의 경계 콜라이더 실측이고,
-     * 안쪽 면이 서 x -12.5, 동 x 12.7, 남 z -32.2, 북 z -9.3 입니다. 여기에 반 칸씩 여유를 뒀습니다.
+     * 저택 (1085, 2층 1092). 값은 docs/design/match-map/mansion/README.md 6절의 경계 콜라이더
+     * 실측이고, 안쪽 면이 서 x -12.5, 동 x 12.7, 남 z -32.2, 북 z -9.3 입니다. 여기에 반 칸씩
+     * 여유를 뒀습니다. 두 층은 x·z 가 겹쳐 범위가 같고 다른 것은 높이뿐입니다.
      *
-     * <b>1층만 봅니다.</b> 본관은 1층과 2층이 x·z 로 겹치고, 그 위 다락이 대기 구역입니다. 층을 안
-     * 나누면 자기 차례를 기다리며 몇 분씩 서 있는 다락이 제일 뜨거운 칸이 되고 본관 안의 차이가
-     * 색으로 안 보입니다. floor 의 y 범위 밖은 마트 대기실과 같이 버리고 몇 개를 버렸는지 범례에
-     * 적습니다. 1층 바닥이 1.01, 2층 바닥이 5.5 라 5.0 에서 자릅니다.
+     * <b>한 번에 한 층만 봅니다.</b> 본관은 1층과 2층이 x·z 로 겹치고, 그 위 다락이 대기 구역입니다.
+     * 층을 안 나누면 자기 차례를 기다리며 몇 분씩 서 있는 다락이 제일 뜨거운 칸이 되고 본관 안의
+     * 차이가 색으로 안 보입니다. 고른 층의 y 범위 밖은 마트 대기실과 같이 버리고 몇 개를 버렸는지
+     * 범례에 적습니다. 1층 바닥 1.01, 2층 바닥 5.5, 다락 바닥 약 10.0(2026-09-21 천고 상향 전 8.5)
+     * 이라 5.0 과 9.8 에서 자릅니다.
+     *
+     * 층마다 평면도가 따로 있습니다. asset 이 maps/<asset>.png 와 .json 의 이름입니다.
      */
     mansion: { label: '저택', extent: [-13, -33, 13.5, -8.5], image: null, source: '경계 벽 안쪽 면',
-      floor: { label: '1층', y0: 0.7, y1: 5 } },
+      floors: [
+        { id: '1f', label: '1층', asset: 'mansion', y0: 0.7, y1: 5 },
+        { id: '2f', label: '2층', asset: 'mansion-2f', y0: 5, y1: 9.8, since: '2026-09-21' },
+      ] },
     playground: { label: '놀이터', extent: null, image: null, source: null },
   };
   /* 굽기 도구의 출력 자리. 페이지가 /admin 로도 /admin/ 로도 열리므로 절대 경로로 씁니다. */
@@ -1832,7 +1839,7 @@
         body.appendChild(emptyBox('경기 목록에서 경기를 고르면 그 경기의 좌표를 그립니다. 기간 전체로 보려면 항목에서 「사람 체류 · 기간 전체」나 은신처를 고르세요.'));
         el('hmBox').hidden = true;
         // 항목만 남기고 나머지는 숨깁니다. 고를 데이터가 없는데 필터만 떠 있으면 헷갈립니다.
-        for (const id of ['hmPhase', 'hmSeat', 'hmCell']) el(id).hidden = true;
+        for (const id of ['hmFloor', 'hmPhase', 'hmSeat', 'hmCell']) el(id).hidden = true;
         setNote(q, q.note, false);
         return;
       }
@@ -2035,6 +2042,11 @@
     phase.id = 'hmPhase';
     const seat = document.createElement('select');
     seat.id = 'hmSeat';
+    // 층 (1092). 층이 여럿인 맵에서만 보입니다. 평면도가 한 층을 찍은 그림이라 층을 겹칠 수 없습니다.
+    const floor = document.createElement('select');
+    floor.id = 'hmFloor';
+    floor.hidden = true;
+
     const cell = document.createElement('select');
     cell.id = 'hmCell';
     cell.append(option('1', '1 m 격자'), option('2', '2 m 격자'), option('4', '4 m 격자'));
@@ -2057,7 +2069,7 @@
     const read = document.createElement('span');
     read.id = 'hmRead';
     read.className = 'when';
-    bar.append(source, phase, seat, cell, logLabel, plainLabel, grow, read);
+    bar.append(source, floor, phase, seat, cell, logLabel, plainLabel, grow, read);
 
     const wrap = document.createElement('div');
     wrap.className = 'hm-wrap';
@@ -2095,11 +2107,13 @@
     for (const control of [phase, seat, cell, log, plain]) {
       control.addEventListener('change', () => drawHeatmap());
     }
-    // 항목은 부르는 경로가 달라서 다시 그리는 것이 아니라 다시 불러옵니다.
-    source.addEventListener('change', () => {
-      const q = QUESTIONS.find((item) => item.kind === 'heatmap');
-      if (q) loadAnalyticsCard(q).catch(() => {});
-    });
+    // 항목과 층은 그리기 전 단계(부르는 경로, 층 거르기·평면도)가 달라서 다시 불러옵니다.
+    for (const control of [source, floor]) {
+      control.addEventListener('change', () => {
+        const q = QUESTIONS.find((item) => item.kind === 'heatmap');
+        if (q) loadAnalyticsCard(q).catch(() => {});
+      });
+    }
     canvas.addEventListener('mousemove', (event) => readHeatmapCell(event));
     canvas.addEventListener('mouseleave', () => { el('hmRead').textContent = ''; });
     return outer;
@@ -2135,6 +2149,19 @@
       // 아직 굽지 않은 맵입니다. 경계만 그립니다.
     }
     return mapMeta[mapId];
+  }
+
+  /**
+   * 맵이 가진 층 (1092).
+   *
+   * 층이 없는 맵도 항목 하나로 다룹니다 - 그래야 아래 코드가 층을 가진 맵과 같은 길을 갑니다.
+   * asset 은 평면도 파일 이름(maps/<asset>.png, .json)이고, 층이 없는 맵은 맵 id 그대로입니다.
+   */
+  function floorsOf(mapId) {
+    const map = MAPS[mapId];
+    if (map && map.floors && map.floors.length) return map.floors;
+    if (map && map.floor) return [Object.assign({ id: '1f', asset: mapId }, map.floor)];
+    return [{ id: '', label: '', asset: mapId || '' }];
   }
 
   /** 굽기 도구가 쓴 층 정보. 숫자 둘이 제대로 있을 때만 씁니다. */
@@ -2193,14 +2220,23 @@
     // 질의는 기간 안의 모든 맵을 한 번에 돌려줍니다(질의가 맵별로 묶습니다). 거르지 않으면
     // 다른 맵의 칸이 이 맵의 평면도 위에 그려집니다 - 좌표가 겹치는 자리면 티도 안 납니다.
     const onMap = mapCol >= 0 ? table.rows.filter((r) => String(r[mapCol]) === mapId) : table.rows;
-    // 구운 평면도가 있으면 그 사각형이 그림과 격자 양쪽의 기준입니다.
-    const map = (await bakedMapOf(mapId)) || MAPS[mapId] || {};
 
-    // 층 거르기 (1085). 그림은 한 층이므로 다른 층의 좌표를 그 위에 얹으면 안 됩니다. 저택 다락은
-    // 대기 구역이라 넣으면 몇 분씩 서 있는 그 방이 제일 뜨거워지고 본관 안의 차이가 안 보입니다.
-    // 구운 JSON 의 층이 기준이고, 없으면 MAPS 의 값입니다. 굽기 도구에서 층 칸을 안 켜고 구운
-    // 평면도라도 다락 대기자가 1층 그림 위에 얹히는 일은 없어야 합니다.
-    const floor = map.floor || (MAPS[mapId] && MAPS[mapId].floor) || null;
+    // 층 고르기 (1092). 맵을 정한 뒤에 층을 채웁니다 - 맵마다 층이 다릅니다. 고르고 있던 층이
+    // 새 맵에 없으면 첫 층으로 돌아갑니다.
+    const floors = floorsOf(mapId);
+    const floorBox = el('hmFloor');
+    fillFloors(floorBox, floors);
+    floorBox.hidden = floors.length < 2;
+    const pick = floors.find((f) => f.id === floorBox.value) || floors[0];
+
+    // 구운 평면도가 있으면 그 사각형이 그림과 격자 양쪽의 기준입니다. 층마다 평면도가 다릅니다.
+    const map = (await bakedMapOf(pick.asset)) || MAPS[mapId] || {};
+
+    // 층 거르기 (1085, 1092). 그림은 한 층이므로 다른 층의 좌표를 그 위에 얹으면 안 됩니다. 저택
+    // 다락은 대기 구역이라 넣으면 몇 분씩 서 있는 그 방이 제일 뜨거워지고 본관 안의 차이가 안
+    // 보입니다. 구운 JSON 의 층이 기준이고, 없으면 MAPS 의 값입니다. 굽기 도구에서 층 칸을 안 켜고
+    // 구운 평면도라도 다른 층 좌표가 그 위에 얹히는 일은 없어야 합니다.
+    const floor = map.floor || floorOf(pick) || null;
     const yi = table.columns.indexOf(points ? 'pos_y' : Y_BAND_COLUMN);
     let rows = onMap;
     if (floor && yi >= 0) {
@@ -2251,7 +2287,15 @@
       ? ' 기간 안에 맵이 ' + maps.size + '개라 행이 가장 많은 쪽만 그렸습니다 - 위에서 맵을 고르면 바뀝니다.'
       : '';
     const onFloor = floor ? ' ' + (floor.label || '구운 층') + '만 그립니다.' : '';
-    setNote(q, q.note + ' ' + where + which + onFloor + scope + multi + capped, !!capped);
+    // 저택 2층은 2026-09-21 에 천고를 올리면서 그 위 다락(대기 구역)이 10.0 으로 올라갔습니다.
+    // 그 전 기록은 다락이 8.5 라 2층 범위 안에 들어옵니다 - 기다리던 사람이 2층 칸으로 보입니다.
+    // 기간이 그날 이후로 좁혀져 있으면 섞일 일이 없으므로 말하지 않습니다. 기간은 yyyyMMddHHmmss 입니다.
+    const sinceStamp = pick.since ? pick.since.replace(/-/g, '') + '000000' : '';
+    const from = analyticsPeriod().from || '';
+    const before = sinceStamp && from < sinceStamp
+      ? ' ' + pick.since + ' 이전 기록에는 그 위 다락(대기 구역)이 이 층 범위 안에 들어와 섞입니다 - 그날 2층 천고를 올리면서 다락이 올라갔습니다.'
+      : '';
+    setNote(q, q.note + ' ' + where + which + onFloor + before + scope + multi + capped, !!capped);
 
     el('anBody-' + q.id).textContent = '';
     el('hmBox').hidden = false;
@@ -2264,6 +2308,17 @@
       img.src = map.image;
     }
     drawHeatmap();
+  }
+
+  /**
+   * 층 고르는 칸을 채웁니다. <b>전체 층은 없습니다</b> - 평면도 한 장 위에 두 층을 겹칠 수 없고,
+   * 겹치면 사람이 벽 안에 서 있는 그림이 됩니다.
+   */
+  function fillFloors(select, floors) {
+    const keep = select.value;
+    select.textContent = '';
+    for (const f of floors) select.appendChild(option(f.id, f.label || '층'));
+    select.value = floors.some((f) => f.id === keep) ? keep : floors[0].id;
   }
 
   /** select 의 항목을 갈아 끼웁니다. 고르고 있던 값이 새 목록에 있으면 유지합니다. */
