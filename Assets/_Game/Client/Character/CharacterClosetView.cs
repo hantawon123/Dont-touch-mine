@@ -146,6 +146,7 @@ namespace Game.Client.Character
                 applyLabel.text = Copy(UiText.Closet.Apply);
             }
 
+            RefreshCategoryTabLabels();
             RefreshHoodTabLabels();
             if (portraitHint != null)
             {

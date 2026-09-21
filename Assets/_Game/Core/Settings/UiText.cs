@@ -358,6 +358,9 @@ namespace Game.Core.Settings
             public const string Hood = "closet.hood";
             public const string HoodShape = "closet.hoodShape";
             public const string HoodColor = "closet.hoodColor";
+            public const string Body = "closet.body";
+            public const string Shoes = "closet.shoes";
+            public const string Face = "closet.face";
         }
 
         public static class Guide
