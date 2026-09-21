@@ -64,7 +64,11 @@ namespace Game.Bootstrap
         private AudioClip _endingBgm;
 
         protected override void Configure(IContainerBuilder builder)
-        {
+        {   
+        #if GAME_TRAINING
+            Debug.Log("[Training] 게임 공통 초기화를 생략합니다.");
+            return;
+        #else
             if (DedicatedServerStartup.IsRequested)
             {
                 RegisterServices(builder, _networkPrefabs, _networkScenes,
@@ -221,6 +225,7 @@ namespace Game.Bootstrap
             // Listens to something live. Tests build the same container without
             // wanting anything to react to scene loads.
             builder.RegisterEntryPoint<MatchSceneSpawnPoints>();
+#endif
         }
 
         private sealed class SharedUiInputActions : MonoBehaviour

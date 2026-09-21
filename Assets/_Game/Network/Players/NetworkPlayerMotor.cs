@@ -19,6 +19,7 @@ namespace Game.Network.Players
         private Game.Network.Match.MatchStarter matchStarter;
         private PlayerKCCMovementProcessor movementProcessor;
         private IPlayerInputIntentSource inputSource;
+        private BotMoveToTarget botInput;
         private bool hasPendingTeleport;
         public bool LocalPresentationInputBlocked { get; set; }
 
@@ -102,7 +103,8 @@ namespace Game.Network.Players
         {
             kcc = GetComponent<KCC>();
             movementProcessor = GetComponent<PlayerKCCMovementProcessor>();
-
+            botInput = GetComponent<BotMoveToTarget>();
+            
             var carryableMask = LayerMask.GetMask("Carryable");
             // KCC queries provide blocking/grounding; PhysX must not push props
             // with the avatar's kinematic body. Prop gravity/contact stays active.
@@ -175,6 +177,28 @@ namespace Game.Network.Players
             return NetworkPlayerInput.FromIntent(inputSource.CaptureInputIntent());
         }
 
+        private bool TryGetMovementInput(out NetworkPlayerInput input)
+        {
+            input = default;
+
+            // 봇 컴포넌트가 없으면 기존 사람 입력을 사용한다.
+            if (botInput == null)
+            {
+                return GetInput(out input);
+            }
+
+            // 봇의 판단은 상태를 확정하는 호스트/서버만 수행한다.
+            if (!Object.HasStateAuthority)
+            {
+                return false;
+            }
+
+            var intent = botInput.CreateInput(kcc.FixedData.TargetPosition);
+            input = NetworkPlayerInput.FromIntent(intent);
+            return true;
+        }
+
+
         public override void FixedUpdateNetwork()
         {
             if (!ApplyPendingScenePlacement())
@@ -183,7 +207,7 @@ namespace Game.Network.Players
             }
 
             if (!IsConfigured || Object == null ||
-                !GetInput(out NetworkPlayerInput input))
+                !TryGetMovementInput(out NetworkPlayerInput input))
             {
                 return;
             }
