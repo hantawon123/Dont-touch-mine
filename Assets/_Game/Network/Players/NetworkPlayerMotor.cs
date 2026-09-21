@@ -81,6 +81,9 @@ namespace Game.Network.Players
         [Networked]
         public PlayerPosture Posture { get; private set; }
 
+        [Networked]
+        public float LookPitchDegrees { get; private set; }
+
         public bool IsScenePlacementReady => Object != null && Object.IsValid &&
                                              ScenePlacementReady && !hasPendingTeleport;
 
@@ -244,6 +247,10 @@ namespace Game.Network.Players
                 input.LookYawDegrees,
                 settings.RotationSpeedDegrees * Runner.DeltaTime);
             kcc.SetLookRotation(0f, yaw);
+            if (ControlsEnabled)
+            {
+                LookPitchDegrees = input.LookPitchDegrees;
+            }
 
             AnimationSpeed = direction.magnitude * DesiredMoveSpeed;
             AnimationGrounded = grounded;

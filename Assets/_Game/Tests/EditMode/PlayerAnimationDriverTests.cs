@@ -304,6 +304,10 @@ namespace Game.Tests.EditMode
             Assert.That(
                 PlayerAnimationDriver.ResolvePlaybackSpeed("Hit_Run", 7f, 4f, 7f, 2f, 0.8f),
                 Is.EqualTo(1f));
+            Assert.That(PlayerAnimationDriver.IsStunState("Stun_Start"), Is.True);
+            Assert.That(PlayerAnimationDriver.IsStunState("Stun_Idle"), Is.True);
+            Assert.That(PlayerAnimationDriver.IsStunState("Stun_End"), Is.True);
+            Assert.That(PlayerAnimationDriver.IsStunState("Idle"), Is.False);
         }
 
         [UnityTest]
@@ -334,14 +338,18 @@ namespace Game.Tests.EditMode
                     driver.SendMessage("Update");
                     animator.Update(0.3f);
                     Assert.That(combatant.IsStunned, Is.True);
-                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Stunned"),
-                        Is.True, $"Stun animation missing; local input={acceptsLocalInput}");
+                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Stun_Start"),
+                        Is.True, $"Stun start missing; local input={acceptsLocalInput}");
                     var clip = animator.GetCurrentAnimatorClipInfo(0);
                     Assert.That(clip.Length, Is.GreaterThan(0));
                     Assert.That(clip[0].clip.length, Is.GreaterThan(0f));
                     combatant.SetNetworkStunned(false);
                     driver.SendMessage("Update");
                     animator.Update(0.3f);
+                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Stun_End"), Is.True);
+                    yield return new WaitForSeconds(PlayerAnimationDriver.StunEndSeconds);
+                    driver.SendMessage("Update");
+                    animator.Update(0.2f);
                     Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Idle"), Is.True);
                 }
                 finally { Object.DestroyImmediate(player); }
@@ -375,6 +383,13 @@ namespace Game.Tests.EditMode
             Assert.That(names, Does.Contain("Throw_TwoHands"));
             Assert.That(names, Does.Contain("Throw_TwoHands_Walk"));
             Assert.That(names, Does.Contain("Punch"));
+            Assert.That(names, Does.Contain("Hit"));
+            Assert.That(names, Does.Contain("Hit_Walk"));
+            Assert.That(names, Does.Contain("Hit_Crouch"));
+            Assert.That(names, Does.Contain("Hit_Prone"));
+            Assert.That(names, Does.Contain("Stun_Start"));
+            Assert.That(names, Does.Contain("Stun_Idle"));
+            Assert.That(names, Does.Contain("Stun_End"));
             Assert.That(names, Does.Contain("Stunned"));
 
             var punch = controller.layers[0].stateMachine.states

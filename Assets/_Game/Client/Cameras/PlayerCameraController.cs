@@ -92,6 +92,9 @@ namespace Game.Client.Cameras
         private bool replayRigEnabled;
         private Pose replayCameraPose;
         private bool releasedCursorForTextInput;
+        private Transform followHead;
+        private Quaternion stunHeadToBody = Quaternion.identity;
+        private bool followingStunHead;
 
         public Transform BeginReplay()
         {
@@ -232,7 +235,7 @@ namespace Game.Client.Cameras
                 SetCursorLocked(true);
             }
 
-            if (Game.Client.Common.WebPointerInput.IsLocked && !LookSuspended)
+            if (Game.Client.Common.WebPointerInput.IsLocked && !LookSuspended && !FollowingStunHead)
             {
                 var look = lookAction.ReadValue<Vector2>();
                 var settings = controls?.Current ?? ControlCatalog.Defaults;
@@ -250,18 +253,40 @@ namespace Game.Client.Cameras
                 return;
             }
 
+            CacheFollowHead();
+            var stunView = followAnimationDriver != null && followAnimationDriver.IsStunView;
+            if (!stunView)
+            {
+                if (followingStunHead)
+                {
+                    var euler = transform.eulerAngles;
+                    yaw = euler.y;
+                    pitch = Mathf.Clamp(
+                        euler.x > 180f ? euler.x - 360f : euler.x, minPitch, maxPitch);
+                }
+
+                followingStunHead = false;
+                if (followHead != null)
+                {
+                    stunHeadToBody = PlayerStunView.Calibrate(followHead.rotation, followTarget.rotation);
+                }
+            }
+
+            if (isFirstPerson && stunView && followHead != null)
+            {
+                followingStunHead = true;
+                var pose = PlayerStunView.Pose(followHead, stunHeadToBody);
+                transform.SetPositionAndRotation(pose.position, pose.rotation);
+                ApplyFirstPersonOverlays(rescanRenderers: ScanBodyRenderersIfDue(), firstPersonView: true);
+                return;
+            }
+
             // 자세(서기/앉기/엎드리기)에 따라 눈높이를 부드럽게 따라간다.
             var targetEyeHeight = followMovement != null ? followMovement.CurrentEyeHeight : headOffset.y;
             currentEyeHeight = Mathf.Lerp(
                 currentEyeHeight, targetEyeHeight, eyeHeightLerpSpeed * Time.deltaTime);
 
-            var rescanRenderers = false;
-            if (Time.time >= nextBodyRendererScan)
-            {
-                nextBodyRendererScan = Time.time + BodyRendererScanInterval;
-                RefreshBodyRenderers();
-                rescanRenderers = true;
-            }
+            var rescanRenderers = ScanBodyRenderersIfDue();
 
             var offset = new Vector3(headOffset.x, currentEyeHeight, headOffset.z);
             followCorrection = Vector3.Lerp(followCorrection, Vector3.zero,
@@ -270,30 +295,62 @@ namespace Game.Client.Cameras
                 followTarget.position + offset + followCorrection,
                 Quaternion.Euler(pitch, yaw, 0f));
 
-            // 몸 Animator가 이 프레임 본을 다 쓴 뒤라, 1인칭 팔이 그 포즈를 복사할 수 있다.
-            var firstPersonView = isFirstPerson && !bodyVisibleOverride;
-            armsView.Apply(firstPersonView && firstPersonArms.showArms, firstPersonArms, transform,
+            ApplyFirstPersonOverlays(rescanRenderers, isFirstPerson && !bodyVisibleOverride);
+        }
+
+        private bool FollowingStunHead => followingStunHead;
+
+        private bool ScanBodyRenderersIfDue()
+        {
+            if (Time.time < nextBodyRendererScan)
+            {
+                return false;
+            }
+
+            nextBodyRendererScan = Time.time + BodyRendererScanInterval;
+            RefreshBodyRenderers();
+            return true;
+        }
+
+        private void ApplyFirstPersonOverlays(bool rescanRenderers, bool firstPersonView)
+        {
+            var hideArms = firstPersonView && firstPersonArms.showArms && !FollowingStunHead;
+            armsView.Apply(hideArms, firstPersonArms, transform,
                 followAnimationDriver != null ? followAnimationDriver.CurrentState : null,
                 followAnimationDriver != null && followAnimationDriver.IsPunching,
                 followAnimationDriver != null && followAnimationDriver.IsLeftPunch,
                 followAnimationDriver != null ? followAnimationDriver.PunchProgress : 0.35f);
 
-            // 들고 있는 물건도 1인칭에서는 카메라 기준 자리에 둔다(던지기·놓기·배치 원점).
             if (followInteractor != null)
             {
-                if (firstPersonView && firstPersonHold.enabled)
+                if (firstPersonView && firstPersonHold.enabled && !FollowingStunHead)
                     followInteractor.SetFirstPersonHold(
                         transform, firstPersonHold.offset, firstPersonHold.tilt, firstPersonHold.maxScreenFraction);
                 else
                     followInteractor.ClearFirstPersonHold();
             }
 
-            // 1인칭에서는 들고 있는 물건을 내 화면에서 지운다(몸처럼). 자리와 상태는 그대로라
-            // 다른 플레이어에게는 계속 보이고, 3인칭으로 돌아오거나 놓으면 바로 다시 그린다.
             heldItemView.Apply(
                 followInteractor != null ? followInteractor.CarriedItem : null,
                 HideHeldItemOverride || firstPersonView && firstPersonHold.hideItem,
                 rescanRenderers);
+        }
+
+        private void CacheFollowHead()
+        {
+            if (followHead != null || followVisual == null)
+            {
+                return;
+            }
+
+            foreach (var candidate in followVisual.GetComponentsInChildren<Transform>(true))
+            {
+                if (candidate.name == "Head")
+                {
+                    followHead = candidate;
+                    return;
+                }
+            }
         }
 
         /// <summary>
@@ -302,6 +359,8 @@ namespace Game.Client.Cameras
         /// </summary>
         public PlayerMovement FollowMovement => followMovement;
         public Transform FollowTarget => followTarget;
+        public float PitchDegrees => pitch;
+        public bool IsFirstPerson => isFirstPerson;
 
         /// <summary>
         /// true인 동안 마우스 이동이 시선을 돌리지 않는다. 배치 모드가 우클릭 회전 중 마우스를 물건 쪽으로 가져갈 때 켠다.
@@ -350,6 +409,7 @@ namespace Game.Client.Cameras
 
             // 1인칭 몸 숨김 대상 렌더러와 1인칭 팔의 포즈 원본을 새 대상 기준으로 다시 수집한다.
             followVisual = target.Find("Visual");
+            followHead = null;
             RefreshBodyRenderers();
             armsView.Bind(followVisual, transform, firstPersonArms);
         }

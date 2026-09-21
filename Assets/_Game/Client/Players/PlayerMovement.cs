@@ -143,6 +143,7 @@ namespace Game.Client.Players
                     0f,
                     0f,
                     heldYaw,
+                    GetCameraPitch(),
                     PlayerInputButtons.None);
             }
 
@@ -192,16 +193,16 @@ namespace Game.Client.Players
                 if (world.sqrMagnitude > 0.0001f)
                 {
                     var yaw = Mathf.Atan2(world.x, world.z) * Mathf.Rad2Deg;
-                    return new PlayerInputIntent(0f, Mathf.Min(1f, world.magnitude), yaw, buttons);
+                    return new PlayerInputIntent(0f, Mathf.Min(1f, world.magnitude), yaw, GetCameraPitch(), buttons);
                 }
 
-                return new PlayerInputIntent(0f, 0f, transform.eulerAngles.y, buttons);
+                return new PlayerInputIntent(0f, 0f, transform.eulerAngles.y, GetCameraPitch(), buttons);
             }
 
             var lookYaw = TryEnsureCamera()
                 ? cameraTransform.eulerAngles.y
                 : transform.eulerAngles.y;
-            return new PlayerInputIntent(move.x, move.y, lookYaw, buttons);
+            return new PlayerInputIntent(move.x, move.y, lookYaw, GetCameraPitch(), buttons);
         }
 
         private void Awake()
@@ -484,6 +485,17 @@ namespace Game.Client.Players
 
             cameraTransform = mainCamera.transform;
             return true;
+        }
+
+        private float GetCameraPitch()
+        {
+            if (!TryEnsureCamera())
+            {
+                return 0f;
+            }
+
+            var pitch = cameraTransform.eulerAngles.x;
+            return pitch > 180f ? pitch - 360f : pitch;
         }
 
         private Vector3 ToCameraRelativeDirection(Vector2 input)

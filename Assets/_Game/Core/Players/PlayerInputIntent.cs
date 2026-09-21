@@ -149,10 +149,21 @@ namespace Game.Core.Players
             float moveY,
             float lookYawDegrees,
             PlayerInputButtons buttons)
+            : this(moveX, moveY, lookYawDegrees, 0f, buttons)
+        {
+        }
+
+        public PlayerInputIntent(
+            float moveX,
+            float moveY,
+            float lookYawDegrees,
+            float lookPitchDegrees,
+            PlayerInputButtons buttons)
         {
             if (!float.IsFinite(moveX) ||
                 !float.IsFinite(moveY) ||
-                !float.IsFinite(lookYawDegrees))
+                !float.IsFinite(lookYawDegrees) ||
+                !float.IsFinite(lookPitchDegrees))
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(moveX),
@@ -175,12 +186,14 @@ namespace Game.Core.Players
             MoveX = moveX;
             MoveY = moveY;
             LookYawDegrees = NormalizeYaw(lookYawDegrees);
+            LookPitchDegrees = ClampPitch(lookPitchDegrees);
             Buttons = buttons;
         }
 
         public float MoveX { get; }
         public float MoveY { get; }
         public float LookYawDegrees { get; }
+        public float LookPitchDegrees { get; }
         public PlayerInputButtons Buttons { get; }
 
         public bool IsPressed(PlayerInputButtons button) =>
@@ -191,5 +204,8 @@ namespace Game.Core.Players
             var normalized = degrees % 360f;
             return normalized < 0f ? normalized + 360f : normalized;
         }
+
+        private static float ClampPitch(float degrees) =>
+            Math.Clamp(degrees, -89f, 89f);
     }
 }

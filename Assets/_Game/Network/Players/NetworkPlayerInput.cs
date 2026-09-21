@@ -18,6 +18,7 @@ namespace Game.Network.Players
     {
         public Vector2 Move;
         public float LookYawDegrees;
+        public float LookPitchDegrees;
         public NetworkButtons Buttons;
 
         public static NetworkPlayerInput FromIntent(PlayerInputIntent intent)
@@ -43,6 +44,7 @@ namespace Game.Network.Players
             {
                 Move = new Vector2(intent.MoveX, intent.MoveY),
                 LookYawDegrees = intent.LookYawDegrees,
+                LookPitchDegrees = intent.LookPitchDegrees,
                 Buttons = buttons
             };
         }

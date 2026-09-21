@@ -1,3 +1,4 @@
+using Game.Client.Cameras;
 using Game.Client.Combat;
 using Game.Client.Interactions;
 using Game.Core.Players;
@@ -15,6 +16,9 @@ namespace Game.Client.Players
         private const string PunchState = "Punch";
         private const string HitState = "Hit";
         private const string StunnedState = "Stunned";
+        internal const string StunStartState = "Stun_Start";
+        internal const string StunIdleState = "Stun_Idle";
+        internal const string StunEndState = "Stun_End";
         private const string JumpState = "Jump";
         private const string CarryJumpState = "Carry_TwoHands_Jump";
         private const string AirborneState = "Fall";
@@ -32,6 +36,8 @@ namespace Game.Client.Players
         // 앉기·일어서기 스윽만 70% of the other combat one-shots (.8 * Effects).
         internal const float PostureSwooshAudioVolume = .56f;
         private const float HitSeconds = 30f / 30f;
+        internal const float StunStartSeconds = 2.2f;
+        internal const float StunEndSeconds = 1.2f;
         private const float MinLocomotionPlayback = 0.5f;
         private const float MaxLocomotionPlayback = 2f;
 
@@ -116,6 +122,11 @@ namespace Game.Client.Players
         /// <summary>이번 펀치가 왼손인가.</summary>
         public bool IsLeftPunch => leftPunch;
 
+        /// <summary>
+        /// 기절 넘어진 포즈가 재생 중인가. 1인칭 시선이 머리 본을 따라갈지 고를 때 쓴다.
+        /// </summary>
+        public bool IsStunView => IsStunState(currentState);
+
         /// <summary>펀치 진행도 0(시작)~1(끝). 펀치 중이 아니면 -1.</summary>
         public float PunchProgress =>
             IsPunching ? Mathf.Clamp01((Time.time - punchStartedTime) / Mathf.Max(0.01f, PunchDuration)) : -1f;
@@ -134,6 +145,11 @@ namespace Game.Client.Players
         private Vector2 networkMoveLocal;
         private bool networkCarrying;
         private MoveDirection lastLocomotionDirection;
+        private bool wasStunned;
+        private float networkLookPitch;
+        private Transform neckBone;
+        private Transform headBone;
+        private PlayerCameraController cameraRig;
 
         private void Awake()
         {
@@ -152,6 +168,7 @@ namespace Game.Client.Players
             animator.applyRootMotion = false;
             lastPosture = movement.Posture;
             previousJumpHeight = transform.position.y;
+            CacheLookBones();
 #if !UNITY_SERVER
             if (punchSwingClip != null)
             {
@@ -183,6 +200,7 @@ namespace Game.Client.Players
 
         private void OnEnable()
         {
+            cameraRig = FindFirstObjectByType<PlayerCameraController>();
             if (combatant != null)
             {
                 combatant.AttackPerformed += OnAttackPerformed;
@@ -232,7 +250,6 @@ namespace Game.Client.Players
 
         private void OnHitReceived()
         {
-            // Play even on the hit that stuns the victim (PlayHit skips that animation).
             if (hitAudioSource != null && hitAudioSource.isActiveAndEnabled)
             {
                 hitAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
@@ -248,6 +265,16 @@ namespace Game.Client.Players
                 stunAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
                 stunAudioSource.PlayOneShot(stunSoundClip);
             }
+
+            punchUntilTime = 0f;
+            hitUntilTime = 0f;
+            if (movement != null && movement.Posture == PlayerPosture.Prone)
+            {
+                ClearOneShot();
+                return;
+            }
+
+            PlayOneShot(StunStartState, StunStartSeconds);
         }
 
         private AudioSource CreateCombatAudioSource(string objectName)
@@ -290,6 +317,8 @@ namespace Game.Client.Players
         {
             if (combatant != null && combatant.IsStunned)
             {
+                // Knockout plays Stun_Start instead of a flinch. Earlier hits
+                // already used the posture clip from ResolveHitClip.
                 return;
             }
 
@@ -393,7 +422,7 @@ namespace Game.Client.Players
             bool grounded,
             int attackSequence)
         {
-            ApplyNetworkState(planarSpeed, grounded, attackSequence, Vector2.zero, false);
+            ApplyNetworkState(planarSpeed, grounded, attackSequence, Vector2.zero, false, 0f);
         }
 
         public void ApplyNetworkState(
@@ -402,6 +431,17 @@ namespace Game.Client.Players
             int attackSequence,
             Vector2 planarDirectionLocal,
             bool carrying)
+        {
+            ApplyNetworkState(planarSpeed, grounded, attackSequence, planarDirectionLocal, carrying, 0f);
+        }
+
+        public void ApplyNetworkState(
+            float planarSpeed,
+            bool grounded,
+            int attackSequence,
+            Vector2 planarDirectionLocal,
+            bool carrying,
+            float lookPitchDegrees)
         {
             if (!usesNetworkState)
             {
@@ -418,6 +458,7 @@ namespace Game.Client.Players
             networkGrounded = grounded;
             networkMoveLocal = planarDirectionLocal;
             networkCarrying = carrying;
+            networkLookPitch = lookPitchDegrees;
         }
 
         private void Update()
@@ -481,6 +522,47 @@ namespace Game.Client.Players
             TickLandAudio();
             footstepAudio?.Tick(animator, currentState,
                 usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
+            ApplyLookAim();
+        }
+
+        private void CacheLookBones()
+        {
+            foreach (var candidate in GetComponentsInChildren<Transform>(true))
+            {
+                if (neckBone == null && candidate.name == "Neck")
+                {
+                    neckBone = candidate;
+                }
+                else if (headBone == null && candidate.name == "Head")
+                {
+                    headBone = candidate;
+                }
+            }
+        }
+
+        private void ApplyLookAim()
+        {
+            if (IsStunView || neckBone == null && headBone == null)
+            {
+                return;
+            }
+
+            PlayerLookAim.Apply(
+                transform,
+                neckBone,
+                headBone,
+                ResolveLookPitch(),
+                movement != null ? movement.Posture : PlayerPosture.Standing);
+        }
+
+        private float ResolveLookPitch()
+        {
+            if (cameraRig != null && cameraRig.FollowTarget == transform)
+            {
+                return cameraRig.PitchDegrees;
+            }
+
+            return networkLookPitch;
         }
 
         private void UpdateJumpAudio()
@@ -554,12 +636,24 @@ namespace Game.Client.Players
         {
             if (combatant != null && combatant.IsStunned)
             {
-                ClearOneShot();
                 punchUntilTime = 0f;
                 hitUntilTime = 0f;
                 lastPosture = movement.Posture;
                 wasGrounded = usesNetworkState ? networkGrounded : movement.IsGrounded;
-                return StunnedState;
+                wasStunned = true;
+                if (Time.time < oneShotUntilTime && oneShotState == StunStartState)
+                {
+                    return StunStartState;
+                }
+
+                ClearOneShot();
+                return StunIdleState;
+            }
+
+            if (wasStunned)
+            {
+                wasStunned = false;
+                PlayOneShot(StunEndState, StunEndSeconds);
             }
 
             if (Time.time < hitUntilTime)
@@ -752,6 +846,12 @@ namespace Game.Client.Players
 
         internal static bool IsJumpState(string state) =>
             state == JumpState || state == CarryJumpState;
+
+        internal static bool IsStunState(string state) =>
+            state == StunStartState ||
+            state == StunIdleState ||
+            state == StunEndState ||
+            state == StunnedState;
 
         internal static bool IsMovementInterruptible(string state) =>
             !string.IsNullOrEmpty(state) &&

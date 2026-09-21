@@ -907,6 +907,7 @@ namespace Game.Architecture.Tests
             Assert.That(input.MoveX, Is.EqualTo(0.6f).Within(0.0001f));
             Assert.That(input.MoveY, Is.EqualTo(0.8f).Within(0.0001f));
             Assert.That(input.LookYawDegrees, Is.EqualTo(270f));
+            Assert.That(input.LookPitchDegrees, Is.EqualTo(0f));
             Assert.That(input.IsPressed(PlayerInputButtons.Jump), Is.True);
             Assert.That(input.IsPressed(PlayerInputButtons.Prone), Is.False);
         }
@@ -916,6 +917,8 @@ namespace Game.Architecture.Tests
         {
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new PlayerInputIntent(float.NaN, 0f, 0f, PlayerInputButtons.None));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new PlayerInputIntent(0f, 0f, 0f, float.NaN, PlayerInputButtons.None));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new PlayerInputIntent(0f, 0f, 0f, (PlayerInputButtons)128));
         }
@@ -927,6 +930,7 @@ namespace Game.Architecture.Tests
                 0f,
                 1f,
                 90f,
+                -25f,
                 PlayerInputButtons.Jump |
                 PlayerInputButtons.Sprint |
                 PlayerInputButtons.Attack);
@@ -938,6 +942,7 @@ namespace Game.Architecture.Tests
             Assert.That(input.IsPressed(NetworkPlayerButton.Jump), Is.True);
             Assert.That(input.IsPressed(NetworkPlayerButton.Sprint), Is.True);
             Assert.That(input.IsPressed(NetworkPlayerButton.Attack), Is.True);
+            Assert.That(input.LookPitchDegrees, Is.EqualTo(-25f).Within(0.0001f));
             Assert.That(direction.x, Is.EqualTo(1f).Within(0.0001f));
             Assert.That(direction.z, Is.EqualTo(0f).Within(0.0001f));
         }
@@ -1499,6 +1504,14 @@ namespace Game.Architecture.Tests
             Assert.That(exhausted, Is.Not.Null);
             Assert.That(Attribute.IsDefined(stamina, typeof(Fusion.NetworkedAttribute)), Is.True);
             Assert.That(Attribute.IsDefined(exhausted, typeof(Fusion.NetworkedAttribute)), Is.True);
+        }
+
+        [Test]
+        public void PlayerLookPitch_IsPersistentNetworkedData()
+        {
+            var pitch = typeof(NetworkPlayerMotor).GetProperty("LookPitchDegrees");
+            Assert.That(pitch, Is.Not.Null);
+            Assert.That(Attribute.IsDefined(pitch, typeof(Fusion.NetworkedAttribute)), Is.True);
         }
 
         [Test]
