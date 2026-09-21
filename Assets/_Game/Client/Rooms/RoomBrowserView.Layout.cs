@@ -3,9 +3,7 @@ using Game.Client.Common;
 using Game.Core.Rooms;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace Game.Client.Rooms
@@ -76,7 +74,6 @@ namespace Game.Client.Rooms
         /// </summary>
         private void BuildLayout()
         {
-            EnsureEventSystem();
             ConfigureCanvas();
 
             var root = transform as RectTransform;
@@ -870,15 +867,5 @@ namespace Game.Client.Rooms
             scaler.matchWidthOrHeight = 0.5f;
         }
 
-        private static void EnsureEventSystem()
-        {
-            if (EventSystem.current != null)
-            {
-                return;
-            }
-
-            var eventSystem = new GameObject("EventSystem", typeof(EventSystem));
-            eventSystem.AddComponent<InputSystemUIInputModule>();
-        }
     }
 }
