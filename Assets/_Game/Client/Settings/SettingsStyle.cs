@@ -1,3 +1,4 @@
+using Game.Core.Settings;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -663,7 +664,8 @@ namespace Game.Client.Settings
 
         public static class LanguageRow
         {
-            public const string Label = "언어";
+            public static string Label =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.Language, "ko");
         }
 
         /// <summary>
@@ -859,15 +861,19 @@ namespace Game.Client.Settings
             public const float FontSize = 32f;
             public const float IconSize = 30f;
             public const float IconGap = 14f;
-            public const string ResetLabel = "변경 취소";
-            public const string ApplyLabel = "적용하기";
+            public static string ResetLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.Reset, "ko");
+
+            public static string ApplyLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.Apply, "ko");
 
             /// <summary>
             /// Lobby overlay only: same size as 적용하기, under the tabs at
             /// the panel's bottom left.
             /// </summary>
             public const float LeaveLeft = 30f;
-            public const string LeaveLabel = "게임 나가기";
+            public static string LeaveLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.LeaveGame, "ko");
         }
 
         /// <summary>
@@ -988,26 +994,29 @@ namespace Game.Client.Settings
             }
         }
 
-        public static string TabLabel(SettingsTab tab)
+        public static string TabKey(SettingsTab tab)
         {
             switch (tab)
             {
                 case SettingsTab.General:
-                    return "일반";
+                    return UiText.Settings.TabGeneral;
                 case SettingsTab.Graphics:
-                    return "그래픽";
+                    return UiText.Settings.TabGraphics;
                 case SettingsTab.Interface:
-                    return "인터페이스";
+                    return UiText.Settings.TabInterface;
                 case SettingsTab.Sound:
-                    return "사운드";
+                    return UiText.Settings.TabSound;
                 case SettingsTab.Controls:
-                    return "컨트롤";
+                    return UiText.Settings.TabControls;
                 case SettingsTab.Notifications:
-                    return "알림";
+                    return UiText.Settings.TabNotifications;
                 default:
                     return tab.ToString();
             }
         }
+
+        public static string TabLabel(SettingsTab tab, string languageCode = "ko") =>
+            UiTextCatalog.Shipped.Get(TabKey(tab), languageCode);
 
         /// <summary>
         /// Reads a design hex such as 0xF5F3F1 as a colour. The palette is

@@ -122,7 +122,11 @@ namespace Game.Architecture.Tests
 
         public List<string> Notices { get; } = new List<string>();
 
+        public UiLocale Chrome { get; private set; }
+
         public void ShowTab(SettingsTab tab) => ShownTab = tab;
+
+        public void ShowChrome(UiLocale locale) => Chrome = locale;
 
         public void ShowLanguage(string label, bool canStep)
         {

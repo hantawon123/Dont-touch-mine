@@ -1,4 +1,5 @@
 using Game.Client.Settings;
+using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -105,6 +106,39 @@ namespace Game.Architecture.Tests
                 var background = Find(root, "Background").GetComponent<Image>();
                 Assert.That(background.color, Is.EqualTo(SettingsStyle.Palette.OverlayDim));
                 Assert.That(background.color.a, Is.EqualTo(0.8f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ShowChrome_RedrawsTabsAndButtonsInTheAppliedLanguage()
+        {
+            var root = new GameObject("Settings chrome");
+            try
+            {
+                var view = root.AddComponent<SettingsView>();
+                typeof(SettingsView).GetMethod("Awake",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
+
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                var general = new GeneralSettingsSystem(store);
+                using var locale = new UiLocale(general);
+
+                view.ShowChrome(locale);
+
+                Assert.That(Find(root, "GeneralTab").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
+                    Is.EqualTo("General"));
+                Assert.That(Find(root, "LanguageRow").Find("Label").GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Language"));
+                Assert.That(Find(root, "ApplyButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
+                    Is.EqualTo("Apply"));
+                Assert.That(Find(root, "ResetButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
+                    Is.EqualTo("Discard Changes"));
             }
             finally
             {

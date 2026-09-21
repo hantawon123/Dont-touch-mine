@@ -68,18 +68,29 @@ namespace Game.Core.Settings
     /// Data rather than a fixed list, so a test can hand a couple of lines
     /// and watch the lookup; the game itself uses <see cref="Shipped"/>.
     /// Screens add their keys here in the same change that starts reading
-    /// them, grouped as <c>UiText</c> constants when those land.
+    /// them, grouped as <see cref="UiText"/> constants.
     /// </remarks>
     public sealed class UiTextCatalog
     {
         private readonly Dictionary<string, UiTextLine> lines;
 
         /// <summary>
-        /// What the game ships with. Empty until a screen starts reading
-        /// from it; a missing key returns the key itself so a forgotten
-        /// line is visible rather than blank.
+        /// What the game ships with. The settings chrome is here; other
+        /// screens add their keys when they start reading them. A missing
+        /// key returns the key itself so a forgotten line is visible
+        /// rather than blank.
         /// </summary>
-        public static UiTextCatalog Shipped { get; } = new UiTextCatalog();
+        public static UiTextCatalog Shipped { get; } = new UiTextCatalog(
+            new UiTextLine(UiText.Settings.Language, "언어", "Language"),
+            new UiTextLine(UiText.Settings.Apply, "적용하기", "Apply"),
+            new UiTextLine(UiText.Settings.Reset, "변경 취소", "Discard Changes"),
+            new UiTextLine(UiText.Settings.LeaveGame, "게임 나가기", "Leave Game"),
+            new UiTextLine(UiText.Settings.TabGeneral, "일반", "General"),
+            new UiTextLine(UiText.Settings.TabGraphics, "그래픽", "Graphics"),
+            new UiTextLine(UiText.Settings.TabInterface, "인터페이스", "Interface"),
+            new UiTextLine(UiText.Settings.TabSound, "사운드", "Sound"),
+            new UiTextLine(UiText.Settings.TabControls, "컨트롤", "Controls"),
+            new UiTextLine(UiText.Settings.TabNotifications, "알림", "Notifications"));
 
         public UiTextCatalog(params UiTextLine[] lines)
         {

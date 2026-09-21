@@ -78,10 +78,13 @@ namespace Game.Client.Settings
         private readonly List<Button> buttons = new List<Button>();
 
         private readonly SettingsTabHover[] tabHovers = new SettingsTabHover[TabOrder.Length];
+        private readonly TMP_Text[] tabLabels = new TMP_Text[TabOrder.Length];
 
         private Button resetButton;
         private Button applyButton;
         private Image resetFill;
+        private TMP_Text languageRowLabel;
+        private TMP_Text leaveGameLabel;
         private TMP_Text resetLabel;
         private Image resetIconImage;
         private Image applyFill;
@@ -158,6 +161,42 @@ namespace Game.Client.Settings
             }
 
             ShowPage(tab);
+        }
+
+        public void ShowChrome(UiLocale locale)
+        {
+            if (locale == null)
+            {
+                return;
+            }
+
+            for (var index = 0; index < TabOrder.Length; index++)
+            {
+                if (tabLabels[index] != null)
+                {
+                    tabLabels[index].text = locale.Get(SettingsStyle.TabKey(TabOrder[index]));
+                }
+            }
+
+            if (languageRowLabel != null)
+            {
+                languageRowLabel.text = locale.Get(UiText.Settings.Language);
+            }
+
+            if (resetLabel != null)
+            {
+                resetLabel.text = locale.Get(UiText.Settings.Reset);
+            }
+
+            if (applyLabel != null)
+            {
+                applyLabel.text = locale.Get(UiText.Settings.Apply);
+            }
+
+            if (leaveGameLabel != null)
+            {
+                leaveGameLabel.text = locale.Get(UiText.Settings.LeaveGame);
+            }
         }
 
         /// <summary>
@@ -540,6 +579,7 @@ namespace Game.Client.Settings
                     TextAlignmentOptions.MidlineLeft);
                 Stretch(label.rectTransform);
                 label.rectTransform.offsetMin = new Vector2(SettingsStyle.Tabs.LabelLeft, 0f);
+                tabLabels[index] = label;
 
                 var hover = rect.gameObject.AddComponent<SettingsTabHover>();
                 hover.Bind(fill, label);
@@ -616,6 +656,7 @@ namespace Game.Client.Settings
                 TextAlignmentOptions.MidlineLeft);
             Stretch(label.rectTransform);
             AddTintButton(rect, label, Color.white, () => LeaveGameRequested?.Invoke());
+            leaveGameLabel = label;
             leaveGameButton = rect;
         }
 

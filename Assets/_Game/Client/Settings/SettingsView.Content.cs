@@ -205,6 +205,7 @@ namespace Game.Client.Settings
             var page = CreatePage(window, SettingsTab.General, lobbyOverlay ? 1 : 2);
 
             var language = CreateRow(page, "LanguageRow", 0, SettingsStyle.LanguageRow.Label);
+            languageRowLabel = language.Find("Label")?.GetComponent<TMP_Text>();
             languageStepper = CreateStepper(
                 language, steps => LanguageStepRequested?.Invoke(steps));
 

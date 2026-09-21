@@ -45,6 +45,7 @@ namespace Game.Client.Settings
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
         private readonly Action closeSettings;
+        private readonly UiLocale locale;
 
         /// <summary>
         /// Lobby overlay: the player confirmed 게임 나가기. Home never raises
@@ -102,6 +103,7 @@ namespace Game.Client.Settings
                                    ?? throw new ArgumentNullException(nameof(applicationHost));
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
             this.closeSettings = closeSettings;
+            locale = new UiLocale(general);
         }
 
         /// <summary>What has been changed but not applied. For tests.</summary>
@@ -177,6 +179,7 @@ namespace Game.Client.Settings
             sound.Changed += OnSoundApplied;
             controls.Changed += OnControlsApplied;
             notifications.Changed += OnNotificationsApplied;
+            locale.Changed += OnLocaleChanged;
 
             Open();
         }
@@ -202,6 +205,7 @@ namespace Game.Client.Settings
             noticeDraft = noticeApplied;
             view.HideConfirm();
             view.HideFeedback();
+            view.ShowChrome(locale);
             view.ShowTab(shownTab);
             ShowDraft();
         }
@@ -240,6 +244,8 @@ namespace Game.Client.Settings
             sound.Changed -= OnSoundApplied;
             controls.Changed -= OnControlsApplied;
             notifications.Changed -= OnNotificationsApplied;
+            locale.Changed -= OnLocaleChanged;
+            locale.Dispose();
 
             // A test left running would go on listening after the screen is
             // gone, with nothing on screen to say so; a capture left waiting
@@ -257,6 +263,11 @@ namespace Game.Client.Settings
         {
             generalApplied = settled;
             view.SetActionsEnabled(IsChanged);
+        }
+
+        private void OnLocaleChanged()
+        {
+            view.ShowChrome(locale);
         }
 
         /// <inheritdoc cref="OnGeneralApplied"/>

@@ -129,6 +129,13 @@ namespace Game.Client.Settings
         void ShowTab(SettingsTab tab);
 
         /// <summary>
+        /// Draws the chrome — tabs, the language row's name, and the two
+        /// buttons — in the applied language. Called when the screen opens
+        /// and again when that language actually moves.
+        /// </summary>
+        void ShowChrome(UiLocale locale);
+
+        /// <summary>
         /// Puts a language's name in the picker. <paramref name="canStep"/>
         /// false draws the arrows as unavailable, for a catalogue with nowhere
         /// else to go.

@@ -47,11 +47,18 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void ShippedCatalogue_HasNoLinesYet()
+        public void ShippedCatalogue_OffersTheSettingsChrome()
         {
-            Assert.That(
-                UiTextCatalog.Shipped.Get("settings.language", "ko"),
-                Is.EqualTo("settings.language"));
+            var shipped = UiTextCatalog.Shipped;
+
+            Assert.That(shipped.Get(UiText.Settings.Language, "ko"), Is.EqualTo("언어"));
+            Assert.That(shipped.Get(UiText.Settings.Language, "en"), Is.EqualTo("Language"));
+            Assert.That(shipped.Get(UiText.Settings.Apply, "ko"), Is.EqualTo("적용하기"));
+            Assert.That(shipped.Get(UiText.Settings.Apply, "en"), Is.EqualTo("Apply"));
+            Assert.That(shipped.Get(UiText.Settings.Reset, "en"), Is.EqualTo("Discard Changes"));
+            Assert.That(shipped.Get(UiText.Settings.LeaveGame, "en"), Is.EqualTo("Leave Game"));
+            Assert.That(shipped.Get(UiText.Settings.TabGeneral, "en"), Is.EqualTo("General"));
+            Assert.That(shipped.Get(UiText.Settings.TabNotifications, "en"), Is.EqualTo("Notifications"));
         }
     }
 }
