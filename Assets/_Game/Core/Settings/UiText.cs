@@ -220,7 +220,6 @@ namespace Game.Core.Settings
             public const string Minutes = "play.minutes";
             public const string MinutesSeconds = "play.minutesSeconds";
             public const string Players = "play.players";
-            public const string Count = "play.count";
             public const string Multiplier = "play.multiplier";
             public const string Invite = "play.invite";
         }

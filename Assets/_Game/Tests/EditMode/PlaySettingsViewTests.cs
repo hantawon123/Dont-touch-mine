@@ -322,6 +322,45 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void BreakLimitAndStunHits_ShowTheNumberOnItsOwn()
+        {
+            var root = CreateView(out _, out var view);
+            try
+            {
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, string.Empty));
+
+                Assert.That(DestructionLimitText(view).text, Is.EqualTo("3"));
+                Assert.That(
+                    RuleValues(view)[1].text,
+                    Is.EqualTo(MatchRuleSettings.DefaultStunHitCount.ToString()));
+
+                view.SetDraft(new PlaySettingsDraft(
+                    "방",
+                    "CODE",
+                    false,
+                    null,
+                    4,
+                    PlaySettingsDraft.UnlimitedDestructionLimit,
+                    string.Empty));
+                Assert.That(DestructionLimitText(view).text, Is.EqualTo("무한"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        private static Text DestructionLimitText(PlaySettingsView view) =>
+            (Text)typeof(PlaySettingsView)
+                .GetField("destructionLimitText", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(view);
+
+        private static System.Collections.Generic.IList<Text> RuleValues(PlaySettingsView view) =>
+            (System.Collections.Generic.IList<Text>)typeof(PlaySettingsView)
+                .GetField("ruleValues", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(view);
+
         private static GameObject CreateView(out GameObject panel, out PlaySettingsView view)
         {
             var root = new GameObject("Settings layout", typeof(RectTransform), typeof(Canvas));

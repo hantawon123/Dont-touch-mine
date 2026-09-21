@@ -265,7 +265,6 @@ namespace Game.Core.Settings
             new UiTextLine(UiText.Play.Minutes, "{0}분", "{0}m"),
             new UiTextLine(UiText.Play.MinutesSeconds, "{0}분 {1}초", "{0}m {1}s"),
             new UiTextLine(UiText.Play.Players, "{0}명", "{0}"),
-            new UiTextLine(UiText.Play.Count, "{0}회", "{0}x"),
             new UiTextLine(UiText.Play.Multiplier, "{0}배", "{0}x"),
             new UiTextLine(UiText.Play.Invite, "방 초대\n방제목: {0}\n방코드: {1}", "Room invite\nTitle: {0}\nCode: {1}"),
             new UiTextLine(UiText.Lobby.Participants, "게임 참가자 목록", "Players in Game"),

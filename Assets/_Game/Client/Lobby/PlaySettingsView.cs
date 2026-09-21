@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using Game.Client.Home;
 using Game.Client.Settings;
 using Game.Core.Lobby;
@@ -809,7 +810,7 @@ namespace Game.Client.Lobby
             var labels = new[]
             {
                 string.Format(Copy(UiText.Play.Multiplier), matchRules.SprintMultiplier),
-                string.Format(Copy(UiText.Play.Count), values[1])
+                values[1].ToString(CultureInfo.InvariantCulture)
             };
             for (var i = 0; i < ruleValues.Count; i++)
             {
@@ -871,7 +872,7 @@ namespace Game.Client.Lobby
                 destructionLimitText.text = destructionLimit ==
                                             PlaySettingsDraft.UnlimitedDestructionLimit
                     ? Copy(UiText.Play.Unlimited)
-                    : string.Format(Copy(UiText.Play.Count), destructionLimit);
+                    : destructionLimit.ToString(CultureInfo.InvariantCulture);
             }
 
             if (maxPlayersMinusButton != null)
