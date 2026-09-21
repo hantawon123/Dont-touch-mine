@@ -117,6 +117,10 @@ class ChatLogRetentionTest extends IntegrationTest {
                                 + "\"userPublicId\":" + (userId == null ? "null" : "\"" + userId + "\"") + ","
                                 + "\"senderRef\":\"" + ref + "\","
                                 + "\"message\":\"" + message + "\","
+                                // 여기서 보는 것은 보관과 청소뿐입니다. 가린 여부는 게임 서버가
+                                // 정하는 값이고(S15P21D205-1096) 어느 줄을 지우는지에 관여하지
+                                // 않으므로 고정해 둡니다.
+                                + "\"masked\":false,"
                                 + "\"sentAt\":\"" + at + "\"}]}"))
                 .andExpect(status().isAccepted());
     }
