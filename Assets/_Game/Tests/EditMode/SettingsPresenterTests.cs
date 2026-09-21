@@ -746,6 +746,22 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void MicrophoneTest_ShowsEnglishNoticeWhenAppliedLanguageIsEnglish()
+        {
+            store.Save(new GeneralSettings("en"));
+            general = new GeneralSettingsSystem(store, TwoLanguages);
+
+            using var presenter = new SettingsPresenter(
+                view, general, graphics, ui, sound, new ClosedMicrophoneTest(),
+                controls, keyCapture, notifications, host, flow);
+            presenter.Start();
+
+            view.ToggleTest();
+
+            Assert.That(view.Notices, Does.Contain("This computer cannot open the microphone."));
+        }
+
+        [Test]
         public void Opening_ShowsEveryKey_SensitivityAndReversal()
         {
             using var presenter = Started();

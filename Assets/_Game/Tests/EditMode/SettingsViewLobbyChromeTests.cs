@@ -143,6 +143,26 @@ namespace Game.Architecture.Tests
                     Is.EqualTo("Display Mode"));
                 Assert.That(Find(root, "DeviceRow").Find("Label").GetComponent<TMPro.TextMeshProUGUI>().text,
                     Is.EqualTo("Microphone Device"));
+                Assert.That(Find(root, "BackButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
+                    Is.EqualTo("← Back"));
+                Assert.That(Find(root, "FeedbackButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
+                    Is.EqualTo("Send Feedback"));
+
+                Assert.That(Find(Find(root, "Feedback").gameObject, "Title")
+                        .GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Send Feedback"));
+
+                view.ShowConfirm(SettingsConfirmKind.ResetAll, SettingsTab.General);
+                Assert.That(Find(Find(root, "Confirm").gameObject, "Title")
+                        .GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Discard all settings changes?"));
+                Assert.That(Find(root, "DeclineButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
+                    Is.EqualTo("Cancel"));
+
+                view.ShowConfirm(SettingsConfirmKind.ResetTab, SettingsTab.Graphics);
+                Assert.That(Find(Find(root, "Confirm").gameObject, "Title")
+                        .GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Discard changes to Graphics settings?"));
             }
             finally
             {

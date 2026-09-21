@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using Game.Client.Character;
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -29,6 +30,9 @@ namespace Game.Client.Settings
         private TMP_Text declineLabel;
         private TMP_Text acceptLabel;
         private bool isConfirmOpen;
+        private SettingsConfirmKind? paintedConfirm;
+        private SettingsTab paintedConfirmTab;
+        private string leaveConfirmTitle;
 
         /// <summary>
         /// The softened still, and whose panel it is currently behind. Shared
@@ -66,34 +70,10 @@ namespace Game.Client.Settings
                 return;
             }
 
-            switch (kind)
-            {
-                case SettingsConfirmKind.ResetAll:
-                    confirmTitle.text = SettingsStyle.Modal.ResetAllTitle;
-                    confirmSubtitle.text = SettingsStyle.Modal.ResetAllSubtitle;
-                    declineLabel.text = SettingsStyle.Modal.CancelLabel;
-                    acceptLabel.text = SettingsStyle.Modal.ResetLabel;
-                    break;
-                case SettingsConfirmKind.Discard:
-                    confirmTitle.text = SettingsStyle.Modal.DiscardTitle;
-                    confirmSubtitle.text = SettingsStyle.Modal.DiscardSubtitle;
-                    declineLabel.text = SettingsStyle.Modal.LeaveLabel;
-                    acceptLabel.text = SettingsStyle.Modal.SaveAndLeaveLabel;
-                    break;
-                case SettingsConfirmKind.LeaveGame:
-                    confirmTitle.text = SettingsStyle.Modal.LeaveGameTitle;
-                    confirmSubtitle.text = SettingsStyle.Modal.LeaveGameSubtitle;
-                    declineLabel.text = SettingsStyle.Modal.CancelLabel;
-                    acceptLabel.text = SettingsStyle.Modal.LeaveGameAcceptLabel;
-                    break;
-                default:
-                    confirmTitle.text = SettingsStyle.TabLabel(tab) + SettingsStyle.Modal.ResetTabTitleSuffix;
-                    confirmSubtitle.text = SettingsStyle.Modal.ResetTabSubtitle;
-                    declineLabel.text = SettingsStyle.Modal.CancelLabel;
-                    acceptLabel.text = SettingsStyle.Modal.ResetLabel;
-                    break;
-            }
-
+            paintedConfirm = kind;
+            paintedConfirmTab = tab;
+            leaveConfirmTitle = null;
+            PaintConfirm();
             OpenConfirm();
         }
 
@@ -104,11 +84,56 @@ namespace Game.Client.Settings
                 return;
             }
 
-            confirmTitle.text = title ?? string.Empty;
-            confirmSubtitle.text = SettingsStyle.Modal.LeaveGameSubtitle;
-            declineLabel.text = SettingsStyle.Modal.CancelLabel;
-            acceptLabel.text = SettingsStyle.Modal.LeaveGameAcceptLabel;
+            paintedConfirm = SettingsConfirmKind.LeaveGame;
+            leaveConfirmTitle = title ?? string.Empty;
+            PaintConfirm();
             OpenConfirm();
+        }
+
+        private void PaintConfirm()
+        {
+            if (confirmTitle == null || !paintedConfirm.HasValue)
+            {
+                return;
+            }
+
+            if (leaveConfirmTitle != null)
+            {
+                confirmTitle.text = leaveConfirmTitle;
+                confirmSubtitle.text = SettingsStyle.Modal.LeaveGameSubtitle;
+                declineLabel.text = Copy(UiText.Settings.Cancel);
+                acceptLabel.text = Copy(UiText.Settings.Leave);
+                return;
+            }
+
+            switch (paintedConfirm.Value)
+            {
+                case SettingsConfirmKind.ResetAll:
+                    confirmTitle.text = Copy(UiText.Settings.ResetAllTitle);
+                    confirmSubtitle.text = Copy(UiText.Settings.ResetAllSubtitle);
+                    declineLabel.text = Copy(UiText.Settings.Cancel);
+                    acceptLabel.text = Copy(UiText.Settings.Reset);
+                    break;
+                case SettingsConfirmKind.Discard:
+                    confirmTitle.text = Copy(UiText.Settings.DiscardTitle);
+                    confirmSubtitle.text = Copy(UiText.Settings.DiscardSubtitle);
+                    declineLabel.text = Copy(UiText.Settings.LeaveWithoutSaving);
+                    acceptLabel.text = Copy(UiText.Settings.SaveAndLeave);
+                    break;
+                case SettingsConfirmKind.LeaveGame:
+                    confirmTitle.text = Copy(UiText.Settings.LeaveGameTitle);
+                    confirmSubtitle.text = SettingsStyle.Modal.LeaveGameSubtitle;
+                    declineLabel.text = Copy(UiText.Settings.Cancel);
+                    acceptLabel.text = Copy(UiText.Settings.Leave);
+                    break;
+                default:
+                    var language = chromeLocale != null ? chromeLocale.LanguageCode : "ko";
+                    confirmTitle.text = SettingsStyle.Modal.ResetTabTitle(paintedConfirmTab, language);
+                    confirmSubtitle.text = Copy(UiText.Settings.ResetTabSubtitle);
+                    declineLabel.text = Copy(UiText.Settings.Cancel);
+                    acceptLabel.text = Copy(UiText.Settings.Reset);
+                    break;
+            }
         }
 
         private void OpenConfirm()
@@ -120,6 +145,8 @@ namespace Game.Client.Settings
 
         public void HideConfirm()
         {
+            paintedConfirm = null;
+            leaveConfirmTitle = null;
             isConfirmOpen = false;
             if (confirmRoot != null)
             {

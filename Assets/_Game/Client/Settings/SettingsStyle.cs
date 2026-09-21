@@ -316,7 +316,8 @@ namespace Game.Client.Settings
             public static readonly Vector2 Size = new Vector2(140f, 44f);
             public static readonly Vector2 LeaveSize = new Vector2(220f, 44f);
             public const float FontSize = 30f;
-            public const string Label = "← 이전";
+            public static string Label =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.Back, "ko");
         }
 
         /// <summary>The circling arrow and its words at the top right.</summary>
@@ -335,7 +336,8 @@ namespace Game.Client.Settings
             public const float FontSize = 30f;
             public const float IconSize = 24f;
             public const float IconGap = 14f;
-            public const string Label = "전체 변경 취소";
+            public static string Label =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.ResetAll, "ko");
         }
 
         public static class Tabs
@@ -481,10 +483,17 @@ namespace Game.Client.Settings
         /// <summary>The words on the 마이크 테스트 button. Its shape is <see cref="FeedbackRow"/>'s.</summary>
         public static class MicrophoneTest
         {
-            public const string IdleLabel = "테스트 해보기";
-            public const string RunningLabel = "테스트 중...";
-            public const string UnavailableTitle = "마이크 테스트";
-            public const string UnavailableMessage = "이 컴퓨터에서 마이크를 열 수 없습니다.";
+            public static string IdleLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.MicTestIdle, "ko");
+
+            public static string RunningLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.MicTestRunning, "ko");
+
+            public static string UnavailableTitle =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.MicrophoneTest, "ko");
+
+            public static string UnavailableMessage =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.MicTestUnavailable, "ko");
         }
 
         /// <summary>
@@ -621,10 +630,14 @@ namespace Game.Client.Settings
             /// Said when a key could not be moved because something else has
             /// it. Names what has it, so the player knows what to move first.
             /// </summary>
-            public const string InUseTitle = "사용 중인 키";
+            public static string InUseTitle =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.KeyInUseTitle, "ko");
 
-            public static string InUseMessage(string keyLabel, string action) =>
-                $"{keyLabel} 키는 이미 {action}에 사용 중입니다";
+            public static string InUseMessage(string keyLabel, string action, string languageCode = "ko") =>
+                string.Format(
+                    UiTextCatalog.Shipped.Get(UiText.Settings.KeyInUseMessage, languageCode),
+                    keyLabel,
+                    action);
 
             public static string ReversalKey(ControlToggle toggle) =>
                 toggle == ControlToggle.FirstPersonInvertX
@@ -786,12 +799,14 @@ namespace Game.Client.Settings
             /// <summary>
             /// Not given by the design, which shows a placeholder here.
             /// </summary>
-            public const string Label = "피드백";
+            public static string Label =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.Feedback, "ko");
 
             public static readonly Vector2 ButtonSize = new Vector2(200f, 60f);
             public const int ButtonRadius = 20;
             public const float ButtonFontSize = 28f;
-            public const string ButtonLabel = "피드백 보내기";
+            public static string ButtonLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackSend, "ko");
         }
 
         /// <summary>
@@ -843,11 +858,20 @@ namespace Game.Client.Settings
             /// </summary>
             public const int MaxLength = 500;
 
-            public const string Title = "피드백 보내기";
-            public const string Subtitle = "불편한 점이나 바라는 점을 남겨주세요.";
-            public const string Placeholder = "내용을 입력해주세요";
-            public const string CancelLabel = "취소";
-            public const string SubmitLabel = "보내기";
+            public static string Title =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackSend, "ko");
+
+            public static string Subtitle =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackSubtitle, "ko");
+
+            public static string Placeholder =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackPlaceholder, "ko");
+
+            public static string CancelLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.Cancel, "ko");
+
+            public static string SubmitLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackSubmit, "ko");
 
             private static float TitleHeight => TitleFontSize * 1.4f;
 
@@ -913,31 +937,53 @@ namespace Game.Client.Settings
         /// </summary>
         public static class Modal
         {
-            public const string ResetAllTitle = "전체 설정의 변경을 취소하시겠습니까?";
-            public const string ResetAllSubtitle = "모든 설정을 마지막으로 저장한 값으로 되돌립니다.";
+            public static string ResetAllTitle =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.ResetAllTitle, "ko");
 
-            /// <summary>Takes the tab's name in front.</summary>
-            public const string ResetTabTitleSuffix = " 설정의 변경을 취소하시겠습니까?";
+            public static string ResetAllSubtitle =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.ResetAllSubtitle, "ko");
 
-            public const string ResetTabSubtitle = "현재 탭의 설정을 마지막으로 저장한 값으로 되돌립니다.";
-            public const string CancelLabel = "취소";
-            public const string ResetLabel = "변경 취소";
+            public static string ResetTabTitle(SettingsTab tab, string languageCode = "ko") =>
+                string.Format(
+                    UiTextCatalog.Shipped.Get(UiText.Settings.ResetTabTitle, languageCode),
+                    TabLabel(tab, languageCode));
 
-            public const string DiscardTitle = "저장하고 나가시겠습니까?";
-            public const string DiscardSubtitle = "저장하지 않으면 변경사항이 사라집니다.";
-            public const string LeaveLabel = "바로 나가기";
-            public const string SaveAndLeaveLabel = "저장하고 나가기";
+            public static string ResetTabSubtitle =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.ResetTabSubtitle, "ko");
 
-            public const string LeaveGameTitle = "게임을 진짜 나가시겠습니까?";
+            public static string CancelLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.Cancel, "ko");
+
+            public static string ResetLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.Reset, "ko");
+
+            public static string DiscardTitle =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.DiscardTitle, "ko");
+
+            public static string DiscardSubtitle =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.DiscardSubtitle, "ko");
+
+            public static string LeaveLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.LeaveWithoutSaving, "ko");
+
+            public static string SaveAndLeaveLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.SaveAndLeave, "ko");
+
+            public static string LeaveGameTitle =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.LeaveGameTitle, "ko");
+
             public const string LeaveGameSubtitle = "";
-            public const string LeaveGameAcceptLabel = "나가기";
+
+            public static string LeaveGameAcceptLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Settings.Leave, "ko");
         }
 
         /// <summary>
         /// What the passing message over the screen is called, whether the send
         /// went through or not.
         /// </summary>
-        public const string FeedbackNoticeTitle = "피드백 보내기";
+        public static string FeedbackNoticeTitle =>
+            UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackSend, "ko");
 
         /// <summary>
         /// Said when the server wrote it down.
@@ -947,7 +993,8 @@ namespace Game.Client.Settings
         /// path to send one, so "답변을 드립니다" would be a lie the player only
         /// finds out about by waiting.
         /// </remarks>
-        public const string FeedbackSentMessage = "보냈습니다. 고맙습니다";
+        public static string FeedbackSentMessage =>
+            UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackSent, "ko");
 
         /// <summary>
         /// Added to every refusal.
@@ -957,22 +1004,27 @@ namespace Game.Client.Settings
         /// five hundred characters fears they are gone, and the panel does keep
         /// them — saying so is what makes trying again feel worth it.
         /// </remarks>
-        public const string FeedbackKeptMessage = "작성한 내용은 그대로 있어요";
+        public static string FeedbackKeptMessage =>
+            UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackKept, "ko");
 
         /// <summary>Refused because nothing is signed in yet.</summary>
-        public const string FeedbackNotSignedInMessage = "서버에 연결되어 있지 않습니다";
+        public static string FeedbackNotSignedInMessage =>
+            UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackNotSignedIn, "ko");
 
         /// <summary>Refused because the server could not be reached.</summary>
-        public const string FeedbackOfflineMessage = "서버에 연결할 수 없습니다";
+        public static string FeedbackOfflineMessage =>
+            UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackOffline, "ko");
 
         /// <summary>
         /// Refused as malformed. In practice that means too long, since the box
         /// itself will not take more than the limit and blank never gets sent.
         /// </summary>
-        public const string FeedbackTooLongMessage = "글이 너무 길어 보내지 못했습니다";
+        public static string FeedbackTooLongMessage =>
+            UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackTooLong, "ko");
 
         /// <summary>Refused for a reason the screen cannot explain.</summary>
-        public const string FeedbackFailedMessage = "보내지 못했습니다";
+        public static string FeedbackFailedMessage =>
+            UiTextCatalog.Shipped.Get(UiText.Settings.FeedbackFailed, "ko");
 
         /// <summary>
         /// The name each 그래픽 row goes by. Kept beside the tab names rather

@@ -97,6 +97,40 @@ namespace Game.Core.Settings
             public const string CameraSensitivity = "settings.row.cameraSensitivity";
             public const string InvertX = "settings.row.invertX";
             public const string InvertY = "settings.row.invertY";
+
+            public const string Back = "settings.back";
+            public const string ResetAll = "settings.resetAll";
+
+            public const string ResetAllTitle = "settings.modal.resetAllTitle";
+            public const string ResetAllSubtitle = "settings.modal.resetAllSubtitle";
+            public const string ResetTabTitle = "settings.modal.resetTabTitle";
+            public const string ResetTabSubtitle = "settings.modal.resetTabSubtitle";
+            public const string Cancel = "settings.modal.cancel";
+            public const string DiscardTitle = "settings.modal.discardTitle";
+            public const string DiscardSubtitle = "settings.modal.discardSubtitle";
+            public const string LeaveWithoutSaving = "settings.modal.leaveWithoutSaving";
+            public const string SaveAndLeave = "settings.modal.saveAndLeave";
+            public const string LeaveGameTitle = "settings.modal.leaveGameTitle";
+            public const string Leave = "settings.modal.leave";
+
+            public const string Feedback = "settings.feedback";
+            public const string FeedbackSend = "settings.feedback.send";
+            public const string FeedbackSubtitle = "settings.feedback.subtitle";
+            public const string FeedbackPlaceholder = "settings.feedback.placeholder";
+            public const string FeedbackSubmit = "settings.feedback.submit";
+            public const string FeedbackSent = "settings.feedback.sent";
+            public const string FeedbackKept = "settings.feedback.kept";
+            public const string FeedbackNotSignedIn = "settings.feedback.notSignedIn";
+            public const string FeedbackOffline = "settings.feedback.offline";
+            public const string FeedbackTooLong = "settings.feedback.tooLong";
+            public const string FeedbackFailed = "settings.feedback.failed";
+
+            public const string MicTestIdle = "settings.micTest.idle";
+            public const string MicTestRunning = "settings.micTest.running";
+            public const string MicTestUnavailable = "settings.micTest.unavailable";
+
+            public const string KeyInUseTitle = "settings.keyInUse.title";
+            public const string KeyInUseMessage = "settings.keyInUse.message";
         }
     }
 }

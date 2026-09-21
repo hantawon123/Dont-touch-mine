@@ -86,6 +86,11 @@ namespace Game.Client.Settings
         private Image resetFill;
         private TMP_Text languageRowLabel;
         private TMP_Text leaveGameLabel;
+        private TMP_Text backLabel;
+        private TMP_Text resetAllLabel;
+        private TMP_Text feedbackButtonLabel;
+        private UiLocale chromeLocale;
+        private bool microphoneTestRunning;
         private TMP_Text resetLabel;
         private Image resetIconImage;
         private Image applyFill;
@@ -166,6 +171,7 @@ namespace Game.Client.Settings
 
         public void ShowChrome(UiLocale locale)
         {
+            chromeLocale = locale;
             if (locale == null)
             {
                 return;
@@ -199,6 +205,21 @@ namespace Game.Client.Settings
                 leaveGameLabel.text = locale.Get(UiText.Settings.LeaveGame);
             }
 
+            if (backLabel != null)
+            {
+                backLabel.text = locale.Get(UiText.Settings.Back);
+            }
+
+            if (resetAllLabel != null)
+            {
+                resetAllLabel.text = locale.Get(UiText.Settings.ResetAll);
+            }
+
+            if (feedbackButtonLabel != null)
+            {
+                feedbackButtonLabel.text = locale.Get(UiText.Settings.FeedbackSend);
+            }
+
             foreach (var pair in rowLabels)
             {
                 if (pair.Text != null)
@@ -206,7 +227,16 @@ namespace Game.Client.Settings
                     pair.Text.text = locale.Get(pair.Key);
                 }
             }
+
+            PaintConfirm();
+            PaintFeedback();
+            ShowMicrophoneTest(microphoneTestRunning);
         }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiTextCatalog.Shipped.Get(key, "ko");
 
         /// <summary>
         /// Paints and arms the two buttons for whether there is anything to
@@ -509,6 +539,7 @@ namespace Game.Client.Settings
                 TextAlignmentOptions.MidlineLeft);
             Stretch(label.rectTransform);
 
+            backLabel = label;
             AddTintButton(rect, label, SettingsStyle.Palette.BackLabel, () => BackRequested?.Invoke());
         }
 
@@ -548,6 +579,7 @@ namespace Game.Client.Settings
                 TextAlignmentOptions.MidlineRight,
                 regularFont);
 
+            resetAllLabel = label;
             AddTintButton(
                 rect, label, SettingsStyle.Palette.ResetAllLabel, () => ResetAllRequested?.Invoke());
 

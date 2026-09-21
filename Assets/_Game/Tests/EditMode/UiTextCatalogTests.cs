@@ -63,6 +63,13 @@ namespace Game.Architecture.Tests
             Assert.That(shipped.Get(UiText.Settings.DisplayMode, "en"), Is.EqualTo("Display Mode"));
             Assert.That(shipped.Get(UiText.Settings.On, "ko"), Is.EqualTo("켜기"));
             Assert.That(shipped.Get(UiText.Settings.ChatOff, "en"), Is.EqualTo("Off (Everyone)"));
+            Assert.That(shipped.Get(UiText.Settings.ResetAllTitle, "en"), Is.EqualTo("Discard all settings changes?"));
+            Assert.That(shipped.Get(UiText.Settings.FeedbackSend, "en"), Is.EqualTo("Send Feedback"));
+            Assert.That(shipped.Get(UiText.Settings.MicTestUnavailable, "en"),
+                Is.EqualTo("This computer cannot open the microphone."));
+            Assert.That(
+                string.Format(shipped.Get(UiText.Settings.KeyInUseMessage, "en"), "F", "Jump"),
+                Is.EqualTo("F is already used by Jump"));
         }
     }
 }

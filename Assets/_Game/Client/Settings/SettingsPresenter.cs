@@ -485,8 +485,8 @@ namespace Game.Client.Settings
                 if (!microphoneTest.IsRunning)
                 {
                     view.ShowNotice(
-                        SettingsStyle.MicrophoneTest.UnavailableTitle,
-                        SettingsStyle.MicrophoneTest.UnavailableMessage);
+                        locale.Get(UiText.Settings.MicrophoneTest),
+                        locale.Get(UiText.Settings.MicTestUnavailable));
                 }
             }
 
@@ -535,9 +535,11 @@ namespace Game.Client.Settings
                     if (ControlCatalog.IsReserved(code, out var reservedBy))
                     {
                         view.ShowNotice(
-                            SettingsStyle.Controls.InUseTitle,
+                            locale.Get(UiText.Settings.KeyInUseTitle),
                             SettingsStyle.Controls.InUseMessage(
-                                ControlCatalog.KeyLabel(code), reservedBy));
+                                ControlCatalog.KeyLabel(code, locale.LanguageCode),
+                                reservedBy,
+                                locale.LanguageCode));
                     }
                     else if (controlDraft.TryRebind(action, code, out var moved, out var holder))
                     {
@@ -546,10 +548,11 @@ namespace Game.Client.Settings
                     else
                     {
                         view.ShowNotice(
-                            SettingsStyle.Controls.InUseTitle,
+                            locale.Get(UiText.Settings.KeyInUseTitle),
                             SettingsStyle.Controls.InUseMessage(
-                                ControlCatalog.KeyLabel(code),
-                                SettingsStyle.Controls.ActionLabel(holder)));
+                                ControlCatalog.KeyLabel(code, locale.LanguageCode),
+                                SettingsStyle.Controls.ActionLabel(holder, locale.LanguageCode),
+                                locale.LanguageCode));
                     }
                 }
 

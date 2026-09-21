@@ -64,11 +64,12 @@ namespace Game.Client.Settings
         /// </summary>
         public void ShowMicrophoneTest(bool running)
         {
+            microphoneTestRunning = running;
             if (testLabel != null)
             {
                 testLabel.text = running
-                    ? SettingsStyle.MicrophoneTest.RunningLabel
-                    : SettingsStyle.MicrophoneTest.IdleLabel;
+                    ? Copy(UiText.Settings.MicTestRunning)
+                    : Copy(UiText.Settings.MicTestIdle);
                 testLabel.color = running
                     ? SettingsStyle.Palette.TestRunningLabel
                     : SettingsStyle.Palette.TestIdleLabel;

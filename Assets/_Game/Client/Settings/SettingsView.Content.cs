@@ -215,6 +215,7 @@ namespace Game.Client.Settings
             }
 
             var feedback = CreateRow(page, "FeedbackRow", 1, SettingsStyle.FeedbackRow.Label);
+            RememberRow(feedback, UiText.Settings.Feedback);
             feedbackRow = feedback.gameObject;
             CreateFeedbackButton(feedback);
         }
@@ -523,6 +524,7 @@ namespace Game.Client.Settings
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = fill;
             button.transition = Selectable.Transition.None;
+            feedbackButtonLabel = label;
             button.onClick.AddListener(() => FeedbackRequested?.Invoke());
             buttons.Add(button);
         }
