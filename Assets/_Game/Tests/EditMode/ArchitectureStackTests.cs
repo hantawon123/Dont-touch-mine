@@ -63,6 +63,8 @@ namespace Game.Architecture.Tests
             Assert.That(container.Resolve<IMicrophoneTest>(), Is.TypeOf<NullMicrophoneTest>());
             Assert.That(container.Resolve<UiLocale>(), Is.Not.Null);
             Assert.That(container.Resolve<UiLocale>().LanguageCode, Is.EqualTo("ko"));
+            Assert.That(container.Resolve<CameraViewPreference>(), Is.Not.Null);
+            Assert.That(container.Resolve<CameraViewPreference>().FirstPerson, Is.False);
         }
     }
 }

@@ -102,6 +102,10 @@ namespace Game.Bootstrap
             // room is what the next room should open with.
             var voicePreferencesStore = new PlayerPrefsVoicePreferencesStore();
 
+            // Likewise for first person versus third person: a view set in the
+            // lobby is what the match should open with, and the other way.
+            var cameraViewStore = new PlayerPrefsCameraViewStore();
+
             RegisterServices(
                 builder,
                 _networkPrefabs,
@@ -132,6 +136,7 @@ namespace Game.Bootstrap
             builder.RegisterInstance<IMicrophoneDevices>(microphones);
             builder.RegisterInstance<IControlSettingsStore>(controlSettingsStore);
             builder.RegisterInstance<IVoicePreferencesStore>(voicePreferencesStore);
+            builder.RegisterInstance<ICameraViewStore>(cameraViewStore);
             builder.RegisterInstance<INotificationSettingsStore>(notificationSettingsStore);
 
             // Listens to the whole keyboard and mouse while a key is being
@@ -562,6 +567,18 @@ namespace Game.Bootstrap
                     c.TryResolve<IVoicePreferencesStore>(out var store)
                         ? store
                         : new InMemoryVoicePreferencesStore()),
+                Lifetime.Singleton);
+
+            // Outlives every screen. The camera rig is rebuilt with each scene,
+            // but a player who switched to first person in the lobby meant it
+            // to hold — including the match and the lobby they return to. The
+            // store is this machine's when one is registered; tests and the
+            // dedicated server keep it in memory.
+            builder.Register(
+                c => new CameraViewPreference(
+                    c.TryResolve<ICameraViewStore>(out var store)
+                        ? store
+                        : new InMemoryCameraViewStore()),
                 Lifetime.Singleton);
 
             builder.Register<RoomCodeGenerator>(Lifetime.Singleton);

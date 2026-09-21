@@ -1,6 +1,8 @@
 using Game.Bootstrap;
+using Game.Client.Cameras;
 using Game.Core.Settings;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Architecture.Tests
@@ -40,6 +42,94 @@ namespace Game.Architecture.Tests
             prefs.FirstPerson = false;
 
             Assert.That(store.Saved, Is.Null);
+        }
+
+        [Test]
+        public void LobbyRig_Toggle_IsWhatTheMatchRigOpensWith()
+        {
+            var preference = new CameraViewPreference(new InMemoryCameraViewStore());
+            var settings = new ControlSettingsSystem(new InMemoryControlSettingsStore());
+            var lobby = InstantiateRig();
+            var match = InstantiateRig();
+            try
+            {
+                lobby.BindSettings(settings, preference);
+                lobby.SetPreferredView(true);
+
+                match.BindSettings(settings, preference);
+
+                Assert.That(preference.FirstPerson, Is.True);
+                Assert.That(lobby.IsFirstPerson, Is.True);
+                Assert.That(match.IsFirstPerson, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(lobby.gameObject);
+                Object.DestroyImmediate(match.gameObject);
+            }
+        }
+
+        [Test]
+        public void MatchRig_Toggle_IsWhatTheLobbyRigOpensWith()
+        {
+            var preference = new CameraViewPreference(new InMemoryCameraViewStore());
+            var settings = new ControlSettingsSystem(new InMemoryControlSettingsStore());
+            var match = InstantiateRig();
+            var lobby = InstantiateRig();
+            try
+            {
+                match.BindSettings(settings, preference);
+                match.SetPreferredView(true);
+
+                lobby.BindSettings(settings, preference);
+
+                Assert.That(preference.FirstPerson, Is.True);
+                Assert.That(match.IsFirstPerson, Is.True);
+                Assert.That(lobby.IsFirstPerson, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(match.gameObject);
+                Object.DestroyImmediate(lobby.gameObject);
+            }
+        }
+
+        [Test]
+        public void MatchRig_ToggleBackToThirdPerson_IsWhatTheLobbyRigOpensWith()
+        {
+            var preference = new CameraViewPreference(new InMemoryCameraViewStore());
+            var settings = new ControlSettingsSystem(new InMemoryControlSettingsStore());
+            var match = InstantiateRig();
+            var lobby = InstantiateRig();
+            try
+            {
+                match.BindSettings(settings, preference);
+                match.SetPreferredView(true);
+                match.SetPreferredView(false);
+
+                lobby.BindSettings(settings, preference);
+
+                Assert.That(preference.FirstPerson, Is.False);
+                Assert.That(lobby.IsFirstPerson, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(match.gameObject);
+                Object.DestroyImmediate(lobby.gameObject);
+            }
+        }
+
+        private static PlayerCameraController InstantiateRig()
+        {
+            return Object.Instantiate(LoadRigPrefab()).GetComponent<PlayerCameraController>();
+        }
+
+        private static GameObject LoadRigPrefab()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCameraRig.prefab");
+            Assert.That(prefab, Is.Not.Null);
+            return prefab;
         }
     }
 
