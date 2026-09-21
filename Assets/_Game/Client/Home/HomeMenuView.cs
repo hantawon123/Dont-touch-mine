@@ -49,7 +49,7 @@ namespace Game.Client.Home
             koreanFont = HomeUiFonts.Apply(fontAsset);
             var canvas = CreateCanvas();
             CreateBackground(canvas);
-            CreateTitle(canvas);
+            CreateLogo(canvas);
             CreateLeftMenu(canvas);
             CreateQuitButton(canvas);
 
@@ -377,35 +377,25 @@ namespace Game.Client.Home
         }
 
         /// <summary>
-        /// The two-line game title above the home menu.
+        /// The game logo, pinned to the top-left of the canvas.
         /// </summary>
-        private void CreateTitle(RectTransform canvas)
+        private void CreateLogo(RectTransform canvas)
         {
-            if (titleFont == null)
-            {
-                Debug.LogWarning("Home title font is not assigned.", this);
-                return;
-            }
-
-            var rect = CreateRect("Title", canvas);
+            var rect = CreateRect("Logo", canvas);
             SetAnchor(rect, Vector2.up, Vector2.up, Vector2.up);
-            rect.anchoredPosition = new Vector2(HomeStyle.Layout.TitleLeft, -HomeStyle.Layout.TitleTop);
-            rect.sizeDelta = new Vector2(HomeStyle.Layout.TitleWidth, HomeStyle.Layout.TitleHeight);
+            rect.anchoredPosition = new Vector2(HomeStyle.Layout.LogoLeft, -HomeStyle.Layout.LogoTop);
+            var width = HomeStyle.Layout.LogoWidth;
+            var height = logoSprite != null && logoSprite.rect.width > 0f
+                ? width * (logoSprite.rect.height / logoSprite.rect.width)
+                : HomeStyle.Layout.LogoHeight;
+            rect.sizeDelta = new Vector2(width, height);
 
-            var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
-            text.font = titleFont;
-            text.fontSharedMaterial = titleFont.material;
-            text.text = "Don't Touch\nMine";
-            text.fontSize = HomeStyle.Layout.TitleFontSize;
-            text.fontStyle = FontStyles.Italic;
-            text.alignment = TextAlignmentOptions.TopLeft;
-            text.color = new Color32(255, 112, 50, 255);
-            text.enableAutoSizing = false;
-            text.lineSpacing = 0f;
-            text.characterSpacing = 0f;
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Overflow;
-            text.raycastTarget = false;
+            var image = rect.gameObject.AddComponent<Image>();
+            image.sprite = logoSprite;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            image.color = logoSprite != null ? Color.white : Color.clear;
         }
 
         /// <summary>
