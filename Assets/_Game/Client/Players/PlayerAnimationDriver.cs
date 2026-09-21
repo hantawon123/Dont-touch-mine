@@ -133,6 +133,7 @@ namespace Game.Client.Players
         private int networkAttackSequence;
         private Vector2 networkMoveLocal;
         private bool networkCarrying;
+        private bool carryOverride;
         private MoveDirection lastLocomotionDirection;
 
         private void Awake()
@@ -302,9 +303,7 @@ namespace Game.Client.Players
         {
             var settings = movement.MovementSettings;
             var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
-            var carrying = usesNetworkState
-                ? networkCarrying
-                : interactor != null && interactor.CarriedItem != null;
+            var carrying = ResolveCarrying();
             return isHit
                 ? ResolveHitClip(
                     movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed, carrying)
@@ -388,6 +387,27 @@ namespace Game.Client.Players
             int attackSequence)
         {
             ApplyNetworkState(planarSpeed, grounded, attackSequence, Vector2.zero, false);
+        }
+
+        private bool ResolveCarrying()
+        {
+            if (carryOverride) return true;
+            return usesNetworkState
+                ? networkCarrying
+                : interactor != null && interactor.CarriedItem != null;
+        }
+
+        /// <summary>
+        /// 손에 든 것이 없어도 들기 자세를 유지하게 한다 (S15P21D205-1087).
+        /// </summary>
+        /// <remarks>
+        /// 엔딩 유치장은 진짜 물건 대신 표시용 복제본을 손에 붙인다. 그때 진짜 물건은 숨기고
+        /// 잊게 만들며(로컬), 결과 씬에서는 들기 상태 자체를 끄고 보낸다(원격). 그대로 두면
+        /// 물건은 손에 있는데 팔만 내려가므로, 무대에 세운 동안만 들기 자세를 못 박는다.
+        /// </remarks>
+        public void SetCarryOverride(bool force)
+        {
+            carryOverride = force;
         }
 
         public void ApplyNetworkState(
@@ -590,9 +610,7 @@ namespace Game.Client.Players
             var settings = movement.MovementSettings;
             var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
             var move = usesNetworkState ? networkMoveLocal : movement.PlanarVelocityLocal;
-            var carrying = usesNetworkState
-                ? networkCarrying
-                : interactor != null && interactor.CarriedItem != null;
+            var carrying = ResolveCarrying();
             var grounded = usesNetworkState ? networkGrounded : movement.IsGrounded;
 
             if (!grounded)

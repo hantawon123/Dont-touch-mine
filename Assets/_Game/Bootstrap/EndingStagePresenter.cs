@@ -39,9 +39,22 @@ namespace Game.Bootstrap
         private PlayerCameraController bodyShownRig;
         private readonly HashSet<int> itemHiddenFor = new();
         private readonly List<Renderer> hiddenItemRenderers = new();
+        private const float MissingItemGraceSeconds = 3f;
 
         /// <summary>플레이어별로 손에 붙여 둔 전시용 복제본 (S15P21D205-1087).</summary>
         private readonly Dictionary<int, GameObject> shownItems = new();
+
+        /// <summary>들기 자세를 못 박아 둔 아바타. 무대를 내려올 때 돌려준다 (S15P21D205-1087).</summary>
+        private readonly HashSet<PlayerAnimationDriver> carryForced = new();
+
+        /// <summary>빈손으로 남은 이유를 이미 알린 플레이어 (S15P21D205-1087).</summary>
+        private readonly HashSet<int> missingItemReported = new();
+
+        /// <summary>
+        /// 이 시각 전의 실패는 알리지 않는다. 아바타·물건 상태가 도착하기 전에도 한 번은 돌기 때문에,
+        /// 곧 성공할 시도를 경고로 남기면 진짜 빈손과 구분할 수 없다.
+        /// </summary>
+        private float missingItemReportAfter;
 
         private MatchChatView chat;
         private MatchChatBubbleView bubbles;
@@ -73,6 +86,7 @@ namespace Game.Bootstrap
             // backdrop. With a stage behind it, the backdrop would hide the stage.
             view.SetBackdropVisible(false);
             backdropHidden = true;
+            missingItemReportAfter = Time.unscaledTime + MissingItemGraceSeconds;
             stage.ShowCamera();
             LockLocalInteraction();
             ShowLocalBody();
@@ -121,6 +135,12 @@ namespace Game.Bootstrap
                 if (copy != null) UnityEngine.Object.Destroy(copy);
             shownItems.Clear();
 
+            // 들기 자세는 무대 위에서만 못 박은 것이다. 로비로 돌아가는 아바타는 제 상태를 따른다.
+            foreach (var driver in carryForced)
+                if (driver != null) driver.SetCarryOverride(false);
+            carryForced.Clear();
+            missingItemReported.Clear();
+
             // 채팅과 말풍선은 매치 씬의 것이라 결과 씬보다 오래 산다. 빌려 쓴 상태를 돌려준다.
             if (chat != null) chat.SetKeepChromeVisible(false);
             chat = null;
@@ -164,47 +184,99 @@ namespace Game.Bootstrap
 
             Dictionary<string, PlayerAvatar> avatars = null;
             Dictionary<string, CarryableItem> items = null;
+            DestroyedItemArchive archive = null;
+            var archiveSearched = false;
             foreach (var placement in placements)
             {
                 if (shownItems.ContainsKey(placement.PlayerIndex)) continue;
-                if (placement.PlayerIndex < 0 || placement.PlayerIndex >= statuses.Count) continue;
+                if (placement.PlayerIndex < 0 || placement.PlayerIndex >= statuses.Count)
+                {
+                    ReportMissingItem(placement.PlayerIndex, "물건 상태에 자리가 없다");
+                    continue;
+                }
+
                 var itemId = statuses[placement.PlayerIndex].ItemId;
-                if (string.IsNullOrEmpty(itemId)) continue;
+                if (string.IsNullOrEmpty(itemId))
+                {
+                    ReportMissingItem(placement.PlayerIndex, "배정된 물건 id가 비어 있다");
+                    continue;
+                }
 
                 avatars ??= FindAvatars();
-                if (!avatars.TryGetValue(placement.PlayerId, out var avatar)) continue;
+                if (!avatars.TryGetValue(placement.PlayerId, out var avatar))
+                {
+                    ReportMissingItem(placement.PlayerIndex, $"아바타를 찾지 못했다 (item={itemId})");
+                    continue;
+                }
+
                 var holdPoint = avatar.GetComponent<PlayerInteractor>()?.HoldPoint;
-                if (holdPoint == null) continue;
+                if (holdPoint == null)
+                {
+                    ReportMissingItem(placement.PlayerIndex, $"HoldPoint가 없다 (item={itemId})");
+                    continue;
+                }
 
                 items ??= FindItems();
-                if (!items.TryGetValue(itemId, out var source) || source == null) continue;
+                GameObject sourceObject = null;
+                if (items.TryGetValue(itemId, out var source) && source != null)
+                {
+                    sourceObject = source.gameObject;
+                }
+                else
+                {
+                    // 파괴된 물건은 씬에서 지워졌으므로 파괴 직전에 맡겨 둔 겉모습을 쓴다.
+                    if (!archiveSearched)
+                    {
+                        archiveSearched = true;
+                        archive = UnityEngine.Object.FindFirstObjectByType<DestroyedItemArchive>(
+                            FindObjectsInactive.Include);
+                    }
 
-                shownItems[placement.PlayerIndex] = CreateDisplayCopy(source, holdPoint);
+                    if (archive != null && archive.TryGetVisual(itemId, out var kept)) sourceObject = kept;
+                }
+
+                if (sourceObject == null)
+                {
+                    ReportMissingItem(placement.PlayerIndex,
+                        $"씬에도 파괴 보관소에도 없다 (item={itemId}, 파괴됨={statuses[placement.PlayerIndex].IsDestroyed})");
+                    continue;
+                }
+
+                var copy = ItemDisplayCopy.Create(sourceObject, holdPoint, itemId + " (Ending)");
+                if (copy == null) continue;
+                copy.SetActive(true);
+                shownItems[placement.PlayerIndex] = copy;
+                ShowCarryPose(avatar);
             }
         }
 
         /// <summary>
-        /// 보이는 것만 남긴 복제본. 스크립트와 물리를 지우는 이유는 결과 화면에서 할 일이 없기
-        /// 때문이고, 남겨 두면 복제본이 권위가 쥔 물건인 척하거나 아바타를 밀어낸다.
+        /// 손에 든 것이 없어도 들기 자세를 유지시킨다 (S15P21D205-1087).
         /// </summary>
-        private static GameObject CreateDisplayCopy(CarryableItem source, Transform holdPoint)
+        /// <remarks>
+        /// 복제본은 애니메이션이 아는 물건이 아니다. 로컬은 진짜 물건을 잊게 만들었고
+        /// (<see cref="HideCarriedItems"/>), 원격은 결과 씬에서 들기 상태를 끈 채로 온다.
+        /// 그대로 두면 물건은 손에 있는데 팔만 내려간다.
+        /// </remarks>
+        private void ShowCarryPose(PlayerAvatar avatar)
         {
-            var copy = UnityEngine.Object.Instantiate(source.gameObject, holdPoint, false);
-            copy.name = source.ObjectId + " (Ending)";
-            copy.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            var driver = avatar.GetComponent<PlayerAnimationDriver>();
+            if (driver == null || !carryForced.Add(driver)) return;
+            driver.SetCarryOverride(true);
+        }
 
-            foreach (var behaviour in copy.GetComponentsInChildren<MonoBehaviour>(true))
-                UnityEngine.Object.Destroy(behaviour);
-            foreach (var collider in copy.GetComponentsInChildren<Collider>(true))
-                UnityEngine.Object.Destroy(collider);
-            foreach (var body in copy.GetComponentsInChildren<Rigidbody>(true))
-                UnityEngine.Object.Destroy(body);
-
-            // 원본이 숨겨진 채 복제되었을 수 있다. 복제본은 보여야 한다.
-            foreach (var renderer in copy.GetComponentsInChildren<Renderer>(true))
-                renderer.forceRenderingOff = false;
-            copy.SetActive(true);
-            return copy;
+        /// <summary>
+        /// 누구를 왜 빈손으로 세웠는지 플레이어당 한 번 남긴다 (S15P21D205-1087).
+        /// </summary>
+        /// <remarks>
+        /// 손에 붙이는 일은 매 틱 다시 시도하므로, 경고 없이 두면 "그 사람만 빈손"인 판이
+        /// 무엇 때문이었는지 나중에 알 길이 없다. 한 번만 남겨 로그를 채우지 않는다.
+        /// </remarks>
+        private void ReportMissingItem(int playerIndex, string reason)
+        {
+            if (Time.unscaledTime < missingItemReportAfter) return;
+            if (!missingItemReported.Add(playerIndex)) return;
+            Debug.LogWarning($"[Ending] Player {playerIndex} stands empty-handed: {reason}.");
         }
 
         private static Dictionary<string, CarryableItem> FindItems()
