@@ -105,6 +105,10 @@ namespace Game.Architecture.Tests
             Assert.That(
                 string.Format(shipped.Get(UiText.Lobby.StartCountdown, "en"), 10),
                 Is.EqualTo("Game starts in 10s"));
+            Assert.That(shipped.Get(UiText.Home.Region("kr"), "en"), Is.EqualTo("Korea"));
+            Assert.That(shipped.Get(UiText.Home.Region("us"), "en"), Is.EqualTo("North America"));
+            Assert.That(shipped.Get(UiText.Home.Region("kr"), "ko"), Is.EqualTo("한국"));
+            Assert.That(shipped.Knows(UiText.Home.Region("nowhere")), Is.False);
             Assert.That(shipped.Get(UiText.Map.Supermarket, "en"), Is.EqualTo("Supermarket"));
             Assert.That(shipped.Get(UiText.Map.Mansion, "en"), Is.EqualTo("Mansion"));
             Assert.That(shipped.Get(UiText.Category.Food, "en"), Is.EqualTo("Food & Drink"));

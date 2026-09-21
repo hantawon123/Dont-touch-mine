@@ -343,6 +343,14 @@ namespace Game.Client.Home
             public const float CheckSize = 22f;
 
             /// <summary>
+            /// Everything on a row that is not the region's name: the panel's
+            /// padding on both sides, the row's own inset, the check mark and
+            /// the space kept for it. A name needs this much beside it.
+            /// </summary>
+            public const float RowChrome =
+                (SidePadding * 2f) + (SidePadding * 0.5f) + CheckSize + (SidePadding * 0.5f);
+
+            /// <summary>
             /// The gap between the title and the first region.
             /// </summary>
             public const float TitleToRows = 12f;

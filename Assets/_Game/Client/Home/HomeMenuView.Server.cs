@@ -30,6 +30,8 @@ namespace Game.Client.Home
         public event Action ServerSettingsDismissed;
 
         private readonly List<RegionRow> regionRows = new List<RegionRow>();
+        private RectTransform serverPanel;
+        private TMP_Text serverTitleText;
 
         private readonly struct RegionRow
         {
@@ -80,8 +82,10 @@ namespace Game.Client.Home
             fill.type = Image.Type.Sliced;
             fill.pixelsPerUnitMultiplier = 1f;
 
+            serverPanel = panel;
             CreateServerTitle(panel);
             CreateRegionRows(panel);
+            FitServerPanel();
 
             serverSettingsRoot = root.gameObject;
             SetSelectedRegion(ServerRegionCatalog.Default.Code);
@@ -104,6 +108,7 @@ namespace Game.Client.Home
                 TextAlignmentOptions.TopLeft);
             ApplyMenuFont(text);
             text.color = HomeStyle.Palette.TextPrimary;
+            serverTitleText = text;
             Remember(text, UiText.Home.ServerTitle);
         }
 
@@ -178,7 +183,7 @@ namespace Game.Client.Home
             labelRect.offsetMax = new Vector2(-HomeStyle.Server.CheckSize, 0f);
             var label = AddText(
                 labelRect,
-                region.DisplayName,
+                RegionLabel(region),
                 HomeStyle.FontSize.Region,
                 FontStyles.Normal,
                 TextAlignmentOptions.MidlineLeft);
@@ -251,6 +256,71 @@ namespace Game.Client.Home
                 }
             }
         }
+
+        /// <summary>
+        /// The region's name in the applied language, or the one the
+        /// catalogue of regions was written with when there is no line for it.
+        /// </summary>
+        private string RegionLabel(ServerRegion region)
+        {
+            var key = UiText.Home.Region(region.Code);
+            return UiTextCatalog.Shipped.Knows(key) ? Copy(key) : region.DisplayName;
+        }
+
+        /// <summary>
+        /// Writes the regions again and gives the panel the width the longest
+        /// of them needs.
+        /// </summary>
+        private void RepaintRegions()
+        {
+            for (var index = 0; index < regionRows.Count; index++)
+            {
+                var row = regionRows[index];
+                if (row.Label != null)
+                {
+                    row.Label.text = RegionLabel(row.Region);
+                }
+            }
+
+            FitServerPanel();
+        }
+
+        /// <summary>
+        /// The panel is as wide as its widest line asks for, never narrower
+        /// than the design. 북미 is four characters and North America is
+        /// thirteen, and the check mark sits where the overflow would go.
+        /// </summary>
+        private void FitServerPanel()
+        {
+            if (serverPanel == null)
+            {
+                return;
+            }
+
+            var needed = HomeStyle.Server.PanelSize.x;
+            if (serverTitleText != null)
+            {
+                needed = Mathf.Max(
+                    needed,
+                    TextWidth(serverTitleText) + (HomeStyle.Server.SidePadding * 2f));
+            }
+
+            for (var index = 0; index < regionRows.Count; index++)
+            {
+                var label = regionRows[index].Label;
+                if (label != null)
+                {
+                    needed = Mathf.Max(
+                        needed, TextWidth(label) + HomeStyle.Server.RowChrome);
+                }
+            }
+
+            serverPanel.sizeDelta = new Vector2(
+                Mathf.Ceil(needed), HomeStyle.Server.PanelSize.y);
+        }
+
+        private static float TextWidth(TMP_Text text) =>
+            text.GetPreferredValues(text.text).x;
 
         private static string RegionRowName(ServerRegion region)
         {

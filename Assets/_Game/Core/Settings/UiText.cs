@@ -192,6 +192,12 @@ namespace Game.Core.Settings
 
             public const string ServerTitle = "home.server.title";
 
+            /// <summary>
+            /// The key a Photon region code is named by, so adding a region
+            /// only takes a catalogue line.
+            /// </summary>
+            public static string Region(string code) => "home.server.region." + code;
+
             public const string SuspendedTitle = "home.suspended.title";
             public const string SuspendedBody = "home.suspended.body";
             public const string InviteBody = "home.invite.body";

@@ -92,6 +92,41 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void ServerPanel_NamesTheRegionsInTheAppliedLanguageAndWidensForThem()
+        {
+            using var home = new BuiltHome();
+            var panel = home.Rect("ServerSettingsPanel");
+
+            Assert.That(RegionLabel(home, "kr"), Is.EqualTo("한국"));
+            Assert.That(RegionLabel(home, "us"), Is.EqualTo("북미"));
+            var korean = panel.sizeDelta.x;
+
+            var store = new InMemoryGeneralSettingsStore();
+            store.Save(new GeneralSettings("en"));
+            using var locale = new UiLocale(new GeneralSettingsSystem(store));
+            home.View.ShowChrome(locale);
+
+            Assert.That(RegionLabel(home, "kr"), Is.EqualTo("Korea"));
+            Assert.That(RegionLabel(home, "us"), Is.EqualTo("North America"));
+            Assert.That(
+                panel.Find("Title").GetComponent<TMPro.TMP_Text>().text,
+                Is.EqualTo("Server Settings"));
+
+            // North America is the longest line the panel has to hold, and the
+            // check mark sits where it would otherwise run over.
+            var widest = home.Rect("Region_us").Find("Label").GetComponent<TMPro.TMP_Text>();
+            Assert.That(
+                panel.sizeDelta.x,
+                Is.GreaterThanOrEqualTo(
+                    widest.GetPreferredValues(widest.text).x + HomeStyle.Server.RowChrome));
+            Assert.That(panel.sizeDelta.x, Is.GreaterThanOrEqualTo(korean));
+            Assert.That(panel.sizeDelta.y, Is.EqualTo(HomeStyle.Server.PanelSize.y));
+        }
+
+        private static string RegionLabel(BuiltHome home, string code) =>
+            home.Rect($"Region_{code}").Find("Label").GetComponent<TMPro.TMP_Text>().text;
+
+        [Test]
         public void Menu_StacksEntriesAtTheDesignedPitch()
         {
             using var home = new BuiltHome();

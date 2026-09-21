@@ -241,6 +241,11 @@ namespace Game.Core.Settings
             new UiTextLine(UiText.Home.RoomSubmit, "방 생성하기", "Create Room"),
             new UiTextLine(UiText.Home.RoomTitlePlaceholder, "방 이름 입력", "Enter a room name"),
             new UiTextLine(UiText.Home.ServerTitle, "서버 설정", "Server Settings"),
+            new UiTextLine(UiText.Home.Region("kr"), "한국", "Korea"),
+            new UiTextLine(UiText.Home.Region("asia"), "아시아", "Asia"),
+            new UiTextLine(UiText.Home.Region("us"), "북미", "North America"),
+            new UiTextLine(UiText.Home.Region("au"), "오세아니아", "Oceania"),
+            new UiTextLine(UiText.Home.Region("eu"), "유럽", "Europe"),
             new UiTextLine(UiText.Home.SuspendedTitle, "이용이 제한된 계정입니다", "This account is suspended"),
             new UiTextLine(UiText.Home.SuspendedBody, "운영자가 이 계정의 이용을 중지했습니다.", "An operator has stopped this account."),
             new UiTextLine(UiText.Home.InviteBody, "{0}님이\n함께 플레이하자고 합니다!", "{0} invited you\nto play!"),
@@ -556,6 +561,13 @@ namespace Game.Core.Settings
         /// language this line has no words for, uses Korean. A key the
         /// catalogue does not list comes back as itself.
         /// </summary>
+        /// <summary>
+        /// Whether the catalogue has a line for <paramref name="key"/>. A
+        /// caller with words of its own can then use those instead of the
+        /// key <see cref="Get"/> hands back.
+        /// </summary>
+        public bool Knows(string key) => key != null && lines.ContainsKey(key);
+
         public string Get(string key, string languageCode)
         {
             if (key == null)

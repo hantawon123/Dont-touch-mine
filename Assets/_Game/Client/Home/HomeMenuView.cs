@@ -111,6 +111,7 @@ namespace Game.Client.Home
             }
 
             UpdateFriendSections();
+            RepaintRegions();
             if (searchEmptyText != null)
             {
                 searchEmptyText.text = Copy(UiText.Home.SearchEmpty);
