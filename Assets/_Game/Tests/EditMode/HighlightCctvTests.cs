@@ -379,6 +379,59 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Camera_UsesDistanceOnlyAsTieBreakerAndRejectsTopDownShortcut()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                HighlightCctvCamera Mount(string name, Vector3 position)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = position;
+                    camera.transform.LookAt(Vector3.up * 0.8f);
+                    camera.Configure(name, 65f);
+                    return camera;
+                }
+
+                var players = new[]
+                {
+                    new GameObject("target").transform,
+                    new GameObject("support").transform,
+                };
+                foreach (var player in players) player.SetParent(root.transform);
+                var output = new GameObject("output", typeof(Camera)).transform;
+                output.SetParent(root.transform);
+                var candidate = new HighlightCandidate(HighlightType.MostStunned,
+                    new[] { new HighlightSegment(0d, 4d) }, "0", 2d, 60,
+                    actorPlayerIndex: 1);
+                var poses = new[]
+                {
+                    new Pose(Vector3.left, Quaternion.identity),
+                    new Pose(Vector3.right, Quaternion.identity),
+                };
+                var frames = new List<HighlightReplayFrame>();
+                for (var second = 0; second <= 4; second++)
+                    frames.Add(new HighlightReplayFrame(second, poses,
+                        System.Array.Empty<Game.Server.Items.WorldObjectState>()));
+                var clips = new[] { new HighlightReplayClip(candidate.Segments[0], frames) };
+                var far = Mount("far", new Vector3(0f, 3f, -14f));
+                var near = Mount("near", new Vector3(0f, 3f, -7f));
+                var topDown = Mount("top-down", new Vector3(0f, 4f, 0f));
+
+                using var director = new HighlightCameraDirector(output, output, players,
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0,
+                    cctvCameras: new[] { far, topDown, near }, replayClips: clips);
+
+                director.Focus(candidate);
+
+                Assert.That(director.CctvLocation, Is.EqualTo("near"),
+                    "When every subject is visible, distance may break the tie but must not select a top-down shortcut.");
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
         public void Camera_PrefersNearbyOffCentreViewOverDistantCentredView()
         {
             var root = new GameObject("test");
