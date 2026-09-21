@@ -151,6 +151,11 @@ namespace Game.Tests.EditMode
                 Is.EqualTo(new Vector2(HomeStyle.Layout.LogoWidth, HomeStyle.Layout.LogoHeight)));
             Assert.That(logo.GetComponent<Image>(), Is.Not.Null);
 
+            var menu = home.Rect("Menu");
+            Assert.That(
+                -menu.anchoredPosition.y,
+                Is.EqualTo(HomeStyle.Layout.LogoTop + logo.sizeDelta.y + HomeStyle.Layout.LogoToMenuGap));
+
             foreach (var text in home.View.GetComponentsInChildren<TMPro.TMP_Text>(true))
             {
                 Assert.That(text.text, Does.Not.Contain("Don't Touch"));

@@ -139,16 +139,18 @@ namespace Game.Client.Home
             /// <summary>
             /// Logo and menu position in the 1920 x 1080 mock-up, measured from
             /// its top-left corner. The logo shares the 60px inset used by the
-            /// server button on the opposite side.
+            /// server button on the opposite side, and the menu sits 40px under
+            /// it.
             /// </summary>
             public const float LogoLeft = 60f;
             public const float LogoTop = 60f;
-            public const float LogoWidth = 480f;
-            public const float LogoHeight = 256f;
+            public const float LogoWidth = 720f;
+            public const float LogoHeight = 384f;
+            public const float LogoToMenuGap = 40f;
 
             public const float MenuLeft = 269f;
 
-            public const float MenuTop = 510f;
+            public const float MenuTop = LogoTop + LogoHeight + LogoToMenuGap;
 
             /// <summary>
             /// The design gives 30 between one line's box and the next, not
