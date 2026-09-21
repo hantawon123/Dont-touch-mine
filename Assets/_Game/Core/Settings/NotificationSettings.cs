@@ -115,8 +115,8 @@ namespace Game.Core.Settings
             {
                 [NotificationOption.GameInvite] = new OptionChoices(
                     InterfaceCatalog.On,
-                    new OptionChoice(InterfaceCatalog.Off, "끄기"),
-                    new OptionChoice(InterfaceCatalog.On, "켜기"))
+                    new OptionChoice(InterfaceCatalog.Off, UiText.Settings.Off),
+                    new OptionChoice(InterfaceCatalog.On, UiText.Settings.On))
             });
 
         public OptionChoices For(NotificationOption option) => rows.For((int)option);
@@ -129,6 +129,7 @@ namespace Game.Core.Settings
             new NotificationSettings(rows.Normalise(settings.Values));
 
         /// <inheritdoc cref="OptionCatalog.Label"/>
-        public string Label(NotificationOption option, string code) => rows.Label((int)option, code);
+        public string Label(NotificationOption option, string code, string languageCode = "ko") =>
+            UiTextCatalog.Shipped.Get(rows.Label((int)option, code), languageCode);
     }
 }

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -35,7 +36,8 @@ namespace Game.Client.Match
         public const float NameFontSize = 14f;
         public const float BodyFontSize = 20f;
         public const float InputFontSize = 16f;
-        public const string PlaceholderText = "[Enter]로 채팅 시작하기";
+        public static string PlaceholderText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.ChatPlaceholder, "ko");
         public const float InputWidth = 320f;
         public const int PanelRadius = 10;
         public const float ContentPadding = 16f;
@@ -83,6 +85,21 @@ namespace Game.Client.Match
         private Coroutine pendingSubmit;
         private static bool pendingKeepChromeVisible;
         private string composingText = string.Empty;
+        private UiLocale chromeLocale;
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            if (inputField?.placeholder is TMP_Text placeholder)
+            {
+                placeholder.text = Copy(UiText.Match.ChatPlaceholder);
+            }
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
 
         public event Action<string> SendRequested;
         public static bool BlocksPlayerInput { get; private set; }
@@ -1266,7 +1283,7 @@ namespace Game.Client.Match
                         placeholder.font = font;
                     }
 
-                    placeholder.text = PlaceholderText;
+                    placeholder.text = Copy(UiText.Match.ChatPlaceholder);
                     placeholder.richText = false;
                 }
             }
@@ -1808,7 +1825,7 @@ namespace Game.Client.Match
             var placeholder = CreateText(
                 textAreaRect,
                 "Placeholder",
-                PlaceholderText,
+                Copy(UiText.Match.ChatPlaceholder),
                 InputFontSize,
                 new Color(1f, 1f, 1f, 0.58f));
             placeholder.alignment = TextAlignmentOptions.MidlineLeft;

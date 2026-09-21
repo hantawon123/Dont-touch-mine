@@ -91,6 +91,22 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void FormatMessage_TranslatesTheItemNameForEnglish()
+        {
+            Assert.That(
+                HidingIntroView.FormatMessage("탄산음료", "en"),
+                Is.EqualTo("The item you stole is Soda."));
+        }
+
+        [Test]
+        public void FormatMessage_KeepsTheAuthoredNameWhenEnglishHasNone()
+        {
+            Assert.That(
+                HidingIntroView.FormatMessage("mesh_Bus_01", "en"),
+                Is.EqualTo("The item you stole is mesh_Bus_01."));
+        }
+
+        [Test]
         public void FormatMessage_FallsBackWhenNameIsMissing()
         {
             Assert.That(

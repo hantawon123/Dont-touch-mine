@@ -1,5 +1,6 @@
 using Game.Client.Character;
 using Game.Client.Settings;
+using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -79,6 +80,33 @@ namespace Game.Architecture.Tests
                 Assert.That(reset.parent, Is.EqualTo(actionBar));
                 Assert.That(apply.parent, Is.EqualTo(actionBar));
                 Assert.That(apply.anchoredPosition.x, Is.GreaterThan(reset.anchoredPosition.x));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ShowChrome_RedrawsApplyInTheAppliedLanguage()
+        {
+            var root = new GameObject("Home Closet");
+            try
+            {
+                var view = root.AddComponent<CharacterClosetView>();
+                typeof(CharacterClosetView).GetMethod("Awake",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
+
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                var general = new GeneralSettingsSystem(store);
+                using var locale = new UiLocale(general);
+                view.ShowChrome(locale);
+
+                var apply = Find(root, "ApplyButton")?.GetComponentInChildren<TMPro.TMP_Text>();
+                Assert.That(apply, Is.Not.Null);
+                Assert.That(apply.text, Is.EqualTo("Apply"));
             }
             finally
             {

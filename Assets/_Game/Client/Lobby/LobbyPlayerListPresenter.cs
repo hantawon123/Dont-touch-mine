@@ -31,6 +31,11 @@ namespace Game.Client.Lobby
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value) =>
             presentation = value;
 
+        private Game.Core.Settings.UiLocale locale;
+
+        [VContainer.Inject]
+        public void BindLocale(Game.Core.Settings.UiLocale value) => locale = value;
+
         [VContainer.Inject]
         public void BindVoice(IVoiceControl value) => voice = value;
 
@@ -84,6 +89,12 @@ namespace Game.Client.Lobby
             confirmView.Confirmed += ConfirmPending;
             confirmView.Cancelled += CancelPending;
             friends.FriendsChanged += BindFriends;
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+            }
+
+            view.ShowChrome(locale);
             if (voice != null)
             {
                 muteSubscription = voice.IsMuted.Subscribe(_ => Draw());
@@ -126,6 +137,12 @@ namespace Game.Client.Lobby
             Draw();
         }
 
+        private void OnLocaleChanged()
+        {
+            view.ShowChrome(locale);
+            Draw();
+        }
+
         private void Draw()
         {
             if (!latest.HasValue)
@@ -156,6 +173,11 @@ namespace Game.Client.Lobby
             confirmView.Confirmed -= ConfirmPending;
             confirmView.Cancelled -= CancelPending;
             friends.FriendsChanged -= BindFriends;
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
+
             muteSubscription?.Dispose();
             talkSubscription?.Dispose();
             listenSubscription?.Dispose();
@@ -327,7 +349,9 @@ namespace Game.Client.Lobby
             pending = PendingConfirm.Report;
             pendingPlayerId = userId;
             confirmView.Show(
-                LobbyPlayerListView.FormatReportTitle(displayName),
+                LobbyPlayerListView.FormatReportTitle(
+                    displayName,
+                    locale != null ? locale.LanguageCode : "ko"),
                 LobbyPlayerListView.ReportConfirmLabel,
                 chooseReason: true);
         }

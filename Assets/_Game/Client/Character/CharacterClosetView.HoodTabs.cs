@@ -1,5 +1,6 @@
 using Game.Client.Home;
 using Game.Core.Players;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,8 +25,8 @@ namespace Game.Client.Character
             AddImage(hoodTabs, CharacterClosetStyle.Palette.CellFill,
                 HomeUiFonts.Rounded(CharacterClosetStyle.HoodTabs.Radius));
 
-            hoodShapeTab = CreateHoodTab(AvatarPartCategory.Hood, "후드 모양", 0);
-            hoodColorTab = CreateHoodTab(AvatarPartCategory.HoodColor, "후드 색상", 1);
+            hoodShapeTab = CreateHoodTab(AvatarPartCategory.Hood, Copy(UiText.Closet.HoodShape), 0);
+            hoodColorTab = CreateHoodTab(AvatarPartCategory.HoodColor, Copy(UiText.Closet.HoodColor), 1);
             hoodTabs.gameObject.SetActive(false);
         }
 
@@ -79,6 +80,19 @@ namespace Game.Client.Character
             var track = lockerScroll.verticalScrollbar.GetComponent<RectTransform>();
             track.offsetMin = new Vector2(track.offsetMin.x, bottom);
             track.offsetMax = new Vector2(track.offsetMax.x, -top);
+        }
+
+        private void RefreshHoodTabLabels()
+        {
+            if (hoodShapeTab.Label != null)
+            {
+                hoodShapeTab.Label.text = Copy(UiText.Closet.HoodShape);
+            }
+
+            if (hoodColorTab.Label != null)
+            {
+                hoodColorTab.Label.text = Copy(UiText.Closet.HoodColor);
+            }
         }
 
         private static void MarkHoodTab(CategoryTab tab, AvatarPartCategory? selected)

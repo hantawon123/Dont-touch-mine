@@ -4,6 +4,7 @@ using Game.Bootstrap;
 using Game.Client.Settings;
 using Game.Core.Backend;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using NUnit.Framework;
 
 namespace Game.Architecture.Tests
@@ -60,6 +61,22 @@ namespace Game.Architecture.Tests
             Assert.That(gateway.LastMessage, Is.EqualTo("소리가 너무 작아요"));
             Assert.That(view.SentCalls, Is.EqualTo(1), "성공만 패널을 내립니다.");
             Assert.That(view.Notices, Is.EqualTo(new[] { SettingsStyle.FeedbackSentMessage }));
+        }
+
+        [Test]
+        public void Sent_ThanksInTheAppliedLanguage()
+        {
+            var store = new InMemoryGeneralSettingsStore();
+            store.Save(new GeneralSettings("en"));
+            var general = new GeneralSettingsSystem(store);
+            using var locale = new UiLocale(general);
+            using var bridge = new SettingsFeedbackBridge(view, gateway, locale);
+            bridge.Start();
+            view.Feedback();
+
+            view.SubmitFeedback("too quiet");
+
+            Assert.That(view.Notices, Is.EqualTo(new[] { "Sent. Thank you." }));
         }
 
         [Test]

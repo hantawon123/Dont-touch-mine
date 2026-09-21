@@ -4,6 +4,7 @@ using System.Reflection;
 using Game.Client.Common;
 using Game.Client.Home;
 using Game.Core.Home;
+using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -64,6 +65,74 @@ namespace Game.Tests.EditMode
             Assert.That(tutorial.fontSharedMaterial, Is.SameAs(settings.fontSharedMaterial));
             Assert.That(tutorial.fontStyle, Is.EqualTo(settings.fontStyle));
         }
+
+        [Test]
+        public void ShowChrome_RedrawsMenuInTheAppliedLanguage()
+        {
+            using var home = new BuiltHome();
+            var store = new InMemoryGeneralSettingsStore();
+            store.Save(new GeneralSettings("en"));
+            var general = new GeneralSettingsSystem(store);
+            using var locale = new UiLocale(general);
+
+            home.View.ShowChrome(locale);
+
+            Assert.That(home.Label(HomeMenuAction.CreateRoom.ToString()), Is.EqualTo("Create Room"));
+            Assert.That(home.Label(HomeMenuAction.FindRoom.ToString()), Is.EqualTo("Find Game"));
+            Assert.That(home.Label(HomeMenuAction.Character.ToString()), Is.EqualTo("Character"));
+            Assert.That(home.Label(HomeMenuAction.Settings.ToString()), Is.EqualTo("Settings"));
+            Assert.That(home.Label("QuitButton"), Is.EqualTo("Quit"));
+
+            var view = (IHomeMenuView)home.View;
+            view.SetFriends(Array.Empty<FriendSummary>(), Array.Empty<FriendSummary>());
+            Assert.That(
+                home.Rect("OnlineEmptyMessage").GetComponent<TMPro.TMP_Text>().text,
+                Is.EqualTo("No friends yet"));
+            Assert.That(home.Section("Online"), Is.Not.Null);
+        }
+
+        [Test]
+        public void ServerPanel_NamesTheRegionsInTheAppliedLanguageAndWidensForThem()
+        {
+            using var home = new BuiltHome();
+            var panel = home.Rect("ServerSettingsPanel");
+
+            Assert.That(RegionLabel(home, "kr"), Is.EqualTo("한국"));
+            Assert.That(RegionLabel(home, "us"), Is.EqualTo("북미"));
+            var korean = panel.sizeDelta.x;
+
+            var store = new InMemoryGeneralSettingsStore();
+            store.Save(new GeneralSettings("en"));
+            using var locale = new UiLocale(new GeneralSettingsSystem(store));
+            home.View.ShowChrome(locale);
+
+            Assert.That(RegionLabel(home, "kr"), Is.EqualTo("Korea"));
+            Assert.That(RegionLabel(home, "us"), Is.EqualTo("North America"));
+            Assert.That(
+                panel.Find("Title").GetComponent<TMPro.TMP_Text>().text,
+                Is.EqualTo("Server Settings"));
+
+            // North America is the longest line the panel has to hold, and the
+            // check mark sits where it would otherwise run over.
+            var widest = home.Rect("Region_us").Find("Label").GetComponent<TMPro.TMP_Text>();
+            Assert.That(
+                HomeStyle.Server.RowChrome,
+                Is.EqualTo(
+                    HomeStyle.Server.SidePadding * 2f
+                    + HomeStyle.Server.RowInset
+                    + HomeStyle.Server.LabelToCheckGap
+                    + HomeStyle.Server.CheckSize
+                    + HomeStyle.Server.RowInset));
+            Assert.That(
+                panel.sizeDelta.x,
+                Is.GreaterThanOrEqualTo(
+                    widest.GetPreferredValues(widest.text).x + HomeStyle.Server.RowChrome));
+            Assert.That(panel.sizeDelta.x, Is.GreaterThanOrEqualTo(korean));
+            Assert.That(panel.sizeDelta.y, Is.EqualTo(HomeStyle.Server.PanelSize.y));
+        }
+
+        private static string RegionLabel(BuiltHome home, string code) =>
+            home.Rect($"Region_{code}").Find("Label").GetComponent<TMPro.TMP_Text>().text;
 
         [Test]
         public void Menu_StacksEntriesAtTheDesignedPitch()

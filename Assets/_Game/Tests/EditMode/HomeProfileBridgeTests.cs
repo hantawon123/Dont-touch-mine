@@ -7,6 +7,7 @@ using Game.Bootstrap;
 using Game.Client.Home;
 using Game.Core.Backend;
 using Game.Core.Home;
+using Game.Core.Settings;
 using Game.Core.Players;
 using Game.Core.Ports;
 using NUnit.Framework;
@@ -497,6 +498,8 @@ namespace Game.Architecture.Tests
                 SearchAllowedError = message ?? string.Empty;
 
             public void ShowConnectionError(string message) { }
+
+            public void ShowChrome(UiLocale locale) { }
 
             /// <remarks>
             /// Declared so the compiler stops warning that nothing raises them.

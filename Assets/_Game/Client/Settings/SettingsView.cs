@@ -78,10 +78,20 @@ namespace Game.Client.Settings
         private readonly List<Button> buttons = new List<Button>();
 
         private readonly SettingsTabHover[] tabHovers = new SettingsTabHover[TabOrder.Length];
+        private readonly TMP_Text[] tabLabels = new TMP_Text[TabOrder.Length];
+        private readonly List<(TMP_Text Text, string Key)> rowLabels = new List<(TMP_Text, string)>();
 
         private Button resetButton;
         private Button applyButton;
         private Image resetFill;
+        private TMP_Text languageRowLabel;
+        private TMP_Text leaveGameLabel;
+        private TMP_Text backLabel;
+        private TMP_Text resetAllLabel;
+        private TMP_Text feedbackButtonLabel;
+        private RectTransform feedbackButton;
+        private UiLocale chromeLocale;
+        private bool microphoneTestRunning;
         private TMP_Text resetLabel;
         private Image resetIconImage;
         private Image applyFill;
@@ -159,6 +169,76 @@ namespace Game.Client.Settings
 
             ShowPage(tab);
         }
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            if (locale == null)
+            {
+                return;
+            }
+
+            for (var index = 0; index < TabOrder.Length; index++)
+            {
+                if (tabLabels[index] != null)
+                {
+                    tabLabels[index].text = locale.Get(SettingsStyle.TabKey(TabOrder[index]));
+                }
+            }
+
+            if (languageRowLabel != null)
+            {
+                languageRowLabel.text = locale.Get(UiText.Settings.Language);
+            }
+
+            if (resetLabel != null)
+            {
+                resetLabel.text = locale.Get(UiText.Settings.Reset);
+            }
+
+            if (applyLabel != null)
+            {
+                applyLabel.text = locale.Get(UiText.Settings.Apply);
+            }
+
+            if (leaveGameLabel != null)
+            {
+                leaveGameLabel.text = locale.Get(UiText.Settings.LeaveGame);
+            }
+
+            if (backLabel != null)
+            {
+                backLabel.text = locale.Get(UiText.Settings.Back);
+            }
+
+            if (resetAllLabel != null)
+            {
+                resetAllLabel.text = locale.Get(UiText.Settings.ResetAll);
+            }
+
+            if (feedbackButtonLabel != null)
+            {
+                feedbackButtonLabel.text = locale.Get(UiText.Settings.FeedbackSend);
+                FitFeedbackButton();
+            }
+
+            foreach (var pair in rowLabels)
+            {
+                if (pair.Text != null)
+                {
+                    pair.Text.text = locale.Get(pair.Key);
+                }
+            }
+
+            PaintConfirm();
+            PaintFeedback();
+            ShowMicrophoneTest(microphoneTestRunning);
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
 
         /// <summary>
         /// Paints and arms the two buttons for whether there is anything to
@@ -461,6 +541,7 @@ namespace Game.Client.Settings
                 TextAlignmentOptions.MidlineLeft);
             Stretch(label.rectTransform);
 
+            backLabel = label;
             AddTintButton(rect, label, SettingsStyle.Palette.BackLabel, () => BackRequested?.Invoke());
         }
 
@@ -500,6 +581,7 @@ namespace Game.Client.Settings
                 TextAlignmentOptions.MidlineRight,
                 regularFont);
 
+            resetAllLabel = label;
             AddTintButton(
                 rect, label, SettingsStyle.Palette.ResetAllLabel, () => ResetAllRequested?.Invoke());
 
@@ -540,6 +622,7 @@ namespace Game.Client.Settings
                     TextAlignmentOptions.MidlineLeft);
                 Stretch(label.rectTransform);
                 label.rectTransform.offsetMin = new Vector2(SettingsStyle.Tabs.LabelLeft, 0f);
+                tabLabels[index] = label;
 
                 var hover = rect.gameObject.AddComponent<SettingsTabHover>();
                 hover.Bind(fill, label);
@@ -616,6 +699,7 @@ namespace Game.Client.Settings
                 TextAlignmentOptions.MidlineLeft);
             Stretch(label.rectTransform);
             AddTintButton(rect, label, Color.white, () => LeaveGameRequested?.Invoke());
+            leaveGameLabel = label;
             leaveGameButton = rect;
         }
 

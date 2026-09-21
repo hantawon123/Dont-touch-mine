@@ -633,6 +633,10 @@ namespace Game.Tests.EditMode
             public void SetUnappliedWarningVisible(bool value) => WarningVisible = value;
             public PlaySettingsDraft ReadDraft() => Draft;
             public void RequestClose() => CloseRequested?.Invoke();
+
+            public void ShowChrome(Game.Core.Settings.UiLocale locale)
+            {
+            }
         }
 
         private sealed class PauseView : ILobbyPauseMenuView

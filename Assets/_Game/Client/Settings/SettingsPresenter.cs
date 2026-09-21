@@ -45,6 +45,7 @@ namespace Game.Client.Settings
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
         private readonly Action closeSettings;
+        private readonly UiLocale locale;
 
         /// <summary>
         /// Lobby overlay: the player confirmed 게임 나가기. Home never raises
@@ -102,6 +103,7 @@ namespace Game.Client.Settings
                                    ?? throw new ArgumentNullException(nameof(applicationHost));
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
             this.closeSettings = closeSettings;
+            locale = new UiLocale(general);
         }
 
         /// <summary>What has been changed but not applied. For tests.</summary>
@@ -177,6 +179,7 @@ namespace Game.Client.Settings
             sound.Changed += OnSoundApplied;
             controls.Changed += OnControlsApplied;
             notifications.Changed += OnNotificationsApplied;
+            locale.Changed += OnLocaleChanged;
 
             Open();
         }
@@ -202,6 +205,7 @@ namespace Game.Client.Settings
             noticeDraft = noticeApplied;
             view.HideConfirm();
             view.HideFeedback();
+            view.ShowChrome(locale);
             view.ShowTab(shownTab);
             ShowDraft();
         }
@@ -240,6 +244,8 @@ namespace Game.Client.Settings
             sound.Changed -= OnSoundApplied;
             controls.Changed -= OnControlsApplied;
             notifications.Changed -= OnNotificationsApplied;
+            locale.Changed -= OnLocaleChanged;
+            locale.Dispose();
 
             // A test left running would go on listening after the screen is
             // gone, with nothing on screen to say so; a capture left waiting
@@ -257,6 +263,12 @@ namespace Game.Client.Settings
         {
             generalApplied = settled;
             view.SetActionsEnabled(IsChanged);
+        }
+
+        private void OnLocaleChanged()
+        {
+            view.ShowChrome(locale);
+            ShowDraft();
         }
 
         /// <inheritdoc cref="OnGeneralApplied"/>
@@ -473,8 +485,8 @@ namespace Game.Client.Settings
                 if (!microphoneTest.IsRunning)
                 {
                     view.ShowNotice(
-                        SettingsStyle.MicrophoneTest.UnavailableTitle,
-                        SettingsStyle.MicrophoneTest.UnavailableMessage);
+                        locale.Get(UiText.Settings.MicrophoneTest),
+                        locale.Get(UiText.Settings.MicTestUnavailable));
                 }
             }
 
@@ -523,9 +535,11 @@ namespace Game.Client.Settings
                     if (ControlCatalog.IsReserved(code, out var reservedBy))
                     {
                         view.ShowNotice(
-                            SettingsStyle.Controls.InUseTitle,
+                            locale.Get(UiText.Settings.KeyInUseTitle),
                             SettingsStyle.Controls.InUseMessage(
-                                ControlCatalog.KeyLabel(code), reservedBy));
+                                ControlCatalog.KeyLabel(code, locale.LanguageCode),
+                                reservedBy,
+                                locale.LanguageCode));
                     }
                     else if (controlDraft.TryRebind(action, code, out var moved, out var holder))
                     {
@@ -534,10 +548,11 @@ namespace Game.Client.Settings
                     else
                     {
                         view.ShowNotice(
-                            SettingsStyle.Controls.InUseTitle,
+                            locale.Get(UiText.Settings.KeyInUseTitle),
                             SettingsStyle.Controls.InUseMessage(
-                                ControlCatalog.KeyLabel(code),
-                                SettingsStyle.Controls.ActionLabel(holder)));
+                                ControlCatalog.KeyLabel(code, locale.LanguageCode),
+                                SettingsStyle.Controls.ActionLabel(holder, locale.LanguageCode),
+                                locale.LanguageCode));
                     }
                 }
 
@@ -882,7 +897,7 @@ namespace Game.Client.Settings
             {
                 view.ShowGraphics(
                     option,
-                    graphics.Catalog.Label(option, graphicsDraft.Get(option)),
+                    graphics.Catalog.Label(option, graphicsDraft.Get(option), locale.LanguageCode),
                     graphics.Catalog.For(option).CanStep);
             }
 
@@ -890,7 +905,7 @@ namespace Game.Client.Settings
             {
                 view.ShowInterface(
                     option,
-                    ui.Catalog.Label(option, uiDraft.Get(option)),
+                    ui.Catalog.Label(option, uiDraft.Get(option), locale.LanguageCode),
                     ui.Catalog.For(option).CanStep);
             }
 
@@ -901,14 +916,18 @@ namespace Game.Client.Settings
 
             var devices = sound.DeviceChoices;
             view.ShowMicrophoneDevice(
-                devices.TryFind(soundDraft.DeviceName, out var device)
-                    ? device.Label
-                    : devices.Default.Label,
+                locale.Get(
+                    devices.TryFind(soundDraft.DeviceName, out var device)
+                        ? device.Label
+                        : devices.Default.Label),
                 devices.CanStep);
 
             var modes = SoundCatalog.InputModes;
             view.ShowInputMode(
-                modes.TryFind(soundDraft.InputMode, out var mode) ? mode.Label : modes.Default.Label,
+                locale.Get(
+                    modes.TryFind(soundDraft.InputMode, out var mode)
+                        ? mode.Label
+                        : modes.Default.Label),
                 modes.CanStep);
 
             view.ShowMicrophoneTest(microphoneTest.IsRunning);
@@ -923,7 +942,7 @@ namespace Game.Client.Settings
             {
                 view.ShowNotification(
                     option,
-                    notifications.Catalog.Label(option, noticeDraft.Get(option)),
+                    notifications.Catalog.Label(option, noticeDraft.Get(option), locale.LanguageCode),
                     notifications.Catalog.For(option).CanStep);
             }
 
@@ -931,9 +950,10 @@ namespace Game.Client.Settings
             {
                 view.ShowReversal(
                     toggle,
-                    ControlCatalog.Reversals.TryFind(controlDraft.Get(toggle), out var reversal)
-                        ? reversal.Label
-                        : ControlCatalog.Reversals.Default.Label,
+                    locale.Get(
+                        ControlCatalog.Reversals.TryFind(controlDraft.Get(toggle), out var reversal)
+                            ? reversal.Label
+                            : ControlCatalog.Reversals.Default.Label),
                     ControlCatalog.Reversals.CanStep);
             }
 
@@ -959,7 +979,7 @@ namespace Game.Client.Settings
         {
             foreach (ControlAction action in Enum.GetValues(typeof(ControlAction)))
             {
-                view.ShowBinding(action, ControlCatalog.KeyLabel(controlDraft.Get(action)));
+                view.ShowBinding(action, ControlCatalog.KeyLabel(controlDraft.Get(action), locale.LanguageCode));
             }
 
             view.ShowRebinding(listening);

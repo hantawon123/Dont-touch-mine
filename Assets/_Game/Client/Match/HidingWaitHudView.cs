@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Character;
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -54,7 +55,8 @@ namespace Game.Client.Match
         public const float CountFontSize = 45f;
         public const float StatusFontSize = 28f;
         public const float NextTurnFontSize = 40f;
-        public const string NextTurnText = "다음 숨길 차례입니다";
+        public static string NextTurnText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.HideNextTurn, "ko");
         public const float NameFontSize = 24f;
         public const float TopPadding = 20f;
         public const float PersonIconSize = 40f;
@@ -109,6 +111,31 @@ namespace Game.Client.Match
         private bool previewing;
         private double remainingSeconds;
         private double turnDurationSeconds = 30d;
+        private UiLocale chromeLocale;
+        private string lastHidingPlayerName = string.Empty;
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureLayout();
+            if (statusText != null)
+            {
+                statusText.text = FormatStatus(lastHidingPlayerName, Language);
+            }
+
+            if (nextTurnText != null)
+            {
+                nextTurnText.text = Copy(UiText.Match.HideNextTurn);
+            }
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
+
+        private string Language =>
+            chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage;
 
         public static HidingWaitHudView Create(Transform parent)
         {
@@ -139,11 +166,19 @@ namespace Game.Client.Match
             return Mathf.Max(0, Mathf.CeilToInt((float)remainingSeconds)).ToString();
         }
 
-        public static string FormatStatus(string hidingPlayerName)
+        public static string FormatStatus(string hidingPlayerName) =>
+            FormatStatus(hidingPlayerName, "ko");
+
+        public static string FormatStatus(string hidingPlayerName, string language)
         {
-            return string.IsNullOrWhiteSpace(hidingPlayerName)
-                ? "물건을 숨기는 중"
-                : $"{hidingPlayerName.Trim()}님이 물건을 숨기는 중";
+            if (string.IsNullOrWhiteSpace(hidingPlayerName))
+            {
+                return UiTextCatalog.Shipped.Get(UiText.Match.HideStatus, language);
+            }
+
+            return string.Format(
+                UiTextCatalog.Shipped.Get(UiText.Match.HideStatusNamed, language),
+                hidingPlayerName.Trim());
         }
 
         private void Awake()
@@ -263,7 +298,7 @@ namespace Game.Client.Match
                 nextTurnText.fontSize = NextTurnFontSize;
                 nextTurnText.fontStyle = FontStyles.Normal;
                 nextTurnText.color = AccentColor;
-                nextTurnText.text = NextTurnText;
+                nextTurnText.text = Copy(UiText.Match.HideNextTurn);
             }
         }
 
@@ -278,9 +313,10 @@ namespace Game.Client.Match
                 countText.text = FormatCount(completedCount, totalCount);
             }
 
+            lastHidingPlayerName = hidingPlayerName ?? string.Empty;
             if (statusText != null)
             {
-                statusText.text = FormatStatus(hidingPlayerName);
+                statusText.text = FormatStatus(hidingPlayerName, Language);
             }
 
             if (nextTurnText != null)
@@ -789,7 +825,7 @@ namespace Game.Client.Match
                 return;
             }
 
-            nextTurnText = CreateText(topPrompt.transform, "NextTurn", NextTurnText, NextTurnFontSize);
+            nextTurnText = CreateText(topPrompt.transform, "NextTurn", Copy(UiText.Match.HideNextTurn), NextTurnFontSize);
             nextTurnText.color = AccentColor;
             Place(
                 nextTurnText.rectTransform,
@@ -839,7 +875,7 @@ namespace Game.Client.Match
                 new Vector2(920f, 40f),
                 new Vector2(0.5f, 1f));
 
-            nextTurnText = CreateText(topPrompt.transform, "NextTurn", NextTurnText, NextTurnFontSize);
+            nextTurnText = CreateText(topPrompt.transform, "NextTurn", Copy(UiText.Match.HideNextTurn), NextTurnFontSize);
             nextTurnText.color = AccentColor;
             Place(
                 nextTurnText.rectTransform,

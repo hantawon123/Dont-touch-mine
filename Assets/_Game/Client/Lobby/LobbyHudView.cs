@@ -1,8 +1,10 @@
 using Game.Client.Common;
 using Game.Client.Home;
 using Game.Client.Voice;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
+using VContainer;
 
 namespace Game.Client.Lobby
 {
@@ -36,10 +38,38 @@ namespace Game.Client.Lobby
         private RectTransform chatRoot;
         private TextMeshProUGUI countdown;
         private string lastCountdownText;
+        private double lastCountdownRemaining;
         private LobbyStartCountdownTickAudio countdownTickAudio;
+        private UiLocale chromeLocale;
+
+        [Inject]
+        public void BindLocale(UiLocale value) => ShowChrome(value);
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureMatchInfo()?.ShowChrome(locale);
+            EnsurePlayerCount()?.ShowChrome(locale);
+            EnsureShortcutGuide()?.ShowChrome(locale);
+            KeySettingGuideView.Ensure(transform)?.ShowChrome(locale);
+
+            // The counter only redraws when the second changes, so a language
+            // applied mid-countdown would otherwise wait for the next tick.
+            lastCountdownText = null;
+            if (lastCountdownRemaining > 0d)
+            {
+                SetStartCountdown(lastCountdownRemaining);
+            }
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
 
         public void SetStartCountdown(double remaining)
         {
+            lastCountdownRemaining = remaining;
             if (remaining > 0d)
             {
                 EnsureCountdownTickAudio();
@@ -61,7 +91,8 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            var text = $"{System.Math.Ceiling(remaining)}초 뒤 게임이 시작됩니다";
+            var text = string.Format(
+                Copy(UiText.Lobby.StartCountdown), System.Math.Ceiling(remaining));
             if (countdown == null)
             {
                 countdown = CreateCountdown();

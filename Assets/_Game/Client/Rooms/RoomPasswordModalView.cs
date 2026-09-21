@@ -2,6 +2,7 @@ using System;
 using Game.Client.Home;
 using Game.Client.Settings;
 using Game.Core.Rooms;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -39,6 +40,7 @@ namespace Game.Client.Rooms
         private const int PasswordMaxLength = 10;
 
         private bool isBusy;
+        private UiLocale chromeLocale;
 
         public event Action CloseRequested;
         public event Action<string> SubmitRequested;
@@ -112,26 +114,29 @@ namespace Game.Client.Rooms
         /// player cannot act on collapses into one neutral message, so a
         /// networking detail never reaches the screen.
         /// </summary>
-        private static string DescribeFailure(RoomEntryFailure failure)
+        public void ShowChrome(UiLocale locale) => chromeLocale = locale;
+
+        private string DescribeFailure(RoomEntryFailure failure)
         {
+            var language = chromeLocale != null ? chromeLocale.LanguageCode : "ko";
             switch (failure)
             {
                 case RoomEntryFailure.None:
                     return string.Empty;
                 case RoomEntryFailure.WrongPassword:
-                    return "비밀번호가 일치하지 않습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.WrongPassword, language);
                 case RoomEntryFailure.Full:
-                    return "방이 가득 찼습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.FullModal, language);
                 case RoomEntryFailure.Closed:
-                    return "입장할 수 없는 방입니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.ClosedModal, language);
                 case RoomEntryFailure.NotFound:
-                    return "방을 찾을 수 없습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.NotFoundModal, language);
                 case RoomEntryFailure.AlreadyInRoom:
-                    return "이미 다른 방에 있습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.AlreadyInModal, language);
                 case RoomEntryFailure.ConnectionFailed:
-                    return "연결에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.ConnectFailed, language);
                 default:
-                    return "입장하지 못했습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.JoinFailed, language);
             }
         }
 

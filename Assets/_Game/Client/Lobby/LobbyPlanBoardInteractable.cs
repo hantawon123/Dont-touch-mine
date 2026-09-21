@@ -26,8 +26,11 @@ namespace Game.Client.Lobby
     [RequireComponent(typeof(Collider))]
     public sealed class LobbyPlanBoardInteractable : MonoBehaviour, IInteractable
     {
-        public const string HostPrompt = "방 설정";
-        public const string GuestPrompt = "방 설정 보기";
+        public static string HostPrompt =>
+            Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Lobby.HostPrompt);
+
+        public static string GuestPrompt =>
+            Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Lobby.GuestPrompt);
 
         [SerializeField]
         private string prompt = HostPrompt;
@@ -54,9 +57,22 @@ namespace Game.Client.Lobby
                     return GuestPrompt;
                 }
 
-                return string.IsNullOrWhiteSpace(prompt) ? HostPrompt : prompt;
+                return IsDefaultPrompt(prompt) ? HostPrompt : prompt;
             }
         }
+
+        /// <summary>
+        /// 씬에 저장된 문구가 기본값 그대로면 적용된 언어를 따라가고, 인스펙터에서
+        /// 따로 적어 넣은 문구만 그대로 쓴다. 로비 씬에는 이 필드의 초기값이었던
+        /// 한국어 "방 설정"이 구워져 있다.
+        /// </summary>
+        private static bool IsDefaultPrompt(string value) =>
+            string.IsNullOrWhiteSpace(value) ||
+            string.Equals(
+                value.Trim(),
+                Game.Core.Settings.UiTextCatalog.Shipped.Get(
+                    Game.Core.Settings.UiText.Lobby.HostPrompt, "ko"),
+                StringComparison.Ordinal);
 
         public Color InteractionPromptColor => Color.black;
 

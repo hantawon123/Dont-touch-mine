@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Rooms;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -42,6 +43,8 @@ namespace Game.Client.Rooms
         /// carries that apart.
         /// </remarks>
         private RoomEntrySource lastEntrySource = RoomEntrySource.RoomList;
+        private UiLocale chromeLocale;
+        private IReadOnlyList<RoomSummary> lastRooms = Array.Empty<RoomSummary>();
 
         public event Action<string> SearchTextChanged;
         public event Action RefreshRequested;
@@ -76,12 +79,70 @@ namespace Game.Client.Rooms
             }
         }
 
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            PaintChrome();
+            if (lastRooms != null && lastRooms.Count > 0)
+            {
+                SetRooms(lastRooms);
+            }
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiTextCatalog.Shipped.Get(key, "ko");
+
+        private string Language =>
+            chromeLocale != null ? chromeLocale.LanguageCode : "ko";
+
+        private void PaintChrome()
+        {
+            if (backLabel != null)
+            {
+                backLabel.text = Copy(UiText.Rooms.Back);
+            }
+
+            if (codeTitle != null)
+            {
+                codeTitle.text = Copy(UiText.Rooms.EnterByCode);
+            }
+
+            if (enterButtonLabel != null)
+            {
+                enterButtonLabel.text = Copy(UiText.Rooms.Enter);
+            }
+
+            if (searchPlaceholder != null)
+            {
+                searchPlaceholder.text = Copy(UiText.Home.RoomTitlePlaceholder);
+            }
+
+            if (refreshLabel != null)
+            {
+                refreshLabel.text = Copy(UiText.Home.Refresh);
+            }
+
+            foreach (var modal in GetComponentsInChildren<RoomPasswordModalView>(true))
+            {
+                modal.ShowChrome(chromeLocale);
+            }
+
+            foreach (var modal in GetComponentsInChildren<RoomCodeModalView>(true))
+            {
+                modal.ShowChrome(chromeLocale);
+            }
+        }
+
         public void SetRooms(IReadOnlyList<RoomSummary> rooms)
         {
             if (rooms == null)
             {
                 throw new ArgumentNullException(nameof(rooms));
             }
+
+            lastRooms = rooms;
 
             if (isDestroyed)
             {
@@ -109,7 +170,7 @@ namespace Game.Client.Rooms
 
                 if (isVisible)
                 {
-                    item.Bind(rooms[index]);
+                    item.Bind(rooms[index], Language);
                 }
             }
         }
@@ -142,7 +203,7 @@ namespace Game.Client.Rooms
                 return;
             }
 
-            ShowToast(RoomEntryMessages.Describe(failure, lastEntrySource));
+            ShowToast(RoomEntryMessages.Describe(failure, lastEntrySource, Language));
         }
 
         /// <summary>

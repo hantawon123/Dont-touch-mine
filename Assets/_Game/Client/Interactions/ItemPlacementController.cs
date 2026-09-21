@@ -25,9 +25,12 @@ namespace Game.Client.Interactions
     [RequireComponent(typeof(PlayerInteractor))]
     public sealed class ItemPlacementController : MonoBehaviour
     {
-        public const string PlaceActionLabel = "배치";
-        public const string YawActionLabel = "회전";        // 우클릭 끌기
-        public const string TwistActionLabel = "좌우 회전"; // Q/E 비틀기
+        public static string PlaceActionLabel =>
+            Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Interact.Place);
+        public static string YawActionLabel =>
+            Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Guide.Rotate);
+        public static string TwistActionLabel =>
+            Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Guide.Twist);
         private const string TwistKeyLabel = "Q E";
 
         private const float MinDistance = 0.45f;            // 카메라에서 이보다 가깝게는 두지 않는다

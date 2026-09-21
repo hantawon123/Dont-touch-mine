@@ -184,6 +184,71 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ShowChrome_WritesTheModalInTheAppliedLanguageButKeepsNames()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true),
+                        new LobbyParticipant("guest-1", "손님닉", false)
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1");
+
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                using var locale = new UiLocale(new GeneralSettingsSystem(store));
+                view.ShowChrome(locale);
+
+                Assert.That(view.ParticipantsTitleText, Is.EqualTo("Players in Game"));
+                Assert.That(view.FriendsTitleText, Is.EqualTo("Friends"));
+                var guest = FindRow(canvas, "Row_guest-1");
+                Assert.That(
+                    guest.Find("Kick").GetComponent<TMP_Text>().text, Is.EqualTo("Kick"));
+                Assert.That(
+                    guest.Find("Name").GetComponent<TMP_Text>().text, Is.EqualTo("손님닉"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void ShowChrome_TranslatesTheEmptyRosterLineAndFriendSections()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(Array.Empty<LobbyParticipant>(), false, "me");
+                view.SetFriends(new[]
+                {
+                    new FriendSummary("f-1", "친구", FriendPresence.Online)
+                });
+
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                using var locale = new UiLocale(new GeneralSettingsSystem(store));
+                view.ShowChrome(locale);
+
+                var labels = canvas.GetComponentsInChildren<TMP_Text>(true);
+                Assert.That(labels, Has.Some.Matches<TMP_Text>(
+                    label => label.text == "No players yet."));
+                Assert.That(labels, Has.Some.Matches<TMP_Text>(
+                    label => label.text == "Online"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void SetParticipants_HostSeesKickOnOthersAndLeaderIconOnHost()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
