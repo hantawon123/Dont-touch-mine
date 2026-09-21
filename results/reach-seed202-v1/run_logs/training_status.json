@@ -1,0 +1,65 @@
+{
+    "Reach": {
+        "checkpoints": [
+            {
+                "steps": 39970,
+                "file_path": "results\\reach-seed202-v1\\Reach\\Reach-39970.onnx",
+                "reward": 0.8249999940395355,
+                "creation_time": 1789967571.3531916,
+                "auxillary_file_paths": [
+                    "results\\reach-seed202-v1\\Reach\\Reach-39970.pt"
+                ]
+            },
+            {
+                "steps": 59999,
+                "file_path": "results\\reach-seed202-v1\\Reach\\Reach-59999.onnx",
+                "reward": 0.8979569840174849,
+                "creation_time": 1789967736.9101675,
+                "auxillary_file_paths": [
+                    "results\\reach-seed202-v1\\Reach\\Reach-59999.pt"
+                ]
+            },
+            {
+                "steps": 79982,
+                "file_path": "results\\reach-seed202-v1\\Reach\\Reach-79982.onnx",
+                "reward": 0.9085714272090367,
+                "creation_time": 1789967920.7948763,
+                "auxillary_file_paths": [
+                    "results\\reach-seed202-v1\\Reach\\Reach-79982.pt"
+                ]
+            },
+            {
+                "steps": 99989,
+                "file_path": "results\\reach-seed202-v1\\Reach\\Reach-99989.onnx",
+                "reward": 0.925294112925436,
+                "creation_time": 1789968105.7006733,
+                "auxillary_file_paths": [
+                    "results\\reach-seed202-v1\\Reach\\Reach-99989.pt"
+                ]
+            },
+            {
+                "steps": 100009,
+                "file_path": "results\\reach-seed202-v1\\Reach\\Reach-100009.onnx",
+                "reward": 0.9249038409728271,
+                "creation_time": 1789968105.7748466,
+                "auxillary_file_paths": [
+                    "results\\reach-seed202-v1\\Reach\\Reach-100009.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 100009,
+            "file_path": "results\\reach-seed202-v1\\Reach.onnx",
+            "reward": 0.9249038409728271,
+            "creation_time": 1789968105.7748466,
+            "auxillary_file_paths": [
+                "results\\reach-seed202-v1\\Reach\\Reach-100009.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.2.2+cu121"
+    }
+}
