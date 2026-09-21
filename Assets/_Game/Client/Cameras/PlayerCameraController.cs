@@ -63,9 +63,59 @@ namespace Game.Client.Cameras
         private PlayerAnimationDriver followAnimationDriver;
 
         private ControlSettingsSystem controls;
+        private CameraViewPreference viewPreference;
+
+        /// <summary>
+        /// True while this rig is looking in first person. The remembered
+        /// choice lives on <see cref="CameraViewPreference"/> so a new rig in
+        /// the next scene opens with the same view.
+        /// </summary>
+        public bool IsFirstPerson => isFirstPerson;
 
         [Inject]
-        public void BindSettings(ControlSettingsSystem settings) => controls = settings;
+        public void BindSettings(
+            ControlSettingsSystem settings,
+            CameraViewPreference preference = null)
+        {
+            controls = settings;
+            if (preference != null)
+            {
+                BindViewPreference(preference);
+            }
+        }
+
+        [Inject]
+        public void BindViewPreference(CameraViewPreference preference)
+        {
+            if (preference == null)
+            {
+                return;
+            }
+
+            viewPreference = preference;
+            SetPreferredView(preference.FirstPerson);
+        }
+
+        /// <summary>
+        /// Adopts this view and writes it down so the next lobby or match rig
+        /// opens with the same answer.
+        /// </summary>
+        public void SetPreferredView(bool firstPerson)
+        {
+            if (viewPreference != null)
+            {
+                viewPreference.FirstPerson = firstPerson;
+            }
+
+            if (isFirstPerson == firstPerson)
+            {
+                return;
+            }
+
+            isFirstPerson = firstPerson;
+            CutViewBlend();
+            ApplyView();
+        }
 
         private InputActionMap playerMap;
         private InputAction lookAction;
@@ -209,9 +259,7 @@ namespace Game.Client.Cameras
 
             if (Game.Client.Common.WebPointerInput.IsLocked && !IsPointerOverUi() && toggleViewAction.WasPressedThisFrame())
             {
-                isFirstPerson = !isFirstPerson;
-                CutViewBlend();
-                ApplyView();
+                SetPreferredView(!isFirstPerson);
             }
 
             if (!cursorCaptureEnabled)
