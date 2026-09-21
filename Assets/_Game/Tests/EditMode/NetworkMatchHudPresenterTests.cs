@@ -1742,6 +1742,8 @@ namespace Game.Architecture.Tests
             }
 
             public void HideDestructionNotice() => NoticeVisible = false;
+            public void PlayDestructionNoticeAudio() => DestructionNoticeAudioPlays++;
+            public int DestructionNoticeAudioPlays { get; private set; }
             public void SetShredderMarker(Vector2 screenPosition, bool visible) { }
             public string HidingIntroItem { get; private set; }
             public bool HidingIntroVisible { get; private set; }

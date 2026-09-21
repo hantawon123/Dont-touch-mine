@@ -14,8 +14,8 @@ namespace Game.Bootstrap
     /// and EndingBgmController separately apply Music to their AudioSources when
     /// settings change, so the
     /// master gain is not multiplied twice. Footsteps, the warning chime, the hiding-timer tick,
-    /// the searching-timer tick, the lobby start-countdown tick, the match-end bell
-    /// and UI button clicks separately use Effects; the last-thirty-seconds bed uses Music, so muting
+    /// the searching-timer tick, the lobby start-countdown tick, the match-end bell,
+    /// the destruction notice and UI button clicks separately use Effects; the last-thirty-seconds bed uses Music, so muting
     /// music silences it without taking the chime with it.
     /// </remarks>
     public sealed class UnitySoundSettingsApplier : ISoundSettingsApplier
@@ -29,6 +29,7 @@ namespace Game.Bootstrap
             Game.Client.Match.HidingTimerTickAudio.EffectsVolume = effects;
             Game.Client.Match.SearchingTimerTickAudio.EffectsVolume = effects;
             Game.Client.Match.MatchEndBellAudio.EffectsVolume = effects;
+            Game.Client.Match.DestructionNoticeAudio.EffectsVolume = effects;
             Game.Client.Lobby.LobbyStartCountdownTickAudio.EffectsVolume = effects;
             Game.Client.Common.UiButtonClickAudio.EffectsVolume = effects;
             Game.Client.Match.MatchUrgencyAudio.MusicVolume = Mathf.Clamp01(

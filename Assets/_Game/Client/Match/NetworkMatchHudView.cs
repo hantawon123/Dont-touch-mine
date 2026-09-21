@@ -32,6 +32,7 @@ namespace Game.Client.Match
         void SetRemainingDestructionUses(int remainingUses, int maxUses);
         void ShowDestructionNotice(string message);
         void HideDestructionNotice();
+        void PlayDestructionNoticeAudio();
         void SetShredderMarker(Vector2 screenPosition, bool visible);
         void ShowHidingIntro(string itemDisplayName, string itemId);
         void HideHidingIntro();
@@ -130,6 +131,7 @@ namespace Game.Client.Match
         private HidingTimerTickAudio timerTickAudio;
         private SearchingTimerTickAudio searchingTimerTickAudio;
         private MatchEndBellAudio matchEndBellAudio;
+        private DestructionNoticeAudio destructionNoticeAudio;
 
         private LobbyPlayerListView participantListView;
 
@@ -177,6 +179,7 @@ namespace Game.Client.Match
             EnsureTimerTickAudio();
             EnsureSearchingTimerTickAudio();
             EnsureMatchEndBellAudio();
+            EnsureDestructionNoticeAudio();
             EnsureHidingWaitHud();
             HideHidingWaitHud();
             EnsureVitalsHud();
@@ -293,6 +296,12 @@ namespace Game.Client.Match
         public void ResetMatchEndBell()
         {
             matchEndBellAudio?.Reset();
+        }
+
+        public void PlayDestructionNoticeAudio()
+        {
+            EnsureDestructionNoticeAudio();
+            destructionNoticeAudio?.Play();
         }
 
         private void RestoreHud()
@@ -835,6 +844,19 @@ namespace Game.Client.Match
             if (matchEndBellAudio == null)
             {
                 matchEndBellAudio = MatchEndBellAudio.Create(transform);
+            }
+        }
+
+        private void EnsureDestructionNoticeAudio()
+        {
+            if (destructionNoticeAudio == null)
+            {
+                destructionNoticeAudio = GetComponentInChildren<DestructionNoticeAudio>(true);
+            }
+
+            if (destructionNoticeAudio == null)
+            {
+                destructionNoticeAudio = DestructionNoticeAudio.Create(transform);
             }
         }
 
