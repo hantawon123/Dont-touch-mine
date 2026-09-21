@@ -89,6 +89,7 @@ namespace Game.Client.Settings
         private GameObject feedbackRow;
         private RectTransform leaveGameButton;
         private bool lobbyOverlay;
+        private bool modalOnly;
 
         public event Action Opened;
         private void OnEnable() => Opened?.Invoke();
@@ -135,6 +136,15 @@ namespace Game.Client.Settings
             {
                 ApplyLobbyChrome();
             }
+        }
+
+        /// <summary>
+        /// Builds only the shared confirmation layer. Call while the host is
+        /// inactive and before the view's first activation.
+        /// </summary>
+        public void ConfigureAsModalOnly()
+        {
+            modalOnly = true;
         }
 
         public void ShowTab(SettingsTab tab)
@@ -212,6 +222,13 @@ namespace Game.Client.Settings
             ResolveArrowIcons();
 
             canvasRoot = CreateCanvas();
+            if (modalOnly)
+            {
+                canvasRoot.GetComponent<Canvas>().sortingOrder = SettingsStyle.GameplayOverlaySortingOrder;
+                CreateConfirm(canvasRoot);
+                return;
+            }
+
             CreateBackground(canvasRoot);
             CreateFrame(canvasRoot);
             CreateBackButton(canvasRoot);

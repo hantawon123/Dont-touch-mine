@@ -169,7 +169,7 @@ namespace Game.Bootstrap
             scaler.referenceResolution = SettingsStyle.ReferenceResolution;
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
-            canvas.sortingOrder = 10000;
+            canvas.sortingOrder = SettingsStyle.GameplayOverlaySortingOrder;
             var content = new GameObject("Match Settings Content", typeof(RectTransform))
                 .GetComponent<RectTransform>();
             content.SetParent(canvas.transform, false);

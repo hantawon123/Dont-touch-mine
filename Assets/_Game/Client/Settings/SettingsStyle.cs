@@ -19,6 +19,7 @@ namespace Game.Client.Settings
     /// </remarks>
     public static class SettingsStyle
     {
+        public const int GameplayOverlaySortingOrder = 10000;
         public static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
 
         /// <summary>
