@@ -174,6 +174,9 @@ namespace Game.Client
         private UiLocale chromeLocale;
         private static readonly Color FocusColor = new Color(1f, .79f, .28f);
 
+        [VContainer.Inject]
+        public void BindLocale(UiLocale value) => ShowChrome(value);
+
         public void ShowChrome(UiLocale locale)
         {
             chromeLocale = locale;

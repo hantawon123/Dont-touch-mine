@@ -49,10 +49,20 @@ namespace Game.Bootstrap
         private bool waitingForDrop;
         private bool waitingForThrow;
         private Vector3 previousThrownPosition;
+        private Game.Core.Settings.UiLocale locale;
 
         public Vector3 DropTargetPosition => recoveryPoints[1].position;
 
         public Pose PlacementTargetPose => placementTargetPose;
+
+        [VContainer.Inject]
+        public void BindLocale(Game.Core.Settings.UiLocale value)
+        {
+            UnsubscribeLocale();
+            locale = value;
+            SubscribeLocale();
+            PaintTargetLabels();
+        }
 
         private void Awake()
         {
@@ -90,8 +100,7 @@ namespace Game.Bootstrap
                 shredder.ItemProcessed += OnShredderProcessed;
             if (session != null)
                 session.StepChanged += RefreshPlacementGuide;
-            if (Game.Core.Settings.UiLocale.Current != null)
-                Game.Core.Settings.UiLocale.Current.Changed += PaintTargetLabels;
+            SubscribeLocale();
         }
 
         private void OnDisable()
@@ -102,8 +111,7 @@ namespace Game.Bootstrap
                 shredder.ItemProcessed -= OnShredderProcessed;
             if (session != null)
                 session.StepChanged -= RefreshPlacementGuide;
-            if (Game.Core.Settings.UiLocale.Current != null)
-                Game.Core.Settings.UiLocale.Current.Changed -= PaintTargetLabels;
+            UnsubscribeLocale();
         }
 
         private void Update()
@@ -293,6 +301,36 @@ namespace Game.Bootstrap
             body.WakeUp();
         }
 
+        private string Copy(string key) =>
+            locale != null
+                ? locale.Get(key)
+                : Game.Core.Settings.UiLocale.Applied(key);
+
+        private void SubscribeLocale()
+        {
+            var live = locale ?? Game.Core.Settings.UiLocale.Current;
+            if (live == null)
+            {
+                return;
+            }
+
+            live.Changed -= PaintTargetLabels;
+            live.Changed += PaintTargetLabels;
+        }
+
+        private void UnsubscribeLocale()
+        {
+            if (locale != null)
+            {
+                locale.Changed -= PaintTargetLabels;
+            }
+
+            if (Game.Core.Settings.UiLocale.Current != null)
+            {
+                Game.Core.Settings.UiLocale.Current.Changed -= PaintTargetLabels;
+            }
+        }
+
         /// <summary>
         /// The captions on the course are built once but the language can be
         /// applied at any time, so they are written from the catalogue rather
@@ -301,15 +339,12 @@ namespace Game.Bootstrap
         private void PaintTargetLabels()
         {
             SetTargetLabel(pickupGuide, string.Format(
-                Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Tutorial.TargetPickUp),
+                Copy(Game.Core.Settings.UiText.Tutorial.TargetPickUp),
                 Game.Client.KeySettingGuideView.CurrentKeyLabel(
                     Game.Core.Settings.ControlAction.Interact)));
-            SetTargetLabel(placementLabel, Game.Core.Settings.UiLocale.Applied(
-                Game.Core.Settings.UiText.Tutorial.TargetPlace));
-            SetTargetLabel(dropGuide, Game.Core.Settings.UiLocale.Applied(
-                Game.Core.Settings.UiText.Tutorial.TargetDrop));
-            SetTargetLabel(throwGuide, Game.Core.Settings.UiLocale.Applied(
-                Game.Core.Settings.UiText.Tutorial.TargetThrow));
+            SetTargetLabel(placementLabel, Copy(Game.Core.Settings.UiText.Tutorial.TargetPlace));
+            SetTargetLabel(dropGuide, Copy(Game.Core.Settings.UiText.Tutorial.TargetDrop));
+            SetTargetLabel(throwGuide, Copy(Game.Core.Settings.UiText.Tutorial.TargetThrow));
         }
 
         private static void SetTargetLabel(GameObject guide, string label)

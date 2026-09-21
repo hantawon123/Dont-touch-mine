@@ -25,7 +25,14 @@ namespace Game.Client.Tutorial
         public bool IsOpen { get; private set; }
 
         [VContainer.Inject]
-        public void BindLocale(UiLocale value) => locale = value;
+        public void BindLocale(UiLocale value)
+        {
+            locale = value;
+            if (modal != null && IsOpen)
+            {
+                modal.ShowChrome(value);
+            }
+        }
 
         private void Start()
         {

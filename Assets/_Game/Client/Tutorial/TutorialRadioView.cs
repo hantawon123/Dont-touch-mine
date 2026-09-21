@@ -26,23 +26,44 @@ namespace Game.Client.Tutorial
         private UiLocale locale;
 
         [VContainer.Inject]
-        public void BindLocale(UiLocale value) => locale = value;
+        public void BindLocale(UiLocale value)
+        {
+            if (value == null)
+            {
+                return;
+            }
+
+            var same = locale == value;
+            locale = value;
+            if (presenter != null)
+            {
+                if (same)
+                {
+                    HighlightStep(session.CurrentStep);
+                    return;
+                }
+
+                presenter.Dispose();
+                presenter = new TutorialRadioPresenter(this, session, Locale);
+                presenter.Start();
+                return;
+            }
+
+            if (checklist != null && session != null)
+            {
+                HighlightStep(session.CurrentStep);
+            }
+        }
 
         public string CurrentMessage => messageText != null ? messageText.text : string.Empty;
 
-        /// <summary>
-        /// The tutorial scene injects nothing, so the applied locale is taken
-        /// from the running game rather than left as Korean.
-        /// </summary>
         private UiLocale Locale => locale ?? UiLocale.Current;
 
         private string Copy(string key) =>
-            locale != null
-                ? locale.Get(key)
-                : UiLocale.Applied(key);
+            Locale != null ? Locale.Get(key) : UiLocale.Applied(key);
 
         private string Language =>
-            locale != null ? locale.LanguageCode : UiLocale.AppliedLanguage;
+            Locale != null ? Locale.LanguageCode : UiLocale.AppliedLanguage;
 
         private void Awake()
         {
