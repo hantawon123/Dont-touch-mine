@@ -755,6 +755,20 @@ namespace Game.Architecture.Tests
             Assert.That(cleanupCalls, Is.EqualTo(1));
         }
 
+        [TestCase(SessionFailure.RoomNotFound, true)]
+        [TestCase(SessionFailure.RoomFull, true)]
+        [TestCase(SessionFailure.CodeTaken, true)]
+        [TestCase(SessionFailure.Rejected, true)]
+        [TestCase(SessionFailure.ConnectionFailed, false)]
+        [TestCase(SessionFailure.Unknown, false)]
+        public void ExpectedRoomEntryRefusals_DoNotPausePlayModeAsErrors(
+            SessionFailure failure,
+            bool expected)
+        {
+            Assert.That(NetworkRunnerService.IsExpectedSessionEntryFailure(failure),
+                Is.EqualTo(expected));
+        }
+
         [Test]
         public void RoomInitialization_CancellationAlsoCleansUp()
         {
