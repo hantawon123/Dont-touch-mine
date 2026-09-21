@@ -214,6 +214,13 @@ namespace Game.Network.Match
         [Networked]
         public double StartCountdownEndsAt { get; set; }
 
+        /// <summary>
+        /// 찾기 페이즈 끝의 무제한 달리기 구간 길이. 규칙 자산은 호스트에만 주입되므로
+        /// 모든 피어가 같은 판정을 하도록 값 자체를 복제한다.
+        /// </summary>
+        [Networked]
+        public float FinalSprintWindowSeconds { get; set; }
+
         [Networked]
         public int ObjectStateCount { get; set; }
 
@@ -517,6 +524,18 @@ namespace Game.Network.Match
             ResultEndedAt = result.EndedAt;
             WinnerCount = result.WinnerPlayerIndices.Count;
             HasResult = true;
+            return true;
+        }
+
+        public bool TrySetFinalSprintWindow(float windowSeconds)
+        {
+            if (Object == null || !Object.HasStateAuthority ||
+                !float.IsFinite(windowSeconds) || windowSeconds < 0f)
+            {
+                return false;
+            }
+
+            FinalSprintWindowSeconds = windowSeconds;
             return true;
         }
 
