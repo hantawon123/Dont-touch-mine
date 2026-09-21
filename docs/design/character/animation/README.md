@@ -104,6 +104,18 @@
 | `Stun_Idle` | 기절 유지 |
 | `Stun_End` | 기절 회복·일어나기 |
 
+`Hit`은 첫 4프레임에 머리·목·척추가 뒤로 젖혀지고 골반이 뒤·아래로 밀리며(발은 IK로 고정, 무릎만
+굽음) 0.3초 유지 후 멍하게 앞으로 한 번 끄덕이며 회복합니다. 팔 휘두름은 이전 Mixamo 기반 클립을
+타임워프해 유지합니다. 원본 `source/blender/characters/SmoothBear/Combat/SmoothBear_Hit.blend`,
+재생성 `Tools/build_smooth_bear_hit.py`, 내보내기 `Tools/export_smooth_bear_hit_clip.py`.
+자세별 변형(Hit_Walk·Run·Crouch·Crouch_Walk·Prone·Crawl, Carry_TwoHands_Hit*)은 Unity의
+CarryTwoHandsHitClipBaker가 Hit 상체를 각 자세 베이스 위에 얹어 만듭니다.
+
+`Stun_Start`는 같은 blend의 `Hit` 위에 이어 만듭니다(`Tools/build_smooth_bear_stun_start.py`).
+첫 0.3초는 Hit 충격 그대로, 0.6초까지 바로 서려다 머리가 앞으로 떨어지고, 1.25초까지 뒤로 넘어져
+착지 반동 뒤 `Stun_Idle` 첫 프레임과 같은 자세를 2.2초까지 유지합니다. 넉아웃 타격은 Hit 대신
+이 클립만 재생하므로(`PlayerAnimationDriver.PlayHit`) 충격 연출을 여기 포함합니다.
+
 ### 물건 집기·내려놓기 — [S15P21D205-710](https://ssafy.atlassian.net/browse/S15P21D205-710)
 
 낮은 곳, 허리 높이, 높은 곳에서 집어 들고 같은 높이로 내려놓기.
