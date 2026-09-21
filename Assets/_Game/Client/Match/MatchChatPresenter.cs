@@ -13,7 +13,7 @@ namespace Game.Client.Match
         private readonly IMatchChatTransport transport;
         private readonly IChatView view;
         private readonly IMatchChatBubbleView bubbleView;
-        private readonly UiLocale locale;
+        private UiLocale locale;
         private IDisposable messagesSubscription;
         private Game.Core.Settings.InterfacePresentation presentation;
         [VContainer.Inject]
@@ -46,8 +46,12 @@ namespace Game.Client.Match
             this.locale = locale;
         }
 
+        [VContainer.Inject]
+        public void BindLocale(UiLocale value) => locale = value;
+
         public void Start()
         {
+            locale ??= UiLocale.Current;
             if (locale != null && view is MatchChatView chat)
             {
                 locale.Changed += OnLocaleChanged;

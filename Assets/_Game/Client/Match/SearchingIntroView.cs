@@ -60,12 +60,12 @@ namespace Game.Client.Match
         }
 
         private string Language =>
-            chromeLocale != null ? chromeLocale.LanguageCode : "ko";
+            chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage;
 
         private string Copy(string key) =>
             chromeLocale != null
                 ? chromeLocale.Get(key)
-                : UiTextCatalog.Shipped.Get(key, "ko");
+                : UiLocale.Applied(key);
         public bool IsPresented => shown && isActiveAndEnabled && Time.frameCount > shownAtFrame + 1;
 
         [SerializeField]

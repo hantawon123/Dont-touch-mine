@@ -21,17 +21,17 @@ namespace Game.Client
         public const float MarginRight = 48f;
         public const float ActionFontSize = 18f;
         public static string ClickKeyLabel =>
-            UiTextCatalog.Shipped.Get(UiText.Guide.Click, "ko");
+            UiLocale.Applied(UiText.Guide.Click);
         public static string RightClickKeyLabel =>
-            UiTextCatalog.Shipped.Get(UiText.Guide.RightClick, "ko");
+            UiLocale.Applied(UiText.Guide.RightClick);
         public static string ScrollKeyLabel =>
-            UiTextCatalog.Shipped.Get(UiText.Guide.Scroll, "ko");
+            UiLocale.Applied(UiText.Guide.Scroll);
         public const string RotateYawKeyLabel = "Q / E";
         public const string LeftClickIconResource = "UI/ic_left_click";
         public const string RightClickIconResource = "UI/ic_right_click";
         public const string ScrollIconResource = "UI/ic_mouse_scroll";
         public static string ToggleAction =>
-            UiTextCatalog.Shipped.Get(UiText.Guide.Toggle, "ko");
+            UiLocale.Applied(UiText.Guide.Toggle);
         public const string ToggleKeyLabel = "L";
         public const float RowStep = 48f;
         public const float CompactKeyChipFontSize = 12f;
@@ -48,12 +48,12 @@ namespace Game.Client
 
         public static string[] Actions => new[]
         {
-            UiTextCatalog.Shipped.Get(UiText.Guide.Attack, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Crouch, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Prone, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.ToggleView, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Sprint, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Jump, "ko"),
+            UiLocale.Applied(UiText.Guide.Attack),
+            UiLocale.Applied(UiText.Guide.Crouch),
+            UiLocale.Applied(UiText.Guide.Prone),
+            UiLocale.Applied(UiText.Guide.ToggleView),
+            UiLocale.Applied(UiText.Guide.Sprint),
+            UiLocale.Applied(UiText.Guide.Jump),
             ToggleAction
         };
 
@@ -70,14 +70,14 @@ namespace Game.Client
 
         public static string[] CarryingActions => new[]
         {
-            UiTextCatalog.Shipped.Get(UiText.Guide.Placement, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Throw, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Drop, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Crouch, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Prone, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.ToggleView, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Sprint, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Jump, "ko"),
+            UiLocale.Applied(UiText.Guide.Placement),
+            UiLocale.Applied(UiText.Guide.Throw),
+            UiLocale.Applied(UiText.Guide.Drop),
+            UiLocale.Applied(UiText.Guide.Crouch),
+            UiLocale.Applied(UiText.Guide.Prone),
+            UiLocale.Applied(UiText.Guide.ToggleView),
+            UiLocale.Applied(UiText.Guide.Sprint),
+            UiLocale.Applied(UiText.Guide.Jump),
             ToggleAction
         };
 
@@ -97,15 +97,15 @@ namespace Game.Client
         // 배치 모드: 좌클릭 배치, 우클릭 유지+마우스 회전, Q/E 좌우 회전, F 놓기(기존). 우클릭으로 모드를 끄는 키는 없다(손이 비면 꺼짐).
         public static string[] PlacingActions => new[]
         {
-            UiTextCatalog.Shipped.Get(UiText.Guide.Place, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Rotate, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Twist, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Drop, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Crouch, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Prone, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.ToggleView, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Sprint, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Guide.Jump, "ko"),
+            UiLocale.Applied(UiText.Guide.Place),
+            UiLocale.Applied(UiText.Guide.Rotate),
+            UiLocale.Applied(UiText.Guide.Twist),
+            UiLocale.Applied(UiText.Guide.Drop),
+            UiLocale.Applied(UiText.Guide.Crouch),
+            UiLocale.Applied(UiText.Guide.Prone),
+            UiLocale.Applied(UiText.Guide.ToggleView),
+            UiLocale.Applied(UiText.Guide.Sprint),
+            UiLocale.Applied(UiText.Guide.Jump),
             ToggleAction
         };
 
@@ -177,7 +177,7 @@ namespace Game.Client
         private string Copy(string key) =>
             chromeLocale != null
                 ? chromeLocale.Get(key)
-                : UiTextCatalog.Shipped.Get(key, "ko");
+                : UiLocale.Applied(key);
 
         private string[] PaintedActions()
         {

@@ -14,8 +14,22 @@ namespace Game.Core.Settings
     /// </remarks>
     public sealed class UiLocale : IDisposable
     {
+        private static UiLocale current;
         private readonly GeneralSettingsSystem general;
         private string languageCode;
+
+        /// <summary>The locale last built for the running game, or null in bare tests.</summary>
+        public static UiLocale Current => current;
+
+        /// <summary>Looks up <paramref name="key"/> in the applied language.</summary>
+        public static string Applied(string key) =>
+            current != null
+                ? current.Get(key)
+                : UiTextCatalog.Shipped.Get(key, "ko");
+
+        /// <summary>The applied language code, or Korean when none is live.</summary>
+        public static string AppliedLanguage =>
+            current != null ? current.LanguageCode : "ko";
 
         /// <param name="catalog">
         /// What the lookup offers. Null takes what the game ships with.
@@ -25,6 +39,7 @@ namespace Game.Core.Settings
             this.general = general ?? throw new ArgumentNullException(nameof(general));
             Catalog = catalog ?? UiTextCatalog.Shipped;
             languageCode = general.Current.LanguageCode;
+            current = this;
             general.Changed += OnApplied;
         }
 
@@ -43,6 +58,10 @@ namespace Game.Core.Settings
         public void Dispose()
         {
             general.Changed -= OnApplied;
+            if (current == this)
+            {
+                current = null;
+            }
         }
 
         private void OnApplied(GeneralSettings settled)

@@ -48,8 +48,7 @@ namespace Game.Bootstrap
         private int playerIndex;
 
         public string InteractionPrompt =>
-            Game.Core.Settings.UiTextCatalog.Shipped.Get(
-                Game.Core.Settings.UiText.Interact.Destroy, "ko");
+            Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Interact.Destroy);
 
 #if !UNITY_SERVER
         private void Awake()

@@ -132,10 +132,10 @@ namespace Game.Client.Match
         private string Copy(string key) =>
             chromeLocale != null
                 ? chromeLocale.Get(key)
-                : UiTextCatalog.Shipped.Get(key, "ko");
+                : UiLocale.Applied(key);
 
         private string Language =>
-            chromeLocale != null ? chromeLocale.LanguageCode : "ko";
+            chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage;
 
         public static HidingWaitHudView Create(Transform parent)
         {

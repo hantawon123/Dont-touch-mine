@@ -14,7 +14,7 @@ namespace Game.Client.Tutorial
         private bool isLoading;
 
         public string InteractionPrompt =>
-            UiTextCatalog.Shipped.Get(UiText.Tutorial.ExitDoor, "ko");
+            UiLocale.Applied(UiText.Tutorial.ExitDoor);
         public bool IsLoading => isLoading;
 
         private void Awake() => session = FindAnyObjectByType<TutorialSession>();

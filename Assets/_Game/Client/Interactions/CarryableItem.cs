@@ -69,8 +69,7 @@ namespace Game.Client.Interactions
         }
 
         public string InteractionPrompt =>
-            Game.Core.Settings.UiTextCatalog.Shipped.Get(
-                Game.Core.Settings.UiText.Interact.PickUp, "ko");
+            Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Interact.PickUp);
 
         private Rigidbody cachedBody;
         private Rigidbody body => cachedBody != null ? cachedBody : cachedBody = GetComponent<Rigidbody>();

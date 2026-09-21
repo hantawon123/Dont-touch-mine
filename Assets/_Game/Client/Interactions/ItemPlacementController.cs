@@ -26,11 +26,11 @@ namespace Game.Client.Interactions
     public sealed class ItemPlacementController : MonoBehaviour
     {
         public static string PlaceActionLabel =>
-            Game.Core.Settings.UiTextCatalog.Shipped.Get(Game.Core.Settings.UiText.Interact.Place, "ko");
+            Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Interact.Place);
         public static string YawActionLabel =>
-            Game.Core.Settings.UiTextCatalog.Shipped.Get(Game.Core.Settings.UiText.Guide.Rotate, "ko");
+            Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Guide.Rotate);
         public static string TwistActionLabel =>
-            Game.Core.Settings.UiTextCatalog.Shipped.Get(Game.Core.Settings.UiText.Guide.Twist, "ko");
+            Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Guide.Twist);
         private const string TwistKeyLabel = "Q E";
 
         private const float MinDistance = 0.45f;            // 카메라에서 이보다 가깝게는 두지 않는다

@@ -99,7 +99,7 @@ namespace Game.Client.Match
         private string Copy(string key) =>
             chromeLocale != null
                 ? chromeLocale.Get(key)
-                : UiTextCatalog.Shipped.Get(key, "ko");
+                : UiLocale.Applied(key);
 
         public event Action<string> SendRequested;
         public static bool BlocksPlayerInput { get; private set; }

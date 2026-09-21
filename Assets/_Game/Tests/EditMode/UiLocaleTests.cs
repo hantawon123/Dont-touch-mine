@@ -92,5 +92,22 @@ namespace Game.Architecture.Tests
             Assert.That(changes, Is.EqualTo(0), "Nothing is applied after construction.");
             Assert.That(locale.Get("greeting"), Is.EqualTo("Hello"));
         }
+
+        [Test]
+        public void Applied_ReadsTheLiveLocale_ThenFallsBackToKorean()
+        {
+            var store = new InMemoryGeneralSettingsStore();
+            store.Save(new GeneralSettings("en"));
+            var general = new GeneralSettingsSystem(store, TwoLanguages);
+            using (var locale = new UiLocale(general, TwoLines))
+            {
+                Assert.That(UiLocale.Current, Is.SameAs(locale));
+                Assert.That(UiLocale.Applied("greeting"), Is.EqualTo("Hello"));
+                Assert.That(UiLocale.AppliedLanguage, Is.EqualTo("en"));
+            }
+
+            Assert.That(UiLocale.Current, Is.Null);
+            Assert.That(UiLocale.Applied(UiText.Match.TimerHint), Is.EqualTo("서둘러 자신의 물건을 확보하세요 !"));
+        }
     }
 }

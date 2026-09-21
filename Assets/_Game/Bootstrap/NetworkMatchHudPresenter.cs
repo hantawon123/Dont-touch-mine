@@ -28,7 +28,7 @@ namespace Game.Bootstrap
         private readonly MatchRulesSO rules;
         private readonly INetworkMatchHudView view;
         private readonly NetworkHighlightPlaybackController playback;
-        private readonly UiLocale locale;
+        private UiLocale locale;
         private readonly List<PlayerItemDestroyedEvent> destructions = new();
         private string lastDestroyerName = string.Empty;
 
@@ -95,10 +95,14 @@ namespace Game.Bootstrap
             this.locale = locale;
         }
 
+        [VContainer.Inject]
+        public void BindLocale(UiLocale value) => locale = value;
+
         public void Start()
         {
             if (!CanUpdateView) { Dispose(); return; }
             if (presentation != null) presentation.Changed += OnPresentationChanged;
+            locale ??= UiLocale.Current;
             if (locale != null)
             {
                 locale.Changed += OnLocaleChanged;
@@ -167,7 +171,7 @@ namespace Game.Bootstrap
         private string Copy(string key) =>
             locale != null
                 ? locale.Get(key)
-                : UiTextCatalog.Shipped.Get(key, "ko");
+                : UiLocale.Applied(key);
 
         private string FormatDestroyed(string name) =>
             string.Format(Copy(UiText.Match.Destroyed), name);
@@ -919,7 +923,7 @@ namespace Game.Bootstrap
                 return presentation == null ? playerId : presentation.Name(playerId, playerId);
             }
 
-            return $"플레이어 {playerIndex + 1}";
+            return string.Format(Copy(UiText.Match.PlayerN), playerIndex + 1);
         }
 
         private void FindSceneReferences()

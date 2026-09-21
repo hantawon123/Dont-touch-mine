@@ -64,7 +64,7 @@ namespace Game.Bootstrap
         private string Copy(string key) =>
             locale != null
                 ? locale.Get(key)
-                : UiTextCatalog.Shipped.Get(key, "ko");
+                : UiLocale.Applied(key);
 
         internal static bool ShouldShowForLobbyReturn(
             MatchPhase currentPhase,

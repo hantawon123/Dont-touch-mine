@@ -136,6 +136,9 @@ namespace Game.Client.Match
         private LobbyPlayerListView participantListView;
 
         private UiLocale chromeLocale;
+
+        [VContainer.Inject]
+        public void BindLocale(UiLocale value) => ShowChrome(value);
         private MatchPhase currentPhase;
         private string currentHidingPlayerName = string.Empty;
         private double lastRemainingSeconds = 999d;
@@ -586,7 +589,7 @@ namespace Game.Client.Match
             label.text = FormatShredderMarkerLabel(
                 remainingDestructionUses,
                 destructionLimit,
-                chromeLocale != null ? chromeLocale.LanguageCode : "ko");
+                chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage);
         }
 
         public void SetShredderMarker(Vector2 screenPosition, bool visible)
