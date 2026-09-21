@@ -252,14 +252,35 @@ namespace Game.Bootstrap
                 carrying: false);
         }
 
+        /// <summary>
+        /// 이 동작에 쓸 애니메이터 상태. 이름은 실제 플레이의 <c>PlayerAnimationDriver</c> 와 같은 것을 쓴다.
+        ///
+        /// <para>
+        /// <b>들고 있으면 두 손 클립으로 간다.</b> 들기를 안 보면 팔이 내려간 <c>Idle</c> 이 나와서,
+        /// 물건을 들고 있는데 맨손으로 서 있는 것처럼 보인다(2026-09-21 저택 하이라이트에서 확인).
+        /// 던지기·내려놓기도 순간 동작이라 들기보다 먼저 본다.
+        /// </para>
+        ///
+        /// <para>
+        /// 주먹질은 들고 있어도 <c>Punch</c> 다. <c>Carry_TwoHands_Hit</c> 는 <b>맞은</b> 쪽 클립이고
+        /// 이 플래그는 때린 쪽에 붙기 때문이다(<c>MatchSessionCoordinator</c> 의 <c>lastHitAt</c>).
+        /// </para>
+        /// </summary>
         internal static string AnimationStateOf(HighlightPlayerAction action)
         {
+            var carrying = (action & HighlightPlayerAction.Carrying) != 0;
+            var prone = (action & HighlightPlayerAction.Prone) != 0;
+            var crouching = (action & HighlightPlayerAction.Crouching) != 0;
             if ((action & HighlightPlayerAction.Stunned) != 0) return "Stunned";
+            if ((action & HighlightPlayerAction.Throwing) != 0)
+                return prone ? "Throw_TwoHands_Prone" : crouching ? "Throw_TwoHands_Crouch" : "Throw_TwoHands";
+            if ((action & HighlightPlayerAction.Placing) != 0)
+                return prone ? "PutDown_TwoHands_Prone" : crouching ? "PutDown_TwoHands_Crouch" : "PutDown_TwoHands";
             if ((action & HighlightPlayerAction.Punching) != 0) return "Punch";
-            if ((action & HighlightPlayerAction.Airborne) != 0) return "Fall";
-            if ((action & HighlightPlayerAction.Prone) != 0) return "Crawl_Forward";
-            if ((action & HighlightPlayerAction.Crouching) != 0) return "Crouch_Idle";
-            return "Idle";
+            if ((action & HighlightPlayerAction.Airborne) != 0) return carrying ? "Carry_TwoHands_Jump" : "Fall";
+            if (prone) return carrying ? "Carry_TwoHands_Crawl_Forward" : "Crawl_Forward";
+            if (crouching) return carrying ? "Carry_TwoHands_Crouch_Idle" : "Crouch_Idle";
+            return carrying ? "Carry_TwoHands" : "Idle";
         }
     }
 }
