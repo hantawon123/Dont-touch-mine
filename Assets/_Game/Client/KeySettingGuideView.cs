@@ -30,6 +30,12 @@ namespace Game.Client
         public const string LeftClickIconResource = "UI/ic_left_click";
         public const string RightClickIconResource = "UI/ic_right_click";
         public const string ScrollIconResource = "UI/ic_mouse_scroll";
+
+        /// <summary>
+        /// 들고 있을 때 배치 모드를 켜는 줄에 쓰는 아이콘. 같은 우클릭이지만
+        /// 배치 모드로 들어간다는 뜻이 먼저 읽히도록 방향 아이콘을 쓴다.
+        /// </summary>
+        public const string PlacementModeIconResource = ScrollIconResource;
         public static string ToggleAction =>
             UiLocale.Applied(UiText.Guide.Toggle);
         public const string ToggleKeyLabel = "L";
@@ -474,8 +480,13 @@ namespace Game.Client
 
                 if (chip != null)
                 {
+                    var iconAction = interactionFocus && index == 0
+                        ? ControlAction.Interact
+                        : index < bindings.Length
+                            ? bindings[index]
+                            : ControlAction.ToggleKeyGuide;
                     ApplyKeyChipLook(chip.GetComponent<Image>());
-                    FitKeyChip(chip, keyLabel);
+                    FitKeyChip(chip, keyLabel, IconResourceFor(mode, iconAction));
                     if (keyLabel != null)
                     {
                         keyLabel.fontStyle = focused ? FontStyles.Bold : FontStyles.Normal;
@@ -753,9 +764,8 @@ namespace Game.Client
             chip.pixelsPerUnitMultiplier = 1f;
         }
 
-        private static void FitKeyChip(RectTransform chip, TMP_Text label)
+        private static void FitKeyChip(RectTransform chip, TMP_Text label, string iconResource)
         {
-            var iconResource = IconResourceFor(label != null ? label.text : null);
             var icon = chip.Find("Icon")?.GetComponent<Image>();
             if (iconResource != null)
             {
@@ -812,24 +822,35 @@ namespace Game.Client
                 new Vector2(1f, 0.5f));
         }
 
-        private static string IconResourceFor(string label)
+        /// <summary>
+        /// The icon a row's key chip draws, or null when the chip spells the
+        /// key out. Read from the bound key rather than the drawn label: the
+        /// label is written in whichever language is applied, so matching on
+        /// its text left the chip showing words once English was picked.
+        /// </summary>
+        public static string IconResourceFor(Mode guideMode, ControlAction action)
         {
-            if (label == ClickKeyLabel || label == "좌클릭")
+            var settings = sharedSettings != null ? sharedSettings.Current : ControlCatalog.Defaults;
+            var code = settings.Get(action);
+            if (guideMode == Mode.Carrying &&
+                action == ControlAction.PlacementMode &&
+                code == ControlCatalog.MouseRight)
             {
-                return LeftClickIconResource;
+                return PlacementModeIconResource;
             }
 
-            if (label == RightClickKeyLabel)
+            switch (code)
             {
-                return RightClickIconResource;
+                case ControlCatalog.MouseLeft:
+                    return LeftClickIconResource;
+                case ControlCatalog.MouseRight:
+                    return RightClickIconResource;
+                case ControlCatalog.ScrollUp:
+                case ControlCatalog.ScrollDown:
+                    return ScrollIconResource;
+                default:
+                    return null;
             }
-
-            if (label == ScrollKeyLabel || label == "스크롤 ↑" || label == "스크롤 ↓")
-            {
-                return ScrollIconResource;
-            }
-
-            return null;
         }
 
         private static float KeyChipFontSizeFor(string label)

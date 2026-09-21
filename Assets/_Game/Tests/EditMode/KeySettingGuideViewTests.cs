@@ -256,6 +256,72 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Carrying_DrawsThePlacementKeyAsAnIcon()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = KeySettingGuideView.Create(canvas.transform);
+                view.SetCarrying(true);
+                var chip = view.transform.Find("Row0/Key");
+                var icon = chip.Find("Icon").GetComponent<UnityEngine.UI.Image>();
+
+                Assert.That(icon.gameObject.activeSelf, Is.True);
+                Assert.That(chip.Find("Label").gameObject.activeSelf, Is.False);
+                Assert.That(
+                    icon.sprite,
+                    Is.EqualTo(Resources.Load<Sprite>(
+                        KeySettingGuideView.PlacementModeIconResource)));
+                Assert.That(icon.sprite, Is.Not.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void IconResourceFor_ReadsTheBoundKeyRatherThanTheLabel()
+        {
+            Assert.That(
+                KeySettingGuideView.IconResourceFor(
+                    KeySettingGuideView.Mode.Carrying, ControlAction.PlacementMode),
+                Is.EqualTo(KeySettingGuideView.PlacementModeIconResource));
+            Assert.That(
+                KeySettingGuideView.IconResourceFor(
+                    KeySettingGuideView.Mode.Placing, ControlAction.PlacementMode),
+                Is.EqualTo(KeySettingGuideView.RightClickIconResource));
+            Assert.That(
+                KeySettingGuideView.IconResourceFor(
+                    KeySettingGuideView.Mode.Placing, ControlAction.PrimaryAction),
+                Is.EqualTo(KeySettingGuideView.LeftClickIconResource));
+            Assert.That(
+                KeySettingGuideView.IconResourceFor(
+                    KeySettingGuideView.Mode.Carrying, ControlAction.Interact),
+                Is.Null);
+        }
+
+        [Test]
+        public void IconResourceFor_SpellsOutAPlacementKeyReboundToTheKeyboard()
+        {
+            var system = new ControlSettingsSystem(new InMemoryControlSettingsStore());
+            try
+            {
+                KeySettingGuideView.UseSettings(system);
+                system.Apply(system.Current.With(ControlAction.PlacementMode, "r"));
+
+                Assert.That(
+                    KeySettingGuideView.IconResourceFor(
+                        KeySettingGuideView.Mode.Carrying, ControlAction.PlacementMode),
+                    Is.Null);
+            }
+            finally
+            {
+                KeySettingGuideView.UseSettings(null);
+            }
+        }
+
+        [Test]
         public void LabelsFor_UsesAppliedControlBindings()
         {
             var settings = ControlCatalog.Defaults.With(ControlAction.Crouch, "x");
