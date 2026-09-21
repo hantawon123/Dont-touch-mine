@@ -16,11 +16,11 @@ namespace Game.Architecture.Tests
     /// Chat filtering on the dedicated server (S15P21D205-1028).
     /// </summary>
     /// <remarks>
-    /// The cases here are deliberately the same ones the backend's ChatBlocklistTest fixes
-    /// (S15P21D205-1027). The two judge every message independently — the server to decide what
-    /// to broadcast, the backend to decide what to flag when it stores the original — so if they
-    /// drift, an investigator reads a message marked as masked that the players saw in the clear.
-    /// When one side's rules change, both test files change together.
+    /// <b>This is the only place the rules are stated now</b> (S15P21D205-1096). The backend
+    /// used to judge every message a second time when it stored the original, which meant two
+    /// implementations of the same twelve readings and a test on each side holding them level.
+    /// It stores the flag this server sends instead, so what an investigator reads as masked is
+    /// what the players actually saw — and these cases are the whole specification.
     /// </remarks>
     public sealed class ChatModerationTests
     {
@@ -36,9 +36,9 @@ namespace Game.Architecture.Tests
         /// </summary>
         /// <remarks>
         /// This is the test that matters for the automaton. Speed is not the risk — a rule that
-        /// drifts is. The backend judges the same message again when it stores it, so a
-        /// disagreement shows up as a line recorded as masked that the players read in the
-        /// clear, or the other way round.
+        /// drifts is. <see cref="ChatBlocklist.HitsByScan"/> is the rule written the obvious
+        /// way, one word at a time, and the automaton is the fast restatement of it; nothing
+        /// else states it, so nothing else would notice the two parting ways.
         /// </remarks>
         private static void AssertSameJudgement(ChatBlocklist list, string message)
         {
@@ -326,6 +326,30 @@ namespace Game.Architecture.Tests
             Assert.That(list.Mask("시발"), Is.EqualTo("시발"));
         }
 
+        /// <summary>
+        /// The flag the backend stores is read off the covering, not judged separately.
+        /// </summary>
+        /// <remarks>
+        /// MatchStarter.Moderate compares what Mask handed back against what it was given
+        /// (S15P21D205-1095). That works because Mask returns the very string it was given when
+        /// nothing was covered, so this pins the two together: were Mask ever to rebuild a clean
+        /// message, every line would record as masked and the flag would mean nothing.
+        /// </remarks>
+        [Test]
+        public void TheMaskedFlag_FollowsWhetherTheTextChanged()
+        {
+            var list = Loaded();
+            foreach (var said in new[]
+                     {
+                         "어디 숨었어", "야 이 시발아", "시1 발", "시발점이 어디야",
+                         "shiitake 좋아", "fuck", "Analyst"
+                     })
+            {
+                Assert.That(!string.Equals(list.Mask(said), said, StringComparison.Ordinal),
+                    Is.EqualTo(list.IsForbidden(said)), said);
+            }
+        }
+
         [UnityTest]
         public IEnumerator Service_LoadsTheList_ThenPostsRecordsInOneBatch()
         {
@@ -347,7 +371,7 @@ namespace Game.Architecture.Tests
             for (var index = 0; index < 3; index++)
             {
                 service.Record(new ChatLogRecord("7K2M9P", ChatScope.Match, null, "p1",
-                    "야 시발", DateTimeOffset.UtcNow));
+                    "야 시발", true, DateTimeOffset.UtcNow));
             }
 
             var deadline = DateTime.UtcNow.AddSeconds(15);
@@ -358,6 +382,8 @@ namespace Game.Architecture.Tests
             Assert.That(sent.Url, Does.EndWith("/internal/chat"));
             Assert.That(sent.JsonBody, Does.Contain("\"message\":\"야 시발\""), "원문이 나가야 합니다.");
             Assert.That(sent.JsonBody, Does.Contain("\"scope\":\"MATCH\""));
+            // 백엔드는 이 값을 그대로 저장합니다. 빠지면 저쪽에서 400 입니다.
+            Assert.That(sent.JsonBody, Does.Contain("\"masked\":true"), "가렸는지가 함께 나가야 합니다.");
         }
 
         [UnityTest]
@@ -370,7 +396,7 @@ namespace Game.Architecture.Tests
 
             LogAssert.Expect(LogType.Warning, "[Chat] No internal key was given; chat runs unfiltered and unrecorded.");
             service.LoadAsync(CancellationToken.None).GetAwaiter().GetResult();
-            service.Record(new ChatLogRecord("7K2M9P", ChatScope.Lobby, null, "p1", "안녕", DateTimeOffset.UtcNow));
+            service.Record(new ChatLogRecord("7K2M9P", ChatScope.Lobby, null, "p1", "안녕", false, DateTimeOffset.UtcNow));
 
             yield return null;
 
@@ -394,7 +420,7 @@ namespace Game.Architecture.Tests
                 service.LoadAsync(CancellationToken.None).GetAwaiter().GetResult();
 
                 service.Record(new ChatLogRecord("7K2M9P", ChatScope.Match, null, "p1", "안녕",
-                    new DateTimeOffset(2026, 9, 17, 1, 2, 3, TimeSpan.Zero)));
+                    false, new DateTimeOffset(2026, 9, 17, 1, 2, 3, TimeSpan.Zero)));
 
                 var deadline = DateTime.UtcNow.AddSeconds(15);
                 while (transport.Calls.Count < 2 && DateTime.UtcNow < deadline) yield return null;
