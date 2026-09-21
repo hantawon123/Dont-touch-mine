@@ -32,7 +32,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Sprint_DrainsToZeroAndUnlocksAfterAnyRecovery()
+        public void Sprint_DrainsToZeroAndLocksSprintUntilFullRecovery()
         {
             var depleted = PlayerStaminaRules.Step(10f, false, true, 1f, Settings);
 
@@ -44,11 +44,19 @@ namespace Game.Tests.EditMode
                 depleted.Value,
                 depleted.IsExhausted,
                 true,
+                9.9f,
+                Settings);
+            Assert.That(partial.Value, Is.EqualTo(99f));
+            Assert.That(partial.CanSprint, Is.False);
+
+            var recovered = PlayerStaminaRules.Step(
+                partial.Value,
+                partial.IsExhausted,
+                true,
                 0.1f,
                 Settings);
-            Assert.That(partial.Value, Is.EqualTo(1f));
-            Assert.That(partial.IsExhausted, Is.False);
-            Assert.That(partial.CanSprint, Is.True);
+            Assert.That(recovered.Value, Is.EqualTo(100f));
+            Assert.That(recovered.CanSprint, Is.True);
         }
 
         [Test]

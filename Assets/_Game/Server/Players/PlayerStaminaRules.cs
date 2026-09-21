@@ -53,7 +53,7 @@ namespace Game.Server.Players
                     current + settings.StaminaRecoveryPerSecond * deltaTime);
                 return new PlayerStaminaState(
                     current,
-                    current <= 0f);
+                    current < settings.MaxStamina);
             }
 
             if (isSprinting)
