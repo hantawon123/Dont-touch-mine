@@ -224,7 +224,10 @@ namespace Game.Client.Settings
         /// </summary>
         void SetFeedbackSubmitEnabled(bool enabled);
 
-        /// <summary>A passing message over the screen, for something that could not be done.</summary>
-        void ShowNotice(string title, string message);
+        /// <summary>
+        /// A passing message over the screen. Failures keep the warm plate;
+        /// a success is the same plate in green, with a check beside the title.
+        /// </summary>
+        void ShowNotice(string title, string message, bool success = false);
     }
 }

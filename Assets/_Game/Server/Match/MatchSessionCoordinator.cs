@@ -237,6 +237,12 @@ namespace Game.Server.Match
         public IReadOnlyList<PlayerItemAssignment> Assignments { get; }
         public MatchPlayerRoster Players { get; }
         public MatchPhase CurrentPhase => state.CurrentPhase.CurrentValue;
+
+        /// <summary>
+        /// 찾기 페이즈 끝의 무제한 달리기 구간 길이. 최종 경고 배너와 같은 구간을 쓰므로
+        /// 규칙은 <see cref="MatchRulesSO.FinalWarningSeconds"/> 한 곳에만 산다.
+        /// </summary>
+        public float FinalSprintWindowSeconds => rules.FinalWarningSeconds;
         public bool AllItemsPlaced => placements.AllPlaced;
         public int DestroyedPlayerItemCount => outcome.DestroyedItemCount;
         public bool AllPlayerItemsDestroyed => outcome.AllPlayerItemsDestroyed;

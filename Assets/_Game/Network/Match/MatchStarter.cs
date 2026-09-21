@@ -81,6 +81,16 @@ namespace Game.Network.Match
         public MatchPhase CurrentPhase =>
             _session?.CurrentPhase ??
             (HasValidState ? _state.Phase : _lastPublishedPhase);
+
+        /// <summary>When the current phase ends, on the shared simulation clock.</summary>
+        public double PhaseEndsAt => HasValidState ? _state.PhaseEndsAt : 0d;
+
+        /// <summary>
+        /// 찾기 페이즈 끝의 무제한 달리기 구간 길이. 호스트가 규칙 자산에서 복제해 둔 값이라
+        /// 클라이언트에서도 같은 답이 나온다.
+        /// </summary>
+        public float FinalSprintWindowSeconds =>
+            HasValidState ? _state.FinalSprintWindowSeconds : 0f;
         internal IReadOnlyList<MatchParticipant> PlayingParticipants => _playing;
 
         private bool HasValidState =>
@@ -623,6 +633,7 @@ namespace Game.Network.Match
             _session.FinalWarningStarted += OnFinalWarningStarted;
             _session.MatchEnded += OnMatchEnded;
             _shredderEjectionPoses = shredderEjectionPoses;
+            _state?.TrySetFinalSprintWindow(_session.FinalSprintWindowSeconds);
 
             if (_session.CurrentPhase != MatchPhase.Waiting)
             {

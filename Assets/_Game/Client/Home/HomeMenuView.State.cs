@@ -17,6 +17,9 @@ namespace Game.Client.Home
         private Sprite backgroundSprite;
 
         [SerializeField]
+        private Sprite logoSprite;
+
+        [SerializeField]
         private Sprite friendIcon;
 
         [SerializeField]
@@ -55,9 +58,6 @@ namespace Game.Client.Home
         [Header("Fonts")]
         [SerializeField]
         private TMP_FontAsset fontAsset;
-
-        [SerializeField]
-        private TMP_FontAsset titleFont;
 
         /// <summary>
         /// The menu is drawn in SemiBold where the rest of the screen is not,

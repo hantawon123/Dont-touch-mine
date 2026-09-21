@@ -333,6 +333,13 @@ namespace Game.Client.Settings
             input.fontAsset = text.font;
             input.pointSize = SettingsStyle.Feedback.FieldFontSize;
 
+            // TMP underlines the IME syllable with <u> tags. This field's text
+            // is drawn with richText off, so those tags would sit next to the
+            // Hangul as literal markup.
+            input.richText = false;
+            text.richText = false;
+            feedbackPlaceholder.richText = false;
+
             // Enter puts in a new line rather than sending: this is a place to
             // write more than a sentence, and 보내기 is how it goes.
             input.lineType = TMP_InputField.LineType.MultiLineNewline;

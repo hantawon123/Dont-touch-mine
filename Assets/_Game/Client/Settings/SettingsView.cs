@@ -265,9 +265,9 @@ namespace Game.Client.Settings
             Paint(applyLabel, enabled, SettingsStyle.Palette.ApplyOnLabel, SettingsStyle.Palette.ButtonOffLabel);
         }
 
-        public void ShowNotice(string title, string message)
+        public void ShowNotice(string title, string message, bool success = false)
         {
-            toast?.Show(title, message);
+            toast?.Show(title, message, success);
         }
 
         private void Awake()

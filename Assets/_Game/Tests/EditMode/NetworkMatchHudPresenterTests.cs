@@ -1852,8 +1852,10 @@ namespace Game.Architecture.Tests
             public int VitalsHits { get; private set; }
             public int VitalsMaxHits { get; private set; }
             public bool VitalsExhausted { get; private set; }
+            public bool VitalsFinalSprint { get; private set; }
 
-            public void ShowVitals(float stamina, float maxStamina, int hits, int maxHits, bool exhausted)
+            public void ShowVitals(float stamina, float maxStamina, int hits, int maxHits, bool exhausted,
+                bool finalSprint = false)
             {
                 VitalsVisible = true;
                 VitalsStamina = stamina;
@@ -1861,6 +1863,7 @@ namespace Game.Architecture.Tests
                 VitalsHits = hits;
                 VitalsMaxHits = maxHits;
                 VitalsExhausted = exhausted;
+                VitalsFinalSprint = finalSprint;
             }
 
             public void HideVitals() => VitalsVisible = false;
