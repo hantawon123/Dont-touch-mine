@@ -168,7 +168,23 @@ namespace Game.Editor
             new Mount(3.2f, -26.3f, -0.2f, -25.1f, "2층 파쇄기 동쪽"),
             new Mount(-3.6f, -26.3f, -0.2f, -25.1f, "2층 파쇄기 서쪽"),
             // <auto-mounts-2f>
-            // 아직 자동 배치를 돌리지 않았다. 2F/2. Auto Place 가 이 자리를 채운다.
+            // 2. Auto Place 2026-09-21 17:25 결과 16개 (고정 2개 뒤). 남쪽에서 북쪽 순. 이름은 방 + 바라보는 방향.
+            new Mount(-11.88f, -30.38f, -9.28f, -31.88f, "2층 남서쪽 남동향"),
+            new Mount(-10.38f, -30.38f, -12.97f, -28.88f, "2층 남서쪽 북서향"),
+            new Mount(7.13f, -30.38f, 3.23f, -32.63f, "2층 남동쪽 남서향"),
+            new Mount(1.13f, -29.88f, 3.72f, -28.38f, "2층 남쪽 북동향"),
+            new Mount(-10.38f, -28.88f, -10.38f, -25.88f, "2층 남서쪽 북향"),
+            new Mount(-6.88f, -28.88f, -4.28f, -27.38f, "2층 남서쪽 북동향"),
+            new Mount(12.13f, -28.88f, 10.00f, -26.75f, "2층 남동쪽 북서향"),
+            new Mount(11.63f, -24.38f, 9.50f, -26.50f, "2층 동쪽 남서향"),
+            new Mount(1.63f, -23.88f, 3.75f, -21.75f, "2층 중앙 북동향"),
+            new Mount(4.63f, -23.88f, 3.13f, -21.28f, "2층 동쪽 북서향"),
+            new Mount(-11.38f, -21.38f, -9.25f, -19.25f, "2층 서쪽 북동향"),
+            new Mount(-10.38f, -17.88f, -9.21f, -22.22f, "2층 서쪽 남향"),
+            new Mount(-8.88f, -16.38f, -8.88f, -13.38f, "2층 북서쪽 북향"),
+            new Mount(5.63f, -16.38f, 7.75f, -14.25f, "2층 북동쪽 북동향"),
+            new Mount(12.13f, -16.38f, 10.00f, -14.25f, "2층 북동쪽 북서향"),
+            new Mount(-7.88f, -12.38f, -10.00f, -14.50f, "2층 북서쪽 남서향"),
             // </auto-mounts-2f>
         };
 
@@ -1375,15 +1391,22 @@ namespace Game.Editor
             if (excluded.Count == 0) sb.AppendLine("없음.");
             else
             {
-                sb.AppendLine("| # | 칸 | x 범위 | z 범위 |");
-                sb.AppendLine("| --- | --- | --- | --- |");
+                // 바닥 높이를 함께 적는다. 이 층 바닥과 같으면 벽·닫힌 문에 막힌 것이고, 다르면
+                // 단차라 걸어 넘는 높이(StepHeight)를 넘은 것이다. 둘은 고치는 방법이 다르다.
+                sb.AppendLine($"| # | 칸 | x 범위 | z 범위 | 바닥 y | 옆 칸과의 단차 | 둘러싼 것 (많은 것부터 3개) |");
+                sb.AppendLine("| --- | --- | --- | --- | --- | --- | --- |");
                 var n = 0;
                 foreach (var cluster in excluded.Take(15))
                 {
                     n++;
                     var xs = cluster.Select(i => grid.WorldX(i % grid.Width)).ToArray();
                     var zs = cluster.Select(i => grid.WorldZ(i / grid.Width)).ToArray();
-                    sb.AppendLine($"| {n} | {cluster.Count} | {xs.Min():F1} ~ {xs.Max():F1} | {zs.Min():F1} ~ {zs.Max():F1} |");
+                    var ys = cluster.Select(i => grid.FloorHeight[i]).Where(y => !float.IsNaN(y)).ToArray();
+                    var step = StepToReachable(grid, cluster);
+                    sb.AppendLine($"| {n} | {cluster.Count} | {xs.Min():F1} ~ {xs.Max():F1} | {zs.Min():F1} ~ {zs.Max():F1} | " +
+                                  $"{(ys.Length == 0 ? "?" : $"{ys.Min():F2} ~ {ys.Max():F2}")} | " +
+                                  $"{(float.IsNaN(step) ? "닿는 칸과 안 붙음" : $"{step:F2} m")} | " +
+                                  $"{Surrounding(grid, occluders, cluster)} |");
                 }
             }
             sb.AppendLine();
@@ -1402,6 +1425,62 @@ namespace Game.Editor
             foreach (var t in Landmarks())
                 sb.AppendLine($"- {t.name}: ({t.position.x.ToString("0.0", inv)}, {t.position.y.ToString("0.0", inv)}, {t.position.z.ToString("0.0", inv)})");
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// 이 묶음이 닿는 칸과 맞닿아 있으면 그 경계의 가장 작은 높이 차. 맞닿은 데가 없으면 NaN.
+        /// 값이 작은데 못 닿았다면 벽이나 닫힌 문이고, <see cref="StepHeight"/> 보다 크면 단차다.
+        /// </summary>
+        private static float StepToReachable(Grid grid, List<int> cluster)
+        {
+            var best = float.NaN;
+            foreach (var i in cluster)
+            {
+                if (float.IsNaN(grid.FloorHeight[i])) continue;
+                var cx = i % grid.Width; var cz = i / grid.Width;
+                foreach (var (dx, dz) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                {
+                    var nx = cx + dx; var nz = cz + dz;
+                    if (nx < 0 || nz < 0 || nx >= grid.Width || nz >= grid.Height) continue;
+                    var j = grid.Index(nx, nz);
+                    if (!grid.Reachable[j] || float.IsNaN(grid.FloorHeight[j])) continue;
+                    var step = Mathf.Abs(grid.FloorHeight[j] - grid.FloorHeight[i]);
+                    if (float.IsNaN(best) || step < best) best = step;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// 이 묶음을 둘러싼 벽·가구의 이름. 문이 나오면 그 문을 열면 닿는 방이고, 벽만 나오면
+        /// 애초에 통로가 없는 곳이다. 둘은 고치는 방법이 다르므로 이름을 보여 준다.
+        /// </summary>
+        private static string Surrounding(Grid grid, List<Occluder> occluders, List<int> cluster)
+        {
+            var counts = new Dictionary<string, int>();
+            var inCluster = new HashSet<int>(cluster);
+            foreach (var i in cluster)
+            {
+                var cx = i % grid.Width; var cz = i / grid.Width;
+                var y = float.IsNaN(grid.FloorHeight[i]) ? FloorY : grid.FloorHeight[i];
+                foreach (var (dx, dz) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                {
+                    var nx = cx + dx; var nz = cz + dz;
+                    if (nx < 0 || nz < 0 || nx >= grid.Width || nz >= grid.Height) continue;
+                    var j = grid.Index(nx, nz);
+                    if (inCluster.Contains(j) || grid.Kind[j] == CellKind.Floor) continue;
+                    var point = new Vector3(grid.WorldX(nx), y + 1f, grid.WorldZ(nz));
+                    foreach (var o in occluders)
+                    {
+                        if (!o.Bounds.Contains(point) || o.Bounds.size.x * o.Bounds.size.z > 30f) continue;
+                        var name = o.Name;
+                        counts[name] = counts.TryGetValue(name, out var c) ? c + 1 : 1;
+                    }
+                }
+            }
+            if (counts.Count == 0) return "이름을 못 찾음";
+            return string.Join(", ", counts.OrderByDescending(pair => pair.Value).Take(3)
+                .Select(pair => $"{pair.Key} x{pair.Value}"));
         }
 
         private static List<List<int>> Clusters(Grid grid, Func<int, bool> member)
