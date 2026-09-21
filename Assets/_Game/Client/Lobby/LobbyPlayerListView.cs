@@ -4,6 +4,7 @@ using Game.Client.Character;
 using Game.Client.Home;
 using Game.Core.Home;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,11 +17,20 @@ namespace Game.Client.Lobby
     /// </summary>
     public sealed class LobbyPlayerListView : MonoBehaviour, ILobbyPlayerListView
     {
-        public const string ParticipantsTitle = "게임 참가자 목록";
-        public const string FriendsTitle = "친구 목록";
-        public const string OnlineSectionTitle = "게임 접속 중";
-        public const string WaitingSectionTitle = "대기중";
-        public const string InGameSectionTitle = "게임중";
+        public static string ParticipantsTitle =>
+            UiTextCatalog.Shipped.Get(UiText.Lobby.Participants, "ko");
+
+        public static string FriendsTitle =>
+            UiTextCatalog.Shipped.Get(UiText.Lobby.Friends, "ko");
+
+        public static string OnlineSectionTitle =>
+            UiTextCatalog.Shipped.Get(UiText.Lobby.Online, "ko");
+
+        public static string WaitingSectionTitle =>
+            UiTextCatalog.Shipped.Get(UiText.Lobby.Waiting, "ko");
+
+        public static string InGameSectionTitle =>
+            UiTextCatalog.Shipped.Get(UiText.Lobby.InGame, "ko");
         public const string OnlineItemsName = "OnlineItems";
         public const string WaitingItemsName = "WaitingItems";
         public const string InGameItemsName = "InGameItems";
@@ -62,9 +72,11 @@ namespace Game.Client.Lobby
         public const int ReportTooltipRadius = 13;
         public const float ReportTooltipGap = 8f * ModalScale;
         public const float ReportTooltipOverlap = 8f * ModalScale;
-        public const string ReportLabel = "신고하기";
+        public static string ReportLabel =>
+            UiTextCatalog.Shipped.Get(UiText.Lobby.Report, "ko");
         public const string ReportBridgeName = "Bridge";
-        public const string ReportConfirmLabel = "확인";
+        public static string ReportConfirmLabel =>
+            UiTextCatalog.Shipped.Get(UiText.Lobby.Confirm, "ko");
         public const float InviteCooldownSeconds = 10f;
 
         public static readonly Color KickColor = new Color(177f / 255f, 177f / 255f, 177f / 255f, 1f);
@@ -236,7 +248,7 @@ namespace Game.Client.Lobby
 
             if (participants == null || participants.Count == 0)
             {
-                CreateInfoRow(participantRowRoot, participantRows, "참가자가 없습니다.");
+                CreateInfoRow(participantRowRoot, participantRows, UiTextCatalog.Shipped.Get(UiText.Lobby.NoParticipants, "ko"));
                 return;
             }
 
@@ -1236,7 +1248,7 @@ namespace Game.Client.Lobby
                 .GetComponent<RectTransform>();
             kick.SetParent(parent, false);
             var label = kick.GetComponent<TextMeshProUGUI>();
-            ApplyBody(label, "강퇴");
+            ApplyBody(label, UiTextCatalog.Shipped.Get(UiText.Lobby.Kick, "ko"));
             label.color = KickColor;
             label.raycastTarget = true;
             label.alignment = TextAlignmentOptions.MidlineRight;

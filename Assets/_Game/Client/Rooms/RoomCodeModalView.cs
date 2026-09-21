@@ -3,6 +3,7 @@ using System.Text;
 using Game.Client.Home;
 using Game.Client.Settings;
 using Game.Core.Rooms;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -264,19 +265,19 @@ namespace Game.Client.Rooms
                     return string.Empty;
                 case RoomEntryFailure.InvalidCode:
                 case RoomEntryFailure.NotFound:
-                    return "존재하지 않는 방코드입니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.InvalidCodeModal, "ko");
                 case RoomEntryFailure.WrongPassword:
-                    return "비밀번호가 일치하지 않습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.WrongPassword, "ko");
                 case RoomEntryFailure.Full:
-                    return "방이 가득 찼습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.FullModal, "ko");
                 case RoomEntryFailure.Closed:
-                    return "입장할 수 없는 방입니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.ClosedModal, "ko");
                 case RoomEntryFailure.AlreadyInRoom:
-                    return "이미 다른 방에 있습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.AlreadyInModal, "ko");
                 case RoomEntryFailure.ConnectionFailed:
-                    return "연결에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.ConnectFailed, "ko");
                 default:
-                    return "입장하지 못했습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.JoinFailed, "ko");
             }
         }
 

@@ -75,6 +75,13 @@ namespace Game.Architecture.Tests
             Assert.That(shipped.Get(UiText.Home.Quit, "en"), Is.EqualTo("Quit"));
             Assert.That(shipped.Get(UiText.Home.Empty, "en"), Is.EqualTo("No friends yet"));
             Assert.That(shipped.Get(UiText.Home.SuspendedTitle, "en"), Is.EqualTo("This account is suspended"));
+            Assert.That(shipped.Get(UiText.Play.Title, "en"), Is.EqualTo("Game Settings"));
+            Assert.That(shipped.Get(UiText.Play.Random, "en"), Is.EqualTo("Random"));
+            Assert.That(shipped.Get(UiText.Lobby.KickAction, "en"), Is.EqualTo("Kick"));
+            Assert.That(shipped.Get(UiText.Rooms.NoRooms, "en"), Is.EqualTo("No rooms are open"));
+            Assert.That(
+                string.Format(shipped.Get(UiText.Lobby.KickTitle, "en"), "Guest"),
+                Is.EqualTo("Kick Guest?"));
         }
     }
 }

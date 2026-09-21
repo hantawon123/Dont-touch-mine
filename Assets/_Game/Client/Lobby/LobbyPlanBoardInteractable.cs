@@ -26,8 +26,11 @@ namespace Game.Client.Lobby
     [RequireComponent(typeof(Collider))]
     public sealed class LobbyPlanBoardInteractable : MonoBehaviour, IInteractable
     {
-        public const string HostPrompt = "방 설정";
-        public const string GuestPrompt = "방 설정 보기";
+        public static string HostPrompt =>
+            Game.Core.Settings.UiTextCatalog.Shipped.Get(Game.Core.Settings.UiText.Lobby.HostPrompt, "ko");
+
+        public static string GuestPrompt =>
+            Game.Core.Settings.UiTextCatalog.Shipped.Get(Game.Core.Settings.UiText.Lobby.GuestPrompt, "ko");
 
         [SerializeField]
         private string prompt = HostPrompt;

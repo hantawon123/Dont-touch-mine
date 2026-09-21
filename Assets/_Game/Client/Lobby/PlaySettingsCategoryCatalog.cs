@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Maps;
+using Game.Core.Settings;
 using System.Linq;
 using Game.SOAP.Config;
 
@@ -27,7 +28,7 @@ namespace Game.Client.Lobby
     /// </summary>
     public static class PlaySettingsCategoryCatalog
     {
-        private static PlaySettingsCategoryOption[] Options => new[] { new PlaySettingsCategoryOption(string.Empty, "랜덤") }
+        private static PlaySettingsCategoryOption[] Options => new[] { new PlaySettingsCategoryOption(string.Empty, PlaySettingsMapCatalog.RandomLabel) }
             .Concat(ItemCatalogSO.Load(applyDefinitions: false).categories.Where(c => c.enabled)
                 .Select(c => new PlaySettingsCategoryOption(c.id, c.label))).ToArray();
 
@@ -68,7 +69,7 @@ namespace Game.Client.Lobby
         public static string LabelOf(string categoryId)
         {
             var normalized = categoryId?.Trim() ?? string.Empty;
-            if (normalized.Length == 0) return "랜덤";
+            if (normalized.Length == 0) return PlaySettingsMapCatalog.RandomLabel;
             // Displaying a label must not validate and rebuild every item definition.
             foreach (var category in ItemCatalogSO.Load(applyDefinitions: false).categories)
                 if (category.enabled && string.Equals(category.id?.Trim(), normalized, StringComparison.Ordinal))
@@ -99,7 +100,8 @@ namespace Game.Client.Lobby
     /// </summary>
     public static class PlaySettingsMapCatalog
     {
-        public const string RandomLabel = "랜덤";
+        public static string RandomLabel =>
+            UiTextCatalog.Shipped.Get(UiText.Play.Random, "ko");
 
         private static readonly PlaySettingsMapOption[] Options = CreateOptions();
 

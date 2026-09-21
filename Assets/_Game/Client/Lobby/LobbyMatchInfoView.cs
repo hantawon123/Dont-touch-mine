@@ -1,4 +1,5 @@
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,7 +25,8 @@ namespace Game.Client.Lobby
         public const float Width = 576f;
         public const float FontSize = 32f;
         public const float CaptionFontSize = 24f;
-        public const string CategoryCaption = "카테고리";
+        public static string CategoryCaption =>
+            UiTextCatalog.Shipped.Get(UiText.Lobby.Category, "ko");
         public const float Padding = 0f;
         public const float ContentSpacing = 22f;
         public const float MapRowPadding = 18f;

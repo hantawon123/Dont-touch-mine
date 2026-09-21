@@ -1,4 +1,5 @@
 using Game.Client.Home;
+using Game.Core.Settings;
 using Game.Client.Voice;
 using TMPro;
 using UnityEngine;
@@ -28,11 +29,11 @@ namespace Game.Client.Lobby
 
         public static readonly string[] KeyLabels = { "1", "2", "ESC" };
 
-        public static readonly string[] Actions =
+        public static string[] Actions => new[]
         {
-            "캐릭터 설정",
-            "플레이어",
-            "환경설정"
+            UiTextCatalog.Shipped.Get(UiText.Lobby.Closet, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Lobby.PlayersShortcut, "ko"),
+            UiTextCatalog.Shipped.Get(UiText.Lobby.Settings, "ko")
         };
 
         public const string VoiceButtonName = VoiceView.ButtonName;

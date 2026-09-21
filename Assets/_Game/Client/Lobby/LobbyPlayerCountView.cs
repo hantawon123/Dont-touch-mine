@@ -1,4 +1,5 @@
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,7 +13,8 @@ namespace Game.Client.Lobby
     public sealed class LobbyPlayerCountView : MonoBehaviour, ILobbyPlayerCountView
     {
         public const string RootName = "PlayerCount";
-        public const string Caption = "참여 플레이어";
+        public static string Caption =>
+            UiTextCatalog.Shipped.Get(UiText.Lobby.PlayerCount, "ko");
         public const float FontSize = 20f;
         public const float GapBelowMatchInfo = 24f;
         public const float CaptionCountGap = 8f;

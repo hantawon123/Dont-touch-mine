@@ -194,5 +194,91 @@ namespace Game.Core.Settings
             public const string SuspendedTitle = "home.suspended.title";
             public const string SuspendedBody = "home.suspended.body";
         }
+
+        public static class Play
+        {
+            public const string Title = "play.title";
+            public const string RoomSection = "play.roomSection";
+            public const string RoomTitle = "play.roomTitle";
+            public const string RoomCode = "play.roomCode";
+            public const string MaxPlayers = "play.maxPlayers";
+            public const string DestructionLimit = "play.destructionLimit";
+            public const string HidingDuration = "play.hidingDuration";
+            public const string SearchingDuration = "play.searchingDuration";
+            public const string SprintSpeed = "play.sprintSpeed";
+            public const string StunHits = "play.stunHits";
+            public const string MapSelect = "play.mapSelect";
+            public const string CategorySelect = "play.categorySelect";
+            public const string Reset = "play.reset";
+            public const string Unapplied = "play.unapplied";
+            public const string GameStart = "play.gameStart";
+            public const string Copied = "play.copied";
+            public const string Random = "play.random";
+            public const string Unlimited = "play.unlimited";
+            public const string Seconds = "play.seconds";
+            public const string Minutes = "play.minutes";
+            public const string MinutesSeconds = "play.minutesSeconds";
+            public const string Players = "play.players";
+            public const string Count = "play.count";
+            public const string Multiplier = "play.multiplier";
+            public const string Invite = "play.invite";
+        }
+
+        public static class Lobby
+        {
+            public const string Participants = "lobby.participants";
+            public const string Friends = "lobby.friends";
+            public const string Online = "lobby.online";
+            public const string Waiting = "lobby.waiting";
+            public const string InGame = "lobby.inGame";
+            public const string NoParticipants = "lobby.noParticipants";
+            public const string Kick = "lobby.kick";
+            public const string KickAction = "lobby.kickAction";
+            public const string KickTitle = "lobby.kickTitle";
+            public const string Report = "lobby.report";
+            public const string Confirm = "lobby.confirm";
+            public const string Category = "lobby.category";
+            public const string PlayerCount = "lobby.playerCount";
+            public const string Closet = "lobby.shortcut.closet";
+            public const string PlayersShortcut = "lobby.shortcut.players";
+            public const string Settings = "lobby.shortcut.settings";
+            public const string HostPrompt = "lobby.plan.host";
+            public const string GuestPrompt = "lobby.plan.guest";
+            public const string ReasonAbuse = "lobby.reason.abuse";
+            public const string ReasonCheating = "lobby.reason.cheating";
+            public const string ReasonSpam = "lobby.reason.spam";
+            public const string ReasonName = "lobby.reason.name";
+            public const string ReasonOther = "lobby.reason.other";
+        }
+
+        public static class Rooms
+        {
+            public const string NoRooms = "rooms.noRooms";
+            public const string NoSearchResults = "rooms.noSearch";
+            public const string Kicked = "rooms.kicked";
+            public const string Waiting = "rooms.waiting";
+            public const string Playing = "rooms.playing";
+            public const string Generic = "rooms.entry.generic";
+            public const string CreateFailed = "rooms.entry.createFailed";
+            public const string InviteGone = "rooms.entry.inviteGone";
+            public const string CodeMissing = "rooms.entry.codeMissing";
+            public const string ListGone = "rooms.entry.listGone";
+            public const string InviteExpired = "rooms.entry.inviteExpired";
+            public const string Full = "rooms.entry.full";
+            public const string FullPickAnother = "rooms.entry.fullPickAnother";
+            public const string AlreadyStarted = "rooms.entry.alreadyStarted";
+            public const string CheckSettings = "rooms.entry.checkSettings";
+            public const string CheckCode = "rooms.entry.checkCode";
+            public const string AlreadyInRoom = "rooms.entry.alreadyInRoom";
+            public const string WrongPassword = "rooms.modal.wrongPassword";
+            public const string FullModal = "rooms.modal.full";
+            public const string ClosedModal = "rooms.modal.closed";
+            public const string NotFoundModal = "rooms.modal.notFound";
+            public const string AlreadyInModal = "rooms.modal.alreadyIn";
+            public const string ConnectFailed = "rooms.modal.connectFailed";
+            public const string JoinFailed = "rooms.modal.joinFailed";
+            public const string InvalidCodeModal = "rooms.modal.invalidCode";
+            public const string HostRoom = "rooms.hostRoom";
+        }
     }
 }

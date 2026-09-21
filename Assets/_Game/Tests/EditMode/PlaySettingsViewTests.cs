@@ -2,6 +2,7 @@ using System.Reflection;
 using Game.Client.Lobby;
 using Game.Client.Settings;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using Game.Core.Maps;
 using NUnit.Framework;
 using UnityEditor;
@@ -265,6 +266,38 @@ namespace Game.Architecture.Tests
                     Find(panel.transform, "MapName").GetComponent<Text>().text,
                     Is.EqualTo(MapCatalog.MansionId));
                 Assert.That(randomMark.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ShowChrome_RedrawsTitleAndApplyInTheAppliedLanguage()
+        {
+            var root = CreateView(out var panel, out var view);
+            try
+            {
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                var general = new GeneralSettingsSystem(store);
+                using var locale = new UiLocale(general);
+
+                view.ShowChrome(locale);
+
+                var title = Find(panel.transform, "Title").GetComponent<UnityEngine.UI.Text>();
+                Assert.That(title.text, Is.EqualTo("Game Settings"));
+                var apply = Find(panel.transform, "ApplyButton").GetComponentInChildren<UnityEngine.UI.Text>();
+                Assert.That(apply.text, Is.EqualTo("Apply"));
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, string.Empty));
+                var mapName = Find(panel.transform, "MapName");
+                if (mapName != null)
+                {
+                    Assert.That(
+                        mapName.GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo("Random"));
+                }
             }
             finally
             {

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Client.Settings;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using Game.Core.Rooms;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -283,7 +284,7 @@ namespace Game.Client.Lobby
             Anchor(header, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
             header.offsetMin = new Vector2(0f, -PlaySettingsStyle.HeaderHeight);
             header.offsetMax = Vector2.zero;
-            CreateModalTitle(header, "게임 설정");
+            CreateModalTitle(header, UiText.Play.Title);
 
             var footer = CreateRect("Footer", root);
             Anchor(footer, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f));
@@ -390,16 +391,16 @@ namespace Game.Client.Lobby
             mapArea.name = "MapArea";
             BuildMapSection(mapArea);
             AddLayoutDivider(settingsContent);
-            AddSectionTitle(settingsContent, "방 설정");
+            AddSectionTitle(settingsContent, UiText.Play.RoomSection);
             BuildTitleRow(settingsContent);
             BuildRoomCodeRow(settingsContent);
-            BuildCounterRow(settingsContent, "인원 설정", out maxPlayersMinusButton, out maxPlayersText,
+            BuildCounterRow(settingsContent, UiText.Play.MaxPlayers, out maxPlayersMinusButton, out maxPlayersText,
                 out maxPlayersPlusButton);
-            BuildCounterRow(settingsContent, "파괴 기능 횟수", out destructionMinusButton, out destructionLimitText,
+            BuildCounterRow(settingsContent, UiText.Play.DestructionLimit, out destructionMinusButton, out destructionLimitText,
                 out destructionPlusButton);
             BuildDurationSliderRow(
                 settingsContent,
-                "숨기는 시간",
+                UiText.Play.HidingDuration,
                 "HidingDuration",
                 MatchRuleSettings.MinHidingDurationSeconds,
                 MatchRuleSettings.MaxHidingDurationSeconds,
@@ -408,15 +409,15 @@ namespace Game.Client.Lobby
                 out hidingValue);
             BuildDurationSliderRow(
                 settingsContent,
-                "찾는 시간",
+                UiText.Play.SearchingDuration,
                 "SearchingDuration",
                 MatchRuleSettings.MinSearchingDurationSeconds,
                 MatchRuleSettings.MaxSearchingDurationSeconds,
                 MatchRuleSettings.DefaultSearchingDurationSeconds,
                 out searchingSlider,
                 out searchingValue);
-            BuildRuleRow(settingsContent, "달리는 속도", 2);
-            BuildRuleRow(settingsContent, "기절 펀치 횟수", 3);
+            BuildRuleRow(settingsContent, UiText.Play.SprintSpeed, 2);
+            BuildRuleRow(settingsContent, UiText.Play.StunHits, 3);
         }
 
         /// <summary>
@@ -481,13 +482,14 @@ namespace Game.Client.Lobby
             return row;
         }
 
-        private void AddSectionTitle(RectTransform parent, string title)
+        private void AddSectionTitle(RectTransform parent, string key)
         {
             var row = CreateLayoutRow(parent, PlaySettingsStyle.Layout.SectionTitleHeight);
             row.name = "SectionTitleRow";
 
             var label = row.gameObject.AddComponent<Text>();
-            label.text = title;
+            label.text = Copy(key);
+            Remember(label, key);
             label.font = ExtraBoldFont();
             label.fontSize = PlaySettingsStyle.FontSize.SectionTitle;
             label.color = PlaySettingsStyle.Palette.Text;
@@ -501,8 +503,10 @@ namespace Game.Client.Lobby
         {
             var row = CreateLayoutRow(parent, PlaySettingsStyle.RowHeight);
             row.name = "TitleRow";
-            CreateBodyText(row, "방 제목", new Vector2(0f, 0f),
-                new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 1f), Vector2.zero, Vector2.zero);
+            Remember(
+                CreateBodyText(row, Copy(UiText.Play.RoomTitle), new Vector2(0f, 0f),
+                    new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 1f), Vector2.zero, Vector2.zero),
+                UiText.Play.RoomTitle);
 
             var field = CreateRect("TitleField", row);
             field.anchorMin = new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 0f);
@@ -545,9 +549,10 @@ namespace Game.Client.Lobby
             var row = CreateLayoutRow(parent, PlaySettingsStyle.RowHeight);
             row.name = "RoomCodeRow";
 
-            var roomCodeLabel = CreateBodyText(row, "방 코드", new Vector2(0f, 0f),
+            var roomCodeLabel = CreateBodyText(row, Copy(UiText.Play.RoomCode), new Vector2(0f, 0f),
                 new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 1f), Vector2.zero, Vector2.zero);
             ApplySingleLine(roomCodeLabel);
+            Remember(roomCodeLabel, UiText.Play.RoomCode);
 
             var group = CreateRect("RoomCodeControls", row);
             group.anchorMin = new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 0f);
@@ -575,7 +580,7 @@ namespace Game.Client.Lobby
             feedbackElement.minWidth = PlaySettingsStyle.Layout.CopiedFeedbackWidth;
             copyFeedbackText = CreateBodyText(
                 feedbackRect,
-                "복사되었습니다!",
+                Copy(UiText.Play.Copied),
                 Vector2.zero,
                 Vector2.one,
                 Vector2.zero,
@@ -583,6 +588,7 @@ namespace Game.Client.Lobby
             copyFeedbackText.alignment = TextAnchor.MiddleRight;
             copyFeedbackText.color = PlaySettingsStyle.Palette.ApplyFill;
             ApplySingleLine(copyFeedbackText);
+            Remember(copyFeedbackText, UiText.Play.Copied);
             copyFeedbackRoot = feedbackRect.gameObject;
             feedbackRect.gameObject.SetActive(false);
 
@@ -638,22 +644,26 @@ namespace Game.Client.Lobby
 
         private void BuildCounterRow(
             RectTransform parent,
-            string label,
+            string key,
             out Button minus,
             out Text value,
             out Button plus)
         {
             var row = CreateLayoutRow(parent, PlaySettingsStyle.RowHeight);
-            CreateBodyText(row, label, new Vector2(0f, 0f),
-                new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 1f), Vector2.zero, Vector2.zero);
+            Remember(
+                CreateBodyText(row, Copy(key), new Vector2(0f, 0f),
+                    new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 1f), Vector2.zero, Vector2.zero),
+                key);
             BuildControlGroup(row, out minus, out value, out plus);
         }
 
-        private void BuildRuleRow(RectTransform parent, string label, int ruleIndex)
+        private void BuildRuleRow(RectTransform parent, string key, int ruleIndex)
         {
             var row = CreateLayoutRow(parent, PlaySettingsStyle.RowHeight);
-            CreateBodyText(row, label, new Vector2(0f, 0f),
-                new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 1f), Vector2.zero, Vector2.zero);
+            Remember(
+                CreateBodyText(row, Copy(key), new Vector2(0f, 0f),
+                    new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 1f), Vector2.zero, Vector2.zero),
+                key);
             BuildControlGroup(row, out var minus, out var value, out var plus);
             ruleMinus.Add(minus);
             rulePlus.Add(plus);
@@ -695,7 +705,7 @@ namespace Game.Client.Lobby
 
         private void BuildDurationSliderRow(
             RectTransform parent,
-            string label,
+            string key,
             string name,
             int min,
             int max,
@@ -705,8 +715,10 @@ namespace Game.Client.Lobby
         {
             var row = CreateLayoutRow(parent, PlaySettingsStyle.RowHeight);
             row.name = name + "Row";
-            CreateBodyText(row, label, new Vector2(0f, 0f),
-                new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 1f), Vector2.zero, Vector2.zero);
+            Remember(
+                CreateBodyText(row, Copy(key), new Vector2(0f, 0f),
+                    new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 1f), Vector2.zero, Vector2.zero),
+                key);
 
             var valueRect = CreateRect("Value", row);
             Anchor(valueRect, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
@@ -887,14 +899,18 @@ namespace Game.Client.Lobby
                 (int)PlaySettingsStyle.Layout.MapSectionBottomSpacing);
 
             var titleRow = CreateSplitRow(parent, "SectionTitles", PlaySettingsStyle.Layout.SectionTitleHeight);
-            CreateCenteredLabel(
-                CreateSplitCell(titleRow, "MapTitle"),
-                "맵 선택",
-                PlaySettingsStyle.FontSize.Body);
-            CreateCenteredLabel(
-                CreateSplitCell(titleRow, "CategoryTitle"),
-                "카테고리 선택",
-                PlaySettingsStyle.FontSize.Body);
+            Remember(
+                CreateCenteredLabel(
+                    CreateSplitCell(titleRow, "MapTitle"),
+                    Copy(UiText.Play.MapSelect),
+                    PlaySettingsStyle.FontSize.Body),
+                UiText.Play.MapSelect);
+            Remember(
+                CreateCenteredLabel(
+                    CreateSplitCell(titleRow, "CategoryTitle"),
+                    Copy(UiText.Play.CategorySelect),
+                    PlaySettingsStyle.FontSize.Body),
+                UiText.Play.CategorySelect);
 
             var selectionHeight = PlaySettingsStyle.Layout.SelectionRowHeight;
             var pickerRow = CreateSplitRow(parent, "Pickers", selectionHeight);
@@ -1251,7 +1267,8 @@ namespace Game.Client.Lobby
             var labelRect = CreateRect("Text", rect);
             Stretch(labelRect);
             revertLabel = labelRect.gameObject.AddComponent<Text>();
-            revertLabel.text = PlaySettingsStyle.Layout.ResetLabel;
+            revertLabel.text = Copy(UiText.Play.Reset);
+            Remember(revertLabel, UiText.Play.Reset);
             revertLabel.font = ActionFont();
             revertLabel.fontSize = fontSize;
             revertLabel.fontStyle = FontStyle.Normal;
@@ -1295,7 +1312,8 @@ namespace Game.Client.Lobby
             rect.sizeDelta = new Vector2(PlaySettingsStyle.ModalSize.x - 80f, 28f);
 
             var label = rect.gameObject.AddComponent<Text>();
-            label.text = "적용되지 않은 변경사항이 있습니다!";
+            label.text = Copy(UiText.Play.Unapplied);
+            Remember(label, UiText.Play.Unapplied);
             label.font = BodyFont();
             label.fontSize = PlaySettingsStyle.FontSize.ApplyWarning;
             label.color = PlaySettingsStyle.Palette.ApplyWarning;
@@ -1330,7 +1348,8 @@ namespace Game.Client.Lobby
             Stretch(labelRect);
 
             applyLabel = labelRect.gameObject.AddComponent<Text>();
-            applyLabel.text = "적용하기";
+            applyLabel.text = Copy(UiText.Settings.Apply);
+            Remember(applyLabel, UiText.Settings.Apply);
             applyLabel.font = ActionFont();
             applyLabel.fontSize = fontSize;
             applyLabel.fontStyle = FontStyle.Normal;
@@ -1359,7 +1378,7 @@ namespace Game.Client.Lobby
             return button;
         }
 
-        private void CreateModalTitle(RectTransform parent, string text)
+        private void CreateModalTitle(RectTransform parent, string key)
         {
             var rect = CreateRect("Title", parent);
             rect.anchorMin = new Vector2(0f, 1f);
@@ -1369,7 +1388,8 @@ namespace Game.Client.Lobby
             rect.sizeDelta = new Vector2(0f, PlaySettingsStyle.FontSize.Header + 8f);
 
             var label = rect.gameObject.AddComponent<Text>();
-            label.text = text;
+            label.text = Copy(key);
+            Remember(label, key);
             label.font = HeaderFont();
             label.fontSize = PlaySettingsStyle.FontSize.Header;
             label.color = PlaySettingsStyle.Palette.Text;

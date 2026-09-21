@@ -1,4 +1,5 @@
 ﻿using Game.Core.Rooms;
+using Game.Core.Settings;
 
 namespace Game.Client.Common
 {
@@ -41,71 +42,69 @@ namespace Game.Client.Common
     /// </remarks>
     public static class RoomEntryMessages
     {
-        public const string Title = "게임 접속 오류";
+        public static string Title =>
+            UiTextCatalog.Shipped.Get(UiText.Home.ConnectionError, "ko");
 
         /// <summary>
         /// For the failures a player can do nothing about, and for anything new
         /// that arrives before it has wording of its own.
         /// </summary>
-        public const string Generic = "잠시 문제가 발생했어요. 다시 접속 시도 해주세요.";
+        public static string Generic =>
+            UiTextCatalog.Shipped.Get(UiText.Rooms.Generic, "ko");
 
-        public static string Describe(RoomEntryFailure failure, RoomEntrySource source)
+        public static string Describe(RoomEntryFailure failure, RoomEntrySource source) =>
+            Describe(failure, source, "ko");
+
+        public static string Describe(RoomEntryFailure failure, RoomEntrySource source, string language)
         {
+            string Copy(string key) => UiTextCatalog.Shipped.Get(key, language);
+
             switch (failure)
             {
                 case RoomEntryFailure.NotFound:
                     if (source == RoomEntrySource.RoomCreate)
                     {
-                        // The room was made and then lost before this client
-                        // could get into it. Nothing to refresh and no code to
-                        // check: the only thing to do is make it again.
-                        return "방을 만들지 못했어요. 다시 시도해 주세요.";
+                        return Copy(UiText.Rooms.CreateFailed);
                     }
 
                     if (source == RoomEntrySource.Invite)
                     {
-                        return "초대받은 방이 사라졌어요.";
+                        return Copy(UiText.Rooms.InviteGone);
                     }
 
                     return source == RoomEntrySource.RoomCode
-                        ? "그런 방이 없어요. 코드를 다시 확인해 주세요."
-                        : "사라진 방이에요. 목록을 새로고침 해주세요.";
+                        ? Copy(UiText.Rooms.CodeMissing)
+                        : Copy(UiText.Rooms.ListGone);
 
                 case RoomEntryFailure.InvalidCode when source == RoomEntrySource.Invite:
-                    // The card outlived the invitation behind it, or the room
-                    // was taken down between the press and the answer.
-                    return "초대가 만료됐어요.";
+                    return Copy(UiText.Rooms.InviteExpired);
 
                 case RoomEntryFailure.Full:
                     if (source == RoomEntrySource.RoomCreate)
                     {
-                        return "방을 만들지 못했어요. 다시 시도해 주세요.";
+                        return Copy(UiText.Rooms.CreateFailed);
                     }
 
                     return source is RoomEntrySource.RoomCode or RoomEntrySource.Invite
-                        ? "방이 가득 찼어요."
-                        : "방이 가득 찼어요. 다른 방을 골라주세요.";
+                        ? Copy(UiText.Rooms.Full)
+                        : Copy(UiText.Rooms.FullPickAnother);
 
                 case RoomEntryFailure.Closed:
                     return source == RoomEntrySource.RoomCreate
-                        ? "방을 만들지 못했어요. 다시 시도해 주세요."
-                        : "이미 게임이 시작된 방이에요.";
+                        ? Copy(UiText.Rooms.CreateFailed)
+                        : Copy(UiText.Rooms.AlreadyStarted);
 
                 case RoomEntryFailure.InvalidRequest when source == RoomEntrySource.RoomCreate:
-                    // The form checks the name and the player count before it
-                    // sends, so reaching this means the two disagree. Said
-                    // plainly rather than blamed on the player.
-                    return "방 설정을 확인해 주세요.";
-
+                    return Copy(UiText.Rooms.CheckSettings);
 
                 case RoomEntryFailure.InvalidCode:
-                    return "방 코드를 다시 확인해 주세요.";
+                    return Copy(UiText.Rooms.CheckCode);
 
                 case RoomEntryFailure.AlreadyInRoom:
-                    return "이미 다른 방에 들어가 있어요.";
+                    return Copy(UiText.Rooms.AlreadyInRoom);
 
                 default:
-                    return Generic;
+                    return Copy(UiText.Rooms.Generic);
             }
         }
     }
