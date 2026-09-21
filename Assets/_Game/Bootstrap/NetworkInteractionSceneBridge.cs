@@ -479,6 +479,9 @@ namespace Game.Bootstrap
 
                     appliedVersions[state.ObjectId] = state.Version;
                     items.Remove(state.ObjectId);
+                    // 엔딩 유치장이 잃어버린 물건을 손에 들려 주므로, 지우기 전에 겉모습을 맡긴다
+                    // (S15P21D205-1087). 맡기는 것은 스크립트를 지운 복제본이다.
+                    DestroyedItemArchive.Ensure(item.OwningScene).Archive(state.ObjectId, item.gameObject);
                     UnityEngine.Object.Destroy(item.gameObject);
                     continue;
                 }
