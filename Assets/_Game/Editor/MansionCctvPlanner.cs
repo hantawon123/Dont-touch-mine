@@ -12,13 +12,23 @@ using UnityEngine;
 namespace Game.Editor
 {
     /// <summary>
-    /// 저택(Mansion) 1층 CCTV 설치 지점 계획 도구 (S15P21D205-1082).
+    /// 저택(Mansion) CCTV 설치 지점 계획 도구 (S15P21D205-1082, 2층 1091).
     ///
     /// <para>
     /// 마트는 벽면 카메라 모델 위치에서 지점을 만들었지만 저택 팩에는 카메라 소품이 없다.
-    /// 그래서 좌표표(<see cref="Mounts"/>)로 지점을 정하고, 그 표가 1층 어디를 비추는지
+    /// 그래서 좌표표(<see cref="Mounts"/>)로 지점을 정하고, 그 표가 그 층 어디를 비추는지
     /// 격자로 검사한다. 설치 높이·초점 높이·시야각은 마트 규칙(바닥 위 3.0 m, 허리 높이,
-    /// 65도)을 저택 1층 바닥 높이에 옮긴 것이다.
+    /// 65도)을 저택 바닥 높이에 옮긴 것이다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>메뉴는 층마다 있다</b>(<c>1F/…</c>, <c>2F/…</c>). 본관 1·2층은 x·z 로 겹쳐 격자 범위가 같고
+    /// 다른 것은 높이·좌표표·씨앗뿐이라, 층 하나(<see cref="FloorPlan"/>)를 골라 같은 코드를 돌린다.
+    /// 프리팹은 <c>Mansion.prefab</c> 하나에 두 층이 함께 들어간다 - 그래서 <c>4. Save</c> 는 고른 층만
+    /// 다시 만들고 다른 층 카메라는 있던 그대로 옮긴다. 각 지점에는 맡는 높이를 적어 두고
+    /// (<c>HighlightCctvCamera.ConfigureFloor</c>), 런타임은 그 밖의 대상에 이 지점을 쓰지 않는다.
+    /// 바닥 슬래브는 높이 0.5 m 가 안 되어 가림 상자로 잡히지 않으므로, 적어 두지 않으면 2층 카메라가
+    /// 1층 장면을 내려다본다.
     /// </para>
     ///
     /// <para>
@@ -29,7 +39,7 @@ namespace Game.Editor
     /// </para>
     ///
     /// <para>
-    /// 순서: <c>1. Bake 1F Map</c> 으로 구조를 보고, <c>2. Auto Place</c> 가 벽 가까운 후보 중
+    /// 순서: <c>1. Bake Map</c> 으로 구조를 보고, <c>2. Auto Place</c> 가 벽 가까운 후보 중
     /// 사각을 가장 많이 줄이는 지점을 차례로 고른다(탐욕). 그 표를 <see cref="Mounts"/> 에
     /// 옮겨 이름을 붙이고 <c>3. Check Coverage</c> 로 확인한 뒤 <c>4. Save Prefab</c> 으로 저장한다.
     /// </para>
@@ -41,16 +51,11 @@ namespace Game.Editor
         private const string OutputFolder = "docs/design/match-map/mansion";
         private const string PrefabPath = "Assets/_Game/Content/Resources/CCTV/Mansion.prefab";
 
-        // 1층 경계 콜라이더 안쪽 면 (MansionEnvironment/Boundary). 여유를 조금 둔다.
+        // 경계 콜라이더 안쪽 면 (MansionEnvironment/Boundary). 여유를 조금 둔다.
+        // 본관 1층과 2층은 x·z 로 겹치므로 범위는 층이 같고, 다른 것은 높이뿐이다(<see cref="FloorPlan"/>).
         private const float X0 = -13.0f, X1 = 13.5f, Z0 = -33.0f, Z1 = -8.5f;
         private const float Cell = 0.25f;
         private const int PixelsPerCell = 8;
-
-        /// <summary>1층 바닥. 스폰 y 1.4 는 캡슐 중심이고 바닥 자체는 약 1.01 이다.</summary>
-        private const float FloorY = 1.01f;
-        private const float FloorMin = 0.6f, FloorMax = 1.45f;
-        /// <summary>위에서 내려 쏘는 탐침 시작 높이. 1층 천장보다 낮아야 천장을 벽으로 오판하지 않는다.</summary>
-        private const float ProbeY = 4.4f;
         /// <summary>이웃 칸 사이 이 높이 차까지는 걸어서 넘는 것으로 본다.</summary>
         private const float StepHeight = 0.4f;
 
@@ -69,21 +74,10 @@ namespace Game.Editor
 
         // 자동 배치.
         private const int AutoPlaceMaxCameras = 22;
-        /// <summary>좌표표 앞의 이만큼(파쇄기 카메라)은 자동 배치가 건드리지 않는다.</summary>
-        private const int PinnedMounts = 2;
         private const int AutoPlaceMinGain = 4;
         private const int AutoPlaceHeadings = 24;
         /// <summary>초점 거리 3 m 는 내려보는 각 37도로 카메라 발밑 사각을 줄이고, 7 m 는 긴 복도용이다.</summary>
         private static readonly float[] AutoPlaceFocusDistances = { 3f, 4.5f, 7f };
-
-        /// <summary>
-        /// 문이 닫혀 있어 걸어서 못 들어가도 플레이 구역으로 치는 방의 씨앗 (문은 전부 열어 두기로 함).
-        /// 남쪽 양문 방, 비밀 책장문 뒤, 계단 남서쪽 작은 방.
-        /// </summary>
-        private static readonly Vector2[] AssumedOpenSeeds =
-        {
-            new Vector2(1.3f, -30.9f), new Vector2(8.6f, -30.6f), new Vector2(-3.6f, -28.9f)
-        };
 
         public readonly struct Mount
         {
@@ -101,15 +95,46 @@ namespace Game.Editor
         }
 
         /// <summary>
-        /// 1층 설치 지점 좌표표. (x, z, 바라볼 x, 바라볼 z, 위치 이름).
+        /// 층마다 다른 값. 본관 1·2층은 x·z 가 겹쳐 격자 범위는 같고 높이와 좌표표만 다르다.
+        /// 메뉴(<c>1F/…</c>, <c>2F/…</c>)가 <see cref="Current"/> 를 바꿔 같은 코드를 두 층에 돌린다.
+        /// </summary>
+        private sealed class FloorPlan
+        {
+            /// <summary>출력 파일 이름에 들어가는 층 표시 (<c>cctv-1f-map.png</c>).</summary>
+            public string Key;
+            /// <summary>보고서·로그에 쓰는 이름.</summary>
+            public string Label;
+            /// <summary>바닥 높이와 이 층 바닥으로 칠 높이 범위.</summary>
+            public float FloorY, FloorMin, FloorMax;
+            /// <summary>위에서 내려 쏘는 탐침 시작 높이. 이 층 천장보다 낮아야 천장을 벽으로 오판하지 않는다.</summary>
+            public float ProbeY;
+            /// <summary>이 층 카메라가 맡는 대상 높이. 프리팹에서 층을 가려낼 때도 이 값을 쓴다.</summary>
+            public float CoverY0, CoverY1;
+            /// <summary>문이 닫혀 있어 걸어서 못 들어가도 플레이 구역으로 치는 방의 씨앗.</summary>
+            public Vector2[] AssumedOpenSeeds;
+            /// <summary>좌표표 앞의 이만큼(파쇄기 카메라)은 자동 배치가 건드리지 않는다.</summary>
+            public int PinnedMounts;
+            /// <summary>설치 지점 좌표표. (x, z, 바라볼 x, 바라볼 z, 위치 이름).</summary>
+            public Mount[] Mounts;
+            /// <summary>CAM 이름에 붙이는 방 이름.</summary>
+            public Func<Vector3, string> Zone;
+            /// <summary>자동 배치 결과를 써 넣을 이 층 좌표표의 표식. 좌표표 안에 이 줄이 그대로 있어야 한다.</summary>
+            public string MountsBegin => $"            // <auto-mounts-{Key}>";
+            public string MountsEnd => $"            // </auto-mounts-{Key}>";
+            /// <summary>이 높이의 대상(또는 카메라)이 이 층 것인가.</summary>
+            public bool Holds(float y) => y >= CoverY0 && y < CoverY1;
+        }
+
+        /// <summary>
+        /// 1층 설치 지점 좌표표.
         /// 지점을 고치면 <c>3. Check Coverage</c> 로 사각을 다시 확인하고 <c>4. Save Prefab</c> 으로 저장한다.
         /// </summary>
-        public static readonly Mount[] Mounts =
+        private static readonly Mount[] GroundMounts =
         {
             // 앞 PinnedMounts 개: 파쇄기(현관 홀 화로, ShredderSpot (-1.4, -10.7))는 파괴 장면의 중심이라 가까운 두 시점을 둔다.
             new Mount(2.0f, -11.9f, -1.4f, -10.7f, "현관 홀 파쇄기 동쪽"),
             new Mount(-4.6f, -11.9f, -1.4f, -10.7f, "현관 홀 파쇄기 서쪽"),
-            // <auto-mounts>
+            // <auto-mounts-1f>
             // 2. Auto Place 2026-09-18 15:27 결과 20개 (고정 2개 뒤). 남쪽에서 북쪽 순. 이름은 방 + 바라보는 방향.
             new Mount(-1.88f, -31.88f, 0.25f, -29.75f, "남쪽 양문 방 북동향"),
             new Mount(4.63f, -31.88f, 2.50f, -29.75f, "남쪽 양문 방 북서향"),
@@ -131,8 +156,92 @@ namespace Game.Editor
             new Mount(5.63f, -16.38f, 8.22f, -14.88f, "동북쪽 방 북동향"),
             new Mount(1.63f, -14.88f, 0.13f, -17.47f, "중앙 홀 남서향"),
             new Mount(-3.88f, -10.88f, -1.63f, -14.77f, "현관 홀 남동향"),
-            // </auto-mounts>
+            // </auto-mounts-1f>
         };
+
+        /// <summary>
+        /// 2층 설치 지점 좌표표 (S15P21D205-1091). 앞 두 개는 2층 파쇄기 <c>Shredder_B</c> (-0.2, 6.1, -25.1) 를
+        /// 양쪽에서 보는 고정 지점이고, 나머지는 <c>2. Auto Place</c> 가 쓴다.
+        /// </summary>
+        private static readonly Mount[] UpstairsMounts =
+        {
+            new Mount(3.2f, -26.3f, -0.2f, -25.1f, "2층 파쇄기 동쪽"),
+            new Mount(-3.6f, -26.3f, -0.2f, -25.1f, "2층 파쇄기 서쪽"),
+            // <auto-mounts-2f>
+            // 아직 자동 배치를 돌리지 않았다. 2F/2. Auto Place 가 이 자리를 채운다.
+            // </auto-mounts-2f>
+        };
+
+        private static readonly FloorPlan Ground = new FloorPlan
+        {
+            Key = "1f",
+            Label = "1층",
+            // 스폰 y 1.4 는 캡슐 중심이고 바닥 자체는 약 1.01 이다.
+            FloorY = 1.01f, FloorMin = 0.6f, FloorMax = 1.45f,
+            ProbeY = 4.4f,
+            CoverY0 = -1f, CoverY1 = 5.5f,
+            // 남쪽 양문 방, 비밀 책장문 뒤, 계단 남서쪽 작은 방 (문은 전부 열어 두기로 함).
+            AssumedOpenSeeds = new[] { new Vector2(1.3f, -30.9f), new Vector2(8.6f, -30.6f), new Vector2(-3.6f, -28.9f) },
+            PinnedMounts = 2,
+            Mounts = GroundMounts,
+            Zone = GroundZone,
+        };
+
+        /// <summary>
+        /// 2층 (S15P21D205-1091). 바닥 5.5, 천고는 2026-09-21 에 4.5 m 로 올렸다(README 8절).
+        /// 탐침 9.0 은 대기 구역 바닥 콜라이더 <c>WaitingBound_Floor</c> (9.2) 아래다 - 그 위에서 쏘면
+        /// 그 판에 먼저 맞아 2층 전체가 벽으로 나온다.
+        /// </summary>
+        private static readonly FloorPlan Upstairs = new FloorPlan
+        {
+            Key = "2f",
+            Label = "2층",
+            FloorY = 5.5f, FloorMin = 5.1f, FloorMax = 5.95f,
+            ProbeY = 9.0f,
+            // 위는 다락 차단 판 Boundary_AtticFloor(9.8). 그 위는 대기 구역이라 하이라이트 대상이 아니다.
+            CoverY0 = 5.5f, CoverY1 = 9.8f,
+            // 남쪽 양문 3쌍 뒤의 방. 동쪽(x 12.5)·북쪽(z -12) 양문은 발코니로 나가는 문이라 넣지 않는다
+            // (열면 낙하 검증을 다시 해야 한다, README 6절).
+            AssumedOpenSeeds = new[] { new Vector2(1.25f, -30.9f), new Vector2(-6.2f, -30.9f), new Vector2(8.75f, -30.9f) },
+            PinnedMounts = 2,
+            Mounts = UpstairsMounts,
+            Zone = UpstairsZone,
+        };
+
+        private static readonly FloorPlan[] Floors = { Ground, Upstairs };
+
+        /// <summary>지금 다루는 층. 메뉴가 고르고, 마지막에 고른 층이 남는다.</summary>
+        private static FloorPlan Current = Ground;
+
+        private static float FloorY => Current.FloorY;
+        private static float FloorMin => Current.FloorMin;
+        private static float FloorMax => Current.FloorMax;
+        private static float ProbeY => Current.ProbeY;
+        private static Vector2[] AssumedOpenSeeds => Current.AssumedOpenSeeds;
+        private static int PinnedMounts => Current.PinnedMounts;
+
+        /// <summary>지금 고른 층의 좌표표.</summary>
+        public static Mount[] Mounts => Current.Mounts;
+
+        /// <summary>높이로 층을 고른다. 1층 카메라는 천장 아래 5.41 까지 올라가므로 2층 바닥에서 가른다.</summary>
+        private static FloorPlan PlanFor(float y) => y < Upstairs.FloorY ? Ground : Upstairs;
+
+        /// <summary>카메라가 맡는 층. 층을 적어 둔 카메라는 그 값이 기준이고, 없으면 높이로 고른다.</summary>
+        private static FloorPlan PlanOf(HighlightCctvCamera camera) =>
+            camera.HasFloor
+                ? Floors.FirstOrDefault(f => f.CoverY0 <= camera.FloorY0 && camera.FloorY0 < f.CoverY1) ?? PlanFor(camera.transform.position.y)
+                : PlanFor(camera.transform.position.y);
+
+        /// <summary>이 가지에 달린 카메라 가운데 지금 층 것만.</summary>
+        private static HighlightCctvCamera[] OnCurrentFloor(GameObject root) =>
+            root.GetComponentsInChildren<HighlightCctvCamera>().Where(c => PlanOf(c) == Current).ToArray();
+
+        /// <summary>메뉴가 층을 고르고 같은 일을 시킨다.</summary>
+        private static void OnFloor(FloorPlan plan, Action action)
+        {
+            Current = plan;
+            action();
+        }
 
         private enum CellKind : byte { Void, Wall, Blocked, Floor }
 
@@ -164,27 +273,38 @@ namespace Game.Editor
             public string Name { get; }
         }
 
-        [MenuItem(MenuRoot + "1. Bake 1F Map")]
-        public static void BakeMap()
+        [MenuItem(MenuRoot + "1F/1. Bake Map")]
+        public static void BakeGroundMap() => OnFloor(Ground, BakeMap);
+
+        [MenuItem(MenuRoot + "2F/1. Bake Map")]
+        public static void BakeUpstairsMap() => OnFloor(Upstairs, BakeMap);
+
+        private static void BakeMap()
         {
             RequireScene();
             var grid = Scan();
             var occluders = CollectOccluders();
             var texture = Draw(grid, occluders, null, showCoverage: false);
-            var png = Save(texture, "cctv-1f-map.png");
-            Debug.Log($"[MansionCctv] 1층 지도 저장: {png} (닿는 칸 {grid.Count(i => grid.Reachable[i])}, 천장 {CeilingSummary(grid)})");
+            var png = Save(texture, $"cctv-{Current.Key}-map.png");
+            Debug.Log($"[MansionCctv] {Current.Label} 지도 저장: {png} (닿는 칸 {grid.Count(i => grid.Reachable[i])}, 천장 {CeilingSummary(grid)})");
         }
 
         /// <summary>
         /// 처음 <see cref="PinnedMounts"/>개(파쇄기 카메라)만 고정하고 나머지를 새로 고른다.
         /// 탐욕으로 고른 뒤 카메라를 하나씩 다른 후보로 바꿔 보며 전체 사각을 줄이고, 혼자 보는 칸이 없는 카메라는 뺀다.
         /// </summary>
-        [MenuItem(MenuRoot + "2. Auto Place (Greedy + Swap)")]
-        public static void AutoPlace() => AutoPlace(false);
+        [MenuItem(MenuRoot + "1F/2. Auto Place (Greedy + Swap)")]
+        public static void AutoPlaceGround() => OnFloor(Ground, () => AutoPlace(false));
+
+        [MenuItem(MenuRoot + "2F/2. Auto Place (Greedy + Swap)")]
+        public static void AutoPlaceUpstairs() => OnFloor(Upstairs, () => AutoPlace(false));
 
         /// <summary>좌표표(<see cref="Mounts"/>)는 그대로 두고, 그것이 못 보는 칸만 채우는 지점을 고른다.</summary>
-        [MenuItem(MenuRoot + "2b. Auto Fill From Mounts")]
-        public static void AutoFill() => AutoPlace(true);
+        [MenuItem(MenuRoot + "1F/2b. Auto Fill From Mounts")]
+        public static void AutoFillGround() => OnFloor(Ground, () => AutoPlace(true));
+
+        [MenuItem(MenuRoot + "2F/2b. Auto Fill From Mounts")]
+        public static void AutoFillUpstairs() => OnFloor(Upstairs, () => AutoPlace(true));
 
         private static void AutoPlace(bool keepMounts)
         {
@@ -204,7 +324,7 @@ namespace Game.Editor
             var inv = CultureInfo.InvariantCulture;
             var reachable = grid.Count(i => grid.Reachable[i]);
             var remaining = grid.Count(i => grid.Reachable[i] && grid.Coverage[i] == 0);
-            sb.AppendLine(keepMounts ? "# 저택 1층 CCTV 자동 채움 (좌표표 고정)" : "# 저택 1층 CCTV 자동 배치 (탐욕 + 교환)");
+            sb.AppendLine(keepMounts ? $"# 저택 {Current.Label} CCTV 자동 채움 (좌표표 고정)" : $"# 저택 {Current.Label} CCTV 자동 배치 (탐욕 + 교환)");
             sb.AppendLine();
             sb.AppendLine($"생성: {started:yyyy-MM-dd HH:mm} · 고정 카메라 {fixedCameras.Length} · 후보 지점 {candidateCount} × 방향 {AutoPlaceHeadings} × 초점 거리 {AutoPlaceFocusDistances.Length} · 닿는 칸 {reachable} · 남은 사각 {remaining} ({100f * remaining / Math.Max(1, reachable):F1}%) · 소요 {(DateTime.Now - started).TotalSeconds:F0}초");
             sb.AppendLine();
@@ -229,7 +349,7 @@ namespace Game.Editor
                 var zs = cluster.Select(i => grid.WorldZ(i / grid.Width)).ToArray();
                 sb.AppendLine($"- {cluster.Count}칸 x {xs.Min():F1}~{xs.Max():F1} z {zs.Min():F1}~{zs.Max():F1}");
             }
-            var md = Path.Combine(ProjectRoot(), OutputFolder, "cctv-1f-autoplace.md");
+            var md = Path.Combine(ProjectRoot(), OutputFolder, $"cctv-{Current.Key}-autoplace.md");
             File.WriteAllText(md, sb.ToString(), new UTF8Encoding(false));
             var cameras = Mounts.Take(fixedCount).Select(m =>
                 {
@@ -242,14 +362,19 @@ namespace Game.Editor
             try
             {
                 var texture = Draw(grid, occluders, root.GetComponentsInChildren<HighlightCctvCamera>(), showCoverage: true);
-                var png = Save(texture, "cctv-1f-autoplace.png");
+                var png = Save(texture, $"cctv-{Current.Key}-autoplace.png");
                 Debug.Log($"[MansionCctv] 자동 {(keepMounts ? "채움" : "배치")} {picks.Count}대, 남은 사각 {remaining}/{reachable} -> {md}, {png}");
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }
 
-        [MenuItem(MenuRoot + "3. Check Coverage")]
-        public static void CheckCoverage()
+        [MenuItem(MenuRoot + "1F/3. Check Coverage")]
+        public static void CheckGroundCoverage() => OnFloor(Ground, CheckCoverage);
+
+        [MenuItem(MenuRoot + "2F/3. Check Coverage")]
+        public static void CheckUpstairsCoverage() => OnFloor(Upstairs, CheckCoverage);
+
+        private static void CheckCoverage()
         {
             RequireScene();
             var grid = Scan();
@@ -261,9 +386,9 @@ namespace Game.Editor
                 var perCamera = Evaluate(grid, occluders, cameras);
                 MarkStructural(grid, occluders);
                 var texture = Draw(grid, occluders, cameras, showCoverage: true);
-                var png = Save(texture, "cctv-1f-coverage.png");
+                var png = Save(texture, $"cctv-{Current.Key}-coverage.png");
                 var report = Report(grid, occluders, cameras, perCamera, notes);
-                var md = Path.Combine(ProjectRoot(), OutputFolder, "cctv-1f-coverage.md");
+                var md = Path.Combine(ProjectRoot(), OutputFolder, $"cctv-{Current.Key}-coverage.md");
                 File.WriteAllText(md, report, new UTF8Encoding(false));
                 var reachable = grid.Count(i => grid.Reachable[i]);
                 var covered = grid.Count(i => grid.Reachable[i] && grid.Coverage[i] > 0);
@@ -272,22 +397,55 @@ namespace Game.Editor
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }
 
-        [MenuItem(MenuRoot + "4. Save Mansion CCTV Prefab")]
-        public static void SavePrefab()
+        [MenuItem(MenuRoot + "1F/4. Save Prefab (this floor)")]
+        public static void SaveGroundPrefab() => OnFloor(Ground, SavePrefab);
+
+        [MenuItem(MenuRoot + "2F/4. Save Prefab (this floor)")]
+        public static void SaveUpstairsPrefab() => OnFloor(Upstairs, SavePrefab);
+
+        /// <summary>
+        /// 이 층 카메라만 좌표표로 다시 만들고 <b>다른 층 카메라는 프리팹에 있던 그대로 옮긴다.</b>
+        /// 프리팹 하나에 두 층이 함께 있으므로, 통째로 덮어쓰면 다른 층의 손본 지점이 사라진다.
+        /// </summary>
+        private static void SavePrefab()
         {
             RequireScene();
-            if (Mounts.Length == 0) throw new InvalidOperationException("좌표표(Mounts)가 비어 있습니다.");
+            if (Mounts.Length == 0) throw new InvalidOperationException($"{Current.Label} 좌표표(Mounts)가 비어 있습니다.");
             if (AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) != null)
-                Debug.LogWarning("[MansionCctv] 기존 " + PrefabPath + " 을 좌표표로 덮어씁니다. 씬에서 손으로 옮긴 카메라가 있었다면 사라집니다.");
+                Debug.LogWarning($"[MansionCctv] 기존 {PrefabPath} 의 {Current.Label} 카메라를 좌표표로 덮어씁니다. 씬에서 손으로 옮긴 {Current.Label} 카메라가 있었다면 사라집니다.");
             var root = BuildCameras(out var notes);
             try
             {
                 foreach (var note in notes) Debug.LogWarning("[MansionCctv] " + note);
+                var kept = CopyOtherFloors(root);
                 Directory.CreateDirectory(Path.GetDirectoryName(PrefabPath));
                 PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
-                Debug.Log($"[MansionCctv] 저택 CCTV 지점 {root.transform.childCount}개 저장: {PrefabPath}");
+                Debug.Log($"[MansionCctv] {Current.Label} CCTV 지점 {Mounts.Length}개 저장" +
+                          (kept > 0 ? $", 다른 층 {kept}개는 그대로 둠" : "") +
+                          $" (총 {root.transform.childCount}): {PrefabPath}. 번호는 9. 로 다시 매기세요.");
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        /// <summary>저장된 프리팹에서 지금 층이 아닌 카메라를 <paramref name="root"/> 아래로 그대로 옮긴다.</summary>
+        private static int CopyOtherFloors(GameObject root)
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) == null) return 0;
+            var contents = PrefabUtility.LoadPrefabContents(PrefabPath);
+            var kept = 0;
+            try
+            {
+                foreach (var camera in contents.GetComponentsInChildren<HighlightCctvCamera>())
+                {
+                    if (PlanOf(camera) == Current) continue;
+                    var copy = UnityEngine.Object.Instantiate(camera.gameObject);
+                    copy.name = camera.gameObject.name;
+                    copy.transform.SetParent(root.transform, true);
+                    kept++;
+                }
+            }
+            finally { PrefabUtility.UnloadPrefabContents(contents); }
+            return kept;
         }
 
         private static void RequireScene()
@@ -473,7 +631,10 @@ namespace Game.Editor
                 marker.transform.SetParent(root.transform, false);
                 marker.transform.position = cameras[i].position;
                 marker.transform.LookAt(cameras[i].focus);
-                marker.AddComponent<HighlightCctvCamera>().Configure($"CAM {i + 1:00}", cameras[i].fov);
+                var mount = marker.AddComponent<HighlightCctvCamera>();
+                mount.Configure($"CAM {i + 1:00}", cameras[i].fov);
+                // 런타임이 이 지점을 다른 층 장면에 쓰지 않게 맡는 높이를 함께 적는다.
+                mount.ConfigureFloor(Current.CoverY0, Current.CoverY1);
             }
             return root;
         }
@@ -746,8 +907,13 @@ namespace Game.Editor
         /// 좌표표가 아니라 저장된 프리팹의 카메라로 사각을 검사한다. 씬 미리보기에서 카메라를 옮겨
         /// 프리팹에 적용(Overrides > Apply)한 뒤 확인할 때 쓴다. 이 경우 프리팹이 기준이고 좌표표는 기록이다.
         /// </summary>
-        [MenuItem(MenuRoot + "3b. Check Coverage (Saved Prefab)")]
-        public static void CheckPrefabCoverage()
+        [MenuItem(MenuRoot + "1F/3b. Check Coverage (Saved Prefab)")]
+        public static void CheckGroundPrefabCoverage() => OnFloor(Ground, CheckPrefabCoverage);
+
+        [MenuItem(MenuRoot + "2F/3b. Check Coverage (Saved Prefab)")]
+        public static void CheckUpstairsPrefabCoverage() => OnFloor(Upstairs, CheckPrefabCoverage);
+
+        private static void CheckPrefabCoverage()
         {
             RequireScene();
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
@@ -757,17 +923,18 @@ namespace Game.Editor
             var root = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
             try
             {
-                var cameras = root.GetComponentsInChildren<HighlightCctvCamera>();
+                // 다른 층 카메라는 이 층 격자를 볼 일이 없다. 표에 0 칸짜리 줄로 끼는 것만 막는다.
+                var cameras = OnCurrentFloor(root);
                 var perCamera = Evaluate(grid, occluders, cameras);
                 MarkStructural(grid, occluders);
                 var texture = Draw(grid, occluders, cameras, showCoverage: true);
-                var png = Save(texture, "cctv-1f-coverage.png");
+                var png = Save(texture, $"cctv-{Current.Key}-coverage.png");
                 var report = Report(grid, occluders, cameras, perCamera, new List<string> { "이 보고서는 좌표표가 아니라 저장된 프리팹 " + PrefabPath + " 기준이다." });
-                var md = Path.Combine(ProjectRoot(), OutputFolder, "cctv-1f-coverage.md");
+                var md = Path.Combine(ProjectRoot(), OutputFolder, $"cctv-{Current.Key}-coverage.md");
                 File.WriteAllText(md, report, new UTF8Encoding(false));
                 var reachable = grid.Count(i => grid.Reachable[i]);
                 var covered = grid.Count(i => grid.Reachable[i] && grid.Coverage[i] > 0);
-                Debug.Log($"[MansionCctv] 프리팹 사각 검사: 카메라 {cameras.Length}, 닿는 칸 {reachable}, 보이는 칸 {covered} ({(reachable == 0 ? 0 : 100f * covered / reachable):F1}%) -> {png}, {md}");
+                Debug.Log($"[MansionCctv] {Current.Label} 프리팹 사각 검사: 카메라 {cameras.Length}, 닿는 칸 {reachable}, 보이는 칸 {covered} ({(reachable == 0 ? 0 : 100f * covered / reachable):F1}%) -> {png}, {md}");
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }
@@ -809,8 +976,13 @@ namespace Game.Editor
         /// 씬에서 손으로 고친 뒤 빈 곳만 메울 때 쓴다. 좌표표(<see cref="Mounts"/>)는 건드리지 않는다.
         /// 추가된 카메라는 미리보기(5번)에서 바로 보이고, 마음에 안 들면 지우고 Apply 하면 된다.
         /// </summary>
-        [MenuItem(MenuRoot + "2c. Auto Fill Saved Prefab (adds cameras)")]
-        public static void AutoFillPrefab()
+        [MenuItem(MenuRoot + "1F/2c. Auto Fill Saved Prefab (adds cameras)")]
+        public static void AutoFillGroundPrefab() => OnFloor(Ground, AutoFillPrefab);
+
+        [MenuItem(MenuRoot + "2F/2c. Auto Fill Saved Prefab (adds cameras)")]
+        public static void AutoFillUpstairsPrefab() => OnFloor(Upstairs, AutoFillPrefab);
+
+        private static void AutoFillPrefab()
         {
             RequireScene();
             var started = DateTime.Now;
@@ -819,39 +991,47 @@ namespace Game.Editor
             var root = PrefabUtility.LoadPrefabContents(PrefabPath);
             try
             {
-                var fixedCameras = root.GetComponentsInChildren<HighlightCctvCamera>();
+                // 채울 곳을 세는 것은 이 층 카메라 기준이다. 다른 층 카메라는 이 격자를 보지 못한다.
+                var fixedCameras = OnCurrentFloor(root);
                 var picks = Greedy(grid, occluders, fixedCameras, out var candidateCount, FillMaxTotal);
                 MarkStructural(grid, occluders);
                 var names = MountNames(picks);
                 var existing = fixedCameras.Length;
+                // 번호는 프리팹 전체에서 이어 붙인다. 두 층이 같은 이름을 갖지 않게 하고, 정리는 9. 가 한다.
+                var numbered = root.GetComponentsInChildren<HighlightCctvCamera>().Length;
                 for (var i = 0; i < picks.Count; i++)
                 {
                     var p = picks[i];
-                    var number = existing + i + 1;
+                    var number = numbered + i + 1;
                     var marker = new GameObject($"CCTV {number:00}");
                     marker.transform.SetParent(root.transform, false);
                     marker.transform.position = p.position;
                     marker.transform.LookAt(p.focus);
-                    marker.AddComponent<HighlightCctvCamera>().Configure($"CAM {number:00} · {names[i]}", DefaultFov);
+                    var mount = marker.AddComponent<HighlightCctvCamera>();
+                    mount.Configure($"CAM {number:00} · {names[i]}", DefaultFov);
+                    mount.ConfigureFloor(Current.CoverY0, Current.CoverY1);
                 }
                 if (picks.Count > 0) PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
                 var reachable = grid.Count(i => grid.Reachable[i]);
                 var remaining = grid.Count(i => grid.Reachable[i] && grid.Coverage[i] == 0 && !grid.Structural[i]);
                 var sb = new StringBuilder();
-                sb.AppendLine("# 저택 1층 CCTV 프리팹 자동 채움");
+                sb.AppendLine($"# 저택 {Current.Label} CCTV 프리팹 자동 채움");
                 sb.AppendLine();
                 sb.AppendLine($"생성: {started:yyyy-MM-dd HH:mm} · 기존 카메라 {existing} · 추가 {picks.Count} · 후보 {candidateCount} · 남은 사각 {remaining} ({100f * remaining / Math.Max(1, reachable):F1}%) · 소요 {(DateTime.Now - started).TotalSeconds:F0}초");
                 sb.AppendLine();
-                foreach (var p in picks) sb.AppendLine($"- CCTV {existing + p.index - fixedCameras.Length:00}: ({p.position.x:F2}, {p.position.y:F2}, {p.position.z:F2}) → ({p.focus.x:F2}, {p.focus.z:F2}), 보이는 칸 {p.visible}, 이 카메라만 {p.gain}");
-                File.WriteAllText(Path.Combine(ProjectRoot(), OutputFolder, "cctv-1f-autoplace.md"), sb.ToString(), new UTF8Encoding(false));
-                var texture = Draw(grid, occluders, root.GetComponentsInChildren<HighlightCctvCamera>(), showCoverage: true);
-                var png = Save(texture, "cctv-1f-autoplace.png");
-                Debug.Log($"[MansionCctv] 프리팹에 {picks.Count}대 추가(총 {existing + picks.Count}), 남은 사각 {remaining}/{reachable} -> {png}. 미리보기(5번)를 켜 두었다면 바로 보입니다. 확인 후 3b 로 다시 검사하세요.");
+                foreach (var p in picks) sb.AppendLine($"- CCTV {numbered + p.index - fixedCameras.Length:00}: ({p.position.x:F2}, {p.position.y:F2}, {p.position.z:F2}) → ({p.focus.x:F2}, {p.focus.z:F2}), 보이는 칸 {p.visible}, 이 카메라만 {p.gain}");
+                File.WriteAllText(Path.Combine(ProjectRoot(), OutputFolder, $"cctv-{Current.Key}-autoplace.md"), sb.ToString(), new UTF8Encoding(false));
+                var texture = Draw(grid, occluders, OnCurrentFloor(root), showCoverage: true);
+                var png = Save(texture, $"cctv-{Current.Key}-autoplace.png");
+                Debug.Log($"[MansionCctv] {Current.Label} 프리팹에 {picks.Count}대 추가({Current.Label} 총 {existing + picks.Count}), 남은 사각 {remaining}/{reachable} -> {png}. 미리보기(5번)를 켜 두었다면 바로 보입니다. 확인 후 3b 로 다시 검사하세요.");
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }
         }
 
-        /// <summary>저장된 프리팹의 카메라를 남쪽→북쪽 순으로 CCTV 01.. 로 다시 번호 매긴다. 이름의 "CAM NN · " 앞부분만 바꾼다.</summary>
+        /// <summary>
+        /// 저장된 프리팹의 카메라를 아래층부터, 층 안에서는 남쪽→북쪽 순으로 CCTV 01.. 로 다시 번호 매긴다.
+        /// 이름의 "CAM NN · " 앞부분만 바꾼다. 층을 안 적어 둔 카메라에는 높이로 고른 층을 함께 적는다.
+        /// </summary>
         [MenuItem(MenuRoot + "9. Renumber Saved Prefab Cameras")]
         public static void RenumberPrefab()
         {
@@ -859,7 +1039,8 @@ namespace Game.Editor
             try
             {
                 var cameras = root.GetComponentsInChildren<HighlightCctvCamera>()
-                    .OrderBy(c => c.transform.position.z).ThenBy(c => c.transform.position.x).ToArray();
+                    .OrderBy(c => Array.IndexOf(Floors, PlanOf(c)))
+                    .ThenBy(c => c.transform.position.z).ThenBy(c => c.transform.position.x).ToArray();
                 for (var i = 0; i < cameras.Length; i++)
                 {
                     var location = cameras[i].LocationName;
@@ -868,20 +1049,27 @@ namespace Game.Editor
                     cameras[i].Configure($"CAM {i + 1:00} · {zone}", cameras[i].FieldOfView);
                     cameras[i].name = $"CCTV {i + 1:00}";
                     cameras[i].transform.SetSiblingIndex(i);
+                    // 손으로 복제한 카메라는 층이 비어 있다. 런타임이 다른 층 장면에 쓰지 않게 여기서 채운다.
+                    if (!cameras[i].HasFloor)
+                    {
+                        var plan = PlanFor(cameras[i].transform.position.y);
+                        cameras[i].ConfigureFloor(plan.CoverY0, plan.CoverY1);
+                    }
                 }
                 PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
-                Debug.Log($"[MansionCctv] 프리팹 카메라 {cameras.Length}대를 CAM 01~{cameras.Length:00} 으로 다시 매겼습니다.");
+                var perFloor = string.Join(", ", Floors.Select(f => $"{f.Label} {cameras.Count(c => PlanOf(c) == f)}대"));
+                Debug.Log($"[MansionCctv] 프리팹 카메라 {cameras.Length}대를 CAM 01~{cameras.Length:00} 으로 다시 매겼습니다 ({perFloor}).");
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }
         }
 
         // ---- 자동 배치 결과를 좌표표로 ----
 
-        private const string AutoMountsBegin = "            // <auto-mounts>";
-        private const string AutoMountsEnd = "            // </auto-mounts>";
+        /// <summary>그 높이의 층이 쓰는 방 이름.</summary>
+        private static string ZoneName(Vector3 position) => PlanFor(position.y).Zone(position);
 
         /// <summary>1층 방 이름. 지도(cctv-1f-map.png)에서 읽은 벽 위치 기준이며 CAM 이름에만 쓴다.</summary>
-        private static string ZoneName(Vector3 position)
+        private static string GroundZone(Vector3 position)
         {
             var x = position.x; var z = position.z;
             if (z > -12.2f) return "현관 홀";
@@ -893,6 +1081,18 @@ namespace Game.Editor
             if (x > 2.4f) return "중앙 남동 복도";
             if (x < -2.8f) return "계단 서쪽";
             return "계단 남쪽 복도";
+        }
+
+        /// <summary>
+        /// 2층 자리 이름. 2층 방 이름은 아직 정하지 않아 방위로 부른다 - 시점을 하나씩 보며
+        /// <c>HighlightCctvCamera > Location Name</c> 에서 방 이름으로 고쳐 쓴다.
+        /// </summary>
+        private static string UpstairsZone(Vector3 position)
+        {
+            var northSouth = position.z > -16.5f ? "북" : position.z > -25.5f ? "" : "남";
+            var eastWest = position.x > 4.5f ? "동" : position.x > -4.5f ? "" : "서";
+            var where = northSouth + eastWest;
+            return where.Length == 0 ? "2층 중앙" : "2층 " + where + "쪽";
         }
 
         private static string HeadingName(float heading)
@@ -937,22 +1137,22 @@ namespace Game.Editor
         {
             var path = Path.Combine(ProjectRoot(), "Assets/_Game/Editor/MansionCctvPlanner.cs");
             var source = File.ReadAllText(path, Encoding.UTF8);
-            var begin = source.IndexOf(AutoMountsBegin, StringComparison.Ordinal);
-            var end = source.IndexOf(AutoMountsEnd, StringComparison.Ordinal);
+            var begin = source.IndexOf(Current.MountsBegin, StringComparison.Ordinal);
+            var end = begin < 0 ? -1 : source.IndexOf(Current.MountsEnd, begin, StringComparison.Ordinal);
             if (begin < 0 || end < 0 || end < begin)
             {
-                Debug.LogWarning("[MansionCctv] 좌표표 표식을 찾지 못해 소스를 고치지 않았습니다. 보고서의 표를 손으로 옮기세요.");
+                Debug.LogWarning($"[MansionCctv] {Current.Label} 좌표표 표식({Current.MountsBegin.Trim()})을 찾지 못해 소스를 고치지 않았습니다. 보고서의 표를 손으로 옮기세요.");
                 return;
             }
             var body = new StringBuilder();
-            body.AppendLine(AutoMountsBegin);
+            body.AppendLine(Current.MountsBegin);
             body.AppendLine($"            // 2. Auto Place {DateTime.Now:yyyy-MM-dd HH:mm} 결과 {picks.Count}개 (고정 {fixedCount}개 뒤). 남쪽에서 북쪽 순. 이름은 방 + 바라보는 방향.");
             foreach (var line in MountLines(picks)) body.AppendLine(line);
-            body.Append(AutoMountsEnd);
-            source = source.Substring(0, begin) + body + source.Substring(end + AutoMountsEnd.Length);
+            body.Append(Current.MountsEnd);
+            source = source.Substring(0, begin) + body + source.Substring(end + Current.MountsEnd.Length);
             File.WriteAllText(path, source, new UTF8Encoding(false));
             AssetDatabase.ImportAsset("Assets/_Game/Editor/MansionCctvPlanner.cs");
-            Debug.Log($"[MansionCctv] 좌표표 {picks.Count}개를 MansionCctvPlanner.cs 에 썼습니다. 다시 컴파일된 뒤 3. Check Coverage → 4. Save 를 누르세요.");
+            Debug.Log($"[MansionCctv] {Current.Label} 좌표표 {picks.Count}개를 MansionCctvPlanner.cs 에 썼습니다. 다시 컴파일된 뒤 3. Check Coverage → 4. Save 를 누르세요.");
         }
 
         // ---- 카메라 시점으로 보기 ----
@@ -1011,6 +1211,33 @@ namespace Game.Editor
         [MenuItem(MenuRoot + "8. Stop Looking Through (Remove Eye)")]
         public static void StopLookingThrough() => RemoveEye();
 
+        /// <summary>
+        /// 저장된 프리팹의 카메라마다 맡는 층을 적어 둔다. 층이 비어 있는 카메라는 높이로 고른다.
+        /// 층을 적기 전에 만든 프리팹에 한 번 쓰고, 그 뒤로는 저장·번호 매김이 알아서 채운다.
+        /// </summary>
+        [MenuItem(MenuRoot + "0. Tag Saved Prefab Cameras With Floor")]
+        public static void TagPrefabFloors()
+        {
+            var root = PrefabUtility.LoadPrefabContents(PrefabPath);
+            try
+            {
+                var cameras = root.GetComponentsInChildren<HighlightCctvCamera>();
+                var changed = 0;
+                foreach (var camera in cameras)
+                {
+                    var plan = PlanFor(camera.transform.position.y);
+                    if (camera.HasFloor && Mathf.Approximately(camera.FloorY0, plan.CoverY0) &&
+                        Mathf.Approximately(camera.FloorY1, plan.CoverY1)) continue;
+                    camera.ConfigureFloor(plan.CoverY0, plan.CoverY1);
+                    changed++;
+                }
+                if (changed > 0) PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
+                var perFloor = string.Join(", ", Floors.Select(f => $"{f.Label} {cameras.Count(c => PlanOf(c) == f)}대"));
+                Debug.Log($"[MansionCctv] 카메라 {cameras.Length}대 중 {changed}대에 층을 적었습니다 ({perFloor}).");
+            }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
+        }
+
         private static IEnumerable<HighlightCctvCamera> AllCctv()
         {
             var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
@@ -1020,6 +1247,8 @@ namespace Game.Editor
         private static void LookThrough(HighlightCctvCamera camera)
         {
             lookingThrough = camera;
+            // 이 카메라의 층을 지금 층으로 삼는다. 보고서와 초점 높이가 보고 있는 층을 따라간다.
+            Current = PlanOf(camera);
             var eye = GameObject.Find(EyeName);
             if (eye == null)
             {
@@ -1072,15 +1301,15 @@ namespace Game.Editor
             var twice = grid.Count(i => grid.Reachable[i] && grid.Coverage[i] > 1);
             var unreachable = grid.Count(i => grid.Kind[i] == CellKind.Floor && !grid.Reachable[i]);
             var structural = grid.Count(i => grid.Reachable[i] && grid.Coverage[i] == 0 && grid.Structural[i]);
-            sb.AppendLine("# 저택 1층 CCTV 사각 검사");
+            sb.AppendLine($"# 저택 {Current.Label} CCTV 사각 검사");
             sb.AppendLine();
-            sb.AppendLine($"생성: {DateTime.Now:yyyy-MM-dd HH:mm} · 격자 {Cell} m · 범위 x[{X0}, {X1}] z[{Z0}, {Z1}] · 가림 판정 = 런타임과 같은 정적 렌더러 경계 상자");
+            sb.AppendLine($"생성: {DateTime.Now:yyyy-MM-dd HH:mm} · 격자 {Cell} m · 범위 x[{X0}, {X1}] z[{Z0}, {Z1}] · 층 {Current.Label} (바닥 {Current.FloorY}, 맡는 높이 {Current.CoverY0}~{Current.CoverY1}) · 가림 판정 = 런타임과 같은 정적 렌더러 경계 상자");
             sb.AppendLine();
             sb.AppendLine($"- 플레이 구역(스폰·파쇄기·열어 둔 방에서 걸어 닿는 칸): {reachable} ({reachable * Cell * Cell:F1} m²) · 닿지 않아 뺀 바닥 칸 {unreachable}");
             sb.AppendLine($"- 카메라 1대 이상에 보이는 칸: {covered} ({(reachable == 0 ? 0 : 100f * covered / reachable):F1}%)");
             sb.AppendLine($"- 2대 이상에 보이는 칸: {twice} ({(reachable == 0 ? 0 : 100f * twice / reachable):F1}%)");
             sb.AppendLine($"- 사각 칸: {reachable - covered - structural} · 가림 상자 안이라 어느 카메라도 못 보는 칸: {structural} ({structural * Cell * Cell:F1} m²)");
-            sb.AppendLine($"- 1층 천장 높이: {CeilingSummary(grid)}");
+            sb.AppendLine($"- {Current.Label} 천장 높이: {CeilingSummary(grid)}");
             sb.AppendLine();
             sb.AppendLine("## 카메라");
             sb.AppendLine();
@@ -1168,7 +1397,7 @@ namespace Game.Editor
                 sb.AppendLine($"| {o.Name} | {b.min.x:F1} ~ {b.max.x:F1} | {b.min.z:F1} ~ {b.max.z:F1} | {b.min.y:F2} ~ {b.max.y:F2} | {b.size.x * b.size.z:F1} |");
             }
             sb.AppendLine();
-            sb.AppendLine("## 1층 기준점");
+            sb.AppendLine($"## {Current.Label} 기준점");
             sb.AppendLine();
             foreach (var t in Landmarks())
                 sb.AppendLine($"- {t.name}: ({t.position.x.ToString("0.0", inv)}, {t.position.y.ToString("0.0", inv)}, {t.position.z.ToString("0.0", inv)})");
@@ -1208,7 +1437,9 @@ namespace Game.Editor
         {
             var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             return scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<Transform>(true))
-                .Where(t => (t.name.StartsWith("SpawnPoint_") || t.name == "ShredderSpot") && t.position.y < FloorY + 2.5f)
+                // 층마다 이 층에 선 것만. 1층 스폰(y 1.4)과 2층 스폰(y 6.06)이 같은 이름을 쓴다.
+                .Where(t => (t.name.StartsWith("SpawnPoint_") || t.name == "ShredderSpot") &&
+                            t.position.y > FloorY - 0.5f && t.position.y < FloorY + 2.5f)
                 .OrderBy(t => t.name);
         }
 
