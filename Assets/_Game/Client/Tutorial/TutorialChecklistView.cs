@@ -39,16 +39,17 @@ namespace Game.Client.Tutorial
             root.GetComponent<Image>().color = new Color(.04f, .045f, .06f, .82f);
             root.GetComponent<Image>().raycastTarget = false;
             var view = root.AddComponent<TutorialChecklistView>();
+            var language = UiLocale.AppliedLanguage;
             view.title = view.Label(
                 "Title",
-                UiTextCatalog.Shipped.Get(UiText.Tutorial.ChecklistTitle, "ko"),
+                UiTextCatalog.Shipped.Get(UiText.Tutorial.ChecklistTitle, language),
                 26,
                 14);
             for (var i = 0; i < StepKeys.Length; i++)
             {
                 view.rows[i] = view.Label(
                     "Step" + i,
-                    $"{i + 1:00}  {UiTextCatalog.Shipped.Get(StepKeys[i], "ko")}",
+                    $"{i + 1:00}  {UiTextCatalog.Shipped.Get(StepKeys[i], language)}",
                     25,
                     58 + i * 35);
             }
@@ -57,8 +58,9 @@ namespace Game.Client.Tutorial
             return view;
         }
 
-        public void Show(TutorialStep step, string hint, string language = "ko")
+        public void Show(TutorialStep step, string hint, string language = null)
         {
+            language ??= UiLocale.AppliedLanguage;
             if (title != null)
             {
                 title.text = UiTextCatalog.Shipped.Get(UiText.Tutorial.ChecklistTitle, language);

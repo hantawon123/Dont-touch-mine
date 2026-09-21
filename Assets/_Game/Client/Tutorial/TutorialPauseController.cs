@@ -59,11 +59,15 @@ namespace Game.Client.Tutorial
             openedFrame = Time.frameCount;
             SetInputBlocked(true);
             modal.gameObject.SetActive(true);
+
+            // Nothing injects in the tutorial scene, so the modal is handed
+            // the locale the game is running with rather than left Korean.
+            modal.ShowChrome(locale ?? UiLocale.Current);
             modal.ShowLeaveConfirmation(
                 string.IsNullOrWhiteSpace(exitTitle)
                     ? locale != null
                         ? locale.Get(UiText.Tutorial.ExitTitle)
-                        : UiTextCatalog.Shipped.Get(UiText.Tutorial.ExitTitle, "ko")
+                        : UiLocale.Applied(UiText.Tutorial.ExitTitle)
                     : exitTitle);
         }
 

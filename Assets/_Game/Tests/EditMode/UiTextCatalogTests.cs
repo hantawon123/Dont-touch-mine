@@ -96,6 +96,15 @@ namespace Game.Architecture.Tests
             Assert.That(shipped.Get(UiText.Closet.Face, "en"), Is.EqualTo("Face"));
             Assert.That(shipped.Get(UiText.Rooms.EnterByCode, "en"), Is.EqualTo("Join by Code"));
             Assert.That(shipped.Get(UiText.Tutorial.ChecklistTitle, "en"), Is.EqualTo("Thief Basics"));
+            Assert.That(
+                string.Format(shipped.Get(UiText.Tutorial.TargetPickUp, "en"), "F"),
+                Is.EqualTo("Look at the crate and press F"));
+            Assert.That(shipped.Get(UiText.Tutorial.TargetDrop, "en"), Is.EqualTo("Set it down here"));
+            Assert.That(shipped.Get(UiText.Tutorial.TargetThrow, "en"), Is.EqualTo("Hit this target"));
+            Assert.That(
+                shipped.Get(UiText.Tutorial.TargetPlace, "en"),
+                Is.EqualTo("Place it near the blue mark"));
+            Assert.That(shipped.Get(UiText.Tutorial.TargetDrop, "ko"), Is.EqualTo("여기에 내려놓기"));
             Assert.That(shipped.Get(UiText.Guide.Attack, "en"), Is.EqualTo("Attack"));
             Assert.That(shipped.Get(UiText.Lobby.PlayerCount, "en"), Is.EqualTo("Players"));
             Assert.That(shipped.Get(UiText.Lobby.Closet, "en"), Is.EqualTo("Character"));

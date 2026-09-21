@@ -30,13 +30,19 @@ namespace Game.Client.Tutorial
 
         public string CurrentMessage => messageText != null ? messageText.text : string.Empty;
 
+        /// <summary>
+        /// The tutorial scene injects nothing, so the applied locale is taken
+        /// from the running game rather than left as Korean.
+        /// </summary>
+        private UiLocale Locale => locale ?? UiLocale.Current;
+
         private string Copy(string key) =>
             locale != null
                 ? locale.Get(key)
-                : UiTextCatalog.Shipped.Get(key, "ko");
+                : UiLocale.Applied(key);
 
         private string Language =>
-            locale != null ? locale.LanguageCode : "ko";
+            locale != null ? locale.LanguageCode : UiLocale.AppliedLanguage;
 
         private void Awake()
         {
@@ -69,7 +75,7 @@ namespace Game.Client.Tutorial
                 return;
             }
 
-            presenter = new TutorialRadioPresenter(this, session, locale);
+            presenter = new TutorialRadioPresenter(this, session, Locale);
             presenter.Start();
         }
 
@@ -97,7 +103,7 @@ namespace Game.Client.Tutorial
             checklist.Show(step, hint, Language);
             if (keyGuide != null)
             {
-                keyGuide.ShowChrome(locale);
+                keyGuide.ShowChrome(Locale);
             }
 
             if (step >= TutorialStep.PickUp && step <= TutorialStep.UseShredder && !carrying)
@@ -192,12 +198,12 @@ namespace Game.Client.Tutorial
         {
             this.view = view;
             this.session = session;
-            this.locale = locale;
+            this.locale = locale ?? UiLocale.Current;
             displayedStep = session.CurrentStep;
         }
 
         private string Language =>
-            locale != null ? locale.LanguageCode : "ko";
+            locale != null ? locale.LanguageCode : UiLocale.AppliedLanguage;
 
         private string Intro =>
             UiTextCatalog.Shipped.Get(UiText.Tutorial.Intro, Language);
@@ -243,7 +249,7 @@ namespace Game.Client.Tutorial
             view.ShowThen(Retry(step), Instruction(step, Language));
 
         internal static string Instruction(TutorialStep step) =>
-            Instruction(step, "ko");
+            Instruction(step, UiLocale.AppliedLanguage);
 
         internal static string Instruction(TutorialStep step, string language) => step switch
         {

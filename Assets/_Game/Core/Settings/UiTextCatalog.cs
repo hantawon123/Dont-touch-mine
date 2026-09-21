@@ -448,7 +448,7 @@ namespace Game.Core.Settings
             new UiTextLine(UiText.Tutorial.StepCrouch, "앉아서 통과", "Crouch through"),
             new UiTextLine(UiText.Tutorial.StepProne, "기어서 통과", "Crawl through"),
             new UiTextLine(UiText.Tutorial.StepPickUp, "물건 들기", "Pick up"),
-            new UiTextLine(UiText.Tutorial.StepDrop, "지정 구역에 내려놓기", "Set it down"),
+            new UiTextLine(UiText.Tutorial.StepDrop, "지정 구역에 내려놓기", "Set it down in the zone"),
             new UiTextLine(UiText.Tutorial.StepThrow, "표적에 던지기", "Throw at the target"),
             new UiTextLine(UiText.Tutorial.StepPlace, "책상에 배치하기", "Place on the desk"),
             new UiTextLine(UiText.Tutorial.StepShredder, "파쇄기 사용", "Use the shredder"),
@@ -456,7 +456,8 @@ namespace Game.Core.Settings
             new UiTextLine(
                 UiText.Tutorial.Intro,
                 "신입, 들리나. 여긴 우리 아지트의 훈련 구역이다. 지금부터 내 지시에 따라 움직여.",
-                "You there, rookie. This is our hideout's training ground. Follow my lead."),
+                "Rookie, do you copy? This is the training floor at our hideout. "
+                    + "From here you move on my word."),
             new UiTextLine(
                 UiText.Tutorial.InstructMove,
                 "주변을 살피면서 앞으로 이동해. 좋은 도둑은 발보다 눈이 먼저 움직이는 법이지.",
@@ -472,7 +473,8 @@ namespace Game.Core.Settings
             new UiTextLine(
                 UiText.Tutorial.InstructCrouch,
                 "C를 눌러 앉은 채 통로 끝까지 지나가. 시야가 답답하면 V로 1인칭과 3인칭을 바꿀 수 있다.",
-                "Hold C and crouch to the end of the passage. Press V if you need first- or third-person."),
+                "Press C and stay low all the way through. "
+                    + "If the view feels tight, V swaps first and third person."),
             new UiTextLine(
                 UiText.Tutorial.InstructProne,
                 "이번엔 Z를 눌러 엎드려. 낮은 통로를 끝까지 기어서 지나가면 된다.",
@@ -480,19 +482,21 @@ namespace Game.Core.Settings
             new UiTextLine(
                 UiText.Tutorial.InstructPickUp,
                 "상자 하나가 보일 거다. 가까이 가서 들어 올려. 오늘부터 네가 지켜야 할 물건이다.",
-                "You'll see a crate. Walk up and pick it up. From today, that item is yours to keep."),
+                "There's a crate ahead. Get close and lift it. "
+                    + "From today that item is yours to protect."),
             new UiTextLine(
                 UiText.Tutorial.InstructDrop,
                 "표시된 구역까지 운반한 다음 바닥에 내려놔. 던지지 말고 얌전히.",
-                "Carry it to the marked spot and set it down. Don't throw it."),
+                "Carry it to the marked zone and put it on the floor. Gently. No throwing."),
             new UiTextLine(
                 UiText.Tutorial.InstructThrow,
                 "이번엔 표적을 봐. 힘을 조절해서 상자를 던져.",
-                "Now look at the target. Gauge it and throw the crate."),
+                "Now find the target. Judge your strength and throw the crate at it."),
             new UiTextLine(
                 UiText.Tutorial.InstructPlace,
                 "배치 모드를 사용해 봐. Q/E와 우클릭으로 방향을 조정하고, 파란 목표 근처에 클릭해서 놓아. 모양이 똑같을 필요는 없다.",
-                "Try placement mode. Use Q/E and right-click to turn it, then click near the blue mark. It does not have to match exactly."),
+                "Try placement mode. Turn it with Q/E and the right button, "
+                    + "then click near the blue mark. It doesn't have to line up perfectly."),
             new UiTextLine(
                 UiText.Tutorial.InstructShredder,
                 "마지막 처리다. 상자를 들고 파쇄기에 넣어. 증거를 남기지 마.",
@@ -502,20 +506,30 @@ namespace Game.Core.Settings
                 "훈련은 끝났다. 앞의 문을 직접 열어. 밖으로 나가면 실전이다.",
                 "Training's over. Open the door yourself. Outside is the real job."),
             new UiTextLine(UiText.Tutorial.CompleteMove, "좋아. 적어도 벽을 보고 걷지는 않겠군.", "Good. At least you won't walk into a wall."),
-            new UiTextLine(UiText.Tutorial.CompleteSprint, "그 정도면 경비원 하나쯤은 따돌리겠어.", "That should shake one guard."),
+            new UiTextLine(UiText.Tutorial.CompleteSprint, "그 정도면 경비원 하나쯤은 따돌리겠어.", "Fast enough to lose a guard. One, anyway."),
             new UiTextLine(UiText.Tutorial.CompleteJump, "착지는 거칠지만 넘어오긴 했군.", "Rough landing, but you made it."),
-            new UiTextLine(UiText.Tutorial.CompleteCrouch, "조용히 움직이는 법을 조금은 아는군.", "You know a little about moving quietly."),
+            new UiTextLine(UiText.Tutorial.CompleteCrouch, "조용히 움직이는 법을 조금은 아는군.", "So you do know something about moving quietly."),
             new UiTextLine(UiText.Tutorial.CompleteProne, "좋아. 체면보다 임무가 먼저라는 건 이해했군.", "Good. The job comes before pride."),
             new UiTextLine(UiText.Tutorial.CompletePickUp, "단단히 잡아. 우리 물건은 잃어버리는 순간 남의 물건이 된다.", "Hold it tight. Lose our item and it belongs to someone else."),
             new UiTextLine(UiText.Tutorial.CompleteDrop, "좋아. 내려놓는 것과 떨어뜨리는 것의 차이는 아는군.", "Good. You know the difference between setting it down and dropping it."),
             new UiTextLine(UiText.Tutorial.CompleteThrow, "정확하군. 필요할 때는 물건도 훌륭한 도구가 된다.", "Accurate. An item can be a tool when you need one."),
             new UiTextLine(UiText.Tutorial.CompletePlace, "좋아. 정리할 줄 아는 도둑은 오래 살아남지.", "Good. A tidy thief lasts longer."),
             new UiTextLine(UiText.Tutorial.CompleteShredder, "깨끗하군. 이제 저 물건이 있었다는 걸 아는 사람은 우리뿐이다.", "Clean. Now only we know that item was ever here."),
-            new UiTextLine(UiText.Tutorial.RetryJump, "아래에 숨을 생각은 아니었겠지. 다시 뛰어.", "You weren't planning to hide down there. Jump again."),
-            new UiTextLine(UiText.Tutorial.RetryGeneric, "집중해. 같은 실수는 두 번이면 습관이다.", "Focus. Twice is a habit."),
+            new UiTextLine(UiText.Tutorial.RetryJump, "아래에 숨을 생각은 아니었겠지. 다시 뛰어.", "You weren't planning to hide down there, were you? Jump again."),
+            new UiTextLine(UiText.Tutorial.RetryGeneric, "집중해. 같은 실수는 두 번이면 습관이다.", "Focus. Make the same mistake twice and it's a habit."),
+            new UiTextLine(
+                UiText.Tutorial.TargetPickUp,
+                "상자를 보고 {0}로 들기",
+                "Look at the crate and press {0}"),
+            new UiTextLine(UiText.Tutorial.TargetDrop, "여기에 내려놓기", "Set it down here"),
+            new UiTextLine(UiText.Tutorial.TargetThrow, "이 표적에 던지기", "Hit this target"),
+            new UiTextLine(
+                UiText.Tutorial.TargetPlace,
+                "파란 목표 근처에 배치하기",
+                "Place it near the blue mark"),
             new UiTextLine(UiText.Tutorial.HintPickUp, "먼저 물건 들기 · {0}", "Pick it up first · {0}"),
             new UiTextLine(UiText.Tutorial.HintPlacement, "배치 모드 · {0}", "Placement · {0}"),
-            new UiTextLine(UiText.Tutorial.HintPlace, "회전 Q/E · 스크롤 / 클릭 배치", "Turn Q/E · Scroll / click to place"),
+            new UiTextLine(UiText.Tutorial.HintPlace, "회전 Q/E · 스크롤 / 클릭 배치", "Q/E to turn · scroll or click to place"),
             new UiTextLine(UiText.Tutorial.FocusPickUp, "물건 들기", "Pick up"),
             new UiTextLine(UiText.Tutorial.FocusPlacement, "배치 모드", "Placement"),
             new UiTextLine(UiText.Tutorial.FocusMove, "이동 · 마우스로 주변 살피기", "Move · Look around with the mouse"),

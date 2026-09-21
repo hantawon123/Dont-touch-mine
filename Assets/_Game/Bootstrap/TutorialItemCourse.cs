@@ -71,12 +71,13 @@ namespace Game.Bootstrap
             targetMaterial.SetColor("_Color", new Color(.15f, .55f, 1f, .4f));
             placementGuide = CreatePlacementGuide();
             pickupGuide = CreateTargetOutline("PickupTarget", trainingItem.transform.position, Vector2.one, false,
-                "상자를 보고 " + Game.Client.KeySettingGuideView.CurrentKeyLabel(Game.Core.Settings.ControlAction.Interact) + "로 들기");
+                string.Empty);
             var surfaceBounds = placementSurface.bounds;
-            placementLabel = CreateTargetOutline("PlacementTarget", new Vector3(surfaceBounds.center.x, surfaceBounds.max.y + .03f, surfaceBounds.center.z), new Vector2(1f, .85f), false, "파란 목표 근처에 배치하기");
-            dropGuide = CreateTargetOutline("DropTarget", new Vector3(DropTargetPosition.x, .16f, DropTargetPosition.z), new Vector2(2.5f, 2.5f), false, "여기에 내려놓기");
+            placementLabel = CreateTargetOutline("PlacementTarget", new Vector3(surfaceBounds.center.x, surfaceBounds.max.y + .03f, surfaceBounds.center.z), new Vector2(1f, .85f), false, string.Empty);
+            dropGuide = CreateTargetOutline("DropTarget", new Vector3(DropTargetPosition.x, .16f, DropTargetPosition.z), new Vector2(2.5f, 2.5f), false, string.Empty);
             var target = throwTarget.bounds;
-            throwGuide = CreateTargetOutline("ThrowTarget", new Vector3(target.center.x, target.center.y, target.min.z - .08f), new Vector2(target.size.x, target.size.y), true, "이 표적에 던지기");
+            throwGuide = CreateTargetOutline("ThrowTarget", new Vector3(target.center.x, target.center.y, target.min.z - .08f), new Vector2(target.size.x, target.size.y), true, string.Empty);
+            PaintTargetLabels();
             MakeDynamic(trainingItem);
             RefreshPlacementGuide(session.CurrentStep);
         }
@@ -89,6 +90,8 @@ namespace Game.Bootstrap
                 shredder.ItemProcessed += OnShredderProcessed;
             if (session != null)
                 session.StepChanged += RefreshPlacementGuide;
+            if (Game.Core.Settings.UiLocale.Current != null)
+                Game.Core.Settings.UiLocale.Current.Changed += PaintTargetLabels;
         }
 
         private void OnDisable()
@@ -99,6 +102,8 @@ namespace Game.Bootstrap
                 shredder.ItemProcessed -= OnShredderProcessed;
             if (session != null)
                 session.StepChanged -= RefreshPlacementGuide;
+            if (Game.Core.Settings.UiLocale.Current != null)
+                Game.Core.Settings.UiLocale.Current.Changed -= PaintTargetLabels;
         }
 
         private void Update()
@@ -286,6 +291,34 @@ namespace Game.Bootstrap
             body.useGravity = true;
             body.isKinematic = false;
             body.WakeUp();
+        }
+
+        /// <summary>
+        /// The captions on the course are built once but the language can be
+        /// applied at any time, so they are written from the catalogue rather
+        /// than baked in.
+        /// </summary>
+        private void PaintTargetLabels()
+        {
+            SetTargetLabel(pickupGuide, string.Format(
+                Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Tutorial.TargetPickUp),
+                Game.Client.KeySettingGuideView.CurrentKeyLabel(
+                    Game.Core.Settings.ControlAction.Interact)));
+            SetTargetLabel(placementLabel, Game.Core.Settings.UiLocale.Applied(
+                Game.Core.Settings.UiText.Tutorial.TargetPlace));
+            SetTargetLabel(dropGuide, Game.Core.Settings.UiLocale.Applied(
+                Game.Core.Settings.UiText.Tutorial.TargetDrop));
+            SetTargetLabel(throwGuide, Game.Core.Settings.UiLocale.Applied(
+                Game.Core.Settings.UiText.Tutorial.TargetThrow));
+        }
+
+        private static void SetTargetLabel(GameObject guide, string label)
+        {
+            var view = guide != null ? guide.GetComponent<TutorialTargetView>() : null;
+            if (view != null)
+            {
+                view.SetLabel(label);
+            }
         }
 
         private GameObject CreateTargetOutline(string name, Vector3 position, Vector2 size, bool vertical, string label)

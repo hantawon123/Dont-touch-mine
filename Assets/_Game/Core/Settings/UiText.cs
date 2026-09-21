@@ -460,6 +460,10 @@ namespace Game.Core.Settings
             public const string CompleteShredder = "tutorial.complete.shredder";
             public const string RetryJump = "tutorial.retry.jump";
             public const string RetryGeneric = "tutorial.retry.generic";
+            public const string TargetPickUp = "tutorial.target.pickUp";
+            public const string TargetDrop = "tutorial.target.drop";
+            public const string TargetThrow = "tutorial.target.throw";
+            public const string TargetPlace = "tutorial.target.place";
             public const string HintPickUp = "tutorial.hint.pickUp";
             public const string HintPlacement = "tutorial.hint.placement";
             public const string HintPlace = "tutorial.hint.place";

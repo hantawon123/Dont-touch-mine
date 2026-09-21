@@ -238,7 +238,7 @@ namespace Game.Client.Settings
         private string Copy(string key) =>
             chromeLocale != null
                 ? chromeLocale.Get(key)
-                : UiTextCatalog.Shipped.Get(key, "ko");
+                : UiLocale.Applied(key);
 
         /// <summary>
         /// Paints and arms the two buttons for whether there is anything to
