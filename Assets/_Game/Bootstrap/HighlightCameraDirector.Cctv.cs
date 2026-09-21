@@ -18,6 +18,8 @@ namespace Game.Bootstrap
         private const float MinimumCctvDistance = 5f;
         private const float MaximumCctvDistance = 18f;
         private const float MaximumCctvDistanceBonus = 3f;
+        /// <summary>Cost of a mount whose authored storey does not contain the subject.</summary>
+        private const float OffFloorPenalty = 900f;
         private const float TopDownPenaltyStartAngle = 60f;
         private const float TopDownPenaltyPerDegree = 0.2f;
         private readonly IReadOnlyList<HighlightCctvCamera> cctvCameras;
@@ -140,6 +142,8 @@ namespace Game.Bootstrap
                 {
                     if (camera == null) continue;
                     var score = CctvScore(camera, focus);
+                    // A mount that watches another storey only wins when nothing on this one can be used.
+                    if (!camera.CoversHeight(cctvTarget.position.y)) score -= OffFloorPenalty;
                     if (velocity.sqrMagnitude > 0.01f &&
                         !CanCctvSeePoint(camera, cctvTarget, predictedFocus)) score -= 600f;
                     if (score > bestScore) { best = camera; bestScore = score; }
@@ -313,6 +317,9 @@ namespace Game.Bootstrap
             var targetVisible = CanSeePlannedSubject(camera, sample.Target, sample.TargetIsPlayer, sample,
                 sample.TargetPlayerIndex, sample.TargetObjectId);
             if (!targetVisible) return -1200f;
+            // Thin floor slabs are not occluders, so the storey the mount watches is what keeps an
+            // upstairs camera out of a shot that happens below it.
+            if (!camera.CoversHeight(sample.Target.y)) return -1200f - OffFloorPenalty;
             var focus = sample.Target + Vector3.up * (sample.TargetIsPlayer ? 0.8f : 0.3f);
             var direction = focus - camera.transform.position;
             var score = CctvCompositionScore(direction) -
