@@ -382,10 +382,35 @@ namespace Game.Client.Settings
         /// <summary>The circling arrow and its words at the top right.</summary>
         public static class ResetAll
         {
-            public const float RightMargin = 160f;
+            /// <summary>
+            /// 오른쪽 끝을 <b>설정 판의 오른쪽 끝</b>에 맞춥니다.
+            ///
+            /// <para>
+            /// 판의 값에서 구합니다. 숫자를 따로 적으면 판 크기를 고칠 때 한쪽만 바뀌어 어긋납니다.
+            /// 단추는 피벗이 오른쪽이고 글자 길이만큼 늘어나므로(ContentSizeFitter), 글자가 긴
+            /// 영어에서도 왼쪽으로만 늘어나 이 끝은 그대로입니다.
+            /// </para>
+            /// </summary>
+            public static float RightMargin =>
+                ReferenceResolution.x - (Frame.Position.x + Frame.Size.x);
 
-            /// <summary>로비에서는 판이 작아져 오른쪽에 여유가 생깁니다.</summary>
-            public const float LobbyRightMargin = 130f;
+            /// <summary>
+            /// 로비에서 쓰는 오른쪽 여백.
+            ///
+            /// <para>
+            /// 로비는 판을 가운데 기준으로 0.8 배로 줄이므로(<see cref="Frame.LobbyScale"/>) 판의
+            /// 오른쪽 끝이 그만큼 안으로 들어옵니다. 단추도 같이 들어와야 끝이 맞습니다.
+            /// </para>
+            /// </summary>
+            public static float LobbyRightMargin
+            {
+                get
+                {
+                    var centreX = Frame.Position.x + (Frame.Size.x * 0.5f);
+                    var rightEdge = centreX + (Frame.Size.x * Frame.LobbyScale * 0.5f);
+                    return ReferenceResolution.x - rightEdge;
+                }
+            }
 
             /// <summary>
             /// <b>로비에서만</b> 맨 위 줄에서 이만큼 내려앉습니다 (2026-09-21 사용자 지정).

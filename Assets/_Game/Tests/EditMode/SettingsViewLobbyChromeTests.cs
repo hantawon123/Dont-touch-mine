@@ -138,6 +138,15 @@ namespace Game.Architecture.Tests
                     resetAll.anchoredPosition.y,
                     Is.EqualTo(rect.anchoredPosition.y - SettingsStyle.ResetAll.LobbyDropFromTopRow),
                     "로비에서는 전체 변경 취소가 맨 위 줄에서 한 줄 내려앉습니다.");
+
+                // 오른쪽 끝이 판의 오른쪽 끝과 맞아야 합니다. 로비는 판이 0.8 배로 줄어든 만큼
+                // 단추도 안으로 들어옵니다. 글자가 긴 영어에서도 피벗이 오른쪽이라 끝은 그대로입니다.
+                var scaledRight = 960f + (SettingsStyle.Frame.Size.x * SettingsStyle.Frame.LobbyScale * 0.5f);
+                Assert.That(
+                    resetAll.anchoredPosition.x,
+                    Is.EqualTo(-(SettingsStyle.ReferenceResolution.x - scaledRight)),
+                    "로비 판의 오른쪽 끝과 맞아야 합니다.");
+                Assert.That(resetAll.pivot.x, Is.EqualTo(1f), "글자가 길어지면 왼쪽으로 늘어나야 합니다.");
                 Assert.That(
                     SettingsStyle.ResetAll.LobbyDropFromTopRow,
                     Is.GreaterThan(SettingsStyle.Chrome.PlateHeight),
@@ -265,6 +274,14 @@ namespace Game.Architecture.Tests
                     Is.EqualTo(new Vector2(
                         -SettingsStyle.ResetAll.RightMargin, -SettingsStyle.Chrome.TopRowCentreY)),
                     "홈에서는 전체 변경 취소가 맨 위 줄에 있어야 합니다.");
+
+                // 홈은 판을 줄이지 않으므로 판의 오른쪽 끝이 그대로입니다.
+                Assert.That(
+                    SettingsStyle.ResetAll.RightMargin,
+                    Is.EqualTo(SettingsStyle.ReferenceResolution.x
+                        - (SettingsStyle.Frame.Position.x + SettingsStyle.Frame.Size.x)),
+                    "홈에서도 오른쪽 끝이 판의 오른쪽 끝과 맞아야 합니다.");
+                Assert.That(resetRect.pivot.x, Is.EqualTo(1f), "글자가 길어지면 왼쪽으로 늘어나야 합니다.");
                 var panel = Find(root, "Panel") as RectTransform;
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.localScale, Is.EqualTo(Vector3.one));
