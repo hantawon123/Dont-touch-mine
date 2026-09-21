@@ -179,8 +179,12 @@ namespace Game.Client.Home
 
             var labelRect = CreateRect("Label", row);
             SetAnchor(labelRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
-            labelRect.offsetMin = new Vector2(HomeStyle.Server.SidePadding * 0.5f, 0f);
-            labelRect.offsetMax = new Vector2(-HomeStyle.Server.CheckSize, 0f);
+            labelRect.offsetMin = new Vector2(HomeStyle.Server.RowInset, 0f);
+            labelRect.offsetMax = new Vector2(
+                -(HomeStyle.Server.CheckSize
+                    + HomeStyle.Server.LabelToCheckGap
+                    + HomeStyle.Server.RowInset),
+                0f);
             var label = AddText(
                 labelRect,
                 RegionLabel(region),
@@ -192,7 +196,7 @@ namespace Game.Client.Home
             var checkRect = CreateRect("Check", row);
             SetAnchor(
                 checkRect, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
-            checkRect.anchoredPosition = new Vector2(-HomeStyle.Server.SidePadding * 0.5f, 0f);
+            checkRect.anchoredPosition = new Vector2(-HomeStyle.Server.RowInset, 0f);
             checkRect.sizeDelta = new Vector2(
                 HomeStyle.Server.CheckSize, HomeStyle.Server.CheckSize);
 
@@ -229,6 +233,11 @@ namespace Game.Client.Home
             if (serverSettingsRoot != null)
             {
                 serverSettingsRoot.SetActive(visible);
+            }
+
+            if (visible)
+            {
+                FitServerPanel();
             }
         }
 
@@ -287,8 +296,8 @@ namespace Game.Client.Home
 
         /// <summary>
         /// The panel is as wide as its widest line asks for, never narrower
-        /// than the design. 북미 is four characters and North America is
-        /// thirteen, and the check mark sits where the overflow would go.
+        /// than the design. Each row keeps a gap and a check-sized slot on
+        /// the right so selecting a region never lands the mark on the name.
         /// </summary>
         private void FitServerPanel()
         {
@@ -319,8 +328,16 @@ namespace Game.Client.Home
                 Mathf.Ceil(needed), HomeStyle.Server.PanelSize.y);
         }
 
-        private static float TextWidth(TMP_Text text) =>
-            text.GetPreferredValues(text.text).x;
+        private static float TextWidth(TMP_Text text)
+        {
+            if (text == null || string.IsNullOrEmpty(text.text))
+            {
+                return 0f;
+            }
+
+            text.ForceMeshUpdate();
+            return text.GetPreferredValues(text.text).x;
+        }
 
         private static string RegionRowName(ServerRegion region)
         {

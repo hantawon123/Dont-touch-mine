@@ -9,6 +9,10 @@ namespace Game.Client.Tutorial
 {
     public sealed class TutorialChecklistView : MonoBehaviour
     {
+        public const float MinWidth = 350f;
+        public const float PanelHeight = 510f;
+        public const float SidePadding = 16f;
+
         private static readonly string[] StepKeys =
         {
             UiText.Tutorial.StepMove,
@@ -35,7 +39,7 @@ namespace Game.Client.Tutorial
             rect.anchorMin = rect.anchorMax = new Vector2(0, .5f);
             rect.pivot = new Vector2(0, .5f);
             rect.anchoredPosition = new Vector2(32, -30);
-            rect.sizeDelta = new Vector2(350, 510);
+            rect.sizeDelta = new Vector2(MinWidth, PanelHeight);
             root.GetComponent<Image>().color = new Color(.04f, .045f, .06f, .82f);
             root.GetComponent<Image>().raycastTarget = false;
             var view = root.AddComponent<TutorialChecklistView>();
@@ -55,6 +59,7 @@ namespace Game.Client.Tutorial
             }
             view.actionHint = view.Label("CurrentAction", string.Empty, 24, 450);
             view.actionHint.color = new Color(1, .8f, .25f);
+            view.FitWidth();
             return view;
         }
 
@@ -74,6 +79,56 @@ namespace Game.Client.Tutorial
                 rows[i].text = $"{i + 1:00}  {UiTextCatalog.Shipped.Get(StepKeys[i], language)}";
             }
             actionHint.text = hint;
+            FitWidth();
+        }
+
+        /// <summary>
+        /// The plate is as wide as its longest line, never narrower than the
+        /// original design. English steps such as "Set it down in the zone"
+        /// would otherwise clip inside the Korean width.
+        /// </summary>
+        private void FitWidth()
+        {
+            var needed = MinWidth;
+            needed = Mathf.Max(needed, TextWidth(title) + SidePadding * 2f);
+            for (var i = 0; i < rows.Length; i++)
+            {
+                needed = Mathf.Max(needed, TextWidth(rows[i]) + SidePadding * 2f);
+            }
+
+            needed = Mathf.Max(needed, TextWidth(actionHint) + SidePadding * 2f);
+            var width = Mathf.Ceil(needed);
+            ((RectTransform)transform).sizeDelta = new Vector2(width, PanelHeight);
+            var labelWidth = width - SidePadding * 2f;
+            SetLabelWidth(title, labelWidth);
+            for (var i = 0; i < rows.Length; i++)
+            {
+                SetLabelWidth(rows[i], labelWidth);
+            }
+
+            SetLabelWidth(actionHint, labelWidth);
+        }
+
+        private static void SetLabelWidth(TMP_Text text, float width)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            var rect = text.rectTransform;
+            rect.sizeDelta = new Vector2(width, rect.sizeDelta.y);
+        }
+
+        private static float TextWidth(TMP_Text text)
+        {
+            if (text == null || string.IsNullOrEmpty(text.text))
+            {
+                return 0f;
+            }
+
+            text.ForceMeshUpdate();
+            return text.GetPreferredValues(text.text).x;
         }
 
         private TMP_Text Label(string name, string content, float size, float top)
@@ -83,12 +138,14 @@ namespace Game.Client.Tutorial
             var rect = text.rectTransform;
             rect.anchorMin = rect.anchorMax = new Vector2(0, 1);
             rect.pivot = new Vector2(0, 1);
-            rect.anchoredPosition = new Vector2(16, -top);
-            rect.sizeDelta = new Vector2(320, 54);
+            rect.anchoredPosition = new Vector2(SidePadding, -top);
+            rect.sizeDelta = new Vector2(MinWidth - SidePadding * 2f, 54);
             text.font = HomeUiFonts.Apply();
             text.fontSize = size;
             text.text = content;
             text.raycastTarget = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Overflow;
             return text;
         }
     }

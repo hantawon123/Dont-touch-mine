@@ -39,6 +39,35 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Checklist_GrowsToTheLongestLine()
+        {
+            var store = new InMemoryGeneralSettingsStore();
+            store.Save(new GeneralSettings("en"));
+            using var locale = new UiLocale(new GeneralSettingsSystem(store));
+            var canvas = new GameObject("TutorialHud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = TutorialChecklistView.Create(canvas.transform);
+                view.Show(TutorialStep.Drop, "Q/E to turn · scroll or click to place");
+                var panel = (RectTransform)view.transform;
+                var drop = canvas.transform.Find("TutorialChecklist/Step6").GetComponent<TMP_Text>();
+                var hint = canvas.transform.Find("TutorialChecklist/CurrentAction").GetComponent<TMP_Text>();
+                var needed = Mathf.Max(
+                    drop.GetPreferredValues(drop.text).x,
+                    hint.GetPreferredValues(hint.text).x)
+                    + TutorialChecklistView.SidePadding * 2f;
+
+                Assert.That(panel.sizeDelta.x, Is.GreaterThanOrEqualTo(needed));
+                Assert.That(panel.sizeDelta.x, Is.GreaterThanOrEqualTo(TutorialChecklistView.MinWidth));
+                Assert.That(panel.sizeDelta.y, Is.EqualTo(TutorialChecklistView.PanelHeight));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void Checklist_StaysKoreanWhenNoLanguageIsApplied()
         {
             var canvas = new GameObject("TutorialHud", typeof(RectTransform), typeof(Canvas));

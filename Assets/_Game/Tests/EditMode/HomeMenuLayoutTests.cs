@@ -116,6 +116,14 @@ namespace Game.Tests.EditMode
             // check mark sits where it would otherwise run over.
             var widest = home.Rect("Region_us").Find("Label").GetComponent<TMPro.TMP_Text>();
             Assert.That(
+                HomeStyle.Server.RowChrome,
+                Is.EqualTo(
+                    HomeStyle.Server.SidePadding * 2f
+                    + HomeStyle.Server.RowInset
+                    + HomeStyle.Server.LabelToCheckGap
+                    + HomeStyle.Server.CheckSize
+                    + HomeStyle.Server.RowInset));
+            Assert.That(
                 panel.sizeDelta.x,
                 Is.GreaterThanOrEqualTo(
                     widest.GetPreferredValues(widest.text).x + HomeStyle.Server.RowChrome));
