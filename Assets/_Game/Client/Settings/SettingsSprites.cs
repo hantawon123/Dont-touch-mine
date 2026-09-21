@@ -42,6 +42,7 @@ namespace Game.Client.Settings
     {
         private static readonly Dictionary<int, Sprite> Rounded = new Dictionary<int, Sprite>();
         private static readonly Dictionary<int, Sprite> Glows = new Dictionary<int, Sprite>();
+        private static Sprite exitGlyph;
 
         /// <summary>
         /// A filled rectangle rounded at <paramref name="corners"/>, nine-sliced
@@ -87,6 +88,83 @@ namespace Game.Client.Settings
 
         /// <summary>How far past the panel the glow's rectangle has to reach.</summary>
         public static float GlowMargin(int spread, int blur) => spread + blur;
+
+        /// <summary>
+        /// 나가기 표시 (S15P21D205-1086): 오른쪽이 열린 문틀과 그 밖으로 나가는 화살표.
+        /// </summary>
+        /// <remarks>
+        /// 가져오지 않고 그립니다. 이 화면의 다른 도형들과 같은 이유입니다 - 몇 킬로바이트도
+        /// 저장소를 쓰지 않고, 굵기나 비례를 바꿀 때 PNG 를 다시 내보낼 일이 없습니다.
+        /// 흰색으로 그리므로 색은 쓰는 쪽의 <see cref="UnityEngine.UI.Image.color"/> 가 정합니다.
+        /// </remarks>
+        public static Sprite ExitGlyph()
+        {
+            if (exitGlyph != null)
+            {
+                return exitGlyph;
+            }
+
+            exitGlyph = BuildExitGlyph();
+            return exitGlyph;
+        }
+
+        /// <summary>
+        /// 선분 다섯 개로 그립니다. 문틀 세 변(오른쪽은 비웁니다 - 그 자리가 나가는 곳입니다)과
+        /// 화살표의 대와 촉 둘입니다. 좌표는 디자인처럼 위에서 아래로 세고, 텍스처에 쓸 때
+        /// 뒤집습니다.
+        /// </summary>
+        private static Sprite BuildExitGlyph()
+        {
+            const int Size = 64;
+            const float HalfStroke = 2.6f;
+
+            var strokes = new[]
+            {
+                new Vector4(12f, 10f, 12f, 54f),
+                new Vector4(12f, 10f, 32f, 10f),
+                new Vector4(12f, 54f, 32f, 54f),
+                new Vector4(30f, 32f, 54f, 32f),
+                new Vector4(44f, 22f, 54f, 32f),
+                new Vector4(44f, 42f, 54f, 32f)
+            };
+
+            var texture = NewTexture(Size);
+            for (var y = 0; y < Size; y++)
+            {
+                for (var x = 0; x < Size; x++)
+                {
+                    var point = new Vector2(x + 0.5f, Size - (y + 0.5f));
+                    var nearest = float.MaxValue;
+                    foreach (var stroke in strokes)
+                    {
+                        nearest = Mathf.Min(nearest, DistanceToSegment(
+                            point, new Vector2(stroke.x, stroke.y), new Vector2(stroke.z, stroke.w)));
+                    }
+
+                    var alpha = Mathf.Clamp01(HalfStroke + 0.5f - nearest);
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+
+            texture.Apply(false, false);
+            var sprite = Sprite.Create(
+                texture, new Rect(0f, 0f, Size, Size), new Vector2(0.5f, 0.5f), 100f);
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        private static float DistanceToSegment(Vector2 point, Vector2 from, Vector2 to)
+        {
+            var span = to - from;
+            var length = span.sqrMagnitude;
+            if (length <= Mathf.Epsilon)
+            {
+                return Vector2.Distance(point, from);
+            }
+
+            var t = Mathf.Clamp01(Vector2.Dot(point - from, span) / length);
+            return Vector2.Distance(point, from + (span * t));
+        }
 
         private static Sprite BuildRounded(int radius, RoundedCorners corners)
         {
