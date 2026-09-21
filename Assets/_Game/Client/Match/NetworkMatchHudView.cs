@@ -6,6 +6,7 @@ using Game.Client.Lobby;
 using Game.Client.Voice;
 using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -59,6 +60,7 @@ namespace Game.Client.Match
         void SetMatchChatVisible(bool visible);
         void SetMatchChatMode(MatchChatHudMode mode);
         void SetPlayerStatusVisible(bool visible);
+        void ShowChrome(UiLocale locale);
     }
 
     /// <summary>
@@ -133,7 +135,9 @@ namespace Game.Client.Match
 
         private LobbyPlayerListView participantListView;
 
+        private UiLocale chromeLocale;
         private MatchPhase currentPhase;
+        private string currentHidingPlayerName = string.Empty;
         private double lastRemainingSeconds = 999d;
         private int remainingDestructionUses = -1;
         private int destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
@@ -192,9 +196,32 @@ namespace Game.Client.Match
             RefreshKeyGuide(MatchPhase.Waiting);
         }
 
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureTimer();
+            timerView?.ShowChrome(locale);
+            phaseView?.ShowChrome(locale);
+            phaseView?.SetPhase(currentPhase, currentHidingPlayerName);
+            EnsureHighlightHud();
+            highlightHudView?.ShowChrome(locale);
+            EnsureHidingActiveHud();
+            hidingActiveHudView?.ShowChrome(locale);
+            EnsureHidingWaitHud();
+            hidingWaitHudView?.ShowChrome(locale);
+            EnsureHidingTurnStart();
+            hidingTurnStartView?.ShowChrome(locale);
+            EnsureHidingIntro();
+            hidingIntroView?.ShowChrome(locale);
+            EnsureSearchingIntro();
+            searchingIntroView?.ShowChrome(locale);
+            RefreshShredderMarkerLabel();
+        }
+
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
         {
             currentPhase = phase;
+            currentHidingPlayerName = hidingPlayerName ?? string.Empty;
             SetHighlightOnly(phase == MatchPhase.Highlight);
             if (phase == MatchPhase.Hiding || phase == MatchPhase.Waiting)
             {
@@ -512,17 +539,23 @@ namespace Game.Client.Match
 
         public static string FormatShredderMarkerLabel(
             int remainingUses,
-            int maxUses = PlaySettingsDraft.DefaultDestructionLimit)
+            int maxUses = PlaySettingsDraft.DefaultDestructionLimit) =>
+            FormatShredderMarkerLabel(remainingUses, maxUses, "ko");
+
+        public static string FormatShredderMarkerLabel(
+            int remainingUses,
+            int maxUses,
+            string language)
         {
             if (remainingUses == PlaySettingsDraft.UnlimitedDestructionUses ||
                 maxUses == PlaySettingsDraft.UnlimitedDestructionLimit)
             {
-                return "파쇄기 (무한)";
+                return UiTextCatalog.Shipped.Get(UiText.Match.ShredderUnlimited, language);
             }
 
             if (remainingUses < 0)
             {
-                return "파쇄기";
+                return UiTextCatalog.Shipped.Get(UiText.Match.Shredder, language);
             }
 
             if (maxUses < PlaySettingsDraft.MinDestructionLimit)
@@ -530,7 +563,10 @@ namespace Game.Client.Match
                 maxUses = PlaySettingsDraft.DefaultDestructionLimit;
             }
 
-            return $"파쇄기 ({remainingUses}/{maxUses})";
+            return string.Format(
+                UiTextCatalog.Shipped.Get(UiText.Match.ShredderUses, language),
+                remainingUses,
+                maxUses);
         }
 
         private void RefreshShredderMarkerLabel()
@@ -546,7 +582,10 @@ namespace Game.Client.Match
                 return;
             }
 
-            label.text = FormatShredderMarkerLabel(remainingDestructionUses, destructionLimit);
+            label.text = FormatShredderMarkerLabel(
+                remainingDestructionUses,
+                destructionLimit,
+                chromeLocale != null ? chromeLocale.LanguageCode : "ko");
         }
 
         public void SetShredderMarker(Vector2 screenPosition, bool visible)

@@ -82,6 +82,13 @@ namespace Game.Architecture.Tests
             Assert.That(
                 string.Format(shipped.Get(UiText.Lobby.KickTitle, "en"), "Guest"),
                 Is.EqualTo("Kick Guest?"));
+            Assert.That(shipped.Get(UiText.Match.ChatPlaceholder, "en"), Is.EqualTo("Press [Enter] to chat"));
+            Assert.That(shipped.Get(UiText.Match.TimerHint, "en"), Is.EqualTo("Secure your item now!"));
+            Assert.That(shipped.Get(UiText.Match.HighlightSkip, "en"), Is.EqualTo("Skip"));
+            Assert.That(shipped.Get(UiText.Match.PhaseWaiting, "en"), Is.EqualTo("Waiting"));
+            Assert.That(
+                string.Format(shipped.Get(UiText.Match.Destroyed, "en"), "Mina"),
+                Is.EqualTo("Mina destroyed an item!"));
         }
     }
 }

@@ -1879,6 +1879,10 @@ namespace Game.Architecture.Tests
             }
             public bool PlayerStatusVisible { get; private set; } = true;
             public void SetPlayerStatusVisible(bool visible) => PlayerStatusVisible = visible;
+
+            public void ShowChrome(Game.Core.Settings.UiLocale locale)
+            {
+            }
         }
 
         private sealed class FakeNetwork :

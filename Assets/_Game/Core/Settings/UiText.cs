@@ -280,5 +280,62 @@ namespace Game.Core.Settings
             public const string InvalidCodeModal = "rooms.modal.invalidCode";
             public const string HostRoom = "rooms.hostRoom";
         }
+
+        public static class Match
+        {
+            public const string ChatPlaceholder = "match.chat.placeholder";
+
+            public const string TimerHint = "match.timer.hint";
+            public const string WinHeadline = "match.result.winHeadline";
+            public const string LoseHeadline = "match.result.loseHeadline";
+            public const string WinSubtitle = "match.result.winSubtitle";
+            public const string LoseSubtitle = "match.result.loseSubtitle";
+            public const string NoResult = "match.result.none";
+            public const string ResultMissing = "match.result.missing";
+            public const string ResultHeading = "match.result.heading";
+            public const string Winners = "match.result.winners";
+            public const string EndReason = "match.result.endReason";
+            public const string NoWinner = "match.result.noWinner";
+            public const string MatchOver = "match.result.matchOver";
+            public const string Victory = "match.result.victory";
+            public const string Defeat = "match.result.defeat";
+            public const string None = "match.result.noneLabel";
+            public const string PlayerN = "match.result.playerN";
+            public const string ReturnLobby = "match.result.returnLobby";
+            public const string TimeExpired = "match.result.timeExpired";
+            public const string AllItemsDestroyed = "match.result.allItemsDestroyed";
+            public const string LastStanding = "match.result.lastStanding";
+
+            public const string PhaseWaiting = "match.phase.waiting";
+            public const string PhaseHighlight = "match.phase.highlight";
+            public const string PhaseResult = "match.phase.result";
+            public const string PhaseHiding = "match.phase.hiding";
+            public const string PhaseHidingNamed = "match.phase.hidingNamed";
+
+            public const string HighlightTitle = "match.highlight.title";
+            public const string HighlightSkip = "match.highlight.skip";
+            public const string HighlightSkipAll = "match.highlight.skipAll";
+
+            public const string HideHint = "match.hide.hint";
+            public const string HideWarning = "match.hide.warning";
+            public const string HideComplete = "match.hide.complete";
+            public const string HideBanner = "match.hide.banner";
+            public const string HideFinalBanner = "match.hide.finalBanner";
+            public const string HideNextTurn = "match.hide.nextTurn";
+            public const string HideStatus = "match.hide.status";
+            public const string HideStatusNamed = "match.hide.statusNamed";
+
+            public const string IntroHint = "match.intro.hint";
+            public const string StolenItem = "match.intro.stolen";
+            public const string SearchingTitle = "match.searching.title";
+            public const string SearchingBody = "match.searching.body";
+            public const string SearchingHint = "match.searching.hint";
+            public const string ItemFallback = "match.item.fallback";
+
+            public const string Shredder = "match.shredder";
+            public const string ShredderUnlimited = "match.shredder.unlimited";
+            public const string ShredderUses = "match.shredder.uses";
+            public const string Destroyed = "match.destroyed";
+        }
     }
 }

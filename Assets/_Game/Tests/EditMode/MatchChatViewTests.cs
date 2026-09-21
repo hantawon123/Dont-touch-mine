@@ -1,6 +1,7 @@
 using Game.Client.Home;
 using Game.Client.Match;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -623,6 +624,31 @@ namespace Game.Architecture.Tests
             Assert.That(visible.Count, Is.EqualTo(5));
             Assert.That(visible[0].Text, Is.EqualTo("1"));
             Assert.That(visible[4].Text, Is.EqualTo("5"));
+        }
+
+        [Test]
+        public void ShowChrome_RedrawsPlaceholderInTheAppliedLanguage()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform);
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                var general = new GeneralSettingsSystem(store);
+                using var locale = new UiLocale(general);
+
+                view.ShowChrome(locale);
+
+                var input = view.transform.Find("InputPanel").GetComponent<TMP_InputField>();
+                Assert.That(
+                    (input.placeholder as TMP_Text).text,
+                    Is.EqualTo("Press [Enter] to chat"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
         }
 
         private static bool RowsOverlapVertically(RectTransform upper, RectTransform lower)

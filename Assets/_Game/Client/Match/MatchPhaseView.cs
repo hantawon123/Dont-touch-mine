@@ -1,4 +1,5 @@
 using Game.Core.Match;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 
@@ -9,13 +10,30 @@ namespace Game.Client.Match
         [SerializeField]
         private TMP_Text phaseText;
 
+        private UiLocale chromeLocale;
+        private MatchPhase lastPhase;
+        private string lastHidingPlayerName = string.Empty;
+        private bool hasPhase;
+
         private void Awake()
         {
             EnsureLayout();
         }
 
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            if (hasPhase)
+            {
+                SetPhase(lastPhase, lastHidingPlayerName);
+            }
+        }
+
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
         {
+            lastPhase = phase;
+            lastHidingPlayerName = hidingPlayerName ?? string.Empty;
+            hasPhase = true;
             EnsureLayout();
             if (phaseText == null)
             {
@@ -24,14 +42,22 @@ namespace Game.Client.Match
 
             phaseText.text = phase switch
             {
-                MatchPhase.Waiting => "대기 중",
-                MatchPhase.Hiding => DescribeHiding(hidingPlayerName),
+                MatchPhase.Waiting => Copy(UiText.Match.PhaseWaiting),
+                MatchPhase.Hiding => DescribeHiding(hidingPlayerName, Language),
                 MatchPhase.Searching => string.Empty,
-                MatchPhase.Highlight => "하이라이트",
-                MatchPhase.Result => "결과",
+                MatchPhase.Highlight => Copy(UiText.Match.PhaseHighlight),
+                MatchPhase.Result => Copy(UiText.Match.PhaseResult),
                 _ => phase.ToString()
             };
         }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiTextCatalog.Shipped.Get(key, "ko");
+
+        private string Language =>
+            chromeLocale != null ? chromeLocale.LanguageCode : "ko";
 
         private void EnsureLayout()
         {
@@ -54,11 +80,20 @@ namespace Game.Client.Match
             rect.sizeDelta = new Vector2(620f, 40f);
         }
 
-        private static string DescribeHiding(string hidingPlayerName)
+        public static string DescribeHiding(string hidingPlayerName) =>
+            DescribeHiding(hidingPlayerName, "ko");
+
+        public static string DescribeHiding(string hidingPlayerName, string language)
         {
-            return string.IsNullOrWhiteSpace(hidingPlayerName)
-                ? "숨기는 중"
-                : $"{hidingPlayerName}{SubjectParticle(hidingPlayerName)} 숨기는 중";
+            if (string.IsNullOrWhiteSpace(hidingPlayerName))
+            {
+                return UiTextCatalog.Shipped.Get(UiText.Match.PhaseHiding, language);
+            }
+
+            return string.Format(
+                UiTextCatalog.Shipped.Get(UiText.Match.PhaseHidingNamed, language),
+                hidingPlayerName,
+                SubjectParticle(hidingPlayerName));
         }
 
         /// <summary>
