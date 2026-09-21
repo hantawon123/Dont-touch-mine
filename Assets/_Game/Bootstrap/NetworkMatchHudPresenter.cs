@@ -426,10 +426,14 @@ namespace Game.Bootstrap
                     latest = destruction;
             }
             if (latest.HasValue)
+            {
                 lastDestroyerName = DisplayNameOf(latest.Value.DestroyerPlayerIndex);
                 view.ShowDestructionNotice(FormatDestroyed(lastDestroyerName));
+            }
             else
+            {
                 view.HideDestructionNotice();
+            }
         }
 
         private void OnItemAssignmentReceived(string itemId)

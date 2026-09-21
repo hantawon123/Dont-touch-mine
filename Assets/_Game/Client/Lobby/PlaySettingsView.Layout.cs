@@ -1303,7 +1303,7 @@ namespace Game.Client.Lobby
             return button;
         }
 
-        private static Text CreateApplyWarning(RectTransform footer)
+        private Text CreateApplyWarning(RectTransform footer)
         {
             var rect = CreateRect("ApplyWarning", footer);
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);

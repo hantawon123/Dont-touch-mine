@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Common;
 using Game.Core.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
