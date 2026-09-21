@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -79,7 +80,7 @@ namespace Game.Client.Lobby
 
             if (mapNameText != null)
             {
-                mapNameText.text = selected.Label;
+                mapNameText.text = PlaySettingsMapCatalog.LabelOf(selected.Id, Language);
             }
 
             if (mapPreviewImage != null)

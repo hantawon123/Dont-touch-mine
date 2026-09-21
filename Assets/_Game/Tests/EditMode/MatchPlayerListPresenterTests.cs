@@ -126,6 +126,10 @@ namespace Game.Tests.EditMode
                 Friends = friends ?? Array.Empty<FriendSummary>();
             }
 
+            public void ShowChrome(Game.Core.Settings.UiLocale locale) => ChromeLocale = locale;
+
+            public Game.Core.Settings.UiLocale ChromeLocale { get; private set; }
+
             public void RaiseReport(string id, string name) => ReportClicked?.Invoke(id, name);
         }
 

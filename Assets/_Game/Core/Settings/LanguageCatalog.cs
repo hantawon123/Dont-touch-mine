@@ -40,13 +40,14 @@ namespace Game.Core.Settings
         private readonly Language[] languages;
 
         /// <summary>
-        /// What the game ships with. Korean alone for now: there are no
-        /// translated strings to switch to, and a language that changes nothing
-        /// when picked would read as broken. When a translation lands its line
-        /// goes here and the picker's arrows come alive on their own.
+        /// What the game ships with. Korean is first, so it is the default.
+        /// English is offered in the picker; the rest of the interface stays
+        /// Korean until a translation lands.
         /// </summary>
         public static LanguageCatalog Shipped { get; } =
-            new LanguageCatalog(new Language("ko", "한국어"));
+            new LanguageCatalog(
+                new Language("ko", "한국어"),
+                new Language("en", "English"));
 
         public LanguageCatalog(params Language[] languages)
         {

@@ -23,7 +23,7 @@ namespace Game.Tests.EditMode
                 var info = canvas.transform.Find(LobbyMatchInfoView.RootName)
                     .GetComponent<LobbyMatchInfoView>();
                 Assert.That(info.CategoryLabel, Is.EqualTo(PlaySettingsCategoryCatalog.Default.Label));
-                Assert.That(info.MapLabel, Is.EqualTo("supermarket"));
+                Assert.That(info.MapLabel, Is.EqualTo(PlaySettingsMapCatalog.LabelOf("supermarket")));
             }
             finally
             {
@@ -58,7 +58,7 @@ namespace Game.Tests.EditMode
                 var info = canvas.transform.Find(LobbyMatchInfoView.RootName)
                     .GetComponent<LobbyMatchInfoView>();
                 Assert.That(info.CategoryLabel, Is.EqualTo(PlaySettingsCategoryCatalog.Default.Label));
-                Assert.That(info.MapLabel, Is.EqualTo("supermarket"));
+                Assert.That(info.MapLabel, Is.EqualTo(PlaySettingsMapCatalog.LabelOf("supermarket")));
 
                 session.ReplaceSettings(new PlaySettingsDraft(
                     "방",

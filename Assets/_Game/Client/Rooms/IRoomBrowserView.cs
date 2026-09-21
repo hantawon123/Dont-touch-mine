@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Game.Core.Rooms;
+using Game.Core.Settings;
 
 namespace Game.Client.Rooms
 {
@@ -38,5 +39,7 @@ namespace Game.Client.Rooms
         void ShowEntryFailure(RoomEntryFailure failure);
 
         void ShowDisconnection(string message);
+
+        void ShowChrome(UiLocale locale);
     }
 }

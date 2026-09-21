@@ -1,4 +1,6 @@
+using Game.Client.Character;
 using Game.Client.Settings;
+using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -105,6 +107,81 @@ namespace Game.Architecture.Tests
                 var background = Find(root, "Background").GetComponent<Image>();
                 Assert.That(background.color, Is.EqualTo(SettingsStyle.Palette.OverlayDim));
                 Assert.That(background.color.a, Is.EqualTo(0.8f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ShowChrome_RedrawsTabsAndButtonsInTheAppliedLanguage()
+        {
+            var root = new GameObject("Settings chrome");
+            try
+            {
+                var view = root.AddComponent<SettingsView>();
+                typeof(SettingsView).GetMethod("Awake",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
+
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                var general = new GeneralSettingsSystem(store);
+                using var locale = new UiLocale(general);
+
+                view.ShowChrome(locale);
+
+                Assert.That(Find(root, "GeneralTab").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
+                    Is.EqualTo("General"));
+                Assert.That(Find(root, "LanguageRow").Find("Label").GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Language"));
+                Assert.That(Find(root, "ApplyButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
+                    Is.EqualTo("Apply"));
+                Assert.That(Find(root, "ResetButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
+                    Is.EqualTo("Discard"));
+                Assert.That(Find(root, "DisplayModeRow").Find("Label").GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Display Mode"));
+                Assert.That(Find(root, "DeviceRow").Find("Label").GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Microphone Device"));
+                Assert.That(Find(root, "BackButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
+                    Is.EqualTo("← Back"));
+                Assert.That(Find(root, "FeedbackButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
+                    Is.EqualTo("Send Feedback"));
+
+                Assert.That(Find(Find(root, "Feedback").gameObject, "Title")
+                        .GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Send Feedback"));
+
+                view.ShowConfirm(SettingsConfirmKind.ResetAll, SettingsTab.General);
+                Assert.That(Find(Find(root, "Confirm").gameObject, "Title")
+                        .GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Discard all settings changes?"));
+                Assert.That(Find(root, "DeclineButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
+                    Is.EqualTo("Cancel"));
+
+                view.ShowConfirm(SettingsConfirmKind.ResetTab, SettingsTab.Graphics);
+                Assert.That(Find(Find(root, "Confirm").gameObject, "Title")
+                        .GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Discard changes to Graphics settings?"));
+
+                var confirmPanel = Find(Find(root, "Confirm").gameObject, "Panel") as RectTransform;
+                var confirmTitle = Find(Find(root, "Confirm").gameObject, "Title") as RectTransform;
+                var confirmSubtitle = Find(Find(root, "Confirm").gameObject, "Subtitle") as RectTransform;
+                Assert.That(confirmPanel, Is.Not.Null);
+                Assert.That(confirmTitle, Is.Not.Null);
+                Assert.That(confirmSubtitle, Is.Not.Null);
+                Assert.That(confirmTitle.sizeDelta.y, Is.GreaterThan(CharacterClosetStyle.Modal.TitleFontSize * 1.4f));
+                Assert.That(confirmPanel.sizeDelta.y, Is.GreaterThan(CharacterClosetStyle.Modal.PanelSize.y));
+                Assert.That(
+                    confirmSubtitle.anchoredPosition.y,
+                    Is.LessThan(-(CharacterClosetStyle.Modal.TitleTop + confirmTitle.sizeDelta.y)));
+
+                var feedback = Find(root, "FeedbackButton") as RectTransform;
+                var feedbackLabel = feedback.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+                Assert.That(
+                    feedback.sizeDelta.x,
+                    Is.EqualTo(feedbackLabel.preferredWidth + (SettingsStyle.FeedbackRow.ButtonPaddingX * 2f)).Within(0.5f));
             }
             finally
             {

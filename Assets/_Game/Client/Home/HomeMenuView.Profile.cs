@@ -1,5 +1,6 @@
 ﻿using System;
 using Game.Core.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -82,12 +83,13 @@ namespace Game.Client.Home
             label.sizeDelta = new Vector2(HomeStyle.Profile.ToggleLeft, 30f);
             var labelText = AddText(
                 label,
-                "닉네임 검색 허용",
+                Copy(UiText.Home.SearchAllow),
                 HomeStyle.FontSize.ToggleLabel,
                 FontStyles.Normal,
                 TextAlignmentOptions.MidlineLeft);
             ApplyMenuFont(labelText);
             labelText.color = HomeStyle.Palette.TextPrimary;
+            Remember(labelText, UiText.Home.SearchAllow);
 
             var toggle = CreateRect("SearchAllowToggle", panel);
             SetAnchor(toggle, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0.5f));
@@ -278,11 +280,12 @@ namespace Game.Client.Home
             labelRect.offsetMax = Vector2.zero;
             applyLabel = AddText(
                 labelRect,
-                "적용하기",
+                Copy(UiText.Settings.Apply),
                 HomeStyle.FontSize.Apply,
                 FontStyles.Normal,
                 TextAlignmentOptions.Center);
             ApplyMenuFont(applyLabel);
+            Remember(applyLabel, UiText.Settings.Apply);
 
             applyButton = apply.gameObject.AddComponent<Button>();
             applyButton.targetGraphic = applyFill;
@@ -316,12 +319,12 @@ namespace Game.Client.Home
             var half = (HomeStyle.Profile.ApplySize.x - HomeStyle.Profile.ConfirmGap) * 0.5f;
 
             CreateConfirmHalf(
-                row, "Cancel", "취소", 0f, half,
+                row, "Cancel", UiText.Settings.Cancel, 0f, half,
                 HomeStyle.Palette.ApplyOffFill, HomeStyle.Palette.ApplyOffLabel,
                 CancelNicknameConfirm);
 
             CreateConfirmHalf(
-                row, "Confirm", "변경",
+                row, "Confirm", UiText.Home.ConfirmChange,
                 half + HomeStyle.Profile.ConfirmGap, half,
                 HomeStyle.Palette.ApplyOnFill, HomeStyle.Palette.ApplyOnLabel,
                 ConfirmNicknameChange);
@@ -332,7 +335,7 @@ namespace Game.Client.Home
         private void CreateConfirmHalf(
             RectTransform row,
             string name,
-            string label,
+            string key,
             float left,
             float width,
             Color fillColour,
@@ -358,12 +361,13 @@ namespace Game.Client.Home
             labelRect.offsetMax = Vector2.zero;
             var text = AddText(
                 labelRect,
-                label,
+                Copy(key),
                 HomeStyle.FontSize.Apply,
                 FontStyles.Normal,
                 TextAlignmentOptions.Center);
             ApplyMenuFont(text);
             text.color = labelColour;
+            Remember(text, key);
 
             var button = half.gameObject.AddComponent<Button>();
             button.targetGraphic = fill;
@@ -383,13 +387,13 @@ namespace Game.Client.Home
             if (!NicknamePolicy.IsValid(typed))
             {
                 ShowNicknameMessage(
-                    HomeStyle.Profile.BadCharacterMessage, HomeStyle.Palette.MessageRejected);
+                    Copy(UiText.Home.BadCharacter), HomeStyle.Palette.MessageRejected);
                 return;
             }
 
             SetNicknameConfirming(true);
             ShowNicknameMessage(
-                $"\"{typed}\"로 정할까요? 되돌릴 수 없어요",
+                string.Format(Copy(UiText.Home.ConfirmPrompt), typed),
                 HomeStyle.Palette.MessageRejected);
         }
 
@@ -507,12 +511,12 @@ namespace Game.Client.Home
             if (hadBadCharacter)
             {
                 ShowNicknameMessage(
-                    HomeStyle.Profile.BadCharacterMessage, HomeStyle.Palette.MessageRejected);
+                    Copy(UiText.Home.BadCharacter), HomeStyle.Palette.MessageRejected);
             }
             else if (wasTooLong)
             {
                 ShowNicknameMessage(
-                    HomeStyle.Profile.TooLongMessage, HomeStyle.Palette.MessageRejected);
+                    Copy(UiText.Home.TooLong), HomeStyle.Palette.MessageRejected);
             }
             else
             {
@@ -548,8 +552,8 @@ namespace Game.Client.Home
         {
             ShowNicknameMessage(
                 currentNicknameSet
-                    ? HomeStyle.Profile.AlreadySetMessage
-                    : HomeStyle.Profile.OneChangeMessage,
+                    ? Copy(UiText.Home.AlreadySet)
+                    : Copy(UiText.Home.OneChange),
                 HomeStyle.Palette.Counter);
         }
 

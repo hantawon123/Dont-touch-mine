@@ -1,6 +1,7 @@
 using System;
 using Game.Client.Home;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -60,9 +61,9 @@ namespace Game.Client.Lobby
             var view = root.AddComponent<LobbyConfirmView>();
             view.panel = root;
             view.messageText = Label(body, "Message", new Vector2(0.05f, 0.4f), new Vector2(0.95f, 0.95f));
-            view.confirmButton = Button(body, "확인", new Vector2(0.12f, 0.1f), new Vector2(0.45f, 0.32f));
+            view.confirmButton = Button(body, UiTextCatalog.Shipped.Get(UiText.Lobby.Confirm, "ko"), new Vector2(0.12f, 0.1f), new Vector2(0.45f, 0.32f));
             if (showCancel)
-                view.cancelButton = Button(body, "취소", new Vector2(0.55f, 0.1f), new Vector2(0.88f, 0.32f));
+                view.cancelButton = Button(body, UiTextCatalog.Shipped.Get(UiText.Settings.Cancel, "ko"), new Vector2(0.55f, 0.1f), new Vector2(0.88f, 0.32f));
             return view;
         }
 

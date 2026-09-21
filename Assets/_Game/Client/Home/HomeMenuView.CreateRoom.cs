@@ -2,6 +2,7 @@ using System;
 using Game.Client.Common;
 using Game.Client.Settings;
 using Game.Core.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -89,12 +90,13 @@ namespace Game.Client.Home
             title.sizeDelta = new Vector2(240f, HomeStyle.FontSize.ModalTitle * 1.3f);
             var text = AddText(
                 title,
-                "방 만들기",
+                Copy(UiText.Home.CreateRoom),
                 HomeStyle.FontSize.ModalTitle,
                 FontStyles.Normal,
                 TextAlignmentOptions.TopLeft);
             ApplyMenuFont(text);
             text.color = HomeStyle.Palette.TextPrimary;
+            Remember(text, UiText.Home.CreateRoom);
 
             var close = CreateRect("Close", modal);
             SetAnchor(close, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f));
@@ -115,23 +117,24 @@ namespace Game.Client.Home
         /// <summary>
         /// The label and the strip beside it that every row shares.
         /// </summary>
-        private RectTransform CreateFormRow(RectTransform modal, string label, float top)
+        private RectTransform CreateFormRow(RectTransform modal, string name, string key, float top)
         {
-            var labelRect = CreateRect(label, modal);
+            var labelRect = CreateRect(name, modal);
             SetAnchor(labelRect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
             labelRect.anchoredPosition = new Vector2(HomeStyle.CreateRoom.RowsLeft, -top);
             labelRect.sizeDelta = new Vector2(
                 HomeStyle.CreateRoom.LabelWidth, HomeStyle.CreateRoom.RowHeight);
             var text = AddText(
                 labelRect,
-                label,
+                Copy(key),
                 HomeStyle.FontSize.RowLabel,
                 FontStyles.Normal,
                 TextAlignmentOptions.MidlineLeft);
             ApplyMenuFont(text);
             text.color = HomeStyle.Palette.TextPrimary;
+            Remember(text, key);
 
-            var control = CreateRect($"{label}Control", modal);
+            var control = CreateRect($"{name}Control", modal);
             SetAnchor(control, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
             control.anchoredPosition = new Vector2(
                 HomeStyle.CreateRoom.RowsLeft
@@ -154,7 +157,7 @@ namespace Game.Client.Home
         /// </remarks>
         private void CreateScopeRow(RectTransform modal, float top)
         {
-            var control = CreateFormRow(modal, "방 범위", top);
+            var control = CreateFormRow(modal, "방 범위", UiText.Home.RoomScope, top);
 
             var track = AddImage(
                 control,
@@ -207,7 +210,7 @@ namespace Game.Client.Home
 
         private void CreateRoomNameRow(RectTransform modal, float top)
         {
-            var control = CreateFormRow(modal, "방 이름", top);
+            var control = CreateFormRow(modal, "방 이름", UiText.Home.RoomTitle, top);
 
             var background = AddImage(
                 control,
@@ -242,11 +245,12 @@ namespace Game.Client.Home
             placeholderRect.offsetMax = Vector2.zero;
             var placeholder = AddText(
                 placeholderRect,
-                HomeStyle.CreateRoom.TitlePlaceholder,
+                Copy(UiText.Home.RoomTitlePlaceholder),
                 HomeStyle.FontSize.RoomName,
                 FontStyles.Normal,
                 TextAlignmentOptions.MidlineLeft);
             placeholder.color = HomeStyle.Palette.Placeholder;
+            Remember(placeholder, UiText.Home.RoomTitlePlaceholder);
 
             control.gameObject.SetActive(false);
             var input = control.gameObject.AddComponent<TMP_InputField>();
@@ -290,7 +294,7 @@ namespace Game.Client.Home
 
         private void CreatePlayerCountRow(RectTransform modal, float top)
         {
-            var control = CreateFormRow(modal, "인원", top);
+            var control = CreateFormRow(modal, "인원", UiText.Home.RoomPlayers, top);
 
             var background = AddImage(
                 control,
@@ -364,11 +368,12 @@ namespace Game.Client.Home
             labelRect.offsetMax = Vector2.zero;
             createRoomLabel = AddText(
                 labelRect,
-                "방 생성하기",
+                Copy(UiText.Home.RoomSubmit),
                 HomeStyle.FontSize.Create,
                 FontStyles.Normal,
                 TextAlignmentOptions.Center);
             ApplyMenuFont(createRoomLabel);
+            Remember(createRoomLabel, UiText.Home.RoomSubmit);
 
             createRoomButton = rect.gameObject.AddComponent<Button>();
             createRoomButton.targetGraphic = createRoomFill;

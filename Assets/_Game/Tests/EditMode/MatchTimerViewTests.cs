@@ -2,6 +2,7 @@ using System.Reflection;
 using Game.Client.Home;
 using Game.Client.Match;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -270,6 +271,31 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     marker.GetComponent<RectTransform>().sizeDelta.x,
                     Is.EqualTo(NetworkMatchHudView.ShredderMarkerWidth));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void ShowChrome_RedrawsHintInTheAppliedLanguage()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = CreateView(canvas.transform);
+                view.SetRemainingSeconds(20d);
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                var general = new GeneralSettingsSystem(store);
+                using var locale = new UiLocale(general);
+
+                view.ShowChrome(locale);
+
+                var hint = view.transform.Find("Hint")?.GetComponent<TMP_Text>();
+                Assert.That(hint, Is.Not.Null);
+                Assert.That(hint.text, Is.EqualTo("Secure your item now!"));
             }
             finally
             {

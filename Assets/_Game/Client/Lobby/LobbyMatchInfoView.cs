@@ -1,4 +1,5 @@
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,7 +25,8 @@ namespace Game.Client.Lobby
         public const float Width = 576f;
         public const float FontSize = 32f;
         public const float CaptionFontSize = 24f;
-        public const string CategoryCaption = "카테고리";
+        public static string CategoryCaption =>
+            UiLocale.Applied(UiText.Lobby.Category);
         public const float Padding = 0f;
         public const float ContentSpacing = 22f;
         public const float MapRowPadding = 18f;
@@ -65,10 +67,26 @@ namespace Game.Client.Lobby
         private TextMeshProUGUI categoryValue;
         private TextMeshProUGUI mapName;
         private Image mapPreviewPhoto;
+        private UiLocale chromeLocale;
 
         public string CategoryLabel => categoryValue != null ? categoryValue.text : string.Empty;
 
         public string MapLabel => mapName != null ? mapName.text : string.Empty;
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureLayout();
+            if (categoryCaption != null)
+            {
+                categoryCaption.text = Copy(UiText.Lobby.Category);
+            }
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
 
         /// <summary>지금 보이는 맵 사진. 사진이 없는 맵·랜덤이면 null.</summary>
         public Sprite MapPreviewSprite =>

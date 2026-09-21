@@ -5,6 +5,7 @@ using Cysharp.Threading.Tasks;
 using Game.Client.Common;
 using Game.Core.Flow;
 using Game.Core.Home;
+using Game.Core.Settings;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -149,6 +150,7 @@ namespace Game.Client.Home
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
         private readonly ServerRegionSystem regions;
+        private readonly UiLocale locale;
         private bool isFriendListVisible;
         private bool isRequestTabOpen;
 
@@ -170,7 +172,8 @@ namespace Game.Client.Home
             AppFlowSystem appFlow,
             FriendListSystem friends,
             FriendSearchSystem search,
-            ServerRegionSystem regions)
+            ServerRegionSystem regions,
+            UiLocale locale = null)
         {
             this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
             this.menu = menu ?? throw new ArgumentNullException(nameof(menu));
@@ -182,6 +185,7 @@ namespace Game.Client.Home
             this.search = search ?? throw new ArgumentNullException(nameof(search));
 
             this.regions = regions ?? throw new ArgumentNullException(nameof(regions));
+            this.locale = locale;
         }
 
         [VContainer.Inject]
@@ -224,6 +228,11 @@ namespace Game.Client.Home
             view.SetServerSettingsVisible(false);
             view.SetCreateRoomVisible(false);
             view.SetSelectedRegion(regions.Current.Code);
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+                view.ShowChrome(locale);
+            }
         }
 
         public void Dispose()
@@ -247,7 +256,14 @@ namespace Game.Client.Home
             {
                 appearance.Changed -= OnAppearanceChanged;
             }
+
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
         }
+
+        private void OnLocaleChanged() => view.ShowChrome(locale);
 
         private void OnActionClicked(HomeMenuAction action)
         {

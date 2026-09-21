@@ -90,14 +90,14 @@ namespace Game.Core.Settings
         public const string Small = "small";
 
         private static readonly OptionChoices Toggle = new OptionChoices(
-            new OptionChoice(On, "켜기"),
-            new OptionChoice(Off, "끄기"));
+            new OptionChoice(On, UiText.Settings.On),
+            new OptionChoice(Off, UiText.Settings.Off));
 
         private static OptionChoices Scale => new OptionChoices(
             Medium,
-            new OptionChoice(Small, "작게"),
-            new OptionChoice(Medium, "중간"),
-            new OptionChoice(Large, "크게"));
+            new OptionChoice(Small, UiText.Settings.Small),
+            new OptionChoice(Medium, UiText.Settings.Medium),
+            new OptionChoice(Large, UiText.Settings.Large));
 
         /// <summary>
         /// 스트리머 모드, which is off unless a player turns it on.
@@ -110,8 +110,8 @@ namespace Game.Core.Settings
         /// </remarks>
         private static OptionChoices StreamerToggle => new OptionChoices(
             Off,
-            new OptionChoice(On, "켜기"),
-            new OptionChoice(Off, "끄기"));
+            new OptionChoice(On, UiText.Settings.On),
+            new OptionChoice(Off, UiText.Settings.Off));
 
         private readonly OptionCatalog rows;
 
@@ -160,8 +160,8 @@ namespace Game.Core.Settings
                 [InterfaceOption.StreamerMode] = StreamerToggle,
                 [InterfaceOption.BeginnerGuide] = Toggle,
                 [InterfaceOption.ChatScope] = new OptionChoices(
-                    new OptionChoice(Off, "끄기(모두)"),
-                    new OptionChoice(On, "켜기(친구만)"))
+                    new OptionChoice(Off, UiText.Settings.ChatOff),
+                    new OptionChoice(On, UiText.Settings.ChatOn))
             });
 
         public OptionChoices For(InterfaceOption option) => rows.For((int)option);
@@ -174,6 +174,7 @@ namespace Game.Core.Settings
             new InterfaceSettings(rows.Normalise(settings.Values));
 
         /// <inheritdoc cref="OptionCatalog.Label"/>
-        public string Label(InterfaceOption option, string code) => rows.Label((int)option, code);
+        public string Label(InterfaceOption option, string code, string languageCode = "ko") =>
+            UiTextCatalog.Shipped.Get(rows.Label((int)option, code), languageCode);
     }
 }

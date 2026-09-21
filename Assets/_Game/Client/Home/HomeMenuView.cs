@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Game.Client.Common;
 using Game.Core.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -89,7 +90,60 @@ namespace Game.Client.Home
         /// </summary>
         public void ShowConnectionError(string message)
         {
-            connectionToast?.Show(HomeStyle.ConnectionErrorTitle, message);
+            connectionToast?.Show(Copy(UiText.Home.ConnectionError), message);
+        }
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            foreach (var pair in chromeLabels)
+            {
+                if (pair.Text != null)
+                {
+                    pair.Text.text = Copy(pair.Key);
+                }
+            }
+
+            if (requestSectionText != null)
+            {
+                requestSectionText.text = string.Format(
+                    Copy(UiText.Home.IncomingRequests), incomingRequestCount);
+            }
+
+            UpdateFriendSections();
+            RepaintRegions();
+            if (searchEmptyText != null)
+            {
+                searchEmptyText.text = Copy(UiText.Home.SearchEmpty);
+            }
+
+            if (isConfirmingNickname)
+            {
+                var typed = profileNicknameInput != null ? profileNicknameInput.text : string.Empty;
+                ShowNicknameMessage(
+                    string.Format(Copy(UiText.Home.ConfirmPrompt), typed),
+                    HomeStyle.Palette.MessageRejected);
+            }
+            else if (nicknameMessageText != null
+                     && nicknameMessageText.color == HomeStyle.Palette.Counter)
+            {
+                ClearNicknameMessage();
+            }
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiTextCatalog.Shipped.Get(key, "ko");
+
+        private void Remember(TMP_Text text, string key)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            chromeLabels.Add((text, key));
         }
 
         private RectTransform CreateCanvas()
@@ -372,11 +426,11 @@ namespace Game.Client.Home
                 HomeStyle.Layout.MenuLeft, -HomeStyle.Layout.MenuTop);
             menu.sizeDelta = Vector2.zero;
 
-            CreateMenuItem(menu, "방 만들기", HomeMenuAction.CreateRoom, 0);
-            CreateMenuItem(menu, "게임 찾기", HomeMenuAction.FindRoom, 1);
-            CreateMenuItem(menu, "캐릭터", HomeMenuAction.Character, 2);
-            CreateMenuItem(menu, "환경 설정", HomeMenuAction.Settings, 3);
-            CreateMenuItem(menu, "튜토리얼", HomeMenuAction.Tutorial, 4);
+            CreateMenuItem(menu, UiText.Home.CreateRoom, HomeMenuAction.CreateRoom, 0);
+            CreateMenuItem(menu, UiText.Home.FindRoom, HomeMenuAction.FindRoom, 1);
+            CreateMenuItem(menu, UiText.Home.Character, HomeMenuAction.Character, 2);
+            CreateMenuItem(menu, UiText.Home.Settings, HomeMenuAction.Settings, 3);
+            CreateMenuItem(menu, UiText.Home.Tutorial, HomeMenuAction.Tutorial, 4);
         }
 
         /// <summary>
@@ -394,7 +448,7 @@ namespace Game.Client.Home
         /// </para>
         /// </remarks>
         private void CreateMenuItem(
-            RectTransform parent, string label, HomeMenuAction action, int index)
+            RectTransform parent, string key, HomeMenuAction action, int index)
         {
             var rect = CreateRect(action.ToString(), parent);
             SetAnchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
@@ -403,13 +457,14 @@ namespace Game.Client.Home
 
             var text = AddText(
                 rect,
-                label,
+                Copy(key),
                 HomeStyle.FontSize.Menu,
                 FontStyles.Normal,
                 TextAlignmentOptions.MidlineLeft,
                 raycastTarget: true);
             ApplyMenuFont(text);
             text.color = Color.white;
+            Remember(text, key);
 
             var fitter = rect.gameObject.AddComponent<ContentSizeFitter>();
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
@@ -487,13 +542,14 @@ namespace Game.Client.Home
 
             var text = AddText(
                 quit,
-                "게임 종료",
+                Copy(UiText.Home.Quit),
                 HomeStyle.FontSize.Quit,
                 FontStyles.Normal,
                 TextAlignmentOptions.BottomLeft,
                 raycastTarget: true);
             ApplyMenuFont(text);
             text.color = Color.white;
+            Remember(text, UiText.Home.Quit);
 
             var fitter = quit.gameObject.AddComponent<ContentSizeFitter>();
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;

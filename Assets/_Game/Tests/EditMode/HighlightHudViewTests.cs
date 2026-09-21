@@ -1,4 +1,5 @@
 using Game.Client.Match;
+using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -75,6 +76,31 @@ namespace Game.Architecture.Tests
                     HighlightHudView.SkipGuideScale,
                     HighlightHudView.SkipGuideScale,
                     1f)));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void ShowChrome_RedrawsSkipActionsInTheAppliedLanguage()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = HighlightHudView.Create(canvas.transform);
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                var general = new GeneralSettingsSystem(store);
+                using var locale = new UiLocale(general);
+
+                view.ShowChrome(locale);
+
+                var skip = view.transform.Find("SkipGuide/Row0/Action")?.GetComponent<TMPro.TMP_Text>();
+                var skipAll = view.transform.Find("SkipGuide/Row1/Action")?.GetComponent<TMPro.TMP_Text>();
+                Assert.That(skip.text, Is.EqualTo("Skip"));
+                Assert.That(skipAll.text, Is.EqualTo("Skip All"));
             }
             finally
             {

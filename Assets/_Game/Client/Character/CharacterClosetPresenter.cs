@@ -2,6 +2,7 @@ using System;
 using Game.Client.Home;
 using Game.Core.Flow;
 using Game.Core.Players;
+using Game.Core.Settings;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -31,6 +32,7 @@ namespace Game.Client.Character
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
         private readonly Action closeCloset;
+        private readonly UiLocale locale;
 
         private AvatarAppearance draft;
         private AvatarAppearance applied;
@@ -44,7 +46,8 @@ namespace Game.Client.Character
             AvatarAppearanceState appearance,
             IHomeApplicationHost applicationHost,
             AppFlowSystem appFlow,
-            Action closeCloset = null)
+            Action closeCloset = null,
+            UiLocale locale = null)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -53,6 +56,7 @@ namespace Game.Client.Character
                                    ?? throw new ArgumentNullException(nameof(applicationHost));
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
             this.closeCloset = closeCloset;
+            this.locale = locale;
         }
 
         /// <summary>What has been picked but not applied. For tests.</summary>
@@ -69,6 +73,11 @@ namespace Game.Client.Character
             view.ConfirmAccepted += OnConfirmAccepted;
             view.ConfirmDismissed += OnConfirmDismissed;
             appearance.Changed += OnAppliedChanged;
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+                view.ShowChrome(locale);
+            }
 
             Open();
         }
@@ -106,7 +115,13 @@ namespace Game.Client.Character
             view.ConfirmAccepted -= OnConfirmAccepted;
             view.ConfirmDismissed -= OnConfirmDismissed;
             appearance.Changed -= OnAppliedChanged;
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
         }
+
+        private void OnLocaleChanged() => view.ShowChrome(locale);
 
         /// <summary>
         /// Follows the applied appearance while the screen is open.

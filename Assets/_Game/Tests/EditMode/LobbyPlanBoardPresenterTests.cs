@@ -31,9 +31,9 @@ namespace Game.Tests.EditMode
             Assert.DoesNotThrow(() => board.Interact(interactor));
         }
 
-        [TestCase(true, LobbyPlanBoardInteractable.HostPrompt)]
-        [TestCase(false, LobbyPlanBoardInteractable.GuestPrompt)]
-        public void AttachedBoard_PromptDependsOnHost(bool isHost, string prompt)
+        [TestCase(true)]
+        [TestCase(false)]
+        public void AttachedBoard_PromptDependsOnHost(bool isHost)
         {
             using var session = new HostSession();
             session.SetLocalHost(isHost);
@@ -43,7 +43,11 @@ namespace Game.Tests.EditMode
 
             presenter.Attach(board);
 
-            Assert.That(board.InteractionPrompt, Is.EqualTo(prompt));
+            Assert.That(
+                board.InteractionPrompt,
+                Is.EqualTo(isHost
+                    ? LobbyPlanBoardInteractable.HostPrompt
+                    : LobbyPlanBoardInteractable.GuestPrompt));
         }
 
         [Test]

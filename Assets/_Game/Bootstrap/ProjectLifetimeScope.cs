@@ -438,6 +438,19 @@ namespace Game.Bootstrap
             builder.RegisterInstance(
                 generalSettings ?? new GeneralSettingsSystem(new InMemoryGeneralSettingsStore()));
 
+            // Words the interface draws, in the language last applied. Built
+            // by hand so a test can hand the locale its own catalogue without
+            // VContainer looking for one.
+            builder.Register(
+                c => new UiLocale(c.Resolve<GeneralSettingsSystem>()),
+                Lifetime.Singleton);
+
+            // Built with the container rather than on first use. Scenes that
+            // inject nothing - the tutorial is one - read the applied language
+            // through UiLocale.Current, and a lazy singleton would leave them
+            // in Korean until some other screen happened to ask for it.
+            builder.RegisterBuildCallback(container => container.Resolve<UiLocale>());
+
             // Forgetting with the process, and changing nothing about the
             // picture, unless the application hands in one backed by
             // preferences and wired to the renderer.

@@ -1013,9 +1013,13 @@ namespace Game.Network.Session
                         result.ErrorMessage);
                 }
 
-                Debug.LogError(
+                var failureMessage =
                     $"[Network] Could not start session '{request.RoomCode}' as {request.Mode}: " +
-                    $"{failure} ({result.ShutdownReason}) {result.ErrorMessage}");
+                    $"{failure} ({result.ShutdownReason}) {result.ErrorMessage}";
+                if (IsExpectedSessionEntryFailure(failure))
+                    Debug.LogWarning(failureMessage);
+                else
+                    Debug.LogError(failureMessage);
 
                 return SessionStartResult.Failed(failure, result.ErrorMessage);
             }
@@ -1057,6 +1061,12 @@ namespace Game.Network.Session
                 _roomInitializationInProgress = false;
             }
         }
+
+        internal static bool IsExpectedSessionEntryFailure(SessionFailure failure) =>
+            failure is SessionFailure.RoomNotFound or
+                SessionFailure.RoomFull or
+                SessionFailure.CodeTaken or
+                SessionFailure.Rejected;
 
         internal StartGameArgs BuildSessionStartArgs(
             SessionRequest request, INetworkSceneManager sceneManager, CancellationToken cancellation)

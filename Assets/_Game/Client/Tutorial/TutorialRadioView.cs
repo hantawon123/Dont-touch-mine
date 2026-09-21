@@ -23,8 +23,47 @@ namespace Game.Client.Tutorial
         private TutorialChecklistView checklist;
         private bool wasCarrying;
         private bool wasPlacing;
+        private UiLocale locale;
+
+        [VContainer.Inject]
+        public void BindLocale(UiLocale value)
+        {
+            if (value == null)
+            {
+                return;
+            }
+
+            var same = locale == value;
+            locale = value;
+            if (presenter != null)
+            {
+                if (same)
+                {
+                    HighlightStep(session.CurrentStep);
+                    return;
+                }
+
+                presenter.Dispose();
+                presenter = new TutorialRadioPresenter(this, session, Locale);
+                presenter.Start();
+                return;
+            }
+
+            if (checklist != null && session != null)
+            {
+                HighlightStep(session.CurrentStep);
+            }
+        }
 
         public string CurrentMessage => messageText != null ? messageText.text : string.Empty;
+
+        private UiLocale Locale => locale ?? UiLocale.Current;
+
+        private string Copy(string key) =>
+            Locale != null ? Locale.Get(key) : UiLocale.Applied(key);
+
+        private string Language =>
+            Locale != null ? Locale.LanguageCode : UiLocale.AppliedLanguage;
 
         private void Awake()
         {
@@ -48,7 +87,16 @@ namespace Game.Client.Tutorial
             placement = interactor.GetComponent<Game.Client.Interactions.ItemPlacementController>();
             checklist = TutorialChecklistView.Create(transform);
 
-            presenter = new TutorialRadioPresenter(this, session);
+        }
+
+        private void Start()
+        {
+            if (presenter != null || session == null)
+            {
+                return;
+            }
+
+            presenter = new TutorialRadioPresenter(this, session, Locale);
             presenter.Start();
         }
 
@@ -69,45 +117,50 @@ namespace Game.Client.Tutorial
             var carrying = interactor.CarriedItem != null;
             var placing = placement.IsPlacing;
             var hint = step >= TutorialStep.PickUp && step <= TutorialStep.UseShredder && !carrying
-                ? "먼저 물건 들기 · " + KeySettingGuideView.CurrentKeyLabel(ControlAction.Interact)
+                ? string.Format(Copy(UiText.Tutorial.HintPickUp), KeySettingGuideView.CurrentKeyLabel(ControlAction.Interact))
                 : step == TutorialStep.Place && !placing
-                    ? "배치 모드 · " + KeySettingGuideView.CurrentKeyLabel(ControlAction.PlacementMode)
-                    : step == TutorialStep.Place ? "회전 Q/E · 스크롤 / 클릭 배치" : string.Empty;
-            checklist.Show(step, hint);
+                    ? string.Format(Copy(UiText.Tutorial.HintPlacement), KeySettingGuideView.CurrentKeyLabel(ControlAction.PlacementMode))
+                    : step == TutorialStep.Place ? Copy(UiText.Tutorial.HintPlace) : string.Empty;
+            checklist.Show(step, hint, Language);
+            if (keyGuide != null)
+            {
+                keyGuide.ShowChrome(Locale);
+            }
+
             if (step >= TutorialStep.PickUp && step <= TutorialStep.UseShredder && !carrying)
             {
-                keyGuide.SetFocus("물건 들기", ControlAction.Interact);
+                keyGuide.SetFocus(Copy(UiText.Tutorial.FocusPickUp), ControlAction.Interact);
                 return;
             }
             if (step == TutorialStep.Place && !placing)
             {
-                keyGuide.SetFocus("배치 모드", ControlAction.PlacementMode);
+                keyGuide.SetFocus(Copy(UiText.Tutorial.FocusPlacement), ControlAction.PlacementMode);
                 return;
             }
             switch (step)
             {
                 case TutorialStep.MoveAndLook:
-                    keyGuide.SetFocus("이동 · 마우스로 주변 살피기", ControlAction.MoveForward, ControlAction.MoveLeft, ControlAction.MoveBackward, ControlAction.MoveRight); break;
+                    keyGuide.SetFocus(Copy(UiText.Tutorial.FocusMove), ControlAction.MoveForward, ControlAction.MoveLeft, ControlAction.MoveBackward, ControlAction.MoveRight); break;
                 case TutorialStep.Sprint:
-                    keyGuide.SetFocus("이동하며 달리기", ControlAction.Sprint, ControlAction.MoveForward); break;
+                    keyGuide.SetFocus(Copy(UiText.Tutorial.FocusSprint), ControlAction.Sprint, ControlAction.MoveForward); break;
                 case TutorialStep.Jump:
-                    keyGuide.SetFocus("달려서 구덩이 뛰어넘기", ControlAction.Jump, ControlAction.Sprint); break;
+                    keyGuide.SetFocus(Copy(UiText.Tutorial.FocusJump), ControlAction.Jump, ControlAction.Sprint); break;
                 case TutorialStep.Crouch:
-                    keyGuide.SetFocus("1인칭으로 앉아서 통로 끝까지", ControlAction.Crouch, ControlAction.ToggleView); break;
+                    keyGuide.SetFocus(Copy(UiText.Tutorial.FocusCrouch), ControlAction.Crouch, ControlAction.ToggleView); break;
                 case TutorialStep.Prone:
-                    keyGuide.SetFocus("Z로 기어서 통로 끝까지", ControlAction.Prone); break;
+                    keyGuide.SetFocus(Copy(UiText.Tutorial.FocusProne), ControlAction.Prone); break;
                 case TutorialStep.PickUp:
-                    keyGuide.SetFocus("상자를 바라보고 들기", ControlAction.Interact); break;
+                    keyGuide.SetFocus(Copy(UiText.Tutorial.FocusLookPickUp), ControlAction.Interact); break;
                 case TutorialStep.Drop:
-                    keyGuide.SetFocus("상자 내려놓기", ControlAction.Interact); break;
+                    keyGuide.SetFocus(Copy(UiText.Tutorial.FocusDrop), ControlAction.Interact); break;
                 case TutorialStep.Throw:
-                    keyGuide.SetFocus("상자 던지기", ControlAction.PrimaryAction); break;
+                    keyGuide.SetFocus(Copy(UiText.Tutorial.FocusThrow), ControlAction.PrimaryAction); break;
                 case TutorialStep.Place:
-                    keyGuide.SetFocus("배치 모드 · 회전 · 배치", ControlAction.PlacementMode, ControlAction.RotateLeft, ControlAction.RotateRight, ControlAction.RaiseObject, ControlAction.LowerObject, ControlAction.PrimaryAction); break;
+                    keyGuide.SetFocus(Copy(UiText.Tutorial.FocusPlace), ControlAction.PlacementMode, ControlAction.RotateLeft, ControlAction.RotateRight, ControlAction.RaiseObject, ControlAction.LowerObject, ControlAction.PrimaryAction); break;
                 case TutorialStep.UseShredder:
-                    keyGuide.SetFocus("상자를 들고 파쇄기 사용", ControlAction.Interact); break;
+                    keyGuide.SetFocus(Copy(UiText.Tutorial.FocusShredder), ControlAction.Interact); break;
                 case TutorialStep.Complete:
-                    keyGuide.SetFocus("출구 문을 바라보고 열기", ControlAction.Interact); break;
+                    keyGuide.SetFocus(Copy(UiText.Tutorial.FocusExit), ControlAction.Interact); break;
             }
         }
 
@@ -157,31 +210,52 @@ namespace Game.Client.Tutorial
 
     internal sealed class TutorialRadioPresenter : IDisposable
     {
-        private const string Intro = "신입, 들리나. 여긴 우리 아지트의 훈련 구역이다. 지금부터 내 지시에 따라 움직여.";
-
         private readonly TutorialRadioView view;
         private readonly TutorialSession session;
+        private readonly UiLocale locale;
         private TutorialStep displayedStep;
 
-        public TutorialRadioPresenter(TutorialRadioView view, TutorialSession session)
+        public TutorialRadioPresenter(TutorialRadioView view, TutorialSession session, UiLocale locale = null)
         {
             this.view = view;
             this.session = session;
+            this.locale = locale ?? UiLocale.Current;
             displayedStep = session.CurrentStep;
         }
+
+        private string Language =>
+            locale != null ? locale.LanguageCode : UiLocale.AppliedLanguage;
+
+        private string Intro =>
+            UiTextCatalog.Shipped.Get(UiText.Tutorial.Intro, Language);
 
         public void Start()
         {
             session.StepChanged += OnStepChanged;
             session.StepRetried += OnStepRetried;
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+            }
+
             view.HighlightStep(displayedStep);
-            view.ShowThen(Intro, Instruction(displayedStep));
+            view.ShowThen(Intro, Instruction(displayedStep, Language));
         }
 
         public void Dispose()
         {
             session.StepChanged -= OnStepChanged;
             session.StepRetried -= OnStepRetried;
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
+        }
+
+        private void OnLocaleChanged()
+        {
+            view.HighlightStep(displayedStep);
+            view.Show(Instruction(displayedStep, Language));
         }
 
         private void OnStepChanged(TutorialStep nextStep)
@@ -189,44 +263,49 @@ namespace Game.Client.Tutorial
             var completedStep = displayedStep;
             displayedStep = nextStep;
             view.HighlightStep(nextStep);
-            view.ShowThen(Completion(completedStep), Instruction(nextStep));
+            view.ShowThen(Completion(completedStep), Instruction(nextStep, Language));
         }
 
-        private void OnStepRetried(TutorialStep step) => view.ShowThen(Retry(step), Instruction(step));
+        private void OnStepRetried(TutorialStep step) =>
+            view.ShowThen(Retry(step), Instruction(step, Language));
 
-        internal static string Instruction(TutorialStep step) => step switch
+        internal static string Instruction(TutorialStep step) =>
+            Instruction(step, UiLocale.AppliedLanguage);
+
+        internal static string Instruction(TutorialStep step, string language) => step switch
         {
-            TutorialStep.MoveAndLook => "주변을 살피면서 앞으로 이동해. 좋은 도둑은 발보다 눈이 먼저 움직이는 법이지.",
-            TutorialStep.Sprint => "일이 틀어지면 망설일 시간이 없다. 건너편까지 전력으로 달려.",
-            TutorialStep.Jump => "앞이 끊겨 있군. 달려가서 뛰어넘어. 떨어지면 다시 올라오게 해주지. 한 번만.",
-            TutorialStep.Crouch => "C를 눌러 앉은 채 통로 끝까지 지나가. 시야가 답답하면 V로 1인칭과 3인칭을 바꿀 수 있다.",
-            TutorialStep.Prone => "이번엔 Z를 눌러 엎드려. 낮은 통로를 끝까지 기어서 지나가면 된다.",
-            TutorialStep.PickUp => "상자 하나가 보일 거다. 가까이 가서 들어 올려. 오늘부터 네가 지켜야 할 물건이다.",
-            TutorialStep.Drop => "표시된 구역까지 운반한 다음 바닥에 내려놔. 던지지 말고 얌전히.",
-            TutorialStep.Throw => "이번엔 표적을 봐. 힘을 조절해서 상자를 던져.",
-            TutorialStep.Place => "배치 모드를 사용해 봐. Q/E와 우클릭으로 방향을 조정하고, 파란 목표 근처에 클릭해서 놓아. 모양이 똑같을 필요는 없다.",
-            TutorialStep.UseShredder => "마지막 처리다. 상자를 들고 파쇄기에 넣어. 증거를 남기지 마.",
-            TutorialStep.Complete => "훈련은 끝났다. 앞의 문을 직접 열어. 밖으로 나가면 실전이다.",
+            TutorialStep.MoveAndLook => UiTextCatalog.Shipped.Get(UiText.Tutorial.InstructMove, language),
+            TutorialStep.Sprint => UiTextCatalog.Shipped.Get(UiText.Tutorial.InstructSprint, language),
+            TutorialStep.Jump => UiTextCatalog.Shipped.Get(UiText.Tutorial.InstructJump, language),
+            TutorialStep.Crouch => UiTextCatalog.Shipped.Get(UiText.Tutorial.InstructCrouch, language),
+            TutorialStep.Prone => UiTextCatalog.Shipped.Get(UiText.Tutorial.InstructProne, language),
+            TutorialStep.PickUp => UiTextCatalog.Shipped.Get(UiText.Tutorial.InstructPickUp, language),
+            TutorialStep.Drop => UiTextCatalog.Shipped.Get(UiText.Tutorial.InstructDrop, language),
+            TutorialStep.Throw => UiTextCatalog.Shipped.Get(UiText.Tutorial.InstructThrow, language),
+            TutorialStep.Place => UiTextCatalog.Shipped.Get(UiText.Tutorial.InstructPlace, language),
+            TutorialStep.UseShredder => UiTextCatalog.Shipped.Get(UiText.Tutorial.InstructShredder, language),
+            TutorialStep.Complete => UiTextCatalog.Shipped.Get(UiText.Tutorial.InstructComplete, language),
             _ => string.Empty
         };
 
-        private static string Completion(TutorialStep step) => step switch
+        private string Completion(TutorialStep step) => step switch
         {
-            TutorialStep.MoveAndLook => "좋아. 적어도 벽을 보고 걷지는 않겠군.",
-            TutorialStep.Sprint => "그 정도면 경비원 하나쯤은 따돌리겠어.",
-            TutorialStep.Jump => "착지는 거칠지만 넘어오긴 했군.",
-            TutorialStep.Crouch => "조용히 움직이는 법을 조금은 아는군.",
-            TutorialStep.Prone => "좋아. 체면보다 임무가 먼저라는 건 이해했군.",
-            TutorialStep.PickUp => "단단히 잡아. 우리 물건은 잃어버리는 순간 남의 물건이 된다.",
-            TutorialStep.Drop => "좋아. 내려놓는 것과 떨어뜨리는 것의 차이는 아는군.",
-            TutorialStep.Throw => "정확하군. 필요할 때는 물건도 훌륭한 도구가 된다.",
-            TutorialStep.Place => "좋아. 정리할 줄 아는 도둑은 오래 살아남지.",
-            TutorialStep.UseShredder => "깨끗하군. 이제 저 물건이 있었다는 걸 아는 사람은 우리뿐이다.",
-            _ => Instruction(step)
+            TutorialStep.MoveAndLook => UiTextCatalog.Shipped.Get(UiText.Tutorial.CompleteMove, Language),
+            TutorialStep.Sprint => UiTextCatalog.Shipped.Get(UiText.Tutorial.CompleteSprint, Language),
+            TutorialStep.Jump => UiTextCatalog.Shipped.Get(UiText.Tutorial.CompleteJump, Language),
+            TutorialStep.Crouch => UiTextCatalog.Shipped.Get(UiText.Tutorial.CompleteCrouch, Language),
+            TutorialStep.Prone => UiTextCatalog.Shipped.Get(UiText.Tutorial.CompleteProne, Language),
+            TutorialStep.PickUp => UiTextCatalog.Shipped.Get(UiText.Tutorial.CompletePickUp, Language),
+            TutorialStep.Drop => UiTextCatalog.Shipped.Get(UiText.Tutorial.CompleteDrop, Language),
+            TutorialStep.Throw => UiTextCatalog.Shipped.Get(UiText.Tutorial.CompleteThrow, Language),
+            TutorialStep.Place => UiTextCatalog.Shipped.Get(UiText.Tutorial.CompletePlace, Language),
+            TutorialStep.UseShredder => UiTextCatalog.Shipped.Get(UiText.Tutorial.CompleteShredder, Language),
+            _ => Instruction(step, Language)
         };
 
-        private static string Retry(TutorialStep step) => step == TutorialStep.Jump
-            ? "아래에 숨을 생각은 아니었겠지. 다시 뛰어."
-            : "집중해. 같은 실수는 두 번이면 습관이다.";
+        private string Retry(TutorialStep step) =>
+            UiTextCatalog.Shipped.Get(
+                step == TutorialStep.Jump ? UiText.Tutorial.RetryJump : UiText.Tutorial.RetryGeneric,
+                Language);
     }
 }

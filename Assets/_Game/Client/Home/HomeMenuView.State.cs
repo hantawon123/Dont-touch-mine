@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Character;
 using Game.Core.Home;
 using Game.Core.Players;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -191,6 +192,9 @@ namespace Game.Client.Home
         private bool currentNicknameSet;
         private bool isConfirmingNickname;
         private GameObject confirmRow;
+        private UiLocale chromeLocale;
+        private readonly List<(TMP_Text Text, string Key)> chromeLabels = new List<(TMP_Text, string)>();
+        private int incomingRequestCount;
 
         public event Action<HomeMenuAction> ActionClicked;
 

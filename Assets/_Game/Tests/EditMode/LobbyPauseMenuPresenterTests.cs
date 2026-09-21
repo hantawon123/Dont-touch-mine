@@ -462,6 +462,10 @@ namespace Game.Tests.EditMode
                 CloseRequested?.Invoke();
             }
             public void RequestOpen() { OpenRequests++; OpenRequested?.Invoke(); }
+
+            public void ShowChrome(Game.Core.Settings.UiLocale locale)
+            {
+            }
         }
 
         private sealed class HostSession : ILobbyHostSession, IDisposable

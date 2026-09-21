@@ -2,6 +2,7 @@ using System.Reflection;
 using Game.Client.Lobby;
 using Game.Client.Settings;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using Game.Core.Maps;
 using NUnit.Framework;
 using UnityEditor;
@@ -263,7 +264,7 @@ namespace Game.Architecture.Tests
                 Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.MansionId));
                 Assert.That(
                     Find(panel.transform, "MapName").GetComponent<Text>().text,
-                    Is.EqualTo(MapCatalog.MansionId));
+                    Is.EqualTo(PlaySettingsMapCatalog.LabelOf(MapCatalog.MansionId)));
                 Assert.That(randomMark.gameObject.activeSelf, Is.False);
             }
             finally
@@ -271,6 +272,94 @@ namespace Game.Architecture.Tests
                 Object.DestroyImmediate(root);
             }
         }
+
+        [Test]
+        public void ShowChrome_RedrawsTitleAndApplyInTheAppliedLanguage()
+        {
+            var root = CreateView(out var panel, out var view);
+            try
+            {
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                var general = new GeneralSettingsSystem(store);
+                using var locale = new UiLocale(general);
+
+                view.ShowChrome(locale);
+
+                var title = Find(panel.transform, "Title").GetComponent<UnityEngine.UI.Text>();
+                Assert.That(title.text, Is.EqualTo("Game Settings"));
+                var apply = Find(panel.transform, "ApplyButton").GetComponentInChildren<UnityEngine.UI.Text>();
+                Assert.That(apply.text, Is.EqualTo("Apply"));
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, string.Empty));
+                var mapName = Find(panel.transform, "MapName");
+                if (mapName != null)
+                {
+                    Assert.That(
+                        mapName.GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo("Random"));
+                }
+
+                view.SetDraft(new PlaySettingsDraft(
+                    "방", "CODE", false, null, 4, 3, MapCatalog.MansionId));
+                if (mapName != null)
+                {
+                    Assert.That(
+                        mapName.GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo("Mansion"));
+                }
+
+                var categoryValue = Find(panel.transform, "CategoryValue");
+                if (categoryValue != null)
+                {
+                    Assert.That(
+                        categoryValue.GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo("Random"));
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void BreakLimitAndStunHits_ShowTheNumberOnItsOwn()
+        {
+            var root = CreateView(out _, out var view);
+            try
+            {
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, string.Empty));
+
+                Assert.That(DestructionLimitText(view).text, Is.EqualTo("3"));
+                Assert.That(
+                    RuleValues(view)[1].text,
+                    Is.EqualTo(MatchRuleSettings.DefaultStunHitCount.ToString()));
+
+                view.SetDraft(new PlaySettingsDraft(
+                    "방",
+                    "CODE",
+                    false,
+                    null,
+                    4,
+                    PlaySettingsDraft.UnlimitedDestructionLimit,
+                    string.Empty));
+                Assert.That(DestructionLimitText(view).text, Is.EqualTo("무한"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        private static Text DestructionLimitText(PlaySettingsView view) =>
+            (Text)typeof(PlaySettingsView)
+                .GetField("destructionLimitText", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(view);
+
+        private static System.Collections.Generic.IList<Text> RuleValues(PlaySettingsView view) =>
+            (System.Collections.Generic.IList<Text>)typeof(PlaySettingsView)
+                .GetField("ruleValues", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(view);
 
         private static GameObject CreateView(out GameObject panel, out PlaySettingsView view)
         {

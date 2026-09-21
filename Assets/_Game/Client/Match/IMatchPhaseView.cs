@@ -1,4 +1,5 @@
 using Game.Core.Match;
+using Game.Core.Settings;
 
 namespace Game.Client.Match
 {
@@ -11,5 +12,6 @@ namespace Game.Client.Match
         /// once when in fact players take one turn each.
         /// </param>
         void SetPhase(MatchPhase phase, string hidingPlayerName);
+        void ShowChrome(UiLocale locale);
     }
 }

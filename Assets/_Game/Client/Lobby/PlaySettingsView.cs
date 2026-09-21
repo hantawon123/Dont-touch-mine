@@ -1,10 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using Game.Client.Home;
 using Game.Client.Settings;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -44,6 +46,8 @@ namespace Game.Client.Lobby
         /// panel shows. Used by objects in the room that lead to this screen.
         /// </summary>
         void RequestOpen();
+
+        void ShowChrome(UiLocale locale);
     }
 
     public sealed partial class PlaySettingsView : MonoBehaviour, IPlaySettingsView
@@ -78,6 +82,8 @@ namespace Game.Client.Lobby
         private GameObject overlayRoot;
         private TextMeshProUGUI gameStartLabel;
         private Button gameStartButton;
+        private UiLocale chromeLocale;
+        private readonly List<(Text Text, string Key)> chromeTexts = new List<(Text, string)>();
 
         private static readonly float[] SprintOptions = { 1f, 1.5f, 2f, 3f };
         private readonly List<Text> ruleValues = new();
@@ -214,6 +220,43 @@ namespace Game.Client.Lobby
         }
 
         public void RequestOpen() => OpenRequested?.Invoke();
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            foreach (var pair in chromeTexts)
+            {
+                if (pair.Text != null)
+                {
+                    pair.Text.text = Copy(pair.Key);
+                }
+            }
+
+            if (gameStartLabel != null)
+            {
+                gameStartLabel.text = Copy(UiText.Play.GameStart);
+            }
+
+            RefreshCounters();
+            RefreshCategory();
+            RefreshMapSelection(scrollIntoView: false);
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
+
+        private string Language =>
+            chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage;
+
+        private void Remember(Text text, string key)
+        {
+            if (text != null)
+            {
+                chromeTexts.Add((text, key));
+            }
+        }
 
         public void RequestClose()
         {
@@ -569,7 +612,8 @@ namespace Game.Client.Lobby
 
             if (categoryText != null)
             {
-                categoryText.text = PlaySettingsCategoryCatalog.GetOption(selectedCategoryIndex).Label;
+                var option = PlaySettingsCategoryCatalog.GetOption(selectedCategoryIndex);
+                categoryText.text = PlaySettingsCategoryCatalog.LabelOf(option.Id, Language);
             }
 
             var hasMultipleOptions = PlaySettingsCategoryCatalog.All.Count > 1;
@@ -744,12 +788,12 @@ namespace Game.Client.Lobby
                 hidingSlider,
                 hidingValue,
                 matchRules.HidingDurationSeconds,
-                FormatHidingDuration(matchRules.HidingDurationSeconds));
+                FormatHidingDuration(matchRules.HidingDurationSeconds, Language));
             ShowDurationSlider(
                 searchingSlider,
                 searchingValue,
                 matchRules.SearchingDurationSeconds,
-                FormatSearchingDuration(matchRules.SearchingDurationSeconds));
+                FormatSearchingDuration(matchRules.SearchingDurationSeconds, Language));
 
             if (ruleValues.Count == 0)
             {
@@ -765,8 +809,8 @@ namespace Game.Client.Lobby
             var max = new[] { SprintOptions.Length - 1, MatchRuleSettings.MaxStunHitCount };
             var labels = new[]
             {
-                matchRules.SprintMultiplier + "배",
-                values[1] + "회"
+                string.Format(Copy(UiText.Play.Multiplier), matchRules.SprintMultiplier),
+                values[1].ToString(CultureInfo.InvariantCulture)
             };
             for (var i = 0; i < ruleValues.Count; i++)
             {
@@ -796,13 +840,23 @@ namespace Game.Client.Lobby
             return Mathf.Clamp(snapped, min, max);
         }
 
-        internal static string FormatHidingDuration(int seconds) => seconds + "초";
+        internal static string FormatHidingDuration(int seconds) =>
+            FormatHidingDuration(seconds, "ko");
 
-        internal static string FormatSearchingDuration(int seconds)
+        internal static string FormatHidingDuration(int seconds, string language) =>
+            string.Format(UiTextCatalog.Shipped.Get(UiText.Play.Seconds, language), seconds);
+
+        internal static string FormatSearchingDuration(int seconds) =>
+            FormatSearchingDuration(seconds, "ko");
+
+        internal static string FormatSearchingDuration(int seconds, string language)
         {
             var minutes = seconds / 60;
             var remain = seconds % 60;
-            return remain == 0 ? minutes + "분" : minutes + "분 " + remain + "초";
+            return remain == 0
+                ? string.Format(UiTextCatalog.Shipped.Get(UiText.Play.Minutes, language), minutes)
+                : string.Format(
+                    UiTextCatalog.Shipped.Get(UiText.Play.MinutesSeconds, language), minutes, remain);
         }
 
         private void RefreshCounters()
@@ -810,15 +864,15 @@ namespace Game.Client.Lobby
             RefreshRuleControls();
             if (maxPlayersText != null)
             {
-                maxPlayersText.text = maxPlayers + "명";
+                maxPlayersText.text = string.Format(Copy(UiText.Play.Players), maxPlayers);
             }
 
             if (destructionLimitText != null)
             {
                 destructionLimitText.text = destructionLimit ==
                                             PlaySettingsDraft.UnlimitedDestructionLimit
-                    ? "무한"
-                    : destructionLimit + "회";
+                    ? Copy(UiText.Play.Unlimited)
+                    : destructionLimit.ToString(CultureInfo.InvariantCulture);
             }
 
             if (maxPlayersMinusButton != null)
@@ -1277,7 +1331,7 @@ namespace Game.Client.Lobby
                 }
 
                 gameStartLabel.fontSize = PlaySettingsStyle.FontSize.GameStart;
-                gameStartLabel.text = "게임 시작";
+                gameStartLabel.text = Copy(UiText.Play.GameStart);
                 gameStartLabel.alignment = TextAlignmentOptions.Center;
                 gameStartLabel.color = SettingsStyle.Palette.ApplyOnLabel;
                 gameStartLabel.textWrappingMode = TextWrappingModes.NoWrap;

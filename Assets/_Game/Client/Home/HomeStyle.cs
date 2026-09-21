@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Game.Core.Settings;
+using UnityEngine;
 
 namespace Game.Client.Home
 {
@@ -24,7 +25,8 @@ namespace Game.Client.Home
         /// as the room browser uses: from the player's side these are one
         /// event, which is that the game could not reach the server.
         /// </summary>
-        public const string ConnectionErrorTitle = "게임 접속 오류";
+        public static string ConnectionErrorTitle =>
+            UiTextCatalog.Shipped.Get(UiText.Home.ConnectionError, "ko");
 
         public static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
 
@@ -239,7 +241,8 @@ namespace Game.Client.Home
             /// line below, which sits under the name field and would read as a
             /// verdict on the name.
             /// </summary>
-            public const string SearchAllowFailedMessage = "바꾸지 못했어요";
+            public static string SearchAllowFailedMessage =>
+                UiTextCatalog.Shipped.Get(UiText.Home.SearchAllowFailed, "ko");
 
             public const float InputTop = -78f;
             public static readonly Vector2 InputSize = new Vector2(472f, 52f);
@@ -274,18 +277,27 @@ namespace Game.Client.Home
             public static readonly float SettledPanelHeight =
                 PanelSize.y - ApplySize.y - ((MessageTop - MessageHeight) - ApplyTop);
 
-            public const string TooLongMessage = "최대 12글자 작성가능합니다";
-            public const string BadCharacterMessage = "한글/영어/숫자만 작성가능합니다";
-            public const string TakenMessage = "이미 존재하는 닉네임입니다";
-            public const string AvailableMessage = "사용 가능한 닉네임입니다";
+            public static string TooLongMessage =>
+                UiTextCatalog.Shipped.Get(UiText.Home.TooLong, "ko");
+
+            public static string BadCharacterMessage =>
+                UiTextCatalog.Shipped.Get(UiText.Home.BadCharacter, "ko");
+
+            public static string TakenMessage =>
+                UiTextCatalog.Shipped.Get(UiText.Home.Taken, "ko");
+
+            public static string AvailableMessage =>
+                UiTextCatalog.Shipped.Get(UiText.Home.Available, "ko");
 
             /// <summary>
             /// Shown whenever nothing has gone wrong, so the one-shot nature of
             /// the change is on screen before it is spent rather than after.
             /// </summary>
-            public const string OneChangeMessage = "닉네임은 한 번만 변경할 수 있어요";
+            public static string OneChangeMessage =>
+                UiTextCatalog.Shipped.Get(UiText.Home.OneChange, "ko");
 
-            public const string AlreadySetMessage = "이미 닉네임을 변경했어요";
+            public static string AlreadySetMessage =>
+                UiTextCatalog.Shipped.Get(UiText.Home.AlreadySet, "ko");
 
             /// <summary>
             /// The gap between the two halves of the confirm row.
@@ -297,7 +309,8 @@ namespace Game.Client.Home
             /// did not answer. Says to try again rather than to pick another
             /// name, because the name may well be fine.
             /// </summary>
-            public const string UnreachableMessage = "확인하지 못했어요. 잠시 후 다시 시도해주세요";
+            public static string UnreachableMessage =>
+                UiTextCatalog.Shipped.Get(UiText.Home.Unreachable, "ko");
         }
 
         /// <summary>
@@ -328,6 +341,26 @@ namespace Game.Client.Home
             /// row is 40 tall, so this leaves it room without crowding.
             /// </summary>
             public const float CheckSize = 22f;
+
+            /// <summary>
+            /// Space between the end of the region name and the check, so a
+            /// selected row never sits the mark on the last letter.
+            /// </summary>
+            public const float LabelToCheckGap = 12f;
+
+            /// <summary>
+            /// Inset of the name from the row's left, matching the check's
+            /// inset from the right.
+            /// </summary>
+            public const float RowInset = SidePadding * 0.5f;
+
+            /// <summary>
+            /// Everything on a row that is not the region's name: panel
+            /// padding, the row insets, the gap before the check, and the
+            /// check itself. A name needs this much beside it.
+            /// </summary>
+            public const float RowChrome =
+                (SidePadding * 2f) + RowInset + LabelToCheckGap + CheckSize + RowInset;
 
             /// <summary>
             /// The gap between the title and the first region.
@@ -466,7 +499,8 @@ namespace Game.Client.Home
             public const int MaxPlayers = 6;
             public const int DefaultPlayers = 6;
 
-            public const string TitlePlaceholder = "방 이름 입력";
+            public static string TitlePlaceholder =>
+                UiTextCatalog.Shipped.Get(UiText.Home.RoomTitlePlaceholder, "ko");
         }
 
         /// <summary>
