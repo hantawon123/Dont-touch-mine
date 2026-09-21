@@ -244,10 +244,10 @@ namespace Game.Client.Lobby
         private string Copy(string key) =>
             chromeLocale != null
                 ? chromeLocale.Get(key)
-                : UiTextCatalog.Shipped.Get(key, "ko");
+                : UiLocale.Applied(key);
 
         private string Language =>
-            chromeLocale != null ? chromeLocale.LanguageCode : "ko";
+            chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage;
 
         private void Remember(Text text, string key)
         {
@@ -612,7 +612,7 @@ namespace Game.Client.Lobby
             if (categoryText != null)
             {
                 var option = PlaySettingsCategoryCatalog.GetOption(selectedCategoryIndex);
-                categoryText.text = option.IsRandom ? Copy(UiText.Play.Random) : option.Label;
+                categoryText.text = PlaySettingsCategoryCatalog.LabelOf(option.Id, Language);
             }
 
             var hasMultipleOptions = PlaySettingsCategoryCatalog.All.Count > 1;

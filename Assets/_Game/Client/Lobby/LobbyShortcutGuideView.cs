@@ -29,11 +29,18 @@ namespace Game.Client.Lobby
 
         public static readonly string[] KeyLabels = { "1", "2", "ESC" };
 
+        public static readonly string[] ActionKeys =
+        {
+            UiText.Lobby.Closet,
+            UiText.Lobby.PlayersShortcut,
+            UiText.Lobby.Settings
+        };
+
         public static string[] Actions => new[]
         {
-            UiTextCatalog.Shipped.Get(UiText.Lobby.Closet, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Lobby.PlayersShortcut, "ko"),
-            UiTextCatalog.Shipped.Get(UiText.Lobby.Settings, "ko")
+            UiLocale.Applied(ActionKeys[0]),
+            UiLocale.Applied(ActionKeys[1]),
+            UiLocale.Applied(ActionKeys[2])
         };
 
         public const string VoiceButtonName = VoiceView.ButtonName;
@@ -47,6 +54,8 @@ namespace Game.Client.Lobby
         public Button VoiceSpeakerButton { get; private set; }
         public Image VoiceSpeakerBackground { get; private set; }
         public Image VoiceSpeakerIcon { get; private set; }
+
+        private UiLocale chromeLocale;
 
         public static LobbyShortcutGuideView Create(Transform parent)
         {
@@ -79,6 +88,26 @@ namespace Game.Client.Lobby
             view.EnsureLayout();
             return view;
         }
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureLayout();
+            ApplyStyle();
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
+
+        private string[] PaintedActions() =>
+            new[]
+            {
+                Copy(ActionKeys[0]),
+                Copy(ActionKeys[1]),
+                Copy(ActionKeys[2])
+            };
 
         private void Awake()
         {
@@ -226,7 +255,7 @@ namespace Game.Client.Lobby
                 var action = item.Find("Action")?.GetComponent<TMP_Text>();
                 if (action != null)
                 {
-                    action.text = Actions[index];
+                    action.text = PaintedActions()[index];
                     action.font = medium;
                     action.fontSize = ActionFontSize;
                     action.fontStyle = FontStyles.Normal;

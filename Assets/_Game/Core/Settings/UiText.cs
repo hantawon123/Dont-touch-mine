@@ -253,6 +253,29 @@ namespace Game.Core.Settings
             public const string ReportTitle = "lobby.reportTitle";
         }
 
+        public static class Map
+        {
+            public const string Playground = "map.playground";
+            public const string Supermarket = "map.supermarket";
+            public const string Mansion = "map.mansion";
+        }
+
+        public static class Category
+        {
+            public const string Food = "category.food";
+            public const string Household = "category.household";
+            public const string Bathroom = "category.bathroom";
+            public const string Plants = "category.plants";
+            public const string Tools = "category.tools";
+            public const string Modern = "category.modern";
+            public const string Fantasy = "category.fantasy";
+            public const string Beach = "category.beach";
+            public const string Casino = "category.casino";
+            public const string Halloween = "category.halloween";
+            public const string Toys = "category.toys";
+            public const string Reserve = "category.reserve";
+        }
+
         public static class Rooms
         {
             public const string NoRooms = "rooms.noRooms";

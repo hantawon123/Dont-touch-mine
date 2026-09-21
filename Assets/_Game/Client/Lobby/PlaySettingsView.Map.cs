@@ -80,7 +80,7 @@ namespace Game.Client.Lobby
 
             if (mapNameText != null)
             {
-                mapNameText.text = selected.IsRandom ? Copy(UiText.Play.Random) : selected.Label;
+                mapNameText.text = PlaySettingsMapCatalog.LabelOf(selected.Id, Language);
             }
 
             if (mapPreviewImage != null)

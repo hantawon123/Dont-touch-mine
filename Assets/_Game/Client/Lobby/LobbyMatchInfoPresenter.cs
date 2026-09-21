@@ -1,6 +1,7 @@
 using System;
 using Game.Core.Lobby;
 using Game.Core.Maps;
+using Game.Core.Settings;
 using R3;
 using VContainer.Unity;
 
@@ -13,22 +14,48 @@ namespace Game.Client.Lobby
     {
         private readonly ILobbyHostSession hostSession;
         private readonly LobbyHudView hud;
+        private readonly UiLocale locale;
         private IDisposable settingsSubscription;
 
         public LobbyMatchInfoPresenter(ILobbyHostSession hostSession, LobbyHudView hud)
+            : this(hostSession, hud, null)
+        {
+        }
+
+        [VContainer.Inject]
+        public LobbyMatchInfoPresenter(
+            ILobbyHostSession hostSession, LobbyHudView hud, UiLocale locale = null)
         {
             this.hostSession = hostSession ?? throw new ArgumentNullException(nameof(hostSession));
             this.hud = hud ?? throw new ArgumentNullException(nameof(hud));
+            this.locale = locale;
         }
 
         public void Start()
         {
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+            }
+
+            hud.ShowChrome(locale);
             settingsSubscription = hostSession.Settings.Subscribe(Apply);
         }
 
         public void Dispose()
         {
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
+
             settingsSubscription?.Dispose();
+        }
+
+        private void OnLocaleChanged()
+        {
+            hud.ShowChrome(locale);
+            Apply(hostSession.Settings.CurrentValue);
         }
 
         private void Apply(PlaySettingsDraft draft)
@@ -40,25 +67,18 @@ namespace Game.Client.Lobby
                 MapCatalog.IsRandom(draft.MapId));
         }
 
-        private static string CategoryLabel(PlaySettingsDraft draft)
+        private string Language =>
+            locale != null ? locale.LanguageCode : UiLocale.AppliedLanguage;
+
+        private string CategoryLabel(PlaySettingsDraft draft)
         {
             var index = PlaySettingsCategoryCatalog.IndexOf(draft.MatchRules.CategoryId);
-            return PlaySettingsCategoryCatalog.GetOption(
-                index < 0 ? PlaySettingsCategoryCatalog.DefaultIndex : index).Label;
+            var option = PlaySettingsCategoryCatalog.GetOption(
+                index < 0 ? PlaySettingsCategoryCatalog.DefaultIndex : index);
+            return PlaySettingsCategoryCatalog.LabelOf(option.Id, Language);
         }
 
-        private static string MapLabel(PlaySettingsDraft draft)
-        {
-            var index = PlaySettingsMapCatalog.IndexOf(draft.MapId);
-            if (index >= 0)
-            {
-                return PlaySettingsMapCatalog.GetOption(index).Label;
-            }
-
-            var mapId = draft.MapId?.Trim() ?? string.Empty;
-            return mapId.Length == 0
-                ? PlaySettingsMapCatalog.RandomLabel
-                : mapId;
-        }
+        private string MapLabel(PlaySettingsDraft draft) =>
+            PlaySettingsMapCatalog.LabelOf(draft.MapId, Language);
     }
 }

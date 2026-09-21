@@ -1,8 +1,10 @@
 using Game.Client.Common;
 using Game.Client.Home;
 using Game.Client.Voice;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
+using VContainer;
 
 namespace Game.Client.Lobby
 {
@@ -37,6 +39,17 @@ namespace Game.Client.Lobby
         private TextMeshProUGUI countdown;
         private string lastCountdownText;
         private LobbyStartCountdownTickAudio countdownTickAudio;
+
+        [Inject]
+        public void BindLocale(UiLocale value) => ShowChrome(value);
+
+        public void ShowChrome(UiLocale locale)
+        {
+            EnsureMatchInfo()?.ShowChrome(locale);
+            EnsurePlayerCount()?.ShowChrome(locale);
+            EnsureShortcutGuide()?.ShowChrome(locale);
+            KeySettingGuideView.Ensure(transform)?.ShowChrome(locale);
+        }
 
         public void SetStartCountdown(double remaining)
         {

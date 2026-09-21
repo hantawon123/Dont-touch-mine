@@ -14,7 +14,7 @@ namespace Game.Client.Lobby
     {
         public const string RootName = "PlayerCount";
         public static string Caption =>
-            UiTextCatalog.Shipped.Get(UiText.Lobby.PlayerCount, "ko");
+            UiLocale.Applied(UiText.Lobby.PlayerCount);
         public const float FontSize = 20f;
         public const float GapBelowMatchInfo = 24f;
         public const float CaptionCountGap = 8f;
@@ -28,6 +28,7 @@ namespace Game.Client.Lobby
 
         private TextMeshProUGUI caption;
         private TextMeshProUGUI count;
+        private UiLocale chromeLocale;
 
         public string CaptionText => caption != null ? caption.text : string.Empty;
 
@@ -73,6 +74,18 @@ namespace Game.Client.Lobby
                 count.text = $"{Mathf.Max(0, current)}/{Mathf.Max(0, max)}";
             }
         }
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureLayout();
+            ApplyStyle();
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
 
         private void Awake()
         {
@@ -148,7 +161,7 @@ namespace Game.Client.Lobby
         {
             if (caption != null)
             {
-                caption.text = Caption;
+                caption.text = Copy(UiText.Lobby.PlayerCount);
                 caption.font = HomeUiFonts.ApplyBold();
                 caption.fontSize = FontSize;
                 caption.fontStyle = FontStyles.Normal;

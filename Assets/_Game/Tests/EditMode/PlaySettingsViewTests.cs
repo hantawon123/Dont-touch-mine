@@ -264,7 +264,7 @@ namespace Game.Architecture.Tests
                 Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.MansionId));
                 Assert.That(
                     Find(panel.transform, "MapName").GetComponent<Text>().text,
-                    Is.EqualTo(MapCatalog.MansionId));
+                    Is.EqualTo(PlaySettingsMapCatalog.LabelOf(MapCatalog.MansionId)));
                 Assert.That(randomMark.gameObject.activeSelf, Is.False);
             }
             finally
@@ -296,6 +296,23 @@ namespace Game.Architecture.Tests
                 {
                     Assert.That(
                         mapName.GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo("Random"));
+                }
+
+                view.SetDraft(new PlaySettingsDraft(
+                    "방", "CODE", false, null, 4, 3, MapCatalog.MansionId));
+                if (mapName != null)
+                {
+                    Assert.That(
+                        mapName.GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo("Mansion"));
+                }
+
+                var categoryValue = Find(panel.transform, "CategoryValue");
+                if (categoryValue != null)
+                {
+                    Assert.That(
+                        categoryValue.GetComponent<UnityEngine.UI.Text>().text,
                         Is.EqualTo("Random"));
                 }
             }
