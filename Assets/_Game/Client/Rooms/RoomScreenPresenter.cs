@@ -169,7 +169,7 @@ namespace Game.Client.Rooms
             if (!room.IsLocked)
             {
                 pending = PendingEntry.RoomList;
-                RequestJoinAfterPaint(room.Id, null).Forget();
+                RoomJoinRequested?.Invoke(room.Id, null);
                 return;
             }
 
@@ -215,7 +215,7 @@ namespace Game.Client.Rooms
 
             pending = PendingEntry.Password;
             passwordModal.SetBusy(true);
-            RequestJoinAfterPaint(room.Id, password).Forget();
+            RoomJoinRequested?.Invoke(room.Id, password);
         }
 
         private void OnRoomCodeEntered(string code)
@@ -227,34 +227,14 @@ namespace Game.Client.Rooms
             }
 
             pending = PendingEntry.RoomCode;
-            RequestCodeJoinAfterPaint(normalized).Forget();
-        }
-
-        private async UniTask RequestJoinAfterPaint(RoomId roomId, string password)
-        {
-            if (loading != null)
-            {
-                await loading.ShowPainted();
-            }
-
-            RoomJoinRequested?.Invoke(roomId, password);
-        }
-
-        private async UniTask RequestCodeJoinAfterPaint(string roomCode)
-        {
-            if (loading != null)
-            {
-                await loading.ShowPainted();
-            }
-
-            RoomCodeEntryRequested?.Invoke(roomCode);
+            RoomCodeEntryRequested?.Invoke(normalized);
         }
 
         /// <summary>
         /// Moves the screen into the room lobby. The flow state is asked first,
         /// so a scene only loads for a move the app actually allows.
         /// </summary>
-        private void OpenLobby()
+        private async UniTask OpenLobby()
         {
             if (appFlow.CurrentState != AppFlowState.Lobby &&
                 !appFlow.TryTransitionTo(AppFlowState.Lobby))
@@ -263,6 +243,11 @@ namespace Game.Client.Rooms
                     $"Cannot enter a lobby from {appFlow.CurrentState}.",
                     this);
                 return;
+            }
+
+            if (loading != null)
+            {
+                await loading.ShowPainted();
             }
 
             applicationHost.OpenLobby();
@@ -286,7 +271,7 @@ namespace Game.Client.Rooms
             passwordModal?.SetBusy(false);
             passwordModal?.Close();
 
-            OpenLobby();
+            OpenLobby().Forget();
         }
 
         /// <summary>
