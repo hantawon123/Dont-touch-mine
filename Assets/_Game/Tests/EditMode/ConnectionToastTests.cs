@@ -29,11 +29,14 @@ namespace Game.Architecture.Tests
                 Assert.That(root, Is.Not.Null);
                 Assert.That(root.gameObject.activeSelf, Is.True);
 
+                var plate = root.GetComponent<Image>();
                 var tint = root.Find("Tint").GetComponent<Image>();
                 var title = root.Find("Title").GetComponent<TMP_Text>();
                 var icon = root.Find(ConnectionToast.CheckIconName).GetComponent<Image>();
 
-                Assert.That(tint.color, Is.EqualTo(ConnectionToast.Style.SuccessTint));
+                Assert.That(plate.color, Is.EqualTo(ConnectionToast.Style.SuccessFill));
+                Assert.That(plate.color.a, Is.EqualTo(0.2f).Within(0.001f));
+                Assert.That(tint.enabled, Is.False);
                 Assert.That(title.color, Is.EqualTo(ConnectionToast.Style.SuccessTitle));
                 Assert.That(title.text, Is.EqualTo("피드백 보내기"));
                 Assert.That(icon.gameObject.activeSelf, Is.True);
@@ -59,10 +62,13 @@ namespace Game.Architecture.Tests
                 toast.Show("피드백 보내기", "서버에 연결할 수 없습니다");
 
                 var root = canvas.transform.Find("ConnectionToast");
+                var plate = root.GetComponent<Image>();
                 var tint = root.Find("Tint").GetComponent<Image>();
                 var title = root.Find("Title").GetComponent<TMP_Text>();
                 var icon = root.Find(ConnectionToast.CheckIconName);
 
+                Assert.That(plate.color, Is.EqualTo(ConnectionToast.Style.Base));
+                Assert.That(tint.enabled, Is.True);
                 Assert.That(tint.color, Is.EqualTo(ConnectionToast.Style.Tint));
                 Assert.That(title.color, Is.EqualTo(ConnectionToast.Style.Title));
                 Assert.That(icon.gameObject.activeSelf, Is.False);

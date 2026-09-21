@@ -37,11 +37,11 @@ namespace Game.Client.Common
             public static readonly Color Title = new Color(1f, 0.44f, 0.196f, 1f);
 
             /// <summary>
-            /// The failure colours with the channels rotated toward green:
-            /// same weight as the warm refusal, a success rather than a warning.
+            /// #2EFF8A at 20%: the success plate, without the near-black base
+            /// the refusal keeps under its warm cast.
             /// </summary>
-            public static readonly Color SuccessTint = new Color(0.416f, 1f, 0.604f, 0.2f);
-            public static readonly Color SuccessTitle = new Color(0.196f, 1f, 0.44f, 1f);
+            public static readonly Color SuccessFill = new Color(0x2E / 255f, 1f, 0x8A / 255f, 0.2f);
+            public static readonly Color SuccessTitle = new Color(0x2E / 255f, 1f, 0x8A / 255f, 1f);
 
             public static readonly Color Body = Color.white;
 
@@ -63,6 +63,7 @@ namespace Game.Client.Common
         }
 
         private RectTransform root;
+        private Image plate;
         private Image tint;
         private Image checkIcon;
         private TMP_Text titleText;
@@ -146,8 +147,8 @@ namespace Game.Client.Common
 
         private void Build(RectTransform parent)
         {
-            var panel = CreateImage("ConnectionToast", parent, Style.Base);
-            root = panel.rectTransform;
+            plate = CreateImage("ConnectionToast", parent, Style.Base);
+            root = plate.rectTransform;
             root.anchorMin = new Vector2(0.5f, 1f);
             root.anchorMax = new Vector2(0.5f, 1f);
             root.pivot = new Vector2(0.5f, 1f);
@@ -169,7 +170,7 @@ namespace Game.Client.Common
                 "Body", root, Style.BodySize, Style.Body, Style.BodyOffsetY);
 
             // It reports; the player carries on behind it.
-            var group = panel.gameObject.AddComponent<CanvasGroup>();
+            var group = plate.gameObject.AddComponent<CanvasGroup>();
             group.blocksRaycasts = false;
             group.interactable = false;
             root.gameObject.SetActive(false);
@@ -177,9 +178,17 @@ namespace Game.Client.Common
 
         private void ApplyTone(bool success)
         {
+            if (plate != null)
+            {
+                plate.color = success ? Style.SuccessFill : Style.Base;
+            }
+
             if (tint != null)
             {
-                tint.color = success ? Style.SuccessTint : Style.Tint;
+                // The refusal stacks a warm cast on black. Success is the green
+                // fill on its own, so the cast would muddy #2EFF8A at 20%.
+                tint.enabled = !success;
+                tint.color = success ? Color.clear : Style.Tint;
             }
 
             if (titleText != null)
