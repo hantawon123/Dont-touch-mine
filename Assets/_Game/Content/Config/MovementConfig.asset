@@ -16,7 +16,7 @@ MonoBehaviour:
   sprintSpeed: 6.3
   maxStamina: 100
   staminaDrainPerSecond: 20
-  staminaRecoveryPerSecond: 15
+  staminaRecoveryPerSecond: 25
   rotationSpeedDegrees: 720
   jumpHeight: 0.85
   gravityMultiplier: 2
