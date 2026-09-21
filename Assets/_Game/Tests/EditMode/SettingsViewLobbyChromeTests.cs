@@ -137,6 +137,35 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void ModalOnlyLayout_ReusesGameConfirmationWithoutSettingsScreen()
+        {
+            var root = new GameObject("Tutorial Exit Confirmation");
+            try
+            {
+                root.SetActive(false);
+                var view = root.AddComponent<SettingsView>();
+                view.ConfigureAsModalOnly();
+                root.SetActive(true);
+                typeof(SettingsView).GetMethod("Awake",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
+
+                Assert.That(Find(root, "Confirm"), Is.Not.Null);
+                Assert.That(Find(root, "Background"), Is.Null);
+                Assert.That(Find(root, "FeedbackRow"), Is.Null);
+                Assert.That(Find(root, "BackButton"), Is.Null);
+
+                var canvas = root.GetComponentInChildren<Canvas>(true);
+                Assert.That(canvas, Is.Not.Null);
+                Assert.That(canvas.sortingOrder, Is.EqualTo(SettingsStyle.GameplayOverlaySortingOrder));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
         private static Transform Find(GameObject root, string name)
         {
             foreach (var transform in root.GetComponentsInChildren<Transform>(true))

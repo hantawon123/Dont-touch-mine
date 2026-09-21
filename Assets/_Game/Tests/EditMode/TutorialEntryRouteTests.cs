@@ -33,6 +33,23 @@ namespace Game.Tests.EditMode
             Assert.That(TutorialEntryRoute.Resolve("Home", store), Is.EqualTo("Home"));
         }
 
+        [Test]
+        public void SavedCompletionRoutesNextLaunchToHome()
+        {
+            PlayerPrefs.DeleteKey(PlayerPrefsTutorialCompletionStore.CompletedVersionKey);
+            try
+            {
+                var store = new PlayerPrefsTutorialCompletionStore();
+                store.MarkCurrentVersionCompleted();
+
+                Assert.That(TutorialEntryRoute.Resolve("Home", store), Is.EqualTo("Home"));
+            }
+            finally
+            {
+                PlayerPrefs.DeleteKey(PlayerPrefsTutorialCompletionStore.CompletedVersionKey);
+            }
+        }
+
         private sealed class FakeStore : ITutorialCompletionStore
         {
             public FakeStore(bool completed) => IsCurrentVersionCompleted = completed;
