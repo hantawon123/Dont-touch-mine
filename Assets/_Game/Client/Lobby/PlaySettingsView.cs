@@ -79,7 +79,7 @@ namespace Game.Client.Lobby
         private TextMeshProUGUI gameStartLabel;
         private Button gameStartButton;
 
-        private static readonly float[] SprintOptions = { 0.5f, 1f, 1.5f, 2f, 3f };
+        private static readonly float[] SprintOptions = { 1f, 1.5f, 2f, 3f };
         private readonly List<Text> ruleValues = new();
         private readonly List<Button> ruleMinus = new();
         private readonly List<Button> rulePlus = new();
