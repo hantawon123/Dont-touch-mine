@@ -237,6 +237,7 @@ namespace Game.Client.Character
             public const float SubtitleGap = 15f;
             public const float SubtitleFontSize = 20f;
             public const float ButtonGapAbove = 41f;
+            public const float BottomPadding = 41f;
 
             public static readonly Vector2 ButtonSize = new Vector2(223f, 52f);
             public const float ButtonGap = 44f;
