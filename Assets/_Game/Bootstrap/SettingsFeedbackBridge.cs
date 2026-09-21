@@ -114,7 +114,10 @@ namespace Game.Bootstrap
                 {
                     // Down first, then the thanks over the screen behind it.
                     view.FeedbackSent();
-                    view.ShowNotice(Copy(UiText.Settings.FeedbackSend), Copy(UiText.Settings.FeedbackSent));
+                    view.ShowNotice(
+                        Copy(UiText.Settings.FeedbackSend),
+                        Copy(UiText.Settings.FeedbackSent),
+                        success: true);
                     return;
                 }
 

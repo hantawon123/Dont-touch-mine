@@ -61,6 +61,7 @@ namespace Game.Architecture.Tests
             Assert.That(gateway.LastMessage, Is.EqualTo("소리가 너무 작아요"));
             Assert.That(view.SentCalls, Is.EqualTo(1), "성공만 패널을 내립니다.");
             Assert.That(view.Notices, Is.EqualTo(new[] { SettingsStyle.FeedbackSentMessage }));
+            Assert.That(view.NoticeIsSuccess, Is.EqualTo(new[] { true }));
         }
 
         [Test]
@@ -98,6 +99,7 @@ namespace Game.Architecture.Tests
                 {
                     $"{SettingsStyle.FeedbackOfflineMessage}. {SettingsStyle.FeedbackKeptMessage}"
                 }));
+            Assert.That(view.NoticeIsSuccess, Is.EqualTo(new[] { false }));
         }
 
         [Test]
