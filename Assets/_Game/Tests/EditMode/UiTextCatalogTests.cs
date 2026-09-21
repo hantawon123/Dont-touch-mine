@@ -102,6 +102,9 @@ namespace Game.Architecture.Tests
             Assert.That(shipped.Get(UiText.Lobby.PlayersShortcut, "en"), Is.EqualTo("Players"));
             Assert.That(shipped.Get(UiText.Lobby.Settings, "en"), Is.EqualTo("Settings"));
             Assert.That(shipped.Get(UiText.Lobby.Category, "en"), Is.EqualTo("Category"));
+            Assert.That(
+                string.Format(shipped.Get(UiText.Lobby.StartCountdown, "en"), 10),
+                Is.EqualTo("Game starts in 10s"));
             Assert.That(shipped.Get(UiText.Map.Supermarket, "en"), Is.EqualTo("Supermarket"));
             Assert.That(shipped.Get(UiText.Map.Mansion, "en"), Is.EqualTo("Mansion"));
             Assert.That(shipped.Get(UiText.Category.Food, "en"), Is.EqualTo("Food & Drink"));

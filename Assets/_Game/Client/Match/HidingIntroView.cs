@@ -112,7 +112,7 @@ namespace Game.Client.Match
         {
             return string.IsNullOrWhiteSpace(itemDisplayName)
                 ? FallbackItemName(language)
-                : itemDisplayName.Trim();
+                : ItemNameText.Localized(itemDisplayName, language);
         }
 
         private void Awake()

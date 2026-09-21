@@ -251,6 +251,7 @@ namespace Game.Core.Settings
             public const string ReasonName = "lobby.reason.name";
             public const string ReasonOther = "lobby.reason.other";
             public const string ReportTitle = "lobby.reportTitle";
+            public const string StartCountdown = "lobby.startCountdown";
         }
 
         public static class Map

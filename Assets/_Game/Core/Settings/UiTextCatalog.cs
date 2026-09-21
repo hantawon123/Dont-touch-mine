@@ -292,6 +292,7 @@ namespace Game.Core.Settings
             new UiTextLine(UiText.Lobby.ReasonName, "부적절한 닉네임", "Inappropriate name"),
             new UiTextLine(UiText.Lobby.ReasonOther, "기타", "Other"),
             new UiTextLine(UiText.Lobby.ReportTitle, "{0}님을 신고하시겠습니까?", "Report {0}?"),
+            new UiTextLine(UiText.Lobby.StartCountdown, "{0}초 뒤 게임이 시작됩니다", "Game starts in {0}s"),
             new UiTextLine(UiText.Map.Playground, "놀이터", "Playground"),
             new UiTextLine(UiText.Map.Supermarket, "마트", "Supermarket"),
             new UiTextLine(UiText.Map.Mansion, "저택", "Mansion"),
