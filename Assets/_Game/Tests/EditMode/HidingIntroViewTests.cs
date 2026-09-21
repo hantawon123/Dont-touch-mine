@@ -63,6 +63,23 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void IntroPreview_UsesFixedOnScreenSizeRegardlessOfPrefabScale()
+        {
+            Assert.That(HidingIntroItemPreview.IntroImageSize.x, Is.LessThanOrEqualTo(1920f));
+            Assert.That(HidingIntroItemPreview.IntroImageSize.y, Is.LessThanOrEqualTo(1080f));
+
+            var aspect = HidingIntroItemPreview.IntroImageSize.x /
+                         HidingIntroItemPreview.IntroImageSize.y;
+            var small = HidingIntroItemPreview.OrthographicSizeForBounds(
+                new Vector3(1f, 1f, 1f), aspect);
+            var large = HidingIntroItemPreview.OrthographicSizeForBounds(
+                new Vector3(10f, 10f, 10f), aspect);
+
+            Assert.That(large, Is.GreaterThan(small * 9f),
+                "The camera must zoom out with prefab scale so its on-screen size stays stable.");
+        }
+
+        [Test]
         public void FormatMessage_UsesAssignedItemName()
         {
             Assert.That(
