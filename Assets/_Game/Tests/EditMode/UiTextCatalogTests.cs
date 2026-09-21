@@ -71,6 +71,7 @@ namespace Game.Architecture.Tests
                 string.Format(shipped.Get(UiText.Settings.KeyInUseMessage, "en"), "F", "Jump"),
                 Is.EqualTo("F is already used by Jump"));
             Assert.That(shipped.Get(UiText.Home.CreateRoom, "en"), Is.EqualTo("Create Room"));
+            Assert.That(shipped.Get(UiText.Home.ConnectionError, "en"), Is.EqualTo("Connection Error"));
             Assert.That(shipped.Get(UiText.Home.FindRoom, "en"), Is.EqualTo("Find Game"));
             Assert.That(shipped.Get(UiText.Home.Quit, "en"), Is.EqualTo("Quit"));
             Assert.That(shipped.Get(UiText.Home.Empty, "en"), Is.EqualTo("No friends yet"));

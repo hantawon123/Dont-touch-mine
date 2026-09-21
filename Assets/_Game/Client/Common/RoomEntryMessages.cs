@@ -42,8 +42,10 @@ namespace Game.Client.Common
     /// </remarks>
     public static class RoomEntryMessages
     {
-        public static string Title =>
-            UiTextCatalog.Shipped.Get(UiText.Home.ConnectionError, "ko");
+        public static string Title => Title("ko");
+
+        public static string Title(string language) =>
+            UiTextCatalog.Shipped.Get(UiText.Home.ConnectionError, language);
 
         /// <summary>
         /// For the failures a player can do nothing about, and for anything new

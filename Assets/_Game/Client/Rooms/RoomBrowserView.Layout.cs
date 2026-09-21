@@ -700,7 +700,7 @@ namespace Game.Client.Rooms
         /// </summary>
         private void ShowToast(string message)
         {
-            toast?.Show(RoomEntryMessages.Title, message);
+            toast?.Show(Copy(UiText.Home.ConnectionError), message);
         }
 
         private void BuildRoomList(RectTransform panel)

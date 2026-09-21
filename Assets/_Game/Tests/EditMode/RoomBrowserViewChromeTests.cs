@@ -28,6 +28,12 @@ namespace Game.Architecture.Tests
                 var codeTitle = Find(root, "CodePanel")?.Find("Title")?.GetComponent<TMPro.TMP_Text>();
                 Assert.That(codeTitle, Is.Not.Null);
                 Assert.That(codeTitle.text, Is.EqualTo("Join by Code"));
+
+                view.ShowDisconnection("gone");
+                var toastTitle = Find(root, "ConnectionToast")?.Find("Title")
+                    ?.GetComponent<TMPro.TMP_Text>();
+                Assert.That(toastTitle, Is.Not.Null);
+                Assert.That(toastTitle.text, Is.EqualTo("Connection Error"));
             }
             finally
             {
