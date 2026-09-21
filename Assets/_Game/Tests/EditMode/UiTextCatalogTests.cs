@@ -55,7 +55,7 @@ namespace Game.Architecture.Tests
             Assert.That(shipped.Get(UiText.Settings.Language, "en"), Is.EqualTo("Language"));
             Assert.That(shipped.Get(UiText.Settings.Apply, "ko"), Is.EqualTo("적용하기"));
             Assert.That(shipped.Get(UiText.Settings.Apply, "en"), Is.EqualTo("Apply"));
-            Assert.That(shipped.Get(UiText.Settings.Reset, "en"), Is.EqualTo("Discard Changes"));
+            Assert.That(shipped.Get(UiText.Settings.Reset, "en"), Is.EqualTo("Discard"));
             Assert.That(shipped.Get(UiText.Settings.LeaveGame, "en"), Is.EqualTo("Leave Game"));
             Assert.That(shipped.Get(UiText.Settings.TabGeneral, "en"), Is.EqualTo("General"));
             Assert.That(shipped.Get(UiText.Settings.TabNotifications, "en"), Is.EqualTo("Notifications"));

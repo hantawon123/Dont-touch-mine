@@ -89,6 +89,7 @@ namespace Game.Client.Settings
         private TMP_Text backLabel;
         private TMP_Text resetAllLabel;
         private TMP_Text feedbackButtonLabel;
+        private RectTransform feedbackButton;
         private UiLocale chromeLocale;
         private bool microphoneTestRunning;
         private TMP_Text resetLabel;
@@ -218,6 +219,7 @@ namespace Game.Client.Settings
             if (feedbackButtonLabel != null)
             {
                 feedbackButtonLabel.text = locale.Get(UiText.Settings.FeedbackSend);
+                FitFeedbackButton();
             }
 
             foreach (var pair in rowLabels)

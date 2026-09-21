@@ -83,7 +83,7 @@ namespace Game.Core.Settings
         public static UiTextCatalog Shipped { get; } = new UiTextCatalog(
             new UiTextLine(UiText.Settings.Language, "언어", "Language"),
             new UiTextLine(UiText.Settings.Apply, "적용하기", "Apply"),
-            new UiTextLine(UiText.Settings.Reset, "변경 취소", "Discard Changes"),
+            new UiTextLine(UiText.Settings.Reset, "변경 취소", "Discard"),
             new UiTextLine(UiText.Settings.LeaveGame, "게임 나가기", "Leave Game"),
             new UiTextLine(UiText.Settings.TabGeneral, "일반", "General"),
             new UiTextLine(UiText.Settings.TabGraphics, "그래픽", "Graphics"),

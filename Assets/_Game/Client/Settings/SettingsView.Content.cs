@@ -501,6 +501,7 @@ namespace Game.Client.Settings
             SetAnchor(rect, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
             rect.anchoredPosition = new Vector2(-SettingsStyle.Rows.RightMargin, 0f);
             rect.sizeDelta = SettingsStyle.FeedbackRow.ButtonSize;
+            feedbackButton = rect;
 
             var fill = AddImage(
                 rect,
@@ -527,6 +528,22 @@ namespace Game.Client.Settings
             feedbackButtonLabel = label;
             button.onClick.AddListener(() => FeedbackRequested?.Invoke());
             buttons.Add(button);
+            FitFeedbackButton();
+        }
+
+        private void FitFeedbackButton()
+        {
+            if (feedbackButton == null || feedbackButtonLabel == null)
+            {
+                return;
+            }
+
+            feedbackButtonLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            feedbackButtonLabel.overflowMode = TextOverflowModes.Overflow;
+            feedbackButtonLabel.ForceMeshUpdate();
+            feedbackButton.sizeDelta = new Vector2(
+                feedbackButtonLabel.preferredWidth + (SettingsStyle.FeedbackRow.ButtonPaddingX * 2f),
+                SettingsStyle.FeedbackRow.ButtonSize.y);
         }
 
         private static void SetArrow(Button button, Image icon, bool enabled)

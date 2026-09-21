@@ -103,6 +103,7 @@ namespace Game.Client.Settings
                 confirmSubtitle.text = SettingsStyle.Modal.LeaveGameSubtitle;
                 declineLabel.text = Copy(UiText.Settings.Cancel);
                 acceptLabel.text = Copy(UiText.Settings.Leave);
+                LayoutConfirm();
                 return;
             }
 
@@ -134,6 +135,61 @@ namespace Game.Client.Settings
                     acceptLabel.text = Copy(UiText.Settings.Reset);
                     break;
             }
+
+            LayoutConfirm();
+        }
+
+        private void LayoutConfirm()
+        {
+            if (confirmTitle == null || confirmSubtitle == null)
+            {
+                return;
+            }
+
+            var plate = confirmTitle.rectTransform.parent as RectTransform;
+            if (plate == null)
+            {
+                return;
+            }
+
+            var modal = CharacterClosetStyle.Modal;
+            var minTitleHeight = modal.TitleFontSize * 1.4f;
+            var subtitleHeight = modal.SubtitleFontSize * 1.4f;
+            confirmTitle.textWrappingMode = TextWrappingModes.Normal;
+            confirmTitle.overflowMode = TextOverflowModes.Overflow;
+            var titleHeight = Mathf.Max(
+                minTitleHeight,
+                confirmTitle.GetPreferredValues(confirmTitle.text, modal.PanelSize.x, 0f).y);
+
+            var title = confirmTitle.rectTransform;
+            title.sizeDelta = new Vector2(0f, titleHeight);
+
+            var subtitleTop = modal.TitleTop + titleHeight + modal.SubtitleGap;
+            var subtitle = confirmSubtitle.rectTransform;
+            subtitle.anchoredPosition = new Vector2(0f, -subtitleTop);
+            subtitle.sizeDelta = new Vector2(0f, subtitleHeight);
+
+            var buttonTop = subtitleTop + subtitleHeight + modal.ButtonGapAbove;
+            var half = (modal.ButtonSize.x + modal.ButtonGap) * 0.5f;
+            var decline = declineLabel != null
+                ? declineLabel.rectTransform.parent as RectTransform
+                : null;
+            var accept = acceptLabel != null
+                ? acceptLabel.rectTransform.parent as RectTransform
+                : null;
+            if (decline != null)
+            {
+                decline.anchoredPosition = new Vector2(-half, -buttonTop);
+            }
+
+            if (accept != null)
+            {
+                accept.anchoredPosition = new Vector2(half, -buttonTop);
+            }
+
+            plate.sizeDelta = new Vector2(
+                modal.PanelSize.x,
+                buttonTop + modal.ButtonSize.y + modal.BottomPadding);
         }
 
         private void OpenConfirm()
@@ -309,6 +365,8 @@ namespace Game.Client.Settings
                 CharacterClosetStyle.Modal.TitleFontSize,
                 CharacterClosetStyle.Palette.ModalTitle,
                 TextAlignmentOptions.Top);
+            confirmTitle.textWrappingMode = TextWrappingModes.Normal;
+            confirmTitle.overflowMode = TextOverflowModes.Overflow;
             var title = confirmTitle.rectTransform;
             SetAnchor(title, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
             title.anchoredPosition = new Vector2(0f, -CharacterClosetStyle.Modal.TitleTop);

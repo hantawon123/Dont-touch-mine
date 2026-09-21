@@ -1,3 +1,4 @@
+using Game.Client.Character;
 using Game.Client.Settings;
 using Game.Core.Settings;
 using NUnit.Framework;
@@ -138,7 +139,7 @@ namespace Game.Architecture.Tests
                 Assert.That(Find(root, "ApplyButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
                     Is.EqualTo("Apply"));
                 Assert.That(Find(root, "ResetButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
-                    Is.EqualTo("Discard Changes"));
+                    Is.EqualTo("Discard"));
                 Assert.That(Find(root, "DisplayModeRow").Find("Label").GetComponent<TMPro.TextMeshProUGUI>().text,
                     Is.EqualTo("Display Mode"));
                 Assert.That(Find(root, "DeviceRow").Find("Label").GetComponent<TMPro.TextMeshProUGUI>().text,
@@ -163,6 +164,24 @@ namespace Game.Architecture.Tests
                 Assert.That(Find(Find(root, "Confirm").gameObject, "Title")
                         .GetComponent<TMPro.TextMeshProUGUI>().text,
                     Is.EqualTo("Discard changes to Graphics settings?"));
+
+                var confirmPanel = Find(Find(root, "Confirm").gameObject, "Panel") as RectTransform;
+                var confirmTitle = Find(Find(root, "Confirm").gameObject, "Title") as RectTransform;
+                var confirmSubtitle = Find(Find(root, "Confirm").gameObject, "Subtitle") as RectTransform;
+                Assert.That(confirmPanel, Is.Not.Null);
+                Assert.That(confirmTitle, Is.Not.Null);
+                Assert.That(confirmSubtitle, Is.Not.Null);
+                Assert.That(confirmTitle.sizeDelta.y, Is.GreaterThan(CharacterClosetStyle.Modal.TitleFontSize * 1.4f));
+                Assert.That(confirmPanel.sizeDelta.y, Is.GreaterThan(CharacterClosetStyle.Modal.PanelSize.y));
+                Assert.That(
+                    confirmSubtitle.anchoredPosition.y,
+                    Is.LessThan(-(CharacterClosetStyle.Modal.TitleTop + confirmTitle.sizeDelta.y)));
+
+                var feedback = Find(root, "FeedbackButton") as RectTransform;
+                var feedbackLabel = feedback.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+                Assert.That(
+                    feedback.sizeDelta.x,
+                    Is.EqualTo(feedbackLabel.preferredWidth + (SettingsStyle.FeedbackRow.ButtonPaddingX * 2f)).Within(0.5f));
             }
             finally
             {

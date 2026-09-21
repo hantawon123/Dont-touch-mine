@@ -803,6 +803,7 @@ namespace Game.Client.Settings
                 UiTextCatalog.Shipped.Get(UiText.Settings.Feedback, "ko");
 
             public static readonly Vector2 ButtonSize = new Vector2(200f, 60f);
+            public const float ButtonPaddingX = 28f;
             public const int ButtonRadius = 20;
             public const float ButtonFontSize = 28f;
             public static string ButtonLabel =>
