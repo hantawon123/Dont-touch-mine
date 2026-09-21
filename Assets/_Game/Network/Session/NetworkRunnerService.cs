@@ -2051,7 +2051,7 @@ namespace Game.Network.Session
             }
 
             _previousLoadingPriority = Application.backgroundLoadingPriority;
-            Application.backgroundLoadingPriority = UnityEngine.ThreadPriority.BelowNormal;
+            Application.backgroundLoadingPriority = UnityEngine.ThreadPriority.Low;
             _lobbyPreloadRaisedPriority = true;
             _lobbyPreload.priority = 100;
             // Read and deserialize in parallel with Photon, but do not run the
@@ -2217,7 +2217,7 @@ namespace Game.Network.Session
             _previousNetworkLoadingPriority =
                 Application.backgroundLoadingPriority;
             Application.backgroundLoadingPriority =
-                UnityEngine.ThreadPriority.BelowNormal;
+                UnityEngine.ThreadPriority.Low;
             _networkLoadRaisedPriority = true;
         }
 
