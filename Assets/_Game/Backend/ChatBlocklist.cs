@@ -12,10 +12,11 @@ namespace Game.Backend
     /// backend for it once at startup over a loopback path that a shared key locks; a list
     /// shipped in a build is a list of what to type around.
     /// <para>
-    /// <b>This has to agree with the backend.</b> The backend judges the same message again
-    /// when it stores it, and if the two disagree an investigator sees a message flagged as
-    /// masked that the players saw in the clear, or the other way round. The rules below are
-    /// the ones the backend applies (S15P21D205-1027); keep them in step.
+    /// <b>The rules live here and nowhere else</b> (S15P21D205-1096). The backend used to judge
+    /// every message a second time as it stored the original, which put the same twelve readings
+    /// in two languages and made a drift between them show up as a line recorded as masked that
+    /// the players read in the clear. It now stores the flag this server sends, so the record
+    /// says what went out.
     /// </para>
     /// </remarks>
     public sealed class ChatBlocklist
@@ -77,11 +78,11 @@ namespace Game.Backend
         /// Internal so the tests can build the same readings and put the two judgements —
         /// the automaton's and the plain scan's — side by side without stating the list twice.
         /// <para>
-        /// <b>The backend builds the same twelve</b> (ChatBlocklist.variants, S15P21D205-1081).
         /// The first five undo symbols and digits; the last seven undo jamo, which used to be a
         /// hole wide enough that a single character walked through it — "시ㅣ발" went out in the
         /// clear. <see cref="Hangul"/> says which jamo tricks are undone and which were measured
-        /// and left alone.
+        /// and left alone (S15P21D205-1081). Keyboard evasion ("tlqkf") is the one the list
+        /// handles instead of a reading here, because undoing it cost 57 false positives.
         /// </para>
         /// <para>
         /// Only the digit-as-vowel reading starts from a string that still has its digits. There

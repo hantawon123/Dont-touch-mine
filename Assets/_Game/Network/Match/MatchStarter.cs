@@ -162,20 +162,31 @@ namespace Game.Network.Match
         /// before its '#'. Without one there is nothing to find the conversation by later, so
         /// the record is skipped and the message still goes out covered.
         /// </para>
+        /// <para>
+        /// <b>Covering comes first, so the record can say whether it happened</b>
+        /// (S15P21D205-1095). <see cref="IChatModeration.Mask"/> hands back the same string it
+        /// was given when the message is clean, so the two being different is the judgement -
+        /// asking for it again would run the whole thing twice. The backend stores the flag as
+        /// sent rather than judging the message a second time, which is what kept the records
+        /// and the screen from disagreeing when the two word lists drifted.
+        /// </para>
         /// </remarks>
         private string Moderate(ChatScope scope, string playerId, string userId, string text)
         {
             var said = LobbyChatMessage.NormalizeText(text);
             if (_moderation == null) return said;
 
+            var shown = _moderation.Mask(said);
+
             var info = _state.Runner.SessionInfo;
             if (info.IsValid && !string.IsNullOrWhiteSpace(info.Name))
             {
                 _moderation.Record(new ChatLogRecord(
-                    info.Name, scope, userId, playerId, said, DateTimeOffset.UtcNow));
+                    info.Name, scope, userId, playerId, said,
+                    !string.Equals(shown, said, StringComparison.Ordinal), DateTimeOffset.UtcNow));
             }
 
-            return _moderation.Mask(said);
+            return shown;
         }
 
         /// <summary>
