@@ -11,18 +11,18 @@ namespace Game.Client.Match
             string itemId,
             bool showPreview,
             bool isOwn,
-            bool grayscale)
+            bool destroyed)
         {
             ItemId = itemId;
             ShowPreview = showPreview;
             IsOwn = isOwn;
-            Grayscale = grayscale;
+            Destroyed = destroyed;
         }
 
         public string ItemId { get; }
         public bool ShowPreview { get; }
         public bool IsOwn { get; }
-        public bool Grayscale { get; }
+        public bool Destroyed { get; }
     }
 
     /// <summary>
@@ -65,7 +65,7 @@ namespace Game.Client.Match
                     local,
                     showPreview: true,
                     isOwn: true,
-                    grayscale: ownDestroyed));
+                    destroyed: ownDestroyed));
             }
 
             for (var index = 0; index < order.Count && slots.Count < count; index++)
@@ -80,7 +80,7 @@ namespace Game.Client.Match
                     order[index],
                     showPreview: true,
                     isOwn: false,
-                    grayscale: false));
+                    destroyed: false));
             }
 
             while (slots.Count < count)
@@ -89,7 +89,7 @@ namespace Game.Client.Match
                     null,
                     showPreview: false,
                     isOwn: false,
-                    grayscale: false));
+                    destroyed: false));
             }
 
             return slots.ToArray();

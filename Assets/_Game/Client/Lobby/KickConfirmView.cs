@@ -683,9 +683,7 @@ namespace Game.Client.Lobby
                 CharacterClosetStyle.Modal.CloseSize, CharacterClosetStyle.Modal.CloseSize);
 
             var image = AddImage(rect, CharacterClosetStyle.Palette.CloseIcon, raycastTarget: true);
-            image.sprite = BuildCloseIcon();
-            image.type = Image.Type.Simple;
-            image.preserveAspect = true;
+            SettingsStyle.ApplyCloseIcon(image);
 
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
@@ -763,47 +761,6 @@ namespace Game.Client.Lobby
         }
 
         internal void RaiseCancelled() => Cancelled?.Invoke();
-
-        private static Sprite BuildCloseIcon()
-        {
-            const int size = 64;
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-            {
-                hideFlags = HideFlags.HideAndDontSave,
-                filterMode = FilterMode.Bilinear
-            };
-
-            var center = (size - 1) * 0.5f;
-            var radius = center - 2f;
-            var arm = 11f;
-            var thickness = 3.2f;
-            for (var y = 0; y < size; y++)
-            {
-                for (var x = 0; x < size; x++)
-                {
-                    var dx = x - center;
-                    var dy = y - center;
-                    if ((dx * dx) + (dy * dy) > radius * radius)
-                    {
-                        texture.SetPixel(x, y, Color.clear);
-                        continue;
-                    }
-
-                    var onX = Mathf.Abs(dx - dy) <= thickness && Mathf.Abs(dx) <= arm
-                        || Mathf.Abs(dx + dy) <= thickness && Mathf.Abs(dx) <= arm;
-                    texture.SetPixel(x, y, onX ? new Color(0.14f, 0.14f, 0.14f, 1f) : Color.white);
-                }
-            }
-
-            texture.Apply(false, false);
-            var sprite = Sprite.Create(
-                texture,
-                new Rect(0f, 0f, size, size),
-                new Vector2(0.5f, 0.5f),
-                100f);
-            sprite.hideFlags = HideFlags.HideAndDontSave;
-            return sprite;
-        }
 
         private static RectTransform CreateRect(string name, Transform parent)
         {

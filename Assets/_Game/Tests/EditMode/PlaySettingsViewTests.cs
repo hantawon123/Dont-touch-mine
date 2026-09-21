@@ -1,5 +1,6 @@
 using System.Reflection;
 using Game.Client.Lobby;
+using Game.Client.Settings;
 using Game.Core.Lobby;
 using Game.Core.Maps;
 using NUnit.Framework;
@@ -64,7 +65,9 @@ namespace Game.Architecture.Tests
                     Is.EqualTo(new Vector2(
                         PlaySettingsStyle.Overlay.CloseSize,
                         PlaySettingsStyle.Overlay.CloseSize)));
-                Assert.That(close.GetComponent<Image>().sprite, Is.Not.Null);
+                Assert.That(
+                    close.GetComponent<Image>().sprite,
+                    Is.EqualTo(SettingsStyle.LoadCloseIcon()));
                 Assert.That(Find(root.transform, "BackButton"), Is.Null);
 
                 var overlay = Find(root.transform, "PlaySettingsOverlay");
@@ -225,7 +228,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void MapPicker_ShowsOnlySupermarket()
+        public void MapPicker_OffersRandomThenSupermarketAndMansion()
         {
             var root = CreateView(out var panel, out var view);
             try
@@ -236,19 +239,32 @@ namespace Game.Architecture.Tests
                 Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
                 Assert.That(
                     Find(panel.transform, "MapName").GetComponent<Text>().text,
-                    Is.EqualTo(MapCatalog.SupermarketId));
+                    Is.EqualTo(PlaySettingsMapCatalog.RandomLabel));
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(string.Empty));
+                var randomMark = Find(panel.transform, "MapPreview")
+                    .Find(MapPreviewSprites.RandomMarkName)
+                    .GetComponent<Text>();
+                Assert.That(randomMark.text, Is.EqualTo(MapPreviewSprites.RandomMarkText));
+                Assert.That(randomMark.gameObject.activeSelf, Is.True);
                 Assert.That(Find(panel.transform, "CategoryPreview"), Is.Null);
                 var categoryValue = Find(panel.transform, "CategoryValue").GetComponent<Text>();
                 Assert.That(categoryValue, Is.Not.Null);
                 Assert.That(categoryValue.fontSize, Is.EqualTo(PlaySettingsStyle.FontSize.CategoryName));
                 Assert.That(categoryValue.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
-                Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.SupermarketId));
 
                 view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, MapCatalog.PlaygroundId));
                 Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
-                Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.SupermarketId));
-                Assert.That(Find(panel.transform, "MapPrev").gameObject.activeSelf, Is.False);
-                Assert.That(Find(panel.transform, "MapNext").gameObject.activeSelf, Is.False);
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(string.Empty));
+                Assert.That(randomMark.gameObject.activeSelf, Is.True);
+                Assert.That(Find(panel.transform, "MapPrev").gameObject.activeSelf, Is.True);
+                Assert.That(Find(panel.transform, "MapNext").gameObject.activeSelf, Is.True);
+
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, MapCatalog.MansionId));
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.MansionId));
+                Assert.That(
+                    Find(panel.transform, "MapName").GetComponent<Text>().text,
+                    Is.EqualTo(MapCatalog.MansionId));
+                Assert.That(randomMark.gameObject.activeSelf, Is.False);
             }
             finally
             {

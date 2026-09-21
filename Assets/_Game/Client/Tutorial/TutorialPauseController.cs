@@ -2,8 +2,8 @@ using Cysharp.Threading.Tasks;
 using Game.Client.Cameras;
 using Game.Client.Common;
 using Game.Client.Interactions;
-using Game.Client.Lobby;
 using Game.Client.Players;
+using Game.Client.Settings;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -13,17 +13,25 @@ namespace Game.Client.Tutorial
 {
     public sealed class TutorialPauseController : MonoBehaviour
     {
+        [SerializeField] private string destinationScene = "Home";
+        [SerializeField] private string exitTitle = "튜토리얼을 종료하겠습니까?";
         [SerializeField] private PlayerMovement player;
         [SerializeField] private PlayerCameraController cameraRig;
-        private LobbyConfirmView modal;
+        private SettingsView modal;
         private bool leaving;
+        private int openedFrame = -1;
         public bool IsOpen { get; private set; }
 
         private void Start()
         {
-            modal = LobbyConfirmView.Create(transform);
-            modal.Confirmed += Leave;
-            modal.Cancelled += Resume;
+            var modalHost = new GameObject("Tutorial Exit Confirmation");
+            modalHost.transform.SetParent(transform, false);
+            modalHost.SetActive(false);
+            modal = modalHost.AddComponent<SettingsView>();
+            modal.ConfigureAsModalOnly();
+            modal.ConfirmAccepted += Leave;
+            modal.ConfirmDeclined += Resume;
+            modal.ConfirmDismissed += ResumeAfterOpeningFrame;
             cameraRig.SetEscapeReleasesCursor(false);
             if (EventSystem.current == null)
             {
@@ -35,7 +43,7 @@ namespace Game.Client.Tutorial
 
         private void Update()
         {
-            if (!leaving && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            if (!leaving && !IsOpen && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
                 Toggle();
         }
 
@@ -43,14 +51,17 @@ namespace Game.Client.Tutorial
         {
             if (IsOpen) { Resume(); return; }
             IsOpen = true;
+            openedFrame = Time.frameCount;
             SetInputBlocked(true);
-            modal.Show("튜토리얼을 나가시겠습니까?\n완료하지 않은 훈련은 저장되지 않습니다.", "나가기");
+            modal.gameObject.SetActive(true);
+            modal.ShowLeaveConfirmation(exitTitle);
         }
 
         public void Resume()
         {
             if (leaving) return;
-            modal.Hide();
+            modal.HideConfirm();
+            modal.gameObject.SetActive(false);
             IsOpen = false;
             WebPointerInput.DiscardHeldButtons();
             SetInputBlocked(false);
@@ -65,20 +76,33 @@ namespace Game.Client.Tutorial
 
         private void Leave() => LeaveAsync().Forget(Debug.LogException);
 
+        private void ResumeAfterOpeningFrame()
+        {
+            if (Time.frameCount != openedFrame)
+                Resume();
+        }
+
         private async UniTask LeaveAsync()
         {
             if (leaving) return;
             leaving = true;
-            modal.Hide();
+            modal.HideConfirm();
+            modal.gameObject.SetActive(false);
             var loading = FindAnyObjectByType<LoadingView>(FindObjectsInactive.Include) ?? LoadingView.Create(null);
             loading.Show();
             await SceneLoadSlicer.YieldFrame();
-            await SceneLoadSlicer.LoadSingleAsync("Home");
+            await SceneLoadSlicer.LoadSingleAsync(destinationScene);
+            new PlayerPrefsTutorialCompletionStore().MarkCurrentVersionCompleted();
         }
 
         private void OnDestroy()
         {
-            if (modal != null) { modal.Confirmed -= Leave; modal.Cancelled -= Resume; }
+            if (modal != null)
+            {
+                modal.ConfirmAccepted -= Leave;
+                modal.ConfirmDeclined -= Resume;
+                modal.ConfirmDismissed -= ResumeAfterOpeningFrame;
+            }
             if (player != null) player.IsMovementLocked = false;
             if (cameraRig != null) cameraRig.SetEscapeReleasesCursor(true);
         }

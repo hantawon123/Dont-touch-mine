@@ -73,6 +73,8 @@ namespace Game.Client.Home
 
         void SetNickname(string nickname);
 
+        void SetProfileAppearance(Game.Core.Players.AvatarAppearance appearance);
+
         void SetProfileSettingsVisible(bool visible);
 
         /// <summary>

@@ -7,6 +7,14 @@ namespace Game.Architecture.Tests
 {
     public sealed class SettingsViewLobbyChromeTests
     {
+        [Test]
+        public void CloseIcon_IsAvailableThroughPlayerResources()
+        {
+            var sprite = Resources.Load<Sprite>(SettingsStyle.CloseIconResource);
+            Assert.That(sprite, Is.Not.Null, "Player builds must load the close icon through Resources.");
+            Assert.That(SettingsStyle.LoadCloseIcon(), Is.EqualTo(sprite));
+        }
+
         [TestCase(0)]
         [TestCase(1)]
         [TestCase(5)]
@@ -91,7 +99,9 @@ namespace Game.Architecture.Tests
                 Assert.That(label.text, Is.EqualTo(SettingsStyle.Buttons.LeaveLabel));
                 var close = Find(root, "CloseButton");
                 Assert.That(close, Is.Not.Null);
-                Assert.That(close.GetComponent<Image>().sprite, Is.Not.Null);
+                Assert.That(
+                    close.GetComponent<Image>().sprite,
+                    Is.EqualTo(SettingsStyle.LoadCloseIcon()));
                 var background = Find(root, "Background").GetComponent<Image>();
                 Assert.That(background.color, Is.EqualTo(SettingsStyle.Palette.OverlayDim));
                 Assert.That(background.color.a, Is.EqualTo(0.8f));
@@ -120,6 +130,35 @@ namespace Game.Architecture.Tests
                 var panel = Find(root, "Panel") as RectTransform;
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.localScale, Is.EqualTo(Vector3.one));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ModalOnlyLayout_ReusesGameConfirmationWithoutSettingsScreen()
+        {
+            var root = new GameObject("Tutorial Exit Confirmation");
+            try
+            {
+                root.SetActive(false);
+                var view = root.AddComponent<SettingsView>();
+                view.ConfigureAsModalOnly();
+                root.SetActive(true);
+                typeof(SettingsView).GetMethod("Awake",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
+
+                Assert.That(Find(root, "Confirm"), Is.Not.Null);
+                Assert.That(Find(root, "Background"), Is.Null);
+                Assert.That(Find(root, "FeedbackRow"), Is.Null);
+                Assert.That(Find(root, "BackButton"), Is.Null);
+
+                var canvas = root.GetComponentInChildren<Canvas>(true);
+                Assert.That(canvas, Is.Not.Null);
+                Assert.That(canvas.sortingOrder, Is.EqualTo(SettingsStyle.GameplayOverlaySortingOrder));
             }
             finally
             {

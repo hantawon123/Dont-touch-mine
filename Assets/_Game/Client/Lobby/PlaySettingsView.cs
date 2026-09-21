@@ -79,7 +79,7 @@ namespace Game.Client.Lobby
         private TextMeshProUGUI gameStartLabel;
         private Button gameStartButton;
 
-        private static readonly float[] SprintOptions = { 0.5f, 1f, 1.5f, 2f, 3f };
+        private static readonly float[] SprintOptions = { 1f, 1.5f, 2f, 3f };
         private readonly List<Text> ruleValues = new();
         private readonly List<Button> ruleMinus = new();
         private readonly List<Button> rulePlus = new();
@@ -98,7 +98,7 @@ namespace Game.Client.Lobby
         private string password = string.Empty;
         private int maxPlayers = RoomSettings.MaxPlayerCount;
         private int destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
-        private int selectedMapIndex;
+        private int selectedMapIndex = PlaySettingsMapCatalog.DefaultIndex;
         private bool editable;
         private int participantCount = 1;
         private MatchRuleSettings matchRules = MatchRuleSettings.Default;
@@ -1111,11 +1111,9 @@ namespace Game.Client.Lobby
                 PlaySettingsStyle.Overlay.CloseSize, PlaySettingsStyle.Overlay.CloseSize);
 
             var image = rect.GetComponent<Image>() ?? rect.gameObject.AddComponent<Image>();
-            image.sprite = SettingsStyle.LoadCloseIcon();
             image.color = PlaySettingsStyle.Palette.Text;
-            image.type = Image.Type.Simple;
-            image.preserveAspect = true;
             image.raycastTarget = true;
+            SettingsStyle.ApplyCloseIcon(image);
 
             closeButton = rect.GetComponent<Button>() ?? rect.gameObject.AddComponent<Button>();
             closeButton.targetGraphic = image;

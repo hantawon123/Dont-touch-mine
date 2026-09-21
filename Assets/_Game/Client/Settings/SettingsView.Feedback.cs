@@ -323,12 +323,7 @@ namespace Game.Client.Settings
                 CharacterClosetStyle.Modal.CloseSize, CharacterClosetStyle.Modal.CloseSize);
 
             var image = AddImage(rect, CharacterClosetStyle.Palette.CloseIcon, raycastTarget: true);
-            if (closeIcon != null)
-            {
-                image.sprite = closeIcon;
-                image.type = Image.Type.Simple;
-                image.preserveAspect = true;
-            }
+            SettingsStyle.ApplyCloseIcon(image, closeIcon);
 
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;

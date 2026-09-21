@@ -64,18 +64,11 @@ namespace Game.Core.Rooms
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(MapId))
-            {
-                settings = default;
-                error = RoomSettingsError.MapRequired;
-                return false;
-            }
-
             settings = new RoomSettings(
                 Title.Trim(),
                 IsLocked,
                 MaxPlayers,
-                MapId.Trim());
+                MapId?.Trim() ?? string.Empty);
             error = RoomSettingsError.None;
             return true;
         }

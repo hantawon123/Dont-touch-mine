@@ -90154,6 +90154,8 @@ MonoBehaviour:
   proneEntrance: {fileID: 879417827}
   proneExit: {fileID: 910324191}
   sprintJumpThreshold: {fileID: 1005296923}
+  jumpLandingTarget: {fileID: 1876439438}
+  jumpLandingRadius: 2
 --- !u!114 &1812925503
 MonoBehaviour:
   m_ObjectHideFlags: 0

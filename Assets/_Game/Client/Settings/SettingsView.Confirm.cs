@@ -94,6 +94,25 @@ namespace Game.Client.Settings
                     break;
             }
 
+            OpenConfirm();
+        }
+
+        public void ShowLeaveConfirmation(string title)
+        {
+            if (confirmRoot == null)
+            {
+                return;
+            }
+
+            confirmTitle.text = title ?? string.Empty;
+            confirmSubtitle.text = SettingsStyle.Modal.LeaveGameSubtitle;
+            declineLabel.text = SettingsStyle.Modal.CancelLabel;
+            acceptLabel.text = SettingsStyle.Modal.LeaveGameAcceptLabel;
+            OpenConfirm();
+        }
+
+        private void OpenConfirm()
+        {
             isConfirmOpen = true;
             confirmRoot.SetActive(true);
             BeginBackdrop(confirmBackdrop);
@@ -351,12 +370,7 @@ namespace Game.Client.Settings
                 CharacterClosetStyle.Modal.CloseSize, CharacterClosetStyle.Modal.CloseSize);
 
             var image = AddImage(rect, CharacterClosetStyle.Palette.CloseIcon, raycastTarget: true);
-            if (closeIcon != null)
-            {
-                image.sprite = closeIcon;
-                image.type = Image.Type.Simple;
-                image.preserveAspect = true;
-            }
+            SettingsStyle.ApplyCloseIcon(image, closeIcon);
 
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
