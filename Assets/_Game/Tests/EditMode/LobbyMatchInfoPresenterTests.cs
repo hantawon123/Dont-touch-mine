@@ -23,7 +23,7 @@ namespace Game.Tests.EditMode
                 var info = canvas.transform.Find(LobbyMatchInfoView.RootName)
                     .GetComponent<LobbyMatchInfoView>();
                 Assert.That(info.CategoryLabel, Is.EqualTo(PlaySettingsCategoryCatalog.Default.Label));
-                Assert.That(info.MapLabel, Is.EqualTo("playground"));
+                Assert.That(info.MapLabel, Is.EqualTo("supermarket"));
             }
             finally
             {
@@ -32,7 +32,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void SettingsChange_KeepsPlaygroundLabelAndMapsEmptyToRandom()
+        public void SettingsChange_KeepsSelectedMapLabelAndMapsEmptyToRandom()
         {
             using var session = new HostSession();
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
@@ -52,13 +52,13 @@ namespace Game.Tests.EditMode
                     null,
                     6,
                     3,
-                    "playground",
+                    "supermarket",
                     fruit));
 
                 var info = canvas.transform.Find(LobbyMatchInfoView.RootName)
                     .GetComponent<LobbyMatchInfoView>();
                 Assert.That(info.CategoryLabel, Is.EqualTo(PlaySettingsCategoryCatalog.Default.Label));
-                Assert.That(info.MapLabel, Is.EqualTo("playground"));
+                Assert.That(info.MapLabel, Is.EqualTo("supermarket"));
 
                 session.ReplaceSettings(new PlaySettingsDraft(
                     "방",
@@ -82,7 +82,7 @@ namespace Game.Tests.EditMode
         {
             private readonly ReactiveProperty<bool> host = new(false);
             private readonly ReactiveProperty<PlaySettingsDraft> settings = new(
-                new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground"));
+                new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "supermarket"));
 
             public string LocalPlayerId => "local";
             public ReadOnlyReactiveProperty<bool> IsLocalHost => host;

@@ -11,7 +11,7 @@ namespace Game.Tests.EditMode
         public void ResourcePath_FollowsMapIdAndIsNullForRandom()
         {
             Assert.That(MapPreviewSprites.ResourcePath("supermarket"), Is.EqualTo("UI/Maps/MapPreview_supermarket"));
-            Assert.That(MapPreviewSprites.ResourcePath(" playground "), Is.EqualTo("UI/Maps/MapPreview_playground"));
+            Assert.That(MapPreviewSprites.ResourcePath(" supermarket "), Is.EqualTo("UI/Maps/MapPreview_supermarket"));
             Assert.That(MapPreviewSprites.ResourcePath(string.Empty), Is.Null);
             Assert.That(MapPreviewSprites.ResourcePath(null), Is.Null);
             Assert.That(MapPreviewSprites.For(string.Empty), Is.Null, "랜덤 선택은 사진이 없다.");

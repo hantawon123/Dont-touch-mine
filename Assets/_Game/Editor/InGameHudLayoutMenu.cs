@@ -25,7 +25,7 @@ namespace Game.Editor
         /// </summary>
         private const string InputActionsPath =
             "Assets/InputSystem_Actions.inputactions";
-        private const string ScenePath = "Assets/_Game/Content/Scenes/Playground.unity";
+        private const string ScenePath = "Assets/_Game/Content/Scenes/Supermarket.unity";
         private const int WaitingSpawnPointCount = 6;
         private const string RequestPath =
             "Assets/_Game/Editor/InGameHudInstallRequest.txt";

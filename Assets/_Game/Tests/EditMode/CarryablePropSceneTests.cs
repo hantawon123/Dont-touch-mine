@@ -14,18 +14,18 @@ namespace Game.Architecture.Tests
 {
     public sealed class CarryablePropSceneTests
     {
-        private const string PlaygroundScenePath = "Assets/_Game/Content/Scenes/Playground.unity";
+        private const string SupermarketScenePath = "Assets/_Game/Content/Scenes/Supermarket.unity";
         private const int MinimumCarryablePropCount = 190;
 
         [Test]
-        public void Playground_CarryablePropsAreReadyForInteraction()
+        public void Supermarket_CarryablePropsAreReadyForInteraction()
         {
-            var scene = SceneManager.GetSceneByPath(PlaygroundScenePath);
+            var scene = SceneManager.GetSceneByPath(SupermarketScenePath);
             var openedForTest = !scene.isLoaded;
 
             if (openedForTest)
             {
-                scene = EditorSceneManager.OpenScene(PlaygroundScenePath, OpenSceneMode.Additive);
+                scene = EditorSceneManager.OpenScene(SupermarketScenePath, OpenSceneMode.Additive);
             }
 
             try
@@ -75,7 +75,7 @@ namespace Game.Architecture.Tests
         public void Capture_RejectsSceneMissingCatalogItemsBeforeRuntimeStarts()
         {
             var scene = EditorSceneManager.NewPreviewScene();
-            var root = new GameObject("Empty Playground");
+            var root = new GameObject("Empty Match Scene");
             SceneManager.MoveGameObjectToScene(root, scene);
 
             try
@@ -92,14 +92,14 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Playground_CapturesNetworkMatchConfiguration()
+        public void Supermarket_CapturesNetworkMatchConfiguration()
         {
-            var scene = SceneManager.GetSceneByPath(PlaygroundScenePath);
+            var scene = SceneManager.GetSceneByPath(SupermarketScenePath);
             var openedForTest = !scene.isLoaded;
 
             if (openedForTest)
             {
-                scene = EditorSceneManager.OpenScene(PlaygroundScenePath, OpenSceneMode.Additive);
+                scene = EditorSceneManager.OpenScene(SupermarketScenePath, OpenSceneMode.Additive);
             }
 
             try

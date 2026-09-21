@@ -94,7 +94,7 @@ namespace Game.Client.Lobby
     }
 
     /// <summary>
-    /// Map choices shown in play settings. Random comes first; playground stays
+    /// Map choices shown in play settings. Random comes first; only playable maps are
     /// out. Playable lobby maps come from <see cref="MapCatalog.LobbyMapIds"/>.
     /// </summary>
     public static class PlaySettingsMapCatalog
