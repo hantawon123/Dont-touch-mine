@@ -779,24 +779,42 @@ namespace Game.Network.Session
             }
         }
 
+        /// <summary>
+        /// How many people this room holds, as the room itself says.
+        /// </summary>
+        /// <remarks>
+        /// Photon's <c>SessionInfo.MaxPlayers</c> is the room's actor capacity,
+        /// and a dedicated server occupies one of those actors, so it is one
+        /// larger than the number of people who fit. Reading it here put that
+        /// extra slot on screen as "6/7". The room's own published setting is
+        /// the answer, and it is the same property the room listing reads.
+        /// Zero means the room has not said yet; it is not a limit.
+        /// </remarks>
         public int MaxPlayers
         {
             get
             {
-                if (_configuredMaxPlayers > 0)
-                {
-                    return _configuredMaxPlayers;
-                }
-
                 if (_runner == null)
                 {
-                    return 0;
+                    return _configuredMaxPlayers > 0 ? _configuredMaxPlayers : 0;
                 }
 
                 var info = _runner.SessionInfo;
-                return info.IsValid ? info.MaxPlayers : 0;
+                return ResolveMaxPlayers(
+                    _configuredMaxPlayers,
+                    info.IsValid
+                        ? SessionPropertyMapper.ReadInt(info, SessionPropertyKeys.MaxPlayers, 0)
+                        : 0);
             }
         }
+
+        /// <summary>
+        /// The accepted setting if this peer has one, otherwise what the room
+        /// published. No ceiling is applied here: a room that holds eight says
+        /// eight, and the project limit belongs to the request that sets it.
+        /// </summary>
+        internal static int ResolveMaxPlayers(int configured, int published) =>
+            configured > 0 ? configured : Math.Max(0, published);
 
         public string RoomDisplayName
         {
@@ -1299,12 +1317,16 @@ namespace Game.Network.Session
             if (!IsRuntimeReady || _browsingLobby || !_runner.SessionInfo.IsValid) return false;
             // The host already owns the accepted values. A delayed Cloud echo must not roll them back.
             if (!IsServer) ReadConfiguredSettings();
+            // Until the room says how many people it holds, keep showing the last
+            // answer instead of publishing a draft with no capacity in it.
+            var maxPlayers = MaxPlayers;
+            if (maxPlayers <= 0) return false;
             var info = _runner.SessionInfo;
             var locked = info.Properties != null &&
                 info.Properties.TryGetValue(SessionPropertyKeys.Locked, out var property) &&
                 property.Isbool && (bool)property;
             settings = new PlaySettingsDraft(RoomDisplayName, RoomCode, locked, _expectedPassword,
-                MaxPlayers, _destructionLimit, _configuredMapId, _matchRules);
+                maxPlayers, _destructionLimit, _configuredMapId, _matchRules);
             return true;
         }
 
@@ -2766,10 +2788,12 @@ namespace Game.Network.Session
             }
 
             var info = _runner.SessionInfo;
+            // Falls back to what this peer already accepted, never to the room's
+            // actor capacity: that counts the dedicated server's own slot.
             var maxPlayers = SessionPropertyMapper.ReadInt(
                 info,
                 SessionPropertyKeys.MaxPlayers,
-                _configuredMaxPlayers > 0 ? _configuredMaxPlayers : info.MaxPlayers);
+                _configuredMaxPlayers);
             var destructionLimit = SessionPropertyMapper.ReadInt(
                 info,
                 SessionPropertyKeys.DestructionLimit,
