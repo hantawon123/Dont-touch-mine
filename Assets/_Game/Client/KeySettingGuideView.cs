@@ -211,7 +211,8 @@ namespace Game.Client
                     Copy(UiText.Guide.ToggleView),
                     Copy(UiText.Guide.Sprint),
                     Copy(UiText.Guide.Jump),
-                    Copy(UiText.Guide.Toggle)
+                    Copy(UiText.Guide.Toggle),
+                    Copy(UiText.Guide.Emote)
                 }
                 : mode == Mode.Carrying
                     ? new[]
@@ -224,7 +225,8 @@ namespace Game.Client
                         Copy(UiText.Guide.ToggleView),
                         Copy(UiText.Guide.Sprint),
                         Copy(UiText.Guide.Jump),
-                        Copy(UiText.Guide.Toggle)
+                        Copy(UiText.Guide.Toggle),
+                        Copy(UiText.Guide.Emote)
                     }
                     : new[]
                     {
@@ -234,7 +236,8 @@ namespace Game.Client
                         Copy(UiText.Guide.ToggleView),
                         Copy(UiText.Guide.Sprint),
                         Copy(UiText.Guide.Jump),
-                        Copy(UiText.Guide.Toggle)
+                        Copy(UiText.Guide.Toggle),
+                        Copy(UiText.Guide.Emote)
                     };
         }
 
@@ -497,7 +500,9 @@ namespace Game.Client
                         ? ControlAction.Interact
                         : index < bindings.Length
                             ? bindings[index]
-                            : ControlAction.ToggleKeyGuide;
+                            : index == bindings.Length
+                                ? ControlAction.ToggleKeyGuide
+                                : ControlAction.EmoteWheel;
                     ApplyKeyChipLook(chip.GetComponent<Image>());
                     FitKeyChip(chip, keyLabel, IconResourceFor(mode, iconAction));
                     if (keyLabel != null)
