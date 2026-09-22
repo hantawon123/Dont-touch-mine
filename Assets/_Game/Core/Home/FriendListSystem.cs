@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Core.Players;
 
 namespace Game.Core.Home
 {
@@ -37,7 +38,9 @@ namespace Game.Core.Home
         public FriendSummary(
             string playerId,
             string nickname,
-            FriendPresence presence)
+            FriendPresence presence,
+            bool appearanceSet = false,
+            AvatarAppearance appearance = default)
         {
             if (string.IsNullOrWhiteSpace(playerId))
             {
@@ -57,11 +60,23 @@ namespace Game.Core.Home
             PlayerId = playerId.Trim();
             Nickname = nickname.Trim();
             Presence = presence;
+            AppearanceSet = appearanceSet;
+            Appearance = appearanceSet ? appearance : default;
         }
 
         public string PlayerId { get; }
         public string Nickname { get; }
         public FriendPresence Presence { get; }
+
+        /// <summary>
+        /// Whether <see cref="Appearance"/> is the look they last saved. The
+        /// server sends this even when they are offline, so the friend list
+        /// can keep showing that face.
+        /// </summary>
+        public bool AppearanceSet { get; }
+
+        public AvatarAppearance Appearance { get; }
+
         /// <summary>
         /// In this game, which is what the 온라인 section means. A friend who
         /// is only on Steam is not one of these.
@@ -94,6 +109,11 @@ namespace Game.Core.Home
 
             foreach (var friend in friends)
             {
+                if (friend.AppearanceSet)
+                {
+                    AvatarAppearanceBoard.Remember(friend.PlayerId, friend.Appearance);
+                }
+
                 if (friend.IsOnline)
                 {
                     nextOnlineFriends.Add(friend);

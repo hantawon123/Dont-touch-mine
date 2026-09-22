@@ -13,6 +13,13 @@ namespace Game.Core.Players
         private static readonly Dictionary<string, AvatarAppearance> byId =
             new(StringComparer.Ordinal);
 
+        /// <summary>
+        /// Last saved looks, kept after the live roster is replaced. Friend
+        /// portraits on Home read these when the player is no longer spawned.
+        /// </summary>
+        private static readonly Dictionary<string, AvatarAppearance> remembered =
+            new(StringComparer.Ordinal);
+
         private static AvatarAppearance local;
         private static bool hasLocal;
 
@@ -42,6 +49,16 @@ namespace Game.Core.Players
             }
         }
 
+        /// <summary>
+        /// Keeps a look after the wearer leaves the live roster. The next
+        /// <see cref="Replace"/> does not forget it, so an offline friend can
+        /// still show the face they last saved.
+        /// </summary>
+        public static void Remember(string id, AvatarAppearance appearance)
+        {
+            Put(remembered, id, appearance);
+        }
+
         public static bool TryGet(string id, out AvatarAppearance appearance)
         {
             if (string.IsNullOrWhiteSpace(id))
@@ -50,24 +67,33 @@ namespace Game.Core.Players
                 return false;
             }
 
-            return byId.TryGetValue(id.Trim(), out appearance);
+            var key = id.Trim();
+            return byId.TryGetValue(key, out appearance)
+                || remembered.TryGetValue(key, out appearance);
         }
 
         public static void Clear()
         {
             byId.Clear();
+            remembered.Clear();
             local = default;
             hasLocal = false;
         }
 
         private static void Put(string id, AvatarAppearance appearance)
         {
+            Put(byId, id, appearance);
+        }
+
+        private static void Put(
+            Dictionary<string, AvatarAppearance> store, string id, AvatarAppearance appearance)
+        {
             if (string.IsNullOrWhiteSpace(id))
             {
                 return;
             }
 
-            byId[id.Trim()] = appearance;
+            store[id.Trim()] = appearance;
         }
     }
 }

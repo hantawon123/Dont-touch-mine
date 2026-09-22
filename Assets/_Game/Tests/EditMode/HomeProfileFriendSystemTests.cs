@@ -1,5 +1,6 @@
 using System;
 using Game.Core.Home;
+using Game.Core.Players;
 using NUnit.Framework;
 
 namespace Game.Tests.EditMode
@@ -70,6 +71,25 @@ namespace Game.Tests.EditMode
             Assert.That(
                 () => friendList.ReplaceFriends(null),
                 Throws.TypeOf<ArgumentNullException>());
+        }
+
+        [Test]
+        public void FriendList_RemembersOfflineAppearanceAfterRosterClears()
+        {
+            AvatarAppearanceBoard.Clear();
+            var worn = new AvatarAppearance("body_a", "hood_a", "shoes_a", "face_a");
+            var friendList = new FriendListSystem();
+
+            friendList.ReplaceFriends(new[]
+            {
+                new FriendSummary("offline-1", "오프라인", FriendPresence.Offline, true, worn)
+            });
+
+            AvatarAppearanceBoard.Replace(null);
+
+            Assert.That(AvatarAppearanceBoard.TryGet("offline-1", out var found), Is.True);
+            Assert.That(found, Is.EqualTo(worn));
+            AvatarAppearanceBoard.Clear();
         }
 
         [Test]

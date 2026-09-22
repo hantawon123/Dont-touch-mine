@@ -5,6 +5,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Backend;
 using Game.Core.Home;
+using Game.Core.Players;
 using Game.Core.Ports;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -58,7 +59,12 @@ namespace Game.Backend
                     continue;
                 }
 
-                friends.Add(new FriendSummary(row.userId, row.nickname, Presence(row.presence)));
+                friends.Add(new FriendSummary(
+                    row.userId,
+                    row.nickname,
+                    Presence(row.presence),
+                    row.appearanceSet,
+                    ReadAppearance(row)));
             }
 
             return BackendResult<IReadOnlyList<FriendSummary>>.Success(friends);
@@ -193,6 +199,25 @@ namespace Game.Backend
                 null,
                 BackendAuth.UserId,
                 cancellation);
+        }
+
+        /// <remarks>
+        /// Only read when the row says it has an appearance. JsonUtility
+        /// invents an empty object for a JSON null, and reading that would
+        /// dress every friend who never saved a look in four empty ids.
+        /// </remarks>
+        private static AvatarAppearance ReadAppearance(FriendSummaryDto row)
+        {
+            if (!row.appearanceSet || row.appearance == null)
+            {
+                return AvatarAppearance.Default;
+            }
+
+            return new AvatarAppearance(
+                row.appearance.bodyColor,
+                row.appearance.hood,
+                row.appearance.shoes,
+                row.appearance.face);
         }
 
         /// <remarks>
