@@ -111,6 +111,15 @@ namespace Game.Backend
 
         /// <summary>OFFLINE, ONLINE or IN_GAME.</summary>
         public string presence;
+
+        /// <summary>
+        /// Whether <see cref="appearance"/> is the look they last saved. The
+        /// same flag the account uses: JsonUtility invents an empty object for
+        /// a JSON null, so this is how "never chosen" is told from "chosen".
+        /// </summary>
+        public bool appearanceSet;
+
+        public AppearanceDto appearance;
     }
 
     [Serializable]

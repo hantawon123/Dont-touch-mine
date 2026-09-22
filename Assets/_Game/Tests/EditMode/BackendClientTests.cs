@@ -215,6 +215,27 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public async Task FriendList_ReadsLastSavedAppearance()
+        {
+            var transport = new FakeTransport();
+            var client = SignedIn(transport, out _);
+            transport.Answer(200, "{\"friends\":[{"
+                + "\"userId\":\"offline-1\",\"nickname\":\"오프라인\","
+                + "\"presence\":\"OFFLINE\",\"appearanceSet\":true,"
+                + "\"appearance\":{\"bodyColor\":\"body_black\",\"hood\":\"hood_bear_purple\","
+                + "\"shoes\":\"shoes_pink\",\"face\":\"face_smile\"}}]}");
+
+            var result = await new FriendGateway(client).ListFriendsAsync(CancellationToken.None);
+
+            Assert.That(result.Ok, Is.True);
+            Assert.That(result.Value[0].AppearanceSet, Is.True);
+            Assert.That(
+                result.Value[0].Appearance,
+                Is.EqualTo(new Game.Core.Players.AvatarAppearance(
+                    "body_black", "hood_bear_purple", "shoes_pink", "face_smile")));
+        }
+
+        [Test]
         public async Task AnUnknownPresenceReadsAsOfflineRatherThanFailing()
         {
             var transport = new FakeTransport();
