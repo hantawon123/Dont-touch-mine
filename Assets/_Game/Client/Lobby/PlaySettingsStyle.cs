@@ -1,3 +1,4 @@
+using Game.Core.Settings;
 using UnityEngine;
 
 namespace Game.Client.Lobby
@@ -124,7 +125,8 @@ namespace Game.Client.Lobby
             public const float MapSectionBottomSpacing = 20f;
             public const float SectionTitleHeight = 36f;
             public const float ActionSpacing = 24f;
-            public const string ResetLabel = "초기화";
+            public static string ResetLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Play.Reset, "ko");
             public const float ScrollbarWidth = 8f;
             public const float ScrollbarRightInset = 16f;
             public const float ScrollbarVerticalInset = 12f;

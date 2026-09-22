@@ -82,6 +82,8 @@ namespace Game.Network.Session
         public bool IsHighlightInProgress =>
             _matchStarter != null && _matchStarter.CurrentPhase == MatchPhase.Highlight;
         public bool IsLocalHighlightComplete => _localHighlightComplete;
+        public bool HasLeftLocalHighlight =>
+            _localHighlightComplete || _highlightCompletionRequested;
         public bool HasCompletedHighlight(int playerIndex)
         {
             if (_matchStarter == null) return false;
@@ -128,22 +130,28 @@ namespace Game.Network.Session
             if (IsServer)
             {
                 if (!TryCompleteHighlightViewing(_runner.LocalPlayer)) return false;
-                _localHighlightComplete = true;
             }
             else
             {
-                if (_receivedHighlightSequence == 0 || _highlightCompletionRequested)
+                if (_receivedHighlightSequence == 0)
+                {
                     return false;
-                _runner.SendReliableDataToServer(ReliableKey.FromInts(
-                    HighlightCompleteKeyType,
-                    HighlightReplayKeyVersion,
-                    _receivedHighlightSequence,
-                    0),
-                    new byte[] { 1 });
-                _highlightCompletionRequested = true;
+                }
+
+                if (!_highlightCompletionRequested)
+                {
+                    _runner.SendReliableDataToServer(ReliableKey.FromInts(
+                        HighlightCompleteKeyType,
+                        HighlightReplayKeyVersion,
+                        _receivedHighlightSequence,
+                        0),
+                        new byte[] { 1 });
+                }
             }
 
-            return _localHighlightComplete;
+            _highlightCompletionRequested = true;
+            _localHighlightComplete = true;
+            return true;
         }
 
         private readonly IRoomListSink _roomListSink;
@@ -909,8 +917,7 @@ namespace Game.Network.Session
             _awaitingRoomClaim = request.IsAvailableServer;
             _claimAdmissionPending = false;
             _configuredTitle = request.AllowCreate ? request.DisplayName?.Trim() : null;
-            _configuredMapId = string.IsNullOrWhiteSpace(request.MapId)
-                ? MapCatalog.DefaultMapId : request.MapId.Trim();
+            _configuredMapId = request.MapId?.Trim() ?? string.Empty;
             _configuredMaxPlayers = request.MaxPlayers > 0
                 ? request.MaxPlayers
                 : 0;
@@ -1006,9 +1013,13 @@ namespace Game.Network.Session
                         result.ErrorMessage);
                 }
 
-                Debug.LogError(
+                var failureMessage =
                     $"[Network] Could not start session '{request.RoomCode}' as {request.Mode}: " +
-                    $"{failure} ({result.ShutdownReason}) {result.ErrorMessage}");
+                    $"{failure} ({result.ShutdownReason}) {result.ErrorMessage}";
+                if (IsExpectedSessionEntryFailure(failure))
+                    Debug.LogWarning(failureMessage);
+                else
+                    Debug.LogError(failureMessage);
 
                 return SessionStartResult.Failed(failure, result.ErrorMessage);
             }
@@ -1050,6 +1061,12 @@ namespace Game.Network.Session
                 _roomInitializationInProgress = false;
             }
         }
+
+        internal static bool IsExpectedSessionEntryFailure(SessionFailure failure) =>
+            failure is SessionFailure.RoomNotFound or
+                SessionFailure.RoomFull or
+                SessionFailure.CodeTaken or
+                SessionFailure.Rejected;
 
         internal StartGameArgs BuildSessionStartArgs(
             SessionRequest request, INetworkSceneManager sceneManager, CancellationToken cancellation)
@@ -1207,8 +1224,37 @@ namespace Game.Network.Session
             _matchRules = normalizedMatchRules;
             _configuredMapId = mapId.Trim();
             if (title != null) _configuredTitle = title.Trim();
+            ApplyLobbySprintMultiplierToPlayers(_matchRules.SprintMultiplier);
             ReportPlayerCount();
             return true;
+        }
+
+        private void ApplyLobbySprintMultiplierToPlayers(float multiplier)
+        {
+            if (!IsServer || _runner == null || !_runner.IsRunning)
+            {
+                return;
+            }
+
+            foreach (var player in _runner.ActivePlayers)
+            {
+                ApplyLobbySprintMultiplier(player, multiplier);
+            }
+        }
+
+        private void ApplyLobbySprintMultiplier(PlayerRef player, float multiplier)
+        {
+            if (!IsServer || _runner == null || !_runner.IsRunning)
+            {
+                return;
+            }
+
+            var playerObject = _runner.GetPlayerObject(player);
+            if (playerObject != null &&
+                playerObject.TryGetBehaviour<NetworkPlayerMotor>(out var motor))
+            {
+                motor.TrySetSprintMultiplier(multiplier);
+            }
         }
 
         public bool TryReadLobbySettings(out PlaySettingsDraft settings)
@@ -2044,7 +2090,7 @@ namespace Game.Network.Session
             }
 
             _previousLoadingPriority = Application.backgroundLoadingPriority;
-            Application.backgroundLoadingPriority = UnityEngine.ThreadPriority.BelowNormal;
+            Application.backgroundLoadingPriority = UnityEngine.ThreadPriority.Low;
             _lobbyPreloadRaisedPriority = true;
             _lobbyPreload.priority = 100;
             // Read and deserialize in parallel with Photon, but do not run the
@@ -2210,7 +2256,7 @@ namespace Game.Network.Session
             _previousNetworkLoadingPriority =
                 Application.backgroundLoadingPriority;
             Application.backgroundLoadingPriority =
-                UnityEngine.ThreadPriority.BelowNormal;
+                UnityEngine.ThreadPriority.Low;
             _networkLoadRaisedPriority = true;
         }
 

@@ -68,7 +68,8 @@ namespace Game.Client.Interactions
             }
         }
 
-        public string InteractionPrompt => "물건 잡기";
+        public string InteractionPrompt =>
+            Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Interact.PickUp);
 
         private Rigidbody cachedBody;
         private Rigidbody body => cachedBody != null ? cachedBody : cachedBody = GetComponent<Rigidbody>();

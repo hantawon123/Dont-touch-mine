@@ -455,20 +455,24 @@ namespace Game.Tests.EditMode
             public void SetParticipantCount(int count) { }
             public void SetUnappliedWarningVisible(bool visible) { }
             public PlaySettingsDraft ReadDraft() =>
-                new("방", "CODE", false, null, 6, 3, "playground");
+                new("방", "CODE", false, null, 6, 3, "supermarket");
             public void RequestClose()
             {
                 CloseRequests++;
                 CloseRequested?.Invoke();
             }
             public void RequestOpen() { OpenRequests++; OpenRequested?.Invoke(); }
+
+            public void ShowChrome(Game.Core.Settings.UiLocale locale)
+            {
+            }
         }
 
         private sealed class HostSession : ILobbyHostSession, IDisposable
         {
             private readonly ReactiveProperty<bool> host = new(true);
             private readonly ReactiveProperty<PlaySettingsDraft> settings =
-                new(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground"));
+                new(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "supermarket"));
 
             public string LocalPlayerId => "me";
             public ReadOnlyReactiveProperty<bool> IsLocalHost => host;

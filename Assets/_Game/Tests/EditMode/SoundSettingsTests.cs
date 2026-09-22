@@ -73,7 +73,9 @@ namespace Game.Architecture.Tests
 
             Assert.That(choices.All.Count, Is.EqualTo(3));
             Assert.That(choices.Default.Code, Is.EqualTo(SoundCatalog.DefaultDevice));
-            Assert.That(choices.Default.Label, Is.EqualTo("기본 장치"));
+            Assert.That(
+                UiTextCatalog.Shipped.Get(choices.Default.Label, "ko"),
+                Is.EqualTo("기본 장치"));
             Assert.That(choices.All[1].Label, Is.EqualTo("Headset"));
             Assert.That(choices.Step(SoundCatalog.DefaultDevice, 1).Code, Is.EqualTo("Headset"));
             Assert.That(choices.Step("Webcam", 1).Code, Is.EqualTo(SoundCatalog.DefaultDevice), "Wraps.");
@@ -136,9 +138,10 @@ namespace Game.Architecture.Tests
             var modes = SoundCatalog.InputModes;
 
             Assert.That(modes.All.Count, Is.EqualTo(3));
-            Assert.That(modes.All[0].Label, Is.EqualTo("눌러서 말하기"));
-            Assert.That(modes.All[1].Label, Is.EqualTo("오픈 마이크"));
-            Assert.That(modes.All[2].Label, Is.EqualTo("끄기"));
+            Assert.That(UiTextCatalog.Shipped.Get(modes.All[0].Label, "ko"), Is.EqualTo("눌러서 말하기"));
+            Assert.That(UiTextCatalog.Shipped.Get(modes.All[1].Label, "ko"), Is.EqualTo("오픈 마이크"));
+            Assert.That(UiTextCatalog.Shipped.Get(modes.All[2].Label, "ko"), Is.EqualTo("끄기"));
+            Assert.That(UiTextCatalog.Shipped.Get(modes.All[0].Label, "en"), Is.EqualTo("Push to Talk"));
         }
 
         [Test]

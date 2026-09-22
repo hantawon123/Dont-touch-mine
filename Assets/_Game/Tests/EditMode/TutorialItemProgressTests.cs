@@ -61,6 +61,15 @@ namespace Game.Tests.EditMode
             float speed = 0f,
             bool grounded = true,
             PlayerPosture posture = PlayerPosture.Standing) =>
-            new(distance, look, speed, 5f, grounded, posture, passageCompleted: true);
+            new(
+                distance,
+                look,
+                speed,
+                5f,
+                grounded,
+                posture,
+                passageCompleted: true,
+                sprintCourseCompleted: true,
+                jumpCourseCompleted: true);
     }
 }

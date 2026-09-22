@@ -56,7 +56,7 @@ namespace Game.Tests.EditMode
             Assert.That(settings.SearchingDurationMinutes, Is.EqualTo(1));
         }
 
-        [TestCase(10, 1, 0.5f, 1)]
+        [TestCase(10, 1, 1f, 1)]
         [TestCase(30, 5, 1f, 3)]
         [TestCase(120, 15, 3f, 10)]
         public void MatchRuleSettings_AcceptsSupportedValues(
@@ -83,6 +83,7 @@ namespace Game.Tests.EditMode
         [TestCase(121, 5, 1f, 3, MatchRuleSettingsError.InvalidHidingDuration)]
         [TestCase(30, 0, 1f, 3, MatchRuleSettingsError.InvalidSearchingDuration)]
         [TestCase(30, 16, 1f, 3, MatchRuleSettingsError.InvalidSearchingDuration)]
+        [TestCase(30, 5, 0.5f, 3, MatchRuleSettingsError.InvalidSprintMultiplier)]
         [TestCase(30, 5, 2.5f, 3, MatchRuleSettingsError.InvalidSprintMultiplier)]
         [TestCase(30, 5, 1f, 0, MatchRuleSettingsError.InvalidStunHitCount)]
         [TestCase(30, 5, 1f, 11, MatchRuleSettingsError.InvalidStunHitCount)]

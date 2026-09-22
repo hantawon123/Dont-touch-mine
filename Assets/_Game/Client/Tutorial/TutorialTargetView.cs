@@ -7,7 +7,20 @@ namespace Game.Client.Tutorial
     public sealed class TutorialTargetView : MonoBehaviour
     {
         private Transform caption;
+        private TMP_Text captionText;
         private Camera viewCamera;
+
+        /// <summary>
+        /// Writes the outline's caption again, for when the language changes
+        /// while the course is already standing.
+        /// </summary>
+        public void SetLabel(string label)
+        {
+            if (captionText != null)
+            {
+                captionText.text = label;
+            }
+        }
 
         public static GameObject Create(Transform parent, string name, Vector3 position, Vector2 size,
             bool vertical, string label, Material material)
@@ -36,7 +49,9 @@ namespace Game.Client.Tutorial
             text.fontSize = 1.2f;
             text.alignment = TextAlignmentOptions.Center;
             text.color = new Color(1, .8f, .2f);
-            root.AddComponent<TutorialTargetView>().caption = text.transform;
+            var view = root.AddComponent<TutorialTargetView>();
+            view.caption = text.transform;
+            view.captionText = text;
             return root;
         }
 

@@ -1,5 +1,6 @@
 using Game.Client.Interactions;
 using Game.Client.Lobby;
+using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -134,6 +135,29 @@ namespace Game.Tests.EditMode
             Assert.That(world.x, Is.EqualTo(box.bounds.center.x).Within(0.001f));
             Assert.That(world.z, Is.EqualTo(box.bounds.center.z).Within(0.001f));
             Assert.That(world.y, Is.EqualTo(box.bounds.min.y + InteractionPromptView.WorldLift).Within(0.001f));
+        }
+
+        [Test]
+        public void Prompt_FollowsTheAppliedLanguage()
+        {
+            boardObject = new GameObject("LobbyPlanBoard");
+            boardObject.AddComponent<BoxCollider>();
+            var board = boardObject.AddComponent<LobbyPlanBoardInteractable>();
+            using (var serialized = new SerializedObject(board))
+            {
+                // 로비 씬에 구워져 있는 값 그대로.
+                serialized.FindProperty("prompt").stringValue = "방 설정";
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            var store = new InMemoryGeneralSettingsStore();
+            store.Save(new GeneralSettings("en"));
+            using var locale = new UiLocale(new GeneralSettingsSystem(store));
+
+            Assert.That(board.InteractionPrompt, Is.EqualTo("Room Settings"));
+
+            board.Bind(() => false, () => { });
+            Assert.That(board.InteractionPrompt, Is.EqualTo("View Room Settings"));
         }
 
         [Test]

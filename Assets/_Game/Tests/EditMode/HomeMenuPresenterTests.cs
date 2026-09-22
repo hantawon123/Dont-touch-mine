@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Core.Flow;
 using Game.Core.Home;
+using Game.Core.Settings;
 using Game.Core.Ports;
 using NUnit.Framework;
 using UnityEngine;
@@ -74,6 +75,17 @@ namespace Game.Tests.EditMode
 
             Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.RoomBrowser));
             Assert.That(host.SettingsOpenCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Presenter_Tutorial_OpensTutorialFromHome()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out var host, out var appFlow, out _, out _);
+
+            view.Raise(HomeMenuAction.Tutorial);
+
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Tutorial));
+            Assert.That(host.TutorialOpenCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -808,6 +820,10 @@ namespace Game.Tests.EditMode
                 NicknameSettled = settled;
             }
 
+            public void SetProfileAppearance(Game.Core.Players.AvatarAppearance appearance)
+            {
+            }
+
             public void SetServerSettingsVisible(bool visible)
             {
                 ServerSettingsVisible = visible;
@@ -846,6 +862,10 @@ namespace Game.Tests.EditMode
             public void ShowConnectionError(string message)
             {
                 ConnectionError = message ?? string.Empty;
+            }
+
+            public void ShowChrome(UiLocale locale)
+            {
             }
 
             public void RaiseRoomCreationRequested(string title, bool isPublic, int maxPlayers)
@@ -998,6 +1018,8 @@ namespace Game.Tests.EditMode
 
             public int SettingsOpenCount { get; private set; }
 
+            public int TutorialOpenCount { get; private set; }
+
             public int LobbyOpenCount { get; private set; }
 
             public string CreatedTitle { get; private set; }
@@ -1048,6 +1070,11 @@ namespace Game.Tests.EditMode
             public void OpenSettings()
             {
                 SettingsOpenCount++;
+            }
+
+            public void OpenTutorial()
+            {
+                TutorialOpenCount++;
             }
         }
     }

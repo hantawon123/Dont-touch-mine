@@ -141,7 +141,7 @@ namespace Game.Network.Match
         /// <summary>Largest room the rules allow, so the array never resizes.</summary>
         public const int MaxParticipants = RoomSettings.MaxPlayerCount;
 
-        // Covers every carryable in Playground with room for later map props.
+        // Covers every replicated carryable in the largest match map with room for later props.
         // Fusion reserves this state capacity up front, so keep it close to the
         // real map maximum instead of treating it as an unbounded collection.
         public const int MaxReplicatedObjects = 256;
@@ -213,6 +213,13 @@ namespace Game.Network.Match
 
         [Networked]
         public double StartCountdownEndsAt { get; set; }
+
+        /// <summary>
+        /// 찾기 페이즈 끝의 무제한 달리기 구간 길이. 규칙 자산은 호스트에만 주입되므로
+        /// 모든 피어가 같은 판정을 하도록 값 자체를 복제한다.
+        /// </summary>
+        [Networked]
+        public float FinalSprintWindowSeconds { get; set; }
 
         [Networked]
         public int ObjectStateCount { get; set; }
@@ -517,6 +524,18 @@ namespace Game.Network.Match
             ResultEndedAt = result.EndedAt;
             WinnerCount = result.WinnerPlayerIndices.Count;
             HasResult = true;
+            return true;
+        }
+
+        public bool TrySetFinalSprintWindow(float windowSeconds)
+        {
+            if (Object == null || !Object.HasStateAuthority ||
+                !float.IsFinite(windowSeconds) || windowSeconds < 0f)
+            {
+                return false;
+            }
+
+            FinalSprintWindowSeconds = windowSeconds;
             return true;
         }
 

@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2d07604c2fe2674186478ab182e8d2d, type: 3}
   m_Name: MovementConfig
   m_EditorClassIdentifier: Game.SOAP::Game.SOAP.Config.MovementConfigSO
-  walkSpeed: 2.5
+  walkSpeed: 3.5
   sprintSpeed: 6.3
   maxStamina: 100
   staminaDrainPerSecond: 20
-  staminaRecoveryPerSecond: 15
+  staminaRecoveryPerSecond: 25
   rotationSpeedDegrees: 720
   jumpHeight: 0.85
   gravityMultiplier: 2

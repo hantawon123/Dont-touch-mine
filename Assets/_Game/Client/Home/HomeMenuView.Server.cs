@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -29,6 +30,8 @@ namespace Game.Client.Home
         public event Action ServerSettingsDismissed;
 
         private readonly List<RegionRow> regionRows = new List<RegionRow>();
+        private RectTransform serverPanel;
+        private TMP_Text serverTitleText;
 
         private readonly struct RegionRow
         {
@@ -79,8 +82,10 @@ namespace Game.Client.Home
             fill.type = Image.Type.Sliced;
             fill.pixelsPerUnitMultiplier = 1f;
 
+            serverPanel = panel;
             CreateServerTitle(panel);
             CreateRegionRows(panel);
+            FitServerPanel();
 
             serverSettingsRoot = root.gameObject;
             SetSelectedRegion(ServerRegionCatalog.Default.Code);
@@ -97,12 +102,14 @@ namespace Game.Client.Home
 
             var text = AddText(
                 title,
-                "서버 설정",
+                Copy(UiText.Home.ServerTitle),
                 HomeStyle.FontSize.ServerTitle,
                 FontStyles.Normal,
                 TextAlignmentOptions.TopLeft);
             ApplyMenuFont(text);
             text.color = HomeStyle.Palette.TextPrimary;
+            serverTitleText = text;
+            Remember(text, UiText.Home.ServerTitle);
         }
 
         /// <summary>
@@ -172,11 +179,15 @@ namespace Game.Client.Home
 
             var labelRect = CreateRect("Label", row);
             SetAnchor(labelRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
-            labelRect.offsetMin = new Vector2(HomeStyle.Server.SidePadding * 0.5f, 0f);
-            labelRect.offsetMax = new Vector2(-HomeStyle.Server.CheckSize, 0f);
+            labelRect.offsetMin = new Vector2(HomeStyle.Server.RowInset, 0f);
+            labelRect.offsetMax = new Vector2(
+                -(HomeStyle.Server.CheckSize
+                    + HomeStyle.Server.LabelToCheckGap
+                    + HomeStyle.Server.RowInset),
+                0f);
             var label = AddText(
                 labelRect,
-                region.DisplayName,
+                RegionLabel(region),
                 HomeStyle.FontSize.Region,
                 FontStyles.Normal,
                 TextAlignmentOptions.MidlineLeft);
@@ -185,7 +196,7 @@ namespace Game.Client.Home
             var checkRect = CreateRect("Check", row);
             SetAnchor(
                 checkRect, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
-            checkRect.anchoredPosition = new Vector2(-HomeStyle.Server.SidePadding * 0.5f, 0f);
+            checkRect.anchoredPosition = new Vector2(-HomeStyle.Server.RowInset, 0f);
             checkRect.sizeDelta = new Vector2(
                 HomeStyle.Server.CheckSize, HomeStyle.Server.CheckSize);
 
@@ -223,6 +234,11 @@ namespace Game.Client.Home
             {
                 serverSettingsRoot.SetActive(visible);
             }
+
+            if (visible)
+            {
+                FitServerPanel();
+            }
         }
 
         /// <summary>
@@ -248,6 +264,79 @@ namespace Game.Client.Home
                     row.Check.enabled = isSelected && checkIcon != null;
                 }
             }
+        }
+
+        /// <summary>
+        /// The region's name in the applied language, or the one the
+        /// catalogue of regions was written with when there is no line for it.
+        /// </summary>
+        private string RegionLabel(ServerRegion region)
+        {
+            var key = UiText.Home.Region(region.Code);
+            return UiTextCatalog.Shipped.Knows(key) ? Copy(key) : region.DisplayName;
+        }
+
+        /// <summary>
+        /// Writes the regions again and gives the panel the width the longest
+        /// of them needs.
+        /// </summary>
+        private void RepaintRegions()
+        {
+            for (var index = 0; index < regionRows.Count; index++)
+            {
+                var row = regionRows[index];
+                if (row.Label != null)
+                {
+                    row.Label.text = RegionLabel(row.Region);
+                }
+            }
+
+            FitServerPanel();
+        }
+
+        /// <summary>
+        /// The panel is as wide as its widest line asks for, never narrower
+        /// than the design. Each row keeps a gap and a check-sized slot on
+        /// the right so selecting a region never lands the mark on the name.
+        /// </summary>
+        private void FitServerPanel()
+        {
+            if (serverPanel == null)
+            {
+                return;
+            }
+
+            var needed = HomeStyle.Server.PanelSize.x;
+            if (serverTitleText != null)
+            {
+                needed = Mathf.Max(
+                    needed,
+                    TextWidth(serverTitleText) + (HomeStyle.Server.SidePadding * 2f));
+            }
+
+            for (var index = 0; index < regionRows.Count; index++)
+            {
+                var label = regionRows[index].Label;
+                if (label != null)
+                {
+                    needed = Mathf.Max(
+                        needed, TextWidth(label) + HomeStyle.Server.RowChrome);
+                }
+            }
+
+            serverPanel.sizeDelta = new Vector2(
+                Mathf.Ceil(needed), HomeStyle.Server.PanelSize.y);
+        }
+
+        private static float TextWidth(TMP_Text text)
+        {
+            if (text == null || string.IsNullOrEmpty(text.text))
+            {
+                return 0f;
+            }
+
+            text.ForceMeshUpdate();
+            return text.GetPreferredValues(text.text).x;
         }
 
         private static string RegionRowName(ServerRegion region)

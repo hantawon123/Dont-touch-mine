@@ -156,6 +156,9 @@ namespace Game.Architecture.Tests
                 Assert.That(friendsTitle.fontSize, Is.EqualTo(LobbyPlayerListView.TitleFontSize));
                 Assert.That(friendsTitle.font, Is.EqualTo(HomeUiFonts.ApplyBold()));
                 Assert.That(view.GetComponent<RectTransform>().sizeDelta.x, Is.EqualTo(LobbyPlayerListView.ModalWidth));
+                Assert.That(LobbyPlayerListView.ModalScale, Is.EqualTo(1.3f));
+                Assert.That(LobbyPlayerListView.ModalWidth, Is.EqualTo(800f * 1.3f).Within(0.001f));
+                Assert.That(LobbyPlayerListView.ModalHeight, Is.EqualTo(420f * 1.3f).Within(0.001f));
                 var participants = canvas.transform.Find("Columns/Participants") as RectTransform;
                 var friends = canvas.transform.Find("Columns/Friends") as RectTransform;
                 Assert.That(
@@ -173,6 +176,71 @@ namespace Game.Architecture.Tests
                     LobbyPlayerListView.ColumnInnerPadding,
                     LobbyPlayerListView.ColumnInnerPadding)));
                 Assert.That(scroll.offsetMax.x, Is.EqualTo(-LobbyPlayerListView.ColumnInnerPadding));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void ShowChrome_WritesTheModalInTheAppliedLanguageButKeepsNames()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true),
+                        new LobbyParticipant("guest-1", "손님닉", false)
+                    },
+                    localIsHost: true,
+                    localPlayerId: "host-1");
+
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                using var locale = new UiLocale(new GeneralSettingsSystem(store));
+                view.ShowChrome(locale);
+
+                Assert.That(view.ParticipantsTitleText, Is.EqualTo("Players in Game"));
+                Assert.That(view.FriendsTitleText, Is.EqualTo("Friends"));
+                var guest = FindRow(canvas, "Row_guest-1");
+                Assert.That(
+                    guest.Find("Kick").GetComponent<TMP_Text>().text, Is.EqualTo("Kick"));
+                Assert.That(
+                    guest.Find("Name").GetComponent<TMP_Text>().text, Is.EqualTo("손님닉"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void ShowChrome_TranslatesTheEmptyRosterLineAndFriendSections()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(Array.Empty<LobbyParticipant>(), false, "me");
+                view.SetFriends(new[]
+                {
+                    new FriendSummary("f-1", "친구", FriendPresence.Online)
+                });
+
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                using var locale = new UiLocale(new GeneralSettingsSystem(store));
+                view.ShowChrome(locale);
+
+                var labels = canvas.GetComponentsInChildren<TMP_Text>(true);
+                Assert.That(labels, Has.Some.Matches<TMP_Text>(
+                    label => label.text == "No players yet."));
+                Assert.That(labels, Has.Some.Matches<TMP_Text>(
+                    label => label.text == "Online"));
             }
             finally
             {
@@ -421,13 +489,13 @@ namespace Game.Architecture.Tests
                         "Columns/Participants/Scroll/RowRoot/Row_player-2/Avatar/"
                         + LobbyPlayerListView.MuteIconName)
                         .GetComponent<Image>().sprite,
-                    Is.EqualTo(LobbyPlayerListSprites.SoundMute));
+                    Is.EqualTo(LobbyPlayerListSprites.SoundMuteWhite));
                 Assert.That(
                     canvas.transform.Find(
                         "Columns/Participants/Scroll/RowRoot/Row_player-3/Avatar/"
                         + LobbyPlayerListView.MuteIconName)
                         .GetComponent<Image>().sprite,
-                    Is.EqualTo(LobbyPlayerListSprites.MicOffGray));
+                    Is.EqualTo(LobbyPlayerListSprites.MicOffWhite));
             }
             finally
             {
@@ -460,7 +528,7 @@ namespace Game.Architecture.Tests
                     + LobbyPlayerListView.MuteIconName);
                 Assert.That(
                     mute.GetComponent<Image>().sprite,
-                    Is.EqualTo(LobbyPlayerListSprites.SoundMute));
+                    Is.EqualTo(LobbyPlayerListSprites.SoundMuteWhite));
             }
             finally
             {
@@ -493,6 +561,7 @@ namespace Game.Architecture.Tests
 
                 var dim = guestAvatar.Find(LobbyPlayerListView.AvatarDimName).GetComponent<Image>();
                 Assert.That(dim.color, Is.EqualTo(LobbyPlayerListView.MutedAvatarDim));
+                Assert.That(LobbyPlayerListView.MutedAvatarDim.a, Is.EqualTo(0.65f).Within(0.001f));
                 Assert.That(dim.sprite, Is.EqualTo(HomeUiFonts.CircleSprite));
                 var mute = guestAvatar.Find(LobbyPlayerListView.MuteIconName) as RectTransform;
                 Assert.That(mute, Is.Not.Null);
@@ -501,7 +570,7 @@ namespace Game.Architecture.Tests
                     LobbyPlayerListView.MuteIconSize)));
                 Assert.That(
                     mute.GetComponent<Image>().sprite,
-                    Is.EqualTo(LobbyPlayerListSprites.MicOffGray));
+                    Is.EqualTo(LobbyPlayerListSprites.MicOffWhite));
             }
             finally
             {
@@ -582,7 +651,7 @@ namespace Game.Architecture.Tests
                         + LobbyPlayerListView.ReportTooltipOverlap));
                 var label = tooltip.Find("Label").GetComponent<TMP_Text>();
                 Assert.That(label.text, Is.EqualTo(LobbyPlayerListView.ReportLabel));
-                Assert.That(label.fontSize, Is.EqualTo(18f));
+                Assert.That(label.fontSize, Is.EqualTo(LobbyPlayerListView.ReportFontSize));
                 Assert.That(label.font, Is.EqualTo(HomeUiFonts.ApplyRegular()));
                 Assert.That(label.color, Is.EqualTo(LobbyPlayerListView.ReportTooltipLabel));
                 Assert.That(

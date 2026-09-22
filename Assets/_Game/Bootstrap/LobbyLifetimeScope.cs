@@ -74,6 +74,7 @@ namespace Game.Bootstrap
         private AvatarPartCatalog partCatalog;
 
         private NetworkRunnerService stagingNetwork;
+        private NetworkRunnerService runtimeNetwork;
         private GameObject[] sceneRoots = Array.Empty<GameObject>();
         private readonly HashSet<CarryableItem> lobbyItems = new();
         internal bool OwnsItem(CarryableItem item) => lobbyItems.Contains(item);
@@ -328,6 +329,7 @@ namespace Game.Bootstrap
             builder.RegisterBuildCallback(container =>
             {
                 var network = container.Resolve<NetworkRunnerService>();
+                runtimeNetwork = network;
                 if (sceneConfiguration == null)
                 {
                     throw new InvalidOperationException(
@@ -340,7 +342,9 @@ namespace Game.Bootstrap
                 PrepareLobbyPhysics(network);
                 if (network.IsHighlightInProgress)
                     PrepareHighlightStaging(network);
-                EnsurePlayerCameraRig(container.Resolve<ControlSettingsSystem>());
+                EnsurePlayerCameraRig(
+                    container.Resolve<ControlSettingsSystem>(),
+                    container.Resolve<CameraViewPreference>());
                 if (highlightStaging)
                 {
                     CaptureStagingPresentation();
@@ -354,6 +358,7 @@ namespace Game.Bootstrap
 
         private void Update()
         {
+            UpdateChatActivation();
             if (diagnosticSamples > 0 && Time.unscaledTime >= nextDiagnosticTime)
             {
                 diagnosticSamples--;
@@ -375,6 +380,18 @@ namespace Game.Bootstrap
             // Apply outgoing visibility once at the handoff, after replay cleanup.
         }
 
+        private void UpdateChatActivation()
+        {
+            if (chatView == null)
+            {
+                return;
+            }
+
+            chatView.SetAllowsActivation(MatchChatView.AllowsActivationOnScreen(
+                runtimeNetwork != null && runtimeNetwork.IsHighlightInProgress,
+                runtimeNetwork != null && runtimeNetwork.IsLocalHighlightComplete,
+                runtimeNetwork != null && runtimeNetwork.IsResultSceneLoaded));
+        }
 
         private void PrepareLobbyPhysics(NetworkRunnerService network)
         {
@@ -561,7 +578,9 @@ namespace Game.Bootstrap
         /// <see cref="LobbyPlayerCameraBinder"/> waits for it instead.
         /// </para>
         /// </remarks>
-        private void EnsurePlayerCameraRig(ControlSettingsSystem settings)
+        private void EnsurePlayerCameraRig(
+            ControlSettingsSystem settings,
+            CameraViewPreference viewPreference)
         {
             var rig = FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
             if (rig == null) rig = Instantiate(cameraRigPrefab);
@@ -586,7 +605,7 @@ namespace Game.Bootstrap
                 if (rig.gameObject.scene != gameObject.scene && rig.transform.parent == null)
                     SceneManager.MoveGameObjectToScene(rig.gameObject, gameObject.scene);
             }
-            rig.BindSettings(settings);
+            rig.BindSettings(settings, viewPreference);
             rig.RequireExplicitFollowTarget();
         }
 
@@ -605,7 +624,7 @@ namespace Game.Bootstrap
                 string.Empty,
                 RoomSettings.MaxPlayerCount,
                 PlaySettingsDraft.DefaultDestructionLimit,
-                MapCatalog.DefaultMapId);
+                string.Empty);
         }
 
         private static LobbyChatLog CreateChatLog(

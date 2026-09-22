@@ -6,9 +6,11 @@ namespace Game.Client.Match
 {
     public interface IMatchVitalsHudView
     {
-        void Show(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false);
+        void Show(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false,
+            bool finalSprint = false);
         void Hide();
-        void SetValues(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false);
+        void SetValues(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false,
+            bool finalSprint = false);
     }
 
     /// <summary>
@@ -47,6 +49,18 @@ namespace Game.Client.Match
             return (TrackWidth - (SegmentGap * (count - 1))) / count;
         }
 
+        /// <summary>무지개 램프의 가로 해상도. 바는 막대 하나라 스프라이트가 그라데이션을 진다.</summary>
+        public const int RainbowRampWidth = 128;
+
+        /// <summary>바 한 변에 걸리는 색상환 바퀴 수. 1이면 빨→빨 한 바퀴가 딱 들어간다.</summary>
+        public const float RainbowTurnsAcrossBar = 1f;
+
+        /// <summary>무지개가 흘러가는 속도(초당 바퀴 수).</summary>
+        public const float RainbowTurnsPerSecond = 0.35f;
+
+        public const float RainbowSaturation = 0.82f;
+        public const float RainbowValue = 1f;
+
         public const string FlashIconResource = "UI/ic_flash";
         public const string HeartIconResource = "UI/ic_heart";
 
@@ -77,6 +91,12 @@ namespace Game.Client.Match
         private bool previewOnAwake;
 
         private bool shown;
+        private bool finalSprintActive;
+        private float rainbowElapsed;
+        private Texture2D rainbowTexture;
+        private Sprite rainbowSprite;
+        private Sprite plainBarSprite;
+        private Color32[] rainbowPixels;
         private bool shakeStamina;
         private float shakeElapsed;
         private float lastStamina = float.NaN;
@@ -129,12 +149,41 @@ namespace Game.Client.Match
 
         public static Color StaminaAccentFor(float current, bool exhausted)
         {
+            return StaminaAccentFor(current, exhausted, false);
+        }
+
+        public static Color StaminaAccentFor(float current, bool exhausted, bool finalSprint)
+        {
+            if (finalSprint)
+            {
+                return RainbowColorAt(0f, 0f);
+            }
+
             if (exhausted)
             {
                 return StaminaDisabledColor;
             }
 
             return IsLowStamina(current) ? StaminaLowColor : Color.white;
+        }
+
+        /// <summary>
+        /// 무지개가 지금 얼만큼 흘렀는지. 바퀴 단위라 0.5는 반바퀴 돌아간 상태다.
+        /// </summary>
+        public static float RainbowPhase(float elapsedSeconds)
+        {
+            return Mathf.Repeat(elapsedSeconds * RainbowTurnsPerSecond, 1f);
+        }
+
+        /// <summary>
+        /// 바의 왼쪽 끝을 0, 오른쪽 끝을 1로 본 <paramref name="t"/> 지점의 색.
+        /// </summary>
+        public static Color RainbowColorAt(float t, float phase)
+        {
+            var hue = Mathf.Repeat(phase + Mathf.Clamp01(t) * RainbowTurnsAcrossBar, 1f);
+            var color = Color.HSVToRGB(hue, RainbowSaturation, RainbowValue);
+            color.a = 1f;
+            return color;
         }
 
         public static Vector2 ShakeOffset(float elapsedSeconds)
@@ -183,7 +232,8 @@ namespace Game.Client.Match
             }
         }
 
-        public void Show(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false)
+        public void Show(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false,
+            bool finalSprint = false)
         {
             shown = true;
             if (!gameObject.activeSelf)
@@ -192,7 +242,7 @@ namespace Game.Client.Match
             }
 
             EnsureLayout();
-            SetValues(stamina, maxStamina, hits, maxHits, exhausted);
+            SetValues(stamina, maxStamina, hits, maxHits, exhausted, finalSprint);
             if (panel != null)
             {
                 panel.SetActive(true);
@@ -204,17 +254,21 @@ namespace Game.Client.Match
             shown = false;
             lastStamina = float.NaN;
             StopStaminaShake();
+            ApplyFinalSprint(false);
             if (panel != null)
             {
                 panel.SetActive(false);
             }
         }
 
-        public void SetValues(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false)
+        public void SetValues(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false,
+            bool finalSprint = false)
         {
             EnsureLayout();
-            var staminaColor = StaminaColorFor(stamina, exhausted);
-            var staminaAccent = StaminaAccentFor(stamina, exhausted);
+            ApplyFinalSprint(finalSprint);
+            // 무지개는 스프라이트가 지고 Image.color는 그 위에 곱해지므로, 그때는 흰색으로 둔다.
+            var staminaColor = finalSprint ? Color.white : StaminaColorFor(stamina, exhausted);
+            var staminaAccent = StaminaAccentFor(stamina, exhausted, finalSprint);
             if (staminaIcon != null)
             {
                 staminaIcon.color = staminaAccent;
@@ -232,7 +286,7 @@ namespace Game.Client.Match
                 }
             }
 
-            if (shown && ShouldShakeStamina(stamina, lastStamina, exhausted))
+            if (shown && !finalSprint && ShouldShakeStamina(stamina, lastStamina, exhausted))
             {
                 shakeStamina = true;
             }
@@ -261,6 +315,12 @@ namespace Game.Client.Match
 
         private void LateUpdate()
         {
+            if (shown && finalSprintActive)
+            {
+                rainbowElapsed += Time.unscaledDeltaTime;
+                PaintRainbow(RainbowPhase(rainbowElapsed));
+            }
+
             if (staminaRow == null)
             {
                 return;
@@ -274,6 +334,85 @@ namespace Game.Client.Match
 
             shakeElapsed += Time.unscaledDeltaTime;
             staminaRow.anchoredPosition = staminaRowRest + ShakeOffset(shakeElapsed);
+        }
+
+        private void OnDestroy()
+        {
+            DestroyGenerated(rainbowSprite);
+            DestroyGenerated(rainbowTexture);
+            rainbowSprite = null;
+            rainbowTexture = null;
+            rainbowPixels = null;
+        }
+
+        private static void DestroyGenerated(Object generated)
+        {
+            if (generated == null) return;
+            if (Application.isPlaying) Destroy(generated);
+            else DestroyImmediate(generated);
+        }
+
+        /// <summary>
+        /// 바를 무지개 램프로 갈아끼우거나, 원래의 단색 막대로 되돌린다.
+        /// </summary>
+        private void ApplyFinalSprint(bool finalSprint)
+        {
+            finalSprintActive = finalSprint;
+            var fill = staminaFill != null ? staminaFill.GetComponent<Image>() : null;
+            if (fill == null) return;
+            // 기준은 플래그가 아니라 지금 바가 지고 있는 스프라이트다. 그래야 중간에 레이아웃을
+            // 다시 세워도 무지개가 눈에 띄게 사라지거나 매 프레임 다시 출발하지 않는다.
+            if (!finalSprint)
+            {
+                if (rainbowSprite != null && fill.sprite == rainbowSprite && plainBarSprite != null)
+                    fill.sprite = plainBarSprite;
+                return;
+            }
+
+            if (rainbowSprite != null && fill.sprite == rainbowSprite) return;
+            plainBarSprite = fill.sprite != null ? fill.sprite : HomeUiFonts.WhiteSprite;
+            rainbowElapsed = 0f;
+            EnsureRainbowSprite();
+            PaintRainbow(0f);
+            fill.sprite = rainbowSprite;
+        }
+
+        private void EnsureRainbowSprite()
+        {
+            if (rainbowSprite != null) return;
+            rainbowTexture = new Texture2D(RainbowRampWidth, 1, TextureFormat.RGBA32, false)
+            {
+                name = "StaminaRainbowRamp",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            rainbowPixels = new Color32[RainbowRampWidth];
+            rainbowSprite = Sprite.Create(
+                rainbowTexture,
+                new Rect(0f, 0f, RainbowRampWidth, 1f),
+                new Vector2(0.5f, 0.5f),
+                100f,
+                0,
+                SpriteMeshType.FullRect);
+            rainbowSprite.name = "StaminaRainbow";
+            rainbowSprite.hideFlags = HideFlags.HideAndDontSave;
+        }
+
+        private void PaintRainbow(float phase)
+        {
+            if (rainbowTexture == null || rainbowPixels == null) return;
+            for (var index = 0; index < rainbowPixels.Length; index++)
+            {
+                var t = rainbowPixels.Length <= 1
+                    ? 0f
+                    : index / (float)(rainbowPixels.Length - 1);
+                rainbowPixels[index] = RainbowColorAt(t, phase);
+            }
+
+            rainbowTexture.SetPixels32(rainbowPixels);
+            rainbowTexture.Apply(false);
+            if (staminaIcon != null) staminaIcon.color = RainbowColorAt(0f, phase);
         }
 
         private void StopStaminaShake()

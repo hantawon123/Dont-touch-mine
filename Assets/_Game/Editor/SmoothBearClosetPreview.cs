@@ -194,7 +194,7 @@ namespace Game.Editor
         sealed class LocalHost:IHomeApplicationHost
         {
             public void Quit(){} public void OpenHome(){} public void OpenRoomBrowser(){}
-            public void OpenCharacterCloset(){} public void OpenSettings(){}
+            public void OpenCharacterCloset(){} public void OpenSettings(){} public void OpenTutorial(){}
             public void CreateRoom(string title,bool isPublic,int maxPlayers){}
             public void JoinRoom(string code){} public void OpenLobby(){}
         }

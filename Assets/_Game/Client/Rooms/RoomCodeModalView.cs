@@ -1,7 +1,9 @@
 using System;
 using System.Text;
 using Game.Client.Home;
+using Game.Client.Settings;
 using Game.Core.Rooms;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -52,6 +54,7 @@ namespace Game.Client.Rooms
 
         [SerializeField]
         private Button closeButton;
+        private UiLocale chromeLocale;
 
         /// <summary>Off-screen; holds the text the boxes draw.</summary>
         [SerializeField]
@@ -116,6 +119,7 @@ namespace Game.Client.Rooms
         private void Awake()
         {
             HomeUiFonts.ApplyTmp(transform);
+            SettingsStyle.ApplyCloseButton(closeButton);
             closeButton.onClick.AddListener(OnCloseButtonClicked);
             codeInputField.onValueChanged.AddListener(OnCodeTextChanged);
 
@@ -254,27 +258,30 @@ namespace Game.Client.Rooms
         /// player cannot act on collapses into one neutral message, so a
         /// networking detail never reaches the screen.
         /// </summary>
-        private static string DescribeFailure(RoomEntryFailure failure)
+        public void ShowChrome(UiLocale locale) => chromeLocale = locale;
+
+        private string DescribeFailure(RoomEntryFailure failure)
         {
+            var language = chromeLocale != null ? chromeLocale.LanguageCode : "ko";
             switch (failure)
             {
                 case RoomEntryFailure.None:
                     return string.Empty;
                 case RoomEntryFailure.InvalidCode:
                 case RoomEntryFailure.NotFound:
-                    return "존재하지 않는 방코드입니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.InvalidCodeModal, language);
                 case RoomEntryFailure.WrongPassword:
-                    return "비밀번호가 일치하지 않습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.WrongPassword, language);
                 case RoomEntryFailure.Full:
-                    return "방이 가득 찼습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.FullModal, language);
                 case RoomEntryFailure.Closed:
-                    return "입장할 수 없는 방입니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.ClosedModal, language);
                 case RoomEntryFailure.AlreadyInRoom:
-                    return "이미 다른 방에 있습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.AlreadyInModal, language);
                 case RoomEntryFailure.ConnectionFailed:
-                    return "연결에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.ConnectFailed, language);
                 default:
-                    return "입장하지 못했습니다.";
+                    return UiTextCatalog.Shipped.Get(UiText.Rooms.JoinFailed, language);
             }
         }
 

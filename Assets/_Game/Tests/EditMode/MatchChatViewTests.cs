@@ -1,6 +1,7 @@
 using Game.Client.Home;
 using Game.Client.Match;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -150,6 +151,7 @@ namespace Game.Architecture.Tests
                 Assert.That(input.textComponent.rectTransform.anchorMax.x, Is.EqualTo(0f));
                 Assert.That(MatchChatView.SendIconGap, Is.EqualTo(8f));
                 Assert.That(input.placeholder, Is.Not.Null);
+                Assert.That(MatchChatView.PlaceholderText, Is.EqualTo("[Enter]로 채팅 시작하기"));
                 Assert.That(
                     (input.placeholder as TMP_Text).text,
                     Is.EqualTo(MatchChatView.PlaceholderText));
@@ -303,6 +305,130 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ResolveSubmitText_SendsASingleImeCharacter()
+        {
+            Assert.That(MatchChatView.CombinedDraft(string.Empty, "ㅋ"), Is.EqualTo("ㅋ"));
+            Assert.That(MatchChatView.CombinedDraft("안", "녕"), Is.EqualTo("안녕"));
+            Assert.That(MatchChatView.ResolveSubmitText(string.Empty, string.Empty, "ㅋ"), Is.EqualTo("ㅋ"));
+            Assert.That(MatchChatView.ResolveSubmitText(string.Empty, "a", string.Empty), Is.EqualTo("a"));
+            Assert.That(MatchChatView.ResolveSubmitText("가", string.Empty, "가"), Is.EqualTo("가"));
+            Assert.That(MatchChatView.ResolveSubmitText("   ", string.Empty, string.Empty), Is.EqualTo(string.Empty));
+            Assert.That(MatchChatView.ResolveSubmitText("  ㅋ  ", string.Empty, string.Empty), Is.EqualTo("ㅋ"));
+            Assert.That(MatchChatView.VisibleDraft("  안녕  ", string.Empty, string.Empty), Is.EqualTo("안녕"));
+            Assert.That(MatchChatView.ResolveSubmitText(" \t\n ", " \t ", string.Empty, " \t "), Is.EqualTo(string.Empty));
+            Assert.That(MatchChatView.ResolveSubmitText("\u200B", string.Empty, string.Empty), Is.EqualTo(string.Empty));
+            Assert.That(MatchChatView.VisibleDraft(string.Empty, "가", string.Empty), Is.EqualTo("가"));
+            Assert.That(MatchChatView.NextComposing(string.Empty, string.Empty, "가"), Is.EqualTo("가"));
+            Assert.That(MatchChatView.NextComposing(string.Empty, "가", "가"), Is.EqualTo(string.Empty));
+            Assert.That(MatchChatView.NextComposing("나", "가", "가"), Is.EqualTo("나"));
+        }
+
+        [Test]
+        public void HandleSubmit_SendsASingleCharacter()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform, keepChromeVisible: true);
+                string sent = null;
+                view.SendRequested += text => sent = text;
+                typeof(MatchChatView).GetMethod("SetActivated",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { true });
+                typeof(MatchChatView).GetMethod("HandleSubmit",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { "ㅋ" });
+                Assert.That(sent, Is.EqualTo("ㅋ"));
+                Assert.That(view.IsActivated, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void EmptySubmit_DoesNotBlockTheFollowingCharacter()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform, keepChromeVisible: true);
+                string sent = null;
+                view.SendRequested += text => sent = text;
+                typeof(MatchChatView).GetMethod("SetActivated",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { true });
+                typeof(MatchChatView).GetMethod("HandleSubmit",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { string.Empty });
+                Assert.That(sent, Is.Null);
+                Assert.That(view.IsActivated, Is.True);
+                typeof(MatchChatView).GetMethod("HandleSubmit",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { "ㅋ" });
+                Assert.That(sent, Is.EqualTo("ㅋ"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void HandleSubmit_DoesNotSendWhitespaceOnly()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform, keepChromeVisible: true);
+                string sent = null;
+                view.SendRequested += text => sent = text;
+                typeof(MatchChatView).GetMethod("SetActivated",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { true });
+                var input = view.GetComponentInChildren<TMP_InputField>(true);
+                input.text = "   ";
+                typeof(MatchChatView).GetMethod("HandleSubmit",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { "   " });
+                Assert.That(sent, Is.Null);
+                Assert.That(view.IsActivated, Is.True);
+                Assert.That(input.text, Is.Empty);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void HandleSubmit_SendsImeCompositionWhenCommittedTextIsEmpty()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform, keepChromeVisible: true);
+                string sent = null;
+                view.SendRequested += text => sent = text;
+                typeof(MatchChatView).GetField("composingText",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .SetValue(view, "가");
+                typeof(MatchChatView).GetMethod("SetActivated",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { true });
+                typeof(MatchChatView).GetMethod("HandleSubmit",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { string.Empty });
+                Assert.That(sent, Is.EqualTo("가"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void ShouldOpenOnEnter_IgnoresTheEnterThatClosedChat()
         {
             Assert.That(
@@ -319,6 +445,38 @@ namespace Game.Architecture.Tests
             Assert.That(
                 MatchChatView.ShouldOpenOnEnter(true, false, true, 10f, 0f),
                 Is.False);
+            Assert.That(
+                MatchChatView.ShouldOpenOnEnter(false, false, true, 10f, 0f, allowsActivation: false),
+                Is.False);
+        }
+
+        [TestCase(false, true)]
+        [TestCase(true, false)]
+        public void AllowsActivationOnScreen_BlocksResult(
+            bool resultSceneLoaded,
+            bool expected)
+        {
+            Assert.That(
+                MatchChatView.AllowsActivationOnScreen(false, false, resultSceneLoaded),
+                Is.EqualTo(expected));
+        }
+
+        [TestCase(false, false, false, true)]
+        [TestCase(true, false, false, false)]
+        [TestCase(true, true, false, true)]
+        [TestCase(true, true, true, false)]
+        public void AllowsActivationOnScreen_BlocksHighlight(
+            bool highlightInProgress,
+            bool localHighlightComplete,
+            bool resultSceneLoaded,
+            bool expected)
+        {
+            Assert.That(
+                MatchChatView.AllowsActivationOnScreen(
+                    highlightInProgress,
+                    localHighlightComplete,
+                    resultSceneLoaded),
+                Is.EqualTo(expected));
         }
 
         [Test]
@@ -466,6 +624,31 @@ namespace Game.Architecture.Tests
             Assert.That(visible.Count, Is.EqualTo(5));
             Assert.That(visible[0].Text, Is.EqualTo("1"));
             Assert.That(visible[4].Text, Is.EqualTo("5"));
+        }
+
+        [Test]
+        public void ShowChrome_RedrawsPlaceholderInTheAppliedLanguage()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform);
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                var general = new GeneralSettingsSystem(store);
+                using var locale = new UiLocale(general);
+
+                view.ShowChrome(locale);
+
+                var input = view.transform.Find("InputPanel").GetComponent<TMP_InputField>();
+                Assert.That(
+                    (input.placeholder as TMP_Text).text,
+                    Is.EqualTo("Press [Enter] to chat"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
         }
 
         private static bool RowsOverlapVertically(RectTransform upper, RectTransform lower)

@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using Game.Client.Character;
 using Game.Core.Home;
+using Game.Core.Players;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,6 +15,9 @@ namespace Game.Client.Home
         [Header("Art")]
         [SerializeField]
         private Sprite backgroundSprite;
+
+        [SerializeField]
+        private Sprite logoSprite;
 
         [SerializeField]
         private Sprite friendIcon;
@@ -53,9 +59,6 @@ namespace Game.Client.Home
         [SerializeField]
         private TMP_FontAsset fontAsset;
 
-        [SerializeField]
-        private TMP_FontAsset titleFont;
-
         /// <summary>
         /// The menu is drawn in SemiBold where the rest of the screen is not,
         /// so it is a second asset rather than a style flag: TextMeshPro fakes a
@@ -67,6 +70,7 @@ namespace Game.Client.Home
 
         [SerializeField]
         private TMP_Text nicknameText;
+        private RectTransform profileAvatar;
 
         private RectTransform profileChip;
 
@@ -188,6 +192,9 @@ namespace Game.Client.Home
         private bool currentNicknameSet;
         private bool isConfirmingNickname;
         private GameObject confirmRow;
+        private UiLocale chromeLocale;
+        private readonly List<(TMP_Text Text, string Key)> chromeLabels = new List<(TMP_Text, string)>();
+        private int incomingRequestCount;
 
         public event Action<HomeMenuAction> ActionClicked;
 
@@ -285,6 +292,17 @@ namespace Game.Client.Home
             UpdateNicknameCounter(currentNickname);
             ClearNicknameMessage();
             UpdateNicknameApplyEnabled();
+        }
+
+        public void SetProfileAppearance(AvatarAppearance appearance)
+        {
+            if (profileAvatar == null)
+            {
+                return;
+            }
+
+            AvatarAppearanceBoard.SetLocal(appearance);
+            AvatarFaceSlot.Attach(profileAvatar).FollowLocal();
         }
 
         /// <summary>

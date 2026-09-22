@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using R3;
 using VContainer.Unity;
 
@@ -12,6 +13,7 @@ namespace Game.Client.Match
         private readonly IMatchChatTransport transport;
         private readonly IChatView view;
         private readonly IMatchChatBubbleView bubbleView;
+        private UiLocale locale;
         private IDisposable messagesSubscription;
         private Game.Core.Settings.InterfacePresentation presentation;
         [VContainer.Inject]
@@ -34,16 +36,28 @@ namespace Game.Client.Match
             ILobbyChatLog chatLog,
             IMatchChatTransport transport,
             IChatView view,
-            IMatchChatBubbleView bubbleView)
+            IMatchChatBubbleView bubbleView,
+            UiLocale locale = null)
         {
             this.chatLog = chatLog ?? throw new ArgumentNullException(nameof(chatLog));
             this.transport = transport ?? throw new ArgumentNullException(nameof(transport));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.bubbleView = bubbleView;
+            this.locale = locale;
         }
+
+        [VContainer.Inject]
+        public void BindLocale(UiLocale value) => locale = value;
 
         public void Start()
         {
+            locale ??= UiLocale.Current;
+            if (locale != null && view is MatchChatView chat)
+            {
+                locale.Changed += OnLocaleChanged;
+                chat.ShowChrome(locale);
+            }
+
             if (presentation != null) presentation.Changed += RefreshPresentation;
             view.SendRequested += HandleSend;
             transport.MatchChatReceived += HandleReceived;
@@ -53,15 +67,29 @@ namespace Game.Client.Match
 
         public void Dispose()
         {
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
+
             if (presentation != null) presentation.Changed -= RefreshPresentation;
             view.SendRequested -= HandleSend;
             transport.MatchChatReceived -= HandleReceived;
             messagesSubscription?.Dispose();
         }
 
+        private void OnLocaleChanged()
+        {
+            if (view is MatchChatView chat)
+            {
+                chat.ShowChrome(locale);
+            }
+        }
+
         private void HandleSend(string text)
         {
-            if (string.IsNullOrWhiteSpace(text))
+            text = LobbyChatMessage.NormalizeText(text);
+            if (string.IsNullOrEmpty(text))
             {
                 return;
             }

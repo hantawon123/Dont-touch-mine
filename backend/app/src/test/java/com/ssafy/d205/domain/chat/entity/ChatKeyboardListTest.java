@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -80,24 +81,28 @@ class ChatKeyboardListTest {
     }
 
     @Test
-    @DisplayName("자판 표기로 친 욕이 걸린다")
-    void keyboardFormsAreForbidden() {
-        ChatBlocklist list = new ChatBlocklist();
+    @DisplayName("짧은 것과 영어 낱말이 된 것은 목록에 넣지 않는다")
+    void shortAndEnglishFormsAreLeftOut() {
+        // 만들어진 말이 걸리는지는 게임 서버가 봅니다(ChatModerationTests.cs, S15P21D205-1096).
+        // 여기서 볼 것은 무엇을 넣고 무엇을 뺐는지입니다. 두 규칙 다 멀쩡한 영어를 가리지 않으려고
+        // 둔 것이라, 빠지면 목록이 조용히 오탐을 만듭니다.
+        List<String> made = words(generate());
 
-        assertThat(list.isForbidden("tlqkf")).isTrue();
-        assertThat(list.isForbidden("야 tlqkf 아")).isTrue();
-        assertThat(list.isForbidden("qudtls")).isTrue();
+        assertThat(made).contains("tlqkf", "qudtls");
+        assertThat(made).allSatisfy(typed -> assertThat(typed).hasSizeGreaterThanOrEqualTo(SHORTEST));
+        assertThat(made).doesNotContainAnyElementsOf(EXCLUDED);
     }
 
-    @Test
-    @DisplayName("영문 낱말 안에 든 자판 표기는 걸리지 않는다")
-    void keyboardFormsNeedToStandAlone() {
-        ChatBlocklist list = new ChatBlocklist();
-
-        // 만들어진 말은 영문이므로 자동자가 앞뒤를 봅니다. 이것이 깨지면 멀쩡한 영어가 걸립니다.
-        assertThat(list.isForbidden("xxtlqkfxx")).isFalse();
-        assertThat(list.isForbidden("hello world")).isFalse();
-        assertThat(list.isForbidden("spawn point")).isFalse();
+    /** 주석과 빈 줄을 뺀 실제 목록. 파일을 읽는 쪽과 같은 규칙입니다. */
+    private static List<String> words(String text) {
+        List<String> made = new ArrayList<>();
+        for (String line : text.split("\\R")) {
+            String trimmed = line.strip();
+            if (!trimmed.isEmpty() && !trimmed.startsWith("#")) {
+                made.add(trimmed);
+            }
+        }
+        return made;
     }
 
     private String generate() {

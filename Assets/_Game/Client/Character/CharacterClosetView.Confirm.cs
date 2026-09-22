@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using Game.Client.Home;
+using Game.Client.Settings;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -33,6 +35,9 @@ namespace Game.Client.Character
         private GameObject confirmRoot;
         private RawImage backdropImage;
         private TMP_Text confirmTitle;
+        private TMP_Text confirmSubtitle;
+        private TMP_Text confirmDecline;
+        private TMP_Text confirmAccept;
         private RenderTexture backdrop;
         private Coroutine backdropRoutine;
         private bool isConfirmOpen;
@@ -50,9 +55,24 @@ namespace Game.Client.Character
                 return;
             }
 
+            lastConfirmKind = kind;
             confirmTitle.text = kind == ClosetConfirmKind.Reset
-                ? CharacterClosetStyle.Modal.ResetTitle
-                : CharacterClosetStyle.Modal.DiscardTitle;
+                ? Copy(UiText.Closet.ResetTitle)
+                : Copy(UiText.Closet.DiscardTitle);
+            if (confirmSubtitle != null)
+            {
+                confirmSubtitle.text = Copy(UiText.Closet.Subtitle);
+            }
+
+            if (confirmDecline != null)
+            {
+                confirmDecline.text = Copy(UiText.Closet.Decline);
+            }
+
+            if (confirmAccept != null)
+            {
+                confirmAccept.text = Copy(UiText.Closet.Accept);
+            }
 
             isConfirmOpen = true;
             confirmRoot.SetActive(true);
@@ -184,7 +204,7 @@ namespace Game.Client.Character
             var title = CreateText(
                 "Title",
                 panel,
-                CharacterClosetStyle.Modal.ResetTitle,
+                Copy(UiText.Closet.ResetTitle),
                 CharacterClosetStyle.Modal.TitleFontSize,
                 CharacterClosetStyle.Palette.ModalTitle,
                 TextAlignmentOptions.Top);
@@ -199,7 +219,7 @@ namespace Game.Client.Character
             var subtitle = CreateText(
                 "Subtitle",
                 panel,
-                CharacterClosetStyle.Modal.Subtitle,
+                Copy(UiText.Closet.Subtitle),
                 CharacterClosetStyle.Modal.SubtitleFontSize,
                 CharacterClosetStyle.Palette.ModalSubtitle,
                 TextAlignmentOptions.Top,
@@ -207,6 +227,7 @@ namespace Game.Client.Character
             SetAnchor(subtitle, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
             subtitle.anchoredPosition = new Vector2(0f, -subtitleTop);
             subtitle.sizeDelta = new Vector2(0f, subtitleHeight);
+            confirmSubtitle = subtitle.GetComponent<TMP_Text>();
 
             var buttonTop = subtitleTop
                             + subtitleHeight
@@ -214,21 +235,21 @@ namespace Game.Client.Character
             var half = (CharacterClosetStyle.Modal.ButtonSize.x
                         + CharacterClosetStyle.Modal.ButtonGap) * 0.5f;
 
-            CreateConfirmButton(
+            confirmDecline = CreateConfirmButton(
                 panel,
                 "DeclineButton",
                 new Vector2(-half, -buttonTop),
-                CharacterClosetStyle.Modal.DeclineLabel,
+                Copy(UiText.Closet.Decline),
                 CharacterClosetStyle.Palette.DeclineFill,
                 CharacterClosetStyle.Palette.DeclineHoverFill,
                 CharacterClosetStyle.Palette.DeclineLabel,
                 () => ConfirmDismissed?.Invoke());
 
-            CreateConfirmButton(
+            confirmAccept = CreateConfirmButton(
                 panel,
                 "AcceptButton",
                 new Vector2(half, -buttonTop),
-                CharacterClosetStyle.Modal.AcceptLabel,
+                Copy(UiText.Closet.Accept),
                 CharacterClosetStyle.Palette.AcceptFill,
                 CharacterClosetStyle.Palette.AcceptHoverFill,
                 CharacterClosetStyle.Palette.AcceptLabel,
@@ -237,7 +258,7 @@ namespace Game.Client.Character
             CreateCloseButton(panel);
         }
 
-        private void CreateConfirmButton(
+        private TMP_Text CreateConfirmButton(
             RectTransform panel,
             string name,
             Vector2 position,
@@ -277,6 +298,7 @@ namespace Game.Client.Character
             button.transition = Selectable.Transition.None;
             button.onClick.AddListener(() => clicked());
             buttons.Add(button);
+            return labelRect.GetComponent<TMP_Text>();
         }
 
         private void CreateCloseButton(RectTransform panel)
@@ -291,12 +313,7 @@ namespace Game.Client.Character
 
             var image = AddImage(
                 rect, CharacterClosetStyle.Palette.CloseIcon, raycastTarget: true);
-            if (closeIcon != null)
-            {
-                image.sprite = closeIcon;
-                image.type = Image.Type.Simple;
-                image.preserveAspect = true;
-            }
+            SettingsStyle.ApplyCloseIcon(image, closeIcon);
 
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;

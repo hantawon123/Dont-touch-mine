@@ -36,7 +36,9 @@ namespace Game.Core.Tutorial
             float sprintThreshold,
             bool grounded,
             PlayerPosture posture,
-            bool passageCompleted = false)
+            bool passageCompleted = false,
+            bool sprintCourseCompleted = false,
+            bool jumpCourseCompleted = false)
         {
             Distance = Math.Max(0f, distance);
             LookDegrees = Math.Max(0f, lookDegrees);
@@ -45,6 +47,8 @@ namespace Game.Core.Tutorial
             Grounded = grounded;
             Posture = posture;
             PassageCompleted = passageCompleted;
+            SprintCourseCompleted = sprintCourseCompleted;
+            JumpCourseCompleted = jumpCourseCompleted;
         }
 
         public float Distance { get; }
@@ -54,6 +58,8 @@ namespace Game.Core.Tutorial
         public bool Grounded { get; }
         public PlayerPosture Posture { get; }
         public bool PassageCompleted { get; }
+        public bool SprintCourseCompleted { get; }
+        public bool JumpCourseCompleted { get; }
     }
 
     /// <summary>
@@ -64,10 +70,10 @@ namespace Game.Core.Tutorial
     {
         internal const float RequiredMoveDistance = 6f;
         private const float RequiredLookDegrees = 30f;
-        internal const float RequiredSprintDistance = 8f;
 
         private float distance;
         private float lookDegrees;
+        private bool sprintWasObserved;
         private bool jumpWasGrounded;
         private bool jumpWasAirborne;
 
@@ -90,10 +96,10 @@ namespace Game.Core.Tutorial
                 case TutorialStep.Sprint:
                     if (observation.Speed >= observation.SprintThreshold)
                     {
-                        distance += observation.Distance;
+                        sprintWasObserved = true;
                     }
 
-                    if (distance >= RequiredSprintDistance)
+                    if (sprintWasObserved && observation.SprintCourseCompleted)
                     {
                         return Advance();
                     }
@@ -102,7 +108,8 @@ namespace Game.Core.Tutorial
                 case TutorialStep.Jump:
                     if (observation.Grounded && !jumpWasAirborne) jumpWasGrounded = true;
                     if (jumpWasGrounded && !observation.Grounded) jumpWasAirborne = true;
-                    if (jumpWasAirborne && observation.Grounded) return Advance();
+                    if (jumpWasAirborne && observation.Grounded && observation.JumpCourseCompleted)
+                        return Advance();
                     break;
 
                 case TutorialStep.Crouch:
@@ -121,6 +128,7 @@ namespace Game.Core.Tutorial
         {
             distance = 0f;
             lookDegrees = 0f;
+            sprintWasObserved = false;
             jumpWasGrounded = false;
             jumpWasAirborne = false;
         }

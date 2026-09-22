@@ -211,10 +211,14 @@ namespace Game.Network.Players
                                   direction.sqrMagnitude > 0f &&
                                   input.IsPressed(NetworkPlayerButton.Sprint);
             if (matchStarter == null) matchStarter = Runner.GetComponent<Game.Network.Match.MatchStarter>();
-            // 로비·대기실·엔딩 무대에서는 스태미나 없이 계속 달린다. 숨기·찾기 페이즈에서만 소모된다.
-            // 매치 시작 시점에 권위가 스태미나를 가득 채우므로(TryResetStamina) 로비에서의 상태는 매치에 이어지지 않는다.
+            // 로비·대기실·숨기기·엔딩 무대에서는 스태미나 없이 계속 달린다. 찾기 페이즈에서만 소모된다.
+            // 단, 찾기 페이즈의 마지막 구간(최종 경고 배너가 뜨는 그 30초)에는 다시 무제한이 된다.
+            // 무제한 구간에서는 매 틱 스태미나를 가득 채우므로 찾기 페이즈에 이전 상태가 이어지지 않는다.
             var unlimitedSprint = matchStarter == null ||
-                PlayerStaminaRules.IsUnlimitedInPhase(matchStarter.CurrentPhase);
+                PlayerStaminaRules.IsUnlimited(
+                    matchStarter.CurrentPhase,
+                    matchStarter.PhaseEndsAt - Runner.SimulationTime,
+                    matchStarter.FinalSprintWindowSeconds);
             if (Object.HasStateAuthority)
             {
                 var stamina = PlayerStaminaRules.Step(

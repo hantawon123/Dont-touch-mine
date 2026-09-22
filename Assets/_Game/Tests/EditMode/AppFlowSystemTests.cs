@@ -41,6 +41,16 @@ namespace Game.Tests.EditMode
                 "Settings opens from Home only; the browser has no button for it.");
         }
 
+        [Test]
+        public void TryTransitionTo_TutorialIsADetourFromHome()
+        {
+            var flow = new AppFlowSystem();
+
+            Assert.That(flow.TryTransitionTo(AppFlowState.Tutorial), Is.True);
+            Assert.That(flow.TryTransitionTo(AppFlowState.RoomBrowser), Is.False);
+            Assert.That(flow.TryTransitionTo(AppFlowState.Home), Is.True);
+        }
+
         /// <summary>
         /// An invite accepted from a detour screen puts the player in a room,
         /// and leaving that room has to work.
@@ -74,6 +84,7 @@ namespace Game.Tests.EditMode
         /// </summary>
         [TestCase(AppFlowState.CharacterCloset)]
         [TestCase(AppFlowState.Settings)]
+        [TestCase(AppFlowState.Tutorial)]
         [TestCase(AppFlowState.RoomBrowser)]
         public void ShowingHome_PutsAStrandedDetourBackToHome(AppFlowState detour)
         {

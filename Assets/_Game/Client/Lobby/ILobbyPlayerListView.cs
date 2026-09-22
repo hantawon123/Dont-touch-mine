@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Core.Home;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 
 namespace Game.Client.Lobby
 {
@@ -18,5 +19,11 @@ namespace Game.Client.Lobby
             bool namesReady = true);
 
         void SetFriends(IReadOnlyList<FriendSummary> friends);
+
+        /// <summary>
+        /// Draws the modal's own words in <paramref name="locale"/>. The names
+        /// on the rows belong to the players and are left alone.
+        /// </summary>
+        void ShowChrome(UiLocale locale);
     }
 }

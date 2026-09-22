@@ -201,7 +201,7 @@ namespace Game.Client.Settings
             nextCounter = Time.unscaledTimeAsDouble + 0.5;
             var fpsText = current.IsOn(InterfaceOption.FpsCounter) ? $"{frames / Mathf.Max(elapsed, 0.001f):F0} FPS" : "";
             var rtt = current.IsOn(InterfaceOption.PingCounter) ? ping?.Invoke() : null;
-            var pingText = current.IsOn(InterfaceOption.PingCounter) ? rtt.HasValue ? $"{rtt.Value:F0} ms" : "Ping —" : "";
+            var pingText = current.IsOn(InterfaceOption.PingCounter) ? rtt.HasValue ? $"{rtt.Value:F0} ms" : "Ping -" : "";
             counters.text = FormatCounters(fpsText, pingText);
             counters.fontSize = CounterFontSize * scale;
             elapsed = 0; frames = 0;

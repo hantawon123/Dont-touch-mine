@@ -4,6 +4,7 @@ using Game.Client.Common;
 using Game.Client.Home;
 using Game.Client.Settings;
 using Game.Core.Players;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -77,6 +78,10 @@ namespace Game.Client.Character
         private Button applyButton;
         private ConnectionToast toast;
         private readonly List<Button> buttons = new List<Button>();
+        private UiLocale chromeLocale;
+        private TMP_Text backLabel;
+        private TMP_Text portraitHint;
+        private ClosetConfirmKind lastConfirmKind;
 
         public event Action Opened;
 
@@ -120,8 +125,43 @@ namespace Game.Client.Character
 
         public void ShowSaveError(string message)
         {
-            toast?.Show(CharacterClosetStyle.SaveErrorTitle, message);
+            toast?.Show(Copy(UiText.Home.ConnectionError), message);
         }
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            if (backLabel != null)
+            {
+                backLabel.text = Copy(UiText.Closet.Back);
+            }
+
+            if (resetLabel != null)
+            {
+                resetLabel.text = Copy(UiText.Closet.Reset);
+            }
+
+            if (applyLabel != null)
+            {
+                applyLabel.text = Copy(UiText.Closet.Apply);
+            }
+
+            RefreshCategoryTabLabels();
+            RefreshHoodTabLabels();
+            if (portraitHint != null)
+            {
+                portraitHint.text = Copy(UiText.Closet.PortraitHint);
+            }
+            if (isConfirmOpen)
+            {
+                ShowConfirm(lastConfirmKind);
+            }
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiTextCatalog.Shipped.Get(key, "ko");
 
         /// <summary>
         /// Lobby overlay: Home closet chrome inside the settings-sized panel.
@@ -375,10 +415,11 @@ namespace Game.Client.Character
             var label = CreateText(
                 "Label",
                 rect,
-                CharacterClosetStyle.Back.Label,
+                Copy(UiText.Closet.Back),
                 CharacterClosetStyle.Back.FontSize,
                 CharacterClosetStyle.Palette.BackLabel,
                 TextAlignmentOptions.Left);
+            backLabel = label.GetComponent<TMP_Text>();
             SetAnchor(label, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
             label.offsetMin = Vector2.zero;
             label.offsetMax = Vector2.zero;
@@ -415,7 +456,7 @@ namespace Game.Client.Character
                 "ResetButton",
                 host,
                 new Vector2(-half, y),
-                CharacterClosetStyle.Buttons.ResetLabel,
+                Copy(UiText.Closet.Reset),
                 CharacterClosetStyle.Palette.ResetFill,
                 CharacterClosetStyle.Palette.ResetLabel,
                 resetIcon,
@@ -428,7 +469,7 @@ namespace Game.Client.Character
                 "ApplyButton",
                 host,
                 new Vector2(half, y),
-                CharacterClosetStyle.Buttons.ApplyLabel,
+                Copy(UiText.Closet.Apply),
                 CharacterClosetStyle.Palette.ApplyOffFill,
                 CharacterClosetStyle.Palette.ApplyOffLabel,
                 null,

@@ -30,7 +30,12 @@ namespace Game.Tests.EditMode
 
                 flow.AdvanceIfExpired(550d);
                 Synchronize(states);
-                AssertSynchronized(states, MatchPhase.Highlight, 589.8d);
+                var expectedHighlightDeadline = 550d +
+                    rules.GetDurationSeconds(MatchPhase.Highlight) +
+                    HighlightPresentationTiming.PostRollSeconds +
+                    HighlightPresentationTiming.DeliveryGraceSeconds +
+                    MatchRulesSO.MaxHighlightCount * HighlightPresentationTiming.OverheadSeconds;
+                AssertSynchronized(states, MatchPhase.Highlight, expectedHighlightDeadline);
 
                 flow.AdvanceIfExpired(states[0].PhaseEndsAt.CurrentValue);
                 Synchronize(states);

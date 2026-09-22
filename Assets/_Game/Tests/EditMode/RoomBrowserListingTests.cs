@@ -143,7 +143,7 @@ namespace Game.Tests.EditMode
             return new RoomSummary(
                 new RoomId(roomId ?? title),
                 title,
-                "playground",
+                "supermarket",
                 players,
                 RoomSettings.MaxPlayerCount,
                 isLocked: false,

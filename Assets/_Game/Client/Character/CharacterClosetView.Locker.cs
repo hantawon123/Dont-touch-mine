@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Core.Players;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -132,6 +133,34 @@ namespace Game.Client.Character
             tabRail.sizeDelta = CharacterClosetStyle.Tabs.Size;
         }
 
+        private void RefreshCategoryTabLabels()
+        {
+            for (var index = 0; index < tabs.Count; index++)
+            {
+                var tab = tabs[index];
+                if (tab.Label != null)
+                {
+                    tab.Label.text = CategoryLabel(tab.Category, tab.Label.text);
+                }
+            }
+        }
+
+        private string CategoryLabel(AvatarPartCategory category, string fallback)
+        {
+            var key = CategoryKey(category);
+            return key != null ? Copy(key) : fallback;
+        }
+
+        private static string CategoryKey(AvatarPartCategory category) => category switch
+        {
+            AvatarPartCategory.BodyColor => UiText.Closet.Body,
+            AvatarPartCategory.Hood => UiText.Closet.Hood,
+            AvatarPartCategory.Shoes => UiText.Closet.Shoes,
+            AvatarPartCategory.Face => UiText.Closet.Face,
+            AvatarPartCategory.HoodColor => UiText.Closet.HoodColor,
+            _ => null
+        };
+
         private CategoryTab CreateTab(AvatarPartGroup group, Vector2 position, float height)
         {
             var rect = CreateRect($"Tab_{group.Category}", tabRail);
@@ -178,7 +207,7 @@ namespace Game.Client.Character
             var label = CreateText(
                 "Label",
                 rect,
-                group.Category == AvatarPartCategory.Hood ? "후드" : group.Label,
+                CategoryLabel(group.Category, group.Label),
                 CharacterClosetStyle.Tabs.FontSize,
                 CharacterClosetStyle.Palette.TextPrimary,
                 TextAlignmentOptions.Left);
