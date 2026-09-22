@@ -7,6 +7,7 @@ using Photon.Voice.Fusion;
 using Photon.Voice.Unity;
 using Photon.Voice.Unity.UtilityScripts;
 using R3;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace Game.Network.Voice
@@ -32,6 +33,10 @@ namespace Game.Network.Voice
     /// </remarks>
     public sealed class VoiceRig : MonoBehaviour, IVoiceControl
     {
+        private static readonly ProfilerMarker ResolveRecorderMarker = new("VoiceRig.ResolveRecorder");
+        private static readonly ProfilerMarker ListenStateMarker = new("VoiceRig.ApplyListenState");
+        private static readonly ProfilerMarker RealtimeServiceMarker = new("VoiceRig.RealtimeService");
+        private static readonly ProfilerMarker VoiceServiceMarker = new("VoiceRig.VoiceService");
         private readonly ReactiveProperty<bool> available = new(false);
         private readonly ReactiveProperty<bool> muted = new(false);
         private readonly ReactiveProperty<bool> transmitting = new(false);
@@ -237,8 +242,8 @@ namespace Game.Network.Voice
                 return;
             }
 
-            client.Client.LoadBalancingPeer.Service();
-            client.VoiceClient.Service();
+            using (RealtimeServiceMarker.Auto()) client.Client.LoadBalancingPeer.Service();
+            using (VoiceServiceMarker.Auto()) client.VoiceClient.Service();
         }
 
         /// <summary>
@@ -252,6 +257,7 @@ namespace Game.Network.Voice
         /// </remarks>
         private Recorder ResolveRecorder()
         {
+            using var profile = ResolveRecorderMarker.Auto();
             if (localVoice != null && localVoice.RecorderInUse != null)
             {
                 return localVoice.RecorderInUse;
@@ -471,6 +477,7 @@ namespace Game.Network.Voice
         /// </summary>
         private void ApplyListenState()
         {
+            using var profile = ListenStateMarker.Auto();
             var hear = listening.Value;
             foreach (var speaker in FindObjectsByType<Speaker>(FindObjectsSortMode.None))
             {
