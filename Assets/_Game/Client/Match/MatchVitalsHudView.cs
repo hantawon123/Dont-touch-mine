@@ -4,20 +4,11 @@ using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IMatchVitalsHudView
-    {
-        void Show(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false,
-            bool finalSprint = false);
-        void Hide();
-        void SetValues(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false,
-            bool finalSprint = false);
-    }
-
     /// <summary>
     /// Bottom-center stamina and hit bars. Stamina fill follows the local motor each frame.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class MatchVitalsHudView : MonoBehaviour, IMatchVitalsHudView
+    public sealed class MatchVitalsHudView : MonoBehaviour
     {
         public const float DefaultStamina = 100f;
         public const float LowStaminaThreshold = 20f;

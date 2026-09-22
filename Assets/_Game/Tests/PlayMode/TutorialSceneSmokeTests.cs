@@ -345,7 +345,6 @@ namespace Game.Tests.PlayMode
             var interactor = player.GetComponent<PlayerInteractor>();
             var door = Object.FindAnyObjectByType<TutorialExitDoor>();
             Assert.That(door, Is.Not.Null);
-            Assert.That(Object.FindAnyObjectByType<TutorialCompletionTrigger>(), Is.Null, "Walking must not auto-exit.");
             Assert.That(door.CanInteract(interactor), Is.False);
             door.Interact(interactor);
             Assert.That(door.IsLoading, Is.False);

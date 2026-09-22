@@ -150,3 +150,8 @@ __pycache__/
 
 # ML-Agents 학습 산출물 (로컬에서 재생성됨, 용량이 크므로 Git에 올리지 않음)
 /results/
+
+# One-off local inspection outputs and compiled artifacts
+/*_inspect.json
+/hood_compare.json
+/artifacts/

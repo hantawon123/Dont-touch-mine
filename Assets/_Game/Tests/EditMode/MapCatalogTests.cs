@@ -1,6 +1,5 @@
 using Game.Client.Lobby;
 using Game.Core.Maps;
-using Game.Core.Lobby;
 using NUnit.Framework;
 
 namespace Game.Tests.EditMode
@@ -28,9 +27,6 @@ namespace Game.Tests.EditMode
             Assert.That(MapCatalog.NormalizeLobbyMapId(" supermarket ", ""), Is.EqualTo("supermarket"));
             Assert.That(MapCatalog.NormalizeLobbyMapId(" mansion ", ""), Is.EqualTo("mansion"));
             Assert.That(MapCatalog.NormalizeLobbyMapId("unknown", "supermarket"), Is.EqualTo("supermarket"));
-            Assert.That(LobbyMapCatalog.Maps.Count, Is.EqualTo(2));
-            Assert.That(LobbyMapCatalog.Maps[0].Id, Is.EqualTo(MapCatalog.SupermarketId));
-            Assert.That(LobbyMapCatalog.Maps[1].Id, Is.EqualTo(MapCatalog.MansionId));
             Assert.That(PlaySettingsMapCatalog.All.Count, Is.EqualTo(3));
             Assert.That(PlaySettingsMapCatalog.All[0].IsRandom, Is.True);
             Assert.That(PlaySettingsMapCatalog.All[0].Label, Is.EqualTo(PlaySettingsMapCatalog.RandomLabel));

@@ -8,16 +8,6 @@ using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IDestroyedItemsHudView
-    {
-        void Show(
-            int playerCount,
-            System.Collections.Generic.IReadOnlyList<PlayerItemStatusSnapshot> statuses,
-            string localItemId,
-            System.Collections.Generic.IReadOnlyList<string> destroyedItemIdsInOrder);
-        void Hide();
-    }
-
     /// <summary>
     /// Top-left circles for assignment items. The local item stays leftmost
     /// with <c>Icon_My_Item</c>, then <c>Icon_My_Destroyed_Item</c> after it
@@ -25,7 +15,7 @@ namespace Game.Client.Match
     /// destruction order.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class DestroyedItemsHudView : MonoBehaviour, IDestroyedItemsHudView
+    public sealed class DestroyedItemsHudView : MonoBehaviour
     {
         public const float SlotSize = 100f;
         /// <summary>

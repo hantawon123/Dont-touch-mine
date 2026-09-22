@@ -4,12 +4,6 @@ using UnityEngine;
 
 namespace Game.Client.Match
 {
-    public interface IMatchUrgencyAudio
-    {
-        void Show();
-        void Hide();
-    }
-
     /// <summary>
     /// 탐색 마지막 30초에 들리는 소리. 경고 종이 한 번 울리고, 그 뒤로 긴장감 배경음이
     /// 루프로 깔린다. <see cref="MatchUrgencyBorderView"/>와 같은 조건으로 켜고 꺼진다.
@@ -23,7 +17,7 @@ namespace Game.Client.Match
     /// never runs lifecycle callbacks, still sees a usable component.
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class MatchUrgencyAudio : MonoBehaviour, IMatchUrgencyAudio
+    public sealed class MatchUrgencyAudio : MonoBehaviour
     {
         public const string RootName = "UrgencyAudio";
         public const string ChimeResource = "Audio/WarningChime";
