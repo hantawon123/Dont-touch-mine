@@ -367,19 +367,67 @@ namespace Game.Client.Settings
 
             public const float LeaveIconSize = 28f;
             public const float LeaveIconGap = 14f;
+
+            /// <summary>
+            /// 화면 맨 위 줄의 중심 높이(위에서 아래로). 왼쪽 게임 나가기가 이 줄에 앉습니다.
+            ///
+            /// <para>
+            /// 전에는 오른쪽 전체 변경 취소도 같은 줄이었습니다. 2026-09-21 에 그쪽만 한 줄
+            /// 내렸으므로(<see cref="ResetAll.DropFromTopRow"/>) 이 값은 왼쪽 것만 씁니다.
+            /// </para>
+            /// </summary>
+            public static float TopRowCentreY => -Back.Position.y + (Back.Size.y * 0.5f);
         }
 
         /// <summary>The circling arrow and its words at the top right.</summary>
         public static class ResetAll
         {
-            public const float RightMargin = 160f;
+            /// <summary>
+            /// 오른쪽 끝을 <b>설정 판의 오른쪽 끝</b>에 맞춥니다.
+            ///
+            /// <para>
+            /// 판의 값에서 구합니다. 숫자를 따로 적으면 판 크기를 고칠 때 한쪽만 바뀌어 어긋납니다.
+            /// 단추는 피벗이 오른쪽이고 글자 길이만큼 늘어나므로(ContentSizeFitter), 글자가 긴
+            /// 영어에서도 왼쪽으로만 늘어나 이 끝은 그대로입니다.
+            /// </para>
+            /// </summary>
+            public static float RightMargin =>
+                ReferenceResolution.x - (Frame.Position.x + Frame.Size.x);
 
             /// <summary>
-            /// Down from the top of the screen to the middle of the line. Level
-            /// with the arrow opposite it rather than the 60 the design gives,
-            /// which leaves the two sitting on different lines.
+            /// 로비에서 쓰는 오른쪽 여백.
+            ///
+            /// <para>
+            /// 로비는 판을 가운데 기준으로 0.8 배로 줄이므로(<see cref="Frame.LobbyScale"/>) 판의
+            /// 오른쪽 끝이 그만큼 안으로 들어옵니다. 단추도 같이 들어와야 끝이 맞습니다.
+            /// </para>
             /// </summary>
-            public static float CentreY => -Back.Position.y + (Back.Size.y * 0.5f);
+            public static float LobbyRightMargin
+            {
+                get
+                {
+                    var centreX = Frame.Position.x + (Frame.Size.x * 0.5f);
+                    var rightEdge = centreX + (Frame.Size.x * Frame.LobbyScale * 0.5f);
+                    return ReferenceResolution.x - rightEdge;
+                }
+            }
+
+            /// <summary>
+            /// <b>로비에서만</b> 맨 위 줄에서 이만큼 내려앉습니다 (2026-09-21 사용자 지정).
+            ///
+            /// <para>
+            /// 로비에서는 방 제목(ROOM SETTING) 오른쪽 줄에 두기로 했습니다. 판 높이(60)보다 큰
+            /// 값이라 두 줄이 겹치지 않습니다. <b>시작화면(설정 화면)은 내리지 않습니다</b> - 거기서는
+            /// 판이 화면을 거의 다 채워서, 내리면 단추가 판 안으로 들어가 겹칩니다.
+            /// </para>
+            /// </summary>
+            public const float LobbyDropFromTopRow = 84f;
+
+            /// <summary>화면 위에서 이 줄의 중심까지. 시작화면은 맨 위 줄입니다.</summary>
+            public static float CentreY => Chrome.TopRowCentreY;
+
+            /// <summary>로비에서 쓰는 값.</summary>
+            public static float LobbyCentreY => Chrome.TopRowCentreY + LobbyDropFromTopRow;
 
             public const float Height = 44f;
             public const float FontSize = 30f;
@@ -659,6 +707,8 @@ namespace Game.Client.Settings
                         return UiText.Settings.ActionProne;
                     case ControlAction.ToggleKeyGuide:
                         return UiText.Settings.ActionKeyGuide;
+                    case ControlAction.EmoteWheel:
+                        return UiText.Settings.ActionEmoteWheel;
                     default:
                         return action.ToString();
                 }

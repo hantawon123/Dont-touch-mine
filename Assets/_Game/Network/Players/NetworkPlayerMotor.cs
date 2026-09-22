@@ -81,6 +81,20 @@ namespace Game.Network.Players
         [Networked]
         public PlayerPosture Posture { get; private set; }
 
+        /// <summary>감정 표현이 시작될 때마다 1씩 오른다. 같은 표현을 다시 골라도 오른다.</summary>
+        [Networked]
+        public int EmoteSequence { get; private set; }
+
+        /// <summary>마지막으로 시작한 감정 표현의 카탈로그 ID.</summary>
+        [Networked]
+        public int EmoteId { get; private set; }
+
+        [Networked]
+        private int LastEmoteRequest { get; set; }
+
+        [Networked]
+        public float LookPitchDegrees { get; private set; }
+
         public bool IsScenePlacementReady => Object != null && Object.IsValid &&
                                              ScenePlacementReady && !hasPendingTeleport;
 
@@ -209,9 +223,13 @@ namespace Game.Network.Players
                                   input.IsPressed(NetworkPlayerButton.Sprint);
             if (matchStarter == null) matchStarter = Runner.GetComponent<Game.Network.Match.MatchStarter>();
             // 로비·대기실·숨기기·엔딩 무대에서는 스태미나 없이 계속 달린다. 찾기 페이즈에서만 소모된다.
+            // 단, 찾기 페이즈의 마지막 구간(최종 경고 배너가 뜨는 그 30초)에는 다시 무제한이 된다.
             // 무제한 구간에서는 매 틱 스태미나를 가득 채우므로 찾기 페이즈에 이전 상태가 이어지지 않는다.
             var unlimitedSprint = matchStarter == null ||
-                PlayerStaminaRules.IsUnlimitedInPhase(matchStarter.CurrentPhase);
+                PlayerStaminaRules.IsUnlimited(
+                    matchStarter.CurrentPhase,
+                    matchStarter.PhaseEndsAt - Runner.SimulationTime,
+                    matchStarter.FinalSprintWindowSeconds);
             if (Object.HasStateAuthority)
             {
                 var stamina = PlayerStaminaRules.Step(
@@ -244,6 +262,10 @@ namespace Game.Network.Players
                 input.LookYawDegrees,
                 settings.RotationSpeedDegrees * Runner.DeltaTime);
             kcc.SetLookRotation(0f, yaw);
+            if (ControlsEnabled)
+            {
+                LookPitchDegrees = input.LookPitchDegrees;
+            }
 
             AnimationSpeed = direction.magnitude * DesiredMoveSpeed;
             AnimationGrounded = grounded;
@@ -260,8 +282,35 @@ namespace Game.Network.Players
                 NextAttackAllowedAt = Runner.SimulationTime + attackCooldownSeconds;
             }
 
+            if (IsNewEmoteRequest(input.EmoteSequence, LastEmoteRequest))
+            {
+                LastEmoteRequest = input.EmoteSequence;
+                // 앉거나 엎드린 채 고르면 먼저 일어선다. 머리 위가 막혀 못 일어서면 표현도 시작하지 않는다.
+                if (grounded && Posture != PlayerPosture.Standing)
+                {
+                    TryApplyPosture(PlayerPosture.Standing, settings);
+                }
+
+                if (CanStartEmote(grounded, Posture))
+                {
+                    EmoteSequence++;
+                    EmoteId = input.EmoteId;
+                }
+            }
+
             PreviousButtons = input.Buttons;
         }
+
+        /// <summary>
+        /// 요청 번호가 바뀌었을 때만 새 요청이다. 0은 요청 없음이며, 재접속으로 클라이언트 번호가
+        /// 0부터 다시 시작해도 이전 번호와 달라졌다는 이유만으로 표현이 나가지 않게 한다.
+        /// </summary>
+        internal static bool IsNewEmoteRequest(int request, int lastRequest) =>
+            request != 0 && request != lastRequest;
+
+        /// <summary>감정 표현 클립은 모두 서 있는 자세라 땅에서 서 있을 때만 시작한다.</summary>
+        internal static bool CanStartEmote(bool grounded, PlayerPosture posture) =>
+            grounded && posture == PlayerPosture.Standing;
 
         internal bool TrySetControlsEnabled(bool enabled)
         {

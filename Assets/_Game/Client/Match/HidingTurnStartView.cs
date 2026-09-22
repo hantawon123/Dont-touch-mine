@@ -7,13 +7,6 @@ using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IHidingTurnStartView
-    {
-        void Show(double remainingSeconds, string bannerText = null);
-        void Hide();
-        void SetRemainingSeconds(double remainingSeconds);
-    }
-
     /// <summary>
     /// The first beat of a timed warning: a large stopwatch and a banner.
     /// Hiding uses this at the start of a turn; searching reuses it when the
@@ -21,7 +14,7 @@ namespace Game.Client.Match
     /// </summary>
     [ExecuteAlways]
     [DisallowMultipleComponent]
-    public sealed class HidingTurnStartView : MonoBehaviour, IHidingTurnStartView
+    public sealed class HidingTurnStartView : MonoBehaviour
     {
         public const float VisibleSeconds = 1f;
         public static string BannerText =>

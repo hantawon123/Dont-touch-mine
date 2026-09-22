@@ -362,15 +362,27 @@ namespace Game.Editor
                 throw new InvalidOperationException("Invalid size for " + displayName);
             }
 
-            var box = wrapper.AddComponent<BoxCollider>();
-            box.center = bounds.center;
-            box.size = Vector3.Max(bounds.size, Vector3.one * 0.005f);
+            ApplyPlacementCollider(wrapper, bounds);
             wrapper.AddComponent<Rigidbody>().isKinematic = true;
             var carry = wrapper.AddComponent<CarryableItem>();
             var so = new SerializedObject(carry);
             so.FindProperty("displayName").stringValue = displayName;
             so.ApplyModifiedPropertiesWithoutUndo();
             return wrapper;
+        }
+
+        // 카드·지폐처럼 메시가 종이 두께면 BoxCollider가 5 mm가 되어, 배치 후 동적 Rigidbody가 바닥을 뚫고 사라진다.
+        // 서류 소품과 같이 최소 2 cm로 올리고, 늘어난 두께는 위로만 붙여 바닥 피벗은 유지한다.
+        private const float MinColliderThickness = 0.02f;
+
+        private static void ApplyPlacementCollider(GameObject wrapper, Bounds bounds)
+        {
+            var size = Vector3.Max(bounds.size, Vector3.one * MinColliderThickness);
+            var center = bounds.center;
+            center.y += Mathf.Max(0f, (size.y - bounds.size.y) * 0.5f);
+            var box = wrapper.AddComponent<BoxCollider>();
+            box.center = center;
+            box.size = size;
         }
 
         private static Bounds BoundsOf(GameObject root)

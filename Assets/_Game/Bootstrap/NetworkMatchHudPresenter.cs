@@ -8,6 +8,7 @@ using Game.Core.Settings;
 using Game.Network.Match;
 using Game.SOAP.Config;
 using Game.Server.Match;
+using Game.Server.Players;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -593,12 +594,25 @@ namespace Game.Bootstrap
                 maxStamina,
                 MatchVitalsHudView.RemainingHits(localHitCount, maxHits),
                 maxHits,
-                exhausted);
+                exhausted,
+                IsFinalSprintPeriod());
         }
 
         private void HideVitals()
         {
             view.HideVitals();
+        }
+
+        /// <summary>
+        /// 마지막 구간이라 달리기가 무제한인지. 모터가 쓰는 것과 같은 규칙을 본다.
+        /// </summary>
+        private bool IsFinalSprintPeriod()
+        {
+            if (!hasSnapshot || !clock.IsRuntimeReady) return false;
+            return PlayerStaminaRules.IsFinalSprintPeriod(
+                snapshot.Phase,
+                snapshot.PhaseEndsAt - clock.ServerTime,
+                FinalWarningSeconds);
         }
 
         private void ApplyMatchChat(bool showHidingWaitChat = false)

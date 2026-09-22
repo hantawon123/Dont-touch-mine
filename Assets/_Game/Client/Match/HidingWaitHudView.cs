@@ -32,25 +32,12 @@ namespace Game.Client.Match
         public string UserId { get; }
     }
 
-    public interface IHidingWaitHudView
-    {
-        void Show(
-            int completedCount,
-            int totalCount,
-            string hidingPlayerName,
-            IReadOnlyList<HidingWaitPlayer> players,
-            bool showNextTurnNotice,
-            double remainingSeconds,
-            double turnDurationSeconds);
-        void Hide();
-    }
-
     /// <summary>
     /// Waiting-player HUD during hiding: order list, progress, and status.
     /// Chat stays on the existing match chat view; this only paints the rest.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class HidingWaitHudView : MonoBehaviour, IHidingWaitHudView
+    public sealed class HidingWaitHudView : MonoBehaviour
     {
         public const float CountFontSize = 45f;
         public const float StatusFontSize = 28f;

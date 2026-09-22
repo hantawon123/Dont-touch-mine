@@ -316,6 +316,81 @@ namespace Game.Architecture.Tests
             Assert.That(MatchVitalsHudView.RemainingHits(2, 5), Is.EqualTo(3));
         }
 
+        [Test]
+        public void Rainbow_SweepsTheWholeWheelAcrossTheBarAndScrollsOverTime()
+        {
+            var left = MatchVitalsHudView.RainbowColorAt(0f, 0f);
+            var middle = MatchVitalsHudView.RainbowColorAt(0.5f, 0f);
+            var right = MatchVitalsHudView.RainbowColorAt(1f, 0f);
+
+            // 한 바퀴를 다 돌아 양 끝은 같은 색으로 맞물리고, 가운데는 보색 쪽으로 멀어진다.
+            Assert.That(right, Is.EqualTo(left));
+            Assert.That(ColorDistance(left, middle), Is.GreaterThan(0.5f));
+
+            // 위상이 돌면 같은 자리의 색이 바뀐다. 이게 바 위를 흐르는 움직임이다.
+            var scrolled = MatchVitalsHudView.RainbowColorAt(0f, 0.25f);
+            Assert.That(ColorDistance(left, scrolled), Is.GreaterThan(0.2f));
+
+            // 위상은 바퀴 단위로 감긴다.
+            Assert.That(MatchVitalsHudView.RainbowPhase(0f), Is.EqualTo(0f));
+            Assert.That(
+                MatchVitalsHudView.RainbowPhase(1f / MatchVitalsHudView.RainbowTurnsPerSecond),
+                Is.EqualTo(0f).Within(1e-4f),
+                "A full turn brings the phase back to where it started.");
+        }
+
+        [Test]
+        public void FinalSprint_PaintsTheBarWithTheRainbowRampAndRestoresItAfterwards()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchVitalsHudView.Create(canvas.transform);
+                view.Show(
+                    MatchVitalsHudView.DefaultStamina,
+                    MatchVitalsHudView.DefaultStamina,
+                    MatchVitalsHudView.DefaultHits,
+                    MatchVitalsHudView.DefaultHits);
+                var bar = view.transform.Find("Panel/Stamina/Bar")?.GetComponent<Image>();
+                Assert.That(bar, Is.Not.Null);
+                var plainSprite = bar.sprite;
+
+                view.SetValues(
+                    MatchVitalsHudView.DefaultStamina,
+                    MatchVitalsHudView.DefaultStamina,
+                    MatchVitalsHudView.DefaultHits,
+                    MatchVitalsHudView.DefaultHits,
+                    exhausted: false,
+                    finalSprint: true);
+
+                Assert.That(bar.sprite, Is.Not.SameAs(plainSprite));
+                Assert.That(bar.sprite.texture.width, Is.EqualTo(MatchVitalsHudView.RainbowRampWidth));
+                // 스프라이트가 색을 지므로 Image.color 는 곱하지 않도록 흰색이어야 한다.
+                Assert.That(bar.color, Is.EqualTo(Color.white));
+                Assert.That(bar.fillAmount, Is.EqualTo(1f));
+
+                view.SetValues(
+                    50f,
+                    MatchVitalsHudView.DefaultStamina,
+                    MatchVitalsHudView.DefaultHits,
+                    MatchVitalsHudView.DefaultHits);
+
+                Assert.That(bar.sprite, Is.SameAs(plainSprite));
+                Assert.That(bar.color, Is.EqualTo(MatchVitalsHudView.StaminaColor));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        private static float ColorDistance(Color left, Color right)
+        {
+            return Mathf.Abs(left.r - right.r) +
+                   Mathf.Abs(left.g - right.g) +
+                   Mathf.Abs(left.b - right.b);
+        }
+
         private static void InvokeLateUpdate(MatchVitalsHudView view)
         {
             typeof(MatchVitalsHudView)

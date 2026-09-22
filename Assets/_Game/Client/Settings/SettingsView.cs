@@ -265,9 +265,9 @@ namespace Game.Client.Settings
             Paint(applyLabel, enabled, SettingsStyle.Palette.ApplyOnLabel, SettingsStyle.Palette.ButtonOffLabel);
         }
 
-        public void ShowNotice(string title, string message)
+        public void ShowNotice(string title, string message, bool success = false)
         {
-            toast?.Show(title, message);
+            toast?.Show(title, message, success);
         }
 
         private void Awake()
@@ -367,6 +367,26 @@ namespace Game.Client.Settings
             }
 
             EnsureLeaveGameLabel();
+            MoveResetAllToTitleRow();
+        }
+
+        /// <summary>
+        /// 로비에서는 전체 변경 취소를 한 줄 내려 방 제목 오른쪽에 둡니다 (S15P21D205-1098).
+        /// </summary>
+        /// <remarks>
+        /// 시작화면에서는 판이 화면을 거의 다 채우기 때문에 내리면 단추가 판 안으로 들어갑니다.
+        /// 그래서 만들 때는 맨 위 줄에 두고, 로비 크롬을 입힐 때만 옮깁니다.
+        /// </remarks>
+        private void MoveResetAllToTitleRow()
+        {
+            var reset = canvasRoot != null ? canvasRoot.Find("ResetAllButton") : null;
+            if (reset is not RectTransform rect)
+            {
+                return;
+            }
+
+            rect.anchoredPosition = new Vector2(
+                -SettingsStyle.ResetAll.LobbyRightMargin, -SettingsStyle.ResetAll.LobbyCentreY);
         }
 
         /// <summary>
@@ -708,7 +728,7 @@ namespace Game.Client.Settings
             var rect = CreateRect("LeaveGameLabel", canvasRoot);
             SetAnchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0.5f));
             rect.anchoredPosition = new Vector2(
-                SettingsStyle.Back.Position.x, -SettingsStyle.ResetAll.CentreY);
+                SettingsStyle.Back.Position.x, -SettingsStyle.Chrome.TopRowCentreY);
             rect.sizeDelta = new Vector2(0f, SettingsStyle.Chrome.PlateHeight);
 
             var fill = AddImage(

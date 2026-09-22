@@ -115,32 +115,6 @@ namespace Game.Core.Home
             FriendsChanged?.Invoke();
         }
 
-        /// <summary>
-        /// Takes one more friend in, keeping the order the list is sorted by.
-        /// </summary>
-        /// <remarks>
-        /// Rebuilding from the two halves rather than inserting into one of
-        /// them: a friend who is added is the same shape as a friend who was
-        /// always there, and there is one place that decides which half they
-        /// belong to.
-        /// </remarks>
-        public void AddFriend(FriendSummary friend)
-        {
-            var all = new List<FriendSummary>(onlineFriends.Count + offlineFriends.Count + 1);
-            all.AddRange(onlineFriends);
-            all.AddRange(offlineFriends);
-
-            for (var index = 0; index < all.Count; index++)
-            {
-                if (string.Equals(all[index].PlayerId, friend.PlayerId, StringComparison.Ordinal))
-                {
-                    return;
-                }
-            }
-
-            all.Add(friend);
-            ReplaceFriends(all);
-        }
 
         private static int CompareByName(FriendSummary left, FriendSummary right)
         {

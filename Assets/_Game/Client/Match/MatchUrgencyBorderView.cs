@@ -3,18 +3,12 @@ using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IMatchUrgencyBorderView
-    {
-        void Show();
-        void Hide();
-    }
-
     /// <summary>
     /// Full-screen red edge glow for the last thirty seconds of searching.
     /// Thickness breathes so the gradient grows and shrinks.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class MatchUrgencyBorderView : MonoBehaviour, IMatchUrgencyBorderView
+    public sealed class MatchUrgencyBorderView : MonoBehaviour
     {
         public const string RootName = "UrgencyBorder";
         public const float MinThickness = 50f;

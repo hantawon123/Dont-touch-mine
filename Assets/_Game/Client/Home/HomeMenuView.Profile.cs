@@ -80,7 +80,7 @@ namespace Game.Client.Home
             SetAnchor(label, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0.5f));
             label.anchoredPosition = new Vector2(
                 HomeStyle.Profile.SidePadding, HomeStyle.Profile.ToggleRowCentreY);
-            label.sizeDelta = new Vector2(HomeStyle.Profile.ToggleLeft, 30f);
+            label.sizeDelta = new Vector2(HomeStyle.Profile.ToggleRowTextWidth, 30f);
             var labelText = AddText(
                 label,
                 Copy(UiText.Home.SearchAllow),
@@ -91,10 +91,13 @@ namespace Game.Client.Home
             labelText.color = HomeStyle.Palette.TextPrimary;
             Remember(labelText, UiText.Home.SearchAllow);
 
+            // Pinned to the panel's right edge, not to a fixed offset from the
+            // left, so the label can grow with the language without the text
+            // running under the pill.
             var toggle = CreateRect("SearchAllowToggle", panel);
-            SetAnchor(toggle, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0.5f));
+            SetAnchor(toggle, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0.5f));
             toggle.anchoredPosition = new Vector2(
-                HomeStyle.Profile.ToggleLeft, HomeStyle.Profile.ToggleRowCentreY);
+                -HomeStyle.Profile.SidePadding, HomeStyle.Profile.ToggleRowCentreY);
             toggle.sizeDelta = HomeStyle.Profile.ToggleSize;
 
             searchAllowFill = AddImage(
@@ -133,17 +136,18 @@ namespace Game.Client.Home
             button.onClick.AddListener(ToggleSearchAllowed);
             menuButtons.Add(button);
 
-            // To the right of the toggle, on its row. Empty unless the server
-            // refused, so it costs nothing when everything works.
+            // To the left of the toggle, on its row, ending where the label's
+            // own run of text does. Empty unless the server refused, so it
+            // costs nothing when everything works.
             var message = CreateRect("SearchAllowMessage", panel);
             SetAnchor(message, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0.5f));
             message.anchoredPosition = new Vector2(
-                -HomeStyle.Profile.SidePadding, HomeStyle.Profile.ToggleRowCentreY);
+                -(HomeStyle.Profile.SidePadding
+                    + HomeStyle.Profile.ToggleSize.x
+                    + HomeStyle.Profile.ToggleLabelGap),
+                HomeStyle.Profile.ToggleRowCentreY);
             message.sizeDelta = new Vector2(
-                HomeStyle.Profile.PanelSize.x
-                    - HomeStyle.Profile.ToggleLeft
-                    - HomeStyle.Profile.ToggleSize.x
-                    - (HomeStyle.Profile.SidePadding * 2f),
+                HomeStyle.Profile.ToggleRowTextWidth,
                 HomeStyle.Profile.MessageHeight);
             searchAllowMessageText = AddText(
                 message,

@@ -13,6 +13,7 @@ namespace Game.Editor
         private const string PreviewPath = SmoothBearAssets.ModelPath;
         private const string ControllerPath = SmoothBearAssets.PreviewControllerPath;
         internal const string ScenePath = "Assets/Scenes/CharacterTest.unity";
+        private const string PlayOnceKey = "Game.CharacterTest.PlayOnce";
         private const string PreviewName = "SmoothBear";
         private const string IdleState = "Idle";
         private static readonly string[] MotionNames =
@@ -144,6 +145,12 @@ namespace Game.Editor
             "Stun_Start",
             "Stun_Idle",
             "Stun_End",
+            "Emote_Wave",
+            "Emote_Taunt",
+            "Emote_Insult",
+            "Emote_Chicken",
+            "Emote_HipHop",
+            "Emote_Spin",
         };
 
         [InitializeOnLoadMethod]
@@ -191,6 +198,41 @@ namespace Game.Editor
                 "CharacterTest",
                 "SmoothBear 캐릭터의 전체 동작을 연결했습니다. Play 하세요.",
                 "OK");
+        }
+
+        [MenuItem("Game/Setup/Play CharacterTest")]
+        public static void PlayCharacterTest()
+        {
+            if (EditorSceneManager.GetActiveScene().path != ScenePath)
+            {
+                EditorSceneManager.OpenScene(ScenePath);
+            }
+
+            ApplyBlenderPreview();
+            RequestPlayOverride();
+            EditorApplication.isPlaying = true;
+        }
+
+        internal static void RequestPlayOverride()
+        {
+            SessionState.SetBool(PlayOnceKey, true);
+        }
+
+        internal static bool TryGetPlayOverride(out SceneAsset scene)
+        {
+            scene = null;
+            if (!SessionState.GetBool(PlayOnceKey, false))
+            {
+                return false;
+            }
+
+            scene = AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath);
+            return scene != null;
+        }
+
+        internal static void ClearPlayOverride()
+        {
+            SessionState.SetBool(PlayOnceKey, false);
         }
 
         public static bool ApplyBlenderPreview()

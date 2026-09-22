@@ -46,7 +46,8 @@ namespace Game.Client.Settings
             ControlAction.RotateRight,
             ControlAction.RaiseObject,
             ControlAction.LowerObject,
-            ControlAction.ToggleKeyGuide
+            ControlAction.ToggleKeyGuide,
+            ControlAction.EmoteWheel
         };
 
         private readonly Dictionary<ControlAction, KeyButton> keyButtons =

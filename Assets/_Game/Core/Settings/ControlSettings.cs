@@ -29,7 +29,8 @@ namespace Game.Core.Settings
         RaiseObject,
         LowerObject,
         ToggleKeyGuide,
-        ToggleSpeaker
+        ToggleSpeaker,
+        EmoteWheel
     }
 
     /// <summary>The 컨트롤 tab's sliders, in the order they are drawn.</summary>
@@ -365,7 +366,8 @@ namespace Game.Core.Settings
             (ControlAction.RaiseObject, ScrollUp),
             (ControlAction.LowerObject, ScrollDown),
             (ControlAction.ToggleKeyGuide, "l"),
-            (ControlAction.ToggleSpeaker, "t")
+            (ControlAction.ToggleSpeaker, "t"),
+            (ControlAction.EmoteWheel, "x")
         };
 
         /// <summary>

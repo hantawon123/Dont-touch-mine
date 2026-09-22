@@ -766,7 +766,7 @@ namespace Game.Architecture.Tests
         {
             using var presenter = Started();
 
-            Assert.That(view.Bindings.Count, Is.EqualTo(20));
+            Assert.That(view.Bindings.Count, Is.EqualTo(21));
             Assert.That(view.Bindings[ControlAction.MoveForward], Is.EqualTo("W"));
             Assert.That(view.Bindings[ControlAction.Interact], Is.EqualTo("F"));
             Assert.That(view.Bindings[ControlAction.PrimaryAction], Is.EqualTo("좌클릭"));
@@ -776,6 +776,7 @@ namespace Game.Architecture.Tests
             Assert.That(view.Bindings[ControlAction.RaiseObject], Is.EqualTo("스크롤 ↑"));
             Assert.That(view.Bindings[ControlAction.LowerObject], Is.EqualTo("스크롤 ↓"));
             Assert.That(view.Bindings[ControlAction.ToggleKeyGuide], Is.EqualTo("L"));
+            Assert.That(view.Bindings[ControlAction.EmoteWheel], Is.EqualTo("X"));
             Assert.That(view.Sensitivities.Count, Is.EqualTo(3));
             Assert.That(view.Sensitivities[ControlSensitivity.FirstPersonMouse], Is.EqualTo(50));
             Assert.That(view.Reversals.Count, Is.EqualTo(4));

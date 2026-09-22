@@ -1,5 +1,6 @@
 using System;
 using Game.Client.Cameras;
+using Game.Client.Emotes;
 using Game.Client.Interactions;
 using Game.Client.Players;
 using Game.Core.Lobby;
@@ -186,9 +187,10 @@ namespace Game.Client.Lobby
             }
 
             var keyboard = Keyboard.current;
+            var emoteOwnsDigits = EmoteWheelController.BlocksLobbyShortcuts;
             var pressed = LobbyShortcutBindings.ReadPressed(
-                WasPressed(keyboard.digit1Key) || WasPressed(keyboard.numpad1Key),
-                WasPressed(keyboard.digit2Key) || WasPressed(keyboard.numpad2Key),
+                !emoteOwnsDigits && (WasPressed(keyboard.digit1Key) || WasPressed(keyboard.numpad1Key)),
+                !emoteOwnsDigits && (WasPressed(keyboard.digit2Key) || WasPressed(keyboard.numpad2Key)),
                 false);
 
             // Esc always backs out of whatever is already up. From the room it
@@ -212,7 +214,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (WasPressed(keyboard.escapeKey) ||
+            if ((!emoteOwnsDigits && WasPressed(keyboard.escapeKey)) ||
                 (browserReleased && !view.IsOpen && closeOpenScreen == null))
             {
                 HandleEscape();

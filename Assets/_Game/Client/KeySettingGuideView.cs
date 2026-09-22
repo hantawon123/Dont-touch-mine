@@ -39,11 +39,14 @@ namespace Game.Client
         public static string ToggleAction =>
             UiLocale.Applied(UiText.Guide.Toggle);
         public const string ToggleKeyLabel = "L";
+        public static string EmoteAction =>
+            UiLocale.Applied(UiText.Guide.Emote);
+        public const string EmoteKeyLabel = "X";
         public const float RowStep = 48f;
         public const float CompactKeyChipFontSize = 12f;
-        public static readonly Vector2 PanelSize = new Vector2(280f, 368f);
-        public static readonly Vector2 CarryingPanelSize = new Vector2(280f, 464f);
-        public static readonly Vector2 PlacingPanelSize = new Vector2(280f, 512f);
+        public static readonly Vector2 PanelSize = new Vector2(280f, 416f);
+        public static readonly Vector2 CarryingPanelSize = new Vector2(280f, 512f);
+        public static readonly Vector2 PlacingPanelSize = new Vector2(280f, 560f);
 
         public enum Mode
         {
@@ -60,7 +63,8 @@ namespace Game.Client
             UiLocale.Applied(UiText.Guide.ToggleView),
             UiLocale.Applied(UiText.Guide.Sprint),
             UiLocale.Applied(UiText.Guide.Jump),
-            ToggleAction
+            ToggleAction,
+            EmoteAction
         };
 
         public static string[] Labels => new[]
@@ -71,7 +75,8 @@ namespace Game.Client
             "V",
             "Shift",
             "Space",
-            ToggleKeyLabel
+            ToggleKeyLabel,
+            EmoteKeyLabel
         };
 
         public static string[] CarryingActions => new[]
@@ -84,7 +89,8 @@ namespace Game.Client
             UiLocale.Applied(UiText.Guide.ToggleView),
             UiLocale.Applied(UiText.Guide.Sprint),
             UiLocale.Applied(UiText.Guide.Jump),
-            ToggleAction
+            ToggleAction,
+            EmoteAction
         };
 
         public static string[] CarryingLabels => new[]
@@ -97,7 +103,8 @@ namespace Game.Client
             "V",
             "Shift",
             "Space",
-            ToggleKeyLabel
+            ToggleKeyLabel,
+            EmoteKeyLabel
         };
 
         // 배치 모드: 좌클릭 배치, 우클릭 유지+마우스 회전, Q/E 좌우 회전, F 놓기(기존). 우클릭으로 모드를 끄는 키는 없다(손이 비면 꺼짐).
@@ -112,7 +119,8 @@ namespace Game.Client
             UiLocale.Applied(UiText.Guide.ToggleView),
             UiLocale.Applied(UiText.Guide.Sprint),
             UiLocale.Applied(UiText.Guide.Jump),
-            ToggleAction
+            ToggleAction,
+            EmoteAction
         };
 
         public static string[] PlacingLabels => new[]
@@ -126,7 +134,8 @@ namespace Game.Client
             "V",
             "Shift",
             "Space",
-            ToggleKeyLabel
+            ToggleKeyLabel,
+            EmoteKeyLabel
         };
 
         private static readonly ControlAction[] DefaultBindings =
@@ -202,7 +211,8 @@ namespace Game.Client
                     Copy(UiText.Guide.ToggleView),
                     Copy(UiText.Guide.Sprint),
                     Copy(UiText.Guide.Jump),
-                    Copy(UiText.Guide.Toggle)
+                    Copy(UiText.Guide.Toggle),
+                    Copy(UiText.Guide.Emote)
                 }
                 : mode == Mode.Carrying
                     ? new[]
@@ -215,7 +225,8 @@ namespace Game.Client
                         Copy(UiText.Guide.ToggleView),
                         Copy(UiText.Guide.Sprint),
                         Copy(UiText.Guide.Jump),
-                        Copy(UiText.Guide.Toggle)
+                        Copy(UiText.Guide.Toggle),
+                        Copy(UiText.Guide.Emote)
                     }
                     : new[]
                     {
@@ -225,7 +236,8 @@ namespace Game.Client
                         Copy(UiText.Guide.ToggleView),
                         Copy(UiText.Guide.Sprint),
                         Copy(UiText.Guide.Jump),
-                        Copy(UiText.Guide.Toggle)
+                        Copy(UiText.Guide.Toggle),
+                        Copy(UiText.Guide.Emote)
                     };
         }
 
@@ -295,13 +307,14 @@ namespace Game.Client
             }
 
             var bindings = BindingsFor(guideMode);
-            var labels = new string[bindings.Length + 1];
+            var labels = new string[bindings.Length + 2];
             for (var index = 0; index < bindings.Length; index++)
             {
                 labels[index] = LabelForBinding(guideMode, bindings[index], settings);
             }
 
-            labels[labels.Length - 1] = ControlCatalog.KeyLabel(settings.Get(ControlAction.ToggleKeyGuide));
+            labels[labels.Length - 2] = ControlCatalog.KeyLabel(settings.Get(ControlAction.ToggleKeyGuide));
+            labels[labels.Length - 1] = ControlCatalog.KeyLabel(settings.Get(ControlAction.EmoteWheel));
             return labels;
         }
 
@@ -487,7 +500,9 @@ namespace Game.Client
                         ? ControlAction.Interact
                         : index < bindings.Length
                             ? bindings[index]
-                            : ControlAction.ToggleKeyGuide;
+                            : index == bindings.Length
+                                ? ControlAction.ToggleKeyGuide
+                                : ControlAction.EmoteWheel;
                     ApplyKeyChipLook(chip.GetComponent<Image>());
                     FitKeyChip(chip, keyLabel, IconResourceFor(mode, iconAction));
                     if (keyLabel != null)

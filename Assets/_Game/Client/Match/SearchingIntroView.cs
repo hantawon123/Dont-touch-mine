@@ -6,18 +6,12 @@ using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface ISearchingIntroView
-    {
-        void Show(string itemDisplayName);
-        void Hide();
-    }
-
     /// <summary>
     /// Full-screen searching briefing: the assigned item and the same three
     /// lines for every player. Timing belongs to the presenter; this view only paints.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class SearchingIntroView : MonoBehaviour, ISearchingIntroView
+    public sealed class SearchingIntroView : MonoBehaviour
     {
         public const float VisibleSeconds = Game.Core.Match.MatchIntroTiming.VisibleSeconds;
         public const float FontSize = 55f;

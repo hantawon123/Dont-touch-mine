@@ -92,6 +92,7 @@ namespace Game.Core.Settings
             public const string ActionRaise = "settings.row.actionRaise";
             public const string ActionLower = "settings.row.actionLower";
             public const string ActionKeyGuide = "settings.row.actionKeyGuide";
+            public const string ActionEmoteWheel = "settings.row.actionEmoteWheel";
 
             public const string MouseSensitivity = "settings.row.mouseSensitivity";
             public const string CameraSensitivity = "settings.row.cameraSensitivity";
@@ -411,6 +412,18 @@ namespace Game.Core.Settings
             public const string Rotate = "guide.rotate";
             public const string Twist = "guide.twist";
             public const string InteractPickup = "guide.interactPickup";
+            public const string Emote = "guide.emote";
+        }
+
+        public static class Emote
+        {
+            public const string Wave = "emote.wave";
+            public const string Taunt = "emote.taunt";
+            public const string Insult = "emote.insult";
+            public const string Chicken = "emote.chicken";
+            public const string HipHop = "emote.hipHop";
+            public const string Spin = "emote.spin";
+            public const string Hint = "emote.hint";
         }
 
         public static class Interact

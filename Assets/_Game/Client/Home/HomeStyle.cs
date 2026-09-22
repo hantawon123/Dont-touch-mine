@@ -137,18 +137,20 @@ namespace Game.Client.Home
         public static class Layout
         {
             /// <summary>
-            /// Title bounds and menu position in the 1920 x 1080 mock-up,
-            /// measured from its top-left corner.
+            /// Logo and menu position in the 1920 x 1080 mock-up, measured from
+            /// its top-left corner. The logo shares the 60px inset used by the
+            /// server button on the opposite side, and the menu sits 40px under
+            /// it.
             /// </summary>
-            public const float TitleLeft = 269f;
-            public const float TitleTop = 228f;
-            public const float TitleWidth = 600f;
-            public const float TitleHeight = 240f;
-            public const float TitleFontSize = 90f;
+            public const float LogoLeft = 60f;
+            public const float LogoTop = 60f;
+            public const float LogoWidth = 720f;
+            public const float LogoHeight = 384f;
+            public const float LogoToMenuGap = 40f;
 
             public const float MenuLeft = 269f;
 
-            public const float MenuTop = 510f;
+            public const float MenuTop = LogoTop + LogoHeight + LogoToMenuGap;
 
             /// <summary>
             /// The design gives 30 between one line's box and the next, not
@@ -226,9 +228,24 @@ namespace Game.Client.Home
             public const float SidePadding = 30f;
 
             public const float ToggleRowCentreY = -44f;
-            public const float ToggleLeft = 190f;
             public static readonly Vector2 ToggleSize = new Vector2(50f, 30f);
             public const float ToggleStrokeThickness = 3f;
+
+            /// <summary>
+            /// Between the row's text and the toggle, which sits flush with the
+            /// panel's right padding. The toggle is pinned to that edge rather
+            /// than to a fixed offset from the left so a label longer than the
+            /// Korean one -- the English "Allow nickname search" is half again
+            /// as wide -- runs into the gap instead of over the pill.
+            /// </summary>
+            public const float ToggleLabelGap = 12f;
+
+            /// <summary>
+            /// What the row's label and its failure message get to share: the
+            /// panel minus its padding, the toggle, and the gap.
+            /// </summary>
+            public static readonly float ToggleRowTextWidth =
+                PanelSize.x - (SidePadding * 2f) - ToggleSize.x - ToggleLabelGap;
 
             /// <summary>
             /// How far the knob sits inside the pill. Not given by the design;

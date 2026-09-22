@@ -6,21 +6,12 @@ using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IHidingActiveHudView
-    {
-        void Show(double remainingSeconds, bool showTopPrompt, bool showCompleteGuide);
-        void Hide();
-        void SetRemainingSeconds(double remainingSeconds);
-        void SetTopPromptVisible(bool visible);
-        void SetCompleteGuideVisible(bool visible);
-    }
-
     /// <summary>
     /// Edge HUD for the hiding phase: top timer, complete guide, and key list.
     /// Input wiring belongs to the presenter; this view only paints.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class HidingActiveHudView : MonoBehaviour, IHidingActiveHudView
+    public sealed class HidingActiveHudView : MonoBehaviour
     {
         public static string HintText =>
             UiTextCatalog.Shipped.Get(UiText.Match.HideHint, "ko");
