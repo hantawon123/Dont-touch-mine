@@ -24,7 +24,7 @@ namespace Game.Architecture.Tests
         {
             var fresh = applier.ResolvePlayerAppearance(AvatarAppearance.Default);
             Assert.That(fresh, Is.EqualTo(catalog.Default));
-            Assert.That(fresh.ShoesId, Is.EqualTo("shoes_blue"));
+            Assert.That(fresh.ShoesId, Is.EqualTo("shoes_pink_vivid"));
             applier.Apply(fresh);
             Assert.That(avatar.GetComponentsInChildren<Renderer>()
                 .Count(r => r.name.StartsWith("Wearable_CompactShoes")), Is.EqualTo(2));
@@ -32,7 +32,7 @@ namespace Game.Architecture.Tests
             var saved = catalog.Default.With(AvatarPartCategory.BodyColor, "body_orange_vivid")
                 .With(AvatarPartCategory.Shoes, AvatarAppearance.NoPart);
             var completed = applier.ResolvePlayerAppearance(saved);
-            Assert.That(completed.ShoesId, Is.EqualTo("shoes_blue"));
+            Assert.That(completed.ShoesId, Is.EqualTo("shoes_pink_vivid"));
             Assert.That(completed.BodyColorId, Is.EqualTo(saved.BodyColorId));
             Assert.That(completed.HoodId, Is.EqualTo(saved.HoodId));
             Assert.That(completed.FaceId, Is.EqualTo(saved.FaceId));
@@ -146,9 +146,9 @@ namespace Game.Architecture.Tests
         }
         [Test] public void PaletteReorderingKeepsDefaultOutfitAndRetiredColoursResolveToIt()
         {
-            Assert.That(catalog.Default.BodyColorId,Is.EqualTo("body_lemon"));
-            Assert.That(catalog.Default.HoodColorId,Is.EqualTo("hood_ice"));
-            Assert.That(catalog.Default.ShoesId,Is.EqualTo("shoes_blue"));
+            Assert.That(catalog.Default.BodyColorId,Is.EqualTo("body_black"));
+            Assert.That(catalog.Default.HoodColorId,Is.EqualTo("hood_purple"));
+            Assert.That(catalog.Default.ShoesId,Is.EqualTo("shoes_pink_vivid"));
             var retired=catalog.Default.With(AvatarPartCategory.BodyColor,"body_cocoa").With(AvatarPartCategory.HoodColor,"hood_cocoa").With(AvatarPartCategory.Shoes,"shoes_orange");
             Assert.That(catalog.Normalise(retired),Is.EqualTo(catalog.Default));
         }
