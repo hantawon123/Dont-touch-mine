@@ -585,6 +585,9 @@ namespace Game.Client.Interactions
 
             if (commands != null)
             {
+#if UNITY_EDITOR
+                UnityEngine.Debug.Log($"[HoldTry] name='{item.name}' objectId='{item.ObjectId}'", item);
+#endif
                 return commands.RequestHold(item.ObjectId);
             }
 

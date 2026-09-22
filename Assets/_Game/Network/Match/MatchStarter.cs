@@ -944,10 +944,47 @@ namespace Game.Network.Match
                 !_state.CanTrackObject(objectId) ||
                 !_session.TryHoldObject(playerIndex, objectId, ServerTime))
             {
+                LogHoldRejection(source, objectId);
                 return false;
             }
 
             return _state.TrySetObjectHeld(objectId, playerIndex);
+        }
+
+        /// <summary>
+        /// 들기 요청은 놓기·던지기와 달리 거부 사유를 클라이언트로 돌려주지 않아, 실패하면 아무 흔적이 없다.
+        /// 에디터에서만 어느 조건에 걸렸는지 남긴다.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        private void LogHoldRejection(PlayerRef source, string objectId)
+        {
+            string reason;
+            if (!TryGetPlayerIndex(source, out var playerIndex))
+            {
+                reason = "TryGetPlayerIndex 실패(플레이어 식별 불가)";
+            }
+            else if (!TryGetPlayerPose(playerIndex, out var playerPose))
+            {
+                reason = "TryGetPlayerPose 실패(위치 조회 불가)";
+            }
+            else if (!_state.CanHoldObject(objectId))
+            {
+                reason = "_state.CanHoldObject 실패(이미 누가 들고 있거나 상태 권한 없음)";
+            }
+            else if (!IsObjectWithinReach(playerIndex, objectId, playerPose.position))
+            {
+                reason = "IsObjectWithinReach 실패(서버 기준 거리 초과 또는 물건 위치 미등록)";
+            }
+            else if (!_state.CanTrackObject(objectId))
+            {
+                reason = "_state.CanTrackObject 실패(복제 슬롯 부족 또는 id 형식 오류)";
+            }
+            else
+            {
+                reason = "_session.TryHoldObject 실패(페이즈·차례·이미 보유 또는 월드 오브젝트 미등록)";
+            }
+
+            UnityEngine.Debug.LogWarning($"[HoldReject] objectId='{objectId}' -> {reason}");
         }
 
         public bool TryReleaseHeldObject(PlayerRef source, Pose pose) => TryReleaseHeldObject(source, pose, out _);
