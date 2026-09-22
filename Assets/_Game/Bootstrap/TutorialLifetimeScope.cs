@@ -1,4 +1,5 @@
 using Game.Client;
+using Game.Client.Character;
 using Game.Client.Combat;
 using Game.Client.Tutorial;
 using Game.Core.Players;
@@ -37,7 +38,9 @@ namespace Game.Bootstrap
             builder.RegisterComponentInHierarchy<TutorialPauseController>();
             builder.RegisterComponentInHierarchy<TutorialItemCourse>();
             builder.RegisterComponentInHierarchy<KeySettingGuideView>();
+            builder.RegisterComponentInHierarchy<AvatarAppearanceApplier>();
             builder.RegisterEntryPoint<TutorialChrome>();
+            builder.RegisterEntryPoint<TutorialAvatarDresser>();
         }
 
         /// <summary>
