@@ -2751,7 +2751,7 @@ namespace Game.Network.Session
             if (!TryValidateLobbySettingsRequest(
                     true,
                     true,
-                    info.PlayerCount,
+                    PlayerCount,
                     maxPlayers,
                     destructionLimit,
                     mapId,
