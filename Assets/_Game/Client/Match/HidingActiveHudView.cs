@@ -1,34 +1,29 @@
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IHidingActiveHudView
-    {
-        void Show(double remainingSeconds, bool showTopPrompt, bool showCompleteGuide);
-        void Hide();
-        void SetRemainingSeconds(double remainingSeconds);
-        void SetTopPromptVisible(bool visible);
-        void SetCompleteGuideVisible(bool visible);
-    }
-
     /// <summary>
     /// Edge HUD for the hiding phase: top timer, complete guide, and key list.
     /// Input wiring belongs to the presenter; this view only paints.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class HidingActiveHudView : MonoBehaviour, IHidingActiveHudView
+    public sealed class HidingActiveHudView : MonoBehaviour
     {
-        public const string HintText = "제한 시간 안에 물건을 숨겨주세요!";
-        public const string WarningHintText = "시간 초과 시 마지막 위치에 물건이 배치됩니다";
+        public static string HintText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.HideHint, "ko");
+        public static string WarningHintText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.HideWarning, "ko");
         public const float WarningSeconds = 10f;
         public const float TopPadding = 20f;
         public const float HeartbeatPeakScale = 1.08f;
         public const float HeartbeatPeriod = 0.9f;
         public static readonly Color WarningColor = new Color(1f, 0.54f, 0.24f, 1f);
-        public const string CompleteText = "숨기기 완료";
+        public static string CompleteText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.HideComplete, "ko");
         public const string CompleteKey = "Y";
         public const float TimerFontSize = 58.5f;
         public const float TimerWidth = 468f;
@@ -42,10 +37,10 @@ namespace Game.Client.Match
         public const float KeyChipPaddingX = 10f;
         public const float KeyChipCornerRadius = 10f;
         public const float KeyIconSize = 24f;
-        public const string ClickKeyLabel = KeySettingGuideView.ClickKeyLabel;
+        public static string ClickKeyLabel => KeySettingGuideView.ClickKeyLabel;
         public static readonly Color KeyChipColor = new Color(0f, 0f, 0f, 0.27f);
-        public static readonly string[] KeyGuideActions = KeySettingGuideView.Actions;
-        public static readonly string[] KeyGuideLabels = KeySettingGuideView.Labels;
+        public static string[] KeyGuideActions => KeySettingGuideView.Actions;
+        public static string[] KeyGuideLabels => KeySettingGuideView.Labels;
 
         private static Sprite keyChipSprite;
 
@@ -72,6 +67,20 @@ namespace Game.Client.Match
         private double lastRemainingSeconds;
         private bool shown;
         private bool warningActive;
+        private UiLocale chromeLocale;
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureLayout();
+            ApplyUrgency(lastRemainingSeconds);
+            ApplyCompleteKeyStyle();
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
 
         public static HidingActiveHudView Create(Transform parent)
         {
@@ -203,7 +212,9 @@ namespace Game.Client.Match
         {
             warningActive = IsWarning(remainingSeconds);
             var color = warningActive ? WarningColor : Color.white;
-            var hint = warningActive ? WarningHintText : HintText;
+            var hint = warningActive
+                ? Copy(UiText.Match.HideWarning)
+                : Copy(UiText.Match.HideHint);
 
             if (timerText != null)
             {
@@ -272,6 +283,12 @@ namespace Game.Client.Match
             var caption = completeGuide.transform.Find("Caption") as RectTransform;
             if (caption != null)
             {
+                var captionText = caption.GetComponent<TMP_Text>();
+                if (captionText != null)
+                {
+                    captionText.text = Copy(UiText.Match.HideComplete);
+                }
+
                 Place(
                     caption,
                     new Vector2(0f, 0.5f),
@@ -356,7 +373,7 @@ namespace Game.Client.Match
         {
             topPrompt = CreateRect(transform, "TopPrompt").gameObject;
             timerText = CreateText(topPrompt.transform, "Timer", "00:30", TimerFontSize);
-            hintText = CreateText(topPrompt.transform, "Hint", HintText, HintFontSize);
+            hintText = CreateText(topPrompt.transform, "Hint", Copy(UiText.Match.HideHint), HintFontSize);
             ApplyTopPromptLayout();
 
             completeGuide = CreateRect(transform, "CompleteGuide").gameObject;
@@ -386,7 +403,7 @@ namespace Game.Client.Match
                 HomeUiFonts.ApplyLight());
             Stretch(completeKeyLabel.rectTransform);
 
-            var completeLabel = CreateText(completeGuide.transform, "Caption", CompleteText, GuideFontSize);
+            var completeLabel = CreateText(completeGuide.transform, "Caption", Copy(UiText.Match.HideComplete), GuideFontSize);
             completeLabel.alignment = TextAlignmentOptions.MidlineLeft;
             Place(
                 completeLabel.rectTransform,

@@ -1,6 +1,7 @@
 using System;
 using Game.Client.Character;
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,6 +28,10 @@ namespace Game.Client.Settings
         private TMP_Text feedbackSubmitLabel;
         private HomeHoverHighlight feedbackSubmitHover;
         private bool isFeedbackOpen;
+        private TMP_Text feedbackTitle;
+        private TMP_Text feedbackSubtitle;
+        private TMP_Text feedbackPlaceholder;
+        private TMP_Text feedbackCancelLabel;
 
         public event Action<string> FeedbackEdited;
 
@@ -111,6 +116,34 @@ namespace Game.Client.Settings
             }
         }
 
+        private void PaintFeedback()
+        {
+            if (feedbackTitle != null)
+            {
+                feedbackTitle.text = Copy(UiText.Settings.FeedbackSend);
+            }
+
+            if (feedbackSubtitle != null)
+            {
+                feedbackSubtitle.text = Copy(UiText.Settings.FeedbackSubtitle);
+            }
+
+            if (feedbackPlaceholder != null)
+            {
+                feedbackPlaceholder.text = Copy(UiText.Settings.FeedbackPlaceholder);
+            }
+
+            if (feedbackCancelLabel != null)
+            {
+                feedbackCancelLabel.text = Copy(UiText.Settings.Cancel);
+            }
+
+            if (feedbackSubmitLabel != null)
+            {
+                feedbackSubmitLabel.text = Copy(UiText.Settings.FeedbackSubmit);
+            }
+        }
+
         private void RaiseFeedbackDismissed() => FeedbackDismissed?.Invoke();
 
         private void OnFeedbackTyped(string text)
@@ -162,16 +195,16 @@ namespace Game.Client.Settings
                 HomeUiFonts.Rounded(SettingsStyle.Feedback.PanelRadius),
                 raycastTarget: true);
 
-            var title = CreateText(
+            feedbackTitle = CreateText(
                 "Title",
                 plate,
                 SettingsStyle.Feedback.Title,
                 SettingsStyle.Feedback.TitleFontSize,
                 CharacterClosetStyle.Palette.ModalTitle,
                 TextAlignmentOptions.Top);
-            PlaceLine(title.rectTransform, SettingsStyle.Feedback.TitleTop, SettingsStyle.Feedback.TitleFontSize);
+            PlaceLine(feedbackTitle.rectTransform, SettingsStyle.Feedback.TitleTop, SettingsStyle.Feedback.TitleFontSize);
 
-            var subtitle = CreateText(
+            feedbackSubtitle = CreateText(
                 "Subtitle",
                 plate,
                 SettingsStyle.Feedback.Subtitle,
@@ -180,7 +213,7 @@ namespace Game.Client.Settings
                 TextAlignmentOptions.Top,
                 regularFont);
             PlaceLine(
-                subtitle.rectTransform,
+                feedbackSubtitle.rectTransform,
                 SettingsStyle.Feedback.SubtitleTop,
                 SettingsStyle.Feedback.SubtitleFontSize);
 
@@ -216,7 +249,7 @@ namespace Game.Client.Settings
                 CharacterClosetStyle.Palette.DeclineLabel,
                 () => FeedbackDismissed?.Invoke(),
                 out _,
-                out _,
+                out feedbackCancelLabel,
                 out _);
 
             feedbackSubmitButton = CreateModalButton(
@@ -280,7 +313,7 @@ namespace Game.Client.Settings
             Stretch(text.rectTransform);
             text.raycastTarget = true;
 
-            var placeholder = CreateText(
+            feedbackPlaceholder = CreateText(
                 "Placeholder",
                 viewport,
                 SettingsStyle.Feedback.Placeholder,
@@ -288,7 +321,7 @@ namespace Game.Client.Settings
                 SettingsStyle.Palette.FieldPlaceholder,
                 TextAlignmentOptions.TopLeft,
                 regularFont);
-            Stretch(placeholder.rectTransform);
+            Stretch(feedbackPlaceholder.rectTransform);
 
             // TMP_InputField reads its parts as it wakes, so the object is kept
             // switched off until every one of them is in place.
@@ -296,9 +329,16 @@ namespace Game.Client.Settings
             var input = field.gameObject.AddComponent<TMP_InputField>();
             input.textViewport = viewport;
             input.textComponent = text;
-            input.placeholder = placeholder;
+            input.placeholder = feedbackPlaceholder;
             input.fontAsset = text.font;
             input.pointSize = SettingsStyle.Feedback.FieldFontSize;
+
+            // TMP underlines the IME syllable with <u> tags. This field's text
+            // is drawn with richText off, so those tags would sit next to the
+            // Hangul as literal markup.
+            input.richText = false;
+            text.richText = false;
+            feedbackPlaceholder.richText = false;
 
             // Enter puts in a new line rather than sending: this is a place to
             // write more than a sentence, and 보내기 is how it goes.
@@ -323,12 +363,7 @@ namespace Game.Client.Settings
                 CharacterClosetStyle.Modal.CloseSize, CharacterClosetStyle.Modal.CloseSize);
 
             var image = AddImage(rect, CharacterClosetStyle.Palette.CloseIcon, raycastTarget: true);
-            if (closeIcon != null)
-            {
-                image.sprite = closeIcon;
-                image.type = Image.Type.Simple;
-                image.preserveAspect = true;
-            }
+            SettingsStyle.ApplyCloseIcon(image, closeIcon);
 
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;

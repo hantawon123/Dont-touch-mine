@@ -20,20 +20,33 @@ namespace Game.Client
         public const string RootName = "KeySettingGuide";
         public const float MarginRight = 48f;
         public const float ActionFontSize = 18f;
-        public const string ClickKeyLabel = "클릭";
-        public const string RightClickKeyLabel = "우클릭";
-        public const string ScrollKeyLabel = "스크롤";
+        public static string ClickKeyLabel =>
+            UiLocale.Applied(UiText.Guide.Click);
+        public static string RightClickKeyLabel =>
+            UiLocale.Applied(UiText.Guide.RightClick);
+        public static string ScrollKeyLabel =>
+            UiLocale.Applied(UiText.Guide.Scroll);
         public const string RotateYawKeyLabel = "Q / E";
         public const string LeftClickIconResource = "UI/ic_left_click";
         public const string RightClickIconResource = "UI/ic_right_click";
         public const string ScrollIconResource = "UI/ic_mouse_scroll";
-        public const string ToggleAction = "키 가이드 on/off";
+
+        /// <summary>
+        /// 들고 있을 때 배치 모드를 켜는 줄에 쓰는 아이콘. 같은 우클릭이지만
+        /// 배치 모드로 들어간다는 뜻이 먼저 읽히도록 방향 아이콘을 쓴다.
+        /// </summary>
+        public const string PlacementModeIconResource = ScrollIconResource;
+        public static string ToggleAction =>
+            UiLocale.Applied(UiText.Guide.Toggle);
         public const string ToggleKeyLabel = "L";
+        public static string EmoteAction =>
+            UiLocale.Applied(UiText.Guide.Emote);
+        public const string EmoteKeyLabel = "X";
         public const float RowStep = 48f;
         public const float CompactKeyChipFontSize = 12f;
-        public static readonly Vector2 PanelSize = new Vector2(280f, 368f);
-        public static readonly Vector2 CarryingPanelSize = new Vector2(280f, 464f);
-        public static readonly Vector2 PlacingPanelSize = new Vector2(280f, 512f);
+        public static readonly Vector2 PanelSize = new Vector2(280f, 416f);
+        public static readonly Vector2 CarryingPanelSize = new Vector2(280f, 512f);
+        public static readonly Vector2 PlacingPanelSize = new Vector2(280f, 560f);
 
         public enum Mode
         {
@@ -42,18 +55,19 @@ namespace Game.Client
             Placing
         }
 
-        public static readonly string[] Actions =
+        public static string[] Actions => new[]
         {
-            "공격",
-            "앉기",
-            "엎드리기",
-            "시점 변경",
-            "달리기",
-            "점프",
-            ToggleAction
+            UiLocale.Applied(UiText.Guide.Attack),
+            UiLocale.Applied(UiText.Guide.Crouch),
+            UiLocale.Applied(UiText.Guide.Prone),
+            UiLocale.Applied(UiText.Guide.ToggleView),
+            UiLocale.Applied(UiText.Guide.Sprint),
+            UiLocale.Applied(UiText.Guide.Jump),
+            ToggleAction,
+            EmoteAction
         };
 
-        public static readonly string[] Labels =
+        public static string[] Labels => new[]
         {
             ClickKeyLabel,
             "C",
@@ -61,61 +75,67 @@ namespace Game.Client
             "V",
             "Shift",
             "Space",
-            ToggleKeyLabel
+            ToggleKeyLabel,
+            EmoteKeyLabel
         };
 
-        public static readonly string[] CarryingActions =
+        public static string[] CarryingActions => new[]
         {
-            "배치 모드",
-            "던지기",
-            "놓기",
-            "앉기",
-            "엎드리기",
-            "시점 변경",
-            "달리기",
-            "점프",
-            ToggleAction
+            UiLocale.Applied(UiText.Guide.Placement),
+            UiLocale.Applied(UiText.Guide.Throw),
+            UiLocale.Applied(UiText.Guide.Drop),
+            UiLocale.Applied(UiText.Guide.Crouch),
+            UiLocale.Applied(UiText.Guide.Prone),
+            UiLocale.Applied(UiText.Guide.ToggleView),
+            UiLocale.Applied(UiText.Guide.Sprint),
+            UiLocale.Applied(UiText.Guide.Jump),
+            ToggleAction,
+            EmoteAction
         };
 
-        public static readonly string[] CarryingLabels =
+        public static string[] CarryingLabels => new[]
         {
-            ClickKeyLabel,
             RightClickKeyLabel,
+            ClickKeyLabel,
             "F",
             "C",
             "Z",
             "V",
             "Shift",
             "Space",
-            ToggleKeyLabel
+            ToggleKeyLabel,
+            EmoteKeyLabel
         };
 
-        public static readonly string[] PlacingActions =
+        // 배치 모드: 좌클릭 배치, 우클릭 유지+마우스 회전, Q/E 좌우 회전, F 놓기(기존). 우클릭으로 모드를 끄는 키는 없다(손이 비면 꺼짐).
+        public static string[] PlacingActions => new[]
         {
-            "배치 모드 끄기",
-            "배치하기",
-            "가로축 회전",
-            "세로축 회전",
-            "앉기",
-            "엎드리기",
-            "시점 변경",
-            "달리기",
-            "점프",
-            ToggleAction
+            UiLocale.Applied(UiText.Guide.Place),
+            UiLocale.Applied(UiText.Guide.Rotate),
+            UiLocale.Applied(UiText.Guide.Twist),
+            UiLocale.Applied(UiText.Guide.Drop),
+            UiLocale.Applied(UiText.Guide.Crouch),
+            UiLocale.Applied(UiText.Guide.Prone),
+            UiLocale.Applied(UiText.Guide.ToggleView),
+            UiLocale.Applied(UiText.Guide.Sprint),
+            UiLocale.Applied(UiText.Guide.Jump),
+            ToggleAction,
+            EmoteAction
         };
 
-        public static readonly string[] PlacingLabels =
+        public static string[] PlacingLabels => new[]
         {
-            RightClickKeyLabel,
             ClickKeyLabel,
+            RightClickKeyLabel,
             RotateYawKeyLabel,
-            ScrollKeyLabel,
+            "F",
             "C",
             "Z",
             "V",
             "Shift",
             "Space",
-            ToggleKeyLabel
+            ToggleKeyLabel,
+            EmoteKeyLabel
         };
 
         private static readonly ControlAction[] DefaultBindings =
@@ -142,10 +162,10 @@ namespace Game.Client
 
         private static readonly ControlAction[] PlacingBindings =
         {
-            ControlAction.PlacementMode,
             ControlAction.PrimaryAction,
+            ControlAction.PlacementMode,
             ControlAction.RotateLeft,
-            ControlAction.RaiseObject,
+            ControlAction.Interact,
             ControlAction.Crouch,
             ControlAction.Prone,
             ControlAction.ToggleView,
@@ -158,9 +178,82 @@ namespace Game.Client
         private CanvasGroup fade;
         private PlayerInteractor localInteractor;
         private Mode mode;
+        private string focusLabel;
+        private ControlAction[] focusActions = System.Array.Empty<ControlAction>();
+        private UiLocale chromeLocale;
+        private static readonly Color FocusColor = new Color(1f, .79f, .28f);
+
+        [VContainer.Inject]
+        public void BindLocale(UiLocale value) => ShowChrome(value);
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            ApplyStyle();
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
+
+        private string[] PaintedActions()
+        {
+            return mode == Mode.Placing
+                ? new[]
+                {
+                    Copy(UiText.Guide.Place),
+                    Copy(UiText.Guide.Rotate),
+                    Copy(UiText.Guide.Twist),
+                    Copy(UiText.Guide.Drop),
+                    Copy(UiText.Guide.Crouch),
+                    Copy(UiText.Guide.Prone),
+                    Copy(UiText.Guide.ToggleView),
+                    Copy(UiText.Guide.Sprint),
+                    Copy(UiText.Guide.Jump),
+                    Copy(UiText.Guide.Toggle),
+                    Copy(UiText.Guide.Emote)
+                }
+                : mode == Mode.Carrying
+                    ? new[]
+                    {
+                        Copy(UiText.Guide.Placement),
+                        Copy(UiText.Guide.Throw),
+                        Copy(UiText.Guide.Drop),
+                        Copy(UiText.Guide.Crouch),
+                        Copy(UiText.Guide.Prone),
+                        Copy(UiText.Guide.ToggleView),
+                        Copy(UiText.Guide.Sprint),
+                        Copy(UiText.Guide.Jump),
+                        Copy(UiText.Guide.Toggle),
+                        Copy(UiText.Guide.Emote)
+                    }
+                    : new[]
+                    {
+                        Copy(UiText.Guide.Attack),
+                        Copy(UiText.Guide.Crouch),
+                        Copy(UiText.Guide.Prone),
+                        Copy(UiText.Guide.ToggleView),
+                        Copy(UiText.Guide.Sprint),
+                        Copy(UiText.Guide.Jump),
+                        Copy(UiText.Guide.Toggle),
+                        Copy(UiText.Guide.Emote)
+                    };
+        }
+
+        public void SetFocus(string label, params ControlAction[] actions)
+        {
+            focusLabel = label;
+            focusActions = actions ?? System.Array.Empty<ControlAction>();
+            ApplyStyle();
+        }
+
+        public static string CurrentKeyLabel(ControlAction action) => ControlCatalog.KeyLabel(
+            (sharedSettings != null ? sharedSettings.Current : ControlCatalog.Defaults).Get(action));
 
         public static bool UserVisible { get; private set; } = true;
         public bool AlwaysVisible { get; set; }
+        public bool ShowFocusCaption { get; set; } = true;
         public bool IsCarrying => mode == Mode.Carrying;
         public bool IsPlacing => mode == Mode.Placing;
         public Mode CurrentMode => mode;
@@ -214,13 +307,14 @@ namespace Game.Client
             }
 
             var bindings = BindingsFor(guideMode);
-            var labels = new string[bindings.Length + 1];
+            var labels = new string[bindings.Length + 2];
             for (var index = 0; index < bindings.Length; index++)
             {
                 labels[index] = LabelForBinding(guideMode, bindings[index], settings);
             }
 
-            labels[labels.Length - 1] = ControlCatalog.KeyLabel(settings.Get(ControlAction.ToggleKeyGuide));
+            labels[labels.Length - 2] = ControlCatalog.KeyLabel(settings.Get(ControlAction.ToggleKeyGuide));
+            labels[labels.Length - 1] = ControlCatalog.KeyLabel(settings.Get(ControlAction.EmoteWheel));
             return labels;
         }
 
@@ -247,26 +341,11 @@ namespace Game.Client
                     settings.Get(ControlAction.RotateRight));
             }
 
-            if (guideMode == Mode.Placing && action == ControlAction.RaiseObject)
-            {
-                var raise = settings.Get(ControlAction.RaiseObject);
-                var lower = settings.Get(ControlAction.LowerObject);
-                if (IsScrollCode(raise) && IsScrollCode(lower))
-                {
-                    return ScrollKeyLabel;
-                }
-
-                return CombinedKeyLabel(raise, lower);
-            }
-
             return ControlCatalog.KeyLabel(settings.Get(action));
         }
 
         private static string CombinedKeyLabel(string leftCode, string rightCode) =>
             $"{ControlCatalog.KeyLabel(leftCode)} / {ControlCatalog.KeyLabel(rightCode)}";
-
-        private static bool IsScrollCode(string code) =>
-            code == ControlCatalog.ScrollUp || code == ControlCatalog.ScrollDown;
 
         private static void OnSharedSettingsChanged(ControlSettings _) => RefreshBoundGuides();
 
@@ -378,11 +457,14 @@ namespace Game.Client
         public void ApplyStyle()
         {
             PlacePanel();
-            var actions = ActionsFor(mode);
+            var actions = PaintedActions();
             var labels = LabelsFor(mode);
             var light = HomeUiFonts.ApplyLight();
+            var bindings = BindingsFor(mode);
+            var interactionFocus = mode == Mode.Default && System.Array.IndexOf(focusActions, ControlAction.Interact) >= 0;
             for (var index = 0; index < actions.Length; index++)
             {
+                var focused = interactionFocus && index == 0 || index < bindings.Length && System.Array.IndexOf(focusActions, bindings[index]) >= 0;
                 var row = transform.Find($"Row{index}");
                 if (row == null)
                 {
@@ -393,11 +475,13 @@ namespace Game.Client
                 var action = row.Find("Action")?.GetComponent<TMP_Text>();
                 if (action != null)
                 {
-                    action.text = actions[index];
+                    action.text = interactionFocus && index == 0
+                        ? Copy(UiText.Guide.InteractPickup)
+                        : actions[index];
                     action.font = light;
                     action.fontSize = ActionFontSize;
-                    action.fontStyle = FontStyles.Normal;
-                    action.color = Color.white;
+                    action.fontStyle = focused ? FontStyles.Bold : FontStyles.Normal;
+                    action.color = focused ? FocusColor : Color.white;
                     action.alignment = TextAlignmentOptions.MidlineRight;
                 }
 
@@ -405,13 +489,30 @@ namespace Game.Client
                 var keyLabel = row.Find("Key/Label")?.GetComponent<TMP_Text>();
                 if (keyLabel != null)
                 {
-                    keyLabel.text = labels[index];
+                    keyLabel.text = interactionFocus && index == 0 ? CurrentKeyLabel(ControlAction.Interact) : labels[index];
+                    keyLabel.fontStyle = focused ? FontStyles.Bold : FontStyles.Normal;
+                    keyLabel.color = focused ? FocusColor : Color.white;
                 }
 
                 if (chip != null)
                 {
+                    var iconAction = interactionFocus && index == 0
+                        ? ControlAction.Interact
+                        : index < bindings.Length
+                            ? bindings[index]
+                            : index == bindings.Length
+                                ? ControlAction.ToggleKeyGuide
+                                : ControlAction.EmoteWheel;
                     ApplyKeyChipLook(chip.GetComponent<Image>());
-                    FitKeyChip(chip, keyLabel);
+                    FitKeyChip(chip, keyLabel, IconResourceFor(mode, iconAction));
+                    if (keyLabel != null)
+                    {
+                        keyLabel.fontStyle = focused ? FontStyles.Bold : FontStyles.Normal;
+                        keyLabel.color = focused ? FocusColor : Color.white;
+                    }
+                    if (focused) chip.GetComponent<Image>().color = new Color(.3f, .23f, .07f, .95f);
+                    var icon = chip.Find("Icon")?.GetComponent<Image>();
+                    if (icon != null) icon.color = focused ? FocusColor : Color.white;
                 }
 
                 if (action != null && chip != null)
@@ -421,6 +522,30 @@ namespace Game.Client
             }
 
             HideUnusedRows(actions.Length);
+            RefreshFocusLabel();
+        }
+
+        private void RefreshFocusLabel()
+        {
+            var caption = transform.Find("Focus")?.GetComponent<TMP_Text>();
+            if (!ShowFocusCaption || string.IsNullOrEmpty(focusLabel))
+            {
+                if (caption != null) caption.gameObject.SetActive(false);
+                return;
+            }
+            if (caption == null)
+                caption = CreateText(transform, "Focus", string.Empty, 20f, HomeUiFonts.ApplyLight());
+            caption.gameObject.SetActive(true);
+            var settings = sharedSettings != null ? sharedSettings.Current : ControlCatalog.Defaults;
+            var keys = new string[focusActions.Length];
+            for (var i = 0; i < keys.Length; i++)
+                keys[i] = ControlCatalog.KeyLabel(settings.Get(focusActions[i]));
+            caption.text = $"{focusLabel}\n<size=17>{string.Join(" / ", keys)}</size>";
+            caption.color = FocusColor;
+            caption.fontStyle = FontStyles.Bold;
+            caption.alignment = TextAlignmentOptions.BottomRight;
+            caption.textWrappingMode = TextWrappingModes.Normal;
+            Place(caption.rectTransform, Vector2.one, new Vector2(0, 12), new Vector2(360, 64), new Vector2(1, 0));
         }
 
         private void Awake()
@@ -657,9 +782,8 @@ namespace Game.Client
             chip.pixelsPerUnitMultiplier = 1f;
         }
 
-        private static void FitKeyChip(RectTransform chip, TMP_Text label)
+        private static void FitKeyChip(RectTransform chip, TMP_Text label, string iconResource)
         {
-            var iconResource = IconResourceFor(label != null ? label.text : null);
             var icon = chip.Find("Icon")?.GetComponent<Image>();
             if (iconResource != null)
             {
@@ -716,24 +840,35 @@ namespace Game.Client
                 new Vector2(1f, 0.5f));
         }
 
-        private static string IconResourceFor(string label)
+        /// <summary>
+        /// The icon a row's key chip draws, or null when the chip spells the
+        /// key out. Read from the bound key rather than the drawn label: the
+        /// label is written in whichever language is applied, so matching on
+        /// its text left the chip showing words once English was picked.
+        /// </summary>
+        public static string IconResourceFor(Mode guideMode, ControlAction action)
         {
-            if (label == ClickKeyLabel || label == "좌클릭")
+            var settings = sharedSettings != null ? sharedSettings.Current : ControlCatalog.Defaults;
+            var code = settings.Get(action);
+            if (guideMode == Mode.Carrying &&
+                action == ControlAction.PlacementMode &&
+                code == ControlCatalog.MouseRight)
             {
-                return LeftClickIconResource;
+                return PlacementModeIconResource;
             }
 
-            if (label == RightClickKeyLabel)
+            switch (code)
             {
-                return RightClickIconResource;
+                case ControlCatalog.MouseLeft:
+                    return LeftClickIconResource;
+                case ControlCatalog.MouseRight:
+                    return RightClickIconResource;
+                case ControlCatalog.ScrollUp:
+                case ControlCatalog.ScrollDown:
+                    return ScrollIconResource;
+                default:
+                    return null;
             }
-
-            if (label == ScrollKeyLabel || label == "스크롤 ↑" || label == "스크롤 ↓")
-            {
-                return ScrollIconResource;
-            }
-
-            return null;
         }
 
         private static float KeyChipFontSizeFor(string label)

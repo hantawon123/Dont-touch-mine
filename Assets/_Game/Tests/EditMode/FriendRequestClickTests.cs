@@ -342,6 +342,7 @@ namespace Game.Architecture.Tests
             public void OpenCharacterCloset() { }
 
             public void OpenSettings() { }
+            public void OpenTutorial() { }
 
             public void CreateRoom(string title, bool isPublic, int maxPlayers) { }
             public void JoinRoom(string roomCode) { }
@@ -416,6 +417,8 @@ namespace Game.Architecture.Tests
             public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests) { }
 
             public void SetNicknameSettled(bool settled) { }
+
+            public void SetProfileAppearance(Game.Core.Players.AvatarAppearance appearance) { }
             public void SetRoomInvites(IReadOnlyList<RoomInvite> invites) { }
 
             public void SetServerSettingsVisible(bool visible) { }
@@ -431,6 +434,8 @@ namespace Game.Architecture.Tests
             public void SetNicknameSearchAllowedError(string message) { }
 
             public void ShowConnectionError(string message) { }
+
+            public void ShowChrome(UiLocale locale) { }
 
             /// <remarks>Declared to satisfy the interface; this test raises one.</remarks>
             public void Unused()

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -79,7 +80,7 @@ namespace Game.Client.Lobby
 
             if (mapNameText != null)
             {
-                mapNameText.text = selected.Label;
+                mapNameText.text = PlaySettingsMapCatalog.LabelOf(selected.Id, Language);
             }
 
             if (mapPreviewImage != null)
@@ -90,7 +91,10 @@ namespace Game.Client.Lobby
                     mapPreviewPhoto = MapPreviewSprites.FindPhoto(mapPreviewImage);
                 }
 
-                MapPreviewSprites.Apply(mapPreviewPhoto, MapPreviewSprites.For(selected.Id));
+                MapPreviewSprites.Apply(
+                    mapPreviewPhoto,
+                    selected.IsRandom ? null : MapPreviewSprites.For(selected.Id));
+                MapPreviewSprites.ApplyRandomMark(mapPreviewImage, selected.IsRandom);
             }
 
             for (var i = 0; i < mapSlotImages.Count; i++)
@@ -106,11 +110,16 @@ namespace Game.Client.Lobby
                     ? PlaySettingsStyle.MapSlotPalette.Selected
                     : PlaySettingsStyle.MapSlotPalette.Normal;
 
+                var randomSlot = mapOptions[i].IsRandom;
                 // 슬롯에도 같은 사진을 작게 넣는다. 선택 안 된 슬롯은 살짝 어둡게 해 선택 슬롯과 구분한다.
                 MapPreviewSprites.Apply(
                     MapPreviewSprites.FindPhoto(image),
-                    MapPreviewSprites.For(mapOptions[i].Id),
+                    randomSlot ? null : MapPreviewSprites.For(mapOptions[i].Id),
                     selectedSlot ? Color.white : MapPreviewSprites.DimmedTint);
+                MapPreviewSprites.ApplyRandomMark(
+                    image,
+                    randomSlot,
+                    MapPreviewSprites.RandomMarkSlotFontSize);
 
                 var outline = image.transform.Find("Selection");
                 if (outline != null)

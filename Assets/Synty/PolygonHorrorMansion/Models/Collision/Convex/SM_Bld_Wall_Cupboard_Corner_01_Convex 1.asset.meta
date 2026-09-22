@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 71e450306d8571d408c5f2b1d8c3c6c5
+timeCreated: 1644528893
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43038223883321838
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Bld_Wall_Cupboard_Corner_01_Convex
+    1.asset
+  uploadId: 987938

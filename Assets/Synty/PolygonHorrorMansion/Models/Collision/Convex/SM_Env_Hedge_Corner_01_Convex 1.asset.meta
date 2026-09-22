@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 392e6c815cdbfed4b96430e527005ed2
+timeCreated: 1644463762
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43374757164648368
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Env_Hedge_Corner_01_Convex
+    1.asset
+  uploadId: 987938

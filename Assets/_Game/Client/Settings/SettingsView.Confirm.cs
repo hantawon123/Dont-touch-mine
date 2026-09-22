@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using Game.Client.Character;
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -29,6 +30,9 @@ namespace Game.Client.Settings
         private TMP_Text declineLabel;
         private TMP_Text acceptLabel;
         private bool isConfirmOpen;
+        private SettingsConfirmKind? paintedConfirm;
+        private SettingsTab paintedConfirmTab;
+        private string leaveConfirmTitle;
 
         /// <summary>
         /// The softened still, and whose panel it is currently behind. Shared
@@ -66,34 +70,136 @@ namespace Game.Client.Settings
                 return;
             }
 
-            switch (kind)
+            paintedConfirm = kind;
+            paintedConfirmTab = tab;
+            leaveConfirmTitle = null;
+            PaintConfirm();
+            OpenConfirm();
+        }
+
+        public void ShowLeaveConfirmation(string title)
+        {
+            if (confirmRoot == null)
+            {
+                return;
+            }
+
+            paintedConfirm = SettingsConfirmKind.LeaveGame;
+            leaveConfirmTitle = title ?? string.Empty;
+            PaintConfirm();
+            OpenConfirm();
+        }
+
+        private void PaintConfirm()
+        {
+            if (confirmTitle == null || !paintedConfirm.HasValue)
+            {
+                return;
+            }
+
+            if (leaveConfirmTitle != null)
+            {
+                confirmTitle.text = leaveConfirmTitle;
+                confirmSubtitle.text = SettingsStyle.Modal.LeaveGameSubtitle;
+                declineLabel.text = Copy(UiText.Settings.Cancel);
+                acceptLabel.text = Copy(UiText.Settings.Leave);
+                LayoutConfirm();
+                return;
+            }
+
+            switch (paintedConfirm.Value)
             {
                 case SettingsConfirmKind.ResetAll:
-                    confirmTitle.text = SettingsStyle.Modal.ResetAllTitle;
-                    confirmSubtitle.text = SettingsStyle.Modal.ResetAllSubtitle;
-                    declineLabel.text = SettingsStyle.Modal.CancelLabel;
-                    acceptLabel.text = SettingsStyle.Modal.ResetLabel;
+                    confirmTitle.text = Copy(UiText.Settings.ResetAllTitle);
+                    confirmSubtitle.text = Copy(UiText.Settings.ResetAllSubtitle);
+                    declineLabel.text = Copy(UiText.Settings.Cancel);
+                    acceptLabel.text = Copy(UiText.Settings.Reset);
                     break;
                 case SettingsConfirmKind.Discard:
-                    confirmTitle.text = SettingsStyle.Modal.DiscardTitle;
-                    confirmSubtitle.text = SettingsStyle.Modal.DiscardSubtitle;
-                    declineLabel.text = SettingsStyle.Modal.LeaveLabel;
-                    acceptLabel.text = SettingsStyle.Modal.SaveAndLeaveLabel;
+                    confirmTitle.text = Copy(UiText.Settings.DiscardTitle);
+                    confirmSubtitle.text = Copy(UiText.Settings.DiscardSubtitle);
+                    declineLabel.text = Copy(UiText.Settings.LeaveWithoutSaving);
+                    acceptLabel.text = Copy(UiText.Settings.SaveAndLeave);
                     break;
                 case SettingsConfirmKind.LeaveGame:
-                    confirmTitle.text = SettingsStyle.Modal.LeaveGameTitle;
+                    confirmTitle.text = Copy(UiText.Settings.LeaveGameTitle);
                     confirmSubtitle.text = SettingsStyle.Modal.LeaveGameSubtitle;
-                    declineLabel.text = SettingsStyle.Modal.CancelLabel;
-                    acceptLabel.text = SettingsStyle.Modal.LeaveGameAcceptLabel;
+                    declineLabel.text = Copy(UiText.Settings.Cancel);
+                    acceptLabel.text = Copy(UiText.Settings.Leave);
                     break;
                 default:
-                    confirmTitle.text = SettingsStyle.TabLabel(tab) + SettingsStyle.Modal.ResetTabTitleSuffix;
-                    confirmSubtitle.text = SettingsStyle.Modal.ResetTabSubtitle;
-                    declineLabel.text = SettingsStyle.Modal.CancelLabel;
-                    acceptLabel.text = SettingsStyle.Modal.ResetLabel;
+                    var language = chromeLocale != null ? chromeLocale.LanguageCode : "ko";
+                    confirmTitle.text = SettingsStyle.Modal.ResetTabTitle(paintedConfirmTab, language);
+                    confirmSubtitle.text = Copy(UiText.Settings.ResetTabSubtitle);
+                    declineLabel.text = Copy(UiText.Settings.Cancel);
+                    acceptLabel.text = Copy(UiText.Settings.Reset);
                     break;
             }
 
+            LayoutConfirm();
+        }
+
+        private void LayoutConfirm()
+        {
+            if (confirmTitle == null || confirmSubtitle == null)
+            {
+                return;
+            }
+
+            var plate = confirmTitle.rectTransform.parent as RectTransform;
+            if (plate == null)
+            {
+                return;
+            }
+
+            var minTitleHeight = CharacterClosetStyle.Modal.TitleFontSize * 1.4f;
+            var subtitleHeight = CharacterClosetStyle.Modal.SubtitleFontSize * 1.4f;
+            confirmTitle.textWrappingMode = TextWrappingModes.Normal;
+            confirmTitle.overflowMode = TextOverflowModes.Overflow;
+            var titleHeight = Mathf.Max(
+                minTitleHeight,
+                confirmTitle.GetPreferredValues(
+                    confirmTitle.text, CharacterClosetStyle.Modal.PanelSize.x, 0f).y);
+
+            var title = confirmTitle.rectTransform;
+            title.sizeDelta = new Vector2(0f, titleHeight);
+
+            var subtitleTop = CharacterClosetStyle.Modal.TitleTop
+                              + titleHeight
+                              + CharacterClosetStyle.Modal.SubtitleGap;
+            var subtitle = confirmSubtitle.rectTransform;
+            subtitle.anchoredPosition = new Vector2(0f, -subtitleTop);
+            subtitle.sizeDelta = new Vector2(0f, subtitleHeight);
+
+            var buttonTop = subtitleTop
+                            + subtitleHeight
+                            + CharacterClosetStyle.Modal.ButtonGapAbove;
+            var half = (CharacterClosetStyle.Modal.ButtonSize.x
+                        + CharacterClosetStyle.Modal.ButtonGap) * 0.5f;
+            var decline = declineLabel != null
+                ? declineLabel.rectTransform.parent as RectTransform
+                : null;
+            var accept = acceptLabel != null
+                ? acceptLabel.rectTransform.parent as RectTransform
+                : null;
+            if (decline != null)
+            {
+                decline.anchoredPosition = new Vector2(-half, -buttonTop);
+            }
+
+            if (accept != null)
+            {
+                accept.anchoredPosition = new Vector2(half, -buttonTop);
+            }
+
+            plate.sizeDelta = new Vector2(
+                CharacterClosetStyle.Modal.PanelSize.x,
+                buttonTop + CharacterClosetStyle.Modal.ButtonSize.y
+                          + CharacterClosetStyle.Modal.BottomPadding);
+        }
+
+        private void OpenConfirm()
+        {
             isConfirmOpen = true;
             confirmRoot.SetActive(true);
             BeginBackdrop(confirmBackdrop);
@@ -101,6 +207,8 @@ namespace Game.Client.Settings
 
         public void HideConfirm()
         {
+            paintedConfirm = null;
+            leaveConfirmTitle = null;
             isConfirmOpen = false;
             if (confirmRoot != null)
             {
@@ -263,6 +371,8 @@ namespace Game.Client.Settings
                 CharacterClosetStyle.Modal.TitleFontSize,
                 CharacterClosetStyle.Palette.ModalTitle,
                 TextAlignmentOptions.Top);
+            confirmTitle.textWrappingMode = TextWrappingModes.Normal;
+            confirmTitle.overflowMode = TextOverflowModes.Overflow;
             var title = confirmTitle.rectTransform;
             SetAnchor(title, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
             title.anchoredPosition = new Vector2(0f, -CharacterClosetStyle.Modal.TitleTop);
@@ -351,12 +461,7 @@ namespace Game.Client.Settings
                 CharacterClosetStyle.Modal.CloseSize, CharacterClosetStyle.Modal.CloseSize);
 
             var image = AddImage(rect, CharacterClosetStyle.Palette.CloseIcon, raycastTarget: true);
-            if (closeIcon != null)
-            {
-                image.sprite = closeIcon;
-                image.type = Image.Type.Simple;
-                image.preserveAspect = true;
-            }
+            SettingsStyle.ApplyCloseIcon(image, closeIcon);
 
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;

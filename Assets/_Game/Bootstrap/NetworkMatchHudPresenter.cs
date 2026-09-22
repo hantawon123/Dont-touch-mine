@@ -4,9 +4,11 @@ using Game.Client.Match;
 using Game.Core.Items;
 using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Core.Settings;
 using Game.Network.Match;
 using Game.SOAP.Config;
 using Game.Server.Match;
+using Game.Server.Players;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -27,7 +29,9 @@ namespace Game.Bootstrap
         private readonly MatchRulesSO rules;
         private readonly INetworkMatchHudView view;
         private readonly NetworkHighlightPlaybackController playback;
+        private UiLocale locale;
         private readonly List<PlayerItemDestroyedEvent> destructions = new();
+        private string lastDestroyerName = string.Empty;
 
         private MatchStateSnapshot snapshot;
         private bool hasSnapshot;
@@ -46,6 +50,7 @@ namespace Game.Bootstrap
         }
         private double noticeEndsAt;
         private double gameEndNoticeEndsAt = -1d;
+        private bool matchEndBellPlayed;
         // 맵에 파쇄기가 여러 대일 수 있으므로 전부 모아 두고, 화면에 보이고 벽이 가리지 않는 것 중
         // 카메라에 가장 가까운 것만 표시한다.
         private readonly List<Transform> shredders = new();
@@ -79,7 +84,8 @@ namespace Game.Bootstrap
             RoomBrowserSystem room,
             MatchRulesSO rules,
             INetworkMatchHudView view,
-            NetworkHighlightPlaybackController playback = null)
+            NetworkHighlightPlaybackController playback = null,
+            UiLocale locale = null)
         {
             this.events = events ?? throw new ArgumentNullException(nameof(events));
             this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
@@ -87,12 +93,23 @@ namespace Game.Bootstrap
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.playback = playback;
+            this.locale = locale;
         }
+
+        [VContainer.Inject]
+        public void BindLocale(UiLocale value) => locale = value;
 
         public void Start()
         {
             if (!CanUpdateView) { Dispose(); return; }
             if (presentation != null) presentation.Changed += OnPresentationChanged;
+            locale ??= UiLocale.Current;
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+                view.ShowChrome(locale);
+            }
+
             events.MatchStateReceived += OnMatchStateReceived;
             events.MatchResultReceived += OnMatchResultReceived;
             events.ItemAssignmentReceived += OnItemAssignmentReceived;
@@ -100,7 +117,7 @@ namespace Game.Bootstrap
             events.PlayerItemStatusesReceived += OnPlayerItemStatusesReceived;
             events.PlayerInteractionStatesReceived += OnPlayerInteractionStatesReceived;
             view.HideDestructionNotice();
-            view.SetRemainingDestructionUses(-1);
+            view.SetRemainingDestructionUses(-1, events.DestructionLimit);
             RefreshDestroyedItems();
             view.SetShredderMarker(default, false);
             view.HideHidingIntro();
@@ -119,6 +136,11 @@ namespace Game.Bootstrap
             if (disposed) return;
             disposed = true;
             if (presentation != null) presentation.Changed -= OnPresentationChanged;
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
+
             events.MatchStateReceived -= OnMatchStateReceived;
             events.MatchResultReceived -= OnMatchResultReceived;
             events.ItemAssignmentReceived -= OnItemAssignmentReceived;
@@ -131,6 +153,29 @@ namespace Game.Bootstrap
             hidingIntroVisible = searchingIntroVisible = false;
             hidingTurnStartVisible = hidingActiveHudVisible = hidingWaitHudVisible = false;
         }
+
+        private void OnLocaleChanged()
+        {
+            if (!CanUpdateView) { Dispose(); return; }
+            view.ShowChrome(locale);
+            if (NoticeVisible())
+            {
+                view.ShowDestructionNotice(FormatDestroyed(lastDestroyerName));
+            }
+        }
+
+        private bool NoticeVisible() =>
+            noticeEndsAt > 0d &&
+            clock.IsRuntimeReady &&
+            clock.ServerTime < noticeEndsAt;
+
+        private string Copy(string key) =>
+            locale != null
+                ? locale.Get(key)
+                : UiLocale.Applied(key);
+
+        private string FormatDestroyed(string name) =>
+            string.Format(Copy(UiText.Match.Destroyed), name);
 
         private void OnPresentationChanged()
         {
@@ -225,6 +270,8 @@ namespace Game.Bootstrap
             if (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting)
             {
                 gameEndNoticeEndsAt = -1d;
+                matchEndBellPlayed = false;
+                view.ResetMatchEndBell();
             }
             if (received.Phase == MatchPhase.Highlight || received.Phase == MatchPhase.Result)
             {
@@ -268,6 +315,11 @@ namespace Game.Bootstrap
         private void OnMatchResultReceived(MatchResult result)
         {
             if (!CanUpdateView) { Dispose(); return; }
+            if (!matchEndBellPlayed)
+            {
+                matchEndBellPlayed = true;
+                view.PlayMatchEndBell();
+            }
             if (result.EndReason == MatchEndReason.LastPlayerStanding) return;
             gameEndNoticeEndsAt = result.EndedAt + HighlightPresentationTiming.FadeSeconds;
             UpdateGameEndNotice();
@@ -362,8 +414,8 @@ namespace Game.Bootstrap
             if (UpdateGameEndNotice()) return;
             if (hasSnapshot && (snapshot.Phase == MatchPhase.Highlight || snapshot.Phase == MatchPhase.Result))
                 return;
-            view.ShowDestructionNotice(
-                $"{DisplayNameOf(confirmed.DestroyerPlayerIndex)}님이 물건을 파괴했습니다!");
+            lastDestroyerName = DisplayNameOf(confirmed.DestroyerPlayerIndex);
+            view.ShowDestructionNotice(FormatDestroyed(lastDestroyerName));
             noticeEndsAt = Math.Max(clock.IsRuntimeReady ? clock.ServerTime : confirmed.DestroyedAt, confirmed.DestroyedAt) +
                            NoticeDurationSeconds;
         }
@@ -379,10 +431,14 @@ namespace Game.Bootstrap
                     latest = destruction;
             }
             if (latest.HasValue)
-                view.ShowDestructionNotice(
-                    $"{DisplayNameOf(latest.Value.DestroyerPlayerIndex)}님이 물건을 파괴했습니다!");
+            {
+                lastDestroyerName = DisplayNameOf(latest.Value.DestroyerPlayerIndex);
+                view.ShowDestructionNotice(FormatDestroyed(lastDestroyerName));
+            }
             else
+            {
                 view.HideDestructionNotice();
+            }
         }
 
         private void OnItemAssignmentReceived(string itemId)
@@ -538,12 +594,25 @@ namespace Game.Bootstrap
                 maxStamina,
                 MatchVitalsHudView.RemainingHits(localHitCount, maxHits),
                 maxHits,
-                exhausted);
+                exhausted,
+                IsFinalSprintPeriod());
         }
 
         private void HideVitals()
         {
             view.HideVitals();
+        }
+
+        /// <summary>
+        /// 마지막 구간이라 달리기가 무제한인지. 모터가 쓰는 것과 같은 규칙을 본다.
+        /// </summary>
+        private bool IsFinalSprintPeriod()
+        {
+            if (!hasSnapshot || !clock.IsRuntimeReady) return false;
+            return PlayerStaminaRules.IsFinalSprintPeriod(
+                snapshot.Phase,
+                snapshot.PhaseEndsAt - clock.ServerTime,
+                FinalWarningSeconds);
         }
 
         private void ApplyMatchChat(bool showHidingWaitChat = false)
@@ -564,6 +633,12 @@ namespace Game.Bootstrap
             if (snapshot.Phase == MatchPhase.Searching)
             {
                 view.SetMatchChatMode(MatchChatHudMode.Searching);
+                return;
+            }
+
+            if (snapshot.Phase == MatchPhase.Highlight || snapshot.Phase == MatchPhase.Result)
+            {
+                view.SetMatchChatMode(MatchChatHudMode.Hidden);
                 return;
             }
 
@@ -672,7 +747,7 @@ namespace Game.Bootstrap
                     hidingTurnStartVisible = true;
                     view.ShowHidingTurnStart(
                         remaining,
-                        HidingTurnStartView.FinalWarningBannerText);
+                        Copy(UiText.Match.HideFinalBanner));
                 }
                 else
                 {
@@ -735,7 +810,9 @@ namespace Game.Bootstrap
                 players[index] = new HidingWaitPlayer(
                     name,
                     turnIndex != HidingTurns.NoTurn && index < turnIndex,
-                    current);
+                    current,
+                    playing[index].PlayerId,
+                    playing[index].UserId);
                 if (current)
                 {
                     hidingName = name;
@@ -818,7 +895,8 @@ namespace Game.Bootstrap
                 {
                     localHitCount = states[index].HitCount;
                     view.SetRemainingDestructionUses(
-                        states[index].RemainingDestructionUses);
+                        states[index].RemainingDestructionUses,
+                        events.DestructionLimit);
                     UpdateVitals();
                     return;
                 }
@@ -859,7 +937,7 @@ namespace Game.Bootstrap
                 return presentation == null ? playerId : presentation.Name(playerId, playerId);
             }
 
-            return $"플레이어 {playerIndex + 1}";
+            return string.Format(Copy(UiText.Match.PlayerN), playerIndex + 1);
         }
 
         private void FindSceneReferences()

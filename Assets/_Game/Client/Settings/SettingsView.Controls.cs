@@ -46,7 +46,8 @@ namespace Game.Client.Settings
             ControlAction.RotateRight,
             ControlAction.RaiseObject,
             ControlAction.LowerObject,
-            ControlAction.ToggleKeyGuide
+            ControlAction.ToggleKeyGuide,
+            ControlAction.EmoteWheel
         };
 
         private readonly Dictionary<ControlAction, KeyButton> keyButtons =
@@ -132,29 +133,29 @@ namespace Game.Client.Settings
             var page = CreatePage(window, SettingsTab.Controls, 0f);
             var top = 0f;
 
-            top = AddSection(page, SettingsStyle.Controls.MicrophoneHeading, top);
+            top = AddSection(page, UiText.Settings.MicrophoneHeading, top);
             top = AddKeyRow(page, ControlAction.MicrophoneTalk, top);
             top = AddKeyRow(page, ControlAction.VoiceToggle, top);
             top = AddKeyRow(page, ControlAction.ToggleSpeaker, top);
 
-            top = AddSection(page, SettingsStyle.Controls.KeyboardMoveHeading, top);
+            top = AddSection(page, UiText.Settings.KeyboardMoveHeading, top);
             foreach (var action in MovementRows)
             {
                 top = AddKeyRow(page, action, top);
             }
 
-            top = AddSection(page, SettingsStyle.Controls.KeyboardActionHeading, top);
+            top = AddSection(page, UiText.Settings.KeyboardActionHeading, top);
             foreach (var action in ActionRows)
             {
                 top = AddKeyRow(page, action, top);
             }
 
-            top = AddSection(page, SettingsStyle.Controls.FirstPersonHeading, top);
+            top = AddSection(page, UiText.Settings.FirstPersonHeading, top);
             top = AddSensitivityRow(page, ControlSensitivity.FirstPersonMouse, top);
             top = AddReversalRow(page, ControlToggle.FirstPersonInvertX, top);
             top = AddReversalRow(page, ControlToggle.FirstPersonInvertY, top);
 
-            top = AddSection(page, SettingsStyle.Controls.ThirdPersonHeading, top);
+            top = AddSection(page, UiText.Settings.ThirdPersonHeading, top);
             top = AddSensitivityRow(page, ControlSensitivity.ThirdPersonMouse, top);
             top = AddSensitivityRow(page, ControlSensitivity.ThirdPersonCamera, top);
             top = AddReversalRow(page, ControlToggle.ThirdPersonInvertX, top);
@@ -173,6 +174,7 @@ namespace Game.Client.Settings
                 top,
                 SettingsStyle.Controls.ActionLabel(action),
                 SettingsStyle.Section.RowLabelLeft);
+            RememberRow(row, SettingsStyle.Controls.ActionKey(action));
             keyButtons[action] = CreateKeyButton(row, action);
             return top + SettingsStyle.Rows.Pitch;
         }
@@ -185,6 +187,7 @@ namespace Game.Client.Settings
                 top,
                 SettingsStyle.Controls.SensitivityLabel(sensitivity),
                 SettingsStyle.Section.RowLabelLeft);
+            RememberRow(row, SettingsStyle.Controls.SensitivityKey(sensitivity));
             sensitivitySliders[sensitivity] = CreateSlider(
                 row,
                 ControlCatalog.MinSensitivity,
@@ -201,6 +204,7 @@ namespace Game.Client.Settings
                 top,
                 SettingsStyle.Controls.ReversalLabel(toggle),
                 SettingsStyle.Section.RowLabelLeft);
+            RememberRow(row, SettingsStyle.Controls.ReversalKey(toggle));
             reversalSteppers[toggle] = CreateStepper(
                 row, steps => ReversalStepRequested?.Invoke(toggle, steps));
             return top + SettingsStyle.Rows.Pitch;

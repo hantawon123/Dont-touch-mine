@@ -134,7 +134,7 @@
 - 관찰: 마지막에 물건을 들고 있던 플레이어가 무대에도 그 물건을 든 채 텔레포트된다(홀드 포인트에 붙어 함께 이동).
 - **결정: 승자만 유지.** 승자가 훔친 물건을 든 채 철창 앞에 선 모습은 컨셉 이미지(주머니를 든 탈출자)와 같은 승리의 증거. 패자가 들고 있던 물건은 무대에서 보이지 않게 한다.
   - 실제 내려놓기는 권한자의 매치 규칙(`MatchSessionCoordinator.TryDropHeldObject`)이 결과 단계에서 거절하므로, **각 클라이언트가 패자의 소지 물건 렌더러만 숨기고**(`forceRenderingOff`) 결과가 끝나면 되돌린다. 하이라이트·로비 전환에서 물건 상태는 초기화된다.
-- 결과 화면 동안 물건 조작 잠금: F키·던지기는 `PlayerInteractor.IsInputLocked`, 배치 모드(우클릭)는 새로 추가한 `ItemPlacementController.IsInputLocked`로 막는다. 종료 시 해제.
+- 결과 화면 동안 물건 조작 잠금: F키·던지기는 `PlayerInteractor.IsInputLocked`, 배치 모드(우클릭 진입·실루엣)는 `ItemPlacementController.IsInputLocked`로 막는다(켜지면 진행 중인 배치 모드도 끝나고 물건은 머리 위로 돌아간다). 종료 시 해제.
 
 ## 참고 파일
 - 결과 흐름: `Assets/_Game/Bootstrap/ResultLifetimeScope.cs`, `NetworkResultLobbyReturnController.cs`, `Assets/_Game/Content/Scenes/Result.unity`

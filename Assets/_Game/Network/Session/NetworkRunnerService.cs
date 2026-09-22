@@ -82,6 +82,8 @@ namespace Game.Network.Session
         public bool IsHighlightInProgress =>
             _matchStarter != null && _matchStarter.CurrentPhase == MatchPhase.Highlight;
         public bool IsLocalHighlightComplete => _localHighlightComplete;
+        public bool HasLeftLocalHighlight =>
+            _localHighlightComplete || _highlightCompletionRequested;
         public bool HasCompletedHighlight(int playerIndex)
         {
             if (_matchStarter == null) return false;
@@ -128,22 +130,28 @@ namespace Game.Network.Session
             if (IsServer)
             {
                 if (!TryCompleteHighlightViewing(_runner.LocalPlayer)) return false;
-                _localHighlightComplete = true;
             }
             else
             {
-                if (_receivedHighlightSequence == 0 || _highlightCompletionRequested)
+                if (_receivedHighlightSequence == 0)
+                {
                     return false;
-                _runner.SendReliableDataToServer(ReliableKey.FromInts(
-                    HighlightCompleteKeyType,
-                    HighlightReplayKeyVersion,
-                    _receivedHighlightSequence,
-                    0),
-                    new byte[] { 1 });
-                _highlightCompletionRequested = true;
+                }
+
+                if (!_highlightCompletionRequested)
+                {
+                    _runner.SendReliableDataToServer(ReliableKey.FromInts(
+                        HighlightCompleteKeyType,
+                        HighlightReplayKeyVersion,
+                        _receivedHighlightSequence,
+                        0),
+                        new byte[] { 1 });
+                }
             }
 
-            return _localHighlightComplete;
+            _highlightCompletionRequested = true;
+            _localHighlightComplete = true;
+            return true;
         }
 
         private readonly IRoomListSink _roomListSink;
@@ -698,7 +706,9 @@ namespace Game.Network.Session
                     state = new NetworkPlayerReplayState(
                         motor.Posture,
                         motor.AnimationGrounded,
-                        motor.AttackSequence);
+                        motor.AttackSequence,
+                        motor.EmoteSequence,
+                        motor.EmoteId);
                     return true;
                 }
             }
@@ -909,8 +919,7 @@ namespace Game.Network.Session
             _awaitingRoomClaim = request.IsAvailableServer;
             _claimAdmissionPending = false;
             _configuredTitle = request.AllowCreate ? request.DisplayName?.Trim() : null;
-            _configuredMapId = string.IsNullOrWhiteSpace(request.MapId)
-                ? MapCatalog.DefaultMapId : request.MapId.Trim();
+            _configuredMapId = request.MapId?.Trim() ?? string.Empty;
             _configuredMaxPlayers = request.MaxPlayers > 0
                 ? request.MaxPlayers
                 : 0;
@@ -1006,9 +1015,13 @@ namespace Game.Network.Session
                         result.ErrorMessage);
                 }
 
-                Debug.LogError(
+                var failureMessage =
                     $"[Network] Could not start session '{request.RoomCode}' as {request.Mode}: " +
-                    $"{failure} ({result.ShutdownReason}) {result.ErrorMessage}");
+                    $"{failure} ({result.ShutdownReason}) {result.ErrorMessage}";
+                if (IsExpectedSessionEntryFailure(failure))
+                    Debug.LogWarning(failureMessage);
+                else
+                    Debug.LogError(failureMessage);
 
                 return SessionStartResult.Failed(failure, result.ErrorMessage);
             }
@@ -1050,6 +1063,12 @@ namespace Game.Network.Session
                 _roomInitializationInProgress = false;
             }
         }
+
+        internal static bool IsExpectedSessionEntryFailure(SessionFailure failure) =>
+            failure is SessionFailure.RoomNotFound or
+                SessionFailure.RoomFull or
+                SessionFailure.CodeTaken or
+                SessionFailure.Rejected;
 
         internal StartGameArgs BuildSessionStartArgs(
             SessionRequest request, INetworkSceneManager sceneManager, CancellationToken cancellation)
@@ -1207,8 +1226,37 @@ namespace Game.Network.Session
             _matchRules = normalizedMatchRules;
             _configuredMapId = mapId.Trim();
             if (title != null) _configuredTitle = title.Trim();
+            ApplyLobbySprintMultiplierToPlayers(_matchRules.SprintMultiplier);
             ReportPlayerCount();
             return true;
+        }
+
+        private void ApplyLobbySprintMultiplierToPlayers(float multiplier)
+        {
+            if (!IsServer || _runner == null || !_runner.IsRunning)
+            {
+                return;
+            }
+
+            foreach (var player in _runner.ActivePlayers)
+            {
+                ApplyLobbySprintMultiplier(player, multiplier);
+            }
+        }
+
+        private void ApplyLobbySprintMultiplier(PlayerRef player, float multiplier)
+        {
+            if (!IsServer || _runner == null || !_runner.IsRunning)
+            {
+                return;
+            }
+
+            var playerObject = _runner.GetPlayerObject(player);
+            if (playerObject != null &&
+                playerObject.TryGetBehaviour<NetworkPlayerMotor>(out var motor))
+            {
+                motor.TrySetSprintMultiplier(multiplier);
+            }
         }
 
         public bool TryReadLobbySettings(out PlaySettingsDraft settings)
@@ -1362,13 +1410,102 @@ namespace Game.Network.Session
             return true;
         }
 
+        /// <summary>
+        /// One slot, reused: a request is answered with at most one assignment.
+        /// </summary>
+        private readonly PlayerItemAssignment[] _requestedAssignmentBuffer = new PlayerItemAssignment[1];
+
+        /// <remarks>
+        /// Answers from what was published at phase entry when it can. When it
+        /// cannot, it publishes now. The phase-entry publish runs once and skips
+        /// any player whose avatar has no PlayerId in the roster at that instant
+        /// - a player mid-respawn on a slow scene load - and it was never tried
+        /// again. That player's scene asks every second, and until this the
+        /// server answered every one of those with nothing: the briefing never
+        /// showed, the cover never dropped, the ready signal never went out, and
+        /// the whole room waited on one player who could not know why.
+        /// <para>
+        /// A player who is sending this request has an avatar in the roster, so
+        /// publishing at request time is what publishing at phase entry could
+        /// not be for them: on time.
+        /// </para>
+        /// </remarks>
         private bool ResendItemAssignment(PlayerRef requester)
         {
-            if (!IsRuntimeReady || !IsServer || _matchStarter == null || !requester.IsRealPlayer ||
-                !TryGetPublishedAssignment(_publishedItemAssignments, _matchStarter.PlayingParticipants,
-                    PlayerRegistry.IdOf(requester), out var itemId)) return false;
+            if (!IsRuntimeReady || !IsServer || _matchStarter == null || !requester.IsRealPlayer) return false;
+            var requesterId = PlayerRegistry.IdOf(requester);
+            if (!TryResolveAssignmentOnRequest(_publishedItemAssignments, _matchStarter.PlayingParticipants,
+                    _matchStarter.SessionAssignments, requesterId, out var itemId, out var publishIndex))
+            {
+                Debug.LogWarning(
+                    $"[Match] Assignment request from {requesterId} not answered: " +
+                    "not a playing participant, or the session has no assignment for them.");
+                return false;
+            }
+            if (publishIndex >= 0)
+            {
+                _requestedAssignmentBuffer[0] = _matchStarter.SessionAssignments[publishIndex];
+                if (!TryPublishItemAssignments(_requestedAssignmentBuffer))
+                {
+                    Debug.LogWarning(
+                        $"[Match] Assignment for {requesterId} still not publishable; " +
+                        "their scene asks again in a second.");
+                    return false;
+                }
+                // Publishing sends. Nothing more to do.
+                Debug.Log($"[Match] Assignment for {requesterId} published on request (missed at phase entry).");
+                return true;
+            }
             SendItemAssignment(requester, itemId);
             return true;
+        }
+
+        /// <summary>
+        /// What to send a player who asks for their assignment, and whether it
+        /// has to be published first.
+        /// </summary>
+        /// <param name="publishIndex">
+        /// The player index whose assignment must be published before it can be
+        /// sent, or -1 when it is already published. Never set without
+        /// <paramref name="itemId"/>.
+        /// </param>
+        /// <remarks>
+        /// Pure, so the two answers - already published, and known to the
+        /// session but skipped at phase entry - can be checked without a runner.
+        /// A player who is not in the line-up gets nothing even when the session
+        /// has an assignment at their index: the line-up is what says the index
+        /// is theirs.
+        /// </remarks>
+        internal static bool TryResolveAssignmentOnRequest(
+            IReadOnlyDictionary<string, string> published,
+            IReadOnlyList<MatchParticipant> playing,
+            IReadOnlyList<PlayerItemAssignment> sessionAssignments,
+            string requesterId,
+            out string itemId,
+            out int publishIndex)
+        {
+            publishIndex = -1;
+            if (TryGetPublishedAssignment(published, playing, requesterId, out itemId))
+            {
+                return true;
+            }
+            itemId = null;
+            if (string.IsNullOrEmpty(requesterId) || playing == null || sessionAssignments == null)
+            {
+                return false;
+            }
+            foreach (var participant in playing)
+            {
+                if (participant.PlayerId != requesterId) continue;
+                var index = participant.PlayerIndex;
+                if (index < 0 || index >= sessionAssignments.Count) return false;
+                var candidate = sessionAssignments[index].Item.ItemId?.Trim();
+                if (string.IsNullOrEmpty(candidate)) return false;
+                itemId = candidate;
+                publishIndex = index;
+                return true;
+            }
+            return false;
         }
 
         internal static bool TryGetPublishedAssignment(IReadOnlyDictionary<string, string> published,
@@ -1955,7 +2092,7 @@ namespace Game.Network.Session
             }
 
             _previousLoadingPriority = Application.backgroundLoadingPriority;
-            Application.backgroundLoadingPriority = UnityEngine.ThreadPriority.BelowNormal;
+            Application.backgroundLoadingPriority = UnityEngine.ThreadPriority.Low;
             _lobbyPreloadRaisedPriority = true;
             _lobbyPreload.priority = 100;
             // Read and deserialize in parallel with Photon, but do not run the
@@ -2121,7 +2258,7 @@ namespace Game.Network.Session
             _previousNetworkLoadingPriority =
                 Application.backgroundLoadingPriority;
             Application.backgroundLoadingPriority =
-                UnityEngine.ThreadPriority.BelowNormal;
+                UnityEngine.ThreadPriority.Low;
             _networkLoadRaisedPriority = true;
         }
 
@@ -2190,9 +2327,10 @@ namespace Game.Network.Session
                 Debug.LogError("[Session] NetworkScenes must be assigned to load results.");
                 return false;
             }
-            var scene = _scenes.ResultScene;
+            // 맵 전용 엔딩(예: 저택 지하실)이 있으면 그 씬, 없으면 기본 결과 씬.
+            var scene = _scenes.ResultSceneFor(AnalyticsMapId);
             if (!scene.IsValid) return false;
-            Debug.Log($"[SceneTiming] Result additive load requested: {scene}.");
+            Debug.Log($"[SceneTiming] Result additive load requested: {scene} (map {AnalyticsMapId}).");
             _runner.LoadScene(scene, LoadSceneMode.Additive);
             return true;
         }
@@ -2205,13 +2343,13 @@ namespace Game.Network.Session
             {
                 return false;
             }
-            if (ContainsScene(_runner.SceneInfo, _scenes.ResultScene))
+            if (TryFindLoadedResultScene(_runner.SceneInfo, out var loadedResultScene))
             {
                 if (!_highlightResultUnloadRequested)
                 {
                     _highlightResultUnloadRequested = true;
-                    Debug.Log("[SceneTiming] Result display completed; unloading Result.");
-                    _runner.UnloadScene(_scenes.ResultScene);
+                    Debug.Log($"[SceneTiming] Result display completed; unloading result scene {loadedResultScene}.");
+                    _runner.UnloadScene(loadedResultScene);
                 }
                 return false;
             }
@@ -2309,6 +2447,22 @@ namespace Game.Network.Session
             if (!scene.IsValid) return false;
             for (var index = 0; index < info.SceneCount; index++)
                 if (info.Scenes[index] == scene) return true;
+            return false;
+        }
+
+        /// <summary>지금 올라와 있는 씬 중 결과 씬(기본 또는 맵 전용)을 찾는다.</summary>
+        private bool TryFindLoadedResultScene(NetworkSceneInfo info, out SceneRef resultScene)
+        {
+            for (var index = 0; index < info.SceneCount; index++)
+            {
+                if (_scenes.IsResultScene(info.Scenes[index]))
+                {
+                    resultScene = info.Scenes[index];
+                    return true;
+                }
+            }
+
+            resultScene = default;
             return false;
         }
 

@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: d70468ab126df17458cc71c0af0b887f
+labels:
+- summer
+- beach
+- surfboard
+timeCreated: 1429979736
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/SurfBoard_smallTurquoise.prefab
+  uploadId: 466071

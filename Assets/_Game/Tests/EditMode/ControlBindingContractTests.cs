@@ -52,7 +52,7 @@ namespace Game.Architecture.Tests
         /// </summary>
         /// <remarks>
         /// The second half is what catches a default drifting away from the
-        /// asset — the state 마이크 송출 was in, showing T while the game
+        /// asset — the state 눌러서 말하기 was in, showing T while the game
         /// listened to G.
         /// </remarks>
         [Test]
@@ -91,7 +91,7 @@ namespace Game.Architecture.Tests
             var spare = new[]
             {
                 "h", "i", "j", "k", "m", "n", "o", "p", "r",
-                "u", "x", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9"
+                "u", "x", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10"
             };
             var rows = Enum.GetValues(typeof(ControlAction));
             Assert.That(

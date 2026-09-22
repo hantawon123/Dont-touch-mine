@@ -36,6 +36,11 @@ public record ChatLogBatchRequest(
      * @param senderRef     그 방에서만 뜻이 있는 발화자 표식. 계정을 모를 때도 몇 사람이 말했는지는
      *                      구분되게 한다. 게임 서버가 Fusion playerId 를 넣는다.
      * @param message       <b>가리기 전의 원문.</b> 게임 서버는 가린 말을 뿌리고 원문을 여기로 보낸다.
+     * @param masked        그 줄이 <b>실제로 가려져 나갔는가</b>(S15P21D205-1096). 게임 서버가 가리면서
+     *                      낸 판정을 그대로 받아 적는다. 다시 판정하지 않는 이유는 그러면 같은 규칙을
+     *                      두 언어로 들고 있어야 하고, 두 목록이 갈리는 순간 기록이 "가려졌다고 적혔는데
+     *                      사람들은 그대로 본" 상태가 되기 때문이다. 원시형이 아닌 이유는 필드를 빠뜨린
+     *                      호출이 조용히 false 가 되지 않고 400 으로 드러나게 하려는 것이다.
      * @param sentAt        말한 시각. yyyyMMddHHmmss, UTC. 게임 서버가 찍는다. 묶음이 늦게 도착해도
      *                      순서가 유지되도록 도착 시각과 따로 받는다.
      */
@@ -57,6 +62,9 @@ public record ChatLogBatchRequest(
             @NotBlank(message = "message는 필수입니다.")
             @Size(max = 80, message = "message는 80자를 넘을 수 없습니다.")
             String message,
+
+            @NotNull(message = "masked는 필수입니다.")
+            Boolean masked,
 
             @NotBlank(message = "sentAt은 필수입니다.")
             @Pattern(regexp = "^[0-9]{14}$", message = "sentAt은 yyyyMMddHHmmss 형식이어야 합니다.")

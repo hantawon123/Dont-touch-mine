@@ -6,6 +6,7 @@ using Game.Client.Lobby;
 using Game.Client.Voice;
 using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,6 +20,8 @@ namespace Game.Client.Match
         void SetRemainingSeconds(double remainingSeconds);
         void SetEndCountdown(double remainingSeconds);
         void SetEndResult(string headline, string subtitle);
+        void PlayMatchEndBell();
+        void ResetMatchEndBell();
         void SetHighlightHud(bool visible, string subtitle, IReadOnlyList<float> barFills);
         void SetAssignedItem(string displayName);
         void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses);
@@ -27,7 +30,7 @@ namespace Game.Client.Match
             IReadOnlyList<PlayerItemStatusSnapshot> statuses,
             string localItemId = null,
             IReadOnlyList<string> destroyedItemIdsInOrder = null);
-        void SetRemainingDestructionUses(int remainingUses);
+        void SetRemainingDestructionUses(int remainingUses, int maxUses);
         void ShowDestructionNotice(string message);
         void HideDestructionNotice();
         void SetShredderMarker(Vector2 screenPosition, bool visible);
@@ -51,12 +54,14 @@ namespace Game.Client.Match
             double remainingSeconds,
             double turnDurationSeconds);
         void HideHidingWaitHud();
-        void ShowVitals(float stamina, float maxStamina, int hits, int maxHits, bool exhausted);
+        void ShowVitals(float stamina, float maxStamina, int hits, int maxHits, bool exhausted,
+            bool finalSprint = false);
         void HideVitals();
         void SetTopHudVisible(bool visible);
         void SetMatchChatVisible(bool visible);
         void SetMatchChatMode(MatchChatHudMode mode);
         void SetPlayerStatusVisible(bool visible);
+        void ShowChrome(UiLocale locale);
     }
 
     /// <summary>
@@ -69,6 +74,10 @@ namespace Game.Client.Match
         public const float ShredderMarkerWidth = 240f;
         public const float ShredderMarkerHeight = 52f;
         public const string ShredderMarkerLabelName = "Label";
+        public const string DestructionNoticeIconName = "NoticeIcon";
+        public const string DestructionNoticeIconResource = "UI/Icon_Notification";
+        public const float DestructionNoticeIconSize = 40f;
+        public const float DestructionNoticeIconGap = 10f;
         [SerializeField]
         private MatchPhaseView phaseView;
 
@@ -83,6 +92,9 @@ namespace Game.Client.Match
 
         [SerializeField]
         private TMP_Text destructionNoticeText;
+
+        [SerializeField]
+        private Image destructionNoticeIcon;
 
         [SerializeField]
         private RectTransform shredderMarker;
@@ -118,12 +130,21 @@ namespace Game.Client.Match
         private MatchUrgencyBorderView urgencyBorderView;
 
         private MatchUrgencyAudio urgencyAudio;
+        private HidingTimerTickAudio timerTickAudio;
+        private SearchingTimerTickAudio searchingTimerTickAudio;
+        private MatchEndBellAudio matchEndBellAudio;
 
         private LobbyPlayerListView participantListView;
 
+        private UiLocale chromeLocale;
+
+        [VContainer.Inject]
+        public void BindLocale(UiLocale value) => ShowChrome(value);
         private MatchPhase currentPhase;
+        private string currentHidingPlayerName = string.Empty;
         private double lastRemainingSeconds = 999d;
         private int remainingDestructionUses = -1;
+        private int destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
         private int destroyedItemPlayerCount;
         private IReadOnlyList<PlayerItemStatusSnapshot> destroyedItemStatuses =
             Array.Empty<PlayerItemStatusSnapshot>();
@@ -146,6 +167,7 @@ namespace Game.Client.Match
             Game.Client.Common.HudScreenScale.EnsureOn(rootCanvas);
 
             HideDestructionNotice();
+            ApplyDestructionNoticeChrome();
             ApplyShredderMarkerChrome();
             SetShredderMarker(default, false);
             SetHighlightHud(false, null, Array.Empty<float>());
@@ -160,6 +182,9 @@ namespace Game.Client.Match
             HideHidingTurnStart();
             EnsureHidingActiveHud();
             HideHidingActiveHud();
+            EnsureTimerTickAudio();
+            EnsureSearchingTimerTickAudio();
+            EnsureMatchEndBellAudio();
             EnsureHidingWaitHud();
             HideHidingWaitHud();
             EnsureVitalsHud();
@@ -175,10 +200,38 @@ namespace Game.Client.Match
             RefreshKeyGuide(MatchPhase.Waiting);
         }
 
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureTimer();
+            timerView?.ShowChrome(locale);
+            phaseView?.ShowChrome(locale);
+            phaseView?.SetPhase(currentPhase, currentHidingPlayerName);
+            EnsureHighlightHud();
+            highlightHudView?.ShowChrome(locale);
+            EnsureHidingActiveHud();
+            hidingActiveHudView?.ShowChrome(locale);
+            EnsureHidingWaitHud();
+            hidingWaitHudView?.ShowChrome(locale);
+            EnsureHidingTurnStart();
+            hidingTurnStartView?.ShowChrome(locale);
+            EnsureHidingIntro();
+            hidingIntroView?.ShowChrome(locale);
+            EnsureSearchingIntro();
+            searchingIntroView?.ShowChrome(locale);
+            keySettingGuideView?.ShowChrome(locale);
+            RefreshShredderMarkerLabel();
+        }
+
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
         {
             currentPhase = phase;
+            currentHidingPlayerName = hidingPlayerName ?? string.Empty;
             SetHighlightOnly(phase == MatchPhase.Highlight);
+            if (phase == MatchPhase.Hiding || phase == MatchPhase.Waiting)
+            {
+                ResetMatchEndBell();
+            }
             if (phase != MatchPhase.Highlight)
             {
                 SetHighlightHud(false, null, Array.Empty<float>());
@@ -199,6 +252,7 @@ namespace Game.Client.Match
                 RestoreHud();
                 return;
             }
+            SetChatBubblesVisible(false);
             // Hide presentation components, not HUD objects/presenters. Notices
             // must keep receiving events and updating at their original position.
             foreach (var graphic in FindObjectsByType<Graphic>(FindObjectsInactive.Include, FindObjectsSortMode.None))
@@ -259,7 +313,19 @@ namespace Game.Client.Match
             timerView?.SetResult(headline, subtitle);
             urgencyBorderView?.Hide();
             urgencyAudio?.Hide();
+            searchingTimerTickAudio?.Hide();
             LateUpdate();
+        }
+
+        public void PlayMatchEndBell()
+        {
+            EnsureMatchEndBellAudio();
+            matchEndBellAudio?.Play();
+        }
+
+        public void ResetMatchEndBell()
+        {
+            matchEndBellAudio?.Reset();
         }
 
         private void RestoreHud()
@@ -270,6 +336,20 @@ namespace Game.Client.Match
                 if (pair.Key != null) pair.Key.SetHudVisible(pair.Value);
             hiddenGraphics.Clear();
             hiddenCrosshairs.Clear();
+            SetChatBubblesVisible(true);
+        }
+
+        private void SetChatBubblesVisible(bool visible)
+        {
+            foreach (var bubbles in FindObjectsByType<MatchChatBubbleView>(
+                         FindObjectsInactive.Include,
+                         FindObjectsSortMode.None))
+            {
+                if (bubbles.gameObject.scene == gameObject.scene)
+                {
+                    bubbles.SetPresentationVisible(visible);
+                }
+            }
         }
 
         private void OnDestroy() => RestoreHud();
@@ -279,6 +359,8 @@ namespace Game.Client.Match
             lastRemainingSeconds = remainingSeconds;
             EnsureTimer();
             timerView?.SetRemainingSeconds(remainingSeconds);
+            EnsureSearchingTimerTickAudio();
+            searchingTimerTickAudio?.SetRemainingSeconds(currentPhase, remainingSeconds);
             RefreshUrgency();
         }
 
@@ -325,14 +407,16 @@ namespace Game.Client.Match
             ApplyDestroyedItems();
         }
 
-        public void SetRemainingDestructionUses(int remainingUses)
+        public void SetRemainingDestructionUses(int remainingUses, int maxUses)
         {
             remainingDestructionUses = remainingUses;
+            destructionLimit = maxUses;
             ApplyShredderMarkerChrome();
         }
 
         public void ShowDestructionNotice(string message)
         {
+            ApplyDestructionNoticeChrome();
             if (destructionNoticeText != null)
             {
                 ApplyPaperlogy(destructionNoticeText);
@@ -343,6 +427,107 @@ namespace Game.Client.Match
             {
                 destructionNoticeRoot.SetActive(true);
             }
+        }
+
+        public static Sprite DestructionNoticeIconSprite =>
+            Resources.Load<Sprite>(DestructionNoticeIconResource);
+
+        public static Image EnsureDestructionNoticeIcon(Transform root)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            var existing = root.Find(DestructionNoticeIconName);
+            var image = existing != null ? existing.GetComponent<Image>() : null;
+            if (image == null)
+            {
+                var iconObject = new GameObject(
+                    DestructionNoticeIconName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image));
+                iconObject.transform.SetParent(root, false);
+                image = iconObject.GetComponent<Image>();
+                image.raycastTarget = false;
+            }
+
+            image.sprite = DestructionNoticeIconSprite;
+            image.color = Color.white;
+            image.preserveAspect = true;
+            image.rectTransform.sizeDelta = new Vector2(
+                DestructionNoticeIconSize,
+                DestructionNoticeIconSize);
+            image.transform.SetSiblingIndex(0);
+
+            var layout = image.GetComponent<LayoutElement>()
+                ?? image.gameObject.AddComponent<LayoutElement>();
+            layout.minWidth = DestructionNoticeIconSize;
+            layout.minHeight = DestructionNoticeIconSize;
+            layout.preferredWidth = DestructionNoticeIconSize;
+            layout.preferredHeight = DestructionNoticeIconSize;
+            layout.flexibleWidth = 0f;
+            layout.flexibleHeight = 0f;
+            return image;
+        }
+
+        public static void ApplyDestructionNoticeLayout(GameObject root, TMP_Text text)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var group = root.GetComponent<HorizontalLayoutGroup>()
+                ?? root.AddComponent<HorizontalLayoutGroup>();
+            group.childAlignment = TextAnchor.MiddleCenter;
+            group.spacing = DestructionNoticeIconGap;
+            group.padding = new RectOffset(24, 24, 0, 0);
+            group.childControlWidth = true;
+            group.childControlHeight = true;
+            group.childForceExpandWidth = false;
+            group.childForceExpandHeight = false;
+            group.childScaleWidth = false;
+            group.childScaleHeight = false;
+
+            EnsureDestructionNoticeIcon(root.transform);
+
+            if (text == null)
+            {
+                return;
+            }
+
+            text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            var textRect = text.rectTransform;
+            textRect.anchorMin = new Vector2(0.5f, 0.5f);
+            textRect.anchorMax = new Vector2(0.5f, 0.5f);
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+
+            var textLayout = text.GetComponent<LayoutElement>()
+                ?? text.gameObject.AddComponent<LayoutElement>();
+            textLayout.flexibleWidth = 0f;
+            textLayout.minHeight = DestructionNoticeIconSize;
+        }
+
+        internal void ApplyDestructionNoticeChrome()
+        {
+            if (destructionNoticeRoot == null)
+            {
+                return;
+            }
+
+            if (destructionNoticeText == null)
+            {
+                destructionNoticeText = destructionNoticeRoot.GetComponentInChildren<TMP_Text>(true);
+            }
+
+            ApplyDestructionNoticeLayout(destructionNoticeRoot, destructionNoticeText);
+            destructionNoticeIcon = destructionNoticeRoot.transform
+                .Find(DestructionNoticeIconName)
+                ?.GetComponent<Image>();
         }
 
         public void HideDestructionNotice()
@@ -374,17 +559,23 @@ namespace Game.Client.Match
 
         public static string FormatShredderMarkerLabel(
             int remainingUses,
-            int maxUses = PlaySettingsDraft.DefaultDestructionLimit)
+            int maxUses = PlaySettingsDraft.DefaultDestructionLimit) =>
+            FormatShredderMarkerLabel(remainingUses, maxUses, "ko");
+
+        public static string FormatShredderMarkerLabel(
+            int remainingUses,
+            int maxUses,
+            string language)
         {
             if (remainingUses == PlaySettingsDraft.UnlimitedDestructionUses ||
                 maxUses == PlaySettingsDraft.UnlimitedDestructionLimit)
             {
-                return "파쇄기 (무한)";
+                return UiTextCatalog.Shipped.Get(UiText.Match.ShredderUnlimited, language);
             }
 
             if (remainingUses < 0)
             {
-                return "파쇄기";
+                return UiTextCatalog.Shipped.Get(UiText.Match.Shredder, language);
             }
 
             if (maxUses < PlaySettingsDraft.MinDestructionLimit)
@@ -392,7 +583,10 @@ namespace Game.Client.Match
                 maxUses = PlaySettingsDraft.DefaultDestructionLimit;
             }
 
-            return $"파쇄기 ({remainingUses}/{maxUses})";
+            return string.Format(
+                UiTextCatalog.Shipped.Get(UiText.Match.ShredderUses, language),
+                remainingUses,
+                maxUses);
         }
 
         private void RefreshShredderMarkerLabel()
@@ -408,7 +602,10 @@ namespace Game.Client.Match
                 return;
             }
 
-            label.text = FormatShredderMarkerLabel(remainingDestructionUses);
+            label.text = FormatShredderMarkerLabel(
+                remainingDestructionUses,
+                destructionLimit,
+                chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage);
         }
 
         public void SetShredderMarker(Vector2 screenPosition, bool visible)
@@ -495,11 +692,14 @@ namespace Game.Client.Match
         public void HideHidingActiveHud()
         {
             hidingActiveHudView?.Hide();
+            timerTickAudio?.Hide();
         }
 
         public void SetHidingActiveHudSeconds(double remainingSeconds)
         {
             hidingActiveHudView?.SetRemainingSeconds(remainingSeconds);
+            EnsureTimerTickAudio();
+            timerTickAudio?.SetRemainingSeconds(remainingSeconds);
         }
 
         public void ShowHidingWaitHud(
@@ -527,10 +727,11 @@ namespace Game.Client.Match
             hidingWaitHudView?.Hide();
         }
 
-        public void ShowVitals(float stamina, float maxStamina, int hits, int maxHits, bool exhausted)
+        public void ShowVitals(float stamina, float maxStamina, int hits, int maxHits, bool exhausted,
+            bool finalSprint = false)
         {
             EnsureVitalsHud();
-            vitalsHudView?.Show(stamina, maxStamina, hits, maxHits, exhausted);
+            vitalsHudView?.Show(stamina, maxStamina, hits, maxHits, exhausted, finalSprint);
         }
 
         public void HideVitals()
@@ -655,6 +856,45 @@ namespace Game.Client.Match
             if (urgencyAudio == null)
             {
                 urgencyAudio = MatchUrgencyAudio.Create(transform);
+            }
+        }
+
+        private void EnsureTimerTickAudio()
+        {
+            if (timerTickAudio == null)
+            {
+                timerTickAudio = GetComponentInChildren<HidingTimerTickAudio>(true);
+            }
+
+            if (timerTickAudio == null)
+            {
+                timerTickAudio = HidingTimerTickAudio.Create(transform);
+            }
+        }
+
+        private void EnsureSearchingTimerTickAudio()
+        {
+            if (searchingTimerTickAudio == null)
+            {
+                searchingTimerTickAudio = GetComponentInChildren<SearchingTimerTickAudio>(true);
+            }
+
+            if (searchingTimerTickAudio == null)
+            {
+                searchingTimerTickAudio = SearchingTimerTickAudio.Create(transform);
+            }
+        }
+
+        private void EnsureMatchEndBellAudio()
+        {
+            if (matchEndBellAudio == null)
+            {
+                matchEndBellAudio = GetComponentInChildren<MatchEndBellAudio>(true);
+            }
+
+            if (matchEndBellAudio == null)
+            {
+                matchEndBellAudio = MatchEndBellAudio.Create(transform);
             }
         }
 

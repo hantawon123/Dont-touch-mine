@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 87725e3e1cb0b0743bd6c8e147645fda
+timeCreated: 1644463059
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43104142950755530
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Book_Line_Optimized_02_Convex.asset
+  uploadId: 987938

@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Game.Server.Match
 {
     [Flags]
-    public enum HighlightPlayerAction : byte
+    public enum HighlightPlayerAction : ushort
     {
         None = 0,
         Punching = 1 << 0,
@@ -17,6 +17,51 @@ namespace Game.Server.Match
         Carrying = 1 << 5,
         Throwing = 1 << 6,
         Placing = 1 << 7,
+
+        /// <summary>맞은 쪽. <see cref="Punching"/> 은 때린 쪽에 붙는다.</summary>
+        Hit = 1 << 8,
+
+        /// <summary>기절에 막 들어가 쓰러지는 구간. 그 뒤는 <see cref="Stunned"/> 만 남는다.</summary>
+        StunEntry = 1 << 9,
+
+        /// <summary>감정 표현 재생 중. 어떤 표현인지는 <see cref="EmoteIdMask"/> 세 비트에 담는다.</summary>
+        Emoting = 1 << 10,
+
+        /// <summary>감정 표현 카탈로그 ID(0–7)를 담는 자리.</summary>
+        EmoteIdMask = 7 << 11,
+
+        /// <summary>기절이 풀려 일어나는 구간.</summary>
+        StunRecovery = 1 << 14,
+    }
+
+    /// <summary>감정 표현을 동작 값 한 칸에 함께 담고 꺼낸다.</summary>
+    public static class HighlightPlayerActions
+    {
+        private const int EmoteIdShift = 11;
+        private const int MaxEmoteId = 7;
+
+        public static HighlightPlayerAction WithEmote(
+            this HighlightPlayerAction action,
+            int emoteId)
+        {
+            if (emoteId < 0 || emoteId > MaxEmoteId)
+            {
+                return action.WithoutEmote();
+            }
+
+            return (action & ~HighlightPlayerAction.EmoteIdMask) |
+                   HighlightPlayerAction.Emoting |
+                   (HighlightPlayerAction)(emoteId << EmoteIdShift);
+        }
+
+        public static HighlightPlayerAction WithoutEmote(this HighlightPlayerAction action) =>
+            action & ~(HighlightPlayerAction.Emoting | HighlightPlayerAction.EmoteIdMask);
+
+        public static bool TryGetEmote(this HighlightPlayerAction action, out int emoteId)
+        {
+            emoteId = (int)(action & HighlightPlayerAction.EmoteIdMask) >> EmoteIdShift;
+            return (action & HighlightPlayerAction.Emoting) != 0;
+        }
     }
 
     public interface IHighlightReplayActionSource

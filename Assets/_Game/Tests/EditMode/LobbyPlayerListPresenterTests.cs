@@ -540,6 +540,10 @@ namespace Game.Tests.EditMode
                 Friends = friends;
             }
 
+            public void ShowChrome(Game.Core.Settings.UiLocale locale) => ChromeLocale = locale;
+
+            public Game.Core.Settings.UiLocale ChromeLocale { get; private set; }
+
             public void RaiseKick(string id, string name) => KickClicked?.Invoke(id, name);
 
             public void RaiseInvite(string id, string name) => InviteClicked?.Invoke(id, name);
@@ -573,6 +577,14 @@ namespace Game.Tests.EditMode
             }
 
             public void SetListening(bool value) => listening.Value = value;
+
+            public string CaptureDevice { get; private set; }
+
+            public void SetCaptureDevice(string deviceName) => CaptureDevice = deviceName;
+
+            public float CaptureGain { get; private set; } = 1f;
+
+            public void SetCaptureGain(float gain) => CaptureGain = gain;
         }
 
         private sealed class FakeInviteGateway : IInviteGateway

@@ -18,6 +18,8 @@ namespace Game.Bootstrap
 
         protected override void Awake()
         {
+            if (parentReference.Type == null)
+                parentReference = ParentReference.Create<ProjectLifetimeScope>();
             sceneRoots = gameObject.scene.GetRootGameObjects();
             DisableAdditiveSceneOutputs();
             if (gameObject.scene.isLoaded) base.Awake();
@@ -106,6 +108,7 @@ namespace Game.Bootstrap
 
         public void Start()
         {
+            MatchChatView.ApplyAllowsActivation(false);
             transition.SetOpacity(1f);
             subscription = result.ResultText.Subscribe(_ =>
             {
@@ -130,6 +133,7 @@ namespace Game.Bootstrap
         public void Dispose()
         {
             subscription?.Dispose();
+            MatchChatView.ApplyAllowsActivation(true);
             // Result unload is followed by replay preparation, which must stay
             // covered until every peer is ready.
             transition.SetOpacity(1f);

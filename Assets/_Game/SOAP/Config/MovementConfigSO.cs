@@ -6,10 +6,10 @@ namespace Game.SOAP.Config
     public sealed class MovementConfigSO : ScriptableObject
     {
         [SerializeField, Min(0f)]
-        private float walkSpeed = 2.5f;
+        private float walkSpeed = 3.5f;
 
         [SerializeField, Min(0f)]
-        private float sprintSpeed = 4.5f;
+        private float sprintSpeed = 6.3f;
 
         [Header("스태미나")]
         [SerializeField, Min(0.1f)]
@@ -19,7 +19,7 @@ namespace Game.SOAP.Config
         private float staminaDrainPerSecond = 20f;
 
         [SerializeField, Min(0.1f)]
-        private float staminaRecoveryPerSecond = 15f;
+        private float staminaRecoveryPerSecond = 25f;
 
         [SerializeField, Min(0f)]
         private float rotationSpeedDegrees = 720f;

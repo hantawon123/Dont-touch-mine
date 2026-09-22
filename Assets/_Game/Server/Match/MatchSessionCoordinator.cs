@@ -141,7 +141,22 @@ namespace Game.Server.Match
         private const double HighlightReplaySampleIntervalSeconds = 0.1d;
         private const double HighlightRecordingDelaySeconds = 1d;
         public const double HighlightPostRollSeconds = HighlightPresentationTiming.PostRollSeconds;
+        /// <summary>맞은 쪽이 움찔하는 시간(초). 실제 플레이의 <c>PlayerAnimationDriver.HitSeconds</c> 와 같다.</summary>
+        private const double HitReactionSeconds = 1d;
+
+        /// <summary>
+        /// 기절에 들어가 쓰러지는 시간(초). 실제 플레이의 <c>PlayerAnimationDriver.StunStartSeconds</c> 와 같다.
+        /// 이 뒤로는 쓰러진 자세로 버틴다.
+        /// </summary>
+        private const double StunEntrySeconds = 2.2d;
+
+        /// <summary>기절이 풀려 일어나는 시간(초). 실제 플레이의 <c>PlayerAnimationDriver.StunEndSeconds</c> 와 같다.</summary>
+        private const double StunRecoverySeconds = 1.2d;
+
         private readonly Dictionary<int, double> lastHitAt = new();
+
+        /// <summary>맞은 쪽 시각. <see cref="lastHitAt"/> 는 때린 쪽이라 피격 모션에 쓸 수 없다.</summary>
+        private readonly Dictionary<int, double> lastHitTakenAt = new();
         private readonly int[] totalHitsReceived, totalStuns;
         private readonly Dictionary<int, double> lastPlacementAt = new();
         private readonly Dictionary<int, double> lastThrowAt = new();
@@ -173,6 +188,8 @@ namespace Game.Server.Match
         private bool highlightSelectionFrozen;
         private bool hasExplicitHighlightCandidates;
         private bool replayUnavailable;
+        // 마지막으로 본 숨기기 차례. 차례가 넘어가는 순간을 한 번만 잡아내려고 들고 있다.
+        private int lastHidingTurnIndex = HidingTurns.NoTurn;
 
         public MatchSessionCoordinator(
             MatchRulesSO rules,
@@ -237,6 +254,12 @@ namespace Game.Server.Match
         public IReadOnlyList<PlayerItemAssignment> Assignments { get; }
         public MatchPlayerRoster Players { get; }
         public MatchPhase CurrentPhase => state.CurrentPhase.CurrentValue;
+
+        /// <summary>
+        /// 찾기 페이즈 끝의 무제한 달리기 구간 길이. 최종 경고 배너와 같은 구간을 쓰므로
+        /// 규칙은 <see cref="MatchRulesSO.FinalWarningSeconds"/> 한 곳에만 산다.
+        /// </summary>
+        public float FinalSprintWindowSeconds => rules.FinalWarningSeconds;
         public bool AllItemsPlaced => placements.AllPlaced;
         public int DestroyedPlayerItemCount => outcome.DestroyedItemCount;
         public bool AllPlayerItemsDestroyed => outcome.AllPlayerItemsDestroyed;
@@ -353,15 +376,23 @@ namespace Game.Server.Match
                 CaptureResult(MatchEndReason.TimeExpired, searchingEndedAt);
             }
 
-            if (state.CurrentPhase.CurrentValue == MatchPhase.Hiding)
+            var phaseBeforeAdvance = state.CurrentPhase.CurrentValue;
+            if (phaseBeforeAdvance == MatchPhase.Hiding)
             {
                 CompleteExpiredHidingTurns(now, lastKnownPlayerPositions);
                 SkipDepartedHidingTurns(now);
+                DropCarryOnHidingTurnChange(now, lastKnownPlayerPositions);
             }
 
             CompleteMapObjectEjections(now);
 
             var changed = flow.AdvanceIfExpired(now);
+            if (phaseBeforeAdvance == MatchPhase.Hiding &&
+                state.CurrentPhase.CurrentValue != MatchPhase.Hiding)
+            {
+                DropHeldMapObjects(lastKnownPlayerPositions);
+            }
+
             RaiseFinalWarningIfNeeded(now);
             // Empty selections still pass through the result-stage/readiness
             // schedule. Completing here bypassed result presentation entirely.
@@ -488,14 +519,19 @@ namespace Game.Server.Match
         public bool TryHoldObject(int playerIndex, string objectId, double now)
         {
             var isSearching = CanInteract(playerIndex, now);
-            if ((!CanActDuringHidingTurn(playerIndex, now) && !isSearching) ||
+            var isHidingTurn = CanActDuringHidingTurn(playerIndex, now);
+            var isWaitingToHide = !isSearching && !isHidingTurn &&
+                                  CanActWhileWaitingToHide(playerIndex, now);
+            if ((!isHidingTurn && !isSearching && !isWaitingToHide) ||
                 outcome.GetHeldItemOwner(playerIndex) >= 0 ||
                 heldMapObjectIdsByPlayer[playerIndex] != null)
             {
                 return false;
             }
 
-            if (outcome.TryHoldItem(playerIndex, objectId))
+            // 차례를 기다리는 사람에게는 대기 구역 소품만 허락한다. 배정 물건까지 열면
+            // 집 밖에서 남이 숨겨 둔 물건을 빼내 가는 길이 된다.
+            if (!isWaitingToHide && outcome.TryHoldItem(playerIndex, objectId))
             {
                 highlightRecorder.RecordItemPickup(playerIndex, objectId, now);
 
@@ -534,7 +570,8 @@ namespace Game.Server.Match
 
         public bool TryReleaseHeldObject(int playerIndex, Pose pose, double now)
         {
-            var isHiding = CanActDuringHidingTurn(playerIndex, now);
+            // 하이라이트는 찾기 페이즈의 기록이다. 숨기기 중 놓기는 차례든 대기든 남기지 않는다.
+            var isSearching = CanInteract(playerIndex, now);
             if (!CanPlaceHeldObject(playerIndex, pose, now) ||
                 !TryGetHeldObjectId(playerIndex, out var objectId) ||
                 !ReleaseHeldObjectAt(playerIndex, pose))
@@ -542,7 +579,7 @@ namespace Game.Server.Match
                 return false;
             }
 
-            if (!isHiding)
+            if (isSearching)
             {
                 highlightRecorder.RecordItemInteraction(playerIndex, objectId, now);
             }
@@ -555,7 +592,8 @@ namespace Game.Server.Match
         public bool TryDropHeldObject(int playerIndex, Pose pose, double now)
         {
             var isSearching = CanInteract(playerIndex, now);
-            if ((!CanActDuringHidingTurn(playerIndex, now) && !isSearching) ||
+            if ((!CanActDuringHidingTurn(playerIndex, now) && !isSearching &&
+                 !CanActWhileWaitingToHide(playerIndex, now)) ||
                 !IsFinite(pose.position) ||
                 !IsFinite(pose.rotation) ||
                 !TryGetHeldObjectId(playerIndex, out var objectId) ||
@@ -575,7 +613,8 @@ namespace Game.Server.Match
         public bool CanPlaceHeldObject(int playerIndex, Pose pose, double now)
         {
             return (CanActDuringHidingTurn(playerIndex, now) ||
-                    CanInteract(playerIndex, now)) &&
+                    CanInteract(playerIndex, now) ||
+                    CanActWhileWaitingToHide(playerIndex, now)) &&
                    TryGetHeldObjectId(playerIndex, out var objectId) &&
                    placementValidator.IsValid(objectId, pose);
         }
@@ -587,7 +626,8 @@ namespace Game.Server.Match
             double now)
         {
             var isSearching = CanInteract(playerIndex, now);
-            if ((!CanActDuringHidingTurn(playerIndex, now) && !isSearching) ||
+            if ((!CanActDuringHidingTurn(playerIndex, now) && !isSearching &&
+                 !CanActWhileWaitingToHide(playerIndex, now)) ||
                 !IsFinite(releasePose.position) ||
                 !IsFinite(releasePose.rotation) ||
                 !IsFinite(initialVelocity) ||
@@ -627,10 +667,13 @@ namespace Game.Server.Match
             var phase = state.CurrentPhase.CurrentValue;
             if (phase == MatchPhase.Hiding)
             {
-                var turn = flow.GetCurrentHidingTurnIndex(now);
-                if (turn != playerIndex) return $"hiding phase: not this player's turn (current turn={turn})";
-                if (flow.GetHidingTurnRemainingSeconds(now) <= 0d) return "hiding phase: turn time is over";
-                if (completedHidingTurns[playerIndex]) return "hiding phase: turn already completed";
+                // 차례가 아닌 사람도 대기 구역 소품은 내려놓는다. 막히는 건 인트로와, 자기 차례를 다 쓴 경우다.
+                if (flow.IsPhaseIntro(now)) return "hiding phase: intro is still running";
+                if (flow.GetCurrentHidingTurnIndex(now) == playerIndex)
+                {
+                    if (flow.GetHidingTurnRemainingSeconds(now) <= 0d) return "hiding phase: turn time is over";
+                    if (completedHidingTurns[playerIndex]) return "hiding phase: turn already completed";
+                }
             }
             else if (!IsSearchingAt(now))
             {
@@ -737,6 +780,7 @@ namespace Game.Server.Match
             if (state.CurrentPhase.CurrentValue == MatchPhase.Hiding)
             {
                 totalHitsReceived[targetPlayerIndex]++;
+                lastHitTakenAt[targetPlayerIndex] = now;
                 return HitResult.Registered;
             }
 
@@ -744,6 +788,7 @@ namespace Game.Server.Match
             if (hitResult != HitResult.Ignored)
             {
                 lastHitAt[attackerPlayerIndex] = now;
+                lastHitTakenAt[targetPlayerIndex] = now;
                 totalHitsReceived[targetPlayerIndex]++;
             }
             if (hitResult == HitResult.Stunned) totalStuns[targetPlayerIndex]++;
@@ -927,7 +972,27 @@ namespace Game.Server.Match
                 var action = playerActions == null
                     ? HighlightPlayerAction.None
                     : playerActions[i];
-                if (interactions.IsStunned(i, now)) action |= HighlightPlayerAction.Stunned;
+                if (interactions.IsStunned(i, now))
+                {
+                    action |= HighlightPlayerAction.Stunned;
+                    var stunStartedAt = interactions.GetStunEndsAt(i) - rules.StunDurationSeconds;
+                    if (now - stunStartedAt < StunEntrySeconds)
+                        action |= HighlightPlayerAction.StunEntry;
+                }
+                // 기절로 쓰러진 뒤에는 움찔하지 않는다. 실제 플레이도 기절이 피격을 덮는다.
+                else if (lastHitTakenAt.TryGetValue(i, out var hitTakenAt) &&
+                         now - hitTakenAt < HitReactionSeconds)
+                {
+                    action |= HighlightPlayerAction.Hit;
+                }
+                else
+                {
+                    // 한 번도 기절한 적이 없으면 끝난 시각이 0이라 이 창에 들어오지 않는다.
+                    var stunEndedAt = interactions.GetStunEndsAt(i);
+                    if (stunEndedAt > 0d && now - stunEndedAt < StunRecoverySeconds)
+                        action |= HighlightPlayerAction.StunRecovery;
+                }
+
                 if (lastHitAt.TryGetValue(i, out var hitAt) && now - hitAt < 0.5d)
                     action |= HighlightPlayerAction.Punching;
                 if (TryGetHeldObjectId(i, out _)) action |= HighlightPlayerAction.Carrying;
@@ -935,6 +1000,14 @@ namespace Game.Server.Match
                     action |= HighlightPlayerAction.Throwing;
                 if (lastPlacementAt.TryGetValue(i, out var placedAt) && now - placedAt < 0.5d)
                     action |= HighlightPlayerAction.Placing;
+                // 맞거나 기절하거나 물건을 다루면 감정 표현은 거기서 끊긴다(실제 플레이와 같다).
+                if ((action & (HighlightPlayerAction.Stunned | HighlightPlayerAction.Hit |
+                               HighlightPlayerAction.Punching | HighlightPlayerAction.Throwing |
+                               HighlightPlayerAction.Placing)) != 0)
+                {
+                    action = action.WithoutEmote();
+                }
+
                 actions[i] = action;
             }
             return highlightReplayBuffer.TryRecord(now, playerPoses, replayObjects, actions);
@@ -1150,6 +1223,21 @@ namespace Game.Server.Match
                    !completedHidingTurns[playerIndex];
         }
 
+        /// <summary>
+        /// 숨기기 페이즈에서 자기 차례를 기다리는 사람이 대기 구역 소품을 만질 수 있는지.
+        /// </summary>
+        /// <remarks>
+        /// 대기자는 집 밖에서 이미 걸어 다니고 때리기도 하므로 손만 묶어 둘 이유가 없다. 다만 열어 주는
+        /// 것은 맵 소품뿐이고(<see cref="TryHoldObject"/>), 인트로가 도는 동안은 아무도 움직이지 않는다.
+        /// </remarks>
+        private bool CanActWhileWaitingToHide(int playerIndex, double now)
+        {
+            return Players.IsActive(playerIndex) &&
+                   state.CurrentPhase.CurrentValue == MatchPhase.Hiding &&
+                   !flow.IsPhaseIntro(now) &&
+                   flow.GetCurrentHidingTurnIndex(now) != playerIndex;
+        }
+
         public bool TryCompleteHidingTurn(int playerIndex, double now)
         {
             if (playerIndex < 0 || playerIndex >= Assignments.Count ||
@@ -1198,6 +1286,14 @@ namespace Game.Server.Match
                 return true;
             }
 
+            return ReleaseHeldMapObjectAt(playerIndex, pose, wasAutoPlaced);
+        }
+
+        /// <summary>
+        /// 손에 든 맵 소품만 골라 그 자리에 둔다. 배정 물건과 달리 숨긴 자리로 기록하지 않는다.
+        /// </summary>
+        private bool ReleaseHeldMapObjectAt(int playerIndex, Pose pose, bool wasAutoPlaced)
+        {
             var objectId = heldMapObjectIdsByPlayer[playerIndex];
             if (objectId == null)
             {
@@ -1490,6 +1586,50 @@ namespace Game.Server.Match
                 CompleteHidingTurn(playerIndex, lastKnownPlayerPositions[playerIndex]);
             }
 
+        }
+
+        /// <summary>
+        /// 차례가 넘어온 사람의 손을 비운다. 대기하는 동안 주운 소품이 그대로 따라가면 배정 물건을
+        /// 쥐여줄 손이 없고(<see cref="TryInitializeAssignedItem"/>), 숨길 물건 대신 엉뚱한 소품을
+        /// 들고 서 있게 된다. 아직 대기 구역 좌표인 이 틱에 떨궈야 소품이 제자리에 남는다.
+        /// </summary>
+        private void DropCarryOnHidingTurnChange(
+            double now,
+            IReadOnlyList<Vector3> lastKnownPlayerPositions)
+        {
+            var turn = flow.GetCurrentHidingTurnIndex(now);
+            if (turn == lastHidingTurnIndex)
+            {
+                return;
+            }
+
+            lastHidingTurnIndex = turn;
+            if (turn < 0 || !Players.IsActive(turn))
+            {
+                return;
+            }
+
+            ReleaseHeldMapObjectAt(
+                turn,
+                new Pose(lastKnownPlayerPositions[turn], Quaternion.identity),
+                true);
+        }
+
+        /// <summary>
+        /// 숨기기가 끝나는 순간 손에 남은 소품을 그 자리에 둔다. 차례를 마친 사람도 대기 구역에서
+        /// 소품을 주울 수 있어, 이걸 놓지 않으면 찾기 스폰으로 옮겨질 때 소품이 함께 딸려온다.
+        /// </summary>
+        private void DropHeldMapObjects(IReadOnlyList<Vector3> lastKnownPlayerPositions)
+        {
+            for (var playerIndex = 0;
+                 playerIndex < heldMapObjectIdsByPlayer.Length;
+                 playerIndex++)
+            {
+                ReleaseHeldMapObjectAt(
+                    playerIndex,
+                    new Pose(lastKnownPlayerPositions[playerIndex], Quaternion.identity),
+                    true);
+            }
         }
 
         private void CompleteMapObjectEjections(double now)

@@ -1,24 +1,17 @@
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 
 namespace Game.Client.Match
 {
-    public interface IMatchTimerView
-    {
-        void SetRemainingSeconds(double remainingSeconds);
-        void SetHintVisible(bool visible);
-        void SetResult(string headline, string subtitle);
-        void ClearResult();
-    }
-
     /// <summary>
     /// Top-of-screen searching clock. Matches the hiding timer until the last
     /// thirty seconds, then grows to orange Black type, shows an orange
     /// prompt, and pulses both lines.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class MatchTimerView : MonoBehaviour, IMatchTimerView
+    public sealed class MatchTimerView : MonoBehaviour
     {
         public const float TimerFontSize = 83.2f;
         public const float HintFontSize = 36f;
@@ -26,11 +19,16 @@ namespace Game.Client.Match
         public const float TimerWidth = 546f;
         public const float TimerHeight = 104f;
         public const float HintHeight = 48f;
-        public const string HintText = "서둘러 자신의 물건을 확보하세요 !";
-        public const string WinHeadline = "YOU WIN!";
-        public const string LoseHeadline = "YOU LOSE..";
-        public const string WinSubtitle = "숨겼던 물건을 끝까지 지켜냈어요!";
-        public const string LoseSubtitle = "아쉽게도 물건을 지키지 못했어요!";
+        public static string HintText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.TimerHint, "ko");
+        public static string WinHeadline =>
+            UiTextCatalog.Shipped.Get(UiText.Match.WinHeadline, "ko");
+        public static string LoseHeadline =>
+            UiTextCatalog.Shipped.Get(UiText.Match.LoseHeadline, "ko");
+        public static string WinSubtitle =>
+            UiTextCatalog.Shipped.Get(UiText.Match.WinSubtitle, "ko");
+        public static string LoseSubtitle =>
+            UiTextCatalog.Shipped.Get(UiText.Match.LoseSubtitle, "ko");
         public static readonly Color TimerColor = HidingActiveHudView.WarningColor;
         public static readonly Color WarningColor = HidingActiveHudView.WarningColor;
         public static readonly Color ResultSubtitleColor = Color.white;
@@ -47,6 +45,7 @@ namespace Game.Client.Match
         private bool resultActive;
         private string resultHeadline = string.Empty;
         private string resultSubtitle = string.Empty;
+        private UiLocale chromeLocale;
 
         public static bool IsWarning(double remainingSeconds)
         {
@@ -154,6 +153,24 @@ namespace Game.Client.Match
             ApplyHintVisibility();
         }
 
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureLayout();
+            if (resultActive)
+            {
+                ApplyResult();
+                return;
+            }
+
+            ApplyHintStyle();
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
+
         private void EnsureLayout()
         {
             if (timerText == null)
@@ -169,7 +186,7 @@ namespace Game.Client.Match
 
             if (hintText == null)
             {
-                hintText = CreateText(transform, "Hint", HintText, HintFontSize);
+                hintText = CreateText(transform, "Hint", Copy(UiText.Match.TimerHint), HintFontSize);
             }
 
             ApplyTimerStyle();
@@ -207,7 +224,7 @@ namespace Game.Client.Match
             hintText.textWrappingMode = TextWrappingModes.NoWrap;
             hintText.overflowMode = TextOverflowModes.Overflow;
             hintText.raycastTarget = false;
-            hintText.text = resultActive ? resultSubtitle : HintText;
+            hintText.text = resultActive ? resultSubtitle : Copy(UiText.Match.TimerHint);
             ApplyHintVisibility();
         }
 

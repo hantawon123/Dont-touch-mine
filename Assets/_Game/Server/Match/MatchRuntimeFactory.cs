@@ -22,33 +22,6 @@ namespace Game.Server.Match
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
         }
 
-        public MatchRuntimeComposition CreateFromParticipants(
-            RoomLobbySystem lobby,
-            IMatchRuntimeContext runtimeContext,
-            AppFlowSystem appFlow,
-            IReadOnlyList<MatchParticipant> participants,
-            IPlacementValidator placementValidator,
-            IReadOnlyList<Pose> spawnPoints,
-            IReadOnlyList<ItemDefinition> itemDefinitions,
-            System.Random random,
-            IReadOnlyList<WorldObjectState> initialWorldObjects = null,
-            IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null,
-            MatchRuleSettings? matchRules = null)
-        {
-            return Create(
-                lobby,
-                runtimeContext,
-                appFlow,
-                CaptureParticipantIds(participants),
-                placementValidator,
-                spawnPoints,
-                itemDefinitions,
-                random,
-                initialWorldObjects,
-                specifiedAssignments,
-                matchRules);
-        }
-
         public MatchRuntimeComposition Create(
             RoomLobbySystem lobby,
             IMatchRuntimeContext runtimeContext,

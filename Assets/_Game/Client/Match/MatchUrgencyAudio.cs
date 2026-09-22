@@ -1,14 +1,9 @@
 using Game.Core.Match;
+using Game.Core.Settings;
 using UnityEngine;
 
 namespace Game.Client.Match
 {
-    public interface IMatchUrgencyAudio
-    {
-        void Show();
-        void Hide();
-    }
-
     /// <summary>
     /// 탐색 마지막 30초에 들리는 소리. 경고 종이 한 번 울리고, 그 뒤로 긴장감 배경음이
     /// 루프로 깔린다. <see cref="MatchUrgencyBorderView"/>와 같은 조건으로 켜고 꺼진다.
@@ -22,7 +17,7 @@ namespace Game.Client.Match
     /// never runs lifecycle callbacks, still sees a usable component.
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class MatchUrgencyAudio : MonoBehaviour, IMatchUrgencyAudio
+    public sealed class MatchUrgencyAudio : MonoBehaviour
     {
         public const string RootName = "UrgencyAudio";
         public const string ChimeResource = "Audio/WarningChime";
@@ -103,7 +98,7 @@ namespace Game.Client.Match
 
             if (loopSource != null && loopSource.clip != null && !loopSource.isPlaying)
             {
-                loopSource.volume = Mathf.Clamp01(MusicVolume);
+                loopSource.volume = Mathf.Clamp01(MusicVolume) * SoundCatalog.BgmPlaybackVolume;
                 loopSource.Play();
             }
         }
@@ -118,7 +113,7 @@ namespace Game.Client.Match
         {
             fadeGain = AdvanceFade(fadeGain, active, deltaSeconds);
             if (loopSource == null) return;
-            loopSource.volume = Mathf.Clamp01(MusicVolume) * fadeGain;
+            loopSource.volume = Mathf.Clamp01(MusicVolume) * SoundCatalog.BgmPlaybackVolume * fadeGain;
             if (!active && fadeGain <= 0f && loopSource.isPlaying) loopSource.Stop();
         }
 

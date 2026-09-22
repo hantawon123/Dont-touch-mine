@@ -68,10 +68,10 @@ class AdminChatApiTest extends IntegrationTest {
     @DisplayName("경기 키의 방에서 신고 시각 앞뒤 대화만 보여준다")
     void showsTheConversationAroundTheReport() throws Exception {
         var room = room();
-        send(room, "MATCH", null, "p1", "시작하자", "20260917010000");
-        send(room, "MATCH", null, "p2", "야 시발", "20260917010500");
+        send(room, "MATCH", null, "p1", "시작하자", false, "20260917010000");
+        send(room, "MATCH", null, "p2", "야 시발", true, "20260917010500");
         // 구간 밖. 같은 방이지만 몇 시간 전 이야기입니다.
-        send(room, "MATCH", null, "p1", "어제 뭐했어", "20260916220000");
+        send(room, "MATCH", null, "p1", "어제 뭐했어", false, "20260916220000");
 
         var response = around(room + "#1", "20260917010400", 15);
 
@@ -87,9 +87,9 @@ class AdminChatApiTest extends IntegrationTest {
     @DisplayName("이름을 몰라도 발화자는 서로 구분된다")
     void unknownSpeakersAreStillToldApart() throws Exception {
         var room = room();
-        send(room, "MATCH", null, "p1", "야 뭐하냐", "20260917010001");
-        send(room, "MATCH", null, "p2", "닥쳐", "20260917010002");
-        send(room, "MATCH", null, "p1", "미안", "20260917010003");
+        send(room, "MATCH", null, "p1", "야 뭐하냐", false, "20260917010001");
+        send(room, "MATCH", null, "p2", "닥쳐", true, "20260917010002");
+        send(room, "MATCH", null, "p1", "미안", false, "20260917010003");
 
         var lines = around(room + "#0", "20260917010002", 5).get("lines");
 
@@ -107,7 +107,7 @@ class AdminChatApiTest extends IntegrationTest {
     void knownSpeakerShowsTheCurrentNickname() throws Exception {
         var room = room();
         var speaker = createUser();
-        send(room, "LOBBY", speaker, "p1", "안녕하세요", "20260917020000");
+        send(room, "LOBBY", speaker, "p1", "안녕하세요", false, "20260917020000");
 
         var line = around(room + "#0", "20260917020000", 5).get("lines").get(0);
 
@@ -135,9 +135,9 @@ class AdminChatApiTest extends IntegrationTest {
         // 고정 날짜를 쓰면 이 테스트는 오늘에 기댑니다. 조회 구간은 지금부터 거슬러 세고
         // 컨트롤러가 최대 30일로 깎으므로, 한 달만 지나면 고정 날짜가 구간 밖으로 밀려
         // 코드가 멀쩡한데도 깨집니다.
-        send(first, "MATCH", speaker, "p1", "시발", ago(Duration.ofHours(2)));
-        send(second, "MATCH", speaker, "p1", "병신", ago(Duration.ofHours(1)));
-        send(second, "MATCH", null, "p2", "그만해", ago(Duration.ofMinutes(59)));
+        send(first, "MATCH", speaker, "p1", "시발", true, ago(Duration.ofHours(2)));
+        send(second, "MATCH", speaker, "p1", "병신", true, ago(Duration.ofHours(1)));
+        send(second, "MATCH", null, "p2", "그만해", false, ago(Duration.ofMinutes(59)));
 
         var admin = login();
         var body = mvc.perform(get("/api/v1/admin/chat/by/" + speaker)
@@ -191,7 +191,16 @@ class AdminChatApiTest extends IntegrationTest {
         return objectMapper.readTree(body);
     }
 
-    private void send(String room, String scope, String userId, String ref, String message, String at)
+    /**
+     * 채팅 한 줄을 게임 서버인 척 넣습니다.
+     *
+     * <p>가린 여부를 인자로 받는 이유는 그것을 <b>게임 서버가 정하기</b> 때문입니다
+     * (S15P21D205-1096). 백엔드가 저장할 때 다시 판정하던 동안에는 욕설을 넣기만 하면 켜졌지만,
+     * 지금은 보내는 쪽이 정합니다. 이 화면이 그 값으로 줄을 색칠하고 건수를 세므로 여기서도
+     * 줄마다 정해 보냅니다.
+     */
+    private void send(String room, String scope, String userId, String ref, String message,
+                      boolean masked, String at)
             throws Exception {
         mvc.perform(post(CHAT)
                         .header("X-Internal-Key", KEY)
@@ -202,6 +211,7 @@ class AdminChatApiTest extends IntegrationTest {
                                 + "\"userPublicId\":" + (userId == null ? "null" : "\"" + userId + "\"") + ","
                                 + "\"senderRef\":\"" + ref + "\","
                                 + "\"message\":\"" + message + "\","
+                                + "\"masked\":" + masked + ","
                                 + "\"sentAt\":\"" + at + "\"}]}"))
                 .andExpect(status().isAccepted());
     }

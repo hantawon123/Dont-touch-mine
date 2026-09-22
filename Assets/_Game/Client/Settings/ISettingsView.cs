@@ -129,6 +129,13 @@ namespace Game.Client.Settings
         void ShowTab(SettingsTab tab);
 
         /// <summary>
+        /// Draws the chrome — tabs, the language row's name, and the two
+        /// buttons — in the applied language. Called when the screen opens
+        /// and again when that language actually moves.
+        /// </summary>
+        void ShowChrome(UiLocale locale);
+
+        /// <summary>
         /// Puts a language's name in the picker. <paramref name="canStep"/>
         /// false draws the arrows as unavailable, for a catalogue with nowhere
         /// else to go.
@@ -217,7 +224,10 @@ namespace Game.Client.Settings
         /// </summary>
         void SetFeedbackSubmitEnabled(bool enabled);
 
-        /// <summary>A passing message over the screen, for something that could not be done.</summary>
-        void ShowNotice(string title, string message);
+        /// <summary>
+        /// A passing message over the screen. Failures keep the warm plate;
+        /// a success is the same plate in green, with a check beside the title.
+        /// </summary>
+        void ShowNotice(string title, string message, bool success = false);
     }
 }

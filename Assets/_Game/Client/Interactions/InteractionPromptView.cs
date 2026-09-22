@@ -14,6 +14,8 @@ namespace Game.Client.Interactions
         public const float KeyBoxSize = 32f;
         public const float KeyIconSize = 24f;
         public const string LeftClickIconResource = "UI/ic_left_click";
+        public const string RightClickIconResource = "UI/ic_right_click";
+        public const string MouseDragIconResource = "UI/ic_mouse_scroll"; // 마우스 + 네 방향 화살표(끌기) 그림
         public static readonly Color KeyBoxColor = new(0f, 0f, 0f, 0.27f);
         public const float WorldLift = 0.08f;
         public const float ScaleReferenceDistance = 3f;
@@ -120,6 +122,29 @@ namespace Game.Client.Interactions
 
         public static Sprite LoadLeftClickIcon() =>
             Resources.Load<Sprite>(LeftClickIconResource);
+
+        public static Sprite LoadRightClickIcon() =>
+            Resources.Load<Sprite>(RightClickIconResource);
+
+        public static Sprite LoadMouseDragIcon() =>
+            Resources.Load<Sprite>(MouseDragIconResource);
+
+        /// <summary>
+        /// 화면 픽셀 오프셋(거리 스케일 적용). 같은 기준점에 안내를 여러 줄 쌓을 때 아래 줄을 한 칸 내리는 데 쓴다.
+        /// </summary>
+        public Vector2 ScreenOffset { get; set; }
+
+        /// <summary>
+        /// 안내가 기준점에서 위로 자라는지(기본) 아래로 늘어지는지. 기즈모 구 아래에 붙이는 안내처럼 기준점이 위쪽 가장자리일 때 쓴다.
+        /// </summary>
+        public void SetHangsBelowAnchor(bool hangsBelow) => SetPivotY(hangsBelow ? 1f : 0f);
+
+        /// <summary>기준점이 안내의 어느 높이에 오는지: 0 = 아래 가장자리(기본, 위로 자람), 0.5 = 가운데, 1 = 위 가장자리(아래로 늘어짐).</summary>
+        public void SetPivotY(float pivotY)
+        {
+            EnsureBuilt();
+            root.pivot = new Vector2(0.5f, Mathf.Clamp01(pivotY));
+        }
 
         public void Hide()
         {
@@ -325,9 +350,9 @@ namespace Game.Client.Interactions
                     Time.unscaledDeltaTime);
             }
 
-            root.position = dampedScreen;
             var distance = Vector3.Distance(followCamera.transform.position, world);
             var scale = ScaleFromDistance(distance);
+            root.position = dampedScreen + (Vector3)(ScreenOffset * scale);
             root.localScale = new Vector3(scale, scale, 1f);
         }
 

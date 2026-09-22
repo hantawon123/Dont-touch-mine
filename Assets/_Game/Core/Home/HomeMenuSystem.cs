@@ -11,7 +11,8 @@ namespace Game.Core.Home
         Friends,
         ServerSettings,
         Settings,
-        Quit
+        Quit,
+        Tutorial
     }
 
     public sealed class HomeMenuSystem

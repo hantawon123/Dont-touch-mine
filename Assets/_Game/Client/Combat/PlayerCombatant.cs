@@ -63,6 +63,9 @@ namespace Game.Client.Combat
         /// <summary>피격 모션 재생 등 표현 계층이 구독하는 피격 알림.</summary>
         public event System.Action HitReceived;
 
+        /// <summary>기절에 들어간 순간. 스냅샷 복원에는 올리지 않는다.</summary>
+        public event System.Action Stunned;
+
         /// <summary>표현 계층(애니메이션)이 참조하는 전투 설정.</summary>
         public CombatConfigSO Config => combatConfig;
 
@@ -73,6 +76,12 @@ namespace Game.Client.Combat
             usesNetworkState
                 ? networkStunned
                 : combatRules != null && combatRules.IsStunned(playerIndex, Time.timeAsDouble);
+
+        /// <summary>
+        /// 이 클라이언트가 그리는 로컬 캐릭터인가.
+        /// 다른 사람 복제본은 false라서 기절자 화면에만 흑백이 걸린다.
+        /// </summary>
+        public bool PresentsLocalScreen { get; private set; }
 
         public int PlayerIndex => playerIndex;
 
@@ -105,6 +114,11 @@ namespace Game.Client.Combat
                 ? visualRoot.GetComponentsInChildren<Renderer>()
                 : new Renderer[0];
 
+            if (GetComponent<StunScreenGrayscaleView>() == null)
+            {
+                gameObject.AddComponent<StunScreenGrayscaleView>();
+            }
+
             if (isAttacker)
             {
                 if (inputActions == null)
@@ -121,6 +135,11 @@ namespace Game.Client.Combat
 
         private void Start()
         {
+            if (!usesNetworkState)
+            {
+                PresentsLocalScreen = isAttacker;
+            }
+
             if (combatRules == null && !usesNetworkState)
             {
                 Debug.LogError(
@@ -133,9 +152,15 @@ namespace Game.Client.Combat
 
         public void ConfigureNetworkPlayer(int index, bool acceptsLocalInput)
         {
+            ConfigureNetworkPlayer(index, acceptsLocalInput, acceptsLocalInput);
+        }
+
+        public void ConfigureNetworkPlayer(int index, bool acceptsLocalInput, bool presentsLocalScreen)
+        {
             playerIndex = index;
             usesNetworkState = true;
             isAttacker = acceptsLocalInput;
+            PresentsLocalScreen = presentsLocalScreen;
             enabled = true;
 
             if (acceptsLocalInput)
@@ -151,7 +176,11 @@ namespace Game.Client.Combat
             networkStunned = stunned;
             // The authoritative hit counter resets to zero on a stunning hit.
             // Treat this transition as a confirmed hit, but not an initial snapshot.
-            if (enteredStun) NotifyHitReceived();
+            if (enteredStun)
+            {
+                NotifyHitReceived();
+                Stunned?.Invoke();
+            }
         }
 
         public void SetNetworkHitCount(int hitCount)
@@ -282,6 +311,7 @@ namespace Game.Client.Combat
                 // 기절하면 들고 있던 물건을 떨어뜨리고, 휘두르던 공격도 취소한다. (기획서 13절)
                 hasPendingHit = false;
                 GetComponent<ICarriedItemDropper>()?.DropCarriedItem();
+                Stunned?.Invoke();
             }
         }
 

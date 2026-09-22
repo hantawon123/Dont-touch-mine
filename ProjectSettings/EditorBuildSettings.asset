@@ -18,11 +18,14 @@ EditorBuildSettings:
     path: Assets/_Game/Content/Scenes/Lobby.unity
     guid: d0bbed07a70236d47ae2d3cf7104e90c
   - enabled: 1
-    path: Assets/_Game/Content/Scenes/Playground.unity
-    guid: 38063f202021431d87d19016376c9b66
-  - enabled: 1
     path: Assets/_Game/Content/Scenes/Supermarket.unity
     guid: cad9a7fd93ff6a9428b283457c72aacb
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Mansion.unity
+    guid: f4a98e0b0680411d860337ffc00841fa
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/MansionResult.unity
+    guid: 8db70533803e46c78699b7d7a7a8b600
   - enabled: 1
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
@@ -38,6 +41,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Game/Content/Scenes/Loading.unity
     guid: 8f3a2c1d9e6b4a70b5d4c3e2f1a0b9c8
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Tutorial.unity
+    guid: 1442a52f14bed8f4292bd9c0414350d9
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

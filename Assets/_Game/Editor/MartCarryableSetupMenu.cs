@@ -13,7 +13,8 @@ using Object = UnityEngine.Object;
 namespace Game.Editor
 {
     /// <summary>
-    /// 마트 맵의 "들 수 있는 소품" 전환. 진열 상품·봉지·꽃다발·상자류는 Carryable, 선반·냉장고·가구·카트는 고정.
+    /// 매치 맵의 "들 수 있는 소품" 전환. 마트: 진열 상품·봉지·꽃다발·상자류는 Carryable, 선반·냉장고·가구·카트는 고정.
+    /// 저택(<c>Mansion</c> 씬)에서도 같은 메뉴를 쓰며, 변형 프리팹 폴더·보고서 경로·키워드 일부가 씬 이름으로 갈린다.
     /// </summary>
     /// <remarks>
     /// <list type="bullet">
@@ -31,8 +32,17 @@ namespace Game.Editor
     public static class MartCarryableSetupMenu
     {
         private const string MenuRoot = "Game/Match Map/Carryable/";
-        private const string VariantFolder = "Assets/_Game/Content/Prefabs/Carryable/Mart";
-        private const string ReportPath = "docs/design/match-map/carryable-props.md";
+        private const string MartVariantFolder = "Assets/_Game/Content/Prefabs/Carryable/Mart";
+        private const string MansionVariantFolder = "Assets/_Game/Content/Prefabs/Carryable/Mansion";
+        private const string MartReportPath = "docs/design/match-map/carryable-props.md";
+        private const string MansionReportPath = "docs/design/match-map/mansion/carryable-props.md";
+        private const string MansionSceneName = "Mansion";
+
+        /// <summary>열린 씬이 저택이면 저택용 폴더·보고서·키워드를 쓴다. 그 외(마트·놀이터)는 마트 설정.</summary>
+        private static bool IsMansionScene => SceneManager.GetActiveScene().name == MansionSceneName;
+
+        private static string VariantFolder => IsMansionScene ? MansionVariantFolder : MartVariantFolder;
+        private static string ReportPath => IsMansionScene ? MansionReportPath : MartReportPath;
         private const string BoundaryName = "Boundary";
         private const float LooseSizeCap = 0.5f;
         private const int ItemsPerTick = 40;
@@ -52,6 +62,44 @@ namespace Game.Editor
         /// <summary>진열 그룹 안에 있어도 항상 고정인 것(선반에 붙은 가격표·라벨).</summary>
         private static readonly string[] AlwaysFixedKeywords = { "PriceTag", "Price_Tag", "Label" };
 
+        /// <summary>저택(Horror Mansion 팩)에서 추가로 고정하는 것: 벽 장식·천·데칼·가구·설비. 마트 제외 목록에 더해진다.</summary>
+        private static readonly string[] MansionExcludeKeywords =
+        {
+            "Painting", "Picture", "Curtain", "Rug", "Sheet_", "Decal", "Page", "Silhouette", "Keyhole", "Door_Mat",
+            "Power_Box", "Shackle", "Chandelier", "Torch", "Ladder", "Dresser", "Wardrobe", "Bed", "Ottoman", "Shower",
+            "Bath", "Fireplace", "Furnace", "Piano", "Coffin", "Gravestone", "Statue", "Wood_Stack", "Bookend",
+        };
+
+        /// <summary>
+        /// 저택에서 진열(분해 결과) 그룹 안에 있어도 항상 고정: 낙엽 조각, 종잇장(두께 1 mm라 받침 판정이 불안정), 데칼.
+        /// </summary>
+        private static readonly string[] MansionAlwaysFixedKeywords = { "Page", "Env_", "Leaves", "Decal" };
+
+        private static string[] ActiveAlwaysFixedKeywords => IsMansionScene
+            ? AlwaysFixedKeywords.Concat(MansionAlwaysFixedKeywords).ToArray()
+            : AlwaysFixedKeywords;
+
+        /// <summary>저택에서는 마트 제외 목록 중 이 낱말을 제외하지 않는다(책상 위 서류는 들 수 있게).</summary>
+        private static readonly string[] MansionUnexcludeKeywords = { "Papers" };
+
+        /// <summary>저택에서 크기와 무관하게 들 수 있는 것. 마트 포함 목록에 더해진다.</summary>
+        private static readonly string[] MansionIncludeKeywords =
+        {
+            "Book", "Candle_0", "Goblet", "Plate_0", "Can_", "Cardboard", "Bottle", "Jar", "Suitcase", "Mask", "Skull",
+            "Key_", "Spoon", "Kitchen_Pan", "Plant_Pot", "Doily", "Papers", "Paper_", "Bowl", "Cup", "Mug", "Lockbox",
+            "Music_Box", "Jack_In_The_Box", "Bone", "Teddy", "Doll", "Toilet_Roll",
+            // 보고서 '분류 불가'에서 손에 들 만한 것(2026-09-17): 수건·고양이 인형·장식 두상·십자가·소형 램프·탁상 시계·칼
+            "Towel", "Cat_Stuffed", "Ornamental_Head", "Exorcist_Cross", "Lamp_02", "Lamp_03", "Clock_02", "Wep_Knife",
+        };
+
+        private static string[] ActiveExcludeKeywords => IsMansionScene
+            ? ExcludeKeywords.Except(MansionUnexcludeKeywords).Concat(MansionExcludeKeywords).ToArray()
+            : ExcludeKeywords;
+
+        private static string[] ActiveIncludeKeywords => IsMansionScene
+            ? IncludeKeywords.Concat(MansionIncludeKeywords).ToArray()
+            : IncludeKeywords;
+
         /// <summary>낱개 프리팹 중 이 낱말이 있으면 크기와 무관하게 들 수 있음.</summary>
         private static readonly string[] IncludeKeywords =
         {
@@ -65,6 +113,15 @@ namespace Game.Editor
         {
             ("Lettuce", "양배추"), ("Flower", "꽃"), ("Bouquet", "꽃다발"), ("Cardboard", "상자"), ("Box", "상자"), ("Bag", "봉지"),
             ("Food_", "식품"), ("Shoe", "신발"), ("Safety_Step", "발판"), ("Product", "상품"), ("Gen_", "상품"),
+            // 저택
+            ("Book", "책"), ("Candle", "양초"), ("Goblet", "잔"), ("Plate", "접시"), ("Bottle", "병"), ("Jar", "병"),
+            ("Suitcase", "가방"), ("Mask", "가면"), ("Skull", "두개골"), ("Key_", "열쇠"), ("Spoon", "숟가락"),
+            ("Kitchen_Pan", "팬"), ("Plant_Pot", "화분"), ("Bowl", "그릇"), ("Paper", "종이"), ("Can_", "캔"),
+            ("Lockbox", "금고"), ("Music_Box", "오르골"), ("Toilet_Roll", "휴지"), ("Doily", "장식 천"),
+            ("Towel", "수건"), ("Cat_Stuffed", "고양이 인형"), ("Ornamental_Head", "장식 두상"), ("Cross", "십자가"),
+            ("Lamp", "램프"), ("Clock", "시계"), ("Knife", "칼"), ("Fork", "포크"), ("Vase", "꽃병"), ("Bible", "성경"),
+            ("Crystal_Ball", "수정구"), ("Phone", "전화기"), ("Radio", "라디오"), ("Toaster", "토스터"), ("Bucket", "양동이"),
+            ("Stake", "말뚝"), ("Mallet", "망치"), ("Burner", "버너"), ("Ghost_Meter", "탐지기"),
         };
 
         private sealed class Target
@@ -151,7 +208,7 @@ namespace Game.Editor
                 }
 
                 // 가격표·라벨은 진열 그룹에 섞여 있어도 선반에 붙은 것이라 항상 고정.
-                if (AlwaysFixedKeywords.Any(k => sourceName.Contains(k, StringComparison.Ordinal)))
+                if (ActiveAlwaysFixedKeywords.Any(k => sourceName.Contains(k, StringComparison.Ordinal)))
                 {
                     Count(result.Excluded, sourceName, size);
                     continue;
@@ -159,12 +216,12 @@ namespace Game.Editor
 
                 // 분해 결과 상품(Products)·채운 상품(Refill)은 이름에 진열대 이름이 들어 있어도(Gen_..._Aisle_Preset_...) 상품이다.
                 var isProductGroup = parentName == "Products" || parentName == "Refill";
-                if (!isProductGroup && ExcludeKeywords.Any(k => sourceName.Contains(k, StringComparison.Ordinal)))
+                if (!isProductGroup && ActiveExcludeKeywords.Any(k => sourceName.Contains(k, StringComparison.Ordinal)))
                 {
                     Count(result.Excluded, sourceName, size);
                     continue;
                 }
-                var byKeyword = IncludeKeywords.Any(k => sourceName.Contains(k, StringComparison.Ordinal));
+                var byKeyword = ActiveIncludeKeywords.Any(k => sourceName.Contains(k, StringComparison.Ordinal));
                 var bySize = Mathf.Max(size.x, size.y, size.z) <= LooseSizeCap;
                 if (isProductGroup || byKeyword || bySize)
                 {
@@ -492,7 +549,7 @@ namespace Game.Editor
 
         private static bool ConfigureCarryable(GameObject target, string sourceName)
         {
-            if (target.GetComponentsInChildren<Collider>(true).Length == 0)
+            if (target.GetComponentsInChildren<Collider>(true).Length == 0 && !TryAddBoundsCollider(target))
             {
                 return false;
             }
@@ -522,6 +579,51 @@ namespace Game.Editor
             var serialized = new SerializedObject(carryable);
             serialized.FindProperty("displayName").stringValue = DisplayNameFor(sourceName);
             serialized.ApplyModifiedPropertiesWithoutUndo();
+            return true;
+        }
+
+        /// <summary>
+        /// 콜라이더가 하나도 없는 팩 프리팹(저택 서류 `SM_Prop_Papers_01~03` 등)에 렌더러 경계 크기의 BoxCollider를 붙인다.
+        /// 종이처럼 얇은 것은 놓기·받침 판정이 흔들리지 않게 두께를 최소 2 cm로 올린다.
+        /// </summary>
+        private static bool TryAddBoundsCollider(GameObject target)
+        {
+            var renderers = target.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0)
+            {
+                return false;
+            }
+
+            Bounds? local = null;
+            foreach (var renderer in renderers)
+            {
+                var world = renderer.bounds;
+                for (var corner = 0; corner < 8; corner++)
+                {
+                    var point = world.center + Vector3.Scale(world.extents, new Vector3(
+                        (corner & 1) == 0 ? -1f : 1f,
+                        (corner & 2) == 0 ? -1f : 1f,
+                        (corner & 4) == 0 ? -1f : 1f));
+                    var localPoint = target.transform.InverseTransformPoint(point);
+                    if (local.HasValue)
+                    {
+                        var b = local.Value;
+                        b.Encapsulate(localPoint);
+                        local = b;
+                    }
+                    else
+                    {
+                        local = new Bounds(localPoint, Vector3.zero);
+                    }
+                }
+            }
+
+            const float minThickness = 0.02f;
+            var bounds = local.Value;
+            var size = Vector3.Max(bounds.size, Vector3.one * minThickness);
+            var box = target.AddComponent<BoxCollider>();
+            box.center = bounds.center + Vector3.up * Mathf.Max(0f, (size.y - bounds.size.y) * 0.5f);
+            box.size = size;
             return true;
         }
 
@@ -625,6 +727,752 @@ namespace Game.Editor
             }
 
             return bounds;
+        }
+
+        // ------------------------------------------------------------------ 4~5. 기존 Carryable 점검·복구
+
+        /// <summary>규칙을 어긴 Carryable 하나와 그 사유.</summary>
+        private sealed class Repair
+        {
+            public GameObject Instance;
+
+            /// <summary>인스턴스의 원본 프리팹 경로. 씬 전용 오브젝트면 빈 문자열.</summary>
+            public string AssetPath;
+
+            public string Reason;
+
+            /// <summary>팩 프리팹을 직접 쓰고 있어 Carryable 변형으로 갈아끼워야 하는가.</summary>
+            public bool NeedsVariant;
+        }
+
+        [MenuItem(MenuRoot + "4. Repair Existing Carryables (Report)")]
+        private static void ReportExistingCarryables()
+        {
+            RepairExistingCarryables(false);
+        }
+
+        [MenuItem(MenuRoot + "5. Repair Existing Carryables (Apply)")]
+        private static void ApplyExistingCarryables()
+        {
+            RepairExistingCarryables(true);
+        }
+
+        /// <summary>
+        /// 이미 <see cref="CarryableItem"/>이 붙은 소품만 훑어 규칙 위반을 고친다.
+        /// 어떤 소품을 들 수 있게 할지(키워드 판정)는 <c>2. Convert Targets</c>의 몫이라 여기서는 건드리지 않는다.
+        /// </summary>
+        /// <remarks>
+        /// 고치는 것은 네 가지다.
+        /// <list type="number">
+        /// <item>콜라이더가 하나도 없으면 렌더러 경계로 BoxCollider를 붙인다.</item>
+        /// <item>MeshCollider가 오목하면 convex로 바꾼다. 동적 Rigidbody는 오목 메시를 쓸 수 없다.</item>
+        /// <item>Rigidbody가 없으면 kinematic 상태로 붙인다.</item>
+        /// <item>팩 프리팹(Synty 등)을 직접 쓰면 변형을 만들어 갈아끼운다. 팩 원본은 건드리지 않는다.</item>
+        /// </list>
+        /// 이미 규칙을 지키는 항목은 손대지 않는다. 질량처럼 사람이 맞춰둔 값도 그대로 둔다.
+        /// </remarks>
+        private static void RepairExistingCarryables(bool apply)
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Debug.LogWarning("[MartCarryable] Play 모드를 끝낸 뒤 실행하세요.");
+                return;
+            }
+
+            var scene = SceneManager.GetActiveScene();
+            var carryables = CollectCarryables(scene);
+            var repairs = new List<Repair>();
+            foreach (var carryable in carryables)
+            {
+                var repair = InspectCarryable(carryable);
+                if (repair != null)
+                {
+                    repairs.Add(repair);
+                }
+            }
+
+            if (repairs.Count == 0)
+            {
+                EditorUtility.DisplayDialog(
+                    "Carryable 점검",
+                    $"{scene.name}: Carryable {carryables.Count}개 모두 규칙을 지키고 있습니다.",
+                    "확인");
+                return;
+            }
+
+            var summary = SummarizeRepairs(scene, carryables.Count, repairs);
+            if (!apply)
+            {
+                Selection.objects = repairs.Select(repair => (Object)repair.Instance).ToArray();
+                Debug.Log(summary);
+                EditorUtility.DisplayDialog("Carryable 점검", summary, "확인");
+                return;
+            }
+
+            if (!EditorUtility.DisplayDialog("Carryable 복구", summary + "\n적용할까요?", "적용", "취소"))
+            {
+                return;
+            }
+
+            var undoGroup = Undo.GetCurrentGroup();
+            Undo.SetCurrentGroupName("Repair Carryables");
+            var (repaired, skipped) = ApplyRepairs(repairs);
+            Undo.CollapseUndoOperations(undoGroup);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorUtility.DisplayDialog(
+                "Carryable 복구",
+                $"복구 {repaired}개, 실패 또는 제외 {skipped}개\n씬을 저장하세요.",
+                "확인");
+        }
+
+        /// <summary>대화상자 없이 복구만 한다. 메뉴와 배치 모드가 함께 쓴다.</summary>
+        private static (int repaired, int skipped) ApplyRepairs(List<Repair> repairs)
+        {
+            EnsureFolder(VariantFolder);
+
+            var repairedAssets = new HashSet<string>(StringComparer.Ordinal);
+            var repaired = 0;
+            var skipped = 0;
+            foreach (var repair in repairs)
+            {
+                try
+                {
+                    if (RepairOne(repair, repairedAssets))
+                    {
+                        repaired++;
+                    }
+                    else
+                    {
+                        skipped++;
+                    }
+                }
+                catch (Exception exception)
+                {
+                    skipped++;
+                    Debug.LogWarning(
+                        $"[MartCarryable] 복구 실패 {repair.Instance?.name}: {exception.Message}",
+                        repair.Instance);
+                }
+            }
+
+            AssetDatabase.SaveAssets();
+            return (repaired, skipped);
+        }
+
+        private static List<Repair> CollectRepairs(Scene scene, out int total)
+        {
+            var carryables = CollectCarryables(scene);
+            total = carryables.Count;
+            var repairs = new List<Repair>();
+            foreach (var carryable in carryables)
+            {
+                var repair = InspectCarryable(carryable);
+                if (repair != null)
+                {
+                    repairs.Add(repair);
+                }
+            }
+
+            return repairs;
+        }
+
+        /// <summary>
+        /// 배치 모드 진입점. 에디터를 닫은 상태에서 매치 맵 두 씬을 열어 복구하고 저장한다.
+        /// <c>Unity.exe -batchmode -quit -projectPath &lt;프로젝트&gt; -executeMethod Game.Editor.MartCarryableSetupMenu.RepairMatchMapCarryablesBatch</c>
+        /// </summary>
+        public static void RepairMatchMapCarryablesBatch()
+        {
+            string[] scenePaths =
+            {
+                "Assets/_Game/Content/Scenes/Mansion.unity",
+                "Assets/_Game/Content/Scenes/Supermarket.unity",
+            };
+
+            foreach (var scenePath in scenePaths)
+            {
+                var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                var repairs = CollectRepairs(scene, out var total);
+                if (repairs.Count == 0)
+                {
+                    Debug.Log($"[MartCarryable] {scene.name}: Carryable {total}개 모두 규칙 준수. 건너뜀");
+                    continue;
+                }
+
+                var (repaired, skipped) = ApplyRepairs(repairs);
+                Debug.Log(
+                    $"[MartCarryable] {scene.name}: Carryable {total}개 중 위반 {repairs.Count}개, " +
+                    $"복구 {repaired}개, 실패 또는 제외 {skipped}개");
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene);
+            }
+
+            AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>
+        /// 씬의 Carryable 오브젝트. 한 오브젝트에 CarryableItem 이 둘 붙어 있어도 한 번만 센다.
+        /// 중복을 두 건으로 세면 복구 한 번에 "실패"가 같이 잡혀 보고가 어긋난다.
+        /// </summary>
+        private static List<GameObject> CollectCarryables(Scene scene)
+        {
+            var seen = new HashSet<GameObject>();
+            var result = new List<GameObject>();
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var carryable in root.GetComponentsInChildren<CarryableItem>(true))
+                {
+                    if (seen.Add(carryable.gameObject))
+                    {
+                        result.Add(carryable.gameObject);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>규칙 위반이면 <see cref="Repair"/>를, 문제가 없으면 null을 돌려준다.</summary>
+        private static Repair InspectCarryable(GameObject instance)
+        {
+            var assetPath = PrefabUtility.IsPartOfPrefabInstance(instance)
+                ? PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(instance)
+                : string.Empty;
+            assetPath = string.IsNullOrEmpty(assetPath) ? string.Empty : assetPath.Replace('\\', '/');
+
+            var reasons = new List<string>();
+            if (instance.GetComponentsInChildren<Collider>(true).Length == 0)
+            {
+                reasons.Add("콜라이더 없음");
+            }
+
+            foreach (var meshCollider in instance.GetComponentsInChildren<MeshCollider>(true))
+            {
+                if (!meshCollider.convex)
+                {
+                    reasons.Add("MeshCollider concave");
+                    break;
+                }
+            }
+
+            if (instance.GetComponent<Rigidbody>() == null)
+            {
+                reasons.Add("Rigidbody 없음");
+            }
+
+            if (instance.GetComponents<CarryableItem>().Length > 1)
+            {
+                reasons.Add("CarryableItem 중복");
+            }
+
+            var needsVariant = assetPath.Length > 0 && !IsOwnPrefab(assetPath);
+            if (needsVariant)
+            {
+                reasons.Add("팩 프리팹 직접 사용");
+            }
+
+            if (reasons.Count == 0)
+            {
+                return null;
+            }
+
+            return new Repair
+            {
+                Instance = instance,
+                AssetPath = assetPath,
+                Reason = string.Join(", ", reasons),
+                NeedsVariant = needsVariant,
+            };
+        }
+
+        private static bool RepairOne(Repair repair, HashSet<string> repairedAssets)
+        {
+            var instance = repair.Instance;
+            if (instance == null)
+            {
+                return false;
+            }
+
+            var changed = false;
+
+            if (repair.NeedsVariant)
+            {
+                var source = AssetDatabase.LoadAssetAtPath<GameObject>(repair.AssetPath);
+                var instanceRoot = PrefabUtility.GetNearestPrefabInstanceRoot(instance);
+                if (source == null || instanceRoot == null)
+                {
+                    return false;
+                }
+
+                var variant = GetOrCreateVariant(source);
+                if (variant == null)
+                {
+                    return false;
+                }
+
+                PrefabUtility.ReplacePrefabAssetOfPrefabInstance(
+                    instanceRoot,
+                    variant,
+                    new PrefabReplacingSettings
+                    {
+                        changeRootNameToAssetName = false,
+                        prefabOverridesOptions = PrefabOverridesOptions.KeepAllPossibleOverrides,
+                    },
+                    InteractionMode.AutomatedAction);
+                instance = instanceRoot;
+                changed = true;
+            }
+            else if (repair.AssetPath.Length > 0 &&
+                     repairedAssets.Add(repair.AssetPath) &&
+                     PrefabAssetNeedsRepair(repair.AssetPath))
+            {
+                // 우리 프리팹이면 프리팹 자체를 고친다. 인스턴스만 고치면 나머지 인스턴스가 그대로 남는다.
+                changed |= ConfigureOwnPrefab(repair.AssetPath);
+            }
+
+            if (instance.GetComponentsInChildren<Collider>(true).Length == 0)
+            {
+                Undo.RegisterFullObjectHierarchyUndo(instance, "Repair Carryable");
+                if (!TryAddBoundsCollider(instance))
+                {
+                    Debug.LogWarning(
+                        $"[MartCarryable] 렌더러가 없어 콜라이더를 만들지 못했습니다: {instance.name}",
+                        instance);
+                    return false;
+                }
+
+                changed = true;
+            }
+
+            // 변형으로 갈아끼워도 예전 m_Convex=0 오버라이드는 따라오므로 인스턴스에서 다시 켠다.
+            foreach (var meshCollider in instance.GetComponentsInChildren<MeshCollider>(true))
+            {
+                if (meshCollider.convex)
+                {
+                    continue;
+                }
+
+                Undo.RecordObject(meshCollider, "Repair Carryable");
+                meshCollider.convex = true;
+                changed = true;
+            }
+
+            if (instance.GetComponent<Rigidbody>() == null)
+            {
+                var body = Undo.AddComponent<Rigidbody>(instance);
+                body.mass = 1f;
+                body.useGravity = true;
+                body.isKinematic = true;
+                changed = true;
+            }
+
+            // 변형 교체는 KeepAllPossibleOverrides 라 인스턴스에 덧붙어 있던 CarryableItem 이 남는다.
+            // 변형도 같은 컴포넌트를 주므로 걷어내지 않으면 한 오브젝트에 둘이 붙는다.
+            if (RemoveDuplicateCarryables(instance) > 0)
+            {
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        /// <summary>한 오브젝트에 CarryableItem 이 여럿이면 프리팹이 주는 쪽만 남기고 지운다.</summary>
+        private static int RemoveDuplicateCarryables(GameObject root)
+        {
+            var items = root.GetComponents<CarryableItem>();
+            if (items.Length <= 1)
+            {
+                return 0;
+            }
+
+            CarryableItem keep = null;
+            foreach (var item in items)
+            {
+                if (!PrefabUtility.IsAddedComponentOverride(item))
+                {
+                    keep = item;
+                    break;
+                }
+            }
+
+            if (keep == null)
+            {
+                keep = items[0];
+            }
+
+            var removed = 0;
+            foreach (var item in items)
+            {
+                if (item == keep)
+                {
+                    continue;
+                }
+
+                Undo.DestroyObjectImmediate(item);
+                removed++;
+            }
+
+            return removed;
+        }
+
+        /// <summary>프리팹 원본 자체가 규칙을 어겼는지. 멀쩡한 프리팹을 괜히 다시 저장하지 않으려고 본다.</summary>
+        private static bool PrefabAssetNeedsRepair(string assetPath)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            if (asset == null)
+            {
+                return false;
+            }
+
+            if (asset.GetComponentsInChildren<Collider>(true).Length == 0)
+            {
+                return true;
+            }
+
+            foreach (var meshCollider in asset.GetComponentsInChildren<MeshCollider>(true))
+            {
+                if (!meshCollider.convex)
+                {
+                    return true;
+                }
+            }
+
+            return asset.GetComponent<Rigidbody>() == null || asset.GetComponent<CarryableItem>() == null;
+        }
+
+        private static string SummarizeRepairs(Scene scene, int total, List<Repair> repairs)
+        {
+            var byReason = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var repair in repairs)
+            {
+                byReason.TryGetValue(repair.Reason, out var count);
+                byReason[repair.Reason] = count + 1;
+            }
+
+            var builder = new StringBuilder();
+            builder.AppendLine($"{scene.name}: Carryable {total}개 중 {repairs.Count}개가 규칙 위반");
+            foreach (var pair in byReason.OrderByDescending(entry => entry.Value))
+            {
+                builder.AppendLine($"  {pair.Value}개 - {pair.Key}");
+            }
+
+            builder.AppendLine();
+            builder.AppendLine($"변형 폴더: {VariantFolder}");
+            return builder.ToString();
+        }
+
+        /// <summary>
+        /// 읽기 전용 감사. 매치 맵 두 씬의 Carryable 상태를 로그로만 남긴다. 아무것도 고치지 않는다.
+        /// <c>-executeMethod Game.Editor.MartCarryableSetupMenu.AuditMatchMapCarryablesBatch</c>
+        /// </summary>
+        public static void AuditMatchMapCarryablesBatch()
+        {
+            string[] scenePaths =
+            {
+                "Assets/_Game/Content/Scenes/Mansion.unity",
+                "Assets/_Game/Content/Scenes/Supermarket.unity",
+            };
+
+            foreach (var scenePath in scenePaths)
+            {
+                var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                var seen = new HashSet<GameObject>();
+                var total = 0;
+                var duplicated = 0;
+                var concave = 0;
+                var noCollider = 0;
+                var noBody = 0;
+                var dynamicAtRest = 0;
+
+                foreach (var root in scene.GetRootGameObjects())
+                {
+                    foreach (var carryable in root.GetComponentsInChildren<CarryableItem>(true))
+                    {
+                        var go = carryable.gameObject;
+                        if (!seen.Add(go))
+                        {
+                            continue;
+                        }
+
+                        total++;
+                        if (go.GetComponents<CarryableItem>().Length > 1)
+                        {
+                            duplicated++;
+                            Debug.LogWarning($"[Audit] CarryableItem 중복: {GetPath(go)}", go);
+                        }
+
+                        if (go.GetComponentsInChildren<Collider>(true).Length == 0)
+                        {
+                            noCollider++;
+                            Debug.LogWarning($"[Audit] 콜라이더 없음: {GetPath(go)}", go);
+                        }
+
+                        foreach (var meshCollider in go.GetComponentsInChildren<MeshCollider>(true))
+                        {
+                            if (meshCollider.convex)
+                            {
+                                continue;
+                            }
+
+                            concave++;
+                            Debug.LogWarning($"[Audit] concave MeshCollider: {GetPath(go)}", go);
+                            break;
+                        }
+
+                        var body = go.GetComponent<Rigidbody>();
+                        if (body == null)
+                        {
+                            noBody++;
+                            Debug.LogWarning($"[Audit] Rigidbody 없음: {GetPath(go)}", go);
+                        }
+                        else if (!body.isKinematic)
+                        {
+                            dynamicAtRest++;
+                        }
+                    }
+                }
+
+                Debug.Log(
+                    $"[Audit] {scene.name}: Carryable {total} / 중복 {duplicated} / concave {concave} / " +
+                    $"콜라이더없음 {noCollider} / Rigidbody없음 {noBody} / 시작부터 dynamic {dynamicAtRest}");
+            }
+        }
+
+        private static string GetPath(GameObject go)
+        {
+            var path = go.name;
+            var parent = go.transform.parent;
+            while (parent != null)
+            {
+                path = parent.name + "/" + path;
+                parent = parent.parent;
+            }
+
+            return path;
+        }
+
+        /// <summary>
+        /// 이미 <see cref="CarryableItem"/>이 붙은 소품이 물리적으로 성립하도록 최소한만 고친다.
+        /// 변형 프리팹을 만들지 않고, 프리팹 원본도 건드리지 않고, 이름도 바꾸지 않는다.
+        /// 고치는 것은 씬 인스턴스의 오버라이드뿐이다.
+        /// </summary>
+        /// <remarks>
+        /// 동적 Rigidbody는 오목 MeshCollider를 쓸 수 없어 PhysX가 거부한다(콘솔의
+        /// "Concave Mesh Colliders are not supported..."). convex로 바꾸는 것 외에
+        /// 다른 선택지는 kinematic 고정뿐인데 그러면 들 수가 없다.
+        /// <c>-executeMethod Game.Editor.MartCarryableSetupMenu.RepairCarryableCollidersBatch</c>
+        /// </remarks>
+        public static void RepairCarryableCollidersBatch()
+        {
+            foreach (var scenePath in MatchMapScenePaths)
+            {
+                var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                var r = FixCarryableColliders(scene);
+                if (r.changed > 0)
+                {
+                    EditorSceneManager.MarkSceneDirty(scene);
+                    EditorSceneManager.SaveScene(scene);
+                }
+            }
+        }
+
+        private static readonly string[] MatchMapScenePaths =
+        {
+            "Assets/_Game/Content/Scenes/Mansion.unity",
+            "Assets/_Game/Content/Scenes/Supermarket.unity",
+        };
+
+        /// <summary>씬 하나의 Carryable 콜라이더를 최소한만 고친다. 저장은 부르는 쪽 몫이다.</summary>
+        private static (int total, int convexFixed, int colliderAdded, int bodyAdded, int failed, int changed)
+            FixCarryableColliders(Scene scene)
+        {
+            var seen = new HashSet<GameObject>();
+            int total = 0, convexFixed = 0, colliderAdded = 0, bodyAdded = 0, failed = 0;
+
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var carryable in root.GetComponentsInChildren<CarryableItem>(true))
+                {
+                    var go = carryable.gameObject;
+                    if (!seen.Add(go))
+                    {
+                        continue;
+                    }
+
+                    total++;
+
+                    if (go.GetComponentsInChildren<Collider>(true).Length == 0)
+                    {
+                        if (TryAddBoundsCollider(go))
+                        {
+                            colliderAdded++;
+                        }
+                        else
+                        {
+                            failed++;
+                            Debug.LogWarning($"[CarryableCollider] 렌더러가 없어 콜라이더를 만들지 못함: {GetPath(go)}", go);
+                            continue;
+                        }
+                    }
+
+                    foreach (var meshCollider in go.GetComponentsInChildren<MeshCollider>(true))
+                    {
+                        if (meshCollider.convex)
+                        {
+                            continue;
+                        }
+
+                        meshCollider.convex = true;
+                        EditorUtility.SetDirty(meshCollider);
+                        convexFixed++;
+                    }
+
+                    if (go.GetComponent<Rigidbody>() == null)
+                    {
+                        var body = go.AddComponent<Rigidbody>();
+                        body.mass = 1f;
+                        body.useGravity = true;
+                        body.isKinematic = true;
+                        EditorUtility.SetDirty(body);
+                        bodyAdded++;
+                    }
+                }
+            }
+
+            Debug.Log(
+                $"[CarryableCollider] {scene.name}: Carryable {total} / convex 전환 {convexFixed} / " +
+                $"콜라이더 추가 {colliderAdded} / Rigidbody 추가 {bodyAdded} / 실패 {failed}");
+            return (total, convexFixed, colliderAdded, bodyAdded, failed,
+                convexFixed + colliderAdded + bodyAdded);
+        }
+
+        /// <summary>
+        /// <see cref="CarryableItem"/>이 붙은 소품에서 정적 배칭(BatchingStatic) 표시를 걷어낸다.
+        /// </summary>
+        /// <remarks>
+        /// 정적 배칭된 렌더러는 플레이 시작 때 씬 전체를 합친 메시로 구워지므로 두 가지가 깨진다.
+        /// <list type="number">
+        /// <item>물건을 들어도 <b>그려지는 위치가 따라오지 않는다</b>. 트랜스폼만 손으로 가고 화면에는 제자리에 남는다.</item>
+        /// <item><c>MeshFilter.sharedMesh</c>가 결합 메시를 가리켜, 조준 실루엣이 <b>씬의 다른 가구들까지</b> 그린다.</item>
+        /// </list>
+        /// 고정 소품일 때 켜 둔 배칭이 Carryable 로 바꾼 뒤에도 남아 있으면 이 상태가 된다.
+        /// <c>-executeMethod Game.Editor.MartCarryableSetupMenu.ClearStaticBatchingOnCarryablesBatch</c>
+        /// </remarks>
+        public static void ClearStaticBatchingOnCarryablesBatch()
+        {
+            foreach (var scenePath in MatchMapScenePaths)
+            {
+                var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                var r = ClearStaticBatchingOnCarryables(scene);
+                if (r.cleared > 0)
+                {
+                    EditorSceneManager.MarkSceneDirty(scene);
+                    EditorSceneManager.SaveScene(scene);
+                }
+            }
+        }
+
+        /// <summary>씬 하나에서 Carryable 의 BatchingStatic 만 걷어낸다. 저장은 부르는 쪽 몫이다.</summary>
+        private static (int total, int affected, int cleared) ClearStaticBatchingOnCarryables(Scene scene)
+        {
+            var seen = new HashSet<GameObject>();
+            int total = 0, affected = 0, cleared = 0;
+
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var carryable in root.GetComponentsInChildren<CarryableItem>(true))
+                {
+                    var go = carryable.gameObject;
+                    if (!seen.Add(go))
+                    {
+                        continue;
+                    }
+
+                    total++;
+                    var touched = false;
+                    foreach (var child in go.GetComponentsInChildren<Transform>(true))
+                    {
+                        var flags = GameObjectUtility.GetStaticEditorFlags(child.gameObject);
+                        if ((flags & StaticEditorFlags.BatchingStatic) == 0)
+                        {
+                            continue;
+                        }
+
+                        GameObjectUtility.SetStaticEditorFlags(
+                            child.gameObject,
+                            flags & ~StaticEditorFlags.BatchingStatic);
+                        EditorUtility.SetDirty(child.gameObject);
+                        cleared++;
+                        touched = true;
+                    }
+
+                    if (touched)
+                    {
+                        affected++;
+                    }
+                }
+            }
+
+            Debug.Log(
+                $"[CarryableBatching] {scene.name}: Carryable {total} / 배칭 걷어낸 오브젝트 {affected} / " +
+                $"해제한 GameObject {cleared}");
+            return (total, affected, cleared);
+        }
+
+        // ------------------------------------------------------------------ 6~7. 열린 씬에만 적용하는 메뉴
+
+        /// <summary>
+        /// 열려 있는 씬에서만 <see cref="RepairCarryableCollidersBatch"/> 와 같은 일을 한다.
+        /// 소품을 몇 개 더 놓은 뒤 씬을 닫지 않고 바로 고칠 때 쓴다.
+        /// </summary>
+        [MenuItem(MenuRoot + "6. Fix Carryable Colliders (Open Scene)")]
+        private static void FixCarryableCollidersInOpenScene()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Debug.LogWarning("[MartCarryable] Play 모드를 끝낸 뒤 실행하세요.");
+                return;
+            }
+
+            var scene = SceneManager.GetActiveScene();
+            var result = FixCarryableColliders(scene);
+            if (result.changed > 0)
+            {
+                EditorSceneManager.MarkSceneDirty(scene);
+            }
+
+            EditorUtility.DisplayDialog(
+                "Carryable 콜라이더",
+                $"{scene.name}\nCarryable {result.total}개\n" +
+                $"convex 전환 {result.convexFixed}\n콜라이더 추가 {result.colliderAdded}\n" +
+                $"Rigidbody 추가 {result.bodyAdded}\n실패 {result.failed}\n\n씬을 저장하세요.",
+                "확인");
+        }
+
+        /// <summary>
+        /// 열려 있는 씬에서만 <see cref="ClearStaticBatchingOnCarryablesBatch"/> 와 같은 일을 한다.
+        /// 고정 소품을 Carryable 로 바꾼 직후에는 배칭 표시가 남아 있어 반드시 한 번 돌려야 한다.
+        /// </summary>
+        [MenuItem(MenuRoot + "7. Clear Static Batching On Carryables (Open Scene)")]
+        private static void ClearStaticBatchingInOpenScene()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Debug.LogWarning("[MartCarryable] Play 모드를 끝낸 뒤 실행하세요.");
+                return;
+            }
+
+            var scene = SceneManager.GetActiveScene();
+            var result = ClearStaticBatchingOnCarryables(scene);
+            if (result.cleared > 0)
+            {
+                EditorSceneManager.MarkSceneDirty(scene);
+            }
+
+            EditorUtility.DisplayDialog(
+                "Carryable 정적 배칭",
+                $"{scene.name}\nCarryable {result.total}개\n" +
+                $"배칭 걷어낸 오브젝트 {result.affected}\n해제한 GameObject {result.cleared}\n\n씬을 저장하세요.",
+                "확인");
         }
 
         private static void EnsureFolder(string folder)

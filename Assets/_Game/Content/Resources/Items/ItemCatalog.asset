@@ -13,398 +13,226 @@ MonoBehaviour:
   m_Name: ItemCatalog
   m_EditorClassIdentifier: Game.SOAP::Game.SOAP.Config.ItemCatalogSO
   categories:
-  - id: reserve
-    label: "\uBCF4\uB958\xB7\uBD80\uD488\xB7\uBAA8\uD615"
-    enabled: 0
-    items:
-    - id: i274c3559a8
-      displayName: mesh_Ambulance_01
-      enabled: 1
-      prefab: {fileID: 1383425856305193020, guid: 62f93ebbf98e1564c9118dd502a432cd, type: 3}
-    - id: iced4e06e6c
-      displayName: mesh_Bus_01
-      enabled: 1
-      prefab: {fileID: 7435465804186057263, guid: 6753c8f51eadf6e479335e23ccc448c9, type: 3}
-    - id: i713e2cd7e4
-      displayName: mesh_Bus_02
-      enabled: 1
-      prefab: {fileID: 2530892164158611043, guid: 34be2369b69514f479d17c7765a595bb, type: 3}
-    - id: i126f812ffa
-      displayName: mesh_Pickup_01
-      enabled: 1
-      prefab: {fileID: 8031417194799184595, guid: 447c940c3b79fa044809fab4bcea317a, type: 3}
-    - id: i84b1c486c9
-      displayName: mesh_Sedan_01
-      enabled: 1
-      prefab: {fileID: 1920378263374737417, guid: 7e35ae012b3f96e4182d2a6b95c94c30, type: 3}
-    - id: ie0a9d8a2be
-      displayName: mesh_SportCar_01
-      enabled: 1
-      prefab: {fileID: 7243142414807270630, guid: cf94ad89677e25149be8240f86157a2d, type: 3}
-    - id: i219e3eafff
-      displayName: mesh_TruckContainer_01
-      enabled: 1
-      prefab: {fileID: 3927489085552449364, guid: 1cf44e27c8c356248bf6195991af7732, type: 3}
-    - id: i4ba9daec07
-      displayName: mesh_Van_01
-      enabled: 1
-      prefab: {fileID: 6853078273322471968, guid: 51dfbda9e95b23b4ca3712fa9bb2e5a1, type: 3}
-    - id: i6615101f8f
-      displayName: "\uCE7C 001"
-      enabled: 1
-      prefab: {fileID: 1671637366812231623, guid: 17049ddd8a800674cbb4fb6a8df8de19, type: 3}
-    - id: i1a47a3298b
-      displayName: "\uC870\uC900\uACBD 001"
-      enabled: 1
-      prefab: {fileID: 5845120083788869650, guid: 74c0704512a5cb74586174f5b95d133b, type: 3}
-    - id: ia8541acb3f
-      displayName: TraderTable
-      enabled: 1
-      prefab: {fileID: 7116732257857589293, guid: 437228bc5ae3ab14496367b6fd78865d, type: 3}
-    - id: id569f3607a
-      displayName: TraderTent
-      enabled: 1
-      prefab: {fileID: 724427542810218643, guid: 7e9fc60c2a6c3a048908d88a5473a7b8, type: 3}
-    - id: i15b09faa79
-      displayName: WoodenBox1 Apple
-      enabled: 1
-      prefab: {fileID: 3521336259345174739, guid: 07a21bf75d0740b4db5198a6b973b5b5, type: 3}
-    - id: i34e6cefb14
-      displayName: WoodenBox1 Bottle1
-      enabled: 1
-      prefab: {fileID: 5341309670353746747, guid: 2ba56b9a3aed68b489a65cbd3f1da257, type: 3}
-    - id: icffe90111b
-      displayName: WoodenBox1 Bottle2
-      enabled: 1
-      prefab: {fileID: 4304614380000204998, guid: 64fb1ad3f83cabd4d9661f36744cde43, type: 3}
-    - id: ida466bb88e
-      displayName: WoodenBox1 Cheese
-      enabled: 1
-      prefab: {fileID: 1117085312692774601, guid: d7ca3da35d4af9f48b156382c202793e, type: 3}
-    - id: ica0798d214
-      displayName: WoodenBox1 Orange
-      enabled: 1
-      prefab: {fileID: 781576157945544365, guid: f051ba451a91d9d45893f0ace82de46e, type: 3}
-    - id: ibfe5f0b58d
-      displayName: WoodenBox1 Tomato
-      enabled: 1
-      prefab: {fileID: 3174245449065514436, guid: 1f7d0af0c65658e499a602d8467c782d, type: 3}
-    - id: ibd236129af
-      displayName: WoodenBox1
-      enabled: 1
-      prefab: {fileID: 3274414690659438016, guid: 9e0f8f9469d2477459478689c35a81fb, type: 3}
-    - id: ie87733c56c
-      displayName: WoodenBox2 Pumpkin
-      enabled: 1
-      prefab: {fileID: 1873431095128725234, guid: 17f0e54c879052b4fa755e636bc92ebd, type: 3}
-    - id: icf29175da1
-      displayName: WoodenBox2 Watermelon
-      enabled: 1
-      prefab: {fileID: 2599751247300277801, guid: 61c98d1435ce85b49801c630a1681d1e, type: 3}
-    - id: i42ef832a53
-      displayName: WoodenBox2
-      enabled: 1
-      prefab: {fileID: 2450695706455972814, guid: f9ae76fbf158ff7448ed40ef21c88d1e, type: 3}
-  - id: fantasy
-    label: "\uD310\uD0C0\uC9C0 \uC18C\uD488"
+  - id: food
+    label: "\uC74C\uC2DD\xB7\uC74C\uB8CC"
     enabled: 1
     items:
-    - id: ic36f9f66f8
-      displayName: "\uD55C\uC190\uB3C4\uB07C 1"
+    - id: i3bf3ed0822
+      displayName: "\uC6B0\uC720\uD329"
       enabled: 1
-      prefab: {fileID: 1715353757441775406, guid: 0cf868ac22932e844b2dc2422bcfa0e9, type: 3}
-    - id: i500e50e599
-      displayName: "\uD55C\uC190\uB3C4\uB07C 2"
+      prefab: {fileID: 9198087140825000397, guid: ce09cfe8b723f0043b110e5cad2d4dac, type: 3}
+    - id: i01763ee0e9
+      displayName: "\uC6B0\uC720\uD329"
       enabled: 1
-      prefab: {fileID: 5304130523435514647, guid: a23760f9d0546d34db26aa464b00f023, type: 3}
-    - id: i9a26be1fb6
-      displayName: "\uD55C\uC190\uB3C4\uB07C 3"
+      prefab: {fileID: 4958689412785945074, guid: 5890e10e1a902ea4fbd13171706a0d70, type: 3}
+    - id: if8d5f1161c
+      displayName: "\uC544\uBCF4\uCE74\uB3C4"
       enabled: 1
-      prefab: {fileID: 3105034949969975171, guid: c755e967fa215534092eaa62527e7ea2, type: 3}
-    - id: i16a85a9c30
-      displayName: "\uD55C\uC190\uB3C4\uB07C 4"
+      prefab: {fileID: 5769653935149476961, guid: 8be27a1299a554d47a10b514b5e566e2, type: 3}
+    - id: i7360d9d90a
+      displayName: "\uC544\uBCF4\uCE74\uB3C4"
       enabled: 1
-      prefab: {fileID: 7887643978660899919, guid: d4c021dc3ece59f4dae9b15223b26cf8, type: 3}
-    - id: i1bbb34092f
-      displayName: "\uD55C\uC190\uB3C4\uB07C 5"
+      prefab: {fileID: 449244415615573813, guid: 18feb79880bddd44c9d4e60057cafcd5, type: 3}
+    - id: i091dad0400
+      displayName: "\uBC14"
       enabled: 1
-      prefab: {fileID: 1360397599096356996, guid: 8936147a3c0ea914f893f276ec6da1f2, type: 3}
-    - id: icaf80a4812
-      displayName: "\uD55C\uC190\uB3C4\uB07C 6"
+      prefab: {fileID: 8410197037994656215, guid: 1bb72fed25ad7e14abb96a49c8e2ff01, type: 3}
+    - id: ia6eff41fa4
+      displayName: "\uD584\uBC84\uAC70"
       enabled: 1
-      prefab: {fileID: 2325473529184048560, guid: 6832a6b079bed384592634e56479c2af, type: 3}
-    - id: i4c3fe83aff
-      displayName: "\uD55C\uC190\uB3C4\uB07C 7"
+      prefab: {fileID: 756745528875103378, guid: 1c800c7150cd9624db7fd2a988896043, type: 3}
+    - id: i69bdb8848c
+      displayName: "\uCE94"
       enabled: 1
-      prefab: {fileID: 4958822356343273720, guid: 1b3b8d88a1686634ab64be48dda125e8, type: 3}
-    - id: i60fa2ab371
-      displayName: "\uD55C\uC190\uB3C4\uB07C 8"
+      prefab: {fileID: 6157397557352315552, guid: adf9e1e36331ea34c98e2c073ad97d43, type: 3}
+    - id: i6c682a09d8
+      displayName: "\uCE58\uC988\uCF00\uC774\uD06C"
       enabled: 1
-      prefab: {fileID: 6082636884760460877, guid: 372ae117062ba8a41bd1b7ceb728a5c3, type: 3}
-    - id: i56cceccaf0
-      displayName: "\uC591\uC190\uB3C4\uB07C 1"
+      prefab: {fileID: 5884121453522954647, guid: 0a7a5531c5ffced4d8728a0e03b97879, type: 3}
+    - id: iaa2088074d
+      displayName: "\uAC10\uC790\uCE69"
       enabled: 1
-      prefab: {fileID: 4397981639229798564, guid: 5b862443cf1c9f34da50ea4212f9569b, type: 3}
-    - id: i1a92d6be85
-      displayName: "\uC591\uC190\uB3C4\uB07C 2"
+      prefab: {fileID: 4851188147987901861, guid: 0889c46cb7a3fc341889e89cc2d23e16, type: 3}
+    - id: icffabbf975
+      displayName: "\uCEE4\uD53C"
       enabled: 1
-      prefab: {fileID: 5044599317777875066, guid: 9497be8d60834c04abeeb2eed56431c6, type: 3}
-    - id: i492b55642f
-      displayName: "\uC591\uC190\uB3C4\uB07C 3"
+      prefab: {fileID: 7244000653766322751, guid: 7b0c4c70660162e41926ca0a2fed25a6, type: 3}
+    - id: i1764cfbfc0
+      displayName: "\uCFE0\uD0A4"
       enabled: 1
-      prefab: {fileID: 4286575935794676883, guid: 33a79ffc0a7b3dc459e41e8d0ae6e6ad, type: 3}
-    - id: i1f25b7b7ff
-      displayName: "\uC591\uC190\uB3C4\uB07C 4"
+      prefab: {fileID: 1050274177748922927, guid: e5ede4cb31e14ab499fa293937238903, type: 3}
+    - id: ia21251f4bf
+      displayName: "\uCFE0\uD0A4"
       enabled: 1
-      prefab: {fileID: 8918809811259326195, guid: 16567a9bbf28cef4787c203e19bd9862, type: 3}
-    - id: ibc56f156e4
-      displayName: "\uC591\uC190\uB3C4\uB07C 5"
+      prefab: {fileID: 7735909764433562499, guid: c1bd4df659707cf4da7431daacc06679, type: 3}
+    - id: ie9b420218e
+      displayName: "\uCFE0\uD0A4"
       enabled: 1
-      prefab: {fileID: 2368213879799185203, guid: c0679379e1af2ec439801d361119a460, type: 3}
-    - id: i1ef9ea1178
-      displayName: "\uC591\uC190\uB3C4\uB07C 6"
+      prefab: {fileID: 3154471205385113201, guid: c16c2cecc20ce5c4390076839a96e897, type: 3}
+    - id: i88152c02d7
+      displayName: "\uD06C\uB8E8\uC544\uC0C1"
       enabled: 1
-      prefab: {fileID: 1170190455810776804, guid: 797077ba3e3652c41881e2f106b57eb7, type: 3}
-    - id: ic1c4723045
-      displayName: "\uC591\uC190\uB3C4\uB07C 7"
+      prefab: {fileID: 6172115112968119068, guid: 23666987c90605f4ba560e75d81d2386, type: 3}
+    - id: ie5c32f8a16
+      displayName: "\uB3C4\uB11B"
       enabled: 1
-      prefab: {fileID: 3182280751049588048, guid: 750422f385d527941bbe99d76d4cc875, type: 3}
-    - id: i0e0ace58ea
-      displayName: "\uC591\uC190\uB3C4\uB07C 8"
+      prefab: {fileID: 8044806004383644355, guid: 97da1f940f50de64190db3064a435e07, type: 3}
+    - id: i0be715e6ec
+      displayName: "\uB2EC\uAC40"
       enabled: 1
-      prefab: {fileID: 6560486779704243707, guid: f07e721cfd957754c9537754f82400b3, type: 3}
-    - id: i89cc8b93b8
-      displayName: "\uD55C\uC190\uAC80 1"
+      prefab: {fileID: 1013902737587293671, guid: abf053098ca875440a065ceba2c361aa, type: 3}
+    - id: ib58977b3bd
+      displayName: "\uB2EC\uAC40"
       enabled: 1
-      prefab: {fileID: 8825003960538162023, guid: 1676261b693e15640aa43000c2c6839b, type: 3}
-    - id: ie182a557d1
-      displayName: "\uD55C\uC190\uAC80 2"
+      prefab: {fileID: 9068533049742219786, guid: 1496cb5e5324a004a98ca3194b5a2c3a, type: 3}
+    - id: ib177fe8716
+      displayName: "\uB2EC\uAC40"
       enabled: 1
-      prefab: {fileID: 8275726104362703883, guid: 8bee20895746d7e4a89e726cd2498624, type: 3}
-    - id: i27d3fe5e2f
-      displayName: "\uD55C\uC190\uAC80 3"
+      prefab: {fileID: 9215587043901003432, guid: 2361d819f1b468b46a383a1ce369d1d7, type: 3}
+    - id: if996699c96
+      displayName: "\uB2EC\uAC40"
       enabled: 1
-      prefab: {fileID: 8375600544680111490, guid: 2369e4b1dc67fae4aa193c4f8a61ee68, type: 3}
-    - id: i7b9d9177ed
-      displayName: "\uD55C\uC190\uAC80 4"
+      prefab: {fileID: 1477215654307752667, guid: afa4f52b3c7b06549845ec9b2db68338, type: 3}
+    - id: ife2c19f290
+      displayName: "\uC0DD\uC120"
       enabled: 1
-      prefab: {fileID: 8068153287868286719, guid: be365a40ad1435b4b9438461cda94515, type: 3}
-    - id: i18485369b0
-      displayName: "\uD55C\uC190\uAC80 5"
+      prefab: {fileID: 1194893089870548208, guid: 212d7d3e2fa5d84429b6e565fed91100, type: 3}
+    - id: ieca88b863f
+      displayName: "\uC544\uC774\uC2A4\uD06C\uB9BC"
       enabled: 1
-      prefab: {fileID: 2755298426431856848, guid: 796c81f2615f6f44a9cd28bb39bb6030, type: 3}
-    - id: ie0aaa860b7
-      displayName: "\uD55C\uC190\uAC80 6"
+      prefab: {fileID: 4794314880819567139, guid: 6b08f708d784fa843ac945a6880a27cd, type: 3}
+    - id: i28dff52790
+      displayName: "\uC544\uC774\uC2A4\uD06C\uB9BC"
       enabled: 1
-      prefab: {fileID: 4731898834167571793, guid: 72bd4d011868ca3489230db6ee025e68, type: 3}
-    - id: i9c39ebe8e3
-      displayName: "\uD55C\uC190\uAC80 7"
+      prefab: {fileID: 7437326224355418753, guid: a83330713ba4c324cbb77e89d731387d, type: 3}
+    - id: i7e531ac46a
+      displayName: "\uBC84\uC12F"
       enabled: 1
-      prefab: {fileID: 8921111164867885741, guid: 192d2cb4d3e56be4790c360d6c9b61fa, type: 3}
-    - id: i106f295e7d
-      displayName: "\uD55C\uC190\uAC80 8"
+      prefab: {fileID: 1470200817986306345, guid: 004b9e95b06a4e447b2dd10fc3429582, type: 3}
+    - id: i40e5f17ca9
+      displayName: "\uBC84\uC12F"
       enabled: 1
-      prefab: {fileID: 5668242132369040693, guid: 25edefacd16e591408d189e46f78adf2, type: 3}
-    - id: ifc984bb738
-      displayName: "\uD55C\uC190\uAC80 9"
+      prefab: {fileID: 5700704838376884635, guid: ed7edbf40e6e13d40a766de72418f178, type: 3}
+    - id: if5e9d54d57
+      displayName: "\uBC84\uC12F"
       enabled: 1
-      prefab: {fileID: 1477756149039629562, guid: ef6287facdf3fb543b90d3493d4fc013, type: 3}
-    - id: id36fc3d4c0
-      displayName: "\uC591\uC190\uAC80 1"
+      prefab: {fileID: 2616984198288582367, guid: a367fb2c940839747bd631df9f3e33bb, type: 3}
+    - id: i908c0c140e
+      displayName: "\uC591\uD30C"
       enabled: 1
-      prefab: {fileID: 8983717563795459615, guid: 79b31bd3d94b4bc43ba5b1a1774e0e7e, type: 3}
-    - id: ie43c0c49b1
-      displayName: "\uC591\uC190\uAC80 2"
+      prefab: {fileID: 1474577481399310865, guid: 8c9b5c513aabb5f449c0557a1dba3f01, type: 3}
+    - id: ia1eb11120b
+      displayName: "\uC591\uD30C"
       enabled: 1
-      prefab: {fileID: 2043978993445942637, guid: 9ff2517945bd6034e962b08eee0fff3e, type: 3}
-    - id: i22c0772553
-      displayName: "\uC591\uC190\uAC80 3"
+      prefab: {fileID: 9137689358318597888, guid: ac6c670220534a44397f1a97706d8a9a, type: 3}
+    - id: ia59581ae84
+      displayName: "\uD398\uC774\uC2A4\uD2B8\uB9AC"
       enabled: 1
-      prefab: {fileID: 2944351254815781744, guid: 7aeed90751f4c294b8dcc9fc69206637, type: 3}
-    - id: id70f3bafb0
-      displayName: "\uC591\uC190\uAC80 4"
+      prefab: {fileID: 2065571017849544434, guid: a135153a289241d4ab53b553c2bd3f19, type: 3}
+    - id: ibd94dbf084
+      displayName: "\uD53C\uB9DD"
       enabled: 1
-      prefab: {fileID: 2740860574791290068, guid: cd113a37cb7db1c419b474762b22aaa1, type: 3}
-    - id: i609698d78a
-      displayName: "\uC591\uC190\uAC80 5"
+      prefab: {fileID: 660782121691665118, guid: 0f3bea2fb2a27134f93e9786486f08b1, type: 3}
+    - id: i05ebee7280
+      displayName: "\uC0CC\uB4DC\uC704\uCE58"
       enabled: 1
-      prefab: {fileID: 8105891653584896261, guid: 2721147d9215d4344b94f3a1d38053fe, type: 3}
-    - id: ib3de1a813d
-      displayName: "\uD654\uC0B4 01-001"
+      prefab: {fileID: 7612477761584870357, guid: 54107bcbd7ae57247b86ccf409848725, type: 3}
+    - id: i409425a164
+      displayName: "\uC0CC\uB4DC\uC704\uCE58"
       enabled: 1
-      prefab: {fileID: 999199529974999086, guid: 6002a2339a5e6f241a64848fd0ebf599, type: 3}
-    - id: idbef16a451
-      displayName: "\uB3C4\uB07C 01-002"
+      prefab: {fileID: 736660659894595011, guid: 3f6fba9bd1d32ad44b4e01c09b24c7d5, type: 3}
+    - id: i499bee0cf2
+      displayName: "\uC0CC\uB4DC\uC704\uCE58"
       enabled: 1
-      prefab: {fileID: 4895051238548733390, guid: 7f6f6f72711aad04a9fb74d7941a3aaa, type: 3}
-    - id: ie5aecbc0f1
-      displayName: "\uD654\uC0B4\uD1B5 01-001"
+      prefab: {fileID: 4682127435698138945, guid: 4d6836f7a6cc5e546bc6ead1078400ba, type: 3}
+    - id: i688aee9b0f
+      displayName: "\uC18C\uC2DC\uC9C0"
       enabled: 1
-      prefab: {fileID: 8942988611619075347, guid: 22e72d569616a7e49b8e15d87d36875a, type: 3}
-    - id: i715cd84aaa
-      displayName: "\uBC29\uD328 01-005"
+      prefab: {fileID: 994683505630080859, guid: 3f09d92cbbd80a647bb1b726fe4f0423, type: 3}
+    - id: iab88e3ce1e
+      displayName: "\uC0C8\uC6B0"
       enabled: 1
-      prefab: {fileID: 2289750967123004325, guid: ae8fe274085d34f41b945fb4ad2119f5, type: 3}
-    - id: ie48cecf0e1
-      displayName: "\uD65C 02-001"
+      prefab: {fileID: 2024806645787823535, guid: f611932eb4087f64fa50d662b1b3138c, type: 3}
+    - id: i9f63405507
+      displayName: "\uC0C8\uC6B0"
       enabled: 1
-      prefab: {fileID: 1804101701157678511, guid: 2587bb75207fc824eb65d57303facc5a, type: 3}
-    - id: icad452f78d
-      displayName: "\uC8FC\uBA39\uBB34\uAE30 02-001"
+      prefab: {fileID: 4821225782359935372, guid: 44ee66cd4a4512b4a995059884e8e45a, type: 3}
+    - id: ieeabcc33af
+      displayName: "\uD0C4\uC0B0\uC74C\uB8CC"
       enabled: 1
-      prefab: {fileID: 4971097842369618277, guid: 61953510d8172314d842c6014548dcad, type: 3}
-    - id: if27c604345
-      displayName: "\uD3ED\uD0C4 03-003"
+      prefab: {fileID: 7359146685061298373, guid: 7cbce4c3c2780e84cace42e8905cf291, type: 3}
+    - id: i7f9c9194b9
+      displayName: "\uCC28"
       enabled: 1
-      prefab: {fileID: 3983924467300414312, guid: d47e9dbcb19c8624b94a96d585a18da7, type: 3}
-    - id: i1efa61df2b
-      displayName: "\uB9DD\uCE58 03-001"
+      prefab: {fileID: 3084331771495767829, guid: 4cf836cfaadceca4cb2c12a85538388d, type: 3}
+    - id: i481007ae58
+      displayName: "\uC218\uBC15"
       enabled: 1
-      prefab: {fileID: 5229171361614459045, guid: a99459f0195a5fd43bdf43b817a53c0b, type: 3}
-    - id: i881a756d19
-      displayName: "\uB0AB 04-001"
+      prefab: {fileID: 8115977275237965766, guid: 90abf3cbf0cd9374982b413a9a25547f, type: 3}
+    - id: i8487078170
+      displayName: "\uC218\uBC15"
       enabled: 1
-      prefab: {fileID: 2909877964934064075, guid: 081fa547556126544a9efd7b744daa38, type: 3}
-    - id: ie4bc3f1238
-      displayName: "\uB9C8\uBC95\uCC45 04-003"
+      prefab: {fileID: 376893835064079849, guid: eb54525308cad7a4cb61dfceb6b01242, type: 3}
+    - id: ib0167f30d5
+      displayName: "\uC218\uBC15"
       enabled: 1
-      prefab: {fileID: 595747221632296606, guid: 09dd1429c2ca323449630d77a3ddafbb, type: 3}
-    - id: ie1d61e71a8
-      displayName: "\uCC28\uD06C\uB78C 05-001"
+      prefab: {fileID: 2847732273563715756, guid: 295510605c6f01c4aa116b3250d5549e, type: 3}
+    - id: i5f84b16f75
+      displayName: "\uC694\uAD6C\uB974\uD2B8"
       enabled: 1
-      prefab: {fileID: 7552763754405194815, guid: 12e285f2dd680f54281b774dae2794a2, type: 3}
-    - id: iaa44de01b3
-      displayName: "\uB2E4\uC774\uB108\uB9C8\uC774\uD2B8 05-003"
+      prefab: {fileID: 6494909793165508578, guid: 5eaf3161c84b74944a732fe1ce15dab3, type: 3}
+    - id: i7e47bba623
+      displayName: "\uC0AC\uACFC"
       enabled: 1
-      prefab: {fileID: 3436034438263098287, guid: 84c789a042a260d48a60b940ef7767da, type: 3}
-    - id: iec3f472d7d
-      displayName: "\uBB3C\uC57D 06-002"
+      prefab: {fileID: 9007845281859795369, guid: 82feb3387f40b0d459741e12663f935f, type: 3}
+    - id: ibaa14fab02
+      displayName: "\uBE75"
       enabled: 1
-      prefab: {fileID: 8294700390923750796, guid: 8f98cce81cd40c642abd268444c5a824, type: 3}
-    - id: i116f27522b
-      displayName: "\uBC29\uD328 06-002"
+      prefab: {fileID: 7381677028988645382, guid: a27a68674a8ed5347835ea4580d81826, type: 3}
+    - id: i78e2cb2499
+      displayName: "\uBE75"
       enabled: 1
-      prefab: {fileID: 143790842706620911, guid: 2e2ae68105ee81b46b90c07211863c5a, type: 3}
-    - id: i53dd7c9233
-      displayName: "\uAC80 06-001"
+      prefab: {fileID: 8287788627438409838, guid: 3405da7f6c608a842a3eec2fe5241a88, type: 3}
+    - id: i67c3d4ce57
+      displayName: "\uCE58\uC988"
       enabled: 1
-      prefab: {fileID: 4414318613380331679, guid: 0a48376f0561d994c879ea9c57dc39b9, type: 3}
-    - id: ide5cb40aed
-      displayName: "\uD640 07-001"
+      prefab: {fileID: 8034395333577573210, guid: 2d595113bbe6f1e44bf76112c113f9f6, type: 3}
+    - id: i922cc9bd4f
+      displayName: "\uCE58\uC988"
       enabled: 1
-      prefab: {fileID: 6740503343033428051, guid: 926636b36e9c06248af30ef8f65911be, type: 3}
-    - id: i974c86146b
-      displayName: "\uCC3D 07-002"
+      prefab: {fileID: 5175501747923323104, guid: acd43894a07bd8d4a9600bd12f4ea59f, type: 3}
+    - id: id454c4074d
+      displayName: "\uACE0\uAE30"
       enabled: 1
-      prefab: {fileID: 7360138080510298971, guid: b60d3d29ee75a3841a4a81da757a896e, type: 3}
-    - id: i034d973480
-      displayName: "\uB9C8\uBC95\uBD09 08-001"
+      prefab: {fileID: 1887197874946945033, guid: 211cc2b33572b2048b71c86ee472d1da, type: 3}
+    - id: i0b91215d01
+      displayName: "\uACE0\uAE30"
       enabled: 1
-      prefab: {fileID: 3214521194981937566, guid: 8b0fdf9f36e767f479a7d2f003d00e3c, type: 3}
-    - id: i2ae00896e0
-      displayName: "\uBFD4\uD53C\uB9AC 09-003"
+      prefab: {fileID: 305148459018379528, guid: b30dc5fbd4a279d42ad0201f502f5e51, type: 3}
+    - id: i1a90baab83
+      displayName: "\uC624\uB80C\uC9C0"
       enabled: 1
-      prefab: {fileID: 5017179607955071284, guid: 6ef56be1be73d5840bc624cd04a52fb3, type: 3}
-    - id: icd33b0bc36
-      displayName: "\uC5F4\uC1E0 09-002"
+      prefab: {fileID: 8638304477334755216, guid: cf5affef391d36244a307d31552ad063, type: 3}
+    - id: i022d2be201
+      displayName: "\uD638\uBC15"
       enabled: 1
-      prefab: {fileID: 8742181508885850111, guid: 607b14c33980e1f4dbf86f1723439eed, type: 3}
-    - id: i3275e41797
-      displayName: "\uCC3D 09-005"
+      prefab: {fileID: 384678277723920867, guid: 43476a9b2e09bc84ca33337be6ba349c, type: 3}
+    - id: i6d4a0403c6
+      displayName: "\uC18C\uC2DC\uC9C0"
       enabled: 1
-      prefab: {fileID: 6401345748640102620, guid: 2e115ea1e10436e49b0587f4f5f603ec, type: 3}
-    - id: i4345b04326
-      displayName: "\uD22C\uCC99\uCE7C 09-003"
+      prefab: {fileID: 8878201866371296994, guid: 2154a741be2c81347abfbd1ae7eab236, type: 3}
+    - id: i090200a55f
+      displayName: "\uD1A0\uB9C8\uD1A0"
       enabled: 1
-      prefab: {fileID: 4959934802410345299, guid: ec60f095323656e419fcc4b9f96071db, type: 3}
-    - id: i37d6861cd7
-      displayName: "\uB2E8\uAC80 10-002"
+      prefab: {fileID: 7926862844577440333, guid: 27728cae4b0c7c844aabb612c3f3639b, type: 3}
+    - id: ie55c3ad320
+      displayName: "\uC218\uBC15"
       enabled: 1
-      prefab: {fileID: 4927463677166641582, guid: 2ed75b0c2cc0363449afdd7c886906dc, type: 3}
-    - id: ife920f3a01
-      displayName: "\uD683\uBD88 10-001"
-      enabled: 1
-      prefab: {fileID: 1475759431262669819, guid: a5db866deef34534ea9448eebffad69a, type: 3}
-    - id: ic590d4692e
-      displayName: "\uB3C4\uB07C 11-002"
-      enabled: 1
-      prefab: {fileID: 3343847100019681396, guid: f200a0921476c5543b31f102f5d18b4f, type: 3}
-    - id: i40d988c484
-      displayName: "\uAC80 11-003"
-      enabled: 1
-      prefab: {fileID: 6395387826786453159, guid: b7d349ba2a822d84aad3657ec43d3292, type: 3}
+      prefab: {fileID: 3499509957115792146, guid: a479f84ac6b287147a8e96bb13c491b5, type: 3}
   - id: household
     label: "\uC0DD\uD65C\uC6A9\uD488"
     enabled: 1
     items:
-    - id: i99f9e167ce
-      displayName: "\uD654\uBD84 01 / \uC131\uC7A5 2"
-      enabled: 1
-      prefab: {fileID: 8327627565170802143, guid: 92112ede90b3c4842ac8aaff1a1469d8, type: 3}
-    - id: i470b7c5d52
-      displayName: "\uD654\uBD84 01 / \uC131\uC7A5 3"
-      enabled: 1
-      prefab: {fileID: 7789969544810076192, guid: f83ebd015796b6c408f209dd69c85249, type: 3}
-    - id: i2d18c6fa17
-      displayName: "\uD654\uBD84 06 / \uC131\uC7A5 1"
-      enabled: 1
-      prefab: {fileID: 188058159431968719, guid: 12cd8e53cc2add24fb3ebd171cee96c5, type: 3}
-    - id: ia748381168
-      displayName: "\uD654\uBD84 06 / \uC131\uC7A5 2"
-      enabled: 1
-      prefab: {fileID: 253559316746629494, guid: e19211cc39d22af44b7681132e33d7d4, type: 3}
-    - id: ie8f6140412
-      displayName: "\uD654\uBD84 06 / \uC131\uC7A5 3"
-      enabled: 1
-      prefab: {fileID: 3469281318494313788, guid: 7bd2beba5a6afd04da030ae5456d8e94, type: 3}
-    - id: i2d23115cd4
-      displayName: "\uD654\uBD84 25 / \uC131\uC7A5 2"
-      enabled: 1
-      prefab: {fileID: 8537489082294809388, guid: 95c4f7f0414705e49b92b9108795e68c, type: 3}
-    - id: i036176ef14
-      displayName: "\uD654\uBD84 25 / \uC131\uC7A5 3"
-      enabled: 1
-      prefab: {fileID: 2365826362209682446, guid: 984df6a23c93915448898ff2d7521b97, type: 3}
-    - id: i1b99880120
-      displayName: "\uD654\uBD84 37 / \uC131\uC7A5 1"
-      enabled: 1
-      prefab: {fileID: 5022690681082750856, guid: f76c465e7ccb5cb4eb297c9a5489ee53, type: 3}
-    - id: i0e10b11f29
-      displayName: "\uD654\uBD84 37 / \uC131\uC7A5 2"
-      enabled: 1
-      prefab: {fileID: 4172756670675936800, guid: dd24d287bc1ef8245a223ebeb1078df5, type: 3}
-    - id: i0b766f425d
-      displayName: "\uD654\uBD84 37 / \uC131\uC7A5 3"
-      enabled: 1
-      prefab: {fileID: 6461448567987026005, guid: 9f207346a79b0b34080a092340b55ac1, type: 3}
-    - id: iaa0e710e7e
-      displayName: "\uC2DD\uBB3C \uD654\uBD84 \uC870\uD569"
-      enabled: 1
-      prefab: {fileID: 4327260121450898298, guid: 3f4d90a0a1e55ba4ba7c6dd0053cd8f2, type: 3}
-    - id: i9e3de3ca83
-      displayName: "\uC120\uC778\uC7A5 \uD654\uBD84"
-      enabled: 1
-      prefab: {fileID: 3373368259632049988, guid: 7554cae654be83047aa7cc9a7d7af04f, type: 3}
-    - id: i18405a29e2
-      displayName: "\uC778\uD14C\uB9AC\uC5B4 \uD654\uBD84 1"
-      enabled: 1
-      prefab: {fileID: 831140123567937104, guid: fb4e021c54ba75e4b94a6731871b3ae0, type: 3}
-    - id: i1f65f42023
-      displayName: "\uC778\uD14C\uB9AC\uC5B4 \uD654\uBD84 2"
-      enabled: 1
-      prefab: {fileID: 624181156843651291, guid: 3159de7226df410459abb5ae11680990, type: 3}
-    - id: i72e8a78f9c
-      displayName: "\uC778\uD14C\uB9AC\uC5B4 \uD654\uBD84 3"
-      enabled: 1
-      prefab: {fileID: 5342200597766631104, guid: 24373561e047b4f4f9de329c5302f36e, type: 3}
-    - id: ia795ce75f0
-      displayName: "\uC778\uD14C\uB9AC\uC5B4 \uD654\uBD84 5"
-      enabled: 1
-      prefab: {fileID: 3759205491461842840, guid: cb6b058c227fd684eb18402e2a37e832, type: 3}
-    - id: i69b0ae4309
-      displayName: "\uC778\uD14C\uB9AC\uC5B4 \uD654\uBD84 6"
-      enabled: 1
-      prefab: {fileID: 8146326229790511003, guid: 42a13ac6d928e674791ce4e776d415ca, type: 3}
     - id: if7ed05fb18
       displayName: "\uC30D\uC548\uACBD"
       enabled: 1
@@ -414,7 +242,7 @@ MonoBehaviour:
       enabled: 1
       prefab: {fileID: 2451244155927107093, guid: 007ba7098e8653e4cafa6343733d63de, type: 3}
     - id: i34d5c1a69e
-      displayName: "\uC11C\uB958\uAC00\uBC29 Grey"
+      displayName: "\uC11C\uB958\uAC00\uBC29"
       enabled: 1
       prefab: {fileID: 8291371994164162251, guid: e82ca82cd6b4e65438ff0ed7900a20bf, type: 3}
     - id: i1357c32675
@@ -422,7 +250,7 @@ MonoBehaviour:
       enabled: 1
       prefab: {fileID: 9208207800677898767, guid: d980ceec235e7a14f8c33583862f6e4c, type: 3}
     - id: iea511584ce
-      displayName: "\uC2DD\uCE7C Brown"
+      displayName: "\uC2DD\uCE7C"
       enabled: 1
       prefab: {fileID: 2367566680178883882, guid: ce96a3fe952237246a5bcef79aceea5f, type: 3}
     - id: i8a2474821f
@@ -430,15 +258,15 @@ MonoBehaviour:
       enabled: 1
       prefab: {fileID: 8945820999582000531, guid: 99cdb6f74de37db43b890cd93bc3e471, type: 3}
     - id: i9f32427af7
-      displayName: "\uC544\uB839 1"
+      displayName: "\uC544\uB839"
       enabled: 1
       prefab: {fileID: 7722678899190670813, guid: 81e5c8708dc14864d82a167c3e662ae5, type: 3}
     - id: i05adbdbaa7
-      displayName: "\uC544\uB839 2"
+      displayName: "\uC544\uB839"
       enabled: 1
       prefab: {fileID: 2228098374906249149, guid: aee11c3bbf665694e9e7fb64a7da8a97, type: 3}
     - id: i5a4b0fec1e
-      displayName: "\uC8FC\uBC29\uCE7C Brown"
+      displayName: "\uC8FC\uBC29\uCE7C"
       enabled: 1
       prefab: {fileID: 4168439688252710570, guid: c62b137f617c14944a000eee663b2ae9, type: 3}
     - id: i035c559a2e
@@ -470,41 +298,177 @@ MonoBehaviour:
       enabled: 1
       prefab: {fileID: 8305319037486578260, guid: fbf0c5eee9d43474c90cdc3fbbd8cd7e, type: 3}
     - id: i3c5307b87f
-      displayName: "\uBCD1 002"
+      displayName: "\uBCD1"
       enabled: 1
       prefab: {fileID: 7969224365223521784, guid: 65d4cac4b10536b449927ee5b2920e2e, type: 3}
     - id: i1e8d2ddfc9
-      displayName: "\uCEF5 003"
+      displayName: "\uCEF5"
       enabled: 1
       prefab: {fileID: 578468738398512626, guid: 58624f9275f16fe43afa87af6c143108, type: 3}
     - id: i9b2782290f
-      displayName: "\uD3EC\uD06C 001"
+      displayName: "\uD3EC\uD06C"
       enabled: 1
       prefab: {fileID: 2532457211562709885, guid: 379d70e2523aed946a3f8f15a85d442e, type: 3}
     - id: i035ca8b444
-      displayName: "\uC720\uB9AC\uC794 001"
+      displayName: "\uC720\uB9AC\uC794"
       enabled: 1
       prefab: {fileID: 7415164567944233164, guid: 84402c1e31d131d45be3fdc69265536f, type: 3}
     - id: i314e1b48cd
-      displayName: "\uC720\uB9AC\uC794 005"
+      displayName: "\uC720\uB9AC\uC794"
       enabled: 1
       prefab: {fileID: 7551232662553565564, guid: d6820a6157ff2bd43bfbb6ebc91c1232, type: 3}
     - id: i6c5a722540
-      displayName: "\uC720\uB9AC\uC794 008"
+      displayName: "\uC720\uB9AC\uC794"
       enabled: 1
       prefab: {fileID: 5039946528375598753, guid: 19b5f8ee3ba42324aa1caf3185dca12f, type: 3}
     - id: i5b2e64b2f3
-      displayName: "\uC811\uC2DC 007"
+      displayName: "\uC811\uC2DC"
       enabled: 1
       prefab: {fileID: 691130803956979891, guid: 18f6855e165b52f4fa50d8babf516ee8, type: 3}
     - id: i7b6c771b37
-      displayName: "\uC57C\uAD6C\uBC29\uB9DD\uC774 001"
+      displayName: "\uC57C\uAD6C\uBC29\uB9DD\uC774"
       enabled: 1
       prefab: {fileID: 1542841276508430997, guid: 165213cc4189a774aba3238d1ffe5590, type: 3}
     - id: i5a12341dd6
-      displayName: "\uD558\uD0A4\uC2A4\uD2F1 001"
+      displayName: "\uD558\uD0A4\uC2A4\uD2F1"
       enabled: 1
       prefab: {fileID: 9153353487229661364, guid: b8abcdf035c686b4c9f8799a5a7ca3f7, type: 3}
+    - id: ie5988bb567
+      displayName: "\uC811\uC2DC"
+      enabled: 1
+      prefab: {fileID: 1057042778717546783, guid: dd1f7abc0a048e743bac3663fe73ad1f, type: 3}
+    - id: i847b89a7cc
+      displayName: "\uADF8\uB987"
+      enabled: 1
+      prefab: {fileID: 8473454475911025592, guid: 080bf7e75928d9b4c957f3d823dc5adf, type: 3}
+    - id: i539c2c6c84
+      displayName: "\uC720\uB9AC\uC794"
+      enabled: 1
+      prefab: {fileID: 3291233294078949040, guid: c01555d834bd3d442aa36de96771e4f4, type: 3}
+    - id: if9208d672e
+      displayName: "\uC811\uC2DC"
+      enabled: 1
+      prefab: {fileID: 5485058575467230784, guid: 08c6593091e715245b8f6308aeb5d418, type: 3}
+    - id: i252e6d182f
+      displayName: "\uB9E5\uC8FC\uC794"
+      enabled: 1
+      prefab: {fileID: 6917749362394905451, guid: 478b77c2b1a691e499f19a6954a6de15, type: 3}
+    - id: i2606b83e30
+      displayName: "\uCC45"
+      enabled: 1
+      prefab: {fileID: 3364366141085719529, guid: 6b1e7b93f46bf6546b90db52b257ad36, type: 3}
+    - id: ib34f2a2b5b
+      displayName: "\uCC45"
+      enabled: 1
+      prefab: {fileID: 1804985540204632115, guid: 1c6a851503d899642bb36d31916c2f6c, type: 3}
+    - id: ic4a181cbc8
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 5415904626272562959, guid: 2d08680e63d52ef47ac5d0d918949157, type: 3}
+    - id: ibe32f645eb
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 1378069479826271844, guid: 4a36b492031e5f84fb6441b75bcac964, type: 3}
+    - id: i45dd3bd548
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 536010323107462223, guid: efda8f3e67fe9c3428fdd58de9073316, type: 3}
+    - id: i7f490e369f
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 832162349297639716, guid: 4a75b368ec72e254b86dd6d062bf8884, type: 3}
+    - id: if5e9090a0a
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 1537583983805038513, guid: cdf0a8bf7d9da4144a7b23413e4bdb12, type: 3}
+    - id: ife6d568dd4
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 6923982454576527323, guid: 11628cfbc491a9747839700df767847a, type: 3}
+    - id: icf674f8842
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 5416607797569406807, guid: 2dc4f3a15ae41994a845e11253d17f03, type: 3}
+    - id: if1211d50bc
+      displayName: "\uADF8\uB987"
+      enabled: 1
+      prefab: {fileID: 8165141319828812301, guid: cbe04522868441b41b624e1b9b5ec51d, type: 3}
+    - id: i26a96fe595
+      displayName: "\uADF8\uB987"
+      enabled: 1
+      prefab: {fileID: 8058450410564322707, guid: 9c1c73dadceff0541ab959535dfc0834, type: 3}
+    - id: ic71d594e3f
+      displayName: "\uC11C\uB958\uAC00\uBC29"
+      enabled: 1
+      prefab: {fileID: 381993034280093323, guid: 86aeb5cb4e3b4d847985c2a1a5590dd5, type: 3}
+    - id: i0d1b7b35f8
+      displayName: "\uCE74\uBA54\uB77C"
+      enabled: 1
+      prefab: {fileID: 803557058189851456, guid: f603eb5bc9f352f4cb6ba63f83395554, type: 3}
+    - id: i29af15583c
+      displayName: "\uCEF5"
+      enabled: 1
+      prefab: {fileID: 810913757519808367, guid: 92a5a463a34d1d14183961f2fbc1ae7a, type: 3}
+    - id: i8e1e3fa9b5
+      displayName: "\uCC45\uC0C1"
+      enabled: 1
+      prefab: {fileID: 9153383939142155144, guid: 9316f3920877ca4468498f78b9829e5e, type: 3}
+    - id: i09696c9725
+      displayName: "\uD3EC\uD06C"
+      enabled: 1
+      prefab: {fileID: 4347790766921230518, guid: 38261c30349a4b94aa10162974cfe8b6, type: 3}
+    - id: ib215617163
+      displayName: "\uACE0\uBE14\uB9BF"
+      enabled: 1
+      prefab: {fileID: 6938607789283322163, guid: ad2d92429c6720d458bf392184b66f50, type: 3}
+    - id: i402cb094cf
+      displayName: "\uAD6C\uAE09\uC6A9\uD488"
+      enabled: 1
+      prefab: {fileID: 8856963891635337408, guid: 1cdaeed352ca8154d9f0aa15894effe9, type: 3}
+    - id: i27305de039
+      displayName: "\uC8FC\uBC29\uCE7C"
+      enabled: 1
+      prefab: {fileID: 2143044443689502259, guid: b4f62735abe8725408fdba9605e59f2e, type: 3}
+    - id: i118f89cbc4
+      displayName: "\uAD6C\uAE09\uC0C1\uC790"
+      enabled: 1
+      prefab: {fileID: 5559002868051155351, guid: 0739e60bd7604fb4bba13bff3ee33408, type: 3}
+    - id: i8d30412026
+      displayName: "\uBA38\uADF8\uCEF5"
+      enabled: 1
+      prefab: {fileID: 3214926194774048549, guid: 626dc94cf2e27c24ba4febf156dda9d6, type: 3}
+    - id: i18dc6bca14
+      displayName: "\uBA38\uADF8\uCEF5"
+      enabled: 1
+      prefab: {fileID: 8587405853053183347, guid: b21181eff88a33040bd10643bbd12e17, type: 3}
+    - id: idaf8ccdf6b
+      displayName: "\uD504\uB77C\uC774\uD32C"
+      enabled: 1
+      prefab: {fileID: 1630447700695692997, guid: 81d33a90dd0916f48b9cd5c25d142488, type: 3}
+    - id: i74fa3af0cf
+      displayName: "\uC57D\uD1B5"
+      enabled: 1
+      prefab: {fileID: 873450641652730207, guid: f0e4484117e69144d9a3e9bc4bd32086, type: 3}
+    - id: i599b417157
+      displayName: "\uC811\uC2DC"
+      enabled: 1
+      prefab: {fileID: 2488024014084802973, guid: a294646522db66745849654f8f27e175, type: 3}
+    - id: i35328a221f
+      displayName: "\uC811\uC2DC"
+      enabled: 1
+      prefab: {fileID: 586905870794653968, guid: ab948861d2837ae47b5b8ac9efffbc49, type: 3}
+    - id: i4dbfced7de
+      displayName: "\uC21F\uAC00\uB77D"
+      enabled: 1
+      prefab: {fileID: 8193741588025150656, guid: d8ea26f38f236254b88f7ddb9a6e3e4b, type: 3}
+    - id: ib1b98c6d29
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 5687838026141956334, guid: ea6435e02564f4943a1ec2d8f6a571a0, type: 3}
+  - id: bathroom
+    label: "\uC695\uC2E4\uC6A9\uD488"
+    enabled: 1
+    items:
     - id: if598eb7607
       displayName: "\uBC29\uD5A5\uC81C"
       enabled: 1
@@ -518,15 +482,15 @@ MonoBehaviour:
       enabled: 1
       prefab: {fileID: 2076679486198514415, guid: 4ecb119849e069f4f906dca681a41789, type: 3}
     - id: i9881c5c43b
-      displayName: "\uBCD1 1"
+      displayName: "\uBCD1"
       enabled: 1
       prefab: {fileID: 347560711480005422, guid: 022e5d121ce074a4384b7e5e79560cfd, type: 3}
     - id: i89f3c6d3c9
-      displayName: "\uBCD1 2"
+      displayName: "\uBCD1"
       enabled: 1
       prefab: {fileID: 5043934829094898378, guid: 15df9d58feac3c547ad48c03e0da854f, type: 3}
     - id: if89d1ee5b9
-      displayName: "\uBCD1 3"
+      displayName: "\uBCD1"
       enabled: 1
       prefab: {fileID: 5811530256137222611, guid: 3d9c362dfdf38c640939deb7835cb59f, type: 3}
     - id: id417da86ab
@@ -578,13 +542,181 @@ MonoBehaviour:
       enabled: 1
       prefab: {fileID: 2655205849877117448, guid: 856d70d1495dfac4c8d11ce677daea51, type: 3}
     - id: i992a868dab
-      displayName: "\uBCD1 1"
+      displayName: "\uBCD1"
       enabled: 1
       prefab: {fileID: 4497599189200423983, guid: d0382df78084e084293c72b3fcca24d8, type: 3}
-    - id: ie5988bb567
-      displayName: "\uC811\uC2DC"
+  - id: plants
+    label: "\uD654\uBD84\xB7\uC2DD\uBB3C"
+    enabled: 1
+    items:
+    - id: i99f9e167ce
+      displayName: "\uD654\uBD84"
       enabled: 1
-      prefab: {fileID: 1057042778717546783, guid: dd1f7abc0a048e743bac3663fe73ad1f, type: 3}
+      prefab: {fileID: 8327627565170802143, guid: 92112ede90b3c4842ac8aaff1a1469d8, type: 3}
+    - id: i470b7c5d52
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 7789969544810076192, guid: f83ebd015796b6c408f209dd69c85249, type: 3}
+    - id: i2d18c6fa17
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 188058159431968719, guid: 12cd8e53cc2add24fb3ebd171cee96c5, type: 3}
+    - id: ia748381168
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 253559316746629494, guid: e19211cc39d22af44b7681132e33d7d4, type: 3}
+    - id: ie8f6140412
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 3469281318494313788, guid: 7bd2beba5a6afd04da030ae5456d8e94, type: 3}
+    - id: i2d23115cd4
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 8537489082294809388, guid: 95c4f7f0414705e49b92b9108795e68c, type: 3}
+    - id: i036176ef14
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 2365826362209682446, guid: 984df6a23c93915448898ff2d7521b97, type: 3}
+    - id: i1b99880120
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 5022690681082750856, guid: f76c465e7ccb5cb4eb297c9a5489ee53, type: 3}
+    - id: i0e10b11f29
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 4172756670675936800, guid: dd24d287bc1ef8245a223ebeb1078df5, type: 3}
+    - id: i0b766f425d
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 6461448567987026005, guid: 9f207346a79b0b34080a092340b55ac1, type: 3}
+    - id: iaa0e710e7e
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 4327260121450898298, guid: 3f4d90a0a1e55ba4ba7c6dd0053cd8f2, type: 3}
+    - id: i9e3de3ca83
+      displayName: "\uC120\uC778\uC7A5"
+      enabled: 1
+      prefab: {fileID: 3373368259632049988, guid: 7554cae654be83047aa7cc9a7d7af04f, type: 3}
+    - id: i18405a29e2
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 831140123567937104, guid: fb4e021c54ba75e4b94a6731871b3ae0, type: 3}
+    - id: i1f65f42023
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 624181156843651291, guid: 3159de7226df410459abb5ae11680990, type: 3}
+    - id: i72e8a78f9c
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 5342200597766631104, guid: 24373561e047b4f4f9de329c5302f36e, type: 3}
+    - id: ia795ce75f0
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 3759205491461842840, guid: cb6b058c227fd684eb18402e2a37e832, type: 3}
+    - id: i69b0ae4309
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 8146326229790511003, guid: 42a13ac6d928e674791ce4e776d415ca, type: 3}
+    - id: id421a867f5
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 3435669721328081256, guid: d0a2a552676cb4f4ab30e51e63f03590, type: 3}
+    - id: idf3c17485c
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 1339063967224259646, guid: e755d257317acf544bc594abdb702c2e, type: 3}
+    - id: ibf1a214143
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 117861434489335411, guid: 255ef954949374e40b50c163d9599801, type: 3}
+    - id: id62fdc4ab4
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 5662852571114920704, guid: 94f97238e772424468eace43775ea433, type: 3}
+  - id: tools
+    label: "\uACF5\uAD6C\xB7\uC791\uC5C5\uC6A9\uD488"
+    enabled: 1
+    items:
+    - id: i2ec1e195ff
+      displayName: "\uB9DD\uCE58"
+      enabled: 1
+      prefab: {fileID: 2555971521018042918, guid: 1eed15d6d81beb744b0866f126a5ac1e, type: 3}
+    - id: i8e5535135f
+      displayName: "\uD1B1"
+      enabled: 1
+      prefab: {fileID: 2454521466300671477, guid: bfa8479cd0d245741af1b4dfbcb4a6c2, type: 3}
+    - id: i0ca8883125
+      displayName: "\uB80C\uCE58"
+      enabled: 1
+      prefab: {fileID: 1620083762489517787, guid: d75dd63994627e846a0472438f622cad, type: 3}
+    - id: i7dcd378b87
+      displayName: "\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 5901957146862402655, guid: 26d72670923637247ad8ca9f243cb052, type: 3}
+    - id: i5d179b2acd
+      displayName: "\uAC00\uC2A4\uD1B5"
+      enabled: 1
+      prefab: {fileID: 8472365274260898584, guid: f700ffdbd7f32e942baf3fcd66746112, type: 3}
+    - id: ieecfe50494
+      displayName: "\uC0AC\uB2E4\uB9AC"
+      enabled: 1
+      prefab: {fileID: 5074879564993947621, guid: 42eaf1ea5d2a45441b27fdeb949c9701, type: 3}
+    - id: i8de0a3247c
+      displayName: "\uC791\uC5C5\uC6A9\uCF58"
+      enabled: 1
+      prefab: {fileID: 3445709213064893259, guid: 8e70ad87063d93f4e956760ccc9d8bb4, type: 3}
+    - id: i131b4ebce3
+      displayName: "\uC804\uB3D9\uB4DC\uB9B4"
+      enabled: 1
+      prefab: {fileID: 750634919604769546, guid: 36b3d3bd8467b734bae091235b80f785, type: 3}
+    - id: i188ff786c3
+      displayName: "\uC190\uC804\uB4F1"
+      enabled: 1
+      prefab: {fileID: 8088646453404502441, guid: 8962bb2e6533bfd48808e9168e0d353b, type: 3}
+    - id: i844d145285
+      displayName: "\uB9DD\uCE58"
+      enabled: 1
+      prefab: {fileID: 8917014135819654991, guid: 55cf7f906996ee540b4551a3dc3e2c01, type: 3}
+    - id: i399eb85820
+      displayName: "\uC904\uC790"
+      enabled: 1
+      prefab: {fileID: 948392792597609057, guid: 5f9451bd7a5b41f429f27071d1e71ec1, type: 3}
+    - id: ie85e1d16cc
+      displayName: "\uC2ED\uC790\uB80C\uCE58"
+      enabled: 1
+      prefab: {fileID: 8065342024870655354, guid: 9fe18a001681dfd489d8f24669f3b028, type: 3}
+    - id: i5a3d27dd28
+      displayName: "\uB80C\uCE58"
+      enabled: 1
+      prefab: {fileID: 3712931431152585169, guid: 0c55ae454919994478a388774a88c0cf, type: 3}
+    - id: i45efaa7726
+      displayName: "\uB80C\uCE58"
+      enabled: 1
+      prefab: {fileID: 2955183945642745715, guid: 49e50ca9f35f78e41927665a90af78ec, type: 3}
+    - id: i58256b3aaf
+      displayName: "\uC1E0\uC9C0\uB81B\uB300"
+      enabled: 1
+      prefab: {fileID: 3877712440030494704, guid: e7630e30b482ef34bb606ed5a75540ee, type: 3}
+    - id: ie4ff06e4d3
+      displayName: "\uC5F0\uB8CC\uD1B5"
+      enabled: 1
+      prefab: {fileID: 4645623025453395017, guid: b10d6bd93ea1c174b82692c796c7e381, type: 3}
+    - id: ib2e0f6c6e2
+      displayName: "\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 1943054751618186523, guid: e46e2d7b6d32ed244b5f11a2362fa8ce, type: 3}
+    - id: i2a6dab02c5
+      displayName: "\uB4DC\uB77C\uC774\uBC84"
+      enabled: 1
+      prefab: {fileID: 4422809195745814794, guid: 88bc6e62360b81940a55eada46b5533e, type: 3}
+    - id: i3695a1c260
+      displayName: "\uC0BD"
+      enabled: 1
+      prefab: {fileID: 6780963301738883714, guid: 3d24593e3c1cf284ba2cd43336824d62, type: 3}
+    - id: i5564f300dd
+      displayName: "\uBC14\uC774\uC2A4"
+      enabled: 1
+      prefab: {fileID: 6856821907773076063, guid: fe290bc48670e384e85903b3d02558e7, type: 3}
   - id: modern
     label: "\uCD1D\uAE30\xB7\uD3ED\uBC1C\uBB3C"
     enabled: 1
@@ -638,302 +770,918 @@ MonoBehaviour:
       enabled: 1
       prefab: {fileID: 7050157322877235496, guid: f77497591dac5b349b513560bd90abe2, type: 3}
     - id: idc7338cb5d
-      displayName: "\uAD8C\uCD1D 001"
+      displayName: "\uAD8C\uCD1D"
       enabled: 1
       prefab: {fileID: 986857054786000803, guid: 8638da64c169070478eabd98e2de968e, type: 3}
     - id: i74572948e5
-      displayName: "\uC18C\uCD1D 001"
+      displayName: "\uC18C\uCD1D"
       enabled: 1
       prefab: {fileID: 3136882606179630320, guid: b361c40674487f744a101c4ee4fb8f8f, type: 3}
     - id: id344dc8e33
-      displayName: "\uC0B0\uD0C4\uCD1D 001"
+      displayName: "\uC0B0\uD0C4\uCD1D"
       enabled: 1
       prefab: {fileID: 6382339496385744827, guid: 488c0a0d4813b864da0a5dc566d07f1c, type: 3}
     - id: ifbeb02ff88
-      displayName: "\uC800\uACA9\uC18C\uCD1D 001"
+      displayName: "\uC800\uACA9\uC18C\uCD1D"
       enabled: 1
       prefab: {fileID: 2033786957277417976, guid: 6b5a6b8d9bdcdeb4abae7e0152143af2, type: 3}
-  - id: tools
-    label: "\uACF5\uAD6C\xB7\uC791\uC5C5\uC6A9\uD488"
+    - id: if1c3736732
+      displayName: "\uB808\uC774\uC800\uD45C\uC801\uC9C0\uC2DC\uAE30"
+      enabled: 1
+      prefab: {fileID: 5384000393326609215, guid: d145083164f3ca34486ed2c11296bd7d, type: 3}
+  - id: fantasy
+    label: "\uD310\uD0C0\uC9C0 \uC18C\uD488"
     enabled: 1
     items:
-    - id: i2ec1e195ff
+    - id: ic36f9f66f8
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 1715353757441775406, guid: 0cf868ac22932e844b2dc2422bcfa0e9, type: 3}
+    - id: i500e50e599
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 5304130523435514647, guid: a23760f9d0546d34db26aa464b00f023, type: 3}
+    - id: i9a26be1fb6
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 3105034949969975171, guid: c755e967fa215534092eaa62527e7ea2, type: 3}
+    - id: i16a85a9c30
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 7887643978660899919, guid: d4c021dc3ece59f4dae9b15223b26cf8, type: 3}
+    - id: i1bbb34092f
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 1360397599096356996, guid: 8936147a3c0ea914f893f276ec6da1f2, type: 3}
+    - id: icaf80a4812
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 2325473529184048560, guid: 6832a6b079bed384592634e56479c2af, type: 3}
+    - id: i4c3fe83aff
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 4958822356343273720, guid: 1b3b8d88a1686634ab64be48dda125e8, type: 3}
+    - id: i60fa2ab371
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 6082636884760460877, guid: 372ae117062ba8a41bd1b7ceb728a5c3, type: 3}
+    - id: i56cceccaf0
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 4397981639229798564, guid: 5b862443cf1c9f34da50ea4212f9569b, type: 3}
+    - id: i1a92d6be85
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 5044599317777875066, guid: 9497be8d60834c04abeeb2eed56431c6, type: 3}
+    - id: i492b55642f
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 4286575935794676883, guid: 33a79ffc0a7b3dc459e41e8d0ae6e6ad, type: 3}
+    - id: i1f25b7b7ff
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 8918809811259326195, guid: 16567a9bbf28cef4787c203e19bd9862, type: 3}
+    - id: ibc56f156e4
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 2368213879799185203, guid: c0679379e1af2ec439801d361119a460, type: 3}
+    - id: i1ef9ea1178
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 1170190455810776804, guid: 797077ba3e3652c41881e2f106b57eb7, type: 3}
+    - id: ic1c4723045
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 3182280751049588048, guid: 750422f385d527941bbe99d76d4cc875, type: 3}
+    - id: i0e0ace58ea
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 6560486779704243707, guid: f07e721cfd957754c9537754f82400b3, type: 3}
+    - id: i89cc8b93b8
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 8825003960538162023, guid: 1676261b693e15640aa43000c2c6839b, type: 3}
+    - id: ie182a557d1
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 8275726104362703883, guid: 8bee20895746d7e4a89e726cd2498624, type: 3}
+    - id: i27d3fe5e2f
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 8375600544680111490, guid: 2369e4b1dc67fae4aa193c4f8a61ee68, type: 3}
+    - id: i7b9d9177ed
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 8068153287868286719, guid: be365a40ad1435b4b9438461cda94515, type: 3}
+    - id: i18485369b0
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 2755298426431856848, guid: 796c81f2615f6f44a9cd28bb39bb6030, type: 3}
+    - id: ie0aaa860b7
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 4731898834167571793, guid: 72bd4d011868ca3489230db6ee025e68, type: 3}
+    - id: i9c39ebe8e3
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 8921111164867885741, guid: 192d2cb4d3e56be4790c360d6c9b61fa, type: 3}
+    - id: i106f295e7d
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 5668242132369040693, guid: 25edefacd16e591408d189e46f78adf2, type: 3}
+    - id: ifc984bb738
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 1477756149039629562, guid: ef6287facdf3fb543b90d3493d4fc013, type: 3}
+    - id: id36fc3d4c0
+      displayName: "\uC591\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 8983717563795459615, guid: 79b31bd3d94b4bc43ba5b1a1774e0e7e, type: 3}
+    - id: ie43c0c49b1
+      displayName: "\uC591\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 2043978993445942637, guid: 9ff2517945bd6034e962b08eee0fff3e, type: 3}
+    - id: i22c0772553
+      displayName: "\uC591\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 2944351254815781744, guid: 7aeed90751f4c294b8dcc9fc69206637, type: 3}
+    - id: id70f3bafb0
+      displayName: "\uC591\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 2740860574791290068, guid: cd113a37cb7db1c419b474762b22aaa1, type: 3}
+    - id: i609698d78a
+      displayName: "\uC591\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 8105891653584896261, guid: 2721147d9215d4344b94f3a1d38053fe, type: 3}
+    - id: ib3de1a813d
+      displayName: "\uD654\uC0B4"
+      enabled: 1
+      prefab: {fileID: 999199529974999086, guid: 6002a2339a5e6f241a64848fd0ebf599, type: 3}
+    - id: idbef16a451
+      displayName: "\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 4895051238548733390, guid: 7f6f6f72711aad04a9fb74d7941a3aaa, type: 3}
+    - id: ie5aecbc0f1
+      displayName: "\uD654\uC0B4\uD1B5"
+      enabled: 1
+      prefab: {fileID: 8942988611619075347, guid: 22e72d569616a7e49b8e15d87d36875a, type: 3}
+    - id: i715cd84aaa
+      displayName: "\uBC29\uD328"
+      enabled: 1
+      prefab: {fileID: 2289750967123004325, guid: ae8fe274085d34f41b945fb4ad2119f5, type: 3}
+    - id: ie48cecf0e1
+      displayName: "\uD65C"
+      enabled: 1
+      prefab: {fileID: 1804101701157678511, guid: 2587bb75207fc824eb65d57303facc5a, type: 3}
+    - id: icad452f78d
+      displayName: "\uC8FC\uBA39\uBB34\uAE30"
+      enabled: 1
+      prefab: {fileID: 4971097842369618277, guid: 61953510d8172314d842c6014548dcad, type: 3}
+    - id: if27c604345
+      displayName: "\uD3ED\uD0C4"
+      enabled: 1
+      prefab: {fileID: 3983924467300414312, guid: d47e9dbcb19c8624b94a96d585a18da7, type: 3}
+    - id: i1efa61df2b
       displayName: "\uB9DD\uCE58"
       enabled: 1
-      prefab: {fileID: 2555971521018042918, guid: 1eed15d6d81beb744b0866f126a5ac1e, type: 3}
-    - id: i8e5535135f
-      displayName: "\uD1B1"
+      prefab: {fileID: 5229171361614459045, guid: a99459f0195a5fd43bdf43b817a53c0b, type: 3}
+    - id: i881a756d19
+      displayName: "\uB0AB"
       enabled: 1
-      prefab: {fileID: 2454521466300671477, guid: bfa8479cd0d245741af1b4dfbcb4a6c2, type: 3}
-    - id: i0ca8883125
-      displayName: "\uB80C\uCE58"
+      prefab: {fileID: 2909877964934064075, guid: 081fa547556126544a9efd7b744daa38, type: 3}
+    - id: ie4bc3f1238
+      displayName: "\uB9C8\uBC95\uCC45"
       enabled: 1
-      prefab: {fileID: 1620083762489517787, guid: d75dd63994627e846a0472438f622cad, type: 3}
-    - id: i7dcd378b87
-      displayName: "\uB3C4\uB07C 001"
+      prefab: {fileID: 595747221632296606, guid: 09dd1429c2ca323449630d77a3ddafbb, type: 3}
+    - id: ie1d61e71a8
+      displayName: "\uCC28\uD06C\uB78C"
       enabled: 1
-      prefab: {fileID: 5901957146862402655, guid: 26d72670923637247ad8ca9f243cb052, type: 3}
-    - id: i5d179b2acd
-      displayName: "\uCC3D\uACE0 \uAC00\uC2A4\uD1B5"
+      prefab: {fileID: 7552763754405194815, guid: 12e285f2dd680f54281b774dae2794a2, type: 3}
+    - id: iaa44de01b3
+      displayName: "\uB2E4\uC774\uB108\uB9C8\uC774\uD2B8"
       enabled: 1
-      prefab: {fileID: 8472365274260898584, guid: f700ffdbd7f32e942baf3fcd66746112, type: 3}
-    - id: ieecfe50494
-      displayName: "\uCC3D\uACE0 \uC0AC\uB2E4\uB9AC"
+      prefab: {fileID: 3436034438263098287, guid: 84c789a042a260d48a60b940ef7767da, type: 3}
+    - id: iec3f472d7d
+      displayName: "\uBB3C\uC57D"
       enabled: 1
-      prefab: {fileID: 5074879564993947621, guid: 42eaf1ea5d2a45441b27fdeb949c9701, type: 3}
-    - id: i8de0a3247c
-      displayName: "\uCC3D\uACE0 \uC791\uC5C5\uC6A9\uCF58"
+      prefab: {fileID: 8294700390923750796, guid: 8f98cce81cd40c642abd268444c5a824, type: 3}
+    - id: i116f27522b
+      displayName: "\uBC29\uD328"
       enabled: 1
-      prefab: {fileID: 3445709213064893259, guid: 8e70ad87063d93f4e956760ccc9d8bb4, type: 3}
-    - id: i131b4ebce3
-      displayName: "\uCC3D\uACE0 \uC804\uB3D9\uB4DC\uB9B4"
+      prefab: {fileID: 143790842706620911, guid: 2e2ae68105ee81b46b90c07211863c5a, type: 3}
+    - id: i53dd7c9233
+      displayName: "\uAC80"
       enabled: 1
-      prefab: {fileID: 750634919604769546, guid: 36b3d3bd8467b734bae091235b80f785, type: 3}
-    - id: i188ff786c3
-      displayName: "\uCC3D\uACE0 \uC190\uC804\uB4F1"
+      prefab: {fileID: 4414318613380331679, guid: 0a48376f0561d994c879ea9c57dc39b9, type: 3}
+    - id: ide5cb40aed
+      displayName: "\uD640"
       enabled: 1
-      prefab: {fileID: 8088646453404502441, guid: 8962bb2e6533bfd48808e9168e0d353b, type: 3}
-    - id: i844d145285
-      displayName: "\uCC3D\uACE0 \uB9DD\uCE58"
+      prefab: {fileID: 6740503343033428051, guid: 926636b36e9c06248af30ef8f65911be, type: 3}
+    - id: i974c86146b
+      displayName: "\uCC3D"
       enabled: 1
-      prefab: {fileID: 8917014135819654991, guid: 55cf7f906996ee540b4551a3dc3e2c01, type: 3}
-    - id: i399eb85820
-      displayName: "\uCC3D\uACE0 \uC904\uC790"
+      prefab: {fileID: 7360138080510298971, guid: b60d3d29ee75a3841a4a81da757a896e, type: 3}
+    - id: i034d973480
+      displayName: "\uB9C8\uBC95\uBD09"
       enabled: 1
-      prefab: {fileID: 948392792597609057, guid: 5f9451bd7a5b41f429f27071d1e71ec1, type: 3}
-    - id: i4075fdcb18
-      displayName: "\uCC3D\uACE0 \uC218\uD3C9\uACC4"
+      prefab: {fileID: 3214521194981937566, guid: 8b0fdf9f36e767f479a7d2f003d00e3c, type: 3}
+    - id: i2ae00896e0
+      displayName: "\uBFD4\uD53C\uB9AC"
       enabled: 1
-      prefab: {fileID: 4443957320414661262, guid: 1e40bd0c7de99e246a9177fe1b4163f2, type: 3}
-    - id: ie85e1d16cc
-      displayName: "\uCC3D\uACE0 \uC2ED\uC790\uB80C\uCE58"
+      prefab: {fileID: 5017179607955071284, guid: 6ef56be1be73d5840bc624cd04a52fb3, type: 3}
+    - id: icd33b0bc36
+      displayName: "\uC5F4\uC1E0"
       enabled: 1
-      prefab: {fileID: 8065342024870655354, guid: 9fe18a001681dfd489d8f24669f3b028, type: 3}
-    - id: i5a3d27dd28
-      displayName: "\uCC3D\uACE0 \uB80C\uCE58 A"
+      prefab: {fileID: 8742181508885850111, guid: 607b14c33980e1f4dbf86f1723439eed, type: 3}
+    - id: i3275e41797
+      displayName: "\uCC3D"
       enabled: 1
-      prefab: {fileID: 3712931431152585169, guid: 0c55ae454919994478a388774a88c0cf, type: 3}
-    - id: i45efaa7726
-      displayName: "\uCC3D\uACE0 \uB80C\uCE58 B"
+      prefab: {fileID: 6401345748640102620, guid: 2e115ea1e10436e49b0587f4f5f603ec, type: 3}
+    - id: i4345b04326
+      displayName: "\uD22C\uCC99\uCE7C"
       enabled: 1
-      prefab: {fileID: 2955183945642745715, guid: 49e50ca9f35f78e41927665a90af78ec, type: 3}
-  - id: food
-    label: "\uC74C\uC2DD\xB7\uC74C\uB8CC"
+      prefab: {fileID: 4959934802410345299, guid: ec60f095323656e419fcc4b9f96071db, type: 3}
+    - id: i37d6861cd7
+      displayName: "\uB2E8\uAC80"
+      enabled: 1
+      prefab: {fileID: 4927463677166641582, guid: 2ed75b0c2cc0363449afdd7c886906dc, type: 3}
+    - id: ife920f3a01
+      displayName: "\uD683\uBD88"
+      enabled: 1
+      prefab: {fileID: 1475759431262669819, guid: a5db866deef34534ea9448eebffad69a, type: 3}
+    - id: ic590d4692e
+      displayName: "\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 3343847100019681396, guid: f200a0921476c5543b31f102f5d18b4f, type: 3}
+    - id: i40d988c484
+      displayName: "\uAC80"
+      enabled: 1
+      prefab: {fileID: 6395387826786453159, guid: b7d349ba2a822d84aad3657ec43d3292, type: 3}
+  - id: beach
+    label: "\uC5EC\uB984\xB7\uD574\uBCC0"
     enabled: 1
     items:
-    - id: i3bf3ed0822
-      displayName: "\uC6B0\uC720\uD329 Blue"
+    - id: i4238f79426
+      displayName: "\uBE44\uCE58\uBCFC"
       enabled: 1
-      prefab: {fileID: 9198087140825000397, guid: ce09cfe8b723f0043b110e5cad2d4dac, type: 3}
-    - id: i01763ee0e9
-      displayName: "\uC6B0\uC720\uD329 Red"
+      prefab: {fileID: 1387601682162510270, guid: 1ae0ae2aa8d3ea9488d9bb65ed2a04ed, type: 3}
+    - id: if276cea106
+      displayName: "\uBE44\uCE58\uBCFC"
       enabled: 1
-      prefab: {fileID: 4958689412785945074, guid: 5890e10e1a902ea4fbd13171706a0d70, type: 3}
-    - id: if8d5f1161c
-      displayName: "\uC544\uBCF4\uCE74\uB3C4 001"
+      prefab: {fileID: 5246742430015447054, guid: 2185a43ffe66eb24daed241531617931, type: 3}
+    - id: ib52cb01a39
+      displayName: "\uBE44\uCE58\uBCFC"
       enabled: 1
-      prefab: {fileID: 5769653935149476961, guid: 8be27a1299a554d47a10b514b5e566e2, type: 3}
-    - id: i7360d9d90a
-      displayName: "\uC544\uBCF4\uCE74\uB3C4 003"
+      prefab: {fileID: 7261173369784803014, guid: d6faf4484cec77d49a85b8ea0b8fd4fc, type: 3}
+    - id: i4a9dc7ea79
+      displayName: "\uC591\uB3D9\uC774"
       enabled: 1
-      prefab: {fileID: 449244415615573813, guid: 18feb79880bddd44c9d4e60057cafcd5, type: 3}
-    - id: i091dad0400
-      displayName: "\uBC14 001"
+      prefab: {fileID: 5331988050003046644, guid: ed139988f605cca41ba7eb70537f7cb5, type: 3}
+    - id: i9aea17c19b
+      displayName: "\uC591\uB3D9\uC774"
       enabled: 1
-      prefab: {fileID: 8410197037994656215, guid: 1bb72fed25ad7e14abb96a49c8e2ff01, type: 3}
-    - id: ia6eff41fa4
-      displayName: "\uD584\uBC84\uAC70 001"
+      prefab: {fileID: 4280102942302110422, guid: ffc5d22137b23804d93fefd1bed28849, type: 3}
+    - id: i28bf8ca0f1
+      displayName: "\uBAA8\uB798\uC131 \uD2C0"
       enabled: 1
-      prefab: {fileID: 756745528875103378, guid: 1c800c7150cd9624db7fd2a988896043, type: 3}
-    - id: i69bdb8848c
-      displayName: "\uCE94 009"
+      prefab: {fileID: 2142803778563890802, guid: da84a2bdba09e7044bbdc0f4d031a427, type: 3}
+    - id: i73f355d6b1
+      displayName: "\uBAA8\uB798\uC131 \uD2C0"
       enabled: 1
-      prefab: {fileID: 6157397557352315552, guid: adf9e1e36331ea34c98e2c073ad97d43, type: 3}
-    - id: i6c682a09d8
-      displayName: "\uCE58\uC988\uCF00\uC774\uD06C 001"
+      prefab: {fileID: 4569281483019559900, guid: 1867a88b51d6d4c428c76a662dbbc080, type: 3}
+    - id: i952f31bd70
+      displayName: "\uCE75\uD14C\uC77C"
       enabled: 1
-      prefab: {fileID: 5884121453522954647, guid: 0a7a5531c5ffced4d8728a0e03b97879, type: 3}
-    - id: i06e2653feb
-      displayName: "\uACE0\uCD94 002"
+      prefab: {fileID: 2963493824110275303, guid: 53452c37934158f45b9d7888877fe473, type: 3}
+    - id: i570be316b1
+      displayName: "\uCE75\uD14C\uC77C"
       enabled: 1
-      prefab: {fileID: 4175882232730484205, guid: 20925041329907d479eede916054181e, type: 3}
-    - id: iaa2088074d
-      displayName: "\uAC10\uC790\uCE69 008"
+      prefab: {fileID: 136717172908654388, guid: 863186dd11da3df4cb96dd0c0a89363f, type: 3}
+    - id: ief2f58740f
+      displayName: "\uCE75\uD14C\uC77C"
       enabled: 1
-      prefab: {fileID: 4851188147987901861, guid: 0889c46cb7a3fc341889e89cc2d23e16, type: 3}
-    - id: icffabbf975
-      displayName: "\uCEE4\uD53C 005"
+      prefab: {fileID: 7766621241187826597, guid: 13f65a44941c042439938ee5e86b2818, type: 3}
+    - id: i540e009b42
+      displayName: "\uCF54\uCF54\uB11B"
       enabled: 1
-      prefab: {fileID: 7244000653766322751, guid: 7b0c4c70660162e41926ca0a2fed25a6, type: 3}
-    - id: i1764cfbfc0
-      displayName: "\uCFE0\uD0A4 006"
+      prefab: {fileID: 6376813803563483869, guid: 8ae9026335fe0ce4d971a6616b8235f7, type: 3}
+    - id: ia1c8e754d8
+      displayName: "\uCF54\uCF54\uB11B \uCE75\uD14C\uC77C"
       enabled: 1
-      prefab: {fileID: 1050274177748922927, guid: e5ede4cb31e14ab499fa293937238903, type: 3}
-    - id: ia21251f4bf
-      displayName: "\uCFE0\uD0A4 011"
+      prefab: {fileID: 4287517789430175585, guid: d74bd911a9857924bb3fb0a5a022e034, type: 3}
+    - id: i6915ffd802
+      displayName: "\uC2AC\uB9AC\uD37C"
       enabled: 1
-      prefab: {fileID: 7735909764433562499, guid: c1bd4df659707cf4da7431daacc06679, type: 3}
-    - id: ie9b420218e
-      displayName: "\uCFE0\uD0A4 012"
+      prefab: {fileID: 697143985244612718, guid: e66870c16c2111e4e8860bd972156f21, type: 3}
+    - id: iacb5146cbd
+      displayName: "\uC2AC\uB9AC\uD37C"
       enabled: 1
-      prefab: {fileID: 3154471205385113201, guid: c16c2cecc20ce5c4390076839a96e897, type: 3}
-    - id: i88152c02d7
-      displayName: "\uD06C\uB8E8\uC544\uC0C1 001"
+      prefab: {fileID: 7043618017397905961, guid: 8c8a7ed680ad7ce4182431020451a4fa, type: 3}
+    - id: i70c4c222dd
+      displayName: "\uC2AC\uB9AC\uD37C"
       enabled: 1
-      prefab: {fileID: 6172115112968119068, guid: 23666987c90605f4ba560e75d81d2386, type: 3}
-    - id: ie5c32f8a16
-      displayName: "\uB3C4\uB11B 002"
+      prefab: {fileID: 5554218352120914064, guid: 9c176bf9e5d166048953b248c285bb7b, type: 3}
+    - id: ie1229803e3
+      displayName: "\uC2AC\uB9AC\uD37C"
       enabled: 1
-      prefab: {fileID: 8044806004383644355, guid: 97da1f940f50de64190db3064a435e07, type: 3}
-    - id: i0be715e6ec
-      displayName: "\uB2EC\uAC40 001"
+      prefab: {fileID: 5599461395024046886, guid: 92e705bbec0a9b2438b24500637dd4d8, type: 3}
+    - id: i22898ff12f
+      displayName: "\uD29C\uBE0C"
       enabled: 1
-      prefab: {fileID: 1013902737587293671, guid: abf053098ca875440a065ceba2c361aa, type: 3}
-    - id: ib58977b3bd
-      displayName: "\uB2EC\uAC40 002"
+      prefab: {fileID: 6485590914608390381, guid: 546e714d6b2eb5e4f88be5cf9cfabcee, type: 3}
+    - id: iba641817ff
+      displayName: "\uC0BD"
       enabled: 1
-      prefab: {fileID: 9068533049742219786, guid: 1496cb5e5324a004a98ca3194b5a2c3a, type: 3}
-    - id: ib177fe8716
-      displayName: "\uB2EC\uAC40 003"
+      prefab: {fileID: 2927970916887071908, guid: 1802b79f98025cb48840e9d618739197, type: 3}
+    - id: i457ab0093c
+      displayName: "\uC0BD"
       enabled: 1
-      prefab: {fileID: 9215587043901003432, guid: 2361d819f1b468b46a383a1ce369d1d7, type: 3}
-    - id: if996699c96
-      displayName: "\uB2EC\uAC40 004"
+      prefab: {fileID: 5114707535911301261, guid: a578aaf018c1e3245ac07763c10bd570, type: 3}
+    - id: i4f5f17716d
+      displayName: "\uAC08\uD034"
       enabled: 1
-      prefab: {fileID: 1477215654307752667, guid: afa4f52b3c7b06549845ec9b2db68338, type: 3}
-    - id: ife2c19f290
-      displayName: "\uC0DD\uC120 004"
+      prefab: {fileID: 677497310422107255, guid: b7fb7afda22c62c4a9dd5723b25333fa, type: 3}
+    - id: i45b2aff069
+      displayName: "\uAC08\uD034"
       enabled: 1
-      prefab: {fileID: 1194893089870548208, guid: 212d7d3e2fa5d84429b6e565fed91100, type: 3}
-    - id: ieca88b863f
-      displayName: "\uC544\uC774\uC2A4\uD06C\uB9BC 001"
+      prefab: {fileID: 1933964700861285659, guid: 06a97e2c4e8fcfc4a843208c94a45b78, type: 3}
+    - id: i0ff7a11a59
+      displayName: "\uC120\uAE00\uB77C\uC2A4"
       enabled: 1
-      prefab: {fileID: 4794314880819567139, guid: 6b08f708d784fa843ac945a6880a27cd, type: 3}
-    - id: i28dff52790
-      displayName: "\uC544\uC774\uC2A4\uD06C\uB9BC 003"
+      prefab: {fileID: 1650920308813712805, guid: 789cdaa849f3e7c41a568fdec6b91d14, type: 3}
+    - id: ibb6c7ad79f
+      displayName: "\uC120\uD06C\uB9BC"
       enabled: 1
-      prefab: {fileID: 7437326224355418753, guid: a83330713ba4c324cbb77e89d731387d, type: 3}
-    - id: i7e531ac46a
-      displayName: "\uBC84\uC12F 002"
+      prefab: {fileID: 3871074232233043857, guid: 1b0d12197ea535a4bb3f387c71d2b2b8, type: 3}
+    - id: i7e10cb8149
+      displayName: "\uC11C\uD551\uBCF4\uB4DC"
       enabled: 1
-      prefab: {fileID: 1470200817986306345, guid: 004b9e95b06a4e447b2dd10fc3429582, type: 3}
-    - id: i40e5f17ca9
-      displayName: "\uBC84\uC12F 004"
+      prefab: {fileID: 1957460615715734559, guid: e2f6d92d8d4921b43b276d8b6c369806, type: 3}
+    - id: i1db40bf807
+      displayName: "\uC11C\uD551\uBCF4\uB4DC"
       enabled: 1
-      prefab: {fileID: 5700704838376884635, guid: ed7edbf40e6e13d40a766de72418f178, type: 3}
-    - id: if5e9d54d57
-      displayName: "\uBC84\uC12F 006"
+      prefab: {fileID: 8263478504197365124, guid: 9e37f59561c2de64ca6712c2bfb05e85, type: 3}
+    - id: i09985914ee
+      displayName: "\uC11C\uD551\uBCF4\uB4DC"
       enabled: 1
-      prefab: {fileID: 2616984198288582367, guid: a367fb2c940839747bd631df9f3e33bb, type: 3}
-    - id: i908c0c140e
-      displayName: "\uC591\uD30C 001"
+      prefab: {fileID: 4443284373214528463, guid: 95010e8a5141347489fd668b5e796e53, type: 3}
+    - id: ic58f8b3d3c
+      displayName: "\uC11C\uD551\uBCF4\uB4DC"
       enabled: 1
-      prefab: {fileID: 1474577481399310865, guid: 8c9b5c513aabb5f449c0557a1dba3f01, type: 3}
-    - id: ia1eb11120b
-      displayName: "\uC591\uD30C 003"
+      prefab: {fileID: 5811240511992078393, guid: ac739e7eecdb8164ba6280aef2a58063, type: 3}
+    - id: i07d01017e1
+      displayName: "\uD0C0\uC6D4"
       enabled: 1
-      prefab: {fileID: 9137689358318597888, guid: ac6c670220534a44397f1a97706d8a9a, type: 3}
-    - id: ia59581ae84
-      displayName: "\uD398\uC774\uC2A4\uD2B8\uB9AC 002"
+      prefab: {fileID: 5123797027273191487, guid: dd57339c32b17fe4d954a4cefef0bf4c, type: 3}
+    - id: i3fd97a227e
+      displayName: "\uD0C0\uC6D4"
       enabled: 1
-      prefab: {fileID: 2065571017849544434, guid: a135153a289241d4ab53b553c2bd3f19, type: 3}
-    - id: ibd94dbf084
-      displayName: "\uD53C\uB9DD 003"
+      prefab: {fileID: 1868958950227167809, guid: b444f87d4bc82624aa078834e2b0e612, type: 3}
+    - id: ia16960d099
+      displayName: "\uD0C0\uC6D4"
       enabled: 1
-      prefab: {fileID: 660782121691665118, guid: 0f3bea2fb2a27134f93e9786486f08b1, type: 3}
-    - id: i05ebee7280
-      displayName: "\uC0CC\uB4DC\uC704\uCE58 001"
+      prefab: {fileID: 5363785727088614490, guid: a52d529994499dc47bca9a3dce45cdc0, type: 3}
+    - id: i1bc3c9e8a2
+      displayName: "\uD0C0\uC6D4"
       enabled: 1
-      prefab: {fileID: 7612477761584870357, guid: 54107bcbd7ae57247b86ccf409848725, type: 3}
-    - id: i409425a164
-      displayName: "\uC0CC\uB4DC\uC704\uCE58 002"
+      prefab: {fileID: 6340011273236366808, guid: a37463c78cb0a0c48b8f481a676ecca3, type: 3}
+    - id: iac74d96ff1
+      displayName: "\uBC30\uAD6C\uACF5"
       enabled: 1
-      prefab: {fileID: 736660659894595011, guid: 3f6fba9bd1d32ad44b4e01c09b24c7d5, type: 3}
-    - id: i499bee0cf2
-      displayName: "\uC0CC\uB4DC\uC704\uCE58 003"
-      enabled: 1
-      prefab: {fileID: 4682127435698138945, guid: 4d6836f7a6cc5e546bc6ead1078400ba, type: 3}
-    - id: i688aee9b0f
-      displayName: "\uC18C\uC2DC\uC9C0 003"
-      enabled: 1
-      prefab: {fileID: 994683505630080859, guid: 3f09d92cbbd80a647bb1b726fe4f0423, type: 3}
-    - id: iab88e3ce1e
-      displayName: "\uC0C8\uC6B0 001"
-      enabled: 1
-      prefab: {fileID: 2024806645787823535, guid: f611932eb4087f64fa50d662b1b3138c, type: 3}
-    - id: i9f63405507
-      displayName: "\uC0C8\uC6B0 002"
-      enabled: 1
-      prefab: {fileID: 4821225782359935372, guid: 44ee66cd4a4512b4a995059884e8e45a, type: 3}
-    - id: ieeabcc33af
-      displayName: "\uD0C4\uC0B0\uC74C\uB8CC 002"
-      enabled: 1
-      prefab: {fileID: 7359146685061298373, guid: 7cbce4c3c2780e84cace42e8905cf291, type: 3}
-    - id: i7f9c9194b9
-      displayName: "\uCC28 003"
-      enabled: 1
-      prefab: {fileID: 3084331771495767829, guid: 4cf836cfaadceca4cb2c12a85538388d, type: 3}
-    - id: i481007ae58
-      displayName: "\uC218\uBC15 001"
-      enabled: 1
-      prefab: {fileID: 8115977275237965766, guid: 90abf3cbf0cd9374982b413a9a25547f, type: 3}
-    - id: i8487078170
-      displayName: "\uC218\uBC15 002"
-      enabled: 1
-      prefab: {fileID: 376893835064079849, guid: eb54525308cad7a4cb61dfceb6b01242, type: 3}
-    - id: ib0167f30d5
-      displayName: "\uC218\uBC15 003"
-      enabled: 1
-      prefab: {fileID: 2847732273563715756, guid: 295510605c6f01c4aa116b3250d5549e, type: 3}
-    - id: i5f84b16f75
-      displayName: "\uC694\uAD6C\uB974\uD2B8 002"
-      enabled: 1
-      prefab: {fileID: 6494909793165508578, guid: 5eaf3161c84b74944a732fe1ce15dab3, type: 3}
-    - id: i7e47bba623
-      displayName: "\uC0AC\uACFC"
-      enabled: 1
-      prefab: {fileID: 9007845281859795369, guid: 82feb3387f40b0d459741e12663f935f, type: 3}
-    - id: ibaa14fab02
-      displayName: "\uBE75 1"
-      enabled: 1
-      prefab: {fileID: 7381677028988645382, guid: a27a68674a8ed5347835ea4580d81826, type: 3}
-    - id: i78e2cb2499
-      displayName: "\uBE75 2"
-      enabled: 1
-      prefab: {fileID: 8287788627438409838, guid: 3405da7f6c608a842a3eec2fe5241a88, type: 3}
-    - id: i67c3d4ce57
-      displayName: "\uCE58\uC988 1"
-      enabled: 1
-      prefab: {fileID: 8034395333577573210, guid: 2d595113bbe6f1e44bf76112c113f9f6, type: 3}
-    - id: i922cc9bd4f
-      displayName: "\uCE58\uC988 2"
-      enabled: 1
-      prefab: {fileID: 5175501747923323104, guid: acd43894a07bd8d4a9600bd12f4ea59f, type: 3}
-    - id: id454c4074d
-      displayName: "\uACE0\uAE30 1"
-      enabled: 1
-      prefab: {fileID: 1887197874946945033, guid: 211cc2b33572b2048b71c86ee472d1da, type: 3}
-    - id: i0b91215d01
-      displayName: "\uACE0\uAE30 2"
-      enabled: 1
-      prefab: {fileID: 305148459018379528, guid: b30dc5fbd4a279d42ad0201f502f5e51, type: 3}
-    - id: i1a90baab83
-      displayName: "\uC624\uB80C\uC9C0"
-      enabled: 1
-      prefab: {fileID: 8638304477334755216, guid: cf5affef391d36244a307d31552ad063, type: 3}
-    - id: i022d2be201
-      displayName: "\uD638\uBC15"
-      enabled: 1
-      prefab: {fileID: 384678277723920867, guid: 43476a9b2e09bc84ca33337be6ba349c, type: 3}
-    - id: i6d4a0403c6
-      displayName: "\uC18C\uC2DC\uC9C0"
-      enabled: 1
-      prefab: {fileID: 8878201866371296994, guid: 2154a741be2c81347abfbd1ae7eab236, type: 3}
-    - id: i090200a55f
-      displayName: "\uD1A0\uB9C8\uD1A0"
-      enabled: 1
-      prefab: {fileID: 7926862844577440333, guid: 27728cae4b0c7c844aabb612c3f3639b, type: 3}
-    - id: ie55c3ad320
+      prefab: {fileID: 4755137560548210754, guid: 754e917316955334a9a871d635406393, type: 3}
+    - id: i9aa80c5747
       displayName: "\uC218\uBC15"
       enabled: 1
-      prefab: {fileID: 3499509957115792146, guid: a479f84ac6b287147a8e96bb13c491b5, type: 3}
+      prefab: {fileID: 708928286354743576, guid: 7d95ebb13504cb0498bf0e51cd8c9232, type: 3}
+    - id: i0e030dc27c
+      displayName: "\uC218\uBC15"
+      enabled: 1
+      prefab: {fileID: 8548143051642489451, guid: bd84f7e94f23ceb4aa066c3438d50117, type: 3}
+    - id: i0c00f50b2e
+      displayName: "\uD30C\uB77C\uC194"
+      enabled: 1
+      prefab: {fileID: 1456929706526955755, guid: 21cc382dfabba3149863966929c22e15, type: 3}
+  - id: casino
+    label: "\uCE74\uC9C0\uB178"
+    enabled: 1
+    items:
+    - id: i139e62c73a
+      displayName: "\uCE74\uB4DC"
+      enabled: 1
+      prefab: {fileID: 6976053734980523746, guid: 19ad8f406a33e7746904bfbded8bc12f, type: 3}
+    - id: i8e0aea0741
+      displayName: "\uCE74\uB4DC"
+      enabled: 1
+      prefab: {fileID: 7208386624308712830, guid: 8c3ab607bebb4b64bbd1058d0e088267, type: 3}
+    - id: i3e3d1601c4
+      displayName: "\uCE74\uB4DC"
+      enabled: 1
+      prefab: {fileID: 715461576884136901, guid: 0ee55a86cd38b0d42bd4d3d468bbc0cd, type: 3}
+    - id: ib3d60e48ce
+      displayName: "\uCE74\uB4DC"
+      enabled: 1
+      prefab: {fileID: 2826780287139846939, guid: 1a5cd968ebff12e4c8ebe2b58d061799, type: 3}
+    - id: iec88f3d510
+      displayName: "\uC9C0\uD3D0"
+      enabled: 1
+      prefab: {fileID: 3862304369750817806, guid: f8798533bce997d4483eae9bfa9dd8d8, type: 3}
+    - id: i0e6240a50c
+      displayName: "\uC9C0\uD3D0"
+      enabled: 1
+      prefab: {fileID: 234019069555314962, guid: b3ea74054d8492540b4225e5206a4de6, type: 3}
+    - id: i02ee667675
+      displayName: "\uC9C0\uD3D0 \uB2E4\uBC1C"
+      enabled: 1
+      prefab: {fileID: 910561080357705471, guid: 0e5a83021030c194ba629ce27fabe0fb, type: 3}
+    - id: if355262c84
+      displayName: "\uC9C0\uD3D0 \uC0C1\uC790"
+      enabled: 1
+      prefab: {fileID: 2623835620974979150, guid: f0170c9d266a71148b6542d4542600d1, type: 3}
+    - id: i032deda87d
+      displayName: "\uB3D9\uC804"
+      enabled: 1
+      prefab: {fileID: 8926899977769063004, guid: 11caebe5c22a06b4e86cb8ebee3077f2, type: 3}
+    - id: ie0a9991e8e
+      displayName: "\uD604\uAE08 \uACC4\uC218\uAE30"
+      enabled: 1
+      prefab: {fileID: 1981443488418682859, guid: 70da3b32449219441ba5d61e0574b25a, type: 3}
+    - id: ie5b92f61a8
+      displayName: "\uACE8\uB4DC\uBC14"
+      enabled: 1
+      prefab: {fileID: 40475646883548166, guid: 1007b4e962d381e4bb045e53c40b3749, type: 3}
+    - id: if90aca0504
+      displayName: "\uACE8\uB4DC\uBC14"
+      enabled: 1
+      prefab: {fileID: 4910321337437820432, guid: 621a52287f94f9c4d86e9944fb92be89, type: 3}
+    - id: i8f0acfc88b
+      displayName: "\uC7A5\uBD80"
+      enabled: 1
+      prefab: {fileID: 4140387519776591934, guid: dda353eb99c3be34f8d953a0d4038ac9, type: 3}
+    - id: ifcbc118a86
+      displayName: "\uB9C8\uC6B0\uC2A4"
+      enabled: 1
+      prefab: {fileID: 8147982323550293425, guid: 2eca7350251dea543b06a9e1f42a8150, type: 3}
+    - id: id90995329a
+      displayName: "\uD0A4\uBCF4\uB4DC"
+      enabled: 1
+      prefab: {fileID: 3855950436648412601, guid: c05a14aaeacbf2e448e9c001f3ded08a, type: 3}
+    - id: i9604a9b883
+      displayName: "\uACFC\uC77C \uC811\uC2DC"
+      enabled: 1
+      prefab: {fileID: 4025726096786518046, guid: 3a1c4e004814fb1419f94b32c3b3e733, type: 3}
+    - id: ifca14675cc
+      displayName: "\uBAA8\uB2C8\uD130"
+      enabled: 1
+      prefab: {fileID: 8555268464508094167, guid: e7d35970e8c91e149ba2ecab0ae8bb49, type: 3}
+    - id: i24af637866
+      displayName: "\uAE08\uACE0 \uBB38"
+      enabled: 1
+      prefab: {fileID: 8771958033169603705, guid: 678388a6c0e63e746b995b94bf51dbbb, type: 3}
+    - id: i3a99d15f96
+      displayName: "\uC218\uC871\uAD00 \uBB3C\uACE0\uAE30"
+      enabled: 1
+      prefab: {fileID: 3175678520083313710, guid: 0c54d45069210e2499551ef88a3b042a, type: 3}
+    - id: i2c37d6097e
+      displayName: ATM
+      enabled: 1
+      prefab: {fileID: 6549785817931516566, guid: 52225a9a1e03ec5468ca72b972707810, type: 3}
+    - id: i64083bedc4
+      displayName: ATM
+      enabled: 1
+      prefab: {fileID: 1020757296635323023, guid: 9778aebc5aef5ac41b92736027c93206, type: 3}
+    - id: if18d39f295
+      displayName: "\uAE08\uACE0"
+      enabled: 1
+      prefab: {fileID: 8250025245615553729, guid: 66c5ad2c15859fa42a476914a974ff44, type: 3}
+  - id: halloween
+    label: "\uD560\uB85C\uC708"
+    enabled: 1
+    items:
+    - id: i70495b3d6c
+      displayName: "\uD48D\uC120"
+      enabled: 1
+      prefab: {fileID: 219772282111110672, guid: 8d9622dcae803064d9b676b39f289f14, type: 3}
+    - id: ie722ba2faf
+      displayName: "\uC0AC\uD0D5 \uADF8\uB987"
+      enabled: 1
+      prefab: {fileID: 1191891926147089862, guid: 838661168fe437843bcb31bb59d3014a, type: 3}
+    - id: i0209368ff7
+      displayName: "\uC0AC\uD0D5\uD1B5"
+      enabled: 1
+      prefab: {fileID: 4860327239897987493, guid: 6467546fb5fcb4d45bb37bc82a086344, type: 3}
+    - id: iabec5f407a
+      displayName: "\uC0AC\uD0D5\uD1B5"
+      enabled: 1
+      prefab: {fileID: 7518064002873070071, guid: c953ef6d361034c4da83c3a53b2fd652, type: 3}
+    - id: i2e5f44eb2f
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 5646544014187562645, guid: 8948fc80a4303ce40b73c1dd3873d183, type: 3}
+    - id: i6ed9d913dc
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 6789424541574112883, guid: ce506298c20811e44ac09768447e54fa, type: 3}
+    - id: i9ee4e4e378
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 509218460744486071, guid: 7364b899e28139341becf76de6b87af2, type: 3}
+    - id: i47c04e24b7
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 4175812844722055830, guid: 828b3d6b9ba0050408234a89b00f56ab, type: 3}
+    - id: i035be36277
+      displayName: "\uBE57\uC790\uB8E8"
+      enabled: 1
+      prefab: {fileID: 7993849257449180045, guid: 87fc2b77e1be04e40aa10dd539cabb53, type: 3}
+    - id: ica6cc0e88c
+      displayName: "\uC591\uCD08"
+      enabled: 1
+      prefab: {fileID: 35979492075339121, guid: 7fd13b14e8a6fdb4e8825852cc9fc4f6, type: 3}
+    - id: i7e1ea43f07
+      displayName: "\uCD1B\uB300"
+      enabled: 1
+      prefab: {fileID: 5566705323902331475, guid: 50dd1aa0adfeb6841a82f6cc7bb9f7c1, type: 3}
+    - id: ie0388d90e0
+      displayName: "\uAD6D\uC790"
+      enabled: 1
+      prefab: {fileID: 7830189294914851587, guid: 98caa03e87dc12f45998ed8a4637c320, type: 3}
+    - id: i53ecdeed12
+      displayName: "\uB9C8\uB140 \uBAA8\uC790"
+      enabled: 1
+      prefab: {fileID: 4051117485044158251, guid: 4f141affc579299448a6d55e398d71e9, type: 3}
+    - id: i72e1e9fb80
+      displayName: "\uBF08"
+      enabled: 1
+      prefab: {fileID: 5112964034675645479, guid: 3233764561c62cc41b9633f515ed2328, type: 3}
+    - id: iafea531abc
+      displayName: "\uC190"
+      enabled: 1
+      prefab: {fileID: 5380106787448621289, guid: 86a27405591882e4d8dc065dd31816ea, type: 3}
+    - id: if760667936
+      displayName: "\uB79C\uD134"
+      enabled: 1
+      prefab: {fileID: 6164655230108658864, guid: 7ad64883c6d943040bd9925b991f6378, type: 3}
+    - id: i55cc0e5e74
+      displayName: "\uD574\uACE8"
+      enabled: 1
+      prefab: {fileID: 509158536640804610, guid: d8201d695c31378499b4de03d74c1fac, type: 3}
+    - id: ibb18da7e98
+      displayName: "\uB0AB"
+      enabled: 1
+      prefab: {fileID: 7433658296556193252, guid: 60f9e16c247c7e74dab85f63f16a480f, type: 3}
+    - id: i645c9a9877
+      displayName: "\uC545\uB9C8\uC758 \uCC45"
+      enabled: 1
+      prefab: {fileID: 2209938494529854083, guid: 6d5b5a7ee22719f498a36c7917d38bbe, type: 3}
+    - id: i33a6b85598
+      displayName: "\uB9C8\uBC95 \uB208 \uCC45"
+      enabled: 1
+      prefab: {fileID: 5896844178602464326, guid: 170b922fc76cead47bd3e298ebaf5087, type: 3}
+    - id: i70c079a8b7
+      displayName: "\uD574\uACE8 \uC591\uCD08"
+      enabled: 1
+      prefab: {fileID: 4257794313397706580, guid: efbfa6fad261e314b96c553299764eb8, type: 3}
+    - id: i528e2247ae
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 1039092385190466858, guid: 369a94f9c6c66224fa438d12a704923c, type: 3}
+    - id: ibddd25527c
+      displayName: "\uAC00\uB9C8\uC1A5"
+      enabled: 1
+      prefab: {fileID: 1091768409266226988, guid: 970146e7348cdd44ea6b85658e7773a7, type: 3}
+    - id: i5d4adcac08
+      displayName: "\uC798\uB9B0 \uC190"
+      enabled: 1
+      prefab: {fileID: 2986727269906516562, guid: bf3582340c499474b891e0ffa708c92d, type: 3}
+    - id: i22d4cd0911
+      displayName: "\uB864\uB9AC\uD31D"
+      enabled: 1
+      prefab: {fileID: 2342679013136583286, guid: 260f0ca83f7445146a9a9e3b49b71b8f, type: 3}
+    - id: i4eb7fb992d
+      displayName: "\uB9C8\uBC95 \uBC84\uC12F"
+      enabled: 1
+      prefab: {fileID: 7113217442602286863, guid: 56b22fc31d003f74a9c792a11de83fc7, type: 3}
+    - id: i6c53b8b89a
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 7701412194074874132, guid: f36ef9c4d174ef547a622e9ded4365e1, type: 3}
+    - id: ib35a339297
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 6799629715115437145, guid: ddd77d86b08d6044f9a4f30c591efda2, type: 3}
+    - id: i4f5f163547
+      displayName: "\uBB34\uB364\uC9C0\uAE30 \uC0BD"
+      enabled: 1
+      prefab: {fileID: 4047646093052753249, guid: 1914afe6a27336247b1fa4987f7feec5, type: 3}
+    - id: i1ecbcf42b7
+      displayName: "\uB9C8\uB140 \uBAA8\uC790"
+      enabled: 1
+      prefab: {fileID: 1884978044038865156, guid: e96182404db01e5459aadddb15ee7df0, type: 3}
+    - id: i8c4c08611a
+      displayName: "\uAD00"
+      enabled: 1
+      prefab: {fileID: 3817969450966852460, guid: af166255730112f4585173d1aba4e2cb, type: 3}
+    - id: i3837935958
+      displayName: "\uC2ED\uC790\uAC00"
+      enabled: 1
+      prefab: {fileID: 5752011992443282928, guid: 7ab63362839307a468e937b39829ef32, type: 3}
+    - id: ie973ef922c
+      displayName: "\uBB18\uBE44"
+      enabled: 1
+      prefab: {fileID: 8444270633065103920, guid: ef5f2555678a0464db1b68fa757d1c13, type: 3}
+    - id: i0015a1d3f7
+      displayName: "\uBB18\uBE44"
+      enabled: 1
+      prefab: {fileID: 4501979745761971141, guid: 40c8ea72bb14226428591be0d5a923d5, type: 3}
+    - id: i8d1bdae20c
+      displayName: "\uBB18\uBE44"
+      enabled: 1
+      prefab: {fileID: 1581464131637628088, guid: c318a0498af1ba142a3ecf755d373e42, type: 3}
+    - id: i719faa80d7
+      displayName: "\uAD00"
+      enabled: 1
+      prefab: {fileID: 8837690807541474517, guid: 61873138c8963d14490d71dd71129099, type: 3}
+    - id: i40e1dd394a
+      displayName: "\uAD00"
+      enabled: 1
+      prefab: {fileID: 4724475213787828674, guid: 717fdb52229670a43a9a76164c629ebe, type: 3}
+    - id: ifa5c433112
+      displayName: "\uBB18\uBE44"
+      enabled: 1
+      prefab: {fileID: 3502088017295471523, guid: b3e3b2ddf6690fc46b94f3dcfdd1130a, type: 3}
+    - id: i234987d1ac
+      displayName: "\uBB18\uBE44"
+      enabled: 1
+      prefab: {fileID: 2762193506216404446, guid: 922a4b7c0fffe4443b679d554b48beb8, type: 3}
+    - id: ic89b5f54d0
+      displayName: "\uBB18\uBE44"
+      enabled: 1
+      prefab: {fileID: 5329280075905182778, guid: 81d5b12650f7bb748882e10742a02a50, type: 3}
+    - id: i0e5cfcc3b5
+      displayName: "\uD5C8\uC218\uC544\uBE44"
+      enabled: 1
+      prefab: {fileID: 7592583765875793058, guid: 12e982056ee232342888072486ce16fb, type: 3}
+    - id: i451bfda1e7
+      displayName: "\uD5C8\uC218\uC544\uBE44"
+      enabled: 1
+      prefab: {fileID: 2289890088863234890, guid: ffe40db7fd4aab94b94dfb668721d24a, type: 3}
+    - id: i9c037db2ec
+      displayName: "\uAC70\uBBF8\uC904"
+      enabled: 1
+      prefab: {fileID: 5087704585129493288, guid: d3050f53f12d7bb439123dd2e706efb4, type: 3}
+    - id: i8a697d3798
+      displayName: "\uAC70\uBBF8\uC904"
+      enabled: 1
+      prefab: {fileID: 4016259371789654717, guid: 3286c7febc8e75248aef7bc57cd0384f, type: 3}
+    - id: i1c3dd3c628
+      displayName: "\uAC70\uBBF8\uC904"
+      enabled: 1
+      prefab: {fileID: 5158661877543771249, guid: 73e8fedd34f4d1841b330dab53b7db9f, type: 3}
+  - id: toys
+    label: "\uC7A5\uB09C\uAC10"
+    enabled: 1
+    items:
+    - id: if42f2f353d
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 4057358005227858049, guid: e51c6b1280995d845b4a5b0e411b0570, type: 3}
+    - id: ia699224cda
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 8009629426232470858, guid: 16529fd20fe7854488fde217281eb2bf, type: 3}
+    - id: iabb86552e7
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 1173785293333740774, guid: 849a645bf6fb95442b29569894bf532d, type: 3}
+    - id: i36347b87aa
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 1045043870894017853, guid: 46c5d0d223933c947b2f39b01edfaef8, type: 3}
+    - id: i5b181ed4c8
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 7440745250922401799, guid: 9661fa82be5ebbc4c8d10c0a8897f865, type: 3}
+    - id: ieabbe44148
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 7359661064885725195, guid: 1fedb7ba7ae70604bab5aec91e277684, type: 3}
+    - id: i6d770eb1aa
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 4927380508901334146, guid: 9f8dd257cab670d4b86527b443843b27, type: 3}
+    - id: id6841c776b
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 6738880454015077121, guid: b11a94d1a2010cb4e9a226257e1d23fb, type: 3}
+    - id: i6ffab57373
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 7415720490461390272, guid: 5f08e2532f4029a418eb6295103de60c, type: 3}
+    - id: i9f01c4b12c
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 7138064722219198818, guid: 02edd74cd76b91b4e994b5d8d59b2cf3, type: 3}
+    - id: i0becd31cf4
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 4917388995621361093, guid: 5c193d1dd5993114a8bcc400b7e7c18c, type: 3}
+    - id: i96845ddf9c
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 138263929727000237, guid: e7741d53d48f70b44a5bc77a0b58acea, type: 3}
+    - id: i006d56ba45
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 8300186704427455362, guid: 5c7febd39a9177e4aa5b15ba8811bca3, type: 3}
+    - id: i2dba99f914
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 8915933582373059484, guid: ee2d0cb9a5e1ef64ea1a7ef05867ff31, type: 3}
+    - id: i39f3fd3b04
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 9177713966504919443, guid: c240012a8d8995649b715342adacb455, type: 3}
+    - id: ibf6d444b58
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 5172900786102234648, guid: 1f02ef0ecd8cbda4ab977e634916ebe6, type: 3}
+    - id: i79df60c3ef
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 3276709665657615496, guid: 705cd9b5d49cdd745ae17aa15e22f8c1, type: 3}
+    - id: i7a79ed700f
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 9051653140958145875, guid: bb314bbf43bff42438badb96c995a85f, type: 3}
+    - id: iaa9876561f
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 7372257309546157307, guid: 334fddb51511d434aa5135c1edfda2cf, type: 3}
+    - id: i21b214a439
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 173268349639638381, guid: ea377f2a2de339445a827d3a5e3733d0, type: 3}
+    - id: i1451540bdb
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 2297652852537170287, guid: 60186727cc656d44d9611e6792cf009f, type: 3}
+    - id: i1c9e792751
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 8342061601274013093, guid: 4e800aa9947423c40ad7e5fc49243297, type: 3}
+    - id: i1dd1cd35f9
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 7690748505172014091, guid: 8e06e3b8e03c2ee4282ffcb5919c26b5, type: 3}
+    - id: i5bdd7aa503
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 5981711853873474325, guid: 2298761a0f10e0041b20a1ba13dab139, type: 3}
+    - id: i27767ca760
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 2727155189410874676, guid: ea0a7ffe8cd978f41b2918533a93c92e, type: 3}
+    - id: i499b7d5173
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 8374277428591125830, guid: 93353b846ef0e99439b59347cfc53ac4, type: 3}
+    - id: i86eb5c05fd
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 2107142709873981189, guid: b5b5538a777ed4f498a7e80473a22e16, type: 3}
+    - id: i27d5615c05
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 512355557454991441, guid: c7e79d0c60c086243a0ef6129d5a0021, type: 3}
+    - id: if680df5362
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 7093405384484611844, guid: abf42a96c031a13488227d798e375271, type: 3}
+    - id: i12c3d7937e
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 304441962797053343, guid: 14c5cf0149158e843a5d9f6e86375726, type: 3}
+    - id: iafbbeb8ae0
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 8152011114133661401, guid: 5689176508255e343925151ec58edacf, type: 3}
+    - id: i39d1561e4a
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 2137328611878006658, guid: 9335e8243914fe444a290873ef63de9c, type: 3}
+    - id: idf0e41d48c
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 8641128925200003696, guid: 4b459f4de5edbc344ae761c019b689e2, type: 3}
+    - id: ibf45f6d3fc
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 7018635909592408617, guid: 77209e79c03d171428e403e94b96bb6b, type: 3}
+    - id: i3327805d94
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 8727723603947020437, guid: 666f50d77312b014eadcda9c1a00d905, type: 3}
+    - id: i300080c8a6
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 7416589009624774369, guid: 0a086419f862e5849b0aad294a70df69, type: 3}
+    - id: i824af7fd63
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 6239969769666849874, guid: 0ffc28f47bdbd0442b19bdd756950271, type: 3}
+    - id: if36dc64125
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 1931959448060300247, guid: fa5155506ebaeb44abd90b377fa6064d, type: 3}
+  - id: reserve
+    label: "\uBCF4\uB958\xB7\uBD80\uD488\xB7\uBAA8\uD615"
+    enabled: 0
+    items:
+    - id: i274c3559a8
+      displayName: mesh_Ambulance_01
+      enabled: 1
+      prefab: {fileID: 1383425856305193020, guid: 62f93ebbf98e1564c9118dd502a432cd, type: 3}
+    - id: iced4e06e6c
+      displayName: mesh_Bus_01
+      enabled: 1
+      prefab: {fileID: 7435465804186057263, guid: 6753c8f51eadf6e479335e23ccc448c9, type: 3}
+    - id: i713e2cd7e4
+      displayName: mesh_Bus_02
+      enabled: 1
+      prefab: {fileID: 2530892164158611043, guid: 34be2369b69514f479d17c7765a595bb, type: 3}
+    - id: i126f812ffa
+      displayName: mesh_Pickup_01
+      enabled: 1
+      prefab: {fileID: 8031417194799184595, guid: 447c940c3b79fa044809fab4bcea317a, type: 3}
+    - id: i84b1c486c9
+      displayName: mesh_Sedan_01
+      enabled: 1
+      prefab: {fileID: 1920378263374737417, guid: 7e35ae012b3f96e4182d2a6b95c94c30, type: 3}
+    - id: ie0a9d8a2be
+      displayName: mesh_SportCar_01
+      enabled: 1
+      prefab: {fileID: 7243142414807270630, guid: cf94ad89677e25149be8240f86157a2d, type: 3}
+    - id: i219e3eafff
+      displayName: mesh_TruckContainer_01
+      enabled: 1
+      prefab: {fileID: 3927489085552449364, guid: 1cf44e27c8c356248bf6195991af7732, type: 3}
+    - id: i4ba9daec07
+      displayName: mesh_Van_01
+      enabled: 1
+      prefab: {fileID: 6853078273322471968, guid: 51dfbda9e95b23b4ca3712fa9bb2e5a1, type: 3}
+    - id: i6615101f8f
+      displayName: "\uCE7C"
+      enabled: 1
+      prefab: {fileID: 1671637366812231623, guid: 17049ddd8a800674cbb4fb6a8df8de19, type: 3}
+    - id: i1a47a3298b
+      displayName: "\uC870\uC900\uACBD"
+      enabled: 1
+      prefab: {fileID: 5845120083788869650, guid: 74c0704512a5cb74586174f5b95d133b, type: 3}
+    - id: ia8541acb3f
+      displayName: TraderTable
+      enabled: 1
+      prefab: {fileID: 7116732257857589293, guid: 437228bc5ae3ab14496367b6fd78865d, type: 3}
+    - id: id569f3607a
+      displayName: TraderTent
+      enabled: 1
+      prefab: {fileID: 724427542810218643, guid: 7e9fc60c2a6c3a048908d88a5473a7b8, type: 3}
+    - id: i15b09faa79
+      displayName: WoodenBox1 Apple
+      enabled: 1
+      prefab: {fileID: 3521336259345174739, guid: 07a21bf75d0740b4db5198a6b973b5b5, type: 3}
+    - id: i34e6cefb14
+      displayName: WoodenBox1 Bottle1
+      enabled: 1
+      prefab: {fileID: 5341309670353746747, guid: 2ba56b9a3aed68b489a65cbd3f1da257, type: 3}
+    - id: icffe90111b
+      displayName: WoodenBox1 Bottle2
+      enabled: 1
+      prefab: {fileID: 4304614380000204998, guid: 64fb1ad3f83cabd4d9661f36744cde43, type: 3}
+    - id: ida466bb88e
+      displayName: WoodenBox1 Cheese
+      enabled: 1
+      prefab: {fileID: 1117085312692774601, guid: d7ca3da35d4af9f48b156382c202793e, type: 3}
+    - id: ica0798d214
+      displayName: WoodenBox1
+      enabled: 1
+      prefab: {fileID: 781576157945544365, guid: f051ba451a91d9d45893f0ace82de46e, type: 3}
+    - id: ibfe5f0b58d
+      displayName: WoodenBox1 Tomato
+      enabled: 1
+      prefab: {fileID: 3174245449065514436, guid: 1f7d0af0c65658e499a602d8467c782d, type: 3}
+    - id: ibd236129af
+      displayName: WoodenBox1
+      enabled: 1
+      prefab: {fileID: 3274414690659438016, guid: 9e0f8f9469d2477459478689c35a81fb, type: 3}
+    - id: ie87733c56c
+      displayName: WoodenBox2 Pumpkin
+      enabled: 1
+      prefab: {fileID: 1873431095128725234, guid: 17f0e54c879052b4fa755e636bc92ebd, type: 3}
+    - id: icf29175da1
+      displayName: WoodenBox2 Watermelon
+      enabled: 1
+      prefab: {fileID: 2599751247300277801, guid: 61c98d1435ce85b49801c630a1681d1e, type: 3}
+    - id: i42ef832a53
+      displayName: WoodenBox2
+      enabled: 1
+      prefab: {fileID: 2450695706455972814, guid: f9ae76fbf158ff7448ed40ef21c88d1e, type: 3}

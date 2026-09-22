@@ -36,6 +36,14 @@ namespace Game.Bootstrap
         private readonly Dictionary<int, PlayerCombatant> combatants = new();
         // 붙이기 실패를 물건별로 한 번만 경고하기 위한 기록(성공하면 지운다)
         private readonly HashSet<string> attachWarnings = new();
+        // Objects the client last saw enter the shredder's pending-ejection state, so the
+        // later physics-released state (no current holder) is known to be a shredder eject
+        // rather than a genuine player throw, which shares the same replicated fields.
+        private readonly HashSet<string> pendingShredderEjectionIds = new(StringComparer.Ordinal);
+        private AudioClip shredderFeedClip;
+        private AudioClip shredderRunClip;
+        private AudioClip shredderEjectClip;
+        private AudioClip shredderSuccessClip;
         private double nextAssignmentItemScanAt;
         private bool objectStatesReceived;
         private readonly HashSet<string> replicatedIds = new();
@@ -77,6 +85,11 @@ namespace Game.Bootstrap
         private Func<bool> presentationBlocksInput;
         public void BindPresentationInput(Func<bool> blocksInput) => presentationBlocksInput = blocksInput;
 
+        internal static bool ShouldShowInteractionHud(
+            bool introBlocked,
+            bool highlightInProgress) =>
+            !introBlocked && !highlightInProgress;
+
         private IReadOnlyCollection<CarryableItem> sceneItems;
         public void BindSceneItems(IReadOnlyCollection<CarryableItem> value) => sceneItems = value;
 
@@ -87,6 +100,12 @@ namespace Game.Bootstrap
             network.ItemAssignmentReceived += OnItemAssignmentReceived;
             network.ObjectStatesReceived += OnObjectStatesReceived;
             network.PlayerInteractionStatesReceived += OnPlayerStatesReceived;
+#if !UNITY_SERVER
+            shredderFeedClip = Resources.Load<AudioClip>(ShredderInteractable.FeedResource);
+            shredderRunClip = Resources.Load<AudioClip>(ShredderInteractable.RunResource);
+            shredderEjectClip = Resources.Load<AudioClip>(ShredderInteractable.EjectResource);
+            shredderSuccessClip = Resources.Load<AudioClip>(ShredderInteractable.SuccessResource);
+#endif
             RefreshItems();
         }
 
@@ -105,6 +124,11 @@ namespace Game.Bootstrap
             }
             DestroyCarriedSceneItems();
             SetHighlightedAssignment(null);
+        }
+
+        private void PlayShredderClip(AudioClip clip, Vector3 position)
+        {
+            ShredderInteractable.PlaySpatial(clip, position);
         }
 
         internal void SuspendForHighlights()
@@ -288,7 +312,10 @@ namespace Game.Bootstrap
                         motor.AnimationGrounded,
                         motor.AttackSequence,
                         new Vector2(motor.AnimationMoveX, motor.AnimationMoveZ),
-                        motor.AnimationCarrying && !network.IsResultSceneLoaded);
+                        motor.AnimationCarrying && !network.IsResultSceneLoaded,
+                        motor.LookPitchDegrees,
+                        motor.EmoteSequence,
+                        motor.EmoteId);
                 }
 
                 var interactor = avatar.GetComponent<PlayerInteractor>();
@@ -298,7 +325,9 @@ namespace Game.Bootstrap
                     interactor.BindCommands(this);
                     interactor.enabled = acceptsLocalInput;
                     if (!acceptsLocalInput) interactor.RefreshHoldPoint();
-                    interactor.SetHudVisible(!introBlocked);
+                    interactor.SetHudVisible(ShouldShowInteractionHud(
+                        introBlocked,
+                        network.IsHighlightInProgress));
                     interactors[playerIndex] = interactor;
 
                     var placement = avatar.GetComponent<ItemPlacementController>();
@@ -311,7 +340,7 @@ namespace Game.Bootstrap
                 var combatant = avatar.GetComponent<PlayerCombatant>();
                 if (!lobbyMode && combatant != null)
                 {
-                    combatant.ConfigureNetworkPlayer(playerIndex, acceptsLocalInput);
+                    combatant.ConfigureNetworkPlayer(playerIndex, acceptsLocalInput, avatar.IsOwner);
                     combatants[playerIndex] = combatant;
                 }
             }
@@ -413,9 +442,18 @@ namespace Game.Bootstrap
 
             var checkHeldState = Time.unscaledTimeAsDouble >= nextHeldStateCheckAt;
             if (checkHeldState) nextHeldStateCheckAt = Time.unscaledTimeAsDouble + 0.5d;
+            // 놓인 것을 먼저 처리하고 들린 것을 나중에 붙인다. 숨기기 차례가 넘어오는 틱에는 "대기하며
+            // 들고 있던 소품을 놓음"과 "배정 물건을 쥠"이 한 스냅샷에 함께 실려 오는데, 배열 순서대로
+            // 처리하면 손이 아직 차 있어 배정 물건 부착이 한 프레임 밀리고 already carrying 경고가 남는다.
+            for (var pass = 0; pass < 2; pass++)
             for (var index = 0; index < objectStates.Length; index++)
             {
                 var state = objectStates[index];
+                if ((state.HolderPlayerIndex >= 0) != (pass == 1))
+                {
+                    continue;
+                }
+
                 if (!items.TryGetValue(state.ObjectId, out var item) || item == null)
                 {
                     continue;
@@ -431,6 +469,12 @@ namespace Game.Bootstrap
                 if (state.IsPendingEjection)
                 {
                     ForgetItem(item);
+                    var firstEjection = pendingShredderEjectionIds.Add(state.ObjectId);
+                    if (firstEjection)
+                    {
+                        PlayShredderClip(shredderFeedClip, item.transform.position);
+                        PlayShredderClip(shredderRunClip, item.transform.position);
+                    }
                     item.OnStored(state.Pose);
                     appliedVersions[state.ObjectId] = state.Version;
                     continue;
@@ -438,6 +482,8 @@ namespace Game.Bootstrap
                 else if (state.IsDestroyed)
                 {
                     ForgetItem(item);
+                    pendingShredderEjectionIds.Remove(state.ObjectId);
+                    ShredderInteractable.PlayGlobal(shredderSuccessClip);
                     if (ReferenceEquals(highlightedAssignment, item))
                     {
                         highlightedAssignment = null;
@@ -445,6 +491,9 @@ namespace Game.Bootstrap
 
                     appliedVersions[state.ObjectId] = state.Version;
                     items.Remove(state.ObjectId);
+                    // 엔딩 유치장이 잃어버린 물건을 손에 들려 주므로, 지우기 전에 겉모습을 맡긴다
+                    // (S15P21D205-1087). 맡기는 것은 스크립트를 지운 복제본이다.
+                    DestroyedItemArchive.Ensure(item.OwningScene).Archive(state.ObjectId, item.gameObject);
                     UnityEngine.Object.Destroy(item.gameObject);
                     continue;
                 }
@@ -459,6 +508,13 @@ namespace Game.Bootstrap
                             Debug.LogWarning(
                                 $"[Interaction] '{state.ObjectId}' is held by player {state.HolderPlayerIndex} on authority " +
                                 $"but that player has no avatar here (known indices: {string.Join(",", interactors.Keys)}).");
+                        continue;
+                    }
+
+                    if (holder.CarriedItem == item && item.IsCarried)
+                    {
+                        appliedVersions[state.ObjectId] = state.Version;
+                        attachWarnings.Remove(state.ObjectId);
                         continue;
                     }
 
@@ -477,10 +533,21 @@ namespace Game.Bootstrap
                 else
                 {
                     // Play the throw only after the authority actually releases the held object.
+                    // A shredder eject reaches this same "released, no holder" state, so a
+                    // pending-ejection id marks it as a spit-out rather than a player throw.
                     if (state.IsPhysicsActive && state.InitialVelocity.sqrMagnitude > 0f)
-                        foreach (var holder in interactors.Values)
-                            if (holder != null && holder.CarriedItem == item)
-                                holder.GetComponent<PlayerAnimationDriver>()?.PlayThrow();
+                    {
+                        if (pendingShredderEjectionIds.Remove(state.ObjectId))
+                        {
+                            PlayShredderClip(shredderEjectClip, item.transform.position);
+                        }
+                        else
+                        {
+                            foreach (var holder in interactors.Values)
+                                if (holder != null)
+                                    holder.PlayConfirmedThrow(item);
+                        }
+                    }
                     ForgetItem(item);
                     if (!network.IsServer)
                     {

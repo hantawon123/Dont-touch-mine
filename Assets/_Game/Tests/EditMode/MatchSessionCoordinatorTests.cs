@@ -514,7 +514,7 @@ namespace Game.Tests.EditMode
             Assert.That(result.WinnerPlayerIndices, Is.EqualTo(new[] { 0 }));
             Assert.That(session.CaptureDestroyedPlayerItemIds(), Is.EqualTo(new[] { destroyedItemId }));
 
-            foreach (var targetId in new[] { "first", "popular", "final" })
+            foreach (var targetId in new[] { "first", "popular" })
             {
                 Assert.That(session.TryGetCurrentHighlight(out var highlight), Is.True);
                 Assert.That(highlight.TargetId, Is.EqualTo(targetId));
@@ -927,6 +927,81 @@ namespace Game.Tests.EditMode
                 Is.True);
         }
 
+        /// <summary>
+        /// 하이라이트가 피격·기절 진입·일어서기를 그대로 보여주려면, 녹화가 맞은 쪽과
+        /// 기절 구간을 프레임에 남겨야 한다 (2026-09-22).
+        /// </summary>
+        [Test]
+        public void ReplayRecording_MarksHitAndStunMotionsForTheTargetPlayer()
+        {
+            StartSearching();
+            var poses = CreatePlayerPoses(lastKnownPositions);
+            var replayObjects = new WorldObjectState[0];
+
+            Assert.That(
+                session.RegisterHit(0, 1, Vector3.zero, 200d),
+                Is.EqualTo(HitResult.Registered));
+            Assert.That(session.TryRecordReplayFrame(200.1d, poses, replayObjects), Is.True);
+            Assert.That(
+                session.RegisterHit(0, 1, Vector3.zero, 200.2d),
+                Is.EqualTo(HitResult.Registered));
+            Assert.That(
+                session.RegisterHit(0, 1, Vector3.zero, 200.4d),
+                Is.EqualTo(HitResult.Stunned));
+            Assert.That(session.TryRecordReplayFrame(200.5d, poses, replayObjects), Is.True);
+            Assert.That(session.TryRecordReplayFrame(202.5d, poses, replayObjects), Is.True);
+            Assert.That(session.TryRecordReplayFrame(204d, poses, replayObjects), Is.True);
+
+            Assert.That(session.SetHighlightCandidates(new[]
+            {
+                new HighlightCandidate(HighlightType.FirstBlood, 200d, 204d, "stun")
+            }), Is.True);
+            session.AdvanceTime(550d, lastKnownPositions);
+            Assert.That(session.TryCaptureHighlightReplay(out var replay), Is.True);
+            var frames = replay[0].Clips[0].Frames;
+
+            // 맞은 쪽은 움찔하고, 때린 쪽에는 주먹질이 붙는다.
+            Assert.That(ActionAt(frames, 200.1d, 1) & HighlightPlayerAction.Hit,
+                Is.EqualTo(HighlightPlayerAction.Hit));
+            Assert.That(ActionAt(frames, 200.1d, 0) & HighlightPlayerAction.Punching,
+                Is.EqualTo(HighlightPlayerAction.Punching));
+
+            // 기절에 들어간 직후는 쓰러지는 구간이고, 움찔은 거기에 겹치지 않는다.
+            var stunned = ActionAt(frames, 200.5d, 1);
+            Assert.That(stunned & HighlightPlayerAction.Stunned,
+                Is.EqualTo(HighlightPlayerAction.Stunned));
+            Assert.That(stunned & HighlightPlayerAction.StunEntry,
+                Is.EqualTo(HighlightPlayerAction.StunEntry));
+            Assert.That(stunned & HighlightPlayerAction.Hit,
+                Is.EqualTo(HighlightPlayerAction.None));
+
+            // 기절이 풀리면 잠깐 일어서는 구간이 남는다.
+            var recovering = ActionAt(frames, 202.5d, 1);
+            Assert.That(recovering & HighlightPlayerAction.Stunned,
+                Is.EqualTo(HighlightPlayerAction.None));
+            Assert.That(recovering & HighlightPlayerAction.StunRecovery,
+                Is.EqualTo(HighlightPlayerAction.StunRecovery));
+
+            Assert.That(ActionAt(frames, 204d, 1), Is.EqualTo(HighlightPlayerAction.None));
+        }
+
+        private static HighlightPlayerAction ActionAt(
+            IReadOnlyList<HighlightReplayFrame> frames,
+            double recordedAt,
+            int playerIndex)
+        {
+            foreach (var frame in frames)
+            {
+                if (System.Math.Abs(frame.RecordedAt - recordedAt) < 0.001d)
+                {
+                    return frame.PlayerActions[playerIndex];
+                }
+            }
+
+            Assert.Fail($"{recordedAt} 초 프레임이 녹화되지 않았습니다.");
+            return HighlightPlayerAction.None;
+        }
+
         [Test]
         public void CaptureHighlightReplay_DropsCandidatesWithoutPlayableFramesFromSchedule()
         {
@@ -1158,8 +1233,8 @@ namespace Game.Tests.EditMode
 
             Assert.That(session.AllPlayerItemsDestroyed, Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
-            // Both event clips end at the match boundary, without a three-second prison tail.
-            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(222.2d).Within(0.001d));
+            // The selected clips and presentation overhead define the deadline; no prison tail is appended.
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(226.2d).Within(0.001d));
             Assert.That(session.TryGetCurrentHighlight(out var highlight), Is.True);
             Assert.That(highlight.Type, Is.EqualTo(HighlightType.FirstBlood));
             Assert.That(highlight.EndedAt, Is.EqualTo(200d));
@@ -1418,7 +1493,90 @@ namespace Game.Tests.EditMode
                 Is.True);
             Assert.That(session.TryGetObjectPose("shelf", out var confirmedPose), Is.True);
             Assert.That(confirmedPose, Is.EqualTo(settledPose));
-            Assert.That(session.TryHoldObject(1, "shelf", 20d), Is.False);
+            // 손을 떠난 소품은 차례를 기다리는 사람도 다시 집을 수 있다.
+            Assert.That(session.TryHoldObject(1, "shelf", 20d), Is.True);
+        }
+
+        [Test]
+        public void WaitingHider_TakesMapObjectsButNeverAssignedItems()
+        {
+            session.Start(10d);
+            var ownItemId = session.Assignments[1].Item.ItemId;
+            var turnItemId = session.Assignments[0].Item.ItemId;
+            var dropPose = new Pose(new Vector3(3f, 0f, 2f), Quaternion.identity);
+
+            // 차례는 0번, 1번은 대기 구역에서 기다린다.
+            Assert.That(session.TryHoldObject(1, ownItemId, 20d), Is.False);
+            Assert.That(session.TryHoldObject(1, turnItemId, 20d), Is.False);
+
+            Assert.That(session.TryHoldObject(1, "shelf", 20d), Is.True);
+            Assert.That(session.TryGetHeldObjectId(1, out var heldId), Is.True);
+            Assert.That(heldId, Is.EqualTo("shelf"));
+
+            Assert.That(session.CanPlaceHeldObject(1, dropPose, 20d), Is.True);
+            Assert.That(session.TryDropHeldObject(1, dropPose, 20d), Is.True);
+            Assert.That(session.TryGetHeldObjectId(1, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(dropPose.position));
+
+            // 숨긴 자리는 차례를 쓴 사람만 기록한다.
+            Assert.That(session.TryRecordItemPlacement(1, dropPose, 20d), Is.False);
+            Assert.That(session.TryGetItemPlacement(1, out _), Is.False);
+        }
+
+        [Test]
+        public void HidingTurnStart_DropsCarriedMapObjectAndFreesHandForAssignedItem()
+        {
+            session.Start(10d);
+            lastKnownPositions[1] = new Vector3(12f, 0f, 9f);
+            var released = new List<ObjectAutoReleasedEvent>();
+            session.ObjectAutoReleased += released.Add;
+
+            Assert.That(session.TryHoldObject(1, "shelf", 20d), Is.True);
+
+            session.AdvanceTime(41d, lastKnownPositions);
+
+            Assert.That(session.TryGetHeldObjectId(1, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(lastKnownPositions[1]));
+            Assert.That(released.Exists(value => value.ObjectId == "shelf"), Is.True);
+            // 손이 비어야 이번 차례에 숨길 물건을 쥘 수 있다.
+            Assert.That(session.TryInitializeAssignedItem(1), Is.True);
+        }
+
+        [Test]
+        public void HidingTurnTimeout_LeavesCarriedMapObjectWhereTheHiderStood()
+        {
+            session.Start(10d);
+            var placedPose = new Pose(new Vector3(2f, 0f, 1f), Quaternion.identity);
+            lastKnownPositions[0] = new Vector3(6f, 0f, 3f);
+
+            Assert.That(session.TryRecordItemPlacement(0, placedPose, 20d), Is.True);
+            Assert.That(session.TryHoldObject(0, "shelf", 25d), Is.True);
+
+            session.AdvanceTime(41d, lastKnownPositions);
+
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(lastKnownPositions[0]));
+        }
+
+        [Test]
+        public void HidingPhaseEnd_LeavesTheWaitingRoomPropBehind()
+        {
+            session.Start(10d);
+            lastKnownPositions[0] = new Vector3(20f, 0f, 7f);
+
+            // 0번은 차례를 마치고 대기 구역으로 나온 뒤에 소품을 줍는다.
+            session.AdvanceTime(41d, lastKnownPositions);
+            Assert.That(session.TryHoldObject(0, "shelf", 45d), Is.True);
+
+            session.AdvanceTime(190d, lastKnownPositions);
+
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(lastKnownPositions[0]));
         }
 
         [Test]
@@ -1672,8 +1830,12 @@ namespace Game.Tests.EditMode
                 Is.EqualTo(HitResult.Registered));
             Assert.That(session.IsPlayerStunned(2, 20.3d), Is.False);
             Assert.That(session.GetCombatTotals(2), Is.EqualTo((3, 0)));
+            // 대기자는 때리기뿐 아니라 대기 구역 소품도 집는다. 막히는 건 남의 배정 물건이다.
             Assert.That(
                 session.TryHoldObject(1, "shelf", 20d),
+                Is.True);
+            Assert.That(
+                session.TryHoldObject(2, session.Assignments[0].Item.ItemId, 20d),
                 Is.False);
         }
 

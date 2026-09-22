@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 7fcecd1807240934bb06296c04af38f2
+timeCreated: 1644463324
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43424226121538968
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Phone_Rotary_01_Convex
+    1.asset
+  uploadId: 987938

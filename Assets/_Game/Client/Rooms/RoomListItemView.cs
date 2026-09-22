@@ -1,6 +1,7 @@
 using System;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -64,7 +65,7 @@ namespace Game.Client.Rooms
             }
         }
 
-        public void Bind(RoomSummary room)
+        public void Bind(RoomSummary room, string language = "ko")
         {
             roomId = room.RoomId;
 
@@ -73,9 +74,11 @@ namespace Game.Client.Rooms
             playerCountText.text = $"{room.CurrentPlayerCount}/{room.Settings.MaxPlayers}";
             hostNicknameText.text = string.IsNullOrEmpty(room.HostNickname)
                 ? string.Empty
-                : $"{room.HostNickname}의 방";
+                : string.Format(UiTextCatalog.Shipped.Get(UiText.Rooms.HostRoom, language), room.HostNickname);
 
-            statusText.text = room.Status == RoomStatus.Waiting ? "대기중" : "게임중";
+            statusText.text = room.Status == RoomStatus.Waiting
+                ? UiTextCatalog.Shipped.Get(UiText.Rooms.Waiting, language)
+                : UiTextCatalog.Shipped.Get(UiText.Rooms.Playing, language);
 
             // What greys a row out is whether it can be entered, not what it is
             // doing: a waiting room with six of six players reads the same as one

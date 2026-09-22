@@ -2,6 +2,7 @@ package com.ssafy.d205.domain.chat.entity;
 
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.ssafy.d205.global.common.WordMatcher;
@@ -9,8 +10,15 @@ import com.ssafy.d205.global.common.WordMatcher;
 /**
  * 채팅에 들어가면 안 되는 말 (S15P21D205-1027).
  *
+ * <p><b>여기서는 판정하지 않습니다</b>(S15P21D205-1096). 목록을 읽어 들고 있다가 기동한 게임
+ * 서버에 내려주는 일만 합니다. 가릴지 판정하고 실제로 가리는 것은 게임 서버이고
+ * ({@code ChatBlocklist.cs}), 저장할 때도 그쪽이 낸 판정을 그대로 받아 적습니다. 한때 저장
+ * 시점에 백엔드가 다시 판정했는데, 그러려면 같은 규칙을 Java 와 C# 두 곳에 두어야 하고 두
+ * 목록이 갈리는 순간 기록이 "가려졌다고 적혔는데 사람들은 그대로 본" 상태가 됩니다. 규칙과
+ * 그것을 고른 근거는 이제 게임 서버 쪽에만 적혀 있습니다.
+ *
  * <p>닉네임 목록({@link com.ssafy.d205.domain.user.entity.NicknameBlocklist})과 <b>목록을 나눕니다.</b>
- * 검사 방식은 거의 같지만 들어오는 글이 다릅니다.
+ * 들어오는 글이 달라서입니다.
  *
  * <table>
  *   <tr><th></th><th>닉네임</th><th>채팅</th></tr>
@@ -19,28 +27,9 @@ import com.ssafy.d205.global.common.WordMatcher;
  *   <tr><td>낱말 경계</td><td>없음</td><td>영문은 있음</td></tr>
  * </table>
  *
- * <p>그래서 두 가지가 달라집니다. <b>첫째</b>, 공백과 구두점을 끼워 넣는 우회("시 발", "시.발")가
- * 여기서만 생기므로 그것을 지운 판본을 하나 더 만들어 봅니다. <b>둘째</b>, 영문은 낱말 경계를
- * 볼 수 있으므로 닉네임 목록에서 오탐 때문에 뺐던 짧은 영어 욕설을 이 목록에는 넣을 수 있습니다.
- *
- * <p>한글 자모만 쓴 욕("ㅅㅂ")은 정규화로 잡는 것이 아니라 목록에 그대로 한 줄 넣습니다. 자모를
- * 음절로 되돌리는 규칙은 사람이 실제로 쓰는 몇 개보다 훨씬 복잡하고, 되돌리다 멀쩡한 말을
- * 만들어 냅니다.
- *
- * <p><b>가리는 일은 여기서 하지 않습니다.</b> 게임 서버가 중계하면서 가린 말을 뿌리고 원문을
- * 여기로 보냅니다(S15P21D205-1028). 이 클래스는 저장할 때 masked 플래그를 다시 판정하는 데만
- * 쓰입니다. 같은 규칙을 두 언어로 두면 갈라지므로 가리는 코드는 한 곳에만 둡니다.
- *
- * <p>게임 서버가 지켜야 할 규칙이 셋입니다. <b>첫째</b>, 메시지를 통째로 막지 않고 가립니다 -
- * 막으면 보낸 사람은 보냈다고 생각하고 상대는 못 봐서 대화가 어긋납니다. <b>둘째</b>, 원문에
- * 그대로 보이는 말만 그 자리를 가리고, 숫자나 기호로 우회한 것은 어느 글자가 문제인지 특정할 수
- * 없으므로 메시지 전체를 가립니다 - 일부만 가리면 남은 글자로 무슨 말이었는지 읽힙니다.
- * <b>셋째</b>, 가린 뒤에도 길이를 유지해 몇 글자였는지는 남깁니다.
- *
- * <p><b>자리를 셀 때 주의할 것이 있습니다.</b> 소문자로 바꾼 문자열에서 찾은 위치를 원문에
- * 그대로 쓰면 안 됩니다. U+0130(İ) 처럼 소문자화에서 길이가 변하는 글자가 섞이면 자리가 밀려
- * 엉뚱한 글자를 지우거나 예외가 납니다. 사람이 채팅에 넣을 수 있는 글자라 실제로 터집니다.
- * 자리를 셀 때는 글자 하나를 글자 하나로 낮추는 방식을 씁니다.
+ * <p>그래서 채팅 목록에는 닉네임 목록에서 오탐 때문에 뺐던 짧은 영어 욕설이 들어 있습니다.
+ * 게임 서버가 영문 낱말 경계를 보기 때문입니다. 공백·구두점·자모를 끼워 넣는 우회도 목록이
+ * 아니라 그쪽 판정이 다룹니다.
  *
  * <p><b>목록은 서버 밖으로 나가지 않습니다.</b> 게임 서버만 기동할 때 내부 경로로 받아 가고,
  * 그 경로는 공유 키로 잠겨 있으며 nginx 에 없습니다. 플레이어 빌드에 목록이 들어가면 그 순간
@@ -50,48 +39,35 @@ import com.ssafy.d205.global.common.WordMatcher;
 public class ChatBlocklist {
 
     static final String BLOCKLIST = "chat-blocklist.txt";
+    static final String KEYBOARD = "chat-blocklist-keyboard.txt";
     static final String ALLOWLIST = "chat-allowlist.txt";
 
     private final List<String> blocked;
     private final List<String> allowed;
 
     public ChatBlocklist() {
-        this(WordMatcher.read(BLOCKLIST), WordMatcher.read(ALLOWLIST));
+        this(both(WordMatcher.read(BLOCKLIST), WordMatcher.read(KEYBOARD)), WordMatcher.read(ALLOWLIST));
+    }
+
+    /**
+     * 손으로 적는 목록과 만들어 둔 자판 표기를 합칩니다.
+     *
+     * <p>파일을 가르는 이유는 한쪽이 <b>생성물</b>이기 때문입니다. 섞어 두면 사람이 자판 표기를
+     * 손으로 고치고, 다음 생성 때 그 손질이 사라집니다. 만드는 쪽은 ChatKeyboardListTest 입니다.
+     *
+     * <p>한영 전환 없이 친 글("tlqkf")을 판정이 아니라 목록으로 막는 이유도 거기 적혀 있습니다.
+     */
+    private static List<String> both(List<String> typed, List<String> generated) {
+        List<String> all = new ArrayList<>(typed.size() + generated.size());
+        all.addAll(typed);
+        all.addAll(generated);
+        return all;
     }
 
     /** 테스트가 목록을 직접 넣을 수 있게 열어 둡니다. 소문자로 맞춰 저장합니다. */
     ChatBlocklist(List<String> blocked, List<String> allowed) {
         this.blocked = blocked.stream().map(WordMatcher::lower).toList();
         this.allowed = allowed.stream().map(WordMatcher::lower).toList();
-    }
-
-    /**
-     * 이 말에 금칙어가 들어 있는가.
-     *
-     * <p>우회 수단이 서로 <b>겹쳐서</b> 들어옵니다. 숫자만 끼우거나 공백만 끼우는 것은 각각
-     * 한 번의 변환으로 풀리지만, "시1 발" 처럼 둘을 같이 쓰면 한쪽만 푼 판본에는 아무것도
-     * 걸리지 않습니다. 그래서 조합까지 만들어 봅니다.
-     *
-     * <ul>
-     *   <li>소문자 그대로 - "시발"</li>
-     *   <li>숫자를 뺀 것 - "시1발"</li>
-     *   <li>숫자를 글자로 바꾼 것 - "sh1t"</li>
-     *   <li>숫자를 빼고 기호까지 지운 것 - "시1 발"</li>
-     *   <li>숫자를 글자로 바꾸고 기호까지 지운 것 - "s.h.1.t"</li>
-     * </ul>
-     */
-    public boolean isForbidden(String message) {
-        if (message == null || message.isEmpty()) {
-            return false;
-        }
-        String lower = WordMatcher.lower(message);
-        String withoutDigits = lower.replaceAll("[0-9]", "");
-        String leet = WordMatcher.leet(lower);
-        return hits(lower)
-                || hits(withoutDigits)
-                || hits(leet)
-                || hits(WordMatcher.stripSymbols(withoutDigits))
-                || hits(WordMatcher.stripSymbols(leet));
     }
 
     /**
@@ -106,10 +82,5 @@ public class ChatBlocklist {
 
     public List<String> allowed() {
         return allowed;
-    }
-
-    /** 채팅은 영문 낱말 경계를 볼 수 있으므로 닉네임과 다른 방법을 씁니다. */
-    private boolean hits(String candidate) {
-        return WordMatcher.containsWord(candidate, blocked, allowed);
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,12 +17,12 @@ namespace Game.Client.Lobby
         public const string RootName = "ShortcutOverlay";
         public const int SortingOrder = PlaySettingsStyle.Overlay.SortingOrder + 5;
 
-        public static readonly string[] Titles =
+        public static string[] Titles => new[]
         {
             string.Empty,
-            "캐릭터 설정",
-            "플레이어",
-            "환경설정"
+            UiLocale.Applied(UiText.Lobby.Closet),
+            UiLocale.Applied(UiText.Lobby.PlayersShortcut),
+            UiLocale.Applied(UiText.Lobby.Settings)
         };
 
         private GameObject overlayRoot;

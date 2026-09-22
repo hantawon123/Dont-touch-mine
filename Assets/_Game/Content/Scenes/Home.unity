@@ -682,6 +682,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Home.HomeMenuView
   backgroundSprite: {fileID: 21300000, guid: aa86d8de0c4fe574aba4f8d4f3385ea3, type: 3}
+  logoSprite: {fileID: 21300000, guid: b8f31c4e7a2d4e9f8c5b1a6d0e3f2478, type: 3}
   friendIcon: {fileID: 21300000, guid: e8063059afd9234498f2fe7f9c452501, type: 3}
   serverIcon: {fileID: 21300000, guid: 86cb0d4afd76b4841b084f098b409c0f, type: 3}
   checkIcon: {fileID: 21300000, guid: 989f8645dc531d24a928b9b613c3835e, type: 3}
@@ -695,7 +696,6 @@ MonoBehaviour:
   closeIcon: {fileID: 21300000, guid: 145a6f57902c6644198a09641d23817c, type: 3}
   alertIcon: {fileID: 21300000, guid: 7587284cd1eefb844b72eed010569c33, type: 3}
   fontAsset: {fileID: 11400000, guid: eadaa4b688ac33740865e8d730c1339e, type: 2}
-  titleFont: {fileID: 11400000, guid: a0daab1b1518d4b428343619c3a4058a, type: 2}
   semiBoldFont: {fileID: 11400000, guid: 274d1eadfdbd87444b3da6ea0c708488, type: 2}
   nicknameText: {fileID: 0}
 --- !u!1 &1531221437

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 27bb2e4758c178f4ba737a904ef66f37
+timeCreated: 1644463034
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43771815585614356
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Coat_Stand_01_Convex.asset
+  uploadId: 987938

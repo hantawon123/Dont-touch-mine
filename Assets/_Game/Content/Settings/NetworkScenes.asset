@@ -12,16 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 935603f63538cd8449dfaaf2260752e9, type: 3}
   m_Name: NetworkScenes
   m_EditorClassIdentifier: Game.Network::Game.Network.NetworkScenes
-  _matchScene: {fileID: 102900000, guid: 38063f202021431d87d19016376c9b66, type: 3}
+  _matchScene: {fileID: 102900000, guid: cad9a7fd93ff6a9428b283457c72aacb, type: 3}
   _lobbyScene: {fileID: 102900000, guid: d0bbed07a70236d47ae2d3cf7104e90c, type: 3}
   _resultScene: {fileID: 102900000, guid: 27403880fe50ecc47814bffa7bc551e6, type: 3}
-  _matchScenePath: Assets/_Game/Content/Scenes/Playground.unity
+  _matchScenePath: Assets/_Game/Content/Scenes/Supermarket.unity
   _lobbyScenePath: Assets/_Game/Content/Scenes/Lobby.unity
   _resultScenePath: Assets/_Game/Content/Scenes/Result.unity
   _mapScenes:
-  - mapId: playground
-    scene: {fileID: 102900000, guid: 38063f202021431d87d19016376c9b66, type: 3}
-    scenePath: Assets/_Game/Content/Scenes/Playground.unity
   - mapId: supermarket
     scene: {fileID: 102900000, guid: cad9a7fd93ff6a9428b283457c72aacb, type: 3}
     scenePath: Assets/_Game/Content/Scenes/Supermarket.unity
+  - mapId: mansion
+    scene: {fileID: 102900000, guid: f4a98e0b0680411d860337ffc00841fa, type: 3}
+    scenePath: Assets/_Game/Content/Scenes/Mansion.unity
+  _mapResultScenes:
+  - mapId: mansion
+    scene: {fileID: 102900000, guid: 8db70533803e46c78699b7d7a7a8b600, type: 3}
+    scenePath: Assets/_Game/Content/Scenes/MansionResult.unity

@@ -55,6 +55,14 @@ namespace Game.Bootstrap
         [SerializeField]
         private AudioClip _menuBgm;
 
+        [SerializeField]
+        [Tooltip("Played once for every UI button click.")]
+        private AudioClip _uiButtonClick;
+
+        [SerializeField]
+        [Tooltip("Looped only during highlight playback.")]
+        private AudioClip _endingBgm;
+
         protected override void Configure(IContainerBuilder builder)
         {
             if (DedicatedServerStartup.IsRequested)
@@ -90,6 +98,14 @@ namespace Game.Bootstrap
             var controlSettingsStore = new PlayerPrefsControlSettingsStore();
             var notificationSettingsStore = new PlayerPrefsNotificationSettingsStore();
 
+            // Likewise for the HUD microphone and speaker: a mute set in one
+            // room is what the next room should open with.
+            var voicePreferencesStore = new PlayerPrefsVoicePreferencesStore();
+
+            // Likewise for first person versus third person: a view set in the
+            // lobby is what the match should open with, and the other way.
+            var cameraViewStore = new PlayerPrefsCameraViewStore();
+
             RegisterServices(
                 builder,
                 _networkPrefabs,
@@ -119,6 +135,8 @@ namespace Game.Bootstrap
             builder.RegisterInstance<ISoundSettingsApplier>(soundSettingsApplier);
             builder.RegisterInstance<IMicrophoneDevices>(microphones);
             builder.RegisterInstance<IControlSettingsStore>(controlSettingsStore);
+            builder.RegisterInstance<IVoicePreferencesStore>(voicePreferencesStore);
+            builder.RegisterInstance<ICameraViewStore>(cameraViewStore);
             builder.RegisterInstance<INotificationSettingsStore>(notificationSettingsStore);
 
             // Listens to the whole keyboard and mouse while a key is being
@@ -135,6 +153,18 @@ namespace Game.Bootstrap
                 music.spatialBlend = 0f;
                 music.clip = _menuBgm;
                 builder.RegisterEntryPoint<MenuBgmController>().WithParameter(music);
+            }
+
+            if (_endingBgm != null)
+            {
+                var endingObject = new GameObject("Ending BGM");
+                endingObject.transform.SetParent(transform, false);
+                var ending = endingObject.AddComponent<AudioSource>();
+                ending.playOnAwake = false;
+                ending.loop = true;
+                ending.spatialBlend = 0f;
+                ending.clip = _endingBgm;
+                builder.RegisterEntryPoint<EndingBgmController>().WithParameter(ending);
             }
 
             // Makes a saved choice real. Registered here rather than in
@@ -181,6 +211,7 @@ namespace Game.Bootstrap
             inputObject.AddComponent<SharedUiInputActions>().Bind(inputModule);
             inputObject.SetActive(true);
             builder.RegisterComponent(eventSystem);
+            UiButtonClickAudio.Create(transform, _uiButtonClick);
 
 #if UNITY_WEBGL && !UNITY_EDITOR
             var webText = new GameObject("Web Text Input").AddComponent<Game.Client.Common.WebTextInput>();
@@ -412,6 +443,19 @@ namespace Game.Bootstrap
             builder.RegisterInstance(
                 generalSettings ?? new GeneralSettingsSystem(new InMemoryGeneralSettingsStore()));
 
+            // Words the interface draws, in the language last applied. Built
+            // by hand so a test can hand the locale its own catalogue without
+            // VContainer looking for one.
+            builder.Register(
+                c => new UiLocale(c.Resolve<GeneralSettingsSystem>()),
+                Lifetime.Singleton);
+
+            // Built with the container rather than on first use. Scenes that
+            // inject nothing - the tutorial is one - read the applied language
+            // through UiLocale.Current, and a lazy singleton would leave them
+            // in Korean until some other screen happened to ask for it.
+            builder.RegisterBuildCallback(container => container.Resolve<UiLocale>());
+
             // Forgetting with the process, and changing nothing about the
             // picture, unless the application hands in one backed by
             // preferences and wired to the renderer.
@@ -515,8 +559,27 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<NetworkResultLobbyReturnController>().AsSelf();
             // Outlives every screen. The rig that opens the microphone is
             // rebuilt with each session and the control that drives it with each
-            // screen, but a player who muted themselves meant it to hold.
-            builder.Register<VoicePreferences>(Lifetime.Singleton);
+            // screen, but a player who muted themselves meant it to hold —
+            // including the next room. The store is this machine's when one is
+            // registered; tests and the dedicated server keep it in memory.
+            builder.Register(
+                c => new VoicePreferences(
+                    c.TryResolve<IVoicePreferencesStore>(out var store)
+                        ? store
+                        : new InMemoryVoicePreferencesStore()),
+                Lifetime.Singleton);
+
+            // Outlives every screen. The camera rig is rebuilt with each scene,
+            // but a player who switched to first person in the lobby meant it
+            // to hold — including the match and the lobby they return to. The
+            // store is this machine's when one is registered; tests and the
+            // dedicated server keep it in memory.
+            builder.Register(
+                c => new CameraViewPreference(
+                    c.TryResolve<ICameraViewStore>(out var store)
+                        ? store
+                        : new InMemoryCameraViewStore()),
+                Lifetime.Singleton);
 
             builder.Register<RoomCodeGenerator>(Lifetime.Singleton);
             builder.Register<IRoomBrowser, RoomBrowser>(Lifetime.Singleton);

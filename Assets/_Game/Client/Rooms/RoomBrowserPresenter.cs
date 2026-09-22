@@ -4,6 +4,7 @@ using Game.Client.Home;
 using Game.Core.Flow;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
+using Game.Core.Settings;
 using R3;
 using UnityEngine;
 using VContainer.Unity;
@@ -12,14 +13,18 @@ namespace Game.Client.Rooms
 {
     public sealed class RoomBrowserPresenter : IStartable, IDisposable
     {
-        public const string NoRooms = "열려 있는 방이 없어요";
-        public const string NoSearchResults = "검색 결과가 없어요";
+        public static string NoRooms =>
+            UiTextCatalog.Shipped.Get(UiText.Rooms.NoRooms, "ko");
+
+        public static string NoSearchResults =>
+            UiTextCatalog.Shipped.Get(UiText.Rooms.NoSearchResults, "ko");
 
 
         private readonly IRoomBrowserView view;
         private readonly RoomBrowserSystem rooms;
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
+        private readonly UiLocale locale;
         private IDisposable roomsSubscription;
         private IDisposable exitSubscription;
         private IDisposable busySubscription;
@@ -36,13 +41,15 @@ namespace Game.Client.Rooms
             IRoomBrowserView view,
             RoomBrowserSystem rooms,
             IHomeApplicationHost applicationHost,
-            AppFlowSystem appFlow)
+            AppFlowSystem appFlow,
+            UiLocale locale = null)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.rooms = rooms ?? throw new ArgumentNullException(nameof(rooms));
             this.applicationHost = applicationHost
                 ?? throw new ArgumentNullException(nameof(applicationHost));
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
+            this.locale = locale;
         }
 
         public void Start()
@@ -54,11 +61,22 @@ namespace Game.Client.Rooms
             exitSubscription = rooms.LastExit.Subscribe(OnRoomExit);
             busySubscription = rooms.IsBusy.Subscribe(view.SetBusy);
             failureSubscription = rooms.LastFailure.Subscribe(view.ShowEntryFailure);
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+                view.ShowChrome(locale);
+            }
+
             Render();
         }
 
         public void Dispose()
         {
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
+
             view.BackRequested -= OnBackRequested;
             view.SearchTextChanged -= OnSearchTextChanged;
             view.DisconnectionAcknowledged -= OnDisconnectionAcknowledged;
@@ -73,9 +91,9 @@ namespace Game.Client.Rooms
             if (!reason.HasValue || reason == RoomExitReason.Left) return;
             view.ShowDisconnection(reason switch
             {
-                RoomExitReason.Kicked => "방장에 의해 강퇴되었습니다",
-                RoomExitReason.HostClosed => "호스트의 연결이 끊어졌습니다",
-                _ => "서버와의 연결이 끊어졌습니다",
+                RoomExitReason.Kicked => Copy(UiText.Rooms.Kicked),
+                RoomExitReason.HostClosed => Copy(UiText.Home.HostDisconnected),
+                _ => Copy(UiText.Home.ServerDisconnected),
             });
         }
 
@@ -149,7 +167,18 @@ namespace Game.Client.Rooms
                 return null;
             }
 
-            return roomCount > 0 ? NoSearchResults : NoRooms;
+            return roomCount > 0 ? Copy(UiText.Rooms.NoSearchResults) : Copy(UiText.Rooms.NoRooms);
         }
+
+        private void OnLocaleChanged()
+        {
+            view.ShowChrome(locale);
+            Render();
+        }
+
+        private string Copy(string key) =>
+            locale != null
+                ? locale.Get(key)
+                : UiTextCatalog.Shipped.Get(key, "ko");
     }
 }

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 79a95daf40b04a6459f46e589f8ae80b
+timeCreated: 1644463216
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43352301238080718
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Music_Box_01_Convex.asset
+  uploadId: 987938

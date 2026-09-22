@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using Game.Client.Settings;
 using Game.Core.Backend;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -44,6 +45,7 @@ namespace Game.Bootstrap
     {
         private readonly ISettingsView view;
         private readonly IFeedbackGateway feedback;
+        private readonly UiLocale locale;
         private readonly CancellationTokenSource lifetime = new CancellationTokenSource();
 
         /// <summary>
@@ -57,10 +59,12 @@ namespace Game.Bootstrap
         /// </remarks>
         private bool sending;
 
-        public SettingsFeedbackBridge(ISettingsView view, IFeedbackGateway feedback)
+        public SettingsFeedbackBridge(
+            ISettingsView view, IFeedbackGateway feedback, UiLocale locale = null)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.feedback = feedback ?? throw new ArgumentNullException(nameof(feedback));
+            this.locale = locale;
         }
 
         public void Start()
@@ -110,7 +114,10 @@ namespace Game.Bootstrap
                 {
                     // Down first, then the thanks over the screen behind it.
                     view.FeedbackSent();
-                    view.ShowNotice(SettingsStyle.FeedbackNoticeTitle, SettingsStyle.FeedbackSentMessage);
+                    view.ShowNotice(
+                        Copy(UiText.Settings.FeedbackSend),
+                        Copy(UiText.Settings.FeedbackSent),
+                        success: true);
                     return;
                 }
 
@@ -123,8 +130,8 @@ namespace Game.Bootstrap
 
                 view.SetFeedbackSubmitEnabled(true);
                 view.ShowNotice(
-                    SettingsStyle.FeedbackNoticeTitle,
-                    $"{Explain(result.Failure)}. {SettingsStyle.FeedbackKeptMessage}");
+                    Copy(UiText.Settings.FeedbackSend),
+                    $"{Explain(result.Failure)}. {Copy(UiText.Settings.FeedbackKept)}");
 
                 Debug.LogWarning($"[Feedback] Refused: {result.Failure}.");
             }
@@ -142,22 +149,27 @@ namespace Game.Bootstrap
         /// The rest share one message: a code the player cannot act on is noise,
         /// and the code itself goes to the log instead.
         /// </remarks>
-        private static string Explain(BackendFailure failure)
+        private string Copy(string key) =>
+            locale != null
+                ? locale.Get(key)
+                : UiTextCatalog.Shipped.Get(key, "ko");
+
+        private string Explain(BackendFailure failure)
         {
             switch (failure)
             {
                 case BackendFailure.NotSignedIn:
-                    return SettingsStyle.FeedbackNotSignedInMessage;
+                    return Copy(UiText.Settings.FeedbackNotSignedIn);
 
                 case BackendFailure.Offline:
                 case BackendFailure.Timeout:
-                    return SettingsStyle.FeedbackOfflineMessage;
+                    return Copy(UiText.Settings.FeedbackOffline);
 
                 case BackendFailure.InvalidRequest:
-                    return SettingsStyle.FeedbackTooLongMessage;
+                    return Copy(UiText.Settings.FeedbackTooLong);
 
                 default:
-                    return SettingsStyle.FeedbackFailedMessage;
+                    return Copy(UiText.Settings.FeedbackFailed);
             }
         }
     }

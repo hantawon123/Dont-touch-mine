@@ -8,46 +8,43 @@ using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IDestroyedItemsHudView
-    {
-        void Show(
-            int playerCount,
-            System.Collections.Generic.IReadOnlyList<PlayerItemStatusSnapshot> statuses,
-            string localItemId,
-            System.Collections.Generic.IReadOnlyList<string> destroyedItemIdsInOrder);
-        void Hide();
-    }
-
     /// <summary>
     /// Top-left circles for assignment items. The local item stays leftmost
-    /// with an orange ring. Remaining player circles show "?" until they
-    /// fill in destruction order.
+    /// with <c>Icon_My_Item</c>, then <c>Icon_My_Destroyed_Item</c> after it
+    /// breaks. Remaining player circles show "?" until they fill in
+    /// destruction order.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class DestroyedItemsHudView : MonoBehaviour, IDestroyedItemsHudView
+    public sealed class DestroyedItemsHudView : MonoBehaviour
     {
         public const float SlotSize = 100f;
+        /// <summary>
+        /// Both own-item icons are 276² with the orange ring at the canvas
+        /// edge. Drawn at the slot size so the intact ring and the slashed
+        /// ring occupy the same square over the item circle.
+        /// </summary>
+        public const float OwnMarkerSize = SlotSize;
         public const int PreviewTextureSize = 256;
         public const float SlotGap = 12f;
         public const float QuestionFontSize = 30f;
         public const float LeftPadding = 36f;
         public const float TopPadding = 36f;
-        public const float OwnBorderThickness = 6f;
         public const float CategoryFontSize = 36f;
         public const float CategoryGap = 12f;
         public const float CategoryWidth = 360f;
         public const float CategoryHeight = 60f;
         public const string QuestionMark = "?";
-        public const string OwnBorderName = "OwnBorder";
+        public const string OwnMarkerName = "OwnMarker";
         public const string FillName = "Fill";
         public const string CategoryName = "Category";
+        public const string OwnItemIconResource = "UI/Icon_My_Item";
+        public const string OwnDestroyedItemIconResource = "UI/Icon_My_Destroyed_Item";
 
         public static Vector2 CategoryAnchoredPosition =>
             new Vector2(LeftPadding, -(TopPadding + SlotSize + CategoryGap));
 
         public static readonly Color SlotColor = new Color(0f, 0f, 0f, 0.6f);
         public static readonly Color QuestionColor = new Color(200f / 255f, 200f / 255f, 200f / 255f, 1f);
-        public static readonly Color OwnBorderColor = new Color(1f, 140f / 255f, 0f, 1f);
 
         [SerializeField]
         private GameObject panel;
@@ -62,7 +59,14 @@ namespace Game.Client.Match
         private DestroyedItemHudSlot[] laidOutSlots = System.Array.Empty<DestroyedItemHudSlot>();
         private bool retryPreviews;
         private string categoryText = string.Empty;
-        private static Sprite ownBorderSprite;
+        private static Sprite ownItemSprite;
+        private static Sprite ownDestroyedItemSprite;
+
+        public static Sprite OwnItemSprite =>
+            ownItemSprite ??= Resources.Load<Sprite>(OwnItemIconResource);
+
+        public static Sprite OwnDestroyedItemSprite =>
+            ownDestroyedItemSprite ??= Resources.Load<Sprite>(OwnDestroyedItemIconResource);
 
         public static DestroyedItemsHudView Create(Transform parent)
         {
@@ -346,9 +350,12 @@ namespace Game.Client.Match
 
             var slot = slotRoot.Find("Slot0");
             var layout = slot?.GetComponent<LayoutElement>();
+            var marker = slot?.Find(OwnMarkerName) as RectTransform;
             return layout != null &&
                    slot.Find(FillName) != null &&
-                   slot.Find(OwnBorderName) != null &&
+                   marker != null &&
+                   Mathf.Approximately(marker.sizeDelta.x, OwnMarkerSize) &&
+                   Mathf.Approximately(marker.sizeDelta.y, OwnMarkerSize) &&
                    Mathf.Approximately(layout.preferredWidth, SlotSize) &&
                    Mathf.Approximately(layout.preferredHeight, SlotSize);
         }
@@ -368,54 +375,19 @@ namespace Game.Client.Match
             rect.offsetMax = Vector2.zero;
         }
 
-        private static Sprite OwnBorderSprite
+        private static void PlaceOwnMarker(RectTransform rect)
         {
-            get
-            {
-                if (ownBorderSprite != null)
-                {
-                    return ownBorderSprite;
-                }
-
-                const int size = 128;
-                var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-                {
-                    hideFlags = HideFlags.HideAndDontSave,
-                    filterMode = FilterMode.Bilinear
-                };
-                var center = (size - 1) * 0.5f;
-                var outer = center - 1f;
-                var inner = outer - (OwnBorderThickness / SlotSize * size);
-                var outerSq = outer * outer;
-                var innerSq = inner * inner;
-                for (var y = 0; y < size; y++)
-                {
-                    for (var x = 0; x < size; x++)
-                    {
-                        var dx = x - center;
-                        var dy = y - center;
-                        var distanceSq = (dx * dx) + (dy * dy);
-                        texture.SetPixel(x, y, distanceSq <= outerSq && distanceSq >= innerSq
-                            ? Color.white
-                            : Color.clear);
-                    }
-                }
-
-                texture.Apply(false, false);
-                ownBorderSprite = Sprite.Create(
-                    texture,
-                    new Rect(0f, 0f, size, size),
-                    new Vector2(0.5f, 0.5f),
-                    100f);
-                ownBorderSprite.hideFlags = HideFlags.HideAndDontSave;
-                return ownBorderSprite;
-            }
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(OwnMarkerSize, OwnMarkerSize);
         }
 
         private sealed class Slot
         {
             private readonly GameObject root;
-            private readonly Image ownBorder;
+            private readonly Image ownMarker;
             private readonly RectTransform fillRect;
             private readonly TMP_Text question;
             private readonly RawImage previewImage;
@@ -423,14 +395,14 @@ namespace Game.Client.Match
 
             private Slot(
                 GameObject root,
-                Image ownBorder,
+                Image ownMarker,
                 RectTransform fillRect,
                 TMP_Text question,
                 RawImage previewImage,
                 HidingIntroItemPreview preview)
             {
                 this.root = root;
-                this.ownBorder = ownBorder;
+                this.ownMarker = ownMarker;
                 this.fillRect = fillRect;
                 this.question = question;
                 this.previewImage = previewImage;
@@ -461,19 +433,19 @@ namespace Game.Client.Match
                 fillImage.raycastTarget = false;
                 fill.GetComponent<Mask>().showMaskGraphic = true;
 
-                var borderObject = new GameObject(
-                    OwnBorderName,
+                var markerObject = new GameObject(
+                    OwnMarkerName,
                     typeof(RectTransform),
                     typeof(CanvasRenderer),
                     typeof(Image));
-                borderObject.transform.SetParent(root.transform, false);
-                Stretch((RectTransform)borderObject.transform);
-                var ownBorder = borderObject.GetComponent<Image>();
-                ownBorder.sprite = OwnBorderSprite;
-                ownBorder.color = OwnBorderColor;
-                ownBorder.raycastTarget = false;
-                ownBorder.enabled = false;
-                borderObject.SetActive(false);
+                markerObject.transform.SetParent(root.transform, false);
+                PlaceOwnMarker((RectTransform)markerObject.transform);
+                var ownMarker = markerObject.GetComponent<Image>();
+                ownMarker.preserveAspect = false;
+                ownMarker.color = Color.white;
+                ownMarker.raycastTarget = false;
+                ownMarker.enabled = false;
+                markerObject.SetActive(false);
 
                 var questionObject = new GameObject(
                     "Question",
@@ -511,7 +483,7 @@ namespace Game.Client.Match
                     rotates: false);
                 return new Slot(
                     root,
-                    ownBorder,
+                    ownMarker,
                     (RectTransform)fill.transform,
                     question,
                     previewImage,
@@ -530,7 +502,7 @@ namespace Game.Client.Match
 
             public bool Set(DestroyedItemHudSlot slot)
             {
-                SetOwnBorder(slot.IsOwn);
+                SetOwnMarker(slot.IsOwn, slot.Destroyed);
                 if (slot.ShowPreview && !string.IsNullOrWhiteSpace(slot.ItemId))
                 {
                     if (!string.Equals(shownItemId, slot.ItemId, System.StringComparison.Ordinal))
@@ -542,7 +514,7 @@ namespace Game.Client.Match
                     var shown = preview.HasPreview;
                     previewImage.enabled = shown;
                     previewImage.material = null;
-                    preview.SetGrayscale(slot.Grayscale);
+                    preview.SetGrayscale(false);
                     question.gameObject.SetActive(!shown);
                     return shown;
                 }
@@ -564,10 +536,15 @@ namespace Game.Client.Match
                 }
             }
 
-            private void SetOwnBorder(bool isOwn)
+            private void SetOwnMarker(bool isOwn, bool destroyed)
             {
-                ownBorder.enabled = isOwn;
-                ownBorder.gameObject.SetActive(isOwn);
+                ownMarker.sprite = !isOwn
+                    ? null
+                    : destroyed
+                        ? OwnDestroyedItemSprite
+                        : OwnItemSprite;
+                ownMarker.enabled = isOwn && ownMarker.sprite != null;
+                ownMarker.gameObject.SetActive(isOwn);
                 fillRect.offsetMin = Vector2.zero;
                 fillRect.offsetMax = Vector2.zero;
             }

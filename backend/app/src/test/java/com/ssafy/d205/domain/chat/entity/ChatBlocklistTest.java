@@ -5,73 +5,42 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import com.ssafy.d205.global.common.WordMatcher;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 채팅 금칙어 판정 (S15P21D205-1027).
+ * 게임 서버에 내려줄 채팅 금칙어 목록 (S15P21D205-1027).
  *
- * <p>목록은 파일이 아니라 여기서 직접 넣습니다. 실제 목록이 바뀔 때마다 테스트가 깨지면
- * 목록을 고치기 어려워지고, 여기서 고정하려는 것은 <b>판정 방식</b>이지 목록의 내용이 아닙니다.
- *
- * <p>닉네임 검사와 갈리는 두 지점을 중점적으로 봅니다 - 공백·구두점 끼우기를 잡는지, 그리고
- * 영문 낱말 경계를 보는지입니다. 두 번째가 깨지면 "Analyst" 같은 멀쩡한 말이 가려집니다.
+ * <p><b>판정은 여기서 보지 않습니다</b>(S15P21D205-1096). 한때 백엔드도 저장 시점에 다시
+ * 판정했고 그 판정을 고정하는 케이스가 이 파일에 있었는데, 같은 케이스가 게임 서버 쪽
+ * {@code ChatModerationTests.cs} 에 그대로 있습니다. 규칙이 한 곳에만 있으므로 그 시험도 한
+ * 곳에만 둡니다. 여기서 보는 것은 <b>목록을 제대로 모아 주는지</b>입니다.
  */
 class ChatBlocklistTest {
 
-    private final ChatBlocklist list = new ChatBlocklist(
-            List.of("시발", "병신", "shit", "fuck"),
-            List.of("시발점", "shiitake"));
-
     @Test
-    @DisplayName("평범한 말은 통과한다")
-    void plainMessagePasses() {
-        assertThat(list.isForbidden("어디 숨었어")).isFalse();
-        assertThat(list.isForbidden("나 여기 있어")).isFalse();
+    @DisplayName("목록을 소문자로 맞춰 들고 있다")
+    void wordsAreLowercased() {
+        // 게임 서버도 소문자로 비교하므로 양쪽이 같은 입력을 보게 해야 합니다.
+        ChatBlocklist list = new ChatBlocklist(List.of("Shit", "FUCK"), List.of("Shiitake"));
+
+        assertThat(list.words()).containsExactly("shit", "fuck");
+        assertThat(list.allowed()).containsExactly("shiitake");
     }
 
     @Test
-    @DisplayName("그대로 쓴 욕은 걸린다")
-    void plainProfanityHits() {
-        assertThat(list.isForbidden("야 이 시발아")).isTrue();
-        assertThat(list.isForbidden("병신인가")).isTrue();
-    }
+    @DisplayName("손으로 적은 목록과 만들어 둔 자판 표기를 합쳐서 준다")
+    void bothFilesAreServed() {
+        // 파일을 가르는 이유는 한쪽이 생성물이라 사람이 손대면 안 되기 때문입니다.
+        // 합치는 것을 빠뜨리면 자판 우회("tlqkf")가 통째로 안 걸립니다.
+        ChatBlocklist list = new ChatBlocklist();
 
-    @Test
-    @DisplayName("공백과 구두점을 끼워 넣어도 걸린다")
-    void symbolsInsertedStillHits() {
-        assertThat(list.isForbidden("시 발")).isTrue();
-        assertThat(list.isForbidden("시.발")).isTrue();
-        assertThat(list.isForbidden("시-발")).isTrue();
-    }
+        int typed = WordMatcher.read(ChatBlocklist.BLOCKLIST).size();
+        int generated = WordMatcher.read(ChatBlocklist.KEYBOARD).size();
 
-    @Test
-    @DisplayName("숫자로 바꿔 써도 걸린다")
-    void leetStillHits() {
-        assertThat(list.isForbidden("sh1t")).isTrue();
-        assertThat(list.isForbidden("5h1t")).isTrue();
-    }
-
-    @Test
-    @DisplayName("영문은 낱말 경계를 보므로 멀쩡한 말이 걸리지 않는다")
-    void asciiNeedsWordBoundary() {
-        assertThat(list.isForbidden("shitake mushroom")).isFalse();
-        assertThat(list.isForbidden("bullshitting")).isFalse();
-        assertThat(list.isForbidden("that is shit")).isTrue();
-        assertThat(list.isForbidden("shit!")).isTrue();
-    }
-
-    @Test
-    @DisplayName("허용 목록의 말은 통과한다")
-    void allowlistPasses() {
-        assertThat(list.isForbidden("시발점이 어디야")).isFalse();
-    }
-
-    @Test
-    @DisplayName("숫자와 공백을 겹쳐 끼워도 걸린다")
-    void combinedEvasionStillHits() {
-        // 우회 수단이 겹쳐 들어오면 한쪽만 푼 판본에는 아무것도 걸리지 않습니다. 조합을
-        // 만들어 봐야 잡힙니다.
-        assertThat(list.isForbidden("시1 발")).isTrue();
-        assertThat(list.isForbidden("s.h.1.t")).isTrue();
+        assertThat(list.words()).hasSize(typed + generated);
+        assertThat(list.words()).contains("시발", "tlqkf");
+        assertThat(list.allowed()).contains("시발점");
     }
 }

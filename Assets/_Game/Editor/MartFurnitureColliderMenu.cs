@@ -145,6 +145,63 @@ namespace Game.Editor
                 changed++;
             }
 
+            changed += ReplaceEnclosingBoxColliders(scene, hasBoundary, boundary);
+            return changed;
+        }
+
+        /// <summary>
+        /// 들 수 있는 물건을 상자 안에 품고 있는 고정 가구의 BoxCollider(예: 저택 비밀 책장문 <c>SM_Bld_Bookshelf_Door_01</c> —
+        /// 책장 전체를 덮는 상자 하나)를 시각 메시 non-convex MeshCollider로 바꾼다. 상자가 그대로면 안의 책은 조준 광선에
+        /// 절대 닿지 않는다(2026-09-17). 물건을 품지 않은 상자(벽·문짝)는 그대로 둔다.
+        /// </summary>
+        private static int ReplaceEnclosingBoxColliders(Scene scene, bool hasBoundary, Bounds boundary)
+        {
+            var items = Object.FindObjectsByType<CarryableItem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .Where(item => item.gameObject.scene == scene)
+                .Select(item => item.GetComponentInChildren<Renderer>())
+                .Where(renderer => renderer != null)
+                .Select(renderer => renderer.bounds.center)
+                .ToArray();
+            var changed = 0;
+            foreach (var box in Object.FindObjectsByType<BoxCollider>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (box.gameObject.scene != scene || box.isTrigger)
+                {
+                    continue;
+                }
+
+                if (box.GetComponentInParent<CarryableItem>() != null || box.GetComponentInParent<Rigidbody>() != null)
+                {
+                    continue;
+                }
+
+                if (hasBoundary && !Inside(boundary, box.bounds.center))
+                {
+                    continue;
+                }
+
+                var filter = box.GetComponent<MeshFilter>();
+                if (filter == null || filter.sharedMesh == null)
+                {
+                    continue;
+                }
+
+                var bounds = box.bounds;
+                var enclosed = items.Count(center => bounds.Contains(center));
+                if (enclosed == 0)
+                {
+                    continue;
+                }
+
+                Undo.RecordObject(box, "Fix Furniture Collider");
+                box.enabled = false;
+                var mesh = Undo.AddComponent<MeshCollider>(box.gameObject);
+                mesh.sharedMesh = filter.sharedMesh;
+                mesh.convex = false;
+                Debug.Log($"[MartCollider] '{box.gameObject.name}' BoxCollider가 물건 {enclosed}개를 감싸고 있어 시각 메시 콜라이더로 바꿈.");
+                changed++;
+            }
+
             return changed;
         }
 
@@ -159,14 +216,21 @@ namespace Game.Editor
             Debug.Log($"[MartCollider] 조준 도달 검사: 닿음 {reachable}개 / 막힘 {blocked}개\n{report}");
         }
 
-        /// <summary>상품마다 네 방향에서 눈높이(1.6 m) 1.2 m 거리에서 광선을 쏘아, 첫 충돌이 그 상품인지 본다.</summary>
+        /// <summary>
+        /// 상품마다 네 방향 × 자세(서서 1.6 m·앉아서 1.0 m) × 거리(1.2 m·0.7 m)에서 광선을 쏘아, 첫 충돌이 그 상품인지 본다.
+        /// 낮은 책장 칸의 책은 서서 멀리서는 위 선반 판에 가리지만 앉아서 가까이 가면 닿는다(저택 2026-09-17).
+        /// </summary>
         public static string BuildReachability(Scene scene, out int reachable, out int blocked)
         {
             reachable = 0;
             blocked = 0;
             var blockers = new Dictionary<string, int>(StringComparer.Ordinal);
+            var noHit = new Dictionary<string, int>(StringComparer.Ordinal);
+            var noHitSample = new Dictionary<string, string>(StringComparer.Ordinal);
             var hits = new RaycastHit[16];
             var directions = new[] { Vector3.left, Vector3.right, Vector3.back, Vector3.forward };
+            var eyeHeights = new[] { 1.6f, 1.0f };
+            var distances = new[] { 1.2f, 0.7f };
             foreach (var item in Object.FindObjectsByType<CarryableItem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
             {
                 if (item.gameObject.scene != scene)
@@ -181,27 +245,45 @@ namespace Game.Editor
                 }
 
                 var target = renderer.bounds.center;
+                // 층별 바닥 기준으로 눈높이를 잡는다. 절대 y로 잡으면 2층·다락 물건(저택 y 4~9 m)은 광선이 닿지 않는다.
+                var floorY = FindFloorY(target, item, hits);
                 var seen = false;
                 string firstBlocker = null;
                 foreach (var direction in directions)
                 {
-                    var eye = target + (direction * 1.2f);
-                    eye.y = 1.6f;
-                    var count = Physics.RaycastNonAlloc(new Ray(eye, (target - eye).normalized), hits, 2.5f,
-                        Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-                    if (count == 0)
+                    foreach (var eyeHeight in eyeHeights)
                     {
-                        continue;
+                        foreach (var distance in distances)
+                        {
+                            var eye = target + (direction * distance);
+                            eye.y = floorY + eyeHeight;
+                            var count = Physics.RaycastNonAlloc(new Ray(eye, (target - eye).normalized), hits, 2.5f,
+                                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+                            if (count == 0)
+                            {
+                                continue;
+                            }
+
+                            var first = hits.Take(count).OrderBy(h => h.distance).First();
+                            if (first.collider.GetComponentInParent<CarryableItem>() == item)
+                            {
+                                seen = true;
+                                break;
+                            }
+
+                            firstBlocker ??= System.Text.RegularExpressions.Regex.Replace(first.collider.gameObject.name, @"\s*\(\d+\)|\s\d+$", string.Empty);
+                        }
+
+                        if (seen)
+                        {
+                            break;
+                        }
                     }
 
-                    var first = hits.Take(count).OrderBy(h => h.distance).First();
-                    if (first.collider.GetComponentInParent<CarryableItem>() == item)
+                    if (seen)
                     {
-                        seen = true;
                         break;
                     }
-
-                    firstBlocker ??= System.Text.RegularExpressions.Regex.Replace(first.collider.gameObject.name, @"\s*\(\d+\)|\s\d+$", string.Empty);
                 }
 
                 if (seen)
@@ -215,6 +297,13 @@ namespace Game.Editor
                     {
                         blockers[firstBlocker] = blockers.GetValueOrDefault(firstBlocker) + 1;
                     }
+                    else
+                    {
+                        // 어느 방향에서도 아무것도 맞지 않은 것: 물건 콜라이더가 없거나 비활성, 또는 바닥 기준이 어긋난 경우.
+                        var key = System.Text.RegularExpressions.Regex.Replace(item.name, @"\s*\(\d+\)|\s\d+$", string.Empty);
+                        noHit[key] = noHit.GetValueOrDefault(key) + 1;
+                        noHitSample.TryAdd(key, $"{item.transform.position} floorY={floorY:F2} colliders={item.GetComponentsInChildren<Collider>(true).Length}");
+                    }
                 }
             }
 
@@ -224,7 +313,34 @@ namespace Game.Editor
                 sb.AppendLine($"  막는 콜라이더 {pair.Key} x{pair.Value}");
             }
 
+            foreach (var pair in noHit.OrderByDescending(p => p.Value).Take(15))
+            {
+                sb.AppendLine($"  광선 무반응 {pair.Key} x{pair.Value}  예: {noHitSample[pair.Key]}");
+            }
+
             return sb.ToString();
+        }
+
+        /// <summary>물건 바로 아래의 바닥 높이(자기 콜라이더 제외, 최대 6 m). 못 찾으면 물건 아래 0.5 m를 바닥으로 본다.</summary>
+        private static float FindFloorY(Vector3 target, CarryableItem item, RaycastHit[] hits)
+        {
+            var count = Physics.RaycastNonAlloc(new Ray(target, Vector3.down), hits, 6f,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            var floorY = float.NaN;
+            for (var i = 0; i < count; i++)
+            {
+                if (hits[i].collider.GetComponentInParent<CarryableItem>() == item)
+                {
+                    continue;
+                }
+
+                if (float.IsNaN(floorY) || hits[i].point.y > floorY)
+                {
+                    floorY = hits[i].point.y;
+                }
+            }
+
+            return float.IsNaN(floorY) ? target.y - 0.5f : floorY;
         }
 
         // ------------------------------------------------------------------ 공용

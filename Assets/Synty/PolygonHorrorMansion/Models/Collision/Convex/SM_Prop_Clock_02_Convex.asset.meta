@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 40f220e71e6add247ac0182ddb79d32c
+timeCreated: 1644463093
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43520816134478334
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Clock_02_Convex.asset
+  uploadId: 987938

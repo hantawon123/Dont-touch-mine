@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a962c9257fa087543bf44419223e39dd
+timeCreated: 1644463047
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43527513510711534
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Bear_Mount_01_Convex.asset
+  uploadId: 987938

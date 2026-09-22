@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0881178080164d64c8832bba2afeaa26
+timeCreated: 1644529839
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43748969269602754
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Bld_Fireplace_01_Convex.asset
+  uploadId: 987938

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 64c728c406d7f004aa9e6d590446187f
+timeCreated: 1644463291
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43889049314126306
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Science_Bottle_01_Convex.asset
+  uploadId: 987938

@@ -35,6 +35,13 @@ namespace Game.Editor.Intro
 
         static void OnPlayModeChanged(PlayModeStateChange state)
         {
+            if (state == PlayModeStateChange.EnteredEditMode)
+            {
+                CharacterTestPreviewSetup.ClearPlayOverride();
+                Apply();
+                return;
+            }
+
             if (state == PlayModeStateChange.ExitingEditMode) Apply();
         }
 
@@ -45,7 +52,11 @@ namespace Game.Editor.Intro
 
             if (Game.Network.Session.EditorDevelopmentSession.Enabled) return;
             SceneAsset start = null;
-            if (Enabled && SceneManager.GetActiveScene().name == HomeScene)
+            if (CharacterTestPreviewSetup.TryGetPlayOverride(out var characterTest))
+            {
+                start = characterTest;
+            }
+            else if (Enabled && !Game.Network.Session.EditorDevelopmentSession.Enabled)
                 start = AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath);   // 없으면 null → 평소처럼 Home
 
             if (EditorSceneManager.playModeStartScene != start)

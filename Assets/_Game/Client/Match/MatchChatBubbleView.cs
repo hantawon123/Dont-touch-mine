@@ -38,6 +38,8 @@ namespace Game.Client.Match
             new(StringComparer.Ordinal);
         private TMP_FontAsset font;
         private Camera followCamera;
+        private Camera pinnedCamera;
+        private bool presentationVisible = true;
 
         public static MatchChatBubbleView Create(Transform parent)
         {
@@ -66,7 +68,7 @@ namespace Game.Client.Match
                 bubble.SetPlayerRoot(playerRoot);
             }
 
-            if (pending.TryGetValue(id, out var message))
+            if (presentationVisible && pending.TryGetValue(id, out var message))
             {
                 pending.Remove(id);
                 bubble.Show(message.Text);
@@ -75,6 +77,11 @@ namespace Game.Client.Match
 
         public void Show(LobbyChatMessage message)
         {
+            if (!presentationVisible)
+            {
+                return;
+            }
+
             if (!bubbles.TryGetValue(message.SenderId, out var bubble) ||
                 bubble == null ||
                 bubble.IsDestroyed)
@@ -84,6 +91,15 @@ namespace Game.Client.Match
             }
 
             bubble.Show(message.Text);
+        }
+
+        public void SetPresentationVisible(bool visible)
+        {
+            presentationVisible = visible;
+            if (!visible)
+            {
+                Clear();
+            }
         }
 
         public void Clear()
@@ -105,11 +121,31 @@ namespace Game.Client.Match
             font ??= HomeUiFonts.ApplyRegular();
         }
 
-        private void LateUpdate() => RefreshPlacement();
+        private void LateUpdate()
+        {
+            if (presentationVisible)
+            {
+                RefreshPlacement();
+            }
+        }
+
+        /// <summary>
+        /// 보는 카메라가 정해져 있는 화면에서 그 카메라를 못 박는다 (S15P21D205-1087).
+        /// </summary>
+        /// <remarks>
+        /// 말풍선은 평소 <see cref="Camera.main"/> 을 보고 도는데, 결과 무대는 플레이어 카메라가
+        /// 아니라 고정 카메라가 찍는다. 그대로 두면 말풍선이 보는 사람 쪽이 아니라 각자 자기
+        /// 시선 쪽을 향해 옆모습이나 뒷면으로 보인다. null 을 넣으면 다시 Camera.main 을 따른다.
+        /// </remarks>
+        public void PinCamera(Camera camera) => pinnedCamera = camera;
 
         internal void RefreshPlacement()
         {
-            if (followCamera == null || !followCamera.isActiveAndEnabled)
+            if (pinnedCamera != null && pinnedCamera.isActiveAndEnabled)
+            {
+                followCamera = pinnedCamera;
+            }
+            else if (followCamera == null || !followCamera.isActiveAndEnabled)
             {
                 followCamera = Camera.main;
             }

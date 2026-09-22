@@ -34,6 +34,9 @@ public class AdminAnalyticsController {
 
     private static final String UTC_14 = "\\d{14}";
 
+    /** 맵 id 는 {@code MapCatalog} 의 소문자 이름입니다. 분석 서비스도 같은 모양으로 한 번 더 봅니다. */
+    private static final String MAP_ID = "[a-z][a-z0-9-]{0,31}";
+
     private final AnalyticsInternalClient analytics;
 
     /** 히트맵용 좌표. 경기 하나, 최대 20,000 행. */
@@ -49,6 +52,7 @@ public class AdminAnalyticsController {
      * @param from     UTC yyyyMMddHHmmss. 이 시각 이후(포함)에 시작한 경기만
      * @param to       UTC yyyyMMddHHmmss. 이 시각 전(미포함)에 시작한 경기만
      * @param matchId  이 경기만
+     * @param mapId    이 맵에서 한 경기만 (S15P21D205-1085)
      */
     @GetMapping("/{question}")
     public AdminAnalyticsTable question(@PathVariable
@@ -60,7 +64,10 @@ public class AdminAnalyticsController {
                                         @RequestParam(required = false)
                                         @Pattern(regexp = UTC_14, message = "to 는 UTC yyyyMMddHHmmss 14자여야 합니다.")
                                         String to,
-                                        @RequestParam(required = false) @Size(max = 64) String matchId) {
+                                        @RequestParam(required = false) @Size(max = 64) String matchId,
+                                        @RequestParam(required = false)
+                                        @Pattern(regexp = MAP_ID, message = "맵 id 는 소문자와 숫자, 하이픈입니다.")
+                                        String mapId) {
         MultiValueMap<String, String> query = new LinkedMultiValueMap<>();
         if (from != null && !from.isBlank()) {
             query.add("from", from);
@@ -70,6 +77,9 @@ public class AdminAnalyticsController {
         }
         if (matchId != null && !matchId.isBlank()) {
             query.add("matchId", matchId);
+        }
+        if (mapId != null && !mapId.isBlank()) {
+            query.add("mapId", mapId);
         }
         return analytics.fetchTable(question, query).orElseGet(AdminAnalyticsTable::whenUnavailable);
     }

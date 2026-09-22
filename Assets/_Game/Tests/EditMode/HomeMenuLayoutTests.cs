@@ -4,6 +4,7 @@ using System.Reflection;
 using Game.Client.Common;
 using Game.Client.Home;
 using Game.Core.Home;
+using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -32,11 +33,12 @@ namespace Game.Tests.EditMode
             HomeMenuAction.CreateRoom,
             HomeMenuAction.FindRoom,
             HomeMenuAction.Character,
-            HomeMenuAction.Settings
+            HomeMenuAction.Settings,
+            HomeMenuAction.Tutorial
         };
 
         [Test]
-        public void Menu_ListsTheFourEntriesTheMockUpDraws()
+        public void Menu_ListsTheHomeActionsInOrder()
         {
             using var home = new BuiltHome();
 
@@ -48,7 +50,116 @@ namespace Game.Tests.EditMode
 
             Assert.That(
                 labels,
-                Is.EqualTo(new[] { "방 만들기", "게임 찾기", "캐릭터", "환경 설정" }));
+                Is.EqualTo(new[] { "방 만들기", "게임 찾기", "캐릭터", "환경 설정", "튜토리얼" }));
+        }
+
+        [Test]
+        public void Tutorial_UsesTheSettingsTypography()
+        {
+            using var home = new BuiltHome();
+            var settings = home.Rect(HomeMenuAction.Settings.ToString()).GetComponent<TMPro.TMP_Text>();
+            var tutorial = home.Rect(HomeMenuAction.Tutorial.ToString()).GetComponent<TMPro.TMP_Text>();
+
+            Assert.That(tutorial.fontSize, Is.EqualTo(settings.fontSize));
+            Assert.That(tutorial.font, Is.SameAs(settings.font));
+            Assert.That(tutorial.fontSharedMaterial, Is.SameAs(settings.fontSharedMaterial));
+            Assert.That(tutorial.fontStyle, Is.EqualTo(settings.fontStyle));
+        }
+
+        [Test]
+        public void ShowChrome_RedrawsMenuInTheAppliedLanguage()
+        {
+            using var home = new BuiltHome();
+            var store = new InMemoryGeneralSettingsStore();
+            store.Save(new GeneralSettings("en"));
+            var general = new GeneralSettingsSystem(store);
+            using var locale = new UiLocale(general);
+
+            home.View.ShowChrome(locale);
+
+            Assert.That(home.Label(HomeMenuAction.CreateRoom.ToString()), Is.EqualTo("Create Room"));
+            Assert.That(home.Label(HomeMenuAction.FindRoom.ToString()), Is.EqualTo("Find Game"));
+            Assert.That(home.Label(HomeMenuAction.Character.ToString()), Is.EqualTo("Character"));
+            Assert.That(home.Label(HomeMenuAction.Settings.ToString()), Is.EqualTo("Settings"));
+            Assert.That(home.Label("QuitButton"), Is.EqualTo("Quit"));
+
+            var view = (IHomeMenuView)home.View;
+            view.SetFriends(Array.Empty<FriendSummary>(), Array.Empty<FriendSummary>());
+            Assert.That(
+                home.Rect("OnlineEmptyMessage").GetComponent<TMPro.TMP_Text>().text,
+                Is.EqualTo("No friends yet"));
+            Assert.That(home.Section("Online"), Is.Not.Null);
+        }
+
+        [Test]
+        public void ServerPanel_NamesTheRegionsInTheAppliedLanguageAndWidensForThem()
+        {
+            using var home = new BuiltHome();
+            var panel = home.Rect("ServerSettingsPanel");
+
+            Assert.That(RegionLabel(home, "kr"), Is.EqualTo("한국"));
+            Assert.That(RegionLabel(home, "us"), Is.EqualTo("북미"));
+            var korean = panel.sizeDelta.x;
+
+            var store = new InMemoryGeneralSettingsStore();
+            store.Save(new GeneralSettings("en"));
+            using var locale = new UiLocale(new GeneralSettingsSystem(store));
+            home.View.ShowChrome(locale);
+
+            Assert.That(RegionLabel(home, "kr"), Is.EqualTo("Korea"));
+            Assert.That(RegionLabel(home, "us"), Is.EqualTo("North America"));
+            Assert.That(
+                panel.Find("Title").GetComponent<TMPro.TMP_Text>().text,
+                Is.EqualTo("Server Settings"));
+
+            // North America is the longest line the panel has to hold, and the
+            // check mark sits where it would otherwise run over.
+            var widest = home.Rect("Region_us").Find("Label").GetComponent<TMPro.TMP_Text>();
+            Assert.That(
+                HomeStyle.Server.RowChrome,
+                Is.EqualTo(
+                    HomeStyle.Server.SidePadding * 2f
+                    + HomeStyle.Server.RowInset
+                    + HomeStyle.Server.LabelToCheckGap
+                    + HomeStyle.Server.CheckSize
+                    + HomeStyle.Server.RowInset));
+            Assert.That(
+                panel.sizeDelta.x,
+                Is.GreaterThanOrEqualTo(
+                    widest.GetPreferredValues(widest.text).x + HomeStyle.Server.RowChrome));
+            Assert.That(panel.sizeDelta.x, Is.GreaterThanOrEqualTo(korean));
+            Assert.That(panel.sizeDelta.y, Is.EqualTo(HomeStyle.Server.PanelSize.y));
+        }
+
+        private static string RegionLabel(BuiltHome home, string code) =>
+            home.Rect($"Region_{code}").Find("Label").GetComponent<TMPro.TMP_Text>().text;
+
+        [Test]
+        public void Logo_SitsInTheTopLeftWithoutTheOldTitle()
+        {
+            using var home = new BuiltHome();
+
+            var logo = home.Rect("Logo");
+            Assert.That(logo.anchorMin, Is.EqualTo(Vector2.up));
+            Assert.That(logo.anchorMax, Is.EqualTo(Vector2.up));
+            Assert.That(logo.pivot, Is.EqualTo(Vector2.up));
+            Assert.That(
+                logo.anchoredPosition,
+                Is.EqualTo(new Vector2(HomeStyle.Layout.LogoLeft, -HomeStyle.Layout.LogoTop)));
+            Assert.That(
+                logo.sizeDelta,
+                Is.EqualTo(new Vector2(HomeStyle.Layout.LogoWidth, HomeStyle.Layout.LogoHeight)));
+            Assert.That(logo.GetComponent<Image>(), Is.Not.Null);
+
+            var menu = home.Rect("Menu");
+            Assert.That(
+                -menu.anchoredPosition.y,
+                Is.EqualTo(HomeStyle.Layout.LogoTop + logo.sizeDelta.y + HomeStyle.Layout.LogoToMenuGap));
+
+            foreach (var text in home.View.GetComponentsInChildren<TMPro.TMP_Text>(true))
+            {
+                Assert.That(text.text ?? string.Empty, Does.Not.Contain("Don't Touch"));
+            }
         }
 
         [Test]
@@ -75,6 +186,7 @@ namespace Game.Tests.EditMode
                 { HomeMenuAction.FindRoom.ToString(), HomeMenuAction.FindRoom },
                 { HomeMenuAction.Character.ToString(), HomeMenuAction.Character },
                 { HomeMenuAction.Settings.ToString(), HomeMenuAction.Settings },
+                { HomeMenuAction.Tutorial.ToString(), HomeMenuAction.Tutorial },
                 { "QuitButton", HomeMenuAction.Quit },
                 { "ProfileChip", HomeMenuAction.ProfileSettings },
                 { "FriendButton", HomeMenuAction.Friends },
@@ -569,7 +681,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void SuspendedNotice_SaysWhatHappenedAndOffersNothingToPress()
+        public void SuspendedNotice_SaysWhatHappenedAndOffersOnlyTheWayOut()
         {
             using var home = new BuiltHome();
             home.View.SetSuspendedNoticeVisible(true);
@@ -584,13 +696,51 @@ namespace Game.Tests.EditMode
 
             Assert.That(lines, Contains.Item(HomeMenuView.SuspendedTitle));
             Assert.That(lines, Contains.Item(HomeMenuView.SuspendedBody));
+            Assert.That(lines, Contains.Item(HomeMenuView.SuspendedQuitLabel));
 
             // 닫기도 재시도도 두지 않습니다. 정지는 눌러서 풀리지 않고, 계정 발급을
-            // 다시 불러도 같은 403 입니다. 누를 수 있는 것이 있으면 눌러보게 됩니다.
+            // 다시 불러도 같은 403 입니다. 남는 것은 게임을 끄는 것 하나뿐이고,
+            // 안내가 구석의 게임 종료를 가리므로 그 하나는 여기 있어야 합니다.
             Assert.That(
-                notice.GetComponentsInChildren<Button>(true),
-                Is.Empty,
-                "정지 안내에는 누를 수 있는 것이 없어야 합니다.");
+                notice.GetComponentsInChildren<Button>(true).Length,
+                Is.EqualTo(1),
+                "정지 안내에는 게임 종료 말고 누를 수 있는 것이 없어야 합니다.");
+        }
+
+        [Test]
+        public void SuspendedNotice_QuitButton_ClosesTheGame()
+        {
+            using var home = new BuiltHome();
+            home.View.SetSuspendedNoticeVisible(true);
+
+            var raised = new List<HomeMenuAction>();
+            home.View.ActionClicked += raised.Add;
+            home.Rect("SuspendedQuitButton").GetComponent<Button>().onClick.Invoke();
+
+            Assert.That(raised, Is.EqualTo(new[] { HomeMenuAction.Quit }));
+        }
+
+        [Test]
+        public void SuspendedNotice_QuitButton_SitsInsideThePanel()
+        {
+            // 스크림이 뒤의 클릭을 삼키므로, 패널 밖으로 삐져나온 버튼은 눌리기는
+            // 해도 안내의 일부로 읽히지 않습니다.
+            using var home = new BuiltHome();
+
+            var panel = home.Rect("SuspendedNotice").Find("Panel") as RectTransform;
+            Assert.That(panel, Is.Not.Null);
+
+            var quit = home.Rect("SuspendedQuitButton");
+            Assert.That(quit.parent, Is.EqualTo(panel));
+            Assert.That(
+                quit.anchoredPosition.y,
+                Is.GreaterThan(0f),
+                "버튼이 패널 아래로 내려갔습니다.");
+            Assert.That(
+                quit.anchoredPosition.y + quit.sizeDelta.y,
+                Is.LessThan(panel.sizeDelta.y),
+                "버튼이 패널 위로 넘쳤습니다.");
+            Assert.That(quit.sizeDelta.x, Is.LessThan(panel.sizeDelta.x));
         }
 
         private static readonly Dictionary<string, Action<HomeMenuView, bool>> PanelButtons =

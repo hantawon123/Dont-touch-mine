@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Core.Emotes;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Core.Players;
@@ -123,6 +124,59 @@ namespace Game.Architecture.Tests
 
             Assert.That(context.PlayerReplayActions[1] & HighlightPlayerAction.Punching,
                 Is.Not.EqualTo(HighlightPlayerAction.None));
+        }
+
+        /// <summary>
+        /// 감정 표현은 번호가 바뀐 순간 시작해 카탈로그 길이만큼 이어진다. 그래야 하이라이트가
+        /// 실제 플레이에서 보던 표현을 그대로 재생한다 (2026-09-22).
+        /// </summary>
+        [Test]
+        public void Context_CapturesEmoteWhileItPlays()
+        {
+            var source = new FakeNetworkSource(10d, new Dictionary<string, Pose>
+            {
+                ["player-0"] = Pose.identity,
+                ["player-1"] = Pose.identity,
+            });
+            source.SetReplayState("player-0",
+                new NetworkPlayerReplayState(PlayerPosture.Standing, true, 0));
+            source.SetReplayState("player-1",
+                new NetworkPlayerReplayState(PlayerPosture.Standing, true, 0));
+            var context = new NetworkMatchRuntimeContext(
+                source,
+                new FakeSceneContext(),
+                new[]
+                {
+                    new MatchParticipant("player-0", 0),
+                    new MatchParticipant("player-1", 1),
+                });
+            _ = context.PlayerReplayActions;
+
+            source.ServerTime = 10.1d;
+            source.SetReplayState("player-0",
+                new NetworkPlayerReplayState(
+                    PlayerPosture.Standing, true, 0, 1, (int)EmoteId.Wave));
+
+            Assert.That(context.PlayerReplayActions[0].TryGetEmote(out var emoteId), Is.True);
+            Assert.That(emoteId, Is.EqualTo((int)EmoteId.Wave));
+            Assert.That(context.PlayerReplayActions[1].TryGetEmote(out _), Is.False);
+
+            // 인사는 2초가 조금 넘는 1회성 표현이라 그 뒤에는 남지 않는다.
+            source.ServerTime = 13d;
+            Assert.That(context.PlayerReplayActions[0].TryGetEmote(out _), Is.False);
+
+            // 주먹질은 재생 중인 표현을 끊는다.
+            source.ServerTime = 14d;
+            source.SetReplayState("player-0",
+                new NetworkPlayerReplayState(
+                    PlayerPosture.Standing, true, 0, 2, (int)EmoteId.HipHop));
+            Assert.That(context.PlayerReplayActions[0].TryGetEmote(out _), Is.True);
+
+            source.ServerTime = 14.1d;
+            source.SetReplayState("player-0",
+                new NetworkPlayerReplayState(
+                    PlayerPosture.Standing, true, 1, 2, (int)EmoteId.HipHop));
+            Assert.That(context.PlayerReplayActions[0].TryGetEmote(out _), Is.False);
         }
 
         [Test]

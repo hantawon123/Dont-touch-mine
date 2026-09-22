@@ -1,4 +1,5 @@
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,7 +13,8 @@ namespace Game.Client.Lobby
     public sealed class LobbyPlayerCountView : MonoBehaviour, ILobbyPlayerCountView
     {
         public const string RootName = "PlayerCount";
-        public const string Caption = "참여 플레이어";
+        public static string Caption =>
+            UiLocale.Applied(UiText.Lobby.PlayerCount);
         public const float FontSize = 20f;
         public const float GapBelowMatchInfo = 24f;
         public const float CaptionCountGap = 8f;
@@ -26,6 +28,7 @@ namespace Game.Client.Lobby
 
         private TextMeshProUGUI caption;
         private TextMeshProUGUI count;
+        private UiLocale chromeLocale;
 
         public string CaptionText => caption != null ? caption.text : string.Empty;
 
@@ -71,6 +74,18 @@ namespace Game.Client.Lobby
                 count.text = $"{Mathf.Max(0, current)}/{Mathf.Max(0, max)}";
             }
         }
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureLayout();
+            ApplyStyle();
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
 
         private void Awake()
         {
@@ -146,7 +161,7 @@ namespace Game.Client.Lobby
         {
             if (caption != null)
             {
-                caption.text = Caption;
+                caption.text = Copy(UiText.Lobby.PlayerCount);
                 caption.font = HomeUiFonts.ApplyBold();
                 caption.fontSize = FontSize;
                 caption.fontStyle = FontStyles.Normal;

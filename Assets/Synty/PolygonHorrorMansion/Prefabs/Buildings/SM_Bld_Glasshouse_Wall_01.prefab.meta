@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: cc44c607c174dc6419fa39e41f5619a6
+timeCreated: 1642368177
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Prefabs/Buildings/SM_Bld_Glasshouse_Wall_01.prefab
+  uploadId: 987938

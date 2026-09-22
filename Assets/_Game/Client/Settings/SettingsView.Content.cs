@@ -205,6 +205,7 @@ namespace Game.Client.Settings
             var page = CreatePage(window, SettingsTab.General, lobbyOverlay ? 1 : 2);
 
             var language = CreateRow(page, "LanguageRow", 0, SettingsStyle.LanguageRow.Label);
+            languageRowLabel = language.Find("Label")?.GetComponent<TMP_Text>();
             languageStepper = CreateStepper(
                 language, steps => LanguageStepRequested?.Invoke(steps));
 
@@ -214,6 +215,7 @@ namespace Game.Client.Settings
             }
 
             var feedback = CreateRow(page, "FeedbackRow", 1, SettingsStyle.FeedbackRow.Label);
+            RememberRow(feedback, UiText.Settings.Feedback);
             feedbackRow = feedback.gameObject;
             CreateFeedbackButton(feedback);
         }
@@ -230,6 +232,7 @@ namespace Game.Client.Settings
                     option + "Row",
                     index,
                     SettingsStyle.GraphicsRowLabel(option));
+                RememberRow(row, SettingsStyle.GraphicsRowKey(option));
 
                 var captured = option;
                 graphicsSteppers[option] = CreateStepper(
@@ -249,6 +252,7 @@ namespace Game.Client.Settings
                     option + "Row",
                     index,
                     SettingsStyle.InterfaceRowLabel(option));
+                RememberRow(row, SettingsStyle.InterfaceRowKey(option));
 
                 var captured = option;
                 interfaceSteppers[option] = CreateStepper(
@@ -272,6 +276,7 @@ namespace Game.Client.Settings
                     option + "Row",
                     index,
                     SettingsStyle.Notifications.RowLabel(option));
+                RememberRow(row, SettingsStyle.Notifications.RowKey(option));
 
                 var captured = option;
                 notificationSteppers[option] = CreateStepper(
@@ -355,6 +360,28 @@ namespace Game.Client.Settings
             Stretch(text.rectTransform);
             text.rectTransform.offsetMin = new Vector2(labelLeft, 0f);
             return rect;
+        }
+
+        private void RememberRow(RectTransform row, string key)
+        {
+            if (row == null || string.IsNullOrEmpty(key))
+            {
+                return;
+            }
+
+            var text = row.Find("Label")?.GetComponent<TMP_Text>();
+            if (text != null)
+            {
+                rowLabels.Add((text, key));
+            }
+        }
+
+        private void Remember(TMP_Text text, string key)
+        {
+            if (text != null && !string.IsNullOrEmpty(key))
+            {
+                rowLabels.Add((text, key));
+            }
         }
 
         /// <summary>
@@ -474,6 +501,7 @@ namespace Game.Client.Settings
             SetAnchor(rect, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
             rect.anchoredPosition = new Vector2(-SettingsStyle.Rows.RightMargin, 0f);
             rect.sizeDelta = SettingsStyle.FeedbackRow.ButtonSize;
+            feedbackButton = rect;
 
             var fill = AddImage(
                 rect,
@@ -497,8 +525,25 @@ namespace Game.Client.Settings
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = fill;
             button.transition = Selectable.Transition.None;
+            feedbackButtonLabel = label;
             button.onClick.AddListener(() => FeedbackRequested?.Invoke());
             buttons.Add(button);
+            FitFeedbackButton();
+        }
+
+        private void FitFeedbackButton()
+        {
+            if (feedbackButton == null || feedbackButtonLabel == null)
+            {
+                return;
+            }
+
+            feedbackButtonLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            feedbackButtonLabel.overflowMode = TextOverflowModes.Overflow;
+            feedbackButtonLabel.ForceMeshUpdate();
+            feedbackButton.sizeDelta = new Vector2(
+                feedbackButtonLabel.preferredWidth + (SettingsStyle.FeedbackRow.ButtonPaddingX * 2f),
+                SettingsStyle.FeedbackRow.ButtonSize.y);
         }
 
         private static void SetArrow(Button button, Image icon, bool enabled)

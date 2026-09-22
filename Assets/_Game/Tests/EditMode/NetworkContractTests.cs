@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using Game.Client.Combat;
 using Game.Client.Interactions;
 using Game.Client.Players;
+using Game.Core.Items;
 using Game.Core.Match;
 using Game.Core.Lobby;
 using Game.Core.Players;
@@ -181,16 +182,16 @@ namespace Game.Architecture.Tests
             Assert.That(network.TryKickPlayer("P2"), Is.False);
         }
 
-        [TestCase(false, true, 2, 6, 5, "playground", "food", false)]
-        [TestCase(true, false, 2, 6, 5, "playground", "food", false)]
-        [TestCase(true, true, 3, 2, 5, "playground", "food", false)]
-        [TestCase(true, true, 2, 6, -1, "playground", "food", false)]
-        [TestCase(true, true, 2, 6, 0, "playground", "food", true)]
+        [TestCase(false, true, 2, 6, 5, "supermarket", "food", false)]
+        [TestCase(true, false, 2, 6, 5, "supermarket", "food", false)]
+        [TestCase(true, true, 3, 2, 5, "supermarket", "food", false)]
+        [TestCase(true, true, 2, 6, -1, "supermarket", "food", false)]
+        [TestCase(true, true, 2, 6, 0, "supermarket", "food", true)]
         [TestCase(true, true, 2, 6, 5, "missing", "food", false)]
-        [TestCase(true, true, 2, 6, 5, "playground", "unsupported", false)]
-        [TestCase(true, true, 2, 6, 5, "playground", "food", true)]
+        [TestCase(true, true, 2, 6, 5, "supermarket", "unsupported", false)]
+        [TestCase(true, true, 2, 6, 5, "supermarket", "food", true)]
         [TestCase(true, true, 2, 6, 5, "", "", true)]
-        [TestCase(true, true, 2, 6, 5, "playground", "", true)]
+        [TestCase(true, true, 2, 6, 5, "supermarket", "", true)]
         public void LobbySettingsValidation_EnforcesAuthorityRangesAndCategory(
             bool hasAuthority,
             bool hasValidSession,
@@ -407,6 +408,7 @@ namespace Game.Architecture.Tests
             public void OpenRoomBrowser() => OpenCount++;
             public void OpenCharacterCloset() { }
             public void OpenSettings() { }
+            public void OpenTutorial() { }
             public void Quit() { }
             public void OpenHome() => HomeCount++;
             public void CreateRoom(string title, bool isPublic, int maxPlayers)
@@ -585,6 +587,45 @@ namespace Game.Architecture.Tests
             Assert.That(NetworkRunnerService.TryGetPublishedAssignment(published, playing, "late", out _), Is.False);
         }
 
+        /// <remarks>
+        /// 페이즈 진입 때의 한 번뿐인 발행은 그 순간 roster 에 PlayerId 가 없는 아바타를
+        /// 건너뛴다. 그 플레이어는 1초마다 배정을 요청해 오는데, 서버가 사전만 보면 영원히
+        /// 빈손이다 - 2026-09-18 두 명 테스트에서 로드가 느린 쪽이 매치 화면 앞에서 1분을
+        /// 기다린 이유. 요청 시점에는 세션 배정으로 다시 해석하고 발행이 필요하다고 알려야 한다.
+        /// </remarks>
+        [Test]
+        public void AssignmentRequest_MissedAtPhaseEntry_IsResolvedFromTheSessionAndMarkedForPublish()
+        {
+            var playing = new[] { new MatchParticipant("host", 0), new MatchParticipant("late", 1) };
+            var published = new Dictionary<string, string> { ["host"] = "host-item" }; // "late" 는 건너뛰어졌다
+            var session = new[]
+            {
+                new PlayerItemAssignment(0, new ItemDefinition("host-item", "category")),
+                new PlayerItemAssignment(1, new ItemDefinition(" late-item ", "category")),
+            };
+
+            Assert.That(NetworkRunnerService.TryResolveAssignmentOnRequest(
+                published, playing, session, "late", out var item, out var publishIndex), Is.True);
+            Assert.That(item, Is.EqualTo("late-item"), "세션 배정에서 다듬어서 꺼낸다.");
+            Assert.That(publishIndex, Is.EqualTo(1), "먼저 발행해야 한다고 알려야 한다.");
+
+            // 이미 발행된 쪽은 사전 그대로, 발행 불필요.
+            Assert.That(NetworkRunnerService.TryResolveAssignmentOnRequest(
+                published, playing, session, "host", out item, out publishIndex), Is.True);
+            Assert.That(item, Is.EqualTo("host-item"));
+            Assert.That(publishIndex, Is.EqualTo(-1));
+
+            // 라인업에 없으면 세션 그 인덱스에 배정이 있어도 주지 않는다.
+            Assert.That(NetworkRunnerService.TryResolveAssignmentOnRequest(
+                published, playing, session, "stranger", out _, out _), Is.False);
+            // 세션이 아직 없으면(런타임 전) 줄 것이 없다.
+            Assert.That(NetworkRunnerService.TryResolveAssignmentOnRequest(
+                published, playing, Array.Empty<PlayerItemAssignment>(), "late", out _, out _), Is.False);
+            // 배정 인덱스가 세션 범위를 벗어나면 못 준다.
+            Assert.That(NetworkRunnerService.TryResolveAssignmentOnRequest(
+                published, new[] { new MatchParticipant("far", 7) }, session, "far", out _, out _), Is.False);
+        }
+
         [TestCase(false, false, false, false)]
         [TestCase(false, false, true, false)]
         [TestCase(false, true, false, false)]
@@ -713,6 +754,20 @@ namespace Game.Architecture.Tests
                 () => { }, () => { cleanupCalls++; return UniTask.CompletedTask; }).GetAwaiter().GetResult();
             Assert.That(retry.Ok, Is.True);
             Assert.That(cleanupCalls, Is.EqualTo(1));
+        }
+
+        [TestCase(SessionFailure.RoomNotFound, true)]
+        [TestCase(SessionFailure.RoomFull, true)]
+        [TestCase(SessionFailure.CodeTaken, true)]
+        [TestCase(SessionFailure.Rejected, true)]
+        [TestCase(SessionFailure.ConnectionFailed, false)]
+        [TestCase(SessionFailure.Unknown, false)]
+        public void ExpectedRoomEntryRefusals_DoNotPausePlayModeAsErrors(
+            SessionFailure failure,
+            bool expected)
+        {
+            Assert.That(NetworkRunnerService.IsExpectedSessionEntryFailure(failure),
+                Is.EqualTo(expected));
         }
 
         [Test]
@@ -867,6 +922,7 @@ namespace Game.Architecture.Tests
             Assert.That(input.MoveX, Is.EqualTo(0.6f).Within(0.0001f));
             Assert.That(input.MoveY, Is.EqualTo(0.8f).Within(0.0001f));
             Assert.That(input.LookYawDegrees, Is.EqualTo(270f));
+            Assert.That(input.LookPitchDegrees, Is.EqualTo(0f));
             Assert.That(input.IsPressed(PlayerInputButtons.Jump), Is.True);
             Assert.That(input.IsPressed(PlayerInputButtons.Prone), Is.False);
         }
@@ -876,6 +932,8 @@ namespace Game.Architecture.Tests
         {
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new PlayerInputIntent(float.NaN, 0f, 0f, PlayerInputButtons.None));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new PlayerInputIntent(0f, 0f, 0f, float.NaN, PlayerInputButtons.None));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new PlayerInputIntent(0f, 0f, 0f, (PlayerInputButtons)128));
         }
@@ -887,6 +945,7 @@ namespace Game.Architecture.Tests
                 0f,
                 1f,
                 90f,
+                -25f,
                 PlayerInputButtons.Jump |
                 PlayerInputButtons.Sprint |
                 PlayerInputButtons.Attack);
@@ -898,8 +957,44 @@ namespace Game.Architecture.Tests
             Assert.That(input.IsPressed(NetworkPlayerButton.Jump), Is.True);
             Assert.That(input.IsPressed(NetworkPlayerButton.Sprint), Is.True);
             Assert.That(input.IsPressed(NetworkPlayerButton.Attack), Is.True);
+            Assert.That(input.LookPitchDegrees, Is.EqualTo(-25f).Within(0.0001f));
             Assert.That(direction.x, Is.EqualTo(1f).Within(0.0001f));
             Assert.That(direction.z, Is.EqualTo(0f).Within(0.0001f));
+        }
+
+        [Test]
+        public void NetworkInput_CarriesEmoteRequest()
+        {
+            var intent = new PlayerInputIntent(0f, 0f, 0f, 0f, PlayerInputButtons.None, 7, 3);
+            var input = NetworkPlayerInput.FromIntent(intent);
+
+            Assert.That(input.EmoteSequence, Is.EqualTo(7));
+            Assert.That(input.EmoteId, Is.EqualTo(3));
+            Assert.That(NetworkPlayerInput.FromIntent(default).EmoteSequence, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void EmoteRequest_SequenceSkipsZeroAndWraps()
+        {
+            Assert.That(PlayerInputIntent.NextEmoteSequence(0), Is.EqualTo(1));
+            Assert.That(PlayerInputIntent.NextEmoteSequence(1), Is.EqualTo(2));
+            Assert.That(PlayerInputIntent.NextEmoteSequence(byte.MaxValue), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void NetworkPlayer_EmoteStartsOnceStandingOnGround()
+        {
+            // 0은 요청 없음. 재접속으로 번호가 0부터 다시 시작해도 표현이 나가지 않는다.
+            Assert.That(NetworkPlayerMotor.IsNewEmoteRequest(0, 5), Is.False);
+            Assert.That(NetworkPlayerMotor.IsNewEmoteRequest(5, 5), Is.False);
+            Assert.That(NetworkPlayerMotor.IsNewEmoteRequest(6, 5), Is.True);
+            // 같은 표현 연타도 번호가 바뀌므로 다시 시작한다.
+            Assert.That(NetworkPlayerMotor.IsNewEmoteRequest(1, 255), Is.True);
+
+            Assert.That(NetworkPlayerMotor.CanStartEmote(true, PlayerPosture.Standing), Is.True);
+            Assert.That(NetworkPlayerMotor.CanStartEmote(false, PlayerPosture.Standing), Is.False);
+            Assert.That(NetworkPlayerMotor.CanStartEmote(true, PlayerPosture.Crouching), Is.False);
+            Assert.That(NetworkPlayerMotor.CanStartEmote(true, PlayerPosture.Prone), Is.False);
         }
 
         [Test]
@@ -1244,6 +1339,27 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void NetworkScenes_MansionUsesItsOwnResultSceneAndOtherMapsFallBackToDefault()
+        {
+            // 저택은 지하실 엔딩(MansionResult), 나머지 맵은 기본 결과 씬(유치장)으로 간다.
+            var scenes = AssetDatabase.LoadAssetAtPath<NetworkScenes>(
+                "Assets/_Game/Content/Settings/NetworkScenes.asset");
+
+            Assert.That(scenes.HasMappedResultScene(Game.Core.Maps.MapCatalog.MansionId), Is.True);
+            var mansionResult = scenes.ResultSceneFor(Game.Core.Maps.MapCatalog.MansionId);
+            Assert.That(mansionResult.IsValid, Is.True, "MansionResult is not in the build list");
+            Assert.That(mansionResult, Is.Not.EqualTo(scenes.ResultScene));
+            Assert.That(scenes.IsResultScene(mansionResult), Is.True);
+            Assert.That(scenes.IsResultScene(scenes.ResultScene), Is.True);
+            Assert.That(scenes.IsResultScene(scenes.MatchSceneFor(Game.Core.Maps.MapCatalog.MansionId)), Is.False);
+
+            Assert.That(scenes.HasMappedResultScene(Game.Core.Maps.MapCatalog.SupermarketId), Is.False);
+            Assert.That(scenes.ResultSceneFor(Game.Core.Maps.MapCatalog.SupermarketId), Is.EqualTo(scenes.ResultScene));
+            Assert.That(scenes.ResultSceneFor(string.Empty), Is.EqualTo(scenes.ResultScene), "랜덤/미정 맵은 기본 결과 씬");
+            Assert.That(scenes.ResultSceneFor(null), Is.EqualTo(scenes.ResultScene));
+        }
+
+        [Test]
         public void NetworkScenes_MapsEveryCatalogMapToItsOwnBuildListedScene()
         {
             // 방장이 고를 수 있는 맵마다 씬이 하나씩 있어야 하고, 서로 다른 씬이어야 한다.
@@ -1261,8 +1377,8 @@ namespace Game.Architecture.Tests
                 resolved.Add(scene);
             }
 
-            Assert.That(scenes.MatchSceneFor(Game.Core.Maps.MapCatalog.PlaygroundId), Is.EqualTo(scenes.MatchScene),
-                "The default match scene stays the playground for older callers.");
+            Assert.That(scenes.MatchSceneFor(Game.Core.Maps.MapCatalog.SupermarketId), Is.EqualTo(scenes.MatchScene),
+                "The supermarket is the default match scene.");
             Assert.That(scenes.IsMatchScene(scenes.LobbyScene), Is.False);
             Assert.That(scenes.IsMatchScene(default), Is.False);
         }
@@ -1438,6 +1554,14 @@ namespace Game.Architecture.Tests
             Assert.That(exhausted, Is.Not.Null);
             Assert.That(Attribute.IsDefined(stamina, typeof(Fusion.NetworkedAttribute)), Is.True);
             Assert.That(Attribute.IsDefined(exhausted, typeof(Fusion.NetworkedAttribute)), Is.True);
+        }
+
+        [Test]
+        public void PlayerLookPitch_IsPersistentNetworkedData()
+        {
+            var pitch = typeof(NetworkPlayerMotor).GetProperty("LookPitchDegrees");
+            Assert.That(pitch, Is.Not.Null);
+            Assert.That(Attribute.IsDefined(pitch, typeof(Fusion.NetworkedAttribute)), Is.True);
         }
 
         [Test]

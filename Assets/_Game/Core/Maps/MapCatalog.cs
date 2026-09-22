@@ -10,20 +10,22 @@ namespace Game.Core.Maps
     /// </summary>
     public static class MapCatalog
     {
-        public const string PlaygroundId = "playground";
-
         /// <summary>마트 맵(Synty Shops 팩, 씬 <c>Supermarket</c>). 맵 id → 씬은 <c>NetworkScenes</c>가 잇는다.</summary>
         public const string SupermarketId = "supermarket";
 
+        /// <summary>저택 맵(Synty Horror Mansion 팩, 씬 <c>Mansion</c>). 2층 저택 본관과 앞뜰이 플레이 구역.</summary>
+        public const string MansionId = "mansion";
+
         private static readonly string[] MapIdValues =
         {
-            PlaygroundId,
-            SupermarketId
+            SupermarketId,
+            MansionId
         };
 
         private static readonly string[] LobbyMapIdValues =
         {
-            SupermarketId
+            SupermarketId,
+            MansionId
         };
 
         private static readonly Random RandomPicker = new();
@@ -31,7 +33,7 @@ namespace Game.Core.Maps
         public static IReadOnlyList<string> MapIds { get; } =
             Array.AsReadOnly(MapIdValues);
 
-        /// <summary>Maps offered in lobby room settings. Playground stays playable, but is not listed.</summary>
+        /// <summary>Maps offered in lobby room settings.</summary>
         public static IReadOnlyList<string> LobbyMapIds { get; } =
             Array.AsReadOnly(LobbyMapIdValues);
 
@@ -74,7 +76,8 @@ namespace Game.Core.Maps
 
             if (IsRandom(mapId))
             {
-                return DefaultMapId;
+                // Kept empty until match start, where PickRandom chooses a lobby map.
+                return string.Empty;
             }
 
             return Contains(fallback) ? fallback.Trim() : DefaultMapId;

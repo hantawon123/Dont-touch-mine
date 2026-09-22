@@ -1,5 +1,6 @@
 using Game.Client.Settings;
 using Game.Core.Players;
+using Game.Core.Settings;
 using UnityEngine;
 
 namespace Game.Client.Character
@@ -27,9 +28,11 @@ namespace Game.Client.Character
         /// the room browser use: from the player's side these are one event,
         /// which is that the game could not reach the server.
         /// </summary>
-        public const string SaveErrorTitle = "게임 접속 오류";
+        public static string SaveErrorTitle =>
+            UiTextCatalog.Shipped.Get(UiText.Home.ConnectionError, "ko");
 
-        public const string SaveErrorMessage = "외형을 저장하지 못했습니다";
+        public static string SaveErrorMessage =>
+            UiTextCatalog.Shipped.Get(UiText.Closet.SaveError, "ko");
 
         public static class Palette
         {
@@ -105,7 +108,8 @@ namespace Game.Client.Character
             public static readonly Vector2 Position = new Vector2(56f, -48f);
             public static readonly Vector2 Size = new Vector2(200f, 48f);
             public const float FontSize = 30f;
-            public const string Label = "← 이전";
+            public static string Label =>
+                UiTextCatalog.Shipped.Get(UiText.Closet.Back, "ko");
         }
 
         public static class Tabs
@@ -214,8 +218,10 @@ namespace Game.Client.Character
             /// </summary>
             public const float IconRowShift = 16f;
 
-            public const string ResetLabel = "초기화";
-            public const string ApplyLabel = "적용";
+            public static string ResetLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Closet.Reset, "ko");
+            public static string ApplyLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Closet.Apply, "ko");
         }
 
         /// <summary>
@@ -231,6 +237,7 @@ namespace Game.Client.Character
             public const float SubtitleGap = 15f;
             public const float SubtitleFontSize = 20f;
             public const float ButtonGapAbove = 41f;
+            public const float BottomPadding = 41f;
 
             public static readonly Vector2 ButtonSize = new Vector2(223f, 52f);
             public const float ButtonGap = 44f;
@@ -254,11 +261,16 @@ namespace Game.Client.Character
             /// </summary>
             public const float BackdropBlur = 1.5f;
 
-            public const string ResetTitle = "초기화하시겠습니까?";
-            public const string DiscardTitle = "적용하지 않고 나가시겠습니까?";
-            public const string Subtitle = "지금까지의 변경 내용은 모두 사라집니다.";
-            public const string DeclineLabel = "아니오";
-            public const string AcceptLabel = "예";
+            public static string ResetTitle =>
+                UiTextCatalog.Shipped.Get(UiText.Closet.ResetTitle, "ko");
+            public static string DiscardTitle =>
+                UiTextCatalog.Shipped.Get(UiText.Closet.DiscardTitle, "ko");
+            public static string Subtitle =>
+                UiTextCatalog.Shipped.Get(UiText.Closet.Subtitle, "ko");
+            public static string DeclineLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Closet.Decline, "ko");
+            public static string AcceptLabel =>
+                UiTextCatalog.Shipped.Get(UiText.Closet.Accept, "ko");
         }
 
         /// <summary>

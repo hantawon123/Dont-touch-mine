@@ -1,4 +1,5 @@
 using System.Linq;
+using Game.Core.Emotes;
 using Game.Core.Items;
 using Game.Core.Match;
 using Game.Server.Match;
@@ -43,7 +44,9 @@ namespace Game.Tests.EditMode
                 new WorldObjectState[0], new[]
                 {
                     HighlightPlayerAction.Punching | HighlightPlayerAction.Carrying,
-                    HighlightPlayerAction.Stunned | HighlightPlayerAction.Prone,
+                    // 한 바이트에 다 안 들어가는 자리(피격·기절 진입·감정 표현 ID)까지 실어 보낸다.
+                    (HighlightPlayerAction.Stunned | HighlightPlayerAction.StunEntry |
+                     HighlightPlayerAction.Prone).WithEmote((int)EmoteId.Spin),
                 });
             var data = new HighlightReplayData(new HighlightCandidate(HighlightType.MostStunned,
                 new[] { segment }, "1"), new[] { new HighlightReplayClip(segment, new[] { frame }) });
@@ -52,8 +55,13 @@ namespace Game.Tests.EditMode
             Assert.That(decoded[0].Clips[0].Frames[0].PlayerActions, Is.EqualTo(new[]
             {
                 HighlightPlayerAction.Punching | HighlightPlayerAction.Carrying,
-                HighlightPlayerAction.Stunned | HighlightPlayerAction.Prone,
+                (HighlightPlayerAction.Stunned | HighlightPlayerAction.StunEntry |
+                 HighlightPlayerAction.Prone).WithEmote((int)EmoteId.Spin),
             }));
+            Assert.That(
+                decoded[0].Clips[0].Frames[0].PlayerActions[1].TryGetEmote(out var emoteId),
+                Is.True);
+            Assert.That(emoteId, Is.EqualTo((int)EmoteId.Spin));
             bytes[4] = 1;
             Assert.That(HighlightReplaySerializer.TryDeserialize(bytes, out _), Is.False);
         }

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -35,7 +36,8 @@ namespace Game.Client.Match
         public const float NameFontSize = 14f;
         public const float BodyFontSize = 20f;
         public const float InputFontSize = 16f;
-        public const string PlaceholderText = "채팅 입력..";
+        public static string PlaceholderText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.ChatPlaceholder, "ko");
         public const float InputWidth = 320f;
         public const int PanelRadius = 10;
         public const float ContentPadding = 16f;
@@ -75,11 +77,29 @@ namespace Game.Client.Match
         private bool activated;
         private MatchChatHudMode mode = MatchChatHudMode.Full;
         private bool keepChromeVisible;
+        private bool allowsActivation = true;
         private bool layoutReady;
         private float appliedListScale = 1f;
         private bool fontPrewarmed;
         private Coroutine prewarmRoutine;
+        private Coroutine pendingSubmit;
         private static bool pendingKeepChromeVisible;
+        private string composingText = string.Empty;
+        private UiLocale chromeLocale;
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            if (inputField?.placeholder is TMP_Text placeholder)
+            {
+                placeholder.text = Copy(UiText.Match.ChatPlaceholder);
+            }
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
 
         public event Action<string> SendRequested;
         public static bool BlocksPlayerInput { get; private set; }
@@ -150,6 +170,31 @@ namespace Game.Client.Match
             keepChromeVisible = value;
             EnsureLayout();
             ApplyPresentation();
+        }
+
+        public void SetAllowsActivation(bool value)
+        {
+            allowsActivation = value;
+            if (!value && (activated || focusRoutine != null))
+            {
+                if (focusRoutine != null)
+                {
+                    StopCoroutine(focusRoutine);
+                    focusRoutine = null;
+                }
+
+                SetActivated(false);
+            }
+        }
+
+        public static void ApplyAllowsActivation(bool allowed)
+        {
+            var chats = FindObjectsByType<MatchChatView>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (var i = 0; i < chats.Length; i++)
+            {
+                chats[i].SetAllowsActivation(allowed);
+            }
         }
 
         public static IReadOnlyList<LobbyChatMessage> VisibleMessages(
@@ -224,14 +269,94 @@ namespace Game.Client.Match
             return total;
         }
 
+        /// <summary>
+        /// 커밋된 글자와 IME가 아직 조합 중인 음절을 한 문자열로 붙인다.
+        /// 한글 한 글자는 다음 키를 치기 전까지 <c>TMP_InputField.text</c>에 안 들어가서,
+        /// 엔터가 빈 칸으로 오인되면 전송이 아니라 창이 닫힌다.
+        /// </summary>
+        public static string CombinedDraft(string committed, string composing)
+        {
+            if (string.IsNullOrEmpty(composing))
+            {
+                return committed ?? string.Empty;
+            }
+
+            return (committed ?? string.Empty) + composing;
+        }
+
+        public static string ResolveSubmitText(string submitted, string committed, string composing)
+        {
+            return ResolveSubmitText(submitted, committed, composing, string.Empty);
+        }
+
+        public static string ResolveSubmitText(
+            string submitted,
+            string committed,
+            string composing,
+            string label)
+        {
+            var fromSubmit = LobbyChatMessage.NormalizeText(submitted);
+            if (fromSubmit.Length > 0)
+            {
+                return fromSubmit;
+            }
+
+            return LobbyChatMessage.NormalizeText(VisibleDraft(committed, label, composing));
+        }
+
+        /// <summary>
+        /// 엔터가 조합을 커밋하면서 compositionString을 먼저 비운다.
+        /// 이미 입력칸에 들어간 음절만 버리고, 아직 안 들어간 마지막 글자는 남긴다.
+        /// </summary>
+        public static string NextComposing(string live, string committed, string held)
+        {
+            if (!string.IsNullOrEmpty(live))
+            {
+                return live;
+            }
+
+            if (!string.IsNullOrEmpty(held) &&
+                !string.IsNullOrEmpty(committed) &&
+                committed.EndsWith(held, StringComparison.Ordinal))
+            {
+                return string.Empty;
+            }
+
+            return held ?? string.Empty;
+        }
+
+        public static string VisibleDraft(string committed, string label, string composing)
+        {
+            committed ??= string.Empty;
+            label ??= string.Empty;
+            if (label.Length > committed.Length)
+            {
+                var fromLabel = LobbyChatMessage.NormalizeText(label);
+                if (fromLabel.Length > 0)
+                {
+                    return fromLabel;
+                }
+            }
+
+            return LobbyChatMessage.NormalizeText(CombinedDraft(committed, composing));
+        }
+
+        public static bool AllowsActivationOnScreen(
+            bool highlightInProgress,
+            bool localHighlightComplete,
+            bool resultSceneLoaded) =>
+            !resultSceneLoaded && !(highlightInProgress && !localHighlightComplete);
+
         public static bool ShouldOpenOnEnter(
             bool isActivated,
             bool isOpening,
             bool enterPressed,
             float now,
-            float lastClosedAt)
+            float lastClosedAt,
+            bool allowsActivation = true)
         {
-            return enterPressed &&
+            return allowsActivation &&
+                   enterPressed &&
                    !isActivated &&
                    !isOpening &&
                    now - lastClosedAt >= OpenCooldownSeconds;
@@ -312,6 +437,8 @@ namespace Game.Client.Match
                 inputField.onSelect.AddListener(HandleInputSelected);
             }
 
+            Game.Client.Common.WebTextInput.ComposingChanged += OnBrowserComposing;
+
             if (sendButton != null)
             {
                 sendButton.onClick.AddListener(HandleSendClicked);
@@ -349,6 +476,9 @@ namespace Game.Client.Match
                 inputField.onSelect.RemoveListener(HandleInputSelected);
             }
 
+            Game.Client.Common.WebTextInput.ComposingChanged -= OnBrowserComposing;
+            composingText = string.Empty;
+
             if (sendButton != null)
             {
                 sendButton.onClick.RemoveListener(HandleSendClicked);
@@ -372,11 +502,18 @@ namespace Game.Client.Match
                 prewarmRoutine = null;
             }
 
+            if (pendingSubmit != null)
+            {
+                StopCoroutine(pendingSubmit);
+                pendingSubmit = null;
+            }
+
             SetActivated(false);
         }
 
         private void Update()
         {
+            PollComposition();
             ConsumedEscapeThisFrame = false;
             if (activated && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
@@ -384,18 +521,9 @@ namespace Game.Client.Match
                 Deactivate();
                 return;
             }
-            if (!WasEnterPressedThisFrame())
-            {
-                return;
-            }
 
-            if (activated)
+            if (!allowsActivation || activated || !WasEnterPressedThisFrame())
             {
-                if (inputField != null && string.IsNullOrWhiteSpace(inputField.text))
-                {
-                    SetActivated(false);
-                }
-
                 return;
             }
 
@@ -404,13 +532,36 @@ namespace Game.Client.Match
                     focusRoutine != null,
                     true,
                     Time.unscaledTime,
-                    lastDeactivateUnscaledTime))
+                    lastDeactivateUnscaledTime,
+                    allowsActivation))
             {
                 return;
             }
 
             // Open on the next frame so the key that opens chat cannot submit it.
             focusRoutine = StartCoroutine(FocusInputNextFrame());
+        }
+
+        private void LateUpdate()
+        {
+            PollComposition();
+            if (!activated)
+            {
+                return;
+            }
+
+            if (pendingSubmit != null)
+            {
+                TrySendPendingImeDraft();
+                return;
+            }
+
+            if (!WasEnterPressedThisFrame())
+            {
+                return;
+            }
+
+            HandleSubmit(ReadDraft());
         }
 
         private IEnumerator PrewarmChatFont()
@@ -724,6 +875,12 @@ namespace Game.Client.Match
 
         private void HandleInputSelected(string _)
         {
+            if (!allowsActivation)
+            {
+                inputField?.DeactivateInputField();
+                return;
+            }
+
             if (!activated && mode != MatchChatHudMode.Hidden)
             {
                 SetActivated(true);
@@ -732,26 +889,150 @@ namespace Game.Client.Match
 
         private void HandleSendClicked()
         {
-            HandleSubmit(inputField != null ? inputField.text : string.Empty);
+            HandleSubmit(ReadDraft());
         }
 
         private void HandleSubmit(string text)
         {
+            var draft = ResolveSubmitText(
+                text,
+                inputField != null ? inputField.text : string.Empty,
+                ReadComposing(),
+                inputField != null && inputField.textComponent != null
+                    ? inputField.textComponent.text
+                    : string.Empty);
+            if (!LobbyChatMessage.HasVisibleText(draft))
+            {
+                if (HasPendingImeComposition() &&
+                    pendingSubmit == null &&
+                    isActiveAndEnabled)
+                {
+                    pendingSubmit = StartCoroutine(SubmitAfterImeCommit());
+                    return;
+                }
+
+                if (inputField != null)
+                {
+                    ApplyClearedInput(keepFocus: true);
+                }
+
+                return;
+            }
+
+            SendDraft(draft);
+        }
+
+        private IEnumerator SubmitAfterImeCommit()
+        {
+            // 한글 IME는 엔터를 뗄 때 조합을 커밋하는 경우가 많다.
+            // onSubmit은 키를 누르는 순간에 빈 칸으로 와서, 한 프레임만 기다리면 글자가
+            // 아직 필드에 없고 채팅이 닫힌다.
+            var keyboard = Keyboard.current;
+            while (keyboard != null && EnterKeyIsHeld(keyboard))
+            {
+                if (TrySendPendingImeDraft())
+                {
+                    yield break;
+                }
+
+                yield return null;
+                keyboard = Keyboard.current;
+            }
+
+            yield return null;
+            pendingSubmit = null;
+            if (!TrySendPendingImeDraft())
+            {
+                SetActivated(false);
+                ApplyClearedInput(keepFocus: false);
+            }
+        }
+
+        private bool TrySendPendingImeDraft()
+        {
+            PollComposition();
+            var draft = ReadDraft();
+            if (!LobbyChatMessage.HasVisibleText(draft))
+            {
+                return false;
+            }
+
+            pendingSubmit = null;
+            SendDraft(draft);
+            return true;
+        }
+
+        private bool HasPendingImeComposition() =>
+            LobbyChatMessage.HasVisibleText(ReadComposing()) ||
+            LobbyChatMessage.HasVisibleText(Input.compositionString);
+
+        private static bool EnterKeyIsHeld(Keyboard keyboard) =>
+            keyboard.enterKey.isPressed || keyboard.numpadEnterKey.isPressed;
+
+        private void SendDraft(string draft)
+        {
+            draft = LobbyChatMessage.NormalizeText(draft);
+            if (string.IsNullOrEmpty(draft))
+            {
+                return;
+            }
+
             if (Time.unscaledTime - lastSendUnscaledTime < 0.08f)
             {
                 return;
             }
 
             lastSendUnscaledTime = Time.unscaledTime;
-            if (string.IsNullOrWhiteSpace(text))
+            composingText = string.Empty;
+            if (pendingSubmit != null)
             {
-                SetActivated(false);
-                ApplyClearedInput(keepFocus: false);
+                StopCoroutine(pendingSubmit);
+                pendingSubmit = null;
+            }
+
+            SendRequested?.Invoke(draft);
+            Deactivate();
+        }
+
+        private void PollComposition()
+        {
+            if (inputField == null || !activated)
+            {
                 return;
             }
 
-            SendRequested?.Invoke(text.Trim());
-            Deactivate();
+            composingText = NextComposing(
+                Input.compositionString ?? string.Empty,
+                inputField.text ?? string.Empty,
+                composingText);
+        }
+
+        private string ReadDraft() =>
+            VisibleDraft(
+                inputField != null ? inputField.text : string.Empty,
+                inputField != null && inputField.textComponent != null
+                    ? inputField.textComponent.text
+                    : string.Empty,
+                ReadComposing());
+
+        private string ReadComposing()
+        {
+            if (!string.IsNullOrEmpty(composingText))
+            {
+                return composingText;
+            }
+
+            return inputField != null && inputField.isFocused
+                ? Input.compositionString ?? string.Empty
+                : string.Empty;
+        }
+
+        private void OnBrowserComposing(TMP_InputField field, string composing)
+        {
+            if (field == inputField)
+            {
+                composingText = composing ?? string.Empty;
+            }
         }
 
         private void SetActivated(bool value)
@@ -762,6 +1043,7 @@ namespace Game.Client.Match
             if (!value)
             {
                 lastDeactivateUnscaledTime = Time.unscaledTime;
+                composingText = string.Empty;
             }
 
             ApplyPresentation();
@@ -775,6 +1057,7 @@ namespace Game.Client.Match
                 EventSystem.current?.SetSelectedGameObject(null);
                 inputField.Select();
                 inputField.ActivateInputField();
+                Keyboard.current?.SetIMEEnabled(true);
                 return;
             }
 
@@ -1000,6 +1283,7 @@ namespace Game.Client.Match
                         placeholder.font = font;
                     }
 
+                    placeholder.text = Copy(UiText.Match.ChatPlaceholder);
                     placeholder.richText = false;
                 }
             }
@@ -1541,7 +1825,7 @@ namespace Game.Client.Match
             var placeholder = CreateText(
                 textAreaRect,
                 "Placeholder",
-                PlaceholderText,
+                Copy(UiText.Match.ChatPlaceholder),
                 InputFontSize,
                 new Color(1f, 1f, 1f, 0.58f));
             placeholder.alignment = TextAlignmentOptions.MidlineLeft;

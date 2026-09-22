@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: fd1019633bafeeb4caa288c33980aa74
+timeCreated: 1644463282
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43812510685385016
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Kitchen_Pan_Rack_Chain_01_Convex.asset
+  uploadId: 987938

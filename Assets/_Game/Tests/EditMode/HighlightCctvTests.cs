@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Game.Bootstrap;
 using Game.Client.Cameras;
 using Game.Client.Match;
@@ -35,6 +36,7 @@ namespace Game.Tests.EditMode
                 director.Tick(2.1f);
                 player.position = Vector3.right * 40;
                 director.Tick(0.3f);
+                director.Tick(0.3f); // Re-sample after the one-frame movement prediction settles.
                 Assert.That(output.position, Is.EqualTo(b.transform.position));
                 Assert.That(Quaternion.Angle(output.rotation, b.transform.rotation), Is.LessThan(0.001f));
                 Assert.That(director.CctvLocation, Is.EqualTo("CAM B"));
@@ -378,6 +380,59 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Camera_UsesDistanceOnlyAsTieBreakerAndRejectsTopDownShortcut()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                HighlightCctvCamera Mount(string name, Vector3 position)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = position;
+                    camera.transform.LookAt(Vector3.up * 0.8f);
+                    camera.Configure(name, 65f);
+                    return camera;
+                }
+
+                var players = new[]
+                {
+                    new GameObject("target").transform,
+                    new GameObject("support").transform,
+                };
+                foreach (var player in players) player.SetParent(root.transform);
+                var output = new GameObject("output", typeof(Camera)).transform;
+                output.SetParent(root.transform);
+                var candidate = new HighlightCandidate(HighlightType.MostStunned,
+                    new[] { new HighlightSegment(0d, 4d) }, "0", 2d, 60,
+                    actorPlayerIndex: 1);
+                var poses = new[]
+                {
+                    new Pose(Vector3.left, Quaternion.identity),
+                    new Pose(Vector3.right, Quaternion.identity),
+                };
+                var frames = new List<HighlightReplayFrame>();
+                for (var second = 0; second <= 4; second++)
+                    frames.Add(new HighlightReplayFrame(second, poses,
+                        System.Array.Empty<Game.Server.Items.WorldObjectState>()));
+                var clips = new[] { new HighlightReplayClip(candidate.Segments[0], frames) };
+                var far = Mount("far", new Vector3(0f, 3f, -14f));
+                var near = Mount("near", new Vector3(0f, 3f, -7f));
+                var topDown = Mount("top-down", new Vector3(0f, 4f, 0f));
+
+                using var director = new HighlightCameraDirector(output, output, players,
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0,
+                    cctvCameras: new[] { far, topDown, near }, replayClips: clips);
+
+                director.Focus(candidate);
+
+                Assert.That(director.CctvLocation, Is.EqualTo("near"),
+                    "When every subject is visible, distance may break the tie but must not select a top-down shortcut.");
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
         public void Camera_PrefersNearbyOffCentreViewOverDistantCentredView()
         {
             var root = new GameObject("test");
@@ -426,6 +481,89 @@ namespace Game.Tests.EditMode
                 Assert.That(hud.transform.Find("CCTV/RecordingTime").GetComponent<TMP_Text>().text, Is.EqualTo("<color=#E74C3C>●</color> REC  00:12"));
             }
             finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Mount_CoversEveryHeightUntilAFloorIsAuthored()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                var mount = root.AddComponent<HighlightCctvCamera>();
+                Assert.That(mount.HasFloor, Is.False, "Single-storey maps author no floor.");
+                Assert.That(mount.CoversHeight(0.5f), Is.True);
+                Assert.That(mount.CoversHeight(6f), Is.True);
+                mount.ConfigureFloor(5.5f, 9.8f);
+                Assert.That(mount.HasFloor, Is.True);
+                Assert.That(mount.CoversHeight(6f), Is.True);
+                Assert.That(mount.CoversHeight(1.01f), Is.False, "A first-floor subject belongs to the mounts below.");
+                Assert.That(mount.CoversHeight(9.8f), Is.False, "The attic above the range is the waiting area.");
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_PrefersTheMountThatWatchesTheSubjectsFloor()
+        {
+            // A floor slab is thinner than the 0.5 m an occluder needs, so without the authored
+            // storey the closer upstairs mount would win and film the ceiling above the action.
+            var root = new GameObject("test");
+            try
+            {
+                Transform Child(string name, Vector3 position)
+                {
+                    var t = new GameObject(name).transform;
+                    t.SetParent(root.transform); t.position = position; return t;
+                }
+                var output = Child("output", Vector3.zero);
+                var player = Child("actor", new Vector3(0, 1.01f, 0));
+                var upstairs = Child("upstairs", new Vector3(0, 8, -5)).gameObject.AddComponent<HighlightCctvCamera>();
+                var ground = Child("ground", new Vector3(0, 4, -12)).gameObject.AddComponent<HighlightCctvCamera>();
+                upstairs.Configure("CAM 2F"); ground.Configure("CAM 1F");
+                upstairs.ConfigureFloor(5.5f, 9.8f); ground.ConfigureFloor(-1f, 5.5f);
+                upstairs.transform.LookAt(player.position); ground.transform.LookAt(player.position);
+                using var director = new HighlightCameraDirector(output, output, new[] { player },
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0, cctvCameras: new[] { upstairs, ground });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                Assert.That(director.CctvLocation, Is.EqualTo("CAM 1F"),
+                    "The nearer mount watches the floor above and must lose to the one on this floor.");
+                Assert.That(output.position, Is.EqualTo(ground.transform.position));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void MansionPrefab_HasFloorTaggedMountsWithUniqueNamesAndSupermarketLens()
+        {
+            // PlaygroundLifetimeScope loads Resources/CCTV/<scene name>; the mansion uses its own authored table.
+            var prefab = Resources.Load<GameObject>("CCTV/Mansion");
+            Assert.That(prefab, Is.Not.Null, "Resources/CCTV/Mansion.prefab is required for mansion highlights.");
+            var cameras = prefab.GetComponentsInChildren<HighlightCctvCamera>(true);
+            Assert.That(cameras.Length, Is.GreaterThanOrEqualTo(10), "The hand-tuned first-floor layout keeps at least one CCTV per room.");
+            Assert.That(cameras.Select(c => c.LocationName).Distinct().Count(), Is.EqualTo(cameras.Length), "Location names identify the CAM on the HUD.");
+            foreach (var camera in cameras)
+            {
+                var position = camera.transform.position;
+                Assert.That(position.x, Is.InRange(-13f, 13.5f), camera.LocationName);
+                Assert.That(position.z, Is.InRange(-33f, -8.5f), camera.LocationName);
+                // First floor hangs below its ceiling (4.0 in low spots, 5.41 at most); the second
+                // floor sits under the attic slab that blocks the waiting area (9.8).
+                Assert.That(position.y, Is.InRange(3.5f, 9.8f), camera.LocationName + " hangs below the ceiling of its floor.");
+                if (position.y >= 5.5f)
+                {
+                    Assert.That(camera.HasFloor, Is.True,
+                        camera.LocationName + " is upstairs and must say so, or it will be offered first-floor action.");
+                    Assert.That(camera.CoversHeight(1.01f), Is.False, camera.LocationName);
+                    Assert.That(camera.CoversHeight(6f), Is.True, camera.LocationName);
+                }
+                else if (camera.HasFloor)
+                {
+                    Assert.That(camera.CoversHeight(1.01f), Is.True, camera.LocationName);
+                    Assert.That(camera.CoversHeight(6f), Is.False, camera.LocationName);
+                }
+                Assert.That(camera.transform.forward.y, Is.LessThan(-0.2f), camera.LocationName + " tilts down like the supermarket mounts (18~46 degrees).");
+                Assert.That(camera.FieldOfView, Is.EqualTo(65f), camera.LocationName);
+            }
         }
     }
 }

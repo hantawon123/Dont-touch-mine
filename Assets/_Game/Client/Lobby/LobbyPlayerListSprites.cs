@@ -16,6 +16,7 @@ namespace Game.Client.Lobby
         public const string SoundWhiteResource = "UI/Icon_Sound_White";
         public const string SoundGreenResource = "UI/Icon_Sound_Green";
         public const string SoundMuteResource = "UI/Icon_Sound_Mute_Gray";
+        public const string SoundMuteWhiteResource = "UI/Icon_Sound_Mute_White";
 
         private static Sprite plus;
         private static Sprite plusGray;
@@ -25,6 +26,7 @@ namespace Game.Client.Lobby
         private static Sprite soundWhite;
         private static Sprite soundGreen;
         private static Sprite soundMute;
+        private static Sprite soundMuteWhite;
 
         public static Sprite Plus => plus ??= Resources.Load<Sprite>(PlusResource) ?? BuildPlus();
 
@@ -48,6 +50,9 @@ namespace Game.Client.Lobby
         public static Sprite SoundMute =>
             soundMute ??= Resources.Load<Sprite>(SoundMuteResource);
 
+        public static Sprite SoundMuteWhite =>
+            soundMuteWhite ??= Resources.Load<Sprite>(SoundMuteWhiteResource);
+
         /// <summary>
         /// Mute wins. Talking lights green only while voice is leaving.
         /// </summary>
@@ -68,10 +73,10 @@ namespace Game.Client.Lobby
         {
             if (speakerOff)
             {
-                return SoundMute;
+                return SoundMuteWhite;
             }
 
-            return micOff ? MicOffGray : null;
+            return micOff ? MicOffWhite : null;
         }
 
         private static Sprite BuildPlus()

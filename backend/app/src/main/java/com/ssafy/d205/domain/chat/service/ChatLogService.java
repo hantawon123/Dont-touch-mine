@@ -10,9 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.ssafy.d205.domain.chat.dto.ChatLogBatchRequest;
-import com.ssafy.d205.domain.chat.entity.ChatBlocklist;
-import com.ssafy.d205.domain.chat.entity.ChatLog;
-import com.ssafy.d205.domain.chat.repository.ChatLogRepository;
+import com.ssafy.d205.domain.chat.repository.ChatLogBatchWriter;
 import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.repository.UserRepository;
 import com.ssafy.d205.global.common.TimeProvider;
@@ -23,14 +21,28 @@ import com.ssafy.d205.global.common.TimeProvider;
  * <p><b>본문을 로그에 남기지 마세요.</b> 이 표를 3일만 두는 것이 의미를 가지려면 채팅이 저장되는
  * 곳이 이 표 하나여야 합니다. 애플리케이션 로그나 요청 로그로 흘리면 그쪽은 지워지지 않습니다.
  * 디버깅이 필요하면 건수나 방 코드만 남깁니다.
+ *
+ * <p><b>금칙어를 여기서 판정하지 않습니다</b>(S15P21D205-1096). 게임 서버가 가리면서 낸 판정을
+ * {@code masked} 로 받아 그대로 적습니다. 다시 판정하면 같은 규칙을 Java 와 C# 두 곳에 두어야 하고,
+ * 두 목록이 갈리는 순간 기록이 "가려졌다고 적혔는데 사람들은 그대로 본" 상태가 됩니다. 페이로드의
+ * 원문과 발화자와 시각은 이미 그대로 믿고 있으며, 그 신뢰는 공유 키와 loopback 바인딩이 받칩니다.
+ *
+ * <p>대신 게임 서버가 목록을 못 받아 필터 없이 뜬 방은 {@code masked} 가 전부 false 입니다.
+ * 받아들인 것이고 이유는 {@code docs/chat-moderation.md} 에 적었습니다.
+ *
+ * <p>한때 {@code ChatLogWriter} 로 나뉘어 있었습니다. 나눈 이유는 판정이 DB 를 쓰지 않으면서 한
+ * 묶음에 백 밀리초를 넘길 수 있어 트랜잭션 밖에서 끝내야 한다는 것 하나였고, 판정이 없어지면서
+ * 남길 이유가 없어졌습니다.
+ *
+ * <p>넣는 일 자체는 {@link ChatLogBatchWriter} 가 합니다. JPA 로 넣으면 200줄 묶음이 문장 200개가
+ * 되기 때문인데, 이유는 그쪽 주석에 적었습니다.
  */
 @Service
 @RequiredArgsConstructor
 public class ChatLogService {
 
-    private final ChatLogRepository chatLogs;
+    private final ChatLogBatchWriter chatLogs;
     private final UserRepository users;
-    private final ChatBlocklist blocklist;
     private final TimeProvider timeProvider;
 
     /**
@@ -44,29 +56,27 @@ public class ChatLogService {
      */
     @Transactional
     public int record(ChatLogBatchRequest request) {
+        List<ChatLogBatchRequest.Entry> entries = request.messages();
         String now = timeProvider.now();
 
         // 한 묶음 안에 같은 사람이 여러 줄을 말하는 것이 보통입니다. 줄마다 조회하면 같은 질문을
         // 반복합니다.
         Map<String, Integer> resolved = new HashMap<>();
-        List<ChatLog> rows = new ArrayList<>(request.messages().size());
+        List<ChatLogBatchWriter.Row> rows = new ArrayList<>(entries.size());
 
-        for (ChatLogBatchRequest.Entry entry : request.messages()) {
-            rows.add(ChatLog.of(
+        for (ChatLogBatchRequest.Entry entry : entries) {
+            rows.add(new ChatLogBatchWriter.Row(
                     entry.roomCode(),
                     entry.scope(),
                     senderSeq(entry.userPublicId(), resolved),
                     entry.senderRef(),
                     entry.message(),
-                    // 게임 서버가 가렸는지 여부를 따로 받지 않습니다. 받아도 믿을 이유가 없고,
-                    // 여기서 판정하면 게임 서버의 목록이 낡았어도 기록은 최신 기준이 됩니다.
-                    blocklist.isForbidden(entry.message()),
+                    entry.masked(),
                     entry.sentAt(),
                     now));
         }
 
-        chatLogs.saveAll(rows);
-        return rows.size();
+        return chatLogs.insertAll(rows);
     }
 
     /**

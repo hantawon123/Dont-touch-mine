@@ -31,6 +31,8 @@ namespace Game.Editor
             "Assets/Synty/PolygonShops/Prefabs/Products",
             "Assets/Synty/PolygonShops/Prefabs/Food",
             "Assets/Synty/PolygonShops/Prefabs/Props",
+            // 저택(Horror Mansion): 책 더미·접시 세트·종이 뭉치가 낱개 프리팹(Book_01~04, Plate_01~03…)의 합성이다.
+            "Assets/Synty/PolygonHorrorMansion/Prefabs/Props",
         };
 
         // 팩에 개별 프리팹이 없는 조각으로 만든 메시·프리팹이 모이는 곳
@@ -144,9 +146,13 @@ namespace Game.Editor
             if (name.StartsWith("Gen_")) return false;
             // 팔레트 스택은 팔레트 자체가 판재 여러 조각이라 조각 단위로 부서지기 쉽다 → 다중 조각 매칭이 잡지 못하면 제외 유지
             if (name.Contains("Pallet")) return false;
+            // 환경 소품(낙엽 더미·잔디)은 조각이 잎사귀 수백 개라 분해하면 쓰레기 프리팹만 생긴다(저택 2026-09-17).
+            if (name.StartsWith("SM_Env_") || name.Contains("Leaves")) return false;
             if (name.Contains("_Preset") || name.Contains("_Insert")) return true;
             // 상자 더미처럼 여러 소품을 한 메시로 쌓아 둔 것
             if (name.Contains("_Stacked") || name.Contains("_Stack_") || name.EndsWith("_Stack") || name.Contains("_Pile")) return true;
+            // 저택 팩: 접시 세트(Plate_Set), 책꽂이 한 줄(Book_Line)도 여러 낱개가 한 메시
+            if (name.Contains("_Set_") || name.EndsWith("_Set") || name.Contains("Book_Line")) return true;
             // 계산대 진열장: 사탕·잡지 상품이 선반과 한 메시
             if (name.Contains("Checkout_Shelf")) return true;
             // Aisle_02~05는 상품이 구워진 진열대(Aisle_01만 빈 선반)
@@ -193,6 +199,35 @@ namespace Game.Editor
             revertDone = 0;
             EditorApplication.update += RevertStep;
             Debug.Log($"[Explode] 되돌리기 시작: {revertTotal}개");
+        }
+
+        /// <summary>
+        /// 환경 소품(<c>SM_Env_*</c>: 낙엽 더미 등)의 분해 결과만 되돌린다. 저택에서 Env 제외 규칙이 생기기 전에
+        /// 분해된 낙엽 조각을 치울 때 쓴다. 책·접시 같은 소품 분해 결과와 이미 변환된 Carryable은 건드리지 않는다.
+        /// </summary>
+        [MenuItem("Game/Match Map/Revert Exploded Env Piles In Scene")]
+        public static void RevertExplodedEnvPiles()
+        {
+            var roots = Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Where(t => t.name.EndsWith("_Exploded") && t.name.StartsWith("SM_Env_") &&
+                            (t.parent == null || !IsInsideExploded(t.parent)))
+                .Select(t => t.gameObject)
+                .ToArray();
+            if (roots.Length == 0)
+            {
+                Debug.Log("[Explode] 되돌릴 환경 소품 분해 결과가 없다.");
+                return;
+            }
+
+            var scene = roots[0].scene;
+            foreach (var root in roots)
+            {
+                RevertExploded(root);
+            }
+
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene);
+            Debug.Log($"[Explode] 환경 소품 분해 결과 {roots.Length}개를 되돌리고 씬을 저장했다. GeneratedProps의 Gen_SM_Env_* 프리팹은 이제 미사용.");
         }
 
         private static Queue<GameObject> revertQueue;
@@ -1171,7 +1206,8 @@ namespace Game.Editor
             go.AddComponent<MeshRenderer>().sharedMaterials = usedMaterials.ToArray();
             var box = go.AddComponent<BoxCollider>();
             box.center = generatedMesh.bounds.center;
-            box.size = generatedMesh.bounds.size;
+            // 납작한 조각(종잇장·책갈피 5정점)은 두께 0이 되어 BoxCollider 경고와 놓기 판정 불안정을 낳는다 → 최소 2 cm.
+            box.size = Vector3.Max(generatedMesh.bounds.size, Vector3.one * 0.02f);
             var prefabPath = AssetDatabase.GenerateUniqueAssetPath($"{GeneratedFolder}/{go.name}.prefab");
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, prefabPath);
             Object.DestroyImmediate(go);

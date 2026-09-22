@@ -57,10 +57,14 @@ namespace Game.Core.Settings
 
         public int StartCount { get; private set; }
 
-        public void Start(string deviceName)
+        /// <summary>The gain the last test was started at. For tests.</summary>
+        public float StartedAt { get; private set; } = 1f;
+
+        public void Start(string deviceName, float gain = 1f)
         {
             IsRunning = true;
             StartedOn = deviceName;
+            StartedAt = gain;
             StartCount++;
         }
 
@@ -140,7 +144,6 @@ namespace Game.Core.Settings
             var preview = Current
                 .With(SoundVolume.Master, SoundCatalog.Clamp(draft.Get(SoundVolume.Master)))
                 .With(SoundVolume.Music, SoundCatalog.Clamp(draft.Get(SoundVolume.Music)))
-                .With(SoundVolume.Ambience, SoundCatalog.Clamp(draft.Get(SoundVolume.Ambience)))
                 .With(SoundVolume.Effects, SoundCatalog.Clamp(draft.Get(SoundVolume.Effects)));
             applier.Apply(preview);
             AudioChanged?.Invoke(preview);

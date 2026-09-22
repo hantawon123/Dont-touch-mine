@@ -114,6 +114,28 @@ class AnalyticsQueryApiTest extends AnalyticsIntegrationTest {
     }
 
     @Test
+    @DisplayName("맵으로 좁히면 그 맵의 경기만 남는다")
+    void matchesAreNarrowedByMap() throws Exception {
+        String mart = UUID.randomUUID().toString();
+        String mansion = UUID.randomUUID().toString();
+        Instant at = Instant.now().minus(1, ChronoUnit.HOURS).truncatedTo(ChronoUnit.SECONDS);
+        String start = "{\"player_count\":4,\"hide_sec\":30,\"seek_sec\":300,\"stun_hits\":3,\"partial\":false}";
+        insertHostEvent(mart, "match_start", at, 0, 1.0f, 2.0f, 0, start, "supermarket");
+        insertHostEvent(mansion, "match_start", at, 0, 1.0f, 2.0f, 0, start, "mansion");
+
+        List<String> only = firstColumn(table(get("/internal/admin/analytics/matches").param("mapId", "mansion")));
+        assertThat(only).contains(mansion).doesNotContain(mart);
+
+        // 모르는 맵은 빈 표이고, 맵 이름 모양이 틀리면 400 입니다. 둘은 다른 일입니다.
+        JsonNode unknown = table(get("/internal/admin/analytics/matches").param("mapId", "no-such-map"));
+        assertThat(unknown.get("rows").size()).isZero();
+        mvc.perform(get("/internal/admin/analytics/matches").header(InternalKeyFilter.HEADER, KEY)
+                        .param("mapId", "Mansion!"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
     @DisplayName("필터 값이 14자가 아니거나 날짜가 아니면 400 INVALID_REQUEST 다")
     void badFiltersAreRejected() throws Exception {
         mvc.perform(get("/internal/admin/analytics/matches").header(InternalKeyFilter.HEADER, KEY).param("from", "abc"))
@@ -141,17 +163,17 @@ class AnalyticsQueryApiTest extends AnalyticsIntegrationTest {
         JsonNode table = table(get("/internal/admin/analytics/positions").param("matchId", match));
 
         assertThat(table.get("columns")).extracting(JsonNode::asText)
-                .containsExactly("map_id", "player_seat", "phase", "elapsed_seconds", "pos_x", "pos_z",
+                .containsExactly("map_id", "player_seat", "phase", "elapsed_seconds", "pos_x", "pos_y", "pos_z",
                         "item_in_motion", "item_known");
         assertThat(table.get("rows").size()).isEqualTo(4);
         // 마지막 줄만 움직이는 중입니다. 앞의 셋은 물건 정보가 없어 비어 있습니다.
-        assertThat(table.get("rows").get(3).get(6).asInt()).isEqualTo(1);
-        assertThat(table.get("rows").get(0).get(6).isNull()).isTrue();
+        assertThat(table.get("rows").get(3).get(7).asInt()).isEqualTo(1);
+        assertThat(table.get("rows").get(0).get(7).isNull()).isTrue();
         // 1초의 자리 0, 1초의 자리 1, 2초의 자리 1 순서.
         assertThat(table.get("rows").get(0).get(1).asInt()).isZero();
         assertThat(table.get("rows").get(0).get(4).asDouble()).isEqualTo(1.0);
         assertThat(table.get("rows").get(2).get(1).asInt()).isEqualTo(1);
-        assertThat(table.get("rows").get(2).get(5).asDouble()).isEqualTo(-3.25);
+        assertThat(table.get("rows").get(2).get(6).asDouble()).isEqualTo(-3.25);
         assertThat(table.get("rows").get(0).get(2).asText()).isEqualTo("Searching");
     }
 
@@ -178,12 +200,17 @@ class AnalyticsQueryApiTest extends AnalyticsIntegrationTest {
 
     private void insertHostEvent(String matchId, String name, Instant at, long matchTimeMs,
                                  float posX, float posZ, int seat, String params) {
+        insertHostEvent(matchId, name, at, matchTimeMs, posX, posZ, seat, params, "basement");
+    }
+
+    private void insertHostEvent(String matchId, String name, Instant at, long matchTimeMs,
+                                 float posX, float posZ, int seat, String params, String mapId) {
         analytics.update("""
                 INSERT INTO game_event (occurred_at, received_at, client_session_id, client_seq, room_code, match_id,
                     match_time_ms, user_public_id, event_name, phase, map_id, pos_x, pos_y, pos_z, from_host, schema_ver, params)
-                VALUES (?, ?, ?, ?, 'ABC234', ?, ?, ?, ?, 'Searching', 'basement', ?, 0, ?, 1, 2, ?)
+                VALUES (?, ?, ?, ?, 'ABC234', ?, ?, ?, ?, 'Searching', ?, ?, 0, ?, 1, 2, ?)
                 """, utc(at), utc(at), UUID.randomUUID().toString(), (long) seat, matchId, matchTimeMs,
-                UUID.randomUUID().toString(), name, posX, posZ, params);
+                UUID.randomUUID().toString(), name, mapId, posX, posZ, params);
     }
 
     private static LocalDateTime utc(Instant at) {

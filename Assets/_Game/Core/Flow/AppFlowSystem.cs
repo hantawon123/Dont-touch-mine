@@ -21,7 +21,10 @@ namespace Game.Core.Flow
         /// The settings screen. Like the closet, a detour off Home that only
         /// leads back to it. Appended for the same reason.
         /// </summary>
-        Settings
+        Settings,
+
+        /// <summary>A standalone tutorial launched from Home.</summary>
+        Tutorial
     }
 
     public sealed class AppFlowSystem
@@ -49,6 +52,7 @@ namespace Game.Core.Flow
                 case AppFlowState.Home:
                     return nextState == AppFlowState.CharacterCloset ||
                            nextState == AppFlowState.Settings ||
+                           nextState == AppFlowState.Tutorial ||
                            nextState == AppFlowState.RoomBrowser ||
                            nextState == AppFlowState.Lobby;
 
@@ -66,6 +70,8 @@ namespace Game.Core.Flow
                 case AppFlowState.Settings:
                     return nextState == AppFlowState.Home ||
                            nextState == AppFlowState.Lobby;
+                case AppFlowState.Tutorial:
+                    return nextState == AppFlowState.Home;
                 case AppFlowState.RoomBrowser:
                     return nextState == AppFlowState.Home ||
                            nextState == AppFlowState.Lobby;

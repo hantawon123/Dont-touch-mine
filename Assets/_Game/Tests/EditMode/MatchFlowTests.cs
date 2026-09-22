@@ -164,7 +164,11 @@ namespace Game.Tests.EditMode
             flow.AdvanceIfExpired(550d);
 
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
-            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(589.8d).Within(0.001d));
+            var expectedDeadline = 550d + rules.GetDurationSeconds(MatchPhase.Highlight) +
+                HighlightPresentationTiming.PostRollSeconds +
+                HighlightPresentationTiming.DeliveryGraceSeconds +
+                MatchRulesSO.MaxHighlightCount * HighlightPresentationTiming.OverheadSeconds;
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(expectedDeadline).Within(0.001d));
             Assert.That(flow.CompleteHighlight(), Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Result));
             Assert.That(state.PhaseEndsAt.CurrentValue, Is.Zero);
@@ -179,7 +183,11 @@ namespace Game.Tests.EditMode
 
             Assert.That(flow.CompleteSearchingEarly(300d), Is.True);
             Assert.That(state.CurrentPhase.CurrentValue, Is.EqualTo(MatchPhase.Highlight));
-            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(339.8d).Within(0.001d));
+            var expectedDeadline = 300d + rules.GetDurationSeconds(MatchPhase.Highlight) +
+                HighlightPresentationTiming.PostRollSeconds +
+                HighlightPresentationTiming.DeliveryGraceSeconds +
+                MatchRulesSO.MaxHighlightCount * HighlightPresentationTiming.OverheadSeconds;
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(expectedDeadline).Within(0.001d));
             Assert.That(flow.CompleteSearchingEarly(301d), Is.False);
         }
     }

@@ -6,7 +6,7 @@ namespace Game.Core.Players
     public static class AvatarHoodSelection
     {
         public const string DefaultShape = "hood_bear";
-        public const string DefaultColor = "hood_ice";
+        public const string DefaultColor = "hood_purple";
         private static readonly string[] Shapes = { "hood_bear", "hood_cat", "hood_dog", "hood_rabbit" };
         private static readonly string[] LegacyColors = { "hood_cream", "hood_pink", "hood_sky", "hood_mint", "hood_grey", "hood_lavender" };
 

@@ -1,4 +1,5 @@
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,7 +25,8 @@ namespace Game.Client.Lobby
         public const float Width = 576f;
         public const float FontSize = 32f;
         public const float CaptionFontSize = 24f;
-        public const string CategoryCaption = "카테고리";
+        public static string CategoryCaption =>
+            UiLocale.Applied(UiText.Lobby.Category);
         public const float Padding = 0f;
         public const float ContentSpacing = 22f;
         public const float MapRowPadding = 18f;
@@ -65,10 +67,26 @@ namespace Game.Client.Lobby
         private TextMeshProUGUI categoryValue;
         private TextMeshProUGUI mapName;
         private Image mapPreviewPhoto;
+        private UiLocale chromeLocale;
 
         public string CategoryLabel => categoryValue != null ? categoryValue.text : string.Empty;
 
         public string MapLabel => mapName != null ? mapName.text : string.Empty;
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureLayout();
+            if (categoryCaption != null)
+            {
+                categoryCaption.text = Copy(UiText.Lobby.Category);
+            }
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
 
         /// <summary>지금 보이는 맵 사진. 사진이 없는 맵·랜덤이면 null.</summary>
         public Sprite MapPreviewSprite =>
@@ -114,7 +132,8 @@ namespace Game.Client.Lobby
         }
 
         /// <param name="mapPreview">맵 사진. null이면 기존 단색 상자만 보인다.</param>
-        public void SetInfo(string categoryLabel, string mapLabel, Sprite mapPreview)
+        /// <param name="randomMap">랜덤이면 상자 한가운데에 "?"를 켠다.</param>
+        public void SetInfo(string categoryLabel, string mapLabel, Sprite mapPreview, bool randomMap = false)
         {
             EnsureLayout();
             if (categoryValue != null)
@@ -127,7 +146,12 @@ namespace Game.Client.Lobby
                 mapName.text = mapLabel ?? string.Empty;
             }
 
-            MapPreviewSprites.Apply(mapPreviewPhoto, mapPreview);
+            MapPreviewSprites.Apply(mapPreviewPhoto, randomMap ? null : mapPreview);
+            var preview = transform.Find("MapRow/MapPreview");
+            MapPreviewSprites.ApplyRandomMark(
+                preview,
+                randomMap,
+                MapPreviewSprites.RandomMarkLobbyFontSize);
         }
 
         private void Awake()

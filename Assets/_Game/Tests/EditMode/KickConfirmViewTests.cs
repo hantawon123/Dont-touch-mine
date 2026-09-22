@@ -50,7 +50,11 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     overlay.Find("Panel/AcceptButton").GetComponent<Image>().color,
                     Is.EqualTo(CharacterClosetStyle.Palette.AcceptFill));
-                Assert.That(overlay.Find("Panel/CloseButton"), Is.Not.Null);
+                var close = overlay.Find("Panel/CloseButton");
+                Assert.That(close, Is.Not.Null);
+                Assert.That(
+                    close.GetComponent<Image>().sprite,
+                    Is.EqualTo(SettingsStyle.LoadCloseIcon()));
 
                 view.Hide();
                 Assert.That(overlay.gameObject.activeSelf, Is.False);
