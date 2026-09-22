@@ -16,9 +16,11 @@ import com.ssafy.d205.domain.friend.dto.SendFriendRequestResponse;
 import com.ssafy.d205.domain.friend.entity.Friendship;
 import com.ssafy.d205.domain.friend.entity.FriendshipStatus;
 import com.ssafy.d205.domain.friend.repository.FriendRequestRow;
+import com.ssafy.d205.domain.friend.repository.FriendSummaryRow;
 import com.ssafy.d205.domain.friend.repository.FriendshipRepository;
 import com.ssafy.d205.domain.notification.event.UserNotificationEvent;
 import com.ssafy.d205.domain.presence.entity.PresenceTimeout;
+import com.ssafy.d205.domain.user.dto.AppearanceResponse;
 import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.repository.UserRepository;
 import com.ssafy.d205.global.common.TimeProvider;
@@ -177,8 +179,10 @@ public class FriendshipService {
     }
 
     /**
-     * 친구 목록. 각 친구의 접속 상태를 함께 돌려줍니다.
-
+     * 친구 목록. 각 친구의 접속 상태와 마지막에 저장한 외형을 함께 돌려줍니다.
+     *
+     * <p>외형은 온라인이든 오프라인이든 같습니다. 홈 친구 목록이 접속이 끊긴 뒤에도
+     * 마지막 얼굴을 보여 주기 위한 값입니다.
      */
     @Transactional(readOnly = true)
     public FriendListResponse listFriends(String callerUserId) {
@@ -192,8 +196,23 @@ public class FriendshipService {
                 .map(row -> new FriendSummary(
                         row.getUserId(),
                         row.getNickname(),
-                        PresenceTimeout.effective(row.getStatus(), row.getHeartbeatAt(), thresholdAt)))
+                        PresenceTimeout.effective(row.getStatus(), row.getHeartbeatAt(), thresholdAt),
+                        row.getBodyColor() != null,
+                        appearanceOf(row)))
                 .toList());
+    }
+
+    /**
+     * 저장한 외형이 없으면 null. 계정 응답과 같이 appearanceSet 이 거짓이면 객체를
+     * 만들지 않습니다. JsonUtility 가 null 객체를 빈 객체로 읽기 때문에, 클라가
+     * 판별하는 값은 플래그입니다.
+     */
+    private static AppearanceResponse appearanceOf(FriendSummaryRow row) {
+        if (row.getBodyColor() == null) {
+            return null;
+        }
+        return new AppearanceResponse(
+                row.getBodyColor(), row.getHood(), row.getShoes(), row.getFace());
     }
 
     private Friendship pending(User me, User other) {

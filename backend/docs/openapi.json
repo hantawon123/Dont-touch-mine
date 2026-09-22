@@ -520,6 +520,12 @@
       },
       "FriendSummary" : {
         "properties" : {
+          "appearance" : {
+            "$ref" : "#/components/schemas/AppearanceResponse"
+          },
+          "appearanceSet" : {
+            "type" : "boolean"
+          },
           "nickname" : {
             "type" : "string"
           },

@@ -192,8 +192,9 @@ PUT /api/v1/accounts/me/appearance
 읽지 않고 필드가 비어 있는 객체를 만듭니다. `appearanceSet` 이 그 함정을 피하려고 있는
 값입니다. `nicknameSet` 과 같은 역할입니다.
 
-남의 외형을 서버에서 조회하는 길은 없습니다. 서버는 내 것만 기억하고, 로비와 경기에서
-다른 사람의 외형을 보여 주는 복제는 아직 클라이언트에 없습니다.
+내 계정 조회 말고 남의 외형을 따로 묻는 엔드포인트는 없습니다. 친구 목록
+(`GET /api/v1/friends`) 이 그 사람이 마지막에 저장한 외형을 함께 돌려줍니다. 오프라인이어도
+같은 값입니다. `appearanceSet` / `appearance` 의 읽기 규칙은 계정 응답과 같습니다.
 
 #### 초기화
 
@@ -298,6 +299,8 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 ## 6. 접속 상태
 
 친구 목록의 `presence` 는 `OFFLINE` / `ONLINE` / `IN_LOBBY` / `IN_GAME` 넷 중 하나입니다.
+각 행에는 그 사람이 마지막에 저장한 외형(`appearanceSet`, `appearance`)도 같이 옵니다.
+오프라인이어도 같은 값이고, 읽기는 4절과 같습니다.
 
 | 값 | 뜻 |
 | --- | --- |

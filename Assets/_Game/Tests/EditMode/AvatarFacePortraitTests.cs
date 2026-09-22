@@ -83,5 +83,33 @@ namespace Game.Architecture.Tests
                 Object.DestroyImmediate(canvas);
             }
         }
+
+        [Test]
+        public void Follow_KeepsLastLookWhenLiveRosterForgetsThePlayer()
+        {
+            var canvas = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas));
+            var circle = new GameObject(
+                    "Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))
+                .GetComponent<RectTransform>();
+            try
+            {
+                circle.SetParent(canvas.transform, false);
+                var worn = new AvatarAppearance("body_a", "hood_a", "shoes_a", "face_a");
+                AvatarAppearanceBoard.Remember("p1", worn);
+
+                var slot = AvatarFaceSlot.Attach(circle);
+                slot.Follow("p1");
+                AvatarAppearanceBoard.Replace(null);
+                slot.Follow("p1");
+
+                Assert.That(AvatarAppearanceBoard.TryGet("p1", out var found), Is.True);
+                Assert.That(found, Is.EqualTo(worn));
+                Assert.That(circle.Find(AvatarFacePortrait.PortraitName), Is.Not.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
     }
 }
