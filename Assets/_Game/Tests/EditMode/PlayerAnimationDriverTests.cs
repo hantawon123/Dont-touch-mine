@@ -214,6 +214,9 @@ namespace Game.Tests.EditMode
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Pickup_Low"), Is.True);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("PutUp_TwoHands"), Is.True);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("PutDown_Prone"), Is.True);
+            // 1회성 표현은 걸으면 끊기고, 춤은 걸어도 이어진다.
+            Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Emote_Wave"), Is.True);
+            Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Emote_HipHop"), Is.False);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Land"), Is.True);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Carry_TwoHands_Land"), Is.True);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Prone_End"), Is.False);

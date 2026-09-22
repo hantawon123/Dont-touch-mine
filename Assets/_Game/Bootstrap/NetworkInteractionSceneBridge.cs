@@ -313,7 +313,9 @@ namespace Game.Bootstrap
                         motor.AttackSequence,
                         new Vector2(motor.AnimationMoveX, motor.AnimationMoveZ),
                         motor.AnimationCarrying && !network.IsResultSceneLoaded,
-                        motor.LookPitchDegrees);
+                        motor.LookPitchDegrees,
+                        motor.EmoteSequence,
+                        motor.EmoteId);
                 }
 
                 var interactor = avatar.GetComponent<PlayerInteractor>();

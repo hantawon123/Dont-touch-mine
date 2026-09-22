@@ -159,6 +159,23 @@ namespace Game.Core.Players
             float lookYawDegrees,
             float lookPitchDegrees,
             PlayerInputButtons buttons)
+            : this(moveX, moveY, lookYawDegrees, lookPitchDegrees, buttons, 0, 0)
+        {
+        }
+
+        /// <param name="emoteSequence">
+        /// 감정 표현 요청 번호. 0은 요청 없음이고, 고를 때마다 1..255로 바뀐다.
+        /// 같은 값이 계속 실리므로 입력 틱이 빠져도 요청이 사라지지 않는다.
+        /// </param>
+        /// <param name="emoteId">요청한 감정 표현의 카탈로그 ID.</param>
+        public PlayerInputIntent(
+            float moveX,
+            float moveY,
+            float lookYawDegrees,
+            float lookPitchDegrees,
+            PlayerInputButtons buttons,
+            byte emoteSequence,
+            byte emoteId)
         {
             if (!float.IsFinite(moveX) ||
                 !float.IsFinite(moveY) ||
@@ -188,6 +205,8 @@ namespace Game.Core.Players
             LookYawDegrees = NormalizeYaw(lookYawDegrees);
             LookPitchDegrees = ClampPitch(lookPitchDegrees);
             Buttons = buttons;
+            EmoteSequence = emoteSequence;
+            EmoteId = emoteId;
         }
 
         public float MoveX { get; }
@@ -195,6 +214,12 @@ namespace Game.Core.Players
         public float LookYawDegrees { get; }
         public float LookPitchDegrees { get; }
         public PlayerInputButtons Buttons { get; }
+        public byte EmoteSequence { get; }
+        public byte EmoteId { get; }
+
+        /// <summary>다음 감정 표현 요청 번호. 0은 "요청 없음"이라 건너뛴다.</summary>
+        public static byte NextEmoteSequence(byte current) =>
+            current == byte.MaxValue ? (byte)1 : (byte)(current + 1);
 
         public bool IsPressed(PlayerInputButtons button) =>
             (Buttons & button) == button;

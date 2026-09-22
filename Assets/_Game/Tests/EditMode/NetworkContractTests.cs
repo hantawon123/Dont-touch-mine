@@ -963,6 +963,41 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void NetworkInput_CarriesEmoteRequest()
+        {
+            var intent = new PlayerInputIntent(0f, 0f, 0f, 0f, PlayerInputButtons.None, 7, 3);
+            var input = NetworkPlayerInput.FromIntent(intent);
+
+            Assert.That(input.EmoteSequence, Is.EqualTo(7));
+            Assert.That(input.EmoteId, Is.EqualTo(3));
+            Assert.That(NetworkPlayerInput.FromIntent(default).EmoteSequence, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void EmoteRequest_SequenceSkipsZeroAndWraps()
+        {
+            Assert.That(PlayerInputIntent.NextEmoteSequence(0), Is.EqualTo(1));
+            Assert.That(PlayerInputIntent.NextEmoteSequence(1), Is.EqualTo(2));
+            Assert.That(PlayerInputIntent.NextEmoteSequence(byte.MaxValue), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void NetworkPlayer_EmoteStartsOnceStandingOnGround()
+        {
+            // 0은 요청 없음. 재접속으로 번호가 0부터 다시 시작해도 표현이 나가지 않는다.
+            Assert.That(NetworkPlayerMotor.IsNewEmoteRequest(0, 5), Is.False);
+            Assert.That(NetworkPlayerMotor.IsNewEmoteRequest(5, 5), Is.False);
+            Assert.That(NetworkPlayerMotor.IsNewEmoteRequest(6, 5), Is.True);
+            // 같은 표현 연타도 번호가 바뀌므로 다시 시작한다.
+            Assert.That(NetworkPlayerMotor.IsNewEmoteRequest(1, 255), Is.True);
+
+            Assert.That(NetworkPlayerMotor.CanStartEmote(true, PlayerPosture.Standing), Is.True);
+            Assert.That(NetworkPlayerMotor.CanStartEmote(false, PlayerPosture.Standing), Is.False);
+            Assert.That(NetworkPlayerMotor.CanStartEmote(true, PlayerPosture.Crouching), Is.False);
+            Assert.That(NetworkPlayerMotor.CanStartEmote(true, PlayerPosture.Prone), Is.False);
+        }
+
+        [Test]
         public void NetworkPlayerPrefab_HasAuthoritativeMovementComponents()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(

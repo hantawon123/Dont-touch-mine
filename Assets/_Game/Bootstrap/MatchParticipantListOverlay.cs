@@ -1,5 +1,6 @@
 using System;
 using Game.Client.Cameras;
+using Game.Client.Emotes;
 using Game.Client.Lobby;
 using Game.Client.Match;
 using Game.Client.Players;
@@ -88,8 +89,8 @@ namespace Game.Bootstrap
                 return;
             }
 
-            var playersPressed = WasPressed(keyboard.digit2Key) ||
-                WasPressed(keyboard.numpad2Key);
+            var playersPressed = !EmoteWheelController.BlocksLobbyShortcuts &&
+                (WasPressed(keyboard.digit2Key) || WasPressed(keyboard.numpad2Key));
             if (!playersPressed)
             {
                 return;

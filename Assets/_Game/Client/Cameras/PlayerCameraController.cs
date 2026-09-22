@@ -1,3 +1,4 @@
+using Game.Client.Emotes;
 using Game.Client.Players;
 using Game.Core.Settings;
 using VContainer;
@@ -78,6 +79,7 @@ namespace Game.Client.Cameras
             CameraViewPreference preference = null)
         {
             controls = settings;
+            GetComponent<EmoteWheelController>()?.BindSettings(settings);
             if (preference != null)
             {
                 BindViewPreference(preference);
@@ -214,6 +216,8 @@ namespace Game.Client.Cameras
         {
             playerMap?.Enable();
             SetCursorLocked(cursorCaptureEnabled);
+            EmoteWheelController.Bind(this);
+            GetComponent<EmoteWheelController>()?.BindSettings(controls);
         }
 
         private void OnDisable()
@@ -408,7 +412,6 @@ namespace Game.Client.Cameras
         public PlayerMovement FollowMovement => followMovement;
         public Transform FollowTarget => followTarget;
         public float PitchDegrees => pitch;
-        public bool IsFirstPerson => isFirstPerson;
 
         /// <summary>
         /// true인 동안 마우스 이동이 시선을 돌리지 않는다. 배치 모드가 우클릭 회전 중 마우스를 물건 쪽으로 가져갈 때 켠다.

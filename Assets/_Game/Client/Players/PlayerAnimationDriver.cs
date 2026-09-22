@@ -1,5 +1,6 @@
 using Game.Client.Cameras;
 using Game.Client.Combat;
+using Game.Client.Emotes;
 using Game.Client.Interactions;
 using Game.Core.Players;
 using UnityEngine;
@@ -119,6 +120,68 @@ namespace Game.Client.Players
         /// <summary>펀치 모션이 재생 중인가. 1인칭 팔이 때리는 팔을 조준점 쪽으로 보정할 때 쓴다.</summary>
         public bool IsPunching => punchUntilTime > 0f && Time.time < punchUntilTime;
 
+        /// <summary>
+        /// 감정 클립이 애니메이터에 있으면 재생한다. 없는 상태 이름은 무시한다.
+        /// </summary>
+        public bool TryPlayEmote(EmoteId id)
+        {
+            if (animator == null || (combatant != null && combatant.IsStunned))
+            {
+                return false;
+            }
+
+            var def = EmoteCatalog.Of(id);
+            if (!animator.HasState(0, Animator.StringToHash(def.StateName)))
+            {
+                return false;
+            }
+
+            punchUntilTime = 0f;
+            // 앉기→서기 전환 클립이 이 표현을 덮어쓰지 않게, 지금 자세를 이미 본 것으로 친다.
+            if (movement != null)
+            {
+                lastPosture = movement.Posture;
+            }
+
+            var seconds = def.Loop ? 600f : Mathf.Max(0.2f, ClipLength(def.StateName, def.DurationSeconds));
+            var restart = !def.Loop && currentState == def.StateName;
+            PlayOneShot(def.StateName, seconds);
+            if (restart)
+            {
+                // Update는 상태 이름이 바뀔 때만 크로스페이드하므로, 같은 1회성 표현 연타는 여기서 처음부터 다시 튼다.
+                animator.Play(def.StateName, 0, 0f);
+            }
+
+            return true;
+        }
+
+        /// <summary>네트워크 모터가 애니메이션 상태를 주는가. 그러면 감정 표현도 복제 상태로만 시작한다.</summary>
+        public bool UsesNetworkState => usesNetworkState;
+
+        /// <summary>표현 계층이 보는 접지 여부. 네트워크 플레이어는 CharacterController가 꺼져 있어 복제값을 쓴다.</summary>
+        public bool IsGrounded => usesNetworkState ? networkGrounded : movement != null && movement.IsGrounded;
+
+        private float ClipLength(string state, float fallback)
+        {
+            var clips = animator.runtimeAnimatorController != null
+                ? animator.runtimeAnimatorController.animationClips
+                : null;
+            if (clips == null)
+            {
+                return fallback;
+            }
+
+            for (var i = 0; i < clips.Length; i++)
+            {
+                if (clips[i] != null && clips[i].name == state)
+                {
+                    return clips[i].length;
+                }
+            }
+
+            return fallback;
+        }
+
         /// <summary>이번 펀치가 왼손인가.</summary>
         public bool IsLeftPunch => leftPunch;
 
@@ -142,6 +205,7 @@ namespace Game.Client.Players
         private float networkSpeed;
         private bool networkGrounded;
         private int networkAttackSequence;
+        private int networkEmoteSequence;
         private Vector2 networkMoveLocal;
         private bool networkCarrying;
         private bool carryOverride;
@@ -457,15 +521,38 @@ namespace Game.Client.Players
             bool carrying,
             float lookPitchDegrees)
         {
+            ApplyNetworkState(planarSpeed, grounded, attackSequence, planarDirectionLocal, carrying, lookPitchDegrees, 0, 0);
+        }
+
+        public void ApplyNetworkState(
+            float planarSpeed,
+            bool grounded,
+            int attackSequence,
+            Vector2 planarDirectionLocal,
+            bool carrying,
+            float lookPitchDegrees,
+            int emoteSequence,
+            int emoteId)
+        {
             if (!usesNetworkState)
             {
                 usesNetworkState = true;
                 networkAttackSequence = attackSequence;
+                networkEmoteSequence = emoteSequence;
             }
-            else if (networkAttackSequence != attackSequence)
+            else
             {
-                networkAttackSequence = attackSequence;
-                PlayPunch();
+                if (networkAttackSequence != attackSequence)
+                {
+                    networkAttackSequence = attackSequence;
+                    PlayPunch();
+                }
+
+                if (networkEmoteSequence != emoteSequence)
+                {
+                    networkEmoteSequence = emoteSequence;
+                    TryPlayEmote((EmoteId)emoteId);
+                }
             }
 
             networkSpeed = Mathf.Max(0f, planarSpeed);
@@ -890,6 +977,7 @@ namespace Game.Client.Players
             (state.StartsWith("Pickup", System.StringComparison.Ordinal) ||
              state.StartsWith("PutUp", System.StringComparison.Ordinal) ||
              state.StartsWith("PutDown", System.StringComparison.Ordinal) ||
+             EmoteCatalog.IsOneShotEmoteState(state) ||
              IsLandState(state));
 
         internal static bool IsLandState(string state) =>

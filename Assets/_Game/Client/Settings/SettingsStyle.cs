@@ -707,6 +707,8 @@ namespace Game.Client.Settings
                         return UiText.Settings.ActionProne;
                     case ControlAction.ToggleKeyGuide:
                         return UiText.Settings.ActionKeyGuide;
+                    case ControlAction.EmoteWheel:
+                        return UiText.Settings.ActionEmoteWheel;
                     default:
                         return action.ToString();
                 }
