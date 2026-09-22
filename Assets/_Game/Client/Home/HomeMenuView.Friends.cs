@@ -852,17 +852,24 @@ namespace Game.Client.Home
                     continue;
                 }
 
-                row.Name.text = friends[index].Nickname;
+                var friend = friends[index];
+                row.Name.text = friend.Nickname;
                 row.Name.color = online
                     ? HomeStyle.Palette.FriendOnline
                     : HomeStyle.Palette.FriendOffline;
+                if (friend.AppearanceSet)
+                {
+                    Game.Core.Players.AvatarAppearanceBoard.Remember(
+                        friend.PlayerId, friend.Appearance);
+                }
+
                 var avatar = row.Rect.Find("Avatar") as RectTransform;
                 Game.Client.Character.AvatarFaceSlot.Attach(avatar)
-                    ?.Follow(friends[index].PlayerId);
+                    ?.Follow(friend.PlayerId);
                 row.Row.onClick.RemoveAllListeners();
                 var contextClick = row.Rect.GetComponent<HomeFriendContextClick>()
                     ?? row.Rect.gameObject.AddComponent<HomeFriendContextClick>();
-                var playerId = friends[index].PlayerId;
+                var playerId = friend.PlayerId;
                 contextClick.RightClicked = pointer => OpenFriendContextMenu(playerId, pointer);
 
                 // The mark says this friend is signed in to Steam but not in
@@ -871,7 +878,7 @@ namespace Game.Client.Home
                 {
                     row.Trailing.sprite = steamIcon;
                     row.Trailing.enabled =
-                        friends[index].Presence == FriendPresence.SteamOnline
+                        friend.Presence == FriendPresence.SteamOnline
                         && steamIcon != null;
                 }
             }
