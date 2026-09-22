@@ -228,9 +228,24 @@ namespace Game.Client.Home
             public const float SidePadding = 30f;
 
             public const float ToggleRowCentreY = -44f;
-            public const float ToggleLeft = 190f;
             public static readonly Vector2 ToggleSize = new Vector2(50f, 30f);
             public const float ToggleStrokeThickness = 3f;
+
+            /// <summary>
+            /// Between the row's text and the toggle, which sits flush with the
+            /// panel's right padding. The toggle is pinned to that edge rather
+            /// than to a fixed offset from the left so a label longer than the
+            /// Korean one -- the English "Allow nickname search" is half again
+            /// as wide -- runs into the gap instead of over the pill.
+            /// </summary>
+            public const float ToggleLabelGap = 12f;
+
+            /// <summary>
+            /// What the row's label and its failure message get to share: the
+            /// panel minus its padding, the toggle, and the gap.
+            /// </summary>
+            public static readonly float ToggleRowTextWidth =
+                PanelSize.x - (SidePadding * 2f) - ToggleSize.x - ToggleLabelGap;
 
             /// <summary>
             /// How far the knob sits inside the pill. Not given by the design;
