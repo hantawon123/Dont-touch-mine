@@ -10,7 +10,7 @@ Linux 서버 빌드·배포는 `d205-unity-linux` 노드의 `unity-linux` 라벨
 
 1. 기능 MR을 develop에 병합하고 검증한 내용을 release로 병합한다.
 2. Jenkins의 계약 테스트 → Windows 빌드 → Linux 서버 빌드 → ZIP 생성 → 서버 준비 확인을 기다린다.
-3. `https://j15d205.p.ssafy.io/play/`에서 ZIP을 받고 모두 압축 해제한 뒤 `Game.exe`를 실행한다.
+3. `https://j15d205.p.ssafy.io/play/`에서 ZIP을 받고 모두 압축 해제한 뒤 `Don't Touch Mine.exe`를 실행한다.
 4. 기존 파일은 자동 패치되지 않는다. 새 버전 공개 후에는 참가자 모두 최신 ZIP을 사용한다.
 
 각 ZIP과 서버의 `version.txt`는 동일한 전체 커밋 SHA다. 이전 버전은 Photon 매칭 영역이 달라 최신 방에 입장하지 않는다.
