@@ -7,6 +7,10 @@ import re
 import shutil
 import zipfile
 
+# Matches the player name Unity writes from productName.
+EXECUTABLE = "Don't Touch Mine.exe"
+DATA = "Don't Touch Mine_Data"
+
 
 def package(client, output, revision):
     client, output = Path(client), Path(output)
@@ -14,10 +18,10 @@ def package(client, output, revision):
         raise ValueError('Use the full source commit')
     if (client / 'version.txt').read_text().strip() != revision:
         raise ValueError('Client version mismatch')
-    required = ('Game.exe', 'UnityPlayer.dll', 'Game_Data/globalgamemanagers')
+    required = (EXECUTABLE, 'UnityPlayer.dll', f'{DATA}/globalgamemanagers')
     if not all((client / name).is_file() for name in required):
         raise ValueError('Incomplete Windows player')
-    roots = ('Game.exe', 'UnityPlayer.dll', 'UnityCrashHandler64.exe', 'Game_Data',
+    roots = (EXECUTABLE, 'UnityPlayer.dll', 'UnityCrashHandler64.exe', DATA,
              'MonoBleedingEdge', 'version.txt')
     files = []
     for name in roots:

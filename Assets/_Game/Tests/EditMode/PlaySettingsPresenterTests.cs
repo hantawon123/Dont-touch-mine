@@ -50,6 +50,25 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Host_RoomClampedTheRequest_PanelShowsWhatTheRoomAccepted()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(true);
+            // A room never shrinks below the people already in it.
+            session.Accept = draft => Draft(Math.Max(4, draft.MaxPlayers));
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            view.Draft = Draft(2);
+            view.RequestApply();
+            Assert.That(session.ApplyCount, Is.EqualTo(1));
+            Assert.That(view.Draft.MaxPlayers, Is.EqualTo(4));
+            Assert.That(view.WarningVisible, Is.False);
+        }
+
+        [Test]
         public void Host_StartRequested_ClosesThenRequestsStart()
         {
             using var session = new HostSession();
@@ -598,7 +617,13 @@ namespace Game.Tests.EditMode
             }
             public void RequestKick(string id) { }
             public void RequestHostTransfer(string id) { }
-            public void RequestApplySettings(PlaySettingsDraft value) { ApplyCount++; settings.Value = value; }
+            /// <summary>Stands in for the room clamping or refusing a request.</summary>
+            public Func<PlaySettingsDraft, PlaySettingsDraft> Accept;
+            public void RequestApplySettings(PlaySettingsDraft value)
+            {
+                ApplyCount++;
+                settings.Value = Accept == null ? value : Accept(value);
+            }
             public void Dispose() { host.Dispose(); settings.Dispose(); }
         }
 
