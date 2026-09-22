@@ -1,7 +1,9 @@
+using Game.Bootstrap;
 using Game.Client.Character;
 using Game.Core.Players;
 using NUnit.Framework;
 using UnityEditor;
+using VContainer;
 
 namespace Game.Tests.EditMode
 {
@@ -34,6 +36,22 @@ namespace Game.Tests.EditMode
             // An empty appearance means "whatever the model was authored with",
             // so a default that compares equal to it dresses nobody.
             Assert.That(catalog.Default, Is.Not.EqualTo(AvatarAppearance.Default));
+        }
+
+        [Test]
+        public void ProjectServices_DressANewPlayerInTheCatalogueDefault()
+        {
+            // The account's own appearance lands on this later, through
+            // AvatarAppearanceSeed. Nobody with no account gets raw art.
+            var catalog = AssetDatabase.LoadAssetAtPath<AvatarPartCatalog>(CatalogPath);
+            var builder = new ContainerBuilder();
+            ProjectLifetimeScope.RegisterServices(builder, partCatalog: catalog);
+
+            using var container = builder.Build();
+
+            Assert.That(
+                container.Resolve<AvatarAppearanceState>().Current,
+                Is.EqualTo(catalog.Default));
         }
     }
 }
