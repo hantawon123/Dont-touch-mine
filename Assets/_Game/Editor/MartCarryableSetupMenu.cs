@@ -816,6 +816,18 @@ namespace Game.Editor
 
             var undoGroup = Undo.GetCurrentGroup();
             Undo.SetCurrentGroupName("Repair Carryables");
+            var (repaired, skipped) = ApplyRepairs(repairs);
+            Undo.CollapseUndoOperations(undoGroup);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorUtility.DisplayDialog(
+                "Carryable 복구",
+                $"복구 {repaired}개, 실패 또는 제외 {skipped}개\n씬을 저장하세요.",
+                "확인");
+        }
+
+        /// <summary>대화상자 없이 복구만 한다. 메뉴와 배치 모드가 함께 쓴다.</summary>
+        private static (int repaired, int skipped) ApplyRepairs(List<Repair> repairs)
+        {
             EnsureFolder(VariantFolder);
 
             var repairedAssets = new HashSet<string>(StringComparer.Ordinal);
@@ -844,12 +856,57 @@ namespace Game.Editor
             }
 
             AssetDatabase.SaveAssets();
-            Undo.CollapseUndoOperations(undoGroup);
-            EditorSceneManager.MarkSceneDirty(scene);
-            EditorUtility.DisplayDialog(
-                "Carryable 복구",
-                $"복구 {repaired}개, 실패 또는 제외 {skipped}개\n씬을 저장하세요.",
-                "확인");
+            return (repaired, skipped);
+        }
+
+        private static List<Repair> CollectRepairs(Scene scene, out int total)
+        {
+            var carryables = CollectCarryables(scene);
+            total = carryables.Count;
+            var repairs = new List<Repair>();
+            foreach (var carryable in carryables)
+            {
+                var repair = InspectCarryable(carryable);
+                if (repair != null)
+                {
+                    repairs.Add(repair);
+                }
+            }
+
+            return repairs;
+        }
+
+        /// <summary>
+        /// 배치 모드 진입점. 에디터를 닫은 상태에서 매치 맵 두 씬을 열어 복구하고 저장한다.
+        /// <c>Unity.exe -batchmode -quit -projectPath &lt;프로젝트&gt; -executeMethod Game.Editor.MartCarryableSetupMenu.RepairMatchMapCarryablesBatch</c>
+        /// </summary>
+        public static void RepairMatchMapCarryablesBatch()
+        {
+            string[] scenePaths =
+            {
+                "Assets/_Game/Content/Scenes/Mansion.unity",
+                "Assets/_Game/Content/Scenes/Supermarket.unity",
+            };
+
+            foreach (var scenePath in scenePaths)
+            {
+                var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                var repairs = CollectRepairs(scene, out var total);
+                if (repairs.Count == 0)
+                {
+                    Debug.Log($"[MartCarryable] {scene.name}: Carryable {total}개 모두 규칙 준수. 건너뜀");
+                    continue;
+                }
+
+                var (repaired, skipped) = ApplyRepairs(repairs);
+                Debug.Log(
+                    $"[MartCarryable] {scene.name}: Carryable {total}개 중 위반 {repairs.Count}개, " +
+                    $"복구 {repaired}개, 실패 또는 제외 {skipped}개");
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene);
+            }
+
+            AssetDatabase.SaveAssets();
         }
 
         private static List<GameObject> CollectCarryables(Scene scene)
