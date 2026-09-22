@@ -173,6 +173,8 @@ namespace Game.Bootstrap
         private GameObject fallbackObject;
         private MatchPhase phase = MatchPhase.Waiting;
         private bool yieldedToResult;
+        private float coverOpacity;
+        private string reportedState;
         private int replayIndex;
         private readonly Dictionary<string, ReplayVisual> playerVisuals = new(StringComparer.Ordinal);
         private readonly Dictionary<string, ReplayVisual> itemVisuals = new(StringComparer.Ordinal);
@@ -257,6 +259,33 @@ namespace Game.Bootstrap
             }
         }
 
+        /// <summary>Single place the black cover changes, so a report can state it.</summary>
+        private void SetCover(float opacity)
+        {
+            coverOpacity = opacity;
+            transition.SetOpacity(opacity);
+        }
+
+        /// <summary>
+        /// Says why this frame looks the way it does, once per change of answer.
+        /// A highlight that never appears is a cover that stays opaque, and the
+        /// branch that left it there is the whole diagnosis.
+        /// </summary>
+        private void Report(string state, int index = -1, double elapsed = double.NaN)
+        {
+            if (string.Equals(reportedState, state, StringComparison.Ordinal)) return;
+            reportedState = state;
+            Debug.Log(
+                $"[Highlight-QA] {state} phase={phase} cover={coverOpacity:F2} ready={readinessConfirmed} " +
+                $"replay={replay.Count} index={index} elapsed={elapsed:F2} endsAt={highlightEndsAt:F2} " +
+                $"total={TotalDuration():F2} serverTime={(clock.IsRuntimeReady ? clock.ServerTime : double.NaN):F2} " +
+                $"notice={gameEndNoticeEndsAt:F2} skippedAll={skippedAll} " +
+                $"resultScene={network is INetworkResultNavigation { IsResultSceneLoaded: true }} " +
+                $"resultScope={UnityEngine.Object.FindFirstObjectByType<ResultLifetimeScope>(FindObjectsInactive.Exclude) != null} " +
+                $"hud={HasLiveHud} cctvHud={cctvHud != null} player={replayPlayer != null} " +
+                $"director={cameraDirector != null} frame={Time.frameCount}");
+        }
+
         public bool SkipCurrent()
         {
             if (!TryGetLocalPlaybackPosition(out _, out var remaining)) return false;
@@ -293,7 +322,11 @@ namespace Game.Bootstrap
             }
 
             // Fade the live camera out, then let Result fade in over it.
-            if (!clock.IsRuntimeReady) return;
+            if (!clock.IsRuntimeReady)
+            {
+                Report("runtime-not-ready");
+                return;
+            }
             if (IsResultPresentationActive())
             {
                 HideHighlightHud();
@@ -306,6 +339,7 @@ namespace Game.Bootstrap
                     }
                 }
 
+                Report("yielded-to-result");
                 return;
             }
 
@@ -316,7 +350,8 @@ namespace Game.Bootstrap
                 var fadeElapsed = double.IsNaN(matchEndedAt)
                     ? 0d
                     : clock.ServerTime - matchEndedAt;
-                transition.SetOpacity(HighlightPresentationTiming.MatchEndFadeOutOpacity(fadeElapsed));
+                SetCover(HighlightPresentationTiming.MatchEndFadeOutOpacity(fadeElapsed));
+                Report("game-end-notice");
                 return;
             }
             var keyboard = Keyboard.current;
@@ -330,6 +365,7 @@ namespace Game.Bootstrap
                 if (!readinessConfirmed && network is INetworkHighlightReady skippedReady)
                     readinessConfirmed = skippedReady.TryConfirmHighlightReady();
                 TryFinishLocalViewing();
+                Report("skipped-all");
                 return;
             }
 
@@ -341,8 +377,9 @@ namespace Game.Bootstrap
                 readinessConfirmed = network is INetworkHighlightReady emptyReady &&
                                      emptyReady.TryConfirmHighlightReady();
                 PlaybackSourceTime = null;
-                transition.SetOpacity(1f);
+                SetCover(1f);
                 PublishHighlightHud(-1, 0d);
+                Report("awaiting-ready-empty-replay");
                 return;
             }
             if (!readinessConfirmed && replay.Count > 0)
@@ -356,8 +393,9 @@ namespace Game.Bootstrap
                         Debug.LogWarning("[Highlight] Waiting for player visuals and output camera before acknowledging readiness.");
                         lastWarnedIndex = 0;
                     }
-                    transition.SetOpacity(1f);
+                    SetCover(1f);
                     PublishHighlightHud(0, 0d);
+                    Report("awaiting-visuals", 0, 0d);
                     return;
                 }
                 readinessConfirmed = network is INetworkHighlightReady ready && ready.TryConfirmHighlightReady();
@@ -368,8 +406,9 @@ namespace Game.Bootstrap
             if (highlightEndsAt <= 0d || elapsed < -TimelineEpsilonSeconds || replay.Count == 0)
             {
                 PlaybackSourceTime = null;
-                transition.SetOpacity(1f);
+                SetCover(1f);
                 PublishHighlightHud(-1, 0d);
+                Report("timeline-not-scheduled", -1, elapsed);
                 return;
             }
             elapsed = Math.Max(0d, elapsed);
@@ -385,6 +424,7 @@ namespace Game.Bootstrap
                 skippedAll = true;
                 StopPlayback();
                 TryFinishLocalViewing();
+                Report("timeline-past-end", index, elapsed);
                 return;
             }
             if (replayPlayer == null || replayIndex != index)
@@ -404,15 +444,17 @@ namespace Game.Bootstrap
                         Debug.LogWarning($"[Highlight] Cannot prepare {replay[index].Candidate.Type}: check replay frames, player visuals and output camera.");
                         lastWarnedIndex = index;
                     }
-                    transition.SetOpacity(1f);
+                    SetCover(1f);
                     PublishHighlightHud(index, elapsed);
+                    Report("cannot-prepare", index, elapsed);
                     return;
                 }
                 if (changedHighlight)
                 {
                     PlaybackSourceTime = null;
-                    transition.SetOpacity(1f);
+                    SetCover(1f);
                     PublishHighlightHud(index, elapsed);
+                    Report("switching-highlight", index, elapsed);
                     return;
                 }
             }
@@ -432,7 +474,10 @@ namespace Game.Bootstrap
             cameraDirector.Tick(Time.unscaledDeltaTime);
             if (cctvHud != null) cctvHud.SetCctvInfo(string.IsNullOrEmpty(cameraDirector.CctvLocation)
                 ? "3인칭 추적" : cameraDirector.CctvLocation, DateTimeOffset.UtcNow);
-            transition.SetOpacity(HighlightPresentationTiming.Opacity(elapsed, duration));
+            SetCover(HighlightPresentationTiming.Opacity(elapsed, duration));
+            // A constant: switching-highlight sits between two clips, so each one
+            // still reports once without building a string every frame.
+            Report("playing", index, elapsed);
         }
 
         private void OnMatchStateReceived(MatchStateSnapshot snapshot)
@@ -452,16 +497,16 @@ namespace Game.Bootstrap
                 localViewingCompletionStarted = false;
                 localViewingComplete = false;
                 MatchChatView.ApplyAllowsActivation(false);
-                transition.SetOpacity(!clock.IsRuntimeReady || clock.ServerTime < gameEndNoticeEndsAt ? 0f : 1f);
+                SetCover(!clock.IsRuntimeReady || clock.ServerTime < gameEndNoticeEndsAt ? 0f : 1f);
                 return;
             }
 
             // The authority can end the shared timeline before this client's
             // final presentation Tick. Cover the live camera before restoring it.
             if (previousPhase == MatchPhase.Highlight && !skippedAll)
-                transition.SetOpacity(1f);
+                SetCover(1f);
             StopPlayback();
-            if (phase == MatchPhase.Hiding) transition.SetOpacity(0f);
+            if (phase == MatchPhase.Hiding) SetCover(0f);
             if (phase == MatchPhase.Waiting || phase == MatchPhase.Hiding)
             {
                 replay = Array.Empty<HighlightReplayData>();
@@ -550,7 +595,7 @@ namespace Game.Bootstrap
             // after this point LobbyLifetimeScope alone owns the cover handoff.
             if (!localViewingCompletionStarted)
             {
-                transition.SetOpacity(1f);
+                SetCover(1f);
                 localViewingCompletionStarted = true;
             }
             localViewingComplete = network is INetworkResultNavigation navigation &&
@@ -571,8 +616,15 @@ namespace Game.Bootstrap
                 return false;
             }
 
-            cameraRig ??= UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(
-                FindObjectsInactive.Include);
+            // Not ??=: a destroyed rig is not a C# null, so that would keep the
+            // dead reference from the previous scene and every later match would
+            // fail to prepare. Unity's == is the one that sees a destroyed object.
+            if (cameraRig == null)
+            {
+                cameraRig = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(
+                    FindObjectsInactive.Include);
+            }
+
             if (cameraRig == null)
             {
                 return false;

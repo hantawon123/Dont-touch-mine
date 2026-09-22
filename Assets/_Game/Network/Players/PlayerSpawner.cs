@@ -225,6 +225,83 @@ namespace Game.Network.Players
         }
 
         /// <summary>
+        /// Hands the room to another player so the owner leaving does not end it.
+        /// </summary>
+        /// <remarks>
+        /// Seats are handed out in join order, so the room passes to whoever has
+        /// been in it longest. Ownership is the replicated flag on the character,
+        /// which is already how every peer learns who manages the room; no
+        /// simulation authority moves with it, and on a dedicated server there is
+        /// none to move.
+        /// <para>
+        /// Call it after the departing player's seat is freed, so a player who is
+        /// on their way out is never chosen.
+        /// </para>
+        /// </remarks>
+        public bool TryTransferRoomOwnership(
+            NetworkRunner runner, PlayerRef leaving, out PlayerRef next)
+        {
+            next = PlayerRef.None;
+            if (runner == null || !runner.IsServer ||
+                !TryChooseNextOwner(
+                    _players,
+                    leaving,
+                    candidate => TryGetLiveAvatar(runner, candidate, out _),
+                    out next))
+            {
+                return false;
+            }
+
+            foreach (var player in runner.ActivePlayers)
+            {
+                if (TryGetLiveAvatar(runner, player, out var avatar))
+                    avatar.IsHost = player == next;
+            }
+
+            _roomOwner = next;
+            return true;
+        }
+
+        /// <summary>
+        /// The lowest occupied seat other than the one being vacated, which is
+        /// the player who has been in the room longest.
+        /// </summary>
+        internal static bool TryChooseNextOwner(
+            PlayerRegistry players,
+            PlayerRef leaving,
+            Func<PlayerRef, bool> canManage,
+            out PlayerRef next)
+        {
+            next = PlayerRef.None;
+            if (players == null) return false;
+            for (var seat = 0; seat < RoomSettings.MaxPlayerCount; seat++)
+            {
+                if (!players.TryGetPlayer(seat, out var candidate) ||
+                    candidate == leaving ||
+                    !candidate.IsRealPlayer ||
+                    canManage?.Invoke(candidate) == false)
+                {
+                    continue;
+                }
+
+                next = candidate;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryGetLiveAvatar(
+            NetworkRunner runner, PlayerRef player, out PlayerAvatar avatar)
+        {
+            avatar = null;
+            if (!player.IsRealPlayer) return false;
+            var playerObject = runner.GetPlayerObject(player);
+            return playerObject != null && playerObject.IsValid &&
+                   playerObject.TryGetBehaviour(out avatar) && avatar.HasNetworkState;
+        }
+
+        /// <summary>
         /// Reconnects Fusion's restored player object to the authoritative seat
         /// table after a host migration.
         /// </summary>

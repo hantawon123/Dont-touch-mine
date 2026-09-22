@@ -161,7 +161,9 @@ namespace Game.Client.Lobby
                 hostSession.RequestApplySettings(draft);
             }
 
-            DisplaySettings(draft);
+            // The room clamps what it accepts and refuses what it cannot take, so
+            // the panel shows the settings the room now has, not what was typed.
+            DisplaySettings(hostSession.Settings.CurrentValue);
         }
 
         private void StartMatch()
