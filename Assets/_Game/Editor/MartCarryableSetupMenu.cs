@@ -1341,6 +1341,81 @@ namespace Game.Editor
             }
         }
 
+        /// <summary>
+        /// <see cref="CarryableItem"/>이 붙은 소품에서 정적 배칭(BatchingStatic) 표시를 걷어낸다.
+        /// </summary>
+        /// <remarks>
+        /// 정적 배칭된 렌더러는 플레이 시작 때 씬 전체를 합친 메시로 구워지므로 두 가지가 깨진다.
+        /// <list type="number">
+        /// <item>물건을 들어도 <b>그려지는 위치가 따라오지 않는다</b>. 트랜스폼만 손으로 가고 화면에는 제자리에 남는다.</item>
+        /// <item><c>MeshFilter.sharedMesh</c>가 결합 메시를 가리켜, 조준 실루엣이 <b>씬의 다른 가구들까지</b> 그린다.</item>
+        /// </list>
+        /// 고정 소품일 때 켜 둔 배칭이 Carryable 로 바꾼 뒤에도 남아 있으면 이 상태가 된다.
+        /// <c>-executeMethod Game.Editor.MartCarryableSetupMenu.ClearStaticBatchingOnCarryablesBatch</c>
+        /// </remarks>
+        public static void ClearStaticBatchingOnCarryablesBatch()
+        {
+            string[] scenePaths =
+            {
+                "Assets/_Game/Content/Scenes/Mansion.unity",
+                "Assets/_Game/Content/Scenes/Supermarket.unity",
+            };
+
+            foreach (var scenePath in scenePaths)
+            {
+                var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                var seen = new HashSet<GameObject>();
+                var carryables = 0;
+                var affected = 0;
+                var cleared = 0;
+
+                foreach (var root in scene.GetRootGameObjects())
+                {
+                    foreach (var carryable in root.GetComponentsInChildren<CarryableItem>(true))
+                    {
+                        var go = carryable.gameObject;
+                        if (!seen.Add(go))
+                        {
+                            continue;
+                        }
+
+                        carryables++;
+                        var touched = false;
+                        foreach (var child in go.GetComponentsInChildren<Transform>(true))
+                        {
+                            var flags = GameObjectUtility.GetStaticEditorFlags(child.gameObject);
+                            if ((flags & StaticEditorFlags.BatchingStatic) == 0)
+                            {
+                                continue;
+                            }
+
+                            GameObjectUtility.SetStaticEditorFlags(
+                                child.gameObject,
+                                flags & ~StaticEditorFlags.BatchingStatic);
+                            EditorUtility.SetDirty(child.gameObject);
+                            cleared++;
+                            touched = true;
+                        }
+
+                        if (touched)
+                        {
+                            affected++;
+                        }
+                    }
+                }
+
+                Debug.Log(
+                    $"[CarryableBatching] {scene.name}: Carryable {carryables} / 배칭 걷어낸 오브젝트 {affected} / " +
+                    $"해제한 GameObject {cleared}");
+
+                if (cleared > 0)
+                {
+                    EditorSceneManager.MarkSceneDirty(scene);
+                    EditorSceneManager.SaveScene(scene);
+                }
+            }
+        }
+
         private static void EnsureFolder(string folder)
         {
             if (AssetDatabase.IsValidFolder(folder))

@@ -28,7 +28,12 @@ namespace Game.Client.Interactions
     public sealed class PlayerInteractor : MonoBehaviour, ICarriedItemDropper, ICarryingState
     {
         public event Action<LocalItemAction, CarryableItem> LocalItemActionPerformed;
-        private const int MaxAimHits = 8;
+        /// <summary>
+        /// 조준 광선이 한 번에 받아둘 충돌 수. <see cref="Physics.RaycastNonAlloc"/>는 버퍼가 차면
+        /// 남은 충돌을 <b>거리와 무관하게</b> 버리므로, 작으면 정작 가장 가까운 물건이 빠져 엉뚱한
+        /// 뒤쪽 물건이 조준된다. 소품이 빽빽한 저택·마트 기준으로 넉넉히 잡는다.
+        /// </summary>
+        private const int MaxAimHits = 32;
         private bool hudVisible = true;
         private bool interfaceHudVisible = true;
         public bool HudVisible => hudVisible && interfaceHudVisible && !Game.Client.Common.LoadingView.IsAnyPresented;
@@ -583,11 +588,14 @@ namespace Game.Client.Interactions
                 return false;
             }
 
+#if UNITY_EDITOR
+            UnityEngine.Debug.Log(
+                $"[HoldTry] name='{item.name}' id='{item.ObjectId}' 경로={(commands != null ? "네트워크" : "로컬")} " +
+                $"itemLossyScale={item.transform.lossyScale} holdPointLossyScale={holdPoint.lossyScale}",
+                item);
+#endif
             if (commands != null)
             {
-#if UNITY_EDITOR
-                UnityEngine.Debug.Log($"[HoldTry] name='{item.name}' objectId='{item.ObjectId}'", item);
-#endif
                 return commands.RequestHold(item.ObjectId);
             }
 
@@ -1049,6 +1057,14 @@ namespace Game.Client.Interactions
 
             var hitCount = Physics.RaycastNonAlloc(
                 ray, aimHits, maxDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+#if UNITY_EDITOR
+            if (hitCount == aimHits.Length)
+            {
+                Debug.LogWarning(
+                    $"[Aim] 충돌 버퍼 {aimHits.Length}개가 가득 찼습니다. 가장 가까운 물건이 빠져 " +
+                    "조준이 어긋날 수 있으니 MaxAimHits 를 늘리세요.");
+            }
+#endif
 
             Component nearestTarget = null;
             var nearestDistance = float.MaxValue;
