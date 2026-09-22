@@ -13,7 +13,7 @@ namespace Game.Network.Session
     internal static class HighlightReplaySerializer
     {
         private const int Magic = 0x4852504C;
-        private const byte Version = 5;
+        private const byte Version = 6;
         private const int MaxPayloadBytes = 8 * 1024 * 1024;
         private const int MaxHighlightCount = 2;
         private const int MaxSegmentsPerHighlight = 8;
@@ -260,7 +260,7 @@ namespace Game.Network.Session
             {
                 WritePose(writer, pose);
             }
-            foreach (var action in frame.PlayerActions) writer.Write((byte)action);
+            foreach (var action in frame.PlayerActions) writer.Write((ushort)action);
 
             writer.Write((byte)frame.WorldObjects.Count);
             foreach (var worldObject in frame.WorldObjects)
@@ -286,7 +286,7 @@ namespace Game.Network.Session
             }
             var actions = new HighlightPlayerAction[playerCount];
             for (var index = 0; index < actions.Length; index++)
-                actions[index] = (HighlightPlayerAction)reader.ReadByte();
+                actions[index] = (HighlightPlayerAction)reader.ReadUInt16();
 
             var objectCount = reader.ReadByte();
             if (objectCount > MaxWorldObjectsPerFrame)

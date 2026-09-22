@@ -706,7 +706,9 @@ namespace Game.Network.Session
                     state = new NetworkPlayerReplayState(
                         motor.Posture,
                         motor.AnimationGrounded,
-                        motor.AttackSequence);
+                        motor.AttackSequence,
+                        motor.EmoteSequence,
+                        motor.EmoteId);
                     return true;
                 }
             }

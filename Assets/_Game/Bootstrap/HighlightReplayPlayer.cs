@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Core.Emotes;
 using Game.Server.Items;
 using Game.Server.Match;
 using UnityEngine;
@@ -280,6 +281,7 @@ namespace Game.Bootstrap
         /// <para>
         /// 주먹질은 들고 있어도 <c>Punch</c> 다. <c>Carry_TwoHands_Hit</c> 는 <b>맞은</b> 쪽 클립이고
         /// 이 플래그는 때린 쪽에 붙기 때문이다(<c>MatchSessionCoordinator</c> 의 <c>lastHitAt</c>).
+        /// 맞은 쪽은 <see cref="HighlightPlayerAction.Hit"/> 로 따로 온다.
         /// </para>
         /// </summary>
         internal static string AnimationStateOf(HighlightPlayerAction action) =>
@@ -294,6 +296,12 @@ namespace Game.Bootstrap
         /// 하이라이트는 대개 앞으로 달리는 장면이고 방향까지 나누려면 진행 방향을 아바타가 보는
         /// 쪽으로 옮겨 분류해야 해서 값에 비해 품이 크다. 필요해지면 실제 플레이의
         /// <c>PlayerAnimationDriver.ResolveDirection</c> 을 함께 쓰는 쪽이 맞다.
+        ///
+        /// <para>
+        /// <b>피격·기절 진입·감정 표현도 그대로 나온다</b>(2026-09-22). 전에는 맞은 쪽이 아무 일도
+        /// 없는 것처럼 서 있었고, 기절은 옛 <c>Stunned</c> 클립이라 실제 플레이에서 쓰러지는 모습과
+        /// 달랐으며, 감정 표현은 하이라이트에 아예 없었다.
+        /// </para>
         /// </remarks>
         internal static string AnimationStateOf(HighlightPlayerAction action, float planarSpeed)
         {
@@ -302,13 +310,31 @@ namespace Game.Bootstrap
             var crouching = (action & HighlightPlayerAction.Crouching) != 0;
             var moving = planarSpeed >= WalkThreshold;
             var running = planarSpeed >= RunThreshold;
-            if ((action & HighlightPlayerAction.Stunned) != 0) return "Stunned";
+            if ((action & HighlightPlayerAction.Stunned) != 0)
+            {
+                // 엎드린 채 기절하면 쓰러질 곳이 없어 실제 플레이도 진입 클립을 건너뛴다.
+                return (action & HighlightPlayerAction.StunEntry) != 0 && !prone
+                    ? "Stun_Start"
+                    : "Stun_Idle";
+            }
+
+            if ((action & HighlightPlayerAction.Hit) != 0)
+                return HitStateOf(carrying, prone, crouching, moving, running);
+            if ((action & HighlightPlayerAction.StunRecovery) != 0) return "Stun_End";
             if ((action & HighlightPlayerAction.Throwing) != 0)
                 return prone ? "Throw_TwoHands_Prone" : crouching ? "Throw_TwoHands_Crouch" : "Throw_TwoHands";
             if ((action & HighlightPlayerAction.Placing) != 0)
                 return prone ? "PutDown_TwoHands_Prone" : crouching ? "PutDown_TwoHands_Crouch" : "PutDown_TwoHands";
             if ((action & HighlightPlayerAction.Punching) != 0) return "Punch";
             if ((action & HighlightPlayerAction.Airborne) != 0) return carrying ? "Carry_TwoHands_Jump" : "Fall";
+            // 1회성 표현은 걸으면 끊기고, 춤은 걸어도 이어진다. 실제 플레이와 같은 규칙이다.
+            if (action.TryGetEmote(out var emoteId) &&
+                EmoteCatalog.TryOf(emoteId, out var emote) &&
+                (emote.Loop || !moving))
+            {
+                return emote.StateName;
+            }
+
             if (prone)
                 return moving
                     ? (carrying ? "Carry_TwoHands_Crawl_Forward" : "Crawl_Forward")
@@ -320,6 +346,25 @@ namespace Game.Bootstrap
             if (running) return carrying ? "Carry_TwoHands_Run_Forward" : "Run_Forward";
             if (moving) return carrying ? "Carry_TwoHands_Walk_Forward" : "Walk_Forward";
             return carrying ? "Carry_TwoHands" : "Idle";
+        }
+
+        /// <summary>
+        /// 맞은 자세에 맞는 피격 클립. 이름은 실제 플레이의
+        /// <c>PlayerAnimationDriver.ResolveHitClip</c> 과 같은 것을 쓴다.
+        /// </summary>
+        private static string HitStateOf(
+            bool carrying,
+            bool prone,
+            bool crouching,
+            bool moving,
+            bool running)
+        {
+            var prefix = carrying ? "Carry_TwoHands_Hit" : "Hit";
+            if (prone) return moving ? $"{prefix}_Crawl" : $"{prefix}_Prone";
+            if (crouching) return moving ? $"{prefix}_Crouch_Walk" : $"{prefix}_Crouch";
+            if (running) return $"{prefix}_Run";
+            if (moving) return $"{prefix}_Walk";
+            return prefix;
         }
     }
 }

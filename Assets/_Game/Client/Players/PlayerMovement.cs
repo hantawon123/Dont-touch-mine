@@ -106,6 +106,29 @@ namespace Game.Client.Players
             Posture = posture;
         }
 
+        private byte emoteRequestSequence;
+        private byte emoteRequestId;
+
+        /// <summary>
+        /// 감정 표현을 요청한다. 네트워크 플레이어는 다음 입력 틱에 실어 보내고 모터가 일어선 뒤 복제한다.
+        /// 단독 플레이어(CharacterController 구동)는 여기서 바로 일어선다. 머리 위가 막혀 못 일어서면 거절한다.
+        /// </summary>
+        public bool RequestEmote(byte emoteId)
+        {
+            if (controller != null && controller.enabled && Posture != PlayerPosture.Standing)
+            {
+                SetPosture(PlayerPosture.Standing);
+                if (Posture != PlayerPosture.Standing)
+                {
+                    return false;
+                }
+            }
+
+            emoteRequestSequence = PlayerInputIntent.NextEmoteSequence(emoteRequestSequence);
+            emoteRequestId = emoteId;
+            return true;
+        }
+
         /// <summary>넉백 등 외부 충격을 가한다. 시간이 지나며 자연히 줄어든다.</summary>
         public void AddImpulse(Vector3 impulse)
         {
@@ -143,7 +166,10 @@ namespace Game.Client.Players
                     0f,
                     0f,
                     heldYaw,
-                    PlayerInputButtons.None);
+                    GetCameraPitch(),
+                    PlayerInputButtons.None,
+                    emoteRequestSequence,
+                    emoteRequestId);
             }
 
             if (!playerMap.enabled)
@@ -192,16 +218,22 @@ namespace Game.Client.Players
                 if (world.sqrMagnitude > 0.0001f)
                 {
                     var yaw = Mathf.Atan2(world.x, world.z) * Mathf.Rad2Deg;
-                    return new PlayerInputIntent(0f, Mathf.Min(1f, world.magnitude), yaw, buttons);
+                    return new PlayerInputIntent(
+                        0f, Mathf.Min(1f, world.magnitude), yaw, GetCameraPitch(), buttons,
+                        emoteRequestSequence, emoteRequestId);
                 }
 
-                return new PlayerInputIntent(0f, 0f, transform.eulerAngles.y, buttons);
+                return new PlayerInputIntent(
+                    0f, 0f, transform.eulerAngles.y, GetCameraPitch(), buttons,
+                    emoteRequestSequence, emoteRequestId);
             }
 
             var lookYaw = TryEnsureCamera()
                 ? cameraTransform.eulerAngles.y
                 : transform.eulerAngles.y;
-            return new PlayerInputIntent(move.x, move.y, lookYaw, buttons);
+            return new PlayerInputIntent(
+                move.x, move.y, lookYaw, GetCameraPitch(), buttons,
+                emoteRequestSequence, emoteRequestId);
         }
 
         private void Awake()
@@ -484,6 +516,17 @@ namespace Game.Client.Players
 
             cameraTransform = mainCamera.transform;
             return true;
+        }
+
+        private float GetCameraPitch()
+        {
+            if (!TryEnsureCamera())
+            {
+                return 0f;
+            }
+
+            var pitch = cameraTransform.eulerAngles.x;
+            return pitch > 180f ? pitch - 360f : pitch;
         }
 
         private Vector3 ToCameraRelativeDirection(Vector2 input)

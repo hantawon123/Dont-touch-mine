@@ -95,6 +95,12 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     guide.Find("Row6/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.ToggleKeyLabel));
+                Assert.That(
+                    guide.Find("Row7/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.EmoteAction));
+                Assert.That(
+                    guide.Find("Row7/Key/Label").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.EmoteKeyLabel));
             }
             finally
             {
@@ -151,11 +157,17 @@ namespace Game.Architecture.Tests
             Assert.That(KeySettingGuideView.LabelsFor(true)[1], Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
             Assert.That(KeySettingGuideView.LabelsFor(true)[2], Is.EqualTo("F"));
             Assert.That(
-                KeySettingGuideView.ActionsFor(true)[KeySettingGuideView.CarryingActions.Length - 1],
+                KeySettingGuideView.ActionsFor(true)[KeySettingGuideView.CarryingActions.Length - 2],
                 Is.EqualTo(KeySettingGuideView.ToggleAction));
             Assert.That(
-                KeySettingGuideView.LabelsFor(true)[KeySettingGuideView.CarryingLabels.Length - 1],
+                KeySettingGuideView.ActionsFor(true)[KeySettingGuideView.CarryingActions.Length - 1],
+                Is.EqualTo(KeySettingGuideView.EmoteAction));
+            Assert.That(
+                KeySettingGuideView.LabelsFor(true)[KeySettingGuideView.CarryingLabels.Length - 2],
                 Is.EqualTo(KeySettingGuideView.ToggleKeyLabel));
+            Assert.That(
+                KeySettingGuideView.LabelsFor(true)[KeySettingGuideView.CarryingLabels.Length - 1],
+                Is.EqualTo(KeySettingGuideView.EmoteKeyLabel));
             Assert.That(KeySettingGuideView.PanelSizeFor(true), Is.EqualTo(KeySettingGuideView.CarryingPanelSize));
         }
 
@@ -192,6 +204,9 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     guide.Find("Row8/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.ToggleKeyLabel));
+                Assert.That(
+                    guide.Find("Row9/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.EmoteAction));
 
                 view.SetCarrying(false);
                 Assert.That(view.IsCarrying, Is.False);
@@ -199,8 +214,8 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     guide.Find("Row0/Action").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.Actions[0]));
-                Assert.That(guide.Find("Row7").gameObject.activeSelf, Is.False);
                 Assert.That(guide.Find("Row8").gameObject.activeSelf, Is.False);
+                Assert.That(guide.Find("Row9").gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -333,6 +348,7 @@ namespace Game.Architecture.Tests
             Assert.That(labels[1], Is.EqualTo("X"));
             Assert.That(labels[5], Is.EqualTo("SPACE"));
             Assert.That(labels[6], Is.EqualTo("L"));
+            Assert.That(labels[7], Is.EqualTo("X"));
         }
 
         [Test]

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Core.Emotes;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Core.Players;
@@ -23,18 +24,30 @@ namespace Game.Network.Match
         public NetworkPlayerReplayState(
             PlayerPosture posture,
             bool grounded,
-            int attackSequence)
+            int attackSequence,
+            int emoteSequence = 0,
+            int emoteId = 0)
         {
-            if (!Enum.IsDefined(typeof(PlayerPosture), posture) || attackSequence < 0)
+            if (!Enum.IsDefined(typeof(PlayerPosture), posture) ||
+                attackSequence < 0 ||
+                emoteSequence < 0)
                 throw new ArgumentOutOfRangeException(nameof(posture));
             Posture = posture;
             Grounded = grounded;
             AttackSequence = attackSequence;
+            EmoteSequence = emoteSequence;
+            EmoteId = emoteId;
         }
 
         public PlayerPosture Posture { get; }
         public bool Grounded { get; }
         public int AttackSequence { get; }
+
+        /// <summary>감정 표현이 시작될 때마다 오르는 번호. 값이 바뀐 순간이 표현의 시작이다.</summary>
+        public int EmoteSequence { get; }
+
+        /// <summary>마지막으로 시작한 감정 표현의 카탈로그 ID.</summary>
+        public int EmoteId { get; }
     }
 
     public interface INetworkPlayerReplayStateSource
@@ -57,6 +70,10 @@ namespace Game.Network.Match
         private readonly int[] attackSequences;
         private readonly bool[] hasAttackSequence;
         private readonly double[] punchEndsAt;
+        private readonly int[] emoteSequences;
+        private readonly bool[] hasEmoteSequence;
+        private readonly int[] emoteIds;
+        private readonly double[] emoteEndsAt;
         private double capturedAt = double.NaN;
 
         public NetworkMatchRuntimeContext(
@@ -88,6 +105,10 @@ namespace Game.Network.Match
             attackSequences = new int[participantsByIndex.Length];
             hasAttackSequence = new bool[participantsByIndex.Length];
             punchEndsAt = new double[participantsByIndex.Length];
+            emoteSequences = new int[participantsByIndex.Length];
+            hasEmoteSequence = new bool[participantsByIndex.Length];
+            emoteIds = new int[participantsByIndex.Length];
+            emoteEndsAt = new double[participantsByIndex.Length];
             if (restoredPoses != null)
             {
                 if (restoredPoses.Count != poses.Length) throw new ArgumentException("Migration pose count mismatch.");
@@ -180,8 +201,9 @@ namespace Game.Network.Match
                 _ => HighlightPlayerAction.None,
             };
             if (!state.Grounded) action |= HighlightPlayerAction.Airborne;
-            if (hasAttackSequence[playerIndex] &&
-                attackSequences[playerIndex] != state.AttackSequence)
+            var punched = hasAttackSequence[playerIndex] &&
+                          attackSequences[playerIndex] != state.AttackSequence;
+            if (punched)
             {
                 punchEndsAt[playerIndex] = source.ServerTime + 0.5d;
             }
@@ -190,7 +212,42 @@ namespace Game.Network.Match
             hasAttackSequence[playerIndex] = true;
             if (source.ServerTime < punchEndsAt[playerIndex])
                 action |= HighlightPlayerAction.Punching;
-            replayActions[playerIndex] = action;
+            replayActions[playerIndex] = CaptureEmote(playerIndex, state, punched, action);
+        }
+
+        /// <summary>
+        /// 감정 표현이 재생 중인 동안 동작에 표현 ID를 함께 담는다.
+        /// </summary>
+        /// <remarks>
+        /// 번호가 바뀐 순간이 시작이고, 카탈로그가 알려주는 길이만큼 이어진다. 반복 표현은
+        /// 다른 동작이 끊을 때까지 이어지므로, 실제 플레이가 표현을 끊는 것들(주먹질·점프·자세
+        /// 바꾸기)을 여기서도 본다. 맞기·기절은 서버가 아는 일이라
+        /// <c>MatchSessionCoordinator</c> 가 끊는다.
+        /// </remarks>
+        private HighlightPlayerAction CaptureEmote(
+            int playerIndex,
+            NetworkPlayerReplayState state,
+            bool punched,
+            HighlightPlayerAction action)
+        {
+            var now = source.ServerTime;
+            if (hasEmoteSequence[playerIndex] &&
+                emoteSequences[playerIndex] != state.EmoteSequence)
+            {
+                emoteIds[playerIndex] = state.EmoteId;
+                emoteEndsAt[playerIndex] = now + EmoteCatalog.PlaybackSeconds(state.EmoteId);
+            }
+
+            emoteSequences[playerIndex] = state.EmoteSequence;
+            hasEmoteSequence[playerIndex] = true;
+            if (punched || !state.Grounded || state.Posture != PlayerPosture.Standing)
+            {
+                emoteEndsAt[playerIndex] = 0d;
+            }
+
+            return now < emoteEndsAt[playerIndex]
+                ? action.WithEmote(emoteIds[playerIndex])
+                : action;
         }
 
         private static MatchParticipant[] OrderByPlayerIndex(

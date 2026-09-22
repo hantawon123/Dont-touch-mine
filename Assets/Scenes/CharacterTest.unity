@@ -600,8 +600,6 @@ MonoBehaviour:
   - PutDown_Crouch
   - PutDown_Prone
   - Throw
-  - Hit_Prone
-  - Hit_Crawl
   - Punch
   - Punch_Walk
   - Punch_Run
@@ -622,9 +620,17 @@ MonoBehaviour:
   - Hit_Run
   - Hit_Crouch
   - Hit_Crouch_Walk
+  - Hit_Prone
+  - Hit_Crawl
   - Stun_Start
   - Stun_Idle
   - Stun_End
+  - Emote_Wave
+  - Emote_Taunt
+  - Emote_Insult
+  - Emote_Chicken
+  - Emote_HipHop
+  - Emote_Spin
 --- !u!1 &2040571902
 GameObject:
   m_ObjectHideFlags: 0

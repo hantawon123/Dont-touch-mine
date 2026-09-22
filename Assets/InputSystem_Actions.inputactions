@@ -185,6 +185,16 @@
                     "interactions": "",
                     "initialStateCheck": false,
                     "priority": 0
+                },
+                {
+                    "name": "EmoteWheel",
+                    "type": "Button",
+                    "id": "7b2e9c14-5a8d-4f31-9e06-c1d4a8b5720e",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false,
+                    "priority": 0
                 }
             ],
             "bindings": [
@@ -702,6 +712,17 @@
                     "processors": "",
                     "groups": "Keyboard&Mouse",
                     "action": "VoiceListen",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "6d0f3a81-4c27-49b8-ae15-91f2c7e4b8d0",
+                    "path": "<Keyboard>/x",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "EmoteWheel",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

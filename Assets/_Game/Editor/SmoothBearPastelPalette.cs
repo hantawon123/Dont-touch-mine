@@ -21,7 +21,7 @@ namespace Game.Editor
                 var group=groups.GetArrayElementAtIndex(g);var category=(AvatarPartCategory)group.FindPropertyRelative("category").intValue;
                 var colors=category==AvatarPartCategory.BodyColor?palette.body:category==AvatarPartCategory.HoodColor?palette.hood:category==AvatarPartCategory.Shoes?palette.shoes:null;
                 if(colors==null)continue;
-                group.FindPropertyRelative("defaultPartId").stringValue=category==AvatarPartCategory.BodyColor?"body_lemon":category==AvatarPartCategory.HoodColor?"hood_ice":"shoes_blue";
+                group.FindPropertyRelative("defaultPartId").stringValue=category==AvatarPartCategory.BodyColor?"body_black":category==AvatarPartCategory.HoodColor?"hood_purple":"shoes_pink_vivid";
                 if(colors.Select(c=>c.id).Distinct().Count()!=colors.Length)throw new Exception("Duplicate palette IDs");
                 var parts=group.FindPropertyRelative("parts");parts.arraySize=colors.Length;
                 for(int i=0;i<colors.Length;i++)

@@ -141,7 +141,22 @@ namespace Game.Server.Match
         private const double HighlightReplaySampleIntervalSeconds = 0.1d;
         private const double HighlightRecordingDelaySeconds = 1d;
         public const double HighlightPostRollSeconds = HighlightPresentationTiming.PostRollSeconds;
+        /// <summary>맞은 쪽이 움찔하는 시간(초). 실제 플레이의 <c>PlayerAnimationDriver.HitSeconds</c> 와 같다.</summary>
+        private const double HitReactionSeconds = 1d;
+
+        /// <summary>
+        /// 기절에 들어가 쓰러지는 시간(초). 실제 플레이의 <c>PlayerAnimationDriver.StunStartSeconds</c> 와 같다.
+        /// 이 뒤로는 쓰러진 자세로 버틴다.
+        /// </summary>
+        private const double StunEntrySeconds = 2.2d;
+
+        /// <summary>기절이 풀려 일어나는 시간(초). 실제 플레이의 <c>PlayerAnimationDriver.StunEndSeconds</c> 와 같다.</summary>
+        private const double StunRecoverySeconds = 1.2d;
+
         private readonly Dictionary<int, double> lastHitAt = new();
+
+        /// <summary>맞은 쪽 시각. <see cref="lastHitAt"/> 는 때린 쪽이라 피격 모션에 쓸 수 없다.</summary>
+        private readonly Dictionary<int, double> lastHitTakenAt = new();
         private readonly int[] totalHitsReceived, totalStuns;
         private readonly Dictionary<int, double> lastPlacementAt = new();
         private readonly Dictionary<int, double> lastThrowAt = new();
@@ -743,6 +758,7 @@ namespace Game.Server.Match
             if (state.CurrentPhase.CurrentValue == MatchPhase.Hiding)
             {
                 totalHitsReceived[targetPlayerIndex]++;
+                lastHitTakenAt[targetPlayerIndex] = now;
                 return HitResult.Registered;
             }
 
@@ -750,6 +766,7 @@ namespace Game.Server.Match
             if (hitResult != HitResult.Ignored)
             {
                 lastHitAt[attackerPlayerIndex] = now;
+                lastHitTakenAt[targetPlayerIndex] = now;
                 totalHitsReceived[targetPlayerIndex]++;
             }
             if (hitResult == HitResult.Stunned) totalStuns[targetPlayerIndex]++;
@@ -933,7 +950,27 @@ namespace Game.Server.Match
                 var action = playerActions == null
                     ? HighlightPlayerAction.None
                     : playerActions[i];
-                if (interactions.IsStunned(i, now)) action |= HighlightPlayerAction.Stunned;
+                if (interactions.IsStunned(i, now))
+                {
+                    action |= HighlightPlayerAction.Stunned;
+                    var stunStartedAt = interactions.GetStunEndsAt(i) - rules.StunDurationSeconds;
+                    if (now - stunStartedAt < StunEntrySeconds)
+                        action |= HighlightPlayerAction.StunEntry;
+                }
+                // 기절로 쓰러진 뒤에는 움찔하지 않는다. 실제 플레이도 기절이 피격을 덮는다.
+                else if (lastHitTakenAt.TryGetValue(i, out var hitTakenAt) &&
+                         now - hitTakenAt < HitReactionSeconds)
+                {
+                    action |= HighlightPlayerAction.Hit;
+                }
+                else
+                {
+                    // 한 번도 기절한 적이 없으면 끝난 시각이 0이라 이 창에 들어오지 않는다.
+                    var stunEndedAt = interactions.GetStunEndsAt(i);
+                    if (stunEndedAt > 0d && now - stunEndedAt < StunRecoverySeconds)
+                        action |= HighlightPlayerAction.StunRecovery;
+                }
+
                 if (lastHitAt.TryGetValue(i, out var hitAt) && now - hitAt < 0.5d)
                     action |= HighlightPlayerAction.Punching;
                 if (TryGetHeldObjectId(i, out _)) action |= HighlightPlayerAction.Carrying;
@@ -941,6 +978,14 @@ namespace Game.Server.Match
                     action |= HighlightPlayerAction.Throwing;
                 if (lastPlacementAt.TryGetValue(i, out var placedAt) && now - placedAt < 0.5d)
                     action |= HighlightPlayerAction.Placing;
+                // 맞거나 기절하거나 물건을 다루면 감정 표현은 거기서 끊긴다(실제 플레이와 같다).
+                if ((action & (HighlightPlayerAction.Stunned | HighlightPlayerAction.Hit |
+                               HighlightPlayerAction.Punching | HighlightPlayerAction.Throwing |
+                               HighlightPlayerAction.Placing)) != 0)
+                {
+                    action = action.WithoutEmote();
+                }
+
                 actions[i] = action;
             }
             return highlightReplayBuffer.TryRecord(now, playerPoses, replayObjects, actions);
