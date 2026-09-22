@@ -588,12 +588,6 @@ namespace Game.Client.Interactions
                 return false;
             }
 
-#if UNITY_EDITOR
-            UnityEngine.Debug.Log(
-                $"[HoldTry] name='{item.name}' id='{item.ObjectId}' 경로={(commands != null ? "네트워크" : "로컬")} " +
-                $"itemLossyScale={item.transform.lossyScale} holdPointLossyScale={holdPoint.lossyScale}",
-                item);
-#endif
             if (commands != null)
             {
                 return commands.RequestHold(item.ObjectId);
@@ -1057,15 +1051,6 @@ namespace Game.Client.Interactions
 
             var hitCount = Physics.RaycastNonAlloc(
                 ray, aimHits, maxDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-#if UNITY_EDITOR
-            if (hitCount == aimHits.Length)
-            {
-                Debug.LogWarning(
-                    $"[Aim] 충돌 버퍼 {aimHits.Length}개가 가득 찼습니다. 가장 가까운 물건이 빠져 " +
-                    "조준이 어긋날 수 있으니 MaxAimHits 를 늘리세요.");
-            }
-#endif
-
             Component nearestTarget = null;
             var nearestDistance = float.MaxValue;
 

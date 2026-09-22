@@ -226,17 +226,8 @@ namespace Game.Client.Interactions
             body.isKinematic = true;
             SetCollidersEnabled(false);
 
-#if UNITY_EDITOR
-            var scaleBefore = transform.lossyScale;
-#endif
             transform.SetParent(holdPoint, worldPositionStays: false);
             transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-#if UNITY_EDITOR
-            Debug.Log(
-                $"[Held] name='{name}' 부착 전 lossyScale={scaleBefore} -> 부착 후 {transform.lossyScale} " +
-                $"(localScale={transform.localScale}, holdPoint={holdPoint.name} lossyScale={holdPoint.lossyScale})",
-                this);
-#endif
             body.position = transform.position;
             body.rotation = transform.rotation;
         }
