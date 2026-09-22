@@ -163,6 +163,41 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void RoomOwnerLeft_RoomPassesToTheLongestSeatedPlayerLeft()
+        {
+            var owner = Fusion.PlayerRef.FromIndex(0);
+            var second = Fusion.PlayerRef.FromIndex(1);
+            var third = Fusion.PlayerRef.FromIndex(2);
+            var players = new PlayerRegistry();
+            players.Add(owner);
+            players.Add(second);
+            players.Add(third);
+            players.Remove(owner);
+            Assert.That(
+                PlayerSpawner.TryChooseNextOwner(players, owner, null, out var next), Is.True);
+            Assert.That(next, Is.EqualTo(second));
+
+            // A character that is still going away cannot take the room.
+            Assert.That(
+                PlayerSpawner.TryChooseNextOwner(
+                    players, owner, candidate => candidate != second, out next),
+                Is.True);
+            Assert.That(next, Is.EqualTo(third));
+        }
+
+        [Test]
+        public void RoomOwnerLeftAnEmptyRoom_HasNobodyToHandItTo()
+        {
+            var owner = Fusion.PlayerRef.FromIndex(0);
+            var players = new PlayerRegistry();
+            players.Add(owner);
+            players.Remove(owner);
+            Assert.That(
+                PlayerSpawner.TryChooseNextOwner(players, owner, null, out var next), Is.False);
+            Assert.That(next, Is.EqualTo(Fusion.PlayerRef.None));
+        }
+
+        [Test]
         public void LobbyKick_AcknowledgementCannotRemoveAnotherOrNewerRequest()
         {
             var guest = Fusion.PlayerRef.FromIndex(1);
