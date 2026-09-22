@@ -2470,7 +2470,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 3b64aeafd2fd5f249b0b60247cde7f59, type: 3}
     - target: {fileID: 64087791896405150, guid: 740e6eddae4579243bf292c40f4b0f01, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -10812,7 +10812,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 2d39204e207530d41aa7ad9023f08a75, type: 3}
     - target: {fileID: 64106308474307220, guid: b5783194323194946af8f08ab44a61f2, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -13844,7 +13844,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: dc85ee45b36c3ee47bf58d22bdbb45b5, type: 3}
     - target: {fileID: 64221053629531138, guid: 530f205aaafe6524983ab0c3ffea2b3e, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -14195,7 +14195,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64065376086074066, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Mesh
@@ -14203,7 +14203,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -21685,7 +21685,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64065376086074066, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Mesh
@@ -21693,7 +21693,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -24156,7 +24156,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 6c0e03fabb9cb7542b75300dbbce44b9, type: 3}
     - target: {fileID: 64520341190106474, guid: 39e23a24f7f546042adabc258ce927ab, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -46923,6 +46923,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1679935284}
     m_Modifications:
+    - target: {fileID: 1891715117344508246, guid: 40771d72b9c949645b2be8e37bfbb89d, type: 3}
+      propertyPath: m_Convex
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4586133828511144448, guid: 40771d72b9c949645b2be8e37bfbb89d, type: 3}
       propertyPath: m_Name
       value: Gen_SM_Prop_Box_Pile_01_47v
@@ -56100,7 +56104,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 3500d97b63b9f7c4796868a1801a60e2, type: 3}
     - target: {fileID: 64993748462297264, guid: 817eab5777352f14bbfa277990e184f9, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -59711,7 +59715,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64065376086074066, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Mesh
@@ -59719,7 +59723,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -63722,7 +63726,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: dc85ee45b36c3ee47bf58d22bdbb45b5, type: 3}
     - target: {fileID: 64221053629531138, guid: 530f205aaafe6524983ab0c3ffea2b3e, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -73191,6 +73195,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1679935284}
     m_Modifications:
+    - target: {fileID: 1480025153075937079, guid: d4b389379f54e5044911c932c860a961, type: 3}
+      propertyPath: m_Convex
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4254525482194763632, guid: d4b389379f54e5044911c932c860a961, type: 3}
       propertyPath: m_Name
       value: Gen_SM_Prop_Box_Pile_01_44v
@@ -78088,6 +78096,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1679935284}
     m_Modifications:
+    - target: {fileID: 2110015530830670777, guid: acf1096e017822f4ca0718b30f605d3f, type: 3}
+      propertyPath: m_Convex
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 3180710824025846254, guid: acf1096e017822f4ca0718b30f605d3f, type: 3}
       propertyPath: m_Name
       value: Gen_SM_Prop_Box_Pile_01_21v
@@ -84545,7 +84557,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64065376086074066, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Mesh
@@ -84553,7 +84565,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -90211,7 +90223,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: c6a3865b8945d274583010bef9fb04a0, type: 3}
     - target: {fileID: 64176454951467580, guid: fb8dd6a1a74cb1d4d89a4a9849546b50, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -91684,6 +91696,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Gen_SM_Prop_Box_Pile_01_29v
       objectReference: {fileID: 0}
+    - target: {fileID: 4165753071082054113, guid: 8e311c3bb27285844bc6218c4a1ec537, type: 3}
+      propertyPath: m_Convex
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8446323503254415503, guid: 8e311c3bb27285844bc6218c4a1ec537, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0.23496795
@@ -92817,7 +92833,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 3500d97b63b9f7c4796868a1801a60e2, type: 3}
     - target: {fileID: 64993748462297264, guid: 817eab5777352f14bbfa277990e184f9, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -94932,7 +94948,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64065376086074066, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Mesh
@@ -94940,7 +94956,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -101973,7 +101989,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 2d39204e207530d41aa7ad9023f08a75, type: 3}
     - target: {fileID: 64106308474307220, guid: b5783194323194946af8f08ab44a61f2, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -123514,7 +123530,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 03cb16ff137a1194787972d3e04de41f, type: 3}
     - target: {fileID: 64605299039542222, guid: 47c1117653f1e70468f072b7f4a90a9d, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -128317,7 +128333,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 2d39204e207530d41aa7ad9023f08a75, type: 3}
     - target: {fileID: 64106308474307220, guid: b5783194323194946af8f08ab44a61f2, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -133085,6 +133101,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1679935284}
     m_Modifications:
+    - target: {fileID: 2528240597663737485, guid: 2fb0f9e42cd39c54a9da066b3f48ae06, type: 3}
+      propertyPath: m_Convex
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4541955640732494401, guid: 2fb0f9e42cd39c54a9da066b3f48ae06, type: 3}
       propertyPath: m_Name
       value: Gen_SM_Prop_Box_Pile_01_23v
@@ -145604,7 +145624,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 03cb16ff137a1194787972d3e04de41f, type: 3}
     - target: {fileID: 64605299039542222, guid: 47c1117653f1e70468f072b7f4a90a9d, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -149120,7 +149140,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 2d39204e207530d41aa7ad9023f08a75, type: 3}
     - target: {fileID: 64106308474307220, guid: b5783194323194946af8f08ab44a61f2, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -178708,7 +178728,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 3500d97b63b9f7c4796868a1801a60e2, type: 3}
     - target: {fileID: 64993748462297264, guid: 817eab5777352f14bbfa277990e184f9, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -179758,7 +179778,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: dc85ee45b36c3ee47bf58d22bdbb45b5, type: 3}
     - target: {fileID: 64221053629531138, guid: 530f205aaafe6524983ab0c3ffea2b3e, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -182767,7 +182787,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: c6a3865b8945d274583010bef9fb04a0, type: 3}
     - target: {fileID: 64176454951467580, guid: fb8dd6a1a74cb1d4d89a4a9849546b50, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -188978,6 +188998,10 @@ PrefabInstance:
     - target: {fileID: 73967447607763379, guid: 21b22f92d7e551c438ae9b1fc000de96, type: 3}
       propertyPath: m_Name
       value: Gen_SM_Prop_Box_Pile_01_46v
+      objectReference: {fileID: 0}
+    - target: {fileID: 2063421857350363229, guid: 21b22f92d7e551c438ae9b1fc000de96, type: 3}
+      propertyPath: m_Convex
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7389697067566536981, guid: 21b22f92d7e551c438ae9b1fc000de96, type: 3}
       propertyPath: m_LocalPosition.x
@@ -227239,7 +227263,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 52ab18ec6e3f6f54b98d6e185e221621, type: 3}
     - target: {fileID: 64279883603221958, guid: 6ed7a2dd1a4714e4b9d152bd6c035e5e, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -230787,6 +230811,10 @@ PrefabInstance:
     - target: {fileID: 4817792277405485665, guid: 4b3970121d85d164e8cce621fccbd0f6, type: 3}
       propertyPath: m_Name
       value: Gen_SM_Prop_Box_Pile_01_45v
+      objectReference: {fileID: 0}
+    - target: {fileID: 8456847895089527779, guid: 4b3970121d85d164e8cce621fccbd0f6, type: 3}
+      propertyPath: m_Convex
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -237674,7 +237702,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: 03cb16ff137a1194787972d3e04de41f, type: 3}
     - target: {fileID: 64605299039542222, guid: 47c1117653f1e70468f072b7f4a90a9d, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -245240,7 +245268,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64065376086074066, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Mesh
@@ -245248,7 +245276,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -249207,7 +249235,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64065376086074066, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Mesh
@@ -249215,7 +249243,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -254843,7 +254871,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64065376086074066, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Mesh
@@ -254851,7 +254879,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: ba05d4e58e1076b448ec8b8344fafcad, type: 3}
     - target: {fileID: 64499558334585328, guid: 94d7ddf5941e9b445abf83a8dc3a1106, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -259320,7 +259348,7 @@ PrefabInstance:
       objectReference: {fileID: 4300000, guid: a1d46b7df03f67b4a9209a40e0b6cb2d, type: 3}
     - target: {fileID: 64262015432065832, guid: cb6aa1dfd7601434d921203b4d15657b, type: 3}
       propertyPath: m_Convex
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -260602,6 +260630,10 @@ PrefabInstance:
     - target: {fileID: 1010671525483353949, guid: 09c38441e2eb08c4f940013011be63a4, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3014841480191871332, guid: 09c38441e2eb08c4f940013011be63a4, type: 3}
+      propertyPath: m_Convex
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6615025069815789784, guid: 09c38441e2eb08c4f940013011be63a4, type: 3}
       propertyPath: m_Name

@@ -1250,6 +1250,97 @@ namespace Game.Editor
             return path;
         }
 
+        /// <summary>
+        /// 이미 <see cref="CarryableItem"/>이 붙은 소품이 물리적으로 성립하도록 최소한만 고친다.
+        /// 변형 프리팹을 만들지 않고, 프리팹 원본도 건드리지 않고, 이름도 바꾸지 않는다.
+        /// 고치는 것은 씬 인스턴스의 오버라이드뿐이다.
+        /// </summary>
+        /// <remarks>
+        /// 동적 Rigidbody는 오목 MeshCollider를 쓸 수 없어 PhysX가 거부한다(콘솔의
+        /// "Concave Mesh Colliders are not supported..."). convex로 바꾸는 것 외에
+        /// 다른 선택지는 kinematic 고정뿐인데 그러면 들 수가 없다.
+        /// <c>-executeMethod Game.Editor.MartCarryableSetupMenu.RepairCarryableCollidersBatch</c>
+        /// </remarks>
+        public static void RepairCarryableCollidersBatch()
+        {
+            string[] scenePaths =
+            {
+                "Assets/_Game/Content/Scenes/Mansion.unity",
+                "Assets/_Game/Content/Scenes/Supermarket.unity",
+            };
+
+            foreach (var scenePath in scenePaths)
+            {
+                var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                var seen = new HashSet<GameObject>();
+                var total = 0;
+                var convexFixed = 0;
+                var colliderAdded = 0;
+                var bodyAdded = 0;
+                var failed = 0;
+
+                foreach (var root in scene.GetRootGameObjects())
+                {
+                    foreach (var carryable in root.GetComponentsInChildren<CarryableItem>(true))
+                    {
+                        var go = carryable.gameObject;
+                        if (!seen.Add(go))
+                        {
+                            continue;
+                        }
+
+                        total++;
+
+                        if (go.GetComponentsInChildren<Collider>(true).Length == 0)
+                        {
+                            if (TryAddBoundsCollider(go))
+                            {
+                                colliderAdded++;
+                            }
+                            else
+                            {
+                                failed++;
+                                Debug.LogWarning($"[CarryableCollider] 렌더러가 없어 콜라이더를 만들지 못함: {GetPath(go)}", go);
+                                continue;
+                            }
+                        }
+
+                        foreach (var meshCollider in go.GetComponentsInChildren<MeshCollider>(true))
+                        {
+                            if (meshCollider.convex)
+                            {
+                                continue;
+                            }
+
+                            meshCollider.convex = true;
+                            EditorUtility.SetDirty(meshCollider);
+                            convexFixed++;
+                        }
+
+                        if (go.GetComponent<Rigidbody>() == null)
+                        {
+                            var body = go.AddComponent<Rigidbody>();
+                            body.mass = 1f;
+                            body.useGravity = true;
+                            body.isKinematic = true;
+                            EditorUtility.SetDirty(body);
+                            bodyAdded++;
+                        }
+                    }
+                }
+
+                Debug.Log(
+                    $"[CarryableCollider] {scene.name}: Carryable {total} / convex 전환 {convexFixed} / " +
+                    $"콜라이더 추가 {colliderAdded} / Rigidbody 추가 {bodyAdded} / 실패 {failed}");
+
+                if (convexFixed + colliderAdded + bodyAdded > 0)
+                {
+                    EditorSceneManager.MarkSceneDirty(scene);
+                    EditorSceneManager.SaveScene(scene);
+                }
+            }
+        }
+
         private static void EnsureFolder(string folder)
         {
             if (AssetDatabase.IsValidFolder(folder))
