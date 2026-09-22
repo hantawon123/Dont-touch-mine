@@ -309,6 +309,8 @@ namespace Game.Network.Session
         private readonly long _playerUniqueId = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0) | 1L;
         private int _configuredMaxPlayers;
         private string _configuredMapId = MapCatalog.DefaultMapId;
+        /// <summary>One warning per streak; the settings read runs several times a second.</summary>
+        private bool _publishedSettingsRejected;
 
         /// <summary>
         /// 이번 매치가 실제로 열린 맵. 방 설정이 "랜덤"이면 매치 시작 때 정해지고,
@@ -2748,18 +2750,34 @@ namespace Game.Network.Session
                 SessionPropertyKeys.MapId,
                 MapCatalog.DefaultMapId);
 
+            // The session listing counts a dedicated server as an occupant, so its
+            // count reaches the configured limit one player short of a full room,
+            // and this read would then drop every published change without saying so.
             if (!TryValidateLobbySettingsRequest(
                     true,
                     true,
-                    info.PlayerCount,
+                    CountActivePlayers(_runner),
                     maxPlayers,
                     destructionLimit,
                     mapId,
                     matchRules,
                     out var normalizedMatchRules))
             {
+                if (!_publishedSettingsRejected)
+                {
+                    // Never fail this read silently: the screens would keep showing
+                    // settings the room no longer has.
+                    _publishedSettingsRejected = true;
+                    Debug.LogWarning(
+                        "[Session] Ignored the room's published settings: " +
+                        $"max={maxPlayers}, players={CountActivePlayers(_runner)}, " +
+                        $"destruction={destructionLimit}, map='{mapId}'.");
+                }
+
                 return;
             }
+
+            _publishedSettingsRejected = false;
 
             _configuredMaxPlayers = maxPlayers;
             _destructionLimit = destructionLimit;

@@ -166,8 +166,28 @@ namespace Game.Bootstrap
             }
 
             SettingsApplyRequested?.Invoke(applied);
-            RepublishSettings();
+            // Show the accepted values now. Reading them back here would return the
+            // room's previous properties: the change reaches the Cloud, and this peer
+            // again, only after a round trip, and every screen would show the old
+            // settings until the next refresh.
+            Publish(MergeAccepted(settings.CurrentValue, applied));
         }
+
+        /// <summary>
+        /// Keeps the fields this request cannot change, such as the room code and
+        /// its password, on the values the session last reported.
+        /// </summary>
+        private static PlaySettingsDraft MergeAccepted(
+            PlaySettingsDraft current, PlaySettingsDraft applied) =>
+            new(
+                applied.Title,
+                current.RoomCode,
+                current.PasswordEnabled,
+                current.Password,
+                applied.MaxPlayers,
+                applied.DestructionLimit,
+                applied.MapId,
+                applied.MatchRules);
 
         public void Dispose()
         {
@@ -221,9 +241,14 @@ namespace Game.Bootstrap
         private void RepublishSettings()
         {
             if (!network.TryReadLobbySettings(out var latest)) return;
-            settings.Value = latest;
-            if (room.MaxPlayers.CurrentValue != latest.MaxPlayers)
-                room.PlayerCountChanged(room.PlayerCount.CurrentValue, latest.MaxPlayers);
+            Publish(latest);
+        }
+
+        private void Publish(PlaySettingsDraft next)
+        {
+            settings.Value = next;
+            if (room.MaxPlayers.CurrentValue != next.MaxPlayers)
+                room.PlayerCountChanged(room.PlayerCount.CurrentValue, next.MaxPlayers);
         }
 
         private static void ReportUnreachable(string what, string ticket)
