@@ -6,18 +6,12 @@ using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IHidingIntroView
-    {
-        void Show(string itemDisplayName, string itemId = null);
-        void Hide();
-    }
-
     /// <summary>
     /// Full-screen hiding briefing: the assigned item and a one-line notice.
     /// Timing and when to show it belong to the presenter; this view only paints.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class HidingIntroView : MonoBehaviour, IHidingIntroView
+    public sealed class HidingIntroView : MonoBehaviour
     {
         public const float VisibleSeconds = Game.Core.Match.MatchIntroTiming.VisibleSeconds;
         public const float MessageFontSize = 55f;

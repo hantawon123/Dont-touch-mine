@@ -2,12 +2,6 @@ using UnityEngine;
 
 namespace Game.Client.Match
 {
-    public interface IMatchEndBellAudio
-    {
-        void Play();
-        void Reset();
-    }
-
     /// <summary>
     /// 경기가 끝나는 순간 한 번 울리는 종 효과음. 땡땡땡땡, 네 번의 고른 타격.
     /// </summary>
@@ -22,7 +16,7 @@ namespace Game.Client.Match
     /// never runs lifecycle callbacks, still sees a usable component.
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class MatchEndBellAudio : MonoBehaviour, IMatchEndBellAudio
+    public sealed class MatchEndBellAudio : MonoBehaviour
     {
         public const string RootName = "MatchEndBellAudio";
         public const string BellResource = "Audio/MatchEndBell";

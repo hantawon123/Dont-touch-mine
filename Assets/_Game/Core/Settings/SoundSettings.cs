@@ -234,10 +234,6 @@ namespace Game.Core.Settings
         /// </summary>
         public const string DefaultDevice = "default";
 
-        /// <summary>Shown for <see cref="DefaultDevice"/>.</summary>
-        public static string DefaultDeviceLabel =>
-            UiTextCatalog.Shipped.Get(UiText.Settings.DefaultDevice, "ko");
-
         /// <summary>
         /// The device picker's choices: the machine's default first, then every
         /// microphone the machine reports, by name.

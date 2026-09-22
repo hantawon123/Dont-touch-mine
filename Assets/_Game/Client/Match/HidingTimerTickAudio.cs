@@ -2,12 +2,6 @@ using UnityEngine;
 
 namespace Game.Client.Match
 {
-    public interface IHidingTimerTickAudio
-    {
-        void SetRemainingSeconds(double remainingSeconds);
-        void Hide();
-    }
-
     /// <summary>
     /// 숨기기 시간 종료 <see cref="HidingActiveHudView.WarningSeconds"/>초 전부터,
     /// 매 초 정각에 한 번씩 울리는 짧은 "째각" 효과음.
@@ -24,7 +18,7 @@ namespace Game.Client.Match
     /// never runs lifecycle callbacks, still sees a usable component.
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class HidingTimerTickAudio : MonoBehaviour, IHidingTimerTickAudio
+    public sealed class HidingTimerTickAudio : MonoBehaviour
     {
         public const string RootName = "TimerTickAudio";
         public const string TickResource = "Audio/HidingTimerTick";

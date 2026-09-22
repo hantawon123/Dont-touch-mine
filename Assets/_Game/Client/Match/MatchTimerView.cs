@@ -5,22 +5,13 @@ using UnityEngine;
 
 namespace Game.Client.Match
 {
-    public interface IMatchTimerView
-    {
-        void SetRemainingSeconds(double remainingSeconds);
-        void SetHintVisible(bool visible);
-        void SetResult(string headline, string subtitle);
-        void ClearResult();
-        void ShowChrome(UiLocale locale);
-    }
-
     /// <summary>
     /// Top-of-screen searching clock. Matches the hiding timer until the last
     /// thirty seconds, then grows to orange Black type, shows an orange
     /// prompt, and pulses both lines.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class MatchTimerView : MonoBehaviour, IMatchTimerView
+    public sealed class MatchTimerView : MonoBehaviour
     {
         public const float TimerFontSize = 83.2f;
         public const float HintFontSize = 36f;

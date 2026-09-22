@@ -3,12 +3,6 @@ using UnityEngine;
 
 namespace Game.Client.Match
 {
-    public interface ISearchingTimerTickAudio
-    {
-        void SetRemainingSeconds(MatchPhase phase, double remainingSeconds);
-        void Hide();
-    }
-
     /// <summary>
     /// 탐색 시간 종료 마지막 30초 동안, 매 초 정각에 한 번씩 울리는 짧은 "째각" 효과음.
     /// </summary>
@@ -26,7 +20,7 @@ namespace Game.Client.Match
     /// never runs lifecycle callbacks, still sees a usable component.
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class SearchingTimerTickAudio : MonoBehaviour, ISearchingTimerTickAudio
+    public sealed class SearchingTimerTickAudio : MonoBehaviour
     {
         public const string RootName = "SearchingTimerTickAudio";
         public const string TickResource = "Audio/SearchingTimerTick";

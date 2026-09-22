@@ -8,21 +8,12 @@ using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IHighlightHudView
-    {
-        void Show(string subtitle, IReadOnlyList<float> barFills);
-        void Hide();
-        void SetSubtitle(string subtitle);
-        void SetBarFills(IReadOnlyList<float> barFills);
-        void ShowChrome(UiLocale locale);
-    }
-
     /// <summary>
     /// Highlight playback HUD: centered title, scene/nickname, clip bars, and skip keys.
     /// Input wiring belongs to the playback controller; this view only paints.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed partial class HighlightHudView : MonoBehaviour, IHighlightHudView
+    public sealed partial class HighlightHudView : MonoBehaviour
     {
         public const string RootName = "HighlightHud";
         public static string TitleText =>
