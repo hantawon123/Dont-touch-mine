@@ -442,9 +442,18 @@ namespace Game.Bootstrap
 
             var checkHeldState = Time.unscaledTimeAsDouble >= nextHeldStateCheckAt;
             if (checkHeldState) nextHeldStateCheckAt = Time.unscaledTimeAsDouble + 0.5d;
+            // 놓인 것을 먼저 처리하고 들린 것을 나중에 붙인다. 숨기기 차례가 넘어오는 틱에는 "대기하며
+            // 들고 있던 소품을 놓음"과 "배정 물건을 쥠"이 한 스냅샷에 함께 실려 오는데, 배열 순서대로
+            // 처리하면 손이 아직 차 있어 배정 물건 부착이 한 프레임 밀리고 already carrying 경고가 남는다.
+            for (var pass = 0; pass < 2; pass++)
             for (var index = 0; index < objectStates.Length; index++)
             {
                 var state = objectStates[index];
+                if ((state.HolderPlayerIndex >= 0) != (pass == 1))
+                {
+                    continue;
+                }
+
                 if (!items.TryGetValue(state.ObjectId, out var item) || item == null)
                 {
                     continue;
