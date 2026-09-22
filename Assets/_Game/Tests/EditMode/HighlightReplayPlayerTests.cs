@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Bootstrap;
+using Game.Core.Emotes;
 using Game.Server.Items;
 using Game.Server.Match;
 using NUnit.Framework;
@@ -126,9 +127,93 @@ namespace Game.Tests.EditMode
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Punching),
                 Is.EqualTo("Punch"));
+            // 기절은 실제 플레이와 같은 쓰러지는 클립이다. 옛 Stunned 클립은 더 쓰지 않는다.
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Stunned),
-                Is.EqualTo("Stunned"));
+                Is.EqualTo("Stun_Idle"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(
+                    HighlightPlayerAction.Stunned | HighlightPlayerAction.StunEntry),
+                Is.EqualTo("Stun_Start"));
+        }
+
+        /// <summary>
+        /// 맞은 쪽은 이번에 새로 구운 피격 클립으로 젖혀진다 (2026-09-22).
+        ///
+        /// <para>
+        /// 전에는 맞은 쪽에 붙는 플래그가 아예 없어서, 얻어맞는 장면도 그냥 서 있거나 걷는
+        /// 모습으로 나왔다.
+        /// </para>
+        /// </summary>
+        [Test]
+        public void AnimationStateOf_ShowsTheHitSideFlinching()
+        {
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Hit),
+                Is.EqualTo("Hit"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Hit, 2f),
+                Is.EqualTo("Hit_Walk"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Hit, 6f),
+                Is.EqualTo("Hit_Run"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(
+                    HighlightPlayerAction.Hit | HighlightPlayerAction.Crouching),
+                Is.EqualTo("Hit_Crouch"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(
+                    HighlightPlayerAction.Hit | HighlightPlayerAction.Prone, 2f),
+                Is.EqualTo("Hit_Crawl"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(
+                    HighlightPlayerAction.Hit | HighlightPlayerAction.Carrying, 6f),
+                Is.EqualTo("Carry_TwoHands_Hit_Run"));
+            // 때린 쪽(Punching)과 맞은 쪽(Hit)이 한 사람에게 겹치면 맞은 쪽이 먼저다.
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(
+                    HighlightPlayerAction.Hit | HighlightPlayerAction.Punching),
+                Is.EqualTo("Hit"));
+            // 기절로 쓰러지는 중에는 움찔하지 않는다.
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(
+                    HighlightPlayerAction.Hit | HighlightPlayerAction.Stunned |
+                    HighlightPlayerAction.StunEntry),
+                Is.EqualTo("Stun_Start"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.StunRecovery),
+                Is.EqualTo("Stun_End"));
+        }
+
+        /// <summary>
+        /// 감정 표현도 하이라이트에 나온다 (2026-09-22).
+        ///
+        /// <para>
+        /// 1회성 표현은 걸으면 끊기고 춤은 걸어도 이어진다. 실제 플레이의
+        /// <c>PlayerAnimationDriver</c> 규칙과 같다.
+        /// </para>
+        /// </summary>
+        [Test]
+        public void AnimationStateOf_ShowsEmotes()
+        {
+            var wave = HighlightPlayerAction.None.WithEmote((int)EmoteId.Wave);
+            var hipHop = HighlightPlayerAction.None.WithEmote((int)EmoteId.HipHop);
+
+            Assert.That(HighlightReplayPlayer.AnimationStateOf(wave), Is.EqualTo("Emote_Wave"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(wave, 2f),
+                Is.EqualTo("Walk_Forward"), "1회성 표현은 걸으면 끊긴다.");
+            Assert.That(HighlightReplayPlayer.AnimationStateOf(hipHop), Is.EqualTo("Emote_HipHop"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(hipHop, 2f),
+                Is.EqualTo("Emote_HipHop"), "춤은 걸어도 이어진다.");
+            // 전투·기절이 표현보다 먼저다.
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(hipHop | HighlightPlayerAction.Punching),
+                Is.EqualTo("Punch"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(wave.WithoutEmote()),
+                Is.EqualTo("Idle"));
         }
 
         /// <summary>
@@ -185,9 +270,10 @@ namespace Game.Tests.EditMode
             foreach (var layer in controller.layers) Collect(layer.stateMachine, states);
             Assert.That(states.Count, Is.GreaterThan(20), "애니메이터에서 상태를 못 읽었습니다.");
 
-            // 플래그 조합(여덟 개라 256 가지)을 제자리·걷기·달리기 속도로 각각 돌려 이름을 모은다.
+            // 플래그 조합(감정 표현 ID 세 비트를 포함해 열다섯 자리)을 제자리·걷기·달리기
+            // 속도로 각각 돌려 이름을 모은다.
             var named = new HashSet<string>();
-            for (var bits = 0; bits < 256; bits++)
+            for (var bits = 0; bits < 1 << 15; bits++)
             foreach (var speed in new[] { 0f, 2f, 6f })
                 named.Add(HighlightReplayPlayer.AnimationStateOf((HighlightPlayerAction)bits, speed));
 
@@ -254,7 +340,7 @@ namespace Game.Tests.EditMode
                 Is.EqualTo("Punch"));
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Stunned, 6f),
-                Is.EqualTo("Stunned"));
+                Is.EqualTo("Stun_Idle"));
         }
 
         /// <summary>던지기·내려놓기는 순간 동작이라 들기보다 먼저 본다.</summary>

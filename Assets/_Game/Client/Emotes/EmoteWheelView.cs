@@ -1,5 +1,6 @@
 using Game.Client.Common;
 using Game.Client.Home;
+using Game.Core.Emotes;
 using Game.Core.Settings;
 using TMPro;
 using UnityEngine;

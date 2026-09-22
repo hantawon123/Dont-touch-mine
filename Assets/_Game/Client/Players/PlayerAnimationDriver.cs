@@ -1,7 +1,7 @@
 using Game.Client.Cameras;
 using Game.Client.Combat;
-using Game.Client.Emotes;
 using Game.Client.Interactions;
+using Game.Core.Emotes;
 using Game.Core.Players;
 using UnityEngine;
 

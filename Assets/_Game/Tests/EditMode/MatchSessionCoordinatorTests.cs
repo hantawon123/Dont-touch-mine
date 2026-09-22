@@ -927,6 +927,81 @@ namespace Game.Tests.EditMode
                 Is.True);
         }
 
+        /// <summary>
+        /// 하이라이트가 피격·기절 진입·일어서기를 그대로 보여주려면, 녹화가 맞은 쪽과
+        /// 기절 구간을 프레임에 남겨야 한다 (2026-09-22).
+        /// </summary>
+        [Test]
+        public void ReplayRecording_MarksHitAndStunMotionsForTheTargetPlayer()
+        {
+            StartSearching();
+            var poses = CreatePlayerPoses(lastKnownPositions);
+            var replayObjects = new WorldObjectState[0];
+
+            Assert.That(
+                session.RegisterHit(0, 1, Vector3.zero, 200d),
+                Is.EqualTo(HitResult.Registered));
+            Assert.That(session.TryRecordReplayFrame(200.1d, poses, replayObjects), Is.True);
+            Assert.That(
+                session.RegisterHit(0, 1, Vector3.zero, 200.2d),
+                Is.EqualTo(HitResult.Registered));
+            Assert.That(
+                session.RegisterHit(0, 1, Vector3.zero, 200.4d),
+                Is.EqualTo(HitResult.Stunned));
+            Assert.That(session.TryRecordReplayFrame(200.5d, poses, replayObjects), Is.True);
+            Assert.That(session.TryRecordReplayFrame(202.5d, poses, replayObjects), Is.True);
+            Assert.That(session.TryRecordReplayFrame(204d, poses, replayObjects), Is.True);
+
+            Assert.That(session.SetHighlightCandidates(new[]
+            {
+                new HighlightCandidate(HighlightType.FirstBlood, 200d, 204d, "stun")
+            }), Is.True);
+            session.AdvanceTime(550d, lastKnownPositions);
+            Assert.That(session.TryCaptureHighlightReplay(out var replay), Is.True);
+            var frames = replay[0].Clips[0].Frames;
+
+            // 맞은 쪽은 움찔하고, 때린 쪽에는 주먹질이 붙는다.
+            Assert.That(ActionAt(frames, 200.1d, 1) & HighlightPlayerAction.Hit,
+                Is.EqualTo(HighlightPlayerAction.Hit));
+            Assert.That(ActionAt(frames, 200.1d, 0) & HighlightPlayerAction.Punching,
+                Is.EqualTo(HighlightPlayerAction.Punching));
+
+            // 기절에 들어간 직후는 쓰러지는 구간이고, 움찔은 거기에 겹치지 않는다.
+            var stunned = ActionAt(frames, 200.5d, 1);
+            Assert.That(stunned & HighlightPlayerAction.Stunned,
+                Is.EqualTo(HighlightPlayerAction.Stunned));
+            Assert.That(stunned & HighlightPlayerAction.StunEntry,
+                Is.EqualTo(HighlightPlayerAction.StunEntry));
+            Assert.That(stunned & HighlightPlayerAction.Hit,
+                Is.EqualTo(HighlightPlayerAction.None));
+
+            // 기절이 풀리면 잠깐 일어서는 구간이 남는다.
+            var recovering = ActionAt(frames, 202.5d, 1);
+            Assert.That(recovering & HighlightPlayerAction.Stunned,
+                Is.EqualTo(HighlightPlayerAction.None));
+            Assert.That(recovering & HighlightPlayerAction.StunRecovery,
+                Is.EqualTo(HighlightPlayerAction.StunRecovery));
+
+            Assert.That(ActionAt(frames, 204d, 1), Is.EqualTo(HighlightPlayerAction.None));
+        }
+
+        private static HighlightPlayerAction ActionAt(
+            IReadOnlyList<HighlightReplayFrame> frames,
+            double recordedAt,
+            int playerIndex)
+        {
+            foreach (var frame in frames)
+            {
+                if (System.Math.Abs(frame.RecordedAt - recordedAt) < 0.001d)
+                {
+                    return frame.PlayerActions[playerIndex];
+                }
+            }
+
+            Assert.Fail($"{recordedAt} 초 프레임이 녹화되지 않았습니다.");
+            return HighlightPlayerAction.None;
+        }
+
         [Test]
         public void CaptureHighlightReplay_DropsCandidatesWithoutPlayableFramesFromSchedule()
         {

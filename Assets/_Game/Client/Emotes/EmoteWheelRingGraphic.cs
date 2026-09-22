@@ -1,3 +1,4 @@
+using Game.Core.Emotes;
 using UnityEngine;
 using UnityEngine.UI;
 

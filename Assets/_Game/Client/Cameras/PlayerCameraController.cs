@@ -147,6 +147,8 @@ namespace Game.Client.Cameras
         private Transform followHead;
         private Quaternion stunHeadToBody = Quaternion.identity;
         private bool followingStunHead;
+        private float stunYaw;
+        private float stunPitch;
 
         public Transform BeginReplay()
         {
@@ -311,10 +313,9 @@ namespace Game.Client.Cameras
             {
                 if (followingStunHead)
                 {
-                    var euler = transform.eulerAngles;
-                    yaw = euler.y;
-                    pitch = Mathf.Clamp(
-                        euler.x > 180f ? euler.x - 360f : euler.x, minPitch, maxPitch);
+                    // 기절 직전 보던 좌우 방향(yaw)은 기절 중에도 건드리지 않았으므로 그대로
+                    // 이어받고, 천장을 보던 각도만 자유 시점 범위로 되돌린다.
+                    pitch = Mathf.Clamp(stunPitch, minPitch, maxPitch);
                 }
 
                 followingStunHead = false;
@@ -326,9 +327,16 @@ namespace Game.Client.Cameras
 
             if (isFirstPerson && stunView && followHead != null)
             {
+                if (!followingStunHead)
+                {
+                    stunYaw = yaw;
+                }
+
                 followingStunHead = true;
                 var pose = PlayerStunView.Pose(followHead, stunHeadToBody);
-                transform.SetPositionAndRotation(pose.position, pose.rotation);
+                stunPitch = PlayerStunView.Pitch(pose.rotation);
+                transform.SetPositionAndRotation(
+                    pose.position, PlayerStunView.Stabilize(pose.rotation, stunYaw));
                 ApplyFirstPersonOverlays(rescanRenderers: ScanBodyRenderersIfDue(), firstPersonView: true);
                 return;
             }

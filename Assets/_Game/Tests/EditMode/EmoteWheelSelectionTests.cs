@@ -1,4 +1,5 @@
 using Game.Client.Emotes;
+using Game.Core.Emotes;
 using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEngine.InputSystem;

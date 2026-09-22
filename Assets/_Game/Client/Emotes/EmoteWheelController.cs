@@ -3,6 +3,7 @@ using Game.Client.Combat;
 using Game.Client.Interactions;
 using Game.Client.Match;
 using Game.Client.Players;
+using Game.Core.Emotes;
 using Game.Core.Settings;
 using UnityEngine;
 using UnityEngine.InputSystem;

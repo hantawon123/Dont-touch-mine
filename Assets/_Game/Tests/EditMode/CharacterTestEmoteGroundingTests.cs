@@ -1,6 +1,6 @@
 using System.Reflection;
 using Game.Client;
-using Game.Client.Emotes;
+using Game.Core.Emotes;
 using NUnit.Framework;
 
 namespace Game.Tests.EditMode
