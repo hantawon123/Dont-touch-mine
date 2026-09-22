@@ -69,6 +69,7 @@ namespace Game.Network.Session
         private const int HighlightReadyKeyType = 0x484C5244;
         private const int HighlightCompleteKeyType = 0x484C444E;
         private readonly HashSet<PlayerRef> _highlightPendingPlayers = new();
+        private string _highlightNotReadyReason;
         private readonly HashSet<PlayerRef> _highlightCompletedPlayers = new();
         private int _receivedHighlightSequence;
         private bool _highlightResultUnloadRequested;
@@ -105,17 +106,48 @@ namespace Game.Network.Session
 
         public bool TryConfirmHighlightReady()
         {
-            if (_runner == null || !_runner.IsRunning || !_highlightLobbyPrepared) return false;
+            if (_runner == null || !_runner.IsRunning || !_highlightLobbyPrepared)
+                return ReportHighlightNotReady("scenes");
             if (IsServer)
                 _highlightPendingPlayers.Remove(_runner.LocalPlayer);
             else
             {
-                if (_receivedHighlightSequence == 0) return false;
+                if (_receivedHighlightSequence == 0) return ReportHighlightNotReady("replay");
                 _runner.SendReliableDataToServer(ReliableKey.FromInts(
                     HighlightReadyKeyType, HighlightReplayKeyVersion, _receivedHighlightSequence, 0),
                     new byte[] { 1 });
             }
+            _highlightNotReadyReason = null;
             return true;
+        }
+
+        /// <summary>
+        /// Says once why this peer cannot acknowledge yet. A peer that never
+        /// acknowledges costs everyone the highlight when the barrier times out,
+        /// so the reason must be in its log.
+        /// </summary>
+        private bool ReportHighlightNotReady(string reason)
+        {
+            if (!string.Equals(_highlightNotReadyReason, reason, StringComparison.Ordinal))
+            {
+                _highlightNotReadyReason = reason;
+                Debug.LogWarning(
+                    $"[Highlight] Not ready to acknowledge ({reason}): " +
+                    $"lobbyAndMapLoaded={_highlightLobbyPrepared}, " +
+                    $"receivedSequence={_receivedHighlightSequence}.");
+            }
+
+            return false;
+        }
+
+        /// <summary>The peers the authority is still waiting on, for a timeout report.</summary>
+        public string DescribeHighlightReadiness()
+        {
+            if (_highlightPendingPlayers.Count == 0) return "none";
+            var pending = new List<string>();
+            foreach (var player in _highlightPendingPlayers) pending.Add(player.ToString());
+            pending.Sort(StringComparer.Ordinal);
+            return string.Join(", ", pending);
         }
 
         public bool CompleteLocalHighlightViewing()

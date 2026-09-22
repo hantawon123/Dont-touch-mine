@@ -635,8 +635,25 @@ namespace Game.Network.Session
             }
         }
 
-        internal static bool IsHighlightMapLoaded(NetworkSceneInfo info, Game.Network.NetworkScenes scenes, string mapId) =>
-            scenes != null && ContainsScene(info, scenes.MatchSceneFor(mapId));
+        /// <summary>
+        /// Whether a highlight can play here: the map it replays and the lobby it
+        /// returns to are both loaded.
+        /// </summary>
+        /// <remarks>
+        /// The map is recognised from the scenes that are actually loaded, never
+        /// from the room's map id. Only the authority knows which map a random
+        /// draw chose, so on every other peer that id is empty or stale, and
+        /// asking it which scene to expect answered with the default map. A peer
+        /// on any other map then never acknowledged readiness, and the authority
+        /// dropped the highlight for everyone once its barrier timed out.
+        /// </remarks>
+        internal static bool IsHighlightMapLoaded(NetworkSceneInfo info, Game.Network.NetworkScenes scenes)
+        {
+            if (scenes == null) return false;
+            for (var index = 0; index < info.SceneCount; index++)
+                if (scenes.IsMatchScene(info.Scenes[index])) return true;
+            return false;
+        }
 
         internal static bool IsOnlyScene(NetworkSceneInfo info, SceneRef expected) =>
             expected.IsValid && info.SceneCount == 1 && info.Scenes[0] == expected;
@@ -768,7 +785,7 @@ namespace Game.Network.Session
                               IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene);
             _highlightLobbyPrepared = _scenes != null &&
                 ContainsScene(runner.SceneInfo, _scenes.LobbyScene) &&
-                IsHighlightMapLoaded(runner.SceneInfo, _scenes, AnalyticsMapId);
+                IsHighlightMapLoaded(runner.SceneInfo, _scenes);
             if (_highlightLobbyPrepared) _highlightLobbyLoadRequested = false;
             var tookOverPreloadedLobby = lobbyLoaded &&
                                          _preloadedLobbyRoots.Length > 0;

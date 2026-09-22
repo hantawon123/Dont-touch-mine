@@ -616,8 +616,15 @@ namespace Game.Bootstrap
                 return false;
             }
 
-            cameraRig ??= UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(
-                FindObjectsInactive.Include);
+            // Not ??=: a destroyed rig is not a C# null, so that would keep the
+            // dead reference from the previous scene and every later match would
+            // fail to prepare. Unity's == is the one that sees a destroyed object.
+            if (cameraRig == null)
+            {
+                cameraRig = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(
+                    FindObjectsInactive.Include);
+            }
+
             if (cameraRig == null)
             {
                 return false;
