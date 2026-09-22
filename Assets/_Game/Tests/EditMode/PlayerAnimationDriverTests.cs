@@ -406,5 +406,38 @@ namespace Game.Tests.EditMode
             Assert.That(networked.GetComponentInChildren<Animator>(true), Is.Not.Null);
             Assert.That(prefab.GetComponent<AvatarAppearanceApplier>(), Is.Not.Null);
         }
+
+        [Test]
+        public void HoldsLoopEmote_KeepsDancingThroughAJumpOrAFall()
+        {
+            // 점프·낙하·착지 클립은 감정 표현과 같은 원샷 슬롯을 쓴다. 춤이 슬롯을
+            // 쥐고 있다고 답해야 그 클립들이 춤을 밀어내지 않는다.
+            Assert.That(
+                PlayerAnimationDriver.HoldsLoopEmote("Emote_HipHop", stillPlaying: true), Is.True);
+            Assert.That(
+                PlayerAnimationDriver.HoldsLoopEmote("Emote_Spin", stillPlaying: true), Is.True);
+            Assert.That(
+                PlayerAnimationDriver.HoldsLoopEmote("Emote_Chicken", stillPlaying: true), Is.True);
+        }
+
+        [Test]
+        public void HoldsLoopEmote_LetsOneShotEmotesBeReplaced()
+        {
+            // 인사·도발은 걸으면 끊기는 표현이라 점프에도 자리를 내준다.
+            Assert.That(
+                PlayerAnimationDriver.HoldsLoopEmote("Emote_Wave", stillPlaying: true), Is.False);
+            Assert.That(
+                PlayerAnimationDriver.HoldsLoopEmote("Emote_Taunt", stillPlaying: true), Is.False);
+        }
+
+        [Test]
+        public void HoldsLoopEmote_IgnoresAnExpiredOrAbsentEmote()
+        {
+            Assert.That(
+                PlayerAnimationDriver.HoldsLoopEmote("Emote_HipHop", stillPlaying: false), Is.False);
+            Assert.That(PlayerAnimationDriver.HoldsLoopEmote(null, stillPlaying: true), Is.False);
+            Assert.That(PlayerAnimationDriver.HoldsLoopEmote("Jump", stillPlaying: true), Is.False);
+            Assert.That(PlayerAnimationDriver.HoldsLoopEmote("Land", stillPlaying: true), Is.False);
+        }
     }
 }
