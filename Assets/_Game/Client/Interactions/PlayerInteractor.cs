@@ -28,7 +28,12 @@ namespace Game.Client.Interactions
     public sealed class PlayerInteractor : MonoBehaviour, ICarriedItemDropper, ICarryingState
     {
         public event Action<LocalItemAction, CarryableItem> LocalItemActionPerformed;
-        private const int MaxAimHits = 8;
+        /// <summary>
+        /// 조준 광선이 한 번에 받아둘 충돌 수. <see cref="Physics.RaycastNonAlloc"/>는 버퍼가 차면
+        /// 남은 충돌을 <b>거리와 무관하게</b> 버리므로, 작으면 정작 가장 가까운 물건이 빠져 엉뚱한
+        /// 뒤쪽 물건이 조준된다. 소품이 빽빽한 저택·마트 기준으로 넉넉히 잡는다.
+        /// </summary>
+        private const int MaxAimHits = 32;
         private bool hudVisible = true;
         private bool interfaceHudVisible = true;
         public bool HudVisible => hudVisible && interfaceHudVisible && !Game.Client.Common.LoadingView.IsAnyPresented;
@@ -1046,7 +1051,6 @@ namespace Game.Client.Interactions
 
             var hitCount = Physics.RaycastNonAlloc(
                 ray, aimHits, maxDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-
             Component nearestTarget = null;
             var nearestDistance = float.MaxValue;
 
