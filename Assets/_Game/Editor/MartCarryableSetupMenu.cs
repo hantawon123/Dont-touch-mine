@@ -1263,82 +1263,86 @@ namespace Game.Editor
         /// </remarks>
         public static void RepairCarryableCollidersBatch()
         {
-            string[] scenePaths =
-            {
-                "Assets/_Game/Content/Scenes/Mansion.unity",
-                "Assets/_Game/Content/Scenes/Supermarket.unity",
-            };
-
-            foreach (var scenePath in scenePaths)
+            foreach (var scenePath in MatchMapScenePaths)
             {
                 var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
-                var seen = new HashSet<GameObject>();
-                var total = 0;
-                var convexFixed = 0;
-                var colliderAdded = 0;
-                var bodyAdded = 0;
-                var failed = 0;
-
-                foreach (var root in scene.GetRootGameObjects())
-                {
-                    foreach (var carryable in root.GetComponentsInChildren<CarryableItem>(true))
-                    {
-                        var go = carryable.gameObject;
-                        if (!seen.Add(go))
-                        {
-                            continue;
-                        }
-
-                        total++;
-
-                        if (go.GetComponentsInChildren<Collider>(true).Length == 0)
-                        {
-                            if (TryAddBoundsCollider(go))
-                            {
-                                colliderAdded++;
-                            }
-                            else
-                            {
-                                failed++;
-                                Debug.LogWarning($"[CarryableCollider] 렌더러가 없어 콜라이더를 만들지 못함: {GetPath(go)}", go);
-                                continue;
-                            }
-                        }
-
-                        foreach (var meshCollider in go.GetComponentsInChildren<MeshCollider>(true))
-                        {
-                            if (meshCollider.convex)
-                            {
-                                continue;
-                            }
-
-                            meshCollider.convex = true;
-                            EditorUtility.SetDirty(meshCollider);
-                            convexFixed++;
-                        }
-
-                        if (go.GetComponent<Rigidbody>() == null)
-                        {
-                            var body = go.AddComponent<Rigidbody>();
-                            body.mass = 1f;
-                            body.useGravity = true;
-                            body.isKinematic = true;
-                            EditorUtility.SetDirty(body);
-                            bodyAdded++;
-                        }
-                    }
-                }
-
-                Debug.Log(
-                    $"[CarryableCollider] {scene.name}: Carryable {total} / convex 전환 {convexFixed} / " +
-                    $"콜라이더 추가 {colliderAdded} / Rigidbody 추가 {bodyAdded} / 실패 {failed}");
-
-                if (convexFixed + colliderAdded + bodyAdded > 0)
+                var r = FixCarryableColliders(scene);
+                if (r.changed > 0)
                 {
                     EditorSceneManager.MarkSceneDirty(scene);
                     EditorSceneManager.SaveScene(scene);
                 }
             }
+        }
+
+        private static readonly string[] MatchMapScenePaths =
+        {
+            "Assets/_Game/Content/Scenes/Mansion.unity",
+            "Assets/_Game/Content/Scenes/Supermarket.unity",
+        };
+
+        /// <summary>씬 하나의 Carryable 콜라이더를 최소한만 고친다. 저장은 부르는 쪽 몫이다.</summary>
+        private static (int total, int convexFixed, int colliderAdded, int bodyAdded, int failed, int changed)
+            FixCarryableColliders(Scene scene)
+        {
+            var seen = new HashSet<GameObject>();
+            int total = 0, convexFixed = 0, colliderAdded = 0, bodyAdded = 0, failed = 0;
+
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var carryable in root.GetComponentsInChildren<CarryableItem>(true))
+                {
+                    var go = carryable.gameObject;
+                    if (!seen.Add(go))
+                    {
+                        continue;
+                    }
+
+                    total++;
+
+                    if (go.GetComponentsInChildren<Collider>(true).Length == 0)
+                    {
+                        if (TryAddBoundsCollider(go))
+                        {
+                            colliderAdded++;
+                        }
+                        else
+                        {
+                            failed++;
+                            Debug.LogWarning($"[CarryableCollider] 렌더러가 없어 콜라이더를 만들지 못함: {GetPath(go)}", go);
+                            continue;
+                        }
+                    }
+
+                    foreach (var meshCollider in go.GetComponentsInChildren<MeshCollider>(true))
+                    {
+                        if (meshCollider.convex)
+                        {
+                            continue;
+                        }
+
+                        meshCollider.convex = true;
+                        EditorUtility.SetDirty(meshCollider);
+                        convexFixed++;
+                    }
+
+                    if (go.GetComponent<Rigidbody>() == null)
+                    {
+                        var body = go.AddComponent<Rigidbody>();
+                        body.mass = 1f;
+                        body.useGravity = true;
+                        body.isKinematic = true;
+                        EditorUtility.SetDirty(body);
+                        bodyAdded++;
+                    }
+                }
+            }
+
+            Debug.Log(
+                $"[CarryableCollider] {scene.name}: Carryable {total} / convex 전환 {convexFixed} / " +
+                $"콜라이더 추가 {colliderAdded} / Rigidbody 추가 {bodyAdded} / 실패 {failed}");
+            return (total, convexFixed, colliderAdded, bodyAdded, failed,
+                convexFixed + colliderAdded + bodyAdded);
         }
 
         /// <summary>
@@ -1355,65 +1359,120 @@ namespace Game.Editor
         /// </remarks>
         public static void ClearStaticBatchingOnCarryablesBatch()
         {
-            string[] scenePaths =
-            {
-                "Assets/_Game/Content/Scenes/Mansion.unity",
-                "Assets/_Game/Content/Scenes/Supermarket.unity",
-            };
-
-            foreach (var scenePath in scenePaths)
+            foreach (var scenePath in MatchMapScenePaths)
             {
                 var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
-                var seen = new HashSet<GameObject>();
-                var carryables = 0;
-                var affected = 0;
-                var cleared = 0;
-
-                foreach (var root in scene.GetRootGameObjects())
-                {
-                    foreach (var carryable in root.GetComponentsInChildren<CarryableItem>(true))
-                    {
-                        var go = carryable.gameObject;
-                        if (!seen.Add(go))
-                        {
-                            continue;
-                        }
-
-                        carryables++;
-                        var touched = false;
-                        foreach (var child in go.GetComponentsInChildren<Transform>(true))
-                        {
-                            var flags = GameObjectUtility.GetStaticEditorFlags(child.gameObject);
-                            if ((flags & StaticEditorFlags.BatchingStatic) == 0)
-                            {
-                                continue;
-                            }
-
-                            GameObjectUtility.SetStaticEditorFlags(
-                                child.gameObject,
-                                flags & ~StaticEditorFlags.BatchingStatic);
-                            EditorUtility.SetDirty(child.gameObject);
-                            cleared++;
-                            touched = true;
-                        }
-
-                        if (touched)
-                        {
-                            affected++;
-                        }
-                    }
-                }
-
-                Debug.Log(
-                    $"[CarryableBatching] {scene.name}: Carryable {carryables} / 배칭 걷어낸 오브젝트 {affected} / " +
-                    $"해제한 GameObject {cleared}");
-
-                if (cleared > 0)
+                var r = ClearStaticBatchingOnCarryables(scene);
+                if (r.cleared > 0)
                 {
                     EditorSceneManager.MarkSceneDirty(scene);
                     EditorSceneManager.SaveScene(scene);
                 }
             }
+        }
+
+        /// <summary>씬 하나에서 Carryable 의 BatchingStatic 만 걷어낸다. 저장은 부르는 쪽 몫이다.</summary>
+        private static (int total, int affected, int cleared) ClearStaticBatchingOnCarryables(Scene scene)
+        {
+            var seen = new HashSet<GameObject>();
+            int total = 0, affected = 0, cleared = 0;
+
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var carryable in root.GetComponentsInChildren<CarryableItem>(true))
+                {
+                    var go = carryable.gameObject;
+                    if (!seen.Add(go))
+                    {
+                        continue;
+                    }
+
+                    total++;
+                    var touched = false;
+                    foreach (var child in go.GetComponentsInChildren<Transform>(true))
+                    {
+                        var flags = GameObjectUtility.GetStaticEditorFlags(child.gameObject);
+                        if ((flags & StaticEditorFlags.BatchingStatic) == 0)
+                        {
+                            continue;
+                        }
+
+                        GameObjectUtility.SetStaticEditorFlags(
+                            child.gameObject,
+                            flags & ~StaticEditorFlags.BatchingStatic);
+                        EditorUtility.SetDirty(child.gameObject);
+                        cleared++;
+                        touched = true;
+                    }
+
+                    if (touched)
+                    {
+                        affected++;
+                    }
+                }
+            }
+
+            Debug.Log(
+                $"[CarryableBatching] {scene.name}: Carryable {total} / 배칭 걷어낸 오브젝트 {affected} / " +
+                $"해제한 GameObject {cleared}");
+            return (total, affected, cleared);
+        }
+
+        // ------------------------------------------------------------------ 6~7. 열린 씬에만 적용하는 메뉴
+
+        /// <summary>
+        /// 열려 있는 씬에서만 <see cref="RepairCarryableCollidersBatch"/> 와 같은 일을 한다.
+        /// 소품을 몇 개 더 놓은 뒤 씬을 닫지 않고 바로 고칠 때 쓴다.
+        /// </summary>
+        [MenuItem(MenuRoot + "6. Fix Carryable Colliders (Open Scene)")]
+        private static void FixCarryableCollidersInOpenScene()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Debug.LogWarning("[MartCarryable] Play 모드를 끝낸 뒤 실행하세요.");
+                return;
+            }
+
+            var scene = SceneManager.GetActiveScene();
+            var result = FixCarryableColliders(scene);
+            if (result.changed > 0)
+            {
+                EditorSceneManager.MarkSceneDirty(scene);
+            }
+
+            EditorUtility.DisplayDialog(
+                "Carryable 콜라이더",
+                $"{scene.name}\nCarryable {result.total}개\n" +
+                $"convex 전환 {result.convexFixed}\n콜라이더 추가 {result.colliderAdded}\n" +
+                $"Rigidbody 추가 {result.bodyAdded}\n실패 {result.failed}\n\n씬을 저장하세요.",
+                "확인");
+        }
+
+        /// <summary>
+        /// 열려 있는 씬에서만 <see cref="ClearStaticBatchingOnCarryablesBatch"/> 와 같은 일을 한다.
+        /// 고정 소품을 Carryable 로 바꾼 직후에는 배칭 표시가 남아 있어 반드시 한 번 돌려야 한다.
+        /// </summary>
+        [MenuItem(MenuRoot + "7. Clear Static Batching On Carryables (Open Scene)")]
+        private static void ClearStaticBatchingInOpenScene()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Debug.LogWarning("[MartCarryable] Play 모드를 끝낸 뒤 실행하세요.");
+                return;
+            }
+
+            var scene = SceneManager.GetActiveScene();
+            var result = ClearStaticBatchingOnCarryables(scene);
+            if (result.cleared > 0)
+            {
+                EditorSceneManager.MarkSceneDirty(scene);
+            }
+
+            EditorUtility.DisplayDialog(
+                "Carryable 정적 배칭",
+                $"{scene.name}\nCarryable {result.total}개\n" +
+                $"배칭 걷어낸 오브젝트 {result.affected}\n해제한 GameObject {result.cleared}\n\n씬을 저장하세요.",
+                "확인");
         }
 
         private static void EnsureFolder(string folder)
