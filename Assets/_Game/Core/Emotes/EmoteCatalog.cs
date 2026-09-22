@@ -49,7 +49,7 @@ namespace Game.Core.Emotes
         public const string StatePrefix = "Emote_";
 
         /// <summary>
-        /// 반복 표현이 한 번 시작하면 유지되는 시간(초). 다른 동작(주먹질·피격·기절·점프·자세 전환)이
+        /// 반복 표현이 한 번 시작하면 유지되는 시간(초). 다른 동작(주먹질·피격·기절·자세 전환)이
         /// 끊을 때까지 이어지므로, 실제 플레이의 <c>PlayerAnimationDriver</c> 와 같은 큰 값을 쓴다.
         /// </summary>
         public const float LoopSeconds = 600f;
@@ -102,7 +102,7 @@ namespace Game.Core.Emotes
 
         /// <summary>
         /// 1회성 표현(인사·도발·모욕) 상태인가. 이들은 걸으면 끊긴다.
-        /// 춤은 걸어도 이어진다(전신 클립이라 캡슐이 미끄러지는 건 감수).
+        /// 춤은 걸어도, 점프하거나 떨어져도 이어진다(전신 클립이라 캡슐이 미끄러지는 건 감수).
         /// </summary>
         public static bool IsOneShotEmoteState(string state)
         {
