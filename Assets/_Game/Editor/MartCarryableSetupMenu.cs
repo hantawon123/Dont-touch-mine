@@ -909,14 +909,22 @@ namespace Game.Editor
             AssetDatabase.SaveAssets();
         }
 
+        /// <summary>
+        /// 씬의 Carryable 오브젝트. 한 오브젝트에 CarryableItem 이 둘 붙어 있어도 한 번만 센다.
+        /// 중복을 두 건으로 세면 복구 한 번에 "실패"가 같이 잡혀 보고가 어긋난다.
+        /// </summary>
         private static List<GameObject> CollectCarryables(Scene scene)
         {
+            var seen = new HashSet<GameObject>();
             var result = new List<GameObject>();
             foreach (var root in scene.GetRootGameObjects())
             {
                 foreach (var carryable in root.GetComponentsInChildren<CarryableItem>(true))
                 {
-                    result.Add(carryable.gameObject);
+                    if (seen.Add(carryable.gameObject))
+                    {
+                        result.Add(carryable.gameObject);
+                    }
                 }
             }
 
@@ -949,6 +957,11 @@ namespace Game.Editor
             if (instance.GetComponent<Rigidbody>() == null)
             {
                 reasons.Add("Rigidbody 없음");
+            }
+
+            if (instance.GetComponents<CarryableItem>().Length > 1)
+            {
+                reasons.Add("CarryableItem 중복");
             }
 
             var needsVariant = assetPath.Length > 0 && !IsOwnPrefab(assetPath);
@@ -1052,7 +1065,53 @@ namespace Game.Editor
                 changed = true;
             }
 
+            // 변형 교체는 KeepAllPossibleOverrides 라 인스턴스에 덧붙어 있던 CarryableItem 이 남는다.
+            // 변형도 같은 컴포넌트를 주므로 걷어내지 않으면 한 오브젝트에 둘이 붙는다.
+            if (RemoveDuplicateCarryables(instance) > 0)
+            {
+                changed = true;
+            }
+
             return changed;
+        }
+
+        /// <summary>한 오브젝트에 CarryableItem 이 여럿이면 프리팹이 주는 쪽만 남기고 지운다.</summary>
+        private static int RemoveDuplicateCarryables(GameObject root)
+        {
+            var items = root.GetComponents<CarryableItem>();
+            if (items.Length <= 1)
+            {
+                return 0;
+            }
+
+            CarryableItem keep = null;
+            foreach (var item in items)
+            {
+                if (!PrefabUtility.IsAddedComponentOverride(item))
+                {
+                    keep = item;
+                    break;
+                }
+            }
+
+            if (keep == null)
+            {
+                keep = items[0];
+            }
+
+            var removed = 0;
+            foreach (var item in items)
+            {
+                if (item == keep)
+                {
+                    continue;
+                }
+
+                Undo.DestroyObjectImmediate(item);
+                removed++;
+            }
+
+            return removed;
         }
 
         /// <summary>프리팹 원본 자체가 규칙을 어겼는지. 멀쩡한 프리팹을 괜히 다시 저장하지 않으려고 본다.</summary>
@@ -1099,6 +1158,96 @@ namespace Game.Editor
             builder.AppendLine();
             builder.AppendLine($"변형 폴더: {VariantFolder}");
             return builder.ToString();
+        }
+
+        /// <summary>
+        /// 읽기 전용 감사. 매치 맵 두 씬의 Carryable 상태를 로그로만 남긴다. 아무것도 고치지 않는다.
+        /// <c>-executeMethod Game.Editor.MartCarryableSetupMenu.AuditMatchMapCarryablesBatch</c>
+        /// </summary>
+        public static void AuditMatchMapCarryablesBatch()
+        {
+            string[] scenePaths =
+            {
+                "Assets/_Game/Content/Scenes/Mansion.unity",
+                "Assets/_Game/Content/Scenes/Supermarket.unity",
+            };
+
+            foreach (var scenePath in scenePaths)
+            {
+                var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                var seen = new HashSet<GameObject>();
+                var total = 0;
+                var duplicated = 0;
+                var concave = 0;
+                var noCollider = 0;
+                var noBody = 0;
+                var dynamicAtRest = 0;
+
+                foreach (var root in scene.GetRootGameObjects())
+                {
+                    foreach (var carryable in root.GetComponentsInChildren<CarryableItem>(true))
+                    {
+                        var go = carryable.gameObject;
+                        if (!seen.Add(go))
+                        {
+                            continue;
+                        }
+
+                        total++;
+                        if (go.GetComponents<CarryableItem>().Length > 1)
+                        {
+                            duplicated++;
+                            Debug.LogWarning($"[Audit] CarryableItem 중복: {GetPath(go)}", go);
+                        }
+
+                        if (go.GetComponentsInChildren<Collider>(true).Length == 0)
+                        {
+                            noCollider++;
+                            Debug.LogWarning($"[Audit] 콜라이더 없음: {GetPath(go)}", go);
+                        }
+
+                        foreach (var meshCollider in go.GetComponentsInChildren<MeshCollider>(true))
+                        {
+                            if (meshCollider.convex)
+                            {
+                                continue;
+                            }
+
+                            concave++;
+                            Debug.LogWarning($"[Audit] concave MeshCollider: {GetPath(go)}", go);
+                            break;
+                        }
+
+                        var body = go.GetComponent<Rigidbody>();
+                        if (body == null)
+                        {
+                            noBody++;
+                            Debug.LogWarning($"[Audit] Rigidbody 없음: {GetPath(go)}", go);
+                        }
+                        else if (!body.isKinematic)
+                        {
+                            dynamicAtRest++;
+                        }
+                    }
+                }
+
+                Debug.Log(
+                    $"[Audit] {scene.name}: Carryable {total} / 중복 {duplicated} / concave {concave} / " +
+                    $"콜라이더없음 {noCollider} / Rigidbody없음 {noBody} / 시작부터 dynamic {dynamicAtRest}");
+            }
+        }
+
+        private static string GetPath(GameObject go)
+        {
+            var path = go.name;
+            var parent = go.transform.parent;
+            while (parent != null)
+            {
+                path = parent.name + "/" + path;
+                parent = parent.parent;
+            }
+
+            return path;
         }
 
         private static void EnsureFolder(string folder)
