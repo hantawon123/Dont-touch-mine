@@ -1493,7 +1493,90 @@ namespace Game.Tests.EditMode
                 Is.True);
             Assert.That(session.TryGetObjectPose("shelf", out var confirmedPose), Is.True);
             Assert.That(confirmedPose, Is.EqualTo(settledPose));
-            Assert.That(session.TryHoldObject(1, "shelf", 20d), Is.False);
+            // 손을 떠난 소품은 차례를 기다리는 사람도 다시 집을 수 있다.
+            Assert.That(session.TryHoldObject(1, "shelf", 20d), Is.True);
+        }
+
+        [Test]
+        public void WaitingHider_TakesMapObjectsButNeverAssignedItems()
+        {
+            session.Start(10d);
+            var ownItemId = session.Assignments[1].Item.ItemId;
+            var turnItemId = session.Assignments[0].Item.ItemId;
+            var dropPose = new Pose(new Vector3(3f, 0f, 2f), Quaternion.identity);
+
+            // 차례는 0번, 1번은 대기 구역에서 기다린다.
+            Assert.That(session.TryHoldObject(1, ownItemId, 20d), Is.False);
+            Assert.That(session.TryHoldObject(1, turnItemId, 20d), Is.False);
+
+            Assert.That(session.TryHoldObject(1, "shelf", 20d), Is.True);
+            Assert.That(session.TryGetHeldObjectId(1, out var heldId), Is.True);
+            Assert.That(heldId, Is.EqualTo("shelf"));
+
+            Assert.That(session.CanPlaceHeldObject(1, dropPose, 20d), Is.True);
+            Assert.That(session.TryDropHeldObject(1, dropPose, 20d), Is.True);
+            Assert.That(session.TryGetHeldObjectId(1, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(dropPose.position));
+
+            // 숨긴 자리는 차례를 쓴 사람만 기록한다.
+            Assert.That(session.TryRecordItemPlacement(1, dropPose, 20d), Is.False);
+            Assert.That(session.TryGetItemPlacement(1, out _), Is.False);
+        }
+
+        [Test]
+        public void HidingTurnStart_DropsCarriedMapObjectAndFreesHandForAssignedItem()
+        {
+            session.Start(10d);
+            lastKnownPositions[1] = new Vector3(12f, 0f, 9f);
+            var released = new List<ObjectAutoReleasedEvent>();
+            session.ObjectAutoReleased += released.Add;
+
+            Assert.That(session.TryHoldObject(1, "shelf", 20d), Is.True);
+
+            session.AdvanceTime(41d, lastKnownPositions);
+
+            Assert.That(session.TryGetHeldObjectId(1, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(lastKnownPositions[1]));
+            Assert.That(released.Exists(value => value.ObjectId == "shelf"), Is.True);
+            // 손이 비어야 이번 차례에 숨길 물건을 쥘 수 있다.
+            Assert.That(session.TryInitializeAssignedItem(1), Is.True);
+        }
+
+        [Test]
+        public void HidingTurnTimeout_LeavesCarriedMapObjectWhereTheHiderStood()
+        {
+            session.Start(10d);
+            var placedPose = new Pose(new Vector3(2f, 0f, 1f), Quaternion.identity);
+            lastKnownPositions[0] = new Vector3(6f, 0f, 3f);
+
+            Assert.That(session.TryRecordItemPlacement(0, placedPose, 20d), Is.True);
+            Assert.That(session.TryHoldObject(0, "shelf", 25d), Is.True);
+
+            session.AdvanceTime(41d, lastKnownPositions);
+
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(lastKnownPositions[0]));
+        }
+
+        [Test]
+        public void HidingPhaseEnd_LeavesTheWaitingRoomPropBehind()
+        {
+            session.Start(10d);
+            lastKnownPositions[0] = new Vector3(20f, 0f, 7f);
+
+            // 0번은 차례를 마치고 대기 구역으로 나온 뒤에 소품을 줍는다.
+            session.AdvanceTime(41d, lastKnownPositions);
+            Assert.That(session.TryHoldObject(0, "shelf", 45d), Is.True);
+
+            session.AdvanceTime(190d, lastKnownPositions);
+
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
+            Assert.That(session.TryGetHeldObjectId(0, out _), Is.False);
+            Assert.That(session.TryGetWorldObjectState("shelf", out var mapObject), Is.True);
+            Assert.That(mapObject.Pose.position, Is.EqualTo(lastKnownPositions[0]));
         }
 
         [Test]
@@ -1747,8 +1830,12 @@ namespace Game.Tests.EditMode
                 Is.EqualTo(HitResult.Registered));
             Assert.That(session.IsPlayerStunned(2, 20.3d), Is.False);
             Assert.That(session.GetCombatTotals(2), Is.EqualTo((3, 0)));
+            // 대기자는 때리기뿐 아니라 대기 구역 소품도 집는다. 막히는 건 남의 배정 물건이다.
             Assert.That(
                 session.TryHoldObject(1, "shelf", 20d),
+                Is.True);
+            Assert.That(
+                session.TryHoldObject(2, session.Assignments[0].Item.ItemId, 20d),
                 Is.False);
         }
 
