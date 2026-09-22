@@ -35,7 +35,7 @@ namespace Game.Client.Character
             var nextUser = string.IsNullOrWhiteSpace(nextUserId) ? null : nextUserId.Trim();
             if (!followLocal && !pinned && playerId == nextId && userId == nextUser)
             {
-                Refresh();
+                Refresh(clearIfMissing: false);
                 return;
             }
 
@@ -43,15 +43,14 @@ namespace Game.Client.Character
             followLocal = false;
             playerId = nextId;
             userId = nextUser;
-            hasShown = false;
-            Refresh();
+            Refresh(clearIfMissing: true);
         }
 
         public void FollowLocal()
         {
             if (followLocal && !pinned)
             {
-                Refresh();
+                Refresh(clearIfMissing: false);
                 return;
             }
 
@@ -59,8 +58,7 @@ namespace Game.Client.Character
             followLocal = true;
             playerId = null;
             userId = null;
-            hasShown = false;
-            Refresh();
+            Refresh(clearIfMissing: true);
         }
 
         public void Show(AvatarAppearance appearance)
@@ -79,7 +77,14 @@ namespace Game.Client.Character
                 return;
             }
 
-            Refresh();
+            // The live roster is replaced every frame. When a friend drops off
+            // it, keep the last face rather than blanking the slot.
+            Refresh(clearIfMissing: false);
+        }
+
+        private void OnEnable()
+        {
+            Refresh(clearIfMissing: false);
         }
 
         private void OnDisable()
@@ -88,7 +93,7 @@ namespace Game.Client.Character
             hasShown = false;
         }
 
-        private void Refresh()
+        private void Refresh(bool clearIfMissing)
         {
             if (pinned)
             {
@@ -100,8 +105,10 @@ namespace Game.Client.Character
                 if (AvatarAppearanceBoard.HasLocal)
                 {
                     Apply(AvatarAppearanceBoard.Local, true);
+                    return;
                 }
 
+                ClearIfMissing(clearIfMissing);
                 return;
             }
 
@@ -112,11 +119,18 @@ namespace Game.Client.Character
                 return;
             }
 
-            if (hasShown)
+            ClearIfMissing(clearIfMissing);
+        }
+
+        private void ClearIfMissing(bool clearIfMissing)
+        {
+            if (!clearIfMissing || !hasShown)
             {
-                AvatarFacePortrait.Clear(transform as RectTransform);
-                hasShown = false;
+                return;
             }
+
+            AvatarFacePortrait.Clear(transform as RectTransform);
+            hasShown = false;
         }
 
         private void Apply(AvatarAppearance appearance, bool available)
