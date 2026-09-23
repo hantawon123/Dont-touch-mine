@@ -70,7 +70,9 @@ namespace Game.Client.Rooms
             roomId = room.RoomId;
 
             titleText.text = room.Settings.Title;
-            mapText.text = room.Settings.MapId;
+            mapText.text = string.IsNullOrWhiteSpace(room.MapId)
+                ? UiTextCatalog.Shipped.Get(UiText.Play.Random, language)
+                : room.MapId;
             playerCountText.text = $"{room.CurrentPlayerCount}/{room.Settings.MaxPlayers}";
             hostNicknameText.text = string.IsNullOrEmpty(room.HostNickname)
                 ? string.Empty
