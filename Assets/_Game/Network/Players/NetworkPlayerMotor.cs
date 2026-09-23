@@ -519,12 +519,14 @@ namespace Game.Network.Players
             var radius = kcc.Settings.Radius * 0.95f;
             var currentHeight = kcc.Settings.Height;
             var origin = transform.position + Vector3.up * (currentHeight - radius);
+            // 다른 플레이어는 천장이 아니다. 위에 올라탄 캐릭터 때문에 못 일어나면
+            // 웅크리기·엎드리기에 갇힌다. 일어서면 위 캐릭터는 KCC가 밀어낸다.
             var hits = Physics.SphereCastAll(
                 origin,
                 radius,
                 Vector3.up,
                 targetHeight - currentHeight,
-                Physics.DefaultRaycastLayers,
+                Physics.DefaultRaycastLayers & ~(1 << kcc.Settings.ColliderLayer),
                 QueryTriggerInteraction.Ignore);
 
             for (var index = 0; index < hits.Length; index++)

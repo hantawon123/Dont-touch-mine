@@ -273,7 +273,7 @@ namespace Game.Client.Combat
             for (var i = 0; i < hitCount; i++)
             {
                 var target = attackHits[i].GetComponentInParent<PlayerCombatant>();
-                if (target == null || target == this)
+                if (target == null || target == this || IsAlreadyHit(target, i))
                 {
                     continue;
                 }
@@ -289,6 +289,23 @@ namespace Game.Client.Combat
 
                 target.ReceiveHit(direction.normalized);
             }
+        }
+
+        /// <summary>
+        /// 한 캐릭터가 이동 캡슐과 몸 캡슐(<see cref="PlayerBodyBlocker"/>) 두 개로 동시에 걸릴 수 있다.
+        /// 앞선 결과에 같은 대상이 있으면 한 번 휘두름에 두 번 때리지 않게 건너뛴다.
+        /// </summary>
+        private bool IsAlreadyHit(PlayerCombatant target, int index)
+        {
+            for (var j = 0; j < index; j++)
+            {
+                if (attackHits[j].GetComponentInParent<PlayerCombatant>() == target)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>피격 처리: 판정 규칙에 등록하고 결과에 따라 연출과 드랍을 수행한다.</summary>
