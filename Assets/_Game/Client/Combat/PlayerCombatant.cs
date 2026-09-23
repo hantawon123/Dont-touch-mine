@@ -16,7 +16,17 @@ namespace Game.Client.Combat
     public sealed class PlayerCombatant : MonoBehaviour
     {
         private const float HitFlashSeconds = 0.15f;
-        private const int MaxAttackHits = 8;
+        private const int MaxAttackHits = 16;
+
+        /// <summary>
+        /// 판정 대상은 캐릭터 캡슐(Player 레이어)뿐이다. 예전에는 모든 레이어를 훑어서
+        /// 진열대·바닥 콜라이더가 먼저 버퍼를 채우면 바로 앞에 선 상대가 통째로 빠졌다.
+        /// 정적 필드 초기화에서 GetMask를 부르면 Unity가 예외를 던지므로 첫 사용 시점에 계산한다.
+        /// </summary>
+        private static int playerLayerMask = -1;
+
+        private static int PlayerLayerMask =>
+            playerLayerMask >= 0 ? playerLayerMask : playerLayerMask = LayerMask.GetMask("Player");
 
         [SerializeField]
         private InputActionAsset inputActions;
@@ -258,7 +268,7 @@ namespace Game.Client.Combat
 
             var hitCount = Physics.OverlapSphereNonAlloc(
                 center, combatConfig.AttackRadius, attackHits,
-                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+                PlayerLayerMask, QueryTriggerInteraction.Ignore);
 
             for (var i = 0; i < hitCount; i++)
             {

@@ -162,6 +162,59 @@ namespace Game.Architecture.Tests
             Assert.That(target, Is.EqualTo(expected ? guest : Fusion.PlayerRef.None));
         }
 
+        /// <summary>
+        /// The lobby showed "6/7" in a full room: a dedicated server occupies one
+        /// of Photon's actor slots, so the room's actor capacity is one larger
+        /// than the number of people who fit. The room's own published setting is
+        /// the cap, and nothing here imposes a project ceiling on it.
+        /// </summary>
+        [TestCase(4, 6, 4)]   // Accepted here already; the room echo does not override it.
+        [TestCase(0, 6, 6)]   // Not accepted yet: whatever the room published.
+        [TestCase(0, 8, 8)]   // A room that holds eight says eight, not a constant.
+        [TestCase(0, 0, 0)]   // The room has not said; zero is "unknown", not a limit.
+        public void RoomCapacity_ComesFromTheRoomSettingNotThePhotonActorCount(
+            int configured, int published, int expected)
+        {
+            Assert.That(
+                NetworkRunnerService.ResolveMaxPlayers(configured, published),
+                Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void RoomOwnerLeft_RoomPassesToTheLongestSeatedPlayerLeft()
+        {
+            var owner = Fusion.PlayerRef.FromIndex(0);
+            var second = Fusion.PlayerRef.FromIndex(1);
+            var third = Fusion.PlayerRef.FromIndex(2);
+            var players = new PlayerRegistry();
+            players.Add(owner);
+            players.Add(second);
+            players.Add(third);
+            players.Remove(owner);
+            Assert.That(
+                PlayerSpawner.TryChooseNextOwner(players, owner, null, out var next), Is.True);
+            Assert.That(next, Is.EqualTo(second));
+
+            // A character that is still going away cannot take the room.
+            Assert.That(
+                PlayerSpawner.TryChooseNextOwner(
+                    players, owner, candidate => candidate != second, out next),
+                Is.True);
+            Assert.That(next, Is.EqualTo(third));
+        }
+
+        [Test]
+        public void RoomOwnerLeftAnEmptyRoom_HasNobodyToHandItTo()
+        {
+            var owner = Fusion.PlayerRef.FromIndex(0);
+            var players = new PlayerRegistry();
+            players.Add(owner);
+            players.Remove(owner);
+            Assert.That(
+                PlayerSpawner.TryChooseNextOwner(players, owner, null, out var next), Is.False);
+            Assert.That(next, Is.EqualTo(Fusion.PlayerRef.None));
+        }
+
         [Test]
         public void LobbyKick_AcknowledgementCannotRemoveAnotherOrNewerRequest()
         {

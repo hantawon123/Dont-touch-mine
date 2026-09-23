@@ -1,6 +1,6 @@
 # 2026-09-23 최적화 MR 검증 범위
 
-대상: `feature/client/performance-validation-20260922` → `develop`. 기본 소스 `2e95f0f1f`. 운영 배포·자동 병합은 수행하지 않는다.
+대상: `feature/client/performance-validation-20260923` → `develop`. 기존 검증 기본 소스 `2e95f0f1f`에 최신 `develop`의 `792fd52e2`를 통합했다. 기존 !441은 사용자가 직접 닫으며, 운영 배포·자동 병합은 수행하지 않는다.
 
 ## 포함한 변경
 
@@ -8,7 +8,7 @@
 |---|---|---|
 | `c880c6eb1` | 무화면 AvatarFacePortrait/HidingIntroItemPreview 렌더링 가드 | 그래픽 장치가 없는 시험 봇에서만 렌더링 생성 생략. 일반 화면 유지 |
 | 위 커밋 | 전용 서버 EmoteWheelController 비활성화 | 서버에서 필요 없는 로컬 UI 입력 처리 제거. 네트워크 감정표현 복제 유지 |
-| 위 커밋 | 방 설정 검증의 인원 계산 수정 | 전용 서버를 실제 플레이어로 세어 6인 방 설정을 거절하던 문제 수정 |
+| 위 커밋 | 방 설정 인원 계산 회귀 테스트 | 최신 develop에 같은 문제의 수정이 있어 제품 코드는 최신 `CountActivePlayers(_runner)`를 그대로 유지. 6/6 허용·7/6 거절 테스트만 추가 |
 | `56eb605c8` | 음성 처리 구간 ProfilerMarker | 검색·음소거·전송 비용을 분리 측정. 서비스 주기 변경 없음 |
 | `f4fd4f487` | PlayerRoster 기반 음성 대상 탐색·목록 재사용 | 전체 씬을 매 프레임 검색하지 않고 현재 아바타 안에서 Speaker 검색. 명단이 없거나 비면 기존 전체 검색 유지 |
 
@@ -37,11 +37,18 @@
 
 마지막 `ec2-presence-fixed-r1`/flow21은 EC2 전체 CPU95.98%를 감지한 기존90% STOP 가드가 임시 서버를 종료했다. 전체 경기 완료0건으로 성과에서 제외했다. 시험 종료 후 운영active/backendUP/운영 재시작횟수12 유지, 소유 시험 프로세스 정리를 확인했다. 사용자 지시로 추가 시험은 중지했다.
 
-## 최신 develop과의 통합 주의
+## 최신 develop과의 통합 검증
 
-MR 준비 시 `origin/develop`은 `cead58570`으로 진행됐다. `git merge-tree`에서 `NetworkRunnerService.cs` 내용 충돌을 확인했다. 최신 develop에도 인원 계산을 `CountActivePlayers(_runner)`로 수정하고 방 설정 검증·경고를 보강한 변경이 있다. 해당 최신 로직을 보존하는 방향으로 충돌 해결 및 통합 후 재검증이 필요하다. 이번 MR 생성 과정에서는 다른 작업의 코드를 덮거나 자동 병합하지 않는다.
+사용자 요청으로 `origin/develop`의 `792fd52e2`를 새 격리 브랜치에 통합했다. 충돌은 `NetworkRunnerService.cs`의 인원 계산 한 곳이며, 최신 `CountActivePlayers(_runner)`를 유지해 해결했다. 해당 파일 전체가 최신 develop과 동일함을 확인했다. 최신 방 정원 표시, 방 목록, 설정 검증·경고 및 하이라이트 진단 로직도 보존한다. 기존 격리 폴더의 Presence/HUD 실험 및 설정 변경은 옮기지 않았다.
 
-MR은 **Draft**로 제출한다. 전체 최적화 이슈994는 미완료이므로 자동 완료 문구는 넣지 않는다. 게임 기능·HUD 불변 조건을 유지하며, 충돌 해결·통합 회귀·사람의 음성 청취 확인 후 리뷰로 병합 여부를 결정한다.
+통합 후 검증 결과는 아래에 기록한다. 과거 빌드·6인 경기 결과는 위의 이전 소스 검증 증거이며 최신 통합본의 실게임 재검증으로 간주하지 않는다. 이번 요청에서는 EC2 부하 시험이나 FPS 측정을 재개하지 않는다.
+
+- Unity 6000.3.22f1 / Win64 / EditMode, 필터 `Voice;NetworkContractTests;Emote;SessionPropertyMapper;SessionCloudRecovery`: **226/226 통과, 실패0, 건너뜀0**, 테스트 실행 종료코드0. 새 결과: `mr-integration-tests.xml`, 로그: `mr-integration-tests.log` (로컬 검증 자료에 보존).
+- 테스트 과정에서 최신 통합 코드 재컴파일 완료. 새 Windows/Linux 플레이어 빌드 및 실제 멀티플레이 실행은 이번 통합에서 다시 수행하지 않았다.
+- `NetworkRunnerService.cs`는 `origin/develop`과 차이 없음. 미해결 병합 항목0 및 MR 차이의 `git diff --check` 확인.
+- 임포트 중 일부 ItemCollection `.meta`의 유효 GUID 경고 관측. 표본 `tools_4f0817e5c1.prefab.meta`는 최신 develop과 내용 해시가 동일(`c9e49ded89f3515145165e61435f0e7feea68ff1`)하여 이번 변경에 포함하지 않았다. 자동 테스트 통과가 전체 에셋 정상 판정을 뜻하지 않는다.
+
+전체 최적화 이슈994는 미완료이므로 자동 완료 문구는 넣지 않는다. 게임 기능·HUD 불변 조건을 유지하며, 사람의 음성 청취 및 HUD 확인과 최소 1명의 리뷰 승인 후 병합 여부를 결정한다.
 
 ## 보고서 재현 자료
 

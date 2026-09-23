@@ -56,6 +56,36 @@ class FriendListApiTest extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("외형을 저장한 친구는 오프라인이어도 마지막 외형이 목록에 남는다")
+    void offlineFriendKeepsLastSavedAppearance() throws Exception {
+        String me = createUser();
+        String other = createUser();
+        befriend(me, other);
+        saveAppearance(other);
+
+        mvc.perform(get("/api/v1/friends").header(USER_ID_HEADER, me))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.friends[0].presence").value("OFFLINE"))
+                .andExpect(jsonPath("$.friends[0].appearanceSet").value(true))
+                .andExpect(jsonPath("$.friends[0].appearance.bodyColor").value("body_black"))
+                .andExpect(jsonPath("$.friends[0].appearance.hood").value("hood_bear_purple"))
+                .andExpect(jsonPath("$.friends[0].appearance.shoes").value("shoes_pink"))
+                .andExpect(jsonPath("$.friends[0].appearance.face").value("face_smile"));
+    }
+
+    @Test
+    @DisplayName("외형을 저장하지 않은 친구는 appearanceSet 이 false")
+    void friendWithoutAppearanceHasNoLook() throws Exception {
+        String me = createUser();
+        String other = createUser();
+        befriend(me, other);
+
+        mvc.perform(get("/api/v1/friends").header(USER_ID_HEADER, me))
+                .andExpect(jsonPath("$.friends[0].appearanceSet").value(false))
+                .andExpect(jsonPath("$.friends[0].appearance").value((Object) null));
+    }
+
+    @Test
     @DisplayName("접속 기록이 없는 친구는 OFFLINE")
     void friendWithoutPresenceIsOffline() throws Exception {
         // user_presence 에 행이 없는 경우입니다. LEFT JOIN 이라 목록에는 남아야 합니다.
@@ -181,6 +211,15 @@ class FriendListApiTest extends IntegrationTest {
         mvc.perform(get("/api/v1/friends").header(USER_ID_HEADER, UUID.randomUUID().toString()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_FOUND"));
+    }
+
+    private void saveAppearance(String userId) throws Exception {
+        mvc.perform(put("/api/v1/accounts/me/appearance")
+                        .header(USER_ID_HEADER, userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bodyColor\":\"body_black\",\"hood\":\"hood_bear_purple\","
+                                + "\"shoes\":\"shoes_pink\",\"face\":\"face_smile\"}"))
+                .andExpect(status().isOk());
     }
 
     private String createUser() throws Exception {

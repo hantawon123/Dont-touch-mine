@@ -76,6 +76,10 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Integer>
      * 클라이언트의 status 는 ONLINE 으로 남아 있어서, 실제 상태는 마지막 하트비트로
      * 계산해야 합니다. 그 판정은 PresenceTimeout 이 합니다.
      *
+     * <p>user_appearances 도 LEFT JOIN 합니다. 외형을 한 번도 저장하지 않은 친구는 그
+     * 테이블에 행이 없고, 그래도 목록에는 남아야 합니다. 오프라인이어도 마지막에 저장한
+     * 얼굴을 보여 주기 위해 함께 가져옵니다.
+     *
      * <p>상대는 쌍에서 내가 아닌 쪽이므로 CASE 로 골라 조인합니다. 정렬을 nickname_lower
      * 로 하는 것은 V6 의 인덱스를 쓰기 위해서이고, 온라인 여부로 나누는 것은 클라이언트가
      * 합니다.
@@ -84,13 +88,18 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Integer>
             SELECT u.public_id     AS userId,
                    u.nickname      AS nickname,
                    p.status        AS status,
-                   p.heartbeat_at  AS heartbeatAt
+                   p.heartbeat_at  AS heartbeatAt,
+                   a.body_color    AS bodyColor,
+                   a.hood          AS hood,
+                   a.shoes         AS shoes,
+                   a.face          AS face
               FROM friendships f
               JOIN users u
                 ON u.users_seq = CASE WHEN f.user_low_seq = :meSeq
                                       THEN f.user_high_seq
                                       ELSE f.user_low_seq END
               LEFT JOIN user_presence p ON p.user_seq = u.users_seq
+              LEFT JOIN user_appearances a ON a.user_seq = u.users_seq
              WHERE f.status = 'ACCEPTED'
                AND (f.user_low_seq = :meSeq OR f.user_high_seq = :meSeq)
              ORDER BY u.nickname_lower
