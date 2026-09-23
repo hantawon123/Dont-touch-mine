@@ -100,7 +100,8 @@ namespace Game.Client.Match
         {
             var startedAt = Time.realtimeSinceStartupAsDouble;
             Clear();
-            if (target == null)
+            // No preview stage or render target is needed on headless peers.
+            if (target == null || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
             {
                 return;
             }

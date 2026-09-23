@@ -23,7 +23,8 @@ namespace Game.Network.Lobby
             var playerCount = CountPlayers(info.PlayerCount,
                 info.Properties?.ContainsKey(SessionPropertyKeys.AvailableServer) == true);
             var displayName = ReadString(info, SessionPropertyKeys.DisplayName, UnnamedRoom);
-            var mapId = ReadString(info, SessionPropertyKeys.MapId, null);
+            // Empty is the lobby's random map. It is a choice, so the room stays listed.
+            var mapId = ReadString(info, SessionPropertyKeys.MapId, string.Empty);
             var hostNickname = ReadString(info, SessionPropertyKeys.HostNickname, null);
             var maxPlayers = ReadInt(
                 info,
@@ -31,7 +32,6 @@ namespace Game.Network.Lobby
                 info.MaxPlayers);
 
             if (string.IsNullOrWhiteSpace(info.Name)
-                || string.IsNullOrWhiteSpace(mapId)
                 || !info.IsVisible
                 || !info.IsOpen
                 || maxPlayers < RoomSettings.MinPlayerCount
@@ -66,7 +66,8 @@ namespace Game.Network.Lobby
                 info.CustomProperties.ContainsKey(SessionPropertyKeys.AvailableServer));
             var displayName = ReadString(
                 info, SessionPropertyKeys.DisplayName, UnnamedRoom);
-            var mapId = ReadString(info, SessionPropertyKeys.MapId, null);
+            // Empty is the lobby's random map. It is a choice, so the room stays listed.
+            var mapId = ReadString(info, SessionPropertyKeys.MapId, string.Empty);
             var hostNickname = ReadString(
                 info, SessionPropertyKeys.HostNickname, null);
             var maxPlayers = ReadInt(
@@ -74,7 +75,6 @@ namespace Game.Network.Lobby
 
             if (info.RemovedFromList
                 || string.IsNullOrWhiteSpace(info.Name)
-                || string.IsNullOrWhiteSpace(mapId)
                 || !info.IsVisible
                 || !info.IsOpen
                 || maxPlayers < RoomSettings.MinPlayerCount

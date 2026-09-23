@@ -25,7 +25,7 @@ namespace Game.Editor
         {
             var revision = Environment.GetEnvironmentVariable("CLIENT_REVISION");
             if (string.IsNullOrWhiteSpace(revision)) throw new BuildFailedException("CLIENT_REVISION is required.");
-            var output = Environment.GetEnvironmentVariable("CLIENT_OUTPUT") ?? "Builds/Client/Game.exe";
+            var output = Environment.GetEnvironmentVariable("CLIENT_OUTPUT") ?? "Builds/Client/Don't Touch Mine.exe";
             var version = PlayerSettings.bundleVersion;
             try
             {

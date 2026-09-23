@@ -1,5 +1,6 @@
 using Game.Backend;
 using Game.Core.Flow;
+using Game.Client.Character;
 using Game.Client.Common;
 using Game.Client.Home;
 using Game.Client.Match;
@@ -63,6 +64,10 @@ namespace Game.Bootstrap
         [Tooltip("Looped only during highlight playback.")]
         private AudioClip _endingBgm;
 
+        [SerializeField]
+        [Tooltip("Parts a character can wear. Only read here to decide what a player who has never opened the closet is dressed in.")]
+        private AvatarPartCatalog _partCatalog;
+
         protected override void Configure(IContainerBuilder builder)
         {
             if (DedicatedServerStartup.IsRequested)
@@ -118,7 +123,8 @@ namespace Game.Bootstrap
                 new SoundSettingsSystem(soundSettingsStore, soundSettingsApplier, microphones),
                 new ControlSettingsSystem(controlSettingsStore),
                 new NotificationSettingsSystem(notificationSettingsStore),
-                registerNullMicrophoneTest: false);
+                registerNullMicrophoneTest: false,
+                partCatalog: _partCatalog);
             builder.RegisterEntryPoint<UnityMicrophoneTest>().As<IMicrophoneTest>();
             builder.RegisterInstance<IServerRegionStore>(regionStore);
 
@@ -420,7 +426,8 @@ namespace Game.Bootstrap
             SoundSettingsSystem soundSettings = null,
             ControlSettingsSystem controlSettings = null,
             NotificationSettingsSystem notificationSettings = null,
-            bool registerNullMicrophoneTest = true)
+            bool registerNullMicrophoneTest = true,
+            AvatarPartCatalog partCatalog = null)
         {
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
@@ -503,7 +510,20 @@ namespace Game.Bootstrap
             // profile is: the closet writes what was applied and the lobby
             // reads it, and a copy per screen would dress the player
             // differently depending on where they were looked at.
-            builder.Register<AvatarAppearanceState>(Lifetime.Singleton);
+
+            // Dressed here rather than left empty, because an empty appearance
+            // means "whatever the model was authored with" and not "the
+            // catalogue's default". A player who has never opened the closet
+            // would otherwise wear the raw art in the tutorial and in a match.
+            // The account's own appearance, when there is one, lands on top of
+            // this through AvatarAppearanceSeed.
+            var appearanceState = new AvatarAppearanceState();
+            if (partCatalog != null)
+            {
+                appearanceState.Apply(partCatalog.Default);
+            }
+
+            builder.RegisterInstance(appearanceState);
             builder.RegisterEntryPoint<NetworkAvatarAppearancePresenter>();
 
             builder.Register<LoadingOverlay>(Lifetime.Singleton).As<ILoadingOverlay>().AsSelf();

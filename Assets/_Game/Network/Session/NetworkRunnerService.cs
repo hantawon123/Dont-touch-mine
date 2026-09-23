@@ -69,6 +69,7 @@ namespace Game.Network.Session
         private const int HighlightReadyKeyType = 0x484C5244;
         private const int HighlightCompleteKeyType = 0x484C444E;
         private readonly HashSet<PlayerRef> _highlightPendingPlayers = new();
+        private string _highlightNotReadyReason;
         private readonly HashSet<PlayerRef> _highlightCompletedPlayers = new();
         private int _receivedHighlightSequence;
         private bool _highlightResultUnloadRequested;
@@ -105,17 +106,48 @@ namespace Game.Network.Session
 
         public bool TryConfirmHighlightReady()
         {
-            if (_runner == null || !_runner.IsRunning || !_highlightLobbyPrepared) return false;
+            if (_runner == null || !_runner.IsRunning || !_highlightLobbyPrepared)
+                return ReportHighlightNotReady("scenes");
             if (IsServer)
                 _highlightPendingPlayers.Remove(_runner.LocalPlayer);
             else
             {
-                if (_receivedHighlightSequence == 0) return false;
+                if (_receivedHighlightSequence == 0) return ReportHighlightNotReady("replay");
                 _runner.SendReliableDataToServer(ReliableKey.FromInts(
                     HighlightReadyKeyType, HighlightReplayKeyVersion, _receivedHighlightSequence, 0),
                     new byte[] { 1 });
             }
+            _highlightNotReadyReason = null;
             return true;
+        }
+
+        /// <summary>
+        /// Says once why this peer cannot acknowledge yet. A peer that never
+        /// acknowledges costs everyone the highlight when the barrier times out,
+        /// so the reason must be in its log.
+        /// </summary>
+        private bool ReportHighlightNotReady(string reason)
+        {
+            if (!string.Equals(_highlightNotReadyReason, reason, StringComparison.Ordinal))
+            {
+                _highlightNotReadyReason = reason;
+                Debug.LogWarning(
+                    $"[Highlight] Not ready to acknowledge ({reason}): " +
+                    $"lobbyAndMapLoaded={_highlightLobbyPrepared}, " +
+                    $"receivedSequence={_receivedHighlightSequence}.");
+            }
+
+            return false;
+        }
+
+        /// <summary>The peers the authority is still waiting on, for a timeout report.</summary>
+        public string DescribeHighlightReadiness()
+        {
+            if (_highlightPendingPlayers.Count == 0) return "none";
+            var pending = new List<string>();
+            foreach (var player in _highlightPendingPlayers) pending.Add(player.ToString());
+            pending.Sort(StringComparer.Ordinal);
+            return string.Join(", ", pending);
         }
 
         public bool CompleteLocalHighlightViewing()
@@ -309,6 +341,8 @@ namespace Game.Network.Session
         private readonly long _playerUniqueId = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0) | 1L;
         private int _configuredMaxPlayers;
         private string _configuredMapId = MapCatalog.DefaultMapId;
+        /// <summary>One warning per streak; the settings read runs several times a second.</summary>
+        private bool _publishedSettingsRejected;
 
         /// <summary>
         /// 이번 매치가 실제로 열린 맵. 방 설정이 "랜덤"이면 매치 시작 때 정해지고,
@@ -745,24 +779,42 @@ namespace Game.Network.Session
             }
         }
 
+        /// <summary>
+        /// How many people this room holds, as the room itself says.
+        /// </summary>
+        /// <remarks>
+        /// Photon's <c>SessionInfo.MaxPlayers</c> is the room's actor capacity,
+        /// and a dedicated server occupies one of those actors, so it is one
+        /// larger than the number of people who fit. Reading it here put that
+        /// extra slot on screen as "6/7". The room's own published setting is
+        /// the answer, and it is the same property the room listing reads.
+        /// Zero means the room has not said yet; it is not a limit.
+        /// </remarks>
         public int MaxPlayers
         {
             get
             {
-                if (_configuredMaxPlayers > 0)
-                {
-                    return _configuredMaxPlayers;
-                }
-
                 if (_runner == null)
                 {
-                    return 0;
+                    return _configuredMaxPlayers > 0 ? _configuredMaxPlayers : 0;
                 }
 
                 var info = _runner.SessionInfo;
-                return info.IsValid ? info.MaxPlayers : 0;
+                return ResolveMaxPlayers(
+                    _configuredMaxPlayers,
+                    info.IsValid
+                        ? SessionPropertyMapper.ReadInt(info, SessionPropertyKeys.MaxPlayers, 0)
+                        : 0);
             }
         }
+
+        /// <summary>
+        /// The accepted setting if this peer has one, otherwise what the room
+        /// published. No ceiling is applied here: a room that holds eight says
+        /// eight, and the project limit belongs to the request that sets it.
+        /// </summary>
+        internal static int ResolveMaxPlayers(int configured, int published) =>
+            configured > 0 ? configured : Math.Max(0, published);
 
         public string RoomDisplayName
         {
@@ -1265,12 +1317,16 @@ namespace Game.Network.Session
             if (!IsRuntimeReady || _browsingLobby || !_runner.SessionInfo.IsValid) return false;
             // The host already owns the accepted values. A delayed Cloud echo must not roll them back.
             if (!IsServer) ReadConfiguredSettings();
+            // Until the room says how many people it holds, keep showing the last
+            // answer instead of publishing a draft with no capacity in it.
+            var maxPlayers = MaxPlayers;
+            if (maxPlayers <= 0) return false;
             var info = _runner.SessionInfo;
             var locked = info.Properties != null &&
                 info.Properties.TryGetValue(SessionPropertyKeys.Locked, out var property) &&
                 property.Isbool && (bool)property;
             settings = new PlaySettingsDraft(RoomDisplayName, RoomCode, locked, _expectedPassword,
-                MaxPlayers, _destructionLimit, _configuredMapId, _matchRules);
+                maxPlayers, _destructionLimit, _configuredMapId, _matchRules);
             return true;
         }
 
@@ -2732,10 +2788,12 @@ namespace Game.Network.Session
             }
 
             var info = _runner.SessionInfo;
+            // Falls back to what this peer already accepted, never to the room's
+            // actor capacity: that counts the dedicated server's own slot.
             var maxPlayers = SessionPropertyMapper.ReadInt(
                 info,
                 SessionPropertyKeys.MaxPlayers,
-                _configuredMaxPlayers > 0 ? _configuredMaxPlayers : info.MaxPlayers);
+                _configuredMaxPlayers);
             var destructionLimit = SessionPropertyMapper.ReadInt(
                 info,
                 SessionPropertyKeys.DestructionLimit,
@@ -2748,18 +2806,34 @@ namespace Game.Network.Session
                 SessionPropertyKeys.MapId,
                 MapCatalog.DefaultMapId);
 
+            // The session listing counts a dedicated server as an occupant, so its
+            // count reaches the configured limit one player short of a full room,
+            // and this read would then drop every published change without saying so.
             if (!TryValidateLobbySettingsRequest(
                     true,
                     true,
-                    info.PlayerCount,
+                    CountActivePlayers(_runner),
                     maxPlayers,
                     destructionLimit,
                     mapId,
                     matchRules,
                     out var normalizedMatchRules))
             {
+                if (!_publishedSettingsRejected)
+                {
+                    // Never fail this read silently: the screens would keep showing
+                    // settings the room no longer has.
+                    _publishedSettingsRejected = true;
+                    Debug.LogWarning(
+                        "[Session] Ignored the room's published settings: " +
+                        $"max={maxPlayers}, players={CountActivePlayers(_runner)}, " +
+                        $"destruction={destructionLimit}, map='{mapId}'.");
+                }
+
                 return;
             }
+
+            _publishedSettingsRejected = false;
 
             _configuredMaxPlayers = maxPlayers;
             _destructionLimit = destructionLimit;

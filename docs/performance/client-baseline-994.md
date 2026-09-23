@@ -33,7 +33,7 @@ Unity 에디터 Play, Windows PC Player, WebGL을 별도로 측정한다. 공통
 기존 WebFrameCapture를 확장했다. 평소에는 Update가 꺼져 있고 수동 측정 중에만 고정 배열에 프레임 간격을 저장한다. 배열 준비·환경 조회는 타이머 시작 전, 정렬·파일 저장은 타이머 종료 후다. 샘플 상한은 32768이며 상한 도달 시 실제 seconds를 보고한다. CPU/GPU 프로파일러나 전체 프로세스 메모리 측정기를 대체하지 않는다.
 
 - 에디터: Play 후 `Game > Performance > Capture 30 Seconds`. Game 창을 유지한다.
-- Windows Player: `Game.exe -perf`로 실행하고 F8을 누른다. 측정 중 다시 눌러도 현재 구간을 재시작하지 않는다.
+- Windows Player: `"Don't Touch Mine.exe" -perf`로 실행하고 F8을 누른다. 측정 중 다시 눌러도 현재 구간을 재시작하지 않는다.
 - WebGL: URL에 `?perf=1`을 붙이고 기존 성능 측정 패널의 버튼을 누른다.
 - 에디터/PC 결과: `Application.persistentDataPath/Performance/frames-*.json`, Console/Player 로그에도 경로를 남긴다. WebGL은 기존 패널에서 JSON을 복사한다.
 - 매 결과와 함께 정확한 git 커밋, 시나리오·인원·서버 위치·브라우저·렌더 스케일·백그라운드 부하를 기록한다. 에디터의 revision은 PlayerSettings 버전이며 git 커밋을 자동 식별하지 않는다.
@@ -46,7 +46,7 @@ CPU/렌더/물리/GC 할당의 원인은 Unity Profiler로, 실제 Web 실행은
 
 원본과 분리된 프로젝트에서 빌드하며 기존 서버를 중단하거나 배포하지 않는다.
 
-- PC: `CLIENT_REVISION`을 일치시킬 버전으로 지정하고 `Game.Editor.ClientBuild.Build` 실행. `CLIENT_OUTPUT`은 exe 경로, 기본값은 Builds/Client/Game.exe. `CLIENT_PROFILE_BUILD=1`이면 Development Build다.
+- PC: `CLIENT_REVISION`을 일치시킬 버전으로 지정하고 `Game.Editor.ClientBuild.Build` 실행. `CLIENT_OUTPUT`은 exe 경로, 기본값은 Builds/Client/Don't Touch Mine.exe. `CLIENT_PROFILE_BUILD=1`이면 Development Build다.
 - WebGL: 기존 `Game.Editor.WebBuild.Build`와 `WEBGL_REVISION`, `WEBGL_OUTPUT` 사용. `WEBGL_PROFILE_BUILD=1`일 때만 Development Build. 일반 빌드 기본값은 그대로 유지한다.
 - 빠른 빌드 옵션의 결과를 실행 속도 최적화 빌드와 섞지 않는다. 서버/클라이언트의 버전과 개발 테스트 코드를 맞춘다.
 

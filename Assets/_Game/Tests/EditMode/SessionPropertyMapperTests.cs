@@ -57,15 +57,25 @@ namespace Game.Architecture.Tests
 
         private sealed class ListedServer : Photon.Realtime.RoomInfo
         {
-            public ListedServer(bool available, int peers) : base("988ABC", new Photon.Client.PhotonHashtable
+            public ListedServer(bool available, int peers, string mapId = "supermarket") : base("988ABC", new Photon.Client.PhotonHashtable
             {
                 [Photon.Realtime.GamePropertyKey.IsOpen] = true,
                 [Photon.Realtime.GamePropertyKey.IsVisible] = true,
                 [Photon.Realtime.GamePropertyKey.PlayerCount] = (byte)peers,
                 [SessionPropertyKeys.AvailableServer] = available,
-                [SessionPropertyKeys.MapId] = "supermarket",
+                [SessionPropertyKeys.MapId] = mapId,
                 [SessionPropertyKeys.MaxPlayers] = 6
             }) { }
+        }
+
+        [Test]
+        public void ClaimedRoom_WithRandomMap_StaysOnTheList()
+        {
+            var listed = new ListedServer(available: false, peers: 2, mapId: string.Empty);
+
+            Assert.That(Game.Network.Lobby.RoomSummaryMapper.TryToSummary(listed, out var room), Is.True);
+            Assert.That(room.MapId, Is.EqualTo(string.Empty));
+            Assert.That(room.PlayerCount, Is.EqualTo(1));
         }
 
         [UnityEngine.TestTools.UnityTest]

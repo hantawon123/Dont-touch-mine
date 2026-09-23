@@ -62,6 +62,8 @@ namespace Game.Network.Match
         // Final forward tick, with no remaining simulation backlog in later frames.
         bool IsFinalForwardTick { get; }
         bool HasCompletedHighlight(int playerIndex) => false;
+        /// <summary>The peers the authority is still waiting on before the highlight starts.</summary>
+        string DescribeHighlightReadiness() => "unknown";
         MatchMigrationState MatchMigration { get; }
         bool IsMatchRuntimeRestorePending { get; }
         void ReportMatchRuntimeRestored(Exception failure);

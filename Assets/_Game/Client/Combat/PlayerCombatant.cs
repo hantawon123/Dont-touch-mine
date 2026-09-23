@@ -16,7 +16,17 @@ namespace Game.Client.Combat
     public sealed class PlayerCombatant : MonoBehaviour
     {
         private const float HitFlashSeconds = 0.15f;
-        private const int MaxAttackHits = 8;
+        private const int MaxAttackHits = 16;
+
+        /// <summary>
+        /// 판정 대상은 캐릭터 캡슐(Player 레이어)뿐이다. 예전에는 모든 레이어를 훑어서
+        /// 진열대·바닥 콜라이더가 먼저 버퍼를 채우면 바로 앞에 선 상대가 통째로 빠졌다.
+        /// 정적 필드 초기화에서 GetMask를 부르면 Unity가 예외를 던지므로 첫 사용 시점에 계산한다.
+        /// </summary>
+        private static int playerLayerMask = -1;
+
+        private static int PlayerLayerMask =>
+            playerLayerMask >= 0 ? playerLayerMask : playerLayerMask = LayerMask.GetMask("Player");
 
         [SerializeField]
         private InputActionAsset inputActions;
@@ -258,12 +268,12 @@ namespace Game.Client.Combat
 
             var hitCount = Physics.OverlapSphereNonAlloc(
                 center, combatConfig.AttackRadius, attackHits,
-                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+                PlayerLayerMask, QueryTriggerInteraction.Ignore);
 
             for (var i = 0; i < hitCount; i++)
             {
                 var target = attackHits[i].GetComponentInParent<PlayerCombatant>();
-                if (target == null || target == this)
+                if (target == null || target == this || IsAlreadyHit(target, i))
                 {
                     continue;
                 }
@@ -279,6 +289,23 @@ namespace Game.Client.Combat
 
                 target.ReceiveHit(direction.normalized);
             }
+        }
+
+        /// <summary>
+        /// 한 캐릭터가 이동 캡슐과 몸 캡슐(<see cref="PlayerBodyBlocker"/>) 두 개로 동시에 걸릴 수 있다.
+        /// 앞선 결과에 같은 대상이 있으면 한 번 휘두름에 두 번 때리지 않게 건너뛴다.
+        /// </summary>
+        private bool IsAlreadyHit(PlayerCombatant target, int index)
+        {
+            for (var j = 0; j < index; j++)
+            {
+                if (attackHits[j].GetComponentInParent<PlayerCombatant>() == target)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>피격 처리: 판정 규칙에 등록하고 결과에 따라 연출과 드랍을 수행한다.</summary>

@@ -51,6 +51,37 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Remember_SurvivesReplaceClearingTheRoster()
+        {
+            var saved = new AvatarAppearance("body_c", "hood_c", "shoes_c", "face_c");
+            AvatarAppearanceBoard.Remember("offline-1", saved);
+            AvatarAppearanceBoard.Replace(new List<(string, string, AvatarAppearance)>
+            {
+                ("p1", "u1", new AvatarAppearance("body_a", "hood_a", "shoes_a", "face_a"))
+            });
+            AvatarAppearanceBoard.Replace(null);
+
+            Assert.That(AvatarAppearanceBoard.TryGet("offline-1", out var found), Is.True);
+            Assert.That(found, Is.EqualTo(saved));
+            Assert.That(AvatarAppearanceBoard.TryGet("p1", out _), Is.False);
+        }
+
+        [Test]
+        public void LiveRoster_BeatsRememberedLook()
+        {
+            var saved = new AvatarAppearance("body_c", "hood_c", "shoes_c", "face_c");
+            var live = new AvatarAppearance("body_a", "hood_a", "shoes_a", "face_a");
+            AvatarAppearanceBoard.Remember("p1", saved);
+            AvatarAppearanceBoard.Replace(new List<(string, string, AvatarAppearance)>
+            {
+                ("p1", "u1", live)
+            });
+
+            Assert.That(AvatarAppearanceBoard.TryGet("p1", out var found), Is.True);
+            Assert.That(found, Is.EqualTo(live));
+        }
+
+        [Test]
         public void Clear_DropsLocalAndRoster()
         {
             AvatarAppearanceBoard.SetLocal(new AvatarAppearance("body_a", "hood_a", "shoes_a", "face_a"));
@@ -59,10 +90,12 @@ namespace Game.Architecture.Tests
                 ("p1", "u1", new AvatarAppearance("body_b", "hood_b", "shoes_b", "face_b"))
             });
 
+            AvatarAppearanceBoard.Remember("offline-1", new AvatarAppearance("body_c", "hood_c", "shoes_c", "face_c"));
             AvatarAppearanceBoard.Clear();
 
             Assert.That(AvatarAppearanceBoard.HasLocal, Is.False);
             Assert.That(AvatarAppearanceBoard.TryGet("p1", out _), Is.False);
+            Assert.That(AvatarAppearanceBoard.TryGet("offline-1", out _), Is.False);
         }
     }
 }

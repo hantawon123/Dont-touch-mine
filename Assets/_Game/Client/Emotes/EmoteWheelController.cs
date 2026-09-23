@@ -50,7 +50,15 @@ namespace Game.Client.Emotes
 
         public void BindSettings(ControlSettingsSystem settings) => controls = settings;
 
-        private void OnEnable() => instance = this;
+        private void OnEnable()
+        {
+#if UNITY_SERVER
+            // Dedicated servers receive emotes through network input, not a local UI.
+            enabled = false;
+#else
+            instance = this;
+#endif
+        }
 
         private void Awake()
         {

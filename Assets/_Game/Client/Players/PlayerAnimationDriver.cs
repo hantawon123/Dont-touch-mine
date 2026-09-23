@@ -733,7 +733,10 @@ namespace Game.Client.Players
 
             // Physics already grounded this frame; play once the land clip is the
             // current pose so the thud matches the body hitting the floor.
-            if (!ShouldPlayPendingLandSound(landSoundPending, IsLandState(currentState)))
+            // 춤 중에는 착지 클립이 나오지 않으므로, 그 포즈를 기다리면 쿵 소리가 영영
+            // 밀린다. 표현을 들고 있을 때는 발이 닿은 프레임에 바로 낸다.
+            if (!ShouldPlayPendingLandSound(
+                    landSoundPending, IsLandState(currentState) || IsHoldingLoopEmote))
                 return;
             landSoundPending = false;
             if (landAudioSource == null || !landAudioSource.isActiveAndEnabled || landClip == null)
@@ -807,6 +810,13 @@ namespace Game.Client.Players
                         posture, carrying, 0f, Vector2.zero, settings.WalkSpeed, settings.SprintSpeed);
                 }
 
+                // 춤은 공중에서도 이어진다. 점프·낙하 클립과 원샷 슬롯을 하나만
+                // 쓰므로, 덮어쓰면 착지한 뒤 되돌릴 근거가 남지 않는다.
+                if (IsHoldingLoopEmote)
+                {
+                    return oneShotState;
+                }
+
                 if (leftGround)
                 {
                     PlayOneShot(ResolveJumpClip(carrying), JumpSeconds);
@@ -824,7 +834,7 @@ namespace Game.Client.Players
             if (!wasGrounded)
             {
                 wasGrounded = true;
-                if (posture == PlayerPosture.Standing)
+                if (posture == PlayerPosture.Standing && !IsHoldingLoopEmote)
                 {
                     PlayOneShot(ResolveLandClip(carrying), LandSeconds);
                 }
@@ -869,6 +879,22 @@ namespace Game.Client.Players
 
             return locomotion;
         }
+
+        /// <summary>
+        /// 반복 감정 표현(춤)이 재생 중인가. 점프·낙하·착지 클립이 이걸 밀어내지
+        /// 않는다. 1회성 표현(인사·도발)은 해당하지 않는다.
+        /// </summary>
+        private bool IsHoldingLoopEmote =>
+            HoldsLoopEmote(oneShotState, Time.time < oneShotUntilTime);
+
+        /// <summary>
+        /// 원샷 슬롯을 쥐고 있는 게 반복 표현인가. 점프·낙하·착지 클립이 이걸
+        /// 밀어내지 않으므로, 판정만 따로 떼어 검증할 수 있게 둔다.
+        /// </summary>
+        internal static bool HoldsLoopEmote(string oneShotState, bool stillPlaying) =>
+            stillPlaying &&
+            EmoteCatalog.IsEmoteState(oneShotState) &&
+            !EmoteCatalog.IsOneShotEmoteState(oneShotState);
 
         private void PlayOneShot(string state, float seconds)
         {

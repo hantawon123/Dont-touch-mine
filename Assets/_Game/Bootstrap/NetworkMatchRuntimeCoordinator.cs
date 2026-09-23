@@ -667,7 +667,10 @@ namespace Game.Bootstrap
                 }
                 else if (network.ServerTime >= highlightReadyDeadline)
                 {
-                    Debug.LogWarning("[Highlight] Replay preparation timed out; skipping to results.");
+                    Debug.LogWarning(
+                        "[Highlight] Replay preparation timed out; skipping to results. " +
+                        $"published={hasPublishedHighlightReplay}, " +
+                        $"waitingFor={network.DescribeHighlightReadiness()}.");
                     while (session.CompleteCurrentHighlight()) { }
                     waitingForHighlightReady = false;
                 }

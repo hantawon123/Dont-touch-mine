@@ -4,6 +4,7 @@ using System.Reflection;
 using Game.Client.Common;
 using Game.Client.Home;
 using Game.Core.Home;
+using Game.Core.Players;
 using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEngine;
@@ -327,6 +328,24 @@ namespace Game.Tests.EditMode
                 Is.False,
                 "친구가 있는 섹션에 없다는 안내가 뜨면 안 된다.");
             Assert.That(home.Rect("OfflineEmptyMessage").gameObject.activeSelf, Is.True);
+        }
+
+        [Test]
+        public void FriendList_OfflineRowKeepsLastSavedAppearance()
+        {
+            using var home = new BuiltHome();
+            AvatarAppearanceBoard.Clear();
+            var worn = new AvatarAppearance("body_a", "hood_a", "shoes_a", "face_a");
+            var view = (IHomeMenuView)home.View;
+
+            view.SetFriends(
+                Array.Empty<FriendSummary>(),
+                new[] { new FriendSummary("p-off", "오프라인", FriendPresence.Offline, true, worn) });
+
+            Assert.That(AvatarAppearanceBoard.TryGet("p-off", out var found), Is.True);
+            Assert.That(found, Is.EqualTo(worn));
+            Assert.That(home.Rect("OfflineItems").Find("Row/Avatar"), Is.Not.Null);
+            AvatarAppearanceBoard.Clear();
         }
 
         /// <summary>
