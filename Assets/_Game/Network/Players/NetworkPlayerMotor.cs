@@ -118,9 +118,12 @@ namespace Game.Network.Players
             movementProcessor = GetComponent<PlayerKCCMovementProcessor>();
 
             var carryableMask = LayerMask.GetMask("Carryable");
+            // 캐릭터끼리 서로를 밀어내도록 KCC 캡슐이 올라간 Player 레이어도 막는다.
+            // 이게 빠져 있으면 KCC는 Default만 보고 다른 플레이어를 통과한다.
+            var playerMask = 1 << kcc.Settings.ColliderLayer;
             // KCC queries provide blocking/grounding; PhysX must not push props
             // with the avatar's kinematic body. Prop gravity/contact stays active.
-            kcc.SetCollisionLayerMask(kcc.Settings.CollisionLayerMask | carryableMask);
+            kcc.SetCollisionLayerMask(kcc.Settings.CollisionLayerMask | carryableMask | playerMask);
             GetComponent<Rigidbody>().excludeLayers |= carryableMask;
 
             var behaviours = GetComponents<MonoBehaviour>();

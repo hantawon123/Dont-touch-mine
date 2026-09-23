@@ -16,7 +16,7 @@ GameObject:
   - component: {fileID: 9079316150982572114}
   - component: {fileID: 1103230351290013938}
   - component: {fileID: 3812345678901234567}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: PlayerCharacter
   m_TagString: Player
   m_Icon: {fileID: 0}
@@ -58,7 +58,7 @@ CharacterController:
   m_Enabled: 1
   serializedVersion: 3
   m_Height: 1.67
-  m_Radius: 0.27
+  m_Radius: 0.31
   m_SlopeLimit: 45
   m_StepOffset: 0.2
   m_SkinWidth: 0.05

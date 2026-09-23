@@ -9,5 +9,6 @@
 
 - `main-character.md` — 메인 캐릭터(도둑) 디자인 정의: 실루엣, 복면, 6색 베리에이션
 - `main-character-v1.png` — 메인 캐릭터 6색 라인업 시안
+- `collider.md` — 비주얼 메시에서 뽑은 충돌체 치수와 레이어 설정 근거
 - `modeling/` — 캐릭터 3D 모델링 작업 과정·중간 결과 이미지
 - `animation/` — 리깅·리타겟·액션 제작 현황
