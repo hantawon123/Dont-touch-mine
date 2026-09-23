@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using Fusion;
 using Game.Core.Ports;
+using Game.Network.Players;
 using Photon.Realtime;
 using Photon.Voice;
 using Photon.Voice.Fusion;
@@ -35,6 +37,9 @@ namespace Game.Network.Voice
     {
         private static readonly ProfilerMarker ResolveRecorderMarker = new("VoiceRig.ResolveRecorder");
         private static readonly ProfilerMarker ListenStateMarker = new("VoiceRig.ApplyListenState");
+        private static readonly ProfilerMarker FindSpeakersMarker = new("VoiceRig.FindSpeakers");
+        private static readonly ProfilerMarker SourceLookupMarker = new("VoiceRig.SourceLookup");
+        private static readonly ProfilerMarker MuteWriteMarker = new("VoiceRig.MuteWrite");
         private static readonly ProfilerMarker RealtimeServiceMarker = new("VoiceRig.RealtimeService");
         private static readonly ProfilerMarker VoiceServiceMarker = new("VoiceRig.VoiceService");
         private readonly ReactiveProperty<bool> available = new(false);
@@ -43,6 +48,8 @@ namespace Game.Network.Voice
         private readonly ReactiveProperty<bool> listening = new(true);
 
         private FusionVoiceClient client;
+        private PlayerRoster roster;
+        private readonly List<Speaker> speakerBuffer = new();
 
         /// <summary>
         /// The local avatar's microphone, which is replaced every time Fusion
@@ -479,13 +486,36 @@ namespace Game.Network.Voice
         {
             using var profile = ListenStateMarker.Auto();
             var hear = listening.Value;
-            foreach (var speaker in FindObjectsByType<Speaker>(FindObjectsSortMode.None))
+            if (roster == null) roster = GetComponent<PlayerRoster>();
+            if (roster != null && roster.Avatars.Count > 0)
             {
-                var source = speaker.GetComponent<AudioSource>();
-                if (source != null)
+                // Fusion already tracks avatar spawn/despawn here. Search only their
+                // hierarchies, not thousands of unrelated map objects, every frame.
+                var avatars = roster.Avatars;
+                for (var index = 0; index < avatars.Count; index++)
                 {
-                    source.mute = !hear;
+                    var avatar = avatars[index];
+                    if (avatar == null || !avatar.gameObject.activeInHierarchy) continue;
+                    using (FindSpeakersMarker.Auto()) avatar.GetComponentsInChildren(false, speakerBuffer);
+                    foreach (var speaker in speakerBuffer) ApplySpeakerState(speaker, hear);
                 }
+                speakerBuffer.Clear();
+                return;
+            }
+
+            // Preserve standalone/pre-spawn behavior when no roster is available.
+            Speaker[] speakers;
+            using (FindSpeakersMarker.Auto()) speakers = FindObjectsByType<Speaker>(FindObjectsSortMode.None);
+            foreach (var speaker in speakers) ApplySpeakerState(speaker, hear);
+        }
+
+        private static void ApplySpeakerState(Speaker speaker, bool hear)
+        {
+            AudioSource source;
+            using (SourceLookupMarker.Auto()) source = speaker.GetComponent<AudioSource>();
+            if (source != null)
+            {
+                using (MuteWriteMarker.Auto()) source.mute = !hear;
             }
         }
 
