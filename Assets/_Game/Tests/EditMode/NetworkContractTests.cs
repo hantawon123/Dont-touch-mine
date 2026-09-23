@@ -238,6 +238,8 @@ namespace Game.Architecture.Tests
         [TestCase(false, true, 2, 6, 5, "supermarket", "food", false)]
         [TestCase(true, false, 2, 6, 5, "supermarket", "food", false)]
         [TestCase(true, true, 3, 2, 5, "supermarket", "food", false)]
+        [TestCase(true, true, 6, 6, 5, "supermarket", "food", true)]
+        [TestCase(true, true, 7, 6, 5, "supermarket", "food", false)]
         [TestCase(true, true, 2, 6, -1, "supermarket", "food", false)]
         [TestCase(true, true, 2, 6, 0, "supermarket", "food", true)]
         [TestCase(true, true, 2, 6, 5, "missing", "food", false)]

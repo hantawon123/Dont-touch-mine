@@ -82,7 +82,8 @@ namespace Game.Client.Character
         private static bool TryRender(AvatarAppearance appearance, out Texture texture)
         {
             texture = null;
-            if (!Application.isPlaying)
+            // Headless peers have no render target; retain the existing fallback icon.
+            if (!Application.isPlaying || SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
             {
                 return false;
             }
