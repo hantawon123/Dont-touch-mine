@@ -22,7 +22,18 @@ namespace Game.Client.Players
         [SerializeField]
         private Transform visualRoot;
 
-        public PlayerPosture Posture { get; private set; } = PlayerPosture.Standing;
+        public PlayerPosture Posture
+        {
+            get => posture;
+            private set
+            {
+                posture = value;
+                bodyBlocker?.Apply(value);
+            }
+        }
+
+        private PlayerPosture posture = PlayerPosture.Standing;
+        private PlayerBodyBlocker bodyBlocker;
 
         public PlayerMovementSettings MovementSettings => new(
             movementConfig.WalkSpeed,
@@ -239,6 +250,9 @@ namespace Game.Client.Players
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
+            // 온라인에서는 자세가 ApplyNetworkPosture로 들어오므로 설정 검사보다 먼저 만든다.
+            bodyBlocker = PlayerBodyBlocker.Create(transform, controller);
+            bodyBlocker.Apply(Posture);
 
             if (inputActions == null)
             {
@@ -427,9 +441,11 @@ namespace Game.Client.Players
             var castDistance = targetHeight - controller.height;
 
             // 자기 자신과 겹친 상태에서 시작하는 캐스트는 자기 콜라이더를 무시한다.
+            // 다른 플레이어(Player 레이어)는 천장으로 치지 않는다. 위에 올라타면 못 일어나서 갇힌다.
             return !Physics.SphereCast(
                 topSphereCenter, radius, Vector3.up, out _,
-                castDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+                castDistance, Physics.DefaultRaycastLayers & ~LayerMask.GetMask("Player"),
+                QueryTriggerInteraction.Ignore);
         }
 
         private float GetPostureHeight(PlayerPosture posture)
