@@ -241,7 +241,7 @@ MonoBehaviour:
       texture: {fileID: 0}
       mesh: {fileID: 0}
       wearable: {fileID: 0}
-    defaultPartId: body_lemon
+    defaultPartId: body_black
   - category: 1
     label: "\uD6C4\uB4DC \uBAA8\uC591"
     icon: {fileID: 21300000, guid: 99e3019848c5f124fb335ec60cf70cf3, type: 3}
@@ -507,7 +507,7 @@ MonoBehaviour:
       texture: {fileID: 0}
       mesh: {fileID: 0}
       wearable: {fileID: 0}
-    defaultPartId: hood_ice
+    defaultPartId: hood_purple
   - category: 2
     label: "\uC2E0\uBC1C"
     icon: {fileID: 21300000, guid: 96070b8ff9657ef4bbe9d404e7796d12, type: 3}
@@ -736,7 +736,7 @@ MonoBehaviour:
       texture: {fileID: 0}
       mesh: {fileID: 0}
       wearable: {fileID: 11400000, guid: cda085b598ecd2548a708c0438f35bd5, type: 2}
-    defaultPartId: shoes_blue
+    defaultPartId: shoes_pink_vivid
   - category: 3
     label: "\uD45C\uC815"
     icon: {fileID: 21300000, guid: f4f89123c01c4ba4b987af38122601f0, type: 3}

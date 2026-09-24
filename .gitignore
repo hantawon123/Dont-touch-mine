@@ -148,7 +148,7 @@ InitTestScene*.unity*
 __pycache__/
 *.py[cod]
 
-# ML-Agents local training outputs
+# ML-Agents local training outputs (regenerated locally, large; never committed)
 /[Rr]esults/
 
 # Local training/player builds
@@ -157,3 +157,8 @@ __pycache__/
 # ML-Agents editor timing dumps (rewritten on every run)
 /Assets/ML-Agents/Timers/
 /Assets/ML-Agents/Timers.meta
+
+# One-off local inspection outputs and compiled artifacts
+/*_inspect.json
+/hood_compare.json
+/artifacts/

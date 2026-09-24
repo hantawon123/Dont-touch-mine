@@ -5,6 +5,7 @@ using Game.Client.Home;
 using Game.Core.Backend;
 using Game.Core.Home;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -31,18 +32,21 @@ namespace Game.Bootstrap
         private readonly IAccountGateway accounts;
         private readonly PlayerProfile profile;
         private readonly BackendSignIn signIn;
+        private readonly UiLocale locale;
         private readonly CancellationTokenSource lifetime = new CancellationTokenSource();
 
         public HomeProfileBridge(
             IHomeMenuView view,
             IAccountGateway accounts,
             PlayerProfile profile,
-            BackendSignIn signIn)
+            BackendSignIn signIn,
+            UiLocale locale = null)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.accounts = accounts ?? throw new ArgumentNullException(nameof(accounts));
             this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
             this.signIn = signIn ?? throw new ArgumentNullException(nameof(signIn));
+            this.locale = locale;
         }
 
         public void Start()
@@ -110,7 +114,7 @@ namespace Game.Bootstrap
         {
             if (lifetime.IsCancellationRequested || !await signIn.Ready)
             {
-                Refuse("서버에 연결되어 있지 않습니다");
+                Refuse(Copy(UiText.Settings.FeedbackNotSignedIn));
                 return;
             }
 
@@ -136,7 +140,7 @@ namespace Game.Bootstrap
                 return;
             }
 
-            Refuse(HomeStyle.Profile.SearchAllowFailedMessage);
+            Refuse(Copy(UiText.Home.SearchAllowFailed));
             Debug.LogWarning($"[Profile] Search setting refused: {result.Failure}.");
         }
 
@@ -149,7 +153,7 @@ namespace Game.Bootstrap
         {
             if (lifetime.IsCancellationRequested || !await signIn.Ready)
             {
-                await RevertAsync("서버에 연결되어 있지 않습니다");
+                await RevertAsync(Copy(UiText.Settings.FeedbackNotSignedIn));
                 return;
             }
 
@@ -247,28 +251,33 @@ namespace Game.Bootstrap
         /// Written here rather than taken from the server's message, which is
         /// allowed to change wording and is not part of the contract.
         /// </remarks>
-        private static string Explain(BackendFailure failure)
+        private string Copy(string key) =>
+            locale != null
+                ? locale.Get(key)
+                : UiTextCatalog.Shipped.Get(key, "ko");
+
+        private string Explain(BackendFailure failure)
         {
             switch (failure)
             {
                 case BackendFailure.NicknameTaken:
-                    return "이미 사용 중인 이름입니다";
+                    return Copy(UiText.Home.NicknameTaken);
 
                 case BackendFailure.NicknameForbidden:
-                    return "쓸 수 없는 이름입니다";
+                    return Copy(UiText.Home.NicknameForbidden);
 
                 case BackendFailure.InvalidRequest:
-                    return "한글, 영문, 숫자로 2~12글자여야 합니다";
+                    return Copy(UiText.Home.NicknameInvalid);
 
                 case BackendFailure.AccountNotFound:
-                    return "계정을 찾을 수 없습니다";
+                    return Copy(UiText.Home.AccountNotFound);
 
                 case BackendFailure.Offline:
                 case BackendFailure.Timeout:
-                    return "서버에 연결할 수 없습니다";
+                    return Copy(UiText.Settings.FeedbackOffline);
 
                 default:
-                    return "이름을 바꾸지 못했습니다";
+                    return Copy(UiText.Home.RenameFailed);
             }
         }
     }

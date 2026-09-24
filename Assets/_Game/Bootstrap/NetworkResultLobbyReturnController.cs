@@ -4,6 +4,7 @@ using Game.Client.Match;
 using Game.Client.Common;
 using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Core.Settings;
 using Game.Network.Match;
 using Game.Server.Match;
 using R3;
@@ -21,7 +22,9 @@ namespace Game.Bootstrap
         private readonly INetworkResultNavigation navigation;
         private readonly RoomBrowserSystem room;
         private readonly ILoadingOverlay loading;
-        private readonly ReactiveProperty<string> resultText = new("표시할 경기 결과가 없습니다.");
+        private readonly ReactiveProperty<string> resultText = new(
+            UiTextCatalog.Shipped.Get(UiText.Match.NoResult, "ko"));
+        private readonly UiLocale locale;
         private MatchPhase phase;
         private bool hasResult;
         private bool returned;
@@ -48,13 +51,20 @@ namespace Game.Bootstrap
             INetworkMatchEvents events,
             INetworkResultNavigation navigation,
             RoomBrowserSystem room,
-            ILoadingOverlay loading = null)
+            ILoadingOverlay loading = null,
+            UiLocale locale = null)
         {
             this.events = events ?? throw new ArgumentNullException(nameof(events));
             this.navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
             this.room = room ?? throw new ArgumentNullException(nameof(room));
             this.loading = loading;
+            this.locale = locale;
         }
+
+        private string Copy(string key) =>
+            locale != null
+                ? locale.Get(key)
+                : UiLocale.Applied(key);
 
         internal static bool ShouldShowForLobbyReturn(
             MatchPhase currentPhase,
@@ -114,7 +124,7 @@ namespace Game.Bootstrap
                     resultDataFallbackAt = -1d;
                     resultDataFallbackActive = true;
                     ResultHeadline = string.Empty;
-                    ResultSubtitle = "경기 결과 데이터를 받지 못했습니다.\n\n로비로 돌아갑니다.";
+                    ResultSubtitle = Copy(UiText.Match.ResultMissing);
                     resultText.Value = ResultSubtitle;
                 }
             }
@@ -169,7 +179,7 @@ namespace Game.Bootstrap
             if (phase == MatchPhase.Hiding)
             {
                 ResultHeadline = string.Empty;
-                ResultSubtitle = "표시할 경기 결과가 없습니다.";
+                ResultSubtitle = Copy(UiText.Match.NoResult);
                 resultText.Value = ResultSubtitle;
                 HasMatchResult = false;
                 LastWinnerPlayerIndices = Array.Empty<int>();
@@ -194,8 +204,8 @@ namespace Game.Bootstrap
         private void ApplyEndOutcome(MatchResult result)
         {
             var won = IsLocalWinner(result, room);
-            ResultHeadline = won ? MatchTimerView.WinHeadline : MatchTimerView.LoseHeadline;
-            ResultSubtitle = won ? MatchTimerView.WinSubtitle : MatchTimerView.LoseSubtitle;
+            ResultHeadline = won ? Copy(UiText.Match.WinHeadline) : Copy(UiText.Match.LoseHeadline);
+            ResultSubtitle = won ? Copy(UiText.Match.WinSubtitle) : Copy(UiText.Match.LoseSubtitle);
             resultText.Value = $"{ResultHeadline}\n{ResultSubtitle}";
         }
 
@@ -221,14 +231,22 @@ namespace Game.Bootstrap
         internal static string FormatResult(
             MatchResult result,
             RoomBrowserSystem room,
-            bool includeLobbyNotice = true)
+            bool includeLobbyNotice = true) =>
+            FormatResult(result, room, includeLobbyNotice, "ko");
+
+        internal static string FormatResult(
+            MatchResult result,
+            RoomBrowserSystem room,
+            bool includeLobbyNotice,
+            string language)
         {
+            var catalog = UiTextCatalog.Shipped;
             var winners = new List<string>();
             var localWon = false;
             foreach (var winner in result.WinnerPlayerIndices)
             {
                 if (winner == room.LocalPlayerIndex) localWon = true;
-                var name = $"플레이어 {winner + 1}";
+                var name = string.Format(catalog.Get(UiText.Match.PlayerN, language), winner + 1);
                 foreach (var player in room.MatchParticipants.CurrentValue)
                 {
                     if (player.PlayerIndex != winner) continue;
@@ -239,17 +257,24 @@ namespace Game.Bootstrap
                 }
                 winners.Add(name);
             }
-            var outcome = winners.Count == 0 ? "승자 없음" :
-                room.LocalPlayerIndex < 0 ? "경기 종료" : localWon ? "승리" : "패배";
+            var outcome = winners.Count == 0 ? catalog.Get(UiText.Match.NoWinner, language) :
+                room.LocalPlayerIndex < 0 ? catalog.Get(UiText.Match.MatchOver, language) :
+                localWon ? catalog.Get(UiText.Match.Victory, language) : catalog.Get(UiText.Match.Defeat, language);
             var reason = result.EndReason switch
             {
-                MatchEndReason.TimeExpired => "제한 시간 종료",
-                MatchEndReason.AllPlayerItemsDestroyed => "모든 플레이어 물건 파괴",
-                MatchEndReason.LastPlayerStanding => "마지막 플레이어 생존",
-                _ => "경기 종료"
+                MatchEndReason.TimeExpired => catalog.Get(UiText.Match.TimeExpired, language),
+                MatchEndReason.AllPlayerItemsDestroyed => catalog.Get(UiText.Match.AllItemsDestroyed, language),
+                MatchEndReason.LastPlayerStanding => catalog.Get(UiText.Match.LastStanding, language),
+                _ => catalog.Get(UiText.Match.MatchOver, language)
             };
-            var summary = $"게임 결과\n\n{outcome}\n승자: {(winners.Count == 0 ? "없음" : string.Join(", ", winners))}\n종료 사유: {reason}";
-            return includeLobbyNotice ? $"{summary}\n\n로비로 돌아갑니다." : summary;
+            var winnerLine = string.Format(
+                catalog.Get(UiText.Match.Winners, language),
+                winners.Count == 0 ? catalog.Get(UiText.Match.None, language) : string.Join(", ", winners));
+            var summary =
+                $"{catalog.Get(UiText.Match.ResultHeading, language)}\n\n{outcome}\n{winnerLine}\n{string.Format(catalog.Get(UiText.Match.EndReason, language), reason)}";
+            return includeLobbyNotice
+                ? $"{summary}\n\n{catalog.Get(UiText.Match.ReturnLobby, language)}"
+                : summary;
         }
     }
 }

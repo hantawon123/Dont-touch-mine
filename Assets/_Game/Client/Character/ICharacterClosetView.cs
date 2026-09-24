@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Players;
+using Game.Core.Settings;
 
 namespace Game.Client.Character
 {
@@ -69,5 +70,7 @@ namespace Game.Client.Character
         void ShowConfirm(ClosetConfirmKind kind);
 
         void HideConfirm();
+
+        void ShowChrome(UiLocale locale);
     }
 }

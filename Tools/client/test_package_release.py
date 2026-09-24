@@ -6,7 +6,7 @@ import tempfile
 import unittest
 import zipfile
 
-from package_release import package
+from package_release import DATA, EXECUTABLE, package
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'network/server-flow'))
 from releases import stage, validate
@@ -18,8 +18,9 @@ class DeliveryTests(unittest.TestCase):
             root = Path(folder)
             client, server = root/'client', root/'server'
             revision = 'a'*40
-            for name in ('Game.exe', 'UnityPlayer.dll', 'Game_Data/globalgamemanagers',
-                         'MonoBleedingEdge/EmbedRuntime/mono.dll', 'Game_BackUpThisFolder_ButDontShipIt/source.cpp', '.env'):
+            for name in (EXECUTABLE, 'UnityPlayer.dll', f'{DATA}/globalgamemanagers',
+                         'MonoBleedingEdge/EmbedRuntime/mono.dll',
+                         "Don't Touch Mine_BackUpThisFolder_ButDontShipIt/source.cpp", '.env'):
                 path = client/name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text('fixture')
@@ -42,7 +43,7 @@ class DeliveryTests(unittest.TestCase):
             self.assertIn('<section id="info">', html)
             self.assertIn(revision[:12], html)
             with zipfile.ZipFile(archive) as z:
-                self.assertIn('Game_Data/globalgamemanagers', z.namelist())
+                self.assertIn(f'{DATA}/globalgamemanagers', z.namelist())
                 self.assertFalse(any('.env' in p or 'BackUp' in p for p in z.namelist()))
             self.assertIn(hashlib.sha256(archive.read_bytes()).hexdigest(), (archive.parent/'SHA256SUMS.txt').read_text())
             server.mkdir()

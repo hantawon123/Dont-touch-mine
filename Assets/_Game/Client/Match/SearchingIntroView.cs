@@ -1,30 +1,27 @@
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface ISearchingIntroView
-    {
-        void Show(string itemDisplayName);
-        void Hide();
-    }
-
     /// <summary>
     /// Full-screen searching briefing: the assigned item and the same three
     /// lines for every player. Timing belongs to the presenter; this view only paints.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class SearchingIntroView : MonoBehaviour, ISearchingIntroView
+    public sealed class SearchingIntroView : MonoBehaviour
     {
         public const float VisibleSeconds = Game.Core.Match.MatchIntroTiming.VisibleSeconds;
         public const float FontSize = 55f;
-        public const string TitleText = "숨기기 시간이 끝났습니다.";
-        public const string BodyText =
-            "이제부터 서로의 물건을 노리는 진짜 탐색전이 시작됩니다.";
+        public static string TitleText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.SearchingTitle, "ko");
+        public static string BodyText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.SearchingBody, "ko");
 
-        private const string FallbackItemName = "물건";
+        private static string FallbackItemName(string language) =>
+            UiTextCatalog.Shipped.Get(UiText.Match.ItemFallback, language);
         private const string ItemNameColor = "#F4A26B";
         private const string SemiBoldResource = "Fonts/Paperlogy-6SemiBold";
 
@@ -44,6 +41,25 @@ namespace Game.Client.Match
 
         private bool shown;
         private int shownAtFrame;
+        private UiLocale chromeLocale;
+        private string lastItemName;
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            if (shown)
+            {
+                Show(lastItemName);
+            }
+        }
+
+        private string Language =>
+            chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage;
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
         public bool IsPresented => shown && isActiveAndEnabled && Time.frameCount > shownAtFrame + 1;
 
         [SerializeField]
@@ -53,16 +69,28 @@ namespace Game.Client.Match
         [SerializeField]
         private string previewItemName = "사과";
 
-        public static string FormatHint(string itemDisplayName)
+        public static string FormatHint(string itemDisplayName) =>
+            FormatHint(itemDisplayName, "ko");
+
+        public static string FormatHint(string itemDisplayName, string language)
         {
-            var name = ResolveName(itemDisplayName);
-            return $"마지막 순간에 {name}{ObjectParticle(name)} 꼭 손에 쥐고 계세요!";
+            var name = ResolveName(itemDisplayName, language);
+            return string.Format(
+                UiTextCatalog.Shipped.Get(UiText.Match.SearchingHint, language),
+                name,
+                ObjectParticle(name));
         }
 
-        public static string FormatRichHint(string itemDisplayName)
+        public static string FormatRichHint(string itemDisplayName) =>
+            FormatRichHint(itemDisplayName, "ko");
+
+        public static string FormatRichHint(string itemDisplayName, string language)
         {
-            var name = ResolveName(itemDisplayName);
-            return $"마지막 순간에 <color={ItemNameColor}>{name}</color>{ObjectParticle(name)} 꼭 손에 쥐고 계세요!";
+            var name = ResolveName(itemDisplayName, language);
+            return string.Format(
+                UiTextCatalog.Shipped.Get(UiText.Match.SearchingHint, language),
+                $"<color={ItemNameColor}>{name}</color>",
+                ObjectParticle(name));
         }
 
         public static SearchingIntroView Create(Transform parent)
@@ -73,11 +101,11 @@ namespace Game.Client.Match
             return rootObject.AddComponent<SearchingIntroView>();
         }
 
-        private static string ResolveName(string itemDisplayName)
+        private static string ResolveName(string itemDisplayName, string language = "ko")
         {
             return string.IsNullOrWhiteSpace(itemDisplayName)
-                ? FallbackItemName
-                : itemDisplayName.Trim();
+                ? FallbackItemName(language)
+                : ItemNameText.Localized(itemDisplayName, language);
         }
 
         private static string ObjectParticle(string itemDisplayName)
@@ -111,6 +139,7 @@ namespace Game.Client.Match
         {
             shown = true;
             shownAtFrame = Time.frameCount;
+            lastItemName = itemDisplayName;
             if (!gameObject.activeSelf)
             {
                 gameObject.SetActive(true);
@@ -119,11 +148,11 @@ namespace Game.Client.Match
             EnsureLayout();
             transform.SetAsLastSibling();
 
-            var name = ResolveName(itemDisplayName);
+            var name = ResolveName(itemDisplayName, Language);
             var font = ResolveFont();
-            ApplyText(titleText, font, TitleText);
-            ApplyText(bodyText, font, BodyText);
-            ApplyText(hintText, font, FormatRichHint(name));
+            ApplyText(titleText, font, Copy(UiText.Match.SearchingTitle));
+            ApplyText(bodyText, font, Copy(UiText.Match.SearchingBody));
+            ApplyText(hintText, font, FormatRichHint(name, Language));
             SetVisualsVisible(true);
         }
 
@@ -198,14 +227,14 @@ namespace Game.Client.Match
             content.SetParent(transform, false);
             Place(content, new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(1800f, 720f));
 
-            titleText = CreateText(content, "Title", TitleText, FontSize, TextAlignmentOptions.Center);
+            titleText = CreateText(content, "Title", Copy(UiText.Match.SearchingTitle), FontSize, TextAlignmentOptions.Center);
             Place(
                 titleText.rectTransform,
                 new Vector2(0.5f, 0.5f),
                 new Vector2(0f, 90f),
                 new Vector2(1800f, 80f));
 
-            bodyText = CreateText(content, "Body", BodyText, FontSize, TextAlignmentOptions.Center);
+            bodyText = CreateText(content, "Body", Copy(UiText.Match.SearchingBody), FontSize, TextAlignmentOptions.Center);
             Place(
                 bodyText.rectTransform,
                 new Vector2(0.5f, 0.5f),
@@ -215,7 +244,7 @@ namespace Game.Client.Match
             hintText = CreateText(
                 content,
                 "Hint",
-                FormatRichHint(previewItemName),
+                FormatRichHint(previewItemName, Language),
                 FontSize,
                 TextAlignmentOptions.Center);
             Place(

@@ -1,32 +1,28 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IHighlightHudView
-    {
-        void Show(string subtitle, IReadOnlyList<float> barFills);
-        void Hide();
-        void SetSubtitle(string subtitle);
-        void SetBarFills(IReadOnlyList<float> barFills);
-    }
-
     /// <summary>
     /// Highlight playback HUD: centered title, scene/nickname, clip bars, and skip keys.
     /// Input wiring belongs to the playback controller; this view only paints.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed partial class HighlightHudView : MonoBehaviour, IHighlightHudView
+    public sealed partial class HighlightHudView : MonoBehaviour
     {
         public const string RootName = "HighlightHud";
-        public const string TitleText = "HIGHLIGHT";
-        public const string SkipAction = "건너뛰기";
+        public static string TitleText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.HighlightTitle, "ko");
+        public static string SkipAction =>
+            UiTextCatalog.Shipped.Get(UiText.Match.HighlightSkip, "ko");
         public const string SkipKey = "Space";
-        public const string SkipAllAction = "전체 건너뛰기";
+        public static string SkipAllAction =>
+            UiTextCatalog.Shipped.Get(UiText.Match.HighlightSkipAll, "ko");
         public const string SkipAllKey = "Tab";
         public const int BarCount = 3;
         public const float TitleFontSize = 45f;
@@ -73,6 +69,19 @@ namespace Game.Client.Match
         private bool shown;
         private bool hasTwoSubtitleLines;
         private int visibleBarCount = BarCount;
+        private UiLocale chromeLocale;
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureLayout();
+            ApplyStyle();
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
 
         public static HighlightHudView Create(Transform parent)
         {
@@ -292,12 +301,12 @@ namespace Game.Client.Match
         private void BuildLayout()
         {
             header = CreateRect(transform, "Header").gameObject;
-            titleText = CreateText(header.transform, "Title", TitleText, TitleFontSize);
+            titleText = CreateText(header.transform, "Title", Copy(UiText.Match.HighlightTitle), TitleFontSize);
             subtitleText = CreateText(header.transform, "Subtitle", string.Empty, SubtitleFontSize);
             BuildBars(header.transform);
             skipGuide = CreateRect(transform, "SkipGuide").gameObject;
-            BuildSkipRow(skipGuide.transform, 0, SkipAction, SkipKey);
-            BuildSkipRow(skipGuide.transform, 1, SkipAllAction, SkipAllKey);
+            BuildSkipRow(skipGuide.transform, 0, Copy(UiText.Match.HighlightSkip), SkipKey);
+            BuildSkipRow(skipGuide.transform, 1, Copy(UiText.Match.HighlightSkipAll), SkipAllKey);
             ApplyHeaderLayout();
             ApplySkipLayout();
         }
@@ -471,8 +480,8 @@ namespace Game.Client.Match
                 new Vector2(1f, 0f));
             skipRect.localScale = new Vector3(SkipGuideScale, SkipGuideScale, 1f);
 
-            ApplySkipRow(0, SkipAction, SkipKey);
-            ApplySkipRow(1, SkipAllAction, SkipAllKey);
+            ApplySkipRow(0, Copy(UiText.Match.HighlightSkip), SkipKey);
+            ApplySkipRow(1, Copy(UiText.Match.HighlightSkipAll), SkipAllKey);
         }
 
         private void ApplySkipRow(int index, string action, string key)
@@ -556,7 +565,7 @@ namespace Game.Client.Match
                 titleText.fontStyle = FontStyles.Normal;
                 titleText.color = Color.white;
                 titleText.alignment = TextAlignmentOptions.Center;
-                titleText.text = TitleText;
+                titleText.text = Copy(UiText.Match.HighlightTitle);
             }
 
             if (subtitleText != null)

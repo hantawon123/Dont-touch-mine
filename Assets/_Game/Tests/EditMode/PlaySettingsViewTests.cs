@@ -1,6 +1,8 @@
 using System.Reflection;
 using Game.Client.Lobby;
+using Game.Client.Settings;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using Game.Core.Maps;
 using NUnit.Framework;
 using UnityEditor;
@@ -64,7 +66,9 @@ namespace Game.Architecture.Tests
                     Is.EqualTo(new Vector2(
                         PlaySettingsStyle.Overlay.CloseSize,
                         PlaySettingsStyle.Overlay.CloseSize)));
-                Assert.That(close.GetComponent<Image>().sprite, Is.Not.Null);
+                Assert.That(
+                    close.GetComponent<Image>().sprite,
+                    Is.EqualTo(SettingsStyle.LoadCloseIcon()));
                 Assert.That(Find(root.transform, "BackButton"), Is.Null);
 
                 var overlay = Find(root.transform, "PlaySettingsOverlay");
@@ -120,7 +124,7 @@ namespace Game.Architecture.Tests
                 Assert.That(Find(panel.transform, "Header").Find("ResetButton"), Is.Null);
                 Assert.That(Find(panel.transform, "Header").Find("RevertButton"), Is.Null);
 
-                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "playground"));
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "supermarket"));
                 view.SetEditable(true);
                 Assert.That(reset.GetComponent<Button>().interactable, Is.False);
                 Assert.That(
@@ -225,7 +229,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void MapPicker_ShowsOnlySupermarket()
+        public void MapPicker_OffersRandomThenSupermarketAndMansion()
         {
             var root = CreateView(out var panel, out var view);
             try
@@ -236,25 +240,126 @@ namespace Game.Architecture.Tests
                 Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
                 Assert.That(
                     Find(panel.transform, "MapName").GetComponent<Text>().text,
-                    Is.EqualTo(MapCatalog.SupermarketId));
+                    Is.EqualTo(PlaySettingsMapCatalog.RandomLabel));
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(string.Empty));
+                var randomMark = Find(panel.transform, "MapPreview")
+                    .Find(MapPreviewSprites.RandomMarkName)
+                    .GetComponent<Text>();
+                Assert.That(randomMark.text, Is.EqualTo(MapPreviewSprites.RandomMarkText));
+                Assert.That(randomMark.gameObject.activeSelf, Is.True);
                 Assert.That(Find(panel.transform, "CategoryPreview"), Is.Null);
                 var categoryValue = Find(panel.transform, "CategoryValue").GetComponent<Text>();
                 Assert.That(categoryValue, Is.Not.Null);
                 Assert.That(categoryValue.fontSize, Is.EqualTo(PlaySettingsStyle.FontSize.CategoryName));
                 Assert.That(categoryValue.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
-                Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.SupermarketId));
 
-                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, MapCatalog.PlaygroundId));
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "playground"));
                 Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
-                Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.SupermarketId));
-                Assert.That(Find(panel.transform, "MapPrev").gameObject.activeSelf, Is.False);
-                Assert.That(Find(panel.transform, "MapNext").gameObject.activeSelf, Is.False);
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(string.Empty));
+                Assert.That(randomMark.gameObject.activeSelf, Is.True);
+                Assert.That(Find(panel.transform, "MapPrev").gameObject.activeSelf, Is.True);
+                Assert.That(Find(panel.transform, "MapNext").gameObject.activeSelf, Is.True);
+
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, MapCatalog.MansionId));
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.MansionId));
+                Assert.That(
+                    Find(panel.transform, "MapName").GetComponent<Text>().text,
+                    Is.EqualTo(PlaySettingsMapCatalog.LabelOf(MapCatalog.MansionId)));
+                Assert.That(randomMark.gameObject.activeSelf, Is.False);
             }
             finally
             {
                 Object.DestroyImmediate(root);
             }
         }
+
+        [Test]
+        public void ShowChrome_RedrawsTitleAndApplyInTheAppliedLanguage()
+        {
+            var root = CreateView(out var panel, out var view);
+            try
+            {
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                var general = new GeneralSettingsSystem(store);
+                using var locale = new UiLocale(general);
+
+                view.ShowChrome(locale);
+
+                var title = Find(panel.transform, "Title").GetComponent<UnityEngine.UI.Text>();
+                Assert.That(title.text, Is.EqualTo("Game Settings"));
+                var apply = Find(panel.transform, "ApplyButton").GetComponentInChildren<UnityEngine.UI.Text>();
+                Assert.That(apply.text, Is.EqualTo("Apply"));
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, string.Empty));
+                var mapName = Find(panel.transform, "MapName");
+                if (mapName != null)
+                {
+                    Assert.That(
+                        mapName.GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo("Random"));
+                }
+
+                view.SetDraft(new PlaySettingsDraft(
+                    "방", "CODE", false, null, 4, 3, MapCatalog.MansionId));
+                if (mapName != null)
+                {
+                    Assert.That(
+                        mapName.GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo("Mansion"));
+                }
+
+                var categoryValue = Find(panel.transform, "CategoryValue");
+                if (categoryValue != null)
+                {
+                    Assert.That(
+                        categoryValue.GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo("Random"));
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void BreakLimitAndStunHits_ShowTheNumberOnItsOwn()
+        {
+            var root = CreateView(out _, out var view);
+            try
+            {
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, string.Empty));
+
+                Assert.That(DestructionLimitText(view).text, Is.EqualTo("3"));
+                Assert.That(
+                    RuleValues(view)[1].text,
+                    Is.EqualTo(MatchRuleSettings.DefaultStunHitCount.ToString()));
+
+                view.SetDraft(new PlaySettingsDraft(
+                    "방",
+                    "CODE",
+                    false,
+                    null,
+                    4,
+                    PlaySettingsDraft.UnlimitedDestructionLimit,
+                    string.Empty));
+                Assert.That(DestructionLimitText(view).text, Is.EqualTo("무한"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        private static Text DestructionLimitText(PlaySettingsView view) =>
+            (Text)typeof(PlaySettingsView)
+                .GetField("destructionLimitText", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(view);
+
+        private static System.Collections.Generic.IList<Text> RuleValues(PlaySettingsView view) =>
+            (System.Collections.Generic.IList<Text>)typeof(PlaySettingsView)
+                .GetField("ruleValues", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(view);
 
         private static GameObject CreateView(out GameObject panel, out PlaySettingsView view)
         {

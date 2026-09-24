@@ -3,18 +3,12 @@ using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IMatchUrgencyBorderView
-    {
-        void Show();
-        void Hide();
-    }
-
     /// <summary>
     /// Full-screen red edge glow for the last thirty seconds of searching.
     /// Thickness breathes so the gradient grows and shrinks.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class MatchUrgencyBorderView : MonoBehaviour, IMatchUrgencyBorderView
+    public sealed class MatchUrgencyBorderView : MonoBehaviour
     {
         public const string RootName = "UrgencyBorder";
         public const float MinThickness = 50f;
@@ -188,6 +182,34 @@ namespace Game.Client.Match
             PlaceBottom(bottomEdge);
             PlaceLeft(leftEdge);
             PlaceRight(rightEdge);
+            AssignFadeSprites();
+        }
+
+        private void AssignFadeSprites()
+        {
+            SetEdgeSprite(topEdge, VerticalEdgeSprite);
+            SetEdgeSprite(bottomEdge, VerticalEdgeSpriteFlipped);
+            SetEdgeSprite(leftEdge, HorizontalEdgeSprite);
+            SetEdgeSprite(rightEdge, HorizontalEdgeSpriteFlipped);
+        }
+
+        private static void SetEdgeSprite(RectTransform rect, Sprite sprite)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            var image = rect.GetComponent<Image>();
+            if (image == null)
+            {
+                return;
+            }
+
+            image.sprite = sprite;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = false;
+            image.raycastTarget = false;
         }
 
         private void CacheImages()

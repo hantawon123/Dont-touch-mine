@@ -1,5 +1,7 @@
+using Game.Client.Cameras;
 using Game.Client.Combat;
 using Game.Client.Interactions;
+using Game.Core.Emotes;
 using Game.Core.Players;
 using UnityEngine;
 
@@ -15,6 +17,9 @@ namespace Game.Client.Players
         private const string PunchState = "Punch";
         private const string HitState = "Hit";
         private const string StunnedState = "Stunned";
+        internal const string StunStartState = "Stun_Start";
+        internal const string StunIdleState = "Stun_Idle";
+        internal const string StunEndState = "Stun_End";
         private const string JumpState = "Jump";
         private const string CarryJumpState = "Carry_TwoHands_Jump";
         private const string AirborneState = "Fall";
@@ -32,6 +37,8 @@ namespace Game.Client.Players
         // 앉기·일어서기 스윽만 70% of the other combat one-shots (.8 * Effects).
         internal const float PostureSwooshAudioVolume = .56f;
         private const float HitSeconds = 30f / 30f;
+        internal const float StunStartSeconds = 2.2f;
+        internal const float StunEndSeconds = 1.2f;
         private const float MinLocomotionPlayback = 0.5f;
         private const float MaxLocomotionPlayback = 2f;
 
@@ -113,8 +120,75 @@ namespace Game.Client.Players
         /// <summary>펀치 모션이 재생 중인가. 1인칭 팔이 때리는 팔을 조준점 쪽으로 보정할 때 쓴다.</summary>
         public bool IsPunching => punchUntilTime > 0f && Time.time < punchUntilTime;
 
+        /// <summary>
+        /// 감정 클립이 애니메이터에 있으면 재생한다. 없는 상태 이름은 무시한다.
+        /// </summary>
+        public bool TryPlayEmote(EmoteId id)
+        {
+            if (animator == null || (combatant != null && combatant.IsStunned))
+            {
+                return false;
+            }
+
+            var def = EmoteCatalog.Of(id);
+            if (!animator.HasState(0, Animator.StringToHash(def.StateName)))
+            {
+                return false;
+            }
+
+            punchUntilTime = 0f;
+            // 앉기→서기 전환 클립이 이 표현을 덮어쓰지 않게, 지금 자세를 이미 본 것으로 친다.
+            if (movement != null)
+            {
+                lastPosture = movement.Posture;
+            }
+
+            var seconds = def.Loop ? 600f : Mathf.Max(0.2f, ClipLength(def.StateName, def.DurationSeconds));
+            var restart = !def.Loop && currentState == def.StateName;
+            PlayOneShot(def.StateName, seconds);
+            if (restart)
+            {
+                // Update는 상태 이름이 바뀔 때만 크로스페이드하므로, 같은 1회성 표현 연타는 여기서 처음부터 다시 튼다.
+                animator.Play(def.StateName, 0, 0f);
+            }
+
+            return true;
+        }
+
+        /// <summary>네트워크 모터가 애니메이션 상태를 주는가. 그러면 감정 표현도 복제 상태로만 시작한다.</summary>
+        public bool UsesNetworkState => usesNetworkState;
+
+        /// <summary>표현 계층이 보는 접지 여부. 네트워크 플레이어는 CharacterController가 꺼져 있어 복제값을 쓴다.</summary>
+        public bool IsGrounded => usesNetworkState ? networkGrounded : movement != null && movement.IsGrounded;
+
+        private float ClipLength(string state, float fallback)
+        {
+            var clips = animator.runtimeAnimatorController != null
+                ? animator.runtimeAnimatorController.animationClips
+                : null;
+            if (clips == null)
+            {
+                return fallback;
+            }
+
+            for (var i = 0; i < clips.Length; i++)
+            {
+                if (clips[i] != null && clips[i].name == state)
+                {
+                    return clips[i].length;
+                }
+            }
+
+            return fallback;
+        }
+
         /// <summary>이번 펀치가 왼손인가.</summary>
         public bool IsLeftPunch => leftPunch;
+
+        /// <summary>
+        /// 기절 넘어진 포즈가 재생 중인가. 1인칭 시선이 머리 본을 따라갈지 고를 때 쓴다.
+        /// </summary>
+        public bool IsStunView => IsStunState(currentState);
 
         /// <summary>펀치 진행도 0(시작)~1(끝). 펀치 중이 아니면 -1.</summary>
         public float PunchProgress =>
@@ -131,9 +205,16 @@ namespace Game.Client.Players
         private float networkSpeed;
         private bool networkGrounded;
         private int networkAttackSequence;
+        private int networkEmoteSequence;
         private Vector2 networkMoveLocal;
         private bool networkCarrying;
+        private bool carryOverride;
         private MoveDirection lastLocomotionDirection;
+        private bool wasStunned;
+        private float networkLookPitch;
+        private Transform neckBone;
+        private Transform headBone;
+        private PlayerCameraController cameraRig;
 
         private void Awake()
         {
@@ -152,6 +233,7 @@ namespace Game.Client.Players
             animator.applyRootMotion = false;
             lastPosture = movement.Posture;
             previousJumpHeight = transform.position.y;
+            CacheLookBones();
 #if !UNITY_SERVER
             if (punchSwingClip != null)
             {
@@ -183,6 +265,7 @@ namespace Game.Client.Players
 
         private void OnEnable()
         {
+            cameraRig = FindFirstObjectByType<PlayerCameraController>();
             if (combatant != null)
             {
                 combatant.AttackPerformed += OnAttackPerformed;
@@ -232,11 +315,9 @@ namespace Game.Client.Players
 
         private void OnHitReceived()
         {
-            // Play even on the hit that stuns the victim (PlayHit skips that animation).
             if (hitAudioSource != null && hitAudioSource.isActiveAndEnabled)
             {
-                hitAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                hitAudioSource.PlayOneShot(punchHitClip);
+                PlayActionClip(hitAudioSource, punchHitClip, .8f);
             }
             PlayHit();
         }
@@ -245,9 +326,18 @@ namespace Game.Client.Players
         {
             if (stunAudioSource != null && stunAudioSource.isActiveAndEnabled)
             {
-                stunAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                stunAudioSource.PlayOneShot(stunSoundClip);
+                PlayActionClip(stunAudioSource, stunSoundClip, .8f);
             }
+
+            punchUntilTime = 0f;
+            hitUntilTime = 0f;
+            if (movement != null && movement.Posture == PlayerPosture.Prone)
+            {
+                ClearOneShot();
+                return;
+            }
+
+            PlayOneShot(StunStartState, StunStartSeconds);
         }
 
         private AudioSource CreateCombatAudioSource(string objectName)
@@ -270,8 +360,7 @@ namespace Game.Client.Players
         {
             if (punchAudioSource != null && punchAudioSource.isActiveAndEnabled)
             {
-                punchAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                punchAudioSource.PlayOneShot(punchSwingClip);
+                PlayActionClip(punchAudioSource, punchSwingClip, .8f);
             }
             // Network peers choose the same hand, even if an attack update was skipped.
             leftPunch = usesNetworkState
@@ -290,6 +379,8 @@ namespace Game.Client.Players
         {
             if (combatant != null && combatant.IsStunned)
             {
+                // Knockout plays Stun_Start instead of a flinch. Earlier hits
+                // already used the posture clip from ResolveHitClip.
                 return;
             }
 
@@ -305,9 +396,7 @@ namespace Game.Client.Players
         {
             var settings = movement.MovementSettings;
             var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
-            var carrying = usesNetworkState
-                ? networkCarrying
-                : interactor != null && interactor.CarriedItem != null;
+            var carrying = ResolveCarrying();
             return isHit
                 ? ResolveHitClip(
                     movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed, carrying)
@@ -319,8 +408,7 @@ namespace Game.Client.Players
         {
             if (pickupAudioSource != null && pickupAudioSource.isActiveAndEnabled)
             {
-                pickupAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                pickupAudioSource.PlayOneShot(pickupSoundClip);
+                PlayActionClip(pickupAudioSource, pickupSoundClip, .8f);
             }
             var clip = ResolvePickupClip(movement.Posture);
             PlayOneShot(clip, ClipSeconds(clip));
@@ -330,8 +418,7 @@ namespace Game.Client.Players
         {
             if (putDownAudioSource != null && putDownAudioSource.isActiveAndEnabled)
             {
-                putDownAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                putDownAudioSource.PlayOneShot(putDownSoundClip);
+                PlayActionClip(putDownAudioSource, putDownSoundClip, .8f);
             }
             var clip = ResolvePutDownClip(movement.Posture);
             PlayOneShot(clip, ClipSeconds(clip));
@@ -341,8 +428,7 @@ namespace Game.Client.Players
         {
             if (throwAudioSource != null && throwAudioSource.isActiveAndEnabled)
             {
-                throwAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                throwAudioSource.PlayOneShot(throwSoundClip);
+                PlayActionClip(throwAudioSource, throwSoundClip, .8f);
             }
             var settings = movement.MovementSettings;
             var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
@@ -393,7 +479,28 @@ namespace Game.Client.Players
             bool grounded,
             int attackSequence)
         {
-            ApplyNetworkState(planarSpeed, grounded, attackSequence, Vector2.zero, false);
+            ApplyNetworkState(planarSpeed, grounded, attackSequence, Vector2.zero, false, 0f);
+        }
+
+        private bool ResolveCarrying()
+        {
+            if (carryOverride) return true;
+            return usesNetworkState
+                ? networkCarrying
+                : interactor != null && interactor.CarriedItem != null;
+        }
+
+        /// <summary>
+        /// 손에 든 것이 없어도 들기 자세를 유지하게 한다 (S15P21D205-1087).
+        /// </summary>
+        /// <remarks>
+        /// 엔딩 유치장은 진짜 물건 대신 표시용 복제본을 손에 붙인다. 그때 진짜 물건은 숨기고
+        /// 잊게 만들며(로컬), 결과 씬에서는 들기 상태 자체를 끄고 보낸다(원격). 그대로 두면
+        /// 물건은 손에 있는데 팔만 내려가므로, 무대에 세운 동안만 들기 자세를 못 박는다.
+        /// </remarks>
+        public void SetCarryOverride(bool force)
+        {
+            carryOverride = force;
         }
 
         public void ApplyNetworkState(
@@ -403,21 +510,56 @@ namespace Game.Client.Players
             Vector2 planarDirectionLocal,
             bool carrying)
         {
+            ApplyNetworkState(planarSpeed, grounded, attackSequence, planarDirectionLocal, carrying, 0f);
+        }
+
+        public void ApplyNetworkState(
+            float planarSpeed,
+            bool grounded,
+            int attackSequence,
+            Vector2 planarDirectionLocal,
+            bool carrying,
+            float lookPitchDegrees)
+        {
+            ApplyNetworkState(planarSpeed, grounded, attackSequence, planarDirectionLocal, carrying, lookPitchDegrees, 0, 0);
+        }
+
+        public void ApplyNetworkState(
+            float planarSpeed,
+            bool grounded,
+            int attackSequence,
+            Vector2 planarDirectionLocal,
+            bool carrying,
+            float lookPitchDegrees,
+            int emoteSequence,
+            int emoteId)
+        {
             if (!usesNetworkState)
             {
                 usesNetworkState = true;
                 networkAttackSequence = attackSequence;
+                networkEmoteSequence = emoteSequence;
             }
-            else if (networkAttackSequence != attackSequence)
+            else
             {
-                networkAttackSequence = attackSequence;
-                PlayPunch();
+                if (networkAttackSequence != attackSequence)
+                {
+                    networkAttackSequence = attackSequence;
+                    PlayPunch();
+                }
+
+                if (networkEmoteSequence != emoteSequence)
+                {
+                    networkEmoteSequence = emoteSequence;
+                    TryPlayEmote((EmoteId)emoteId);
+                }
             }
 
             networkSpeed = Mathf.Max(0f, planarSpeed);
             networkGrounded = grounded;
             networkMoveLocal = planarDirectionLocal;
             networkCarrying = carrying;
+            networkLookPitch = lookPitchDegrees;
         }
 
         private void Update()
@@ -459,28 +601,91 @@ namespace Game.Client.Players
 
         private void LateUpdate()
         {
-            if (punchAudioSource != null)
-                punchAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (hitAudioSource != null)
-                hitAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (jumpAudioSource != null)
-                jumpAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (pickupAudioSource != null)
-                pickupAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (putDownAudioSource != null)
-                putDownAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (throwAudioSource != null)
-                throwAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (stunAudioSource != null)
-                stunAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (landAudioSource != null)
-                landAudioSource.volume = LandAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            if (postureSwooshAudioSource != null)
-                postureSwooshAudioSource.volume =
-                    PostureSwooshAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
+            ApplyActionAudioPresentation();
             TickLandAudio();
             footstepAudio?.Tick(animator, currentState,
                 usesNetworkState ? networkGrounded : movement.IsGrounded, movement.Posture);
+            ApplyLookAim();
+        }
+
+        private void CacheLookBones()
+        {
+            foreach (var candidate in GetComponentsInChildren<Transform>(true))
+            {
+                if (neckBone == null && candidate.name == "Neck")
+                {
+                    neckBone = candidate;
+                }
+                else if (headBone == null && candidate.name == "Head")
+                {
+                    headBone = candidate;
+                }
+            }
+        }
+
+        private void ApplyLookAim()
+        {
+            if (IsStunView || neckBone == null && headBone == null)
+            {
+                return;
+            }
+
+            PlayerLookAim.Apply(
+                transform,
+                neckBone,
+                headBone,
+                ResolveLookPitch(),
+                movement != null ? movement.Posture : PlayerPosture.Standing);
+        }
+
+        private float ResolveLookPitch()
+        {
+            if (cameraRig != null && cameraRig.FollowTarget == transform)
+            {
+                return cameraRig.PitchDegrees;
+            }
+
+            return networkLookPitch;
+        }
+
+        private bool IsLocalPresentation =>
+            !usesNetworkState || (combatant != null && combatant.PresentsLocalScreen);
+
+        internal static float ActionSpatialBlend(bool localPresentation) =>
+            localPresentation ? 0f : 1f;
+
+        private void ApplyActionAudioPresentation()
+        {
+            var blend = ActionSpatialBlend(IsLocalPresentation);
+            SetSpatialBlend(punchAudioSource, blend);
+            SetSpatialBlend(hitAudioSource, blend);
+            SetSpatialBlend(jumpAudioSource, blend);
+            SetSpatialBlend(pickupAudioSource, blend);
+            SetSpatialBlend(putDownAudioSource, blend);
+            SetSpatialBlend(throwAudioSource, blend);
+            SetSpatialBlend(stunAudioSource, blend);
+            SetSpatialBlend(landAudioSource, blend);
+            SetSpatialBlend(postureSwooshAudioSource, blend);
+            footstepAudio?.SetSpatialBlend(blend);
+        }
+
+        private static void SetSpatialBlend(AudioSource source, float blend)
+        {
+            if (source != null)
+            {
+                source.spatialBlend = blend;
+            }
+        }
+
+        private void PlayActionClip(AudioSource source, AudioClip clip, float relativeVolume)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            source.spatialBlend = ActionSpatialBlend(IsLocalPresentation);
+            PlayerFootstepAudio.PlayEffects(source, clip, relativeVolume);
         }
 
         private void UpdateJumpAudio()
@@ -513,8 +718,7 @@ namespace Game.Client.Players
             jumpSoundPlayed = true;
             if (jumpAudioSource != null && jumpAudioSource.isActiveAndEnabled)
             {
-                jumpAudioSource.volume = .8f * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                jumpAudioSource.PlayOneShot(jumpClip);
+                PlayActionClip(jumpAudioSource, jumpClip, .8f);
             }
         }
 
@@ -529,13 +733,15 @@ namespace Game.Client.Players
 
             // Physics already grounded this frame; play once the land clip is the
             // current pose so the thud matches the body hitting the floor.
-            if (!ShouldPlayPendingLandSound(landSoundPending, IsLandState(currentState)))
+            // 춤 중에는 착지 클립이 나오지 않으므로, 그 포즈를 기다리면 쿵 소리가 영영
+            // 밀린다. 표현을 들고 있을 때는 발이 닿은 프레임에 바로 낸다.
+            if (!ShouldPlayPendingLandSound(
+                    landSoundPending, IsLandState(currentState) || IsHoldingLoopEmote))
                 return;
             landSoundPending = false;
             if (landAudioSource == null || !landAudioSource.isActiveAndEnabled || landClip == null)
                 return;
-            landAudioSource.volume = LandAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-            landAudioSource.PlayOneShot(landClip);
+            PlayActionClip(landAudioSource, landClip, LandAudioVolume);
         }
 
         internal static bool ShouldPlayPendingLandSound(bool pending, bool landClipActive) =>
@@ -554,12 +760,24 @@ namespace Game.Client.Players
         {
             if (combatant != null && combatant.IsStunned)
             {
-                ClearOneShot();
                 punchUntilTime = 0f;
                 hitUntilTime = 0f;
                 lastPosture = movement.Posture;
                 wasGrounded = usesNetworkState ? networkGrounded : movement.IsGrounded;
-                return StunnedState;
+                wasStunned = true;
+                if (Time.time < oneShotUntilTime && oneShotState == StunStartState)
+                {
+                    return StunStartState;
+                }
+
+                ClearOneShot();
+                return StunIdleState;
+            }
+
+            if (wasStunned)
+            {
+                wasStunned = false;
+                PlayOneShot(StunEndState, StunEndSeconds);
             }
 
             if (Time.time < hitUntilTime)
@@ -576,9 +794,7 @@ namespace Game.Client.Players
             var settings = movement.MovementSettings;
             var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
             var move = usesNetworkState ? networkMoveLocal : movement.PlanarVelocityLocal;
-            var carrying = usesNetworkState
-                ? networkCarrying
-                : interactor != null && interactor.CarriedItem != null;
+            var carrying = ResolveCarrying();
             var grounded = usesNetworkState ? networkGrounded : movement.IsGrounded;
 
             if (!grounded)
@@ -592,6 +808,13 @@ namespace Game.Client.Players
                     ClearOneShot();
                     return ResolveLocomotionClip(
                         posture, carrying, 0f, Vector2.zero, settings.WalkSpeed, settings.SprintSpeed);
+                }
+
+                // 춤은 공중에서도 이어진다. 점프·낙하 클립과 원샷 슬롯을 하나만
+                // 쓰므로, 덮어쓰면 착지한 뒤 되돌릴 근거가 남지 않는다.
+                if (IsHoldingLoopEmote)
+                {
+                    return oneShotState;
                 }
 
                 if (leftGround)
@@ -611,7 +834,7 @@ namespace Game.Client.Players
             if (!wasGrounded)
             {
                 wasGrounded = true;
-                if (posture == PlayerPosture.Standing)
+                if (posture == PlayerPosture.Standing && !IsHoldingLoopEmote)
                 {
                     PlayOneShot(ResolveLandClip(carrying), LandSeconds);
                 }
@@ -656,6 +879,22 @@ namespace Game.Client.Players
 
             return locomotion;
         }
+
+        /// <summary>
+        /// 반복 감정 표현(춤)이 재생 중인가. 점프·낙하·착지 클립이 이걸 밀어내지
+        /// 않는다. 1회성 표현(인사·도발)은 해당하지 않는다.
+        /// </summary>
+        private bool IsHoldingLoopEmote =>
+            HoldsLoopEmote(oneShotState, Time.time < oneShotUntilTime);
+
+        /// <summary>
+        /// 원샷 슬롯을 쥐고 있는 게 반복 표현인가. 점프·낙하·착지 클립이 이걸
+        /// 밀어내지 않으므로, 판정만 따로 떼어 검증할 수 있게 둔다.
+        /// </summary>
+        internal static bool HoldsLoopEmote(string oneShotState, bool stillPlaying) =>
+            stillPlaying &&
+            EmoteCatalog.IsEmoteState(oneShotState) &&
+            !EmoteCatalog.IsOneShotEmoteState(oneShotState);
 
         private void PlayOneShot(string state, float seconds)
         {
@@ -753,11 +992,18 @@ namespace Game.Client.Players
         internal static bool IsJumpState(string state) =>
             state == JumpState || state == CarryJumpState;
 
+        internal static bool IsStunState(string state) =>
+            state == StunStartState ||
+            state == StunIdleState ||
+            state == StunEndState ||
+            state == StunnedState;
+
         internal static bool IsMovementInterruptible(string state) =>
             !string.IsNullOrEmpty(state) &&
             (state.StartsWith("Pickup", System.StringComparison.Ordinal) ||
              state.StartsWith("PutUp", System.StringComparison.Ordinal) ||
              state.StartsWith("PutDown", System.StringComparison.Ordinal) ||
+             EmoteCatalog.IsOneShotEmoteState(state) ||
              IsLandState(state));
 
         internal static bool IsLandState(string state) =>
@@ -977,9 +1223,7 @@ namespace Game.Client.Players
         {
             if (postureSwooshAudioSource != null && postureSwooshAudioSource.isActiveAndEnabled)
             {
-                postureSwooshAudioSource.volume =
-                    PostureSwooshAudioVolume * Mathf.Clamp01(PlayerFootstepAudio.EffectsVolume);
-                postureSwooshAudioSource.PlayOneShot(postureSwooshClip);
+                PlayActionClip(postureSwooshAudioSource, postureSwooshClip, PostureSwooshAudioVolume);
             }
         }
 

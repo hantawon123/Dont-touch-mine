@@ -432,7 +432,10 @@ namespace Game.Architecture.Tests
                 if (readinessTimeout)
                 {
                     network.ServerTime += 30d;
-                    LogAssert.Expect(LogType.Warning, "[Highlight] Replay preparation timed out; skipping to results.");
+                    // The warning also names who the authority was still waiting on,
+                    // which is the diagnosis; only the timeout itself is asserted.
+                    LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex(
+                        @"^\[Highlight\] Replay preparation timed out; skipping to results\."));
                     network.PublishSimulationTick();
                 }
                 else

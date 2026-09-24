@@ -223,9 +223,9 @@ namespace Game.Core.Settings
         /// should be made deliberately rather than inherited from a picture.
         /// </remarks>
         public static OptionChoices InputModes { get; } = new OptionChoices(
-            new OptionChoice(PushToTalk, "눌러서 말하기"),
-            new OptionChoice(OpenMic, "오픈 마이크"),
-            new OptionChoice(MicOff, "끄기"));
+            new OptionChoice(PushToTalk, UiText.Settings.PushToTalk),
+            new OptionChoice(OpenMic, UiText.Settings.OpenMic),
+            new OptionChoice(MicOff, UiText.Settings.Off));
 
         /// <summary>
         /// The code for the machine's own choice of microphone. A code rather
@@ -234,16 +234,16 @@ namespace Game.Core.Settings
         /// </summary>
         public const string DefaultDevice = "default";
 
-        /// <summary>Shown for <see cref="DefaultDevice"/>.</summary>
-        public const string DefaultDeviceLabel = "기본 장치";
-
         /// <summary>
         /// The device picker's choices: the machine's default first, then every
         /// microphone the machine reports, by name.
         /// </summary>
         public static OptionChoices DeviceChoices(IReadOnlyList<string> availableDevices)
         {
-            var choices = new List<OptionChoice> { new OptionChoice(DefaultDevice, DefaultDeviceLabel) };
+            var choices = new List<OptionChoice>
+            {
+                new OptionChoice(DefaultDevice, UiText.Settings.DefaultDevice)
+            };
             if (availableDevices != null)
             {
                 foreach (var name in availableDevices)

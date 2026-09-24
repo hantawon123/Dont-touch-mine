@@ -44,8 +44,7 @@ namespace Game.Core.Lobby
         internal bool IsValid =>
             !string.IsNullOrWhiteSpace(Title) &&
             MaxPlayers >= MinPlayerCount &&
-            MaxPlayers <= MaxPlayerCount &&
-            !string.IsNullOrWhiteSpace(MapId);
+            MaxPlayers <= MaxPlayerCount;
     }
 
 }

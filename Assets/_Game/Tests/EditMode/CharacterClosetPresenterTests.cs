@@ -520,6 +520,10 @@ namespace Game.Architecture.Tests
                 SaveError = message;
             }
 
+            public void ShowChrome(Game.Core.Settings.UiLocale locale)
+            {
+            }
+
             public void PressBack() => BackRequested?.Invoke();
 
             public void PickCategory(AvatarPartCategory category) =>
@@ -557,6 +561,10 @@ namespace Game.Architecture.Tests
             }
 
             public void OpenSettings()
+            {
+            }
+
+            public void OpenTutorial()
             {
             }
 

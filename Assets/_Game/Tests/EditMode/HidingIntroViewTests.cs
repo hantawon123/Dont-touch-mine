@@ -15,6 +15,9 @@ namespace Game.Architecture.Tests
         [UnityTest]
         public IEnumerator Preview_RepeatedShowAndHideKeepsRenderingOffscreen()
         {
+            if (Application.isBatchMode)
+                Assert.Ignore("RenderTexture preview requires an Editor graphics context.");
+
             UnityEditor.SceneManagement.EditorSceneManager.NewScene(
                 UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
                 UnityEditor.SceneManagement.NewSceneMode.Single);
@@ -63,11 +66,44 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void IntroPreview_UsesFixedOnScreenSizeRegardlessOfPrefabScale()
+        {
+            Assert.That(HidingIntroItemPreview.IntroImageSize.x, Is.LessThanOrEqualTo(1920f));
+            Assert.That(HidingIntroItemPreview.IntroImageSize.y, Is.LessThanOrEqualTo(1080f));
+
+            var aspect = HidingIntroItemPreview.IntroImageSize.x /
+                         HidingIntroItemPreview.IntroImageSize.y;
+            var small = HidingIntroItemPreview.OrthographicSizeForBounds(
+                new Vector3(1f, 1f, 1f), aspect);
+            var large = HidingIntroItemPreview.OrthographicSizeForBounds(
+                new Vector3(10f, 10f, 10f), aspect);
+
+            Assert.That(large, Is.GreaterThan(small * 9f),
+                "The camera must zoom out with prefab scale so its on-screen size stays stable.");
+        }
+
+        [Test]
         public void FormatMessage_UsesAssignedItemName()
         {
             Assert.That(
                 HidingIntroView.FormatMessage("탄산음료"),
                 Is.EqualTo("당신이 훔친 물건은 탄산음료입니다."));
+        }
+
+        [Test]
+        public void FormatMessage_TranslatesTheItemNameForEnglish()
+        {
+            Assert.That(
+                HidingIntroView.FormatMessage("탄산음료", "en"),
+                Is.EqualTo("The item you stole is Soda."));
+        }
+
+        [Test]
+        public void FormatMessage_KeepsTheAuthoredNameWhenEnglishHasNone()
+        {
+            Assert.That(
+                HidingIntroView.FormatMessage("mesh_Bus_01", "en"),
+                Is.EqualTo("The item you stole is mesh_Bus_01."));
         }
 
         [Test]

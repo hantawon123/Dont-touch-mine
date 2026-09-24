@@ -87,6 +87,11 @@ namespace Game.Bootstrap
         private Func<bool> presentationBlocksInput;
         public void BindPresentationInput(Func<bool> blocksInput) => presentationBlocksInput = blocksInput;
 
+        internal static bool ShouldShowInteractionHud(
+            bool introBlocked,
+            bool highlightInProgress) =>
+            !introBlocked && !highlightInProgress;
+
         private IReadOnlyCollection<CarryableItem> sceneItems;
         public void BindSceneItems(IReadOnlyCollection<CarryableItem> value) => sceneItems = value;
 
@@ -319,7 +324,10 @@ namespace Game.Bootstrap
                         motor.AnimationGrounded,
                         motor.AttackSequence,
                         new Vector2(motor.AnimationMoveX, motor.AnimationMoveZ),
-                        motor.AnimationCarrying && !network.IsResultSceneLoaded);
+                        motor.AnimationCarrying && !network.IsResultSceneLoaded,
+                        motor.LookPitchDegrees,
+                        motor.EmoteSequence,
+                        motor.EmoteId);
                 }
 
                 var interactor = avatar.GetComponent<PlayerInteractor>();
@@ -330,7 +338,9 @@ namespace Game.Bootstrap
                     if (!isMatchNpc) interactor.BindCommands(this);
                     interactor.enabled = acceptsLocalInput;
                     if (!acceptsLocalInput) interactor.RefreshHoldPoint();
-                    interactor.SetHudVisible(!introBlocked);
+                    interactor.SetHudVisible(ShouldShowInteractionHud(
+                        introBlocked,
+                        network.IsHighlightInProgress));
                     if (isMatchNpc)
                     {
                         if (!string.IsNullOrWhiteSpace(playerId))
@@ -351,7 +361,7 @@ namespace Game.Bootstrap
                 var combatant = avatar.GetComponent<PlayerCombatant>();
                 if (!isMatchNpc && !lobbyMode && combatant != null)
                 {
-                    combatant.ConfigureNetworkPlayer(playerIndex, acceptsLocalInput);
+                    combatant.ConfigureNetworkPlayer(playerIndex, acceptsLocalInput, avatar.IsOwner);
                     combatants[playerIndex] = combatant;
                 }
             }
@@ -453,9 +463,18 @@ namespace Game.Bootstrap
 
             var checkHeldState = Time.unscaledTimeAsDouble >= nextHeldStateCheckAt;
             if (checkHeldState) nextHeldStateCheckAt = Time.unscaledTimeAsDouble + 0.5d;
+            // 놓인 것을 먼저 처리하고 들린 것을 나중에 붙인다. 숨기기 차례가 넘어오는 틱에는 "대기하며
+            // 들고 있던 소품을 놓음"과 "배정 물건을 쥠"이 한 스냅샷에 함께 실려 오는데, 배열 순서대로
+            // 처리하면 손이 아직 차 있어 배정 물건 부착이 한 프레임 밀리고 already carrying 경고가 남는다.
+            for (var pass = 0; pass < 2; pass++)
             for (var index = 0; index < objectStates.Length; index++)
             {
                 var state = objectStates[index];
+                if ((state.HolderPlayerIndex >= 0) != (pass == 1))
+                {
+                    continue;
+                }
+
                 if (!items.TryGetValue(state.ObjectId, out var item) || item == null)
                 {
                     continue;
@@ -493,6 +512,9 @@ namespace Game.Bootstrap
 
                     appliedVersions[state.ObjectId] = state.Version;
                     items.Remove(state.ObjectId);
+                    // 엔딩 유치장이 잃어버린 물건을 손에 들려 주므로, 지우기 전에 겉모습을 맡긴다
+                    // (S15P21D205-1087). 맡기는 것은 스크립트를 지운 복제본이다.
+                    DestroyedItemArchive.Ensure(item.OwningScene).Archive(state.ObjectId, item.gameObject);
                     UnityEngine.Object.Destroy(item.gameObject);
                     continue;
                 }

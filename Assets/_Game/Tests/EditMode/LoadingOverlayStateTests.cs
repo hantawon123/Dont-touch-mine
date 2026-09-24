@@ -50,7 +50,7 @@ namespace Game.Architecture.Tests
             var network = new NetworkRunnerService(null, null, null, null, null, null);
             var hostType = scope.GetNestedType(hostName, BindingFlags.NonPublic);
             var args = scope == typeof(HomeLifetimeScope)
-                ? new object[] { null, null, network, null, null, overlay }
+                ? new object[] { null, null, network, null, null, overlay, null }
                 : new object[] { network, null, overlay };
             var host = (IHomeApplicationHost)Activator.CreateInstance(hostType, args);
 

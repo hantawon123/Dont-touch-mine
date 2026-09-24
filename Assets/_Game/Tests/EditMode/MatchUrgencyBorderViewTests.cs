@@ -105,6 +105,53 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void EnsureLayout_GivesSceneEdgesTheSameFadeSpriteAsCreate()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var root = new GameObject(
+                    MatchUrgencyBorderView.RootName, typeof(RectTransform), typeof(CanvasRenderer));
+                root.transform.SetParent(canvas.transform, false);
+                AddBareEdge(root.transform, "Top");
+                AddBareEdge(root.transform, "Bottom");
+                AddBareEdge(root.transform, "Left");
+                AddBareEdge(root.transform, "Right");
+
+                var view = root.AddComponent<MatchUrgencyBorderView>();
+                view.Show();
+                var created = MatchUrgencyBorderView.Create(canvas.transform);
+                created.Show();
+
+                Assert.That(
+                    root.transform.Find("Top").GetComponent<Image>().sprite,
+                    Is.EqualTo(created.transform.Find("Top").GetComponent<Image>().sprite));
+                Assert.That(
+                    root.transform.Find("Bottom").GetComponent<Image>().sprite,
+                    Is.EqualTo(created.transform.Find("Bottom").GetComponent<Image>().sprite));
+                Assert.That(
+                    root.transform.Find("Left").GetComponent<Image>().sprite,
+                    Is.EqualTo(created.transform.Find("Left").GetComponent<Image>().sprite));
+                Assert.That(
+                    root.transform.Find("Right").GetComponent<Image>().sprite,
+                    Is.EqualTo(created.transform.Find("Right").GetComponent<Image>().sprite));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        private static void AddBareEdge(Transform parent, string name)
+        {
+            var edge = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            edge.transform.SetParent(parent, false);
+            var image = edge.GetComponent<Image>();
+            image.sprite = null;
+            image.color = new Color(0.84f, 0.06f, 0.09f, 0.5f);
+        }
+
         private static Transform Child(Transform root, string name)
         {
             for (var index = 0; index < root.childCount; index++)

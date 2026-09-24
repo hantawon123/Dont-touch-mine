@@ -1,9 +1,11 @@
-﻿using System;
+﻿using Game.Core.Players;
+using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Client.Common;
 using Game.Core.Flow;
 using Game.Core.Home;
+using Game.Core.Settings;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -22,6 +24,9 @@ namespace Game.Client.Home
 
         /// <summary>Opens the settings screen.</summary>
         void OpenSettings();
+
+        /// <summary>Starts the tutorial from the beginning.</summary>
+        void OpenTutorial();
 
         /// <summary>
         /// Opens a room with these settings and, if it opens, goes to its
@@ -50,6 +55,7 @@ namespace Game.Client.Home
         public const string LobbySceneName = "Lobby";
         public const string CharacterClosetSceneName = "Character";
         public const string SettingsSceneName = "Settings";
+        public const string TutorialSceneName = "Tutorial";
 
         public void Quit()
         {
@@ -103,6 +109,13 @@ namespace Game.Client.Home
                 .Forget(exception => Debug.LogException(exception));
         }
 
+        /// <inheritdoc cref="OpenHome"/>
+        public void OpenTutorial()
+        {
+            SceneLoadSlicer.LoadSingleAsync(TutorialSceneName)
+                .Forget(exception => Debug.LogException(exception));
+        }
+
         /// <summary>
         /// Nothing to do without a network runner. The scene that owns one
         /// replaces this host; this fallback exists for the editor and for
@@ -137,6 +150,7 @@ namespace Game.Client.Home
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
         private readonly ServerRegionSystem regions;
+        private readonly UiLocale locale;
         private bool isFriendListVisible;
         private bool isRequestTabOpen;
 
@@ -148,6 +162,7 @@ namespace Game.Client.Home
         private string listFilter = string.Empty;
         private bool isProfileSettingsVisible;
         private bool isServerSettingsVisible;
+        private AvatarAppearanceState appearance;
 
         public HomeMenuPresenter(
             PlayerProfile profile,
@@ -157,7 +172,8 @@ namespace Game.Client.Home
             AppFlowSystem appFlow,
             FriendListSystem friends,
             FriendSearchSystem search,
-            ServerRegionSystem regions)
+            ServerRegionSystem regions,
+            UiLocale locale = null)
         {
             this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
             this.menu = menu ?? throw new ArgumentNullException(nameof(menu));
@@ -169,7 +185,23 @@ namespace Game.Client.Home
             this.search = search ?? throw new ArgumentNullException(nameof(search));
 
             this.regions = regions ?? throw new ArgumentNullException(nameof(regions));
+            this.locale = locale;
+        }
 
+        [VContainer.Inject]
+        public void BindAppearance(AvatarAppearanceState value)
+        {
+            if (appearance != null)
+            {
+                appearance.Changed -= OnAppearanceChanged;
+            }
+
+            appearance = value;
+            if (appearance != null)
+            {
+                appearance.Changed += OnAppearanceChanged;
+                OnAppearanceChanged(appearance.Current);
+            }
         }
 
         public void Start()
@@ -196,6 +228,11 @@ namespace Game.Client.Home
             view.SetServerSettingsVisible(false);
             view.SetCreateRoomVisible(false);
             view.SetSelectedRegion(regions.Current.Code);
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+                view.ShowChrome(locale);
+            }
         }
 
         public void Dispose()
@@ -215,7 +252,18 @@ namespace Game.Client.Home
             profile.Changed -= BindProfile;
             friends.FriendsChanged -= BindFriends;
             search.ResultsChanged -= BindSearchResults;
+            if (appearance != null)
+            {
+                appearance.Changed -= OnAppearanceChanged;
+            }
+
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
         }
+
+        private void OnLocaleChanged() => view.ShowChrome(locale);
 
         private void OnActionClicked(HomeMenuAction action)
         {
@@ -297,6 +345,16 @@ namespace Game.Client.Home
                 HideProfileSettings();
                 HideServerSettings();
                 applicationHost.OpenSettings();
+                return;
+            }
+
+            if (action == HomeMenuAction.Tutorial &&
+                Transition(action, AppFlowState.Tutorial))
+            {
+                HideFriendList();
+                HideProfileSettings();
+                HideServerSettings();
+                applicationHost.OpenTutorial();
                 return;
             }
 
@@ -590,6 +648,12 @@ namespace Game.Client.Home
         {
             view.SetNickname(source.Nickname);
             view.SetNicknameSettled(source.NicknameSet);
+        }
+
+        private void OnAppearanceChanged(AvatarAppearance worn)
+        {
+            AvatarAppearanceBoard.SetLocal(worn);
+            view.SetProfileAppearance(worn);
         }
     }
 }

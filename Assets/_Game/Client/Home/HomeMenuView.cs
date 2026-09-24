@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Game.Client.Common;
 using Game.Core.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -48,7 +49,7 @@ namespace Game.Client.Home
             koreanFont = HomeUiFonts.Apply(fontAsset);
             var canvas = CreateCanvas();
             CreateBackground(canvas);
-            CreateTitle(canvas);
+            CreateLogo(canvas);
             CreateLeftMenu(canvas);
             CreateQuitButton(canvas);
 
@@ -89,7 +90,60 @@ namespace Game.Client.Home
         /// </summary>
         public void ShowConnectionError(string message)
         {
-            connectionToast?.Show(HomeStyle.ConnectionErrorTitle, message);
+            connectionToast?.Show(Copy(UiText.Home.ConnectionError), message);
+        }
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            foreach (var pair in chromeLabels)
+            {
+                if (pair.Text != null)
+                {
+                    pair.Text.text = Copy(pair.Key);
+                }
+            }
+
+            if (requestSectionText != null)
+            {
+                requestSectionText.text = string.Format(
+                    Copy(UiText.Home.IncomingRequests), incomingRequestCount);
+            }
+
+            UpdateFriendSections();
+            RepaintRegions();
+            if (searchEmptyText != null)
+            {
+                searchEmptyText.text = Copy(UiText.Home.SearchEmpty);
+            }
+
+            if (isConfirmingNickname)
+            {
+                var typed = profileNicknameInput != null ? profileNicknameInput.text : string.Empty;
+                ShowNicknameMessage(
+                    string.Format(Copy(UiText.Home.ConfirmPrompt), typed),
+                    HomeStyle.Palette.MessageRejected);
+            }
+            else if (nicknameMessageText != null
+                     && nicknameMessageText.color == HomeStyle.Palette.Counter)
+            {
+                ClearNicknameMessage();
+            }
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiTextCatalog.Shipped.Get(key, "ko");
+
+        private void Remember(TMP_Text text, string key)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            chromeLabels.Add((text, key));
         }
 
         private RectTransform CreateCanvas()
@@ -192,6 +246,8 @@ namespace Game.Client.Home
             avatar.sizeDelta = new Vector2(
                 HomeStyle.Layout.ChipAvatarDiameter, HomeStyle.Layout.ChipAvatarDiameter);
             AddImage(avatar, AvatarColor, HomeUiFonts.CircleSprite);
+            profileAvatar = avatar;
+            Game.Client.Character.AvatarFaceSlot.Attach(avatar).FollowLocal();
 
             var nameRect = CreateRect("Nickname", chip);
             SetAnchor(nameRect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
@@ -321,39 +377,29 @@ namespace Game.Client.Home
         }
 
         /// <summary>
-        /// The two-line game title above the home menu.
+        /// The game logo, pinned to the top-left of the canvas.
         /// </summary>
-        private void CreateTitle(RectTransform canvas)
+        private void CreateLogo(RectTransform canvas)
         {
-            if (titleFont == null)
-            {
-                Debug.LogWarning("Home title font is not assigned.", this);
-                return;
-            }
-
-            var rect = CreateRect("Title", canvas);
+            var rect = CreateRect("Logo", canvas);
             SetAnchor(rect, Vector2.up, Vector2.up, Vector2.up);
-            rect.anchoredPosition = new Vector2(HomeStyle.Layout.TitleLeft, -HomeStyle.Layout.TitleTop);
-            rect.sizeDelta = new Vector2(HomeStyle.Layout.TitleWidth, HomeStyle.Layout.TitleHeight);
+            rect.anchoredPosition = new Vector2(HomeStyle.Layout.LogoLeft, -HomeStyle.Layout.LogoTop);
+            var width = HomeStyle.Layout.LogoWidth;
+            var height = logoSprite != null && logoSprite.rect.width > 0f
+                ? width * (logoSprite.rect.height / logoSprite.rect.width)
+                : HomeStyle.Layout.LogoHeight;
+            rect.sizeDelta = new Vector2(width, height);
 
-            var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
-            text.font = titleFont;
-            text.fontSharedMaterial = titleFont.material;
-            text.text = "Don't Touch\nMine";
-            text.fontSize = HomeStyle.Layout.TitleFontSize;
-            text.fontStyle = FontStyles.Italic;
-            text.alignment = TextAlignmentOptions.TopLeft;
-            text.color = new Color32(255, 112, 50, 255);
-            text.enableAutoSizing = false;
-            text.lineSpacing = 0f;
-            text.characterSpacing = 0f;
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Overflow;
-            text.raycastTarget = false;
+            var image = rect.gameObject.AddComponent<Image>();
+            image.sprite = logoSprite;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            image.color = logoSprite != null ? Color.white : Color.clear;
         }
 
         /// <summary>
-        /// The four ways out of Home, stacked down the left of the character.
+        /// The ways out of Home, stacked down the left of the character.
         /// </summary>
         /// <remarks>
         /// Placed one by one off the top-left corner rather than through a
@@ -370,10 +416,11 @@ namespace Game.Client.Home
                 HomeStyle.Layout.MenuLeft, -HomeStyle.Layout.MenuTop);
             menu.sizeDelta = Vector2.zero;
 
-            CreateMenuItem(menu, "방 만들기", HomeMenuAction.CreateRoom, 0);
-            CreateMenuItem(menu, "게임 찾기", HomeMenuAction.FindRoom, 1);
-            CreateMenuItem(menu, "캐릭터", HomeMenuAction.Character, 2);
-            CreateMenuItem(menu, "환경 설정", HomeMenuAction.Settings, 3);
+            CreateMenuItem(menu, UiText.Home.CreateRoom, HomeMenuAction.CreateRoom, 0);
+            CreateMenuItem(menu, UiText.Home.FindRoom, HomeMenuAction.FindRoom, 1);
+            CreateMenuItem(menu, UiText.Home.Character, HomeMenuAction.Character, 2);
+            CreateMenuItem(menu, UiText.Home.Settings, HomeMenuAction.Settings, 3);
+            CreateMenuItem(menu, UiText.Home.Tutorial, HomeMenuAction.Tutorial, 4);
         }
 
         /// <summary>
@@ -391,7 +438,7 @@ namespace Game.Client.Home
         /// </para>
         /// </remarks>
         private void CreateMenuItem(
-            RectTransform parent, string label, HomeMenuAction action, int index)
+            RectTransform parent, string key, HomeMenuAction action, int index)
         {
             var rect = CreateRect(action.ToString(), parent);
             SetAnchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
@@ -400,13 +447,14 @@ namespace Game.Client.Home
 
             var text = AddText(
                 rect,
-                label,
+                Copy(key),
                 HomeStyle.FontSize.Menu,
                 FontStyles.Normal,
                 TextAlignmentOptions.MidlineLeft,
                 raycastTarget: true);
             ApplyMenuFont(text);
             text.color = Color.white;
+            Remember(text, key);
 
             var fitter = rect.gameObject.AddComponent<ContentSizeFitter>();
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
@@ -484,13 +532,14 @@ namespace Game.Client.Home
 
             var text = AddText(
                 quit,
-                "게임 종료",
+                Copy(UiText.Home.Quit),
                 HomeStyle.FontSize.Quit,
                 FontStyles.Normal,
                 TextAlignmentOptions.BottomLeft,
                 raycastTarget: true);
             ApplyMenuFont(text);
             text.color = Color.white;
+            Remember(text, UiText.Home.Quit);
 
             var fitter = quit.gameObject.AddComponent<ContentSizeFitter>();
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;

@@ -103,6 +103,8 @@ namespace Game.Server.Match
                 phase = MatchPhase.Result;
             }
             state.EnterPhase(phase, phase == MatchPhase.Result ? 0d : ShiftDeadline(snapshot.Phase.PhaseEndsAt, shift));
+            // 이관 직후 첫 틱이 "차례가 막 바뀌었다"고 착각해 숨는 사람 손의 소품을 떨구지 않도록 맞춰 둔다.
+            lastHidingTurnIndex = flow.GetCurrentHidingTurnIndex(now);
         }
 
         private static double ShiftDeadline(double time, double shift) => time > 0d ? Math.Max(0d, time + shift) : 0d;

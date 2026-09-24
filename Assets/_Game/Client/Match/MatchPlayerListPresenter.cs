@@ -31,6 +31,7 @@ namespace Game.Client.Match
         private IDisposable listenSubscription;
         private readonly IVoiceControl voice;
         private Game.Core.Settings.InterfacePresentation presentation;
+        private Game.Core.Settings.UiLocale locale;
         private IReadOnlyList<LobbyParticipant> latest = Array.Empty<LobbyParticipant>();
         private string pendingUserId;
 
@@ -59,6 +60,9 @@ namespace Game.Client.Match
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value) =>
             presentation = value;
 
+        [VContainer.Inject]
+        public void BindLocale(Game.Core.Settings.UiLocale value) => locale = value;
+
         public void Start()
         {
             confirmView.Hide();
@@ -70,6 +74,12 @@ namespace Game.Client.Match
             view.ReportClicked += OnReportClicked;
             confirmView.Confirmed += ConfirmPending;
             confirmView.Cancelled += CancelPending;
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+            }
+
+            view.ShowChrome(locale);
 
             if (voice != null)
             {
@@ -99,12 +109,23 @@ namespace Game.Client.Match
             view.ReportClicked -= OnReportClicked;
             confirmView.Confirmed -= ConfirmPending;
             confirmView.Cancelled -= CancelPending;
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
+
             lifetime.Cancel();
             lifetime.Dispose();
             muteSubscription?.Dispose();
             talkSubscription?.Dispose();
             listenSubscription?.Dispose();
             refreshSubscription?.Dispose();
+        }
+
+        private void OnLocaleChanged()
+        {
+            view.ShowChrome(locale);
+            Draw();
         }
 
         private void Draw()
@@ -126,7 +147,9 @@ namespace Game.Client.Match
 
             pendingUserId = userId;
             confirmView.Show(
-                LobbyPlayerListView.FormatReportTitle(displayName),
+                LobbyPlayerListView.FormatReportTitle(
+                    displayName,
+                    locale != null ? locale.LanguageCode : "ko"),
                 LobbyPlayerListView.ReportConfirmLabel,
                 chooseReason: true);
         }

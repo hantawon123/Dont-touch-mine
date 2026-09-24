@@ -2,12 +2,6 @@ using UnityEngine;
 
 namespace Game.Client.Lobby
 {
-    public interface ILobbyStartCountdownTickAudio
-    {
-        void SetRemainingSeconds(double remainingSeconds);
-        void Hide();
-    }
-
     /// <summary>
     /// 로비에서 게임 시작을 누른 뒤 10초 카운트다운 동안, 매 초 정각에 한 번씩
     /// 울리는 짧은 "째각" 효과음.
@@ -24,7 +18,7 @@ namespace Game.Client.Lobby
     /// still sees a usable component.
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class LobbyStartCountdownTickAudio : MonoBehaviour, ILobbyStartCountdownTickAudio
+    public sealed class LobbyStartCountdownTickAudio : MonoBehaviour
     {
         public const string RootName = "LobbyStartCountdownTickAudio";
         public const string TickResource = "Audio/LobbyStartCountdownTick";

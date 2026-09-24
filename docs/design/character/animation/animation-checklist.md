@@ -229,11 +229,13 @@
   - 파일명:
   - 액션명: `Hit_Body`
 - [x] 머리 피격 — 부위별 판정이 있을 때
-  - 파일명: `FirstPlayerCapsule_Hit.fbx`
+  - 파일명: `source/blender/characters/SmoothBear/Combat/SmoothBear_Hit.blend` → `CombatSource/Hit.fbx`
   - 액션명: `Hit`
+  - 비고: 머리·상체가 뒤로 젖혀지고 골반이 밀리며 무릎이 굽는 1초 반응. 제작 `Tools/build_smooth_bear_hit.py`, 내보내기 `Tools/export_smooth_bear_hit_clip.py`. Hit_Walk/Run/Crouch/Prone/Crawl·Carry_TwoHands_Hit*는 Unity의 CarryTwoHandsHitClipBaker가 Hit 위에 다시 굽는다.
 - [x] 기절 진입
-  - 파일명: `FirstPlayerCapsule_Stun_Start.fbx`
+  - 파일명: `source/blender/characters/SmoothBear/Combat/SmoothBear_Hit.blend` → `CombatSource/Stun_Start.fbx`
   - 액션명: `Stun_Start`
+  - 비고: 새 Hit 충격(0.3초) → 바로 서려다 머리가 앞으로 떨어짐(0.6초) → 뒤로 넘어짐(1.25초) → Stun_Idle 첫 프레임과 같은 자세 유지(2.2초). 제작 `Tools/build_smooth_bear_stun_start.py`.
 - [x] 기절 유지
   - 파일명: `FirstPlayerCapsule_Stun_Idle.fbx`
   - 액션명: `Stun_Idle`

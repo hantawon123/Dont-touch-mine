@@ -95,6 +95,12 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     guide.Find("Row6/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.ToggleKeyLabel));
+                Assert.That(
+                    guide.Find("Row7/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.EmoteAction));
+                Assert.That(
+                    guide.Find("Row7/Key/Label").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.EmoteKeyLabel));
             }
             finally
             {
@@ -142,18 +148,26 @@ namespace Game.Architecture.Tests
         public void ActionsFor_SwapsOnlyTheHeldItemRows()
         {
             Assert.That(KeySettingGuideView.ActionsFor(false), Is.EqualTo(KeySettingGuideView.Actions));
-            Assert.That(KeySettingGuideView.ActionsFor(true)[0], Is.EqualTo("배치 모드"));
-            Assert.That(KeySettingGuideView.ActionsFor(true)[1], Is.EqualTo("던지기"));
-            Assert.That(KeySettingGuideView.ActionsFor(true)[2], Is.EqualTo("놓기"));
-            Assert.That(KeySettingGuideView.LabelsFor(true)[0], Is.EqualTo(ControlCatalog.KeyLabel(ControlCatalog.Defaults.Get(ControlAction.PlacementMode))));
+            Assert.That(KeySettingGuideView.ActionsFor(true)[0], Is.EqualTo(UiLocale.Applied(UiText.Guide.Placement)));
+            Assert.That(KeySettingGuideView.ActionsFor(true)[1], Is.EqualTo(UiLocale.Applied(UiText.Guide.Throw)));
+            Assert.That(KeySettingGuideView.ActionsFor(true)[2], Is.EqualTo(UiLocale.Applied(UiText.Guide.Drop)));
+            Assert.That(
+                KeySettingGuideView.LabelsFor(true)[0],
+                Is.EqualTo(KeySettingGuideView.RightClickKeyLabel));
             Assert.That(KeySettingGuideView.LabelsFor(true)[1], Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
             Assert.That(KeySettingGuideView.LabelsFor(true)[2], Is.EqualTo("F"));
             Assert.That(
-                KeySettingGuideView.ActionsFor(true)[KeySettingGuideView.CarryingActions.Length - 1],
+                KeySettingGuideView.ActionsFor(true)[KeySettingGuideView.CarryingActions.Length - 2],
                 Is.EqualTo(KeySettingGuideView.ToggleAction));
             Assert.That(
-                KeySettingGuideView.LabelsFor(true)[KeySettingGuideView.CarryingLabels.Length - 1],
+                KeySettingGuideView.ActionsFor(true)[KeySettingGuideView.CarryingActions.Length - 1],
+                Is.EqualTo(KeySettingGuideView.EmoteAction));
+            Assert.That(
+                KeySettingGuideView.LabelsFor(true)[KeySettingGuideView.CarryingLabels.Length - 2],
                 Is.EqualTo(KeySettingGuideView.ToggleKeyLabel));
+            Assert.That(
+                KeySettingGuideView.LabelsFor(true)[KeySettingGuideView.CarryingLabels.Length - 1],
+                Is.EqualTo(KeySettingGuideView.EmoteKeyLabel));
             Assert.That(KeySettingGuideView.PanelSizeFor(true), Is.EqualTo(KeySettingGuideView.CarryingPanelSize));
         }
 
@@ -171,16 +185,16 @@ namespace Game.Architecture.Tests
                 Assert.That(guide.sizeDelta, Is.EqualTo(KeySettingGuideView.CarryingPanelSize));
                 Assert.That(
                     guide.Find("Row0/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("배치 모드"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Placement)));
                 Assert.That(
                     guide.Find("Row1/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("던지기"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Throw)));
                 Assert.That(
                     guide.Find("Row1/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
                 Assert.That(
                     guide.Find("Row2/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("놓기"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Drop)));
                 Assert.That(
                     guide.Find("Row2/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo("F"));
@@ -190,6 +204,9 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     guide.Find("Row8/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.ToggleKeyLabel));
+                Assert.That(
+                    guide.Find("Row9/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.EmoteAction));
 
                 view.SetCarrying(false);
                 Assert.That(view.IsCarrying, Is.False);
@@ -197,8 +214,8 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     guide.Find("Row0/Action").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.Actions[0]));
-                Assert.That(guide.Find("Row7").gameObject.activeSelf, Is.False);
                 Assert.That(guide.Find("Row8").gameObject.activeSelf, Is.False);
+                Assert.That(guide.Find("Row9").gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -220,19 +237,19 @@ namespace Game.Architecture.Tests
                 Assert.That(guide.sizeDelta, Is.EqualTo(KeySettingGuideView.PlacingPanelSize));
                 Assert.That(
                     guide.Find("Row0/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("배치하기"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Place)));
                 Assert.That(
                     guide.Find("Row0/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
                 Assert.That(
                     guide.Find("Row1/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("회전"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Rotate)));
                 Assert.That(
                     guide.Find("Row1/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.RightClickKeyLabel));
                 Assert.That(
                     guide.Find("Row2/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("좌우 회전"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Twist)));
                 Assert.That(
                     guide.Find("Row2/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.RotateYawKeyLabel));
@@ -241,7 +258,7 @@ namespace Game.Architecture.Tests
                     Is.EqualTo(KeySettingGuideView.CompactKeyChipFontSize));
                 Assert.That(
                     guide.Find("Row3/Action").GetComponent<TMPro.TMP_Text>().text,
-                    Is.EqualTo("놓기"));
+                    Is.EqualTo(UiLocale.Applied(UiText.Guide.Drop)));
                 Assert.That(
                     guide.Find("Row3/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo("F"));
@@ -256,6 +273,72 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Carrying_DrawsThePlacementKeyAsAnIcon()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = KeySettingGuideView.Create(canvas.transform);
+                view.SetCarrying(true);
+                var chip = view.transform.Find("Row0/Key");
+                var icon = chip.Find("Icon").GetComponent<UnityEngine.UI.Image>();
+
+                Assert.That(icon.gameObject.activeSelf, Is.True);
+                Assert.That(chip.Find("Label").gameObject.activeSelf, Is.False);
+                Assert.That(
+                    icon.sprite,
+                    Is.EqualTo(Resources.Load<Sprite>(
+                        KeySettingGuideView.PlacementModeIconResource)));
+                Assert.That(icon.sprite, Is.Not.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void IconResourceFor_ReadsTheBoundKeyRatherThanTheLabel()
+        {
+            Assert.That(
+                KeySettingGuideView.IconResourceFor(
+                    KeySettingGuideView.Mode.Carrying, ControlAction.PlacementMode),
+                Is.EqualTo(KeySettingGuideView.PlacementModeIconResource));
+            Assert.That(
+                KeySettingGuideView.IconResourceFor(
+                    KeySettingGuideView.Mode.Placing, ControlAction.PlacementMode),
+                Is.EqualTo(KeySettingGuideView.RightClickIconResource));
+            Assert.That(
+                KeySettingGuideView.IconResourceFor(
+                    KeySettingGuideView.Mode.Placing, ControlAction.PrimaryAction),
+                Is.EqualTo(KeySettingGuideView.LeftClickIconResource));
+            Assert.That(
+                KeySettingGuideView.IconResourceFor(
+                    KeySettingGuideView.Mode.Carrying, ControlAction.Interact),
+                Is.Null);
+        }
+
+        [Test]
+        public void IconResourceFor_SpellsOutAPlacementKeyReboundToTheKeyboard()
+        {
+            var system = new ControlSettingsSystem(new InMemoryControlSettingsStore());
+            try
+            {
+                KeySettingGuideView.UseSettings(system);
+                system.Apply(system.Current.With(ControlAction.PlacementMode, "r"));
+
+                Assert.That(
+                    KeySettingGuideView.IconResourceFor(
+                        KeySettingGuideView.Mode.Carrying, ControlAction.PlacementMode),
+                    Is.Null);
+            }
+            finally
+            {
+                KeySettingGuideView.UseSettings(null);
+            }
+        }
+
+        [Test]
         public void LabelsFor_UsesAppliedControlBindings()
         {
             var settings = ControlCatalog.Defaults.With(ControlAction.Crouch, "x");
@@ -265,6 +348,7 @@ namespace Game.Architecture.Tests
             Assert.That(labels[1], Is.EqualTo("X"));
             Assert.That(labels[5], Is.EqualTo("SPACE"));
             Assert.That(labels[6], Is.EqualTo("L"));
+            Assert.That(labels[7], Is.EqualTo("X"));
         }
 
         [Test]

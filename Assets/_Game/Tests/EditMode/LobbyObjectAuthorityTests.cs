@@ -54,7 +54,7 @@ namespace Game.Tests.EditMode
         {
             var lobby = Create();
             lobby.TryHold("host", "box", At(0f));
-            Assert.That(lobby.TryRelease("host", At(0f), At(3f), Vector3.zero, false), Is.False);
+            Assert.That(lobby.TryRelease("host", At(0f), At(3.01f), Vector3.zero, false), Is.False);
             Assert.That(lobby.TryRelease("host", At(0f), At(1f), Vector3.forward * 9f, true), Is.False);
             Assert.That(lobby.TryGetHeld("host", out var held), Is.True);
             Assert.That(held, Is.EqualTo("box"));

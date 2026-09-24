@@ -1,22 +1,17 @@
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IHidingIntroView
-    {
-        void Show(string itemDisplayName, string itemId = null);
-        void Hide();
-    }
-
     /// <summary>
     /// Full-screen hiding briefing: the assigned item and a one-line notice.
     /// Timing and when to show it belong to the presenter; this view only paints.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class HidingIntroView : MonoBehaviour, IHidingIntroView
+    public sealed class HidingIntroView : MonoBehaviour
     {
         public const float VisibleSeconds = Game.Core.Match.MatchIntroTiming.VisibleSeconds;
         public const float MessageFontSize = 55f;
@@ -24,10 +19,11 @@ namespace Game.Client.Match
         public const float ContentAnchoredY = -174f;
         public const float MessageAnchoredY = 36f;
         public const float HintAnchoredY = -60f;
-        public const string HintText =
-            "다른 도둑들에게 빼앗기지 않도록 비밀 장소에 잘 챙겨두세요.";
+        public static string HintText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.IntroHint, "ko");
 
-        private const string FallbackItemName = "물건";
+        private static string FallbackItemName(string language) =>
+            UiTextCatalog.Shipped.Get(UiText.Match.ItemFallback, language);
         private const string ItemNameColor = "#F4A26B";
         private const string SemiBoldResource = "Fonts/Paperlogy-6SemiBold";
 
@@ -48,6 +44,26 @@ namespace Game.Client.Match
         private HidingIntroItemPreview preview;
         private bool shown;
         private int shownAtFrame;
+        private UiLocale chromeLocale;
+        private string lastItemName;
+        private string lastItemId;
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            if (shown)
+            {
+                Show(lastItemName, lastItemId);
+            }
+        }
+
+        private string Language =>
+            chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage;
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
         public bool IsPresented => shown && isActiveAndEnabled && Time.frameCount > shownAtFrame + 1;
 
         [SerializeField]
@@ -57,14 +73,25 @@ namespace Game.Client.Match
         [SerializeField]
         private string previewItemName = "탄산음료";
 
-        public static string FormatMessage(string itemDisplayName)
+        public static string FormatMessage(string itemDisplayName) =>
+            FormatMessage(itemDisplayName, "ko");
+
+        public static string FormatMessage(string itemDisplayName, string language)
         {
-            return $"당신이 훔친 물건은 {ResolveName(itemDisplayName)}입니다.";
+            return string.Format(
+                UiTextCatalog.Shipped.Get(UiText.Match.StolenItem, language),
+                ResolveName(itemDisplayName, language));
         }
 
-        public static string FormatRichMessage(string itemDisplayName)
+        public static string FormatRichMessage(string itemDisplayName) =>
+            FormatRichMessage(itemDisplayName, "ko");
+
+        public static string FormatRichMessage(string itemDisplayName, string language)
         {
-            return $"당신이 훔친 물건은 <color={ItemNameColor}>{ResolveName(itemDisplayName)}</color>입니다.";
+            var name = ResolveName(itemDisplayName, language);
+            return string.Format(
+                UiTextCatalog.Shipped.Get(UiText.Match.StolenItem, language),
+                $"<color={ItemNameColor}>{name}</color>");
         }
 
         public static HidingIntroView Create(Transform parent)
@@ -75,11 +102,11 @@ namespace Game.Client.Match
             return rootObject.AddComponent<HidingIntroView>();
         }
 
-        private static string ResolveName(string itemDisplayName)
+        private static string ResolveName(string itemDisplayName, string language = "ko")
         {
             return string.IsNullOrWhiteSpace(itemDisplayName)
-                ? FallbackItemName
-                : itemDisplayName.Trim();
+                ? FallbackItemName(language)
+                : ItemNameText.Localized(itemDisplayName, language);
         }
 
         private void Awake()
@@ -101,6 +128,8 @@ namespace Game.Client.Match
         {
             shown = true;
             shownAtFrame = Time.frameCount;
+            lastItemName = itemDisplayName;
+            lastItemId = itemId;
             if (!gameObject.activeSelf)
             {
                 gameObject.SetActive(true);
@@ -109,14 +138,14 @@ namespace Game.Client.Match
             EnsureLayout();
             transform.SetAsLastSibling();
 
-            var name = ResolveName(itemDisplayName);
+            var name = ResolveName(itemDisplayName, Language);
             var font = ResolveFont();
             if (messageText != null)
             {
                 messageText.font = font;
                 messageText.fontSize = MessageFontSize;
                 messageText.fontStyle = FontStyles.Normal;
-                messageText.text = FormatRichMessage(name);
+                messageText.text = FormatRichMessage(name, Language);
             }
 
             if (hintText != null)
@@ -124,7 +153,7 @@ namespace Game.Client.Match
                 hintText.font = font;
                 hintText.fontSize = HintFontSize;
                 hintText.fontStyle = FontStyles.Normal;
-                hintText.text = HintText;
+                hintText.text = Copy(UiText.Match.IntroHint);
             }
 
             preview?.Show(itemId);
@@ -259,7 +288,7 @@ namespace Game.Client.Match
             messageText = CreateText(
                 content,
                 "Message",
-                FormatRichMessage(previewItemName),
+                FormatRichMessage(previewItemName, Language),
                 MessageFontSize,
                 TextAlignmentOptions.Center);
             Place(
@@ -271,7 +300,7 @@ namespace Game.Client.Match
             hintText = CreateText(
                 content,
                 "Hint",
-                HintText,
+                Copy(UiText.Match.IntroHint),
                 HintFontSize,
                 TextAlignmentOptions.Center);
             hintText.color = new Color(1f, 1f, 1f, 0.92f);

@@ -57,15 +57,25 @@ namespace Game.Architecture.Tests
 
         private sealed class ListedServer : Photon.Realtime.RoomInfo
         {
-            public ListedServer(bool available, int peers) : base("988ABC", new Photon.Client.PhotonHashtable
+            public ListedServer(bool available, int peers, string mapId = "supermarket") : base("988ABC", new Photon.Client.PhotonHashtable
             {
                 [Photon.Realtime.GamePropertyKey.IsOpen] = true,
                 [Photon.Realtime.GamePropertyKey.IsVisible] = true,
                 [Photon.Realtime.GamePropertyKey.PlayerCount] = (byte)peers,
                 [SessionPropertyKeys.AvailableServer] = available,
-                [SessionPropertyKeys.MapId] = "supermarket",
+                [SessionPropertyKeys.MapId] = mapId,
                 [SessionPropertyKeys.MaxPlayers] = 6
             }) { }
+        }
+
+        [Test]
+        public void ClaimedRoom_WithRandomMap_StaysOnTheList()
+        {
+            var listed = new ListedServer(available: false, peers: 2, mapId: string.Empty);
+
+            Assert.That(Game.Network.Lobby.RoomSummaryMapper.TryToSummary(listed, out var room), Is.True);
+            Assert.That(room.MapId, Is.EqualTo(string.Empty));
+            Assert.That(room.PlayerCount, Is.EqualTo(1));
         }
 
         [UnityEngine.TestTools.UnityTest]
@@ -100,10 +110,10 @@ namespace Game.Architecture.Tests
         [Test]
         public void PrivateSession_IsInvisibleWithoutPassword_AndCodeJoinCannotCreate()
         {
-            var request = SessionRequest.Create("ROOM01", "비공개", "Playground", 6, null, isPrivate: true);
+            var request = SessionRequest.Create("ROOM01", "비공개", "Supermarket", 6, null, isPrivate: true);
             Assert.That(request.IsVisible, Is.False);
             Assert.That(request.Password, Is.Null);
-            Assert.That(SessionRequest.Create("ROOM02", "공개", "Playground", 6, null).IsVisible, Is.True);
+            Assert.That(SessionRequest.Create("ROOM02", "공개", "Supermarket", 6, null).IsVisible, Is.True);
             Assert.That(SessionRequest.Join("ROOM01", null).AllowCreate, Is.False);
             var properties = SessionPropertyMapper.BuildForStart(request, "방장");
             Assert.That((bool)properties[SessionPropertyKeys.Locked], Is.False);
@@ -126,7 +136,7 @@ namespace Game.Architecture.Tests
             var request = SessionRequest.Create(
                 "ROOM01",
                 "테스트 방",
-                "Playground",
+                "Supermarket",
                 6,
                 "secret");
 
@@ -135,7 +145,7 @@ namespace Game.Architecture.Tests
             Assert.That((string)properties[SessionPropertyKeys.DisplayName],
                 Is.EqualTo("테스트 방"));
             Assert.That((string)properties[SessionPropertyKeys.MapId],
-                Is.EqualTo("Playground"));
+                Is.EqualTo("Supermarket"));
             Assert.That((int)properties[SessionPropertyKeys.MaxPlayers], Is.EqualTo(6));
             Assert.That(
                 (int)properties[SessionPropertyKeys.DestructionLimit],
@@ -177,13 +187,13 @@ namespace Game.Architecture.Tests
             var properties = SessionPropertyMapper.BuildLobbySettings(
                 4,
                 3,
-                " Playground ",
+                " Supermarket ",
                 matchRules);
 
             Assert.That((int)properties[SessionPropertyKeys.MaxPlayers], Is.EqualTo(4));
             Assert.That((int)properties[SessionPropertyKeys.DestructionLimit], Is.EqualTo(3));
             Assert.That((string)properties[SessionPropertyKeys.MapId],
-                Is.EqualTo("Playground"));
+                Is.EqualTo("Supermarket"));
             Assert.That(SessionPropertyMapper.ReadPackedMatchRules(
                 (string)properties[SessionPropertyKeys.MatchRules], default), Is.EqualTo(matchRules));
         }
@@ -192,11 +202,11 @@ namespace Game.Architecture.Tests
         public void CreateAndRepeatedSettingsUpdates_StayWithinTenProperties()
         {
             var all = SessionPropertyMapper.BuildForStart(
-                SessionRequest.Create("ROOM01", "방", "playground", 6, "secret"), "host");
+                SessionRequest.Create("ROOM01", "방", "supermarket", 6, "secret"), "host");
             for (var count = 2; count <= 6; count++)
             {
                 foreach (var pair in SessionPropertyMapper.BuildLobbySettings(
-                             count, count, "playground", MatchRuleSettings.Default))
+                             count, count, "supermarket", MatchRuleSettings.Default))
                     all[pair.Key] = pair.Value;
                 Assert.That(all.Count, Is.LessThanOrEqualTo(10));
             }
@@ -226,7 +236,7 @@ namespace Game.Architecture.Tests
             Assert.That(v1.SearchingDurationSeconds, Is.EqualTo(300));
 
             Assert.That(MatchRuleSettings.TryCreateSeconds(45, 90, 1f, 3, "food", out var created, out _), Is.True);
-            var properties = SessionPropertyMapper.BuildLobbySettings(6, 5, "Playground", created);
+            var properties = SessionPropertyMapper.BuildLobbySettings(6, 5, "Supermarket", created);
             var read = SessionPropertyMapper.ReadPackedMatchRules(
                 (string)properties[SessionPropertyKeys.MatchRules], default);
             Assert.That(read, Is.EqualTo(created));
@@ -254,7 +264,7 @@ namespace Game.Architecture.Tests
         public void CreateRequest_ListsPlayingAsFalse_SoTheLobbyCanWatchIt()
         {
             var properties = SessionPropertyMapper.BuildForStart(
-                SessionRequest.Create("ROOM01", "방", "Playground", 6, null), "host");
+                SessionRequest.Create("ROOM01", "방", "Supermarket", 6, null), "host");
 
             Assert.That(properties.ContainsKey(SessionPropertyKeys.Playing), Is.True);
             Assert.That((bool)properties[SessionPropertyKeys.Playing], Is.False);
@@ -277,7 +287,7 @@ namespace Game.Architecture.Tests
             var properties = SessionPropertyMapper.BuildLobbySettings(
                 6,
                 PlaySettingsDraft.UnlimitedDestructionLimit,
-                "Playground",
+                "Supermarket",
                 MatchRuleSettings.Default);
 
             Assert.That(

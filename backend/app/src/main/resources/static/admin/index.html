@@ -1572,16 +1572,23 @@
      */
     supermarket: { label: '마트', extent: [-26, -42, 22, 9.5], image: null, source: '경계 벽 안쪽 면' },
     /*
-     * 저택 (1085). 값은 docs/design/match-map/mansion/README.md 6절의 경계 콜라이더 실측이고,
-     * 안쪽 면이 서 x -12.5, 동 x 12.7, 남 z -32.2, 북 z -9.3 입니다. 여기에 반 칸씩 여유를 뒀습니다.
+     * 저택 (1085, 2층 1092). 값은 docs/design/match-map/mansion/README.md 6절의 경계 콜라이더
+     * 실측이고, 안쪽 면이 서 x -12.5, 동 x 12.7, 남 z -32.2, 북 z -9.3 입니다. 여기에 반 칸씩
+     * 여유를 뒀습니다. 두 층은 x·z 가 겹쳐 범위가 같고 다른 것은 높이뿐입니다.
      *
-     * <b>1층만 봅니다.</b> 본관은 1층과 2층이 x·z 로 겹치고, 그 위 다락이 대기 구역입니다. 층을 안
-     * 나누면 자기 차례를 기다리며 몇 분씩 서 있는 다락이 제일 뜨거운 칸이 되고 본관 안의 차이가
-     * 색으로 안 보입니다. floor 의 y 범위 밖은 마트 대기실과 같이 버리고 몇 개를 버렸는지 범례에
-     * 적습니다. 1층 바닥이 1.01, 2층 바닥이 5.5 라 5.0 에서 자릅니다.
+     * <b>한 번에 한 층만 봅니다.</b> 본관은 1층과 2층이 x·z 로 겹치고, 그 위 다락이 대기 구역입니다.
+     * 층을 안 나누면 자기 차례를 기다리며 몇 분씩 서 있는 다락이 제일 뜨거운 칸이 되고 본관 안의
+     * 차이가 색으로 안 보입니다. 고른 층의 y 범위 밖은 마트 대기실과 같이 버리고 몇 개를 버렸는지
+     * 범례에 적습니다. 1층 바닥 1.01, 2층 바닥 5.5, 다락 바닥 약 10.0(2026-09-21 천고 상향 전 8.5)
+     * 이라 5.0 과 9.8 에서 자릅니다.
+     *
+     * 층마다 평면도가 따로 있습니다. asset 이 maps/<asset>.png 와 .json 의 이름입니다.
      */
     mansion: { label: '저택', extent: [-13, -33, 13.5, -8.5], image: null, source: '경계 벽 안쪽 면',
-      floor: { label: '1층', y0: 0.7, y1: 5 } },
+      floors: [
+        { id: '1f', label: '1층', asset: 'mansion', y0: 0.7, y1: 5 },
+        { id: '2f', label: '2층', asset: 'mansion-2f', y0: 5, y1: 9.8, since: '2026-09-21' },
+      ] },
     playground: { label: '놀이터', extent: null, image: null, source: null },
   };
   /* 굽기 도구의 출력 자리. 페이지가 /admin 로도 /admin/ 로도 열리므로 절대 경로로 씁니다. */
@@ -1635,9 +1642,10 @@
   const HEAT_MARGIN = { l: 52, r: 10, t: 8, b: 28 };
   const POSITION_CAP = 20000;  // 분석 서비스의 POSITION_LIMIT 과 같은 값
 
-  let heatmapData = null;   // { columns, rows, mapId } - 마지막으로 받은 좌표
-  let heatmapImage = null;  // 깔 평면도. 없으면 null
-  let heatmapGeom = null;   // 마우스 위치 → 칸 계산용
+  let heatmapData = null;   // { columns, panels, mapId } - 마지막으로 받은 좌표
+  let heatmapGeom = null;   // 판마다 마우스 위치 → 칸 계산용 (나란히 보기에서는 여럿)
+  /** 층 고르는 칸의 「나란히」 항목. 층 id 와 겹치지 않는 값이면 된다. */
+  const SIDE_BY_SIDE = '*side';
   const BAR_COLORS = ['#1d4ed8', '#b91c1c', '#15803d', '#d97706'];
   const TABLE_ROW_CAP = 200;
 
@@ -1832,7 +1840,7 @@
         body.appendChild(emptyBox('경기 목록에서 경기를 고르면 그 경기의 좌표를 그립니다. 기간 전체로 보려면 항목에서 「사람 체류 · 기간 전체」나 은신처를 고르세요.'));
         el('hmBox').hidden = true;
         // 항목만 남기고 나머지는 숨깁니다. 고를 데이터가 없는데 필터만 떠 있으면 헷갈립니다.
-        for (const id of ['hmPhase', 'hmSeat', 'hmCell']) el(id).hidden = true;
+        for (const id of ['hmFloor', 'hmPhase', 'hmSeat', 'hmCell']) el(id).hidden = true;
         setNote(q, q.note, false);
         return;
       }
@@ -2035,6 +2043,11 @@
     phase.id = 'hmPhase';
     const seat = document.createElement('select');
     seat.id = 'hmSeat';
+    // 층 (1092). 층이 여럿인 맵에서만 보입니다. 평면도가 한 층을 찍은 그림이라 층을 겹칠 수 없습니다.
+    const floor = document.createElement('select');
+    floor.id = 'hmFloor';
+    floor.hidden = true;
+
     const cell = document.createElement('select');
     cell.id = 'hmCell';
     cell.append(option('1', '1 m 격자'), option('2', '2 m 격자'), option('4', '4 m 격자'));
@@ -2057,7 +2070,7 @@
     const read = document.createElement('span');
     read.id = 'hmRead';
     read.className = 'when';
-    bar.append(source, phase, seat, cell, logLabel, plainLabel, grow, read);
+    bar.append(source, floor, phase, seat, cell, logLabel, plainLabel, grow, read);
 
     const wrap = document.createElement('div');
     wrap.className = 'hm-wrap';
@@ -2095,11 +2108,13 @@
     for (const control of [phase, seat, cell, log, plain]) {
       control.addEventListener('change', () => drawHeatmap());
     }
-    // 항목은 부르는 경로가 달라서 다시 그리는 것이 아니라 다시 불러옵니다.
-    source.addEventListener('change', () => {
-      const q = QUESTIONS.find((item) => item.kind === 'heatmap');
-      if (q) loadAnalyticsCard(q).catch(() => {});
-    });
+    // 항목과 층은 그리기 전 단계(부르는 경로, 층 거르기·평면도)가 달라서 다시 불러옵니다.
+    for (const control of [source, floor]) {
+      control.addEventListener('change', () => {
+        const q = QUESTIONS.find((item) => item.kind === 'heatmap');
+        if (q) loadAnalyticsCard(q).catch(() => {});
+      });
+    }
     canvas.addEventListener('mousemove', (event) => readHeatmapCell(event));
     canvas.addEventListener('mouseleave', () => { el('hmRead').textContent = ''; });
     return outer;
@@ -2135,6 +2150,19 @@
       // 아직 굽지 않은 맵입니다. 경계만 그립니다.
     }
     return mapMeta[mapId];
+  }
+
+  /**
+   * 맵이 가진 층 (1092).
+   *
+   * 층이 없는 맵도 항목 하나로 다룹니다 - 그래야 아래 코드가 층을 가진 맵과 같은 길을 갑니다.
+   * asset 은 평면도 파일 이름(maps/<asset>.png, .json)이고, 층이 없는 맵은 맵 id 그대로입니다.
+   */
+  function floorsOf(mapId) {
+    const map = MAPS[mapId];
+    if (map && map.floors && map.floors.length) return map.floors;
+    if (map && map.floor) return [Object.assign({ id: '1f', asset: mapId }, map.floor)];
+    return [{ id: '', label: '', asset: mapId || '' }];
   }
 
   /** 굽기 도구가 쓴 층 정보. 숫자 둘이 제대로 있을 때만 씁니다. */
@@ -2193,26 +2221,35 @@
     // 질의는 기간 안의 모든 맵을 한 번에 돌려줍니다(질의가 맵별로 묶습니다). 거르지 않으면
     // 다른 맵의 칸이 이 맵의 평면도 위에 그려집니다 - 좌표가 겹치는 자리면 티도 안 납니다.
     const onMap = mapCol >= 0 ? table.rows.filter((r) => String(r[mapCol]) === mapId) : table.rows;
-    // 구운 평면도가 있으면 그 사각형이 그림과 격자 양쪽의 기준입니다.
-    const map = (await bakedMapOf(mapId)) || MAPS[mapId] || {};
 
-    // 층 거르기 (1085). 그림은 한 층이므로 다른 층의 좌표를 그 위에 얹으면 안 됩니다. 저택 다락은
-    // 대기 구역이라 넣으면 몇 분씩 서 있는 그 방이 제일 뜨거워지고 본관 안의 차이가 안 보입니다.
-    // 구운 JSON 의 층이 기준이고, 없으면 MAPS 의 값입니다. 굽기 도구에서 층 칸을 안 켜고 구운
-    // 평면도라도 다락 대기자가 1층 그림 위에 얹히는 일은 없어야 합니다.
-    const floor = map.floor || (MAPS[mapId] && MAPS[mapId].floor) || null;
+    // 층 고르기 (1092). 맵을 정한 뒤에 층을 채웁니다 - 맵마다 층이 다릅니다. 고르고 있던 층이
+    // 새 맵에 없으면 나란히 보기(층이 하나면 그 층)로 돌아갑니다.
+    const floors = floorsOf(mapId);
+    const floorBox = el('hmFloor');
+    fillFloors(floorBox, floors);
+    floorBox.hidden = floors.length < 2;
+    const side = floors.length > 1 && floorBox.value === SIDE_BY_SIDE;
+    const picked = side ? floors : [floors.find((f) => f.id === floorBox.value) || floors[0]];
+
+    // 판 하나가 층 하나입니다 (1092). 층을 하나만 고르면 판도 하나라 전과 같은 그림이고,
+    // 나란히 보기에서는 층마다 판을 따로 그립니다 - 평면도가 한 층을 찍은 그림이라 두 층을
+    // 한 판에 겹칠 수 없기 때문입니다. 겹치면 사람이 벽 안에 서 있는 그림이 됩니다.
+    //
+    // 층 거르기 (1085): 구운 JSON 의 층이 기준이고 없으면 MAPS 의 값입니다. 저택 다락은 대기
+    // 구역이라, 안 거르면 몇 분씩 서 있는 그 방이 제일 뜨거워지고 본관 안의 차이가 안 보입니다.
     const yi = table.columns.indexOf(points ? 'pos_y' : Y_BAND_COLUMN);
-    let rows = onMap;
-    if (floor && yi >= 0) {
-      rows = onMap.filter((r) => {
-        const y = Number(r[yi]);
-        if (!isFinite(y)) return true;
-        // 밴드로 온 값은 "y 가 이 값부터 5 m 까지"라는 뜻입니다. 그 구간이 층에 걸치면 남깁니다.
-        return points ? (y >= floor.y0 && y < floor.y1) : (y + Y_BAND > floor.y0 && y < floor.y1);
-      });
+    const panels = [];
+    for (const pick of picked) {
+      // 구운 평면도가 있으면 그 사각형이 그림과 격자 양쪽의 기준입니다. 층마다 평면도가 다릅니다.
+      const map = (await bakedMapOf(pick.asset)) || MAPS[mapId] || {};
+      const floor = map.floor || floorOf(pick) || null;
+      panels.push({ pick, map, floor, label: (floor && floor.label) || pick.label || '',
+        rows: onFloorRows(onMap, floor, yi, points), image: null });
     }
+    const rows = panels.length === 1 ? panels[0].rows : [].concat(...panels.map((p) => p.rows));
     const offFloor = onMap.length - rows.length;
-    heatmapData = { columns: table.columns, rows, mapId, map, points, source, offFloor, floor };
+    const map = panels[0].map;
+    heatmapData = { columns: table.columns, rows, panels, mapId, points, source, offFloor, side };
 
     // 플레이어와 칸 크기는 점일 때만 고를 수 있습니다. 묶여 온 표는 그 안을 못 나눕니다. 단계는
     // 4번 절이 컬럼으로 주므로 기간 전체 체류에서도 고를 수 있습니다.
@@ -2250,20 +2287,68 @@
     const multi = maps.size > 1
       ? ' 기간 안에 맵이 ' + maps.size + '개라 행이 가장 많은 쪽만 그렸습니다 - 위에서 맵을 고르면 바뀝니다.'
       : '';
-    const onFloor = floor ? ' ' + (floor.label || '구운 층') + '만 그립니다.' : '';
-    setNote(q, q.note + ' ' + where + which + onFloor + scope + multi + capped, !!capped);
+    const labels = panels.map((p) => p.label).filter(Boolean);
+    const onFloor = labels.length === 0 ? ''
+      : side ? ' ' + labels.join('과 ') + '을 나란히 그립니다 - 한 판에 겹치면 사람이 벽 안에 서 있는 그림이 됩니다.'
+        : ' ' + labels[0] + '만 그립니다.';
+    // 저택 2층은 2026-09-21 에 천고를 올리면서 그 위 다락(대기 구역)이 10.0 으로 올라갔습니다.
+    // 그 전 기록은 다락이 8.5 라 2층 범위 안에 들어옵니다 - 기다리던 사람이 2층 칸으로 보입니다.
+    // 기간이 그날 이후로 좁혀져 있으면 섞일 일이 없으므로 말하지 않습니다. 기간은 yyyyMMddHHmmss 입니다.
+    const since = panels.map((p) => p.pick.since).filter(Boolean).sort()[0] || '';
+    const from = analyticsPeriod().from || '';
+    const before = since && from < since.replace(/-/g, '') + '000000'
+      ? ' ' + since + ' 이전 기록에는 그 위 다락(대기 구역)이 2층 범위 안에 들어와 섞입니다 - 그날 2층 천고를 올리면서 다락이 올라갔습니다.'
+      : '';
+    setNote(q, q.note + ' ' + where + which + onFloor + before + scope + multi + capped, !!capped);
 
     el('anBody-' + q.id).textContent = '';
     el('hmBox').hidden = false;
 
-    heatmapImage = null;
-    if (map.image) {
+    // 평면도는 판마다 다릅니다. 먼저 온 그림부터 그려 넣습니다 - 늦게 오는 그림을 기다리느라
+    // 빈 화면을 보여 줄 이유가 없습니다.
+    for (const panel of panels) {
+      if (!panel.map.image) continue;
       const img = new Image();
-      img.onload = () => { heatmapImage = img; drawHeatmap(); };
-      img.onerror = () => { setNote(q, q.note + ' 평면도 파일(' + map.image + ')을 읽지 못해 경계만 그립니다.', true); drawHeatmap(); };
-      img.src = map.image;
+      img.onload = () => { panel.image = img; drawHeatmap(); };
+      img.onerror = () => {
+        setNote(q, q.note + ' 평면도 파일(' + panel.map.image + ')을 읽지 못해 경계만 그립니다.', true);
+        drawHeatmap();
+      };
+      img.src = panel.map.image;
     }
     drawHeatmap();
+  }
+
+  /**
+   * 층 고르는 칸을 채웁니다. <b>전체 층은 없습니다</b> - 평면도 한 장 위에 두 층을 겹칠 수 없고,
+   * 겹치면 사람이 벽 안에 서 있는 그림이 됩니다.
+   */
+  function fillFloors(select, floors) {
+    const keep = select.value;
+    select.textContent = '';
+    // 층이 여럿이면 나란히 보기를 맨 위에 두고 기본으로 삼습니다. 두 층을 견주는 것이 이 맵에서
+    // 가장 자주 하는 일이라서입니다. 한 층만 크게 볼 때는 아래에서 그 층을 고릅니다.
+    if (floors.length > 1) {
+      select.appendChild(option(SIDE_BY_SIDE, floors.map((f) => f.label).join('+') + ' 나란히'));
+    }
+    for (const f of floors) select.appendChild(option(f.id, f.label || '층'));
+    const values = floors.map((f) => f.id).concat(floors.length > 1 ? [SIDE_BY_SIDE] : []);
+    select.value = values.includes(keep) ? keep : (floors.length > 1 ? SIDE_BY_SIDE : floors[0].id);
+  }
+
+  /**
+   * 이 층의 y 범위에 드는 줄만 (1085, 1092).
+   *
+   * 밴드로 온 값은 "y 가 이 값부터 5 m 까지"라는 뜻이므로 그 구간이 층에 걸치면 남깁니다.
+   * 층이 없는 맵은 전부 그립니다.
+   */
+  function onFloorRows(rows, floor, yi, points) {
+    if (!floor || yi < 0) return rows;
+    return rows.filter((r) => {
+      const y = Number(r[yi]);
+      if (!isFinite(y)) return true;
+      return points ? (y >= floor.y0 && y < floor.y1) : (y + Y_BAND > floor.y0 && y < floor.y1);
+    });
   }
 
   /** select 의 항목을 갈아 끼웁니다. 고르고 있던 값이 새 목록에 있으면 유지합니다. */
@@ -2344,34 +2429,27 @@
       Math.ceil(maxX / cell) * cell + cell, Math.ceil(maxZ / cell) * cell + cell];
   }
 
-  function drawHeatmap() {
-    const data = heatmapData;
-    const canvas = el('hmCanvas');
-    if (!data || !canvas) return;
-    const col = (name) => data.columns.indexOf(name);
-    const source = data.source || HEAT_SOURCES[0];
-    const points = data.points;
-    const xi = points ? col('pos_x') : col('x(2m)');
-    const zi = points ? col('pos_z') : col('z(2m)');
-    const pi = col(phaseColumn(points)), si = col('player_seat');
-    const vi = points ? -1 : col(source.value);
-    // 은신처를 합칠 때 쓰는 원 컬럼입니다. 평균을 다시 평균하면 틀리므로 횟수로 되돌려 계산합니다.
-    const ni = points ? -1 : col('숨긴 횟수');
-    const ti = points ? -1 : col('발견된 횟수');
-    const svi = points ? -1 : col('버틴 시간 평균(초)');
-    const cell = points ? Number(el('hmCell').value) : 2;
-    const useLog = el('hmLog').checked;
-
-    // 단계는 좌표(phase)와 4번 절(단계) 양쪽에 있습니다. 칸이 숨어 있으면 고른 값이 남아 있어도 안 겁니다.
-    const phasePick = el('hmPhase').hidden ? 'all' : el('hmPhase').value;
-    const rows = points
-      ? data.rows.filter((r) => (phasePick === 'all' || String(r[pi]) === phasePick)
-        && (el('hmSeat').value === 'all' || String(r[si]) === el('hmSeat').value))
-      : (pi >= 0 ? data.rows.filter((r) => phasePick === 'all' || String(r[pi]) === phasePick) : data.rows);
-
-    const map = data.map || {};
-    // 경계는 필터와 무관하게 경기 전체 샘플로 잡습니다. 단계를 바꿀 때 그림이 튀지 않게 하려는 것입니다.
-    const [x0, z0, x1, z1] = map.extent || dataExtent(data.rows, xi, zi, cell);
+  /**
+   * 한 판(= 한 층)의 격자 집계 (1085, 1092).
+   *
+   * <p>점일 때는 하나씩 그리지 않고 칸에 모은 뒤 칸만 그리므로 20,000 점이어도 그리는 양은 칸
+   * 수입니다. 묶여 온 표는 값을 그 자리에 놓습니다.
+   *
+   * <p><b>한 칸이 여러 줄로 올 수 있습니다.</b> 문서 3·4번 절이 y 밴드로도 묶고 4번 절은 단계로도
+   * 묶기 때문입니다. 그래서 값을 덮어쓰지 않고 더합니다. 평균을 그냥 더하면 틀리므로 은신처는
+   * 횟수와 버틴 시간의 합만 모아 두고 마지막에 나눕니다 - 그러면 SQL 이 한 줄로 냈을 값과 같습니다.
+   *
+   * <p>값이 0 인 칸과 값이 없는 칸은 다릅니다. 끝까지 안 들킨 비율 0 % 는 "한 번도 못 버틴
+   * 자리"라는 뜻이고 빈칸이 아닙니다. 그래서 있음 여부를 따로 듭니다.
+   *
+   * <p>색 눈금(가장 진한 값)은 여기서 정하지 않습니다. 나란히 보기에서 층마다 눈금이 따로면 같은
+   * 진하기가 층마다 다른 수를 뜻하게 되어 두 층을 견줄 수가 없습니다.
+   */
+  function heatGridOf(panel, spec) {
+    const { points, source, cell, xi, zi, vi, ni, ti, svi } = spec;
+    const rows = spec.filter(panel.rows);
+    // 경계는 필터와 무관하게 그 층의 샘플 전체로 잡습니다. 단계를 바꿀 때 그림이 튀지 않게 하려는 것입니다.
+    const [x0, z0, x1, z1] = panel.map.extent || dataExtent(panel.rows, xi, zi, cell);
     // 칸은 원점 기준 배수에 맞춥니다(FLOOR(pos / 2) * 2). 문서 3·4번 표와 같은 칸이라 숫자를 맞대 볼 수 있고,
     // 경계가 -133.5 처럼 반 칸 어긋나 있어도 칸이 밀리지 않습니다. 경계 밖으로 나간 칸 조각은 그릴 때 잘라 냅니다.
     const gx0 = Math.floor(x0 / cell) * cell;
@@ -2379,17 +2457,6 @@
     const nx = Math.max(1, Math.ceil((x1 - gx0) / cell));
     const nz = Math.max(1, Math.ceil((z1 - gz0) / cell));
 
-    // 격자 집계.
-    //
-    // 점일 때는 하나씩 그리지 않고 칸에 모은 뒤 칸만 그리므로 20,000 점이어도 그리는 양은 칸
-    // 수입니다. 묶여 온 표는 값을 그 자리에 놓습니다.
-    //
-    // <b>한 칸이 여러 줄로 올 수 있습니다 (1085).</b> 문서 3·4번 절이 y 밴드로도 묶고 4번 절은 단계로도
-    // 묶기 때문입니다. 그래서 값을 덮어쓰지 않고 더합니다. 평균을 그냥 더하면 틀리므로 은신처는 횟수와
-    // 버틴 시간의 합만 모아 두고 마지막에 나눕니다 - 그러면 SQL 이 한 줄로 냈을 값과 같습니다.
-    //
-    // 값이 0 인 칸과 값이 없는 칸은 다릅니다. 끝까지 안 들킨 비율 0 % 는 "한 번도 못 버틴
-    // 자리"라는 뜻이고 빈칸이 아닙니다. 그래서 있음 여부를 따로 듭니다.
     const values = new Float64Array(nx * nz);
     const present = new Uint8Array(nx * nz);
     const weight = new Float64Array(nx * nz);    // 은신처의 숨긴 횟수. 흐리게 그릴지도 이걸로 봅니다
@@ -2435,12 +2502,59 @@
     for (let at = 0; at < values.length; at++) {
       if (present[at] && values[at] > max) max = values[at];
     }
+    return { panel, label: panel.label, x0, z0, x1, z1, gx0, gz0, cell, nx, nz,
+      values, present, weight, inside, max, drawn: rows.length };
+  }
 
+  /**
+   * 히트맵을 그립니다. 판이 하나면 전과 같은 한 장이고, 나란히 보기에서는 층마다 한 판입니다 (1092).
+   *
+   * 두 판은 <b>같은 색 눈금</b>을 씁니다. 그래야 "2층 이 방이 1층 복도보다 진하다"를 눈으로 읽을 수
+   * 있습니다. 세로 눈금 숫자는 첫 판에만 적습니다 - 범위가 같은 층이라 두 번 적으면 자리만 먹습니다.
+   */
+  function drawHeatmap() {
+    const data = heatmapData;
+    const canvas = el('hmCanvas');
+    if (!data || !canvas) return;
+    const col = (name) => data.columns.indexOf(name);
+    const source = data.source || HEAT_SOURCES[0];
+    const points = data.points;
+    const pi = col(phaseColumn(points)), si = col('player_seat');
+    // 단계는 좌표(phase)와 4번 절(단계) 양쪽에 있습니다. 칸이 숨어 있으면 고른 값이 남아 있어도 안 겁니다.
+    const phasePick = el('hmPhase').hidden ? 'all' : el('hmPhase').value;
+    const seatPick = el('hmSeat').value;
+    const spec = {
+      points,
+      source,
+      cell: points ? Number(el('hmCell').value) : 2,
+      xi: points ? col('pos_x') : col('x(2m)'),
+      zi: points ? col('pos_z') : col('z(2m)'),
+      vi: points ? -1 : col(source.value),
+      // 은신처를 합칠 때 쓰는 원 컬럼입니다. 평균을 다시 평균하면 틀리므로 횟수로 되돌려 계산합니다.
+      ni: points ? -1 : col('숨긴 횟수'),
+      ti: points ? -1 : col('발견된 횟수'),
+      svi: points ? -1 : col('버틴 시간 평균(초)'),
+      filter: (rows) => points
+        ? rows.filter((r) => (phasePick === 'all' || String(r[pi]) === phasePick)
+          && (seatPick === 'all' || String(r[si]) === seatPick))
+        : (pi >= 0 ? rows.filter((r) => phasePick === 'all' || String(r[pi]) === phasePick) : rows),
+    };
+    const cell = spec.cell;
+    const useLog = el('hmLog').checked;
+
+    const grids = data.panels.map((panel) => heatGridOf(panel, spec));
+    const max = grids.reduce((m, g) => Math.max(m, g.max), 0);
+
+    // 자리 잡기. 판이 여럿이면 가로로 나눠 쓰고 판 위에 층 이름을 적습니다.
     const M = HEAT_MARGIN;
+    const n = grids.length;
+    const gap = n > 1 ? 18 : 0;
+    const titleH = n > 1 ? 18 : 0;
     const cssW = canvas.parentElement.clientWidth || 700;
-    const plotW = cssW - M.l - M.r;
-    const plotH = Math.min(520, Math.max(160, plotW * (z1 - z0) / (x1 - x0)));
-    const cssH = plotH + M.t + M.b;
+    const plotW = Math.max(80, (cssW - M.l - M.r - gap * (n - 1)) / n);
+    const shape = grids[0];
+    const plotH = Math.min(520, Math.max(160, plotW * (shape.z1 - shape.z0) / (shape.x1 - shape.x0)));
+    const cssH = plotH + M.t + titleH + M.b;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
@@ -2449,126 +2563,159 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
 
-    const sx = plotW / (x1 - x0);
-    const sz = plotH / (z1 - z0);
-    const px = (x) => M.l + (x - x0) * sx;
-    const pz = (z) => M.t + (z1 - z) * sz;  // 위가 +z
-
-    ctx.fillStyle = '#f7f8fa';
-    ctx.fillRect(M.l, M.t, plotW, plotH);
-    const hasImage = heatmapImage && heatmapImage.complete && heatmapImage.naturalWidth > 0;
-    // 평면도에서 색을 뺍니다. 매대의 주황 과일과 노란 상자가 열과 같은 색이라, 바탕이
-    // 총천연색이면 어디까지가 열이고 어디부터가 상품인지 구분되지 않습니다. 회색 바탕이면
-    // 화면에 남는 유일한 색이 열입니다.
-    //
-    // canvas 의 filter 를 못 쓰는 브라우저에서는 그냥 원래 색으로 깝니다. 읽기 어려울 뿐
-    // 그림이 안 나오는 것보다 낫습니다.
     const plainMap = el('hmPlain').checked;
-    if (hasImage) {
-      const canFilter = typeof ctx.filter === 'string';
-      if (!plainMap && canFilter) {
-        ctx.save();
-        ctx.filter = 'grayscale(1) brightness(1.14) contrast(0.78)';
-        ctx.drawImage(heatmapImage, M.l, M.t, plotW, plotH);
-        ctx.restore();
-      } else {
-        ctx.drawImage(heatmapImage, M.l, M.t, plotW, plotH);
+    const geoms = [];
+    for (let k = 0; k < n; k++) {
+      const g = grids[k];
+      const left = M.l + k * (plotW + gap);
+      const top = M.t + titleH;
+      const sx = plotW / (g.x1 - g.x0);
+      const sz = plotH / (g.z1 - g.z0);
+      const px = (x) => left + (x - g.x0) * sx;
+      const pz = (z) => top + (g.z1 - z) * sz;  // 위가 +z
+
+      if (titleH > 0 && g.label) {
+        ctx.fillStyle = '#374151';
+        ctx.font = '600 12px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(g.label, left, M.t + titleH - 3);
       }
-    }
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(M.l, M.t, plotW, plotH);
-    ctx.clip();
-    const solid = hasImage ? (plainMap ? 0.8 : 0.88) : 0.95;
-    for (let j = 0; j < nz; j++) {
-      for (let i = 0; i < nx; i++) {
-        const at = j * nx + i;
-        if (!present[at]) continue;
-        const v = values[at];
-        const t = max <= 0 ? 0 : (useLog ? Math.log1p(v) / Math.log1p(max) : v / max);
-        // 몇 번 안 숨긴 칸은 흐리게. 한 번 숨겨 안 들켰다고 안전한 자리가 아닙니다.
-        const thin = !points && ni >= 0 && weight[at] < HIDE_MIN_SAMPLES;
-        ctx.fillStyle = heatColor(t, thin ? solid * 0.45 : solid);
-        ctx.fillRect(px(gx0 + i * cell), pz(gz0 + (j + 1) * cell), cell * sx + 0.5, cell * sz + 0.5);
+      ctx.fillStyle = '#f7f8fa';
+      ctx.fillRect(left, top, plotW, plotH);
+
+      // 평면도에서 색을 뺍니다. 매대의 주황 과일과 노란 상자가 열과 같은 색이라, 바탕이
+      // 총천연색이면 어디까지가 열이고 어디부터가 상품인지 구분되지 않습니다. 회색 바탕이면
+      // 화면에 남는 유일한 색이 열입니다.
+      //
+      // canvas 의 filter 를 못 쓰는 브라우저에서는 그냥 원래 색으로 깝니다. 읽기 어려울 뿐
+      // 그림이 안 나오는 것보다 낫습니다.
+      const image = g.panel.image;
+      const hasImage = image && image.complete && image.naturalWidth > 0;
+      if (hasImage) {
+        const canFilter = typeof ctx.filter === 'string';
+        if (!plainMap && canFilter) {
+          ctx.save();
+          ctx.filter = 'grayscale(1) brightness(1.14) contrast(0.78)';
+          ctx.drawImage(image, left, top, plotW, plotH);
+          ctx.restore();
+        } else {
+          ctx.drawImage(image, left, top, plotW, plotH);
+        }
       }
-    }
-    ctx.restore();
 
-    // 경계와 눈금
-    ctx.strokeStyle = '#9ca3af';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(M.l + 0.5, M.t + 0.5, plotW - 1, plotH - 1);
-    ctx.fillStyle = '#6b7280';
-    ctx.font = '11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    const stepX = niceStep(x1 - x0);
-    for (let x = Math.ceil(x0 / stepX) * stepX; x <= x1 + 1e-9; x += stepX) {
-      ctx.fillRect(px(x), M.t + plotH, 1, 4);
-      ctx.fillText(String(Math.round(x * 100) / 100), px(x), M.t + plotH + 6);
-    }
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    const stepZ = niceStep(z1 - z0);
-    for (let z = Math.ceil(z0 / stepZ) * stepZ; z <= z1 + 1e-9; z += stepZ) {
-      ctx.fillRect(M.l - 4, pz(z), 4, 1);
-      ctx.fillText(String(Math.round(z * 100) / 100), M.l - 7, pz(z));
-    }
-    // 축 이름은 canvas 에 적지 않습니다. 오른쪽 끝 눈금과 겹칩니다. 방향(가로 x, 세로 z, 위가 +z)은 카드 설명에 있습니다.
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(left, top, plotW, plotH);
+      ctx.clip();
+      const solid = hasImage ? (plainMap ? 0.8 : 0.88) : 0.95;
+      for (let j = 0; j < g.nz; j++) {
+        for (let i = 0; i < g.nx; i++) {
+          const at = j * g.nx + i;
+          if (!g.present[at]) continue;
+          const v = g.values[at];
+          const t = max <= 0 ? 0 : (useLog ? Math.log1p(v) / Math.log1p(max) : v / max);
+          // 몇 번 안 숨긴 칸은 흐리게. 한 번 숨겨 안 들켰다고 안전한 자리가 아닙니다.
+          const thin = !points && spec.ni >= 0 && g.weight[at] < HIDE_MIN_SAMPLES;
+          ctx.fillStyle = heatColor(t, thin ? solid * 0.45 : solid);
+          ctx.fillRect(px(g.gx0 + i * cell), pz(g.gz0 + (j + 1) * cell), cell * sx + 0.5, cell * sz + 0.5);
+        }
+      }
+      ctx.restore();
 
-    heatmapGeom = { x0, z0, x1, z1, gx0, gz0, cell, nx, nz, values, present, sx, sz, M, unit: source.unit };
+      // 경계와 눈금
+      ctx.strokeStyle = '#9ca3af';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(left + 0.5, top + 0.5, plotW - 1, plotH - 1);
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      const stepX = niceStep(g.x1 - g.x0);
+      for (let x = Math.ceil(g.x0 / stepX) * stepX; x <= g.x1 + 1e-9; x += stepX) {
+        ctx.fillRect(px(x), top + plotH, 1, 4);
+        ctx.fillText(String(Math.round(x * 100) / 100), px(x), top + plotH + 6);
+      }
+      // 세로 눈금 숫자는 첫 판에만. 나란히 둔 층은 범위가 같아 두 번 적으면 자리만 먹습니다.
+      if (k === 0) {
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        const stepZ = niceStep(g.z1 - g.z0);
+        for (let z = Math.ceil(g.z0 / stepZ) * stepZ; z <= g.z1 + 1e-9; z += stepZ) {
+          ctx.fillRect(left - 4, pz(z), 4, 1);
+          ctx.fillText(String(Math.round(z * 100) / 100), left - 7, pz(z));
+        }
+      }
+      // 축 이름은 canvas 에 적지 않습니다. 오른쪽 끝 눈금과 겹칩니다. 방향(가로 x, 세로 z, 위가 +z)은 카드 설명에 있습니다.
 
-    const outside = rows.length - inside;
+      geoms.push({ grid: g, left, top, plotW, plotH, sx, sz });
+    }
+
+    heatmapGeom = { panels: geoms, unit: source.unit, multi: n > 1 };
     drawHeatScale(max, useLog, source);
 
-    const thinNote = !points && ni >= 0 && rows.some((r) => (Number(r[ni]) || 0) < HIDE_MIN_SAMPLES)
+    const inside = grids.reduce((sum, g) => sum + g.inside, 0);
+    const outside = grids.reduce((sum, g) => sum + g.drawn, 0) - inside;
+    const perFloor = n > 1
+      ? ' (' + grids.map((g) => (g.label || '층') + ' ' + g.inside.toLocaleString('ko-KR')).join(' · ') + ')'
+      : '';
+    const sameScale = n > 1 ? ' 두 판은 같은 색 눈금이라 진하기를 그대로 견줄 수 있습니다.' : '';
+
+    const thinNote = !points && spec.ni >= 0
+      && data.rows.some((r) => (Number(r[spec.ni]) || 0) < HIDE_MIN_SAMPLES)
       ? ' 숨긴 횟수가 ' + HIDE_MIN_SAMPLES + '회 미만인 칸은 흐리게 그렸습니다 - 우연일 수 있습니다.'
       : '';
-    // 다른 층을 몇 줄 뺐는지 (1085). 저택 다락은 대기 구역이라 그 수가 꽤 큽니다. 안 적으면
-    // "거기 아무도 안 갔다"로 읽힙니다.
+    // 어느 층에도 안 드는 줄을 몇 개 뺐는지 (1085). 저택 다락은 대기 구역이라 그 수가 꽤 큽니다.
+    // 안 적으면 "거기 아무도 안 갔다"로 읽힙니다.
     const floorNote = data.offFloor
-      ? ' ' + ((data.floor && data.floor.label) || '이 층') + ' 밖 ' + data.offFloor.toLocaleString('ko-KR')
+      ? ' 그린 층 밖 ' + data.offFloor.toLocaleString('ko-KR')
         + '행은 뺐습니다 - 평면도가 한 층이라 다른 층은 이 그림 위에 그릴 수 없습니다.'
       : '';
+    const range = ' 범위 x ' + shape.x0 + '~' + shape.x1 + ', z ' + shape.z0 + '~' + shape.z1 + ' m.';
 
     if (points) {
-      el('hmLegend').textContent = inside.toLocaleString('ko-KR') + '개 샘플을 ' + cell + ' m 칸에 모았습니다. 가장 진한 칸 '
-        + max.toLocaleString('ko-KR') + '개' + (useLog ? ' (로그 눈금)' : '')
+      el('hmLegend').textContent = inside.toLocaleString('ko-KR') + '개 샘플을 ' + cell + ' m 칸에 모았습니다'
+        + perFloor + '. 가장 진한 칸 ' + max.toLocaleString('ko-KR') + '개' + (useLog ? ' (로그 눈금)' : '')
         // 범위 밖은 대개 잘못된 값이 아니라 대기실입니다. 숨기기 단계에는 자기 차례가 아닌
         // 사람이 마트 밖 대기실에 서 있고, 그 방은 일부러 범위에서 뺐습니다.
         + (outside ? '. 범위 밖 샘플 ' + outside.toLocaleString('ko-KR')
             + '개는 그리지 않았습니다 - 대부분 숨기기 단계에 대기실에 있던 사람입니다' : '')
-        + '. 범위 x ' + x0 + '~' + x1 + ', z ' + z0 + '~' + z1 + ' m.' + floorNote;
+        + '.' + range + sameScale + floorNote;
     } else {
-      el('hmLegend').textContent = inside.toLocaleString('ko-KR') + '개 줄을 ' + cell + ' m 칸에 모았습니다. '
-        + source.short + ' 기준, 가장 진한 칸 ' + max.toLocaleString('ko-KR') + source.unit
+      el('hmLegend').textContent = inside.toLocaleString('ko-KR') + '개 줄을 ' + cell + ' m 칸에 모았습니다'
+        + perFloor + '. ' + source.short + ' 기준, 가장 진한 칸 ' + max.toLocaleString('ko-KR') + source.unit
         + (useLog ? ' (로그 눈금)' : '')
         + (outside ? '. 범위 밖 ' + outside.toLocaleString('ko-KR') + '줄은 그리지 않았습니다' : '')
-        + '.' + thinNote + floorNote;
+        + '.' + sameScale + thinNote + floorNote;
     }
   }
 
 
 
+  /** 포인터가 어느 판의 어느 칸 위인지. 나란히 보기에서는 층 이름도 함께 적습니다 (1092). */
   function readHeatmapCell(event) {
-    const g = heatmapGeom;
-    if (!g) return;
+    const geom = heatmapGeom;
+    if (!geom) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const mx = event.clientX - rect.left;
     const my = event.clientY - rect.top;
-    const x = g.x0 + (mx - g.M.l) / g.sx;
-    const z = g.z1 - (my - g.M.t) / g.sz;
-    if (x < g.x0 || x >= g.x1 || z < g.z0 || z >= g.z1) {
-      el('hmRead').textContent = '';
+    for (const p of geom.panels) {
+      if (mx < p.left || mx >= p.left + p.plotW || my < p.top || my >= p.top + p.plotH) continue;
+      const g = p.grid;
+      const x = g.x0 + (mx - p.left) / p.sx;
+      const z = g.z1 - (my - p.top) / p.sz;
+      if (x < g.x0 || x >= g.x1 || z < g.z0 || z >= g.z1) break;
+      const i = Math.floor((x - g.gx0) / g.cell);
+      const j = Math.floor((z - g.gz0) / g.cell);
+      const cx = g.gx0 + i * g.cell, cz = g.gz0 + j * g.cell;
+      const at = j * g.nx + i;
+      el('hmRead').textContent = (geom.multi && g.label ? g.label + ' ' : '')
+        + 'x ' + cx + '~' + (cx + g.cell) + ', z ' + cz + '~' + (cz + g.cell) + ' m: '
+        + (g.present[at] ? g.values[at].toLocaleString('ko-KR') + geom.unit : '없음');
       return;
     }
-    const i = Math.floor((x - g.gx0) / g.cell);
-    const j = Math.floor((z - g.gz0) / g.cell);
-    const cx = g.gx0 + i * g.cell, cz = g.gz0 + j * g.cell;
-    const at = j * g.nx + i;
-    el('hmRead').textContent = 'x ' + cx + '~' + (cx + g.cell) + ', z ' + cz + '~' + (cz + g.cell) + ' m: '
-      + (g.present[at] ? g.values[at].toLocaleString('ko-KR') + g.unit : '없음');
+    el('hmRead').textContent = '';
   }
 
   let heatmapResizeTimer = null;

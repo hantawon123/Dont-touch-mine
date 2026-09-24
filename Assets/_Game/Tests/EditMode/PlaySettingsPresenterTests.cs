@@ -50,6 +50,25 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Host_RoomClampedTheRequest_PanelShowsWhatTheRoomAccepted()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(true);
+            // A room never shrinks below the people already in it.
+            session.Accept = draft => Draft(Math.Max(4, draft.MaxPlayers));
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            view.Draft = Draft(2);
+            view.RequestApply();
+            Assert.That(session.ApplyCount, Is.EqualTo(1));
+            Assert.That(view.Draft.MaxPlayers, Is.EqualTo(4));
+            Assert.That(view.WarningVisible, Is.False);
+        }
+
+        [Test]
         public void Host_StartRequested_ClosesThenRequestsStart()
         {
             using var session = new HostSession();
@@ -166,7 +185,7 @@ namespace Game.Tests.EditMode
             presenter.Start();
             menu.OpenSettings();
             Assert.That(MatchRuleSettings.TryCreate(60, 10, 1.5f, 5, "food", out var rules, out _), Is.True);
-            view.Draft = new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground", rules);
+            view.Draft = new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "supermarket", rules);
             view.RequestClose();
             Assert.That(session.ApplyCount, Is.Zero);
             view.RequestApply();
@@ -242,7 +261,7 @@ namespace Game.Tests.EditMode
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
                 var button = (Button)plusField.GetValue(view);
                 MatchRuleSettings.TryCreate(60, 10, 1.5f, 5, "food", out var rules, out _);
-                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "playground", rules));
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "supermarket", rules));
                 view.SetEditable(false);
                 Assert.That(button.interactable, Is.False);
                 button.onClick.Invoke();
@@ -273,8 +292,10 @@ namespace Game.Tests.EditMode
                 typeof(PlaySettingsView).GetMethod("OnEnable",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(view, null);
-                MatchRuleSettings.TryCreate(10, 1, 0.5f, 1, "fruit", out var rules, out _);
-                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground", rules));
+                Assert.That(
+                    MatchRuleSettings.TryCreate(10, 1, 1f, 1, "fruit", out var rules, out _),
+                    Is.True);
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "supermarket", rules));
                 var change = typeof(PlaySettingsView).GetMethod("ChangeRule",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
                 void Step(int field, int direction) => change.Invoke(view, new object[] { field, direction });
@@ -290,7 +311,7 @@ namespace Game.Tests.EditMode
                 Step(1, -1);
                 for (var field = 0; field < 4; field++) Step(field, -1);
                 Assert.That(view.ReadDraft().MatchRules, Is.EqualTo(rules));
-                foreach (var speed in new[] { 1f, 1.5f, 2f, 3f })
+                foreach (var speed in new[] { 1.5f, 2f, 3f })
                 {
                     Step(2, 1);
                     Assert.That(view.ReadDraft().MatchRules.SprintMultiplier, Is.EqualTo(speed));
@@ -303,7 +324,7 @@ namespace Game.Tests.EditMode
                 Assert.That(actual.SprintMultiplier, Is.EqualTo(3));
                 Assert.That(actual.StunHitCount, Is.EqualTo(10));
                 Assert.That(actual.CategoryId, Is.EqualTo("fruit"));
-                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground", rules));
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "supermarket", rules));
                 Assert.That(view.ReadDraft().MatchRules, Is.EqualTo(rules));
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
@@ -568,7 +589,7 @@ namespace Game.Tests.EditMode
         }
 
         private static PlaySettingsDraft Draft(int capacity) =>
-            new("방", "CODE", false, null, capacity, 3, "playground");
+            new("방", "CODE", false, null, capacity, 3, "supermarket");
 
         private sealed class HostSession : ILobbyHostSession, IDisposable
         {
@@ -596,7 +617,13 @@ namespace Game.Tests.EditMode
             }
             public void RequestKick(string id) { }
             public void RequestHostTransfer(string id) { }
-            public void RequestApplySettings(PlaySettingsDraft value) { ApplyCount++; settings.Value = value; }
+            /// <summary>Stands in for the room clamping or refusing a request.</summary>
+            public Func<PlaySettingsDraft, PlaySettingsDraft> Accept;
+            public void RequestApplySettings(PlaySettingsDraft value)
+            {
+                ApplyCount++;
+                settings.Value = Accept == null ? value : Accept(value);
+            }
             public void Dispose() { host.Dispose(); settings.Dispose(); }
         }
 
@@ -631,6 +658,10 @@ namespace Game.Tests.EditMode
             public void SetUnappliedWarningVisible(bool value) => WarningVisible = value;
             public PlaySettingsDraft ReadDraft() => Draft;
             public void RequestClose() => CloseRequested?.Invoke();
+
+            public void ShowChrome(Game.Core.Settings.UiLocale locale)
+            {
+            }
         }
 
         private sealed class PauseView : ILobbyPauseMenuView

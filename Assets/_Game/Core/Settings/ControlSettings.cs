@@ -29,7 +29,8 @@ namespace Game.Core.Settings
         RaiseObject,
         LowerObject,
         ToggleKeyGuide,
-        ToggleSpeaker
+        ToggleSpeaker,
+        EmoteWheel
     }
 
     /// <summary>The 컨트롤 tab's sliders, in the order they are drawn.</summary>
@@ -251,7 +252,8 @@ namespace Game.Core.Settings
         public const string Unbound = "";
 
         /// <summary>Shown for <see cref="Unbound"/>.</summary>
-        public const string UnboundLabel = "없음";
+        public static string UnboundLabel =>
+            UiTextCatalog.Shipped.Get(UiText.Settings.Unbound, "ko");
 
         /// <summary>
         /// Keys the game listens to outside the input asset, which no row may
@@ -322,8 +324,8 @@ namespace Game.Core.Settings
         /// <summary>Reversing an axis is on or off, like the 인터페이스 toggles.</summary>
         public static OptionChoices Reversals { get; } = new OptionChoices(
             InterfaceCatalog.Off,
-            new OptionChoice(InterfaceCatalog.On, "켜기"),
-            new OptionChoice(InterfaceCatalog.Off, "끄기"));
+            new OptionChoice(InterfaceCatalog.On, UiText.Settings.On),
+            new OptionChoice(InterfaceCatalog.Off, UiText.Settings.Off));
 
         /// <summary>
         /// What each action starts on.
@@ -364,7 +366,8 @@ namespace Game.Core.Settings
             (ControlAction.RaiseObject, ScrollUp),
             (ControlAction.LowerObject, ScrollDown),
             (ControlAction.ToggleKeyGuide, "l"),
-            (ControlAction.ToggleSpeaker, "t")
+            (ControlAction.ToggleSpeaker, "t"),
+            (ControlAction.EmoteWheel, "x")
         };
 
         /// <summary>
@@ -480,25 +483,26 @@ namespace Game.Core.Settings
         /// direction at a time — roll it and the roll is what gets bound — two
         /// rows reading alike leaves no way to see which way round they went.
         /// </remarks>
-        public static string KeyLabel(string code)
+        public static string KeyLabel(string code, string languageCode = null)
         {
+            languageCode ??= UiLocale.AppliedLanguage;
             if (string.IsNullOrEmpty(code))
             {
-                return UnboundLabel;
+                return UiTextCatalog.Shipped.Get(UiText.Settings.Unbound, languageCode);
             }
 
             switch (code)
             {
                 case MouseLeft:
-                    return "좌클릭";
+                    return UiTextCatalog.Shipped.Get(UiText.Settings.MouseLeft, languageCode);
                 case MouseRight:
-                    return "우클릭";
+                    return UiTextCatalog.Shipped.Get(UiText.Settings.MouseRight, languageCode);
                 case MouseMiddle:
-                    return "휠클릭";
+                    return UiTextCatalog.Shipped.Get(UiText.Settings.MouseMiddle, languageCode);
                 case ScrollUp:
-                    return "스크롤 ↑";
+                    return UiTextCatalog.Shipped.Get(UiText.Settings.ScrollUp, languageCode);
                 case ScrollDown:
-                    return "스크롤 ↓";
+                    return UiTextCatalog.Shipped.Get(UiText.Settings.ScrollDown, languageCode);
                 case "leftShift":
                 case "rightShift":
                     return "SHIFT";

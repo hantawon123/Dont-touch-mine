@@ -8,6 +8,7 @@ using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Maps;
 using Game.Core.Rooms;
+using Game.Core.Settings;
 using Game.Network.Session;
 using UnityEngine;
 using VContainer;
@@ -77,11 +78,13 @@ namespace Game.Bootstrap
         {
             private readonly HomeMenuView view;
             private readonly RoomBrowserSystem room;
+            private readonly UiLocale locale;
 
-            public HomeExitNotice(HomeMenuView view, RoomBrowserSystem room)
+            public HomeExitNotice(HomeMenuView view, RoomBrowserSystem room, UiLocale locale = null)
             {
                 this.view = view;
                 this.room = room;
+                this.locale = locale;
             }
 
             public void Start()
@@ -99,8 +102,13 @@ namespace Game.Bootstrap
                     return;
                 }
 
-                view.ShowConnectionError(reason == RoomExitReason.HostClosed
-                    ? "호스트의 연결이 끊어졌습니다" : "서버와의 연결이 끊어졌습니다");
+                var key = reason == RoomExitReason.HostClosed
+                    ? UiText.Home.HostDisconnected
+                    : UiText.Home.ServerDisconnected;
+                view.ShowConnectionError(
+                    locale != null
+                        ? locale.Get(key)
+                        : UiTextCatalog.Shipped.Get(key, "ko"));
 
                 // The game locked the cursor away. Home is a screen to click on.
                 Game.Client.Common.WebPointerInput.Release();
@@ -228,6 +236,7 @@ namespace Game.Bootstrap
             private readonly IHomeMenuView view;
             private readonly AppFlowSystem appFlow;
             private readonly ILoadingOverlay loading;
+            private readonly UiLocale locale;
             private readonly UnityHomeApplicationHost fallback = new();
 
             public NetworkHomeApplicationHost(
@@ -236,7 +245,8 @@ namespace Game.Bootstrap
                 NetworkRunnerService network,
                 IHomeMenuView view,
                 AppFlowSystem appFlow,
-                ILoadingOverlay loading)
+                ILoadingOverlay loading,
+                UiLocale locale = null)
             {
                 this.rooms = rooms;
                 this.scenes = scenes;
@@ -244,7 +254,11 @@ namespace Game.Bootstrap
                 this.view = view;
                 this.appFlow = appFlow;
                 this.loading = loading;
+                this.locale = locale;
             }
+
+            private string Language =>
+                locale != null ? locale.LanguageCode : "ko";
 
             public void Quit() => fallback.Quit();
 
@@ -253,6 +267,8 @@ namespace Game.Bootstrap
             public void OpenCharacterCloset() => scenes.OpenCharacterCloset();
 
             public void OpenSettings() => scenes.OpenSettings();
+
+            public void OpenTutorial() => fallback.OpenTutorial();
 
             /// <summary>
             /// Opens the room browser, and starts filling its list on the way.
@@ -286,7 +302,7 @@ namespace Game.Bootstrap
                     Debug.LogException(failure);
                     view.ShowConnectionError(
                         RoomEntryMessages.Describe(
-                            RoomEntryFailure.ConnectionFailed, RoomEntrySource.RoomList));
+                            RoomEntryFailure.ConnectionFailed, RoomEntrySource.RoomList, Language));
                 }
             }
 
@@ -304,7 +320,7 @@ namespace Game.Bootstrap
                     isLocked: false,
                     password: null,
                     maxPlayers: maxPlayers,
-                    mapId: MapCatalog.DefaultMapId,
+                    mapId: string.Empty,
                     isPrivate: !isPublic);
 
                 CreateThenOpenLobbyAsync(request)
@@ -331,7 +347,7 @@ namespace Game.Bootstrap
                     loading.HideImmediate();
                     Debug.LogWarning($"[Home] Joining an invited room failed: {result.Failure}.");
                     view.ShowConnectionError(
-                        RoomEntryMessages.Describe(result.Failure, RoomEntrySource.Invite));
+                        RoomEntryMessages.Describe(result.Failure, RoomEntrySource.Invite, Language));
                     return;
                 }
 
@@ -358,7 +374,7 @@ namespace Game.Bootstrap
                     // and none of these failures are about what they typed.
                     view.ShowConnectionError(
                         RoomEntryMessages.Describe(
-                            result.Failure, RoomEntrySource.RoomCreate));
+                            result.Failure, RoomEntrySource.RoomCreate, Language));
                     return;
                 }
 

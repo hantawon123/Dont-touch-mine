@@ -15,6 +15,13 @@ namespace Game.Bootstrap
         private const double CctvPlanSampleSeconds = 0.5d;
         private const double MinimumPlannedShotSeconds = 1.25d;
         private const float PlannedCutCost = 18f;
+        private const float MinimumCctvDistance = 5f;
+        private const float MaximumCctvDistance = 18f;
+        private const float MaximumCctvDistanceBonus = 3f;
+        /// <summary>Cost of a mount whose authored storey does not contain the subject.</summary>
+        private const float OffFloorPenalty = 900f;
+        private const float TopDownPenaltyStartAngle = 60f;
+        private const float TopDownPenaltyPerDegree = 0.2f;
         private readonly IReadOnlyList<HighlightCctvCamera> cctvCameras;
         private readonly IReadOnlyList<HighlightReplayClip> replayClips;
         private HighlightCctvCamera activeCctv;
@@ -135,6 +142,8 @@ namespace Game.Bootstrap
                 {
                     if (camera == null) continue;
                     var score = CctvScore(camera, focus);
+                    // A mount that watches another storey only wins when nothing on this one can be used.
+                    if (!camera.CoversHeight(cctvTarget.position.y)) score -= OffFloorPenalty;
                     if (velocity.sqrMagnitude > 0.01f &&
                         !CanCctvSeePoint(camera, cctvTarget, predictedFocus)) score -= 600f;
                     if (score > bestScore) { best = camera; bestScore = score; }
@@ -308,17 +317,40 @@ namespace Game.Bootstrap
             var targetVisible = CanSeePlannedSubject(camera, sample.Target, sample.TargetIsPlayer, sample,
                 sample.TargetPlayerIndex, sample.TargetObjectId);
             if (!targetVisible) return -1200f;
+            // Thin floor slabs are not occluders, so the storey the mount watches is what keeps an
+            // upstairs camera out of a shot that happens below it.
+            if (!camera.CoversHeight(sample.Target.y)) return -1200f - OffFloorPenalty;
             var focus = sample.Target + Vector3.up * (sample.TargetIsPlayer ? 0.8f : 0.3f);
             var direction = focus - camera.transform.position;
-            var score = 140f / (1f + direction.magnitude) -
+            var score = CctvCompositionScore(direction) -
                         Vector3.Angle(camera.transform.forward, direction) * 0.02f;
             if (sample.Support.HasValue && Vector3.Distance(sample.Target, sample.Support.Value) < 8f)
             {
                 if (!CanSeePlannedSubject(camera, sample.Support.Value, true, sample,
                         sample.SupportPlayerIndex, null)) score -= 350f;
-                else score += 20f / (1f + Vector3.Distance(camera.transform.position, sample.Support.Value));
+                else score += CctvDistanceBonus(
+                    Vector3.Distance(camera.transform.position, sample.Support.Value)) * 0.5f;
             }
             return score;
+        }
+
+        private static float CctvCompositionScore(Vector3 direction)
+        {
+            var horizontalDistance = new Vector2(direction.x, direction.z).magnitude;
+            var downwardAngle = Mathf.Atan2(Mathf.Abs(direction.y), horizontalDistance) * Mathf.Rad2Deg;
+            var topDownPenalty = Mathf.Max(0f, downwardAngle - TopDownPenaltyStartAngle) *
+                                 TopDownPenaltyPerDegree;
+            return CctvDistanceBonus(direction.magnitude) - topDownPenalty;
+        }
+
+        private static float CctvDistanceBonus(float distance)
+        {
+            // Distance only breaks ties between otherwise readable shots. Very close mounts receive
+            // no extra reward, so a ceiling camera cannot win by showing only the top of the action.
+            var clamped = Mathf.Clamp(distance, MinimumCctvDistance, MaximumCctvDistance);
+            return MaximumCctvDistanceBonus *
+                   (MaximumCctvDistance - clamped) /
+                   (MaximumCctvDistance - MinimumCctvDistance);
         }
 
         private bool CanSeePlannedSubject(
@@ -518,9 +550,7 @@ namespace Game.Bootstrap
         {
             var direction = focus - camera.transform.position;
             var angle = Vector3.Angle(camera.transform.forward, direction);
-            // Visibility penalties dominate; among readable views favour proximity.
-            // Framing angle only breaks close ties, rather than rewarding a distant centred view.
-            var score = 100f / (1f + direction.magnitude) - angle * 0.01f;
+            var score = CctvCompositionScore(direction) - angle * 0.01f;
             if (!CanCctvSee(camera, cctvTarget)) score -= 600f;
             if (supportingPlayer != null && supportingPlayer != cctvTarget &&
                 !CanCctvSee(camera, supportingPlayer)) score -= 300f;

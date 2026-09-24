@@ -162,6 +162,59 @@ namespace Game.Architecture.Tests
             Assert.That(target, Is.EqualTo(expected ? guest : Fusion.PlayerRef.None));
         }
 
+        /// <summary>
+        /// The lobby showed "6/7" in a full room: a dedicated server occupies one
+        /// of Photon's actor slots, so the room's actor capacity is one larger
+        /// than the number of people who fit. The room's own published setting is
+        /// the cap, and nothing here imposes a project ceiling on it.
+        /// </summary>
+        [TestCase(4, 6, 4)]   // Accepted here already; the room echo does not override it.
+        [TestCase(0, 6, 6)]   // Not accepted yet: whatever the room published.
+        [TestCase(0, 8, 8)]   // A room that holds eight says eight, not a constant.
+        [TestCase(0, 0, 0)]   // The room has not said; zero is "unknown", not a limit.
+        public void RoomCapacity_ComesFromTheRoomSettingNotThePhotonActorCount(
+            int configured, int published, int expected)
+        {
+            Assert.That(
+                NetworkRunnerService.ResolveMaxPlayers(configured, published),
+                Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void RoomOwnerLeft_RoomPassesToTheLongestSeatedPlayerLeft()
+        {
+            var owner = Fusion.PlayerRef.FromIndex(0);
+            var second = Fusion.PlayerRef.FromIndex(1);
+            var third = Fusion.PlayerRef.FromIndex(2);
+            var players = new PlayerRegistry();
+            players.Add(owner);
+            players.Add(second);
+            players.Add(third);
+            players.Remove(owner);
+            Assert.That(
+                PlayerSpawner.TryChooseNextOwner(players, owner, null, out var next), Is.True);
+            Assert.That(next, Is.EqualTo(second));
+
+            // A character that is still going away cannot take the room.
+            Assert.That(
+                PlayerSpawner.TryChooseNextOwner(
+                    players, owner, candidate => candidate != second, out next),
+                Is.True);
+            Assert.That(next, Is.EqualTo(third));
+        }
+
+        [Test]
+        public void RoomOwnerLeftAnEmptyRoom_HasNobodyToHandItTo()
+        {
+            var owner = Fusion.PlayerRef.FromIndex(0);
+            var players = new PlayerRegistry();
+            players.Add(owner);
+            players.Remove(owner);
+            Assert.That(
+                PlayerSpawner.TryChooseNextOwner(players, owner, null, out var next), Is.False);
+            Assert.That(next, Is.EqualTo(Fusion.PlayerRef.None));
+        }
+
         [Test]
         public void LobbyKick_AcknowledgementCannotRemoveAnotherOrNewerRequest()
         {
@@ -182,16 +235,18 @@ namespace Game.Architecture.Tests
             Assert.That(network.TryKickPlayer("P2"), Is.False);
         }
 
-        [TestCase(false, true, 2, 6, 5, "playground", "food", false)]
-        [TestCase(true, false, 2, 6, 5, "playground", "food", false)]
-        [TestCase(true, true, 3, 2, 5, "playground", "food", false)]
-        [TestCase(true, true, 2, 6, -1, "playground", "food", false)]
-        [TestCase(true, true, 2, 6, 0, "playground", "food", true)]
+        [TestCase(false, true, 2, 6, 5, "supermarket", "food", false)]
+        [TestCase(true, false, 2, 6, 5, "supermarket", "food", false)]
+        [TestCase(true, true, 3, 2, 5, "supermarket", "food", false)]
+        [TestCase(true, true, 6, 6, 5, "supermarket", "food", true)]
+        [TestCase(true, true, 7, 6, 5, "supermarket", "food", false)]
+        [TestCase(true, true, 2, 6, -1, "supermarket", "food", false)]
+        [TestCase(true, true, 2, 6, 0, "supermarket", "food", true)]
         [TestCase(true, true, 2, 6, 5, "missing", "food", false)]
-        [TestCase(true, true, 2, 6, 5, "playground", "unsupported", false)]
-        [TestCase(true, true, 2, 6, 5, "playground", "food", true)]
+        [TestCase(true, true, 2, 6, 5, "supermarket", "unsupported", false)]
+        [TestCase(true, true, 2, 6, 5, "supermarket", "food", true)]
         [TestCase(true, true, 2, 6, 5, "", "", true)]
-        [TestCase(true, true, 2, 6, 5, "playground", "", true)]
+        [TestCase(true, true, 2, 6, 5, "supermarket", "", true)]
         public void LobbySettingsValidation_EnforcesAuthorityRangesAndCategory(
             bool hasAuthority,
             bool hasValidSession,
@@ -408,6 +463,7 @@ namespace Game.Architecture.Tests
             public void OpenRoomBrowser() => OpenCount++;
             public void OpenCharacterCloset() { }
             public void OpenSettings() { }
+            public void OpenTutorial() { }
             public void Quit() { }
             public void OpenHome() => HomeCount++;
             public void CreateRoom(string title, bool isPublic, int maxPlayers)
@@ -755,6 +811,20 @@ namespace Game.Architecture.Tests
             Assert.That(cleanupCalls, Is.EqualTo(1));
         }
 
+        [TestCase(SessionFailure.RoomNotFound, true)]
+        [TestCase(SessionFailure.RoomFull, true)]
+        [TestCase(SessionFailure.CodeTaken, true)]
+        [TestCase(SessionFailure.Rejected, true)]
+        [TestCase(SessionFailure.ConnectionFailed, false)]
+        [TestCase(SessionFailure.Unknown, false)]
+        public void ExpectedRoomEntryRefusals_DoNotPausePlayModeAsErrors(
+            SessionFailure failure,
+            bool expected)
+        {
+            Assert.That(NetworkRunnerService.IsExpectedSessionEntryFailure(failure),
+                Is.EqualTo(expected));
+        }
+
         [Test]
         public void RoomInitialization_CancellationAlsoCleansUp()
         {
@@ -907,6 +977,7 @@ namespace Game.Architecture.Tests
             Assert.That(input.MoveX, Is.EqualTo(0.6f).Within(0.0001f));
             Assert.That(input.MoveY, Is.EqualTo(0.8f).Within(0.0001f));
             Assert.That(input.LookYawDegrees, Is.EqualTo(270f));
+            Assert.That(input.LookPitchDegrees, Is.EqualTo(0f));
             Assert.That(input.IsPressed(PlayerInputButtons.Jump), Is.True);
             Assert.That(input.IsPressed(PlayerInputButtons.Prone), Is.False);
         }
@@ -916,6 +987,8 @@ namespace Game.Architecture.Tests
         {
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new PlayerInputIntent(float.NaN, 0f, 0f, PlayerInputButtons.None));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new PlayerInputIntent(0f, 0f, 0f, float.NaN, PlayerInputButtons.None));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new PlayerInputIntent(0f, 0f, 0f, (PlayerInputButtons)128));
         }
@@ -927,6 +1000,7 @@ namespace Game.Architecture.Tests
                 0f,
                 1f,
                 90f,
+                -25f,
                 PlayerInputButtons.Jump |
                 PlayerInputButtons.Sprint |
                 PlayerInputButtons.Attack);
@@ -938,8 +1012,44 @@ namespace Game.Architecture.Tests
             Assert.That(input.IsPressed(NetworkPlayerButton.Jump), Is.True);
             Assert.That(input.IsPressed(NetworkPlayerButton.Sprint), Is.True);
             Assert.That(input.IsPressed(NetworkPlayerButton.Attack), Is.True);
+            Assert.That(input.LookPitchDegrees, Is.EqualTo(-25f).Within(0.0001f));
             Assert.That(direction.x, Is.EqualTo(1f).Within(0.0001f));
             Assert.That(direction.z, Is.EqualTo(0f).Within(0.0001f));
+        }
+
+        [Test]
+        public void NetworkInput_CarriesEmoteRequest()
+        {
+            var intent = new PlayerInputIntent(0f, 0f, 0f, 0f, PlayerInputButtons.None, 7, 3);
+            var input = NetworkPlayerInput.FromIntent(intent);
+
+            Assert.That(input.EmoteSequence, Is.EqualTo(7));
+            Assert.That(input.EmoteId, Is.EqualTo(3));
+            Assert.That(NetworkPlayerInput.FromIntent(default).EmoteSequence, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void EmoteRequest_SequenceSkipsZeroAndWraps()
+        {
+            Assert.That(PlayerInputIntent.NextEmoteSequence(0), Is.EqualTo(1));
+            Assert.That(PlayerInputIntent.NextEmoteSequence(1), Is.EqualTo(2));
+            Assert.That(PlayerInputIntent.NextEmoteSequence(byte.MaxValue), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void NetworkPlayer_EmoteStartsOnceStandingOnGround()
+        {
+            // 0은 요청 없음. 재접속으로 번호가 0부터 다시 시작해도 표현이 나가지 않는다.
+            Assert.That(NetworkPlayerMotor.IsNewEmoteRequest(0, 5), Is.False);
+            Assert.That(NetworkPlayerMotor.IsNewEmoteRequest(5, 5), Is.False);
+            Assert.That(NetworkPlayerMotor.IsNewEmoteRequest(6, 5), Is.True);
+            // 같은 표현 연타도 번호가 바뀌므로 다시 시작한다.
+            Assert.That(NetworkPlayerMotor.IsNewEmoteRequest(1, 255), Is.True);
+
+            Assert.That(NetworkPlayerMotor.CanStartEmote(true, PlayerPosture.Standing), Is.True);
+            Assert.That(NetworkPlayerMotor.CanStartEmote(false, PlayerPosture.Standing), Is.False);
+            Assert.That(NetworkPlayerMotor.CanStartEmote(true, PlayerPosture.Crouching), Is.False);
+            Assert.That(NetworkPlayerMotor.CanStartEmote(true, PlayerPosture.Prone), Is.False);
         }
 
         [Test]
@@ -1322,8 +1432,8 @@ namespace Game.Architecture.Tests
                 resolved.Add(scene);
             }
 
-            Assert.That(scenes.MatchSceneFor(Game.Core.Maps.MapCatalog.PlaygroundId), Is.EqualTo(scenes.MatchScene),
-                "The default match scene stays the playground for older callers.");
+            Assert.That(scenes.MatchSceneFor(Game.Core.Maps.MapCatalog.SupermarketId), Is.EqualTo(scenes.MatchScene),
+                "The supermarket is the default match scene.");
             Assert.That(scenes.IsMatchScene(scenes.LobbyScene), Is.False);
             Assert.That(scenes.IsMatchScene(default), Is.False);
         }
@@ -1499,6 +1609,14 @@ namespace Game.Architecture.Tests
             Assert.That(exhausted, Is.Not.Null);
             Assert.That(Attribute.IsDefined(stamina, typeof(Fusion.NetworkedAttribute)), Is.True);
             Assert.That(Attribute.IsDefined(exhausted, typeof(Fusion.NetworkedAttribute)), Is.True);
+        }
+
+        [Test]
+        public void PlayerLookPitch_IsPersistentNetworkedData()
+        {
+            var pitch = typeof(NetworkPlayerMotor).GetProperty("LookPitchDegrees");
+            Assert.That(pitch, Is.Not.Null);
+            Assert.That(Attribute.IsDefined(pitch, typeof(Fusion.NetworkedAttribute)), Is.True);
         }
 
         [Test]

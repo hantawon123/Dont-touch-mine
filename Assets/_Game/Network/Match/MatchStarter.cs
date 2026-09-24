@@ -82,6 +82,16 @@ namespace Game.Network.Match
         public MatchPhase CurrentPhase =>
             _session?.CurrentPhase ??
             (HasValidState ? _state.Phase : _lastPublishedPhase);
+
+        /// <summary>When the current phase ends, on the shared simulation clock.</summary>
+        public double PhaseEndsAt => HasValidState ? _state.PhaseEndsAt : 0d;
+
+        /// <summary>
+        /// 찾기 페이즈 끝의 무제한 달리기 구간 길이. 호스트가 규칙 자산에서 복제해 둔 값이라
+        /// 클라이언트에서도 같은 답이 나온다.
+        /// </summary>
+        public float FinalSprintWindowSeconds =>
+            HasValidState ? _state.FinalSprintWindowSeconds : 0f;
         internal IReadOnlyList<MatchParticipant> PlayingParticipants => _playing;
 
         private bool HasValidState =>
@@ -163,20 +173,31 @@ namespace Game.Network.Match
         /// before its '#'. Without one there is nothing to find the conversation by later, so
         /// the record is skipped and the message still goes out covered.
         /// </para>
+        /// <para>
+        /// <b>Covering comes first, so the record can say whether it happened</b>
+        /// (S15P21D205-1095). <see cref="IChatModeration.Mask"/> hands back the same string it
+        /// was given when the message is clean, so the two being different is the judgement -
+        /// asking for it again would run the whole thing twice. The backend stores the flag as
+        /// sent rather than judging the message a second time, which is what kept the records
+        /// and the screen from disagreeing when the two word lists drifted.
+        /// </para>
         /// </remarks>
         private string Moderate(ChatScope scope, string playerId, string userId, string text)
         {
-            var said = LobbyChatMessage.ClampText(text.Trim());
+            var said = LobbyChatMessage.NormalizeText(text);
             if (_moderation == null) return said;
+
+            var shown = _moderation.Mask(said);
 
             var info = _state.Runner.SessionInfo;
             if (info.IsValid && !string.IsNullOrWhiteSpace(info.Name))
             {
                 _moderation.Record(new ChatLogRecord(
-                    info.Name, scope, userId, playerId, said, DateTimeOffset.UtcNow));
+                    info.Name, scope, userId, playerId, said,
+                    !string.Equals(shown, said, StringComparison.Ordinal), DateTimeOffset.UtcNow));
             }
 
-            return _moderation.Mask(said);
+            return shown;
         }
 
         /// <summary>
@@ -624,6 +645,7 @@ namespace Game.Network.Match
             _session.FinalWarningStarted += OnFinalWarningStarted;
             _session.MatchEnded += OnMatchEnded;
             _shredderEjectionPoses = shredderEjectionPoses;
+            _state?.TrySetFinalSprintWindow(_session.FinalSprintWindowSeconds);
 
             if (_session.CurrentPhase != MatchPhase.Waiting)
             {
@@ -773,24 +795,26 @@ namespace Game.Network.Match
 
         public bool RequestLobbyChat(string text)
         {
-            if (_state == null || string.IsNullOrWhiteSpace(text))
+            text = LobbyChatMessage.NormalizeText(text);
+            if (_state == null || string.IsNullOrEmpty(text))
             {
                 return false;
             }
 
-            _state.RPC_RequestLobbyChat(LobbyChatMessage.ClampText(text.Trim()));
+            _state.RPC_RequestLobbyChat(text);
             return true;
         }
 
         /// <summary>Requests a chat message for the frozen match line-up.</summary>
         public bool RequestMatchChat(string text)
         {
-            if (_state == null || !_state.IsStarted || string.IsNullOrWhiteSpace(text))
+            text = LobbyChatMessage.NormalizeText(text);
+            if (_state == null || !_state.IsStarted || string.IsNullOrEmpty(text))
             {
                 return false;
             }
 
-            _state.RPC_RequestMatchChat(LobbyChatMessage.ClampText(text.Trim()));
+            _state.RPC_RequestMatchChat(text);
             return true;
         }
 

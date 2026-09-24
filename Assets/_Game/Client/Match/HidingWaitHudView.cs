@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Character;
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,29 +11,25 @@ namespace Game.Client.Match
 {
     public readonly struct HidingWaitPlayer
     {
-        public HidingWaitPlayer(string name, bool completed, bool current)
+        public HidingWaitPlayer(
+            string name,
+            bool completed,
+            bool current,
+            string playerId = null,
+            string userId = null)
         {
             Name = name ?? string.Empty;
             Completed = completed;
             Current = current;
+            PlayerId = playerId ?? string.Empty;
+            UserId = userId ?? string.Empty;
         }
 
         public string Name { get; }
         public bool Completed { get; }
         public bool Current { get; }
-    }
-
-    public interface IHidingWaitHudView
-    {
-        void Show(
-            int completedCount,
-            int totalCount,
-            string hidingPlayerName,
-            IReadOnlyList<HidingWaitPlayer> players,
-            bool showNextTurnNotice,
-            double remainingSeconds,
-            double turnDurationSeconds);
-        void Hide();
+        public string PlayerId { get; }
+        public string UserId { get; }
     }
 
     /// <summary>
@@ -39,16 +37,22 @@ namespace Game.Client.Match
     /// Chat stays on the existing match chat view; this only paints the rest.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class HidingWaitHudView : MonoBehaviour, IHidingWaitHudView
+    public sealed class HidingWaitHudView : MonoBehaviour
     {
         public const float CountFontSize = 45f;
         public const float StatusFontSize = 28f;
         public const float NextTurnFontSize = 40f;
-        public const string NextTurnText = "다음 숨길 차례입니다";
+        public static string NextTurnText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.HideNextTurn, "ko");
         public const float NameFontSize = 24f;
         public const float TopPadding = 20f;
         public const float PersonIconSize = 40f;
-        public const float AvatarSize = 54f;
+        public const float AvatarScale = 1.2f;
+        public const float AvatarSize = 54f * AvatarScale;
+        public const float AvatarTimerFontSize = 28f;
+        public const string AvatarTimerName = "Timer";
+        public const string AvatarTimerVeilName = "TimerVeil";
+        public static readonly Color AvatarTimerVeilColor = new Color(0f, 0f, 0f, 0.5f);
         public const float RingGap = 3f;
         public const float RingThickness = 3f;
         public const float RowHeight = 84f;
@@ -94,6 +98,31 @@ namespace Game.Client.Match
         private bool previewing;
         private double remainingSeconds;
         private double turnDurationSeconds = 30d;
+        private UiLocale chromeLocale;
+        private string lastHidingPlayerName = string.Empty;
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureLayout();
+            if (statusText != null)
+            {
+                statusText.text = FormatStatus(lastHidingPlayerName, Language);
+            }
+
+            if (nextTurnText != null)
+            {
+                nextTurnText.text = Copy(UiText.Match.HideNextTurn);
+            }
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
+
+        private string Language =>
+            chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage;
 
         public static HidingWaitHudView Create(Transform parent)
         {
@@ -119,11 +148,24 @@ namespace Game.Client.Match
             return Mathf.Clamp01((float)(1d - (clampedRemaining / durationSeconds)));
         }
 
-        public static string FormatStatus(string hidingPlayerName)
+        public static string FormatAvatarTimer(double remainingSeconds)
         {
-            return string.IsNullOrWhiteSpace(hidingPlayerName)
-                ? "물건을 숨기는 중"
-                : $"{hidingPlayerName.Trim()}님이 물건을 숨기는 중";
+            return Mathf.Max(0, Mathf.CeilToInt((float)remainingSeconds)).ToString();
+        }
+
+        public static string FormatStatus(string hidingPlayerName) =>
+            FormatStatus(hidingPlayerName, "ko");
+
+        public static string FormatStatus(string hidingPlayerName, string language)
+        {
+            if (string.IsNullOrWhiteSpace(hidingPlayerName))
+            {
+                return UiTextCatalog.Shipped.Get(UiText.Match.HideStatus, language);
+            }
+
+            return string.Format(
+                UiTextCatalog.Shipped.Get(UiText.Match.HideStatusNamed, language),
+                hidingPlayerName.Trim());
         }
 
         private void Awake()
@@ -195,7 +237,7 @@ namespace Game.Client.Match
                 remainingSeconds = turnDurationSeconds;
             }
 
-            ApplyRingProgress(RingFillAmount(remainingSeconds, turnDurationSeconds));
+            ApplyCurrentTurnProgress();
         }
 
         public void Hide()
@@ -243,7 +285,7 @@ namespace Game.Client.Match
                 nextTurnText.fontSize = NextTurnFontSize;
                 nextTurnText.fontStyle = FontStyles.Normal;
                 nextTurnText.color = AccentColor;
-                nextTurnText.text = NextTurnText;
+                nextTurnText.text = Copy(UiText.Match.HideNextTurn);
             }
         }
 
@@ -258,9 +300,10 @@ namespace Game.Client.Match
                 countText.text = FormatCount(completedCount, totalCount);
             }
 
+            lastHidingPlayerName = hidingPlayerName ?? string.Empty;
             if (statusText != null)
             {
-                statusText.text = FormatStatus(hidingPlayerName);
+                statusText.text = FormatStatus(hidingPlayerName, Language);
             }
 
             if (nextTurnText != null)
@@ -292,17 +335,19 @@ namespace Game.Client.Match
                 }
 
                 row.SetActive(true);
-                PaintRow(row.transform, list[index], RingFillAmount(remainingSeconds, turnDurationSeconds));
+                PaintRow(row.transform, list[index], remainingSeconds, turnDurationSeconds);
             }
         }
 
-        private void ApplyRingProgress(float fillAmount)
+        private void ApplyCurrentTurnProgress()
         {
             if (playerList == null)
             {
                 return;
             }
 
+            var fillAmount = RingFillAmount(remainingSeconds, turnDurationSeconds);
+            var timerText = FormatAvatarTimer(remainingSeconds);
             for (var index = 0; index < MaxPlayers; index++)
             {
                 var ring = playerList.transform.Find($"Row{index}/Avatar/Ring")?.GetComponent<Image>();
@@ -310,10 +355,21 @@ namespace Game.Client.Match
                 {
                     ring.fillAmount = fillAmount;
                 }
+
+                var timer = playerList.transform.Find($"Row{index}/Avatar/{AvatarTimerName}")
+                    ?.GetComponent<TMP_Text>();
+                if (timer != null && timer.gameObject.activeSelf)
+                {
+                    timer.text = timerText;
+                }
             }
         }
 
-        private static void PaintRow(Transform row, HidingWaitPlayer player, float ringFill)
+        private static void PaintRow(
+            Transform row,
+            HidingWaitPlayer player,
+            double remainingSeconds,
+            double turnDurationSeconds)
         {
             FitAvatar(row);
             var track = row.Find("Avatar/RingTrack")?.GetComponent<Image>();
@@ -328,11 +384,16 @@ namespace Game.Client.Match
             {
                 ring.enabled = player.Current;
                 ring.color = AccentColor;
-                ring.fillAmount = player.Current ? ringFill : 0f;
+                ring.fillAmount = player.Current
+                    ? RingFillAmount(remainingSeconds, turnDurationSeconds)
+                    : 0f;
             }
 
             var avatar = row.Find("Avatar/Face")?.GetComponent<Image>();
-            if (avatar != null)
+            var portrait = row.Find($"Avatar/Face/{AvatarFacePortrait.PortraitName}");
+            var hasPortrait = portrait != null && portrait.gameObject.activeSelf &&
+                              portrait.GetComponent<RawImage>() is { enabled: true };
+            if (avatar != null && !hasPortrait)
             {
                 avatar.color = player.Current
                     ? Color.white
@@ -340,6 +401,13 @@ namespace Game.Client.Match
                         ? DoneAvatarColor
                         : PendingColor;
             }
+            else if (avatar != null)
+            {
+                avatar.color = Color.white;
+            }
+
+            AvatarFaceSlot.Attach(row.Find("Avatar/Face") as RectTransform)
+                ?.Follow(player.PlayerId, player.UserId);
 
             var dim = row.Find("Avatar/Dim")?.GetComponent<Image>();
             if (dim != null)
@@ -351,6 +419,24 @@ namespace Game.Client.Match
             if (check != null)
             {
                 check.gameObject.SetActive(player.Completed);
+            }
+
+            var veil = EnsureAvatarTimerVeil(row.Find("Avatar"));
+            var timer = EnsureAvatarTimer(row.Find("Avatar"));
+            if (veil != null)
+            {
+                veil.gameObject.SetActive(player.Current);
+            }
+
+            if (timer != null)
+            {
+                timer.gameObject.SetActive(player.Current);
+                if (player.Current)
+                {
+                    timer.text = FormatAvatarTimer(remainingSeconds);
+                    veil?.transform.SetAsLastSibling();
+                    timer.transform.SetAsLastSibling();
+                }
             }
 
             var name = row.Find("Name")?.GetComponent<TMP_Text>();
@@ -422,6 +508,26 @@ namespace Game.Client.Match
                 new Vector2(0.5f, 0.5f),
                 Vector2.zero,
                 new Vector2(AvatarSize, AvatarSize));
+
+            var veil = EnsureAvatarTimerVeil(avatar);
+            if (veil != null)
+            {
+                Place(
+                    veil.rectTransform,
+                    new Vector2(0.5f, 0.5f),
+                    Vector2.zero,
+                    new Vector2(AvatarSize, AvatarSize));
+            }
+
+            var timer = EnsureAvatarTimer(avatar);
+            if (timer != null)
+            {
+                Place(
+                    timer.rectTransform,
+                    new Vector2(0.5f, 0.5f),
+                    Vector2.zero,
+                    new Vector2(AvatarSize, AvatarSize));
+            }
 
             var name = row.Find("Name") as RectTransform;
             if (name != null)
@@ -574,6 +680,62 @@ namespace Game.Client.Match
             return check;
         }
 
+        private static Image EnsureAvatarTimerVeil(Transform avatar)
+        {
+            if (avatar == null)
+            {
+                return null;
+            }
+
+            var veil = avatar.Find(AvatarTimerVeilName)?.GetComponent<Image>();
+            if (veil == null)
+            {
+                veil = CreateImage(avatar, AvatarTimerVeilName, AvatarTimerVeilColor, HomeUiFonts.CircleSprite);
+            }
+
+            veil.sprite = HomeUiFonts.CircleSprite;
+            veil.color = AvatarTimerVeilColor;
+            veil.raycastTarget = false;
+            Place(
+                veil.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(AvatarSize, AvatarSize));
+            return veil;
+        }
+
+        private static TMP_Text EnsureAvatarTimer(Transform avatar)
+        {
+            if (avatar == null)
+            {
+                return null;
+            }
+
+            var timer = avatar.Find(AvatarTimerName)?.GetComponent<TMP_Text>();
+            if (timer == null)
+            {
+                timer = CreateText(avatar, AvatarTimerName, "0", AvatarTimerFontSize);
+            }
+
+            StyleAvatarTimer(timer);
+            Place(
+                timer.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(AvatarSize, AvatarSize));
+            return timer;
+        }
+
+        private static void StyleAvatarTimer(TMP_Text timer)
+        {
+            timer.font = HomeUiFonts.Apply();
+            timer.fontSize = AvatarTimerFontSize;
+            timer.fontStyle = FontStyles.Bold;
+            timer.alignment = TextAlignmentOptions.Center;
+            timer.color = AccentColor;
+            timer.outlineWidth = 0f;
+        }
+
         private void EnsureLayout()
         {
             var rect = transform as RectTransform;
@@ -650,7 +812,7 @@ namespace Game.Client.Match
                 return;
             }
 
-            nextTurnText = CreateText(topPrompt.transform, "NextTurn", NextTurnText, NextTurnFontSize);
+            nextTurnText = CreateText(topPrompt.transform, "NextTurn", Copy(UiText.Match.HideNextTurn), NextTurnFontSize);
             nextTurnText.color = AccentColor;
             Place(
                 nextTurnText.rectTransform,
@@ -700,7 +862,7 @@ namespace Game.Client.Match
                 new Vector2(920f, 40f),
                 new Vector2(0.5f, 1f));
 
-            nextTurnText = CreateText(topPrompt.transform, "NextTurn", NextTurnText, NextTurnFontSize);
+            nextTurnText = CreateText(topPrompt.transform, "NextTurn", Copy(UiText.Match.HideNextTurn), NextTurnFontSize);
             nextTurnText.color = AccentColor;
             Place(
                 nextTurnText.rectTransform,
@@ -783,6 +945,18 @@ namespace Game.Client.Match
                 new Vector2(AvatarSize, AvatarSize));
             dim.gameObject.SetActive(false);
 
+            var veil = CreateImage(
+                avatar,
+                AvatarTimerVeilName,
+                AvatarTimerVeilColor,
+                HomeUiFonts.CircleSprite);
+            Place(
+                veil.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(AvatarSize, AvatarSize));
+            veil.gameObject.SetActive(false);
+
             var check = CreateImage(
                 avatar,
                 "CheckIcon",
@@ -795,6 +969,15 @@ namespace Game.Client.Match
                 Vector2.zero,
                 new Vector2(CheckIconWidth, CheckIconWidth));
             check.gameObject.SetActive(false);
+
+            var timer = CreateText(avatar, AvatarTimerName, "0", AvatarTimerFontSize);
+            StyleAvatarTimer(timer);
+            Place(
+                timer.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(AvatarSize, AvatarSize));
+            timer.gameObject.SetActive(false);
 
             var name = CreateText(
                 row,

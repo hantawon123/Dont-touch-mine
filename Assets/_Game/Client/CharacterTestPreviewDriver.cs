@@ -146,6 +146,12 @@ namespace Game.Client
             "Stun_Start",
             "Stun_Idle",
             "Stun_End",
+            "Emote_Wave",
+            "Emote_Taunt",
+            "Emote_Insult",
+            "Emote_Chicken",
+            "Emote_HipHop",
+            "Emote_Spin",
         };
 
         private static readonly string[] GroupOrder =
@@ -159,6 +165,7 @@ namespace Game.Client
             "양손 들기",
             "집기·놓기",
             "전투",
+            "감정",
             "기타",
         };
 
@@ -295,7 +302,7 @@ namespace Game.Client
                         transform.position += Vector3.up * (plantedFootY - footY);
                     }
                 }
-                else if (!KeepsFloorContact(stateNames[index]))
+                else if (!TrustsClipHeight(stateNames[index]))
                 {
                     transform.position += Vector3.up * (plantedFootY - footY);
                 }
@@ -315,7 +322,7 @@ namespace Game.Client
             }
 
             animator.Play(stateNames[index], 0, 0f);
-            if (KeepsFloorContact(stateNames[index]))
+            if (TrustsClipHeight(stateNames[index]))
             {
                 var position = transform.position;
                 position.y = standPosition.y;
@@ -497,6 +504,22 @@ namespace Game.Client
         {
             return state == "Fall" ||
                    state.EndsWith("Jump", System.StringComparison.Ordinal);
+        }
+
+        private static bool IsEmote(string state)
+        {
+            return state.StartsWith("Emote_", System.StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// 클립이 든 루트 높이를 그대로 믿는 상태. 매 프레임 발 높이로 다시 붙이는
+        /// 보정은 발이 바닥에 있는 이동 클립을 전제로 한다. 감정 클립은 바닥 스핀처럼
+        /// 발이 공중에 뜨는 구간이 있어, 그 보정이 몸통을 땅속으로 밀어 넣는다.
+        /// 감정 클립은 블렌더 단계에서 메쉬 최저점을 바닥에 맞춰 두었다.
+        /// </summary>
+        private static bool TrustsClipHeight(string state)
+        {
+            return KeepsFloorContact(state) || IsEmote(state);
         }
 
         private static bool KeepsFloorContact(string state)
@@ -689,6 +712,11 @@ namespace Game.Client
             if (state.StartsWith("Carry_TwoHands_Hit", System.StringComparison.Ordinal))
             {
                 return "들고 Hit";
+            }
+
+            if (state.StartsWith("Emote_", System.StringComparison.Ordinal))
+            {
+                return "감정";
             }
 
             if (state.StartsWith("Punch", System.StringComparison.Ordinal) ||

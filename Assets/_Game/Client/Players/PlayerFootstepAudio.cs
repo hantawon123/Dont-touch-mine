@@ -8,6 +8,20 @@ namespace Game.Client.Players
     {
         public static float EffectsVolume { get; set; } = 1f;
 
+        public static float ScaledVolume(float relativeVolume = 1f) =>
+            Mathf.Clamp01(relativeVolume) * Mathf.Clamp01(EffectsVolume);
+
+        public static void PlayEffects(AudioSource source, AudioClip clip, float relativeVolume = 1f)
+        {
+            if (source == null || clip == null || !source.isActiveAndEnabled)
+            {
+                return;
+            }
+
+            source.volume = 1f;
+            source.PlayOneShot(clip, ScaledVolume(relativeVolume));
+        }
+
         public const string ClipAssetPath =
             "Assets/Free UI Click Sound Effects Pack/AUDIO/Plastic/SFX_UI_Click_Organic_Plastic_Soft_Generic_1.wav";
 
@@ -44,13 +58,20 @@ namespace Game.Client.Players
             previousPosition = transform.position;
         }
 
+        public void SetSpatialBlend(float spatialBlend)
+        {
+            if (source != null)
+            {
+                source.spatialBlend = spatialBlend;
+            }
+        }
+
         public void Tick(Animator animator, string state, bool grounded, PlayerPosture posture)
         {
             var displacement = transform.position - previousPosition;
             previousPosition = transform.position;
             displacement.y = 0f;
             if (source == null) return;
-            source.volume = Mathf.Clamp01(EffectsVolume);
             var speed = Time.deltaTime > 0f ? displacement.magnitude / Time.deltaTime : 0f;
             if (!source.isActiveAndEnabled || animator == null || animator.runtimeAnimatorController == null ||
                 !CanPlay(state, grounded, posture, speed) || displacement.magnitude > 2f)
@@ -66,7 +87,7 @@ namespace Game.Client.Players
             if (!AdvanceStep(info.fullPathHash, info.normalizedTime, plantA, plantB)) return;
             if (clips == null || clips.Length == 0) return;
             var clip = clips[clipIndex++ % clips.Length];
-            if (clip != null) source.PlayOneShot(clip);
+            if (clip != null) PlayEffects(source, clip);
         }
 
         internal bool AdvanceStep(int stateHash, float normalizedTime) =>

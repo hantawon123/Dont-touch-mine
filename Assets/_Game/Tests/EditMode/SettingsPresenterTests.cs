@@ -15,9 +15,8 @@ namespace Game.Architecture.Tests
     /// does, and how the three confirmations are answered.
     /// </summary>
     /// <remarks>
-    /// Two languages rather than the shipped one, so the picker has somewhere
-    /// to go; with Korean alone there would be no way to make a change to
-    /// apply, reset or throw away.
+        /// Two languages so the picker has somewhere to go; a catalogue of
+        /// Korean alone would leave no change to apply, reset or throw away.
     /// </remarks>
     public sealed class SettingsPresenterTests
     {
@@ -88,17 +87,25 @@ namespace Game.Architecture.Tests
             Assert.That(view.ActionsEnabled, Is.False);
             Assert.That(view.ConfirmVisible, Is.False);
             Assert.That(view.FeedbackVisible, Is.False);
+            Assert.That(view.Chrome.Get(UiText.Settings.Apply), Is.EqualTo("Apply"));
+            Assert.That(view.Chrome.Get(UiText.Settings.TabGeneral), Is.EqualTo("General"));
+            Assert.That(view.GraphicsLabels[GraphicsOption.DisplayMode], Is.EqualTo("Fullscreen"));
+            Assert.That(view.InterfaceLabels[InterfaceOption.FpsCounter], Is.EqualTo("On"));
+            Assert.That(view.InputModeLabel, Is.EqualTo("Push to Talk"));
         }
 
         [Test]
         public void Opening_WithOneLanguage_DrawsTheArrowsUnavailable()
         {
-            general = new GeneralSettingsSystem(store, LanguageCatalog.Shipped);
+            general = new GeneralSettingsSystem(
+                store,
+                new LanguageCatalog(new Language("ko", "한국어")));
 
             using var presenter = Started();
 
             Assert.That(view.LanguageLabel, Is.EqualTo("한국어"));
             Assert.That(view.CanStep, Is.False);
+            Assert.That(view.Chrome.Get(UiText.Settings.Apply), Is.EqualTo("적용하기"));
         }
 
         [Test]
@@ -123,6 +130,9 @@ namespace Game.Architecture.Tests
             Assert.That(view.ActionsEnabled, Is.True);
             Assert.That(general.Current.LanguageCode, Is.EqualTo("ko"), "Nothing is settled until apply.");
             Assert.That(store.Saved, Is.Null);
+            Assert.That(view.Chrome.Get(UiText.Settings.Apply), Is.EqualTo("적용하기"),
+                "The chrome waits for apply.");
+            Assert.That(view.GraphicsLabels[GraphicsOption.DisplayMode], Is.EqualTo("전체화면"));
         }
 
         [Test]
@@ -149,6 +159,12 @@ namespace Game.Architecture.Tests
             Assert.That(store.Saved, Is.EqualTo(new GeneralSettings("en")));
             Assert.That(view.ActionsEnabled, Is.False);
             Assert.That(view.ConfirmVisible, Is.False, "Applying asks nothing.");
+            Assert.That(view.Chrome.Get(UiText.Settings.Apply), Is.EqualTo("Apply"));
+            Assert.That(view.Chrome.Get(UiText.Settings.Language), Is.EqualTo("Language"));
+            Assert.That(view.GraphicsLabels[GraphicsOption.DisplayMode], Is.EqualTo("Fullscreen"));
+            Assert.That(view.InterfaceLabels[InterfaceOption.FpsCounter], Is.EqualTo("On"));
+            Assert.That(view.InputModeLabel, Is.EqualTo("Push to Talk"));
+            Assert.That(view.Reversals[ControlToggle.FirstPersonInvertX], Is.EqualTo("Off"));
         }
 
         [Test]
@@ -730,11 +746,27 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void MicrophoneTest_ShowsEnglishNoticeWhenAppliedLanguageIsEnglish()
+        {
+            store.Save(new GeneralSettings("en"));
+            general = new GeneralSettingsSystem(store, TwoLanguages);
+
+            using var presenter = new SettingsPresenter(
+                view, general, graphics, ui, sound, new ClosedMicrophoneTest(),
+                controls, keyCapture, notifications, host, flow);
+            presenter.Start();
+
+            view.ToggleTest();
+
+            Assert.That(view.Notices, Does.Contain("This computer cannot open the microphone."));
+        }
+
+        [Test]
         public void Opening_ShowsEveryKey_SensitivityAndReversal()
         {
             using var presenter = Started();
 
-            Assert.That(view.Bindings.Count, Is.EqualTo(20));
+            Assert.That(view.Bindings.Count, Is.EqualTo(21));
             Assert.That(view.Bindings[ControlAction.MoveForward], Is.EqualTo("W"));
             Assert.That(view.Bindings[ControlAction.Interact], Is.EqualTo("F"));
             Assert.That(view.Bindings[ControlAction.PrimaryAction], Is.EqualTo("좌클릭"));
@@ -744,6 +776,7 @@ namespace Game.Architecture.Tests
             Assert.That(view.Bindings[ControlAction.RaiseObject], Is.EqualTo("스크롤 ↑"));
             Assert.That(view.Bindings[ControlAction.LowerObject], Is.EqualTo("스크롤 ↓"));
             Assert.That(view.Bindings[ControlAction.ToggleKeyGuide], Is.EqualTo("L"));
+            Assert.That(view.Bindings[ControlAction.EmoteWheel], Is.EqualTo("X"));
             Assert.That(view.Sensitivities.Count, Is.EqualTo(3));
             Assert.That(view.Sensitivities[ControlSensitivity.FirstPersonMouse], Is.EqualTo(50));
             Assert.That(view.Reversals.Count, Is.EqualTo(4));

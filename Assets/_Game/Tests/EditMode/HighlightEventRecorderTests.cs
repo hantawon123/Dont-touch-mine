@@ -91,7 +91,7 @@ namespace Game.Tests.EditMode
         [Test]
         public void CaptureCandidates_ExcludesOldFinalMoment()
         {
-            recorder.RecordPlayerStunned(2, 105d);
+            recorder.RecordPlayerStunned(2, 104.9d);
 
             var types = recorder.CaptureCandidates(120d).Select(candidate => candidate.Type);
 

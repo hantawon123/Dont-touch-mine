@@ -41,6 +41,7 @@ namespace Game.Bootstrap
         private readonly IHomeApplicationHost host;
         private readonly IInviteGateway invites;
         private readonly NotificationSettingsSystem notificationSettings;
+        private readonly UiLocale locale;
 
         /// <summary>
         /// The room invitations waiting on this screen. Owned here because the
@@ -65,7 +66,8 @@ namespace Game.Bootstrap
             INotificationStream notifications,
             IHomeApplicationHost host,
             IInviteGateway invites,
-            NotificationSettingsSystem notificationSettings)
+            NotificationSettingsSystem notificationSettings,
+            UiLocale locale = null)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
@@ -75,6 +77,7 @@ namespace Game.Bootstrap
             this.invites = invites ?? throw new ArgumentNullException(nameof(invites));
             this.notificationSettings = notificationSettings
                 ?? throw new ArgumentNullException(nameof(notificationSettings));
+            this.locale = locale;
         }
 
         public void Start()
@@ -571,46 +574,51 @@ namespace Game.Bootstrap
         /// allowed to change wording and is not part of the contract. The client
         /// guide says to branch on the code, and this is that branch.
         /// </remarks>
-        private static string Explain(BackendFailure failure)
+        private string Copy(string key) =>
+            locale != null
+                ? locale.Get(key)
+                : UiTextCatalog.Shipped.Get(key, "ko");
+
+        private string Explain(BackendFailure failure)
         {
             switch (failure)
             {
                 case BackendFailure.TargetNotFound:
-                    return "그 사용자를 찾을 수 없습니다";
+                    return Copy(UiText.Home.TargetNotFound);
 
                 case BackendFailure.AlreadyFriends:
-                    return "이미 친구입니다";
+                    return Copy(UiText.Home.AlreadyFriends);
 
                 case BackendFailure.RequestAlreadySent:
-                    return "이미 보낸 요청입니다";
+                    return Copy(UiText.Home.RequestAlreadySent);
 
                 case BackendFailure.RequestNotFound:
-                    return "그 요청이 이미 없습니다";
+                    return Copy(UiText.Home.RequestNotFound);
 
                 case BackendFailure.NotFriends:
-                    return "친구가 아닙니다";
+                    return Copy(UiText.Home.NotFriends);
 
                 case BackendFailure.TargetInGame:
-                    return "게임 중인 친구입니다";
+                    return Copy(UiText.Home.TargetInGame);
 
                 case BackendFailure.SelfRequest:
-                    return "자기 자신에게는 보낼 수 없습니다";
+                    return Copy(UiText.Home.SelfRequest);
 
                 case BackendFailure.AccountNotFound:
-                    return "계정을 찾을 수 없습니다";
+                    return Copy(UiText.Home.AccountNotFound);
 
                 case BackendFailure.Offline:
                 case BackendFailure.Timeout:
-                    return "서버에 연결할 수 없습니다";
+                    return Copy(UiText.Settings.FeedbackOffline);
 
                 case BackendFailure.NotSignedIn:
-                    return "서버에 연결되어 있지 않습니다";
+                    return Copy(UiText.Settings.FeedbackNotSignedIn);
 
                 case BackendFailure.Conflict:
-                    return "잠시 후 다시 시도해 주세요";
+                    return Copy(UiText.Home.Conflict);
 
                 default:
-                    return "처리하지 못했습니다";
+                    return Copy(UiText.Home.FriendFailed);
             }
         }
     }

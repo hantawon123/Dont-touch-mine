@@ -1,6 +1,7 @@
 using Game.Bootstrap;
 using Game.Core.Flow;
 using Game.Core.Settings;
+using Game.Network.Match;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -17,6 +18,80 @@ namespace Game.Architecture.Tests
         public void Playback_CoversHighlightOnly(AppFlowState state, bool expected)
         {
             Assert.That(EndingBgmController.ShouldPlay(state), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void ShouldPlay_StopsOnceTheLocalPlayerIsInTheLobby()
+        {
+            Assert.That(EndingBgmController.ShouldPlay(AppFlowState.Highlight), Is.True);
+            Assert.That(EndingBgmController.ShouldPlay(AppFlowState.Highlight, true), Is.False);
+        }
+
+        [Test]
+        public void FadesOutWhenLocalPlayerReachesLobbyBeforeHighlightEnds()
+        {
+            var host = new GameObject("Ending BGM Skip Lobby Test");
+            EndingBgmController controller = null;
+            try
+            {
+                var source = AttachSource(host);
+                var flow = EnterHighlight();
+                var sound = new SoundSettingsSystem(new InMemorySoundSettingsStore());
+                var navigation = new FakeNavigation { HasLeftLocalHighlight = false };
+                controller = new EndingBgmController(flow, sound, source, navigation);
+                controller.Start();
+                var full = sound.Current.Get(SoundVolume.Music) / 100f * EndingBgmController.PlaybackVolume;
+                var advance = typeof(EndingBgmController).GetMethod("AdvanceFade",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+                advance.Invoke(controller, new object[] { EndingBgmController.FadeSeconds });
+                Assert.That(source.isPlaying, Is.True);
+                Assert.That(source.volume, Is.EqualTo(full).Within(.001f));
+
+                navigation.HasLeftLocalHighlight = true;
+                controller.Tick();
+                advance.Invoke(controller, new object[] { EndingBgmController.FadeSeconds });
+                Assert.That(source.volume, Is.Zero);
+                Assert.That(source.isPlaying, Is.False);
+                Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Highlight));
+            }
+            finally
+            {
+                controller?.Dispose();
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void InjectedNavigation_StopsPlaybackAfterLocalSkip()
+        {
+            var host = new GameObject("Ending BGM Injected Navigation Test");
+            EndingBgmController controller = null;
+            try
+            {
+                var source = AttachSource(host);
+                var flow = EnterHighlight();
+                var sound = new SoundSettingsSystem(new InMemorySoundSettingsStore());
+                controller = new EndingBgmController(flow, sound, source, null);
+                controller.Start();
+                var full = sound.Current.Get(SoundVolume.Music) / 100f * EndingBgmController.PlaybackVolume;
+                var advance = typeof(EndingBgmController).GetMethod("AdvanceFade",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                advance.Invoke(controller, new object[] { EndingBgmController.FadeSeconds });
+                Assert.That(source.isPlaying, Is.True);
+                Assert.That(source.volume, Is.EqualTo(full).Within(.001f));
+
+                controller.BindNavigation(new FakeNavigation { HasLeftLocalHighlight = true });
+                controller.Tick();
+                advance.Invoke(controller, new object[] { EndingBgmController.FadeSeconds });
+                Assert.That(source.volume, Is.Zero);
+                Assert.That(source.isPlaying, Is.False);
+            }
+            finally
+            {
+                controller?.Dispose();
+                Object.DestroyImmediate(host);
+            }
         }
 
         [Test]
@@ -40,18 +115,18 @@ namespace Game.Architecture.Tests
             EndingBgmController controller = null;
             try
             {
-                var source = host.AddComponent<AudioSource>();
+                var source = AttachSource(host);
                 var flow = EnterHighlight();
                 var sound = new SoundSettingsSystem(new InMemorySoundSettingsStore());
-                controller = new EndingBgmController(flow, sound, source);
+                controller = new EndingBgmController(flow, sound, source, null);
                 controller.Start();
                 var full = sound.Current.Get(SoundVolume.Music) / 100f * EndingBgmController.PlaybackVolume;
                 var advance = typeof(EndingBgmController).GetMethod("AdvanceFade",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
 
-                Assert.That(source.isPlaying, Is.True);
                 Assert.That(source.volume, Is.Zero);
                 advance.Invoke(controller, new object[] { .5f });
+                Assert.That(source.isPlaying, Is.True);
                 Assert.That(source.volume, Is.EqualTo(full * .5f).Within(.001f));
                 advance.Invoke(controller, new object[] { .5f });
                 Assert.That(source.volume, Is.EqualTo(full).Within(.001f));
@@ -77,12 +152,12 @@ namespace Game.Architecture.Tests
             EndingBgmController controller = null;
             try
             {
-                var source = host.AddComponent<AudioSource>();
+                var source = AttachSource(host);
                 var store = new InMemorySoundSettingsStore();
                 store.Save(SoundCatalog.Defaults.With(SoundVolume.Music, 20).With(SoundVolume.Master, 40));
                 var sound = new SoundSettingsSystem(store);
                 var flow = EnterHighlight();
-                controller = new EndingBgmController(flow, sound, source);
+                controller = new EndingBgmController(flow, sound, source, null);
                 controller.Start();
                 var advance = typeof(EndingBgmController).GetMethod("AdvanceFade",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
@@ -98,6 +173,15 @@ namespace Game.Architecture.Tests
             }
         }
 
+        private static AudioSource AttachSource(GameObject host)
+        {
+            var source = host.AddComponent<AudioSource>();
+            source.playOnAwake = false;
+            source.loop = true;
+            source.clip = AudioClip.Create("ending-test", 44100, 1, 44100, false);
+            return source;
+        }
+
         private static AppFlowSystem EnterHighlight()
         {
             var flow = new AppFlowSystem();
@@ -106,6 +190,19 @@ namespace Game.Architecture.Tests
             Assert.That(flow.TryTransitionTo(AppFlowState.InGame), Is.True);
             Assert.That(flow.TryTransitionTo(AppFlowState.Highlight), Is.True);
             return flow;
+        }
+
+        private sealed class FakeNavigation : INetworkResultNavigation
+        {
+            public bool IsServer => false;
+            public bool IsRuntimeReady => true;
+            public bool IsResultSceneLoaded => false;
+            public bool IsLocalHighlightComplete { get; set; }
+            public bool HasLeftLocalHighlight { get; set; }
+            public bool EnterResultScene() => false;
+            public bool PrepareLobbyForHighlights() => false;
+            public bool CompleteLocalHighlightViewing() => IsLocalHighlightComplete;
+            public bool RequestReturnToLobby() => false;
         }
     }
 }

@@ -82,6 +82,20 @@ namespace Game.Network.Players
         [Networked]
         public PlayerPosture Posture { get; private set; }
 
+        /// <summary>감정 표현이 시작될 때마다 1씩 오른다. 같은 표현을 다시 골라도 오른다.</summary>
+        [Networked]
+        public int EmoteSequence { get; private set; }
+
+        /// <summary>마지막으로 시작한 감정 표현의 카탈로그 ID.</summary>
+        [Networked]
+        public int EmoteId { get; private set; }
+
+        [Networked]
+        private int LastEmoteRequest { get; set; }
+
+        [Networked]
+        public float LookPitchDegrees { get; private set; }
+
         public bool IsScenePlacementReady => Object != null && Object.IsValid &&
                                              ScenePlacementReady && !hasPendingTeleport;
 
@@ -106,9 +120,12 @@ namespace Game.Network.Players
             botInput = GetComponent<BotMoveToTarget>();
             
             var carryableMask = LayerMask.GetMask("Carryable");
+            // 캐릭터끼리 서로를 밀어내도록 KCC 캡슐이 올라간 Player 레이어도 막는다.
+            // 이게 빠져 있으면 KCC는 Default만 보고 다른 플레이어를 통과한다.
+            var playerMask = 1 << kcc.Settings.ColliderLayer;
             // KCC queries provide blocking/grounding; PhysX must not push props
             // with the avatar's kinematic body. Prop gravity/contact stays active.
-            kcc.SetCollisionLayerMask(kcc.Settings.CollisionLayerMask | carryableMask);
+            kcc.SetCollisionLayerMask(kcc.Settings.CollisionLayerMask | carryableMask | playerMask);
             GetComponent<Rigidbody>().excludeLayers |= carryableMask;
 
             var behaviours = GetComponents<MonoBehaviour>();
@@ -235,10 +252,14 @@ namespace Game.Network.Players
                                   direction.sqrMagnitude > 0f &&
                                   input.IsPressed(NetworkPlayerButton.Sprint);
             if (matchStarter == null) matchStarter = Runner.GetComponent<Game.Network.Match.MatchStarter>();
-            // 로비·대기실·엔딩 무대에서는 스태미나 없이 계속 달린다. 숨기·찾기 페이즈에서만 소모된다.
-            // 매치 시작 시점에 권위가 스태미나를 가득 채우므로(TryResetStamina) 로비에서의 상태는 매치에 이어지지 않는다.
+            // 로비·대기실·숨기기·엔딩 무대에서는 스태미나 없이 계속 달린다. 찾기 페이즈에서만 소모된다.
+            // 단, 찾기 페이즈의 마지막 구간(최종 경고 배너가 뜨는 그 30초)에는 다시 무제한이 된다.
+            // 무제한 구간에서는 매 틱 스태미나를 가득 채우므로 찾기 페이즈에 이전 상태가 이어지지 않는다.
             var unlimitedSprint = matchStarter == null ||
-                PlayerStaminaRules.IsUnlimitedInPhase(matchStarter.CurrentPhase);
+                PlayerStaminaRules.IsUnlimited(
+                    matchStarter.CurrentPhase,
+                    matchStarter.PhaseEndsAt - Runner.SimulationTime,
+                    matchStarter.FinalSprintWindowSeconds);
             if (Object.HasStateAuthority)
             {
                 var stamina = PlayerStaminaRules.Step(
@@ -271,6 +292,10 @@ namespace Game.Network.Players
                 input.LookYawDegrees,
                 settings.RotationSpeedDegrees * Runner.DeltaTime);
             kcc.SetLookRotation(0f, yaw);
+            if (ControlsEnabled)
+            {
+                LookPitchDegrees = input.LookPitchDegrees;
+            }
 
             AnimationSpeed = direction.magnitude * DesiredMoveSpeed;
             AnimationGrounded = grounded;
@@ -287,8 +312,35 @@ namespace Game.Network.Players
                 NextAttackAllowedAt = Runner.SimulationTime + attackCooldownSeconds;
             }
 
+            if (IsNewEmoteRequest(input.EmoteSequence, LastEmoteRequest))
+            {
+                LastEmoteRequest = input.EmoteSequence;
+                // 앉거나 엎드린 채 고르면 먼저 일어선다. 머리 위가 막혀 못 일어서면 표현도 시작하지 않는다.
+                if (grounded && Posture != PlayerPosture.Standing)
+                {
+                    TryApplyPosture(PlayerPosture.Standing, settings);
+                }
+
+                if (CanStartEmote(grounded, Posture))
+                {
+                    EmoteSequence++;
+                    EmoteId = input.EmoteId;
+                }
+            }
+
             PreviousButtons = input.Buttons;
         }
+
+        /// <summary>
+        /// 요청 번호가 바뀌었을 때만 새 요청이다. 0은 요청 없음이며, 재접속으로 클라이언트 번호가
+        /// 0부터 다시 시작해도 이전 번호와 달라졌다는 이유만으로 표현이 나가지 않게 한다.
+        /// </summary>
+        internal static bool IsNewEmoteRequest(int request, int lastRequest) =>
+            request != 0 && request != lastRequest;
+
+        /// <summary>감정 표현 클립은 모두 서 있는 자세라 땅에서 서 있을 때만 시작한다.</summary>
+        internal static bool CanStartEmote(bool grounded, PlayerPosture posture) =>
+            grounded && posture == PlayerPosture.Standing;
 
         internal bool TrySetControlsEnabled(bool enabled)
         {
@@ -498,12 +550,14 @@ namespace Game.Network.Players
             var radius = kcc.Settings.Radius * 0.95f;
             var currentHeight = kcc.Settings.Height;
             var origin = transform.position + Vector3.up * (currentHeight - radius);
+            // 다른 플레이어는 천장이 아니다. 위에 올라탄 캐릭터 때문에 못 일어나면
+            // 웅크리기·엎드리기에 갇힌다. 일어서면 위 캐릭터는 KCC가 밀어낸다.
             var hits = Physics.SphereCastAll(
                 origin,
                 radius,
                 Vector3.up,
                 targetHeight - currentHeight,
-                Physics.DefaultRaycastLayers,
+                Physics.DefaultRaycastLayers & ~(1 << kcc.Settings.ColliderLayer),
                 QueryTriggerInteraction.Ignore);
 
             for (var index = 0; index < hits.Length; index++)

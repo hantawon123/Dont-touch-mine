@@ -18,6 +18,8 @@ namespace Game.Network.Match
         bool IsServer { get; }
         bool IsRuntimeReady { get; }
         bool IsResultSceneLoaded { get; }
+        bool IsLocalHighlightComplete { get; }
+        bool HasLeftLocalHighlight { get; }
         bool EnterResultScene();
         bool PrepareLobbyForHighlights();
         bool CompleteLocalHighlightViewing();
@@ -36,6 +38,9 @@ namespace Game.Network.Match
     /// </summary>
     public interface INetworkMatchEvents
     {
+        /// <summary>방 설정에서 고른 파쇄 한도. 라벨의 분모와 경기 시작 횟수가 이 값을 쓴다.</summary>
+        int DestructionLimit { get; }
+
         event Action<MatchStateSnapshot> MatchStateReceived;
         event Action<LobbyChatMessage> MatchChatReceived;
         event Action<string> ItemAssignmentReceived;
@@ -57,6 +62,8 @@ namespace Game.Network.Match
         // Final forward tick, with no remaining simulation backlog in later frames.
         bool IsFinalForwardTick { get; }
         bool HasCompletedHighlight(int playerIndex) => false;
+        /// <summary>The peers the authority is still waiting on before the highlight starts.</summary>
+        string DescribeHighlightReadiness() => "unknown";
         MatchMigrationState MatchMigration { get; }
         bool IsMatchRuntimeRestorePending { get; }
         void ReportMatchRuntimeRestored(Exception failure);

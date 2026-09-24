@@ -4,6 +4,7 @@ using Game.Client.Character;
 using Game.Client.Home;
 using Game.Client.Settings;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -18,8 +19,11 @@ namespace Game.Client.Lobby
     public sealed class KickConfirmView : MonoBehaviour, ILobbyConfirmView
     {
         public const string RootName = "KickConfirm";
-        public const string CancelLabel = "취소";
-        public const string ConfirmLabel = "강퇴하기";
+        public static string CancelLabel =>
+            UiLocale.Applied(UiText.Settings.Cancel);
+
+        public static string ConfirmLabel =>
+            UiLocale.Applied(UiText.Lobby.KickAction);
         public const float ReasonHeight = 48f;
         public const float ReasonGap = 20f;
         public const float ReasonWidth = 490f;
@@ -43,7 +47,8 @@ namespace Game.Client.Lobby
         public const int NoteRequiredLength = 5;
         public const string NoteRootName = "Note";
         public const string NoteCounterName = "Counter";
-        public const string NotePlaceholder = "내용을 입력해주세요";
+        public static string NotePlaceholder =>
+            UiLocale.Applied(UiText.Settings.FeedbackPlaceholder);
         public const int SortingOrder = PlaySettingsStyle.Overlay.SortingOrder + 20;
 
         public static readonly ReportReason[] Reasons =
@@ -64,22 +69,28 @@ namespace Game.Client.Lobby
                 + NoteHeight);
 
         public static string FormatTitle(string displayName) =>
-            $"{displayName} 님을\n강퇴하시겠습니까?";
+            FormatTitle(displayName, UiLocale.AppliedLanguage);
 
-        public static string ReasonLabel(ReportReason reason)
+        public static string FormatTitle(string displayName, string language) =>
+            string.Format(UiTextCatalog.Shipped.Get(UiText.Lobby.KickTitle, language), displayName);
+
+        public static string ReasonLabel(ReportReason reason) =>
+            ReasonLabel(reason, UiLocale.AppliedLanguage);
+
+        public static string ReasonLabel(ReportReason reason, string language)
         {
             switch (reason)
             {
                 case ReportReason.Abuse:
-                    return "욕설/비하";
+                    return UiTextCatalog.Shipped.Get(UiText.Lobby.ReasonAbuse, language);
                 case ReportReason.Cheating:
-                    return "치팅";
+                    return UiTextCatalog.Shipped.Get(UiText.Lobby.ReasonCheating, language);
                 case ReportReason.Spam:
-                    return "도배/광고";
+                    return UiTextCatalog.Shipped.Get(UiText.Lobby.ReasonSpam, language);
                 case ReportReason.InappropriateName:
-                    return "부적절한 닉네임";
+                    return UiTextCatalog.Shipped.Get(UiText.Lobby.ReasonName, language);
                 default:
-                    return "기타";
+                    return UiTextCatalog.Shipped.Get(UiText.Lobby.ReasonOther, language);
             }
         }
 
@@ -683,9 +694,7 @@ namespace Game.Client.Lobby
                 CharacterClosetStyle.Modal.CloseSize, CharacterClosetStyle.Modal.CloseSize);
 
             var image = AddImage(rect, CharacterClosetStyle.Palette.CloseIcon, raycastTarget: true);
-            image.sprite = BuildCloseIcon();
-            image.type = Image.Type.Simple;
-            image.preserveAspect = true;
+            SettingsStyle.ApplyCloseIcon(image);
 
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
@@ -763,47 +772,6 @@ namespace Game.Client.Lobby
         }
 
         internal void RaiseCancelled() => Cancelled?.Invoke();
-
-        private static Sprite BuildCloseIcon()
-        {
-            const int size = 64;
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-            {
-                hideFlags = HideFlags.HideAndDontSave,
-                filterMode = FilterMode.Bilinear
-            };
-
-            var center = (size - 1) * 0.5f;
-            var radius = center - 2f;
-            var arm = 11f;
-            var thickness = 3.2f;
-            for (var y = 0; y < size; y++)
-            {
-                for (var x = 0; x < size; x++)
-                {
-                    var dx = x - center;
-                    var dy = y - center;
-                    if ((dx * dx) + (dy * dy) > radius * radius)
-                    {
-                        texture.SetPixel(x, y, Color.clear);
-                        continue;
-                    }
-
-                    var onX = Mathf.Abs(dx - dy) <= thickness && Mathf.Abs(dx) <= arm
-                        || Mathf.Abs(dx + dy) <= thickness && Mathf.Abs(dx) <= arm;
-                    texture.SetPixel(x, y, onX ? new Color(0.14f, 0.14f, 0.14f, 1f) : Color.white);
-                }
-            }
-
-            texture.Apply(false, false);
-            var sprite = Sprite.Create(
-                texture,
-                new Rect(0f, 0f, size, size),
-                new Vector2(0.5f, 0.5f),
-                100f);
-            sprite.hideFlags = HideFlags.HideAndDontSave;
-            return sprite;
-        }
 
         private static RectTransform CreateRect(string name, Transform parent)
         {

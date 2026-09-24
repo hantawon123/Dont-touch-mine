@@ -77,6 +77,61 @@ namespace Game.Editor
         private float floorY0;
         private float floorY1 = 5f;
 
+        /// <summary>
+        /// 자주 굽는 맵·층의 값 (S15P21D205-1085, 2층 1092).
+        ///
+        /// <para>
+        /// 실제로 구운 값이며 <c>maps/&lt;id&gt;.json</c> 에 그대로 남아 있다. 저택은 층이 겹쳐
+        /// 층마다 파일이 따로다 - 그림 하나에 두 층을 담으면 히트맵이 사람을 벽 안에 세운다.
+        /// </para>
+        /// </summary>
+        private readonly struct Preset
+        {
+            public Preset(string name, string mapId, float x0, float z0, float x1, float z1,
+                float cut, string floorLabel = null, float floorY0 = 0f, float floorY1 = 0f)
+            {
+                Name = name; MapId = mapId; X0 = x0; Z0 = z0; X1 = x1; Z1 = z1;
+                Cut = cut; FloorLabel = floorLabel; FloorY0 = floorY0; FloorY1 = floorY1;
+            }
+
+            public string Name { get; }
+            public string MapId { get; }
+            public float X0 { get; }
+            public float Z0 { get; }
+            public float X1 { get; }
+            public float Z1 { get; }
+            public float Cut { get; }
+            public string FloorLabel { get; }
+            public float FloorY0 { get; }
+            public float FloorY1 { get; }
+        }
+
+        private static readonly Preset[] Presets =
+        {
+            new Preset("마트", "supermarket", -26f, -42f, 22f, 9.5f, 3f),
+            // 저택 1층: 자를 높이는 2층 바닥 5.5 아래, 층 범위는 1층 바닥 1.01 ~ 2층 바닥.
+            new Preset("저택 1층", "mansion", -15f, -34f, 15.2f, -8.5f, 3f, "1층", 0.7f, 5f),
+            // 저택 2층: 자를 높이는 2층 천장(바닥 5.5 + 천고 4.5) 아래, 층 범위는 다락 차단 판 9.8 까지.
+            new Preset("저택 2층", "mansion-2f", -15f, -34f, 15.2f, -8.5f, 9.5f, "2층", 5f, 9.8f),
+        };
+
+        private void Apply(Preset preset)
+        {
+            mapId = preset.MapId;
+            x0 = preset.X0; z0 = preset.Z0; x1 = preset.X1; z1 = preset.Z1;
+            cutHeight = preset.Cut;
+            oneFloor = !string.IsNullOrEmpty(preset.FloorLabel);
+            if (oneFloor)
+            {
+                floorLabel = preset.FloorLabel;
+                floorY0 = preset.FloorY0;
+                floorY1 = preset.FloorY1;
+            }
+            measured = x1 > x0 && z1 > z0;
+            measureNote = $"「{preset.Name}」 값을 넣었습니다. 환경 루트와 씬이 그 맵인지 확인하고 구우세요.";
+            GUI.FocusControl(null);
+        }
+
         private bool measured;
         private float x0, z0, x1, z1, floorY, roofY;
         private string measureNote = string.Empty;
@@ -102,6 +157,15 @@ namespace Game.Editor
 
             mapId = EditorGUILayout.TextField("맵 id", mapId);
             outputFolder = EditorGUILayout.TextField("출력 폴더", outputFolder);
+
+            // 창을 다시 열면 맵 id 가 기본값으로 돌아간다. 2026-09-19 에 씬과 범위만 저택으로 바꾸고
+            // 구워서 마트 그림을 덮어쓴 적이 있다(S15P21D205-1085). 값을 한 번에 넣는 단추를 둔다.
+            EditorGUILayout.LabelField("자주 굽는 값", EditorStyles.miniBoldLabel);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                foreach (var preset in Presets)
+                    if (GUILayout.Button(preset.Name)) Apply(preset);
+            }
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("굽는 범위", EditorStyles.boldLabel);

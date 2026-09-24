@@ -1,18 +1,12 @@
 using System;
 using Game.Client.Home;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    public interface IHidingTurnStartView
-    {
-        void Show(double remainingSeconds, string bannerText = null);
-        void Hide();
-        void SetRemainingSeconds(double remainingSeconds);
-    }
-
     /// <summary>
     /// The first beat of a timed warning: a large stopwatch and a banner.
     /// Hiding uses this at the start of a turn; searching reuses it when the
@@ -20,11 +14,13 @@ namespace Game.Client.Match
     /// </summary>
     [ExecuteAlways]
     [DisallowMultipleComponent]
-    public sealed class HidingTurnStartView : MonoBehaviour, IHidingTurnStartView
+    public sealed class HidingTurnStartView : MonoBehaviour
     {
         public const float VisibleSeconds = 1f;
-        public const string BannerText = "제한 시간 안에 물건을 숨겨주세요!";
-        public const string FinalWarningBannerText = "서둘러 자신의 물건을 확보하세요!";
+        public static string BannerText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.HideBanner, "ko");
+        public static string FinalWarningBannerText =>
+            UiTextCatalog.Shipped.Get(UiText.Match.HideFinalBanner, "ko");
         public const float TimerFontSize = 64f;
         public const float BannerFontSize = 55f;
         public const float BannerWidthPercent = 0.7f;
@@ -57,7 +53,20 @@ namespace Game.Client.Match
 
         private int lastTotalSeconds = -1;
         private bool shown;
-        private string currentBannerText = BannerText;
+        private string currentBannerText;
+        private string bannerKey = UiText.Match.HideBanner;
+        private UiLocale chromeLocale;
+
+        private static bool IsFinalBanner(string bannerText)
+        {
+            if (string.IsNullOrWhiteSpace(bannerText))
+            {
+                return false;
+            }
+
+            return bannerText == FinalWarningBannerText
+                || bannerText == UiTextCatalog.Shipped.Get(UiText.Match.HideFinalBanner, "en");
+        }
 
         public static string FormatTimer(double remainingSeconds)
         {
@@ -88,11 +97,29 @@ namespace Game.Client.Match
             }
         }
 
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            if (shown)
+            {
+                currentBannerText = Copy(bannerKey);
+                ApplyBanner();
+            }
+        }
+
+        private string Copy(string key) =>
+            chromeLocale != null
+                ? chromeLocale.Get(key)
+                : UiLocale.Applied(key);
+
         public void Show(double remainingSeconds, string bannerText = null)
         {
             shown = true;
+            bannerKey = IsFinalBanner(bannerText)
+                ? UiText.Match.HideFinalBanner
+                : UiText.Match.HideBanner;
             currentBannerText = string.IsNullOrWhiteSpace(bannerText)
-                ? BannerText
+                ? Copy(bannerKey)
                 : bannerText;
             if (!gameObject.activeSelf)
             {
@@ -231,7 +258,7 @@ namespace Game.Client.Match
             var banner = CreateImage(content, "Banner", BannerColor, BannerRoundedSprite);
             ApplyBannerCorner(banner);
 
-            bannerText = CreateText(banner.rectTransform, "Label", BannerText, BannerFontSize);
+            bannerText = CreateText(banner.rectTransform, "Label", Copy(UiText.Match.HideBanner), BannerFontSize);
             bannerText.textWrappingMode = TextWrappingModes.NoWrap;
             bannerText.overflowMode = TextOverflowModes.Overflow;
             Stretch(bannerText.rectTransform, 24f);

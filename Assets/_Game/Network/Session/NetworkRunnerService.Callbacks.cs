@@ -34,6 +34,7 @@ namespace Game.Network.Session
             // Snapshot seats must be restored before a join can allocate a new one.
             if (_hostMigrationInProgress) return;
             _spawner?.Spawn(runner, player, NicknameOf(runner, player), UserIdOf(runner, player));
+            ApplyLobbySprintMultiplier(player, _matchRules.SprintMultiplier);
             ReportPlayerCount();
         }
 
@@ -61,13 +62,28 @@ namespace Game.Network.Session
             }
 
             ReportPlayerCount();
-            // Preserve the existing room-owner departure policy without assigning
-            // simulation authority to another player or keeping an orphaned room.
-            if (ownerLeft)
+            // The room outlives its owner: a dedicated server keeps simulating, so
+            // the match, its highlights and its result continue for everyone who
+            // stayed. Only an empty room closes.
+            if (ownerLeft && !TryHandOverRoom(runner, player))
             {
                 ReportExit(RoomExitReason.HostClosed);
                 ScheduleExitShutdown(runner);
             }
+        }
+
+        private bool TryHandOverRoom(NetworkRunner runner, PlayerRef leaving)
+        {
+            if (_spawner?.TryTransferRoomOwnership(runner, leaving, out var next) != true)
+            {
+                return false;
+            }
+
+            // The listing names its host, so it must name the one it now has.
+            ApplyHostNickname(NicknameOf(runner, next));
+            ReportPlayerCount();
+            Debug.Log($"[Network] The room owner left; {next} manages it now.");
+            return true;
         }
 
         public void OnConnectedToServer(NetworkRunner runner)
@@ -619,8 +635,25 @@ namespace Game.Network.Session
             }
         }
 
-        internal static bool IsHighlightMapLoaded(NetworkSceneInfo info, Game.Network.NetworkScenes scenes, string mapId) =>
-            scenes != null && ContainsScene(info, scenes.MatchSceneFor(mapId));
+        /// <summary>
+        /// Whether a highlight can play here: the map it replays and the lobby it
+        /// returns to are both loaded.
+        /// </summary>
+        /// <remarks>
+        /// The map is recognised from the scenes that are actually loaded, never
+        /// from the room's map id. Only the authority knows which map a random
+        /// draw chose, so on every other peer that id is empty or stale, and
+        /// asking it which scene to expect answered with the default map. A peer
+        /// on any other map then never acknowledged readiness, and the authority
+        /// dropped the highlight for everyone once its barrier timed out.
+        /// </remarks>
+        internal static bool IsHighlightMapLoaded(NetworkSceneInfo info, Game.Network.NetworkScenes scenes)
+        {
+            if (scenes == null) return false;
+            for (var index = 0; index < info.SceneCount; index++)
+                if (scenes.IsMatchScene(info.Scenes[index])) return true;
+            return false;
+        }
 
         internal static bool IsOnlyScene(NetworkSceneInfo info, SceneRef expected) =>
             expected.IsValid && info.SceneCount == 1 && info.Scenes[0] == expected;
@@ -752,7 +785,7 @@ namespace Game.Network.Session
                               IsOnlyScene(runner.SceneInfo, _scenes.LobbyScene);
             _highlightLobbyPrepared = _scenes != null &&
                 ContainsScene(runner.SceneInfo, _scenes.LobbyScene) &&
-                IsHighlightMapLoaded(runner.SceneInfo, _scenes, AnalyticsMapId);
+                IsHighlightMapLoaded(runner.SceneInfo, _scenes);
             if (_highlightLobbyPrepared) _highlightLobbyLoadRequested = false;
             var tookOverPreloadedLobby = lobbyLoaded &&
                                          _preloadedLobbyRoots.Length > 0;

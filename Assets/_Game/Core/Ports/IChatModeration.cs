@@ -29,12 +29,18 @@ namespace Game.Core.Ports
         /// <b>The original.</b> What everyone sees is the masked text; what an investigator
         /// needs is this.
         /// </param>
+        /// <param name="masked">
+        /// Whether this line actually went out covered. The backend stores it as given rather
+        /// than judging the message again, so the record says what the players saw and not
+        /// what a later word list would have said about it (S15P21D205-1096).
+        /// </param>
         public ChatLogRecord(
             string roomCode,
             ChatScope scope,
             string userPublicId,
             string senderRef,
             string message,
+            bool masked,
             DateTimeOffset saidAt)
         {
             RoomCode = roomCode;
@@ -42,6 +48,7 @@ namespace Game.Core.Ports
             UserPublicId = userPublicId;
             SenderRef = senderRef;
             Message = message;
+            Masked = masked;
             SaidAt = saidAt;
         }
 
@@ -54,6 +61,8 @@ namespace Game.Core.Ports
         public string SenderRef { get; }
 
         public string Message { get; }
+
+        public bool Masked { get; }
 
         public DateTimeOffset SaidAt { get; }
     }

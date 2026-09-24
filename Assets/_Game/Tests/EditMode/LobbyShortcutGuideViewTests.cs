@@ -178,6 +178,60 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ShowChrome_RedrawsActionsInTheAppliedLanguage()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = LobbyShortcutGuideView.Create(canvas.transform);
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                using var locale = new UiLocale(new GeneralSettingsSystem(store));
+                view.ShowChrome(locale);
+
+                Assert.That(
+                    view.transform.Find("Item0/Action").GetComponent<TMP_Text>().text,
+                    Is.EqualTo("Character"));
+                Assert.That(
+                    view.transform.Find("Item1/Action").GetComponent<TMP_Text>().text,
+                    Is.EqualTo("Players"));
+                Assert.That(
+                    view.transform.Find("Item2/Action").GetComponent<TMP_Text>().text,
+                    Is.EqualTo("Settings"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void StartCountdown_FollowsTheAppliedLanguage()
+        {
+            var canvas = new GameObject("LobbyHud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var hud = canvas.AddComponent<LobbyHudView>();
+                hud.SetStartCountdown(10d);
+                var countdown = canvas.transform.Find("Start countdown")
+                    .GetComponent<TMP_Text>();
+
+                Assert.That(countdown.text, Is.EqualTo("10초 뒤 게임이 시작됩니다"));
+
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                using var locale = new UiLocale(new GeneralSettingsSystem(store));
+                hud.ShowChrome(locale);
+
+                Assert.That(countdown.text, Is.EqualTo("Game starts in 10s"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void VoiceKeyHints_FollowAppliedControlBindings()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));

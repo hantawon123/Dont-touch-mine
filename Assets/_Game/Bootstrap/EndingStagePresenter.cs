@@ -39,6 +39,26 @@ namespace Game.Bootstrap
         private PlayerCameraController bodyShownRig;
         private readonly HashSet<int> itemHiddenFor = new();
         private readonly List<Renderer> hiddenItemRenderers = new();
+        private const float MissingItemGraceSeconds = 3f;
+
+        /// <summary>플레이어별로 손에 붙여 둔 전시용 복제본 (S15P21D205-1087).</summary>
+        private readonly Dictionary<int, GameObject> shownItems = new();
+
+        /// <summary>들기 자세를 못 박아 둔 아바타. 무대를 내려올 때 돌려준다 (S15P21D205-1087).</summary>
+        private readonly HashSet<PlayerAnimationDriver> carryForced = new();
+
+        /// <summary>빈손으로 남은 이유를 이미 알린 플레이어 (S15P21D205-1087).</summary>
+        private readonly HashSet<int> missingItemReported = new();
+
+        /// <summary>
+        /// 이 시각 전의 실패는 알리지 않는다. 아바타·물건 상태가 도착하기 전에도 한 번은 돌기 때문에,
+        /// 곧 성공할 시도를 경고로 남기면 진짜 빈손과 구분할 수 없다.
+        /// </summary>
+        private float missingItemReportAfter;
+
+        private MatchChatView chat;
+        private MatchChatBubbleView bubbles;
+        private bool chatChromeApplied;
 
         public EndingStagePresenter(
             NetworkResultLobbyReturnController result,
@@ -66,10 +86,13 @@ namespace Game.Bootstrap
             // backdrop. With a stage behind it, the backdrop would hide the stage.
             view.SetBackdropVisible(false);
             backdropHidden = true;
+            missingItemReportAfter = Time.unscaledTime + MissingItemGraceSeconds;
             stage.ShowCamera();
             LockLocalInteraction();
             ShowLocalBody();
             HideCarriedItems();
+            ShowOwnItems();
+            ShowChat();
         }
 
         public void Tick()
@@ -78,6 +101,8 @@ namespace Game.Bootstrap
             if (lockedInteractor == null) LockLocalInteraction();
             if (bodyShownRig == null) ShowLocalBody();
             HideCarriedItems();
+            ShowOwnItems();
+            ShowChat();
         }
 
         /// <remarks>
@@ -105,6 +130,202 @@ namespace Game.Bootstrap
                 if (renderer != null) renderer.forceRenderingOff = false;
             hiddenItemRenderers.Clear();
             itemHiddenFor.Clear();
+
+            foreach (var copy in shownItems.Values)
+                if (copy != null) UnityEngine.Object.Destroy(copy);
+            shownItems.Clear();
+
+            // 들기 자세는 무대 위에서만 못 박은 것이다. 로비로 돌아가는 아바타는 제 상태를 따른다.
+            foreach (var driver in carryForced)
+                if (driver != null) driver.SetCarryOverride(false);
+            carryForced.Clear();
+            missingItemReported.Clear();
+
+            // 채팅과 말풍선은 매치 씬의 것이라 결과 씬보다 오래 산다. 빌려 쓴 상태를 돌려준다.
+            if (chat != null) chat.SetKeepChromeVisible(false);
+            chat = null;
+            chatChromeApplied = false;
+            if (bubbles != null) bubbles.PinCamera(null);
+            bubbles = null;
+        }
+
+        /// <summary>
+        /// 각자 <b>원래 자기 물건</b>을 손에 들려 준다 (S15P21D205-1087).
+        /// </summary>
+        /// <remarks>
+        /// 들려 주는 것은 복제본이고 원본은 <see cref="HideCarriedItems"/> 가 숨긴 그대로 둔다.
+        /// 결과가 확정된 뒤에 진짜 물건을 옮기면 권위가 쥐고 있는 소유·물리 상태를 건드리게 되고,
+        /// 하이라이트 복원과 분석 기록이 그 위에서 돈다. 여기서 바꾸는 것은 보이는 것뿐이다.
+        /// <para>
+        /// 누구 물건인지는 <see cref="NetworkRunnerService.LatestPlayerItemStatuses"/> 가 소유자
+        /// 인덱스 순으로 들고 있다. <see cref="CarryableItem.AssignToPlayer"/> 는 자기 것만 표시하므로
+        /// 남의 물건을 찾는 데는 쓸 수 없다.
+        /// </para>
+        /// <para>
+        /// 파괴된 물건도 그대로 들려 준다. 유치장에 선 사람이 빈손이면 "무엇을 잃었는지"가 화면에서
+        /// 사라진다.
+        /// </para>
+        /// </remarks>
+        private void ShowOwnItems()
+        {
+            if (!result.HasMatchResult) return;
+            var participants = room.MatchParticipants.CurrentValue;
+            if (participants == null || participants.Count == 0) return;
+            if (shownItems.Count >= participants.Count) return;
+
+            var statuses = network.LatestPlayerItemStatuses;
+            if (statuses == null || statuses.Count == 0) return;
+
+            var placements = EndingStageLayout.Assign(
+                participants,
+                result.LastWinnerPlayerIndices,
+                stage.EscapeSlotCount,
+                stage.ArrestSlotCount);
+
+            Dictionary<string, PlayerAvatar> avatars = null;
+            Dictionary<string, CarryableItem> items = null;
+            DestroyedItemArchive archive = null;
+            var archiveSearched = false;
+            foreach (var placement in placements)
+            {
+                if (shownItems.ContainsKey(placement.PlayerIndex)) continue;
+                if (placement.PlayerIndex < 0 || placement.PlayerIndex >= statuses.Count)
+                {
+                    ReportMissingItem(placement.PlayerIndex, "물건 상태에 자리가 없다");
+                    continue;
+                }
+
+                var itemId = statuses[placement.PlayerIndex].ItemId;
+                if (string.IsNullOrEmpty(itemId))
+                {
+                    ReportMissingItem(placement.PlayerIndex, "배정된 물건 id가 비어 있다");
+                    continue;
+                }
+
+                avatars ??= FindAvatars();
+                if (!avatars.TryGetValue(placement.PlayerId, out var avatar))
+                {
+                    ReportMissingItem(placement.PlayerIndex, $"아바타를 찾지 못했다 (item={itemId})");
+                    continue;
+                }
+
+                var holdPoint = avatar.GetComponent<PlayerInteractor>()?.HoldPoint;
+                if (holdPoint == null)
+                {
+                    ReportMissingItem(placement.PlayerIndex, $"HoldPoint가 없다 (item={itemId})");
+                    continue;
+                }
+
+                items ??= FindItems();
+                GameObject sourceObject = null;
+                if (items.TryGetValue(itemId, out var source) && source != null)
+                {
+                    sourceObject = source.gameObject;
+                }
+                else
+                {
+                    // 파괴된 물건은 씬에서 지워졌으므로 파괴 직전에 맡겨 둔 겉모습을 쓴다.
+                    if (!archiveSearched)
+                    {
+                        archiveSearched = true;
+                        archive = UnityEngine.Object.FindFirstObjectByType<DestroyedItemArchive>(
+                            FindObjectsInactive.Include);
+                    }
+
+                    if (archive != null && archive.TryGetVisual(itemId, out var kept)) sourceObject = kept;
+                }
+
+                if (sourceObject == null)
+                {
+                    ReportMissingItem(placement.PlayerIndex,
+                        $"씬에도 파괴 보관소에도 없다 (item={itemId}, 파괴됨={statuses[placement.PlayerIndex].IsDestroyed})");
+                    continue;
+                }
+
+                var copy = ItemDisplayCopy.Create(sourceObject, holdPoint, itemId + " (Ending)");
+                if (copy == null) continue;
+                copy.SetActive(true);
+                shownItems[placement.PlayerIndex] = copy;
+                ShowCarryPose(avatar);
+            }
+        }
+
+        /// <summary>
+        /// 손에 든 것이 없어도 들기 자세를 유지시킨다 (S15P21D205-1087).
+        /// </summary>
+        /// <remarks>
+        /// 복제본은 애니메이션이 아는 물건이 아니다. 로컬은 진짜 물건을 잊게 만들었고
+        /// (<see cref="HideCarriedItems"/>), 원격은 결과 씬에서 들기 상태를 끈 채로 온다.
+        /// 그대로 두면 물건은 손에 있는데 팔만 내려간다.
+        /// </remarks>
+        private void ShowCarryPose(PlayerAvatar avatar)
+        {
+            var driver = avatar.GetComponent<PlayerAnimationDriver>();
+            if (driver == null || !carryForced.Add(driver)) return;
+            driver.SetCarryOverride(true);
+        }
+
+        /// <summary>
+        /// 누구를 왜 빈손으로 세웠는지 플레이어당 한 번 남긴다 (S15P21D205-1087).
+        /// </summary>
+        /// <remarks>
+        /// 손에 붙이는 일은 매 틱 다시 시도하므로, 경고 없이 두면 "그 사람만 빈손"인 판이
+        /// 무엇 때문이었는지 나중에 알 길이 없다. 한 번만 남겨 로그를 채우지 않는다.
+        /// </remarks>
+        private void ReportMissingItem(int playerIndex, string reason)
+        {
+            if (Time.unscaledTime < missingItemReportAfter) return;
+            if (!missingItemReported.Add(playerIndex)) return;
+            Debug.LogWarning($"[Ending] Player {playerIndex} stands empty-handed: {reason}.");
+        }
+
+        private static Dictionary<string, CarryableItem> FindItems()
+        {
+            var map = new Dictionary<string, CarryableItem>(StringComparer.Ordinal);
+            // 파괴된 물건은 꺼져 있을 수 있는데 그것도 들려 주므로 꺼진 것까지 찾는다.
+            foreach (var item in UnityEngine.Object.FindObjectsByType<CarryableItem>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                var id = item.ObjectId;
+                if (!string.IsNullOrEmpty(id)) map.TryAdd(id, item);
+            }
+            return map;
+        }
+
+        /// <summary>
+        /// 유치장에서도 이야기할 수 있게 한다 (S15P21D205-1087).
+        /// </summary>
+        /// <remarks>
+        /// 채팅은 매치 씬의 것이고 그 모드는 단계 스냅샷이 정한다. 결과 화면의 주인은 이 무대이므로
+        /// 여기서 직접 켜 둔다 - 하이라이트가 화이트리스트 밖 그래픽을 전부 껐다 켜는 길을 지나오기
+        /// 때문에, 스냅샷이 한 번 더 오기를 기다리지 않는다.
+        /// <para>
+        /// 말풍선은 아바타 머리 위의 월드 캔버스라 무대 카메라를 보게 못 박는다.
+        /// </para>
+        /// </remarks>
+        private void ShowChat()
+        {
+            chat ??= UnityEngine.Object.FindFirstObjectByType<MatchChatView>(FindObjectsInactive.Include);
+            if (chat != null)
+            {
+                var wasHidden = !chat.gameObject.activeSelf;
+                chat.SetMode(MatchChatHudMode.Full);
+
+                // 크롬은 한 번만 켠다. 켜는 쪽이 레이아웃을 다시 그리므로 매 틱 부를 일이 아니다.
+                // 누가 채팅을 껐다 켜면 그때 다시 걸어 준다.
+                if (!chatChromeApplied || wasHidden)
+                {
+                    chat.SetKeepChromeVisible(true);
+                    chatChromeApplied = true;
+                }
+            }
+
+            bubbles ??= UnityEngine.Object.FindFirstObjectByType<MatchChatBubbleView>(
+                FindObjectsInactive.Include);
+            if (bubbles != null && stage.StageCamera != null)
+            {
+                bubbles.PinCamera(stage.StageCamera);
+            }
         }
 
         /// <remarks>

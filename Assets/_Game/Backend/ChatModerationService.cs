@@ -204,6 +204,7 @@ namespace Game.Backend
             userPublicId = record.UserPublicId,
             senderRef = record.SenderRef,
             message = record.Message,
+            masked = record.Masked,
             // InvariantCulture 없이 쓰면 달력이 바뀌는 문화권에서 연도가 달라집니다. 태국 달력이면
             // 2026 이 2569 로 나가는데 자릿수가 같아 백엔드 검사도 통과합니다. 그러면 기록이 543년
             // 뒤로 저장되어 보관 삭제에도 안 걸리고 신고 시간대 조회에도 안 잡힙니다.
@@ -238,6 +239,7 @@ namespace Game.Backend
             public string userPublicId;
             public string senderRef;
             public string message;
+            public bool masked;
             public string sentAt;
         }
     }

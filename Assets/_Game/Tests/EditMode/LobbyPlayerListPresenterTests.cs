@@ -540,6 +540,10 @@ namespace Game.Tests.EditMode
                 Friends = friends;
             }
 
+            public void ShowChrome(Game.Core.Settings.UiLocale locale) => ChromeLocale = locale;
+
+            public Game.Core.Settings.UiLocale ChromeLocale { get; private set; }
+
             public void RaiseKick(string id, string name) => KickClicked?.Invoke(id, name);
 
             public void RaiseInvite(string id, string name) => InviteClicked?.Invoke(id, name);

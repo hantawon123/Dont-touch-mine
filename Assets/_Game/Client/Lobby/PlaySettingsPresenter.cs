@@ -1,5 +1,6 @@
 using System;
 using Game.Core.Lobby;
+using Game.Core.Settings;
 using R3;
 using UnityEngine;
 using VContainer.Unity;
@@ -12,6 +13,7 @@ namespace Game.Client.Lobby
         private readonly IPlaySettingsView view;
         private readonly ILobbyPauseMenuView pauseMenu;
         private readonly ILobbyParticipantList participants;
+        private readonly UiLocale locale;
         private IDisposable hostSubscription;
         private IDisposable settingsSubscription;
         private IDisposable participantSubscription;
@@ -31,12 +33,14 @@ namespace Game.Client.Lobby
             ILobbyHostSession hostSession,
             IPlaySettingsView view,
             ILobbyPauseMenuView pauseMenu,
-            ILobbyParticipantList participants)
+            ILobbyParticipantList participants,
+            UiLocale locale = null)
         {
             this.hostSession = hostSession ?? throw new ArgumentNullException(nameof(hostSession));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.pauseMenu = pauseMenu ?? throw new ArgumentNullException(nameof(pauseMenu));
             this.participants = participants;
+            this.locale = locale;
         }
 
         public void Start()
@@ -57,6 +61,12 @@ namespace Game.Client.Lobby
                 participantSubscription = participants.Participants.Subscribe(list =>
                     view.SetParticipantCount(list == null ? 0 : list.Count));
             }
+
+            if (locale != null)
+            {
+                locale.Changed += OnLocaleChanged;
+                view.ShowChrome(locale);
+            }
         }
 
         public void Dispose()
@@ -72,11 +82,18 @@ namespace Game.Client.Lobby
             hostSubscription?.Dispose();
             settingsSubscription?.Dispose();
             participantSubscription?.Dispose();
+            if (locale != null)
+            {
+                locale.Changed -= OnLocaleChanged;
+            }
+
             if (isOpen)
             {
                 SetInteractionPromptVisible(true);
             }
         }
+
+        private void OnLocaleChanged() => view.ShowChrome(locale);
 
         private void HandleHostChanged(bool isHost)
         {
@@ -144,7 +161,9 @@ namespace Game.Client.Lobby
                 hostSession.RequestApplySettings(draft);
             }
 
-            DisplaySettings(draft);
+            // The room clamps what it accepts and refuses what it cannot take, so
+            // the panel shows the settings the room now has, not what was typed.
+            DisplaySettings(hostSession.Settings.CurrentValue);
         }
 
         private void StartMatch()
@@ -204,8 +223,10 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            GUIUtility.systemCopyBuffer =
-                $"방 초대\n방제목: {settings.Title}\n방코드: {settings.RoomCode}";
+            var invite = locale != null
+                ? locale.Get(UiText.Play.Invite)
+                : UiTextCatalog.Shipped.Get(UiText.Play.Invite, "ko");
+            GUIUtility.systemCopyBuffer = string.Format(invite, settings.Title, settings.RoomCode);
         }
 
         private void CopyPassword()

@@ -16,10 +16,11 @@ namespace Game.Client.Match
     {
         public const string IntroSlotName = "ItemPreview";
         /// <summary>
-        /// Landscape slot above the two briefing lines. Wide props were
-        /// cropped in the old 360×360 square.
+        /// Fixed landscape slot above the two briefing lines. The camera fits
+        /// each prefab into this area, so world-scale differences never resize
+        /// the briefing UI or push the preview outside the screen.
         /// </summary>
-        public static readonly Vector2 IntroImageSize = new(2200f, 600f);
+        public static readonly Vector2 IntroImageSize = new(960f, 420f);
         public const float IntroCenterOffsetY = 242f;
         public const int IntroTextureSize = 1024;
         private const string PreviewLayerName = "Item Preview";
@@ -99,7 +100,8 @@ namespace Game.Client.Match
         {
             var startedAt = Time.realtimeSinceStartupAsDouble;
             Clear();
-            if (target == null)
+            // No preview stage or render target is needed on headless peers.
+            if (target == null || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
             {
                 return;
             }

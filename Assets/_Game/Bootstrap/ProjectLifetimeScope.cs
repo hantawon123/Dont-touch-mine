@@ -1,5 +1,6 @@
 using Game.Backend;
 using Game.Core.Flow;
+using Game.Client.Character;
 using Game.Client.Common;
 using Game.Client.Home;
 using Game.Client.Match;
@@ -63,6 +64,10 @@ namespace Game.Bootstrap
         [Tooltip("Looped only during highlight playback.")]
         private AudioClip _endingBgm;
 
+        [SerializeField]
+        [Tooltip("Parts a character can wear. Only read here to decide what a player who has never opened the closet is dressed in.")]
+        private AvatarPartCatalog _partCatalog;
+
         protected override void Configure(IContainerBuilder builder)
         {   
         #if GAME_TRAINING
@@ -102,6 +107,14 @@ namespace Game.Bootstrap
             var controlSettingsStore = new PlayerPrefsControlSettingsStore();
             var notificationSettingsStore = new PlayerPrefsNotificationSettingsStore();
 
+            // Likewise for the HUD microphone and speaker: a mute set in one
+            // room is what the next room should open with.
+            var voicePreferencesStore = new PlayerPrefsVoicePreferencesStore();
+
+            // Likewise for first person versus third person: a view set in the
+            // lobby is what the match should open with, and the other way.
+            var cameraViewStore = new PlayerPrefsCameraViewStore();
+
             RegisterServices(
                 builder,
                 _networkPrefabs,
@@ -114,7 +127,8 @@ namespace Game.Bootstrap
                 new SoundSettingsSystem(soundSettingsStore, soundSettingsApplier, microphones),
                 new ControlSettingsSystem(controlSettingsStore),
                 new NotificationSettingsSystem(notificationSettingsStore),
-                registerNullMicrophoneTest: false);
+                registerNullMicrophoneTest: false,
+                partCatalog: _partCatalog);
             builder.RegisterEntryPoint<UnityMicrophoneTest>().As<IMicrophoneTest>();
             builder.RegisterInstance<IServerRegionStore>(regionStore);
 
@@ -131,6 +145,8 @@ namespace Game.Bootstrap
             builder.RegisterInstance<ISoundSettingsApplier>(soundSettingsApplier);
             builder.RegisterInstance<IMicrophoneDevices>(microphones);
             builder.RegisterInstance<IControlSettingsStore>(controlSettingsStore);
+            builder.RegisterInstance<IVoicePreferencesStore>(voicePreferencesStore);
+            builder.RegisterInstance<ICameraViewStore>(cameraViewStore);
             builder.RegisterInstance<INotificationSettingsStore>(notificationSettingsStore);
 
             // Listens to the whole keyboard and mouse while a key is being
@@ -416,7 +432,8 @@ namespace Game.Bootstrap
             SoundSettingsSystem soundSettings = null,
             ControlSettingsSystem controlSettings = null,
             NotificationSettingsSystem notificationSettings = null,
-            bool registerNullMicrophoneTest = true)
+            bool registerNullMicrophoneTest = true,
+            AvatarPartCatalog partCatalog = null)
         {
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
@@ -438,6 +455,19 @@ namespace Game.Bootstrap
             // unless the application hands in one backed by preferences.
             builder.RegisterInstance(
                 generalSettings ?? new GeneralSettingsSystem(new InMemoryGeneralSettingsStore()));
+
+            // Words the interface draws, in the language last applied. Built
+            // by hand so a test can hand the locale its own catalogue without
+            // VContainer looking for one.
+            builder.Register(
+                c => new UiLocale(c.Resolve<GeneralSettingsSystem>()),
+                Lifetime.Singleton);
+
+            // Built with the container rather than on first use. Scenes that
+            // inject nothing - the tutorial is one - read the applied language
+            // through UiLocale.Current, and a lazy singleton would leave them
+            // in Korean until some other screen happened to ask for it.
+            builder.RegisterBuildCallback(container => container.Resolve<UiLocale>());
 
             // Forgetting with the process, and changing nothing about the
             // picture, unless the application hands in one backed by
@@ -486,7 +516,20 @@ namespace Game.Bootstrap
             // profile is: the closet writes what was applied and the lobby
             // reads it, and a copy per screen would dress the player
             // differently depending on where they were looked at.
-            builder.Register<AvatarAppearanceState>(Lifetime.Singleton);
+
+            // Dressed here rather than left empty, because an empty appearance
+            // means "whatever the model was authored with" and not "the
+            // catalogue's default". A player who has never opened the closet
+            // would otherwise wear the raw art in the tutorial and in a match.
+            // The account's own appearance, when there is one, lands on top of
+            // this through AvatarAppearanceSeed.
+            var appearanceState = new AvatarAppearanceState();
+            if (partCatalog != null)
+            {
+                appearanceState.Apply(partCatalog.Default);
+            }
+
+            builder.RegisterInstance(appearanceState);
             builder.RegisterEntryPoint<NetworkAvatarAppearancePresenter>();
 
             builder.Register<LoadingOverlay>(Lifetime.Singleton).As<ILoadingOverlay>().AsSelf();
@@ -542,8 +585,27 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<NetworkResultLobbyReturnController>().AsSelf();
             // Outlives every screen. The rig that opens the microphone is
             // rebuilt with each session and the control that drives it with each
-            // screen, but a player who muted themselves meant it to hold.
-            builder.Register<VoicePreferences>(Lifetime.Singleton);
+            // screen, but a player who muted themselves meant it to hold —
+            // including the next room. The store is this machine's when one is
+            // registered; tests and the dedicated server keep it in memory.
+            builder.Register(
+                c => new VoicePreferences(
+                    c.TryResolve<IVoicePreferencesStore>(out var store)
+                        ? store
+                        : new InMemoryVoicePreferencesStore()),
+                Lifetime.Singleton);
+
+            // Outlives every screen. The camera rig is rebuilt with each scene,
+            // but a player who switched to first person in the lobby meant it
+            // to hold — including the match and the lobby they return to. The
+            // store is this machine's when one is registered; tests and the
+            // dedicated server keep it in memory.
+            builder.Register(
+                c => new CameraViewPreference(
+                    c.TryResolve<ICameraViewStore>(out var store)
+                        ? store
+                        : new InMemoryCameraViewStore()),
+                Lifetime.Singleton);
 
             builder.Register<RoomCodeGenerator>(Lifetime.Singleton);
             builder.Register<IRoomBrowser, RoomBrowser>(Lifetime.Singleton);

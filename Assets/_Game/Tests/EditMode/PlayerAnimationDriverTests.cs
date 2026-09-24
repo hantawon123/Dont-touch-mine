@@ -214,6 +214,9 @@ namespace Game.Tests.EditMode
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Pickup_Low"), Is.True);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("PutUp_TwoHands"), Is.True);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("PutDown_Prone"), Is.True);
+            // 1회성 표현은 걸으면 끊기고, 춤은 걸어도 이어진다.
+            Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Emote_Wave"), Is.True);
+            Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Emote_HipHop"), Is.False);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Land"), Is.True);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Carry_TwoHands_Land"), Is.True);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Prone_End"), Is.False);
@@ -304,6 +307,10 @@ namespace Game.Tests.EditMode
             Assert.That(
                 PlayerAnimationDriver.ResolvePlaybackSpeed("Hit_Run", 7f, 4f, 7f, 2f, 0.8f),
                 Is.EqualTo(1f));
+            Assert.That(PlayerAnimationDriver.IsStunState("Stun_Start"), Is.True);
+            Assert.That(PlayerAnimationDriver.IsStunState("Stun_Idle"), Is.True);
+            Assert.That(PlayerAnimationDriver.IsStunState("Stun_End"), Is.True);
+            Assert.That(PlayerAnimationDriver.IsStunState("Idle"), Is.False);
         }
 
         [UnityTest]
@@ -334,14 +341,18 @@ namespace Game.Tests.EditMode
                     driver.SendMessage("Update");
                     animator.Update(0.3f);
                     Assert.That(combatant.IsStunned, Is.True);
-                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Stunned"),
-                        Is.True, $"Stun animation missing; local input={acceptsLocalInput}");
+                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Stun_Start"),
+                        Is.True, $"Stun start missing; local input={acceptsLocalInput}");
                     var clip = animator.GetCurrentAnimatorClipInfo(0);
                     Assert.That(clip.Length, Is.GreaterThan(0));
                     Assert.That(clip[0].clip.length, Is.GreaterThan(0f));
                     combatant.SetNetworkStunned(false);
                     driver.SendMessage("Update");
                     animator.Update(0.3f);
+                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Stun_End"), Is.True);
+                    yield return new WaitForSeconds(PlayerAnimationDriver.StunEndSeconds);
+                    driver.SendMessage("Update");
+                    animator.Update(0.2f);
                     Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Idle"), Is.True);
                 }
                 finally { Object.DestroyImmediate(player); }
@@ -375,6 +386,13 @@ namespace Game.Tests.EditMode
             Assert.That(names, Does.Contain("Throw_TwoHands"));
             Assert.That(names, Does.Contain("Throw_TwoHands_Walk"));
             Assert.That(names, Does.Contain("Punch"));
+            Assert.That(names, Does.Contain("Hit"));
+            Assert.That(names, Does.Contain("Hit_Walk"));
+            Assert.That(names, Does.Contain("Hit_Crouch"));
+            Assert.That(names, Does.Contain("Hit_Prone"));
+            Assert.That(names, Does.Contain("Stun_Start"));
+            Assert.That(names, Does.Contain("Stun_Idle"));
+            Assert.That(names, Does.Contain("Stun_End"));
             Assert.That(names, Does.Contain("Stunned"));
 
             var punch = controller.layers[0].stateMachine.states
@@ -387,6 +405,39 @@ namespace Game.Tests.EditMode
                 "Assets/_Game/Content/Prefabs/NetworkedPlayer.prefab");
             Assert.That(networked.GetComponentInChildren<Animator>(true), Is.Not.Null);
             Assert.That(prefab.GetComponent<AvatarAppearanceApplier>(), Is.Not.Null);
+        }
+
+        [Test]
+        public void HoldsLoopEmote_KeepsDancingThroughAJumpOrAFall()
+        {
+            // 점프·낙하·착지 클립은 감정 표현과 같은 원샷 슬롯을 쓴다. 춤이 슬롯을
+            // 쥐고 있다고 답해야 그 클립들이 춤을 밀어내지 않는다.
+            Assert.That(
+                PlayerAnimationDriver.HoldsLoopEmote("Emote_HipHop", stillPlaying: true), Is.True);
+            Assert.That(
+                PlayerAnimationDriver.HoldsLoopEmote("Emote_Spin", stillPlaying: true), Is.True);
+            Assert.That(
+                PlayerAnimationDriver.HoldsLoopEmote("Emote_Chicken", stillPlaying: true), Is.True);
+        }
+
+        [Test]
+        public void HoldsLoopEmote_LetsOneShotEmotesBeReplaced()
+        {
+            // 인사·도발은 걸으면 끊기는 표현이라 점프에도 자리를 내준다.
+            Assert.That(
+                PlayerAnimationDriver.HoldsLoopEmote("Emote_Wave", stillPlaying: true), Is.False);
+            Assert.That(
+                PlayerAnimationDriver.HoldsLoopEmote("Emote_Taunt", stillPlaying: true), Is.False);
+        }
+
+        [Test]
+        public void HoldsLoopEmote_IgnoresAnExpiredOrAbsentEmote()
+        {
+            Assert.That(
+                PlayerAnimationDriver.HoldsLoopEmote("Emote_HipHop", stillPlaying: false), Is.False);
+            Assert.That(PlayerAnimationDriver.HoldsLoopEmote(null, stillPlaying: true), Is.False);
+            Assert.That(PlayerAnimationDriver.HoldsLoopEmote("Jump", stillPlaying: true), Is.False);
+            Assert.That(PlayerAnimationDriver.HoldsLoopEmote("Land", stillPlaying: true), Is.False);
         }
     }
 }
