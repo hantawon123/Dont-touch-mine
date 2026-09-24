@@ -5,6 +5,7 @@
         "Game.Bootstrap",
         "Game.Backend",
         "Game.Client",
+        "Game.BotRuntime",
         "Game.Core",
         "Game.Network",
         "Game.Server",

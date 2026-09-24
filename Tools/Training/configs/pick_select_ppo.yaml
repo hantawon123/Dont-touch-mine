@@ -1,0 +1,35 @@
+# Pick selection v1 (observation pick-obs-v1-44, 5 discrete actions).
+# Started from the Reach config. Keep this file ASCII: mlagents-learn reads it with the
+# Windows default code page (cp949) and fails on Korean characters.
+# One decision = 0.5 simulated seconds, so 1 step = 1 decision.
+# 2026-09-24: max_steps 300k -> 150k. Fusion caps simulation at roughly 2-3x real time, so ~6 steps/s;
+# 150k steps is an overnight run. Raise again only with parallel envs (--num-envs).
+behaviors:
+  PickSelect:
+    trainer_type: ppo
+
+    hyperparameters:
+      batch_size: 128
+      buffer_size: 2048
+      learning_rate: 0.0003
+      beta: 0.01
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+      learning_rate_schedule: linear
+
+    network_settings:
+      normalize: false
+      hidden_units: 64
+      num_layers: 2
+
+    reward_signals:
+      extrinsic:
+        gamma: 0.99
+        strength: 1.0
+
+    checkpoint_interval: 20000
+    keep_checkpoints: 10
+    max_steps: 150000
+    time_horizon: 64
+    summary_freq: 2000

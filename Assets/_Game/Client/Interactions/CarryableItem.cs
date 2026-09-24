@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Core.Bots;
 using Game.Core.Items;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -11,8 +12,11 @@ namespace Game.Client.Interactions
     /// 들리는 동안은 물리와 충돌을 끄고 플레이어의 HoldPoint에 붙는다.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
-    public sealed class CarryableItem : MonoBehaviour, IInteractable
+    public sealed class CarryableItem : MonoBehaviour, IInteractable, IBotSightTarget
     {
+        /// <summary>봇 시야가 묻는 이름표 번호. 게임이 이미 쓰는 ObjectId를 그대로 답한다.</summary>
+        string IBotSightTarget.SightTargetId => ObjectId;
+
         [SerializeField]
         private string displayName = "물건";
 

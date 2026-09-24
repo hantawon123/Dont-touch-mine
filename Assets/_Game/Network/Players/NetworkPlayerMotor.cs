@@ -193,7 +193,10 @@ namespace Game.Network.Players
                 return false;
             }
 
-            var intent = botInput.CreateInput(kcc.FixedData.TargetPosition);
+            // 현재 바라보는 각도를 함께 넘겨, 목적지가 없을 때 봇이 0도로 되돌아가지 않게 한다.
+            var intent = botInput.CreateInput(
+                kcc.FixedData.TargetPosition,
+                kcc.FixedData.LookYaw);
             input = NetworkPlayerInput.FromIntent(intent);
             return true;
         }
@@ -341,7 +344,11 @@ namespace Game.Network.Players
             kcc.SetKinematicVelocity(Vector3.zero);
         }
 
-        internal bool TryTeleport(Pose pose)
+        /// <summary>
+        /// 권위 측에서만 성립하는 순간이동 요청. 다음 고정 틱에서 적용된다.
+        /// 학습 실행기(Assembly-CSharp)가 에피소드 초기화에 쓰므로 public이다. 권한 검사는 그대로다.
+        /// </summary>
+        public bool TryTeleport(Pose pose)
         {
             if (Object == null || !Object.HasStateAuthority || kcc == null)
             {

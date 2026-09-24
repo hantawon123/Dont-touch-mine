@@ -150,3 +150,10 @@ __pycache__/
 
 # ML-Agents local training outputs
 /[Rr]esults/
+
+# Local training/player builds
+/Builds/
+
+# ML-Agents editor timing dumps (rewritten on every run)
+/Assets/ML-Agents/Timers/
+/Assets/ML-Agents/Timers.meta
