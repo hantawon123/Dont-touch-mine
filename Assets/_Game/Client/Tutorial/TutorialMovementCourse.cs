@@ -9,6 +9,10 @@ namespace Game.Client.Tutorial
     {
         private const float FallHeight = -2f;
         private const float MaxObservedDistancePerFrame = 1f;
+        // Entrance/Exit markers sit just outside the tunnel mouths (see TutorialHideoutArt.PosturePassage).
+        private const float PassageEntranceMargin = .3f;
+        private const float PassageExitMargin = .5f;
+        private const float PassageHalfWidth = .9f;
 
         [SerializeField]
         private TutorialSession session;
@@ -122,19 +126,32 @@ namespace Game.Client.Tutorial
             if (entrance == null || exit == null) return false;
             var posture = crouch ? Game.Core.Players.PlayerPosture.Crouching : Game.Core.Players.PlayerPosture.Prone;
             var direction = exit.position - entrance.position;
+            direction.y = 0f;
             var length = direction.magnitude;
             direction /= length;
             var delta = position - entrance.position;
+            delta.y = 0f;
             var along = Vector3.Dot(delta, direction);
-            var across = delta - direction * along;
-            if (player.Posture != posture || across.magnitude > .9f ||
-                (position - previousPosition).magnitude > MaxObservedDistancePerFrame)
+            var across = (delta - direction * along).magnitude;
+            var tunnelEnd = length - PassageExitMargin;
+            if ((position - previousPosition).magnitude > MaxObservedDistancePerFrame || along < PassageEntranceMargin)
             {
+                // Teleports and backing out of the entrance restart the lesson.
                 enteredPassage = false;
                 return false;
             }
-            if (along >= -.6f && along <= .3f) enteredPassage = true;
-            return enteredPassage && along >= length && along <= length + .6f;
+
+            if (along <= tunnelEnd)
+            {
+                // Only the posture inside the tunnel matters; the lintel keeps other postures out.
+                if (across <= PassageHalfWidth && player.Posture == posture) enteredPassage = true;
+                return false;
+            }
+
+            // Leaving the far end completes the passage, whatever posture the player takes on the way out.
+            var completed = enteredPassage;
+            enteredPassage = false;
+            return completed;
         }
 
         private bool ReachedSprintJumpThreshold(Vector3 previous, Vector3 current)
