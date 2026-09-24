@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Fusion;
 using Game.Core.Lobby;
+using Game.Core.Players;
 using UnityEngine;
 
 namespace Game.Network.Players
@@ -204,6 +205,153 @@ namespace Game.Network.Players
             Debug.Log($"[Spawn] {player} took seat {seat} at {pose.position}.");
         }
 
+        /// <summary>
+        /// Creates one server-owned bot and gives its movement brain a scene target.
+        /// </summary>
+        /// <remarks>
+        /// A bot has no real <see cref="PlayerRef"/> and therefore never receives
+        /// client input. The state authority calculates its movement, while every
+        /// client only receives the resulting networked KCC state.
+        /// </remarks>
+        public bool SpawnBot(
+            NetworkRunner runner,
+            BotProfile profile,
+            Pose pose,
+            Transform target)
+        {
+            if (runner == null || !runner.IsServer || target == null)
+            {
+                return false;
+            }
+
+            var prefab = _prefabs == null ? null : _prefabs.Bot;
+
+            if (prefab == null)
+            {
+                Debug.LogError(
+                    "[Spawn] No bot prefab is assigned on the NetworkPrefabs asset.");
+                return false;
+            }
+
+            if (!_players.TryAddBot(profile, out var seat))
+            {
+                Debug.LogError(
+                    $"[Spawn] No seat is available for bot '{profile.PlayerId}'.");
+                return false;
+            }
+
+            var bot = runner.Spawn(
+                prefab,
+                pose.position,
+                pose.rotation,
+                PlayerRef.None,
+                (_, spawned) => DescribeBot(spawned, seat, profile),
+                flags: NetworkSpawnFlags.DontDestroyOnLoad);
+
+            if (bot == null)
+            {
+                _players.RemoveBot(profile.PlayerId);
+                Debug.LogError("[Spawn] Could not spawn the bot character.");
+                return false;
+            }
+
+            var botInput = bot.GetComponent<BotMoveToTarget>();
+            var motor = bot.GetComponent<NetworkPlayerMotor>();
+
+            if (botInput == null || motor == null)
+            {
+                Debug.LogError(
+                    "[Spawn] Bot prefab needs BotMoveToTarget and NetworkPlayerMotor.",
+                    bot);
+                runner.Despawn(bot);
+                _players.RemoveBot(profile.PlayerId);
+                return false;
+            }
+
+            botInput.SetTarget(target);
+
+            if (!motor.TryTeleport(pose))
+            {
+                Debug.LogError("[Spawn] Could not place the bot character.", bot);
+                runner.Despawn(bot);
+                _players.RemoveBot(profile.PlayerId);
+                return false;
+            }
+
+            Debug.Log(
+                $"[Spawn] Bot '{profile.PlayerId}' took seat {seat} at {pose.position}.",
+                bot);
+            return true;
+        }
+
+        /// <summary>
+        /// Creates a server-owned searching NPC without reserving a player seat.
+        /// The avatar still replicates and uses KCC, but PlayerRoster excludes it
+        /// from room and match participant snapshots.
+        /// </summary>
+        public bool SpawnMatchNpc(
+            NetworkRunner runner,
+            MatchNpcBotProfile profile,
+            Pose pose,
+            Transform target,
+            out PlayerAvatar avatar)
+        {
+            avatar = null;
+            if (runner == null || !runner.IsServer || target == null ||
+                !MatchNpcBotProfile.IsNpcId(profile.NpcId))
+            {
+                return false;
+            }
+
+            var prefab = _prefabs == null ? null : _prefabs.Bot;
+            if (prefab == null)
+            {
+                Debug.LogError("[NPC Bot] No bot prefab is assigned on the NetworkPrefabs asset.");
+                return false;
+            }
+
+            var spawnedObject = runner.Spawn(
+                prefab,
+                pose.position,
+                pose.rotation,
+                PlayerRef.None,
+                (_, spawned) => DescribeMatchNpc(spawned, profile),
+                flags: NetworkSpawnFlags.DontDestroyOnLoad);
+
+            if (spawnedObject == null)
+            {
+                Debug.LogError($"[NPC Bot] Could not spawn '{profile.NpcId}'.");
+                return false;
+            }
+
+            avatar = spawnedObject.GetComponent<PlayerAvatar>();
+            var movement = spawnedObject.GetComponent<BotMoveToTarget>();
+            var motor = spawnedObject.GetComponent<NetworkPlayerMotor>();
+            if (avatar == null || movement == null || motor == null)
+            {
+                Debug.LogError(
+                    "[NPC Bot] Prefab needs PlayerAvatar, BotMoveToTarget and NetworkPlayerMotor.",
+                    spawnedObject);
+                runner.Despawn(spawnedObject);
+                avatar = null;
+                return false;
+            }
+
+            movement.SetTarget(target);
+            if (!motor.TryTeleport(pose))
+            {
+                Debug.LogError("[NPC Bot] Could not place the NPC character.", spawnedObject);
+                runner.Despawn(spawnedObject);
+                avatar = null;
+                return false;
+            }
+
+            Debug.Log(
+                $"[NPC Bot] Spawned '{profile.NpcId}' outside the participant roster at {pose.position}.",
+                spawnedObject);
+            return true;
+        }
+
         public void Despawn(NetworkRunner runner, PlayerRef player)
         {
             if (runner == null || !runner.IsServer)
@@ -385,6 +533,49 @@ namespace Game.Network.Players
             avatar.IsHost = isHost;
             avatar.Nickname = nickname ?? string.Empty;
             avatar.UserId = userId ?? string.Empty;
+        }
+
+        private static void DescribeBot(
+            NetworkObject spawned,
+            int seat,
+            BotProfile profile)
+        {
+            var avatar = spawned.GetComponent<PlayerAvatar>();
+
+            if (avatar == null)
+            {
+                return;
+            }
+
+            avatar.Seat = seat;
+            avatar.IsHost = false;
+            avatar.IsBot = true;
+            avatar.BotPlayerId = profile.PlayerId;
+            avatar.Nickname = profile.Nickname;
+            avatar.UserId = string.Empty;
+            avatar.IsMuted = false;
+            avatar.IsListening = false;
+        }
+
+        private static void DescribeMatchNpc(
+            NetworkObject spawned,
+            MatchNpcBotProfile profile)
+        {
+            var avatar = spawned.GetComponent<PlayerAvatar>();
+            if (avatar == null)
+            {
+                return;
+            }
+
+            avatar.Seat = -1;
+            avatar.IsHost = false;
+            avatar.IsBot = true;
+            avatar.IsMatchNpc = true;
+            avatar.BotPlayerId = profile.NpcId;
+            avatar.Nickname = profile.DisplayName;
+            avatar.UserId = string.Empty;
+            avatar.IsMuted = false;
+            avatar.IsListening = false;
         }
 
         private Pose PoseFor(int seat)

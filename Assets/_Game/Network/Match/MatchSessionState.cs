@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Fusion;
 using Game.Core.Lobby;
 using Game.Core.Match;
+using Game.Core.Players;
 using Game.Core.Rooms;
 using Game.Server.Items;
 using Game.Server.Match;
@@ -53,20 +54,27 @@ namespace Game.Network.Match
             bool isDestroyed,
             int version,
             bool isPhysicsActive = false,
-            bool isPendingEjection = false)
+            bool isPendingEjection = false,
+            string holderNpcId = null)
         {
             if (string.IsNullOrWhiteSpace(objectId))
             {
                 throw new ArgumentException("Object id is required.", nameof(objectId));
             }
 
-            if (holderPlayerIndex < -1 || version < 0)
+            if (holderPlayerIndex < -1 || version < 0 ||
+                (holderPlayerIndex >= 0 && !string.IsNullOrEmpty(holderNpcId)) ||
+                (!string.IsNullOrEmpty(holderNpcId) &&
+                 !MatchNpcBotProfile.IsNpcId(holderNpcId)))
             {
                 throw new ArgumentOutOfRangeException(nameof(holderPlayerIndex));
             }
 
             ObjectId = objectId.Trim();
             HolderPlayerIndex = holderPlayerIndex;
+            HolderNpcId = string.IsNullOrWhiteSpace(holderNpcId)
+                ? null
+                : holderNpcId.Trim();
             Pose = pose;
             InitialVelocity = initialVelocity;
             IsDestroyed = isDestroyed;
@@ -77,6 +85,8 @@ namespace Game.Network.Match
 
         public string ObjectId { get; }
         public int HolderPlayerIndex { get; }
+        public string HolderNpcId { get; }
+        public bool IsHeld => HolderPlayerIndex >= 0 || HolderNpcId != null;
         public Pose Pose { get; }
         public Vector3 InitialVelocity { get; }
         public bool IsDestroyed { get; }
@@ -93,6 +103,7 @@ namespace Game.Network.Match
 
         public NetworkString<_16> ObjectId;
         public int HolderPlayerIndex;
+        public NetworkString<_16> HolderNpcId;
         public Vector3 Position;
         public Quaternion Rotation;
         public Vector3 InitialVelocity;
@@ -186,6 +197,13 @@ namespace Game.Network.Match
         /// </remarks>
         [Networked, Capacity(MaxParticipants)]
         public NetworkArray<NetworkString<_64>> ParticipantUserIds => default;
+
+        /// <summary>
+        /// Whether each line-up entry is controlled by the server.
+        /// Kept beside the ids so late joiners receive the same participant kind.
+        /// </summary>
+        [Networked, Capacity(MaxParticipants)]
+        public NetworkArray<NetworkBool> ParticipantBots => default;
 
         [Networked, Capacity(MaxParticipants)]
         public NetworkArray<NetworkBool> ParticipantActive => default;
@@ -320,13 +338,24 @@ namespace Game.Network.Match
         /// refused loudly: the two arrays are read side by side, and a silent
         /// shift would credit one player's actions to another.
         /// </param>
-        public void Confirm(string[] participantIds, string[] participantUserIds = null)
+        public void Confirm(
+            string[] participantIds,
+            string[] participantUserIds = null,
+            bool[] participantBots = null)
         {
             if (participantUserIds != null && participantUserIds.Length != participantIds.Length)
             {
                 throw new ArgumentException(
                     "Participant user ids must line up with participant ids.",
                     nameof(participantUserIds));
+            }
+
+
+            if (participantBots != null && participantBots.Length != participantIds.Length)
+            {
+                throw new ArgumentException(
+                    "Participant bot flags must line up with participant ids.",
+                    nameof(participantBots));
             }
 
             ClearObjectStates();
@@ -336,6 +365,7 @@ namespace Game.Network.Match
             {
                 Participants.Set(index, participantIds[index]);
                 ParticipantUserIds.Set(index, participantUserIds?[index] ?? string.Empty);
+                ParticipantBots.Set(index, participantBots?[index] ?? false);
                 ParticipantActive.Set(index, true);
             }
 
@@ -355,6 +385,7 @@ namespace Game.Network.Match
             {
                 Participants.Set(index, default);
                 ParticipantUserIds.Set(index, default);
+                ParticipantBots.Set(index, false);
                 ParticipantActive.Set(index, false);
                 StunEndsAt.Set(index, 0d);
                 RemainingDestructionUses.Set(index, 0);
@@ -540,10 +571,56 @@ namespace Game.Network.Match
             }
 
             state.HolderPlayerIndex = holderPlayerIndex;
+            state.HolderNpcId = default;
             state.InitialVelocity = default;
             state.IsPhysicsActive = false;
             state.IsPendingEjection = false;
             return WriteObjectState(key, state);
+        }
+
+        public bool TrySetObjectHeldByNpc(string objectId, string npcId)
+        {
+            if (!MatchNpcBotProfile.IsNpcId(npcId) ||
+                !CanHoldObject(objectId) ||
+                !TryGetWritableState(objectId, out var key, out var state))
+            {
+                return false;
+            }
+
+            state.HolderPlayerIndex = -1;
+            state.HolderNpcId = npcId.Trim();
+            state.InitialVelocity = default;
+            state.IsPhysicsActive = false;
+            state.IsPendingEjection = false;
+            return WriteObjectState(key, state);
+        }
+
+        public bool TryGetHeldObjectIdByNpc(string npcId, out string objectId)
+        {
+            objectId = null;
+            if (!MatchNpcBotProfile.IsNpcId(npcId))
+            {
+                return false;
+            }
+
+            var normalizedId = npcId.Trim();
+            var count = Mathf.Min(ObjectStateCount, MaxReplicatedObjects);
+            for (var index = 0; index < count; index++)
+            {
+                var state = ObjectStates.Get(index);
+                if (!string.Equals(
+                        state.HolderNpcId.ToString(),
+                        normalizedId,
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                objectId = state.ObjectId.ToString();
+                return true;
+            }
+
+            return false;
         }
 
         public bool CanTrackObject(string objectId)
@@ -570,6 +647,7 @@ namespace Game.Network.Match
             return IsValidObjectId(objectId) &&
                    (!TryFindObjectState(objectId, out _, out var state) ||
                    state.HolderPlayerIndex < 0 &&
+                   state.HolderNpcId.Length == 0 &&
                    !state.IsDestroyed &&
                    !state.IsPendingEjection);
         }
@@ -585,6 +663,7 @@ namespace Game.Network.Match
             }
 
             state.HolderPlayerIndex = -1;
+            state.HolderNpcId = default;
             state.Position = pose.position;
             state.Rotation = pose.rotation;
             state.InitialVelocity = initialVelocity;
@@ -601,6 +680,7 @@ namespace Game.Network.Match
             }
 
             state.HolderPlayerIndex = -1;
+            state.HolderNpcId = default;
             state.Position = pose.position;
             state.Rotation = pose.rotation;
             state.InitialVelocity = default;
@@ -617,6 +697,7 @@ namespace Game.Network.Match
                 Object == null || !Object.HasStateAuthority ||
                 !TryFindObjectState(objectId, out var key, out var state) ||
                 state.Version != expectedVersion || state.HolderPlayerIndex >= 0 ||
+                state.HolderNpcId.Length > 0 ||
                 state.IsDestroyed || state.IsPendingEjection) return false;
             state.Position = pose.position;
             state.Rotation = pose.rotation;
@@ -636,6 +717,7 @@ namespace Game.Network.Match
                 !TryGetWritableState(objectId, out var key, out var state) ||
                 state.Version != expectedVersion ||
                 state.HolderPlayerIndex >= 0 ||
+                state.HolderNpcId.Length > 0 ||
                 state.IsDestroyed ||
                 state.IsPendingEjection ||
                 !state.IsPhysicsActive)
@@ -659,6 +741,7 @@ namespace Game.Network.Match
             }
 
             state.HolderPlayerIndex = -1;
+            state.HolderNpcId = default;
             state.InitialVelocity = default;
             state.IsDestroyed = true;
             state.IsPhysicsActive = false;
@@ -715,6 +798,7 @@ namespace Game.Network.Match
             {
                 TryGetWritableState(worldObject.ObjectId, out var index, out var state);
                 state.HolderPlayerIndex = -1;
+                state.HolderNpcId = default;
                 state.Position = worldObject.Pose.position;
                 state.Rotation = worldObject.Pose.rotation;
                 state.InitialVelocity = default;
@@ -1099,7 +1183,8 @@ namespace Game.Network.Match
                     state.IsDestroyed,
                     state.Version,
                     state.IsPhysicsActive,
-                    state.IsPendingEjection);
+                    state.IsPendingEjection,
+                    state.HolderNpcId.ToString());
             }
 
             StarterOf(Runner)?.PublishObjectStates(snapshots);
@@ -1177,6 +1262,7 @@ namespace Game.Network.Match
                 index = ObjectStateCount++;
                 state.ObjectId = objectId.Trim();
                 state.HolderPlayerIndex = -1;
+                state.HolderNpcId = default;
                 state.Rotation = Quaternion.identity;
             }
 

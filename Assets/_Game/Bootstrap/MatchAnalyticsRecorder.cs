@@ -104,7 +104,7 @@ namespace Game.Bootstrap
                         data.item_known = true;
                         data.holder_seat = item.HolderPlayerIndex;
                         data.item_x = item.Pose.position.x; data.item_y = item.Pose.position.y; data.item_z = item.Pose.position.z;
-                        data.item_in_motion = item.IsPhysicsActive || item.HolderPlayerIndex >= 0;
+                        data.item_in_motion = item.IsPhysicsActive || item.IsHeld;
                     }
                 }
                 Add("position_sample", data, player, pose.position);

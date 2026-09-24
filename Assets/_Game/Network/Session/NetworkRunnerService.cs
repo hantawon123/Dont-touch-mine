@@ -14,6 +14,7 @@ using Game.Core.Ports;
 using Game.Core.Rooms;
 using Game.Core.Match;
 using Game.Core.Items;
+using Game.Core.Players;
 using Game.Network.Match;
 using Game.Network.Players;
 using Game.Network.Voice;
@@ -547,6 +548,33 @@ namespace Game.Network.Session
         public bool IsHostMigrationInProgress => _hostMigrationInProgress;
         // Includes connecting/loading, but excludes a standalone scene and room browsing.
         public bool HasRoomSession => _hostMigrationInProgress || (_runner != null && !_browsingLobby);
+
+        /// <summary>
+        /// Asks the active room authority to create one server-controlled bot.
+        /// </summary>
+        public bool TrySpawnBot(BotProfile profile, Pose pose, Transform target)
+        {
+            if (!IsRuntimeReady || !IsServer || target == null || _spawner == null)
+            {
+                return false;
+            }
+
+            return _spawner.SpawnBot(_runner, profile, pose, target);
+        }
+
+        /// <summary>
+        /// Creates a searching-world NPC that is not a room or match participant.
+        /// </summary>
+        public bool TrySpawnMatchNpc(
+            MatchNpcBotProfile profile,
+            Pose pose,
+            Transform target,
+            out PlayerAvatar avatar)
+        {
+            avatar = null;
+            return IsRuntimeReady && IsServer && target != null && _spawner != null &&
+                   _spawner.SpawnMatchNpc(_runner, profile, pose, target, out avatar);
+        }
 
         public IReadOnlyList<PlayerAvatar> PlayerAvatars =>
             _roster?.Avatars ?? Array.Empty<PlayerAvatar>();

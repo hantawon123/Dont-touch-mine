@@ -86,5 +86,21 @@ namespace Game.Tests.EditMode
             Assert.That(open.IsListening, Is.True);
             Assert.That(closed.IsListening, Is.False);
         }
+
+        [Test]
+        public void Bot_HasNoHostAuthorityOrBackendAccount()
+        {
+            var participant = new RoomParticipant(
+                "bot:1",
+                2,
+                true,
+                "도우미 봇",
+                "must-not-leak",
+                isBot: true);
+
+            Assert.That(participant.IsBot, Is.True);
+            Assert.That(participant.IsHost, Is.False);
+            Assert.That(participant.UserId, Is.Empty);
+        }
     }
 }

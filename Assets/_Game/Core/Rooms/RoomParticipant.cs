@@ -34,6 +34,9 @@ namespace Game.Core.Rooms
         /// <summary>Whether this person holds authority over the room.</summary>
         public readonly bool IsHost;
 
+        /// <summary>True when this seat is controlled by the server instead of a person.</summary>
+        public readonly bool IsBot;
+
         /// <summary>
         /// The backend account this person signed in as. Empty when they did not
         /// sign in, or when the network has not carried it yet.
@@ -75,16 +78,20 @@ namespace Game.Core.Rooms
             string userId = null,
             bool isMuted = false,
             bool isTalking = false,
-            bool isListening = true)
+            bool isListening = true,
+            bool isBot = false)
         {
             PlayerId = playerId;
             Seat = seat;
-            IsHost = isHost;
+            IsBot = isBot;
+            IsHost = !isBot && isHost;
 
             // Normalised here so every consumer can treat it as "empty or a real
             // name" without repeating the check.
             Nickname = string.IsNullOrWhiteSpace(nickname) ? string.Empty : nickname.Trim();
-            UserId = string.IsNullOrWhiteSpace(userId) ? string.Empty : userId.Trim();
+            UserId = isBot || string.IsNullOrWhiteSpace(userId)
+                ? string.Empty
+                : userId.Trim();
             IsMuted = isMuted;
             IsTalking = isTalking;
             IsListening = isListening;

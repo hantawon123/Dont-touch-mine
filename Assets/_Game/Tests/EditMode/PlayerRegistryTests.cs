@@ -1,4 +1,5 @@
 using Game.Network.Players;
+using Game.Core.Players;
 using NUnit.Framework;
 
 // Only the one type is imported: opening the whole Fusion namespace pulls in
@@ -217,6 +218,67 @@ namespace Game.Tests.EditMode
             Assert.That(registry.Count, Is.EqualTo(0));
             Assert.That(registry.TryGetPlayer(0, out _), Is.False);
             Assert.That(registry.Add(Player(4)), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Bot_TakesASeatWithoutPretendingToBeAFusionPlayer()
+        {
+            var registry = new PlayerRegistry();
+            registry.Add(Player(0));
+            var bot = new BotProfile(1, "길찾기 봇");
+
+            Assert.That(registry.TryAddBot(bot, out var seat), Is.True);
+            Assert.That(seat, Is.EqualTo(1));
+            Assert.That(registry.Count, Is.EqualTo(2));
+            Assert.That(registry.TryGetBotId(seat, out var botId), Is.True);
+            Assert.That(botId, Is.EqualTo("bot:1"));
+            Assert.That(registry.TryGetPlayer(seat, out var player), Is.False);
+            Assert.That(player, Is.EqualTo(PlayerRef.None));
+        }
+
+        [Test]
+        public void RemovingBot_ReturnsItsSeatToTheNextPerson()
+        {
+            var registry = new PlayerRegistry();
+            registry.Add(Player(0));
+            var bot = new BotProfile(1, null);
+            registry.TryAddBot(bot, out var botSeat);
+
+            Assert.That(registry.RemoveBot(bot.PlayerId), Is.True);
+            Assert.That(registry.TryGetBotId(botSeat, out _), Is.False);
+            Assert.That(registry.Add(Player(2)), Is.EqualTo(botSeat));
+        }
+
+        [Test]
+        public void RestoringHuman_CannotOverwriteABotSeat()
+        {
+            var registry = new PlayerRegistry();
+            var bot = new BotProfile(1, null);
+            registry.TryAddBot(bot, out var botSeat);
+
+            Assert.That(registry.Restore(Player(3), botSeat), Is.False);
+            Assert.That(registry.TryGetBotId(botSeat, out var botId), Is.True);
+            Assert.That(botId, Is.EqualTo(bot.PlayerId));
+        }
+
+        [Test]
+        public void RoomCapacity_IncludesPeopleAndBots()
+        {
+            var registry = new PlayerRegistry();
+            registry.Add(Player(0));
+
+            for (var number = 1; number <= 5; number++)
+            {
+                Assert.That(
+                    registry.TryAddBot(new BotProfile(number, null), out _),
+                    Is.True);
+            }
+
+            Assert.That(registry.Count, Is.EqualTo(6));
+            Assert.That(
+                registry.TryAddBot(new BotProfile(6, null), out var rejectedSeat),
+                Is.False);
+            Assert.That(rejectedSeat, Is.EqualTo(-1));
         }
     }
 }

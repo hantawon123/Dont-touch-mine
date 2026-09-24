@@ -24,6 +24,11 @@ namespace Game.Network
         private NetworkObject _player;
 
         [SerializeField]
+        [Tooltip("Server-owned AI character. Needs NetworkObject, KCC, " +
+                 "NetworkPlayerMotor and BotMoveToTarget.")]
+        private NetworkObject _bot;
+
+        [SerializeField]
         [Tooltip("One per room, holding whether the match started and who is " +
                  "playing. Needs NetworkObject and MatchSessionState. Nothing " +
                  "is drawn, so it has no visual parts.")]
@@ -35,6 +40,8 @@ namespace Game.Network
         private NetworkObject _matchMigrationCheckpoint;
 
         public NetworkObject Player => _player;
+
+        public NetworkObject Bot => _bot;
 
         public NetworkObject MatchSession => _matchSession;
 
@@ -49,6 +56,7 @@ namespace Game.Network
         {
             if (_player == null)
             {
+                ValidateBot();
                 return;
             }
 
@@ -69,6 +77,8 @@ namespace Game.Network
                     this);
             }
 
+            ValidateBot();
+
             if (_matchSession != null &&
                 _matchSession.GetComponentInChildren<Match.MatchSessionState>() == null)
             {
@@ -83,6 +93,25 @@ namespace Game.Network
             {
                 Debug.LogWarning(
                     $"[Network] '{_matchMigrationCheckpoint.name}' has no MatchMigrationCheckpoint.",
+                    this);
+            }
+        }
+
+        private void ValidateBot()
+        {
+            if (_bot == null)
+            {
+                return;
+            }
+
+            if (_bot.GetComponentInChildren<Fusion.Addons.KCC.KCC>() == null ||
+                _bot.GetComponentInChildren<Rigidbody>() == null ||
+                _bot.GetComponentInChildren<Players.NetworkPlayerMotor>() == null ||
+                _bot.GetComponentInChildren<Players.BotMoveToTarget>() == null)
+            {
+                Debug.LogWarning(
+                    $"[Network] '{_bot.name}' needs KCC, Rigidbody, " +
+                    "NetworkPlayerMotor and BotMoveToTarget.",
                     this);
             }
         }

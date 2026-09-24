@@ -1523,6 +1523,34 @@ namespace Game.Architecture.Tests
             Assert.That(snapshot.Version, Is.EqualTo(7));
             Assert.That(snapshot.IsPhysicsActive, Is.True);
             Assert.That(snapshot.IsPendingEjection, Is.False);
+            Assert.That(snapshot.IsHeld, Is.True);
+            Assert.That(snapshot.HolderNpcId, Is.Null);
+        }
+
+        [Test]
+        public void ObjectStateSnapshot_RepresentsNpcHolderWithoutAPlayerIndex()
+        {
+            var snapshot = new MatchObjectStateSnapshot(
+                "Soda_01",
+                -1,
+                Pose.identity,
+                Vector3.zero,
+                false,
+                3,
+                holderNpcId: "npc:1");
+
+            Assert.That(snapshot.HolderPlayerIndex, Is.EqualTo(-1));
+            Assert.That(snapshot.HolderNpcId, Is.EqualTo("npc:1"));
+            Assert.That(snapshot.IsHeld, Is.True);
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new MatchObjectStateSnapshot(
+                    "Soda_01",
+                    0,
+                    Pose.identity,
+                    Vector3.zero,
+                    false,
+                    0,
+                    holderNpcId: "npc:1"));
         }
 
         [Test]

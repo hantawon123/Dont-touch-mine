@@ -93,6 +93,13 @@ namespace Game.Network.Players
             {
                 var avatar = _avatars[index];
 
+                // Searching NPCs share the replicated character machinery, but
+                // they are not room seats and must never receive a hiding turn.
+                if (avatar != null && avatar.HasNetworkState && avatar.IsMatchNpc)
+                {
+                    continue;
+                }
+
                 // A Unity component can outlive its Fusion state during shutdown.
                 var playerId = avatar != null ? avatar.PlayerId : null;
                 if (string.IsNullOrEmpty(playerId))
@@ -108,7 +115,8 @@ namespace Game.Network.Players
                     avatar.UserId.ToString(),
                     avatar.IsMuted,
                     avatar.IsSendingVoice(),
-                    avatar.IsListening));
+                    avatar.IsListening,
+                    avatar.IsBot));
             }
 
             // Seat order, not arrival order. Characters replicate in whatever
@@ -133,7 +141,8 @@ namespace Game.Network.Players
 
         public bool TryGetPlayer(string playerId, out PlayerRef player)
         {
-            if (TryGetAvatar(playerId, out var avatar))
+            if (TryGetAvatar(playerId, out var avatar) &&
+                !avatar.IsBot && avatar.Owner.IsRealPlayer)
             {
                 player = avatar.Owner;
                 return true;

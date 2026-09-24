@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Fusion;
 using Game.Core.Lobby;
+using Game.Core.Players;
 
 namespace Game.Network.Players
 {
@@ -30,7 +31,13 @@ namespace Game.Network.Players
         private readonly Dictionary<PlayerRef, int> _seatByPlayer =
             new Dictionary<PlayerRef, int>();
 
-        public int Count => _seatByPlayer.Count;
+        private readonly Dictionary<string, int> _seatByBot =
+            new Dictionary<string, int>(System.StringComparer.Ordinal);
+
+        private readonly Dictionary<int, string> _botBySeat =
+            new Dictionary<int, string>();
+
+        public int Count => _seatByPlayer.Count + _seatByBot.Count;
 
         /// <summary>
         /// Seats a player, or returns the seat they already hold. Takes the
@@ -43,7 +50,7 @@ namespace Game.Network.Players
                 return seated;
             }
 
-            var seat = _seats.IndexOf(PlayerRef.None);
+            var seat = FindLowestFreeSeat();
 
             if (seat < 0)
             {
@@ -57,6 +64,36 @@ namespace Game.Network.Players
 
             _seatByPlayer[player] = seat;
             return seat;
+        }
+
+        /// <summary>
+        /// Seats a bot without inventing a Fusion player connection.
+        /// </summary>
+        public bool TryAddBot(BotProfile profile, out int seat)
+        {
+            if (_seatByBot.TryGetValue(profile.PlayerId, out seat))
+            {
+                return true;
+            }
+
+            if (!BotProfile.IsBotPlayerId(profile.PlayerId) ||
+                Count >= RoomSettings.MaxPlayerCount)
+            {
+                seat = -1;
+                return false;
+            }
+
+            seat = FindLowestFreeSeat();
+
+            if (seat < 0)
+            {
+                _seats.Add(PlayerRef.None);
+                seat = _seats.Count - 1;
+            }
+
+            _seatByBot.Add(profile.PlayerId, seat);
+            _botBySeat.Add(seat, profile.PlayerId);
+            return true;
         }
 
         /// <summary>
@@ -81,7 +118,7 @@ namespace Game.Network.Players
                 _seats.Add(PlayerRef.None);
             }
 
-            if (_seats[seat] != PlayerRef.None)
+            if (_seats[seat] != PlayerRef.None || _botBySeat.ContainsKey(seat))
             {
                 return false;
             }
@@ -102,13 +139,25 @@ namespace Game.Network.Players
             _seatByPlayer.Remove(player);
             _seats[seat] = PlayerRef.None;
 
-            // Trailing empties would keep the next Add pushing the list longer
-            // than the number of players, so they are dropped.
-            while (_seats.Count > 0 && _seats[_seats.Count - 1] == PlayerRef.None)
+            // A trailing PlayerRef.None may still be a bot seat. Only remove
+            // slots that are empty in both maps.
+            TrimTrailingEmptySeats();
+
+            return true;
+        }
+
+        /// <summary>Frees a bot seat. False when the id is not seated.</summary>
+        public bool RemoveBot(string botPlayerId)
+        {
+            if (string.IsNullOrWhiteSpace(botPlayerId) ||
+                !_seatByBot.TryGetValue(botPlayerId, out var seat))
             {
-                _seats.RemoveAt(_seats.Count - 1);
+                return false;
             }
 
+            _seatByBot.Remove(botPlayerId);
+            _botBySeat.Remove(seat);
+            TrimTrailingEmptySeats();
             return true;
         }
 
@@ -129,6 +178,11 @@ namespace Game.Network.Players
             return true;
         }
 
+        public bool TryGetBotId(int seat, out string botPlayerId)
+        {
+            return _botBySeat.TryGetValue(seat, out botPlayerId);
+        }
+
         /// <summary>
         /// The id other layers use. Derived from <see cref="PlayerRef"/> rather
         /// than stored, so it is the same on every peer without being sent.
@@ -147,6 +201,35 @@ namespace Game.Network.Players
         {
             _seats.Clear();
             _seatByPlayer.Clear();
+            _seatByBot.Clear();
+            _botBySeat.Clear();
+        }
+
+        private int FindLowestFreeSeat()
+        {
+            for (var seat = 0; seat < _seats.Count; seat++)
+            {
+                if (_seats[seat] == PlayerRef.None && !_botBySeat.ContainsKey(seat))
+                {
+                    return seat;
+                }
+            }
+
+            return -1;
+        }
+
+        private void TrimTrailingEmptySeats()
+        {
+            while (_seats.Count > 0)
+            {
+                var last = _seats.Count - 1;
+                if (_seats[last] != PlayerRef.None || _botBySeat.ContainsKey(last))
+                {
+                    break;
+                }
+
+                _seats.RemoveAt(last);
+            }
         }
     }
 }

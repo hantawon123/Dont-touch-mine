@@ -67,6 +67,7 @@ namespace Game.Network.Match
         /// countdown is the one that was shown when it began.
         /// </summary>
         private string[] _countdownUserIds;
+        private bool[] _countdownBots;
         public bool IsStartPending => HasValidState && _state.StartCountdownEndsAt > 0d;
         public double StartCountdownEndsAt => HasValidState ? _state.StartCountdownEndsAt : 0d;
 
@@ -230,14 +231,17 @@ namespace Game.Network.Match
             var participants = MatchParticipant.FromRoomParticipants(_room);
             var participantIds = new string[participants.Length];
             var participantUserIds = new string[participants.Length];
+            var participantBots = new bool[participants.Length];
             for (var index = 0; index < participants.Length; index++)
             {
                 participantIds[index] = participants[index].PlayerId;
                 participantUserIds[index] = participants[index].UserId ?? string.Empty;
+                participantBots[index] = participants[index].IsBot;
             }
 
             _countdownParticipants = participantIds;
             _countdownUserIds = participantUserIds;
+            _countdownBots = participantBots;
             state.StartCountdownEndsAt = runner.SimulationTime + 10d;
         }
 
@@ -256,18 +260,25 @@ namespace Game.Network.Match
                 _state.StartCountdownEndsAt = 0d;
                 _countdownParticipants = null;
                 _countdownUserIds = null;
+                _countdownBots = null;
                 return;
             }
             if (runner.SimulationTime < _state.StartCountdownEndsAt) return;
             var participantIds = _countdownParticipants;
             var participantUserIds = _countdownUserIds;
+            var participantBots = _countdownBots;
             _countdownParticipants = null;
             _countdownUserIds = null;
+            _countdownBots = null;
             _state.StartCountdownEndsAt = 0d;
             // Countdown still checks the seat-ordered roster. Shuffle after
             // that freeze so hiding turns are a new random order each match.
-            MatchParticipant.ShufflePlayOrder(participantIds, participantUserIds, new System.Random());
-            _state.Confirm(participantIds, participantUserIds);
+            MatchParticipant.ShufflePlayOrder(
+                participantIds,
+                participantUserIds,
+                participantBots,
+                new System.Random());
+            _state.Confirm(participantIds, participantUserIds, participantBots);
             Debug.Log($"[Match] Started with {participantIds.Length} players.");
 
             // After the line-up is frozen, not before: the map replaces this
@@ -305,7 +316,8 @@ namespace Game.Network.Match
                     _playing.Add(new MatchParticipant(
                         state.Participants.Get(index).ToString(),
                         index,
-                        state.ParticipantUserIds.Get(index).ToString()));
+                        state.ParticipantUserIds.Get(index).ToString(),
+                        state.ParticipantBots.Get(index)));
                 }
             }
 
@@ -926,6 +938,116 @@ namespace Game.Network.Match
             return _state.TrySetObjectHeld(objectId, playerIndex);
         }
 
+        /// <summary>
+        /// Authority-only pickup for a searching-world NPC. The first version
+        /// intentionally accepts map props only; player-owned objective items still
+        /// require a separate outcome-rule design.
+        /// </summary>
+        public bool TryHoldObjectForMatchNpc(
+            string npcId,
+            string objectId,
+            out string reason)
+        {
+            reason = null;
+            if (!TryGetMatchNpcPose(npcId, out var npcPose))
+            {
+                reason = "unknown NPC or authority unavailable";
+                return false;
+            }
+
+            if (_session.CurrentPhase != MatchPhase.Searching ||
+                _session.IsPhaseIntro(ServerTime))
+            {
+                reason = "NPC interactions are open only after the searching intro";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(objectId) ||
+                !_session.TryGetWorldObjectState(objectId.Trim(), out var worldObject))
+            {
+                reason = "the first NPC carry version accepts map props only";
+                return false;
+            }
+
+            objectId = worldObject.ObjectId;
+            if (_state.TryGetHeldObjectIdByNpc(npcId, out _))
+            {
+                reason = "NPC hand is already occupied";
+                return false;
+            }
+
+            if (!_state.CanHoldObject(objectId))
+            {
+                reason = $"object '{objectId}' is already held or unavailable";
+                return false;
+            }
+
+            if (!_interactionRules.IsWithinInteractionDistance(
+                    npcPose.position,
+                    worldObject.Pose.position))
+            {
+                reason = $"object '{objectId}' is outside the interaction distance";
+                return false;
+            }
+
+            if (!_state.CanTrackObject(objectId) ||
+                !_state.TrySetObjectHeldByNpc(objectId, npcId))
+            {
+                reason = "authority could not publish the NPC held state";
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool TryDropHeldObjectForMatchNpc(
+            string npcId,
+            Pose pose,
+            out string reason)
+        {
+            reason = null;
+            if (!TryGetMatchNpcPose(npcId, out var npcPose))
+            {
+                reason = "unknown NPC or authority unavailable";
+                return false;
+            }
+
+            if (_session.CurrentPhase != MatchPhase.Searching ||
+                _session.IsPhaseIntro(ServerTime))
+            {
+                reason = "NPC interactions are open only after the searching intro";
+                return false;
+            }
+
+            if (!_interactionRules.IsValidRelease(npcPose, pose))
+            {
+                reason = "drop pose is outside the release distance or has an invalid rotation";
+                return false;
+            }
+
+            if (!_state.TryGetHeldObjectIdByNpc(npcId, out var objectId))
+            {
+                reason = "NPC hand is empty";
+                return false;
+            }
+
+            if (!_session.TryConfirmReleasedObjectPose(objectId, pose) ||
+                !_state.TrySetObjectReleased(objectId, pose))
+            {
+                reason = "authority could not release the NPC-held object";
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool TryGetMatchNpcHeldObjectId(string npcId, out string objectId)
+        {
+            objectId = null;
+            return TryGetMatchNpcPose(npcId, out _) &&
+                   _state.TryGetHeldObjectIdByNpc(npcId, out objectId);
+        }
+
         public bool TryReleaseHeldObject(PlayerRef source, Pose pose) => TryReleaseHeldObject(source, pose, out _);
 
         /// <param name="reason">거부됐을 때 그 이유. 호스트 로그와 요청 클라이언트 경고에 붙인다.</param>
@@ -1438,6 +1560,27 @@ namespace Game.Network.Match
 
             pose = default;
             return false;
+        }
+
+        /// <summary>
+        /// Resolves a searching-world NPC's simulation pose on the authority. NPCs
+        /// are found by their stable npc id, never through the player arrays, so a
+        /// human player id or a non-NPC bot id is rejected here.
+        /// </summary>
+        private bool TryGetMatchNpcPose(string npcId, out Pose pose)
+        {
+            pose = default;
+            if (_state == null || _state.Object == null ||
+                !_state.Object.HasStateAuthority || _roster == null ||
+                !Game.Core.Players.MatchNpcBotProfile.IsNpcId(npcId))
+            {
+                return false;
+            }
+
+            return _roster.TryGetAvatar(npcId, out var avatar) &&
+                   avatar.HasNetworkState &&
+                   avatar.IsMatchNpc &&
+                   _roster.TryGetPose(npcId, out pose);
         }
 
         private bool TryGetPlayingAvatar(int playerIndex, out PlayerAvatar avatar)

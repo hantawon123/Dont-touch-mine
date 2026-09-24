@@ -33,6 +33,8 @@ namespace Game.Bootstrap
         private readonly Dictionary<string, CarryableItem> items =
             new(StringComparer.Ordinal);
         private readonly Dictionary<int, PlayerInteractor> interactors = new();
+        private readonly Dictionary<string, PlayerInteractor> npcInteractors =
+            new(StringComparer.Ordinal);
         private readonly Dictionary<int, PlayerCombatant> combatants = new();
         // 붙이기 실패를 물건별로 한 번만 경고하기 위한 기록(성공하면 지운다)
         private readonly HashSet<string> attachWarnings = new();
@@ -116,6 +118,10 @@ namespace Game.Bootstrap
                 var motor = interactor.GetComponent<NetworkPlayerMotor>();
                 if (motor != null) motor.LocalPresentationInputBlocked = false;
                 interactor.SetHudVisible(true);
+            }
+            foreach (var interactor in npcInteractors.Values)
+            {
+                if (interactor != null) interactor.SetHudVisible(true);
             }
             DestroyCarriedSceneItems();
             SetHighlightedAssignment(null);
@@ -263,6 +269,7 @@ namespace Game.Bootstrap
         private void RefreshPlayers()
         {
             interactors.Clear();
+            npcInteractors.Clear();
             combatants.Clear();
             var participants = room.MatchParticipants.CurrentValue;
             if (!lobbyMode && participants.Count == 0)
@@ -279,22 +286,27 @@ namespace Game.Bootstrap
                     continue;
                 }
 
-                var playerId = PlayerRegistry.IdOf(avatar.Owner);
-                var playerIndex = lobbyMode ? avatar.Seat : IndexOf(participants, playerId);
-                if (playerIndex < 0)
+                var isMatchNpc = !lobbyMode && avatar.IsMatchNpc;
+                var playerId = isMatchNpc
+                    ? avatar.PlayerId
+                    : PlayerRegistry.IdOf(avatar.Owner);
+                var playerIndex = isMatchNpc
+                    ? -1
+                    : lobbyMode ? avatar.Seat : IndexOf(participants, playerId);
+                if (!isMatchNpc && playerIndex < 0)
                 {
                     continue;
                 }
 
                 var motor = avatar.GetComponent<NetworkPlayerMotor>();
-                if (!lobbyMode && avatar.IsOwner && motor != null && motor.IsScenePlacementReady)
+                if (!isMatchNpc && !lobbyMode && avatar.IsOwner && motor != null && motor.IsScenePlacementReady)
                 {
                     BindLocalCamera(avatar.transform);
                 }
 
                 var introBlocked = presentationBlocksInput?.Invoke() == true;
-                if (avatar.IsOwner && motor != null) motor.LocalPresentationInputBlocked = introBlocked;
-                var acceptsLocalInput = !introBlocked && avatar.IsOwner &&
+                if (!isMatchNpc && avatar.IsOwner && motor != null) motor.LocalPresentationInputBlocked = introBlocked;
+                var acceptsLocalInput = !isMatchNpc && !introBlocked && avatar.IsOwner &&
                                         motor != null &&
                                         motor.ControlsEnabled;
 
@@ -313,12 +325,21 @@ namespace Game.Bootstrap
                 var interactor = avatar.GetComponent<PlayerInteractor>();
                 if (interactor != null)
                 {
-                    // A disabled network avatar must never fall back to standalone item mutation.
-                    interactor.BindCommands(this);
+                    // A disabled human avatar must never fall back to standalone item mutation.
+                    // NPC actions enter through their authority executor, never through local input commands.
+                    if (!isMatchNpc) interactor.BindCommands(this);
                     interactor.enabled = acceptsLocalInput;
                     if (!acceptsLocalInput) interactor.RefreshHoldPoint();
                     interactor.SetHudVisible(!introBlocked);
-                    interactors[playerIndex] = interactor;
+                    if (isMatchNpc)
+                    {
+                        if (!string.IsNullOrWhiteSpace(playerId))
+                            npcInteractors[playerId] = interactor;
+                    }
+                    else
+                    {
+                        interactors[playerIndex] = interactor;
+                    }
 
                     var placement = avatar.GetComponent<ItemPlacementController>();
                     if (placement != null)
@@ -328,7 +349,7 @@ namespace Game.Bootstrap
                 }
 
                 var combatant = avatar.GetComponent<PlayerCombatant>();
-                if (!lobbyMode && combatant != null)
+                if (!isMatchNpc && !lobbyMode && combatant != null)
                 {
                     combatant.ConfigureNetworkPlayer(playerIndex, acceptsLocalInput);
                     combatants[playerIndex] = combatant;
@@ -476,16 +497,21 @@ namespace Game.Bootstrap
                     continue;
                 }
 
-                if (state.HolderPlayerIndex >= 0)
+                if (state.IsHeld)
                 {
-                    if (!interactors.TryGetValue(
-                            state.HolderPlayerIndex,
-                            out var holder))
+                    PlayerInteractor holder;
+                    var holderLabel = state.HolderNpcId != null
+                        ? state.HolderNpcId
+                        : $"player {state.HolderPlayerIndex}";
+                    var found = state.HolderNpcId != null
+                        ? npcInteractors.TryGetValue(state.HolderNpcId, out holder)
+                        : interactors.TryGetValue(state.HolderPlayerIndex, out holder);
+                    if (!found)
                     {
                         if (attachWarnings.Add(state.ObjectId))
                             Debug.LogWarning(
-                                $"[Interaction] '{state.ObjectId}' is held by player {state.HolderPlayerIndex} on authority " +
-                                $"but that player has no avatar here (known indices: {string.Join(",", interactors.Keys)}).");
+                                $"[Interaction] '{state.ObjectId}' is held by {holderLabel} on authority " +
+                                "but that actor has no avatar here.");
                         continue;
                     }
 
@@ -501,7 +527,7 @@ namespace Game.Bootstrap
                     {
                         if (attachWarnings.Add(state.ObjectId))
                             Debug.LogWarning(
-                                $"[Interaction] could not attach '{state.ObjectId}' to player {state.HolderPlayerIndex}: " +
+                                $"[Interaction] could not attach '{state.ObjectId}' to {holderLabel}: " +
                                 $"already carrying '{holder.CarriedItem?.ObjectId}'.");
                         continue;
                     }
@@ -522,6 +548,9 @@ namespace Game.Bootstrap
                         else
                         {
                             foreach (var holder in interactors.Values)
+                                if (holder != null)
+                                    holder.PlayConfirmedThrow(item);
+                            foreach (var holder in npcInteractors.Values)
                                 if (holder != null)
                                     holder.PlayConfirmedThrow(item);
                         }
@@ -559,13 +588,22 @@ namespace Game.Bootstrap
 
             foreach (var interactor in interactors.Values)
             {
-                var carried = interactor != null ? interactor.CarriedItem : null;
-                if (carried == null || replicatedIds.Contains(carried.ObjectId)) continue;
-                Debug.LogWarning(
-                    $"[Interaction] '{carried.ObjectId}' is carried by {interactor.name} but authority no longer tracks it; detaching.");
-                interactor.ForgetConfirmedItem(carried);
-                carried.OnNetworkPose(new Pose(carried.transform.position, carried.transform.rotation));
+                DetachMissingItem(interactor);
             }
+            foreach (var interactor in npcInteractors.Values)
+            {
+                DetachMissingItem(interactor);
+            }
+        }
+
+        private void DetachMissingItem(PlayerInteractor interactor)
+        {
+            var carried = interactor != null ? interactor.CarriedItem : null;
+            if (carried == null || replicatedIds.Contains(carried.ObjectId)) return;
+            Debug.LogWarning(
+                $"[Interaction] '{carried.ObjectId}' is carried by {interactor.name} but authority no longer tracks it; detaching.");
+            interactor.ForgetConfirmedItem(carried);
+            carried.OnNetworkPose(new Pose(carried.transform.position, carried.transform.rotation));
         }
 
         private bool IsHeldStateAligned(MatchObjectStateSnapshot state, CarryableItem item)
@@ -574,10 +612,16 @@ namespace Game.Bootstrap
             foreach (var pair in interactors)
             {
                 if (pair.Value.CarriedItem != item) continue;
-                if (pair.Key != state.HolderPlayerIndex) return false;
+                if (state.HolderNpcId != null || pair.Key != state.HolderPlayerIndex) return false;
                 held = true;
             }
-            return state.HolderPlayerIndex >= 0 ? held && item.IsCarried : !held && !item.IsCarried;
+            foreach (var pair in npcInteractors)
+            {
+                if (pair.Value.CarriedItem != item) continue;
+                if (!string.Equals(pair.Key, state.HolderNpcId, StringComparison.Ordinal)) return false;
+                held = true;
+            }
+            return state.IsHeld ? held && item.IsCarried : !held && !item.IsCarried;
         }
 
         private double nextPhysicsPublishAt;
@@ -587,7 +631,7 @@ namespace Game.Bootstrap
             nextPhysicsPublishAt = Time.unscaledTimeAsDouble + 0.1d;
             foreach (var state in objectStates)
             {
-                if (state.HolderPlayerIndex >= 0 || state.IsDestroyed || state.IsPendingEjection ||
+                if (state.IsHeld || state.IsDestroyed || state.IsPendingEjection ||
                     !items.TryGetValue(state.ObjectId, out var item) || item == null ||
                     !item.TryGetPhysicsPose(out var pose, out var velocity, out var moving)) continue;
                 if (!moving && !state.IsPhysicsActive &&
@@ -630,6 +674,10 @@ namespace Game.Bootstrap
             {
                 interactor.ForgetConfirmedItem(item);
             }
+            foreach (var interactor in npcInteractors.Values)
+            {
+                interactor.ForgetConfirmedItem(item);
+            }
         }
 
         /// <summary>
@@ -652,20 +700,29 @@ namespace Game.Bootstrap
 
             foreach (var interactor in interactors.Values)
             {
-                if (interactor == null) continue;
-                var carried = interactor.CarriedItem;
-                if (carried != null)
-                {
-                    interactor.ForgetConfirmedItem(carried);
-                    UnityEngine.Object.Destroy(carried.gameObject);
-                }
+                DestroyCarriedItems(interactor);
+            }
+            foreach (var interactor in npcInteractors.Values)
+            {
+                DestroyCarriedItems(interactor);
+            }
+        }
 
-                var holdPoint = interactor.HoldPoint;
-                if (holdPoint == null) continue;
-                foreach (var stray in holdPoint.GetComponentsInChildren<CarryableItem>(true))
-                {
-                    if (stray != null) UnityEngine.Object.Destroy(stray.gameObject);
-                }
+        private static void DestroyCarriedItems(PlayerInteractor interactor)
+        {
+            if (interactor == null) return;
+            var carried = interactor.CarriedItem;
+            if (carried != null)
+            {
+                interactor.ForgetConfirmedItem(carried);
+                UnityEngine.Object.Destroy(carried.gameObject);
+            }
+
+            var holdPoint = interactor.HoldPoint;
+            if (holdPoint == null) return;
+            foreach (var stray in holdPoint.GetComponentsInChildren<CarryableItem>(true))
+            {
+                if (stray != null) UnityEngine.Object.Destroy(stray.gameObject);
             }
         }
 

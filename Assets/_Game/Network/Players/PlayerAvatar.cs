@@ -129,6 +129,23 @@ namespace Game.Network.Players
         [Networked]
         public bool IsHost { get; set; }
 
+        /// <summary>Whether this avatar is controlled by the server.</summary>
+        [Networked]
+        public NetworkBool IsBot { get; set; }
+
+        /// <summary>
+        /// True for a searching-world NPC. These avatars replicate like other
+        /// characters but never enter the room roster or match participant arrays.
+        /// </summary>
+        [Networked]
+        public NetworkBool IsMatchNpc { get; set; }
+
+        /// <summary>
+        /// Stable id for a server-controlled character. Human ids still come from InputAuthority.
+        /// </summary>
+        [Networked]
+        public NetworkString<_16> BotPlayerId { get; set; }
+
         /// <summary>
         /// Mute and speaker-off packed in one word so the portrait badge can
         /// differ per player without growing the prefab word count.
@@ -188,6 +205,7 @@ namespace Game.Network.Players
             get
             {
                 if (!HasNetworkState) return null;
+                if (IsBot) return BotPlayerId.ToString();
                 var owner = Owner;
                 if (owner != cachedOwner)
                 {

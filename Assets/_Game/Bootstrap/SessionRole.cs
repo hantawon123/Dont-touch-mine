@@ -1,5 +1,5 @@
-#if UNITY_EDITOR
 using System;
+#if UNITY_EDITOR
 using Unity.Multiplayer.PlayMode;
 #endif
 
@@ -28,9 +28,10 @@ namespace Game.Bootstrap
     /// with the same inspector values. Without a per-instance signal they would
     /// all open a room and never meet each other. Tags are that signal.
     /// <para>
-    /// A build has no virtual players, so this is always
-    /// <see cref="SessionRole.Unassigned"/> there and the inspector keeps
-    /// deciding exactly as it did before.
+        /// A normal build has no virtual players and remains
+        /// <see cref="SessionRole.Unassigned"/>. The isolated bot smoke test can
+        /// opt a built player into a role with <c>-botHost</c> or
+        /// <c>-botClient</c>.
     /// </para>
     /// </remarks>
     public static class SessionRoles
@@ -69,6 +70,26 @@ namespace Game.Bootstrap
                     }
                 }
 #endif
+                var arguments = Environment.GetCommandLineArgs();
+                for (var index = 0; index < arguments.Length; index++)
+                {
+                    if (string.Equals(
+                            arguments[index],
+                            "-botClient",
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        return SessionRole.Client;
+                    }
+
+                    if (string.Equals(
+                            arguments[index],
+                            "-botHost",
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        return SessionRole.Host;
+                    }
+                }
+
                 return SessionRole.Unassigned;
             }
         }

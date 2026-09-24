@@ -225,6 +225,7 @@ namespace Game.Bootstrap
             // Listens to something live. Tests build the same container without
             // wanting anything to react to scene loads.
             builder.RegisterEntryPoint<MatchSceneSpawnPoints>();
+            builder.RegisterEntryPoint<NetworkBotSceneSpawner>();
 #endif
         }
 

@@ -12,7 +12,11 @@ namespace Game.Core.Match
         /// in. Kept optional so the many places that only reason about seats and
         /// indices need not invent one.
         /// </param>
-        public MatchParticipant(string playerId, int playerIndex, string userId = null)
+        public MatchParticipant(
+            string playerId,
+            int playerIndex,
+            string userId = null,
+            bool isBot = false)
         {
             if (string.IsNullOrWhiteSpace(playerId))
             {
@@ -26,7 +30,10 @@ namespace Game.Core.Match
 
             PlayerId = playerId.Trim();
             PlayerIndex = playerIndex;
-            UserId = string.IsNullOrWhiteSpace(userId) ? null : userId.Trim();
+            IsBot = isBot;
+            UserId = isBot || string.IsNullOrWhiteSpace(userId)
+                ? null
+                : userId.Trim();
         }
 
         public string PlayerId { get; }
@@ -51,6 +58,9 @@ namespace Game.Core.Match
         /// </para>
         /// </remarks>
         public string UserId { get; }
+
+        /// <summary>True when this participant is controlled by the server.</summary>
+        public bool IsBot { get; }
 
         /// <summary>
         /// Converts the room roster to a contiguous line-up in seat order.
@@ -99,7 +109,8 @@ namespace Game.Core.Match
                 matchParticipants[playerIndex] = new MatchParticipant(
                     ordered[playerIndex].PlayerId,
                     playerIndex,
-                    ordered[playerIndex].UserId);
+                    ordered[playerIndex].UserId,
+                    ordered[playerIndex].IsBot);
             }
 
             return matchParticipants;
@@ -138,6 +149,42 @@ namespace Game.Core.Match
                 var swap = random.Next(index + 1);
                 (playerIds[index], playerIds[swap]) = (playerIds[swap], playerIds[index]);
                 (userIds[index], userIds[swap]) = (userIds[swap], userIds[index]);
+            }
+        }
+
+        /// <summary>
+        /// Randomizes ids, backend accounts and bot flags as one inseparable row.
+        /// </summary>
+        public static void ShufflePlayOrder(
+            string[] playerIds,
+            string[] userIds,
+            bool[] isBots,
+            Random random)
+        {
+            if (isBots == null)
+            {
+                throw new ArgumentNullException(nameof(isBots));
+            }
+
+            if (playerIds == null || userIds == null ||
+                playerIds.Length != userIds.Length ||
+                playerIds.Length != isBots.Length)
+            {
+                throw new ArgumentException(
+                    "Participant ids, user ids and bot flags must be the same length.");
+            }
+
+            if (random == null)
+            {
+                throw new ArgumentNullException(nameof(random));
+            }
+
+            for (var index = playerIds.Length - 1; index > 0; index--)
+            {
+                var swap = random.Next(index + 1);
+                (playerIds[index], playerIds[swap]) = (playerIds[swap], playerIds[index]);
+                (userIds[index], userIds[swap]) = (userIds[swap], userIds[index]);
+                (isBots[index], isBots[swap]) = (isBots[swap], isBots[index]);
             }
         }
     }
