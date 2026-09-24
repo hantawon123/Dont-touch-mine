@@ -201,6 +201,9 @@ namespace Game.Core.Settings
 
             public const string SuspendedTitle = "home.suspended.title";
             public const string SuspendedBody = "home.suspended.body";
+            public const string UpdateTitle = "home.update.title";
+            public const string UpdateBody = "home.update.body";
+            public const string UpdateDownload = "home.update.download";
             public const string InviteBody = "home.invite.body";
         }
 

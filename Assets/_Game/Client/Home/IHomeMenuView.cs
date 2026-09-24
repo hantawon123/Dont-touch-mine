@@ -90,6 +90,16 @@ namespace Game.Client.Home
         /// </remarks>
         void SetSuspendedNoticeVisible(bool visible);
 
+        /// <summary>
+        /// Shows the notice that a newer build is on the download page, over
+        /// everything and without a way back (S15P21D205-1109).
+        /// </summary>
+        /// <remarks>
+        /// Only when the two revisions are known and differ. An editor run or
+        /// a release host that did not answer is no reason to block anyone.
+        /// </remarks>
+        void ShowUpdateNotice(string downloadUrl);
+
         void SetNicknameAppliedFeedbackVisible(bool visible);
 
         /// <summary>

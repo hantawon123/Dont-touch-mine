@@ -57,6 +57,11 @@ namespace Game.Bootstrap
             // 이유는 HomeProfileBridge 와 같습니다 - Game.Client 는 Game.Bootstrap 을
             // 참조하지 못합니다.
             builder.RegisterEntryPoint<HomeSuspensionBridge>();
+
+            // 옛 버전이면 업데이트 안내로 화면을 막습니다(S15P21D205-1109). 옛 빌드는
+            // Photon 파티션이 달라 방을 찾지도 들어가지도 못하는데, 이유를 말해 주는 곳이 없었습니다.
+            builder.RegisterEntryPoint<HomeUpdateBridge>()
+                .WithParameter("localVersion", HomeUpdateBridge.LocalVersion());
             builder.RegisterBuildCallback(container =>
                 container.Resolve<ILoadingOverlay>().Hide());
         }
