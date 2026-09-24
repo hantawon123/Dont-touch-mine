@@ -113,11 +113,11 @@ namespace Game.Core.Tutorial
                     break;
 
                 case TutorialStep.Crouch:
-                    if (observation.Posture == PlayerPosture.Crouching && observation.PassageCompleted) return Advance();
+                    if (observation.PassageCompleted) return Advance();
                     break;
 
                 case TutorialStep.Prone:
-                    if (observation.Posture == PlayerPosture.Prone && observation.PassageCompleted) return Advance();
+                    if (observation.PassageCompleted) return Advance();
                     break;
             }
 

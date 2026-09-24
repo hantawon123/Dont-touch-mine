@@ -318,7 +318,7 @@ namespace Game.Editor.Tutorial
             Pendant(p, V(20, 3.7f, 10));
             var crawl = Group(p, "CrouchCrawlLane");
             // Solid bulkheads extend to the ceiling: neither side-stepping nor jumping over bypasses the lesson.
-            PosturePassage(crawl, "05_Crouch", 2.9f, 1.32f);
+            PosturePassage(crawl, "05_Crouch", 2.9f, 1.6f);
             PosturePassage(crawl, "06_Prone", -1.3f, .78f);
             Duct(p, V(22.4f, 3.6f, 4.5f), V(22.4f, 3.6f, -3), .65f);
         }
@@ -342,7 +342,7 @@ namespace Game.Editor.Tutorial
             var parent = root.Find("Zones/02_Movement/CrouchCrawlLane");
             foreach (var child in parent.Cast<Transform>().ToArray())
                 UnityEngine.Object.DestroyImmediate(child.gameObject);
-            PosturePassage(parent, "05_Crouch", 2.9f, 1.32f);
+            PosturePassage(parent, "05_Crouch", 2.9f, 1.6f);
             PosturePassage(parent, "06_Prone", -1.3f, .78f);
             ApplyLobbySurfaces(root);
         }
