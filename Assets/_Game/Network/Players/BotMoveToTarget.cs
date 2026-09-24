@@ -19,6 +19,10 @@ namespace Game.Network.Players
         private float stoppingDistance = 0.8f;
 
         [SerializeField, Min(0.05f)]
+        [Tooltip("Stopping distance when the target was off the NavMesh (on a table) and projected to the floor. Closer, to stay within hand reach.")]
+        private float offMeshStoppingDistance = 0.3f;
+
+        [SerializeField, Min(0.05f)]
         private float cornerReachDistance = 0.35f;
 
         [SerializeField, Min(0.05f)]
@@ -34,7 +38,28 @@ namespace Game.Network.Players
         private bool hasIdleYaw;
         private float idleYaw;
 
+        // The requested point projected onto the NavMesh. A prop on a table is not walkable; the bot must
+        // steer to, and consider itself arrived at, the nearest walkable point instead of pushing into the table.
+        private bool hasProjectedDestination;
+        private Vector3 projectedDestination;
+
         public float StoppingDistance => stoppingDistance;
+
+        /// <summary>
+        /// Stopping distance for the current destination: the normal value for walkable targets, a shorter one
+        /// when the target was off the NavMesh and has been projected to the nearest floor point.
+        /// </summary>
+        private float EffectiveStoppingDistance(Vector3 requested)
+        {
+            if (!hasProjectedDestination)
+            {
+                return stoppingDistance;
+            }
+
+            var shift = projectedDestination - requested;
+            shift.y = 0f;
+            return shift.sqrMagnitude > 0.3f * 0.3f ? Mathf.Min(stoppingDistance, offMeshStoppingDistance) : stoppingDistance;
+        }
 
         /// <summary>Transform 목적지든 좌표 목적지든 하나라도 있으면 true.</summary>
         public bool HasDestination => target != null || hasDestination;
@@ -94,9 +119,15 @@ namespace Game.Network.Players
                 return false;
             }
 
+            var stop = EffectiveStoppingDistance(point);
+            if (hasProjectedDestination)
+            {
+                point = projectedDestination;
+            }
+
             var offset = point - currentPosition;
             offset.y = 0f;
-            return offset.sqrMagnitude <= stoppingDistance * stoppingDistance;
+            return offset.sqrMagnitude <= stop * stop;
         }
 
         /// <summary>
@@ -129,6 +160,18 @@ namespace Game.Network.Players
             if (!hasPath)
             {
                 return hold;
+            }
+
+            if (hasProjectedDestination)
+            {
+                var stop = EffectiveStoppingDistance(destinationPoint);
+                destinationPoint = projectedDestination;
+                var projectedOffset = destinationPoint - currentPosition;
+                projectedOffset.y = 0f;
+                if (projectedOffset.sqrMagnitude <= stop * stop)
+                {
+                    return hold;
+                }
             }
 
             // 이미 도착한 모퉁이는 건너뛴다.
@@ -193,6 +236,7 @@ namespace Game.Network.Players
         private void ResetPath()
         {
             hasPath = false;
+            hasProjectedDestination = false;
             nextPathRefreshTime = 0f;
         }
 
@@ -231,6 +275,8 @@ namespace Game.Network.Players
             // 첫 점은 대개 현재 위치이므로 그다음 모퉁이부터 향한다.
             nextCornerIndex = path.corners.Length > 1 ? 1 : 0;
             hasPath = path.corners.Length > 0;
+            projectedDestination = targetHit.position;
+            hasProjectedDestination = hasPath;
         }
     }
 }

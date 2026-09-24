@@ -450,7 +450,7 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 0
-  environment: {fileID: 864757237}
+  environmentComponent: {fileID: 864757237}
   successReward: 1
   wrongItemPenalty: 0.2
   timeoutPenalty: 0.2

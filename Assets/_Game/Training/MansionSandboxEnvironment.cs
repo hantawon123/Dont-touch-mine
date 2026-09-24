@@ -64,6 +64,7 @@ namespace Game.Training
         private readonly Dictionary<string, double> movedAt = new(StringComparer.Ordinal);
         private readonly Dictionary<PickFailure, int> failures = new();
         private readonly Dictionary<string, int> holdRejections = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> stallBlockers = new(StringComparer.Ordinal);
         private readonly int[] outcomeCounts = new int[3];
         private readonly StringBuilder report = new();
 
@@ -92,7 +93,9 @@ namespace Game.Training
 
         public bool IsGoalMatch(string targetId, string kindKey)
         {
-            if (targetId == null || !byId.TryGetValue(targetId, out var item) || item == null || item.IsCarried)
+            // Do not reject a carried prop here: the finished collect is judged while the bot already holds it.
+            // Candidates never include carried props anyway (the executor skips them when observing).
+            if (targetId == null || !byId.TryGetValue(targetId, out var item) || item == null)
             {
                 return false;
             }
@@ -188,12 +191,17 @@ namespace Game.Training
             executor.CollectFinished += OnCollectFinished;
             subscribed = true;
 
+            // 13 props visible on average but only 3 slots: fill them goal-matches first, then nearest.
+            executor.SetCandidatePriority(s => IsGoalMatch(s.Handle.TargetId, s.Observation.KindKey));
+            // Hide props the bot cannot reach (no complete path, or farther than the hold distance from walkable floor).
+            executor.SetReachabilityFilter(true);
+
             IsReady = true;
             simAtLastSummary = Now;
             realAtLastSummary = Time.realtimeSinceStartupAsDouble;
             nextSummaryAt = Now + summarySeconds;
             executor.ResetObserveStats();
-            Debug.Log($"[Mansion Sandbox] ready. props {items.Count}, goal rule: any prop not moved in the last {recentMoveCooldownSeconds:F0}s.", this);
+            Debug.Log($"[Mansion Sandbox] ready. props {items.Count}, goal rule: any prop not moved in the last {recentMoveCooldownSeconds:F0}s. slots: goal-match first, then nearest; unreachable props hidden.", this);
             ResetEpisode();
         }
 
@@ -332,8 +340,16 @@ namespace Game.Training
             failures[result.Failure] = failures.TryGetValue(result.Failure, out var n) ? n + 1 : 1;
             if (result.Failure == PickFailure.Rejected)
             {
-                var key = result.Reason.Length > 60 ? result.Reason.Substring(0, 60) : result.Reason;
+                // Group by reason, not by prop id.
+                var key = result.Reason.Contains("interaction distance") ? "outside the interaction distance" : result.Reason;
                 holdRejections[key] = holdRejections.TryGetValue(key, out var r) ? r + 1 : 1;
+            }
+            else if (result.Failure == PickFailure.Stalled)
+            {
+                const string marker = "blocked by ";
+                var at = result.Reason.IndexOf(marker, StringComparison.Ordinal);
+                var key = at >= 0 ? result.Reason.Substring(at + marker.Length) : "unknown";
+                stallBlockers[key] = stallBlockers.TryGetValue(key, out var n2) ? n2 + 1 : 1;
             }
         }
 
@@ -348,7 +364,7 @@ namespace Game.Training
             report.AppendLine($"cycles: picked {outcomeCounts[(int)PickEpisodeOutcome.Success]}, wrong {outcomeCounts[(int)PickEpisodeOutcome.WrongItem]}, timeout {outcomeCounts[(int)PickEpisodeOutcome.Timeout]} (total)");
             report.AppendLine($"pickups this window {windowPickups} ({windowPickups * 60.0 / simWindow:F1}/min), cycles starting with 0 candidates {zeroCandidateCycles}, put-down fallbacks {releaseFallbacks}");
 
-            report.Append("collect failures:");
+            report.Append("collect failures this window:");
             foreach (var pair in failures)
             {
                 report.Append($" {pair.Key}={pair.Value}");
@@ -360,11 +376,20 @@ namespace Game.Training
                 report.AppendLine($"  rejected x{pair.Value}: {pair.Key}");
             }
 
+            var blockers = new List<KeyValuePair<string, int>>(stallBlockers);
+            blockers.Sort((a, b) => b.Value.CompareTo(a.Value));
+            for (var i = 0; i < blockers.Count && i < 6; i++)
+            {
+                report.AppendLine($"  stalled x{blockers[i].Value}: {blockers[i].Key}");
+            }
+
             if (executor.ObserveCalls > 0)
             {
                 report.AppendLine(
                     $"observe: {executor.ObserveCalls} calls, avg {executor.ObserveMillisecondsTotal / executor.ObserveCalls:F2} ms, " +
                     $"max {executor.ObserveMillisecondsMax:F2} ms, avg seen/remembered {executor.VisibleTotal / (double)executor.ObserveCalls:F1}, props {items.Count}");
+                report.AppendLine($"failed-target cooldown hid a prop {executor.CooldownSuppressions} times, unreachable filter hid {executor.UnreachableSuppressions} times (observe-level, not a policy override)");
+                report.AppendLine($"turned to face the target after arrival {executor.FaceTurns} times");
             }
 
             var realWindow = realNow - realAtLastSummary;
@@ -376,6 +401,9 @@ namespace Game.Training
             Debug.Log(report.ToString(), this);
 
             windowPickups = 0;
+            failures.Clear();
+            holdRejections.Clear();
+            stallBlockers.Clear();
             executor.ResetObserveStats();
             simAtLastSummary = simNow;
             realAtLastSummary = realNow;

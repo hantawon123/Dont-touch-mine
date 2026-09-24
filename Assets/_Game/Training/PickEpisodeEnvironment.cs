@@ -324,6 +324,7 @@ namespace Game.Training
 
             episodeIndex++;
             executor.ResetForEpisode();
+            executor.ClearFailedTargets(); // props move every episode here, so an old failure says nothing
 
             GoalKind = kinds.Count > 0 ? kinds[rng.Next(kinds.Count)] : string.Empty;
             var poses = SamplePoses(items.Count);

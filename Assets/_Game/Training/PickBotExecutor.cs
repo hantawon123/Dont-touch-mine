@@ -8,6 +8,7 @@ using Game.Client.Interactions;
 using Game.Network.Match;
 using Game.Network.Players;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace Game.Training
 {
@@ -59,6 +60,73 @@ namespace Game.Training
         [SerializeField]
         private Vector3 eyeLocalPosition = new(0f, 1.5f, 0f);
 
+        [SerializeField, Range(0f, 90f)]
+        [Tooltip("도착 후 물건이 정면에서 이 각도 이상 벗어나 있으면 그쪽으로 몸을 돌린 뒤 다시 본다.")]
+        private float faceTargetAngleDegrees = 20f;
+
+        [SerializeField, Min(0f)]
+        private float faceTargetSeconds = 0.35f;
+
+        /// <summary>도착 후 물건 쪽으로 몸을 돌린 횟수.</summary>
+        public int FaceTurns { get; private set; }
+
+        [SerializeField, Min(0f)]
+        [Tooltip("집기에 실패한 물건을 이 시간(시뮬 초) 동안 후보에서 뺀다. 0이면 끔. 모델 선택을 바꾸지 않고 관측에서만 지운다.")]
+        private float failedTargetCooldownSeconds = 10f;
+
+        private readonly Dictionary<string, double> failedUntil = new(StringComparer.Ordinal);
+
+        // Optional slot priority. When more props are visible than there are slots, the environment can ask
+        // for relevant ones first (the mansion puts goal matches first). Null keeps pure nearest-first, which
+        // is what the arena was trained and evaluated with.
+        private Func<BotSighting, bool> preferCandidate;
+
+        public void SetCandidatePriority(Func<BotSighting, bool> prefer) => preferCandidate = prefer;
+
+        // Optional reachability filter. A prop is offered to the policy only if the nearest walkable point has
+        // a complete path from the bot and lies within the interaction distance of the prop -- otherwise the
+        // collect would end as NoPath or as an authority rejection. Results are cached per prop.
+        private bool filterUnreachable;
+        private float reachCacheSeconds = 10f;
+        private readonly Dictionary<string, (Vector3 itemPos, double at, bool reachable)> reachCache =
+            new(StringComparer.Ordinal);
+        private NavMeshPath reachPath;
+
+        /// <summary>Props hidden from the policy because they are unreachable (per observe, cumulative).</summary>
+        public int UnreachableSuppressions { get; private set; }
+
+        public void SetReachabilityFilter(bool enabled, float cacheSeconds = 10f)
+        {
+            filterUnreachable = enabled;
+            reachCacheSeconds = cacheSeconds;
+            reachCache.Clear();
+        }
+
+        private bool IsReachable(string id, Vector3 itemPosition, Vector3 botPosition, double now)
+        {
+            if (reachCache.TryGetValue(id, out var cached) &&
+                now - cached.at < reachCacheSeconds &&
+                (cached.itemPos - itemPosition).sqrMagnitude < 0.25f * 0.25f)
+            {
+                return cached.reachable;
+            }
+
+            reachPath ??= new NavMeshPath();
+            var reachable =
+                NavMesh.SamplePosition(itemPosition, out var itemHit, 2f, NavMesh.AllAreas) &&
+                (itemHit.position - itemPosition).sqrMagnitude <=
+                    InteractionAuthorityRules.DefaultInteractionDistance * InteractionAuthorityRules.DefaultInteractionDistance &&
+                NavMesh.SamplePosition(botPosition, out var botHit, 2f, NavMesh.AllAreas) &&
+                NavMesh.CalculatePath(botHit.position, itemHit.position, NavMesh.AllAreas, reachPath) &&
+                reachPath.status == NavMeshPathStatus.PathComplete;
+
+            reachCache[id] = (itemPosition, now, reachable);
+            return reachable;
+        }
+
+        /// <summary>실패 쿨다운 때문에 후보에서 빠진 횟수(관측 호출 기준 누적).</summary>
+        public int CooldownSuppressions { get; private set; }
+
         private readonly Dictionary<string, (BotSighting sighting, double seenAt)> memory =
             new(StringComparer.Ordinal);
         private readonly List<BotSighting> scratch = new();
@@ -94,8 +162,14 @@ namespace Game.Training
         public double ObserveMillisecondsMax { get; private set; }
         public int VisibleTotal { get; private set; }
 
+        /// <summary>학습장처럼 매 에피소드 물건이 새 자리에 놓이는 환경이 부른다.</summary>
+        public void ClearFailedTargets() => failedUntil.Clear();
+
         public void ResetObserveStats()
         {
+            CooldownSuppressions = 0;
+            UnreachableSuppressions = 0;
+            FaceTurns = 0;
             ObserveCalls = 0;
             ObserveMillisecondsTotal = 0;
             ObserveMillisecondsMax = 0;
@@ -193,6 +267,41 @@ namespace Game.Training
 
         public bool TryTeleport(Pose pose) => motor != null && motor.TryTeleport(pose);
 
+        /// <summary>
+        /// Diagnostic only: what is directly in front of the bot when it stalls.
+        /// </summary>
+        private string DescribeBlocker(Pose pose)
+        {
+            var forward = pose.rotation * Vector3.forward;
+            var origin = pose.position + Vector3.up * 0.6f;
+            var hits = Physics.SphereCastAll(origin, 0.25f, forward, 0.8f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            var bestDistance = float.PositiveInfinity;
+            string best = null;
+            foreach (var hit in hits)
+            {
+                var t = hit.collider.transform;
+                if (BotRoot != null && (t == BotRoot || t.IsChildOf(BotRoot)))
+                {
+                    continue;
+                }
+
+                if (hit.distance < bestDistance)
+                {
+                    bestDistance = hit.distance;
+                    var body = hit.collider.attachedRigidbody != null ? hit.collider.attachedRigidbody.transform : t;
+                    best = "'" + StripSuffix(body.name) + "' [" + LayerMask.LayerToName(hit.collider.gameObject.layer) + "]";
+                }
+            }
+
+            return best ?? "nothing in front (floor step or NavMesh edge?)";
+        }
+
+        private static string StripSuffix(string name)
+        {
+            var cut = name.IndexOf(" (", StringComparison.Ordinal);
+            return cut > 0 ? name.Substring(0, cut) : name;
+        }
+
         /// <summary>에피소드 초기화. 진행 중인 동작을 끊고 기억·피드백·목적지를 지운다.</summary>
         public void ResetForEpisode()
         {
@@ -207,6 +316,7 @@ namespace Game.Training
             LastFailure = PickFailure.None;
             LastReason = string.Empty;
             memory.Clear();
+            // failedUntil survives episode resets on purpose: an unreachable prop stays unreachable.
 
             if (mover != null)
             {
@@ -254,8 +364,28 @@ namespace Game.Training
                     continue;
                 }
 
+                if (failedUntil.TryGetValue(pair.Key, out var until))
+                {
+                    if (now < until)
+                    {
+                        memory.Remove(pair.Key);
+                        CooldownSuppressions++;
+                        continue;
+                    }
+
+                    failedUntil.Remove(pair.Key);
+                }
+
                 if (perception.TryObserve(item.transform, out var sighting))
                 {
+                    if (filterUnreachable && TryGetPose(out var botPose) &&
+                        !IsReachable(pair.Key, sighting.Handle.ObservedWorldPosition, botPose.position, now))
+                    {
+                        memory.Remove(pair.Key);
+                        UnreachableSuppressions++;
+                        continue;
+                    }
+
                     memory[pair.Key] = (sighting, now);
                 }
             }
@@ -278,7 +408,20 @@ namespace Game.Training
                 memory.Remove(id);
             }
 
-            scratch.Sort((a, b) => a.Observation.NormalizedDistance.CompareTo(b.Observation.NormalizedDistance));
+            scratch.Sort((a, b) =>
+            {
+                if (preferCandidate != null)
+                {
+                    var pa = preferCandidate(a);
+                    var pb = preferCandidate(b);
+                    if (pa != pb)
+                    {
+                        return pa ? -1 : 1;
+                    }
+                }
+
+                return a.Observation.NormalizedDistance.CompareTo(b.Observation.NormalizedDistance);
+            });
             var count = Mathf.Min(scratch.Count, PickObservationLayout.CandidateSlots);
             for (var i = 0; i < count; i++)
             {
@@ -366,7 +509,7 @@ namespace Game.Training
                 {
                     failure = mover.HasCompletePath ? PickFailure.Stalled : PickFailure.NoPath;
                     reason = mover.HasCompletePath
-                        ? $"no movement progress for {stallSeconds:F1}s"
+                        ? $"no movement progress for {stallSeconds:F1}s; blocked by {DescribeBlocker(pose)}"
                         : "no complete NavMesh path to the observed position";
                     break;
                 }
@@ -387,7 +530,23 @@ namespace Game.Training
                 yield break;
             }
 
-            // 2) 도착 후 다시 본다. 그 사이 사라졌으면 실패.
+            // 2) 도착 후 다시 본다. 물건이 정면에서 크게 벗어나 있으면(식탁 옆에 바짝 붙은 경우 등) 먼저 그쪽으로
+            //    몸을 돌린다. 사진 속 좌표를 향해 도는 것이라 물건을 추적하지 않는다. 학습장에서는 거의 정면으로
+            //    도착하므로 이 분기에 들어가지 않고, 평가 조건이 바뀌지 않는다.
+            if (TryGetPose(out var arrivedPose))
+            {
+                var toItem = sighting.Handle.ObservedWorldPosition - arrivedPose.position;
+                toItem.y = 0f;
+                var facing = arrivedPose.rotation * Vector3.forward;
+                facing.y = 0f;
+                if (toItem.sqrMagnitude > 0.0001f && Vector3.Angle(facing, toItem) > faceTargetAngleDegrees)
+                {
+                    mover.SetIdleYaw(Mathf.Atan2(toItem.x, toItem.z) * Mathf.Rad2Deg);
+                    FaceTurns++;
+                    yield return WaitSim(faceTargetSeconds);
+                }
+            }
+
             yield return WaitSim(0.1);
             if (item.IsCarried || !perception.TryObserve(item.transform, out _))
             {
@@ -424,6 +583,11 @@ namespace Game.Training
             LastOutcome = success ? PickOutcome.Success : PickOutcome.Failure;
             LastFailure = failure;
             LastReason = reason;
+            if (!success && failedTargetCooldownSeconds > 0f && !string.IsNullOrEmpty(targetId))
+            {
+                failedUntil[targetId] = Now + failedTargetCooldownSeconds;
+            }
+
             CollectFinished?.Invoke(new PickCollectResult(success, targetId, kindKey, failure, reason, (float)(Now - startedAt)));
         }
     }
