@@ -8,6 +8,7 @@ using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Policies;
 using Unity.MLAgents.Sensors;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Game.Training
 {
@@ -26,8 +27,11 @@ namespace Game.Training
             NearestGoalMatch,
         }
 
-        [SerializeField]
-        private PickEpisodeEnvironment environment;
+        [SerializeField, FormerlySerializedAs("environment")]
+        [Tooltip("IPickEnvironment를 구현한 컴포넌트(PickEpisodeEnvironment 또는 MansionSandboxEnvironment).")]
+        private MonoBehaviour environmentComponent;
+
+        private IPickEnvironment environment;
 
         [Header("보상")]
         [SerializeField, Min(0f)]
@@ -63,6 +67,28 @@ namespace Game.Training
         private double episodeStartedAt;
 
         private PickBotExecutor Executor => environment != null ? environment.Executor : null;
+
+        protected override void Awake()
+        {
+            base.Awake();
+            ResolveEnvironment();
+        }
+
+        private void ResolveEnvironment()
+        {
+            environment = environmentComponent as IPickEnvironment;
+            if (environmentComponent != null && environment == null)
+            {
+                Debug.LogError($"[Pick Agent] '{environmentComponent.GetType().Name}' does not implement IPickEnvironment.", this);
+            }
+        }
+
+        /// <summary>Editor/builder hook: connects the agent to an environment in code.</summary>
+        public void BindEnvironment(MonoBehaviour component)
+        {
+            environmentComponent = component;
+            ResolveEnvironment();
+        }
 
         /// <summary>평가 표에 어떤 기준선이었는지 남기기 위한 이름.</summary>
         public string HeuristicModeName => heuristicMode.ToString();
@@ -263,7 +289,7 @@ namespace Game.Training
                 return;
             }
 
-            var goal = environment.IsGoalMatch(result.KindKey);
+            var goal = environment.IsGoalMatch(result.TargetId, result.KindKey);
             AddReward(goal ? successReward : -wrongItemPenalty);
             environment.RecordEpisode(
                 goal ? PickEpisodeOutcome.Success : PickEpisodeOutcome.WrongItem,
@@ -306,7 +332,7 @@ namespace Game.Training
                     size,
                     shreddable: true,
                     heldByOther: false,
-                    goalMatch: environment.IsGoalMatch(sighting.Observation.KindKey),
+                    goalMatch: environment.IsGoalMatch(id, sighting.Observation.KindKey),
                     normalizedAge: Mathf.Clamp01((float)(now - sighting.Observation.ObservedTime) / memory),
                     targetId: id));
             }

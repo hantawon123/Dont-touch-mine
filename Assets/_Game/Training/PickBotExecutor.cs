@@ -86,6 +86,22 @@ namespace Game.Training
 
         public event Action<PickCollectResult> CollectFinished;
 
+        // Cost of one Observe call (all registered items ray-checked). Read and reset by the mansion sandbox
+        // to see whether a real map with hundreds of props stays cheap enough per decision.
+        private readonly System.Diagnostics.Stopwatch observeWatch = new();
+        public int ObserveCalls { get; private set; }
+        public double ObserveMillisecondsTotal { get; private set; }
+        public double ObserveMillisecondsMax { get; private set; }
+        public int VisibleTotal { get; private set; }
+
+        public void ResetObserveStats()
+        {
+            ObserveCalls = 0;
+            ObserveMillisecondsTotal = 0;
+            ObserveMillisecondsMax = 0;
+            VisibleTotal = 0;
+        }
+
         /// <summary>Fusion이 만든 봇 오브젝트에서 부품을 찾아 묶는다. 실제 경기의 NPC 처리와 같게 사람 입력을 끈다.</summary>
         public bool TryBind(GameObject bot)
         {
@@ -209,6 +225,18 @@ namespace Game.Training
         /// 봇이 이미 들고 있는 물건은 후보가 아니다.
         /// </summary>
         public void Observe(List<BotSighting> into)
+        {
+            observeWatch.Restart();
+            ObserveInternal(into);
+            observeWatch.Stop();
+            var ms = observeWatch.Elapsed.TotalMilliseconds;
+            ObserveCalls++;
+            ObserveMillisecondsTotal += ms;
+            ObserveMillisecondsMax = Math.Max(ObserveMillisecondsMax, ms);
+            VisibleTotal += scratch.Count; // all seen or remembered, before the 3-slot cap
+        }
+
+        private void ObserveInternal(List<BotSighting> into)
         {
             into.Clear();
             if (!IsBound || items == null)

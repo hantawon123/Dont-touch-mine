@@ -28,7 +28,7 @@ namespace Game.Training
     /// "가까운 것 집기"만으로는 풀 수 없게 한다. 판단 주기마다 Agent에 결정을 요청하고,
     /// 제한 시간이 지나면 시간 초과를 알린다.
     /// </summary>
-    public sealed class PickEpisodeEnvironment : MonoBehaviour
+    public sealed class PickEpisodeEnvironment : MonoBehaviour, IPickEnvironment
     {
         [Header("연결")]
         [SerializeField]
@@ -138,7 +138,9 @@ namespace Game.Training
         public float TimeLeftRatio =>
             IsReady ? Mathf.Clamp01((float)(1.0 - (Now - episodeStartedAt) / episodeSeconds)) : 0f;
 
-        public bool IsGoalMatch(string kindKey) =>
+        public bool IsGoalMatch(string targetId, string kindKey) => IsGoalKind(kindKey);
+
+        private bool IsGoalKind(string kindKey) =>
             !string.IsNullOrEmpty(GoalKind) && string.Equals(kindKey, GoalKind, StringComparison.Ordinal);
 
         public bool TryGetSize(string id, out PickSizeClass size) => sizeById.TryGetValue(id ?? string.Empty, out size);
@@ -427,7 +429,7 @@ namespace Game.Training
                 (poses[a].position - botStartPose.position).sqrMagnitude
                     .CompareTo((poses[b].position - botStartPose.position).sqrMagnitude));
 
-            var goalIndex = items.FindIndex(item => IsGoalMatch(kindById[item.ObjectId]));
+            var goalIndex = items.FindIndex(item => IsGoalKind(kindById[item.ObjectId]));
             var free = new List<int>(order);
             var slotByItem = new int[items.Count];
 
@@ -542,7 +544,7 @@ namespace Game.Training
             var forward = Vector3.ProjectOnPlane(botStartPose.rotation * Vector3.forward, Vector3.up);
             foreach (var item in items)
             {
-                if (!IsGoalMatch(kindById[item.ObjectId]))
+                if (!IsGoalKind(kindById[item.ObjectId]))
                 {
                     continue;
                 }
