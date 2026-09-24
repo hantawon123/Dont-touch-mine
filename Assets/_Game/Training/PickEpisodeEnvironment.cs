@@ -54,7 +54,8 @@ namespace Game.Training
         [SerializeField, Min(1f)]
         private float maxDistance = 7f;
 
-        [SerializeField, Range(5f, 80f)]
+        [SerializeField, Range(5f, 180f)]
+        [Tooltip("배치 부채꼴의 반각. 1단계 50, 2단계(전 방향) 180.")]
         private float halfAngleDegrees = 50f;
 
         [SerializeField, Min(0.3f)]
@@ -70,6 +71,10 @@ namespace Game.Training
         [SerializeField]
         [Tooltip("시작 위치에서 보이는 자리만 고른다(난이도 1~2단계). 벽 뒤 탐색이 필요한 3단계에서 끈다.")]
         private bool requireVisibleFromStart = true;
+
+        [SerializeField]
+        [Tooltip("켜면 시작 방향 시야각 안만 허용(1단계). 끄면 제자리에서 돌면 보이는 자리까지 허용(2단계). 벽 가림 검사는 그대로.")]
+        private bool requireInStartFieldOfView = true;
 
         [SerializeField]
         [Tooltip("봇 눈 높이. 실행부의 BotEye 위치와 같게 둔다.")]
@@ -102,6 +107,9 @@ namespace Game.Training
         private readonly Dictionary<string, Pose> initialPoseById = new(StringComparer.Ordinal);
         private readonly List<string> kinds = new();
         private readonly int[] outcomeCounts = new int[3];
+        private readonly int[] totalActions = new int[PickObservationLayout.ActionCount];
+        private readonly RaycastHit[] placementHits = new RaycastHit[32];
+        private ulong placementFingerprint = 1469598103934665603UL;
         private readonly StringBuilder report = new();
 
         private System.Random rng;
@@ -115,6 +123,7 @@ namespace Game.Training
         private int episodeIndex;
         private int loggedEpisodes;
         private int zeroCandidateStarts;
+        private int goalOutsideStartViewEpisodes;
         private bool firstObservationReported;
         private bool evaluationFinished;
 
@@ -210,9 +219,24 @@ namespace Game.Training
                 yield break;
             }
 
-            while (!executor.TryGetPose(out botStartPose))
+            while (!executor.TryGetPose(out _))
             {
                 yield return null;
+            }
+
+            // The start pose must come from the scene, not from the bot's current pose: by the time the
+            // bot is bound it may already have taken a few steps, and even a few centimetres shift every
+            // sampled position, so two runs with the same seed would not get the same problem sheet.
+            var bootstrap = FindFirstObjectByType<BotKccTestBootstrap>();
+            if (bootstrap != null && bootstrap.SpawnPoint != null)
+            {
+                var spawn = bootstrap.SpawnPoint;
+                botStartPose = new Pose(spawn.position, Quaternion.Euler(0f, spawn.eulerAngles.y, 0f));
+            }
+            else
+            {
+                executor.TryGetPose(out botStartPose);
+                Debug.LogWarning("[Pick Env] spawn point not found; using the bot's current pose as the start pose (not reproducible).", this);
             }
 
             IsReady = true;
@@ -260,6 +284,11 @@ namespace Game.Training
                 initialPoseById.Add(id, new Pose(item.transform.position, item.transform.rotation));
             }
 
+            // FindObjectsByType does not guarantee order. Sort so the same seed draws the same goal kind
+            // and assigns the same slots on every run.
+            items.Sort((a, b) => string.CompareOrdinal(a.ObjectId, b.ObjectId));
+            kinds.Sort(StringComparer.Ordinal);
+
             if (kinds.Count == 0)
             {
                 Debug.LogError("[Pick Env] 종류 스티커가 붙은 물건이 없습니다. Pick_Box/Pick_Vase/Pick_Radio를 씬에 놓으세요.", this);
@@ -297,6 +326,8 @@ namespace Game.Training
             GoalKind = kinds.Count > 0 ? kinds[rng.Next(kinds.Count)] : string.Empty;
             var poses = SamplePoses(items.Count);
             AssignPoses(poses);
+            CountGoalOutsideStartView();
+            MixFingerprint();
 
             var states = new List<WorldObjectState>(items.Count);
             foreach (var item in items)
@@ -449,18 +480,81 @@ namespace Game.Training
 
             var forward = Vector3.ProjectOnPlane(botStartPose.rotation * Vector3.forward, Vector3.up);
             var flat = Vector3.ProjectOnPlane(offset, Vector3.up);
-            if (flat.sqrMagnitude <= 0.0001f || Vector3.Angle(forward, flat) > sightHalfAngleDegrees)
+            if (flat.sqrMagnitude <= 0.0001f ||
+                (requireInStartFieldOfView && Vector3.Angle(forward, flat) > sightHalfAngleDegrees))
             {
                 return false;
             }
 
+            // Only static geometry may occlude. The bot's body (still standing where the previous episode
+            // ended) and the props themselves are ignored, otherwise the accepted positions -- and every
+            // later random draw -- would depend on the policy that ran before, and two policies would not
+            // receive the same problem sheet for the same seed.
             var carryableLayer = LayerMask.NameToLayer("Carryable");
-            if (Physics.Raycast(eye, offset / distance, out var hit, distance - 0.15f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            var botRoot = executor != null ? executor.BotRoot : null;
+            var count = Physics.RaycastNonAlloc(eye, offset / distance, placementHits, distance - 0.15f,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            for (var i = 0; i < count; i++)
             {
-                return hit.collider.gameObject.layer == carryableLayer;
+                var hitTransform = placementHits[i].collider.transform;
+                if (hitTransform.gameObject.layer == carryableLayer ||
+                    (botRoot != null && (hitTransform == botRoot || hitTransform.IsChildOf(botRoot))))
+                {
+                    continue;
+                }
+
+                return false;
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// 배치 지문: 에피소드마다 목표 종류와 물건 위치(cm 단위)를 섞어 누적한다(FNV-1a).
+        /// 같은 시드로 돌린 정책끼리 지문이 같으면 같은 문제지를 받은 것이다.
+        /// </summary>
+        private void MixFingerprint()
+        {
+            void Mix(long value)
+            {
+                unchecked
+                {
+                    placementFingerprint ^= (ulong)value;
+                    placementFingerprint *= 1099511628211UL;
+                }
+            }
+
+            Mix(kinds.IndexOf(GoalKind));
+            foreach (var item in items)
+            {
+                var p = item.transform.position;
+                Mix(Mathf.RoundToInt(p.x * 100f));
+                Mix(Mathf.RoundToInt(p.z * 100f));
+            }
+        }
+
+        /// <summary>
+        /// 평가가 스스로 검증되게 한다: 목표 물건이 시작 방향 시야각 밖에 놓였는지 센다.
+        /// 2단계(전 방향) 시험인데 이 수가 0에 가까우면 지형 때문에 배치가 앞쪽에 몰린 것이고 그 평가는 무효다.
+        /// </summary>
+        private void CountGoalOutsideStartView()
+        {
+            var forward = Vector3.ProjectOnPlane(botStartPose.rotation * Vector3.forward, Vector3.up);
+            foreach (var item in items)
+            {
+                if (!IsGoalMatch(kindById[item.ObjectId]))
+                {
+                    continue;
+                }
+
+                var flat = Vector3.ProjectOnPlane(item.transform.position - botStartPose.position, Vector3.up);
+                if (flat.sqrMagnitude > 0.0001f && Vector3.Angle(forward, flat) > sightHalfAngleDegrees)
+                {
+                    goalOutsideStartViewEpisodes++;
+                }
+
+                return;
+            }
         }
 
         /// <summary>Agent가 에피소드의 첫 관측에서 후보 수를 알려 준다. 0개 시작은 배치 문제의 신호다.</summary>
@@ -493,6 +587,8 @@ namespace Game.Training
             report.AppendLine("[Pick Eval] ===== 최종 평가 =====");
             report.AppendLine($"정책: {DescribePolicy()}");
             report.AppendLine($"배치 시드 {placementSeed}, 에피소드 {loggedEpisodes}, 관측 {PickObservationLayout.Version}");
+            report.AppendLine($"배치 반각 {halfAngleDegrees:F0}°, 거리 {minDistance:F1}~{maxDistance:F1} m, 시작 시야각 제한 {(requireInStartFieldOfView ? "켬" : "끔")}");
+            report.AppendLine($"행동 합계 Continue={totalActions[0]} Explore={totalActions[1]} Collect0={totalActions[2]} Collect1={totalActions[3]} Collect2={totalActions[4]}");
             report.AppendLine($"성공 {successes} ({100f * successes / Mathf.Max(1, loggedEpisodes):F1}%), 오답 {wrong}, 시간 초과 {timeouts}");
             if (successes > 0)
             {
@@ -500,6 +596,8 @@ namespace Game.Training
             }
 
             report.AppendLine($"시작 시 후보 0개 에피소드 {zeroCandidateStarts}");
+            report.AppendLine($"목표가 시작 시야 밖에 놓인 에피소드 {goalOutsideStartViewEpisodes} (2단계 시험이면 대략 절반 이상이어야 유효)");
+            report.AppendLine($"배치 지문 {placementFingerprint:X16} (같은 시드·조건의 정책끼리 같아야 같은 문제지)");
             Debug.Log(report.ToString(), this);
 
             executor.ResetForEpisode();
@@ -529,6 +627,13 @@ namespace Game.Training
 
             outcomeCounts[(int)outcome]++;
             loggedEpisodes++;
+            if (actionCounts != null)
+            {
+                for (var i = 0; i < totalActions.Length && i < actionCounts.Length; i++)
+                {
+                    totalActions[i] += actionCounts[i];
+                }
+            }
             if (outcome == PickEpisodeOutcome.Success)
             {
                 successSecondsTotal += seconds;

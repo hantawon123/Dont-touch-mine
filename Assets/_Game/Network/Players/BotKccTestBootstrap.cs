@@ -26,6 +26,9 @@ namespace Game.Network.Players
         [SerializeField]
         private string sessionName = "BotKccTest";
 
+        /// <summary>씬에 지정된 봇 시작점. 학습 환경이 에피소드 시작 자세의 기준으로 쓴다.</summary>
+        public Transform SpawnPoint => spawnPoint;
+
         private static GameMode ResolveGameMode()
         {
         #if UNITY_EDITOR

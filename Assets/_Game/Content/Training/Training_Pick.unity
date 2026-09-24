@@ -455,7 +455,7 @@ MonoBehaviour:
   wrongItemPenalty: 0.2
   timeoutPenalty: 0.2
   timeCostPerSecond: 0.005
-  heuristicMode: 2
+  heuristicMode: 0
   heuristicSeed: 20260923
   logDecisions: 0
 --- !u!114 &864757236
@@ -482,12 +482,12 @@ MonoBehaviour:
     hasUpgradedBrainParametersWithActionSpec: 1
   m_Model: {fileID: 5022602860645237092, guid: 235939d6ffa4fa0489990b3dd5ac9f15, type: 3}
   m_InferenceDevice: 0
-  m_BehaviorType: 2
+  m_BehaviorType: 0
   m_BehaviorName: PickSelect
   TeamId: 0
   m_UseChildSensors: 1
   m_UseChildActuators: 1
-  m_DeterministicInference: 0
+  m_DeterministicInference: 1
   m_ObservableAttributeHandling: 0
 --- !u!114 &864757237
 MonoBehaviour:
@@ -506,19 +506,20 @@ MonoBehaviour:
   npcId: npc:1
   episodeSeconds: 30
   decisionIntervalSeconds: 0.5
-  minDistance: 2.5
-  maxDistance: 7
-  halfAngleDegrees: 50
+  minDistance: 2
+  maxDistance: 4.5
+  halfAngleDegrees: 180
   minSpacing: 1.2
   hardCaseRatio: 0.5
-  placementSeed: 20260924
+  placementSeed: 0
   requireVisibleFromStart: 1
+  requireInStartFieldOfView: 0
   eyeLocalPosition: {x: 0, y: 1.5, z: 0}
   sightDistance: 12
   sightHalfAngleDegrees: 60
   logEveryEpisodes: 20
   editorTimeScale: 0
-  evaluationEpisodes: 100
+  evaluationEpisodes: 0
 --- !u!4 &864757238
 Transform:
   m_ObjectHideFlags: 0
@@ -894,13 +895,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1824014584}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 4.02, y: 0.117, z: -3.99}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1, y: 0.117, z: 1.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: -90, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1824014586
 MonoBehaviour:
   m_ObjectHideFlags: 0

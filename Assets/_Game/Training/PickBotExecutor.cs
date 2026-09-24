@@ -81,6 +81,9 @@ namespace Game.Training
         public float MemorySeconds => memorySeconds;
         public PlayerInteractor Interactor => interactor;
 
+        /// <summary>봇 몸의 루트. 배치 가림 검사에서 봇 자신을 무시할 때 쓴다.</summary>
+        public Transform BotRoot => mover != null ? mover.transform : null;
+
         public event Action<PickCollectResult> CollectFinished;
 
         /// <summary>Fusion이 만든 봇 오브젝트에서 부품을 찾아 묶는다. 실제 경기의 NPC 처리와 같게 사람 입력을 끈다.</summary>
