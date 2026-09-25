@@ -267,6 +267,15 @@ namespace Game.Training
 
         public bool TryTeleport(Pose pose) => motor != null && motor.TryTeleport(pose);
 
+        /// <summary>Turn a prop's carving NavMeshObstacle (sandbox only) off while carried, back on once put down.</summary>
+        public static void SetCarving(CarryableItem item, bool enabled)
+        {
+            if (item != null && item.TryGetComponent<NavMeshObstacle>(out var obstacle))
+            {
+                obstacle.enabled = enabled;
+            }
+        }
+
         /// <summary>
         /// Diagnostic only: what is directly in front of the bot when it stalls.
         /// </summary>
@@ -355,6 +364,11 @@ namespace Game.Training
             }
 
             var now = Now;
+            if (walkingExplore && TryGetPose(out var observerPose))
+            {
+                MarkVisited(observerPose.position, now);
+            }
+
             foreach (var pair in items)
             {
                 var item = pair.Value;
@@ -500,8 +514,194 @@ namespace Game.Training
                 return false;
             }
 
+            lookAroundsInARow++;
+            if (walkingExplore && lookAroundsInARow >= lookAroundsBeforeWalk && TryGetPose(out var pose) &&
+                TryPickExploreWaypoint(pose.position, Now, out var waypoint))
+            {
+                // A full turn in place found no goal: walk somewhere new instead of spinning again.
+                lookAroundsInARow = 0;
+                waypointVisitedAt[waypoint] = Now; // reserve it so the next explore picks another
+                ExploreWalks++;
+                return TryBeginWalkTo(waypoints[waypoint], exploreWalkTimeout, (ok, _, _) =>
+                {
+                    if (!ok)
+                    {
+                        ExploreWalkFailures++;
+                    }
+                });
+            }
+
             running = StartCoroutine(LookAround());
             return true;
+        }
+
+        // ------------------------------------------------------------------ walking explore (Explore v2)
+        // Off by default (the arena keeps rotate-only Explore). The mansion sandbox turns it on: after a full turn
+        // in place (lookAroundsBeforeWalk rotations) with no Collect in between, Explore walks to the nearest
+        // waypoint not visited recently. Waypoints are spread over the NavMesh; hidden prop positions are never used.
+        private bool walkingExplore;
+        private int lookAroundsBeforeWalk = 4;
+        private float visitRadius = 3f;
+        private float revisitSeconds = 120f;
+        private float exploreWalkTimeout = 15f;
+        private readonly List<Vector3> waypoints = new();
+        private double[] waypointVisitedAt;
+        private bool[] waypointEverVisited;
+        private int lookAroundsInARow;
+        private NavMeshPath explorePath;
+
+        public int ExploreWalks { get; private set; }
+        public int ExploreWalkFailures { get; private set; }
+        public int WaypointCount => waypoints.Count;
+
+        public int WaypointsEverVisited
+        {
+            get
+            {
+                if (waypointEverVisited == null) return 0;
+                var n = 0;
+                foreach (var v in waypointEverVisited) if (v) n++;
+                return n;
+            }
+        }
+
+        public void EnableWalkingExplore(int count, float spacing, int seed, int lookAroundsBeforeWalking = 4,
+            float visitDistance = 3f, float revisitAfterSeconds = 120f, float walkTimeout = 15f)
+        {
+            walkingExplore = true;
+            lookAroundsBeforeWalk = Mathf.Max(1, lookAroundsBeforeWalking);
+            visitRadius = visitDistance;
+            revisitSeconds = revisitAfterSeconds;
+            exploreWalkTimeout = walkTimeout;
+            waypoints.Clear();
+
+            var tri = NavMesh.CalculateTriangulation();
+            if (tri.indices == null || tri.indices.Length < 3)
+            {
+                Debug.LogWarning("[Pick Executor] no NavMesh; walking explore disabled.", this);
+                walkingExplore = false;
+                return;
+            }
+
+            var triangles = tri.indices.Length / 3;
+            var cdf = new float[triangles];
+            var total = 0f;
+            for (var t = 0; t < triangles; t++)
+            {
+                var a = tri.vertices[tri.indices[t * 3]];
+                var b = tri.vertices[tri.indices[t * 3 + 1]];
+                var c = tri.vertices[tri.indices[t * 3 + 2]];
+                total += Vector3.Cross(b - a, c - a).magnitude * 0.5f;
+                cdf[t] = total;
+            }
+
+            var rng = new System.Random(seed);
+            var attempts = 0;
+            while (waypoints.Count < count && attempts < count * 40)
+            {
+                attempts++;
+                var target = (float)rng.NextDouble() * total;
+                var t = Array.BinarySearch(cdf, target);
+                if (t < 0) t = ~t;
+                t = Mathf.Clamp(t, 0, triangles - 1);
+                var a = tri.vertices[tri.indices[t * 3]];
+                var b = tri.vertices[tri.indices[t * 3 + 1]];
+                var c = tri.vertices[tri.indices[t * 3 + 2]];
+                var r1 = (float)rng.NextDouble();
+                var r2 = (float)rng.NextDouble();
+                if (r1 + r2 > 1f)
+                {
+                    r1 = 1f - r1;
+                    r2 = 1f - r2;
+                }
+
+                var p = a + r1 * (b - a) + r2 * (c - a);
+                var tooClose = false;
+                foreach (var w in waypoints)
+                {
+                    if ((w - p).sqrMagnitude < spacing * spacing)
+                    {
+                        tooClose = true;
+                        break;
+                    }
+                }
+
+                if (!tooClose)
+                {
+                    waypoints.Add(p);
+                }
+            }
+
+            waypointVisitedAt = new double[waypoints.Count];
+            for (var i = 0; i < waypointVisitedAt.Length; i++) waypointVisitedAt[i] = double.NegativeInfinity;
+            waypointEverVisited = new bool[waypoints.Count];
+            Debug.Log($"[Pick Executor] walking explore on: {waypoints.Count} waypoints, spacing {spacing:F1} m, walk after {lookAroundsBeforeWalk} turns.", this);
+        }
+
+        /// <summary>
+        /// The environment calls this when a goal prop was actually picked. Explore counts turns since the last
+        /// progress, so wrong or failed collects in between no longer keep the bot from walking elsewhere.
+        /// </summary>
+        public void NoteGoalProgress() => lookAroundsInARow = 0;
+
+        private void MarkVisited(Vector3 botPosition, double now)
+        {
+            if (!walkingExplore || waypointVisitedAt == null)
+            {
+                return;
+            }
+
+            var r2 = visitRadius * visitRadius;
+            for (var i = 0; i < waypoints.Count; i++)
+            {
+                if ((waypoints[i] - botPosition).sqrMagnitude <= r2)
+                {
+                    waypointVisitedAt[i] = now;
+                    waypointEverVisited[i] = true;
+                }
+            }
+        }
+
+        private bool TryPickExploreWaypoint(Vector3 botPosition, double now, out int index)
+        {
+            index = -1;
+            if (waypoints.Count == 0)
+            {
+                return false;
+            }
+
+            // Nearest (straight line) waypoints not visited recently, then the first with a complete path.
+            var order = new List<int>(waypoints.Count);
+            for (var i = 0; i < waypoints.Count; i++)
+            {
+                if (now - waypointVisitedAt[i] >= revisitSeconds)
+                {
+                    order.Add(i);
+                }
+            }
+
+            if (order.Count == 0)
+            {
+                return false;
+            }
+
+            order.Sort((x, y) => (waypoints[x] - botPosition).sqrMagnitude.CompareTo((waypoints[y] - botPosition).sqrMagnitude));
+            explorePath ??= new NavMeshPath();
+            var from = NavMesh.SamplePosition(botPosition, out var hit, 2f, NavMesh.AllAreas) ? hit.position : botPosition;
+            for (var k = 0; k < order.Count && k < 8; k++)
+            {
+                var i = order[k];
+                if (NavMesh.CalculatePath(from, waypoints[i], NavMesh.AllAreas, explorePath) &&
+                    explorePath.status == NavMeshPathStatus.PathComplete)
+                {
+                    index = i;
+                    return true;
+                }
+
+                waypointVisitedAt[i] = now; // unreachable from here for now; do not retry it immediately
+            }
+
+            return false;
         }
 
         public bool TryBeginCollect(BotSighting sighting)
@@ -511,6 +711,7 @@ namespace Game.Training
                 return false;
             }
 
+            // Collect attempts no longer reset the explore counter: only real progress does (NoteGoalProgress).
             running = StartCoroutine(Collect(sighting));
             return true;
         }
@@ -636,6 +837,8 @@ namespace Game.Training
                 Finish(false, targetId, kindKey, PickFailure.Rejected, "confirmed pickup did not attach the item", startedAt);
                 yield break;
             }
+
+            SetCarving(item, false); // a held prop must not carve the NavMesh under the bot carrying it
 
             Finish(true, targetId, kindKey, PickFailure.None, string.Empty, startedAt);
         }

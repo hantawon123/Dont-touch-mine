@@ -51,6 +51,16 @@ namespace Game.Training
         [SerializeField, Min(0f)]
         private float recentMoveCooldownSeconds = 120f;
 
+        [Header("Walking explore (Explore v2)")]
+        [SerializeField, Min(10)]
+        private int exploreWaypointCount = 150;
+
+        [SerializeField, Min(1f)]
+        private float exploreWaypointSpacing = 4f;
+
+        [SerializeField]
+        private int exploreSeed = 20260925;
+
         [Header("Placement (v2.1 model, optional)")]
         [SerializeField]
         [Tooltip("When set, a picked prop is carried to the spot this agent chooses instead of dropped in front.")]
@@ -98,6 +108,8 @@ namespace Game.Training
 
         // Placement phase state and stats (window).
         private bool placing;
+        private readonly int[] windowActions = new int[PickObservationLayout.ActionCount];
+        private int placeChosen;
         private int placedByPolicy;
         private int placeWalkFailures;
         private int placeNoCandidates;
@@ -223,6 +235,9 @@ namespace Game.Training
 
             executor.CollectFinished += OnCollectFinished;
             subscribed = true;
+
+            // Explore v2 (code, not learned): after a full turn with no goal, walk to the nearest unvisited waypoint.
+            executor.EnableWalkingExplore(exploreWaypointCount, exploreWaypointSpacing, exploreSeed);
 
             // 13 props visible on average but only 3 slots: fill them goal-matches first, then nearest.
             executor.SetCandidatePriority(s => IsGoalMatch(s.Handle.TargetId, s.Observation.KindKey));
@@ -374,6 +389,7 @@ namespace Game.Training
             }
 
             var best = placement.BestSlot;
+            placeChosen++;
             placeChosenHide += placement.Hides[slot];
             placeMeanCandidateHide += meanHide / placement.Count;
             placeRuleHide += placement.Hides[rule];
@@ -400,6 +416,7 @@ namespace Game.Training
                 if (authority.TryRelease(npcId, botPose, release, out var releaseReason))
                 {
                     executor.Interactor.ApplyConfirmedRelease(held, release, Vector3.zero);
+                    PickBotExecutor.SetCarving(held, true);
                     movedAt[held.ObjectId] = Now;
                     placedByPolicy++;
                     FinishCycleReset();
@@ -440,6 +457,7 @@ namespace Game.Training
             }
 
             executor.Interactor.ApplyConfirmedRelease(held, release, Vector3.zero);
+            PickBotExecutor.SetCarving(held, true);
             movedAt[held.ObjectId] = Now;
         }
 
@@ -463,6 +481,15 @@ namespace Game.Training
             if (outcome == PickEpisodeOutcome.Success)
             {
                 windowPickups++;
+                executor.NoteGoalProgress();
+            }
+
+            if (actionCounts != null)
+            {
+                for (var i = 0; i < windowActions.Length && i < actionCounts.Length; i++)
+                {
+                    windowActions[i] += actionCounts[i];
+                }
             }
         }
 
@@ -528,10 +555,18 @@ namespace Game.Training
                 report.AppendLine($"turned to face the target after arrival {executor.FaceTurns} times");
             }
 
-            var decided = placedByPolicy + placeWalkFailures;
+            if (executor.WaypointCount > 0)
+            {
+                report.AppendLine($"explore: walks {executor.ExploreWalks} (failed {executor.ExploreWalkFailures}), waypoints ever visited {executor.WaypointsEverVisited}/{executor.WaypointCount} ({100.0 * executor.WaypointsEverVisited / executor.WaypointCount:F0}%)");
+            }
+
+            report.AppendLine($"pick policy actions this window: Continue={windowActions[0]} Explore={windowActions[1]} Collect0={windowActions[2]} Collect1={windowActions[3]} Collect2={windowActions[4]} (completed cycles only)");
+
+            // Hide stats are summed when a spot is chosen, so divide by choices, not by completed placements.
+            var decided = placeChosen;
             if (placeAgent != null)
             {
-                report.AppendLine($"placement ({placeAgent.PolicyLabel}): placed at chosen spot {placedByPolicy}, walk/release failures {placeWalkFailures}, no candidates {placeNoCandidates}, walked {(decided > 0 ? placeWalkMetres / decided : 0):F1} m avg");
+                report.AppendLine($"placement ({placeAgent.PolicyLabel}): chosen {placeChosen}, placed at chosen spot {placedByPolicy}, walk/release failures {placeWalkFailures}, no candidates {placeNoCandidates}, planned walk {(decided > 0 ? placeWalkMetres / decided : 0):F1} m avg");
                 if (decided > 0)
                 {
                     report.AppendLine($"  hide of chosen spot {placeChosenHide / decided:F3} | rule would pick {placeRuleHide / decided:F3} | mean of candidates {placeMeanCandidateHide / decided:F3} | oracle {placeOracleHide / decided:F3} | oracle match {100.0 * placeOracleMatches / decided:F0}%");
@@ -555,7 +590,8 @@ namespace Game.Training
             failures.Clear();
             holdRejections.Clear();
             stallBlockers.Clear();
-            placedByPolicy = placeWalkFailures = placeNoCandidates = placeOracleMatches = 0;
+            placedByPolicy = placeWalkFailures = placeNoCandidates = placeOracleMatches = placeChosen = 0;
+            System.Array.Clear(windowActions, 0, windowActions.Length);
             placeChosenHide = placeMeanCandidateHide = placeRuleHide = placeOracleHide = placeWalkMetres = 0;
             placeFailureReasons.Clear();
             executor.ResetObserveStats();

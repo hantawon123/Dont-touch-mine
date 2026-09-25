@@ -202,6 +202,11 @@ namespace Game.Training.EditorTools
             EditorUtility.SetDirty(behavior);
             log.AppendLine("placement: v2.1 model connected (carry the prop to the chosen floor spot)");
 
+            // 6c) Large movable props block the bot's body but are not in the baked NavMesh (they move).
+            //     A carving NavMeshObstacle cuts them out of the NavMesh where they currently stand.
+            var obstacles = AddCarvingObstacles(log);
+            log.AppendLine($"carving NavMeshObstacle added to {obstacles} large carryable props (largest side >= {LargePropSide} m)");
+
             // 7) Save.
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
@@ -282,6 +287,60 @@ namespace Game.Training.EditorTools
             log.AppendLine("WARNING: GAME_TRAINING is not defined. Switch to the Training_Reach_Windows profile before Play.");
 #endif
             Debug.Log(log.ToString());
+        }
+
+        private const float LargePropSide = 0.8f;
+
+        private static int AddCarvingObstacles(StringBuilder log)
+        {
+            var added = 0;
+            foreach (var item in Object.FindObjectsByType<Game.Client.Interactions.CarryableItem>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                var colliders = item.GetComponentsInChildren<Collider>(true);
+                if (colliders.Length == 0 || item.GetComponent<NavMeshObstacle>() != null)
+                {
+                    continue;
+                }
+
+                // Local-space box that contains every collider (corners of each world AABB mapped into local space).
+                var root = item.transform;
+                var min = new Vector3(float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity);
+                var max = new Vector3(float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity);
+                var worldMax = 0f;
+                foreach (var c in colliders)
+                {
+                    var b = c.bounds;
+                    worldMax = Mathf.Max(worldMax, b.size.x, b.size.y, b.size.z);
+                    for (var i = 0; i < 8; i++)
+                    {
+                        var corner = new Vector3(
+                            (i & 1) == 0 ? b.min.x : b.max.x,
+                            (i & 2) == 0 ? b.min.y : b.max.y,
+                            (i & 4) == 0 ? b.min.z : b.max.z);
+                        var local = root.InverseTransformPoint(corner);
+                        min = Vector3.Min(min, local);
+                        max = Vector3.Max(max, local);
+                    }
+                }
+
+                if (worldMax < LargePropSide)
+                {
+                    continue;
+                }
+
+                var obstacle = item.gameObject.AddComponent<NavMeshObstacle>();
+                obstacle.shape = NavMeshObstacleShape.Box;
+                obstacle.center = (min + max) * 0.5f;
+                obstacle.size = max - min;
+                obstacle.carving = true;
+                obstacle.carveOnlyStationary = true;
+                obstacle.carvingMoveThreshold = 0.1f;
+                obstacle.carvingTimeToStationary = 0.5f;
+                added++;
+            }
+
+            return added;
         }
 
         private static bool TryReadFirstSpawnPoint(IEnumerable<GameObject> roots, out Pose pose)
