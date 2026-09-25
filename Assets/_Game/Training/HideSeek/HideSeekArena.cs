@@ -77,6 +77,10 @@ namespace Game.Training.HideSeek
         private int windowEpisodes, windowFound, windowDeadline, windowRejected, windowRelocations;
         private int windowSawPlaced, windowSawHolding, windowWaypoints, windowSeekDecisions;
         private int totalSawPlaced, totalSawHolding;
+
+        // Evaluation analysis of where the hider put the prop (bank score is read here only, never observed).
+        private int totalRelocations, totalPlaced, placedUnder, placedOnFurniture, placedCorner, placedOpen;
+        private double totalPlacedAt, totalPlacedBankHide;
         private double windowFoundTime, windowHiderReward;
         private int totalEpisodes, totalFound, totalDeadline;
         private double totalFoundTime, totalHiderReward;
@@ -261,6 +265,18 @@ namespace Game.Training.HideSeek
             }
 
             windowRejected += match.RejectedPlacements;
+            totalRelocations += match.Relocations;
+            if (match.PlacedSpot >= 0)
+            {
+                var placed = bank.Spots[match.PlacedSpot];
+                totalPlaced++;
+                totalPlacedAt += match.PlacedAt;
+                totalPlacedBankHide += bank.Hide(placed.Exposure(sizeClass));
+                if ((placed.Tags & HidingSpotTags.Under) != 0) placedUnder++;
+                if ((placed.Tags & HidingSpotTags.OnFurniture) != 0) placedOnFurniture++;
+                if ((placed.Tags & HidingSpotTags.Corner) != 0) placedCorner++;
+                if (placed.Tags == HidingSpotTags.None) placedOpen++;
+            }
             if (match.ObjectEverSeen && !match.ObjectSeenHeld) { windowSawPlaced++; totalSawPlaced++; }
             if (match.SeekerSawHiderHolding) { windowSawHolding++; totalSawHolding++; }
             windowSeekDecisions += match.SeekerDecisions;
@@ -280,6 +296,12 @@ namespace Game.Training.HideSeek
                         $"found {100.0 * totalFound / totalEpisodes:F1}% mean found time {(totalFound > 0 ? totalFoundTime / totalFound : 0):F1}s " +
                         $"hidden share {(totalHiderReward / totalEpisodes + 1) / 2:F3} (reward {totalHiderReward / totalEpisodes:F3}) " +
                         $"late drops {totalDeadline}, seeker saw the placed prop {100.0 * totalSawPlaced / totalEpisodes:F0}%, saw the hider holding it {100.0 * totalSawHolding / totalEpisodes:F0}% | seed {evaluationSeed} fingerprint {fingerprint:X16}",
+                        this);
+                    var p = Mathf.Max(1, totalPlaced);
+                    Debug.Log(
+                        $"[HideSeek EVAL detail] relocations/round {(double)totalRelocations / totalEpisodes:F2}, placed on a bank spot {totalPlaced}/{totalEpisodes}, placed at {totalPlacedAt / p:F1}s, " +
+                        $"spot tags under {100.0 * placedUnder / p:F0}% on-furniture {100.0 * placedOnFurniture / p:F0}% corner {100.0 * placedCorner / p:F0}% open {100.0 * placedOpen / p:F0}%, " +
+                        $"bank hide score of placed spots {totalPlacedBankHide / p:F3} (analysis only)",
                         this);
                 }
             }

@@ -10,7 +10,7 @@ for combo in "$@"; do
   python mcp.py tool '{"_name":"manage_editor","action":"play"}' >/dev/null
   end=$(( $(date +%s) + 900 ))
   until tail -n +$start "$L" | grep -a -q "\[HideSeek EVAL\]\|HideSeek\] no hiding" || [ $(date +%s) -gt $end ]; do sleep 3; done
-  tail -n +$start "$L" | grep -a "\[HideSeek EVAL\]" | head -1
+  sleep 2; tail -n +$start "$L" | grep -a "\[HideSeek EVAL" | head -2
   python mcp.py tool '{"_name":"manage_editor","action":"stop"}' >/dev/null; sleep 4
 done
 echo done
