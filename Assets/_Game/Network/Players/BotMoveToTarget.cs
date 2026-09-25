@@ -115,7 +115,11 @@ namespace Game.Network.Players
             hasIdleYaw = false;
         }
 
-        /// <summary>현재 위치가 목적지의 정지 거리 안인지(높이 무시).</summary>
+        /// <summary>
+        /// 현재 위치가 목적지의 정지 거리 안인지(높이 무시). 요청 지점까지 기본 정지 거리 안이거나, 바닥에 투영한
+        /// 지점까지 유효 정지 거리 안이면 도착이다. CreateInput은 이 판정과 같은 조건에서만 멈춘다(멈췄는데
+        /// 도착이 아닌 상태가 생기지 않게).
+        /// </summary>
         public bool IsAtDestination(Vector3 currentPosition)
         {
             if (!TryGetDestination(out var point))
@@ -123,15 +127,22 @@ namespace Game.Network.Players
                 return false;
             }
 
-            var stop = EffectiveStoppingDistance(point);
-            if (hasProjectedDestination)
+            var raw = point - currentPosition;
+            raw.y = 0f;
+            if (raw.sqrMagnitude <= stoppingDistance * stoppingDistance)
             {
-                point = projectedDestination;
+                return true;
             }
 
-            var offset = point - currentPosition;
-            offset.y = 0f;
-            return offset.sqrMagnitude <= stop * stop;
+            if (!hasProjectedDestination)
+            {
+                return false;
+            }
+
+            var stop = EffectiveStoppingDistance(point);
+            var projected = projectedDestination - currentPosition;
+            projected.y = 0f;
+            return projected.sqrMagnitude <= stop * stop;
         }
 
         /// <summary>
@@ -148,11 +159,7 @@ namespace Game.Network.Players
                 return hold;
             }
 
-            Vector3 targetOffset = destinationPoint - currentPosition;
-            targetOffset.y = 0f;
-
-            if (targetOffset.sqrMagnitude <=
-                stoppingDistance * stoppingDistance)
+            if (IsAtDestination(currentPosition))
             {
                 return hold;
             }
@@ -167,16 +174,15 @@ namespace Game.Network.Players
                 return hold;
             }
 
+            // 경로를 새로 구해 투영점이 생겼을 수 있으므로 같은 판정을 한 번 더 한다.
+            if (IsAtDestination(currentPosition))
+            {
+                return hold;
+            }
+
             if (hasProjectedDestination)
             {
-                var stop = EffectiveStoppingDistance(destinationPoint);
                 destinationPoint = projectedDestination;
-                var projectedOffset = destinationPoint - currentPosition;
-                projectedOffset.y = 0f;
-                if (projectedOffset.sqrMagnitude <= stop * stop)
-                {
-                    return hold;
-                }
             }
 
             // 이미 도착한 모퉁이는 건너뛴다.
