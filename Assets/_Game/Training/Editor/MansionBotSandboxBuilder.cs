@@ -48,7 +48,7 @@ namespace Game.Training.EditorTools
         };
 
         /// <summary>Copies the mansion, strips the match bootstrap, bakes a NavMesh. Shared by both sandboxes.</summary>
-        private static bool TryPrepareMansionCopy(
+        internal static bool TryPrepareMansionCopy(
             string scenePath,
             string navMeshPath,
             StringBuilder log,
@@ -315,8 +315,8 @@ namespace Game.Training.EditorTools
 
         // Sandbox NavMesh agent size (bot KCC body r 0.31 m, h 1.67 m, same as NetworkedPlayer since 9/23). The place-training scenes keep the default
         // Humanoid bake (r 0.5, h 2.0) so the v2 / v2.1 evaluations stay reproducible.
-        private const float SandboxAgentRadius = 0.35f;
-        private const float SandboxAgentHeight = 1.7f;
+        internal const float SandboxAgentRadius = 0.35f;
+        internal const float SandboxAgentHeight = 1.7f;
 
         private static int AddCarvingObstacles(StringBuilder log)
         {
