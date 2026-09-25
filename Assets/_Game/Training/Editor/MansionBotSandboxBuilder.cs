@@ -33,6 +33,9 @@ namespace Game.Training.EditorTools
         private const string NavMeshAsset = OutputFolder + "/Mansion_BotSandbox_NavMesh.asset";
         private const string BotPrefabPath = "Assets/_Game/Content/Prefabs/NetworkedBot.prefab";
         private const string ModelPath = "Assets/_Game/Content/Training/Models/PickSelect_v1_1_Seed101.onnx";
+        private const string PlaceScene = OutputFolder + "/Mansion_PlaceTraining.unity";
+        private const string PlaceNavMeshAsset = OutputFolder + "/Mansion_PlaceTraining_NavMesh.asset";
+        private const int PlaceAgentCount = 8;
 
         // Types stripped from the copy: they build the live match and need services the training
         // bootstrap intentionally does not register.
@@ -40,6 +43,61 @@ namespace Game.Training.EditorTools
         {
             "MatchSceneConfiguration",
         };
+
+        /// <summary>Copies the mansion, strips the match bootstrap, bakes a NavMesh. Shared by both sandboxes.</summary>
+        private static bool TryPrepareMansionCopy(
+            string scenePath,
+            string navMeshPath,
+            StringBuilder log,
+            out UnityEngine.SceneManagement.Scene scene,
+            out bool hasSpawn,
+            out Pose spawnPose)
+        {
+            scene = default;
+            hasSpawn = false;
+            spawnPose = default;
+
+            if (!AssetDatabase.IsValidFolder(OutputFolder))
+            {
+                AssetDatabase.CreateFolder(OutputFolderParent, OutputFolderName);
+            }
+
+            AssetDatabase.DeleteAsset(scenePath);
+            AssetDatabase.DeleteAsset(navMeshPath);
+            if (!AssetDatabase.CopyAsset(SourceScene, scenePath))
+            {
+                Debug.LogError($"[Mansion Sandbox Builder] could not copy {SourceScene}.");
+                return false;
+            }
+
+            scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            var roots = scene.GetRootGameObjects();
+
+            hasSpawn = TryReadFirstSpawnPoint(roots, out spawnPose);
+            log.AppendLine(hasSpawn
+                ? $"spawn point from MatchSceneConfiguration: {spawnPose.position}"
+                : "no MatchSceneConfiguration spawn point; using the scene origin");
+
+            var removed = StripMatchBootstrap(roots, log);
+            log.AppendLine($"removed {removed} components/objects");
+
+            // Bake a NavMesh from static level geometry only (props and characters move).
+            var navObject = new GameObject("BotSandbox_NavMesh");
+            var surface = navObject.AddComponent<NavMeshSurface>();
+            surface.collectObjects = CollectObjects.All;
+            surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+            surface.layerMask = LayerMask.GetMask("Default", "Water");
+            surface.BuildNavMesh();
+            if (surface.navMeshData == null)
+            {
+                Debug.LogError("[Mansion Sandbox Builder] NavMesh bake produced no data.");
+                return false;
+            }
+
+            AssetDatabase.CreateAsset(surface.navMeshData, navMeshPath);
+            log.AppendLine($"NavMesh baked -> {navMeshPath}");
+            return true;
+        }
 
         [MenuItem("Tools/AI/Build Mansion Bot Sandbox")]
         public static void Build()
@@ -50,48 +108,10 @@ namespace Game.Training.EditorTools
             }
 
             var log = new StringBuilder("[Mansion Sandbox Builder]\n");
-
-            if (!AssetDatabase.IsValidFolder(OutputFolder))
+            if (!TryPrepareMansionCopy(SandboxScene, NavMeshAsset, log, out var scene, out var hasSpawn, out var spawnPose))
             {
-                AssetDatabase.CreateFolder(OutputFolderParent, OutputFolderName);
-            }
-
-            AssetDatabase.DeleteAsset(SandboxScene);
-            AssetDatabase.DeleteAsset(NavMeshAsset);
-            if (!AssetDatabase.CopyAsset(SourceScene, SandboxScene))
-            {
-                Debug.LogError($"[Mansion Sandbox Builder] could not copy {SourceScene}.");
                 return;
             }
-
-            var scene = EditorSceneManager.OpenScene(SandboxScene, OpenSceneMode.Single);
-            var roots = scene.GetRootGameObjects();
-
-            // 1) Read the first player spawn point before the configuration is stripped.
-            var hasSpawn = TryReadFirstSpawnPoint(roots, out var spawnPose);
-            log.AppendLine(hasSpawn
-                ? $"spawn point from MatchSceneConfiguration: {spawnPose.position}"
-                : "no MatchSceneConfiguration spawn point; using the scene origin");
-
-            // 2) Strip the match bootstrap and its HUD.
-            var removed = StripMatchBootstrap(roots, log);
-            log.AppendLine($"removed {removed} components/objects");
-
-            // 3) Bake a NavMesh from static level geometry only (props and characters move).
-            var navObject = new GameObject("BotSandbox_NavMesh");
-            var surface = navObject.AddComponent<NavMeshSurface>();
-            surface.collectObjects = CollectObjects.All;
-            surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
-            surface.layerMask = LayerMask.GetMask("Default", "Water");
-            surface.BuildNavMesh();
-            if (surface.navMeshData == null)
-            {
-                Debug.LogError("[Mansion Sandbox Builder] NavMesh bake produced no data.");
-                return;
-            }
-
-            AssetDatabase.CreateAsset(surface.navMeshData, NavMeshAsset);
-            log.AppendLine($"NavMesh baked -> {NavMeshAsset}");
 
             // 4) Bot spawn point on the NavMesh.
             var spawnPosition = hasSpawn ? spawnPose.position : Vector3.zero;
@@ -159,6 +179,61 @@ namespace Game.Training.EditorTools
             log.AppendLine($"carryable props in sandbox: {carryables}");
             log.AppendLine($"saved {SandboxScene}");
             log.AppendLine("next: add this scene to the ACTIVE training build profile (Build Profiles > Add Open Scenes), then Play.");
+#if !GAME_TRAINING
+            log.AppendLine("WARNING: GAME_TRAINING is not defined. Switch to the Training_Reach_Windows profile before Play.");
+#endif
+            Debug.Log(log.ToString());
+        }
+
+        /// <summary>
+        /// Tools > AI > Build Mansion Place Training: same mansion copy and NavMesh, but no Fusion bot. Eight
+        /// PlaceSelect agents share one PlaceTrainingEnvironment (decision D3: choose a spot and score it at once).
+        /// </summary>
+        [MenuItem("Tools/AI/Build Mansion Place Training")]
+        public static void BuildPlaceTraining()
+        {
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                return;
+            }
+
+            var log = new StringBuilder("[Mansion Place Training Builder]\n");
+            if (!TryPrepareMansionCopy(PlaceScene, PlaceNavMeshAsset, log, out var scene, out _, out _))
+            {
+                return;
+            }
+
+            var envObject = new GameObject("PlaceTraining_Environment");
+            var environment = envObject.AddComponent<PlaceTrainingEnvironment>();
+
+            for (var i = 0; i < PlaceAgentCount; i++)
+            {
+                var agentObject = new GameObject($"PlaceTraining_Agent_{i}");
+                agentObject.transform.SetParent(envObject.transform, false);
+                var behavior = agentObject.AddComponent<BehaviorParameters>();
+                behavior.BehaviorName = "PlaceSelect";
+                behavior.BrainParameters.VectorObservationSize = Game.BotRuntime.Policy.PlaceObservationLayout.VectorSize;
+                behavior.BrainParameters.NumStackedVectorObservations = 1;
+                behavior.BrainParameters.ActionSpec = ActionSpec.MakeDiscrete(Game.BotRuntime.Policy.PlaceObservationLayout.ActionCount);
+                behavior.BehaviorType = BehaviorType.Default;
+                var agent = agentObject.AddComponent<PlaceSelectAgent>();
+                var agentSo = new SerializedObject(agent);
+                agentSo.FindProperty("environment").objectReferenceValue = environment;
+                agentSo.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(behavior);
+                if (i == 0)
+                {
+                    var envSo = new SerializedObject(environment);
+                    envSo.FindProperty("evaluationAgent").objectReferenceValue = agent;
+                    envSo.ApplyModifiedPropertiesWithoutUndo();
+                }
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            log.AppendLine($"{PlaceAgentCount} PlaceSelect agents added (Behavior Type Default, obs {Game.BotRuntime.Policy.PlaceObservationLayout.VectorSize}, branch {Game.BotRuntime.Policy.PlaceObservationLayout.ActionCount})");
+            log.AppendLine($"saved {PlaceScene}");
+            log.AppendLine("next: add this scene to the ACTIVE training build profile, then Play (baseline) or run mlagents-learn (training).");
 #if !GAME_TRAINING
             log.AppendLine("WARNING: GAME_TRAINING is not defined. Switch to the Training_Reach_Windows profile before Play.");
 #endif
