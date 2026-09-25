@@ -36,6 +36,8 @@ namespace Game.Training.EditorTools
         private const string PlaceScene = OutputFolder + "/Mansion_PlaceTraining.unity";
         private const string PlaceNavMeshAsset = OutputFolder + "/Mansion_PlaceTraining_NavMesh.asset";
         private const int PlaceAgentCount = 8;
+        private const string PlaceSceneV21 = OutputFolder + "/Mansion_PlaceTraining_v21.unity";
+        private const string PlaceNavMeshAssetV21 = OutputFolder + "/Mansion_PlaceTraining_v21_NavMesh.asset";
 
         // Types stripped from the copy: they build the live match and need services the training
         // bootstrap intentionally does not register.
@@ -190,7 +192,17 @@ namespace Game.Training.EditorTools
         /// PlaceSelect agents share one PlaceTrainingEnvironment (decision D3: choose a spot and score it at once).
         /// </summary>
         [MenuItem("Tools/AI/Build Mansion Place Training")]
-        public static void BuildPlaceTraining()
+        public static void BuildPlaceTraining() =>
+            BuildPlaceTraining(Game.BotRuntime.Policy.PlaceObservationVersion.V2, PlaceScene, PlaceNavMeshAsset);
+
+        [MenuItem("Tools/AI/Build Mansion Place Training (v2.1 sightlines)")]
+        public static void BuildPlaceTrainingV21() =>
+            BuildPlaceTraining(Game.BotRuntime.Policy.PlaceObservationVersion.V21, PlaceSceneV21, PlaceNavMeshAssetV21);
+
+        private static void BuildPlaceTraining(
+            Game.BotRuntime.Policy.PlaceObservationVersion version,
+            string scenePath,
+            string navMeshPath)
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             {
@@ -198,7 +210,8 @@ namespace Game.Training.EditorTools
             }
 
             var log = new StringBuilder("[Mansion Place Training Builder]\n");
-            if (!TryPrepareMansionCopy(PlaceScene, PlaceNavMeshAsset, log, out var scene, out _, out _))
+            var obsSize = Game.BotRuntime.Policy.PlaceObservationVersions.VectorSize(version);
+            if (!TryPrepareMansionCopy(scenePath, navMeshPath, log, out var scene, out _, out _))
             {
                 return;
             }
@@ -212,13 +225,14 @@ namespace Game.Training.EditorTools
                 agentObject.transform.SetParent(envObject.transform, false);
                 var behavior = agentObject.AddComponent<BehaviorParameters>();
                 behavior.BehaviorName = "PlaceSelect";
-                behavior.BrainParameters.VectorObservationSize = Game.BotRuntime.Policy.PlaceObservationLayout.VectorSize;
+                behavior.BrainParameters.VectorObservationSize = obsSize;
                 behavior.BrainParameters.NumStackedVectorObservations = 1;
                 behavior.BrainParameters.ActionSpec = ActionSpec.MakeDiscrete(Game.BotRuntime.Policy.PlaceObservationLayout.ActionCount);
                 behavior.BehaviorType = BehaviorType.Default;
                 var agent = agentObject.AddComponent<PlaceSelectAgent>();
                 var agentSo = new SerializedObject(agent);
                 agentSo.FindProperty("environment").objectReferenceValue = environment;
+                agentSo.FindProperty("observationVersion").enumValueIndex = (int)version;
                 agentSo.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(behavior);
                 if (i == 0)
@@ -231,8 +245,8 @@ namespace Game.Training.EditorTools
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
-            log.AppendLine($"{PlaceAgentCount} PlaceSelect agents added (Behavior Type Default, obs {Game.BotRuntime.Policy.PlaceObservationLayout.VectorSize}, branch {Game.BotRuntime.Policy.PlaceObservationLayout.ActionCount})");
-            log.AppendLine($"saved {PlaceScene}");
+            log.AppendLine($"{PlaceAgentCount} PlaceSelect agents added (Behavior Type Default, {Game.BotRuntime.Policy.PlaceObservationVersions.Name(version)}, obs {obsSize}, branch {Game.BotRuntime.Policy.PlaceObservationLayout.ActionCount})");
+            log.AppendLine($"saved {scenePath}");
             log.AppendLine("next: add this scene to the ACTIVE training build profile, then Play (baseline) or run mlagents-learn (training).");
 #if !GAME_TRAINING
             log.AppendLine("WARNING: GAME_TRAINING is not defined. Switch to the Training_Reach_Windows profile before Play.");

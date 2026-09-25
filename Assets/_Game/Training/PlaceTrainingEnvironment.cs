@@ -252,6 +252,10 @@ namespace Game.Training
 
         public void SetPolicyName(string name) => policyName = name;
 
+        private string observationName = PlaceObservationLayout.Version;
+
+        public void SetObservationName(string name) => observationName = name;
+
         public bool IsEvaluation => evaluationEpisodes > 0;
 
         /// <summary>Training: every agent acts. Evaluation: only the designated agent (deterministic sheet).</summary>
@@ -361,6 +365,12 @@ namespace Game.Training
 
             Array.Sort(rays); // orientation-free "how enclosed is it"
 
+            // v2.1 sightlines: from the prop centre toward points at eye height, 4 m and 12 m away, 16 directions.
+            // Always computed; the v2 encoder simply ignores them.
+            var centre = spot + Vector3.up * CenterHeight(ep.HeldSize);
+            var sightNear = SightLayer(centre, spot.y, PlaceObservationLayoutV21.NearDistance);
+            var sightFar = SightLayer(centre, spot.y, PlaceObservationLayoutV21.FarDistance);
+
             var covered = Physics.Raycast(spot + Vector3.up * 0.1f, Vector3.up, out var roof, coverProbeHeight, staticMask, QueryTriggerInteraction.Ignore);
             var toSpot = Quaternion.Euler(0f, -ep.BotYaw, 0f) * (spot - ep.BotPosition);
             toSpot.y = 0f;
@@ -376,7 +386,9 @@ namespace Game.Training
                 straightNorm,
                 rays,
                 covered,
-                covered ? roof.distance / coverProbeHeight : 0f));
+                covered ? roof.distance / coverProbeHeight : 0f,
+                sightNear,
+                sightFar));
             ep.SpotPositions.Add(spot);
             ep.PathLengths.Add(pathLength);
 
@@ -386,6 +398,25 @@ namespace Game.Training
             ep.VisibleCounts.Add(visible);
             ep.Hides.Add(hide);
             ep.Rewards.Add(PlaceReward.Total(hide, straightNorm, pathNorm, hideWeight, displacementWeight, pathWeight));
+        }
+
+        private float[] SightLayer(Vector3 centre, float floorY, float horizontalDistance)
+        {
+            var values = new float[PlaceObservationLayoutV21.SightRayCount];
+            for (var r = 0; r < values.Length; r++)
+            {
+                var yaw = r * (360f / values.Length);
+                var flat = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward * horizontalDistance;
+                var eye = new Vector3(centre.x + flat.x, floorY + watchEyeHeight, centre.z + flat.z);
+                var offset = eye - centre;
+                var length = offset.magnitude;
+                values[r] = Physics.Raycast(centre, offset / length, out var hit, length, staticMask, QueryTriggerInteraction.Ignore)
+                    ? hit.distance / length
+                    : 1f;
+            }
+
+            Array.Sort(values);
+            return values;
         }
 
         private static float CenterHeight(PickSizeClass size) => size switch
@@ -504,7 +535,7 @@ namespace Game.Training
             report.Clear();
             report.AppendLine("[Place Eval] ===== final =====");
             report.AppendLine($"policy: {policyName}");
-            report.AppendLine($"seed {seed}, decisions {totalCount}, obs {PlaceObservationLayout.Version}");
+            report.AppendLine($"seed {seed}, decisions {totalCount}, obs {observationName}");
             report.AppendLine($"mean reward {totalReward / n:F3}, mean hide {totalHide / n:F3}, mean visible watchers {totalVisible / n:F1}");
             report.AppendLine($"mean path {totalPath / n:F2} m, oracle match {100.0 * totalOracleMatches / n:F1}%, mean regret {totalRegret / n:F3}");
             report.AppendLine($"fingerprint {fingerprint:X16} (same seed + settings must match across policies)");

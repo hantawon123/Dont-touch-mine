@@ -91,6 +91,67 @@ namespace Game.Architecture.Tests
             Assert.That(PlaceReward.Hide(20), Is.EqualTo(UnityEngine.Mathf.Exp(-1f)).Within(1e-5f));
         }
 
+        private static float[] Sight(float value)
+        {
+            var rays = new float[PlaceObservationLayoutV21.SightRayCount];
+            for (var i = 0; i < rays.Length; i++)
+            {
+                rays[i] = value;
+            }
+
+            return rays;
+        }
+
+        private static PlaceCandidate CandidateV21(float near, float far) =>
+            new(0.2f, 0.9f, 0.4f, 0.3f, Rays(0.5f), false, 0f, Sight(near), Sight(far));
+
+        [Test]
+        public void V21_Layout_IsSupersetOfV2()
+        {
+            Assert.That(PlaceObservationLayoutV21.CandidateSize, Is.EqualTo(PlaceObservationLayout.CandidateSize + 32));
+            Assert.That(PlaceObservationLayoutV21.VectorSize, Is.EqualTo(191));
+            Assert.That(PlaceObservationVersions.VectorSize(PlaceObservationVersion.V2), Is.EqualTo(63));
+            Assert.That(PlaceObservationVersions.VectorSize(PlaceObservationVersion.V21), Is.EqualTo(191));
+            Assert.That(PlaceObservationVersions.Name(PlaceObservationVersion.V21), Is.EqualTo("place-obs-v21-191"));
+        }
+
+        [Test]
+        public void V21_SlotKeepsV2BlockThenNearThenFar()
+        {
+            var v2 = new float[PlaceObservationLayout.VectorSize];
+            var v21 = new float[PlaceObservationLayoutV21.VectorSize];
+            var candidates = new List<PlaceCandidate> { CandidateV21(0.25f, 0.75f) };
+            PlaceObservationEncoder.Encode(PlaceObservationVersion.V2, PickSizeClass.Medium, candidates, v2);
+            PlaceObservationEncoder.Encode(PlaceObservationVersion.V21, PickSizeClass.Medium, candidates, v21);
+
+            // Self block and the first slot's v2 block are identical in both versions.
+            for (var i = 0; i < PlaceObservationLayout.SelfSize + PlaceObservationLayout.CandidateSize; i++)
+            {
+                Assert.That(v21[i], Is.EqualTo(v2[i]), $"index {i}");
+            }
+
+            var near = PlaceObservationLayout.SelfSize + PlaceObservationLayout.CandidateSize;
+            var far = near + PlaceObservationLayoutV21.SightRayCount;
+            for (var r = 0; r < PlaceObservationLayoutV21.SightRayCount; r++)
+            {
+                Assert.That(v21[near + r], Is.EqualTo(0.25f), $"near {r}");
+                Assert.That(v21[far + r], Is.EqualTo(0.75f), $"far {r}");
+            }
+
+            // Slots 2..4 are empty: all zero.
+            for (var i = PlaceObservationLayout.SelfSize + PlaceObservationLayoutV21.CandidateSize; i < v21.Length; i++)
+            {
+                Assert.That(v21[i], Is.EqualTo(0f), $"index {i}");
+            }
+        }
+
+        [Test]
+        public void V21_CandidateRequiresSixteenSightlinesPerLayer()
+        {
+            Assert.Throws<System.ArgumentException>(() =>
+                new PlaceCandidate(0, 0, 0, 0, Rays(0.5f), false, 0, new float[3], Sight(1f)));
+        }
+
         [Test]
         public void Total_HideDominatesTieBreakers()
         {

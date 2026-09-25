@@ -33,7 +33,11 @@ namespace Game.Training
         [SerializeField]
         private int heuristicSeed = 20260925;
 
-        private readonly float[] observation = new float[PlaceObservationLayout.VectorSize];
+        [SerializeField]
+        [Tooltip("V2 = place-obs-v2-63 (the v2 model). V21 = place-obs-v21-191 (adds sightlines). Must match Behavior Parameters.")]
+        private PlaceObservationVersion observationVersion = PlaceObservationVersion.V2;
+
+        private float[] observation;
         private System.Random heuristicRng;
         private PlaceEpisode episode;
         private bool awaitingDecision;
@@ -43,22 +47,24 @@ namespace Game.Training
         public override void Initialize()
         {
             heuristicRng = new System.Random(heuristicSeed);
+            observation = new float[PlaceObservationVersions.VectorSize(observationVersion)];
             var behavior = GetComponent<BehaviorParameters>();
             if (behavior != null)
             {
                 var brain = behavior.BrainParameters;
-                var ok = brain.VectorObservationSize == PlaceObservationLayout.VectorSize &&
+                var ok = brain.VectorObservationSize == PlaceObservationVersions.VectorSize(observationVersion) &&
                          brain.ActionSpec.NumDiscreteActions == 1 &&
                          brain.ActionSpec.BranchSizes[0] == PlaceObservationLayout.ActionCount;
                 if (!ok)
                 {
                     Debug.LogError(
-                        $"[Place Agent] Behavior Parameters mismatch: need obs {PlaceObservationLayout.VectorSize}, one discrete branch of {PlaceObservationLayout.ActionCount}.",
+                        $"[Place Agent] Behavior Parameters mismatch: {observationVersion} needs obs {PlaceObservationVersions.VectorSize(observationVersion)}, one discrete branch of {PlaceObservationLayout.ActionCount}.",
                         this);
                 }
 
                 if (environment != null && environment.MayAct(this))
                 {
+                    environment.SetObservationName(PlaceObservationVersions.Name(observationVersion));
                     environment.SetPolicyName(behavior.BehaviorType == BehaviorType.HeuristicOnly
                         ? "Heuristic " + heuristicMode
                         : $"{behavior.BehaviorType} model={(behavior.Model != null ? behavior.Model.name : "(none)")}");
@@ -92,6 +98,7 @@ namespace Game.Training
         public override void CollectObservations(VectorSensor sensor)
         {
             PlaceObservationEncoder.Encode(
+                observationVersion,
                 episode != null ? episode.HeldSize : PickSizeClass.Small,
                 episode?.Candidates,
                 observation);
