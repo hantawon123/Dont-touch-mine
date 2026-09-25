@@ -138,3 +138,9 @@ Fusion·KCC 없이, 저택 샌드박스 씬(반경 0.35 m NavMesh, 소품 824개
 ### 10.4 시험 학습(hs-v1-smoke, 7분)
 
 두 행동 모두 연결, 약 4,400판(초당 약 10판, 학습기 연결 시 약 17배속). 수색자 결정이 판당 약 16회(설계 추정 40회)라 셀프플레이 교대 주기를 수색자 기준 120,000 / 스냅숏 교체 6,400 / 저장 24,000으로 재조정(둘 다 약 7,500판 / 400판 단위).
+
+### 10.5 본 학습 hs-v1-seed101(밤샘)
+
+2026-09-25 16:09 시작. `mlagents-learn Tools/Training/configs/hide_seek_selfplay.yaml --run-id=hs-v1-seed101 --seed=101 --time-scale=100`, 에디터 Mansion_HideSeek(32판). 첫 학습 차례는 HideSelect(Step 2000에서 ELO 1223). 종료 조건: HideSelect 250,000 / SeekSelect 4,000,000 결정. 학습 중 Assets 편집 금지.
+
+평가(내일): `Tools/Training/mcp/hs_eval.sh`로 학습 모델을 규칙·무작위 상대와 평가 시드 777001 × 200판(7절 표). 결과는 이 절에 추가.
