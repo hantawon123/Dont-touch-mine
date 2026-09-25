@@ -515,8 +515,13 @@ namespace Game.Training
             }
 
             lookAroundsInARow++;
-            if (walkingExplore && lookAroundsInARow >= lookAroundsBeforeWalk && TryGetPose(out var pose) &&
-                TryPickExploreWaypoint(pose.position, Now, out var waypoint))
+            var wantsWalk = walkingExplore && lookAroundsInARow >= lookAroundsBeforeWalk;
+            if (wantsWalk)
+            {
+                ExploreWalkWanted++;
+            }
+
+            if (wantsWalk && TryGetPose(out var pose) && TryPickExploreWaypoint(pose.position, Now, out var waypoint))
             {
                 // A full turn in place found no goal: walk somewhere new instead of spinning again.
                 lookAroundsInARow = 0;
@@ -529,6 +534,11 @@ namespace Game.Training
                         ExploreWalkFailures++;
                     }
                 });
+            }
+
+            if (wantsWalk)
+            {
+                ExploreNoWaypoint++; // wanted to walk, but no recent-unvisited waypoint with a complete path nearby
             }
 
             running = StartCoroutine(LookAround());
@@ -552,6 +562,8 @@ namespace Game.Training
 
         public int ExploreWalks { get; private set; }
         public int ExploreWalkFailures { get; private set; }
+        public int ExploreWalkWanted { get; private set; }
+        public int ExploreNoWaypoint { get; private set; }
         public int WaypointCount => waypoints.Count;
 
         public int WaypointsEverVisited
@@ -565,8 +577,13 @@ namespace Game.Training
             }
         }
 
+        /// <param name="reachableFrom">
+        /// When given, waypoints are drawn only from NavMesh triangles with a complete path from this point (the
+        /// bot's start). Without it the whole NavMesh is used, including islands the bot can never reach.
+        /// </param>
         public void EnableWalkingExplore(int count, float spacing, int seed, int lookAroundsBeforeWalking = 4,
-            float visitDistance = 3f, float revisitAfterSeconds = 120f, float walkTimeout = 15f)
+            float visitDistance = 3f, float revisitAfterSeconds = 120f, float walkTimeout = 15f,
+            Vector3? reachableFrom = null)
         {
             walkingExplore = true;
             lookAroundsBeforeWalk = Mathf.Max(1, lookAroundsBeforeWalking);
@@ -586,13 +603,43 @@ namespace Game.Training
             var triangles = tri.indices.Length / 3;
             var cdf = new float[triangles];
             var total = 0f;
+            var allArea = 0f;
+            var reachableTriangles = 0;
+            var hasOrigin = false;
+            var origin = Vector3.zero;
+            if (reachableFrom.HasValue && NavMesh.SamplePosition(reachableFrom.Value, out var originHit, 2f, NavMesh.AllAreas))
+            {
+                hasOrigin = true;
+                origin = originHit.position;
+            }
+
+            var reachPath = new NavMeshPath();
             for (var t = 0; t < triangles; t++)
             {
                 var a = tri.vertices[tri.indices[t * 3]];
                 var b = tri.vertices[tri.indices[t * 3 + 1]];
                 var c = tri.vertices[tri.indices[t * 3 + 2]];
-                total += Vector3.Cross(b - a, c - a).magnitude * 0.5f;
+                var area = Vector3.Cross(b - a, c - a).magnitude * 0.5f;
+                allArea += area;
+
+                // A triangle off the bot's island (garden, roofs, furniture tops) gets zero weight.
+                var reachable = !hasOrigin ||
+                                (NavMesh.CalculatePath(origin, (a + b + c) / 3f, NavMesh.AllAreas, reachPath) &&
+                                 reachPath.status == NavMeshPathStatus.PathComplete);
+                if (reachable)
+                {
+                    total += area;
+                    reachableTriangles++;
+                }
+
                 cdf[t] = total;
+            }
+
+            if (total <= 0f)
+            {
+                Debug.LogWarning("[Pick Executor] no reachable NavMesh around the start; walking explore disabled.", this);
+                walkingExplore = false;
+                return;
             }
 
             var rng = new System.Random(seed);
@@ -635,7 +682,10 @@ namespace Game.Training
             waypointVisitedAt = new double[waypoints.Count];
             for (var i = 0; i < waypointVisitedAt.Length; i++) waypointVisitedAt[i] = double.NegativeInfinity;
             waypointEverVisited = new bool[waypoints.Count];
-            Debug.Log($"[Pick Executor] walking explore on: {waypoints.Count} waypoints, spacing {spacing:F1} m, walk after {lookAroundsBeforeWalk} turns.", this);
+            var areaNote = hasOrigin
+                ? $"reachable from start: {reachableTriangles}/{triangles} triangles, {total:F0}/{allArea:F0} m2"
+                : "whole NavMesh (no reachability filter)";
+            Debug.Log($"[Pick Executor] walking explore on: {waypoints.Count} waypoints (asked {count}), spacing {spacing:F1} m, walk after {lookAroundsBeforeWalk} turns; {areaNote}.", this);
         }
 
         /// <summary>

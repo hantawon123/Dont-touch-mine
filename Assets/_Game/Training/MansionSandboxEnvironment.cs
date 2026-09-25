@@ -237,7 +237,10 @@ namespace Game.Training
             subscribed = true;
 
             // Explore v2 (code, not learned): after a full turn with no goal, walk to the nearest unvisited waypoint.
-            executor.EnableWalkingExplore(exploreWaypointCount, exploreWaypointSpacing, exploreSeed);
+            // Waypoints only where the bot can actually walk from its start (not the garden or roofs).
+            executor.TryGetPose(out var startPose);
+            executor.EnableWalkingExplore(exploreWaypointCount, exploreWaypointSpacing, exploreSeed,
+                reachableFrom: startPose.position);
 
             // 13 props visible on average but only 3 slots: fill them goal-matches first, then nearest.
             executor.SetCandidatePriority(s => IsGoalMatch(s.Handle.TargetId, s.Observation.KindKey));
@@ -557,7 +560,7 @@ namespace Game.Training
 
             if (executor.WaypointCount > 0)
             {
-                report.AppendLine($"explore: walks {executor.ExploreWalks} (failed {executor.ExploreWalkFailures}), waypoints ever visited {executor.WaypointsEverVisited}/{executor.WaypointCount} ({100.0 * executor.WaypointsEverVisited / executor.WaypointCount:F0}%)");
+                report.AppendLine($"explore: wanted to walk {executor.ExploreWalkWanted} (no waypoint {executor.ExploreNoWaypoint}), walks {executor.ExploreWalks} (failed {executor.ExploreWalkFailures}), waypoints ever visited {executor.WaypointsEverVisited}/{executor.WaypointCount} ({100.0 * executor.WaypointsEverVisited / executor.WaypointCount:F0}%)");
             }
 
             report.AppendLine($"pick policy actions this window: Continue={windowActions[0]} Explore={windowActions[1]} Collect0={windowActions[2]} Collect1={windowActions[3]} Collect2={windowActions[4]} (completed cycles only)");
