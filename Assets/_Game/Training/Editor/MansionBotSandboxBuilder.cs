@@ -105,7 +105,7 @@ namespace Game.Training.EditorTools
                 surface.navMeshData = UnityEngine.AI.NavMeshBuilder.BuildNavMeshData(settings, sources, world, Vector3.zero, Quaternion.identity);
                 surface.RemoveData();
                 surface.AddData(); // BuildNavMesh() does this too: the spawn snap below needs the NavMesh loaded
-                log.AppendLine($"NavMesh agent: radius {settings.agentRadius:F2} m, height {settings.agentHeight:F2} m (bot body r 0.27, h 1.67); {sources.Count} sources");
+                log.AppendLine($"NavMesh agent: radius {settings.agentRadius:F2} m, height {settings.agentHeight:F2} m (bot body r 0.31, h 1.67); {sources.Count} sources");
             }
             else
             {
@@ -313,7 +313,7 @@ namespace Game.Training.EditorTools
 
         private const float LargePropSide = 0.8f;
 
-        // Sandbox NavMesh agent size (bot KCC body r 0.27 m, h 1.67 m). The place-training scenes keep the default
+        // Sandbox NavMesh agent size (bot KCC body r 0.31 m, h 1.67 m, same as NetworkedPlayer since 9/23). The place-training scenes keep the default
         // Humanoid bake (r 0.5, h 2.0) so the v2 / v2.1 evaluations stay reproducible.
         private const float SandboxAgentRadius = 0.35f;
         private const float SandboxAgentHeight = 1.7f;

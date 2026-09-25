@@ -50,7 +50,7 @@ namespace Game.Training
 
         [Header("Stall diagnostics (bot KCC body, NetworkedBot prefab)")]
         [SerializeField, Min(0.05f)]
-        private float bodyRadius = 0.27f;
+        private float bodyRadius = 0.31f;
 
         [SerializeField, Min(0.5f)]
         private float bodyHeight = 1.67f;
