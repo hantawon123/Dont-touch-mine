@@ -54,7 +54,8 @@ namespace Game.Training.EditorTools
             StringBuilder log,
             out UnityEngine.SceneManagement.Scene scene,
             out bool hasSpawn,
-            out Pose spawnPose)
+            out Pose spawnPose,
+            Vector2? agentRadiusHeight = null)
         {
             scene = default;
             hasSpawn = false;
@@ -90,7 +91,27 @@ namespace Game.Training.EditorTools
             surface.collectObjects = CollectObjects.All;
             surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
             surface.layerMask = LayerMask.GetMask("Default", "Water");
-            surface.BuildNavMesh();
+            if (agentRadiusHeight.HasValue)
+            {
+                // Same sources as NavMeshSurface.BuildNavMesh (checked: identical area at r 0.5), but the agent
+                // size matches the bot body so ~1 m doorways stay open. Project agent settings are not touched.
+                var settings = NavMesh.GetSettingsByID(surface.agentTypeID);
+                settings.agentRadius = agentRadiusHeight.Value.x;
+                settings.agentHeight = agentRadiusHeight.Value.y;
+                var sources = new List<NavMeshBuildSource>();
+                var world = new Bounds(Vector3.zero, Vector3.one * 2000f);
+                UnityEngine.AI.NavMeshBuilder.CollectSources(world, surface.layerMask, NavMeshCollectGeometry.PhysicsColliders,
+                    surface.defaultArea, new List<NavMeshBuildMarkup>(), sources);
+                surface.navMeshData = UnityEngine.AI.NavMeshBuilder.BuildNavMeshData(settings, sources, world, Vector3.zero, Quaternion.identity);
+                surface.RemoveData();
+                surface.AddData(); // BuildNavMesh() does this too: the spawn snap below needs the NavMesh loaded
+                log.AppendLine($"NavMesh agent: radius {settings.agentRadius:F2} m, height {settings.agentHeight:F2} m (bot body r 0.27, h 1.67); {sources.Count} sources");
+            }
+            else
+            {
+                surface.BuildNavMesh();
+            }
+
             if (surface.navMeshData == null)
             {
                 Debug.LogError("[Mansion Sandbox Builder] NavMesh bake produced no data.");
@@ -111,7 +132,8 @@ namespace Game.Training.EditorTools
             }
 
             var log = new StringBuilder("[Mansion Sandbox Builder]\n");
-            if (!TryPrepareMansionCopy(SandboxScene, NavMeshAsset, log, out var scene, out var hasSpawn, out var spawnPose))
+            if (!TryPrepareMansionCopy(SandboxScene, NavMeshAsset, log, out var scene, out var hasSpawn, out var spawnPose,
+                    new Vector2(SandboxAgentRadius, SandboxAgentHeight)))
             {
                 return;
             }
@@ -290,6 +312,11 @@ namespace Game.Training.EditorTools
         }
 
         private const float LargePropSide = 0.8f;
+
+        // Sandbox NavMesh agent size (bot KCC body r 0.27 m, h 1.67 m). The place-training scenes keep the default
+        // Humanoid bake (r 0.5, h 2.0) so the v2 / v2.1 evaluations stay reproducible.
+        private const float SandboxAgentRadius = 0.35f;
+        private const float SandboxAgentHeight = 1.7f;
 
         private static int AddCarvingObstacles(StringBuilder log)
         {
