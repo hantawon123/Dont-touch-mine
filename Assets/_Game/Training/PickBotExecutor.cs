@@ -521,7 +521,13 @@ namespace Game.Training
                 ExploreWalkWanted++;
             }
 
-            if (wantsWalk && TryGetPose(out var pose) && TryPickExploreWaypoint(pose.position, Now, out var waypoint))
+            var hasPose = TryGetPose(out var pose);
+            if (wantsWalk && !hasPose)
+            {
+                NoWaypointNoPose++;
+            }
+
+            if (wantsWalk && hasPose && TryPickExploreWaypoint(pose.position, Now, out var waypoint))
             {
                 // A full turn in place found no goal: walk somewhere new instead of spinning again.
                 lookAroundsInARow = 0;
@@ -564,6 +570,20 @@ namespace Game.Training
         public int ExploreWalkFailures { get; private set; }
         public int ExploreWalkWanted { get; private set; }
         public int ExploreNoWaypoint { get; private set; }
+
+        // Why "no waypoint" (diagnostics only, no behaviour change).
+        public int NoWaypointAllRecent { get; private set; }
+        public int NoWaypointPathFailed { get; private set; }
+        public int NoWaypointNoPose { get; private set; }
+        public int PathFailedOffStartIsland { get; private set; }
+        public IReadOnlyDictionary<string, int> PathFailBlockers => pathFailBlockers;
+        public IReadOnlyList<Vector3> PathFailBotPositions => pathFailBotPositions;
+        private readonly Dictionary<string, int> pathFailBlockers = new(StringComparer.Ordinal);
+        private readonly List<Vector3> pathFailBotPositions = new();
+        private readonly List<NavMeshObstacle> exploreObstacles = new();
+        private bool hasExploreOrigin;
+        private Vector3 exploreOrigin;
+        private NavMeshPath diagPath;
         public int WaypointCount => waypoints.Count;
 
         public int WaypointsEverVisited
@@ -634,6 +654,11 @@ namespace Game.Training
 
                 cdf[t] = total;
             }
+
+            hasExploreOrigin = hasOrigin;
+            exploreOrigin = origin;
+            exploreObstacles.Clear();
+            exploreObstacles.AddRange(FindObjectsByType<NavMeshObstacle>(FindObjectsInactive.Include, FindObjectsSortMode.None));
 
             if (total <= 0f)
             {
@@ -732,6 +757,7 @@ namespace Game.Training
 
             if (order.Count == 0)
             {
+                NoWaypointAllRecent++; // everything reachable was visited in the last revisitSeconds
                 return false;
             }
 
@@ -749,9 +775,55 @@ namespace Game.Training
                 }
 
                 waypointVisitedAt[i] = now; // unreachable from here for now; do not retry it immediately
+                if (k == 0)
+                {
+                    NotePathFailure(from, explorePath);
+                }
             }
 
+            NoWaypointPathFailed++;
             return false;
+        }
+
+        /// <summary>Diagnostics: is the bot still on its start island, and which carving obstacle ends the path.</summary>
+        private void NotePathFailure(Vector3 from, NavMeshPath failed)
+        {
+            if (pathFailBotPositions.Count < 8)
+            {
+                pathFailBotPositions.Add(from);
+            }
+
+            if (hasExploreOrigin)
+            {
+                diagPath ??= new NavMeshPath();
+                if (!NavMesh.CalculatePath(from, exploreOrigin, NavMesh.AllAreas, diagPath) ||
+                    diagPath.status != NavMeshPathStatus.PathComplete)
+                {
+                    PathFailedOffStartIsland++;
+                }
+            }
+
+            var corners = failed.corners;
+            var end = corners != null && corners.Length > 0 ? corners[corners.Length - 1] : from;
+            string blocker = "no carving obstacle within 1.5 m of the path end";
+            var best = 1.5f * 1.5f;
+            foreach (var obstacle in exploreObstacles)
+            {
+                if (obstacle == null || !obstacle.isActiveAndEnabled || !obstacle.carving)
+                {
+                    continue;
+                }
+
+                var closest = obstacle.transform.TransformPoint(obstacle.center);
+                var d = (closest - end).sqrMagnitude;
+                if (d < best)
+                {
+                    best = d;
+                    blocker = obstacle.name;
+                }
+            }
+
+            pathFailBlockers[blocker] = pathFailBlockers.TryGetValue(blocker, out var n) ? n + 1 : 1;
         }
 
         public bool TryBeginCollect(BotSighting sighting)

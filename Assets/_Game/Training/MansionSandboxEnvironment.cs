@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Game.BotRuntime;
 using Game.BotRuntime.Perception;
@@ -561,6 +562,19 @@ namespace Game.Training
             if (executor.WaypointCount > 0)
             {
                 report.AppendLine($"explore: wanted to walk {executor.ExploreWalkWanted} (no waypoint {executor.ExploreNoWaypoint}), walks {executor.ExploreWalks} (failed {executor.ExploreWalkFailures}), waypoints ever visited {executor.WaypointsEverVisited}/{executor.WaypointCount} ({100.0 * executor.WaypointsEverVisited / executor.WaypointCount:F0}%)");
+                if (executor.ExploreNoWaypoint > 0)
+                {
+                    report.AppendLine($"  no waypoint because: all visited recently {executor.NoWaypointAllRecent}, nearest paths failed {executor.NoWaypointPathFailed} (bot off start island {executor.PathFailedOffStartIsland}), no pose {executor.NoWaypointNoPose}");
+                    foreach (var pair in executor.PathFailBlockers)
+                    {
+                        report.AppendLine($"  path ended near x{pair.Value}: {pair.Key}");
+                    }
+
+                    if (executor.PathFailBotPositions.Count > 0)
+                    {
+                        report.AppendLine($"  bot at first path failures: {string.Join(" ", executor.PathFailBotPositions.Select(p => p.ToString("F1")))}");
+                    }
+                }
             }
 
             report.AppendLine($"pick policy actions this window: Continue={windowActions[0]} Explore={windowActions[1]} Collect0={windowActions[2]} Collect1={windowActions[3]} Collect2={windowActions[4]} (completed cycles only)");
