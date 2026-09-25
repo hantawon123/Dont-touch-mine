@@ -67,6 +67,10 @@ namespace Game.Network.Players
         /// <summary>마지막 경로 계산이 완전한 경로를 찾았는지. 목적지가 없으면 false.</summary>
         public bool HasCompletePath => hasPath;
 
+        /// <summary>Diagnostics: the point the last walking input steered to, and whether one was produced.</summary>
+        public bool HasSteeringPoint { get; private set; }
+        public Vector3 LastSteeringPoint { get; private set; }
+
         private void Awake()
         {
             path = new NavMeshPath();
@@ -137,6 +141,7 @@ namespace Game.Network.Players
         /// </summary>
         public PlayerInputIntent CreateInput(Vector3 currentPosition, float currentYawDegrees)
         {
+            HasSteeringPoint = false;
             var hold = HoldStill(hasIdleYaw ? idleYaw : currentYawDegrees);
             if (!isActiveAndEnabled || !TryGetDestination(out var destinationPoint))
             {
@@ -206,6 +211,8 @@ namespace Game.Network.Players
             float targetYaw =
                 Mathf.Atan2(moveOffset.x, moveOffset.z) *
                 Mathf.Rad2Deg;
+            HasSteeringPoint = true;
+            LastSteeringPoint = steeringPoint;
 
             return new PlayerInputIntent(
                 moveX: 0f,

@@ -48,6 +48,15 @@ namespace Game.Training
         [SerializeField, Min(0.5f)]
         private float stallSeconds = 2f;
 
+        [Header("Stall diagnostics (bot KCC body, NetworkedBot prefab)")]
+        [SerializeField, Min(0.05f)]
+        private float bodyRadius = 0.27f;
+
+        [SerializeField, Min(0.5f)]
+        private float bodyHeight = 1.67f;
+
+        private readonly Collider[] contactBuffer = new Collider[32];
+
         [SerializeField, Min(0f)]
         private float memorySeconds = 2f;
 
@@ -277,9 +286,112 @@ namespace Game.Training
         }
 
         /// <summary>
-        /// Diagnostic only: what is directly in front of the bot when it stalls.
+        /// Diagnostic only: why the bot stopped moving. Returns "[category] detail"; the category is one of
+        /// touch-front / touch-side / touch-back (a collider within 5 cm of the body, not the floor),
+        /// near-front (something ahead but not touching), step-up / drop (floor height change just ahead),
+        /// navmesh-edge (bot within 10 cm of the NavMesh border) or none. Also the angle between where the bot
+        /// faces and the corner it steers to, since it walks forward and turns toward that corner.
         /// </summary>
         private string DescribeBlocker(Pose pose)
+        {
+            var forward = pose.rotation * Vector3.forward;
+            forward.y = 0f;
+            forward.Normalize();
+            var steer = "";
+            if (mover != null && mover.HasSteeringPoint)
+            {
+                var toCorner = mover.LastSteeringPoint - pose.position;
+                toCorner.y = 0f;
+                if (toCorner.sqrMagnitude > 0.0001f)
+                {
+                    steer = $", steer {Vector3.Angle(forward, toCorner):F0} deg off facing, corner {toCorner.magnitude:F1} m";
+                }
+            }
+
+            // 1) Contacts around the body (excluding the bot, the carried prop and the floor under the feet).
+            var bottom = pose.position + Vector3.up * bodyRadius;
+            var top = pose.position + Vector3.up * Mathf.Max(bodyRadius, bodyHeight - bodyRadius);
+            var count = Physics.OverlapCapsuleNonAlloc(bottom, top, bodyRadius + 0.05f, contactBuffer,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            var carried = interactor != null && interactor.CarriedItem != null ? interactor.CarriedItem.transform : null;
+            var center = pose.position + Vector3.up * (bodyHeight * 0.5f);
+            string touch = null;
+            var touchDistance = float.PositiveInfinity;
+            for (var i = 0; i < count; i++)
+            {
+                var c = contactBuffer[i];
+                var t = c.transform;
+                if (BotRoot != null && (t == BotRoot || t.IsChildOf(BotRoot)))
+                {
+                    continue;
+                }
+
+                if (carried != null && (t == carried || t.IsChildOf(carried)))
+                {
+                    continue;
+                }
+
+                var convexOk = !(c is MeshCollider mesh) || mesh.convex;
+                var closest = convexOk ? c.ClosestPoint(center) : c.bounds.ClosestPoint(center);
+                if (closest.y < pose.position.y + 0.1f)
+                {
+                    continue; // floor or a low edge under the feet
+                }
+
+                var flat = closest - pose.position;
+                flat.y = 0f;
+                var distance = flat.magnitude;
+                if (distance >= touchDistance)
+                {
+                    continue;
+                }
+
+                touchDistance = distance;
+                var angle = flat.sqrMagnitude > 0.0001f ? Vector3.Angle(forward, flat) : 0f;
+                var side = angle < 45f ? "touch-front" : angle > 135f ? "touch-back" : "touch-side";
+                var body = c.attachedRigidbody != null ? c.attachedRigidbody.transform : t;
+                touch = $"[{side}] '{StripSuffix(body.name)}' [{LayerMask.LayerToName(c.gameObject.layer)}] at {closest.y - pose.position.y:F2} m high{steer}";
+            }
+
+            if (touch != null)
+            {
+                return touch;
+            }
+
+            // 2) Something ahead that the body does not touch yet (the old single forward cast).
+            var ahead = DescribeAhead(pose);
+            if (ahead != null)
+            {
+                return "[near-front] " + ahead + steer;
+            }
+
+            // 3) Floor height just ahead.
+            var probe = pose.position + forward * (bodyRadius + 0.15f) + Vector3.up * 1f;
+            if (Physics.Raycast(probe, Vector3.down, out var floorHit, 2.5f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            {
+                var dy = floorHit.point.y - pose.position.y;
+                if (dy > 0.15f)
+                {
+                    return $"[step-up] {dy:F2} m ahead on '{StripSuffix(floorHit.collider.name)}'{steer}";
+                }
+
+                if (dy < -0.3f)
+                {
+                    return $"[drop] {-dy:F2} m ahead{steer}";
+                }
+            }
+
+            // 4) Bot pressed against the NavMesh border.
+            if (NavMesh.SamplePosition(pose.position, out var navHit, 1f, NavMesh.AllAreas) &&
+                NavMesh.FindClosestEdge(navHit.position, out var edge, NavMesh.AllAreas) && edge.distance < 0.1f)
+            {
+                return $"[navmesh-edge] {edge.distance:F2} m from edge, {Vector3.Distance(pose.position, navHit.position):F2} m off mesh{steer}";
+            }
+
+            return "[none] no contact, nothing ahead, level floor" + steer;
+        }
+
+        private string DescribeAhead(Pose pose)
         {
             var forward = pose.rotation * Vector3.forward;
             var origin = pose.position + Vector3.up * 0.6f;
@@ -302,7 +414,7 @@ namespace Game.Training
                 }
             }
 
-            return best ?? "nothing in front (floor step or NavMesh edge?)";
+            return best;
         }
 
         private static string StripSuffix(string name)

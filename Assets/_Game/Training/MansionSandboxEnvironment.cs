@@ -91,6 +91,15 @@ namespace Game.Training
         private readonly Dictionary<PickFailure, int> failures = new();
         private readonly Dictionary<string, int> holdRejections = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> stallBlockers = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> stallCategories = new(StringComparer.Ordinal);
+        private readonly List<string> stallSamples = new();
+
+        // Wrong-item diagnostics: which recently moved prop was picked again.
+        private string lastPlacedId;
+        private int wrongWasLastPlaced;
+        private int wrongMovedUnder30s;
+        private int wrongMoved30To60s;
+        private int wrongMovedOver60s;
         private readonly int[] outcomeCounts = new int[3];
         private readonly StringBuilder report = new();
 
@@ -422,6 +431,7 @@ namespace Game.Training
                     executor.Interactor.ApplyConfirmedRelease(held, release, Vector3.zero);
                     PickBotExecutor.SetCarving(held, true);
                     movedAt[held.ObjectId] = Now;
+                    lastPlacedId = held.ObjectId;
                     placedByPolicy++;
                     FinishCycleReset();
                     return;
@@ -463,6 +473,7 @@ namespace Game.Training
             executor.Interactor.ApplyConfirmedRelease(held, release, Vector3.zero);
             PickBotExecutor.SetCarving(held, true);
             movedAt[held.ObjectId] = Now;
+            lastPlacedId = held.ObjectId;
         }
 
         public void ReportFirstCandidateCount(int count)
@@ -501,6 +512,16 @@ namespace Game.Training
         {
             if (result.Success)
             {
+                if (!IsGoalMatch(result.TargetId, result.KindKey) && result.TargetId != null &&
+                    movedAt.TryGetValue(result.TargetId, out var moved))
+                {
+                    var age = Now - moved;
+                    if (result.TargetId == lastPlacedId) wrongWasLastPlaced++;
+                    if (age < 30) wrongMovedUnder30s++;
+                    else if (age < 60) wrongMoved30To60s++;
+                    else wrongMovedOver60s++;
+                }
+
                 return;
             }
 
@@ -515,8 +536,23 @@ namespace Game.Training
             {
                 const string marker = "blocked by ";
                 var at = result.Reason.IndexOf(marker, StringComparison.Ordinal);
-                var key = at >= 0 ? result.Reason.Substring(at + marker.Length) : "unknown";
-                stallBlockers[key] = stallBlockers.TryGetValue(key, out var n2) ? n2 + 1 : 1;
+                var key = at >= 0 ? result.Reason.Substring(at + marker.Length) : result.Reason;
+                var close = key.IndexOf(']');
+                var category = key.StartsWith("[", StringComparison.Ordinal) && close > 0
+                    ? key.Substring(1, close - 1)
+                    : "timeout/other";
+                stallCategories[category] = stallCategories.TryGetValue(category, out var c) ? c + 1 : 1;
+
+                // Group by category + object name (drop the per-stall numbers so keys repeat).
+                var q1 = key.IndexOf('\'');
+                var q2 = q1 >= 0 ? key.IndexOf('\'', q1 + 1) : -1;
+                var name = q2 > q1 ? key.Substring(q1, q2 - q1 + 1) : "";
+                var groupKey = $"[{category}] {name}".TrimEnd();
+                stallBlockers[groupKey] = stallBlockers.TryGetValue(groupKey, out var n2) ? n2 + 1 : 1;
+                if (stallSamples.Count < 6)
+                {
+                    stallSamples.Add(key.Length > 160 ? key.Substring(0, 160) : key);
+                }
             }
         }
 
@@ -548,6 +584,21 @@ namespace Game.Training
             for (var i = 0; i < blockers.Count && i < 6; i++)
             {
                 report.AppendLine($"  stalled x{blockers[i].Value}: {blockers[i].Key}");
+            }
+
+            if (stallCategories.Count > 0)
+            {
+                report.AppendLine("  stall categories: " + string.Join(", ", stallCategories.Select(p => $"{p.Key} {p.Value}")));
+                foreach (var sample in stallSamples)
+                {
+                    report.AppendLine("    e.g. " + sample);
+                }
+            }
+
+            var wrongJudged = wrongMovedUnder30s + wrongMoved30To60s + wrongMovedOver60s;
+            if (wrongJudged > 0)
+            {
+                report.AppendLine($"wrong picks this window {wrongJudged}: was the prop just placed {wrongWasLastPlaced}, moved <30s ago {wrongMovedUnder30s}, 30-60s {wrongMoved30To60s}, 60-120s {wrongMovedOver60s}");
             }
 
             if (executor.ObserveCalls > 0)
@@ -607,6 +658,9 @@ namespace Game.Training
             failures.Clear();
             holdRejections.Clear();
             stallBlockers.Clear();
+            stallCategories.Clear();
+            stallSamples.Clear();
+            wrongWasLastPlaced = wrongMovedUnder30s = wrongMoved30To60s = wrongMovedOver60s = 0;
             placedByPolicy = placeWalkFailures = placeNoCandidates = placeOracleMatches = placeChosen = 0;
             System.Array.Clear(windowActions, 0, windowActions.Length);
             placeChosenHide = placeMeanCandidateHide = placeRuleHide = placeOracleHide = placeWalkMetres = 0;
