@@ -429,6 +429,70 @@ namespace Game.Training
             }
         }
 
+        /// <summary>
+        /// Walk to a floor point (carrying whatever is in hand). Reports success, the failure kind and a reason.
+        /// Used by the mansion sandbox to carry a prop to the spot the placement policy chose.
+        /// </summary>
+        public bool TryBeginWalkTo(Vector3 destination, float timeoutSeconds, Action<bool, PickFailure, string> onDone)
+        {
+            if (Busy || !IsBound)
+            {
+                return false;
+            }
+
+            running = StartCoroutine(WalkTo(destination, timeoutSeconds, onDone));
+            return true;
+        }
+
+        private IEnumerator WalkTo(Vector3 destination, float timeoutSeconds, Action<bool, PickFailure, string> onDone)
+        {
+            Busy = true;
+            mover.ClearIdleYaw();
+            mover.SetDestination(destination);
+            var deadline = Now + timeoutSeconds;
+            var lastProgressAt = Now;
+            TryGetPose(out var lastPose);
+            var ok = false;
+            var failure = PickFailure.Stalled;
+            var reason = $"walk timed out after {timeoutSeconds:F0}s";
+
+            while (Now < deadline)
+            {
+                if (!TryGetPose(out var pose))
+                {
+                    yield return null;
+                    continue;
+                }
+
+                if (mover.IsAtDestination(pose.position))
+                {
+                    ok = true;
+                    break;
+                }
+
+                if ((pose.position - lastPose.position).sqrMagnitude > 0.05f * 0.05f)
+                {
+                    lastPose = pose;
+                    lastProgressAt = Now;
+                }
+                else if (Now - lastProgressAt > stallSeconds)
+                {
+                    failure = mover.HasCompletePath ? PickFailure.Stalled : PickFailure.NoPath;
+                    reason = mover.HasCompletePath
+                        ? $"no movement progress for {stallSeconds:F1}s; blocked by {DescribeBlocker(pose)}"
+                        : "no complete NavMesh path to the chosen spot";
+                    break;
+                }
+
+                yield return null;
+            }
+
+            mover.ClearDestination();
+            Busy = false;
+            running = null;
+            onDone?.Invoke(ok, ok ? PickFailure.None : failure, ok ? string.Empty : reason);
+        }
+
         public bool TryBeginLookAround()
         {
             if (Busy || !IsBound)

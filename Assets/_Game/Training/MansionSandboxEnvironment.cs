@@ -51,6 +51,21 @@ namespace Game.Training
         [SerializeField, Min(0f)]
         private float recentMoveCooldownSeconds = 120f;
 
+        [Header("Placement (v2.1 model, optional)")]
+        [SerializeField]
+        [Tooltip("When set, a picked prop is carried to the spot this agent chooses instead of dropped in front.")]
+        private PlaceSelectAgent placeAgent;
+
+        [SerializeField]
+        [Tooltip("Builds the four floor candidates around the real bot, with the same cues and scoring as training.")]
+        private PlaceTrainingEnvironment placeEnvironment;
+
+        [SerializeField, Min(1f)]
+        private float carryTimeoutSeconds = 12f;
+
+        [SerializeField, Min(0f)]
+        private float placeReleaseUp = 0.3f;
+
         [Header("Put down")]
         [SerializeField]
         private float releaseForward = 1f;
@@ -80,6 +95,19 @@ namespace Game.Training
         private int windowPickups;
         private bool firstObservationReported;
         private bool subscribed;
+
+        // Placement phase state and stats (window).
+        private bool placing;
+        private int placedByPolicy;
+        private int placeWalkFailures;
+        private int placeNoCandidates;
+        private int placeOracleMatches;
+        private double placeChosenHide;
+        private double placeMeanCandidateHide;
+        private double placeRuleHide;
+        private double placeOracleHide;
+        private double placeWalkMetres;
+        private readonly Dictionary<string, int> placeFailureReasons = new(StringComparer.Ordinal);
 
         private static double Now => BotSimClock.Now;
 
@@ -153,6 +181,11 @@ namespace Game.Training
             if (Now >= nextSummaryAt)
             {
                 LogSummary();
+            }
+
+            if (placing)
+            {
+                return; // the pick policy waits while the prop is carried to its spot
             }
 
             if (Now - cycleStartedAt >= cycleSeconds)
@@ -258,7 +291,18 @@ namespace Game.Training
             }
 
             cycleIndex++;
+            if (!placing && TryBeginPlacement())
+            {
+                return; // FinishCycleReset() runs once the prop has been put down
+            }
+
             PutDownHeld();
+            FinishCycleReset();
+        }
+
+        private void FinishCycleReset()
+        {
+            placing = false;
             executor.ResetForEpisode();
 
             // The authority mirrors the server's physics truth: rebuild it from where props actually are now.
@@ -278,6 +322,98 @@ namespace Game.Training
             nextDecisionAt = Now + decisionIntervalSeconds;
             firstObservationReported = false;
             agent.OnEnvironmentReset();
+        }
+
+        /// <summary>
+        /// Ask the placement policy where to put the held prop, then walk there. Returns false when placement is
+        /// not connected or no candidates exist; the caller then drops the prop in front as before.
+        /// </summary>
+        private bool TryBeginPlacement()
+        {
+            var held = executor.Interactor != null ? executor.Interactor.CarriedItem : null;
+            if (held == null || placeAgent == null || placeEnvironment == null || !placeEnvironment.IsReady ||
+                !executor.TryGetPose(out var botPose))
+            {
+                return false;
+            }
+
+            sizeById.TryGetValue(held.ObjectId, out var size);
+            if (!placeEnvironment.TryCreateEpisodeAt(botPose.position, botPose.rotation.eulerAngles.y, size, out var placement))
+            {
+                placeNoCandidates++;
+                return false;
+            }
+
+            placing = true;
+            if (!placeAgent.RequestPlacement(placement, slot => OnPlacementChosen(placement, slot)))
+            {
+                placing = false;
+                return false;
+            }
+
+            return true;
+        }
+
+        private void OnPlacementChosen(PlaceEpisode placement, int slot)
+        {
+            // Compare the choice with what the hand-written rule would have picked on the same four spots.
+            var rule = 0;
+            var ruleScore = float.PositiveInfinity;
+            var meanHide = 0f;
+            for (var i = 0; i < placement.Count; i++)
+            {
+                var c = placement.Candidates[i];
+                var score = c.Openness - (c.Covered ? 0.25f : 0f);
+                if (score < ruleScore)
+                {
+                    ruleScore = score;
+                    rule = i;
+                }
+
+                meanHide += placement.Hides[i];
+            }
+
+            var best = placement.BestSlot;
+            placeChosenHide += placement.Hides[slot];
+            placeMeanCandidateHide += meanHide / placement.Count;
+            placeRuleHide += placement.Hides[rule];
+            placeOracleHide += placement.Hides[best];
+            if (slot == best)
+            {
+                placeOracleMatches++;
+            }
+
+            var spot = placement.SpotPositions[slot];
+            placeWalkMetres += placement.PathLengths[slot];
+            if (!executor.TryBeginWalkTo(spot, carryTimeoutSeconds, (ok, failure, reason) => OnCarryFinished(spot, ok, failure, reason)))
+            {
+                OnCarryFinished(spot, false, PickFailure.Rejected, "executor busy");
+            }
+        }
+
+        private void OnCarryFinished(Vector3 spot, bool arrived, PickFailure failure, string reason)
+        {
+            var held = executor.Interactor != null ? executor.Interactor.CarriedItem : null;
+            if (arrived && held != null && executor.TryGetPose(out var botPose))
+            {
+                var release = new Pose(spot + Vector3.up * placeReleaseUp, Quaternion.identity);
+                if (authority.TryRelease(npcId, botPose, release, out var releaseReason))
+                {
+                    executor.Interactor.ApplyConfirmedRelease(held, release, Vector3.zero);
+                    movedAt[held.ObjectId] = Now;
+                    placedByPolicy++;
+                    FinishCycleReset();
+                    return;
+                }
+
+                reason = "release rejected: " + releaseReason;
+            }
+
+            placeWalkFailures++;
+            var key = reason.Length > 70 ? reason.Substring(0, 70) : reason;
+            placeFailureReasons[key] = placeFailureReasons.TryGetValue(key, out var n) ? n + 1 : 1;
+            PutDownHeld();
+            FinishCycleReset();
         }
 
         private void PutDownHeld()
@@ -392,6 +528,21 @@ namespace Game.Training
                 report.AppendLine($"turned to face the target after arrival {executor.FaceTurns} times");
             }
 
+            var decided = placedByPolicy + placeWalkFailures;
+            if (placeAgent != null)
+            {
+                report.AppendLine($"placement ({placeAgent.PolicyLabel}): placed at chosen spot {placedByPolicy}, walk/release failures {placeWalkFailures}, no candidates {placeNoCandidates}, walked {(decided > 0 ? placeWalkMetres / decided : 0):F1} m avg");
+                if (decided > 0)
+                {
+                    report.AppendLine($"  hide of chosen spot {placeChosenHide / decided:F3} | rule would pick {placeRuleHide / decided:F3} | mean of candidates {placeMeanCandidateHide / decided:F3} | oracle {placeOracleHide / decided:F3} | oracle match {100.0 * placeOracleMatches / decided:F0}%");
+                }
+
+                foreach (var pair in placeFailureReasons)
+                {
+                    report.AppendLine($"  place failed x{pair.Value}: {pair.Key}");
+                }
+            }
+
             var realWindow = realNow - realAtLastSummary;
             if (realWindow > 0.001)
             {
@@ -404,6 +555,9 @@ namespace Game.Training
             failures.Clear();
             holdRejections.Clear();
             stallBlockers.Clear();
+            placedByPolicy = placeWalkFailures = placeNoCandidates = placeOracleMatches = 0;
+            placeChosenHide = placeMeanCandidateHide = placeRuleHide = placeOracleHide = placeWalkMetres = 0;
+            placeFailureReasons.Clear();
             executor.ResetObserveStats();
             simAtLastSummary = simNow;
             realAtLastSummary = realNow;

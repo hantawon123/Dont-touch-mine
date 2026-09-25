@@ -33,6 +33,7 @@ namespace Game.Training.EditorTools
         private const string NavMeshAsset = OutputFolder + "/Mansion_BotSandbox_NavMesh.asset";
         private const string BotPrefabPath = "Assets/_Game/Content/Prefabs/NetworkedBot.prefab";
         private const string ModelPath = "Assets/_Game/Content/Training/Models/PickSelect_v1_1_Seed101.onnx";
+        private const string PlaceModelPath = "Assets/_Game/Content/Training/Models/PlaceSelect_v21_Seed101.onnx";
         private const string PlaceScene = OutputFolder + "/Mansion_PlaceTraining.unity";
         private const string PlaceNavMeshAsset = OutputFolder + "/Mansion_PlaceTraining_NavMesh.asset";
         private const int PlaceAgentCount = 8;
@@ -166,11 +167,40 @@ namespace Game.Training.EditorTools
             agentSo.FindProperty("environmentComponent").objectReferenceValue = environment;
             agentSo.ApplyModifiedPropertiesWithoutUndo();
 
+            // 6b) Placement: v2.1 model chooses where to carry the prop. Driven by the sandbox, never self-driven.
+            var placeEnvObject = new GameObject("BotSandbox_PlaceEnvironment");
+            var placeEnvironment = placeEnvObject.AddComponent<PlaceTrainingEnvironment>();
+            var placeAgentObject = new GameObject("BotSandbox_PlaceAgent");
+            placeAgentObject.transform.SetParent(placeEnvObject.transform, false);
+            var placeBehavior = placeAgentObject.AddComponent<BehaviorParameters>();
+            placeBehavior.BehaviorName = "PlaceSelect";
+            placeBehavior.BrainParameters.VectorObservationSize = Game.BotRuntime.Policy.PlaceObservationLayoutV21.VectorSize;
+            placeBehavior.BrainParameters.NumStackedVectorObservations = 1;
+            placeBehavior.BrainParameters.ActionSpec = ActionSpec.MakeDiscrete(Game.BotRuntime.Policy.PlaceObservationLayout.ActionCount);
+            placeBehavior.Model = AssetDatabase.LoadAssetAtPath<ModelAsset>(PlaceModelPath);
+            placeBehavior.BehaviorType = BehaviorType.InferenceOnly;
+            placeBehavior.DeterministicInference = true;
+            if (placeBehavior.Model == null)
+            {
+                log.AppendLine($"WARNING: placement model not found at {PlaceModelPath}");
+            }
+
+            var placeAgent = placeAgentObject.AddComponent<PlaceSelectAgent>();
+            var placeAgentSo = new SerializedObject(placeAgent);
+            placeAgentSo.FindProperty("environment").objectReferenceValue = placeEnvironment;
+            placeAgentSo.FindProperty("observationVersion").enumValueIndex = (int)Game.BotRuntime.Policy.PlaceObservationVersion.V21;
+            placeAgentSo.FindProperty("externallyDriven").boolValue = true;
+            placeAgentSo.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(placeBehavior);
+
             var envSo = new SerializedObject(environment);
             envSo.FindProperty("agent").objectReferenceValue = agent;
             envSo.FindProperty("executor").objectReferenceValue = executor;
+            envSo.FindProperty("placeAgent").objectReferenceValue = placeAgent;
+            envSo.FindProperty("placeEnvironment").objectReferenceValue = placeEnvironment;
             envSo.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(behavior);
+            log.AppendLine("placement: v2.1 model connected (carry the prop to the chosen floor spot)");
 
             // 7) Save.
             EditorSceneManager.MarkSceneDirty(scene);

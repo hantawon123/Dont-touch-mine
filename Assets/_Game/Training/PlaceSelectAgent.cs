@@ -37,7 +37,15 @@ namespace Game.Training
         [Tooltip("V2 = place-obs-v2-63 (the v2 model). V21 = place-obs-v21-191 (adds sightlines). Must match Behavior Parameters.")]
         private PlaceObservationVersion observationVersion = PlaceObservationVersion.V2;
 
+        [SerializeField]
+        [Tooltip("On in the mansion sandbox: the sandbox hands over a placement and waits for the choice. Off in training.")]
+        private bool externallyDriven;
+
         private float[] observation;
+        private System.Action<int> pendingChoice;
+
+        public bool ExternallyDriven => externallyDriven;
+        public string PolicyLabel { get; private set; } = "?";
         private System.Random heuristicRng;
         private PlaceEpisode episode;
         private bool awaitingDecision;
@@ -62,14 +70,33 @@ namespace Game.Training
                         this);
                 }
 
+                PolicyLabel = behavior.BehaviorType == BehaviorType.HeuristicOnly
+                    ? "Heuristic " + heuristicMode
+                    : $"{behavior.BehaviorType} model={(behavior.Model != null ? behavior.Model.name : "(none)")}";
                 if (environment != null && environment.MayAct(this))
                 {
                     environment.SetObservationName(PlaceObservationVersions.Name(observationVersion));
-                    environment.SetPolicyName(behavior.BehaviorType == BehaviorType.HeuristicOnly
-                        ? "Heuristic " + heuristicMode
-                        : $"{behavior.BehaviorType} model={(behavior.Model != null ? behavior.Model.name : "(none)")}");
+                    environment.SetPolicyName(PolicyLabel);
                 }
             }
+        }
+
+        /// <summary>
+        /// Sandbox entry: decide for an episode built around the real bot. The choice arrives through
+        /// <paramref name="onChosen"/> after the next academy step.
+        /// </summary>
+        public bool RequestPlacement(PlaceEpisode placement, System.Action<int> onChosen)
+        {
+            if (!externallyDriven || awaitingDecision || placement == null || placement.Count == 0)
+            {
+                return false;
+            }
+
+            episode = placement;
+            pendingChoice = onChosen;
+            awaitingDecision = true;
+            RequestDecision();
+            return true;
         }
 
         public override void OnEpisodeBegin()
@@ -80,8 +107,8 @@ namespace Game.Training
 
         private void FixedUpdate()
         {
-            if (environment == null || !environment.IsReady || environment.IsFinished || awaitingDecision ||
-                !environment.MayAct(this))
+            if (externallyDriven || environment == null || !environment.IsReady || environment.IsFinished ||
+                awaitingDecision || !environment.MayAct(this))
             {
                 return;
             }
@@ -128,8 +155,15 @@ namespace Game.Training
 
             var slot = Mathf.Clamp(actions.DiscreteActions[0], 0, episode.Count - 1);
             AddReward(episode.Rewards[slot]);
-            environment.Record(episode, slot);
+            if (!externallyDriven)
+            {
+                environment.Record(episode, slot);
+            }
+
+            var callback = pendingChoice;
+            pendingChoice = null;
             EndEpisode();
+            callback?.Invoke(slot);
         }
 
         public override void Heuristic(in ActionBuffers actionsOut)

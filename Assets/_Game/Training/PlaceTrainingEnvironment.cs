@@ -286,38 +286,7 @@ namespace Game.Training
                     HeldSize = (PickSizeClass)SampleSize(),
                 };
 
-                var tries = 0;
-                while (ep.Count < PlaceObservationLayout.CandidateSlots && tries < 60)
-                {
-                    tries++;
-                    var angle = NextFloat() * Mathf.PI * 2f;
-                    var distance = Mathf.Lerp(minDistance, maxDistance, NextFloat());
-                    var guess = bot + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * distance;
-                    if (!NavMesh.SamplePosition(guess, out var hit, 1f, NavMesh.AllAreas))
-                    {
-                        continue;
-                    }
-
-                    var spot = hit.position;
-                    if (Vector3.Distance(spot, bot) < minDistance || TooClose(ep, spot))
-                    {
-                        continue;
-                    }
-
-                    if (!NavMesh.CalculatePath(bot, spot, NavMesh.AllAreas, path) ||
-                        path.status != NavMeshPathStatus.PathComplete)
-                    {
-                        continue;
-                    }
-
-                    var length = PathLength(path);
-                    if (length > maxPathLength)
-                    {
-                        continue;
-                    }
-
-                    AddCandidate(ep, spot, length);
-                }
+                FillCandidates(ep);
 
                 if (ep.Count >= 2)
                 {
@@ -328,6 +297,67 @@ namespace Game.Training
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Real-bot entry (mansion sandbox): candidates around where the bot actually stands, holding a prop of a
+        /// known size. Same sampling, cues and scoring as training; only the bot pose is given instead of drawn.
+        /// </summary>
+        public bool TryCreateEpisodeAt(Vector3 botPosition, float botYaw, PickSizeClass heldSize, out PlaceEpisode episode)
+        {
+            episode = null;
+            if (!IsReady)
+            {
+                return false;
+            }
+
+            var bot = NavMesh.SamplePosition(botPosition, out var botHit, 2f, NavMesh.AllAreas) ? botHit.position : botPosition;
+            var ep = new PlaceEpisode { BotPosition = bot, BotYaw = botYaw, HeldSize = heldSize };
+            FillCandidates(ep);
+            if (ep.Count < 2)
+            {
+                return false;
+            }
+
+            episode = ep;
+            return true;
+        }
+
+        private void FillCandidates(PlaceEpisode ep)
+        {
+            var bot = ep.BotPosition;
+            var tries = 0;
+            while (ep.Count < PlaceObservationLayout.CandidateSlots && tries < 60)
+            {
+                tries++;
+                var angle = NextFloat() * Mathf.PI * 2f;
+                var distance = Mathf.Lerp(minDistance, maxDistance, NextFloat());
+                var guess = bot + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * distance;
+                if (!NavMesh.SamplePosition(guess, out var hit, 1f, NavMesh.AllAreas))
+                {
+                    continue;
+                }
+
+                var spot = hit.position;
+                if (Vector3.Distance(spot, bot) < minDistance || TooClose(ep, spot))
+                {
+                    continue;
+                }
+
+                if (!NavMesh.CalculatePath(bot, spot, NavMesh.AllAreas, path) ||
+                    path.status != NavMeshPathStatus.PathComplete)
+                {
+                    continue;
+                }
+
+                var length = PathLength(path);
+                if (length > maxPathLength)
+                {
+                    continue;
+                }
+
+                AddCandidate(ep, spot, length);
+            }
         }
 
         private int SampleSize()
