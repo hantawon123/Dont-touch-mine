@@ -144,3 +144,13 @@ Fusion·KCC 없이, 저택 샌드박스 씬(반경 0.35 m NavMesh, 소품 824개
 2026-09-25 16:09 시작. `mlagents-learn Tools/Training/configs/hide_seek_selfplay.yaml --run-id=hs-v1-seed101 --seed=101 --time-scale=100`, 에디터 Mansion_HideSeek(32판). 첫 학습 차례는 HideSelect(Step 2000에서 ELO 1223). 종료 조건: HideSelect 250,000 / SeekSelect 4,000,000 결정. 학습 중 Assets 편집 금지.
 
 평가(내일): `Tools/Training/mcp/hs_eval.sh`로 학습 모델을 규칙·무작위 상대와 평가 시드 777001 × 200판(7절 표). 결과는 이 절에 추가.
+
+### 10.6 빌드 3개로 전환(hs-v1-b3-seed101)
+
+에디터 학습 hs-v1-seed101은 16:09~16:25(HideSelect 6,000단계, ELO 1200 → 1235)에서 멈춤. 체크포인트(20,000단계마다)가 아직 없어 이어 쓰지 않고 새로 시작.
+
+- 빌드 프로필 `Training_HideSeek_Windows`(첫 씬 Mansion_HideSeek, GAME_TRAINING, 개발 빌드 끔). 빌드 88초, 1.4 GB, `Builds/HideSeek/HideSeek.exe`. 단독 실행 확인: ready 줄 정상, 예외 0.
+- 16:34 시작: `mlagents-learn Tools/Training/configs/hide_seek_selfplay.yaml --run-id=hs-v1-b3-seed101 --seed=101 --env=Builds/HideSeek/HideSeek.exe --num-envs=3 --no-graphics --time-scale=100`
+- 측정: 빌드 하나 약 330 MB, SeekSelect 약 250결정/초(에디터 113 → 2.2배), 약 16판/초. CPU 전체 17~19%, 학습기 파이썬이 코어 하나를 거의 다 씀 → 빌드를 더 늘려도 이득 작음.
+- 예상: HideSelect 250,000단계까지 약 7~7.5시간(교대 주기 약 8~9분씩).
+- 학습 중 에디터 편집은 가능(학습이 빌드에서 돎). 단 `Builds/HideSeek` 재빌드 금지.
