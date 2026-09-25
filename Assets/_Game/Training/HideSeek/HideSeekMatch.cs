@@ -54,6 +54,7 @@ namespace Game.Training.HideSeek
         public readonly List<int> HideCandidates = new();
         public readonly List<float> HideCandidatePaths = new();
         private int targetSpot = -1;
+        public int TargetSpot => targetSpot;
         public bool HiderAwaiting;
 
         // Seeker.

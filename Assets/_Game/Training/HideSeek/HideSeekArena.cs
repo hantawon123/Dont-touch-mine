@@ -91,6 +91,31 @@ namespace Game.Training.HideSeek
         private bool evaluationReported;
 
         public int MatchCount => Mathf.Min(hideAgents.Length, seekAgents.Length);
+        public IReadOnlyList<HideSeekMatch> Matches => matches;
+        public string HiderPolicyLabel => hideAgents.Length > 0 ? hideAgents[0].PolicyLabel : "?";
+        public string SeekerPolicyLabel => seekAgents.Length > 0 ? seekAgents[0].PolicyLabel : "?";
+
+        // Viewer mode (HideSeekViewer): only round 0 runs, and a finished round waits for RestartMatch.
+        private int activeMatchLimit;
+        private bool holdFinishedRounds;
+
+        public void ConfigureForViewer()
+        {
+            activeMatchLimit = 1;
+            holdFinishedRounds = true;
+            evaluationMode = false;
+            editorTimeScale = 0f;
+            logEveryEpisodes = int.MaxValue;
+        }
+
+        /// <summary>Start round <paramref name="index"/> again with a chosen seed (same start rule as evaluation).</summary>
+        public void RestartMatch(int index, int episodeSeed)
+        {
+            if (index >= 0 && index < matches.Count)
+            {
+                ResetWithSeed(matches[index], episodeSeed);
+            }
+        }
 
         private void Awake()
         {
@@ -167,7 +192,7 @@ namespace Game.Training.HideSeek
             simTime += dt;
             foreach (var match in matches)
             {
-                if (match.Done)
+                if (match.Done || (activeMatchLimit > 0 && match.Index >= activeMatchLimit))
                 {
                     continue;
                 }
@@ -213,6 +238,11 @@ namespace Game.Training.HideSeek
             }
 
             nextEpisode++;
+            ResetWithSeed(match, episodeSeed);
+        }
+
+        private void ResetWithSeed(HideSeekMatch match, int episodeSeed)
+        {
             var r = new System.Random(episodeSeed);
             var hiderAt = Waypoints[r.Next(Waypoints.Count)];
             var seekerAt = hiderAt;
@@ -241,7 +271,10 @@ namespace Game.Training.HideSeek
             hideAgents[match.Index].Finish(match.HiderReward);
             seekAgents[match.Index].Finish(match.SeekerReward);
             Record(match);
-            StartNext(match);
+            if (!holdFinishedRounds)
+            {
+                StartNext(match);
+            }
         }
 
         private void Record(HideSeekMatch match)
