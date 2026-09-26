@@ -20,6 +20,15 @@ namespace Game.Training.Thief
         public readonly List<Vector3> Waypoints = new();
         public int[] WaypointUnder, WaypointOnFurniture, WaypointCorner, WaypointFloor;
 
+        /// <summary>
+        /// Spaces worth checking (bank spots under furniture, on furniture or in a corner; open floor is seen anyway),
+        /// for the coverage record and observation (thief-npc-v2.md 11). Index = position in this list.
+        /// </summary>
+        public readonly List<int> CheckSpots = new();
+        public List<int>[] WaypointCheckSpots;
+        private readonly Dictionary<long, List<int>> checkGrid = new();
+        private const float CheckCell = 4f;
+
         private readonly List<int> sizeSpots = new();
         private readonly NavMeshPath path = new();
 
@@ -37,6 +46,51 @@ namespace Game.Training.Thief
             }
 
             BuildWaypoints(waypointSpacing, waypointSeed);
+            BuildCheckSpots();
+        }
+
+        private static long Cell(float x, float z) => ((long)Mathf.FloorToInt(x / CheckCell) << 32) ^ (uint)Mathf.FloorToInt(z / CheckCell);
+
+        private void BuildCheckSpots()
+        {
+            foreach (var s in sizeSpots)
+            {
+                if (Bank.Spots[s].Tags == HidingSpotTags.None) continue;
+                var c = CheckSpots.Count;
+                CheckSpots.Add(s);
+                var p = Bank.Spots[s].Position;
+                var key = Cell(p.x, p.z);
+                if (!checkGrid.TryGetValue(key, out var list)) checkGrid[key] = list = new List<int>();
+                list.Add(c);
+            }
+
+            WaypointCheckSpots = new List<int>[Waypoints.Count];
+            for (var w = 0; w < Waypoints.Count; w++)
+            {
+                WaypointCheckSpots[w] = new List<int>();
+                NearbyCheckSpots(Waypoints[w], 3f, WaypointCheckSpots[w]);
+            }
+        }
+
+        /// <summary>Check-spot indices within <paramref name="radius"/> m (3D) of a point.</summary>
+        public void NearbyCheckSpots(Vector3 at, float radius, List<int> into)
+        {
+            into.Clear();
+            var r2 = radius * radius;
+            var cells = Mathf.CeilToInt(radius / CheckCell);
+            var cx = Mathf.FloorToInt(at.x / CheckCell);
+            var cz = Mathf.FloorToInt(at.z / CheckCell);
+            for (var dx = -cells; dx <= cells; dx++)
+            {
+                for (var dz = -cells; dz <= cells; dz++)
+                {
+                    if (!checkGrid.TryGetValue(((long)(cx + dx) << 32) ^ (uint)(cz + dz), out var list)) continue;
+                    foreach (var c in list)
+                    {
+                        if ((Bank.Spots[CheckSpots[c]].Position - at).sqrMagnitude <= r2) into.Add(c);
+                    }
+                }
+            }
         }
 
         public int SpotCount => sizeSpots.Count;

@@ -54,7 +54,7 @@ namespace Game.Training.Thief
 
         public void Finish(float reward)
         {
-            SetReward(reward);
+            AddReward(reward); // on top of any coverage shaping since the last decision
             EndEpisode();
         }
 

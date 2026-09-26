@@ -43,6 +43,7 @@ namespace Game.Training.HideSeek
         public const float WalkPitch = 0f;
         public const float ScanPitch = -20f;
         public const float CrouchScanPitch = -25f;
+        public const float ProneScanPitch = -8f;
     }
 
     /// <summary>

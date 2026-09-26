@@ -12,9 +12,9 @@ namespace Game.Training.Thief
     /// </summary>
     public sealed class ThiefArena : MonoBehaviour
     {
-        public const int SeekObservationSize = 4 + ThiefMatch.Players * 7 + ThiefMatch.Players * 9 + 8 * 9;
+        public const int SeekObservationSize = 4 + ThiefMatch.Players * 7 + ThiefMatch.Players * 9 + 8 * 10 + 2;
         public const int HideObservationSize = 4 + ThiefMatch.Players * 9 + 8 * 18;
-        public const string ObservationVersion = "thief-obs-v3";
+        public const string ObservationVersion = "thief-obs-v4";
 
         public enum ThiefMode { Agent, None }
         public enum PlayerHiding { Rule, Random }
@@ -150,6 +150,15 @@ namespace Game.Training.Thief
             {
                 if (match.Done || (activeMatchLimit > 0 && match.Index >= activeMatchLimit)) continue;
                 match.Step(dt);
+                if (match.CheckGain > 0)
+                {
+                    // Shaping for search (thief-npc-v2.md 11): a small reward per newly seen space worth checking,
+                    // scheduled to 0 by the trainer (environment parameter coverage_reward); evaluation ignores it.
+                    if (coverageReward > 0f && !match.ThiefCarrying) seekAgents[match.Index].AddReward(coverageReward * match.CheckGain);
+                    tChecked += match.CheckGain;
+                    match.CheckGain = 0;
+                }
+
                 if (match.Done)
                 {
                     Finish(match);
@@ -183,8 +192,12 @@ namespace Game.Training.Thief
             ResetWithSeed(match, episodeSeed);
         }
 
+        private float coverageReward;
+        private long tChecked;
+
         private void ResetWithSeed(ThiefMatch match, int episodeSeed)
         {
+            coverageReward = evaluationMode || inGame ? 0f : Unity.MLAgents.Academy.Instance.EnvironmentParameters.GetWithDefault("coverage_reward", 0f);
             match.Reset(episodeSeed, thiefMode == ThiefMode.Agent);
             if (evaluationMode)
             {
@@ -284,7 +297,7 @@ namespace Game.Training.Thief
                     Debug.Log(
                         $"[Thief EVAL detail] per round: thief attacks {tAttacks / n:F2}, hits landed {tHitsLanded / n:F2}, players stunned by thief {tStunnedByThief / n:F2} (in the last 30 s {tLateStuns / n:F2}), " +
                         $"props taken from a hiding spot {tFromSpot / n:F2} / from a player the thief stunned {tFromMugging / n:F2} / other {tFromOther / n:F2}, " +
-                        $"seconds holding {tHoldSeconds / n:F0}, 30 s hold timeouts {tHoldTimeouts / n:F2} | losing players' props at the end: in thief's hands {100.0 * tLostInThiefHands / lost:F0}%, " +
+                        $"seconds holding {tHoldSeconds / n:F0}, 30 s hold timeouts {tHoldTimeouts / n:F2}, spaces checked {tChecked / n:F0} of {World.CheckSpots.Count} | losing players' props at the end: in thief's hands {100.0 * tLostInThiefHands / lost:F0}%, " +
                         $"on a spot the thief hid it {100.0 * tLostOnThiefSpot / lost:F0}%, still on the owner's spot {100.0 * tLostOnOwnSpot / lost:F0}%, " +
                         $"on the floor (dropped) {100.0 * tLostOnFloor / lost:F0}%, held by another player {100.0 * tLostHeldByOther / lost:F0}% (n {lost}) | floor props: dropped by the stunned owner {tFloorOwnerMugged}, by the stunned thief {tFloorThiefStunned}, other {tFloorOther}, dropped in the last 30 s {tFloorLate}",
                         this);
@@ -393,7 +406,7 @@ namespace Game.Training.Thief
 
             WritePlayers(m, o, k);
             k += ThiefMatch.Players * 9;
-            for (var slot = 0; slot < 8; slot++, k += 9)
+            for (var slot = 0; slot < 8; slot++, k += 10)
             {
                 if (slot >= m.SeekCandidates.Count) continue;
                 var w = m.SeekCandidates[slot];
@@ -407,7 +420,12 @@ namespace Game.Training.Thief
                 o[k + 6] = Mathf.Clamp01(World.WaypointOnFurniture[w] / 5f);
                 o[k + 7] = Mathf.Clamp01(World.WaypointCorner[w] / 5f);
                 o[k + 8] = Mathf.Clamp01(World.WaypointFloor[w] / 10f);
+                o[k + 9] = Mathf.Clamp01(m.UncheckedNear(w) / 5f);
             }
+
+            // Coverage so far, and unchecked spaces under furniture right here (crouch or lie down?).
+            o[k] = World.CheckSpots.Count > 0 ? m.CheckedCount / (float)World.CheckSpots.Count : 1f;
+            o[k + 1] = Mathf.Clamp01(m.UncheckedUnderHere() / 3f);
         }
 
         public void WriteHideObservation(ThiefMatch m, float[] o)
@@ -486,13 +504,16 @@ namespace Game.Training.Thief
                 return World.WaypointUnder[World.NearestWaypoint(m.Thief.Body.Position)] > 0 ? ThiefMatch.SeekActionCrouchLook : ThiefMatch.SeekActionLook;
             }
 
+            // Crouching did not show everything under the furniture here: lie down and look once more.
+            if (m.LastThiefMacro == ThiefMatch.Macro.CrouchLook && m.UncheckedUnderHere() > 0) return ThiefMatch.SeekActionProneLook;
+
             var best = ThiefMatch.SeekActionLook;
             var bestScore = float.PositiveInfinity;
             for (var i = 0; i < m.SeekCandidates.Count; i++)
             {
                 var w = m.SeekCandidates[i];
                 var since = float.IsNegativeInfinity(m.Mind.VisitedAt[w]) ? 999f : m.Time - m.Mind.VisitedAt[w];
-                var score = m.SeekCandidatePaths[i] + (since < 60f ? 30f : 0f);
+                var score = m.SeekCandidatePaths[i] + (since < 60f ? 30f : 0f) - 2f * Mathf.Min(m.UncheckedNear(w), 5);
                 if (score < bestScore)
                 {
                     bestScore = score;

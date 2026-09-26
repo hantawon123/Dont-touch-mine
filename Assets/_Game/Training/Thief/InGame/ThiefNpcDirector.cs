@@ -338,12 +338,20 @@ namespace Game.Training.Thief
         {
             var feet = npc.transform.position;
             MirrorWorld();
+            if (decoy != null)
+            {
+                StepDecoy(feet);
+                return;
+            }
 
             // Forward the thief's path end to the real legs; judge arrival on the real body.
             var body = match.Thief.Body;
             if (body.Moving)
             {
-                var end = body.PathEnd;
+                // Going for a prop: the simulator's approach point can sit just outside the real 2 m pickup check
+                // (box face vs item pivot), so the real legs walk right up to where the prop was seen.
+                var t = match.Thief;
+                var end = t.Macro == ThiefMatch.Macro.ToProp && t.Target >= 0 ? match.Mind.PropSeenAt[t.Target] : body.PathEnd;
                 if (!forwarding || (end - forwarded).sqrMagnitude > 0.01f)
                 {
                     legs.SetDestination(end);
@@ -366,7 +374,7 @@ namespace Game.Training.Thief
             }
 
             var stalled = forwarding && Time.time - lastProgressTime > 2f;
-            var stillMoving = forwarding && !stalled && ThiefWorld.Flat(forwarded - feet) > 0.35f;
+            var stillMoving = forwarding && !stalled && !legs.IsAtDestination(feet);
             if (stalled) Debug.Log($"[Thief NPC] legs stalled {ThiefWorld.Flat(forwarded - feet):F1} m short; macro {match.Thief.Macro} ends there.");
 
             accumulator += dt;
@@ -410,6 +418,7 @@ namespace Game.Training.Thief
 
         private void Decide()
         {
+            if (!match.ThiefCarrying && TryStartDecoy()) return;
             int action;
             if (match.ThiefCarrying)
             {
@@ -435,6 +444,104 @@ namespace Game.Training.Thief
             using var output = (worker.PeekOutput("deterministic_discrete_actions") as Tensor<int>)?.ReadbackAndClone();
             var action = output != null ? output[0, 0] : 0;
             return allowed(action) ? action : ThiefMatch.SeekActionLook;
+        }
+
+        // ------------------------------------------------------------------ decoys (thief-npc-v2.md 11)
+        // When no player item is known, now and then (1 in 3 decisions, at most every 45 s) the thief carries a map
+        // prop it can see within 8 m to a hiding spot, so players cannot tell which moved things matter. Fixed chance,
+        // outside the learned brains: the simulator's players ignore map props, so a brain would learn it is useless.
+
+        private sealed class Decoy
+        {
+            public CarryableItem Item;
+            public string Id;
+            public bool Holding;
+            public int Spot = -1;
+            public float Until;
+        }
+
+        private Decoy decoy;
+        private float nextDecoyAt;
+        private CarryableItem[] mapProps;
+        private readonly List<int> decoySpots = new();
+        private readonly List<float> decoyPaths = new();
+
+        private bool TryStartDecoy()
+        {
+            if (Time.time < nextDecoyAt) return false;
+            for (var k = 0; k < ThiefMatch.Players; k++) if (match.KnownPropSlots[k] >= 0) return false;
+            nextDecoyAt = Time.time + 8f;
+            if (Random.value > 1f / 3f) return false;
+            mapProps ??= FindObjectsByType<CarryableItem>(FindObjectsSortMode.None);
+            var body = match.Thief.Body;
+            CarryableItem best = null;
+            var bestDistance = 8f;
+            foreach (var item in mapProps)
+            {
+                if (item == null || item.IsCarried) continue;
+                var id = item.ObjectId;
+                if (System.Array.IndexOf(itemIds, id) >= 0) continue;
+                var d = Vector3.Distance(item.transform.position, body.Position);
+                if (d >= bestDistance || !HideSeekVision.InCone(body.Eye, body.Yaw, body.Pitch, item.transform.position) ||
+                    !HideSeekVision.Clear(body.Eye, item.transform.position, arena.World.OccluderMask)) continue;
+                best = item;
+                bestDistance = d;
+            }
+
+            if (best == null) return false;
+            decoy = new Decoy { Item = best, Id = best.ObjectId, Until = Time.time + 25f };
+            legs.SetDestination(best.transform.position);
+            nextDecoyAt = Time.time + 45f;
+            Debug.Log($"[Thief NPC] decoy: going for map prop '{decoy.Id}' {bestDistance:F1} m away.");
+            return true;
+        }
+
+        private void StepDecoy(Vector3 feet)
+        {
+            var d = decoy;
+            if (Time.time > d.Until || d.Item == null)
+            {
+                if (d.Holding) starter.TryDropHeldObjectForMatchNpc(npcId, new Pose(feet + npc.transform.forward * 0.5f + Vector3.up * 0.2f, Quaternion.identity), out _);
+                EndDecoy("gave up");
+                return;
+            }
+
+            if (!d.Holding)
+            {
+                if (Vector3.Distance(feet, d.Item.transform.position) > 1.6f && !legs.IsAtDestination(feet)) return;
+                if (!starter.TryHoldObjectForMatchNpc(npcId, d.Id, out var reason))
+                {
+                    EndDecoy("pickup refused: " + reason);
+                    return;
+                }
+
+                d.Holding = true;
+                arena.World.FillHideCandidates(feet, match.Rng, null, 8, decoySpots, decoyPaths);
+                if (decoySpots.Count == 0)
+                {
+                    starter.TryDropHeldObjectForMatchNpc(npcId, new Pose(feet + npc.transform.forward * 0.5f + Vector3.up * 0.2f, Quaternion.identity), out _);
+                    EndDecoy("no spot");
+                    return;
+                }
+
+                d.Spot = decoySpots[Random.Range(0, decoySpots.Count)];
+                legs.SetDestination(arena.Bank.Spots[d.Spot].StandPosition);
+                return;
+            }
+
+            if (!legs.IsAtDestination(feet)) return;
+            var spot = arena.Bank.Spots[d.Spot];
+            var ok = starter.TryDropHeldObjectForMatchNpc(npcId, new Pose(spot.Position + Vector3.up * 0.15f, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f)), out var why);
+            EndDecoy(ok ? $"moved '{d.Id}' to {spot.Position} ({spot.Tags})" : "hiding refused: " + why);
+        }
+
+        private void EndDecoy(string what)
+        {
+            Debug.Log("[Thief NPC] decoy: " + what);
+            decoy = null;
+            legs.ClearDestination();
+            forwarding = false;
+            match.AbortThiefMacro();
         }
 
         // ------------------------------------------------------------------ real authority
@@ -524,6 +631,8 @@ namespace Game.Training.Thief
             npc = null;
             legs = null;
             match = null;
+            decoy = null;
+            mapProps = null;
             finishedThisMatch = true;
             HideSeekVision.IgnoreCollider = null;
             DisposeWorkers();

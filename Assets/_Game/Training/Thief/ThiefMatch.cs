@@ -27,7 +27,7 @@ namespace Game.Training.Thief
         public const float AttackReach = 0.8f + 0.7f;    // CombatConfig forward offset + radius
         public const float ScanDegreesPerSecond = 180f;
 
-        public enum Macro { Await, ToWaypoint, Look, CrouchLook, ToProp, Flee, Attack, ToSpot, Relocate, Wander, Guard, Chase, Idle }
+        public enum Macro { Await, ToWaypoint, Look, CrouchLook, ToProp, Flee, Attack, ToSpot, Relocate, Wander, Guard, Chase, Idle, ProneLook }
 
         public sealed class Actor
         {
@@ -138,6 +138,13 @@ namespace Game.Training.Thief
         public int ThiefHoldTimeouts;
         public float ThiefPickedUpAt = -1f;
 
+        /// <summary>Coverage (thief-npc-v2.md 11): which spaces worth checking the thief has actually seen.</summary>
+        public bool[] Checked;
+        public int CheckedCount;
+        public int CheckGain; // since the arena last paid it out
+        private float nextCoverage;
+        private readonly List<int> scratchChecks = new();
+
         private System.Random rng;
         private float nextVision;
         private readonly List<int> scratchIds = new();
@@ -200,6 +207,7 @@ namespace Game.Training.Thief
             ThiefHoldTimeouts = 0;
             ThiefPickedUpAt = -1f;
             nextVision = 0f;
+            ResetCoverage();
             var wp = world.Waypoints;
 
             // Players' props are already hidden (the hiding phase is not simulated, V9); V4 decides how.
@@ -353,7 +361,8 @@ namespace Game.Training.Thief
         public const int SeekActionPropFirst = 10;   // 10, 11, 12
         public const int SeekActionFlee = 13;
         public const int SeekActionAttack = 14;
-        public const int SeekActionCount = 15;
+        public const int SeekActionProneLook = 15;
+        public const int SeekActionCount = 16;
 
         public const int HideActionRelocate = 8;
         public const int HideActionFlee = 9;
@@ -465,6 +474,12 @@ namespace Game.Training.Thief
                 b.Pitch = HideSeekRules.CrouchScanPitch;
                 t.Macro = Macro.CrouchLook;
             }
+            else if (action == SeekActionProneLook)
+            {
+                b.Prone = true;
+                b.Pitch = HideSeekRules.ProneScanPitch;
+                t.Macro = Macro.ProneLook;
+            }
             else
             {
                 b.Pitch = HideSeekRules.ScanPitch;
@@ -565,6 +580,7 @@ namespace Game.Training.Thief
                 AutoPickups();
             }
 
+            UpdateCoverage();
             if (Time >= RoundSeconds)
             {
                 Done = true;
@@ -621,7 +637,8 @@ namespace Game.Training.Thief
                     break;
                 case Macro.Look:
                 case Macro.CrouchLook:
-                    var turn = ScanDegreesPerSecond * dt * (t.Macro == Macro.CrouchLook ? 0.75f : 1f);
+                case Macro.ProneLook:
+                    var turn = ScanDegreesPerSecond * dt * (t.Macro == Macro.CrouchLook ? 0.75f : t.Macro == Macro.ProneLook ? 0.5f : 1f);
                     b.Yaw += turn;
                     t.ScanLeft -= turn;
                     if (t.ScanLeft <= 0f) Finish(t);
@@ -1149,6 +1166,7 @@ namespace Game.Training.Thief
             ThiefHoldTimeouts = 0;
             ThiefPickedUpAt = -1f;
             nextVision = 0f;
+            ResetCoverage();
             var wp = world.Waypoints;
             for (var i = 0; i < Players; i++)
             {
@@ -1244,6 +1262,8 @@ namespace Game.Training.Thief
                 See();
                 AutoPickups();
             }
+
+            UpdateCoverage();
         }
 
         /// <summary>The thief stood on a spot the NPC could not reach: give up the current macro.</summary>
@@ -1251,6 +1271,62 @@ namespace Game.Training.Thief
         {
             Thief.Body.Stop();
             Finish(Thief);
+        }
+
+        private void ResetCoverage()
+        {
+            if (Checked == null || Checked.Length != world.CheckSpots.Count) Checked = new bool[world.CheckSpots.Count];
+            else System.Array.Clear(Checked, 0, Checked.Length);
+            CheckedCount = 0;
+            CheckGain = 0;
+            nextCoverage = 0f;
+        }
+
+        /// <summary>
+        /// Every 0.3 s: spaces within 8 m that are in the thief's view and in plain line of sight from its eye (its
+        /// posture counts: crouching or lying down sees under furniture) become checked.
+        /// </summary>
+        private void UpdateCoverage()
+        {
+            if (!ThiefActive || Time < nextCoverage || Thief.Stunned(Time)) return;
+            nextCoverage = Time + 0.3f;
+            var b = Thief.Body;
+            var eye = b.Eye;
+            world.NearbyCheckSpots(b.Position, 8f, scratchChecks);
+            var rays = 0;
+            var lift = world.ObjectHalf.y + 0.011f;
+            foreach (var c in scratchChecks)
+            {
+                if (Checked[c]) continue;
+                var centre = world.Bank.Spots[world.CheckSpots[c]].Position + Vector3.up * lift;
+                if (!HideSeekVision.InCone(eye, b.Yaw, b.Pitch, centre)) continue;
+                if (++rays > 48) break;
+                if (!HideSeekVision.Clear(eye, centre, world.OccluderMask)) continue;
+                Checked[c] = true;
+                CheckedCount++;
+                CheckGain++;
+            }
+        }
+
+        /// <summary>Spaces worth checking within 3 m of a waypoint that the thief has not seen yet.</summary>
+        public int UncheckedNear(int waypoint)
+        {
+            var n = 0;
+            foreach (var c in world.WaypointCheckSpots[waypoint]) if (!Checked[c]) n++;
+            return n;
+        }
+
+        /// <summary>Unchecked spaces under furniture within 3 m of the thief (where crouching or lying down helps).</summary>
+        public int UncheckedUnderHere()
+        {
+            world.NearbyCheckSpots(Thief.Body.Position, 3f, scratchChecks);
+            var n = 0;
+            foreach (var c in scratchChecks)
+            {
+                if (!Checked[c] && (world.Bank.Spots[world.CheckSpots[c]].Tags & HidingSpotTags.Under) != 0) n++;
+            }
+
+            return n;
         }
 
         private void MarkVisited()
