@@ -10,7 +10,7 @@ for thief in "$@"; do
   python mcp.py tool '{"_name":"manage_editor","action":"play"}' >/dev/null
   end=$(( $(date +%s) + 1500 ))
   until tail -n +$start "$L" | grep -a -q "\[Thief EVAL\]\|\[Thief\] no hiding" || [ $(date +%s) -gt $end ]; do sleep 3; done
-  sleep 1; tail -n +$start "$L" | grep -a "\[Thief EVAL\]" | head -1
+  sleep 2; tail -n +$start "$L" | grep -a "\[Thief EVAL" | head -2
   python mcp.py tool '{"_name":"manage_editor","action":"stop"}' >/dev/null; sleep 4
 done
 echo done

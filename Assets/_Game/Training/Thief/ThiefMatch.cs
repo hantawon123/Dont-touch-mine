@@ -59,6 +59,9 @@ namespace Game.Training.Thief
             public int Spot = -1;
             public int ThiefMoves;
             public bool MovedSinceHidden;
+            public bool DroppedByThiefStun;
+            public int LastDropper = -1;
+            public float LastDropTime = -1f;
         }
 
         /// <summary>Rule player bot: what it knows and how it plays this round (randomised per round, V3).</summary>
@@ -123,6 +126,11 @@ namespace Game.Training.Thief
         public int OwnerRecoveries;
         public Macro LastThiefMacro = Macro.Await;
 
+        // Behaviour counters (analysis only; never observed by the brains).
+        public int ThiefAttacks, ThiefHitsLanded, PlayersStunnedByThief, LateStunsByThief;
+        public int TakenFromHidingSpot, TakenFromMugging, TakenOther;
+        public float ThiefHoldSeconds;
+
         private System.Random rng;
         private float nextVision;
         private readonly List<int> scratchIds = new();
@@ -179,6 +187,9 @@ namespace Game.Training.Thief
             ThiefActive = thiefActive;
             ThiefAwaiting = false;
             ThiefDecisions = ThiefHides = OwnerRecoveries = 0;
+            ThiefAttacks = ThiefHitsLanded = PlayersStunnedByThief = LateStunsByThief = 0;
+            TakenFromHidingSpot = TakenFromMugging = TakenOther = 0;
+            ThiefHoldSeconds = 0f;
             nextVision = 0f;
             var wp = world.Waypoints;
 
@@ -189,6 +200,9 @@ namespace Game.Training.Thief
                 Props[i].HeldBy = -1;
                 Props[i].ThiefMoves = 0;
                 Props[i].MovedSinceHidden = false;
+                Props[i].DroppedByThiefStun = false;
+                Props[i].LastDropper = -1;
+                Props[i].LastDropTime = -1f;
                 CollectOtherProps(i);
                 world.FillHideCandidates(from, rng, otherProps, 8, scratchIds, scratchPaths);
                 var spot = scratchIds.Count > 0 ? arena.ChoosePlayerHidingSpot(this, i, scratchIds) : -1;
@@ -423,6 +437,7 @@ namespace Game.Training.Thief
                 var target = AttackTargetCandidate();
                 if (target >= 0 && b.TrySetDestination(Mind.PlayerSeenPos[target]))
                 {
+                    ThiefAttacks++;
                     t.Macro = Macro.Attack;
                     t.Target = target;
                     t.MacroUntil = Time + 8f;
@@ -498,6 +513,7 @@ namespace Game.Training.Thief
             }
 
             Time += dt;
+            if (ThiefCarrying) ThiefHoldSeconds += dt;
             ResolveHits();
             if (ThiefActive)
             {
@@ -674,6 +690,7 @@ namespace Game.Training.Thief
                 }
 
                 target.Hits++;
+                if (a.IsThief) ThiefHitsLanded++;
                 if (!target.IsThief)
                 {
                     var mind = Minds[target.Id];
@@ -687,15 +704,20 @@ namespace Game.Training.Thief
                     target.StunnedUntil = Time + StunSeconds;
                     target.TimesStunned++;
                     target.Body.Stop();
-                    Drop(target);
+                    if (a.IsThief) PlayersStunnedByThief++;
+                    if (a.IsThief && Time > RoundSeconds - 30f) LateStunsByThief++;
+                    Drop(target, a.IsThief);
                 }
             }
         }
 
-        private void Drop(Actor a)
+        private void Drop(Actor a, bool byThief = false)
         {
             if (a.Holding < 0) return;
             var prop = Props[a.Holding];
+            prop.DroppedByThiefStun = byThief;
+            prop.LastDropper = a.Id;
+            prop.LastDropTime = Time;
             prop.HeldBy = -1;
             prop.Spot = -1;
             prop.Bottom = NavMesh.SamplePosition(a.Body.Position, out var floor, 1f, NavMesh.AllAreas) ? floor.position : a.Body.Position;
@@ -704,6 +726,23 @@ namespace Game.Training.Thief
             if (a.IsThief)
             {
                 Finish(a);
+            }
+
+            // The owner knows where its prop fell if it was the one holding it or can see the spot (red outline).
+            // Without this the player bot would walk away from its own prop lying at its feet (it looks level and
+            // the floor right below is outside the view cone) -- a bot flaw a learned thief exploited.
+            var owner = Actors[prop.Owner];
+            if (owner == a || CanSeeProp(owner, prop.Owner) ||
+                HideSeekVision.Clear(owner.Body.Eye, prop.Bottom + Vector3.up * world.ObjectHalf.y, world.OccluderMask) &&
+                ThiefWorld.Flat(owner.Body.Position - prop.Bottom) < 8f)
+            {
+                var mind = Minds[prop.Owner];
+                mind.KnowsWhere = true;
+                mind.Believed = prop.Bottom;
+                if (owner.Macro != Macro.Attack)
+                {
+                    Finish(owner);
+                }
             }
         }
 
@@ -1028,10 +1067,14 @@ namespace Game.Training.Thief
 
                     if (!world.InGrabReach(a.Body.Position, prop.Bottom, a.Body.Jumping) || !CanSeeProp(a, p)) continue;
                     prop.HeldBy = i;
+                    prop.DroppedByThiefStun = false;
                     a.Holding = p;
                     if (!a.IsThief && prop.MovedSinceHidden) OwnerRecoveries++;
                     if (a.IsThief)
                     {
+                        if (prop.DroppedByThiefStun) TakenFromMugging++;
+                        else if (prop.Spot >= 0) TakenFromHidingSpot++;
+                        else TakenOther++;
                         Mind.PropKnown[p] = true;
                         Mind.PropSeenHeldBy[p] = Players;
                         Finish(a); // switch to the hiding brain

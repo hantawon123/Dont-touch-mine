@@ -56,7 +56,6 @@ namespace Game.Training.HideSeek
         public static bool InCone(Vector3 eye, float yawDegrees, float pitchDegrees, Vector3 point)
         {
             var offset = point - eye;
-            var flat = new Vector3(offset.x, 0f, offset.z);
             var distance = offset.magnitude;
             if (distance < 0.05f)
             {
@@ -68,14 +67,18 @@ namespace Game.Training.HideSeek
                 return false;
             }
 
-            var yawToPoint = Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg;
-            if (Mathf.Abs(Mathf.DeltaAngle(yawDegrees, yawToPoint)) > HideSeekRules.HorizontalFov * 0.5f)
+            // Camera-space frustum test (like a real camera): rotate the offset into the view frame, then compare
+            // the horizontal and vertical angles on the image plane. Measuring yaw and pitch separately in world
+            // space broke for points almost straight below (the prop at one's feet): their yaw is arbitrary.
+            var view = Quaternion.Inverse(Quaternion.Euler(-pitchDegrees, yawDegrees, 0f)) * offset;
+            if (view.z <= 0.01f)
             {
                 return false;
             }
 
-            var pitchToPoint = Mathf.Atan2(offset.y, flat.magnitude) * Mathf.Rad2Deg;
-            return Mathf.Abs(pitchToPoint - pitchDegrees) <= HideSeekRules.VerticalFov * 0.5f;
+            var horizontal = Mathf.Atan2(Mathf.Abs(view.x), view.z) * Mathf.Rad2Deg;
+            var vertical = Mathf.Atan2(Mathf.Abs(view.y), view.z) * Mathf.Rad2Deg;
+            return horizontal <= HideSeekRules.HorizontalFov * 0.5f && vertical <= HideSeekRules.VerticalFov * 0.5f;
         }
 
         public static bool Clear(Vector3 eye, Vector3 point, int occluders)

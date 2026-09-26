@@ -47,6 +47,9 @@ namespace Game.Training.EditorTools
                 Case("tiny prop at 19 m (under 1 deg)", false, See(Base + new Vector3(0f, 0f, 19f), h: new Vector3(0.05f, 0.05f, 0.05f)));
                 Case("floor 1 m ahead with level gaze (below the 30 deg half cone)", false, See(Base + new Vector3(0f, 0f, 1f)));
                 Case("floor 1 m ahead while looking down (scan pitch -45 deg)", true, See(Base + new Vector3(0f, 0f, 1f), pitch: -45f));
+                Case("prop at one's feet while looking down (pitch -70 deg, any yaw)", true, See(Base + new Vector3(0.05f, 0f, 0.05f), yaw: 137f, pitch: -70f));
+                Case("prop at one's feet with level gaze", false, See(Base + new Vector3(0.05f, 0f, 0.05f)));
+                Case("prop 40 deg to the side while looking down (pitch -30 deg)", true, See(Base + Quaternion.Euler(0f, 40f, 0f) * Vector3.forward * 3f, pitch: -30f));
 
                 var wall = Block(temp, Base + new Vector3(0f, 1.5f, 2.5f), new Vector3(4f, 3f, 0.2f));
                 Physics.SyncTransforms();

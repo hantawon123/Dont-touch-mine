@@ -60,6 +60,10 @@ namespace Game.Training.Thief
         private int wEpisodes, wWinners, wHides, wRecoveries, wThiefStuns, wThiefHoldingAtEnd, wDecisions;
         private int tEpisodes, tWinners, tHides, tRecoveries, tThiefStuns, tThiefHoldingAtEnd, tDecisions, tPropsMoved;
         private double wReward, tReward;
+        private int tAttacks, tHitsLanded, tStunnedByThief, tLateStuns, tFromSpot, tFromMugging, tFromOther;
+        private double tHoldSeconds;
+        private int tLostInThiefHands, tLostOnThiefSpot, tLostOnOwnSpot, tLostOnFloor, tLostHeldByOther;
+        private int tFloorOwnerMugged, tFloorThiefStunned, tFloorOther, tFloorLate;
 
         private void Awake()
         {
@@ -212,6 +216,33 @@ namespace Game.Training.Thief
             wDecisions += match.ThiefDecisions; tDecisions += match.ThiefDecisions;
             tPropsMoved += moved;
             wReward += match.ThiefReward; tReward += match.ThiefReward;
+            tAttacks += match.ThiefAttacks; tHitsLanded += match.ThiefHitsLanded; tStunnedByThief += match.PlayersStunnedByThief; tLateStuns += match.LateStunsByThief;
+            tFromSpot += match.TakenFromHidingSpot; tFromMugging += match.TakenFromMugging; tFromOther += match.TakenOther;
+            tHoldSeconds += match.ThiefHoldSeconds;
+            for (var p = 0; p < ThiefMatch.Players; p++)
+            {
+                var prop = match.Props[p];
+                if (prop.HeldBy == p) continue; // this player won
+                if (prop.HeldBy == ThiefMatch.Players) tLostInThiefHands++;
+                else if (prop.HeldBy >= 0) tLostHeldByOther++;
+                else if (prop.ThiefMoves > 0 && prop.Spot >= 0) tLostOnThiefSpot++;
+                else if (prop.Spot >= 0 && !prop.MovedSinceHidden) tLostOnOwnSpot++;
+                else
+                {
+                    tLostOnFloor++;
+                    if (prop.LastDropper == p)
+                    {
+                        tFloorOwnerMugged++;
+                        if (evaluationMode)
+                        {
+                            Debug.Log($"[Thief case] seed {match.EpisodeSeed} P{p} dropped its own prop at {prop.LastDropTime:F1}s (stunned by the thief) and it was still on the floor at the end; P{p} ended in {match.Actors[p].Macro}, knows where {match.Minds[p].KnowsWhere}, distance {Vector3.Distance(match.Actors[p].Body.Position, prop.Bottom):F1} m", this);
+                        }
+                    }
+                    else if (prop.LastDropper == ThiefMatch.Players) tFloorThiefStunned++;
+                    else tFloorOther++;
+                    if (prop.LastDropTime > ThiefMatch.RoundSeconds - 30f) tFloorLate++;
+                }
+            }
 
             if (evaluationMode)
             {
@@ -226,6 +257,14 @@ namespace Game.Training.Thief
                         $"re-hides/round {tHides / n:F2}, props moved by thief {100.0 * tPropsMoved / (n * ThiefMatch.Players):F0}%, " +
                         $"owner recoveries/round {tRecoveries / n:F2}, thief stunned/round {tThiefStuns / n:F2}, thief holding at end {100.0 * tThiefHoldingAtEnd / n:F0}%, " +
                         $"thief decisions/round {tDecisions / n:F0} | seed {evaluationSeed} fingerprint {fingerprint:X16}",
+                        this);
+                    var lost = Mathf.Max(1, tLostInThiefHands + tLostOnThiefSpot + tLostOnOwnSpot + tLostOnFloor + tLostHeldByOther);
+                    Debug.Log(
+                        $"[Thief EVAL detail] per round: thief attacks {tAttacks / n:F2}, hits landed {tHitsLanded / n:F2}, players stunned by thief {tStunnedByThief / n:F2} (in the last 30 s {tLateStuns / n:F2}), " +
+                        $"props taken from a hiding spot {tFromSpot / n:F2} / from a player the thief stunned {tFromMugging / n:F2} / other {tFromOther / n:F2}, " +
+                        $"seconds holding {tHoldSeconds / n:F0} | losing players' props at the end: in thief's hands {100.0 * tLostInThiefHands / lost:F0}%, " +
+                        $"on a spot the thief hid it {100.0 * tLostOnThiefSpot / lost:F0}%, still on the owner's spot {100.0 * tLostOnOwnSpot / lost:F0}%, " +
+                        $"on the floor (dropped) {100.0 * tLostOnFloor / lost:F0}%, held by another player {100.0 * tLostHeldByOther / lost:F0}% (n {lost}) | floor props: dropped by the stunned owner {tFloorOwnerMugged}, by the stunned thief {tFloorThiefStunned}, other {tFloorOther}, dropped in the last 30 s {tFloorLate}",
                         this);
                 }
             }
