@@ -112,6 +112,19 @@ namespace Game.Client.Match
                 return;
             }
 
+            ShowVisual(source, copyRootPose);
+            Debug.Log($"[SceneTiming] Item preview rendered: elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
+        }
+
+        // A held prop may have no catalog entry. Copy only its meshes, never gameplay components.
+        public void ShowVisual(Transform source, bool copyRootPose = false)
+        {
+            Clear();
+            if (source == null || target == null || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
+            {
+                return;
+            }
+
             EnsureStage();
             model = CopyVisuals(source, stage.transform, copyRootPose);
             if (model == null)
@@ -126,7 +139,6 @@ namespace Game.Client.Match
             stage.SetActive(true);
             BindSpin();
             SubmitPreviewRender();
-            Debug.Log($"[SceneTiming] Item preview rendered: elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s, target={texture.width}x{texture.height}.");
         }
 
         public void SetGrayscale(bool enabled)

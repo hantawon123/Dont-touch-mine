@@ -354,6 +354,7 @@ namespace Game.Core.Settings
             public const string HideHint = "match.hide.hint";
             public const string HideWarning = "match.hide.warning";
             public const string HideComplete = "match.hide.complete";
+            public const string HeldItem = "match.heldItem";
             public const string HideBanner = "match.hide.banner";
             public const string HideFinalBanner = "match.hide.finalBanner";
             public const string HideNextTurn = "match.hide.nextTurn";
