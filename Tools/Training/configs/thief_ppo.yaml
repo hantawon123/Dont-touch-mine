@@ -1,0 +1,56 @@
+# Thief NPC v2 (docs/planning/thief-npc-v2.md): one thief, two behaviors on the same body.
+# ThiefSeek (obs thief-obs-v2, 124 floats, 15 actions): ~145 decisions per 360 s round while empty-handed.
+# ThiefHide (174 floats, 10 actions): ~2-3 decisions per round while carrying a player's prop.
+# Players are rule bots inside the arena (no self-play). Reward only at the end of the round:
+# (players - 2 * players holding their own prop) / players, in [-1, 1], given to both behaviors.
+# Keep this file ASCII: mlagents-learn reads it with the Windows default code page.
+behaviors:
+  ThiefSeek:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 2048
+      buffer_size: 40960
+      learning_rate: 0.0003
+      beta: 0.01
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+      learning_rate_schedule: linear
+    network_settings:
+      normalize: false
+      hidden_units: 256
+      num_layers: 2
+    reward_signals:
+      extrinsic:
+        gamma: 0.995
+        strength: 1.0
+    checkpoint_interval: 1000000
+    keep_checkpoints: 20
+    max_steps: 15000000
+    time_horizon: 128
+    summary_freq: 50000
+
+  ThiefHide:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 256
+      buffer_size: 4096
+      learning_rate: 0.0003
+      beta: 0.005
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+      learning_rate_schedule: linear
+    network_settings:
+      normalize: false
+      hidden_units: 256
+      num_layers: 2
+    reward_signals:
+      extrinsic:
+        gamma: 0.99
+        strength: 1.0
+    checkpoint_interval: 25000
+    keep_checkpoints: 20
+    max_steps: 300000
+    time_horizon: 16
+    summary_freq: 5000

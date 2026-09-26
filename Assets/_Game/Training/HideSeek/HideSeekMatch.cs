@@ -65,6 +65,9 @@ namespace Game.Training.HideSeek
         public float[] WaypointVisitedAt;
         private float scanLeft;
         private int approachPosture;
+        private ReachPlan reach;
+        private bool hopped;
+        private float hopAt = -1f;
         private float settleUntil = -1f;
         private float nextChaseRepath;
         public bool SeekerAwaiting;
@@ -174,6 +177,13 @@ namespace Game.Training.HideSeek
             SeekerDecisions++;
             Seeker.Crouched = false;
             Seeker.Prone = false;
+            Seeker.Jumping = false;
+            if (hopped)
+            {
+                Seeker.Position = reach.Walk;
+                hopped = false;
+            }
+
             Seeker.Pitch = HideSeekRules.WalkPitch;
             Seeker.HasLookTarget = false;
             if (action >= 0 && action < SeekCandidates.Count &&
@@ -187,12 +197,15 @@ namespace Game.Training.HideSeek
             switch (action)
             {
                 case SeekActionToObject when ObjectEverSeen && !ObjectSeenHeld &&
-                                             arena.TryFindApproach(Seeker.Position, ObjectLastSeen, out var approach, out approachPosture) &&
-                                             Seeker.TrySetDestination(approach, 0.5f):
+                                             arena.TryPlanReach(Seeker.Position, ObjectLastSeen, out reach) &&
+                                             Seeker.TrySetDestination(reach.Walk, 0.5f):
                     // Like a player: walk to a floor point within reach from which the prop can be seen (standing or
                     // crouched), not to the NavMesh point nearest the prop (for a prop under a bed that is the bed top).
                     Seeker.WantsSprint = true;
                     Seeker.HasLookTarget = true;
+                    approachPosture = reach.Posture;
+                    hopped = false;
+                    hopAt = -1f;
                     settleUntil = -1f;
                     Seeker.LookTarget = ObjectLastSeen + Vector3.up * arena.ObjectHalf.y;
                     SState = LastSeekerMacro = SeekerState.ToObject;
@@ -301,10 +314,21 @@ namespace Game.Training.HideSeek
         {
             switch (SState)
             {
+                case SeekerState.ToObject when !Seeker.Moving && reach.Hop && !hopped:
+                    // Jump up onto the surface next to the prop (jump + step, up to 1.1 m).
+                    if (hopAt < 0f) hopAt = Time + HideSeekReach.HopSeconds;
+                    if (Time >= hopAt)
+                    {
+                        Seeker.Position = reach.Stand;
+                        hopped = true;
+                    }
+
+                    break;
                 case SeekerState.ToObject when !Seeker.Moving && approachPosture > 0 && settleUntil < 0f:
-                    // Arrived next to a prop that is only visible low (under furniture): crouch or lie down and look.
+                    // Arrived next to a prop that is only reachable low (under furniture) or with a jump.
                     Seeker.Crouched = approachPosture == 1;
                     Seeker.Prone = approachPosture == 2;
+                    Seeker.Jumping = approachPosture == 3;
                     settleUntil = Time + 0.6f;
                     break;
                 case SeekerState.ToObject when !Seeker.Moving && settleUntil >= 0f && Time < settleUntil:
@@ -316,6 +340,13 @@ namespace Game.Training.HideSeek
                         Seeker.HasLookTarget = false;
                         Seeker.Crouched = false;
                         Seeker.Prone = false;
+                        Seeker.Jumping = false;
+                        if (hopped)
+                        {
+                            Seeker.Position = reach.Walk; // jump back down
+                            hopped = false;
+                        }
+
                         settleUntil = -1f;
                         arena.FillSeekCandidates(this);
                         SState = SeekerState.AwaitDecision;
@@ -391,9 +422,7 @@ namespace Game.Training.HideSeek
             // Found: the seeker sees the placed prop and it is within grab distance.
             if (!ObjectHeld && SeekerSeesObject)
             {
-                var centre = ObjectBottom + Vector3.up * half.y;
-                var flat = new Vector2(centre.x - Seeker.Position.x, centre.z - Seeker.Position.z).magnitude;
-                if (flat <= HideSeekRules.GrabDistance && Mathf.Abs(centre.y - Seeker.Position.y) <= 2f)
+                if (HideSeekReach.InGrabReach(Seeker.Position, ObjectBottom, half, Seeker.Jumping))
                 {
                     FoundAt = Time;
                     Done = true;

@@ -15,7 +15,13 @@ namespace Game.Training.HideSeek
         public float Pitch;
         public bool Crouched;
         public bool Prone;
+
+        /// <summary>Mid-jump: feet and eye are HideSeekReach.JumpHeight higher for a moment.</summary>
+        public bool Jumping;
         public bool WantsSprint;
+
+        /// <summary>Players may sprint (the game rule); NPC bots never do (HideSeekRules.BotsCanSprint).</summary>
+        public bool CanSprint;
         public float Stamina = HideSeekRules.MaxStamina;
 
         /// <summary>When set, the body keeps its gaze on this point while walking (a player turning the camera toward
@@ -30,7 +36,8 @@ namespace Game.Training.HideSeek
         public bool Moving { get; private set; }
         public float LastPathLength { get; private set; }
 
-        public float EyeHeight => Prone ? HideSeekRules.ProneEyeHeight : Crouched ? HideSeekRules.CrouchEyeHeight : HideSeekRules.StandEyeHeight;
+        public float EyeHeight => (Prone ? HideSeekRules.ProneEyeHeight : Crouched ? HideSeekRules.CrouchEyeHeight : HideSeekRules.StandEyeHeight) +
+                                  (Jumping ? HideSeekReach.JumpHeight : 0f);
         public Vector3 Eye => Position + Vector3.up * EyeHeight;
 
         public void Teleport(Vector3 position, float yaw)
@@ -40,6 +47,7 @@ namespace Game.Training.HideSeek
             Pitch = HideSeekRules.WalkPitch;
             Crouched = false;
             Prone = false;
+            Jumping = false;
             Stamina = HideSeekRules.MaxStamina;
             HasLookTarget = false;
             Stop();
@@ -81,7 +89,7 @@ namespace Game.Training.HideSeek
             if (Moving)
             {
                 var speed = Crouched ? HideSeekRules.CrouchSpeed : HideSeekRules.WalkSpeed;
-                if (HideSeekRules.BotsCanSprint && !Crouched && WantsSprint && Stamina > 0f)
+                if ((HideSeekRules.BotsCanSprint || CanSprint) && !Crouched && !Prone && WantsSprint && Stamina > 0f)
                 {
                     speed = HideSeekRules.SprintSpeed;
                     sprinting = true;
