@@ -4,6 +4,8 @@
 # Self-play step counts are in each behavior's own decisions, so the hider numbers are ~12x smaller;
 # both are sized to about 7,500 rounds per team change and ~400 rounds per opponent snapshot swap.
 # Rewards are zero-sum in [-1, 1]; the ELO reads their sign as win / loss.
+# max_steps are matched (250k hider ~ 3.2M seeker in run hs-v1-b3) so both finish together: once one side
+# stops, its team-change turns train nobody.
 # Keep this file ASCII: mlagents-learn reads it with the Windows default code page.
 behaviors:
   HideSelect:
@@ -66,6 +68,6 @@ behaviors:
       initial_elo: 1200.0
     checkpoint_interval: 200000
     keep_checkpoints: 20
-    max_steps: 4000000
+    max_steps: 3200000
     time_horizon: 64
     summary_freq: 20000
