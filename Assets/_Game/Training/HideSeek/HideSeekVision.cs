@@ -23,6 +23,7 @@ namespace Game.Training.HideSeek
 
         public const float StandEyeHeight = 1.42f;
         public const float CrouchEyeHeight = 0.85f;
+        public const float ProneEyeHeight = 0.46f;
 
         public const float BodyRadius = 0.31f;
         public const float BodyHeight = 1.67f;

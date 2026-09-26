@@ -14,6 +14,7 @@ namespace Game.Training.HideSeek
         public float Yaw;
         public float Pitch;
         public bool Crouched;
+        public bool Prone;
         public bool WantsSprint;
         public float Stamina = HideSeekRules.MaxStamina;
 
@@ -29,7 +30,7 @@ namespace Game.Training.HideSeek
         public bool Moving { get; private set; }
         public float LastPathLength { get; private set; }
 
-        public float EyeHeight => Crouched ? HideSeekRules.CrouchEyeHeight : HideSeekRules.StandEyeHeight;
+        public float EyeHeight => Prone ? HideSeekRules.ProneEyeHeight : Crouched ? HideSeekRules.CrouchEyeHeight : HideSeekRules.StandEyeHeight;
         public Vector3 Eye => Position + Vector3.up * EyeHeight;
 
         public void Teleport(Vector3 position, float yaw)
@@ -38,6 +39,7 @@ namespace Game.Training.HideSeek
             Yaw = yaw;
             Pitch = HideSeekRules.WalkPitch;
             Crouched = false;
+            Prone = false;
             Stamina = HideSeekRules.MaxStamina;
             HasLookTarget = false;
             Stop();

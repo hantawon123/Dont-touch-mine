@@ -64,6 +64,8 @@ namespace Game.Training.HideSeek
         public readonly List<float> SeekCandidatePaths = new();
         public float[] WaypointVisitedAt;
         private float scanLeft;
+        private int approachPosture;
+        private float settleUntil = -1f;
         private float nextChaseRepath;
         public bool SeekerAwaiting;
         public int SeekerDecisions { get; private set; }
@@ -171,6 +173,7 @@ namespace Game.Training.HideSeek
             SeekerAwaiting = false;
             SeekerDecisions++;
             Seeker.Crouched = false;
+            Seeker.Prone = false;
             Seeker.Pitch = HideSeekRules.WalkPitch;
             Seeker.HasLookTarget = false;
             if (action >= 0 && action < SeekCandidates.Count &&
@@ -183,9 +186,14 @@ namespace Game.Training.HideSeek
 
             switch (action)
             {
-                case SeekActionToObject when ObjectEverSeen && !ObjectSeenHeld && Seeker.TrySetDestination(ObjectLastSeen, 3f):
+                case SeekActionToObject when ObjectEverSeen && !ObjectSeenHeld &&
+                                             arena.TryFindApproach(Seeker.Position, ObjectLastSeen, out var approach, out approachPosture) &&
+                                             Seeker.TrySetDestination(approach, 0.5f):
+                    // Like a player: walk to a floor point within reach from which the prop can be seen (standing or
+                    // crouched), not to the NavMesh point nearest the prop (for a prop under a bed that is the bed top).
                     Seeker.WantsSprint = true;
                     Seeker.HasLookTarget = true;
+                    settleUntil = -1f;
                     Seeker.LookTarget = ObjectLastSeen + Vector3.up * arena.ObjectHalf.y;
                     SState = LastSeekerMacro = SeekerState.ToObject;
                     return;
@@ -293,11 +301,22 @@ namespace Game.Training.HideSeek
         {
             switch (SState)
             {
+                case SeekerState.ToObject when !Seeker.Moving && approachPosture > 0 && settleUntil < 0f:
+                    // Arrived next to a prop that is only visible low (under furniture): crouch or lie down and look.
+                    Seeker.Crouched = approachPosture == 1;
+                    Seeker.Prone = approachPosture == 2;
+                    settleUntil = Time + 0.6f;
+                    break;
+                case SeekerState.ToObject when !Seeker.Moving && settleUntil >= 0f && Time < settleUntil:
+                    break;
                 case SeekerState.ToWaypoint:
                 case SeekerState.ToObject:
                     if (!Seeker.Moving)
                     {
                         Seeker.HasLookTarget = false;
+                        Seeker.Crouched = false;
+                        Seeker.Prone = false;
+                        settleUntil = -1f;
                         arena.FillSeekCandidates(this);
                         SState = SeekerState.AwaitDecision;
                     }

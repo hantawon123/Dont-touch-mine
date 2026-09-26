@@ -560,6 +560,64 @@ namespace Game.Training.HideSeek
             }
         }
 
+        /// <summary>
+        /// Where a player would stand to pick up a prop it saw at <paramref name="propBottom"/>: a floor point reachable
+        /// from <paramref name="from"/>, within 1.8 m (grab distance 2 m), not on top of the furniture the prop is
+        /// under, with a clear line from the standing, crouched or prone eye to the prop. Uses only the seen position.
+        /// </summary>
+        public bool TryFindApproach(Vector3 from, Vector3 propBottom, out Vector3 point, out int lowPosture)
+        {
+            point = default;
+            lowPosture = 0;
+            var centre = propBottom + Vector3.up * ObjectHalf.y;
+            var bestLength = float.PositiveInfinity;
+            for (var ring = 0; ring < 4; ring++)
+            {
+                var radius = ring * 0.6f;
+                var steps = ring == 0 ? 1 : 8;
+                for (var k = 0; k < steps; k++)
+                {
+                    var yaw = (k * 45f + ring * 22.5f) * Mathf.Deg2Rad;
+                    var probe = propBottom + new Vector3(Mathf.Cos(yaw), 0f, Mathf.Sin(yaw)) * radius;
+                    if (!NavMesh.SamplePosition(probe, out var nav, 1f, NavMesh.AllAreas))
+                    {
+                        continue;
+                    }
+
+                    var p = nav.position;
+                    if (Flat(p - propBottom) > 1.8f || p.y > propBottom.y + 0.3f || propBottom.y - p.y > 2f)
+                    {
+                        continue; // out of reach, on top of the furniture, or a floor below
+                    }
+
+                    // 0 stand, 1 crouch, 2 prone: the lowest posture a player would need to see it from here.
+                    var posture = HideSeekVision.Clear(p + Vector3.up * HideSeekRules.StandEyeHeight, centre, OccluderMask) ? 0
+                        : HideSeekVision.Clear(p + Vector3.up * HideSeekRules.CrouchEyeHeight, centre, OccluderMask) ? 1
+                        : HideSeekVision.Clear(p + Vector3.up * HideSeekRules.ProneEyeHeight, centre, OccluderMask) ? 2
+                        : -1;
+                    if (posture < 0)
+                    {
+                        continue;
+                    }
+
+                    if (!NavMesh.CalculatePath(from, p, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete)
+                    {
+                        continue;
+                    }
+
+                    var length = PathLength(path);
+                    if (length < bestLength)
+                    {
+                        bestLength = length;
+                        point = p;
+                        lowPosture = posture;
+                    }
+                }
+            }
+
+            return bestLength < float.PositiveInfinity;
+        }
+
         public bool TryPickRelocation(HideSeekMatch match, out Vector3 destination)
         {
             var rng = match.Rng;
