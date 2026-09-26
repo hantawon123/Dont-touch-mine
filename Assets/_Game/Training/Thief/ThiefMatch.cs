@@ -17,6 +17,11 @@ namespace Game.Training.Thief
         public const float RoundSeconds = 360f;          // MatchRules.searchingDurationSeconds
         public const int HitsToStun = 3;                 // MatchRules.hitsRequiredToStun
         public const float StunSeconds = 2f;             // MatchRules.stunDurationSeconds
+        // NPC design (thief-npc-v2.md 9.6): the thief never hits players; it must hide what it takes within 30 s
+        // (the players' hiding turn) or it drops the prop where it stands.
+        public const bool ThiefCanAttack = false;
+        public const float ThiefHoldLimit = 30f;
+
         public const float AttackCooldown = 0.5f;        // CombatConfig.attackCooldownSeconds
         public const float AttackHitDelay = 0.35f;       // CombatConfig.attackHitDelaySeconds
         public const float AttackReach = 0.8f + 0.7f;    // CombatConfig forward offset + radius
@@ -130,6 +135,8 @@ namespace Game.Training.Thief
         public int ThiefAttacks, ThiefHitsLanded, PlayersStunnedByThief, LateStunsByThief;
         public int TakenFromHidingSpot, TakenFromMugging, TakenOther;
         public float ThiefHoldSeconds;
+        public int ThiefHoldTimeouts;
+        public float ThiefPickedUpAt = -1f;
 
         private System.Random rng;
         private float nextVision;
@@ -190,6 +197,8 @@ namespace Game.Training.Thief
             ThiefAttacks = ThiefHitsLanded = PlayersStunnedByThief = LateStunsByThief = 0;
             TakenFromHidingSpot = TakenFromMugging = TakenOther = 0;
             ThiefHoldSeconds = 0f;
+            ThiefHoldTimeouts = 0;
+            ThiefPickedUpAt = -1f;
             nextVision = 0f;
             var wp = world.Waypoints;
 
@@ -355,7 +364,7 @@ namespace Game.Training.Thief
             if (action < 8) return action < SeekCandidates.Count;
             if (action >= SeekActionPropFirst && action < SeekActionPropFirst + Players) return KnownPropSlots[action - SeekActionPropFirst] >= 0;
             if (action == SeekActionFlee) return NearestThreat(out _) >= 0;
-            if (action == SeekActionAttack) return AttackTargetCandidate() >= 0;
+            if (action == SeekActionAttack) return ThiefCanAttack && AttackTargetCandidate() >= 0;
             return true;
         }
 
@@ -513,7 +522,15 @@ namespace Game.Training.Thief
             }
 
             Time += dt;
-            if (ThiefCarrying) ThiefHoldSeconds += dt;
+            if (ThiefCarrying)
+            {
+                ThiefHoldSeconds += dt;
+                if (Time - ThiefPickedUpAt >= ThiefHoldLimit)
+                {
+                    ThiefHoldTimeouts++;
+                    Drop(Thief);
+                }
+            }
             ResolveHits();
             if (ThiefActive)
             {
@@ -1069,15 +1086,17 @@ namespace Game.Training.Thief
                     }
 
                     if (!world.InGrabReach(a.Body.Position, prop.Bottom, a.Body.Jumping) || !CanSeeProp(a, p)) continue;
+                    var mugged = prop.DroppedByThiefStun;
                     prop.HeldBy = i;
                     prop.DroppedByThiefStun = false;
                     a.Holding = p;
                     if (!a.IsThief && prop.MovedSinceHidden) OwnerRecoveries++;
                     if (a.IsThief)
                     {
-                        if (prop.DroppedByThiefStun) TakenFromMugging++;
+                        if (mugged) TakenFromMugging++;
                         else if (prop.Spot >= 0) TakenFromHidingSpot++;
                         else TakenOther++;
+                        ThiefPickedUpAt = Time;
                         Mind.PropKnown[p] = true;
                         Mind.PropSeenHeldBy[p] = Players;
                         Finish(a); // switch to the hiding brain

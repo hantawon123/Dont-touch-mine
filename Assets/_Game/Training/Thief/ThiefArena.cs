@@ -13,8 +13,8 @@ namespace Game.Training.Thief
     public sealed class ThiefArena : MonoBehaviour
     {
         public const int SeekObservationSize = 4 + ThiefMatch.Players * 7 + ThiefMatch.Players * 9 + 8 * 9;
-        public const int HideObservationSize = 3 + ThiefMatch.Players * 9 + 8 * 18;
-        public const string ObservationVersion = "thief-obs-v2";
+        public const int HideObservationSize = 4 + ThiefMatch.Players * 9 + 8 * 18;
+        public const string ObservationVersion = "thief-obs-v3";
 
         public enum ThiefMode { Agent, None }
         public enum PlayerHiding { Rule, Random }
@@ -62,6 +62,7 @@ namespace Game.Training.Thief
         private double wReward, tReward;
         private int tAttacks, tHitsLanded, tStunnedByThief, tLateStuns, tFromSpot, tFromMugging, tFromOther;
         private double tHoldSeconds;
+        private int tHoldTimeouts;
         private int tLostInThiefHands, tLostOnThiefSpot, tLostOnOwnSpot, tLostOnFloor, tLostHeldByOther;
         private int tFloorOwnerMugged, tFloorThiefStunned, tFloorOther, tFloorLate;
 
@@ -219,6 +220,7 @@ namespace Game.Training.Thief
             tAttacks += match.ThiefAttacks; tHitsLanded += match.ThiefHitsLanded; tStunnedByThief += match.PlayersStunnedByThief; tLateStuns += match.LateStunsByThief;
             tFromSpot += match.TakenFromHidingSpot; tFromMugging += match.TakenFromMugging; tFromOther += match.TakenOther;
             tHoldSeconds += match.ThiefHoldSeconds;
+            tHoldTimeouts += match.ThiefHoldTimeouts;
             for (var p = 0; p < ThiefMatch.Players; p++)
             {
                 var prop = match.Props[p];
@@ -262,7 +264,7 @@ namespace Game.Training.Thief
                     Debug.Log(
                         $"[Thief EVAL detail] per round: thief attacks {tAttacks / n:F2}, hits landed {tHitsLanded / n:F2}, players stunned by thief {tStunnedByThief / n:F2} (in the last 30 s {tLateStuns / n:F2}), " +
                         $"props taken from a hiding spot {tFromSpot / n:F2} / from a player the thief stunned {tFromMugging / n:F2} / other {tFromOther / n:F2}, " +
-                        $"seconds holding {tHoldSeconds / n:F0} | losing players' props at the end: in thief's hands {100.0 * tLostInThiefHands / lost:F0}%, " +
+                        $"seconds holding {tHoldSeconds / n:F0}, 30 s hold timeouts {tHoldTimeouts / n:F2} | losing players' props at the end: in thief's hands {100.0 * tLostInThiefHands / lost:F0}%, " +
                         $"on a spot the thief hid it {100.0 * tLostOnThiefSpot / lost:F0}%, still on the owner's spot {100.0 * tLostOnOwnSpot / lost:F0}%, " +
                         $"on the floor (dropped) {100.0 * tLostOnFloor / lost:F0}%, held by another player {100.0 * tLostHeldByOther / lost:F0}% (n {lost}) | floor props: dropped by the stunned owner {tFloorOwnerMugged}, by the stunned thief {tFloorThiefStunned}, other {tFloorOther}, dropped in the last 30 s {tFloorLate}",
                         this);
@@ -396,8 +398,9 @@ namespace Game.Training.Thief
             o[0] = Mathf.Clamp01(m.Time / ThiefMatch.RoundSeconds);
             o[1] = t.Stunned(m.Time) ? 1f : 0f;
             o[2] = t.Hits / (float)ThiefMatch.HitsToStun;
-            WritePlayers(m, o, 3);
-            var k = 3 + ThiefMatch.Players * 9;
+            o[3] = m.ThiefCarrying ? Mathf.Clamp01((m.Time - m.ThiefPickedUpAt) / ThiefMatch.ThiefHoldLimit) : 0f;
+            WritePlayers(m, o, 4);
+            var k = 4 + ThiefMatch.Players * 9;
 
             // Nearest player the thief remembers, to judge whether a spot is in sight of someone.
             var nearest = -1;
