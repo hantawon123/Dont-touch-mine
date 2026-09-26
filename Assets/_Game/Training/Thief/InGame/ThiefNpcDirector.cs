@@ -142,6 +142,7 @@ namespace Game.Training.Thief
             var go = new GameObject("ThiefNpcDirector");
             DontDestroyOnLoad(go);
             go.AddComponent<ThiefNpcDirector>();
+            Debug.Log($"[Thief NPC] director active (development server {EditorDevelopmentSession.IsServer}); waits for the mansion searching phase.");
         }
 
         private void Update()
@@ -168,6 +169,8 @@ namespace Game.Training.Thief
             if (Time.unscaledTime < nextLookup) return;
             nextLookup = Time.unscaledTime + 1f;
             if (starter == null) starter = FindFirstObjectByType<MatchStarter>();
+            if (starter == null) Wait("no match yet");
+            else if (!starter.IsNpcSearchOpen) Wait("match found, searching phase not open yet");
             if (starter == null || !starter.IsNpcSearchOpen)
             {
                 finishedThisMatch = false;
@@ -175,15 +178,19 @@ namespace Game.Training.Thief
             }
 
             if (finishedThisMatch) return;
-            if (!SceneManager.GetActiveScene().name.StartsWith("Mansion"))
+            if (!MansionLoaded(out var scenes))
             {
-                Debug.LogWarning($"[Thief NPC] map '{SceneManager.GetActiveScene().name}' has no hiding spot bank; the thief NPC runs on the mansion only.");
+                Debug.LogWarning($"[Thief NPC] no mansion scene loaded ({scenes}); the thief NPC runs on the mansion only.");
                 finishedThisMatch = true;
                 return;
             }
 
             runnerService ??= FindFirstObjectByType<Game.Bootstrap.ProjectLifetimeScope>()?.Container.Resolve(typeof(NetworkRunnerService)) as NetworkRunnerService;
-            if (runnerService == null || !runnerService.IsServer) return;
+            if (runnerService == null || !runnerService.IsServer)
+            {
+                Wait(runnerService == null ? "network service not found" : "this editor is not the server");
+                return;
+            }
 
             if (arena == null)
             {
@@ -234,6 +241,29 @@ namespace Game.Training.Thief
             lastProgressPos = feet;
             lastProgressTime = Time.time;
             Debug.Log($"[Thief NPC] {npcId} spawned at {feet}, brain {brainLabel}, players {starter.NpcPlayerCount} (first {ThiefMatch.Players} are watched), waypoints {arena.World.Waypoints.Count}.");
+        }
+
+        private string lastWait;
+
+        private void Wait(string why)
+        {
+            if (why == lastWait) return;
+            lastWait = why;
+            Debug.Log("[Thief NPC] waiting: " + why);
+        }
+
+        private static bool MansionLoaded(out string names)
+        {
+            names = "";
+            var found = false;
+            for (var i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                names += (i > 0 ? ", " : "") + scene.name;
+                if (scene.isLoaded && scene.name == "Mansion") found = true;
+            }
+
+            return found;
         }
 
         private bool SpawnNpc(out Vector3 feet, out float yaw)
