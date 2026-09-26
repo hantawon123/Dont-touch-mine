@@ -2,8 +2,7 @@ using System.Collections;
 using Game.Client.Interactions;
 using Game.Client.Match;
 using Game.Core.Settings;
-using Game.Client.Common;
-using Game.Client.Settings;
+using Game.Client.Voice;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -25,6 +24,7 @@ namespace Game.Tests.PlayMode
             var hud = new HeldItemHudView();
             var general = new GeneralSettingsSystem(new InMemoryGeneralSettingsStore());
             using var locale = new UiLocale(general);
+            GameObject hudRoot = null;
             try
             {
                 hud.Apply(owner.transform, false, item);
@@ -33,18 +33,23 @@ namespace Game.Tests.PlayMode
                 Assert.That(owner.transform.childCount, Is.Zero);
 
                 hud.Apply(owner.transform, true, item);
-                var root = owner.transform.Find("HeldItemHud");
+                hudRoot = GameObject.Find("HeldItemHud");
+                Assert.That(hudRoot, Is.Not.Null);
+                var root = hudRoot.transform;
+                Assert.That(root.parent, Is.Null, "Overlay must not inherit camera motion.");
+                Assert.That(hudRoot.scene, Is.EqualTo(owner.scene));
                 var card = root.Find("Card").GetComponent<RectTransform>();
                 var image = card.GetComponentInChildren<RawImage>();
                 var caption = card.Find("Caption").GetComponent<TMP_Text>();
                 Assert.That(root.gameObject.activeSelf, Is.True);
-                Assert.That(card.anchorMin, Is.EqualTo(new Vector2(0.5f, 0f)));
+                Assert.That(card.anchorMin, Is.EqualTo(new Vector2(1f, 0f)));
                 Assert.That(card.pivot, Is.EqualTo(new Vector2(1f, 0f)));
-                Assert.That(card.anchoredPosition.y, Is.EqualTo(MatchVitalsHudView.BottomPadding));
-                Assert.That(card.anchoredPosition.x, Is.LessThan(-MatchVitalsHudView.PanelWidth * 0.5f));
+                Assert.That(card.anchoredPosition.y, Is.EqualTo(HeldItemHudView.BottomPadding));
+                Assert.That(card.anchoredPosition.x, Is.EqualTo(-VoiceView.CornerMarginRight));
                 Assert.That(card.GetComponent<Mask>(), Is.Null);
                 Assert.That(image.rectTransform.sizeDelta.y, Is.GreaterThan(DestroyedItemsHudView.SlotSize));
                 Assert.That(caption.text, Is.EqualTo("들고 있는 물건"));
+                Assert.That(caption.alignment, Is.EqualTo(TextAlignmentOptions.Midline));
                 general.Apply(new GeneralSettings("en"));
                 hud.Apply(owner.transform, true, item);
                 Assert.That(caption.text, Is.EqualTo("Held Item"));
@@ -53,14 +58,6 @@ namespace Game.Tests.PlayMode
                 Assert.That(caption.text, Is.EqualTo("들고 있는 물건"));
                 Assert.That(image.raycastTarget, Is.False);
 
-                // At every shipped UI scale in a 16:9 viewport, the card clears
-                // the existing Y guide's right edge (48 + 360) without moving it.
-                foreach (var size in new[] { InterfaceCatalog.Small, InterfaceCatalog.Medium, InterfaceCatalog.Large })
-                {
-                    var logicalWidth = HudScreenScale.ScaledReference.x / InterfaceHudView.HudScale(size);
-                    var cardLeft = logicalWidth * 0.5f + card.anchoredPosition.x - card.sizeDelta.x;
-                    Assert.That(cardLeft, Is.GreaterThan(48f + 360f), size);
-                }
                 if (SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null)
                 {
                     Assert.That(image.texture, Is.Not.Null);
@@ -70,6 +67,30 @@ namespace Game.Tests.PlayMode
                     Assert.That(image.texture, Is.SameAs(texture));
                 }
                 Assert.That(renderer.forceRenderingOff, Is.True);
+
+                // Check before any canvas rebuild too: a late camera update must not
+                // move the card, even for part of a frame.
+                yield return null;
+                Canvas.ForceUpdateCanvases();
+                var before = new Vector3[4];
+                var after = new Vector3[4];
+                card.GetWorldCorners(before);
+                for (var step = 0; step < 3; step++)
+                {
+                    owner.transform.SetPositionAndRotation(
+                        new Vector3(100f + step, 2f + step, -40f),
+                        Quaternion.Euler(25f * step, 80f + step * 15f, 0f));
+                    owner.transform.localScale = Vector3.one * (1f + step * 0.1f);
+                    hud.Apply(owner.transform, true, item);
+                    card.GetWorldCorners(after);
+                    for (var corner = 0; corner < 4; corner++)
+                        Assert.That(Vector3.Distance(before[corner], after[corner]), Is.LessThan(0.01f));
+                    yield return null;
+                    Canvas.ForceUpdateCanvases();
+                    card.GetWorldCorners(after);
+                    for (var corner = 0; corner < 4; corner++)
+                        Assert.That(Vector3.Distance(before[corner], after[corner]), Is.LessThan(0.01f));
+                }
 
                 hud.Apply(owner.transform, false, item);
                 Assert.That(root.gameObject.activeSelf, Is.False);
@@ -100,6 +121,7 @@ namespace Game.Tests.PlayMode
                 if (prop != null) Object.Destroy(prop);
             }
             yield return null;
+            Assert.That(hudRoot == null, Is.True, "Disposal must remove the detached canvas.");
         }
     }
 }

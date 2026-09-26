@@ -721,12 +721,28 @@ namespace Game.Client
             }
         }
 
+        private float? heldItemTop;
+
+        // Screen-space boundary supplied by the held-item HUD, even across separate canvases.
+        public void SetHeldItemTop(float? screenY)
+        {
+            heldItemTop = screenY;
+            PlacePanel();
+        }
+
         private void PlacePanel()
         {
+            var offset = 0f;
+            if (heldItemTop.HasValue && transform.parent is RectTransform parent &&
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    parent, new Vector2(0f, heldItemTop.Value), null, out var boundary))
+            {
+                offset = Mathf.Max(0f, boundary.y - parent.rect.center.y + PanelSizeFor(mode).y * 0.5f);
+            }
             Place(
                 (RectTransform)transform,
                 new Vector2(1f, 0.5f),
-                new Vector2(-MarginRight, 0f),
+                new Vector2(-MarginRight, offset),
                 PanelSizeFor(mode),
                 new Vector2(1f, 0.5f));
         }

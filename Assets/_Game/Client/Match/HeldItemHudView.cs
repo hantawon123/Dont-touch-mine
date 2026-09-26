@@ -4,17 +4,20 @@ using Game.Client.Home;
 using Game.Client.Interactions;
 using Game.Client.Settings;
 using Game.Core.Settings;
+using Game.Client.Voice;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
-    /// <summary>Camera-owned item card immediately left of the bottom-center vitals.</summary>
+    /// <summary>Item card above voice controls and below the key guide.</summary>
     public sealed class HeldItemHudView : IDisposable
     {
         public static readonly Vector2 CardSize = new(188f, 184f);
-        public const float VitalsGap = 16f;
+        public const float HudGap = 16f;
+        public static float BottomPadding => VoiceView.CornerMarginBottom + VoiceView.ButtonSize + HudGap;
         private const float Padding = 12f;
         private const float CaptionHeight = 28f;
 
@@ -24,6 +27,10 @@ namespace Game.Client.Match
         private CarryableItem shownItem;
         private TMP_Text caption;
         private string captionLanguage;
+        private RectTransform cardRect;
+        private KeySettingGuideView keyGuide;
+        private float nextGuideScan;
+        private readonly Vector3[] cardCorners = new Vector3[4];
 
         public void Apply(Transform owner, bool firstPerson, CarryableItem item,
             InterfaceSettingsSystem settings = null)
@@ -39,6 +46,7 @@ namespace Game.Client.Match
             scaler.referenceResolution = HudScreenScale.ScaledReference /
                 InterfaceHudView.HudScale(settings?.Current.Get(InterfaceOption.UiScale));
             root.SetActive(true);
+            ReserveGuideSpace();
             RefreshCaption(settings);
             if (shownItem != item)
             {
@@ -50,6 +58,7 @@ namespace Game.Client.Match
         public void Hide()
         {
             if (root == null || !root.activeSelf) return;
+            if (keyGuide != null) keyGuide.SetHeldItemTop(null);
             root.SetActive(false);
             shownItem = null;
             preview.Clear();
@@ -57,6 +66,7 @@ namespace Game.Client.Match
 
         public void Dispose()
         {
+            if (keyGuide != null) keyGuide.SetHeldItemTop(null);
             preview?.Dispose();
             preview = null;
             shownItem = null;
@@ -64,6 +74,20 @@ namespace Game.Client.Match
             root = null;
             caption = null;
             captionLanguage = null;
+            cardRect = null;
+            keyGuide = null;
+        }
+
+        private void ReserveGuideSpace()
+        {
+            if (keyGuide == null && Time.unscaledTime >= nextGuideScan)
+            {
+                keyGuide = UnityEngine.Object.FindFirstObjectByType<KeySettingGuideView>();
+                nextGuideScan = Time.unscaledTime + 0.5f;
+            }
+            if (keyGuide == null) return;
+            cardRect.GetWorldCorners(cardCorners);
+            keyGuide.SetHeldItemTop(cardCorners[1].y + HudGap * root.GetComponent<Canvas>().scaleFactor);
         }
 
         private void RefreshCaption(InterfaceSettingsSystem settings)
@@ -85,9 +109,21 @@ namespace Game.Client.Match
 
         private void EnsureLayout(Transform owner)
         {
-            if (root != null) return;
+            if (root != null)
+            {
+                MoveToOwnerScene(owner);
+                return;
+            }
+            // A transferred rig can outlive its previous scene's detached canvas.
+            preview?.Dispose();
+            preview = null;
+            shownItem = null;
+            captionLanguage = null;
             root = new GameObject("HeldItemHud", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
-            root.transform.SetParent(owner, false);
+            // An overlay canvas must not inherit the moving camera rig's transform.
+            // Keep scene lifetime ownership without transform parenting; the rig also
+            // explicitly calls Hide/Dispose when disabled or destroyed.
+            MoveToOwnerScene(owner);
             var canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 10;
@@ -96,10 +132,11 @@ namespace Game.Client.Match
             var card = new GameObject("Card", typeof(RectTransform), typeof(Image));
             card.transform.SetParent(root.transform, false);
             var rect = (RectTransform)card.transform;
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0f);
+            cardRect = rect;
+            rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
             rect.pivot = new Vector2(1f, 0f);
             rect.anchoredPosition = new Vector2(
-                -(MatchVitalsHudView.PanelWidth * 0.5f + VitalsGap), MatchVitalsHudView.BottomPadding);
+                -VoiceView.CornerMarginRight, BottomPadding);
             rect.sizeDelta = CardSize;
             var background = card.GetComponent<Image>();
             background.sprite = HomeUiFonts.Rounded(16);
@@ -123,7 +160,7 @@ namespace Game.Client.Match
             caption = labelObject.GetComponent<TextMeshProUGUI>();
             caption.color = Color.white;
             caption.raycastTarget = false;
-            caption.alignment = TextAlignmentOptions.MidlineLeft;
+            caption.alignment = TextAlignmentOptions.Midline;
             caption.textWrappingMode = TextWrappingModes.NoWrap;
             caption.enableAutoSizing = true;
             caption.fontSizeMin = 16f;
@@ -143,6 +180,14 @@ namespace Game.Client.Match
             image.rectTransform.sizeDelta = new Vector2(CardSize.x - Padding * 2f, 140f);
             preview = new HidingIntroItemPreview(image, DestroyedItemsHudView.PreviewTextureSize,
                 Color.clear, Vector3.left * 20f, rotates: false);
+        }
+
+        private void MoveToOwnerScene(Transform owner)
+        {
+            if (owner == null) return;
+            var scene = owner.gameObject.scene;
+            if (scene.IsValid() && scene.isLoaded && root.scene != scene)
+                SceneManager.MoveGameObjectToScene(root, scene);
         }
     }
 }
