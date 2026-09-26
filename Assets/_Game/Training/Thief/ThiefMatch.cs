@@ -599,7 +599,8 @@ namespace Game.Training.Thief
                     {
                         var spot = t.Target;
                         CollectOtherProps(t.Holding);
-                        if (t.Holding >= 0 && world.CanPlaceFrom(b.Position, spot) && world.FitsNow(spot, otherProps))
+                        if (t.Holding >= 0 && world.CanPlaceFrom(b.Position, spot) && world.FitsNow(spot, otherProps) &&
+                            (!Mirrored || MirrorPlace(t.Holding, spot)))
                         {
                             var prop = Props[t.Holding];
                             prop.HeldBy = -1;
@@ -731,6 +732,7 @@ namespace Game.Training.Thief
         private void Drop(Actor a, bool byThief = false)
         {
             if (a.Holding < 0) return;
+            if (Mirrored && a.IsThief && !MirrorDrop()) return;
             var prop = Props[a.Holding];
             prop.DroppedByThiefStun = byThief;
             prop.LastDropper = a.Id;
@@ -999,7 +1001,7 @@ namespace Game.Training.Thief
         private void See()
         {
             // Players: their own prop (outline) and whoever carries it; a thief close by as a threat.
-            for (var i = 0; i < Players; i++)
+            for (var i = 0; i < Players && !Mirrored; i++)
             {
                 var a = Actors[i];
                 if (a.Stunned(Time)) continue;
@@ -1086,6 +1088,7 @@ namespace Game.Training.Thief
                     }
 
                     if (!world.InGrabReach(a.Body.Position, prop.Bottom, a.Body.Jumping) || !CanSeeProp(a, p)) continue;
+                    if (Mirrored && (!a.IsThief || !MirrorPickup(p))) continue;
                     var mugged = prop.DroppedByThiefStun;
                     prop.HeldBy = i;
                     prop.DroppedByThiefStun = false;
@@ -1120,6 +1123,134 @@ namespace Game.Training.Thief
             Minds[i].HolderSeenAt = -999f;
             Minds[i].HolderLastSeenAt = -999f;
             Minds[i].KnowsWhere = true;
+        }
+
+        // ------------------------------------------------------------------ in-game mirror (ThiefNpcDirector)
+        // The real match drives this instance on the host: players and their items are copied in every tick, the
+        // real NPC avatar walks and the thief body follows it; only the thief's mind, vision and macros run here, so
+        // the brains see exactly what they saw in training. Pickup, placement and drops go through the real authority.
+
+        public bool Mirrored { get; private set; }
+        public System.Func<int, bool> MirrorPickup;      // prop -> the authority let the NPC hold it
+        public System.Func<int, int, bool> MirrorPlace;  // prop, bank spot -> the authority accepted the release
+        public System.Func<bool> MirrorDrop;             // drop where the NPC stands
+
+        public void BeginMirror(int seed, Vector3 thiefFeet, float thiefYaw)
+        {
+            Mirrored = true;
+            EpisodeSeed = seed;
+            rng = new System.Random(seed);
+            Time = 0f;
+            Done = false;
+            ThiefActive = true;
+            ThiefAwaiting = false;
+            ThiefDecisions = ThiefHides = OwnerRecoveries = 0;
+            ThiefHoldSeconds = 0f;
+            ThiefHoldTimeouts = 0;
+            ThiefPickedUpAt = -1f;
+            nextVision = 0f;
+            var wp = world.Waypoints;
+            for (var i = 0; i < Players; i++)
+            {
+                var prop = Props[i];
+                prop.HeldBy = -1;
+                prop.Spot = -1;
+                prop.ThiefMoves = 0;
+                prop.MovedSinceHidden = false;
+                prop.DroppedByThiefStun = false;
+                prop.LastDropper = -1;
+                prop.LastDropTime = -1f;
+                Minds[i].VisitedAt ??= new float[wp.Count];
+            }
+
+            for (var i = 0; i <= Players; i++)
+            {
+                var a = Actors[i];
+                a.Holding = -1;
+                a.Hits = 0;
+                a.StunnedUntil = -1f;
+                a.Macro = Macro.Await;
+                a.Target = -1;
+                a.SettleUntil = -1f;
+                a.Hopped = false;
+                a.HopAt = -1f;
+                a.Body.HasLookTarget = false;
+            }
+
+            Thief.Body.Teleport(thiefFeet, thiefYaw);
+            for (var p = 0; p < Players; p++)
+            {
+                Mind.PropKnown[p] = false;
+                Mind.PropSeenTime[p] = -999f;
+                Mind.PropSeenHeldBy[p] = -1;
+                Mind.PlayerEverSeen[p] = false;
+                Mind.PlayerSeenNow[p] = false;
+                Mind.PlayerSeenTime[p] = -999f;
+                Mind.PlayerSeenHolding[p] = false;
+                Mind.PlayerChasing[p] = false;
+                Mind.PlayerLastDistance[p] = 99f;
+            }
+
+            Mind.VisitedAt ??= new float[wp.Count];
+            for (var w = 0; w < wp.Count; w++) Mind.VisitedAt[w] = float.NegativeInfinity;
+            RefreshThiefCandidates();
+        }
+
+        /// <summary>A real player (or an empty slot far below the map when fewer than three play).</summary>
+        public void MirrorPlayer(int i, bool present, Vector3 feet, float yaw, bool crouched, bool holding)
+        {
+            var b = Actors[i].Body;
+            b.Position = present ? feet : new Vector3(0f, -1000f, 0f);
+            b.Yaw = yaw;
+            b.Crouched = present && crouched;
+            Actors[i].Holding = present && holding ? i : -1;
+        }
+
+        /// <summary>A player's item: where its bottom is, and who holds it (-1 nobody, 0-2 a player, 3 the thief).</summary>
+        public void MirrorProp(int p, bool present, Vector3 bottom, int heldBy)
+        {
+            var prop = Props[p];
+            prop.Bottom = present ? bottom : new Vector3(0f, -1000f, 0f);
+            prop.HeldBy = present ? heldBy : -1;
+            Thief.Holding = heldBy == Players ? p : Thief.Holding == p ? -1 : Thief.Holding;
+        }
+
+        /// <summary>One simulator step: the thief follows the real NPC position; macros, vision and pickups run.</summary>
+        public void StepMirror(float dt, Vector3 npcFeet, bool npcStillMoving, bool npcStunned)
+        {
+            Time += dt;
+            var t = Thief;
+            t.StunnedUntil = npcStunned ? Time + 0.1f : -1f;
+            if (ThiefCarrying)
+            {
+                ThiefHoldSeconds += dt;
+                if (Time - ThiefPickedUpAt >= ThiefHoldLimit)
+                {
+                    ThiefHoldTimeouts++;
+                    Drop(t);
+                }
+            }
+
+            if (!t.Stunned(Time))
+            {
+                t.Body.Follow(npcFeet, npcStillMoving && t.Body.Moving, dt);
+                StepThief(dt);
+            }
+
+            MarkVisited();
+            if (Time >= nextVision)
+            {
+                nextVision = Time + HideSeekRules.VisionIntervalSeconds;
+                See();
+                AutoPickups();
+            }
+        }
+
+        /// <summary>The thief stood on a spot the NPC could not reach: give up the current macro.</summary>
+        public void AbortThiefMacro()
+        {
+            Thief.Body.Stop();
+            Finish(Thief);
         }
 
         private void MarkVisited()

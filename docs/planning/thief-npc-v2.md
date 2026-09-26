@@ -155,3 +155,12 @@ v1 시뮬레이터(시야, 몸, 은행, 접근 규칙)를 그대로 쓰고 다�
 | 대안 | 공격 허용(강도형 도둑, 재학습 없음), 제한 15초, 제한 없음 |
 | 근거 | 위 행동 기록. 30초 = 플레이어 숨기기 차례(MatchRules). 규칙 도둑의 평균 들고 있는 시간 14~15 s |
 | 영향 | 도둑 학습 thief-v2c 중단(ThiefSeek 170만), 규칙 변경으로 재학습 thief-v2d. 무작위 도둑 기준선은 공격이 빠지므로 재측정, 규칙 도둑은 원래 공격 0이라 거의 같을 것(재측정으로 확인) |
+
+## 10. 실제 매치 연결(2026-09-26 21:00~, 첫 버전)
+
+- 방식: 시뮬레이터를 실제 매치 상태에 비춰 돌림(`ThiefMatch.BeginMirror/StepMirror`). 호스트(개발 서버 에디터)에서만 `ThiefNpcDirector`가 수색 단계에 NPC 1명(`SpawnMatchNpc`)을 스폰하고, 플레이어 0~2번과 그 물건을 매 틱 복사, 도둑 몸은 실제 NPC 아바타 위치를 따라감(`HideSeekBody.Follow`), 이동은 `BotMoveToTarget`, 줍기/숨기기/30초 떨굼은 실제 NPC 권위(`TryHoldObjectForMatchNpc`/`TryDropHeldObjectForMatchNpc`). 두뇌 = 학습 ONNX(Inference Engine, 관측·마스크는 학습과 같은 코드) 또는 규칙 도둑.
+- 시야 일치: 시뮬레이터에 없던 아바타·플레이어 물건 충돌체는 시야 광선에서 제외(`HideSeekVision.IgnoreCollider`, 학습 중에는 null이라 동작 동일).
+- 팀 코드 변경: `MatchStarter.TryHoldObjectForMatchNpc`가 플레이어 배정 물건도 허용(승패 규칙은 그대로: NPC가 숨긴 물건은 주인이 다시 찾아야 함), 호스트 읽기 전용 `MatchStarter.ThiefNpc.cs`.
+- 한계: 플레이어 0~2번만 대상(관측이 3인 기준), 플레이어가 NPC를 기절시키는 전투 미연결, 가구 위 점프 줍기 없음, 숨길 자리는 중간 크기 기준. 숨길 자리 은행·NavMesh·모델은 로컬 파일이라 NPC는 이 PC가 서버일 때만 동작.
+- 켜기: Tools > AI > Thief NPC > Enable In Match / Brain: Trained Model·Rule Thief / Copy Latest Checkpoints.
+- 학습 현황(thief-v2d, 공격 금지·30초): 110만 단계에서 학습 중 보상 −0.96 → −0.99로 제자리(무작위 도둑 수준 이하), 숨기기 두뇌 5천 단계에서 정체. 공격을 막자 "찾아서 다시 숨기기"를 스스로 발견하지 못함(보상이 드묾). 후보: 규칙 도둑 시범으로 모방 학습 후 강화학습, 또는 중간 보상. 결정 대기.

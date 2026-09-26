@@ -963,9 +963,10 @@ namespace Game.Network.Match
         }
 
         /// <summary>
-        /// Authority-only pickup for a searching-world NPC. The first version
-        /// intentionally accepts map props only; player-owned objective items still
-        /// require a separate outcome-rule design.
+        /// Authority-only pickup for a searching-world NPC: map props and, for the
+        /// thief NPC (docs/planning/thief-npc-v2.md), players' assigned items. The
+        /// outcome rule stays as it is: an item the NPC hid must be found again by
+        /// its owner.
         /// </summary>
         public bool TryHoldObjectForMatchNpc(
             string npcId,
@@ -986,14 +987,28 @@ namespace Game.Network.Match
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(objectId) ||
-                !_session.TryGetWorldObjectState(objectId.Trim(), out var worldObject))
+            if (string.IsNullOrWhiteSpace(objectId))
             {
-                reason = "the first NPC carry version accepts map props only";
+                reason = "empty object id";
                 return false;
             }
 
-            objectId = worldObject.ObjectId;
+            Pose objectPose;
+            if (_session.TryGetWorldObjectState(objectId.Trim(), out var worldObject))
+            {
+                objectId = worldObject.ObjectId;
+                objectPose = worldObject.Pose;
+            }
+            else if (IsAssignedItemId(objectId.Trim()) && _session.TryGetObjectPose(objectId.Trim(), out objectPose))
+            {
+                objectId = objectId.Trim();
+            }
+            else
+            {
+                reason = $"object '{objectId}' is neither a map prop nor a placed player item";
+                return false;
+            }
+
             if (_state.TryGetHeldObjectIdByNpc(npcId, out _))
             {
                 reason = "NPC hand is already occupied";
@@ -1008,7 +1023,7 @@ namespace Game.Network.Match
 
             if (!_interactionRules.IsWithinInteractionDistance(
                     npcPose.position,
-                    worldObject.Pose.position))
+                    objectPose.position))
             {
                 reason = $"object '{objectId}' is outside the interaction distance";
                 return false;

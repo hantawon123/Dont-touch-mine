@@ -66,8 +66,27 @@ namespace Game.Training.Thief
         private int tLostInThiefHands, tLostOnThiefSpot, tLostOnOwnSpot, tLostOnFloor, tLostHeldByOther;
         private int tFloorOwnerMugged, tFloorThiefStunned, tFloorOther, tFloorLate;
 
+        private bool inGame;
+
+        /// <summary>
+        /// Real match (ThiefNpcDirector): only the map knowledge, observations and rule brains are used; no rounds, no
+        /// ML-Agents academy, and the game's physics settings stay untouched. Call on an inactive GameObject.
+        /// </summary>
+        public void ConfigureForGame(HidingSpotBank spotBank)
+        {
+            inGame = true;
+            bank = spotBank;
+            seekAgents = Array.Empty<ThiefSeekAgent>();
+            hideAgents = Array.Empty<ThiefHideAgent>();
+            evaluationMode = false;
+            editorTimeScale = 0f;
+        }
+
+        public HidingSpotBank Bank => bank;
+
         private void Awake()
         {
+            if (inGame) return;
             var _ = Unity.MLAgents.Academy.Instance;
             previousSimulationMode = Physics.simulationMode;
             previousFixedDelta = Time.fixedDeltaTime;
@@ -79,6 +98,7 @@ namespace Game.Training.Thief
 
         private void OnDestroy()
         {
+            if (inGame) return;
             Physics.simulationMode = previousSimulationMode;
             if (previousFixedDelta > 0f) Time.fixedDeltaTime = previousFixedDelta;
         }
@@ -435,7 +455,7 @@ namespace Game.Training.Thief
                 for (var r = 0; r < 8; r++)
                 {
                     var dir = Quaternion.Euler(0f, r * 45f, 0f) * Vector3.forward;
-                    rays[r] = Physics.Raycast(centre, dir, out var hit, 3f, World.OccluderMask, QueryTriggerInteraction.Ignore) ? hit.distance / 3f : 1f;
+                    rays[r] = HideSeekVision.Raycast(centre, dir, 3f, World.OccluderMask, out var hitDistance) ? hitDistance / 3f : 1f;
                 }
 
                 Array.Sort(rays);

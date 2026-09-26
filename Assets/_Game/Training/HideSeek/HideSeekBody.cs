@@ -76,6 +76,23 @@ namespace Game.Training.HideSeek
             return Moving;
         }
 
+        /// <summary>Where the current path ends (in-game mirror forwards it to the real NPC's legs).</summary>
+        public Vector3 PathEnd => corners.Length > 0 ? corners[corners.Length - 1] : Position;
+
+        /// <summary>
+        /// In-game mirror: the real NPC avatar walks and this body follows it (position, facing the way it moves
+        /// or the look target) instead of simulating the walk.
+        /// </summary>
+        public void Follow(Vector3 position, bool stillMoving, float dt)
+        {
+            var flat = position - Position;
+            flat.y = 0f;
+            Position = position;
+            if (!stillMoving) Stop();
+            if (HasLookTarget) LookAt(LookTarget, dt);
+            else if (flat.sqrMagnitude > 0.000025f) TurnToward(Mathf.Atan2(flat.x, flat.z) * Mathf.Rad2Deg, dt);
+        }
+
         public void Stop()
         {
             Moving = false;

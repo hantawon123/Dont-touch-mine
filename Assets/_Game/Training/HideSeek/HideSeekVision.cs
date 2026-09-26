@@ -81,6 +81,14 @@ namespace Game.Training.HideSeek
             return horizontal <= HideSeekRules.HorizontalFov * 0.5f && vertical <= HideSeekRules.VerticalFov * 0.5f;
         }
 
+        /// <summary>
+        /// In the real match (ThiefNpcDirector) the avatars and the players' items have colliders that the simulator
+        /// never had; they are skipped so that sight lines match training. Null during training.
+        /// </summary>
+        public static System.Func<Collider, bool> IgnoreCollider;
+
+        private static readonly RaycastHit[] Hits = new RaycastHit[16];
+
         public static bool Clear(Vector3 eye, Vector3 point, int occluders)
         {
             var offset = point - eye;
@@ -90,7 +98,35 @@ namespace Game.Training.HideSeek
                 return true;
             }
 
-            return !Physics.Raycast(eye, offset / distance, distance - 0.03f, occluders, QueryTriggerInteraction.Ignore);
+            if (IgnoreCollider == null)
+            {
+                return !Physics.Raycast(eye, offset / distance, distance - 0.03f, occluders, QueryTriggerInteraction.Ignore);
+            }
+
+            return !Raycast(eye, offset / distance, distance - 0.03f, occluders, out _);
+        }
+
+        /// <summary>Nearest hit that is not ignored (see <see cref="IgnoreCollider"/>).</summary>
+        public static bool Raycast(Vector3 origin, Vector3 direction, float distance, int occluders, out float hitDistance)
+        {
+            hitDistance = distance;
+            if (IgnoreCollider == null)
+            {
+                if (!Physics.Raycast(origin, direction, out var hit, distance, occluders, QueryTriggerInteraction.Ignore)) return false;
+                hitDistance = hit.distance;
+                return true;
+            }
+
+            var n = Physics.RaycastNonAlloc(origin, direction, Hits, distance, occluders, QueryTriggerInteraction.Ignore);
+            var found = false;
+            for (var i = 0; i < n; i++)
+            {
+                if (IgnoreCollider(Hits[i].collider) || Hits[i].distance >= hitDistance) continue;
+                hitDistance = Hits[i].distance;
+                found = true;
+            }
+
+            return found;
         }
 
         /// <summary>A placed or held box is seen when at least 3 of its 10 points are in the cone and unblocked,
