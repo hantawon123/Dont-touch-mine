@@ -380,6 +380,7 @@ namespace Game.Core.Settings
                 "시간 초과 시 마지막 위치에 물건이 배치됩니다",
                 "Time out places the item at the last position"),
             new UiTextLine(UiText.Match.HideComplete, "숨기기 완료", "Done Hiding"),
+            new UiTextLine(UiText.Match.HeldItem, "들고 있는 물건", "Held Item"),
             new UiTextLine(UiText.Match.HideBanner, "제한 시간 안에 물건을 숨겨주세요!", "Hide your item before time runs out!"),
             new UiTextLine(UiText.Match.HideFinalBanner, "서둘러 자신의 물건을 확보하세요!", "Secure your item now!"),
             new UiTextLine(UiText.Match.HideNextTurn, "다음 숨길 차례입니다", "You're hiding next"),
