@@ -28,6 +28,23 @@ namespace Game.Training.EditorTools
         [MenuItem("Tools/AI/Thief Viewer")]
         public static void Open() => GetWindow<ThiefViewerWindow>("Thief Viewer");
 
+        /// <summary>All 16 rounds of the arena at once on the map (rule thief), for the presentation.</summary>
+        [MenuItem("Tools/AI/Thief Overlay Viewer (16 rounds)")]
+        public static void PlayOverlay()
+        {
+            if (EditorApplication.isPlaying) return;
+            if (EditorSceneManager.GetActiveScene().path != ScenePath || EditorSceneManager.GetActiveScene().isDirty)
+            {
+                if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+                EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            }
+
+            Apply<ThiefSeekAgent>(Brain.Rule, null);
+            Apply<ThiefHideAgent>(Brain.Rule, null);
+            SessionState.SetBool(ThiefViewerLauncher.OverlayPendingKey, true);
+            EditorApplication.isPlaying = true;
+        }
+
         private void OnGUI()
         {
             EditorGUILayout.LabelField("One round at a time, same simulation as training and evaluation.", EditorStyles.wordWrappedLabel);
@@ -124,6 +141,7 @@ namespace Game.Training.EditorTools
     internal static class ThiefViewerLauncher
     {
         internal const string PendingKey = "ThiefViewer.Pending";
+        internal const string OverlayPendingKey = "ThiefViewer.OverlayPending";
         internal const string ActiveKey = "ThiefViewer.Active";
         internal const string SeedKey = "ThiefViewer.Seed";
         internal const string SpeedKey = "ThiefViewer.Speed";
@@ -138,7 +156,18 @@ namespace Game.Training.EditorTools
 
         private static void OnPlayMode(PlayModeStateChange change)
         {
-            if (change == PlayModeStateChange.EnteredPlayMode && SessionState.GetBool(PendingKey, false))
+            if (change == PlayModeStateChange.EnteredPlayMode && SessionState.GetBool(OverlayPendingKey, false))
+            {
+                SessionState.SetBool(OverlayPendingKey, false);
+                SessionState.SetBool(ActiveKey, true);
+                var overlayArena = Object.FindFirstObjectByType<ThiefArena>();
+                if (overlayArena == null) return;
+                var holder = new GameObject("Thief_OverlayViewer");
+                holder.SetActive(false);
+                holder.AddComponent<ThiefOverlayViewer>().Configure(overlayArena, 4f);
+                holder.SetActive(true);
+            }
+            else if (change == PlayModeStateChange.EnteredPlayMode && SessionState.GetBool(PendingKey, false))
             {
                 SessionState.SetBool(PendingKey, false);
                 SessionState.SetBool(ActiveKey, true);

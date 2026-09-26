@@ -136,6 +136,10 @@ namespace Game.Training.Thief
         public int TakenFromHidingSpot, TakenFromMugging, TakenOther;
         public float ThiefHoldSeconds;
         public int ThiefHoldTimeouts;
+        public int PropChoiceOffered, PropChoiceTaken, PropsSpotted; // analysis only
+        public readonly int[] PropSlotChosen = new int[Players];
+        public int ToPropPlanFailed, ToPropArrived, ToPropEndedWithoutPickup;
+        public int MissHeld, MissMoved, MissReach, MissSight, MissOther; // why a go-for-prop ended without a pickup
         public float ThiefPickedUpAt = -1f;
 
         /// <summary>Coverage (thief-npc-v2.md 11): which spaces worth checking the thief has actually seen.</summary>
@@ -206,6 +210,10 @@ namespace Game.Training.Thief
             ThiefHoldSeconds = 0f;
             ThiefHoldTimeouts = 0;
             ThiefPickedUpAt = -1f;
+            PropChoiceOffered = PropChoiceTaken = PropsSpotted = 0;
+            ToPropPlanFailed = ToPropArrived = ToPropEndedWithoutPickup = 0;
+            MissHeld = MissMoved = MissReach = MissSight = MissOther = 0;
+            System.Array.Clear(PropSlotChosen, 0, Players);
             nextVision = 0f;
             ResetCoverage();
             var wp = world.Waypoints;
@@ -388,6 +396,16 @@ namespace Game.Training.Thief
         {
             ThiefAwaiting = false;
             ThiefDecisions++;
+            if (!ThiefCarrying && SeekAllowed(SeekActionPropFirst))
+            {
+                PropChoiceOffered++;
+                if (action >= SeekActionPropFirst && action < SeekActionPropFirst + Players)
+                {
+                    PropChoiceTaken++;
+                    PropSlotChosen[action - SeekActionPropFirst]++;
+                }
+            }
+
             var t = Thief;
             var b = t.Body;
             b.Crouched = b.Prone = false;
@@ -442,6 +460,8 @@ namespace Game.Training.Thief
                     t.Target = p;
                     return;
                 }
+
+                ToPropPlanFailed++;
             }
 
             if (action == SeekActionFlee && NearestThreat(out var threat) >= 0 && world.TryPickAway(b.Position, threat, rng, out var fleeTo) && b.TrySetDestination(fleeTo))
@@ -604,8 +624,25 @@ namespace Game.Training.Thief
                     if (!b.Moving) Finish(t);
                     break;
                 case Macro.ToProp:
+                    if (!b.Moving && t.SettleUntil < 0f && !t.Hopped) ToPropArrived++;
                     if (!b.Moving && !StepReachArrival(t))
                     {
+                        ToPropEndedWithoutPickup++;
+
+                        // It stood where it planned to grab from, in the posture that shows that spot, and still does not
+                        // see the prop: it is gone (someone took it). Without this the thief kept walking back to an empty
+                        // spot under furniture, because the old "gone" check only looked from standing eye height.
+                        if (t.Target >= 0 && !CanSeeProp(t, t.Target)) Mind.PropKnown[t.Target] = false;
+                        if (t.Target >= 0)
+                        {
+                            var miss = Props[t.Target];
+                            if (miss.HeldBy >= 0) MissHeld++;
+                            else if ((miss.Bottom - Mind.PropSeenAt[t.Target]).sqrMagnitude > 0.25f) MissMoved++;
+                            else if (!world.InGrabReach(b.Position, miss.Bottom, b.Jumping)) MissReach++;
+                            else if (!CanSeeProp(t, t.Target)) MissSight++;
+                            else MissOther++;
+                        }
+
                         Finish(t);
                     }
 
@@ -1073,6 +1110,7 @@ namespace Game.Training.Thief
                 if (prop.HeldBy == Players) continue;
                 if (CanSeeProp(Thief, p))
                 {
+                    if (!Mind.PropKnown[p]) PropsSpotted++;
                     Mind.PropKnown[p] = true;
                     Mind.PropSeenAt[p] = prop.HeldBy >= 0 ? Actors[prop.HeldBy].Body.Position : prop.Bottom;
                     Mind.PropSeenTime[p] = Time;

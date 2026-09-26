@@ -136,6 +136,16 @@ namespace Game.Training.Thief
             logEveryEpisodes = int.MaxValue;
         }
 
+        /// <summary>Presentation overlay (ThiefOverlayViewer): every round runs and restarts, no logs.</summary>
+        public void ConfigureForOverlay()
+        {
+            activeMatchLimit = 0;
+            holdFinishedRounds = false;
+            evaluationMode = false;
+            editorTimeScale = 0f;
+            logEveryEpisodes = int.MaxValue;
+        }
+
         public void RestartMatch(int index, int episodeSeed)
         {
             if (index >= 0 && index < matches.Count) ResetWithSeed(matches[index], episodeSeed);
@@ -194,6 +204,9 @@ namespace Game.Training.Thief
 
         private float coverageReward;
         private long tChecked;
+        private long tOffered, tTaken, tSpotted, tPlanFail, tArrive, tNoPick;
+        private readonly long[] tSlot = new long[ThiefMatch.Players];
+        private long mHeld, mMoved, mReach, mSight, mOther;
 
         private void ResetWithSeed(ThiefMatch match, int episodeSeed)
         {
@@ -254,6 +267,10 @@ namespace Game.Training.Thief
             tFromSpot += match.TakenFromHidingSpot; tFromMugging += match.TakenFromMugging; tFromOther += match.TakenOther;
             tHoldSeconds += match.ThiefHoldSeconds;
             tHoldTimeouts += match.ThiefHoldTimeouts;
+            tOffered += match.PropChoiceOffered; tTaken += match.PropChoiceTaken; tSpotted += match.PropsSpotted;
+            tPlanFail += match.ToPropPlanFailed; tArrive += match.ToPropArrived; tNoPick += match.ToPropEndedWithoutPickup;
+            for (var k = 0; k < ThiefMatch.Players; k++) tSlot[k] += match.PropSlotChosen[k];
+            mHeld += match.MissHeld; mMoved += match.MissMoved; mReach += match.MissReach; mSight += match.MissSight; mOther += match.MissOther;
             for (var p = 0; p < ThiefMatch.Players; p++)
             {
                 var prop = match.Props[p];
@@ -297,7 +314,7 @@ namespace Game.Training.Thief
                     Debug.Log(
                         $"[Thief EVAL detail] per round: thief attacks {tAttacks / n:F2}, hits landed {tHitsLanded / n:F2}, players stunned by thief {tStunnedByThief / n:F2} (in the last 30 s {tLateStuns / n:F2}), " +
                         $"props taken from a hiding spot {tFromSpot / n:F2} / from a player the thief stunned {tFromMugging / n:F2} / other {tFromOther / n:F2}, " +
-                        $"seconds holding {tHoldSeconds / n:F0}, 30 s hold timeouts {tHoldTimeouts / n:F2}, spaces checked {tChecked / n:F0} of {World.CheckSpots.Count} | losing players' props at the end: in thief's hands {100.0 * tLostInThiefHands / lost:F0}%, " +
+                        $"seconds holding {tHoldSeconds / n:F0}, 30 s hold timeouts {tHoldTimeouts / n:F2}, spaces checked {tChecked / n:F0} of {World.CheckSpots.Count}, props spotted {tSpotted / (double)n:F2}, go-for-prop offered {tOffered / (double)n:F2} taken {tTaken / (double)n:F2} (slots {tSlot[0] / (double)n:F1}/{tSlot[1] / (double)n:F1}/{tSlot[2] / (double)n:F1}, no reach plan {tPlanFail / (double)n:F1}, arrived {tArrive / (double)n:F1}, ended without pickup {tNoPick / (double)n:F1}: held {mHeld / (double)n:F1}, moved {mMoved / (double)n:F1}, out of reach {mReach / (double)n:F1}, not visible {mSight / (double)n:F1}, other {mOther / (double)n:F1}) | losing players' props at the end: in thief's hands {100.0 * tLostInThiefHands / lost:F0}%, " +
                         $"on a spot the thief hid it {100.0 * tLostOnThiefSpot / lost:F0}%, still on the owner's spot {100.0 * tLostOnOwnSpot / lost:F0}%, " +
                         $"on the floor (dropped) {100.0 * tLostOnFloor / lost:F0}%, held by another player {100.0 * tLostHeldByOther / lost:F0}% (n {lost}) | floor props: dropped by the stunned owner {tFloorOwnerMugged}, by the stunned thief {tFloorThiefStunned}, other {tFloorOther}, dropped in the last 30 s {tFloorLate}",
                         this);
