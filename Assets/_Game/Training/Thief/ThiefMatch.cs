@@ -933,12 +933,15 @@ namespace Game.Training.Thief
                 return true;
             }
 
-            if (a.ApproachPosture > 0 && a.SettleUntil < 0f)
+            if (a.SettleUntil < 0f)
             {
+                // Hold the posture while looking at the prop for a moment, whatever the posture. Arriving where one
+                // already stands takes one tick; without this pause the look-down tick and the vision tick (every
+                // 0.1 s) could stay out of phase forever and the prop at one's feet was never seen.
                 b.Crouched = a.ApproachPosture == 1;
                 b.Prone = a.ApproachPosture == 2;
                 b.Jumping = a.ApproachPosture == 3;
-                a.SettleUntil = Time + 0.6f;
+                a.SettleUntil = Time + (a.ApproachPosture > 0 ? 0.6f : 0.4f);
                 return true;
             }
 

@@ -324,7 +324,7 @@ namespace Game.Training.HideSeek
                     }
 
                     break;
-                case SeekerState.ToObject when !Seeker.Moving && approachPosture > 0 && settleUntil < 0f:
+                case SeekerState.ToObject when !Seeker.Moving && settleUntil < 0f:
                     // Arrived next to a prop that is only reachable low (under furniture) or with a jump.
                     Seeker.Crouched = approachPosture == 1;
                     Seeker.Prone = approachPosture == 2;
