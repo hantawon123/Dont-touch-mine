@@ -1,0 +1,74 @@
+# Thief NPC v2, heavy imitation variant (docs/planning/thief-npc-v2.md 11.3), run in parallel with thief_bc3.yaml.
+# BC strength 3.0 decaying over 6M steps and 5 BC epochs per update: stay close to the demonstrator longer.
+# Demonstrations v5: recorded after the stale-memory fix (a prop not seen on arrival is forgotten).
+# thief-v2e (thief_bc.yaml) paid coverage only while empty-handed and ~+1 per round, more than the outcome
+# differences, so it learned to look around and not steal (0.25 takes per round). Here coverage_reward is absent
+# (0 in the arena); the unchecked-space observations stay. Imitation is stronger and lasts longer.
+# ThiefSeek (obs thief-obs-v4, 134 floats, 16 actions incl. prone look) / ThiefHide (175 floats, 10 actions).
+# Pure PPO failed under the no-attack / 30 s hide rule (thief-v2d: sparse reward, no learning in 1.1M steps).
+# - behavioral_cloning: rule-thief demonstrations as a starting point; strength decays linearly to 0 over "steps",
+#   after that only the reward shapes the policy (it may and should beat the demonstrator).
+# - coverage_reward: small reward per newly seen space worth checking (under / on furniture / corner), scheduled
+#   to 0 by training progress so that "look around without stealing" cannot pay off; evaluation ignores it.
+# Final reward at the end of the round: (players - 2 * players holding their own prop) / players, in [-1, 1].
+# Keep this file ASCII: mlagents-learn reads it with the Windows default code page.
+behaviors:
+  ThiefSeek:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 2048
+      buffer_size: 40960
+      learning_rate: 0.0003
+      beta: 0.01
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+      learning_rate_schedule: linear
+    network_settings:
+      normalize: false
+      hidden_units: 256
+      num_layers: 2
+    reward_signals:
+      extrinsic:
+        gamma: 0.995
+        strength: 1.0
+    behavioral_cloning:
+      demo_path: Tools/Training/demos/thief_rule_v5/seek
+      strength: 3.0
+      steps: 6000000
+      num_epoch: 5
+    checkpoint_interval: 500000
+    keep_checkpoints: 40
+    max_steps: 15000000
+    time_horizon: 128
+    summary_freq: 50000
+
+  ThiefHide:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 256
+      buffer_size: 4096
+      learning_rate: 0.0003
+      beta: 0.005
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+      learning_rate_schedule: linear
+    network_settings:
+      normalize: false
+      hidden_units: 256
+      num_layers: 2
+    reward_signals:
+      extrinsic:
+        gamma: 0.99
+        strength: 1.0
+    behavioral_cloning:
+      demo_path: Tools/Training/demos/thief_rule_v5/hide
+      strength: 3.0
+      steps: 200000
+      num_epoch: 5
+    checkpoint_interval: 10000
+    keep_checkpoints: 40
+    max_steps: 300000
+    time_horizon: 16
+    summary_freq: 5000
