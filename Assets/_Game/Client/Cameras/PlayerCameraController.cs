@@ -60,6 +60,9 @@ namespace Game.Client.Cameras
 
         private readonly FirstPersonArmsView armsView = new();
         private readonly HeldItemVisibility heldItemView = new();
+        private readonly Game.Client.Match.HeldItemHudView heldItemHud = new();
+        private InterfaceSettingsSystem interfaceSettings;
+
         private Game.Client.Interactions.PlayerInteractor followInteractor;
         private PlayerAnimationDriver followAnimationDriver;
 
@@ -76,9 +79,11 @@ namespace Game.Client.Cameras
         [Inject]
         public void BindSettings(
             ControlSettingsSystem settings,
-            CameraViewPreference preference = null)
+            CameraViewPreference preference = null,
+            InterfaceSettingsSystem hudSettings = null)
         {
             controls = settings;
+            interfaceSettings = hudSettings;
             GetComponent<EmoteWheelController>()?.BindSettings(settings);
             if (preference != null)
             {
@@ -224,6 +229,7 @@ namespace Game.Client.Cameras
 
         private void OnDisable()
         {
+            heldItemHud.Hide();
             playerMap?.Disable();
             armsView.Hide();
             heldItemView.Reveal();
@@ -232,6 +238,7 @@ namespace Game.Client.Cameras
 
         private void OnDestroy()
         {
+            heldItemHud.Dispose();
             followInteractor?.ClearFirstPersonHold();
             heldItemView.Reveal();
             armsView.Dispose();
@@ -304,6 +311,7 @@ namespace Game.Client.Cameras
         {
             if (migrationSuspended || followTarget == null)
             {
+                heldItemHud.Hide();
                 return;
             }
 
@@ -374,6 +382,8 @@ namespace Game.Client.Cameras
 
         private void ApplyFirstPersonOverlays(bool rescanRenderers, bool firstPersonView)
         {
+            heldItemHud.Apply(transform, firstPersonView,
+                followInteractor != null ? followInteractor.CarriedItem : null, interfaceSettings);
             var hideArms = firstPersonView && firstPersonArms.showArms && !FollowingStunHead;
             armsView.Apply(hideArms, firstPersonArms, transform,
                 followAnimationDriver != null ? followAnimationDriver.CurrentState : null,

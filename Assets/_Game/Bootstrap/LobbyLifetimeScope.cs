@@ -344,7 +344,8 @@ namespace Game.Bootstrap
                     PrepareHighlightStaging(network);
                 EnsurePlayerCameraRig(
                     container.Resolve<ControlSettingsSystem>(),
-                    container.Resolve<CameraViewPreference>());
+                    container.Resolve<CameraViewPreference>(),
+                    container.Resolve<InterfaceSettingsSystem>());
                 if (highlightStaging)
                 {
                     CaptureStagingPresentation();
@@ -580,7 +581,8 @@ namespace Game.Bootstrap
         /// </remarks>
         private void EnsurePlayerCameraRig(
             ControlSettingsSystem settings,
-            CameraViewPreference viewPreference)
+            CameraViewPreference viewPreference,
+            InterfaceSettingsSystem interfaceSettings)
         {
             var rig = FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
             if (rig == null) rig = Instantiate(cameraRigPrefab);
@@ -605,7 +607,7 @@ namespace Game.Bootstrap
                 if (rig.gameObject.scene != gameObject.scene && rig.transform.parent == null)
                     SceneManager.MoveGameObjectToScene(rig.gameObject, gameObject.scene);
             }
-            rig.BindSettings(settings, viewPreference);
+            rig.BindSettings(settings, viewPreference, interfaceSettings);
             rig.RequireExplicitFollowTarget();
         }
 

@@ -9,13 +9,16 @@ namespace Game.Bootstrap
     {
         private readonly ControlSettingsSystem settings;
         private readonly CameraViewPreference viewPreference;
+        private readonly InterfaceSettingsSystem interfaceSettings;
 
         public CameraSettingsBinder(
             ControlSettingsSystem settings,
-            CameraViewPreference viewPreference = null)
+            CameraViewPreference viewPreference = null,
+            InterfaceSettingsSystem interfaceSettings = null)
         {
             this.settings = settings;
             this.viewPreference = viewPreference;
+            this.interfaceSettings = interfaceSettings;
         }
 
         public void Start()
@@ -29,7 +32,7 @@ namespace Game.Bootstrap
             if (!scene.isLoaded) return;
             foreach (var root in scene.GetRootGameObjects())
                 foreach (var camera in root.GetComponentsInChildren<PlayerCameraController>(true))
-                    camera.BindSettings(settings, viewPreference);
+                    camera.BindSettings(settings, viewPreference, interfaceSettings);
         }
 
         public void Dispose() => SceneManager.sceneLoaded -= Bind;
