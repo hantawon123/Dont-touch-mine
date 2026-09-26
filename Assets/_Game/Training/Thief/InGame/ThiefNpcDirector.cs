@@ -28,8 +28,10 @@ namespace Game.Training.Thief
         private const string EnabledKey = "ThiefNpc.InMatch";
         private const string BrainKey = "ThiefNpc.UseModel";
         private const string LocalDir = "Assets/_Game/Content/Training/Local/";
-        private const string BankPath = LocalDir + "Mansion_HidingSpotBank.asset";
-        private const string NavMeshPath = LocalDir + "Mansion_Thief_NavMesh.asset";
+        // Shared copies (tracked) so any development server can run the NPC; the local training files as fallback.
+        private const string SharedDir = "Assets/_Game/Content/Training/ThiefNpc/";
+        private static readonly string[] BankPaths = { SharedDir + "Mansion_HidingSpotBank.asset", LocalDir + "Mansion_HidingSpotBank.asset" };
+        private static readonly string[] NavMeshPaths = { SharedDir + "Mansion_ThiefNpc_NavMesh.asset", LocalDir + "Mansion_Thief_NavMesh.asset" };
         public const string ModelDir = LocalDir + "ThiefCheckpoints/ingame/";
         private const float Step = 0.05f;
 
@@ -58,11 +60,34 @@ namespace Game.Training.Thief
         private float[] seekObs, hideObs, seekMask, hideMask;
         private string brainLabel = "rule";
 
+        // 1 on, 0 off, unset: on for a development server (Game > Network > Development Server) only.
         [MenuItem("Tools/AI/Thief NPC/Enable In Match (editor host)")]
-        private static void Enable() { EditorPrefs.SetBool(EnabledKey, true); Debug.Log("[Thief NPC] enabled for the next match (editor host)."); }
+        private static void Enable() { EditorPrefs.SetInt(EnabledKey, 1); Debug.Log("[Thief NPC] enabled for the next match (editor host)."); }
 
         [MenuItem("Tools/AI/Thief NPC/Disable")]
-        private static void Disable() { EditorPrefs.SetBool(EnabledKey, false); Debug.Log("[Thief NPC] disabled."); }
+        private static void Disable() { EditorPrefs.SetInt(EnabledKey, 0); Debug.Log("[Thief NPC] disabled."); }
+
+        private static bool IsEnabled()
+        {
+            if (EditorPrefs.HasKey(EnabledKey))
+            {
+                try { return EditorPrefs.GetInt(EnabledKey, 0) == 1; }
+                catch { return EditorPrefs.GetBool(EnabledKey, false); }
+            }
+
+            return EditorDevelopmentSession.IsServer;
+        }
+
+        private static T LoadFirst<T>(string[] paths) where T : Object
+        {
+            foreach (var path in paths)
+            {
+                var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+                if (asset != null) return asset;
+            }
+
+            return null;
+        }
 
         [MenuItem("Tools/AI/Thief NPC/Brain: Trained Model")]
         private static void UseModel() { EditorPrefs.SetBool(BrainKey, true); Debug.Log("[Thief NPC] brain = trained model (" + ModelDir + ")."); }
@@ -113,7 +138,7 @@ namespace Game.Training.Thief
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
         {
-            if (!EditorPrefs.GetBool(EnabledKey, false)) return;
+            if (!IsEnabled()) return;
             var go = new GameObject("ThiefNpcDirector");
             DontDestroyOnLoad(go);
             go.AddComponent<ThiefNpcDirector>();
@@ -162,11 +187,11 @@ namespace Game.Training.Thief
 
             if (arena == null)
             {
-                var bank = AssetDatabase.LoadAssetAtPath<HidingSpotBank>(BankPath);
-                var data = AssetDatabase.LoadAssetAtPath<NavMeshData>(NavMeshPath);
+                var bank = LoadFirst<HidingSpotBank>(BankPaths);
+                var data = LoadFirst<NavMeshData>(NavMeshPaths);
                 if (bank == null || data == null)
                 {
-                    Debug.LogError($"[Thief NPC] missing local assets ({BankPath}, {NavMeshPath}).");
+                    Debug.LogError($"[Thief NPC] missing hiding spot bank or NavMesh under {SharedDir}.");
                     finishedThisMatch = true;
                     return;
                 }
