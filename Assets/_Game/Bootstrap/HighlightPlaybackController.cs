@@ -756,9 +756,25 @@ namespace Game.Bootstrap
             return false;
         }
 
+        private float nextNpcCapture;
+
         private void CaptureVisuals()
         {
             if (phase == MatchPhase.Waiting) return;
+            // Searching-world NPCs (thief NPC) are recorded as objects keyed by their npc id; keep a copy of their
+            // look while they exist (they are despawned when searching ends, the copy survives).
+            if (phase == MatchPhase.Searching && Time.unscaledTime >= nextNpcCapture)
+            {
+                nextNpcCapture = Time.unscaledTime + 1f;
+                foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(FindObjectsSortMode.None))
+                {
+                    if (avatar == null || !avatar.HasNetworkState || !avatar.IsMatchNpc) continue;
+                    var npcId = avatar.PlayerId;
+                    if (!string.IsNullOrEmpty(npcId) && !itemVisuals.ContainsKey(npcId))
+                        itemVisuals.Add(npcId, new ReplayVisual(avatar.transform, null));
+                }
+            }
+
             if (NeedsPlayerVisuals())
             using (CapturePlayersMarker.Auto())
             {

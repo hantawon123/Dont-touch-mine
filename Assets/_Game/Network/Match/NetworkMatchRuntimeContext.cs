@@ -141,7 +141,42 @@ namespace Game.Network.Match
             }
         }
 
-        public IReadOnlyList<WorldObjectState> ReplayObjects => sceneContext.ReplayObjects;
+        /// <summary>
+        /// Scene props plus the searching-world NPCs (thief NPC), recorded like props (id = npc id, pose only) so the
+        /// highlight can show them; NPCs are not match participants and have no player slot.
+        /// </summary>
+        public IReadOnlyList<WorldObjectState> ReplayObjects
+        {
+            get
+            {
+                var scene = sceneContext.ReplayObjects;
+                if (Time.unscaledTime >= nextNpcLookup)
+                {
+                    nextNpcLookup = Time.unscaledTime + 2f;
+                    npcAvatars.Clear();
+                    foreach (var avatar in UnityEngine.Object.FindObjectsByType<Game.Network.Players.PlayerAvatar>(FindObjectsSortMode.None))
+                    {
+                        if (avatar != null && avatar.HasNetworkState && avatar.IsMatchNpc) npcAvatars.Add(avatar);
+                    }
+                }
+
+                if (npcAvatars.Count == 0) return scene;
+                replayObjectsWithNpcs.Clear();
+                replayObjectsWithNpcs.AddRange(scene);
+                foreach (var npc in npcAvatars)
+                {
+                    // HighlightReplaySerializer keeps at most 64 objects per frame.
+                    if (npc == null || !npc.HasNetworkState || replayObjectsWithNpcs.Count >= 64 || string.IsNullOrEmpty(npc.PlayerId)) continue;
+                    replayObjectsWithNpcs.Add(new WorldObjectState(npc.PlayerId, new Pose(npc.transform.position, npc.transform.rotation)));
+                }
+
+                return replayObjectsWithNpcs;
+            }
+        }
+
+        private readonly List<WorldObjectState> replayObjectsWithNpcs = new();
+        private readonly List<Game.Network.Players.PlayerAvatar> npcAvatars = new();
+        private float nextNpcLookup;
         public IReadOnlyList<HighlightPlayerAction> PlayerReplayActions
         {
             get
