@@ -29,7 +29,7 @@ namespace Game.Client.Lobby
     public static class PlaySettingsCategoryCatalog
     {
         private static PlaySettingsCategoryOption[] Options => new[] { new PlaySettingsCategoryOption(string.Empty, PlaySettingsMapCatalog.RandomLabel) }
-            .Concat(ItemCatalogSO.Load(applyDefinitions: false).categories.Where(c => c.enabled)
+            .Concat(ItemCatalogSO.LoadMetadata().categories.Where(c => c.enabled)
                 .Select(c => new PlaySettingsCategoryOption(c.id, c.label))).ToArray();
 
         public static IReadOnlyList<PlaySettingsCategoryOption> All => Options;
@@ -84,7 +84,7 @@ namespace Game.Client.Lobby
             }
 
             // Displaying a label must not validate and rebuild every item definition.
-            foreach (var category in ItemCatalogSO.Load(applyDefinitions: false).categories)
+            foreach (var category in ItemCatalogSO.LoadMetadata().categories)
             {
                 if (category.enabled &&
                     string.Equals(category.id?.Trim(), normalized, StringComparison.Ordinal))

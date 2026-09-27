@@ -1,0 +1,1687 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06f549e159acaff45a5d5dca3bdd64ca, type: 3}
+  m_Name: ItemCatalogMetadata
+  m_EditorClassIdentifier: Game.SOAP::Game.SOAP.Config.ItemCatalogSO
+  categories:
+  - id: food
+    label: "\uC74C\uC2DD\xB7\uC74C\uB8CC"
+    enabled: 1
+    items:
+    - id: i3bf3ed0822
+      displayName: "\uC6B0\uC720\uD329"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i01763ee0e9
+      displayName: "\uC6B0\uC720\uD329"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if8d5f1161c
+      displayName: "\uC544\uBCF4\uCE74\uB3C4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i7360d9d90a
+      displayName: "\uC544\uBCF4\uCE74\uB3C4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i091dad0400
+      displayName: "\uBC14"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia6eff41fa4
+      displayName: "\uD584\uBC84\uAC70"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i69bdb8848c
+      displayName: "\uCE94"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i6c682a09d8
+      displayName: "\uCE58\uC988\uCF00\uC774\uD06C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iaa2088074d
+      displayName: "\uAC10\uC790\uCE69"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: icffabbf975
+      displayName: "\uCEE4\uD53C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1764cfbfc0
+      displayName: "\uCFE0\uD0A4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia21251f4bf
+      displayName: "\uCFE0\uD0A4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie9b420218e
+      displayName: "\uCFE0\uD0A4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i88152c02d7
+      displayName: "\uD06C\uB8E8\uC544\uC0C1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie5c32f8a16
+      displayName: "\uB3C4\uB11B"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0be715e6ec
+      displayName: "\uB2EC\uAC40"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ib58977b3bd
+      displayName: "\uB2EC\uAC40"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ib177fe8716
+      displayName: "\uB2EC\uAC40"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if996699c96
+      displayName: "\uB2EC\uAC40"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ife2c19f290
+      displayName: "\uC0DD\uC120"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ieca88b863f
+      displayName: "\uC544\uC774\uC2A4\uD06C\uB9BC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i28dff52790
+      displayName: "\uC544\uC774\uC2A4\uD06C\uB9BC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i7e531ac46a
+      displayName: "\uBC84\uC12F"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i40e5f17ca9
+      displayName: "\uBC84\uC12F"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if5e9d54d57
+      displayName: "\uBC84\uC12F"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i908c0c140e
+      displayName: "\uC591\uD30C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia1eb11120b
+      displayName: "\uC591\uD30C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia59581ae84
+      displayName: "\uD398\uC774\uC2A4\uD2B8\uB9AC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ibd94dbf084
+      displayName: "\uD53C\uB9DD"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i05ebee7280
+      displayName: "\uC0CC\uB4DC\uC704\uCE58"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i409425a164
+      displayName: "\uC0CC\uB4DC\uC704\uCE58"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i499bee0cf2
+      displayName: "\uC0CC\uB4DC\uC704\uCE58"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i688aee9b0f
+      displayName: "\uC18C\uC2DC\uC9C0"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iab88e3ce1e
+      displayName: "\uC0C8\uC6B0"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9f63405507
+      displayName: "\uC0C8\uC6B0"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ieeabcc33af
+      displayName: "\uD0C4\uC0B0\uC74C\uB8CC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i7f9c9194b9
+      displayName: "\uCC28"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i481007ae58
+      displayName: "\uC218\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i8487078170
+      displayName: "\uC218\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ib0167f30d5
+      displayName: "\uC218\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i5f84b16f75
+      displayName: "\uC694\uAD6C\uB974\uD2B8"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i7e47bba623
+      displayName: "\uC0AC\uACFC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ibaa14fab02
+      displayName: "\uBE75"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i78e2cb2499
+      displayName: "\uBE75"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i67c3d4ce57
+      displayName: "\uCE58\uC988"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i922cc9bd4f
+      displayName: "\uCE58\uC988"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: id454c4074d
+      displayName: "\uACE0\uAE30"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0b91215d01
+      displayName: "\uACE0\uAE30"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1a90baab83
+      displayName: "\uC624\uB80C\uC9C0"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i022d2be201
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i6d4a0403c6
+      displayName: "\uC18C\uC2DC\uC9C0"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i090200a55f
+      displayName: "\uD1A0\uB9C8\uD1A0"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie55c3ad320
+      displayName: "\uC218\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+  - id: household
+    label: "\uC0DD\uD65C\uC6A9\uD488"
+    enabled: 1
+    items:
+    - id: if7ed05fb18
+      displayName: "\uC30D\uC548\uACBD"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ib65ba074c4
+      displayName: "\uCC45\uC7A5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i34d5c1a69e
+      displayName: "\uC11C\uB958\uAC00\uBC29"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1357c32675
+      displayName: "\uC2DD\uCE7C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iea511584ce
+      displayName: "\uC2DD\uCE7C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i8a2474821f
+      displayName: "\uC758\uC790"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9f32427af7
+      displayName: "\uC544\uB839"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i05adbdbaa7
+      displayName: "\uC544\uB839"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i5a4b0fec1e
+      displayName: "\uC8FC\uBC29\uCE7C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i035c559a2e
+      displayName: "\uC758\uD559\uC11C\uC801"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i86ab8f2eaa
+      displayName: "\uD504\uB77C\uC774\uD32C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia6285090a6
+      displayName: "\uB0C4\uBE44"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia2d4a7c5b1
+      displayName: "\uB4A4\uC9D1\uAC1C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie72a755f50
+      displayName: "\uD154\uB808\uBE44\uC804"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0e33f41bf5
+      displayName: "TV\uC7A5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1fbec848c7
+      displayName: "\uD0C1\uC790"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i3c5307b87f
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1e8d2ddfc9
+      displayName: "\uCEF5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9b2782290f
+      displayName: "\uD3EC\uD06C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i035ca8b444
+      displayName: "\uC720\uB9AC\uC794"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i314e1b48cd
+      displayName: "\uC720\uB9AC\uC794"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i6c5a722540
+      displayName: "\uC720\uB9AC\uC794"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i5b2e64b2f3
+      displayName: "\uC811\uC2DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i7b6c771b37
+      displayName: "\uC57C\uAD6C\uBC29\uB9DD\uC774"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i5a12341dd6
+      displayName: "\uD558\uD0A4\uC2A4\uD2F1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie5988bb567
+      displayName: "\uC811\uC2DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i847b89a7cc
+      displayName: "\uADF8\uB987"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i539c2c6c84
+      displayName: "\uC720\uB9AC\uC794"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if9208d672e
+      displayName: "\uC811\uC2DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i252e6d182f
+      displayName: "\uB9E5\uC8FC\uC794"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i2606b83e30
+      displayName: "\uCC45"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ib34f2a2b5b
+      displayName: "\uCC45"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ic4a181cbc8
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ibe32f645eb
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i45dd3bd548
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i7f490e369f
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if5e9090a0a
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ife6d568dd4
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: icf674f8842
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if1211d50bc
+      displayName: "\uADF8\uB987"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i26a96fe595
+      displayName: "\uADF8\uB987"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ic71d594e3f
+      displayName: "\uC11C\uB958\uAC00\uBC29"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0d1b7b35f8
+      displayName: "\uCE74\uBA54\uB77C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i29af15583c
+      displayName: "\uCEF5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i8e1e3fa9b5
+      displayName: "\uCC45\uC0C1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i09696c9725
+      displayName: "\uD3EC\uD06C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ib215617163
+      displayName: "\uACE0\uBE14\uB9BF"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i402cb094cf
+      displayName: "\uAD6C\uAE09\uC6A9\uD488"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i27305de039
+      displayName: "\uC8FC\uBC29\uCE7C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i118f89cbc4
+      displayName: "\uAD6C\uAE09\uC0C1\uC790"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i8d30412026
+      displayName: "\uBA38\uADF8\uCEF5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i18dc6bca14
+      displayName: "\uBA38\uADF8\uCEF5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: idaf8ccdf6b
+      displayName: "\uD504\uB77C\uC774\uD32C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i74fa3af0cf
+      displayName: "\uC57D\uD1B5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i599b417157
+      displayName: "\uC811\uC2DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i35328a221f
+      displayName: "\uC811\uC2DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i4dbfced7de
+      displayName: "\uC21F\uAC00\uB77D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ib1b98c6d29
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+  - id: bathroom
+    label: "\uC695\uC2E4\uC6A9\uD488"
+    enabled: 1
+    items:
+    - id: if598eb7607
+      displayName: "\uBC29\uD5A5\uC81C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ica9d889ba9
+      displayName: "\uBD95\uB300"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i204de6857f
+      displayName: "\uBC14\uAD6C\uB2C8"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9881c5c43b
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i89f3c6d3c9
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if89d1ee5b9
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: id417da86ab
+      displayName: "\uD5E4\uC5B4\uB864"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if05c88d061
+      displayName: "\uB4DC\uB77C\uC774\uC5B4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i34ac53ea84
+      displayName: "\uD5E4\uC5B4\uC81C\uD488"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: icdce725984
+      displayName: "\uC190\uAC70\uC6B8"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i156fe0ba0b
+      displayName: "\uACE0\uBB34\uC7A5\uAC11"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i7ad4eafba8
+      displayName: "\uC758\uB8CC\uC6A9\uAC00\uC704"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i066e38a6ff
+      displayName: "\uC190\uD1B1\uAE4E\uC774"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i072b375834
+      displayName: "\uBA74\uB3C4\uAE30"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i957b15eb7c
+      displayName: "\uACE0\uBB34\uC624\uB9AC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iccdc8322c2
+      displayName: "\uBE44\uB204"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i4a8e69ba9e
+      displayName: "\uBD84\uBB34\uAE30"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i16137d462d
+      displayName: "\uD2F0\uC288"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i992a868dab
+      displayName: "\uBCD1"
+      enabled: 1
+      prefab: {fileID: 0}
+  - id: plants
+    label: "\uD654\uBD84\xB7\uC2DD\uBB3C"
+    enabled: 1
+    items:
+    - id: i99f9e167ce
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i470b7c5d52
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i2d18c6fa17
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia748381168
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie8f6140412
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i2d23115cd4
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i036176ef14
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1b99880120
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0e10b11f29
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0b766f425d
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iaa0e710e7e
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9e3de3ca83
+      displayName: "\uC120\uC778\uC7A5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i18405a29e2
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1f65f42023
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i72e8a78f9c
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia795ce75f0
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i69b0ae4309
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: id421a867f5
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: idf3c17485c
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ibf1a214143
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: id62fdc4ab4
+      displayName: "\uD654\uBD84"
+      enabled: 1
+      prefab: {fileID: 0}
+  - id: tools
+    label: "\uACF5\uAD6C\xB7\uC791\uC5C5\uC6A9\uD488"
+    enabled: 1
+    items:
+    - id: i2ec1e195ff
+      displayName: "\uB9DD\uCE58"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i8e5535135f
+      displayName: "\uD1B1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0ca8883125
+      displayName: "\uB80C\uCE58"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i7dcd378b87
+      displayName: "\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i5d179b2acd
+      displayName: "\uAC00\uC2A4\uD1B5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ieecfe50494
+      displayName: "\uC0AC\uB2E4\uB9AC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i8de0a3247c
+      displayName: "\uC791\uC5C5\uC6A9\uCF58"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i131b4ebce3
+      displayName: "\uC804\uB3D9\uB4DC\uB9B4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i188ff786c3
+      displayName: "\uC190\uC804\uB4F1"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i844d145285
+      displayName: "\uB9DD\uCE58"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i399eb85820
+      displayName: "\uC904\uC790"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie85e1d16cc
+      displayName: "\uC2ED\uC790\uB80C\uCE58"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i5a3d27dd28
+      displayName: "\uB80C\uCE58"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i45efaa7726
+      displayName: "\uB80C\uCE58"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i58256b3aaf
+      displayName: "\uC1E0\uC9C0\uB81B\uB300"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie4ff06e4d3
+      displayName: "\uC5F0\uB8CC\uD1B5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ib2e0f6c6e2
+      displayName: "\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i2a6dab02c5
+      displayName: "\uB4DC\uB77C\uC774\uBC84"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i3695a1c260
+      displayName: "\uC0BD"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i5564f300dd
+      displayName: "\uBC14\uC774\uC2A4"
+      enabled: 1
+      prefab: {fileID: 0}
+  - id: modern
+    label: "\uCD1D\uAE30\xB7\uD3ED\uBC1C\uBB3C"
+    enabled: 1
+    items:
+    - id: i969620d623
+      displayName: "AK74\uC18C\uCD1D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i4bb57ddef1
+      displayName: "\uBCA0\uB12C\uB9AC\uC0B0\uD0C4\uCD1D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iad842eeddd
+      displayName: "\uC12C\uAD11\uD0C4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i4eea518a96
+      displayName: "M107\uC800\uACA9\uC18C\uCD1D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia76908d6f9
+      displayName: "M1911\uAD8C\uCD1D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i672ff7d186
+      displayName: "M249\uAE30\uAD00\uCD1D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i16835a8a57
+      displayName: "M2\uC911\uAE30\uAD00\uCD1D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9a0ba0157e
+      displayName: "M4\uC18C\uCD1D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if773aba979
+      displayName: "\uC218\uB958\uD0C4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0c83c31a83
+      displayName: "RPG7\uBC1C\uC0AC\uAE30"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i5acb2a9c18
+      displayName: "\uC5F0\uB9C9\uD0C4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i96e377ec33
+      displayName: "\uC6B0\uC9C0"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: idc7338cb5d
+      displayName: "\uAD8C\uCD1D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i74572948e5
+      displayName: "\uC18C\uCD1D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: id344dc8e33
+      displayName: "\uC0B0\uD0C4\uCD1D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ifbeb02ff88
+      displayName: "\uC800\uACA9\uC18C\uCD1D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if1c3736732
+      displayName: "\uB808\uC774\uC800\uD45C\uC801\uC9C0\uC2DC\uAE30"
+      enabled: 1
+      prefab: {fileID: 0}
+  - id: fantasy
+    label: "\uD310\uD0C0\uC9C0 \uC18C\uD488"
+    enabled: 1
+    items:
+    - id: ic36f9f66f8
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i500e50e599
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9a26be1fb6
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i16a85a9c30
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1bbb34092f
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: icaf80a4812
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i4c3fe83aff
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i60fa2ab371
+      displayName: "\uD55C\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i56cceccaf0
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1a92d6be85
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i492b55642f
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1f25b7b7ff
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ibc56f156e4
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1ef9ea1178
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ic1c4723045
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0e0ace58ea
+      displayName: "\uC591\uC190\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i89cc8b93b8
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie182a557d1
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i27d3fe5e2f
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i7b9d9177ed
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i18485369b0
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie0aaa860b7
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9c39ebe8e3
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i106f295e7d
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ifc984bb738
+      displayName: "\uD55C\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: id36fc3d4c0
+      displayName: "\uC591\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie43c0c49b1
+      displayName: "\uC591\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i22c0772553
+      displayName: "\uC591\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: id70f3bafb0
+      displayName: "\uC591\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i609698d78a
+      displayName: "\uC591\uC190\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ib3de1a813d
+      displayName: "\uD654\uC0B4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: idbef16a451
+      displayName: "\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie5aecbc0f1
+      displayName: "\uD654\uC0B4\uD1B5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i715cd84aaa
+      displayName: "\uBC29\uD328"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie48cecf0e1
+      displayName: "\uD65C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: icad452f78d
+      displayName: "\uC8FC\uBA39\uBB34\uAE30"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if27c604345
+      displayName: "\uD3ED\uD0C4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1efa61df2b
+      displayName: "\uB9DD\uCE58"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i881a756d19
+      displayName: "\uB0AB"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie4bc3f1238
+      displayName: "\uB9C8\uBC95\uCC45"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie1d61e71a8
+      displayName: "\uCC28\uD06C\uB78C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iaa44de01b3
+      displayName: "\uB2E4\uC774\uB108\uB9C8\uC774\uD2B8"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iec3f472d7d
+      displayName: "\uBB3C\uC57D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i116f27522b
+      displayName: "\uBC29\uD328"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i53dd7c9233
+      displayName: "\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ide5cb40aed
+      displayName: "\uD640"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i974c86146b
+      displayName: "\uCC3D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i034d973480
+      displayName: "\uB9C8\uBC95\uBD09"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i2ae00896e0
+      displayName: "\uBFD4\uD53C\uB9AC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: icd33b0bc36
+      displayName: "\uC5F4\uC1E0"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i3275e41797
+      displayName: "\uCC3D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i4345b04326
+      displayName: "\uD22C\uCC99\uCE7C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i37d6861cd7
+      displayName: "\uB2E8\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ife920f3a01
+      displayName: "\uD683\uBD88"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ic590d4692e
+      displayName: "\uB3C4\uB07C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i40d988c484
+      displayName: "\uAC80"
+      enabled: 1
+      prefab: {fileID: 0}
+  - id: beach
+    label: "\uC5EC\uB984\xB7\uD574\uBCC0"
+    enabled: 1
+    items:
+    - id: i4238f79426
+      displayName: "\uBE44\uCE58\uBCFC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if276cea106
+      displayName: "\uBE44\uCE58\uBCFC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ib52cb01a39
+      displayName: "\uBE44\uCE58\uBCFC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i4a9dc7ea79
+      displayName: "\uC591\uB3D9\uC774"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9aea17c19b
+      displayName: "\uC591\uB3D9\uC774"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i28bf8ca0f1
+      displayName: "\uBAA8\uB798\uC131 \uD2C0"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i73f355d6b1
+      displayName: "\uBAA8\uB798\uC131 \uD2C0"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i952f31bd70
+      displayName: "\uCE75\uD14C\uC77C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i570be316b1
+      displayName: "\uCE75\uD14C\uC77C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ief2f58740f
+      displayName: "\uCE75\uD14C\uC77C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i540e009b42
+      displayName: "\uCF54\uCF54\uB11B"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia1c8e754d8
+      displayName: "\uCF54\uCF54\uB11B \uCE75\uD14C\uC77C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i6915ffd802
+      displayName: "\uC2AC\uB9AC\uD37C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iacb5146cbd
+      displayName: "\uC2AC\uB9AC\uD37C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i70c4c222dd
+      displayName: "\uC2AC\uB9AC\uD37C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie1229803e3
+      displayName: "\uC2AC\uB9AC\uD37C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i22898ff12f
+      displayName: "\uD29C\uBE0C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iba641817ff
+      displayName: "\uC0BD"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i457ab0093c
+      displayName: "\uC0BD"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i4f5f17716d
+      displayName: "\uAC08\uD034"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i45b2aff069
+      displayName: "\uAC08\uD034"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0ff7a11a59
+      displayName: "\uC120\uAE00\uB77C\uC2A4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ibb6c7ad79f
+      displayName: "\uC120\uD06C\uB9BC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i7e10cb8149
+      displayName: "\uC11C\uD551\uBCF4\uB4DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1db40bf807
+      displayName: "\uC11C\uD551\uBCF4\uB4DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i09985914ee
+      displayName: "\uC11C\uD551\uBCF4\uB4DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ic58f8b3d3c
+      displayName: "\uC11C\uD551\uBCF4\uB4DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i07d01017e1
+      displayName: "\uD0C0\uC6D4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i3fd97a227e
+      displayName: "\uD0C0\uC6D4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia16960d099
+      displayName: "\uD0C0\uC6D4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1bc3c9e8a2
+      displayName: "\uD0C0\uC6D4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iac74d96ff1
+      displayName: "\uBC30\uAD6C\uACF5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9aa80c5747
+      displayName: "\uC218\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0e030dc27c
+      displayName: "\uC218\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0c00f50b2e
+      displayName: "\uD30C\uB77C\uC194"
+      enabled: 1
+      prefab: {fileID: 0}
+  - id: casino
+    label: "\uCE74\uC9C0\uB178"
+    enabled: 1
+    items:
+    - id: i139e62c73a
+      displayName: "\uCE74\uB4DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i8e0aea0741
+      displayName: "\uCE74\uB4DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i3e3d1601c4
+      displayName: "\uCE74\uB4DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ib3d60e48ce
+      displayName: "\uCE74\uB4DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iec88f3d510
+      displayName: "\uC9C0\uD3D0"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0e6240a50c
+      displayName: "\uC9C0\uD3D0"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i02ee667675
+      displayName: "\uC9C0\uD3D0 \uB2E4\uBC1C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if355262c84
+      displayName: "\uC9C0\uD3D0 \uC0C1\uC790"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i032deda87d
+      displayName: "\uB3D9\uC804"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie0a9991e8e
+      displayName: "\uD604\uAE08 \uACC4\uC218\uAE30"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie5b92f61a8
+      displayName: "\uACE8\uB4DC\uBC14"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if90aca0504
+      displayName: "\uACE8\uB4DC\uBC14"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i8f0acfc88b
+      displayName: "\uC7A5\uBD80"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ifcbc118a86
+      displayName: "\uB9C8\uC6B0\uC2A4"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: id90995329a
+      displayName: "\uD0A4\uBCF4\uB4DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9604a9b883
+      displayName: "\uACFC\uC77C \uC811\uC2DC"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ifca14675cc
+      displayName: "\uBAA8\uB2C8\uD130"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i24af637866
+      displayName: "\uAE08\uACE0 \uBB38"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i3a99d15f96
+      displayName: "\uC218\uC871\uAD00 \uBB3C\uACE0\uAE30"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i2c37d6097e
+      displayName: ATM
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i64083bedc4
+      displayName: ATM
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if18d39f295
+      displayName: "\uAE08\uACE0"
+      enabled: 1
+      prefab: {fileID: 0}
+  - id: halloween
+    label: "\uD560\uB85C\uC708"
+    enabled: 1
+    items:
+    - id: i70495b3d6c
+      displayName: "\uD48D\uC120"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie722ba2faf
+      displayName: "\uC0AC\uD0D5 \uADF8\uB987"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0209368ff7
+      displayName: "\uC0AC\uD0D5\uD1B5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iabec5f407a
+      displayName: "\uC0AC\uD0D5\uD1B5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i2e5f44eb2f
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i6ed9d913dc
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9ee4e4e378
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i47c04e24b7
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i035be36277
+      displayName: "\uBE57\uC790\uB8E8"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ica6cc0e88c
+      displayName: "\uC591\uCD08"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i7e1ea43f07
+      displayName: "\uCD1B\uB300"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie0388d90e0
+      displayName: "\uAD6D\uC790"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i53ecdeed12
+      displayName: "\uB9C8\uB140 \uBAA8\uC790"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i72e1e9fb80
+      displayName: "\uBF08"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iafea531abc
+      displayName: "\uC190"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if760667936
+      displayName: "\uB79C\uD134"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i55cc0e5e74
+      displayName: "\uD574\uACE8"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ibb18da7e98
+      displayName: "\uB0AB"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i645c9a9877
+      displayName: "\uC545\uB9C8\uC758 \uCC45"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i33a6b85598
+      displayName: "\uB9C8\uBC95 \uB208 \uCC45"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i70c079a8b7
+      displayName: "\uD574\uACE8 \uC591\uCD08"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i528e2247ae
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ibddd25527c
+      displayName: "\uAC00\uB9C8\uC1A5"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i5d4adcac08
+      displayName: "\uC798\uB9B0 \uC190"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i22d4cd0911
+      displayName: "\uB864\uB9AC\uD31D"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i4eb7fb992d
+      displayName: "\uB9C8\uBC95 \uBC84\uC12F"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i6c53b8b89a
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ib35a339297
+      displayName: "\uD638\uBC15"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i4f5f163547
+      displayName: "\uBB34\uB364\uC9C0\uAE30 \uC0BD"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1ecbcf42b7
+      displayName: "\uB9C8\uB140 \uBAA8\uC790"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i8c4c08611a
+      displayName: "\uAD00"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i3837935958
+      displayName: "\uC2ED\uC790\uAC00"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie973ef922c
+      displayName: "\uBB18\uBE44"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0015a1d3f7
+      displayName: "\uBB18\uBE44"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i8d1bdae20c
+      displayName: "\uBB18\uBE44"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i719faa80d7
+      displayName: "\uAD00"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i40e1dd394a
+      displayName: "\uAD00"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ifa5c433112
+      displayName: "\uBB18\uBE44"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i234987d1ac
+      displayName: "\uBB18\uBE44"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ic89b5f54d0
+      displayName: "\uBB18\uBE44"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0e5cfcc3b5
+      displayName: "\uD5C8\uC218\uC544\uBE44"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i451bfda1e7
+      displayName: "\uD5C8\uC218\uC544\uBE44"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9c037db2ec
+      displayName: "\uAC70\uBBF8\uC904"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i8a697d3798
+      displayName: "\uAC70\uBBF8\uC904"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1c3dd3c628
+      displayName: "\uAC70\uBBF8\uC904"
+      enabled: 1
+      prefab: {fileID: 0}
+  - id: toys
+    label: "\uC7A5\uB09C\uAC10"
+    enabled: 1
+    items:
+    - id: if42f2f353d
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia699224cda
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iabb86552e7
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i36347b87aa
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i5b181ed4c8
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ieabbe44148
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i6d770eb1aa
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: id6841c776b
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i6ffab57373
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i9f01c4b12c
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i0becd31cf4
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i96845ddf9c
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i006d56ba45
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i2dba99f914
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i39f3fd3b04
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ibf6d444b58
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i79df60c3ef
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i7a79ed700f
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iaa9876561f
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i21b214a439
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1451540bdb
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1c9e792751
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1dd1cd35f9
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i5bdd7aa503
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i27767ca760
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i499b7d5173
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i86eb5c05fd
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i27d5615c05
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if680df5362
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i12c3d7937e
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iafbbeb8ae0
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i39d1561e4a
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: idf0e41d48c
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ibf45f6d3fc
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i3327805d94
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i300080c8a6
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i824af7fd63
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: if36dc64125
+      displayName: "\uC7A5\uB09C\uAC10"
+      enabled: 1
+      prefab: {fileID: 0}
+  - id: reserve
+    label: "\uBCF4\uB958\xB7\uBD80\uD488\xB7\uBAA8\uD615"
+    enabled: 0
+    items:
+    - id: i274c3559a8
+      displayName: mesh_Ambulance_01
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: iced4e06e6c
+      displayName: mesh_Bus_01
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i713e2cd7e4
+      displayName: mesh_Bus_02
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i126f812ffa
+      displayName: mesh_Pickup_01
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i84b1c486c9
+      displayName: mesh_Sedan_01
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie0a9d8a2be
+      displayName: mesh_SportCar_01
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i219e3eafff
+      displayName: mesh_TruckContainer_01
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i4ba9daec07
+      displayName: mesh_Van_01
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i6615101f8f
+      displayName: "\uCE7C"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i1a47a3298b
+      displayName: "\uC870\uC900\uACBD"
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ia8541acb3f
+      displayName: TraderTable
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: id569f3607a
+      displayName: TraderTent
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i15b09faa79
+      displayName: WoodenBox1 Apple
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i34e6cefb14
+      displayName: WoodenBox1 Bottle1
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: icffe90111b
+      displayName: WoodenBox1 Bottle2
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ida466bb88e
+      displayName: WoodenBox1 Cheese
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ica0798d214
+      displayName: WoodenBox1
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ibfe5f0b58d
+      displayName: WoodenBox1 Tomato
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ibd236129af
+      displayName: WoodenBox1
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: ie87733c56c
+      displayName: WoodenBox2 Pumpkin
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: icf29175da1
+      displayName: WoodenBox2 Watermelon
+      enabled: 1
+      prefab: {fileID: 0}
+    - id: i42ef832a53
+      displayName: WoodenBox2
+      enabled: 1
+      prefab: {fileID: 0}

@@ -36,11 +36,37 @@ namespace Game.SOAP.Config
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void Initialize() => Load();
+        private static void Initialize()
+        {
+            var catalog = LoadMetadata();
+#if UNITY_EDITOR
+            catalog.Validate();
+#else
+            catalog.Validate(false);
+#endif
+            catalog.ConfigureDefinitions();
+        }
+
+        public static ItemCatalogSO LoadMetadata()
+        {
+#if UNITY_EDITOR
+            // The authoring catalog remains the source of truth in Play Mode.
+            return Load(false);
+#else
+            var metadata = Resources.Load<ItemCatalogSO>("Items/ItemCatalogMetadata");
+            if (metadata == null) throw new InvalidOperationException("Missing generated item metadata; rebuild the player.");
+            return metadata;
+#endif
+        }
 
         public void Apply()
         {
             Validate();
+            ConfigureDefinitions();
+        }
+
+        private void ConfigureDefinitions()
+        {
             ItemCatalog.Configure(categories.Where(c => c.enabled)
                 .SelectMany(c => c.items.Where(i => i.enabled)
                     .Select(i => new ItemDefinition(i.id, c.id, i.displayName))));
@@ -75,7 +101,9 @@ namespace Game.SOAP.Config
             return null;
         }
 
-        public void Validate()
+        public void Validate() => Validate(true);
+
+        private void Validate(bool requirePrefabs)
         {
             var categoryIds = new HashSet<string>(StringComparer.Ordinal);
             var itemIds = new HashSet<string>(StringComparer.Ordinal);
@@ -87,7 +115,7 @@ namespace Game.SOAP.Config
                 foreach (var item in category.items)
                     if (item == null || string.IsNullOrWhiteSpace(item.id) || item.id.Length > 16 ||
                         item.id.Any(c => !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_')) ||
-                        !itemIds.Add(item.id) || string.IsNullOrWhiteSpace(item.displayName) || item.prefab == null)
+                        !itemIds.Add(item.id) || string.IsNullOrWhiteSpace(item.displayName) || (requirePrefabs && item.prefab == null))
                         throw new InvalidOperationException($"Invalid item in {category.label}: unique ASCII ID (1–16), name and prefab required.");
                 if (category.enabled && category.items.Count(i => i.enabled) < MatchRulesSO.MaxPlayerCount)
                     throw new InvalidOperationException($"{category.label} needs {MatchRulesSO.MaxPlayerCount} enabled items before enabling play.");
