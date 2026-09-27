@@ -782,12 +782,12 @@ namespace Game.Network.Match
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
         public void RPC_RequestLobbySettings(int maxPlayers, int destructionLimit, string mapId,
-            int hidingSeconds, int searchingMinutes, float sprintMultiplier, int stunHits,
+            int hidingSeconds, int searchingSeconds, float sprintMultiplier, int stunHits,
             string categoryId, string title, RpcInfo info = default)
         {
             if (mapId == null || mapId.Length > 64 || categoryId == null || categoryId.Length > 64 ||
                 (title != null && !RoomSettings.IsValidTitle(title)) ||
-                !MatchRuleSettings.TryCreate(hidingSeconds, searchingMinutes, sprintMultiplier, stunHits,
+                !MatchRuleSettings.TryCreateSeconds(hidingSeconds, searchingSeconds, sprintMultiplier, stunHits,
                     categoryId, out var rules, out _)) return;
             StarterOf(Runner)?.ReceiveLobbySettings(info.Source,
                 new PlaySettingsDraft(title, string.Empty, false, string.Empty, maxPlayers, destructionLimit, mapId, rules));

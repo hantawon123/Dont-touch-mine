@@ -50,6 +50,7 @@ namespace Game.Network.Voice
         private FusionVoiceClient client;
         private PlayerRoster roster;
         private readonly List<Speaker> speakerBuffer = new();
+        private readonly List<Speaker> linkedSpeakers = new();
 
         /// <summary>
         /// The local avatar's microphone, which is replaced every time Fusion
@@ -158,6 +159,7 @@ namespace Game.Network.Voice
 
             var rig = runnerObject.AddComponent<VoiceRig>();
             rig.client = client;
+            client.SpeakerLinked += rig.OnSpeakerLinked;
             return rig;
         }
 
@@ -482,10 +484,28 @@ namespace Game.Network.Voice
         /// The voice room stays joined. This only mutes playback on this
         /// machine, so leaving the speaker off does not drop the session.
         /// </summary>
+        private void OnSpeakerLinked(Speaker speaker)
+        {
+            if (speaker == null) return;
+            if (!linkedSpeakers.Contains(speaker)) linkedSpeakers.Add(speaker);
+            if (speaker.gameObject.activeInHierarchy) ApplySpeakerState(speaker, listening.Value);
+        }
+
         private void ApplyListenState()
         {
             using var profile = ListenStateMarker.Auto();
             var hear = listening.Value;
+            if (client != null)
+            {
+                // Photon reports every successful link, including reconnects and late speakers.
+                for (var index = linkedSpeakers.Count - 1; index >= 0; index--)
+                {
+                    var speaker = linkedSpeakers[index];
+                    if (speaker == null) { linkedSpeakers.RemoveAt(index); continue; }
+                    if (speaker.gameObject.activeInHierarchy) ApplySpeakerState(speaker, hear);
+                }
+                return;
+            }
             if (roster == null) roster = GetComponent<PlayerRoster>();
             if (roster != null && roster.Avatars.Count > 0)
             {
@@ -515,12 +535,15 @@ namespace Game.Network.Voice
             using (SourceLookupMarker.Auto()) source = speaker.GetComponent<AudioSource>();
             if (source != null)
             {
-                using (MuteWriteMarker.Auto()) source.mute = !hear;
+                if (source.mute != !hear)
+                    using (MuteWriteMarker.Auto()) source.mute = !hear;
             }
         }
 
         private void OnDestroy()
         {
+            if (client != null) client.SpeakerLinked -= OnSpeakerLinked;
+            linkedSpeakers.Clear();
             available.Dispose();
             muted.Dispose();
             transmitting.Dispose();

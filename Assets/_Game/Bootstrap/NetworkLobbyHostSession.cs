@@ -31,6 +31,8 @@ namespace Game.Bootstrap
         private readonly ReactiveProperty<PlaySettingsDraft> settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private float nextSettingsRefresh;
+        private PlaySettingsDraft? pendingSettings;
+        private float pendingSettingsUntil;
 
         public NetworkLobbyHostSession(
             RoomBrowserSystem room,
@@ -170,7 +172,14 @@ namespace Game.Bootstrap
             // room's previous properties: the change reaches the Cloud, and this peer
             // again, only after a round trip, and every screen would show the old
             // settings until the next refresh.
-            Publish(MergeAccepted(settings.CurrentValue, applied));
+            var expected = MergeAccepted(settings.CurrentValue, applied);
+            if (!network.IsServer)
+            {
+                // ponytail: a local timeout stands in for an RPC acknowledgement; add an explicit response if delayed rooms need stronger guarantees.
+                pendingSettings = expected;
+                pendingSettingsUntil = Time.unscaledTime + 5f;
+            }
+            Publish(expected);
         }
 
         /// <summary>
@@ -241,8 +250,25 @@ namespace Game.Bootstrap
         private void RepublishSettings()
         {
             if (!network.TryReadLobbySettings(out var latest)) return;
+            if (pendingSettings.HasValue)
+            {
+                if (SameEditableSettings(latest, pendingSettings.Value))
+                    pendingSettings = null;
+                else if (Time.unscaledTime < pendingSettingsUntil)
+                    return;
+                else
+                {
+                    pendingSettings = null;
+                    Debug.LogWarning("[Lobby] 방 설정 적용을 확인하지 못해 서버 값을 다시 표시합니다.");
+                }
+            }
             Publish(latest);
         }
+
+        private static bool SameEditableSettings(PlaySettingsDraft left, PlaySettingsDraft right) =>
+            left.Title == right.Title && left.MaxPlayers == right.MaxPlayers &&
+            left.DestructionLimit == right.DestructionLimit && left.MapId == right.MapId &&
+            left.MatchRules.Equals(right.MatchRules);
 
         private void Publish(PlaySettingsDraft next)
         {

@@ -8,6 +8,43 @@ namespace Game.Tests.EditMode
 {
     public sealed class PlayerNameplateViewTests
     {
+        [TestCase("민수")]
+        [TestCase("A very long nickname 가나다")]
+        [TestCase("<b>민수</b>\n둘째 줄")]
+        public void VoiceLayout_MatchesUncachedMeasurementsAfterTextAndStyleChanges(string nickname)
+        {
+            var player = new GameObject("Player");
+            try
+            {
+                var view = PlayerNameplateView.Attach(player.transform);
+                view.SetNickname(nickname);
+                var label = view.GetComponent<TextMeshPro>();
+                var icon = view.transform.Find(PlayerNameplateView.VoiceIconName).GetComponent<SpriteRenderer>();
+                foreach (var size in new[] { 3f, 5f, 2f })
+                {
+                    label.fontSize = size;
+                    label.characterSpacing = size;
+                    foreach (var state in new[] { 0, 1, 2 })
+                    {
+                        view.SetVoice(state == 2, state == 1);
+                        var position = icon.transform.localPosition;
+                        var scale = icon.transform.localScale;
+                        label.ForceMeshUpdate();
+                        var expected = label.GetPreferredValues(nickname);
+                        Assert.That(position.x, Is.EqualTo(expected.x * 0.5f + PlayerNameplateView.VoiceIconGap + expected.y * 0.5f).Within(0.0001f));
+                        Assert.That(scale.y * icon.sprite.rect.height / icon.sprite.pixelsPerUnit, Is.EqualTo(expected.y).Within(0.0001f));
+                    }
+                }
+                view.SetNickname("");
+                view.SetVoice(false, false);
+                Assert.That(icon.enabled, Is.False);
+                view.SetNickname(nickname);
+                view.SetVoice(false, true);
+                Assert.That(icon.enabled, Is.True);
+            }
+            finally { Object.DestroyImmediate(player); }
+        }
+
         [Test]
         public void RefreshPlacement_SitsJustAboveMeshTop()
         {

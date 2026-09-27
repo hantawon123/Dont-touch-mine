@@ -1340,9 +1340,9 @@ namespace Game.Network.Session
             MatchRuleSettings matchRules,
             out MatchRuleSettings normalizedMatchRules)
         {
-            var validMatchRules = MatchRuleSettings.TryCreate(
+            var validMatchRules = MatchRuleSettings.TryCreateSeconds(
                 matchRules.HidingDurationSeconds,
-                matchRules.SearchingDurationMinutes,
+                matchRules.SearchingDurationSeconds,
                 matchRules.SprintMultiplier,
                 matchRules.StunHitCount,
                 matchRules.CategoryId,

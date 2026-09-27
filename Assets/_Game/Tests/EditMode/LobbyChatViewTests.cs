@@ -11,6 +11,36 @@ namespace Game.Architecture.Tests
     public sealed class LobbyChatViewTests
     {
         [Test]
+        public void HiddenBubble_ResumesFollowingBeforeItIsRenderedAgain()
+        {
+            var parent = new GameObject("ChatRoot");
+            var player = new GameObject("Player");
+            try
+            {
+                var bubbles = MatchChatBubbleView.Create(parent.transform);
+                bubbles.BindPlayer("P1", player.transform);
+                var bubble = player.transform.Find("Match Chat Bubble");
+                player.transform.position = new Vector3(10f, 2f, 5f);
+                var inheritedPosition = bubble.position;
+                bubbles.RefreshPlacement();
+                Assert.That(bubble.position, Is.EqualTo(inheritedPosition));
+                bubbles.Show(new LobbyChatMessage("P1", "플레이어", "다시 표시"));
+                bubbles.RefreshPlacement();
+                Assert.That(bubble.gameObject.activeSelf, Is.True);
+                Assert.That(bubble.position.x, Is.EqualTo(player.transform.position.x));
+                Assert.That(bubble.position.z, Is.EqualTo(player.transform.position.z));
+                Assert.That(bubble.position.y, Is.GreaterThan(player.transform.position.y));
+                bubbles.Clear();
+                Assert.That(bubble.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent);
+                Object.DestroyImmediate(player);
+            }
+        }
+
+        [Test]
         public void Awake_BuildsPlaygroundHud_AndKeepsChromeVisible()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));

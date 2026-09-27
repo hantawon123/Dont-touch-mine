@@ -104,6 +104,33 @@ namespace Game.Tests.EditMode
             Assert.That(source.mute, Is.True);
         }
 
+        [Test]
+        public void LinkedSpeaker_ReconnectionReactivationAndExternalMuteRemainCorrect()
+        {
+            var roster = rigRoot.AddComponent<PlayerRoster>();
+            roster.Add(speakerRoot.AddComponent<PlayerAvatar>());
+            var client = rigRoot.AddComponent<Photon.Voice.Fusion.FusionVoiceClient>();
+            client.enabled = false; client.AutoConnectAndJoin = false;
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            typeof(VoiceRig).GetField("client", flags).SetValue(rig, client);
+            var linked = typeof(VoiceRig).GetMethod("OnSpeakerLinked", flags);
+            void Link() { linked?.Invoke(rig, new object[] { speakerRoot.GetComponent<Speaker>() }); Refresh(); }
+            rig.SetListening(false); Link(); Assert.That(source.mute, Is.True);
+            source.mute=false; Refresh(); Assert.That(source.mute,Is.True);
+            speakerRoot.SetActive(false);rig.SetListening(true);Assert.That(source.mute,Is.True);
+            speakerRoot.SetActive(true);Refresh();Assert.That(source.mute,Is.False);
+            rig.SetListening(false);Link();Link();Assert.That(source.mute,Is.True);
+            var refresh=(System.Action)typeof(VoiceRig).GetMethod("ApplyListenState",flags).CreateDelegate(typeof(System.Action),rig);
+            for(var i=0;i<20;i++) refresh();
+            var watch=System.Diagnostics.Stopwatch.StartNew(); var bytes=System.GC.GetAllocatedBytesForCurrentThread();
+            for(var i=0;i<2000;i++) refresh();
+            var allocated=System.GC.GetAllocatedBytesForCurrentThread()-bytes;watch.Stop();
+            TestContext.WriteLine($"VOICE_LISTEN calls=2000 ms={watch.Elapsed.TotalMilliseconds} bytes={allocated}");
+            roster.Remove(speakerRoot.GetComponent<PlayerAvatar>(),null); Object.DestroyImmediate(speakerRoot);
+            AddSpeaker();roster.Add(speakerRoot.AddComponent<PlayerAvatar>());Link();Assert.That(source.mute,Is.True);
+            rig.SetListening(true);Assert.That(source.mute,Is.False);
+        }
+
         [TearDown]
         public void TearDown()
         {

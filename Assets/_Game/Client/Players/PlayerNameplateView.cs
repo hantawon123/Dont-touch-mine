@@ -295,9 +295,10 @@ namespace Game.Client.Players
                 return;
             }
 
-            label.ForceMeshUpdate();
-            var textSize = label.GetPreferredValues(
-                displayedName.Length == 0 ? "가" : displayedName);
+            // TMP invalidates these cached measurements when text or styling changes.
+            var textSize = displayedName.Length == 0
+                ? label.GetPreferredValues("가")
+                : new Vector2(label.preferredWidth, label.preferredHeight);
             var iconSize = textSize.y > 0f ? textSize.y : NicknameFontSize;
 
             var sprite = voiceIcon.sprite;
