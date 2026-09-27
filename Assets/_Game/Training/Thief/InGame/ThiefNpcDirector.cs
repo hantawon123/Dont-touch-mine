@@ -357,9 +357,20 @@ namespace Game.Training.Thief
 
         // ------------------------------------------------------------------ per frame
 
+        private float nextStatus;
+
         private void Tick(float dt)
         {
             var feet = npc.transform.position;
+            if (NavMesh.SamplePosition(feet, out var onMesh, 1f, NavMesh.AllAreas)) feet = onMesh.position;
+            if (Time.time >= nextStatus)
+            {
+                nextStatus = Time.time + 5f;
+                var known = 0;
+                for (var k = 0; k < ThiefMatch.Players; k++) if (match.KnownPropSlots[k] >= 0) known++;
+                Debug.Log($"[Thief NPC] status t={match.Time:F0}s macro {match.Thief.Macro} carrying {match.ThiefCarrying} candidates {match.SeekCandidates.Count} known props {known} " +
+                          $"reflex {match.Reflexes} gave up {match.ReflexGiveUps} hides {match.ThiefHides} decisions {match.ThiefDecisions} legs {(forwarding ? "walking" : "idle")} {(Time.time < npcStunnedUntil ? "STUNNED" : "")} posture {legs.PostureButtons}");
+            }
             MirrorWorld();
             ResolvePlayerPunches(feet);
             var stunned = Time.time < npcStunnedUntil;

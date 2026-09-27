@@ -213,6 +213,9 @@ namespace Game.Training.Thief
             PropChoiceOffered = PropChoiceTaken = PropsSpotted = 0;
             Reflexes = 0;
             SearchStartedAt = 0f;
+            ReflexGiveUps = 0;
+            System.Array.Clear(ReflexBlockedUntil, 0, Players);
+            System.Array.Clear(reflexMisses, 0, Players);
             ToPropPlanFailed = ToPropArrived = ToPropEndedWithoutPickup = 0;
             MissHeld = MissMoved = MissReach = MissSight = MissOther = 0;
             System.Array.Clear(PropSlotChosen, 0, Players);
@@ -391,12 +394,27 @@ namespace Game.Training.Thief
         /// <summary>Start of the current search (round start, or the last time the thief let go of a prop).</summary>
         public float SearchStartedAt;
 
+        /// <summary>Props the reflex gave up on for a while (no way to grab them, or twice there without a pickup).</summary>
+        public readonly float[] ReflexBlockedUntil = new float[Players];
+        private readonly int[] reflexMisses = new int[Players];
+        public int ReflexGiveUps;
+
         public bool TryReflexGoForProp()
         {
             if (!GoForSeenPropReflex || ThiefCarrying || !SeekAllowed(SeekActionPropFirst)) return false;
+            var p = KnownPropSlots[0];
+            if (p < 0 || Time < ReflexBlockedUntil[p]) return false;
             Reflexes++;
             ApplyThiefAction(SeekActionPropFirst);
+            if (Thief.Macro != Macro.ToProp) GiveUpReflex(p); // no reach plan: it fell back to looking around
             return true;
+        }
+
+        private void GiveUpReflex(int p)
+        {
+            ReflexBlockedUntil[p] = Time + 30f;
+            reflexMisses[p] = 0;
+            ReflexGiveUps++;
         }
 
         public bool SeekAllowed(int action)
@@ -664,6 +682,7 @@ namespace Game.Training.Thief
                         // see the prop: it is gone (someone took it). Without this the thief kept walking back to an empty
                         // spot under furniture, because the old "gone" check only looked from standing eye height.
                         if (t.Target >= 0 && !CanSeeProp(t, t.Target)) Mind.PropKnown[t.Target] = false;
+                        if (t.Target >= 0 && ++reflexMisses[t.Target] >= 2) GiveUpReflex(t.Target);
                         if (t.Target >= 0)
                         {
                             var miss = Props[t.Target];
@@ -1226,6 +1245,10 @@ namespace Game.Training.Thief
         public void BeginMirror(int seed, Vector3 thiefFeet, float thiefYaw)
         {
             Mirrored = true;
+            SearchStartedAt = 0f;
+            ReflexGiveUps = 0;
+            System.Array.Clear(ReflexBlockedUntil, 0, Players);
+            System.Array.Clear(reflexMisses, 0, Players);
             EpisodeSeed = seed;
             rng = new System.Random(seed);
             Time = 0f;
