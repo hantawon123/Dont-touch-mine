@@ -403,10 +403,13 @@ namespace Game.Tests.EditMode
                     driver.SendMessage("Update");
                     animator.Update(0.3f);
                     Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Stun_End"), Is.True);
-                    yield return new WaitForSeconds(PlayerAnimationDriver.StunEndSeconds);
+                    // EnterPlayMode keeps the EditMode runner, which does not wait on WaitForSeconds.
+                    var recoverAt = Time.time + PlayerAnimationDriver.StunEndSeconds;
+                    while (Time.time < recoverAt) yield return null;
                     driver.SendMessage("Update");
                     animator.Update(0.2f);
-                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Idle"), Is.True);
+                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Idle"), Is.True,
+                        $"Stun recovery missing; local input={acceptsLocalInput}, desired={driver.CurrentState}");
                 }
                 finally { Object.DestroyImmediate(player); }
             }
