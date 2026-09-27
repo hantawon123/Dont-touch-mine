@@ -60,6 +60,46 @@ namespace Game.Tests.EditMode
             }
         }
 
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        [TestCase(true, true)]
+        public void Replay_HidesLiveOutlineEvenWhenBuiltAfterCapture_AndRestoresIt(
+            bool buildAfterCapture, bool initiallyHidden)
+        {
+            var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var outline = source.AddComponent<Game.Client.Interactions.AssignedItemOutline>();
+            if (!buildAfterCapture) outline.SetVisible(true);
+            var visual = new ReplayVisual(source.transform, null);
+            try
+            {
+                if (buildAfterCapture) outline.SetVisible(true);
+                var shell = source.transform.Find("[Assigned Item Outline]").GetComponent<Renderer>();
+                shell.forceRenderingOff = initiallyHidden;
+                visual.SetPlaying(true);
+                visual.Target.position = new Vector3(10f, 0f, 0f);
+                Assert.That(source.GetComponent<Renderer>().forceRenderingOff, Is.True);
+                Assert.That(shell.forceRenderingOff, Is.True,
+                    "The live outline must not remain at the final match position while its replay moves.");
+                Assert.That(visual.Target.Find("[Assigned Item Outline]"), Is.Null);
+                // Gameplay toggles must not reveal the live shell during replay.
+                outline.SetVisible(false);
+                outline.SetVisible(true);
+                visual.SetPlaying(true);
+                Assert.That(shell.forceRenderingOff, Is.True);
+                visual.SetPlaying(false);
+                Assert.That(shell.forceRenderingOff, Is.EqualTo(initiallyHidden));
+                visual.SetPlaying(true);
+                visual.Dispose();
+                Assert.That(shell.forceRenderingOff, Is.EqualTo(initiallyHidden));
+            }
+            finally
+            {
+                visual.Dispose();
+                Object.DestroyImmediate(source);
+            }
+        }
+
         [Test]
         public void PlayerReplay_DoesNotRestoreHeldItemOwnedByItemReplay()
         {
@@ -67,6 +107,9 @@ namespace Game.Tests.EditMode
             var item = GameObject.CreatePrimitive(PrimitiveType.Cube);
             item.AddComponent<Game.Client.Interactions.CarryableItem>();
             item.transform.SetParent(player.transform);
+            var outline = item.AddComponent<Game.Client.Interactions.AssignedItemOutline>();
+            outline.SetVisible(true);
+            var shell = item.transform.Find("[Assigned Item Outline]").GetComponent<Renderer>();
             var playerReplay = new ReplayVisual(player.transform, null);
             var itemReplay = new ReplayVisual(item.transform, null);
             try
@@ -75,6 +118,7 @@ namespace Game.Tests.EditMode
                 Assert.That(item.GetComponent<Renderer>().forceRenderingOff, Is.False);
                 itemReplay.SetPlaying(true);
                 playerReplay.SetPlaying(false);
+                Assert.That(shell.forceRenderingOff, Is.True);
                 Assert.That(item.GetComponent<Renderer>().forceRenderingOff, Is.True);
                 itemReplay.SetPlaying(false);
                 Assert.That(item.GetComponent<Renderer>().forceRenderingOff, Is.False);

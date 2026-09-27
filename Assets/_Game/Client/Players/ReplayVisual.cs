@@ -9,9 +9,10 @@ namespace Game.Client.Players
     /// <summary>Rendering-only copy. Never instantiates gameplay/network components.</summary>
     public sealed class ReplayVisual : IDisposable
     {
-        private readonly Renderer[] originals;
+        private readonly Transform source;
+        private Renderer[] originals;
         private readonly Renderer[] copies;
-        private readonly bool[] originalVisibility;
+        private bool[] originalVisibility;
         private bool hidden;
 
         public Transform Target { get; }
@@ -20,14 +21,12 @@ namespace Game.Client.Players
         public ReplayVisual(Transform source, Transform parent)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
+            this.source = source;
             var transforms = new Dictionary<Transform, Transform>();
             Target = CopyHierarchy(source, parent, transforms);
             Target.SetPositionAndRotation(source.position, source.rotation);
             Target.localScale = source.lossyScale;
-            var ownedRenderers = new List<Renderer>();
-            foreach (var renderer in source.GetComponentsInChildren<Renderer>(true))
-                if (transforms.ContainsKey(renderer.transform)) ownedRenderers.Add(renderer);
-            originals = ownedRenderers.ToArray();
+            originals = CaptureOriginalRenderers(source);
             originalVisibility = new bool[originals.Length];
             foreach (var original in originals)
             {
@@ -97,6 +96,10 @@ namespace Game.Client.Players
         {
             if (playing && !hidden)
             {
+                // Outlines are built lazily after replay capture. Hide them with the live
+                // object, even though they must never be copied into the recording.
+                originals = CaptureOriginalRenderers(source);
+                originalVisibility = new bool[originals.Length];
                 for (var i = 0; i < originals.Length; i++)
                     if (originals[i] != null) originalVisibility[i] = originals[i].forceRenderingOff;
             }
@@ -116,6 +119,22 @@ namespace Game.Client.Players
             if (Target == null) return;
             if (Application.isPlaying) UnityEngine.Object.Destroy(Target.gameObject);
             else UnityEngine.Object.DestroyImmediate(Target.gameObject);
+        }
+
+        private static Renderer[] CaptureOriginalRenderers(Transform source)
+        {
+            if (source == null) return Array.Empty<Renderer>();
+            var owned = new List<Renderer>();
+            foreach (var renderer in source.GetComponentsInChildren<Renderer>(true))
+            {
+                var node = renderer.transform;
+                // A carried item is hidden/restored by its own replay, not its holder's.
+                while (node != source && node.GetComponent<CarryableItem>() == null &&
+                       node.GetComponent<TMPro.TMP_Text>() == null)
+                    node = node.parent;
+                if (node == source) owned.Add(renderer);
+            }
+            return owned.ToArray();
         }
 
         private static Transform CopyHierarchy(Transform source, Transform parent,
