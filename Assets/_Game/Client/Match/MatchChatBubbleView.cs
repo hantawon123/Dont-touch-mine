@@ -277,7 +277,7 @@ namespace Game.Client.Match
 
             public void Tick(TMP_FontAsset currentFont, Camera camera)
             {
-                if (canvas == null || follow == null)
+                if (canvas == null || follow == null || !canvas.gameObject.activeSelf)
                 {
                     return;
                 }
