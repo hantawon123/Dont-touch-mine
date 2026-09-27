@@ -64,6 +64,7 @@ namespace Game.Client.Match
         private RectTransform historyRect;
         private ScrollRect scrollRect;
         private readonly List<RectTransform> rows = new();
+        private bool listMetricsDirty = true;
         private readonly List<TMP_Text> nameTexts = new();
         private readonly List<TMP_Text> bodyTexts = new();
         private readonly List<CanvasGroup> rowFades = new();
@@ -431,6 +432,7 @@ namespace Game.Client.Match
 
         private void OnEnable()
         {
+            listMetricsDirty = true;
             if (inputField != null)
             {
                 inputField.onSubmit.AddListener(HandleSubmit);
@@ -655,6 +657,7 @@ namespace Game.Client.Match
             EnsureLayout();
             var list = messages ?? Array.Empty<LobbyChatMessage>();
             shown = list;
+            listMetricsDirty = true;
             EnsureRowCount(list.Count);
             var font = ResolveFont();
             for (var index = 0; index < rows.Count; index++)
@@ -697,12 +700,24 @@ namespace Game.Client.Match
         {
             EnsureLayout();
             var safe = Mathf.Max(0.01f, scale);
-            appliedListScale = safe;
             if (itemRoot == null)
             {
                 return;
             }
 
+            var changed = listMetricsDirty || safe != appliedListScale;
+            for (var index = 0; !changed && index < rows.Count; index++)
+                changed = rows[index] != null && rows[index].gameObject.activeSelf &&
+                          ((nameTexts[index] != null && nameTexts[index].havePropertiesChanged) ||
+                           (bodyTexts[index] != null && bodyTexts[index].havePropertiesChanged));
+            if (!changed)
+            {
+                if (scrollToLatest) ScrollToLatest();
+                ApplyRowFade();
+                return;
+            }
+            appliedListScale = safe;
+            listMetricsDirty = false;
             ConfigureItemList(safe);
             var width = TextColumnWidth;
             for (var index = 0; index < rows.Count; index++)
@@ -1147,6 +1162,7 @@ namespace Game.Client.Match
                 return;
             }
 
+            listMetricsDirty = true;
             sendOrange ??= Resources.Load<Sprite>(SendOrangeResource);
             sendGray ??= Resources.Load<Sprite>(SendGrayResource);
             if (transform.Find("HistoryPanel") == null)
@@ -1528,12 +1544,6 @@ namespace Game.Client.Match
             if (historyRect == null || itemRoot == null)
             {
                 return;
-            }
-
-            var itemsRect = itemRoot as RectTransform;
-            if (itemsRect != null)
-            {
-                LayoutRebuilder.ForceRebuildLayoutImmediate(itemsRect);
             }
 
             var panelRect = historyRect.rect;

@@ -41,6 +41,26 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void ReplayCopy_ExcludesGeneratedOutlineShells()
+        {
+            var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var shell = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            shell.name = "[Assigned Item Outline]";
+            shell.transform.SetParent(source.transform);
+            var visual = new ReplayVisual(source.transform, null);
+            try
+            {
+                Assert.That(visual.Target.Find(shell.name), Is.Null);
+                Assert.That(visual.Target.GetComponentsInChildren<Renderer>(true), Has.Length.EqualTo(1));
+            }
+            finally
+            {
+                visual.Dispose();
+                Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
         public void PlayerReplay_DoesNotRestoreHeldItemOwnedByItemReplay()
         {
             var player = GameObject.CreatePrimitive(PrimitiveType.Cube);

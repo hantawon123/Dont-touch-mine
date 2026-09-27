@@ -295,6 +295,15 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void LobbySettingsValidation_PreservesSearchingSeconds()
+        {
+            Assert.That(MatchRuleSettings.TryCreateSeconds(45, 90, 1f, 3, "", out var requested, out _), Is.True);
+            Assert.That(NetworkRunnerService.TryValidateLobbySettingsRequest(
+                true, true, 2, 6, 5, "supermarket", requested, out var accepted), Is.True);
+            Assert.That(accepted, Is.EqualTo(requested));
+        }
+
         [TestCase(Game.Core.Flow.AppFlowState.Lobby)]
         [TestCase(Game.Core.Flow.AppFlowState.InGame)]
         [TestCase(Game.Core.Flow.AppFlowState.Highlight)]
