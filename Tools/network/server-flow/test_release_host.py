@@ -65,7 +65,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_ready_switch_preserves_old_process_and_retired_is_not_respawned(self):
         self.release('old'); self.release('new')
-        self.request('old'); self.ready('old')
+        self.request('old'); self.ready('old'); self.claim('old')
         old = self.pool.processes['old']['process']
         self.request('new')
         self.assertEqual(read_json(self.root / 'active.json')['release'], 'old')
@@ -85,7 +85,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_failed_candidate_and_version_collision_keep_previous_route(self):
         self.release('old'); self.release('bad'); self.release('collision', 'old')
-        self.request('old'); self.ready('old')
+        self.request('old'); self.ready('old'); self.claim('old')
         old = self.pool.processes['old']['process']
         self.request('collision')
         self.assertEqual(self.pool.outcome, 'failed')
@@ -100,7 +100,7 @@ class ReleaseTests(unittest.TestCase):
     def test_rollback_reuses_live_old_server_and_cap_does_not_kill_games(self):
         for name in ('one', 'two', 'three'):
             self.release(name)
-        self.request('one'); self.ready('one')
+        self.request('one'); self.ready('one'); self.claim('one')
         old = self.pool.processes['one']['process']
         self.request('two'); self.ready('two')
         self.request('three')
@@ -230,6 +230,7 @@ class ReleaseTests(unittest.TestCase):
         self.pool = Pool({'root': str(self.root), 'rooms_per_release': 2, 'max_processes': 4})
         self.release('old'); self.release('new')
         self.request('old'); self.ready('old'); self.ready('old#1')
+        self.claim('old'); self.claim('old#1')
         old = [p['process'] for p in self.pool.processes.values()]
         self.request('new')
         self.assertEqual(self.pool.active, 'old')
@@ -251,6 +252,7 @@ class ReleaseTests(unittest.TestCase):
         for name in ('old', 'new', 'third'):
             self.release(name)
         self.request('old'); self.ready('old'); self.ready('old#1')
+        self.claim('old'); self.claim('old#1')
         survivor = self.pool.processes['old#1']['process']
         self.request('new'); self.ready('new')
         self.request('third'); self.pool.request_at -= 3; self.pool.step()
@@ -303,6 +305,46 @@ class ReleaseTests(unittest.TestCase):
         status = read_json(self.root/'status.json')
         self.assertEqual(status['room_capacity'], 20)
         self.assertEqual(status['warm_rooms'], 2)
+
+    def test_healthy_warm_rooms_survive_multiple_idle_timeouts(self):
+        self.pool = Pool({'root': str(self.root), 'room_capacity': 20, 'warm_rooms': 2, 'max_processes': 40})
+        self.release('warm'); self.request('warm')
+        self.ready('warm'); self.ready('warm#1')
+        pids = {p['process'].pid for p in self.pool.processes.values()}
+        for item in self.pool.processes.values():
+            item['started'] -= 7200
+        for _ in range(10):
+            self.pool.step()
+        self.assertEqual({p['process'].pid for p in self.pool.processes.values()}, pids)
+        self.assertTrue(all(not p['process'].terminated for p in self.pool.processes.values()))
+
+    def test_activation_retires_old_unused_room_but_preserves_claimed_room(self):
+        self.pool = Pool({'root': str(self.root), 'room_capacity': 20, 'warm_rooms': 2, 'max_processes': 40})
+        self.release('old'); self.release('new'); self.request('old')
+        self.ready('old'); self.ready('old#1'); self.claim('old')
+        playing = self.pool.processes['old']['process']
+        unused = self.pool.processes['old#1']['process']
+        self.request('new')
+        self.assertFalse(unused.terminated, 'Do not retire the old pool before activation succeeds.')
+        candidate = self.pool.processes['new']['process']
+        self.assertFalse(candidate.terminated)
+        self.ready('new')
+        self.assertTrue(unused.terminated)
+        self.assertFalse(playing.terminated)
+        self.assertFalse(candidate.terminated)
+
+    def test_retiring_room_is_not_reused_on_rollback_and_is_killed_after_grace(self):
+        self.release('old'); self.release('new')
+        self.request('old'); self.ready('old')
+        old = self.pool.processes['old']
+        with patch.object(old['process'], 'terminate'), patch.object(old['process'], 'kill', create=True) as kill:
+            self.request('new'); self.ready('new')
+            self.assertIn('stop_at', old)
+            self.request('old')
+            self.assertEqual(self.pool.active, 'new')
+            old['stop_at'] -= 11
+            self.pool.step()
+            kill.assert_called_once()
 
     def test_chat_key_reaches_the_server_and_is_omitted_when_unset(self):
         """채팅 금칙어 목록과 기록 경로의 키 전달 (S15P21D205-1027).
