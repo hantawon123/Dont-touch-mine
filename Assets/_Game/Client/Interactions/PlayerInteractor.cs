@@ -1030,6 +1030,25 @@ namespace Game.Client.Interactions
             }
         }
 
+        /// <summary>
+        /// 조준점은 카메라 높이에 생기지만 플레이어 위치는 발밑에 있다. 두 점을 바로 재면
+        /// 저택 파쇄기처럼 키가 큰 대상은 바로 앞에 있어도 높이 차이까지 거리로 더해져
+        /// 상호작용 범위 밖으로 판정된다. 실제 대상 표면 중 플레이어와 가장 가까운 지점으로
+        /// 거리를 재서 대상의 높이와 무관하게 가까이 다가간 경우를 올바르게 인식한다.
+        /// </summary>
+        internal static bool IsWithinInteractionDistance(
+            Collider collider,
+            Vector3 playerPosition,
+            float maxDistance)
+        {
+            if (collider == null || maxDistance < 0f)
+            {
+                return false;
+            }
+
+            return Vector3.Distance(collider.ClosestPoint(playerPosition), playerPosition) <= maxDistance;
+        }
+
         private Component FindAimedTarget()
         {
             if (cameraTransform == null)
@@ -1073,8 +1092,10 @@ namespace Game.Client.Interactions
                 nearestDistance = hit.distance;
                 var target = hit.collider.GetComponentInParent(typeof(IInteractable));
 
-                var withinReach = target != null
-                    && Vector3.Distance(hit.point, transform.position) <= interactionConfig.InteractionDistance;
+                var withinReach = target != null && IsWithinInteractionDistance(
+                    hit.collider,
+                    transform.position,
+                    interactionConfig.InteractionDistance);
                 nearestTarget = withinReach ? target : null;
             }
 

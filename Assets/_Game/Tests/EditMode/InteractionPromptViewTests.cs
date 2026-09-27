@@ -48,6 +48,53 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void TallShredder_InRangeUsesNearestColliderSurfaceInsteadOfHighAimPoint()
+        {
+            var shredderObject = new GameObject("TallShredder");
+            try
+            {
+                var collider = shredderObject.AddComponent<BoxCollider>();
+                collider.size = new Vector3(1.2f, 2.4f, 0.9f);
+                collider.center = new Vector3(0f, 1.2f, 0f);
+                shredderObject.transform.position = new Vector3(0f, 0f, 1.5f);
+
+                var playerFeet = Vector3.zero;
+                var highAimPoint = new Vector3(0f, 2f, 1.5f);
+                Physics.SyncTransforms();
+                Assert.That(Vector3.Distance(playerFeet, highAimPoint), Is.GreaterThan(2f));
+                Assert.That(
+                    PlayerInteractor.IsWithinInteractionDistance(collider, playerFeet, 2f),
+                    Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(shredderObject);
+            }
+        }
+
+        [Test]
+        public void ShredderOutsideRange_RemainsUnavailable()
+        {
+            var shredderObject = new GameObject("DistantShredder");
+            try
+            {
+                var collider = shredderObject.AddComponent<BoxCollider>();
+                collider.size = new Vector3(1.2f, 2.4f, 0.9f);
+                collider.center = new Vector3(0f, 1.2f, 0f);
+                shredderObject.transform.position = new Vector3(0f, 0f, 3f);
+
+                Physics.SyncTransforms();
+                Assert.That(
+                    PlayerInteractor.IsWithinInteractionDistance(collider, Vector3.zero, 2f),
+                    Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(shredderObject);
+            }
+        }
+
+        [Test]
         public void ShredderAudio_FallsOffWithDistanceLikeFootsteps()
         {
             var audioObject = new GameObject("ShredderAudio");
