@@ -142,7 +142,7 @@ namespace Game.Network.Match
         {
             if (!HasValidState) return false;
             _state.RPC_RequestLobbySettings(maxPlayers, destructionLimit, mapId, rules.HidingDurationSeconds,
-                rules.SearchingDurationMinutes, rules.SprintMultiplier, rules.StunHitCount, rules.CategoryId, title);
+                rules.SearchingDurationSeconds, rules.SprintMultiplier, rules.StunHitCount, rules.CategoryId, title);
             return true;
         }
 
