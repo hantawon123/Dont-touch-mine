@@ -1340,9 +1340,12 @@ namespace Game.Network.Session
             MatchRuleSettings matchRules,
             out MatchRuleSettings normalizedMatchRules)
         {
-            var validMatchRules = MatchRuleSettings.TryCreate(
+            // Seeking time is stored in seconds (rules payload version 2).
+            // TryCreate treats its second argument as whole minutes and multiplies
+            // by 60, so a value such as 90 seconds would be saved as 60.
+            var validMatchRules = MatchRuleSettings.TryCreateSeconds(
                 matchRules.HidingDurationSeconds,
-                matchRules.SearchingDurationMinutes,
+                matchRules.SearchingDurationSeconds,
                 matchRules.SprintMultiplier,
                 matchRules.StunHitCount,
                 matchRules.CategoryId,
@@ -2801,10 +2804,13 @@ namespace Game.Network.Session
             var matchRules = SessionPropertyMapper.ReadMatchRules(
                 info,
                 _matchRules);
+            // A missing map key is the lobby's random choice (empty id), which is
+            // omitted when the room is created. Falling back to the supermarket
+            // here rewrote that choice whenever settings were saved.
             var mapId = SessionPropertyMapper.ReadString(
                 info,
                 SessionPropertyKeys.MapId,
-                MapCatalog.DefaultMapId);
+                _configuredMapId);
 
             // The session listing counts a dedicated server as an occupant, so its
             // count reaches the configured limit one player short of a full room,

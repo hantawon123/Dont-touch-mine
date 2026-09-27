@@ -178,7 +178,7 @@ namespace Game.Client.Lobby
             var normalized = mapId?.Trim() ?? string.Empty;
             for (var i = 0; i < Options.Length; i++)
             {
-                if (string.Equals(Options[i].Id, normalized, StringComparison.Ordinal))
+                if (string.Equals(Options[i].Id, normalized, StringComparison.OrdinalIgnoreCase))
                 {
                     return i;
                 }

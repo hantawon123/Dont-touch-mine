@@ -39,19 +39,27 @@ namespace Game.Core.Maps
 
         public static string DefaultMapId => LobbyMapIds[0];
 
-        public static bool Contains(string mapId)
+        public static bool Contains(string mapId) => TryCanonical(mapId, out _);
+
+        /// <summary>
+        /// Catalog id for <paramref name="mapId"/>, ignoring case and surrounding
+        /// space. Room saves used to keep the typed casing, and a later apply
+        /// then treated that id as unknown and replaced it with random.
+        /// </summary>
+        public static bool TryCanonical(string mapId, out string canonical)
         {
+            canonical = null;
             if (string.IsNullOrWhiteSpace(mapId))
             {
                 return false;
             }
 
             var candidate = mapId.Trim();
-
             foreach (var availableMapId in MapIds)
             {
-                if (string.Equals(availableMapId, candidate, StringComparison.Ordinal))
+                if (string.Equals(availableMapId, candidate, StringComparison.OrdinalIgnoreCase))
                 {
+                    canonical = availableMapId;
                     return true;
                 }
             }
@@ -69,9 +77,9 @@ namespace Game.Core.Maps
 
         public static string NormalizeLobbyMapId(string mapId, string fallback)
         {
-            if (Contains(mapId))
+            if (TryCanonical(mapId, out var canonical))
             {
-                return mapId.Trim();
+                return canonical;
             }
 
             if (IsRandom(mapId))
@@ -80,7 +88,9 @@ namespace Game.Core.Maps
                 return string.Empty;
             }
 
-            return Contains(fallback) ? fallback.Trim() : DefaultMapId;
+            return TryCanonical(fallback, out var canonicalFallback)
+                ? canonicalFallback
+                : DefaultMapId;
         }
 
         /// <summary>

@@ -106,6 +106,7 @@ namespace Game.Client.Lobby
         private int destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
         private int selectedMapIndex = PlaySettingsMapCatalog.DefaultIndex;
         private bool editable;
+        private bool suppressControlCallbacks;
         private int participantCount = 1;
         private MatchRuleSettings matchRules = MatchRuleSettings.Default;
         private IReadOnlyList<PlaySettingsMapOption> mapOptions = PlaySettingsMapCatalog.All;
@@ -490,6 +491,23 @@ namespace Game.Client.Lobby
 
         public void SetDraft(PlaySettingsDraft draft)
         {
+            // Painting the draft moves sliders and the title field. Those controls
+            // report the change back, and that callback would replace the draft
+            // with whatever value the control clamped to — which is what made
+            // 적용하기 rewrite durations the host had not edited.
+            suppressControlCallbacks = true;
+            try
+            {
+                ApplyDraft(draft);
+            }
+            finally
+            {
+                suppressControlCallbacks = false;
+            }
+        }
+
+        private void ApplyDraft(PlaySettingsDraft draft)
+        {
             EnsureLayout();
             EnsureCloseButton();
             title = draft.Title;
@@ -559,7 +577,7 @@ namespace Game.Client.Lobby
 
         private void OnTitleChanged(string value)
         {
-            if (!editable) return;
+            if (suppressControlCallbacks || !editable) return;
             title = value;
             RefreshTitleCounter();
             RefreshApplyChrome();
@@ -612,8 +630,11 @@ namespace Game.Client.Lobby
 
             if (categoryText != null)
             {
-                var option = PlaySettingsCategoryCatalog.GetOption(selectedCategoryIndex);
-                categoryText.text = PlaySettingsCategoryCatalog.LabelOf(option.Id, Language);
+                // Label the rule the room actually has. The picker index falls
+                // back to random when the id is not on the chip, and painting
+                // that fallback made 적용하기 look like it had changed the category.
+                categoryText.text = PlaySettingsCategoryCatalog.LabelOf(
+                    matchRules.CategoryId, Language);
             }
 
             var hasMultipleOptions = PlaySettingsCategoryCatalog.All.Count > 1;
@@ -630,7 +651,7 @@ namespace Game.Client.Lobby
 
         private void SetMaxPlayers(int value)
         {
-            if (!editable) return;
+            if (suppressControlCallbacks || !editable) return;
             maxPlayers = Mathf.Clamp(
                 value,
                 RoomSettings.MinPlayerCount,
@@ -641,7 +662,7 @@ namespace Game.Client.Lobby
 
         private void SetDestructionLimit(int value)
         {
-            if (!editable) return;
+            if (suppressControlCallbacks || !editable) return;
             destructionLimit = destructionLimit ==
                                PlaySettingsDraft.UnlimitedDestructionLimit
                 ? PlaySettingsDraft.MaxDestructionLimit
@@ -695,6 +716,11 @@ namespace Game.Client.Lobby
 
         private void OnHidingSliderChanged(float value)
         {
+            if (suppressControlCallbacks)
+            {
+                return;
+            }
+
             SetDurationSeconds(
                 SnapDuration(
                     Mathf.RoundToInt(value),
@@ -706,6 +732,11 @@ namespace Game.Client.Lobby
 
         private void OnSearchingSliderChanged(float value)
         {
+            if (suppressControlCallbacks)
+            {
+                return;
+            }
+
             SetDurationSeconds(
                 matchRules.HidingDurationSeconds,
                 SnapDuration(
@@ -732,7 +763,7 @@ namespace Game.Client.Lobby
 
         private void ChangeRule(int index, int direction)
         {
-            if (!editable) return;
+            if (suppressControlCallbacks || !editable) return;
             var hiding = matchRules.HidingDurationSeconds;
             var searching = matchRules.SearchingDurationSeconds;
             var speed = matchRules.SprintMultiplier;

@@ -295,6 +295,22 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void LobbySettingsValidation_PreservesSeekingSeconds()
+        {
+            Assert.That(
+                MatchRuleSettings.TryCreateSeconds(45, 90, 1.5f, 4, string.Empty, out var rules, out _),
+                Is.True);
+            Assert.That(
+                NetworkRunnerService.TryValidateLobbySettingsRequest(
+                    true, true, 2, 6, 5, "supermarket", rules, out var normalized),
+                Is.True);
+            Assert.That(normalized.HidingDurationSeconds, Is.EqualTo(45));
+            Assert.That(normalized.SearchingDurationSeconds, Is.EqualTo(90));
+            Assert.That(normalized.SprintMultiplier, Is.EqualTo(1.5f));
+            Assert.That(normalized.StunHitCount, Is.EqualTo(4));
+        }
+
         [TestCase(Game.Core.Flow.AppFlowState.Lobby)]
         [TestCase(Game.Core.Flow.AppFlowState.InGame)]
         [TestCase(Game.Core.Flow.AppFlowState.Highlight)]
