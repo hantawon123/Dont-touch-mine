@@ -126,8 +126,9 @@ class Pool:
                 self.retry_at[name] = time.monotonic() + 3
                 continue
             self.refresh_state(item)
-            if not item['ready'] and time.monotonic() - item['started'] > self.config.get('startup_timeout', 90):
-                # A hung warm-up must not permanently consume all free slots.
+            if ('stop_at' in item or
+                    not item['ready'] and time.monotonic() - item['started'] > self.config.get('startup_timeout', 90)):
+                # A hung startup or retirement must not permanently consume a slot.
                 if 'stop_at' not in item:
                     item['process'].terminate()
                     item['stop_at'] = time.monotonic()
@@ -153,11 +154,12 @@ class Pool:
                         raise ValueError('Use a distinct build version for each concurrent release')
                 # Reuse any living room on rollback, even if room zero ended.
                 item = next((p for p in self.processes.values()
-                             if p['release'] == name and p['ready'] and p['process'].poll() is None), None)
+                             if p['release'] == name and p['ready'] and 'stop_at' not in p
+                             and p['process'].poll() is None), None)
                 if item is None:
                     self.start(name)
                     item = self.processes.get(name)
-                if item and item['ready'] and item['process'].poll() is None:
+                if item and item['ready'] and 'stop_at' not in item and item['process'].poll() is None:
                     atomic_json(self.root / 'active.json', {'release': name})
                     self.active, self.outcome = name, 'activated'
                 elif time.monotonic() - self.request_at > self.config.get('startup_timeout', 90):
@@ -167,6 +169,15 @@ class Pool:
                         item['stop_at'] = time.monotonic()
             except (ValueError, OSError, KeyError) as error:
                 self.outcome, self.reason = 'failed', type(error).__name__ + ': ' + str(error)
+        # Warm rooms no longer expire on their own. Retire only unused rooms from
+        # a replaced release; claimed rooms must finish normally. Keep a pending
+        # candidate alive until it can become active.
+        if self.active:
+            for item in self.processes.values():
+                candidate = self.outcome == 'pending' and self.request['release'] == item['release']
+                if item['release'] != self.active and not candidate and not item['claimed'] and 'stop_at' not in item:
+                    item['process'].terminate()
+                    item['stop_at'] = time.monotonic()
         self.replenish()
         atomic_json(self.root / 'status.json', {
             'active': self.active, 'request': self.request, 'outcome': self.outcome, 'reason': self.reason,

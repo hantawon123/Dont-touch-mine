@@ -15,6 +15,59 @@ namespace Game.Tests.EditMode
     public sealed class PlayerAnimationDriverTests
     {
         [UnityTest]
+        public IEnumerator LateJoin_EmoteSnapshotRestoresProgressAndRespectsCancellation()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
+                UnityEditor.SceneManagement.NewSceneMode.Single);
+            yield return new EnterPlayMode();
+            var cases = new[]
+            {
+                (Game.Core.Emotes.EmoteId.HipHop, 5f, "Emote_HipHop"),
+                (Game.Core.Emotes.EmoteId.HipHop, -1f, "Idle"),
+                (Game.Core.Emotes.EmoteId.HipHop, 600f, "Idle"),
+                (Game.Core.Emotes.EmoteId.Wave, .5f, "Emote_Wave"),
+                (Game.Core.Emotes.EmoteId.Wave, 3f, "Idle")
+            };
+            foreach (var (id, elapsed, expected) in cases)
+            {
+                var player = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab"));
+                try
+                {
+                    var driver = player.GetComponent<PlayerAnimationDriver>();
+                    var animator = player.GetComponentInChildren<Animator>();
+                    animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                    driver.ApplyNetworkState(0f, true, 0, Vector2.zero, false, 0f, 3, (int)id, elapsed);
+                    driver.SendMessage("Update");
+                    Assert.That(driver.CurrentState, Is.EqualTo(expected), $"{id} elapsed={elapsed}");
+                    if (id != Game.Core.Emotes.EmoteId.HipHop || elapsed != 5f) continue;
+
+                    animator.Update(.2f);
+                    var state = animator.GetCurrentAnimatorStateInfo(0);
+                    Assert.That(state.IsName("Emote_HipHop"), Is.True);
+                    Assert.That(state.normalizedTime * state.length, Is.GreaterThanOrEqualTo(5f));
+                    driver.ApplyNetworkState(0f, true, 0, Vector2.zero, false, 0f, 3, (int)id, 5f);
+                    animator.Update(.2f);
+                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).normalizedTime,
+                        Is.GreaterThan(state.normalizedTime), "Repeated snapshot must not restart playback.");
+                    for (var repeat = 0; repeat < 2; repeat++)
+                    {
+                        driver.ApplyNetworkState(0f, true, 0, Vector2.zero, false, 0f, 3, (int)id, -1f);
+                        driver.SendMessage("Update");
+                        Assert.That(driver.CurrentState, Is.EqualTo("Idle"));
+                    }
+                    driver.ApplyNetworkState(0f, true, 0, Vector2.zero, false, 0f,
+                        4, (int)Game.Core.Emotes.EmoteId.Chicken, 0f);
+                    driver.SendMessage("Update");
+                    Assert.That(driver.CurrentState, Is.EqualTo("Emote_Chicken"));
+                }
+                finally { Object.DestroyImmediate(player); }
+            }
+            yield return new ExitPlayMode();
+        }
+
+        [UnityTest]
         public IEnumerator ThrowStartsAfterWindupForLocalAndReplicatedPlayers()
         {
             UnityEditor.SceneManagement.EditorSceneManager.NewScene(
@@ -350,10 +403,13 @@ namespace Game.Tests.EditMode
                     driver.SendMessage("Update");
                     animator.Update(0.3f);
                     Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Stun_End"), Is.True);
-                    yield return new WaitForSeconds(PlayerAnimationDriver.StunEndSeconds);
+                    // EnterPlayMode keeps the EditMode runner, which does not wait on WaitForSeconds.
+                    var recoverAt = Time.time + PlayerAnimationDriver.StunEndSeconds;
+                    while (Time.time < recoverAt) yield return null;
                     driver.SendMessage("Update");
                     animator.Update(0.2f);
-                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Idle"), Is.True);
+                    Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Idle"), Is.True,
+                        $"Stun recovery missing; local input={acceptsLocalInput}, desired={driver.CurrentState}");
                 }
                 finally { Object.DestroyImmediate(player); }
             }
