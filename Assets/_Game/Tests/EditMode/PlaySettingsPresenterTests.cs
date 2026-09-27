@@ -50,6 +50,25 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Host_RefusedApply_KeepsTheEditWhenTheSessionDrifted()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(true);
+            session.Accept = _ => session.Settings.CurrentValue;
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            view.Draft = Draft(3);
+            session.ReplaceSettings(Draft(5));
+            view.RequestApply();
+            Assert.That(session.ApplyCount, Is.EqualTo(1));
+            Assert.That(view.Draft.MaxPlayers, Is.EqualTo(3));
+            Assert.That(session.Settings.CurrentValue.MaxPlayers, Is.EqualTo(5));
+        }
+
+        [Test]
         public void Host_RoomClampedTheRequest_PanelShowsWhatTheRoomAccepted()
         {
             using var session = new HostSession();

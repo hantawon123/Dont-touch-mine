@@ -311,6 +311,26 @@ namespace Game.Architecture.Tests
             Assert.That(normalized.StunHitCount, Is.EqualTo(4));
         }
 
+        [Test]
+        public void AcceptedLobbyApply_KeepsItsFieldsUntilTheSessionEchoMatches()
+        {
+            Assert.That(
+                MatchRuleSettings.TryCreateSeconds(45, 90, 1.5f, 4, "food", out var rules, out _),
+                Is.True);
+            var accepted = new PlaySettingsDraft(
+                "방", "CODE", false, null, 4, 3, "supermarket", rules);
+            var stale = new PlaySettingsDraft(
+                "옛 방", "CODE", false, null, 6, 5, "mansion", MatchRuleSettings.Default);
+            var echo = new PlaySettingsDraft(
+                "방", "OTHER", true, "secret", 4, 3, "supermarket", rules);
+            Assert.That(
+                Game.Bootstrap.NetworkLobbyHostSession.SessionEchoMatchesAcceptedApply(accepted, stale),
+                Is.False);
+            Assert.That(
+                Game.Bootstrap.NetworkLobbyHostSession.SessionEchoMatchesAcceptedApply(accepted, echo),
+                Is.True);
+        }
+
         [TestCase(Game.Core.Flow.AppFlowState.Lobby)]
         [TestCase(Game.Core.Flow.AppFlowState.InGame)]
         [TestCase(Game.Core.Flow.AppFlowState.Highlight)]

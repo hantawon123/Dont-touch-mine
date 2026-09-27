@@ -31,6 +31,16 @@ namespace Game.Bootstrap
         private readonly ReactiveProperty<PlaySettingsDraft> settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private float nextSettingsRefresh;
+        private bool hasPendingApply;
+        private PlaySettingsDraft pendingApply;
+        private float pendingApplyUntil;
+
+        /// <summary>
+        /// How long a just-accepted apply is kept when the session listing still
+        /// shows the previous properties. The listing updates only after the
+        /// server round trip.
+        /// </summary>
+        private const float PendingApplySeconds = 3f;
 
         public NetworkLobbyHostSession(
             RoomBrowserSystem room,
@@ -165,12 +175,16 @@ namespace Game.Bootstrap
                 return;
             }
 
+            var merged = MergeAccepted(settings.CurrentValue, applied);
+            // Hold this before publishing. Publishing a new capacity notifies
+            // the room, and that notification reads the session immediately.
+            // The read is still the previous cloud copy, and publishing it
+            // replaced both the edit and every field that copy had normalized.
+            hasPendingApply = true;
+            pendingApply = merged;
+            pendingApplyUntil = Time.unscaledTime + PendingApplySeconds;
             SettingsApplyRequested?.Invoke(applied);
-            // Show the accepted values now. Reading them back here would return the
-            // room's previous properties: the change reaches the Cloud, and this peer
-            // again, only after a round trip, and every screen would show the old
-            // settings until the next refresh.
-            Publish(MergeAccepted(settings.CurrentValue, applied));
+            Publish(merged);
         }
 
         /// <summary>
@@ -241,7 +255,44 @@ namespace Game.Bootstrap
         private void RepublishSettings()
         {
             if (!network.TryReadLobbySettings(out var latest)) return;
+            if (hasPendingApply)
+            {
+                if (SessionEchoMatchesAcceptedApply(pendingApply, latest))
+                {
+                    hasPendingApply = false;
+                }
+                else if (Time.unscaledTime < pendingApplyUntil)
+                {
+                    return;
+                }
+                else
+                {
+                    hasPendingApply = false;
+                }
+            }
+
             Publish(latest);
+        }
+
+        /// <summary>
+        /// The session echo caught up when the fields the host can save match.
+        /// Room code and password stay with the session and are not part of the
+        /// apply, so a difference there does not make the echo stale.
+        /// </summary>
+        internal static bool SessionEchoMatchesAcceptedApply(
+            PlaySettingsDraft accepted, PlaySettingsDraft read)
+        {
+            var acceptedRules = accepted.MatchRules;
+            var readRules = read.MatchRules;
+            return accepted.Title == read.Title &&
+                   accepted.MaxPlayers == read.MaxPlayers &&
+                   accepted.DestructionLimit == read.DestructionLimit &&
+                   string.Equals(accepted.MapId, read.MapId, StringComparison.Ordinal) &&
+                   acceptedRules.HidingDurationSeconds == readRules.HidingDurationSeconds &&
+                   acceptedRules.SearchingDurationSeconds == readRules.SearchingDurationSeconds &&
+                   acceptedRules.SprintMultiplier == readRules.SprintMultiplier &&
+                   acceptedRules.StunHitCount == readRules.StunHitCount &&
+                   string.Equals(acceptedRules.CategoryId, readRules.CategoryId, StringComparison.Ordinal);
         }
 
         private void Publish(PlaySettingsDraft next)

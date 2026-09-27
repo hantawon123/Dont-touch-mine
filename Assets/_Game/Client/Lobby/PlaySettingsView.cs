@@ -107,6 +107,7 @@ namespace Game.Client.Lobby
         private int selectedMapIndex = PlaySettingsMapCatalog.DefaultIndex;
         private bool editable;
         private bool suppressControlCallbacks;
+        private int ignoreControlCallbacksUntilFrame = -1;
         private int participantCount = 1;
         private MatchRuleSettings matchRules = MatchRuleSettings.Default;
         private IReadOnlyList<PlaySettingsMapOption> mapOptions = PlaySettingsMapCatalog.All;
@@ -492,9 +493,11 @@ namespace Game.Client.Lobby
         public void SetDraft(PlaySettingsDraft draft)
         {
             // Painting the draft moves sliders and the title field. Those controls
-            // report the change back, and that callback would replace the draft
-            // with whatever value the control clamped to — which is what made
-            // 적용하기 rewrite durations the host had not edited.
+            // report the change back, sometimes after this method returns, and
+            // that callback replaces the draft with whatever the control clamped
+            // to. One untouched slider reporting its minimum then rewrote a
+            // duration the host had not edited.
+            ignoreControlCallbacksUntilFrame = Time.frameCount + 1;
             suppressControlCallbacks = true;
             try
             {
@@ -505,6 +508,9 @@ namespace Game.Client.Lobby
                 suppressControlCallbacks = false;
             }
         }
+
+        private bool IgnoringControlCallbacks =>
+            suppressControlCallbacks || Time.frameCount <= ignoreControlCallbacksUntilFrame;
 
         private void ApplyDraft(PlaySettingsDraft draft)
         {
@@ -577,7 +583,7 @@ namespace Game.Client.Lobby
 
         private void OnTitleChanged(string value)
         {
-            if (suppressControlCallbacks || !editable) return;
+            if (IgnoringControlCallbacks || !editable) return;
             title = value;
             RefreshTitleCounter();
             RefreshApplyChrome();
@@ -716,7 +722,7 @@ namespace Game.Client.Lobby
 
         private void OnHidingSliderChanged(float value)
         {
-            if (suppressControlCallbacks)
+            if (IgnoringControlCallbacks)
             {
                 return;
             }
@@ -732,7 +738,7 @@ namespace Game.Client.Lobby
 
         private void OnSearchingSliderChanged(float value)
         {
-            if (suppressControlCallbacks)
+            if (IgnoringControlCallbacks)
             {
                 return;
             }

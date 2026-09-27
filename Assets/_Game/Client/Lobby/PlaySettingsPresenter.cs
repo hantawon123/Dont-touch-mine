@@ -155,15 +155,25 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (!draft.Equals(displayedSettings) &&
-                !draft.Equals(hostSession.Settings.CurrentValue))
+            var before = hostSession.Settings.CurrentValue;
+            if (draft.Equals(displayedSettings) || draft.Equals(before))
             {
-                hostSession.RequestApplySettings(draft);
+                // Nothing new to send. Reloading the session here painted a poll
+                // that had moved on while this panel stayed still, so fields the
+                // host had not touched changed together with the ones they had.
+                return;
             }
 
-            // The room clamps what it accepts and refuses what it cannot take, so
-            // the panel shows the settings the room now has, not what was typed.
-            DisplaySettings(hostSession.Settings.CurrentValue);
+            hostSession.RequestApplySettings(draft);
+            var accepted = hostSession.Settings.CurrentValue;
+            // The room clamps what it accepts. Paint that. A refused request
+            // leaves the previous snapshot: paint it only when it is still the
+            // panel's baseline. A snapshot the poll replaced would rewrite
+            // fields this apply did not change.
+            if (!accepted.Equals(before) || before.Equals(displayedSettings))
+            {
+                DisplaySettings(accepted);
+            }
         }
 
         private void StartMatch()
