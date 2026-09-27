@@ -336,9 +336,16 @@ namespace Game.Bootstrap
                     views[avatar] = view;
                 }
 
-                view.SetNickname(IsLocalAvatar(avatar)
-                    ? string.Empty
-                    : presentation.Name(avatar.PlayerId, avatar.Nickname.ToString()));
+                if (avatar.IsMatchNpc)
+                {
+                    view.SetBot();
+                }
+                else
+                {
+                    view.SetNickname(IsLocalAvatar(avatar)
+                        ? string.Empty
+                        : presentation.Name(avatar.PlayerId, avatar.Nickname.ToString()));
+                }
                 view.SetVoice(avatar.IsMuted, avatar.IsSendingVoice());
             }
         }

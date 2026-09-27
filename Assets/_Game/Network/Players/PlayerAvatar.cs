@@ -147,6 +147,16 @@ namespace Game.Network.Players
         public NetworkString<_16> BotPlayerId { get; set; }
 
         /// <summary>
+        /// Match NPC combat state set by the host (thief NPC): hit count in bits 0-3, stunned in bit 4. Players keep
+        /// using the per-index match state; NPCs have no index, so this one word drives their hit and stun visuals.
+        /// </summary>
+        [Networked]
+        public int NpcCombatBits { get; set; }
+
+        public int NpcHitCount => NpcCombatBits & 0xF;
+        public bool NpcStunned => (NpcCombatBits & 0x10) != 0;
+
+        /// <summary>
         /// Mute and speaker-off packed in one word so the portrait badge can
         /// differ per player without growing the prefab word count.
         /// Bit 0 is muted. Bit 1 is speaker off.

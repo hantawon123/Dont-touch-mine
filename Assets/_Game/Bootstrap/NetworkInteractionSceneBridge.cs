@@ -36,6 +36,7 @@ namespace Game.Bootstrap
         private readonly Dictionary<string, PlayerInteractor> npcInteractors =
             new(StringComparer.Ordinal);
         private readonly Dictionary<int, PlayerCombatant> combatants = new();
+        private readonly Dictionary<PlayerCombatant, PlayerAvatar> npcCombatants = new();
         // 붙이기 실패를 물건별로 한 번만 경고하기 위한 기록(성공하면 지운다)
         private readonly HashSet<string> attachWarnings = new();
         // Objects the client last saw enter the shredder's pending-ejection state, so the
@@ -360,6 +361,11 @@ namespace Game.Bootstrap
 
                 var combatant = avatar.GetComponent<PlayerCombatant>();
                 if (combatant != null) combatant.IsMatchNpcTarget = isMatchNpc;
+                if (isMatchNpc && combatant != null)
+                {
+                    combatant.enabled = true;
+                    npcCombatants[combatant] = avatar;
+                }
                 if (!isMatchNpc && !lobbyMode && combatant != null)
                 {
                     combatant.ConfigureNetworkPlayer(playerIndex, acceptsLocalInput, avatar.IsOwner);
@@ -689,6 +695,23 @@ namespace Game.Bootstrap
                     combatant.SetNetworkHitCount(state.HitCount);
                 }
             }
+
+            // Match NPCs: same visuals (hit flinch, stun animation, grey tint) from the avatar's own replicated word.
+            List<PlayerCombatant> gone = null;
+            foreach (var pair in npcCombatants)
+            {
+                var avatar = pair.Value;
+                if (pair.Key == null || avatar == null || avatar.Object == null || !avatar.Object.IsValid)
+                {
+                    (gone ??= new List<PlayerCombatant>()).Add(pair.Key);
+                    continue;
+                }
+
+                pair.Key.SetNetworkStunned(avatar.NpcStunned);
+                pair.Key.SetNetworkHitCount(avatar.NpcHitCount);
+            }
+
+            if (gone != null) foreach (var c in gone) npcCombatants.Remove(c);
         }
 
         private void ForgetItem(CarryableItem item)

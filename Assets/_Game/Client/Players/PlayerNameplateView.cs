@@ -61,6 +61,13 @@ namespace Game.Client.Players
             return view;
         }
 
+        /// <summary>Server-controlled NPC: a red "BOT" instead of a nickname.</summary>
+        public void SetBot()
+        {
+            SetNickname("BOT");
+            label.color = new Color(1f, 0.2f, 0.2f);
+        }
+
         public void SetNickname(string nickname)
         {
             EnsureLabel();

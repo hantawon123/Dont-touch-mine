@@ -363,6 +363,7 @@ namespace Game.Training.Thief
             MirrorWorld();
             ResolvePlayerPunches(feet);
             var stunned = Time.time < npcStunnedUntil;
+            if (!stunned && npc.NpcStunned) npc.NpcCombatBits = 0; // stun over: clients stand the NPC back up
             legs.Frozen = stunned;
             if (stunned)
             {
@@ -452,9 +453,15 @@ namespace Game.Training.Thief
                 if ((centre - npcCentre).sqrMagnitude > (0.7f + 0.35f) * (0.7f + 0.35f)) continue;
                 npcHits++;
                 Debug.Log($"[Thief NPC] hit by a player ({npcHits}/{ThiefMatch.HitsToStun}).");
-                if (npcHits < ThiefMatch.HitsToStun) continue;
+                if (npcHits < ThiefMatch.HitsToStun)
+                {
+                    npc.NpcCombatBits = npcHits;
+                    continue;
+                }
+
                 npcHits = 0;
                 npcStunnedUntil = Time.time + ThiefMatch.StunSeconds;
+                npc.NpcCombatBits = 0x10; // stunned, hit count reset (clients play the stun and grey tint)
                 legs.ClearDestination();
                 forwarding = false;
                 if (decoy != null && decoy.Holding) starter.TryDropHeldObjectForMatchNpc(npcId, new Pose(npcFeet + Vector3.up * 0.2f, Quaternion.identity), out _);
