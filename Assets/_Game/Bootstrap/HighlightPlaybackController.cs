@@ -199,6 +199,7 @@ namespace Game.Bootstrap
         private HighlightHudView cctvHud;
         private readonly List<HighlightCctvCamera> cctvCameras = new();
         private IReadOnlyList<SceneHighlightOcclusionReference> sceneOcclusionGroups;
+        private readonly HashSet<string> receivedReplayObjectIds = new(StringComparer.Ordinal);
         private readonly HashSet<string> recordedObjectIds = new(StringComparer.Ordinal);
 
         public void BindScene(UnityEngine.SceneManagement.Scene scene, IMatchRuntimeContext context)
@@ -510,6 +511,7 @@ namespace Game.Bootstrap
             if (phase == MatchPhase.Waiting || phase == MatchPhase.Hiding)
             {
                 replay = Array.Empty<HighlightReplayData>();
+                receivedReplayObjectIds.Clear();
                 gameEndNoticeEndsAt = double.PositiveInfinity;
                 matchEndedAt = double.NaN;
             }
@@ -526,6 +528,11 @@ namespace Game.Bootstrap
         {
             if (disposed) return;
             replay = received ?? Array.Empty<HighlightReplayData>();
+            receivedReplayObjectIds.Clear();
+            foreach (var data in replay)
+                foreach (var clip in data.Clips)
+                    foreach (var frame in clip.Frames)
+                        foreach (var state in frame.WorldObjects) receivedReplayObjectIds.Add(state.ObjectId);
             readinessConfirmed = false;
             PlaybackSourceTime = null;
             replayIndex = 0;
@@ -778,10 +785,7 @@ namespace Game.Bootstrap
                 if (sceneContext != null &&
                     !PlaygroundMatchScene.TryCollectReplayObjectIds(sceneContext, recordedObjectIds))
                     foreach (var state in sceneContext.ReplayObjects) recordedObjectIds.Add(state.ObjectId);
-                foreach (var data in replay)
-                    foreach (var clip in data.Clips)
-                        foreach (var frame in clip.Frames)
-                            foreach (var state in frame.WorldObjects) recordedObjectIds.Add(state.ObjectId);
+                recordedObjectIds.UnionWith(receivedReplayObjectIds);
             }
             using var captureItems = CaptureItemsMarker.Auto();
             // Scene capture creates all assignment copies before BindScene. The runtime

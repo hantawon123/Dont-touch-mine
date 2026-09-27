@@ -18,6 +18,42 @@ namespace Game.Architecture.Tests
     public sealed class NetworkMatchHudPresenterTests
     {
         [Test]
+        public void ReplayObjectCollection_TracksReplacementReplayAndLiveChanges()
+        {
+            using var room = new RoomBrowserSystem();
+            var network = new FakeNetwork();
+            using var playback = new NetworkHighlightPlaybackController(network, room, network, new FakeTransition());
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var type = typeof(NetworkHighlightPlaybackController);
+            type.GetField("sceneBound", flags).SetValue(playback, true);
+            var context = new ReplayCaptureContext();
+            type.GetField("sceneContext", flags).SetValue(playback, context);
+            type.GetField("phase", flags).SetValue(playback, MatchPhase.Searching);
+            var capture = (Action)type.GetMethod("CaptureVisuals", flags).CreateDelegate(typeof(Action), playback);
+            var receive = type.GetMethod("OnHighlightReplayReceived", flags);
+            var ids = (HashSet<string>)type.GetField("recordedObjectIds", flags).GetValue(playback);
+            HighlightReplayData[] Data(string id)
+            {
+                var segment = new HighlightSegment(0, 10);
+                var frames = new HighlightReplayFrame[100];
+                for(var i=0;i<frames.Length;i++) frames[i] = new HighlightReplayFrame(i*.1, Array.Empty<Pose>(), new[]{new WorldObjectState(id,Pose.identity)});
+                return new[]{new HighlightReplayData(new HighlightCandidate(HighlightType.FirstBlood,new[]{segment},id),new[]{new HighlightReplayClip(segment,frames)})};
+            }
+            receive.Invoke(playback,new object[]{Data("old")}); capture(); Assert.That(ids,Does.Contain("old"));
+            receive.Invoke(playback,new object[]{Data("new")});
+            context.ReplayObjects = new[]{new WorldObjectState("live",Pose.identity)};
+            capture(); Assert.That(ids,Is.EquivalentTo(new[]{"new","live"}));
+            context.ReplayObjects = Array.Empty<WorldObjectState>();
+            capture(); Assert.That(ids,Is.EquivalentTo(new[]{"new"}));
+            for(var i=0;i<10;i++) capture();
+            var watch=System.Diagnostics.Stopwatch.StartNew(); var bytes=GC.GetAllocatedBytesForCurrentThread();
+            for(var i=0;i<200;i++) capture();
+            var allocated=GC.GetAllocatedBytesForCurrentThread()-bytes; watch.Stop();
+            TestContext.WriteLine($"REPLAY_IDS calls=200 frames=100 ms={watch.Elapsed.TotalMilliseconds} bytes={allocated}");
+            receive.Invoke(playback,new object[]{Array.Empty<HighlightReplayData>()});capture();Assert.That(ids,Is.Empty);
+        }
+
+        [Test]
         public void BoundReplay_CapturesNewlyTrackedItemAfterSceneMove_AndKeepsDestroyedVisual()
         {
             var map = UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
