@@ -1089,11 +1089,20 @@ namespace Game.Training.Thief
 
         // ------------------------------------------------------------------ perception
 
+        /// <summary>In-game mirror: which actor the next sight line is aimed at (its own body must not block it), -1 none.</summary>
+        public System.Action<int> MirrorSightTarget;
+
+        /// <summary>In-game mirror: the thief saw a player's prop for the first time (prop, seen held).</summary>
+        public System.Action<int, bool> MirrorPropSpotted;
+
         private bool CanSee(Actor observer, Actor other)
         {
             if (other.IsThief && !ThiefActive) return false;
             var b = observer.Body;
-            return HideSeekVision.CanSeeBody(b.Eye, b.Yaw, b.Pitch, other.Body.Position, HideSeekRules.BodyHeight, world.OccluderMask);
+            MirrorSightTarget?.Invoke(other.Id);
+            var seen = HideSeekVision.CanSeeBody(b.Eye, b.Yaw, b.Pitch, other.Body.Position, HideSeekRules.BodyHeight, world.OccluderMask);
+            MirrorSightTarget?.Invoke(-1);
+            return seen;
         }
 
         private bool CanSeeProp(Actor observer, int prop)
@@ -1162,7 +1171,11 @@ namespace Game.Training.Thief
                 if (prop.HeldBy == Players) continue;
                 if (CanSeeProp(Thief, p))
                 {
-                    if (!Mind.PropKnown[p]) PropsSpotted++;
+                    if (!Mind.PropKnown[p])
+                    {
+                        PropsSpotted++;
+                        MirrorPropSpotted?.Invoke(p, prop.HeldBy >= 0);
+                    }
                     Mind.PropKnown[p] = true;
                     Mind.PropSeenAt[p] = prop.HeldBy >= 0 ? Actors[prop.HeldBy].Body.Position : prop.Bottom;
                     Mind.PropSeenTime[p] = Time;

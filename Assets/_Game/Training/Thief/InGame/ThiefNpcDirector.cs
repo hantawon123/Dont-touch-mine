@@ -244,6 +244,8 @@ namespace Game.Training.Thief
             ignoreCache.Clear();
             HideSeekVision.IgnoreCollider = Ignored;
             match.MirrorPickup = Pickup;
+            match.MirrorSightTarget = SetSightTarget;
+            match.MirrorPropSpotted = LogSpotted;
             match.MirrorPlace = Place;
             match.MirrorDrop = DropHere;
             match.BeginMirror(Random.Range(1, int.MaxValue), feet, yaw);
@@ -727,16 +729,64 @@ namespace Game.Training.Thief
         }
 
         /// <summary>The simulator had no avatar or player-item colliders; skip them so sight lines match training.</summary>
+        // Sight lines in the real match: players' items never block (the simulator's props were not physical), the
+        // NPC's own body never blocks, and the body being looked at does not block itself; every other body blocks,
+        // as on a player's screen.
+        private PlayerAvatar sightTarget;
+
+        private void SetSightTarget(int actor)
+        {
+            sightTarget = null;
+            if (actor < 0 || actor >= ThiefMatch.Players) return;
+            if (starter != null && starter.TryGetNpcPlayerView(actor, out var pose, out _))
+            {
+                var best = float.PositiveInfinity;
+                foreach (var avatar in runnerService.PlayerAvatars)
+                {
+                    if (avatar == null || avatar.IsMatchNpc) continue;
+                    var d = (avatar.transform.position - pose.position).sqrMagnitude;
+                    if (d < best && d < 1f)
+                    {
+                        best = d;
+                        sightTarget = avatar;
+                    }
+                }
+            }
+        }
+
         private bool Ignored(Collider c)
         {
             if (c == null) return true;
             if (!ignoreCache.TryGetValue(c, out var ignore))
             {
-                ignore = itemColliders.Contains(c) || c.GetComponentInParent<PlayerAvatar>() != null;
+                ignore = itemColliders.Contains(c);
                 ignoreCache[c] = ignore;
             }
 
-            return ignore;
+            if (ignore) return true;
+            var owner = c.GetComponentInParent<PlayerAvatar>();
+            return owner != null && (owner == npc || owner == sightTarget);
+        }
+
+        private void LogSpotted(int p, bool held)
+        {
+            if (npc == null || itemIds[p] == null) return;
+            var eye = match.Thief.Body.Eye;
+            var at = held ? match.Actors[match.Props[p].HeldBy >= 0 ? match.Props[p].HeldBy : 0].Body.Position + Vector3.up : match.Props[p].Bottom + Vector3.up * 0.1f;
+            // Independent check with the raw scene: nearest blocker between the NPC eye and the item, skipping only the
+            // item itself and the NPC's own body.
+            var offset = at - eye;
+            var blocker = "clear";
+            foreach (var h in Physics.RaycastAll(eye, offset.normalized, offset.magnitude - 0.05f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            {
+                if (itemColliders.Contains(h.collider) && h.collider.GetComponentInParent<CarryableItem>()?.ObjectId == itemIds[p]) continue;
+                var owner = h.collider.GetComponentInParent<PlayerAvatar>();
+                if (owner != null && (owner == npc || (held && owner == sightTarget))) continue;
+                blocker = "BLOCKED by " + h.collider.name;
+                break;
+            }
+
+            Debug.Log($"[Thief NPC] saw player {p}'s item{(held ? " (in their hands)" : "")} {offset.magnitude:F1} m away, line of sight {blocker}.");
         }
 
         private void End(string why)
