@@ -1,6 +1,7 @@
 using Fusion;
 using Fusion.Addons.KCC;
 using Game.Core.Players;
+using Game.Core.Emotes;
 using Game.Server.Players;
 using UnityEngine;
 
@@ -88,6 +89,23 @@ namespace Game.Network.Players
         /// <summary>마지막으로 시작한 감정 표현의 카탈로그 ID.</summary>
         [Networked]
         public int EmoteId { get; private set; }
+
+        // A sequence is an event; late joiners also need the currently active interval.
+        [Networked]
+        public double EmoteStartedAt { get; private set; }
+
+        [Networked]
+        public double EmoteEndsAt { get; private set; }
+
+        public float EmoteElapsedSeconds => Runner != null && EmoteSequence > 0 &&
+            Runner.SimulationTime < EmoteEndsAt
+                ? (float)System.Math.Max(0d, Runner.SimulationTime - EmoteStartedAt)
+                : -1f;
+
+        internal void CancelEmote()
+        {
+            if (Object != null && Object.HasStateAuthority) EmoteEndsAt = 0d;
+        }
 
         [Networked]
         private int LastEmoteRequest { get; set; }
@@ -275,12 +293,20 @@ namespace Game.Network.Players
             AnimationMoveX = -input.Move.x;
             AnimationMoveZ = input.Move.y;
             var held = GetComponent<ICarryingState>();
-            AnimationCarrying = held != null && held.IsCarrying;
+            var carrying = held != null && held.IsCarrying;
+            if (Posture != postureBeforeInput || carrying != AnimationCarrying ||
+                (EmoteEndsAt > Runner.SimulationTime && !EmoteCatalog.Of((Game.Core.Emotes.EmoteId)EmoteId).Loop &&
+                    (direction.sqrMagnitude > 0f || !grounded)))
+            {
+                EmoteEndsAt = 0d;
+            }
+            AnimationCarrying = carrying;
 
             if (Posture != PlayerPosture.Prone &&
                 input.WasPressed(NetworkPlayerButton.Attack, PreviousButtons) &&
                 Runner.SimulationTime >= NextAttackAllowedAt)
             {
+                EmoteEndsAt = 0d;
                 AttackSequence++;
                 NextAttackAllowedAt = Runner.SimulationTime + attackCooldownSeconds;
             }
@@ -294,10 +320,12 @@ namespace Game.Network.Players
                     TryApplyPosture(PlayerPosture.Standing, settings);
                 }
 
-                if (CanStartEmote(grounded, Posture))
+                if (CanStartEmote(grounded, Posture) && EmoteCatalog.TryOf(input.EmoteId, out _))
                 {
                     EmoteSequence++;
                     EmoteId = input.EmoteId;
+                    EmoteStartedAt = Runner.SimulationTime;
+                    EmoteEndsAt = EmoteStartedAt + EmoteCatalog.PlaybackSeconds(EmoteId);
                 }
             }
 
@@ -325,6 +353,7 @@ namespace Game.Network.Players
             ControlsEnabled = enabled;
             if (!enabled)
             {
+                CancelEmote();
                 PreviousButtons = default;
                 kcc.SetInputDirection(Vector3.zero);
             }
@@ -381,6 +410,7 @@ namespace Game.Network.Players
             // simulation tick, which previously let the avatar resume falling
             // from its pre-scene position. Apply the complete placement from
             // FixedUpdateNetwork instead.
+            CancelEmote();
             pendingTeleport = pose;
             hasPendingTeleport = true;
             return true;

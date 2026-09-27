@@ -38,18 +38,24 @@ namespace Game.Network.Match
             if (!TryGetLobbyPlayer(ref source, out var avatar, out var pose) ||
                 !_state.CanHoldObject(objectId) || !_state.CanTrackObject(objectId) ||
                 !lobbyObjects.TryHold(PlayerRegistry.IdOf(source), objectId, pose)) return false;
-            if (_state.TrySetObjectHeld(objectId, avatar.Seat)) return true;
+            if (_state.TrySetObjectHeld(objectId, avatar.Seat))
+            {
+                avatar.GetComponent<NetworkPlayerMotor>()?.CancelEmote();
+                return true;
+            }
             lobbyObjects.Forget(PlayerRegistry.IdOf(source));
             return false;
         }
 
         private bool TryReleaseLobbyObject(PlayerRef source, Pose pose, Vector3 velocity, bool throwing)
         {
-            if (!TryGetLobbyPlayer(ref source, out _, out var playerPose) ||
+            if (!TryGetLobbyPlayer(ref source, out var avatar, out var playerPose) ||
                 !lobbyObjects.TryGetHeld(PlayerRegistry.IdOf(source), out var objectId) ||
                 !_state.CanTrackObject(objectId) ||
                 !lobbyObjects.TryRelease(PlayerRegistry.IdOf(source), playerPose, pose, velocity, throwing)) return false;
-            return _state.TrySetObjectReleased(objectId, pose, velocity);
+            var released = _state.TrySetObjectReleased(objectId, pose, velocity);
+            if (released) avatar.GetComponent<NetworkPlayerMotor>()?.CancelEmote();
+            return released;
         }
 
         private bool ReleaseDepartedLobbyObject(PlayerRef player)

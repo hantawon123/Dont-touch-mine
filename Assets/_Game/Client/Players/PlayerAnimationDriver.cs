@@ -532,8 +532,11 @@ namespace Game.Client.Players
             bool carrying,
             float lookPitchDegrees,
             int emoteSequence,
-            int emoteId)
+            int emoteId,
+            float emoteElapsedSeconds = float.NaN)
         {
+            var firstSnapshot = !usesNetworkState;
+            var newEmote = networkEmoteSequence != emoteSequence;
             if (!usesNetworkState)
             {
                 usesNetworkState = true;
@@ -547,12 +550,6 @@ namespace Game.Client.Players
                     networkAttackSequence = attackSequence;
                     PlayPunch();
                 }
-
-                if (networkEmoteSequence != emoteSequence)
-                {
-                    networkEmoteSequence = emoteSequence;
-                    TryPlayEmote((EmoteId)emoteId);
-                }
             }
 
             networkSpeed = Mathf.Max(0f, planarSpeed);
@@ -560,6 +557,29 @@ namespace Game.Client.Players
             networkMoveLocal = planarDirectionLocal;
             networkCarrying = carrying;
             networkLookPitch = lookPitchDegrees;
+
+            networkEmoteSequence = emoteSequence;
+            if (float.IsNaN(emoteElapsedSeconds))
+            {
+                // Legacy/non-network callers still deliver discrete emote events.
+                if (!firstSnapshot && newEmote) TryPlayEmote((EmoteId)emoteId);
+            }
+            else if (emoteElapsedSeconds < 0f)
+            {
+                if (EmoteCatalog.IsEmoteState(oneShotState)) ClearOneShot();
+            }
+            else if ((firstSnapshot || newEmote) && float.IsFinite(emoteElapsedSeconds) &&
+                     EmoteCatalog.TryOf(emoteId, out var emote) &&
+                     emoteElapsedSeconds < EmoteCatalog.PlaybackSeconds(emoteId) &&
+                     TryPlayEmote(emote.Id))
+            {
+                oneShotUntilTime = Time.time + EmoteCatalog.PlaybackSeconds(emoteId) - emoteElapsedSeconds;
+                wasGrounded = grounded;
+                currentState = emote.StateName;
+                var length = Mathf.Max(.01f, ClipLength(emote.StateName, emote.DurationSeconds));
+                var offset = emote.Loop ? emoteElapsedSeconds % length : emoteElapsedSeconds;
+                animator.CrossFadeInFixedTime(emote.StateName, CrossFadeSeconds, 0, offset);
+            }
         }
 
         private void Update()

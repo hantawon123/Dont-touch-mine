@@ -125,7 +125,7 @@ namespace Game.Bootstrap
                 if (editorServer) EditorDevelopmentSession.Report("준비됨: " + code);
 #endif
                 var emptySince = Time.realtimeSinceStartupAsDouble;
-                var startedAt = emptySince;
+                double? claimStartedAt = null;
                 while (network.IsRunning)
                 {
 #if UNITY_EDITOR
@@ -135,9 +135,8 @@ namespace Game.Bootstrap
                             $"방 사용 중: {code} (접속 {network.PlayerCount}명)");
 #endif
                     // Owner departure is handled by the network callback, not a transient room-list count.
-                    if (!editorServer && network.IsAwaitingRoomClaim && Time.realtimeSinceStartupAsDouble - startedAt > 120d) break;
-                    if (network.PlayerCount > 0) emptySince = Time.realtimeSinceStartupAsDouble;
-                    if (!editorServer && Time.realtimeSinceStartupAsDouble - emptySince > 120d) break;
+                    if (!editorServer && ShouldCloseIdleRoom(network.IsAwaitingRoomClaim, network.PlayerCount,
+                            Time.realtimeSinceStartupAsDouble, ref emptySince, ref claimStartedAt)) break;
                     await UniTask.Delay(250, DelayType.Realtime, cancellationToken: cancellation);
                 }
 #if UNITY_EDITOR
@@ -171,6 +170,28 @@ namespace Game.Bootstrap
 #endif
                 if (!Application.isEditor) Application.Quit(1);
             }
+        }
+
+        internal static bool ShouldCloseIdleRoom(bool awaitingClaim, int playerCount, double now,
+            ref double emptySince, ref double? claimStartedAt)
+        {
+            // A healthy, unused warm room belongs to the pool. Do not restart it on a timer.
+            if (awaitingClaim && playerCount == 0 && !claimStartedAt.HasValue)
+            {
+                emptySince = now;
+                return false;
+            }
+
+            if (awaitingClaim)
+            {
+                // Once a client arrives, keep the existing deadline for an unfinished claim.
+                // Reconnects must not reset it and monopolize a pool slot indefinitely.
+                claimStartedAt ??= now;
+                if (now - claimStartedAt.Value > 120d) return true;
+            }
+
+            if (playerCount > 0) emptySince = now;
+            return now - emptySince > 120d;
         }
 
         /// <summary>

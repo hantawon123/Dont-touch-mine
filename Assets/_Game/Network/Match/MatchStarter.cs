@@ -934,6 +934,12 @@ namespace Game.Network.Match
             return playerId;
         }
 
+        private void CancelPlayerEmote(int playerIndex)
+        {
+            if (TryGetPlayingAvatar(playerIndex, out var avatar))
+                avatar.GetComponent<NetworkPlayerMotor>()?.CancelEmote();
+        }
+
         public bool TryHoldObject(PlayerRef source, string objectId)
         {
             if (IsLobby) return TryHoldLobbyObject(source, objectId);
@@ -947,6 +953,7 @@ namespace Game.Network.Match
                 return false;
             }
 
+            CancelPlayerEmote(playerIndex);
             return _state.TrySetObjectHeld(objectId, playerIndex);
         }
 
@@ -964,6 +971,7 @@ namespace Game.Network.Match
                 return false;
             }
 
+            CancelPlayerEmote(playerIndex);
             return _state.TrySetObjectReleased(objectId, pose);
         }
 
@@ -980,6 +988,7 @@ namespace Game.Network.Match
                 return false;
             }
 
+            CancelPlayerEmote(playerIndex);
             return _state.TrySetObjectReleased(objectId, pose);
         }
 
@@ -1048,6 +1057,7 @@ namespace Game.Network.Match
                 return false;
             }
 
+            CancelPlayerEmote(playerIndex);
             return _state.TrySetObjectReleased(objectId, pose, initialVelocity);
         }
 
@@ -1123,6 +1133,7 @@ namespace Game.Network.Match
                 ServerTime);
             if (result != Game.Core.Players.HitResult.Ignored)
             {
+                CancelPlayerEmote(targetPlayerIndex);
                 PublishHitCount(targetPlayerIndex);
             }
 

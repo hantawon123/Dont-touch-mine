@@ -315,7 +315,8 @@ namespace Game.Bootstrap
                         motor.AnimationCarrying && !network.IsResultSceneLoaded,
                         motor.LookPitchDegrees,
                         motor.EmoteSequence,
-                        motor.EmoteId);
+                        motor.EmoteId,
+                        motor.EmoteElapsedSeconds);
                 }
 
                 var interactor = avatar.GetComponent<PlayerInteractor>();
