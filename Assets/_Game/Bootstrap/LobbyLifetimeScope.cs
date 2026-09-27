@@ -864,7 +864,8 @@ namespace Game.Bootstrap
                     motor.AnimationCarrying,
                     0f,
                     motor.EmoteSequence,
-                    motor.EmoteId);
+                    motor.EmoteId,
+                    motor.EmoteElapsedSeconds);
             }
         }
     }
