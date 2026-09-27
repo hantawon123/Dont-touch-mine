@@ -45,6 +45,12 @@ namespace Game.Network.Players
 
         public float StoppingDistance => stoppingDistance;
 
+        /// <summary>Crouch / prone held by the bot's driver (thief NPC looking under furniture); sent with every input.</summary>
+        public PlayerInputButtons PostureButtons { get; set; }
+
+        /// <summary>Stand still (stunned thief NPC).</summary>
+        public bool Frozen { get; set; }
+
         /// <summary>
         /// Stopping distance for the current destination: the normal value for walkable targets, a shorter one
         /// when the target was off the NavMesh and has been projected to the nearest floor point.
@@ -153,8 +159,8 @@ namespace Game.Network.Players
         public PlayerInputIntent CreateInput(Vector3 currentPosition, float currentYawDegrees)
         {
             HasSteeringPoint = false;
-            var hold = HoldStill(hasIdleYaw ? idleYaw : currentYawDegrees);
-            if (!isActiveAndEnabled || !TryGetDestination(out var destinationPoint))
+            var hold = HoldStill(hasIdleYaw ? idleYaw : currentYawDegrees, PostureButtons);
+            if (Frozen || !isActiveAndEnabled || !TryGetDestination(out var destinationPoint))
             {
                 return hold;
             }
@@ -224,15 +230,15 @@ namespace Game.Network.Players
                 moveX: 0f,
                 moveY: 1f,
                 lookYawDegrees: targetYaw,
-                buttons: PlayerInputButtons.None);
+                buttons: PostureButtons);
         }
 
-        private static PlayerInputIntent HoldStill(float yawDegrees) =>
+        private static PlayerInputIntent HoldStill(float yawDegrees, PlayerInputButtons buttons = PlayerInputButtons.None) =>
             new PlayerInputIntent(
                 moveX: 0f,
                 moveY: 0f,
                 lookYawDegrees: float.IsFinite(yawDegrees) ? yawDegrees : 0f,
-                buttons: PlayerInputButtons.None);
+                buttons: buttons);
 
         private bool TryGetDestination(out Vector3 point)
         {

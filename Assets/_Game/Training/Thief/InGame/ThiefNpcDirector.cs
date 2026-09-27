@@ -63,6 +63,14 @@ namespace Game.Training.Thief
         private float[] seekObs, hideObs, seekMask, hideMask;
         private string brainLabel = "rule";
 
+        // Player punches on the NPC (thief-npc-v2.md 12): the game's combat only knows player indices, so the host
+        // counts them here with the same numbers (hit 0.35 s after the punch, sphere 0.8 m ahead r 0.7 m, 3 hits
+        // -> 2 s stun and the held prop drops).
+        private readonly Dictionary<NetworkPlayerMotor, int> lastAttack = new();
+        private readonly List<(NetworkPlayerMotor who, float at)> pendingHits = new();
+        private int npcHits;
+        private float npcStunnedUntil = -1f;
+
         // 1 on, 0 off, unset: on for a development server (Game > Network > Development Server) only.
         [MenuItem("Tools/AI/Thief NPC/Enable In Match (editor host)")]
         private static void Enable() { EditorPrefs.SetInt(EnabledKey, 1); Debug.Log("[Thief NPC] enabled for the next match (editor host)."); }
@@ -239,6 +247,10 @@ namespace Game.Training.Thief
             match.MirrorPlace = Place;
             match.MirrorDrop = DropHere;
             match.BeginMirror(Random.Range(1, int.MaxValue), feet, yaw);
+            lastAttack.Clear();
+            pendingHits.Clear();
+            npcHits = 0;
+            npcStunnedUntil = -1f;
             accumulator = 0f;
             forwarding = false;
             lastProgressPos = feet;
@@ -349,6 +361,15 @@ namespace Game.Training.Thief
         {
             var feet = npc.transform.position;
             MirrorWorld();
+            ResolvePlayerPunches(feet);
+            var stunned = Time.time < npcStunnedUntil;
+            legs.Frozen = stunned;
+            if (stunned)
+            {
+                legs.PostureButtons = PlayerInputButtons.None;
+                match.StepMirror(dt, feet, false, true);
+                return;
+            }
             if (decoy != null)
             {
                 StepDecoy(feet);
@@ -397,6 +418,50 @@ namespace Game.Training.Thief
             }
 
             if (!match.Thief.Body.Moving) legs.SetIdleYaw(match.Thief.Body.Yaw);
+            var shadow = match.Thief.Body;
+            legs.PostureButtons = shadow.Prone ? PlayerInputButtons.Prone : shadow.Crouched ? PlayerInputButtons.Crouch : PlayerInputButtons.None;
+        }
+
+        private void ResolvePlayerPunches(Vector3 npcFeet)
+        {
+            foreach (var avatar in runnerService.PlayerAvatars)
+            {
+                if (avatar == null || avatar.IsMatchNpc) continue;
+                var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                if (motor == null) continue;
+                if (!lastAttack.TryGetValue(motor, out var seen))
+                {
+                    lastAttack[motor] = motor.AttackSequence;
+                    continue;
+                }
+
+                if (motor.AttackSequence == seen) continue;
+                lastAttack[motor] = motor.AttackSequence;
+                pendingHits.Add((motor, Time.time + ThiefMatch.AttackHitDelay));
+            }
+
+            for (var i = pendingHits.Count - 1; i >= 0; i--)
+            {
+                var (who, at) = pendingHits[i];
+                if (Time.time < at) continue;
+                pendingHits.RemoveAt(i);
+                if (who == null || Time.time < npcStunnedUntil) continue;
+                var t = who.transform;
+                var centre = t.position + Vector3.up + t.forward * 0.8f;
+                var npcCentre = npcFeet + Vector3.up;
+                if ((centre - npcCentre).sqrMagnitude > (0.7f + 0.35f) * (0.7f + 0.35f)) continue;
+                npcHits++;
+                Debug.Log($"[Thief NPC] hit by a player ({npcHits}/{ThiefMatch.HitsToStun}).");
+                if (npcHits < ThiefMatch.HitsToStun) continue;
+                npcHits = 0;
+                npcStunnedUntil = Time.time + ThiefMatch.StunSeconds;
+                legs.ClearDestination();
+                forwarding = false;
+                if (decoy != null && decoy.Holding) starter.TryDropHeldObjectForMatchNpc(npcId, new Pose(npcFeet + Vector3.up * 0.2f, Quaternion.identity), out _);
+                decoy = null;
+                var dropped = starter.TryGetMatchNpcHeldObjectId(npcId, out _) && DropHere();
+                Debug.Log($"[Thief NPC] stunned for {ThiefMatch.StunSeconds:F0} s{(dropped ? ", dropped what it held" : "")}.");
+            }
         }
 
         private void MirrorWorld()
@@ -499,7 +564,7 @@ namespace Game.Training.Thief
                 if (System.Array.IndexOf(itemIds, id) >= 0) continue;
                 var d = Vector3.Distance(item.transform.position, body.Position);
                 if (d >= bestDistance || !HideSeekVision.InCone(body.Eye, body.Yaw, body.Pitch, item.transform.position) ||
-                    !HideSeekVision.Clear(body.Eye, item.transform.position, arena.World.OccluderMask)) continue;
+                    !SeesMapProp(body.Eye, item)) continue;
                 best = item;
                 bestDistance = d;
             }
@@ -510,6 +575,26 @@ namespace Game.Training.Thief
             nextDecoyAt = Time.time + 45f;
             Debug.Log($"[Thief NPC] decoy: going for map prop '{decoy.Id}' {bestDistance:F1} m away.");
             return true;
+        }
+
+        /// <summary>Line of sight to a map prop: the first thing the ray meets (avatars and players' items skipped) is the prop itself.</summary>
+        private bool SeesMapProp(Vector3 eye, CarryableItem item)
+        {
+            var target = item.transform.position;
+            var offset = target - eye;
+            var distance = offset.magnitude;
+            if (distance < 0.05f) return true;
+            var hits = Physics.RaycastAll(eye, offset / distance, distance + 0.3f, arena.World.OccluderMask, QueryTriggerInteraction.Ignore);
+            var nearest = float.PositiveInfinity;
+            Collider first = null;
+            foreach (var h in hits)
+            {
+                if (Ignored(h.collider) || h.distance >= nearest) continue;
+                nearest = h.distance;
+                first = h.collider;
+            }
+
+            return first == null || first.GetComponentInParent<CarryableItem>() == item;
         }
 
         private void StepDecoy(Vector3 feet)

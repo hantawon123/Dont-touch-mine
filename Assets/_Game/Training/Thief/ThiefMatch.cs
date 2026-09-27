@@ -467,6 +467,7 @@ namespace Game.Training.Thief
             if (action < 8 && action < SeekCandidates.Count && b.TrySetDestination(world.Waypoints[SeekCandidates[action]]))
             {
                 t.Macro = Macro.ToWaypoint;
+                t.Target = SeekCandidates[action];
                 return;
             }
 
@@ -644,7 +645,14 @@ namespace Game.Training.Thief
                 case Macro.ToWaypoint:
                 case Macro.Relocate:
                 case Macro.Flee:
-                    if (!b.Moving) Finish(t);
+                    if (!b.Moving)
+                    {
+                        // The real NPC can stop short of a waypoint (a blocked step); count the walk as the visit so the
+                        // search brain does not send it back to the room it just left.
+                        if (Mirrored && t.Macro == Macro.ToWaypoint && t.Target >= 0 && t.Target < Mind.VisitedAt.Length) Mind.VisitedAt[t.Target] = Time;
+                        Finish(t);
+                    }
+
                     break;
                 case Macro.ToProp:
                     if (!b.Moving && t.SettleUntil < 0f && !t.Hopped) ToPropArrived++;

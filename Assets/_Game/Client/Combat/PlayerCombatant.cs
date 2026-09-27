@@ -95,6 +95,12 @@ namespace Game.Client.Combat
 
         public int PlayerIndex => playerIndex;
 
+        /// <summary>
+        /// A searching-world NPC (thief NPC). It has no player index, so a punch on it must not be sent as a hit on
+        /// a player; the host counts NPC hits itself (ThiefNpcDirector).
+        /// </summary>
+        public bool IsMatchNpcTarget { get; set; }
+
         [Inject]
         public void Construct(IPlayerCombatRules rules)
         {
@@ -273,7 +279,7 @@ namespace Game.Client.Combat
             for (var i = 0; i < hitCount; i++)
             {
                 var target = attackHits[i].GetComponentInParent<PlayerCombatant>();
-                if (target == null || target == this || IsAlreadyHit(target, i))
+                if (target == null || target == this || target.IsMatchNpcTarget || IsAlreadyHit(target, i))
                 {
                     continue;
                 }

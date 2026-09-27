@@ -359,6 +359,7 @@ namespace Game.Bootstrap
                 }
 
                 var combatant = avatar.GetComponent<PlayerCombatant>();
+                if (combatant != null) combatant.IsMatchNpcTarget = isMatchNpc;
                 if (!isMatchNpc && !lobbyMode && combatant != null)
                 {
                     combatant.ConfigureNetworkPlayer(playerIndex, acceptsLocalInput, avatar.IsOwner);
