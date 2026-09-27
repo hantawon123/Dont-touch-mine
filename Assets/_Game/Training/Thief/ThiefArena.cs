@@ -68,6 +68,67 @@ namespace Game.Training.Thief
 
         private bool inGame;
 
+        // ------------------------------------------------------------------ transfer (thief-npc-v2.md 11.4)
+        // The v1.1 hide-seek seeker (SeekSelect, hideseek-obs-v1: 89 floats, 12 actions) beat the rule seeker clearly
+        // (found 61% -> 87%). Its waypoint features are the same as the thief's, so it can choose where the empty-handed
+        // thief searches: each search (round start or after letting go of a prop) is one of its episodes; "go to the
+        // object" is the reflex's job and "chase the hider" is masked (the thief never hits).
+        [SerializeField] private Unity.InferenceEngine.ModelAsset transferSeekModel;
+        private Unity.InferenceEngine.Worker transferWorker;
+        private readonly float[] transferObs = new float[3 + 7 + 7 + 8 * 9];
+        private readonly float[] transferMask = new float[12];
+        public int TransferDecisions { get; private set; }
+
+        public bool HasTransferSeek => transferSeekModel != null;
+
+        public void SetTransferSeekModel(Unity.InferenceEngine.ModelAsset model)
+        {
+            transferSeekModel = model;
+            transferWorker?.Dispose();
+            transferWorker = null;
+        }
+
+        public int TransferSeekAction(ThiefMatch m)
+        {
+            transferWorker ??= new Unity.InferenceEngine.Worker(Unity.InferenceEngine.ModelLoader.Load(transferSeekModel), Unity.InferenceEngine.DeviceType.CPU);
+            var o = transferObs;
+            Array.Clear(o, 0, o.Length);
+            var body = m.Thief.Body;
+            o[0] = Mathf.Clamp01((m.Time - m.SearchStartedAt) / HideSeekRules.EpisodeSeconds);
+            o[1] = body.Stamina / HideSeekRules.MaxStamina;
+            o[2] = body.Crouched ? 1f : 0f;
+            o[3 + 4] = 1f; o[3 + 5] = 1f;   // object: not seen (a known placed prop is the reflex's job)
+            o[10 + 4] = 1f; o[10 + 5] = 1f; // hider: not seen (no chasing)
+            var k = 17;
+            for (var slot = 0; slot < 8; slot++, k += 9)
+            {
+                if (slot >= m.SeekCandidates.Count) continue;
+                var w = m.SeekCandidates[slot];
+                var local = ThiefWorld.Local(body, World.Waypoints[w] - body.Position);
+                o[k] = 1f;
+                o[k + 1] = local.x;
+                o[k + 2] = local.z;
+                o[k + 3] = Mathf.Clamp01(m.SeekCandidatePaths[slot] / 30f);
+                o[k + 4] = float.IsNegativeInfinity(m.Mind.VisitedAt[w]) ? 1f : Mathf.Clamp01((m.Time - m.Mind.VisitedAt[w]) / 60f);
+                o[k + 5] = Mathf.Clamp01(World.WaypointUnder[w] / 5f);
+                o[k + 6] = Mathf.Clamp01(World.WaypointOnFurniture[w] / 5f);
+                o[k + 7] = Mathf.Clamp01(World.WaypointCorner[w] / 5f);
+                o[k + 8] = Mathf.Clamp01(World.WaypointFloor[w] / 10f);
+            }
+
+            for (var a = 0; a < 12; a++) transferMask[a] = a < 8 ? (a < m.SeekCandidates.Count ? 1f : 0f) : a <= 9 ? 1f : 0f;
+            using var obsTensor = new Unity.InferenceEngine.Tensor<float>(new Unity.InferenceEngine.TensorShape(1, o.Length), o);
+            using var maskTensor = new Unity.InferenceEngine.Tensor<float>(new Unity.InferenceEngine.TensorShape(1, 12), transferMask);
+            transferWorker.SetInput("obs_0", obsTensor);
+            transferWorker.SetInput("action_masks", maskTensor);
+            transferWorker.Schedule();
+            using var output = (transferWorker.PeekOutput("deterministic_discrete_actions") as Unity.InferenceEngine.Tensor<int>)?.ReadbackAndClone();
+            var action = output != null ? output[0, 0] : ThiefMatch.SeekActionLook;
+            TransferDecisions++;
+            if (action < 8) return action < m.SeekCandidates.Count ? action : ThiefMatch.SeekActionLook;
+            return action == 9 ? ThiefMatch.SeekActionCrouchLook : ThiefMatch.SeekActionLook;
+        }
+
         /// <summary>
         /// Real match (ThiefNpcDirector): only the map knowledge, observations and rule brains are used; no rounds, no
         /// ML-Agents academy, and the game's physics settings stay untouched. Call on an inactive GameObject.
@@ -98,6 +159,7 @@ namespace Game.Training.Thief
 
         private void OnDestroy()
         {
+            transferWorker?.Dispose();
             if (inGame) return;
             Physics.simulationMode = previousSimulationMode;
             if (previousFixedDelta > 0f) Time.fixedDeltaTime = previousFixedDelta;
@@ -176,8 +238,15 @@ namespace Game.Training.Thief
                 }
 
                 var t = match.Thief;
-                if (match.ThiefActive && t.Macro == ThiefMatch.Macro.Await && !match.ThiefAwaiting && !t.Stunned(match.Time))
+                if (match.ThiefActive && t.Macro == ThiefMatch.Macro.Await && !match.ThiefAwaiting && !t.Stunned(match.Time) &&
+                    !match.TryReflexGoForProp())
                 {
+                    if (!match.ThiefCarrying && transferSeekModel != null)
+                    {
+                        match.ApplyThiefAction(TransferSeekAction(match));
+                        continue;
+                    }
+
                     match.ThiefAwaiting = true;
                     if (match.ThiefCarrying) hideAgents[match.Index].AskForDecision();
                     else seekAgents[match.Index].AskForDecision();

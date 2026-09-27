@@ -12,6 +12,12 @@ seed = sys.argv[3] if len(sys.argv) > 3 else "777001"
 hiding = sys.argv[4] if len(sys.argv) > 4 else "Rule"
 mode = "None" if thief == "None" else "Agent"
 
+transfer = ""
+if thief.startswith("Transfer:"):
+    # v1.1 hide-seek seeker chooses the search; rule hide brain (thief-npc-v2.md 11.4)
+    transfer = thief[len("Transfer:"):]
+    thief = "Rule"
+
 if thief.startswith("Model:"):
     seek_path, hide_path = thief[len("Model:"):].split(",")
     brains = f"""
@@ -45,6 +51,8 @@ t.GetField("editorTimeScale", F).SetValue(a, 100f);
 t.GetField("thiefMode", F).SetValue(a, Game.Training.Thief.ThiefArena.ThiefMode.{mode});
 t.GetField("playerHiding", F).SetValue(a, Game.Training.Thief.ThiefArena.PlayerHiding.{hiding});
 {brains}
+a.SetTransferSeekModel({'UnityEditor.AssetDatabase.LoadAssetAtPath<Unity.InferenceEngine.ModelAsset>("' + transfer + '")' if transfer else 'null'});
+if ({'true' if transfer else 'false'} && !a.HasTransferSeek) return "TRANSFER MODEL NOT FOUND";
 return "set dirty=" + UnityEngine.SceneManagement.SceneManager.GetActiveScene().isDirty;
 """
 open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "th_set.cs"), "w", encoding="utf-8").write(code)

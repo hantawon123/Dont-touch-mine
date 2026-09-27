@@ -211,6 +211,8 @@ namespace Game.Training.Thief
             ThiefHoldTimeouts = 0;
             ThiefPickedUpAt = -1f;
             PropChoiceOffered = PropChoiceTaken = PropsSpotted = 0;
+            Reflexes = 0;
+            SearchStartedAt = 0f;
             ToPropPlanFailed = ToPropArrived = ToPropEndedWithoutPickup = 0;
             MissHeld = MissMoved = MissReach = MissSight = MissOther = 0;
             System.Array.Clear(PropSlotChosen, 0, Players);
@@ -375,6 +377,27 @@ namespace Game.Training.Thief
         public const int HideActionRelocate = 8;
         public const int HideActionFlee = 9;
         public const int HideActionCount = 10;
+
+        /// <summary>
+        /// Reflex (thief-npc-v2.md 11.3): an empty-handed thief that knows where a player's prop lies goes for the
+        /// nearest one without asking the seek brain, the way pickup itself is automatic. The brains learn where to
+        /// search, how to look (stand / crouch / lie down), when to avoid players and where to hide; with only the
+        /// round outcome as reward the brains never learned to take a prop they saw (about 1 in 10, v2g/v2h).
+        /// </summary>
+        public const bool GoForSeenPropReflex = true;
+
+        public int Reflexes;
+
+        /// <summary>Start of the current search (round start, or the last time the thief let go of a prop).</summary>
+        public float SearchStartedAt;
+
+        public bool TryReflexGoForProp()
+        {
+            if (!GoForSeenPropReflex || ThiefCarrying || !SeekAllowed(SeekActionPropFirst)) return false;
+            Reflexes++;
+            ApplyThiefAction(SeekActionPropFirst);
+            return true;
+        }
 
         public bool SeekAllowed(int action)
         {
@@ -663,6 +686,7 @@ namespace Game.Training.Thief
                             prop.MovedSinceHidden = true;
                             t.Holding = -1;
                             ThiefHides++;
+                            SearchStartedAt = Time;
                         }
 
                         Finish(t);
@@ -787,6 +811,7 @@ namespace Game.Training.Thief
         {
             if (a.Holding < 0) return;
             if (Mirrored && a.IsThief && !MirrorDrop()) return;
+            if (a.IsThief) SearchStartedAt = Time;
             var prop = Props[a.Holding];
             prop.DroppedByThiefStun = byThief;
             prop.LastDropper = a.Id;

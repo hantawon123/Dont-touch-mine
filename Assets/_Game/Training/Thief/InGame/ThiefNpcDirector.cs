@@ -32,6 +32,9 @@ namespace Game.Training.Thief
         private const string SharedDir = "Assets/_Game/Content/Training/ThiefNpc/";
         private static readonly string[] BankPaths = { SharedDir + "Mansion_HidingSpotBank.asset", LocalDir + "Mansion_HidingSpotBank.asset" };
         private static readonly string[] NavMeshPaths = { SharedDir + "Mansion_ThiefNpc_NavMesh.asset", LocalDir + "Mansion_Thief_NavMesh.asset" };
+
+        // Search brain (thief-npc-v2.md 11.4): the v1.1 hide-seek seeker, transferred; hiding stays the rule brain.
+        private const string TransferSeekPath = SharedDir + "SeekSelect-v11d-3200028.onnx";
         public const string ModelDir = LocalDir + "ThiefCheckpoints/ingame/";
         private const float Step = 0.05f;
 
@@ -319,6 +322,14 @@ namespace Game.Training.Thief
             seekMask = new float[ThiefMatch.SeekActionCount];
             hideMask = new float[ThiefMatch.HideActionCount];
             if (!EditorPrefs.GetBool(BrainKey, true)) return;
+            var transfer = AssetDatabase.LoadAssetAtPath<ModelAsset>(TransferSeekPath);
+            if (transfer != null)
+            {
+                arena.SetTransferSeekModel(transfer);
+                brainLabel = "trained search (v1.1 seeker) + rule hiding";
+                return;
+            }
+
             var seek = AssetDatabase.LoadAssetAtPath<ModelAsset>(ModelDir + "ThiefSeek.onnx");
             var hide = AssetDatabase.LoadAssetAtPath<ModelAsset>(ModelDir + "ThiefHide.onnx");
             if (seek == null || hide == null)
@@ -418,11 +429,16 @@ namespace Game.Training.Thief
 
         private void Decide()
         {
+            if (match.TryReflexGoForProp()) return;
             if (!match.ThiefCarrying && TryStartDecoy()) return;
             int action;
             if (match.ThiefCarrying)
             {
                 action = hideWorker != null ? Infer(hideWorker, hideObs, hideMask, ThiefMatch.HideActionCount, arena.WriteHideObservation, match.HideAllowed) : arena.RuleHideAction(match);
+            }
+            else if (arena.HasTransferSeek)
+            {
+                action = arena.TransferSeekAction(match);
             }
             else
             {
