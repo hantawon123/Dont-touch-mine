@@ -81,6 +81,11 @@ namespace Game.Client.Home
             // siblings first - built earlier, the menu would still be pressable
             // underneath the notice (S15P21D205-924).
             BuildSuspendedNotice(canvas);
+
+            // Over the suspended notice too. A suspended player on an old build
+            // has to update before the server can say anything else to them
+            // (S15P21D205-1109).
+            BuildUpdateNotice(canvas);
         }
 
         /// <summary>

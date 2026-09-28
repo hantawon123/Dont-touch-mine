@@ -302,6 +302,13 @@ namespace Game.Bootstrap
                     .As<IChatModeration>();
             }
             builder.RegisterEntryPoint<MatchAnalyticsRecorder>();
+
+            // Which build is on the download page, for Home's update notice
+            // (S15P21D205-1109). A server is never told to update.
+            if (!DedicatedServerStartup.IsRequested)
+            {
+                builder.RegisterInstance(new ReleaseInfoGateway(new UnityWebRequestTransport(), endpoint));
+            }
             builder.RegisterInstance<IHighlightDirectorGateway>(new HighlightDirectorGateway(client));
             if (DedicatedServerStartup.IsRequested)
             {

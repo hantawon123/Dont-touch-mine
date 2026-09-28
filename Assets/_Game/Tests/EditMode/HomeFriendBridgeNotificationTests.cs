@@ -555,6 +555,8 @@ namespace Game.Architecture.Tests
             public void SetSuspendedNoticeVisible(bool visible) =>
                 SuspendedNoticeVisible = visible;
 
+            public void ShowUpdateNotice(string downloadUrl) { }
+
             public bool SuspendedNoticeVisible { get; private set; }
             public void SetNicknameAppliedFeedbackVisible(bool visible) { }
             public void SetNicknameError(string message) { }
