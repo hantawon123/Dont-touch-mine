@@ -74,6 +74,32 @@ namespace Game.Network.Voice
         /// made to hear the choice again.
         /// </summary>
         private string appliedDevice;
+        private string captureDevicesSignature;
+        private float nextCaptureDeviceCheck;
+        private bool captureDeviceRefreshPending;
+
+        private void OnEnable() => AudioSettings.OnAudioConfigurationChanged += OnAudioConfigurationChanged;
+        private void OnDisable() => AudioSettings.OnAudioConfigurationChanged -= OnAudioConfigurationChanged;
+        private void OnAudioConfigurationChanged(bool _) => captureDeviceRefreshPending = true;
+
+        private void RefreshCaptureDevice()
+        {
+#if !UNITY_WEBGL || UNITY_EDITOR
+            if (boundRecorder == null || Time.unscaledTime < nextCaptureDeviceCheck) return;
+            nextCaptureDeviceCheck = Time.unscaledTime + 2f;
+            // Input-only hotplug does not always raise Unity's output configuration event.
+            var signature = string.Join("\n", Microphone.devices);
+            var changed = captureDevicesSignature != null && captureDevicesSignature != signature;
+            captureDevicesSignature = signature;
+            if (!changed && !captureDeviceRefreshPending) return;
+            captureDeviceRefreshPending = false;
+            appliedDevice = null;
+            ApplyCaptureDevice();
+            // The same endpoint name may now represent a reconnected Bluetooth profile.
+            boundRecorder.RestartRecording();
+#endif
+        }
+
 
         /// <summary>
         /// The 마이크 볼륨 slider as a multiplier. 1 until the settings say
@@ -225,6 +251,7 @@ namespace Game.Network.Voice
                 ApplyCaptureGain();
             }
 
+            RefreshCaptureDevice();
             available.Value = client.ClientState == ClientState.Joined;
             transmitting.Value = recorder != null && recorder.IsCurrentlyTransmitting;
             ApplyListenState();
@@ -305,11 +332,10 @@ namespace Game.Network.Voice
         /// Hands the 마이크 볼륨 slider to the recorder.
         /// </summary>
         /// <remarks>
-        /// Through <see cref="MicAmplifier"/>, an SDK component that hangs a
+        /// Through <see cref="VoiceCaptureLimiter"/>, a component that hangs a
         /// post-processor on the outgoing stream. It has to be on the recorder's
-        /// own object before the voice is created, because the recorder tells it
-        /// so with <c>SendMessage</c> — which is why it sits on the prefab
-        /// rather than being added here.
+        /// own object when the voice is created. EnsureCaptureChain attaches it only to the
+        /// local recorder and restarts that recorder to register the processor.
         /// </remarks>
         public void SetCaptureGain(float gain)
         {
@@ -366,9 +392,9 @@ namespace Game.Network.Voice
             dsp.NoiseSuppression = true;
             dsp.enabled = true;
 
-            if (host.GetComponent<MicAmplifier>() == null)
+            if (host.GetComponent<VoiceCaptureLimiter>() == null)
             {
-                host.AddComponent<MicAmplifier>();
+                host.AddComponent<VoiceCaptureLimiter>();
                 attached = true;
             }
 
@@ -388,7 +414,7 @@ namespace Game.Network.Voice
                 return;
             }
 
-            var amplifier = boundRecorder.GetComponent<MicAmplifier>();
+            var amplifier = boundRecorder.GetComponent<VoiceCaptureLimiter>();
             if (amplifier == null)
             {
                 return;
@@ -437,7 +463,12 @@ namespace Game.Network.Voice
 
             if (boundRecorder.MicrophoneType == Recorder.MicType.Unity)
             {
-                return new DeviceInfo(name);
+#if !UNITY_WEBGL || UNITY_EDITOR
+                var availableName = Game.Core.Voice.VoiceCaptureDevice.ResolveAvailable(name, Microphone.devices);
+                return availableName == null ? DeviceInfo.Default : new DeviceInfo(availableName);
+#else
+                return DeviceInfo.Default;
+#endif
             }
 
             try

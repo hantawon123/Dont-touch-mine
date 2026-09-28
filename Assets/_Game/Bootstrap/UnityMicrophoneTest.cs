@@ -28,29 +28,8 @@ namespace Game.Bootstrap
         /// machine default. Empty, <see cref="SoundCatalog.DefaultDevice"/>,
         /// and a name the machine no longer has all become null.
         /// </summary>
-        public static string ResolveDevice(string deviceName, string[] devices)
-        {
-            if (string.IsNullOrWhiteSpace(deviceName)
-                || string.Equals(deviceName, SoundCatalog.DefaultDevice, StringComparison.Ordinal))
-            {
-                return null;
-            }
-
-            if (devices == null)
-            {
-                return null;
-            }
-
-            for (var i = 0; i < devices.Length; i++)
-            {
-                if (string.Equals(devices[i], deviceName, StringComparison.Ordinal))
-                {
-                    return deviceName;
-                }
-            }
-
-            return null;
-        }
+        public static string ResolveDevice(string deviceName, string[] devices) =>
+            Game.Core.Voice.VoiceCaptureDevice.ResolveAvailable(deviceName, devices);
 
         /// <summary>
         /// A rate the device accepts. Unity reports 0–0 when any rate is

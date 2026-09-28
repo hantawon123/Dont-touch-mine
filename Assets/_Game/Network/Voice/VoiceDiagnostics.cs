@@ -231,7 +231,7 @@ namespace Game.Network.Voice
                 line.Append(" aec").Append(dsp.AEC ? 'Y' : 'N');
             }
 
-            var amplifier = recorder.GetComponent<MicAmplifier>();
+            var amplifier = recorder.GetComponent<VoiceCaptureLimiter>();
             line.Append(" gain=")
                 .Append(amplifier == null ? "-" : amplifier.AmplificationFactor.ToString("0.00"));
         }
