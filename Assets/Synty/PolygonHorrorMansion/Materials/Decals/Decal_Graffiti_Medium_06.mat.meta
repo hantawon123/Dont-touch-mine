@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0593567c3a8b98d44b76f08244d0cce5
+timeCreated: 1639001766
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Materials/Decals/Decal_Graffiti_Medium_06.mat
+  uploadId: 987938

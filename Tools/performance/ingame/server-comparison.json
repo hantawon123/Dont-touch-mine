@@ -1,0 +1,152 @@
+{
+  "window_seconds": 64.00162999999998,
+  "warmup_seconds": 10,
+  "conditions": {
+    "host-final-observed": {
+      "mode": "Host",
+      "processes": 6,
+      "players": 6
+    },
+    "server-final-observed": {
+      "mode": "Server",
+      "processes": 7,
+      "players": 6
+    }
+  },
+  "runs": {
+    "host-final-observed": {
+      "peer0": {
+        "samples": 3836,
+        "frame_p95_ms": 16.7200043797493,
+        "frame_p99_ms": 16.9556979089975,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 7.1771,
+        "fusion_update_p99_ms": 10.3717,
+        "gc0_collections": 12,
+        "rtt_p95_ms": 0.0
+      },
+      "peer1": {
+        "samples": 3833,
+        "frame_p95_ms": 16.7249012738466,
+        "frame_p99_ms": 17.2274019569159,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 4.0987,
+        "fusion_update_p99_ms": 8.383,
+        "gc0_collections": 11,
+        "rtt_p95_ms": 33.3216
+      },
+      "peer2": {
+        "samples": 3838,
+        "frame_p95_ms": 16.7065057903528,
+        "frame_p99_ms": 16.8579015880823,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 3.0763,
+        "fusion_update_p99_ms": 4.3669,
+        "gc0_collections": 13,
+        "rtt_p95_ms": 48.7
+      },
+      "peer3": {
+        "samples": 3838,
+        "frame_p95_ms": 16.7158935219049,
+        "frame_p99_ms": 16.8778989464045,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 3.0004,
+        "fusion_update_p99_ms": 3.8163,
+        "gc0_collections": 13,
+        "rtt_p95_ms": 48.4122
+      },
+      "peer4": {
+        "samples": 3838,
+        "frame_p95_ms": 16.7068019509315,
+        "frame_p99_ms": 16.8473999947309,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 3.0614,
+        "fusion_update_p99_ms": 4.2219,
+        "gc0_collections": 13,
+        "rtt_p95_ms": 48.4518
+      },
+      "peer5": {
+        "samples": 3836,
+        "frame_p95_ms": 16.7178995907307,
+        "frame_p99_ms": 16.9143993407488,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 4.8507,
+        "fusion_update_p99_ms": 7.4716,
+        "gc0_collections": 13,
+        "rtt_p95_ms": 48.5521
+      }
+    },
+    "server-final-observed": {
+      "peer0": {
+        "samples": 3831,
+        "frame_p95_ms": 16.7366005480289,
+        "frame_p99_ms": 17.2491986304522,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 8.4829,
+        "fusion_update_p99_ms": 12.7387,
+        "gc0_collections": 13,
+        "rtt_p95_ms": 0.0
+      },
+      "peer1": {
+        "samples": 3838,
+        "frame_p95_ms": 16.6944023221731,
+        "frame_p99_ms": 16.8444011360407,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 2.5337,
+        "fusion_update_p99_ms": 3.4895,
+        "gc0_collections": 11,
+        "rtt_p95_ms": 33.3053
+      },
+      "peer2": {
+        "samples": 3832,
+        "frame_p95_ms": 16.7161002755165,
+        "frame_p99_ms": 17.042800784111,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 5.4606,
+        "fusion_update_p99_ms": 10.6371,
+        "gc0_collections": 13,
+        "rtt_p95_ms": 33.8027
+      },
+      "peer3": {
+        "samples": 3838,
+        "frame_p95_ms": 16.7053006589413,
+        "frame_p99_ms": 16.8261975049973,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 4.8665,
+        "fusion_update_p99_ms": 7.5853,
+        "gc0_collections": 13,
+        "rtt_p95_ms": 33.2246
+      },
+      "peer4": {
+        "samples": 3838,
+        "frame_p95_ms": 16.7006943374872,
+        "frame_p99_ms": 16.8180987238884,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 3.4393,
+        "fusion_update_p99_ms": 4.6047,
+        "gc0_collections": 13,
+        "rtt_p95_ms": 33.2143
+      },
+      "peer5": {
+        "samples": 3837,
+        "frame_p95_ms": 16.6959036141634,
+        "frame_p99_ms": 16.8417934328318,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 3.3206,
+        "fusion_update_p99_ms": 4.6833,
+        "gc0_collections": 13,
+        "rtt_p95_ms": 33.2903
+      },
+      "peer6": {
+        "samples": 3836,
+        "frame_p95_ms": 16.7091973125935,
+        "frame_p99_ms": 16.9265028089285,
+        "frame_over_33ms_percent": 0.0,
+        "fusion_update_p95_ms": 3.7048,
+        "fusion_update_p99_ms": 8.1259,
+        "gc0_collections": 13,
+        "rtt_p95_ms": 47.9394
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 13aeabb793a23e04ca05c032e5cc861f
+timeCreated: 1636000285
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Materials/FX/FX_Additive_02_Circle.mat
+  uploadId: 987938

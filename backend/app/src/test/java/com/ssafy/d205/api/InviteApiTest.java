@@ -1,0 +1,476 @@
+package com.ssafy.d205.api;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
+
+import java.time.Instant;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.ssafy.d205.domain.invite.service.InviteSweeper;
+import com.ssafy.d205.global.common.Timestamps;
+import com.ssafy.d205.support.IntegrationTest;
+
+class InviteApiTest extends IntegrationTest {
+
+    private static final String USER_ID_HEADER = "X-User-Id";
+    private static final String ROOM = "7K2M9P";
+
+    @Autowired
+    MockMvc mvc;
+
+    @Autowired
+    ObjectMapper objectMapper;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    InviteSweeper sweeper;
+
+    @Test
+    @DisplayName("친구를 부르면 상대의 받은 초대에 방 코드와 함께 나타난다")
+    void inviteReachesTheFriend() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+
+        invite(host, guest, ROOM);
+
+        mvc.perform(get("/api/v1/invites").header(USER_ID_HEADER, guest))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.invites.length()").value(1))
+                .andExpect(jsonPath("$.invites[0].userId").value(host))
+                .andExpect(jsonPath("$.invites[0].nickname").isNotEmpty())
+                .andExpect(jsonPath("$.invites[0].roomCode").value(ROOM))
+                .andExpect(jsonPath("$.invites[0].invitedAt").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("부른 사람에게는 자기 초대가 보이지 않는다")
+    void theInviterDoesNotSeeTheirOwnInvite() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        invite(host, guest, ROOM);
+
+        // 받은 초대만 주는 목록입니다. 보낸 것까지 섞이면 화면이 자기 초대를 눌러
+        // 자기 방에 들어가려는 상태가 됩니다.
+        mvc.perform(get("/api/v1/invites").header(USER_ID_HEADER, host))
+                .andExpect(jsonPath("$.invites").isEmpty());
+    }
+
+    @Test
+    @DisplayName("같은 방으로 다시 부르면 초대가 늘지 않고 시각만 새로 간다")
+    void invitingAgainRenewsInsteadOfDuplicating() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+
+        invite(host, guest, ROOM);
+        makeInviteOld(guest, 100);
+        String before = inviteRowTime(guest);
+
+        invite(host, guest, ROOM);
+
+        mvc.perform(get("/api/v1/invites").header(USER_ID_HEADER, guest))
+                .andExpect(jsonPath("$.invites.length()").value(1));
+
+        // 두 번 눌렀다고 초대가 둘이 되지는 않고, 만료 시계가 처음부터 다시 갑니다.
+        assertThat(inviteRowTime(guest)).isGreaterThan(before);
+    }
+
+    @Test
+    @DisplayName("다른 방으로 부르면 초대가 따로 생긴다")
+    void adifferentRoomIsADifferentInvite() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+
+        invite(host, guest, ROOM);
+        invite(host, guest, "3XQ4TZ");
+
+        mvc.perform(get("/api/v1/invites").header(USER_ID_HEADER, guest))
+                .andExpect(jsonPath("$.invites.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("3분이 지난 초대는 스윕을 기다리지 않고 목록에서 빠진다")
+    void expiredInvitesAreFilteredOnRead() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        invite(host, guest, ROOM);
+
+        makeInviteOld(guest, 200);
+
+        // 스윕은 주기로 도는데 그 사이에 만료된 초대를 보여주면 없는 방으로 들어가려는
+        // 시도가 됩니다. 조회가 직접 판정해야 하는 이유입니다.
+        mvc.perform(get("/api/v1/invites").header(USER_ID_HEADER, guest))
+                .andExpect(jsonPath("$.invites").isEmpty());
+
+        // 행은 아직 남아 있습니다. 응답의 정확성이 스윕에 기대지 않는다는 뜻입니다.
+        assertThat(inviteRows(guest)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("스윕이 만료된 초대를 지운다")
+    void sweepDeletesExpiredInvites() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        invite(host, guest, ROOM);
+        makeInviteOld(guest, 200);
+
+        sweeper.sweep();
+
+        assertThat(inviteRows(guest)).isZero();
+    }
+
+    @Test
+    @DisplayName("스윕이 살아있는 초대는 건드리지 않는다")
+    void sweepLeavesLiveInvitesAlone() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        invite(host, guest, ROOM);
+
+        sweeper.sweep();
+
+        assertThat(inviteRows(guest)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("거절하면 목록에서 사라진다")
+    void decliningRemovesTheInvite() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        invite(host, guest, ROOM);
+
+        mvc.perform(delete("/api/v1/invites/{userId}", host).header(USER_ID_HEADER, guest))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/v1/invites").header(USER_ID_HEADER, guest))
+                .andExpect(jsonPath("$.invites").isEmpty());
+    }
+
+    @Test
+    @DisplayName("없는 초대를 거절해도 성공이다")
+    void decliningNothingSucceeds() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+
+        // DELETE 는 멱등해야 합니다. 만료돼 사라진 초대를 거절하는 것도 같은 경우이고,
+        // 원하는 결과인 "그 초대가 없는 상태"가 이미 달성돼 있습니다.
+        mvc.perform(delete("/api/v1/invites/{userId}", host).header(USER_ID_HEADER, guest))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("친구가 아니면 부를 수 없다")
+    void strangersCannotBeInvited() throws Exception {
+        String host = createUser();
+        String stranger = createUser();
+
+        mvc.perform(post("/api/v1/invites")
+                        .header(USER_ID_HEADER, host)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(stranger, ROOM)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FRIENDS"));
+    }
+
+    @Test
+    @DisplayName("요청만 보내둔 상대는 아직 친구가 아니다")
+    void aPendingRequestIsNotAFriendship() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        sendRequest(host, guest);
+
+        mvc.perform(post("/api/v1/invites")
+                        .header(USER_ID_HEADER, host)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(guest, ROOM)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FRIENDS"));
+    }
+
+    @Test
+    @DisplayName("친구를 끊으면 이미 보낸 초대도 함께 사라진다")
+    void unfriendingRemovesInvitesAlreadySent() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        invite(host, guest, ROOM);
+
+        unfriend(host, guest);
+
+        // 남겨두면 끊은 것이 끊은 것이 아닙니다. 방금 끊은 사람이 이미 받아둔 초대로
+        // 내 방에 그대로 들어올 수 있습니다. 수명이 3분이라 창이 좁을 뿐입니다.
+        mvc.perform(get("/api/v1/invites").header(USER_ID_HEADER, guest))
+                .andExpect(jsonPath("$.invites").isEmpty());
+        assertThat(inviteRows(guest)).isZero();
+    }
+
+    @Test
+    @DisplayName("끊긴 쪽이 보낸 초대도 사라진다")
+    void unfriendingRemovesInvitesInBothDirections() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        invite(guest, host, ROOM);
+
+        // 한 방향만 지우면 내가 끊었는데 상대가 보낸 초대는 살아남습니다. 끊는 쪽이
+        // 누구든 남은 초대가 없어야 합니다.
+        unfriend(host, guest);
+
+        mvc.perform(get("/api/v1/invites").header(USER_ID_HEADER, host))
+                .andExpect(jsonPath("$.invites").isEmpty());
+    }
+
+    @Test
+    @DisplayName("자기 자신은 부를 수 없다")
+    void nobodyInvitesThemselves() throws Exception {
+        String me = createUser();
+
+        mvc.perform(post("/api/v1/invites")
+                        .header(USER_ID_HEADER, me)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(me, ROOM)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TARGET_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("헷갈리는 글자가 든 방 코드는 거절한다")
+    void confusableLettersAreRejected() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+
+        // I O U L 은 클라이언트의 알파벳에 없습니다. 1 과 I, 0 과 O 를 눈으로 구분하기
+        // 어려워서 뺀 글자들이라, 서버가 받아주면 만들어질 수 없는 코드가 저장됩니다.
+        for (String bad : new String[] { "7K2M9I", "7K2M9O", "7K2M9U", "7K2M9L" }) {
+            mvc.perform(post("/api/v1/invites")
+                            .header(USER_ID_HEADER, host)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body(guest, bad)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        }
+    }
+
+    @Test
+    @DisplayName("길이가 다르거나 소문자인 방 코드는 거절한다")
+    void malformedRoomCodesAreRejected() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+
+        for (String bad : new String[] { "7K2M9", "7K2M9PQ", "7k2m9p", "" }) {
+            mvc.perform(post("/api/v1/invites")
+                            .header(USER_ID_HEADER, host)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body(guest, bad)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        }
+    }
+
+    @Test
+    @DisplayName("계정이 사라지면 그 사람이 주고받은 초대도 사라진다")
+    void deletingAnAccountTakesItsInvitesWithIt() throws Exception {
+        String hostDevice = UUID.randomUUID().toString();
+        String host = createUser(hostDevice);
+        String guest = createUser();
+        befriend(host, guest);
+        invite(host, guest, ROOM);
+
+        mvc.perform(delete("/api/v1/accounts/me")
+                        .header(USER_ID_HEADER, host)
+                        .header("X-Device-Id", hostDevice))
+                .andExpect(status().isNoContent());
+
+        // 탈퇴가 흔적을 남기지 않는다는 약속의 일부입니다. FK 의 CASCADE 가 지웁니다.
+        mvc.perform(get("/api/v1/invites").header(USER_ID_HEADER, guest))
+                .andExpect(jsonPath("$.invites").isEmpty());
+    }
+
+    @Test
+    @DisplayName("경기 중인 친구는 부를 수 없다")
+    void friendsInAGameCannotBeInvited() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        heartbeat(guest, "3XQ4TZ", "MATCH");
+
+        // 초대 토스트는 홈과 게임 찾기에서만 뜹니다. 지금 보내면 상대는 못 보고 3분 뒤
+        // 조용히 사라질 뿐이라, 보낸 사람에게 바로 알리는 편이 낫습니다.
+        mvc.perform(post("/api/v1/invites")
+                        .header(USER_ID_HEADER, host)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(guest, ROOM)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TARGET_IN_GAME"));
+        assertThat(inviteRows(guest)).isZero();
+    }
+
+    @Test
+    @DisplayName("로비에 있는 친구도 부를 수 없다")
+    void friendsInALobbyCannotBeInvitedEither() throws Exception {
+        // 친구 목록은 로비와 경기 중을 나눠 보여주지만 초대는 둘 다 막습니다. 나눈 것은
+        // 표시를 위한 것이고, 로비에 있는 사람도 토스트를 보지 못하는 것은 같습니다.
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        heartbeat(guest, "3XQ4TZ", "LOBBY");
+
+        mvc.perform(post("/api/v1/invites")
+                        .header(USER_ID_HEADER, host)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(guest, ROOM)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TARGET_IN_GAME"));
+        assertThat(inviteRows(guest)).isZero();
+    }
+
+    @Test
+    @DisplayName("방을 나와 홈으로 돌아온 친구는 다시 부를 수 있다")
+    void leavingTheGameMakesAFriendInvitableAgain() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        heartbeat(guest, "3XQ4TZ");
+
+        heartbeat(guest, null);
+
+        invite(host, guest, ROOM);
+        assertThat(inviteRows(guest)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("하트비트가 끊긴 지 오래된 상대는 게임 중으로 보지 않는다")
+    void aStaleHeartbeatDoesNotBlockInvites() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        heartbeat(guest, "3XQ4TZ");
+
+        // 크래시로 죽은 클라이언트의 status 는 스윕 전까지 IN_GAME 으로 남습니다. 저장된 값만
+        // 보면 그 사람을 영영 부를 수 없게 되므로, 친구 목록과 같이 하트비트로 판정합니다.
+        makeHeartbeatStale(guest);
+
+        invite(host, guest, ROOM);
+    }
+
+    private String body(String userId, String roomCode) {
+        return "{\"userId\":\"" + userId + "\",\"roomCode\":\"" + roomCode + "\"}";
+    }
+
+    private void invite(String from, String to, String roomCode) throws Exception {
+        mvc.perform(post("/api/v1/invites")
+                        .header(USER_ID_HEADER, from)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(to, roomCode)))
+                .andExpect(status().isCreated());
+    }
+
+    private String createUser() throws Exception {
+        return createUser(UUID.randomUUID().toString());
+    }
+
+    private String createUser(String deviceId) throws Exception {
+        String body = mvc.perform(post("/api/v1/accounts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"deviceId\":\"" + deviceId + "\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("userId").asText();
+    }
+
+    private void sendRequest(String from, String to) throws Exception {
+        mvc.perform(post("/api/v1/friend-requests")
+                        .header(USER_ID_HEADER, from)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"userId\":\"" + to + "\"}"))
+                .andExpect(status().isCreated());
+    }
+
+    private void befriend(String a, String b) throws Exception {
+        sendRequest(a, b);
+        mvc.perform(post("/api/v1/friend-requests/{userId}/accept", a).header(USER_ID_HEADER, b))
+                .andExpect(status().isNoContent());
+    }
+
+    /** 만료(3분)를 넘기도록 초대를 과거로 밉니다. */
+    private void makeInviteOld(String inviteeUserId, int secondsAgo) {
+        jdbcTemplate.update("""
+                UPDATE room_invites i
+                  JOIN users u ON u.users_seq = i.invitee_seq
+                   SET i.created_at = ?
+                 WHERE u.public_id = ?
+                """, Timestamps.format(Instant.now().minusSeconds(secondsAgo)), inviteeUserId);
+    }
+
+    private int inviteRows(String inviteeUserId) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                  FROM room_invites i
+                  JOIN users u ON u.users_seq = i.invitee_seq
+                 WHERE u.public_id = ?
+                """, Integer.class, inviteeUserId);
+        return count == null ? 0 : count;
+    }
+
+    private String inviteRowTime(String inviteeUserId) {
+        return jdbcTemplate.queryForObject("""
+                SELECT i.created_at
+                  FROM room_invites i
+                  JOIN users u ON u.users_seq = i.invitee_seq
+                 WHERE u.public_id = ?
+                """, String.class, inviteeUserId);
+    }
+
+    private void heartbeat(String userId, String sessionId, String sessionKind) throws Exception {
+        mvc.perform(put("/api/v1/presence")
+                        .header(USER_ID_HEADER, userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionId\":\"" + sessionId + "\",\"sessionKind\":\"" + sessionKind + "\"}"))
+                .andExpect(status().isNoContent());
+    }
+
+    private void heartbeat(String userId, String sessionId) throws Exception {
+        String body = sessionId == null ? "{}" : "{\"sessionId\":\"" + sessionId + "\"}";
+        mvc.perform(put("/api/v1/presence")
+                        .header(USER_ID_HEADER, userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNoContent());
+    }
+
+    /** 타임아웃(90초)보다 오래된 하트비트로 바꿔 크래시 상황을 만듭니다. */
+    private void makeHeartbeatStale(String userId) {
+        jdbcTemplate.update("UPDATE user_presence p JOIN users u ON u.users_seq = p.user_seq"
+                + " SET p.heartbeat_at = ? WHERE u.public_id = ?",
+                Timestamps.format(Instant.now().minusSeconds(200)), userId);
+    }
+
+    private void unfriend(String caller, String other) throws Exception {
+        mvc.perform(delete("/api/v1/friends/{userId}", other).header(USER_ID_HEADER, caller))
+                .andExpect(status().isNoContent());
+    }
+}

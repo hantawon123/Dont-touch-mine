@@ -1,0 +1,33 @@
+{
+    "name": "Game.Bootstrap",
+    "rootNamespace": "Game.Bootstrap",
+    "references": [
+        "Game.Client",
+        "Game.Backend",
+        "Game.Core",
+        "Game.Network",
+        "Photon.Realtime",
+        "Game.Server",
+        "Game.SOAP",
+        "UniTask",
+        "VContainer",
+        "Unity.InputSystem",
+        "colyseus.nativewebsocket",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.endel.nativewebsocket",
+            "expression": "2.0.0",
+            "define": "NATIVEWEBSOCKET_PRESENT"
+        }
+    ],
+    "noEngineReferences": false
+}

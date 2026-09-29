@@ -1,0 +1,367 @@
+{
+  "date": "2026-09-10",
+  "environment": "Local PC on AC, Chromium IAB, WebGL Host 1 player",
+  "browser_viewport": [
+    1280,
+    720
+  ],
+  "same_camera": true,
+  "notes": [
+    "30-second samples, build processes stopped",
+    "First candidate sample includes long frames; not a universal 60 FPS guarantee",
+    "Other matrix samples had a browser viewport change and are excluded here"
+  ],
+  "samples": [
+    {
+      "file": "result-1789024524857220400.json",
+      "mode": "adaptive-screen",
+      "quality": "Probe-screen",
+      "renderScale": 0.550000011920929,
+      "seconds": 30.017200000000003,
+      "frames": 1700,
+      "fps": 56.634196394067395,
+      "width": 1920,
+      "height": 1200,
+      "target": 120,
+      "p95": 25.0,
+      "p99": 51.0,
+      "over33_percent": 1.6470588235294117,
+      "device": "ANGLE (Intel, Intel(R) Arc(TM) Graphics (0x00007D55) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "condition": {
+        "kind": "structural-condition",
+        "mode": "adaptive-screen",
+        "timing": {
+          "mode": 0,
+          "value": 8
+        },
+        "visibility": "visible",
+        "focus": true
+      }
+    },
+    {
+      "file": "result-1789024673616659300.json",
+      "mode": "baseline",
+      "quality": "PC",
+      "renderScale": 1.0,
+      "seconds": 30.032600000000002,
+      "frames": 1530,
+      "fps": 50.944640157695304,
+      "width": 1920,
+      "height": 1200,
+      "target": 120,
+      "p95": 30.0,
+      "p99": 36.0,
+      "over33_percent": 1.9607843137254901,
+      "device": "ANGLE (Intel, Intel(R) Arc(TM) Graphics (0x00007D55) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "condition": {
+        "kind": "structural-condition",
+        "mode": "baseline",
+        "timing": {
+          "mode": 0,
+          "value": 8
+        },
+        "visibility": "visible",
+        "focus": true
+      }
+    },
+    {
+      "file": "result-1789024815942415500.json",
+      "mode": "adaptive-screen",
+      "quality": "Probe-screen",
+      "renderScale": 0.8499999642372131,
+      "seconds": 30.006099999999833,
+      "frames": 2020,
+      "fps": 67.31964500551592,
+      "width": 1920,
+      "height": 1200,
+      "target": 120,
+      "p95": 21.0,
+      "p99": 23.0,
+      "over33_percent": 0.0,
+      "device": "ANGLE (Intel, Intel(R) Arc(TM) Graphics (0x00007D55) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "condition": {
+        "kind": "structural-condition",
+        "mode": "adaptive-screen",
+        "timing": {
+          "mode": 0,
+          "value": 8
+        },
+        "visibility": "visible",
+        "focus": true
+      }
+    }
+  ],
+  "final_player": {
+    "kind": "final-player-report",
+    "seconds": 30.01770000000298,
+    "frames": 1571,
+    "fps": 52.33578855141614,
+    "p95": 23.299999997019768,
+    "p99": 27,
+    "over33": 2,
+    "width": 1920,
+    "height": 1200,
+    "viewport": [
+      1280,
+      720
+    ],
+    "focus": true,
+    "visibility": "visible",
+    "file": "result-1789027002374499800.json",
+    "over33_percent": 0.1273074474856779,
+    "scene": "Lobby, normal initial camera",
+    "notes": "Clean C# player with local JS draw-callback measurement; no pointer-lock override in this sample. First sample overlapped scene loading and is excluded."
+  },
+  "additional_comparison": {
+    "scope": "Additional same-code asset-only trials. Fixed-camera rows use local HTML pointer-lock bypass; not a product input change. Render targets are snapshots at sample start, not constant scale guarantees.",
+    "wasm_sha256": "a8ffb4c39ccb7e05c8beeab5b29d059bf29a11cc5f30394277cccc1a8f4d2c6d",
+    "samples": [
+      {
+        "kind": "final-player-report",
+        "seconds": 30.01419999998808,
+        "frames": 1836,
+        "fps": 61.171045705057246,
+        "p95": 22.600000008940697,
+        "p99": 24,
+        "over33": 0,
+        "width": 1920,
+        "height": 1200,
+        "viewport": [
+          1280,
+          720
+        ],
+        "focus": true,
+        "visibility": "visible",
+        "label": "final-repeat-1",
+        "file": "result-1789028420213666800.json",
+        "capture_file": "result-1789028389235719800.json",
+        "over33_percent": 0.0,
+        "render_targets_at_start": [
+          "2048x2048",
+          "1024x1024",
+          "4096x4096",
+          "1920x1200",
+          "1024x32",
+          "1343x839",
+          "671x419",
+          "335x209",
+          "167x104",
+          "83x52",
+          "41x26",
+          "20x13"
+        ]
+      },
+      {
+        "kind": "final-player-report",
+        "seconds": 30.031,
+        "frames": 1749,
+        "fps": 58.23981885385102,
+        "p95": 22.700000002980232,
+        "p99": 24.299999997019768,
+        "over33": 0,
+        "width": 1920,
+        "height": 1200,
+        "viewport": [
+          1280,
+          720
+        ],
+        "focus": true,
+        "visibility": "visible",
+        "label": "final-repeat-2",
+        "file": "result-1789028480215417800.json",
+        "capture_file": "result-1789028449222129100.json",
+        "over33_percent": 0.0,
+        "render_targets_at_start": [
+          "2048x2048",
+          "1024x1024",
+          "4096x4096",
+          "1920x1200",
+          "1024x32",
+          "960x600",
+          "480x300",
+          "240x150",
+          "120x75",
+          "60x37",
+          "30x18",
+          "15x9"
+        ]
+      },
+      {
+        "kind": "final-player-report",
+        "seconds": 30.02940000000596,
+        "frames": 2046,
+        "fps": 68.13322943514002,
+        "p95": 21.299999997019768,
+        "p99": 24.899999991059303,
+        "over33": 1,
+        "width": 1920,
+        "height": 1200,
+        "viewport": [
+          1280,
+          720
+        ],
+        "focus": true,
+        "visibility": "visible",
+        "label": "base075-exploratory",
+        "file": "result-1789028253997684800.json",
+        "capture_file": "result-1789028223049930200.json",
+        "over33_percent": 0.04887585532746823,
+        "render_targets_at_start": [
+          "2048x2048",
+          "1024x1024",
+          "4096x4096",
+          "1920x1200",
+          "1024x32",
+          "1440x900",
+          "720x450",
+          "360x225",
+          "180x112",
+          "90x56",
+          "45x28",
+          "22x14"
+        ]
+      },
+      {
+        "kind": "final-player-report",
+        "seconds": 30.01770000000298,
+        "frames": 1744,
+        "fps": 58.09905489094191,
+        "p95": 24.399999991059303,
+        "p99": 31.5,
+        "over33": 7,
+        "width": 1920,
+        "height": 1200,
+        "viewport": [
+          1280,
+          720
+        ],
+        "focus": true,
+        "visibility": "visible",
+        "label": "base0375-fixed-camera-1",
+        "file": "result-1789029445468236600.json",
+        "capture_file": "result-1789029414499186300.json",
+        "over33_percent": 0.40137614678899086,
+        "render_targets_at_start": [
+          "2048x2048",
+          "1024x1024",
+          "4096x4096",
+          "1920x1200",
+          "1024x32",
+          "360x225",
+          "180x112",
+          "90x56",
+          "45x28",
+          "22x14",
+          "11x7",
+          "5x3"
+        ]
+      },
+      {
+        "kind": "final-player-report",
+        "seconds": 30.023,
+        "frames": 1823,
+        "fps": 60.7201145788229,
+        "p95": 22.200000002980232,
+        "p99": 23.899999991059303,
+        "over33": 0,
+        "width": 1920,
+        "height": 1200,
+        "viewport": [
+          1280,
+          720
+        ],
+        "focus": true,
+        "visibility": "visible",
+        "label": "base0375-fixed-camera-2",
+        "file": "result-1789029505481054500.json",
+        "capture_file": "result-1789029474482730000.json",
+        "over33_percent": 0.0,
+        "render_targets_at_start": [
+          "2048x2048",
+          "1024x1024",
+          "4096x4096",
+          "1920x1200",
+          "1024x32",
+          "360x225",
+          "180x112",
+          "90x56",
+          "45x28",
+          "22x14",
+          "11x7",
+          "5x3"
+        ]
+      },
+      {
+        "kind": "final-player-report",
+        "seconds": 30.01970000000298,
+        "frames": 1927,
+        "fps": 64.1911811243886,
+        "p95": 21.19999998807907,
+        "p99": 24,
+        "over33": 1,
+        "width": 1920,
+        "height": 1200,
+        "viewport": [
+          1280,
+          720
+        ],
+        "focus": true,
+        "visibility": "visible",
+        "label": "final-fixed-camera-1",
+        "file": "result-1789029674841796900.json",
+        "capture_file": "result-1789029643877458600.json",
+        "over33_percent": 0.05189413596263622,
+        "render_targets_at_start": [
+          "2048x2048",
+          "1024x1024",
+          "4096x4096",
+          "1920x1200",
+          "1024x32",
+          "1343x839",
+          "671x419",
+          "335x209",
+          "167x104",
+          "83x52",
+          "41x26",
+          "20x13"
+        ]
+      },
+      {
+        "kind": "final-player-report",
+        "seconds": 30.018799999997018,
+        "frames": 1933,
+        "fps": 64.39298039895638,
+        "p95": 20.80000001192093,
+        "p99": 22.700000002980232,
+        "over33": 1,
+        "width": 1920,
+        "height": 1200,
+        "viewport": [
+          1280,
+          720
+        ],
+        "focus": true,
+        "visibility": "visible",
+        "label": "final-fixed-camera-2",
+        "file": "result-1789029734846287700.json",
+        "capture_file": "result-1789029703845070400.json",
+        "over33_percent": 0.05173305742369374,
+        "render_targets_at_start": [
+          "2048x2048",
+          "1024x1024",
+          "4096x4096",
+          "1920x1200",
+          "1024x32",
+          "1247x779",
+          "623x389",
+          "311x194",
+          "155x97",
+          "77x48",
+          "38x24",
+          "19x12"
+        ]
+      }
+    ],
+    "decision": "Do not adopt base .75 or .375. Preserve source base 1 and adaptive floor .5. No sustained improvement established by extreme pixel reduction."
+  }
+}

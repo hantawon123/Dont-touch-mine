@@ -1,0 +1,65 @@
+# 개발자 PC 용. DB 컨테이너 둘입니다. 앱은 컨테이너로 띄우지 않고 IDE 나 gradlew 로 돌립니다.
+#
+#   docker compose -f compose.local.yml up -d
+#   ./gradlew :app:bootRun          # 계정 서비스 8080
+#   ./gradlew :analytics:bootRun    # 수집 서비스 8081
+#
+# DB 가 둘인 이유는 운영과 같은 모양을 로컬에서도 보려는 것입니다(S15P21D205-980). 한 컨테이너에
+# 스키마 둘로 두면 편하지만, "분석 DB 가 죽어도 게임이 산다"를 로컬에서 재현할 수 없습니다.
+#
+# 비밀번호가 저장소에 있는 것은 개발자 PC 밖으로 나가지 않는 값이라서입니다. 운영은 .env 입니다.
+name: d205
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: d205-mysql-local
+    environment:
+      MYSQL_ROOT_PASSWORD: rootlocal
+      MYSQL_DATABASE: d205
+      MYSQL_USER: d205
+      MYSQL_PASSWORD: d205local
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      # 호스트는 3307을 씁니다. 3306은 이미 설치된 MySQL 서비스가 점유하는 경우가 흔합니다.
+      - "3307:3306"
+    volumes:
+      - d205-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-prootlocal"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  mysql-analytics:
+    image: mysql:8.4
+    container_name: d205-mysql-analytics-local
+    environment:
+      MYSQL_ROOT_PASSWORD: rootlocal
+      MYSQL_DATABASE: d205_analytics
+      MYSQL_USER: d205
+      MYSQL_PASSWORD: d205local
+      # 초기화 스크립트가 읽기 계정을 만듭니다.
+      ANALYTICS_READER_PASSWORD: readerlocal
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      - "3308:3306"
+    volumes:
+      - d205-mysql-analytics-data:/var/lib/mysql
+      - ./deploy/mysql-analytics/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-prootlocal"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+volumes:
+  d205-mysql-data:
+  d205-mysql-analytics-data:

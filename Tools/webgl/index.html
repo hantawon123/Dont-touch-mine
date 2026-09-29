@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>게임 시작</title>
+<style>body{background:#181923;color:#fff;font:18px sans-serif;max-width:40rem;margin:20vh auto;padding:24px}a{color:#aebaff}</style>
+<h1>게임 시작</h1>
+<p id="status" role="status">최신 버전을 확인하고 있습니다.</p>
+<script>
+fetch('./current.json', {cache: 'no-store'})
+  .then(response => {if (!response.ok) throw new Error(); return response.json();})
+  .then(({revision}) => {
+    if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error();
+    const diagnostics = new URLSearchParams(location.search).get('perf') === '1' ? '?perf=1' : '';
+    location.replace('./releases/' + revision + '/' + diagnostics);
+  })
+  .catch(() => {document.getElementById('status').textContent = '게임을 준비하고 있습니다. 잠시 후 새로고침해 주세요.';});
+</script>
+</html>

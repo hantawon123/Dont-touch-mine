@@ -1,0 +1,19 @@
+{
+    "name": "Game.Server",
+    "rootNamespace": "Game.Server",
+    "references": [
+        "Game.Core",
+        "Game.SOAP",
+        "R3.Unity",
+        "VContainer"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,588 @@
+{
+  "materials": [
+    {
+      "name": "PoliceMat_00",
+      "source": "Aged brass padlock",
+      "color": [
+        0.5699999928474426,
+        0.3700000047683716,
+        0.12999999523162842,
+        1.0
+      ],
+      "roughness": 0.6200000047683716,
+      "metallic": 0.15000000596046448,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_01",
+      "source": "Aged paper",
+      "color": [
+        0.7099999785423279,
+        0.6700000166893005,
+        0.5299999713897705,
+        1.0
+      ],
+      "roughness": 0.8199999928474426,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_02",
+      "source": "Blackened metal edges",
+      "color": [
+        0.2199999988079071,
+        0.2800000011920929,
+        0.28999999165534973,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_03",
+      "source": "Chipped extinguisher red",
+      "color": [
+        0.49000000953674316,
+        0.11999999731779099,
+        0.07999999821186066,
+        1.0
+      ],
+      "roughness": 0.8199999928474426,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_04",
+      "source": "Clay / dusty police blue",
+      "color": [
+        0.20999999344348907,
+        0.30000001192092896,
+        0.33000001311302185,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_05",
+      "source": "Clay / muted brass",
+      "color": [
+        0.6100000143051147,
+        0.4050000011920929,
+        0.1599999964237213,
+        1.0
+      ],
+      "roughness": 0.699999988079071,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_06",
+      "source": "Clay / navy enamel",
+      "color": [
+        0.18000000715255737,
+        0.26499998569488525,
+        0.3100000023841858,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_08",
+      "source": "Clay / smooth concrete floor",
+      "color": [
+        0.3199999928474426,
+        0.32499998807907104,
+        0.30000001192092896,
+        1.0
+      ],
+      "roughness": 0.8999999761581421,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_09",
+      "source": "Clay / warm grey plaster",
+      "color": [
+        0.3799999952316284,
+        0.375,
+        0.33500000834465027,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_13",
+      "source": "Mortar / Rounded header over locked cell",
+      "color": [
+        0.3192000091075897,
+        0.3149999976158142,
+        0.28139999508857727,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_14",
+      "source": "Mortar / Soft wall / COLLIDER_Cell_Rear / paint",
+      "color": [
+        0.17639999091625214,
+        0.25200000405311584,
+        0.27720001339912415,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_15",
+      "source": "Mortar / Soft wall / COLLIDER_Cell_Rear / plaster",
+      "color": [
+        0.3192000091075897,
+        0.3149999976158142,
+        0.28139999508857727,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_16",
+      "source": "Mortar / Soft wall / COLLIDER_Cell_Side_-1 / paint",
+      "color": [
+        0.17639999091625214,
+        0.25200000405311584,
+        0.27720001339912415,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_17",
+      "source": "Mortar / Soft wall / COLLIDER_Cell_Side_-1 / plaster",
+      "color": [
+        0.3192000091075897,
+        0.3149999976158142,
+        0.28139999508857727,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_18",
+      "source": "Mortar / Soft wall / COLLIDER_Cell_Side_1 / paint",
+      "color": [
+        0.17639999091625214,
+        0.25200000405311584,
+        0.27720001339912415,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_19",
+      "source": "Mortar / Soft wall / COLLIDER_Cell_Side_1 / plaster",
+      "color": [
+        0.3192000091075897,
+        0.3149999976158142,
+        0.28139999508857727,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_20",
+      "source": "Mortar / Soft wall / COLLIDER_Corridor_Side_-1 / paint",
+      "color": [
+        0.17639999091625214,
+        0.25200000405311584,
+        0.27720001339912415,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_21",
+      "source": "Mortar / Soft wall / COLLIDER_Corridor_Side_-1 / plaster",
+      "color": [
+        0.3192000091075897,
+        0.3149999976158142,
+        0.28139999508857727,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_22",
+      "source": "Mortar / Soft wall / COLLIDER_Corridor_Side_1 / paint",
+      "color": [
+        0.17639999091625214,
+        0.25200000405311584,
+        0.27720001339912415,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_23",
+      "source": "Mortar / Soft wall / COLLIDER_Corridor_Side_1 / plaster",
+      "color": [
+        0.3192000091075897,
+        0.3149999976158142,
+        0.28139999508857727,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_24",
+      "source": "Mortar / Soft wall / COLLIDER_Exit_Header / plaster",
+      "color": [
+        0.3192000091075897,
+        0.3149999976158142,
+        0.28139999508857727,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_25",
+      "source": "Mortar / Soft wall / COLLIDER_Exit_Left_Wall / paint",
+      "color": [
+        0.17639999091625214,
+        0.25200000405311584,
+        0.27720001339912415,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_26",
+      "source": "Mortar / Soft wall / COLLIDER_Exit_Left_Wall / plaster",
+      "color": [
+        0.3192000091075897,
+        0.3149999976158142,
+        0.28139999508857727,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_27",
+      "source": "Mortar / Soft wall / COLLIDER_Exit_Right_Wall / paint",
+      "color": [
+        0.17639999091625214,
+        0.25200000405311584,
+        0.27720001339912415,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_28",
+      "source": "Mortar / Soft wall / COLLIDER_Exit_Right_Wall / plaster",
+      "color": [
+        0.3192000091075897,
+        0.3149999976158142,
+        0.28139999508857727,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_33",
+      "source": "Old oak benches",
+      "color": [
+        0.36000001430511475,
+        0.23999999463558197,
+        0.13500000536441803,
+        1.0
+      ],
+      "roughness": 0.8199999928474426,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_34",
+      "source": "Old rust / fittings",
+      "color": [
+        0.27000001072883606,
+        0.3199999928474426,
+        0.3199999928474426,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_35",
+      "source": "Pitted iron / brown patina",
+      "color": [
+        0.2199999988079071,
+        0.2800000011920929,
+        0.28999999165534973,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_36",
+      "source": "Pure white beyond exit",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.5,
+      "metallic": 0.0,
+      "emission": 8.0
+    },
+    {
+      "name": "PoliceMat_37",
+      "source": "Rubber",
+      "color": [
+        0.054999999701976776,
+        0.06499999761581421,
+        0.06499999761581421,
+        1.0
+      ],
+      "roughness": 0.8199999928474426,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_38",
+      "source": "Signage / clean ivory lettering",
+      "color": [
+        0.9300000071525574,
+        0.9100000262260437,
+        0.8399999737739563,
+        1.0
+      ],
+      "roughness": 0.8500000238418579,
+      "metallic": 0.0,
+      "emission": 0.009999999776482582
+    },
+    {
+      "name": "PoliceMat_39",
+      "source": "Signage / crisp navy ink",
+      "color": [
+        0.04500000178813934,
+        0.07500000298023224,
+        0.0949999988079071,
+        1.0
+      ],
+      "roughness": 0.8500000238418579,
+      "metallic": 0.0,
+      "emission": 0.009999999776482582
+    },
+    {
+      "name": "PoliceMat_40",
+      "source": "Sooty concrete ceiling",
+      "color": [
+        0.24500000476837158,
+        0.25,
+        0.23999999463558197,
+        1.0
+      ],
+      "roughness": 0.8199999928474426,
+      "metallic": 0.0,
+      "emission": 0.0
+    },
+    {
+      "name": "PoliceMat_42",
+      "source": "Warm fluorescent phosphor",
+      "color": [
+        1.0,
+        0.7699999809265137,
+        0.4300000071525574,
+        1.0
+      ],
+      "roughness": 0.75,
+      "metallic": 0.0,
+      "emission": 9.0
+    },
+    {
+      "name": "PoliceMat_43",
+      "source": "Worn blue-grey paint 00",
+      "color": [
+        0.20999999344348907,
+        0.30000001192092896,
+        0.33000001311302185,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "metallic": 0.05000000074505806,
+      "emission": 0.0
+    }
+  ],
+  "lights": [
+    {
+      "name": "Window soft fill",
+      "position": [
+        0.0,
+        2.427046298980713,
+        2.785738229751587
+      ],
+      "direction": [
+        -6.166973776089435e-08,
+        -0.8005985021591187,
+        -0.5992012023925781
+      ],
+      "color": [
+        1.0,
+        0.8500000238418579,
+        0.6000000238418579
+      ],
+      "power": 55.46249771118164
+    },
+    {
+      "name": "Pendant soft pool",
+      "position": [
+        0.0,
+        1.5,
+        3.9549999237060547
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "color": [
+        1.0,
+        0.8399999737739563,
+        0.6399999856948853
+      ],
+      "power": 279.5
+    },
+    {
+      "name": "Pendant soft pool.001",
+      "position": [
+        -2.1760001182556152,
+        -4.800000190734863,
+        3.9549999237060547
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "color": [
+        1.0,
+        0.8399999737739563,
+        0.6399999856948853
+      ],
+      "power": 338.0
+    },
+    {
+      "name": "Pendant soft pool.002",
+      "position": [
+        2.1760001182556152,
+        -4.800000190734863,
+        3.9549999237060547
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "color": [
+        1.0,
+        0.8399999737739563,
+        0.6399999856948853
+      ],
+      "power": 338.0
+    },
+    {
+      "name": "Soft corridor bounce",
+      "position": [
+        0.0,
+        -7.0,
+        2.93999981880188
+      ],
+      "direction": [
+        0.0,
+        0.9524751901626587,
+        -0.3046160936355591
+      ],
+      "color": [
+        0.800000011920929,
+        0.8799999952316284,
+        1.0
+      ],
+      "power": 143.0
+    },
+    {
+      "name": "White light entering exit",
+      "position": [
+        2.4711742401123047,
+        -10.275799751281738,
+        1.739474892616272
+      ],
+      "direction": [
+        -0.4423691928386688,
+        0.8862733840942383,
+        -0.1372186243534088
+      ],
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "power": 756.3068237304688
+    }
+  ],
+  "view": {
+    "position": [
+      0.0,
+      -7.599999904632568,
+      1.850000023841858
+    ],
+    "direction": [
+      0.0,
+      0.9968981742858887,
+      -0.07870247215032578
+    ],
+    "verticalFov": 40.425579077770955
+  }
+}

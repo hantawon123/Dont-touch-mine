@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7ba2b06fb32e5274aad88925a5b8d3f5
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 165439
+  packageName: Basement Worshop Environment
+  packageVersion: 1.0
+  assetPath: Assets/PolyWorkshop_BasementWorkshop/Settings/PostProcessVolumeProfile.asset
+  uploadId: 359615

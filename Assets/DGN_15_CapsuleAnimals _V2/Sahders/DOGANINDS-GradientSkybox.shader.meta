@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 1375bbed525e0b34a873e0168486cb76
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  preprocessorOverride: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 298807
+  packageName: 'V2 Capsule Humanoid Animal Characters V2: 15 Unique Humanoids, Matcap
+    Magic'
+  packageVersion: 1.01
+  assetPath: Assets/DGN_15_CapsuleAnimals _V2/Sahders/DOGANINDS-GradientSkybox.shader
+  uploadId: 732419

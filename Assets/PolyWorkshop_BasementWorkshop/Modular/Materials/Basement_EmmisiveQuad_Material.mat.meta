@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5f0428d0172b4394db2e964de368d30a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 165439
+  packageName: Basement Worshop Environment
+  packageVersion: 1.0
+  assetPath: Assets/PolyWorkshop_BasementWorkshop/Modular/Materials/Basement_EmmisiveQuad_Material.mat
+  uploadId: 359615

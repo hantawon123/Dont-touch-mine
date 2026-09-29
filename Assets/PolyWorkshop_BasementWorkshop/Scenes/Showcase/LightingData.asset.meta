@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 0391bc8e37cb4b949bd377311c61a613
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 112000000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 165439
+  packageName: Basement Worshop Environment
+  packageVersion: 1.0
+  assetPath: Assets/PolyWorkshop_BasementWorkshop/Scenes/Showcase/LightingData.asset
+  uploadId: 359615

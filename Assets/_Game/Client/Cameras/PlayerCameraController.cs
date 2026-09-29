@@ -1,0 +1,602 @@
+using Game.Client.Emotes;
+using Game.Client.Players;
+using Game.Core.Settings;
+using VContainer;
+using Unity.Cinemachine;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+
+namespace Game.Client.Cameras
+{
+    public sealed class PlayerCameraController : MonoBehaviour
+    {
+        private const int ActivePriority = 20;
+        private const int InactivePriority = 10;
+
+        [SerializeField]
+        private InputActionAsset inputActions;
+
+        [SerializeField]
+        private CinemachineCamera thirdPersonCamera;
+
+        [SerializeField]
+        private CinemachineCamera firstPersonCamera;
+
+        [SerializeField]
+        private Transform followTarget;
+
+        [SerializeField]
+        private Vector3 headOffset = new(0f, 1.6f, 0f);
+
+        [SerializeField, Min(0.01f)]
+        private float lookSensitivity = 0.12f;
+
+        [SerializeField, Range(-89f, 0f)]
+        private float minPitch = -60f;
+
+        /// <summary>
+        /// How far down the view can be pushed, in degrees below level.
+        /// </summary>
+        /// <remarks>
+        /// The first person camera sits at eye height, so this angle decides
+        /// how close to the player's own feet the view can reach: the ground is
+        /// met <c>eyeHeight / tan(maxPitch)</c> ahead, which standing is 0.14 m
+        /// at 85 degrees and was 0.43 m at the 75 this replaces. Short of a
+        /// pace, so nothing on the floor stays out of reach while standing
+        /// still.
+        /// </remarks>
+        [SerializeField, Range(0f, 89f)]
+        private float maxPitch = 85f;
+
+        [SerializeField, Min(0.1f)]
+        private float eyeHeightLerpSpeed = 8f;
+
+        [SerializeField]
+        private FirstPersonArmsSettings firstPersonArms = new();
+
+        [SerializeField]
+        private FirstPersonHoldSettings firstPersonHold = new();
+
+        private readonly FirstPersonArmsView armsView = new();
+        private readonly HeldItemVisibility heldItemView = new();
+        private readonly Game.Client.Match.HeldItemHudView heldItemHud = new();
+        private InterfaceSettingsSystem interfaceSettings;
+
+        private Game.Client.Interactions.PlayerInteractor followInteractor;
+        private PlayerAnimationDriver followAnimationDriver;
+
+        private ControlSettingsSystem controls;
+        private CameraViewPreference viewPreference;
+
+        /// <summary>
+        /// True while this rig is looking in first person. The remembered
+        /// choice lives on <see cref="CameraViewPreference"/> so a new rig in
+        /// the next scene opens with the same view.
+        /// </summary>
+        public bool IsFirstPerson => isFirstPerson;
+
+        [Inject]
+        public void BindSettings(
+            ControlSettingsSystem settings,
+            CameraViewPreference preference = null,
+            InterfaceSettingsSystem hudSettings = null)
+        {
+            controls = settings;
+            interfaceSettings = hudSettings;
+            GetComponent<EmoteWheelController>()?.BindSettings(settings);
+            if (preference != null)
+            {
+                BindViewPreference(preference);
+            }
+        }
+
+        [Inject]
+        public void BindViewPreference(CameraViewPreference preference)
+        {
+            if (preference == null)
+            {
+                return;
+            }
+
+            viewPreference = preference;
+            SetPreferredView(preference.FirstPerson);
+        }
+
+        /// <summary>
+        /// Adopts this view and writes it down so the next lobby or match rig
+        /// opens with the same answer.
+        /// </summary>
+        public void SetPreferredView(bool firstPerson)
+        {
+            if (viewPreference != null)
+            {
+                viewPreference.FirstPerson = firstPerson;
+            }
+
+            if (isFirstPerson == firstPerson)
+            {
+                return;
+            }
+
+            isFirstPerson = firstPerson;
+            CutViewBlend();
+            ApplyView();
+        }
+
+        private InputActionMap playerMap;
+        private InputAction lookAction;
+        private InputAction toggleViewAction;
+        private PlayerMovement followMovement;
+        private Transform followVisual;
+        private Renderer[] bodyRenderers;
+        private float nextBodyRendererScan;
+        // 표정(눈)·후드·신발은 외형 적용기가 게임 중에 늦게 만들어 붙이므로, 한 번 수집한 목록만 숨기면
+        // 엎드려 카메라가 머리 근처로 내려왔을 때 내 눈이 보인다. 주기적으로 다시 수집한다.
+        private const float BodyRendererScanInterval = 0.5f;
+        private float currentEyeHeight;
+        private float yaw;
+        private float pitch;
+        private bool isFirstPerson;
+        private bool cursorCaptureEnabled = true;
+        private bool escapeReleasesCursor = true;
+        private bool migrationSuspended;
+        private bool requiresExplicitTarget;
+        private Vector3 followCorrection;
+        private CinemachineBrain replayBrain;
+        private Camera replayOutput;
+        private bool replayBrainEnabled;
+        private bool replayRigEnabled;
+        private Pose replayCameraPose;
+        private bool releasedCursorForTextInput;
+        private Transform followHead;
+        private Quaternion stunHeadToBody = Quaternion.identity;
+        private bool followingStunHead;
+        private float stunYaw;
+        private float stunPitch;
+
+        public Transform BeginReplay()
+        {
+            if (replayOutput != null) return replayOutput.transform;
+            var output = Camera.main;
+            if (output == null) return null;
+            replayOutput = output;
+            replayCameraPose = new Pose(output.transform.position, output.transform.rotation);
+            replayBrain = output.GetComponent<CinemachineBrain>();
+            replayBrainEnabled = replayBrain != null && replayBrain.enabled;
+            replayRigEnabled = enabled;
+            if (replayBrain != null) replayBrain.enabled = true;
+            enabled = false;
+            armsView.Hide();
+            return output.transform;
+        }
+
+        public void EndReplay()
+        {
+            if (replayOutput == null) return;
+            replayOutput.transform.SetPositionAndRotation(replayCameraPose.position, replayCameraPose.rotation);
+            if (replayBrain != null) replayBrain.enabled = replayBrainEnabled;
+            enabled = replayRigEnabled;
+            replayOutput = null;
+            replayBrain = null;
+        }
+
+        private void Awake()
+        {
+            if (inputActions == null || thirdPersonCamera == null || firstPersonCamera == null)
+            {
+                Debug.LogError("PlayerCameraController: Inspector 참조(InputActions/카메라 2대)가 비어 있습니다.", this);
+                enabled = false;
+                return;
+            }
+
+            playerMap = inputActions.FindActionMap("Player", throwIfNotFound: true);
+            lookAction = playerMap.FindAction("Look", throwIfNotFound: true);
+            toggleViewAction = playerMap.FindAction("ToggleView", throwIfNotFound: true);
+
+            if (followTarget != null)
+            {
+                SetFollowTarget(followTarget);
+            }
+
+            ApplyView();
+        }
+
+        private void Start()
+        {
+            // Scene wiring can opt out before Start. A network lobby must wait
+            // for its placed local avatar, not whichever character Awake finds.
+            if (requiresExplicitTarget || followTarget != null) return;
+            var player = FindAnyObjectByType<PlayerMovement>();
+            if (player != null && player.isActiveAndEnabled) SetFollowTarget(player.transform);
+        }
+
+        public void RequireExplicitFollowTarget() => requiresExplicitTarget = true;
+
+        /// <remarks>
+        /// Locks to whatever capture is currently set rather than to true. A
+        /// screen that handed the mouse to its UI, as the lobby does, would
+        /// otherwise get the cursor captured again the next time this rig is
+        /// re-enabled, and a captured cursor cannot press the buttons on it.
+        /// </remarks>
+        private void OnEnable()
+        {
+            playerMap?.Enable();
+            SetCursorLocked(cursorCaptureEnabled);
+            EmoteWheelController.Bind(this);
+            GetComponent<EmoteWheelController>()?.BindSettings(controls);
+        }
+
+        private void OnDisable()
+        {
+            heldItemHud.Hide();
+            playerMap?.Disable();
+            armsView.Hide();
+            heldItemView.Reveal();
+            Game.Client.Common.WebPointerInput.Release();
+        }
+
+        private void OnDestroy()
+        {
+            heldItemHud.Dispose();
+            followInteractor?.ClearFirstPersonHold();
+            heldItemView.Reveal();
+            armsView.Dispose();
+        }
+
+        private void Update()
+        {
+            Game.Client.Common.WebPointerInput.Arm(!migrationSuspended && cursorCaptureEnabled &&
+                !PlayerMovement.IsTextInputFocused() && !IsPointerOverUi());
+            if (migrationSuspended) return;
+            if (PlayerMovement.IsTextInputFocused())
+            {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                if (!releasedCursorForTextInput) Game.Client.Common.WebPointerInput.DiscardHeldButtons();
+#endif
+                SetCursorLocked(false);
+                releasedCursorForTextInput = true;
+                return;
+            }
+
+            if (releasedCursorForTextInput)
+            {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                Game.Client.Common.WebPointerInput.DiscardHeldButtons();
+#endif
+                releasedCursorForTextInput = false;
+                if (cursorCaptureEnabled)
+                {
+                    SetCursorLocked(true);
+                }
+            }
+
+            if (!cursorCaptureEnabled) return;
+
+            if (Game.Client.Common.WebPointerInput.IsLocked && !IsPointerOverUi() && toggleViewAction.WasPressedThisFrame())
+            {
+                SetPreferredView(!isFirstPerson);
+            }
+
+            if (!cursorCaptureEnabled)
+            {
+                return;
+            }
+
+            // Esc로 커서 해제, 화면 클릭으로 다시 잠금.
+            if (escapeReleasesCursor
+                && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                SetCursorLocked(false);
+            }
+            else if (!Game.Client.Common.WebPointerInput.IsLocked
+                     && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame
+                     && !IsPointerOverUi())
+            {
+                SetCursorLocked(true);
+            }
+
+            if (Game.Client.Common.WebPointerInput.IsLocked && !LookSuspended && !FollowingStunHead)
+            {
+                var look = lookAction.ReadValue<Vector2>();
+                var settings = controls?.Current ?? ControlCatalog.Defaults;
+                var scale = CameraLookScale.From(settings, isFirstPerson);
+                yaw += look.x * lookSensitivity * scale.x;
+                pitch = Mathf.Clamp(pitch - look.y * lookSensitivity * scale.y, minPitch, maxPitch);
+            }
+
+        }
+
+        private void LateUpdate()
+        {
+            if (migrationSuspended || followTarget == null)
+            {
+                heldItemHud.Hide();
+                return;
+            }
+
+            CacheFollowHead();
+            var stunView = followAnimationDriver != null && followAnimationDriver.IsStunView;
+            if (!stunView)
+            {
+                if (followingStunHead)
+                {
+                    // 기절 직전 보던 좌우 방향(yaw)은 기절 중에도 건드리지 않았으므로 그대로
+                    // 이어받고, 천장을 보던 각도만 자유 시점 범위로 되돌린다.
+                    pitch = Mathf.Clamp(stunPitch, minPitch, maxPitch);
+                }
+
+                followingStunHead = false;
+                if (followHead != null)
+                {
+                    stunHeadToBody = PlayerStunView.Calibrate(followHead.rotation, followTarget.rotation);
+                }
+            }
+
+            if (isFirstPerson && stunView && followHead != null)
+            {
+                if (!followingStunHead)
+                {
+                    stunYaw = yaw;
+                }
+
+                followingStunHead = true;
+                var pose = PlayerStunView.Pose(followHead, stunHeadToBody);
+                stunPitch = PlayerStunView.Pitch(pose.rotation);
+                transform.SetPositionAndRotation(
+                    pose.position, PlayerStunView.Stabilize(pose.rotation, stunYaw));
+                ApplyFirstPersonOverlays(rescanRenderers: ScanBodyRenderersIfDue(), firstPersonView: true);
+                return;
+            }
+
+            // 자세(서기/앉기/엎드리기)에 따라 눈높이를 부드럽게 따라간다.
+            var targetEyeHeight = followMovement != null ? followMovement.CurrentEyeHeight : headOffset.y;
+            currentEyeHeight = Mathf.Lerp(
+                currentEyeHeight, targetEyeHeight, eyeHeightLerpSpeed * Time.deltaTime);
+
+            var rescanRenderers = ScanBodyRenderersIfDue();
+
+            var offset = new Vector3(headOffset.x, currentEyeHeight, headOffset.z);
+            followCorrection = Vector3.Lerp(followCorrection, Vector3.zero,
+                1f - Mathf.Exp(-Time.unscaledDeltaTime / 0.08f));
+            transform.SetPositionAndRotation(
+                followTarget.position + offset + followCorrection,
+                Quaternion.Euler(pitch, yaw, 0f));
+
+            ApplyFirstPersonOverlays(rescanRenderers, isFirstPerson && !bodyVisibleOverride);
+        }
+
+        private bool FollowingStunHead => followingStunHead;
+
+        private bool ScanBodyRenderersIfDue()
+        {
+            if (Time.time < nextBodyRendererScan)
+            {
+                return false;
+            }
+
+            nextBodyRendererScan = Time.time + BodyRendererScanInterval;
+            RefreshBodyRenderers();
+            return true;
+        }
+
+        private void ApplyFirstPersonOverlays(bool rescanRenderers, bool firstPersonView)
+        {
+            heldItemHud.Apply(transform, firstPersonView,
+                followInteractor != null ? followInteractor.CarriedItem : null, interfaceSettings);
+            var hideArms = firstPersonView && firstPersonArms.showArms && !FollowingStunHead;
+            armsView.Apply(hideArms, firstPersonArms, transform,
+                followAnimationDriver != null ? followAnimationDriver.CurrentState : null,
+                followAnimationDriver != null && followAnimationDriver.IsPunching,
+                followAnimationDriver != null && followAnimationDriver.IsLeftPunch,
+                followAnimationDriver != null ? followAnimationDriver.PunchProgress : 0.35f);
+
+            if (followInteractor != null)
+            {
+                if (firstPersonView && firstPersonHold.enabled && !FollowingStunHead)
+                    followInteractor.SetFirstPersonHold(
+                        transform, firstPersonHold.offset, firstPersonHold.tilt, firstPersonHold.maxScreenFraction);
+                else
+                    followInteractor.ClearFirstPersonHold();
+            }
+
+            heldItemView.Apply(
+                followInteractor != null ? followInteractor.CarriedItem : null,
+                HideHeldItemOverride || firstPersonView && firstPersonHold.hideItem,
+                rescanRenderers);
+        }
+
+        private void CacheFollowHead()
+        {
+            if (followHead != null || followVisual == null)
+            {
+                return;
+            }
+
+            foreach (var candidate in followVisual.GetComponentsInChildren<Transform>(true))
+            {
+                if (candidate.name == "Head")
+                {
+                    followHead = candidate;
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The character this rig follows, for screens that have to stop it
+        /// moving while they hold the mouse.
+        /// </summary>
+        public PlayerMovement FollowMovement => followMovement;
+        public Transform FollowTarget => followTarget;
+        public float PitchDegrees => pitch;
+
+        /// <summary>
+        /// true인 동안 마우스 이동이 시선을 돌리지 않는다. 배치 모드가 우클릭 회전 중 마우스를 물건 쪽으로 가져갈 때 켠다.
+        /// 커서 잠금·토글 등 나머지 입력은 그대로다.
+        /// </summary>
+        public bool LookSuspended { get; set; }
+
+        /// <summary>
+        /// true면 시점과 무관하게 들고 있는 물건을 내 화면에서 숨긴다. 배치 모드가 실루엣만 보이게 할 때 켠다(3인칭 포함).
+        /// </summary>
+        public bool HideHeldItemOverride { get; set; }
+
+        public void SetMigrationSuspended(bool suspended) => migrationSuspended = suspended;
+
+        public void SetFollowTarget(Transform target, bool preserveView = false)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            followTarget = target;
+            followMovement = target.GetComponent<PlayerMovement>();
+            followInteractor?.ClearFirstPersonHold();
+            heldItemView.Reveal();
+            followInteractor = target.GetComponent<Game.Client.Interactions.PlayerInteractor>();
+            followAnimationDriver = target.GetComponent<PlayerAnimationDriver>();
+            if (preserveView)
+            {
+                followCorrection = transform.position - target.position -
+                                   new Vector3(headOffset.x, currentEyeHeight, headOffset.z);
+            }
+            else
+            {
+                currentEyeHeight = followMovement != null ? followMovement.CurrentEyeHeight : headOffset.y;
+                yaw = target.eulerAngles.y;
+                followCorrection = Vector3.zero;
+                transform.SetPositionAndRotation(
+                    target.position + new Vector3(headOffset.x, currentEyeHeight, headOffset.z),
+                    Quaternion.Euler(pitch, yaw, 0f));
+                // First binding is a cut, not a damped trip from the prefab's
+                // position (which may be underneath the lobby house).
+                thirdPersonCamera.PreviousStateIsValid = false;
+                firstPersonCamera.PreviousStateIsValid = false;
+            }
+
+            // 1인칭 몸 숨김 대상 렌더러와 1인칭 팔의 포즈 원본을 새 대상 기준으로 다시 수집한다.
+            followVisual = target.Find("Visual");
+            followHead = null;
+            RefreshBodyRenderers();
+            armsView.Bind(followVisual, transform, firstPersonArms);
+        }
+
+        /// <summary>
+        /// Visual 아래 렌더러를 다시 수집하고 현재 시점에 맞는 표시 상태를 적용한다.
+        /// 비활성 렌더러도 포함해, 나중에 켜지는 기본 눈 같은 것도 잡는다.
+        /// </summary>
+        private void RefreshBodyRenderers()
+        {
+            bodyRenderers = followVisual != null
+                ? followVisual.GetComponentsInChildren<Renderer>(true)
+                : System.Array.Empty<Renderer>();
+            ApplyView();
+        }
+
+        public void SetCursorCaptureEnabled(bool captureEnabled)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (cursorCaptureEnabled != captureEnabled)
+                Game.Client.Common.WebPointerInput.DiscardHeldButtons();
+#endif
+            cursorCaptureEnabled = captureEnabled;
+            SetCursorLocked(captureEnabled);
+        }
+
+        /// <summary>
+        /// Hands Esc over to a screen that has its own use for it.
+        /// </summary>
+        /// <remarks>
+        /// A screen with a pause menu releases the cursor itself when the menu
+        /// opens. If this rig also answered the same Esc, the release and the
+        /// re-capture would land in the same frame in an order nothing decides —
+        /// the cursor came back free about half the times the menu was closed.
+        /// Screens without a menu keep it, because Esc is the only way out of a
+        /// captured cursor there.
+        /// </remarks>
+        public void SetEscapeReleasesCursor(bool releasesCursor)
+        {
+            escapeReleasesCursor = releasesCursor;
+        }
+
+        private bool bodyVisibleOverride;
+
+        /// <summary>
+        /// 1인칭이어도 내 몸을 그리게 강제한다. 다른 카메라(엔딩 무대 고정 카메라)가 나를
+        /// 비추는 동안 쓰고, 끝나면 false로 되돌린다.
+        /// </summary>
+        public void SetBodyVisibleOverride(bool force)
+        {
+            if (bodyVisibleOverride == force) return;
+            bodyVisibleOverride = force;
+            ApplyView();
+        }
+
+        /// <summary>
+        /// Snaps 1st/3rd person instead of inheriting the scene Brain blend.
+        /// </summary>
+        /// <remarks>
+        /// Cinemachine's default is EaseInOut over 2 seconds. Playground already
+        /// stores a Cut, but a later map can ship the package default again and
+        /// the view key then eases between the two cameras.
+        /// </remarks>
+        private void CutViewBlend()
+        {
+            thirdPersonCamera.PreviousStateIsValid = false;
+            firstPersonCamera.PreviousStateIsValid = false;
+            var output = Camera.main;
+            var brain = output != null ? output.GetComponent<CinemachineBrain>() : null;
+            if (brain == null) return;
+            brain.DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.Cut, 0f);
+        }
+
+        private void ApplyView()
+        {
+            thirdPersonCamera.Priority = isFirstPerson ? InactivePriority : ActivePriority;
+            firstPersonCamera.Priority = isFirstPerson ? ActivePriority : InactivePriority;
+
+            // 1인칭에서는 내 몸이 화면을 가리지 않게 숨긴다. 그림자는 남겨 존재감을 유지한다.
+            // 손은 별도의 1인칭 팔 모델(FirstPersonArmsView)이 카메라에 붙어 그린다.
+            // 무대 카메라가 나를 비출 때는 오버라이드로 몸을 그린다.
+            var hideBody = isFirstPerson && !bodyVisibleOverride;
+            if (bodyRenderers != null)
+            {
+                foreach (var bodyRenderer in bodyRenderers)
+                {
+                    if (bodyRenderer == null) continue;
+                    bodyRenderer.shadowCastingMode = hideBody
+                        ? UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly
+                        : UnityEngine.Rendering.ShadowCastingMode.On;
+                }
+            }
+        }
+
+        /// <summary>
+        /// True while the mouse is over something the UI will handle.
+        /// </summary>
+        /// <remarks>
+        /// A click aimed at a HUD button must not also recapture the mouse. The
+        /// recapture lands in the same frame as the click and a captured cursor
+        /// reports from the centre of the screen, so the button the player was
+        /// pointing at can lose the very press meant for it. That is how the
+        /// lobby's Leave button came to need two or three tries.
+        /// </remarks>
+        private static bool IsPointerOverUi() =>
+            EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+
+        private static void SetCursorLocked(bool locked)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // Unity queues lock requests from Update/scene activation until a later
+            // DOM event, which can be Escape. WebPointerInput owns acquisition in
+            // the actual gameplay pointerdown; gameplay observes browser capture.
+            if (!locked) Game.Client.Common.WebPointerInput.Release(allowFullscreenResume: true);
+#else
+            Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
+            Cursor.visible = !locked;
+#endif
+        }
+    }
+}

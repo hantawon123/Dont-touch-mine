@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 8e9d1a2a4da29294aa1238273ff8fcd6
+timeCreated: 1644463318
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43000529273214900
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Washing_Machine_01_Convex.asset
+  uploadId: 987938

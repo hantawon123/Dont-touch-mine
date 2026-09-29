@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: da7fb6bf35bcb0e41b2ae882d318b303
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 298807
+  packageName: 'V2 Capsule Humanoid Animal Characters V2: 15 Unique Humanoids, Matcap
+    Magic'
+  packageVersion: 1.01
+  assetPath: Assets/DGN_15_CapsuleAnimals _V2/Scripts/Button_Functions.cs
+  uploadId: 732419

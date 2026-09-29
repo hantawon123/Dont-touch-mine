@@ -1,0 +1,1095 @@
+using System;
+using System.Collections.Generic;
+using Game.Client.Home;
+using Game.Client.Interactions;
+using Game.Client.Lobby;
+using Game.Client.Voice;
+using Game.Core.Lobby;
+using Game.Core.Match;
+using Game.Core.Settings;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace Game.Client.Match
+{
+    public interface INetworkMatchHudView
+    {
+        /// <inheritdoc cref="IMatchPhaseView.SetPhase"/>
+        void SetPhase(MatchPhase phase, string hidingPlayerName);
+        void SetRemainingSeconds(double remainingSeconds);
+        void SetEndCountdown(double remainingSeconds);
+        void SetEndResult(string headline, string subtitle);
+        void PlayMatchEndBell();
+        void ResetMatchEndBell();
+        void SetHighlightHud(bool visible, string subtitle, IReadOnlyList<float> barFills);
+        void SetAssignedItem(string displayName);
+        void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses);
+        void SetDestroyedItems(
+            int playerCount,
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses,
+            string localItemId = null,
+            IReadOnlyList<string> destroyedItemIdsInOrder = null);
+        void SetRemainingDestructionUses(int remainingUses, int maxUses);
+        void ShowDestructionNotice(string message);
+        void HideDestructionNotice();
+        void SetShredderMarker(Vector2 screenPosition, bool visible);
+        void ShowHidingIntro(string itemDisplayName, string itemId);
+        void HideHidingIntro();
+        void ShowSearchingIntro(string itemDisplayName);
+        void HideSearchingIntro();
+        bool IsPhaseIntroPresented(MatchPhase phase);
+        void ShowHidingTurnStart(double remainingSeconds, string bannerText = null);
+        void HideHidingTurnStart();
+        void SetHidingTurnStartSeconds(double remainingSeconds);
+        void ShowHidingActiveHud(double remainingSeconds, bool showTopPrompt, bool showCompleteGuide);
+        void HideHidingActiveHud();
+        void SetHidingActiveHudSeconds(double remainingSeconds);
+        void ShowHidingWaitHud(
+            int completedCount,
+            int totalCount,
+            string hidingPlayerName,
+            IReadOnlyList<HidingWaitPlayer> players,
+            bool showNextTurnNotice,
+            double remainingSeconds,
+            double turnDurationSeconds);
+        void HideHidingWaitHud();
+        void ShowVitals(float stamina, float maxStamina, int hits, int maxHits, bool exhausted,
+            bool finalSprint = false);
+        void HideVitals();
+        void SetTopHudVisible(bool visible);
+        void SetMatchChatVisible(bool visible);
+        void SetMatchChatMode(MatchChatHudMode mode);
+        void SetPlayerStatusVisible(bool visible);
+        void ShowChrome(UiLocale locale);
+    }
+
+    /// <summary>
+    /// Scene-owned references for the in-game HUD. Layout remains a scene/UI concern;
+    /// the presenter only sends display values here.
+    /// </summary>
+    public sealed class NetworkMatchHudView : MonoBehaviour, INetworkMatchHudView
+    {
+        public const int ShredderMarkerCornerRadius = 12;
+        public const float ShredderMarkerWidth = 240f;
+        public const float ShredderMarkerHeight = 52f;
+        public const string ShredderMarkerLabelName = "Label";
+        public const string DestructionNoticeIconName = "NoticeIcon";
+        public const string DestructionNoticeIconResource = "UI/Icon_Notification";
+        public const float DestructionNoticeIconSize = 40f;
+        public const float DestructionNoticeIconGap = 10f;
+        [SerializeField]
+        private MatchPhaseView phaseView;
+
+        [SerializeField]
+        private MatchTimerView timerView;
+
+        [SerializeField]
+        private HighlightHudView highlightHudView;
+
+        [SerializeField]
+        private GameObject destructionNoticeRoot;
+
+        [SerializeField]
+        private TMP_Text destructionNoticeText;
+
+        [SerializeField]
+        private Image destructionNoticeIcon;
+
+        [SerializeField]
+        private RectTransform shredderMarker;
+
+        [SerializeField]
+        private Canvas rootCanvas;
+
+        [SerializeField]
+        private HidingIntroView hidingIntroView;
+
+        [SerializeField]
+        private SearchingIntroView searchingIntroView;
+
+        [SerializeField]
+        private HidingTurnStartView hidingTurnStartView;
+
+        [SerializeField]
+        private HidingActiveHudView hidingActiveHudView;
+
+        [SerializeField]
+        private HidingWaitHudView hidingWaitHudView;
+
+        [SerializeField]
+        private KeySettingGuideView keySettingGuideView;
+
+        [SerializeField]
+        private MatchVitalsHudView vitalsHudView;
+
+        [SerializeField]
+        private DestroyedItemsHudView destroyedItemsHudView;
+
+        [SerializeField]
+        private MatchUrgencyBorderView urgencyBorderView;
+
+        private MatchUrgencyAudio urgencyAudio;
+        private HidingTimerTickAudio timerTickAudio;
+        private SearchingTimerTickAudio searchingTimerTickAudio;
+        private MatchEndBellAudio matchEndBellAudio;
+
+        private LobbyPlayerListView participantListView;
+
+        private UiLocale chromeLocale;
+
+        [VContainer.Inject]
+        public void BindLocale(UiLocale value) => ShowChrome(value);
+        private MatchPhase currentPhase;
+        private string currentHidingPlayerName = string.Empty;
+        private double lastRemainingSeconds = 999d;
+        private int remainingDestructionUses = -1;
+        private int destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
+        private int destroyedItemPlayerCount;
+        private IReadOnlyList<PlayerItemStatusSnapshot> destroyedItemStatuses =
+            Array.Empty<PlayerItemStatusSnapshot>();
+        private string destroyedItemLocalId;
+        private IReadOnlyList<string> destroyedItemOrder = Array.Empty<string>();
+        private bool highlightOnly;
+        private bool hidingPresentation, searchingPresentation;
+        public bool HasEssentialPresentation => hidingPresentation || searchingPresentation || highlightOnly || showEndCountdown;
+        private bool showEndCountdown;
+        private readonly Dictionary<Graphic, bool> hiddenGraphics = new();
+        private readonly Dictionary<PlayerInteractor, bool> hiddenCrosshairs = new();
+
+        private void Awake()
+        {
+            if (rootCanvas == null)
+            {
+                rootCanvas = GetComponent<Canvas>() ?? GetComponentInParent<Canvas>();
+            }
+
+            Game.Client.Common.HudScreenScale.EnsureOn(rootCanvas);
+
+            HideDestructionNotice();
+            ApplyDestructionNoticeChrome();
+            ApplyShredderMarkerChrome();
+            SetShredderMarker(default, false);
+            SetHighlightHud(false, null, Array.Empty<float>());
+            SetAssignedItem(null);
+            SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
+            EnsureTimer();
+            EnsureHidingIntro();
+            HideHidingIntro();
+            EnsureSearchingIntro();
+            HideSearchingIntro();
+            EnsureHidingTurnStart();
+            HideHidingTurnStart();
+            EnsureHidingActiveHud();
+            HideHidingActiveHud();
+            EnsureTimerTickAudio();
+            EnsureSearchingTimerTickAudio();
+            EnsureMatchEndBellAudio();
+            EnsureHidingWaitHud();
+            HideHidingWaitHud();
+            EnsureVitalsHud();
+            HideVitals();
+            EnsureDestroyedItemsHud();
+            destroyedItemsHudView?.Hide();
+            EnsureUrgencyBorder();
+            urgencyBorderView?.Hide();
+            EnsureUrgencyAudio();
+            urgencyAudio?.Hide();
+            EnsureHighlightHud();
+            EnsureVoiceControl();
+            RefreshKeyGuide(MatchPhase.Waiting);
+        }
+
+        public void ShowChrome(UiLocale locale)
+        {
+            chromeLocale = locale;
+            EnsureTimer();
+            timerView?.ShowChrome(locale);
+            phaseView?.ShowChrome(locale);
+            phaseView?.SetPhase(currentPhase, currentHidingPlayerName);
+            EnsureHighlightHud();
+            highlightHudView?.ShowChrome(locale);
+            EnsureHidingActiveHud();
+            hidingActiveHudView?.ShowChrome(locale);
+            EnsureHidingWaitHud();
+            hidingWaitHudView?.ShowChrome(locale);
+            EnsureHidingTurnStart();
+            hidingTurnStartView?.ShowChrome(locale);
+            EnsureHidingIntro();
+            hidingIntroView?.ShowChrome(locale);
+            EnsureSearchingIntro();
+            searchingIntroView?.ShowChrome(locale);
+            keySettingGuideView?.ShowChrome(locale);
+            RefreshShredderMarkerLabel();
+        }
+
+        public void SetPhase(MatchPhase phase, string hidingPlayerName)
+        {
+            currentPhase = phase;
+            currentHidingPlayerName = hidingPlayerName ?? string.Empty;
+            SetHighlightOnly(phase == MatchPhase.Highlight);
+            if (phase == MatchPhase.Hiding || phase == MatchPhase.Waiting)
+            {
+                ResetMatchEndBell();
+            }
+            if (phase != MatchPhase.Highlight)
+            {
+                SetHighlightHud(false, null, Array.Empty<float>());
+            }
+
+            phaseView?.SetPhase(phase, hidingPlayerName);
+            RefreshKeyGuide(phase);
+            RefreshUrgency();
+            ApplyDestroyedItems();
+        }
+
+        private void SetHighlightOnly(bool value)
+        {
+            if (highlightOnly == value) return;
+            highlightOnly = value;
+            if (!value)
+            {
+                RestoreHud();
+                return;
+            }
+            SetChatBubblesVisible(false);
+            // Hide presentation components, not HUD objects/presenters. Notices
+            // must keep receiving events and updating at their original position.
+            foreach (var graphic in FindObjectsByType<Graphic>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (graphic.gameObject.scene != gameObject.scene ||
+                    (highlightHudView != null && graphic.transform.IsChildOf(highlightHudView.transform)) ||
+                    (destructionNoticeRoot != null && graphic.transform.IsChildOf(destructionNoticeRoot.transform)) ||
+                    (hidingIntroView != null && graphic.transform.IsChildOf(hidingIntroView.transform)) ||
+                    (searchingIntroView != null && graphic.transform.IsChildOf(searchingIntroView.transform)) ||
+                    (hidingTurnStartView != null && graphic.transform.IsChildOf(hidingTurnStartView.transform)) ||
+                    (hidingActiveHudView != null && graphic.transform.IsChildOf(hidingActiveHudView.transform)) ||
+                    (hidingWaitHudView != null && graphic.transform.IsChildOf(hidingWaitHudView.transform)) ||
+                    (vitalsHudView != null && graphic.transform.IsChildOf(vitalsHudView.transform)) ||
+                    (keySettingGuideView != null && graphic.transform.IsChildOf(keySettingGuideView.transform)) ||
+                    (urgencyBorderView != null && graphic.transform.IsChildOf(urgencyBorderView.transform)) ||
+                    (participantListView != null && graphic.transform.IsChildOf(participantListView.transform)))
+                    continue;
+                hiddenGraphics[graphic] = graphic.enabled;
+                graphic.enabled = false;
+            }
+            foreach (var interactor in FindObjectsByType<PlayerInteractor>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                hiddenCrosshairs[interactor] = interactor.PresentationHudVisible;
+                interactor.SetHudVisible(false);
+            }
+        }
+
+        private void LateUpdate()
+        {
+            if (!highlightOnly) return;
+            foreach (var pair in hiddenGraphics)
+                if (pair.Key != null)
+                    pair.Key.enabled = showEndCountdown && timerView != null &&
+                        pair.Key.transform.IsChildOf(timerView.transform) && pair.Value;
+        }
+
+        public void SetEndCountdown(double remainingSeconds)
+        {
+            showEndCountdown = remainingSeconds > 0d;
+            EnsureTimer();
+            if (showEndCountdown)
+            {
+                timerView?.SetRemainingSeconds(remainingSeconds);
+            }
+            else
+            {
+                timerView?.ClearResult();
+            }
+
+            timerView?.SetHintVisible(!showEndCountdown);
+            LateUpdate();
+        }
+
+        public void SetEndResult(string headline, string subtitle)
+        {
+            showEndCountdown = true;
+            EnsureTimer();
+            timerView?.SetResult(headline, subtitle);
+            urgencyBorderView?.Hide();
+            urgencyAudio?.Hide();
+            searchingTimerTickAudio?.Hide();
+            LateUpdate();
+        }
+
+        public void PlayMatchEndBell()
+        {
+            EnsureMatchEndBellAudio();
+            matchEndBellAudio?.Play();
+        }
+
+        public void ResetMatchEndBell()
+        {
+            matchEndBellAudio?.Reset();
+        }
+
+        private void RestoreHud()
+        {
+            foreach (var pair in hiddenGraphics)
+                if (pair.Key != null) pair.Key.enabled = pair.Value;
+            foreach (var pair in hiddenCrosshairs)
+                if (pair.Key != null) pair.Key.SetHudVisible(pair.Value);
+            hiddenGraphics.Clear();
+            hiddenCrosshairs.Clear();
+            SetChatBubblesVisible(true);
+        }
+
+        private void SetChatBubblesVisible(bool visible)
+        {
+            foreach (var bubbles in FindObjectsByType<MatchChatBubbleView>(
+                         FindObjectsInactive.Include,
+                         FindObjectsSortMode.None))
+            {
+                if (bubbles.gameObject.scene == gameObject.scene)
+                {
+                    bubbles.SetPresentationVisible(visible);
+                }
+            }
+        }
+
+        private void OnDestroy() => RestoreHud();
+
+        public void SetRemainingSeconds(double remainingSeconds)
+        {
+            lastRemainingSeconds = remainingSeconds;
+            EnsureTimer();
+            timerView?.SetRemainingSeconds(remainingSeconds);
+            EnsureSearchingTimerTickAudio();
+            searchingTimerTickAudio?.SetRemainingSeconds(currentPhase, remainingSeconds);
+            RefreshUrgency();
+        }
+
+        public void SetHighlightHud(bool visible, string subtitle, IReadOnlyList<float> barFills)
+        {
+            EnsureHighlightHud();
+            if (highlightHudView == null)
+            {
+                return;
+            }
+
+            if (!visible)
+            {
+                highlightHudView.Hide();
+                return;
+            }
+
+            highlightHudView.Show(subtitle, barFills ?? Array.Empty<float>());
+        }
+
+        public void SetAssignedItem(string displayName)
+        {
+        }
+
+        public void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            SetDestroyedItems(
+                statuses == null ? 0 : statuses.Count,
+                statuses,
+                destroyedItemLocalId,
+                destroyedItemOrder);
+        }
+
+        public void SetDestroyedItems(
+            int playerCount,
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses,
+            string localItemId = null,
+            IReadOnlyList<string> destroyedItemIdsInOrder = null)
+        {
+            destroyedItemPlayerCount = playerCount;
+            destroyedItemStatuses = statuses ?? Array.Empty<PlayerItemStatusSnapshot>();
+            destroyedItemLocalId = localItemId;
+            destroyedItemOrder = destroyedItemIdsInOrder ?? Array.Empty<string>();
+            ApplyDestroyedItems();
+        }
+
+        public void SetRemainingDestructionUses(int remainingUses, int maxUses)
+        {
+            remainingDestructionUses = remainingUses;
+            destructionLimit = maxUses;
+            ApplyShredderMarkerChrome();
+        }
+
+        public void ShowDestructionNotice(string message)
+        {
+            ApplyDestructionNoticeChrome();
+            if (destructionNoticeText != null)
+            {
+                ApplyPaperlogy(destructionNoticeText);
+                destructionNoticeText.text = message ?? string.Empty;
+            }
+
+            if (destructionNoticeRoot != null)
+            {
+                destructionNoticeRoot.SetActive(true);
+            }
+        }
+
+        public static Sprite DestructionNoticeIconSprite =>
+            Resources.Load<Sprite>(DestructionNoticeIconResource);
+
+        public static Image EnsureDestructionNoticeIcon(Transform root)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            var existing = root.Find(DestructionNoticeIconName);
+            var image = existing != null ? existing.GetComponent<Image>() : null;
+            if (image == null)
+            {
+                var iconObject = new GameObject(
+                    DestructionNoticeIconName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image));
+                iconObject.transform.SetParent(root, false);
+                image = iconObject.GetComponent<Image>();
+                image.raycastTarget = false;
+            }
+
+            image.sprite = DestructionNoticeIconSprite;
+            image.color = Color.white;
+            image.preserveAspect = true;
+            image.rectTransform.sizeDelta = new Vector2(
+                DestructionNoticeIconSize,
+                DestructionNoticeIconSize);
+            image.transform.SetSiblingIndex(0);
+
+            var layout = image.GetComponent<LayoutElement>()
+                ?? image.gameObject.AddComponent<LayoutElement>();
+            layout.minWidth = DestructionNoticeIconSize;
+            layout.minHeight = DestructionNoticeIconSize;
+            layout.preferredWidth = DestructionNoticeIconSize;
+            layout.preferredHeight = DestructionNoticeIconSize;
+            layout.flexibleWidth = 0f;
+            layout.flexibleHeight = 0f;
+            return image;
+        }
+
+        public static void ApplyDestructionNoticeLayout(GameObject root, TMP_Text text)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var group = root.GetComponent<HorizontalLayoutGroup>()
+                ?? root.AddComponent<HorizontalLayoutGroup>();
+            group.childAlignment = TextAnchor.MiddleCenter;
+            group.spacing = DestructionNoticeIconGap;
+            group.padding = new RectOffset(24, 24, 0, 0);
+            group.childControlWidth = true;
+            group.childControlHeight = true;
+            group.childForceExpandWidth = false;
+            group.childForceExpandHeight = false;
+            group.childScaleWidth = false;
+            group.childScaleHeight = false;
+
+            EnsureDestructionNoticeIcon(root.transform);
+
+            if (text == null)
+            {
+                return;
+            }
+
+            text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            var textRect = text.rectTransform;
+            textRect.anchorMin = new Vector2(0.5f, 0.5f);
+            textRect.anchorMax = new Vector2(0.5f, 0.5f);
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+
+            var textLayout = text.GetComponent<LayoutElement>()
+                ?? text.gameObject.AddComponent<LayoutElement>();
+            textLayout.flexibleWidth = 0f;
+            textLayout.minHeight = DestructionNoticeIconSize;
+        }
+
+        internal void ApplyDestructionNoticeChrome()
+        {
+            if (destructionNoticeRoot == null)
+            {
+                return;
+            }
+
+            if (destructionNoticeText == null)
+            {
+                destructionNoticeText = destructionNoticeRoot.GetComponentInChildren<TMP_Text>(true);
+            }
+
+            ApplyDestructionNoticeLayout(destructionNoticeRoot, destructionNoticeText);
+            destructionNoticeIcon = destructionNoticeRoot.transform
+                .Find(DestructionNoticeIconName)
+                ?.GetComponent<Image>();
+        }
+
+        public void HideDestructionNotice()
+        {
+            if (destructionNoticeRoot != null)
+            {
+                destructionNoticeRoot.SetActive(false);
+            }
+        }
+
+        internal void ApplyShredderMarkerChrome()
+        {
+            if (shredderMarker == null)
+            {
+                return;
+            }
+
+            shredderMarker.sizeDelta = new Vector2(ShredderMarkerWidth, ShredderMarkerHeight);
+            var image = shredderMarker.GetComponent<Image>();
+            if (image != null)
+            {
+                image.sprite = HomeUiFonts.Rounded(ShredderMarkerCornerRadius);
+                image.type = Image.Type.Sliced;
+                image.pixelsPerUnitMultiplier = 1f;
+            }
+
+            RefreshShredderMarkerLabel();
+        }
+
+        public static string FormatShredderMarkerLabel(
+            int remainingUses,
+            int maxUses = PlaySettingsDraft.DefaultDestructionLimit) =>
+            FormatShredderMarkerLabel(remainingUses, maxUses, "ko");
+
+        public static string FormatShredderMarkerLabel(
+            int remainingUses,
+            int maxUses,
+            string language)
+        {
+            if (remainingUses == PlaySettingsDraft.UnlimitedDestructionUses ||
+                maxUses == PlaySettingsDraft.UnlimitedDestructionLimit)
+            {
+                return UiTextCatalog.Shipped.Get(UiText.Match.ShredderUnlimited, language);
+            }
+
+            if (remainingUses < 0)
+            {
+                return UiTextCatalog.Shipped.Get(UiText.Match.Shredder, language);
+            }
+
+            if (maxUses < PlaySettingsDraft.MinDestructionLimit)
+            {
+                maxUses = PlaySettingsDraft.DefaultDestructionLimit;
+            }
+
+            return string.Format(
+                UiTextCatalog.Shipped.Get(UiText.Match.ShredderUses, language),
+                remainingUses,
+                maxUses);
+        }
+
+        private void RefreshShredderMarkerLabel()
+        {
+            if (shredderMarker == null)
+            {
+                return;
+            }
+
+            var label = shredderMarker.Find(ShredderMarkerLabelName)?.GetComponent<TMP_Text>();
+            if (label == null)
+            {
+                return;
+            }
+
+            label.text = FormatShredderMarkerLabel(
+                remainingDestructionUses,
+                destructionLimit,
+                chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage);
+        }
+
+        public void SetShredderMarker(Vector2 screenPosition, bool visible)
+        {
+            if (shredderMarker == null)
+            {
+                return;
+            }
+
+            RefreshShredderMarkerLabel();
+            shredderMarker.gameObject.SetActive(visible);
+            if (!visible)
+            {
+                return;
+            }
+
+            var parent = shredderMarker.parent as RectTransform;
+            var camera = rootCanvas != null &&
+                         rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? rootCanvas.worldCamera
+                : null;
+
+            if (parent != null && RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    parent,
+                    screenPosition,
+                    camera,
+                    out var localPoint))
+            {
+                shredderMarker.anchoredPosition = localPoint;
+            }
+        }
+
+        public void ShowHidingIntro(string itemDisplayName, string itemId)
+        {
+            EnsureHidingIntro();
+            hidingPresentation = true;
+            hidingIntroView?.Show(itemDisplayName, itemId);
+        }
+
+        public void HideHidingIntro()
+        {
+            hidingPresentation = false;
+            hidingIntroView?.Hide();
+        }
+
+        public void ShowSearchingIntro(string itemDisplayName)
+        {
+            EnsureSearchingIntro();
+            searchingPresentation = true;
+            searchingIntroView?.Show(itemDisplayName);
+        }
+
+        public void HideSearchingIntro()
+        {
+            searchingPresentation = false;
+            searchingIntroView?.Hide();
+        }
+
+        public bool IsPhaseIntroPresented(MatchPhase phase) => phase switch
+        {
+            MatchPhase.Hiding => hidingIntroView != null && hidingIntroView.IsPresented,
+            MatchPhase.Searching => searchingIntroView != null && searchingIntroView.IsPresented,
+            _ => false
+        };
+
+        public void ShowHidingTurnStart(double remainingSeconds, string bannerText = null)
+        {
+            EnsureHidingTurnStart();
+            SetTopHudVisible(false);
+            hidingTurnStartView?.Show(remainingSeconds, bannerText);
+        }
+
+        public void HideHidingTurnStart()
+        {
+            hidingTurnStartView?.Hide();
+        }
+
+        public void ShowHidingActiveHud(double remainingSeconds, bool showTopPrompt, bool showCompleteGuide)
+        {
+            EnsureHidingActiveHud();
+            hidingActiveHudView?.Show(remainingSeconds, showTopPrompt, showCompleteGuide);
+        }
+
+        public void HideHidingActiveHud()
+        {
+            hidingActiveHudView?.Hide();
+            timerTickAudio?.Hide();
+        }
+
+        public void SetHidingActiveHudSeconds(double remainingSeconds)
+        {
+            hidingActiveHudView?.SetRemainingSeconds(remainingSeconds);
+            EnsureTimerTickAudio();
+            timerTickAudio?.SetRemainingSeconds(remainingSeconds);
+        }
+
+        public void ShowHidingWaitHud(
+            int completedCount,
+            int totalCount,
+            string hidingPlayerName,
+            IReadOnlyList<HidingWaitPlayer> players,
+            bool showNextTurnNotice,
+            double remainingSeconds,
+            double turnDurationSeconds)
+        {
+            EnsureHidingWaitHud();
+            hidingWaitHudView?.Show(
+                completedCount,
+                totalCount,
+                hidingPlayerName,
+                players,
+                showNextTurnNotice,
+                remainingSeconds,
+                turnDurationSeconds);
+        }
+
+        public void HideHidingWaitHud()
+        {
+            hidingWaitHudView?.Hide();
+        }
+
+        public void ShowVitals(float stamina, float maxStamina, int hits, int maxHits, bool exhausted,
+            bool finalSprint = false)
+        {
+            EnsureVitalsHud();
+            vitalsHudView?.Show(stamina, maxStamina, hits, maxHits, exhausted, finalSprint);
+        }
+
+        public void HideVitals()
+        {
+            vitalsHudView?.Hide();
+        }
+
+        public void SetTopHudVisible(bool visible)
+        {
+            if (phaseView != null)
+            {
+                phaseView.gameObject.SetActive(visible);
+            }
+
+            EnsureTimer();
+            if (timerView != null)
+            {
+                timerView.gameObject.SetActive(visible);
+            }
+        }
+
+        public void SetHidingTurnStartSeconds(double remainingSeconds)
+        {
+            hidingTurnStartView?.SetRemainingSeconds(remainingSeconds);
+        }
+
+        public void SetMatchChatVisible(bool visible)
+        {
+            SetMatchChatMode(visible ? MatchChatHudMode.Full : MatchChatHudMode.Hidden);
+        }
+
+        public void SetMatchChatMode(MatchChatHudMode mode)
+        {
+            var chat = GetComponentInParent<Canvas>()?.GetComponentInChildren<MatchChatView>(true);
+            if (chat != null)
+            {
+                chat.SetMode(mode);
+            }
+        }
+
+        public void SetPlayerStatusVisible(bool visible)
+        {
+            ApplyDestroyedItems();
+        }
+
+        private void ApplyDestroyedItems()
+        {
+            EnsureDestroyedItemsHud();
+            if (destroyedItemsHudView == null)
+            {
+                return;
+            }
+
+            if (destroyedItemPlayerCount <= 0 || !ShowsDestroyedItems(currentPhase))
+            {
+                destroyedItemsHudView.Hide();
+                return;
+            }
+
+            destroyedItemsHudView.Show(
+                destroyedItemPlayerCount,
+                destroyedItemStatuses,
+                destroyedItemLocalId,
+                destroyedItemOrder);
+        }
+
+        private static bool ShowsDestroyedItems(MatchPhase phase)
+        {
+            return phase == MatchPhase.Searching;
+        }
+
+        private void RefreshUrgency()
+        {
+            EnsureUrgencyBorder();
+            EnsureUrgencyAudio();
+            // The border and the sound answer the same question, so they are
+            // driven together: the last thirty seconds of searching, nothing else.
+            if (MatchUrgencyAudio.ShouldPlay(currentPhase, lastRemainingSeconds))
+            {
+                urgencyBorderView?.Show();
+                urgencyAudio?.Show();
+                return;
+            }
+
+            urgencyBorderView?.Hide();
+            urgencyAudio?.Hide();
+        }
+
+        private void EnsureTimer()
+        {
+            if (timerView == null)
+            {
+                timerView = GetComponentInChildren<MatchTimerView>(true);
+            }
+
+            if (timerView == null)
+            {
+                timerView = MatchTimerView.Create(transform);
+            }
+        }
+
+        private void EnsureUrgencyBorder()
+        {
+            if (urgencyBorderView == null)
+            {
+                urgencyBorderView = GetComponentInChildren<MatchUrgencyBorderView>(true);
+            }
+
+            if (urgencyBorderView == null)
+            {
+                urgencyBorderView = MatchUrgencyBorderView.Create(transform);
+            }
+        }
+
+        private void EnsureUrgencyAudio()
+        {
+            if (urgencyAudio == null)
+            {
+                urgencyAudio = GetComponentInChildren<MatchUrgencyAudio>(true);
+            }
+
+            if (urgencyAudio == null)
+            {
+                urgencyAudio = MatchUrgencyAudio.Create(transform);
+            }
+        }
+
+        private void EnsureTimerTickAudio()
+        {
+            if (timerTickAudio == null)
+            {
+                timerTickAudio = GetComponentInChildren<HidingTimerTickAudio>(true);
+            }
+
+            if (timerTickAudio == null)
+            {
+                timerTickAudio = HidingTimerTickAudio.Create(transform);
+            }
+        }
+
+        private void EnsureSearchingTimerTickAudio()
+        {
+            if (searchingTimerTickAudio == null)
+            {
+                searchingTimerTickAudio = GetComponentInChildren<SearchingTimerTickAudio>(true);
+            }
+
+            if (searchingTimerTickAudio == null)
+            {
+                searchingTimerTickAudio = SearchingTimerTickAudio.Create(transform);
+            }
+        }
+
+        private void EnsureMatchEndBellAudio()
+        {
+            if (matchEndBellAudio == null)
+            {
+                matchEndBellAudio = GetComponentInChildren<MatchEndBellAudio>(true);
+            }
+
+            if (matchEndBellAudio == null)
+            {
+                matchEndBellAudio = MatchEndBellAudio.Create(transform);
+            }
+        }
+
+        private void EnsureHidingIntro()
+        {
+            if (hidingIntroView == null)
+            {
+                hidingIntroView = GetComponentInChildren<HidingIntroView>(true);
+            }
+
+            if (hidingIntroView == null)
+            {
+                hidingIntroView = HidingIntroView.Create(transform);
+            }
+        }
+
+        private void EnsureSearchingIntro()
+        {
+            if (searchingIntroView == null)
+            {
+                searchingIntroView = GetComponentInChildren<SearchingIntroView>(true);
+            }
+
+            if (searchingIntroView == null)
+            {
+                searchingIntroView = SearchingIntroView.Create(transform);
+            }
+        }
+
+        private void EnsureHidingTurnStart()
+        {
+            if (hidingTurnStartView == null)
+            {
+                hidingTurnStartView = GetComponentInChildren<HidingTurnStartView>(true);
+            }
+
+            if (hidingTurnStartView == null)
+            {
+                hidingTurnStartView = HidingTurnStartView.Create(transform);
+            }
+        }
+
+        private void EnsureHidingActiveHud()
+        {
+            if (hidingActiveHudView == null)
+            {
+                hidingActiveHudView = GetComponentInChildren<HidingActiveHudView>(true);
+            }
+
+            if (hidingActiveHudView == null)
+            {
+                hidingActiveHudView = HidingActiveHudView.Create(transform);
+            }
+        }
+
+        private void EnsureHidingWaitHud()
+        {
+            if (hidingWaitHudView == null)
+            {
+                hidingWaitHudView = GetComponentInChildren<HidingWaitHudView>(true);
+            }
+
+            if (hidingWaitHudView == null)
+            {
+                hidingWaitHudView = HidingWaitHudView.Create(transform);
+            }
+        }
+
+        private void EnsureVitalsHud()
+        {
+            if (vitalsHudView == null)
+            {
+                vitalsHudView = GetComponentInChildren<MatchVitalsHudView>(true);
+            }
+
+            if (vitalsHudView == null)
+            {
+                vitalsHudView = MatchVitalsHudView.Create(transform);
+            }
+        }
+
+        private void EnsureDestroyedItemsHud()
+        {
+            if (destroyedItemsHudView == null)
+            {
+                destroyedItemsHudView = GetComponentInChildren<DestroyedItemsHudView>(true);
+            }
+
+            if (destroyedItemsHudView == null)
+            {
+                destroyedItemsHudView = DestroyedItemsHudView.Create(transform);
+            }
+        }
+
+        private void RefreshKeyGuide(MatchPhase phase)
+        {
+            EnsureKeySettingGuide();
+            keySettingGuideView?.SetVisible(ShowsKeySettingGuide(phase));
+        }
+
+        private static bool ShowsKeySettingGuide(MatchPhase phase)
+        {
+            return phase == MatchPhase.Hiding || phase == MatchPhase.Searching;
+        }
+
+        private void EnsureKeySettingGuide()
+        {
+            if (keySettingGuideView == null)
+            {
+                keySettingGuideView = GetComponentInChildren<KeySettingGuideView>(true);
+            }
+
+            if (keySettingGuideView == null)
+            {
+                keySettingGuideView = KeySettingGuideView.Ensure(transform);
+            }
+        }
+
+        public LobbyPlayerListView EnsureParticipantList()
+        {
+            if (participantListView == null)
+            {
+                participantListView = GetComponentInChildren<LobbyPlayerListView>(true);
+            }
+
+            if (participantListView != null)
+            {
+                participantListView.ConfigureForMatch();
+                participantListView.gameObject.SetActive(false);
+                return participantListView;
+            }
+
+            participantListView = LobbyPlayerListView.CreateMatchList(transform);
+            return participantListView;
+        }
+
+        /// <summary>
+        /// The same white / grey-slash mute control the lobby keeps beside
+        /// 환경설정. Built here so a match that never ran the layout menu
+        /// still has a button, and so an old corner plate is restyled.
+        /// </summary>
+        public VoiceView EnsureVoiceControl()
+        {
+            var view = GetComponent<VoiceView>();
+            if (view == null)
+            {
+                view = gameObject.AddComponent<VoiceView>();
+            }
+
+            var bar = VoiceView.EnsureBar(transform);
+            VoiceView.PlaceBarInCorner(bar);
+            bar.gameObject.SetActive(true);
+            view.BindBar(bar);
+            return view;
+        }
+
+        private void StripLegacyHud()
+        {
+            StripLegacy("HighlightTitleText");
+            StripLegacy("AssignedItemText");
+        }
+
+        private void StripLegacy(string childName)
+        {
+            var leftover = transform.Find(childName);
+            if (leftover != null)
+            {
+                leftover.gameObject.SetActive(false);
+            }
+        }
+
+        private void EnsureHighlightHud()
+        {
+            StripLegacyHud();
+            if (highlightHudView == null)
+            {
+                highlightHudView = GetComponentInChildren<HighlightHudView>(true);
+            }
+
+            if (highlightHudView == null)
+            {
+                highlightHudView = HighlightHudView.Create(transform);
+            }
+        }
+
+        private static void ApplyPaperlogy(TMP_Text text)
+        {
+            var font = HomeUiFonts.Apply();
+            if (text == null || font == null || text.font == font)
+            {
+                return;
+            }
+
+            text.font = font;
+            text.fontSharedMaterial = font.material;
+        }
+    }
+}

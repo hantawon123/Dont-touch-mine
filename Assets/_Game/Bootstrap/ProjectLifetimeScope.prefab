@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &2602613069057429644
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4737036429518728817}
+  - component: {fileID: 3707285177528482728}
+  m_Layer: 0
+  m_Name: ProjectLifetimeScope
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4737036429518728817
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2602613069057429644}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3707285177528482728
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2602613069057429644}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94399815d2654de4190c2eb5984cd978, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Bootstrap::Game.Bootstrap.ProjectLifetimeScope
+  parentReference:
+    TypeName: 
+  autoRun: 1
+  autoInjectGameObjects: []
+  _networkPrefabs: {fileID: 11400000, guid: 2450c63f1603a3d4dba80fb89b09e87c, type: 2}
+  _networkScenes: {fileID: 11400000, guid: aa74c23ab3984644dbe9e23eb9aa482c, type: 2}
+  _networkRegion: kr
+  _backendBaseUrl: 
+  _cursor: {fileID: 2800000, guid: 115eaa1630b7f9b43a0c61eb05314d9f, type: 3}
+  _cursorHotspot: {x: 3, y: 0}
+  _menuBgm: {fileID: 8300000, guid: dc0e33a792f642a42b184ade8d2fe3ab, type: 3}
+  _uiButtonClick: {fileID: 8300000, guid: 4a09040e8e6916c4aae24278581e6b06, type: 3}
+  _endingBgm: {fileID: 8300000, guid: a4c8e1b07d2f4e39b6a5c0d8e1f2a473, type: 3}
+  _partCatalog: {fileID: 11400000, guid: ed2804ade0fb4a19b6218f9ca9622b35, type: 2}

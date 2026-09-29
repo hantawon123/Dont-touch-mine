@@ -1,0 +1,177 @@
+using Fusion;
+using Game.Core.Lobby;
+using Game.Core.Rooms;
+using Game.Network.Session;
+using PhotonRoomInfo = Photon.Realtime.RoomInfo;
+
+namespace Game.Network.Lobby
+{
+    /// <summary>
+    /// Turns Photon session listings into the engine-neutral summaries that
+    /// presentation consumes.
+    /// </summary>
+    internal static class RoomSummaryMapper
+    {
+        private const string UnnamedRoom = "Unnamed room";
+
+        internal static int CountPlayers(int peers, bool dedicatedServer) =>
+            System.Math.Max(0, peers - (dedicatedServer ? 1 : 0));
+
+        public static bool TryToSummary(SessionInfo info, out RoomSummary summary)
+        {
+            if (ReadBool(info, SessionPropertyKeys.AvailableServer)) { summary = default; return false; }
+            var playerCount = CountPlayers(info.PlayerCount,
+                info.Properties?.ContainsKey(SessionPropertyKeys.AvailableServer) == true);
+            var displayName = ReadString(info, SessionPropertyKeys.DisplayName, UnnamedRoom);
+            // Empty is the lobby's random map. It is a choice, so the room stays listed.
+            var mapId = ReadString(info, SessionPropertyKeys.MapId, string.Empty);
+            var hostNickname = ReadString(info, SessionPropertyKeys.HostNickname, null);
+            var maxPlayers = ReadInt(
+                info,
+                SessionPropertyKeys.MaxPlayers,
+                info.MaxPlayers);
+
+            if (string.IsNullOrWhiteSpace(info.Name)
+                || !info.IsVisible
+                || !info.IsOpen
+                || maxPlayers < RoomSettings.MinPlayerCount
+                || maxPlayers > RoomSettings.MaxPlayerCount
+                || playerCount < 1
+                || playerCount > maxPlayers)
+            {
+                summary = default;
+                return false;
+            }
+
+            summary = new RoomSummary(
+                new RoomId(info.Name),
+                displayName,
+                mapId,
+                playerCount,
+                maxPlayers,
+                ReadBool(info, SessionPropertyKeys.Locked),
+                info.IsOpen,
+                ReadBool(info, SessionPropertyKeys.Playing)
+                    ? RoomStatus.Playing
+                    : RoomStatus.Waiting,
+                hostNickname,
+                ReadInt(info, SessionPropertyKeys.OpenedAt, 0));
+            return true;
+        }
+
+        public static bool TryToSummary(PhotonRoomInfo info, out RoomSummary summary)
+        {
+            if (ReadBool(info, SessionPropertyKeys.AvailableServer)) { summary = default; return false; }
+            var playerCount = CountPlayers(info.PlayerCount,
+                info.CustomProperties.ContainsKey(SessionPropertyKeys.AvailableServer));
+            var displayName = ReadString(
+                info, SessionPropertyKeys.DisplayName, UnnamedRoom);
+            // Empty is the lobby's random map. It is a choice, so the room stays listed.
+            var mapId = ReadString(info, SessionPropertyKeys.MapId, string.Empty);
+            var hostNickname = ReadString(
+                info, SessionPropertyKeys.HostNickname, null);
+            var maxPlayers = ReadInt(
+                info, SessionPropertyKeys.MaxPlayers, info.MaxPlayers);
+
+            if (info.RemovedFromList
+                || string.IsNullOrWhiteSpace(info.Name)
+                || !info.IsVisible
+                || !info.IsOpen
+                || maxPlayers < RoomSettings.MinPlayerCount
+                || maxPlayers > RoomSettings.MaxPlayerCount
+                || playerCount < 1
+                || playerCount > maxPlayers)
+            {
+                summary = default;
+                return false;
+            }
+
+            summary = new RoomSummary(
+                new RoomId(info.Name),
+                displayName,
+                mapId,
+                playerCount,
+                maxPlayers,
+                ReadBool(info, SessionPropertyKeys.Locked),
+                info.IsOpen,
+                ReadBool(info, SessionPropertyKeys.Playing)
+                    ? RoomStatus.Playing
+                    : RoomStatus.Waiting,
+                hostNickname,
+                ReadInt(info, SessionPropertyKeys.OpenedAt, 0));
+            return true;
+        }
+
+        /// <summary>
+        /// Falls back to a placeholder rather than the session name: the session
+        /// name is the room code, and showing it would hand out the one thing
+        /// that lets someone into a locked room.
+        /// </summary>
+        private static string ReadString(SessionInfo info, string key, string fallback)
+        {
+            var properties = info.Properties;
+
+            if (properties != null
+                && properties.TryGetValue(key, out var property)
+                && property.IsString)
+            {
+                var value = (string)property;
+                if (!string.IsNullOrEmpty(value))
+                {
+                    return value;
+                }
+            }
+
+            return fallback;
+        }
+
+        private static bool ReadBool(SessionInfo info, string key)
+        {
+            var properties = info.Properties;
+
+            return properties != null
+                   && properties.TryGetValue(key, out var property)
+                   && property.Isbool
+                   && (bool)property;
+        }
+
+        private static int ReadInt(SessionInfo info, string key, int fallback)
+        {
+            var properties = info.Properties;
+
+            return properties != null
+                   && properties.TryGetValue(key, out var property)
+                   && property.IsInt
+                ? (int)property
+                : fallback;
+        }
+
+        private static string ReadString(
+            PhotonRoomInfo info, string key, string fallback)
+        {
+            if (info.CustomProperties != null
+                && info.CustomProperties.TryGetValue(key, out var value)
+                && value is string text
+                && !string.IsNullOrEmpty(text))
+            {
+                return text;
+            }
+
+            return fallback;
+        }
+
+        private static bool ReadBool(PhotonRoomInfo info, string key) =>
+            info.CustomProperties != null
+            && info.CustomProperties.TryGetValue(key, out var value)
+            && value is bool enabled
+            && enabled;
+
+        private static int ReadInt(
+            PhotonRoomInfo info, string key, int fallback) =>
+            info.CustomProperties != null
+            && info.CustomProperties.TryGetValue(key, out var value)
+            && value is int number
+                ? number
+                : fallback;
+    }
+}

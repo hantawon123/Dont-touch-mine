@@ -1,0 +1,103 @@
+// Windows client on the native agent; Linux server and publication on EC2.
+pipeline {
+    agent { label 'unity-linux' }
+    parameters {
+        booleanParam(name: 'TEST_ONLY', defaultValue: false, description: '계약 테스트만 실행하며 배포하지 않습니다.')
+    }
+    options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+        timeout(time: 120, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '15', artifactNumToKeepStr: '3'))
+        timestamps()
+    }
+    triggers { pollSCM('H/5 * * * *') }
+    stages {
+        stage('Resolve source revision') {
+            steps {
+                script {
+                    withEnv(['GIT_LFS_SKIP_SMUDGE=1']) {
+                        def source = checkout([$class: 'GitSCM', branches: scm.branches,
+                            userRemoteConfigs: scm.userRemoteConfigs, extensions: [
+                                [$class: 'CloneOption', shallow: true, depth: 1, noTags: true, timeout: 30]]])
+                        env.RELEASE_REVISION = source.GIT_COMMIT
+                        env.RELEASE_SOURCE_BRANCH = source.GIT_BRANCH
+                    }
+                }
+                withCredentials([gitUsernamePassword(credentialsId: 'gitlab-deploy-token', gitToolName: 'Default')]) {
+                    sh 'git lfs pull'
+                }
+                sh 'mkdir -p Logs; rm -f Logs/server-build.log Logs/client-timings.tsv'
+                sh 'bash Tools/client/test_build.sh'
+                sh "python3 -m unittest discover -s Tools/client -p 'test_*.py'"
+                sh "python3 -m unittest discover -s Tools/network/server-flow -p 'test_*.py'"
+            }
+        }
+        stage('Build matching pair') {
+            failFast true
+            parallel {
+                stage('Native Windows client') {
+                    agent { label 'unity-windows' }
+                    options { timeout(time: 90, unit: 'MINUTES') }
+                    steps {
+                        script {
+                            withEnv(['GIT_LFS_SKIP_SMUDGE=1']) {
+                                checkout([$class: 'GitSCM', branches: [[name: env.RELEASE_REVISION]],
+                                    userRemoteConfigs: scm.userRemoteConfigs, extensions: [
+                                        [$class: 'CloneOption', shallow: false, noTags: true, timeout: 30]]])
+                            }
+                        }
+                        withCredentials([gitUsernamePassword(credentialsId: 'gitlab-deploy-token', gitToolName: 'Default')]) {
+                            bat 'git lfs pull'
+                        }
+                        withEnv(["CLIENT_TEST_ONLY=${params.TEST_ONLY ? '1' : '0'}"]) {
+                            powershell '& Tools/client/test-windows-build.ps1; & Tools/client/build-windows.ps1'
+                        }
+                        script {
+                            if (!params.TEST_ONLY) {
+                                // Transfer only the already compressed player, never Library/source.
+                                stash name: 'windows-download', includes: 'Builds/Download/*', useDefaultExcludes: false
+                            }
+                        }
+                    }
+                    post {
+                        always {
+                            powershell 'if (Test-Path Tools/client/stop-windows-build.ps1) { & Tools/client/stop-windows-build.ps1 }'
+                            archiveArtifacts artifacts: 'Logs/client-*', allowEmptyArchive: true
+                        }
+                    }
+                }
+                stage('Linux dedicated server') {
+                    when { expression { !params.TEST_ONLY } }
+                    steps {
+                        dir('Builds/Server') { deleteDir() }
+                        // 백엔드 CI와 같은 EC2를 쓰므로 Linux 빌드만 공용 잠금으로 직렬화한다.
+                        // Windows 클라이언트는 별도 PC에서 계속 병렬로 빌드한다.
+                        sh 'flock -x /tmp/d205-ec2-build.lock bash Tools/client/build.sh'
+                    }
+                }
+            }
+        }
+        stage('Verify pair and publish') {
+            when { expression { !params.TEST_ONLY } }
+            steps {
+                dir('Builds/Download') { deleteDir() }
+                unstash 'windows-download'
+                sh 'test "$(cat Builds/Server/version.txt)" = "$RELEASE_REVISION" && test "$(cat Builds/Download/version.txt)" = "$RELEASE_REVISION"'
+                dir('Builds/Download') { sh 'sha256sum -c SHA256SUMS.txt' }
+                script {
+                    if (env.RELEASE_SOURCE_BRANCH == 'origin/release') {
+                        sh 'python3 Tools/network/server-flow/publish_release.py /var/www/d205-game/runtime "$RELEASE_REVISION" --web Builds/Download --server Builds/Server'
+                    }
+                }
+                archiveArtifacts artifacts: 'Builds/Download/*'
+            }
+        }
+    }
+    post {
+        always {
+            sh 'if [ -f Tools/client/container.sh ]; then bash Tools/client/container.sh cleanup; fi'
+            archiveArtifacts artifacts: 'Logs/server-build.log,Logs/client-timings.tsv', allowEmptyArchive: true
+        }
+    }
+}

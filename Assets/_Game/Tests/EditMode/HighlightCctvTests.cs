@@ -1,0 +1,569 @@
+using System.Collections.Generic;
+using System.Linq;
+using Game.Bootstrap;
+using Game.Client.Cameras;
+using Game.Client.Match;
+using Game.Server.Match;
+using NUnit.Framework;
+using TMPro;
+using UnityEngine;
+
+namespace Game.Tests.EditMode
+{
+    public sealed class HighlightCctvTests
+    {
+        [Test]
+        public void Camera_SwitchesToClearMountInTheSameTick()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                Transform Child(string name, Vector3 position)
+                {
+                    var t = new GameObject(name).transform;
+                    t.SetParent(root.transform); t.position = position; return t;
+                }
+                var output = Child("output", Vector3.zero);
+                var player = Child("actor", Vector3.zero);
+                var a = Child("a", new Vector3(0, 3, -5)).gameObject.AddComponent<HighlightCctvCamera>();
+                var b = Child("b", new Vector3(40, 3, -5)).gameObject.AddComponent<HighlightCctvCamera>();
+                a.Configure("CAM A"); b.Configure("CAM B");
+                a.transform.LookAt(Vector3.zero); b.transform.LookAt(Vector3.right * 40);
+                using var director = new HighlightCameraDirector(output, output, new[] { player },
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0, cctvCameras: new[] { a, b });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                Assert.That(output.position, Is.EqualTo(a.transform.position));
+                director.Tick(2.1f);
+                player.position = Vector3.right * 40;
+                director.Tick(0.3f);
+                director.Tick(0.3f); // Re-sample after the one-frame movement prediction settles.
+                Assert.That(output.position, Is.EqualTo(b.transform.position));
+                Assert.That(Quaternion.Angle(output.rotation, b.transform.rotation), Is.LessThan(0.001f));
+                Assert.That(director.CctvLocation, Is.EqualTo("CAM B"));
+                director.Tick(0.3f);
+                Assert.That(output.position, Is.EqualTo(b.transform.position));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_KeepsAuthoredPoseAndLensThroughActionAndItemRemoval()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                Transform Child(string name, Vector3 position)
+                {
+                    var t = new GameObject(name).transform;
+                    t.SetParent(root.transform); t.position = position; return t;
+                }
+                var output = Child("output", Vector3.zero).gameObject.AddComponent<Camera>();
+                var actor = Child("actor", new Vector3(8, 0, 8));
+                var item = Child("item", actor.position);
+                var mount = Child("mount", new Vector3(0, 4, -5)).gameObject.AddComponent<HighlightCctvCamera>();
+                mount.Configure("CAM A");
+                using var director = new HighlightCameraDirector(output.transform, output.transform, new[] { actor },
+                    new[] { new SceneWorldObjectReference("item", item) }, collisionLayerMask: 0,
+                    cctvCameras: new[] { mount });
+                director.Focus(new HighlightCandidate(HighlightType.FirstBlood,
+                    new[] { new HighlightSegment(0, 10) }, "item", 5, 60, actorPlayerIndex: 0));
+                director.Tick(1f);
+                var wideFov = output.fieldOfView;
+                director.SetPlaybackTime(4.5);
+                Assert.That(output.fieldOfView, Is.EqualTo(wideFov), "Shot changes must not snap the lens.");
+                director.Tick(1f);
+                Assert.That(output.fieldOfView, Is.EqualTo(mount.FieldOfView));
+                item.gameObject.SetActive(false);
+                item.position = Vector3.left * 100;
+                director.SetPlaybackTime(6);
+                director.Tick(1f);
+                Assert.That(output.transform.position, Is.EqualTo(mount.transform.position));
+                Assert.That(Quaternion.Angle(output.transform.rotation, mount.transform.rotation), Is.LessThan(0.01f));
+                Assert.That(output.fieldOfView, Is.EqualTo(mount.FieldOfView));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_UsesVisibleFurnitureInsteadOfGameplayColliders()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                Transform Child(string name, Vector3 position)
+                {
+                    var t = new GameObject(name).transform;
+                    t.SetParent(root.transform); t.position = position; return t;
+                }
+                var playerObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                playerObject.transform.SetParent(root.transform);
+                playerObject.transform.position = Vector3.up * 0.5f;
+                playerObject.GetComponent<Collider>().enabled = false;
+                var player = playerObject.transform;
+                var output = Child("output", Vector3.zero);
+                var blocked = Child("blocked", new Vector3(0, 3, -5)).gameObject.AddComponent<HighlightCctvCamera>();
+                var clear = Child("clear", new Vector3(8, 3, 0)).gameObject.AddComponent<HighlightCctvCamera>();
+                blocked.transform.LookAt(player); clear.transform.LookAt(player);
+                blocked.Configure("blocked"); clear.Configure("clear");
+                var shelf = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                shelf.transform.SetParent(root.transform);
+                shelf.transform.position = new Vector3(0, 1.5f, -2.5f);
+                shelf.transform.localScale = new Vector3(2, 3, 1);
+                shelf.GetComponent<Collider>().enabled = false;
+                var invisibleBlocker = Child("invisible gameplay collider", new Vector3(4, 1.5f, 0));
+                invisibleBlocker.gameObject.AddComponent<BoxCollider>().size = new Vector3(2, 3, 1);
+                Physics.SyncTransforms();
+                Assert.That(Physics.Linecast(clear.transform.position, Vector3.up * 0.5f), Is.True);
+                using var director = new HighlightCameraDirector(output, output, new[] { player },
+                    new SceneWorldObjectReference[0], cctvCameras: new[] { blocked, clear });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                Assert.That(director.CctvLocation, Is.EqualTo("clear"));
+                Assert.That(shelf.GetComponent<Renderer>().enabled, Is.True);
+                Assert.That(shelf.GetComponent<Renderer>().forceRenderingOff, Is.False);
+                Assert.That(shelf.activeSelf, Is.True);
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_KeepsClearViewEvenWhenAnotherMountBecomesCloser()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                Transform Child(string name, Vector3 position)
+                {
+                    var t = new GameObject(name).transform;
+                    t.SetParent(root.transform); t.position = position; return t;
+                }
+                var player = Child("actor", Vector3.zero);
+                var output = Child("output", Vector3.zero);
+                var a = Child("a", new Vector3(0, 3, -10)).gameObject.AddComponent<HighlightCctvCamera>();
+                var b = Child("b", new Vector3(10, 3, -10)).gameObject.AddComponent<HighlightCctvCamera>();
+                a.Configure("A"); b.Configure("B");
+                a.transform.LookAt(Vector3.zero); b.transform.LookAt(Vector3.right * 10);
+                using var director = new HighlightCameraDirector(output, output, new[] { player },
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0, cctvCameras: new[] { a, b });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                director.Tick(2.1f);
+                director.SetPlaybackTime(3);
+                player.position = Vector3.right * 6;
+                director.Tick(0.3f); director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("A"));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_SwitchesOnlyAfterMovingReplayObjectBlocksTheSubject()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                Transform Child(string name, Vector3 position)
+                {
+                    var t = new GameObject(name).transform;
+                    t.SetParent(root.transform); t.position = position; return t;
+                }
+                var target = Child("target", Vector3.zero);
+                var output = Child("output", Vector3.zero);
+                var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                blocker.transform.SetParent(root.transform);
+                blocker.transform.position = Vector3.right * 50;
+                blocker.transform.localScale = new Vector3(2, 3, 1);
+                blocker.GetComponent<Collider>().enabled = false;
+                var a = Child("a", new Vector3(0, 3, -5)).gameObject.AddComponent<HighlightCctvCamera>();
+                var b = Child("b", new Vector3(8, 3, 0)).gameObject.AddComponent<HighlightCctvCamera>();
+                a.Configure("A"); b.Configure("B");
+                a.transform.LookAt(Vector3.up * 0.5f); b.transform.LookAt(Vector3.up * 0.5f);
+                using var director = new HighlightCameraDirector(output, output, new[] { target },
+                    new[] { new SceneWorldObjectReference("blocker", blocker.transform) }, cctvCameras: new[] { a, b });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                director.Tick(1f);
+                Assert.That(director.CctvLocation, Is.EqualTo("A"));
+                blocker.transform.position = new Vector3(0, 1.5f, -2.5f);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("B"));
+                Assert.That(blocker.GetComponent<Renderer>().forceRenderingOff, Is.False);
+                Assert.That(Quaternion.Angle(output.rotation, b.transform.rotation), Is.LessThan(0.01f));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_AcceptsVisibleUpperBodyAndLeavesTheShelfVisible()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                var actor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                actor.transform.SetParent(root.transform);
+                actor.transform.position = Vector3.up;
+                actor.transform.localScale = new Vector3(1, 2, 1);
+                var shelf = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                shelf.transform.SetParent(root.transform);
+                shelf.transform.position = new Vector3(0, 0.65f, -2.5f);
+                shelf.transform.localScale = new Vector3(2, 1.3f, 1);
+                HighlightCctvCamera Mount(string name, Vector3 position)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = position;
+                    camera.transform.LookAt(Vector3.up);
+                    camera.Configure(name);
+                    return camera;
+                }
+                var partial = Mount("partial", new Vector3(0, 1.5f, -5));
+                var clear = Mount("clear", new Vector3(8, 3, 0));
+                var output = new GameObject("output").transform;
+                output.SetParent(root.transform);
+                using var director = new HighlightCameraDirector(output, output, new[] { actor.transform },
+                    new SceneWorldObjectReference[0], cctvCameras: new[] { partial, clear });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                director.Tick(1f);
+                Assert.That(director.CctvLocation, Is.EqualTo("partial"));
+                Assert.That(shelf.GetComponent<Renderer>().enabled, Is.True);
+                Assert.That(shelf.GetComponent<Renderer>().forceRenderingOff, Is.False);
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_DoesNotSwitchSolelyForDistance()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                Transform Child(string name, Vector3 position)
+                {
+                    var t = new GameObject(name).transform;
+                    t.SetParent(root.transform); t.position = position; return t;
+                }
+                var actor = Child("actor", Vector3.zero);
+                var output = Child("output", Vector3.zero);
+                var far = Child("far", new Vector3(0, 3, -12)).gameObject.AddComponent<HighlightCctvCamera>();
+                var near = Child("near", new Vector3(10, 3, -4)).gameObject.AddComponent<HighlightCctvCamera>();
+                far.Configure("far"); near.Configure("near");
+                far.transform.LookAt(Vector3.up * 0.5f);
+                near.transform.LookAt(new Vector3(10, 0.5f, 0));
+                using var director = new HighlightCameraDirector(output, output, new[] { actor },
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0, cctvCameras: new[] { far, near });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                Assert.That(director.CctvLocation, Is.EqualTo("far"));
+                director.Tick(2f);
+                actor.position = Vector3.right * 8;
+                director.Tick(0.3f);
+                director.Tick(0.21f);
+                Assert.That(director.CctvLocation, Is.EqualTo("far"));
+                Assert.That(output.position, Is.EqualTo(far.transform.position));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_AllowsAtMostTwoVisibilitySwitchesPerHighlight()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                var actor = new GameObject("actor").transform;
+                actor.SetParent(root.transform);
+                var output = new GameObject("output").transform;
+                output.SetParent(root.transform);
+                HighlightCctvCamera Mount(string name, Vector3 position)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = position;
+                    camera.transform.LookAt(Vector3.up * 0.5f);
+                    camera.Configure(name);
+                    return camera;
+                }
+                GameObject Blocker(string name)
+                {
+                    var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    blocker.name = name;
+                    blocker.transform.SetParent(root.transform);
+                    blocker.transform.localScale = new Vector3(2f, 3f, 1f);
+                    blocker.GetComponent<Collider>().enabled = false;
+                    blocker.SetActive(false);
+                    return blocker;
+                }
+                var a = Mount("A", new Vector3(0, 3, -6));
+                var b = Mount("B", new Vector3(6, 3, 0));
+                var c = Mount("C", new Vector3(0, 3, 6));
+                var blockA = Blocker("block A");
+                var blockB = Blocker("block B");
+                var blockC = Blocker("block C");
+                using var director = new HighlightCameraDirector(output, output, new[] { actor },
+                    new[]
+                    {
+                        new SceneWorldObjectReference("block-a", blockA.transform),
+                        new SceneWorldObjectReference("block-b", blockB.transform),
+                        new SceneWorldObjectReference("block-c", blockC.transform),
+                    }, cctvCameras: new[] { a, b, c });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                Assert.That(director.CctvLocation, Is.EqualTo("A"));
+
+                blockA.transform.position = new Vector3(0, 1.5f, -3);
+                blockA.SetActive(true);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("B"));
+
+                blockB.transform.position = new Vector3(3, 1.5f, 0);
+                blockB.SetActive(true);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("B"),
+                    "The second switch must remain available for the final part of the highlight.");
+
+                director.SetPlaybackTime(6);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("C"));
+
+                blockA.SetActive(false);
+                blockC.transform.position = new Vector3(0, 1.5f, 3);
+                blockC.SetActive(true);
+                director.Tick(0.3f);
+                Assert.That(director.CctvLocation, Is.EqualTo("C"),
+                    "A third CCTV switch would make one highlight difficult to follow.");
+
+                director.Focus(new HighlightCandidate(HighlightType.LongestHidden, 0, 10, "0"));
+                Assert.That(director.CctvLocation, Is.EqualTo("A"),
+                    "A new highlight must choose its own opening view and switch budget.");
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_PlansBestViewsFromTheWholeReplayBeforePlayback()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                HighlightCctvCamera Mount(string name, float x)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = new Vector3(x, 3f, -6f);
+                    camera.transform.LookAt(new Vector3(x, 0.8f, 0f));
+                    camera.Configure(name, 40f);
+                    return camera;
+                }
+
+                var actor = new GameObject("actor").transform;
+                actor.SetParent(root.transform);
+                var output = new GameObject("output", typeof(Camera)).transform;
+                output.SetParent(root.transform);
+                var candidate = new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0");
+                var frames = new List<HighlightReplayFrame>();
+                for (var second = 0; second <= 10; second++)
+                {
+                    var x = second < 3 ? -8f : second < 7 ? 0f : 8f;
+                    frames.Add(new HighlightReplayFrame(second,
+                        new[] { new Pose(new Vector3(x, 0f, 0f), Quaternion.identity) },
+                        System.Array.Empty<Game.Server.Items.WorldObjectState>()));
+                }
+                var clips = new[] { new HighlightReplayClip(candidate.Segments[0], frames) };
+                using var director = new HighlightCameraDirector(output, output, new[] { actor },
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0,
+                    cctvCameras: new[] { Mount("A", -8f), Mount("B", 0f), Mount("C", 8f) },
+                    replayClips: clips);
+
+                director.Focus(candidate);
+                Assert.That(director.CctvLocation, Is.EqualTo("A"));
+                director.SetPlaybackTime(4d);
+                Assert.That(director.CctvLocation, Is.EqualTo("B"));
+                director.SetPlaybackTime(8d);
+                Assert.That(director.CctvLocation, Is.EqualTo("C"));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_UsesDistanceOnlyAsTieBreakerAndRejectsTopDownShortcut()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                HighlightCctvCamera Mount(string name, Vector3 position)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = position;
+                    camera.transform.LookAt(Vector3.up * 0.8f);
+                    camera.Configure(name, 65f);
+                    return camera;
+                }
+
+                var players = new[]
+                {
+                    new GameObject("target").transform,
+                    new GameObject("support").transform,
+                };
+                foreach (var player in players) player.SetParent(root.transform);
+                var output = new GameObject("output", typeof(Camera)).transform;
+                output.SetParent(root.transform);
+                var candidate = new HighlightCandidate(HighlightType.MostStunned,
+                    new[] { new HighlightSegment(0d, 4d) }, "0", 2d, 60,
+                    actorPlayerIndex: 1);
+                var poses = new[]
+                {
+                    new Pose(Vector3.left, Quaternion.identity),
+                    new Pose(Vector3.right, Quaternion.identity),
+                };
+                var frames = new List<HighlightReplayFrame>();
+                for (var second = 0; second <= 4; second++)
+                    frames.Add(new HighlightReplayFrame(second, poses,
+                        System.Array.Empty<Game.Server.Items.WorldObjectState>()));
+                var clips = new[] { new HighlightReplayClip(candidate.Segments[0], frames) };
+                var far = Mount("far", new Vector3(0f, 3f, -14f));
+                var near = Mount("near", new Vector3(0f, 3f, -7f));
+                var topDown = Mount("top-down", new Vector3(0f, 4f, 0f));
+
+                using var director = new HighlightCameraDirector(output, output, players,
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0,
+                    cctvCameras: new[] { far, topDown, near }, replayClips: clips);
+
+                director.Focus(candidate);
+
+                Assert.That(director.CctvLocation, Is.EqualTo("near"),
+                    "When every subject is visible, distance may break the tie but must not select a top-down shortcut.");
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_PrefersNearbyOffCentreViewOverDistantCentredView()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                var actor = new GameObject("actor").transform;
+                actor.SetParent(root.transform);
+                var output = new GameObject("output").transform;
+                output.SetParent(root.transform);
+                HighlightCctvCamera Mount(string name, Vector3 position, float yaw)
+                {
+                    var camera = new GameObject(name).AddComponent<HighlightCctvCamera>();
+                    camera.transform.SetParent(root.transform);
+                    camera.transform.position = position;
+                    camera.transform.LookAt(Vector3.up * 0.5f);
+                    camera.transform.Rotate(0, yaw, 0, Space.Self);
+                    camera.Configure(name);
+                    return camera;
+                }
+                var far = Mount("far", new Vector3(0, 3, -15), 0);
+                var near = Mount("near", new Vector3(0, 3, -5), 25);
+                using var director = new HighlightCameraDirector(output, output, new[] { actor },
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0, cctvCameras: new[] { far, near });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                Assert.That(director.CctvLocation, Is.EqualTo("near"));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Hud_PreservesHeaderAndAddsFourCornersAndKoreaClock()
+        {
+            var root = new GameObject("test", typeof(RectTransform));
+            try
+            {
+                var hud = HighlightHudView.Create(root.transform);
+                hud.Show("물건 쟁탈전 : 민수", new[] { 0.3f, 0f });
+                hud.SetCctvInfo("CAM 03 · 중앙 통로", new System.DateTimeOffset(2026, 9, 16, 14, 34, 56, System.TimeSpan.Zero));
+                Assert.That(hud.transform.Find("Header/Title").GetComponent<TMP_Text>().text, Is.EqualTo("HIGHLIGHT"));
+                for (var i = 0; i < 4; i++) Assert.That(hud.transform.Find("CCTV/Corner" + i), Is.Not.Null);
+                Assert.That(hud.transform.Find("CCTV/RecordingTime").GetComponent<TMP_Text>().text, Is.EqualTo("<color=#E74C3C>●</color> REC  23:34"));
+                hud.Hide();
+                Assert.That(hud.transform.Find("CCTV").gameObject.activeSelf, Is.False);
+                hud.Show("다음", new[] { 0f });
+                hud.SetCctvInfo("CAM 04", new System.DateTimeOffset(2026, 9, 16, 15, 12, 0, System.TimeSpan.Zero));
+                Assert.That(hud.transform.Find("CCTV/RecordingTime").GetComponent<TMP_Text>().text, Is.EqualTo("<color=#E74C3C>●</color> REC  00:12"));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Mount_CoversEveryHeightUntilAFloorIsAuthored()
+        {
+            var root = new GameObject("test");
+            try
+            {
+                var mount = root.AddComponent<HighlightCctvCamera>();
+                Assert.That(mount.HasFloor, Is.False, "Single-storey maps author no floor.");
+                Assert.That(mount.CoversHeight(0.5f), Is.True);
+                Assert.That(mount.CoversHeight(6f), Is.True);
+                mount.ConfigureFloor(5.5f, 9.8f);
+                Assert.That(mount.HasFloor, Is.True);
+                Assert.That(mount.CoversHeight(6f), Is.True);
+                Assert.That(mount.CoversHeight(1.01f), Is.False, "A first-floor subject belongs to the mounts below.");
+                Assert.That(mount.CoversHeight(9.8f), Is.False, "The attic above the range is the waiting area.");
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void Camera_PrefersTheMountThatWatchesTheSubjectsFloor()
+        {
+            // A floor slab is thinner than the 0.5 m an occluder needs, so without the authored
+            // storey the closer upstairs mount would win and film the ceiling above the action.
+            var root = new GameObject("test");
+            try
+            {
+                Transform Child(string name, Vector3 position)
+                {
+                    var t = new GameObject(name).transform;
+                    t.SetParent(root.transform); t.position = position; return t;
+                }
+                var output = Child("output", Vector3.zero);
+                var player = Child("actor", new Vector3(0, 1.01f, 0));
+                var upstairs = Child("upstairs", new Vector3(0, 8, -5)).gameObject.AddComponent<HighlightCctvCamera>();
+                var ground = Child("ground", new Vector3(0, 4, -12)).gameObject.AddComponent<HighlightCctvCamera>();
+                upstairs.Configure("CAM 2F"); ground.Configure("CAM 1F");
+                upstairs.ConfigureFloor(5.5f, 9.8f); ground.ConfigureFloor(-1f, 5.5f);
+                upstairs.transform.LookAt(player.position); ground.transform.LookAt(player.position);
+                using var director = new HighlightCameraDirector(output, output, new[] { player },
+                    new SceneWorldObjectReference[0], collisionLayerMask: 0, cctvCameras: new[] { upstairs, ground });
+                director.Focus(new HighlightCandidate(HighlightType.MostStunned, 0, 10, "0"));
+                Assert.That(director.CctvLocation, Is.EqualTo("CAM 1F"),
+                    "The nearer mount watches the floor above and must lose to the one on this floor.");
+                Assert.That(output.position, Is.EqualTo(ground.transform.position));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void MansionPrefab_HasFloorTaggedMountsWithUniqueNamesAndSupermarketLens()
+        {
+            // PlaygroundLifetimeScope loads Resources/CCTV/<scene name>; the mansion uses its own authored table.
+            var prefab = Resources.Load<GameObject>("CCTV/Mansion");
+            Assert.That(prefab, Is.Not.Null, "Resources/CCTV/Mansion.prefab is required for mansion highlights.");
+            var cameras = prefab.GetComponentsInChildren<HighlightCctvCamera>(true);
+            Assert.That(cameras.Length, Is.GreaterThanOrEqualTo(10), "The hand-tuned first-floor layout keeps at least one CCTV per room.");
+            Assert.That(cameras.Select(c => c.LocationName).Distinct().Count(), Is.EqualTo(cameras.Length), "Location names identify the CAM on the HUD.");
+            foreach (var camera in cameras)
+            {
+                var position = camera.transform.position;
+                Assert.That(position.x, Is.InRange(-13f, 13.5f), camera.LocationName);
+                Assert.That(position.z, Is.InRange(-33f, -8.5f), camera.LocationName);
+                // First floor hangs below its ceiling (4.0 in low spots, 5.41 at most); the second
+                // floor sits under the attic slab that blocks the waiting area (9.8).
+                Assert.That(position.y, Is.InRange(3.5f, 9.8f), camera.LocationName + " hangs below the ceiling of its floor.");
+                if (position.y >= 5.5f)
+                {
+                    Assert.That(camera.HasFloor, Is.True,
+                        camera.LocationName + " is upstairs and must say so, or it will be offered first-floor action.");
+                    Assert.That(camera.CoversHeight(1.01f), Is.False, camera.LocationName);
+                    Assert.That(camera.CoversHeight(6f), Is.True, camera.LocationName);
+                }
+                else if (camera.HasFloor)
+                {
+                    Assert.That(camera.CoversHeight(1.01f), Is.True, camera.LocationName);
+                    Assert.That(camera.CoversHeight(6f), Is.False, camera.LocationName);
+                }
+                Assert.That(camera.transform.forward.y, Is.LessThan(-0.2f), camera.LocationName + " tilts down like the supermarket mounts (18~46 degrees).");
+                Assert.That(camera.FieldOfView, Is.EqualTo(65f), camera.LocationName);
+            }
+        }
+    }
+}

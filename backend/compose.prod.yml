@@ -1,0 +1,140 @@
+# 운영 구성 (EC2 한 대). 컨테이너 넷입니다 (S15P21D205-980).
+#
+#   mysql            계정 서비스의 DB (users, friendships, user_reports, ...)
+#   app              계정 서비스. 게임 API, 알림 WebSocket, 관리 화면.        호스트 8080
+#   mysql-analytics  플레이 로그 DB (d205_analytics)
+#   analytics        수집 서비스. /api/v1/events 만 받습니다.                호스트 8081
+#
+# 두 서비스가 서로의 DB 에 붙지 않습니다. app 이 analytics 에 물을 것이 있으면(탈퇴 익명화, 관리 화면
+# 경기 통계) compose 네트워크 안에서 http://analytics:8080/internal/... 을 부릅니다. nginx 에는 그
+# 경로가 없습니다.
+#
+# 자원 상한을 전부 걸었습니다. 서버가 한 대라 상한이 없으면 한 컨테이너의 폭주가 나머지를 같이
+# 죽입니다. 프로세스를 나눈 이유가 격리인데 상한이 없으면 그 격리가 반쪽입니다. 합계는 EC2 15GB 에서
+# Jenkins(실행기 2개)와 OS 몫을 남기고 잡았습니다. JVM 은 MaxRAMPercentage=75 로 상한을 따라갑니다.
+#
+# 값은 서버의 .env 와 Jenkins 비밀 파일(d205-backend-env) 두 곳에 있어야 하고 :? 는 없으면 파싱
+# 단계에서 멈춥니다. 빈 값으로 뜨는 것보다 배포가 막히는 편이 낫습니다.
+name: d205
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: d205-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?}
+      MYSQL_DATABASE: ${DB_NAME:?}
+      MYSQL_USER: ${DB_USERNAME:?}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - d205-mysql-data:/var/lib/mysql
+    mem_limit: 1536m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  app:
+    build:
+      context: .
+      args:
+        MODULE: app
+    image: d205-app:latest
+    container_name: d205-app
+    restart: unless-stopped
+    # Server-only file survives Jenkins workspaces; clients never receive the GMS key.
+    env_file:
+      - path: ${GMS_ENV_FILE:-/etc/d205/gms.env}
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:?}
+      DB_USERNAME: ${DB_USERNAME:?}
+      DB_PASSWORD: ${DB_PASSWORD:?}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      PHOTON_AUTH_SECRET: ${PHOTON_AUTH_SECRET:-}
+      PHOTON_AUTH_KEY: ${PHOTON_AUTH_KEY:-}
+      # 분석 서비스의 내부 API 주소와 공유 키. 서비스 이름으로 부르므로 compose 네트워크 안에서만 통합니다.
+      ANALYTICS_INTERNAL_URL: http://analytics:8080
+      INTERNAL_KEY: ${INTERNAL_KEY:-}
+      # 게임 서버가 채팅 금칙어 목록을 받고 채팅 기록을 보낼 때 내미는 키 (S15P21D205-1027).
+      # 위의 INTERNAL_KEY 와 일부러 나눕니다. 그쪽은 이 서비스가 분석 서비스를 부를 때 내미는
+      # 값이라, 같은 키를 게임 서버에 주면 분석 쪽 내부 경로(탈퇴 익명화)까지 열 수 있게 됩니다.
+      CHAT_INTERNAL_KEY: ${CHAT_INTERNAL_KEY:-}
+      TZ: Asia/Seoul
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      # 루프백에만 바인딩합니다. 바깥은 nginx 만 봅니다.
+      - "127.0.0.1:8080:8080"
+    mem_limit: 2048m
+    cpus: 2.0
+
+  mysql-analytics:
+    image: mysql:8.4
+    container_name: d205-mysql-analytics
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${ANALYTICS_MYSQL_ROOT_PASSWORD:?}
+      MYSQL_DATABASE: ${ANALYTICS_DB_NAME:?}
+      MYSQL_USER: ${ANALYTICS_DB_USERNAME:?}
+      MYSQL_PASSWORD: ${ANALYTICS_DB_PASSWORD:?}
+      # 초기화 스크립트(deploy/mysql-analytics/init)가 읽기 계정을 만듭니다.
+      # 볼륨이 이미 초기화된 뒤에는 돌지 않으므로 계정을 뒤늦게 바꾸려면 deploy/README.md 의 수동 절차입니다.
+      ANALYTICS_READER_PASSWORD: ${ANALYTICS_READER_PASSWORD:?}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - d205-mysql-analytics-data:/var/lib/mysql
+      - ./deploy/mysql-analytics/init:/docker-entrypoint-initdb.d:ro
+    mem_limit: 1536m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${ANALYTICS_MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  analytics:
+    build:
+      context: .
+      args:
+        MODULE: analytics
+    image: d205-analytics:latest
+    container_name: d205-analytics
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      ANALYTICS_DB_HOST: mysql-analytics
+      ANALYTICS_DB_PORT: 3306
+      ANALYTICS_DB_NAME: ${ANALYTICS_DB_NAME:?}
+      ANALYTICS_DB_USERNAME: ${ANALYTICS_DB_USERNAME:?}
+      ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD:?}
+      INTERNAL_KEY: ${INTERNAL_KEY:-}
+      TZ: Asia/Seoul
+    depends_on:
+      mysql-analytics:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8081:8080"
+    # 폭주해도 여기까지입니다. 이 상한이 곧 "분석이 죽어도 게임은 산다"의 실체입니다.
+    mem_limit: 1024m
+    cpus: 1.0
+
+volumes:
+  d205-mysql-data:
+  d205-mysql-analytics-data:

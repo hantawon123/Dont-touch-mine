@@ -1,0 +1,200 @@
+{
+  "measuredAtUtc": "2026-09-07T01:41:11.3847626Z",
+  "runtime": ".NET 10.0.11",
+  "os": "Microsoft Windows 10.0.26200",
+  "cpuCount": 22,
+  "iterations": 100,
+  "warmups": 20,
+  "scope": "Synthetic serializer microbenchmark; not Unity Mono/IL2CPP or a six-peer game",
+  "results": [
+    {
+      "objectCount": 6,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 1,
+      "rawBytes": 125031,
+      "compressedBytes": 46994,
+      "rawSha256": "652ABC17E19ED2A9FB6B916760C75DD2B7245136CEACE898A65544089104B985",
+      "encode": {
+        "p50Ms": 0.6988,
+        "p95Ms": 0.8229,
+        "allocatedBytesPerOperation": 462184
+      },
+      "decode": {
+        "p50Ms": 0.6002,
+        "p95Ms": 1.0002,
+        "allocatedBytesPerOperation": 711110
+      }
+    },
+    {
+      "objectCount": 6,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 2,
+      "rawBytes": 125031,
+      "compressedBytes": 46994,
+      "rawSha256": "652ABC17E19ED2A9FB6B916760C75DD2B7245136CEACE898A65544089104B985",
+      "encode": {
+        "p50Ms": 0.6792,
+        "p95Ms": 1.3023,
+        "allocatedBytesPerOperation": 462184
+      },
+      "decode": {
+        "p50Ms": 0.5805,
+        "p95Ms": 0.9018,
+        "allocatedBytesPerOperation": 711110
+      }
+    },
+    {
+      "objectCount": 6,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 3,
+      "rawBytes": 125031,
+      "compressedBytes": 46994,
+      "rawSha256": "652ABC17E19ED2A9FB6B916760C75DD2B7245136CEACE898A65544089104B985",
+      "encode": {
+        "p50Ms": 0.6463,
+        "p95Ms": 1.1317,
+        "allocatedBytesPerOperation": 462184
+      },
+      "decode": {
+        "p50Ms": 0.5831,
+        "p95Ms": 0.9417,
+        "allocatedBytesPerOperation": 711110
+      }
+    },
+    {
+      "objectCount": 32,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 1,
+      "rawBytes": 424395,
+      "compressedBytes": 147297,
+      "rawSha256": "85518C930F3EE0B7AE8B8C3C2B181C2F52DA46FCBA9953A6EE6532D1656DCEE7",
+      "encode": {
+        "p50Ms": 1.9627,
+        "p95Ms": 2.3194,
+        "allocatedBytesPerOperation": 1742836
+      },
+      "decode": {
+        "p50Ms": 2.0978,
+        "p95Ms": 3.3787,
+        "allocatedBytesPerOperation": 2543360
+      }
+    },
+    {
+      "objectCount": 32,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 2,
+      "rawBytes": 424395,
+      "compressedBytes": 147297,
+      "rawSha256": "85518C930F3EE0B7AE8B8C3C2B181C2F52DA46FCBA9953A6EE6532D1656DCEE7",
+      "encode": {
+        "p50Ms": 2.2477,
+        "p95Ms": 2.791,
+        "allocatedBytesPerOperation": 1742731
+      },
+      "decode": {
+        "p50Ms": 2.1743,
+        "p95Ms": 3.5014,
+        "allocatedBytesPerOperation": 2543360
+      }
+    },
+    {
+      "objectCount": 32,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 3,
+      "rawBytes": 424395,
+      "compressedBytes": 147297,
+      "rawSha256": "85518C930F3EE0B7AE8B8C3C2B181C2F52DA46FCBA9953A6EE6532D1656DCEE7",
+      "encode": {
+        "p50Ms": 2.1804,
+        "p95Ms": 2.5542,
+        "allocatedBytesPerOperation": 1742535
+      },
+      "decode": {
+        "p50Ms": 2.1306,
+        "p95Ms": 3.5803,
+        "allocatedBytesPerOperation": 2543360
+      }
+    },
+    {
+      "objectCount": 64,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 1,
+      "rawBytes": 792843,
+      "compressedBytes": 269121,
+      "rawSha256": "09E49A3628B55C394E460A0C7B0826A8B55009E82C0D56D324D9D3159C2B11E6",
+      "encode": {
+        "p50Ms": 3.7172,
+        "p95Ms": 4.1128,
+        "allocatedBytesPerOperation": 3439269
+      },
+      "decode": {
+        "p50Ms": 4.2691,
+        "p95Ms": 6.2305,
+        "allocatedBytesPerOperation": 4877470
+      }
+    },
+    {
+      "objectCount": 64,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 2,
+      "rawBytes": 792843,
+      "compressedBytes": 269121,
+      "rawSha256": "09E49A3628B55C394E460A0C7B0826A8B55009E82C0D56D324D9D3159C2B11E6",
+      "encode": {
+        "p50Ms": 5.498,
+        "p95Ms": 7.7705,
+        "allocatedBytesPerOperation": 3438864
+      },
+      "decode": {
+        "p50Ms": 3.8411,
+        "p95Ms": 5.2939,
+        "allocatedBytesPerOperation": 4877478
+      }
+    },
+    {
+      "objectCount": 64,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 3,
+      "rawBytes": 792843,
+      "compressedBytes": 269121,
+      "rawSha256": "09E49A3628B55C394E460A0C7B0826A8B55009E82C0D56D324D9D3159C2B11E6",
+      "encode": {
+        "p50Ms": 3.7538,
+        "p95Ms": 4.5699,
+        "allocatedBytesPerOperation": 3439253
+      },
+      "decode": {
+        "p50Ms": 3.7862,
+        "p95Ms": 4.6297,
+        "allocatedBytesPerOperation": 4877556
+      }
+    }
+  ]
+}

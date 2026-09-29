@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 44e6768d6a8032e4cade2873310f67b3
+timeCreated: 1644463289
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43954614015710098
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Veh_Trike_01_Convex.asset
+  uploadId: 987938

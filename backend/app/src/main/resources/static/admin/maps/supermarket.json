@@ -1,0 +1,8 @@
+{
+  "mapId": "supermarket",
+  "extent": [-26, -42, 22, 9.5],
+  "cutHeight": 3,
+  "pixels": [1152, 1236],
+  "scene": "Supermarket",
+  "bakedAt": "2026-09-15T07:31:43Z"
+}

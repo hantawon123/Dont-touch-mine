@@ -1,0 +1,230 @@
+using System;
+using Game.Core.Lobby;
+using Game.Core.Match;
+using Game.SOAP.Config;
+using VContainer;
+
+namespace Game.Server.Match
+{
+    public sealed class MatchFlow
+    {
+        private readonly MatchRulesSO rules;
+        private readonly MatchState state;
+        private readonly int playerCount;
+        private readonly float hidingTurnDurationSeconds;
+        private readonly float searchingDurationSeconds;
+        private double? highlightPresentationDuration;
+        private bool phaseIntrosEnabled;
+        public double PhaseIntroDurationSeconds => phaseIntrosEnabled ? MatchIntroTiming.VisibleSeconds : 0d;
+
+        public bool WaitsForIntroReady { get; private set; }
+        public bool IsWaitingForIntroReady => WaitsForIntroReady &&
+            (state.CurrentPhase.CurrentValue == MatchPhase.Hiding || state.CurrentPhase.CurrentValue == MatchPhase.Searching) &&
+            state.PhaseEndsAt.CurrentValue == 0d;
+
+        public void EnablePhaseIntros(bool waitForReady = false)
+        {
+            if (state.CurrentPhase.CurrentValue != MatchPhase.Waiting)
+                throw new InvalidOperationException("Enable phase intros before starting the match.");
+            phaseIntrosEnabled = true;
+            WaitsForIntroReady = waitForReady;
+        }
+
+        public bool SchedulePhaseIntro(double now)
+        {
+            ValidateTime(now);
+            if (!IsWaitingForIntroReady) return false;
+            var phase = state.CurrentPhase.CurrentValue;
+            state.EnterPhase(phase, now + MatchIntroTiming.VisibleSeconds +
+                (phase == MatchPhase.Hiding ? HidingDurationSeconds : SearchingDurationSeconds));
+            return true;
+        }
+
+        public bool IsPhaseIntro(double now) => phaseIntrosEnabled &&
+            (state.CurrentPhase.CurrentValue == MatchPhase.Hiding ||
+             state.CurrentPhase.CurrentValue == MatchPhase.Searching) &&
+            (IsWaitingForIntroReady || now < state.PhaseEndsAt.CurrentValue -
+                (state.CurrentPhase.CurrentValue == MatchPhase.Hiding
+                    ? HidingDurationSeconds : SearchingDurationSeconds));
+
+        public void SetHighlightPresentationDuration(double duration)
+        {
+            ValidateTime(duration);
+            highlightPresentationDuration = duration;
+        }
+
+        [Inject]
+        public MatchFlow(MatchRulesSO rules, MatchState state)
+            : this(rules, state, MatchRulesSO.MaxPlayerCount)
+        {
+        }
+
+        public MatchFlow(
+            MatchRulesSO rules,
+            MatchState state,
+            int playerCount,
+            MatchRuleSettings? matchRules = null)
+        {
+            this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
+            this.state = state ?? throw new ArgumentNullException(nameof(state));
+            MatchRulesSO.ValidatePlayerCount(playerCount);
+            this.playerCount = playerCount;
+            hidingTurnDurationSeconds = matchRules?.HidingDurationSeconds ??
+                rules.HidingTurnDurationSeconds;
+            searchingDurationSeconds = matchRules?.SearchingDurationSeconds ??
+                rules.SearchingDurationSeconds;
+        }
+
+        public int PlayerCount => playerCount;
+        public float HidingTurnDurationSeconds => hidingTurnDurationSeconds;
+        public float HidingDurationSeconds => hidingTurnDurationSeconds * playerCount;
+        public float SearchingDurationSeconds => searchingDurationSeconds;
+
+        public bool Start(double now)
+        {
+            ValidateTime(now);
+
+            if (state.CurrentPhase.CurrentValue != MatchPhase.Waiting)
+            {
+                return false;
+            }
+
+            EnterPhase(MatchPhase.Hiding, now);
+            return true;
+        }
+
+        public bool AdvanceIfExpired(double now)
+        {
+            ValidateTime(now);
+            var advanced = false;
+
+            while (state.PhaseEndsAt.CurrentValue > 0d &&
+                   now >= state.PhaseEndsAt.CurrentValue &&
+                   MatchPhaseFlow.TryGetNext(state.CurrentPhase.CurrentValue, out var next))
+            {
+                var nextStartedAt = state.PhaseEndsAt.CurrentValue;
+                EnterPhase(next, nextStartedAt);
+                advanced = true;
+            }
+
+            return advanced;
+        }
+
+        public double GetRemainingSeconds(double now)
+        {
+            ValidateTime(now);
+            if (IsWaitingForIntroReady)
+                return state.CurrentPhase.CurrentValue == MatchPhase.Hiding ? HidingDurationSeconds : SearchingDurationSeconds;
+            var remaining = Math.Max(0d, state.PhaseEndsAt.CurrentValue - now);
+            return state.CurrentPhase.CurrentValue switch
+            {
+                MatchPhase.Hiding => Math.Min(HidingDurationSeconds, remaining),
+                MatchPhase.Searching => Math.Min(SearchingDurationSeconds, remaining),
+                _ => remaining
+            };
+        }
+
+        public bool IsFinalPeriod(double now)
+        {
+            ValidateTime(now);
+            var remainingSeconds = state.PhaseEndsAt.CurrentValue - now;
+            return state.CurrentPhase.CurrentValue == MatchPhase.Searching &&
+                   remainingSeconds > 0d &&
+                   remainingSeconds <= rules.FinalWarningSeconds;
+        }
+
+        /// <remarks>
+        /// The rule itself lives in <see cref="HidingTurns"/> because the screens
+        /// report the same turn from the same replicated values, and a rule kept
+        /// in two places is a rule that eventually disagrees with itself.
+        /// </remarks>
+        public int GetCurrentHidingTurnIndex(double now)
+        {
+            ValidateTime(now);
+            return HidingTurns.IndexAt(
+                state.CurrentPhase.CurrentValue,
+                state.PhaseEndsAt.CurrentValue,
+                now,
+                playerCount,
+                hidingTurnDurationSeconds);
+        }
+
+        public double GetHidingTurnRemainingSeconds(double now)
+        {
+            // Checked here now that the turn index is no longer asked for first.
+            ValidateTime(now);
+            return HidingTurns.RemainingSecondsAt(
+                state.CurrentPhase.CurrentValue,
+                state.PhaseEndsAt.CurrentValue,
+                now,
+                playerCount,
+                hidingTurnDurationSeconds);
+        }
+
+        internal bool SkipCurrentHidingTurn(double now)
+        {
+            var remaining = GetHidingTurnRemainingSeconds(now);
+            if (remaining <= 0d) return false;
+            // Keep the original player indices. Moving the shared deadline also
+            // advances the turn derived by clients from HidingTurns.
+            state.EnterPhase(MatchPhase.Hiding, Math.Max(now, state.PhaseEndsAt.CurrentValue - remaining));
+            return true;
+        }
+
+        public bool CompleteHighlight()
+        {
+            if (state.CurrentPhase.CurrentValue != MatchPhase.Highlight)
+            {
+                return false;
+            }
+
+            state.EnterPhase(MatchPhase.Result, 0d);
+            return true;
+        }
+
+        public bool CompleteSearchingEarly(double now)
+        {
+            ValidateTime(now);
+            if (state.CurrentPhase.CurrentValue != MatchPhase.Searching ||
+                now >= state.PhaseEndsAt.CurrentValue)
+            {
+                return false;
+            }
+
+            EnterPhase(MatchPhase.Highlight, now);
+            return true;
+        }
+
+        private void EnterPhase(MatchPhase phase, double startedAt)
+        {
+            if (WaitsForIntroReady && (phase == MatchPhase.Hiding || phase == MatchPhase.Searching))
+            {
+                state.EnterPhase(phase, 0d);
+                return;
+            }
+            var duration = phase switch
+            {
+                MatchPhase.Hiding => HidingDurationSeconds,
+                MatchPhase.Searching => searchingDurationSeconds,
+                _ => rules.GetDurationSeconds(phase, playerCount)
+            };
+            if (phase == MatchPhase.Highlight)
+                duration += (float)(HighlightPresentationTiming.PostRollSeconds +
+                    HighlightPresentationTiming.DeliveryGraceSeconds +
+                    MatchRulesSO.MaxHighlightCount * HighlightPresentationTiming.OverheadSeconds);
+            var actualDuration = phase == MatchPhase.Highlight && highlightPresentationDuration.HasValue
+                ? highlightPresentationDuration.Value : duration;
+            if (phaseIntrosEnabled && (phase == MatchPhase.Hiding || phase == MatchPhase.Searching))
+                actualDuration += MatchIntroTiming.VisibleSeconds;
+            state.EnterPhase(phase, actualDuration > 0d ? startedAt + actualDuration : 0d);
+        }
+
+        private static void ValidateTime(double time)
+        {
+            if (double.IsNaN(time) || double.IsInfinity(time) || time < 0d)
+            {
+                throw new ArgumentOutOfRangeException(nameof(time));
+            }
+        }
+    }
+}

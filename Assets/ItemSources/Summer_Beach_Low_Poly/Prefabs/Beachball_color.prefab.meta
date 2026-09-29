@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 9e5a6d545f263e74dbd4dbdeb268088f
+labels:
+- summer
+- beach
+timeCreated: 1429633997
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/Beachball_color.prefab
+  uploadId: 466071

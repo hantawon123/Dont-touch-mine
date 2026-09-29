@@ -1,0 +1,25 @@
+{
+    "name": "Game.Network",
+    "rootNamespace": "Game.Network",
+    "references": [
+        "Game.Core",
+        "Game.Server",
+        "Fusion.Unity",
+        "Fusion.Addons.KCC",
+        "Photon.Realtime",
+        "UniTask",
+        "PhotonVoice",
+        "PhotonVoice.Fusion",
+        "R3.Unity",
+        "PhotonVoice.API"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

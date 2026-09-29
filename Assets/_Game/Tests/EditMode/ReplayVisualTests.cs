@@ -1,0 +1,432 @@
+using Game.Client.Players;
+using Game.Bootstrap;
+using Game.Server.Match;
+using Game.Server.Items;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEditor;
+
+namespace Game.Tests.EditMode
+{
+    public sealed class ReplayVisualTests
+    {
+        [Test]
+        public void ReplayCopy_PreservesPerMaterialSlotColour()
+        {
+            var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var sourceRenderer = source.GetComponent<Renderer>();
+            var expected = new Color(0.18f, 0.67f, 0.42f, 1f);
+            var properties = new MaterialPropertyBlock();
+            properties.SetColor("_BaseColor", expected);
+            sourceRenderer.SetPropertyBlock(properties, 0);
+            var visual = new ReplayVisual(source.transform, null);
+            try
+            {
+                visual.SetPlaying(true);
+                var replayRenderer = visual.Target.GetComponentInChildren<Renderer>();
+                properties.Clear();
+                replayRenderer.GetPropertyBlock(properties, 0);
+                var actual = properties.GetColor("_BaseColor");
+                Assert.That(actual.r, Is.EqualTo(expected.r).Within(1e-5f));
+                Assert.That(actual.g, Is.EqualTo(expected.g).Within(1e-5f));
+                Assert.That(actual.b, Is.EqualTo(expected.b).Within(1e-5f));
+                Assert.That(actual.a, Is.EqualTo(expected.a).Within(1e-5f),
+                    "Replay avatars must retain colours stored on individual material slots.");
+            }
+            finally
+            {
+                visual.Dispose();
+                Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
+        public void ReplayCopy_ExcludesGeneratedOutlineShells()
+        {
+            var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var shell = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            shell.name = "[Assigned Item Outline]";
+            shell.transform.SetParent(source.transform);
+            var visual = new ReplayVisual(source.transform, null);
+            try
+            {
+                Assert.That(visual.Target.Find(shell.name), Is.Null);
+                Assert.That(visual.Target.GetComponentsInChildren<Renderer>(true), Has.Length.EqualTo(1));
+            }
+            finally
+            {
+                visual.Dispose();
+                Object.DestroyImmediate(source);
+            }
+        }
+
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        [TestCase(true, true)]
+        public void Replay_HidesLiveOutlineEvenWhenBuiltAfterCapture_AndRestoresIt(
+            bool buildAfterCapture, bool initiallyHidden)
+        {
+            var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var outline = source.AddComponent<Game.Client.Interactions.AssignedItemOutline>();
+            if (!buildAfterCapture) outline.SetVisible(true);
+            var visual = new ReplayVisual(source.transform, null);
+            try
+            {
+                if (buildAfterCapture) outline.SetVisible(true);
+                var shell = source.transform.Find("[Assigned Item Outline]").GetComponent<Renderer>();
+                shell.forceRenderingOff = initiallyHidden;
+                visual.SetPlaying(true);
+                visual.Target.position = new Vector3(10f, 0f, 0f);
+                Assert.That(source.GetComponent<Renderer>().forceRenderingOff, Is.True);
+                Assert.That(shell.forceRenderingOff, Is.True,
+                    "The live outline must not remain at the final match position while its replay moves.");
+                Assert.That(visual.Target.Find("[Assigned Item Outline]"), Is.Null);
+                // Gameplay toggles must not reveal the live shell during replay.
+                outline.SetVisible(false);
+                outline.SetVisible(true);
+                visual.SetPlaying(true);
+                Assert.That(shell.forceRenderingOff, Is.True);
+                visual.SetPlaying(false);
+                Assert.That(shell.forceRenderingOff, Is.EqualTo(initiallyHidden));
+                visual.SetPlaying(true);
+                visual.Dispose();
+                Assert.That(shell.forceRenderingOff, Is.EqualTo(initiallyHidden));
+            }
+            finally
+            {
+                visual.Dispose();
+                Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
+        public void PlayerReplay_DoesNotRestoreHeldItemOwnedByItemReplay()
+        {
+            var player = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var item = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            item.AddComponent<Game.Client.Interactions.CarryableItem>();
+            item.transform.SetParent(player.transform);
+            var outline = item.AddComponent<Game.Client.Interactions.AssignedItemOutline>();
+            outline.SetVisible(true);
+            var shell = item.transform.Find("[Assigned Item Outline]").GetComponent<Renderer>();
+            var playerReplay = new ReplayVisual(player.transform, null);
+            var itemReplay = new ReplayVisual(item.transform, null);
+            try
+            {
+                playerReplay.SetPlaying(true);
+                Assert.That(item.GetComponent<Renderer>().forceRenderingOff, Is.False);
+                itemReplay.SetPlaying(true);
+                playerReplay.SetPlaying(false);
+                Assert.That(shell.forceRenderingOff, Is.True);
+                Assert.That(item.GetComponent<Renderer>().forceRenderingOff, Is.True);
+                itemReplay.SetPlaying(false);
+                Assert.That(item.GetComponent<Renderer>().forceRenderingOff, Is.False);
+            }
+            finally
+            {
+                playerReplay.Dispose();
+                itemReplay.Dispose();
+                Object.DestroyImmediate(player);
+            }
+        }
+
+        [Test]
+        public void ReplayCopy_InitializesAnimatorBeforeManualPlayback()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab");
+            var source = Object.Instantiate(prefab);
+            ReplayVisual visual = null;
+            try
+            {
+                visual = new ReplayVisual(source.transform, null);
+                Assert.That(visual.Animator, Is.Not.Null);
+                Assert.That(visual.Target.gameObject.activeSelf, Is.False);
+                visual.SetPlaying(true);
+                Assert.That(visual.Animator.isInitialized, Is.True);
+                visual.SetPlaying(false);
+                Assert.That(visual.Target.gameObject.activeSelf, Is.False);
+                visual.SetPlaying(true);
+                Assert.That(visual.Animator.isInitialized, Is.True);
+                Assert.That(visual.Target.gameObject.activeSelf, Is.True);
+            }
+            finally
+            {
+                visual?.Dispose();
+                Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
+        public void ReplayCopy_PreservesInactiveCustomizationParts()
+        {
+            var source = new GameObject("Player");
+            var equipped = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            equipped.name = "Equipped";
+            equipped.transform.SetParent(source.transform);
+            var unequipped = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            unequipped.name = "Unequipped";
+            unequipped.transform.SetParent(source.transform);
+            unequipped.SetActive(false);
+            var visual = new ReplayVisual(source.transform, null);
+            try
+            {
+                visual.SetPlaying(true);
+                Assert.That(visual.Target.Find("Equipped").gameObject.activeSelf, Is.True);
+                Assert.That(visual.Target.Find("Unequipped").gameObject.activeSelf, Is.False,
+                    "A replay must not show customization parts that the live avatar is not wearing.");
+            }
+            finally
+            {
+                visual.Dispose();
+                Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
+        public void MigrationFrame_PreparesHiddenAndReusesBufferUntilRoomExit()
+        {
+            if (Application.isBatchMode || Screen.width <= 0 || Screen.height <= 0)
+                Assert.Ignore("Requires an Editor graphics context, like the migration frame capture.");
+            var root = new GameObject("Migration Presentation Test");
+            try
+            {
+                var view = root.AddComponent<Game.Client.Cameras.HostMigrationFrameView>();
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var frameField = view.GetType().GetField("frame", flags);
+                view.Prepare();
+                var frame = frameField.GetValue(view) as RenderTexture;
+                Assert.That(frame, Is.Not.Null);
+                Assert.That(frame.IsCreated(), Is.True);
+                Assert.That(root.GetComponentInChildren<Canvas>(true).gameObject.activeSelf, Is.False,
+                    "Prewarming must not cover normal gameplay or block its UI.");
+                view.Clear();
+                view.Prepare();
+                Assert.That(frameField.GetValue(view), Is.SameAs(frame), "Do not allocate again on each migration.");
+                view.Release();
+                Assert.That(frameField.GetValue(view), Is.Null);
+                Assert.That(frame == null || !frame.IsCreated(), Is.True, "Release GPU memory on room exit.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void LobbyCamera_OnlyBindsExplicitTarget_AndCutsToItsPlacedPosition()
+        {
+            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCameraRig.prefab");
+            var characterPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab");
+            var unrelated = Object.Instantiate(characterPrefab);
+            var root = Object.Instantiate(prefab);
+            var placed = new GameObject("Placed Local Avatar");
+            try
+            {
+                var camera = root.GetComponent<Game.Client.Cameras.PlayerCameraController>();
+                camera.RequireExplicitFollowTarget();
+                typeof(Game.Client.Cameras.PlayerCameraController).GetMethod("Start",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(camera, null);
+                Assert.That(camera.FollowTarget, Is.Null, "Do not auto-bind another avatar while joining.");
+                placed.transform.position = new Vector3(30f, 4f, 40f);
+                placed.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+                camera.SetFollowTarget(placed.transform);
+                var flags = System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic;
+                var headOffset = (Vector3)typeof(Game.Client.Cameras.PlayerCameraController)
+                    .GetField("headOffset", flags).GetValue(camera);
+                Assert.That(root.transform.position, Is.EqualTo(placed.transform.position + headOffset));
+                Assert.That(Quaternion.Angle(root.transform.rotation, placed.transform.rotation), Is.LessThan(0.01f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(placed);
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(unrelated);
+            }
+        }
+
+        [Test]
+        public void MigrationCamera_RebindsDestroyedTargetWithoutResettingView()
+        {
+            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCameraRig.prefab");
+            var root = Object.Instantiate(prefab);
+            var previous = new GameObject("Previous Avatar");
+            var replacement = new GameObject("Restored Avatar");
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var type = typeof(Game.Client.Cameras.PlayerCameraController);
+            try
+            {
+                var camera = root.GetComponent<Game.Client.Cameras.PlayerCameraController>();
+                camera.SetFollowTarget(previous.transform);
+                type.GetField("yaw", flags).SetValue(camera, 123f);
+                type.GetField("pitch", flags).SetValue(camera, -25f);
+                type.GetField("isFirstPerson", flags).SetValue(camera, true);
+                camera.SetCursorCaptureEnabled(false);
+                var pose = new Pose(new Vector3(4f, 2f, 8f), Quaternion.Euler(-25f, 123f, 0f));
+                root.transform.SetPositionAndRotation(pose.position, pose.rotation);
+                camera.SetMigrationSuspended(true);
+                Object.DestroyImmediate(previous);
+                replacement.transform.position = new Vector3(4f, 0.4f, 8f);
+                camera.SetFollowTarget(replacement.transform, preserveView: true);
+                type.GetMethod("LateUpdate", flags).Invoke(camera, null);
+                Assert.That(camera.FollowTarget, Is.EqualTo(replacement.transform));
+                Assert.That(root.transform.position, Is.EqualTo(pose.position), "Keep the last view during recovery.");
+                Assert.That(type.GetField("yaw", flags).GetValue(camera), Is.EqualTo(123f));
+                Assert.That(type.GetField("pitch", flags).GetValue(camera), Is.EqualTo(-25f));
+                Assert.That(type.GetField("isFirstPerson", flags).GetValue(camera), Is.True);
+                Assert.That(type.GetField("cursorCaptureEnabled", flags).GetValue(camera), Is.False);
+                camera.SetMigrationSuspended(false);
+                type.GetMethod("LateUpdate", flags).Invoke(camera, null);
+                Assert.That(Quaternion.Angle(root.transform.rotation, pose.rotation), Is.LessThan(0.01f));
+            }
+            finally
+            {
+                if (previous != null) Object.DestroyImmediate(previous);
+                Object.DestroyImmediate(replacement);
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void HighlightHud_KeepsOnlyHighlightHudAndNotice_AndRestoresPriorVisibility()
+        {
+            var root = new GameObject("HUD", typeof(Canvas));
+            var player = new GameObject("Player");
+            try
+            {
+                var hud = root.AddComponent<Game.Client.Match.NetworkMatchHudView>();
+                var bubbles = Game.Client.Match.MatchChatBubbleView.Create(root.transform);
+                bubbles.BindPlayer("P1", player.transform);
+                bubbles.Show(new Game.Core.Lobby.LobbyChatMessage("P1", "Player", "before"));
+                var chatBubble = player.transform.Find("Match Chat Bubble").gameObject;
+                var highlight = hud.GetComponentInChildren<Game.Client.Match.HighlightHudView>(true)
+                    ?? Game.Client.Match.HighlightHudView.Create(root.transform);
+                highlight.Show("FIRST BLOOD : 민수", new[] { 0.4f, 0f, 0f });
+                var notice = new GameObject("Notice", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+                notice.transform.SetParent(root.transform);
+                var timer = new GameObject("Timer", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+                timer.transform.SetParent(root.transform);
+                var hidden = new GameObject("AlreadyHidden", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+                hidden.transform.SetParent(root.transform);
+                hidden.GetComponent<UnityEngine.UI.Image>().enabled = false;
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var timerView = timer.AddComponent<Game.Client.Match.MatchTimerView>();
+                var timerLabel = new GameObject("TimerText", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+                timerLabel.transform.SetParent(timer.transform);
+                var timerText = timerLabel.GetComponent<TMPro.TMP_Text>();
+                typeof(Game.Client.Match.MatchTimerView).GetField("timerText", flags).SetValue(timerView, timerText);
+                typeof(Game.Client.Match.NetworkMatchHudView).GetField("timerView", flags).SetValue(hud, timerView);
+                typeof(Game.Client.Match.NetworkMatchHudView).GetField("highlightHudView", flags)
+                    .SetValue(hud, highlight);
+                typeof(Game.Client.Match.NetworkMatchHudView).GetField("destructionNoticeRoot", flags)
+                    .SetValue(hud, notice);
+                hud.SetPhase(Game.Core.Match.MatchPhase.Highlight, "");
+                Assert.That(chatBubble.activeSelf, Is.False);
+                bubbles.Show(new Game.Core.Lobby.LobbyChatMessage("P1", "Player", "during"));
+                Assert.That(chatBubble.activeSelf, Is.False);
+                Assert.That(highlight.transform.Find("Header/Title").GetComponent<TMPro.TMP_Text>().enabled, Is.True);
+                Assert.That(notice.GetComponent<TMPro.TMP_Text>().enabled, Is.True);
+                Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
+                hud.SetEndCountdown(3d);
+                Assert.That(timerText.enabled, Is.True);
+                Assert.That(timerText.text, Is.EqualTo("00:03"));
+                Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.True);
+                hud.SetEndCountdown(0d);
+                Assert.That(timerText.enabled, Is.False);
+                Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
+                hud.SetPhase(Game.Core.Match.MatchPhase.Searching, "");
+                bubbles.Show(new Game.Core.Lobby.LobbyChatMessage("P1", "Player", "after"));
+                Assert.That(chatBubble.activeSelf, Is.True);
+                Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.True);
+                Assert.That(hidden.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(player);
+            }
+        }
+
+        [Test]
+        public void SourceClock_FollowsSpeedCutsAndRestart_AndHoldsAtEnd()
+        {
+            var player = new HighlightReplayPlayer(new Transform[0], new SceneWorldObjectReference[0]);
+            var clips = new[]
+            {
+                new HighlightReplayClip(new HighlightSegment(10, 14, 2), new[]
+                {
+                    new HighlightReplayFrame(10, new Pose[0], new WorldObjectState[0]),
+                    new HighlightReplayFrame(14, new Pose[0], new WorldObjectState[0])
+                }),
+                new HighlightReplayClip(new HighlightSegment(30, 32), new[]
+                {
+                    new HighlightReplayFrame(30, new Pose[0], new WorldObjectState[0]),
+                    new HighlightReplayFrame(32, new Pose[0], new WorldObjectState[0])
+                })
+            };
+            Assert.That(player.SourceTime, Is.Null);
+            player.Start(clips);
+            Assert.That(player.SourceTime, Is.EqualTo(10d));
+            player.Advance(1);
+            Assert.That(player.SourceTime, Is.EqualTo(12d));
+            player.Advance(1);
+            Assert.That(player.SourceTime, Is.EqualTo(30d));
+            player.Advance(2);
+            Assert.That(player.IsPlaying, Is.False);
+            Assert.That(player.SourceTime, Is.EqualTo(32d));
+            player.Start(clips);
+            Assert.That(player.SourceTime, Is.EqualTo(10d));
+        }
+
+        [Test]
+        public void ReplayCopy_HasNoPhysics_AndNeverMovesOriginal()
+        {
+            var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            source.AddComponent<Rigidbody>();
+            var visual = new ReplayVisual(source.transform, null);
+            try
+            {
+                visual.SetPlaying(true);
+                visual.Target.position = Vector3.one * 20f;
+                Assert.That(source.transform.position, Is.EqualTo(Vector3.zero));
+                Assert.That(visual.Target.GetComponentInChildren<Collider>(), Is.Null);
+                Assert.That(visual.Target.GetComponentInChildren<Rigidbody>(), Is.Null);
+                Assert.That(source.GetComponent<Renderer>().forceRenderingOff, Is.True);
+                visual.SetPlaying(false);
+                Assert.That(source.GetComponent<Renderer>().forceRenderingOff, Is.False);
+            }
+            finally { visual.Dispose(); Object.DestroyImmediate(source); }
+        }
+
+        [Test]
+        public void DeletedOriginal_RemainsReplayable_ThenDisappearsAtRecordedBoundary()
+        {
+            var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var visual = new ReplayVisual(source.transform, null);
+            Object.DestroyImmediate(source);
+            try
+            {
+                var player = new HighlightReplayPlayer(new Transform[0],
+                    new[] { new SceneWorldObjectReference("item", visual.Target) });
+                var frames = new[]
+                {
+                    new HighlightReplayFrame(0, new Pose[0], new[] { new WorldObjectState("item", new Pose(Vector3.one, Quaternion.identity)) }),
+                    new HighlightReplayFrame(1, new Pose[0], new WorldObjectState[0])
+                };
+                player.Start(new[] { new HighlightReplayClip(new HighlightSegment(0, 1), frames) });
+                Assert.That(visual.Target.gameObject.activeSelf, Is.True);
+                player.Advance(1);
+                Assert.That(visual.Target.gameObject.activeSelf, Is.False);
+                player.Start(new[] { new HighlightReplayClip(new HighlightSegment(0, 1), frames) });
+                Assert.That(visual.Target.gameObject.activeSelf, Is.True);
+            }
+            finally { visual.Dispose(); }
+        }
+    }
+}

@@ -1,0 +1,25 @@
+# 빌드 컨텍스트를 서버 데몬으로 통째로 전송하므로, 이미지에 들어가지
+# 않는 것들은 애초에 보내지 않습니다.
+#
+# `build/` 가 아니라 `**/build/` 입니다. 무시 패턴은 컨텍스트 최상위에서만 맞춰 보므로,
+# 슬래시 없는 패턴은 app/build/ analytics/build/ common/build/ 를 잡지 못합니다. 멀티모듈로
+# 나눈 뒤로 산출물이 전부 모듈 아래에 생기니, 예전 패턴은 아무것도 걸러 내지 못했습니다.
+# 그게 CI 를 느리게 한 원인이었습니다. Jenkins 는 워크스페이스를 재사용하므로 직전 빌드의
+# 테스트가 남긴 app/build/ 가 그대로 컨텍스트에 들어갔고, 그 내용이 매번 달라지니
+# Dockerfile 의 `COPY ${MODULE} ${MODULE}` 레이어 캐시가 늘 깨져 소스를 한 줄도 고치지
+# 않은 빌드도 처음부터 다시 컴파일했습니다.
+**/build/
+**/.gradle/
+
+# 비밀번호가 들어 있습니다. 이미지에 절대 들어가면 안 됩니다.
+.env
+.env.*
+*.env
+
+.git/
+.gitignore
+.gitattributes
+README.md
+compose.local.yml
+compose.prod.yml
+Dockerfile

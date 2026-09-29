@@ -1,0 +1,16 @@
+# 개발자 PC. compose.local.yml 의 mysql-analytics 가 호스트 3308 에 물려 있습니다.
+# 값이 저장소에 있는 이유는 개발자 PC 밖으로 나가지 않기 때문입니다. 운영은 환경변수로만 받습니다.
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3308/d205_analytics?characterEncoding=UTF-8&serverTimezone=UTC&rewriteBatchedStatements=true
+    username: d205
+    password: d205local
+
+# 계정 서비스가 8080 을 쓰므로 로컬에서 둘을 같이 띄우려면 다른 포트가 필요합니다. 운영에서는 각자
+# 컨테이너 안이라 둘 다 8080 입니다.
+server:
+  port: 8081
+
+logging:
+  level:
+    com.ssafy.d205: debug

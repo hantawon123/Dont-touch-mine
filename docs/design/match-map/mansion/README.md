@@ -1,0 +1,112 @@
+# 매치 맵 2 — 저택 (Synty POLYGON Horror Mansion)
+
+두 번째 매치 맵. 마트(`../README.md`)와 같은 절차로 가져오며, 마트에서 만든 도구(`Game/Match Map/…`)를 재사용한다.
+맵 id `mansion`, 씬 `Assets/_Game/Content/Scenes/Mansion.unity`, 브랜치 `feature/client/match-map-mansion`.
+
+## 제작 경과
+
+### 1. 임포트·URP 검증 (2026-09-17)
+
+- 팩 위치: `Assets/Synty/PolygonHorrorMansion/` (119 MB). 로컬 테스트 폴더(`Assets/LocalMapAssets`, git 제외)에 받아 둔 것을 마트 팩과 같은 추적 폴더로 옮겼다. 구성: FBX 691 · 프리팹 680(Buildings 208 · Props 333 · Environment 96 · Characters 20 · FX 14 · Weapons 9) · 재질 181 · 텍스처 171.
+- **URP**: 재질 181개 중 153개가 공용 `Synty/Generic_Basic`(이미 추적 중인 `PolygonGeneric`), 4개가 `Generic_Decals`. 팩 자체 셰이더 그래프 `SyntyStudios_Grunge_01`(12개)·`Ghost_01`(1개)은 URP·BIRP 타깃을 둘 다 가진다. 내장 Standard 재질은 없어 **핑크 재질 위험 0**, 변환 불필요. 11개는 내장 기본 셰이더(스카이박스·파티클 계열)로 별도 확인.
+- **FBX 임포터**: 라이트맵 UV(`generateSecondaryUV`) 전부 꺼짐, Read/Write는 절반가량 꺼짐(표본 50개 중 35개). 마트와 같은 교훈: 상호작용 대상(Carryable·파쇄기·문)은 BoxCollider로 대체하거나 해당 FBX만 Read/Write를 켠다. `Models/Collision/`에 전용 충돌 메시 472개(볼록 `Convex/` 포함) — 마트처럼 가구 안쪽이 막히면 시각 메시 콜라이더로 바꾼다.
+- **데모 씬** `Scenes/Demo.unity`: 프리팹 인스턴스 4,235개(고유 509종), 라이트 40개(포인트 34·스팟 2·디렉셔널 4, 전부 Realtime), 베이크 데이터 있음, 안개 켜짐(파랑, 지수 0.01), 환경광 스카이박스 0.5, 후처리 볼륨 `HorrorMansion_demo`(어두운 공포 톤). `Lighting (URP)`·`Lighting (BIRP)` 두 묶음이 함께 들어 있다(BIRP 묶음은 우리 씬에서 제거).
+  - 그룹별 범위: `Building`(본관 1층·지하) x -26~21, z -54~-7 → **약 47×47 m**; `Upstairs_Layer`(2층) x -12.5~12.5, z -32~-7; `Roof_Layer` y 최고 13 m; `Environment`(뜰·담·나무) x -48~40, z -69~66; `Background`(원경) ±200 m.
+  - 마트(52×75 m)보다 조금 작지만 2층·지하가 있어 동선은 더 입체적.
+- **씬 파일**: 데모를 그대로 복제해 `Mansion.unity`로 만들었다(원본 데모 씬은 수정 안 함). 이후 `Game/Match Map/Mansion/1. Setup Match Objects From Supermarket`로 마트의 매치 오브젝트(`MatchLifetimeScope`, `Main Camera`, `Shredder_A/B`, `SpawnPoints` 10, `WaitingSpawnPoints` 10, 후처리 볼륨)를 복사해 심는다. 스폰·파쇄기는 앞뜰 임시 격자 위치라 사용자가 옮긴다.
+
+### 2. 맵 등록 `mansion` (2026-09-17)
+
+- `MapCatalog.MansionId = "mansion"`, 로비 선택 목록(`LobbyMapIds`)에 마트 다음으로 추가. 기본 맵은 마트 그대로.
+- `NetworkScenes.asset` `_mapScenes`에 mansion → `Mansion.unity`, 빌드 목록에 Supermarket 다음으로 추가.
+- 미리보기 사진은 `Game/Match Map/Preview/Capture Map Preview From Main Camera`로 `Mansion.unity`의 Main Camera 시점을 찍어 `Resources/UI/Maps/MapPreview_mansion.png`에 저장한다.
+
+### 3. 매치 오브젝트와 대기 구역 (2026-09-17)
+
+- 파쇄기: 사용자가 배치한 팩 소품 `SM_Prop_Furnace_01` 2개(화로)를 `Game/Match Map/Mansion/2. Adopt Selected Objects As Shredders`로 `Shredder_A`(1층 (-1.4, 1.1, -10.1))·`Shredder_B`(2층 (-0.2, 6.1, -25.1))로 감쌌다. 루트에 `ShredderInteractable` + 렌더러 크기 BoxCollider(1.13×2.42×0.88), 자식 `ShredderSpot`·`ShredderTarget`. 마트의 PurpleBear 외형은 쓰지 않는다.
+- `1. Setup Match Objects From Supermarket`로 마트의 `MatchLifetimeScope`·`Main Camera`·`SpawnPoints`(10)·`WaitingSpawnPoints`(10)·후처리 볼륨을 복사(이미 있는 파쇄기는 건너뜀). 데모 `Lighting (BIRP)`·데모 카메라 삭제. **배경은 원본 데모 그대로**: 데모 `Global Volume`(밤 톤 색 보정·비네트)을 켜 두고 마트 볼륨은 넣지 않는다(`4. Restore Demo Look (Volume)`로 되돌릴 수 있음). 안개·환경광·스카이박스는 복제 시점부터 데모와 동일.
+- 스폰: 1층 5개(y 1.4, z -16~-26)·2층 5개(y 6.1). **대기 구역은 3층 다락**(대기 스폰 10개, y 8.9, x -2.6~1.3, z -17~-21).
+- **다락 밀폐 검증(2026-09-17)**: 마트의 `WaitingBound_*` 같은 막음 콜라이더가 **필요 없다**. 스폰 중심에서 0.5 m 격자로 보행 가능 영역을 넓혀 간 결과(점프 0.9 m·구 캐스트 무릎/가슴 높이) 다락 약 256 m²(x -10.7~10.9, z -28.5~-11.0, 바닥 y 8.51~9.63)만 닿고 내려가는 가장자리가 0곳이었다(유일한 1.1 m 낙차 2칸은 상자 더미 위→바닥). 엎드린 자세(높이 0.3 m 구 캐스트)로도 같은 범위. 데모 저택에는 다락으로 오르는 계단 자체가 없어(계단은 1층↔2층만) 대기자는 텔레포트로만 드나든다. 다락 북쪽 z > -11 처마 밑 띠와 x 3.5~7.5·z -9~-11.5의 2층 뚫린 구간은 경사 지붕에 막혀 닿지 않는다.
+- 데모 `Global Volume`(어두운 색 보정)은 **꺼 둠**(2026-09-17): Scene 뷰에서 보이는 밝기를 Game에서도 그대로 쓰기로 함. 안개·전등·환경광은 데모 그대로.
+- 지하실은 플레이 구역이 아니라 **이 맵 전용 엔딩(결과) 무대**로 쓴다(아래 4절).
+
+### 4. 맵 전용 결과 씬 `MansionResult` (2026-09-17)
+
+- 결과 흐름은 매치 씬 위에 결과 씬을 추가 로드하고 `EndingStage`를 전용 카메라로 찍는 방식(`docs/design/ending/README.md`). 저택은 유치장 대신 **지하실**을 무대로 쓰기 위해 맵별 결과 씬을 도입했다.
+- 코드: `NetworkScenes._mapResultScenes`(mapId → 씬) + `ResultSceneFor(mapId)`(없으면 기본 `ResultScene`)·`IsResultScene(SceneRef)`. `NetworkRunnerService.EnterResultScene`은 `AnalyticsMapId`의 결과 씬을 올리고, 하이라이트 전 언로드와 `OnSceneLoadDone`의 결과 단계 판정(`IsResultSceneLoaded`), 호스트 이관 시 결과 단계 복원도 맵별 씬을 본다. 마트·놀이터는 기본 결과 씬 그대로.
+- 씬: `MansionResult.unity`는 `Result.unity` 복제본(`Result Lifetime Scope`·`Main Camera` 유지)에 **사용자가 지하실 조각(프리팹 78개)·스포트라이트 4개를 직접 옮겨 방을 꾸민 것**이다(높이 판정 자동 분리 도구는 뜰 나무·1층 바닥과 경계가 애매해 쓰지 않고 지움). `Game/Match Map/Mansion/3. Wire Ending Stage In MansionResult`가 유치장 무대를 지우고, 스코프·Main Camera를 제외한 모든 루트를 `EndingStage/Basement` 아래로 묶고, 사용자가 놓은 Main Camera 자리를 카메라 앵커로 삼아 전용 `EndingCamera`(같은 화각)를 만들고, 카메라 정면 4 m·7 m 바닥에 탈출 자리 6·체포 자리 6을 임시로 놓은 뒤 스코프에 연결한다. 자리·앵커는 씬에서 옮긴다.
+- 스코프가 결과 씬의 다른 카메라·라이트를 끄므로 지하 조명은 반드시 `EndingStage` 아래에 있어야 한다(위 메뉴가 함께 묶는다).
+- **무대는 y −300에 둔다**(유치장 무대와 같은 오프셋). 결과 씬은 매치 씬 위에 추가 로드되므로 방을 원래 좌표(저택 1층과 겹침)에 두면 엔딩 카메라가 1층 복도 벽을 찍는다(2026-09-17 개발 서버 테스트에서 확인: `MansionResult` 로드·스코프 준비는 정상, 화면만 1층 소품). 연결 메뉴가 묶은 뒤 `EndingStage`를 −300으로 내리고, 앵커·자리는 그 기준으로 놓는다. 최종 구도: 카메라 서쪽 홀 (−5.0, 2.22, −23.2)+오프셋에서 동쪽 철창을 8° 내려봄(화각 55), 탈출 줄 복도 x −2.2, 체포 줄 감방 안 x 0.75(사용자 조정 후 저장). 플레이 씬 `Mansion.unity`의 지하는 그대로 두었고(지하 계단·출입구 막음은 사용자 결정), 결과 씬의 방은 별도 복사본이다.
+- 빌드 목록·`NetworkScenes.asset`에 `MansionResult` 추가. 테스트 `NetworkScenes_MansionUsesItsOwnResultSceneAndOtherMapsFallBackToDefault`.
+
+### 5. 들 수 있는 소품 전환 준비 (2026-09-17)
+
+마트 도구를 그대로 쓰되 저택 팩에 맞게 손본 것:
+- **FBX Read/Write**: `Assets/Synty/PolygonHorrorMansion/Models/**/*.fbx` 593개의 임포터 `isReadable`을 켰다(마트 교훈: 꺼진 채로 분해하면 카탈로그를 못 읽어 전부 생성 프리팹이 됨. 메시 콜라이더 조준에도 필요).
+- **합쳐진 소품 분해**(`MergedPropExplodeMenu`): 카탈로그 폴더에 저택 `Prefabs/Props` 추가. 분해 대상 이름에 `_Set`(접시 세트)·`Book_Line`(책꽂이 한 줄)을 더해 기존 `_Pile`·`_Stack`과 함께 잡는다. 저택 씬의 대상: `Book_Pile_01~05` 29개, `Plate_Set_01` 6, `Paper_Stack_01` 5, `Can_Stack_01` 3, `Box_Pile_01~02` 2, `Book_Line*`.
+- **Carryable 전환**(`MartCarryableSetupMenu`, 메뉴 `Game/Match Map/Carryable/`): 열린 씬이 `Mansion`이면 변형 프리팹을 `Prefabs/Carryable/Mansion/`에, 보고서를 `docs/design/match-map/mansion/carryable-props.md`에 쓴다. 저택 전용 키워드 — 고정 추가: 그림·액자·커튼·러그·천·데칼·문양·전기함·족쇄·샹들리에·횃불·사다리·서랍장·옷장·침대·욕조·벽난로·화로·피아노·관·비석·조각상·장작 더미·북엔드. 들 수 있음 추가: 책·양초(낱개)·잔·접시(낱개)·캔·상자·병·항아리·가방·가면·두개골·열쇠·숟가락·팬·화분·장식 천·서류·그릇·컵·금고·오르골·인형·휴지. 마트 제외 목록의 `Papers`는 저택에서 해제.
+- 실행 순서(Unity): ① `Game/Match Map/Rebuild Explode Catalog` → ② Mansion 씬에서 `Explode All Merged Props In Scene (Background)` → ③ `Carryable/1. Report Targets`로 보고서 확인·키워드 조정 → ④ `2b. Convert Targets (Background)` → ⑤ `3. Apply Static Batching To Fixed Props` → ⑥ `4. Fix Furniture Colliders (Non-Convex)`(저택 팩도 `Models/Collision/Convex/*_Convex.asset` 구조가 같다) → ⑦ `5. Reachability Report`.
+- 경계(`MansionEnvironment/Boundary`) 콜라이더가 아직 없어 경계 판정 없이 전체 씬을 대상으로 한다. 뜰 소품까지 들 수 있게 되니, 플레이 구역을 정하면 경계를 두고 다시 보고서를 뽑는다.
+
+### 6. 경계·이동 검증 (2026-09-17)
+
+- **본관은 자체로 밀폐**: 1층 스폰(`SpawnPoint_1`)과 2층 스폰(`SpawnPoint_6`)에서 0.5 m 격자 보행 탐색(점프 0.9 m, 무릎 0.7·가슴 1.3 m 구 캐스트)을 돌린 결과 본관 밖(뜰)으로 나가는 칸 0, 지하 칸 0, 1 m 넘는 낙하는 실내 단 차이(계단 옆·현관 단)뿐. 바깥으로 통하는 문 3곳(정문 양문 (−0.1/−2.4, 1, −9.5), 남쪽 (−10.7, 1, −32), 동쪽 (12.5, 1, −18.8))은 문짝(BoxCollider)이 닫혀 있고 창은 콜라이더가 있어 **막음 콜라이더 없이도 나갈 수 없다**.
+- 도달 범위: 1층 약 345 m² + 2층 약 224 m²(트리밍 후 본관 x −13.5~13.7, z −32.5~−6.4). 문틀 벽 모듈(`SM_Bld_Base_Wall_Door_01` 등 22개)은 콜라이더 보정(시각 메시) 뒤 통로 1.1 m가 열려 있음을 광선으로 확인. 양문 틀(`Wall_Door_Double_01`)은 콜라이더 없음.
+- **닫힌 실내 문짝**(플레이어가 열 수 없음 → 방이 막힘): 1층 `SM_Bld_Door_05` (−1.8, 1, −24.5), 1층 양문 (0.6/1.9, 1, −29.5), 2층 양문 5쌍 — (0.6/1.9, 5.5, −29.5), (−6.9/−5.5, 5.5, −29.5), (8.1/9.4, 5.5, −29.5), (12.5, 5.5, −16.4/−15.1), (12.5, 5.5, −23.9/−22.6), (−10.6/−12, 5.5, −12), 비밀 책장문 (10, 1, −29.5). 열어 둘지는 사용자 결정(씬에서 문짝을 힌지 기준으로 돌려 두면 됨). 동쪽 x 12.5·북쪽 z −12의 2층 양문은 발코니로 나가는 문이라 열면 낙하 검증을 다시 한다.
+- **경계·대기 구역 콜라이더(사용자 조정 후 최종, 2026-09-17)**: `MansionEnvironment/Boundary` — 벽 `Boundary_West/East` x −13.0~−12.5 / 12.7~13.2, `Boundary_South/North` z −32.7~−32.2 / −9.3~−8.8(정문 앞 현관 제외), 높이 y −3~16; 판 `Boundary_Ceiling` y 11.9~12.4, `Boundary_Floor` y 0.2~0.7(1층 바닥 1.01 아래 → **지하 차단**), `Boundary_AtticFloor` y 8.15~8.45(2층↔다락 차단, 다락 바닥 8.51 아래). `MansionEnvironment/WaitingArea` — `WaitingBound_West/East` x ±12.0~12.5, `South/North` z −30.5~−30.0 / −10.0~−9.5, 높이 8.0~11.8, `Ceiling` 11.3~11.8, `Floor` 7.7~8.2. 대기 스폰 10/10이 안에 있고, 재검증에서 1층 1,379칸·2층 1,294칸·다락 1,023칸 모두 밖으로 나가는 칸 0. 2층 남서쪽 단(y 6.86, 약 6 m²)은 다락 바닥까지 1.65 m뿐이라 원래도 서 있을 수 없는 곳이며 판 때문에 탐색에서 빠진 것은 문제 없음. 마트처럼 Carryable 보고서·도달 검사의 "경계 안" 판정에도 쓰인다.
+- **조준 막힘 원인 1건(2026-09-17 플레이 확인)**: 비밀 책장문 `SM_Bld_Bookshelf_Door_01`(1층 (10, 1, −29.5))은 책장 전체를 덮는 BoxCollider 하나라 그 안에 놓인 책·소품 34개가 조준 광선에 닿지 않았다(같은 높이의 다른 책장은 잡히는데 이 책장만 안 잡힘). 콜라이더 도구(`4. Fix Furniture Colliders`)에 "들 수 있는 물건을 상자 안에 품은 고정 가구의 BoxCollider → 시각 메시 non-convex MeshCollider" 규칙을 추가하고 씬에 적용했다(책장문·벽 찬장 `Wall_Cupboard_01`·벽 벤치 `Wall_Bench_01` 3개).
+- **단독 테스트 구성**: `PlayerCharacter` 프리팹 인스턴스(1층 `SpawnPoint_1` 자리)와 `PlayerCameraRig` 프리팹 인스턴스를 두고, `MatchLifetimeScope`의 Auto Inject 목록에 캐릭터를 등록, `Game/InGame/Build HUD Layout`으로 `InGameHud`를 만들어 스코프의 HUD·보이스 뷰를 연결했다(없으면 스코프 조립이 `IVoiceControl` 미등록으로 실패하고 씬 카메라만 보인다). Playground·마트와 같은 구성이며 네트워크 매치에는 쓰이지 않는다. 플레이 확인: 1층→2층 계단 이동 정상.
+- 1층→2층 계단은 플레이로 정상 확인(탐색이 층계참에서 멈춘 것은 탐색 반지름 한계).
+
+### 7. 1층 하이라이트 CCTV (2026-09-18, S15P21D205-1082)
+
+- 마트처럼 `Resources/CCTV/Mansion.prefab` 을 씬 이름으로 자동 로드한다. 지점 15개, 전부 1층, 천장 0.3 m 아래(y 4.56~5.41), 시야각 65도, 허리 높이(바닥 위 0.7 m)를 내려보는 각 22~54도. **프리팹이 기준**이고 코드 좌표표(`MansionCctvPlanner.Mounts`)는 자동 배치 기록이다.
+- 도구 `Game > Highlight > Mansion CCTV` (`Assets/_Game/Editor/MansionCctvPlanner.cs`):
+  - `1. Bake 1F Map`: y 4.4 에서 내려 쏜 광선으로 0.25 m 격자를 바닥·가구·벽으로 나누고, 스폰·파쇄기·열어 둔 방 씨앗에서 걸어 닿는 칸을 표시해 `cctv-1f-map.png` 로 쓴다.
+  - `2. Auto Place`: 벽 0.75 m 안쪽 후보 × 방향 24 × 초점 거리(3·4.5·7 m) 가운데 사각을 가장 많이 줄이는 지점을 탐욕으로 고르고 교환으로 다듬어 코드의 `<auto-mounts>` 표식 사이에 좌표표를 써 넣는다(앞 2개 파쇄기 카메라는 고정). `2b` 는 좌표표를 고정한 채 채울 지점을 보고서로만, `2c` 는 **저장된 프리팹**을 고정한 채 빈 곳을 채우는 카메라를 프리팹에 바로 추가한다.
+  - `3. Check Coverage`(좌표표 기준) / `3b. Check Coverage (Saved Prefab)`(프리팹 기준): `cctv-1f-coverage.png/.md`. 빨강 = 사각, 주황 = 피아노·의자처럼 낮은 가구 상자 안쪽이라 규칙상 못 보는 칸.
+  - `4. Save Mansion CCTV Prefab`: 좌표표로 프리팹을 새로 만든다. 손으로 고친 뒤에는 누르지 않는다(덮어씀).
+  - `5. Toggle Prefab Preview In Scene`: 프리팹을 씬에 놓고 모든 지점에 시야 부채꼴·이름 기즈모를 그린다. 다시 누르면 지운다. 미리보기를 둔 채 씬을 저장하지 않는다.
+  - `6. Look Through Selected CCTV`(Ctrl+Shift+Alt+8) / `7. Next`(Ctrl+Shift+Alt+9): 선택한 지점 시점으로 Scene 뷰를 맞추고 임시 카메라 `CCTV Eye`(저장 안 됨)로 Game 뷰에 16:9 화면을 그린다. `6b. Move CCTV To Scene View`(Ctrl+Shift+Alt+7): Scene 뷰를 움직인 뒤 그 시점으로 지점을 옮긴다. `8.` 로 임시 카메라 제거.
+  - `9. Renumber Saved Prefab Cameras`: 남쪽→북쪽 순으로 `CAM 01..` 다시 매김.
+- 가림 판정은 런타임 `HighlightCameraDirector` 와 같은 정적 렌더러 경계 상자(높이 0.5 m 이상, 카메라 원점을 품은 상자는 무시)다. 하늘 돔처럼 맵 전체를 덮는 상자는 영향이 없고, 문틀 벽 모듈 상자는 문 구멍을 막는다.
+- 확정 배치(2026-09-18): 자동 배치 22대를 사용자가 시점 보기로 하나씩 확인하며 옮기고 9대를 지워 15대. 검사 결과 걸어 닿는 335 m² 중 86.2% 가 한 대 이상, 59.1% 가 두 대 이상에 보인다. 남은 사각 45 m²(남쪽 양문 방 전체, 계단 발치·서쪽, 동남쪽 방 책장 앞 등)는 **이 배치로 실전에서 먼저 써 보기로 한 사용자 결정**이며, 메우려면 `2c` 를 쓴다.
+- 전제: 1층 문은 전부 열어 두고 비밀 책장문은 통과 가능(사용자 결정). 2층은 임시 구조라 플레이 구역이 아니며 CCTV 도 없다. `Shredder_B` 는 2층에 남아 있다. **2026-09-21 에 2층을 플레이 구역으로 쓰기로 해 이 전제가 바뀌었다 - 9절.**
+- **카메라를 손으로 고치는 절차**: ① `5.` 로 프리팹을 씬에 놓는다. ② 지점을 선택하고 `6.` 으로 시점을 본다. ③ 핸들로 옮기거나, Scene 뷰를 원하는 구도로 움직인 뒤 `6b.` 로 지점을 그 시점에 맞춘다. 복제(Ctrl+D)로 추가, 삭제도 자유. 이름은 `HighlightCctvCamera > Location Name`. ④ `Mansion CCTV Preview` 루트에서 `Overrides > Apply All`. ⑤ `9.` 로 번호 정리, `3b.` 로 사각 확인. ⑥ `8.`·`5.` 로 임시 카메라·미리보기를 지운 뒤 씬 저장.
+
+### 8. 2층 천고 4.5 m로 상향 (2026-09-21, 브랜치 `feature/client/map-adjustments`)
+
+- 배경: Synty 벽 모듈은 2.5 m 폭 × 3.0 m 높이. 1층은 "전체 벽(y 1.0) + 반쪽 벽(y 4.0)"으로 4.5 m인데 2층(바닥 5.5)은 전체 벽만 있어 천고가 3.0 m였다. 2층만 1층과 같은 4.5 m로 올렸다.
+- 방법(에디터에서 `execute_code`로 일괄 적용, 씬 파일 직접 편집 없음):
+  - `Upstairs_Layer/WallExtension_2F` 그룹을 새로 만들어 2층 벽 모듈(`Base_Wall_01`·`Wall_Window_*`·`Base_Wall_Door_*`·`Wall_Door_Double_Large_02`·`Wall_Hole_04`) 위 y 8.5에 `SM_Bld_Base_Wall_Half_01`(1.5 m) 69장, 기둥 위에 `Pillar_Half_02` 8·`Base_Pillar_Half_05` 6, 트렐리스 위 `Trellis_Half_01` 3, 서쪽 굴뚝 `Chimney_Middle_01` 1을 얹었다. 폭 1.25 m 세로 반쪽 벽(`Base_Wall_Half_02`) 위는 `Half_01`을 x 0.5로 줄여 채웠다. 원본의 Static 플래그·레이어를 복사.
+  - 재질: 벽 한 장은 슬롯 2개(안쪽 면·바깥 면)이고 방마다 벽지가 다르다. 새 반쪽 벽에는 바로 아래 벽에서 **같은 방향 면**의 재질을 복사했다(서브메시 면적 가중 평균 노멀의 로컬 z 부호로 면을 판별, 창·문틀 슬롯은 제외). 기둥·트렐리스는 슬롯 그대로 복사.
+  - `Roof_Layer` 직계 자식 400개(다락 바닥·`Attic_Props`·지붕·천장·첨탑·벽 상단 몰딩)를 +1.5 m. 별채 지붕 그룹 `Glasshouse_Roof`·`GuestHouse_Roof`·`Shed_Roof`는 제외.
+  - 2층 천장·벽 꼭대기 부착물 +1.5 m: 샹들리에 3(`Upstairs_Props` 2, `Props` 1)·천장 선풍기·벽 꼭대기 장식 2·북쪽 처마 물받이·낙엽·덩굴·거미줄 1. `Lighting (URP)`의 다락 포인트 라이트 7·전구 5(y 10.9~11.2)와 올린 조명기구 바로 아래 포인트 라이트 3도 함께.
+  - `WaitingSpawnPoints`(루트)·`Boundary_AtticFloor`(→ y 9.8)·`Boundary_Ceiling`(→ 13.66)·`WaitingArea` 콜라이더 6개 +1.5 m. `Boundary_West/East/South/North`(y −3~16)는 지붕 꼭대기 14.75가 안에 들어 그대로.
+- 바뀌지 않은 것: 1층 전체, 2층 바닥·문·창·발코니·소품, 매치 스폰 10개(2층 스폰 y 6.06 포함), `Shredder_A/B`, 1층↔2층 계단, 1층 CCTV 프리팹, 지하·`MansionResult`. 라이트맵은 없고(라이팅 데이터는 데모 잔재 17 KB, 라이트 24개 전부 Realtime) 재베이크 불필요.
+- 검증: 2층 스폰 위쪽 첫 충돌은 `WaitingBound_Floor` y 9.2(이전 7.7 → 2층 실질 머리 공간 2.2 → 3.7 m, 보이는 천장 4.5 m), 1층 스폰 위쪽은 2층 바닥 5.41 그대로, 대기 스폰 10개 발밑 다락 바닥 ≈10.0 모두 정상. 2층 벽 모듈 69개 위가 모두 덮였는지 표본 검사 통과. 안(벽지 연속·몰딩)·밖(남·동·서 파사드, 굴뚝) 스크린샷 확인.
+- 되돌리기: `WallExtension_2F` 그룹 삭제 + 위 목록을 −1.5 m. 다락 밀폐·본관 밀폐 재검증(6절 방식)은 아직 안 했다 — 다락 바닥·경계가 같은 양만큼 올라가 상대 관계는 동일.
+
+### 9. 2층 하이라이트 CCTV (2026-09-21, S15P21D205-1091, 브랜치 `feature/client/mansion-2f`)
+
+2층 천고를 올리고(8절) 2층도 플레이 구역으로 쓰기로 해서, 1층과 같은 방식으로 2층에도 CCTV 를 둔다.
+
+- **계획 도구를 층 프로필로 나눴다.** `MansionCctvPlanner` 의 범위·바닥 높이가 1층 상수였다. 본관 1·2층은 x·z 로 겹쳐 격자 범위(x -13~13.5, z -33~-8.5)가 같고 다른 것은 높이·좌표표·씨앗뿐이라, `FloorPlan` 하나를 골라 같은 코드를 돌린다. 메뉴가 `Mansion CCTV/1F/…` 와 `2F/…` 로 갈렸고, 층과 무관한 것(`0.` 층 적기, `5.` 미리보기, `6·6b·7·8.` 시점 보기, `9.` 번호 매김)은 그대로 위에 있다. 출력 파일도 층마다 다르다(`cctv-1f-*`, `cctv-2f-*`).
+- **2층 값**: 바닥 5.5(바닥으로 칠 범위 5.1~5.95), 탐침 9.0 — 대기 구역 바닥 콜라이더 `WaitingBound_Floor`(9.2) 아래여야 한다. 그 위에서 쏘면 그 판에 먼저 맞아 2층 전체가 벽으로 나온다. 맡는 대상 높이는 5.5~9.8(다락 차단 판 `Boundary_AtticFloor`). 씨앗은 남쪽 양문 3쌍 뒤의 방 세 곳이고, **발코니로 나가는 동쪽(x 12.5)·북쪽(z -12) 양문은 넣지 않았다** - 열면 낙하 검증을 다시 해야 한다(6절). 고정 지점 2개는 2층 파쇄기 `Shredder_B`(-0.2, 6.1, -25.1) 를 양쪽에서 본다.
+- **프리팹은 `Mansion.prefab` 하나에 두 층이 함께 들어간다.** 그래서 `4. Save Prefab (this floor)` 는 고른 층만 좌표표로 다시 만들고 다른 층 카메라는 있던 그대로 옮긴다. 통째로 덮어쓰면 손본 1층 15대가 사라진다. `2c`·`3b` 는 그 층 카메라만 세고, `9.` 는 아래층부터 남→북 순으로 번호를 매긴다.
+- **런타임이 층을 넘어가지 않게 지점마다 맡는 높이를 적는다**(`HighlightCctvCamera.ConfigureFloor`). 가림 판정은 높이 0.5 m 이상인 렌더러 경계 상자인데 **바닥 슬래브는 그보다 얇아 가림으로 잡히지 않는다.** 적어 두지 않으면 2층 카메라가 바로 아래 1층 장면을 내려다보고, 거리가 가까워 오히려 이긴다. `HighlightCameraDirector` 는 대상 높이가 그 범위 밖이면 점수를 900 깎고(계획 경로는 후보에서 뺀다), 층을 안 적은 지점은 전과 같이 모든 높이를 맡는다(마트는 그대로다). 층을 적기 전에 만든 프리팹은 `0. Tag Saved Prefab Cameras With Floor` 로 한 번 채운다.
+- 테스트: `Mount_CoversEveryHeightUntilAFloorIsAuthored`, `Camera_PrefersTheMountThatWatchesTheSubjectsFloor`, `MansionPrefab_HasFloorTaggedMountsWithUniqueNamesAndSupermarketLens`(2층 카메라는 층을 적었는지까지 본다).
+- 배치 절차(에디터): ① `0.` 로 기존 카메라에 1층을 적는다 → ② `2F/1. Bake Map` 으로 2층 구조·천장을 본다 → ③ `2F/2. Auto Place` → ④ `5.`·`6.`·`6b.` 로 하나씩 보며 옮기고 지운다 → ⑤ `2F/4. Save` 또는 미리보기에서 `Apply All` → ⑥ `9.` 번호 정리, `2F/3b.` 사각 확인 → ⑦ 미리보기·임시 카메라를 지우고 씬 저장.
+- **지도(2026-09-21)**: 걸어 닿는 칸 3,479(217 m²)로 6절의 도달 범위 224 m² 와 같다. 천장은 `WaitingBound_Floor`(9.20)·`Boundary_AtticFloor`(9.65)가 먼저 잡혀 설치 높이가 8.9~9.5(바닥 위 3.4~4.0 m)가 되었다. 보이는 천장 10.0 보다 1 m 쯤 아래에 뜨지만 1층(바닥 위 3.5~4.4 m)과 같은 높이대이고 CCTV 지점은 그려지지 않으므로 그대로 둔다.
+- **확정 배치(2026-09-21)**: 자동 배치를 사용자가 시점 보기로 확인하며 옮겨 **12대**(`CAM 17`~`CAM 28`, 프리팹 전체 28대). 검사 결과 217 m² 중 **84.8% 가 한 대 이상, 57.1% 가 두 대 이상**에 보인다(1층은 86.2% / 59.1%). 내려보는 각 16~42°, 시야각 65도.
+- 남은 사각 33 m² 는 거의 전부 남쪽 양문 방 두 곳(x −12.1~−2.9 와 5.4~12.1, z −31.6~−29.9)이다. 나머지는 1 m² 미만 조각들이다.
+- **닿지 않아 뺀 곳이 두 군데 있다**: 동쪽 x 5.4~12.1 · z −21.6~−17.4(25 m²)와 서쪽 x −7.1~−4.1 · z −24.1~−12.4(24 m²). 바닥 높이가 5.51 로 같은데 닿는 칸과 아예 안 붙어 있다 - 단차가 아니라 벽이나 닫힌 문으로 막힌 것이다. 플레이 구역으로 쓸 거면 문을 열고 씨앗을 넣은 뒤 `2c. Auto Fill Saved Prefab` 로 메운다. 보고서의 「닿지 않아 뺀 바닥 묶음」 표가 바닥 높이·옆 칸과의 단차·둘러싼 것의 이름을 함께 적는다(2026-09-21 추가).
+- 보고서: `cctv-2f-map.png`, `cctv-2f-autoplace.md/.png`, `cctv-2f-coverage.md/.png`.
+
+## 열어 둔 결정
+
+- 플레이 구역은 본관 1·2층(지하는 엔딩 무대, 다락은 대기 구역). 앞뜰까지 열지와 경계 콜라이더는 사용자가 배치. 2층 천고는 4.5 m로 확정(8절), 2층 CCTV 는 9절.
+- 2층 닫힌 문(6절 목록)을 열어 둘지. CCTV 계획은 남쪽 양문 3쌍은 열고 발코니 문(동 x 12.5·북 z -12)은 닫아 둔다고 보고 사각을 센다. 발코니를 열면 2층 씨앗과 낙하 검증을 다시 한다.
+- 분위기: 조명·안개는 데모 그대로, 어두운 후처리(`Global Volume`)만 꺼서 Scene 뷰 밝기로 확정(2026-09-17).
+- 탈출 지점 위치. 닫힌 실내 문짝을 열어 둘지(6절 목록). 파쇄기 2대는 화로로 확정, 다락·본관 밀폐는 검증 완료.
+- 들 수 있는 소품 분류(Props 333종) — 마트 Carryable 메뉴 재사용.

@@ -1,0 +1,63 @@
+import org.springframework.boot.gradle.plugin.SpringBootPlugin
+
+// 루트는 실행 파일을 만들지 않습니다. 세 모듈이 같이 쓰는 설정만 둡니다.
+//
+// 플러그인을 여기서 apply false 로 선언하는 이유는 버전을 한 곳에 두려는 것입니다. 모듈마다
+// 버전을 적으면 한 모듈만 올리는 날이 옵니다. 실제 적용은 각 모듈의 build.gradle 이 합니다.
+plugins {
+	id 'org.springframework.boot' version '4.1.1' apply false
+	id 'io.spring.dependency-management' version '1.1.7' apply false
+}
+
+subprojects {
+	apply plugin: 'java'
+	apply plugin: 'io.spring.dependency-management'
+
+	group = 'com.ssafy'
+	version = '0.0.1-SNAPSHOT'
+
+	java {
+		toolchain {
+			languageVersion = JavaLanguageVersion.of(21)
+		}
+	}
+
+	tasks.withType(JavaCompile).configureEach {
+		options.encoding = 'UTF-8'
+	}
+
+	repositories {
+		mavenCentral()
+	}
+
+	// common 은 Boot 플러그인을 적용하지 않지만 같은 BOM 으로 버전을 맞춰야 합니다. Boot 플러그인이
+	// 붙는 모듈에서는 이 import 가 중복이지만 같은 좌표라 충돌하지 않습니다.
+	dependencyManagement {
+		imports {
+			mavenBom SpringBootPlugin.BOM_COORDINATES
+		}
+	}
+
+	dependencies {
+		compileOnly 'org.projectlombok:lombok'
+		annotationProcessor 'org.projectlombok:lombok'
+		testCompileOnly 'org.projectlombok:lombok'
+		testAnnotationProcessor 'org.projectlombok:lombok'
+		testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	}
+
+	tasks.named('test') {
+		useJUnitPlatform()
+
+		// 테스트의 작업 디렉터리를 backend/ 로 둡니다. 문서 대조 테스트가 docs/ 를, 통합 테스트가
+		// deploy/ 의 MySQL 초기화 스크립트를 상대 경로로 읽습니다. 기본값(모듈 디렉터리)이면 그
+		// 경로가 전부 깨지고, 모듈마다 ../ 를 붙이는 것보다 여기서 한 번 정하는 편이 낫습니다.
+		workingDir = rootProject.projectDir
+
+		// 문서도 테스트 입력입니다. 문서만 고쳐도 테스트가 다시 돌고, 가이드가 코드와 어긋나면 그
+		// 테스트가 실패합니다.
+		inputs.dir(rootProject.file('docs'))
+				.withPropertyName('docs')
+				.withPathSensitivity(PathSensitivity.RELATIVE)
+	}
+}

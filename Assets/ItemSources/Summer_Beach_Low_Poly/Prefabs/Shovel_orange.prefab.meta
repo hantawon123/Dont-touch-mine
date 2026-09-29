@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: a4390931e12469944b7b4d986fec40b5
+labels:
+- summer
+- beach
+- sand
+timeCreated: 1429809315
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/Shovel_orange.prefab
+  uploadId: 466071

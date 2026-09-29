@@ -1,0 +1,40 @@
+{
+    "name": "Game.Architecture.Tests",
+    "rootNamespace": "Game.Architecture.Tests",
+    "references": [
+        "Game.Bootstrap",
+        "Game.Backend",
+        "Game.Client",
+        "Game.Core",
+        "Game.Network",
+        "Game.Server",
+        "Game.SOAP",
+        "Game.Editor",
+        "Fusion.Addons.KCC",
+        "R3.Unity",
+        "UniTask",
+        "VContainer",
+        "Unity.InputSystem",
+        "Unity.InputSystem.TestFramework",
+        "UnityEngine.TestRunner",
+        "Unity.TextMeshPro",
+        "UnityEditor.TestRunner",
+        "Fusion.Unity",
+        "PhotonVoice",
+        "PhotonVoice.Fusion",
+        "Photon.Realtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

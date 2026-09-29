@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RepoRoot>$(MSBuildThisFileDirectory)../../..</RepoRoot>
+    <UnityEditor Condition="'$(UnityEditor)' == ''">C:/Program Files/Unity/Hub/Editor/6000.3.22f1/Editor</UnityEditor>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(RepoRoot)/Assets/_Game/Network/Session/HighlightReplaySerializer.cs" Link="Game/HighlightReplaySerializer.cs" />
+    <Compile Include="$(RepoRoot)/Assets/_Game/Server/Match/HighlightCandidate.cs" Link="Game/HighlightCandidate.cs" />
+    <Compile Include="$(RepoRoot)/Assets/_Game/Server/Match/HighlightReplayBuffer.cs" Link="Game/HighlightReplayBuffer.cs" />
+    <Compile Include="$(RepoRoot)/Assets/_Game/Server/Items/WorldObjectStateSystem.cs" Link="Game/WorldObjectStateSystem.cs" />
+    <Compile Include="$(RepoRoot)/Assets/_Game/Core/Lobby/RoomSettings.cs" Link="Game/RoomSettings.cs" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(UnityEditor)/Data/Managed/UnityEngine/UnityEngine.CoreModule.dll" />
+    <Reference Include="Game.SOAP" HintPath="$(RepoRoot)/Library/ScriptAssemblies/Game.SOAP.dll" />
+  </ItemGroup>
+</Project>

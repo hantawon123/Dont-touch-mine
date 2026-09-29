@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 64f35a8f3fd35fa409027c5c666676b8
+labels:
+- summer
+- beach
+- fruit
+timeCreated: 1430043785
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/Coconut.prefab
+  uploadId: 466071

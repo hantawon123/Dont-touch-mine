@@ -1,0 +1,265 @@
+using System.Linq;
+using Game.Core.Items;
+using Game.Server.Items;
+using Game.Server.Match;
+using Game.SOAP.Config;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace Game.Tests.EditMode
+{
+    public sealed class HighlightEventRecorderTests
+    {
+        private MatchRulesSO rules;
+        private HighlightEventRecorder recorder;
+
+        [SetUp]
+        public void SetUp()
+        {
+            rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            recorder = new HighlightEventRecorder(rules, new[]
+            {
+                Assignment(0, "item-a"),
+                Assignment(1, "item-b"),
+                Assignment(2, "item-c"),
+                Assignment(3, "item-d")
+            });
+            recorder.StartSearching(100d);
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            Object.DestroyImmediate(rules);
+        }
+
+        [Test]
+        public void AiPoolAddsRecentEventsWithoutChangingRuleBasedCandidates()
+        {
+            recorder.RecordItemDestroyed(0,"item-a",108);
+            for(int i=0;i<15;i++) recorder.RecordPlayerStunned(0,1,110+i);
+            var baseline=recorder.CaptureCandidates(130);
+            var expanded=recorder.ExpandAiCandidates(baseline,130);
+            Assert.That(expanded.Length,Is.LessThanOrEqualTo(10));
+            Assert.That(expanded.Any(c=>c.Type==HighlightType.PlayerStunned),Is.True);
+            Assert.That(recorder.CaptureCandidates(130).Select(c=>c.Type),Is.EqualTo(baseline.Select(c=>c.Type)));
+        }
+
+        [Test]
+        public void AiPoolRecordsOwnerRecovery()
+        {
+            recorder.RecordItemPickup(1,"item-a",108);
+            recorder.RecordItemPickup(0,"item-a",117);
+            Assert.That(recorder.ExpandAiCandidates(recorder.CaptureCandidates(120),120)
+                .Any(c=>c.Type==HighlightType.ItemRecovered),Is.True);
+        }
+
+        [Test]
+        public void CaptureCandidates_RecordsFirstDestroyedItemOnly()
+        {
+            recorder.RecordItemDestroyed(1, "item-a", 110d);
+            recorder.RecordItemDestroyed(2, "item-b", 120d);
+
+            var candidate = Candidate(HighlightType.FirstBlood, 120d);
+
+            Assert.That(candidate.TargetId, Is.EqualTo("item-a"));
+            Assert.That(candidate.ActorPlayerIndex, Is.EqualTo(1));
+            Assert.That(candidate.EventAt, Is.EqualTo(110d));
+            Assert.That(candidate.Score, Is.EqualTo(60d));
+            Assert.That(candidate.StartedAt, Is.EqualTo(100d));
+            Assert.That(candidate.EndedAt, Is.EqualTo(114.5d));
+        }
+
+        [Test]
+        public void CaptureCandidates_SelectsMostInteractedItemByDefinedTieBreakers()
+        {
+            recorder.RecordItemPickup(0, "item-a", 101d);
+            recorder.RecordItemPickup(1, "item-a", 102d);
+            recorder.RecordItemPickup(0, "item-b", 103d);
+            recorder.RecordItemPickup(1, "item-b", 104d);
+            recorder.RecordItemPickup(1, "item-b", 105d);
+
+            var candidate = Candidate(HighlightType.TteTanMulgun, 110d);
+
+            Assert.That(candidate.TargetId, Is.EqualTo("item-b"));
+            Assert.That(candidate.ActorPlayerIndex, Is.EqualTo(1));
+            Assert.That(candidate.SecondaryPlayerIndex, Is.EqualTo(-1));
+            Assert.That(candidate.Segments, Has.Count.EqualTo(2));
+            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(4d));
+        }
+
+        [Test]
+        public void CaptureCandidates_ExcludesOldFinalMoment()
+        {
+            recorder.RecordPlayerStunned(2, 104.9d);
+
+            var types = recorder.CaptureCandidates(120d).Select(candidate => candidate.Type);
+
+            Assert.That(types.Any(type => type == HighlightType.FinalMoment), Is.False);
+        }
+
+        [Test]
+        public void CaptureCandidates_SelectsLongestUndiscoveredItem()
+        {
+            recorder.RecordItemInteraction(1, "item-a", 110d);
+            recorder.RecordItemInteraction(2, "item-b", 120d);
+            recorder.RecordItemInteraction(3, "item-c", 130d);
+
+            var candidate = Candidate(HighlightType.LongestHidden, 140d);
+
+            Assert.That(candidate.TargetId, Is.EqualTo("item-d"));
+            Assert.That(candidate.EndedAt, Is.EqualTo(140d));
+            Assert.That(candidate.Score, Is.EqualTo(70d));
+            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(4d));
+            Assert.That(candidate.Segments.All(segment => segment.PlaybackSpeed == 1d), Is.True);
+        }
+
+        [Test]
+        public void CaptureCandidates_SelectsLongestHiddenOnlyFromSurvivingItems()
+        {
+            recorder.RecordItemDestroyed(0, "item-a", 140d);
+            recorder.RecordItemInteraction(0, "item-b", 110d);
+            recorder.RecordItemInteraction(0, "item-c", 120d);
+            recorder.RecordItemInteraction(0, "item-d", 130d);
+
+            var candidate = Candidate(HighlightType.LongestHidden, 140d);
+
+            Assert.That(candidate.TargetId, Is.EqualTo("item-d"));
+        }
+
+        [Test]
+        public void CaptureCandidates_SelectsMostStunnedUsingLatestStunAsTieBreaker()
+        {
+            recorder.RecordPlayerStunned(0, 1, 105d);
+            recorder.RecordPlayerStunned(3, 2, 106d);
+
+            var candidate = Candidate(HighlightType.MostStunned, 110d);
+
+            Assert.That(candidate.TargetId, Is.EqualTo("2"));
+            Assert.That(candidate.ActorPlayerIndex, Is.EqualTo(3));
+            Assert.That(candidate.SecondaryPlayerIndex, Is.EqualTo(-1));
+            Assert.That(candidate.EventAt, Is.EqualTo(106d));
+            Assert.That(candidate.Segments, Has.Count.EqualTo(1));
+            Assert.That(candidate.StartedAt, Is.EqualTo(104d));
+            Assert.That(candidate.EndedAt, Is.EqualTo(108d));
+        }
+
+        [Test]
+        public void CaptureCandidates_UsesUpToThreeStunSegmentsWithinFifteenSeconds()
+        {
+            recorder.RecordPlayerStunned(1, 104d);
+            recorder.RecordPlayerStunned(1, 108d);
+            recorder.RecordPlayerStunned(1, 112d);
+            recorder.RecordPlayerStunned(1, 116d);
+
+            var candidate = Candidate(HighlightType.MostStunned, 120d);
+
+            Assert.That(candidate.Segments, Has.Count.EqualTo(3));
+            Assert.That(candidate.PlaybackDurationSeconds, Is.EqualTo(12d).Within(0.001d));
+        }
+
+        [Test]
+        public void RecordPlayerStunned_RejectsIndexOutsideActivePlayers()
+        {
+            Assert.That(
+                () => recorder.RecordPlayerStunned(4, 101d),
+                Throws.TypeOf<System.ArgumentOutOfRangeException>());
+        }
+
+        [Test]
+        public void CaptureCandidates_RanksMeaningfulLateEventAboveRoutineFirstBlood()
+        {
+            recorder.RecordItemDestroyed(1, "item-a", 101d);
+            recorder.RecordPlayerStunned(2, 3, 119d);
+
+            var selected = HighlightCandidateSelector.Select(recorder.CaptureCandidates(120d));
+
+            Assert.That(selected[0].Type, Is.EqualTo(HighlightType.FinalMoment));
+            Assert.That(selected[0].ActorPlayerIndex, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void CaptureCandidates_KeepsFirstBloodAheadOfSimultaneousFinalDestruction()
+        {
+            var onlyDestroyedItems = new HighlightEventRecorder(rules, new[]
+            {
+                Assignment(0, "item-a"),
+                Assignment(1, "item-b"),
+            });
+            onlyDestroyedItems.StartSearching(100d);
+            onlyDestroyedItems.RecordItemDestroyed(1, "item-a", 110d);
+            onlyDestroyedItems.RecordItemDestroyed(0, "item-b", 110d);
+
+            var selected = HighlightCandidateSelector.Select(
+                onlyDestroyedItems.CaptureCandidates(110d));
+
+            Assert.That(selected[0].Type, Is.EqualTo(HighlightType.FirstBlood));
+            Assert.That(selected.Any(candidate => candidate.Type == HighlightType.FinalMoment), Is.True);
+        }
+
+        [Test]
+        public void CaptureCandidates_DoesNotCreateFallbackHighlightsForDestroyedSoloItem()
+        {
+            var solo = new HighlightEventRecorder(rules, new[]
+            {
+                Assignment(0, "solo-item")
+            });
+            solo.RecordItemPickup(0, "solo-item", 100d);
+            solo.StartSearching(130d);
+            solo.StartRecording(131d);
+            solo.RecordItemDestroyed(0, "solo-item", 160d);
+
+            var candidates = solo.CaptureCandidates(
+                160d,
+                MatchEndReason.AllPlayerItemsDestroyed,
+                new[]
+                {
+                    new HighlightReplayFrame(
+                        130d,
+                        new[] { Pose.identity },
+                        new[] { new WorldObjectState("solo-item", Pose.identity) })
+                });
+
+            Assert.That(candidates.Select(candidate => candidate.Type),
+                Is.EqualTo(new[] { HighlightType.FirstBlood }));
+        }
+
+        [Test]
+        public void CaptureCandidates_IgnoresMontageEventsBeforeRecordingBegins()
+        {
+            var delayed = new HighlightEventRecorder(rules, new[]
+            {
+                Assignment(0, "item-a"),
+                Assignment(1, "item-b")
+            });
+            delayed.RecordItemPickup(0, "item-a", 100d);
+            delayed.RecordItemPickup(1, "item-a", 101d);
+            delayed.RecordPlayerStunned(0, 1, 101d);
+            delayed.StartSearching(100d);
+            delayed.StartRecording(110d);
+
+            var types = delayed.CaptureCandidates(120d)
+                .Select(candidate => candidate.Type)
+                .ToArray();
+            Assert.That(types.Contains(HighlightType.TteTanMulgun), Is.False);
+            Assert.That(types.Contains(HighlightType.MostStunned), Is.False);
+        }
+
+        private HighlightCandidate Candidate(HighlightType type, double endedAt)
+        {
+            var frames = new[]
+            {
+                new HighlightReplayFrame(120, new[] { Pose.identity, Pose.identity, Pose.identity, Pose.identity },
+                    new[] { new WorldObjectState("item-d", Pose.identity) })
+            };
+            return recorder.CaptureCandidates(endedAt, frames: frames).Single(candidate => candidate.Type == type);
+        }
+
+        private static PlayerItemAssignment Assignment(int playerIndex, string itemId)
+        {
+            return new PlayerItemAssignment(
+                playerIndex,
+                new ItemDefinition(itemId, "category"));
+        }
+    }
+}

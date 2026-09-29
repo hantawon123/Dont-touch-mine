@@ -1,0 +1,228 @@
+{
+  "measuredAtUtc": "2026-09-07T00:42:05.5295569Z",
+  "runtime": ".NET 10.0.11",
+  "os": "Microsoft Windows 10.0.26200",
+  "cpuCount": 22,
+  "iterations": 100,
+  "warmups": 20,
+  "scope": "Synthetic serializer microbenchmark; not Unity Mono/IL2CPP or a six-peer game",
+  "results": [
+    {
+      "objectCount": 6,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 1,
+      "rawBytes": 125031,
+      "compressedBytes": 46994,
+      "rawSha256": "652ABC17E19ED2A9FB6B916760C75DD2B7245136CEACE898A65544089104B985",
+      "encode": {
+        "p50Ms": 1.2407,
+        "p95Ms": 2.0878,
+        "allocatedBytesPerOperation": 587240
+      },
+      "decode": {
+        "p50Ms": 0.8078,
+        "p95Ms": 1.9436,
+        "allocatedBytesPerOperation": 961298
+      }
+    },
+    {
+      "objectCount": 6,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 2,
+      "rawBytes": 125031,
+      "compressedBytes": 46994,
+      "rawSha256": "652ABC17E19ED2A9FB6B916760C75DD2B7245136CEACE898A65544089104B985",
+      "encode": {
+        "p50Ms": 0.8345,
+        "p95Ms": 1.8227,
+        "allocatedBytesPerOperation": 587240
+      },
+      "decode": {
+        "p50Ms": 0.8818,
+        "p95Ms": 1.9121,
+        "allocatedBytesPerOperation": 961298
+      }
+    },
+    {
+      "objectCount": 6,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 3,
+      "rawBytes": 125031,
+      "compressedBytes": 46994,
+      "rawSha256": "652ABC17E19ED2A9FB6B916760C75DD2B7245136CEACE898A65544089104B985",
+      "encode": {
+        "p50Ms": 0.9387,
+        "p95Ms": 1.9625,
+        "allocatedBytesPerOperation": 587240
+      },
+      "decode": {
+        "p50Ms": 0.8868,
+        "p95Ms": 2.3829,
+        "allocatedBytesPerOperation": 961298
+      }
+    },
+    {
+      "objectCount": 32,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 1,
+      "rawBytes": 424395,
+      "compressedBytes": 147297,
+      "rawSha256": "85518C930F3EE0B7AE8B8C3C2B181C2F52DA46FCBA9953A6EE6532D1656DCEE7",
+      "encode": {
+        "p50Ms": 1.9913,
+        "p95Ms": 3.8584,
+        "allocatedBytesPerOperation": 2169934
+      },
+      "decode": {
+        "p50Ms": 2.0548,
+        "p95Ms": 3.8902,
+        "allocatedBytesPerOperation": 3392580
+      }
+    },
+    {
+      "objectCount": 32,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 2,
+      "rawBytes": 424395,
+      "compressedBytes": 147297,
+      "rawSha256": "85518C930F3EE0B7AE8B8C3C2B181C2F52DA46FCBA9953A6EE6532D1656DCEE7",
+      "encode": {
+        "p50Ms": 2.2477,
+        "p95Ms": 4.0687,
+        "allocatedBytesPerOperation": 2169982
+      },
+      "decode": {
+        "p50Ms": 2.8719,
+        "p95Ms": 11.8525,
+        "allocatedBytesPerOperation": 3392553
+      }
+    },
+    {
+      "objectCount": 32,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 3,
+      "rawBytes": 424395,
+      "compressedBytes": 147297,
+      "rawSha256": "85518C930F3EE0B7AE8B8C3C2B181C2F52DA46FCBA9953A6EE6532D1656DCEE7",
+      "encode": {
+        "p50Ms": 1.8597,
+        "p95Ms": 3.8355,
+        "allocatedBytesPerOperation": 2169693
+      },
+      "decode": {
+        "p50Ms": 2.2485,
+        "p95Ms": 4.833,
+        "allocatedBytesPerOperation": 3392548
+      }
+    },
+    {
+      "objectCount": 64,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 1,
+      "rawBytes": 792843,
+      "compressedBytes": 269121,
+      "rawSha256": "09E49A3628B55C394E460A0C7B0826A8B55009E82C0D56D324D9D3159C2B11E6",
+      "encode": {
+        "p50Ms": 5.9881,
+        "p95Ms": 9.2763,
+        "allocatedBytesPerOperation": 4231218
+      },
+      "decode": {
+        "p50Ms": 7.7048,
+        "p95Ms": 15.0705,
+        "allocatedBytesPerOperation": 6465245
+      }
+    },
+    {
+      "objectCount": 64,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 2,
+      "rawBytes": 792843,
+      "compressedBytes": 269121,
+      "rawSha256": "09E49A3628B55C394E460A0C7B0826A8B55009E82C0D56D324D9D3159C2B11E6",
+      "encode": {
+        "p50Ms": 4.97,
+        "p95Ms": 8.7278,
+        "allocatedBytesPerOperation": 4232444
+      },
+      "decode": {
+        "p50Ms": 6.1082,
+        "p95Ms": 11.5347,
+        "allocatedBytesPerOperation": 6465863
+      }
+    },
+    {
+      "objectCount": 64,
+      "players": 6,
+      "highlights": 3,
+      "framesPerClip": 101,
+      "secondsPerClip": 10,
+      "run": 3,
+      "rawBytes": 792843,
+      "compressedBytes": 269121,
+      "rawSha256": "09E49A3628B55C394E460A0C7B0826A8B55009E82C0D56D324D9D3159C2B11E6",
+      "encode": {
+        "p50Ms": 6.912,
+        "p95Ms": 9.8816,
+        "allocatedBytesPerOperation": 4230516
+      },
+      "decode": {
+        "p50Ms": 7.598,
+        "p95Ms": 10.9607,
+        "allocatedBytesPerOperation": 6465431
+      }
+    }
+  ],
+  "baseCommit": "e8c1bd0f0b53b44e14f24ab0049640fee3f5579e",
+  "tieredCompilation": false,
+  "sourceHashes": [
+    {
+      "path": "Assets/_Game/Network/Session/HighlightReplaySerializer.cs",
+      "sha256": "1991B25B11899ECA3916B27C7A53AF4E1623EF7A643F6BBAA2E19E372E2D85C9"
+    },
+    {
+      "path": "Assets/_Game/Server/Match/HighlightCandidate.cs",
+      "sha256": "CB10D95371F9B815EACE27BF0AF668F4F6AA78B2989D068F92856E6F848FCDE3"
+    },
+    {
+      "path": "Assets/_Game/Server/Match/HighlightReplayBuffer.cs",
+      "sha256": "D1C1980B5913A7BD27DF1BDF7DB9080B3F0690773C628D96DFD827CB44099A5E"
+    },
+    {
+      "path": "Assets/_Game/Server/Items/WorldObjectStateSystem.cs",
+      "sha256": "E6F6455CAB444B7831AC7EAE324C0B3ACAD2E249D8E222038FB5427FB93AFBC4"
+    },
+    {
+      "path": "Assets/_Game/Core/Lobby/RoomSettings.cs",
+      "sha256": "F10C684C329ECC89673E8F8AC49D4480644A1C198ECDA3BDAE771085D7E964EF"
+    },
+    {
+      "path": "Library/ScriptAssemblies/Game.SOAP.dll",
+      "sha256": "D0029501C6919681B840980B87674CD938900006D5E2F0DE734F7734D950A610"
+    }
+  ]
+}

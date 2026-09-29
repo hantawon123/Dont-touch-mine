@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: acba0f3f060c089418e020ed1fe0dd3f
+timeCreated: 1644463183
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43716545969897914
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Prop_Exorcist_Cross_03_Convex.asset
+  uploadId: 987938

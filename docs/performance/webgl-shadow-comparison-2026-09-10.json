@@ -1,0 +1,221 @@
+{
+  "samples": [
+    {
+      "kind": "shadow-report",
+      "mode": "1",
+      "setup": "[ShadowTest] applied directional=2 additional=22 disabled=0 scale=0.75\n",
+      "seconds": 30.01479999999702,
+      "frames": 2170,
+      "fps": 72.29766648454148,
+      "p95": 19.200000002980232,
+      "p99": 21.700000002980232,
+      "over33": 0,
+      "width": 1920,
+      "height": 1200,
+      "viewport": [
+        1280,
+        720
+      ],
+      "focus": true,
+      "visibility": "visible",
+      "file": "result-1789037551559899100.json"
+    },
+    {
+      "kind": "shadow-report",
+      "mode": "1",
+      "setup": "[ShadowTest] applied directional=2 additional=22 disabled=0 scale=0.75\n",
+      "seconds": 30.008,
+      "frames": 2172,
+      "fps": 72.38069848040523,
+      "p95": 19.30000001192093,
+      "p99": 21.700000002980232,
+      "over33": 0,
+      "width": 1920,
+      "height": 1200,
+      "viewport": [
+        1280,
+        720
+      ],
+      "focus": true,
+      "visibility": "visible",
+      "file": "result-1789037611561606800.json"
+    },
+    {
+      "kind": "shadow-report",
+      "mode": "2",
+      "setup": "[ShadowTest] applied directional=2 additional=22 disabled=22 scale=0.75\n",
+      "seconds": 30.0065,
+      "frames": 2976,
+      "fps": 99.17851132254678,
+      "p95": 11.200000002980232,
+      "p99": 12,
+      "over33": 0,
+      "width": 1920,
+      "height": 1200,
+      "viewport": [
+        1280,
+        720
+      ],
+      "focus": true,
+      "visibility": "visible",
+      "file": "result-1789038272228941400.json"
+    },
+    {
+      "kind": "shadow-report",
+      "mode": "2",
+      "setup": "[ShadowTest] applied directional=2 additional=22 disabled=22 scale=0.75\n",
+      "seconds": 30.008900000005962,
+      "frames": 2960,
+      "fps": 98.6374042367235,
+      "p95": 11.299999997019768,
+      "p99": 12,
+      "over33": 0,
+      "width": 1920,
+      "height": 1200,
+      "viewport": [
+        1280,
+        720
+      ],
+      "focus": true,
+      "visibility": "visible",
+      "file": "result-1789038332232511900.json"
+    },
+    {
+      "kind": "shadow-report",
+      "mode": "3",
+      "setup": "[ShadowTest] applied directional=2 additional=22 disabled=24 scale=0.75\n",
+      "seconds": 30.01539999999106,
+      "frames": 2916,
+      "fps": 97.15012960016753,
+      "p95": 11.799999997019768,
+      "p99": 13,
+      "over33": 0,
+      "width": 1920,
+      "height": 1200,
+      "viewport": [
+        1280,
+        720
+      ],
+      "focus": true,
+      "visibility": "visible",
+      "file": "result-1789038029769141900.json"
+    },
+    {
+      "kind": "shadow-report",
+      "mode": "3",
+      "setup": "[ShadowTest] applied directional=2 additional=22 disabled=24 scale=0.75\n",
+      "seconds": 30.01379999999702,
+      "frames": 2955,
+      "fps": 98.4547108330266,
+      "p95": 11.400000005960464,
+      "p99": 12.399999991059303,
+      "over33": 0,
+      "width": 1920,
+      "height": 1200,
+      "viewport": [
+        1280,
+        720
+      ],
+      "focus": true,
+      "visibility": "visible",
+      "file": "result-1789038089770449600.json"
+    }
+  ],
+  "fixed_render_scale": 0.75,
+  "canvas": [
+    1920,
+    1200
+  ],
+  "viewport": [
+    1280,
+    720
+  ],
+  "excluded_different_camera": [
+    "result-1789037811504975400.json",
+    "result-1789037871512606100.json"
+  ],
+  "scope": "Local Chromium IAB, Host 1, same lobby view matched by captures. Scene has two directional lights; condition 2 disables non-directional lights only. Settings are test-only; production source restored.",
+  "secondary_view_samples": [
+    {
+      "kind": "shadow-report",
+      "mode": "2",
+      "setup": "[ShadowTest] applied directional=2 additional=22 disabled=22 scale=0.75\n",
+      "seconds": 30.0085,
+      "frames": 2664,
+      "fps": 88.77484712664744,
+      "p95": 12.700000002980232,
+      "p99": 13.400000005960464,
+      "over33": 0,
+      "width": 1920,
+      "height": 1200,
+      "viewport": [
+        1280,
+        720
+      ],
+      "focus": true,
+      "visibility": "visible",
+      "file": "result-1789037811504975400.json"
+    },
+    {
+      "kind": "shadow-report",
+      "mode": "2",
+      "setup": "[ShadowTest] applied directional=2 additional=22 disabled=22 scale=0.75\n",
+      "seconds": 30.00970000000298,
+      "frames": 2620,
+      "fps": 87.30510468281055,
+      "p95": 13,
+      "p99": 14,
+      "over33": 0,
+      "width": 1920,
+      "height": 1200,
+      "viewport": [
+        1280,
+        720
+      ],
+      "focus": true,
+      "visibility": "visible",
+      "file": "result-1789037871512606100.json"
+    },
+    {
+      "kind": "shadow-report",
+      "mode": "1",
+      "setup": "[ShadowTest] applied directional=2 additional=22 disabled=0 scale=0.75\n",
+      "seconds": 30.02390000000596,
+      "frames": 1896,
+      "fps": 63.149690746359525,
+      "p95": 22.299999997019768,
+      "p99": 24.600000008940697,
+      "over33": 1,
+      "width": 1920,
+      "height": 1200,
+      "viewport": [
+        1280,
+        720
+      ],
+      "focus": true,
+      "visibility": "visible",
+      "file": "result-1789038508113624000.json"
+    },
+    {
+      "kind": "shadow-report",
+      "mode": "1",
+      "setup": "[ShadowTest] applied directional=2 additional=22 disabled=0 scale=0.75\n",
+      "seconds": 30.02829999999702,
+      "frames": 1891,
+      "fps": 62.97392792799418,
+      "p95": 22.299999997019768,
+      "p99": 24.5,
+      "over33": 1,
+      "width": 1920,
+      "height": 1200,
+      "viewport": [
+        1280,
+        720
+      ],
+      "focus": true,
+      "visibility": "visible",
+      "file": "result-1789038568121173600.json"
+    }
+  ],
+  "excluded_different_camera_note": "First condition-2 samples excluded from main view A comparison; paired separately with later condition-1 return in view B. Do not pool the two views."
+}

@@ -1,0 +1,229 @@
+using System;
+using Game.Core.Ports;
+using Game.Core.Settings;
+using Game.Core.Voice;
+using Game.Network.Session;
+using R3;
+using VContainer.Unity;
+
+namespace Game.Bootstrap
+{
+    /// <summary>
+    /// Hands the player's microphone choices to whichever voice rig is current,
+    /// and reports back what that rig is doing.
+    /// </summary>
+    /// <remarks>
+    /// The rig that actually opens the microphone is a component on the runner
+    /// object, so it is built when a session starts and destroyed when one ends.
+    /// A screen given that rig directly would be holding a destroyed component
+    /// after the first room. This stands between them.
+    /// <para>
+    /// Scoped to the screens that offer a microphone rather than to the app. On
+    /// the home and room-list screens there is no rig to mirror and no button to
+    /// paint, and something that ticks where it has no work is one more thing
+    /// the next reader has to rule out. What has to outlive the screen is the
+    /// mute choice alone, and that lives in <see cref="VoicePreferences"/>.
+    /// </para>
+    /// </remarks>
+    public sealed class NetworkVoiceControl : IVoiceControl, ITickable, IDisposable
+    {
+        private readonly NetworkRunnerService network;
+        private readonly VoicePreferences preferences;
+        private readonly SoundSettingsSystem sound;
+        private readonly ReactiveProperty<bool> available = new(false);
+        private readonly ReactiveProperty<bool> muted;
+        private readonly ReactiveProperty<bool> transmitting = new(false);
+        private readonly ReactiveProperty<bool> listening;
+
+        /// <summary>
+        /// The rig these choices were last handed to, so a replacement can be
+        /// told about them.
+        /// </summary>
+        private IVoiceControl current;
+
+        private bool talking;
+        private bool disposed;
+
+        public NetworkVoiceControl(
+            NetworkRunnerService network,
+            VoicePreferences preferences,
+            SoundSettingsSystem sound)
+        {
+            this.network = network ?? throw new ArgumentNullException(nameof(network));
+            this.preferences = preferences
+                ?? throw new ArgumentNullException(nameof(preferences));
+            this.sound = sound ?? throw new ArgumentNullException(nameof(sound));
+
+            // Opens on whatever the player last decided, which is how a mute set
+            // in the lobby survives the walk into the match. 입력 모드 끄기 is
+            // the same silence, from the sound tab.
+            muted = new ReactiveProperty<bool>(EffectiveMute);
+            listening = new ReactiveProperty<bool>(preferences.Listening);
+            this.sound.Changed += OnSoundChanged;
+        }
+
+        public ReadOnlyReactiveProperty<bool> IsAvailable => available;
+        public ReadOnlyReactiveProperty<bool> IsMuted => muted;
+        public ReadOnlyReactiveProperty<bool> IsTransmitting => transmitting;
+        public ReadOnlyReactiveProperty<bool> IsListening => listening;
+
+        public void SetMuted(bool muted)
+        {
+            if (disposed) return;
+            if (!muted && !preferences.Listening)
+            {
+                return;
+            }
+
+            preferences.Muted = muted;
+            PublishEffectiveMute();
+        }
+
+        public void SetTalking(bool talking)
+        {
+            if (disposed) return;
+            this.talking = talking;
+            PublishTalking();
+        }
+
+        public void SetListening(bool listening)
+        {
+            if (disposed) return;
+            preferences.Listening = listening;
+            PublishListening();
+            // Effective mute follows the speaker, but the saved microphone
+            // choice is left alone so turning the speaker back on restores it.
+            PublishEffectiveMute();
+            PublishTalking();
+        }
+
+        /// <inheritdoc />
+        /// <remarks>
+        /// Forwarded rather than remembered: the choice already lives in the
+        /// 사운드 settings, which outlive both this and the rig.
+        /// </remarks>
+        public void SetCaptureDevice(string deviceName)
+        {
+            if (disposed) return;
+            network.Voice?.SetCaptureDevice(deviceName);
+        }
+
+        /// <inheritdoc />
+        public void SetCaptureGain(float gain)
+        {
+            if (disposed) return;
+            network.Voice?.SetCaptureGain(gain);
+        }
+
+        /// <remarks>
+        /// Mirrors rather than forwards the rig's own properties: they belong to
+        /// the rig and go away with it, and a screen that subscribed to them
+        /// would have to resubscribe on every room change.
+        /// </remarks>
+        public void Tick()
+        {
+            if (disposed) return;
+            var voice = network.Voice;
+            if (voice == null)
+            {
+                current = null;
+                available.Value = false;
+                transmitting.Value = false;
+                return;
+            }
+
+            if (!ReferenceEquals(voice, current))
+            {
+                // A session just started. The rig comes up silent and knowing
+                // nothing, so it hears what the player already decided.
+                current = voice;
+                voice.SetMuted(EffectiveMute);
+                voice.SetTalking(EffectiveTalking);
+                voice.SetListening(preferences.Listening);
+                voice.SetCaptureDevice(EffectiveDevice);
+                voice.SetCaptureGain(EffectiveGain);
+            }
+
+            available.Value = voice.IsAvailable.CurrentValue;
+            transmitting.Value = voice.IsTransmitting.CurrentValue;
+        }
+
+        public void Dispose()
+        {
+            if (disposed) return;
+            disposed = true;
+            sound.Changed -= OnSoundChanged;
+            available.Dispose();
+            muted.Dispose();
+            transmitting.Dispose();
+            listening.Dispose();
+        }
+
+        private bool EffectiveMute =>
+            VoiceMutePolicy.IsMuted(
+                preferences.Muted, sound.Current.InputMode, preferences.Listening);
+
+        private bool EffectiveTalking =>
+            VoiceMutePolicy.IsTalking(
+                talking, sound.Current.InputMode, preferences.Listening);
+
+        private void OnSoundChanged(SoundSettings _)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            PublishEffectiveMute();
+            PublishTalking();
+            PublishCaptureDevice();
+            PublishCaptureGain();
+        }
+
+        /// <summary>
+        /// The microphone the 사운드 tab has applied, as a name the rig can
+        /// resolve. The default entry is a code rather than a device, so it
+        /// is sent as nothing at all.
+        /// </summary>
+        private string EffectiveDevice => VoiceCaptureDevice.Requested(sound.Current);
+
+        /// <remarks>
+        /// Sent on every apply rather than only when the name moves. The rig
+        /// remembers what it gave the recorder and ignores a repeat, and it
+        /// is the only side that knows whether the recorder it has is still
+        /// the one that was told.
+        /// </remarks>
+        /// <summary>The 마이크 볼륨 slider as a multiplier.</summary>
+        private float EffectiveGain => VoiceCaptureGain.From(sound.Current);
+
+        /// <inheritdoc cref="PublishCaptureDevice" />
+        private void PublishCaptureGain()
+        {
+            network.Voice?.SetCaptureGain(EffectiveGain);
+        }
+
+        private void PublishCaptureDevice()
+        {
+            network.Voice?.SetCaptureDevice(EffectiveDevice);
+        }
+
+        private void PublishEffectiveMute()
+        {
+            var next = EffectiveMute;
+            muted.Value = next;
+            network.Voice?.SetMuted(next);
+        }
+
+        private void PublishTalking()
+        {
+            network.Voice?.SetTalking(EffectiveTalking);
+        }
+
+        private void PublishListening()
+        {
+            var next = preferences.Listening;
+            listening.Value = next;
+            network.Voice?.SetListening(next);
+        }
+    }
+}

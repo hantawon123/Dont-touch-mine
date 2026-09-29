@@ -1,0 +1,33 @@
+{
+    "name": "Game.Architecture.PlayModeTests",
+    "rootNamespace": "Game.Tests.PlayMode",
+    "references": [
+        "Game.Backend",
+        "Game.Bootstrap",
+        "Game.Core",
+        "Game.Server",
+        "Game.SOAP",
+        "UniTask",
+        "UnityEngine.TestRunner",
+        "Game.Client",
+        "VContainer",
+        "Unity.InputSystem",
+        "Game.Network",
+        "Fusion.Unity",
+        "Fusion.Addons.KCC",
+        "Unity.TextMeshPro",
+        "PhotonVoice",
+        "Photon.Realtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

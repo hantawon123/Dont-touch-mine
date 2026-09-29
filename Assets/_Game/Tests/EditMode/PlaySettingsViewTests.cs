@@ -1,0 +1,401 @@
+using System.Reflection;
+using Game.Client.Lobby;
+using Game.Client.Settings;
+using Game.Core.Lobby;
+using Game.Core.Settings;
+using Game.Core.Maps;
+using NUnit.Framework;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace Game.Architecture.Tests
+{
+    public sealed class PlaySettingsViewTests
+    {
+        [Test]
+        public void TitleInput_LeavesRoomForTheCharacterCounter()
+        {
+            var root = CreateView(out var panel, out _);
+            try
+            {
+                var input = Find(panel.transform, "TitleInput") as RectTransform;
+                var underline = Find(panel.transform, "Underline") as RectTransform;
+                var counter = Find(panel.transform, "TitleCounter") as RectTransform;
+                Assert.That(input, Is.Not.Null);
+                Assert.That(underline, Is.Not.Null);
+                Assert.That(counter, Is.Not.Null);
+                Assert.That(
+                    input.offsetMax.x,
+                    Is.EqualTo(-PlaySettingsStyle.Layout.TitleInputRightPadding));
+                Assert.That(
+                    underline.sizeDelta.x,
+                    Is.EqualTo(-PlaySettingsStyle.Layout.TitleInputRightPadding));
+                Assert.That(input.GetComponent<RectMask2D>(), Is.Not.Null);
+                Assert.That(counter.anchorMin, Is.EqualTo(new Vector2(1f, 0.5f)));
+                Assert.That(counter.anchorMax, Is.EqualTo(new Vector2(1f, 0.5f)));
+                Assert.That(
+                    counter.sizeDelta.x,
+                    Is.EqualTo(PlaySettingsStyle.Layout.TitleCounterWidth));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CloseButton_SitsOnTheModalTopRightCorner()
+        {
+            var root = CreateView(out var panel, out var view);
+            try
+            {
+                var close = panel.transform.Find("CloseButton") as RectTransform;
+                Assert.That(close, Is.Not.Null);
+                Assert.That(close.parent, Is.EqualTo(panel.transform));
+                Assert.That(close.anchorMin, Is.EqualTo(new Vector2(1f, 1f)));
+                Assert.That(close.anchorMax, Is.EqualTo(new Vector2(1f, 1f)));
+                Assert.That(close.pivot, Is.EqualTo(new Vector2(1f, 1f)));
+                Assert.That(
+                    close.anchoredPosition,
+                    Is.EqualTo(new Vector2(
+                        -PlaySettingsStyle.Overlay.CloseOffset.x,
+                        -PlaySettingsStyle.Overlay.CloseOffset.y)));
+                Assert.That(
+                    close.sizeDelta,
+                    Is.EqualTo(new Vector2(
+                        PlaySettingsStyle.Overlay.CloseSize,
+                        PlaySettingsStyle.Overlay.CloseSize)));
+                Assert.That(
+                    close.GetComponent<Image>().sprite,
+                    Is.EqualTo(SettingsStyle.LoadCloseIcon()));
+                Assert.That(Find(root.transform, "BackButton"), Is.Null);
+
+                var overlay = Find(root.transform, "PlaySettingsOverlay");
+                Assert.That(overlay, Is.Not.Null);
+                Assert.That(overlay.Find("CloseButton"), Is.Null);
+
+                var raised = 0;
+                view.CloseRequested += () => raised++;
+                close.GetComponent<Button>().onClick.Invoke();
+                Assert.That(raised, Is.EqualTo(1));
+
+                view.SetDraft(new PlaySettingsDraft(string.Empty, "CODE", false, null, 4, 3, "supermarket"));
+                view.SetEditable(true);
+                view.SetVisible(true);
+                close.GetComponent<Button>().onClick.Invoke();
+                Assert.That(raised, Is.EqualTo(2));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ResetButton_SharesTheFooterRowWithApply()
+        {
+            var root = CreateView(out var panel, out var view);
+            try
+            {
+                var reset = Find(panel.transform, "ResetButton") as RectTransform;
+                var apply = Find(panel.transform, "ApplyButton") as RectTransform;
+                Assert.That(reset, Is.Not.Null);
+                Assert.That(apply, Is.Not.Null);
+                Assert.That(reset.parent.name, Is.EqualTo("ActionRow"));
+                Assert.That(apply.parent, Is.EqualTo(reset.parent));
+                Assert.That(reset.GetSiblingIndex(), Is.LessThan(apply.GetSiblingIndex()));
+                Assert.That(
+                    reset.Find("Text").GetComponent<Text>().text,
+                    Is.EqualTo(PlaySettingsStyle.Layout.ResetLabel));
+                var resetText = reset.Find("Text").GetComponent<Text>();
+                var applyText = apply.Find("Text").GetComponent<Text>();
+                Assert.That(resetText.font, Is.EqualTo(applyText.font));
+                Assert.That(resetText.fontSize, Is.EqualTo(PlaySettingsStyle.FontSize.Apply));
+                Assert.That(applyText.fontSize, Is.EqualTo(PlaySettingsStyle.FontSize.Apply));
+                Assert.That(resetText.fontStyle, Is.EqualTo(FontStyle.Normal));
+                Assert.That(applyText.fontStyle, Is.EqualTo(FontStyle.Normal));
+                Assert.That(
+                    reset.GetComponent<Image>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.ResetFill));
+                Assert.That(
+                    reset.Find("Stroke").GetComponent<Image>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.ResetOffStroke));
+                Assert.That(Find(panel.transform, "Header").Find("ResetButton"), Is.Null);
+                Assert.That(Find(panel.transform, "Header").Find("RevertButton"), Is.Null);
+
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "supermarket"));
+                view.SetEditable(true);
+                Assert.That(reset.GetComponent<Button>().interactable, Is.False);
+                Assert.That(
+                    reset.Find("Text").GetComponent<Text>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.ResetOffLabel));
+                Assert.That(
+                    reset.Find("Stroke").GetComponent<Image>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.ResetOffStroke));
+
+                var plus = (Button)typeof(PlaySettingsView).GetField(
+                    "maxPlayersPlusButton",
+                    BindingFlags.Instance | BindingFlags.NonPublic).GetValue(view);
+                plus.onClick.Invoke();
+                Assert.That(reset.GetComponent<Button>().interactable, Is.True);
+                Assert.That(
+                    reset.Find("Text").GetComponent<Text>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.ResetLabel));
+                Assert.That(
+                    reset.Find("Stroke").GetComponent<Image>().color,
+                    Is.EqualTo(PlaySettingsStyle.Palette.ResetStroke));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void BodyScroll_ShowsAVerticalScrollbarOnTheRight()
+        {
+            var root = CreateView(out var panel, out _);
+            try
+            {
+                var scroll = Find(panel.transform, "SettingsScroll") as RectTransform;
+                Assert.That(scroll, Is.Not.Null);
+                var scrollRect = scroll.GetComponent<ScrollRect>();
+                Assert.That(scrollRect, Is.Not.Null);
+                Assert.That(scrollRect.verticalScrollbar, Is.Not.Null);
+                Assert.That(
+                    scrollRect.verticalScrollbarVisibility,
+                    Is.EqualTo(ScrollRect.ScrollbarVisibility.Permanent));
+
+                var bar = scrollRect.verticalScrollbar.GetComponent<RectTransform>();
+                Assert.That(bar.parent, Is.EqualTo(scroll));
+                Assert.That(bar.anchorMin, Is.EqualTo(new Vector2(1f, 0f)));
+                Assert.That(bar.anchorMax, Is.EqualTo(new Vector2(1f, 1f)));
+                Assert.That(bar.pivot, Is.EqualTo(new Vector2(1f, 0.5f)));
+                Assert.That(
+                    bar.anchoredPosition,
+                    Is.EqualTo(new Vector2(-PlaySettingsStyle.Layout.ScrollbarRightInset, 0f)));
+                Assert.That(
+                    bar.sizeDelta,
+                    Is.EqualTo(new Vector2(
+                        PlaySettingsStyle.Layout.ScrollbarWidth,
+                        -PlaySettingsStyle.Layout.ScrollbarVerticalInset * 2f)));
+                Assert.That(bar.Find("SlidingArea/Handle"), Is.Not.Null);
+                Assert.That(Find(panel.transform, "Header").Find("Scrollbar"), Is.Null);
+                Assert.That(Find(panel.transform, "Footer").Find("Scrollbar"), Is.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void Guest_HidesFooterAndLetsTheBodyFillIt()
+        {
+            var root = CreateView(out var panel, out var view);
+            try
+            {
+                view.SetEditable(false);
+                var footer = panel.transform.Find("Footer");
+                var body = panel.transform.Find("Body") as RectTransform;
+                Assert.That(footer, Is.Not.Null);
+                Assert.That(body, Is.Not.Null);
+                Assert.That(footer.gameObject.activeSelf, Is.False);
+                Assert.That(body.offsetMin.y, Is.EqualTo(0f));
+                Assert.That(
+                    Find(footer, "ResetButton").gameObject.activeInHierarchy,
+                    Is.False);
+                Assert.That(
+                    Find(footer, "ApplyButton").gameObject.activeInHierarchy,
+                    Is.False);
+
+                view.SetEditable(true);
+                Assert.That(footer.gameObject.activeSelf, Is.True);
+                Assert.That(
+                    body.offsetMin.y,
+                    Is.EqualTo(PlaySettingsStyle.FooterHeight));
+                Assert.That(
+                    Find(footer, "ResetButton").gameObject.activeInHierarchy,
+                    Is.True);
+                Assert.That(
+                    Find(footer, "ApplyButton").gameObject.activeInHierarchy,
+                    Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void MapPicker_OffersRandomThenSupermarketAndMansion()
+        {
+            var root = CreateView(out var panel, out var view);
+            try
+            {
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, string.Empty));
+                Assert.That(Find(panel.transform, "MapStack"), Is.Not.Null);
+                Assert.That(Find(panel.transform, "MapSlot0"), Is.Null);
+                Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
+                Assert.That(
+                    Find(panel.transform, "MapName").GetComponent<Text>().text,
+                    Is.EqualTo(PlaySettingsMapCatalog.RandomLabel));
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(string.Empty));
+                var randomMark = Find(panel.transform, "MapPreview")
+                    .Find(MapPreviewSprites.RandomMarkName)
+                    .GetComponent<Text>();
+                Assert.That(randomMark.text, Is.EqualTo(MapPreviewSprites.RandomMarkText));
+                Assert.That(randomMark.gameObject.activeSelf, Is.True);
+                Assert.That(Find(panel.transform, "CategoryPreview"), Is.Null);
+                var categoryValue = Find(panel.transform, "CategoryValue").GetComponent<Text>();
+                Assert.That(categoryValue, Is.Not.Null);
+                Assert.That(categoryValue.fontSize, Is.EqualTo(PlaySettingsStyle.FontSize.CategoryName));
+                Assert.That(categoryValue.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "playground"));
+                Assert.That(Find(panel.transform, "MapSlot1"), Is.Null);
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(string.Empty));
+                Assert.That(randomMark.gameObject.activeSelf, Is.True);
+                Assert.That(Find(panel.transform, "MapPrev").gameObject.activeSelf, Is.True);
+                Assert.That(Find(panel.transform, "MapNext").gameObject.activeSelf, Is.True);
+
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, MapCatalog.MansionId));
+                Assert.That(view.ReadDraft().MapId, Is.EqualTo(MapCatalog.MansionId));
+                Assert.That(
+                    Find(panel.transform, "MapName").GetComponent<Text>().text,
+                    Is.EqualTo(PlaySettingsMapCatalog.LabelOf(MapCatalog.MansionId)));
+                Assert.That(randomMark.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ShowChrome_RedrawsTitleAndApplyInTheAppliedLanguage()
+        {
+            var root = CreateView(out var panel, out var view);
+            try
+            {
+                var store = new InMemoryGeneralSettingsStore();
+                store.Save(new GeneralSettings("en"));
+                var general = new GeneralSettingsSystem(store);
+                using var locale = new UiLocale(general);
+
+                view.ShowChrome(locale);
+
+                var title = Find(panel.transform, "Title").GetComponent<UnityEngine.UI.Text>();
+                Assert.That(title.text, Is.EqualTo("Game Settings"));
+                var apply = Find(panel.transform, "ApplyButton").GetComponentInChildren<UnityEngine.UI.Text>();
+                Assert.That(apply.text, Is.EqualTo("Apply"));
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, string.Empty));
+                var mapName = Find(panel.transform, "MapName");
+                if (mapName != null)
+                {
+                    Assert.That(
+                        mapName.GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo("Random"));
+                }
+
+                view.SetDraft(new PlaySettingsDraft(
+                    "방", "CODE", false, null, 4, 3, MapCatalog.MansionId));
+                if (mapName != null)
+                {
+                    Assert.That(
+                        mapName.GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo("Mansion"));
+                }
+
+                var categoryValue = Find(panel.transform, "CategoryValue");
+                if (categoryValue != null)
+                {
+                    Assert.That(
+                        categoryValue.GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo("Random"));
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void BreakLimitAndStunHits_ShowTheNumberOnItsOwn()
+        {
+            var root = CreateView(out _, out var view);
+            try
+            {
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, string.Empty));
+
+                Assert.That(DestructionLimitText(view).text, Is.EqualTo("3"));
+                Assert.That(
+                    RuleValues(view)[1].text,
+                    Is.EqualTo(MatchRuleSettings.DefaultStunHitCount.ToString()));
+
+                view.SetDraft(new PlaySettingsDraft(
+                    "방",
+                    "CODE",
+                    false,
+                    null,
+                    4,
+                    PlaySettingsDraft.UnlimitedDestructionLimit,
+                    string.Empty));
+                Assert.That(DestructionLimitText(view).text, Is.EqualTo("무한"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        private static Text DestructionLimitText(PlaySettingsView view) =>
+            (Text)typeof(PlaySettingsView)
+                .GetField("destructionLimitText", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(view);
+
+        private static System.Collections.Generic.IList<Text> RuleValues(PlaySettingsView view) =>
+            (System.Collections.Generic.IList<Text>)typeof(PlaySettingsView)
+                .GetField("ruleValues", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(view);
+
+        private static GameObject CreateView(out GameObject panel, out PlaySettingsView view)
+        {
+            var root = new GameObject("Settings layout", typeof(RectTransform), typeof(Canvas));
+            panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
+            panel.transform.SetParent(root.transform, false);
+            root.SetActive(false);
+            view = root.AddComponent<PlaySettingsView>();
+            var serialized = new SerializedObject(view);
+            serialized.FindProperty("panel").objectReferenceValue = panel;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            root.SetActive(true);
+            typeof(PlaySettingsView).GetMethod(
+                "OnEnable",
+                BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(view, null);
+            return root;
+        }
+
+        private static Transform Find(Transform root, string name)
+        {
+            if (root.name == name)
+            {
+                return root;
+            }
+
+            for (var i = 0; i < root.childCount; i++)
+            {
+                var found = Find(root.GetChild(i), name);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+    }
+}

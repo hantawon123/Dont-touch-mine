@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Intro.unity
+    guid: 2490cea4e3a9fad4da5b394f5d98f309
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Home.unity
+    guid: 6a8c0e2f4b1d3a5c7e9f0b1d2a3c4e5f
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Room.unity
+    guid: c3f4b5ac1b044def94d08b58c7aa02bd
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Lobby.unity
+    guid: d0bbed07a70236d47ae2d3cf7104e90c
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Supermarket.unity
+    guid: cad9a7fd93ff6a9428b283457c72aacb
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Mansion.unity
+    guid: f4a98e0b0680411d860337ffc00841fa
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/MansionResult.unity
+    guid: 8db70533803e46c78699b7d7a7a8b600
+  - enabled: 1
+    path: Assets/Scenes/SampleScene.unity
+    guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Result.unity
+    guid: 27403880fe50ecc47814bffa7bc551e6
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Character.unity
+    guid: 2a57cfc8f55c87746a63a466795273c7
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Settings.unity
+    guid: 3afa2eccf87d439fb2f8dc2c76c50331
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Loading.unity
+    guid: 8f3a2c1d9e6b4a70b5d4c3e2f1a0b9c8
+  - enabled: 1
+    path: Assets/_Game/Content/Scenes/Tutorial.unity
+    guid: 1442a52f14bed8f4292bd9c0414350d9
+  m_configObjects:
+    com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  m_UseUCBPForAssetBundles: 0

@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: d205-analytics
+  profiles:
+    default: local
+
+  # 분석 DB 는 이 서비스의 것입니다. 표준 DataSource 와 Flyway 자동 설정을 씁니다.
+  #
+  # 예전에는 계정 서비스 안에서 "분석 DB 가 없어도 게임은 돌아야 한다"고 지연 접속·재시도로 감쌌는데
+  # (AnalyticsDatabase), 서비스가 나뉜 뒤로는 그 격리를 컨테이너 경계가 맡습니다. 이 서비스에게
+  # 분석 DB 는 생명선이라, 없으면 기동에 실패하고 재시작되는 것이 맞습니다. 게임 API 는 그 사이에도
+  # 영향을 받지 않고, 클라이언트는 실패한 배치를 스풀에 두었다가 다시 보냅니다.
+  flyway:
+    enabled: true
+    locations: classpath:db/migration-analytics
+  datasource:
+    hikari:
+      # 쓰는 것은 flush 스레드 하나와 집계 조회 몇 개입니다. 크게 잡아도 쓸 곳이 없습니다.
+      maximum-pool-size: 5
+
+server:
+  # 컨테이너 안에서는 8080 이고, 호스트에는 compose 가 8081 로 냅니다. 계정 서비스와 같은 값이라
+  # Dockerfile 과 헬스체크를 둘이 공유합니다.
+  port: 8080
+  shutdown: graceful
+  # 수집 요청은 짧고 많습니다. 스레드를 계정 서비스만큼 둘 이유가 없습니다.
+  tomcat:
+    threads:
+      max: 50
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+# /internal/** 을 잠그는 공유 키. 계정 서비스의 analytics.internal-key 와 같은 값이어야 하고 .env 의
+# INTERNAL_KEY 하나를 둘이 읽습니다. 비어 있으면 그 경로는 전부 404 입니다(InternalKeyFilter).
+internal:
+  key: ${INTERNAL_KEY:}
+
+# 수집 동작 한도. 값의 뜻은 AnalyticsProperties 에, 명세는 docs/analytics-events.md 에 있습니다.
+analytics:
+  queue-capacity: 100000
+  flush-interval-ms: 1000
+  flush-batch-size: 5000
+  # 한 주기에 배치를 최대 몇 번 연달아 넣는가. 1 이면 처리량 상한이 초당 5,000행이고 부하 테스트에서
+  # 그 지점에서 큐가 넘쳤습니다(DB 는 놀고 있었음). 20 이면 상한이 초당 10만 행이라 DB 가 먼저 한계를
+  # 냅니다. 큐가 비면 바로 멈추므로 평소에는 한 번만 돕니다.
+  flush-max-batches-per-tick: 20
+  # IP 하나의 분당 요청 상한. 플레이테스트는 한 교실의 공용 IP 로 들어오므로 60 이면 열 명만 넘어도
+  # 정상 트래픽이 429 가 됩니다. 600 은 100명이 한 IP 뒤에 있어도 닿지 않으면서 무한 전송은 막는 값입니다.
+  rate-limit-per-minute: 600
+  occurred-at-past-days: 7
+  occurred-at-future-minutes: 5

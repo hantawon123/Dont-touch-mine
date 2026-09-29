@@ -1,0 +1,695 @@
+// 백엔드 파이프라인. Multibranch Pipeline이 브랜치와 MR별로 이 파일을 읽습니다.
+//
+// 하나의 파일이 두 경로를 처리합니다.
+//
+//   release       대상 확인 → 빌드 → 테스트 → 기동 검증(운영 DB) → 배포 → 헬스체크
+//   develop / MR  대상 확인 → 빌드 → 테스트 → 기동 검증(일회용 DB), 배포하지 않음
+//
+// 살아 있는 컨테이너를 교체하기 전에 새 이미지가 실제로 기동하는지 먼저 확인합니다.
+// compose up 은 컨테이너를 먼저 교체하고 앱은 그 뒤에 뜨기 때문에, 곧바로 배포하면
+// 마이그레이션 오류나 설정 오류가 곧 서비스 다운으로 이어집니다.
+pipeline {
+    agent any
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        // 같은 compose 프로젝트를 두 빌드가 동시에 건드리면 컨테이너가 꼬입니다.
+        // Job 단위이므로 MR Job들끼리는 병렬로 돕니다. 검증 경로의 자원 이름에
+        // BUILD_TAG를 넣어 서로 격리하고, 무거운 단계는 Unity Linux 빌드와 같은
+        // /tmp/d205-ec2-build.lock을 잡아 EC2 메모리 경합을 막습니다.
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        timestamps()
+        // 암묵적 체크아웃을 끄고 아래 '체크아웃' 단계에서 직접 합니다. 이유는 그 단계에 있습니다.
+        skipDefaultCheckout(true)
+    }
+
+    triggers {
+        // 웹훅이 주 트리거입니다. 이건 웹훅이 실패했을 때의 안전망입니다.
+        pollSCM('H/10 * * * *')
+    }
+
+    environment {
+        COMPOSE_FILE = 'compose.prod.yml'
+        HEALTH_URL   = 'http://localhost:8080/actuator/health'
+        // 수집 서비스. 호스트 8081 → 컨테이너 8080 (compose.prod.yml).
+        ANALYTICS_HEALTH_URL = 'http://localhost:8081/actuator/health'
+
+        GITLAB_API      = 'https://lab.ssafy.com/api/v4'
+        GITLAB_PROJECT  = 's15-metaverse-game-sub1%2FS15P21D205'
+
+        // 통합 브랜치인지. develop과 release는 자기 히스토리가 곧 기준선이므로
+        // 이전 성공 빌드 이후의 변경만 봅니다. MR은 대상 브랜치와 비교합니다.
+        //
+        // 이 값과 DEPLOY를 나눈 이유가 있습니다. 예전에는 develop 하나가 '통합 브랜치'와
+        // '배포 대상'을 겸해서 DEPLOY 한 개로 둘 다 판별했습니다. 배포를 release로 옮기면
+        // 그 둘이 갈라지므로, 묶어 두면 develop 빌드가 자기 자신과 비교해 변경 파일 0개로
+        // 매번 건너뛰고 테스트가 한 번도 돌지 않습니다.
+        TRUNK = "${env.BRANCH_NAME == null || env.BRANCH_NAME == 'develop' || env.BRANCH_NAME == 'release'}"
+
+        // 배포 여부. release만 운영 컨테이너를 교체합니다. develop은 빌드·테스트·기동
+        // 검증까지만 하고 살아 있는 컨테이너를 건드리지 않습니다. 배포판을 쓰는 사람이
+        // 그 컨테이너에 붙어 있기 때문입니다(S15P21D205-1020).
+        //
+        // BRANCH_NAME은 Multibranch에서만 설정되므로, 없으면 단독 Job이 Branch Specifier가
+        // 가리키는 브랜치를 빌드한다고 보고 배포합니다. 그 Job의 Branch Specifier는
+        // release여야 합니다. develop을 가리킨 채 두면 develop이 그대로 배포됩니다.
+        //
+        // when { branch 'release' } 를 쓰면 단독 Job에서 조건이 false가 되어 배포가
+        // 조용히 멈춥니다. 빌드는 초록불인데 배포가 안 되는 상태라 찾기 어렵습니다.
+        DEPLOY = "${env.BRANCH_NAME == null || env.BRANCH_NAME == 'release'}"
+
+        // MR이면 대상 브랜치. 통합 브랜치는 '대상 확인'이 이전 성공 커밋을 기준으로
+        // 삼으므로 이 값을 읽지 않습니다.
+        DIFF_BASE = "${env.CHANGE_TARGET ?: 'develop'}"
+
+        // 이 빌드가 갱신하는 통합 브랜치. 재검증할 열린 MR을 고르는 기준입니다.
+        // 단독 Job(BRANCH_NAME이 없음)은 MR Job을 찾지 못해 재검증 자체를 건너뛰므로
+        // 그 경우 이 값은 쓰이지 않습니다.
+        MR_TARGET = "${env.BRANCH_NAME ?: 'develop'}"
+
+        // 검증 경로에서 만드는 자원들. BUILD_TAG는 Job 이름까지 포함해 전역적으로
+        // 유일합니다. BUILD_NUMBER는 Job 단위라, 서로 다른 MR Job이 모두 빌드 #1이면
+        // 이름이 겹칩니다. 실제로 MR 두 개가 동시에 돌면서 한쪽이 네트워크 생성에
+        // 실패하고 다른 쪽은 정리에 컨테이너를 빼앗겼습니다.
+        VERIFY_TAG = "verify-${env.BUILD_TAG}"
+        VERIFY_PFX = "d205-verify-${env.BUILD_TAG}"
+    }
+
+    stages {
+        stage('체크아웃') {
+            steps {
+                // Git LFS 실제 파일을 내려받지 않고 포인터만 둡니다.
+                //
+                // 이 파이프라인은 backend/ 만 빌드하고 Unity 에셋(LFS 파일 약 3천 개)은 한 바이트도
+                // 읽지 않습니다. 그런데 기본 체크아웃은 LFS 스머지 필터로 그 전부를 GitLab 에서
+                // 받아 옵니다. 2026-09-07 클라이언트가 애니메이션 클립을 대량 머지한 뒤 그 내려받기가
+                // git 플러그인의 체크아웃 타임아웃(10분)을 넘겨, 코드와 무관하게 모든 MR 이
+                // "Checkout SCM" 에서 죽었습니다.
+                //
+                // 환경변수를 여기서 주는 이유: 서버(jenkins 사용자의 gitconfig, systemd 드롭인)를
+                // 고치면 같은 효과가 나지만, 그건 저장소 밖의 상태라 Jenkins 를 다시 설치하면
+                // 사라지고 새 사람이 파이프라인만 읽어서는 알 수 없습니다. 파이프라인이 자기 요구를
+                // 스스로 말하는 편이 낫습니다. git 플러그인은 withEnv 의 값을 git 프로세스에 넘깁니다.
+                //
+                // Unity 빌드를 Jenkins 로 들일 때는 그 잡에서 따로 `git lfs pull` 을 해야 합니다.
+                //
+                // 환경변수만으로는 부족했습니다. git 플러그인이 checkout 을 실행할 때 withEnv 의 값을
+                // git 프로세스에 넘기지 않아, 첫 시도(MR-222 #3)는 여전히 스머지를 돌렸습니다. 그래서
+                // jenkins 사용자의 전역 gitconfig 에 스머지 생략을 직접 씁니다. 이 파이프라인이 도는
+                // 머신은 backend 전용이므로 전역으로 꺼도 다른 잡이 다치지 않습니다. 이미 설정돼 있으면
+                // 같은 값을 다시 쓰는 것이라 무해합니다. 환경변수는 `git lfs` 가 없는 머신을 위한 보조입니다.
+                // --skip-repo: 전역 설정만 쓰고 워크스페이스 훅은 건드리지 않습니다. 훅을 설치하려 하면
+                // 기존 훅과 충돌해 비정상 종료하고, 그러면 아래 fallback 메시지가 잘못 찍힙니다.
+                sh 'git lfs install --skip-smudge --skip-repo || echo "git-lfs 가 없어 스머지 설정을 건너뜁니다."'
+                withEnv(['GIT_LFS_SKIP_SMUDGE=1']) {
+                    checkout scm
+                }
+            }
+        }
+
+        stage('대상 확인') {
+            steps {
+                // 통합 브랜치에도 적용합니다. Multibranch에는 Git 플러그인의 경로 필터
+                // (Included Regions)가 없어서, 이게 없으면 Unity 커밋이 머지될 때마다
+                // 백엔드가 빌드되고, release라면 컨테이너까지 교체됩니다.
+                //
+                // 판별 결과를 파일로 주고받지 않습니다. 워크스페이스는 빌드 사이에
+                // 재사용되므로, 남은 표시 파일이 다음 빌드를 조용히 건너뛰게 만듭니다.
+                // 실제로 그렇게 배포가 멈춘 적이 있습니다. 표준 출력으로 넘깁니다.
+                script {
+                    def verdict = sh(returnStdout: true, script: '''
+                        if [ "$TRUNK" = true ]; then
+                            # 이전 성공 빌드 이후의 변경만 봅니다. Jenkins가
+                            # GIT_PREVIOUS_SUCCESSFUL_COMMIT을 주입합니다.
+                            if [ -z "$GIT_PREVIOUS_SUCCESSFUL_COMMIT" ]; then
+                                echo "이전 성공 빌드 정보가 없어 판별을 생략하고 빌드합니다." >&2
+                                echo BUILD
+                                exit 0
+                            fi
+                            if ! git cat-file -e "$GIT_PREVIOUS_SUCCESSFUL_COMMIT^{commit}" 2>/dev/null; then
+                                echo "이전 성공 커밋을 찾을 수 없어 판별을 생략하고 빌드합니다." >&2
+                                echo BUILD
+                                exit 0
+                            fi
+                            range="$GIT_PREVIOUS_SUCCESSFUL_COMMIT..HEAD"
+                        else
+                            git fetch --no-tags origin "$DIFF_BASE:refs/remotes/origin/$DIFF_BASE" >/dev/null 2>&1 || true
+                            range="origin/$DIFF_BASE...HEAD"
+                        fi
+
+                        changed=$(git diff --name-only "$range" -- backend/ | wc -l)
+                        echo "backend/ 변경 파일: $changed 개 (기준: $range)" >&2
+
+                        if [ "$changed" -eq 0 ]; then echo SKIP; else echo BUILD; fi
+                    ''').trim()
+
+                    // 건너뛸 때 실패로 끝내면 안 됩니다. 머지 차단을 켜면 백엔드와
+                    // 무관한 MR이 전부 머지 불가가 됩니다. 성공으로 보고합니다.
+                    if (verdict.endsWith('SKIP')) {
+                        env.SKIP_ALL = 'true'
+                        currentBuild.description = 'backend/ 변경 없음 - 건너뜀'
+                        echo 'backend/ 변경이 없어 이번 빌드는 할 일이 없습니다.'
+                    } else {
+                        env.SKIP_ALL = 'false'
+                        echo 'backend/ 변경이 있어 빌드를 진행합니다.'
+                    }
+
+                    // 통합 브랜치가 갱신되면 그 브랜치를 대상으로 열려 있는 MR들의
+                    // 초록불은 낡은 것이 됩니다. 그 MR은 "이전 대상 브랜치에 합친 결과"로
+                    // 검증받았기 때문입니다.
+                    // GitLab Free에는 merged results pipeline과 merge train이 없어
+                    // 자동 재검증이 일어나지 않습니다. 그래서 여기서 직접 요청합니다.
+                    //
+                    // 배포 뒤가 아니라 판별 직후인 여기서 하는 이유: 빌드 마지막에
+                    // 하면 머지한 순간부터 재빌드가 걸릴 때까지 70초가량 낡은 초록불이
+                    // 그대로 보이고 그동안 머지 버튼도 열려 있습니다. 여기서 하면 그
+                    // 틈이 10초 수준으로 줄어듭니다(같은 MR로 실측). 대가는 MR 재빌드가 이 빌드와
+                    // 겹쳐 도는 것입니다. 4 vCPU에 Jenkins 실행기가 2개이므로
+                    // 동시 두 개가 설계된 한도이고, MR 두 개를 동시에 빌드해 둘 다
+                    // 통과한 것도 확인했습니다.
+                    //
+                    // 커밋 상태를 직접 게시하지 않는 이유: GitLab은 상태를 (SHA, 컨텍스트)
+                    // 쌍으로 관리하므로, 플러그인과 다른 컨텍스트로 pending을 올리면
+                    // 그 상태가 영구히 남아 머지가 영원히 잠깁니다. 재빌드를 요청하면
+                    // 플러그인이 스스로 pending을 올리고(즉시 잠김) 완료 후 갱신합니다.
+                    //
+                    // backend/ 변경이 없어 건너뛴 빌드에서는 하지 않습니다. MR의 백엔드
+                    // 검증 결과가 달라질 이유가 없기 때문입니다.
+                    if (env.TRUNK == 'true' && env.SKIP_ALL != 'true') {
+                        // gitlab-api-token 이 아니라 -text 입니다. GitLab 플러그인의 토큰
+                        // 크리덴셜은 StringCredentials가 아니어서 파이프라인의 string()
+                        // 바인딩으로 읽을 수 없습니다. 같은 토큰을 Secret text로 한 번 더
+                        // 등록해 씁니다. 갱신할 때 두 개를 모두 고쳐야 합니다.
+                        try {
+                            withCredentials([string(credentialsId: 'gitlab-api-token-text', variable: 'GL_TOKEN')]) {
+                                def raw = sh(returnStdout: true, script: '''
+                                    set +x
+                                    curl -fsS -H "PRIVATE-TOKEN: $GL_TOKEN" "$GITLAB_API/projects/$GITLAB_PROJECT/merge_requests?state=opened&target_branch=$MR_TARGET&per_page=100" | jq -r '.[].iid'
+                                ''').trim()
+
+                                def folder = env.JOB_NAME.contains('/') ? env.JOB_NAME.split('/')[0] : null
+                                def iids = raw ? raw.split('\\s+') : []
+                                echo "${env.MR_TARGET} 대상 열린 MR: ${iids.size()} 개"
+
+                                if (folder == null) {
+                                    echo '단독 Job이라 MR Job을 찾을 수 없어 재검증 요청을 생략합니다.'
+                                } else {
+                                    for (iid in iids) {
+                                        def target = "${folder}/MR-${iid}"
+                                        try {
+                                            build job: target, wait: false, propagate: false
+                                            echo "  ${target} 재빌드 요청 (${env.MR_TARGET} 갱신 반영)"
+                                        } catch (err) {
+                                            echo "  ${target} 트리거 실패: ${err.message}"
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (err) {
+                            // 재검증 요청이 실패해도 이 빌드의 본 임무인 빌드와
+                            // 배포는 막지 않습니다. 다만 조용히 넘기면 무효화가
+                            // 동작하지 않는 것을 아무도 모르게 되므로 UNSTABLE로
+                            // 눈에 띄게 남깁니다.
+                            echo "열린 MR 재검증 요청 실패: ${err.message}"
+                            currentBuild.result = 'UNSTABLE'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('빌드') {
+            when {
+                allOf {
+                    environment name: 'DEPLOY', value: 'true'
+                    not { environment name: 'SKIP_ALL', value: 'true' }
+                }
+            }
+            steps {
+                // 워크스페이스는 git 체크아웃이라 .env가 없습니다. compose.prod.yml이
+                // ${VAR:?} 를 쓰므로 build 명령에도 값이 필요합니다.
+                withCredentials([file(credentialsId: 'd205-backend-env', variable: 'ENV_FILE')]) {
+                    dir('backend') {
+                        sh '''
+                            exec 9>/tmp/d205-ec2-build.lock
+                            flock -x 9
+                            cp "$ENV_FILE" .env
+                            chmod 600 .env
+                            docker compose -f "$COMPOSE_FILE" build
+
+                            # 기동 검증이 실제 DB를 필요로 하므로 먼저 확인합니다. 서비스가 둘이라 DB도 둘입니다.
+                            docker compose -f "$COMPOSE_FILE" up -d --no-build mysql mysql-analytics
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('빌드 (검증)') {
+            when {
+                allOf {
+                    environment name: 'DEPLOY', value: 'false'
+                    not { environment name: 'SKIP_ALL', value: 'true' }
+                }
+            }
+            steps {
+                dir('backend') {
+                    // compose를 쓰지 않습니다. compose.prod.yml 파싱에 운영 환경변수가
+                    // 필요하고, 남의 브랜치 빌드에 운영 크리덴셜을 줄 이유가 없습니다.
+                    // 그리고 d205-app:latest 를 덮어쓰면 운영 태그가 오염됩니다.
+                    // 이미지가 둘입니다. Dockerfile 은 하나고 MODULE 인자가 갈라 줍니다.
+                    sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
+                        docker build --build-arg MODULE=app -t "d205-app:$VERIFY_TAG" .
+                        docker build --build-arg MODULE=analytics -t "d205-analytics:$VERIFY_TAG" .
+                    '''
+                }
+            }
+        }
+
+        stage('테스트') {
+            when { not { environment name: 'SKIP_ALL', value: 'true' } }
+            steps {
+                dir('backend') {
+                    // Testcontainers가 mysql:8.4 컨테이너를 띄웁니다. 호스트 포트를
+                    // 무작위로 잡고 Ryuk가 회수하므로 동시 빌드에서 충돌하지 않습니다.
+                    sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
+                        chmod +x gradlew
+
+                        # 모듈 분리(S15P21D205-980) 이전에는 산출물이 backend/build/ 에 생겼습니다.
+                        # 워크스페이스는 빌드 사이에 재사용되므로 그때의 XML 이 남아 있을 수 있고,
+                        # 남아 있으면 아래 junit 이 이번 빌드와 무관한 낡은 결과를 함께 집계합니다.
+                        # 지금은 어떤 태스크도 이 경로에 쓰지 않으니 통째로 지웁니다.
+                        rm -rf build/test-results
+
+                        ./gradlew test --no-daemon --console=plain
+                    '''
+                }
+            }
+            post {
+                always {
+                    // 모듈별 경로입니다. 단일 모듈 시절의 backend/build/test-results/ 를 그대로
+                    // 두었더니 파일을 하나도 찾지 못했고, allowEmptyResults 때문에 그 사실이
+                    // 조용히 넘어가 테스트를 5분 넘게 돌리고도 Jenkins 에 결과가 없었습니다.
+                    junit allowEmptyResults: true, testResults: 'backend/*/build/test-results/test/*.xml'
+                }
+            }
+        }
+
+        stage('기동 검증 (운영 DB)') {
+            when {
+                allOf {
+                    environment name: 'DEPLOY', value: 'true'
+                    not { environment name: 'SKIP_ALL', value: 'true' }
+                }
+            }
+            steps {
+                dir('backend') {
+                    sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
+                        docker rm -f "$VERIFY_PFX-app" >/dev/null 2>&1 || true
+
+                        NET=$(docker network ls --filter label=com.docker.compose.project=d205 --format '{{.Name}}' | head -1)
+                        if [ -z "$NET" ]; then
+                            echo "compose 네트워크를 찾지 못했습니다. mysql이 떠 있는지 확인하세요."
+                            exit 1
+                        fi
+                        echo "네트워크: $NET"
+
+                        # 비밀번호는 --env-file로 넘깁니다. -e DB_PASSWORD= 로 주면
+                        # sh -x 트레이스에 값이 그대로 찍힙니다.
+                        #
+                        # 이 컨테이너가 Flyway를 돌려 운영 DB에 마이그레이션을 적용합니다.
+                        # 빈 DB에서는 통과하지만 기존 데이터가 있으면 실패하는 경우를
+                        # 여기서 잡습니다. 그래서 검증 경로와 달리 운영 DB를 씁니다.
+                        #
+                        # 호스트 포트는 0으로 두어 도커가 빈 포트를 고르게 합니다.
+                        docker run -d --name "$VERIFY_PFX-app" \
+                            --network "$NET" \
+                            --env-file .env \
+                            -e SPRING_PROFILES_ACTIVE=prod \
+                            -e DB_HOST=mysql \
+                            -e DB_PORT=3306 \
+                            -e TZ=Asia/Seoul \
+                            -p 127.0.0.1:0:8080 \
+                            d205-app
+
+                        PORT=$(docker port "$VERIFY_PFX-app" 8080 | head -1 | sed 's/.*://')
+                        echo "임시 컨테이너 포트: $PORT"
+
+                        set +x
+                        ok=0
+                        for i in $(seq 1 45); do
+                            running=$(docker inspect -f '{{.State.Running}}' "$VERIFY_PFX-app" 2>/dev/null || echo false)
+                            if [ "$running" != true ]; then
+                                echo "임시 컨테이너가 종료되었습니다 (${i}회 시도)"
+                                break
+                            fi
+                            if curl -fsS --max-time 3 "http://127.0.0.1:$PORT/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
+                                echo "기동 검증 통과 (${i}회 시도)"
+                                ok=1
+                                break
+                            fi
+                            sleep 2
+                        done
+                        set -x
+
+                        if [ "$ok" != 1 ]; then
+                            echo "기동 검증 실패 - 살아 있는 컨테이너는 교체하지 않았습니다"
+                            docker logs "$VERIFY_PFX-app" --tail 120 2>&1 || true
+                            exit 1
+                        fi
+
+                        # 수집 서비스도 같은 방식으로. 이쪽은 운영 분석 DB(mysql-analytics)에 Flyway 를 돌립니다.
+                        docker rm -f "$VERIFY_PFX-analytics" >/dev/null 2>&1 || true
+                        docker run -d --name "$VERIFY_PFX-analytics" \
+                            --network "$NET" \
+                            --env-file .env \
+                            -e SPRING_PROFILES_ACTIVE=prod \
+                            -e ANALYTICS_DB_HOST=mysql-analytics \
+                            -e ANALYTICS_DB_PORT=3306 \
+                            -e TZ=Asia/Seoul \
+                            -p 127.0.0.1:0:8080 \
+                            d205-analytics
+
+                        APORT=$(docker port "$VERIFY_PFX-analytics" 8080 | head -1 | sed 's/.*://')
+                        echo "임시 수집 컨테이너 포트: $APORT"
+
+                        set +x
+                        ok=0
+                        for i in $(seq 1 45); do
+                            running=$(docker inspect -f '{{.State.Running}}' "$VERIFY_PFX-analytics" 2>/dev/null || echo false)
+                            if [ "$running" != true ]; then
+                                echo "임시 수집 컨테이너가 종료되었습니다 (${i}회 시도)"
+                                break
+                            fi
+                            if curl -fsS --max-time 3 "http://127.0.0.1:$APORT/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
+                                echo "수집 서비스 기동 검증 통과 (${i}회 시도)"
+                                ok=1
+                                break
+                            fi
+                            sleep 2
+                        done
+                        set -x
+
+                        if [ "$ok" != 1 ]; then
+                            echo "수집 서비스 기동 검증 실패 - 살아 있는 컨테이너는 교체하지 않았습니다"
+                            docker logs "$VERIFY_PFX-analytics" --tail 120 2>&1 || true
+                            exit 1
+                        fi
+                    '''
+                }
+            }
+        }
+
+        stage('기동 검증 (일회용 DB)') {
+            when {
+                allOf {
+                    environment name: 'DEPLOY', value: 'false'
+                    not { environment name: 'SKIP_ALL', value: 'true' }
+                }
+            }
+            steps {
+                dir('backend') {
+                    // 운영 DB를 건드릴 수 없으므로 MySQL을 새로 띄웁니다. 접속 정보도
+                    // 여기서 만들어 씁니다. 운영 크리덴셜은 이 경로에 들어오지 않습니다.
+                    sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
+                        NET="$VERIFY_PFX-net"
+                        DB="$VERIFY_PFX-mysql"
+                        APP="$VERIFY_PFX-app"
+
+                        set +x
+                        PW=$(tr -dc A-Za-z0-9 < /dev/urandom | head -c 24)
+                        set -x
+
+                        # 분석 DB 도 일회용으로. 수집 서비스가 Flyway 를 빈 DB 에 돌릴 수 있는지 봅니다.
+                        ADB="$VERIFY_PFX-mysql-analytics"
+
+                        docker network create "$NET"
+
+                        # 둘을 먼저 다 띄우고 그다음에 기다립니다. 예전에는 하나를 띄워 준비될 때까지
+                        # 기다린 뒤에야 두 번째를 시작해서, 서로 관계도 없는 MySQL 두 개의 기동 시간이
+                        # 그대로 더해졌습니다(빌드당 25~30초). 둘은 같은 이미지를 쓰고 서로를 참조하지
+                        # 않으므로 동시에 떠도 됩니다.
+                        set +x
+                        docker run -d --name "$DB" --network "$NET" \
+                            -e MYSQL_ROOT_PASSWORD="$PW" \
+                            -e MYSQL_DATABASE=d205 \
+                            -e MYSQL_USER=d205 \
+                            -e MYSQL_PASSWORD="$PW" \
+                            -e TZ=Asia/Seoul \
+                            mysql:8.4 \
+                            --character-set-server=utf8mb4 \
+                            --collation-server=utf8mb4_0900_ai_ci > /dev/null
+                        docker run -d --name "$ADB" --network "$NET" \
+                            -e MYSQL_ROOT_PASSWORD="$PW" \
+                            -e MYSQL_DATABASE=d205_analytics \
+                            -e MYSQL_USER=d205 \
+                            -e MYSQL_PASSWORD="$PW" \
+                            -e TZ=Asia/Seoul \
+                            mysql:8.4 \
+                            --character-set-server=utf8mb4 \
+                            --collation-server=utf8mb4_0900_ai_ci > /dev/null
+                        set -x
+
+                        # 대기도 한 바퀴에서 둘 다 봅니다. 한쪽씩 차례로 기다리면 동시에 띄운 의미가
+                        # 없어집니다. 상한 40회(80초)는 예전 한쪽 기준 그대로입니다.
+                        set +x
+                        echo "MySQL 두 개 준비 대기"
+                        db_ok=0
+                        adb_ok=0
+                        for i in $(seq 1 40); do
+                            if [ "$db_ok" != 1 ] && docker exec "$DB" mysqladmin ping -h 127.0.0.1 --silent >/dev/null 2>&1; then
+                                echo "MySQL 준비됨 (${i}회 시도)"
+                                db_ok=1
+                            fi
+                            if [ "$adb_ok" != 1 ] && docker exec "$ADB" mysqladmin ping -h 127.0.0.1 --silent >/dev/null 2>&1; then
+                                echo "분석 MySQL 준비됨 (${i}회 시도)"
+                                adb_ok=1
+                            fi
+                            if [ "$db_ok" = 1 ] && [ "$adb_ok" = 1 ]; then
+                                break
+                            fi
+                            sleep 2
+                        done
+                        set -x
+
+                        if [ "$db_ok" != 1 ]; then
+                            echo "일회용 MySQL이 준비되지 않았습니다"
+                            docker logs "$DB" --tail 50 2>&1 || true
+                            exit 1
+                        fi
+                        if [ "$adb_ok" != 1 ]; then
+                            echo "일회용 분석 MySQL이 준비되지 않았습니다"
+                            docker logs "$ADB" --tail 50 2>&1 || true
+                            exit 1
+                        fi
+
+                        docker run -d --name "$APP" --network "$NET" \
+                            -e SPRING_PROFILES_ACTIVE=prod \
+                            -e DB_HOST="$DB" \
+                            -e DB_PORT=3306 \
+                            -e DB_NAME=d205 \
+                            -e DB_USERNAME=d205 \
+                            -e DB_PASSWORD="$PW" \
+                            -e TZ=Asia/Seoul \
+                            -p 127.0.0.1:0:8080 \
+                            "d205-app:$VERIFY_TAG" > /dev/null
+
+                        AAPP="$VERIFY_PFX-analytics"
+                        docker run -d --name "$AAPP" --network "$NET" \
+                            -e SPRING_PROFILES_ACTIVE=prod \
+                            -e ANALYTICS_DB_HOST="$ADB" \
+                            -e ANALYTICS_DB_PORT=3306 \
+                            -e ANALYTICS_DB_NAME=d205_analytics \
+                            -e ANALYTICS_DB_USERNAME=d205 \
+                            -e ANALYTICS_DB_PASSWORD="$PW" \
+                            -e TZ=Asia/Seoul \
+                            -p 127.0.0.1:0:8080 \
+                            "d205-analytics:$VERIFY_TAG" > /dev/null
+                        set -x
+
+                        PORT=$(docker port "$APP" 8080 | head -1 | sed 's/.*://')
+                        echo "임시 컨테이너 포트: $PORT"
+
+                        set +x
+                        ok=0
+                        for i in $(seq 1 45); do
+                            running=$(docker inspect -f '{{.State.Running}}' "$APP" 2>/dev/null || echo false)
+                            if [ "$running" != true ]; then
+                                echo "임시 컨테이너가 종료되었습니다 (${i}회 시도)"
+                                break
+                            fi
+                            if curl -fsS --max-time 3 "http://127.0.0.1:$PORT/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
+                                echo "기동 검증 통과 (${i}회 시도)"
+                                ok=1
+                                break
+                            fi
+                            sleep 2
+                        done
+                        set -x
+
+                        if [ "$ok" != 1 ]; then
+                            echo "기동 검증 실패"
+                            docker logs "$APP" --tail 120 2>&1 || true
+                            exit 1
+                        fi
+
+                        APORT=$(docker port "$AAPP" 8080 | head -1 | sed 's/.*://')
+                        echo "임시 수집 컨테이너 포트: $APORT"
+
+                        set +x
+                        ok=0
+                        for i in $(seq 1 45); do
+                            running=$(docker inspect -f '{{.State.Running}}' "$AAPP" 2>/dev/null || echo false)
+                            if [ "$running" != true ]; then
+                                echo "임시 수집 컨테이너가 종료되었습니다 (${i}회 시도)"
+                                break
+                            fi
+                            if curl -fsS --max-time 3 "http://127.0.0.1:$APORT/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
+                                echo "수집 서비스 기동 검증 통과 (${i}회 시도)"
+                                ok=1
+                                break
+                            fi
+                            sleep 2
+                        done
+                        set -x
+
+                        if [ "$ok" != 1 ]; then
+                            echo "수집 서비스 기동 검증 실패"
+                            docker logs "$AAPP" --tail 120 2>&1 || true
+                            exit 1
+                        fi
+                    '''
+                }
+            }
+        }
+
+        stage('배포') {
+            when {
+                allOf {
+                    environment name: 'DEPLOY', value: 'true'
+                    not { environment name: 'SKIP_ALL', value: 'true' }
+                }
+            }
+            steps {
+                dir('backend') {
+                    sh '''
+                        exec 9>/tmp/d205-ec2-build.lock
+                        flock -x 9
+                        # 임시 컨테이너를 먼저 치웁니다. 남겨두면 같은 DB에 계속 붙어 있습니다.
+                        docker rm -f "$VERIFY_PFX-app" "$VERIFY_PFX-analytics" >/dev/null 2>&1 || true
+
+                        # 지금 나가는 이미지에 이름표를 남깁니다. compose는 d205-app:latest
+                        # 하나만 쓰기 때문에, 다음 빌드가 그 이름을 가져가면 이전 이미지는
+                        # 이름을 잃고 사라집니다. 그러면 되돌릴 대상이 없어집니다.
+                        #
+                        # 이름 앞에 배포 시각을 넣는 이유가 있습니다. 정리할 때 어느 것이
+                        # 오래된 이름표인지 알아야 하는데, 도커의 CreatedAt은 캐시에서
+                        # 상속되어 빌드 시각과 다릅니다. 전부 CACHED로 끝난 빌드는 몇 시간
+                        # 전 시각을 그대로 물고 있습니다. 이름에 박아두면 문자열 정렬이
+                        # 곧 배포 순서가 되어 도커에게 물어볼 필요가 없습니다.
+                        tag="$(date -u +%Y%m%d-%H%M%S)-$(git rev-parse --short=12 HEAD)"
+                        docker tag d205-app:latest "d205-app:$tag"
+                        docker tag d205-analytics:latest "d205-analytics:$tag"
+                        echo "이미지 이름표: d205-app:$tag, d205-analytics:$tag"
+
+                        # 이미지는 이미 빌드됐고 기동도 확인됐습니다. 여기서는 교체만 합니다.
+                        # compose 는 이미지나 설정이 바뀐 서비스만 다시 만듭니다. 계정 서비스만 바뀐 배포에서
+                        # 수집 컨테이너는 그대로 돌고, 그 반대도 같습니다. 모듈별 변경 감지를 따로 두지 않는 이유입니다.
+                        docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+
+                        # 최근 5개만 남깁니다. rmi에 -f 를 붙이지 않으므로, 돌고 있는
+                        # 컨테이너가 쓰는 이미지는 도커가 거부합니다. 실수로 지금 서비스
+                        # 중인 이미지를 지울 수 없습니다.
+                        for image in d205-app d205-analytics; do
+                            docker images "$image" --format '{{.Tag}}' |
+                                grep -E '^[0-9]{8}-[0-9]{6}-' |
+                                sort -r |
+                                tail -n +6 |
+                                while read -r old; do
+                                    if docker rmi "$image:$old" >/dev/null 2>&1; then
+                                        echo "오래된 이름표 정리: $image:$old"
+                                    fi
+                                done
+                        done
+                    '''
+                }
+            }
+        }
+
+        stage('헬스체크') {
+            when {
+                allOf {
+                    environment name: 'DEPLOY', value: 'true'
+                    not { environment name: 'SKIP_ALL', value: 'true' }
+                }
+            }
+            steps {
+                dir('backend') {
+                    // 기동 검증을 통과했으니 여기서 실패하는 것은 교체 과정의 문제입니다.
+                    sh '''
+                        set +x
+                        app_ok=0; analytics_ok=0
+                        for i in $(seq 1 30); do
+                            if [ "$app_ok" != 1 ] && curl -fsS --max-time 3 "$HEALTH_URL" 2>/dev/null | grep -q '"status":"UP"'; then
+                                echo "계정 서비스 헬스체크 통과 (${i}회 시도)"; app_ok=1
+                            fi
+                            if [ "$analytics_ok" != 1 ] && curl -fsS --max-time 3 "$ANALYTICS_HEALTH_URL" 2>/dev/null | grep -q '"status":"UP"'; then
+                                echo "수집 서비스 헬스체크 통과 (${i}회 시도)"; analytics_ok=1
+                            fi
+                            if [ "$app_ok" = 1 ] && [ "$analytics_ok" = 1 ]; then exit 0; fi
+                            sleep 2
+                        done
+                        set -x
+
+                        echo "헬스체크 실패 - 60초 안에 둘 다 UP이 되지 않았습니다 (app=$app_ok analytics=$analytics_ok)"
+                        docker compose -f "$COMPOSE_FILE" ps || true
+                        docker compose -f "$COMPOSE_FILE" logs app analytics --tail 100 || true
+                        exit 1
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            // 예전 방식이 워크스페이스 루트에 남긴 표시 파일을 치웁니다.
+            // 지금은 만들지 않지만, 남아 있으면 사람이 볼 때 혼란스럽습니다.
+            sh 'rm -f .verify-skip'
+            dir('backend') {
+                // 이 빌드가 만든 자원만 지웁니다. 이름에 BUILD_TAG가 들어 있어
+                // 동시에 도는 다른 빌드의 컨테이너를 건드리지 않습니다.
+                //
+                // 빌드 번호만으로는 안 됩니다. 그것은 Job마다 따로 매겨져서
+                // MR-150과 MR-151의 첫 빌드가 같은 이름을 갖습니다. 실제로
+                // 그렇게 서로의 컨테이너를 지운 적이 있습니다. BUILD_TAG는
+                // Job 이름까지 포함해 전역에서 겹치지 않습니다.
+                sh '''
+                    docker rm -f $(docker ps -aq --filter "name=$VERIFY_PFX-") 2>/dev/null || true
+                    docker network rm "$VERIFY_PFX-net" 2>/dev/null || true
+                    docker image rm -f "d205-app:$VERIFY_TAG" "d205-analytics:$VERIFY_TAG" 2>/dev/null || true
+                    rm -f .env
+                    docker builder prune -f --filter until=168h || true
+                '''
+            }
+        }
+        failure {
+            echo '''파이프라인 실패. 서비스 상태는 어느 단계에서 실패했는지에 달려 있습니다.
+
+  대상 확인 / 빌드 / 테스트 / 기동 검증  -> 운영 컨테이너를 교체하지 않았으므로 서비스는 정상입니다.
+  배포 / 헬스체크                        -> 컨테이너가 이미 교체되었으므로 서비스가 내려간 상태일 수 있습니다.
+
+확인: ssh d205 'bash /var/lib/jenkins/workspace/d205-backend_release/backend/deploy/verify.sh'
+복구 절차는 backend/deploy/README.md 를 참고하세요.'''
+        }
+    }
+}

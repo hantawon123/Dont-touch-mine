@@ -1,0 +1,487 @@
+using System;
+using System.Collections.Generic;
+using Fusion;
+using Game.Core.Lobby;
+using UnityEngine;
+
+namespace Game.Network.Players
+{
+    /// <summary>
+    /// Gives every player in the room a character and takes it away when they
+    /// leave.
+    /// </summary>
+    /// <remarks>
+    /// Spawning happens only where authority is, so this is gated on
+    /// <see cref="NetworkRunner.IsServer"/> rather than on being the host.
+    /// On a dedicated server, the first admitted player manages the lobby.
+    /// <para>
+    /// The runner arrives as an argument instead of being held. The session
+    /// service already owns it and calls in from its own callbacks, so keeping a
+    /// second reference would only create a way for the two to disagree after a
+    /// runner is replaced.
+    /// </para>
+    /// </remarks>
+    public sealed class PlayerSpawner
+    {
+        /// <summary>
+        /// Ring size for the fallback layout. Matches the largest room so the
+        /// spacing does not change when a seat is empty.
+        /// </summary>
+        private const int FallbackSeats = 6;
+
+        private const float FallbackRadius = 3f;
+
+        private readonly NetworkPrefabs _prefabs;
+        private readonly PlayerRegistry _players;
+
+        private IReadOnlyList<Pose> _spawnPoses = Array.Empty<Pose>();
+        private PlayerRef _roomOwner;
+        public bool IsAssignedRoomOwner(PlayerRef player) => player.IsRealPlayer && player == _roomOwner;
+
+        public static bool IsRoomOwner(NetworkRunner runner, PlayerRef player)
+        {
+            if (runner == null || !player.IsRealPlayer) return false;
+            var playerObject = runner.GetPlayerObject(player);
+            return playerObject != null && playerObject.IsValid &&
+                   playerObject.TryGetBehaviour<PlayerAvatar>(out var avatar) &&
+                   IsHostAvatar(avatar);
+        }
+
+        internal static bool IsHostAvatar(PlayerAvatar avatar)
+        {
+            return avatar != null && avatar.HasNetworkState && avatar.IsHost;
+        }
+
+        public PlayerSpawner(NetworkPrefabs prefabs, PlayerRegistry players)
+        {
+            _prefabs = prefabs;
+            _players = players;
+        }
+
+        /// <summary>
+        /// Hands over the spawn points the loaded scene marked out. The scene
+        /// pushes them rather than this pulling, because this lives for the
+        /// whole application and the points belong to one scene.
+        /// </summary>
+        public void UseSpawnPoses(IReadOnlyList<Pose> poses)
+        {
+            _spawnPoses = poses ?? Array.Empty<Pose>();
+
+            if (_spawnPoses.Count == 0)
+            {
+                Debug.LogWarning(
+                    "[Spawn] No spawn points in this scene. Characters will be " +
+                    "placed in a ring around the origin.");
+            }
+        }
+
+        /// <summary>
+        /// Creates the objects that belong to the room rather than to a player.
+        /// Called once when the session starts.
+        /// </summary>
+        /// <remarks>
+        /// Only the authority creates them; everyone else receives them through
+        /// replication. Spawned before anyone can ask to start a match, because
+        /// the request travels through the object itself.
+        /// </remarks>
+        public void SpawnRoomObjects(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsServer)
+            {
+                return;
+            }
+
+            var sessionPrefab = _prefabs == null ? null : _prefabs.MatchSession;
+            var checkpointPrefab = _prefabs == null ? null : _prefabs.MatchMigrationCheckpoint;
+
+            if (sessionPrefab == null || checkpointPrefab == null)
+            {
+                throw new InvalidOperationException(
+                    "[Spawn] Match session and migration checkpoint prefabs must both " +
+                    "be assigned on the NetworkPrefabs asset.");
+            }
+
+            // Fail before Spawn assigns a runner to a partially allocated object.
+            var pageShift = (int)runner.Config.Heap.PageShift;
+            ValidateRoomObjectStateSize(NetworkObject.GetWordCount(sessionPrefab), pageShift);
+            ValidateRoomObjectStateSize(NetworkObject.GetWordCount(checkpointPrefab), pageShift);
+            // Preserve room state on every peer, not only the authority's scene.
+            var session = runner.Spawn(sessionPrefab, flags: NetworkSpawnFlags.DontDestroyOnLoad);
+            var checkpoint = runner.Spawn(checkpointPrefab, flags: NetworkSpawnFlags.DontDestroyOnLoad);
+
+            if (session == null || checkpoint == null)
+            {
+                if (session != null) runner.Despawn(session);
+                if (checkpoint != null) runner.Despawn(checkpoint);
+                throw new InvalidOperationException("[Spawn] Could not spawn the room state objects.");
+            }
+        }
+
+        internal static void ValidateRoomObjectStateSize(int wordCount, int pageShift)
+        {
+            if (pageShift < 10 || pageShift > 18)
+                throw new ArgumentOutOfRangeException(nameof(pageShift));
+            var bytes = (long)wordCount * sizeof(int);
+            var pageBytes = 1L << pageShift;
+            if (wordCount < NetworkObjectHeader.WORDS || bytes > pageBytes)
+                throw new InvalidOperationException(
+                    $"[Spawn] MatchSession state needs {bytes} bytes; Fusion heap page is {pageBytes} bytes.");
+        }
+
+        /// <param name="userId">
+        /// The backend account the player presented, or null or empty for one
+        /// who did not sign in. Written onto the character with the nickname so
+        /// every peer can say whose it is beyond this room.
+        /// </param>
+        public void Spawn(NetworkRunner runner, PlayerRef player, string nickname = null, string userId = null)
+        {
+            if (runner == null || !runner.IsServer)
+            {
+                return;
+            }
+
+            if (runner.GetPlayerObject(player) != null)
+            {
+                return;
+            }
+
+            var prefab = _prefabs == null ? null : _prefabs.Player;
+
+            if (prefab == null)
+            {
+                Debug.LogError(
+                    "[Spawn] No player prefab is assigned. Set it on the " +
+                    "NetworkPrefabs asset referenced by ProjectLifetimeScope.");
+                return;
+            }
+
+            var seat = _players.Add(player);
+            var pose = PoseFor(seat);
+
+            // An explicit server room belongs to its first admitted player.
+            // Ownership never follows state authority or a client-supplied account ID.
+            var owner = runner.LocalPlayer.IsRealPlayer ? runner.LocalPlayer :
+                _roomOwner.IsRealPlayer ? _roomOwner : player;
+            var isHost = player == owner;
+
+            // Networked values are set here, not after Spawn returns. Fusion
+            // replicates the object as it is created, and a value written
+            // afterwards would reach clients a tick late behind its default.
+            // Replicate scene persistence; moving only the server instance leaves
+            // client avatars destroyed/recreated when the outgoing scene unloads.
+            var avatar = runner.Spawn(
+                prefab,
+                pose.position,
+                pose.rotation,
+                player,
+                (_, spawned) => Describe(spawned, seat, isHost, nickname, userId),
+                flags: NetworkSpawnFlags.DontDestroyOnLoad);
+
+            if (avatar == null)
+            {
+                // Fusion already logged why. Give the seat back so the next
+                // player does not inherit a hole in the numbering.
+                _players.Remove(player);
+                Debug.LogError($"[Spawn] Could not spawn a character for {player}.");
+                return;
+            }
+
+            // Fusion's own lookup, so anything else that needs this player's
+            // character finds it without a second table to keep in step.
+            runner.SetPlayerObject(player, avatar);
+            _roomOwner = owner;
+
+            // Spawned() keeps KCC inactive while the room is still changing
+            // scenes. A player joining an already-loaded lobby does not receive
+            // another scene callback, so activate that avatar immediately when
+            // this scene has already supplied valid spawn points.
+            if (_spawnPoses.Count > 0 &&
+                avatar.TryGetBehaviour<NetworkPlayerMotor>(out var motor))
+            {
+                motor.TryTeleport(pose);
+            }
+
+            Debug.Log($"[Spawn] {player} took seat {seat} at {pose.position}.");
+        }
+
+        public void Despawn(NetworkRunner runner, PlayerRef player)
+        {
+            if (runner == null || !runner.IsServer)
+            {
+                return;
+            }
+
+            var avatar = runner.GetPlayerObject(player);
+
+            if (avatar != null)
+            {
+                runner.Despawn(avatar);
+            }
+
+            if (_players.Remove(player))
+            {
+                Debug.Log($"[Spawn] {player} left and freed their seat.");
+            }
+        }
+
+        /// <summary>
+        /// Hands the room to another player so the owner leaving does not end it.
+        /// </summary>
+        /// <remarks>
+        /// Seats are handed out in join order, so the room passes to whoever has
+        /// been in it longest. Ownership is the replicated flag on the character,
+        /// which is already how every peer learns who manages the room; no
+        /// simulation authority moves with it, and on a dedicated server there is
+        /// none to move.
+        /// <para>
+        /// Call it after the departing player's seat is freed, so a player who is
+        /// on their way out is never chosen.
+        /// </para>
+        /// </remarks>
+        public bool TryTransferRoomOwnership(
+            NetworkRunner runner, PlayerRef leaving, out PlayerRef next)
+        {
+            next = PlayerRef.None;
+            if (runner == null || !runner.IsServer ||
+                !TryChooseNextOwner(
+                    _players,
+                    leaving,
+                    candidate => TryGetLiveAvatar(runner, candidate, out _),
+                    out next))
+            {
+                return false;
+            }
+
+            foreach (var player in runner.ActivePlayers)
+            {
+                if (TryGetLiveAvatar(runner, player, out var avatar))
+                    avatar.IsHost = player == next;
+            }
+
+            _roomOwner = next;
+            return true;
+        }
+
+        /// <summary>
+        /// The lowest occupied seat other than the one being vacated, which is
+        /// the player who has been in the room longest.
+        /// </summary>
+        internal static bool TryChooseNextOwner(
+            PlayerRegistry players,
+            PlayerRef leaving,
+            Func<PlayerRef, bool> canManage,
+            out PlayerRef next)
+        {
+            next = PlayerRef.None;
+            if (players == null) return false;
+            for (var seat = 0; seat < RoomSettings.MaxPlayerCount; seat++)
+            {
+                if (!players.TryGetPlayer(seat, out var candidate) ||
+                    candidate == leaving ||
+                    !candidate.IsRealPlayer ||
+                    canManage?.Invoke(candidate) == false)
+                {
+                    continue;
+                }
+
+                next = candidate;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryGetLiveAvatar(
+            NetworkRunner runner, PlayerRef player, out PlayerAvatar avatar)
+        {
+            avatar = null;
+            if (!player.IsRealPlayer) return false;
+            var playerObject = runner.GetPlayerObject(player);
+            return playerObject != null && playerObject.IsValid &&
+                   playerObject.TryGetBehaviour(out avatar) && avatar.HasNetworkState;
+        }
+
+        /// <summary>
+        /// Reconnects Fusion's restored player object to the authoritative seat
+        /// table after a host migration.
+        /// </summary>
+        public bool Restore(
+            NetworkRunner runner,
+            PlayerRef player,
+            NetworkObject restoredObject)
+        {
+            if (runner == null || !runner.IsServer ||
+                !player.IsRealPlayer || restoredObject == null ||
+                !restoredObject.TryGetBehaviour<PlayerAvatar>(out var avatar) ||
+                !_players.Restore(player, avatar.Seat))
+            {
+                return false;
+            }
+
+            runner.SetPlayerObject(player, restoredObject);
+            runner.MakeDontDestroyOnLoad(restoredObject.gameObject);
+            return true;
+        }
+
+        public void RefreshHost(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsServer) return;
+            for (var seat = 0; seat < RoomSettings.MaxPlayerCount; seat++)
+            {
+                if (!_players.TryGetPlayer(seat, out var player)) continue;
+                var playerObject = runner.GetPlayerObject(player);
+                if (playerObject != null && playerObject.TryGetBehaviour<PlayerAvatar>(out var avatar))
+                    avatar.IsHost = player == (runner.LocalPlayer.IsRealPlayer ? runner.LocalPlayer : _roomOwner);
+            }
+            Debug.Log($"[Spawn] Room authority is now {runner.LocalPlayer}.");
+        }
+
+        /// <summary>
+        /// Puts every seated character back onto a spawn point. Called after a
+        /// networked scene load, because the points the characters were placed
+        /// on belonged to the scene that has just gone away.
+        /// </summary>
+        /// <remarks>
+        /// Authority only, for two reasons: it is the peer that holds the
+        /// seating, and it is the peer whose transform replicates. Everyone else
+        /// receives the move.
+        /// <para>
+        /// Positions are picked by seat, exactly as on the first spawn, so the
+        /// two can never disagree about where a seat stands. Lining spawn points
+        /// up with <c>playerIndex</c> instead is the match runtime's job: it owns
+        /// the positions array the match rules read, and seats may have gaps.
+        /// </para>
+        /// </remarks>
+        public void RepositionSeated(NetworkRunner runner, ISet<PlayerRef> preservePositions = null)
+        {
+            if (runner == null || !runner.IsServer)
+            {
+                return;
+            }
+
+            var moved = 0;
+            var seatsFound = 0;
+            var avatarsFound = 0;
+
+            // Seats can have gaps, so every seat is asked rather than counting
+            // players and walking that far.
+            for (var seat = 0; seat < RoomSettings.MaxPlayerCount; seat++)
+            {
+                if (!_players.TryGetPlayer(seat, out var player) ||
+                    !ShouldRepositionPlayer(player, preservePositions))
+                {
+                    continue;
+                }
+
+                seatsFound++;
+                var avatar = runner.GetPlayerObject(player);
+
+                if (avatar == null)
+                {
+                    continue;
+                }
+
+                avatarsFound++;
+
+                var pose = PoseFor(seat);
+                var motor = avatar.GetComponent<NetworkPlayerMotor>();
+
+                if (motor == null)
+                {
+                    Debug.LogWarning(
+                        $"[Spawn] '{avatar.name}' has no NetworkPlayerMotor, so it " +
+                        "cannot be moved into the loaded scene.",
+                        avatar);
+
+                    continue;
+                }
+
+                // Teleport rather than assignment: remote peers interpolate
+                // between the last two states, and a plain move would show the
+                // character sliding across the map from where the lobby put it.
+                if (!motor.TryTeleport(pose))
+                {
+                    continue;
+                }
+
+                moved++;
+
+                Debug.Log($"[Spawn] Seat {seat} placed at {pose.position}.");
+            }
+
+            // Always reported, and reported in parts. Which of the three numbers
+            // is zero says where it stopped: no seats means the registry was
+            // cleared, seats without avatars means the characters did not survive
+            // the scene change, and avatars without moves means the prefab has no
+            // network movement component.
+            Debug.Log(
+                $"[Spawn] Reposition: {_spawnPoses.Count} poses, {seatsFound} seats, " +
+                $"{avatarsFound} avatars, {moved} moved.");
+        }
+
+        internal static bool ShouldRepositionPlayer(PlayerRef player, ISet<PlayerRef> preservePositions) =>
+            preservePositions == null || !preservePositions.Contains(player);
+
+        public bool TryGetSpawnPose(PlayerRef player, out Pose pose)
+        {
+            if (_players.TryGetSeat(player, out var seat))
+            {
+                pose = PoseFor(seat);
+                return true;
+            }
+
+            pose = default;
+            return false;
+        }
+
+        /// <summary>
+        /// Forgets everyone. The session ending takes the characters with it, so
+        /// only the seating has to be cleared for the next room.
+        /// </summary>
+        public void Clear()
+        {
+            _roomOwner = PlayerRef.None;
+            _players.Clear();
+            _spawnPoses = Array.Empty<Pose>();
+        }
+
+        private static void Describe(
+            NetworkObject spawned, int seat, bool isHost, string nickname, string userId)
+        {
+            var avatar = spawned.GetComponent<PlayerAvatar>();
+
+            if (avatar == null)
+            {
+                Debug.LogError(
+                    $"[Spawn] '{spawned.name}' has no PlayerAvatar, so it cannot " +
+                    "carry a seat and will be missing from the room list.");
+                return;
+            }
+
+            avatar.Seat = seat;
+            avatar.IsHost = isHost;
+            avatar.Nickname = nickname ?? string.Empty;
+            avatar.UserId = userId ?? string.Empty;
+        }
+
+        private Pose PoseFor(int seat)
+        {
+            if (_spawnPoses.Count > 0)
+            {
+                // Wrapping matters only if a room ever holds more players than
+                // the scene marked points for. Overlapping beats not spawning.
+                return _spawnPoses[seat % _spawnPoses.Count];
+            }
+
+            // Scenes without marked points still have to be testable, so the
+            // characters are spread far enough apart to be told apart.
+            var angle = seat * (2f * Mathf.PI / FallbackSeats);
+            var position = new Vector3(
+                Mathf.Sin(angle) * FallbackRadius,
+                0f,
+                Mathf.Cos(angle) * FallbackRadius);
+
+            return new Pose(position, Quaternion.LookRotation(-position));
+        }
+    }
+}

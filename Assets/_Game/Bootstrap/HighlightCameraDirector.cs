@@ -1,0 +1,608 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using Game.Client.Cameras;
+using Game.Server.Match;
+using UnityEngine;
+
+namespace Game.Bootstrap
+{
+    public enum HighlightShotSubject
+    {
+        Target,
+        ActorAndTarget,
+        Overview
+    }
+
+    public enum HighlightShotFraming
+    {
+        Wide,
+        Medium,
+        Close
+    }
+
+    public readonly struct HighlightShot
+    {
+        public HighlightShot(
+            double startedAt,
+            double endedAt,
+            HighlightShotSubject subject,
+            HighlightShotFraming framing,
+            bool hardCut,
+            bool emphasizesEvent = false)
+        {
+            if (!double.IsFinite(startedAt) || startedAt < 0d)
+                throw new ArgumentOutOfRangeException(nameof(startedAt));
+            if (!double.IsFinite(endedAt) || endedAt <= startedAt)
+                throw new ArgumentOutOfRangeException(nameof(endedAt));
+            StartedAt = startedAt;
+            EndedAt = endedAt;
+            Subject = subject;
+            Framing = framing;
+            HardCut = hardCut;
+            EmphasizesEvent = emphasizesEvent;
+        }
+
+        public double StartedAt { get; }
+        public double EndedAt { get; }
+        public HighlightShotSubject Subject { get; }
+        public HighlightShotFraming Framing { get; }
+        public bool HardCut { get; }
+        public bool EmphasizesEvent { get; }
+    }
+
+    public static class HighlightShotPlanner
+    {
+        private const double MinimumShotSeconds = 0.1d;
+
+        public static HighlightShot[] Build(HighlightCandidate highlight)
+        {
+            if (highlight.PlaybackDurationSeconds <= 0d) return Array.Empty<HighlightShot>();
+            return highlight.Type switch
+            {
+                HighlightType.TteTanMulgun => BuildMontage(highlight, HighlightShotSubject.ActorAndTarget),
+                HighlightType.LongestHidden => BuildJourney(highlight),
+                HighlightType.MostStunned => BuildMontage(highlight, HighlightShotSubject.ActorAndTarget),
+                _ => BuildEvent(highlight),
+            };
+        }
+
+        private static HighlightShot[] BuildEvent(HighlightCandidate highlight)
+        {
+            var duration = highlight.PlaybackDurationSeconds;
+            var eventAt = PlaybackTimeOf(highlight, highlight.EventAt);
+            var establishEnd = Math.Min(duration, 1.2d);
+            var actionStart = Math.Clamp(eventAt - 1d, establishEnd, duration);
+            var payoffEnd = Math.Min(duration, eventAt + 1.2d);
+            var shots = new List<HighlightShot>(4);
+            Add(shots, 0d, establishEnd,
+                HighlightShotSubject.Overview, HighlightShotFraming.Wide, true);
+            Add(shots, establishEnd, actionStart,
+                HighlightShotSubject.ActorAndTarget, HighlightShotFraming.Medium, false);
+            Add(shots, actionStart, payoffEnd,
+                HighlightShotSubject.ActorAndTarget, HighlightShotFraming.Close, true, true);
+            Add(shots, payoffEnd, duration,
+                HighlightShotSubject.ActorAndTarget, HighlightShotFraming.Wide, false);
+            return shots.ToArray();
+        }
+
+        private static HighlightShot[] BuildMontage(
+            HighlightCandidate highlight,
+            HighlightShotSubject subject)
+        {
+            var shots = new List<HighlightShot>(highlight.Segments.Count);
+            var cursor = 0d;
+            for (var index = 0; index < highlight.Segments.Count; index++)
+            {
+                var end = cursor + highlight.Segments[index].PlaybackDurationSeconds;
+                var framing = index == 0
+                    ? HighlightShotFraming.Wide
+                    : index == highlight.Segments.Count - 1
+                        ? HighlightShotFraming.Close
+                        : HighlightShotFraming.Medium;
+                Add(shots, cursor, end, subject, framing, true,
+                    index == highlight.Segments.Count - 1);
+                cursor = end;
+            }
+
+            return shots.ToArray();
+        }
+
+        private static HighlightShot[] BuildJourney(HighlightCandidate highlight)
+        {
+            var shots = new List<HighlightShot>(highlight.Segments.Count);
+            var cursor = 0d;
+            for (var index = 0; index < highlight.Segments.Count; index++)
+            {
+                var segment = highlight.Segments[index];
+                var end = cursor + segment.PlaybackDurationSeconds;
+                var isLast = index == highlight.Segments.Count - 1;
+                Add(
+                    shots,
+                    cursor,
+                    end,
+                    segment.PlaybackSpeed > 1d
+                        ? HighlightShotSubject.Overview
+                        : HighlightShotSubject.ActorAndTarget,
+                    index > 0 && isLast
+                        ? HighlightShotFraming.Close
+                        : HighlightShotFraming.Wide,
+                    true,
+                    isLast);
+                cursor = end;
+            }
+
+            return shots.ToArray();
+        }
+
+        internal static double PlaybackTimeOf(HighlightCandidate highlight, double sourceTime)
+        {
+            var playbackTime = 0d;
+            foreach (var segment in highlight.Segments)
+            {
+                if (sourceTime < segment.StartedAt) return playbackTime;
+                if (sourceTime <= segment.EndedAt)
+                    return playbackTime + (sourceTime - segment.StartedAt) / segment.PlaybackSpeed;
+                playbackTime += segment.PlaybackDurationSeconds;
+            }
+
+            return highlight.PlaybackDurationSeconds;
+        }
+
+        private static void Add(
+            ICollection<HighlightShot> shots,
+            double start,
+            double end,
+            HighlightShotSubject subject,
+            HighlightShotFraming framing,
+            bool hardCut,
+            bool emphasizesEvent = false)
+        {
+            if (end - start < MinimumShotSeconds) return;
+            shots.Add(new HighlightShot(start, end, subject, framing, hardCut, emphasizesEvent));
+        }
+    }
+
+    public static class HighlightPlaybackPacing
+    {
+        public static double Map(HighlightCandidate highlight, double presentationTime)
+        {
+            var duration = highlight.PlaybackDurationSeconds;
+            if (!double.IsFinite(presentationTime) || presentationTime < 0d)
+                throw new ArgumentOutOfRangeException(nameof(presentationTime));
+            if (duration <= 0d) return 0d;
+
+            var time = Math.Min(duration, presentationTime);
+            var eventTime = HighlightShotPlanner.PlaybackTimeOf(highlight, highlight.EventAt);
+            var slowStart = Math.Max(0d, eventTime - 0.5d);
+            var slowEnd = Math.Min(duration, eventTime + 0.7d);
+            var sourceStart = Math.Max(0d, eventTime - 0.25d);
+            var sourceEnd = Math.Min(duration, eventTime + 0.35d);
+            if (slowEnd - slowStart < 0.2d || sourceEnd <= sourceStart)
+                return time;
+            if (time <= slowStart)
+                return Lerp(0d, sourceStart, Ratio(time, 0d, slowStart));
+            if (time <= slowEnd)
+                return Lerp(sourceStart, sourceEnd, Ratio(time, slowStart, slowEnd));
+            return Lerp(sourceEnd, duration, Ratio(time, slowEnd, duration));
+        }
+
+        private static double Ratio(double value, double start, double end) =>
+            end <= start ? 1d : Math.Clamp((value - start) / (end - start), 0d, 1d);
+
+        private static double Lerp(double start, double end, double t) =>
+            start + (end - start) * t;
+    }
+
+    public sealed partial class HighlightCameraDirector : IDisposable
+    {
+        private readonly Transform cameraTransform;
+        private readonly Transform fallbackTransform;
+        private readonly IReadOnlyList<Transform> playerTargets;
+        private readonly Dictionary<string, Transform> objectTargets;
+        private readonly float closeDistance;
+        private readonly float wideDistance;
+        private readonly float height;
+        private readonly float followSharpness;
+        private readonly int collisionLayerMask;
+        private readonly HashSet<Renderer> hiddenRenderers = new();
+        private readonly IReadOnlyList<SceneHighlightOcclusionReference> occlusionGroups;
+        private readonly Dictionary<Transform, Renderer[]> replayRenderers = new();
+        private readonly HighlightReplayCameraRig replayCameraRig;
+        private Transform currentTarget;
+        private Vector3 followDirection = Vector3.forward;
+        private float currentDistance;
+        private HighlightType currentType;
+        private Vector3 overviewAnchor;
+        private Transform supportingPlayer;
+        private HighlightCandidate currentHighlight;
+        private HighlightShot[] shots = Array.Empty<HighlightShot>();
+        private int currentShotIndex = -1;
+        private double currentPlaybackTime;
+
+        public HighlightCameraDirector(
+            Transform cameraTransform,
+            Transform fallbackTransform,
+            IReadOnlyList<Transform> playerTargets,
+            IReadOnlyList<SceneWorldObjectReference> objectTargets,
+            float closeDistance = 7f,
+            float wideDistance = 7f,
+            float height = 3f,
+            float followSharpness = 10f,
+            int collisionLayerMask = Physics.DefaultRaycastLayers,
+            IReadOnlyList<SceneHighlightOcclusionReference> occlusionGroups = null,
+            IReadOnlyList<HighlightCctvCamera> cctvCameras = null,
+            IReadOnlyList<HighlightReplayClip> replayClips = null)
+        {
+            this.cameraTransform = cameraTransform ??
+                throw new ArgumentNullException(nameof(cameraTransform));
+            this.fallbackTransform = fallbackTransform ??
+                throw new ArgumentNullException(nameof(fallbackTransform));
+            this.playerTargets = playerTargets ??
+                throw new ArgumentNullException(nameof(playerTargets));
+            if (objectTargets == null)
+            {
+                throw new ArgumentNullException(nameof(objectTargets));
+            }
+
+            if (closeDistance <= 0f || wideDistance <= 0f || height < 0f || followSharpness <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(closeDistance));
+            }
+
+            this.objectTargets = new Dictionary<string, Transform>(
+                objectTargets.Count,
+                StringComparer.Ordinal);
+            foreach (var reference in objectTargets)
+            {
+                if (reference == null ||
+                    reference.Target == null ||
+                    string.IsNullOrWhiteSpace(reference.ObjectId) ||
+                    !this.objectTargets.TryAdd(reference.ObjectId.Trim(), reference.Target))
+                {
+                    throw new ArgumentException(
+                        "Camera targets must have unique ids and Transforms.",
+                        nameof(objectTargets));
+                }
+            }
+
+            foreach (var player in playerTargets)
+                CacheReplayRenderers(player);
+            foreach (var target in this.objectTargets.Values)
+                CacheReplayRenderers(target);
+
+            this.cctvCameras = cctvCameras ?? Array.Empty<HighlightCctvCamera>();
+            this.replayClips = replayClips ?? Array.Empty<HighlightReplayClip>();
+            this.closeDistance = closeDistance;
+            this.wideDistance = wideDistance;
+            this.height = height;
+            this.followSharpness = followSharpness;
+            this.collisionLayerMask = collisionLayerMask;
+            this.occlusionGroups = occlusionGroups ??
+                UnityEngine.Object.FindFirstObjectByType<MatchSceneConfiguration>(
+                    FindObjectsInactive.Include)?.HighlightOcclusionGroups ??
+                Array.Empty<SceneHighlightOcclusionReference>();
+            replayCameraRig = HighlightReplayCameraRig.TryCreate(cameraTransform);
+            if (this.cctvCameras.Count == 0)
+            {
+                if (replayCameraRig != null) replayCameraRig.SetFieldOfView(65f);
+                else if (cameraTransform.TryGetComponent<Camera>(out var output)) output.fieldOfView = 65f;
+            }
+            CaptureCctvOccluders();
+        }
+
+        public Transform CurrentTarget => currentTarget;
+        public HighlightShot? CurrentShot => currentShotIndex >= 0 && currentShotIndex < shots.Length
+            ? shots[currentShotIndex]
+            : null;
+
+        public bool Focus(HighlightCandidate highlight)
+        {
+            ClearOccluders();
+            ResetCctv();
+            currentType = highlight.Type;
+            currentHighlight = highlight;
+            shots = HighlightShotPlanner.Build(highlight);
+            currentShotIndex = -1;
+            currentTarget = ResolveTarget(highlight.TargetId);
+            if (currentTarget == null)
+            {
+                ApplyFallback();
+                return false;
+            }
+
+            overviewAnchor = currentTarget.position;
+            // Select one azimuth per highlight. Looking around during gameplay must not orbit the replay camera.
+            var heading = objectTargets.ContainsKey(highlight.TargetId)
+                ? ResolvePlayer(highlight.ActorPlayerIndex) : currentTarget;
+            followDirection = Vector3.ProjectOnPlane(
+                heading != null ? heading.forward : fallbackTransform.forward, Vector3.up).normalized;
+            if (followDirection.sqrMagnitude < 0.01f) followDirection = Vector3.forward;
+            if (shots.Length == 0)
+            {
+                ApplyFallback();
+                return false;
+            }
+
+            BuildCctvPlan(highlight);
+            SetPlaybackTime(0d);
+            return true;
+        }
+
+        public void SetPlaybackTime(double playbackTime)
+        {
+            if (!double.IsFinite(playbackTime) || playbackTime < 0d)
+                throw new ArgumentOutOfRangeException(nameof(playbackTime));
+            currentPlaybackTime = playbackTime;
+            ApplyCctvPlan(playbackTime);
+            if (shots.Length == 0) return;
+            var next = shots.Length - 1;
+            for (var index = 0; index < shots.Length; index++)
+            {
+                if (playbackTime < shots[index].EndedAt)
+                {
+                    next = index;
+                    break;
+                }
+            }
+
+            if (next == currentShotIndex) return;
+            currentShotIndex = next;
+            ApplyShot(shots[next]);
+        }
+
+        public void ClearOccluders()
+        {
+            foreach (var renderer in hiddenRenderers)
+            {
+                if (renderer != null)
+                {
+                    renderer.forceRenderingOff = false;
+                }
+            }
+
+            hiddenRenderers.Clear();
+        }
+
+        public void Tick(float deltaSeconds)
+        {
+            if (float.IsFinite(deltaSeconds) && deltaSeconds >= 0f) AdvanceCctv(deltaSeconds);
+            if (!float.IsFinite(deltaSeconds) || deltaSeconds < 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(deltaSeconds));
+            }
+
+            if (currentTarget == null)
+            {
+                ApplyFallback();
+                return;
+            }
+
+            var t = 1f - Mathf.Exp(-followSharpness * deltaSeconds);
+            ApplyTargetPose(t);
+        }
+
+        private Transform ResolveTarget(string targetId)
+        {
+            if (string.IsNullOrWhiteSpace(targetId))
+            {
+                return null;
+            }
+
+            var normalizedId = targetId.Trim();
+            if (objectTargets.TryGetValue(normalizedId, out var objectTarget))
+            {
+                return objectTarget;
+            }
+
+            return int.TryParse(
+                       normalizedId,
+                       NumberStyles.None,
+                       CultureInfo.InvariantCulture,
+                       out var playerIndex) &&
+                   playerIndex >= 0 &&
+                   playerIndex < playerTargets.Count
+                ? playerTargets[playerIndex]
+                : null;
+        }
+
+        private Transform ResolvePlayer(int playerIndex) =>
+            playerIndex >= 0 && playerIndex < playerTargets.Count
+                ? playerTargets[playerIndex]
+                : null;
+
+        private void ApplyShot(HighlightShot shot)
+        {
+            ResetCctvPrediction();
+            currentTarget = ResolveTarget(currentHighlight.TargetId);
+            supportingPlayer = shot.Subject == HighlightShotSubject.Overview
+                ? null
+                : ResolvePlayer(currentHighlight.ActorPlayerIndex);
+            if (supportingPlayer == currentTarget)
+                supportingPlayer = ResolvePlayer(currentHighlight.SecondaryPlayerIndex);
+            if (supportingPlayer == null && shot.Subject == HighlightShotSubject.ActorAndTarget)
+                supportingPlayer = FindNearestPlayer(currentTarget);
+
+            currentDistance = shot.Framing switch
+            {
+                HighlightShotFraming.Wide => wideDistance,
+                HighlightShotFraming.Medium => (closeDistance + wideDistance) * 0.5f,
+                _ => closeDistance,
+            };
+            // Establish once; later event beats keep the same continuous follow camera.
+            ApplyTargetPose(currentShotIndex == 0 && activeCctv == null ? 1f : 0f);
+        }
+
+        private Transform FindNearestPlayer(Transform target)
+        {
+            Transform nearestPlayer = null;
+            var nearestDistance = 6f;
+            foreach (var player in playerTargets)
+            {
+                if (player == null || player == target) continue;
+                var distance = Vector3.Distance(player.position, target.position);
+                if (distance >= nearestDistance) continue;
+                nearestDistance = distance;
+                nearestPlayer = player;
+            }
+
+            return nearestPlayer;
+        }
+
+        private void ApplyTargetPose(float t)
+        {
+            if (cctvCameras.Count > 0) { ApplyCctvPose(); return; }
+            // Follow a player from behind, while keeping the highlighted item in frame.
+            // An item's rotation can tumble during a throw, so it never drives camera heading.
+            var actor = ResolvePlayer(currentHighlight.ActorPlayerIndex);
+            var targetIsItem = objectTargets.TryGetValue(currentHighlight.TargetId, out var item);
+            var anchor = targetIsItem ? actor : currentTarget;
+            if (anchor == null || !anchor.gameObject.activeInHierarchy)
+                anchor = currentTarget.gameObject.activeInHierarchy ? currentTarget : actor;
+            if (anchor == null) { ApplyFallback(); return; }
+            var subjectPosition = anchor.position;
+            var focusPosition = subjectPosition + Vector3.up;
+            var distance = currentDistance;
+            var companion = targetIsItem && item.gameObject.activeInHierarchy ? item : supportingPlayer;
+            if (companion != null && companion != anchor && companion.gameObject.activeInHierarchy)
+            {
+                var separation = Vector3.Distance(subjectPosition, companion.position);
+                if (separation <= 12f)
+                {
+                    focusPosition = (subjectPosition + companion.position) * 0.5f + Vector3.up;
+                    distance = Mathf.Max(distance, separation * 0.85f + 3f);
+                }
+                else if (targetIsItem)
+                {
+                    // A distant thrown item becomes the focus instead of shrinking the whole map.
+                    focusPosition = companion.position + Vector3.up * 0.5f;
+                }
+            }
+            var desiredPosition = focusPosition - followDirection * distance + Vector3.up * height;
+            var desiredRotation = Quaternion.LookRotation(
+                focusPosition - desiredPosition,
+                Vector3.up);
+            UpdateOccluders(subjectPosition, focusPosition, desiredPosition);
+            if (replayCameraRig != null)
+            {
+                replayCameraRig.SetPose(
+                    desiredPosition,
+                    desiredRotation,
+                    t,
+                    t >= 1f);
+                return;
+            }
+
+            cameraTransform.SetPositionAndRotation(
+                Vector3.Lerp(cameraTransform.position, desiredPosition, t),
+                Quaternion.Slerp(cameraTransform.rotation, desiredRotation, t));
+        }
+
+        private void ApplyFallback()
+        {
+            ClearOccluders();
+            cameraTransform.SetPositionAndRotation(
+                fallbackTransform.position,
+                fallbackTransform.rotation);
+        }
+
+        private void UpdateOccluders(
+            Vector3 subjectPosition,
+            Vector3 focusPosition,
+            Vector3 cameraPosition)
+        {
+            ClearOccluders();
+            HideUpperLevels(subjectPosition.y);
+            if (collisionLayerMask == 0)
+            {
+                return;
+            }
+
+            var direction = cameraPosition - focusPosition;
+            var distance = direction.magnitude;
+            if (distance <= Mathf.Epsilon)
+            {
+                return;
+            }
+
+            foreach (var hit in Physics.SphereCastAll(
+                         focusPosition,
+                         0.75f,
+                         direction / distance,
+                         distance,
+                         collisionLayerMask,
+                         QueryTriggerInteraction.Ignore))
+            {
+                HideIfOccluding(hit.collider.GetComponent<Renderer>());
+                HideIfOccluding(hit.collider.GetComponentInParent<Renderer>());
+            }
+        }
+
+        private void HideUpperLevels(float subjectHeight)
+        {
+            var firstHiddenHeight = float.PositiveInfinity;
+            foreach (var group in occlusionGroups)
+            {
+                if (group == null || subjectHeight >= group.VisibleFromHeight) continue;
+                firstHiddenHeight = Mathf.Min(firstHiddenHeight, group.VisibleFromHeight);
+                foreach (var renderer in group.Renderers)
+                    HideRenderer(renderer);
+            }
+
+            if (!float.IsFinite(firstHiddenHeight)) return;
+            foreach (var pair in replayRenderers)
+            {
+                if (pair.Key == null || pair.Key.position.y < firstHiddenHeight) continue;
+                foreach (var renderer in pair.Value)
+                    HideRenderer(renderer);
+            }
+        }
+
+        private void CacheReplayRenderers(Transform target)
+        {
+            if (target != null && !replayRenderers.ContainsKey(target))
+                replayRenderers.Add(target, target.GetComponentsInChildren<Renderer>(true));
+        }
+
+        private void HideIfOccluding(Renderer renderer)
+        {
+            if (renderer == null || IsReplaySubject(renderer.transform)) return;
+            HideRenderer(renderer);
+        }
+
+        private void HideRenderer(Renderer renderer)
+        {
+            if (renderer == null || renderer.forceRenderingOff) return;
+            renderer.forceRenderingOff = true;
+            hiddenRenderers.Add(renderer);
+        }
+
+        private bool IsReplaySubject(Transform candidate)
+        {
+            if (IsSameHierarchy(candidate, currentTarget))
+            {
+                return true;
+            }
+
+            foreach (var player in playerTargets)
+            {
+                if (IsSameHierarchy(candidate, player))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsSameHierarchy(Transform left, Transform right) =>
+            left != null && right != null &&
+            (left == right || left.IsChildOf(right) || right.IsChildOf(left));
+
+        public void Dispose()
+        {
+            ClearOccluders();
+            replayCameraRig?.Dispose();
+        }
+    }
+}

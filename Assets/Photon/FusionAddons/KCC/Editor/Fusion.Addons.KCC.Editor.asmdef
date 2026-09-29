@@ -1,0 +1,19 @@
+{
+    "name": "Fusion.Addons.KCC.Editor",
+    "rootNamespace": "Fusion.Addons.KCC.Editor",
+    "references": [
+        "Fusion.Addons.KCC",
+        "Fusion.Unity.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

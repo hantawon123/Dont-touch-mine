@@ -1,0 +1,33 @@
+var names = new [] { "Punch", "Punch_Left", "Punch_Combo" }.SelectMany(n => new [] { "", "_Walk", "_Run", "_Crouch", "_Crouch_Walk" }.Select(s => n+s)).ToArray();
+var controllers = new [] { "Assets/Scenes/CharacterTest/First/FirstCharacterPreview.controller", "Assets/_Game/Content/Animations/PlayerAnimator.controller" }.Select(p => UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(p)).ToArray();
+var model = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Idle.fbx");
+var go = UnityEngine.Object.Instantiate(model); go.hideFlags=UnityEngine.HideFlags.HideAndDontSave;
+var report = new System.Collections.Generic.List<string>();
+try {
+ var anim=go.GetComponentInChildren<UnityEngine.Animator>(); if(anim!=null) anim.enabled=false;
+ foreach(var name in names) {
+  var path="Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_"+name+".fbx";
+  var importer=(UnityEditor.ModelImporter)UnityEditor.AssetImporter.GetAtPath(path);
+  if(importer.animationType!=UnityEditor.ModelImporterAnimationType.Generic) throw new System.Exception(name+" rig");
+  var clip=UnityEditor.AssetDatabase.LoadAllAssetsAtPath(path).OfType<UnityEngine.AnimationClip>().Single(c=>c.name==name);
+  foreach(var controller in controllers) if(!controller.layers[0].stateMachine.states.Any(s=>s.state.name==name && s.state.motion==clip)) throw new System.Exception(name+" controller missing");
+  if(clip.isLooping!=name.StartsWith("Punch_Combo")) throw new System.Exception(name+" loop flag");
+  var hands=go.GetComponentsInChildren<UnityEngine.Transform>().Where(t=>t.name=="Hand.L" || t.name=="Hand.R").ToArray();
+  clip.SampleAnimation(go,0f);var initial=hands.Select(t=>t.position).ToArray();float displacement=0;
+  for(int f=0;f<=24;f++) { clip.SampleAnimation(go,Mathf.Min(clip.length,f/30f));for(int j=0;j<hands.Length;j++)displacement=Mathf.Max(displacement,UnityEngine.Vector3.Distance(initial[j],hands[j].position)); }
+  if(displacement<.05f)throw new System.Exception(name+" not moving "+displacement);
+  report.Add("PASS "+name+" length="+clip.length+" handTravel="+displacement);
+ }
+} finally { UnityEngine.Object.DestroyImmediate(go); }
+// Run the existing NUnit assertion methods in-editor, including the five parameterized cases.
+var type=System.AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetType("Game.Tests.EditMode.PlayerAnimationDriverTests")).FirstOrDefault(t=>t!=null);
+if(type==null)throw new System.Exception("PlayerAnimationDriverTests assembly unavailable");
+var instance=System.Activator.CreateInstance(type);int count=0;
+foreach(var method in type.GetMethods()) {
+ var attributes=method.GetCustomAttributes(false);
+ if(attributes.Any(a=>a.GetType().Name=="TestAttribute")) {method.Invoke(instance,null);count++;}
+ foreach(var attribute in attributes.Where(a=>a.GetType().Name=="TestCaseAttribute")) {var args=(object[])attribute.GetType().GetProperty("Arguments").GetValue(attribute);method.Invoke(instance,args);count++;}
+}
+report.Add("PASS PlayerAnimationDriver NUnit assertion cases="+count);
+System.IO.File.WriteAllLines("C:/Users/SSAFY/.codex/visualizations/2026/09/07/01a0792f-184a-72c2-8704-dfc1b0ae814d/party_punch_set/unity_validation.txt",report);
+return string.Join("\n",report);

@@ -1,0 +1,358 @@
+using Game.Client.Match;
+using Game.Client.Voice;
+using Game.Core.Settings;
+using NUnit.Framework;
+using TMPro;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
+
+namespace Game.Architecture.Tests
+{
+    public sealed class VoiceViewTests
+    {
+        [TearDown]
+        public void UnbindSettings() => VoiceView.UseSettings(null);
+
+        [Test]
+        public void KeyLabels_UseShippedKeysWhenSettingsAreUnbound()
+        {
+            Assert.That(VoiceView.MuteKeyLabel(), Is.EqualTo("B"));
+            Assert.That(VoiceView.SpeakerKeyLabel(), Is.EqualTo("T"));
+        }
+
+        [Test]
+        public void KeyLabels_FollowAppliedControlBindings()
+        {
+            var system = new ControlSettingsSystem(new InMemoryControlSettingsStore());
+            try
+            {
+                VoiceView.UseSettings(system);
+                Assert.That(VoiceView.MuteKeyLabel(), Is.EqualTo("B"));
+                Assert.That(VoiceView.SpeakerKeyLabel(), Is.EqualTo("T"));
+
+                system.Apply(system.Current
+                    .With(ControlAction.VoiceToggle, "m")
+                    .With(ControlAction.ToggleSpeaker, "n"));
+                Assert.That(VoiceView.MuteKeyLabel(), Is.EqualTo("M"));
+                Assert.That(VoiceView.SpeakerKeyLabel(), Is.EqualTo("N"));
+            }
+            finally
+            {
+                VoiceView.UseSettings(null);
+            }
+        }
+
+        [Test]
+        public void SetState_UsesWhiteIdle_GreenTalk_AndGreyMute()
+        {
+            var root = new GameObject("Voice", typeof(RectTransform));
+            try
+            {
+                root.SetActive(false);
+                var view = root.AddComponent<VoiceView>();
+                var button = CreateMuteButton(root.transform);
+                var icon = button.transform.Find(VoiceView.IconName).GetComponent<Image>();
+                view.BindMuteControl(button, button.GetComponent<Image>(), icon);
+                root.SetActive(true);
+
+                Assert.That(VoiceView.MicOnSprite, Is.Not.Null);
+                Assert.That(VoiceView.MicTalkSprite, Is.Not.Null);
+                Assert.That(VoiceView.MicOffSprite, Is.Not.Null);
+                Assert.That(VoiceView.MicOnResource, Is.EqualTo("UI/Icon_Mic_White"));
+                Assert.That(VoiceView.MicTalkResource, Is.EqualTo("UI/Icon_Mic_Green"));
+                Assert.That(VoiceView.MicOffResource, Is.EqualTo("UI/Icon_Mic_Off_Gray"));
+                Assert.That(VoiceView.SpeakerOnResource, Is.EqualTo("UI/Icon_Headset_White"));
+                Assert.That(VoiceView.SpeakerOffResource, Is.EqualTo("UI/Icon_Headset_Off_Gray"));
+
+                view.SetState(available: true, muted: false, latched: true, transmitting: false, listening: true);
+                Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOnSprite));
+
+                view.SetState(available: true, muted: false, latched: true, transmitting: true, listening: true);
+                Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicTalkSprite));
+
+                view.SetState(available: true, muted: true, latched: false, transmitting: false, listening: true);
+                Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOffSprite));
+                Assert.That(button.interactable, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void SpeakerButton_RaisesToggle()
+        {
+            var root = new GameObject("Voice", typeof(RectTransform));
+            try
+            {
+                root.SetActive(false);
+                var view = root.AddComponent<VoiceView>();
+                var bar = VoiceView.EnsureBar(root.transform);
+                view.BindBar(bar);
+                root.SetActive(true);
+
+                var speaker = VoiceView.FindSpeakerSlot(bar).GetComponent<Button>();
+                var raised = 0;
+                view.SpeakerToggleRequested += () => raised++;
+                speaker.onClick.Invoke();
+                Assert.That(raised, Is.EqualTo(1));
+
+                view.SetState(true, false, false, false, false);
+                Assert.That(
+                    speaker.transform.Find(VoiceView.IconName).GetComponent<Image>().sprite,
+                    Is.EqualTo(VoiceView.SpeakerOffSprite));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void MuteButton_RaisesToggle()
+        {
+            var root = new GameObject("Voice", typeof(RectTransform));
+            try
+            {
+                root.SetActive(false);
+                var view = root.AddComponent<VoiceView>();
+                var button = CreateMuteButton(root.transform);
+                view.BindMuteControl(button, button.GetComponent<Image>(), null);
+                root.SetActive(true);
+
+                var raised = 0;
+                view.MuteToggleRequested += () => raised++;
+                button.onClick.Invoke();
+
+                Assert.That(raised, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void MatchHud_ShowsTheSameIconButton()
+        {
+            var canvas = new GameObject(
+                "MatchHud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var hud = canvas.AddComponent<NetworkMatchHudView>();
+                var voice = hud.EnsureVoiceControl();
+                var bar = canvas.transform.Find(VoiceView.BarName) as RectTransform;
+                var slot = VoiceView.FindMuteSlot(bar);
+                var speaker = VoiceView.FindSpeakerSlot(bar);
+                var icon = slot.Find(VoiceView.IconName).GetComponent<Image>();
+                var muteHint = slot.parent.Find(VoiceView.KeyHintName).GetComponent<TMP_Text>();
+                var speakerHint = speaker.parent.Find(VoiceView.KeyHintName).GetComponent<TMP_Text>();
+
+                Assert.That(voice, Is.Not.Null);
+                Assert.That(bar.gameObject.activeSelf, Is.True);
+                Assert.That(slot.GetComponent<Image>().color, Is.EqualTo(VoiceView.PlateColor));
+                Assert.That(icon.sprite, Is.EqualTo(VoiceView.MicOnSprite));
+                Assert.That(speaker, Is.Not.Null);
+                Assert.That(speaker.parent.GetSiblingIndex(), Is.GreaterThan(slot.parent.GetSiblingIndex()));
+                Assert.That(muteHint.text, Is.EqualTo(VoiceView.MuteKeyLabel()));
+                Assert.That(speakerHint.text, Is.EqualTo(VoiceView.SpeakerKeyLabel()));
+                Assert.That(
+                    bar.anchoredPosition,
+                    Is.EqualTo(new Vector2(
+                        -VoiceView.CornerMarginRight,
+                        VoiceView.CornerMarginBottom)));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void KeyHints_FollowAppliedControlBindings()
+        {
+            var canvas = new GameObject(
+                "MatchHud", typeof(RectTransform), typeof(Canvas));
+            var system = new ControlSettingsSystem(new InMemoryControlSettingsStore());
+            try
+            {
+                VoiceView.UseSettings(system);
+                var hud = canvas.AddComponent<NetworkMatchHudView>();
+                hud.EnsureVoiceControl();
+                var bar = canvas.transform.Find(VoiceView.BarName);
+                var muteHint = VoiceView.FindMuteSlot(bar).parent.Find(VoiceView.KeyHintName)
+                    .GetComponent<TMP_Text>();
+                var speakerHint = VoiceView.FindSpeakerSlot(bar).parent.Find(VoiceView.KeyHintName)
+                    .GetComponent<TMP_Text>();
+
+                Assert.That(muteHint.text, Is.EqualTo("B"));
+                Assert.That(speakerHint.text, Is.EqualTo("T"));
+
+                system.Apply(system.Current
+                    .With(ControlAction.VoiceToggle, "m")
+                    .With(ControlAction.ToggleSpeaker, "n"));
+                Assert.That(muteHint.text, Is.EqualTo("M"));
+                Assert.That(speakerHint.text, Is.EqualTo("N"));
+            }
+            finally
+            {
+                VoiceView.UseSettings(null);
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        private static Button CreateMuteButton(Transform parent)
+        {
+            var slot = new GameObject(
+                VoiceView.ButtonName,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button));
+            slot.transform.SetParent(parent, false);
+            var icon = new GameObject(
+                VoiceView.IconName,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image));
+            icon.transform.SetParent(slot.transform, false);
+            return slot.GetComponent<Button>();
+        }
+    }
+
+    public sealed class VoicePresenterTests
+    {
+        [Test]
+        public void VoiceToggle_FlipsMuteLikeTheHudButton()
+        {
+            var view = new FakeVoiceView();
+            var voice = new FakeVoiceControl(muted: false);
+            var asset = ScriptableObject.CreateInstance<InputActionAsset>();
+            try
+            {
+                var presenter = new VoicePresenter(view, voice, asset);
+                presenter.HandleVoiceToggle();
+                Assert.That(voice.IsMuted.CurrentValue, Is.True);
+                view.PaintedMuted = false;
+
+                presenter.HandleVoiceToggle();
+                Assert.That(voice.IsMuted.CurrentValue, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(asset);
+            }
+        }
+
+        [Test]
+        public void SpeakerOff_RestoresThePreviousMicrophoneState()
+        {
+            var view = new FakeVoiceView();
+            var voice = new FakeVoiceControl(muted: false);
+            var asset = ScriptableObject.CreateInstance<InputActionAsset>();
+            try
+            {
+                var presenter = new VoicePresenter(view, voice, asset);
+                presenter.HandleSpeakerToggle();
+                Assert.That(voice.IsListening.CurrentValue, Is.False);
+                Assert.That(voice.IsMuted.CurrentValue, Is.True);
+
+                presenter.HandleSpeakerToggle();
+                Assert.That(voice.IsListening.CurrentValue, Is.True);
+                Assert.That(voice.IsMuted.CurrentValue, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(asset);
+            }
+        }
+
+        [Test]
+        public void SpeakerOff_IgnoresMicrophoneUnmute()
+        {
+            var view = new FakeVoiceView();
+            var voice = new FakeVoiceControl(muted: false);
+            var asset = ScriptableObject.CreateInstance<InputActionAsset>();
+            try
+            {
+                var presenter = new VoicePresenter(view, voice, asset);
+                presenter.HandleSpeakerToggle();
+                presenter.HandleVoiceToggle();
+
+                Assert.That(voice.IsListening.CurrentValue, Is.False);
+                Assert.That(voice.IsMuted.CurrentValue, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(asset);
+            }
+        }
+
+        private sealed class FakeVoiceView : IVoiceView
+        {
+            public event System.Action MuteToggleRequested;
+            public event System.Action SpeakerToggleRequested;
+            public bool PaintedMuted { get; set; }
+            public bool PaintedListening { get; set; }
+
+            public void SetState(bool available, bool muted, bool latched, bool transmitting, bool listening)
+            {
+                PaintedMuted = muted;
+                PaintedListening = listening;
+            }
+
+            public void Raise() => MuteToggleRequested?.Invoke();
+        }
+
+        private sealed class FakeVoiceControl : Game.Core.Ports.IVoiceControl
+        {
+            private readonly R3.ReactiveProperty<bool> muted;
+            private bool preferenceMuted;
+            private readonly R3.ReactiveProperty<bool> available = new(true);
+            private readonly R3.ReactiveProperty<bool> transmitting = new(false);
+            private readonly R3.ReactiveProperty<bool> listening = new(true);
+
+            public FakeVoiceControl(bool muted)
+            {
+                preferenceMuted = muted;
+                this.muted = new R3.ReactiveProperty<bool>(muted);
+            }
+
+            public R3.ReadOnlyReactiveProperty<bool> IsAvailable => available;
+            public R3.ReadOnlyReactiveProperty<bool> IsMuted => muted;
+            public R3.ReadOnlyReactiveProperty<bool> IsTransmitting => transmitting;
+            public R3.ReadOnlyReactiveProperty<bool> IsListening => listening;
+
+            public void SetMuted(bool value)
+            {
+                if (!value && !listening.Value)
+                {
+                    return;
+                }
+
+                preferenceMuted = value;
+                muted.Value = !listening.Value || preferenceMuted;
+            }
+
+            public void SetTalking(bool talking)
+            {
+            }
+
+            public void SetListening(bool value)
+            {
+                listening.Value = value;
+                muted.Value = !value || preferenceMuted;
+            }
+
+            public string CaptureDevice { get; private set; }
+
+            public void SetCaptureDevice(string deviceName) => CaptureDevice = deviceName;
+
+            public float CaptureGain { get; private set; } = 1f;
+
+            public void SetCaptureGain(float gain) => CaptureGain = gain;
+        }
+    }
+}

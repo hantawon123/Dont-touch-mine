@@ -1,0 +1,2942 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using Fusion;
+using Fusion.Matchmaking;
+using Fusion.Sockets;
+using Game.Core.Home;
+using Game.Core.Settings;
+using Game.Core.Lobby;
+using Game.Core.Maps;
+using Game.Core.Ports;
+using Game.Core.Rooms;
+using Game.Core.Match;
+using Game.Core.Items;
+using Game.Network.Match;
+using Game.Network.Players;
+using Game.Network.Voice;
+using Game.Server.Items;
+using Game.Server.Match;
+using Photon.Realtime;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+namespace Game.Network.Session
+{
+    /// <summary>
+    /// Owns every touch point with Fusion: creating the runner, starting and
+    /// stopping a session, and receiving runner callbacks. Gameplay code asks
+    /// this service instead of holding a <see cref="NetworkRunner"/> itself.
+    /// </summary>
+    /// <remarks>
+    /// The game mode is a parameter rather than a constant, and authority is
+    /// exposed only as <see cref="IsServer"/>, allowing a dedicated server to
+    /// reuse the authority-side gameplay rules. This does not make the product's lobby,
+    /// authentication, build-version or local presentation flows server-ready:
+    /// those still need the integration work described in S15P21D205-987/988.
+    /// </remarks>
+    public sealed partial class NetworkRunnerService :
+        INetworkRunnerCallbacks,
+        IRoomSessionProbe,
+        IMatchSceneDirector,
+        INetworkMatchRuntimeSource,
+        INetworkPlayerReplayStateSource,
+        INetworkMatchAuthority,
+        INetworkMatchEvents,
+        IMatchAnalyticsSource,
+        INetworkHighlightReady,
+        INetworkPhaseIntroReady,
+        INetworkResultNavigation,
+        ILobbyChatTransport,
+        IMatchChatTransport,
+        IDisposable
+    {
+        private const string RunnerObjectName = "[NetworkRunner]";
+        internal const int KickKeyType = 0x4B49434B;
+        internal const int KickKeyVersion = 1;
+        private const int KickAcknowledgementTimeoutMilliseconds = 2000;
+        private readonly Dictionary<PlayerRef, int> _pendingKicks = new();
+        private int _kickSequence;
+        private const int ItemAssignmentKeyType = 0x4954454D;
+        private const int ItemAssignmentKeyVersion = 1;
+        private const int ItemAssignmentRequestKeyType = 0x49545251;
+        private readonly Dictionary<string, string> _publishedItemAssignments = new(StringComparer.Ordinal);
+        private const int MaxItemAssignmentBytes = 128;
+        private const int HighlightReplayKeyType = 0x484C5452;
+        private const int HighlightReplayKeyVersion = 4;
+        private const int HighlightReadyKeyType = 0x484C5244;
+        private const int HighlightCompleteKeyType = 0x484C444E;
+        private readonly HashSet<PlayerRef> _highlightPendingPlayers = new();
+        private string _highlightNotReadyReason;
+        private readonly HashSet<PlayerRef> _highlightCompletedPlayers = new();
+        private int _receivedHighlightSequence;
+        private bool _highlightResultUnloadRequested;
+        private bool _highlightLobbyLoadRequested;
+        private bool _highlightLobbyPrepared;
+        private bool _highlightCompletionRequested;
+        private bool _localHighlightComplete;
+        private IReadOnlyList<PlayerItemStatusSnapshot> _latestPlayerItemStatuses =
+            Array.Empty<PlayerItemStatusSnapshot>();
+        public bool IsHighlightReplayReady => _highlightPendingPlayers.Count == 0;
+        public bool IsHighlightInProgress =>
+            _matchStarter != null && _matchStarter.CurrentPhase == MatchPhase.Highlight;
+        public bool IsLocalHighlightComplete => _localHighlightComplete;
+        public bool HasLeftLocalHighlight =>
+            _localHighlightComplete || _highlightCompletionRequested;
+        public bool HasCompletedHighlight(int playerIndex)
+        {
+            if (_matchStarter == null) return false;
+            foreach (var player in _highlightCompletedPlayers)
+                if (_matchStarter.TryGetPlayerIndex(player, out var index) && index == playerIndex) return true;
+            return false;
+        }
+
+        public bool TryConfirmPhaseIntroReady(MatchPhase phase) =>
+            _matchStarter != null && _matchStarter.RequestPhaseIntroReady(phase);
+
+        public bool IsWaitingForMatch => IsRuntimeReady && _matchStarter != null &&
+            !_matchStarter.HasStartedMatch && _matchStarter.CurrentPhase == MatchPhase.Waiting;
+
+        public bool ConfigureLobbyObjects(IReadOnlyList<WorldObjectState> objects) =>
+            IsWaitingForMatch && _matchStarter.ConfigureLobbyObjects(objects);
+
+        public void PublishInteractionState() => _matchStarter?.PublishSceneState();
+
+        public bool TryConfirmHighlightReady()
+        {
+            if (_runner == null || !_runner.IsRunning || !_highlightLobbyPrepared)
+                return ReportHighlightNotReady("scenes");
+            if (IsServer)
+                _highlightPendingPlayers.Remove(_runner.LocalPlayer);
+            else
+            {
+                if (_receivedHighlightSequence == 0) return ReportHighlightNotReady("replay");
+                _runner.SendReliableDataToServer(ReliableKey.FromInts(
+                    HighlightReadyKeyType, HighlightReplayKeyVersion, _receivedHighlightSequence, 0),
+                    new byte[] { 1 });
+            }
+            _highlightNotReadyReason = null;
+            return true;
+        }
+
+        /// <summary>
+        /// Says once why this peer cannot acknowledge yet. A peer that never
+        /// acknowledges costs everyone the highlight when the barrier times out,
+        /// so the reason must be in its log.
+        /// </summary>
+        private bool ReportHighlightNotReady(string reason)
+        {
+            if (!string.Equals(_highlightNotReadyReason, reason, StringComparison.Ordinal))
+            {
+                _highlightNotReadyReason = reason;
+                Debug.LogWarning(
+                    $"[Highlight] Not ready to acknowledge ({reason}): " +
+                    $"lobbyAndMapLoaded={_highlightLobbyPrepared}, " +
+                    $"receivedSequence={_receivedHighlightSequence}.");
+            }
+
+            return false;
+        }
+
+        /// <summary>The peers the authority is still waiting on, for a timeout report.</summary>
+        public string DescribeHighlightReadiness()
+        {
+            if (_highlightPendingPlayers.Count == 0) return "none";
+            var pending = new List<string>();
+            foreach (var player in _highlightPendingPlayers) pending.Add(player.ToString());
+            pending.Sort(StringComparer.Ordinal);
+            return string.Join(", ", pending);
+        }
+
+        public bool CompleteLocalHighlightViewing()
+        {
+            if (_runner == null || !_runner.IsRunning || !_highlightLobbyPrepared ||
+                !IsHighlightInProgress)
+            {
+                return false;
+            }
+            if (_localHighlightComplete) return true;
+
+            if (IsServer)
+            {
+                if (!TryCompleteHighlightViewing(_runner.LocalPlayer)) return false;
+            }
+            else
+            {
+                if (_receivedHighlightSequence == 0)
+                {
+                    return false;
+                }
+
+                if (!_highlightCompletionRequested)
+                {
+                    _runner.SendReliableDataToServer(ReliableKey.FromInts(
+                        HighlightCompleteKeyType,
+                        HighlightReplayKeyVersion,
+                        _receivedHighlightSequence,
+                        0),
+                        new byte[] { 1 });
+                }
+            }
+
+            _highlightCompletionRequested = true;
+            _localHighlightComplete = true;
+            return true;
+        }
+
+        private readonly IRoomListSink _roomListSink;
+        private readonly IRoomSessionSink _sessionSink;
+
+        /// <summary>
+        /// Told when players arrive and leave. The runner is passed in on each
+        /// call rather than held by the spawner, so there is only ever one
+        /// answer to which runner is current.
+        /// </summary>
+        private readonly PlayerSpawner _spawner;
+
+        /// <summary>Where the room's roster is reported.</summary>
+        private readonly IRoomParticipantSink _participantSink;
+
+        /// <summary>
+        /// This peer's own name, sent to the room so the others can show it.
+        /// </summary>
+        /// <remarks>
+        /// Read at the moment a session starts rather than held as a string, so
+        /// a name changed between two rooms is the name the second room sees.
+        /// </remarks>
+        private readonly PlayerProfile _profile;
+        private readonly PublishedPlayerName _publishedName;
+        private readonly IAccountReady _accountReady;
+        private readonly IChatModeration _chatModeration;
+
+        /// <summary>Where the authority's decision about starting is reported.</summary>
+        private readonly IMatchStartSink _matchStartSink;
+
+        /// <summary>
+        /// Which scenes this layer may load. Optional so tests and scenes
+        /// without a map can still open a session; a match then reports that it
+        /// has nowhere to go rather than failing to construct.
+        /// </summary>
+        private readonly NetworkScenes _scenes;
+        /// <summary>
+        /// Where the player chose to play. Read at connect time rather than
+        /// held as a string, so a region picked while the game is running is
+        /// the one the next connection uses.
+        /// </summary>
+        private readonly ServerRegionSystem _regions;
+
+        /// <summary>
+        /// Raised on every peer once a networked scene has finished loading.
+        /// </summary>
+        /// <remarks>
+        /// Exists because the scene's own contents are not this layer's business.
+        /// Spawn points are marked by a component in <c>Game.Bootstrap</c>, which
+        /// this assembly cannot reference, so Bootstrap listens here and hands
+        /// the points over. No Fusion type is passed, so a listener does not need
+        /// to reference Fusion either.
+        /// </remarks>
+        public event Action SceneLoaded;
+        // Raised at end-of-frame, before the old runner destroys its avatars.
+        public event Action HostMigrationStarting;
+
+        private readonly List<RoomSummary> _roomBuffer = new List<RoomSummary>();
+        private readonly Dictionary<string, RoomInfo> _realtimeRooms =
+            new Dictionary<string, RoomInfo>(StringComparer.Ordinal);
+
+        private NetworkRunner _runner;
+        private RealtimeClient _matchmakingClient;
+        private ConnectionServiceScope _matchmakingService;
+        private bool _joiningMatchmakingLobby;
+        private GameObject _runnerObject;
+        private PlayerRoster _roster;
+        public System.Collections.Generic.IReadOnlyList<PlayerAvatar> SpawnedAvatars =>
+            _roster != null ? _roster.Avatars : System.Array.Empty<PlayerAvatar>();
+        private MatchStarter _matchStarter;
+        private NetworkPlayerMotor _localInputMotor;
+        private double _networkSceneLoadStartedAt = -1d;
+        private double _roomEntryStartedAt = -1d;
+        /// <summary>
+        /// Where a parked load is taken to have finished reading. Unity says
+        /// 0.9; the float it reports can sit a hair under.
+        /// </summary>
+        private const float LobbyPreloadGateProgress = 0.89f;
+
+        /// <summary>
+        /// How long the room may wait for the parked load to reach the gate
+        /// before activation is allowed regardless.
+        /// </summary>
+        private const double LobbyPreloadGateSeconds = 3d;
+
+        private double _lobbyPreloadStartedAt = -1d;
+        private AsyncOperation _lobbyPreload;
+        private GameObject[] _preloadedLobbyRoots = Array.Empty<GameObject>();
+        private bool _lobbyPreloadEntering;
+        private UnityEngine.ThreadPriority _previousLoadingPriority;
+        private bool _lobbyPreloadRaisedPriority;
+        private UnityEngine.ThreadPriority _previousNetworkLoadingPriority;
+        private bool _networkLoadRaisedPriority;
+
+        public event Action<MatchStateSnapshot> MatchStateReceived;
+        public event Action<LobbyChatMessage> ChatReceived;
+        public event Action<LobbyChatMessage> MatchChatReceived;
+        public event Action<string> ItemAssignmentReceived;
+        public event Action<IReadOnlyList<MatchObjectStateSnapshot>> ObjectStatesReceived;
+        public event Action<PlayerItemDestroyedEvent> ItemDestroyedReceived;
+        public event Action<IReadOnlyList<PlayerItemStatusSnapshot>> PlayerItemStatusesReceived;
+        public event Action<PlayerStunnedEvent> PlayerStunnedReceived;
+        public event Action<ObjectThrownEvent> ObjectThrownReceived;
+        public event Action<FinalWarningStartedEvent> FinalWarningReceived;
+        public event Action<IReadOnlyList<bool>> ParticipantActivityReceived;
+        public event Action<IReadOnlyList<PlayerInteractionStateSnapshot>>
+            PlayerInteractionStatesReceived;
+        public event Action<IReadOnlyList<HighlightReplayData>> HighlightReplayReceived;
+        public event Action<MatchResult> MatchResultReceived;
+        public event Action<IReadOnlyList<MatchParticipant>> LineUpReceived;
+        public event Action SimulationTick;
+
+        public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses =>
+            _latestPlayerItemStatuses;
+
+        /// <summary>
+        /// Password this peer requires from joiners while it is the authority. A
+        /// plain field, never a networked property, so it is never replicated.
+        /// </summary>
+        private string _expectedPassword;
+
+        /// <summary>
+        /// True while the standalone Realtime client is browsing the lobby.
+        /// Fusion takes that same connection over when a room starts.
+        /// </summary>
+        private bool _browsingLobby;
+
+        /// <summary>
+        /// Guards against reporting the same departure twice. Fusion can raise
+        /// both a disconnect and a shutdown for one exit.
+        /// </summary>
+        private bool _exitReported = true;
+        private bool _isClientSession;
+        private bool _exitShutdownPending;
+        private NetworkRunner _departingRunner;
+        // Do not load a local scene while Fusion is still unloading its network scene.
+        public bool IsRoomExitPending => _departingRunner != null;
+        private int _itemAssignmentTransferSequence;
+        private int _highlightTransferSequence;
+        private bool _hostMigrationInProgress;
+        private bool _matchRuntimeRestorePending;
+        private Exception _matchRuntimeRestoreFailure;
+        public bool IsMatchRuntimeRestorePending => _hostMigrationInProgress && _matchRuntimeRestorePending;
+
+        public void ReportMatchRuntimeRestored(Exception failure)
+        {
+            if (!IsMatchRuntimeRestorePending) return;
+            _matchRuntimeRestoreFailure = failure;
+            _matchRuntimeRestorePending = false;
+        }
+        private bool _roomInitializationInProgress;
+        private int _hostMigrationRevision;
+        public MatchMigrationState MatchMigration { get; private set; }
+        // Stable across replacement runners; identity only, not authentication.
+        private readonly long _playerUniqueId = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0) | 1L;
+        private int _configuredMaxPlayers;
+        private string _configuredMapId = MapCatalog.DefaultMapId;
+        /// <summary>One warning per streak; the settings read runs several times a second.</summary>
+        private bool _publishedSettingsRejected;
+
+        /// <summary>
+        /// 이번 매치가 실제로 열린 맵. 방 설정이 "랜덤"이면 매치 시작 때 정해지고,
+        /// 설정 값(<see cref="_configuredMapId"/>)은 랜덤 그대로 남는다.
+        /// </summary>
+        private string _activeMapId;
+        private string _configuredTitle;
+        private int _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
+        private MatchRuleSettings _matchRules = MatchRuleSettings.Default;
+
+        private bool _disposed;
+
+        public NetworkRunnerService(
+            IRoomListSink roomListSink,
+            IRoomSessionSink sessionSink,
+            IRoomParticipantSink participantSink,
+            IMatchStartSink matchStartSink,
+            PlayerSpawner spawner,
+            PlayerProfile profile,
+            NetworkScenes scenes = null,
+            ServerRegionSystem regions = null,
+            PublishedPlayerName publishedName = null,
+            IAccountReady accountReady = null,
+            IChatModeration chatModeration = null)
+        {
+            _roomListSink = roomListSink;
+            _sessionSink = sessionSink;
+            _participantSink = participantSink;
+            _matchStartSink = matchStartSink;
+            _spawner = spawner;
+            _profile = profile;
+            _scenes = scenes;
+            _regions = regions;
+            _publishedName = publishedName;
+
+            // Optional so the tests that build this by hand do not all have to
+            // supply one. Null means no wait, which is what those tests expect -
+            // they never sign in.
+            _accountReady = accountReady;
+
+            // Only a dedicated server is given one. Null leaves chat exactly as it was, which
+            // is what a player's build and the tests want.
+            _chatModeration = chatModeration;
+        }
+
+        /// <summary>
+        /// The name to write into the session's own properties, which the room
+        /// browser reads.
+        /// </summary>
+        /// <remarks>
+        /// A room list is read by people who have not joined and may never
+        /// join, so a host in 스트리머 모드 must not be named there. This is the
+        /// one name that leaves the room, which is why it asks
+        /// <see cref="PublishedPlayerName"/> and the roster does not: what the
+        /// other players are sent is the real name, and their screens decide
+        /// what to draw.
+        /// <para>
+        /// Falls back to the profile when nothing was injected, which is what a
+        /// test container does.
+        /// </para>
+        /// </remarks>
+        private string PublicHostNickname =>
+            SanitiseNickname(_publishedName != null ? _publishedName.Current : _profile?.Nickname);
+
+        /// <summary>
+        /// Writes the host's public name into the session again, if it has
+        /// changed since it was last written.
+        /// </summary>
+        /// <remarks>
+        /// The name goes into the session's properties when the room is made
+        /// and when the host changes, and nowhere else — so a host who turned
+        /// 스트리머 모드 on after making the room stayed listed under their own
+        /// name for as long as the room stood. Nothing but the host may write
+        /// it, and a peer asking is told no rather than made to think.
+        /// <para>
+        /// Compares before writing. The caller may ask on every change to any
+        /// interface setting, and a session property update is a network round
+        /// trip that the room list then re-reads.
+        /// </para>
+        /// </remarks>
+        public bool RefreshHostNickname()
+        {
+            if (!IsLocalRoomOwner) return false;
+            return IsServer ? ApplyHostNickname(PublicHostNickname) : _matchStarter.RequestLobbyNickname(PublicHostNickname);
+        }
+
+        private void OnLobbyNicknameRequested(PlayerRef source, string nickname)
+        {
+            if (IsServer && PlayerSpawner.IsRoomOwner(_runner, source)) ApplyHostNickname(nickname);
+        }
+
+        private bool ApplyHostNickname(string wanted)
+        {
+            if (!IsServer || _runner.SessionInfo == null || !_runner.SessionInfo.IsValid)
+            {
+                return false;
+            }
+
+            var properties = _runner.SessionInfo.Properties;
+            if (properties != null
+                && properties.TryGetValue(SessionPropertyKeys.HostNickname, out var current)
+                && current.IsString
+                && string.Equals((string)current, wanted, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return _runner.SessionInfo.UpdateCustomProperties(
+                new Dictionary<string, SessionProperty>
+                {
+                    [SessionPropertyKeys.HostNickname] = wanted,
+                });
+        }
+
+        /// <summary>
+        /// Longest nickname the network carries. Matches the
+        /// <c>NetworkString&lt;_32&gt;</c> the character replicates, so a name
+        /// that survives this survives the trip intact.
+        /// </summary>
+        private const int NicknameLimit = 32;
+
+        /// <summary>
+        /// The name to show for a player, taken from what they presented when
+        /// they joined.
+        /// </summary>
+        /// <remarks>
+        /// The authority's own name comes from its profile: it never connected to
+        /// itself, so it presented no token.
+        /// </remarks>
+        private string NicknameOf(NetworkRunner runner, PlayerRef player)
+        {
+            if (player == runner.LocalPlayer)
+            {
+                return SanitiseNickname(_profile?.Nickname);
+            }
+
+            SessionConnectionTokenCodec.Decode(
+                runner.GetPlayerConnectionToken(player),
+                out _,
+                out var presented);
+            return SanitiseNickname(presented);
+        }
+
+        /// <summary>
+        /// The backend account a player presented on joining, or empty. Read the
+        /// same way as the nickname: from the profile for the local player, whose
+        /// token this peer never receives, and from the connection token for
+        /// everyone else.
+        /// </summary>
+        /// <remarks>
+        /// Not sanitised the way a nickname is. It is never shown, and a value
+        /// that is not a plain account id is simply not one the backend will
+        /// recognise — the host sends it as presented and the server answers.
+        /// </remarks>
+        private string UserIdOf(NetworkRunner runner, PlayerRef player)
+        {
+            if (player == runner.LocalPlayer)
+            {
+                return _profile?.UserId ?? string.Empty;
+            }
+
+            SessionConnectionTokenCodec.Decode(
+                runner.GetPlayerConnectionToken(player),
+                out _,
+                out _,
+                out var presented);
+            return presented ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Makes a name presented by another peer safe to show.
+        /// </summary>
+        /// <remarks>
+        /// The bytes came from someone else, so this is untrusted text. Control
+        /// characters are dropped because they can hide or reorder what a reader
+        /// sees, and the length is capped so one player cannot push the others
+        /// out of a list. An empty result is left empty rather than replaced with
+        /// a placeholder: only presentation knows what to show instead.
+        /// </remarks>
+        internal static string SanitiseNickname(string presented)
+        {
+            if (string.IsNullOrWhiteSpace(presented))
+            {
+                return string.Empty;
+            }
+
+            var builder = new StringBuilder(presented.Length);
+
+            foreach (var character in presented)
+            {
+                if (!char.IsControl(character))
+                {
+                    builder.Append(character);
+                }
+
+                if (builder.Length >= NicknameLimit)
+                {
+                    break;
+                }
+            }
+
+            return builder.ToString().Trim();
+        }
+
+        public bool IsRunning => _runner != null && _runner.IsRunning;
+        public double? LocalPingMilliseconds => !IsRunning || _runner.LocalPlayer == PlayerRef.None
+            ? null : _runner.GetPlayerRtt(_runner.LocalPlayer) * 1000d;
+
+        /// <summary>
+        /// The local microphone for the session that is running, or null on a
+        /// dedicated server and between sessions.
+        /// </summary>
+        /// <remarks>
+        /// Exposed rather than injected because the rig is built with the runner
+        /// and replaced with it. Anything holding a reference across a shutdown
+        /// would be holding a destroyed component.
+        /// </remarks>
+        public IVoiceControl Voice { get; private set; }
+
+        /// <summary>
+        /// True once this peer owns a matchmaking client, including while that
+        /// client is still connecting.
+        /// </summary>
+        /// <remarks>
+        /// Answering true during connection prevents a second browser refresh
+        /// from creating another Photon client beside the first.
+        /// </remarks>
+        public bool IsBrowsingLobby => _browsingLobby;
+
+        /// <summary>
+        /// True on whichever peer holds authority. Identical for a player host
+        /// and a dedicated server, so gameplay never asks which one it is.
+        /// </summary>
+        public bool IsServer => _runner != null && _runner.IsServer;
+        public bool IsDedicatedServer => IsServer && !_runner.LocalPlayer.IsRealPlayer;
+        public bool IsLocalRoomOwner => IsRuntimeReady && PlayerSpawner.IsRoomOwner(_runner, _runner.LocalPlayer);
+        public bool IsRuntimeReady => IsRunning && !_exitReported && !_hostMigrationInProgress;
+        // LocalRenderTime follows the wall clock even when Fusion caps catch-up ticks per frame.
+        // IsLastTick alone only marks the end of THIS frame, not the end of the backlog.
+        public bool IsSimulationCaughtUp => _runner != null && _runner.IsRunning &&
+            _runner.LocalRenderTime <= _runner.SimulationTime + _runner.DeltaTime;
+        public bool IsFinalForwardTick => IsSimulationCaughtUp && _runner.IsForward && _runner.IsLastTick;
+        public bool IsSceneLoadComplete => IsRuntimeReady && !_runner.IsSceneManagerBusy;
+        public bool IsHostMigrationInProgress => _hostMigrationInProgress;
+        // Includes connecting/loading, but excludes a standalone scene and room browsing.
+        public bool HasRoomSession => _hostMigrationInProgress || (_runner != null && !_browsingLobby);
+
+        public IReadOnlyList<PlayerAvatar> PlayerAvatars =>
+            _roster?.Avatars ?? Array.Empty<PlayerAvatar>();
+
+        public bool TrySendChat(string text)
+        {
+            return _matchStarter != null && _matchStarter.RequestLobbyChat(text);
+        }
+
+        public bool TryKickPlayer(string playerId)
+        {
+            if (!IsLocalRoomOwner || _matchStarter == null) return false;
+            return IsServer ? TryKickPlayer(_runner.LocalPlayer, playerId) : _matchStarter.RequestLobbyKick(playerId);
+        }
+
+        private void OnLobbyKickRequested(PlayerRef source, string target) => TryKickPlayer(source, target);
+
+        private bool TryKickPlayer(PlayerRef requester, string playerId)
+        {
+            if (!IsRuntimeReady || _browsingLobby || _runner.IsSceneManagerBusy ||
+                _scenes == null || _matchStarter == null || _matchStarter.HasStartedMatch ||
+                !TryResolveKickTarget(IsServer && PlayerSpawner.IsRoomOwner(_runner, requester),
+                    IsOnlyScene(_runner.SceneInfo, _scenes.LobbyScene),
+                    requester, _runner.ActivePlayers, playerId, out var target) ||
+                _pendingKicks.ContainsKey(target))
+                return false;
+
+            var sequence = ++_kickSequence;
+            _pendingKicks.Add(target, sequence);
+            // Wait for the notice to arrive before closing the transport. A client
+            // cannot avoid a kick by withholding its acknowledgement.
+            DisconnectUnacknowledgedKickAsync(_runner, target, sequence).Forget(Debug.LogException);
+            _runner.SendReliableDataToPlayer(target,
+                ReliableKey.FromInts(KickKeyType, KickKeyVersion, sequence, 0), new byte[] { 1 });
+            Debug.Log($"[Lobby] Kick requested for {PlayerRegistry.IdOf(target)}.");
+            return true;
+        }
+
+        internal static bool TryResolveKickTarget(bool hasAuthority, bool isLobby,
+            PlayerRef localPlayer, IEnumerable<PlayerRef> activePlayers, string playerId,
+            out PlayerRef target)
+        {
+            target = PlayerRef.None;
+            if (!hasAuthority || !isLobby || !localPlayer.IsRealPlayer ||
+                activePlayers == null || string.IsNullOrWhiteSpace(playerId)) return false;
+            var id = playerId.Trim();
+            foreach (var player in activePlayers)
+            {
+                if (player.IsRealPlayer && player != localPlayer &&
+                    string.Equals(PlayerRegistry.IdOf(player), id, StringComparison.Ordinal))
+                {
+                    target = player;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private async UniTask DisconnectUnacknowledgedKickAsync(
+            NetworkRunner runner, PlayerRef target, int sequence)
+        {
+            var cancelled = await UniTask.Delay(KickAcknowledgementTimeoutMilliseconds,
+                DelayType.Realtime, cancellationToken: runner.GetCancellationTokenOnDestroy())
+                .SuppressCancellationThrow();
+            if (!cancelled) DisconnectPendingKick(runner, target, sequence);
+        }
+
+        private void DisconnectPendingKick(NetworkRunner runner, PlayerRef target, int sequence)
+        {
+            if (!IsCurrentRunner(runner) || runner == null || !runner.IsRunning || !runner.IsServer ||
+                !TryRemovePendingKick(_pendingKicks, target, sequence)) return;
+            runner.Disconnect(target);
+        }
+
+        internal static bool TryRemovePendingKick(
+            IDictionary<PlayerRef, int> pending, PlayerRef sender, int sequence)
+        {
+            if (!pending.TryGetValue(sender, out var expected) || expected != sequence) return false;
+            return pending.Remove(sender);
+        }
+
+        public bool TrySendMatchChat(string text)
+        {
+            return _matchStarter != null && _matchStarter.RequestMatchChat(text);
+        }
+
+        public double ServerTime
+        {
+            get
+            {
+                if (!IsRunning)
+                {
+                    throw new InvalidOperationException(
+                        "Network time is unavailable before the runner starts.");
+                }
+
+                return _runner.SimulationTime;
+            }
+        }
+
+        public bool TryGetPlayerPose(string playerId, out Pose pose)
+        {
+            if (_roster != null)
+            {
+                return _roster.TryGetPose(playerId, out pose);
+            }
+
+            pose = default;
+            return false;
+        }
+
+        public bool TryGetLocalStamina(out float current, out float max, out bool exhausted)
+        {
+            current = 0f;
+            max = 0f;
+            exhausted = false;
+            if (!IsRuntimeReady || _runner == null)
+            {
+                return false;
+            }
+
+            if (_localInputMotor == null ||
+                _localInputMotor.Object == null ||
+                !_localInputMotor.Object.HasInputAuthority)
+            {
+                _localInputMotor = FindLocalInputMotor(_runner);
+            }
+
+            if (_localInputMotor == null)
+            {
+                return false;
+            }
+
+            current = _localInputMotor.CurrentStamina;
+            max = _localInputMotor.MaxStamina;
+            exhausted = _localInputMotor.IsSprintExhausted;
+            return max > 0f;
+        }
+
+        public bool TryGetPlayerReplayState(
+            string playerId,
+            out NetworkPlayerReplayState state)
+        {
+            if (_roster != null && _roster.TryGetAvatar(playerId, out var avatar))
+            {
+                var motor = avatar.GetComponent<NetworkPlayerMotor>();
+                if (motor != null)
+                {
+                    state = new NetworkPlayerReplayState(
+                        motor.Posture,
+                        motor.AnimationGrounded,
+                        motor.AttackSequence,
+                        motor.EmoteSequence,
+                        motor.EmoteId);
+                    return true;
+                }
+            }
+
+            state = default;
+            return false;
+        }
+
+        public string RoomCode
+        {
+            get
+            {
+                if (_runner == null)
+                {
+                    return null;
+                }
+
+                var info = _runner.SessionInfo;
+                return info.IsValid ? info.Name : null;
+            }
+        }
+
+        public int PlayerCount
+        {
+            get
+            {
+                if (_runner == null)
+                {
+                    return 0;
+                }
+
+                var info = _runner.SessionInfo;
+                return info.IsValid ? CountActivePlayers(_runner) : 0;
+            }
+        }
+
+        /// <summary>
+        /// How many people this room holds, as the room itself says.
+        /// </summary>
+        /// <remarks>
+        /// Photon's <c>SessionInfo.MaxPlayers</c> is the room's actor capacity,
+        /// and a dedicated server occupies one of those actors, so it is one
+        /// larger than the number of people who fit. Reading it here put that
+        /// extra slot on screen as "6/7". The room's own published setting is
+        /// the answer, and it is the same property the room listing reads.
+        /// Zero means the room has not said yet; it is not a limit.
+        /// </remarks>
+        public int MaxPlayers
+        {
+            get
+            {
+                if (_runner == null)
+                {
+                    return _configuredMaxPlayers > 0 ? _configuredMaxPlayers : 0;
+                }
+
+                var info = _runner.SessionInfo;
+                return ResolveMaxPlayers(
+                    _configuredMaxPlayers,
+                    info.IsValid
+                        ? SessionPropertyMapper.ReadInt(info, SessionPropertyKeys.MaxPlayers, 0)
+                        : 0);
+            }
+        }
+
+        /// <summary>
+        /// The accepted setting if this peer has one, otherwise what the room
+        /// published. No ceiling is applied here: a room that holds eight says
+        /// eight, and the project limit belongs to the request that sets it.
+        /// </summary>
+        internal static int ResolveMaxPlayers(int configured, int published) =>
+            configured > 0 ? configured : Math.Max(0, published);
+
+        public string RoomDisplayName
+        {
+            get
+            {
+                if (_runner == null || !_runner.SessionInfo.IsValid)
+                {
+                    return null;
+                }
+
+                if (IsServer && _configuredTitle != null) return _configuredTitle;
+                return SessionPropertyMapper.ReadString(
+                    _runner.SessionInfo,
+                    SessionPropertyKeys.DisplayName,
+                    null);
+            }
+        }
+
+        public int DestructionLimit => _destructionLimit;
+        public MatchRuleSettings MatchRules => _matchRules;
+        public (int HitsReceived, int Stuns) GetCombatTotals(int playerIndex) =>
+            _matchStarter?.GetCombatTotals(playerIndex) ?? default;
+
+        public string AnalyticsMapId =>
+            string.IsNullOrEmpty(_activeMapId) ? _configuredMapId : _activeMapId;
+
+        /// <summary>
+        /// Connects to the matchmaking lobby so the room list starts arriving
+        /// through <see cref="IRoomListSink"/>. Does not enter a room.
+        /// </summary>
+        public async UniTask<SessionStartResult> JoinLobbyAsync(CancellationToken cancellation)
+        {
+            var requestedAt = Time.realtimeSinceStartupAsDouble;
+            await UniTask.WaitUntil(() => !IsRoomExitPending, cancellationToken: cancellation);
+            if (IsRunning || _roomInitializationInProgress)
+            {
+                return SessionStartResult.Failed(
+                    SessionFailure.AlreadyRunning, "A session is already running.");
+            }
+            if (_browsingLobby)
+            {
+                return SessionStartResult.Failed(
+                    SessionFailure.AlreadyRunning,
+                    "The matchmaking lobby is already connected.");
+            }
+
+            // Before the client is built, because its AuthValues are read the
+            // moment it is (S15P21D205-928).
+            await WaitForAccountAsync(cancellation);
+
+            // Home warm-up and Create can await the same sign-in. Recheck after
+            // that await so only one of them creates the matchmaking client.
+            cancellation.ThrowIfCancellationRequested();
+            if (IsRunning || _roomInitializationInProgress)
+                return SessionStartResult.Failed(SessionFailure.AlreadyRunning, "A session is already running.");
+            if (_browsingLobby) return SessionStartResult.Success();
+
+            var photonSettings = GetPhotonSettings();
+            var client = MatchmakingArgumentsExtensions.BuildRealtimeClient(
+                photonSettings);
+
+            // The lobby is its own Photon connection and authenticates on its
+            // own. Setting this only on the room connection would leave the
+            // lobby open to a suspended player (S15P21D205-925).
+            client.AuthValues = BuildAuthValues();
+            client.AddCallbackTarget(this);
+            _matchmakingClient = client;
+            _receivedLobbySnapshot = false;
+            _browsingLobby = true;
+            _joiningMatchmakingLobby = true;
+
+            var asyncConfig = AsyncConfig.CreateUnityAsyncConfig();
+            asyncConfig.CancellationToken = cancellation;
+            var connectionStartedAt = Time.realtimeSinceStartupAsDouble;
+            try
+            {
+                await client.ConnectUsingSettingsAsync(
+                    photonSettings, asyncConfig);
+                // Fusion publishes Host/Server sessions in ClientServer, not
+                // Photon Realtime's unnamed default lobby.
+                await client.JoinLobbyAsync(new TypedLobby(nameof(SessionLobby.ClientServer), LobbyType.Default), config: asyncConfig);
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.Log(
+                    $"[SceneTiming] Photon lobby join cancelled, " +
+                    $"elapsed={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s.");
+                ReleaseMatchmakingClient(client, disconnect: true);
+                throw;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError(
+                    $"[Network] Could not join lobby: {exception.Message}");
+                ReleaseMatchmakingClient(client, disconnect: true);
+                return SessionStartResult.Failed(
+                    SessionFailure.ConnectionFailed, exception.Message);
+            }
+            finally
+            {
+                _joiningMatchmakingLobby = false;
+            }
+
+            _matchmakingService = new ConnectionServiceScope(client);
+            Debug.Log(
+                $"[SceneTiming] Photon lobby join completed: ok=True, " +
+                $"connection={Time.realtimeSinceStartupAsDouble - connectionStartedAt:F3}s, " +
+                $"total={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s, " +
+                $"region={client.CurrentRegion}.");
+
+            Debug.Log("[Network] Joined matchmaking lobby.");
+            return SessionStartResult.Success();
+        }
+
+        public async UniTask<SessionStartResult> StartAsync(
+            SessionRequest request, CancellationToken cancellation)
+        {
+            var requestedAt = Time.realtimeSinceStartupAsDouble;
+            await UniTask.WaitUntil(() => !IsRoomExitPending, cancellationToken: cancellation);
+            await UniTask.WaitUntil(
+                () => !_joiningMatchmakingLobby,
+                cancellationToken: cancellation);
+            if (_roomInitializationInProgress)
+                return SessionStartResult.Failed(SessionFailure.AlreadyRunning,
+                    "Room initialization or its cleanup is still in progress.");
+
+            RealtimeClient matchmakingClient = null;
+            if (_browsingLobby)
+            {
+                matchmakingClient = _matchmakingClient;
+                if (matchmakingClient == null)
+                {
+                    return SessionStartResult.Failed(
+                        SessionFailure.ConnectionFailed,
+                        "The matchmaking connection is no longer available.");
+                }
+            }
+            else if (IsRunning)
+            {
+                return SessionStartResult.Failed(
+                    SessionFailure.AlreadyRunning, "A session is already running.");
+            }
+
+            // A create form may have warmed Lobby before the user changed their
+            // mind and selected an existing room. The joining runner owns its
+            // own scene synchronisation, so do not leave a second Unity load in
+            // flight beside it.
+            if (!request.AllowCreate && _lobbyPreload != null)
+            {
+                await CleanupLobbyPreloadAsync();
+            }
+
+            _expectedPassword = request.Password;
+            _awaitingRoomClaim = request.IsAvailableServer;
+            _claimAdmissionPending = false;
+            _configuredTitle = request.AllowCreate ? request.DisplayName?.Trim() : null;
+            _configuredMapId = request.MapId?.Trim() ?? string.Empty;
+            _configuredMaxPlayers = request.MaxPlayers > 0
+                ? request.MaxPlayers
+                : 0;
+            _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
+            _matchRules = MatchRuleSettings.Default;
+
+            // The room is its own Photon connection and authenticates on its own,
+            // so it waits on its own too (S15P21D205-928). The lobby's
+            // authenticated client is not reused: Fusion must initialize
+            // its own settings for cloud reconnection and room recovery.
+            await WaitForAccountAsync(cancellation);
+
+            cancellation.ThrowIfCancellationRequested();
+            var sceneManager = CreateRunner(request.Mode != GameMode.Server);
+
+            var runner = _runner;
+
+            // Fusion is handed a linked token rather than the caller's own.
+            // It registers a callback that shuts the runner down when the token
+            // fires, and the token we are given belongs to whichever scene asked
+            // to connect. That is right while connecting and wrong afterwards:
+            // the session is a project-wide singleton, and loading a networked
+            // scene destroys the scene that asked, which would otherwise cancel
+            // the token and take the running session down with it. Cutting the
+            // link once StartGame returns keeps cancellation working during the
+            // attempt without letting a scene outlive its authority over it.
+            var startCancellation =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+
+            var args = BuildSessionStartArgs(request, sceneManager, startCancellation.Token);
+
+            StartGameResult result;
+            var connectionStartedAt = Time.realtimeSinceStartupAsDouble;
+            _roomEntryStartedAt = requestedAt;
+            if (request.AllowCreate)
+            {
+                BeginLobbyPreload();
+            }
+
+            if (matchmakingClient != null)
+            {
+                // Close only the browser connection. Transferring a ready client to
+                // Fusion 2.1.2 leaves RejoinMetadata.AppSettings null (rejoin IL_00cc).
+                ReleaseMatchmakingClient(matchmakingClient, disconnect: true);
+            }
+
+            try
+            {
+                result = await runner.StartGame(args);
+            }
+            catch (OperationCanceledException)
+            {
+                await CleanupLobbyPreloadAsync();
+                Debug.Log(
+                    $"[SceneTiming] Session connection cancelled: mode={request.Mode}, " +
+                    $"elapsed={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s.");
+                ReleaseAfterFusionShutdown(runner);
+                throw;
+            }
+            catch
+            {
+                await CleanupLobbyPreloadAsync();
+                throw;
+            }
+            finally
+            {
+                // Disposing releases the callback Fusion registered, so the token
+                // can never fire again. This one line is what stops a match scene
+                // load from ending the session.
+                startCancellation.Dispose();
+            }
+
+            var connectionSeconds = Time.realtimeSinceStartupAsDouble - connectionStartedAt;
+            Debug.Log(
+                $"[SceneTiming] Session connection completed: mode={request.Mode}, ok={result.Ok}, " +
+                $"reusedMatchmaking=False, " +
+                $"connection={connectionSeconds:F3}s.");
+
+            if (!result.Ok)
+            {
+                var failure = SessionStartResult.Classify(result.ShutdownReason);
+
+                await CleanupLobbyPreloadAsync();
+                ReleaseAfterFusionShutdown(runner);
+
+                // Cancelled the same way a lobby connect is: the screen that
+                // asked went away. See JoinLobbyAsync for why this unwinds
+                // instead of answering.
+                if (failure == SessionFailure.Canceled)
+                {
+                    throw new OperationCanceledException(
+                        $"Starting session '{request.RoomCode}' was cancelled. " +
+                        result.ErrorMessage);
+                }
+
+                var failureMessage =
+                    $"[Network] Could not start session '{request.RoomCode}' as {request.Mode}: " +
+                    $"{failure} ({result.ShutdownReason}) {result.ErrorMessage}";
+                if (IsExpectedSessionEntryFailure(failure))
+                    Debug.LogWarning(failureMessage);
+                else
+                    Debug.LogError(failureMessage);
+
+                return SessionStartResult.Failed(failure, result.ErrorMessage);
+            }
+
+            if (!IsCurrentRunner(runner) || !runner.IsRunning)
+            {
+                await CleanupLobbyPreloadAsync();
+                throw new OperationCanceledException("The session start was superseded or stopped.");
+            }
+
+            ApplyServerFrameRate(request.Mode, runner.TickRate);
+            _roomInitializationInProgress = true;
+            try
+            {
+                var initialized = await CompleteRoomInitializationAsync(() =>
+                {
+                    _isClientSession = runner.IsClient && !runner.IsServer;
+                    _exitReported = false;
+                    ReadConfiguredSettings();
+                    // Publish again after Fusion finalizes the local player identity.
+                    _spawner?.RefreshHost(runner);
+                    _roster?.Refresh(runner);
+                    _spawner?.SpawnRoomObjects(runner);
+                    ReportPlayerCount();
+                }, () => CleanupFailedRoomInitializationAsync(runner));
+
+                if (initialized.Ok)
+                    Debug.Log($"[Network] Session '{RoomCode}' started as {request.Mode}. IsServer={IsServer}");
+                else
+                    Debug.LogError($"[Network] Room initialization failed: {initialized.Detail}");
+                Debug.Log(
+                    $"[SceneTiming] Room session ready: mode={request.Mode}, ok={initialized.Ok}, " +
+                    $"connection={connectionSeconds:F3}s, " +
+                    $"total={Time.realtimeSinceStartupAsDouble - requestedAt:F3}s.");
+                return initialized;
+            }
+            finally
+            {
+                _roomInitializationInProgress = false;
+            }
+        }
+
+        internal static bool IsExpectedSessionEntryFailure(SessionFailure failure) =>
+            failure is SessionFailure.RoomNotFound or
+                SessionFailure.RoomFull or
+                SessionFailure.CodeTaken or
+                SessionFailure.Rejected;
+
+        internal StartGameArgs BuildSessionStartArgs(
+            SessionRequest request, INetworkSceneManager sceneManager, CancellationToken cancellation)
+        {
+            var args = new StartGameArgs
+            {
+                Config = ConfigureSession(NetworkProjectConfig.Global),
+                GameMode = request.Mode,
+                PlayerUniqueId = _playerUniqueId,
+                SessionName = request.RoomCode,
+                IsVisible = request.AllowCreate ? request.IsVisible : (bool?)null,
+                SessionProperties = SessionPropertyMapper.BuildForStart(
+                    request,
+                    PublicHostNickname),
+                ConnectionToken = SessionConnectionTokenCodec.Encode(
+                    request.Password,
+                    _profile?.Nickname,
+                    _profile?.UserId),
+                AuthValues = BuildAuthValues(),
+                EnableClientSessionCreation = request.AllowCreate,
+                SceneManager = sceneManager,
+                Scene = CaptureCurrentScene(),
+                StartGameCancellationToken = cancellation,
+                // A connected external client skips Fusion 2.1.2's recovery-settings
+            // initialization. Let this runner establish its own cloud connection.
+                CustomPhotonAppSettings = GetPhotonSettings(),
+            };
+
+            if (request.MaxPlayers > 0)
+            {
+                // Photon keeps the physical room at the project maximum so the
+                // host may raise its chosen limit later. OnConnectRequest below
+                // enforces the smaller, user-visible limit.
+                args.PlayerCount = request.AllowCreate
+                    ? RoomSettings.MaxPlayerCount
+                    : request.MaxPlayers;
+            }
+
+            return args;
+        }
+
+        internal static void ApplyServerFrameRate(GameMode mode, int tickRate)
+        {
+            if (mode != GameMode.Server) return;
+            // Dedicated players have no display to pace the loop. Match Fusion's
+            // simulation rate instead of running thousands of empty Updates.
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = tickRate;
+        }
+
+        internal static NetworkProjectConfig ConfigureSession(NetworkProjectConfig config)
+        {
+#if UNITY_EDITOR
+            // Development Play reloads the domain; large Editor scenes can exceed the normal 10 seconds.
+            if (EditorDevelopmentSession.Enabled)
+                config.Network.ConnectionTimeout = Math.Max(config.Network.ConnectionTimeout, 60f);
+#endif
+#if UNITY_WEBGL
+            // Fusion also checks this in the Editor when WebGL is the active build target.
+            config.AllowClientServerModesInWebGL = true;
+#endif
+            // Runtime-only policy; the serialized project settings remain available for restoration.
+            // config.HostMigration.EnableAutoUpdate = true;
+            config.HostMigration.EnableAutoUpdate = false;
+            return config;
+        }
+
+        internal static async UniTask<SessionStartResult> CompleteRoomInitializationAsync(
+            Action initialize, Func<UniTask> cleanup)
+        {
+            try
+            {
+                initialize();
+                return SessionStartResult.Success();
+            }
+            catch (Exception failure)
+            {
+                // Do not report failure (and enable retry) until cleanup completes.
+                await cleanup();
+                if (failure is OperationCanceledException) throw;
+                return SessionStartResult.Failed(SessionFailure.Unknown, failure.Message);
+            }
+        }
+
+        private async UniTask CleanupFailedRoomInitializationAsync(NetworkRunner runner)
+        {
+            if (!IsCurrentRunner(runner)) return;
+            _hostMigrationRevision++;
+            _hostMigrationInProgress = false;
+            _exitReported = true; // A room that failed to open is not a voluntary departure.
+            await CleanupLobbyPreloadAsync();
+            ReleaseRunner();
+            // This path follows a successful StartGame, unlike Fusion-owned start failures.
+            // Dropping ownership first prevents callbacks or Shutdown() from stopping it twice.
+            if (runner != null && runner.IsRunning)
+                await runner.Shutdown();
+            else
+                ReleaseAfterFusionShutdown(runner);
+        }
+
+        public bool TryApplyLobbySettings(
+            int maxPlayers,
+            int destructionLimit,
+            string mapId,
+            MatchRuleSettings matchRules,
+            string title = null)
+        {
+            if (!IsLocalRoomOwner || _matchStarter == null) return false;
+            return IsServer ? ApplyLobbySettings(maxPlayers, destructionLimit, mapId, matchRules, title) :
+                _matchStarter.RequestLobbySettings(maxPlayers, destructionLimit, mapId, matchRules, title ?? RoomDisplayName);
+        }
+
+        private void OnLobbySettingsRequested(PlayerRef source, PlaySettingsDraft settings)
+        {
+            if (!IsServer || !PlayerSpawner.IsRoomOwner(_runner, source)) return;
+            ApplyLobbySettings(settings.MaxPlayers, settings.DestructionLimit, settings.MapId, settings.MatchRules, settings.Title);
+        }
+
+        private bool ApplyLobbySettings(int maxPlayers, int destructionLimit, string mapId,
+            MatchRuleSettings matchRules, string title, Dictionary<string, SessionProperty> claimProperties = null)
+        {
+            if ((title != null && !RoomSettings.IsValidTitle(title)) ||
+                !IsRuntimeReady || _browsingLobby || _runner.IsSceneManagerBusy ||
+                _scenes == null || !IsOnlyScene(_runner.SceneInfo, _scenes.LobbyScene) ||
+                _matchStarter == null || _matchStarter.HasStartedMatch || _matchStarter.IsStartPending ||
+                !TryValidateLobbySettingsRequest(
+                    IsServer,
+                    _runner.SessionInfo.IsValid,
+                    PlayerCount,
+                    maxPlayers,
+                    destructionLimit,
+                    mapId,
+                    matchRules,
+                    out var normalizedMatchRules))
+            {
+                return false;
+            }
+
+            var properties = SessionPropertyMapper.BuildLobbySettings(
+                maxPlayers,
+                destructionLimit,
+                mapId,
+                normalizedMatchRules);
+            if (title != null) properties[SessionPropertyKeys.DisplayName] = title.Trim();
+            if (claimProperties != null)
+                foreach (var property in claimProperties) properties[property.Key] = property.Value;
+
+            if (!_runner.SessionInfo.UpdateCustomProperties(properties))
+            {
+                return false;
+            }
+
+            _configuredMaxPlayers = maxPlayers;
+            _destructionLimit = destructionLimit;
+            _matchRules = normalizedMatchRules;
+            _configuredMapId = mapId.Trim();
+            if (title != null) _configuredTitle = title.Trim();
+            ApplyLobbySprintMultiplierToPlayers(_matchRules.SprintMultiplier);
+            ReportPlayerCount();
+            return true;
+        }
+
+        private void ApplyLobbySprintMultiplierToPlayers(float multiplier)
+        {
+            if (!IsServer || _runner == null || !_runner.IsRunning)
+            {
+                return;
+            }
+
+            foreach (var player in _runner.ActivePlayers)
+            {
+                ApplyLobbySprintMultiplier(player, multiplier);
+            }
+        }
+
+        private void ApplyLobbySprintMultiplier(PlayerRef player, float multiplier)
+        {
+            if (!IsServer || _runner == null || !_runner.IsRunning)
+            {
+                return;
+            }
+
+            var playerObject = _runner.GetPlayerObject(player);
+            if (playerObject != null &&
+                playerObject.TryGetBehaviour<NetworkPlayerMotor>(out var motor))
+            {
+                motor.TrySetSprintMultiplier(multiplier);
+            }
+        }
+
+        public bool TryReadLobbySettings(out PlaySettingsDraft settings)
+        {
+            settings = default;
+            if (!IsRuntimeReady || _browsingLobby || !_runner.SessionInfo.IsValid) return false;
+            // The host already owns the accepted values. A delayed Cloud echo must not roll them back.
+            if (!IsServer) ReadConfiguredSettings();
+            // Until the room says how many people it holds, keep showing the last
+            // answer instead of publishing a draft with no capacity in it.
+            var maxPlayers = MaxPlayers;
+            if (maxPlayers <= 0) return false;
+            var info = _runner.SessionInfo;
+            var locked = info.Properties != null &&
+                info.Properties.TryGetValue(SessionPropertyKeys.Locked, out var property) &&
+                property.Isbool && (bool)property;
+            settings = new PlaySettingsDraft(RoomDisplayName, RoomCode, locked, _expectedPassword,
+                maxPlayers, _destructionLimit, _configuredMapId, _matchRules);
+            return true;
+        }
+
+        internal static bool TryValidateLobbySettingsRequest(
+            bool hasAuthority,
+            bool hasValidSession,
+            int currentPlayerCount,
+            int maxPlayers,
+            int destructionLimit,
+            string mapId,
+            MatchRuleSettings matchRules,
+            out MatchRuleSettings normalizedMatchRules)
+        {
+            var validMatchRules = MatchRuleSettings.TryCreateSeconds(
+                matchRules.HidingDurationSeconds,
+                matchRules.SearchingDurationSeconds,
+                matchRules.SprintMultiplier,
+                matchRules.StunHitCount,
+                matchRules.CategoryId,
+                out normalizedMatchRules,
+                out _);
+            if (!hasAuthority || !hasValidSession ||
+                maxPlayers < RoomSettings.MinPlayerCount ||
+                maxPlayers > RoomSettings.MaxPlayerCount ||
+                maxPlayers < currentPlayerCount ||
+                (destructionLimit != PlaySettingsDraft.UnlimitedDestructionLimit &&
+                 (destructionLimit < PlaySettingsDraft.MinDestructionLimit ||
+                  destructionLimit > PlaySettingsDraft.MaxDestructionLimit)) ||
+                !MapCatalog.IsLobbyChoice(mapId) ||
+                !validMatchRules ||
+                (!normalizedMatchRules.UsesRandomCategory &&
+                 ItemCatalog.DefinitionsInCategory(normalizedMatchRules.CategoryId).Count == 0))
+            {
+                normalizedMatchRules = default;
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Asks the authority to start a match. Anyone may ask; the authority
+        /// decides and answers only the peer that asked.
+        /// </summary>
+        public void RequestMatchStart()
+        {
+            if (!IsRunning || _browsingLobby || _runnerObject == null)
+            {
+                return;
+            }
+
+            _runnerObject.GetComponent<MatchStarter>()?.RequestStart(_runner);
+        }
+
+        public bool RequestReturnToLobby() =>
+            IsRuntimeReady && !_browsingLobby &&
+            _matchStarter != null &&
+            _matchStarter.RequestReturnToLobby();
+
+        /// <summary>Moves every seated player onto positions owned by the current scene.</summary>
+        public void RepositionPlayers(IReadOnlyList<Pose> poses)
+        {
+            // A preloaded scene is allowed to publish its transforms, but it
+            // must not move live avatars until Fusion has taken that scene over.
+            _spawner?.UseSpawnPoses(poses);
+            if (!IsServer || _lobbyPreloadEntering || IsHighlightInProgress)
+            {
+                return;
+            }
+
+            if (!_hostMigrationInProgress) _spawner?.RepositionSeated(_runner, _highlightCompletedPlayers);
+        }
+
+        public bool TryPublishMatchState(MatchStateSnapshot snapshot)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryPublishSnapshot(snapshot);
+        }
+
+        public bool TryPublishItemAssignments(
+            IReadOnlyList<PlayerItemAssignment> assignments)
+        {
+            if (!IsServer || _roster == null || _matchStarter == null || assignments == null)
+            {
+                return false;
+            }
+
+            var participants = new List<RoomParticipant>(assignments.Count);
+            _roster.Capture(participants);
+            if (assignments.Count == 0)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < assignments.Count; index++)
+            {
+                var assignment = assignments[index];
+                var playerIndex = assignment.PlayerIndex;
+                var itemId = assignment.Item.ItemId?.Trim();
+                if (string.IsNullOrEmpty(itemId) ||
+                    !TryResolveAssignmentRecipient(_matchStarter.PlayingParticipants,
+                        participants, playerIndex, out var playerId) ||
+                    !_roster.TryGetPlayer(playerId, out var target))
+                {
+                    return false;
+                }
+
+                var payload = Encoding.UTF8.GetBytes(itemId);
+                if (payload.Length > MaxItemAssignmentBytes)
+                {
+                    return false;
+                }
+
+                // Accept for delivery even if a restored avatar's connection is not back yet.
+                // Its scene requests this published assignment again when ready.
+                _publishedItemAssignments[playerId] = itemId;
+                SendItemAssignment(target, itemId);
+            }
+
+            return true;
+        }
+
+        public bool TryPublishPlayerItemStatuses(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryPublishPlayerItemStatuses(statuses);
+        }
+
+        public bool RequestItemAssignment()
+        {
+            if (!IsRuntimeReady || _browsingLobby || !_runner.LocalPlayer.IsRealPlayer) return false;
+            if (IsServer) return ResendItemAssignment(_runner.LocalPlayer);
+            _runner.SendReliableDataToServer(ReliableKey.FromInts(
+                ItemAssignmentRequestKeyType, ItemAssignmentKeyVersion, ++_itemAssignmentTransferSequence, 0),
+                new byte[] { 1 });
+            return true;
+        }
+
+        /// <summary>
+        /// One slot, reused: a request is answered with at most one assignment.
+        /// </summary>
+        private readonly PlayerItemAssignment[] _requestedAssignmentBuffer = new PlayerItemAssignment[1];
+
+        /// <remarks>
+        /// Answers from what was published at phase entry when it can. When it
+        /// cannot, it publishes now. The phase-entry publish runs once and skips
+        /// any player whose avatar has no PlayerId in the roster at that instant
+        /// - a player mid-respawn on a slow scene load - and it was never tried
+        /// again. That player's scene asks every second, and until this the
+        /// server answered every one of those with nothing: the briefing never
+        /// showed, the cover never dropped, the ready signal never went out, and
+        /// the whole room waited on one player who could not know why.
+        /// <para>
+        /// A player who is sending this request has an avatar in the roster, so
+        /// publishing at request time is what publishing at phase entry could
+        /// not be for them: on time.
+        /// </para>
+        /// </remarks>
+        private bool ResendItemAssignment(PlayerRef requester)
+        {
+            if (!IsRuntimeReady || !IsServer || _matchStarter == null || !requester.IsRealPlayer) return false;
+            var requesterId = PlayerRegistry.IdOf(requester);
+            if (!TryResolveAssignmentOnRequest(_publishedItemAssignments, _matchStarter.PlayingParticipants,
+                    _matchStarter.SessionAssignments, requesterId, out var itemId, out var publishIndex))
+            {
+                Debug.LogWarning(
+                    $"[Match] Assignment request from {requesterId} not answered: " +
+                    "not a playing participant, or the session has no assignment for them.");
+                return false;
+            }
+            if (publishIndex >= 0)
+            {
+                _requestedAssignmentBuffer[0] = _matchStarter.SessionAssignments[publishIndex];
+                if (!TryPublishItemAssignments(_requestedAssignmentBuffer))
+                {
+                    Debug.LogWarning(
+                        $"[Match] Assignment for {requesterId} still not publishable; " +
+                        "their scene asks again in a second.");
+                    return false;
+                }
+                // Publishing sends. Nothing more to do.
+                Debug.Log($"[Match] Assignment for {requesterId} published on request (missed at phase entry).");
+                return true;
+            }
+            SendItemAssignment(requester, itemId);
+            return true;
+        }
+
+        /// <summary>
+        /// What to send a player who asks for their assignment, and whether it
+        /// has to be published first.
+        /// </summary>
+        /// <param name="publishIndex">
+        /// The player index whose assignment must be published before it can be
+        /// sent, or -1 when it is already published. Never set without
+        /// <paramref name="itemId"/>.
+        /// </param>
+        /// <remarks>
+        /// Pure, so the two answers - already published, and known to the
+        /// session but skipped at phase entry - can be checked without a runner.
+        /// A player who is not in the line-up gets nothing even when the session
+        /// has an assignment at their index: the line-up is what says the index
+        /// is theirs.
+        /// </remarks>
+        internal static bool TryResolveAssignmentOnRequest(
+            IReadOnlyDictionary<string, string> published,
+            IReadOnlyList<MatchParticipant> playing,
+            IReadOnlyList<PlayerItemAssignment> sessionAssignments,
+            string requesterId,
+            out string itemId,
+            out int publishIndex)
+        {
+            publishIndex = -1;
+            if (TryGetPublishedAssignment(published, playing, requesterId, out itemId))
+            {
+                return true;
+            }
+            itemId = null;
+            if (string.IsNullOrEmpty(requesterId) || playing == null || sessionAssignments == null)
+            {
+                return false;
+            }
+            foreach (var participant in playing)
+            {
+                if (participant.PlayerId != requesterId) continue;
+                var index = participant.PlayerIndex;
+                if (index < 0 || index >= sessionAssignments.Count) return false;
+                var candidate = sessionAssignments[index].Item.ItemId?.Trim();
+                if (string.IsNullOrEmpty(candidate)) return false;
+                itemId = candidate;
+                publishIndex = index;
+                return true;
+            }
+            return false;
+        }
+
+        internal static bool TryGetPublishedAssignment(IReadOnlyDictionary<string, string> published,
+            IReadOnlyList<MatchParticipant> playing, string requesterId, out string itemId)
+        {
+            itemId = null;
+            foreach (var participant in playing)
+                if (participant.PlayerId == requesterId)
+                    return published.TryGetValue(requesterId, out itemId);
+            return false;
+        }
+
+        private void SendItemAssignment(PlayerRef target, string itemId)
+        {
+            if (target == _runner.LocalPlayer)
+                ItemAssignmentReceived?.Invoke(itemId);
+            else
+                _runner.SendReliableDataToPlayer(target, ReliableKey.FromInts(
+                    ItemAssignmentKeyType, ItemAssignmentKeyVersion, ++_itemAssignmentTransferSequence, 0),
+                    Encoding.UTF8.GetBytes(itemId));
+        }
+
+        internal static bool TryResolveAssignmentRecipient(
+            IReadOnlyList<MatchParticipant> playing,
+            IReadOnlyList<RoomParticipant> present,
+            int playerIndex,
+            out string playerId)
+        {
+            // Match indices stay frozen; the current room list shrinks on departure.
+            playerId = null;
+            if (playerIndex < 0 || playerIndex >= playing.Count) return false;
+            var assignedPlayerId = playing[playerIndex].PlayerId;
+            foreach (var participant in present)
+            {
+                if (participant.PlayerId != assignedPlayerId) continue;
+                playerId = assignedPlayerId;
+                return true;
+            }
+            return false;
+        }
+
+        public bool TryInitializeAssignedItems(
+            IReadOnlyList<PlayerItemAssignment> assignments)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryInitializeAssignedItems(assignments);
+        }
+
+        public bool TryPublishHighlightReplay(
+            IReadOnlyList<HighlightReplayData> replay)
+        {
+            if (!IsServer || replay == null)
+            {
+                return false;
+            }
+
+            byte[] payload;
+            try
+            {
+                payload = HighlightReplaySerializer.SerializeCompressed(replay);
+            }
+            catch (ArgumentException exception)
+            {
+                Debug.LogError($"[Match] Invalid highlight replay: {exception.Message}");
+                return false;
+            }
+
+            var key = ReliableKey.FromInts(
+                HighlightReplayKeyType,
+                HighlightReplayKeyVersion,
+                ++_highlightTransferSequence,
+                0);
+            _highlightPendingPlayers.Clear();
+            _highlightCompletedPlayers.Clear();
+            _highlightCompletionRequested = false;
+            _localHighlightComplete = false;
+            var activePlayerCount = 0;
+            foreach (var player in _runner.ActivePlayers)
+            {
+                activePlayerCount++;
+                _highlightPendingPlayers.Add(player);
+            }
+            var descriptions = new string[replay.Count];
+            for (var index = 0; index < replay.Count; index++)
+            {
+                var frameCount = 0;
+                foreach (var clip in replay[index].Clips)
+                    frameCount += clip.Frames.Count;
+                descriptions[index] =
+                    $"{replay[index].Candidate.Type}(score={replay[index].Candidate.Score:F1}, frames={frameCount})";
+            }
+            Debug.Log(
+                $"[Highlight] Sending {replay.Count} playable highlight(s) " +
+                $"[{string.Join(", ", descriptions)}], {payload.Length:N0} compressed bytes " +
+                $"to {activePlayerCount} peers.");
+            if (_runner.LocalPlayer.IsRealPlayer) HighlightReplayReceived?.Invoke(replay);
+            foreach (var player in _runner.ActivePlayers)
+            {
+                if (player != _runner.LocalPlayer)
+                {
+                    _runner.SendReliableDataToPlayer(player, key, payload);
+                }
+            }
+
+            return true;
+        }
+
+        public bool TrySetPlayerControls(int playerIndex, bool enabled)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TrySetPlayerControls(playerIndex, enabled);
+        }
+
+        public bool TrySetPlayerSprintMultiplier(int playerIndex, float multiplier)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TrySetPlayerSprintMultiplier(playerIndex, multiplier);
+        }
+
+        public bool TryResetPlayerStamina(int playerIndex)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryResetPlayerStamina(playerIndex);
+        }
+
+        public bool TryTeleportPlayer(int playerIndex, Pose pose)
+        {
+            return IsServer && _matchStarter != null &&
+                   _matchStarter.TryTeleportPlayer(playerIndex, pose);
+        }
+
+        public bool BindMatchSession(
+            MatchSessionCoordinator session,
+            IReadOnlyList<Pose> shredderEjectionPoses)
+        {
+            if (!IsServer || _matchStarter == null || session == null)
+            {
+                return false;
+            }
+
+            _matchStarter.BindSession(session, shredderEjectionPoses);
+            MatchMigration = null;
+            return true;
+        }
+
+        public bool UnbindMatchSession(MatchSessionCoordinator session)
+        {
+            return _matchStarter != null &&
+                   _matchStarter.UnbindSession(session);
+        }
+
+        public bool RequestHoldObject(string objectId) =>
+            _matchStarter != null && _matchStarter.RequestHoldObject(objectId);
+
+        public bool RequestDropHeldObject(Pose pose) =>
+            _matchStarter != null && _matchStarter.RequestDropHeldObject(pose);
+
+        public bool RequestReleaseHeldObject(Pose pose) =>
+            _matchStarter != null && _matchStarter.RequestReleaseHeldObject(pose);
+
+        public bool RequestThrowHeldObject(Pose pose, Vector3 initialVelocity) =>
+            _matchStarter != null &&
+            _matchStarter.RequestThrowHeldObject(pose, initialVelocity);
+
+        public bool TryConfirmObjectPhysicsPose(string objectId, Pose pose, Vector3 velocity,
+            bool moving, int expectedVersion) =>
+            IsServer && _matchStarter != null && _matchStarter.TryConfirmObjectPhysicsPose(
+                objectId, pose, velocity, moving, expectedVersion);
+
+        public bool TryConfirmObjectSettled(
+            string objectId,
+            Pose pose,
+            int expectedVersion) =>
+            IsServer && _matchStarter != null &&
+            _matchStarter.TryConfirmObjectSettled(
+                objectId,
+                pose,
+                expectedVersion);
+
+        public double StartCountdownRemaining => IsRuntimeReady && _matchStarter != null &&
+            _matchStarter.IsStartPending ? Math.Max(0d, _matchStarter.StartCountdownEndsAt - ServerTime) : 0d;
+
+        public bool RequestCompleteHidingTurn() =>
+            IsRuntimeReady && _matchStarter != null && _matchStarter.RequestCompleteHidingTurn();
+
+        public bool RequestHitPlayer(int targetPlayerIndex) =>
+            _matchStarter != null && _matchStarter.RequestHitPlayer(targetPlayerIndex);
+
+        public bool RequestUseShredder() =>
+            _matchStarter != null && _matchStarter.RequestUseShredder();
+
+        /// <summary>
+        /// Leaves the current session. Fusion tears the runner down itself, so
+        /// this does not await anything.
+        /// </summary>
+        /// <summary>
+        /// Drops the lobby connection so the next one is made afresh.
+        /// </summary>
+        /// <remarks>
+        /// Photon fixes the region when it connects, so a region chosen while
+        /// a lobby is already open changes nothing until that lobby is let go.
+        /// Only the browsing connection is dropped: a runner that is in a room
+        /// is in a game, and that is not something a settings panel may end.
+        /// </remarks>
+        public bool DropMatchmakingConnection()
+        {
+            if (_matchmakingClient == null)
+            {
+                return false;
+            }
+
+            ReleaseMatchmakingClient(_matchmakingClient, disconnect: true);
+            return true;
+        }
+
+        public void Shutdown()
+        {
+            if (_disposed) return;
+            ShutdownCore();
+        }
+
+        private void ShutdownCore()
+        {
+            _hostMigrationRevision++;
+            _hostMigrationInProgress = false;
+            var runner = _runner;
+            ReleaseMatchmakingClient(_matchmakingClient, disconnect: true);
+            CleanupLobbyPreloadAsync().Forget(Debug.LogException);
+            _roomEntryStartedAt = -1d;
+
+            // A voluntary room exit must be reported before references are
+            // cleared. A standalone lobby connection is not a room departure.
+            if (runner != null && runner.IsRunning && !_browsingLobby)
+            {
+                if (runner.IsServer && runner.SessionInfo.IsValid)
+                {
+                    try
+                    {
+                        runner.SessionInfo.IsOpen = false;
+                        runner.SessionInfo.IsVisible = false;
+                    }
+                    catch (Exception exception)
+                    {
+                        // Losing the cloud connection must not prevent local cleanup.
+                        Debug.LogWarning($"[Network] Could not hide the closing room: {exception.Message}");
+                    }
+                }
+                ReportExit(RoomExitReason.Left);
+            }
+
+            ReleaseRunner();
+
+            // Unity's equality covers already destroyed instances.
+            if (runner == null)
+            {
+                return;
+            }
+
+            if (runner.IsRunning)
+            {
+                // Fusion detaches its callbacks and destroys the runner object
+                // as part of its own teardown, so we must not race it by
+                // removing callbacks ourselves.
+                runner.Shutdown();
+            }
+            else
+            {
+                UnityEngine.Object.Destroy(runner.gameObject);
+            }
+        }
+
+        private void ReleaseMatchmakingClient(
+            RealtimeClient client, bool disconnect)
+        {
+            if (client == null)
+            {
+                return;
+            }
+
+            client.RemoveCallbackTarget(this);
+
+            if (ReferenceEquals(_matchmakingClient, client))
+            {
+                _matchmakingService?.Dispose();
+                _matchmakingService = null;
+                _matchmakingClient = null;
+                _realtimeRooms.Clear();
+                _roomBuffer.Clear();
+                _roomListSink?.SetRooms(_roomBuffer);
+                _browsingLobby = false;
+            }
+
+            if (disconnect)
+            {
+                client.Disconnect();
+            }
+        }
+
+        /// <summary>
+        /// Clears this service after Fusion has already torn the runner down on
+        /// its own, which is how every failed start arrives.
+        /// </summary>
+        /// <remarks>
+        /// A refused or cancelled <c>StartGame</c> reaches us through Fusion's
+        /// <c>ShutdownAndBuildResult</c>, so the runner is already stopping by
+        /// the time the result is read. Calling <see cref="Shutdown"/> here
+        /// would re-enter <c>NetworkRunner.Shutdown</c> from inside Fusion's own
+        /// teardown.
+        /// <para>
+        /// Cancellation makes that fatal rather than merely redundant. The token
+        /// belongs to the screen, so it fires from
+        /// <c>LifetimeScope.OnDestroy</c>, and a token fires its registrations
+        /// synchronously: the continuation runs on the destroy stack, in the
+        /// middle of a scene load, and takes Fusion down re-entrantly with it.
+        /// Leaving the room browser while it was still connecting froze the game
+        /// exactly this way.
+        /// </para>
+        /// </remarks>
+        /// <param name="runner">
+        /// The runner the failed attempt started, which is not always the one
+        /// this service holds now. An abandoned connect finishes on its own
+        /// since it is no longer cancelled, and can land after a newer attempt
+        /// has taken over, so its own runner is the only thing it may clear.
+        /// </param>
+        private void ReleaseAfterFusionShutdown(NetworkRunner runner)
+        {
+            // No room departure to report: a session that never started is not
+            // one this peer can leave.
+            if (IsCurrentRunner(runner))
+            {
+                ReleaseRunner();
+            }
+
+            // Unity's equality covers already destroyed instances.
+            if (runner == null)
+            {
+                return;
+            }
+
+            // Still running means Fusion's teardown is mid-flight and owns the
+            // object; it destroys the runner as it finishes. Only one Fusion has
+            // already let go of can be left behind, and that one is ours.
+            if (!runner.IsRunning)
+            {
+                UnityEngine.Object.Destroy(runner.gameObject);
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            ShutdownCore();
+        }
+
+        /// <summary>
+        /// Builds the runner object. Fusion needs a scene manager on the same
+        /// object to drive networked scene loading, so it is added here.
+        /// </summary>
+        /// <param name="provideInput">
+        /// False for a dedicated server, which has no local player and therefore
+        /// no input to contribute.
+        /// </param>
+        private INetworkSceneManager CreateRunner(bool provideInput)
+        {
+            _exitShutdownPending = false;
+            _isClientSession = false;
+            GetPhotonSettings();
+
+            _runnerObject = new GameObject(RunnerObjectName);
+            UnityEngine.Object.DontDestroyOnLoad(_runnerObject);
+
+            var sceneManager = _runnerObject.AddComponent<NetworkSceneManagerDefault>();
+
+            _runner = _runnerObject.AddComponent<NetworkRunner>();
+            _runner.ProvideInput = provideInput;
+            _runner.AddCallbacks(this);
+            NetworkRunner.CloudConnectionLost += OnCloudConnectionLost;
+
+            // Voice rides on the same object because its client reads the runner
+            // for the session it should follow. A dedicated server keeps only
+            // an inactive registry for the avatars' voice lifecycle callbacks.
+            Voice = provideInput ? VoiceRig.Attach(_runner) : null;
+            if (!provideInput) VoiceRig.AttachServer(_runner);
+
+            // Sits on the runner so that characters, which Fusion spawns and the
+            // container therefore cannot inject, can still reach it.
+            _roster = _runnerObject.AddComponent<PlayerRoster>();
+            _roster.Bind(_participantSink);
+            _matchStarter = _runnerObject.AddComponent<MatchStarter>();
+
+            // This service is the scene director: it already owns the runner's
+            // scene manager, the initial scene and the scene callbacks, so the
+            // starter can confirm a line-up without learning what a scene is.
+            _matchStarter.Bind(_matchStartSink, _roster, this, _chatModeration);
+            _matchStarter.LobbyKickRequested += OnLobbyKickRequested;
+            _matchStarter.LobbySettingsRequested += OnLobbySettingsRequested;
+            _matchStarter.RoomClaimRequested += OnRoomClaimRequested;
+            _matchStarter.RoomClaimAnswered += OnRoomClaimAnswered;
+            _matchStarter.LobbyNicknameRequested += OnLobbyNicknameRequested;
+            _matchStarter.MatchStateReceived += OnMatchStateReceived;
+            _matchStarter.LobbyChatReceived += OnLobbyChatReceived;
+            _matchStarter.MatchChatReceived += OnMatchChatReceived;
+            _matchStarter.ObjectStatesReceived += OnObjectStatesReceived;
+            _matchStarter.ItemDestroyedReceived += OnItemDestroyedReceived;
+            _matchStarter.PlayerItemStatusesReceived += OnPlayerItemStatusesReceived;
+            _matchStarter.PlayerStunnedReceived += OnPlayerStunnedReceived;
+            _matchStarter.ObjectThrownReceived += OnObjectThrownReceived;
+            _matchStarter.FinalWarningReceived += OnFinalWarningReceived;
+            _matchStarter.ParticipantActivityReceived += OnParticipantActivityReceived;
+            _matchStarter.PlayerInteractionStatesReceived +=
+                OnPlayerInteractionStatesReceived;
+            _matchStarter.MatchResultReceived += OnMatchResultReceived;
+            _matchStarter.LineUpReceived += OnLineUpReceived;
+            _matchStarter.SimulationTick += OnSimulationTick;
+
+            return sceneManager;
+        }
+
+        /// <summary>
+        /// What Photon passes on to our authentication service
+        /// (S15P21D205-925).
+        /// </summary>
+        /// <remarks>
+        /// Both the id and the token go. Photon forwards these values to us
+        /// untouched rather than vouching for them, so the id on its own would
+        /// let a suspended player type someone else's and connect.
+        /// <para>
+        /// Null when there is no token, which is what a server running without
+        /// Photon authentication answers with. Sending half the pair would be
+        /// refused by a server that does have it configured.
+        /// </para>
+        /// <para>
+        /// Fully qualified because <c>Fusion.Photon.Realtime</c> is also in
+        /// scope here and <c>Photon.Realtime</c> would resolve to it.
+        /// </para>
+        /// </remarks>
+        /// <summary>
+        /// Waits for signing in to finish, so the credentials below are there to
+        /// send (S15P21D205-928).
+        /// </summary>
+        /// <remarks>
+        /// <see cref="BuildAuthValues"/> reads the profile at the moment it is
+        /// called. Nothing used to make that moment come after the account
+        /// arrived, and the room browser warms the lobby up the instant the home
+        /// screen appears - so the connection went out with no credentials at
+        /// all, which Photon refuses once anonymous clients are turned off.
+        /// <para>
+        /// <b>Waiting does not mean requiring.</b> Ready answers false when
+        /// there is no account and this returns anyway; the connection then goes
+        /// out anonymous, which is the fail-open side of the same decision. A
+        /// backend outage must not become nobody being able to play.
+        /// </para>
+        /// <para>
+        /// Ready always completes - sign-in has its own timeout - so there is no
+        /// timeout here. Adding one would only race the one underneath it.
+        /// </para>
+        /// </remarks>
+        private async UniTask WaitForAccountAsync(CancellationToken cancellation)
+        {
+            if (_accountReady == null)
+            {
+                return;
+            }
+
+            await _accountReady.Ready.AttachExternalCancellation(cancellation)
+                .SuppressCancellationThrow();
+        }
+
+        private global::Photon.Realtime.AuthenticationValues BuildAuthValues()
+        {
+            var userId = _profile?.UserId;
+            var token = _profile?.PhotonToken;
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(token))
+            {
+                return null;
+            }
+
+            var values = new global::Photon.Realtime.AuthenticationValues
+            {
+                AuthType = global::Photon.Realtime.CustomAuthenticationType.Custom,
+                UserId = userId,
+            };
+            values.AddAuthParameter("userId", userId);
+            values.AddAuthParameter("token", token);
+            return values;
+        }
+
+        private Fusion.Photon.Realtime.FusionAppSettings GetPhotonSettings()
+        {
+            var settings =
+                Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings;
+            // The deployment supplies its region through ProjectLifetimeScope,
+            // so changing regions does not require recompiling network code.
+            settings.FixedRegion = _regions?.Current.Code;
+            // Native authority and WebGL clients must use the same protocol bucket.
+            var buildVersion = Application.version;
+#if UNITY_EDITOR
+            if (EditorDevelopmentSession.Enabled)
+            {
+                Application.runInBackground = true;
+                settings.AppVersion = EditorDevelopmentSession.AppVersion;
+                settings.FixedRegion = "kr";
+                Debug.Log($"[Network] Development peer: {EditorDevelopmentSession.Role}, code={EditorDevelopmentSession.Code}, version={settings.AppVersion}, region=kr");
+                return settings;
+            }
+            // Local opt-in only. Never change the product version to join a test
+            // server, and never apply an Editor override to shipped players.
+            var testVersionPath = System.IO.Path.Combine(Application.dataPath, "../UserSettings/ServerFlowVersion.txt");
+            if (System.IO.File.Exists(testVersionPath))
+            {
+                var testVersion = System.IO.File.ReadAllText(testVersionPath).Trim();
+                if (!string.IsNullOrEmpty(testVersion)) buildVersion = testVersion;
+            }
+            Debug.Log($"[Network] Editor matchmaking: version={buildVersion}, region={settings.FixedRegion}");
+#endif
+            settings.AppVersion = $"server-v1-{buildVersion}";
+            return settings;
+        }
+
+        /// <summary>
+        /// The scene the session opens in, so that Fusion has something to
+        /// replicate as the current scene from the start.
+        /// </summary>
+        /// <remarks>
+        /// Without this the runner reports <c>started with no scene</c> and scene
+        /// synchronisation never engages, which makes a later
+        /// <see cref="EnterMatchScene"/> a no-op. The scene has to be in the
+        /// build list to have an index Fusion can send, and one that is not is
+        /// left empty rather than guessed at: a wrong index would load a
+        /// different scene on the clients than the host is in.
+        /// </remarks>
+        private static NetworkSceneInfo CaptureCurrentScene()
+        {
+            var info = new NetworkSceneInfo();
+            var active = SceneManager.GetActiveScene();
+
+            if (active.buildIndex < 0 ||
+                active.buildIndex >= SceneManager.sceneCountInBuildSettings)
+            {
+                Debug.LogWarning(
+                    $"[Session] '{active.name}' is not in the build scene list, " +
+                    "so the session starts without a synchronised scene. Add it " +
+                    "under File > Build Profiles.");
+
+                return info;
+            }
+
+            // Additive, not Single. This only tells Fusion which scene the
+            // session begins in; the scene is already loaded. Declaring it as
+            // Single invites the scene manager to reload it while the peer is
+            // still connecting, which would destroy the scope that is driving
+            // the connection. Replacing the scene is what EnterMatchScene does.
+            info.AddSceneRef(SceneRef.FromIndex(active.buildIndex), LoadSceneMode.Additive);
+            return info;
+        }
+
+        private void BeginLobbyPreload()
+        {
+            if (_lobbyPreload != null || _scenes == null ||
+                !_scenes.LobbyScene.IsValid)
+            {
+                return;
+            }
+
+            var scene = _scenes.LobbyScene;
+            var loaded = SceneManager.GetSceneByBuildIndex(scene.AsIndex);
+            if (loaded.IsValid() && loaded.isLoaded)
+            {
+                return;
+            }
+
+            _lobbyPreloadStartedAt = Time.realtimeSinceStartupAsDouble;
+            _lobbyPreload = SceneManager.LoadSceneAsync(
+                scene.AsIndex, LoadSceneMode.Additive);
+            if (_lobbyPreload == null)
+            {
+                _lobbyPreloadStartedAt = -1d;
+                return;
+            }
+
+            _previousLoadingPriority = Application.backgroundLoadingPriority;
+            Application.backgroundLoadingPriority = UnityEngine.ThreadPriority.Low;
+            _lobbyPreloadRaisedPriority = true;
+            _lobbyPreload.priority = 100;
+            // Read and deserialize in parallel with Photon, but do not run the
+            // Lobby scene or expose its UI before room entry is confirmed.
+            _lobbyPreload.allowSceneActivation = false;
+            Debug.Log("[SceneTiming] Lobby background preload requested.");
+        }
+
+        /// <summary>
+        /// Starts the host's next Lobby load while the create-room form is open.
+        /// Closing the form keeps the completed preload as a cache; leaving the
+        /// room browser releases it through the normal session shutdown path.
+        /// </summary>
+        public void PrepareLobbyScene()
+        {
+            if (_browsingLobby && !_joiningMatchmakingLobby)
+            {
+                BeginLobbyPreload();
+            }
+        }
+
+        private async UniTask CompleteLobbyPreloadAndEnterAsync(
+            NetworkRunner runner)
+        {
+            if (_lobbyPreloadEntering)
+            {
+                return;
+            }
+
+            _lobbyPreloadEntering = true;
+            var operation = _lobbyPreload;
+            try
+            {
+                // The gate is where a load parked with allowSceneActivation off
+                // comes to rest — nominally 0.9, in practice a float just under
+                // it, and with several additive scenes ahead in Unity's queue
+                // sometimes not reached at all while the room is already up.
+                // Waiting on it exactly left the player on the loading cover
+                // for ever with the room made. So: a tolerant threshold, and a
+                // deadline after which activation is simply allowed — that is
+                // the very thing the gate was waiting to do.
+                var gateOpenedAt = Time.realtimeSinceStartupAsDouble;
+                var gateDeadline = gateOpenedAt + LobbyPreloadGateSeconds;
+                await UniTask.WaitUntil(() => operation == null ||
+                    operation.isDone || operation.progress >= LobbyPreloadGateProgress ||
+                    Time.realtimeSinceStartupAsDouble >= gateDeadline ||
+                    !IsCurrentRunner(runner) || !runner.IsRunning);
+
+                if (operation == null || !IsCurrentRunner(runner) ||
+                    !runner.IsRunning)
+                {
+                    await CleanupLobbyPreloadAsync();
+                    return;
+                }
+
+                if (!operation.isDone && operation.progress < LobbyPreloadGateProgress)
+                {
+                    Debug.LogWarning(
+                        $"[SceneTiming] Lobby preload stuck at progress={operation.progress:F3} " +
+                        $"for {LobbyPreloadGateSeconds:F0}s; allowing activation anyway.");
+                }
+
+                Debug.Log(
+                    $"[SceneTiming] Lobby preload reached activation gate, " +
+                    $"elapsed={Time.realtimeSinceStartupAsDouble - _lobbyPreloadStartedAt:F3}s.");
+                await UniTask.NextFrame();
+                operation.allowSceneActivation = true;
+                await UniTask.WaitUntil(() => operation.isDone);
+                await UniTask.NextFrame();
+                RestoreLobbyPreloadPriority();
+
+                var lobby = SceneManager.GetSceneByBuildIndex(
+                    _scenes.LobbyScene.AsIndex);
+                if (!lobby.IsValid() || !lobby.isLoaded)
+                {
+                    _lobbyPreload = null;
+                    await UniTask.NextFrame();
+                    LoadLobbyScene(runner);
+                    return;
+                }
+
+                _preloadedLobbyRoots = lobby.GetRootGameObjects();
+                for (var i = 0; i < _preloadedLobbyRoots.Length; i++)
+                {
+                    _preloadedLobbyRoots[i].SetActive(false);
+                }
+
+                _lobbyPreload = null;
+                Debug.Log(
+                    $"[SceneTiming] Lobby preload activated for Fusion takeover, " +
+                    $"elapsed={Time.realtimeSinceStartupAsDouble - _lobbyPreloadStartedAt:F3}s.");
+                await UniTask.NextFrame();
+                LoadLobbyScene(runner);
+            }
+            finally
+            {
+                RestoreLobbyPreloadPriority();
+                _lobbyPreloadEntering = false;
+            }
+        }
+
+        private async UniTask CleanupLobbyPreloadAsync()
+        {
+            var operation = _lobbyPreload;
+            var hadPreload = operation != null || _preloadedLobbyRoots.Length > 0;
+            _lobbyPreload = null;
+            _lobbyPreloadEntering = false;
+            _lobbyPreloadStartedAt = -1d;
+            _roomEntryStartedAt = -1d;
+            RestoreLobbyPreloadPriority();
+
+            if (!hadPreload)
+            {
+                return;
+            }
+
+            if (operation != null && !operation.isDone)
+            {
+                operation.allowSceneActivation = true;
+                await UniTask.WaitUntil(() => operation.isDone);
+            }
+            if (_scenes == null || !_scenes.LobbyScene.IsValid)
+            {
+                return;
+            }
+
+            var lobby = SceneManager.GetSceneByBuildIndex(
+                _scenes.LobbyScene.AsIndex);
+            if (!lobby.IsValid() || !lobby.isLoaded)
+            {
+                return;
+            }
+
+            foreach (var root in lobby.GetRootGameObjects())
+            {
+                root.SetActive(false);
+            }
+
+            await SceneManager.UnloadSceneAsync(lobby).ToUniTask();
+            _preloadedLobbyRoots = Array.Empty<GameObject>();
+        }
+
+        private void RestoreLobbyPreloadPriority()
+        {
+            if (!_lobbyPreloadRaisedPriority)
+            {
+                return;
+            }
+
+            Application.backgroundLoadingPriority = _previousLoadingPriority;
+            _lobbyPreloadRaisedPriority = false;
+        }
+
+        private void RaiseNetworkSceneLoadingPriority()
+        {
+            if (_networkLoadRaisedPriority)
+            {
+                return;
+            }
+
+            // Keep the animated loading overlay responsive during async asset integration.
+            // This budget does not split Unity's final scene activation.
+            _previousNetworkLoadingPriority =
+                Application.backgroundLoadingPriority;
+            Application.backgroundLoadingPriority =
+                UnityEngine.ThreadPriority.Low;
+            _networkLoadRaisedPriority = true;
+        }
+
+        private void RestoreNetworkSceneLoadingPriority()
+        {
+            if (!_networkLoadRaisedPriority)
+            {
+                return;
+            }
+
+            Application.backgroundLoadingPriority =
+                _previousNetworkLoadingPriority;
+            _networkLoadRaisedPriority = false;
+        }
+
+        /// <summary>
+        /// Takes the room into the map. Only the authority may change the
+        /// networked scene; Fusion carries the change to everyone else.
+        /// </summary>
+        public void EnterMatchScene(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsRunning || !runner.IsServer)
+            {
+                return;
+            }
+
+            if (_scenes == null)
+            {
+                Debug.LogError(
+                    "[Session] No NetworkScenes asset is assigned, so the match " +
+                    "cannot move into a map. Set it on ProjectLifetimeScope.");
+                return;
+            }
+
+            // 방 설정이 "랜덤"이면 여기서, 즉 매치가 확정된 순간에 맵을 고른다.
+            // 설정 값은 랜덤 그대로 두어 다음 매치도 다시 뽑힌다.
+            var mapId = MapCatalog.IsRandom(_configuredMapId)
+                ? MapCatalog.PickRandom()
+                : _configuredMapId;
+            var scene = _scenes.MatchSceneFor(mapId);
+
+            if (!scene.IsValid)
+            {
+                // NetworkScenes has already said which of the two reasons it is.
+                return;
+            }
+
+            _activeMapId = mapId;
+
+            // Single, not Additive: the lobby scene would otherwise stay loaded
+            // behind the map, leaving two cameras rendering and the lobby's
+            // geometry inside it.
+            Debug.Log($"[SceneTiming] Network load requested: Lobby -> {scene} (map '{mapId}').");
+            runner.LoadScene(scene, LoadSceneMode.Single);
+            Debug.Log($"[Session] Loading the match scene for everyone (map '{mapId}').");
+        }
+
+        public bool IsResultSceneLoaded { get; private set; }
+
+        public bool EnterResultScene()
+        {
+            if (!IsServer || !IsRuntimeReady) return false;
+            if (IsResultSceneLoaded) return true;
+            if (_scenes == null)
+            {
+                Debug.LogError("[Session] NetworkScenes must be assigned to load results.");
+                return false;
+            }
+            // 맵 전용 엔딩(예: 저택 지하실)이 있으면 그 씬, 없으면 기본 결과 씬.
+            var scene = _scenes.ResultSceneFor(AnalyticsMapId);
+            if (!scene.IsValid) return false;
+            Debug.Log($"[SceneTiming] Result additive load requested: {scene} (map {AnalyticsMapId}).");
+            _runner.LoadScene(scene, LoadSceneMode.Additive);
+            return true;
+        }
+
+        public bool PrepareLobbyForHighlights()
+        {
+            if (!IsServer || !IsRuntimeReady || !IsHighlightInProgress ||
+                _scenes == null || !_scenes.LobbyScene.IsValid ||
+                !_scenes.MatchSceneFor(AnalyticsMapId).IsValid)
+            {
+                return false;
+            }
+            if (TryFindLoadedResultScene(_runner.SceneInfo, out var loadedResultScene))
+            {
+                if (!_highlightResultUnloadRequested)
+                {
+                    _highlightResultUnloadRequested = true;
+                    Debug.Log($"[SceneTiming] Result display completed; unloading result scene {loadedResultScene}.");
+                    _runner.UnloadScene(loadedResultScene);
+                }
+                return false;
+            }
+            _highlightResultUnloadRequested = false;
+            if (ContainsScene(_runner.SceneInfo, _scenes.LobbyScene))
+                return _highlightLobbyPrepared;
+            if (_highlightLobbyLoadRequested) return false;
+
+            _highlightLobbyLoadRequested = true;
+            Debug.Log("[SceneTiming] Highlight lobby additive load requested.");
+            _runner.LoadScene(_scenes.LobbyScene, LoadSceneMode.Additive);
+            return false;
+        }
+
+        public bool EnterLobbyScene(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsRunning || !runner.IsServer)
+            {
+                return false;
+            }
+
+            if (_scenes == null)
+            {
+                Debug.LogError(
+                    "[Session] No NetworkScenes asset is assigned, so the room " +
+                    "cannot return to the lobby. Set it on ProjectLifetimeScope.");
+                return false;
+            }
+
+            var scene = _scenes.LobbyScene;
+            if (!scene.IsValid)
+            {
+                return false;
+            }
+
+            if (ContainsScene(runner.SceneInfo, scene))
+            {
+                if (TryFindLoadedMatchScene(runner.SceneInfo, out var matchScene))
+                {
+                    // A completion request can race the shared Highlight -> Result
+                    // boundary. Place every remaining avatar before its old floor
+                    // disappears. Preserve the current position of players who
+                    // already completed viewing and are moving around Lobby.
+                    _spawner?.RepositionSeated(runner, _highlightCompletedPlayers);
+                    Debug.Log($"[SceneTiming] Highlight lobby ready; unloading match scene {matchScene}.");
+                    runner.UnloadScene(matchScene);
+                }
+                return true;
+            }
+
+            if (_lobbyPreload != null)
+            {
+                CompleteLobbyPreloadAndEnterAsync(runner)
+                    .Forget(Debug.LogException);
+                return true;
+            }
+
+            EnterLobbySceneSlicedAsync(runner).Forget(Debug.LogException);
+            return true;
+        }
+
+        private async UniTask EnterLobbySceneSlicedAsync(NetworkRunner runner)
+        {
+            await UniTask.NextFrame();
+            if (!IsCurrentRunner(runner) || !runner.IsRunning || !runner.IsServer)
+            {
+                return;
+            }
+
+            if (_lobbyPreload != null)
+            {
+                await CompleteLobbyPreloadAndEnterAsync(runner);
+                return;
+            }
+
+            LoadLobbyScene(runner);
+        }
+
+        private bool TryCompleteHighlightViewing(PlayerRef player)
+        {
+            if (_highlightCompletedPlayers.Contains(player)) return true;
+            if (_spawner == null || _matchStarter == null ||
+                !_spawner.TryGetSpawnPose(player, out var pose) ||
+                !_matchStarter.TryCompleteHighlightViewing(player, pose))
+            {
+                return false;
+            }
+
+            _highlightCompletedPlayers.Add(player);
+            return true;
+        }
+
+        private static bool ContainsScene(NetworkSceneInfo info, SceneRef scene)
+        {
+            if (!scene.IsValid) return false;
+            for (var index = 0; index < info.SceneCount; index++)
+                if (info.Scenes[index] == scene) return true;
+            return false;
+        }
+
+        /// <summary>지금 올라와 있는 씬 중 결과 씬(기본 또는 맵 전용)을 찾는다.</summary>
+        private bool TryFindLoadedResultScene(NetworkSceneInfo info, out SceneRef resultScene)
+        {
+            for (var index = 0; index < info.SceneCount; index++)
+            {
+                if (_scenes.IsResultScene(info.Scenes[index]))
+                {
+                    resultScene = info.Scenes[index];
+                    return true;
+                }
+            }
+
+            resultScene = default;
+            return false;
+        }
+
+        /// <summary>지금 올라와 있는 씬 중 매치 씬(어느 맵이든)을 찾는다. 맵이 여러 개라 이름 하나로 비교할 수 없다.</summary>
+        private bool TryFindLoadedMatchScene(NetworkSceneInfo info, out SceneRef matchScene)
+        {
+            for (var index = 0; index < info.SceneCount; index++)
+            {
+                if (_scenes.IsMatchScene(info.Scenes[index]))
+                {
+                    matchScene = info.Scenes[index];
+                    return true;
+                }
+            }
+
+            matchScene = default;
+            return false;
+        }
+
+        private bool LoadLobbyScene(NetworkRunner runner)
+        {
+            if (runner == null || !runner.IsRunning || !runner.IsServer ||
+                _scenes == null || !_scenes.LobbyScene.IsValid)
+            {
+                return false;
+            }
+
+            var scene = _scenes.LobbyScene;
+
+            Debug.Log(
+                $"[SceneTiming] Network load requested: {SceneManager.GetActiveScene().name} -> " +
+                $"{scene}.");
+            runner.LoadScene(scene, LoadSceneMode.Single);
+            Debug.Log("[Session] Returning everyone to the lobby scene.");
+            return true;
+        }
+
+        /// <summary>
+        /// Enters the room lobby through Fusion after a room create or join.
+        /// The host publishes the scene change; clients receive the host's scene
+        /// through the normal Fusion scene synchronisation path.
+        /// </summary>
+        public bool EnterLobbyScene()
+        {
+            if (!IsRunning || _browsingLobby)
+            {
+                return false;
+            }
+
+            return !_runner.IsServer || EnterLobbyScene(_runner);
+        }
+
+        /// <summary>
+        /// Drops our references to the runner without touching it, so the caller
+        /// can decide how to tear it down.
+        /// </summary>
+        private void ReleaseRunner(bool preserveMigrationState = false)
+        {
+            _claimAnswer?.TrySetResult(false);
+            _claimAnswer = null;
+            _awaitingRoomClaim = false;
+            _claimAdmissionPending = false;
+            NetworkRunner.CloudConnectionLost -= OnCloudConnectionLost;
+            _pendingKicks.Clear();
+            RestoreNetworkSceneLoadingPriority();
+            _publishedItemAssignments.Clear();
+            _latestPlayerItemStatuses = Array.Empty<PlayerItemStatusSnapshot>();
+            _matchRuntimeRestorePending = false;
+            _matchRuntimeRestoreFailure = null;
+            MatchMigration = null;
+            IsResultSceneLoaded = false;
+            _highlightPendingPlayers.Clear();
+            _highlightCompletedPlayers.Clear();
+            _receivedHighlightSequence = 0;
+            _highlightResultUnloadRequested = false;
+            _highlightLobbyLoadRequested = false;
+            _highlightLobbyPrepared = false;
+            _highlightCompletionRequested = false;
+            _localHighlightComplete = false;
+            // The rig is a component on the runner object and goes down with it.
+            // A caller that kept talking to it afterwards would be talking to a
+            // destroyed component.
+            Voice = null;
+
+            // A room list is a snapshot owned by the matchmaking connection.
+            // Once that connection is gone, retaining its last snapshot shows rooms that
+            // may already have disappeared when the browser is opened again.
+            _roomBuffer.Clear();
+            _roomListSink?.SetRooms(_roomBuffer);
+
+            // Emptied while the runner object still exists. It is destroyed with
+            // the session, and presentation would otherwise keep showing the
+            // people who were in the room we just left.
+            if (_runnerObject != null)
+            {
+                _runnerObject.GetComponent<PlayerRoster>()?.Clear();
+                _matchStarter?.Clear();
+            }
+
+            if (_matchStarter != null)
+            {
+                _matchStarter.MatchStateReceived -= OnMatchStateReceived;
+                _matchStarter.LobbyChatReceived -= OnLobbyChatReceived;
+                _matchStarter.MatchChatReceived -= OnMatchChatReceived;
+                _matchStarter.ObjectStatesReceived -= OnObjectStatesReceived;
+                _matchStarter.ItemDestroyedReceived -= OnItemDestroyedReceived;
+                _matchStarter.PlayerItemStatusesReceived -= OnPlayerItemStatusesReceived;
+                _matchStarter.PlayerStunnedReceived -= OnPlayerStunnedReceived;
+                _matchStarter.ObjectThrownReceived -= OnObjectThrownReceived;
+                _matchStarter.FinalWarningReceived -= OnFinalWarningReceived;
+                _matchStarter.ParticipantActivityReceived -= OnParticipantActivityReceived;
+                _matchStarter.PlayerInteractionStatesReceived -=
+                    OnPlayerInteractionStatesReceived;
+                _matchStarter.MatchResultReceived -= OnMatchResultReceived;
+                _matchStarter.LineUpReceived -= OnLineUpReceived;
+                _matchStarter.SimulationTick -= OnSimulationTick;
+                _matchStarter.LobbyKickRequested -= OnLobbyKickRequested;
+                _matchStarter.LobbySettingsRequested -= OnLobbySettingsRequested;
+                _matchStarter.RoomClaimRequested -= OnRoomClaimRequested;
+                _matchStarter.RoomClaimAnswered -= OnRoomClaimAnswered;
+                _matchStarter.LobbyNicknameRequested -= OnLobbyNicknameRequested;
+            }
+
+            _runner = null;
+            _runnerObject = null;
+            _roster = null;
+            _matchStarter = null;
+            _localInputMotor = null;
+            if (!preserveMigrationState)
+            {
+                _expectedPassword = null;
+                _configuredTitle = null;
+                _configuredMaxPlayers = 0;
+                _configuredMapId = MapCatalog.DefaultMapId;
+                _activeMapId = null;
+                _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
+                _matchRules = MatchRuleSettings.Default;
+            }
+            _browsingLobby = false;
+
+            // The characters go with the session, but the seating does not clear
+            // itself. Left behind, the next room would start numbering from
+            // wherever the last one stopped.
+            if (!preserveMigrationState)
+            {
+                _spawner?.Clear();
+            }
+        }
+
+        private void OnMatchStateReceived(MatchStateSnapshot snapshot)
+        {
+            if (snapshot.Phase == MatchPhase.Hiding)
+            {
+                _highlightCompletedPlayers.Clear();
+                _highlightResultUnloadRequested = false;
+                _highlightLobbyLoadRequested = false;
+                _highlightLobbyPrepared = false;
+                _highlightCompletionRequested = false;
+                _localHighlightComplete = false;
+            }
+            MatchStateReceived?.Invoke(snapshot);
+        }
+
+        private void OnLobbyChatReceived(LobbyChatMessage message)
+        {
+            ChatReceived?.Invoke(message);
+        }
+
+        private void OnMatchChatReceived(LobbyChatMessage message)
+        {
+            MatchChatReceived?.Invoke(message);
+        }
+
+        private void OnObjectStatesReceived(
+            IReadOnlyList<MatchObjectStateSnapshot> states)
+        {
+            ObjectStatesReceived?.Invoke(states);
+        }
+
+        private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmedEvent)
+        {
+            ItemDestroyedReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnPlayerItemStatusesReceived(
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            if (statuses == null || statuses.Count == 0)
+            {
+                _latestPlayerItemStatuses = Array.Empty<PlayerItemStatusSnapshot>();
+            }
+            else
+            {
+                _latestPlayerItemStatuses =
+                    new List<PlayerItemStatusSnapshot>(statuses).AsReadOnly();
+            }
+
+            PlayerItemStatusesReceived?.Invoke(_latestPlayerItemStatuses);
+        }
+
+        private void OnPlayerStunnedReceived(PlayerStunnedEvent confirmedEvent)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            Debug.Log($"[QA-Stun] rpc target={confirmedEvent.TargetPlayerIndex} now={ServerTime:F3} end={confirmedEvent.StunEndsAt:F3}");
+#endif
+            PlayerStunnedReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnObjectThrownReceived(ObjectThrownEvent confirmedEvent)
+        {
+            ObjectThrownReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnFinalWarningReceived(FinalWarningStartedEvent confirmedEvent)
+        {
+            FinalWarningReceived?.Invoke(confirmedEvent);
+        }
+
+        private void OnParticipantActivityReceived(IReadOnlyList<bool> active)
+        {
+            ParticipantActivityReceived?.Invoke(active);
+        }
+
+        private void OnPlayerInteractionStatesReceived(
+            IReadOnlyList<PlayerInteractionStateSnapshot> states)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (states != null)
+                foreach (var state in states)
+                    if (state.StunEndsAt > 0d)
+                        Debug.Log($"[QA-Stun] snapshot player={state.PlayerIndex} now={ServerTime:F3} end={state.StunEndsAt:F3} stunned={state.IsStunned(ServerTime)}");
+#endif
+            PlayerInteractionStatesReceived?.Invoke(states);
+        }
+
+        private void OnMatchResultReceived(MatchResult result)
+        {
+            MatchResultReceived?.Invoke(result);
+        }
+
+        private void OnLineUpReceived(IReadOnlyList<MatchParticipant> participants)
+        {
+            _latestPlayerItemStatuses = Array.Empty<PlayerItemStatusSnapshot>();
+            if (participants == null || participants.Count == 0)
+            {
+                MatchMigration = null;
+                _publishedItemAssignments.Clear();
+            }
+            LineUpReceived?.Invoke(participants);
+        }
+
+        private void OnSimulationTick()
+        {
+            // During migration only the requested runtime restoration may consume this tick.
+            if (!IsRuntimeReady && !IsMatchRuntimeRestorePending) return;
+            SimulationTick?.Invoke();
+        }
+
+        private bool IsCurrentRunner(NetworkRunner runner) =>
+            ReferenceEquals(runner, _runner);
+
+        private void ReadConfiguredSettings()
+        {
+            if (_runner == null || !_runner.SessionInfo.IsValid)
+            {
+                return;
+            }
+
+            var info = _runner.SessionInfo;
+            // Falls back to what this peer already accepted, never to the room's
+            // actor capacity: that counts the dedicated server's own slot.
+            var maxPlayers = SessionPropertyMapper.ReadInt(
+                info,
+                SessionPropertyKeys.MaxPlayers,
+                _configuredMaxPlayers);
+            var destructionLimit = SessionPropertyMapper.ReadInt(
+                info,
+                SessionPropertyKeys.DestructionLimit,
+                _destructionLimit);
+            var matchRules = SessionPropertyMapper.ReadMatchRules(
+                info,
+                _matchRules);
+            var mapId = SessionPropertyMapper.ReadString(
+                info,
+                SessionPropertyKeys.MapId,
+                MapCatalog.DefaultMapId);
+
+            // The session listing counts a dedicated server as an occupant, so its
+            // count reaches the configured limit one player short of a full room,
+            // and this read would then drop every published change without saying so.
+            if (!TryValidateLobbySettingsRequest(
+                    true,
+                    true,
+                    CountActivePlayers(_runner),
+                    maxPlayers,
+                    destructionLimit,
+                    mapId,
+                    matchRules,
+                    out var normalizedMatchRules))
+            {
+                if (!_publishedSettingsRejected)
+                {
+                    // Never fail this read silently: the screens would keep showing
+                    // settings the room no longer has.
+                    _publishedSettingsRejected = true;
+                    Debug.LogWarning(
+                        "[Session] Ignored the room's published settings: " +
+                        $"max={maxPlayers}, players={CountActivePlayers(_runner)}, " +
+                        $"destruction={destructionLimit}, map='{mapId}'.");
+                }
+
+                return;
+            }
+
+            _publishedSettingsRejected = false;
+
+            _configuredMaxPlayers = maxPlayers;
+            _destructionLimit = destructionLimit;
+            _matchRules = normalizedMatchRules;
+            _configuredMapId = mapId;
+        }
+
+        /// <summary>
+        /// Counts the runner's live players rather than reading the session
+        /// listing, which lags a tick behind a player leaving.
+        /// </summary>
+        private void ReportPlayerCount()
+        {
+            if (_runner == null || _browsingLobby || _exitReported)
+            {
+                return;
+            }
+
+            _sessionSink?.PlayerCountChanged(
+                CountActivePlayers(_runner),
+                MaxPlayers);
+        }
+
+        private static int CountActivePlayers(NetworkRunner runner)
+        {
+            var count = 0;
+            foreach (var _ in runner.ActivePlayers)
+            {
+                count++;
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// Reports the departure once. Fusion can raise a disconnect and a
+        /// shutdown for the same exit, and presentation should react once.
+        /// </summary>
+        private void ReportExit(RoomExitReason reason)
+        {
+            if (_exitReported || _browsingLobby)
+            {
+                return;
+            }
+
+            _exitReported = true;
+            _departingRunner = _runner;
+            Debug.Log($"[Network] Left the room: {reason}");
+            _sessionSink?.RoomClosed(reason);
+        }
+
+        internal static RoomExitReason ResolveUnexpectedExit(bool clientSession, RoomExitReason reason) =>
+            clientSession ? RoomExitReason.HostClosed : reason;
+
+        private static RoomExitReason Translate(ShutdownReason reason)
+        {
+            switch (reason)
+            {
+                case ShutdownReason.Ok:
+                case ShutdownReason.OperationCanceled:
+                    // The only way this peer stops cleanly is by asking to.
+                    return RoomExitReason.Left;
+
+                case ShutdownReason.GameClosed:
+                case ShutdownReason.ServerInRoom:
+                case ShutdownReason.HostMigration:
+                // Observed when the authority leaves: Fusion reports
+                // DisconnectReason=ServerLogic, "Server has disconnected".
+                case ShutdownReason.DisconnectedByPluginLogic:
+                    return RoomExitReason.HostClosed;
+
+                case ShutdownReason.ConnectionTimeout:
+                case ShutdownReason.ConnectionRefused:
+                case ShutdownReason.PhotonCloudTimeout:
+                case ShutdownReason.OperationTimeout:
+                    return RoomExitReason.Disconnected;
+
+                default:
+                    return RoomExitReason.Unknown;
+            }
+        }
+
+        private static RoomExitReason Translate(NetDisconnectReason reason)
+        {
+            switch (reason)
+            {
+                case NetDisconnectReason.Requested:
+                    return RoomExitReason.Left;
+
+                case NetDisconnectReason.ByRemote:
+                    // The authority closed the connection from its side.
+                    return RoomExitReason.HostClosed;
+
+                case NetDisconnectReason.Timeout:
+                case NetDisconnectReason.SendWindowFull:
+                case NetDisconnectReason.ProtocolError:
+                case NetDisconnectReason.SequenceOutOfBounds:
+                    return RoomExitReason.Disconnected;
+
+                default:
+                    return RoomExitReason.Unknown;
+            }
+        }
+
+    }
+}

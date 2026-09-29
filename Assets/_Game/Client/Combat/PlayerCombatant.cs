@@ -1,0 +1,381 @@
+using Game.Client.Interactions;
+using Game.Client.Players;
+using Game.Core.Players;
+using Game.SOAP.Config;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using VContainer;
+
+namespace Game.Client.Combat
+{
+    /// <summary>
+    /// 전투 참가자: 빈손 좌클릭 공격(전방 근접 판정)과 피격/기절 반응을 담당한다.
+    /// 판정 규칙(3타 기절, 기절 시간, 무적)은 IPlayerCombatRules(서버 시스템)가 소유하고,
+    /// 이 컴포넌트는 입력 의도 전달과 로컬 표현만 맡는다.
+    /// </summary>
+    public sealed class PlayerCombatant : MonoBehaviour
+    {
+        private const float HitFlashSeconds = 0.15f;
+        private const int MaxAttackHits = 16;
+
+        /// <summary>
+        /// 판정 대상은 캐릭터 캡슐(Player 레이어)뿐이다. 예전에는 모든 레이어를 훑어서
+        /// 진열대·바닥 콜라이더가 먼저 버퍼를 채우면 바로 앞에 선 상대가 통째로 빠졌다.
+        /// 정적 필드 초기화에서 GetMask를 부르면 Unity가 예외를 던지므로 첫 사용 시점에 계산한다.
+        /// </summary>
+        private static int playerLayerMask = -1;
+
+        private static int PlayerLayerMask =>
+            playerLayerMask >= 0 ? playerLayerMask : playerLayerMask = LayerMask.GetMask("Player");
+
+        [SerializeField]
+        private InputActionAsset inputActions;
+
+        [SerializeField]
+        private CombatConfigSO combatConfig;
+
+        [SerializeField, Min(0)]
+        private int playerIndex;
+
+        [SerializeField]
+        private bool isAttacker = true;
+
+        [SerializeField]
+        private Transform visualRoot;
+
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly Color StunnedColor = new(0.35f, 0.35f, 0.4f);
+        private static readonly Color HitFlashColor = new(1f, 0.25f, 0.25f);
+
+        private IPlayerCombatRules combatRules;
+        private InputActionMap playerMap;
+        private InputAction attackAction;
+        private PlayerInteractor interactor;
+        private ItemPlacementController placement;
+        private PlayerMovement movement;
+        private Renderer[] visualRenderers;
+        private MaterialPropertyBlock propertyBlock;
+        private readonly Collider[] attackHits = new Collider[MaxAttackHits];
+        private float nextAttackTime;
+        private float pendingHitTime;
+        private bool hasPendingHit;
+        private float hitFlashUntil;
+        private bool wasTintApplied;
+        [SerializeField, HideInInspector]
+        private bool usesNetworkState;
+        private bool networkStunned;
+        private int networkHitCount;
+        private bool hasNetworkHitCount;
+
+        /// <summary>공격 모션 재생 등 표현 계층이 구독하는 공격 실행 알림.</summary>
+        public event System.Action AttackPerformed;
+
+        /// <summary>피격 모션 재생 등 표현 계층이 구독하는 피격 알림.</summary>
+        public event System.Action HitReceived;
+
+        /// <summary>기절에 들어간 순간. 스냅샷 복원에는 올리지 않는다.</summary>
+        public event System.Action Stunned;
+
+        /// <summary>표현 계층(애니메이션)이 참조하는 전투 설정.</summary>
+        public CombatConfigSO Config => combatConfig;
+
+        /// <summary>전투 규칙이 주입됐는가. 씬 복제 등으로 Auto Inject 목록에서 빠진 캐릭터를 LifetimeScope가 찾아 보충할 때 쓴다.</summary>
+        public bool HasCombatRules => combatRules != null;
+
+        public bool IsStunned =>
+            usesNetworkState
+                ? networkStunned
+                : combatRules != null && combatRules.IsStunned(playerIndex, Time.timeAsDouble);
+
+        /// <summary>
+        /// 이 클라이언트가 그리는 로컬 캐릭터인가.
+        /// 다른 사람 복제본은 false라서 기절자 화면에만 흑백이 걸린다.
+        /// </summary>
+        public bool PresentsLocalScreen { get; private set; }
+
+        public int PlayerIndex => playerIndex;
+
+        [Inject]
+        public void Construct(IPlayerCombatRules rules)
+        {
+            combatRules = rules;
+        }
+
+        private void Awake()
+        {
+            if (combatConfig == null)
+            {
+                Debug.LogError("PlayerCombatant: CombatConfigSO가 연결되지 않았습니다.", this);
+                enabled = false;
+                return;
+            }
+
+            interactor = GetComponent<PlayerInteractor>();
+            placement = GetComponent<ItemPlacementController>();
+            movement = GetComponent<PlayerMovement>();
+            propertyBlock = new MaterialPropertyBlock();
+
+            if (visualRoot == null)
+            {
+                visualRoot = transform.Find("Visual");
+            }
+
+            visualRenderers = visualRoot != null
+                ? visualRoot.GetComponentsInChildren<Renderer>()
+                : new Renderer[0];
+
+            if (GetComponent<StunScreenGrayscaleView>() == null)
+            {
+                gameObject.AddComponent<StunScreenGrayscaleView>();
+            }
+
+            if (isAttacker)
+            {
+                if (inputActions == null)
+                {
+                    Debug.LogError("PlayerCombatant: 공격자는 InputActionAsset이 필요합니다.", this);
+                    enabled = false;
+                    return;
+                }
+
+                playerMap = inputActions.FindActionMap("Player", throwIfNotFound: true);
+                attackAction = playerMap.FindAction("Attack", throwIfNotFound: true);
+            }
+        }
+
+        private void Start()
+        {
+            if (!usesNetworkState)
+            {
+                PresentsLocalScreen = isAttacker;
+            }
+
+            if (combatRules == null && !usesNetworkState)
+            {
+                Debug.LogError(
+                    "PlayerCombatant: IPlayerCombatRules가 주입되지 않았습니다. " +
+                    "씬에 PlaygroundLifetimeScope가 있고 Auto Inject Game Objects에 이 오브젝트가 등록되어 있는지 확인하세요.",
+                    this);
+                enabled = false;
+            }
+        }
+
+        public void ConfigureNetworkPlayer(int index, bool acceptsLocalInput)
+        {
+            ConfigureNetworkPlayer(index, acceptsLocalInput, acceptsLocalInput);
+        }
+
+        public void ConfigureNetworkPlayer(int index, bool acceptsLocalInput, bool presentsLocalScreen)
+        {
+            playerIndex = index;
+            usesNetworkState = true;
+            isAttacker = acceptsLocalInput;
+            PresentsLocalScreen = presentsLocalScreen;
+            enabled = true;
+
+            if (acceptsLocalInput)
+            {
+                playerMap?.Enable();
+            }
+        }
+
+        public void SetNetworkStunned(bool stunned)
+        {
+            usesNetworkState = true;
+            var enteredStun = hasNetworkHitCount && stunned && !networkStunned;
+            networkStunned = stunned;
+            // The authoritative hit counter resets to zero on a stunning hit.
+            // Treat this transition as a confirmed hit, but not an initial snapshot.
+            if (enteredStun)
+            {
+                NotifyHitReceived();
+                Stunned?.Invoke();
+            }
+        }
+
+        public void SetNetworkHitCount(int hitCount)
+        {
+            usesNetworkState = true;
+            if (hasNetworkHitCount && !networkStunned && hitCount > networkHitCount)
+            {
+                NotifyHitReceived();
+            }
+
+            networkHitCount = hitCount;
+            hasNetworkHitCount = true;
+        }
+
+        private void NotifyHitReceived()
+        {
+            hitFlashUntil = Time.time + HitFlashSeconds;
+            HitReceived?.Invoke();
+        }
+
+        private void OnEnable()
+        {
+            playerMap?.Enable();
+        }
+
+        private void Update()
+        {
+            UpdateTint();
+
+            // 기절 상태를 이동·상호작용 컴포넌트의 입력 잠금으로 전파한다.
+            // 메뉴 잠금(IsMovementLocked)을 덮어쓰지 않는다. 덮으면 Esc 메뉴
+            // 클릭이 펀치로 나간다.
+            var stunned = IsStunned;
+            if (movement != null)
+            {
+                movement.IsCombatLocked = stunned;
+            }
+
+            if (interactor != null)
+            {
+                interactor.IsInputLocked = stunned;
+            }
+
+            if (!isAttacker || stunned || PlayerMovement.ShouldIgnoreAttackInput() ||
+                (placement != null && placement.BlocksAttack) ||
+                (movement != null && movement.Posture == PlayerPosture.Prone))
+            {
+                hasPendingHit = false;
+                return;
+            }
+
+            // 예약된 타격 판정: 모션의 임팩트 타이밍에 맞춰 실제 판정을 수행한다.
+            if (hasPendingHit && Time.time >= pendingHitTime)
+            {
+                hasPendingHit = false;
+                PerformAttack();
+            }
+
+            // 빈손 좌클릭만 공격이다. (물건을 들고 있으면 던지기가 담당)
+            var isEmptyHanded = interactor == null || interactor.CarriedItem == null;
+            if (isEmptyHanded && attackAction.WasPressedThisFrame() && Time.time >= nextAttackTime)
+            {
+                nextAttackTime = Time.time + combatConfig.EffectiveAttackCooldownSeconds;
+                AttackPerformed?.Invoke();
+                pendingHitTime = Time.time + combatConfig.AttackHitDelaySeconds;
+                hasPendingHit = true;
+            }
+        }
+
+        private void PerformAttack()
+        {
+            var center = transform.position
+                + Vector3.up * 1f
+                + transform.forward * combatConfig.AttackForwardOffset;
+
+            var hitCount = Physics.OverlapSphereNonAlloc(
+                center, combatConfig.AttackRadius, attackHits,
+                PlayerLayerMask, QueryTriggerInteraction.Ignore);
+
+            for (var i = 0; i < hitCount; i++)
+            {
+                var target = attackHits[i].GetComponentInParent<PlayerCombatant>();
+                if (target == null || target == this || IsAlreadyHit(target, i))
+                {
+                    continue;
+                }
+
+                var direction = target.transform.position - transform.position;
+                direction.y = 0f;
+
+                if (interactor != null && interactor.UsesAuthoritativeCommands)
+                {
+                    interactor.TryRequestHit(target.PlayerIndex);
+                    continue;
+                }
+
+                target.ReceiveHit(direction.normalized);
+            }
+        }
+
+        /// <summary>
+        /// 한 캐릭터가 이동 캡슐과 몸 캡슐(<see cref="PlayerBodyBlocker"/>) 두 개로 동시에 걸릴 수 있다.
+        /// 앞선 결과에 같은 대상이 있으면 한 번 휘두름에 두 번 때리지 않게 건너뛴다.
+        /// </summary>
+        private bool IsAlreadyHit(PlayerCombatant target, int index)
+        {
+            for (var j = 0; j < index; j++)
+            {
+                if (attackHits[j].GetComponentInParent<PlayerCombatant>() == target)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>피격 처리: 판정 규칙에 등록하고 결과에 따라 연출과 드랍을 수행한다.</summary>
+        public void ReceiveHit(Vector3 hitDirection)
+        {
+            // 네트워크 플레이어는 권한이 판정하고 그 결과를 네트워크 상태로
+            // 받으므로 로컬 규칙을 갖지 않는다. 여기서 판정할 것이 없다.
+            // 경기가 없는 로비에서 주먹을 휘두르면 이 줄에서 터졌다.
+            if (combatRules == null)
+            {
+                return;
+            }
+
+            var result = combatRules.RegisterHit(playerIndex, Time.timeAsDouble);
+            if (result == HitResult.Ignored)
+            {
+                return;
+            }
+
+            hitFlashUntil = Time.time + HitFlashSeconds;
+            HitReceived?.Invoke();
+
+            if (movement != null)
+            {
+                movement.AddImpulse(hitDirection * combatConfig.HitKnockbackImpulse);
+            }
+
+            if (result == HitResult.Stunned)
+            {
+                // 기절하면 들고 있던 물건을 떨어뜨리고, 휘두르던 공격도 취소한다. (기획서 13절)
+                hasPendingHit = false;
+                GetComponent<ICarriedItemDropper>()?.DropCarriedItem();
+                Stunned?.Invoke();
+            }
+        }
+
+        // 기절 중 회색, 피격 순간 붉은 점멸. 평상시에는 원래 색으로 되돌린다.
+        private void UpdateTint()
+        {
+            if (IsStunned)
+            {
+                ApplyTint(StunnedColor);
+            }
+            else if (Time.time < hitFlashUntil)
+            {
+                ApplyTint(HitFlashColor);
+            }
+            else if (wasTintApplied)
+            {
+                ClearTint();
+            }
+        }
+
+        private void ApplyTint(Color color)
+        {
+            wasTintApplied = true;
+            foreach (var visualRenderer in visualRenderers)
+            {
+                propertyBlock.SetColor(BaseColorId, color);
+                visualRenderer.SetPropertyBlock(propertyBlock);
+            }
+        }
+
+        private void ClearTint()
+        {
+            wasTintApplied = false;
+            foreach (var visualRenderer in visualRenderers)
+            {
+                visualRenderer.SetPropertyBlock(null);
+            }
+        }
+    }
+}

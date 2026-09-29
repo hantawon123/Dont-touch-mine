@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 22e947a4ea597df4c8820c5bbabf03ae
+timeCreated: 1644528882
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43653588629396408
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 213346
+  packageName: POLYGON - Horror Mansion Pack - Art by Synty
+  packageVersion: 1.8.2
+  assetPath: Assets/Synty/PolygonHorrorMansion/Models/Collision/Convex/SM_Bld_Wall_Bench_Corner_01_Convex.asset
+  uploadId: 987938

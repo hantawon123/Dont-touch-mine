@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: b4147383441f2984cb26ca6cbaec0d13
+labels:
+- summer
+- beach
+- sand
+timeCreated: 1429807331
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 32927
+  packageName: Summer Beach - Low Poly
+  packageVersion: 1.2
+  assetPath: Assets/Summer Beach - Low Poly/Prefabs/Rake_yellow.prefab
+  uploadId: 466071

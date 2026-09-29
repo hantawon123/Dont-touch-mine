@@ -1,0 +1,16 @@
+[Unit]
+Description=D205 Unity WebGL Jenkins agent
+After=network.target jenkins.service
+
+[Service]
+User=jenkins
+Group=jenkins
+WorkingDirectory=/var/lib/jenkins/agents/unity-webgl
+# agent.args is private (0600) and contains the node-specific connection secret.
+ExecStart=/usr/bin/java @/var/lib/jenkins/agents/unity-webgl/agent.args
+Restart=on-failure
+RestartSec=10
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

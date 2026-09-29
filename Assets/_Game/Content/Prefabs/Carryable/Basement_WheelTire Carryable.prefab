@@ -1,0 +1,141 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &9131976320422276465
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 37491201471458505, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 37491201471458505, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 37491201471458505, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 37491201471458505, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 37491201471458505, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 37491201471458505, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 37491201471458505, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 37491201471458505, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 37491201471458505, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 37491201471458505, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3953716083277323994, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      propertyPath: m_Name
+      value: Basement_WheelTire Carryable
+      objectReference: {fileID: 0}
+    - target: {fileID: 6401645228523242529, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 3953716083277323994, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8009384108173163579}
+    - targetCorrespondingSourceObject: {fileID: 3953716083277323994, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5247552623519371298}
+    - targetCorrespondingSourceObject: {fileID: 3953716083277323994, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8727182929566170485}
+  m_SourcePrefab: {fileID: 100100000, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+--- !u!1 &5216619453167580075 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3953716083277323994, guid: c57be8a545fe5e540a0415888b7637ff, type: 3}
+  m_PrefabInstance: {fileID: 9131976320422276465}
+  m_PrefabAsset: {fileID: 0}
+--- !u!54 &8009384108173163579
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5216619453167580075}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!114 &5247552623519371298
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5216619453167580075}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35eb5ffe1d38b2743a322e143ad7820d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.CarryableItem
+  displayName: Basement_WheelTire
+  objectId: 
+  isPlayerItem: 0
+  ownerPlayerIndex: -1
+--- !u!65 &8727182929566170485
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5216619453167580075}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.77505255, y: 0.25603455, z: 0.77505255}
+  m_Center: {x: 0, y: 0.116000004, z: 0}

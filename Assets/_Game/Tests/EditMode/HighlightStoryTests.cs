@@ -1,0 +1,228 @@
+using System.Linq;
+using Game.Core.Emotes;
+using Game.Core.Items;
+using Game.Core.Match;
+using Game.Server.Match;
+using Game.Server.Items;
+using Game.SOAP.Config;
+using NUnit.Framework;
+using UnityEngine;
+using Game.Network.Session;
+
+namespace Game.Tests.EditMode
+{
+    public sealed class HighlightStoryTests
+    {
+        [Test]
+        public void CompressedReplay_ReducesRepeatedPoseData_AndRejectsInvalidInput()
+        {
+            var segment = new HighlightSegment(0, 10);
+            var objects = Enumerable.Range(0, 32)
+                .Select(i => new WorldObjectState("item-" + i, Pose.identity)).ToArray();
+            var frames = Enumerable.Range(0, 101)
+                .Select(i => new HighlightReplayFrame(i * 0.1, new[] { Pose.identity, Pose.identity }, objects)).ToArray();
+            var replay = new[] { new HighlightReplayData(
+                new HighlightCandidate(HighlightType.FirstBlood, new[] { segment }, "item-0"),
+                new[] { new HighlightReplayClip(segment, frames) }) };
+            var raw = HighlightReplaySerializer.Serialize(replay);
+            var packed = HighlightReplaySerializer.SerializeCompressed(replay);
+            Assert.That(packed.Length, Is.LessThan(raw.Length / 4));
+            Assert.That(HighlightReplaySerializer.TryDeserializeCompressed(packed, out var restored), Is.True);
+            Assert.That(restored[0].Clips[0].Frames.Count, Is.EqualTo(101));
+            Assert.That(restored[0].Clips[0].Frames[100].WorldObjects.Count, Is.EqualTo(32));
+            Assert.That(() => HighlightReplaySerializer.Serialize(new[] { replay[0], replay[0], replay[0] }),
+                Throws.TypeOf<System.ArgumentException>());
+            Assert.That(HighlightReplaySerializer.TryDeserializeCompressed(new byte[] { 1, 2, 3 }, out _), Is.False);
+            Assert.That(HighlightReplaySerializer.TryDeserializeCompressed(raw, out _), Is.False);
+        }
+
+        [Test]
+        public void ReplayTransfer_RoundTripsRecordedActions()
+        {
+            var segment = new HighlightSegment(10, 11);
+            var frame = new HighlightReplayFrame(10, new[] { Pose.identity, Pose.identity },
+                new WorldObjectState[0], new[]
+                {
+                    HighlightPlayerAction.Punching | HighlightPlayerAction.Carrying,
+                    // 한 바이트에 다 안 들어가는 자리(피격·기절 진입·감정 표현 ID)까지 실어 보낸다.
+                    (HighlightPlayerAction.Stunned | HighlightPlayerAction.StunEntry |
+                     HighlightPlayerAction.Prone).WithEmote((int)EmoteId.Spin),
+                });
+            var data = new HighlightReplayData(new HighlightCandidate(HighlightType.MostStunned,
+                new[] { segment }, "1"), new[] { new HighlightReplayClip(segment, new[] { frame }) });
+            var bytes = HighlightReplaySerializer.Serialize(new[] { data });
+            Assert.That(HighlightReplaySerializer.TryDeserialize(bytes, out var decoded), Is.True);
+            Assert.That(decoded[0].Clips[0].Frames[0].PlayerActions, Is.EqualTo(new[]
+            {
+                HighlightPlayerAction.Punching | HighlightPlayerAction.Carrying,
+                (HighlightPlayerAction.Stunned | HighlightPlayerAction.StunEntry |
+                 HighlightPlayerAction.Prone).WithEmote((int)EmoteId.Spin),
+            }));
+            Assert.That(
+                decoded[0].Clips[0].Frames[0].PlayerActions[1].TryGetEmote(out var emoteId),
+                Is.True);
+            Assert.That(emoteId, Is.EqualTo((int)EmoteId.Spin));
+            bytes[4] = 1;
+            Assert.That(HighlightReplaySerializer.TryDeserialize(bytes, out _), Is.False);
+        }
+
+        [Test]
+        public void ReplayTransfer_RejectsAClipWithoutRecordedFrames()
+        {
+            var segment = new HighlightSegment(10, 11);
+            var replay = new HighlightReplayData(
+                new HighlightCandidate(HighlightType.FirstBlood, new[] { segment }, "item"),
+                new[] { new HighlightReplayClip(segment, System.Array.Empty<HighlightReplayFrame>()) });
+
+            Assert.That(
+                () => HighlightReplaySerializer.Serialize(new[] { replay }),
+                Throws.TypeOf<System.ArgumentException>());
+        }
+
+        [Test]
+        public void ReplayFrame_RejectsActionCountMismatch()
+        {
+            Assert.That(() => new HighlightReplayFrame(0, new[] { Pose.identity },
+                new WorldObjectState[0], System.Array.Empty<HighlightPlayerAction>()),
+                Throws.TypeOf<System.ArgumentException>());
+        }
+
+        [Test]
+        public void ReplaySegment_RejectsNonFiniteTimeline()
+        {
+            Assert.That(() => new HighlightSegment(double.NaN, 1), Throws.TypeOf<System.ArgumentOutOfRangeException>());
+            Assert.That(() => new HighlightSegment(0, double.PositiveInfinity), Throws.TypeOf<System.ArgumentOutOfRangeException>());
+            Assert.That(() => new HighlightSegment(1, 1), Throws.TypeOf<System.ArgumentOutOfRangeException>());
+        }
+
+        [Test]
+        public void Fade_DoesNotConsumeBody_AndHoldsLastFrame()
+        {
+            Assert.That(HighlightPresentationTiming.CountdownExitOpacity(1), Is.Zero);
+            Assert.That(HighlightPresentationTiming.CountdownExitOpacity(0.15), Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(HighlightPresentationTiming.CountdownExitOpacity(0), Is.EqualTo(1f));
+            Assert.That(HighlightPresentationTiming.MatchEndFadeOutOpacity(0), Is.Zero);
+            Assert.That(HighlightPresentationTiming.MatchEndFadeOutOpacity(0.15), Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(HighlightPresentationTiming.MatchEndFadeOutOpacity(0.3), Is.EqualTo(1f));
+            Assert.That(HighlightPresentationTiming.BodyTime(0.5, 10), Is.Zero);
+            Assert.That(HighlightPresentationTiming.Opacity(0.55, 10), Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(HighlightPresentationTiming.BodyTime(10.7, 10), Is.EqualTo(10).Within(0.001));
+            Assert.That(HighlightPresentationTiming.Opacity(11, 10), Is.Zero);
+            Assert.That(HighlightPresentationTiming.Opacity(11.25, 10), Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(HighlightPresentationTiming.Opacity(11.6, 10), Is.EqualTo(1f));
+        }
+
+        [TestCase(110d, 110d)]
+        [TestCase(111d, 111d)]
+        [TestCase(113d, 113d)]
+        [TestCase(120d, 114.5d)]
+        public void FirstBlood_LimitsTailToMatchEnd_AndIsNotRepeatedAsFinalMoment(
+            double matchEndedAt, double expectedClipEnd)
+        {
+            WithRecorder(recorder =>
+            {
+                recorder.RecordItemDestroyed(1, "a", 110);
+                var candidates = recorder.CaptureCandidates(matchEndedAt);
+                var first = candidates.Single(c => c.Type == HighlightType.FirstBlood);
+                Assert.That(first.StartedAt, Is.EqualTo(100));
+                Assert.That(first.EndedAt, Is.EqualTo(expectedClipEnd));
+                Assert.That(candidates.Any(c => c.Type == HighlightType.FinalMoment), Is.False);
+            });
+        }
+
+        [Test]
+        public void Journey_RequiresDifferentHolders_NotRepeatedInteractions()
+        {
+            WithRecorder(recorder =>
+            {
+                recorder.RecordItemPickup(0, "a", 102);
+                recorder.RecordItemInteraction(1, "a", 104);
+                recorder.RecordItemPickup(0, "a", 106);
+                Assert.That(recorder.CaptureCandidates(120).Any(c => c.Type == HighlightType.TteTanMulgun), Is.False);
+                recorder.RecordItemPickup(1, "a", 110);
+                Assert.That(recorder.CaptureCandidates(120).Any(c => c.Type == HighlightType.TteTanMulgun), Is.True);
+            });
+        }
+
+        [Test]
+        public void Timeout_DoesNotInventAnEventForAStaticSurvivingItem()
+        {
+            WithRecorder(recorder =>
+            {
+                recorder.RecordItemInteraction(0, "a", 119);
+                Assert.That(recorder.CaptureCandidates(120, MatchEndReason.TimeExpired)
+                    .Any(c => c.Type == HighlightType.FinalMoment), Is.False);
+            });
+        }
+
+        [Test]
+        public void Hidden_CutsEmptyTime_AndKeepsMeaningfulMomentsAtNormalSpeed()
+        {
+            WithRecorder(recorder =>
+            {
+                var frames = new[] { Frame(100, 20), Frame(120, 2), Frame(122, 20), Frame(140, 20) };
+                var hidden = recorder.CaptureCandidates(140, null, frames)
+                    .Single(c => c.Type == HighlightType.LongestHidden);
+                Assert.That(hidden.StartedAt, Is.EqualTo(100));
+                Assert.That(hidden.EndedAt, Is.EqualTo(140));
+                Assert.That(hidden.PlaybackDurationSeconds, Is.LessThanOrEqualTo(6.001));
+                Assert.That(hidden.Segments.Any(s => s.StartedAt <= 120 && s.EndedAt >= 120 && s.PlaybackSpeed == 1), Is.True);
+                Assert.That(hidden.Segments.All(s => s.PlaybackSpeed == 1), Is.True);
+            });
+        }
+
+        [Test]
+        public void StunMontage_DoesNotRepeatOverlappingTime()
+        {
+            WithRecorder(recorder =>
+            {
+                recorder.RecordPlayerStunned(1, 105);
+                recorder.RecordPlayerStunned(1, 106);
+                recorder.RecordPlayerStunned(1, 107);
+                var stun = recorder.CaptureCandidates(120).Single(c => c.Type == HighlightType.MostStunned);
+                for (var i = 1; i < stun.Segments.Count; i++)
+                    Assert.That(stun.Segments[i].StartedAt, Is.GreaterThanOrEqualTo(stun.Segments[i - 1].EndedAt));
+            });
+        }
+
+        [Test]
+        public void Hidden_RequiresAnActualNearbyOpponent()
+        {
+            WithRecorder(recorder => Assert.That(recorder.CaptureCandidates(140, null,
+                new[] { Frame(100, 20), Frame(140, 20) }).Any(c => c.Type == HighlightType.LongestHidden), Is.False));
+        }
+
+        [Test]
+        public void Selection_DoesNotRepeatTheSameStunAsTwoAwards()
+        {
+            WithRecorder(recorder =>
+            {
+                recorder.RecordPlayerStunned(0, 1, 119);
+                var selected = HighlightCandidateSelector.Select(recorder.CaptureCandidates(120));
+                Assert.That(selected.Count(c => c.TargetId == "1"), Is.EqualTo(1));
+                Assert.That(selected[0].Type, Is.EqualTo(HighlightType.FinalMoment));
+            });
+        }
+
+        private static HighlightReplayFrame Frame(double at, float distance) => new(at,
+            new[] { new Pose(Vector3.one * 30, Quaternion.identity), new Pose(Vector3.right * distance, Quaternion.identity) },
+            new[] { new WorldObjectState("a", Pose.identity) });
+
+        private static void WithRecorder(System.Action<HighlightEventRecorder> test)
+        {
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                var recorder = new HighlightEventRecorder(rules, new[]
+                {
+                    new PlayerItemAssignment(0, new ItemDefinition("a", "category")),
+                    new PlayerItemAssignment(1, new ItemDefinition("b", "category"))
+                });
+                recorder.StartRecording(100);
+                recorder.StartSearching(100);
+                test(recorder);
+            }
+            finally { Object.DestroyImmediate(rules); }
+        }
+    }
+}
