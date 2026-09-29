@@ -48,6 +48,15 @@ namespace Game.Network.Voice
         private readonly ReactiveProperty<bool> listening = new(true);
 
         private FusionVoiceClient client;
+        private Game.Core.Voice.VoicePreferences voicePreferences;
+
+        public void BindVoicePreferences(Game.Core.Voice.VoicePreferences preferences)
+        {
+            if (ReferenceEquals(voicePreferences, preferences)) return;
+            voicePreferences = preferences;
+            foreach (var speaker in linkedSpeakers)
+                if (speaker != null) VoicePlaybackGain.Attach(speaker).BindPreferences(preferences);
+        }
         private PlayerRoster roster;
         private readonly List<Speaker> speakerBuffer = new();
         private readonly List<Speaker> linkedSpeakers = new();
@@ -494,7 +503,7 @@ namespace Game.Network.Voice
         {
             if (speaker == null) return;
             if (!linkedSpeakers.Contains(speaker)) linkedSpeakers.Add(speaker);
-            VoicePlaybackGain.Attach(speaker);
+            VoicePlaybackGain.Attach(speaker).BindPreferences(voicePreferences);
             if (speaker.gameObject.activeInHierarchy) ApplySpeakerState(speaker, listening.Value);
         }
 
@@ -551,6 +560,7 @@ namespace Game.Network.Voice
         {
             if (client != null) client.SpeakerLinked -= OnSpeakerLinked;
             linkedSpeakers.Clear();
+            voicePreferences?.ResetPlayerVolumes();
             available.Dispose();
             muted.Dispose();
             transmitting.Dispose();

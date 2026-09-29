@@ -137,6 +137,7 @@ namespace Game.Bootstrap
                 // A session just started. The rig comes up silent and knowing
                 // nothing, so it hears what the player already decided.
                 current = voice;
+                if (voice is Game.Network.Voice.VoiceRig rig) rig.BindVoicePreferences(preferences);
                 voice.SetMuted(EffectiveMute);
                 voice.SetTalking(EffectiveTalking);
                 voice.SetListening(preferences.Listening);

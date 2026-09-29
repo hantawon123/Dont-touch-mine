@@ -60,6 +60,50 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void PerPlayerVolumeOnlyChangesThatAccountAndCombinesWithGlobalGain()
+        {
+            var preferences = new VoicePreferences();
+            var first = new GameObject("First remote speaker");
+            var second = new GameObject("Second remote speaker");
+            var replacement = new GameObject("Respawned speaker");
+            try
+            {
+                var a = first.AddComponent<VoicePlaybackGain>();
+                var b = second.AddComponent<VoicePlaybackGain>();
+                a.BindPlayer(preferences, "P1", "account-a");
+                b.BindPlayer(preferences, "P2", "account-b");
+                var process = typeof(VoicePlaybackGain).GetMethod("OnAudioFilterRead", BindingFlags.Instance | BindingFlags.NonPublic);
+                preferences.SetPlayerVolume("P1", "account-a", 0);
+                VoicePlaybackGain.Gain = 2f;
+                var muted = new[] { .1f, -.1f };
+                var heard = new[] { .1f, -.1f };
+                process.Invoke(a, new object[] { muted, 1 });
+                process.Invoke(b, new object[] { heard, 1 });
+                Assert.That(muted, Is.All.Zero);
+                Assert.That(heard[0], Is.EqualTo(.2f).Within(.00001f));
+                var respawn = replacement.AddComponent<VoicePlaybackGain>();
+                respawn.BindPlayer(preferences, "P3", "account-a");
+                Assert.That(preferences.GetPlayerVolume("P1", "different-account"), Is.EqualTo(50));
+                var respawnAudio = new[] { .1f };
+                process.Invoke(respawn, new object[] { respawnAudio, 1 });
+                Assert.That(respawnAudio, Is.All.Zero);
+                preferences.SetPlayerVolume("P3", "account-a", 999);
+                Assert.That(preferences.GetPlayerVolume("P3", "account-a"), Is.EqualTo(100));
+                var loud = new[] { 1f, -.5f };
+                process.Invoke(respawn, new object[] { loud, 1 });
+                Assert.That(loud[0], Is.EqualTo(.98f).Within(.00001f));
+                Assert.That(loud[1], Is.EqualTo(-.49f).Within(.00001f));
+                preferences.ResetPlayerVolumes();
+                Assert.That(preferences.GetPlayerVolume("P1", "account-a"), Is.EqualTo(50));
+            }
+            finally
+            {
+                VoicePlaybackGain.Gain = 1f;
+                Object.DestroyImmediate(first); Object.DestroyImmediate(second); Object.DestroyImmediate(replacement);
+            }
+        }
+
+        [Test]
         public void VoiceOnlyFilterBoundsBoostAndPreservesSourceDistanceAndMute()
         {
             var host = new GameObject("Voice output test");

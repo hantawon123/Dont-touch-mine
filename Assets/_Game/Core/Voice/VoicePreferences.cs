@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Game.Core.Ports;
 
 namespace Game.Core.Voice
@@ -105,6 +107,40 @@ namespace Game.Core.Voice
                 listening = value;
                 Persist();
             }
+        }
+
+        // Local receive preferences for this room, never sent to another player.
+        // Account identity prevents a reused seat/player ID inheriting somebody's volume.
+        private readonly Dictionary<string, int> playerVolumes = new(StringComparer.Ordinal);
+        public event Action PlayerVolumesChanged;
+        public const int DefaultPlayerVolume = 50;
+        public const int MaxPlayerVolume = 100;
+
+        private static string PlayerVolumeKey(string playerId, string userId) =>
+            !string.IsNullOrWhiteSpace(userId) ? "user:" + userId
+                : !string.IsNullOrWhiteSpace(playerId) ? "player:" + playerId : null;
+
+        public int GetPlayerVolume(string playerId, string userId = null)
+        {
+            var key = PlayerVolumeKey(playerId, userId);
+            return key != null && playerVolumes.TryGetValue(key, out var volume) ? volume : DefaultPlayerVolume;
+        }
+
+        public void SetPlayerVolume(string playerId, string userId, int percent)
+        {
+            var key = PlayerVolumeKey(playerId, userId);
+            if (key == null) return;
+            percent = Math.Clamp(percent, 0, MaxPlayerVolume);
+            if (GetPlayerVolume(playerId, userId) == percent) return;
+            playerVolumes[key] = percent;
+            PlayerVolumesChanged?.Invoke();
+        }
+
+        public void ResetPlayerVolumes()
+        {
+            if (playerVolumes.Count == 0) return;
+            playerVolumes.Clear();
+            PlayerVolumesChanged?.Invoke();
         }
 
         private void Persist() => store?.Save(muted, listening);
