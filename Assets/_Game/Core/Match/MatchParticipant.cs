@@ -54,8 +54,8 @@ namespace Game.Core.Match
 
         /// <summary>
         /// Converts the room roster to a contiguous line-up in seat order.
-        /// Play order is shuffled later, at match confirm, so hiding turns
-        /// are not join or seat order.
+        /// Play order is set later, at match confirm: reverse join order
+        /// while <see cref="DemoMatchLineup"/> is in place.
         /// </summary>
         public static MatchParticipant[] FromRoomParticipants(
             IReadOnlyList<RoomParticipant> roomParticipants)

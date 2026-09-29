@@ -285,9 +285,9 @@ namespace Game.Network.Match
             _countdownParticipants = null;
             _countdownUserIds = null;
             _state.StartCountdownEndsAt = 0d;
-            // Countdown still checks the seat-ordered roster. Shuffle after
-            // that freeze so hiding turns are a new random order each match.
-            MatchParticipant.ShufflePlayOrder(participantIds, participantUserIds, new System.Random());
+            // Countdown still checks the seat-ordered roster. Reorder after
+            // that freeze. 시연 동안은 무작위 대신 들어온 역순으로 숨긴다.
+            DemoMatchLineup.ReverseJoinOrder(participantIds, participantUserIds);
             _state.Confirm(participantIds, participantUserIds);
             Debug.Log($"[Match] Started with {participantIds.Length} players.");
 
