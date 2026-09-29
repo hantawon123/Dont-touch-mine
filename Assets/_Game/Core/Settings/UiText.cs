@@ -71,6 +71,7 @@ namespace Game.Core.Settings
             public const string VolumeMaster = "settings.row.volumeMaster";
             public const string VolumeMusic = "settings.row.volumeMusic";
             public const string VolumeEffects = "settings.row.volumeEffects";
+            public const string VolumeVoice = "settings.row.volumeVoice";
             public const string VolumeMicrophone = "settings.row.volumeMicrophone";
 
             public const string ActionVoiceToggle = "settings.row.actionVoiceToggle";

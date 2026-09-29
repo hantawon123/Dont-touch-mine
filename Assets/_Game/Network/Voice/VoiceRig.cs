@@ -57,6 +57,7 @@ namespace Game.Network.Voice
         /// respawns that avatar.
         /// </summary>
         private Recorder boundRecorder;
+        internal Recorder CaptureRecorder => boundRecorder;
 
         private VoiceNetworkObject localVoice;
         private bool talking;
@@ -246,6 +247,7 @@ namespace Game.Network.Voice
                 // the new recorder even though the choice never moved.
                 appliedDevice = null;
                 EnsureCaptureChain();
+                VoiceMicrophonePreview.SuspendCapture(boundRecorder);
                 ApplyTransmitState();
                 ApplyCaptureDevice();
                 ApplyCaptureGain();
@@ -377,34 +379,7 @@ namespace Game.Network.Voice
                 return;
             }
 
-            var host = boundRecorder.gameObject;
-            var attached = false;
-
-            var dsp = host.GetComponent<WebRtcAudioDsp>();
-            if (dsp == null)
-            {
-                dsp = host.AddComponent<WebRtcAudioDsp>();
-                attached = true;
-            }
-
-            dsp.AEC = false;
-            dsp.AGC = true;
-            dsp.NoiseSuppression = true;
-            dsp.enabled = true;
-
-            if (host.GetComponent<VoiceCaptureLimiter>() == null)
-            {
-                host.AddComponent<VoiceCaptureLimiter>();
-                attached = true;
-            }
-
-            if (attached)
-            {
-                // The voice was created before these existed. Remaking it is what
-                // hands them the stream; without this the first match of a session
-                // records with neither.
-                boundRecorder.RestartRecording();
-            }
+            VoiceCaptureLimiter.Configure(boundRecorder);
         }
 
         private void ApplyCaptureGain()
@@ -519,6 +494,7 @@ namespace Game.Network.Voice
         {
             if (speaker == null) return;
             if (!linkedSpeakers.Contains(speaker)) linkedSpeakers.Add(speaker);
+            VoicePlaybackGain.Attach(speaker);
             if (speaker.gameObject.activeInHierarchy) ApplySpeakerState(speaker, listening.Value);
         }
 

@@ -22,6 +22,8 @@ namespace Game.Bootstrap
     {
         public void Apply(SoundSettings settings)
         {
+            Game.Network.Voice.VoicePlaybackGain.Gain =
+                Game.Core.Voice.VoiceCaptureGain.From(settings.Get(SoundVolume.Voice));
             var effects = Mathf.Clamp01(
                 settings.Get(SoundVolume.Effects) / (float)SoundCatalog.MaxVolume);
             Game.Client.Players.PlayerFootstepAudio.EffectsVolume = effects;

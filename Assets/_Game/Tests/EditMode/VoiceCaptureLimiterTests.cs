@@ -52,6 +52,64 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void QuietInputIsDetectedAfterCaptureGain_AndMuteStillStopsSending()
+        {
+            using var transport = new Photon.Voice.Realtime5Transport();
+            var info = Photon.Voice.VoiceInfo.CreateAudioOpus(
+                POpusCodec.Enums.SamplingRate.Sampling48000, 1,
+                Photon.Voice.OpusCodec.FrameDuration.Frame20ms, 32000);
+            var voice = transport.VoiceClient.CreateLocalVoiceAudio<float>(
+                info, new Photon.Voice.AudioDesc(48000, 1, null), 0,
+                new Photon.Voice.VoiceCreateOptions { Encoder = Photon.Voice.OpusCodec.Factory.CreateEncoder<float[]>(info, new Photon.Voice.Unity.Logger(Photon.Voice.LogLevel.Error)) });
+            voice.TransmitEnabled = true;
+            voice.VoiceDetector.On = true;
+            voice.VoiceDetector.Threshold = .01f;
+            voice.VoiceDetector.ActivityDelayMs = 0;
+            var host = new GameObject("Voice detection order test");
+            try
+            {
+                host.AddComponent<VoiceCaptureLimiter>().AmplificationFactor = 2f;
+                typeof(VoiceCaptureLimiter).GetMethod("PhotonVoiceCreated",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(host.GetComponent<VoiceCaptureLimiter>(), new object[] { new PhotonVoiceCreatedParams { Voice = voice } });
+                var quiet = new float[960];
+                System.Array.Fill(quiet, .006f);
+                voice.PushData(quiet);
+                Assert.That(voice.VoiceDetector.Detected, Is.True,
+                    "Quiet audio must reach capture gain before the detector can discard it.");
+                voice.PushData(new float[960]);
+                Assert.That(voice.VoiceDetector.Detected, Is.False, "Silence stays gated.");
+                voice.TransmitEnabled = false;
+                System.Array.Fill(quiet, .5f);
+                voice.PushData(quiet);
+                Assert.That(voice.VoiceDetector.Detected, Is.False, "Mute still stops processing.");
+            }
+            finally { Object.DestroyImmediate(host); }
+        }
+
+        [Test]
+        public void CaptureConfigurationKeepsOneDetectorAndOneDspAcrossRepeatedSetup()
+        {
+            var host = new GameObject("Capture configuration test");
+            try
+            {
+                var recorder = host.AddComponent<Recorder>();
+                recorder.RecordingEnabled = false;
+                VoiceCaptureLimiter.Configure(recorder);
+                VoiceCaptureLimiter.Configure(recorder);
+                var dsp = host.GetComponent<WebRtcAudioDsp>();
+                Assert.That(dsp.AGC && dsp.NoiseSuppression, Is.True);
+                Assert.That(dsp.VAD || dsp.AEC, Is.False);
+                Assert.That(dsp.AgcCompressionGain, Is.EqualTo(9));
+                Assert.That(dsp.AgcTargetLevel, Is.EqualTo(3));
+                Assert.That(host.GetComponents<WebRtcAudioDsp>().Length, Is.EqualTo(1));
+                Assert.That(host.GetComponents<VoiceCaptureLimiter>().Length, Is.EqualTo(1));
+                Assert.That(recorder.RecordingEnabled, Is.False);
+            }
+            finally { Object.DestroyImmediate(host); }
+        }
+
+        [Test]
         public void NetworkPrefabUsesFullBandVoiceWithExistingPacketDuration()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Content/Prefabs/NetworkedPlayer.prefab");

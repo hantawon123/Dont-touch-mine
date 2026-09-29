@@ -21,6 +21,7 @@
         "UnityEditor.TestRunner",
         "Fusion.Unity",
         "PhotonVoice",
+        "PhotonVoice.API",
         "PhotonVoice.Fusion",
         "Photon.Realtime"
     ],

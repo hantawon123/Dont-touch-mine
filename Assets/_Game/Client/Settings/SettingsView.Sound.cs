@@ -22,7 +22,8 @@ namespace Game.Client.Settings
         {
             SoundVolume.Master,
             SoundVolume.Music,
-            SoundVolume.Effects
+            SoundVolume.Effects,
+            SoundVolume.Voice
         };
 
         private readonly Dictionary<SoundVolume, VolumeSlider> volumeSliders =

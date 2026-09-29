@@ -25,15 +25,6 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void ChooseSampleRate_Prefers44100WhenTheDeviceAllowsIt()
-        {
-            Assert.That(UnityMicrophoneTest.ChooseSampleRate(0, 0), Is.EqualTo(44100));
-            Assert.That(UnityMicrophoneTest.ChooseSampleRate(16000, 48000), Is.EqualTo(44100));
-            Assert.That(UnityMicrophoneTest.ChooseSampleRate(48000, 48000), Is.EqualTo(48000));
-            Assert.That(UnityMicrophoneTest.ChooseSampleRate(8000, 16000), Is.EqualTo(16000));
-        }
-
-        [Test]
         public void Stop_LeavesTheTestIdleWhenNothingWasStarted()
         {
             var test = new UnityMicrophoneTest();

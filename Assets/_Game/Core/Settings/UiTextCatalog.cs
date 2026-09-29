@@ -137,6 +137,7 @@ namespace Game.Core.Settings
             new UiTextLine(UiText.Settings.VolumeMaster, "마스터 볼륨", "Master Volume"),
             new UiTextLine(UiText.Settings.VolumeMusic, "배경음악 볼륨", "Music Volume"),
             new UiTextLine(UiText.Settings.VolumeEffects, "효과음 볼륨", "Effects Volume"),
+            new UiTextLine(UiText.Settings.VolumeVoice, "상대 음성 볼륨", "Incoming Voice Volume"),
             new UiTextLine(UiText.Settings.VolumeMicrophone, "마이크 볼륨", "Microphone Volume"),
             new UiTextLine(UiText.Settings.ActionVoiceToggle, "마이크 켜기/끄기", "Mute Microphone"),
             new UiTextLine(UiText.Settings.ActionSpeakerToggle, "스피커 켜기/끄기", "Mute Speakers"),
