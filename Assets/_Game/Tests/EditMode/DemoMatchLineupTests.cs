@@ -21,7 +21,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void TryAssign_SixPlayers_GivesEachJoinOrderItsItem()
+        public void TryAssign_SixPlayers_GivesEachHidingTurnItsItem()
         {
             Assert.That(DemoMatchLineup.TryAssign(FixedDefinitions(), 6, out var assignments), Is.True);
 
@@ -31,24 +31,20 @@ namespace Game.Tests.EditMode
                 Assert.That(assignments[playerIndex].PlayerIndex, Is.EqualTo(playerIndex));
                 Assert.That(
                     assignments[playerIndex].Item.ItemId,
-                    Is.EqualTo(DemoMatchLineup.ItemIdsByJoinOrder[5 - playerIndex]));
+                    Is.EqualTo(DemoMatchLineup.ItemIdsByHidingOrder[playerIndex]));
             }
         }
 
         [Test]
-        public void TryAssign_FewerPlayers_KeepsItemsByJoinOrder()
+        public void TryAssign_FewerPlayers_StartsFromFirstItem()
         {
             Assert.That(DemoMatchLineup.TryAssign(FixedDefinitions(), 3, out var assignments), Is.True);
 
-            // 세 명이면 세 번째로 들어온 사람이 먼저 숨기고, 1~3번째 물건만 쓰인다.
+            // 세 명이어도 첫 번째로 숨기는 사람은 양초다. 1~3번째 물건만 쓰인다.
+            Assert.That(assignments[0].Item.ItemId, Is.EqualTo("ica6cc0e88c"));
             Assert.That(
                 assignments.Select(a => a.Item.ItemId),
-                Is.EqualTo(new[]
-                {
-                    DemoMatchLineup.ItemIdsByJoinOrder[2],
-                    DemoMatchLineup.ItemIdsByJoinOrder[1],
-                    DemoMatchLineup.ItemIdsByJoinOrder[0]
-                }));
+                Is.EqualTo(DemoMatchLineup.ItemIdsByHidingOrder.Take(3)));
         }
 
         [Test]
@@ -66,15 +62,15 @@ namespace Game.Tests.EditMode
             ItemCatalogSO.Load();
             var halloween = ItemCatalog.DefinitionsInCategory("halloween").Select(d => d.ItemId).ToArray();
 
-            Assert.That(DemoMatchLineup.ItemIdsByJoinOrder, Is.Unique);
-            Assert.That(halloween, Is.SupersetOf(DemoMatchLineup.ItemIdsByJoinOrder));
+            Assert.That(DemoMatchLineup.ItemIdsByHidingOrder, Is.Unique);
+            Assert.That(halloween, Is.SupersetOf(DemoMatchLineup.ItemIdsByHidingOrder));
             Assert.That(
                 DemoMatchLineup.TryAssign(ItemCatalog.AssignmentDefinitions, 6, out _),
                 Is.True);
         }
 
         private static ItemDefinition[] FixedDefinitions() =>
-            DemoMatchLineup.ItemIdsByJoinOrder
+            DemoMatchLineup.ItemIdsByHidingOrder
                 .Select(id => new ItemDefinition(id, "halloween"))
                 .Append(new ItemDefinition("unrelated", "halloween"))
                 .ToArray();

@@ -6,12 +6,13 @@ namespace Game.Core.Match
 {
     /// <summary>
     /// 최종 발표 시연용 고정 라인업. 숨기기 차례는 들어온 역순이고,
-    /// 배정 물건은 들어온 순서마다 정해 둔 할로윈 물건이다.
+    /// 배정 물건은 숨기는 차례마다 정해 둔 할로윈 물건이다.
     /// </summary>
     /// <remarks>
     /// 들어온 순서는 좌석 순서다. 좌석은 들어온 차례로 비어 있는 가장 낮은 번호를
     /// 받으므로, 매치 시작 전에 누가 나갔다가 다른 사람이 들어오면 새로 온 사람이
-    /// 그 빈 순서를 이어받는다. 로비에서 고른 카테고리는 배정에 쓰이지 않는다.
+    /// 그 빈 순서를 이어받는다. 물건은 인원과 상관없이 목록 앞에서부터 숨기는 차례대로
+    /// 나간다. 로비에서 고른 카테고리는 배정에 쓰이지 않는다.
     /// <para>
     /// 시연이 끝나면 이 파일과 호출부 두 곳(<c>MatchStarter</c>의 라인업 확정,
     /// <c>NetworkMatchRuntimeCoordinator</c>의 세션 생성)을 되돌린다.
@@ -19,10 +20,10 @@ namespace Game.Core.Match
     /// </remarks>
     public static class DemoMatchLineup
     {
-        /// <summary>들어온 순서(0부터)별 배정 물건 id. 전부 할로윈 카테고리다.</summary>
-        public static IReadOnlyList<string> ItemIdsByJoinOrder { get; } = Array.AsReadOnly(new[]
+        /// <summary>숨기는 차례(0부터)별 배정 물건 id. 전부 할로윈 카테고리다.</summary>
+        public static IReadOnlyList<string> ItemIdsByHidingOrder { get; } = Array.AsReadOnly(new[]
         {
-            "ica6cc0e88c", // 1번째: 양초
+            "ica6cc0e88c", // 1번째로 숨기는 사람: 양초
             "i9ee4e4e378", // 2번째: 호박
             "i53ecdeed12", // 3번째: 마녀 모자
             "i70c079a8b7", // 4번째: 해골 양초
@@ -70,7 +71,7 @@ namespace Game.Core.Match
             out PlayerItemAssignment[] assignments)
         {
             assignments = null;
-            if (definitions == null || playerCount <= 0 || playerCount > ItemIdsByJoinOrder.Count)
+            if (definitions == null || playerCount <= 0 || playerCount > ItemIdsByHidingOrder.Count)
             {
                 return false;
             }
@@ -78,9 +79,8 @@ namespace Game.Core.Match
             var result = new PlayerItemAssignment[playerCount];
             for (var playerIndex = 0; playerIndex < playerCount; playerIndex++)
             {
-                // 라인업이 들어온 역순이라 첫 숨기기 차례(0)가 마지막에 들어온 사람이다.
-                var joinOrder = playerCount - 1 - playerIndex;
-                if (!TryFind(definitions, ItemIdsByJoinOrder[joinOrder], out var item))
+                // 라인업 순서가 곧 숨기는 차례라 playerIndex 번째 물건을 그대로 준다.
+                if (!TryFind(definitions, ItemIdsByHidingOrder[playerIndex], out var item))
                 {
                     return false;
                 }
