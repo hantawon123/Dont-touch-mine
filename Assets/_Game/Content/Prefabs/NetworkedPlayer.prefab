@@ -172,11 +172,11 @@ MonoBehaviour:
   reliableMode: 0
   encrypt: 0
   transmitEnabled: 0
-  samplingRate: 16000
+  samplingRate: 48000
   frameDuration: 20000
-  bitrate: 24000
+  bitrate: 32000
   sourceType: 0
-  microphoneType: 1
+  microphoneType: 0
   audioClip: {fileID: 0}
   loopAudioClip: 1
   recordingEnabled: 1

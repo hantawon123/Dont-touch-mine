@@ -709,6 +709,22 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void MicrophoneTest_TracksDraftGainAndDeviceWhileRunning()
+        {
+            using var presenter = Started();
+            view.ToggleTest();
+            view.DragVolume(SoundVolume.Microphone, 100);
+            Assert.That(microphoneTest.StartedAt, Is.EqualTo(2f));
+            view.StepDevice(1);
+            Assert.That(microphoneTest.StartedOn, Is.EqualTo("Headset"));
+            Assert.That(microphoneTest.IsRunning, Is.True);
+            view.ResetAll();
+            view.Accept();
+            Assert.That(microphoneTest.StartedAt, Is.EqualTo(1f));
+            Assert.That(microphoneTest.StartedOn, Is.EqualTo(SoundCatalog.DefaultDevice));
+        }
+
+        [Test]
         public void MicrophoneTest_IsStoppedByLeaving()
         {
             using var presenter = Started();

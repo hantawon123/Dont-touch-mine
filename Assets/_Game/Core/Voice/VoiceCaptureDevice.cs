@@ -20,6 +20,16 @@ namespace Game.Core.Voice
         /// The device name to capture from, or the empty string for the
         /// machine's default.
         /// </summary>
+        public static string ResolveAvailable(string requested, System.Collections.Generic.IReadOnlyList<string> devices)
+        {
+            var name = Requested(requested);
+            if (name.Length == 0 || devices == null) return null;
+            for (var i = 0; i < devices.Count; i++)
+                if (string.Equals(name, devices[i], StringComparison.Ordinal)) return name;
+            return null;
+        }
+
+        /// <summary>The saved name, or an empty string for the default device.</summary>
         public static string Requested(SoundSettings settings) =>
             Requested(settings.DeviceName);
 

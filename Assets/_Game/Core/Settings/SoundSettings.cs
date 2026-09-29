@@ -12,7 +12,8 @@ namespace Game.Core.Settings
         Master,
         Music,
         Effects,
-        Microphone
+        Microphone,
+        Voice
     }
 
     /// <summary>
